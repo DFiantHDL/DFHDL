@@ -70,6 +70,15 @@ object constraints:
     val bitIdx: ir.ConfigN[Int]
   final case class device(name: String, properties: (String, String)*) extends GlobalConstraint:
     val asIR: ir.constraints.Device = ir.constraints.Device(name, properties.toMap)
+  final case class config(
+      flashPartName: String,
+      interface: ir.constraints.Config.Interface,
+      sizeLimitMB: Int
+  ) extends GlobalConstraint:
+    val asIR: ir.constraints.Config =
+      ir.constraints.Config(flashPartName, interface, sizeLimitMB)
+  object config:
+    export ir.constraints.Config.Interface
 
   final case class io(
       bitIdx: ir.ConfigN[Int] = None,

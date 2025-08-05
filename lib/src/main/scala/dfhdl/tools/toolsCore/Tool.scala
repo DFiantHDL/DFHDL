@@ -2,8 +2,7 @@ package dfhdl.tools.toolsCore
 import dfhdl.core.Design
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
-import dfhdl.options.{CompilerOptions, ToolOptions, LinterOptions, BuilderOptions, SimulatorOptions}
-import dfhdl.options.OnError
+import dfhdl.options.*
 import java.io.IOException
 import scala.sys.process.*
 import dfhdl.internals.*
@@ -13,6 +12,7 @@ import dfhdl.compiler.stages.verilog.VerilogDialect
 import java.io.File.separatorChar
 
 trait Tool:
+  type TOptions <: ToolOptions
   val toolName: String
   final protected def runExec: String =
     if (osIsWindows) windowsBinExec else binExec
@@ -27,7 +27,8 @@ trait Tool:
 
   protected def versionCmd: String
   protected def extractVersion(cmdRetStr: String): Option[String]
-  protected[dfhdl] def producedFiles(using MemberGetSet, CompilerOptions): List[String] = Nil
+  protected[dfhdl] def producedFiles(using MemberGetSet, CompilerOptions, TOptions): List[String] =
+    Nil
   protected[dfhdl] def cleanUpBeforeFileRestore()(using MemberGetSet, CompilerOptions): Unit = {}
 
   private[dfhdl] lazy val installedVersion: Option[String] =
@@ -239,6 +240,7 @@ trait VHDLLinter extends Linter, VHDLTool:
     lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Simulator extends Tool:
+  type TOptions = SimulatorOptions
   val simRunsLint: Boolean = false
   protected def simRunExec(using MemberGetSet): String = this.runExec
   protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
@@ -312,6 +314,7 @@ trait VHDLSimulator extends Simulator, VHDLTool:
     simulateCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Builder extends Tool:
+  type TOptions = BuilderOptions
   protected[dfhdl] def buildPreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       BuilderOptions
@@ -320,5 +323,17 @@ trait Builder extends Tool:
       cd: CompiledDesign
   )(using CompilerOptions, BuilderOptions): CompiledDesign
 object Builder:
-  // default linter will be vivado
+  // default builder will be vivado
   given Builder = dfhdl.tools.builders.vivado
+
+trait Programmer extends Tool:
+  protected[dfhdl] def programPreprocess(cd: CompiledDesign)(using
+      CompilerOptions,
+      ProgrammerOptions
+  ): CompiledDesign = cd
+  def program(
+      cd: CompiledDesign
+  )(using CompilerOptions, ProgrammerOptions): CompiledDesign
+object Programmer:
+  // default programmer will be vivado
+  given Programmer = dfhdl.tools.programmers.vivado

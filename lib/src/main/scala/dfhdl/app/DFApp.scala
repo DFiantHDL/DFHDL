@@ -47,6 +47,7 @@ trait DFApp:
   private var simulatorOptions: options.SimulatorOptions = compiletime.uninitialized
   private var appOptions: options.AppOptions = compiletime.uninitialized
   private var builderOptions: options.BuilderOptions = compiletime.uninitialized
+  private var programmerOptions: options.ProgrammerOptions = compiletime.uninitialized
   inline given options.ElaborationOptions = elaborationOptions
   inline given options.CompilerOptions = compilerOptions
   inline given options.PrinterOptions = printerOptions
@@ -54,6 +55,7 @@ trait DFApp:
   inline given options.SimulatorOptions = simulatorOptions
   inline given options.AppOptions = appOptions
   inline given options.BuilderOptions = builderOptions
+  inline given options.ProgrammerOptions = programmerOptions
   private var dsn: () => core.Design = compiletime.uninitialized
   // used by the plugin to get the updated design arguments that could be changed by the
   // command-line options
@@ -82,6 +84,8 @@ trait DFApp:
       top.simulatorOptions.copy(Werror = top.simulatorOptions.Werror.fromScalac(scalacWerror))
     builderOptions =
       top.builderOptions.copy(Werror = top.builderOptions.Werror.fromScalac(scalacWerror))
+    programmerOptions =
+      top.programmerOptions.copy(Werror = top.programmerOptions.Werror.fromScalac(scalacWerror))
     appOptions = top.appOptions
     designArgs = DesignArgs(argNames, argValues, argDescs)
   end setInitials
@@ -194,10 +198,8 @@ trait DFApp:
       simulatorOptions.getTool.cleanUpBeforeFileRestore()(using committed.stagedDB.getSet)
     override protected def logCachedRun(): Unit =
       logger.info("Loading sim prep from cache...")
-    protected def valueToCacheStr(value: CompiledDesign): String = value.stagedDB.toJsonString
-    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign(
-      new StagedDesign(ir.DB.fromJsonString(str))
-    )
+    protected def valueToCacheStr(value: CompiledDesign): String = value.toJsonString
+    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign.fromJsonString(str)
   end simPrep
 
   object simRun
@@ -210,13 +212,27 @@ trait DFApp:
   end simRun
 
   object build
-      extends diskCache.Step[CompiledDesign, CompiledDesign](commit)():
+      extends diskCache.Step[CompiledDesign, CompiledDesign](commit)(builderOptions.flash):
     override protected def cacheEnable: Boolean = appOptions.cacheEnable
+    override protected def genFiles(committed: CompiledDesign): List[String] =
+      summon[dfhdl.tools.toolsCore.Builder].producedFiles(using committed.stagedDB.getSet).map {
+        path =>
+          Paths.get(compilerOptions.topCommitPath(committed.stagedDB)).resolve(path).toString
+      }
     protected def run(committed: CompiledDesign): CompiledDesign =
       committed.tap(_ => logger.info("Running external builder...")).build
+    protected def valueToCacheStr(value: CompiledDesign): String = value.toJsonString
+    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign.fromJsonString(str)
+  end build
+
+  object program
+      extends diskCache.Step[CompiledDesign, CompiledDesign](build)():
+    override protected def cacheEnable: Boolean = appOptions.cacheEnable
+    protected def run(committed: CompiledDesign): CompiledDesign =
+      committed.tap(_ => logger.info("Running external programmer...")).program
     protected def valueToCacheStr(value: CompiledDesign): String = ???
     protected def cacheStrToValue(str: String): CompiledDesign = ???
-  end build
+  end program
 
   private def listBackends: Unit =
     System.out.println(
@@ -368,8 +384,17 @@ trait DFApp:
             )
           case mode: Mode.BuildMode =>
             builderOptions = builderOptions.copy(
-              Werror = mode.`Werror-tool`.toOption.get
+              Werror = mode.`Werror-tool`.toOption.get,
+              flash = mode.flash.toOption.get
             )
+          case mode: Mode.ProgramMode =>
+            programmerOptions = programmerOptions.copy(
+              Werror = mode.`Werror-tool`.toOption.get,
+              flash = mode.flash.toOption.get
+            )
+            // if the programmer is set to flash, then the builder must be set to flash
+            if (mode.flash.toOption.get)
+              builderOptions = builderOptions.copy(flash = true)
           case _ =>
         end match
         // execute command
@@ -388,6 +413,7 @@ trait DFApp:
           case Mode.lint      => lint(uncached = true)
           case Mode.simulate  => simRun(uncached = true)
           case Mode.build     => build()
+          case Mode.program   => program(uncached = true)
         end match
     end match
   end main

@@ -31,3 +31,6 @@ object simulators:
 
 object builders:
   val vivado: Builder = Vivado
+
+object programmers:
+  val vivado: Programmer = Vivado

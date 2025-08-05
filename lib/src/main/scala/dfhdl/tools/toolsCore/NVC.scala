@@ -31,7 +31,8 @@ object NVC extends VHDLLinter, VHDLSimulator:
 
   override protected[dfhdl] def producedFiles(using
       getSet: MemberGetSet,
-      co: CompilerOptions
+      co: CompilerOptions,
+      so: SimulatorOptions
   ): List[String] =
     val designWorkFiles = getSet.designDB.designMemberList.view.map(_._1)
       .filterNot(_.isDuplicate).map(_.dclName)

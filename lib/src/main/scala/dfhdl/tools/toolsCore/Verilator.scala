@@ -154,7 +154,11 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     val bin = s"obj_dir${separatorChar}V${topName}"
     if (osIsWindows) s"${bin}.exe" else bin
 
-  override protected[dfhdl] def producedFiles(using MemberGetSet, CompilerOptions): List[String] =
+  override protected[dfhdl] def producedFiles(using
+      MemberGetSet,
+      CompilerOptions,
+      SimulatorOptions
+  ): List[String] =
     List(verilatedBinary)
 
   override def simulate(

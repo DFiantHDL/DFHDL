@@ -1,15 +1,7 @@
 package dfhdl.app
 
 import org.rogach.scallop.*
-import dfhdl.options.{
-  CompilerOptions,
-  ElaborationOptions,
-  LinterOptions,
-  SimulatorOptions,
-  AppOptions,
-  ToolOptions,
-  BuilderOptions
-}
+import dfhdl.options.*
 import AppOptions.DefaultMode
 import dfhdl.internals.scastieIsRunning
 import dfhdl.internals.sbtShellIsRunning
@@ -25,16 +17,13 @@ class ParsedCommandLine(
     lo: LinterOptions,
     so: SimulatorOptions,
     bo: BuilderOptions,
+    po: ProgrammerOptions,
     ao: AppOptions
 ) extends ScallopConf(commandArgs.toSeq):
-  val cacheDescYesDefault = if (ao.cacheEnable) " (default ON)" else ""
-  val cacheDescNoDefault = if (!ao.cacheEnable) " (default OFF)" else ""
   val cache = toggle(
     name = "cache",
-    descrYes =
-      s"Enable caching$cacheDescYesDefault",
-    descrNo =
-      s"Disable caching$cacheDescNoDefault",
+    descrYes = "Enable caching",
+    descrNo = "Disable caching",
     default = Some(ao.cacheEnable),
     noshort = true
   )
@@ -60,8 +49,8 @@ class ParsedCommandLine(
         noshort = true,
         hidden = hidden
       )
-      val descYesDefault = if (so.Werror.toBoolean) " (default ON)" else ""
-      val descNoDefault = if (!so.Werror.toBoolean) " (default OFF)" else ""
+      private val descYesDefault = if (eo.Werror.toBoolean) " (default)" else ""
+      private val descNoDefault = if (!eo.Werror.toBoolean) " (default)" else ""
       val Werror = toggle(
         name = "Werror",
         descrYes =
@@ -99,6 +88,8 @@ class ParsedCommandLine(
     trait ToolMode extends CommitMode:
       this: ScallopConf & Mode =>
       lazy val options: ToolOptions
+      private lazy val descYesDefault = if (options.Werror.toBoolean) " (default)" else ""
+      private lazy val descNoDefault = if (!options.Werror.toBoolean) " (default)" else ""
       val `Werror-tool` = toggle(
         name = "Werror-tool",
         descrYes =
@@ -132,7 +123,29 @@ class ParsedCommandLine(
     trait BuildMode extends ToolMode:
       this: ScallopConf & Mode =>
       lazy val options = bo
+      private val descYesDefault = if (bo.flash) " (default)" else ""
+      private val descNoDefault = if (!bo.flash) " (default)" else ""
+      val flash = toggle(
+        name = "flash",
+        descrYes = s"Create also a flash image for an on-board flash device$descYesDefault",
+        descrNo = s"Create only a bitstream file to program the FPGA$descNoDefault",
+        default = Some(bo.flash),
+        noshort = true
+      )
     end BuildMode
+    trait ProgramMode extends ToolMode:
+      this: ScallopConf & Mode =>
+      lazy val options = po
+      private val descYesDefault = if (po.flash) " (default)" else ""
+      private val descNoDefault = if (!po.flash) " (default)" else ""
+      val flash = toggle(
+        name = "flash",
+        descrYes = s"Program the on-board flash device$descYesDefault",
+        descrNo = s"Program the FPGA only$descNoDefault",
+        default = Some(po.flash),
+        noshort = true
+      )
+    end ProgramMode
 
     case object elaborate
         extends Mode(DefaultMode.elaborate, "Elaboration only (no compilation)"),
@@ -172,6 +185,13 @@ class ParsedCommandLine(
         ),
           BuildMode:
       footer("      ~~including all commit command options~~")
+    case object program
+        extends Mode(
+          DefaultMode.program,
+          "Programming (after elaboration, compilation, committing to disk, and building)"
+        ),
+          ProgramMode:
+      footer("      ~~including all build command options~~")
     case object help extends Mode(DefaultMode.help, "Display usage text"):
       addSubcommand(HelpMode.backend)
       addSubcommand(HelpMode.`lint-tool`)
@@ -238,6 +258,7 @@ class ParsedCommandLine(
   addSubcommand(Mode.lint)
   addSubcommand(Mode.simulate)
   addSubcommand(Mode.build)
+  addSubcommand(Mode.program)
   addSubcommand(Mode.help)
   lazy val mode: Mode = subcommand.getOrElse(ao.defaultMode match
     case DefaultMode.help      => Mode.help
@@ -246,6 +267,7 @@ class ParsedCommandLine(
     case DefaultMode.commit    => Mode.commit
     case DefaultMode.lint      => Mode.lint
     case DefaultMode.simulate  => Mode.simulate
-    case DefaultMode.build     => Mode.build).asInstanceOf[Mode]
+    case DefaultMode.build     => Mode.build
+    case DefaultMode.program   => Mode.program).asInstanceOf[Mode]
   verify()
 end ParsedCommandLine

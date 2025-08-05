@@ -73,7 +73,8 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
 
   override protected[dfhdl] def producedFiles(using
       MemberGetSet,
-      CompilerOptions
+      CompilerOptions,
+      SimulatorOptions
   ): List[String] = List(s"${topName}")
 
   override protected def simulateCmdPostLangFlags(using

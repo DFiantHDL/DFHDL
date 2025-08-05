@@ -2,8 +2,8 @@ package dfhdl
 
 import dfhdl.core.Design
 import dfhdl.compiler.stages.CompiledDesign
-import dfhdl.tools.toolsCore.Builder
-import dfhdl.options.{CompilerOptions, LinterOptions, BuilderOptions, SimulatorOptions}
+import dfhdl.tools.toolsCore.{Builder, Programmer}
+import dfhdl.options.*
 import dfhdl.backends
 
 extension (cd: CompiledDesign)
@@ -43,4 +43,9 @@ extension (cd: CompiledDesign)
 
   def build(using builder: Builder)(using CompilerOptions, BuilderOptions): CompiledDesign =
     builder.build(builder.buildPreprocess(cd))
+
+  def program(using
+      programmer: Programmer
+  )(using CompilerOptions, ProgrammerOptions): CompiledDesign =
+    programmer.program(programmer.programPreprocess(cd))
 end extension

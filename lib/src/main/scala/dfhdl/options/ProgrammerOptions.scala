@@ -1,24 +1,24 @@
 package dfhdl.options
 
-import BuilderOptions.*
+import ProgrammerOptions.*
 import dfhdl.core.Design
 
-final case class BuilderOptions(
+final case class ProgrammerOptions(
     onError: OnError,
     Werror: WError,
     flash: Flash
 ) extends ToolOptions
 
 //defaults common for all linting tools
-object BuilderOptions:
-  opaque type Defaults[-T <: Design] <: BuilderOptions = BuilderOptions
+object ProgrammerOptions:
+  opaque type Defaults[-T <: Design] <: ProgrammerOptions = ProgrammerOptions
   object Defaults:
     given (using
         onError: OnError,
         Werror: WError,
         flash: Flash
-    ): Defaults[Design] = BuilderOptions(onError = onError, Werror = Werror, flash = flash)
-  given (using defaults: Defaults[Design]): BuilderOptions = defaults
+    ): Defaults[Design] = ProgrammerOptions(onError = onError, Werror = Werror, flash = flash)
+  given (using defaults: Defaults[Design]): ProgrammerOptions = defaults
 
   opaque type OnError <: dfhdl.options.ToolOptions.OnError = dfhdl.options.ToolOptions.OnError
   object OnError:
@@ -36,4 +36,4 @@ object BuilderOptions:
   object Flash:
     given Flash = false
     given Conversion[Boolean, Flash] = identity
-end BuilderOptions
+end ProgrammerOptions
