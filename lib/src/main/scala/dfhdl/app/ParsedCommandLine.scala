@@ -125,6 +125,13 @@ class ParsedCommandLine(
       lazy val options = bo
       private val descYesDefault = if (bo.flash) " (default)" else ""
       private val descNoDefault = if (!bo.flash) " (default)" else ""
+      val tool = choice(
+        choices = Seq("foss", "vendor"),
+        default = Some(bo.tool.toString),
+        name = "tool",
+        short = 't',
+        descr = "tool selection: `foss` for free and open source tools, `vendor` for vendor tools."
+      )
       val flash = toggle(
         name = "flash",
         descrYes = s"Create also a flash image for an on-board flash device$descYesDefault",
@@ -138,6 +145,13 @@ class ParsedCommandLine(
       lazy val options = po
       private val descYesDefault = if (po.flash) " (default)" else ""
       private val descNoDefault = if (!po.flash) " (default)" else ""
+      val tool = choice(
+        choices = Seq("foss", "vendor"),
+        default = Some(po.tool.toString),
+        name = "tool",
+        short = 't',
+        descr = "tool selection: `foss` for free and open source tools, `vendor` for vendor tools."
+      )
       val flash = toggle(
         name = "flash",
         descrYes = s"Program the on-board flash device$descYesDefault",

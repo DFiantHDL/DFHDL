@@ -6,6 +6,7 @@ import dfhdl.core.Design
 final case class BuilderOptions(
     onError: OnError,
     Werror: WError,
+    tool: Tool,
     flash: Flash
 ) extends ToolOptions
 
@@ -16,8 +17,10 @@ object BuilderOptions:
     given (using
         onError: OnError,
         Werror: WError,
+        tool: Tool,
         flash: Flash
-    ): Defaults[Design] = BuilderOptions(onError = onError, Werror = Werror, flash = flash)
+    ): Defaults[Design] =
+      BuilderOptions(onError = onError, Werror = Werror, tool = tool, flash = flash)
   given (using defaults: Defaults[Design]): BuilderOptions = defaults
 
   opaque type OnError <: dfhdl.options.ToolOptions.OnError = dfhdl.options.ToolOptions.OnError
@@ -31,6 +34,12 @@ object BuilderOptions:
     given (using Werror: dfhdl.options.ToolOptions.WError): WError = Werror
     given [T](using conv: Conversion[T, dfhdl.options.ToolOptions.WError]): Conversion[T, WError] =
       t => conv(t).asInstanceOf[WError]
+
+  opaque type Tool <: dfhdl.tools.builders = dfhdl.tools.builders
+  object Tool:
+    export dfhdl.tools.builders.{foss, vendor}
+    given Tool = dfhdl.tools.builders.vendor
+    given Conversion[dfhdl.tools.builders, Tool] = identity
 
   opaque type Flash <: Boolean = Boolean
   object Flash:

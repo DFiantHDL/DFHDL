@@ -212,10 +212,13 @@ trait DFApp:
   end simRun
 
   object build
-      extends diskCache.Step[CompiledDesign, CompiledDesign](commit)(builderOptions.flash):
+      extends diskCache.Step[CompiledDesign, CompiledDesign](commit)(
+        builderOptions.flash,
+        builderOptions.tool
+      ):
     override protected def cacheEnable: Boolean = appOptions.cacheEnable
     override protected def genFiles(committed: CompiledDesign): List[String] =
-      summon[dfhdl.tools.toolsCore.Builder].producedFiles(using committed.stagedDB.getSet).map {
+      committed.builder.producedFiles(using committed.stagedDB.getSet).map {
         path =>
           Paths.get(compilerOptions.topCommitPath(committed.stagedDB)).resolve(path).toString
       }
@@ -385,12 +388,18 @@ trait DFApp:
           case mode: Mode.BuildMode =>
             builderOptions = builderOptions.copy(
               Werror = mode.`Werror-tool`.toOption.get,
-              flash = mode.flash.toOption.get
+              flash = mode.flash.toOption.get,
+              tool = mode.tool.toOption.get match
+                case "foss"   => dfhdl.tools.builders.foss
+                case "vendor" => dfhdl.tools.builders.vendor
             )
           case mode: Mode.ProgramMode =>
             programmerOptions = programmerOptions.copy(
               Werror = mode.`Werror-tool`.toOption.get,
-              flash = mode.flash.toOption.get
+              flash = mode.flash.toOption.get,
+              tool = mode.tool.toOption.get match
+                case "foss"   => dfhdl.tools.programmers.foss
+                case "vendor" => dfhdl.tools.programmers.vendor
             )
             // if the programmer is set to flash, then the builder must be set to flash
             if (mode.flash.toOption.get)

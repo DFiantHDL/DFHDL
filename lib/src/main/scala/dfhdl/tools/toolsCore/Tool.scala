@@ -322,9 +322,6 @@ trait Builder extends Tool:
   def build(
       cd: CompiledDesign
   )(using CompilerOptions, BuilderOptions): CompiledDesign
-object Builder:
-  // default builder will be vivado
-  given Builder = dfhdl.tools.builders.vivado
 
 trait Programmer extends Tool:
   protected[dfhdl] def programPreprocess(cd: CompiledDesign)(using
@@ -334,6 +331,3 @@ trait Programmer extends Tool:
   def program(
       cd: CompiledDesign
   )(using CompilerOptions, ProgrammerOptions): CompiledDesign
-object Programmer:
-  // default programmer will be vivado
-  given Programmer = dfhdl.tools.programmers.vivado

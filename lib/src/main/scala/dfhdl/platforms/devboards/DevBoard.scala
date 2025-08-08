@@ -3,4 +3,4 @@ import dfhdl.platforms.Board
 import dfhdl.platforms.devices.Device
 
 trait DevBoard extends Board:
-  def device: Device
+  val device: Device
