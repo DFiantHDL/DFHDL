@@ -454,6 +454,33 @@ object AnnotatedWith:
   end annotWithMacro
 end AnnotatedWith
 
+// gets the field type with upper bound UB in T
+trait FieldType[T, UB]:
+  type Out <: UB
+
+object FieldType:
+  def apply[T, UB, O <: UB]: FieldType[T, UB] { type Out = O } =
+    new FieldType[T, UB]:
+      type Out = O
+  transparent inline given [T, UB]: FieldType[T, UB] = ${ fieldTypeMacro[T, UB] }
+
+  def fieldTypeMacro[T: Type, UB: Type](using
+      Quotes
+  ): Expr[FieldType[T, UB]] =
+    import quotes.reflect.*
+
+    val tpe = TypeRepr.of[T]
+    val ubTpe = TypeRepr.of[UB]
+
+    tpe.typeSymbol.fieldMembers.view.map(_.typeRef).find(_ <:< ubTpe) match
+      case Some(fieldTpe) =>
+        val fieldType = fieldTpe.asTypeOf[UB]
+        '{ FieldType.apply[T, UB, fieldType.Underlying] }
+      case None =>
+        report.errorAndAbort(s"Field of type ${ubTpe.show} not found in type ${Type.show[T]}")
+  end fieldTypeMacro
+end FieldType
+
 // getting annotations both from the class and the object
 // E.g.:
 // @annot1
