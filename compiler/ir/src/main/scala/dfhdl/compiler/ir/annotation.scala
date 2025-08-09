@@ -88,7 +88,7 @@ object constraints:
       s"""@deviceProperties($props)"""
   object DeviceID:
     enum Vendor extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
-      case XilinxAMD, AlteraIntel, Lattice, Microchip, Microsemi, Gowin
+      case XilinxAMD, AlteraIntel, Lattice, Gowin
       def codeString(using Printer): String = "deviceID.Vendor." + this.toString
   final case class ToolOptions(options: Map[String, String]) extends GlobalConstraint
       derives ReadWriter:
