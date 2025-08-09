@@ -68,14 +68,20 @@ object constraints:
     val asIR: ir.constraints.GlobalConstraint
   sealed abstract class SigConstraint extends Constraint:
     val bitIdx: ir.ConfigN[Int]
-  final case class device(
-      name: String,
-      vendor: ir.constraints.Device.Vendor,
-      properties: (String, String)*
+  final case class deviceID(
+      vendor: ir.constraints.DeviceID.Vendor,
+      deviceName: String,
+      packageName: String,
+      speedGrade: Int
   ) extends GlobalConstraint:
-    val asIR: ir.constraints.Device = ir.constraints.Device(name, vendor, properties.toMap)
-  object device:
-    export ir.constraints.Device.Vendor
+    val asIR: ir.constraints.DeviceID =
+      ir.constraints.DeviceID(vendor, deviceName, packageName, speedGrade)
+  object deviceID:
+    export ir.constraints.DeviceID.Vendor
+  final case class deviceProperties(properties: (String, String)*) extends GlobalConstraint:
+    val asIR: ir.constraints.DeviceProperties = ir.constraints.DeviceProperties(properties.toMap)
+  final case class toolOptions(options: (String, String)*) extends GlobalConstraint:
+    val asIR: ir.constraints.ToolOptions = ir.constraints.ToolOptions(options.toMap)
   final case class config(
       flashPartName: String,
       interface: ir.constraints.Config.Interface,

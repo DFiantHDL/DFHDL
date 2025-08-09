@@ -85,7 +85,8 @@ class VivadoProjectTclConfigPrinter(using
     case _: backends.verilog => "Verilog"
     case _: backends.vhdl    => "VHDL"
   val part: String = getSet.designDB.top.dclMeta.annotations.collectFirst {
-    case annotation: constraints.Device => annotation.name
+    case annotation: constraints.DeviceID =>
+      s"${annotation.deviceName}${annotation.packageName}-${annotation.speedGrade}"
   }.getOrElse(throw new IllegalArgumentException("No device constraint found"))
   val fileType: String = co.backend match
     case backend: backends.verilog => backend.dialect match
@@ -151,18 +152,18 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
 
   def xdcDesignConstraints: List[String] =
     designDB.top.dclMeta.annotations.flatMap {
-      case deviceConstraint: constraints.Device =>
-        deviceConstraint.properties.map {
+      case constraint: constraints.DeviceProperties =>
+        constraint.properties.map {
           case (k, v) => s"set_property $k $v [current_design]"
         }
-      case configConstraint: constraints.Config =>
-        val spiBusWidth = configConstraint.interface match
+      case constraint: constraints.Config =>
+        val spiBusWidth = constraint.interface match
           case constraints.Config.Interface.SPIx1 => Some(1)
           case constraints.Config.Interface.SPIx4 => Some(4)
           case constraints.Config.Interface.SPIx8 => Some(8)
           case _                                  => None
         List(
-          s"set_property CONFIG_MODE ${configConstraint.interface} [current_design]"
+          s"set_property CONFIG_MODE ${constraint.interface} [current_design]"
         ) ++ spiBusWidth.map(w => s"set_property BITSTREAM.CONFIG.SPI_BUSWIDTH $w [current_design]")
       case _ => Nil
     }.toList

@@ -66,19 +66,38 @@ object constraints:
       if (this == that) Some(this) else None
     def updateBitIdx(bitIdx: ConfigN[Int]): SigConstraint
     val bitIdx: ConfigN[Int]
-  final case class Device(name: String, vendor: Device.Vendor, properties: Map[String, String])
-      extends GlobalConstraint
+  final case class DeviceID(
+      vendor: DeviceID.Vendor,
+      deviceName: String,
+      packageName: String,
+      speedGrade: Int
+  ) extends GlobalConstraint
       derives CanEqual, ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs(using RefGen): this.type = this
     def codeString(using Printer): String =
+      s"""@deviceID(${vendor.codeString}, "$deviceName", "$packageName", $speedGrade)"""
+  final case class DeviceProperties(properties: Map[String, String]) extends GlobalConstraint
+      derives ReadWriter:
+    protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs(using RefGen): this.type = this
+    def codeString(using Printer): String =
       val props = properties.map { case (k, v) => s""""$k" -> "$v"""" }.mkString(", ")
-      s"""@device("$name", ${vendor.codeString}${props.emptyOr(", " + _)})"""
-  object Device:
+      s"""@deviceProperties($props)"""
+  object DeviceID:
     enum Vendor extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case XilinxAMD, AlteraIntel, Lattice, Microchip, Microsemi, Gowin
-      def codeString(using Printer): String = "device.Vendor." + this.toString
+      def codeString(using Printer): String = "deviceID.Vendor." + this.toString
+  final case class ToolOptions(options: Map[String, String]) extends GlobalConstraint
+      derives ReadWriter:
+    protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs(using RefGen): this.type = this
+    def codeString(using Printer): String =
+      val options = this.options.map { case (k, v) => s""""$k" -> "$v"""" }.mkString(", ")
+      s"""@toolOptions($options)"""
 
   final case class Config(flashPartName: String, interface: Config.Interface, sizeLimitMB: Int)
       extends GlobalConstraint

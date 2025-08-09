@@ -7,7 +7,7 @@ import dfhdl.options.*
 import dfhdl.backends
 import dfhdl.compiler.ir
 import dfhdl.tools.{builders, programmers}
-import ir.constraints.Device.Vendor
+import ir.constraints.DeviceID.Vendor
 import dfhdl.tools.toolsCore.Vivado
 
 extension (cd: CompiledDesign)
@@ -46,7 +46,7 @@ extension (cd: CompiledDesign)
   ): CompiledDesign = simPrep.simRun
 
   private def vendor = cd.stagedDB.top.dclMeta.annotations.collectFirst {
-    case annotation: ir.constraints.Device => annotation.vendor
+    case annotation: ir.constraints.DeviceID => annotation.vendor
   }.getOrElse(throw new IllegalArgumentException("No device constraint found"))
 
   def builder(using bo: BuilderOptions): Builder = (vendor, bo.tool) match
