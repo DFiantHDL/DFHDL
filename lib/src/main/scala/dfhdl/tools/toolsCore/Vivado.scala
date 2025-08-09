@@ -107,7 +107,7 @@ class VivadoProjectTclConfigPrinter(using
   }
   def flashCmd: String =
     val config = designDB.top.dclMeta.annotations.collectFirst {
-      case configConstraint: constraints.Config => configConstraint
+      case configConstraint: constraints.DeviceConfig => configConstraint
     }.getOrElse(throw new IllegalArgumentException("No config constraint found"))
     if (bo.flash)
       s"""\nwrite_cfgmem -format mcs -interface ${config.interface} -size ${config.sizeLimitMB} -loadbit "up 0x0 ./${topName}.bit" -file ./${topName}.mcs"""
@@ -156,12 +156,12 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
         constraint.properties.map {
           case (k, v) => s"set_property $k $v [current_design]"
         }
-      case constraint: constraints.Config =>
+      case constraint: constraints.DeviceConfig =>
         val spiBusWidth = constraint.interface match
-          case constraints.Config.Interface.SPIx1 => Some(1)
-          case constraints.Config.Interface.SPIx4 => Some(4)
-          case constraints.Config.Interface.SPIx8 => Some(8)
-          case _                                  => None
+          case constraints.DeviceConfig.Interface.SPIx1 => Some(1)
+          case constraints.DeviceConfig.Interface.SPIx4 => Some(4)
+          case constraints.DeviceConfig.Interface.SPIx8 => Some(8)
+          case _                                        => None
         List(
           s"set_property CONFIG_MODE ${constraint.interface} [current_design]"
         ) ++ spiBusWidth.map(w => s"set_property BITSTREAM.CONFIG.SPI_BUSWIDTH $w [current_design]")
@@ -294,7 +294,7 @@ class VivadoProgramScriptPrinter(using
   val designDB: DB = getSet.designDB
   val topName: String = getSet.topName
   val config = designDB.top.dclMeta.annotations.collectFirst {
-    case configConstraint: constraints.Config => configConstraint
+    case configConstraint: constraints.DeviceConfig => configConstraint
   }.getOrElse(throw new IllegalArgumentException("No config constraint found"))
   def configFileName: String = s"${topName}_prog.tcl"
   val progOrFlash: String =

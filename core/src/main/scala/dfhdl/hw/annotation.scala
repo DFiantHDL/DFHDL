@@ -82,15 +82,15 @@ object constraints:
     val asIR: ir.constraints.DeviceProperties = ir.constraints.DeviceProperties(properties.toMap)
   final case class toolOptions(options: (String, String)*) extends GlobalConstraint:
     val asIR: ir.constraints.ToolOptions = ir.constraints.ToolOptions(options.toMap)
-  final case class config(
+  final case class deviceConfig(
       flashPartName: String,
-      interface: ir.constraints.Config.Interface,
+      interface: ir.constraints.DeviceConfig.Interface,
       sizeLimitMB: Int
   ) extends GlobalConstraint:
-    val asIR: ir.constraints.Config =
-      ir.constraints.Config(flashPartName, interface, sizeLimitMB)
-  object config:
-    export ir.constraints.Config.Interface
+    val asIR: ir.constraints.DeviceConfig =
+      ir.constraints.DeviceConfig(flashPartName, interface, sizeLimitMB)
+  object deviceConfig:
+    export ir.constraints.DeviceConfig.Interface
 
   final case class io(
       bitIdx: ir.ConfigN[Int] = None,

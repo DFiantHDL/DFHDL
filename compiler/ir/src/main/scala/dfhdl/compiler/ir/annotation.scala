@@ -99,9 +99,11 @@ object constraints:
       val options = this.options.map { case (k, v) => s""""$k" -> "$v"""" }.mkString(", ")
       s"""@toolOptions($options)"""
 
-  final case class Config(flashPartName: String, interface: Config.Interface, sizeLimitMB: Int)
-      extends GlobalConstraint
-      derives ReadWriter:
+  final case class DeviceConfig(
+      flashPartName: String,
+      interface: DeviceConfig.Interface,
+      sizeLimitMB: Int
+  ) extends GlobalConstraint derives ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs(using RefGen): this.type = this
@@ -111,11 +113,12 @@ object constraints:
         csParam("interface", interface),
         csParam("sizeLimitMB", sizeLimitMB)
       ).filter(_.nonEmpty).mkString(", ")
-      s"""@config($params)"""
-  object Config:
+      s"""@deviceConfig($params)"""
+  end DeviceConfig
+  object DeviceConfig:
     enum Interface extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case SMAPx8, SMAPx16, SMAPx32, SPIx1, SPIx2, SPIx4, SPIx8, BPIx8, BPIx16
-      def codeString(using Printer): String = "config.Interface." + this.toString
+      def codeString(using Printer): String = "deviceConfig.Interface." + this.toString
 
   extension [T](configN: ConfigN[T])
     def merge(that: ConfigN[T]): ConfigN[T] =
