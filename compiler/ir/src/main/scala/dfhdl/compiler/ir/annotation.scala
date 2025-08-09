@@ -70,7 +70,7 @@ object constraints:
       vendor: DeviceID.Vendor,
       deviceName: String,
       packageName: String,
-      speedGrade: Int
+      speedGrade: String
   ) extends GlobalConstraint
       derives CanEqual, ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that

@@ -72,7 +72,7 @@ object constraints:
       vendor: ir.constraints.DeviceID.Vendor,
       deviceName: String,
       packageName: String,
-      speedGrade: Int
+      speedGrade: String
   ) extends GlobalConstraint:
     val asIR: ir.constraints.DeviceID =
       ir.constraints.DeviceID(vendor, deviceName, packageName, speedGrade)
