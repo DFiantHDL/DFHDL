@@ -70,14 +70,15 @@ object constraints:
       vendor: DeviceID.Vendor,
       deviceName: String,
       packageName: String,
-      speedGrade: String
+      speedGrade: String,
+      deviceVersion: String
   ) extends GlobalConstraint
       derives CanEqual, ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs(using RefGen): this.type = this
     def codeString(using Printer): String =
-      s"""@deviceID(${vendor.codeString}, "$deviceName", "$packageName", $speedGrade)"""
+      s"""@deviceID(${vendor.codeString}, "$deviceName", "$packageName", $speedGrade, $deviceVersion)"""
   final case class DeviceProperties(properties: Map[String, String]) extends GlobalConstraint
       derives ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
