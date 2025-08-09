@@ -39,13 +39,15 @@ object OpenFPGALoader extends Programmer:
       }.getOrElse(throw new IllegalArgumentException("No device ID found"))
       s"--fpga-part $partName"
     }
-    val fileName = cd.vendor match
-      case Vendor.XilinxAMD =>
-        if (po.flash) s"${topName}.mcs" else s"${topName}.bit"
-      case vendor =>
+    val suffix = (cd.vendor, po.flash) match
+      case (Vendor.XilinxAMD, true)  => "mcs"
+      case (Vendor.XilinxAMD, false) => "bit"
+      case (Vendor.Gowin, false)     => "fs"
+      case x                         =>
         throw new IllegalArgumentException(
-          s"Vendor $vendor is currently not supported in this DFHDL openFPGALoader integration"
+          s"Vendor-flash combination $x is currently not supported in this DFHDL openFPGALoader integration"
         )
+    val fileName = s"${topName}.$suffix"
     exec(
       s"$cmd $fileName"
     )
