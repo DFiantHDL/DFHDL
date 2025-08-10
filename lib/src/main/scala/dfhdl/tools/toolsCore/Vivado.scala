@@ -195,10 +195,11 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
 
     // IO standard constraint
     portConstraint.standard.foreach { standard =>
-      val standardStr = standard match
-        case constraints.IO.Standard.LVCMOS33 => "LVCMOS33"
-        case constraints.IO.Standard.LVCMOS25 => "LVCMOS25"
-        case constraints.IO.Standard.LVCMOS18 => "LVCMOS18"
+      val standardStr = standard.withLevelVolt(portConstraint.levelVolt.getOrElse(
+        throw new IllegalArgumentException(
+          s"No level constraint found for port ${port.getName}"
+        )
+      ))
       addToDict("IOSTANDARD", standardStr)
     }
 

@@ -7,7 +7,12 @@ import scala.collection.mutable.ListBuffer
 
 trait ResourceContext extends OnCreateEvents, HasDFC, HasClsMetaArgs:
   final lazy val dfc: DFC = __dfc
-  final lazy val id: String = dfc.nameOpt.get
+  final lazy val id: String = dfc.nameOpt.getOrElse("anon")
+  private var resourceType: String = ""
+  def getResourceType: String = resourceType
+  def getFullId: String =
+    if (isTopResource) id
+    else owner.getFullId + "." + id
   // the top-level resource owner is set to be itself
   private[resources] val owner: ResourceOwner =
     dfc.mutableDB.ResourceOwnershipContext.ownerOpt.getOrElse(this.asInstanceOf[ResourceOwner])
@@ -17,9 +22,13 @@ trait ResourceContext extends OnCreateEvents, HasDFC, HasClsMetaArgs:
     case constraint: Constraint => constraint
   })
   def getResourceConstraints: List[Constraint] = resourceConstraints.toList
-  // the constraints that are directly applied to this resource and its owners
+  // the constraints that are applied to this resource and its owners (including connections for groups)
   private[resources] lazy val directAndOwnerSigConstraints: List[SigConstraint] =
-    val ownerConstraints = if (isTopResource) Nil else owner.directAndOwnerSigConstraints
+    val ownerConstraints =
+      if (isTopResource) Nil
+      else owner match
+        case group: ResourceGroup => group.directAndOwnerSigConstraints ++ group.allSigConstraints
+        case owner: ResourceOwner => owner.directAndOwnerSigConstraints
     (ownerConstraints ++ getResourceConstraints.collect {
       case constraint: SigConstraint => constraint
     }).merge
@@ -34,6 +43,7 @@ trait ResourceContext extends OnCreateEvents, HasDFC, HasClsMetaArgs:
       docOpt: Option[String],
       annotations: List[Annotation]
   ): Unit =
+    resourceType = name
     annotations.foreach {
       case constraint: dfhdl.hw.constraints.Constraint =>
         resourceConstraints += constraint.asIR

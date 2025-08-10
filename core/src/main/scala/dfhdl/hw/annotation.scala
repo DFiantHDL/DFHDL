@@ -96,18 +96,17 @@ object constraints:
   final case class io(
       bitIdx: ir.ConfigN[Int] = None,
       loc: ir.ConfigN[String] = None,
+      levelVolt: ir.ConfigN[io.LevelVolt] = None,
       standard: ir.ConfigN[io.Standard] = None,
       slewRate: ir.ConfigN[io.SlewRate] = None,
       driveStrength: ir.ConfigN[Int] = None,
       pullMode: ir.ConfigN[io.PullMode] = None
   ) extends SigConstraint:
     val asIR: ir.constraints.IO =
-      ir.constraints.IO(bitIdx, loc, standard, slewRate, driveStrength, pullMode)
+      ir.constraints.IO(bitIdx, loc, levelVolt, standard, slewRate, driveStrength, pullMode)
   end io
   object io:
-    export ir.constraints.IO.Standard
-    export ir.constraints.IO.SlewRate
-    export ir.constraints.IO.PullMode
+    export ir.constraints.IO.{LevelVolt, Standard, SlewRate, PullMode}
 
   object timing:
     final case class ignore(

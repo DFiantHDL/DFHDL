@@ -170,9 +170,11 @@ object constraints:
       case num: TimeNumber                 => s"$name = ${printer.csDFTimeData(num)}"
       case _                               => s"$name = ${value}"
 
+  given ReadWriter[IO.LevelVolt] = summon[ReadWriter[Double]].asInstanceOf[ReadWriter[IO.LevelVolt]]
   final case class IO(
       bitIdx: ConfigN[Int] = None,
       loc: ConfigN[String] = None,
+      levelVolt: ConfigN[IO.LevelVolt] = None,
       standard: ConfigN[IO.Standard] = None,
       slewRate: ConfigN[IO.SlewRate] = None,
       driveStrength: ConfigN[Int] = None,
@@ -188,6 +190,7 @@ object constraints:
             IO(
               bitIdx = bitIdx,
               loc = loc.merge(that.loc),
+              levelVolt = levelVolt.merge(that.levelVolt),
               standard = standard.merge(that.standard),
               slewRate = slewRate.merge(that.slewRate),
               driveStrength = driveStrength.merge(that.driveStrength),
@@ -201,6 +204,7 @@ object constraints:
       val params = List(
         csParam("bitIdx", bitIdx),
         csParam("loc", loc),
+        csParam("levelVolt", levelVolt),
         csParam("standard", standard),
         csParam("slewRate", slewRate),
         csParam("driveStrength", driveStrength),
@@ -210,15 +214,23 @@ object constraints:
     end codeString
   end IO
   object IO:
+    type LevelVolt = 3.3 | 2.5 | 1.8 | 1.2
     enum Standard extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
-      case LVCMOS33, LVCMOS25, LVCMOS18
+      case LVCMOS, LVTTL, LVDS
       def codeString(using Printer): String = "io.Standard." + this.toString
+      def withLevelVolt(levelVolt: LevelVolt): String =
+        val num = (levelVolt * 10).toInt
+        this match
+          case LVCMOS => s"LVCMOS$num"
+          case LVTTL  => s"LVTTL"
+          case LVDS   => s"LVDS_$num"
     enum SlewRate extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case SLOW, FAST
       def codeString(using Printer): String = "io.SlewRate." + this.toString
     enum PullMode extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case UP, DOWN
       def codeString(using Printer): String = "io.PullMode." + this.toString
+  end IO
 
   object Timing:
     final case class Ignore(

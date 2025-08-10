@@ -33,8 +33,8 @@ trait IO extends Resource:
 end IO
 object IO:
   given [T <: IO, R <: IO]: CanConnect[T, R] = (resource1: T, resource2: R) =>
-    resource1.connect(resource2)
-    resource2.connect(resource1)
+    resource1.connectFrom(resource2)
+    resource2.connectFrom(resource1)
   given [R <: IO, V <: DFValOf[DFBoolOrBit]](using
       dfc: DFC
   ): CanConnect[R, V] =

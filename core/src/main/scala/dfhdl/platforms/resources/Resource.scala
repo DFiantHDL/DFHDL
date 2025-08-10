@@ -7,7 +7,7 @@ import dfhdl.internals.*
 
 trait Resource extends ResourceContext:
   private val connections = mutable.ListBuffer[Resource]()
-  protected[resources] def connect(that: Resource): Unit =
+  protected[dfhdl] def connectFrom(that: Resource): Unit =
     connections += that
   protected[dfhdl] def connect(that: DFValAny)(using dfc: DFC): Unit =
     throw new IllegalArgumentException(
@@ -28,8 +28,10 @@ trait Resource extends ResourceContext:
           dfs(conn)
     dfs(this)
     val res = result.distinct.toList
+    res.foreach(checkConnection)
     if (res.isEmpty) List(this) else res
   end allConnections
+  protected def checkConnection(res: Resource): Unit = ()
   lazy val allSigConstraints: List[SigConstraint] =
     (allConnections ++ downstreamDeps).flatMap(_.directAndOwnerSigConstraints).merge
   owner.addResource(this)
@@ -43,13 +45,13 @@ private trait ResourceLP:
       cc.connect(resource2, resource1)
 
 object Resource extends ResourceLP:
-  @implicitNotFound("Cannot connect the resource ${T} with ${R}")
+  @implicitNotFound("Cannot connect the resource ${R} with ${T}")
   trait CanConnect[R <: Resource, T]:
     def connect(resource1: R, resource2: T): Unit
   given [R <: Resource, T <: Resource](using R =:= T): CanConnect[R, T] =
     (resource1: R, resource2: T) =>
-      resource1.connect(resource2)
-      resource2.connect(resource1)
+      resource1.connectFrom(resource2)
+      resource2.connectFrom(resource1)
 
   object Ops:
     extension [R <: Resource](resource: R)
