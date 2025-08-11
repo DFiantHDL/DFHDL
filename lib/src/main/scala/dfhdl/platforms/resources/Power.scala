@@ -8,9 +8,9 @@ class Power(val levelVolt: ConfigN[constraints.IO.LevelVolt] = None) extends IO:
   override def checkConnection(res: Resource): Unit =
     res match
       case p: Power =>
-        if (p.levelVolt != levelVolt)
+        if (p.levelVolt != levelVolt && (p.levelVolt != None && levelVolt != None))
           throw new IllegalArgumentException(
-            s"Power level voltage connection mismatch between `${p.getFullId}` and `${getFullId}`."
+            s"Power level voltage connection mismatch between `${p.getFullId} @ ${p.levelVolt}` and `${getFullId} @ ${levelVolt}`."
           )
       case connPin: Connector.Pin => // do nothing
       case unexpected             =>
