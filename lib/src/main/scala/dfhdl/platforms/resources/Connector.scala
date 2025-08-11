@@ -1,6 +1,7 @@
 package dfhdl.platforms.resources
 import Resource.CanConnect
 import dfhdl.DFC
+import dfhdl.internals.metaContextIgnore
 
 class Connector[T <: Connector.Type, F <: Connector.Form] private (`type`: T, form: F)
     extends ResourceGroup:
@@ -27,6 +28,7 @@ object Connector:
 
   class Pin private () extends IO
   object Pin:
+    @metaContextIgnore
     def apply()(using DFC): Pin = new Pin
 
   inline given [
