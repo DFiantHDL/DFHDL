@@ -29,6 +29,4 @@ trait ResourceOwner extends ResourceContext:
     dfc.mutableDB.ResourceOwnershipContext.exit()
     dfc.mutableDB.ResourceOwnershipContext.ownerOpt.foreach(_.children += this)
     projectGlobalConstraints()
-
-  export Resource.Ops.*
 end ResourceOwner

@@ -34,8 +34,7 @@ object OpenFPGALoader extends Programmer:
     }.flatten
     val cmd = contraintCmdOption.getOrElse {
       val partName = cd.stagedDB.getSet.designDB.top.dclMeta.annotations.collectFirst {
-        case annotation: constraints.DeviceID =>
-          s"${annotation.deviceName}${annotation.packageName}"
+        case annotation: constraints.DeviceID => annotation.deviceName
       }.getOrElse(throw new IllegalArgumentException("No device ID found"))
       s"--fpga-part $partName"
     }

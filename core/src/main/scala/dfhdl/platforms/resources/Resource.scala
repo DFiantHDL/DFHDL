@@ -58,4 +58,5 @@ object Resource extends ResourceLP:
       def <>[T](that: T)(using dfc: DFC, cc: CanConnect[R, T]): Unit = trydf {
         cc.connect(resource, that)
       }
+  export Resource.Ops.*
 end Resource

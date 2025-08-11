@@ -5,6 +5,6 @@ import dfhdl.hw.constraints.*
 trait Device extends Platform, dfhdl.platforms.devices.Package:
   lazy val vendor: deviceID.Vendor
   lazy val deviceName: String
+  lazy val partName: String
   lazy val deviceVersion: String
-  val speedGrade: String
-  injectConstraint(deviceID(vendor, deviceName, packageName, speedGrade, deviceVersion).asIR)
+  injectConstraint(deviceID(vendor, deviceName, partName, deviceVersion).asIR)

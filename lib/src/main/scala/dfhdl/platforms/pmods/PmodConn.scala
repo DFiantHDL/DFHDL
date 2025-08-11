@@ -3,8 +3,7 @@ import dfhdl.platforms.resources.*
 import Resource.CanConnect
 import dfhdl.DFC
 
-object PmodConn extends Connector.Type(12):
-  type This = PmodConn.type
+object PmodConn extends Connector.Companion(12)
 
 object PmodDualConn:
   class Male(pm1: PmodConn.Male, pm2: PmodConn.Male) extends ResourceDeps:

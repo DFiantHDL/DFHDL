@@ -85,8 +85,7 @@ class VivadoProjectTclConfigPrinter(using
     case _: backends.verilog => "Verilog"
     case _: backends.vhdl    => "VHDL"
   val part: String = getSet.designDB.top.dclMeta.annotations.collectFirst {
-    case annotation: constraints.DeviceID =>
-      s"${annotation.deviceName}${annotation.packageName}-${annotation.speedGrade}"
+    case annotation: constraints.DeviceID => annotation.partName
   }.getOrElse(throw new IllegalArgumentException("No device constraint found"))
   val fileType: String = co.backend match
     case backend: backends.verilog => backend.dialect match
