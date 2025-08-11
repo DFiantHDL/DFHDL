@@ -77,7 +77,14 @@ object constraints:
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs(using RefGen): this.type = this
     def codeString(using Printer): String =
-      s"""@deviceID(${vendor.codeString}, "$deviceName", "$partName", $deviceVersion)"""
+      val params = List(
+        csParam("vendor", vendor),
+        csParam("deviceName", deviceName),
+        csParam("partName", partName),
+        csParam("deviceVersion", deviceVersion)
+      ).filter(_.nonEmpty).mkString(", ")
+      s"""@deviceID($params)"""
+  end DeviceID
   final case class DeviceProperties(properties: Map[String, String]) extends GlobalConstraint
       derives ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
