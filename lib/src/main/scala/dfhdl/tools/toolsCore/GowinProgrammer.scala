@@ -38,7 +38,8 @@ object GowinProgrammer extends Programmer:
     }.getOrElse(throw new IllegalArgumentException("No device ID found"))
     // file path needs to be absolute for programmer_cli
     val fileName = s"${Paths.get(execPath).toAbsolutePath()}$separatorChar${topName}.fs"
-    val cmd = s"--device $deviceName --run 2 --fsFile $fileName"
+    val runMode = if (po.flash) 53 else 2
+    val cmd = s"--device $deviceName --run $runMode --fsFile $fileName"
     exec(
       cmd,
       // programmer_cli will not work if not invoked with full path
