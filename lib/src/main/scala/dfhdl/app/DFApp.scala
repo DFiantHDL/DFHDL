@@ -222,6 +222,8 @@ trait DFApp:
         path =>
           Paths.get(compilerOptions.topCommitPath(committed.stagedDB)).resolve(path).toString
       }
+    override protected def logCachedRun(): Unit =
+      logger.info("Loading build artifacts from cache...")
     protected def run(committed: CompiledDesign): CompiledDesign =
       committed.tap(_ => logger.info("Running external builder...")).build
     protected def valueToCacheStr(value: CompiledDesign): String = value.toJsonString
