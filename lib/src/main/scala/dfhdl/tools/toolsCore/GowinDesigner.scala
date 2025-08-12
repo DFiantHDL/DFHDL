@@ -76,6 +76,9 @@ class GowinDesignerProjectTclConfigPrinter(using
   val targetLanguage: String = co.backend match
     case _: backends.verilog => "verilog"
     case _: backends.vhdl    => "vhdl"
+  val topIOs = designDB.top.members(MemberView.Folded).collect {
+    case dcl @ DclPort() => dcl
+  }
   val (part, deviceVersion): (String, String) =
     getSet.designDB.top.dclMeta.annotations.collectFirst {
       case annotation: constraints.DeviceID => (annotation.partName, annotation.deviceVersion)
@@ -98,6 +101,14 @@ class GowinDesignerProjectTclConfigPrinter(using
         ) =>
       path.forceWindowsToLinuxPath
   }
+  def activeDualPurposeGroups: List[String] =
+    topIOs.view.flatMap(_.meta.annotations.collect {
+      case constraint: constraints.IO =>
+        constraint.dualPurposeGroups.toList.flatMap(_.split("/"))
+    }).flatten.toList.distinct
+  def gpioOptions: String =
+    activeDualPurposeGroups.map(group => s"set_option -use_${group}_as_gpio 1")
+      .mkString("\n").emptyOr("\n" + _)
   def configFileName: String = s"$topName.tcl"
   def contents: String =
     s"""|create_project -name $topName -dir ../ -force -pn {$part} -device_version {$deviceVersion}
@@ -105,8 +116,7 @@ class GowinDesignerProjectTclConfigPrinter(using
         |add_file $topName.cst
         |add_file $topName.sdc
         |set_option -top_module $topName
-        |set_option -${targetLanguage}_std $std
-        |set_option -use_cpu_as_gpio 1
+        |set_option -${targetLanguage}_std $std$gpioOptions
         |run all
         |file copy -force ./impl/pnr/${topName}.fs ./${topName}.fs
         |""".stripMargin
