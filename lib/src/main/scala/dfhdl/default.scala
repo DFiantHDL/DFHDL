@@ -8,8 +8,7 @@ import dfhdl.backends
 import dfhdl.compiler.ir
 import dfhdl.tools.{builders, programmers}
 import ir.constraints.DeviceID.Vendor
-import dfhdl.tools.toolsCore.Vivado
-import dfhdl.tools.toolsCore.OpenFPGALoader
+import dfhdl.tools.toolsCore.*
 
 extension (cd: CompiledDesign)
   def lint(using
@@ -52,12 +51,14 @@ extension (cd: CompiledDesign)
 
   protected[dfhdl] def builder(using bo: BuilderOptions): Builder = (vendor, bo.tool) match
     case (Vendor.XilinxAMD, builders.vendor) => Vivado
+    case (Vendor.Gowin, builders.vendor)     => GowinDesigner
     case (vendor, tool)                      => throw new IllegalArgumentException(
         s"No $tool builder tool support for vendor $vendor"
       )
 
   protected[dfhdl] def programmer(using po: ProgrammerOptions): Programmer = (vendor, po.tool) match
     case (Vendor.XilinxAMD, programmers.vendor) => Vivado
+    case (Vendor.Gowin, programmers.vendor)     => GowinProgrammer
     case (_, programmers.foss)                  => OpenFPGALoader
     case (vendor, tool)                         => throw new IllegalArgumentException(
         s"No $tool programmer tool support for vendor $vendor"

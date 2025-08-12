@@ -16,6 +16,7 @@ trait Tool:
   val toolName: String
   final protected def runExec: String =
     if (osIsWindows) windowsBinExec else binExec
+  private[dfhdl] lazy val runExecFullPath: String = programFullPath(runExec)
   protected def binExec: String
   protected def windowsBinExec: String = s"$binExec.exe"
   final protected def addSourceFiles(
@@ -32,7 +33,7 @@ trait Tool:
   protected[dfhdl] def cleanUpBeforeFileRestore()(using MemberGetSet, CompilerOptions): Unit = {}
 
   private[dfhdl] lazy val installedVersion: Option[String] =
-    if (!programIsAccessible(runExec)) None
+    if (runExecFullPath.isEmpty) None
     else
       val getVersionFullCmd =
         Process(s"$runExec $versionCmd", new java.io.File(System.getProperty("java.io.tmpdir")))
