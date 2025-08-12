@@ -6,4 +6,4 @@ enum Led extends Encoded.Toggle:
   case Off, On
 object Led:
   @io(standard = io.Standard.LVCMOS)
-  class Resource(val activeState: Led = Led.Off) extends ToggleIO
+  class Resource(val activeState: Led = Led.On) extends ToggleIO
