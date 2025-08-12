@@ -119,8 +119,9 @@ object constraints:
         ir.constraints.Timing.Ignore(bitIdx, maxFreqMinPeriod)
 
     final case class clock(
-        rate: ir.RateNumber
-    ) extends Constraint:
-      val asIR: ir.constraints.Timing.Clock = ir.constraints.Timing.Clock(rate)
+        rate: ir.RateNumber,
+        bitIdx: ir.ConfigN[Int] = None
+    ) extends SigConstraint:
+      val asIR: ir.constraints.Timing.Clock = ir.constraints.Timing.Clock(rate, bitIdx)
   end timing
 end constraints

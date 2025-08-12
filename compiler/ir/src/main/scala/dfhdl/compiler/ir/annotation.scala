@@ -261,12 +261,20 @@ object constraints:
     end Ignore
 
     final case class Clock(
-        rate: RateNumber
-    ) extends Constraint derives CanEqual, ReadWriter:
+        rate: RateNumber,
+        bitIdx: ConfigN[Int] = None
+    ) extends SigConstraint derives CanEqual, ReadWriter:
       protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
       lazy val getRefs: List[DFRef.TwoWayAny] = Nil
       def copyWithNewRefs(using RefGen): this.type = this
+      def updateBitIdx(bitIdx: ConfigN[Int]): SigConstraint =
+        this.copy(bitIdx = bitIdx)
       def codeString(using Printer): String =
-        s"""@timing.clock(${csParam("rate", rate)})"""
+        val params = List(
+          csParam("rate", rate),
+          csParam("bitIdx", bitIdx)
+        ).filter(_.nonEmpty).mkString(", ")
+        s"""@timing.clock($params)"""
+    end Clock
   end Timing
 end constraints
