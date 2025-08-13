@@ -6,8 +6,12 @@ import dfhdl.compiler.ir.constraints.{Constraint, SigConstraint}
 import scala.collection.mutable.ListBuffer
 
 trait ResourceContext extends OnCreateEvents, HasDFC, HasClsMetaArgs:
+  private var _injectedID: Option[String] = None
+  private[resources] def injectID(id: String): this.type =
+    _injectedID = Some(id)
+    this
   final lazy val dfc: DFC = __dfc
-  final lazy val id: String = dfc.nameOpt.getOrElse("anon")
+  final lazy val id: String = _injectedID.getOrElse(dfc.nameOpt.getOrElse("anon"))
   private var resourceType: String = ""
   def getResourceType: String = resourceType
   def getFullId: String =

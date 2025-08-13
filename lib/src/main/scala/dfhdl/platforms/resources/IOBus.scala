@@ -17,8 +17,8 @@ class IOBus[T <: IO, L <: Int] private (val ios: List[T]) extends ResourceDeps:
       ios(i).connect(that.bits(i))
   end connect
 object IOBus:
-  def fill[L <: Int & Singleton](length: L)(f: DFC ?=> IO)(using dfc: DFC): IOBus[IO, L] =
-    new IOBus[IO, L](List.tabulate(length)(i => f(using dfc.setName(s"P$i"))))
+  def fill[L <: Int & Singleton](length: L)(f: => IO)(using dfc: DFC): IOBus[IO, L] =
+    forced[IO, L](List.tabulate(length)(i => f.injectID(s"${dfc.getMeta.name}($i)")))
   private def forced[T <: IO, L <: Int](ios: List[T])(using DFC): IOBus[T, L] =
     new IOBus[T, L](ios.toList)
   transparent inline def apply[T <: IO](inline ios: T*): IOBus[T, ?] = ${ applyMacro[T]('ios) }
