@@ -389,8 +389,8 @@ Usage: sbt runMain "top_Foo [design-args] <mode> [options]"
 import dfhdl.*
 //this option forces the top-app
 //to run help mode by default
-given options.AppOptions.DefaultMode = 
-  options.AppOptions.DefaultMode.help
+given options.AppOptions.AppMode = 
+  options.AppOptions.AppMode.help
 class CustomArg
 @top class Foo(
     val pureIntArg:   Int              = 5,

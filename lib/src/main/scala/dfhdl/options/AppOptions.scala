@@ -4,7 +4,7 @@ import dfhdl.core.Design
 import AppOptions.*
 
 case class AppOptions(
-    defaultMode: DefaultMode,
+    appMode: AppMode,
     clearConsole: ClearConsole,
     cacheEnable: CacheEnable
 )
@@ -13,16 +13,16 @@ object AppOptions:
   opaque type Defaults[-T <: Design] <: AppOptions = AppOptions
   object Defaults:
     given (using
-        defaultMode: DefaultMode,
+        appMode: AppMode,
         clearConsole: ClearConsole,
         cacheEnable: CacheEnable
     ): Defaults[Design] =
-      AppOptions(defaultMode = defaultMode, clearConsole = clearConsole, cacheEnable = cacheEnable)
+      AppOptions(appMode = appMode, clearConsole = clearConsole, cacheEnable = cacheEnable)
 
-  enum DefaultMode derives CanEqual:
-    case help, elaborate, compile, commit, lint, simulate, build, program
-  object DefaultMode:
-    given DefaultMode =
+  opaque type AppMode <: dfhdl.app.AppMode = dfhdl.app.AppMode
+  object AppMode:
+    export dfhdl.app.AppMode.*
+    given AppMode =
       if (scastieIsRunning) compile
       else commit
 
