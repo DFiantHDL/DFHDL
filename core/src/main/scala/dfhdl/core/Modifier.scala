@@ -13,9 +13,11 @@ object Modifier:
   sealed trait Connectable
   sealed trait Initializable
   sealed trait Initialized
+  sealed trait Port
   type Mutable = Modifier[Assignable, Any, Any, dfhdl.core.NOTCONST]
   type Dcl = Modifier[Assignable, Connectable, Initializable, dfhdl.core.NOTCONST]
-  type DclREG = Modifier[AssignableREG, Any, Initializable, dfhdl.core.NOTCONST]
+  type DclPort[+A] = Modifier[A, Port & Connectable, Initializable, dfhdl.core.NOTCONST]
+  type DclREG[+C] = Modifier[AssignableREG, C, Initializable, dfhdl.core.NOTCONST]
   type DclSHARED = Modifier[AssignableSHARED, Any, Initializable, dfhdl.core.NOTCONST]
   protected type RTDomainOnly[A] = AssertGiven[
     A <:< DomainType.RT,
@@ -26,16 +28,13 @@ object Modifier:
     "`.SHARED` variable modifier is only allowed under event-driven (ED) domains."
   ]
   object VAR extends Dcl(IRModifier(IRModifier.VAR, IRModifier.Ordinary)):
-    protected object pREG extends DclREG(IRModifier(IRModifier.VAR, IRModifier.REG))
+    protected object pREG extends DclREG[Any](IRModifier(IRModifier.VAR, IRModifier.REG))
     inline def REG(using dt: DomainType)(using RTDomainOnly[dt.type]) = pREG
     protected object pSHARED extends DclSHARED(IRModifier(IRModifier.VAR, IRModifier.SHARED))
     inline def SHARED(using dt: DomainType)(using EDDomainOnly[dt.type]) = pSHARED
-  object IN
-      extends Modifier[Any, Connectable, Initializable, dfhdl.core.NOTCONST](
-        IRModifier(IRModifier.IN, IRModifier.Ordinary)
-      )
-  object OUT extends Dcl(IRModifier(IRModifier.OUT, IRModifier.Ordinary)):
-    protected object pREG extends DclREG(IRModifier(IRModifier.OUT, IRModifier.REG))
+  object IN extends DclPort[Any](IRModifier(IRModifier.IN, IRModifier.Ordinary))
+  object OUT extends DclPort[Assignable](IRModifier(IRModifier.OUT, IRModifier.Ordinary)):
+    protected object pREG extends DclREG[Port](IRModifier(IRModifier.OUT, IRModifier.REG))
     inline def REG(using dt: DomainType)(using RTDomainOnly[dt.type]) = pREG
   object INOUT extends Dcl(IRModifier(IRModifier.INOUT, IRModifier.Ordinary))
   type CONST = Modifier[Any, Any, Any, dfhdl.core.CONST]

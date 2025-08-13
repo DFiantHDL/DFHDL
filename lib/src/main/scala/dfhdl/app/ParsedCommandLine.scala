@@ -273,7 +273,7 @@ class ParsedCommandLine(
   addSubcommand(Mode.build)
   addSubcommand(Mode.program)
   addSubcommand(Mode.help)
-  lazy val mode: Mode = subcommand.getOrElse((ao.appMode: @unchecked) match
+  lazy val mode: Mode = subcommand.getOrElse(ao.appMode match
     case AppMode.help      => Mode.help
     case AppMode.elaborate => Mode.elaborate
     case AppMode.compile   => Mode.compile

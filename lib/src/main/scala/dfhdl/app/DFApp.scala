@@ -12,6 +12,7 @@ import dfhdl.compiler.stages.{StagedDesign, CompiledDesign}
 import dfhdl.internals.DiskCache
 import dfhdl.compiler.ir.SourceFile
 import java.nio.file.Paths
+import dfhdl.internals.scastieIsRunning
 
 trait DFApp:
   private val logger = Logger("DFHDL App")
@@ -71,7 +72,9 @@ trait DFApp:
       argNames: List[String],
       argValues: List[Any],
       argDescs: List[String],
-      scalacWerror: Boolean
+      scalacWerror: Boolean,
+      hasResourceOwner: Boolean,
+      hasPorts: Boolean
   ): Unit =
     this.designName = designName
     this.topScalaPath = topScalaPath
@@ -86,7 +89,18 @@ trait DFApp:
       top.builderOptions.copy(Werror = top.builderOptions.Werror.fromScalac(scalacWerror))
     programmerOptions =
       top.programmerOptions.copy(Werror = top.programmerOptions.Werror.fromScalac(scalacWerror))
-    appOptions = top.appOptions
+    // this is the default app mode if no app mode is specified.
+    // if in scastie, we default to compile mode.
+    // if there are no ports, we default to simulate mode.
+    // if there is a resource owner, we default to program mode.
+    // otherwise, we default to commit mode.
+    val updatedAppMode = top.appOptions.appMode.getOrElse {
+      if (scastieIsRunning) AppMode.compile
+      else if (!hasPorts) AppMode.simulate
+      else if (hasResourceOwner) AppMode.program
+      else AppMode.commit
+    }
+    appOptions = top.appOptions.copy(appMode = updatedAppMode)
     designArgs = DesignArgs(argNames, argValues, argDescs)
   end setInitials
 

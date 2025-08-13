@@ -219,6 +219,18 @@ abstract class CommonPhase extends PluginPhase:
       sym.annotations.collect {
         case a if a.tree.tpe <:< defn.StaticAnnotationClass.typeRef => a
       }
+
+    def hasNestedMemberCond(f: Type => Boolean)(using Context): Boolean =
+      def recur(tpe: Type): Boolean =
+        tpe match
+          case tpe if f(tpe)                    => true
+          case rt: RefinedType                  => recur(rt.refinedInfo) || recur(rt.parent)
+          case rt: RecType                      => recur(rt.parent)
+          case tpe if tpe.typeSymbol.is(Module) => tpe.typeSymbol.hasNestedMemberCond(f)
+          case _                                => false
+      end recur
+      sym.info.fields.exists(f => recur(f.symbol.info))
+    end hasNestedMemberCond
   end extension
 
   extension (name: String)

@@ -1,7 +1,8 @@
 package dfhdl.options
-import dfhdl.internals.{scastieIsRunning, metalsIsRunning, scala_cliIsRunning}
+import dfhdl.internals.{metalsIsRunning, scala_cliIsRunning}
 import dfhdl.core.Design
 import AppOptions.*
+import dfhdl.compiler.ir.ConfigN
 
 case class AppOptions(
     appMode: AppMode,
@@ -19,12 +20,12 @@ object AppOptions:
     ): Defaults[Design] =
       AppOptions(appMode = appMode, clearConsole = clearConsole, cacheEnable = cacheEnable)
 
-  opaque type AppMode <: dfhdl.app.AppMode = dfhdl.app.AppMode
+  opaque type AppMode <: ConfigN[dfhdl.app.AppMode] = ConfigN[dfhdl.app.AppMode]
   object AppMode:
     export dfhdl.app.AppMode.*
-    given AppMode =
-      if (scastieIsRunning) compile
-      else commit
+    given AppMode = None
+    given CanEqual[dfhdl.app.AppMode, AppMode] = CanEqual.derived
+    given Conversion[dfhdl.app.AppMode, AppMode] = identity
 
   opaque type ClearConsole <: Boolean = Boolean
   object ClearConsole:
