@@ -41,12 +41,11 @@ private trait ResourceLP:
   import Resource.CanConnect
   // connection is commutative, so can connect T to R if can connect R to T
   given [T <: Resource, R <: Resource](using cc: CanConnect[R, T]): CanConnect[T, R] =
-    (resource1: T, resource2: R) =>
-      cc.connect(resource2, resource1)
+    (resource1: T, resource2: R) => cc.connect(resource2, resource1)
 
 object Resource extends ResourceLP:
   @implicitNotFound("Cannot connect the resource ${R} with ${T}")
-  trait CanConnect[R <: Resource, T]:
+  trait CanConnect[R <: Resource, T <: Resource | DFValAny]:
     def connect(resource1: R, resource2: T): Unit
   given [R <: Resource, T <: Resource](using R =:= T): CanConnect[R, T] =
     (resource1: R, resource2: T) =>
@@ -55,7 +54,9 @@ object Resource extends ResourceLP:
 
   object Ops:
     extension [R <: Resource](resource: R)
-      def <>[T](that: T)(using dfc: DFC, cc: CanConnect[R, T]): Unit = trydf {
+      def <>[T <: Resource](that: T)(using cc: CanConnect[R, T]): Unit =
+        cc.connect(resource, that)
+      def <>[T <: DFValAny](that: T)(using dfc: DFC, cc: CanConnect[R, T]): Unit = trydf {
         cc.connect(resource, that)
       }
   export Resource.Ops.*

@@ -1,7 +1,6 @@
 package dfhdl.platforms.pmods
 import dfhdl.platforms.resources.*
 import Resource.CanConnect
-import dfhdl.DFC
 
 object PmodConn extends Connector.Companion(12)
 
