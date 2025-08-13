@@ -145,9 +145,6 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
   val designDB: DB = getSet.designDB
   val topName: String = getSet.topName
   val constraintsFileName: String = s"$topName.xdc"
-  val topIOs = designDB.top.members(MemberView.Folded).collect {
-    case dcl @ DclPort() => dcl
-  }
 
   def xdcDesignConstraints: List[String] =
     designDB.top.dclMeta.annotations.flatMap {
@@ -275,7 +272,7 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
   end xdcPortConstraints
 
   def xdcPortConstraints: List[String] =
-    topIOs.view.flatMap(xdcPortConstraints).toList
+    designDB.topIOs.view.flatMap(xdcPortConstraints).toList
 
   def contents: String =
     s"""|${xdcDesignConstraints.mkString("\n")}

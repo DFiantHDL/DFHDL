@@ -76,9 +76,6 @@ class GowinDesignerProjectTclConfigPrinter(using
   val targetLanguage: String = co.backend match
     case _: backends.verilog => "verilog"
     case _: backends.vhdl    => "vhdl"
-  val topIOs = designDB.top.members(MemberView.Folded).collect {
-    case dcl @ DclPort() => dcl
-  }
   val (part, deviceVersion): (String, String) =
     getSet.designDB.top.dclMeta.annotations.collectFirst {
       case annotation: constraints.DeviceID => (annotation.partName, annotation.deviceVersion)
@@ -102,7 +99,7 @@ class GowinDesignerProjectTclConfigPrinter(using
       path.forceWindowsToLinuxPath
   }
   def activeDualPurposeGroups: List[String] =
-    topIOs.view.flatMap(_.meta.annotations.collect {
+    designDB.topIOs.view.flatMap(_.meta.annotations.collect {
       case constraint: constraints.IO =>
         constraint.dualPurposeGroups.toList.flatMap(_.split("/"))
     }).flatten.toList.distinct
@@ -131,9 +128,6 @@ class GowinDesignerProjectPhysicalConstraintsPrinter(using
   val designDB: DB = getSet.designDB
   val topName: String = getSet.topName
   val constraintsFileName: String = s"$topName.cst"
-  val topIOs = designDB.top.members(MemberView.Folded).collect {
-    case dcl @ DclPort() => dcl
-  }
 
   def cst_get_ports(port: DFVal.Dcl, constraint: constraints.SigConstraint): String =
     val portName = port.getName
@@ -191,7 +185,7 @@ class GowinDesignerProjectPhysicalConstraintsPrinter(using
   end cstPortConstraints
 
   def cstPortConstraints: List[String] =
-    topIOs.view.flatMap(cstPortConstraints).toList
+    designDB.topIOs.view.flatMap(cstPortConstraints).toList
 
   def contents: String =
     s"""|${cstPortConstraints.mkString("\n")}
@@ -210,9 +204,6 @@ class GowinDesignerProjectTimingConstraintsPrinter(using getSet: MemberGetSet, c
   val designDB: DB = getSet.designDB
   val topName: String = getSet.topName
   val constraintsFileName: String = s"$topName.sdc"
-  val topIOs = designDB.top.members(MemberView.Folded).collect {
-    case dcl @ DclPort() => dcl
-  }
 
   def sdc_get_ports(port: DFVal.Dcl, constraint: constraints.SigConstraint): String =
     val portName = port.getName
@@ -272,7 +263,7 @@ class GowinDesignerProjectTimingConstraintsPrinter(using getSet: MemberGetSet, c
   end sdcPortConstraints
 
   def sdcPortConstraints: List[String] =
-    topIOs.view.flatMap(sdcPortConstraints).toList
+    designDB.topIOs.view.flatMap(sdcPortConstraints).toList
 
   def contents: String =
     s"""|${sdcPortConstraints.mkString("\n")}

@@ -47,6 +47,10 @@ final case class DB(
         design -> dcls.map(m => m.getRelativeName(design) -> m).toMap
       }.toMap
 
+  lazy val topIOs: List[DFVal.Dcl] = designMemberTable(top).collect {
+    case dcl: DFVal.Dcl if dcl.isPort => dcl
+  }
+
   // map of all ports and their by-name selectors
   lazy val portsByNameSelectors: Map[DFVal.Dcl, List[DFVal.PortByNameSelect]] =
     members.view
