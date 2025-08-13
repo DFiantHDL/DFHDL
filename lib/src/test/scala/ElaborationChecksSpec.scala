@@ -267,4 +267,61 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |Message:   Found a latch variable `y`. Latches are not allowed under RT domains.""".stripMargin
     )
+  test("missing port location check"):
+    object Test:
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @top(false) class Top extends RTDesign:
+        @io(loc = "locx")
+        val x = Bit <> IN
+        val y = Bit <> OUT
+        @io(bitIdx = 0, loc = "locz0")
+        @io(bitIdx = 1, loc = "locz1")
+        @io(bitIdx = 2, loc = "locz2")
+        @io(bitIdx = 3, loc = "locz3")
+        @io(bitIdx = 14, loc = "locz14")
+        @io(bitIdx = 15, loc = "locz15")
+        val z = Bits(16) <> OUT
+        z := all(0)
+        x <> y
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |The following top ports are missing location constraints:
+          |  Top.y
+          |  Top.z with bits 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+          |To Fix:
+          |Add a location constraint to the ports by connecting them to a located resource or
+          |by using the `@io` constraint.""".stripMargin
+    )
+  test("location collision check"):
+    object Test:
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @top(false) class Top extends RTDesign:
+        @io(loc = "locx")
+        val x = Bit <> IN
+        @io(loc = "locz1")
+        val y = Bit <> OUT
+        @io(bitIdx = 0, loc = "locz0")
+        @io(bitIdx = 1, loc = "locz1")
+        @io(bitIdx = 2, loc = "locz2")
+        @io(bitIdx = 3, loc = "locz3")
+        val z = Bits(4) <> OUT
+        @io(loc = "locw")
+        val w = Bits(2) <> IN
+        z := all(0)
+        x <> y
+      end Top
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |The following location constraints have collisions:
+          |  Top.y and Top.z(1) are both assigned to location `locz1`
+          |  Top.w has mutliple bits assigned to location `locw`
+          |To Fix:
+          |Ensure each location is used by a single port bit.""".stripMargin
+    )
 end ElaborationChecksSpec

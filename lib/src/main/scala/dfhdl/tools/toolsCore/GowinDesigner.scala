@@ -77,7 +77,7 @@ class GowinDesignerProjectTclConfigPrinter(using
     case _: backends.verilog => "verilog"
     case _: backends.vhdl    => "vhdl"
   val (part, deviceVersion): (String, String) =
-    getSet.designDB.top.dclMeta.annotations.collectFirst {
+    designDB.top.dclMeta.annotations.collectFirst {
       case annotation: constraints.DeviceID => (annotation.partName, annotation.deviceVersion)
     }.getOrElse(throw new IllegalArgumentException("No device constraint found"))
   val std: String = co.backend match

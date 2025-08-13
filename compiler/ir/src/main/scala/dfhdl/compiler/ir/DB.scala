@@ -39,6 +39,12 @@ final case class DB(
     case _                            => true
   }
 
+  // considered to be in build if not in simulation and has a device constraint
+  lazy val inBuild: Boolean = !inSimulation && top.dclMeta.annotations.exists {
+    case _: constraints.DeviceID => true
+    case _                       => false
+  }
+
   lazy val portsByName: Map[DFDesignInst, Map[String, DFVal.Dcl]] =
     members.view
       .collect { case m: DFVal.Dcl if m.isPort => m }
@@ -998,6 +1004,62 @@ final case class DB(
       )
   end directRefCheck
 
+  def portLocationCheck(): Unit =
+    val errors = mutable.ListBuffer.empty[String]
+    val locationCollisions = mutable.ListBuffer.empty[String]
+
+    // Collect all location constraints to check for collisions
+    val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
+
+    topIOs.foreach(port =>
+      val bitSet = mutable.BitSet((0 until port.width)*)
+      port.meta.annotations.foreach {
+        case constraints.IO(bitIdx = None, loc = loc: String) =>
+          bitSet.clear()
+          locationMap.get(loc).foreach { prevPort =>
+            locationCollisions += s"${prevPort} and ${port.getFullName} are both assigned to location `${loc}`"
+          }
+          locationMap += loc -> port.getFullName
+          if (port.width != 1)
+            locationCollisions += s"${port.getFullName} has mutliple bits assigned to location `${loc}`"
+        case constraints.IO(bitIdx = bitIdx: Int, loc = loc: String) =>
+          locationMap.get(loc).foreach { prevPort =>
+            locationCollisions += s"${prevPort} and ${port.getFullName}(${bitIdx}) are both assigned to location `${loc}`"
+          }
+          locationMap += loc -> s"${port.getFullName}(${bitIdx})"
+          bitSet -= bitIdx
+        case _ =>
+      }
+      if (bitSet.nonEmpty)
+        if (port.width == 1)
+          errors += s"${port.getFullName}"
+        else
+          errors += s"${port.getFullName} with bits ${bitSet.mkString(", ")}"
+    )
+
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(
+        s"""|The following top ports are missing location constraints:
+            |  ${errors.mkString("\n  ")}
+            |To Fix:
+            |Add a location constraint to the ports by connecting them to a located resource or
+            |by using the `@io` constraint.
+            |""".stripMargin
+      )
+
+    if (locationCollisions.nonEmpty)
+      throw new IllegalArgumentException(
+        s"""|The following location constraints have collisions:
+            |  ${locationCollisions.mkString("\n  ")}
+            |To Fix:
+            |Ensure each location is used by a single port bit.
+            |""".stripMargin
+      )
+  end portLocationCheck
+
+  def buildTopChecks(): Unit =
+    portLocationCheck()
+
   def check(): Unit =
     nameCheck()
     connectionTable // causes connectivity checks
@@ -1006,6 +1068,8 @@ final case class DB(
     directRefCheck()
     circularDerivedDomainsCheck()
     waitCheck()
+    if (inBuild)
+      buildTopChecks()
 
   // There can only be a single connection to a value in a given range
   // (multiple assignments are possible)
