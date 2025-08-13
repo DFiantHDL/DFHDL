@@ -18,7 +18,7 @@ trait Resource extends ResourceContext:
     downstreamDeps += that
   // will always return at least this resource
   private lazy val allConnections: List[Resource] =
-    val visited = mutable.Set[Resource]()
+    val visited = mutable.Set[Resource](this)
     val result = mutable.ListBuffer[Resource]()
     def dfs(res: Resource): Unit =
       for (conn <- res.connections)
@@ -29,11 +29,30 @@ trait Resource extends ResourceContext:
     dfs(this)
     val res = result.distinct.toList
     res.foreach(checkConnection)
-    if (res.isEmpty) List(this) else res
+    res
   end allConnections
   protected def checkConnection(res: Resource): Unit = ()
   lazy val allSigConstraints: List[SigConstraint] =
-    (allConnections ++ downstreamDeps).flatMap(_.directAndOwnerSigConstraints).merge
+    val all = (this :: allConnections ++ downstreamDeps).flatMap(_.directAndOwnerSigConstraints)
+    try all.merge
+    catch
+      case e: Throwable =>
+        def details(res: Resource): Unit =
+          val constraints = res.directAndOwnerSigConstraints
+          if (constraints.nonEmpty)
+            println(s"  ${res.getFullId} with constraints:")
+            constraints.foreach(c => println(s"    ${c.toString}"))
+          else
+            println(s"  ${res.getFullId} with no constraints")
+        println("Current resource:")
+        details(this)
+        println(s"Downstream deps:")
+        downstreamDeps.foreach(details)
+        println(s"Connections:")
+        allConnections.foreach(details)
+        throw e
+    end try
+  end allSigConstraints
   owner.addResource(this)
 end Resource
 
