@@ -72,12 +72,13 @@ trait Design extends Container, HasClsMetaArgs:
       resourceOwner.getChildren.foreach(addUnusedPinPorts)
       resourceOwner.getResources.foreach {
         case pin: Pin if (!usedPinIDs.contains(pin.id)) =>
-          val hasUnusedPullMode = pin.allSigConstraints.exists {
-            case IO(unusedPullMode = unusedPullMode: IO.PullMode) => true
-            case _                                                => false
+          val unusedPullMode = pin.allSigConstraints.collectFirst {
+            case IO(unusedPullMode = unusedPullMode: IO.PullMode) => unusedPullMode
           }
-          if (hasUnusedPullMode)
-            addUnusedPinPort(pin.id, pin.allSigConstraints)
+          unusedPullMode.foreach(unusedPullMode =>
+            //                           setting the pull mode as the unused pull mode
+            addUnusedPinPort(pin.id, (IO(pullMode = unusedPullMode) :: pin.allSigConstraints).merge)
+          )
         case _ =>
       }
     dfc.mutableDB.ResourceOwnershipContext.getTopResourceOwners.foreach(addUnusedPinPorts)

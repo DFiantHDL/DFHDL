@@ -217,7 +217,7 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
       val pullModeStr = pullMode match
         case constraints.IO.PullMode.UP   => "PULLUP"
         case constraints.IO.PullMode.DOWN => "PULLDOWN"
-      addToDict("PULLMODE", pullModeStr)
+      addToDict("PULLTYPE", pullModeStr)
     }
 
     s"set_property -dict {$dict} ${xdc_get_ports(port, portConstraint)}"
