@@ -10,23 +10,11 @@ trait IO extends Resource:
     import dfc.getSet
     import dfhdl.compiler.analysis.DclPort
     that.asIR.departialDcl match
-      case Some(dcl @ DclPort(), range) if dcl.getOwnerDesign.isTop =>
-        val newSigConstraints =
-          if (range.length != dcl.width) this.allSigConstraints.flatMap { cs =>
-            for (i <- range) yield cs.updateBitIdx(i)
-          }
-          else this.allSigConstraints
-        val (existingSigConstraints, otherAnnotations) = dcl.meta.annotations.partition {
-          case cs: SigConstraint => true
-          case _                 => false
-        }.asInstanceOf[(List[SigConstraint], List[HWAnnotation])]
-        val updatedSigConstraints =
-          (existingSigConstraints ++ newSigConstraints).merge.consolidate(dcl.width)
-        val updatedAnnotations = updatedSigConstraints ++ otherAnnotations
-        dcl.setMeta(m => m.copy(annotations = updatedAnnotations))
+      case Some(dcl @ DclPort(), range) =>
+        dfc.mutableDB.ResourceOwnershipContext.connectResource(dcl, range, this)
       case _ =>
         throw new IllegalArgumentException(
-          "Cannot apply resource constraints to a non-top-level port value."
+          "Cannot connect resource to a non-port value."
         )
     end match
   end connect
