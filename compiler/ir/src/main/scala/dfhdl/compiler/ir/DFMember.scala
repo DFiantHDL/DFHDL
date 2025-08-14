@@ -231,7 +231,8 @@ object DFVal:
     summon[ReadWriter[DFVal.Const]],
     summon[ReadWriter[DFVal.DesignParam]],
     summon[ReadWriter[DFVal.Func]],
-    summon[ReadWriter[DFVal.PortByNameSelect]]
+    summon[ReadWriter[DFVal.PortByNameSelect]],
+    summon[ReadWriter[DFVal.NOTHING]]
   )
   final case class Modifier(dir: Modifier.Dir, special: Modifier.Special)
       derives CanEqual,
