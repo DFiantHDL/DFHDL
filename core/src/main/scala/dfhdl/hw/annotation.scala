@@ -100,11 +100,13 @@ object constraints:
       slewRate: ir.ConfigN[io.SlewRate] = None,
       driveStrength: ir.ConfigN[Int] = None,
       pullMode: ir.ConfigN[io.PullMode] = None,
-      dualPurposeGroups: ir.ConfigN[String] = None
+      dualPurposeGroups: ir.ConfigN[String] = None,
+      unusedPullMode: ir.ConfigN[io.PullMode] = None
   ) extends SigConstraint:
     val asIR: ir.constraints.IO =
       ir.constraints.IO(
-        bitIdx, loc, levelVolt, standard, slewRate, driveStrength, pullMode, dualPurposeGroups
+        bitIdx, loc, levelVolt, standard, slewRate, driveStrength, pullMode, dualPurposeGroups,
+        unusedPullMode
       )
   end io
   object io:

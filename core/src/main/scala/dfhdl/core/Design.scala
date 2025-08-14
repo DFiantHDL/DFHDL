@@ -42,11 +42,47 @@ trait Design extends Container, HasClsMetaArgs:
   private var hasStartedLate: Boolean = false
   final override def onCreateStartLate: Unit =
     hasStartedLate = true
+    import dfc.getSet
+    if (
+      dfc.owner.asIR.getThisOrOwnerDesign.dclMeta.annotations.exists(
+        _.isInstanceOf[ir.constraints.DeviceID]
+      )
+    )
+      handleResourceConstraints()
     dfc.exitOwner()
     dfc.enterLate()
   private[dfhdl] def skipChecks: Boolean = false
 
   def customTopChecks(): Unit = {}
+  private def handleResourceConstraints(): Unit =
+    import dfhdl.{<>, OUT, NOTHING}
+    import ir.constraints.{IO, SigConstraint}
+    import dfhdl.platforms.resources.*
+    import dfhdl.platforms.devices.Pin
+    def addUnusedPinPort(pinID: String, constraints: List[SigConstraint]): Unit =
+      val port =
+        DFBit.<>(OUT)(using dfc.setName(s"Pin_${pinID}_unused").setAnnotations(constraints))
+      port <> NOTHING(DFBit)(using dfc.anonymize)
+    val usedPinIDs: Set[String] =
+      dfc.mutableDB.ResourceOwnershipContext
+        .getConnectedResourceMap.values.flatten
+        .flatMap(_._2.allSigConstraints)
+        .collect { case IO(loc = pinID: String) => pinID }.toSet
+    def addUnusedPinPorts(resourceOwner: ResourceOwner): Unit =
+      resourceOwner.getChildren.foreach(addUnusedPinPorts)
+      resourceOwner.getResources.foreach {
+        case pin: Pin if (!usedPinIDs.contains(pin.id)) =>
+          val hasUnusedPullMode = pin.allSigConstraints.exists {
+            case IO(unusedPullMode = unusedPullMode: IO.PullMode) => true
+            case _                                                => false
+          }
+          if (hasUnusedPullMode)
+            addUnusedPinPort(pin.id, pin.allSigConstraints)
+        case _ =>
+      }
+    dfc.mutableDB.ResourceOwnershipContext.getTopResourceOwners.foreach(addUnusedPinPorts)
+  end handleResourceConstraints
+
   final override def onCreateEnd(thisOwner: Option[This]): Unit =
     if (hasStartedLate)
       dfc.exitLate()

@@ -316,6 +316,8 @@ final class MutableDB():
     private var topResourceOwners: List[ResourceOwner] = Nil
     private var stack: List[ResourceOwner] = Nil
     private val connectedResourceMap = mutable.Map.empty[DFVal.Dcl, List[(Range, Resource)]]
+    def getConnectedResourceMap: Map[DFVal.Dcl, List[(Range, Resource)]] =
+      connectedResourceMap.toMap
     def connectResource(dcl: DFVal.Dcl, range: Range, resource: Resource): Unit =
       connectedResourceMap.updateWith(dcl) {
         case Some(connections) => Some((range, resource) :: connections)

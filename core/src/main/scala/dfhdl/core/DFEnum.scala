@@ -51,7 +51,7 @@ object DFEncoding:
     final def encode(idx: Int): BigInt = bigIntValue
   end Manual
 
-  abstract class Toggle extends Default, ExplicitWidth[1]:
+  abstract class Toggle extends Default, ExplicitWidth[1] derives CanEqual:
     val width: 1 = 1
 
 end DFEncoding

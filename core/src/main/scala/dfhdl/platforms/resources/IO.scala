@@ -5,7 +5,6 @@ import dfhdl.core.*
 import dfhdl.compiler.ir.constraints.SigConstraint
 import dfhdl.compiler.ir.annotation.HWAnnotation
 trait IO extends Resource:
-  @dfhdl.internals.metaContextIgnore
   override protected[dfhdl] def connect(that: DFValAny)(using dfc: DFC): Unit =
     import dfc.getSet
     import dfhdl.compiler.analysis.DclPort
