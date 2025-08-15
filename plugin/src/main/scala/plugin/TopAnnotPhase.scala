@@ -119,9 +119,9 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                   def portCond(tpe: Type): Boolean =
                     if (tpe.typeSymbol == dfValSym)
                       tpe match
-                        // DFVal[_, Modifier[_, Port, _, _]]
-                        case AppliedType(_, _ :: AppliedType(_, _ :: c :: _) :: Nil) =>
-                          c <:< portModTpe
+                        // DFVal[_, Modifier[Port, _, _, _]]
+                        case AppliedType(_, _ :: AppliedType(_, a :: _) :: Nil) =>
+                          a <:< portModTpe
                         case _ => false
                     else false
                   val hasPorts = Literal(Constant(clsSym.hasNestedMemberCond(portCond)))

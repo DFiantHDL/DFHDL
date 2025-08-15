@@ -2,6 +2,7 @@ package dfhdl.core
 import dfhdl.compiler.ir.DFVal.Modifier as IRModifier
 import dfhdl.internals.*
 
+//A: Access, C: Connectivity, I: Initialization, P: Parameteric (Const or not)
 sealed class Modifier[+A, +C, +I, +P](val value: IRModifier):
   override def toString: String = value.toString
 
@@ -14,10 +15,13 @@ object Modifier:
   sealed trait Initializable
   sealed trait Initialized
   sealed trait Port
+  sealed trait PortIN extends Port
+  sealed trait PortOUT extends Port, Assignable
+  sealed trait PortINOUT extends PortIN, PortOUT
   type Mutable = Modifier[Assignable, Any, Any, dfhdl.core.NOTCONST]
   type Dcl = Modifier[Assignable, Connectable, Initializable, dfhdl.core.NOTCONST]
-  type DclPort[+A] = Modifier[A, Port & Connectable, Initializable, dfhdl.core.NOTCONST]
-  type DclREG[+C] = Modifier[AssignableREG, C, Initializable, dfhdl.core.NOTCONST]
+  type DclPort[+A] = Modifier[A, Connectable, Initializable, dfhdl.core.NOTCONST]
+  type DclREG[+A] = Modifier[AssignableREG & A, Connectable, Initializable, dfhdl.core.NOTCONST]
   type DclSHARED = Modifier[AssignableSHARED, Any, Initializable, dfhdl.core.NOTCONST]
   protected type RTDomainOnly[A] = AssertGiven[
     A <:< DomainType.RT,
@@ -32,11 +36,11 @@ object Modifier:
     inline def REG(using dt: DomainType)(using RTDomainOnly[dt.type]) = pREG
     protected object pSHARED extends DclSHARED(IRModifier(IRModifier.VAR, IRModifier.SHARED))
     inline def SHARED(using dt: DomainType)(using EDDomainOnly[dt.type]) = pSHARED
-  object IN extends DclPort[Any](IRModifier(IRModifier.IN, IRModifier.Ordinary))
-  object OUT extends DclPort[Assignable](IRModifier(IRModifier.OUT, IRModifier.Ordinary)):
-    protected object pREG extends DclREG[Port](IRModifier(IRModifier.OUT, IRModifier.REG))
+  object IN extends DclPort[PortIN](IRModifier(IRModifier.IN, IRModifier.Ordinary))
+  object OUT extends DclPort[PortOUT](IRModifier(IRModifier.OUT, IRModifier.Ordinary)):
+    protected object pREG extends DclREG[PortOUT](IRModifier(IRModifier.OUT, IRModifier.REG))
     inline def REG(using dt: DomainType)(using RTDomainOnly[dt.type]) = pREG
-  object INOUT extends Dcl(IRModifier(IRModifier.INOUT, IRModifier.Ordinary))
+  object INOUT extends DclPort[PortINOUT](IRModifier(IRModifier.INOUT, IRModifier.Ordinary))
   type CONST = Modifier[Any, Any, Any, dfhdl.core.CONST]
   extension (modifier: ModifierAny) def asIR: IRModifier = modifier.value
 end Modifier
