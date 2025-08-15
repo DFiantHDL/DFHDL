@@ -7,4 +7,4 @@ enum Button extends Encoded.Toggle:
 
 object Button:
   @io(standard = io.Standard.LVCMOS)
-  class Resource(val activeState: Button = Button.Pressed) extends ToggleIO
+  class Resource(val activeState: Button = Button.Pressed) extends ToggleIO[Button]

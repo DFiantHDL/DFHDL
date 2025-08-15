@@ -278,6 +278,15 @@ object OptionalGiven extends OptionalGivenLP:
   given fromValue[T](using t: T): OptionalGiven[T] with
     val value: Option[T] = Some(t)
 
+trait GivenOrError[T, Msg <: String]:
+  val value: T
+protected trait GivenOrErrorLP:
+  inline given [T, Msg <: String](using ValueOf[Msg]): GivenOrError[T, Msg] =
+    compiletime.error(valueOf[Msg])
+object GivenOrError extends GivenOrErrorLP:
+  given fromValue[T, Msg <: String](using t: T): GivenOrError[T, Msg] with
+    val value: T = t
+
 trait IsGiven[T]:
   type Out <: Boolean
   val value: Out

@@ -1041,13 +1041,16 @@ object DFVal extends DFValLP:
     export DFTuple.Val.TCConv.given
     export DFVector.Val.TCConv.given
 
-  trait TC_Or_OPEN_Or_Resource[T <: DFTypeAny, R] extends TC[T, R]
+  trait TC_Or_OPEN_Or_Resource[T <: DFTypeAny, R] extends TC[T, R]:
+    def connect(dfVal: DFValOf[T], that: R)(using DFC): Unit
   object TC_Or_OPEN_Or_Resource:
     type Exact[T <: DFTypeAny] =
       Exact1[DFTypeAny, T, [t <: DFTypeAny] =>> t, DFC, TC_Or_OPEN_Or_Resource]
     given fromOPEN[T <: DFTypeAny]: TC_Or_OPEN_Or_Resource[T, OPEN] with
       type OutP = NOTCONST
       def conv(dfType: T, from: OPEN)(using DFC): Out = DFVal.OPEN(dfType)
+      def connect(dfVal: DFValOf[T], that: OPEN)(using DFC): Unit =
+        dfVal.connect(conv(dfVal.dfType, that))
     given fromTC[
         T <: DFTypeAny,
         R,
@@ -1055,11 +1058,15 @@ object DFVal extends DFValLP:
     ](using tc: TC): TC_Or_OPEN_Or_Resource[T, R] with
       type OutP = tc.OutP
       def conv(dfType: T, from: R)(using DFC): Out = tc(dfType, from)
+      def connect(dfVal: DFValOf[T], that: R)(using DFC): Unit =
+        dfVal.connect(conv(dfVal.dfType, that))
     given fromResource[T <: DFTypeAny, R <: Resource](using
-        Resource.CanConnect[R, DFValOf[T]] // just type checking
+        cc: Resource.CanConnect[R, DFValOf[T]]
     ): TC_Or_OPEN_Or_Resource[T, R] with
       type OutP = NOTCONST
       def conv(dfType: T, from: R)(using DFC): Out = ???
+      def connect(dfVal: DFValOf[T], that: R)(using DFC): Unit =
+        cc.connect(that, dfVal)
   end TC_Or_OPEN_Or_Resource
 
   trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCCommon[T, V, DFValAny]:
@@ -1443,9 +1450,7 @@ object DFPortOps:
     ): ConnectPlaceholder =
       given CTName = CTName("<>")
       trydf {
-        rhs.exactFrom match
-          case resource: Resource => resource.connect(dfPort)
-          case _                  => dfPort.connect(rhs(dfPort.dfType))
+        rhs.tc.connect(dfPort, rhs.exactFrom)
       }
       ConnectPlaceholder
   end extension

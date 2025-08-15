@@ -186,7 +186,8 @@ object constraints:
       driveStrength: ConfigN[Int] = None,
       pullMode: ConfigN[IO.PullMode] = None,
       dualPurposeGroups: ConfigN[String] = None,
-      unusedPullMode: ConfigN[IO.PullMode] = None
+      unusedPullMode: ConfigN[IO.PullMode] = None,
+      invertActiveState: ConfigN[Boolean] = None
   ) extends SigConstraint derives CanEqual, ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
@@ -204,7 +205,8 @@ object constraints:
               driveStrength = driveStrength.merge(that.driveStrength),
               pullMode = pullMode.merge(that.pullMode),
               dualPurposeGroups = dualPurposeGroups.merge(that.dualPurposeGroups),
-              unusedPullMode = unusedPullMode.merge(that.unusedPullMode)
+              unusedPullMode = unusedPullMode.merge(that.unusedPullMode),
+              invertActiveState = invertActiveState.merge(that.invertActiveState)
             )
           )
         case _ => None
@@ -220,7 +222,8 @@ object constraints:
         csParam("driveStrength", driveStrength),
         csParam("pullMode", pullMode),
         csParam("dualPurposeGroups", dualPurposeGroups),
-        csParam("unusedPullMode", unusedPullMode)
+        csParam("unusedPullMode", unusedPullMode),
+        csParam("invertActiveState", invertActiveState)
       ).filter(_.nonEmpty).mkString(", ")
       s"""@io($params)"""
     end codeString

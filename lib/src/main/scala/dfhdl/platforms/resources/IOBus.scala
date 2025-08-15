@@ -9,16 +9,9 @@ import Resource.CanConnect
 class IOBus[T <: IO, L <: Int] private (val ios: List[T]) extends ResourceDeps:
   def apply(i: Int): T = ios(i)
   lazy val upstreamDeps: List[Resource] = ios
-  @dfhdl.internals.metaContextIgnore
-  override protected[dfhdl] def connect(that: DFValAny)(using dfc: DFC): Unit =
-    import dfc.getSet
-    assert(ios.length == that.asIR.width, "Width mismatch")
-    for (i <- 0 until ios.length)
-      ios(i).connect(that.bits(i))
-  end connect
 object IOBus:
-  def fill[L <: Int & Singleton](length: L)(f: => IO)(using dfc: DFC): IOBus[IO, L] =
-    forced[IO, L](List.tabulate(length)(i => f.injectID(s"${dfc.getMeta.name}($i)")))
+  def fill[T <: IO, L <: Int & Singleton](length: L)(f: => T)(using dfc: DFC): IOBus[T, L] =
+    forced[T, L](List.tabulate(length)(i => f.injectID(s"${dfc.getMeta.name}($i)")))
   private def forced[T <: IO, L <: Int](ios: List[T])(using DFC): IOBus[T, L] =
     new IOBus[T, L](ios.toList)
   transparent inline def apply[T <: IO](inline ios: T*): IOBus[T, ?] = ${ applyMacro[T]('ios) }
@@ -42,6 +35,9 @@ object IOBus:
       dfc: DFC,
       wT: Width[T]
   )(using
-      check: AssertGiven[RL =:= wT.OutI, "Width mismatch"]
-  ): CanConnect[R, V] = (resource: R, dfVal: V) => resource.connect(dfVal)
+      check: AssertGiven[RL =:= wT.OutI, "Width mismatch"],
+      cc: CanConnect[RT, DFValOf[DFBit]]
+  ): CanConnect[R, V] = (resource: R, dfVal: V) =>
+    for (i <- 0 until resource.ios.length)
+      cc.connect(resource.ios(i), dfVal.bits(i))
 end IOBus
