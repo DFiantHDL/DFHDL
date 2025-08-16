@@ -1,0 +1,3 @@
+[submodule "platforms"]
+	path = platforms
+	url = https://github.com/DFiantHDL/dfhdl-platforms
