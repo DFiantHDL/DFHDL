@@ -73,7 +73,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         val docOptTree = mkOptionString(docOpt)
         // the compiler does not transform the annotations, so we need to do it here.
         // See: https://github.com/scala/scala3/issues/23650
-        val annotTree = mkList(annotations.map(a => transformAllDeep(a.tree)))
+        // Also, we revesrse the annotations since for some reason the compiler reverses the order of the annotations.
+        val annotTree = mkList(annotations.map(a => transformAllDeep(a.tree)).reverse)
         tree
           .select(setMetaSym)
           .appliedToArgs(
