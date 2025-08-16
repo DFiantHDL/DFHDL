@@ -4,24 +4,16 @@ import dfhdl.hw.constraints.io
 
 enum SwitchUD extends Encoded.Toggle:
   case Down, Up
-object SwitchUD:
-  @io(standard = io.Standard.LVCMOS)
-  class Resource(val activeState: SwitchUD = SwitchUD.Up) extends ToggleIO[SwitchUD]
+object SwitchUD extends ToggleIOComp[SwitchUD](SwitchUD.Up, io.Standard.LVCMOS)
 
 enum SwitchRL extends Encoded.Toggle:
   case Left, Right
-object SwitchRL:
-  @io(standard = io.Standard.LVCMOS)
-  class Resource(val activeState: SwitchRL = SwitchRL.Right) extends ToggleIO[SwitchRL]
+object SwitchRL extends ToggleIOComp[SwitchRL](SwitchRL.Right, io.Standard.LVCMOS)
 
 enum SwitchNS extends Encoded.Toggle:
   case South, North
-object SwitchNS:
-  @io(standard = io.Standard.LVCMOS)
-  class Resource(val activeState: SwitchNS = SwitchNS.North) extends ToggleIO[SwitchNS]
+object SwitchNS extends ToggleIOComp[SwitchNS](SwitchNS.North, io.Standard.LVCMOS)
 
 enum SwitchEW extends Encoded.Toggle:
   case West, East
-object SwitchEW:
-  @io(standard = io.Standard.LVCMOS)
-  class Resource(val activeState: SwitchEW = SwitchEW.East) extends ToggleIO[SwitchEW]
+object SwitchEW extends ToggleIOComp[SwitchEW](SwitchEW.East, io.Standard.LVCMOS)

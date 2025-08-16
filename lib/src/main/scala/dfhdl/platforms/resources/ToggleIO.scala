@@ -3,7 +3,7 @@ import dfhdl.Encoded.Toggle
 import dfhdl.core.*
 import Resource.CanConnect
 import dfhdl.internals.*
-import dfhdl.compiler.ir.constraints
+import dfhdl.compiler.ir.{constraints, ConfigN}
 
 trait ToggleIO[T <: Toggle] extends IO:
   val activeState: T
@@ -24,6 +24,15 @@ object ToggleIO:
       resource.activeState != expectedActiveState.value
     )).connect(dfVal)
 end ToggleIO
+
+abstract class ToggleIOComp[T <: Toggle](
+    defaultActiveState: T,
+    standard: ConfigN[constraints.IO.Standard] = None
+):
+  class Resource private[ToggleIOComp] (val activeState: T = defaultActiveState)
+      extends ToggleIO[T]:
+    injectConstraint(constraints.IO(standard = standard))
+  def apply(activeState: T = defaultActiveState)(using DFC): Resource = new Resource(activeState)
 
 opaque type ExpectedActiveState[T <: Toggle] <: T = T
 object ExpectedActiveState:
