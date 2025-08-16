@@ -10,6 +10,8 @@ object ConfigN:
   given [T1, T2](using CanEqual[T1, T2]): CanEqual[ConfigN[T1], ConfigN[T2]] = CanEqual.derived
   given [T]: CanEqual[ConfigN[T], None.type] = CanEqual.derived
   given [T]: CanEqual[None.type, ConfigN[T]] = CanEqual.derived
+  given [T]: CanEqual[ConfigN[T], T] = CanEqual.derived
+  given [T]: CanEqual[T, ConfigN[T]] = CanEqual.derived
   given [L, R]: CanEqual[ConfigN[L], ConfigN[R]] = CanEqual.derived
   given [T](using ReadWriter[T]): ReadWriter[ConfigN[T]] = readwriter[ujson.Value].bimap(
     value =>
