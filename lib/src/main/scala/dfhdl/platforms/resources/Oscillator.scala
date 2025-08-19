@@ -7,4 +7,4 @@ import dfhdl.compiler.ir.constraints.Timing
 class Oscillator(val rate: Rate) extends IO:
   injectConstraint(Timing.Clock(rate))
 object Oscillator:
-  given [O <: Oscillator, C <: (Clk <> VAL)]: CanConnect[O, C] = (o, c) => o.connect(c)
+  given [O <: Oscillator, C <: (Clk <> VAL)](using DFC): CanConnect[O, C] = (o, c) => o.connect(c)
