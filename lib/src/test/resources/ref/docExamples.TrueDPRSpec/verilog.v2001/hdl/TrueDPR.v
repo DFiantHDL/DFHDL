@@ -6,16 +6,16 @@ module TrueDPR#(
     parameter integer DATA_WIDTH = 8,
     parameter integer ADDR_WIDTH = 8
 )(
-  input  wire                     a_clk,
-  input  wire  [DATA_WIDTH - 1:0] a_data,
-  input  wire  [ADDR_WIDTH - 1:0] a_addr,
-  output reg [DATA_WIDTH - 1:0]   a_q,
-  input  wire                     a_we,
-  input  wire                     b_clk,
-  input  wire  [DATA_WIDTH - 1:0] b_data,
-  input  wire  [ADDR_WIDTH - 1:0] b_addr,
-  output reg [DATA_WIDTH - 1:0]   b_q,
-  input  wire                     b_we
+  input  wire                    a_clk,
+  input  wire [DATA_WIDTH - 1:0] a_data,
+  input  wire [ADDR_WIDTH - 1:0] a_addr,
+  output reg [DATA_WIDTH - 1:0]  a_q,
+  input  wire                    a_we,
+  input  wire                    b_clk,
+  input  wire [DATA_WIDTH - 1:0] b_data,
+  input  wire [ADDR_WIDTH - 1:0] b_addr,
+  output reg [DATA_WIDTH - 1:0]  b_q,
+  input  wire                    b_we
 );
   `include "dfhdl_defs.vh"
   `include "TrueDPR_defs.vh"

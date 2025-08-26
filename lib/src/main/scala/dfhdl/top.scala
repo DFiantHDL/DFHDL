@@ -9,5 +9,7 @@ final case class top(genMain: Boolean = true)(using
     val printerOptions: dfhdl.options.PrinterOptions.Defaults[annot.Out],
     val linterOptions: dfhdl.options.LinterOptions.Defaults[annot.Out],
     val simulatorOptions: dfhdl.options.SimulatorOptions.Defaults[annot.Out],
-    val appOptions: dfhdl.options.AppOptions.Defaults[annot.Out]
+    val appOptions: dfhdl.options.AppOptions.Defaults[annot.Out],
+    val builderOptions: dfhdl.options.BuilderOptions.Defaults[annot.Out],
+    val programmerOptions: dfhdl.options.ProgrammerOptions.Defaults[annot.Out]
 ) extends scala.annotation.StaticAnnotation

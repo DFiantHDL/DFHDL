@@ -865,15 +865,22 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   // skipping trivial tuple match replacement that should cause the match
   // to be discarded by scalac. one example is a foldLeft (see relevant under DFMatchSpec).
   private def skipTrivialTupleMatch(tree: Match)(using Context): Boolean =
-    if (tree.selector.tpe <:< defn.TupleTypeRef) tree.cases match
-      case CaseDef(UnApply(_, _, patterns), guard, _) :: Nil if guard.isEmpty =>
+    object SkipPatterns:
+      def unapply(patterns: List[Tree])(using Context): Boolean =
         patterns.forall {
           case Ident(_)          => true
           case Bind(_, Ident(_)) => true
           case _                 => false
         }
-      case _ => false
+    end SkipPatterns
+    if (tree.selector.tpe <:< defn.TupleTypeRef)
+      tree.cases match
+        case CaseDef(Bind(_, UnApply(_, _, SkipPatterns())), guard, _) :: Nil if guard.isEmpty =>
+          true
+        case CaseDef(UnApply(_, _, SkipPatterns()), guard, _) :: Nil if guard.isEmpty => true
+        case _                                                                        => false
     else false
+  end skipTrivialTupleMatch
 
   extension (tree: Match)
     def isExtractor(using Context): Boolean =

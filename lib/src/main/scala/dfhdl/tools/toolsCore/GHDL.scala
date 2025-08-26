@@ -31,7 +31,8 @@ object GHDL extends VHDLLinter, VHDLSimulator:
 
   override protected[dfhdl] def producedFiles(using
       getSet: MemberGetSet,
-      co: CompilerOptions
+      co: CompilerOptions,
+      so: SimulatorOptions
   ): List[String] =
     val workFile = co.backend.asInstanceOf[backends.vhdl].dialect match
       case VHDLDialect.v93   => "work-obj93.cf"

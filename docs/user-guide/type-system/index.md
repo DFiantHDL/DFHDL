@@ -1056,7 +1056,7 @@ import dfhdl.*
 //print the code after elaboration
 given options.ElaborationOptions.PrintDFHDLCode = true
 //set mode to elaborate only
-given options.AppOptions.DefaultMode = options.AppOptions.DefaultMode.elaborate
+given options.AppOptions.AppMode = options.AppOptions.AppMode.elaborate
 
 @top class Foo extends DFDesign:
   val i4 = Bits(4) <> IN

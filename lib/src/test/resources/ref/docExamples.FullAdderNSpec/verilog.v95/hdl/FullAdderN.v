@@ -11,11 +11,11 @@ module FullAdderN(
 );
   `include "dfhdl_defs.vh"
   `include "FullAdderN_defs.vh"
-  input  wire  [3:0] a;
-  input  wire  [3:0] b;
-  input  wire        c_in;
-  output wire [3:0]  sum;
-  output wire        c_out;
+  input  wire [3:0] a;
+  input  wire [3:0] b;
+  input  wire       c_in;
+  output wire [3:0] sum;
+  output wire       c_out;
   wire   adder_0_a;
   wire   adder_0_b;
   wire   adder_0_c_in;

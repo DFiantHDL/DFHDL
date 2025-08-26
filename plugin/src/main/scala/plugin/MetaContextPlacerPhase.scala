@@ -43,6 +43,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   var dfSpecTpe: Type = uninitialized
   var hasClsMetaArgsTpe: TypeRef = uninitialized
   var clsMetaArgsTpe: TypeRef = uninitialized
+  var designTpe: TypeRef = uninitialized
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
   var noTopAnnotIsRequired: TypeRef = uninitialized
@@ -135,7 +136,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
         val clsTpe = tree.tpe
         val clsSym = clsTpe.classSymbol.asClass
 
-        if (clsTpe <:< hasClsMetaArgsTpe && !clsSym.isAnonymousClass)
+        if (clsTpe <:< hasClsMetaArgsTpe && !clsSym.isAnonymousClass && !clsSym.flags.is(Trait))
           val paramBody = template.body.takeWhile {
             case x: TypeDef                 => true
             case x: ValDef if x.rhs.isEmpty => true
@@ -143,12 +144,12 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           }
           val nonParamBody = template.body.drop(paramBody.length)
           val (updatedBody, designParamGenValDefs) = dfcArgOpt match
-            case Some(dfcTree) =>
+            case Some(dfcTree) if clsTpe <:< designTpe =>
               val defaults = defaultParamMap.getOrElse(clsSym, Map.empty)
               genDesignBodyParams(nonParamBody, paramBody, defaults, dfcTree)(using
                 ctx.withOwner(clsSym.primaryConstructor)
               )
-            case None => (nonParamBody, Nil)
+            case _ => (nonParamBody, Nil)
           // TODO: The override does not seem to be actually used by the runtime,
           // probably because it's selected during the typer stage and needs to be
           // changed somehow to reference the new overridden tree symbol.
@@ -298,6 +299,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     dfSpecTpe = requiredClassRef("dfhdl.DFSpec")
     hasClsMetaArgsTpe = requiredClassRef("dfhdl.internals.HasClsMetaArgs")
     clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
+    designTpe = requiredClassRef("dfhdl.core.Design")
     topAnnotSym = requiredClass("dfhdl.top")
     appTpe = requiredClassRef("dfhdl.app.DFApp")
     noTopAnnotIsRequired = requiredClassRef("dfhdl.internals.NoTopAnnotIsRequired")

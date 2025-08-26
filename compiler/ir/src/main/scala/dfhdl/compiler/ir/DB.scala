@@ -39,6 +39,12 @@ final case class DB(
     case _                            => true
   }
 
+  // considered to be in build if not in simulation and has a device constraint
+  lazy val inBuild: Boolean = !inSimulation && top.dclMeta.annotations.exists {
+    case _: constraints.DeviceID => true
+    case _                       => false
+  }
+
   lazy val portsByName: Map[DFDesignInst, Map[String, DFVal.Dcl]] =
     members.view
       .collect { case m: DFVal.Dcl if m.isPort => m }
@@ -46,6 +52,10 @@ final case class DB(
       .map { case (design, dcls) =>
         design -> dcls.map(m => m.getRelativeName(design) -> m).toMap
       }.toMap
+
+  lazy val topIOs: List[DFVal.Dcl] = designMemberTable(top).collect {
+    case dcl: DFVal.Dcl if dcl.isPort => dcl
+  }
 
   // map of all ports and their by-name selectors
   lazy val portsByNameSelectors: Map[DFVal.Dcl, List[DFVal.PortByNameSelect]] =
@@ -81,7 +91,7 @@ final case class DB(
       origMember.getRefs.foreach {
         case _: DFRef.Empty                     =>
         case _: DFRef.TypeRef if excludeTypeRef =>
-        case r =>
+        case r                                  =>
           tbl.updateWith(
             refTable.getOrElse(
               r,
@@ -275,7 +285,7 @@ final case class DB(
         ): (DFConditional.Header, List[DFConditional.Block]) =
           handled += block
           block.prevBlockOrHeaderRef.get match
-            case header: DFConditional.Header => (header, block :: chain)
+            case header: DFConditional.Header   => (header, block :: chain)
             case prevBlock: DFConditional.Block =>
               getChain(prevBlock, block :: chain)
         chainMap + getChain(m, Nil)
@@ -391,14 +401,14 @@ final case class DB(
         val toValOption = (lhsAccess, rhsAccess) match
           case (Write, Read | ReadWrite | Unknown) => Some(lhsVal)
           case (Read | ReadWrite | Unknown, Write) => Some(rhsVal)
-          case (Read, Read) =>
+          case (Read, Read)                        =>
             newError("Unsupported read-to-read connection.")
             None
           case (Write, Write) =>
             newError("Unsupported write-to-write connection.")
             None
-          case (_, Read) => Some(lhsVal)
-          case (Read, _) => Some(rhsVal)
+          case (_, Read)  => Some(lhsVal)
+          case (Read, _)  => Some(rhsVal)
           case (Error, _) =>
             newError(s"Unknown access pattern with ${lhsVal.relValString}.")
             None
@@ -834,25 +844,24 @@ final case class DB(
                       |Message:   $msg""".stripMargin
       val ownerDomain = wait.getOwnerDomain
       trigger.getConstData match
-        case Some((waitValue: BigDecimal, waitUnit: DFTime.Unit)) =>
+        case Some(waitTime: TimeNumber) =>
           // Check if the wait statement is in a domain with a clock rate configuration
           explicitRTDomainCfgMap.get(ownerDomain) match
             case Some(RTDomainCfg.Explicit(_, clkCfg: ClkCfg.Explicit, _)) =>
+
               // Get the clock period in picoseconds
-              val (clockPeriodPs: BigDecimal, desc: String) = clkCfg.rate match
-                case (value: BigDecimal, unit: DFTime.Unit) =>
-                  // Direct period specification
-                  (unit.to_ps(value), s"period ${value}.${unit}")
-                case (value: BigDecimal, unit: DFFreq.Unit) =>
-                  // Frequency specification - convert to period
-                  (unit.to_ps(value), s"frequency ${value}.${unit}")
+              val clockPeriodPs = clkCfg.rate.to_ps.value
+              val desc = clkCfg.rate match
+                case time: TimeNumber => s"period ${time}"
+                case freq: FreqNumber => s"frequency ${freq}"
+
               // Get wait duration in picoseconds
-              val waitDurationPs = waitUnit.to_ps(waitValue)
+              val waitDurationPs = waitTime.to_ps.value
 
               // Check if wait duration is exactly divisible by clock period
               if (waitDurationPs % clockPeriodPs != 0)
                 waitError(
-                  s"Wait duration ${waitValue}.${waitUnit} is not exactly divisible by the clock $desc."
+                  s"Wait duration ${waitTime} is not exactly divisible by the clock $desc."
                 )
             case _ =>
               waitError(
@@ -941,7 +950,7 @@ final case class DB(
     val problemReferences: List[(DFMember, DFMember)] =
       membersNoGlobals.view.drop(1).flatMap {
         case _: PortByNameSelect => None
-        case m =>
+        case m                   =>
           val isDesignParam = m match
             case _: DFVal.DesignParam => true
             case _                    => false
@@ -995,6 +1004,62 @@ final case class DB(
       )
   end directRefCheck
 
+  def portLocationCheck(): Unit =
+    val errors = mutable.ListBuffer.empty[String]
+    val locationCollisions = mutable.ListBuffer.empty[String]
+
+    // Collect all location constraints to check for collisions
+    val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
+
+    topIOs.foreach(port =>
+      val bitSet = mutable.BitSet((0 until port.width)*)
+      port.meta.annotations.foreach {
+        case constraints.IO(bitIdx = None, loc = loc: String) =>
+          bitSet.clear()
+          locationMap.get(loc).foreach { prevPort =>
+            locationCollisions += s"${prevPort} and ${port.getFullName} are both assigned to location `${loc}`"
+          }
+          locationMap += loc -> port.getFullName
+          if (port.width != 1)
+            locationCollisions += s"${port.getFullName} has mutliple bits assigned to location `${loc}`"
+        case constraints.IO(bitIdx = bitIdx: Int, loc = loc: String) =>
+          locationMap.get(loc).foreach { prevPort =>
+            locationCollisions += s"${prevPort} and ${port.getFullName}(${bitIdx}) are both assigned to location `${loc}`"
+          }
+          locationMap += loc -> s"${port.getFullName}(${bitIdx})"
+          bitSet -= bitIdx
+        case _ =>
+      }
+      if (bitSet.nonEmpty)
+        if (port.width == 1)
+          errors += s"${port.getFullName}"
+        else
+          errors += s"${port.getFullName} with bits ${bitSet.mkString(", ")}"
+    )
+
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(
+        s"""|The following top ports are missing location constraints:
+            |  ${errors.mkString("\n  ")}
+            |To Fix:
+            |Add a location constraint to the ports by connecting them to a located resource or
+            |by using the `@io` constraint.
+            |""".stripMargin
+      )
+
+    if (locationCollisions.nonEmpty)
+      throw new IllegalArgumentException(
+        s"""|The following location constraints have collisions:
+            |  ${locationCollisions.mkString("\n  ")}
+            |To Fix:
+            |Ensure each location is used by a single port bit.
+            |""".stripMargin
+      )
+  end portLocationCheck
+
+  def buildTopChecks(): Unit =
+    portLocationCheck()
+
   def check(): Unit =
     nameCheck()
     connectionTable // causes connectivity checks
@@ -1003,6 +1068,8 @@ final case class DB(
     directRefCheck()
     circularDerivedDomainsCheck()
     waitCheck()
+    if (inBuild)
+      buildTopChecks()
 
   // There can only be a single connection to a value in a given range
   // (multiple assignments are possible)
@@ -1056,5 +1123,6 @@ trait MemberGetSet:
   def remove[M <: DFMember](member: M): M
   def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit
   def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT]
+  final lazy val topName: String = designDB.top.dclName
 
 def getSet(using MemberGetSet): MemberGetSet = summon[MemberGetSet]

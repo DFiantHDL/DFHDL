@@ -16,14 +16,14 @@ module RegFile(
   `include "RegFile_defs.vh"
   parameter integer DATA_WIDTH = 32;
   parameter integer REG_NUM = 32;
-  input  wire                         clk;
-  input  wire  [clog2(REG_NUM) - 1:0] rs1_addr;
-  output reg [DATA_WIDTH - 1:0]       rs1_data;
-  input  wire  [clog2(REG_NUM) - 1:0] rs2_addr;
-  output reg [DATA_WIDTH - 1:0]       rs2_data;
-  input  wire  [clog2(REG_NUM) - 1:0] rd_addr;
-  input  wire  [DATA_WIDTH - 1:0]     rd_data;
-  input  wire                         rd_wren;
+  input  wire                        clk;
+  input  wire [clog2(REG_NUM) - 1:0] rs1_addr;
+  output reg [DATA_WIDTH - 1:0]      rs1_data;
+  input  wire [clog2(REG_NUM) - 1:0] rs2_addr;
+  output reg [DATA_WIDTH - 1:0]      rs2_data;
+  input  wire [clog2(REG_NUM) - 1:0] rd_addr;
+  input  wire [DATA_WIDTH - 1:0]     rd_data;
+  input  wire                        rd_wren;
   reg [DATA_WIDTH - 1:0] regs [0:REG_NUM - 1];
   always @(posedge clk)
   begin

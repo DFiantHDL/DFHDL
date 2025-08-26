@@ -12,6 +12,7 @@ import DFOpaque.Abstract as DFOpaqueA
 import dfhdl.compiler.ir.MemberGetSet
 import dfhdl.compiler.printing.{DefaultPrinter, Printer}
 import scala.annotation.tailrec
+import dfhdl.platforms.resources.Resource
 
 import scala.reflect.ClassTag
 final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
@@ -291,6 +292,16 @@ sealed protected trait DFValLP:
   ): Conversion[R, DFValOf[DFUnit]] = from => DFUnitVal().asInstanceOf[DFValOf[DFUnit]]
   given ConstToNonConstAccept[T <: DFTypeAny, P]: Conversion[DFValTP[T, P], DFValTP[T, NOTCONST]] =
     from => from.asValTP[T, NOTCONST]
+  given DFRateToRateNumber(using dfc: DFC): Conversion[DFConstOf[DFTime | DFFreq], ir.RateNumber] =
+    x =>
+      import dfc.getSet
+      x.asIR.getConstData.get.asInstanceOf[ir.RateNumber]
+  given DFRateToRateNumberConfigN(using
+      dfc: DFC
+  ): Conversion[DFConstOf[DFTime | DFFreq], ir.ConfigN[ir.RateNumber]] =
+    x =>
+      import dfc.getSet
+      x.asIR.getConstData.get.asInstanceOf[ir.ConfigN[ir.RateNumber]]
 end DFValLP
 object DFVal extends DFValLP:
   protected type FieldWithModifier[V, M <: ModifierAny] = V match
@@ -1030,15 +1041,33 @@ object DFVal extends DFValLP:
     export DFTuple.Val.TCConv.given
     export DFVector.Val.TCConv.given
 
-  trait TC_Or_OPEN[T <: DFTypeAny, R] extends TC[T, R]
-  object TC_Or_OPEN:
-    type Exact[T <: DFTypeAny] = Exact1[DFTypeAny, T, [t <: DFTypeAny] =>> t, DFC, TC_Or_OPEN]
-    given fromOPEN[T <: DFTypeAny]: TC_Or_OPEN[T, OPEN] with
+  trait TC_Or_OPEN_Or_Resource[T <: DFTypeAny, R] extends TC[T, R]:
+    def connect(dfVal: DFValOf[T], that: R)(using DFC): Unit
+  object TC_Or_OPEN_Or_Resource:
+    type Exact[T <: DFTypeAny] =
+      Exact1[DFTypeAny, T, [t <: DFTypeAny] =>> t, DFC, TC_Or_OPEN_Or_Resource]
+    given fromOPEN[T <: DFTypeAny]: TC_Or_OPEN_Or_Resource[T, OPEN] with
       type OutP = NOTCONST
       def conv(dfType: T, from: OPEN)(using DFC): Out = DFVal.OPEN(dfType)
-    given fromTC[T <: DFTypeAny, R, TC <: DFVal.TC[T, R]](using tc: TC): TC_Or_OPEN[T, R] with
+      def connect(dfVal: DFValOf[T], that: OPEN)(using DFC): Unit =
+        dfVal.connect(conv(dfVal.dfType, that))
+    given fromTC[
+        T <: DFTypeAny,
+        R,
+        TC <: DFVal.TC[T, R]
+    ](using tc: TC): TC_Or_OPEN_Or_Resource[T, R] with
       type OutP = tc.OutP
       def conv(dfType: T, from: R)(using DFC): Out = tc(dfType, from)
+      def connect(dfVal: DFValOf[T], that: R)(using DFC): Unit =
+        dfVal.connect(conv(dfVal.dfType, that))
+    given fromResource[T <: DFTypeAny, R <: Resource](using
+        cc: Resource.CanConnect[R, DFValOf[T]]
+    ): TC_Or_OPEN_Or_Resource[T, R] with
+      type OutP = NOTCONST
+      def conv(dfType: T, from: R)(using DFC): Out = ???
+      def connect(dfVal: DFValOf[T], that: R)(using DFC): Unit =
+        cc.connect(that, dfVal)
+  end TC_Or_OPEN_Or_Resource
 
   trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCCommon[T, V, DFValAny]:
     type OutP
@@ -1218,6 +1247,7 @@ extension [T <: DFTypeAny](lhs: DFValOf[T])
   def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
     val op = if (dfc.lateConstruction) DFNet.Op.ViaConnection else DFNet.Op.Connection
     DFNet(lhs.asIR, op, rhs.asIR)
+end extension
 
 trait VarsTuple[T <: NonEmptyTuple]:
   type Width <: Int
@@ -1408,17 +1438,20 @@ object DFVarOps:
 end DFVarOps
 
 object DFPortOps:
-  protected type ConnectableOnly[C] = AssertGiven[
-    C <:< Modifier.Connectable,
+  protected type ConnectableOnly[C, R] = AssertGiven[
+    C <:< Modifier.Connectable | R <:< Resource,
     "The LHS of a connection must be a connectable DFHDL value (var/port)."
   ]
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
-    def <>(rhs: DFVal.TC_Or_OPEN.Exact[T])(using
+    def <>(rhs: DFVal.TC_Or_OPEN_Or_Resource.Exact[T])(using
         DFC
     )(using
-        connectableOnly: ConnectableOnly[C]
+        connectableOnly: ConnectableOnly[C, rhs.ExactFrom]
     ): ConnectPlaceholder =
-      trydf { dfPort.connect(rhs(dfPort.dfType)) }
+      given CTName = CTName("<>")
+      trydf {
+        rhs.tc.connect(dfPort, rhs.exactFrom)
+      }
       ConnectPlaceholder
   end extension
 end DFPortOps

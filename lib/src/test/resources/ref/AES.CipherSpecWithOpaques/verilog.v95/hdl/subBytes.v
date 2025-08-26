@@ -8,8 +8,8 @@ module subBytes(
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
-  input  wire  [127:0] state;
-  output wire [127:0]  o;
+  input  wire [127:0] state;
+  output wire [127:0] o;
   wire [7:0] sbox_inst_00_lhs;
   wire [7:0] sbox_inst_00_o;
   wire [7:0] sbox_inst_01_lhs;

@@ -41,8 +41,8 @@ class DFBoolOrBitSpec extends DFSpec:
          |val t3 = bl || false
          |val t5 = bt && 1
          |val t6 = bl || bt.bool
-         |val t7 = (bl ^ false) || bt.bool
-         |val t8 = (bl && bt.bool) ^ (bt || bl.bit).bool
+         |val t7 = (bl ^ false) || (!bt).bool
+         |val t8 = (bl && bt.bool) ^ ((!bt) || bl.bit).bool
          |val t9: Bit <> CONST = 1
          |val t10: Bit <> CONST = 0
          |val t11: Bit <> CONST = 1
@@ -78,9 +78,9 @@ class DFBoolOrBitSpec extends DFSpec:
         """val t4 = 0 && bt"""
       )
       val t5 = bt && true
-      val t6 = bl || bt
-      val t7 = bl ^ 0 || bt
-      val t8 = (bl && bt) ^ (bt || bl)
+      val t6 = bl | bt
+      val t7 = bl ^ 0 || !bt
+      val t8 = (bl & bt) ^ (~bt || bl)
       val t9: Bit <> CONST = 1
       val t10: Bit <> CONST = 0
       val t11: Bit <> CONST = true

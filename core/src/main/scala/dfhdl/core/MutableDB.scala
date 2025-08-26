@@ -18,7 +18,8 @@ import dfhdl.compiler.ir.{
   SourceFile,
   MemberView,
   RTDomainCfg,
-  DFTags
+  DFTags,
+  annotation
 }
 import dfhdl.compiler.analysis.filterPublicMembers
 
@@ -228,8 +229,8 @@ final class MutableDB():
       current.defInputs = inputs
       val currentDesign = OwnershipContext.currentDesign
       val isPure = currentDesign.dclMeta.annotations.exists {
-        case hw.annotation.pure(true) => true
-        case _                        => false
+        case annotation.Pure => true
+        case _               => false
       }
       if (isPure)
         val key = (currentDesign.dclMeta.position, inputs.map(_.dfType.asIR))
@@ -309,6 +310,58 @@ final class MutableDB():
       }
     def ownerOption: Option[DFOwner] = stack.headOption
   end OwnershipContext
+
+  object ResourceOwnershipContext:
+    import dfhdl.platforms.resources.*
+    private var topResourceOwners: List[ResourceOwner] = Nil
+    private var stack: List[ResourceOwner] = Nil
+    private val connectedResourceMap = mutable.Map.empty[DFVal.Dcl, List[(Range, Resource)]]
+    def getConnectedResourceMap: Map[DFVal.Dcl, List[(Range, Resource)]] =
+      connectedResourceMap.toMap
+    def connectResource(dcl: DFVal.Dcl, range: Range, resource: Resource): Unit =
+      connectedResourceMap.updateWith(dcl) {
+        case Some(connections) => Some((range, resource) :: connections)
+        case None              => Some(List((range, resource)))
+      }
+    def updateDcl(fromPort: DFVal.Dcl, toPort: DFVal.Dcl): Unit =
+      connectedResourceMap.get(fromPort) match
+        case Some(connections) =>
+          connectedResourceMap -= fromPort
+          connectedResourceMap += toPort -> connections
+        case None => // do nothing
+    def getConstrainedDcls(): Map[DFVal.Dcl, DFVal.Dcl] =
+      import dfhdl.compiler.ir.annotation.HWAnnotation
+      import dfhdl.compiler.ir.constraints.SigConstraint
+      connectedResourceMap.map { case (dcl, connections) =>
+        // separate existing constraints from other annotations
+        val (existingSigConstraints, otherAnnotations) = dcl.meta.annotations.partition {
+          case cs: SigConstraint => true
+          case _                 => false
+        }.asInstanceOf[(List[SigConstraint], List[HWAnnotation])]
+        // collect all constraints from the resources that are connected to this dcl
+        val newSigConstraints = connections.flatMap { case (range, resource) =>
+          if (range.length != dcl.width) resource.allSigConstraints.flatMap { cs =>
+            for (i <- range) yield cs.updateBitIdx(i)
+          }
+          else resource.allSigConstraints
+        }
+        // merge the existing constraints with the new constraints
+        val updatedSigConstraints =
+          (existingSigConstraints ++ newSigConstraints).merge.consolidate(dcl.width)
+        // merge all other annotations
+        val updatedAnnotations = updatedSigConstraints ++ otherAnnotations
+        dcl -> dcl.copy(meta = dcl.meta.copy(annotations = updatedAnnotations))
+      }.toMap
+    end getConstrainedDcls
+    def getTopResourceOwners: List[ResourceOwner] = topResourceOwners
+    def enter(owner: ResourceOwner): Unit =
+      if (stack.isEmpty) topResourceOwners = owner :: topResourceOwners
+      stack = owner :: stack
+    def exit(): Unit =
+      stack = stack.drop(1)
+    def owner: ResourceOwner = stack.head
+    def ownerOpt: Option[ResourceOwner] = stack.headOption
+  end ResourceOwnershipContext
 
   object GlobalTagContext:
     private[MutableDB] var tags: DFTags = DFTags.empty
@@ -404,10 +457,13 @@ final class MutableDB():
       globalMemberCtxInject(originalMember)
       val newMember = DesignContext.current.setMember(originalMember, newMemberFunc)
       globalMemberCtxUpdate(newMember)
-      // in case the member is an owner, we check the owner stack to replace it
+      // in case the member is an owner, we check the owner stack to replace it.
+      // and for ports, we update the connected resource map.
       (originalMember, newMember) match
-        case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
-        case _                        =>
+        case (o: DFOwner, n: DFOwner)                 => OwnershipContext.replaceOwner(o, n)
+        case (fromPort: DFVal.Dcl, toPort: DFVal.Dcl) =>
+          ResourceOwnershipContext.updateDcl(fromPort, toPort)
+        case _ =>
       newMember
   end setMember
 
@@ -416,10 +472,13 @@ final class MutableDB():
     globalMemberCtxInject(originalMember)
     DesignContext.current.replaceMember(originalMember, newMember)
     globalMemberCtxUpdate(newMember)
-    // in case the member is an owner, we check the owner stack to replace it
+    // in case the member is an owner, we check the owner stack to replace it.
+    // and for ports, we update the connected resource map.
     (originalMember, newMember) match
-      case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
-      case _                        =>
+      case (o: DFOwner, n: DFOwner)                 => OwnershipContext.replaceOwner(o, n)
+      case (fromPort: DFVal.Dcl, toPort: DFVal.Dcl) =>
+        ResourceOwnershipContext.updateDcl(fromPort, toPort)
+      case _ =>
     newMember
 
   def ignoreMember[M <: DFMember](
@@ -481,11 +540,17 @@ final class MutableDB():
               case _ => Nil
             }
         }.toMap
-        val replaceDesignFunc: DFMember => DFMember = {
+        // apply connected resource constraints to their connected ports
+        val constrainedDcls = ResourceOwnershipContext.getConstrainedDcls()
+        // apply the final fixes to the members:
+        // 1. replace duplicate design instances
+        // 2. apply connected resource constraints to their connected ports
+        val finalFixFunc: DFMember => DFMember = {
           case design: DFDesignBlock => duplicateDesignRepMap.getOrElse(design, design)
+          case dcl: DFVal.Dcl        => constrainedDcls.getOrElse(dcl, dcl)
           case m                     => m
         }
-        (members.map(replaceDesignFunc), fixedRefTable.view.mapValues(replaceDesignFunc).toMap)
+        (members.map(finalFixFunc), fixedRefTable.view.mapValues(finalFixFunc).toMap)
     val membersNoGlobalCtx = members.map {
       case m: DFVal.CanBeGlobal => m.copyWithoutGlobalCtx
       case m                    => m

@@ -9,9 +9,12 @@ import java.nio.file.{Paths, Files}
 opaque type CompiledDesign = StagedDesign
 object CompiledDesign:
   def apply(sd: StagedDesign): CompiledDesign = sd
+  def fromJsonString(json: String): CompiledDesign =
+    CompiledDesign(new StagedDesign(ir.DB.fromJsonString(json)))
   extension (cd: CompiledDesign)
     def staged: StagedDesign = cd
     def stagedDB: ir.DB = staged.stagedDB
+    def toJsonString: String = stagedDB.toJsonString
     def newStage(stagedDB: ir.DB): CompiledDesign =
       import StagedDesign.newStage as newStage2
       CompiledDesign(staged.newStage2(stagedDB))

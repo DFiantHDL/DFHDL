@@ -5,7 +5,7 @@ commands += DFHDLCommands.docExamplesRefUpdate
 
 // format: off
 val projectName = "dfhdl"
-val compilerVersion = "3.7.1"
+val compilerVersion = "3.7.2"
 
 inThisBuild(
   List(
@@ -48,7 +48,7 @@ lazy val root = (project in file("."))
     core,
 	  compiler_stages,
     lib,
-    devices
+    platforms
   )
 
 lazy val internals = project
@@ -119,18 +119,14 @@ lazy val lib = project
     compiler_stages
   )
 
-lazy val devices = (project in file("devices"))
+lazy val platforms = project
   .settings(
-    name := s"$projectName-devices",
+    name := s"$projectName-platforms",
     settings,
     pluginUseSettings,
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
-    plugin,
-    internals,
-    compiler_ir,
-    core,
     lib
   )
 
@@ -140,7 +136,7 @@ lazy val dependencies =
   new {
     private val scodecV = "1.2.4"
     private val munitV = "1.1.1"
-    private val airframelogV = "2025.1.14"
+    private val airframelogV = "2025.1.16"
     private val oslibV = "0.9.2"
     private val scallopV = "5.2.0"
     private val upickleV = "4.2.1"

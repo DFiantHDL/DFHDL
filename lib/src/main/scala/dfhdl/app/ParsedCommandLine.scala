@@ -1,15 +1,7 @@
 package dfhdl.app
 
 import org.rogach.scallop.*
-import dfhdl.options.{
-  CompilerOptions,
-  ElaborationOptions,
-  LinterOptions,
-  SimulatorOptions,
-  AppOptions,
-  ToolOptions
-}
-import AppOptions.DefaultMode
+import dfhdl.options.*
 import dfhdl.internals.scastieIsRunning
 import dfhdl.internals.sbtShellIsRunning
 
@@ -23,24 +15,22 @@ class ParsedCommandLine(
     co: CompilerOptions,
     lo: LinterOptions,
     so: SimulatorOptions,
+    bo: BuilderOptions,
+    po: ProgrammerOptions,
     ao: AppOptions
 ) extends ScallopConf(commandArgs.toSeq):
-  val cacheDescYesDefault = if (ao.cacheEnable) " (default ON)" else ""
-  val cacheDescNoDefault = if (!ao.cacheEnable) " (default OFF)" else ""
   val cache = toggle(
     name = "cache",
-    descrYes =
-      s"Enable caching$cacheDescYesDefault",
-    descrNo =
-      s"Disable caching$cacheDescNoDefault",
+    descrYes = "Enable caching",
+    descrNo = "Disable caching",
     default = Some(ao.cacheEnable),
     noshort = true
   )
-  sealed abstract class Mode(val modeOption: DefaultMode, modeDesc: String)
+  sealed abstract class Mode(val modeOption: AppMode, modeDesc: String)
       extends Subcommand(modeOption.toString),
         Product,
         Serializable derives CanEqual:
-    if (modeOption == ao.defaultMode)
+    if (modeOption == ao.appMode)
       descr(s"$modeDesc [default]")
     else
       descr(modeDesc)
@@ -51,15 +41,15 @@ class ParsedCommandLine(
 
     trait ElaborateMode:
       this: ScallopConf & Mode =>
-      private val hidden = modeOption != DefaultMode.elaborate
+      private val hidden = modeOption != AppMode.elaborate
       val `print-elaborate` = opt[Boolean](
         descr = "print the DFHDL design after elaboration",
         default = Some(eo.printDFHDLCode),
         noshort = true,
         hidden = hidden
       )
-      val descYesDefault = if (so.Werror.toBoolean) " (default ON)" else ""
-      val descNoDefault = if (!so.Werror.toBoolean) " (default OFF)" else ""
+      private val descYesDefault = if (eo.Werror.toBoolean) " (default)" else ""
+      private val descNoDefault = if (!eo.Werror.toBoolean) " (default)" else ""
       val Werror = toggle(
         name = "Werror",
         descrYes =
@@ -73,7 +63,7 @@ class ParsedCommandLine(
     end ElaborateMode
     trait CompileMode extends ElaborateMode:
       this: ScallopConf & Mode =>
-      private val hidden = modeOption != DefaultMode.compile
+      private val hidden = modeOption != AppMode.compile
       val backend = opt[CompilerOptions.Backend](
         name = "backend", short = 'b',
         descr = "backend selection (run `help backend` to get full list of languages and dialects)",
@@ -97,6 +87,8 @@ class ParsedCommandLine(
     trait ToolMode extends CommitMode:
       this: ScallopConf & Mode =>
       lazy val options: ToolOptions
+      private lazy val descYesDefault = if (options.Werror.toBoolean) " (default)" else ""
+      private lazy val descNoDefault = if (!options.Werror.toBoolean) " (default)" else ""
       val `Werror-tool` = toggle(
         name = "Werror-tool",
         descrYes =
@@ -127,39 +119,93 @@ class ParsedCommandLine(
         argName = "[verilogSimulator][/][vhdlSimulator]"
       )
     end SimulateMode
+    trait BuildMode extends ToolMode:
+      this: ScallopConf & Mode =>
+      lazy val options = bo
+      private val descYesDefault = if (bo.flash) " (default)" else ""
+      private val descNoDefault = if (!bo.flash) " (default)" else ""
+      val tool = choice(
+        choices = Seq("foss", "vendor"),
+        default = Some(bo.tool.toString),
+        name = "tool",
+        short = 't',
+        descr = "tool selection: `foss` for free and open source tools, `vendor` for vendor tools."
+      )
+      val flash = toggle(
+        name = "flash",
+        descrYes = s"Create also a flash image for an on-board flash device$descYesDefault",
+        descrNo = s"Create only a bitstream file to program the FPGA$descNoDefault",
+        default = Some(bo.flash),
+        noshort = true
+      )
+    end BuildMode
+    trait ProgramMode extends ToolMode:
+      this: ScallopConf & Mode =>
+      lazy val options = po
+      private val descYesDefault = if (po.flash) " (default)" else ""
+      private val descNoDefault = if (!po.flash) " (default)" else ""
+      val tool = choice(
+        choices = Seq("foss", "vendor"),
+        default = Some(po.tool.toString),
+        name = "tool",
+        short = 't',
+        descr = "tool selection: `foss` for free and open source tools, `vendor` for vendor tools."
+      )
+      val flash = toggle(
+        name = "flash",
+        descrYes = s"Program the on-board flash device$descYesDefault",
+        descrNo = s"Program the FPGA only$descNoDefault",
+        default = Some(po.flash),
+        noshort = true
+      )
+    end ProgramMode
 
     case object elaborate
-        extends Mode(DefaultMode.elaborate, "Elaboration only (no compilation)"),
+        extends Mode(AppMode.elaborate, "Elaboration only (no compilation)"),
           ElaborateMode
     case object compile
         extends Mode(
-          DefaultMode.compile,
+          AppMode.compile,
           "Compilation (after elaboration, and WITHOUT committing files to disk)"
         ),
           CompileMode:
       footer("      ~~including all elaborate command options~~")
     case object commit
         extends Mode(
-          DefaultMode.commit,
+          AppMode.commit,
           "Committing to disk (after elaboration and compilation)"
         ),
           CommitMode:
       footer("      ~~including all compile command options~~")
     case object lint
         extends Mode(
-          DefaultMode.lint,
+          AppMode.lint,
           "Linting (after elaboration, compilation, and committing to disk)"
         ),
           LintMode:
       footer("      ~~including all commit command options~~")
     case object simulate
         extends Mode(
-          DefaultMode.simulate,
+          AppMode.simulate,
           "Simulating (after elaboration, compilation, and committing to disk)"
         ),
           SimulateMode:
       footer("      ~~including all commit command options~~")
-    case object help extends Mode(DefaultMode.help, "Display usage text"):
+    case object build
+        extends Mode(
+          AppMode.build,
+          "Building (after elaboration, compilation, and committing to disk)"
+        ),
+          BuildMode:
+      footer("      ~~including all commit command options~~")
+    case object program
+        extends Mode(
+          AppMode.program,
+          "Programming (after elaboration, compilation, committing to disk, and building)"
+        ),
+          ProgramMode:
+      footer("      ~~including all build command options~~")
+    case object help extends Mode(AppMode.help, "Display usage text"):
       addSubcommand(HelpMode.backend)
       addSubcommand(HelpMode.`lint-tool`)
       addSubcommand(HelpMode.`simulate-tool`)
@@ -224,13 +270,17 @@ class ParsedCommandLine(
   addSubcommand(Mode.commit)
   addSubcommand(Mode.lint)
   addSubcommand(Mode.simulate)
+  addSubcommand(Mode.build)
+  addSubcommand(Mode.program)
   addSubcommand(Mode.help)
-  lazy val mode: Mode = subcommand.getOrElse(ao.defaultMode match
-    case DefaultMode.help      => Mode.help
-    case DefaultMode.elaborate => Mode.elaborate
-    case DefaultMode.compile   => Mode.compile
-    case DefaultMode.commit    => Mode.commit
-    case DefaultMode.lint      => Mode.lint
-    case DefaultMode.simulate  => Mode.simulate).asInstanceOf[Mode]
+  lazy val mode: Mode = subcommand.getOrElse(ao.appMode match
+    case AppMode.help      => Mode.help
+    case AppMode.elaborate => Mode.elaborate
+    case AppMode.compile   => Mode.compile
+    case AppMode.commit    => Mode.commit
+    case AppMode.lint      => Mode.lint
+    case AppMode.simulate  => Mode.simulate
+    case AppMode.build     => Mode.build
+    case AppMode.program   => Mode.program).asInstanceOf[Mode]
   verify()
 end ParsedCommandLine

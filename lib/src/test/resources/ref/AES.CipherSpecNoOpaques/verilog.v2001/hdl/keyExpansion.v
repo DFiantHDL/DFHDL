@@ -3,7 +3,7 @@
 `include "CipherNoOpaques_defs.vh"
 
 module keyExpansion(
-  input  wire  [127:0] key,
+  input  wire [127:0]  key,
   output wire [1407:0] o
 );
   `include "dfhdl_defs.vh"

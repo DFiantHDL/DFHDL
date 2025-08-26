@@ -52,10 +52,11 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     def regOrWireRep = dfVal.modifier.dir match
       case Modifier.IN => ""
       case _           =>
-        if (dfVal.getConnectionTo.nonEmpty) "wire"
-        else "reg"
+        if (dfVal.getConnectionTo.nonEmpty) "wire "
+        else "reg "
     val fixedDFTypeStr =
-      if (supportLogicType) dfTypeStr else dfTypeStr.replace("logic", regOrWireRep)
+      if (supportLogicType) dfTypeStr
+      else dfTypeStr.replace("logic ", regOrWireRep).replace("logic", regOrWireRep.trim)
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
     s"$modifier${fixedDFTypeStr.emptyOr(_ + " ")}${dfVal.getName}$arrRange"
   end csDFValDclWithoutInit
@@ -240,10 +241,14 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         if (printer.allowWidthCastSyntax)
           s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
         else s"{$relValStr}[${tWidthParamRef.refCodeString.applyBrackets()} - 1:0]"
-      case (DFInt32, DFUInt(_) | DFSInt(_)) => relValStr
-      case (DFBit, DFBool)                  => relValStr
-      case (DFBool, DFBit)                  => relValStr
-      case (toStruct: DFStruct, _: DFBits)  =>
+      case (DFInt32, DFUInt(_) | DFSInt(_))               => relValStr
+      case (DFBit, DFBool | DFEnum(widthParam = 1))       => relValStr
+      case (DFBool, DFBit | DFEnum(widthParam = 1))       => relValStr
+      case (enumType: DFEnum, DFBit | DFBool | DFBits(_)) =>
+        if (printer.allowTypeDef)
+          s"${printer.csDFEnumTypeName(enumType)}'($relValStr)"
+        else relValStr
+      case (toStruct: DFStruct, _: DFBits) =>
         s"${toStruct.name}'($relValStr)"
       case (toVector: DFVector, _: DFBits) =>
         def to_vector_conv(vectorType: DFVector, relHighIdx: Int): String =

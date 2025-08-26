@@ -3,8 +3,8 @@
 `include "Cipher_defs.vh"
 
 module mulByte_1#(parameter [7:0] lhs = 8'h03)(
-  input  wire  [7:0] rhs,
-  output wire [7:0]  o
+  input  wire [7:0] rhs,
+  output wire [7:0] o
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"

@@ -206,7 +206,9 @@ protected trait DFValPrinter extends AbstractValPrinter:
         val opStr = dfVal.op.toString
         dfVal.op match
           case Func.Op.unary_! | Func.Op.unary_- | Func.Op.unary_! | Func.Op.unary_~ =>
-            s"${opStr.last}${csArg.applyBrackets()}"
+            dfVal.dfType match
+              case DFEnum(widthParam = 1) => s"${csArg.applyBrackets()}.toggle"
+              case _                      => s"${opStr.last}${csArg.applyBrackets()}"
           case Func.Op.clog2 =>
             if (typeCS) s"CLog2[$csArg]"
             else s"clog2($csArg)"
@@ -278,10 +280,12 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.toInt"
       case (DFSInt(tWidthParamRef), DFSInt(_)) =>
         s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
-      case (DFBit, DFBool) =>
+      case (DFBit, DFBool | DFEnum(widthParam = 1)) =>
         s"${relValStr}.bit"
-      case (DFBool, DFBit) =>
+      case (DFBool, DFBit | DFEnum(widthParam = 1)) =>
         s"${relValStr}.bool"
+      case (DFEnum(widthParam = 1), DFBit | DFBool) =>
+        s"${relValStr}.as(${printer.csDFType(toType)})"
       case (t, DFOpaque(actualType = ot)) if ot == t =>
         s"${relValStr}.actual"
       case (_, DFBits(_)) | (DFOpaque(_, _, _, _), _) =>

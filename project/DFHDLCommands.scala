@@ -4,6 +4,7 @@ import Keys._
 import java.nio.file.{Files, Paths, StandardCopyOption, Path}
 import scala.jdk.CollectionConverters._
 import java.nio.charset.StandardCharsets
+import java.io.IOException
 
 object DFHDLCommands {
   val quickTestSetup = Command.command("quickTestSetup") { state =>
@@ -68,6 +69,7 @@ object DFHDLCommands {
 
     state
   }
+  lazy val osIsWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
 
   val clearSandbox = Command.command("clearSandbox") { state =>
     // Remove the sandbox folder and all its contents before running the tests
@@ -75,16 +77,36 @@ object DFHDLCommands {
     if (java.nio.file.Files.exists(sandboxPath)) {
       import java.nio.file._
       import java.nio.file.attribute.BasicFileAttributes
+      import java.io.IOException
 
       Files.walkFileTree(
         sandboxPath,
         new SimpleFileVisitor[Path] {
           override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-            Files.delete(file)
+            try {
+              // Remove read-only attribute only on Windows systems
+              if (osIsWindows) {
+                try {
+                  Files.setAttribute(file, "dos:readonly", false, LinkOption.NOFOLLOW_LINKS)
+                } catch {
+                  case _: UnsupportedOperationException | _: IllegalArgumentException =>
+                    // Fallback if attribute setting fails
+                }
+              }
+              Files.delete(file)
+            } catch {
+              case e: IOException =>
+                System.err.println(s"Failed to delete file: $file - ${e.getMessage}")
+            }
             FileVisitResult.CONTINUE
           }
           override def postVisitDirectory(dir: Path, exc: java.io.IOException): FileVisitResult = {
-            Files.delete(dir)
+            try {
+              Files.delete(dir)
+            } catch {
+              case e: IOException =>
+                System.err.println(s"Failed to delete directory: $dir - ${e.getMessage}")
+            }
             FileVisitResult.CONTINUE
           }
         }

@@ -4,7 +4,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
-import dfhdl.hw.annotation.flattenMode
+import annotation.FlattenMode
 
 /** This stage flattens the domains by removing them and changing their named members according to
   * the flattening mode.
@@ -30,10 +30,10 @@ case object DropDomains extends Stage:
             // looping through domain composition until reaching a non-domain and applying the name flattening
             while (inDomain)
               currentDomain.flattenMode match
-                case flattenMode.transparent() => // no change
-                case flattenMode.prefix(sep)   =>
+                case FlattenMode.Transparent => // no change
+                case FlattenMode.Prefix(sep) =>
                   currentName = s"${currentDomain.getName}$sep$currentName"
-                case flattenMode.suffix(sep) =>
+                case FlattenMode.Suffix(sep) =>
                   currentName = s"${currentName}$sep${currentDomain.getName}"
               currentDomain.getOwner match
                 case domain: DomainBlock => currentDomain = domain

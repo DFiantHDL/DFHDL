@@ -257,7 +257,7 @@ def calcFuncData[OT <: DFType](
           // Arithmetic Negation
           case (
                 _: DFDecimal,
-                FuncOp.unary_!,
+                FuncOp.unary_-,
                 (_: DFDecimal) :: Nil,
                 Some(data: BigInt) :: Nil
               ) =>
@@ -303,6 +303,14 @@ def calcFuncData[OT <: DFType](
                 Some(data: Boolean) :: Nil
               ) =>
             Some(!data)
+          // Binary Enum logical invert
+          case (
+                DFEnum(widthParam = 1),
+                FuncOp.unary_!,
+                DFEnum(widthParam = 1) :: Nil,
+                Some(data: BigInt) :: Nil
+              ) =>
+            Some(1 - data)
           case x =>
             println(x)
             ???

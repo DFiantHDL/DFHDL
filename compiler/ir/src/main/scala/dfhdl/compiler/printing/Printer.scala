@@ -9,6 +9,7 @@ import java.nio.file.{Paths, Files}
 import dfhdl.options.PrinterOptions
 import DFDesignBlock.InstMode
 import DFVal.Func.Op as FuncOp
+import java.io.File.separatorChar
 
 protected trait AbstractPrinter:
   type TPrinter <: Printer
@@ -85,9 +86,9 @@ trait Printer
     clkCfg match
       case _: None.type                             => "None"
       case ClkCfg.Explicit(edge, rate, portName, _) =>
-        val csRate = rate._2 match
-          case _: DFTime.Unit => csDFTimeData(rate.asInstanceOf[(BigDecimal, DFTime.Unit)])
-          case _: DFFreq.Unit => csDFFreqData(rate.asInstanceOf[(BigDecimal, DFFreq.Unit)])
+        val csRate = (rate: @unchecked) match
+          case time @ TimeNumber(_, _) => csDFTimeData(time)
+          case freq @ FreqNumber(_, _) => csDFFreqData(freq)
         s"ClkCfg(${csClkEdgeCfg(edge)}, $csRate, $portName)"
   def csRstModeCfg(mode: RstCfg.Mode): String =
     mode match
@@ -165,6 +166,7 @@ trait Printer
     s"${csDocString(design.dclMeta)}$designDcl"
   def dfhdlDefsFileName: String
   def dfhdlSourceContents: String
+  val hdlFolderName: String = "hdl"
   final def printedDB: DB =
     val designDB = getSet.designDB
     val dfhdlSourceFile: Option[SourceFile] =
@@ -173,7 +175,7 @@ trait Printer
           SourceFile(
             SourceOrigin.Compiled,
             SourceType.DFHDLDef,
-            dfhdlDefsFileName,
+            hdlFolderName + separatorChar + dfhdlDefsFileName,
             dfhdlSourceContents
           )
         )
@@ -182,7 +184,7 @@ trait Printer
       SourceFile(
         SourceOrigin.Compiled,
         SourceType.GlobalDef,
-        globalFileName,
+        hdlFolderName + separatorChar + globalFileName,
         formatCode(csGlobalFileContent, withColor = false)
       )
     val compiledFiles = Iterable(
@@ -195,7 +197,7 @@ trait Printer
         SourceFile(
           SourceOrigin.Compiled,
           sourceType,
-          designFileName(block.dclName),
+          hdlFolderName + separatorChar + designFileName(block.dclName),
           formatCode(csFile(block), withColor = false)
         )
       }
@@ -245,7 +247,7 @@ object Printer:
     }
   end printBackendCode
   def commit(db: DB, topCommitPathStr: String): DB =
-    val folderPath = Paths.get(topCommitPathStr).resolve("hdl")
+    val folderPath = Paths.get(topCommitPathStr)
     if (!Files.exists(folderPath))
       Files.createDirectories(folderPath)
     val updatedSrcFiles = db.srcFiles.map {
@@ -253,13 +255,13 @@ object Printer:
         val commitPathAbs =
           if (Paths.get(filePathStr).isAbsolute) filePathStr
           else folderPath.resolve(filePathStr).toAbsolutePath.normalize().toString
-        val commitPathSaved =
-          if (Paths.get(filePathStr).isAbsolute) filePathStr
-          else Paths.get("hdl").resolve(filePathStr).toString()
+        val commitPathFolder = Paths.get(commitPathAbs).getParent
+        if (!Files.exists(commitPathFolder))
+          Files.createDirectories(commitPathFolder)
         val pw = new FileWriter(commitPathAbs)
         pw.write(contents)
         pw.close()
-        srcFile.copy(sourceOrigin = SourceOrigin.Committed, path = commitPathSaved)
+        srcFile.copy(sourceOrigin = SourceOrigin.Committed)
       case other => other
     }
     db.copy(srcFiles = updatedSrcFiles)
@@ -357,7 +359,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/**", "\n  *", "*/")
   def csAnnotations(meta: Meta): String =
     if (meta.annotations.isEmpty) ""
-    else meta.annotations.view.map(x => s"@hw.annotation.${x.codeString}").mkString("", "\n", "\n")
+    else meta.annotations.view.map(_.codeString).mkString("", "\n", "\n")
   // def csTimer(timer: Timer): String =
   //   val timerBody = timer match
   //     case p: Timer.Periodic =>
@@ -376,7 +378,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   //       s"${f.sourceRef.refCodeString} ${f.op} $argStr"
   //   if (timer.isAnonymous) timerBody else s"val ${timer.getName} = $timerBody"
   // end csTimer
-  def globalFileName: String = s"${getSet.designDB.top.dclName}_globals.scala"
+  def globalFileName: String = s"${getSet.topName}_globals.scala"
   def designFileName(designName: String): String = s"$designName.scala"
   def dfhdlDefsFileName: String = "" // no need in DFHDL code generation
   def dfhdlSourceContents: String = "" // no need in DFHDL code generation

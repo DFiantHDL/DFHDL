@@ -13,16 +13,15 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter <: VerilogPrinter
   val useStdSimLibrary: Boolean = true
   def fileSuffix = "v"
-  def defsName: String =
-    s"${getSet.designDB.top.dclName}_defs"
-  def csLibrary(inSimulation: Boolean, minTimeUnitOpt: Option[DFTime.Unit]): String =
+  def defsName: String = s"${getSet.topName}_defs"
+  def csLibrary(inSimulation: Boolean, minTimeUnitOpt: Option[TimeNumber.Unit]): String =
     val csTimeScale = minTimeUnitOpt.map { unit =>
-      def unitToStr(unit: DFTime.Unit): String =
+      def unitToStr(unit: TimeNumber.Unit): String =
         unit match
-          case DFTime.Unit.sec => "s"
-          case _               => unit.toString
+          case TimeNumber.Unit.sec => "s"
+          case _                   => unit.toString
       val scaleUnit = unitToStr(unit)
-      val precisionUnit = unitToStr(DFTime.Unit.ps.to_basic_unit(unit.to_ps(1e-3))._2)
+      val precisionUnit = unitToStr(TimeNumber(1e-3, unit).normalize.unit)
       s"`timescale 1${scaleUnit}/1${precisionUnit}"
     }.getOrElse(s"`timescale 1ns/1ps")
     s"""`default_nettype none
@@ -137,14 +136,15 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   end csModuleDcl
   lazy val minTimeUnitDesignMap = getSet.designDB.designMemberList.view.flatMap { (dsn, members) =>
     val minTimePSOpt = members.view.collect {
-      case DFVal.Const(dfType = DFTime, data = (value: BigDecimal, unit: DFTime.Unit)) =>
-        unit.to_ps(value)
+      case DFVal.Const(dfType = DFTime, data = time @ TimeNumber(_, _)) =>
+        time.to_ps.value
     }.minOption
-    minTimePSOpt.map(ps => dsn -> DFTime.Unit.ps.to_basic_unit(ps)._2)
+    minTimePSOpt.map(ps => dsn -> TimeNumber(ps, TimeNumber.Unit.ps).normalize.unit)
   }.toMap
   lazy val minTimeUnitGlobalOpt =
-    minTimeUnitDesignMap.values.view.map(_.to_ps(1)).minOption.map(ps =>
-      DFTime.Unit.ps.to_basic_unit(ps)._2
+    minTimeUnitDesignMap.values.view.map(unit => TimeNumber(1, unit).to_ps.value).minOption.map(
+      ps =>
+        TimeNumber(ps, TimeNumber.Unit.ps).normalize.unit
     )
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     // once there is a design with a set time unit, all designs must have a set time unit,

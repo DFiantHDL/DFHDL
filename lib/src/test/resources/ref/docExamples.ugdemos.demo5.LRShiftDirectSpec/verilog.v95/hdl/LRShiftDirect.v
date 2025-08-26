@@ -18,13 +18,13 @@ module LRShiftDirect(
   /* the width of the input and output bits */
   parameter integer width = 8;
   /* bits input */
-  input  wire  [width - 1:0]        iBits;
+  input  wire [width - 1:0]        iBits;
   /* requested shift */
-  input  wire  [clog2(width) - 1:0] shift;
+  input  wire [clog2(width) - 1:0] shift;
   /* bits output */
-  output reg [width - 1:0]          oBits;
+  output reg [width - 1:0]         oBits;
   /* direction of shift */
-  input  wire  [0:0]                dir;
+  input  wire [0:0]                dir;
   wire [width - 1:0] lshifter_iBits;
   wire [clog2(width) - 1:0] lshifter_shift;
   wire [width - 1:0] lshifter_oBits;

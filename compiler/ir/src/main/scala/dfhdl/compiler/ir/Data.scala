@@ -15,16 +15,16 @@ object Data:
   given ReadWriter[Data] = readwriter[ujson.Value].bimap(
     data =>
       data match
-        case None => ujson.Null
+        case None                                          => ujson.Null
         case (valueBits: BitVector, bubbleBits: BitVector) =>
           writeJs(("bits", (valueBits, bubbleBits)))
-        case Some(decimalOrEnumValue: BigInt)            => writeJs(("decimal", decimalOrEnumValue))
-        case Some(bitOrBoolValue: Boolean)               => writeJs(("bool", bitOrBoolValue))
-        case Some(doubleValue: Double)                   => writeJs(("double", doubleValue))
-        case Some(stringValue: String)                   => writeJs(("string", stringValue))
-        case (bigDecimal: BigDecimal, unit: DFTime.Unit) => writeJs(("time", (bigDecimal, unit)))
-        case (bigDecimal: BigDecimal, unit: DFFreq.Unit) => writeJs(("freq", (bigDecimal, unit)))
-        case vectorData: Vector[Data] =>
+        case Some(decimalOrEnumValue: BigInt) => writeJs(("decimal", decimalOrEnumValue))
+        case Some(bitOrBoolValue: Boolean)    => writeJs(("bool", bitOrBoolValue))
+        case Some(doubleValue: Double)        => writeJs(("double", doubleValue))
+        case Some(stringValue: String)        => writeJs(("string", stringValue))
+        case time: TimeNumber                 => writeJs(("time", (time.value, time.unit)))
+        case freq: FreqNumber                 => writeJs(("freq", (freq.value, freq.unit)))
+        case vectorData: Vector[Data]         =>
           given ReadWriter[Vector[Data]] = vectorDataWriter
           writeJs(("vector", vectorData))
         case listData: List[Data] =>
@@ -33,7 +33,7 @@ object Data:
     ,
     json =>
       json match
-        case ujson.Null => None
+        case ujson.Null                                           => None
         case ujson.Arr(ArrayBuffer(ujson.Str("bits"), bitsValue)) =>
           read[(BitVector, BitVector)](bitsValue)
         case ujson.Arr(ArrayBuffer(ujson.Str("decimal"), decimalValue)) =>
@@ -45,9 +45,11 @@ object Data:
         case ujson.Arr(ArrayBuffer(ujson.Str("string"), stringValue)) =>
           Some(read[String](stringValue))
         case ujson.Arr(ArrayBuffer(ujson.Str("time"), timeValue)) =>
-          read[(BigDecimal, DFTime.Unit)](timeValue)
+          val (value, unit) = read[(BigDecimal, TimeNumber.Unit)](timeValue)
+          TimeNumber(value, unit)
         case ujson.Arr(ArrayBuffer(ujson.Str("freq"), freqValue)) =>
-          read[(BigDecimal, DFFreq.Unit)](freqValue)
+          val (value, unit) = read[(BigDecimal, FreqNumber.Unit)](freqValue)
+          FreqNumber(value, unit)
         case ujson.Arr(ArrayBuffer(ujson.Str("vector"), vectorData)) =>
           given ReadWriter[Vector[Data]] = vectorDataWriter
           read[Vector[Data]](vectorData)

@@ -3,8 +3,8 @@
 `include "Cipher_defs.vh"
 
 module sbox(
-  input  wire  [7:0] lhs,
-  output wire [7:0]  o
+  input  wire [7:0] lhs,
+  output wire [7:0] o
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"

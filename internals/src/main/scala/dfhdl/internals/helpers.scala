@@ -278,6 +278,15 @@ object OptionalGiven extends OptionalGivenLP:
   given fromValue[T](using t: T): OptionalGiven[T] with
     val value: Option[T] = Some(t)
 
+trait GivenOrError[T, Msg <: String]:
+  val value: T
+protected trait GivenOrErrorLP:
+  inline given [T, Msg <: String](using ValueOf[Msg]): GivenOrError[T, Msg] =
+    compiletime.error(valueOf[Msg])
+object GivenOrError extends GivenOrErrorLP:
+  given fromValue[T, Msg <: String](using t: T): GivenOrError[T, Msg] with
+    val value: T = t
+
 trait IsGiven[T]:
   type Out <: Boolean
   val value: Out
@@ -326,18 +335,12 @@ extension (str: String)
 end extension
 extension [T](seq: Iterable[T])
   def groupByOrdered[P](f: T => P): List[(P, List[T])] =
-    @tailrec
-    def accumulator(
-        seq: Iterable[T],
-        f: T => P,
-        res: List[(P, Iterable[T])]
-    ): Seq[(P, Iterable[T])] = seq.headOption match
-      case None    => res.reverse
-      case Some(h) =>
-        val key = f(h)
-        val subseq = seq.takeWhile(f(_) equals key)
-        accumulator(seq.drop(subseq.size), f, (key -> subseq) :: res)
-    accumulator(seq, f, Nil).view.map(e => (e._1, e._2.toList)).toList
+    val buf = mutable.LinkedHashMap.empty[P, mutable.ListBuffer[T]]
+    for (elem <- seq)
+      val key = f(elem)
+      buf.getOrElseUpdate(key, mutable.ListBuffer.empty) += elem
+    buf.iterator.map { case (k, v) => (k, v.toList) }.toList
+end extension
 
 lazy val getShellCommand: Option[String] =
   import scala.io.Source
@@ -460,6 +463,60 @@ object AnnotatedWith:
   end annotWithMacro
 end AnnotatedWith
 
+// gets the field type with upper bound UB in T
+trait FieldType[T, UB]:
+  type Out <: UB
+
+object FieldType:
+  def apply[T, UB, O <: UB]: FieldType[T, UB] { type Out = O } =
+    new FieldType[T, UB]:
+      type Out = O
+  transparent inline given [T, UB]: FieldType[T, UB] = ${ fieldTypeMacro[T, UB] }
+
+  def fieldTypeMacro[T: Type, UB: Type](using
+      Quotes
+  ): Expr[FieldType[T, UB]] =
+    import quotes.reflect.*
+
+    val tpe = TypeRepr.of[T]
+    val ubTpe = TypeRepr.of[UB]
+
+    tpe.typeSymbol.fieldMembers.view.map(_.typeRef).find(_ <:< ubTpe) match
+      case Some(fieldTpe) =>
+        val fieldType = fieldTpe.asTypeOf[UB]
+        '{ FieldType.apply[T, UB, fieldType.Underlying] }
+      case None =>
+        report.errorAndAbort(s"Field of type ${ubTpe.show} not found in type ${Type.show[T]}")
+  end fieldTypeMacro
+end FieldType
+
+// getting annotations both from the class and the object
+// E.g.:
+// @annot1
+// class Foo
+// @annot2
+// val foo = new Foo
+// the annotations should be @annot1 and @annot2
+trait CTAnnotations:
+  def annotations: List[StaticAnnotation]
+object CTAnnotations:
+  inline given CTAnnotations = ${ macroImpl }
+  def macroImpl(using Quotes): Expr[CTAnnotations] =
+    import quotes.reflect.*
+    val owner = Symbol.spliceOwner.owner
+    val allAnnotations =
+      owner.termRef.classSymbol.map(_.annotations).getOrElse(Nil) ++ owner.annotations
+    val annotationsExpr =
+      Expr.ofList(allAnnotations.filter(
+        _.tpe <:< TypeRepr.of[StaticAnnotation]
+      ).map(_.asExprOf[StaticAnnotation]))
+    '{
+      new CTAnnotations:
+        def annotations: List[StaticAnnotation] = $annotationsExpr
+    }
+  end macroImpl
+end CTAnnotations
+
 lazy val osIsWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
 lazy val osIsLinux: Boolean = sys.props("os.name").toLowerCase.contains("linux")
 lazy val osIsWSL: Boolean =
@@ -471,21 +528,26 @@ lazy val osIsWSL: Boolean =
     catch
       case _: Exception => false
   else false
-// checks if the program is accessible to the current shell
-def programIsAccessible(cmd: String): Boolean =
+
+def programFullPath(cmd: String): String =
   import sys.process.*
   try
     if (osIsWindows)
-      s"where $cmd".!!.nonEmpty
+      s"where $cmd".!!.trim()
     else
       val result = s"which $cmd".!!.trim()
       // reject windows programs running from WSL
       if (result.nonEmpty && osIsWSL)
-        !result.matches("""/mnt/[a-zA-Z]/.*""")
+        if (result.matches("""/mnt/[a-zA-Z]/.*""")) ""
+        else result
       else
-        result.nonEmpty
+        result
   catch
-    case _: Exception => false
+    case _: Exception => ""
+end programFullPath
+
+// checks if the program is accessible to the current shell
+def programIsAccessible(cmd: String): Boolean = programFullPath(cmd).nonEmpty
 
 // trait CompiletimeErrorPos[M <: String, S <: Int, E <: Int]
 // object CompiletimeErrorPos:

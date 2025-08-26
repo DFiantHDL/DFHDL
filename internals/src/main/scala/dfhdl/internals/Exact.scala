@@ -48,7 +48,7 @@ extension [Q <: Quotes & Singleton](using quotes: Q)(term: quotes.reflect.Term)
             term.pos
           )
         term
-      case Literal(const) => term
+      case Literal(const)                                                                  => term
       case t @ Apply(TypeApply(fun, _), tupleArgs) if t.tpe <:< TypeRepr.of[NonEmptyTuple] =>
         val terms = tupleArgs.map(t => t.exactTerm)
         val tpes = terms.map(_.tpe)
@@ -199,6 +199,7 @@ trait Exact1[
     TC[Arg1 <: Arg1UB, From] <: Exact1.TC[Arg1UB, Arg1, FArg1, From, Ctx]
 ]:
   type ExactFrom
+  lazy val exactFrom: ExactFrom
   type ExactTC <: TC[Arg1, ExactFrom]
   val tc: ExactTC
   def apply(arg1: FArg1[Arg1])(using ctx: Ctx): tc.Out
@@ -228,6 +229,7 @@ object Exact1:
       tc0: TC[Arg1, From]
   ): Aux[Arg1UB, Arg1, FArg1, Ctx, TC, From, tc0.type] = new Exact1[Arg1UB, Arg1, FArg1, Ctx, TC]:
     type ExactFrom = From
+    final lazy val exactFrom: ExactFrom = from
     type ExactTC = tc0.type
     final val tc: ExactTC = tc0
     final def apply(arg1: FArg1[Arg1])(using ctx: Ctx): tc.Out =

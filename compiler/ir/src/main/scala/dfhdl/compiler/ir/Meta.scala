@@ -1,16 +1,14 @@
 package dfhdl.compiler.ir
 import dfhdl.internals.*
-import dfhdl.hw.annotation.{HWAnnotation, getActiveHWAnnotations}
 import upickle.default.*
-import scala.annotation.Annotation
+import annotation.HWAnnotation
 
 final case class Meta(
     nameOpt: Option[String],
     position: Position,
     docOpt: Option[String],
     annotations: List[HWAnnotation]
-) derives CanEqual,
-      ReadWriter:
+) extends HasRefCompare[Meta] derives CanEqual, ReadWriter:
   val isAnonymous: Boolean = nameOpt.isEmpty
   val name: String =
     nameOpt.getOrElse(s"anon${this.hashString}")
@@ -23,16 +21,16 @@ final case class Meta(
   def removeAnnotation(annotation: HWAnnotation) = setAnnotations(
     annotations.filterNot(_ == annotation)
   )
-  def =~(that: Meta): Boolean =
-    this.nameOpt == that.nameOpt && this.docOpt == that.docOpt && this.annotations == that.annotations
+  protected def `prot_=~`(that: Meta)(using MemberGetSet): Boolean =
+    this.nameOpt == that.nameOpt && this.docOpt == that.docOpt &&
+      this.annotations.lazyZip(that.annotations).forall(_ =~ _)
+  lazy val getRefs: List[DFRef.TwoWayAny] =
+    annotations.flatMap(_.getRefs)
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    annotations = annotations.map(_.copyWithNewRefs)
+  ).asInstanceOf[this.type]
 end Meta
 
 object Meta:
   given ReadWriter[Position] = macroRW
   def empty: Meta = Meta(None, Position.unknown, None, Nil)
-  def gen(
-      nameOpt: Option[String],
-      position: Position,
-      docOpt: Option[String],
-      annotations: List[Annotation]
-  ): Meta = Meta(nameOpt, position, docOpt, annotations.getActiveHWAnnotations)

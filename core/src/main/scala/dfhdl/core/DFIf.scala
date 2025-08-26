@@ -76,6 +76,7 @@ object DFIf:
       )
     val exact = new DFVal.TC.Exact[DFTypeAny]:
       type ExactFrom = DFValOf[DFTypeAny]
+      lazy val exactFrom: ExactFrom = ???
       type ExactTC = DFVal.TCDummy.type
       val tc: ExactTC = DFVal.TCDummy
       def apply(dfType: DFTypeAny)(using ctx: DFC): tc.Out = ifFunc(dfType).asInstanceOf[tc.Out]
@@ -85,53 +86,54 @@ object DFIf:
   def fromBranches[R](
       branches: List[(DFValOf[DFBoolOrBit], () => R)],
       elseOption: Option[() => R]
-  )(using dfc: DFC): R = try
-    import dfc.getSet
-    val header = Header(DFUnit)
-    val dfcAnon = summon[DFC].anonymize
-    var branchTypes = List.empty[ir.DFType]
-    // creating a hook to save the return value for the first branch run
-    var firstIfRet: Option[R] = None
-    val firstIfRun: () => R = () =>
-      firstIfRet = Some(branches.head._2())
-      firstIfRet.get
-    val firstIf = singleBranch(Some(branches.head._1), header, firstIfRun)
-    branchTypes = firstIf._1.asIR :: branchTypes
-    val midIfsBlock =
-      branches.drop(1).foldLeft(firstIf._2) { case (prevBlock, branch) =>
-        val (dfType, block) =
-          singleBranch(Some(branch._1), prevBlock, branch._2)(using dfcAnon)
+  )(using dfc: DFC): R =
+    try
+      import dfc.getSet
+      val header = Header(DFUnit)
+      val dfcAnon = summon[DFC].anonymize
+      var branchTypes = List.empty[ir.DFType]
+      // creating a hook to save the return value for the first branch run
+      var firstIfRet: Option[R] = None
+      val firstIfRun: () => R = () =>
+        firstIfRet = Some(branches.head._2())
+        firstIfRet.get
+      val firstIf = singleBranch(Some(branches.head._1), header, firstIfRun)
+      branchTypes = firstIf._1.asIR :: branchTypes
+      val midIfsBlock =
+        branches.drop(1).foldLeft(firstIf._2) { case (prevBlock, branch) =>
+          val (dfType, block) =
+            singleBranch(Some(branch._1), prevBlock, branch._2)(using dfcAnon)
+          branchTypes = dfType.asIR :: branchTypes
+          block
+        }
+      elseOption.foreach { e =>
+        val (dfType, _) = singleBranch(None, midIfsBlock, e)(using dfcAnon)
         branchTypes = dfType.asIR :: branchTypes
-        block
       }
-    elseOption.foreach { e =>
-      val (dfType, _) = singleBranch(None, midIfsBlock, e)(using dfcAnon)
-      branchTypes = dfType.asIR :: branchTypes
-    }
-    val hasNoType = branchTypes.contains(ir.DFUnit)
-    // if one branch has DFUnit, the return type is DFUnit.
-    // otherwise, all types must be the same.
-    if (hasNoType || branchTypes.forall(_.isSimilarTo(branchTypes.head)))
-      val retDFType = if (hasNoType) ir.DFUnit else branchTypes.head
-      val DFVal(headerIR: DFIfHeader) = header: @unchecked
-      val headerUpdate = headerIR.copy(dfType = retDFType.dropUnreachableRefs)
-      // updating the type of the if header
-      headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
-    else // violation
-      given printer: Printer = DefaultPrinter(using dfc.getSet)
-      val err = DFError.Basic(
-        "if",
-        new IllegalArgumentException(
-          s"""|This DFHDL `if` expression has different return types for branches.
-              |These are its branch types in order:
-              |${branchTypes.view.reverse.map(t => printer.csDFType(t)).mkString("\n")}
-              |""".stripMargin
+      val hasNoType = branchTypes.contains(ir.DFUnit)
+      // if one branch has DFUnit, the return type is DFUnit.
+      // otherwise, all types must be the same.
+      if (hasNoType || branchTypes.forall(_.isSimilarTo(branchTypes.head)))
+        val retDFType = if (hasNoType) ir.DFUnit else branchTypes.head
+        val DFVal(headerIR: DFIfHeader) = header: @unchecked
+        val headerUpdate = headerIR.copy(dfType = retDFType.dropUnreachableRefs)
+        // updating the type of the if header
+        headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
+      else // violation
+        given printer: Printer = DefaultPrinter(using dfc.getSet)
+        val err = DFError.Basic(
+          "if",
+          new IllegalArgumentException(
+            s"""|This DFHDL `if` expression has different return types for branches.
+                |These are its branch types in order:
+                |${branchTypes.view.reverse.map(t => printer.csDFType(t)).mkString("\n")}
+                |""".stripMargin
+          )
         )
-      )
-      dfc.logError(err)
-      err.asVal[DFTypeAny, ModifierAny].asInstanceOf[R]
-    end if
-  catch case e: DFError => DFVal(DFError.Derived(e)).asInstanceOf[R]
+        dfc.logError(err)
+        err.asVal[DFTypeAny, ModifierAny].asInstanceOf[R]
+      end if
+    catch case e: DFError => DFVal(DFError.Derived(e)).asInstanceOf[R]
   end fromBranches
 
   object Header:

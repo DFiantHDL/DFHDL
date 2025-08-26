@@ -42,6 +42,8 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
   var dfConstBoolTpe: TypeRef = uninitialized
   var dfConstBitTpe: TypeRef = uninitialized
   var dfConstInt32Tpe: TypeRef = uninitialized
+  var resourceOwnerTpe: TypeRef = uninitialized
+  var portModTpe: TypeRef = uninitialized
 
   override def transformStats(trees: List[Tree])(using Context): List[Tree] =
     val retTrees = mutable.ListBuffer.empty[Tree]
@@ -101,7 +103,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                       paramVDs.zipWithIndex.map((vd, i) =>
                         defaultMap.get(i) match
                           case Some(value) => value
-                          case None =>
+                          case None        =>
                             report.error(
                               "Missing argument's default value for top-level design with a default app entry point.\nEither add a default value or disable the app entry point generation with `@top(false)`.",
                               vd.srcPos
@@ -112,10 +114,21 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                   val dsnArgDescs =
                     mkList(paramVDs.map(vd => Literal(Constant(vd.symbol.docString.getOrElse("")))))
                   val Werror = Literal(Constant(ctx.settings.XfatalWarnings.value))
+                  val hasResourceOwnerTree =
+                    Literal(Constant(clsSym.hasNestedMemberCond(_ <:< resourceOwnerTpe)))
+                  def portCond(tpe: Type): Boolean =
+                    if (tpe.typeSymbol == dfValSym)
+                      tpe match
+                        // DFVal[_, Modifier[Port, _, _, _]]
+                        case AppliedType(_, _ :: AppliedType(_, a :: _) :: Nil) =>
+                          a <:< portModTpe
+                        case _ => false
+                    else false
+                  val hasPorts = Literal(Constant(clsSym.hasNestedMemberCond(portCond)))
                   val setInitials = This(moduleCls).select("setInitials".toTermName).appliedToArgs(
                     List(
                       designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames, dsnArgValues,
-                      dsnArgDescs, Werror
+                      dsnArgDescs, Werror, hasResourceOwnerTree, hasPorts
                     )
                   )
                   val dsnInstArgs = paramVDs.map(vd =>
@@ -150,5 +163,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
     dfConstBoolTpe = requiredClassRef("dfhdl.core.DFConstBool")
     dfConstBitTpe = requiredClassRef("dfhdl.core.DFConstBit")
     dfConstInt32Tpe = requiredClassRef("dfhdl.core.DFConstInt32")
+    resourceOwnerTpe = requiredClassRef("dfhdl.platforms.resources.ResourceOwner")
+    portModTpe = requiredClassRef("dfhdl.core.Modifier.Port")
     ctx
 end TopAnnotPhase

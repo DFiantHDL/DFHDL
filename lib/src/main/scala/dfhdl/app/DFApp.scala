@@ -12,6 +12,7 @@ import dfhdl.compiler.stages.{StagedDesign, CompiledDesign}
 import dfhdl.internals.DiskCache
 import dfhdl.compiler.ir.SourceFile
 import java.nio.file.Paths
+import dfhdl.internals.scastieIsRunning
 
 trait DFApp:
   private val logger = Logger("DFHDL App")
@@ -46,12 +47,16 @@ trait DFApp:
   private var linterOptions: options.LinterOptions = compiletime.uninitialized
   private var simulatorOptions: options.SimulatorOptions = compiletime.uninitialized
   private var appOptions: options.AppOptions = compiletime.uninitialized
+  private var builderOptions: options.BuilderOptions = compiletime.uninitialized
+  private var programmerOptions: options.ProgrammerOptions = compiletime.uninitialized
   inline given options.ElaborationOptions = elaborationOptions
   inline given options.CompilerOptions = compilerOptions
   inline given options.PrinterOptions = printerOptions
   inline given options.LinterOptions = linterOptions
   inline given options.SimulatorOptions = simulatorOptions
   inline given options.AppOptions = appOptions
+  inline given options.BuilderOptions = builderOptions
+  inline given options.ProgrammerOptions = programmerOptions
   private var dsn: () => core.Design = compiletime.uninitialized
   // used by the plugin to get the updated design arguments that could be changed by the
   // command-line options
@@ -67,7 +72,9 @@ trait DFApp:
       argNames: List[String],
       argValues: List[Any],
       argDescs: List[String],
-      scalacWerror: Boolean
+      scalacWerror: Boolean,
+      hasResourceOwner: Boolean,
+      hasPorts: Boolean
   ): Unit =
     this.designName = designName
     this.topScalaPath = topScalaPath
@@ -78,7 +85,22 @@ trait DFApp:
       top.linterOptions.copy(Werror = top.linterOptions.Werror.fromScalac(scalacWerror))
     simulatorOptions =
       top.simulatorOptions.copy(Werror = top.simulatorOptions.Werror.fromScalac(scalacWerror))
-    appOptions = top.appOptions
+    builderOptions =
+      top.builderOptions.copy(Werror = top.builderOptions.Werror.fromScalac(scalacWerror))
+    programmerOptions =
+      top.programmerOptions.copy(Werror = top.programmerOptions.Werror.fromScalac(scalacWerror))
+    // this is the default app mode if no app mode is specified.
+    // if in scastie, we default to compile mode.
+    // if there are no ports, we default to simulate mode.
+    // if there is a resource owner, we default to program mode.
+    // otherwise, we default to commit mode.
+    val updatedAppMode = top.appOptions.appMode.getOrElse {
+      if (scastieIsRunning) AppMode.compile
+      else if (!hasPorts) AppMode.simulate
+      else if (hasResourceOwner) AppMode.program
+      else AppMode.commit
+    }
+    appOptions = top.appOptions.copy(appMode = updatedAppMode)
     designArgs = DesignArgs(argNames, argValues, argDescs)
   end setInitials
 
@@ -190,10 +212,8 @@ trait DFApp:
       simulatorOptions.getTool.cleanUpBeforeFileRestore()(using committed.stagedDB.getSet)
     override protected def logCachedRun(): Unit =
       logger.info("Loading sim prep from cache...")
-    protected def valueToCacheStr(value: CompiledDesign): String = value.stagedDB.toJsonString
-    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign(
-      new StagedDesign(ir.DB.fromJsonString(str))
-    )
+    protected def valueToCacheStr(value: CompiledDesign): String = value.toJsonString
+    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign.fromJsonString(str)
   end simPrep
 
   object simRun
@@ -204,6 +224,34 @@ trait DFApp:
     protected def valueToCacheStr(value: CompiledDesign): String = ???
     protected def cacheStrToValue(str: String): CompiledDesign = ???
   end simRun
+
+  object build
+      extends diskCache.Step[CompiledDesign, CompiledDesign](commit)(
+        builderOptions.flash,
+        builderOptions.tool
+      ):
+    override protected def cacheEnable: Boolean = appOptions.cacheEnable
+    override protected def genFiles(committed: CompiledDesign): List[String] =
+      committed.builder.producedFiles(using committed.stagedDB.getSet).map {
+        path =>
+          Paths.get(compilerOptions.topCommitPath(committed.stagedDB)).resolve(path).toString
+      }
+    override protected def logCachedRun(): Unit =
+      logger.info("Loading build artifacts from cache...")
+    protected def run(committed: CompiledDesign): CompiledDesign =
+      committed.tap(_ => logger.info("Running external builder...")).build
+    protected def valueToCacheStr(value: CompiledDesign): String = value.toJsonString
+    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign.fromJsonString(str)
+  end build
+
+  object program
+      extends diskCache.Step[CompiledDesign, CompiledDesign](build)():
+    override protected def cacheEnable: Boolean = appOptions.cacheEnable
+    protected def run(committed: CompiledDesign): CompiledDesign =
+      committed.tap(_ => logger.info("Running external programmer...")).program
+    protected def valueToCacheStr(value: CompiledDesign): String = ???
+    protected def cacheStrToValue(str: String): CompiledDesign = ???
+  end program
 
   private def listBackends: Unit =
     System.out.println(
@@ -353,6 +401,25 @@ trait DFApp:
               vhdlSimulator = toolSelection.vhdlSimulator,
               Werror = mode.`Werror-tool`.toOption.get
             )
+          case mode: Mode.BuildMode =>
+            builderOptions = builderOptions.copy(
+              Werror = mode.`Werror-tool`.toOption.get,
+              flash = mode.flash.toOption.get,
+              tool = mode.tool.toOption.get match
+                case "foss"   => dfhdl.tools.builders.foss
+                case "vendor" => dfhdl.tools.builders.vendor
+            )
+          case mode: Mode.ProgramMode =>
+            programmerOptions = programmerOptions.copy(
+              Werror = mode.`Werror-tool`.toOption.get,
+              flash = mode.flash.toOption.get,
+              tool = mode.tool.toOption.get match
+                case "foss"   => dfhdl.tools.programmers.foss
+                case "vendor" => dfhdl.tools.programmers.vendor
+            )
+            // if the programmer is set to flash, then the builder must be set to flash
+            if (mode.flash.toOption.get)
+              builderOptions = builderOptions.copy(flash = true)
           case _ =>
         end match
         // execute command
@@ -370,6 +437,9 @@ trait DFApp:
           case Mode.commit    => commit()
           case Mode.lint      => lint(uncached = true)
           case Mode.simulate  => simRun(uncached = true)
+          case Mode.build     => build()
+          case Mode.program   => program(uncached = true)
+        end match
     end match
   end main
 end DFApp

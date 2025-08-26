@@ -9,13 +9,13 @@
 
 module LRShiftFlat#(parameter integer width = 8)(
   /* bits input */
-  input  wire  [width - 1:0]        iBits,
+  input  wire [width - 1:0]        iBits,
   /* requested shift */
-  input  wire  [clog2(width) - 1:0] shift,
+  input  wire [clog2(width) - 1:0] shift,
   /* direction of shift */
-  input  wire  [0:0]                dir,
+  input  wire [0:0]                dir,
   /* bits output */
-  output reg [width - 1:0]          oBits
+  output reg [width - 1:0]         oBits
 );
   `include "dfhdl_defs.vh"
   `include "LRShiftFlat_defs.vh"

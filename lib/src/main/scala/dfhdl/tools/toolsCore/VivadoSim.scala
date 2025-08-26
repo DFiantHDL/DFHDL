@@ -73,7 +73,8 @@ trait VivadoSimCommon extends Linter, Simulator:
 
   override protected[dfhdl] def producedFiles(using
       getSet: MemberGetSet,
-      co: CompilerOptions
+      co: CompilerOptions,
+      so: SimulatorOptions
   ): List[String] =
     val folder = xsimFolder
     val axsimRunExec = s"${folder}${separatorChar}axsim${if (osIsWindows) ".exe" else ""}"

@@ -92,10 +92,10 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
     data match
       case Some(value) => value.toString
       case None        => "?"
-  def csDFTimeData(data: (BigDecimal, DFTime.Unit)): String =
-    s"${csBigDecimalData(data._1)} ${data._2}"
-  def csDFFreqData(data: (BigDecimal, DFFreq.Unit)): String = printer.unsupported
-  def csDFNumberData(data: (BigDecimal, DFNumber.Unit)): String = printer.unsupported
+  def csDFTimeData(data: TimeNumber): String =
+    s"${csBigDecimalData(data.value)} ${data.unit}"
+  def csDFFreqData(data: FreqNumber): String = printer.unsupported
+  def csDFNumberData(data: LiteralNumber): String = printer.unsupported
   def scalaToVHDLString(str: String): String =
     str.view.map {
       case '"'  => "\"\""

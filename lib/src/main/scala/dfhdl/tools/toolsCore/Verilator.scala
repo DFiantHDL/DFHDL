@@ -154,7 +154,11 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     val bin = s"obj_dir${separatorChar}V${topName}"
     if (osIsWindows) s"${bin}.exe" else bin
 
-  override protected[dfhdl] def producedFiles(using MemberGetSet, CompilerOptions): List[String] =
+  override protected[dfhdl] def producedFiles(using
+      MemberGetSet,
+      CompilerOptions,
+      SimulatorOptions
+  ): List[String] =
     List(verilatedBinary)
 
   override def simulate(
@@ -189,7 +193,7 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
 ):
   val designDB: DB = getSet.designDB
   val verilatorVersionMajor: Int = verilatorVersion.split("\\.").head.toInt
-  def configFileName: String = s"${designDB.top.dclName}.vlt"
+  def configFileName: String = s"${getSet.topName}.vlt"
   def contents: String =
     s"""`verilator_config
        |$commands

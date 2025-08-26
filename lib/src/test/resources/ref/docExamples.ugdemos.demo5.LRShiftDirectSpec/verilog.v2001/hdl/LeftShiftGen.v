@@ -9,11 +9,11 @@
 
 module LeftShiftGen#(parameter integer width = 8)(
   /* bits input */
-  input  wire  [width - 1:0]        iBits,
+  input  wire [width - 1:0]        iBits,
   /* requested shift */
-  input  wire  [clog2(width) - 1:0] shift,
+  input  wire [clog2(width) - 1:0] shift,
   /* bits output */
-  output wire [width - 1:0]         oBits
+  output wire [width - 1:0]        oBits
 );
   `include "dfhdl_defs.vh"
   `include "LRShiftDirect_defs.vh"

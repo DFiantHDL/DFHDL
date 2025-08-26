@@ -2,9 +2,13 @@ package dfhdl
 
 import dfhdl.core.Design
 import dfhdl.compiler.stages.CompiledDesign
-import dfhdl.tools.toolsCore.Builder
-import dfhdl.options.{CompilerOptions, LinterOptions, BuilderOptions, SimulatorOptions}
+import dfhdl.tools.toolsCore.{Builder, Programmer}
+import dfhdl.options.*
 import dfhdl.backends
+import dfhdl.compiler.ir
+import dfhdl.tools.{builders, programmers}
+import ir.constraints.DeviceID.Vendor
+import dfhdl.tools.toolsCore.*
 
 extension (cd: CompiledDesign)
   def lint(using
@@ -15,7 +19,7 @@ extension (cd: CompiledDesign)
       case _: backends.verilog => lo.verilogLinter.lint(lo.verilogLinter.lintPreprocess(cd))
       case _: backends.vhdl    => lo.vhdlLinter.lint(lo.vhdlLinter.lintPreprocess(cd))
 
-  def simPrep(using
+  protected[dfhdl] def simPrep(using
       co: CompilerOptions,
       so: SimulatorOptions
   ): CompiledDesign =
@@ -29,18 +33,40 @@ extension (cd: CompiledDesign)
     )
   end simPrep
 
-  def simRun(using
+  protected[dfhdl] def simRun(using
       co: CompilerOptions,
       so: SimulatorOptions
   ): CompiledDesign = co.backend match
     case _: backends.verilog => so.verilogSimulator.simulate(cd)
     case _: backends.vhdl    => so.vhdlSimulator.simulate(cd)
 
-  def simulate(using
+  protected[dfhdl] def simulate(using
       co: CompilerOptions,
       so: SimulatorOptions
   ): CompiledDesign = simPrep.simRun
 
-  def build(using builder: Builder)(using CompilerOptions, BuilderOptions): CompiledDesign =
+  protected[dfhdl] def vendor = cd.stagedDB.top.dclMeta.annotations.collectFirst {
+    case annotation: ir.constraints.DeviceID => annotation.vendor
+  }.getOrElse(throw new IllegalArgumentException("No device constraint found"))
+
+  protected[dfhdl] def builder(using bo: BuilderOptions): Builder = (vendor, bo.tool) match
+    case (Vendor.XilinxAMD, builders.vendor) => Vivado
+    case (Vendor.Gowin, builders.vendor)     => GowinDesigner
+    case (vendor, tool)                      => throw new IllegalArgumentException(
+        s"No $tool builder tool support for vendor $vendor"
+      )
+
+  protected[dfhdl] def programmer(using po: ProgrammerOptions): Programmer = (vendor, po.tool) match
+    case (Vendor.XilinxAMD, programmers.vendor) => Vivado
+    case (Vendor.Gowin, programmers.vendor)     => GowinProgrammer
+    case (_, programmers.foss)                  => OpenFPGALoader
+    case (vendor, tool)                         => throw new IllegalArgumentException(
+        s"No $tool programmer tool support for vendor $vendor"
+      )
+
+  protected[dfhdl] def build(using CompilerOptions, BuilderOptions): CompiledDesign =
     builder.build(builder.buildPreprocess(cd))
+
+  protected[dfhdl] def program(using CompilerOptions, ProgrammerOptions): CompiledDesign =
+    programmer.program(programmer.programPreprocess(cd))
 end extension

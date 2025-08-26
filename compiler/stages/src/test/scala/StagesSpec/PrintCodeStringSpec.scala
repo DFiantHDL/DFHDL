@@ -1332,6 +1332,46 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
 
+  test("toggle enum printing") {
+    enum MyEnum extends Encoded.Toggle:
+      case Zero, One
+
+    class Bar extends RTDesign:
+      val x  = MyEnum  <> IN
+      val y  = Bit     <> OUT
+      val z  = Boolean <> OUT
+      val x1 = Bit     <> IN
+      val x2 = Boolean <> IN
+      val y1 = MyEnum  <> OUT
+      val y2 = MyEnum  <> OUT
+      y  := (x.toggle).bit
+      z  := (x.toggle).bool
+      y1 := x1.as(MyEnum)
+      y2 := x2.as(MyEnum)
+    end Bar
+    val top = (new Bar).getCodeString
+    assertNoDiff(
+      top,
+      """|enum MyEnum(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
+         |  case Zero extends MyEnum(d"1'0")
+         |  case One extends MyEnum(d"1'1")
+         |
+         |class Bar extends RTDesign:
+         |  val x = MyEnum <> IN
+         |  val y = Bit <> OUT
+         |  val z = Boolean <> OUT
+         |  val x1 = Bit <> IN
+         |  val x2 = Boolean <> IN
+         |  val y1 = MyEnum <> OUT
+         |  val y2 = MyEnum <> OUT
+         |  y := x.toggle.bit
+         |  z := x.toggle.bool
+         |  y1 := x1.as(MyEnum)
+         |  y2 := x2.as(MyEnum)
+         |end Bar""".stripMargin
+    )
+  }
+
   // TODO: requires fixing
   // test("nesting parameters regression") {
   //   class Inner(val width: Int <> CONST) extends RTDesign:

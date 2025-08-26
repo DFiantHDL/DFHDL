@@ -2,11 +2,12 @@ package dfhdl.core
 import dfhdl.internals.*
 import dfhdl.compiler.ir
 import dfhdl.options.ElaborationOptions
-import dfhdl.hw.annotation.{HWAnnotation, getActiveHWAnnotations}
+import dfhdl.hw.annotation.getActiveHWAnnotations
 import scala.reflect.ClassTag
 import collection.mutable
 import scala.annotation.Annotation
 import scala.annotation.implicitNotFound
+import ir.annotation.HWAnnotation
 
 final case class DFC(
     nameOpt: Option[String],

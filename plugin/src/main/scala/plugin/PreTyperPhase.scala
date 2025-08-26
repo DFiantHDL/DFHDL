@@ -20,6 +20,19 @@ import Types._
 import scala.language.implicitConversions
 import collection.mutable
 import annotation.tailrec
+import reporting.*
+
+// not used, but can be potentially useful for modified the reported compiler errors
+// class CustomReporter(
+//     val orig: Reporter
+// ) extends Reporter:
+//   override def flush()(using ctx: Context): Unit = orig.flush()
+//   override def doReport(dia: Diagnostic)(using ctx: Context): Unit =
+//     val updatedMsg = dia.msg.toString
+//     val updatedDia = Diagnostic(dia.msg.mapMsg(x => updatedMsg), dia.pos, dia.level)
+//     orig.doReport(updatedDia)
+//   end doReport
+// end CustomReporter
 
 /** This is a pre-typer phase that does very minor things:
   *   - change infix operator precedence of type signature: `a X b <> c` to be `(a X b) <> c`
@@ -38,6 +51,9 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
   override val runsAfter = Set("parser")
   override val runsBefore = Set("typer")
   private var debugFlag = false
+  // override to prevent from running redundant MiniPhase transformation
+  // that can cause compiler errors
+  override def run(using Context): Unit = {}
 
   def debug(str: => Any*): Unit =
     if (debugFlag) println(str.mkString(", "))
@@ -66,7 +82,7 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
       def unapply(tree: InfixOp)(using Context): Option[InfixOp] =
         tree match
           case InfixOpArgsChange(a, Ident(conn), b) => Some(InfixOp(a, Ident(conn), Parens(b)))
-          case _ =>
+          case _                                    =>
             None
     end InfixOpChange
     object MatchAssignOpChange:
@@ -153,6 +169,21 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
       end match
     end transform
 
+  // not used, but can be potentially useful for modified the reported compiler errors
+  // override def initContext(ctx: FreshContext): Unit =
+  //   import dotty.tools.dotc.printing.*
+  //   import dotty.tools.dotc.printing.Texts.Text
+  //   def foo(ctx: Context): Printer =
+  //     new PlainPrinter(ctx):
+  //       override def toText(tp: Type): Text =
+  //         if (tp <:< defn.IntType)
+  //           "Int2"
+  //         else
+  //           super.toText(tp)
+  //   ctx.setPrinterFn(foo)
+  //   val typerState = ctx.typerState.setReporter(new CustomReporter(ctx.reporter))
+  //   ctx.setTyperState(typerState)
+
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
     val parsed = super.runOn(units)
     parsed.foreach { cu =>
@@ -161,4 +192,5 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
       cu.untpdTree = `fixXand<>Precedence`.transform(cu.untpdTree)
     }
     parsed
+  end runOn
 end PreTyperPhase

@@ -5,11 +5,11 @@
 
 module LeftShiftBasic(
   /* bits input */
-  input  wire  [7:0] iBits,
+  input  wire [7:0] iBits,
   /* requested shift */
-  input  wire  [2:0] shift,
+  input  wire [2:0] shift,
   /* bits output */
-  output wire [7:0]  oBits
+  output wire [7:0] oBits
 );
   `include "dfhdl_defs.vh"
   `include "LeftShiftBasic_defs.vh"

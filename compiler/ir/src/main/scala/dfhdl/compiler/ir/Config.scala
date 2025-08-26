@@ -10,6 +10,8 @@ object ConfigN:
   given [T1, T2](using CanEqual[T1, T2]): CanEqual[ConfigN[T1], ConfigN[T2]] = CanEqual.derived
   given [T]: CanEqual[ConfigN[T], None.type] = CanEqual.derived
   given [T]: CanEqual[None.type, ConfigN[T]] = CanEqual.derived
+  given [T]: CanEqual[ConfigN[T], T] = CanEqual.derived
+  given [T]: CanEqual[T, ConfigN[T]] = CanEqual.derived
   given [L, R]: CanEqual[ConfigN[L], ConfigN[R]] = CanEqual.derived
   given [T](using ReadWriter[T]): ReadWriter[ConfigN[T]] = readwriter[ujson.Value].bimap(
     value =>
@@ -22,6 +24,28 @@ object ConfigN:
         case ujson.Null => None
         case value      => read[T](value)
   )
+  extension [T](x: ConfigN[T])
+    def getOrElse(default: => T): T = x match
+      case None                => default
+      case value: T @unchecked => value
+    def foreach(f: T => Unit): Unit = x match
+      case None                => ()
+      case value: T @unchecked => f(value)
+    def map[R](f: T => R): ConfigN[R] = x match
+      case None                => None
+      case value: T @unchecked => f(value)
+    def flatMap[R](f: T => ConfigN[R]): ConfigN[R] = x match
+      case None                => None
+      case value: T @unchecked => f(value)
+    def toList: List[T] = x match
+      case None                => Nil
+      case value: T @unchecked => List(value)
+  end extension
+  extension [T <: DFRefAny](x: ConfigN[T])
+    def =~(that: ConfigN[T])(using MemberGetSet): Boolean = (x, that) match
+      case (None, None)                          => true
+      case (t: T @unchecked, that: T @unchecked) => t =~ that
+      case _                                     => false
 end ConfigN
 
 /** Sets the policy for inclusing the clock or reset signals when they are not needed
@@ -40,13 +64,9 @@ object ClkCfg:
   enum Edge extends StableEnum derives CanEqual, ReadWriter:
     case Rising, Falling
 
-  type RateData = (BigDecimal, DFFreq.Unit | DFTime.Unit)
-  given ReadWriter[DFFreq.Unit | DFTime.Unit] =
-    ReadWriter.merge(summon[ReadWriter[DFTime.Unit]], summon[ReadWriter[DFFreq.Unit]])
-
   final case class Explicit(
       edge: Edge,
-      rate: RateData,
+      rate: RateNumber,
       portName: String,
       inclusionPolicy: ClkRstInclusionPolicy
   ) derives CanEqual,

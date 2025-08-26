@@ -9,6 +9,7 @@ protected object hdl:
   export core.DFBits.Val.TupleOps.*
   export core.DFDecimal.StrInterpOps.{d, sd}
   export core.DFDecimal.Val.Ops.*
+  export core.DFEnum.Val.Ops.*
   export core.DFVector.Val.Ops.*
   export core.DFOpaque.Val.Ops.*
   export core.DFTuple.Val.Ops.*
@@ -25,6 +26,7 @@ protected object hdl:
   export internals.CommonOps.*
   export core.{dfType}
   export core.DFPhysical.Val.Ops.*
+  export platforms.resources.Resource.Ops.*
   export core.COMB_LOOP
   type Time = core.DFTime
   val Time = core.DFTime

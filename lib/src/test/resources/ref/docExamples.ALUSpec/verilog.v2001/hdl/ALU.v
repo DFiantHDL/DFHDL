@@ -3,10 +3,10 @@
 `include "ALU_defs.vh"
 
 module ALU(
-  input  wire  [31:0] op1,
-  input  wire  [31:0] op2,
-  input  wire  [3:0]  aluSel,
-  output reg [31:0]   aluOut
+  input  wire [31:0] op1,
+  input  wire [31:0] op2,
+  input  wire [3:0]  aluSel,
+  output reg [31:0]  aluOut
 );
   `include "dfhdl_defs.vh"
   `include "ALU_defs.vh"

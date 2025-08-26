@@ -108,7 +108,7 @@ case object AddClkRst extends Stage:
                   val clkRstSimGen = new EDDomain:
                     override protected def __dfc: DFC =
                       selfDFC.setName("clkRstSimGen")
-                        .setAnnotations(List(dfhdl.hw.annotation.flattenMode.transparent()))
+                        .setAnnotations(List(annotation.FlattenMode.Transparent))
                     val dfcAnon = selfDFC.anonymize.setAnnotations(Nil)
                     locally {
                       given DFC = selfDFC.anonymize.setAnnotations(Nil)
@@ -116,13 +116,7 @@ case object AddClkRst extends Stage:
                       val clkActive = clkCfg.asInstanceOf[ClkCfg.Explicit].edge match
                         case ClkCfg.Edge.Rising  => true
                         case ClkCfg.Edge.Falling => false
-                      val clkPeriodHalf =
-                        clkRate._2 match
-                          case time: DFTime.Unit =>
-                            (clkRate._1 / 2, time)
-                          case freq: DFFreq.Unit =>
-                            val (period, scale) = freq.to_period(clkRate._1)
-                            (period / 2, scale)
+                      val clkPeriodHalf = clkRate.to_period / 2
                       lazy val rstActive = rstCfg.asInstanceOf[RstCfg.Explicit].active match
                         case RstCfg.Active.Low  => false
                         case RstCfg.Active.High => true

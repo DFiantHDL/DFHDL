@@ -161,6 +161,12 @@ object Width:
             case DFEnum(entries) =>
               val entryCount = entries.length
               val widthOption = entries.head.asType match
+                case '[DFEncoding.Toggle] =>
+                  if (entryCount != 2)
+                    throw new IllegalArgumentException(
+                      s"Toggle enumeration must have exactly 2 entries, but found $entryCount"
+                    )
+                  Some(1)
                 case '[DFEncoding.StartAt[t]] =>
                   TypeRepr.of[t] match
                     case ConstantType(IntConstant(value)) =>
@@ -173,7 +179,12 @@ object Width:
                 case '[DFEncoding.Manual[w]] =>
                   TypeRepr.of[w] match
                     case ConstantType(IntConstant(value)) =>
-                      Some(value)
+                      if ((entryCount).bitsWidth(false) > value)
+                        report.errorAndAbort(
+                          s"Explicit width $value is too small for $entryCount entries"
+                        )
+                      else
+                        Some(value)
                     case _ => None
               widthOption
                 .map(w => ConstantType(IntConstant(w)))

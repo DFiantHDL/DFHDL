@@ -219,6 +219,18 @@ abstract class CommonPhase extends PluginPhase:
       sym.annotations.collect {
         case a if a.tree.tpe <:< defn.StaticAnnotationClass.typeRef => a
       }
+
+    def hasNestedMemberCond(f: Type => Boolean)(using Context): Boolean =
+      def recur(tpe: Type): Boolean =
+        tpe match
+          case tpe if f(tpe)                    => true
+          case rt: RefinedType                  => recur(rt.refinedInfo) || recur(rt.parent)
+          case rt: RecType                      => recur(rt.parent)
+          case tpe if tpe.typeSymbol.is(Module) => tpe.typeSymbol.hasNestedMemberCond(f)
+          case _                                => false
+      end recur
+      sym.info.fields.exists(f => recur(f.symbol.info))
+    end hasNestedMemberCond
   end extension
 
   extension (name: String)
@@ -274,7 +286,7 @@ abstract class CommonPhase extends PluginPhase:
     def dfcFuncTpeOptRecur: Option[Type] =
       tp.dealias match
         case ContextFunctionType(ctx, res) if ctx.head <:< metaContextTpe => Some(res)
-        case AppliedType(tycon, args) =>
+        case AppliedType(tycon, args)                                     =>
           var requiresUpdate = false
           val updatedArgs = args.map { tp =>
             tp.dfcFuncTpeOptRecur match
@@ -381,7 +393,7 @@ abstract class CommonPhase extends PluginPhase:
     metaContextCls = requiredClass("dfhdl.internals.MetaContext")
     metaContextIgnoreAnnotSym = requiredClass("dfhdl.internals.metaContextIgnore")
     metaContextForwardAnnotSym = requiredClass("dfhdl.internals.metaContextForward")
-    metaGenSym = requiredMethod("dfhdl.compiler.ir.Meta.gen")
+    metaGenSym = requiredMethod("dfhdl.core.r__For_Plugin.metaGen")
     positionGenSym = requiredMethod("dfhdl.internals.Position.fromAbsPath")
     hasDFCTpe = requiredClassRef("dfhdl.core.HasDFC")
     inlineAnnotSym = requiredClass("scala.inline")

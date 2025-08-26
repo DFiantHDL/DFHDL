@@ -3,8 +3,8 @@
 `include "Cipher_defs.vh"
 
 module subWord(
-  input  wire  [31:0] lhs,
-  output wire [31:0]  o
+  input  wire [31:0] lhs,
+  output wire [31:0] o
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
