@@ -42,6 +42,7 @@ object OpenFPGALoader extends Programmer:
       case (Vendor.XilinxAMD, true)  => "mcs"
       case (Vendor.XilinxAMD, false) => "bit"
       case (Vendor.Gowin, false)     => "fs"
+      case (Vendor.Lattice, false)   => "bit"
       case x                         =>
         throw new IllegalArgumentException(
           s"Vendor-flash combination $x is currently not supported in this DFHDL openFPGALoader integration"

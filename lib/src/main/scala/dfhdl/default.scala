@@ -52,6 +52,7 @@ extension (cd: CompiledDesign)
   protected[dfhdl] def builder(using bo: BuilderOptions): Builder = (vendor, bo.tool) match
     case (Vendor.XilinxAMD, builders.vendor) => Vivado
     case (Vendor.Gowin, builders.vendor)     => GowinDesigner
+    case (Vendor.Lattice, builders.vendor)   => Diamond
     case (vendor, tool)                      => throw new IllegalArgumentException(
         s"No $tool builder tool support for vendor $vendor"
       )
