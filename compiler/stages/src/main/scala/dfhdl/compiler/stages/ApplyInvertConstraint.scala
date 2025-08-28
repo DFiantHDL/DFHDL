@@ -42,7 +42,7 @@ import dfhdl.internals.BitVector
   * ```
   */
 case object ApplyInvertConstraint extends Stage:
-  override def dependencies: List[Stage] = List()
+  override def dependencies: List[Stage] = List(ToED)
   override def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
     given RefGen = RefGen.fromGetSet
