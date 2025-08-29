@@ -39,11 +39,10 @@ object OpenFPGALoader extends Programmer:
       s"--fpga-part $partName"
     }
     val suffix = (cd.vendor, po.flash) match
-      case (Vendor.XilinxAMD, true)  => "mcs"
-      case (Vendor.XilinxAMD, false) => "bit"
-      case (Vendor.Gowin, false)     => "fs"
-      case (Vendor.Lattice, false)   => "bit"
-      case x                         =>
+      case (Vendor.XilinxAMD | Vendor.Lattice, true)  => "mcs"
+      case (Vendor.XilinxAMD | Vendor.Lattice, false) => "bit"
+      case (Vendor.Gowin, false)                      => "fs"
+      case x                                          =>
         throw new IllegalArgumentException(
           s"Vendor-flash combination $x is currently not supported in this DFHDL openFPGALoader integration"
         )
