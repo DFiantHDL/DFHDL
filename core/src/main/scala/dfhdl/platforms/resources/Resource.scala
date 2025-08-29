@@ -53,7 +53,9 @@ trait Resource extends ResourceContext:
         throw e
     end try
   end allSigConstraints
-  owner.addResource(this)
+  owner match
+    case owner: ResourceOwner => owner.addResource(this)
+    case _                    =>
 end Resource
 
 private trait ResourceLP:

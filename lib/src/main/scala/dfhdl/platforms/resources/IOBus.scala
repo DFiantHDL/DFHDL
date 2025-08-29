@@ -9,6 +9,12 @@ import Resource.CanConnect
 class IOBus[T <: IO, L <: Int] private (val ios: List[T]) extends ResourceDeps:
   def apply(i: Int): T = ios(i)
   lazy val upstreamDeps: List[Resource] = ios
+  def reverse(using DFC): IOBus[T, L] =
+    val ret = new IOBus[T, L](ios.reverse)
+    ret.injectID(id + ".reverse")
+    for (c <- getResourceConstraints)
+      ret.injectConstraint(c)
+    ret
 object IOBus:
   def fill[T <: IO, L <: Int & Singleton](length: L)(f: => T)(using dfc: DFC): IOBus[T, L] =
     forced[T, L](List.tabulate(length)(i => f.injectID(s"${dfc.getMeta.name}($i)")))
