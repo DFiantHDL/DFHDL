@@ -52,6 +52,11 @@ object PhysicalNumber:
         case time: TimeNumber => time
         case freq: FreqNumber => FreqNumber.to_period(freq)
     end to_period
+    def to_freq: FreqNumber =
+      lhs match
+        case time: TimeNumber => TimeNumber.to_hz(time)
+        case freq: FreqNumber => freq
+    end to_freq
   end extension
 end PhysicalNumber
 
@@ -82,6 +87,10 @@ object TimeNumber:
       val psVal = to_psVal
       TimeNumber(psVal, TimeNumber.Unit.ps)
     end to_ps
+    def to_hz: FreqNumber =
+      val hzVal = BigDecimal(1e12) / to_psVal
+      FreqNumber(hzVal, FreqNumber.Unit.Hz)
+    end to_hz
     def normalize: TimeNumber =
       val psVal = to_psVal
       if psVal < 1000 then TimeNumber(psVal, TimeNumber.Unit.ps)
@@ -109,6 +118,8 @@ object FreqNumber:
       val psVal = BigDecimal(1e12) / to_hz.value
       TimeNumber(psVal, TimeNumber.Unit.ps)
     end to_ps
+    def /(rhs: Int): FreqNumber = FreqNumber(lhs.value / rhs, lhs.unit)
+    def /(rhs: FreqNumber): BigDecimal = lhs.to_hz.value / rhs.to_hz.value
     def to_period: TimeNumber =
       val psVal = to_ps.value
       if psVal < 1000 then TimeNumber(psVal, TimeNumber.Unit.ps)

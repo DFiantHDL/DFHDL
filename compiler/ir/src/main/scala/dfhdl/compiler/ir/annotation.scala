@@ -109,7 +109,8 @@ object constraints:
   final case class DeviceConfig(
       flashPartName: String,
       interface: DeviceConfig.Interface,
-      sizeLimitMB: Int
+      sizeLimitMB: Int,
+      masterRate: ConfigN[RateNumber]
   ) extends GlobalConstraint derives ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
@@ -118,14 +119,31 @@ object constraints:
       val params = List(
         csParam("flashPartName", flashPartName),
         csParam("interface", interface),
-        csParam("sizeLimitMB", sizeLimitMB)
+        csParam("sizeLimitMB", sizeLimitMB),
+        csParam("masterRate", masterRate)
       ).filter(_.nonEmpty).mkString(", ")
       s"""@deviceConfig($params)"""
   end DeviceConfig
   object DeviceConfig:
-    enum Interface extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
-      case SMAPx8, SMAPx16, SMAPx32, SPIx1, SPIx2, SPIx4, SPIx8, BPIx8, BPIx16
-      def codeString(using Printer): String = "deviceConfig.Interface." + this.toString
+    sealed trait Interface extends HasCodeString derives CanEqual, ReadWriter:
+      val busWidth: Int
+    object Interface:
+      final case class MasterSMAP(busWidth: Int) extends Interface:
+        def codeString(using Printer): String = s"deviceConfig.Interface.MasterSMAP($busWidth)"
+      final case class SlaveSMAP(busWidth: Int) extends Interface:
+        def codeString(using Printer): String = s"deviceConfig.Interface.SlaveSMAP($busWidth)"
+      final case class MasterSPI(busWidth: Int) extends Interface:
+        def codeString(using Printer): String = s"deviceConfig.Interface.MasterSPI($busWidth)"
+      final case class MasterBPI(busWidth: Int) extends Interface:
+        def codeString(using Printer): String = s"deviceConfig.Interface.MasterBPI($busWidth)"
+      case object SlaveSerial extends Interface:
+        val busWidth: Int = 1
+        def codeString(using Printer): String = s"deviceConfig.Interface.SlaveSerial"
+      case object MasterSerial extends Interface:
+        val busWidth: Int = 1
+        def codeString(using Printer): String = s"deviceConfig.Interface.MasterSerial"
+    end Interface
+  end DeviceConfig
 
   extension [T](configN: ConfigN[T])
     def merge(that: ConfigN[T]): ConfigN[T] =

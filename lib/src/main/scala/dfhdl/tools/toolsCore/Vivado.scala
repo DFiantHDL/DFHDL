@@ -13,6 +13,7 @@ import dfhdl.compiler.stages.verilog.VerilogDialect
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.ir.constraints
 import dfhdl.compiler.ir.RateNumber
+import dfhdl.compiler.ir.PhysicalNumber.Ops.MHz
 
 object Vivado extends Builder, Programmer:
   val toolName: String = "Vivado"
@@ -107,7 +108,7 @@ class VivadoProjectTclConfigPrinter(using
   def flashCmd: String =
     val config = designDB.top.dclMeta.annotations.collectFirst {
       case configConstraint: constraints.DeviceConfig => configConstraint
-    }.getOrElse(throw new IllegalArgumentException("No config constraint found"))
+    }.getOrElse(throw new IllegalArgumentException("No `@deviceConfig` constraint found"))
     if (bo.flash)
       s"""\nwrite_cfgmem -format mcs -interface ${config.interface} -size ${config.sizeLimitMB} -loadbit "up 0x0 ./${topName}.bit" -file ./${topName}.mcs"""
     else ""
@@ -157,16 +158,29 @@ class VivadoProjectConstraintsPrinter(using
           case (k, v) => s"set_property $k $v [current_design]"
         }
       case constraint: constraints.DeviceConfig =>
+        import constraints.DeviceConfig.Interface.*
         val spiBusWidth = constraint.interface match
-          case constraints.DeviceConfig.Interface.SPIx1 => Some(1)
-          case constraints.DeviceConfig.Interface.SPIx4 => Some(4)
-          case constraints.DeviceConfig.Interface.SPIx8 => Some(8)
-          case _                                        => None
+          case MasterSPI(busWidth) => Some(busWidth)
+          case _                   => None
+        val configMode = constraint.interface match
+          case MasterSPI(busWidth)  => s"SPIx$busWidth"
+          case MasterBPI(busWidth)  => s"BPI$busWidth"
+          case SlaveSerial          => "S_SERIAL"
+          case MasterSerial         => "M_SERIAL"
+          case SlaveSMAP(8)         => "S_SELECTMAP"
+          case MasterSMAP(8)        => "M_SELECTMAP"
+          case SlaveSMAP(busWidth)  => s"S_SELECTMAP$busWidth"
+          case MasterSMAP(busWidth) => s"M_SELECTMAP$busWidth"
+        val configRate = constraint.masterRate match
+          case None             => None
+          case rate: RateNumber => Some((rate.to_freq / 1.MHz).toInt)
         val compress = if (bo.compress) "TRUE" else "FALSE"
         List(
-          s"set_property CONFIG_MODE ${constraint.interface} [current_design]",
+          s"set_property CONFIG_MODE $configMode [current_design]",
           s"set_property BITSTREAM.GENERAL.COMPRESS $compress [current_design]"
-        ) ++ spiBusWidth.map(w => s"set_property BITSTREAM.CONFIG.SPI_BUSWIDTH $w [current_design]")
+        ) ++ spiBusWidth.map(w =>
+          s"set_property BITSTREAM.CONFIG.SPI_BUSWIDTH $w [current_design]"
+        ) ++ configRate.map(r => s"set_property BITSTREAM.CONFIG.CONFIGRATE $r [current_design]")
       case _ => Nil
     }.toList
 
@@ -298,7 +312,7 @@ class VivadoProgramScriptPrinter(using
   val topName: String = getSet.topName
   val config = designDB.top.dclMeta.annotations.collectFirst {
     case configConstraint: constraints.DeviceConfig => configConstraint
-  }.getOrElse(throw new IllegalArgumentException("No config constraint found"))
+  }.getOrElse(throw new IllegalArgumentException("No `@deviceConfig` constraint found"))
   def configFileName: String = s"${topName}_prog.tcl"
   val progOrFlash: String =
     if (po.flash)

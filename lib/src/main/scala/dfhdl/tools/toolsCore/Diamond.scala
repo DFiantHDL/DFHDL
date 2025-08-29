@@ -14,6 +14,7 @@ import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.ir.constraints
 import dfhdl.compiler.ir.RateNumber
 import java.io.File.separatorChar
+import dfhdl.compiler.ir.PhysicalNumber.Ops.MHz
 
 object Diamond extends Builder:
   val toolName: String = "Diamond"
@@ -138,7 +139,8 @@ end DiamondProjectTclConfigPrinter
 
 class DiamondProjectPhysicalConstraintsPrinter(using
     getSet: MemberGetSet,
-    co: CompilerOptions
+    co: CompilerOptions,
+    bo: BuilderOptions
 ):
   val designDB: DB = getSet.designDB
   val topName: String = getSet.topName
@@ -207,8 +209,33 @@ class DiamondProjectPhysicalConstraintsPrinter(using
   def cstPortConstraints: List[String] =
     designDB.topIOs.view.flatMap(cstPortConstraints).toList
 
+  def sysConfig: String =
+    val config = designDB.top.dclMeta.annotations.collectFirst {
+      case configConstraint: constraints.DeviceConfig => configConstraint
+    }.getOrElse(throw new IllegalArgumentException("No `@deviceConfig` constraint found"))
+    import constraints.DeviceConfig.Interface.*
+    val compress = if (bo.compress) "ON" else "OFF"
+    val masterSPI =
+      config.interface match
+        case MasterSPI(_) => "ENABLE"
+        case _            => "DISABLE"
+    val slaveSPI =
+      config.interface match
+        case SlaveSerial => "ENABLE"
+        case _           => "DISABLE"
+    val slaveParallel =
+      config.interface match
+        case SlaveSMAP(_) => "ENABLE"
+        case _            => "DISABLE"
+    val mcclkFreq = config.masterRate match
+      case None             => ""
+      case rate: RateNumber => s" MCCLK_FREQ=${(rate.to_freq / 1.MHz).toInt}"
+    s"""SYSCONFIG CONFIG_IOVOLTAGE=3.3$mcclkFreq COMPRESS_CONFIG=$compress MASTER_SPI_PORT=$masterSPI SLAVE_SPI_PORT=$slaveSPI SLAVE_PARALLEL_PORT=$slaveParallel;"""
+  end sysConfig
+
   def contents: String =
-    s"""|${cstPortConstraints.mkString("\n")}
+    s"""|${sysConfig}
+        |${cstPortConstraints.mkString("\n")}
         |""".stripMargin
 
   def getSourceFile: SourceFile =
