@@ -48,8 +48,10 @@ class ApplyInvertConstraintSpec extends StageSpec:
     )
   }
 
-  test("Basic registered output port inversion") {
-    class ID extends RTDesign:
+  test("Basic registered initialized output port inversion") {
+    val clkCfg = ClkCfg()
+    val cfg    = RTDomainCfg(clkCfg, None)
+    class ID extends RTDesign(cfg):
       val x = Bit <> IN
       @io(loc = "yloc", invertActiveState = true)
       val y = Bit <> OUT.REG init 0
@@ -57,22 +59,17 @@ class ApplyInvertConstraintSpec extends StageSpec:
     val id = (new ID).applyInvertConstraint
     assertCodeString(
       id,
-      """|case class Clk_default() extends Clk
-         |case class Rst_default() extends Rst
+      """|case class Clk_cfg() extends Clk
          |
          |class ID extends EDDesign:
-         |  val clk = Clk_default <> IN
-         |  val rst = Rst_default <> IN
+         |  val clk = Clk_cfg <> IN
          |  val x = Bit <> IN
          |  @io(loc = "yloc")
          |  val y = Bit <> OUT
-         |  val y_inverted = Bit <> VAR
+         |  val y_inverted = Bit <> VAR init 0
          |  y <> (!y_inverted)
          |  process(clk):
-         |    if (clk.actual.rising)
-         |      if (rst.actual == 1) y_inverted :== 0
-         |      else y_inverted :== x
-         |    end if
+         |    if (clk.actual.rising) y_inverted :== x
          |end ID
          |""".stripMargin
     )
