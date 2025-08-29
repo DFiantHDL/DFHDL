@@ -141,7 +141,11 @@ class VivadoProjectTclConfigPrinter(using
     SourceFile(SourceOrigin.Compiled, VivadoProjectTclConfig, configFileName, contents)
 end VivadoProjectTclConfigPrinter
 
-class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOptions):
+class VivadoProjectConstraintsPrinter(using
+    getSet: MemberGetSet,
+    co: CompilerOptions,
+    bo: BuilderOptions
+):
   val designDB: DB = getSet.designDB
   val topName: String = getSet.topName
   val constraintsFileName: String = s"$topName.xdc"
@@ -158,8 +162,10 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
           case constraints.DeviceConfig.Interface.SPIx4 => Some(4)
           case constraints.DeviceConfig.Interface.SPIx8 => Some(8)
           case _                                        => None
+        val compress = if (bo.compress) "TRUE" else "FALSE"
         List(
-          s"set_property CONFIG_MODE ${constraint.interface} [current_design]"
+          s"set_property CONFIG_MODE ${constraint.interface} [current_design]",
+          s"set_property BITSTREAM.GENERAL.COMPRESS $compress [current_design]"
         ) ++ spiBusWidth.map(w => s"set_property BITSTREAM.CONFIG.SPI_BUSWIDTH $w [current_design]")
       case _ => Nil
     }.toList

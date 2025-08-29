@@ -7,7 +7,8 @@ final case class BuilderOptions(
     onError: OnError,
     Werror: WError,
     tool: Tool,
-    flash: Flash
+    flash: Flash,
+    compress: Compress
 ) extends ToolOptions
 
 //defaults common for all linting tools
@@ -18,9 +19,12 @@ object BuilderOptions:
         onError: OnError,
         Werror: WError,
         tool: Tool,
-        flash: Flash
+        flash: Flash,
+        compress: Compress
     ): Defaults[Design] =
-      BuilderOptions(onError = onError, Werror = Werror, tool = tool, flash = flash)
+      BuilderOptions(
+        onError = onError, Werror = Werror, tool = tool, flash = flash, compress = compress
+      )
   given (using defaults: Defaults[Design]): BuilderOptions = defaults
 
   opaque type OnError <: dfhdl.options.ToolOptions.OnError = dfhdl.options.ToolOptions.OnError
@@ -45,4 +49,9 @@ object BuilderOptions:
   object Flash:
     given Flash = false
     given Conversion[Boolean, Flash] = identity
+
+  opaque type Compress <: Boolean = Boolean
+  object Compress:
+    given Compress = true
+    given Conversion[Boolean, Compress] = identity
 end BuilderOptions

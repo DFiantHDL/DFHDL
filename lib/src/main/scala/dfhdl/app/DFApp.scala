@@ -405,6 +405,7 @@ trait DFApp:
             builderOptions = builderOptions.copy(
               Werror = mode.`Werror-tool`.toOption.get,
               flash = mode.flash.toOption.get,
+              compress = mode.compress.toOption.get,
               tool = mode.tool.toOption.get match
                 case "foss"   => dfhdl.tools.builders.foss
                 case "vendor" => dfhdl.tools.builders.vendor
