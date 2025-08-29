@@ -57,8 +57,7 @@ object Diamond extends Builder:
     s"${topName}.ldf",
     s"${topName}.bit",
     s"${topName}1.sty"
-    // s"impl${separatorChar}${topName}_process_config.json"
-  )
+  ) ++ (if (bo.flash) List(s"${topName}.mcs") else Nil)
 end Diamond
 
 val DiamondProjectTclConfig = SourceType.Tool("Diamond", "ProjectTclConfig")
@@ -109,6 +108,14 @@ class DiamondProjectTclConfigPrinter(using
   def gpioOptions: String =
     activeDualPurposeGroups.map(group => s"set_option -use_${group}_as_gpio 1")
       .mkString("\n").emptyOr("\n" + _)
+  def flashCmd: String =
+    if (bo.flash)
+      s"""\nprj_run Export -impl impl1 -task Promgen"""
+    else ""
+  def flashCopyCmd: String =
+    if (bo.flash)
+      s"""\nfile copy -force ./impl1/${topName}_impl1.mcs ./${topName}.mcs"""
+    else ""
   def configFileName: String = s"$topName.tcl"
   def contents: String =
     //format: off
@@ -119,10 +126,10 @@ class DiamondProjectTclConfigPrinter(using
         |prj_impl option top Demo
         |prj_project save
         |prj_src add "./$topName.ldc"
-        |prj_run Export -impl impl1 -task Bitgen
+        |prj_run Export -impl impl1 -task Bitgen${flashCmd}
         |prj_project save
         |prj_project close
-        |file copy -force ./impl1/${topName}_impl1.bit ./${topName}.bit
+        |file copy -force ./impl1/${topName}_impl1.bit ./${topName}.bit${flashCopyCmd}
         |""".stripMargin
     //format: on
   def getSourceFile: SourceFile =
