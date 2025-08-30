@@ -226,7 +226,10 @@ trait DFApp:
   end simRun
 
   object build
-      extends diskCache.Step[CompiledDesign, CompiledDesign](commit)(
+      extends diskCache.Step[CompiledDesign, CompiledDesign](
+        commit,
+        hasGenFiles = true
+      )(
         builderOptions.flash,
         builderOptions.tool
       ):
