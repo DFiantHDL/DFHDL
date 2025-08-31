@@ -247,7 +247,7 @@ object constraints:
     end codeString
   end IO
   object IO:
-    type LevelVolt = 3.3 | 2.5 | 1.8 | 1.2
+    type LevelVolt = 3.3 | 2.5 | 1.8 | 1.5 | 1.2
     enum Standard extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case LVCMOS, LVTTL, LVDS
       def codeString(using Printer): String = "io.Standard." + this.toString
