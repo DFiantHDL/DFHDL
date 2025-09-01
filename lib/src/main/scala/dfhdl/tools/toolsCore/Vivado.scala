@@ -32,7 +32,10 @@ object Vivado extends Builder, Programmer:
       cd,
       List(
         new VivadoProjectTclConfigPrinter(using cd.stagedDB.getSet).getSourceFile,
-        new VivadoProjectConstraintsPrinter(using cd.stagedDB.getSet).getSourceFile
+        new VivadoProjectConstraintsPrinter(using cd.stagedDB.getSet).getSourceFile,
+        new BuilderProjectTimingConstraintsPrinter("_timing.xdc")(using
+          cd.stagedDB.getSet
+        ).getSourceFile
       )
     )
   def build(
@@ -243,51 +246,11 @@ class VivadoProjectConstraintsPrinter(using
     s"set_property -dict {$dict} ${xdc_get_ports(port, portConstraint)}"
   end xdcIOConstraint
 
-  // Vivado has a hard limit of ~200us for the clock period, even for virtual clocks
-  val VivadoMaxClockPeriodNS = BigDecimal(200000)
-
-  def xdcTimingIgnoreConstraint(
-      port: DFVal.Dcl,
-      constraint: constraints.Timing.Ignore
-  ): String =
-    def set_false_path(dir: String): String =
-      s"set_false_path $dir ${xdc_get_ports(port, constraint)}"
-    def set_io_delay(dir: String): String =
-      constraint.maxFreqMinPeriod match
-        case None                         => ""
-        case maxFreqMinPeriod: RateNumber =>
-          val maxFreqMinPeriodNS = maxFreqMinPeriod.to_ns.value.min(VivadoMaxClockPeriodNS)
-          val virtualClockName = s"virtual_clock_${port.getName}"
-          //format: off
-          s"""|
-              |create_clock -period $maxFreqMinPeriodNS -name $virtualClockName
-              |set_${dir}_delay -clock [get_clocks $virtualClockName] -min 0.0 ${xdc_get_ports(port,constraint)}
-              |set_${dir}_delay -clock [get_clocks $virtualClockName] -max 0.0 ${xdc_get_ports(port,constraint)}""".stripMargin
-          //format: on
-        case _ => ""
-    (port.modifier.dir: @unchecked) match
-      case DFVal.Modifier.IN =>
-        set_false_path("-from") + set_io_delay("input")
-      case DFVal.Modifier.OUT =>
-        set_false_path("-to") + set_io_delay("output")
-      // TODO: for INOUT, also check that its actually used in both directions by the design
-      case DFVal.Modifier.INOUT => set_false_path("-from") + set_false_path("-to")
-  end xdcTimingIgnoreConstraint
-
-  def xdcTimingClockConstraint(
-      port: DFVal.Dcl,
-      constraint: constraints.Timing.Clock
-  ): String =
-    s"create_clock -add -name ${port.getName} -period ${constraint.rate.to_ns.value.bigDecimal.toPlainString} [get_ports {${port.getName}}]"
-  end xdcTimingClockConstraint
-
   def xdcPortConstraints(
       port: DFVal.Dcl
   ): List[String] =
     port.meta.annotations.collect {
-      case constraint: constraints.IO            => xdcIOConstraint(port, constraint)
-      case constraint: constraints.Timing.Ignore => xdcTimingIgnoreConstraint(port, constraint)
-      case constraint: constraints.Timing.Clock  => xdcTimingClockConstraint(port, constraint)
+      case constraint: constraints.IO => xdcIOConstraint(port, constraint)
     }
   end xdcPortConstraints
 
