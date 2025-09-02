@@ -32,6 +32,7 @@ object QuartusPrime extends Builder:
       List(
         new QuartusPrimeProjectTclConfigPrinter(using cd.stagedDB.getSet).getSourceFile,
         new QuartusPrimeProjectPhysicalConstraintsPrinter(using cd.stagedDB.getSet).getSourceFile,
+        new QuartusPrimeProjectWarningSuppressionsPrinter(using cd.stagedDB.getSet).getSourceFile,
         new BuilderProjectTimingConstraintsPrinter(
           ".sdc",
           enableDerivedClockUncertainty = true
@@ -60,6 +61,8 @@ end QuartusPrime
 val QuartusPrimeProjectTclConfig = SourceType.Tool("QuartusPrime", "ProjectTclConfig")
 val QuartusPrimeProjectPhysicalConstraints =
   SourceType.Tool("QuartusPrime", "ProjectPhysicalConstraints")
+val QuartusPrimeProjectWarningSuppressions =
+  SourceType.Tool("QuartusPrime", "ProjectWarningSuppressions")
 
 class QuartusPrimeProjectTclConfigPrinter(using
     getSet: MemberGetSet,
@@ -219,3 +222,27 @@ class QuartusPrimeProjectPhysicalConstraintsPrinter(using
       contents
     )
 end QuartusPrimeProjectPhysicalConstraintsPrinter
+
+class QuartusPrimeProjectWarningSuppressionsPrinter(using
+    getSet: MemberGetSet,
+    co: CompilerOptions,
+    bo: BuilderOptions
+):
+  val designDB: DB = getSet.designDB
+  val topName: String = getSet.topName
+  def configFileName: String = s"$topName.srf"
+  def warningSuppression(id: String, keyWord: String = "*"): String =
+    s"""{ "" "" "" "$keyWord" {  } {  } 0 $id "" 0 0 "Design Software" 0 -1 0 ""}"""
+  def contents: String =
+    s"""|${warningSuppression("18236")}
+        |${warningSuppression("292013", "LogicLock")}
+        |${warningSuppression("334000")}
+        |""".stripMargin
+  def getSourceFile: SourceFile =
+    SourceFile(
+      SourceOrigin.Compiled,
+      QuartusPrimeProjectWarningSuppressions,
+      configFileName,
+      contents
+    )
+end QuartusPrimeProjectWarningSuppressionsPrinter
