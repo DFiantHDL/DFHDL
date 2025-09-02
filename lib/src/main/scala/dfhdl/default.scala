@@ -59,10 +59,11 @@ extension (cd: CompiledDesign)
       )
 
   protected[dfhdl] def programmer(using po: ProgrammerOptions): Programmer = (vendor, po.tool) match
-    case (Vendor.XilinxAMD, programmers.vendor) => Vivado
-    case (Vendor.Gowin, programmers.vendor)     => GowinProgrammer
-    case (_, programmers.foss)                  => OpenFPGALoader
-    case (vendor, tool)                         => throw new IllegalArgumentException(
+    case (Vendor.XilinxAMD, programmers.vendor)   => Vivado
+    case (Vendor.Gowin, programmers.vendor)       => GowinProgrammer
+    case (Vendor.AlteraIntel, programmers.vendor) => QuartusProgrammer
+    case (_, programmers.foss)                    => OpenFPGALoader
+    case (vendor, tool)                           => throw new IllegalArgumentException(
         s"No $tool programmer tool support for vendor $vendor"
       )
 

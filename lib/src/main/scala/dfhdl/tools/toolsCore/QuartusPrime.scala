@@ -54,7 +54,8 @@ object QuartusPrime extends Builder:
   ): List[String] = List(
     s"${topName}.qpf",
     s"${topName}.qsf",
-    s"${topName}.sof"
+    s"${topName}.sof",
+    s"${topName}.svf"
   )
 end QuartusPrime
 
@@ -112,6 +113,7 @@ class QuartusPrimeProjectTclConfigPrinter(using
         |set_global_assignment -name TOP_LEVEL_ENTITY $topName
         |source ${topName}_physical.tcl
         |set_global_assignment -name SDC_FILE $topName.sdc
+        |set_global_assignment -name GENERATE_SVF_FILE ON
         |execute_flow -compile
         |project_close
         |""".stripMargin

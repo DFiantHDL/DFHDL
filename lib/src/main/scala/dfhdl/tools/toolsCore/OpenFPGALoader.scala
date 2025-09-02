@@ -42,13 +42,18 @@ object OpenFPGALoader extends Programmer:
       case (Vendor.XilinxAMD | Vendor.Lattice, true)  => "mcs"
       case (Vendor.XilinxAMD | Vendor.Lattice, false) => "bit"
       case (Vendor.Gowin, false)                      => "fs"
+      case (Vendor.AlteraIntel, false)                => "svf"
       case x                                          =>
         throw new IllegalArgumentException(
           s"Vendor-flash combination $x is currently not supported in this DFHDL openFPGALoader integration"
         )
     val fileName = s"${topName}.$suffix"
+    val probeFirmware = if (suffix == "svf")
+      val location = Paths.get(runExecFullPath).getParent().resolve("blaster_6810.hex")
+      s" --probe-firmware $location"
+    else ""
     exec(
-      s"$cmd $fileName"
+      s"$cmd$probeFirmware $fileName"
     )
     cd
   end program
