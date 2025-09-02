@@ -60,9 +60,24 @@ trait Design extends Container, HasClsMetaArgs:
     import dfhdl.platforms.resources.*
     import dfhdl.platforms.devices.Pin
     def addUnusedPinPort(pinID: String, constraints: List[SigConstraint]): Unit =
+      val missingPullDownSupport = constraints.collectFirst {
+        case IO(missingPullDownSupport = missingPullDownSupport: Boolean) =>
+          missingPullDownSupport
+      }.getOrElse(false)
+      val unusedPullMode = constraints.collectFirst {
+        case IO(unusedPullMode = unusedPullMode: IO.PullMode) => unusedPullMode
+      }.get
+      // missing pull down support and unused pull mode is down, so we drive the pin to zero
+      val driveZero = missingPullDownSupport && unusedPullMode == IO.PullMode.DOWN
+      val updatedConstraints =
+        if (driveZero) constraints
+        // setting the pull mode as the unused pull mode
+        else (IO(pullMode = unusedPullMode) :: constraints).merge
       val port =
-        DFBit.<>(OUT)(using dfc.setName(s"Pin_${pinID}_unused").setAnnotations(constraints))
-      port <> NOTHING(DFBit)(using dfc.anonymize)
+        DFBit.<>(OUT)(using dfc.setName(s"Pin_${pinID}_unused").setAnnotations(updatedConstraints))
+      if (driveZero) port <> DFVal.Const(DFBit, Some(false), named = false)
+      else port <> NOTHING(DFBit)(using dfc.anonymize)
+    end addUnusedPinPort
     val usedPinIDs: Set[String] =
       dfc.mutableDB.ResourceOwnershipContext
         .getConnectedResourceMap.values.flatten
@@ -76,8 +91,7 @@ trait Design extends Container, HasClsMetaArgs:
             case IO(unusedPullMode = unusedPullMode: IO.PullMode) => unusedPullMode
           }
           unusedPullMode.foreach(unusedPullMode =>
-            //                           setting the pull mode as the unused pull mode
-            addUnusedPinPort(pin.id, (IO(pullMode = unusedPullMode) :: pin.allSigConstraints).merge)
+            addUnusedPinPort(pin.id, pin.allSigConstraints)
           )
         case _ =>
       }

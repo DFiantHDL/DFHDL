@@ -205,7 +205,8 @@ object constraints:
       pullMode: ConfigN[IO.PullMode] = None,
       dualPurposeGroups: ConfigN[String] = None,
       unusedPullMode: ConfigN[IO.PullMode] = None,
-      invertActiveState: ConfigN[Boolean] = None
+      invertActiveState: ConfigN[Boolean] = None,
+      missingPullDownSupport: ConfigN[Boolean] = None
   ) extends SigConstraint derives CanEqual, ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
@@ -224,7 +225,8 @@ object constraints:
               pullMode = pullMode.merge(that.pullMode),
               dualPurposeGroups = dualPurposeGroups.merge(that.dualPurposeGroups),
               unusedPullMode = unusedPullMode.merge(that.unusedPullMode),
-              invertActiveState = invertActiveState.merge(that.invertActiveState)
+              invertActiveState = invertActiveState.merge(that.invertActiveState),
+              missingPullDownSupport = missingPullDownSupport.merge(that.missingPullDownSupport)
             )
           )
         case _ => None
@@ -241,7 +243,8 @@ object constraints:
         csParam("pullMode", pullMode),
         csParam("dualPurposeGroups", dualPurposeGroups),
         csParam("unusedPullMode", unusedPullMode),
-        csParam("invertActiveState", invertActiveState)
+        csParam("invertActiveState", invertActiveState),
+        csParam("missingPullDownSupport", missingPullDownSupport)
       ).filter(_.nonEmpty).mkString(", ")
       s"""@io($params)"""
     end codeString
