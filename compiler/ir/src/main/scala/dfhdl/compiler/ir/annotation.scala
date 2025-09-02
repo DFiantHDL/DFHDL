@@ -205,8 +205,7 @@ object constraints:
       pullMode: ConfigN[IO.PullMode] = None,
       dualPurposeGroups: ConfigN[String] = None,
       unusedPullMode: ConfigN[IO.PullMode] = None,
-      invertActiveState: ConfigN[Boolean] = None,
-      schmittTrigger: ConfigN[Boolean] = None
+      invertActiveState: ConfigN[Boolean] = None
   ) extends SigConstraint derives CanEqual, ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
@@ -225,8 +224,7 @@ object constraints:
               pullMode = pullMode.merge(that.pullMode),
               dualPurposeGroups = dualPurposeGroups.merge(that.dualPurposeGroups),
               unusedPullMode = unusedPullMode.merge(that.unusedPullMode),
-              invertActiveState = invertActiveState.merge(that.invertActiveState),
-              schmittTrigger = schmittTrigger.merge(that.schmittTrigger)
+              invertActiveState = invertActiveState.merge(that.invertActiveState)
             )
           )
         case _ => None
@@ -243,23 +241,24 @@ object constraints:
         csParam("pullMode", pullMode),
         csParam("dualPurposeGroups", dualPurposeGroups),
         csParam("unusedPullMode", unusedPullMode),
-        csParam("invertActiveState", invertActiveState),
-        csParam("schmittTrigger", schmittTrigger)
+        csParam("invertActiveState", invertActiveState)
       ).filter(_.nonEmpty).mkString(", ")
       s"""@io($params)"""
     end codeString
   end IO
   object IO:
-    type LevelVolt = 3.3 | 2.5 | 1.8 | 1.5 | 1.2
+    type LevelVolt = 3.3 | 3.0 | 2.5 | 1.8 | 1.5 | 1.2
     enum Standard extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
-      case LVCMOS, LVTTL, LVDS
+      case LVCMOS, LVTTL, LVDS, SchmittTrigger
       def codeString(using Printer): String = "io.Standard." + this.toString
       def withLevelVolt(levelVolt: LevelVolt): String =
         val num = (levelVolt * 10).toInt
         this match
-          case LVCMOS => s"LVCMOS$num"
-          case LVTTL  => s"LVTTL"
-          case LVDS   => s"LVDS_$num"
+          case LVCMOS         => s"LVCMOS$num"
+          case LVTTL          => s"LVTTL"
+          case LVDS           => s"LVDS_$num"
+          case SchmittTrigger =>
+            throw new IllegalArgumentException("Found unexpected use of SchmittTrigger.")
     enum SlewRate extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case SLOW, FAST
       def codeString(using Printer): String = "io.SlewRate." + this.toString

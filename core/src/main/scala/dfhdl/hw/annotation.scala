@@ -103,13 +103,12 @@ object constraints:
       pullMode: ir.ConfigN[io.PullMode] = None,
       dualPurposeGroups: ir.ConfigN[String] = None,
       unusedPullMode: ir.ConfigN[io.PullMode] = None,
-      invertActiveState: ir.ConfigN[Boolean] = None,
-      schmittTrigger: ir.ConfigN[Boolean] = None
+      invertActiveState: ir.ConfigN[Boolean] = None
   ) extends SigConstraint:
     val asIR: ir.constraints.IO =
       ir.constraints.IO(
         bitIdx, loc, levelVolt, standard, slewRate, driveStrength, pullMode, dualPurposeGroups,
-        unusedPullMode, invertActiveState, schmittTrigger
+        unusedPullMode, invertActiveState
       )
   end io
   object io:

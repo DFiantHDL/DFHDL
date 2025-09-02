@@ -122,7 +122,7 @@ class VivadoProjectTclConfigPrinter(using
         |add_files -norecurse ${hdlFiles.mkString("{\n  ", "\n  ", "\n}")}
         |set_property file_type {${fileType}} [get_files  *]
         |set_property top $topName [current_fileset]
-        |add_files -fileset constrs_1 -norecurse ./${topName}.xdc
+        |add_files -fileset constrs_1 -norecurse {./${topName}.xdc  ./${topName}_timing.xdc}
         |######################################################################
         |# Suppress warnings
         |######################################################################

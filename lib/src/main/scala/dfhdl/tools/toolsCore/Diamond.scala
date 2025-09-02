@@ -39,7 +39,7 @@ object Diamond extends Builder:
       List(
         new DiamondProjectTclConfigPrinter(using cd.stagedDB.getSet).getSourceFile,
         new DiamondProjectPhysicalConstraintsPrinter(using cd.stagedDB.getSet).getSourceFile,
-        new BuilderProjectTimingConstraintsPrinter(".ldc")(using cd.stagedDB.getSet).getSourceFile
+        new DiamondProjectTimingConstraintsPrinter(using cd.stagedDB.getSet).getSourceFile
       )
     )
   def build(
@@ -62,6 +62,7 @@ object Diamond extends Builder:
 end Diamond
 
 val DiamondProjectTclConfig = SourceType.Tool("Diamond", "ProjectTclConfig")
+val DiamondProjectTimingConstraints = SourceType.Tool("Diamond", "ProjectTimingConstraints")
 val DiamondProjectPhysicalConstraints =
   SourceType.Tool("Diamond", "ProjectPhysicalConstraints")
 
@@ -244,3 +245,67 @@ class DiamondProjectPhysicalConstraintsPrinter(using
       contents
     )
 end DiamondProjectPhysicalConstraintsPrinter
+
+class DiamondProjectTimingConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOptions):
+  val designDB: DB = getSet.designDB
+  val topName: String = getSet.topName
+  val constraintsFileName: String = s"$topName.ldc"
+
+  // wildcards are not supported by Diamond
+  def ldcTimingIgnoreConstraint(
+      port: DFVal.Dcl,
+      constraint: constraints.Timing.Ignore
+  ): String =
+    var statements = ""
+    def add_set_false_path(dir: String): Unit =
+      val portName = port.getName
+      port.dfType match
+        case DFBit | DFBool =>
+          statements += s"set_false_path $dir [get_ports ${port.getName}]\n"
+        case _ => constraint.bitIdx match
+            case None =>
+              for (i <- 0 until port.dfType.width)
+                statements += s"set_false_path $dir [get_ports ${port.getName}[$i]]\n"
+            case bitIdx =>
+              statements += s"set_false_path $dir [get_ports ${port.getName}[$bitIdx]]\n"
+    (port.modifier.dir: @unchecked) match
+      case DFVal.Modifier.IN  => add_set_false_path("-from")
+      case DFVal.Modifier.OUT => add_set_false_path("-to")
+      // TODO: for INOUT, also check that its actually used in both directions by the design
+      case DFVal.Modifier.INOUT =>
+        add_set_false_path("-from")
+        add_set_false_path("-to")
+    statements
+  end ldcTimingIgnoreConstraint
+
+  def ldcTimingClockConstraint(
+      port: DFVal.Dcl,
+      constraint: constraints.Timing.Clock
+  ): String =
+    s"create_clock -add -name ${port.getName} -period ${constraint.rate.to_ns.value.bigDecimal.toPlainString} [get_ports {${port.getName}}]"
+  end ldcTimingClockConstraint
+
+  def ldcPortConstraints(
+      port: DFVal.Dcl
+  ): List[String] =
+    port.meta.annotations.collect {
+      case constraint: constraints.Timing.Ignore => ldcTimingIgnoreConstraint(port, constraint)
+      case constraint: constraints.Timing.Clock  => ldcTimingClockConstraint(port, constraint)
+    }
+  end ldcPortConstraints
+
+  def ldcPortConstraints: List[String] =
+    designDB.topIOs.view.flatMap(ldcPortConstraints).toList
+
+  def contents: String =
+    s"""|${ldcPortConstraints.mkString("\n")}
+        |""".stripMargin
+
+  def getSourceFile: SourceFile =
+    SourceFile(
+      SourceOrigin.Compiled,
+      DiamondProjectTimingConstraints,
+      constraintsFileName,
+      contents
+    )
+end DiamondProjectTimingConstraintsPrinter

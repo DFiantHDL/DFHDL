@@ -13,7 +13,10 @@ import dfhdl.compiler.ir.PhysicalNumber
 val BuilderProjectTimingConstraints =
   SourceType.Tool("Builder", "ProjectTimingConstraints")
 
-class BuilderProjectTimingConstraintsPrinter(fileSuffix: String)(using
+class BuilderProjectTimingConstraintsPrinter(
+    fileSuffix: String,
+    enableDerivedClockUncertainty: Boolean = false
+)(using
     getSet: MemberGetSet,
     co: CompilerOptions
 ):
@@ -82,8 +85,11 @@ class BuilderProjectTimingConstraintsPrinter(fileSuffix: String)(using
   def sdcPortConstraints: List[String] =
     designDB.topIOs.view.flatMap(sdcPortConstraints).toList
 
+  def deriveClockUncertainty: String =
+    if (enableDerivedClockUncertainty) "\nderive_clock_uncertainty" else ""
+
   def contents: String =
-    s"""|${sdcPortConstraints.mkString("\n")}
+    s"""|${sdcPortConstraints.mkString("\n")}$deriveClockUncertainty
         |""".stripMargin
 
   def getSourceFile: SourceFile =
