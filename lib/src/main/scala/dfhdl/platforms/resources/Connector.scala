@@ -3,8 +3,10 @@ import Resource.CanConnect
 import dfhdl.DFC
 import dfhdl.internals.metaContextIgnore
 
-class Connector[T <: Connector.Type, F <: Connector.Form] private (`type`: T, form: F)
-    extends ResourceGroup:
+class Connector[T <: Connector.Type, F <: Connector.Form] private (
+    protected[Connector] val `type`: T,
+    form: F
+) extends ResourceGroup:
   protected val pins: List[Connector.Pin] =
     List.tabulate(`type`.pinCount)(i => Connector.Pin()(using dfc.setName(s"P${i + 1}")))
 
@@ -18,13 +20,17 @@ class Connector[T <: Connector.Type, F <: Connector.Form] private (`type`: T, fo
 object Connector:
   enum Form derives CanEqual:
     case Male, Female
-  sealed abstract class Type(val pinCount: Int)
+  sealed abstract class Type(val pinCount: Int, val pinMap: Int => Int)
   abstract class Companion(pinCount: Int):
-    object This extends Type(pinCount)
-    def Male()(using DFC): Male = Connector(This, Connector.Form.Male)
-    type Male = Connector[This.type, Connector.Form.Male.type]
-    def Female()(using DFC): Female = Connector(This, Connector.Form.Female)
-    type Female = Connector[This.type, Connector.Form.Female.type]
+    class This(pinMap: Int => Int) extends Type(pinCount, pinMap)
+    protected def Male(pinMap: Int => Int)(using DFC): Male =
+      Connector(This(pinMap), Connector.Form.Male)
+    def Male()(using DFC): Male = Male(identity)
+    type Male = Connector[This, Connector.Form.Male.type]
+    protected def Female(pinMap: Int => Int)(using DFC): Female =
+      Connector(This(pinMap), Connector.Form.Female)
+    def Female()(using DFC): Female = Female(identity)
+    type Female = Connector[This, Connector.Form.Female.type]
 
   class Pin private () extends IO
   object Pin:
@@ -45,14 +51,14 @@ object Connector:
       CF <: Connector[T, Form.Female.type]
   ]: CanConnect[CM, CF] =
     (male, female) =>
-      male.connectFrom(female)
-      female.connectFrom(male)
+      for (i <- 1 to male.`type`.pinCount)
+        male.P(male.`type`.pinMap(i)) <> female.P(female.`type`.pinMap(i))
   given femaleMale[
       T <: Type,
       CM <: Connector[T, Form.Male.type],
       CF <: Connector[T, Form.Female.type]
   ]: CanConnect[CF, CM] =
-    (female, male) =>
-      female.connectFrom(male)
-      male.connectFrom(female)
+    (male, female) =>
+      for (i <- 1 to male.`type`.pinCount)
+        male.P(male.`type`.pinMap(i)) <> female.P(female.`type`.pinMap(i))
 end Connector

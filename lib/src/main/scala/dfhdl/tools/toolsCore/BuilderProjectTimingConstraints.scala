@@ -15,7 +15,8 @@ val BuilderProjectTimingConstraints =
 
 class BuilderProjectTimingConstraintsPrinter(
     fileSuffix: String,
-    enableDerivedClockUncertainty: Boolean = false
+    enableDerivedClockUncertainty: Boolean = false,
+    enableToggleRateLimitIODelay: Boolean = false
 )(using
     getSet: MemberGetSet,
     co: CompilerOptions
@@ -59,9 +60,9 @@ class BuilderProjectTimingConstraintsPrinter(
         case _ => ""
     (port.modifier.dir: @unchecked) match
       case DFVal.Modifier.IN =>
-        set_false_path("-from") + set_io_delay("input")
+        set_false_path("-from") + (if (enableToggleRateLimitIODelay) set_io_delay("input") else "")
       case DFVal.Modifier.OUT =>
-        set_false_path("-to") + set_io_delay("output")
+        set_false_path("-to") + (if (enableToggleRateLimitIODelay) set_io_delay("output") else "")
       // TODO: for INOUT, also check that its actually used in both directions by the design
       case DFVal.Modifier.INOUT => set_false_path("-from") + set_false_path("-to")
   end sdcTimingIgnoreConstraint
