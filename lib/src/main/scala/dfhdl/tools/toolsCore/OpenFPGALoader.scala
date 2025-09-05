@@ -49,7 +49,8 @@ object OpenFPGALoader extends Programmer:
         )
     val fileName = s"${topName}.$suffix"
     val probeFirmware = if (suffix == "svf")
-      val location = Paths.get(runExecFullPath).getParent().resolve("blaster_6810.hex")
+      val location =
+        Paths.get(QuartusProgrammer.runExecFullPath).getParent().resolve("blaster_6810.hex")
       s" --probe-firmware $location"
     else ""
     exec(
