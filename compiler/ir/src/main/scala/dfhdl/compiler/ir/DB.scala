@@ -859,7 +859,7 @@ final case class DB(
               val waitDurationPs = waitTime.to_ps.value
 
               // Check if wait duration is exactly divisible by clock period
-              if (waitDurationPs % clockPeriodPs != 0)
+              if (!(waitDurationPs / clockPeriodPs).isWhole)
                 waitError(
                   s"Wait duration ${waitTime} is not exactly divisible by the clock $desc."
                 )
