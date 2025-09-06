@@ -19,7 +19,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getOwner(using MemberGetSet): DFOwner = ownerRef.get match
     case o: DFOwner        => o
     case _: DFMember.Empty =>
-      throw new IllegalArgumentException(s"No owner found for member $this.")
+      throw new Exception(s"No owner found for member $this.")
   final def getOwnerNamed(using MemberGetSet): DFOwnerNamed = getOwner match
     case b: DFOwnerNamed => b
     case o               => o.getOwnerNamed
