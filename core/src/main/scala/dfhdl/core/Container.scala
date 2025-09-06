@@ -1,6 +1,7 @@
 package dfhdl.core
 import dfhdl.internals.*
 import dfhdl.compiler.ir
+import dfhdl.platforms.resources.*
 
 private trait Container extends OnCreateEvents, HasDFC, Wait.ContainerOps:
   type This <: Container
@@ -15,7 +16,7 @@ private trait Container extends OnCreateEvents, HasDFC, Wait.ContainerOps:
   private[dfhdl] def initOwner: TOwner
   private val __initOwner = initOwner
   private val ownerRef: ir.DFRefAny = __initOwner.asIR.ownerRef
-  final private[core] def containedOwner: TOwner =
+  final private[dfhdl] def containedOwner: TOwner =
     DFOwner(dfc.mutableDB.OwnershipContext.containerizedOwnerOfRef(ownerRef)).asInstanceOf[TOwner]
   dfc.enterOwner(__initOwner)
 end Container
@@ -51,3 +52,9 @@ abstract class RTDomainContainer(cfg: RTDomainCfg) extends DomainContainer(Domai
     DFOpaque(Rst())
   end Rst
 end RTDomainContainer
+
+object RTDomainContainer:
+  object Ops:
+    extension [D <: RTDomainContainer](domain: D)
+      def <>[R <: Resource](resource: R)(using dfc: DFC, cc: Resource.CanConnect[R, D]): Unit =
+        cc.connect(resource, domain)

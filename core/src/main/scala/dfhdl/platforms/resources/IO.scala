@@ -10,7 +10,7 @@ trait IO extends Resource:
     import dfhdl.compiler.analysis.DclPort
     that.asIR.departialDcl match
       case Some(dcl @ DclPort(), range) =>
-        dfc.mutableDB.ResourceOwnershipContext.connectResource(dcl, range, this)
+        dfc.mutableDB.ResourceOwnershipContext.connectDclResource(dcl, range, this)
       case _ =>
         throw new IllegalArgumentException(
           "Cannot connect resource to a non-port value."

@@ -40,10 +40,7 @@ final case class DB(
   }
 
   // considered to be in build if not in simulation and has a device constraint
-  lazy val inBuild: Boolean = !inSimulation && top.dclMeta.annotations.exists {
-    case _: constraints.DeviceID => true
-    case _                       => false
-  }
+  lazy val inBuild: Boolean = !inSimulation && top.isDeviceTop
 
   lazy val portsByName: Map[DFDesignInst, Map[String, DFVal.Dcl]] =
     members.view
@@ -724,18 +721,40 @@ final case class DB(
   // mapping designs and their uses of Clk/Rst
   // we use the design declaration name (after enforcing uniqueness) because designs
   // can be empty duplicates and the indications need to come from the full designs
-  //                                       dclName  usesClk  usesRst
-  private lazy val designUsesClkRst = mutable.Map.empty[String, (Boolean, Boolean)]
-  //                                                            usesClk  usesRst
-  private lazy val domainOwnerUsesClkRst = mutable.Map.empty[DFDomainOwner, (Boolean, Boolean)]
+  private lazy val designUsesClkRst =
+    mutable.Map.empty[String, (usesClk: Boolean, usesRst: Boolean)]
+  private lazy val domainOwnerUsesClkRst =
+    mutable.Map.empty[DFDomainOwner, (usesClk: Boolean, usesRst: Boolean)]
   private lazy val reversedDependents = dependentRTDomainOwners.invert
 
   extension (domainOwner: DFDomainOwner)
     private def getExplicitCfg: RTDomainCfg.Explicit =
       domainOwner.domainType match
         case DomainType.RT(explicitCfg: RTDomainCfg.Explicit) => explicitCfg
-        case _ => globalTags.getTagOf[DefaultRTDomainCfgTag].get.cfg
-    private def usesClkRst: (Boolean, Boolean) = domainOwner match
+        case _                                                =>
+          val defaultCfg = globalTags.getTagOf[DefaultRTDomainCfgTag].get.cfg
+          val isDeviceTop = domainOwner.getThisOrOwnerDesign.isDeviceTop
+          // device top designs override the default clock and reset configuration
+          if (isDeviceTop)
+            val cfgName = ""
+            val domainConstraints =
+              domainOwner.getConstraints.view ++
+                domainOwnerMemberTable(domainOwner).view.collectFirst {
+                  case dcl: DFVal.Dcl if dcl.isClkDcl => dcl.getConstraints
+                }.getOrElse(Nil)
+            val rate = domainConstraints.collectFirst {
+              case c: constraints.Timing.Clock => c.rate
+            }.get
+            val clkCfg = defaultCfg.clkCfg.asInstanceOf[ClkCfg.Explicit].copy(rate = rate)
+            // disabling default rst configuration for device top designs
+            // because it's wrong to directly propagate external rst throughout the design
+            // without proper synchronization and possibly debouncing.
+            val rstCfg = None
+            defaultCfg.copy(clkCfg = clkCfg, rstCfg = rstCfg)
+          else defaultCfg
+          end if
+
+    private def usesClkRst: (usesClk: Boolean, usesRst: Boolean) = domainOwner match
       case design: DFDesignBlock =>
         designUsesClkRst.getOrElseUpdate(
           design.dclName,
@@ -753,9 +772,9 @@ final case class DB(
       case dcl: DFVal.Dcl                      => dcl.isReg || dcl.isClkDcl
       case reg: DFVal.Alias.History            => true
       case pb: ProcessBlock if pb.isInRTDomain => true
-      case internal: DFDesignBlock             => internal.usesClkRst._1
+      case internal: DFDesignBlock             => internal.usesClkRst.usesClk
       case _                                   => false
-    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._1) ||
+    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst.usesClk) ||
       domainOwner.isTop && (domainOwner.getExplicitCfg.clkCfg match
         case ClkCfg.Explicit(inclusionPolicy = ClkRstInclusionPolicy.AlwaysAtTop) => true
         case _                                                                    => false)
@@ -765,9 +784,9 @@ final case class DB(
         (dcl.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
       case reg: DFVal.Alias.History            => reg.hasNonBubbleInit
       case pb: ProcessBlock if pb.isInRTDomain => true
-      case internal: DFDesignBlock             => internal.usesClkRst._2
+      case internal: DFDesignBlock             => internal.usesClkRst.usesRst
       case _                                   => false
-    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._2) ||
+    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst.usesRst) ||
       domainOwner.isTop && (domainOwner.getExplicitCfg.rstCfg match
         case RstCfg.Explicit(inclusionPolicy = ClkRstInclusionPolicy.AlwaysAtTop) => true
         case _                                                                    => false)
@@ -1011,31 +1030,34 @@ final case class DB(
     // Collect all location constraints to check for collisions
     val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
 
-    topIOs.foreach(port =>
-      val bitSet = mutable.BitSet((0 until port.width)*)
-      port.meta.annotations.foreach {
-        case constraints.IO(bitIdx = None, loc = loc: String) =>
-          bitSet.clear()
-          locationMap.get(loc).foreach { prevPort =>
-            locationCollisions += s"${prevPort} and ${port.getFullName} are both assigned to location `${loc}`"
-          }
-          locationMap += loc -> port.getFullName
-          if (port.width != 1)
-            locationCollisions += s"${port.getFullName} has mutliple bits assigned to location `${loc}`"
-        case constraints.IO(bitIdx = bitIdx: Int, loc = loc: String) =>
-          locationMap.get(loc).foreach { prevPort =>
-            locationCollisions += s"${prevPort} and ${port.getFullName}(${bitIdx}) are both assigned to location `${loc}`"
-          }
-          locationMap += loc -> s"${port.getFullName}(${bitIdx})"
-          bitSet -= bitIdx
-        case _ =>
-      }
-      if (bitSet.nonEmpty)
-        if (port.width == 1)
-          errors += s"${port.getFullName}"
-        else
-          errors += s"${port.getFullName} with bits ${bitSet.mkString(", ")}"
-    )
+    topIOs.foreach {
+      // clk ports locations are checked in `domainClkLocationCheck``
+      case port if port.isClkDcl => // do nothing
+      case port                  =>
+        val bitSet = mutable.BitSet((0 until port.width)*)
+        port.meta.annotations.foreach {
+          case constraints.IO(bitIdx = None, loc = loc: String) =>
+            bitSet.clear()
+            locationMap.get(loc).foreach { prevPort =>
+              locationCollisions += s"${prevPort} and ${port.getFullName} are both assigned to location `${loc}`"
+            }
+            locationMap += loc -> port.getFullName
+            if (port.width != 1)
+              locationCollisions += s"${port.getFullName} has mutliple bits assigned to location `${loc}`"
+          case constraints.IO(bitIdx = bitIdx: Int, loc = loc: String) =>
+            locationMap.get(loc).foreach { prevPort =>
+              locationCollisions += s"${prevPort} and ${port.getFullName}(${bitIdx}) are both assigned to location `${loc}`"
+            }
+            locationMap += loc -> s"${port.getFullName}(${bitIdx})"
+            bitSet -= bitIdx
+          case _ =>
+        }
+        if (bitSet.nonEmpty)
+          if (port.width == 1)
+            errors += s"${port.getFullName}"
+          else
+            errors += s"${port.getFullName} with bits ${bitSet.mkString(", ")}"
+    }
 
     if (errors.nonEmpty)
       throw new IllegalArgumentException(

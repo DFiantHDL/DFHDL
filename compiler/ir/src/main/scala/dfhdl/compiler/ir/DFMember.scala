@@ -133,6 +133,16 @@ object DFMember:
       case _                => None
     })
     def toJson(using Writer[DFMember]): String = write(member)
+    def getConstraints: List[constraints.Constraint] =
+      val allAnnotations = member match
+        case design: DFDesignBlock =>
+          design.dclMeta.annotations.view ++ design.meta.annotations
+        case interface: DFInterfaceOwner =>
+          interface.dclMeta.annotations.view ++ interface.meta.annotations
+        case _ => member.meta.annotations.view
+      allAnnotations.collect {
+        case c: constraints.Constraint => c
+      }.toList
   end extension
 
   sealed trait Empty extends DFMember:
@@ -1098,6 +1108,7 @@ object DFOwner:
 
 final case class DFInterfaceOwner(
     domainType: DomainType,
+    dclMeta: Meta,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
@@ -1105,12 +1116,13 @@ final case class DFInterfaceOwner(
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFInterfaceOwner =>
       this.domainType =~ that.domainType &&
-      this.meta =~ that.meta && this.tags =~ that.tags
+      this.dclMeta =~ that.dclMeta && this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs ++ meta.getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
+    dclMeta = dclMeta.copyWithNewRefs,
     meta = meta.copyWithNewRefs,
     domainType = domainType.copyWithNewRefs,
     ownerRef = ownerRef.copyAsNewRef
@@ -1447,15 +1459,26 @@ final case class DFDesignBlock(
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType =~ that.domainType &&
-      this.dclMeta == that.dclMeta &&
+      this.dclMeta =~ that.dclMeta &&
       this.instMode == that.instMode &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
+  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs ++ dclMeta.getRefs
+
+  /** Whether this design is considered to be a device's top-level design. THIS MAY NOT BE THE TOP
+    * DESIGN, for example if the design is in a simulation. A design is considered to be a device
+    * top-level design if it has a device ID constraint (usually as a result of a device resource
+    * instantiated within).
+    */
+  lazy val isDeviceTop: Boolean = this.getConstraints.exists {
+    case _: constraints.DeviceID => true
+    case _                       => false
+  }
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
+    dclMeta = dclMeta.copyWithNewRefs,
     domainType = domainType.copyWithNewRefs,
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]

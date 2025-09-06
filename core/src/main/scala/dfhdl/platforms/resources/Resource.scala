@@ -66,7 +66,7 @@ private trait ResourceLP:
 
 object Resource extends ResourceLP:
   @implicitNotFound("Cannot connect the resource ${R} with ${T}")
-  trait CanConnect[R <: Resource, T <: Resource | DFValAny]:
+  trait CanConnect[R <: Resource, T]:
     def connect(resource1: R, resource2: T): Unit
   given [R <: Resource, T <: Resource](using R =:= T): CanConnect[R, T] =
     (resource1: R, resource2: T) =>
@@ -77,7 +77,10 @@ object Resource extends ResourceLP:
     extension [R <: Resource](resource: R)
       def <>[T <: Resource](that: T)(using cc: CanConnect[R, T]): Unit =
         cc.connect(resource, that)
-      def <>[T <: DFValAny](that: T)(using dfc: DFC, cc: CanConnect[R, T]): Unit = trydf {
+      def <>[T <: DFValAny | RTDomainContainer](that: T)(using
+          dfc: DFC,
+          cc: CanConnect[R, T]
+      ): Unit = trydf {
         cc.connect(resource, that)
       }
   export Resource.Ops.*

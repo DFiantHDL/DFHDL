@@ -7,6 +7,7 @@ import ir.DFDesignBlock.InstMode
 
 import scala.annotation.{Annotation, implicitNotFound}
 import scala.collection.immutable.ListMap
+import scala.collection.mutable
 import scala.reflect.ClassTag
 
 trait Design extends Container, HasClsMetaArgs:
@@ -41,11 +42,7 @@ trait Design extends Container, HasClsMetaArgs:
   final override def onCreateStartLate: Unit =
     hasStartedLate = true
     import dfc.getSet
-    if (
-      dfc.owner.asIR.getThisOrOwnerDesign.dclMeta.annotations.exists(
-        _.isInstanceOf[ir.constraints.DeviceID]
-      )
-    )
+    if (dfc.owner.asIR.getThisOrOwnerDesign.isDeviceTop)
       handleResourceConstraints()
     dfc.exitOwner()
     dfc.enterLate()
@@ -57,6 +54,7 @@ trait Design extends Container, HasClsMetaArgs:
     import ir.constraints.{IO, SigConstraint}
     import dfhdl.platforms.resources.*
     import dfhdl.platforms.devices.Pin
+    import dfc.getSet
     def addUnusedPinPort(pinID: String, constraints: List[SigConstraint]): Unit =
       val missingPullDownSupport = constraints.collectFirst {
         case IO(missingPullDownSupport = missingPullDownSupport: Boolean) =>
@@ -78,9 +76,10 @@ trait Design extends Container, HasClsMetaArgs:
     end addUnusedPinPort
     val usedPinIDs: Set[String] =
       dfc.mutableDB.ResourceOwnershipContext
-        .getConnectedResourceMap.values.flatten
+        .getConnectedDclResourceMap.values.flatten
         .flatMap(_._2.allSigConstraints)
         .collect { case IO(loc = pinID: String) => pinID }.toSet
+    val clkResources = mutable.Set.empty[ClkResource]
     def addUnusedPinPorts(resourceOwner: ResourceOwner): Unit =
       resourceOwner.getChildren.foreach(addUnusedPinPorts)
       resourceOwner.getResources.foreach {
@@ -91,9 +90,16 @@ trait Design extends Container, HasClsMetaArgs:
           unusedPullMode.foreach(unusedPullMode =>
             addUnusedPinPort(pin.id, pin.allSigConstraints)
           )
-        case _ =>
+        case clkResource: ClkResource => clkResources += clkResource
+        case _                        =>
       }
     dfc.mutableDB.ResourceOwnershipContext.getTopResourceOwners.foreach(addUnusedPinPorts)
+    val clkPorts = mutable.ListBuffer.empty[ir.DFVal.Dcl]
+    dfc.mutableDB.DesignContext.current.getImmutableMemberList.foreach {
+      case port: ir.DFVal.Dcl if port.isPortIn && port.isClkDcl =>
+        clkPorts += port
+      case _ =>
+    }
   end handleResourceConstraints
 
   final override def onCreateEnd(thisOwner: Option[This]): Unit =
@@ -103,7 +109,7 @@ trait Design extends Container, HasClsMetaArgs:
       dfc.exitOwner()
     import dfc.getSet
     // At the end of the top-level instance we check for errors
-    if (owner.asIR.isTop && thisOwner.isEmpty)
+    if (containedOwner.asIR.isTop && thisOwner.isEmpty)
       val errors = dfc.getErrors
       // If we have errors, then we print them to stderr and exit
       if (errors.nonEmpty)

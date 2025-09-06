@@ -35,6 +35,7 @@ protected object hdl:
   export core.DFRange.Ops.*
   export core.Step.Ops.*
   export core.Wait.Ops.*
+  export core.RTDomainContainer.Ops.*
   type Step = core.Step
   type DFC = core.DFC
   val DFC = core.DFC
