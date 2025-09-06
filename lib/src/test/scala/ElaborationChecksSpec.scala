@@ -288,7 +288,7 @@ class ElaborationChecksSpec extends DesignSpec:
     import Test.*
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
-          |The following top ports are missing location constraints:
+          |The following top device design ports or domains are missing location constraints:
           |  Top.y
           |  Top.z with bits 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
           |To Fix:
@@ -321,6 +321,96 @@ class ElaborationChecksSpec extends DesignSpec:
           |The following location constraints have collisions:
           |  Top.y and Top.z(1) are both assigned to location `locz1`
           |  Top.w has mutliple bits assigned to location `locw`
+          |To Fix:
+          |Ensure each location is used by a single port bit.""".stripMargin
+    )
+  test("clock missing timing constraint check"):
+    object Test:
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @top(false) class Top extends RTDesign:
+        @io(loc = "locx")
+        val x = Bit <> IN
+        @io(loc = "locy")
+        val y = Bit <> OUT
+        y <> x.reg(1, init = 0)
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL domain clock rate error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:330:7 - 336:32
+          |Hierarchy: Top
+          |Message:   Missing clock rate timing constraint.
+          |To Fix:
+          |Connect the wanted clock resource to the domain.
+          |(the domain will automatically derive the clock rate from the resource).""".stripMargin
+    )
+  test("clock mismatching timing constraint check"):
+    object Test:
+      val clkCfg = ClkCfg(rate = 25.MHz)
+      val cfg = RTDomainCfg(clkCfg, None)
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @timing.clock(rate = 20.MHz)
+      @top(false) class Top extends RTDesign(cfg):
+        @io(loc = "locx")
+        val x = Bit <> IN
+        @io(loc = "locy")
+        val y = Bit <> OUT
+        y <> x.reg(1, init = 0)
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL domain clock rate error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:354:7 - 361:32
+          |Hierarchy: Top
+          |Message:   Mismatch between domain clock rate configuration (25.MHz) and timing constraint rate (20.MHz).
+          |To fix, do one of the following:
+          |* Connect a different clock resource to the domain to match your configuration.
+          |* Explicitly set the clock rate configuration to 20.MHz.
+          |* Remove the domain clock rate configuration and let it be derived from the timing constraint.""".stripMargin
+    )
+  test("clock location missing check"):
+    object Test:
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @timing.clock(rate = 20.MHz)
+      @top(false) class Top extends RTDesign:
+        @io(loc = "locx")
+        val x = Bit <> IN
+        @io(loc = "locy")
+        val y = Bit <> OUT
+        y <> x.reg(1, init = 0)
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |The following top device design ports or domains are missing location constraints:
+          |  Top is missing a clock location constraint
+          |To Fix:
+          |Add a location constraint to the ports by connecting them to a located resource or
+          |by using the `@io` constraint.""".stripMargin
+    )
+  test("clock location collision check"):
+    object Test:
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @timing.clock(rate = 20.MHz)
+      @io(loc = "locx")
+      @top(false) class Top extends RTDesign:
+        @io(loc = "locx")
+        val x = Bit <> IN
+        @io(loc = "locy")
+        val y = Bit <> OUT
+        y <> x.reg(1, init = 0)
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |The following location constraints have collisions:
+          |  Top and Top.x are both assigned to location `locx`
           |To Fix:
           |Ensure each location is used by a single port bit.""".stripMargin
     )
