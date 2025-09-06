@@ -19,7 +19,7 @@ import dfhdl.compiler.ir.{
   MemberView,
   RTDomainCfg,
   DFTags,
-  annotation
+  DFDomainOwner,
 }
 import dfhdl.compiler.analysis.filterPublicMembers
 
@@ -276,8 +276,16 @@ final class MutableDB():
   object OwnershipContext:
     private var stack: List[DFOwner] = Nil
     private var lateStack: List[Boolean] = Nil
+    // containers are frontend for IR owners, which may change in the course of the elaboration.
+    // however, once a reference of an owner is constructed, it is guaranteed to be valid until the elaboration is complete.
+    // this map is used to store the most recent containerized owner for each reference.
+    private var refContainerizedOwnerMap = mutable.Map.empty[DFRefAny, DFDomainOwner]
     def enter(owner: DFOwner): Unit =
 //      println(s"enter ${owner}")
+      owner match
+        case domainOwner: DFDomainOwner =>
+          refContainerizedOwnerMap += domainOwner.ownerRef -> domainOwner
+        case _ =>
       stack = owner :: stack
       lateStack = false :: lateStack
       owner match
@@ -308,6 +316,14 @@ final class MutableDB():
         if (o == originalOwner) newOwner
         else o
       }
+      originalOwner match
+        case domainOwner: DFDomainOwner =>
+          refContainerizedOwnerMap.update(
+            domainOwner.ownerRef,
+            newOwner.asInstanceOf[DFDomainOwner]
+          )
+        case _ =>
+    def containerizedOwnerOfRef(ref: DFRefAny): DFDomainOwner = refContainerizedOwnerMap(ref)
     def ownerOption: Option[DFOwner] = stack.headOption
   end OwnershipContext
 

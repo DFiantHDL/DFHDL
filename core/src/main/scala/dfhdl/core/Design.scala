@@ -25,18 +25,16 @@ trait Design extends Container, HasClsMetaArgs:
       annotations: List[Annotation]
   ): Unit =
     import dfc.getSet
-    val designBlock = owner.asIR
+    val designBlock = containedOwner.asIR
     // the default RT Domain configuration is set as a global tag
     getSet.setGlobalTag(ir.DefaultRTDomainCfgTag(dfc.elaborationOptions.defaultRTDomainCfg))
     // the DFHDL version is set as a global tag
     getSet.setGlobalTag(ir.DFHDLVersionTag(dfhdl.dfhdlVersion))
-    setOwner(
-      getSet.replace(designBlock)(
-        designBlock.copy(
-          dclMeta = r__For_Plugin.metaGen(Some(name), position, docOpt, annotations),
-          instMode = mkInstMode
-        )
-      ).asFE
+    getSet.replace(designBlock)(
+      designBlock.copy(
+        dclMeta = r__For_Plugin.metaGen(Some(name), position, docOpt, annotations),
+        instMode = mkInstMode
+      )
     )
   end setClsNamePos
   private var hasStartedLate: Boolean = false
@@ -143,21 +141,18 @@ object Design:
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
     infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
       import dfc.getSet
-      dsn.setOwner(
-        dsn.owner.asIR
-          .setTags(_.tag(customTag))
-          .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
-          .asFE
-      )
+      dsn.containedOwner.asIR
+        .setTags(_.tag(customTag))
+        .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
+      dsn
     infix def setName(name: String)(using dfc: DFC): D =
       import dfc.getSet
-      dsn.setOwner(
-        dsn.owner.asIR
-          .setMeta(m =>
-            if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta.setName(name)
-            else m.setName(name)
-          ).asFE
-      )
+      dsn.containedOwner.asIR
+        .setMeta(m =>
+          if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta.setName(name)
+          else m.setName(name)
+        )
+      dsn
   end extension
 
   extension (designDB: ir.DB)
