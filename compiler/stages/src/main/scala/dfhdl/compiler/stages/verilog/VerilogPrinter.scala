@@ -164,7 +164,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"// $comment"
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/*", "\n  ", "*/")
-  def csAnnotations(meta: Meta): String = ""
+  def csAnnotations(annotations: List[annotation.HWAnnotation]): String = ""
   // def csTimer(timer: Timer): String = unsupported
   def verilogFileHeaderSuffix: String =
     printer.dialect match

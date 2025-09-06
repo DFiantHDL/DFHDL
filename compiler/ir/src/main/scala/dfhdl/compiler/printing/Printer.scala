@@ -120,7 +120,7 @@ trait Printer
   def csDocString(doc: String): String
   final def csDocString(meta: Meta): String =
     meta.docOpt.map(printer.csDocString).map(x => s"$x\n").getOrElse("")
-  def csAnnotations(meta: Meta): String
+  def csAnnotations(annotations: List[annotation.HWAnnotation]): String
   final def csDFMember(member: DFMember): String =
     val cs = member match
       case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
@@ -140,7 +140,7 @@ trait Printer
       case wait: Wait       => csWait(wait)
       case textOut: TextOut => csTextOut(textOut)
       case _                => ???
-    s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta)}$cs"
+    s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta.annotations)}$cs"
   end csDFMember
   def designFileName(designName: String): String
   def globalFileName: String
@@ -357,9 +357,9 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"// $comment"
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/**", "\n  *", "*/")
-  def csAnnotations(meta: Meta): String =
-    if (meta.annotations.isEmpty) ""
-    else meta.annotations.view.map(_.codeString).mkString("", "\n", "\n")
+  def csAnnotations(annotations: List[annotation.HWAnnotation]): String =
+    if (annotations.isEmpty) ""
+    else annotations.view.map(_.codeString).mkString("", "\n", "\n")
   // def csTimer(timer: Timer): String =
   //   val timerBody = timer match
   //     case p: Timer.Periodic =>

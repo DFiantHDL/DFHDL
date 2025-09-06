@@ -152,7 +152,7 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"-- $comment"
   def csDocString(doc: String): String = doc.linesIterator.mkString("--", "\n--", "")
-  def csAnnotations(meta: Meta): String = ""
+  def csAnnotations(annotations: List[annotation.HWAnnotation]): String = ""
   // def csTimer(timer: Timer): String = unsupported
   def globalFileName: String = s"${printer.packageName}.vhd"
   def designFileName(designName: String): String = s"$designName.vhd"
