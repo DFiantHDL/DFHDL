@@ -31,9 +31,17 @@ case object AddClkRst extends Stage:
     val rstTypeMap = mutable.Map.empty[RTDomainCfg.Explicit, coreDFOpaque[coreDFOpaque.Rst]]
     // saves opaque clk/rst type replacements
     val opaqueReplaceMap = mutable.Map.empty[DFOpaque, DFOpaque]
+    extension (domainOwner: DFDomainOwner)
+      def getClkConstraints: List[constraints.Constraint] =
+        domainOwner.getConstraints.collect {
+          case c: constraints.IO           => c
+          case c: constraints.Timing.Clock => c
+        }
+    end extension
     val patchList: List[(DFMember, Patch)] = designDB.domainOwnerMemberList.flatMap {
       // for all designs
       case (owner, members) =>
+        val ownerClkConstraints = owner.getClkConstraints
         val design = owner.getThisOrOwnerDesign
         // new configuration unapply object
         object NewCfg:
@@ -138,7 +146,10 @@ case object AddClkRst extends Stage:
                       }
                     }
                 else
-                  lazy val clk = (clkType <> IN)(using dfc.setName(requiredClkName.get))
+                  // added clocks are created with the constraints from the domain owner
+                  lazy val clk = (clkType <> IN)(using
+                    dfc.setName(requiredClkName.get).setAnnotations(ownerClkConstraints)
+                  )
                   if (addClk) clk // touch lazy clk to create
                   lazy val rst = (rstType <> IN)(using dfc.setName(requiredRstName.get))
                   if (addRst) rst // touch lazy rst to create
@@ -153,16 +164,42 @@ case object AddClkRst extends Stage:
           case dfVal: DFVal =>
             dfVal.dfType match
               case dfType @ DFOpaque(kind = (DFOpaque.Kind.Clk | DFOpaque.Kind.Rst)) =>
-                Some(
-                  dfVal -> Patch.Replace(
-                    dfVal.updateDFType(opaqueReplaceMap(dfType)),
-                    Patch.Replace.Config.FullReplacement
-                  )
-                )
+                val updatedDFVal = dfVal match
+                  // existing clocks also get the constraints from the domain owner
+                  case clk: DFVal.Dcl if clk.isClkDcl =>
+                    val updatedAnnotations =
+                      (ownerClkConstraints ++ clk.meta.annotations).distinct
+                    clk.copy(
+                      dfType = opaqueReplaceMap(dfType),
+                      meta = clk.meta.copy(annotations = updatedAnnotations)
+                    )
+                  case _ => dfVal.updateDFType(opaqueReplaceMap(dfType))
+                Some(dfVal -> Patch.Replace(updatedDFVal, Patch.Replace.Config.FullReplacement))
               case _ => None
           case _ => None
         }
+        // remove the constraints from the owner
+        val ownerConstraintRemovalPatchOption =
+          if (ownerClkConstraints.nonEmpty)
+            def updateMeta(meta: Meta): Meta =
+              meta.copy(annotations = meta.annotations.flatMap {
+                case _: constraints.IO           => None
+                case _: constraints.Timing.Clock => None
+                case c                           => Some(c)
+              })
+            val updatedOwner = owner match
+              case design: DFDesignBlock =>
+                design.copy(dclMeta = updateMeta(design.dclMeta), meta = updateMeta(design.meta))
+              case interface: DFInterfaceOwner =>
+                interface.copy(
+                  dclMeta = updateMeta(interface.dclMeta),
+                  meta = updateMeta(interface.meta)
+                )
+              case _ => owner.setMeta(updateMeta)
+            Some(owner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement))
+          else None
         List(
+          ownerConstraintRemovalPatchOption,
           opaqueTypeReplacePatches,
           ownerDomainPatchOption
         ).flatten

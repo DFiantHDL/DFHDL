@@ -248,10 +248,14 @@ class AddClkRstSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("Explicit clk and rst are kept") {
+  test("Explicit clk and rst are kept + constraints") {
+    @hw.constraints.io(loc = "pinClk")
+    @hw.constraints.timing.clock(rate = 50.MHz)
     class ID extends RTDesign(cfg):
-      val x        = SInt(16) <> IN
-      val y        = SInt(16) <> OUT
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      @hw.constraints.io(loc = "pinClk2")
+      @hw.constraints.timing.clock(rate = 25.MHz)
       val internal = new RTDomain(cfg):
         val clk = Clk      <> IN
         val rst = Rst      <> IN
@@ -266,11 +270,15 @@ class AddClkRstSpec extends StageSpec:
          |case class Rst_cfg() extends Rst
          |
          |class ID extends RTDesign(cfg):
+         |  @timing.clock(rate = 50.MHz)
+         |  @io(loc = "pinClk")
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val internal = new RTDomain(cfg):
+         |    @io(loc = "pinClk2")
+         |    @timing.clock(rate = 25.MHz)
          |    val clk = Clk_cfg <> IN
          |    val rst = Rst_cfg <> IN
          |    val x = SInt(16) <> IN
