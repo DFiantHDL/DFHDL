@@ -69,8 +69,9 @@ trait Design extends Container, HasClsMetaArgs:
         if (driveZero) constraints
         // setting the pull mode as the unused pull mode
         else (IO(pullMode = unusedPullMode) :: constraints).merge
+      val updatedAnnotations = ir.annotation.Unused.Keep :: updatedConstraints
       val port =
-        DFBit.<>(OUT)(using dfc.setName(s"Pin_${pinID}_unused").setAnnotations(updatedConstraints))
+        DFBit.<>(OUT)(using dfc.setName(s"Pin_${pinID}_unused").setAnnotations(updatedAnnotations))
       if (driveZero) port <> DFVal.Const(DFBit, Some(false), named = false)
       else port <> NOTHING(DFBit)(using dfc.anonymize)
     end addUnusedPinPort

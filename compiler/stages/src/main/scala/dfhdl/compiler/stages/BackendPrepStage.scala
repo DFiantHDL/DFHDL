@@ -16,6 +16,7 @@ case object BackendPrepStage
       SimplifyMatchSel,
       DropDomains,
       DropMagnets,
+      ConnectUnused,
       VHDLProcToVerilog,
       ExplicitNamedVars,
       DropLocalDcls,

@@ -42,8 +42,9 @@ trait Printer
           // swapped if the net is a via and the RHS is the internal port
           if (net.isViaConnection)
             normalizeViaConnection && rhsOrig.getOwner.isSameOwnerDesignAs(net)
-          // swapped if the net is a regular connection and the RHS is receiver
-          else swapped && normalizeConnection
+          // swapped if the net is a regular connection and the RHS is receiver and
+          // as long as the LHS is not OPEN
+          else swapped && normalizeConnection && !lhsVal.isInstanceOf[DFVal.OPEN]
         val directionStr =
           lhsOrig match
             case dfIfc: DFInterfaceOwner => "<->"
