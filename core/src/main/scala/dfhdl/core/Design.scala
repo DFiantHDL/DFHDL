@@ -44,6 +44,7 @@ trait Design extends Container, HasClsMetaArgs:
     import dfc.getSet
     if (dfc.owner.asIR.getThisOrOwnerDesign.isDeviceTop)
       handleResourceConstraints()
+      dfc.mutableDB.ResourceOwnershipContext.emptyTopResourceOwners()
     dfc.exitOwner()
     dfc.enterLate()
   private[dfhdl] def skipChecks: Boolean = false

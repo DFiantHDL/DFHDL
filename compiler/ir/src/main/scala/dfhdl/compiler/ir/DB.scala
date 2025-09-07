@@ -1082,11 +1082,10 @@ final case class DB(
     val errors = mutable.ListBuffer.empty[String]
     val locationCollisions = mutable.ListBuffer.empty[String]
 
-    // Collect all location constraints to check for collisions
-    val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
-
     designMemberList.foreach {
       case (design, members) if design.isDeviceTop =>
+        // Collect all location constraints to check for collisions
+        val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
         (design :: members).foreach {
           case domainOwner: DFDomainOwner =>
             domainOwner.domainType match

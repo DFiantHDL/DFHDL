@@ -400,6 +400,7 @@ final class MutableDB():
         case None => domainOwner
     end getConstrainedDomainOwner
     def getTopResourceOwners: List[ResourceOwner] = topResourceOwners
+    def emptyTopResourceOwners(): Unit = topResourceOwners = Nil
     def enter(owner: ResourceOwner): Unit =
       if (stack.isEmpty) topResourceOwners = owner :: topResourceOwners
       stack = owner :: stack
