@@ -635,7 +635,7 @@ final case class DB(
     // collect all ports that are not connected directly or implicitly as magnets
     val danglingPorts = members.collect {
       case p: DFVal.Dcl
-          if p.isPortIn && !connectionTable.contains(p) &&
+          if p.isPortIn && !p.isClkDcl && !p.isRstDcl && !connectionTable.contains(p) &&
             !p.getOwnerDesign.isTop && !magnetConnectionTable.contains(p) =>
         val ownerDesign = p.getOwnerDesign
         s"""|DFiant HDL connectivity error!
