@@ -271,6 +271,7 @@ class ElaborationChecksSpec extends DesignSpec:
     object Test:
       import hw.constraints.*
       @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @io(loc = "locClk")
       @top(false) class Top extends RTDesign:
         @io(loc = "locx")
         val x = Bit <> IN
@@ -284,6 +285,7 @@ class ElaborationChecksSpec extends DesignSpec:
         val z = Bits(16) <> OUT
         z := all(0)
         x <> y
+      end Top
     end Test
     import Test.*
     assertElaborationErrors(Top())(
@@ -299,6 +301,7 @@ class ElaborationChecksSpec extends DesignSpec:
     object Test:
       import hw.constraints.*
       @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @io(loc = "locClk")
       @top(false) class Top extends RTDesign:
         @io(loc = "locx")
         val x = Bit <> IN
@@ -339,7 +342,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL domain clock rate error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:330:7 - 336:32
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:333:7 - 339:32
           |Hierarchy: Top
           |Message:   Missing clock rate timing constraint.
           |To Fix:
@@ -364,7 +367,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL domain clock rate error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:354:7 - 361:32
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:357:7 - 364:32
           |Hierarchy: Top
           |Message:   Mismatch between domain clock rate configuration (25.MHz) and timing constraint rate (20.MHz).
           |To fix, do one of the following:
