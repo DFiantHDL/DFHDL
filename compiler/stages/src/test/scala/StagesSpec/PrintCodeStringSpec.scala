@@ -1372,6 +1372,29 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
 
+  test("initialized port in duplicated design") {
+    class FooChild extends RTDesign:
+      val y = UInt(8) <> OUT init 0
+      y := 1
+
+    class Foo extends RTDesign:
+      val child1 = new FooChild
+      val child2 = new FooChild
+    val top = (new Foo).sanityCheck.getCodeString
+    assertNoDiff(
+      top,
+      """|class FooChild extends RTDesign:
+         |  val y = UInt(8) <> OUT init d"8'0"
+         |  y := d"8'1"
+         |end FooChild
+         |
+         |class Foo extends RTDesign:
+         |  val child1 = FooChild()
+         |  val child2 = FooChild()
+         |end Foo""".stripMargin
+    )
+  }
+
   // TODO: requires fixing
   // test("nesting parameters regression") {
   //   class Inner(val width: Int <> CONST) extends RTDesign:
