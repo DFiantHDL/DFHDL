@@ -403,7 +403,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val dfhdlKW: Set[String] = Set(
     "VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
     "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",
-    "goto", "wait", "assert", "report", "print", "println", "debug", "finish"
+    "goto", "wait", "assert", "report", "print", "println", "debug", "finish", "CLK_FREQ"
   )
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] = Set(

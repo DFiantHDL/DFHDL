@@ -17,6 +17,7 @@ final case class DB(
 ) derives CanEqual, ReadWriter:
   private val self = this
   given getSet: MemberGetSet with
+    val isMutable: Boolean = false
     val designDB: DB = self
     def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0 =
       refTable(ref).asInstanceOf[M0]
@@ -1208,6 +1209,7 @@ enum MemberView derives CanEqual:
   case Folded, Flattened
 
 trait MemberGetSet:
+  val isMutable: Boolean
   def designDB: DB
   def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0
   def getOption[M <: DFMember, M0 <: M](ref: DFRef[M]): Option[M0]

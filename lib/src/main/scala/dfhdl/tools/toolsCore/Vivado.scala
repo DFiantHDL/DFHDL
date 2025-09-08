@@ -176,7 +176,7 @@ class VivadoProjectConstraintsPrinter(using
           case MasterSMAP(busWidth) => s"M_SELECTMAP$busWidth"
         val configRate = constraint.masterRate match
           case None             => None
-          case rate: RateNumber => Some((rate.to_freq / 1.MHz).toInt)
+          case rate: RateNumber => Some((rate.to_freq / 1.MHz).value.toInt)
         val compress = if (bo.compress) "TRUE" else "FALSE"
         List(
           s"set_property CONFIG_MODE $configMode [current_design]",

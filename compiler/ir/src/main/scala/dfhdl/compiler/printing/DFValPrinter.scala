@@ -299,6 +299,12 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"""sd"${printer.csWidthInterp(tWidthParamRef)}'$${${relValStr}}""""
       case (DFInt32, DFUInt(_) | DFSInt(_)) =>
         s"${relValStr}.toInt"
+      case (DFNumber, DFInt32 | DFDouble) =>
+        s"${relValStr}.toNumber"
+      case (DFInt32, DFNumber) =>
+        s"${relValStr}.toInt"
+      case (DFDouble, DFNumber) =>
+        s"${relValStr}.toDouble"
       case _ =>
         throw new IllegalArgumentException("Unsupported alias/conversion")
     end match

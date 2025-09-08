@@ -47,6 +47,14 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
     case (_, DFBits(Int(fWidth))) =>
       assert(fWidth == toType.width)
       toType.bitsDataToData(fromData.asInstanceOf[(BitVector, BitVector)])
+    case (DFInt32, DFNumber) =>
+      Some(fromData.asInstanceOf[DFNumber.Data].value.toBigInt)
+    case (DFDouble, DFNumber) =>
+      Some(fromData.asInstanceOf[DFNumber.Data].value.toDouble)
+    case (DFNumber, DFInt32) =>
+      LiteralNumber(BigDecimal(fromData.asInstanceOf[DFInt32.Data].get))
+    case (DFNumber, DFDouble) =>
+      LiteralNumber(BigDecimal(fromData.asInstanceOf[DFDouble.Data].get))
     // Casting from any data to any data
     case _ if fromType.width == toType.width =>
       toType.bitsDataToData(fromType.dataToBitsData(fromData))
@@ -311,6 +319,88 @@ def calcFuncData[OT <: DFType](
                 Some(data: BigInt) :: Nil
               ) =>
             Some(1 - data)
+          // DFNumber arithmetic operations
+          case (
+                DFNumber,
+                op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./),
+                DFNumber :: DFNumber :: _,
+                (lhs: LiteralNumber) :: (rhs: LiteralNumber) :: Nil
+              ) =>
+            op match
+              case FuncOp.+ => lhs + rhs
+              case FuncOp.- => lhs - rhs
+              case FuncOp.* => lhs * rhs
+              case FuncOp./ => lhs / rhs
+          // DFFreq div arithmetic operation
+          case (
+                DFNumber,
+                FuncOp./,
+                DFFreq :: DFFreq :: _,
+                (lhs: FreqNumber) :: (rhs: FreqNumber) :: Nil
+              ) =>
+            lhs / rhs
+          // DFTime div arithmetic operation
+          case (
+                DFNumber,
+                FuncOp./,
+                DFTime :: DFTime :: _,
+                (lhs: TimeNumber) :: (rhs: TimeNumber) :: Nil
+              ) =>
+            lhs / rhs
+          // DFFreq div/mul with number arithmetic operations
+          case (
+                DFFreq,
+                op @ (FuncOp./ | FuncOp.*),
+                DFFreq :: DFNumber :: _,
+                (lhs: FreqNumber) :: (rhs: LiteralNumber) :: Nil
+              ) =>
+            val data = op match
+              case FuncOp./ => lhs / rhs
+              case FuncOp.* => lhs * rhs
+            data
+          // DFTime div/mul with number arithmetic operations
+          case (
+                DFTime,
+                op @ (FuncOp./ | FuncOp.*),
+                DFTime :: DFNumber :: _,
+                (lhs: TimeNumber) :: (rhs: LiteralNumber) :: Nil
+              ) =>
+            val data = op match
+              case FuncOp./ => lhs / rhs
+              case FuncOp.* => lhs * rhs
+            data
+          // DFTime div inverse arithmetic operations
+          case (
+                DFTime,
+                FuncOp./,
+                DFNumber :: DFFreq :: _,
+                (lhs: LiteralNumber) :: (rhs: FreqNumber) :: Nil
+              ) =>
+            lhs / rhs
+          // DFFreq div inverse arithmetic operations
+          case (
+                DFFreq,
+                FuncOp./,
+                DFNumber :: DFTime :: _,
+                (lhs: LiteralNumber) :: (rhs: TimeNumber) :: Nil
+              ) =>
+            lhs / rhs
+          // DFFreq-DFTime mul arithmetic operation
+          case (
+                DFNumber,
+                FuncOp.*,
+                DFFreq :: DFTime :: _,
+                (lhs: FreqNumber) :: (rhs: TimeNumber) :: Nil
+              ) =>
+            lhs * rhs
+          // DFTime-DFFreq mul arithmetic operation
+          case (
+                DFNumber,
+                FuncOp.*,
+                DFTime :: DFFreq :: _,
+                (lhs: TimeNumber) :: (rhs: FreqNumber) :: Nil
+              ) =>
+            lhs * rhs
           case x =>
             println(x)
             ???

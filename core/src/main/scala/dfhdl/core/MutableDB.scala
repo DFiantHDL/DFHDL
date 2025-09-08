@@ -621,6 +621,7 @@ final class MutableDB():
   }
 
   given getSet: MemberGetSet with
+    val isMutable: Boolean = true
     def designDB: DB = immutable
     def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0 = getMember(ref)
     def getOption[M <: DFMember, M0 <: M](ref: DFRef[M]): Option[M0] = getMemberOption(ref)

@@ -36,7 +36,7 @@ case object DropTimedRTWaits extends Stage:
           val waitTime = duration.getConstData.get.asInstanceOf[TimeNumber]
           val (RTDomainCfg.Explicit(clkCfg = ClkCfg.Explicit(rate = clkRate))) =
             designDB.explicitRTDomainCfgMap(waitMember.getOwnerDomain): @unchecked
-          val cycles = (waitTime / clkRate.to_ps).toLong
+          val cycles = (waitTime / clkRate.to_ps).value.toLong
           cycles.cy.wait(using dfc.setMeta(waitMember.meta))
         dsn.patch
     }

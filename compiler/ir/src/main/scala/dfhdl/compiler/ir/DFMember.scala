@@ -5,6 +5,7 @@ import upickle.default.*
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.reflect.{ClassTag, classTag}
+import dfhdl.compiler.ir.PhysicalNumber.Ops.MHz
 
 sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] derives CanEqual:
   val ownerRef: DFOwner.Ref
@@ -472,7 +473,14 @@ object DFVal:
       tags: DFTags
   ) extends CanBeExpr derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
-    protected def protGetConstData(using MemberGetSet): Option[Any] = None
+    protected def protGetConstData(using MemberGetSet): Option[Any] = kind match
+      case Special.CLK_FREQ =>
+        if (getSet.isMutable) None // disable during elaboration
+        else
+          Some(getSet.designDB.explicitRTDomainCfgMap(
+            this.getOwnerDomain
+          ).clkCfg.toOption.map(_.rate.to_freq).getOrElse(0.MHz))
+      case _ => None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Special =>
         this.dfType =~ that.dfType && this.kind == that.kind &&
