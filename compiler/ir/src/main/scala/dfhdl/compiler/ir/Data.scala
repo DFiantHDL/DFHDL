@@ -24,6 +24,7 @@ object Data:
         case Some(stringValue: String)        => writeJs(("string", stringValue))
         case time: TimeNumber                 => writeJs(("time", (time.value, time.unit)))
         case freq: FreqNumber                 => writeJs(("freq", (freq.value, freq.unit)))
+        case number: LiteralNumber            => writeJs(("number", number.value))
         case vectorData: Vector[Data]         =>
           given ReadWriter[Vector[Data]] = vectorDataWriter
           writeJs(("vector", vectorData))
@@ -50,6 +51,8 @@ object Data:
         case ujson.Arr(ArrayBuffer(ujson.Str("freq"), freqValue)) =>
           val (value, unit) = read[(BigDecimal, FreqNumber.Unit)](freqValue)
           FreqNumber(value, unit)
+        case ujson.Arr(ArrayBuffer(ujson.Str("number"), numberValue)) =>
+          read[LiteralNumber](numberValue)
         case ujson.Arr(ArrayBuffer(ujson.Str("vector"), vectorData)) =>
           given ReadWriter[Vector[Data]] = vectorDataWriter
           read[Vector[Data]](vectorData)
