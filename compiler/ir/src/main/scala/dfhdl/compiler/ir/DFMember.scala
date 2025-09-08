@@ -236,13 +236,12 @@ object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
   given ReadWriter[DFVal] = ReadWriter.merge(
     summon[ReadWriter[DFVal.Dcl]],
-    summon[ReadWriter[DFVal.OPEN]],
+    summon[ReadWriter[DFVal.Special]],
     summon[ReadWriter[DFVal.Alias]],
     summon[ReadWriter[DFVal.Const]],
     summon[ReadWriter[DFVal.DesignParam]],
     summon[ReadWriter[DFVal.Func]],
-    summon[ReadWriter[DFVal.PortByNameSelect]],
-    summon[ReadWriter[DFVal.NOTHING]]
+    summon[ReadWriter[DFVal.PortByNameSelect]]
   )
   final case class Modifier(dir: Modifier.Dir, special: Modifier.Special)
       derives CanEqual,
@@ -288,18 +287,18 @@ object DFVal:
           case _            => false
       case _ => false
     def isOpen: Boolean = dfVal match
-      case _: DFVal.OPEN => true
-      case _             => false
+      case DFVal.Special(kind = DFVal.Special.OPEN) => true
+      case _                                        => false
     def isDesignParam: Boolean = dfVal match
       case _: DFVal.DesignParam => true
       case _                    => false
     def isReg: Boolean = dfVal match
       case dcl: DFVal.Dcl => dcl.modifier.isReg
       case _              => false
-    @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.OPEN] = dfVal match
+    @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.Special] = dfVal match
       case dcl: DFVal.Dcl                           => Some(dcl)
       case portByNameSelect: DFVal.PortByNameSelect => Some(portByNameSelect.getPortDcl)
-      case open: DFVal.OPEN                         => Some(open)
+      case open: DFVal.Special if open.isOpen       => Some(open)
       case alias: DFVal.Alias                       => alias.relValRef.get.dealias
       case _                                        => None
     @tailrec private def departial(range: Range)(using MemberGetSet): (DFVal, Range) =
@@ -465,29 +464,9 @@ object DFVal:
     type Ref = DFRef.TwoWay[DFVal, DesignParam]
     type DefaultRef = DFRef.TwoWay[DFVal | DFMember.Empty, DesignParam]
 
-  final case class OPEN(
+  final case class Special(
       dfType: DFType,
-      ownerRef: DFOwner.Ref
-  ) extends DFVal derives ReadWriter:
-    val meta: Meta = Meta(None, Position.unknown, None, Nil)
-    val tags: DFTags = DFTags.empty
-    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
-    protected def protGetConstData(using MemberGetSet): Option[Any] = None
-    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case _: OPEN => true
-      case _       => false
-    protected def setMeta(meta: Meta): this.type = this
-    protected def setTags(tags: DFTags): this.type = this
-    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ meta.getRefs
-    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-    def copyWithNewRefs(using RefGen): this.type = copy(
-      dfType = dfType.copyWithNewRefs,
-      ownerRef = ownerRef.copyAsNewRef
-    ).asInstanceOf[this.type]
-  end OPEN
-
-  final case class NOTHING(
-      dfType: DFType,
+      kind: Special.Kind,
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
@@ -495,8 +474,11 @@ object DFVal:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
     protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case _: NOTHING => true
-      case _          => false
+      case that: Special =>
+        this.dfType =~ that.dfType && this.kind == that.kind &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+
+      case _ => false
     protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
       this == that
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -508,7 +490,11 @@ object DFVal:
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef
     ).asInstanceOf[this.type]
-  end NOTHING
+  end Special
+  object Special:
+    enum Kind extends StableEnum derives CanEqual, ReadWriter:
+      case NOTHING, OPEN, CLK_FREQ
+    export Kind.{NOTHING, OPEN, CLK_FREQ}
 
   final case class Dcl(
       dfType: DFType,
@@ -1023,7 +1009,7 @@ object DFNet:
         MemberGetSet
     ): Option[
       (
-          toVal: DFVal.Dcl | DFVal.OPEN | DFInterfaceOwner,
+          toVal: DFVal.Dcl | DFVal.Special | DFInterfaceOwner,
           fromVal: DFVal | DFInterfaceOwner,
           swapped: Boolean
       )

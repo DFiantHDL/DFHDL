@@ -692,19 +692,38 @@ object DFVal extends DFValLP:
       alias.addMember.asConstOf[T]
     end apply
   end DesignParam
+
+  type CLK_FREQ = DFValOf[DFFreq]
+  def CLK_FREQ(using DFC, RTDomainOnly): DFValOf[DFFreq] =
+    ir.DFVal.Special(
+      ir.DFFreq,
+      ir.DFVal.Special.CLK_FREQ,
+      dfc.owner.ref,
+      dfc.getMeta,
+      dfc.tags
+    ).addMember.asValOf[DFFreq]
+
   type OPEN = OPEN.type
   object OPEN:
     protected[dfhdl] def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
-      ir.DFVal.OPEN(dfType.asIR.dropUnreachableRefs, dfc.owner.ref)
-        .addMember
-        .asValOf[T]
+      ir.DFVal.Special(
+        dfType.asIR.dropUnreachableRefs,
+        ir.DFVal.Special.OPEN,
+        dfc.owner.ref,
+        dfc.getMeta,
+        dfc.tags
+      ).addMember.asValOf[T]
 
   type NOTHING = NOTHING.type
   object NOTHING:
     protected[dfhdl] def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
-      ir.DFVal.NOTHING(dfType.asIR.dropUnreachableRefs, dfc.owner.ref, dfc.getMeta, dfc.tags)
-        .addMember
-        .asValOf[T]
+      ir.DFVal.Special(
+        dfType.asIR.dropUnreachableRefs,
+        ir.DFVal.Special.NOTHING,
+        dfc.owner.ref,
+        dfc.getMeta,
+        dfc.tags
+      ).addMember.asValOf[T]
 
   object Dcl:
     def apply[T <: DFTypeAny, M <: ModifierAny](

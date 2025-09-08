@@ -77,6 +77,7 @@ protected object hdl:
   type EDRET = core.EDRET
   val OPEN = core.DFVal.OPEN
   val NOTHING = core.DFVal.NOTHING
+  export core.DFVal.CLK_FREQ
   export core.<>
   export core.X
   export core.Process.Ops.*

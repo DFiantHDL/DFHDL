@@ -328,8 +328,8 @@ final case class DB(
             else Unknown
           // illegal connection
           case _ => Error
-      case _: DFVal.OPEN => Unknown
-      case _             => Read
+      case open if open.isOpen => Unknown
+      case _                   => Read
     end match
   end getValAccess
   private def getValAccess(dfVal: DFVal, net: DFNet)(

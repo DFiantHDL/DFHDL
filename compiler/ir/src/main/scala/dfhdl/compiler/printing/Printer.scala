@@ -44,7 +44,7 @@ trait Printer
             normalizeViaConnection && rhsOrig.getOwner.isSameOwnerDesignAs(net)
           // swapped if the net is a regular connection and the RHS is receiver and
           // as long as the LHS is not OPEN
-          else swapped && normalizeConnection && !lhsVal.isInstanceOf[DFVal.OPEN]
+          else swapped && normalizeConnection && !lhsVal.isInstanceOf[DFVal.Special]
         val directionStr =
           lhsOrig match
             case dfIfc: DFInterfaceOwner => "<->"

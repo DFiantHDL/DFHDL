@@ -130,7 +130,7 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csDFValAliasSelectField(dfVal: Alias.SelectField): String
   def csDFValAliasHistory(dfVal: Alias.History): String
   // def csTimerIsActive(dfVal: Timer.IsActive): String
-  def csNOTHING(dfVal: NOTHING): String
+  def csNOTHING(dfVal: Special): String
   final def csDFValAliasExpr(dfVal: Alias): String = dfVal match
     case dv: Alias.AsIs        => csDFValAliasAsIs(dv)
     case dv: Alias.History     => csDFValAliasHistory(dv)
@@ -145,7 +145,11 @@ trait AbstractValPrinter extends AbstractPrinter:
       case dv: DFVal.DesignParam    => dv.dfValRef.refCodeString
       case dv: DFConditional.Header => printer.csDFConditional(dv)
       // case dv: Timer.IsActive       => csTimerIsActive(dv)
-      case dv: NOTHING => csNOTHING(dv)
+      case dv: Special =>
+        dv.kind match
+          case Special.OPEN     => printer.csOpenKeyWord
+          case Special.NOTHING  => csNOTHING(dv)
+          case Special.CLK_FREQ => "CLK_FREQ"
   def csDFValNamed(dfVal: DFVal): String
   final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner | DFMember.Empty): String =
     dfVal.stripPortSel match
@@ -153,8 +157,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       case PortOfDesignDef(Modifier.OUT, design) =>
         if (design.isAnonymous) printer.csDFDesignDefInst(design)
         else design.getName
-      case open: DFVal.OPEN => printer.csOpenKeyWord
-      case dfVal            => dfVal.getRelativeName(fromOwner)
+      case dfVal => dfVal.getRelativeName(fromOwner)
 end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:
@@ -339,7 +342,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
   end csDFValAliasHistory
   // def csTimerIsActive(dfVal: Timer.IsActive): String =
   //   s"${dfVal.timerRef.refCodeString}.isActive"
-  def csNOTHING(dfVal: NOTHING): String = "NOTHING"
+  def csNOTHING(dfVal: Special): String = "NOTHING"
   def csDFValNamed(dfVal: DFVal): String =
     def typeAnnot = dfVal match
       case dv: DFConditional.Header if dv.dfType != DFUnit => printer.csDFValType(dfVal.dfType)
