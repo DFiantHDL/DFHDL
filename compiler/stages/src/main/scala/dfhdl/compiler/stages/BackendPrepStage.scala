@@ -2,6 +2,7 @@ package dfhdl.compiler.stages
 
 case object BackendPrepStage
     extends BundleStage(
+      DropPhysicalValues,
       DropUserOpaques,
       BreakOpsNoAssignments,
       DropUnreferencedAnons,
