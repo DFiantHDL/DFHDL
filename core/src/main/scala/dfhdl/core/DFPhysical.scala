@@ -59,7 +59,14 @@ object DFPhysical:
             rhsDFType: DFPhysical[RU]
         ): DFPhysical[OutU]
       end OpTC
-      object OpTC:
+      trait OpTCLP:
+        given divSameUnit[U <: ir.PhysicalNumber]: OpTC[FuncOp./.type, U, U] with
+          type OutU = ir.LiteralNumber
+          def apply(
+              lhsDFType: DFPhysical[U],
+              rhsDFType: DFPhysical[U]
+          ): DFPhysical[ir.LiteralNumber] = DFNumber
+      object OpTC extends OpTCLP:
         given add[U <: ir.PhysicalNumber]: OpTC[FuncOp.+.type, U, U] with
           type OutU = U
           def apply(
@@ -72,12 +79,6 @@ object DFPhysical:
               lhsDFType: DFPhysical[U],
               rhsDFType: DFPhysical[U]
           ): DFPhysical[U] = lhsDFType
-        given divSameUnit[U <: ir.PhysicalNumber]: OpTC[FuncOp./.type, U, U] with
-          type OutU = ir.LiteralNumber
-          def apply(
-              lhsDFType: DFPhysical[U],
-              rhsDFType: DFPhysical[U]
-          ): DFPhysical[ir.LiteralNumber] = DFNumber
         given divNumbers[U <: ir.PhysicalNumber]: OpTC[FuncOp./.type, U, ir.LiteralNumber] with
           type OutU = U
           def apply(
