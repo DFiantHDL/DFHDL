@@ -52,7 +52,7 @@ object Data:
           val (value, unit) = read[(BigDecimal, FreqNumber.Unit)](freqValue)
           FreqNumber(value, unit)
         case ujson.Arr(ArrayBuffer(ujson.Str("number"), numberValue)) =>
-          read[LiteralNumber](numberValue)
+          LiteralNumber(read[BigDecimal](numberValue))
         case ujson.Arr(ArrayBuffer(ujson.Str("vector"), vectorData)) =>
           given ReadWriter[Vector[Data]] = vectorDataWriter
           read[Vector[Data]](vectorData)
