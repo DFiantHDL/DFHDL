@@ -93,7 +93,7 @@ object TimeNumber:
     def *(rhs: LiteralNumber): TimeNumber = TimeNumber(lhs.value * rhs.value, lhs.unit)
     def /(rhs: TimeNumber): LiteralNumber = LiteralNumber(lhs.to_psVal / rhs.to_psVal)
     def *(rhs: FreqNumber): LiteralNumber =
-      LiteralNumber(lhs.to_psVal * rhs.to_hz.value * BigDecimal(1e12))
+      LiteralNumber(lhs.to_psVal * rhs.to_hz.value / BigDecimal(1e12))
     def to_ps: TimeNumber =
       val psVal = to_psVal
       TimeNumber(psVal, TimeNumber.Unit.ps)
@@ -134,7 +134,7 @@ object FreqNumber:
     def /(rhs: LiteralNumber): FreqNumber = FreqNumber(lhs.value / rhs.value, lhs.unit)
     def *(rhs: LiteralNumber): FreqNumber = FreqNumber(lhs.value * rhs.value, lhs.unit)
     def *(rhs: TimeNumber): LiteralNumber =
-      LiteralNumber(lhs.to_hz.value * rhs.to_ps.value * BigDecimal(1e12))
+      LiteralNumber(lhs.to_hz.value * rhs.to_ps.value / BigDecimal(1e12))
     def to_period: TimeNumber =
       val psVal = to_ps.value
       if psVal < 1000 then TimeNumber(psVal, TimeNumber.Unit.ps)
