@@ -94,6 +94,8 @@ object TimeNumber:
     def /(rhs: TimeNumber): LiteralNumber = LiteralNumber(lhs.to_psVal / rhs.to_psVal)
     def *(rhs: FreqNumber): LiteralNumber =
       LiteralNumber(lhs.to_psVal * rhs.to_hz.value / BigDecimal(1e12))
+    def +(rhs: TimeNumber): TimeNumber = TimeNumber(lhs.to_psVal + rhs.to_psVal, Unit.ps).normalize
+    def -(rhs: TimeNumber): TimeNumber = TimeNumber(lhs.to_psVal - rhs.to_psVal, Unit.ps).normalize
     def to_ps: TimeNumber =
       val psVal = to_psVal
       TimeNumber(psVal, TimeNumber.Unit.ps)

@@ -331,6 +331,16 @@ def calcFuncData[OT <: DFType](
               case FuncOp.- => lhs - rhs
               case FuncOp.* => lhs * rhs
               case FuncOp./ => lhs / rhs
+          // DFTime add/sub arithmetic operations
+          case (
+                DFTime,
+                op @ (FuncOp.+ | FuncOp.-),
+                DFTime :: DFTime :: _,
+                (lhs: TimeNumber) :: (rhs: TimeNumber) :: Nil
+              ) =>
+            op match
+              case FuncOp.+ => lhs + rhs
+              case FuncOp.- => lhs - rhs
           // DFFreq div arithmetic operation
           case (
                 DFNumber,

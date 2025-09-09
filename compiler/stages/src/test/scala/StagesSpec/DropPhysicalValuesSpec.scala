@@ -111,4 +111,28 @@ class DropPhysicalValuesSpec extends StageSpec:
          |end MultiDomainDesign""".stripMargin
     )
 
+  test("Physical value in wait statement is not dropped") {
+    class WaitDesign extends RTDesign:
+      val i      = Int <> IN
+      val o      = Int <> OUT
+      val period = 10.ms + 2.ms
+      process:
+        wait(period)
+        wait(2.ms)
+        o := i
+
+    val design = (new WaitDesign).dropPhysicalValues
+    assertCodeString(
+      design,
+      """|class WaitDesign extends RTDesign:
+         |  val i = Int <> IN
+         |  val o = Int <> OUT
+         |  process:
+         |    12.ms.wait
+         |    2.ms.wait
+         |    o := i
+         |end WaitDesign""".stripMargin
+    )
+  }
+
 end DropPhysicalValuesSpec
