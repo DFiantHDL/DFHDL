@@ -1037,4 +1037,37 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
+
+  test("regression check: a design with a single register") {
+    class Foo extends RTDesign:
+      val counter = Int <> VAR.REG init 0
+    val top = (new Foo).toED
+    assertCodeString(
+      top,
+      """|class Foo extends EDDesign:
+         |  case class Clk_default() extends Clk
+         |  case class Rst_default() extends Rst
+         |
+         |  val clk = Clk_default <> VAR
+         |  val rst = Rst_default <> VAR
+         |  @hw.annotation.flattenMode.transparent()
+         |  val clkRstSimGen = new EDDomain:
+         |    process:
+         |      rst.actual :== 1
+         |      while (true)
+         |        clk.actual :== 0
+         |        10.ns.wait
+         |        clk.actual :== 1
+         |        10.ns.wait
+         |        rst.actual :== 0
+         |      end while
+         |  val counter = Int <> VAR
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) counter :== 0
+         |      else {}
+         |    end if
+         |end Foo""".stripMargin
+    )
+  }
 end ToEDSpec
