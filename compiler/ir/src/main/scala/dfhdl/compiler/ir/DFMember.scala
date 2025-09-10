@@ -228,7 +228,9 @@ sealed trait DFVal extends DFMember.Named:
     if (cachedConstDataReady) cachedConstData
     else
       cachedConstData = protGetConstData
-      cachedConstDataReady = true
+      // disable None constant data caching during mutation, since some data like CLK_FREQ
+      // cannot be attained during mutation and returns None
+      if (!getSet.isMutable && cachedConstData == None) cachedConstDataReady = true
       cachedConstData
   def updateDFType(dfType: DFType): this.type
 end DFVal

@@ -135,4 +135,19 @@ class DropPhysicalValuesSpec extends StageSpec:
     )
   }
 
+  test("Regression check when data caching caused issues") {
+    class Foo extends RTDesign:
+      val cycles  = (CLK_FREQ * 3.sec).toInt
+      val counter = Int <> OUT.REG init 0
+      counter.din := counter + cycles
+    val top = Foo().dropPhysicalValues
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val cycles: Int <> CONST = 150000000
+         |  val counter = Int <> OUT.REG init 0
+         |  counter.din := counter + cycles
+         |end Foo""".stripMargin
+    )
+  }
 end DropPhysicalValuesSpec
