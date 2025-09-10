@@ -199,7 +199,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
         val opStr = dfVal.op match
           // if the result width for +/-/* ops is larger than the left argument width
           // then we have a carry-inclusive operation
-          case Func.Op.+ | Func.Op.- | Func.Op.`*` if dfVal.dfType.width > argL.get.dfType.width =>
+          case Func.Op.+ | Func.Op.- | Func.Op.`*`
+              if !dfVal.dfType.isUnbounded && dfVal.dfType.width > argL.get.dfType.width =>
             s"${dfVal.op}^"
           case op => commonOpStr
         s"${csArgL.applyBrackets()} $opStr ${csArgR.applyBrackets()}"

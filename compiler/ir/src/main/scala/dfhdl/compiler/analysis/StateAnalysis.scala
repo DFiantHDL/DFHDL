@@ -16,8 +16,8 @@ object StateAnalysis:
     val currentBlock = summon[DFBlock]
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match
-      case dfVal: DFVal.Alias if dfVal.relValRef.get.dfType.isInstanceOf[DFUnbounded] => currentSet
-      case DFVal.Alias.AsIs(dfType = toType, relValRef = relValRef)                   =>
+      case dfVal: DFVal.Alias if dfVal.relValRef.get.dfType.isUnbounded => currentSet
+      case DFVal.Alias.AsIs(dfType = toType, relValRef = relValRef)     =>
         val relVal = relValRef.get
         if (toType.width == relVal.width)
           // casting maintains relative bit consumption
