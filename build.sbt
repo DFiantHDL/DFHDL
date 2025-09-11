@@ -5,7 +5,7 @@ commands += DFHDLCommands.docExamplesRefUpdate
 
 // format: off
 val projectName = "dfhdl"
-val compilerVersion = "3.7.2"
+val compilerVersion = "3.7.3"
 
 inThisBuild(
   List(
