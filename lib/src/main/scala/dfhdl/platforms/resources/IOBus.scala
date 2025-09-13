@@ -15,6 +15,7 @@ class IOBus[T <: IO, L <: Int] private (val ios: List[T]) extends ResourceDeps:
     for (c <- getResourceConstraints)
       ret.injectConstraint(c)
     ret
+  def length: Inlined[L] = Inlined.forced[L](ios.length)
 object IOBus:
   def fill[T <: IO, L <: Int & Singleton](length: L)(f: => T)(using dfc: DFC): IOBus[T, L] =
     forced[T, L](List.tabulate(length)(i => f.injectID(s"${dfc.getMeta.name}($i)")))
@@ -41,9 +42,10 @@ object IOBus:
       dfc: DFC,
       wT: Width[T]
   )(using
-      check: AssertGiven[RL =:= wT.OutI, "Width mismatch"],
+      check: `RW == TW`.Check[RL, wT.OutI],
       cc: CanConnect[RT, DFValOf[DFBit]]
   ): CanConnect[R, V] = (resource: R, dfVal: V) =>
+    check(resource.length, dfVal.widthInt)
     for (i <- 0 until resource.ios.length)
       cc.connect(resource.ios(i), dfVal.bits(i))
 end IOBus

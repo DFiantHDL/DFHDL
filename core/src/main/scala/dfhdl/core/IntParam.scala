@@ -11,11 +11,6 @@ import scala.annotation.targetName
 
 type IntP = Int | DFConstInt32 | IntP.Sig
 object IntP:
-  trait ToInt2[T <: IntP]:
-    type Out <: Int
-  type ToInt[V <: IntP] <: Int = V match
-    case Int          => V <:! Int
-    case DFConstInt32 => Int
   sealed trait Sig:
     val value: DFConstInt32
   object Sig:
