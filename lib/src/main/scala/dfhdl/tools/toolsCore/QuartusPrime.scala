@@ -56,8 +56,7 @@ sealed abstract class QuartusPrime(pro: Boolean) extends Builder:
     s"${topName}.qpf",
     s"${topName}.qsf",
     s"${topName}.sof"
-    // s"${topName}.svf"
-  )
+  ) ++ (if (pro) Nil else List(s"${topName}.svf"))
 end QuartusPrime
 
 object QuartusPrime extends QuartusPrime(false)
@@ -76,6 +75,9 @@ class QuartusPrimeProjectTclConfigPrinter(using
 ):
   val designDB: DB = getSet.designDB
   val topName: String = getSet.topName
+  val pro: Boolean = designDB.top.dclMeta.annotations.collectFirst {
+    case constraints.DeviceID(vendor = constraints.DeviceID.Vendor.AlteraIntel(pro)) => pro
+  }.get
   val targetLanguage: String = co.backend match
     case _: backends.verilog => "verilog"
     case _: backends.vhdl    => "vhdl"
@@ -114,14 +116,15 @@ class QuartusPrimeProjectTclConfigPrinter(using
         constraint.dualPurposeGroups.toList.flatMap(_.split("/"))
     }).flatten.toList.distinct
   def configFileName: String = s"$topName.tcl"
+  def generateSVFFileCmd: String =
+    if (pro) "" else "\nset_global_assignment -name GENERATE_SVF_FILE ON"
   def contents: String =
     s"""|load_package flow
         |project_new -overwrite -part $part $topName
         |$addHDLFilesCmd
         |set_global_assignment -name TOP_LEVEL_ENTITY $topName
         |source ${topName}_physical.tcl
-        |set_global_assignment -name SDC_FILE $topName.sdc
-        |set_global_assignment -name GENERATE_SVF_FILE ON
+        |set_global_assignment -name SDC_FILE $topName.sdc$generateSVFFileCmd
         |execute_flow -compile
         |project_close
         |""".stripMargin

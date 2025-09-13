@@ -43,10 +43,8 @@ object OpenFPGALoader extends Programmer:
       case (Vendor.XilinxAMD | Vendor.Lattice, true)  => "mcs"
       case (Vendor.XilinxAMD | Vendor.Lattice, false) => "bit"
       case (Vendor.Gowin, false)                      => "fs"
-      case (Vendor.AlteraIntel(pro), false)           =>
-        val fullQuartusProgrammerPath =
-          if (pro) QuartusProgrammerPro.runExecFullPath
-          else QuartusProgrammer.runExecFullPath
+      case (Vendor.AlteraIntel(false), false)         =>
+        val fullQuartusProgrammerPath = QuartusProgrammer.runExecFullPath
         val location =
           Paths.get(fullQuartusProgrammerPath).getParent().resolve("blaster_6810.hex")
         probeFirmware = s" --probe-firmware $location"
