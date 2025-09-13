@@ -15,12 +15,13 @@ import dfhdl.compiler.ir.constraints
 import dfhdl.compiler.ir.RateNumber
 import java.io.File.separatorChar
 
-object QuartusPrime extends Builder:
-  val toolName: String = "QuartusPrime"
+sealed abstract class QuartusPrime(pro: Boolean) extends Builder:
+  val toolName: String = if (pro) "Quartus Prime Pro" else "QuartusPrime Lite/Standard"
   protected def binExec: String = "quartus_sh"
   protected def versionCmd: String = "-v"
   protected def extractVersion(cmdRetStr: String): Option[String] =
-    val versionPattern = """(?s)Quartus.*Version (\d+\.\d+)""".r
+    val editionPattern = if (pro) ".*Pro Edition" else ".*(Lite|Standard) Edition"
+    val versionPattern = s"""(?s)Quartus.*Version (\\d+\\.\\d+)$editionPattern""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   override protected[dfhdl] def buildPreprocess(cd: CompiledDesign)(using
@@ -54,10 +55,13 @@ object QuartusPrime extends Builder:
   ): List[String] = List(
     s"${topName}.qpf",
     s"${topName}.qsf",
-    s"${topName}.sof",
-    s"${topName}.svf"
+    s"${topName}.sof"
+    // s"${topName}.svf"
   )
 end QuartusPrime
+
+object QuartusPrime extends QuartusPrime(false)
+object QuartusPrimePro extends QuartusPrime(true)
 
 val QuartusPrimeProjectTclConfig = SourceType.Tool("QuartusPrime", "ProjectTclConfig")
 val QuartusPrimeProjectPhysicalConstraints =
@@ -81,13 +85,15 @@ class QuartusPrimeProjectTclConfigPrinter(using
     }.getOrElse(throw new IllegalArgumentException("No device constraint found"))
   val std: String = co.backend match
     case backend: backends.verilog => backend.dialect match
-        case VerilogDialect.v95   => "v1995"
-        case VerilogDialect.v2001 => "v2001"
-        case _                    => "sysv2017"
+        case VerilogDialect.v95    => "Verilog_1995"
+        case VerilogDialect.v2001  => "Verilog_2001"
+        case VerilogDialect.sv2005 => "SystemVerilog_2005"
+        case VerilogDialect.sv2009 => "SystemVerilog_2009"
+        case _                     => "SystemVerilog_2012"
     case backend: backends.vhdl => backend.dialect match
-        case VHDLDialect.v93   => "vhd1993"
-        case VHDLDialect.v2008 => "vhd2008"
-        case VHDLDialect.v2019 => "vhd2019"
+        case VHDLDialect.v93   => "VHDL_1993"
+        case VHDLDialect.v2008 => "VHDL_2008"
+        case VHDLDialect.v2019 => "VHDL_2019"
   val hdlFiles: List[String] = designDB.srcFiles.collect {
     case SourceFile(
           SourceOrigin.Committed,
@@ -99,7 +105,9 @@ class QuartusPrimeProjectTclConfigPrinter(using
   }
   def addHDLFilesCmd: String =
     val name = targetLanguage.toUpperCase()
-    hdlFiles.map(file => s"set_global_assignment -name ${name}_FILE $file").mkString("\n")
+    hdlFiles.map(file =>
+      s"set_global_assignment -name ${name}_FILE $file -hdl_version $std"
+    ).mkString("\n")
   def activeDualPurposeGroups: List[String] =
     designDB.topIOs.view.flatMap(_.meta.annotations.collect {
       case constraint: constraints.IO =>
@@ -128,6 +136,9 @@ class QuartusPrimeProjectPhysicalConstraintsPrinter(using
   val designDB: DB = getSet.designDB
   val topName: String = getSet.topName
   val constraintsFileName: String = s"${topName}_physical.tcl"
+  val pro: Boolean = designDB.top.dclMeta.annotations.collectFirst {
+    case constraints.DeviceID(vendor = constraints.DeviceID.Vendor.AlteraIntel(pro)) => pro
+  }.get
 
   def qsf_get_ports(port: DFVal.Dcl, constraint: constraints.SigConstraint): String =
     val portName = port.getName
@@ -153,8 +164,15 @@ class QuartusPrimeProjectPhysicalConstraintsPrinter(using
     // IO standard constraint
     portConstraint.standard.foreach { standard =>
       val standardStr = (standard, portConstraint.levelVolt) match
-        case (constraints.IO.Standard.LVCMOS, levelVolt: Double) => s"\"$levelVolt V\""
-        case (constraints.IO.Standard.LVTTL, levelVolt: Double)  => s"\"$levelVolt V LVTTL\""
+        case (constraints.IO.Standard.LVCMOS, levelVolt: Double) =>
+          if (pro)
+            levelVolt match
+              case 1.2 => "\"1.2-V\""
+              case _   => s"\"$levelVolt-V LVCMOS\""
+          else s"\"$levelVolt V\""
+        case (constraints.IO.Standard.LVTTL, levelVolt: Double) =>
+          if (pro) s"\"$levelVolt-V LVTTL\""
+          else s"\"$levelVolt V LVTTL\""
         case (constraints.IO.Standard.SchmittTrigger, levelVolt: Double) =>
           s"\"$levelVolt V Schmitt Trigger\""
         case (constraints.IO.Standard.LVDS, _) => s"LVDS"
@@ -170,7 +188,7 @@ class QuartusPrimeProjectPhysicalConstraintsPrinter(using
       val slewRateStr = slewRate match
         case constraints.IO.SlewRate.SLOW => "0"
         case constraints.IO.SlewRate.FAST => "2"
-      addInstanceAssignment("SLEW_RATE", slewRateStr)
+      addInstanceAssignment("SLEW_RATE", "2")
     }
 
     // Drive strength constraint
@@ -233,13 +251,33 @@ class QuartusPrimeProjectWarningSuppressionsPrinter(using
   val designDB: DB = getSet.designDB
   val topName: String = getSet.topName
   def configFileName: String = s"$topName.srf"
-  def warningSuppression(id: String, keyWord: String = "*"): String =
-    s"""{ "" "" "" "$keyWord" {  } {  } 0 $id "" 0 0 "Design Software" 0 -1 0 ""}"""
-  def contents: String =
-    s"""|${warningSuppression("18236")}
-        |${warningSuppression("292013", "LogicLock")}
-        |${warningSuppression("334000")}
-        |""".stripMargin
+  val pro: Boolean = designDB.top.dclMeta.annotations.collectFirst {
+    case constraints.DeviceID(vendor = constraints.DeviceID.Vendor.AlteraIntel(pro)) => pro
+  }.get
+  def warningSuppression(
+      id: String,
+      keyWord: String = "*",
+      proExpected: ConfigN[Boolean] = None
+  ): Option[String] =
+    if (proExpected.nonEmpty && proExpected != pro) None
+    else Some(s"""{ "" "" "" "$keyWord" {  } {  } 0 $id "" 0 0 "Design Software" 0 -1 0 ""}""")
+  def warningSuppressions: Iterator[String] =
+    Iterator(
+      // Suppressing: "Number of processors has not been specified which may cause overloading on shared machines."
+      // Reasoning: Not a valid reason for a warning. Oooh running a build takes a load.. You're kidding?!
+      warningSuppression("18236", proExpected = false),
+      // Suppressing: "Timing characteristics of device ... are preliminary"
+      // Reasoning: The user can do nothing about this. It's like saying "the tool could have a bug we didn't find".
+      warningSuppression("18291", proExpected = true),
+      // Suppressing: "Feature LogicLock detected"
+      // Reasoning: This is a default behavior for basic design. The user sees no relevant effect.
+      warningSuppression("292013", "LogicLock"),
+      // warningSuppression("334000", proExpected = false),
+      // Suppressing: "Clock uncertainty characteristics of the ... device family are preliminary"
+      // Reasoning: The user can do nothing about this. It's like saying "the tool could have a bug we didn't find".
+      warningSuppression("332158", proExpected = true)
+    ).flatten
+  def contents: String = warningSuppressions.mkString("\n")
   def getSourceFile: SourceFile =
     SourceFile(
       SourceOrigin.Compiled,

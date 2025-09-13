@@ -529,25 +529,22 @@ lazy val osIsWSL: Boolean =
       case _: Exception => false
   else false
 
-def programFullPath(cmd: String): String =
+def programFullPaths(cmd: String): List[String] =
   import sys.process.*
   try
     if (osIsWindows)
-      s"where $cmd".!!.trim()
+      s"where $cmd".!!.trim().linesIterator.toList
     else
-      val result = s"which $cmd".!!.trim()
+      val result = s"which -a $cmd".!!.trim().linesIterator.toList
       // reject windows programs running from WSL
-      if (result.nonEmpty && osIsWSL)
-        if (result.matches("""/mnt/[a-zA-Z]/.*""")) ""
-        else result
-      else
-        result
+      if (osIsWSL) result.filterNot(_.matches("""/mnt/[a-zA-Z]/.*"""))
+      else result
   catch
-    case _: Exception => ""
-end programFullPath
+    case _: Exception => Nil
+end programFullPaths
 
 // checks if the program is accessible to the current shell
-def programIsAccessible(cmd: String): Boolean = programFullPath(cmd).nonEmpty
+def programIsAccessible(cmd: String): Boolean = programFullPaths(cmd).nonEmpty
 
 // trait CompiletimeErrorPos[M <: String, S <: Int, E <: Int]
 // object CompiletimeErrorPos:

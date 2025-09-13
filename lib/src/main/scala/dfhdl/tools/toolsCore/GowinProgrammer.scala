@@ -41,9 +41,7 @@ object GowinProgrammer extends Programmer:
     val runMode = if (po.flash) 53 else 2
     val cmd = s"--device $deviceName --run $runMode --fsFile $fileName"
     exec(
-      cmd,
-      // programmer_cli will not work if not invoked with full path
-      runExec = runExecFullPath
+      cmd
     )
     cd
   end program

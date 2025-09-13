@@ -43,6 +43,8 @@ object ConfigN:
     def toList: List[T] = x match
       case None                => Nil
       case value: T @unchecked => List(value)
+    def nonEmpty: Boolean = x != None
+    def isEmpty: Boolean = x == None
   end extension
   extension [T <: DFRefAny](x: ConfigN[T])
     def =~(that: ConfigN[T])(using MemberGetSet): Boolean = (x, that) match

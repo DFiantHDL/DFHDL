@@ -16,7 +16,6 @@ trait Tool:
   val toolName: String
   final protected def runExec: String =
     if (osIsWindows) windowsBinExec else binExec
-  private[dfhdl] lazy val runExecFullPath: String = programFullPath(runExec)
   protected def binExec: String
   protected def windowsBinExec: String = s"$binExec.exe"
   final protected def addSourceFiles(
@@ -32,15 +31,22 @@ trait Tool:
     Nil
   protected[dfhdl] def cleanUpBeforeFileRestore()(using MemberGetSet, CompilerOptions): Unit = {}
 
-  private[dfhdl] lazy val installedVersion: Option[String] =
-    if (runExecFullPath.isEmpty) None
-    else
+  private[dfhdl] lazy val (runExecFullPath, installedVersion): (String, Option[String]) =
+    var runExecFullPathRet: String = ""
+    val installedVersionRet = programFullPaths(runExec).view.flatMap { runExecFullPath =>
+      runExecFullPathRet = runExecFullPath
       val getVersionFullCmd =
-        Process(s"$runExec $versionCmd", new java.io.File(System.getProperty("java.io.tmpdir")))
+        Process(
+          s"$runExecFullPath $versionCmd",
+          new java.io.File(System.getProperty("java.io.tmpdir"))
+        )
       // since the command is not guaranteed to return 0, we need to use lazyLines_! and avoid
       // exception handling (e.g., vivado returns 1 for version check)
       try extractVersion(getVersionFullCmd.lazyLines_!.mkString("\n"))
       catch case e: Exception => None
+    }.headOption
+    (runExecFullPathRet, installedVersionRet)
+  end val
   final def isAvailable: Boolean = installedVersion.nonEmpty
   protected def getInstalledVersion(using to: ToolOptions): String =
     preCheck()
@@ -118,16 +124,20 @@ trait Tool:
       cmd: String,
       prepare: => Unit = (),
       loggerOpt: Option[Tool.ProcessLogger] = None,
-      runExec: String = this.runExec
+      runExec: String = this.runExecFullPath
   )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     preCheck()
     prepare
     val fullExec =
-      if (runExec.contains(separatorChar))
-        val absPath = Paths.get(execPath).toAbsolutePath().resolve(runExec)
-        s"$absPath $cmd"
-      else
-        s"$runExec $cmd"
+      // absolute path
+      if (Paths.get(runExec).isAbsolute()) s"$runExec $cmd"
+      // relative path with separator char, so we assume this is a product of the execution,
+      // and therefore should be resolved against the exec path
+      else if (runExec.contains(separatorChar))
+        s"${Paths.get(execPath).toAbsolutePath().resolve(runExec)} $cmd"
+      // for just executable name, we assume this is just another executable of the same tools,
+      // so we use the full tool path and resolve the executable
+      else s"${Paths.get(this.runExecFullPath).getParent().resolve(runExec)} $cmd"
     var process: Option[scala.sys.process.Process] = None
     val pb = new java.lang.ProcessBuilder(fullExec.split(" ")*)
     pb.directory(new java.io.File(execPath))

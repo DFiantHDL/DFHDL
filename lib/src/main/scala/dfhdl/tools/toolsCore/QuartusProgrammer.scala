@@ -13,12 +13,13 @@ import dfhdl.vendor
 import constraints.DeviceID.Vendor
 import java.io.File.separatorChar
 
-object QuartusProgrammer extends Programmer:
-  val toolName: String = "quartus"
+sealed abstract class QuartusProgrammer(pro: Boolean) extends Programmer:
+  val toolName: String = if (pro) "Quartus Programmer Pro" else "Quartus Programmer Lite/Standard"
   protected def binExec: String = "quartus_pgm"
   protected def versionCmd: String = "-v"
   protected def extractVersion(cmdRetStr: String): Option[String] =
-    val versionPattern = """(?s)Quartus.*Version (\d+\.\d+)""".r
+    val editionPattern = if (pro) ".*Pro Edition" else ".*(Lite|Standard) Edition"
+    val versionPattern = s"""(?s)Quartus.*Version (\\d+\\.\\d+)$editionPattern""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   def program(
@@ -40,3 +41,6 @@ object QuartusProgrammer extends Programmer:
     cd
   end program
 end QuartusProgrammer
+
+object QuartusProgrammer extends QuartusProgrammer(false)
+object QuartusProgrammerPro extends QuartusProgrammer(true)
