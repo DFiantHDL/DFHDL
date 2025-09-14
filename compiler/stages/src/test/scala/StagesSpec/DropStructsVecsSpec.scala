@@ -155,7 +155,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val q = Bits(w + w) <> OUT
          |  val y = UInt(w) <> OUT
          |  val x = UInt(w) <> OUT
-         |  y := p(w + (-1), 0).uint
+         |  y := p((w + 0) - 1, 0).uint
          |  x := p((w + (0 + w)) - 1, 0 + w).uint
          |  q := p
          |end StructExample
