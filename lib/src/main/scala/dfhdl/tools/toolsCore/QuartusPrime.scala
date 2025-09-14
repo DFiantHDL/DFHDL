@@ -275,7 +275,9 @@ class QuartusPrimeProjectWarningSuppressionsPrinter(using
       // Suppressing: "Feature LogicLock detected"
       // Reasoning: This is a default behavior for basic design. The user sees no relevant effect.
       warningSuppression("292013", "LogicLock"),
-      // warningSuppression("334000", proExpected = false),
+      // Suppressing: "Timing characteristics of device ... are preliminary"
+      // Reasoning: The user can do nothing about this. It's like saying "the tool could have a bug we didn't find".
+      warningSuppression("334000", proExpected = false),
       // Suppressing: "Clock uncertainty characteristics of the ... device family are preliminary"
       // Reasoning: The user can do nothing about this. It's like saying "the tool could have a bug we didn't find".
       warningSuppression("332158", proExpected = true)
