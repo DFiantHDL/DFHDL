@@ -138,36 +138,37 @@ trait Tool:
       // for just executable name, we assume this is just another executable of the same tools,
       // so we use the full tool path and resolve the executable
       else s"${Paths.get(this.runExecFullPath).getParent().resolve(runExec)} $cmd"
-    var process: Option[scala.sys.process.Process] = None
-    val pb = new java.lang.ProcessBuilder(fullExec.split(" ")*)
-    pb.directory(new java.io.File(execPath))
-    pb.redirectErrorStream(true)
-    val processBuilder = Process(pb)
-    var hasWarnings: Boolean = false
 
+    // process the output if we have a logger set.
+    // note that setting a logger may affect the program behavior, since it is disengaged from TTY.
+    val processOutput = loggerOpt.map(logger =>
+      os.ProcessOutput.Readlines(line => logger.out(line))
+    ).getOrElse(os.Inherit)
+    // spawn the process
+    val process = os.proc(os.Shellable(fullExec.split(" ").toSeq)).spawn(
+      cwd = os.Path(execPath, os.pwd),
+      stdin = os.Inherit,
+      stdout = processOutput,
+      mergeErrIntoOut = true
+    )
+    // setup an interrupt handler to destroy the process
     val handler = new sun.misc.SignalHandler:
       def handle(sig: sun.misc.Signal): Unit =
-        process.foreach(p =>
-          p.destroy()
-          p.exitValue()
-        )
+        process.destroy()
+        process.destroyForcibly()
         println(s"\n${toolName} interrupted by user")
     sun.misc.Signal.handle(new sun.misc.Signal("INT"), handler)
-
-    val errCode = loggerOpt.map(logger =>
-      val p = processBuilder.run(logger)
-      process = Some(p)
-      val errCode = p.exitValue()
-      hasWarnings = logger.hasWarnings
+    // wait for the process to finish
+    process.waitFor()
+    // get the error code, which may be overridden by the logger
+    val errCode = loggerOpt.map { logger =>
       if (logger.lineIsErrorOpt.nonEmpty)
         if (logger.hasErrors) 1 else 0
-      else errCode
-    ).getOrElse({
-      val p = processBuilder.run()
-      process = Some(p)
-      p.exitValue()
-    })
-
+      else process.exitCode()
+    }.getOrElse(process.exitCode())
+    // check if there are warnings
+    val hasWarnings = loggerOpt.map(logger => logger.hasWarnings).getOrElse(false)
+    // if there are errors or warnings and Werror is turned on, raise an application error
     if (errCode != 0 || hasWarnings && summon[ToolOptions].Werror.toBoolean)
       val msg =
         if (errCode != 0) s"${toolName} exited with the error code ${errCode}."
