@@ -26,4 +26,6 @@
 
 `define MAX(a,b) ((a) > (b) ? (a) : (b))
 `define MIN(a,b) ((a) < (b) ? (a) : (b))
+`define TO_VEC_HEX(hex, hw, vw) \
+    {{(vw - hw){1'b0}}, hw'h``hex}
 
