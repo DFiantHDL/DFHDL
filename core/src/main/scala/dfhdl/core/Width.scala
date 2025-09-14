@@ -122,8 +122,9 @@ object Width extends WidthLP:
             case _ =>
               TypeRepr.of[Int]
           end match
-        case '[Int] =>
-          dfTpe
+        // TODO: maybe in the future we use IntP.Sig and further calculate the width according the typelevel operations
+        case '[IntP.Sig]      => TypeRepr.of[Int]
+        case '[Int]           => dfTpe
         case '[Boolean.type]  => ConstantType(IntConstant(1))
         case '[Double.type]   => ConstantType(IntConstant(64))
         case '[Byte.type]     => ConstantType(IntConstant(8))
