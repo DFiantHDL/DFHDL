@@ -546,6 +546,11 @@ end programFullPaths
 // checks if the program is accessible to the current shell
 def programIsAccessible(cmd: String): Boolean = programFullPaths(cmd).nonEmpty
 
+def debugMacro(msg: => Any, fileName: String)(using Quotes): Unit =
+  import quotes.reflect.*
+  if (Symbol.spliceOwner.pos.get.sourceFile.path.toString.endsWith(fileName))
+    println(msg)
+
 // trait CompiletimeErrorPos[M <: String, S <: Int, E <: Int]
 // object CompiletimeErrorPos:
 //   inline given [M <: String, S <: Int, E <: Int]: CompiletimeErrorPos[M, S, E] =
