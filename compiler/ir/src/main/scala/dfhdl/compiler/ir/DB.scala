@@ -644,7 +644,7 @@ final case class DB(
             |Hierarchy: ${ownerDesign.getFullName}
             |Message:   Found a dangling (unconnected) input port `${p.getName}`.""".stripMargin
       case p: DFVal.Dcl
-          if p.isPortOut && !p.getOwnerDesign.isDuplicate &&
+          if p.isPortOut && !p.getOwnerDesign.isDuplicate && !p.getOwnerDesign.isBlackBox &&
             !connectionTable.contains(p) && !assignmentsDclTable.contains(p) &&
             !magnetConnectionTable.contains(p) && !p.hasNonBubbleInit =>
         val ownerDesign = p.getOwnerDesign
