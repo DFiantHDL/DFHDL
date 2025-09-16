@@ -105,32 +105,31 @@ class DiamondProjectTclConfigPrinter(using
       case constraint: constraints.IO =>
         constraint.dualPurposeGroups.toList.flatMap(_.split("/"))
     }).flatten.toList.distinct
-  def gpioOptions: String =
-    activeDualPurposeGroups.map(group => s"set_option -use_${group}_as_gpio 1")
-      .mkString("\n").emptyOr("\n" + _)
   def flashCmd: String =
-    if (bo.flash)
-      s"""\nprj_run Export -impl impl1 -task Promgen"""
+    if (bo.flash) s"""prj_run Export -impl impl1 -task Promgen"""
     else ""
   def flashCopyCmd: String =
-    if (bo.flash)
-      s"""\nfile copy -force ./impl1/${topName}_impl1.mcs ./${topName}.mcs"""
+    if (bo.flash) s"""file copy -force ./impl1/${topName}_impl1.mcs ./${topName}.mcs"""
     else ""
   def configFileName: String = s"$topName.tcl"
   def contents: String =
     //format: off
     //No need to add lpf file, because lattice does so automatically
-    s"""|file delete -force ./impl1
-        |prj_project new -name "$topName" -impl "impl1" -dev $part -synthesis "lse"${vhdl2008SynthStrategy.emptyOr("\n" + _)}${verilogStandard.emptyOr("\n" + _)}
-        |prj_src add ${hdlFiles.map("\"" + _ + "\"").mkString(" ")}
-        |prj_impl option top Demo
-        |prj_project save
-        |prj_src add "./$topName.ldc"
-        |prj_run Export -impl impl1 -task Bitgen${flashCmd}
-        |prj_project save
-        |prj_project close
-        |file copy -force ./impl1/${topName}_impl1.bit ./${topName}.bit${flashCopyCmd}
-        |""".stripMargin
+    sn"""|file delete -force ./impl1
+         |prj_project new -name "$topName" -impl "impl1" -dev $part -synthesis "lse"
+         |${vhdl2008SynthStrategy}
+         |${verilogStandard}
+         |prj_src add ${hdlFiles.map("\"" + _ + "\"").mkString(" ")}
+         |prj_impl option top Demo
+         |prj_project save
+         |prj_src add "./$topName.ldc"
+         |prj_run Export -impl impl1 -task Bitgen
+         |${flashCmd}
+         |prj_project save
+         |prj_project close
+         |file copy -force ./impl1/${topName}_impl1.bit ./${topName}.bit
+         |${flashCopyCmd}
+         |"""
     //format: on
   def getSourceFile: SourceFile =
     SourceFile(SourceOrigin.Compiled, DiamondProjectTclConfig, configFileName, contents)
@@ -194,7 +193,8 @@ class DiamondProjectPhysicalConstraintsPrinter(using
       if (dict.nonEmpty) s"""IOBUF PORT "${cst_get_ports(port, portConstraint)}" $dict;"""
       else ""
 
-    s"""${locate}${ioBuf.emptyOr("\n" + _)}"""
+    sn"""|${locate}
+         |${ioBuf}"""
   end cstIOConstraint
 
   def cstPortConstraints(

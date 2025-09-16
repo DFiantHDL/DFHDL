@@ -53,8 +53,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       }
       .map(_.codeString)
       .filter(_.nonEmpty)
-      .toList
-      .emptyOr(_.mkString("\n"))
+      .mkString("\n")
   end csDFMembers
   final def csDFDesignLateBody(design: DFDesignBlock): String =
     design.getOwner
@@ -145,8 +144,11 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     if (body.isEmpty) cb match
       case caseBlock: DFConditional.DFCaseBlock => s"$statement$csDFCaseBlockEmpty"
       case ifBlock: DFConditional.DFIfElseBlock =>
-        s"$statement $csIfBlockEmpty${end.emptyOr(e => s"\n$e")}"
-    else s"$statement$indentBody${end.emptyOr(e => s"\n$e")}"
+        sn"""|$statement $csIfBlockEmpty
+             |$end"""
+    else
+      sn"""|$statement$indentBody
+           |$end"""
   end csDFConditionalBlock
   final def csDFConditional(ch: DFConditional.Header): String =
     val chain = getSet.designDB.conditionalChainTable(ch)
@@ -154,9 +156,9 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     ch match
       case mh: DFConditional.DFMatchHeader =>
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"${csDFMatchStatement(csSelector, mh.hasWildcards)}\n${csChains.hindent}${csDFMatchEnd.emptyOr(
-            e => s"\n$e"
-          )}"
+        sn"""|${csDFMatchStatement(csSelector, mh.hasWildcards)}
+             |${csChains.hindent}
+             |${csDFMatchEnd}"""
       case ih: DFConditional.DFIfHeader => csChains
   def csProcessBlock(pb: ProcessBlock): String
   def csDomainBlock(pb: DomainBlock): String
@@ -329,15 +331,25 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val defType = if (stepBlock.isRegular) "Step" else "Unit"
     s"def $name: $defType =\n${body.hindent}\nend $name"
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
-    val csCOMB_LOOP = if (forBlock.isCombinational) "COMB_LOOP\n" else ""
-    val body = (csCOMB_LOOP + csDFOwnerBody(forBlock)).emptyOr(body => s"${body.hindent}\n")
+    val csCOMB_LOOP = if (forBlock.isCombinational) "COMB_LOOP" else ""
+    val body =
+      sn"""|${csCOMB_LOOP}
+           |${csDFOwnerBody(forBlock)}"""
     val named = forBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
-    s"${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})\n${body}end for"
+    //format: off
+    sn"""|${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})
+         |${body.hindent}
+         |end for"""
+    //format: on
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
-    val csCOMB_LOOP = if (whileBlock.isCombinational) "COMB_LOOP\n" else ""
-    val body = (csCOMB_LOOP + csDFOwnerBody(whileBlock)).emptyOr(body => s"${body.hindent}\n")
+    val csCOMB_LOOP = if (whileBlock.isCombinational) "COMB_LOOP" else ""
+    val body =
+      sn"""|${csCOMB_LOOP}
+           |${csDFOwnerBody(whileBlock)}"""
     val named = whileBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
-    s"${named}while (${whileBlock.guardRef.refCodeString})\n${body}end while"
+    sn"""|${named}while (${whileBlock.guardRef.refCodeString})
+         |${body.hindent}
+         |end while"""
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
@@ -355,7 +367,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
           case _                   =>
             s"RTDomain(${printer.csRTDomainCfg(rt.cfg)})"
       case DomainType.ED => "EDDomain"
-    s"${named}new $domainStr:\n${body.hindent}"
+    sn"""|${named}new $domainStr:
+         |${body.hindent}"""
   end csDomainBlock
 
 end DFOwnerPrinter

@@ -45,13 +45,14 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     }
     val genericBlock =
       if (designParamList.length == 0) ""
-      else "\ngeneric (" + designParamList.mkString("\n", ";\n", "\n").hindent(1) + ");"
-    val portBlock = ports.emptyOr(v => s"""|
-                                           |port (
+      else "generic (" + designParamList.mkString("\n", ";\n", "\n").hindent(1) + ");"
+    val portBlock = ports.emptyOr(v => s"""|port (
                                            |${ports.hindent}
                                            |);""".stripMargin)
-    s"""entity ${entityName(design)} is$genericBlock$portBlock
-       |end ${entityName(design)};""".stripMargin
+    sn"""|entity ${entityName(design)} is
+         |$genericBlock
+         |$portBlock
+         |end ${entityName(design)};"""
   end csEntityDcl
   def archName(design: DFDesignBlock): String = s"${design.dclName}_arch"
   def csArchitectureDcl(design: DFDesignBlock): String =
@@ -112,7 +113,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
             )
           else Some(printer.csNamedDFTypeDcl(dfType, global = false))
       }
-      .mkString("\n").emptyOr(x => s"$x\n")
+      .mkString("\n")
 
     val constIntDcls =
       designMembers.view
@@ -125,8 +126,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
           case _ => None
         }
         .map(printer.csDFMember)
-        .toList
-        .emptyOr(_.mkString("\n")).emptyOr(x => s"$x\n")
+        .mkString("\n")
     val dfValDcls =
       designMembers.view
         .flatMap {
@@ -140,19 +140,21 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
           case _ => None
         }
         .map(printer.csDFMember)
-        .toList
-        .emptyOr(_.mkString("\n"))
+        .mkString("\n")
     val declarations =
-      s"$constIntDcls$namedTypeConvFuncsDcl$dfValDcls".emptyOr(v => s"\n${v.hindent}")
+      sn"""|$constIntDcls
+           |$namedTypeConvFuncsDcl
+           |$dfValDcls"""
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl => false
       case DclConst()   => false
       case _            => true
     })
-    s"""architecture ${archName(design)} of ${design.dclName} is$declarations
-       |begin
-       |${statements.hindent}
-       |end ${archName(design)};""".stripMargin
+    sn"""|architecture ${archName(design)} of ${design.dclName} is
+         |${declarations.hindent}
+         |begin
+         |${statements.hindent}
+         |end ${archName(design)};"""
   end csArchitectureDcl
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     val usesMathReal = design.members(MemberView.Folded).exists {
@@ -211,13 +213,17 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         case _                                        => true
       }
     val body = csDFMembers(statements)
-    val dcl = csDFMembers(dcls).emptyOr(v => s"\n${v.hindent}")
+    val csDcls = csDFMembers(dcls)
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val senList = pb.sensitivity match
       case Sensitivity.All        => " (all)"
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
-    s"${named}process$senList$dcl\nbegin\n${body.hindent}\nend process;"
+    sn"""|${named}process$senList
+         |${csDcls.hindent}
+         |begin
+         |${body.hindent}
+         |end process;"""
   end csProcessBlock
   def csStepBlock(stepBlock: StepBlock): String = printer.unsupported
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
@@ -237,12 +243,16 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
             case DFRange.Op.Until => "+1"
           s"${rangeIR.startRef.refCodeString} downto ${rangeIR.endRef.refCodeString}$csOpExtra"
         case _ => printer.unsupported
-    s"${named}for ${forBlock.iteratorRef.refCodeString} in $csRange loop\n${body.hindent}\nend loop;"
+    sn"""|${named}for ${forBlock.iteratorRef.refCodeString} in $csRange loop
+         |${body.hindent}
+         |end loop;"""
   end csDFForBlock
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
     val body = csDFOwnerBody(whileBlock)
     val guard = printer.csFixedCond(whileBlock.guardRef)
-    s"while $guard loop\n${body.hindent}\nend loop;"
+    sn"""|while $guard loop
+         |${body.hindent}
+         |end loop;"""
   end csDFWhileBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VHDLOwnerPrinter

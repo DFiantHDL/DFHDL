@@ -114,6 +114,7 @@ class LocalToDesignParamsSpec extends StageSpec:
     assertCodeString(
       top,
       """|val globalWidth: Int <> CONST = 8
+         |
          |class Foo extends RTDesign:
          |  val x = Bits(globalWidth) <> IN
          |  val y = Bits(globalWidth) <> OUT

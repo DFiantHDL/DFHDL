@@ -1,4 +1,5 @@
 package dfhdl.compiler.printing
+import dfhdl.internals.*
 
 extension (text: String)
   private def hasBrackets: Boolean = text.startsWith("(") && text.endsWith(")")
@@ -25,21 +26,18 @@ extension (text: String)
       else s"($text)"
     else text
 
-  def betterLinesIterator: Iterator[String] =
-    if (text.endsWith("\n"))
-      text.linesIterator ++ List("")
-    else
-      text.linesIterator
   // TODO: this used to be called `indent`, but java 12 introduced its own indent and broke things
   // See: https://github.com/lampepfl/dotty/issues/16743
   def hindent: String = hindent(1)
   def hindent(count: Int): String =
-    text.betterLinesIterator
-      .map(l =>
-        if (l.isEmpty) ""
-        else "  " * count + l
-      )
-      .mkString("\n")
+    if (text.isEmpty) ""
+    else
+      text.betterLinesIterator
+        .map(l =>
+          if (l.isEmpty) ""
+          else "  " * count + l
+        )
+        .mkString("\n")
   def align(
       lhsRegx: String,
       opRegx: String,
@@ -88,11 +86,10 @@ extension (text: String)
       val upperIndex = math.ceil(index).toInt
       if (lowerIndex == upperIndex)
         sortedData(lowerIndex)
-      else {
+      else
         val lowerValue = sortedData(lowerIndex)
         val upperValue = sortedData(upperIndex)
         lowerValue + (upperValue - lowerValue) * (index - lowerIndex)
-      }
 
     if (alignLengths.length > 0)
       // we remove long align outliers that pass the threshold

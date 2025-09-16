@@ -178,24 +178,25 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     // because we will include the module defs twice, once in the top of the file
     // and second time inside the module.
     val globalParams =
-      if (printer.supportGlobalParameters) super.csGlobalFileContent.emptyOr("\n" + _) else ""
+      if (printer.supportGlobalParameters) super.csGlobalFileContent else ""
     val globalToLocalParams =
-      if (printer.supportGlobalParameters) "" else super.csGlobalFileContent.emptyOr("\n" + _)
+      if (printer.supportGlobalParameters) "" else super.csGlobalFileContent
     val moduleDefs =
       if (printer.allowTypeDef) ""
       else
-        s"""|
-            |`ifndef ${defName}_MODULE
-            |`define ${defName}_MODULE
-            |`else$globalToLocalParams
-            |${printer.csGlobalTypeFuncDcls}
-            |`undef ${defName}_MODULE
-            |`endif
-            |""".stripMargin
-    s"""`ifndef $defName
-       |`define $defName$globalParams
-       |`endif$moduleDefs
-       |""".stripMargin
+        sn"""|`ifndef ${defName}_MODULE
+             |`define ${defName}_MODULE
+             |`else
+             |$globalToLocalParams
+             |${printer.csGlobalTypeFuncDcls}
+             |`undef ${defName}_MODULE
+             |`endif"""
+    sn"""|`ifndef $defName
+         |`define $defName
+         |$globalParams
+         |`endif
+         |$moduleDefs
+         |"""
   end csGlobalFileContent
   def dfhdlDefsFileName: String = s"dfhdl_defs.$verilogFileHeaderSuffix"
   def dfhdlSourceContents: String =

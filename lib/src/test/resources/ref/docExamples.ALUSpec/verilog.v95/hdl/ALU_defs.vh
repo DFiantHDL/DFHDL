@@ -16,7 +16,6 @@
 `define ALUSel_SLTU 9
 `define ALUSel_COPY1 10
 
-
 function [8*12:1] ALUSel_to_string;
   input [3:0] value;
   case (value)
@@ -36,4 +35,3 @@ function [8*12:1] ALUSel_to_string;
 endfunction
 `undef ALU_DEFS_MODULE
 `endif
-

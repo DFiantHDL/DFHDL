@@ -248,6 +248,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     assertNoDiff(
       top,
       """|parameter logic gp = 1'b1;
+         |
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "ParamTest_defs.svh"
@@ -384,7 +385,6 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  parameter real c17 = 3.14159;
          |  parameter real c18 = -2.71828;
          |  parameter string c19 = "My\nName\rIs\t\"Earl\"";
-         |
          |endmodule
          |""".stripMargin
     )
@@ -672,7 +672,6 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module Empty;
          |  `include "dfhdl_defs.svh"
-         |
          |endmodule
          |""".stripMargin
     )
@@ -801,6 +800,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`define width_def parameter integer width = 8;
          |`define length_def parameter integer length = 10;
+         |
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "Foo_defs.vh"
@@ -1304,7 +1304,6 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    v3[2] = initArg[15:8];
          |    v3[3] = initArg[7:0];
          |  end
-         |
          |endmodule""".stripMargin
     )
   }

@@ -16,8 +16,6 @@ function to_sl(A: t_enum_ShiftDir) return std_logic;
 function to_t_enum_ShiftDir(A: boolean) return t_enum_ShiftDir;
 function to_t_enum_ShiftDir(A: std_logic) return t_enum_ShiftDir;
 function toggle(A: t_enum_ShiftDir) return t_enum_ShiftDir;
-
-
 end package LRShiftFlat_pkg;
 
 package body LRShiftFlat_pkg is
@@ -85,5 +83,4 @@ begin
     when ShiftDir_Right => return ShiftDir_Left;
   end case;
 end;
-
 end package body LRShiftFlat_pkg;

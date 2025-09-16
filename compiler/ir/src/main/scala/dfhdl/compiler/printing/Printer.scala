@@ -146,7 +146,9 @@ trait Printer
   def designFileName(designName: String): String
   def globalFileName: String
   def csGlobalFileContent: String =
-    csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls
+    sn"""|$csGlobalConstIntDcls
+         |$csGlobalTypeDcls
+         |$csGlobalConstNonIntDcls"""
   def alignCode(cs: String): String
   def colorCode(cs: String): String
   import io.AnsiColor._
@@ -217,9 +219,15 @@ trait Printer
       case (block: DFDesignBlock, _) if printerOptions.designPrintFilter(block) =>
         formatCode(csFile(block))
     }
-    s"${formatCode(
-        csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls
-      ).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
+    val globals = formatCode(
+      sn"""|$csGlobalConstIntDcls
+           |$csGlobalTypeDcls
+           |$csGlobalConstNonIntDcls"""
+    )
+    sn"""|$globals
+         |
+         |${csFileList.mkString("\n")}
+         |""".stripMargin
   end csDB
 end Printer
 

@@ -4,7 +4,5 @@
 `ifndef FULLADDER1_DEFS_MODULE
 `define FULLADDER1_DEFS_MODULE
 `else
-
 `undef FULLADDER1_DEFS_MODULE
 `endif
-

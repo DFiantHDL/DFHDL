@@ -12,8 +12,6 @@ port (
 end keyExpansion;
 
 architecture keyExpansion_arch of keyExpansion is
-
-
   signal w_0                     : t_opaque_AESWord;
   signal w_1                     : t_opaque_AESWord;
   signal w_2                     : t_opaque_AESWord;

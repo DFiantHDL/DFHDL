@@ -80,6 +80,7 @@ class SimplifyMatchSelSpec extends StageSpec:
     assertCodeString(
       top,
       """|val WG: Int <> CONST = 8
+         |
          |class Foo(val WP: Int <> CONST = 8) extends RTDesign:
          |  val iu = UInt(WP) <> IN
          |  val is = SInt(WP) <> IN
@@ -142,6 +143,7 @@ class SimplifyMatchSelSpec extends StageSpec:
     assertCodeString(
       top,
       """|val WG: Int <> CONST = 8
+         |
          |class Foo(val WP: Int <> CONST = 8) extends RTDesign:
          |  val i = Bits(WG) <> IN
          |  val i2 = Bits(WP) <> IN

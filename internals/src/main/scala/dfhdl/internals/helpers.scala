@@ -14,6 +14,13 @@ def clog2(int: Int): Int = 32 - Integer.numberOfLeadingZeros(int - 1)
 
 extension (t: Any) def hashString: String = t.hashCode().toHexString
 
+extension (text: String)
+  def betterLinesIterator: Iterator[String] =
+    if (text.endsWith("\n"))
+      text.linesIterator ++ List("")
+    else
+      text.linesIterator
+
 transparent inline def showTree[T](inline arg: T): Unit = ${
   showTreeMacro[T]('arg)
 }

@@ -13,5 +13,4 @@ typedef enum logic [3:0] {
   ALUSel_SLTU  = 9,
   ALUSel_COPY1 = 10
 } t_enum_ALUSel;
-
 `endif

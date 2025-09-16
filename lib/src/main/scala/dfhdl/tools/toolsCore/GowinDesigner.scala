@@ -102,19 +102,19 @@ class GowinDesignerProjectTclConfigPrinter(using
         constraint.dualPurposeGroups.toList.flatMap(_.split("/"))
     }).flatten.toList.distinct
   def gpioOptions: String =
-    activeDualPurposeGroups.map(group => s"set_option -use_${group}_as_gpio 1")
-      .mkString("\n").emptyOr("\n" + _)
+    activeDualPurposeGroups.map(group => s"set_option -use_${group}_as_gpio 1").mkString("\n")
   def configFileName: String = s"$topName.tcl"
   def contents: String =
-    s"""|create_project -name $topName -dir ../ -force -pn {$part} -device_version {$deviceVersion}
-        |add_file $targetLanguage ${hdlFiles.mkString(" ")}
-        |add_file $topName.cst
-        |add_file $topName.sdc
-        |set_option -top_module $topName
-        |set_option -${targetLanguage}_std $std$gpioOptions
-        |run all
-        |file copy -force ./impl/pnr/${topName}.fs ./${topName}.fs
-        |""".stripMargin
+    sn"""|create_project -name $topName -dir ../ -force -pn {$part} -device_version {$deviceVersion}
+         |add_file $targetLanguage ${hdlFiles.mkString(" ")}
+         |add_file $topName.cst
+         |add_file $topName.sdc
+         |set_option -top_module $topName
+         |set_option -${targetLanguage}_std $std
+         |$gpioOptions
+         |run all
+         |file copy -force ./impl/pnr/${topName}.fs ./${topName}.fs
+         |"""
   def getSourceFile: SourceFile =
     SourceFile(SourceOrigin.Compiled, GowinDesignerProjectTclConfig, configFileName, contents)
 end GowinDesignerProjectTclConfigPrinter

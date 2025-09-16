@@ -13,8 +13,6 @@ port (
 end Cipher;
 
 architecture Cipher_arch of Cipher is
-
-
   signal o_part_cipher_inst_data : t_opaque_AESData;
   signal o_part_cipher_inst_key  : t_opaque_AESKey;
   signal o_part_cipher_inst_o    : t_opaque_AESData;

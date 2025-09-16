@@ -4,7 +4,5 @@
 `ifndef REGFILE_DEFS_MODULE
 `define REGFILE_DEFS_MODULE
 `else
-
 `undef REGFILE_DEFS_MODULE
 `endif
-

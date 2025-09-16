@@ -7,7 +7,6 @@
 `define ShiftDir_Left 0
 `define ShiftDir_Right 1
 
-
 function [8*14:1] ShiftDir_to_string;
   input [0:0] value;
   case (value)
@@ -18,4 +17,3 @@ function [8*14:1] ShiftDir_to_string;
 endfunction
 `undef LRSHIFTFLAT_DEFS_MODULE
 `endif
-

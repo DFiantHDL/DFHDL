@@ -218,6 +218,7 @@ class PrintCodeStringSpec extends StageSpec:
       """|val gp: Bit <> CONST = 1
          |val i: SInt[16] <> CONST = sd"16'0"
          |val i2: SInt[16] <> CONST = i + sd"16'5"
+         |
          |class IDExt(
          |    val dp: Bit <> CONST = gp && gp,
          |    val dpNew: Bit <> CONST = gp
@@ -1326,6 +1327,7 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       top,
       """|val foo: UInt[8] <> CONST = d"8'0"
+         |
          |class Bar extends DFDesign:
          |  val o: Bits[8] <> CONST = foo.bits
          |end Bar""".stripMargin

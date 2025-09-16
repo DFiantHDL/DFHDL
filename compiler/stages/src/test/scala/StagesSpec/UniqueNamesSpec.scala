@@ -24,6 +24,7 @@ class UniqueNamesSpec extends StageSpec:
       id,
       """|val gv_0: Bits[8] <> CONST = h"01"
          |val gv_1: Bits[8] <> CONST = h"02"
+         |
          |class ID extends DFDesign:
          |  val x_0 = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
@@ -43,6 +44,7 @@ class UniqueNamesSpec extends StageSpec:
       id,
       """|val gv_0: Bits[8] <> CONST = h"01"
          |val gv_1: Bits[8] <> CONST = h"02"
+         |
          |class ID extends DFDesign:
          |  val x_0 = SInt(16) <> IN
          |  val y_0 = SInt(16) <> OUT
