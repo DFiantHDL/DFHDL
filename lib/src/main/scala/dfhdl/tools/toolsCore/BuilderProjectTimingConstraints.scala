@@ -54,8 +54,7 @@ class BuilderProjectTimingConstraintsPrinter(
           //format: off
           s"""|
               |create_clock -period $maxFreqMinPeriodNS -name $virtualClockName
-              |set_${dir}_delay -clock [get_clocks $virtualClockName] -min 0.0 ${sdc_get_ports(port,constraint)}
-              |set_${dir}_delay -clock [get_clocks $virtualClockName] -max 0.0 ${sdc_get_ports(port,constraint)}""".stripMargin
+              |set_${dir}_delay -clock [get_clocks $virtualClockName] -source_latency_included 0.0 ${sdc_get_ports(port,constraint)}""".stripMargin
           //format: on
         case _ => ""
     (port.modifier.dir: @unchecked) match

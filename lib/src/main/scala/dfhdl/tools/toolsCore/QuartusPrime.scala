@@ -36,6 +36,9 @@ sealed abstract class QuartusPrime(pro: Boolean) extends Builder:
         new QuartusPrimeProjectWarningSuppressionsPrinter(using cd.stagedDB.getSet).getSourceFile,
         new BuilderProjectTimingConstraintsPrinter(
           ".sdc",
+          enableDerivedClockUncertainty = true,
+          enableToggleRateLimitIODelay = true
+        )(using cd.stagedDB.getSet).getSourceFile,
           enableDerivedClockUncertainty = true
         )(using cd.stagedDB.getSet).getSourceFile
       )
