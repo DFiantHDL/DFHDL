@@ -229,7 +229,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       // align connections (verilog assignments)
       .align("[ ]*assign [a-zA-Z0-9_.\\[\\]\\:]+[ ]*", "=", ".*;")
       // align parameters
-      .align("[ ]*parameter [a-zA-Z0-9_.]+[ ]*", "=", ".*;")
+      .align("[ ]*(?:parameter|localparam) [a-zA-Z0-9_.]+[ ]*", "=", ".*;")
       // align enum constants
       .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*", "=", "[ ]*[0-9]+,?")
       // align cases
@@ -240,7 +240,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     "begin", "end", "case", "default", "endcase", "default_nettype", "include", "initial", "inside",
     "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
     "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while",
-    "assert", "write", "display", "info", "warning", "error", "fatal", "finish"
+    "assert", "write", "display", "info", "warning", "error", "fatal", "finish", "localparam"
   )
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] = Set(

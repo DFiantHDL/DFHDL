@@ -15,7 +15,7 @@ module UART_Tx#(
   output      logic tx_done
 );
   `include "dfhdl_defs.svh"
-  parameter int BIT_CLOCKS = (CLK_FREQ_KHz * 1000) / BAUD_RATE_BPS;
+  localparam int BIT_CLOCKS = (CLK_FREQ_KHz * 1000) / BAUD_RATE_BPS;
   typedef enum {
     Status_Idle     = 1,
     Status_StartBit = 2,

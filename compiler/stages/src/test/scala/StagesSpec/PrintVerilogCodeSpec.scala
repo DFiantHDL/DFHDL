@@ -258,7 +258,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic y
          |);
          |  `include "dfhdl_defs.svh"
-         |  parameter logic lp = 1'b1;
+         |  localparam logic lp = 1'b1;
          |  assign y = ((x | gp) | dp) | lp;
          |endmodule
          |""".stripMargin
@@ -304,7 +304,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output      logic [15:0] y
          |);
          |  `include "dfhdl_defs.svh"
-         |  parameter logic [15:0] c = 16'h0000;
+         |  localparam logic [15:0] c = 16'h0000;
          |  logic [15:0] z;
          |  logic [15:0] my_var;
          |  always_ff @(posedge clk, posedge rst)
@@ -361,30 +361,30 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    logic [2:0] _1;
          |    logic _2;
          |  } t_struct_DFTuple2;
-         |  parameter logic c01 = 1'b0;
-         |  parameter logic c02 = 1'b1;
-         |  parameter logic c03 = 1'b?;
-         |  parameter logic c04 = 0;
-         |  parameter logic c05 = 1;
-         |  parameter logic [7:0] c06 = 8'h22;
-         |  parameter logic [6:0] c07 = 7'h22;
-         |  parameter logic [2:0] c08 = 3'h5;
-         |  parameter logic [2:0] c09 = 3'd7;
-         |  parameter logic [47:0] c10 = 48'd239794508230343;
-         |  parameter logic signed [3:0] c11 = -4'sd8;
-         |  parameter logic signed [48:0] c12 = -49'sd239794508230343;
-         |  parameter logic [7:0] c13 = 8'h??;
-         |  parameter logic signed [7:0] c14 = $signed(8'h??);
-         |  parameter t_struct_DFTuple2 c15 = '{3'h0, 1'b1};
-         |  parameter logic [7:0] c16 [0:6] [0:4] = '{
+         |  localparam logic c01 = 1'b0;
+         |  localparam logic c02 = 1'b1;
+         |  localparam logic c03 = 1'b?;
+         |  localparam logic c04 = 0;
+         |  localparam logic c05 = 1;
+         |  localparam logic [7:0] c06 = 8'h22;
+         |  localparam logic [6:0] c07 = 7'h22;
+         |  localparam logic [2:0] c08 = 3'h5;
+         |  localparam logic [2:0] c09 = 3'd7;
+         |  localparam logic [47:0] c10 = 48'd239794508230343;
+         |  localparam logic signed [3:0] c11 = -4'sd8;
+         |  localparam logic signed [48:0] c12 = -49'sd239794508230343;
+         |  localparam logic [7:0] c13 = 8'h??;
+         |  localparam logic signed [7:0] c14 = $signed(8'h??);
+         |  localparam t_struct_DFTuple2 c15 = '{3'h0, 1'b1};
+         |  localparam logic [7:0] c16 [0:6] [0:4] = '{
          |    0: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 1: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
          |    2: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 3: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
          |    4: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 5: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
          |    6: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}
          |  };
-         |  parameter real c17 = 3.14159;
-         |  parameter real c18 = -2.71828;
-         |  parameter string c19 = "My\nName\rIs\t\"Earl\"";
+         |  localparam real c17 = 3.14159;
+         |  localparam real c18 = -2.71828;
+         |  localparam string c19 = "My\nName\rIs\t\"Earl\"";
          |endmodule
          |""".stripMargin
     )
@@ -570,7 +570,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |);
          |  `include "dfhdl_defs.svh"
          |  /* Half-count of the toggle for 50% duty cycle */
-         |  parameter int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
+         |  localparam int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
          |  logic [$clog2(HALF_PERIOD) - 1:0] cnt;
          |  always_ff @(posedge clk)
          |  begin
@@ -646,10 +646,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [7:0] y1
          |);
          |  `include "dfhdl_defs.svh"
-         |  parameter logic cp = 1;
-         |  parameter logic [7:0] up1 = 8'd11;
-         |  parameter logic [7:0] up2 = 8'd22;
-         |  parameter logic [7:0] up3 = cp ? up1 : up2;
+         |  localparam logic cp = 1;
+         |  localparam logic [7:0] up1 = 8'd11;
+         |  localparam logic [7:0] up2 = 8'd22;
+         |  localparam logic [7:0] up3 = cp ? up1 : up2;
          |  always_comb
          |  begin
          |    y1 = c ? x1 : x2;
@@ -1100,21 +1100,21 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module Foo#(parameter string param = "Hello\n..\"World\"!");
          |  `include "dfhdl_defs.svh"
-         |  parameter int param3 = 42;
+         |  localparam int param3 = 42;
          |  typedef enum {
          |    MyEnum_A = 0,
          |    MyEnum_B = 1,
          |    MyEnum_C = 2
          |  } t_enum_MyEnum;
-         |  parameter string bar = {param, "!"};
-         |  parameter string param2 = {2{param}};
-         |  parameter logic [4:0] param4 = 5'd22;
-         |  parameter logic [23:0] param5 = 24'habc123;
-         |  parameter logic [5:0] param6 = 6'h2a;
-         |  parameter logic signed [4:0] param7 = -5'sd11;
-         |  parameter logic param8 = 1'b1;
-         |  parameter logic param9 = 0;
-         |  parameter t_enum_MyEnum param10 = MyEnum_A;
+         |  localparam string bar = {param, "!"};
+         |  localparam string param2 = {2{param}};
+         |  localparam logic [4:0] param4 = 5'd22;
+         |  localparam logic [23:0] param5 = 24'habc123;
+         |  localparam logic [5:0] param6 = 6'h2a;
+         |  localparam logic signed [4:0] param7 = -5'sd11;
+         |  localparam logic param8 = 1'b1;
+         |  localparam logic param9 = 0;
+         |  localparam t_enum_MyEnum param10 = MyEnum_A;
          |  always_comb
          |  begin
          |    assert (param == "hello2");

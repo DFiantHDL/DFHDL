@@ -20,6 +20,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => "{"
       case _                                         => "'{"
+  val supportLocalParam: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
@@ -36,7 +40,11 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case _ => csDFValExpr(dfVal)
     val csType = printer.csDFType(dfVal.dfType).emptyOr(_ + " ")
     val csTypeNoLogic = if (supportLogicType) csType else csType.replace("logic ", "")
-    val csParam = s"parameter ${csTypeNoLogic}${dfVal.getName}${arrRange} = $default$endOfStatement"
+    val keyword =
+      if (supportLocalParam && !dfVal.isDesignParam && !dfVal.isGlobal) "localparam"
+      else "parameter"
+    val csParam =
+      s"$keyword ${csTypeNoLogic}${dfVal.getName}${arrRange} = $default$endOfStatement"
     if (dfVal.isGlobal && !supportGlobalParameters)
       s"`define ${dfVal.getName}_def ${csParam.linesIterator.mkString("\\\n")}"
     else csParam
