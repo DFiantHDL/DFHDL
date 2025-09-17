@@ -88,11 +88,10 @@ extension (text: String)
       val upperIndex = math.ceil(index).toInt
       if (lowerIndex == upperIndex)
         sortedData(lowerIndex)
-      else {
+      else
         val lowerValue = sortedData(lowerIndex)
         val upperValue = sortedData(upperIndex)
         lowerValue + (upperValue - lowerValue) * (index - lowerIndex)
-      }
 
     if (alignLengths.length > 0)
       // we remove long align outliers that pass the threshold
