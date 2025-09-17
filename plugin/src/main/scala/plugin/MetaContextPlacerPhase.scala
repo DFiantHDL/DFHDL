@@ -165,12 +165,13 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           // )
           // val clsMetaArgsDefTree =
           //   clsMetaArgsOverrideDef(clsSym.primaryConstructor, clsMetaArgsTree)
+          val finalName = tree.symbol.getFinalName()
           val setClsNamePosTree =
             This(clsSym)
               .select("setClsNamePos".toTermName)
               .appliedToArgs(
                 List(
-                  Literal(Constant(tree.name.toString)),
+                  Literal(Constant(finalName)),
                   tree.positionTree,
                   mkOptionString(clsSym.docString),
                   mkList(clsSym.staticAnnotations.map(a => dropProxies(a.tree)))

@@ -233,12 +233,15 @@ abstract class CommonPhase extends PluginPhase:
     end hasNestedMemberCond
   end extension
 
+  extension (sym: Symbol)(using Context)
+    def getFinalName(name: String = sym.name.toString): String =
+      sym.getAnnotation(defn.TargetNameAnnot)
+        .flatMap(_.argumentConstantString(0))
+        .getOrElse(name)
+
   extension (name: String)
     def nameCheck(posTree: Tree)(using Context): String =
-      val finalName =
-        posTree.symbol.getAnnotation(defn.TargetNameAnnot)
-          .flatMap(_.argumentConstantString(0))
-          .getOrElse(name)
+      val finalName = posTree.symbol.getFinalName(name)
       if (
         !finalName.matches("^[a-zA-Z0-9_]*$") && !posTree.symbol.flags.is(
           Flags.Synthetic
