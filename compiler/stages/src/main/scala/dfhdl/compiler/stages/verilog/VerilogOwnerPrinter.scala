@@ -164,7 +164,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       s".${param.getName} (${param.dfValRef.refCodeString})"
     }
     val designParamCS =
-      if (designParamList.isEmpty) ""
+      if (designParamList.isEmpty || design.isQsysIPBlackbox) ""
       else " #(" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
     val inst = s"${moduleName(design)}$designParamCS ${design.getName}"
     if (body.isEmpty) s"$inst;" else s"$inst(\n${body.hindent}\n);"

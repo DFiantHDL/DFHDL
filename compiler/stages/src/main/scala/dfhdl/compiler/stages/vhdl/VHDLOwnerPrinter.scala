@@ -175,7 +175,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       s"${param.getName} => ${param.dfValRef.refCodeString}"
     }
     val designParamCS =
-      if (designParamList.isEmpty) ""
+      if (designParamList.isEmpty || design.isQsysIPBlackbox) ""
       else " generic map (" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
     val inst =
       s"${design.getName} : entity work.${entityName(design)}(${archName(design)})${designParamCS}"

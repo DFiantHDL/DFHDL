@@ -1484,17 +1484,21 @@ object DFDesignBlock:
   import InstMode.BlackBox.Source
   enum InstMode extends StableEnum derives CanEqual, ReadWriter:
     case Normal, Def, Simulation
-    case BlackBox(verilogSrc: Source, vhdlSrc: Source)
+    case BlackBox(source: Source)
   object InstMode:
     object BlackBox:
       enum Source extends StableEnum derives CanEqual, ReadWriter:
         case NA
-        case File(path: String)
+        case Files(path: List[String])
         case Library(libName: String, nameSpace: String)
+        case Qsys(typeName: String)
 
   extension (dsn: DFDesignBlock)
     def isDuplicate: Boolean = dsn.hasTagOf[DuplicateTag]
     def isBlackBox: Boolean = dsn.instMode.isInstanceOf[InstMode.BlackBox]
+    def isQsysIPBlackbox: Boolean = dsn.instMode match
+      case InstMode.BlackBox(_: InstMode.BlackBox.Source.Qsys) => true
+      case _                                                   => false
     def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
     def getCommonDesignWith(dsn2: DFDesignBlock)(using MemberGetSet): DFDesignBlock =
       def getOwnerDesignChain(dsn: DFDesignBlock): List[DFDesignBlock] =

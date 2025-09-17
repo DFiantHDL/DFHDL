@@ -1402,4 +1402,45 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+
+  test("qsys blackbox printing") {
+    class testIP(
+        val param1:  String <> CONST,
+        val param2:  Int <> CONST,
+        val version: String <> CONST = ""
+    ) extends EDBlackBox.QsysIP:
+      val x = Bit <> IN
+      val y = Bit <> OUT
+    end testIP
+
+    class Foo extends RTDesign:
+      val x  = Bit <> IN
+      val y  = Bit <> OUT
+      val ip = testIP(param1 = "Hello", param2 = 42)
+      x <> ip.x
+      y <> ip.y
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.svh"
+         |
+         |module Foo(
+         |  input  wire logic x,
+         |  output logic y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic ip_x;
+         |  logic ip_y;
+         |  testIP ip(
+         |    .x /*<--*/ (ip_x),
+         |    .y /*-->*/ (ip_y)
+         |  );
+         |  assign ip_x = x;
+         |  assign y = ip_y;
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

@@ -1451,4 +1451,50 @@ class PrintVHDLCodeSpec extends StageSpec:
     )
   }
 
+  test("qsys blackbox printing") {
+    class testIP(
+        val param1: String <> CONST,
+        val param2: Int <> CONST,
+        val version: String <> CONST = ""
+    ) extends EDBlackBox.QsysIP:
+      val x = Bit <> IN
+      val y = Bit <> OUT
+    end testIP
+
+    class Foo extends RTDesign:
+      val x  = Bit <> IN
+      val y  = Bit <> OUT
+      val ip = testIP(param1 = "Hello", param2 = 42)
+      x <> ip.x
+      y <> ip.y
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : in std_logic;
+         |  y : out std_logic
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |  signal ip_x : std_logic;
+         |  signal ip_y : std_logic;
+         |begin
+         |  ip : entity work.testIP(testIP_arch) port map (
+         |    x => ip_x,
+         |    y => ip_y
+         |  );
+         |  ip_x <= x;
+         |  y <= ip_y;
+         |end Foo_arch;""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

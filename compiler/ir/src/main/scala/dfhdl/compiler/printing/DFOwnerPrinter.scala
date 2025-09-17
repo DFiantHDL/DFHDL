@@ -218,6 +218,12 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     if (design.isAnonymous) dcl
     else s"val ${design.getName} = $dcl"
   end csDFDesignDefInst
+  def csDFDesignBlockParamInst(design: DFDesignBlock): String =
+    val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
+      s"${param.getName} = ${param.dfValRef.refCodeString}"
+    }
+    if (designParamList.length <= 1) designParamList.mkString("(", ", ", ")")
+    else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     import design.instMode
     val localDcls = printer.csLocalTypeDcls(design)
@@ -230,7 +236,15 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
           case RTDomainCfg.Derived => ""
           case _                   => s"(${printer.csRTDomainCfg(rt.cfg)})"
         s"""RTDesign$cfgStr""".stripMargin
-      case _ => "EDDesign"
+      case _ =>
+        design.instMode match
+          case InstMode.BlackBox(source) => source match
+              case InstMode.BlackBox.Source.Qsys("") =>
+                "EDBlackBox.QsysIP"
+              case InstMode.BlackBox.Source.Qsys(typeName) =>
+                s"dfhdl.platforms.ips.alteraintel.$typeName"
+              case _ => s"EDBlackBox(EDBlackBox.Source.${source})"
+          case _ => "EDDesign"
     val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
       val defaultValue =
         if (design.isTop) s" = ${param.dfValRef.refCodeString}"
@@ -240,13 +254,24 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
             case _              => s" = ${param.defaultRef.refCodeString}"
       s"val ${param.getName}${printer.csDFValConstType(param.dfType)}$defaultValue"
     }
-    val designParamCS =
-      if (designParamList.length == 0) ""
-      else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
-      else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
-    val dcl = s"class ${design.dclName}$designParamCS extends $dsnCls"
+    val designIsQsysIPBlackbox = design.isQsysIPBlackbox
+    val designParamDclCS =
+      // for qsys blackbox, we extend the base IP class with its parameters and declare no new parameters
+      if (designIsQsysIPBlackbox) ""
+      else
+        if (designParamList.length == 0) ""
+        else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
+        else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
+    val designParamInstCS =
+      // for qsys blackbox, we define the parameters in the class extension instead of the
+      // blackbox instantiation
+      if (designIsQsysIPBlackbox) csDFDesignBlockParamInst(design)
+      else ""
+    val dcl =
+      s"class ${design.dclName}$designParamDclCS extends $dsnCls$designParamInstCS"
     val dclWithBody =
-      if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
+      if (bodyWithDcls.isEmpty || designIsQsysIPBlackbox) dcl
+      else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     val annotations =
       if (design.isTop) design.dclMeta.annotations ++ design.meta.annotations
       else design.dclMeta.annotations
@@ -257,9 +282,11 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
       s"${param.getName} = ${param.dfValRef.refCodeString}"
     }
-    val designParamCS =
-      if (designParamList.length <= 1) designParamList.mkString("(", ", ", ")")
-      else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
+    val designParamCS = design.instMode match
+      // for qsys blackbox, we define the parameters in the class extension instead of the
+      // blackbox instantiation
+      case InstMode.BlackBox(_: InstMode.BlackBox.Source.Qsys) => "()"
+      case _                                                   => csDFDesignBlockParamInst(design)
     val inst =
       if (body.isEmpty) s"${design.dclName}$designParamCS"
       else s"new ${design.dclName}$designParamCS:\n${body.hindent}"

@@ -1397,6 +1397,80 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
 
+  test("qsys blackbox printing") {
+    class testIP(
+        val param1: String <> CONST,
+        val param2: Int <> CONST,
+        val version: String <> CONST = ""
+    ) extends EDBlackBox.QsysIP:
+      val x = Bit <> IN
+      val y = Bit <> OUT
+
+    class Foo extends RTDesign:
+      val x  = Bit <> IN
+      val y  = Bit <> OUT
+      val ip = testIP(param1 = "Hello", param2 = 42)
+      x <> ip.x
+      y <> ip.y
+    end Foo
+
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class testIP extends dfhdl.platforms.ips.alteraintel.testIP(
+         |    param1 = "Hello",
+         |    param2 = 42,
+         |    version = ""
+         |)
+         |
+         |class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT
+         |  val ip = testIP()
+         |  ip.x <> x
+         |  y <> ip.y
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("qsys blackbox printing with extended ip class") {
+    class testIP(
+        val param1: String <> CONST,
+        val param2: Int <> CONST,
+        val version: String <> CONST = ""
+    ) extends EDBlackBox.QsysIP:
+      val x = Bit <> IN
+      val y = Bit <> OUT
+
+    class myIP extends testIP(param1 = "Hello", param2 = 42)
+
+    class Foo extends RTDesign:
+      val x  = Bit <> IN
+      val y  = Bit <> OUT
+      val ip = myIP()
+      x <> ip.x
+      y <> ip.y
+    end Foo
+
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class myIP extends dfhdl.platforms.ips.alteraintel.testIP(
+         |    param1 = "Hello",
+         |    param2 = 42,
+         |    version = ""
+         |)
+         |
+         |class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT
+         |  val ip = myIP()
+         |  ip.x <> x
+         |  y <> ip.y
+         |end Foo""".stripMargin
+    )
+  }
+
   // TODO: requires fixing
   // test("nesting parameters regression") {
   //   class Inner(val width: Int <> CONST) extends RTDesign:
