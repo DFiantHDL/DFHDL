@@ -1487,8 +1487,14 @@ class PrintVHDLCodeSpec extends StageSpec:
          |architecture Foo_arch of Foo is
          |  signal ip_x : std_logic;
          |  signal ip_y : std_logic;
+         |  component testIP is
+         |  port (
+         |    x : in std_logic;
+         |    y : out std_logic
+         |  );
+         |  end component testIP;
          |begin
-         |  ip : entity work.testIP(testIP_arch) port map (
+         |  ip : testIP port map (
          |    x => ip_x,
          |    y => ip_y
          |  );

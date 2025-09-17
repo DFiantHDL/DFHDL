@@ -27,7 +27,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
          |use std.env.all;""".stripMargin
     else default
   def entityName(design: DFDesignBlock): String = design.dclName
-  def csEntityDcl(design: DFDesignBlock): String =
+  def csEntityDcl(design: DFDesignBlock, asComponent: Boolean = false): String =
     val designMembers = design.members(MemberView.Folded)
     val ports = designMembers.view
       .collect { case p @ DclPort() =>
@@ -44,15 +44,17 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       s"${param.getName} : ${printer.csDFType(param.dfType)}$defaultValue"
     }
     val genericBlock =
-      if (designParamList.length == 0) ""
+      if (designParamList.length == 0 || design.isQsysIPBlackbox) ""
       else "generic (" + designParamList.mkString("\n", ";\n", "\n").hindent(1) + ");"
     val portBlock = ports.emptyOr(v => s"""|port (
                                            |${ports.hindent}
                                            |);""".stripMargin)
-    sn"""|entity ${entityName(design)} is
+    val entityOrComponent = if (asComponent) "component" else "entity"
+    val endComponent = if (asComponent) " component" else ""
+    sn"""|$entityOrComponent ${entityName(design)} is
          |$genericBlock
          |$portBlock
-         |end ${entityName(design)};"""
+         |end$endComponent ${entityName(design)};"""
   end csEntityDcl
   def archName(design: DFDesignBlock): String = s"${design.dclName}_arch"
   def csArchitectureDcl(design: DFDesignBlock): String =
@@ -141,10 +143,14 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         }
         .map(printer.csDFMember)
         .mkString("\n")
+    val components = designMembers.view.collect {
+      case design: DFDesignBlock if design.isBlackBox => design
+    }.map(printer.csEntityDcl(_, asComponent = true)).mkString("\n")
     val declarations =
       sn"""|$constIntDcls
            |$namedTypeConvFuncsDcl
-           |$dfValDcls"""
+           |$dfValDcls
+           |$components"""
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl => false
       case DclConst()   => false
@@ -177,9 +183,13 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val designParamCS =
       if (designParamList.isEmpty || design.isQsysIPBlackbox) ""
       else " generic map (" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
-    val inst =
-      s"${design.getName} : entity work.${entityName(design)}(${archName(design)})${designParamCS}"
+    // for blackboxes we use component declaration, so the header is just the entity name
+    val header =
+      if (design.isBlackBox) entityName(design)
+      else s"entity work.${entityName(design)}(${archName(design)})"
+    val inst = s"${design.getName} : $header${designParamCS}"
     if (body.isEmpty) s"$inst;" else s"$inst port map (\n${body.hindent}\n);"
+  end csDFDesignBlockInst
   def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
   def csDFDesignDefInst(design: DFDesignBlock): String = printer.unsupported
   def csBlockBegin: String = ""
