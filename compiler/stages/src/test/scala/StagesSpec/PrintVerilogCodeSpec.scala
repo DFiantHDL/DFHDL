@@ -1443,4 +1443,31 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+
+  test("initialized output port register") {
+    class Foo extends RTDesign(RTDomainCfg(ClkCfg(), None)):
+      val y = UInt(8) <> OUT.REG init 0
+      y.din := y + 1
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.svh"
+         |
+         |module Foo(
+         |  input  wire logic clk,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  initial begin : y_init
+         |    y = 8'd0;
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    y <= y + 8'd1;
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec
