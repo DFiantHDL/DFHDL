@@ -45,6 +45,7 @@ object IOBus:
       check: `RW == TW`.Check[RL, wT.OutI],
       cc: CanConnect[RT, DFValOf[DFBit]]
   ): CanConnect[R, V] = (resource: R, dfVal: V) =>
+    import dfhdl.core.DFVal.Ops.apply
     check(resource.length, dfVal.widthInt)
     for (i <- 0 until resource.ios.length)
       cc.connect(resource.ios(i), dfVal.bits(i))

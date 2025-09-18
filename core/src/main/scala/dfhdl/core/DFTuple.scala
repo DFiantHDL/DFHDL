@@ -201,15 +201,25 @@ object DFTuple:
 
     object Ops:
       import DFBits.BitIndex
+      given evOpApplyDFTuple[
+          T <: NonEmptyTuple,
+          M <: ModifierAny,
+          L <: DFVal[DFTuple[T], M],
+          I <: Int
+      ](
+          using
+          check: BitIndex.Check[I, Tuple.Size[T]],
+          size: ValueOf[Tuple.Size[T]]
+      ): ExactOp2["apply", DFC, DFValAny, L, I] with
+        type Out = DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M]
+        def apply(lhs: L, idx: I)(using DFC): Out = trydf {
+          import Val.Ops.applyForced
+          check(idx, size)
+          lhs.applyForced[DFType.FromDFVal[Tuple.Elem[T, I]]](idx)
+        }(using dfc, CTName("element selection (apply)"))
+      end evOpApplyDFTuple
+
       extension [T <: NonEmptyTuple, M <: ModifierAny](dfTupleVal: DFVal[DFTuple[T], M])
-        def apply[I <: Int](i: Inlined[I])(using
-            dfc: DFC,
-            check: BitIndex.Check[I, Tuple.Size[T]],
-            size: ValueOf[Tuple.Size[T]]
-        ): DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M] = trydf {
-          check(i, size)
-          applyForced[DFType.FromDFVal[Tuple.Elem[T, I]]](i)
-        }
         private[core] def applyForced[OT <: DFTypeAny](i: Int)(using
             dfc: DFC
         ): DFVal[OT, M] = DFVal.Alias

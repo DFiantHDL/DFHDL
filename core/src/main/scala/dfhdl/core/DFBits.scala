@@ -528,6 +528,45 @@ object DFBits:
 
     object Ops:
       import IntP.{-, +}
+      given evOpApplyDFBits[
+          W <: IntP,
+          A,
+          C,
+          I,
+          P,
+          L <: DFVal[DFBits[W], Modifier[A, C, I, P]],
+          R
+      ](using
+          ub: DFUInt.Val.UBArg[W, R]
+      ): ExactOp2["apply", DFC, DFValAny, L, R] with
+        type Out = DFVal[DFBit, Modifier[A, Any, Any, P]]
+        def apply(lhs: L, idx: R)(using DFC): Out = trydf {
+          DFVal.Alias.ApplyIdx(DFBit, lhs, ub(lhs.widthIntParam, idx)(using dfc.anonymize))
+        }(using dfc, CTName("bit selection (apply)"))
+      end evOpApplyDFBits
+      given evOpApplyRangeDFBits[
+          W <: IntP,
+          A,
+          C,
+          I,
+          P,
+          L <: DFVal[DFBits[W], Modifier[A, C, I, P]],
+          HI <: IntP,
+          LO <: IntP
+      ](using
+          checkHigh: BitIndex.CheckNUB[HI, W],
+          checkLow: BitIndex.CheckNUB[LO, W],
+          checkHiLo: BitsHiLo.CheckNUB[HI, LO]
+      ): ExactOp3["apply", DFC, DFValAny, L, HI, LO] with
+        type Out = DFVal[DFBits[HI - LO + 1], Modifier[A, Any, Any, P]]
+        def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
+          checkHigh(IntParam(idxHigh), lhs.widthInt)
+          checkLow(IntParam(idxLow), lhs.widthInt)
+          checkHiLo(IntParam(idxHigh), IntParam(idxLow))
+          DFVal.Alias.ApplyRange(lhs, IntParam(idxHigh), IntParam(idxLow))
+        }(using dfc, CTName("bit range selection (apply)"))
+      end evOpApplyRangeDFBits
+
       extension [W <: IntP, P](lhs: DFValTP[DFBits[W], P])
         def truncate(using DFC): DFValTP[DFBits[Int], P] =
           lhs.tag(ir.TruncateTag).asValTP[DFBits[Int], P]
@@ -649,34 +688,15 @@ object DFBits:
         }
         def uint(using DFC): DFValTP[DFUInt[W], P] = trydf { as(DFUInt(lhs.widthIntParam)) }
         def sint(using DFC): DFValTP[DFSInt[W], P] = trydf { as(DFSInt(lhs.widthIntParam)) }
-        def apply(
-            relIdx: DFUInt.Val.UBArg.Exact[W]
-        )(using
-            dfc: DFC
-        ): DFVal[DFBit, Modifier[A, Any, Any, P]] = trydf {
-          DFVal.Alias.ApplyIdx(DFBit, lhs, relIdx(lhs.widthIntParam)(using dfc.anonymize))
-        }
-        def apply[H <: IntP, L <: IntP](
-            idxHigh: IntParam[H],
-            idxLow: IntParam[L]
-        )(using
-            dfc: DFC,
-            checkHigh: BitIndex.CheckNUB[H, W],
-            checkLow: BitIndex.CheckNUB[L, W],
-            checkHiLo: BitsHiLo.CheckNUB[H, L]
-        ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any, P]] = trydf {
-          checkHigh(idxHigh, lhs.widthInt)
-          checkLow(idxLow, lhs.widthInt)
-          checkHiLo(idxHigh, idxLow)
-          DFVal.Alias.ApplyRange(lhs, idxHigh, idxLow)
-        }
         def unary_~(using DFC): DFValTP[DFBits[W], P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
         }
         def msbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, P]] =
-          lhs.apply(lhs.widthInt.value - 1)
+          import DFVal.Ops.apply as applyBits
+          lhs.applyBits(lhs.widthInt.value - 1).asVal[DFBit, Modifier[A, Any, Any, P]]
         def lsbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, P]] =
-          lhs.apply(0)
+          import DFVal.Ops.apply as applyBits
+          lhs.applyBits(0).asVal[DFBit, Modifier[A, Any, Any, P]]
         // TODO: IntP
         def msbits[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: `LW >= RW`.CheckNUB[W, RW],

@@ -1183,11 +1183,27 @@ object DFVal extends DFValLP:
         "Value must be an initialized declaration or `.reg` must have an initialization argument.\nE.g.: `x.reg(step, init)`.\nIt's possible to apply an unknown initialization with `init = ?`"
       ]
   ): RegInitCheck[I] with {}
-  // exporting apply here to reduce common case of possible ambiguities when additional apply methods are defined
-  export DFBits.Val.Ops.apply
-  export DFVector.Val.Ops.apply
-  export DFTuple.Val.Ops.apply
+
+  // exporting evidence for common exact operations
+  export DFBits.Val.Ops.given
+  export DFTuple.Val.Ops.given
+  export DFVector.Val.Ops.given
+
   object Ops:
+    extension (inline lhs: DFValAny)
+      transparent inline def apply(inline idx: Any)(using DFC): DFValAny =
+        exactOp2["apply", DFC, DFValAny](lhs, idx)
+
+      /** Selecting range of bits/cells.
+        *
+        * @param idxLeft
+        *   For Bits, the most significant bit index. For Vectors, the least significant cell index.
+        * @param idxRight
+        *   For Bits, the least significant bit index. For Vectors, the most significant cell index.
+        * @return
+        */
+      transparent inline def apply(inline idxLeft: Any, inline idxRight: Any)(using DFC): DFValAny =
+        exactOp3["apply", DFC, DFValAny](lhs, idxLeft, idxRight)
     extension [T <: DFTypeAny, A, C, I, S <: Int, V](dfVal: DFVal[T, Modifier[A, C, I, Any]])
       def prev(step: Inlined[S], init: InitValue[T])(using
           dfc: DFC,
