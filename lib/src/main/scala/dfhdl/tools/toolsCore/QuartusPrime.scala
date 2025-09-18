@@ -38,10 +38,8 @@ sealed abstract class QuartusPrime(pro: Boolean) extends Builder:
           ".sdc",
           enableDerivedClockUncertainty = true,
           enableToggleRateLimitIODelay = true
-        )(using cd.stagedDB.getSet).getSourceFile,
-          enableDerivedClockUncertainty = true
         )(using cd.stagedDB.getSet).getSourceFile
-      )
+      ) ++ new QuartusPrimeIPPrinter(using cd.stagedDB.getSet).getSourceFiles
     )
   def build(
       cd: CompiledDesign
@@ -70,6 +68,8 @@ val QuartusPrimeProjectPhysicalConstraints =
   SourceType.Tool("QuartusPrime", "ProjectPhysicalConstraints")
 val QuartusPrimeProjectWarningSuppressions =
   SourceType.Tool("QuartusPrime", "ProjectWarningSuppressions")
+val QuartusPrimeIP =
+  SourceType.Tool("QuartusPrime", "IP")
 
 class QuartusPrimeProjectTclConfigPrinter(using
     getSet: MemberGetSet,
@@ -120,17 +120,26 @@ class QuartusPrimeProjectTclConfigPrinter(using
     }).flatten.toList.distinct
   def configFileName: String = s"$topName.tcl"
   def generateSVFFileCmd: String =
-    if (pro) "" else "\nset_global_assignment -name GENERATE_SVF_FILE ON"
+    if (pro) "" else "set_global_assignment -name GENERATE_SVF_FILE ON"
+  def qsysIPs: String =
+    designDB.uniqueDesignMemberList.collect {
+      case (qsysIP: DFDesignBlock, _) if qsysIP.isQsysIPBlackbox =>
+        s"catch {exec qsys-script --script=ips/${qsysIP.dclName}.tcl --quartus-project=${topName}}"
+    }.mkString("\n")
   def contents: String =
-    s"""|load_package flow
-        |project_new -overwrite -part $part $topName
-        |$addHDLFilesCmd
-        |set_global_assignment -name TOP_LEVEL_ENTITY $topName
-        |source ${topName}_physical.tcl
-        |set_global_assignment -name SDC_FILE $topName.sdc$generateSVFFileCmd
-        |execute_flow -compile
-        |project_close
-        |""".stripMargin
+    sn"""|load_package flow
+         |project_new -overwrite -part $part $topName
+         |$addHDLFilesCmd
+         |set_global_assignment -name TOP_LEVEL_ENTITY $topName
+         |source ${topName}_physical.tcl
+         |set_global_assignment -name SDC_FILE $topName.sdc
+         |$generateSVFFileCmd
+         |project_close
+         |$qsysIPs
+         |project_open ${topName}
+         |execute_flow -compile
+         |project_close
+         |"""
   def getSourceFile: SourceFile =
     SourceFile(SourceOrigin.Compiled, QuartusPrimeProjectTclConfig, configFileName, contents)
 end QuartusPrimeProjectTclConfigPrinter
@@ -294,3 +303,63 @@ class QuartusPrimeProjectWarningSuppressionsPrinter(using
       contents
     )
 end QuartusPrimeProjectWarningSuppressionsPrinter
+
+class QuartusPrimeIPPrinter(using
+    getSet: MemberGetSet,
+    co: CompilerOptions,
+    bo: BuilderOptions
+):
+  def contents(qsysIP: DFDesignBlock): String =
+    val ipName = qsysIP.dclName
+    val DFDesignBlock.InstMode.BlackBox(DFDesignBlock.InstMode.BlackBox.Source.Qsys(ipType)) =
+      qsysIP.instMode: @unchecked
+    val ipInstanceName = s"${ipType}_inst"
+    val members = qsysIP.members(MemberView.Folded)
+    val ipVersion = members.collectFirst {
+      case param: DFVal.DesignParam if param.getName == "version" =>
+        " " + param.dfValRef.get.getConstData.get.asInstanceOf[Option[String]].get
+    }.getOrElse("")
+    val ipParams = members.collect {
+      case param: DFVal.DesignParam if param.getName != "version" =>
+        s"set_instance_parameter_value $ipInstanceName {${param.getName}} {${param.dfValRef.get.getConstData.get.asInstanceOf[Option[Any]].get}}"
+    }.mkString("\n")
+    val ipExports = members.collect {
+      case port @ DclPort() =>
+        s"set_interface_property ${port.getName} EXPORT_OF $ipInstanceName.${port.getName}"
+    }.mkString("\n")
+
+    sn"""|package require qsys
+         |
+         |# create the system
+         |create_system $ipName
+         |# add HDL parameters
+         |
+         |# add the components
+         |add_instance $ipInstanceName $ipType$ipVersion
+         |$ipParams
+         |set_instance_property $ipInstanceName AUTO_EXPORT true
+         |
+         |# add the exports
+         |$ipExports
+         |
+         |set_module_property FILE {$ipName.ip}
+         |set_module_property GENERATION_ID {0x00000000}
+         |set_module_property NAME {$ipName}
+         |
+         |# save the system
+         |sync_sysinfo_parameters
+         |save_system $ipName
+         |"""
+  end contents
+  def getSourceFiles: List[SourceFile] =
+    getSet.designDB.uniqueDesignMemberList.collect {
+      case (qsysIP: DFDesignBlock, _) if qsysIP.isQsysIPBlackbox =>
+        SourceFile(
+          SourceOrigin.Compiled,
+          QuartusPrimeIP,
+          Paths.get("ips").resolve(s"${qsysIP.dclName}.tcl").toString,
+          contents(qsysIP)
+        )
+    }
+  end getSourceFiles
+end QuartusPrimeIPPrinter
