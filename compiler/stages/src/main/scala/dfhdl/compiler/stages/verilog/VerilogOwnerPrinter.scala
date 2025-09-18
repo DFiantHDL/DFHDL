@@ -76,7 +76,9 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val dfValDcls =
       designMembers.view
         .flatMap {
-          case IteratorDcl()                                          => None
+          case IteratorDcl()                                                              => None
+          case p @ DclOut() if !printer.supportOutputInlineInit && p.initRefList.nonEmpty =>
+            Some(printer.csDFValDclInitialBlock(p))
           case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport =>
             p.dfType match
               case _: DFVector if !printer.supportVectorInlineInit && p.initRefList.nonEmpty =>

@@ -108,10 +108,12 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csInitSeq(refs: List[Dcl.InitRef]): String
   def csDFValDclEnd(dfVal: Dcl): String
   val supportVectorInlineInit: Boolean = true
+  val supportOutputInlineInit: Boolean = true
   final def csDFValDcl(dfVal: Dcl): String =
     val noInit = csDFValDclWithoutInit(dfVal)
     val init = dfVal.initRefList match
       case DFRef(DFVector.Val(_)) :: _ if !printer.supportVectorInlineInit => ""
+      case _ if dfVal.isPortOut && !printer.supportOutputInlineInit        => ""
       case DFRef(DFVal.Func(op = FuncOp.InitFile(format, path))) :: Nil    =>
         val csInitFile = format match
           case InitFileFormat.Auto => s""""$path""""
