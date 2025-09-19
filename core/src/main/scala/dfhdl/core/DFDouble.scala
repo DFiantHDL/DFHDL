@@ -20,6 +20,7 @@ object TDFDouble:
 
     object Candidate:
       type Exact = Exact0[DFC, Candidate]
+      type Aux[R, P] = Candidate[R] { type OutP = P }
       given fromDouble[R <: Double]: Candidate[R] with
         type OutP = CONST
         def apply(arg: R)(using DFC): Out =
@@ -45,37 +46,34 @@ object TDFDouble:
         def conv(dfType: DFDouble, arg: R)(using DFC): Out = ic(arg)
 
     object Ops:
+      given evOpArithDFDouble[
+          Op <: FuncOp.+.type | FuncOp.-.type | FuncOp.*.type | FuncOp./.type | FuncOp.max.type | FuncOp.min.type,
+          LPA,
+          L <: DFValTP[DFDouble, LPA] | Double,
+          LP,
+          RPA,
+          R <: DFValTP[DFDouble, RPA] | Double,
+          RP
+      ](using
+          icL: Candidate.Aux[L, LP],
+          icR: Candidate.Aux[R, RP],
+          op: ValueOf[Op]
+      ): ExactOp2[Op, DFC, DFValAny, L, R] with
+        type Out = DFValTP[DFDouble, LP | RP]
+        def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
+          val dfcAnon = dfc.anonymize
+          val lhsVal = icL(lhs)(using dfcAnon)
+          val rhsVal = icR(rhs)(using dfcAnon)
+          DFVal.Func(DFDouble, op.value, List(lhsVal, rhsVal))
+        }(using dfc, CTName(op.value.toString))
+      end evOpArithDFDouble
+
       extension [P](lhs: DFValTP[DFDouble, P])
         def toScalaDouble(using DFC, DFVal.ConstCheck[P]): Double =
           lhs.toScalaValue
 
-        @targetName("plusDFDouble")
-        def +[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValTP[DFDouble, P | RP] = trydf {
-          DFVal.Func(DFDouble, FuncOp.+, List(lhs, rhs))
-        }
-
-        def -[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValTP[DFDouble, P | RP] = trydf {
-          DFVal.Func(DFDouble, FuncOp.-, List(lhs, rhs))
-        }
-
-        def *[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValTP[DFDouble, P | RP] = trydf {
-          DFVal.Func(DFDouble, FuncOp.*, List(lhs, rhs))
-        }
-
-        def /[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValTP[DFDouble, P | RP] = trydf {
-          DFVal.Func(DFDouble, FuncOp./, List(lhs, rhs))
-        }
-
         def unary_-(using DFC): DFValTP[DFDouble, P] = trydf {
           DFVal.Func(DFDouble, FuncOp.unary_-, List(lhs))
-        }
-
-        def max[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValTP[DFDouble, P | RP] = trydf {
-          DFVal.Func(DFDouble, FuncOp.max, List(lhs, rhs))
-        }
-
-        def min[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValTP[DFDouble, P | RP] = trydf {
-          DFVal.Func(DFDouble, FuncOp.min, List(lhs, rhs))
         }
 
         def <[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValOf[DFBool] = trydf {

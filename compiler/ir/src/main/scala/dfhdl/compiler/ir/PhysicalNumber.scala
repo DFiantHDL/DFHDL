@@ -32,7 +32,7 @@ object PhysicalNumber:
       def us: TimeNumber = TimeNumber(BigDecimal(lhs), TimeNumber.Unit.us)
       def ms: TimeNumber = TimeNumber(BigDecimal(lhs), TimeNumber.Unit.ms)
       def sec: TimeNumber = TimeNumber(BigDecimal(lhs), TimeNumber.Unit.sec)
-      def min: TimeNumber = TimeNumber(BigDecimal(lhs), TimeNumber.Unit.min)
+      def mn: TimeNumber = TimeNumber(BigDecimal(lhs), TimeNumber.Unit.mn)
       def hr: TimeNumber = TimeNumber(BigDecimal(lhs), TimeNumber.Unit.hr)
       def Hz: FreqNumber = FreqNumber(BigDecimal(lhs), FreqNumber.Unit.Hz)
       def KHz: FreqNumber = FreqNumber(BigDecimal(lhs), FreqNumber.Unit.KHz)
@@ -76,7 +76,7 @@ object LiteralNumber:
 final case class TimeNumber(value: BigDecimal, unit: TimeNumber.Unit) extends PhysicalNumber
 object TimeNumber:
   enum Unit extends PhysicalNumber.Unit, StableEnum derives ReadWriter:
-    case fs, ps, ns, us, ms, sec, min, hr
+    case fs, ps, ns, us, ms, sec, mn, hr
   extension (lhs: TimeNumber)
     private def to_psVal: BigDecimal = lhs.unit match
       case TimeNumber.Unit.fs  => lhs.value / BigDecimal(1000)
@@ -85,7 +85,7 @@ object TimeNumber:
       case TimeNumber.Unit.us  => lhs.value * BigDecimal(1000000)
       case TimeNumber.Unit.ms  => lhs.value * BigDecimal(1000000000)
       case TimeNumber.Unit.sec => lhs.value * BigDecimal(1000000000000L)
-      case TimeNumber.Unit.min => lhs.value * BigDecimal(60000000000000L)
+      case TimeNumber.Unit.mn  => lhs.value * BigDecimal(60000000000000L)
       case TimeNumber.Unit.hr  => lhs.value * BigDecimal(3600000000000000L)
     end to_psVal
     def /(rhs: Int): TimeNumber = TimeNumber(lhs.value / rhs, lhs.unit)
@@ -144,7 +144,7 @@ object FreqNumber:
       else if psVal < 1000000000 then TimeNumber(psVal / 1000000, TimeNumber.Unit.us)
       else if psVal < 1000000000000L then TimeNumber(psVal / 1000000000L, TimeNumber.Unit.ms)
       else if psVal < 1000000000000000L then TimeNumber(psVal / 1000000000000L, TimeNumber.Unit.sec)
-      else TimeNumber(psVal / 60000000000000L, TimeNumber.Unit.min)
+      else TimeNumber(psVal / 60000000000000L, TimeNumber.Unit.mn)
   end extension
 end FreqNumber
 

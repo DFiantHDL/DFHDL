@@ -67,6 +67,13 @@ object DFPhysical:
               rhsDFType: DFPhysical[U]
           ): DFPhysical[ir.LiteralNumber] = DFNumber
       object OpTC extends OpTCLP:
+        type Aux[
+            Op <: FuncOp,
+            LU <: ir.PhysicalNumber,
+            RU <: ir.PhysicalNumber,
+            OU <: ir.PhysicalNumber
+        ] =
+          OpTC[Op, LU, RU] { type OutU = OU }
         given add[U <: ir.PhysicalNumber]: OpTC[FuncOp.+.type, U, U] with
           type OutU = U
           def apply(
@@ -129,8 +136,8 @@ object DFPhysical:
           DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.ms), named = true)
         def sec(using DFC): DFConstOf[DFTime] =
           DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.sec), named = true)
-        def min(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.min), named = true)
+        def mn(using DFC): DFConstOf[DFTime] =
+          DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.mn), named = true)
         def hr(using DFC): DFConstOf[DFTime] =
           DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.hr), named = true)
         def Hz(using DFC): DFConstOf[DFFreq] =
@@ -142,91 +149,40 @@ object DFPhysical:
         def GHz(using DFC): DFConstOf[DFFreq] =
           DFVal.Const(DFFreq, ir.FreqNumber(BigDecimal(lhs), ir.FreqNumber.Unit.GHz), named = true)
       end extension
-      extension [U <: ir.PhysicalNumber, LP](lhs: DFValTP[DFPhysical[U], LP])
-        def +[R, RU <: ir.PhysicalNumber, RP](rhs: R)(using
-            dfc: DFC,
-            tcR: TC.Aux[R, RU, RP]
-        )(using
-            tcOp: OpTC[FuncOp.+.type, U, tcR.OutU]
-        ): DFValTP[DFPhysical[tcOp.OutU], LP | RP] =
+
+      given evOpArithDFPhysical[
+          Op <: FuncOp.+.type | FuncOp.-.type | FuncOp.*.type | FuncOp./.type,
+          U <: ir.PhysicalNumber,
+          LP,
+          L <: DFValTP[DFPhysical[U], LP],
+          R,
+          RU <: ir.PhysicalNumber,
+          RP,
+          OU <: ir.PhysicalNumber
+      ](using
+          tcR: TC.Aux[R, RU, RP],
+          tcOp: OpTC.Aux[Op, U, RU, OU],
+          op: ValueOf[Op]
+      ): ExactOp2[Op, DFC, DFValAny, L, R] with
+        type Out = DFValTP[DFPhysical[OU], LP | RP]
+        def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
           val rhsVal = tcR(rhs)
-          DFVal.Func(tcOp(lhs.dfType, rhsVal.dfType), FuncOp.+, List(lhs, rhsVal))
-        def -[R, RU <: ir.PhysicalNumber, RP](rhs: R)(using
-            dfc: DFC,
-            tcR: TC.Aux[R, RU, RP]
-        )(using
-            tcOp: OpTC[FuncOp.-.type, U, tcR.OutU]
-        ): DFValTP[DFPhysical[tcOp.OutU], LP | RP] =
-          val rhsVal = tcR(rhs)
-          DFVal.Func(tcOp(lhs.dfType, rhsVal.dfType), FuncOp.-, List(lhs, rhsVal))
-        def *[R, RU <: ir.PhysicalNumber, RP](rhs: R)(using
-            dfc: DFC,
-            tcR: TC.Aux[R, RU, RP]
-        )(using
-            tcOp: OpTC[FuncOp.*.type, U, tcR.OutU]
-        ): DFValTP[DFPhysical[tcOp.OutU], LP | RP] =
-          val rhsVal = tcR(rhs)
-          DFVal.Func(tcOp(lhs.dfType, rhsVal.dfType), FuncOp.`*`, List(lhs, rhsVal))
-        def /[R, RU <: ir.PhysicalNumber, RP](rhs: R)(using
-            dfc: DFC,
-            tcR: TC.Aux[R, RU, RP]
-        )(using
-            tcOp: OpTC[FuncOp./.type, U, tcR.OutU]
-        ): DFValTP[DFPhysical[tcOp.OutU], LP | RP] =
-          val rhsVal = tcR(rhs)
-          DFVal.Func(tcOp(lhs.dfType, rhsVal.dfType), FuncOp./, List(lhs, rhsVal))
-      end extension
-      // extension [
-      //     L <: Int | Long | Double | DFValOf[DFInt32] | DFValOf[DFDouble],
-      //     LU <: ir.PhysicalNumber,
-      //     LP
-      // ](lhs: L)(using tcL: TC.Aux[L, LU, LP])
-      //   def +[R, RU <: ir.PhysicalNumber, RP](rhs: R)(using
-      //       dfc: DFC,
-      //       tcR: TC.Aux[R, RU, RP]
-      //   )(using
-      //       tcOp: OpTC[FuncOp.+.type, LU, RU]
-      //   ): DFValTP[DFPhysical[tcOp.OutU], LP | RP] =
-      //     val lhsVal = tcL(lhs)
-      //     val rhsVal = tcR(rhs)
-      //     DFVal.Func(tcOp(lhsVal.dfType, rhsVal.dfType), FuncOp.+, List(lhsVal, rhsVal))
-      //   def -[R, RU <: ir.PhysicalNumber, RP](rhs: R)(using
-      //       dfc: DFC,
-      //       tcR: TC.Aux[R, RU, RP]
-      //   )(using
-      //       tcOp: OpTC[FuncOp.-.type, LU, RU]
-      //   ): DFValTP[DFPhysical[tcOp.OutU], LP | RP] =
-      //     val lhsVal = tcL(lhs)
-      //     val rhsVal = tcR(rhs)
-      //     DFVal.Func(tcOp(lhsVal.dfType, rhsVal.dfType), FuncOp.-, List(lhsVal, rhsVal))
-      //   def *[R, RU <: ir.PhysicalNumber, RP](rhs: R)(using
-      //       dfc: DFC,
-      //       tcR: TC.Aux[R, RU, RP]
-      //   )(using
-      //       tcOp: OpTC[FuncOp.*.type, LU, RU]
-      //   ): DFValTP[DFPhysical[tcOp.OutU], LP | RP] =
-      //     val lhsVal = tcL(lhs)
-      //     val rhsVal = tcR(rhs)
-      //     DFVal.Func(tcOp(lhsVal.dfType, rhsVal.dfType), FuncOp.`*`, List(lhsVal, rhsVal))
-      //   def /[R, RU <: ir.PhysicalNumber, RP](rhs: R)(using
-      //       dfc: DFC,
-      //       tcR: TC.Aux[R, RU, RP]
-      //   )(using
-      //       tcOp: OpTC[FuncOp./.type, LU, RU]
-      //   ): DFValTP[DFPhysical[tcOp.OutU], LP | RP] =
-      //     val lhsVal = tcL(lhs)
-      //     val rhsVal = tcR(rhs)
-      //     DFVal.Func(tcOp(lhsVal.dfType, rhsVal.dfType), FuncOp./, List(lhsVal, rhsVal))
-      // end extension
+          DFVal.Func(tcOp(lhs.dfType, rhsVal.dfType), op, List(lhs, rhsVal))
+        }(using dfc, CTName(op.value.toString))
+      end evOpArithDFPhysical
+
       extension [LP](lhs: DFValTP[DFInt32 | DFDouble, LP])
-        def toNumber(using DFC): DFValTP[DFNumber, LP] =
+        def toNumber(using DFC): DFValTP[DFNumber, LP] = trydf {
           DFVal.Alias.AsIs(DFNumber, lhs, forceNewAlias = true)
+        }
       extension [LP](lhs: DFValTP[DFNumber, LP])
         @targetName("fromNumberToInt")
-        def toInt(using DFC): DFValTP[DFInt32, LP] =
+        def toInt(using DFC): DFValTP[DFInt32, LP] = trydf {
           DFVal.Alias.AsIs(DFInt32, lhs, forceNewAlias = true)
-        def toDouble(using DFC): DFValTP[DFDouble, LP] =
+        }
+        def toDouble(using DFC): DFValTP[DFDouble, LP] = trydf {
           DFVal.Alias.AsIs(DFDouble, lhs, forceNewAlias = true)
+        }
     end Ops
   end Val
 end DFPhysical

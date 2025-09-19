@@ -98,7 +98,7 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
       val formattedValue = csBigDecimalData(data.value)
       data.unit match
         case TimeNumber.Unit.sec => s"${formattedValue}s"
-        case TimeNumber.Unit.min => printer.unsupported
+        case TimeNumber.Unit.mn  => printer.unsupported
         case TimeNumber.Unit.hr  => printer.unsupported
         case _                   => s"${formattedValue}${data.unit}"
     else
