@@ -62,7 +62,7 @@ object DFType:
       case _: Double.type            => DFDouble
       // TODO: need to add proper upper-bound if fixed in Scalac
       // see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
-      case enumCompanion: AnyRef => DFEnum(enumCompanion)
+      case enumCompanion: Object => DFEnum(enumCompanion)
   end apply
   private[core] def unapply(t: Any): Option[DFTypeAny] =
     t match
@@ -73,7 +73,7 @@ object DFType:
 
   extension [T <: ir.DFType, A <: Args](dfType: DFType[T, A])
     def asIR: T = dfType.value match
-      case dfTypeIR: T @unchecked => dfTypeIR
+      case dfTypeIR: T @unchecked                   => dfTypeIR
       case err: DFError.REG_DIN[?] if err.firstTime =>
         err.firstTime = false
         throw err
@@ -119,7 +119,7 @@ object DFType:
           if (modifier.value.isPort)
             dfc.owner.asIR match
               case _: ir.DFDomainOwner =>
-              case _ =>
+              case _                   =>
                 throw new IllegalArgumentException(
                   "Ports can only be directly owned by a design, a domain or an interface."
                 )
@@ -140,6 +140,7 @@ object DFType:
         )
       ]
   object TC extends TCLP:
+    type Aux[T, OT <: DFTypeAny] = TC[T] { type Type = OT }
     given ofDFType[T <: DFTypeAny]: TC[T] with
       type Type = T
       def apply(t: T)(using DFC): Type = t
@@ -168,13 +169,13 @@ object DFType:
       type Type = DFOpaque[TFE]
       def apply(t: TFE)(using DFC): Type = DFOpaque(t)
 
-    transparent inline given ofProductCompanion[T <: AnyRef]: TC[T] = ${ productMacro[T] }
-    def productMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
+    transparent inline given ofProductCompanion[T <: Object]: TC[T] = ${ productMacro[T] }
+    def productMacro[T <: Object](using Quotes, Type[T]): Expr[TC[T]] =
       import quotes.reflect.*
       val compObjTpe = TypeRepr.of[T]
       val compPrefix = compObjTpe match
         case TermRef(pre, _) => pre
-        case _ =>
+        case _               =>
           report.errorAndAbort("Case class companion must be a term ref")
       val clsSym = compObjTpe.typeSymbol.companionClass
       if !clsSym.paramSymss.forall(_.headOption.forall(_.isTerm)) then

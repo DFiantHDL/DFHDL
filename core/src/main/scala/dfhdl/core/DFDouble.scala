@@ -58,14 +58,15 @@ object TDFDouble:
           icL: Candidate.Aux[L, LP],
           icR: Candidate.Aux[R, RP],
           op: ValueOf[Op]
-      ): ExactOp2[Op, DFC, DFValAny, L, R] with
-        type Out = DFValTP[DFDouble, LP | RP]
-        def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
-          val dfcAnon = dfc.anonymize
-          val lhsVal = icL(lhs)(using dfcAnon)
-          val rhsVal = icR(rhs)(using dfcAnon)
-          DFVal.Func(DFDouble, op.value, List(lhsVal, rhsVal))
-        }(using dfc, CTName(op.value.toString))
+      ): ExactOp2Aux[Op, DFC, DFValAny, L, R, DFValTP[DFDouble, LP | RP]] =
+        new ExactOp2[Op, DFC, DFValAny, L, R]:
+          type Out = DFValTP[DFDouble, LP | RP]
+          def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
+            val dfcAnon = dfc.anonymize
+            val lhsVal = icL(lhs)(using dfcAnon)
+            val rhsVal = icR(rhs)(using dfcAnon)
+            DFVal.Func(DFDouble, op.value, List(lhsVal, rhsVal))
+          }(using dfc, CTName(op.value.toString))
       end evOpArithDFDouble
 
       extension [P](lhs: DFValTP[DFDouble, P])

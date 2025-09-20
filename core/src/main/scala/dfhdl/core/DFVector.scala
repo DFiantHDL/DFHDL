@@ -235,15 +235,16 @@ object DFVector:
           R
       ](using
           ub: DFUInt.Val.UBArg[D1, R]
-      ): ExactOp2["apply", DFC, DFValAny, L, R] with
-        type Out = DFVal[T, M]
-        def apply(lhs: L, idx: R)(using DFC): Out = trydf {
-          DFVal.Alias.ApplyIdx(
-            lhs.dfType.cellType,
-            lhs,
-            ub(lhs.dfType.lengthIntParam, idx)(using dfc.anonymize)
-          )
-        }(using dfc, CTName("cell selection (apply)"))
+      ): ExactOp2Aux["apply", DFC, DFValAny, L, R, DFVal[T, M]] =
+        new ExactOp2["apply", DFC, DFValAny, L, R]:
+          type Out = DFVal[T, M]
+          def apply(lhs: L, idx: R)(using DFC): Out = trydf {
+            DFVal.Alias.ApplyIdx(
+              lhs.dfType.cellType,
+              lhs,
+              ub(lhs.dfType.lengthIntParam, idx)(using dfc.anonymize)
+            )
+          }(using dfc, CTName("cell selection (apply)"))
       end evOpApplyDFVector
       given evOpApplyRangeDFVector[
           T <: DFTypeAny,
@@ -256,14 +257,18 @@ object DFVector:
           checkLow: BitIndex.CheckNUB[LO, D1],
           checkHigh: BitIndex.CheckNUB[HI, D1],
           checkHiLo: BitsHiLo.CheckNUB[HI, LO]
-      ): ExactOp3["apply", DFC, DFValAny, L, LO, HI] with
-        type Out = DFVal[DFVector[T, Tuple1[HI - LO + 1]], M]
-        def apply(lhs: L, idxLow: LO, idxHigh: HI)(using DFC): Out = trydf {
-          checkLow(IntParam(idxLow), lhs.dfType.lengthIntParam)
-          checkHigh(IntParam(idxHigh), lhs.dfType.lengthIntParam)
-          checkHiLo(IntParam(idxHigh), IntParam(idxLow))
-          DFVal.Alias.ApplyRange.applyVector(lhs, IntParam(idxHigh), IntParam(idxLow))
-        }(using dfc, CTName("cell range selection (apply)"))
+      ): ExactOp3Aux["apply", DFC, DFValAny, L, LO, HI, DFVal[
+        DFVector[T, Tuple1[HI - LO + 1]],
+        M
+      ]] =
+        new ExactOp3["apply", DFC, DFValAny, L, LO, HI]:
+          type Out = DFVal[DFVector[T, Tuple1[HI - LO + 1]], M]
+          def apply(lhs: L, idxLow: LO, idxHigh: HI)(using DFC): Out = trydf {
+            checkLow(IntParam(idxLow), lhs.dfType.lengthIntParam)
+            checkHigh(IntParam(idxHigh), lhs.dfType.lengthIntParam)
+            checkHiLo(IntParam(idxHigh), IntParam(idxLow))
+            DFVal.Alias.ApplyRange.applyVector(lhs, IntParam(idxHigh), IntParam(idxLow))
+          }(using dfc, CTName("cell range selection (apply)"))
       end evOpApplyRangeDFVector
 
       object DFVector:

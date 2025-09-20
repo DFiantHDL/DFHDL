@@ -210,13 +210,14 @@ object DFTuple:
           using
           check: BitIndex.Check[I, Tuple.Size[T]],
           size: ValueOf[Tuple.Size[T]]
-      ): ExactOp2["apply", DFC, DFValAny, L, I] with
-        type Out = DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M]
-        def apply(lhs: L, idx: I)(using DFC): Out = trydf {
-          import Val.Ops.applyForced
-          check(idx, size)
-          lhs.applyForced[DFType.FromDFVal[Tuple.Elem[T, I]]](idx)
-        }(using dfc, CTName("element selection (apply)"))
+      ): ExactOp2Aux["apply", DFC, DFValAny, L, I, DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M]] =
+        new ExactOp2["apply", DFC, DFValAny, L, I]:
+          type Out = DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M]
+          def apply(lhs: L, idx: I)(using DFC): Out = trydf {
+            import Val.Ops.applyForced
+            check(idx, size)
+            lhs.applyForced[DFType.FromDFVal[Tuple.Elem[T, I]]](idx)
+          }(using dfc, CTName("element selection (apply)"))
       end evOpApplyDFTuple
 
       extension [T <: NonEmptyTuple, M <: ModifierAny](dfTupleVal: DFVal[DFTuple[T], M])

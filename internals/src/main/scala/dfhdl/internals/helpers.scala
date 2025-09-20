@@ -212,15 +212,16 @@ object ClassEv:
 end ClassEv
 
 // gets the case class from a companion object reference
-trait CaseClass[Companion <: AnyRef, UB <: Product]:
+trait CaseClass[Companion <: Object, UB <: Product]:
   type CC <: UB
 
 object CaseClass:
-  type Aux[Comp <: AnyRef, UB <: Product, CC0 <: UB] = CaseClass[Comp, UB] { type CC = CC0 }
-  transparent inline given [Comp <: AnyRef, UB <: Product]: CaseClass[Comp, UB] = ${
+  type Aux[Comp <: Object, UB <: Product, CC0 <: UB] = CaseClass[Comp, UB] { type CC = CC0 }
+  object Success extends CaseClass[Object, Product]
+  transparent inline given [Comp <: Object, UB <: Product]: CaseClass[Comp, UB] = ${
     macroImpl[Comp, UB]
   }
-  def macroImpl[Comp <: AnyRef, UB <: Product](using
+  def macroImpl[Comp <: Object, UB <: Product](using
       Quotes,
       Type[Comp],
       Type[UB]
@@ -230,18 +231,11 @@ object CaseClass:
     clsTpe.asType match
       case '[t & UB] =>
         type Case = t & UB
-        '{
-          new CaseClass[Comp, UB]:
-            type CC = Case
-        }
+        '{ Success.asInstanceOf[CaseClass.Aux[Comp, UB, Case]] }
       case _ =>
         val msg =
           s"Type `${clsTpe.show}` is not a subtype of `${Type.show[UB]}`."
-        '{
-          compiletime.error(${ Expr(msg) })
-          new CaseClass[Comp, UB]:
-            type CC = UB
-        }
+        '{ compiletime.error(${ Expr(msg) }) }
     end match
   end macroImpl
 end CaseClass

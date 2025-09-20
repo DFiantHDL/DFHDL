@@ -15,9 +15,10 @@ abstract class Column[ET <: DFType, RN <: Int & Singleton](
 object Column:
   given [ET <: DFType, RN <: Int & Singleton, CT <: Column[ET, RN], L <: CT <> VAL, RI <: Int](using
       ClassEv[CT]
-  ): ExactOp2["apply", DFC, DFValAny, L, RI] with
-    type Out = ET <> VAL
-    def apply(lhs: L, rowIdx: RI)(using DFC): Out = lhs.actual(rowIdx)
+  ): ExactOp2Aux["apply", DFC, DFValAny, L, RI, ET <> VAL] =
+    new ExactOp2["apply", DFC, DFValAny, L, RI]:
+      type Out = ET <> VAL
+      def apply(lhs: L, rowIdx: RI)(using DFC): Out = lhs.actual(rowIdx)
 end Column
 
 extension [ET <: DFType, RN <: Int & Singleton, CT <: Column[ET, RN]](
@@ -56,9 +57,10 @@ object Matrix:
       CI <: Int
   ](using
       ClassEv[MT]
-  ): ExactOp2["apply", DFC, DFValAny, L, CI] with
-    type Out = CT <> VAL
-    def apply(lhs: L, colIdx: CI)(using DFC): Out = lhs.actual(colIdx)
+  ): ExactOp2Aux["apply", DFC, DFValAny, L, CI, CT <> VAL] =
+    new ExactOp2["apply", DFC, DFValAny, L, CI]:
+      type Out = CT <> VAL
+      def apply(lhs: L, colIdx: CI)(using DFC): Out = lhs.actual(colIdx)
   given [
       CN <: Int & Singleton,
       ET <: DFType,
@@ -70,9 +72,10 @@ object Matrix:
       CI <: Int
   ](using
       ClassEv[MT]
-  ): ExactOp3["apply", DFC, DFValAny, L, RI, CI] with
-    type Out = ET <> VAL
-    def apply(lhs: L, rowIdx: RI, colIdx: CI)(using DFC): Out = lhs.actual(colIdx).actual(rowIdx)
+  ): ExactOp3Aux["apply", DFC, DFValAny, L, RI, CI, ET <> VAL] =
+    new ExactOp3["apply", DFC, DFValAny, L, RI, CI]:
+      type Out = ET <> VAL
+      def apply(lhs: L, rowIdx: RI, colIdx: CI)(using DFC): Out = lhs.actual(colIdx).actual(rowIdx)
 end Matrix
 
 extension [

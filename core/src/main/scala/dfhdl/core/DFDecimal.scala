@@ -1065,12 +1065,13 @@ object DFXInt:
           R <: DFValTP[DFInt32, RP]
       ](using
           op: ValueOf[Op]
-      ): ExactOp2[Op, DFC, DFValAny, L, R] with
-        type Out = DFValTP[DFInt32, RP]
-        def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
-          val lhsVal = DFVal.Const(DFInt32, Some(BigInt(lhs)))
-          DFVal.Func(DFInt32, op, List(lhsVal, rhs)).asValTP[DFInt32, RP]
-        }(using dfc, CTName(op.value.toString))
+      ): ExactOp2Aux[Op, DFC, DFValAny, L, R, DFValTP[DFInt32, RP]] =
+        new ExactOp2[Op, DFC, DFValAny, L, R]:
+          type Out = DFValTP[DFInt32, RP]
+          def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
+            val lhsVal = DFVal.Const(DFInt32, Some(BigInt(lhs)))
+            DFVal.Func(DFInt32, op, List(lhsVal, rhs)).asValTP[DFInt32, RP]
+          }(using dfc, CTName(op.value.toString))
       end evOpArithIntDFInt32
       given evOpArithDFXInt[
           Op <: ArithOp,
@@ -1096,15 +1097,16 @@ object DFXInt:
           op: ValueOf[Op]
       )(using
           check: ArithCheck[LS, LW, LN, LSM, LWM, LI, RS, RW, RN, RSM, RWM, RI]
-      ): ExactOp2[Op, DFC, DFValAny, L, R] with
-        type Out = DFValTP[DFXInt[LS, LW, LN], LP | RP]
-        def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
-          val dfcAnon = dfc.anonymize
-          val lhsVal = icL(lhs)(using dfcAnon)
-          val rhsVal = icR(rhs)(using dfcAnon)
-          check(lhsVal, rhsVal)
-          arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal)
-        }(using dfc, CTName(op.value.toString))
+      ): ExactOp2Aux[Op, DFC, DFValAny, L, R, DFValTP[DFXInt[LS, LW, LN], LP | RP]] =
+        new ExactOp2[Op, DFC, DFValAny, L, R]:
+          type Out = DFValTP[DFXInt[LS, LW, LN], LP | RP]
+          def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
+            val dfcAnon = dfc.anonymize
+            val lhsVal = icL(lhs)(using dfcAnon)
+            val rhsVal = icR(rhs)(using dfcAnon)
+            check(lhsVal, rhsVal)
+            arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal)
+          }(using dfc, CTName(op.value.toString))
       end evOpArithDFXInt
 
       extension [L <: Int](lhs: L)

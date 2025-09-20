@@ -272,7 +272,8 @@ end Exact1
 trait ExactOp1[Op, OutUB, Ctx, LHS]:
   type Out <: OutUB
   def apply(lhs: LHS)(using Ctx): Out
-
+type ExactOp1Aux[Op, OutUB, Ctx, LHS, O <: OutUB] =
+  ExactOp1[Op, OutUB, Ctx, LHS] { type Out = O }
 transparent inline def exactOp1[Op, Ctx, OutUB](inline lhs: Any)(using ctx: Ctx): OutUB =
   ${ exactOp1Macro[Op, Ctx, OutUB]('lhs)('ctx) }
 private def exactOp1Macro[Op, Ctx, OutUB](lhs: Expr[Any])(ctx: Expr[Ctx])(using
@@ -295,7 +296,8 @@ end exactOp1Macro
 trait ExactOp2[Op, Ctx, OutUB, LHS, RHS]:
   type Out <: OutUB
   def apply(lhs: LHS, rhs: RHS)(using Ctx): Out
-
+type ExactOp2Aux[Op, Ctx, OutUB, LHS, RHS, O <: OutUB] =
+  ExactOp2[Op, Ctx, OutUB, LHS, RHS] { type Out = O }
 transparent inline def exactOp2[Op, Ctx, OutUB](inline lhs: Any, inline rhs: Any)(using
     ctx: Ctx
 ): OutUB = ${ exactOp2Macro[Op, Ctx, OutUB]('lhs, 'rhs)('ctx) }
@@ -323,7 +325,8 @@ end exactOp2Macro
 trait ExactOp3[Op, Ctx, OutUB, LHS, MHS, RHS]:
   type Out <: OutUB
   def apply(lhs: LHS, mhs: MHS, rhs: RHS)(using Ctx): Out
-
+type ExactOp3Aux[Op, Ctx, OutUB, LHS, MHS, RHS, O <: OutUB] =
+  ExactOp3[Op, Ctx, OutUB, LHS, MHS, RHS] { type Out = O }
 transparent inline def exactOp3[Op, Ctx, OutUB](
     inline lhs: Any,
     inline mhs: Any,

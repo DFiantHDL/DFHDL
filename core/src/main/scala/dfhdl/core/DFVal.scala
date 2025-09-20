@@ -302,7 +302,9 @@ sealed protected trait DFValLP:
     x =>
       import dfc.getSet
       x.asIR.getConstData.get.asInstanceOf[ir.ConfigN[ir.RateNumber]]
-  export DFXInt.Val.Ops.evOpArithDFXInt // lower priority than other evidence because this is more generic
+  // lower priority than other evidence because this is more generic
+  export DFXInt.Val.Ops.evOpArithDFXInt
+  export DFOpaque.Val.Ops.{evOpAsDFOpaqueTFE, evOpAsDFOpaqueComp}
 end DFValLP
 object DFVal extends DFValLP:
   protected type FieldWithModifier[V, M <: ModifierAny] = V match
@@ -1192,9 +1194,12 @@ object DFVal extends DFValLP:
   export DFXInt.Val.Ops.evOpArithIntDFInt32
   export DFPhysical.Val.Ops.given
   export TDFDouble.Val.Ops.given
+  export DFEnum.Val.Ops.given
+  export DFOpaque.Val.Ops.evOpAsDFOpaqueIterable
 
   object Ops:
-    protected type Supported = DFValAny | Int | Long | Double | Tuple
+    protected type SupportedValue =
+      DFValAny | Int | Long | Double | NonEmptyTuple | Iterable[DFValAny] | SameElementsVector[?]
     extension (inline lhs: DFValAny)
       transparent inline def apply(inline idx: Any)(using DFC): DFValAny =
         exactOp2["apply", DFC, DFValAny](lhs, idx)
@@ -1209,29 +1214,33 @@ object DFVal extends DFValLP:
         */
       transparent inline def apply(inline idxLeft: Any, inline idxRight: Any)(using DFC): DFValAny =
         exactOp3["apply", DFC, DFValAny](lhs, idxLeft, idxRight)
-    extension (inline lhs: Supported)
-      transparent inline def +(inline rhs: Supported)(using DFC): DFValAny =
+    extension (inline lhs: SupportedValue)
+      transparent inline def +(inline rhs: SupportedValue)(using DFC): DFValAny =
         exactOp2[FuncOp.+.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def -(inline rhs: Supported)(using DFC): DFValAny =
+      transparent inline def -(inline rhs: SupportedValue)(using DFC): DFValAny =
         exactOp2[FuncOp.-.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def *(inline rhs: Supported)(using DFC): DFValAny =
+      transparent inline def *(inline rhs: SupportedValue)(using DFC): DFValAny =
         exactOp2[FuncOp.*.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def /(inline rhs: Supported)(using DFC): DFValAny =
+      transparent inline def /(inline rhs: SupportedValue)(using DFC): DFValAny =
         exactOp2[FuncOp./.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def %(inline rhs: Supported)(using DFC): DFValAny =
+      transparent inline def %(inline rhs: SupportedValue)(using DFC): DFValAny =
         exactOp2[FuncOp.%.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def max(inline rhs: Supported)(using DFC): Any =
+      transparent inline def max(inline rhs: SupportedValue)(using DFC): Any =
         inline (lhs, rhs) match
           case (lhs: Int, rhs: Int)       => scala.runtime.RichInt(lhs) max rhs
           case (lhs: Long, rhs: Long)     => scala.runtime.RichLong(lhs) max rhs
           case (lhs: Double, rhs: Double) => scala.runtime.RichDouble(lhs) max rhs
           case _                          => exactOp2[FuncOp.max.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def min(inline rhs: Supported)(using DFC): Any =
+      transparent inline def min(inline rhs: SupportedValue)(using DFC): Any =
         inline (lhs, rhs) match
           case (lhs: Int, rhs: Int)       => scala.runtime.RichInt(lhs) min rhs
           case (lhs: Long, rhs: Long)     => scala.runtime.RichLong(lhs) min rhs
           case (lhs: Double, rhs: Double) => scala.runtime.RichDouble(lhs) min rhs
           case _                          => exactOp2[FuncOp.min.type, DFC, DFValAny](lhs, rhs)
+    end extension
+    extension (inline lhs: SupportedValue)
+      transparent inline def as(inline aliasType: DFType.Supported)(using DFC): DFValAny =
+        exactOp2["as", DFC, DFValAny](lhs, aliasType)
     end extension
 
     extension [T <: DFTypeAny, A, C, I, S <: Int, V](dfVal: DFVal[T, Modifier[A, C, I, Any]])

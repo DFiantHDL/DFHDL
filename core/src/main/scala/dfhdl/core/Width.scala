@@ -17,6 +17,8 @@ trait WidthLP:
     type Out = W
     type OutI = Int
 object Width extends WidthLP:
+  type Aux[T, O <: IntP] = Width[T] { type Out = O }
+  type AuxI[T, O <: Int] = Width[T] { type OutI = O }
   val wide: Width[DFTypeAny] = new Width[DFTypeAny]:
     type Out = Int
     type OutI = Int

@@ -163,12 +163,13 @@ object DFPhysical:
           tcR: TC.Aux[R, RU, RP],
           tcOp: OpTC.Aux[Op, U, RU, OU],
           op: ValueOf[Op]
-      ): ExactOp2[Op, DFC, DFValAny, L, R] with
-        type Out = DFValTP[DFPhysical[OU], LP | RP]
-        def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
-          val rhsVal = tcR(rhs)
-          DFVal.Func(tcOp(lhs.dfType, rhsVal.dfType), op, List(lhs, rhsVal))
-        }(using dfc, CTName(op.value.toString))
+      ): ExactOp2Aux[Op, DFC, DFValAny, L, R, DFValTP[DFPhysical[OU], LP | RP]] =
+        new ExactOp2[Op, DFC, DFValAny, L, R]:
+          type Out = DFValTP[DFPhysical[OU], LP | RP]
+          def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
+            val rhsVal = tcR(rhs)
+            DFVal.Func(tcOp(lhs.dfType, rhsVal.dfType), op, List(lhs, rhsVal))
+          }(using dfc, CTName(op.value.toString))
       end evOpArithDFPhysical
 
       extension [LP](lhs: DFValTP[DFInt32 | DFDouble, LP])
