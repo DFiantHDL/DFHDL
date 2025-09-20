@@ -189,8 +189,6 @@ object ValueOfTuple:
   end givenMacro
 end ValueOfTuple
 
-type <:![T <: UB, UB] = T & UB
-
 //evidence of class T which has no arguments and no type arguments
 trait ClassEv[T]:
   val value: T

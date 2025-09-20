@@ -85,24 +85,26 @@ class DFVectorSpec extends DFSpec:
       val v6 = UInt(4) X len <> VAR init v5
       v6 := all(0)
       val zero = 0
+      // Note: compiler plugin does not work inside the scala test compilation code,
+      // so we need to directly apply braces to set the proper operator precedence.
       assertDSLErrorLog(
         "The vector length must be positive but found: 0"
       )(
-        """val v7 = UInt(4) X 0 <> VAR"""
+        """val v7 = (UInt(4) X 0) <> VAR"""
       ) {
         val v7 = UInt(4) X zero <> VAR
       }
       assertDSLErrorLog(
         "The vector length must be positive but found: 0"
       )(
-        """val v7 = UInt(4) X 0 X 5 <> VAR"""
+        """val v7 = (UInt(4) X 0 X 5) <> VAR"""
       ) {
         val v7 = UInt(4) X zero X 5 <> VAR
       }
       assertCompileError(
         "The vector length must be positive but found: 0"
       )(
-        """val v7: UInt[4] X 0 <> CONST = all(0)"""
+        """val v7: (UInt[4] X 0) <> CONST = all(0)"""
       )
       assertRuntimeErrorLog(
         "The vector length must be positive but found: 0"

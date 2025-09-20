@@ -144,10 +144,7 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
           case _                                       => None
     override def transform(tree: Tree)(using Context): Tree =
       super.transform(tree) match
-        case tree @ ValDef(tpt = InfixOpChange(tpt)) =>
-          cpy.ValDef(tree)(tpt = tpt)
-        case tree @ DefDef(tpt = InfixOpChange(tpt)) =>
-          cpy.DefDef(tree)(tpt = tpt)
+        case tree @ InfixOpChange(rhs) => rhs
         // workaround https://github.com/scala/scala3/issues/21406
         case tree @ ValDef(name, select: Select, _) if name.isEmpty && tree.mods.is(Given) =>
           select match

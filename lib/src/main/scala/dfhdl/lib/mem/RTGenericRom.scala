@@ -2,7 +2,7 @@ package dfhdl.lib.mem
 import dfhdl.*
 
 class RTGenericRom[T <: DFType](val dataType: T, val depth: Int)(
-    val romValues: (T X depth.type) <> CONST
+    val romValues: T X depth.type <> CONST
 ) extends RTDesign:
   def this(dataType: T, depth: Int)(fillFunc: Int => (T <> CONST)) =
     this(dataType, depth)(

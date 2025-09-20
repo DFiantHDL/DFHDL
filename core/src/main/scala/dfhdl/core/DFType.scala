@@ -30,7 +30,8 @@ type DFTypeAny = DFType[ir.DFType, Args]
 
 object DFType:
   type Of[T <: Supported] <: DFTypeAny = T match
-    case DFTypeAny => T <:! DFTypeAny
+    case DFTypeAny => T & DFTypeAny
+    case Int       => DFInt32
     case Long      => DFSInt[64]
     case Byte      => DFBits[8]
     case Boolean   => DFBool
@@ -101,13 +102,6 @@ object DFType:
     Boolean | Double | String | Object | Unit
 
   object Ops:
-    extension [D <: Int & Singleton](cellDim: D)
-      infix def <>[M <: ModifierAny](modifier: M)(using DFC): DFVector.ComposedModifier[D, M] =
-        new DFVector.ComposedModifier[D, M](cellDim, modifier)
-    extension [D <: IntP](cellDim: D)
-      @targetName("composeMod")
-      infix def <>[M <: ModifierAny](modifier: M)(using DFC): DFVector.ComposedModifier[D, M] =
-        new DFVector.ComposedModifier[D, M](cellDim, modifier)
     extension [T <: Supported](t: T)
       infix def <>[A, C, I, P](modifier: Modifier[A, C, I, P])(using
           dfc: DFC,

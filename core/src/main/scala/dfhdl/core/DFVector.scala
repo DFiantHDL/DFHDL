@@ -61,7 +61,6 @@ object DFVector:
           ") is different than the receiver vector length (" + LL + ")."
       ]
 
-  sealed class ComposedModifier[D <: IntP, M](val cellDim: D, val modifier: M)
   object Ops:
     extension [T <: DFType.Supported, D <: IntP](t: T)(using tc: DFType.TC[T])
       infix def X(
@@ -69,15 +68,6 @@ object DFVector:
       )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] = trydf:
         check(cellDim)
         DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim))
-    extension [T <: DFType.Supported, D <: IntP, M <: ModifierAny](t: T)(using tc: DFType.TC[T])
-      infix def X(
-          composedModifier: ComposedModifier[D, M]
-      )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVal[DFVector[tc.Type, Tuple1[D]], M] =
-        trydf:
-          val cellDim = IntParam.fromValue(composedModifier.cellDim)
-          check(cellDim)
-          DFVal.Dcl(DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim)), composedModifier.modifier)
-    end extension
   end Ops
 
   object Val:

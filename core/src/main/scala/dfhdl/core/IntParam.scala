@@ -6,7 +6,6 @@ import compiletime.ops.int
 import int.*
 import compiletime.{constValueOpt, constValue}
 import dfhdl.internals.Inlined
-import dfhdl.internals.<:!
 import scala.annotation.targetName
 
 type IntP = Int | DFConstInt32 | IntP.Sig

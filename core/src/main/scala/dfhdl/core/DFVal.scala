@@ -88,33 +88,15 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
   end getNonConstTerm
 end extension
 
-infix type <>[T, M] = T match
-  case Int => // Int can be a constant literal or just "Int" representing SInt[32]
-    IsConst[T] match
-      case true  => DFVector.ComposedModifier[T, M]
-      case false => DFInt32 <> M
-  // This case handles a vector declaration where operator precedence puts an embedded parameter
-  // as type for `<>`. E.g.:
-  // val len: Int <> CONST = 20
-  // val vec1: UInt[4] X len.type <> VAR = all(0)
-  // val vec2: UInt[4] X (len.type + 1) <> VAR = all(0)
-  // In both cases above the `<>` priority over `X` priority creates a type composition like:
-  // `UInt[4] X (len.type <> VAR)`
-  // So in this case we construct DFVector.ComposedModifier[T, M] to later used in `X`
-  // to properly construct the vector type.
-  case DFConstInt32 | IntP.Sig => DFVector.ComposedModifier[T, M]
-  case _                       =>
-    M match
-      case DFRET => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
-      case RTRET => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
-      case EDRET => (DFC, DomainType.ED) ?=> DFValOf[DFType.Of[T]]
-      case VAL   => DFValOf[DFType.Of[T]]
-      case CONST => DFConstOf[DFType.Of[T]]
+infix type <>[T <: DFType.Supported, M] = M match
+  case DFRET => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
+  case RTRET => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
+  case EDRET => (DFC, DomainType.ED) ?=> DFValOf[DFType.Of[T]]
+  case VAL   => DFValOf[DFType.Of[T]]
+  case CONST => DFConstOf[DFType.Of[T]]
 
-infix type X[T, M] = M match
-  case DFVector.ComposedModifier[d, m] => <>[DFVector[DFType.Of[T], Tuple1[d]], m]
-  case _                               => DFVector[DFType.Of[T], Tuple1[M]]
-type JUSTVAL[T] = <>[T, VAL]
+infix type X[T <: DFType.Supported, M] = DFVector[DFType.Of[T], Tuple1[M]]
+type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
 
 extension [V <: ir.DFVal](dfVal: V)
   inline def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] =
@@ -1241,6 +1223,10 @@ object DFVal extends DFValLP:
     extension (inline lhs: SupportedValue)
       transparent inline def as(inline aliasType: DFType.Supported)(using DFC): DFValAny =
         exactOp2["as", DFC, DFValAny](lhs, aliasType)
+    end extension
+    extension (inline lhs: Any)
+      transparent inline def <~>(inline rhs: Any)(using DFC): Any =
+        exactOp2["<>", DFC, DFValAny](lhs, rhs)
     end extension
 
     extension [T <: DFTypeAny, A, C, I, S <: Int, V](dfVal: DFVal[T, Modifier[A, C, I, Any]])
