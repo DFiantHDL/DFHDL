@@ -286,7 +286,8 @@ private def exactOp1Macro[Op, Ctx, OutUB](lhs: Expr[Any])(ctx: Expr[Ctx])(using
   val lhsExactInfo = lhs.exactInfo
   Expr.summon[ExactOp1[Op, OutUB, Ctx, lhsExactInfo.Underlying]] match
     case Some(expr) => '{ $expr(${ lhsExactInfo.exactExpr })(using $ctx) }
-    case None       => '{ compiletime.error("Unsupported argument type for this operation.") }
+    case None       =>
+      IsGiven.controlledMacroError("Unsupported argument type for this operation.")
   end match
 end exactOp1Macro
 
@@ -315,7 +316,8 @@ private def exactOp2Macro[Op, Ctx, OutUB](lhs: Expr[Any], rhs: Expr[Any])(ctx: E
     case Some(expr) => '{
         $expr(${ lhsExactInfo.exactExpr }, ${ rhsExactInfo.exactExpr })(using $ctx)
       }
-    case None => '{ compiletime.error("Unsupported argument types for this operation.") }
+    case None =>
+      IsGiven.controlledMacroError("Unsupported argument types for this operation.")
   end match
 end exactOp2Macro
 
@@ -363,6 +365,6 @@ private def exactOp3Macro[Op, Ctx, OutUB](
         )(using $ctx)
       }
     case None =>
-      '{ compiletime.error("Unsupported argument types for this operation.") }
+      IsGiven.controlledMacroError("Unsupported argument types for this operation.")
   end match
 end exactOp3Macro

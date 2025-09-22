@@ -90,7 +90,7 @@ object DFStruct:
            |A valid field type is in the form of [DFType] <> VAL.
            |The following fields do not match this pattern:
            |$fieldTypesStr""".stripMargin
-      '{ compiletime.error(${ Expr(msg) }) }
+      IsGiven.controlledMacroError(msg)
     end if
   end dfTypeMacro
 
@@ -151,7 +151,7 @@ object DFStruct:
     else
       val msg =
         s"Mismatch structure value type `${tpeR.showType}` for DFHDL receiver structure type `${tpeL.showType}`."
-      '{ compiletime.error(${ Expr(msg) }) }
+      IsGiven.controlledMacroError(msg)
   end sfMacro
 
   object Val:

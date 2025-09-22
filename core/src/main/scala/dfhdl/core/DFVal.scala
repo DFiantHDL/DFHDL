@@ -321,9 +321,8 @@ object DFVal extends DFValLP:
       arg: Expr[R]
   )(using Quotes, Type[T], Type[M], Type[R], Type[Op]): Expr[DFValTP[DFBool, Any]] =
     import quotes.reflect.*
-    if (TypeRepr.of[T].typeSymbol equals defn.NothingClass) return '{
-      compiletime.error("This is fake")
-    }
+    if (TypeRepr.of[T].typeSymbol equals defn.NothingClass)
+      return IsGiven.controlledMacroError("This is fake")
     val exactInfo = arg.exactInfo
     val lpType = dfVal.asTerm.tpe.isConstTpe.asTypeOf[Any]
     val rpType = exactInfo.exactTpe.isConstTpe.asTypeOf[Any]
@@ -1178,6 +1177,7 @@ object DFVal extends DFValLP:
   export TDFDouble.Val.Ops.given
   export DFEnum.Val.Ops.given
   export DFOpaque.Val.Ops.evOpAsDFOpaqueIterable
+  export DFPortOps.given
 
   object Ops:
     protected type SupportedValue =
@@ -1226,7 +1226,12 @@ object DFVal extends DFValLP:
     end extension
     extension (inline lhs: Any)
       transparent inline def <~>(inline rhs: Any)(using DFC): Any =
-        exactOp2["<>", DFC, DFValAny](lhs, rhs)
+        inline (lhs, rhs) match
+          case (lhs: DFVal[lt, lm], rhs: DFVal[rt, rm]) =>
+            DFPortOps.specialConnect(lhs, rhs)
+          case _ =>
+            exactOp2["<>", DFC, Any](lhs, rhs)
+        end match
     end extension
 
     extension [T <: DFTypeAny, A, C, I, S <: Int, V](dfVal: DFVal[T, Modifier[A, C, I, Any]])
@@ -1325,7 +1330,7 @@ object VarsTuple:
           println(tpe.widen.dealias.show)
           Some(s"All tuple elements must be mutable but found an immutable type `${tpe.showType}`")
     varsCheck(tTpe) match
-      case Some(err) => '{ compiletime.error(${ Expr(err) }) }
+      case Some(err) => IsGiven.controlledMacroError(err)
       case None      =>
         import Width.calcValWidth
         val widthType = tTpe.calcValWidth.asTypeOf[Int]
@@ -1502,17 +1507,59 @@ object DFPortOps:
     C <:< Modifier.Connectable | R <:< Resource,
     "The LHS of a connection must be a connectable DFHDL value (var/port)."
   ]
+  protected trait TC_Connect[CT <: DFTypeAny, Consumer <: DFValAny, Producer <: DFValAny]:
+    def connect(consumer: DFValAny, producer: Producer)(using DFC): Unit
+  protected object TC_Connect:
+    given [CT <: DFTypeAny, Consumer <: DFValAny, Producer <: DFValAny](using
+        HasConnectable[Consumer]
+    )(using tc: DFVal.TC[CT, Producer]): TC_Connect[CT, Consumer, Producer] with
+      def connect(consumer: DFValAny, producer: Producer)(using DFC): Unit =
+        consumer.connect(tc(consumer.dfType.asInstanceOf[CT], producer))
+
+  private[core] transparent inline def specialConnect[
+      LT <: DFTypeAny,
+      LM <: ModifierAny,
+      RT <: DFTypeAny,
+      RM <: ModifierAny,
+      L <: DFVal[LT, LM],
+      R <: DFVal[RT, RM]
+  ](
+      inline lhs: L,
+      inline rhs: R
+  )(using DFC): Unit =
+    inline (compiletime.erasedValue[LM], compiletime.erasedValue[RM]) match
+      case (
+            _: Modifier[Any, Modifier.Connectable, Any, Any],
+            _: Modifier[Any, Modifier.Connectable, Any, Any]
+          ) =>
+        inline if (IsGiven[TC_Connect[LT, L, R]])
+          val tcL = compiletime.summonInline[TC_Connect[LT, L, R]]
+          inline if (IsGiven[TC_Connect[RT, R, L]])
+            val tcR = compiletime.summonInline[TC_Connect[RT, R, L]]
+            // since we have both candidates, we try the RHS first, so if both fail at runtime,
+            // the error message will be from the LHS as fallback.
+            try tcR.connect(rhs, lhs)
+            catch case e: Throwable => tcL.connect(lhs, rhs)
+          else tcL.connect(lhs, rhs)
+        else if (IsGiven[TC_Connect[RT, R, L]])
+          compiletime.summonInline[TC_Connect[RT, R, L]].connect(rhs, lhs)
+        else
+          // forcing the error message from the LHS case
+          compiletime.summonInline[TC_Connect[LT, L, R]]
+      case _ => compiletime.error(
+          "At least one of the connection arguments must be a connectable DFHDL value (var/port)."
+        )
+  end specialConnect
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
     def <>(rhs: DFVal.TC_Or_OPEN_Or_Resource.Exact[T])(using
         DFC
     )(using
         connectableOnly: ConnectableOnly[C, rhs.ExactFrom]
-    ): ConnectPlaceholder =
+    ): Unit =
       given CTName = CTName("<>")
       trydf {
         rhs.tc.connect(dfPort, rhs.exactFrom)
       }
-      ConnectPlaceholder
   end extension
 end DFPortOps
 

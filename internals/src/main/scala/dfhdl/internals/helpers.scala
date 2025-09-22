@@ -26,7 +26,7 @@ transparent inline def showTree[T](inline arg: T): Unit = ${
 }
 
 def errorExpr(msg: String)(using Quotes): Expr[Nothing] =
-  '{ compiletime.error(${ Expr(msg) }) }
+  IsGiven.controlledMacroError(msg)
 
 def showTreeMacro[T](arg: Expr[T])(using Quotes, Type[T]): Expr[Unit] =
   import quotes.reflect.*
@@ -123,7 +123,7 @@ object Error:
           case t                                 => t.show
         }
         .mkString
-    '{ compiletime.error(${ Expr(msg) }) }
+    IsGiven.controlledMacroError(msg)
 end Error
 
 transparent inline def summonInlineWithError[T]: T = ${ summonInlineWithErrorMacro[T] }
@@ -132,7 +132,8 @@ private def summonInlineWithErrorMacro[T: Type](using Quotes): Expr[T] =
   Implicits.search(TypeRepr.of[T]) match
     case iss: ImplicitSearchSuccess => iss.tree.asExprOf[T]
     case isf: NoMatchingImplicits   => report.errorAndAbort(isf.explanation)
-    case isf: ImplicitSearchFailure => '{ compiletime.error(${ Expr(isf.explanation) }) }
+    case isf: ImplicitSearchFailure =>
+      IsGiven.controlledMacroError(isf.explanation)
 
 extension (using quotes: Quotes)(partsExprs: Seq[Expr[Any]])
   def scPartsWithArgs(argsExprs: Seq[Expr[Any]]): quotes.reflect.Term =
@@ -233,7 +234,7 @@ object CaseClass:
       case _ =>
         val msg =
           s"Type `${clsTpe.show}` is not a subtype of `${Type.show[UB]}`."
-        '{ compiletime.error(${ Expr(msg) }) }
+        IsGiven.controlledMacroError(msg)
     end match
   end macroImpl
 end CaseClass
@@ -258,13 +259,51 @@ object AssertGiven:
           tpe.asTypeOf[Any] match
             case '[x] =>
               Expr.summon[x].nonEmpty
-
     if (recur(TypeRepr.of[G])) '{ Success.asInstanceOf[AssertGiven[G, M]] }
     else
       val ConstantType(StringConstant(msg)) = TypeRepr.of[M].dealias: @unchecked
-      '{ compiletime.error(${ Expr(msg) }) }
+      IsGiven.controlledMacroError(msg)
   end macroImpl
 end AssertGiven
+
+object IsGiven:
+  // if contains a key, it means to silence the error.
+  // if the value is true (by default), it means the implicit given is found.
+  // if the value is false, it means the implicit given is not found (there are errors).
+  private val positionFlags = mutable.Map.empty[String, Boolean]
+  private def getKey(using Quotes): String =
+    import quotes.reflect.*
+    Position.ofMacroExpansion.toString
+  transparent inline def apply[G]: Boolean =
+    silent
+    compiletime.summonFrom {
+      // given is found, but there could be silented errors
+      case g: G => readAndWakeErrors
+      // given is not found, there are errors
+      case _ =>
+        readAndWakeErrors
+        false
+    }
+
+  def controlledMacroError(msg: String)(using Quotes): Expr[Nothing] =
+    import quotes.reflect.*
+    val key = getKey
+    if (positionFlags.contains(key))
+      positionFlags += key -> false
+      '{ ??? }
+    else
+      '{ compiletime.error(${ Expr(msg) }) }
+
+  private transparent inline def silent: Unit = ${ silentMacro }
+  private def silentMacro(using Quotes): Expr[Unit] =
+    import quotes.reflect.*
+    positionFlags += getKey -> true
+    '{}
+  private transparent inline def readAndWakeErrors: Boolean = ${ readAndWakeErrorsMacro }
+  private def readAndWakeErrorsMacro(using Quotes): Expr[Boolean] =
+    import quotes.reflect.*
+    Expr(positionFlags.remove(getKey).getOrElse(true))
+end IsGiven
 
 trait OptionalGiven[T]:
   val value: Option[T]
@@ -279,24 +318,22 @@ object OptionalGiven extends OptionalGivenLP:
 
 trait GivenOrError[T, Msg <: String]:
   val value: T
-protected trait GivenOrErrorLP:
-  inline given [T, Msg <: String](using ValueOf[Msg]): GivenOrError[T, Msg] =
-    compiletime.error(valueOf[Msg])
-object GivenOrError extends GivenOrErrorLP:
-  given fromValue[T, Msg <: String](using t: T): GivenOrError[T, Msg] with
+object GivenOrError:
+  def apply[T, Msg <: String](t: T): GivenOrError[T, Msg] = new GivenOrError[T, Msg]:
     val value: T = t
-
-trait IsGiven[T]:
-  type Out <: Boolean
-  val value: Out
-protected trait IsGivenLP:
-  given not[T]: IsGiven[T] with
-    type Out = false
-    val value: false = false
-object IsGiven extends IsGivenLP:
-  given is[T](using t: T): IsGiven[T] with
-    type Out = true
-    val value: true = true
+  inline given [T, Msg <: String]: GivenOrError[T, Msg] =
+    ${ GivenOrError.givenOrErrorMacro[T, Msg] }
+  private[internals] def givenOrErrorMacro[T: Type, Msg <: String: Type](using
+      Quotes
+  ): Expr[GivenOrError[T, Msg]] =
+    import quotes.reflect.*
+    Expr.summon[T] match
+      case Some(t) => '{ apply[T, Msg]($t) }
+      case None    =>
+        val ConstantType(StringConstant(msg)) = TypeRepr.of[Msg].dealias: @unchecked
+        IsGiven.controlledMacroError(msg)
+  end givenOrErrorMacro
+end GivenOrError
 
 //from Map[K,V] to Map[V,Set[K]], traverse the input only once
 //From: https://stackoverflow.com/a/51356499/3845175
