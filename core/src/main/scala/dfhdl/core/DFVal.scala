@@ -1177,7 +1177,7 @@ object DFVal extends DFValLP:
   export TDFDouble.Val.Ops.given
   export DFEnum.Val.Ops.given
   export DFOpaque.Val.Ops.evOpAsDFOpaqueIterable
-  export DFPortOps.given
+  export ConnectOps.given
 
   object Ops:
     protected type SupportedValue =
@@ -1228,7 +1228,7 @@ object DFVal extends DFValLP:
       transparent inline def <~>(inline rhs: Any)(using DFC): Any =
         inline (lhs, rhs) match
           case (lhs: DFVal[lt, lm], rhs: DFVal[rt, rm]) =>
-            DFPortOps.specialConnect(lhs, rhs)
+            ConnectOps.specialConnect(lhs, rhs)
           case _ =>
             exactOp2["<>", DFC, Any](lhs, rhs)
         end match
@@ -1502,7 +1502,7 @@ object DFVarOps:
   end extension
 end DFVarOps
 
-object DFPortOps:
+object ConnectOps:
   protected type ConnectableOnly[C, R] = AssertGiven[
     C <:< Modifier.Connectable | R <:< Resource,
     "The LHS of a connection must be a connectable DFHDL value (var/port)."
@@ -1565,7 +1565,7 @@ object DFPortOps:
         rhs.tc.connect(dfPort, rhs.exactFrom)
       }
   end extension
-end DFPortOps
+end ConnectOps
 
 extension (dfVal: ir.DFVal)
   protected[dfhdl] def isUnreachable(using dfc: DFC): Boolean =

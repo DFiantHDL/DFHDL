@@ -18,7 +18,7 @@ protected object hdl:
   export core.TDFString.Val.Ops.*
   export core.DFVal.Ops.*
   export core.DFVarOps.*
-  export core.DFPortOps.*
+  export core.ConnectOps.*
   export core.Conditional.Ops.*
   export core.TextOut.Ops.*
   export compiler.ir.TextOut.Severity
