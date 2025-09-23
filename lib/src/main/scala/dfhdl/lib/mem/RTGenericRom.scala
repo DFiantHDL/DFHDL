@@ -9,7 +9,8 @@ class RTGenericRom[T <: DFType](val dataType: T, val depth: Int)(
       // TODO: this should have just been `Vector.tabulate(depth)(fillFunc)`, but there seem
       // to be a scalac bug that sees difference between `T` of the main and auxiliary constructors.
       // Need to minimize and report.
-      romValues = core.DFVector.Val.conv(dataType, depth)(Vector.tabulate(depth)(fillFunc))
+      romValues =
+        core.DFVector.Val.conv(dataType, depth)(Vector.tabulate(depth)(fillFunc))(using DFC.global)
     )
 
   val addr = Bits.until(depth) <> IN

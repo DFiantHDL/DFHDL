@@ -65,7 +65,7 @@ object DFType:
       // see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
       case enumCompanion: Object => DFEnum(enumCompanion)
   end apply
-  private[core] def unapply(t: Any): Option[DFTypeAny] =
+  private[core] def unapply(t: Any)(using DFC): Option[DFTypeAny] =
     t match
       case dfVal: DFValAny  => Some(dfVal.dfType)
       case DFTuple(dfType)  => Some(dfType)

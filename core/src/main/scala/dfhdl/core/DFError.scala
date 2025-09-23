@@ -48,7 +48,7 @@ object DFError:
 
   extension (dfErr: DFError)
     inline def asNet: DFNet = new DFNet(dfErr)
-    inline def asFE[T <: DFTypeAny]: T = DFType(dfErr).asInstanceOf[T]
+    inline def asFE[T <: DFTypeAny]: T = new DFType(dfErr).asInstanceOf[T]
     inline def asValOf[T <: DFTypeAny]: DFValOf[T] = DFVal[T, ModifierAny, DFError](dfErr)
     inline def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] = DFVal[T, M, DFError](dfErr)
     inline def asOwner: DFOwnerAny = DFOwner[ir.DFOwner](dfErr)

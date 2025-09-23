@@ -7,7 +7,7 @@ import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 import scala.collection.mutable
 import dfhdl.core.DFOpaque as coreDFOpaque
-import dfhdl.core.asFE
+import dfhdl.core.{asFE, DFC}
 
 /** This stage adds clock and reset input ports across the entire design. This stage is run after
   * ExplicitClkRstCfg, so no Derived is expected here. The rules are:
@@ -85,18 +85,19 @@ case object AddClkRst extends Stage:
               else cfg.name.replaceFirst(".norst", "")
             // clk and rst magnet types are either fetched from the memoization
             // or created and memoized
+            val opaqueDFC = DFC.global
             val clkType =
               class Unique:
                 case class Clk() extends coreDFOpaque.Clk:
                   override lazy val typeName: String = s"Clk_${magnetNameSuffix}"
               // the memoization for clock is always for the `.norst`, so only a single memoization
               // is required for both regular and `.norst` versions
-              clkTypeMap.getOrElseUpdate(cfg.norst, coreDFOpaque(Unique().Clk()))
+              clkTypeMap.getOrElseUpdate(cfg.norst, coreDFOpaque(Unique().Clk())(using opaqueDFC))
             val rstType =
               class Unique:
                 case class Rst() extends coreDFOpaque.Rst:
                   override lazy val typeName: String = s"Rst_${magnetNameSuffix}"
-              rstTypeMap.getOrElseUpdate(cfg, coreDFOpaque(Unique().Rst()))
+              rstTypeMap.getOrElseUpdate(cfg, coreDFOpaque(Unique().Rst())(using opaqueDFC))
             // saving changed opaques to change in all relevant members later
             existingClk.foreach(dcl =>
               opaqueReplaceMap += dcl.dfType.asInstanceOf[DFOpaque] -> clkType.asIR

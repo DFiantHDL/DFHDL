@@ -65,9 +65,12 @@ object DFVector:
     extension [T <: DFType.Supported, D <: IntP](t: T)(using tc: DFType.TC[T])
       infix def X(
           cellDim: IntParam[D]
-      )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] = trydf:
-        check(cellDim)
-        DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim))
+      )(using
+          dfc: DFC = DFC.global
+      )(using check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] =
+        trydf:
+          check(cellDim)
+          DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim))
   end Ops
 
   object Val:

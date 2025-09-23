@@ -33,12 +33,12 @@ final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DF
   transparent inline def ==[R](
       inline that: R
   )(using DFC): DFValTP[DFBool, Any] = ${
-    DFVal.equalityMacro[T, M, R, FuncOp.===.type]('this, 'that)
+    DFVal.equalityMacro[T, M, R, FuncOp.===.type]('this, 'that)('dfc)
   }
   transparent inline def !=[R](
       inline that: R
   )(using DFC): DFValTP[DFBool, Any] = ${
-    DFVal.equalityMacro[T, M, R, FuncOp.=!=.type]('this, 'that)
+    DFVal.equalityMacro[T, M, R, FuncOp.=!=.type]('this, 'that)('dfc)
   }
 end DFVal
 
@@ -138,7 +138,7 @@ end extension
 
 def DFValConversionMacro[T <: DFTypeAny, P, R](
     from: Expr[R]
-)(using Quotes, Type[T], Type[P], Type[R]): Expr[DFValTP[T, P]] =
+)(dfc: Expr[DFC])(using Quotes, Type[T], Type[P], Type[R]): Expr[DFValTP[T, P]] =
   import quotes.reflect.*
   val fromExactInfo = from.exactInfo
   lazy val nonConstTermOpt = from.asTerm.getNonConstTerm
@@ -148,10 +148,9 @@ def DFValConversionMacro[T <: DFTypeAny, P, R](
     val tStr = Expr(s"implicit conversion to type ${TypeRepr.of[T].showDFType}")
     '{
       val tc = compiletime.summonInline[DFVal.TCConv[T, fromExactInfo.Underlying]]
-      val dfc = compiletime.summonInline[DFC]
       trydf {
-        tc(${ fromExactInfo.exactExpr })(using dfc).asValTP[T, P]
-      }(using dfc, CTName($tStr))
+        tc(${ fromExactInfo.exactExpr })(using $dfc).asValTP[T, P]
+      }(using $dfc, CTName($tStr))
     }
   end if
 end DFValConversionMacro
@@ -176,8 +175,8 @@ sealed protected trait DFValLP:
       R <: CommonR | SameElementsVector[?] | NonEmptyTuple
   ](
       inline from: R
-  ): DFValTP[DFBits[W], ISCONST[P]] = ${
-    DFValConversionMacro[DFBits[W], ISCONST[P], R]('from)
+  )(using dfc: DFC): DFValTP[DFBits[W], ISCONST[P]] = ${
+    DFValConversionMacro[DFBits[W], ISCONST[P], R]('from)('dfc)
   }
   // TODO: candidate should be fixed to cause UInt[?]->SInt[Int] conversion
   implicit transparent inline def DFXIntValConversion[
@@ -188,8 +187,8 @@ sealed protected trait DFValLP:
       R <: CommonR | Int
   ](
       inline from: R
-  ): DFValTP[DFXInt[S, W, N], ISCONST[P]] = ${
-    DFValConversionMacro[DFXInt[S, W, N], ISCONST[P], R]('from)
+  )(using dfc: DFC): DFValTP[DFXInt[S, W, N], ISCONST[P]] = ${
+    DFValConversionMacro[DFXInt[S, W, N], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFOpaqueValConversion[
       TFE <: DFOpaque.Abstract,
@@ -197,8 +196,8 @@ sealed protected trait DFValLP:
       R <: CommonR
   ](
       inline from: R
-  ): DFValTP[DFOpaque[TFE], ISCONST[P]] = ${
-    DFValConversionMacro[DFOpaque[TFE], ISCONST[P], R]('from)
+  )(using dfc: DFC): DFValTP[DFOpaque[TFE], ISCONST[P]] = ${
+    DFValConversionMacro[DFOpaque[TFE], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFStructValConversion[
       F <: DFStruct.Fields,
@@ -206,8 +205,8 @@ sealed protected trait DFValLP:
       R <: CommonR | DFStruct.Fields
   ](
       inline from: R
-  ): DFValTP[DFStruct[F], ISCONST[P]] = ${
-    DFValConversionMacro[DFStruct[F], ISCONST[P], R]('from)
+  )(using dfc: DFC): DFValTP[DFStruct[F], ISCONST[P]] = ${
+    DFValConversionMacro[DFStruct[F], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFTupleValConversion[
       T <: NonEmptyTuple,
@@ -215,8 +214,8 @@ sealed protected trait DFValLP:
       R <: CommonR | NonEmptyTuple
   ](
       inline from: R
-  ): DFValTP[DFTuple[T], ISCONST[P]] = ${
-    DFValConversionMacro[DFTuple[T], ISCONST[P], R]('from)
+  )(using dfc: DFC): DFValTP[DFTuple[T], ISCONST[P]] = ${
+    DFValConversionMacro[DFTuple[T], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFVectorValConversion[
       T <: DFTypeAny,
@@ -225,24 +224,24 @@ sealed protected trait DFValLP:
       R <: CommonR | Iterable[?] | SameElementsVector[?]
   ](
       inline from: R
-  ): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${
-    DFValConversionMacro[DFVector[T, Tuple1[D]], ISCONST[P], R]('from)
+  )(using dfc: DFC): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${
+    DFValConversionMacro[DFVector[T, Tuple1[D]], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFBitValConversion[
       P <: Boolean,
       R <: CommonR | Int | Boolean
   ](
       inline from: R
-  ): DFValTP[DFBit, ISCONST[P]] = ${
-    DFValConversionMacro[DFBit, ISCONST[P], R]('from)
+  )(using dfc: DFC): DFValTP[DFBit, ISCONST[P]] = ${
+    DFValConversionMacro[DFBit, ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFBoolValConversion[
       P <: Boolean,
       R <: CommonR | Int | Boolean
   ](
       inline from: R
-  ): DFValTP[DFBool, ISCONST[P]] = ${
-    DFValConversionMacro[DFBool, ISCONST[P], R]('from)
+  )(using dfc: DFC): DFValTP[DFBool, ISCONST[P]] = ${
+    DFValConversionMacro[DFBool, ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFEnumValConversion[
       E <: DFEncoding,
@@ -250,31 +249,33 @@ sealed protected trait DFValLP:
       R <: CommonR | E
   ](
       inline from: R
-  ): DFValTP[DFEnum[E], ISCONST[P]] = ${
-    DFValConversionMacro[DFEnum[E], ISCONST[P], R]('from)
+  )(using dfc: DFC): DFValTP[DFEnum[E], ISCONST[P]] = ${
+    DFValConversionMacro[DFEnum[E], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFDoubleValConversion[
       P <: Boolean,
       R <: CommonR | Double
   ](
       inline from: R
-  ): DFValTP[DFDouble, ISCONST[P]] = ${
-    DFValConversionMacro[DFDouble, ISCONST[P], R]('from)
+  )(using dfc: DFC): DFValTP[DFDouble, ISCONST[P]] = ${
+    DFValConversionMacro[DFDouble, ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFStringValConversion[
       P <: Boolean,
       R <: CommonR | String
   ](
       inline from: R
-  ): DFValTP[DFString, ISCONST[P]] = ${
-    DFValConversionMacro[DFString, ISCONST[P], R]('from)
+  )(using dfc: DFC): DFValTP[DFString, ISCONST[P]] = ${
+    DFValConversionMacro[DFString, ISCONST[P], R]('from)('dfc)
   }
   given DFUnitValConversion[R <: CommonR | Unit | NonEmptyTuple](using
       dfc: DFC
   ): Conversion[R, DFValOf[DFUnit]] = from => DFUnitVal().asInstanceOf[DFValOf[DFUnit]]
   given ConstToNonConstAccept[T <: DFTypeAny, P]: Conversion[DFValTP[T, P], DFValTP[T, NOTCONST]] =
     from => from.asValTP[T, NOTCONST]
-  given DFRateToRateNumber(using dfc: DFC): Conversion[DFConstOf[DFTime | DFFreq], ir.RateNumber] =
+  given DFRateToRateNumber(using
+      dfc: DFC
+  ): Conversion[DFConstOf[DFTime | DFFreq], ir.RateNumber] =
     x =>
       import dfc.getSet
       x.asIR.getConstData.get.asInstanceOf[ir.RateNumber]
@@ -319,7 +320,7 @@ object DFVal extends DFValLP:
   def equalityMacro[T <: DFTypeAny, M <: ModifierAny, R, Op <: FuncOp](
       dfVal: Expr[DFVal[T, M]],
       arg: Expr[R]
-  )(using Quotes, Type[T], Type[M], Type[R], Type[Op]): Expr[DFValTP[DFBool, Any]] =
+  )(dfc: Expr[DFC])(using Quotes, Type[T], Type[M], Type[R], Type[Op]): Expr[DFValTP[DFBool, Any]] =
     import quotes.reflect.*
     if (TypeRepr.of[T].typeSymbol equals defn.NothingClass)
       return IsGiven.controlledMacroError("This is fake")
@@ -328,9 +329,8 @@ object DFVal extends DFValLP:
     val rpType = exactInfo.exactTpe.isConstTpe.asTypeOf[Any]
     '{
       val c = compiletime.summonInline[DFVal.Compare[T, exactInfo.Underlying, Op, false]]
-      val dfc = compiletime.summonInline[DFC]
       c($dfVal, ${ exactInfo.exactExpr })(using
-        dfc,
+        $dfc,
         compiletime.summonInline[ValueOf[Op]],
         new ValueOf[false](false)
       )

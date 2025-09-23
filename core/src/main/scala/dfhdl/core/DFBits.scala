@@ -127,7 +127,7 @@ object DFBits:
       private[DFBits] def interpolate(
           opExpr: Expr[String],
           explicitWidthOptionExpr: Expr[Option[IntP]]
-      ): Expr[DFConstAny] =
+      )(dfc: Expr[DFC]): Expr[DFConstAny] =
         import quotes.reflect.*
         val explicitWidthTpeOption: Option[TypeRepr] = explicitWidthOptionExpr match
           case '{ Some($expr) } => Some(expr.asTerm.tpe)
@@ -156,11 +156,10 @@ object DFBits:
         val widthType = widthTpe.asTypeOf[IntP]
         val fullExpr = fullTerm.asExprOf[String]
         '{
-          val dfc = compiletime.summonInline[DFC]
           $fullExpr.interpolate[widthType.Underlying](
             $opExpr,
             $explicitWidthOptionExpr
-          )(using dfc)
+          )(using $dfc)
         }
     end extension
 
@@ -172,12 +171,12 @@ object DFBits:
     opaque type BinStrCtx <: StringContext = StringContext
     object BinStrCtx:
       extension (inline sc: BinStrCtx)
-        transparent inline def apply(inline args: Any*): Any =
-          ${ applyMacro('sc, 'args) }
+        transparent inline def apply(inline args: Any*)(using dfc: DFC): Any =
+          ${ applyMacro('sc, 'args)('dfc) }
         transparent inline def unapplySeq[T <: DFTypeAny](
             inline arg: DFValOf[T]
-        )(using DFC): Option[Seq[Any]] =
-          ${ unapplySeqMacro('sc, 'arg) }
+        )(using dfc: DFC): Option[Seq[Any]] =
+          ${ unapplySeqMacro('sc, 'arg)('dfc) }
 
     extension (sc: StringContext)
       /** Binary Bits Vector String Interpolator
@@ -245,7 +244,7 @@ object DFBits:
     private def applyMacro(
         sc: Expr[BinStrCtx],
         args: Expr[Seq[Any]]
-    )(using Quotes): Expr[DFConstAny] =
+    )(dfc: Expr[DFC])(using Quotes): Expr[DFConstAny] =
       import quotes.reflect.*
       var Varargs(argsExprs) = args: @unchecked
 
@@ -281,13 +280,13 @@ object DFBits:
       parts.map(Expr(_)).scPartsWithArgs(argsExprs).interpolate(
         Expr(sc.funcName),
         explicitWidthOption
-      )
+      )(dfc)
     end applyMacro
 
     private def unapplySeqMacro[T <: DFTypeAny](
         sc: Expr[BinStrCtx],
         arg: Expr[DFValOf[T]]
-    )(using Quotes, Type[T]): Expr[Option[Seq[Any]]] =
+    )(dfc: Expr[DFC])(using Quotes, Type[T]): Expr[Option[Seq[Any]]] =
       import quotes.reflect.*
       val parts = sc.parts
       val partsStr = parts.map(_.value.get).toList
@@ -316,20 +315,19 @@ object DFBits:
             Literal(StringConstant(wordStr)).interpolate(
               opExpr,
               '{ Some(${ Expr(widthStr.toInt) }) }
-            )
-          case _ => parts.head.asTerm.interpolate(opExpr, '{ None })
+            )(dfc)
+          case _ => parts.head.asTerm.interpolate(opExpr, '{ None })(dfc)
 
         val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
         '{
-          val dfc = compiletime.summonInline[DFC]
           val tc = compiletime.summonInline[
             DFVal.Compare[T, dfValType.Underlying, FuncOp.===.type, false]
           ]
           Some(
             Seq(
               trydf(
-                tc.conv(${ arg }.dfType, $dfVal)(using dfc)
-              )(using dfc, CTName($opExpr))
+                tc.conv(${ arg }.dfType, $dfVal)(using $dfc)
+              )(using $dfc, CTName($opExpr))
             )
           )
         }
@@ -511,8 +509,8 @@ object DFBits:
     object TupleOps:
       // explicit conversion of a tuple to bits (concatenation)
       extension (inline tpl: NonEmptyTuple)
-        transparent inline def toBits: Any = ${ bitsMacro('tpl) }
-      private def bitsMacro(tpl: Expr[NonEmptyTuple])(using Quotes): Expr[Any] =
+        transparent inline def toBits(using dfc: DFC): Any = ${ bitsMacro('tpl)('dfc) }
+      private def bitsMacro(tpl: Expr[NonEmptyTuple])(dfc: Expr[DFC])(using Quotes): Expr[Any] =
         import quotes.reflect.*
         val exactInfo = tpl.exactInfo
         import Width.*
@@ -521,7 +519,7 @@ object DFBits:
         val wType = rTpe.calcValWidth.asTypeOf[Int]
         '{
           Val.Candidate
-            .valueToBits($tpl)(using compiletime.summonInline[DFC])
+            .valueToBits($tpl)(using $dfc)
             .asValTP[DFBits[wType.Underlying], pType.Underlying]
         }
     end TupleOps

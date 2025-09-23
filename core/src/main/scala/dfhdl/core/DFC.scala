@@ -119,6 +119,7 @@ object DFC:
   def empty(eo: ElaborationOptions): DFC =
     DFC(None, Position.unknown, None, elaborationOptionsContr = () => eo)
   def emptyNoEO: DFC = DFC(None, Position.unknown, None)
+  def global: DFC = DFC(None, Position.unknown, None)
   sealed trait Scope
   object Scope:
     sealed trait Global extends Scope

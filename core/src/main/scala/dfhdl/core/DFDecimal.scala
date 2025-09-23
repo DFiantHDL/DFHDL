@@ -361,7 +361,7 @@ object DFDecimal:
       private[DFDecimal] def interpolate(
           opExpr: Expr[String],
           explicitWidthOptionExpr: Expr[Option[IntP]]
-      ): Expr[DFConstAny] =
+      )(dfc: Expr[DFC]): Expr[DFConstAny] =
         import quotes.reflect.*
         val explicitWidthTpeOption: Option[TypeRepr] = explicitWidthOptionExpr match
           case '{ Some($expr) } => Some(expr.asTerm.tpe)
@@ -394,7 +394,6 @@ object DFDecimal:
         val fractionWidthType = fractionWidthTpe.asTypeOf[Int]
         val fullExpr = fullTerm.asExprOf[String]
         '{
-          val dfc = compiletime.summonInline[DFC]
           $fullExpr.interpolate[
             signedType.Underlying,
             widthType.Underlying,
@@ -402,7 +401,7 @@ object DFDecimal:
           ](
             $opExpr,
             $explicitWidthOptionExpr
-          )(using dfc)
+          )(using $dfc)
         }
       end interpolate
     end extension
@@ -414,12 +413,12 @@ object DFDecimal:
     opaque type DecStrCtx <: StringContext = StringContext
     object DecStrCtx:
       extension (inline sc: DecStrCtx)
-        transparent inline def apply(inline args: Any*): Any =
-          ${ applyMacro('sc, 'args) }
+        transparent inline def apply(inline args: Any*)(using dfc: DFC): Any =
+          ${ applyMacro('sc, 'args)('dfc) }
         transparent inline def unapplySeq[T <: DFTypeAny](
             inline arg: DFValOf[T]
-        )(using DFC): Option[Seq[Any]] =
-          ${ unapplySeqMacro('sc, 'arg) }
+        )(using dfc: DFC): Option[Seq[Any]] =
+          ${ unapplySeqMacro('sc, 'arg)('dfc) }
 
     extension (sc: StringContext)
       /** Decimal Integer String Interpolator
@@ -490,11 +489,10 @@ object DFDecimal:
     private def applyMacro(
         sc: Expr[DecStrCtx],
         args: Expr[Seq[Any]]
-    )(using Quotes): Expr[DFConstAny] =
+    )(dfc: Expr[DFC])(using Quotes): Expr[DFConstAny] =
       import quotes.reflect.*
       val Varargs(argsExprs) = args: @unchecked
       val parts = sc.parts.map(_.value.get).toList
-      val dfc = Expr.summon[DFC].get
       object WidthExpr:
         def unapply(arg: Expr[Any]): Option[Expr[IntP]] =
           val tpe = arg.asTerm.tpe
@@ -551,14 +549,14 @@ object DFDecimal:
         // $width'1234
         case "" :: valueNoWidthPattern(valueStr) :: Nil =>
           val (WidthExpr(widthExpr) :: Nil) = argsExprs.toList: @unchecked
-          Expr(valueStr).asTerm.interpolate(Expr(sc.funcName), '{ Some($widthExpr) })
+          Expr(valueStr).asTerm.interpolate(Expr(sc.funcName), '{ Some($widthExpr) })(dfc)
         // 16'1234
         case widthValuePattern(widthStr, valueStr) :: Nil =>
           val widthExpr = Expr(widthStr.toInt)
-          Expr(valueStr).asTerm.interpolate(Expr(sc.funcName), '{ Some($widthExpr) })
+          Expr(valueStr).asTerm.interpolate(Expr(sc.funcName), '{ Some($widthExpr) })(dfc)
         // 1234
         case numPattern(valueStr) :: Nil =>
-          Expr(valueStr).asTerm.interpolate(Expr(sc.funcName), '{ None })
+          Expr(valueStr).asTerm.interpolate(Expr(sc.funcName), '{ None })(dfc)
         case _ =>
           report.errorAndAbort(
             s"Unsupported decimal string interpolation pattern"
@@ -569,7 +567,7 @@ object DFDecimal:
     private def unapplySeqMacro[T <: DFTypeAny](
         sc: Expr[DecStrCtx],
         arg: Expr[DFValOf[T]]
-    )(using Quotes, Type[T]): Expr[Option[Seq[DFValOf[T]]]] =
+    )(dfc: Expr[DFC])(using Quotes, Type[T]): Expr[Option[Seq[DFValOf[T]]]] =
       import quotes.reflect.*
       val parts = sc.parts
       val partsStr = parts.map(_.value.get).toList
@@ -588,19 +586,18 @@ object DFDecimal:
             Literal(StringConstant(wordStr)).interpolate(
               opExpr,
               '{ Some(${ Expr(widthStr.toInt) }) }
-            )
-          case _ => parts.head.asTerm.interpolate(opExpr, '{ None })
+            )(dfc)
+          case _ => parts.head.asTerm.interpolate(opExpr, '{ None })(dfc)
         val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
         '{
-          val dfc = compiletime.summonInline[DFC]
           val tc = compiletime.summonInline[
             DFVal.Compare[T, dfValType.Underlying, FuncOp.===.type, false]
           ]
           Some(
             Seq(
               trydf(
-                tc.conv(${ arg }.dfType, $dfVal)(using dfc)
-              )(using dfc, CTName($opExpr))
+                tc.conv(${ arg }.dfType, $dfVal)(using $dfc)
+              )(using $dfc, CTName($opExpr))
             )
           )
         }

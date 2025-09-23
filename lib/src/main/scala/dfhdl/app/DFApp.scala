@@ -38,7 +38,7 @@ trait DFApp:
 
   // this context is just for enabling `getConstData` to work.
   // the internal global context inside `value` will be actually at play here.
-  val dfc: DFC = DFC.emptyNoEO
+  given dfc: DFC = DFC.global
 
   private var designArgs: DesignArgs = DesignArgs.empty
   private var elaborationOptions: options.ElaborationOptions = compiletime.uninitialized

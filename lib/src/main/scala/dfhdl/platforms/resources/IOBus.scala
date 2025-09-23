@@ -21,14 +21,18 @@ object IOBus:
     forced[T, L](List.tabulate(length)(i => f.injectID(s"${dfc.getMeta.name}($i)")))
   private def forced[T <: IO, L <: Int](ios: List[T])(using DFC): IOBus[T, L] =
     new IOBus[T, L](ios.toList)
-  transparent inline def apply[T <: IO](inline ios: T*): IOBus[T, ?] = ${ applyMacro[T]('ios) }
-  def applyMacro[T <: IO](ios: Expr[Seq[T]])(using Quotes, Type[T]): Expr[IOBus[T, ?]] =
+  transparent inline def apply[T <: IO](inline ios: T*)(using dfc: DFC): IOBus[T, ?] =
+    ${ applyMacro[T]('ios)('dfc) }
+  def applyMacro[T <: IO](ios: Expr[Seq[T]])(dfc: Expr[DFC])(using
+      Quotes,
+      Type[T]
+  ): Expr[IOBus[T, ?]] =
     import quotes.reflect.*
     val Varargs(args) = ios: @unchecked
     val ctLength = args.length
     val ctLengthType = ConstantType(IntConstant(ctLength)).asTypeOf[Int]
     '{
-      forced[T, ctLengthType.Underlying]($ios.toList)(using compiletime.summonInline[DFC])
+      forced[T, ctLengthType.Underlying]($ios.toList)(using $dfc)
     }
   protected object `RW == TW`
       extends Check2[

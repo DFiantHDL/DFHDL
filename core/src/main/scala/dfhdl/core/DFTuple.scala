@@ -19,7 +19,7 @@ object DFTuple:
   )(using DFC): DFTuple[T] = ir.DFTuple(
     fieldList.map(_.asIR.dropUnreachableRefs(allowDesignParamRefs = false))
   ).asFE[DFTuple[T]]
-  private[core] def unapply(t: NonEmptyTuple): Option[DFTuple[NonEmptyTuple]] =
+  private[core] def unapply(t: NonEmptyTuple)(using DFC): Option[DFTuple[NonEmptyTuple]] =
     val tList = t.toList
     val fieldList: List[DFTypeAny] = tList.flatMap {
       case DFType(x) => Some(x)
@@ -49,15 +49,15 @@ object DFTuple:
         V <: NonEmptyTuple,
         O,
         TC[T <: DFTypeAny, V] <: TCCommon[T, V, O]
-    ]: TCZipper[T, V, O, TC] = ${
-      zipperMacro[T, V, O, TC]
+    ](using dfc: DFC): TCZipper[T, V, O, TC] = ${
+      zipperMacro[T, V, O, TC]('dfc)
     }
     def zipperMacro[
         T <: NonEmptyTuple,
         V <: NonEmptyTuple,
         O,
         TC[T <: DFTypeAny, V] <: TCCommon[T, V, O]
-    ](using
+    ](dfc: Expr[DFC])(using
         Quotes,
         Type[T],
         Type[V],
@@ -90,7 +90,7 @@ object DFTuple:
                   $tupleValuesExpr
                     .apply($iExpr)
                     .asInstanceOf[vType.Underlying]
-                tc.conv(dfType, value)(using compiletime.summonInline[DFC])
+                tc.conv(dfType, value)(using $dfc)
               }
             }
           '{ List(${ Varargs(exprs) }*) }
