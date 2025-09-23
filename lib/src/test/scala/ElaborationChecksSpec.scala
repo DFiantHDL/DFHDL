@@ -417,4 +417,22 @@ class ElaborationChecksSpec extends DesignSpec:
           |To Fix:
           |Ensure each location is used by a single port bit.""".stripMargin
     )
+  test("big input small output connection"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val x = UInt(8) <> IN
+        val y = UInt(7) <> OUT
+        x <> y
+      end Top
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:425:9 - 425:15
+          |Hierarchy: Top
+          |LHS:       x
+          |RHS:       y.resize(8)
+          |Message:   Unexpected write access to the immutable value y.resize(8).""".stripMargin
+    )
 end ElaborationChecksSpec

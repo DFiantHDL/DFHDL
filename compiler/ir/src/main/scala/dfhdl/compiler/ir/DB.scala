@@ -424,6 +424,9 @@ final case class DB(
               case None =>
                 newError(s"Unexpected write access to the immutable value ${v.relValString}.")
                 None
+              case Some(dcl, range) if dcl.width < range.length =>
+                newError(s"Unexpected write access to the immutable value ${v.relValString}.")
+                None
               case x => x
         )
         toDclAndRangeOption match
