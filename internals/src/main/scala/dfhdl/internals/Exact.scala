@@ -299,10 +299,18 @@ trait ExactOp2[Op, Ctx, OutUB, LHS, RHS]:
   def apply(lhs: LHS, rhs: RHS)(using Ctx): Out
 type ExactOp2Aux[Op, Ctx, OutUB, LHS, RHS, O <: OutUB] =
   ExactOp2[Op, Ctx, OutUB, LHS, RHS] { type Out = O }
-transparent inline def exactOp2[Op, Ctx, OutUB](inline lhs: Any, inline rhs: Any)(using
+transparent inline def exactOp2[Op, Ctx, OutUB](
+    inline lhs: Any,
+    inline rhs: Any,
+    inline bothWays: Boolean = false
+)(using
     ctx: Ctx
-): OutUB = ${ exactOp2Macro[Op, Ctx, OutUB]('lhs, 'rhs)('ctx) }
-private def exactOp2Macro[Op, Ctx, OutUB](lhs: Expr[Any], rhs: Expr[Any])(ctx: Expr[Ctx])(
+): OutUB = ${ exactOp2Macro[Op, Ctx, OutUB]('lhs, 'rhs, 'bothWays)('ctx) }
+private def exactOp2Macro[Op, Ctx, OutUB](
+    lhs: Expr[Any],
+    rhs: Expr[Any],
+    bothWays: Expr[Boolean]
+)(ctx: Expr[Ctx])(
     using
     Quotes,
     Type[Op],
@@ -312,12 +320,32 @@ private def exactOp2Macro[Op, Ctx, OutUB](lhs: Expr[Any], rhs: Expr[Any])(ctx: E
   import quotes.reflect.*
   val lhsExactInfo = lhs.exactInfo
   val rhsExactInfo = rhs.exactInfo
-  Expr.summon[ExactOp2[Op, Ctx, OutUB, lhsExactInfo.Underlying, rhsExactInfo.Underlying]] match
+  Expr.summon[ExactOp2[
+    Op,
+    Ctx,
+    OutUB,
+    lhsExactInfo.Underlying,
+    rhsExactInfo.Underlying
+  ]] match
     case Some(expr) => '{
         $expr(${ lhsExactInfo.exactExpr }, ${ rhsExactInfo.exactExpr })(using $ctx)
       }
     case None =>
-      IsGiven.controlledMacroError("Unsupported argument types for this operation.")
+      if (bothWays.value.get)
+        Expr.summon[ExactOp2[
+          Op,
+          Ctx,
+          OutUB,
+          rhsExactInfo.Underlying,
+          lhsExactInfo.Underlying
+        ]] match
+          case Some(expr) => '{
+              $expr(${ rhsExactInfo.exactExpr }, ${ lhsExactInfo.exactExpr })(using $ctx)
+            }
+          case None =>
+            IsGiven.controlledMacroError("Unsupported argument types for this operation.")
+      else
+        IsGiven.controlledMacroError("Unsupported argument types for this operation.")
   end match
 end exactOp2Macro
 

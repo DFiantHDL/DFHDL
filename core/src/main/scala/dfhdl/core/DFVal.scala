@@ -1226,11 +1226,18 @@ object DFVal extends DFValLP:
     end extension
     extension (inline lhs: Any)
       transparent inline def <~>(inline rhs: Any)(using DFC): Any =
+        // operator `<>` as a constructor is unidirectional
+        // operator `<>` as a connection is bidirectional and commutative
         inline (lhs, rhs) match
-          case (lhs: DFVal[lt, lm], rhs: DFVal[rt, rm]) =>
-            ConnectOps.specialConnect(lhs, rhs)
-          case _ =>
-            exactOp2["<>", DFC, Any](lhs, rhs)
+          // if the RHS is a modifier, this is a port/variable constructor,
+          // so we invoke the the implicit given operation only in one way
+          case (_, _: ModifierAny) => exactOp2["<>", DFC, Any](lhs, rhs)
+          // if both LHS and RHS are DFVals, we call `specialConnect` to handle possible
+          // connection in either direction where both implicit directions are available
+          case (lhs: DFVal[lt, lm], rhs: DFVal[rt, rm]) => ConnectOps.specialConnect(lhs, rhs)
+          // otherwise, we invoke the implicit given operation in both directions by turning
+          // on the bothWays flag for all other cases
+          case _ => exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
         end match
     end extension
 
@@ -1507,6 +1514,10 @@ object ConnectOps:
     C <:< Modifier.Connectable | R <:< Resource,
     "The LHS of a connection must be a connectable DFHDL value (var/port)."
   ]
+  protected type ConnectableOnly2[C] = AssertGiven[
+    C =:= Modifier.Connectable,
+    "At least one of the connection arguments must be a connectable DFHDL value (var/port)."
+  ]
   protected type ConnectableModifier[M <: ModifierAny] =
     M <:< Modifier[Any, Modifier.Connectable, Any, Any]
   protected trait TC_Connect[CT <: DFTypeAny, CM <: ModifierAny, Producer <: DFValAny]:
@@ -1554,6 +1565,21 @@ object ConnectOps:
       "At least one of the connection arguments must be a connectable DFHDL value (var/port)."
     )
   end specialConnect
+
+  given evConnectPort[
+      T <: DFTypeAny,
+      C,
+      M <: Modifier[Any, C, Any, Any],
+      L <: DFVal[T, M],
+      R
+  ](using
+      connectableOnly: ConnectableOnly2[C],
+      tc: DFVal.TC_Or_OPEN_Or_Resource[T, R]
+  ): ExactOp2Aux["<>", DFC, Any, L, R, Unit] = new ExactOp2["<>", DFC, Any, L, R]:
+    type Out = Unit
+    def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
+      lhs.connect(tc(lhs.dfType, rhs))
+    }(using dfc, CTName("<>"))
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
     def <>(rhs: DFVal.TC_Or_OPEN_Or_Resource.Exact[T])(using
         DFC
