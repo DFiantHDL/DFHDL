@@ -1527,28 +1527,30 @@ object DFPortOps:
       inline lhs: L,
       inline rhs: R
   )(using DFC): Unit =
-    inline (compiletime.erasedValue[LM], compiletime.erasedValue[RM]) match
-      case (
-            _: Modifier[Any, Modifier.Connectable, Any, Any],
-            _: Modifier[Any, Modifier.Connectable, Any, Any]
-          ) =>
-        inline if (IsGiven[TC_Connect[LT, L, R]])
-          val tcL = compiletime.summonInline[TC_Connect[LT, L, R]]
-          inline if (IsGiven[TC_Connect[RT, R, L]])
-            val tcR = compiletime.summonInline[TC_Connect[RT, R, L]]
-            // since we have both candidates, we try the RHS first, so if both fail at runtime,
-            // the error message will be from the LHS as fallback.
-            try tcR.connect(rhs, lhs)
-            catch case e: Throwable => tcL.connect(lhs, rhs)
-          else tcL.connect(lhs, rhs)
-        else if (IsGiven[TC_Connect[RT, R, L]])
-          compiletime.summonInline[TC_Connect[RT, R, L]].connect(rhs, lhs)
-        else
-          // forcing the error message from the LHS case
-          compiletime.summonInline[TC_Connect[LT, L, R]]
-      case _ => compiletime.error(
-          "At least one of the connection arguments must be a connectable DFHDL value (var/port)."
-        )
+    inline val connectableL = inline (compiletime.erasedValue[LM]) match
+      case _: Modifier[Any, Modifier.Connectable, Any, Any] => true
+      case _                                                => false
+    inline val connectableR = inline (compiletime.erasedValue[RM]) match
+      case _: Modifier[Any, Modifier.Connectable, Any, Any] => true
+      case _                                                => false
+    inline if (connectableL || connectableR)
+      inline if (IsGiven[TC_Connect[LT, L, R]])
+        val tcL = compiletime.summonInline[TC_Connect[LT, L, R]]
+        inline if (IsGiven[TC_Connect[RT, R, L]])
+          val tcR = compiletime.summonInline[TC_Connect[RT, R, L]]
+          // since we have both candidates, we try the RHS first, so if both fail at runtime,
+          // the error message will be from the LHS as fallback.
+          try tcR.connect(rhs, lhs)
+          catch case e: Throwable => tcL.connect(lhs, rhs)
+        else tcL.connect(lhs, rhs)
+      else if (IsGiven[TC_Connect[RT, R, L]])
+        compiletime.summonInline[TC_Connect[RT, R, L]].connect(rhs, lhs)
+      else
+        // forcing the error message from the LHS case
+        compiletime.summonInline[TC_Connect[LT, L, R]]
+    else compiletime.error(
+      "At least one of the connection arguments must be a connectable DFHDL value (var/port)."
+    )
   end specialConnect
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
     def <>(rhs: DFVal.TC_Or_OPEN_Or_Resource.Exact[T])(using
