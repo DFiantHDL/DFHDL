@@ -194,7 +194,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           template.body.collectFirst {
             case dd: DefDef
                 if dd.symbol.is(Override) && dd.symbol.name.toString == "__dfc" &&
-                  dd.tpt.tpe <:< metaContextTpe =>
+                  dd.tpt.tpe.isMetaContext =>
               if (!treeOwnerOverrideMap.contains(dd))
                 treeOwnerOverrideMap += (dd -> (EmptyTree, p.srcPos))
           }
@@ -205,7 +205,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   override def transformDefDef(tree: DefDef)(using Context): tpd.Tree =
     val sym = tree.symbol
-    if (sym.name.toString == "__dfc" && tree.tpt.tpe <:< metaContextTpe)
+    if (sym.name.toString == "__dfc" && tree.tpt.tpe.isMetaContext)
       if (sym.is(Override)) treeOwnerOverrideMap.get(tree) match
         case Some(ownerTree, srcPos) =>
           getMetaInfo(ownerTree, srcPos) match
@@ -298,7 +298,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           if (ownerTree.symbol.isAnonymousFunction)
             ownerTree match
               // this case is for functions like `def foo(block : DFC ?=> Unit) : Unit`
-              case DefDef(paramss = List(List(arg))) => arg.tpe <:< metaContextTpe
+              case DefDef(paramss = List(List(arg))) => arg.tpe.isMetaContext
               case _                                 => false
           else true
         if (add) iterableType match
@@ -354,7 +354,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
                 case dd: DefDef
                     if dd.symbol.is(
                       Override
-                    ) && dd.symbol.name.toString == "__dfc" && dd.tpt.tpe <:< metaContextTpe =>
+                    ) && dd.symbol.name.toString == "__dfc" && dd.tpt.tpe.isMetaContext =>
                   dd
               }
               addToTreeOwnerMap(p, ownerTree, inlinedSrcPos, dfcOverrideDef)
@@ -379,7 +379,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         // debug(tree.symbol)
         tree.rhs.asInstanceOf[Template].constr
     defdefTree.paramss.flatten.view.reverse.collectFirst {
-      case a if a.tpe <:< metaContextTpe =>
+      case a if a.tpe.isMetaContext =>
         val fixedName = a.symbol.fixedFullName
         // debug(s"Def   ${fixedName}, ${tree.show}")
         contextDefs += (fixedName -> tree)
