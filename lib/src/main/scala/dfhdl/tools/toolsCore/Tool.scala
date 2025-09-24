@@ -35,14 +35,18 @@ trait Tool:
     var runExecFullPathRet: String = ""
     val installedVersionRet = programFullPaths(runExec).view.flatMap { runExecFullPath =>
       runExecFullPathRet = runExecFullPath
-      val getVersionFullCmd =
-        Process(
-          s"$runExecFullPath $versionCmd",
-          new java.io.File(System.getProperty("java.io.tmpdir"))
-        )
+      val versionText =
+        if (versionCmd.nonEmpty)
+          val getVersionFullCmd =
+            Process(
+              s"$runExecFullPath $versionCmd",
+              new java.io.File(System.getProperty("java.io.tmpdir"))
+            )
+          getVersionFullCmd.lazyLines_!.mkString("\n")
+        else runExecFullPath
       // since the command is not guaranteed to return 0, we need to use lazyLines_! and avoid
       // exception handling (e.g., vivado returns 1 for version check)
-      try extractVersion(getVersionFullCmd.lazyLines_!.mkString("\n"))
+      try extractVersion(versionText)
       catch case e: Exception => None
     }.headOption
     (runExecFullPathRet, installedVersionRet)

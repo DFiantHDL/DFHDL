@@ -20,15 +20,11 @@ object Diamond extends Builder:
   val toolName: String = "Diamond"
   protected def binExec: String = "diamondc"
   override protected def windowsBinExec: String = "pnmainc.exe"
-  protected def versionCmd: String = ???
+  // tool does not have a version command and it will be extracted from installed path
+  protected def versionCmd: String = ""
   protected def extractVersion(cmdRetStr: String): Option[String] =
     val versionPattern = (s""".*diamond\\${separatorChar}(\\d+\\.\\d+)""").r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
-
-  // gowin designer does not have a version command, so we need to extract the version from installed path
-  override private[dfhdl] lazy val installedVersion: Option[String] =
-    if (runExecFullPath.isEmpty) None
-    else extractVersion(runExecFullPath)
 
   override protected[dfhdl] def buildPreprocess(cd: CompiledDesign)(using
       CompilerOptions,

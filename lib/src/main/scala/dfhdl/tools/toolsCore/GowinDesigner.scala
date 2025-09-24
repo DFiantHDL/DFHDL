@@ -19,15 +19,11 @@ object GowinDesigner extends Builder:
   val toolName: String = "GowinDesigner"
   protected def binExec: String = "gw_sh"
   override protected def windowsBinExec: String = "gw_sh"
-  protected def versionCmd: String = ???
+  // tool does not have a version command and it will be extracted from installed path
+  protected def versionCmd: String = ""
   protected def extractVersion(cmdRetStr: String): Option[String] =
     val versionPattern = """.*Gowin_V(\d+\.\d+\.\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
-
-  // gowin designer does not have a version command, so we need to extract the version from installed path
-  override private[dfhdl] lazy val installedVersion: Option[String] =
-    if (runExecFullPath.isEmpty) None
-    else extractVersion(runExecFullPath)
 
   override protected[dfhdl] def buildPreprocess(cd: CompiledDesign)(using
       CompilerOptions,
