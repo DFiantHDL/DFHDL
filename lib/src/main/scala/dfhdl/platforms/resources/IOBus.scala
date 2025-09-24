@@ -43,14 +43,14 @@ object IOBus:
           ") is different than the DFHDL value width (" + TW + ")."
       ]
   given [RT <: IO, RL <: Int, R <: IOBus[RT, RL], T <: DFTypeAny, V <: DFValOf[T]](using
-      dfc: DFC,
       wT: Width[T]
   )(using
       check: `RW == TW`.Check[RL, wT.OutI],
       cc: CanConnect[RT, DFValOf[DFBit]]
-  ): CanConnect[R, V] = (resource: R, dfVal: V) =>
-    import dfhdl.core.DFVal.Ops.apply
-    check(resource.length, dfVal.widthInt)
-    for (i <- 0 until resource.ios.length)
-      cc.connect(resource.ios(i), dfVal.bits(i))
+  ): CanConnect[R, V] with
+    def connect(resource: R, dfVal: V)(using DFC): Unit =
+      import dfhdl.core.DFVal.Ops.apply
+      check(resource.length, dfVal.widthInt)
+      for (i <- 0 until resource.ios.length)
+        cc.connect(resource.ios(i), dfVal.bits(i))
 end IOBus

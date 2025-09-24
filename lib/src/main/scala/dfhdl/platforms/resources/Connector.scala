@@ -49,16 +49,16 @@ object Connector:
       T <: Type,
       CM <: Connector[T, Form.Male.type],
       CF <: Connector[T, Form.Female.type]
-  ]: CanConnect[CM, CF] =
-    (male, female) =>
+  ]: CanConnect[CM, CF] with
+    def connect(male: CM, female: CF)(using DFC): Unit =
       for (i <- 1 to male.`type`.pinCount)
         male.P(male.`type`.pinMap(i)) <> female.P(female.`type`.pinMap(i))
   given femaleMale[
       T <: Type,
       CM <: Connector[T, Form.Male.type],
       CF <: Connector[T, Form.Female.type]
-  ]: CanConnect[CF, CM] =
-    (male, female) =>
+  ]: CanConnect[CF, CM] with
+    def connect(female: CF, male: CM)(using DFC): Unit =
       for (i <- 1 to male.`type`.pinCount)
         male.P(male.`type`.pinMap(i)) <> female.P(female.`type`.pinMap(i))
 end Connector

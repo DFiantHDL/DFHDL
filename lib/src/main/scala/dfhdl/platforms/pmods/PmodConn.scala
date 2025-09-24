@@ -24,7 +24,8 @@ object PmodDualConn:
   class Female(val pm1: PmodConn.Female, val pm2: PmodConn.Female) extends ResourceDeps:
     lazy val upstreamDeps: List[Resource] = List(pm1, pm2)
 
-  given [M <: Male, F <: Female]: CanConnect[M, F] = (m, f) =>
-    m.pm1 <> f.pm1
-    m.pm2 <> f.pm2
+  given [M <: Male, F <: Female]: CanConnect[M, F] with
+    def connect(male: M, female: F)(using DFC): Unit =
+      male.pm1 <> female.pm1
+      male.pm2 <> female.pm2
 end PmodDualConn

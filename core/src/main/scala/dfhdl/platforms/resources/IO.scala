@@ -19,10 +19,12 @@ trait IO extends Resource:
   end connect
 end IO
 object IO:
-  given [T <: IO, R <: IO]: CanConnect[T, R] = (resource1: T, resource2: R) =>
-    resource1.connectFrom(resource2)
-    resource2.connectFrom(resource1)
+  given [T <: IO, R <: IO]: CanConnect[T, R] with
+    def connect(resource1: T, resource2: R)(using DFC): Unit =
+      resource1.connectFrom(resource2)
+      resource2.connectFrom(resource1)
   given [R <: IO, V <: DFValOf[DFBoolOrBit]](using
       dfc: DFC
-  ): CanConnect[R, V] =
-    (resource: R, dfVal: V) => resource.connect(dfVal)
+  ): CanConnect[R, V] with
+    def connect(resource: R, dfVal: V)(using DFC): Unit =
+      resource.connect(dfVal)
