@@ -19,7 +19,7 @@ object DFVector:
     ir.DFVector(cellType.asIR, cellDims.map(_.ref))
       .asFE[DFVector[T, D]]
   given [T <: DFTypeAny, D <: IntP](using
-      dfc: DFC,
+      dfc: DFCG,
       cellType: T,
       d: ValueOf[D],
       check: VectorLength.CheckNUB[D]
@@ -66,7 +66,7 @@ object DFVector:
       infix def X(
           cellDim: IntParam[D]
       )(using
-          dfc: DFC = DFC.global
+          dfc: DFCG
       )(using check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] =
         trydf:
           check(cellDim)
@@ -76,7 +76,7 @@ object DFVector:
   object Val:
     def apply[T <: DFTypeAny, D1 <: IntP, P](vectorType: DFVector[T, Tuple1[D1]])(
         from: List[DFValTP[T, P]]
-    )(using DFC): DFValTP[DFVector[T, Tuple1[D1]], P] =
+    )(using dfc: DFC): DFValTP[DFVector[T, Tuple1[D1]], P] =
       import dfc.getSet
       val fromIR = from.map(_.asIR)
       lazy val commonMeta = fromIR.head.meta
@@ -267,7 +267,7 @@ object DFVector:
       object DFVector:
         def apply[T <: DFTypeAny, D1 <: IntP, P](vectorType: DFVector[T, Tuple1[D1]])(
             elems: DFValTP[T, P]*
-        )(using DFC): DFValTP[DFVector[T, Tuple1[D1]], P] = trydf:
+        )(using DFCG): DFValTP[DFVector[T, Tuple1[D1]], P] = trydf:
           if (elems.size == 1)
             DFVal.Func(
               vectorType,

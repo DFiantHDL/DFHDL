@@ -40,7 +40,7 @@ object Wait:
     export TextOut.Ops.assert
   object Ops:
     extension (lhs: Int | Long)
-      def cy(using DFC): Cycles = trydf {
+      def cy(using DFCG): Cycles = trydf {
         val pos = lhs match
           case long: Long => long > 0
           case int: Int   => int > 0
@@ -48,7 +48,7 @@ object Wait:
           throw new IllegalArgumentException("`cy` can only be used with positive values.")
         Cycles(lhs)
       }
-    extension (lhs: DFValOf[DFUInt[Int]]) def cy(using DFC): Cycles = Cycles(lhs)
+    extension (lhs: DFValOf[DFUInt[Int]]) def cy(using DFCG): Cycles = Cycles(lhs)
 
     def waitWhile(cond: DFValOf[DFBoolOrBit])(using DFC): Wait =
       trydf {

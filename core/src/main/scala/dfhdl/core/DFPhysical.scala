@@ -124,29 +124,29 @@ object DFPhysical:
           ): DFPhysical[ir.TimeNumber] = DFTime
       end OpTC
       extension (lhs: Int | Long | Double)
-        def fs(using DFC): DFConstOf[DFTime] =
+        def fs(using DFCG): DFConstOf[DFTime] =
           DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.fs), named = true)
-        def ps(using DFC): DFConstOf[DFTime] =
+        def ps(using DFCG): DFConstOf[DFTime] =
           DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.ps), named = true)
-        def ns(using DFC): DFConstOf[DFTime] =
+        def ns(using DFCG): DFConstOf[DFTime] =
           DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.ns), named = true)
-        def us(using DFC): DFConstOf[DFTime] =
+        def us(using DFCG): DFConstOf[DFTime] =
           DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.us), named = true)
-        def ms(using DFC): DFConstOf[DFTime] =
+        def ms(using DFCG): DFConstOf[DFTime] =
           DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.ms), named = true)
-        def sec(using DFC): DFConstOf[DFTime] =
+        def sec(using DFCG): DFConstOf[DFTime] =
           DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.sec), named = true)
-        def mn(using DFC): DFConstOf[DFTime] =
+        def mn(using DFCG): DFConstOf[DFTime] =
           DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.mn), named = true)
-        def hr(using DFC): DFConstOf[DFTime] =
+        def hr(using DFCG): DFConstOf[DFTime] =
           DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.hr), named = true)
-        def Hz(using DFC): DFConstOf[DFFreq] =
+        def Hz(using DFCG): DFConstOf[DFFreq] =
           DFVal.Const(DFFreq, ir.FreqNumber(BigDecimal(lhs), ir.FreqNumber.Unit.Hz), named = true)
-        def KHz(using DFC): DFConstOf[DFFreq] =
+        def KHz(using DFCG): DFConstOf[DFFreq] =
           DFVal.Const(DFFreq, ir.FreqNumber(BigDecimal(lhs), ir.FreqNumber.Unit.KHz), named = true)
-        def MHz(using DFC): DFConstOf[DFFreq] =
+        def MHz(using DFCG): DFConstOf[DFFreq] =
           DFVal.Const(DFFreq, ir.FreqNumber(BigDecimal(lhs), ir.FreqNumber.Unit.MHz), named = true)
-        def GHz(using DFC): DFConstOf[DFFreq] =
+        def GHz(using DFCG): DFConstOf[DFFreq] =
           DFVal.Const(DFFreq, ir.FreqNumber(BigDecimal(lhs), ir.FreqNumber.Unit.GHz), named = true)
       end extension
 

@@ -39,11 +39,11 @@ object DFOpaque:
   abstract class Clk extends Magnet[DFBit](DFBit)
   abstract class Rst extends Magnet[DFBit](DFBit)
 
-  given [TFE <: Abstract](using ce: ClassEv[TFE], dfc: DFC): DFOpaque[TFE] = DFOpaque(ce.value)
+  given [TFE <: Abstract](using ce: ClassEv[TFE], dfc: DFCG): DFOpaque[TFE] = DFOpaque(ce.value)
 
   def apply[TFE <: Abstract](
       t: TFE
-  )(using DFC): DFOpaque[TFE] = trydf:
+  )(using DFCG): DFOpaque[TFE] = trydf:
     val kind = t match
       case _: Clk       => ir.DFOpaque.Kind.Clk
       case _: Rst       => ir.DFOpaque.Kind.Rst
@@ -136,7 +136,7 @@ object DFOpaque:
           lhs: DFVal[DFOpaque[TFE], Modifier[A, Any, Any, P]]
       )
         def opaqueType(using ce: ClassEv[TFE]): TFE = ce.value
-        def actual(using DFC): DFVal[AT, Modifier[A, Any, Any, P]] = trydf {
+        def actual(using DFCG): DFVal[AT, Modifier[A, Any, Any, P]] = trydf {
           DFVal.Alias.AsIs(lhs.dfType.actualType, lhs)
         }
         def mapActual(

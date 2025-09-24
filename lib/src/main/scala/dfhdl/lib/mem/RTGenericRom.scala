@@ -1,5 +1,6 @@
 package dfhdl.lib.mem
 import dfhdl.*
+import core.DFCG
 
 class RTGenericRom[T <: DFType](val dataType: T, val depth: Int)(
     val romValues: T X depth.type <> CONST
@@ -10,7 +11,7 @@ class RTGenericRom[T <: DFType](val dataType: T, val depth: Int)(
       // to be a scalac bug that sees difference between `T` of the main and auxiliary constructors.
       // Need to minimize and report.
       romValues =
-        core.DFVector.Val.conv(dataType, depth)(Vector.tabulate(depth)(fillFunc))(using DFC.global)
+        core.DFVector.Val.conv(dataType, depth)(Vector.tabulate(depth)(fillFunc))(using DFCG())
     )
 
   val addr = Bits.until(depth) <> IN

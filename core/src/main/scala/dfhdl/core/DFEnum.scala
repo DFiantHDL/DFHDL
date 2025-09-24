@@ -147,14 +147,14 @@ object DFEnum:
       // toggled, and not just Binary.
       extension [P, E <: DFEncoding.ExplicitWidth[1]](lhs: DFValTP[DFEnum[E], P])
         @targetName("boolOfDFEnumBinary")
-        def bool(using DFC): DFValTP[DFBool, P] = trydf {
+        def bool(using DFCG): DFValTP[DFBool, P] = trydf {
           DFVal.Alias.AsIs(DFBool, lhs)
         }
         @targetName("bitOfDFEnumBinary")
-        def bit(using DFC): DFValTP[DFBit, P] = trydf {
+        def bit(using DFCG): DFValTP[DFBit, P] = trydf {
           DFVal.Alias.AsIs(DFBit, lhs)
         }
-        def toggle(using DFC): DFValTP[DFEnum[E], P] = trydf {
+        def toggle(using DFCG): DFValTP[DFEnum[E], P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_!, List(lhs))
         }
       end extension

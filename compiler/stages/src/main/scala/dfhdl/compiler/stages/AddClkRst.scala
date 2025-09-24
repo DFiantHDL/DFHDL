@@ -7,7 +7,7 @@ import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 import scala.collection.mutable
 import dfhdl.core.DFOpaque as coreDFOpaque
-import dfhdl.core.{asFE, DFC}
+import dfhdl.core.{asFE, DFCG}
 
 /** This stage adds clock and reset input ports across the entire design. This stage is run after
   * ExplicitClkRstCfg, so no Derived is expected here. The rules are:
@@ -85,7 +85,7 @@ case object AddClkRst extends Stage:
               else cfg.name.replaceFirst(".norst", "")
             // clk and rst magnet types are either fetched from the memoization
             // or created and memoized
-            val opaqueDFC = DFC.global
+            val opaqueDFC = DFCG()
             val clkType =
               class Unique:
                 case class Clk() extends coreDFOpaque.Clk:

@@ -37,7 +37,7 @@ object DFDecimal:
       ValueOf[W],
       ValueOf[F],
       ValueOf[N]
-  )(using DFC, Width.CheckNUB[S, W]): DFDecimal[S, W, F, N] = trydf:
+  )(using DFCG, Width.CheckNUB[S, W]): DFDecimal[S, W, F, N] = trydf:
     DFDecimal(valueOf[S], IntParam[W](valueOf[W]), valueOf[F], valueOf[N])
   object Extensions:
     extension [S <: Boolean, W <: IntP, F <: Int, N <: NativeType](dfType: DFDecimal[S, W, F, N])
@@ -413,7 +413,7 @@ object DFDecimal:
     opaque type DecStrCtx <: StringContext = StringContext
     object DecStrCtx:
       extension (inline sc: DecStrCtx)
-        transparent inline def apply(inline args: Any*)(using dfc: DFC): Any =
+        transparent inline def apply(inline args: Any*)(using dfc: DFCG): Any =
           ${ applyMacro('sc, 'args)('dfc) }
         transparent inline def unapplySeq[T <: DFTypeAny](
             inline arg: DFValOf[T]
@@ -840,7 +840,7 @@ object DFXInt:
       def clog2[P, S <: Boolean, W <: IntP, N <: NativeType](
           dfVal: DFValTP[DFXInt[S, W, N], P]
       )(using
-          DFC,
+          DFCG,
           DFVal.ConstCheck[P]
       ): DFValTP[DFXInt[S, W, N], P] =
         DFVal.Func(dfVal.dfType, FuncOp.clog2, List(dfVal))
@@ -879,31 +879,31 @@ object DFXInt:
       end extension
       extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
         def <[R](rhs: Exact[R])(using
-            dfc: DFC,
+            dfc: DFCG,
             op: DFVal.Compare[DFXInt[icL.OutS, icL.OutW, icL.OutN], R, FuncOp.<.type, false]
         ): DFValOf[DFBool] = trydf { op(icL(lhs), rhs) }
         def <=[R](rhs: Exact[R])(using
-            dfc: DFC,
+            dfc: DFCG,
             op: DFVal.Compare[DFXInt[icL.OutS, icL.OutW, icL.OutN], R, FuncOp.<=.type, false]
         ): DFValOf[DFBool] = trydf { op(icL(lhs), rhs) }
         def >[R](rhs: Exact[R])(using
-            dfc: DFC,
+            dfc: DFCG,
             op: DFVal.Compare[DFXInt[icL.OutS, icL.OutW, icL.OutN], R, FuncOp.>.type, false]
         ): DFValOf[DFBool] = trydf { op(icL(lhs), rhs) }
         def >=[R](rhs: Exact[R])(using
-            dfc: DFC,
+            dfc: DFCG,
             op: DFVal.Compare[DFXInt[icL.OutS, icL.OutW, icL.OutN], R, FuncOp.>=.type, false]
         ): DFValOf[DFBool] = trydf { op(icL(lhs), rhs) }
       end extension
       extension [S <: Boolean, W <: IntP, N <: NativeType, P](lhs: DFValTP[DFXInt[S, W, N], P])
         @targetName("truncateDFXInt")
-        def truncate(using DFC): DFValTP[DFXInt[S, Int, N], P] =
+        def truncate(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
           lhs.tag(ir.TruncateTag).asValTP[DFXInt[S, Int, N], P]
         @targetName("resizeDFXInt")
         def resize[RW <: IntP](
             updatedWidth: IntParam[RW]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             check: Width.CheckNUB[S, RW]
         ): DFValTP[DFXInt[S, RW, BitAccurate], P] = trydf {
           val signed = lhs.dfType.signed
@@ -916,14 +916,14 @@ object DFXInt:
         end resize
         @targetName("shiftRightDFXInt")
         def >>(shift: DFUInt.Val.UBArg.Exact[W])(using
-            dfc: DFC
+            dfc: DFCG
         ): DFValTP[DFXInt[S, W, N], P | shift.tc.OutP] = trydf {
           val shiftVal = shift(lhs.widthIntParam)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shiftVal))
         }
         @targetName("shiftLeftDFXInt")
         def <<(shift: DFUInt.Val.UBArg.Exact[W])(using
-            dfc: DFC
+            dfc: DFCG
         ): DFValTP[DFXInt[S, W, N], P | shift.tc.OutP] = trydf {
           val shiftVal = shift(lhs.widthIntParam)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shiftVal))
@@ -936,7 +936,7 @@ object DFXInt:
         )(using
             es: Exact.Summon[L, lhs.type]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             op: DFVal.Compare[DFXInt[RS, RW, RN], es.Out, FuncOp.<.type, true]
         ): DFValOf[DFBool] = trydf { op(rhs, es(lhs)) }
         def <=[RS <: Boolean, RW <: Int, RN <: NativeType](
@@ -944,7 +944,7 @@ object DFXInt:
         )(using
             es: Exact.Summon[L, lhs.type]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             op: DFVal.Compare[DFXInt[RS, RW, RN], es.Out, FuncOp.<=.type, true]
         ): DFValOf[DFBool] = trydf { op(rhs, es(lhs)) }
         def >[RS <: Boolean, RW <: Int, RN <: NativeType](
@@ -952,7 +952,7 @@ object DFXInt:
         )(using
             es: Exact.Summon[L, lhs.type]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             op: DFVal.Compare[DFXInt[RS, RW, RN], es.Out, FuncOp.>.type, true]
         ): DFValOf[DFBool] = trydf { op(rhs, es(lhs)) }
         def >=[RS <: Boolean, RW <: Int, RN <: NativeType](
@@ -960,16 +960,17 @@ object DFXInt:
         )(using
             es: Exact.Summon[L, lhs.type]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             op: DFVal.Compare[DFXInt[RS, RW, RN], es.Out, FuncOp.>=.type, true]
         ): DFValOf[DFBool] = trydf { op(rhs, es(lhs)) }
-        def <<[P](shift: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+        def <<[P](shift: DFValTP[DFInt32, P])(using dfc: DFCG): DFValTP[DFInt32, P] = trydf {
           DFVal.Func(DFInt32, FuncOp.<<, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]
         }
-        def >>[P](shift: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, CONST | P] = trydf {
-          DFVal.Func(DFInt32, FuncOp.>>, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]
-        }
-        def **[P](shift: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+        def >>[P](shift: DFValTP[DFInt32, P])(using dfc: DFCG): DFValTP[DFInt32, CONST | P] =
+          trydf {
+            DFVal.Func(DFInt32, FuncOp.>>, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]
+          }
+        def **[P](shift: DFValTP[DFInt32, P])(using dfc: DFCG): DFValTP[DFInt32, P] = trydf {
           DFVal.Func(DFInt32, FuncOp.**, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]
         }
       end extension
@@ -1114,7 +1115,7 @@ object DFXInt:
         )(using
             icL: Candidate[sL.Out]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             check: SignCheck[RS, icL.OutS, icL.IsScalaInt, true]
         ): DFValTP[
           DFXInt[icL.OutS, IntP.+[IntP.Max[icL.OutW, RW], 1], BitAccurate],
@@ -1134,7 +1135,7 @@ object DFXInt:
         )(using
             icL: Candidate[sL.Out]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             check: SignCheck[RS, icL.OutS, icL.IsScalaInt, true]
         ): DFValTP[
           DFXInt[icL.OutS, IntP.+[IntP.Max[icL.OutW, RW], 1], BitAccurate],
@@ -1155,7 +1156,7 @@ object DFXInt:
         )(using
             icL: Candidate[sL.Out]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             check: SignCheck[RS, icL.OutS, icL.IsScalaInt, true]
         ): DFValTP[DFXInt[icL.OutS, IntP.+[icL.OutW, RW], BitAccurate], icL.OutP | RP] =
           trydf {
@@ -1174,20 +1175,21 @@ end DFXInt
 
 type DFUInt[W <: IntP] = DFXInt[false, W, BitAccurate]
 object DFUInt:
-  def apply[W <: IntP](width: IntParam[W])(using DFC, Width.CheckNUB[false, W]): DFUInt[W] = trydf {
-    DFXInt(false, width, BitAccurate)
-  }
+  def apply[W <: IntP](width: IntParam[W])(using DFCG, Width.CheckNUB[false, W]): DFUInt[W] =
+    trydf {
+      DFXInt(false, width, BitAccurate)
+    }
   def forced[W <: IntP](width: IntP)(using DFC): DFUInt[W] =
     DFUInt(IntParam[W](width.asInstanceOf[W]))
-  def apply[W <: IntP](using dfc: DFC, dfType: => DFUInt[W]): DFUInt[W] = trydf { dfType }
+  def apply[W <: IntP](using dfc: DFCG, dfType: => DFUInt[W]): DFUInt[W] = trydf { dfType }
   def until[V <: IntP](sup: IntParam[V])(using
-      dfc: DFC,
+      dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
   ): DFUInt[IntP.CLog2[V]] = trydf {
     DFXInt(false, sup.clog2, BitAccurate)
   }
   def to[V <: IntP](max: IntParam[V])(using
-      dfc: DFC,
+      dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
   ): DFUInt[IntP.CLog2[IntP.+[V, 1]]] = trydf {
     check(max)
@@ -1281,17 +1283,17 @@ object DFUInt:
     end UBArg
     object Ops:
       extension [W <: IntP, P](lhs: DFValTP[DFUInt[W], P])
-        def signed(using DFC): DFValTP[DFSInt[IntP.+[W, 1]], P] = trydf {
+        def signed(using DFCG): DFValTP[DFSInt[IntP.+[W, 1]], P] = trydf {
           DFVal.Alias.AsIs(DFSInt(lhs.widthIntParam + 1), lhs)
         }
         @targetName("negateDFUInt")
-        def unary_-(using DFC): DFValTP[DFSInt[IntP.+[W, 1]], P] = trydf {
+        def unary_-(using DFCG): DFValTP[DFSInt[IntP.+[W, 1]], P] = trydf {
           import DFSInt.Val.Ops.unary_- as negate
           lhs.signed.negate
         }
         @targetName("toIntDFUInt")
         def toInt(using
-            dfc: DFC,
+            dfc: DFCG,
             check: `W <= 31`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
           check(lhs.widthInt)
@@ -1305,28 +1307,28 @@ end DFUInt
 
 type DFSInt[W <: IntP] = DFXInt[true, W, BitAccurate]
 object DFSInt:
-  def apply[W <: IntP](width: IntParam[W])(using DFC, Width.CheckNUB[true, W]): DFSInt[W] =
+  def apply[W <: IntP](width: IntParam[W])(using DFCG, Width.CheckNUB[true, W]): DFSInt[W] =
     DFXInt(true, width, BitAccurate)
   def forced[W <: IntP](width: IntP)(using DFC): DFSInt[W] =
     DFSInt(IntParam[W](width.asInstanceOf[W]))
-  def apply[W <: IntP](using dfc: DFC, dfType: => DFSInt[W]): DFSInt[W] = trydf { dfType }
+  def apply[W <: IntP](using dfc: DFCG, dfType: => DFSInt[W]): DFSInt[W] = trydf { dfType }
 
   object Val:
     object Ops:
       extension [W <: IntP, P](lhs: DFValTP[DFSInt[W], P])
         @targetName("negateDFSInt")
-        def unary_-(using DFC): DFValTP[DFSInt[W], P] = trydf {
+        def unary_-(using DFCG): DFValTP[DFSInt[W], P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_-, List(lhs))
         }
       extension [P](lhs: DFValTP[DFInt32, P])
         @targetName("negateDFInt32")
-        def unary_-(using DFC): DFValTP[DFInt32, P] = trydf {
+        def unary_-(using DFCG): DFValTP[DFInt32, P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_-, List(lhs))
         }
       extension [W <: IntP, P](lhs: DFValTP[DFSInt[W], P])
         @targetName("toIntDFSInt")
         def toInt(using
-            dfc: DFC,
+            dfc: DFCG,
             check: `W <= 32`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
           check(lhs.widthInt)

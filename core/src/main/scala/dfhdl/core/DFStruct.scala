@@ -39,7 +39,7 @@ object DFStruct:
       Some(DFStruct(product.productPrefix, fieldNames, fieldTypes))
     else None
 
-  inline given apply[F <: FieldsOrTuple](using dfc: DFC): DFStruct[F] = ${ dfTypeMacro[F]('dfc) }
+  inline given apply[F <: FieldsOrTuple](using dfc: DFCG): DFStruct[F] = ${ dfTypeMacro[F]('dfc) }
   def dfTypeMacro[F <: FieldsOrTuple](using
       Quotes,
       Type[F]

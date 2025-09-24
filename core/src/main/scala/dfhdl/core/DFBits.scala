@@ -11,7 +11,7 @@ import DFDecimal.Constraints.`LW == RW`
 type DFBits[W <: IntP] = DFType[ir.DFBits, Args1[W]]
 object DFBits:
   def apply[W <: IntP](width: IntParam[W])(using
-      dfc: DFC,
+      dfc: DFCG,
       check: Arg.Width.CheckNUB[W]
   ): DFBits[W] = trydf:
     check(width)
@@ -20,22 +20,22 @@ object DFBits:
     val check = summon[Arg.Width.Check[Int]]
     check(width)
     ir.DFBits(width).asFE[DFBits[W]]
-  def apply[W <: IntP](using dfc: DFC, dfType: => DFBits[W]): DFBits[W] = trydf { dfType }
+  def apply[W <: IntP](using dfc: DFCG, dfType: => DFBits[W]): DFBits[W] = trydf { dfType }
   def until[V <: IntP](sup: IntParam[V])(using
-      dfc: DFC,
+      dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
   ): DFBits[IntP.CLog2[V]] = trydf:
     check(sup)
     ir.DFBits(sup.clog2.ref).asFE[DFBits[IntP.CLog2[V]]]
   def to[V <: IntP](max: IntParam[V])(using
-      dfc: DFC,
+      dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
   ): DFBits[IntP.CLog2[IntP.+[V, 1]]] = trydf:
     check(max)
     ir.DFBits((max + 1).clog2.ref).asFE[DFBits[IntP.CLog2[IntP.+[V, 1]]]]
 
   given [W <: IntP & Singleton](using
-      dfc: DFC,
+      dfc: DFCG,
       v: ValueOf[W],
       check: Arg.Width.CheckNUB[W]
   ): DFBits[W] = trydf:
@@ -171,7 +171,7 @@ object DFBits:
     opaque type BinStrCtx <: StringContext = StringContext
     object BinStrCtx:
       extension (inline sc: BinStrCtx)
-        transparent inline def apply(inline args: Any*)(using dfc: DFC): Any =
+        transparent inline def apply(inline args: Any*)(using dfc: DFCG): Any =
           ${ applyMacro('sc, 'args)('dfc) }
         transparent inline def unapplySeq[T <: DFTypeAny](
             inline arg: DFValOf[T]
@@ -509,8 +509,8 @@ object DFBits:
     object TupleOps:
       // explicit conversion of a tuple to bits (concatenation)
       extension (inline tpl: NonEmptyTuple)
-        transparent inline def toBits(using dfc: DFC): Any = ${ bitsMacro('tpl)('dfc) }
-      private def bitsMacro(tpl: Expr[NonEmptyTuple])(dfc: Expr[DFC])(using Quotes): Expr[Any] =
+        transparent inline def toBits(using dfc: DFCG): Any = ${ bitsMacro('tpl)('dfc) }
+      private def bitsMacro(tpl: Expr[NonEmptyTuple])(dfc: Expr[DFCG])(using Quotes): Expr[Any] =
         import quotes.reflect.*
         val exactInfo = tpl.exactInfo
         import Width.*
@@ -571,7 +571,7 @@ object DFBits:
       end evOpApplyRangeDFBits
 
       extension [W <: IntP, P](lhs: DFValTP[DFBits[W], P])
-        def truncate(using DFC): DFValTP[DFBits[Int], P] =
+        def truncate(using DFCG): DFValTP[DFBits[Int], P] =
           lhs.tag(ir.TruncateTag).asValTP[DFBits[Int], P]
         // TODO: IntP
         private[DFBits] def resizeBits[RW <: IntP](updatedWidth: IntParam[RW])(using
@@ -594,7 +594,7 @@ object DFBits:
           icL: Candidate[L]
       )
         def &[R](rhs: Candidate.Exact)(using
-            dfc: DFC,
+            dfc: DFCG,
             check: `LW == RW`.CheckNUB[icL.OutW, rhs.tc.OutW]
         ): DFValTP[DFBits[icL.OutW], icL.OutP | rhs.tc.OutP] = trydf {
           val lhsVal = icL(lhs)
@@ -603,7 +603,7 @@ object DFBits:
           DFVal.Func(lhsVal.dfType, FuncOp.&, List(lhsVal, rhsVal))
         }
         def |[R](rhs: Candidate.Exact)(using
-            dfc: DFC,
+            dfc: DFCG,
             check: `LW == RW`.CheckNUB[icL.OutW, rhs.tc.OutW]
         ): DFValTP[DFBits[icL.OutW], icL.OutP | rhs.tc.OutP] = trydf {
           val lhsVal = icL(lhs)
@@ -612,7 +612,7 @@ object DFBits:
           DFVal.Func(lhsVal.dfType, FuncOp.|, List(lhsVal, rhsVal))
         }
         def ^[R](rhs: Candidate.Exact)(using
-            dfc: DFC,
+            dfc: DFCG,
             check: `LW == RW`.CheckNUB[icL.OutW, rhs.tc.OutW]
         ): DFValTP[DFBits[icL.OutW], icL.OutP | rhs.tc.OutP] = trydf {
           val lhsVal = icL(lhs)
@@ -624,34 +624,34 @@ object DFBits:
         // The `reduce?` is a workaround https://github.com/scala/scala3/issues/20053
         // See PreTyperPhase of compiler plugin to see replacements `.?` with `.reduce?`
         ///////////////////////////////////////////////////////////////////////////////
-        def `reduce&`(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+        def `reduce&`(using dfc: DFCG): DFValTP[DFBit, icL.OutP] = trydf {
           DFVal.Func(DFBit, FuncOp.&, List(icL(lhs)))
         }
-        def `reduce|`(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+        def `reduce|`(using dfc: DFCG): DFValTP[DFBit, icL.OutP] = trydf {
           DFVal.Func(DFBit, FuncOp.|, List(icL(lhs)))
         }
-        def `reduce^`(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+        def `reduce^`(using dfc: DFCG): DFValTP[DFBit, icL.OutP] = trydf {
           DFVal.Func(DFBit, FuncOp.^, List(icL(lhs)))
         }
         // reduction AND of all bits
-        private def &(using dfc: DFC): DFValTP[DFBit, icL.OutP] = `reduce&`
+        private def &(using dfc: DFCG): DFValTP[DFBit, icL.OutP] = `reduce&`
         // reduction OR of all bits
-        private def |(using dfc: DFC): DFValTP[DFBit, icL.OutP] = `reduce|`
+        private def |(using dfc: DFCG): DFValTP[DFBit, icL.OutP] = `reduce|`
         // reduction XOR of all bits
-        private def ^(using dfc: DFC): DFValTP[DFBit, icL.OutP] = `reduce^`
+        private def ^(using dfc: DFCG): DFValTP[DFBit, icL.OutP] = `reduce^`
       end extension
       extension [L <: DFValAny, LW <: IntP, LP](lhs: L)(using icL: Candidate.Aux[L, LW, LP])
-        def extend(using DFC): DFValTP[DFBits[Int], icL.OutP] =
+        def extend(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
           icL(lhs).tag(ir.ExtendTag).asValTP[DFBits[Int], icL.OutP]
         def resize[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: Arg.Width.CheckNUB[RW],
-            dfc: DFC
+            dfc: DFCG
         ): DFValTP[DFBits[RW], icL.OutP] = trydf {
           check(updatedWidth)
           icL(lhs).resizeBits(updatedWidth)
         }
         def repeat[N <: IntP](num: IntParam[N])(using
-            dfc: DFC,
+            dfc: DFCG,
             check: Arg.Positive.CheckNUB[N]
         ): DFValTP[DFBits[IntP.*[icL.OutW, N]], icL.OutP | CONST] = trydf {
           val lhsVal = icL(lhs)
@@ -664,7 +664,7 @@ object DFBits:
           DFVal.Func(DFBits(width), FuncOp.repeat, List(lhsVal, num.toDFConst))
         }
         def ++[R](rhs: Candidate.Exact)(using
-            dfc: DFC
+            dfc: DFCG
         ): DFValTP[DFBits[IntP.+[icL.OutW, rhs.tc.OutW]], icL.OutP | rhs.tc.OutP] = trydf {
           val lhsVal = icL(lhs)
           val rhsVal = rhs()
@@ -702,24 +702,24 @@ object DFBits:
       extension [W <: IntP, A, C, I, P](
           lhs: DFVal[DFBits[W], Modifier[A, C, I, P]]
       )
-        def uint(using DFC): DFValTP[DFUInt[W], P] = trydf {
+        def uint(using DFCG): DFValTP[DFUInt[W], P] = trydf {
           DFVal.Alias.AsIs(DFUInt(lhs.widthIntParam), lhs)
         }
-        def sint(using DFC): DFValTP[DFSInt[W], P] = trydf {
+        def sint(using DFCG): DFValTP[DFSInt[W], P] = trydf {
           DFVal.Alias.AsIs(DFSInt(lhs.widthIntParam), lhs)
         }
-        def unary_~(using DFC): DFValTP[DFBits[W], P] = trydf {
+        def unary_~(using DFCG): DFValTP[DFBits[W], P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
         }
-        def msbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, P]] =
+        def msbit(using DFCG): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           import DFVal.Ops.apply as applyBits
           lhs.applyBits(lhs.widthInt.value - 1).asVal[DFBit, Modifier[A, Any, Any, P]]
-        def lsbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, P]] =
+        def lsbit(using DFCG): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           import DFVal.Ops.apply as applyBits
           lhs.applyBits(0).asVal[DFBit, Modifier[A, Any, Any, P]]
         def msbits[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: `LW >= RW`.CheckNUB[W, RW],
-            dfc: DFC
+            dfc: DFCG
         ): DFValTP[DFBits[RW], P] = trydf {
           check(lhs.widthInt, updatedWidth)
           DFVal.Alias.ApplyRange(lhs, lhs.widthIntParam - 1, lhs.widthIntParam - updatedWidth)
@@ -727,21 +727,21 @@ object DFBits:
         }
         def lsbits[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: `LW >= RW`.CheckNUB[W, RW],
-            dfc: DFC
+            dfc: DFCG
         ): DFValTP[DFBits[RW], P] = trydf {
           check(lhs.widthInt, updatedWidth)
           DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0).asValTP[DFBits[RW], P]
         }
         @targetName("shiftRightDFBits")
         def >>(shift: DFUInt.Val.UBArg.Exact[W])(using
-            dfc: DFC
+            dfc: DFCG
         ): DFValTP[DFBits[W], P | shift.tc.OutP] = trydf {
           val shiftVal = shift(lhs.widthIntParam)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shiftVal))
         }
         @targetName("shiftLeftDFBits")
         def <<(shift: DFUInt.Val.UBArg.Exact[W])(using
-            dfc: DFC
+            dfc: DFCG
         ): DFValTP[DFBits[W], P | shift.tc.OutP] = trydf {
           val shiftVal = shift(lhs.widthIntParam)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shiftVal))
@@ -753,7 +753,7 @@ object DFBits:
         )(using
             es: Exact.Summon[L, lhs.type]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             c: Candidate[es.Out]
         ): DFValTP[DFBits[IntP.+[c.OutW, RW]], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))
@@ -765,7 +765,7 @@ object DFBits:
         )(using
             es: Exact.Summon[L, lhs.type]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))
@@ -777,7 +777,7 @@ object DFBits:
         )(using
             es: Exact.Summon[L, lhs.type]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))
@@ -789,7 +789,7 @@ object DFBits:
         )(using
             es: Exact.Summon[L, lhs.type]
         )(using
-            dfc: DFC,
+            dfc: DFCG,
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))

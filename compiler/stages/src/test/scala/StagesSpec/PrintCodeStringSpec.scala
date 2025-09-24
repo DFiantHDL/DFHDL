@@ -10,7 +10,7 @@ class PrintCodeStringSpec extends StageSpec:
     val y = SInt(16) <> OUT
     y := x
   object ID:
-    def apply()(using DFC): ID =
+    def apply()(using core.DFCG): ID =
       new ID(0)
   class IDGen[T <: DFType](dfType: T) extends DFDesign:
     val x = dfType <> IN

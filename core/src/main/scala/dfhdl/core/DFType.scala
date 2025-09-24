@@ -84,7 +84,7 @@ object DFType:
   extension (dfType: ir.DFType) def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]
   extension (dfType: DFTypeAny) def asFE[T <: DFTypeAny]: T = dfType.asInstanceOf[T]
   transparent inline implicit def conv[T <: Supported](inline t: T)(implicit
-      dfc: DFC,
+      dfc: DFCG,
       tc: TC[T]
   ): DFTypeAny = tc(t)
   export DFDecimal.Extensions.*
@@ -132,9 +132,9 @@ object DFType:
   object Ops:
     extension [T <: Supported](t: T)
       infix def <>[A, C, I, P](modifier: Modifier[A, C, I, P])(using
-          dfc: DFC,
+          @implicitNotFound("Port/Variable declarations cannot be global") dfc: DFC,
           tc: DFType.TC[T],
-          @implicitNotFound("Port/Variable declarations cannot be global") ck: DFC.Scope.Local,
+          ck: DFC.Scope.Local,
           dt: DomainType
       ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
         trydf:

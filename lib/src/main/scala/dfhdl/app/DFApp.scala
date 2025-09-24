@@ -1,5 +1,6 @@
 package dfhdl.app
 import dfhdl.*
+import core.DFCG
 import dfhdl.compiler.ir
 import wvlet.log.{Logger, LogFormatter}
 import scala.collection.mutable
@@ -38,7 +39,7 @@ trait DFApp:
 
   // this context is just for enabling `getConstData` to work.
   // the internal global context inside `value` will be actually at play here.
-  given dfc: DFC = DFC.global
+  given dfc: DFCG = DFCG()
 
   private var designArgs: DesignArgs = DesignArgs.empty
   private var elaborationOptions: options.ElaborationOptions = compiletime.uninitialized

@@ -138,7 +138,7 @@ end extension
 
 def DFValConversionMacro[T <: DFTypeAny, P, R](
     from: Expr[R]
-)(dfc: Expr[DFC])(using Quotes, Type[T], Type[P], Type[R]): Expr[DFValTP[T, P]] =
+)(dfc: Expr[DFCG])(using Quotes, Type[T], Type[P], Type[R]): Expr[DFValTP[T, P]] =
   import quotes.reflect.*
   val fromExactInfo = from.exactInfo
   lazy val nonConstTermOpt = from.asTerm.getNonConstTerm
@@ -175,7 +175,7 @@ sealed protected trait DFValLP:
       R <: CommonR | SameElementsVector[?] | NonEmptyTuple
   ](
       inline from: R
-  )(using dfc: DFC): DFValTP[DFBits[W], ISCONST[P]] = ${
+  )(using dfc: DFCG): DFValTP[DFBits[W], ISCONST[P]] = ${
     DFValConversionMacro[DFBits[W], ISCONST[P], R]('from)('dfc)
   }
   // TODO: candidate should be fixed to cause UInt[?]->SInt[Int] conversion
@@ -187,7 +187,7 @@ sealed protected trait DFValLP:
       R <: CommonR | Int
   ](
       inline from: R
-  )(using dfc: DFC): DFValTP[DFXInt[S, W, N], ISCONST[P]] = ${
+  )(using dfc: DFCG): DFValTP[DFXInt[S, W, N], ISCONST[P]] = ${
     DFValConversionMacro[DFXInt[S, W, N], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFOpaqueValConversion[
@@ -196,7 +196,7 @@ sealed protected trait DFValLP:
       R <: CommonR
   ](
       inline from: R
-  )(using dfc: DFC): DFValTP[DFOpaque[TFE], ISCONST[P]] = ${
+  )(using dfc: DFCG): DFValTP[DFOpaque[TFE], ISCONST[P]] = ${
     DFValConversionMacro[DFOpaque[TFE], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFStructValConversion[
@@ -205,7 +205,7 @@ sealed protected trait DFValLP:
       R <: CommonR | DFStruct.Fields
   ](
       inline from: R
-  )(using dfc: DFC): DFValTP[DFStruct[F], ISCONST[P]] = ${
+  )(using dfc: DFCG): DFValTP[DFStruct[F], ISCONST[P]] = ${
     DFValConversionMacro[DFStruct[F], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFTupleValConversion[
@@ -214,7 +214,7 @@ sealed protected trait DFValLP:
       R <: CommonR | NonEmptyTuple
   ](
       inline from: R
-  )(using dfc: DFC): DFValTP[DFTuple[T], ISCONST[P]] = ${
+  )(using dfc: DFCG): DFValTP[DFTuple[T], ISCONST[P]] = ${
     DFValConversionMacro[DFTuple[T], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFVectorValConversion[
@@ -224,7 +224,7 @@ sealed protected trait DFValLP:
       R <: CommonR | Iterable[?] | SameElementsVector[?]
   ](
       inline from: R
-  )(using dfc: DFC): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${
+  )(using dfc: DFCG): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${
     DFValConversionMacro[DFVector[T, Tuple1[D]], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFBitValConversion[
@@ -232,7 +232,7 @@ sealed protected trait DFValLP:
       R <: CommonR | Int | Boolean
   ](
       inline from: R
-  )(using dfc: DFC): DFValTP[DFBit, ISCONST[P]] = ${
+  )(using dfc: DFCG): DFValTP[DFBit, ISCONST[P]] = ${
     DFValConversionMacro[DFBit, ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFBoolValConversion[
@@ -240,7 +240,7 @@ sealed protected trait DFValLP:
       R <: CommonR | Int | Boolean
   ](
       inline from: R
-  )(using dfc: DFC): DFValTP[DFBool, ISCONST[P]] = ${
+  )(using dfc: DFCG): DFValTP[DFBool, ISCONST[P]] = ${
     DFValConversionMacro[DFBool, ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFEnumValConversion[
@@ -249,7 +249,7 @@ sealed protected trait DFValLP:
       R <: CommonR | E
   ](
       inline from: R
-  )(using dfc: DFC): DFValTP[DFEnum[E], ISCONST[P]] = ${
+  )(using dfc: DFCG): DFValTP[DFEnum[E], ISCONST[P]] = ${
     DFValConversionMacro[DFEnum[E], ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFDoubleValConversion[
@@ -257,7 +257,7 @@ sealed protected trait DFValLP:
       R <: CommonR | Double
   ](
       inline from: R
-  )(using dfc: DFC): DFValTP[DFDouble, ISCONST[P]] = ${
+  )(using dfc: DFCG): DFValTP[DFDouble, ISCONST[P]] = ${
     DFValConversionMacro[DFDouble, ISCONST[P], R]('from)('dfc)
   }
   implicit transparent inline def DFStringValConversion[
@@ -265,7 +265,7 @@ sealed protected trait DFValLP:
       R <: CommonR | String
   ](
       inline from: R
-  )(using dfc: DFC): DFValTP[DFString, ISCONST[P]] = ${
+  )(using dfc: DFCG): DFValTP[DFString, ISCONST[P]] = ${
     DFValConversionMacro[DFString, ISCONST[P], R]('from)('dfc)
   }
   given DFUnitValConversion[R <: CommonR | Unit | NonEmptyTuple](using
@@ -274,13 +274,13 @@ sealed protected trait DFValLP:
   given ConstToNonConstAccept[T <: DFTypeAny, P]: Conversion[DFValTP[T, P], DFValTP[T, NOTCONST]] =
     from => from.asValTP[T, NOTCONST]
   given DFRateToRateNumber(using
-      dfc: DFC
+      dfc: DFCG
   ): Conversion[DFConstOf[DFTime | DFFreq], ir.RateNumber] =
     x =>
       import dfc.getSet
       x.asIR.getConstData.get.asInstanceOf[ir.RateNumber]
   given DFRateToRateNumberConfigN(using
-      dfc: DFC
+      dfc: DFCG
   ): Conversion[DFConstOf[DFTime | DFFreq], ir.ConfigN[ir.RateNumber]] =
     x =>
       import dfc.getSet
@@ -1177,13 +1177,14 @@ object DFVal extends DFValLP:
   export TDFDouble.Val.Ops.given
   export DFEnum.Val.Ops.given
   export DFOpaque.Val.Ops.evOpAsDFOpaqueIterable
+  export TDFString.Val.Ops.given
   export ConnectOps.given
 
   object Ops:
     protected type SupportedValue =
       DFValAny | Int | Long | Double | NonEmptyTuple | Iterable[DFValAny] | SameElementsVector[?]
     extension (inline lhs: DFValAny)
-      transparent inline def apply(inline idx: Any)(using DFC): DFValAny =
+      transparent inline def apply(inline idx: Any)(using DFCG): DFValAny =
         exactOp2["apply", DFC, DFValAny](lhs, idx)
 
       /** Selecting range of bits/cells.
@@ -1194,34 +1195,37 @@ object DFVal extends DFValLP:
         *   For Bits, the least significant bit index. For Vectors, the most significant cell index.
         * @return
         */
-      transparent inline def apply(inline idxLeft: Any, inline idxRight: Any)(using DFC): DFValAny =
+      transparent inline def apply(inline idxLeft: Any, inline idxRight: Any)(using
+          DFCG
+      ): DFValAny =
         exactOp3["apply", DFC, DFValAny](lhs, idxLeft, idxRight)
+    end extension
     extension (inline lhs: SupportedValue)
-      transparent inline def +(inline rhs: SupportedValue)(using DFC): DFValAny =
+      transparent inline def +(inline rhs: SupportedValue)(using DFCG): DFValAny =
         exactOp2[FuncOp.+.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def -(inline rhs: SupportedValue)(using DFC): DFValAny =
+      transparent inline def -(inline rhs: SupportedValue)(using DFCG): DFValAny =
         exactOp2[FuncOp.-.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def *(inline rhs: SupportedValue)(using DFC): DFValAny =
+      transparent inline def *(inline rhs: SupportedValue)(using DFCG): DFValAny =
         exactOp2[FuncOp.*.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def /(inline rhs: SupportedValue)(using DFC): DFValAny =
+      transparent inline def /(inline rhs: SupportedValue)(using DFCG): DFValAny =
         exactOp2[FuncOp./.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def %(inline rhs: SupportedValue)(using DFC): DFValAny =
+      transparent inline def %(inline rhs: SupportedValue)(using DFCG): DFValAny =
         exactOp2[FuncOp.%.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def max(inline rhs: SupportedValue)(using DFC): Any =
+      transparent inline def max(inline rhs: SupportedValue): Any =
         inline (lhs, rhs) match
           case (lhs: Int, rhs: Int)       => scala.runtime.RichInt(lhs) max rhs
           case (lhs: Long, rhs: Long)     => scala.runtime.RichLong(lhs) max rhs
           case (lhs: Double, rhs: Double) => scala.runtime.RichDouble(lhs) max rhs
-          case _                          => exactOp2[FuncOp.max.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def min(inline rhs: SupportedValue)(using DFC): Any =
+          case _ => exactOp2[FuncOp.max.type, DFC, DFValAny](lhs, rhs)(using DFC.onDemand)
+      transparent inline def min(inline rhs: SupportedValue): Any =
         inline (lhs, rhs) match
           case (lhs: Int, rhs: Int)       => scala.runtime.RichInt(lhs) min rhs
           case (lhs: Long, rhs: Long)     => scala.runtime.RichLong(lhs) min rhs
           case (lhs: Double, rhs: Double) => scala.runtime.RichDouble(lhs) min rhs
-          case _                          => exactOp2[FuncOp.min.type, DFC, DFValAny](lhs, rhs)
+          case _ => exactOp2[FuncOp.min.type, DFC, DFValAny](lhs, rhs)(using DFC.onDemand)
     end extension
     extension (inline lhs: SupportedValue)
-      transparent inline def as(inline aliasType: DFType.Supported)(using DFC): DFValAny =
+      transparent inline def as(inline aliasType: DFType.Supported)(using DFCG): DFValAny =
         exactOp2["as", DFC, DFValAny](lhs, aliasType)
     end extension
     extension (inline lhs: Any)
@@ -1298,7 +1302,7 @@ object DFVal extends DFValLP:
     end extension
 
     extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
-      def bits(using DFC)(using w: Width[T]): DFValTP[DFBits[w.Out], P] = trydf {
+      def bits(using DFCG)(using w: Width[T]): DFValTP[DFBits[w.Out], P] = trydf {
         DFVal.Alias.AsIs(DFBits(dfVal.widthIntParam), dfVal)
       }
       def genNewVar(using DFC): DFVarOf[T] = trydf {

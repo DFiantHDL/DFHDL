@@ -73,23 +73,23 @@ object TDFDouble:
         def toScalaDouble(using DFC, DFVal.ConstCheck[P]): Double =
           lhs.toScalaValue
 
-        def unary_-(using DFC): DFValTP[DFDouble, P] = trydf {
+        def unary_-(using DFCG): DFValTP[DFDouble, P] = trydf {
           DFVal.Func(DFDouble, FuncOp.unary_-, List(lhs))
         }
 
-        def <[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValOf[DFBool] = trydf {
+        def <[RP](rhs: DFValTP[DFDouble, RP])(using DFCG): DFValOf[DFBool] = trydf {
           DFVal.Func(DFBool, FuncOp.<, List(lhs, rhs))
         }
 
-        def <=[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValOf[DFBool] = trydf {
+        def <=[RP](rhs: DFValTP[DFDouble, RP])(using DFCG): DFValOf[DFBool] = trydf {
           DFVal.Func(DFBool, FuncOp.<=, List(lhs, rhs))
         }
 
-        def >[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValOf[DFBool] = trydf {
+        def >[RP](rhs: DFValTP[DFDouble, RP])(using DFCG): DFValOf[DFBool] = trydf {
           DFVal.Func(DFBool, FuncOp.>, List(lhs, rhs))
         }
 
-        def >=[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValOf[DFBool] = trydf {
+        def >=[RP](rhs: DFValTP[DFDouble, RP])(using DFCG): DFValOf[DFBool] = trydf {
           DFVal.Func(DFBool, FuncOp.>=, List(lhs, rhs))
         }
       end extension
