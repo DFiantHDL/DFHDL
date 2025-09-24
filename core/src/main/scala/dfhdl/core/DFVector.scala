@@ -63,7 +63,7 @@ object DFVector:
 
   object Ops:
     extension [T <: DFType.Supported, D <: IntP](t: T)(using tc: DFType.TC[T])
-      infix def X(
+      def X(
           cellDim: IntParam[D]
       )(using
           dfc: DFCG

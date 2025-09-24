@@ -66,13 +66,21 @@ private trait ResourceLP:
 
 object Resource extends ResourceLP:
   @implicitNotFound("Cannot connect the resource ${R} with ${T}")
-  trait CanConnect[R <: Resource, T]:
+  trait CanConnect[-R <: Resource, -T]:
     def connect(resource1: R, resource2: T)(using DFC): Unit
   given [R <: Resource, T <: Resource](using R =:= T): CanConnect[R, T] with
     def connect(resource1: R, resource2: T)(using DFC): Unit =
       resource1.connectFrom(resource2)
       resource2.connectFrom(resource1)
 
+  given [R <: Resource, T <: Resource | DFValAny | RTDomainContainer](using
+      cc: CanConnect[R, T]
+  ): ExactOp2Aux["<>", DFC, Any, R, T, Unit] =
+    new ExactOp2["<>", DFC, Any, R, T]:
+      type Out = Unit
+      def apply(resource1: R, resourceOrValue: T)(using DFC): Out =
+        cc.connect(resource1, resourceOrValue)
+  end given
   object Ops:
     extension [R <: Resource](resource: R)
       def <>[T <: Resource](that: T)(using dfc: DFC, cc: CanConnect[R, T]): Unit =

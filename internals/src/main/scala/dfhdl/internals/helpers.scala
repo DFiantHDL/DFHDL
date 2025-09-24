@@ -63,6 +63,16 @@ extension [T](lhs: Iterable[T])
     lhs.groupBy(new Unique(_)).values.map(_.toList)
 end extension
 
+extension (exprObject: Expr.type)(using Quotes)
+  def summonOrError[T: Type]: Either[String, Expr[T]] =
+    import quotes.reflect.*
+    Implicits.search(TypeRepr.of[T]) match
+      case iss: ImplicitSearchSuccess =>
+        Right(iss.tree.asExprOf[T])
+      case isf: ImplicitSearchFailure =>
+        Left(isf.explanation)
+end extension
+
 extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
   def asTypeOf[T <: AnyKind]: Type[T] =
     import quotes.reflect.*

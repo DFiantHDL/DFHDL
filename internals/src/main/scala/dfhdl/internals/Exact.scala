@@ -320,29 +320,29 @@ private def exactOp2Macro[Op, Ctx, OutUB](
   import quotes.reflect.*
   val lhsExactInfo = lhs.exactInfo
   val rhsExactInfo = rhs.exactInfo
-  Expr.summon[ExactOp2[
+  Expr.summonOrError[ExactOp2[
     Op,
     Ctx,
     OutUB,
     lhsExactInfo.Underlying,
     rhsExactInfo.Underlying
   ]] match
-    case Some(expr) => '{
+    case Right(expr) => '{
         $expr(${ lhsExactInfo.exactExpr }, ${ rhsExactInfo.exactExpr })(using $ctx)
       }
-    case None =>
+    case Left(msg) =>
       if (bothWays.value.get)
-        Expr.summon[ExactOp2[
+        Expr.summonOrError[ExactOp2[
           Op,
           Ctx,
           OutUB,
           rhsExactInfo.Underlying,
           lhsExactInfo.Underlying
         ]] match
-          case Some(expr) => '{
+          case Right(expr) => '{
               $expr(${ rhsExactInfo.exactExpr }, ${ lhsExactInfo.exactExpr })(using $ctx)
             }
-          case None =>
+          case Left(msg) =>
             IsGiven.controlledMacroError("Unsupported argument types for this operation.")
       else
         IsGiven.controlledMacroError("Unsupported argument types for this operation.")

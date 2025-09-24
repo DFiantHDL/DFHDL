@@ -16,11 +16,12 @@ import dfhdl.platforms.resources.Resource
 
 import scala.reflect.ClassTag
 final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
-    extends AnyVal
-    with DFMember[ir.DFVal]
+    extends DFMember[ir.DFVal]
     with Selectable:
   type Fields = DFVal.Fields[T @uncheckedVariance, M @uncheckedVariance]
 
+  def wait(using DFC): Unit =
+    trydf { Wait(this.asValOf[DFBoolOrBit]) }
   def selectDynamic(name: String)(using DFC): Any = trydf {
     val ir.DFStruct(structName, fieldMap) = this.asIR.dfType: @unchecked
     val dfType = fieldMap(name)
@@ -1577,6 +1578,7 @@ object ConnectOps:
       L <: DFVal[T, M],
       R
   ](using
+      skipResource: util.NotGiven[R <:< Resource],
       connectableOnly: ConnectableOnly2[C],
       tc: DFVal.TC_Or_OPEN_Or_Resource[T, R]
   ): ExactOp2Aux["<>", DFC, Any, L, R, Unit] = new ExactOp2["<>", DFC, Any, L, R]:

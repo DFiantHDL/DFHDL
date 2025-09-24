@@ -62,7 +62,7 @@ trait Design extends Container, HasClsMetaArgs:
 
   def customTopChecks(): Unit = {}
   private def handleResourceConstraints(): Unit =
-    import dfhdl.{<>, OUT, NOTHING}
+    import dfhdl.{OUT, NOTHING}
     import ir.constraints.{IO, SigConstraint}
     import dfhdl.platforms.resources.*
     import dfhdl.platforms.devices.Pin
@@ -83,9 +83,11 @@ trait Design extends Container, HasClsMetaArgs:
         else (IO(pullMode = unusedPullMode) :: constraints).merge
       val updatedAnnotations = ir.annotation.Unused.Keep :: updatedConstraints
       val port =
-        DFBit.<>(OUT)(using dfc.setName(s"Pin_${pinID}_unused").setAnnotations(updatedAnnotations))
-      if (driveZero) port <> DFVal.Const(DFBit, Some(false), named = false)
-      else port <> NOTHING(DFBit)(using dfc.anonymize)
+        DFVal.Dcl(DFBit, OUT)(using
+          dfc.setName(s"Pin_${pinID}_unused").setAnnotations(updatedAnnotations)
+        )
+      if (driveZero) port.connect(DFVal.Const(DFBit, Some(false), named = false))
+      else port.connect(NOTHING(DFBit)(using dfc.anonymize))
     end addUnusedPinPort
     val usedPinIDs: Set[String] =
       dfc.mutableDB.ResourceOwnershipContext

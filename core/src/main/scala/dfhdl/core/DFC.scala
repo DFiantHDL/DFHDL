@@ -9,6 +9,9 @@ import scala.annotation.Annotation
 import scala.annotation.implicitNotFound
 import ir.annotation.HWAnnotation
 
+@implicitNotFound(
+  "Missing local design context.\nEither this operation is not supported in global context or `using DFC` is missing."
+)
 final case class DFC(
     nameOpt: Option[String],
     position: Position,

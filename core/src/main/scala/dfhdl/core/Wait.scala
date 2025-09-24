@@ -32,8 +32,8 @@ object Wait:
   // with our own wait method, so we need to extend this in the Container trait, instead
   // of relying on export like the rest of the core API.
   trait ContainerOps:
-    extension (lhs: DFConstOf[DFTime]) final def wait(using DFC): Wait = trydf { Wait(lhs) }
-    extension (lhs: Cycles) final def wait(using DFC, CYInRT): Wait = trydf { Wait(lhs) }
+    final def wait(lhs: DFConstOf[DFTime])(using DFC): Unit = trydf { Wait(lhs) }
+    final def wait(lhs: Cycles)(using DFC, CYInRT): Unit = trydf { Wait(lhs) }
     inline def java_wait(): Unit = this.wait()
     inline def java_wait(timeoutMillis: Long): Unit = this.wait(timeoutMillis)
     inline def java_wait(timeoutMillis: Long, nanos: Int): Unit = this.wait(timeoutMillis, nanos)
