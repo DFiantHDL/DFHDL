@@ -1239,16 +1239,21 @@ object DFVal extends DFValLP:
       transparent inline def <~>(inline rhs: Any)(using DFC): Any =
         // operator `<>` as a constructor is unidirectional
         // operator `<>` as a connection is bidirectional and commutative
-        inline (lhs, rhs) match
-          // if the RHS is a modifier, this is a port/variable constructor,
-          // so we invoke the the implicit given operation only in one way
-          case (_, _: ModifierAny) => exactOp2["<>", DFC, Any](lhs, rhs)
-          // if both LHS and RHS are DFVals, we call `specialConnect` to handle possible
-          // connection in either direction where both implicit directions are available
-          case (lhs: DFVal[lt, lm], rhs: DFVal[rt, rm]) => ConnectOps.specialConnect(lhs, rhs)
-          // otherwise, we invoke the implicit given operation in both directions by turning
-          // on the bothWays flag for all other cases
-          case _ => exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
+        // TODO: possibly use match on lhs and rhs together fixing scalac issue
+        // https://github.com/scala/scala3/issues/24076
+        inline lhs match
+          case lhs: DFVal[lt, lm] => rhs match
+              // if both LHS and RHS are DFVals, we call `specialConnect` to handle possible
+              // connection in either direction where both implicit directions are available
+              case rhs: DFVal[rt, rm] => ConnectOps.specialConnect(lhs, rhs)
+              // otherwise, we invoke the implicit given operation in both directions by turning
+              // on the bothWays flag for all other cases
+              case _ => exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
+          case _ => rhs match
+              // if the RHS is a modifier, this is a port/variable constructor,
+              // so we invoke the the implicit given operation only in one way
+              case _: ModifierAny => exactOp2["<>", DFC, Any](lhs, rhs)
+              case _              => exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
         end match
     end extension
 
