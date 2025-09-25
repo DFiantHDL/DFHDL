@@ -120,11 +120,6 @@ object DFC:
   def empty(eo: ElaborationOptions): DFC =
     DFC(None, Position.unknown, None, elaborationOptionsContr = () => eo)
   def emptyNoEO: DFC = DFC(None, Position.unknown, None)
-  inline def onDemand: DFC =
-    compiletime.summonFrom {
-      case dfc: DFC => dfc
-      case _        => emptyNoEO
-    }
   sealed trait Scope
   object Scope:
     sealed trait Global extends Scope

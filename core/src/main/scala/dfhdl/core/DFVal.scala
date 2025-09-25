@@ -1217,13 +1217,19 @@ object DFVal extends DFValLP:
           case (lhs: Int, rhs: Int)       => scala.runtime.RichInt(lhs) max rhs
           case (lhs: Long, rhs: Long)     => scala.runtime.RichLong(lhs) max rhs
           case (lhs: Double, rhs: Double) => scala.runtime.RichDouble(lhs) max rhs
-          case _ => exactOp2[FuncOp.max.type, DFC, DFValAny](lhs, rhs)(using DFC.onDemand)
+          case _                          =>
+            exactOp2[FuncOp.max.type, DFC, DFValAny](lhs, rhs)(using
+              compiletime.summonInline[DFCG]
+            )
       transparent inline def min(inline rhs: SupportedValue): Any =
         inline (lhs, rhs) match
           case (lhs: Int, rhs: Int)       => scala.runtime.RichInt(lhs) min rhs
           case (lhs: Long, rhs: Long)     => scala.runtime.RichLong(lhs) min rhs
           case (lhs: Double, rhs: Double) => scala.runtime.RichDouble(lhs) min rhs
-          case _ => exactOp2[FuncOp.min.type, DFC, DFValAny](lhs, rhs)(using DFC.onDemand)
+          case _                          =>
+            exactOp2[FuncOp.min.type, DFC, DFValAny](lhs, rhs)(using
+              compiletime.summonInline[DFCG]
+            )
     end extension
     extension (inline lhs: SupportedValue)
       transparent inline def as(inline aliasType: DFType.Supported)(using DFCG): DFValAny =
