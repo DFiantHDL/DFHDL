@@ -1235,17 +1235,17 @@ object DFVal extends DFValLP:
       transparent inline def as(inline aliasType: DFType.Supported)(using DFCG): DFValAny =
         exactOp2["as", DFC, DFValAny](lhs, aliasType)
     end extension
-    extension (inline lhs: Any)
-      transparent inline def <~>(inline rhs: Any)(using DFC): Any =
+    extension [L](inline lhs: L)
+      transparent inline def <~>[R](inline rhs: R)(using DFC): Any =
         // operator `<>` as a constructor is unidirectional
         // operator `<>` as a connection is bidirectional and commutative
         // TODO: possibly use match on lhs and rhs together fixing scalac issue
         // https://github.com/scala/scala3/issues/24076
         inline lhs match
-          case lhs: DFVal[lt, lm] => rhs match
+          case lhs: DFValAny => rhs match
               // if both LHS and RHS are DFVals, we call `specialConnect` to handle possible
               // connection in either direction where both implicit directions are available
-              case rhs: DFVal[rt, rm] => ConnectOps.specialConnect(lhs, rhs)
+              case rhs: DFValAny => ConnectOps.specialConnect(lhs, rhs)
               // otherwise, we invoke the implicit given operation in both directions by turning
               // on the bothWays flag for all other cases
               case _ => exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
@@ -1536,50 +1536,52 @@ object ConnectOps:
   ]
   protected type ConnectableModifier[M <: ModifierAny] =
     M <:< Modifier[Any, Modifier.Connectable, Any, Any]
-  protected trait TC_Connect[CT <: DFTypeAny, CM <: ModifierAny, Producer <: DFValAny]:
-    def connect(consumer: DFVal[CT, CM], producer: Producer)(using DFC): Unit
+  protected trait TC_Connect[Consumer <: DFValAny, Producer <: DFValAny]:
+    def connect(consumer: Consumer, producer: Producer)(using DFC): Unit
   protected object TC_Connect:
-    given [CT <: DFTypeAny, CM <: ModifierAny, Producer <: DFValAny](using
+    given [
+        CT <: DFTypeAny,
+        CM <: ModifierAny,
+        Consumer <: DFVal[CT, CM],
+        Producer <: DFValAny
+    ](using
         ConnectableModifier[CM]
-    )(using tc: DFVal.TC[CT, Producer]): TC_Connect[CT, CM, Producer] with
-      def connect(consumer: DFVal[CT, CM], producer: Producer)(using DFC): Unit =
+    )(using tc: DFVal.TC[CT, Producer]): TC_Connect[Consumer, Producer] with
+      def connect(consumer: Consumer, producer: Producer)(using DFC): Unit =
         consumer.connect(tc(consumer.dfType, producer))
 
   private[core] transparent inline def specialConnect[
-      LT <: DFTypeAny,
-      LM <: ModifierAny,
-      RT <: DFTypeAny,
-      RM <: ModifierAny,
-      L <: DFVal[LT, LM],
-      R <: DFVal[RT, RM]
+      L <: DFValAny,
+      R <: DFValAny
   ](
       inline lhs: L,
       inline rhs: R
   )(using DFC): Unit =
-    inline val connectableL = inline (compiletime.erasedValue[LM]) match
-      case _: Modifier[Any, Modifier.Connectable, Any, Any] => true
-      case _                                                => false
-    inline val connectableR = inline (compiletime.erasedValue[RM]) match
-      case _: Modifier[Any, Modifier.Connectable, Any, Any] => true
-      case _                                                => false
+    inline val connectableL = inline lhs match
+      case _: DFVal[DFTypeAny, Modifier[Any, Modifier.Connectable, Any, Any]] => true
+      case _                                                                  => false
+    inline val connectableR = inline rhs match
+      case _: DFVal[DFTypeAny, Modifier[Any, Modifier.Connectable, Any, Any]] => true
+      case _                                                                  => false
     inline if (connectableL || connectableR)
-      inline if (IsGiven[TC_Connect[LT, LM, R]])
-        val tcL = compiletime.summonInline[TC_Connect[LT, LM, R]]
-        inline if (IsGiven[TC_Connect[RT, RM, L]])
-          val tcR = compiletime.summonInline[TC_Connect[RT, RM, L]]
+      inline if (IsGiven[TC_Connect[L, R]])
+        val tcL = compiletime.summonInline[TC_Connect[L, R]]
+        inline if (IsGiven[TC_Connect[R, L]])
+          val tcR = compiletime.summonInline[TC_Connect[R, L]]
           // since we have both candidates, we try the RHS first, so if both fail at runtime,
           // the error message will be from the LHS as fallback.
           try tcR.connect(rhs, lhs)
           catch case e: Throwable => tcL.connect(lhs, rhs)
         else tcL.connect(lhs, rhs)
-      else if (IsGiven[TC_Connect[RT, RM, L]])
-        compiletime.summonInline[TC_Connect[RT, RM, L]].connect(rhs, lhs)
+      else if (IsGiven[TC_Connect[R, L]])
+        compiletime.summonInline[TC_Connect[R, L]].connect(rhs, lhs)
       else
         // forcing the error message from the LHS case
-        compiletime.summonInline[TC_Connect[LT, LM, R]]
+        compiletime.summonInline[TC_Connect[L, R]]
     else compiletime.error(
       "At least one of the connection arguments must be a connectable DFHDL value (var/port)."
     )
+    end if
   end specialConnect
 
   given evConnectPort[
