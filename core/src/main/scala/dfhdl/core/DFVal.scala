@@ -1236,25 +1236,30 @@ object DFVal extends DFValLP:
         exactOp2["as", DFC, DFValAny](lhs, aliasType)
     end extension
     extension [L](inline lhs: L)
-      transparent inline def <~>[R](inline rhs: R)(using DFC): Any =
+      transparent inline def <>[R](inline rhs: R)(using DFC): Any =
         // operator `<>` as a constructor is unidirectional
         // operator `<>` as a connection is bidirectional and commutative
-        // TODO: possibly use match on lhs and rhs together fixing scalac issue
-        // https://github.com/scala/scala3/issues/24076
-        inline lhs match
-          case lhs: DFValAny => inline rhs match
-              // if both LHS and RHS are DFVals, we call `specialConnect` to handle possible
-              // connection in either direction where both implicit directions are available
-              // case rhs: DFValAny => ConnectOps.specialConnect(lhs, rhs)
-              // otherwise, we invoke the implicit given operation in both directions by turning
-              // on the bothWays flag for all other cases
-              case _ => exactOp2["<>", DFC, Any](lhs, rhs)
-          case _ => inline rhs match
-              // if the RHS is a modifier, this is a port/variable constructor,
-              // so we invoke the the implicit given operation only in one way
-              case _: ModifierAny => exactOp2["<>", DFC, Any](lhs, rhs)
-              case _              => exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
-        end match
+        inline val lhsIsDFVal = inline compiletime.erasedValue[L] match
+          case _: DFValAny => true
+          case _           => false
+        inline val rhsIsDFVal = inline compiletime.erasedValue[R] match
+          case _: DFValAny => true
+          case _           => false
+        inline val rhsIsModifier = inline compiletime.erasedValue[R] match
+          case _: ModifierAny => true
+          case _              => false
+        // if both LHS and RHS are DFVals, we call `specialConnect` to handle possible
+        // connection in either direction where both implicit directions are available
+        inline if (lhsIsDFVal && rhsIsDFVal)
+          inline lhs match
+            case lhs: DFValAny => inline rhs match
+                case rhs: DFValAny => ConnectOps.specialConnect(lhs, rhs)
+        // if the RHS is a modifier, this is a port/variable constructor,
+        // so we invoke the the implicit given operation only in one way
+        else if (rhsIsModifier) exactOp2["<>", DFC, Any](lhs, rhs)
+        // otherwise, we invoke the implicit given operation in both directions by turning
+        // on the bothWays flag for all other cases
+        else exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
     end extension
 
     extension [T <: DFTypeAny, A, C, I, S <: Int, V](dfVal: DFVal[T, Modifier[A, C, I, Any]])
@@ -1557,10 +1562,10 @@ object ConnectOps:
       inline lhs: L,
       inline rhs: R
   )(using DFC): Unit =
-    inline val connectableL = inline lhs match
+    inline val connectableL = inline compiletime.erasedValue[L] match
       case _: DFVal[DFTypeAny, Modifier[Any, Modifier.Connectable, Any, Any]] => true
       case _                                                                  => false
-    inline val connectableR = inline rhs match
+    inline val connectableR = inline compiletime.erasedValue[R] match
       case _: DFVal[DFTypeAny, Modifier[Any, Modifier.Connectable, Any, Any]] => true
       case _                                                                  => false
     inline if (connectableL || connectableR)
@@ -1568,10 +1573,11 @@ object ConnectOps:
         val tcL = compiletime.summonInline[TC_Connect[L, R]]
         inline if (IsGiven[TC_Connect[R, L]])
           val tcR = compiletime.summonInline[TC_Connect[R, L]]
-          // since we have both candidates, we try the RHS first, so if both fail at runtime,
-          // the error message will be from the LHS as fallback.
-          try tcR.connect(rhs, lhs)
-          catch case e: Throwable => tcL.connect(lhs, rhs)
+          try tcL.connect(lhs, rhs)
+          catch
+            case eL: Throwable =>
+              try tcR.connect(rhs, lhs)
+              catch case eR: Throwable => throw eL
         else tcL.connect(lhs, rhs)
       else if (IsGiven[TC_Connect[R, L]])
         compiletime.summonInline[TC_Connect[R, L]].connect(rhs, lhs)
@@ -1599,17 +1605,6 @@ object ConnectOps:
     def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
       lhs.connect(tc(lhs.dfType, rhs))
     }(using dfc, CTName("<>"))
-  extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
-    def <>(rhs: DFVal.TC_Or_OPEN_Or_Resource.Exact[T])(using
-        DFC
-    )(using
-        connectableOnly: ConnectableOnly[C, rhs.ExactFrom]
-    ): Unit =
-      given CTName = CTName("<>")
-      trydf {
-        rhs.tc.connect(dfPort, rhs.exactFrom)
-      }
-  end extension
 end ConnectOps
 
 extension (dfVal: ir.DFVal)

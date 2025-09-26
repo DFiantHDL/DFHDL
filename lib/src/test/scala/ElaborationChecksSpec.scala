@@ -158,7 +158,7 @@ class ElaborationChecksSpec extends DesignSpec:
           |DFiant HDL elaboration error!
           |Position:  ${currentFilePos}ElaborationChecksSpec.scala:154:19 - 154:28
           |Hierarchy: Top.y
-          |Operation: ``
+          |Operation: `Port/Variable constructor`
           |Message:   Ports can only be directly owned by a design, a domain or an interface.
           |""".stripMargin
     )

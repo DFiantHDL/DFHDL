@@ -101,26 +101,6 @@ object DFType:
   type Supported = DFTypeAny | FieldsOrTuple | DFEncoding | DFOpaqueA | Byte | Int | Long |
     Boolean | Double | String | Object | Unit
 
-  object Ops:
-    extension [T <: Supported](t: T)
-      infix def <>[A, C, I, P](modifier: Modifier[A, C, I, P])(using
-          @implicitNotFound("Port/Variable declarations cannot be global") dfc: DFC,
-          tc: DFType.TC[T],
-          ck: DFC.Scope.Local,
-          dt: DomainType
-      ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
-        trydf:
-          if (modifier.value.isPort)
-            dfc.owner.asIR match
-              case _: ir.DFDomainOwner =>
-              case _                   =>
-                throw new IllegalArgumentException(
-                  "Ports can only be directly owned by a design, a domain or an interface."
-                )
-          DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, P]])
-    end extension
-  end Ops
-
   trait TC[T]:
     type Type <: DFTypeAny
     def apply(t: T)(using DFC): Type

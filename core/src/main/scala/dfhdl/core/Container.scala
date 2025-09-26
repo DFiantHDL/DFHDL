@@ -52,9 +52,3 @@ abstract class RTDomainContainer(cfg: RTDomainCfg) extends DomainContainer(Domai
     DFOpaque(Rst())
   end Rst
 end RTDomainContainer
-
-object RTDomainContainer:
-  object Ops:
-    extension [D <: RTDomainContainer](domain: D)
-      def <>[R <: Resource](resource: R)(using dfc: DFC, cc: Resource.CanConnect[R, D]): Unit =
-        cc.connect(resource, domain)

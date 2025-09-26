@@ -81,15 +81,5 @@ object Resource extends ResourceLP:
       def apply(resource1: R, resourceOrValue: T)(using DFC): Out =
         cc.connect(resource1, resourceOrValue)
   end given
-  object Ops:
-    extension [R <: Resource](resource: R)
-      def <>[T <: Resource](that: T)(using dfc: DFC, cc: CanConnect[R, T]): Unit =
-        cc.connect(resource, that)
-      def <>[T <: DFValAny | RTDomainContainer](that: T)(using
-          dfc: DFC,
-          cc: CanConnect[R, T]
-      ): Unit = trydf {
-        cc.connect(resource, that)
-      }
-  export Resource.Ops.*
+  export dfhdl.hdl.<>
 end Resource

@@ -2,7 +2,6 @@ package dfhdl
 protected object hdl:
   class dsn extends scala.annotation.StaticAnnotation
   import core.IntP
-  export core.DFType.Ops.*
   export core.DFBoolOrBit.Val.Ops.*
   export core.DFBits.StrInterpOps.{h, b}
   export core.DFBits.Val.Ops.*
@@ -25,7 +24,6 @@ protected object hdl:
   export internals.CommonOps.*
   export core.{dfType}
   export core.DFPhysical.Val.Ops.*
-  export platforms.resources.Resource.Ops.*
   export core.COMB_LOOP
   type Time = core.DFTime
   val Time = core.DFTime
@@ -34,7 +32,6 @@ protected object hdl:
   export core.DFRange.Ops.*
   export core.Step.Ops.*
   export core.Wait.Ops.*
-  export core.RTDomainContainer.Ops.*
   type Step = core.Step
   type DFC = core.DFC
   val DFC = core.DFC
