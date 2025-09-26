@@ -1242,14 +1242,14 @@ object DFVal extends DFValLP:
         // TODO: possibly use match on lhs and rhs together fixing scalac issue
         // https://github.com/scala/scala3/issues/24076
         inline lhs match
-          case lhs: DFValAny => rhs match
+          case lhs: DFValAny => inline rhs match
               // if both LHS and RHS are DFVals, we call `specialConnect` to handle possible
               // connection in either direction where both implicit directions are available
-              case rhs: DFValAny => ConnectOps.specialConnect(lhs, rhs)
+              // case rhs: DFValAny => ConnectOps.specialConnect(lhs, rhs)
               // otherwise, we invoke the implicit given operation in both directions by turning
               // on the bothWays flag for all other cases
-              case _ => exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
-          case _ => rhs match
+              case _ => exactOp2["<>", DFC, Any](lhs, rhs)
+          case _ => inline rhs match
               // if the RHS is a modifier, this is a port/variable constructor,
               // so we invoke the the implicit given operation only in one way
               case _: ModifierAny => exactOp2["<>", DFC, Any](lhs, rhs)
