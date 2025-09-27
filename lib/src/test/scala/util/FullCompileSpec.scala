@@ -50,9 +50,16 @@ abstract class FullCompileSpec extends FunSuite:
     given options.CompilerOptions.Backend = backends.verilog.v2001
     dut.compile.lintVerilog
 
+  // TODO: restore verilator when https://github.com/verilator/verilator/issues/6492
+  // is fixed
   test("verilog.v95 compilation with no error"):
     given options.CompilerOptions.Backend = backends.verilog.v95
-    dut.compile.lintVerilog
+    val cd = dut.compile
+    List(iverilog, vlog, xvlog).foreach { linter =>
+      if (linter.isAvailable)
+        given LinterOptions.VerilogLinter = linter
+        cd.lint
+    }
 
   test("vhdl[default = v2008] compilation with no error"):
     given options.CompilerOptions.Backend = backends.vhdl
