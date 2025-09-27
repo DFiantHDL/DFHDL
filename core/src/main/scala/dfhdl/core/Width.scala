@@ -8,7 +8,17 @@ import scala.annotation.nowarn
 trait Width[T]:
   type Out <: IntP
   type OutI <: Int
-object Width:
+trait WidthLP:
+  given fromDFBitsIntP[W <: IntP]: Width[DFBits[W]] with
+    type Out = W
+    type OutI = Int
+  given fromDFDecimalIntP[S <: Boolean, W <: IntP, F <: Int, N <: ir.DFDecimal.NativeType]
+      : Width[DFDecimal[S, W, F, N]] with
+    type Out = W
+    type OutI = Int
+object Width extends WidthLP:
+  type Aux[T, O <: IntP] = Width[T] { type Out = O }
+  type AuxI[T, O <: Int] = Width[T] { type OutI = O }
   val wide: Width[DFTypeAny] = new Width[DFTypeAny]:
     type Out = Int
     type OutI = Int
@@ -24,15 +34,13 @@ object Width:
   given fromDoubleCompanion: Width[Double.type] with
     type Out = 64
     type OutI = 64
-  given fromDFBits[W <: IntP]: Width[DFBits[W]] with
+  given fromDFBitsInt[W <: Int]: Width[DFBits[W]] with
     type Out = W
-    type OutI = IntP.ToInt[Out]
-  // given fromDFBits[W <: IntP, WI <: Int](using UBound.Aux[Int, W, WI]): Width[DFBits[W]] with
-  //   type Out = WI
-  given fromDFDecimal[S <: Boolean, W <: IntP, F <: Int, N <: ir.DFDecimal.NativeType]
+    type OutI = W
+  given fromDFDecimalInt[S <: Boolean, W <: Int, F <: Int, N <: ir.DFDecimal.NativeType]
       : Width[DFDecimal[S, W, F, N]] with
     type Out = W
-    type OutI = IntP.ToInt[Out]
+    type OutI = W
   transparent inline given [T]: Width[T] = ${ getWidthMacro[T] }
   extension (using quotes: Quotes)(dfTpe: quotes.reflect.TypeRepr)
     def +(rhs: quotes.reflect.TypeRepr): quotes.reflect.TypeRepr =
@@ -116,8 +124,9 @@ object Width:
             case _ =>
               TypeRepr.of[Int]
           end match
-        case '[Int] =>
-          dfTpe
+        // TODO: maybe in the future we use IntP.Sig and further calculate the width according the typelevel operations
+        case '[IntP.Sig]      => TypeRepr.of[Int]
+        case '[Int]           => dfTpe
         case '[Boolean.type]  => ConstantType(IntConstant(1))
         case '[Double.type]   => ConstantType(IntConstant(64))
         case '[Byte.type]     => ConstantType(IntConstant(8))

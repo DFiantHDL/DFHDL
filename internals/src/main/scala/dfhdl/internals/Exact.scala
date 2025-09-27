@@ -62,28 +62,6 @@ end extension
 
 final class Exact[T](val value: T) extends AnyVal
 object Exact:
-  // private val cacheMap = TrieMap.empty[String, (Quotes, Expr[Any])]
-  // def cacheErrorExpr(msg: String)(using Quotes): Expr[Nothing] =
-  //   import quotes.reflect.*
-  //   val sourceFile = Position.ofMacroExpansion.sourceFile
-  //   val cached = cacheMap(sourceFile.path)
-  //   println(s"get: ${Position.ofMacroExpansion}")
-  //   val (start, end) =
-  //     given Quotes = cached._1
-  //     import quotes.reflect.*
-  //     val term = cached._2.asTerm
-  //     (term.pos.start, term.pos.end)
-  //   println(s"actual: <$start..$end>")
-  //   val msgExpr = Expr(msg)
-  //   val startExpr = Expr(start)
-  //   val endExpr = Expr(end)
-  //   '{ compiletimeErrorPos($msgExpr, $startExpr, $endExpr) }
-  // end cacheErrorExpr
-
-  // transparent inline def cacheError(msg: String): Nothing = ${ cacheErrorMacro('msg) }
-  // def cacheErrorMacro(msg: Expr[String])(using Quotes): Expr[Nothing] =
-  //   cacheErrorExpr(msg.value.get)
-
   inline def apply[T](inline value: T): Exact[T] = new Exact(value)
   def strip(value: Any): Any =
     value match
@@ -96,10 +74,6 @@ object Exact:
       value: Expr[T]
   )(using Quotes, Type[T]): Expr[Exact[?]] =
     import quotes.reflect.*
-    // val x = Position.ofMacroExpansion.sourceFile.path -> (quotes, value)
-    // println("---------")
-    // println(s"set: ${Position.ofMacroExpansion}")
-    // cacheMap += x
     val exactInfo = value.exactInfo
     '{ Exact[exactInfo.Underlying](${ exactInfo.exactExpr }) }
   end fromValueMacro
@@ -265,3 +239,134 @@ object Exact1:
     }
   end convMacro
 end Exact1
+
+/////////////////////////////////////////////////////////////////////////////////
+// ExactOp1
+/////////////////////////////////////////////////////////////////////////////////
+trait ExactOp1[Op, OutUB, Ctx, LHS]:
+  type Out <: OutUB
+  def apply(lhs: LHS)(using Ctx): Out
+type ExactOp1Aux[Op, OutUB, Ctx, LHS, O <: OutUB] =
+  ExactOp1[Op, OutUB, Ctx, LHS] { type Out = O }
+transparent inline def exactOp1[Op, Ctx, OutUB](inline lhs: Any)(using ctx: Ctx): OutUB =
+  ${ exactOp1Macro[Op, Ctx, OutUB]('lhs)('ctx) }
+private def exactOp1Macro[Op, Ctx, OutUB](lhs: Expr[Any])(ctx: Expr[Ctx])(using
+    Quotes,
+    Type[Op],
+    Type[Ctx],
+    Type[OutUB]
+): Expr[OutUB] =
+  import quotes.reflect.*
+  val lhsExactInfo = lhs.exactInfo
+  Expr.summon[ExactOp1[Op, OutUB, Ctx, lhsExactInfo.Underlying]] match
+    case Some(expr) => '{ $expr(${ lhsExactInfo.exactExpr })(using $ctx) }
+    case None       =>
+      ControlledMacroError.report("Unsupported argument type for this operation.")
+  end match
+end exactOp1Macro
+
+/////////////////////////////////////////////////////////////////////////////////
+// ExactOp2
+/////////////////////////////////////////////////////////////////////////////////
+trait ExactOp2[Op, Ctx, OutUB, LHS, RHS]:
+  type Out <: OutUB
+  def apply(lhs: LHS, rhs: RHS)(using Ctx): Out
+type ExactOp2Aux[Op, Ctx, OutUB, LHS, RHS, O <: OutUB] =
+  ExactOp2[Op, Ctx, OutUB, LHS, RHS] { type Out = O }
+transparent inline def exactOp2[Op, Ctx, OutUB](
+    inline lhs: Any,
+    inline rhs: Any,
+    inline bothWays: Boolean = false
+)(using
+    ctx: Ctx
+): OutUB = ${ exactOp2Macro[Op, Ctx, OutUB]('lhs, 'rhs, 'bothWays)('ctx) }
+private def exactOp2Macro[Op, Ctx, OutUB](
+    lhs: Expr[Any],
+    rhs: Expr[Any],
+    bothWays: Expr[Boolean]
+)(ctx: Expr[Ctx])(
+    using
+    Quotes,
+    Type[Op],
+    Type[Ctx],
+    Type[OutUB]
+): Expr[OutUB] =
+  import quotes.reflect.*
+  val lhsExactInfo = lhs.exactInfo
+  val rhsExactInfo = rhs.exactInfo
+  Expr.summonOrError[ExactOp2[
+    Op,
+    Ctx,
+    OutUB,
+    lhsExactInfo.Underlying,
+    rhsExactInfo.Underlying
+  ]] match
+    case Right(expr) => '{
+        $expr(${ lhsExactInfo.exactExpr }, ${ rhsExactInfo.exactExpr })(using $ctx)
+      }
+    case Left(msg) =>
+      if (bothWays.value.getOrElse(false))
+        Expr.summonOrError[ExactOp2[
+          Op,
+          Ctx,
+          OutUB,
+          rhsExactInfo.Underlying,
+          lhsExactInfo.Underlying
+        ]] match
+          case Right(expr) => '{
+              $expr(${ rhsExactInfo.exactExpr }, ${ lhsExactInfo.exactExpr })(using $ctx)
+            }
+          case Left(msg) =>
+            ControlledMacroError.report("Unsupported argument types for this operation.")
+      else
+        ControlledMacroError.report("Unsupported argument types for this operation.")
+  end match
+end exactOp2Macro
+
+/////////////////////////////////////////////////////////////////////////////////
+// ExactOp3
+/////////////////////////////////////////////////////////////////////////////////
+trait ExactOp3[Op, Ctx, OutUB, LHS, MHS, RHS]:
+  type Out <: OutUB
+  def apply(lhs: LHS, mhs: MHS, rhs: RHS)(using Ctx): Out
+type ExactOp3Aux[Op, Ctx, OutUB, LHS, MHS, RHS, O <: OutUB] =
+  ExactOp3[Op, Ctx, OutUB, LHS, MHS, RHS] { type Out = O }
+transparent inline def exactOp3[Op, Ctx, OutUB](
+    inline lhs: Any,
+    inline mhs: Any,
+    inline rhs: Any
+)(using ctx: Ctx): OutUB = ${ exactOp3Macro[Op, Ctx, OutUB]('lhs, 'mhs, 'rhs)('ctx) }
+private def exactOp3Macro[Op, Ctx, OutUB](
+    lhs: Expr[Any],
+    mhs: Expr[Any],
+    rhs: Expr[Any]
+)(ctx: Expr[Ctx])(
+    using
+    Quotes,
+    Type[Op],
+    Type[Ctx],
+    Type[OutUB]
+): Expr[OutUB] =
+  import quotes.reflect.*
+  val lhsExactInfo = lhs.exactInfo
+  val mhsExactInfo = mhs.exactInfo
+  val rhsExactInfo = rhs.exactInfo
+  Expr.summon[ExactOp3[
+    Op,
+    Ctx,
+    OutUB,
+    lhsExactInfo.Underlying,
+    mhsExactInfo.Underlying,
+    rhsExactInfo.Underlying
+  ]] match
+    case Some(expr) => '{
+        $expr(
+          ${ lhsExactInfo.exactExpr },
+          ${ mhsExactInfo.exactExpr },
+          ${ rhsExactInfo.exactExpr }
+        )(using $ctx)
+      }
+    case None =>
+      ControlledMacroError.report("Unsupported argument types for this operation.")
+  end match
+end exactOp3Macro

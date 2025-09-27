@@ -89,26 +89,26 @@ object DFBoolOrBit:
         def falling(using DFC): DFValOf[DFBool] = trydf {
           DFVal.Func(DFBool, FuncOp.falling, List(lhs))
         }
-        def bool(using DFC): DFValTP[DFBool, P] = trydf {
+        def bool(using DFCG): DFValTP[DFBool, P] = trydf {
           DFVal.Alias.AsIs(DFBool, lhs)
         }
         @targetName("notOfDFBit")
-        def unary_!(using DFC): DFValTP[DFBit, P] = trydf {
+        def unary_!(using DFCG): DFValTP[DFBit, P] = trydf {
           DFVal.Func(DFBit, FuncOp.unary_!, List(lhs))
         }
         @targetName("not2OfDFBit")
-        inline def unary_~(using DFC) = lhs.unary_!
+        inline def unary_~(using DFCG) = lhs.unary_!
       end extension
       extension [P](lhs: DFValTP[DFBool, P])
-        def bit(using DFC): DFValTP[DFBit, P] = trydf {
+        def bit(using DFCG): DFValTP[DFBit, P] = trydf {
           DFVal.Alias.AsIs(DFBit, lhs)
         }
         @targetName("notOfDFBool")
-        def unary_!(using DFC): DFValTP[DFBool, P] = trydf {
+        def unary_!(using DFCG): DFValTP[DFBool, P] = trydf {
           DFVal.Func(DFBool, FuncOp.unary_!, List(lhs))
         }
         @targetName("not2OfDFBool")
-        inline def unary_~(using DFC) = lhs.unary_!
+        inline def unary_~(using DFCG) = lhs.unary_!
 
       private def logicOp[T <: DFBoolOrBit, P, RP](
           dfVal: DFValTP[T, P],
@@ -124,18 +124,18 @@ object DFBoolOrBit:
         private[core] def not(using DFC): DFValTP[T, P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_!, List(lhs))
         }
-        def ||(rhs: Candidate.Exact)(using DFC): DFValTP[T, P | rhs.tc.OutP] =
+        def ||(rhs: Candidate.Exact)(using DFCG): DFValTP[T, P | rhs.tc.OutP] =
           trydf { logicOp(lhs, rhs(), FuncOp.|, false) }
         @targetName("orOfDFBoolOrBit")
-        inline def |(rhs: Candidate.Exact)(using DFC) = lhs || rhs
-        def &&(rhs: Candidate.Exact)(using DFC): DFValTP[T, P | rhs.tc.OutP] =
+        inline def |(rhs: Candidate.Exact)(using DFCG) = lhs || rhs
+        def &&(rhs: Candidate.Exact)(using DFCG): DFValTP[T, P | rhs.tc.OutP] =
           trydf { logicOp(lhs, rhs(), FuncOp.&, false) }
         @targetName("andOfDFBoolOrBit")
-        inline def &(rhs: Candidate.Exact)(using DFC) = lhs && rhs
+        inline def &(rhs: Candidate.Exact)(using DFCG) = lhs && rhs
         def ^(rhs: Candidate.Exact)(using DFC): DFValTP[T, P | rhs.tc.OutP] =
           trydf { logicOp(lhs, rhs(), FuncOp.^, false) }
         inline def sel[OT, OF](inline onTrue: OT, inline onFalse: OF)(using
-            dfc: DFC
+            dfc: DFCG
         ): BoolSelWrapper[P, OT, OF] = BoolSelWrapper[P, OT, OF](lhs, onTrue, onFalse)
 
       end extension

@@ -58,7 +58,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val portBlock = ports.emptyOr(v => s"""(
                                           |${ports.hindent}
                                           |)""".stripMargin)
-    val localTypeDcls = printer.csLocalTypeDcls(design).emptyOr(x => s"$x\n")
+    val localTypeDcls = printer.csLocalTypeDcls(design)
     val constIntDcls =
       designMembers.view
         .flatMap {
@@ -72,12 +72,13 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
           case _ => None
         }
         .map(x => printer.csDFMember(x) + ";")
-        .toList
-        .emptyOr(_.mkString("\n")).emptyOr(x => s"$x\n")
+        .mkString("\n")
     val dfValDcls =
       designMembers.view
         .flatMap {
-          case IteratorDcl()                                          => None
+          case IteratorDcl()                                                              => None
+          case p @ DclOut() if !printer.supportOutputInlineInit && p.initRefList.nonEmpty =>
+            Some(printer.csDFValDclInitialBlock(p))
           case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport =>
             p.dfType match
               case _: DFVector if !printer.supportVectorInlineInit && p.initRefList.nonEmpty =>
@@ -90,9 +91,11 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
               case _       => Some(printer.csDFMember(c) + ";")
           case _ => None
         }
-        .toList
-        .emptyOr(_.mkString("\n"))
-    val declarations = s"$constIntDcls$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
+        .mkString("\n")
+    val declarations =
+      sn"""|$constIntDcls
+           |$localTypeDcls
+           |$dfValDcls"""
     val statements = csDFMembers(
       designMembers.filter {
         case _: DFVal.Dcl => false
@@ -122,17 +125,20 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       else if (designParamList.length == 1) designParamList.mkString("#(", ", ", ")")
       else "#(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
     val includeModuleDefs =
-      if (printer.allowTypeDef) "" else s"""\n  `include "${printer.globalFileName}""""
+      if (printer.allowTypeDef) "" else s"""`include "${printer.globalFileName}""""
     // include parameter definitions only when parameters are used in the design
     val paramDefines =
       if (printer.supportGlobalParameters) ""
       else globalUsage.getOrElse(design, Set()).view.map(m =>
         s"`${m.getName}_def"
-      ).toList.sorted.mkString("\n  ").emptyOr("\n  " + _)
-    s"""module ${moduleName(design)}$designParamCS$portBlock;
-       |  `include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"$includeModuleDefs$paramDefines$declarations
-       |${statements.hindent}
-       |endmodule""".stripMargin
+      ).toList.sorted.mkString("\n")
+    sn"""|module ${moduleName(design)}$designParamCS$portBlock;
+         |  `include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"
+         |${includeModuleDefs.hindent}
+         |${paramDefines.hindent}
+         |${declarations.hindent}
+         |${statements.hindent}
+         |endmodule"""
   end csModuleDcl
   lazy val minTimeUnitDesignMap = getSet.designDB.designMemberList.view.flatMap { (dsn, members) =>
     val minTimePSOpt = members.view.collect {
@@ -160,7 +166,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       s".${param.getName} (${param.dfValRef.refCodeString})"
     }
     val designParamCS =
-      if (designParamList.isEmpty) ""
+      if (designParamList.isEmpty || design.isQsysIPBlackbox) ""
       else " #(" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
     val inst = s"${moduleName(design)}$designParamCS ${design.getName}"
     if (body.isEmpty) s"$inst;" else s"$inst(\n${body.hindent}\n);"
@@ -251,11 +257,15 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       case DFRange.Op.To    => "="
       case DFRange.Op.Until => ""
     val iterType = if (forInteratorDclSupport) s"${printer.csDFType(DFInt32)} " else ""
-    s"for ($iterType$csIter = ${rangeIR.startRef.refCodeString}; $csIter $csCompareOp$csCompareEq ${rangeIR.endRef.refCodeString}; $csIter = $csIter + ${csStep.applyBrackets()}) begin\n${body.hindent}\nend"
+    sn"""|for ($iterType$csIter = ${rangeIR.startRef.refCodeString}; $csIter $csCompareOp$csCompareEq ${rangeIR.endRef.refCodeString}; $csIter = $csIter + ${csStep.applyBrackets()}) begin
+         |${body.hindent}
+         |end"""
   end csDFForBlock
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
     val body = csDFOwnerBody(whileBlock)
-    s"while (${whileBlock.guardRef.refCodeString}) begin\n${body.hindent}\nend"
+    sn"""|while (${whileBlock.guardRef.refCodeString}) begin
+         |${body.hindent}
+         |end"""
   end csDFWhileBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VerilogOwnerPrinter

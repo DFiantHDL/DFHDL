@@ -135,6 +135,8 @@ abstract class CommonPhase extends PluginPhase:
   end replaceArgs
 
   extension (tpe: Type)(using Context)
+    def isMetaContext: Boolean =
+      tpe <:< metaContextTpe
     def dfValTpeOpt: Option[Type] =
       tpe.dealias match
         case res if res.dealias.typeSymbol == dfValSym => Some(res)
@@ -233,12 +235,15 @@ abstract class CommonPhase extends PluginPhase:
     end hasNestedMemberCond
   end extension
 
+  extension (sym: Symbol)(using Context)
+    def getFinalName(name: String = sym.name.toString): String =
+      sym.getAnnotation(defn.TargetNameAnnot)
+        .flatMap(_.argumentConstantString(0))
+        .getOrElse(name)
+
   extension (name: String)
     def nameCheck(posTree: Tree)(using Context): String =
-      val finalName =
-        posTree.symbol.getAnnotation(defn.TargetNameAnnot)
-          .flatMap(_.argumentConstantString(0))
-          .getOrElse(name)
+      val finalName = posTree.symbol.getFinalName(name)
       if (
         !finalName.matches("^[a-zA-Z0-9_]*$") && !posTree.symbol.flags.is(
           Flags.Synthetic
@@ -285,8 +290,8 @@ abstract class CommonPhase extends PluginPhase:
   extension (tp: Type)(using Context)
     def dfcFuncTpeOptRecur: Option[Type] =
       tp.dealias match
-        case ContextFunctionType(ctx, res) if ctx.head <:< metaContextTpe => Some(res)
-        case AppliedType(tycon, args)                                     =>
+        case ContextFunctionType(ctx, res) if ctx.head.isMetaContext => Some(res)
+        case AppliedType(tycon, args)                                =>
           var requiresUpdate = false
           val updatedArgs = args.map { tp =>
             tp.dfcFuncTpeOptRecur match
@@ -300,7 +305,7 @@ abstract class CommonPhase extends PluginPhase:
         case _ => None
     def dfcFuncTpeOpt: Option[Type] =
       tp.dealias match
-        case ContextFunctionType(ctx, res) if ctx.head <:< metaContextTpe =>
+        case ContextFunctionType(ctx, res) if ctx.head.isMetaContext =>
           Some(res)
         case _ => None
   end extension
@@ -340,7 +345,7 @@ abstract class CommonPhase extends PluginPhase:
         case Apply(tree, args) =>
           args
             .collectFirst {
-              case a if a.tpe <:< metaContextTpe =>
+              case a if a.tpe.isMetaContext =>
                 a
             }
             .orElse(unapply(tree))
@@ -350,7 +355,7 @@ abstract class CommonPhase extends PluginPhase:
       tree match
         case tree: DefDef =>
           tree.paramss.flatten.view.reverse.collectFirst {
-            case a @ ValDef(name, _, _) if a.tpe <:< metaContextTpe =>
+            case a @ ValDef(name, _, _) if a.tpe.isMetaContext =>
               a.ident
           }
         case TypeDef(name, _: Template) if tree.tpe <:< hasDFCTpe =>

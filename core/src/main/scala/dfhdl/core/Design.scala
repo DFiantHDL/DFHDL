@@ -7,6 +7,7 @@ import ir.DFDesignBlock.InstMode
 
 import scala.annotation.{Annotation, implicitNotFound}
 import scala.collection.immutable.ListMap
+import scala.collection.mutable
 import scala.reflect.ClassTag
 
 trait Design extends Container, HasClsMetaArgs:
@@ -25,49 +26,75 @@ trait Design extends Container, HasClsMetaArgs:
       annotations: List[Annotation]
   ): Unit =
     import dfc.getSet
-    val designBlock = owner.asIR
+    val designBlock = containedOwner.asIR
+    // the first class extending EDBlackBox.QsysIP will set the actual typeName of the IP
+    val instMode = mkInstMode match
+      case InstMode.BlackBox(InstMode.BlackBox.Source.Qsys(_)) =>
+        designBlock.instMode match
+          // preserve the current typeName if it is already set
+          case InstMode.BlackBox(InstMode.BlackBox.Source.Qsys(typeName)) if typeName.nonEmpty =>
+            designBlock.instMode
+          case _ =>
+            // set the IP typeName to the name of the class
+            InstMode.BlackBox(InstMode.BlackBox.Source.Qsys(name))
+      case instMode => instMode
     // the default RT Domain configuration is set as a global tag
     getSet.setGlobalTag(ir.DefaultRTDomainCfgTag(dfc.elaborationOptions.defaultRTDomainCfg))
     // the DFHDL version is set as a global tag
     getSet.setGlobalTag(ir.DFHDLVersionTag(dfhdl.dfhdlVersion))
-    setOwner(
-      getSet.replace(designBlock)(
-        designBlock.copy(
-          dclMeta = r__For_Plugin.metaGen(Some(name), position, docOpt, annotations),
-          instMode = mkInstMode
-        )
-      ).asFE
+    getSet.replace(designBlock)(
+      designBlock.copy(
+        dclMeta = r__For_Plugin.metaGen(Some(name), position, docOpt, annotations),
+        instMode = instMode
+      )
     )
   end setClsNamePos
   private var hasStartedLate: Boolean = false
   final override def onCreateStartLate: Unit =
     hasStartedLate = true
     import dfc.getSet
-    if (
-      dfc.owner.asIR.getThisOrOwnerDesign.dclMeta.annotations.exists(
-        _.isInstanceOf[ir.constraints.DeviceID]
-      )
-    )
+    if (dfc.owner.asIR.getThisOrOwnerDesign.isDeviceTop)
       handleResourceConstraints()
+      dfc.mutableDB.ResourceOwnershipContext.emptyTopResourceOwners()
     dfc.exitOwner()
     dfc.enterLate()
   private[dfhdl] def skipChecks: Boolean = false
 
   def customTopChecks(): Unit = {}
   private def handleResourceConstraints(): Unit =
-    import dfhdl.{<>, OUT, NOTHING}
+    import dfhdl.{OUT, NOTHING}
     import ir.constraints.{IO, SigConstraint}
     import dfhdl.platforms.resources.*
     import dfhdl.platforms.devices.Pin
+    import dfc.getSet
     def addUnusedPinPort(pinID: String, constraints: List[SigConstraint]): Unit =
+      val missingPullDownSupport = constraints.collectFirst {
+        case IO(missingPullDownSupport = missingPullDownSupport: Boolean) =>
+          missingPullDownSupport
+      }.getOrElse(false)
+      val unusedPullMode = constraints.collectFirst {
+        case IO(unusedPullMode = unusedPullMode: IO.PullMode) => unusedPullMode
+      }.get
+      // missing pull down support and unused pull mode is down, so we drive the pin to zero
+      val driveZero = missingPullDownSupport && unusedPullMode == IO.PullMode.DOWN
+      val updatedConstraints =
+        if (driveZero) constraints
+        // setting the pull mode as the unused pull mode
+        else (IO(pullMode = unusedPullMode) :: constraints).merge
+      val updatedAnnotations = ir.annotation.Unused.Keep :: updatedConstraints
       val port =
-        DFBit.<>(OUT)(using dfc.setName(s"Pin_${pinID}_unused").setAnnotations(constraints))
-      port <> NOTHING(DFBit)(using dfc.anonymize)
+        DFVal.Dcl(DFBit, OUT)(using
+          dfc.setName(s"Pin_${pinID}_unused").setAnnotations(updatedAnnotations)
+        )
+      if (driveZero) port.connect(DFVal.Const(DFBit, Some(false), named = false))
+      else port.connect(NOTHING(DFBit)(using dfc.anonymize))
+    end addUnusedPinPort
     val usedPinIDs: Set[String] =
       dfc.mutableDB.ResourceOwnershipContext
-        .getConnectedResourceMap.values.flatten
+        .getConnectedDclResourceMap.values.flatten
         .flatMap(_._2.allSigConstraints)
         .collect { case IO(loc = pinID: String) => pinID }.toSet
+    val clkResources = mutable.Set.empty[ClkResource]
     def addUnusedPinPorts(resourceOwner: ResourceOwner): Unit =
       resourceOwner.getChildren.foreach(addUnusedPinPorts)
       resourceOwner.getResources.foreach {
@@ -76,12 +103,18 @@ trait Design extends Container, HasClsMetaArgs:
             case IO(unusedPullMode = unusedPullMode: IO.PullMode) => unusedPullMode
           }
           unusedPullMode.foreach(unusedPullMode =>
-            //                           setting the pull mode as the unused pull mode
-            addUnusedPinPort(pin.id, (IO(pullMode = unusedPullMode) :: pin.allSigConstraints).merge)
+            addUnusedPinPort(pin.id, pin.allSigConstraints)
           )
-        case _ =>
+        case clkResource: ClkResource => clkResources += clkResource
+        case _                        =>
       }
     dfc.mutableDB.ResourceOwnershipContext.getTopResourceOwners.foreach(addUnusedPinPorts)
+    val clkPorts = mutable.ListBuffer.empty[ir.DFVal.Dcl]
+    dfc.mutableDB.DesignContext.current.getImmutableMemberList.foreach {
+      case port: ir.DFVal.Dcl if port.isPortIn && port.isClkDcl =>
+        clkPorts += port
+      case _ =>
+    }
   end handleResourceConstraints
 
   final override def onCreateEnd(thisOwner: Option[This]): Unit =
@@ -91,7 +124,7 @@ trait Design extends Container, HasClsMetaArgs:
       dfc.exitOwner()
     import dfc.getSet
     // At the end of the top-level instance we check for errors
-    if (owner.asIR.isTop && thisOwner.isEmpty)
+    if (containedOwner.asIR.isTop && thisOwner.isEmpty)
       val errors = dfc.getErrors
       // If we have errors, then we print them to stderr and exit
       if (errors.nonEmpty)
@@ -129,21 +162,18 @@ object Design:
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
     infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
       import dfc.getSet
-      dsn.setOwner(
-        dsn.owner.asIR
-          .setTags(_.tag(customTag))
-          .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
-          .asFE
-      )
+      dsn.containedOwner.asIR
+        .setTags(_.tag(customTag))
+        .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
+      dsn
     infix def setName(name: String)(using dfc: DFC): D =
       import dfc.getSet
-      dsn.setOwner(
-        dsn.owner.asIR
-          .setMeta(m =>
-            if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta.setName(name)
-            else m.setName(name)
-          ).asFE
-      )
+      dsn.containedOwner.asIR
+        .setMeta(m =>
+          if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta.setName(name)
+          else m.setName(name)
+        )
+      dsn
   end extension
 
   extension (designDB: ir.DB)
@@ -171,9 +201,9 @@ abstract class RTDesign(cfg: RTDomainCfg = RTDomainCfg.Derived)
 
 abstract class EDDesign extends DomainContainer(DomainType.ED), Design
 
-abstract class EDBlackBox(verilogSrc: EDBlackBox.Source, vhdlSrc: EDBlackBox.Source)
-    extends EDDesign:
-  override private[core] def mkInstMode: InstMode =
-    InstMode.BlackBox(verilogSrc, vhdlSrc)
+abstract class EDBlackBox(source: EDBlackBox.Source) extends EDDesign:
+  override private[core] def mkInstMode: InstMode = InstMode.BlackBox(source)
 object EDBlackBox:
   export ir.DFDesignBlock.InstMode.BlackBox.Source
+  abstract class QsysIP extends EDBlackBox(Source.Qsys(typeName = "")):
+    val version: String <> CONST

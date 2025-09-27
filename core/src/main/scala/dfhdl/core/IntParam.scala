@@ -6,16 +6,10 @@ import compiletime.ops.int
 import int.*
 import compiletime.{constValueOpt, constValue}
 import dfhdl.internals.Inlined
-import dfhdl.internals.<:!
 import scala.annotation.targetName
 
 type IntP = Int | DFConstInt32 | IntP.Sig
 object IntP:
-  trait ToInt2[T <: IntP]:
-    type Out <: Int
-  type ToInt[V <: IntP] <: Int = V match
-    case Int          => V <:! Int
-    case DFConstInt32 => Int
   sealed trait Sig:
     val value: DFConstInt32
   object Sig:
@@ -105,39 +99,7 @@ object IntParam extends IntParamLP:
         val constR = argR.toDFConst
         import dfc.getSet
         def func = forced[O](DFVal.Func(DFInt32, op, List(constL, constR)))
-        op match
-          // special casing max/min to remove the need for max and min if the same value is used
-          case FuncOp.max | FuncOp.min if constL.asIR =~ constR.asIR =>
-            constL.asInstanceOf[IntParam[O]]
-          // special casing +/- operations and applying common associative reductions
-          case FuncOp.+ | FuncOp.- =>
-            (constL.asIR, argR) match
-              case (
-                    f @ ir.DFVal.Func(
-                      _,
-                      opL @ (FuncOp.+ | FuncOp.-),
-                      List(ir.DFRef(argLL), ir.DFRef(constLR: ir.DFVal.Const)),
-                      _,
-                      _,
-                      _
-                    ),
-                    intLR: Int
-                  ) if f.isAnonymous =>
-                val intLL = constLR.data.asInstanceOf[Option[BigInt]].get.toInt
-                val constL = argLL.asConstOf[DFInt32]
-                val intR = opL match
-                  case FuncOp.+ => opInt(intLL, intLR)
-                  case FuncOp.- =>
-                    (op: @unchecked) match
-                      case FuncOp.+ => intLR - intLL
-                      case FuncOp.- => intLL + intLR
-                if (intR == 0) constL.asInstanceOf[IntParam[O]]
-                else
-                  val constR = DFConstInt32(intR)
-                  forced[O](DFVal.Func(DFInt32, opL, List(constL, constR)))
-              case _ => func
-          case _ => func
-        end match
+        func
     end match
 
   end calc

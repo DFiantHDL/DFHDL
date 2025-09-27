@@ -14,10 +14,11 @@ object DFOpaque:
     type ActualType <: DFTypeAny
     protected[core] val actualType: ActualType
   object Abstract:
-    inline implicit def fromComp[TFE <: Abstract, Comp <: AnyRef](tfeComp: Comp)(implicit
+    type Aux[TFE <: Abstract, AT <: DFTypeAny] = TFE { type ActualType = AT }
+    inline implicit def fromComp[TFE <: Abstract, Comp <: Object](tfeComp: Comp)(implicit
         cc: CaseClass[Comp, TFE]
     ): cc.CC = compiletime.summonInline[ClassEv[cc.CC]].value
-    def fromCompMacro[TFE <: Abstract, Comp <: AnyRef](using
+    def fromCompMacro[TFE <: Abstract, Comp <: Object](using
         Quotes,
         Type[TFE],
         Type[Comp]
@@ -38,11 +39,11 @@ object DFOpaque:
   abstract class Clk extends Magnet[DFBit](DFBit)
   abstract class Rst extends Magnet[DFBit](DFBit)
 
-  given [TFE <: Abstract](using ce: ClassEv[TFE], dfc: DFC): DFOpaque[TFE] = DFOpaque(ce.value)
+  given [TFE <: Abstract](using ce: ClassEv[TFE], dfc: DFCG): DFOpaque[TFE] = DFOpaque(ce.value)
 
   def apply[TFE <: Abstract](
       t: TFE
-  )(using DFC): DFOpaque[TFE] = trydf:
+  )(using DFCG): DFOpaque[TFE] = trydf:
     val kind = t match
       case _: Clk       => ir.DFOpaque.Kind.Clk
       case _: Rst       => ir.DFOpaque.Kind.Rst
@@ -77,66 +78,65 @@ object DFOpaque:
           value.asValTP[DFOpaque[TFE], RP]
 
     object Ops:
-      extension [L](inline lhs: L)
-        transparent inline def as[Comp <: AnyRef](tfeComp: Comp): Any = ${
-          asMacro[L, Comp]('lhs, 'tfeComp)
-        }
-      private def asDFVector[A <: DFTypeAny](dfVals: Iterable[DFValOf[A]])(using
+      given evOpAsDFOpaqueComp[
+          L,
+          Comp <: Object,
+          TFE <: Abstract
+      ](using
+          cc: CaseClass.Aux[Comp, Abstract, TFE]
+      )(using
+          ce: ClassEv[TFE]
+      )(using
+          tc: DFVal.TC[ce.value.ActualType, L]
+      ): ExactOp2Aux["as", DFC, DFValAny, L, Comp, DFValTP[DFOpaque[TFE], tc.OutP]] =
+        new ExactOp2["as", DFC, DFValAny, L, Comp]:
+          type Out = DFValTP[DFOpaque[TFE], tc.OutP]
+          def apply(lhs: L, tfeComp: Comp)(using DFC): Out = trydf {
+            DFVal.Alias.AsIs(DFOpaque[TFE](ce.value), tc(ce.value.actualType, lhs))
+          }(using dfc, CTName("cast as opaque"))
+      end evOpAsDFOpaqueComp
+
+      given evOpAsDFOpaqueTFE[
+          L,
+          T <: DFTypeAny,
+          TFE <: Frontend[T]
+      ](using
+          tc: DFVal.TC[T, L]
+      ): ExactOp2Aux["as", DFC, DFValAny, L, TFE, DFValTP[DFOpaque[TFE], tc.OutP]] =
+        new ExactOp2["as", DFC, DFValAny, L, TFE]:
+          type Out = DFValTP[DFOpaque[TFE], tc.OutP]
+          def apply(lhs: L, tfe: TFE)(using DFC): Out = trydf {
+            DFVal.Alias.AsIs(DFOpaque[TFE](tfe), tc(tfe.actualType, lhs))
+          }(using dfc, CTName("cast as opaque"))
+      end evOpAsDFOpaqueTFE
+
+      given evOpAsDFOpaqueIterable[
+          A <: DFTypeAny,
+          P,
+          L <: Iterable[DFValTP[A, P]],
+          T <: DFTypeAny,
+          TFE <: Frontend[T]
+      ](using
+          tc: DFVal.TC[T, DFValTP[DFVector[A, Tuple1[Int]], P]]
+      ): ExactOp2Aux["as", DFC, DFValAny, L, TFE, DFValTP[DFOpaque[TFE], tc.OutP]] =
+        new ExactOp2["as", DFC, DFValAny, L, TFE]:
+          type Out = DFValTP[DFOpaque[TFE], tc.OutP]
+          def apply(lhs: L, tfe: TFE)(using DFC): Out = trydf {
+            DFVal.Alias.AsIs(DFOpaque[TFE](tfe), tc(tfe.actualType, asDFVector(lhs)))
+          }(using dfc, CTName("cast as opaque"))
+      end evOpAsDFOpaqueIterable
+
+      private def asDFVector[A <: DFTypeAny, P](dfVals: Iterable[DFValTP[A, P]])(using
           DFC
-      ): DFValOf[DFVector[A, Tuple1[Int]]] =
+      ): DFValTP[DFVector[A, Tuple1[Int]], P] =
         val dfType = DFVector[A, Tuple1[Int]](dfVals.head.dfType, List(dfVals.size))
         DFVal.Func(dfType, DFVal.Func.Op.++, dfVals.toList)
-      extension [A <: DFTypeAny](lhs: Iterable[DFValOf[A]])
-        transparent inline def as[Comp <: AnyRef](
-            tfeComp: Comp
-        )(using DFC): Any = ${
-          asMacro[DFValOf[DFVector[A, Tuple1[Int]]], Comp]('{ asDFVector(lhs) }, 'tfeComp)
-        }
-      private def asMacro[L, Comp <: AnyRef](
-          lhs: Expr[L],
-          tfeComp: Expr[Comp]
-      )(using Quotes, Type[L], Type[Comp]): Expr[Any] =
-        import quotes.reflect.*
-        val compTpe = TypeRepr.of[Comp]
-        val (tfe, tfeTpe) =
-          if (compTpe <:< TypeRepr.of[Abstract]) (tfeComp.asExprOf[Abstract], compTpe)
-          else
-            val tfeTpe = compTpe.getCompanionClassTpe
-            val tfeType = tfeTpe.asTypeOf[Abstract]
-            val tfe = '{
-              compiletime
-                .summonInline[ClassEv[tfeType.Underlying]]
-                .value
-            }
-            (tfe, tfeTpe)
-        val tfeType = tfeTpe.asTypeOf[Abstract]
-        tfeTpe.baseType(TypeRepr.of[Frontend[? <: DFTypeAny]].typeSymbol) match
-          case AppliedType(_, aTpe :: _) =>
-            val aType = aTpe.asTypeOf[DFTypeAny]
-            val lhsExactInfo = lhs.exactInfo
-            val pType = lhsExactInfo.exactTpe.isConstTpe.asTypeOf[Any]
-            val aExpr = '{ $tfe.actualType.asInstanceOf[aType.Underlying] }
-            '{
-              val tc = compiletime.summonInline[DFVal.TC[aType.Underlying, lhsExactInfo.Underlying]]
-              val dfc = compiletime.summonInline[DFC]
-              DFVal.Alias.AsIs(
-                DFOpaque[tfeType.Underlying]($tfe),
-                tc($aExpr, ${ lhsExactInfo.exactExpr })(using dfc)
-              )(using dfc)
-                // TODO: `P` should be automatically derived from tc.OutP, but there is issue
-                // https://github.com/lampepfl/dotty/issues/19554
-                .asValTP[DFOpaque[tfeType.Underlying], pType.Underlying]
-            }
-          case _ =>
-            report.errorAndAbort("Not a valid opaque type companion.")
-        end match
-      end asMacro
 
       extension [AT <: DFTypeAny, TFE <: Frontend[AT], A, P](
           lhs: DFVal[DFOpaque[TFE], Modifier[A, Any, Any, P]]
       )
         def opaqueType(using ce: ClassEv[TFE]): TFE = ce.value
-        def actual(using DFC): DFVal[AT, Modifier[A, Any, Any, P]] = trydf {
+        def actual(using DFCG): DFVal[AT, Modifier[A, Any, Any, P]] = trydf {
           DFVal.Alias.AsIs(lhs.dfType.actualType, lhs)
         }
         def mapActual(

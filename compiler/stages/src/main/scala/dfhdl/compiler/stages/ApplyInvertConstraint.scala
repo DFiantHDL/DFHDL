@@ -12,7 +12,8 @@ import dfhdl.internals.BitVector
 
 /** This stage applies the invertActiveState constraint by inverting the port it's attached to. It
   * creates an intermediate variable called `{portName}_inverted` and connects it to the port.
-  *   - For output ports, the inverted intermediate variable is connected to the port.
+  *   - For output ports, the inverted intermediate variable is connected to the port. Additionally,
+  *     the initial value of the port is transferred to the intermediate variable.
   *   - For input ports, the inverted input port is connected to the intermediate variable.
   *   - All references to the port will point to the intermediate variable.
   *   - The `invertActiveState` constraint is removed from the port.
@@ -42,7 +43,7 @@ import dfhdl.internals.BitVector
   * ```
   */
 case object ApplyInvertConstraint extends Stage:
-  override def dependencies: List[Stage] = List()
+  override def dependencies: List[Stage] = List(ToED)
   override def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
     given RefGen = RefGen.fromGetSet
@@ -68,19 +69,23 @@ case object ApplyInvertConstraint extends Stage:
                 ioConstraint.copy(invertActiveState = None)
               case other => other
             }
+            val updatedPortInitRefList =
+              if (dcl.isPortOut) Nil
+              else dcl.initRefList
             val updatedPortMeta = dcl.meta.copy(annotations = updatedPortAnnots)
-            val updatedPort = dcl.copy(meta = updatedPortMeta)
+            val updatedPort = dcl.copy(initRefList = updatedPortInitRefList, meta = updatedPortMeta)
 
             // Create a MetaDesign to add the new members
-            val dsn = new MetaDesign(
-              dcl,
-              Patch.Add.Config.ReplaceWithMemberN(1, Patch.Replace.Config.ChangeRefAndRemove)
-            ):
+            val dsn = new MetaDesign(dcl, Patch.Add.Config.After):
               plantMember(updatedPort)
+              val initValues =
+                if (dcl.isPortOut) dcl.initRefList.map(_.get.cloneAnonValueAndDepsHere.asConstAny)
+                else Nil
               // Create the inverted intermediate variable
               val inversionVar =
-                dcl.dfType.asFE[DFTypeAny].<>(VAR)(using dfc.setName(invertedVarName))
-
+                dfhdl.core.DFVal.Dcl(dcl.dfType.asFE[DFTypeAny], VAR, initValues)(using
+                  dfc.setName(invertedVarName)
+                )
               def invert(dfVal: DFValAny): DFValAny = dfVal.asIR.dfType match
                 case _: DFBoolOrBit => !dfVal.asValOf[dfhdl.core.DFBit]
                 case dfType: DFBits =>
@@ -105,7 +110,8 @@ case object ApplyInvertConstraint extends Stage:
               else
                 updatedPort.asDclAny <> invert(inversionVar)
             List(
-              dsn.patch
+              dsn.patch,
+              dcl -> Patch.Replace(dsn.inversionVar.asIR, Patch.Replace.Config.ChangeRefAndRemove)
             )
           else Nil
           end if

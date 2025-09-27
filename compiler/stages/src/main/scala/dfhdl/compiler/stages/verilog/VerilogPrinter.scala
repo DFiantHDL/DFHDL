@@ -164,7 +164,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"// $comment"
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/*", "\n  ", "*/")
-  def csAnnotations(meta: Meta): String = ""
+  def csAnnotations(annotations: List[annotation.HWAnnotation]): String = ""
   // def csTimer(timer: Timer): String = unsupported
   def verilogFileHeaderSuffix: String =
     printer.dialect match
@@ -178,24 +178,25 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     // because we will include the module defs twice, once in the top of the file
     // and second time inside the module.
     val globalParams =
-      if (printer.supportGlobalParameters) super.csGlobalFileContent.emptyOr("\n" + _) else ""
+      if (printer.supportGlobalParameters) super.csGlobalFileContent else ""
     val globalToLocalParams =
-      if (printer.supportGlobalParameters) "" else super.csGlobalFileContent.emptyOr("\n" + _)
+      if (printer.supportGlobalParameters) "" else super.csGlobalFileContent
     val moduleDefs =
       if (printer.allowTypeDef) ""
       else
-        s"""|
-            |`ifndef ${defName}_MODULE
-            |`define ${defName}_MODULE
-            |`else$globalToLocalParams
-            |${printer.csGlobalTypeFuncDcls}
-            |`undef ${defName}_MODULE
-            |`endif
-            |""".stripMargin
-    s"""`ifndef $defName
-       |`define $defName$globalParams
-       |`endif$moduleDefs
-       |""".stripMargin
+        sn"""|`ifndef ${defName}_MODULE
+             |`define ${defName}_MODULE
+             |`else
+             |$globalToLocalParams
+             |${printer.csGlobalTypeFuncDcls}
+             |`undef ${defName}_MODULE
+             |`endif"""
+    sn"""|`ifndef $defName
+         |`define $defName
+         |$globalParams
+         |`endif
+         |$moduleDefs
+         |"""
   end csGlobalFileContent
   def dfhdlDefsFileName: String = s"dfhdl_defs.$verilogFileHeaderSuffix"
   def dfhdlSourceContents: String =
@@ -228,7 +229,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       // align connections (verilog assignments)
       .align("[ ]*assign [a-zA-Z0-9_.\\[\\]\\:]+[ ]*", "=", ".*;")
       // align parameters
-      .align("[ ]*parameter [a-zA-Z0-9_.]+[ ]*", "=", ".*;")
+      .align("[ ]*(?:parameter|localparam) [a-zA-Z0-9_.]+[ ]*", "=", ".*;")
       // align enum constants
       .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*", "=", "[ ]*[0-9]+,?")
       // align cases
@@ -239,7 +240,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     "begin", "end", "case", "default", "endcase", "default_nettype", "include", "initial", "inside",
     "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
     "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while",
-    "assert", "write", "display", "info", "warning", "error", "fatal", "finish"
+    "assert", "write", "display", "info", "warning", "error", "fatal", "finish", "localparam"
   )
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] = Set(

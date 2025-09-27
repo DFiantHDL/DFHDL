@@ -17,6 +17,7 @@ final case class DB(
 ) derives CanEqual, ReadWriter:
   private val self = this
   given getSet: MemberGetSet with
+    val isMutable: Boolean = false
     val designDB: DB = self
     def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0 =
       refTable(ref).asInstanceOf[M0]
@@ -40,10 +41,7 @@ final case class DB(
   }
 
   // considered to be in build if not in simulation and has a device constraint
-  lazy val inBuild: Boolean = !inSimulation && top.dclMeta.annotations.exists {
-    case _: constraints.DeviceID => true
-    case _                       => false
-  }
+  lazy val inBuild: Boolean = !inSimulation && top.isDeviceTop
 
   lazy val portsByName: Map[DFDesignInst, Map[String, DFVal.Dcl]] =
     members.view
@@ -331,8 +329,8 @@ final case class DB(
             else Unknown
           // illegal connection
           case _ => Error
-      case _: DFVal.OPEN => Unknown
-      case _             => Read
+      case open if open.isOpen => Unknown
+      case _                   => Read
     end match
   end getValAccess
   private def getValAccess(dfVal: DFVal, net: DFNet)(
@@ -424,6 +422,9 @@ final case class DB(
           else
             v.departialDcl match
               case None =>
+                newError(s"Unexpected write access to the immutable value ${v.relValString}.")
+                None
+              case Some(dcl, range) if dcl.width < range.length =>
                 newError(s"Unexpected write access to the immutable value ${v.relValString}.")
                 None
               case x => x
@@ -638,7 +639,7 @@ final case class DB(
     // collect all ports that are not connected directly or implicitly as magnets
     val danglingPorts = members.collect {
       case p: DFVal.Dcl
-          if p.isPortIn && !connectionTable.contains(p) &&
+          if p.isPortIn && !p.isClkDcl && !p.isRstDcl && !connectionTable.contains(p) &&
             !p.getOwnerDesign.isTop && !magnetConnectionTable.contains(p) =>
         val ownerDesign = p.getOwnerDesign
         s"""|DFiant HDL connectivity error!
@@ -646,7 +647,7 @@ final case class DB(
             |Hierarchy: ${ownerDesign.getFullName}
             |Message:   Found a dangling (unconnected) input port `${p.getName}`.""".stripMargin
       case p: DFVal.Dcl
-          if p.isPortOut && !p.getOwnerDesign.isDuplicate &&
+          if p.isPortOut && !p.getOwnerDesign.isDuplicate && !p.getOwnerDesign.isBlackBox &&
             !connectionTable.contains(p) && !assignmentsDclTable.contains(p) &&
             !magnetConnectionTable.contains(p) && !p.hasNonBubbleInit =>
         val ownerDesign = p.getOwnerDesign
@@ -724,18 +725,43 @@ final case class DB(
   // mapping designs and their uses of Clk/Rst
   // we use the design declaration name (after enforcing uniqueness) because designs
   // can be empty duplicates and the indications need to come from the full designs
-  //                                       dclName  usesClk  usesRst
-  private lazy val designUsesClkRst = mutable.Map.empty[String, (Boolean, Boolean)]
-  //                                                            usesClk  usesRst
-  private lazy val domainOwnerUsesClkRst = mutable.Map.empty[DFDomainOwner, (Boolean, Boolean)]
+  private lazy val designUsesClkRst =
+    mutable.Map.empty[String, (usesClk: Boolean, usesRst: Boolean)]
+  private lazy val domainOwnerUsesClkRst =
+    mutable.Map.empty[DFDomainOwner, (usesClk: Boolean, usesRst: Boolean)]
   private lazy val reversedDependents = dependentRTDomainOwners.invert
 
   extension (domainOwner: DFDomainOwner)
+    private def getDomainClkConstraintsView: collection.View[constraints.Constraint] =
+      domainOwner.getConstraints.view ++
+        domainOwnerMemberTable(domainOwner).view.collectFirst {
+          case dcl: DFVal.Dcl if dcl.isPortIn && dcl.isClkDcl => dcl.getConstraints
+        }.getOrElse(Nil)
+    private def getTimingConstraintClkRateOpt: Option[RateNumber] =
+      getDomainClkConstraintsView.collectFirst {
+        case c: constraints.Timing.Clock => c.rate
+      }
     private def getExplicitCfg: RTDomainCfg.Explicit =
       domainOwner.domainType match
         case DomainType.RT(explicitCfg: RTDomainCfg.Explicit) => explicitCfg
-        case _ => globalTags.getTagOf[DefaultRTDomainCfgTag].get.cfg
-    private def usesClkRst: (Boolean, Boolean) = domainOwner match
+        case _                                                =>
+          val defaultCfg = globalTags.getTagOf[DefaultRTDomainCfgTag].get.cfg
+          val isDeviceTop = domainOwner.getThisOrOwnerDesign.isDeviceTop
+          // device top designs override the default clock and reset configuration
+          if (isDeviceTop)
+            val cfgName = ""
+            val clkCfg: ConfigN[ClkCfg.Explicit] = getTimingConstraintClkRateOpt match
+              case Some(rate) => defaultCfg.clkCfg.asInstanceOf[ClkCfg.Explicit].copy(rate = rate)
+              case None       => defaultCfg.clkCfg
+            // disabling default rst configuration for device top designs
+            // because it's wrong to directly propagate external rst throughout the design
+            // without proper synchronization and possibly debouncing.
+            val rstCfg = None
+            defaultCfg.copy(clkCfg = clkCfg, rstCfg = rstCfg)
+          else defaultCfg
+          end if
+
+    private def usesClkRst: (usesClk: Boolean, usesRst: Boolean) = domainOwner match
       case design: DFDesignBlock =>
         designUsesClkRst.getOrElseUpdate(
           design.dclName,
@@ -753,9 +779,9 @@ final case class DB(
       case dcl: DFVal.Dcl                      => dcl.isReg || dcl.isClkDcl
       case reg: DFVal.Alias.History            => true
       case pb: ProcessBlock if pb.isInRTDomain => true
-      case internal: DFDesignBlock             => internal.usesClkRst._1
+      case internal: DFDesignBlock             => internal.usesClkRst.usesClk
       case _                                   => false
-    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._1) ||
+    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst.usesClk) ||
       domainOwner.isTop && (domainOwner.getExplicitCfg.clkCfg match
         case ClkCfg.Explicit(inclusionPolicy = ClkRstInclusionPolicy.AlwaysAtTop) => true
         case _                                                                    => false)
@@ -765,9 +791,9 @@ final case class DB(
         (dcl.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
       case reg: DFVal.Alias.History            => reg.hasNonBubbleInit
       case pb: ProcessBlock if pb.isInRTDomain => true
-      case internal: DFDesignBlock             => internal.usesClkRst._2
+      case internal: DFDesignBlock             => internal.usesClkRst.usesRst
       case _                                   => false
-    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._2) ||
+    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst.usesRst) ||
       domainOwner.isTop && (domainOwner.getExplicitCfg.rstCfg match
         case RstCfg.Explicit(inclusionPolicy = ClkRstInclusionPolicy.AlwaysAtTop) => true
         case _                                                                    => false)
@@ -830,6 +856,58 @@ final case class DB(
     fillDomainMap(derivedDomainOwners, Nil, domainMap)
     domainMap.toMap
 
+  /** Checks that device top design domains all have timing clock rate constraints. Additionally, if
+    * there is an explicit clock rate configuration, it must match the timing constraint rate.
+    */
+  def domainClkRateCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    domainOwnerMemberList.view.map(_._1).foreach {
+      case domainOwner if domainOwner.getThisOrOwnerDesign.isDeviceTop && domainOwner.usesClk =>
+        def waitError(msg: String): Unit =
+          val pos =
+            if (domainOwner.isTop) domainOwner.asInstanceOf[DFDesignBlock].dclMeta.position
+            else domainOwner.meta.position
+          errors += s"""|DFiant HDL domain clock rate error!
+                        |Position:  ${pos}
+                        |Hierarchy: ${domainOwner.getFullName}
+                        |Message:   $msg""".stripMargin
+        val explicitRateOpt = domainOwner.domainType match
+          case DomainType.RT(RTDomainCfg.Explicit(clkCfg = ClkCfg.Explicit(rate = rate))) =>
+            Some(rate)
+          case _ => None
+        val timingConstraintRateOpt = domainOwner.getTimingConstraintClkRateOpt
+
+        (explicitRateOpt, timingConstraintRateOpt) match
+          case (Some(explicitRate), Some(timingConstraintRate)) =>
+            if (explicitRate.to_freq.to_hz != timingConstraintRate.to_freq.to_hz)
+              waitError(
+                s"""|Mismatch between domain clock rate configuration ($explicitRate) and timing constraint rate ($timingConstraintRate).
+                    |To fix, do one of the following:
+                    |* Connect a different clock resource to the domain to match your configuration.
+                    |* Explicitly set the clock rate configuration to $timingConstraintRate.
+                    |* Remove the domain clock rate configuration and let it be derived from the timing constraint.""".stripMargin
+              )
+          case (Some(explicitRate), None) =>
+            waitError(
+              s"""|Missing clock rate timing constraint.
+                  |To Fix:
+                  |Connect a $explicitRate clock resource to the domain to match your configuration.""".stripMargin
+            )
+          case (None, None) =>
+            waitError(
+              s"""|Missing clock rate timing constraint.
+                  |To Fix:
+                  |Connect the wanted clock resource to the domain.
+                  |(the domain will automatically derive the clock rate from the resource).""".stripMargin
+            )
+          case _ =>
+        end match
+      case _ =>
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end domainClkRateCheck
+
   def waitCheck(): Unit =
     val errors = collection.mutable.ArrayBuffer[String]()
     for
@@ -859,7 +937,7 @@ final case class DB(
               val waitDurationPs = waitTime.to_ps.value
 
               // Check if wait duration is exactly divisible by clock period
-              if (waitDurationPs % clockPeriodPs != 0)
+              if (!(waitDurationPs / clockPeriodPs).isWhole)
                 waitError(
                   s"Wait duration ${waitTime} is not exactly divisible by the clock $desc."
                 )
@@ -1008,38 +1086,61 @@ final case class DB(
     val errors = mutable.ListBuffer.empty[String]
     val locationCollisions = mutable.ListBuffer.empty[String]
 
-    // Collect all location constraints to check for collisions
-    val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
-
-    topIOs.foreach(port =>
-      val bitSet = mutable.BitSet((0 until port.width)*)
-      port.meta.annotations.foreach {
-        case constraints.IO(bitIdx = None, loc = loc: String) =>
-          bitSet.clear()
-          locationMap.get(loc).foreach { prevPort =>
-            locationCollisions += s"${prevPort} and ${port.getFullName} are both assigned to location `${loc}`"
-          }
-          locationMap += loc -> port.getFullName
-          if (port.width != 1)
-            locationCollisions += s"${port.getFullName} has mutliple bits assigned to location `${loc}`"
-        case constraints.IO(bitIdx = bitIdx: Int, loc = loc: String) =>
-          locationMap.get(loc).foreach { prevPort =>
-            locationCollisions += s"${prevPort} and ${port.getFullName}(${bitIdx}) are both assigned to location `${loc}`"
-          }
-          locationMap += loc -> s"${port.getFullName}(${bitIdx})"
-          bitSet -= bitIdx
-        case _ =>
-      }
-      if (bitSet.nonEmpty)
-        if (port.width == 1)
-          errors += s"${port.getFullName}"
-        else
-          errors += s"${port.getFullName} with bits ${bitSet.mkString(", ")}"
-    )
+    designMemberList.foreach {
+      case (design, members) if design.isDeviceTop =>
+        // Collect all location constraints to check for collisions
+        val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
+        (design :: members).foreach {
+          case domainOwner: DFDomainOwner =>
+            domainOwner.domainType match
+              case DomainType.RT(_) =>
+                var foundLoc = false
+                domainOwner.getDomainClkConstraintsView.foreach {
+                  case constraints.IO(loc = loc: String) =>
+                    locationMap.get(loc).foreach { prevPort =>
+                      locationCollisions += s"${prevPort} and ${domainOwner.getFullName} are both assigned to location `${loc}`"
+                    }
+                    locationMap += loc -> domainOwner.getFullName
+                    foundLoc = true
+                  case _ =>
+                }
+                if (!foundLoc)
+                  errors += s"${domainOwner.getFullName} is missing a clock location constraint"
+              case _ =>
+            end match
+          case clkPort: DFVal.Dcl if clkPort.isPortIn && clkPort.isClkDcl => // do nothing (checked in the domain itself)
+          case port: DFVal.Dcl if port.isPort =>
+            val bitSet = mutable.BitSet((0 until port.width)*)
+            port.meta.annotations.foreach {
+              case constraints.IO(bitIdx = None, loc = loc: String) =>
+                bitSet.clear()
+                locationMap.get(loc).foreach { prevPort =>
+                  locationCollisions += s"${prevPort} and ${port.getFullName} are both assigned to location `${loc}`"
+                }
+                locationMap += loc -> port.getFullName
+                if (port.width != 1)
+                  locationCollisions += s"${port.getFullName} has mutliple bits assigned to location `${loc}`"
+              case constraints.IO(bitIdx = bitIdx: Int, loc = loc: String) =>
+                locationMap.get(loc).foreach { prevPort =>
+                  locationCollisions += s"${prevPort} and ${port.getFullName}(${bitIdx}) are both assigned to location `${loc}`"
+                }
+                locationMap += loc -> s"${port.getFullName}(${bitIdx})"
+                bitSet -= bitIdx
+              case _ =>
+            }
+            if (bitSet.nonEmpty)
+              if (port.width == 1)
+                errors += s"${port.getFullName}"
+              else
+                errors += s"${port.getFullName} with bits ${bitSet.mkString(", ")}"
+          case _ =>
+        }
+      case _ =>
+    }
 
     if (errors.nonEmpty)
       throw new IllegalArgumentException(
-        s"""|The following top ports are missing location constraints:
+        s"""|The following top device design ports or domains are missing location constraints:
             |  ${errors.mkString("\n  ")}
             |To Fix:
             |Add a location constraint to the ports by connecting them to a located resource or
@@ -1057,9 +1158,6 @@ final case class DB(
       )
   end portLocationCheck
 
-  def buildTopChecks(): Unit =
-    portLocationCheck()
-
   def check(): Unit =
     nameCheck()
     connectionTable // causes connectivity checks
@@ -1067,9 +1165,9 @@ final case class DB(
     checkDanglingPorts()
     directRefCheck()
     circularDerivedDomainsCheck()
+    domainClkRateCheck()
     waitCheck()
-    if (inBuild)
-      buildTopChecks()
+    portLocationCheck()
 
   // There can only be a single connection to a value in a given range
   // (multiple assignments are possible)
@@ -1114,6 +1212,7 @@ enum MemberView derives CanEqual:
   case Folded, Flattened
 
 trait MemberGetSet:
+  val isMutable: Boolean
   def designDB: DB
   def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0
   def getOption[M <: DFMember, M0 <: M](ref: DFRef[M]): Option[M0]

@@ -556,6 +556,7 @@ class DropOpaquesSpec extends StageSpec:
     assertCodeString(
       top,
       """|val g: UInt[32] X 4 <> CONST = DFVector(UInt(32) X 4)(d"32'1", d"32'2", d"32'3", d"32'4")
+         |
          |class Top extends RTDesign:
          |  val o = UInt(32) <> OUT
          |  o := g(0)

@@ -65,8 +65,8 @@ object TextOut:
         inline assertion: Any,
         inline message: Any,
         severity: Severity
-    ): Unit =
-      assertDFHDL(assertion, Some(message), severity)(using compiletime.summonInline[DFC])
+    )(using dfc: DFC): Unit =
+      assertDFHDL(assertion, Some(message), severity)
 
     transparent inline def assert(inline assertion: Any, inline message: => Any): Unit =
       compiletime.summonFrom {

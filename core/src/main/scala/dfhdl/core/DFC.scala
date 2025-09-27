@@ -9,6 +9,9 @@ import scala.annotation.Annotation
 import scala.annotation.implicitNotFound
 import ir.annotation.HWAnnotation
 
+@implicitNotFound(
+  "Missing local design context.\nEither this operation is not supported in global context or `using DFC` is missing."
+)
 final case class DFC(
     nameOpt: Option[String],
     position: Position,
@@ -114,8 +117,6 @@ object DFC:
     val counter = positionCache.getOrElseUpdate(hashCode, new AtomicInteger(0))
     (hashCode, counter.getAndIncrement())
 
-  // DFC given must be inline to force new DFC is generated for every missing DFC summon.
-  inline given dfc: DFC = emptyNoEO // (using TopLevel)
   def empty(eo: ElaborationOptions): DFC =
     DFC(None, Position.unknown, None, elaborationOptionsContr = () => eo)
   def emptyNoEO: DFC = DFC(None, Position.unknown, None)
@@ -138,6 +139,16 @@ object DFC:
     object Interface extends Interface
   end Scope
 end DFC
+
+opaque type DFCG <: DFC = DFC
+protected trait DFCGLP:
+  // DFCG given must be inline to force new DFC is generated for every missing DFC summon.
+  inline given DFCG = DFCG()
+object DFCG extends DFCGLP:
+  def apply(): DFCG = DFC.emptyNoEO
+  @metaContextIgnore
+  given DFCG(using dfc: DFC): DFCG = dfc
+  given Conversion[DFC, DFCG] = identity
 
 transparent inline def dfc(using d: DFC): d.type = d
 

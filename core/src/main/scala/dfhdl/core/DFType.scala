@@ -30,7 +30,8 @@ type DFTypeAny = DFType[ir.DFType, Args]
 
 object DFType:
   type Of[T <: Supported] <: DFTypeAny = T match
-    case DFTypeAny => T <:! DFTypeAny
+    case DFTypeAny => T & DFTypeAny
+    case Int       => DFInt32
     case Long      => DFSInt[64]
     case Byte      => DFBits[8]
     case Boolean   => DFBool
@@ -62,9 +63,9 @@ object DFType:
       case _: Double.type            => DFDouble
       // TODO: need to add proper upper-bound if fixed in Scalac
       // see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
-      case enumCompanion: AnyRef => DFEnum(enumCompanion)
+      case enumCompanion: Object => DFEnum(enumCompanion)
   end apply
-  private[core] def unapply(t: Any): Option[DFTypeAny] =
+  private[core] def unapply(t: Any)(using DFC): Option[DFTypeAny] =
     t match
       case dfVal: DFValAny  => Some(dfVal.dfType)
       case DFTuple(dfType)  => Some(dfType)
@@ -73,7 +74,7 @@ object DFType:
 
   extension [T <: ir.DFType, A <: Args](dfType: DFType[T, A])
     def asIR: T = dfType.value match
-      case dfTypeIR: T @unchecked => dfTypeIR
+      case dfTypeIR: T @unchecked                   => dfTypeIR
       case err: DFError.REG_DIN[?] if err.firstTime =>
         err.firstTime = false
         throw err
@@ -83,7 +84,7 @@ object DFType:
   extension (dfType: ir.DFType) def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]
   extension (dfType: DFTypeAny) def asFE[T <: DFTypeAny]: T = dfType.asInstanceOf[T]
   transparent inline implicit def conv[T <: Supported](inline t: T)(implicit
-      dfc: DFC,
+      dfc: DFCG,
       tc: TC[T]
   ): DFTypeAny = tc(t)
   export DFDecimal.Extensions.*
@@ -100,33 +101,6 @@ object DFType:
   type Supported = DFTypeAny | FieldsOrTuple | DFEncoding | DFOpaqueA | Byte | Int | Long |
     Boolean | Double | String | Object | Unit
 
-  object Ops:
-    extension [D <: Int & Singleton](cellDim: D)
-      infix def <>[M <: ModifierAny](modifier: M)(using DFC): DFVector.ComposedModifier[D, M] =
-        new DFVector.ComposedModifier[D, M](cellDim, modifier)
-    extension [D <: IntP](cellDim: D)
-      @targetName("composeMod")
-      infix def <>[M <: ModifierAny](modifier: M)(using DFC): DFVector.ComposedModifier[D, M] =
-        new DFVector.ComposedModifier[D, M](cellDim, modifier)
-    extension [T <: Supported](t: T)
-      infix def <>[A, C, I, P](modifier: Modifier[A, C, I, P])(using
-          dfc: DFC,
-          tc: DFType.TC[T],
-          @implicitNotFound("Port/Variable declarations cannot be global") ck: DFC.Scope.Local,
-          dt: DomainType
-      ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
-        trydf:
-          if (modifier.value.isPort)
-            dfc.owner.asIR match
-              case _: ir.DFDomainOwner =>
-              case _ =>
-                throw new IllegalArgumentException(
-                  "Ports can only be directly owned by a design, a domain or an interface."
-                )
-          DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, P]])
-    end extension
-  end Ops
-
   trait TC[T]:
     type Type <: DFTypeAny
     def apply(t: T)(using DFC): Type
@@ -140,6 +114,12 @@ object DFType:
         )
       ]
   object TC extends TCLP:
+    type Aux[T, OT <: DFTypeAny] = TC[T] { type Type = OT }
+    def apply[T, OT <: DFTypeAny](value: OT): Aux[T, OT] =
+      new TC[T]:
+        type Type = OT
+        def apply(t: T)(using DFC): Type = value
+
     given ofDFType[T <: DFTypeAny]: TC[T] with
       type Type = T
       def apply(t: T)(using DFC): Type = t
@@ -168,13 +148,13 @@ object DFType:
       type Type = DFOpaque[TFE]
       def apply(t: TFE)(using DFC): Type = DFOpaque(t)
 
-    transparent inline given ofProductCompanion[T <: AnyRef]: TC[T] = ${ productMacro[T] }
-    def productMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
+    transparent inline given ofProductCompanion[T <: Object]: TC[T] = ${ productMacro[T] }
+    def productMacro[T <: Object](using Quotes, Type[T]): Expr[TC[T]] =
       import quotes.reflect.*
       val compObjTpe = TypeRepr.of[T]
       val compPrefix = compObjTpe match
         case TermRef(pre, _) => pre
-        case _ =>
+        case _               =>
           report.errorAndAbort("Case class companion must be a term ref")
       val clsSym = compObjTpe.typeSymbol.companionClass
       if !clsSym.paramSymss.forall(_.headOption.forall(_.isTerm)) then
@@ -183,25 +163,16 @@ object DFType:
         )
       val clsTpe = compPrefix.select(clsSym)
       clsTpe.asType match
-        case '[t & DFEncoding] =>
+        case '[DFEncoding] =>
+          val clsType = clsTpe.asTypeOf[DFEncoding]
+          '{ apply[T, DFEnum[clsType.Underlying]](summonInline[DFEnum[clsType.Underlying]]) }
+        case '[DFStruct.Fields] =>
+          val clsType = clsTpe.asTypeOf[DFStruct.Fields]
+          '{ apply[T, DFStruct[clsType.Underlying]](summonInline[DFStruct[clsType.Underlying]]) }
+        case '[DFOpaque.Abstract] =>
+          val clsType = clsTpe.asTypeOf[DFOpaque.Abstract]
           '{
-            new TC[T]:
-              type Type = DFEnum[t & DFEncoding]
-              def apply(t: T)(using DFC): Type = summonInline[DFEnum[t & DFEncoding]]
-          }
-        case '[t & DFStruct.Fields] =>
-          '{
-            new TC[T]:
-              type Type = DFStruct[t & DFStruct.Fields]
-              def apply(t: T)(using DFC): Type =
-                summonInline[DFStruct[t & DFStruct.Fields]]
-          }
-        case '[t & DFOpaque.Abstract] =>
-          '{
-            new TC[T]:
-              type Type = DFOpaque[t & DFOpaque.Abstract]
-              def apply(t: T)(using DFC): Type =
-                summonInline[DFOpaque[t & DFOpaque.Abstract]]
+            apply[T, DFOpaque[clsType.Underlying]](summonInline[DFOpaque[clsType.Underlying]])
           }
         case _ =>
           val badTypeStr = clsTpe.show
@@ -210,7 +181,7 @@ object DFType:
               s"Type `$badTypeStr` is not a supported DFHDL type constructor.\nHint: Are you missing an argument in your DFHDL type constructor?"
             else
               s"Type `$badTypeStr` is not a supported product companion.\nHint: Did you forget to extends `Struct` or `Encoded`?"
-          '{ compiletime.error(${ Expr(msg) }) }
+          ControlledMacroError.report(msg)
       end match
     end productMacro
 

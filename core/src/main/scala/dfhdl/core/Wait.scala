@@ -32,15 +32,15 @@ object Wait:
   // with our own wait method, so we need to extend this in the Container trait, instead
   // of relying on export like the rest of the core API.
   trait ContainerOps:
-    extension (lhs: DFConstOf[DFTime]) final def wait(using DFC): Wait = trydf { Wait(lhs) }
-    extension (lhs: Cycles) final def wait(using DFC, CYInRT): Wait = trydf { Wait(lhs) }
+    final def wait(lhs: DFConstOf[DFTime])(using DFC): Unit = trydf { Wait(lhs) }
+    final def wait(lhs: Cycles)(using DFC, CYInRT): Unit = trydf { Wait(lhs) }
     inline def java_wait(): Unit = this.wait()
     inline def java_wait(timeoutMillis: Long): Unit = this.wait(timeoutMillis)
     inline def java_wait(timeoutMillis: Long, nanos: Int): Unit = this.wait(timeoutMillis, nanos)
     export TextOut.Ops.assert
   object Ops:
     extension (lhs: Int | Long)
-      def cy(using DFC): Cycles = trydf {
+      def cy(using DFCG): Cycles = trydf {
         val pos = lhs match
           case long: Long => long > 0
           case int: Int   => int > 0
@@ -48,7 +48,7 @@ object Wait:
           throw new IllegalArgumentException("`cy` can only be used with positive values.")
         Cycles(lhs)
       }
-    extension (lhs: DFValOf[DFUInt[Int]]) def cy(using DFC): Cycles = Cycles(lhs)
+    extension (lhs: DFValOf[DFUInt[Int]]) def cy(using DFCG): Cycles = Cycles(lhs)
 
     def waitWhile(cond: DFValOf[DFBoolOrBit])(using DFC): Wait =
       trydf {

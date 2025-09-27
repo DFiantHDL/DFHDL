@@ -183,13 +183,15 @@ begin
   return 1;
 end;
 function resize(A : std_logic_vector; new_length : integer) return std_logic_vector is
+  variable AD: std_logic_vector(A'length - 1 downto 0);
 begin
+  AD := A;
   if new_length > A'length then
-    return (new_length - A'length - 1 downto 0 => '0') & A(A'length - 1 downto 0);
+    return (new_length - A'length - 1 downto 0 => '0') & AD(A'length - 1 downto 0);
   elsif new_length < A'length then
-    return A(A'length - 1 downto A'length - new_length);
+    return AD(A'length - 1 downto A'length - new_length);
   else
-    return A;
+    return AD;
   end if;
 end;
 function repeat(pattern : std_logic_vector; num : integer) return std_logic_vector is

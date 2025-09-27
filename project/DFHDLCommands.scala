@@ -13,8 +13,8 @@ object DFHDLCommands {
       (LocalProject("internals") / Test / sources) := Nil,
       (LocalProject("core") / Test / sources) := Nil,
       (LocalProject("compiler_stages") / Test / sources) := Nil,
-      (LocalProject("devices") / Compile / sources) := Nil,
-      (LocalProject("devices") / Test / sources) := Nil,
+      (LocalProject("platforms") / Compile / sources) := Nil,
+      (LocalProject("platforms") / Test / sources) := Nil,
       (LocalProject("lib") / Test / sources) := ((LocalProject("lib") / Test / sources).value.filter(_.toString.contains("Playground.scala")))
     ), state)
     newState
@@ -115,12 +115,13 @@ object DFHDLCommands {
     state
   }
 
-  val vhdlTools = List("ghdl", "nvc", "questa", "vivado")
+  // TODO: restore nvc when https://github.com/nickg/nvc/issues/1306 is fixed
+  val vhdlTools = List("ghdl", "questa", "vivado")
   val verilogTools = List("verilator", "iverilog", "questa", "vivado")
   val vhdlDialects = List("vhdl.v93", "vhdl.v2008")
   val verilogDialects = List("verilog.v95", "verilog.v2001", "verilog.sv2005")
   // Skip tests that are known to fail because of the tool
-  val skip = Set(("iverilog", "verilog.sv2005"), ("vivado", "vhdl.v2008"))
+  val skip = Set(("verilator", "verilog.v95"), ("iverilog", "verilog.sv2005"), ("vivado", "vhdl.v2008"))
 
   val testApps = Command.command("testApps") { state =>
     var newState = Command.process("clearSandbox", state, _ => ())

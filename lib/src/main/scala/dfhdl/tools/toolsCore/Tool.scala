@@ -16,7 +16,6 @@ trait Tool:
   val toolName: String
   final protected def runExec: String =
     if (osIsWindows) windowsBinExec else binExec
-  private[dfhdl] lazy val runExecFullPath: String = programFullPath(runExec)
   protected def binExec: String
   protected def windowsBinExec: String = s"$binExec.exe"
   final protected def addSourceFiles(
@@ -32,15 +31,26 @@ trait Tool:
     Nil
   protected[dfhdl] def cleanUpBeforeFileRestore()(using MemberGetSet, CompilerOptions): Unit = {}
 
-  private[dfhdl] lazy val installedVersion: Option[String] =
-    if (runExecFullPath.isEmpty) None
-    else
-      val getVersionFullCmd =
-        Process(s"$runExec $versionCmd", new java.io.File(System.getProperty("java.io.tmpdir")))
+  private[dfhdl] lazy val (runExecFullPath, installedVersion): (String, Option[String]) =
+    var runExecFullPathRet: String = ""
+    val installedVersionRet = programFullPaths(runExec).view.flatMap { runExecFullPath =>
+      runExecFullPathRet = runExecFullPath
+      val versionText =
+        if (versionCmd.nonEmpty)
+          val getVersionFullCmd =
+            Process(
+              s"$runExecFullPath $versionCmd",
+              new java.io.File(System.getProperty("java.io.tmpdir"))
+            )
+          getVersionFullCmd.lazyLines_!.mkString("\n")
+        else runExecFullPath
       // since the command is not guaranteed to return 0, we need to use lazyLines_! and avoid
       // exception handling (e.g., vivado returns 1 for version check)
-      try extractVersion(getVersionFullCmd.lazyLines_!.mkString("\n"))
+      try extractVersion(versionText)
       catch case e: Exception => None
+    }.headOption
+    (runExecFullPathRet, installedVersionRet)
+  end val
   final def isAvailable: Boolean = installedVersion.nonEmpty
   protected def getInstalledVersion(using to: ToolOptions): String =
     preCheck()
@@ -118,46 +128,50 @@ trait Tool:
       cmd: String,
       prepare: => Unit = (),
       loggerOpt: Option[Tool.ProcessLogger] = None,
-      runExec: String = this.runExec
+      runExec: String = this.runExecFullPath
   )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     preCheck()
     prepare
     val fullExec =
-      if (runExec.contains(separatorChar))
-        val absPath = Paths.get(execPath).toAbsolutePath().resolve(runExec)
-        s"$absPath $cmd"
-      else
-        s"$runExec $cmd"
-    var process: Option[scala.sys.process.Process] = None
-    val pb = new java.lang.ProcessBuilder(fullExec.split(" ")*)
-    pb.directory(new java.io.File(execPath))
-    pb.redirectErrorStream(true)
-    val processBuilder = Process(pb)
-    var hasWarnings: Boolean = false
+      // absolute path
+      if (Paths.get(runExec).isAbsolute()) s"$runExec $cmd"
+      // relative path with separator char, so we assume this is a product of the execution,
+      // and therefore should be resolved against the exec path
+      else if (runExec.contains(separatorChar))
+        s"${Paths.get(execPath).toAbsolutePath().resolve(runExec)} $cmd"
+      // for just executable name, we assume this is just another executable of the same tools,
+      // so we use the full tool path and resolve the executable
+      else s"${Paths.get(this.runExecFullPath).getParent().resolve(runExec)} $cmd"
 
+    // process the output if we have a logger set.
+    // note that setting a logger may affect the program behavior, since it is disengaged from TTY.
+    val processOutput = loggerOpt.map(logger =>
+      os.ProcessOutput.Readlines(line => logger.out(line))
+    ).getOrElse(os.Inherit)
+    // spawn the process
+    val process = os.proc(os.Shellable(fullExec.split(" ").toSeq)).spawn(
+      cwd = os.Path(execPath, os.pwd),
+      stdin = os.Inherit,
+      stdout = processOutput,
+      mergeErrIntoOut = true
+    )
+    // setup an interrupt handler to destroy the process
     val handler = new sun.misc.SignalHandler:
       def handle(sig: sun.misc.Signal): Unit =
-        process.foreach(p =>
-          p.destroy()
-          p.exitValue()
-        )
+        process.destroy(shutdownGracePeriod = 100)
         println(s"\n${toolName} interrupted by user")
     sun.misc.Signal.handle(new sun.misc.Signal("INT"), handler)
-
-    val errCode = loggerOpt.map(logger =>
-      val p = processBuilder.run(logger)
-      process = Some(p)
-      val errCode = p.exitValue()
-      hasWarnings = logger.hasWarnings
+    // wait for the process to finish
+    process.waitFor()
+    // get the error code, which may be overridden by the logger
+    val errCode = loggerOpt.map { logger =>
       if (logger.lineIsErrorOpt.nonEmpty)
         if (logger.hasErrors) 1 else 0
-      else errCode
-    ).getOrElse({
-      val p = processBuilder.run()
-      process = Some(p)
-      p.exitValue()
-    })
-
+      else process.exitCode()
+    }.getOrElse(process.exitCode())
+    // check if there are warnings
+    val hasWarnings = loggerOpt.map(logger => logger.hasWarnings).getOrElse(false)
+    // if there are errors or warnings and Werror is turned on, raise an application error
     if (errCode != 0 || hasWarnings && summon[ToolOptions].Werror.toBoolean)
       val msg =
         if (errCode != 0) s"${toolName} exited with the error code ${errCode}."

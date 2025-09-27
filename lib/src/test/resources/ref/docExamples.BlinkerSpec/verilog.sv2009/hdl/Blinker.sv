@@ -14,7 +14,7 @@ module Blinker#(
 );
   `include "dfhdl_defs.svh"
   /* Half-count of the toggle for 50% duty cycle */
-  parameter int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
+  localparam int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
   logic [$clog2(HALF_PERIOD) - 1:0] cnt;
   always_ff @(posedge clk)
   begin

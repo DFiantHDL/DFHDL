@@ -11,8 +11,6 @@ function bitWidth(A: t_enum_ALUSel) return integer;
 function to_slv(A: t_enum_ALUSel) return std_logic_vector;
 function to_t_enum_ALUSel(A: std_logic_vector) return t_enum_ALUSel;
 function bool_sel(C : boolean; T : t_enum_ALUSel; F : t_enum_ALUSel) return t_enum_ALUSel;
-
-
 end package ALU_pkg;
 
 package body ALU_pkg is
@@ -65,5 +63,4 @@ begin
     return F;
   end if;
 end;
-
 end package body ALU_pkg;

@@ -19,7 +19,7 @@ object DFVector:
     ir.DFVector(cellType.asIR, cellDims.map(_.ref))
       .asFE[DFVector[T, D]]
   given [T <: DFTypeAny, D <: IntP](using
-      dfc: DFC,
+      dfc: DFCG,
       cellType: T,
       d: ValueOf[D],
       check: VectorLength.CheckNUB[D]
@@ -61,29 +61,22 @@ object DFVector:
           ") is different than the receiver vector length (" + LL + ")."
       ]
 
-  sealed class ComposedModifier[D <: IntP, M](val cellDim: D, val modifier: M)
   object Ops:
     extension [T <: DFType.Supported, D <: IntP](t: T)(using tc: DFType.TC[T])
-      infix def X(
+      def X(
           cellDim: IntParam[D]
-      )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] = trydf:
-        check(cellDim)
-        DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim))
-    extension [T <: DFType.Supported, D <: IntP, M <: ModifierAny](t: T)(using tc: DFType.TC[T])
-      infix def X(
-          composedModifier: ComposedModifier[D, M]
-      )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVal[DFVector[tc.Type, Tuple1[D]], M] =
+      )(using
+          dfc: DFCG
+      )(using check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] =
         trydf:
-          val cellDim = IntParam.fromValue(composedModifier.cellDim)
           check(cellDim)
-          DFVal.Dcl(DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim)), composedModifier.modifier)
-    end extension
+          DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim))
   end Ops
 
   object Val:
     def apply[T <: DFTypeAny, D1 <: IntP, P](vectorType: DFVector[T, Tuple1[D1]])(
         from: List[DFValTP[T, P]]
-    )(using DFC): DFValTP[DFVector[T, Tuple1[D1]], P] =
+    )(using dfc: DFC): DFValTP[DFVector[T, Tuple1[D1]], P] =
       import dfc.getSet
       val fromIR = from.map(_.asIR)
       lazy val commonMeta = fromIR.head.meta
@@ -227,10 +220,54 @@ object DFVector:
     end Compare
     object Ops:
       import IntP.{-, +}
+      given evOpApplyDFVector[
+          T <: DFTypeAny,
+          D1 <: IntP,
+          M <: ModifierAny,
+          L <: DFVal[DFVector[T, Tuple1[D1]], M],
+          R
+      ](using
+          ub: DFUInt.Val.UBArg[D1, R]
+      ): ExactOp2Aux["apply", DFC, DFValAny, L, R, DFVal[T, M]] =
+        new ExactOp2["apply", DFC, DFValAny, L, R]:
+          type Out = DFVal[T, M]
+          def apply(lhs: L, idx: R)(using DFC): Out = trydf {
+            DFVal.Alias.ApplyIdx(
+              lhs.dfType.cellType,
+              lhs,
+              ub(lhs.dfType.lengthIntParam, idx)(using dfc.anonymize)
+            )
+          }(using dfc, CTName("cell selection (apply)"))
+      end evOpApplyDFVector
+      given evOpApplyRangeDFVector[
+          T <: DFTypeAny,
+          D1 <: IntP,
+          M <: ModifierAny,
+          L <: DFVal[DFVector[T, Tuple1[D1]], M],
+          LO <: IntP,
+          HI <: IntP
+      ](using
+          checkLow: BitIndex.CheckNUB[LO, D1],
+          checkHigh: BitIndex.CheckNUB[HI, D1],
+          checkHiLo: BitsHiLo.CheckNUB[HI, LO]
+      ): ExactOp3Aux["apply", DFC, DFValAny, L, LO, HI, DFVal[
+        DFVector[T, Tuple1[HI - LO + 1]],
+        M
+      ]] =
+        new ExactOp3["apply", DFC, DFValAny, L, LO, HI]:
+          type Out = DFVal[DFVector[T, Tuple1[HI - LO + 1]], M]
+          def apply(lhs: L, idxLow: LO, idxHigh: HI)(using DFC): Out = trydf {
+            checkLow(IntParam(idxLow), lhs.dfType.lengthIntParam)
+            checkHigh(IntParam(idxHigh), lhs.dfType.lengthIntParam)
+            checkHiLo(IntParam(idxHigh), IntParam(idxLow))
+            DFVal.Alias.ApplyRange.applyVector(lhs, IntParam(idxHigh), IntParam(idxLow))
+          }(using dfc, CTName("cell range selection (apply)"))
+      end evOpApplyRangeDFVector
+
       object DFVector:
         def apply[T <: DFTypeAny, D1 <: IntP, P](vectorType: DFVector[T, Tuple1[D1]])(
             elems: DFValTP[T, P]*
-        )(using DFC): DFValTP[DFVector[T, Tuple1[D1]], P] = trydf:
+        )(using DFCG): DFValTP[DFVector[T, Tuple1[D1]], P] = trydf:
           if (elems.size == 1)
             DFVal.Func(
               vectorType,
@@ -248,30 +285,6 @@ object DFVector:
       extension [T <: DFTypeAny, D1 <: IntP, M <: ModifierAny](
           lhs: DFVal[DFVector[T, Tuple1[D1]], M]
       )
-        @targetName("applyDFVector")
-        def apply(
-            idx: DFUInt.Val.UBArg.Exact[D1]
-        )(using
-            dfc: DFC
-        ): DFVal[T, M] = trydf {
-          val idxVal = idx(lhs.dfType.lengthIntParam)(using dfc.anonymize)
-          DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idxVal)
-        }
-        @targetName("applyRangeDFVector")
-        def apply[L <: IntP, H <: IntP](
-            idxLow: IntParam[L],
-            idxHigh: IntParam[H]
-        )(using
-            checkLow: BitIndex.CheckNUB[L, D1],
-            checkHigh: BitIndex.CheckNUB[H, D1],
-            checkHiLo: BitsHiLo.CheckNUB[H, L],
-            dfc: DFC
-        ): DFVal[DFVector[T, Tuple1[H - L + 1]], M] = trydf {
-          checkLow(idxLow, lhs.lengthInt)
-          checkHigh(idxHigh, lhs.lengthInt)
-          checkHiLo(idxHigh, idxLow)
-          DFVal.Alias.ApplyRange.applyVector(lhs, idxHigh, idxLow)
-        }
         def elements(using DFC): Vector[DFValOf[T]] =
           import DFDecimal.StrInterpOps.d
           val elementType = lhs.dfType.cellType

@@ -14,12 +14,19 @@ def clog2(int: Int): Int = 32 - Integer.numberOfLeadingZeros(int - 1)
 
 extension (t: Any) def hashString: String = t.hashCode().toHexString
 
+extension (text: String)
+  def betterLinesIterator: Iterator[String] =
+    if (text.endsWith("\n"))
+      text.linesIterator ++ List("")
+    else
+      text.linesIterator
+
 transparent inline def showTree[T](inline arg: T): Unit = ${
   showTreeMacro[T]('arg)
 }
 
 def errorExpr(msg: String)(using Quotes): Expr[Nothing] =
-  '{ compiletime.error(${ Expr(msg) }) }
+  ControlledMacroError.report(msg)
 
 def showTreeMacro[T](arg: Expr[T])(using Quotes, Type[T]): Expr[Unit] =
   import quotes.reflect.*
@@ -54,6 +61,16 @@ extension [T](lhs: Iterable[T])
         )
       override def hashCode(): Int = customHash(value)
     lhs.groupBy(new Unique(_)).values.map(_.toList)
+end extension
+
+extension (exprObject: Expr.type)(using Quotes)
+  def summonOrError[T: Type]: Either[String, Expr[T]] =
+    import quotes.reflect.*
+    Implicits.search(TypeRepr.of[T]) match
+      case iss: ImplicitSearchSuccess =>
+        Right(iss.tree.asExprOf[T])
+      case isf: ImplicitSearchFailure =>
+        Left(isf.explanation)
 end extension
 
 extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
@@ -116,7 +133,7 @@ object Error:
           case t                                 => t.show
         }
         .mkString
-    '{ compiletime.error(${ Expr(msg) }) }
+    ControlledMacroError.report(msg)
 end Error
 
 transparent inline def summonInlineWithError[T]: T = ${ summonInlineWithErrorMacro[T] }
@@ -125,7 +142,8 @@ private def summonInlineWithErrorMacro[T: Type](using Quotes): Expr[T] =
   Implicits.search(TypeRepr.of[T]) match
     case iss: ImplicitSearchSuccess => iss.tree.asExprOf[T]
     case isf: NoMatchingImplicits   => report.errorAndAbort(isf.explanation)
-    case isf: ImplicitSearchFailure => '{ compiletime.error(${ Expr(isf.explanation) }) }
+    case isf: ImplicitSearchFailure =>
+      ControlledMacroError.report(isf.explanation)
 
 extension (using quotes: Quotes)(partsExprs: Seq[Expr[Any]])
   def scPartsWithArgs(argsExprs: Seq[Expr[Any]]): quotes.reflect.Term =
@@ -182,8 +200,6 @@ object ValueOfTuple:
   end givenMacro
 end ValueOfTuple
 
-type <:![T <: UB, UB] = T & UB
-
 //evidence of class T which has no arguments and no type arguments
 trait ClassEv[T]:
   val value: T
@@ -205,15 +221,16 @@ object ClassEv:
 end ClassEv
 
 // gets the case class from a companion object reference
-trait CaseClass[Companion <: AnyRef, UB <: Product]:
+trait CaseClass[Companion <: Object, UB <: Product]:
   type CC <: UB
 
 object CaseClass:
-  type Aux[Comp <: AnyRef, UB <: Product, CC0 <: UB] = CaseClass[Comp, UB] { type CC = CC0 }
-  transparent inline given [Comp <: AnyRef, UB <: Product]: CaseClass[Comp, UB] = ${
+  type Aux[Comp <: Object, UB <: Product, CC0 <: UB] = CaseClass[Comp, UB] { type CC = CC0 }
+  object Success extends CaseClass[Object, Product]
+  transparent inline given [Comp <: Object, UB <: Product]: CaseClass[Comp, UB] = ${
     macroImpl[Comp, UB]
   }
-  def macroImpl[Comp <: AnyRef, UB <: Product](using
+  def macroImpl[Comp <: Object, UB <: Product](using
       Quotes,
       Type[Comp],
       Type[UB]
@@ -223,18 +240,11 @@ object CaseClass:
     clsTpe.asType match
       case '[t & UB] =>
         type Case = t & UB
-        '{
-          new CaseClass[Comp, UB]:
-            type CC = Case
-        }
+        '{ Success.asInstanceOf[CaseClass.Aux[Comp, UB, Case]] }
       case _ =>
         val msg =
           s"Type `${clsTpe.show}` is not a subtype of `${Type.show[UB]}`."
-        '{
-          compiletime.error(${ Expr(msg) })
-          new CaseClass[Comp, UB]:
-            type CC = UB
-        }
+        ControlledMacroError.report(msg)
     end match
   end macroImpl
 end CaseClass
@@ -259,11 +269,10 @@ object AssertGiven:
           tpe.asTypeOf[Any] match
             case '[x] =>
               Expr.summon[x].nonEmpty
-
     if (recur(TypeRepr.of[G])) '{ Success.asInstanceOf[AssertGiven[G, M]] }
     else
       val ConstantType(StringConstant(msg)) = TypeRepr.of[M].dealias: @unchecked
-      '{ compiletime.error(${ Expr(msg) }) }
+      ControlledMacroError.report(msg)
   end macroImpl
 end AssertGiven
 
@@ -280,24 +289,22 @@ object OptionalGiven extends OptionalGivenLP:
 
 trait GivenOrError[T, Msg <: String]:
   val value: T
-protected trait GivenOrErrorLP:
-  inline given [T, Msg <: String](using ValueOf[Msg]): GivenOrError[T, Msg] =
-    compiletime.error(valueOf[Msg])
-object GivenOrError extends GivenOrErrorLP:
-  given fromValue[T, Msg <: String](using t: T): GivenOrError[T, Msg] with
+object GivenOrError:
+  def apply[T, Msg <: String](t: T): GivenOrError[T, Msg] = new GivenOrError[T, Msg]:
     val value: T = t
-
-trait IsGiven[T]:
-  type Out <: Boolean
-  val value: Out
-protected trait IsGivenLP:
-  given not[T]: IsGiven[T] with
-    type Out = false
-    val value: false = false
-object IsGiven extends IsGivenLP:
-  given is[T](using t: T): IsGiven[T] with
-    type Out = true
-    val value: true = true
+  inline given [T, Msg <: String]: GivenOrError[T, Msg] =
+    ${ GivenOrError.givenOrErrorMacro[T, Msg] }
+  private[internals] def givenOrErrorMacro[T: Type, Msg <: String: Type](using
+      Quotes
+  ): Expr[GivenOrError[T, Msg]] =
+    import quotes.reflect.*
+    Expr.summon[T] match
+      case Some(t) => '{ apply[T, Msg]($t) }
+      case None    =>
+        val ConstantType(StringConstant(msg)) = TypeRepr.of[Msg].dealias: @unchecked
+        ControlledMacroError.report(msg)
+  end givenOrErrorMacro
+end GivenOrError
 
 //from Map[K,V] to Map[V,Set[K]], traverse the input only once
 //From: https://stackoverflow.com/a/51356499/3845175
@@ -529,25 +536,29 @@ lazy val osIsWSL: Boolean =
       case _: Exception => false
   else false
 
-def programFullPath(cmd: String): String =
+def programFullPaths(cmd: String): List[String] =
   import sys.process.*
   try
     if (osIsWindows)
-      s"where $cmd".!!.trim()
+      s"where $cmd".!!.trim().linesIterator.toList
     else
-      val result = s"which $cmd".!!.trim()
+      val result = s"which -a $cmd".!!.trim().linesIterator.toList
       // reject windows programs running from WSL
-      if (result.nonEmpty && osIsWSL)
-        if (result.matches("""/mnt/[a-zA-Z]/.*""")) ""
-        else result
-      else
-        result
+      if (osIsWSL) result.filterNot(_.matches("""/mnt/[a-zA-Z]/.*"""))
+      else result
   catch
-    case _: Exception => ""
-end programFullPath
+    case _: Exception => Nil
+end programFullPaths
 
 // checks if the program is accessible to the current shell
-def programIsAccessible(cmd: String): Boolean = programFullPath(cmd).nonEmpty
+def programIsAccessible(cmd: String): Boolean = programFullPaths(cmd).nonEmpty
+
+def debugMacro(msg: => Any, fileName: String = "lib\\src\\test\\scala\\Playground.scala")(using
+    Quotes
+): Unit =
+  import quotes.reflect.*
+  if (Symbol.spliceOwner.pos.get.sourceFile.path.toString.endsWith(fileName))
+    println(msg)
 
 // trait CompiletimeErrorPos[M <: String, S <: Int, E <: Int]
 // object CompiletimeErrorPos:

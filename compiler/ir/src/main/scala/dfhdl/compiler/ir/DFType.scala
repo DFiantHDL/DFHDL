@@ -69,7 +69,10 @@ object DFType:
           dt.cellType.decompose(pf)
         case _ => Nil
       ListSet.from(deps.collect(pf) ++ List(dfType).collect(pf))
-
+    def isUnbounded: Boolean = dfType match
+      case _: DFUnbounded => true
+      case _              => false
+  end extension
 end DFType
 
 sealed trait ComposedDFType extends DFType
@@ -527,7 +530,7 @@ case object DFDouble extends DFType.Companion[DFDouble, Option[Double]] with DFD
 /////////////////////////////////////////////////////////////////////////////
 
 sealed trait DFUnbounded extends DFType:
-  def noTypeErr = throw new IllegalArgumentException(
+  def noTypeErr = throw new Exception(
     s"Unexpected access to $this data type"
   )
   def width(using MemberGetSet): Int = noTypeErr

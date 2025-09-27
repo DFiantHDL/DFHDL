@@ -46,7 +46,7 @@ object DesignArgs:
       argNames: List[String],
       argValues: List[Any],
       argDescs: List[String]
-  ): DesignArgs =
+  )(using DFC): DesignArgs =
     ListMap.from(
       argNames.lazyZip(argValues).lazyZip(argDescs).map((name, value, desc) =>
         name -> DesignArg(name, value, desc)

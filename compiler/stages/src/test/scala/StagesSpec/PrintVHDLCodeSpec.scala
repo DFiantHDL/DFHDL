@@ -330,7 +330,6 @@ class PrintVHDLCodeSpec extends StageSpec:
           |  constant c18 : real := -2.71828;
           |  constant c19 : string := "My" & LF & "Name" & CR & "Is" & HT & ${tripleQuote}Earl${tripleQuote};
           |begin
-          |
           |end Top_arch;
           |""".stripMargin
     )
@@ -702,7 +701,6 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |architecture Empty_arch of Empty is
          |begin
-         |
          |end Empty_arch;
          |""".stripMargin
     )
@@ -849,6 +847,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|constant width : integer := 8;
          |constant length : integer := 10;
          |constant Foo_length5 : integer := 10;
+         |
          |library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
@@ -1232,7 +1231,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1178:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1177:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -1294,7 +1293,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1178:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1177:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -1452,4 +1451,56 @@ class PrintVHDLCodeSpec extends StageSpec:
     )
   }
 
+  test("qsys blackbox printing") {
+    class testIP(
+        val param1: String <> CONST,
+        val param2: Int <> CONST,
+        val version: String <> CONST = ""
+    ) extends EDBlackBox.QsysIP:
+      val x = Bit <> IN
+      val y = Bit <> OUT
+    end testIP
+
+    class Foo extends RTDesign:
+      val x  = Bit <> IN
+      val y  = Bit <> OUT
+      val ip = testIP(param1 = "Hello", param2 = 42)
+      x <> ip.x
+      y <> ip.y
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : in std_logic;
+         |  y : out std_logic
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |  signal ip_x : std_logic;
+         |  signal ip_y : std_logic;
+         |  component testIP is
+         |  port (
+         |    x : in std_logic;
+         |    y : out std_logic
+         |  );
+         |  end component testIP;
+         |begin
+         |  ip : testIP port map (
+         |    x => ip_x,
+         |    y => ip_y
+         |  );
+         |  ip_x <= x;
+         |  y <= ip_y;
+         |end Foo_arch;""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

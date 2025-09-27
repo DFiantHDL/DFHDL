@@ -13,6 +13,7 @@ import dfhdl.compiler.stages.verilog.VerilogDialect
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.ir.constraints
 import dfhdl.compiler.ir.RateNumber
+import dfhdl.compiler.ir.PhysicalNumber.Ops.MHz
 
 object Vivado extends Builder, Programmer:
   val toolName: String = "Vivado"
@@ -31,7 +32,10 @@ object Vivado extends Builder, Programmer:
       cd,
       List(
         new VivadoProjectTclConfigPrinter(using cd.stagedDB.getSet).getSourceFile,
-        new VivadoProjectConstraintsPrinter(using cd.stagedDB.getSet).getSourceFile
+        new VivadoProjectConstraintsPrinter(using cd.stagedDB.getSet).getSourceFile,
+        new BuilderProjectTimingConstraintsPrinter("_timing.xdc")(using
+          cd.stagedDB.getSet
+        ).getSourceFile
       )
     )
   def build(
@@ -107,7 +111,7 @@ class VivadoProjectTclConfigPrinter(using
   def flashCmd: String =
     val config = designDB.top.dclMeta.annotations.collectFirst {
       case configConstraint: constraints.DeviceConfig => configConstraint
-    }.getOrElse(throw new IllegalArgumentException("No config constraint found"))
+    }.getOrElse(throw new IllegalArgumentException("No `@deviceConfig` constraint found"))
     if (bo.flash)
       s"""\nwrite_cfgmem -format mcs -interface ${config.interface} -size ${config.sizeLimitMB} -loadbit "up 0x0 ./${topName}.bit" -file ./${topName}.mcs"""
     else ""
@@ -118,7 +122,7 @@ class VivadoProjectTclConfigPrinter(using
         |add_files -norecurse ${hdlFiles.mkString("{\n  ", "\n  ", "\n}")}
         |set_property file_type {${fileType}} [get_files  *]
         |set_property top $topName [current_fileset]
-        |add_files -fileset constrs_1 -norecurse ./${topName}.xdc
+        |add_files -fileset constrs_1 -norecurse {./${topName}.xdc  ./${topName}_timing.xdc}
         |######################################################################
         |# Suppress warnings
         |######################################################################
@@ -141,7 +145,11 @@ class VivadoProjectTclConfigPrinter(using
     SourceFile(SourceOrigin.Compiled, VivadoProjectTclConfig, configFileName, contents)
 end VivadoProjectTclConfigPrinter
 
-class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOptions):
+class VivadoProjectConstraintsPrinter(using
+    getSet: MemberGetSet,
+    co: CompilerOptions,
+    bo: BuilderOptions
+):
   val designDB: DB = getSet.designDB
   val topName: String = getSet.topName
   val constraintsFileName: String = s"$topName.xdc"
@@ -153,14 +161,29 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
           case (k, v) => s"set_property $k $v [current_design]"
         }
       case constraint: constraints.DeviceConfig =>
+        import constraints.DeviceConfig.Interface.*
         val spiBusWidth = constraint.interface match
-          case constraints.DeviceConfig.Interface.SPIx1 => Some(1)
-          case constraints.DeviceConfig.Interface.SPIx4 => Some(4)
-          case constraints.DeviceConfig.Interface.SPIx8 => Some(8)
-          case _                                        => None
+          case MasterSPI(busWidth) => Some(busWidth)
+          case _                   => None
+        val configMode = constraint.interface match
+          case MasterSPI(busWidth)  => s"SPIx$busWidth"
+          case MasterBPI(busWidth)  => s"BPI$busWidth"
+          case SlaveSerial          => "S_SERIAL"
+          case MasterSerial         => "M_SERIAL"
+          case SlaveSMAP(8)         => "S_SELECTMAP"
+          case MasterSMAP(8)        => "M_SELECTMAP"
+          case SlaveSMAP(busWidth)  => s"S_SELECTMAP$busWidth"
+          case MasterSMAP(busWidth) => s"M_SELECTMAP$busWidth"
+        val configRate = constraint.masterRate match
+          case None             => None
+          case rate: RateNumber => Some((rate.to_freq / 1.MHz).value.toInt)
+        val compress = if (bo.compress) "TRUE" else "FALSE"
         List(
-          s"set_property CONFIG_MODE ${constraint.interface} [current_design]"
-        ) ++ spiBusWidth.map(w => s"set_property BITSTREAM.CONFIG.SPI_BUSWIDTH $w [current_design]")
+          s"set_property CONFIG_MODE $configMode [current_design]",
+          s"set_property BITSTREAM.GENERAL.COMPRESS $compress [current_design]"
+        ) ++ spiBusWidth.map(w =>
+          s"set_property BITSTREAM.CONFIG.SPI_BUSWIDTH $w [current_design]"
+        ) ++ configRate.map(r => s"set_property BITSTREAM.CONFIG.CONFIGRATE $r [current_design]")
       case _ => Nil
     }.toList
 
@@ -223,51 +246,11 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
     s"set_property -dict {$dict} ${xdc_get_ports(port, portConstraint)}"
   end xdcIOConstraint
 
-  // Vivado has a hard limit of ~200us for the clock period, even for virtual clocks
-  val VivadoMaxClockPeriodNS = BigDecimal(200000)
-
-  def xdcTimingIgnoreConstraint(
-      port: DFVal.Dcl,
-      constraint: constraints.Timing.Ignore
-  ): String =
-    def set_false_path(dir: String): String =
-      s"set_false_path $dir ${xdc_get_ports(port, constraint)}"
-    def set_io_delay(dir: String): String =
-      constraint.maxFreqMinPeriod match
-        case None                         => ""
-        case maxFreqMinPeriod: RateNumber =>
-          val maxFreqMinPeriodNS = maxFreqMinPeriod.to_ns.value.min(VivadoMaxClockPeriodNS)
-          val virtualClockName = s"virtual_clock_${port.getName}"
-          //format: off
-          s"""|
-              |create_clock -period $maxFreqMinPeriodNS -name $virtualClockName
-              |set_${dir}_delay -clock [get_clocks $virtualClockName] -min 0.0 ${xdc_get_ports(port,constraint)}
-              |set_${dir}_delay -clock [get_clocks $virtualClockName] -max 0.0 ${xdc_get_ports(port,constraint)}""".stripMargin
-          //format: on
-        case _ => ""
-    (port.modifier.dir: @unchecked) match
-      case DFVal.Modifier.IN =>
-        set_false_path("-from") + set_io_delay("input")
-      case DFVal.Modifier.OUT =>
-        set_false_path("-to") + set_io_delay("output")
-      // TODO: for INOUT, also check that its actually used in both directions by the design
-      case DFVal.Modifier.INOUT => set_false_path("-from") + set_false_path("-to")
-  end xdcTimingIgnoreConstraint
-
-  def xdcTimingClockConstraint(
-      port: DFVal.Dcl,
-      constraint: constraints.Timing.Clock
-  ): String =
-    s"create_clock -add -name ${port.getName} -period ${constraint.rate.to_ns.value.bigDecimal.toPlainString} [get_ports {${port.getName}}]"
-  end xdcTimingClockConstraint
-
   def xdcPortConstraints(
       port: DFVal.Dcl
   ): List[String] =
     port.meta.annotations.collect {
-      case constraint: constraints.IO            => xdcIOConstraint(port, constraint)
-      case constraint: constraints.Timing.Ignore => xdcTimingIgnoreConstraint(port, constraint)
-      case constraint: constraints.Timing.Clock  => xdcTimingClockConstraint(port, constraint)
+      case constraint: constraints.IO => xdcIOConstraint(port, constraint)
     }
   end xdcPortConstraints
 
@@ -292,7 +275,7 @@ class VivadoProgramScriptPrinter(using
   val topName: String = getSet.topName
   val config = designDB.top.dclMeta.annotations.collectFirst {
     case configConstraint: constraints.DeviceConfig => configConstraint
-  }.getOrElse(throw new IllegalArgumentException("No config constraint found"))
+  }.getOrElse(throw new IllegalArgumentException("No `@deviceConfig` constraint found"))
   def configFileName: String = s"${topName}_prog.tcl"
   val progOrFlash: String =
     if (po.flash)

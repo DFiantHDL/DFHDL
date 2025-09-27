@@ -3,10 +3,14 @@ import dfhdl.*
 
 class GlobalsSpec extends NoDFCSpec:
   test("Global errors") {
-    assertCompileError("Port/Variable declarations cannot be global")(
+    assertCompileError(
+      "Missing local design context.\nEither this operation is not supported in global context or `using DFC` is missing."
+    )(
       """val x = Bit <> VAR"""
     )
-    assertCompileError("Port/Variable declarations cannot be global")(
+    assertCompileError(
+      "Missing local design context.\nEither this operation is not supported in global context or `using DFC` is missing."
+    )(
       """val x = Bit <> IN"""
     )
   }

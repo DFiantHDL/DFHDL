@@ -1594,7 +1594,7 @@ val t3 = 1.ns     // Nanoseconds
 val t4 = 1.us     // Microseconds
 val t5 = 1.ms     // Milliseconds
 val t6 = 1.sec    // Seconds
-val t7 = 1.min    // Minutes
+val t7 = 1.mn     // Minutes
 val t8 = 1.hr     // Hours
 ```
 

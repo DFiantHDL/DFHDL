@@ -150,12 +150,13 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertCodeString(
       top,
       """|val w: Int <> CONST = 8
+         |
          |class StructExample extends DFDesign:
          |  val p = Bits(w + w) <> IN
          |  val q = Bits(w + w) <> OUT
          |  val y = UInt(w) <> OUT
          |  val x = UInt(w) <> OUT
-         |  y := p(w + (-1), 0).uint
+         |  y := p((w + 0) - 1, 0).uint
          |  x := p((w + (0 + w)) - 1, 0 + w).uint
          |  q := p
          |end StructExample
@@ -229,6 +230,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    (h"01", h"02", h"03", h"04").toBits, (h"05", h"06", h"07", h"08").toBits,
          |    (h"09", h"10", h"11", h"12").toBits, (h"13", h"14", h"15", h"16").toBits
          |  ).toBits
+         |
          |class Bar extends RTDesign:
          |  val o = Bits(8) <> OUT
          |  val o2 = Bits(32) <> OUT
@@ -264,6 +266,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertCodeString(
       top,
       """|val Rcon: Bits[64] <> CONST = ((h"01", h"02", h"03", h"04").toBits, (h"05", h"06", h"07", h"08").toBits).toBits
+         |
          |class Bar extends RTDesign:
          |  val o = Bits(32) <> OUT
          |  o := (Rcon(63, 56) ^ Rcon(63, 56), Rcon(55, 48) ^ Rcon(55, 48), Rcon(47, 40) ^ Rcon(47, 40), Rcon(39, 32) ^ Rcon(39, 32)).toBits

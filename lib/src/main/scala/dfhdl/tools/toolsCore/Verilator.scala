@@ -92,6 +92,18 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
     )
 
+  override protected def lintLogger(using
+      CompilerOptions,
+      ToolOptions,
+      MemberGetSet
+  ): Option[Tool.ProcessLogger] =
+    Some(
+      Tool.ProcessLogger(
+        lineIsWarning = (line: String) => line.startsWith("%Warning"),
+        lineIsSuppressed = (line: String) => false
+      )
+    )
+
   override protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       SimulatorOptions
@@ -199,14 +211,15 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
        |$commands
        |""".stripMargin
   def commands: String =
-    lintOffNoParamDefaults.emptyOr(_ + "\n") +
-      lintOffHidden.emptyOr(_ + "\n") +
-      lintOffBlackBoxes.emptyOr(_ + "\n") +
-      lintOffOpenOutPorts.emptyOr(_ + "\n") +
-      lintOffUnused.emptyOr(_ + "\n") +
-      lintOffUnusedBits.emptyOr(_ + "\n") +
-      lintOffUnusedParam.emptyOr(_ + "\n") +
-      lintOffWidthExpand.emptyOr(_ + "\n")
+    sn"""|$lintOffNoParamDefaults
+         |$lintOffHidden
+         |$lintOffBlackBoxes
+         |$lintOffOpenOutPorts
+         |$lintOffUnused
+         |$lintOffUnusedBits
+         |$lintOffUnusedParam
+         |$lintOffWidthExpand
+         |"""
   def lintOffCommand(
       rule: String = "",
       file: String = "",

@@ -38,17 +38,24 @@ object OpenFPGALoader extends Programmer:
       }.getOrElse(throw new IllegalArgumentException("No device ID found"))
       s"--fpga-part $partName"
     }
+    var probeFirmware: String = ""
     val suffix = (cd.vendor, po.flash) match
-      case (Vendor.XilinxAMD, true)  => "mcs"
-      case (Vendor.XilinxAMD, false) => "bit"
-      case (Vendor.Gowin, false)     => "fs"
-      case x                         =>
+      case (Vendor.XilinxAMD | Vendor.Lattice, true)  => "mcs"
+      case (Vendor.XilinxAMD | Vendor.Lattice, false) => "bit"
+      case (Vendor.Gowin, false)                      => "fs"
+      case (Vendor.AlteraIntel(false), false)         =>
+        val fullQuartusProgrammerPath = QuartusProgrammer.runExecFullPath
+        val location =
+          Paths.get(fullQuartusProgrammerPath).getParent().resolve("blaster_6810.hex")
+        probeFirmware = s" --probe-firmware $location"
+        "svf"
+      case x =>
         throw new IllegalArgumentException(
           s"Vendor-flash combination $x is currently not supported in this DFHDL openFPGALoader integration"
         )
     val fileName = s"${topName}.$suffix"
     exec(
-      s"$cmd $fileName"
+      s"$cmd$probeFirmware $fileName"
     )
     cd
   end program

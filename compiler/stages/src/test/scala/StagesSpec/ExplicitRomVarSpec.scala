@@ -291,6 +291,7 @@ class ExplicitRomVarSpec extends StageSpec:
     assertCodeString(
       rom,
       """|val globalTable: Bits[8] X 4 <> CONST = DFVector(Bits(8) X 4)(h"01", h"02", h"03", h"04")
+         |
          |class InnerDesign1 extends DFDesign:
          |  val globalTable_rom = Bits(8) X 4 <> VAR init globalTable
          |  val index = UInt(2) <> IN

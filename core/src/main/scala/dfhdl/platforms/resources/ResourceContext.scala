@@ -18,8 +18,8 @@ trait ResourceContext extends OnCreateEvents, HasDFC, HasClsMetaArgs:
     if (isTopResource) id
     else owner.getFullId + "." + id
   // the top-level resource owner is set to be itself
-  private[resources] val owner: ResourceOwner =
-    dfc.mutableDB.ResourceOwnershipContext.ownerOpt.getOrElse(this.asInstanceOf[ResourceOwner])
+  private[resources] val owner: ResourceContext =
+    dfc.mutableDB.ResourceOwnershipContext.ownerOpt.getOrElse(this)
   private[resources] val isTopResource: Boolean =
     dfc.mutableDB.ResourceOwnershipContext.ownerOpt.isEmpty
   private var resourceConstraints = ListBuffer.from(dfc.annotations.collect {
@@ -32,7 +32,7 @@ trait ResourceContext extends OnCreateEvents, HasDFC, HasClsMetaArgs:
       if (isTopResource) Nil
       else owner match
         case group: ResourceGroup => group.directAndOwnerSigConstraints ++ group.allSigConstraints
-        case owner: ResourceOwner => owner.directAndOwnerSigConstraints
+        case owner                => owner.directAndOwnerSigConstraints
     (ownerConstraints ++ getResourceConstraints.collect {
       case constraint: SigConstraint => constraint
     }).merge

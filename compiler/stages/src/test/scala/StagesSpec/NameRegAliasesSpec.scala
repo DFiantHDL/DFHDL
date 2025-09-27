@@ -149,6 +149,7 @@ class NameRegAliasesSpec extends StageSpec(stageCreatesUnrefAnons = true):
       """|val gp: Bit <> CONST = 1
          |val i: SInt[16] <> CONST = sd"16'0"
          |val i2: SInt[16] <> CONST = i + sd"16'5"
+         |
          |class IDExt(
          |    val dp: Bit <> CONST = gp,
          |    val dpNew: Bit <> CONST = 1

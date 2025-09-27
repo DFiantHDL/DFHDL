@@ -14,10 +14,10 @@ object TrafficLight:
   val RED_YELLOW = TrafficLight(red = 1, yellow = 1, green = 0)
 
 @top class TrafficLightController(
-    val RED_TIME: Time <> CONST = 1.min,
+    val RED_TIME: Time <> CONST = 1.mn,
     val YELLOW_TIME: Time <> CONST = 5.sec,
     val RED_YELLOW_TIME: Time <> CONST = 3.sec,
-    val GREEN_TIME: Time <> CONST = 1.min,
+    val GREEN_TIME: Time <> CONST = 1.mn,
     val GREEN_BLINK_TIME: Time <> CONST = 1.sec,
     val GREEN_BLINK_CNT: Int <> CONST = 3
 ) extends RTDesign:

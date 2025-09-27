@@ -23,12 +23,14 @@ end DFRange
 object DFRange:
   extension (range: ir.DFRange) def asFE[P]: DFRange[P] = new DFRange[P](range)
   extension (range: DFRange[?]) def asFE[P]: DFRange[P] = range.asInstanceOf[DFRange[P]]
-  def apply[P](
+  def apply[P](using
+      DFC
+  )(
       start: DFValTP[DFInt32, P],
       end: DFValTP[DFInt32, P],
       op: RangeOp,
       step: DFValTP[DFInt32, P] = DFConstInt32(1)
-  )(using DFC): DFRange[P] =
+  ): DFRange[P] =
     val member = ir.DFRange(
       startRef = start.asIR.refTW[ir.DFRange],
       endRef = end.asIR.refTW[ir.DFRange],

@@ -5,6 +5,7 @@ import upickle.default.*
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.reflect.{ClassTag, classTag}
+import dfhdl.compiler.ir.PhysicalNumber.Ops.MHz
 
 sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] derives CanEqual:
   val ownerRef: DFOwner.Ref
@@ -19,7 +20,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getOwner(using MemberGetSet): DFOwner = ownerRef.get match
     case o: DFOwner        => o
     case _: DFMember.Empty =>
-      throw new IllegalArgumentException(s"No owner found for member $this.")
+      throw new Exception(s"No owner found for member $this.")
   final def getOwnerNamed(using MemberGetSet): DFOwnerNamed = getOwner match
     case b: DFOwnerNamed => b
     case o               => o.getOwnerNamed
@@ -133,6 +134,16 @@ object DFMember:
       case _                => None
     })
     def toJson(using Writer[DFMember]): String = write(member)
+    def getConstraints: List[constraints.Constraint] =
+      val allAnnotations = member match
+        case design: DFDesignBlock =>
+          design.dclMeta.annotations.view ++ design.meta.annotations
+        case interface: DFInterfaceOwner =>
+          interface.dclMeta.annotations.view ++ interface.meta.annotations
+        case _ => member.meta.annotations.view
+      allAnnotations.collect {
+        case c: constraints.Constraint => c
+      }.toList
   end extension
 
   sealed trait Empty extends DFMember:
@@ -217,7 +228,9 @@ sealed trait DFVal extends DFMember.Named:
     if (cachedConstDataReady) cachedConstData
     else
       cachedConstData = protGetConstData
-      cachedConstDataReady = true
+      // disable None constant data caching during mutation, since some data like CLK_FREQ
+      // cannot be attained during mutation and returns None
+      if (!(getSet.isMutable && cachedConstData == None)) cachedConstDataReady = true
       cachedConstData
   def updateDFType(dfType: DFType): this.type
 end DFVal
@@ -226,13 +239,12 @@ object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
   given ReadWriter[DFVal] = ReadWriter.merge(
     summon[ReadWriter[DFVal.Dcl]],
-    summon[ReadWriter[DFVal.OPEN]],
+    summon[ReadWriter[DFVal.Special]],
     summon[ReadWriter[DFVal.Alias]],
     summon[ReadWriter[DFVal.Const]],
     summon[ReadWriter[DFVal.DesignParam]],
     summon[ReadWriter[DFVal.Func]],
-    summon[ReadWriter[DFVal.PortByNameSelect]],
-    summon[ReadWriter[DFVal.NOTHING]]
+    summon[ReadWriter[DFVal.PortByNameSelect]]
   )
   final case class Modifier(dir: Modifier.Dir, special: Modifier.Special)
       derives CanEqual,
@@ -278,18 +290,18 @@ object DFVal:
           case _            => false
       case _ => false
     def isOpen: Boolean = dfVal match
-      case _: DFVal.OPEN => true
-      case _             => false
+      case DFVal.Special(kind = DFVal.Special.OPEN) => true
+      case _                                        => false
     def isDesignParam: Boolean = dfVal match
       case _: DFVal.DesignParam => true
       case _                    => false
     def isReg: Boolean = dfVal match
       case dcl: DFVal.Dcl => dcl.modifier.isReg
       case _              => false
-    @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.OPEN] = dfVal match
+    @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.Special] = dfVal match
       case dcl: DFVal.Dcl                           => Some(dcl)
       case portByNameSelect: DFVal.PortByNameSelect => Some(portByNameSelect.getPortDcl)
-      case open: DFVal.OPEN                         => Some(open)
+      case open: DFVal.Special if open.isOpen       => Some(open)
       case alias: DFVal.Alias                       => alias.relValRef.get.dealias
       case _                                        => None
     @tailrec private def departial(range: Range)(using MemberGetSet): (DFVal, Range) =
@@ -455,38 +467,28 @@ object DFVal:
     type Ref = DFRef.TwoWay[DFVal, DesignParam]
     type DefaultRef = DFRef.TwoWay[DFVal | DFMember.Empty, DesignParam]
 
-  final case class OPEN(
+  final case class Special(
       dfType: DFType,
-      ownerRef: DFOwner.Ref
-  ) extends DFVal derives ReadWriter:
-    val meta: Meta = Meta(None, Position.unknown, None, Nil)
-    val tags: DFTags = DFTags.empty
-    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
-    protected def protGetConstData(using MemberGetSet): Option[Any] = None
-    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case _: OPEN => true
-      case _       => false
-    protected def setMeta(meta: Meta): this.type = this
-    protected def setTags(tags: DFTags): this.type = this
-    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ meta.getRefs
-    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-    def copyWithNewRefs(using RefGen): this.type = copy(
-      dfType = dfType.copyWithNewRefs,
-      ownerRef = ownerRef.copyAsNewRef
-    ).asInstanceOf[this.type]
-  end OPEN
-
-  final case class NOTHING(
-      dfType: DFType,
+      kind: Special.Kind,
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
   ) extends CanBeExpr derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
-    protected def protGetConstData(using MemberGetSet): Option[Any] = None
+    protected def protGetConstData(using MemberGetSet): Option[Any] = kind match
+      case Special.CLK_FREQ =>
+        if (getSet.isMutable) None // disable during elaboration
+        else
+          Some(getSet.designDB.explicitRTDomainCfgMap(
+            this.getOwnerDomain
+          ).clkCfg.toOption.map(_.rate.to_freq).getOrElse(0.MHz))
+      case _ => None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case _: NOTHING => true
-      case _          => false
+      case that: Special =>
+        this.dfType =~ that.dfType && this.kind == that.kind &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+
+      case _ => false
     protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
       this == that
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -498,7 +500,11 @@ object DFVal:
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef
     ).asInstanceOf[this.type]
-  end NOTHING
+  end Special
+  object Special:
+    enum Kind extends StableEnum derives CanEqual, ReadWriter:
+      case NOTHING, OPEN, CLK_FREQ
+    export Kind.{NOTHING, OPEN, CLK_FREQ}
 
   final case class Dcl(
       dfType: DFType,
@@ -1013,7 +1019,7 @@ object DFNet:
         MemberGetSet
     ): Option[
       (
-          toVal: DFVal.Dcl | DFVal.OPEN | DFInterfaceOwner,
+          toVal: DFVal.Dcl | DFVal.Special | DFInterfaceOwner,
           fromVal: DFVal | DFInterfaceOwner,
           swapped: Boolean
       )
@@ -1098,6 +1104,7 @@ object DFOwner:
 
 final case class DFInterfaceOwner(
     domainType: DomainType,
+    dclMeta: Meta,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
@@ -1105,12 +1112,13 @@ final case class DFInterfaceOwner(
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFInterfaceOwner =>
       this.domainType =~ that.domainType &&
-      this.meta =~ that.meta && this.tags =~ that.tags
+      this.dclMeta =~ that.dclMeta && this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs ++ meta.getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
+    dclMeta = dclMeta.copyWithNewRefs,
     meta = meta.copyWithNewRefs,
     domainType = domainType.copyWithNewRefs,
     ownerRef = ownerRef.copyAsNewRef
@@ -1447,15 +1455,26 @@ final case class DFDesignBlock(
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType =~ that.domainType &&
-      this.dclMeta == that.dclMeta &&
+      this.dclMeta =~ that.dclMeta &&
       this.instMode == that.instMode &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
+  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs ++ dclMeta.getRefs
+
+  /** Whether this design is considered to be a device's top-level design. THIS MAY NOT BE THE TOP
+    * DESIGN, for example if the design is in a simulation. A design is considered to be a device
+    * top-level design if it has a device ID constraint (usually as a result of a device resource
+    * instantiated within).
+    */
+  lazy val isDeviceTop: Boolean = this.getConstraints.exists {
+    case _: constraints.DeviceID => true
+    case _                       => false
+  }
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
+    dclMeta = dclMeta.copyWithNewRefs,
     domainType = domainType.copyWithNewRefs,
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
@@ -1465,17 +1484,21 @@ object DFDesignBlock:
   import InstMode.BlackBox.Source
   enum InstMode extends StableEnum derives CanEqual, ReadWriter:
     case Normal, Def, Simulation
-    case BlackBox(verilogSrc: Source, vhdlSrc: Source)
+    case BlackBox(source: Source)
   object InstMode:
     object BlackBox:
       enum Source extends StableEnum derives CanEqual, ReadWriter:
         case NA
-        case File(path: String)
+        case Files(path: List[String])
         case Library(libName: String, nameSpace: String)
+        case Qsys(typeName: String)
 
   extension (dsn: DFDesignBlock)
     def isDuplicate: Boolean = dsn.hasTagOf[DuplicateTag]
     def isBlackBox: Boolean = dsn.instMode.isInstanceOf[InstMode.BlackBox]
+    def isQsysIPBlackbox: Boolean = dsn.instMode match
+      case InstMode.BlackBox(_: InstMode.BlackBox.Source.Qsys) => true
+      case _                                                   => false
     def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
     def getCommonDesignWith(dsn2: DFDesignBlock)(using MemberGetSet): DFDesignBlock =
       def getOwnerDesignChain(dsn: DFDesignBlock): List[DFDesignBlock] =

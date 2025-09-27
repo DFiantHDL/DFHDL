@@ -95,7 +95,8 @@ object constraints:
       s"""@deviceProperties($props)"""
   object DeviceID:
     enum Vendor extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
-      case XilinxAMD, AlteraIntel, Lattice, Gowin
+      case XilinxAMD, Lattice, Gowin
+      case AlteraIntel(pro: Boolean)
       def codeString(using Printer): String = "deviceID.Vendor." + this.toString
   final case class ToolOptions(options: Map[String, String]) extends GlobalConstraint
       derives ReadWriter:
@@ -109,7 +110,8 @@ object constraints:
   final case class DeviceConfig(
       flashPartName: String,
       interface: DeviceConfig.Interface,
-      sizeLimitMB: Int
+      sizeLimitMB: Int,
+      masterRate: ConfigN[RateNumber]
   ) extends GlobalConstraint derives ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
@@ -118,14 +120,31 @@ object constraints:
       val params = List(
         csParam("flashPartName", flashPartName),
         csParam("interface", interface),
-        csParam("sizeLimitMB", sizeLimitMB)
+        csParam("sizeLimitMB", sizeLimitMB),
+        csParam("masterRate", masterRate)
       ).filter(_.nonEmpty).mkString(", ")
       s"""@deviceConfig($params)"""
   end DeviceConfig
   object DeviceConfig:
-    enum Interface extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
-      case SMAPx8, SMAPx16, SMAPx32, SPIx1, SPIx2, SPIx4, SPIx8, BPIx8, BPIx16
-      def codeString(using Printer): String = "deviceConfig.Interface." + this.toString
+    sealed trait Interface extends HasCodeString derives CanEqual, ReadWriter:
+      val busWidth: Int
+    object Interface:
+      final case class MasterSMAP(busWidth: Int) extends Interface:
+        def codeString(using Printer): String = s"deviceConfig.Interface.MasterSMAP($busWidth)"
+      final case class SlaveSMAP(busWidth: Int) extends Interface:
+        def codeString(using Printer): String = s"deviceConfig.Interface.SlaveSMAP($busWidth)"
+      final case class MasterSPI(busWidth: Int) extends Interface:
+        def codeString(using Printer): String = s"deviceConfig.Interface.MasterSPI($busWidth)"
+      final case class MasterBPI(busWidth: Int) extends Interface:
+        def codeString(using Printer): String = s"deviceConfig.Interface.MasterBPI($busWidth)"
+      case object SlaveSerial extends Interface:
+        val busWidth: Int = 1
+        def codeString(using Printer): String = s"deviceConfig.Interface.SlaveSerial"
+      case object MasterSerial extends Interface:
+        val busWidth: Int = 1
+        def codeString(using Printer): String = s"deviceConfig.Interface.MasterSerial"
+    end Interface
+  end DeviceConfig
 
   extension [T](configN: ConfigN[T])
     def merge(that: ConfigN[T]): ConfigN[T] =
@@ -187,7 +206,8 @@ object constraints:
       pullMode: ConfigN[IO.PullMode] = None,
       dualPurposeGroups: ConfigN[String] = None,
       unusedPullMode: ConfigN[IO.PullMode] = None,
-      invertActiveState: ConfigN[Boolean] = None
+      invertActiveState: ConfigN[Boolean] = None,
+      missingPullDownSupport: ConfigN[Boolean] = None
   ) extends SigConstraint derives CanEqual, ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
@@ -206,7 +226,8 @@ object constraints:
               pullMode = pullMode.merge(that.pullMode),
               dualPurposeGroups = dualPurposeGroups.merge(that.dualPurposeGroups),
               unusedPullMode = unusedPullMode.merge(that.unusedPullMode),
-              invertActiveState = invertActiveState.merge(that.invertActiveState)
+              invertActiveState = invertActiveState.merge(that.invertActiveState),
+              missingPullDownSupport = missingPullDownSupport.merge(that.missingPullDownSupport)
             )
           )
         case _ => None
@@ -223,22 +244,25 @@ object constraints:
         csParam("pullMode", pullMode),
         csParam("dualPurposeGroups", dualPurposeGroups),
         csParam("unusedPullMode", unusedPullMode),
-        csParam("invertActiveState", invertActiveState)
+        csParam("invertActiveState", invertActiveState),
+        csParam("missingPullDownSupport", missingPullDownSupport)
       ).filter(_.nonEmpty).mkString(", ")
       s"""@io($params)"""
     end codeString
   end IO
   object IO:
-    type LevelVolt = 3.3 | 2.5 | 1.8 | 1.2
+    type LevelVolt = 3.3 | 3.0 | 2.5 | 1.8 | 1.5 | 1.2
     enum Standard extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
-      case LVCMOS, LVTTL, LVDS
+      case LVCMOS, LVTTL, LVDS, SchmittTrigger
       def codeString(using Printer): String = "io.Standard." + this.toString
       def withLevelVolt(levelVolt: LevelVolt): String =
         val num = (levelVolt * 10).toInt
         this match
-          case LVCMOS => s"LVCMOS$num"
-          case LVTTL  => s"LVTTL"
-          case LVDS   => s"LVDS_$num"
+          case LVCMOS         => s"LVCMOS$num"
+          case LVTTL          => s"LVTTL"
+          case LVDS           => s"LVDS_$num"
+          case SchmittTrigger =>
+            throw new IllegalArgumentException("Found unexpected use of SchmittTrigger.")
     enum SlewRate extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case SLOW, FAST
       def codeString(using Printer): String = "io.SlewRate." + this.toString

@@ -59,7 +59,7 @@ object RTDomainCfg:
   extension (cfg: ir.RTDomainCfg) def asFE: RTDomainCfg = cfg
   protected[core] object Related:
     def apply(design: RTDesign)(using DFC): RTDomainCfg =
-      ir.RTDomainCfg.Related(design.owner.asIR.refTW)
+      ir.RTDomainCfg.Related(design.containedOwner.asIR.refTW)
     def apply(domain: RTDomain)(using DFC): RTDomainCfg =
-      ir.RTDomainCfg.Related(domain.owner.asIR.refTW)
+      ir.RTDomainCfg.Related(domain.containedOwner.asIR.refTW)
 end RTDomainCfg

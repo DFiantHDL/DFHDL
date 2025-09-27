@@ -122,8 +122,10 @@ class ParsedCommandLine(
     trait BuildMode extends ToolMode:
       this: ScallopConf & Mode =>
       lazy val options = bo
-      private val descYesDefault = if (bo.flash) " (default)" else ""
-      private val descNoDefault = if (!bo.flash) " (default)" else ""
+      private val flashYesDefault = if (bo.flash) " (default)" else ""
+      private val flashNoDefault = if (!bo.flash) " (default)" else ""
+      private val compressYesDefault = if (bo.compress) " (default)" else ""
+      private val compressNoDefault = if (!bo.compress) " (default)" else ""
       val tool = choice(
         choices = Seq("foss", "vendor"),
         default = Some(bo.tool.toString),
@@ -133,9 +135,16 @@ class ParsedCommandLine(
       )
       val flash = toggle(
         name = "flash",
-        descrYes = s"Create also a flash image for an on-board flash device$descYesDefault",
-        descrNo = s"Create only a bitstream file to program the FPGA$descNoDefault",
+        descrYes = s"Create also a flash image for an on-board flash device$flashYesDefault",
+        descrNo = s"Create only a bitstream file to program the FPGA$flashNoDefault",
         default = Some(bo.flash),
+        noshort = true
+      )
+      val compress = toggle(
+        name = "compress",
+        descrYes = s"Compress the bitstream file$compressYesDefault",
+        descrNo = s"Do not compress the bitstream file$compressNoDefault",
+        default = Some(bo.compress),
         noshort = true
       )
     end BuildMode

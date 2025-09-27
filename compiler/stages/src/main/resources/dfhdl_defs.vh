@@ -48,12 +48,12 @@
     ((data[width-1] == 1'b1) ? ((data >> shift) | ({width{1'b1}} << (width - shift))) : (data >> shift))
 function integer clog2;
 input integer n;
-integer result;
+integer result, temp;
 begin
   result = 0;
-  n = n - 1;
-  while (n > 0) begin
-    n = n >> 1;
+  temp = n - 1;
+  while (temp > 0) begin
+    temp = temp >> 1;
     result = result + 1;
   end
   clog2 = result;

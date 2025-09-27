@@ -50,17 +50,21 @@ extension (cd: CompiledDesign)
   }.getOrElse(throw new IllegalArgumentException("No device constraint found"))
 
   protected[dfhdl] def builder(using bo: BuilderOptions): Builder = (vendor, bo.tool) match
-    case (Vendor.XilinxAMD, builders.vendor) => Vivado
-    case (Vendor.Gowin, builders.vendor)     => GowinDesigner
-    case (vendor, tool)                      => throw new IllegalArgumentException(
+    case (Vendor.XilinxAMD, builders.vendor)        => Vivado
+    case (Vendor.Gowin, builders.vendor)            => GowinDesigner
+    case (Vendor.Lattice, builders.vendor)          => Diamond
+    case (Vendor.AlteraIntel(pro), builders.vendor) => if (pro) QuartusPrimePro else QuartusPrime
+    case (vendor, tool)                             => throw new IllegalArgumentException(
         s"No $tool builder tool support for vendor $vendor"
       )
 
   protected[dfhdl] def programmer(using po: ProgrammerOptions): Programmer = (vendor, po.tool) match
-    case (Vendor.XilinxAMD, programmers.vendor) => Vivado
-    case (Vendor.Gowin, programmers.vendor)     => GowinProgrammer
-    case (_, programmers.foss)                  => OpenFPGALoader
-    case (vendor, tool)                         => throw new IllegalArgumentException(
+    case (Vendor.XilinxAMD, programmers.vendor)        => Vivado
+    case (Vendor.Gowin, programmers.vendor)            => GowinProgrammer
+    case (Vendor.AlteraIntel(pro), programmers.vendor) =>
+      if (pro) QuartusProgrammerPro else QuartusProgrammer
+    case (_, programmers.foss) => OpenFPGALoader
+    case (vendor, tool)        => throw new IllegalArgumentException(
         s"No $tool programmer tool support for vendor $vendor"
       )
 

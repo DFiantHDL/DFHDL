@@ -462,8 +462,7 @@ extension (members: List[DFMember])
           case _ => Nil
       }
     members.view.filter(_.isPublicMember).flatMap {
-      case p: DFVal.DesignParam => getPublicMembersDeps(p).reverse
-      case m                    => Some(m)
+      case m => getPublicMembersDeps(m).reverse
     }.toList.distinct
 end extension
 

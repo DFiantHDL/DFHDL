@@ -386,7 +386,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   ): Tree =
     def patternSingleton: Tree = FromCore.patternSingleton(selector, constPat)
     val DFVal(dfTypeTpe) = selector.tpe: @unchecked
-    (dfTypeTpe, constPat) match
+    (dfTypeTpe.widen, constPat) match
       case (DFXInt(signed, widthTpe), Constant(i: Int)) if i < 0 && !signed =>
         report.error(
           s"Cannot compare a signed literal value with an unsigned DFHDL variable.\nAn explicit conversion must be applied.",

@@ -19,7 +19,7 @@ object DFTuple:
   )(using DFC): DFTuple[T] = ir.DFTuple(
     fieldList.map(_.asIR.dropUnreachableRefs(allowDesignParamRefs = false))
   ).asFE[DFTuple[T]]
-  private[core] def unapply(t: NonEmptyTuple): Option[DFTuple[NonEmptyTuple]] =
+  private[core] def unapply(t: NonEmptyTuple)(using DFC): Option[DFTuple[NonEmptyTuple]] =
     val tList = t.toList
     val fieldList: List[DFTypeAny] = tList.flatMap {
       case DFType(x) => Some(x)
@@ -49,15 +49,15 @@ object DFTuple:
         V <: NonEmptyTuple,
         O,
         TC[T <: DFTypeAny, V] <: TCCommon[T, V, O]
-    ]: TCZipper[T, V, O, TC] = ${
-      zipperMacro[T, V, O, TC]
+    ](using dfc: DFC): TCZipper[T, V, O, TC] = ${
+      zipperMacro[T, V, O, TC]('dfc)
     }
     def zipperMacro[
         T <: NonEmptyTuple,
         V <: NonEmptyTuple,
         O,
         TC[T <: DFTypeAny, V] <: TCCommon[T, V, O]
-    ](using
+    ](dfc: Expr[DFC])(using
         Quotes,
         Type[T],
         Type[V],
@@ -90,7 +90,7 @@ object DFTuple:
                   $tupleValuesExpr
                     .apply($iExpr)
                     .asInstanceOf[vType.Underlying]
-                tc.conv(dfType, value)(using compiletime.summonInline[DFC])
+                tc.conv(dfType, value)(using $dfc)
               }
             }
           '{ List(${ Varargs(exprs) }*) }
@@ -201,15 +201,26 @@ object DFTuple:
 
     object Ops:
       import DFBits.BitIndex
+      given evOpApplyDFTuple[
+          T <: NonEmptyTuple,
+          M <: ModifierAny,
+          L <: DFVal[DFTuple[T], M],
+          I <: Int
+      ](
+          using
+          check: BitIndex.Check[I, Tuple.Size[T]],
+          size: ValueOf[Tuple.Size[T]]
+      ): ExactOp2Aux["apply", DFC, DFValAny, L, I, DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M]] =
+        new ExactOp2["apply", DFC, DFValAny, L, I]:
+          type Out = DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M]
+          def apply(lhs: L, idx: I)(using DFC): Out = trydf {
+            import Val.Ops.applyForced
+            check(idx, size)
+            lhs.applyForced[DFType.FromDFVal[Tuple.Elem[T, I]]](idx)
+          }(using dfc, CTName("element selection (apply)"))
+      end evOpApplyDFTuple
+
       extension [T <: NonEmptyTuple, M <: ModifierAny](dfTupleVal: DFVal[DFTuple[T], M])
-        def apply[I <: Int](i: Inlined[I])(using
-            dfc: DFC,
-            check: BitIndex.Check[I, Tuple.Size[T]],
-            size: ValueOf[Tuple.Size[T]]
-        ): DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M] = trydf {
-          check(i, size)
-          applyForced[DFType.FromDFVal[Tuple.Elem[T, I]]](i)
-        }
         private[core] def applyForced[OT <: DFTypeAny](i: Int)(using
             dfc: DFC
         ): DFVal[OT, M] = DFVal.Alias

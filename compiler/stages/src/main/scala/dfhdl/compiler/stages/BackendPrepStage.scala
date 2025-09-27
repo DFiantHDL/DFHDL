@@ -2,20 +2,22 @@ package dfhdl.compiler.stages
 
 case object BackendPrepStage
     extends BundleStage(
+      DropPhysicalValues,
       DropUserOpaques,
       BreakOpsNoAssignments,
       DropUnreferencedAnons,
       NamedAnonMultiref,
-      ApplyInvertConstraint,
       ExplicitRomVar,
       NamedVerilogSelection,
       NamedVHDLSelection,
       ToED,
+      ApplyInvertConstraint,
       DropStructsVecs,
       MatchToIf,
       SimplifyMatchSel,
       DropDomains,
       DropMagnets,
+      ConnectUnused,
       VHDLProcToVerilog,
       ExplicitNamedVars,
       DropLocalDcls,

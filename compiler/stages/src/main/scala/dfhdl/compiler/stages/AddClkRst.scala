@@ -7,7 +7,7 @@ import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 import scala.collection.mutable
 import dfhdl.core.DFOpaque as coreDFOpaque
-import dfhdl.core.asFE
+import dfhdl.core.{asFE, DFCG}
 
 /** This stage adds clock and reset input ports across the entire design. This stage is run after
   * ExplicitClkRstCfg, so no Derived is expected here. The rules are:
@@ -31,9 +31,17 @@ case object AddClkRst extends Stage:
     val rstTypeMap = mutable.Map.empty[RTDomainCfg.Explicit, coreDFOpaque[coreDFOpaque.Rst]]
     // saves opaque clk/rst type replacements
     val opaqueReplaceMap = mutable.Map.empty[DFOpaque, DFOpaque]
+    extension (domainOwner: DFDomainOwner)
+      def getClkConstraints: List[constraints.Constraint] =
+        domainOwner.getConstraints.collect {
+          case c: constraints.IO           => c
+          case c: constraints.Timing.Clock => c
+        }
+    end extension
     val patchList: List[(DFMember, Patch)] = designDB.domainOwnerMemberList.flatMap {
       // for all designs
       case (owner, members) =>
+        val ownerClkConstraints = owner.getClkConstraints
         val design = owner.getThisOrOwnerDesign
         // new configuration unapply object
         object NewCfg:
@@ -77,18 +85,19 @@ case object AddClkRst extends Stage:
               else cfg.name.replaceFirst(".norst", "")
             // clk and rst magnet types are either fetched from the memoization
             // or created and memoized
+            val opaqueDFC = DFCG()
             val clkType =
               class Unique:
                 case class Clk() extends coreDFOpaque.Clk:
                   override lazy val typeName: String = s"Clk_${magnetNameSuffix}"
               // the memoization for clock is always for the `.norst`, so only a single memoization
               // is required for both regular and `.norst` versions
-              clkTypeMap.getOrElseUpdate(cfg.norst, coreDFOpaque(Unique().Clk()))
+              clkTypeMap.getOrElseUpdate(cfg.norst, coreDFOpaque(Unique().Clk())(using opaqueDFC))
             val rstType =
               class Unique:
                 case class Rst() extends coreDFOpaque.Rst:
                   override lazy val typeName: String = s"Rst_${magnetNameSuffix}"
-              rstTypeMap.getOrElseUpdate(cfg, coreDFOpaque(Unique().Rst()))
+              rstTypeMap.getOrElseUpdate(cfg, coreDFOpaque(Unique().Rst())(using opaqueDFC))
             // saving changed opaques to change in all relevant members later
             existingClk.foreach(dcl =>
               opaqueReplaceMap += dcl.dfType.asInstanceOf[DFOpaque] -> clkType.asIR
@@ -138,7 +147,10 @@ case object AddClkRst extends Stage:
                       }
                     }
                 else
-                  lazy val clk = (clkType <> IN)(using dfc.setName(requiredClkName.get))
+                  // added clocks are created with the constraints from the domain owner
+                  lazy val clk = (clkType <> IN)(using
+                    dfc.setName(requiredClkName.get).setAnnotations(ownerClkConstraints)
+                  )
                   if (addClk) clk // touch lazy clk to create
                   lazy val rst = (rstType <> IN)(using dfc.setName(requiredRstName.get))
                   if (addRst) rst // touch lazy rst to create
@@ -153,16 +165,42 @@ case object AddClkRst extends Stage:
           case dfVal: DFVal =>
             dfVal.dfType match
               case dfType @ DFOpaque(kind = (DFOpaque.Kind.Clk | DFOpaque.Kind.Rst)) =>
-                Some(
-                  dfVal -> Patch.Replace(
-                    dfVal.updateDFType(opaqueReplaceMap(dfType)),
-                    Patch.Replace.Config.FullReplacement
-                  )
-                )
+                val updatedDFVal = dfVal match
+                  // existing clocks also get the constraints from the domain owner
+                  case clk: DFVal.Dcl if clk.isClkDcl =>
+                    val updatedAnnotations =
+                      (ownerClkConstraints ++ clk.meta.annotations).distinct
+                    clk.copy(
+                      dfType = opaqueReplaceMap(dfType),
+                      meta = clk.meta.copy(annotations = updatedAnnotations)
+                    )
+                  case _ => dfVal.updateDFType(opaqueReplaceMap(dfType))
+                Some(dfVal -> Patch.Replace(updatedDFVal, Patch.Replace.Config.FullReplacement))
               case _ => None
           case _ => None
         }
+        // remove the constraints from the owner
+        val ownerConstraintRemovalPatchOption =
+          if (ownerClkConstraints.nonEmpty)
+            def updateMeta(meta: Meta): Meta =
+              meta.copy(annotations = meta.annotations.flatMap {
+                case _: constraints.IO           => None
+                case _: constraints.Timing.Clock => None
+                case c                           => Some(c)
+              })
+            val updatedOwner = owner match
+              case design: DFDesignBlock =>
+                design.copy(dclMeta = updateMeta(design.dclMeta), meta = updateMeta(design.meta))
+              case interface: DFInterfaceOwner =>
+                interface.copy(
+                  dclMeta = updateMeta(interface.dclMeta),
+                  meta = updateMeta(interface.meta)
+                )
+              case _ => owner.setMeta(updateMeta)
+            Some(owner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement))
+          else None
         List(
+          ownerConstraintRemovalPatchOption,
           opaqueTypeReplacePatches,
           ownerDomainPatchOption
         ).flatten

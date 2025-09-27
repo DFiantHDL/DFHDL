@@ -25,11 +25,11 @@ object DFStruct:
       fieldTypes: List[DFTypeAny]
   )(using DFC): DFStruct[F] =
     apply[F](name, ListMap(fieldNames.lazyZip(fieldTypes).toSeq*))
-  private[core] def apply[F <: FieldsOrTuple](product: F): DFStruct[F] =
+  private[core] def apply[F <: FieldsOrTuple](product: F)(using DFC): DFStruct[F] =
     unapply(product.asInstanceOf[Product]).get.asInstanceOf[DFStruct[F]]
   private[core] def unapply(
       product: Product
-  ): Option[DFStruct[FieldsOrTuple]] =
+  )(using DFC): Option[DFStruct[FieldsOrTuple]] =
     val fieldTypes = product.productIterator.flatMap {
       case dfVal: DFValAny => Some(dfVal.dfType)
       case _               => None
@@ -39,11 +39,11 @@ object DFStruct:
       Some(DFStruct(product.productPrefix, fieldNames, fieldTypes))
     else None
 
-  inline given apply[F <: FieldsOrTuple]: DFStruct[F] = ${ dfTypeMacro[F] }
+  inline given apply[F <: FieldsOrTuple](using dfc: DFCG): DFStruct[F] = ${ dfTypeMacro[F]('dfc) }
   def dfTypeMacro[F <: FieldsOrTuple](using
       Quotes,
       Type[F]
-  ): Expr[DFStruct[F]] =
+  )(dfc: Expr[DFC]): Expr[DFStruct[F]] =
     import quotes.reflect.*
     val fTpe = TypeRepr.of[F]
     val (structName, fields) = fTpe.asTypeOf[Any] match
@@ -73,10 +73,7 @@ object DFStruct:
       val fieldTypesExpr = Varargs(fieldTypes)
       val nameExpr = Expr(structName)
       '{
-        DFStruct
-          .apply[F]($nameExpr, List($fieldNamesExpr*), List($fieldTypesExpr*))(using
-            compiletime.summonInline[DFC]
-          )
+        DFStruct.apply[F]($nameExpr, List($fieldNamesExpr*), List($fieldTypesExpr*))(using $dfc)
       }
     else
       val fieldTypesStr = fieldErrors
@@ -90,7 +87,7 @@ object DFStruct:
            |A valid field type is in the form of [DFType] <> VAL.
            |The following fields do not match this pattern:
            |$fieldTypesStr""".stripMargin
-      '{ compiletime.error(${ Expr(msg) }) }
+      ControlledMacroError.report(msg)
     end if
   end dfTypeMacro
 
@@ -151,7 +148,7 @@ object DFStruct:
     else
       val msg =
         s"Mismatch structure value type `${tpeR.showType}` for DFHDL receiver structure type `${tpeL.showType}`."
-      '{ compiletime.error(${ Expr(msg) }) }
+      ControlledMacroError.report(msg)
   end sfMacro
 
   object Val:

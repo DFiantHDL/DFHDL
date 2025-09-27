@@ -140,7 +140,8 @@ class DFDecimalSpec extends DFSpec:
       val si = SInt(8) <> VAR init sd"8'${ni}"
       u8 := i
       assertDSLErrorLog(
-        "Cannot apply a signed value to an unsigned variable."
+        """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+           |An explicit conversion must be applied.""".stripMargin
       )("") {
         u8 := ni
       }
@@ -152,7 +153,8 @@ class DFDecimalSpec extends DFSpec:
       val b6: Bits[6] <> CONST = all(0)
       val s32: Int <> VAL = -120
       assertRuntimeErrorLog(
-        "Cannot apply a signed value to an unsigned variable."
+        """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+           |An explicit conversion must be applied.""".stripMargin
       ) {
         u8 := s32
       }
@@ -186,7 +188,8 @@ class DFDecimalSpec extends DFSpec:
       u6 := u8.truncate
       s6 := s8.truncate
       assertDSLErrorLog(
-        "Cannot apply a signed value to an unsigned variable."
+        """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+           |An explicit conversion must be applied.""".stripMargin
       )(
         """u8 := -1"""
       ) {
@@ -201,12 +204,14 @@ class DFDecimalSpec extends DFSpec:
         """b8 := s8"""
       )
       assertCompileError(
-        "Cannot apply a signed value to an unsigned variable."
+        """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+           |An explicit conversion must be applied.""".stripMargin
       )(
         """u8 := s8"""
       )
       assertCompileError(
-        "Cannot apply a signed value to an unsigned variable."
+        """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+           |An explicit conversion must be applied.""".stripMargin
       )(
         """u8 := s8"""
       )
@@ -241,7 +246,8 @@ class DFDecimalSpec extends DFSpec:
       val pow = 2 ** param
     }
     assertDSLErrorLog(
-      "Cannot apply a signed value to an unsigned variable."
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.""".stripMargin
     )(
       """val cu: UInt[Int] <> VAL = -1"""
     ) {
@@ -363,9 +369,7 @@ class DFDecimalSpec extends DFSpec:
     assertEquals(200 +^ d"8'1", d"9'201")
     assertEquals(-200 + sd"8'1", sd"9'-199")
     assertCompileError(
-      """|Cannot apply this operation between a signed value (LHS) and an unsigned value (RHS).
-         |An explicit conversion must be applied.
-         |""".stripMargin
+      "The applied RHS value width (9) is larger than the LHS variable width (8)."
     )(
       """sd"8'22" + d"8'22""""
     )
@@ -422,16 +426,12 @@ class DFDecimalSpec extends DFSpec:
     assertEquals(d"8'22" - d"8'23", d"8'255")
     assertEquals(sd"8'22" - sd"8'23", sd"8'-1")
     assertCompileError(
-      """|Cannot apply this operation between a signed value (LHS) and an unsigned value (RHS).
-         |An explicit conversion must be applied.
-         |""".stripMargin
+      "The applied RHS value width (9) is larger than the LHS variable width (8)."
     )(
       """sd"8'22" - d"8'22""""
     )
     assertCompileError(
-      """|Cannot apply this operation between a signed value (LHS) and an unsigned value (RHS).
-         |An explicit conversion must be applied.
-         |""".stripMargin
+      "The applied RHS value width (9) is larger than the LHS variable width (8)."
     )(
       """sd"8'22" - h"8'22""""
     )
@@ -523,9 +523,7 @@ class DFDecimalSpec extends DFSpec:
       t10.verifyValOf[UInt[15]]
     }
     assertCompileError(
-      """|Cannot apply this operation between a signed value (LHS) and an unsigned value (RHS).
-         |An explicit conversion must be applied.
-         |""".stripMargin
+      "The applied RHS value width (9) is larger than the LHS variable width (8)."
     )(
       """s8 + d"8'22""""
     )

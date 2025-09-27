@@ -152,7 +152,7 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"-- $comment"
   def csDocString(doc: String): String = doc.linesIterator.mkString("--", "\n--", "")
-  def csAnnotations(meta: Meta): String = ""
+  def csAnnotations(annotations: List[annotation.HWAnnotation]): String = ""
   // def csTimer(timer: Timer): String = unsupported
   def globalFileName: String = s"${printer.packageName}.vhd"
   def designFileName(designName: String): String = s"$designName.vhd"
@@ -172,7 +172,7 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
     val vectorTypeDclsBody =
       printer.globalVectorTypes.view.map { case (tpName, (vecType, depth)) =>
         printer.csDFVectorDclsGlobal(DclScope.PkgBody)(tpName, vecType, depth)
-      }.mkString("\n").emptyOr(x => s"$x\n")
+      }.mkString("\n")
     // collect the global named types, including vectors
     val namedDFTypes = ListSet.from(getSet.designDB.members.view.collect {
       case port @ DclPort()                     => port.dfType
@@ -195,29 +195,31 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
             printer.csNamedDFTypeConvFuncsDcl(dfType)
           )
       }
-      .mkString("\n").emptyOr(x => s"$x\n")
+      .mkString("\n")
     val namedTypeConvFuncsBody =
       getSet.designDB.getGlobalNamedDFTypes.view
         .collect { case dfType: NamedDFType => printer.csNamedDFTypeConvFuncsBody(dfType) }
-        .mkString("\n").emptyOr(x => s"$x\n")
+        .mkString("\n")
     val usesMathReal = getSet.designDB.membersGlobals.exists {
       _.dfType.decompose { case dt: DFDouble => dt }.nonEmpty
     }
-    s"""library ieee;
-       |use ieee.std_logic_1164.all;
-       |use ieee.numeric_std.all;${if (usesMathReal) "\nuse ieee.math_real.all;" else ""}
-       |use work.dfhdl_pkg.all;
-       |
-       |package ${printer.packageName} is
-       |${csGlobalConstIntDcls.emptyOr(_ + "\n") + namedTypeConvFuncsDcl.emptyOr(
-        _ + "\n"
-      ) + csGlobalConstNonIntDcls}
-       |end package ${printer.packageName};
-       |
-       |package body ${printer.packageName} is
-       |${namedTypeConvFuncsBody + vectorTypeDclsBody}
-       |end package body ${printer.packageName};
-       |""".stripMargin
+    sn"""|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |${if (usesMathReal) "use ieee.math_real.all;" else ""}
+         |use work.dfhdl_pkg.all;
+         |
+         |package ${printer.packageName} is
+         |${csGlobalConstIntDcls}
+         |${namedTypeConvFuncsDcl}
+         |${csGlobalConstNonIntDcls}
+         |end package ${printer.packageName};
+         |
+         |package body ${printer.packageName} is
+         |${namedTypeConvFuncsBody}
+         |${vectorTypeDclsBody}
+         |end package body ${printer.packageName};
+         |"""
   end csGlobalFileContent
   def alignCode(cs: String): String =
     cs

@@ -53,30 +53,33 @@ trait Resource extends ResourceContext:
         throw e
     end try
   end allSigConstraints
-  owner.addResource(this)
+  owner match
+    case owner: ResourceOwner => owner.addResource(this)
+    case _                    =>
 end Resource
 
 private trait ResourceLP:
   import Resource.CanConnect
   // connection is commutative, so can connect T to R if can connect R to T
-  given [T <: Resource, R <: Resource](using cc: CanConnect[R, T]): CanConnect[T, R] =
-    (resource1: T, resource2: R) => cc.connect(resource2, resource1)
+  given [T <: Resource, R <: Resource](using cc: CanConnect[R, T]): CanConnect[T, R] with
+    def connect(resource1: T, resource2: R)(using DFC): Unit = cc.connect(resource2, resource1)
 
 object Resource extends ResourceLP:
   @implicitNotFound("Cannot connect the resource ${R} with ${T}")
-  trait CanConnect[R <: Resource, T <: Resource | DFValAny]:
-    def connect(resource1: R, resource2: T): Unit
-  given [R <: Resource, T <: Resource](using R =:= T): CanConnect[R, T] =
-    (resource1: R, resource2: T) =>
+  trait CanConnect[-R <: Resource, -T]:
+    def connect(resource1: R, resource2: T)(using DFC): Unit
+  given [R <: Resource, T <: Resource](using R =:= T): CanConnect[R, T] with
+    def connect(resource1: R, resource2: T)(using DFC): Unit =
       resource1.connectFrom(resource2)
       resource2.connectFrom(resource1)
 
-  object Ops:
-    extension [R <: Resource](resource: R)
-      def <>[T <: Resource](that: T)(using cc: CanConnect[R, T]): Unit =
-        cc.connect(resource, that)
-      def <>[T <: DFValAny](that: T)(using dfc: DFC, cc: CanConnect[R, T]): Unit = trydf {
-        cc.connect(resource, that)
-      }
-  export Resource.Ops.*
+  given [R <: Resource, T <: Resource | DFValAny | RTDomainContainer](using
+      cc: CanConnect[R, T]
+  ): ExactOp2Aux["<>", DFC, Any, R, T, Unit] =
+    new ExactOp2["<>", DFC, Any, R, T]:
+      type Out = Unit
+      def apply(resource1: R, resourceOrValue: T)(using DFC): Out =
+        cc.connect(resource1, resourceOrValue)
+  end given
+  export dfhdl.hdl.<>
 end Resource

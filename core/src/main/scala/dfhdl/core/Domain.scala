@@ -18,7 +18,7 @@ object Domain:
     def apply(domainType: ir.DomainType)(using DFC): Block = trydf:
       dfc.owner.asIR match
         case _: ir.DFDomainOwner =>
-        case _ =>
+        case _                   =>
           throw new IllegalArgumentException(
             "A domain can only be directly owned by a design, an interface, or another domain."
           )
@@ -29,21 +29,18 @@ object Domain:
   extension [D <: Domain](domain: D)
     infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
       import dfc.getSet
-      domain.setOwner(
-        domain.owner.asIR
-          .setTags(_.tag(customTag))
-          .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
-          .asFE
-      )
+      domain.containedOwner.asIR
+        .setTags(_.tag(customTag))
+        .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
+      domain
     infix def setName(name: String)(using dfc: DFC): D =
       import dfc.getSet
-      domain.setOwner(
-        domain.owner.asIR
-          .setMeta(m =>
-            if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta.setName(name)
-            else m.setName(name)
-          ).asFE
-      )
+      domain.containedOwner.asIR
+        .setMeta(m =>
+          if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta.setName(name)
+          else m.setName(name)
+        )
+      domain
   end extension
 
 end Domain

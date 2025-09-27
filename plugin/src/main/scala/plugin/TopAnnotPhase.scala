@@ -45,114 +45,161 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
   var resourceOwnerTpe: TypeRef = uninitialized
   var portModTpe: TypeRef = uninitialized
 
+  private def getPackageOwner(using Context): Symbol =
+    var owner = ctx.owner
+    while (!owner.is(Package))
+      owner = owner.owner
+    owner
+  end getPackageOwner
+
+  object TopMainThicket:
+    def unapply(explored: List[Tree])(using Context): Option[(TypeDef, Thicket, List[Tree])] =
+      val origOwner = ctx.owner
+      val packageOwner = getPackageOwner
+      explored match
+        case (td @ TypeDef(tn, template: Template)) :: rest if td.tpe <:< hasDFCTpe =>
+          // all thickets will be added at a package level
+          inContext(ctx.withOwner(packageOwner)):
+            val clsSym = td.symbol.asClass
+            // has top annotation and no companion object
+            clsSym.getAnnotation(topAnnotSym).map(a => dropProxies(a.tree)) match
+              case Some(topAnnotTree @ Apply(Apply(Apply(_, topAnnotOptionsTrees), _), _)) =>
+                // genMain argument in top annotation is true by default
+                val genMain = topAnnotOptionsTrees match
+                  case Literal(Constant(genMain: Boolean)) :: _ => genMain
+                  case NamedArg(genMainName, Literal(Constant(genMain: Boolean))) :: _
+                      if genMainName.toString == "genMain" =>
+                    genMain
+                  case _ => true
+                if (genMain)
+                  if (template.constr.paramss.length > 1)
+                    report.error(
+                      "Unsupported multiple parameter blocks for top-level design.",
+                      template.constr.srcPos
+                    )
+                    None
+                  else
+                    var topName = tn.toString
+                    var owner = origOwner
+                    while (!owner.is(Package) && owner.is(ModuleClass))
+                      topName = s"${owner.name.toString.replace("$", "")}_$topName"
+                      owner = owner.owner
+                    if (!owner.is(Package))
+                      report.error(
+                        "Top-level main generation must be defined only in nested objects or packages.",
+                        topAnnotTree.srcPos
+                      )
+                      None
+                    else
+                      topName = s"top_${topName}"
+                      // the top entry point module symbol
+                      val dfApp = newCompleteModuleSymbol(
+                        packageOwner,
+                        topName.toTermName,
+                        Touched,
+                        Touched | NoInits,
+                        List(defn.ObjectType, appTpe),
+                        Scopes.newScope,
+                        coord = topAnnotTree.span,
+                        compUnitInfo = clsSym.compUnitInfo
+                      )
+                      val moduleCls = dfApp.moduleClass.asClass
+                      val designNameTree = Literal(Constant(tn.toString))
+                      val topScalaPathTree = Literal(Constant(dfApp.fullName.toString()))
+                      val paramVDs =
+                        template.constr.paramss.flatten.collect { case vd: ValDef => vd }
+                      val dsnArgNames =
+                        mkList(paramVDs.map(vd => Literal(Constant(vd.name.toString))))
+                      val defaultMap = mutable.Map.empty[Int, Tree]
+                      rest match
+                        case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
+                            if compSym.symbol.companionClass == clsSym =>
+                          compTemplate.body.foreach {
+                            case dd @ DefDef(name = NameKinds.DefaultGetterName(n, i)) =>
+                              defaultMap += i -> ref(module.symbol).select(dd.symbol)
+                            case _ =>
+                          }
+                        case _ =>
+                      val dsnArgValues =
+                        mkList(
+                          paramVDs.zipWithIndex.map((vd, i) =>
+                            defaultMap.get(i) match
+                              case Some(value) => value
+                              case None        =>
+                                report.error(
+                                  "Missing argument's default value for top-level design with a default app entry point.\nEither add a default value or disable the app entry point generation with `@top(false)`.",
+                                  vd.srcPos
+                                )
+                                EmptyTree
+                          )
+                        )
+                      val dsnArgDescs =
+                        mkList(paramVDs.map(vd =>
+                          Literal(Constant(vd.symbol.docString.getOrElse("")))
+                        ))
+                      val Werror = Literal(Constant(ctx.settings.Werror.value))
+                      val hasResourceOwnerTree =
+                        Literal(Constant(clsSym.hasNestedMemberCond(_ <:< resourceOwnerTpe)))
+                      def portCond(tpe: Type): Boolean =
+                        if (tpe.typeSymbol == dfValSym)
+                          tpe match
+                            // DFVal[_, Modifier[Port, _, _, _]]
+                            case AppliedType(_, _ :: AppliedType(_, a :: _) :: Nil) =>
+                              a <:< portModTpe
+                            case _ => false
+                        else false
+                      val hasPorts = Literal(Constant(clsSym.hasNestedMemberCond(portCond)))
+                      val setInitials =
+                        This(moduleCls).select("setInitials".toTermName).appliedToArgs(
+                          List(
+                            designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames,
+                            dsnArgValues,
+                            dsnArgDescs, Werror, hasResourceOwnerTree, hasPorts
+                          )
+                        )
+                      val dsnInstArgs = paramVDs.map(vd =>
+                        This(moduleCls).select("getDsnArg".toTermName).appliedTo(
+                          Literal(Constant(vd.name.toString))
+                        )
+                      )
+                      val dsnInst = New(clsSym.typeRef, dsnInstArgs)
+                      val setDsn = This(moduleCls).select("setDsn".toTermName).appliedTo(dsnInst)
+                      Some(td, ModuleDef(dfApp, List(setInitials, setDsn)), rest)
+                    end if
+                  end if
+                else None
+                end if
+              case _ => None
+            end match
+        case _ => None
+      end match
+    end unapply
+  end TopMainThicket
+
+  val thickets = mutable.ListBuffer.empty[Thicket]
+
   override def transformStats(trees: List[Tree])(using Context): List[Tree] =
     val retTrees = mutable.ListBuffer.empty[Tree]
     var explored: List[Tree] = trees
     while (explored.nonEmpty)
       explored match
-        case (td @ TypeDef(tn, template: Template)) :: rest if td.tpe <:< hasDFCTpe =>
-          val clsSym = td.symbol.asClass
-          // has top annotation and no companion object
-          clsSym.getAnnotation(topAnnotSym).map(a => dropProxies(a.tree)) match
-            case Some(topAnnotTree @ Apply(Apply(Apply(_, topAnnotOptionsTrees), _), _)) =>
-              // genMain argument in top annotation is true by default
-              val genMain = topAnnotOptionsTrees match
-                case Literal(Constant(genMain: Boolean)) :: _ => genMain
-                case NamedArg(genMainName, Literal(Constant(genMain: Boolean))) :: _
-                    if genMainName.toString == "genMain" =>
-                  genMain
-                case _ => true
-              if (genMain)
-                if (template.constr.paramss.length > 1)
-                  report.error(
-                    "Unsupported multiple parameter blocks for top-level design.",
-                    template.constr.srcPos
-                  )
-                  retTrees += td
-                  explored = rest
-                else
-                  // the top entry point module symbol
-                  val dfApp = newCompleteModuleSymbol(
-                    ctx.owner,
-                    s"top_${tn}".toTermName,
-                    Touched,
-                    Touched | NoInits,
-                    List(defn.ObjectType, appTpe),
-                    Scopes.newScope,
-                    coord = topAnnotTree.span,
-                    compUnitInfo = clsSym.compUnitInfo
-                  )
-                  val moduleCls = dfApp.moduleClass.asClass
-                  val designNameTree = Literal(Constant(tn.toString))
-                  val topScalaPathTree = Literal(Constant(dfApp.fullName.toString()))
-                  val paramVDs =
-                    template.constr.paramss.flatten.collect { case vd: ValDef => vd }
-                  val dsnArgNames = mkList(paramVDs.map(vd => Literal(Constant(vd.name.toString))))
-                  val defaultMap = mutable.Map.empty[Int, Tree]
-                  rest match
-                    case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
-                        if compSym.symbol.companionClass == clsSym =>
-                      compTemplate.body.foreach {
-                        case dd @ DefDef(name = NameKinds.DefaultGetterName(n, i)) =>
-                          defaultMap += i -> ref(module.symbol).select(dd.symbol)
-                        case _ =>
-                      }
-                    case _ =>
-                  val dsnArgValues =
-                    mkList(
-                      paramVDs.zipWithIndex.map((vd, i) =>
-                        defaultMap.get(i) match
-                          case Some(value) => value
-                          case None        =>
-                            report.error(
-                              "Missing argument's default value for top-level design with a default app entry point.\nEither add a default value or disable the app entry point generation with `@top(false)`.",
-                              vd.srcPos
-                            )
-                            EmptyTree
-                      )
-                    )
-                  val dsnArgDescs =
-                    mkList(paramVDs.map(vd => Literal(Constant(vd.symbol.docString.getOrElse("")))))
-                  val Werror = Literal(Constant(ctx.settings.XfatalWarnings.value))
-                  val hasResourceOwnerTree =
-                    Literal(Constant(clsSym.hasNestedMemberCond(_ <:< resourceOwnerTpe)))
-                  def portCond(tpe: Type): Boolean =
-                    if (tpe.typeSymbol == dfValSym)
-                      tpe match
-                        // DFVal[_, Modifier[Port, _, _, _]]
-                        case AppliedType(_, _ :: AppliedType(_, a :: _) :: Nil) =>
-                          a <:< portModTpe
-                        case _ => false
-                    else false
-                  val hasPorts = Literal(Constant(clsSym.hasNestedMemberCond(portCond)))
-                  val setInitials = This(moduleCls).select("setInitials".toTermName).appliedToArgs(
-                    List(
-                      designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames, dsnArgValues,
-                      dsnArgDescs, Werror, hasResourceOwnerTree, hasPorts
-                    )
-                  )
-                  val dsnInstArgs = paramVDs.map(vd =>
-                    This(moduleCls).select("getDsnArg".toTermName).appliedTo(
-                      Literal(Constant(vd.name.toString))
-                    )
-                  )
-                  val dsnInst = New(clsSym.typeRef, dsnInstArgs)
-                  val setDsn = This(moduleCls).select("setDsn".toTermName).appliedTo(dsnInst)
-                  retTrees ++= td :: ModuleDef(dfApp, List(setInitials, setDsn)).trees
-                  explored = rest
-                end if
-              else
-                retTrees += td
-                explored = rest
-              end if
-            case _ =>
-              retTrees += td
-              explored = rest
-          end match
+        case TopMainThicket(td, thicket, rest) =>
+          // all thickets are added at a package level
+          if (ctx.owner.is(Package))
+            retTrees ++= td :: thicket.trees
+          else
+            thickets += thicket
+            retTrees += td
+          explored = rest
         case _ =>
           retTrees += explored.head
           explored = explored.drop(1)
+      end match
     end while
+    if (ctx.owner.is(Package))
+      retTrees ++= thickets.view.flatMap(_.trees)
+      thickets.clear()
+    end if
     retTrees.toList
   end transformStats
 

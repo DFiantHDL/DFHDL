@@ -27,6 +27,7 @@ class GlobalizePortVectorParams extends StageSpec(stageCreatesUnrefAnons = true)
       top,
       """|val width: Int <> CONST = 8
          |val length: Int <> CONST = 10
+         |
          |class Foo extends RTDesign:
          |  val x1 = Bits(width) X length <> IN
          |  val y1 = Bits(width) X length <> OUT
@@ -74,6 +75,7 @@ class GlobalizePortVectorParams extends StageSpec(stageCreatesUnrefAnons = true)
       top,
       """|val Foo_length: Int <> CONST = 10
          |val Foo_width: Int <> CONST = 8
+         |
          |class Foo extends RTDesign:
          |  val x1 = Bits(Foo_width) X Foo_length <> IN
          |  val y1 = Bits(Foo_width) X Foo_length <> OUT
@@ -180,6 +182,7 @@ class GlobalizePortVectorParams extends StageSpec(stageCreatesUnrefAnons = true)
          |val IDTop_id2_width: Int <> CONST = IDTop_widthTop
          |val IDTop_id3_length: Int <> CONST = 7
          |val IDTop_id3_width: Int <> CONST = IDTop_widthTop
+         |
          |class ID_IDTop_id1 extends RTDesign:
          |  val x = Bits(IDTop_id1_width) X IDTop_id1_length <> IN
          |  val y = Bits(IDTop_id1_width) X IDTop_id1_length <> OUT
@@ -266,6 +269,7 @@ class GlobalizePortVectorParams extends StageSpec(stageCreatesUnrefAnons = true)
          |val IDTop_length3: Int <> CONST = IDTop_length + 1
          |val IDTop_id3_length: Int <> CONST = IDTop_length3
          |val IDTop_id3_width: Int <> CONST = IDTop_width
+         |
          |class ID_IDTop_id1 extends RTDesign:
          |  val x = Bits(IDTop_id1_width) X IDTop_id1_length <> IN
          |  val y = Bits(IDTop_id1_width) X IDTop_id1_length <> OUT

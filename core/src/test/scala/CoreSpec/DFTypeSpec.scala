@@ -89,14 +89,14 @@ class DFTypeSpec extends DFSpec:
       """z(3, 0).prev"""
     )
     assertCompileError(
-      "The LHS of a connection must be a connectable DFHDL value (var/port)."
+      "At least one of the connection arguments must be a connectable DFHDL value (var/port)."
     )(
       """z(3, 0) <> all(0)"""
     )
     val tplx = tpl <> VAR
     tplx._1 := 1
     assertCompileError(
-      "The LHS of a connection must be a connectable DFHDL value (var/port)."
+      "At least one of the connection arguments must be a connectable DFHDL value (var/port)."
     )(
       """tplx._1 <> 1"""
     )

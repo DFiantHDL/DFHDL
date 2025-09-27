@@ -13,8 +13,6 @@ port (
 end cipher_0;
 
 architecture cipher_0_arch of cipher_0 is
-
-
   signal keySchedule_key              : t_opaque_AESKey;
   signal keySchedule_o                : t_opaque_AESKeySchedule;
   signal state_00_state               : t_opaque_AESState;

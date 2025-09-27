@@ -1,5 +1,6 @@
 package dfhdl.app
 import dfhdl.*
+import core.DFCG
 import dfhdl.compiler.ir
 import wvlet.log.{Logger, LogFormatter}
 import scala.collection.mutable
@@ -38,7 +39,7 @@ trait DFApp:
 
   // this context is just for enabling `getConstData` to work.
   // the internal global context inside `value` will be actually at play here.
-  val dfc: DFC = DFC.emptyNoEO
+  given dfc: DFCG = DFCG()
 
   private var designArgs: DesignArgs = DesignArgs.empty
   private var elaborationOptions: options.ElaborationOptions = compiletime.uninitialized
@@ -226,7 +227,10 @@ trait DFApp:
   end simRun
 
   object build
-      extends diskCache.Step[CompiledDesign, CompiledDesign](commit)(
+      extends diskCache.Step[CompiledDesign, CompiledDesign](
+        commit,
+        hasGenFiles = true
+      )(
         builderOptions.flash,
         builderOptions.tool
       ):
@@ -405,6 +409,7 @@ trait DFApp:
             builderOptions = builderOptions.copy(
               Werror = mode.`Werror-tool`.toOption.get,
               flash = mode.flash.toOption.get,
+              compress = mode.compress.toOption.get,
               tool = mode.tool.toOption.get match
                 case "foss"   => dfhdl.tools.builders.foss
                 case "vendor" => dfhdl.tools.builders.vendor

@@ -16,15 +16,11 @@ import java.io.File.separatorChar
 object GowinProgrammer extends Programmer:
   val toolName: String = "gowin"
   protected def binExec: String = "programmer_cli"
-  protected def versionCmd: String = ???
+  // tool does not have a version command and it will be extracted from installed path
+  protected def versionCmd: String = ""
   protected def extractVersion(cmdRetStr: String): Option[String] =
     val versionPattern = """.*Gowin_V(\d+\.\d+\.\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
-
-  // gowin programmer does not have a version command, so we need to extract the version from installed path
-  override private[dfhdl] lazy val installedVersion: Option[String] =
-    if (runExecFullPath.isEmpty) None
-    else extractVersion(runExecFullPath)
 
   def program(
       cd: CompiledDesign
@@ -41,9 +37,7 @@ object GowinProgrammer extends Programmer:
     val runMode = if (po.flash) 53 else 2
     val cmd = s"--device $deviceName --run $runMode --fsFile $fileName"
     exec(
-      cmd,
-      // programmer_cli will not work if not invoked with full path
-      runExec = runExecFullPath
+      cmd
     )
     cd
   end program

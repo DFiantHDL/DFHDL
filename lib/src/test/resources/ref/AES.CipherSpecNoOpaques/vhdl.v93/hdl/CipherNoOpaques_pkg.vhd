@@ -43,7 +43,6 @@ subtype t_opaque_AESState is t_arrX4_t_opaque_AESWord;
 function to_t_opaque_AESState(A: std_logic_vector) return t_opaque_AESState;
 subtype t_opaque_AESRoundKey is t_arrX4_t_opaque_AESWord;
 function to_t_opaque_AESRoundKey(A: std_logic_vector) return t_opaque_AESRoundKey;
-
 constant sboxLookupTable : t_arrX256_slv8 := (
     0 => x"63",   1 => x"7c",   2 => x"77",   3 => x"7b",   4 => x"f2",   5 => x"6b",   6 => x"6f",   7 => x"c5",
     8 => x"30",   9 => x"01",  10 => x"67",  11 => x"2b",  12 => x"fe",  13 => x"d7",  14 => x"ab",  15 => x"76",
@@ -331,5 +330,4 @@ begin
     return F;
   end if;
 end;
-
 end package body CipherNoOpaques_pkg;

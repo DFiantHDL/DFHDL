@@ -42,8 +42,9 @@ trait Printer
           // swapped if the net is a via and the RHS is the internal port
           if (net.isViaConnection)
             normalizeViaConnection && rhsOrig.getOwner.isSameOwnerDesignAs(net)
-          // swapped if the net is a regular connection and the RHS is receiver
-          else swapped && normalizeConnection
+          // swapped if the net is a regular connection and the RHS is receiver and
+          // as long as the LHS is not OPEN
+          else swapped && normalizeConnection && !lhsVal.isInstanceOf[DFVal.Special]
         val directionStr =
           lhsOrig match
             case dfIfc: DFInterfaceOwner => "<->"
@@ -120,7 +121,7 @@ trait Printer
   def csDocString(doc: String): String
   final def csDocString(meta: Meta): String =
     meta.docOpt.map(printer.csDocString).map(x => s"$x\n").getOrElse("")
-  def csAnnotations(meta: Meta): String
+  def csAnnotations(annotations: List[annotation.HWAnnotation]): String
   final def csDFMember(member: DFMember): String =
     val cs = member match
       case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
@@ -140,12 +141,14 @@ trait Printer
       case wait: Wait       => csWait(wait)
       case textOut: TextOut => csTextOut(textOut)
       case _                => ???
-    s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta)}$cs"
+    s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta.annotations)}$cs"
   end csDFMember
   def designFileName(designName: String): String
   def globalFileName: String
   def csGlobalFileContent: String =
-    csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls
+    sn"""|$csGlobalConstIntDcls
+         |$csGlobalTypeDcls
+         |$csGlobalConstNonIntDcls"""
   def alignCode(cs: String): String
   def colorCode(cs: String): String
   import io.AnsiColor._
@@ -210,15 +213,25 @@ trait Printer
     designDB.copy(srcFiles = srcFiles)
   end printedDB
 
+  val printQsysBlackbox: Boolean = false
+
   final def csDB: String =
     val designDB = getSet.designDB
     val csFileList = designDB.uniqueDesignMemberList.collect {
-      case (block: DFDesignBlock, _) if printerOptions.designPrintFilter(block) =>
+      case (block: DFDesignBlock, _)
+          if printerOptions.designPrintFilter(block) &&
+            (!block.isQsysIPBlackbox || printQsysBlackbox) =>
         formatCode(csFile(block))
     }
-    s"${formatCode(
-        csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls
-      ).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
+    val globals = formatCode(
+      sn"""|$csGlobalConstIntDcls
+           |$csGlobalTypeDcls
+           |$csGlobalConstNonIntDcls"""
+    )
+    sn"""|$globals
+         |
+         |${csFileList.mkString("\n")}
+         |""".stripMargin
   end csDB
 end Printer
 
@@ -276,6 +289,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
       DFOwnerPrinter:
   type TPrinter = DFPrinter
   given printer: TPrinter = this
+  override val printQsysBlackbox: Boolean = true
   val tupleSupportEnable: Boolean = true
   def csViaConnectionSep: String = ""
   def csAssignment(lhsStr: String, rhsStr: String, shared: Boolean): String =
@@ -357,9 +371,9 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"// $comment"
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/**", "\n  *", "*/")
-  def csAnnotations(meta: Meta): String =
-    if (meta.annotations.isEmpty) ""
-    else meta.annotations.view.map(_.codeString).mkString("", "\n", "\n")
+  def csAnnotations(annotations: List[annotation.HWAnnotation]): String =
+    if (annotations.isEmpty) ""
+    else annotations.view.map(_.codeString).mkString("", "\n", "\n")
   // def csTimer(timer: Timer): String =
   //   val timerBody = timer match
   //     case p: Timer.Periodic =>
@@ -402,7 +416,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val dfhdlKW: Set[String] = Set(
     "VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
     "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",
-    "goto", "wait", "assert", "report", "print", "println", "debug", "finish"
+    "goto", "wait", "assert", "report", "print", "println", "debug", "finish", "CLK_FREQ"
   )
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] = Set(

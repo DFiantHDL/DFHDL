@@ -53,8 +53,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       }
       .map(_.codeString)
       .filter(_.nonEmpty)
-      .toList
-      .emptyOr(_.mkString("\n"))
+      .mkString("\n")
   end csDFMembers
   final def csDFDesignLateBody(design: DFDesignBlock): String =
     design.getOwner
@@ -86,7 +85,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   final def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
     ifBlock.prevBlockOrHeaderRef.get match
       case _: DFConditional.Header => csDFIfStatement(csDFIfGuard(ifBlock))
-      case _ =>
+      case _                       =>
         ifBlock.guardRef.get match
           case DFMember.Empty => csDFElseStatement
           case _              => csDFElseIfStatement(csDFIfGuard(ifBlock))
@@ -102,7 +101,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csDFCasePattern(pattern: Pattern): String = pattern match
     case Pattern.CatchAll            => csDFCasePatternCatchAll
     case Pattern.Singleton(valueRef) => valueRef.refCodeString
-    case Pattern.Alternative(list) =>
+    case Pattern.Alternative(list)   =>
       list.map(csDFCasePattern).mkString(csDFCasePatternAlternativeData)
     case pattern: Pattern.Struct   => csDFCasePatternStruct(pattern)
     case pattern: Pattern.Bind     => csDFCasePatternBind(pattern)
@@ -145,8 +144,11 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     if (body.isEmpty) cb match
       case caseBlock: DFConditional.DFCaseBlock => s"$statement$csDFCaseBlockEmpty"
       case ifBlock: DFConditional.DFIfElseBlock =>
-        s"$statement $csIfBlockEmpty${end.emptyOr(e => s"\n$e")}"
-    else s"$statement$indentBody${end.emptyOr(e => s"\n$e")}"
+        sn"""|$statement $csIfBlockEmpty
+             |$end"""
+    else
+      sn"""|$statement$indentBody
+           |$end"""
   end csDFConditionalBlock
   final def csDFConditional(ch: DFConditional.Header): String =
     val chain = getSet.designDB.conditionalChainTable(ch)
@@ -154,9 +156,9 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     ch match
       case mh: DFConditional.DFMatchHeader =>
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"${csDFMatchStatement(csSelector, mh.hasWildcards)}\n${csChains.hindent}${csDFMatchEnd.emptyOr(
-            e => s"\n$e"
-          )}"
+        sn"""|${csDFMatchStatement(csSelector, mh.hasWildcards)}
+             |${csChains.hindent}
+             |${csDFMatchEnd}"""
       case ih: DFConditional.DFIfHeader => csChains
   def csProcessBlock(pb: ProcessBlock): String
   def csDomainBlock(pb: DomainBlock): String
@@ -198,7 +200,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val retTypeCS = s": ${printer.csDFType(retDFType, typeCS = true)} <> DFRET"
     val dcl =
       s"def ${design.dclName}$designParamCS($defArgsCS)$retTypeCS =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
-    s"${printer.csAnnotations(design.dclMeta)}$dcl\n"
+    s"${printer.csAnnotations(design.dclMeta.annotations)}$dcl\n"
   end csDFDesignDefDcl
   def csDFDesignDefInst(design: DFDesignBlock): String =
     val ports = design.members(MemberView.Folded).view.collect { case port @ DclIn() =>
@@ -216,19 +218,33 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     if (design.isAnonymous) dcl
     else s"val ${design.getName} = $dcl"
   end csDFDesignDefInst
+  def csDFDesignBlockParamInst(design: DFDesignBlock): String =
+    val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
+      s"${param.getName} = ${param.dfValRef.refCodeString}"
+    }
+    if (designParamList.length <= 1) designParamList.mkString("(", ", ", ")")
+    else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     import design.instMode
     val localDcls = printer.csLocalTypeDcls(design)
     val body = csDFOwnerBody(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val dsnCls = design.domainType match
-      case DomainType.DF => "DFDesign"
+      case DomainType.DF     => "DFDesign"
       case rt: DomainType.RT =>
         val cfgStr = rt.cfg match
           case RTDomainCfg.Derived => ""
           case _                   => s"(${printer.csRTDomainCfg(rt.cfg)})"
         s"""RTDesign$cfgStr""".stripMargin
-      case _ => "EDDesign"
+      case _ =>
+        design.instMode match
+          case InstMode.BlackBox(source) => source match
+              case InstMode.BlackBox.Source.Qsys("") =>
+                "EDBlackBox.QsysIP"
+              case InstMode.BlackBox.Source.Qsys(typeName) =>
+                s"dfhdl.platforms.ips.alteraintel.$typeName"
+              case _ => s"EDBlackBox(EDBlackBox.Source.${source})"
+          case _ => "EDDesign"
     val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
       val defaultValue =
         if (design.isTop) s" = ${param.dfValRef.refCodeString}"
@@ -238,23 +254,39 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
             case _              => s" = ${param.defaultRef.refCodeString}"
       s"val ${param.getName}${printer.csDFValConstType(param.dfType)}$defaultValue"
     }
-    val designParamCS =
-      if (designParamList.length == 0) ""
-      else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
-      else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
-    val dcl = s"class ${design.dclName}$designParamCS extends $dsnCls"
+    val designIsQsysIPBlackbox = design.isQsysIPBlackbox
+    val designParamDclCS =
+      // for qsys blackbox, we extend the base IP class with its parameters and declare no new parameters
+      if (designIsQsysIPBlackbox) ""
+      else
+        if (designParamList.length == 0) ""
+        else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
+        else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
+    val designParamInstCS =
+      // for qsys blackbox, we define the parameters in the class extension instead of the
+      // blackbox instantiation
+      if (designIsQsysIPBlackbox) csDFDesignBlockParamInst(design)
+      else ""
+    val dcl =
+      s"class ${design.dclName}$designParamDclCS extends $dsnCls$designParamInstCS"
     val dclWithBody =
-      if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
-    s"${printer.csAnnotations(design.dclMeta)}$dclWithBody\n"
+      if (bodyWithDcls.isEmpty || designIsQsysIPBlackbox) dcl
+      else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
+    val annotations =
+      if (design.isTop) design.dclMeta.annotations ++ design.meta.annotations
+      else design.dclMeta.annotations
+    s"${printer.csAnnotations(annotations)}$dclWithBody\n"
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFDesignLateBody(design)
     val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
       s"${param.getName} = ${param.dfValRef.refCodeString}"
     }
-    val designParamCS =
-      if (designParamList.length <= 1) designParamList.mkString("(", ", ", ")")
-      else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
+    val designParamCS = design.instMode match
+      // for qsys blackbox, we define the parameters in the class extension instead of the
+      // blackbox instantiation
+      case InstMode.BlackBox(_: InstMode.BlackBox.Source.Qsys) => "()"
+      case _                                                   => csDFDesignBlockParamInst(design)
     val inst =
       if (body.isEmpty) s"${design.dclName}$designParamCS"
       else s"new ${design.dclName}$designParamCS:\n${body.hindent}"
@@ -271,7 +303,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       var hasNet = false
       cb.members(MemberView.Folded).foreach {
         case block: DFBlock => break(true)
-        case net: DFNet =>
+        case net: DFNet     =>
           if (hasNet) break(true)
           hasNet = true
         case _ =>
@@ -326,20 +358,30 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val defType = if (stepBlock.isRegular) "Step" else "Unit"
     s"def $name: $defType =\n${body.hindent}\nend $name"
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
-    val csCOMB_LOOP = if (forBlock.isCombinational) "COMB_LOOP\n" else ""
-    val body = (csCOMB_LOOP + csDFOwnerBody(forBlock)).emptyOr(body => s"${body.hindent}\n")
+    val csCOMB_LOOP = if (forBlock.isCombinational) "COMB_LOOP" else ""
+    val body =
+      sn"""|${csCOMB_LOOP}
+           |${csDFOwnerBody(forBlock)}"""
     val named = forBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
-    s"${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})\n${body}end for"
+    //format: off
+    sn"""|${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})
+         |${body.hindent}
+         |end for"""
+    //format: on
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
-    val csCOMB_LOOP = if (whileBlock.isCombinational) "COMB_LOOP\n" else ""
-    val body = (csCOMB_LOOP + csDFOwnerBody(whileBlock)).emptyOr(body => s"${body.hindent}\n")
+    val csCOMB_LOOP = if (whileBlock.isCombinational) "COMB_LOOP" else ""
+    val body =
+      sn"""|${csCOMB_LOOP}
+           |${csDFOwnerBody(whileBlock)}"""
     val named = whileBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
-    s"${named}while (${whileBlock.guardRef.refCodeString})\n${body}end while"
+    sn"""|${named}while (${whileBlock.guardRef.refCodeString})
+         |${body.hindent}
+         |end while"""
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val domainStr = domain.domainType match
-      case DomainType.DF => "DFDomain"
+      case DomainType.DF     => "DFDomain"
       case rt: DomainType.RT =>
         rt.cfg match
           case RTDomainCfg.Related(relatedDomainRef) =>
@@ -349,10 +391,11 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
             else
               s"${relatedDomain.getRelativeName(domain.getOwnerNamed)}.RelatedDomain"
           case RTDomainCfg.Derived => "RTDomain"
-          case _ =>
+          case _                   =>
             s"RTDomain(${printer.csRTDomainCfg(rt.cfg)})"
       case DomainType.ED => "EDDomain"
-    s"${named}new $domainStr:\n${body.hindent}"
+    sn"""|${named}new $domainStr:
+         |${body.hindent}"""
   end csDomainBlock
 
 end DFOwnerPrinter

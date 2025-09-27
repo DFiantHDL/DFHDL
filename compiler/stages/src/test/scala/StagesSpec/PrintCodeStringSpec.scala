@@ -10,7 +10,7 @@ class PrintCodeStringSpec extends StageSpec:
     val y = SInt(16) <> OUT
     y := x
   object ID:
-    def apply()(using DFC): ID =
+    def apply()(using core.DFCG): ID =
       new ID(0)
   class IDGen[T <: DFType](dfType: T) extends DFDesign:
     val x = dfType <> IN
@@ -218,6 +218,7 @@ class PrintCodeStringSpec extends StageSpec:
       """|val gp: Bit <> CONST = 1
          |val i: SInt[16] <> CONST = sd"16'0"
          |val i2: SInt[16] <> CONST = i + sd"16'5"
+         |
          |class IDExt(
          |    val dp: Bit <> CONST = gp && gp,
          |    val dpNew: Bit <> CONST = gp
@@ -1326,6 +1327,7 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       top,
       """|val foo: UInt[8] <> CONST = d"8'0"
+         |
          |class Bar extends DFDesign:
          |  val o: Bits[8] <> CONST = foo.bits
          |end Bar""".stripMargin
@@ -1369,6 +1371,103 @@ class PrintCodeStringSpec extends StageSpec:
          |  y1 := x1.as(MyEnum)
          |  y2 := x2.as(MyEnum)
          |end Bar""".stripMargin
+    )
+  }
+
+  test("initialized port in duplicated design") {
+    class FooChild extends RTDesign:
+      val y = UInt(8) <> OUT init 0
+      y := 1
+
+    class Foo extends RTDesign:
+      val child1 = new FooChild
+      val child2 = new FooChild
+    val top = (new Foo).sanityCheck.getCodeString
+    assertNoDiff(
+      top,
+      """|class FooChild extends RTDesign:
+         |  val y = UInt(8) <> OUT init d"8'0"
+         |  y := d"8'1"
+         |end FooChild
+         |
+         |class Foo extends RTDesign:
+         |  val child1 = FooChild()
+         |  val child2 = FooChild()
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("qsys blackbox printing") {
+    class testIP(
+        val param1: String <> CONST,
+        val param2: Int <> CONST,
+        val version: String <> CONST = ""
+    ) extends EDBlackBox.QsysIP:
+      val x = Bit <> IN
+      val y = Bit <> OUT
+
+    class Foo extends RTDesign:
+      val x  = Bit <> IN
+      val y  = Bit <> OUT
+      val ip = testIP(param1 = "Hello", param2 = 42)
+      x <> ip.x
+      y <> ip.y
+    end Foo
+
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class testIP extends dfhdl.platforms.ips.alteraintel.testIP(
+         |    param1 = "Hello",
+         |    param2 = 42,
+         |    version = ""
+         |)
+         |
+         |class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT
+         |  val ip = testIP()
+         |  ip.x <> x
+         |  y <> ip.y
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("qsys blackbox printing with extended ip class") {
+    class testIP(
+        val param1: String <> CONST,
+        val param2: Int <> CONST,
+        val version: String <> CONST = ""
+    ) extends EDBlackBox.QsysIP:
+      val x = Bit <> IN
+      val y = Bit <> OUT
+
+    class myIP extends testIP(param1 = "Hello", param2 = 42)
+
+    class Foo extends RTDesign:
+      val x  = Bit <> IN
+      val y  = Bit <> OUT
+      val ip = myIP()
+      x <> ip.x
+      y <> ip.y
+    end Foo
+
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class myIP extends dfhdl.platforms.ips.alteraintel.testIP(
+         |    param1 = "Hello",
+         |    param2 = 42,
+         |    version = ""
+         |)
+         |
+         |class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT
+         |  val ip = myIP()
+         |  ip.x <> x
+         |  y <> ip.y
+         |end Foo""".stripMargin
     )
   }
 
