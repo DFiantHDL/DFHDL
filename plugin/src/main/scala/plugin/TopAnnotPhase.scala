@@ -137,7 +137,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                         mkList(paramVDs.map(vd =>
                           Literal(Constant(vd.symbol.docString.getOrElse("")))
                         ))
-                      val Werror = Literal(Constant(ctx.settings.XfatalWarnings.value))
+                      val Werror = Literal(Constant(ctx.settings.Werror.value))
                       val hasResourceOwnerTree =
                         Literal(Constant(clsSym.hasNestedMemberCond(_ <:< resourceOwnerTpe)))
                       def portCond(tpe: Type): Boolean =
