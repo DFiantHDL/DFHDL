@@ -40,7 +40,7 @@ jobs:
       - name: Setup Homebrew (for NVC)
         uses: Homebrew/actions/setup-homebrew@master
       - name: Setup NVC
-        run: brew install nvc
+        run: brew install nvc@1.17.0
       - run: |
           verilator -version
           iverilog -V

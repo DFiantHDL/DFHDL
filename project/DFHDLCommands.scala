@@ -120,7 +120,7 @@ object DFHDLCommands {
   val vhdlDialects = List("vhdl.v93", "vhdl.v2008")
   val verilogDialects = List("verilog.v95", "verilog.v2001", "verilog.sv2005")
   // Skip tests that are known to fail because of the tool
-  val skip = Set(("iverilog", "verilog.sv2005"), ("vivado", "vhdl.v2008"))
+  val skip = Set(("verilator", "verilog.v95"), ("iverilog", "verilog.sv2005"), ("vivado", "vhdl.v2008"))
 
   val testApps = Command.command("testApps") { state =>
     var newState = Command.process("clearSandbox", state, _ => ())
