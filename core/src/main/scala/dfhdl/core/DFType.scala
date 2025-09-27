@@ -181,7 +181,7 @@ object DFType:
               s"Type `$badTypeStr` is not a supported DFHDL type constructor.\nHint: Are you missing an argument in your DFHDL type constructor?"
             else
               s"Type `$badTypeStr` is not a supported product companion.\nHint: Did you forget to extends `Struct` or `Encoded`?"
-          IsGiven.controlledMacroError(msg)
+          ControlledMacroError.report(msg)
       end match
     end productMacro
 

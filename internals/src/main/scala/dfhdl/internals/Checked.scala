@@ -113,7 +113,7 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
               if (warn)
                 report.warning(msg)
                 '{}
-              else IsGiven.controlledMacroError(msg)
+              else ControlledMacroError.report(msg)
             case _ =>
               if (warn)
                 '{ println($msgExpr) }
@@ -206,7 +206,7 @@ object Check1:
   object CheckOK extends Check[Any, Any, Nothing, Nothing, Boolean, String, Boolean]:
     def apply(arg: Any): Unit = {}
 
-  inline given [
+  transparent inline given [
       Wide,
       T <: Wide,
       Cond[T <: Wide] <: Boolean,
@@ -344,7 +344,7 @@ object Check2:
   object CheckOK extends Check[Any, Any, Any, Any, Nothing, Nothing, Boolean, String, Boolean]:
     def apply(arg1: Any, arg2: Any): Unit = {}
 
-  inline given [
+  transparent inline given [
       Wide1,
       Wide2,
       T1 <: Wide1,

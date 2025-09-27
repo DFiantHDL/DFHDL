@@ -26,7 +26,7 @@ transparent inline def showTree[T](inline arg: T): Unit = ${
 }
 
 def errorExpr(msg: String)(using Quotes): Expr[Nothing] =
-  IsGiven.controlledMacroError(msg)
+  ControlledMacroError.report(msg)
 
 def showTreeMacro[T](arg: Expr[T])(using Quotes, Type[T]): Expr[Unit] =
   import quotes.reflect.*
@@ -133,7 +133,7 @@ object Error:
           case t                                 => t.show
         }
         .mkString
-    IsGiven.controlledMacroError(msg)
+    ControlledMacroError.report(msg)
 end Error
 
 transparent inline def summonInlineWithError[T]: T = ${ summonInlineWithErrorMacro[T] }
@@ -143,7 +143,7 @@ private def summonInlineWithErrorMacro[T: Type](using Quotes): Expr[T] =
     case iss: ImplicitSearchSuccess => iss.tree.asExprOf[T]
     case isf: NoMatchingImplicits   => report.errorAndAbort(isf.explanation)
     case isf: ImplicitSearchFailure =>
-      IsGiven.controlledMacroError(isf.explanation)
+      ControlledMacroError.report(isf.explanation)
 
 extension (using quotes: Quotes)(partsExprs: Seq[Expr[Any]])
   def scPartsWithArgs(argsExprs: Seq[Expr[Any]]): quotes.reflect.Term =
@@ -244,7 +244,7 @@ object CaseClass:
       case _ =>
         val msg =
           s"Type `${clsTpe.show}` is not a subtype of `${Type.show[UB]}`."
-        IsGiven.controlledMacroError(msg)
+        ControlledMacroError.report(msg)
     end match
   end macroImpl
 end CaseClass
@@ -272,48 +272,9 @@ object AssertGiven:
     if (recur(TypeRepr.of[G])) '{ Success.asInstanceOf[AssertGiven[G, M]] }
     else
       val ConstantType(StringConstant(msg)) = TypeRepr.of[M].dealias: @unchecked
-      IsGiven.controlledMacroError(msg)
+      ControlledMacroError.report(msg)
   end macroImpl
 end AssertGiven
-
-object IsGiven:
-  // if contains a key, it means to silence the error.
-  // if the value is true (by default), it means the implicit given is found.
-  // if the value is false, it means the implicit given is not found (there are errors).
-  private val positionFlags = mutable.Map.empty[String, Boolean]
-  private def getKey(using Quotes): String =
-    import quotes.reflect.*
-    Position.ofMacroExpansion.toString
-  transparent inline def apply[G]: Boolean =
-    silent
-    compiletime.summonFrom {
-      // given is found, but there could be silented errors
-      case g: G => readAndWakeErrors
-      // given is not found, there are errors
-      case _ =>
-        readAndWakeErrors
-        false
-    }
-
-  def controlledMacroError(msg: String)(using Quotes): Expr[Nothing] =
-    import quotes.reflect.*
-    val key = getKey
-    if (positionFlags.contains(key))
-      positionFlags += key -> false
-      '{ ??? }
-    else
-      '{ compiletime.error(${ Expr(msg) }) }
-
-  private transparent inline def silent: Unit = ${ silentMacro }
-  private def silentMacro(using Quotes): Expr[Unit] =
-    import quotes.reflect.*
-    positionFlags += getKey -> true
-    '{}
-  private transparent inline def readAndWakeErrors: Boolean = ${ readAndWakeErrorsMacro }
-  private def readAndWakeErrorsMacro(using Quotes): Expr[Boolean] =
-    import quotes.reflect.*
-    Expr(positionFlags.remove(getKey).getOrElse(true))
-end IsGiven
 
 trait OptionalGiven[T]:
   val value: Option[T]
@@ -341,7 +302,7 @@ object GivenOrError:
       case Some(t) => '{ apply[T, Msg]($t) }
       case None    =>
         val ConstantType(StringConstant(msg)) = TypeRepr.of[Msg].dealias: @unchecked
-        IsGiven.controlledMacroError(msg)
+        ControlledMacroError.report(msg)
   end givenOrErrorMacro
 end GivenOrError
 
@@ -592,7 +553,9 @@ end programFullPaths
 // checks if the program is accessible to the current shell
 def programIsAccessible(cmd: String): Boolean = programFullPaths(cmd).nonEmpty
 
-def debugMacro(msg: => Any, fileName: String)(using Quotes): Unit =
+def debugMacro(msg: => Any, fileName: String = "lib\\src\\test\\scala\\Playground.scala")(using
+    Quotes
+): Unit =
   import quotes.reflect.*
   if (Symbol.spliceOwner.pos.get.sourceFile.path.toString.endsWith(fileName))
     println(msg)

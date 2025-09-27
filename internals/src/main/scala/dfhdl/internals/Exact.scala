@@ -62,28 +62,6 @@ end extension
 
 final class Exact[T](val value: T) extends AnyVal
 object Exact:
-  // private val cacheMap = TrieMap.empty[String, (Quotes, Expr[Any])]
-  // def cacheErrorExpr(msg: String)(using Quotes): Expr[Nothing] =
-  //   import quotes.reflect.*
-  //   val sourceFile = Position.ofMacroExpansion.sourceFile
-  //   val cached = cacheMap(sourceFile.path)
-  //   println(s"get: ${Position.ofMacroExpansion}")
-  //   val (start, end) =
-  //     given Quotes = cached._1
-  //     import quotes.reflect.*
-  //     val term = cached._2.asTerm
-  //     (term.pos.start, term.pos.end)
-  //   println(s"actual: <$start..$end>")
-  //   val msgExpr = Expr(msg)
-  //   val startExpr = Expr(start)
-  //   val endExpr = Expr(end)
-  //   '{ compiletimeErrorPos($msgExpr, $startExpr, $endExpr) }
-  // end cacheErrorExpr
-
-  // transparent inline def cacheError(msg: String): Nothing = ${ cacheErrorMacro('msg) }
-  // def cacheErrorMacro(msg: Expr[String])(using Quotes): Expr[Nothing] =
-  //   cacheErrorExpr(msg.value.get)
-
   inline def apply[T](inline value: T): Exact[T] = new Exact(value)
   def strip(value: Any): Any =
     value match
@@ -96,10 +74,6 @@ object Exact:
       value: Expr[T]
   )(using Quotes, Type[T]): Expr[Exact[?]] =
     import quotes.reflect.*
-    // val x = Position.ofMacroExpansion.sourceFile.path -> (quotes, value)
-    // println("---------")
-    // println(s"set: ${Position.ofMacroExpansion}")
-    // cacheMap += x
     val exactInfo = value.exactInfo
     '{ Exact[exactInfo.Underlying](${ exactInfo.exactExpr }) }
   end fromValueMacro
@@ -287,7 +261,7 @@ private def exactOp1Macro[Op, Ctx, OutUB](lhs: Expr[Any])(ctx: Expr[Ctx])(using
   Expr.summon[ExactOp1[Op, OutUB, Ctx, lhsExactInfo.Underlying]] match
     case Some(expr) => '{ $expr(${ lhsExactInfo.exactExpr })(using $ctx) }
     case None       =>
-      IsGiven.controlledMacroError("Unsupported argument type for this operation.")
+      ControlledMacroError.report("Unsupported argument type for this operation.")
   end match
 end exactOp1Macro
 
@@ -331,7 +305,7 @@ private def exactOp2Macro[Op, Ctx, OutUB](
         $expr(${ lhsExactInfo.exactExpr }, ${ rhsExactInfo.exactExpr })(using $ctx)
       }
     case Left(msg) =>
-      if (bothWays.value.get)
+      if (bothWays.value.getOrElse(false))
         Expr.summonOrError[ExactOp2[
           Op,
           Ctx,
@@ -343,9 +317,9 @@ private def exactOp2Macro[Op, Ctx, OutUB](
               $expr(${ rhsExactInfo.exactExpr }, ${ lhsExactInfo.exactExpr })(using $ctx)
             }
           case Left(msg) =>
-            IsGiven.controlledMacroError("Unsupported argument types for this operation.")
+            ControlledMacroError.report("Unsupported argument types for this operation.")
       else
-        IsGiven.controlledMacroError("Unsupported argument types for this operation.")
+        ControlledMacroError.report("Unsupported argument types for this operation.")
   end match
 end exactOp2Macro
 
@@ -393,6 +367,6 @@ private def exactOp3Macro[Op, Ctx, OutUB](
         )(using $ctx)
       }
     case None =>
-      IsGiven.controlledMacroError("Unsupported argument types for this operation.")
+      ControlledMacroError.report("Unsupported argument types for this operation.")
   end match
 end exactOp3Macro

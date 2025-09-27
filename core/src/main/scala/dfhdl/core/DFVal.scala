@@ -324,7 +324,7 @@ object DFVal extends DFValLP:
   )(dfc: Expr[DFC])(using Quotes, Type[T], Type[M], Type[R], Type[Op]): Expr[DFValTP[DFBool, Any]] =
     import quotes.reflect.*
     if (TypeRepr.of[T].typeSymbol equals defn.NothingClass)
-      return IsGiven.controlledMacroError("This is fake")
+      return ControlledMacroError.report("This is fake")
     val exactInfo = arg.exactInfo
     val lpType = dfVal.asTerm.tpe.isConstTpe.asTypeOf[Any]
     val rpType = exactInfo.exactTpe.isConstTpe.asTypeOf[Any]
@@ -1358,7 +1358,7 @@ object VarsTuple:
           println(tpe.widen.dealias.show)
           Some(s"All tuple elements must be mutable but found an immutable type `${tpe.showType}`")
     varsCheck(tTpe) match
-      case Some(err) => IsGiven.controlledMacroError(err)
+      case Some(err) => ControlledMacroError.report(err)
       case None      =>
         import Width.calcValWidth
         val widthType = tTpe.calcValWidth.asTypeOf[Int]
@@ -1555,39 +1555,31 @@ object ConnectOps:
       def connect(consumer: Consumer, producer: Producer)(using DFC): Unit =
         consumer.connect(tc(consumer.dfType, producer))
 
-  private[core] transparent inline def specialConnect[
-      L <: DFValAny,
-      R <: DFValAny
-  ](
+  private def specialConnectRuntime[L <: DFValAny, R <: DFValAny](
+      lhs: L,
+      rhs: R,
+      dualSummon: DualSummonTrapError[TC_Connect[L, R], TC_Connect[R, L]]
+  )(using dfc: DFC): Unit = trydf {
+    (dualSummon.valueL, dualSummon.valueR) match
+      case (Some(tcL), Some(tcR)) =>
+        try tcL.connect(lhs, rhs)
+        catch
+          case eL: Throwable =>
+            try tcR.connect(rhs, lhs)
+            catch case eR: Throwable => throw eL
+      case (Some(tcL), None) => tcL.connect(lhs, rhs)
+      case (None, Some(tcR)) => tcR.connect(rhs, lhs)
+      case _                 => // not possible because of the trap error
+    end match
+  }(using dfc, CTName("<>"))
+
+  private[core] transparent inline def specialConnect[L <: DFValAny, R <: DFValAny](
       inline lhs: L,
       inline rhs: R
-  )(using DFC): Unit =
-    inline val connectableL = inline compiletime.erasedValue[L] match
-      case _: DFVal[DFTypeAny, Modifier[Any, Modifier.Connectable, Any, Any]] => true
-      case _                                                                  => false
-    inline val connectableR = inline compiletime.erasedValue[R] match
-      case _: DFVal[DFTypeAny, Modifier[Any, Modifier.Connectable, Any, Any]] => true
-      case _                                                                  => false
-    inline if (connectableL || connectableR)
-      inline if (IsGiven[TC_Connect[L, R]])
-        val tcL = compiletime.summonInline[TC_Connect[L, R]]
-        inline if (IsGiven[TC_Connect[R, L]])
-          val tcR = compiletime.summonInline[TC_Connect[R, L]]
-          try tcL.connect(lhs, rhs)
-          catch
-            case eL: Throwable =>
-              try tcR.connect(rhs, lhs)
-              catch case eR: Throwable => throw eL
-        else tcL.connect(lhs, rhs)
-      else if (IsGiven[TC_Connect[R, L]])
-        compiletime.summonInline[TC_Connect[R, L]].connect(rhs, lhs)
-      else
-        // forcing the error message from the LHS case
-        compiletime.summonInline[TC_Connect[L, R]]
-    else compiletime.error(
-      "At least one of the connection arguments must be a connectable DFHDL value (var/port)."
-    )
-    end if
+  )(using dfc: DFC): Unit =
+    val dualSummon =
+      compiletime.summonInline[DualSummonTrapError[TC_Connect[L, R], TC_Connect[R, L]]]
+    specialConnectRuntime(lhs, rhs, dualSummon)
   end specialConnect
 
   given evConnectPort[
