@@ -115,7 +115,8 @@ object DFHDLCommands {
     state
   }
 
-  val vhdlTools = List("ghdl", "nvc", "questa", "vivado")
+  // TODO: restore nvc when https://github.com/nickg/nvc/issues/1306 is fixed
+  val vhdlTools = List("ghdl", "questa", "vivado")
   val verilogTools = List("verilator", "iverilog", "questa", "vivado")
   val vhdlDialects = List("vhdl.v93", "vhdl.v2008")
   val verilogDialects = List("verilog.v95", "verilog.v2001", "verilog.sv2005")
