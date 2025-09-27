@@ -158,8 +158,7 @@ trait Tool:
     // setup an interrupt handler to destroy the process
     val handler = new sun.misc.SignalHandler:
       def handle(sig: sun.misc.Signal): Unit =
-        process.destroy()
-        process.destroyForcibly()
+        process.destroy(shutdownGracePeriod = 100)
         println(s"\n${toolName} interrupted by user")
     sun.misc.Signal.handle(new sun.misc.Signal("INT"), handler)
     // wait for the process to finish
