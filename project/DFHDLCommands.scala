@@ -115,13 +115,12 @@ object DFHDLCommands {
     state
   }
 
-  // TODO: restore nvc when https://github.com/nickg/nvc/issues/1306 is fixed
-  val vhdlTools = List("ghdl", "questa", "vivado")
+  val vhdlTools = List("ghdl", "nvc", "questa", "vivado")
   val verilogTools = List("verilator", "iverilog", "questa", "vivado")
   val vhdlDialects = List("vhdl.v93", "vhdl.v2008")
   val verilogDialects = List("verilog.v95", "verilog.v2001", "verilog.sv2005")
   // Skip tests that are known to fail because of the tool
-  val skip = Set(("verilator", "verilog.v95"), ("iverilog", "verilog.sv2005"), ("vivado", "vhdl.v2008"))
+  val skip = Set(("iverilog", "verilog.sv2005"), ("vivado", "vhdl.v2008"))
 
   val testApps = Command.command("testApps") { state =>
     var newState = Command.process("clearSandbox", state, _ => ())
