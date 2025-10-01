@@ -621,7 +621,10 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           rhs match
             case Apply(_, List(Apply(_, List(Typed(SeqLiteral(elems, _), _))))) =>
               Some(elems)
-            case _ => None
+            case TypeApply(sym @ Select(sel, _), _) if sym.symbol == defn.Any_isInstanceOf =>
+              unapply(sel)
+            case _ => 
+              None
     end SI
     object Struct:
       def unapply(arg: UnApply)(using Context): Option[(Type, List[Tree])] =
