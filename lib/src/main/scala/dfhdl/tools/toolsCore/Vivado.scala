@@ -113,7 +113,7 @@ class VivadoProjectTclConfigPrinter(using
       case configConstraint: constraints.DeviceConfig => configConstraint
     }.getOrElse(throw new IllegalArgumentException("No `@deviceConfig` constraint found"))
     if (bo.flash)
-      s"""\nwrite_cfgmem -format mcs -interface ${config.interface} -size ${config.sizeLimitMB} -loadbit "up 0x0 ./${topName}.bit" -file ./${topName}.mcs"""
+      s"""\nwrite_cfgmem -format mcs -interface ${config.interface} -size ${config.sizeLimitMb / 8} -loadbit "up 0x0 ./${topName}.bit" -file ./${topName}.mcs"""
     else ""
   def configFileName: String = s"$topName.tcl"
   def contents: String =

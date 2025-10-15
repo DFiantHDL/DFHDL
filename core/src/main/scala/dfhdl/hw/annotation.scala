@@ -85,11 +85,11 @@ object constraints:
   final case class deviceConfig(
       flashPartName: String,
       interface: deviceConfig.Interface,
-      sizeLimitMB: Int,
+      sizeLimitMb: Int,
       masterRate: ir.ConfigN[ir.RateNumber] = None
   ) extends GlobalConstraint:
     val asIR: ir.constraints.DeviceConfig =
-      ir.constraints.DeviceConfig(flashPartName, interface, sizeLimitMB, masterRate)
+      ir.constraints.DeviceConfig(flashPartName, interface, sizeLimitMb, masterRate)
   object deviceConfig:
     export ir.constraints.DeviceConfig.Interface
 

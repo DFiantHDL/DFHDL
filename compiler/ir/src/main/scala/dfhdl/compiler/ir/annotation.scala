@@ -110,7 +110,7 @@ object constraints:
   final case class DeviceConfig(
       flashPartName: String,
       interface: DeviceConfig.Interface,
-      sizeLimitMB: Int,
+      sizeLimitMb: Int,
       masterRate: ConfigN[RateNumber]
   ) extends GlobalConstraint derives ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
@@ -120,7 +120,7 @@ object constraints:
       val params = List(
         csParam("flashPartName", flashPartName),
         csParam("interface", interface),
-        csParam("sizeLimitMB", sizeLimitMB),
+        csParam("sizeLimitMb", sizeLimitMb),
         csParam("masterRate", masterRate)
       ).filter(_.nonEmpty).mkString(", ")
       s"""@deviceConfig($params)"""
