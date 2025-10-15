@@ -119,7 +119,7 @@ def requireMacro(cond: Expr[Boolean], msg: Expr[String])(using
   object ValueExpr:
     def unapply[T](expr: Expr[T]): Option[T] =
       expr.asTerm.tpe match
-        case ConstantType(const) => Some(const.value).asInstanceOf[Option[T]]
+        case ConstantType(const)                      => Some(const.value).asInstanceOf[Option[T]]
         case t: AppliedType if t.tycon <:< inlinedTpe =>
           t.args.head match
             case ConstantType(const) =>
@@ -153,13 +153,13 @@ def requireMacro(cond: Expr[Boolean], msg: Expr[String])(using
         var skip = false
         val xArgsStr = xargs.map {
           case ValueExpr(v) => v.toString
-          case _ =>
+          case _            =>
             skip = true
             ""
         }
         val yArgsStr = yargs.map {
           case ValueExpr(v) => v.toString
-          case _ =>
+          case _            =>
             skip = true
             ""
         }

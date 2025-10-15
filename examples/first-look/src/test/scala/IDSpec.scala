@@ -3,10 +3,10 @@ import dfhdl._
 import TestUtils._
 import compiler.printer.formatter._
 
-class IDSpec extends DFTopSpec {
+class IDSpec extends DFTopSpec:
   val id = new ID
 
-  val expectedCodeString : String =
+  val expectedCodeString: String =
     """|@df final class ID extends DFDesign {
        |  val x = SInt(16) <> IN
        |  val y = SInt(16) <> OUT
@@ -37,5 +37,4 @@ class IDSpec extends DFTopSpec {
     id.compile.toFolder("sandbox/id/verilog95")
     true
   }
-}
-
+end IDSpec

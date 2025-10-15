@@ -30,8 +30,8 @@ class ExplicitNamedVarsSpec extends StageSpec:
   }
   test("Named conditional expression") {
     class ID extends DFDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x                  = SInt(16) <> IN
+      val y                  = SInt(16) <> OUT
       val z: SInt[16] <> VAL =
         if (x > 0) 5
         else if (x < 0) x + 1
@@ -63,8 +63,8 @@ class ExplicitNamedVarsSpec extends StageSpec:
   }
   test("Nested named conditional expression") {
     class ID extends DFDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x                  = SInt(16) <> IN
+      val y                  = SInt(16) <> OUT
       val z: SInt[16] <> VAL =
         if (x > 0)
           if (x > 5) 5

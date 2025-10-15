@@ -43,7 +43,7 @@ object SameElementsVector:
         named
       )
     width match
-      case width: Int => constVec[W](width, named)
+      case width: Int                     => constVec[W](width, named)
       case width: DFConstInt32 @unchecked =>
         val singleBit = constVec[1](1, named = false)
         import DFBits.Val.Ops.repeat
