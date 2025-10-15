@@ -35,7 +35,7 @@ def COMB_LOOP(using
   while (!stop)
     ownerIR match
       case cb: ir.DFConditional.Block => ownerIR = cb.getOwner
-      case lb: ir.DFLoop.Block =>
+      case lb: ir.DFLoop.Block        =>
         if (lineEnd == -1)
           lineEnd = lb.meta.position.lineEnd
         else if (lineEnd != lb.meta.position.lineEnd)
