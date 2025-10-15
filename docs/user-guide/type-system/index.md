@@ -1210,7 +1210,7 @@ DFHDL supports several encoding schemes for enums:
 1. **Binary Encoded** (default)
 ```scala
 enum MyEnum extends Encoded:
-  case A, B, C, D  // Encoded as 0,1,2,3
+  case A, B, C, D  // Encoded as 00,01,10,11
 ```
 
 2. **One-Hot Encoded**
@@ -1221,14 +1221,14 @@ enum MyEnum extends Encoded.OneHot:
 
 3. **Gray Encoded**
 ```scala
-enum MyEnum extends Encoded.Grey:
+enum MyEnum extends Encoded.Gray:
   case A, B, C  // Encoded as 00,01,11
 ```
 
 4. **Custom Start Value**
 ```scala
-enum MyEnum extends Encoded.StartAt(10):
-  case A, B, C  // Encoded as 10,11,12
+enum MyEnum extends Encoded.StartAt(4):
+  case A, B, C  // Encoded as 100,101,110
 ```
 
 5. **Manual Encoding**
