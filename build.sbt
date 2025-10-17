@@ -127,6 +127,7 @@ lazy val platforms = project
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
+    core % "test->test",
     lib
   )
 
