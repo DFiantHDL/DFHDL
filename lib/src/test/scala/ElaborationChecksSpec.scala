@@ -435,4 +435,28 @@ class ElaborationChecksSpec extends DesignSpec:
           |RHS:       y.resize(8)
           |Message:   Unexpected write access to the immutable value y.resize(8).""".stripMargin
     )
+  test("no need for clock location constraint check in internal designs"):
+    object Test:
+      import hw.constraints.*
+      class Internal extends RTDesign:
+        val x = Bit <> IN
+        val y = Bit <> OUT
+        y <> x.reg(1, init = 0)
+      end Internal
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @timing.clock(rate = 20.MHz)
+      @io(loc = "locClk")
+      @top(false) class Top extends RTDesign:
+        @io(loc = "locx")
+        val x = Bit <> IN
+        @io(loc = "locy")
+        val y = Bit <> OUT
+        val internal = Internal()
+        internal.x <> x
+        internal.y <> y
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      "No error found"
+    )
 end ElaborationChecksSpec

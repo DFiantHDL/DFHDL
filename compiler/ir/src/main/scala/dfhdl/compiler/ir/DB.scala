@@ -1091,6 +1091,7 @@ final case class DB(
         // Collect all location constraints to check for collisions
         val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
         (design :: members).foreach {
+          case designInstance: DFDesignBlock if designInstance != design => // no need to check for location constraints in nested designs
           case domainOwner: DFDomainOwner =>
             domainOwner.domainType match
               case DomainType.RT(_) =>
