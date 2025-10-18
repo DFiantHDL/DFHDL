@@ -1105,7 +1105,12 @@ final case class DB(
                     foundLoc = true
                   case _ =>
                 }
-                if (!foundLoc)
+                val clkIsVar = domainOwnerMemberTable(domainOwner).view.collectFirst {
+                  case dcl: DFVal.Dcl if dcl.isClkDcl => dcl.isVar
+                }.getOrElse(false)
+
+                // for internal domains (indicated by a clock variable) we don't need to check for location constraints
+                if (!foundLoc && !clkIsVar)
                   errors += s"${domainOwner.getFullName} is missing a clock location constraint"
               case _ =>
             end match

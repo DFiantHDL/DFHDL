@@ -459,4 +459,60 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       "No error found"
     )
+  test("no need for clock location constraint check in internal domains"):
+    object Test:
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @timing.clock(rate = 20.MHz)
+      @top(false) class Top extends RTDesign:
+        @io(loc = "locClk")
+        val clk = Clk <> IN
+        @io(loc = "locx")
+        val x = Bit <> IN
+        @io(loc = "locy")
+        val y = Bit <> OUT
+        @timing.clock(rate = 20.MHz)
+        val dmn = new RTDomain:
+          val clk = Clk <> VAR
+        dmn.clk <> clk
+        y <> x.reg(1, init = 0)
+      end Top
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      "No error found"
+    )
+  test("domain constraint check"):
+    object Test:
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @top(false) class Top extends EDDesign:
+        @io(loc = "locClk")
+        @timing.clock(rate = 20.MHz)
+        val dmn1 = new RTDomain:
+          @io(loc = "locx")
+          val x = Bit <> IN
+          @io(loc = "locy")
+          val y = Bit <> OUT
+          y <> x.reg(1, init = 0)
+        end dmn1
+        @timing.clock(rate = 20.MHz)
+        val dmn2 = new RTDomain:
+          val x = Bit <> IN
+          val y = Bit <> OUT
+          y <> x.reg(1, init = 0)
+        end dmn2
+      end Top
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      """|Elaboration errors found!
+         |The following top device design ports or domains are missing location constraints:
+         |  Top.dmn2 is missing a clock location constraint
+         |  Top.dmn2.x
+         |  Top.dmn2.y
+         |To Fix:
+         |Add a location constraint to the ports by connecting them to a located resource or
+         |by using the `@io` constraint.""".stripMargin
+    )
 end ElaborationChecksSpec
