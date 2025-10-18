@@ -85,6 +85,21 @@ object constraints:
       ).filter(_.nonEmpty).mkString(", ")
       s"""@deviceID($params)"""
   end DeviceID
+  final case class DeviceInfo(
+      slewRateSlowest: ConfigN[Int],
+      slewRateFastest: ConfigN[Int]
+  ) extends GlobalConstraint
+      derives CanEqual, ReadWriter:
+    protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs(using RefGen): this.type = this
+    def codeString(using Printer): String =
+      val params = List(
+        csParam("slewRateSlowest", slewRateSlowest),
+        csParam("slewRateFastest", slewRateFastest)
+      ).filter(_.nonEmpty).mkString(", ")
+      s"""@deviceInfo($params)"""
+  end DeviceInfo
   final case class DeviceProperties(properties: Map[String, String]) extends GlobalConstraint
       derives ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
@@ -264,7 +279,8 @@ object constraints:
           case SchmittTrigger =>
             throw new IllegalArgumentException("Found unexpected use of SchmittTrigger.")
     enum SlewRate extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
-      case SLOW, FAST
+      case SLOWEST, FASTEST
+      case CUSTOM(value: Int)
       def codeString(using Printer): String = "io.SlewRate." + this.toString
     enum PullMode extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case UP, DOWN

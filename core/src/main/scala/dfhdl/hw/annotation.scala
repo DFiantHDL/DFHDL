@@ -78,6 +78,12 @@ object constraints:
       ir.constraints.DeviceID(vendor, deviceName, partName, deviceVersion)
   object deviceID:
     export ir.constraints.DeviceID.Vendor
+  final case class deviceInfo(
+      slewRateSlowest: ir.ConfigN[Int] = None,
+      slewRateFastest: ir.ConfigN[Int] = None
+  ) extends GlobalConstraint:
+    val asIR: ir.constraints.DeviceInfo =
+      ir.constraints.DeviceInfo(slewRateSlowest, slewRateFastest)
   final case class deviceProperties(properties: (String, String)*) extends GlobalConstraint:
     val asIR: ir.constraints.DeviceProperties = ir.constraints.DeviceProperties(properties.toMap)
   final case class toolOptions(options: (String, String)*) extends GlobalConstraint:

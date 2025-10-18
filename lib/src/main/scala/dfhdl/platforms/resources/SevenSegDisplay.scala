@@ -24,7 +24,7 @@ object SevenSegDisplay:
   enum Segment extends Encoded.Toggle:
     case Off, On
   object Segment:
-    @io(standard = io.Standard.LVCMOS, slewRate = io.SlewRate.SLOW)
+    @io(standard = io.Standard.LVCMOS, slewRate = io.SlewRate.SLOWEST)
     @timing.ignore(maxFreqMinPeriod = 200.us)
     protected[SevenSegDisplay] class Resource private[Segment] (val activeState: Segment)
         extends ToggleIO[Segment]
@@ -38,7 +38,7 @@ object SevenSegDisplay:
       private val pullMode = if (activeState == Select.Enabled) IO.PullMode.DOWN else IO.PullMode.UP
       injectConstraint(IO(
         standard = IO.Standard.LVCMOS,
-        slewRate = IO.SlewRate.SLOW,
+        slewRate = IO.SlewRate.SLOWEST,
         unusedPullMode = pullMode
       ))
       injectConstraint(Timing.Ignore(maxFreqMinPeriod = 200.us))

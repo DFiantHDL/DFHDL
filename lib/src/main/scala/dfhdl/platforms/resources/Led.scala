@@ -11,7 +11,7 @@ object Led:
     private val pullMode = if (activeState == Led.On) IO.PullMode.DOWN else IO.PullMode.UP
     injectConstraint(IO(
       standard = IO.Standard.LVCMOS,
-      slewRate = IO.SlewRate.SLOW,
+      slewRate = IO.SlewRate.SLOWEST,
       unusedPullMode = pullMode
     ))
     injectConstraint(Timing.Ignore(maxFreqMinPeriod = 100.Hz))

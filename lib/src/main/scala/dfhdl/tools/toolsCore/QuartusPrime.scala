@@ -154,6 +154,9 @@ class QuartusPrimeProjectPhysicalConstraintsPrinter(using
   val pro: Boolean = designDB.top.dclMeta.annotations.collectFirst {
     case constraints.DeviceID(vendor = constraints.DeviceID.Vendor.AlteraIntel(pro)) => pro
   }.get
+  val deviceInfo: constraints.DeviceInfo = designDB.top.dclMeta.annotations.collectFirst {
+    case constraint: constraints.DeviceInfo => constraint
+  }.getOrElse(throw new IllegalArgumentException("No device info found"))
 
   def qsf_get_ports(port: DFVal.Dcl, constraint: constraints.SigConstraint): String =
     val portName = port.getName
@@ -201,9 +204,14 @@ class QuartusPrimeProjectPhysicalConstraintsPrinter(using
     portConstraint.slewRate.foreach { slewRate =>
       // TODO: what about other slew rate values?
       val slewRateStr = slewRate match
-        case constraints.IO.SlewRate.SLOW => "0"
-        case constraints.IO.SlewRate.FAST => "2"
-      addInstanceAssignment("SLEW_RATE", "2")
+        case constraints.IO.SlewRate.SLOWEST => deviceInfo.slewRateSlowest.getOrElse(
+            throw new IllegalArgumentException("Slowest slew rate not found in device info")
+          ).toString
+        case constraints.IO.SlewRate.FASTEST => deviceInfo.slewRateFastest.getOrElse(
+            throw new IllegalArgumentException("Fastest slew rate not found in device info")
+          ).toString
+        case constraints.IO.SlewRate.CUSTOM(value) => value.toString
+      addInstanceAssignment("SLEW_RATE", slewRateStr)
     }
 
     // Drive strength constraint

@@ -225,8 +225,10 @@ class VivadoProjectConstraintsPrinter(using
     // Slew rate constraint
     portConstraint.slewRate.foreach { slewRate =>
       val slewRateStr = slewRate match
-        case constraints.IO.SlewRate.SLOW => "SLOW"
-        case constraints.IO.SlewRate.FAST => "FAST"
+        case constraints.IO.SlewRate.SLOWEST       => "SLOW"
+        case constraints.IO.SlewRate.FASTEST       => "FAST"
+        case constraints.IO.SlewRate.CUSTOM(value) =>
+          throw new IllegalArgumentException(s"Custom slew rate is not supported in Vivado.")
       addToDict("SLEW", slewRateStr)
     }
 
