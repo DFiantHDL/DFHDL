@@ -5,7 +5,7 @@ commands += DFHDLCommands.docExamplesRefUpdate
 
 // format: off
 val projectName = "dfhdl"
-val compilerVersion = "3.7.4-RC1"
+val compilerVersion = "3.7.4-RC2"
 
 inThisBuild(
   List(
@@ -140,7 +140,7 @@ lazy val dependencies =
     private val airframelogV = "2025.1.20"
     private val oslibV = "0.11.5"
     private val scallopV = "5.2.0"
-    private val upickleV = "4.3.2"
+    private val upickleV = "4.4.0"
 
     val scodec = "org.scodec" %% "scodec-bits" % scodecV
     val munit = "org.scalameta" %% "munit" % munitV % Test
