@@ -2,7 +2,6 @@ package dfhdl.compiler.ir
 import dfhdl.compiler.printing.{Printer, HasCodeString, refCodeString}
 import dfhdl.internals.*
 import upickle.default.*
-import dfhdl.internals.StableEnum
 
 object annotation:
   sealed abstract class HWAnnotation extends HasRefCompare[HWAnnotation], Product, Serializable,
@@ -39,7 +38,7 @@ object annotation:
     *   - prefix: $ownerName$sep$memberName
     *   - suffix: $memberName$sep$ownerName
     */
-  enum FlattenMode extends HWAnnotation, StableEnum derives ReadWriter:
+  enum FlattenMode extends HWAnnotation derives ReadWriter:
     case Transparent
     case Prefix(sep: String)
     case Suffix(sep: String)
@@ -109,7 +108,7 @@ object constraints:
       val props = properties.map { case (k, v) => s""""$k" -> "$v"""" }.mkString(", ")
       s"""@deviceProperties($props)"""
   object DeviceID:
-    enum Vendor extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
+    enum Vendor extends HasCodeString derives CanEqual, ReadWriter:
       case XilinxAMD, Lattice, Gowin
       case AlteraIntel(pro: Boolean)
       def codeString(using Printer): String = "deviceID.Vendor." + this.toString
@@ -267,7 +266,7 @@ object constraints:
   end IO
   object IO:
     type LevelVolt = 3.3 | 3.0 | 2.5 | 1.8 | 1.5 | 1.2
-    enum Standard extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
+    enum Standard extends HasCodeString derives CanEqual, ReadWriter:
       case LVCMOS, LVTTL, LVDS, SchmittTrigger
       def codeString(using Printer): String = "io.Standard." + this.toString
       def withLevelVolt(levelVolt: LevelVolt): String =
@@ -278,11 +277,11 @@ object constraints:
           case LVDS           => s"LVDS_$num"
           case SchmittTrigger =>
             throw new IllegalArgumentException("Found unexpected use of SchmittTrigger.")
-    enum SlewRate extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
+    enum SlewRate extends HasCodeString derives CanEqual, ReadWriter:
       case SLOWEST, FASTEST
       case CUSTOM(value: Int)
       def codeString(using Printer): String = "io.SlewRate." + this.toString
-    enum PullMode extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
+    enum PullMode extends HasCodeString derives CanEqual, ReadWriter:
       case UP, DOWN
       def codeString(using Printer): String = "io.PullMode." + this.toString
   end IO
