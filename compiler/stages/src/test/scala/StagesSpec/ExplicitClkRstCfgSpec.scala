@@ -145,12 +145,15 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val dmn1 = new RTDomain(RTDomainCfg.Comb):
          |    val id = ID()
          |    id.x <> x
+         |  end dmn1
          |  val dmn2 = new RTDomain(RTDomainCfg.Comb):
          |    val id = ID()
          |    id.x <> dmn1.id.y
+         |  end dmn2
          |  val dmn3 = new dmn1.RelatedDomain:
          |    val id = ID()
          |    id.x <> dmn2.id.y
+         |  end dmn3
          |  y <> id.y
          |end IDTop
          |""".stripMargin
@@ -191,12 +194,15 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val dmn1 = new RTDomain(RTDomainCfg.Default):
          |    val id = ID()
          |    id.x <> x
+         |  end dmn1
          |  val dmn2 = new RTDomain(RTDomainCfg.Comb):
          |    val id = ID()
          |    id.x <> dmn1.id.y
+         |  end dmn2
          |  val dmn3 = new dmn1.RelatedDomain:
          |    val id = ID()
          |    id.x <> dmn2.id.y.reg(1, init = sd"16'0")
+         |  end dmn3
          |  y <> id.y
          |end IDTop
          |""".stripMargin
@@ -237,12 +243,15 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val dmn1 = new RelatedDomain:
          |    val id = ID()
          |    id.x <> x
+         |  end dmn1
          |  val dmn2 = new RelatedDomain:
          |    val id = ID()
          |    id.x <> dmn1.id.y
+         |  end dmn2
          |  val dmn3 = new dmn1.RelatedDomain:
          |    val id = ID()
          |    id.x <> dmn2.id.y
+         |  end dmn3
          |  y <> id.y
          |end IDTop
          |""".stripMargin
@@ -283,12 +292,15 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val dmn1 = new RelatedDomain:
          |    val id = ID()
          |    id.x <> x
+         |  end dmn1
          |  val dmn2 = new RelatedDomain:
          |    val id = ID()
          |    id.x <> dmn1.id.y
+         |  end dmn2
          |  val dmn3 = new dmn1.RelatedDomain:
          |    val id = ID()
          |    id.x <> dmn2.id.y.reg(1, init = sd"16'0")
+         |  end dmn3
          |  y <> id.y
          |end IDTop
          |""".stripMargin
@@ -334,12 +346,15 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val dmn1 = new RTDomain(cfg):
          |    val id = ID()
          |    id.x <> x
+         |  end dmn1
          |  val dmn2 = new RTDomain(cfg2):
          |    val id = ID()
          |    id.x <> dmn1.id.y
+         |  end dmn2
          |  val dmn3 = new dmn1.RelatedDomain:
          |    val id = ID()
          |    id.x <> dmn2.id.y.reg(1, init = sd"16'0")
+         |  end dmn3
          |  y <> id.y
          |end IDTop
          |""".stripMargin
@@ -379,6 +394,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val we = Bit <> IN
          |    if (we) ram(addr.uint.toInt) := data
          |    q.din := ram(addr.uint.toInt)
+         |  end a
          |  val b = new RTDomain(RTDomainCfg.Default.norst):
          |    val data = Bits(DATA_WIDTH) <> IN
          |    val addr = Bits(ADDR_WIDTH) <> IN
@@ -386,6 +402,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val we = Bit <> IN
          |    if (we) ram(addr.uint.toInt) := data
          |    q.din := ram(addr.uint.toInt)
+         |  end b
          |end TrueDPR
          |""".stripMargin
     )
@@ -463,12 +480,15 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val dmn1 = new RTDomain(RTDomainCfg.Default):
          |    val id = ID()
          |    id.x <> x
+         |  end dmn1
          |  val dmn2 = new RTDomain(RTDomainCfg.Default):
          |    val id = ID()
          |    id.x <> dmn1.id.y.reg(1, init = sd"16'0")
+         |  end dmn2
          |  val dmn3 = new dmn1.RelatedDomain:
          |    val id = ID()
          |    id.x <> dmn2.id.y.reg(1, init = sd"16'0")
+         |  end dmn3
          |  y <> id.y
          |end IDTop
          |""".stripMargin
@@ -504,9 +524,11 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val src = new RTDomain(cfg):
          |    val clk = Clk <> IN
          |    val rst = Rst <> IN
+         |  end src
          |  val gen = new RTDomain(genCfg):
          |    val clk = Clk <> OUT
          |    val rst = Rst <> OUT
+         |  end gen
          |  gen.clk <> src.clk.as(Clk)
          |  gen.rst <> src.rst.as(Rst)
          |end ClkGen
@@ -519,6 +541,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
+         |  end internal
          |  y := x
          |end ID
          |""".stripMargin

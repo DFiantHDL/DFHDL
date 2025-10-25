@@ -49,11 +49,13 @@ class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val id1 = new ID():
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ id1_y
+         |  end id1
          |  val id2_x = SInt(16) <> VAR
          |  val id2_y = SInt(16) <> VAR
          |  val id2 = new ID():
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
+         |  end id2
          |  id1_x <> x
          |  id2_x <> id1_y
          |  y <> id2_y
@@ -97,6 +99,7 @@ class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    this.x <>/*<--*/ id_x
          |    this.y <>/*-->*/ id_y
          |    this.y2 <>/*-->*/ OPEN
+         |  end id
          |  id_x <> x
          |  y <> id_y
          |end IDTop
@@ -142,9 +145,11 @@ class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val id1 = new ID():
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ id1_y
+         |  end id1
          |  val id2 = new ID():
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
+         |  end id2
          |  id1_x <> x
          |  id2_x <> id1_y
          |  y <> id2_y
@@ -182,10 +187,12 @@ class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val id1 = new ID():
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ internal
+         |  end id1
          |  val id2_y = SInt(16) <> VAR
          |  val id2 = new ID():
          |    this.y <>/*-->*/ id2_y
          |    this.x <>/*<--*/ internal
+         |  end id2
          |  id1_x <> x
          |  y <> id2_y
          |end IDTopVar
@@ -226,11 +233,13 @@ class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val id1 = new ID():
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ id1_y
+         |  end id1
          |  val id2_x = Bits(8) <> VAR
          |  val id2_y = Bits(8) <> VAR
          |  val id2 = new ID():
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
+         |  end id2
          |  id1_x <> x(7, 0)
          |  id2_x <> x(15, 8)
          |  y(7, 0) <> id1_y
@@ -278,10 +287,12 @@ class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val id1 = new ID():
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ v(0)
+         |  end id1
          |  val id2_x = Bits(3) <> VAR
          |  val id2 = new ID():
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ v(1)
+         |  end id2
          |  id1_x <> x
          |  id2_x <> x
          |  process(all):
@@ -350,6 +361,7 @@ class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  ):
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ id1_y
+         |  end id1
          |  id1_x <> x1
          |  y1 <> id1_y
          |  val x2 = Bits(widthTop) X (lengthTop + 1) <> IN
@@ -362,6 +374,7 @@ class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  ):
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
+         |  end id2
          |  id2_x <> x2
          |  y2 <> id2_y
          |  val x3 = Bits(widthTop) X 7 <> IN
@@ -374,6 +387,7 @@ class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  ):
          |    this.x <>/*<--*/ id3_x
          |    this.y <>/*-->*/ id3_y
+         |  end id3
          |  id3_x <> x3
          |  y3 <> id3_y
          |end IDTop""".stripMargin

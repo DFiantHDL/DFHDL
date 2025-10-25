@@ -530,6 +530,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val rst = Rst_default <> IN
          |    val id = ID()
          |    id.x <> x
+         |  end dmn1
          |  val dmn2 = new EDDomain:
          |    val clk = Clk_default <> IN
          |    val rst = Rst_default <> IN
@@ -541,6 +542,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |        if (rst.actual == 1) dmn1_id_y_reg :== sd"16'0"
          |        else dmn1_id_y_reg :== dmn1.id.y
          |      end if
+         |  end dmn2
          |  val dmn3 = new EDDomain:
          |    val dmn2_id_y_reg = SInt(16) <> VAR
          |    val id = ID()
@@ -550,6 +552,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |        if (dmn1.rst.actual == 1) dmn2_id_y_reg :== sd"16'0"
          |        else dmn2_id_y_reg :== dmn2.id.y
          |      end if
+         |  end dmn3
          |  y <> id.y
          |end IDTop
          |""".stripMargin
@@ -574,6 +577,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    process(all):
          |      if (x < sd"16'0") y := sd"16'0"
          |      else y := x
+         |  end dmn1
          |end IDTop
          |""".stripMargin
     )
@@ -634,6 +638,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |        if (rst.actual == 1) y :== sd"16'0"
          |        else y :== r
          |      end if
+         |  end foo
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1) r :== sd"16'0"
@@ -679,11 +684,13 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val data = Bits(DATA_WIDTH) <> OUT
          |    process(clk):
          |      if (clk.actual.rising) data :== regs(addr.uint.toInt)
+         |  end rs1
          |  val rs2 = new EDDomain:
          |    val addr = Bits(clog2(REG_NUM)) <> IN
          |    val data = Bits(DATA_WIDTH) <> OUT
          |    process(clk):
          |      if (clk.actual.rising) data :== regs(addr.uint.toInt)
+         |  end rs2
          |  val rd = new EDDomain:
          |    val addr = Bits(clog2(REG_NUM)) <> IN
          |    val data = Bits(DATA_WIDTH) <> IN
@@ -693,6 +700,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |        if (wren) regs(addr.uint.toInt) :== data
          |        regs(0) :== b"0".repeat(DATA_WIDTH)
          |      end if
+         |  end rd
          |end RegFile
          |""".stripMargin
     )
@@ -826,6 +834,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    process(all):
          |      clk.actual := 0
          |      rst.actual := 0
+         |  end internal
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1) y :== d"8'0"
@@ -1061,6 +1070,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |        10.ns.wait
          |        rst.actual :== 0
          |      end while
+         |  end clkRstSimGen
          |  val counter = Int <> VAR
          |  process(clk):
          |    if (clk.actual.rising)
