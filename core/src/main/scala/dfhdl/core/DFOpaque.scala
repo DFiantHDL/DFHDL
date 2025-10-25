@@ -43,17 +43,20 @@ object DFOpaque:
 
   def apply[TFE <: Abstract](
       t: TFE
-  )(using DFCG): DFOpaque[TFE] = trydf:
+  )(using dfc: DFCG): DFOpaque[TFE] = trydf:
     val kind = t match
       case _: Clk       => ir.DFOpaque.Kind.Clk
       case _: Rst       => ir.DFOpaque.Kind.Rst
       case _: Magnet[?] => ir.DFOpaque.Kind.Magnet
       case _            => ir.DFOpaque.Kind.General
-    // Generate a stable ID based on the fully qualified class name
-    // This ensures different case classes have different IDs even if they have the same simple name
-    // but are in different packages, and remains stable between runs
-    val fullyQualifiedClassName = t.getClass.getName
-    val id = fullyQualifiedClassName.hashCode
+    val id = t match
+      case _: Magnet[?] => dfc.refGen.getMagnetID(t)
+      case _            =>
+        // Generate a stable ID based on the fully qualified class name
+        // This ensures different case classes have different IDs even if they have the same simple name
+        // but are in different packages, and remains stable between runs
+        val fullyQualifiedClassName = t.getClass.getName
+        fullyQualifiedClassName.hashCode
     ir.DFOpaque(
       t.typeName,
       kind,
@@ -125,6 +128,40 @@ object DFOpaque:
             DFVal.Alias.AsIs(DFOpaque[TFE](tfe), tc(tfe.actualType, asDFVector(lhs)))
           }(using dfc, CTName("cast as opaque"))
       end evOpAsDFOpaqueIterable
+
+      given evOpClkAsClkComp[
+          LTFE <: Clk,
+          L <: DFValOf[DFOpaque[LTFE]],
+          Comp <: Object,
+          TFE <: Clk
+      ](using
+          cc: CaseClass.Aux[Comp, Clk, TFE]
+      )(using
+          ce: ClassEv[TFE]
+      ): ExactOp2Aux["as", DFC, DFValAny, L, Comp, DFValOf[DFOpaque[TFE]]] =
+        new ExactOp2["as", DFC, DFValAny, L, Comp]:
+          type Out = DFValOf[DFOpaque[TFE]]
+          def apply(lhs: L, tfeComp: Comp)(using DFC): Out = trydf {
+            DFVal.Alias.AsIs(DFOpaque[TFE](ce.value), lhs)
+          }(using dfc, CTName("cast clk as a different clk"))
+      end evOpClkAsClkComp
+
+      given evOpRstAsRstComp[
+          LTFE <: Rst,
+          L <: DFValOf[DFOpaque[LTFE]],
+          Comp <: Object,
+          TFE <: Rst
+      ](using
+          cc: CaseClass.Aux[Comp, Rst, TFE]
+      )(using
+          ce: ClassEv[TFE]
+      ): ExactOp2Aux["as", DFC, DFValAny, L, Comp, DFValOf[DFOpaque[TFE]]] =
+        new ExactOp2["as", DFC, DFValAny, L, Comp]:
+          type Out = DFValOf[DFOpaque[TFE]]
+          def apply(lhs: L, tfeComp: Comp)(using DFC): Out = trydf {
+            DFVal.Alias.AsIs(DFOpaque[TFE](ce.value), lhs)
+          }(using dfc, CTName("cast rst as a different rst"))
+      end evOpRstAsRstComp
 
       private def asDFVector[A <: DFTypeAny, P](dfVals: Iterable[DFValTP[A, P]])(using
           DFC

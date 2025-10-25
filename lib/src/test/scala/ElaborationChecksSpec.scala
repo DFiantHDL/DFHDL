@@ -474,7 +474,7 @@ class ElaborationChecksSpec extends DesignSpec:
         @timing.clock(rate = 20.MHz)
         val dmn = new RTDomain:
           val clk = Clk <> VAR
-        dmn.clk <> clk
+        dmn.clk <> clk.as(dmn.Clk)
         y <> x.reg(1, init = 0)
       end Top
     end Test
@@ -514,5 +514,21 @@ class ElaborationChecksSpec extends DesignSpec:
          |To Fix:
          |Add a location constraint to the ports by connecting them to a located resource or
          |by using the `@io` constraint.""".stripMargin
+    )
+  test("clk/rst in related domain check"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val dmn = new RelatedDomain:
+          val clk = Clk <> IN
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:522:21 - 522:30
+          |Hierarchy: Top.clk
+          |Operation: `Port/Variable constructor`
+          |Message:   Cannot create a clk/rst in a related domain.
+          |You can create the clk/rst in the primary domain `Top` and reference it here instead.""".stripMargin
     )
 end ElaborationChecksSpec
