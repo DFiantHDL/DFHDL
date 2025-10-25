@@ -22,7 +22,7 @@ case object DropUnreferencedAnons extends Stage, NoCheckStage:
       // skipping over conditional headers that can be considered values as well.
       case _: DFConditional.Header => None
       // idents are always kept
-      case Ident(_) => None
+      case Ident(_)                                             => None
       case m: DFVal if m.isAnonymous && m.originMembers.isEmpty =>
         Some(m -> Patch.Remove())
       case _ => None
