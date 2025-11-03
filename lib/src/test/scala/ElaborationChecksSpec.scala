@@ -531,4 +531,28 @@ class ElaborationChecksSpec extends DesignSpec:
           |Message:   Cannot create a clk/rst in a related domain.
           |You can create the clk/rst in the primary domain `Top` and reference it here instead.""".stripMargin
     )
+  test("resource direction mismatch check"):
+    object Test:
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @timing.clock(rate = 20.MHz)
+      @top(false) class Top extends RTDesign:
+        @io(loc = "locClk")
+        val clk = Clk <> IN
+        @io(loc = "locx", dir = io.Dir.OUT)
+        val x = Bit <> IN
+        @io(loc = "locy", dir = io.Dir.IN)
+        val y = Bit <> OUT
+        y <> x.reg(1, init = 0)
+      end Top
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      """|Elaboration errors found!
+         |The following top device design ports have resource direction mismatches:
+         |  Top.x direction (IN) has a resource direction (OUT) mismatch.
+         |  Top.y direction (OUT) has a resource direction (IN) mismatch.
+         |To Fix:
+         |Make sure you connect the resource to the port with the correct direction.""".stripMargin
+    )
 end ElaborationChecksSpec

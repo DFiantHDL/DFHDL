@@ -33,7 +33,7 @@ abstract class ToggleIOComp[T <: Toggle](
 ):
   class Resource private[ToggleIOComp] (val activeState: T)
       extends ToggleIO[T]:
-    injectConstraint(constraints.IO(standard = standard))
+    injectConstraint(constraints.IO(standard = standard, dir = constraints.IO.Dir.IN))
     if (maxFreqMinPeriod != None)
       injectConstraint(constraints.Timing.Ignore(maxFreqMinPeriod = maxFreqMinPeriod))
   def apply(activeState: T = defaultActiveState)(using DFC): Resource = new Resource(activeState)

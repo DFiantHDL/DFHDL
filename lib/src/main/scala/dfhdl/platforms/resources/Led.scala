@@ -10,6 +10,7 @@ object Led:
   class Resource private[Led] (val activeState: Led = Led.On) extends ToggleIO[Led]:
     private val pullMode = if (activeState == Led.On) IO.PullMode.DOWN else IO.PullMode.UP
     injectConstraint(IO(
+      dir = IO.Dir.OUT,
       standard = IO.Standard.LVCMOS,
       slewRate = IO.SlewRate.SLOWEST,
       unusedPullMode = pullMode

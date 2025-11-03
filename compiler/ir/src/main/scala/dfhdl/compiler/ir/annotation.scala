@@ -213,6 +213,7 @@ object constraints:
   final case class IO(
       bitIdx: ConfigN[Int] = None,
       loc: ConfigN[String] = None,
+      dir: ConfigN[IO.Dir] = None,
       levelVolt: ConfigN[IO.LevelVolt] = None,
       standard: ConfigN[IO.Standard] = None,
       slewRate: ConfigN[IO.SlewRate] = None,
@@ -233,6 +234,7 @@ object constraints:
             IO(
               bitIdx = bitIdx,
               loc = loc.merge(that.loc),
+              dir = dir.merge(that.dir),
               levelVolt = levelVolt.merge(that.levelVolt),
               standard = standard.merge(that.standard),
               slewRate = slewRate.merge(that.slewRate),
@@ -251,6 +253,7 @@ object constraints:
       val params = List(
         csParam("bitIdx", bitIdx),
         csParam("loc", loc),
+        csParam("dir", dir),
         csParam("levelVolt", levelVolt),
         csParam("standard", standard),
         csParam("slewRate", slewRate),
@@ -265,6 +268,7 @@ object constraints:
     end codeString
   end IO
   object IO:
+    export DFVal.Modifier.Dir
     type LevelVolt = 3.3 | 3.0 | 2.5 | 1.8 | 1.5 | 1.2
     enum Standard extends HasCodeString derives CanEqual, ReadWriter:
       case LVCMOS, LVTTL, LVDS, SchmittTrigger
