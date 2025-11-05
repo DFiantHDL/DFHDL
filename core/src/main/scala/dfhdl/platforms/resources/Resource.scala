@@ -66,7 +66,7 @@ private trait ResourceLP:
 
 object Resource extends ResourceLP:
   @implicitNotFound("Cannot connect the resource ${R} with ${T}")
-  trait CanConnect[-R <: Resource, -T]:
+  trait CanConnect[R <: Resource, T]:
     def connect(resource1: R, resource2: T)(using DFC): Unit
   given [R <: Resource, T <: Resource](using R =:= T): CanConnect[R, T] with
     def connect(resource1: R, resource2: T)(using DFC): Unit =
