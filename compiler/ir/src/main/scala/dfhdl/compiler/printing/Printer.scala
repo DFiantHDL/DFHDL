@@ -254,7 +254,7 @@ object Printer:
         println(srcFile.sourceOrigin)
         println(path)
         println("=======================================")
-        println(printer.formatCode(contents))
+        println(printer.colorCode(contents))
         println("")
       case _ =>
     }

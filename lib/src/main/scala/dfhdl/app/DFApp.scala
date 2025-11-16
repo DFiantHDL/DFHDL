@@ -137,6 +137,7 @@ trait DFApp:
   object compile extends diskCache.Step[StagedDesign, CompiledDesign](elaborate)(
         elaborationOptions.defaultRTDomainCfg,
         compilerOptions.dropUserOpaques,
+        printerOptions.align,
         compilerOptions.backend.toString()
       ):
     override protected def cacheEnable: Boolean = appOptions.cacheEnable

@@ -233,7 +233,8 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       // align enum constants
       .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*", "=", "[ ]*[0-9]+,?")
       // align cases
-      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*:", "", ".*")
+      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*:[ ]*", "", ".*")
+  end alignCode
 
   val verilogKW: Set[String] = Set(
     "module", "input", "output", "inout", "endmodule", "always", "always_comb", "always_ff",
