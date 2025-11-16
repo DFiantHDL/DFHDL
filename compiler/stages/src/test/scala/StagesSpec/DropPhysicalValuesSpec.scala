@@ -103,10 +103,12 @@ class DropPhysicalValuesSpec extends StageSpec:
          |    val slowDiv: Int <> CONST = 5000000
          |    val slowReg = Int <> VAR.REG init 0
          |    slowReg.din := i
+         |  end slowDomain
          |  val fastDomain = new RTDomain(fastCfg):
          |    val fastDiv: Int <> CONST = 4000000
          |    val fastReg = Int <> VAR.REG init 0
          |    fastReg.din := slowDomain.slowReg
+         |  end fastDomain
          |  o := fastDomain.fastReg.reg(1, init = 0)
          |end MultiDomainDesign""".stripMargin
     )

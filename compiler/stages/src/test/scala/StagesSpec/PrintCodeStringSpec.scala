@@ -165,9 +165,11 @@ class PrintCodeStringSpec extends StageSpec:
          |  val id1 = new ID(arg = argTop):
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ id1_y
+         |  end id1
          |  val id2 = new ID(arg = 1):
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
+         |  end id2
          |  id1_x <> x
          |  id2_x <> id1_y
          |  y <> id2_y
@@ -511,12 +513,15 @@ class PrintCodeStringSpec extends StageSpec:
          |    val pr = SInt(16) <> VAR init sd"16'0"
          |    val pw = SInt(16) <> VAR
          |    pr := pr.reg + sd"16'1"
+         |  end fast
          |  val related = new fast.RelatedDomain:
          |    val x = SInt(16) <> VAR init sd"16'0"
+         |  end related
          |  y := fast.pr + related.x
          |  val fastdf = new DFDomain:
          |    val p = SInt(16) <> VAR
          |    p := sd"16'1"
+         |  end fastdf
          |  fast.pw := fastdf.p
          |end IDWithDomains
          |""".stripMargin
@@ -548,9 +553,11 @@ class PrintCodeStringSpec extends StageSpec:
          |  val dmn1 = new RTDomain:
          |    val id = ID(arg = 1)
          |    id.x <> x.reg(1, init = sd"16'0")
+         |  end dmn1
          |  val dmn2 = new RTDomain:
          |    val id = ID(arg = 0)
          |    id.x <> dmn1.id.y
+         |  end dmn2
          |  y <> id.y
          |end IDTop
          |""".stripMargin
@@ -712,11 +719,13 @@ class PrintCodeStringSpec extends StageSpec:
          |    val x = Bit <> IN
          |    val y = Bit <> OUT
          |    y <> x
+         |  end a
          |  @hw.annotation.flattenMode.suffix("_")
          |  val b = new EDDomain:
          |    val x = Bit <> IN
          |    val y = Bit <> OUT
          |    y <> x
+         |  end b
          |end IDWithDomains
          |""".stripMargin
     )
@@ -759,6 +768,7 @@ class PrintCodeStringSpec extends StageSpec:
          |        if (we) ram(addr.uint.toInt) := data
          |        q :== ram(addr.uint.toInt)
          |      end if
+         |  end a
          |  val b = new EDDomain:
          |    val clk = Bit <> IN
          |    val data = Bits(DATA_WIDTH) <> IN
@@ -770,6 +780,7 @@ class PrintCodeStringSpec extends StageSpec:
          |        if (we) ram(addr.uint.toInt) := data
          |        q :== ram(addr.uint.toInt)
          |      end if
+         |  end b
          |end TrueDPR
          |""".stripMargin
     )

@@ -294,13 +294,32 @@ private def exactOp2Macro[Op, Ctx, OutUB](
   import quotes.reflect.*
   val lhsExactInfo = lhs.exactInfo
   val rhsExactInfo = rhs.exactInfo
-  Expr.summonOrError[ExactOp2[
-    Op,
-    Ctx,
-    OutUB,
-    lhsExactInfo.Underlying,
-    rhsExactInfo.Underlying
-  ]] match
+  val exactOp2ExprOrError =
+    try
+      Expr.summonOrError[ExactOp2[
+        Op,
+        Ctx,
+        OutUB,
+        lhsExactInfo.Underlying,
+        rhsExactInfo.Underlying
+      ]]
+    catch
+      // TODO: this is a workaround for a Scala compiler bug that is not minimized yet.
+      // It throws an exception which somehow disappears when we widen the types and run show.
+      // Regression test is in platforms/src/test/scala/PlatformSpec.scala
+      case e: Throwable =>
+        lhsExactInfo.exactTpe.widen.show
+        rhsExactInfo.exactTpe.widen.show
+        Expr.summonOrError[ExactOp2[
+          Op,
+          Ctx,
+          OutUB,
+          lhsExactInfo.Underlying,
+          rhsExactInfo.Underlying
+        ]]
+    end try
+  end exactOp2ExprOrError
+  exactOp2ExprOrError match
     case Right(expr) => '{
         $expr(${ lhsExactInfo.exactExpr }, ${ rhsExactInfo.exactExpr })(using $ctx)
       }

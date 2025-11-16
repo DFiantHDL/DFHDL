@@ -1,6 +1,5 @@
 package dfhdl.tools
 import toolsCore.*
-import dfhdl.internals.StableEnum
 
 object linters:
   val verilator = Verilator
@@ -30,8 +29,8 @@ object simulators:
   object vivado
   final val xsim = vivado
 
-enum builders extends StableEnum derives CanEqual:
+enum builders derives CanEqual:
   case foss, vendor
 
-enum programmers extends StableEnum derives CanEqual:
+enum programmers derives CanEqual:
   case foss, vendor

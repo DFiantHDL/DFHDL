@@ -260,10 +260,10 @@ object DFVal:
       def isPort: Boolean = mod.dir match
         case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
         case _                                           => false
-    enum Dir extends StableEnum derives CanEqual, ReadWriter:
+    enum Dir derives CanEqual, ReadWriter:
       case VAR, IN, OUT, INOUT
     export Dir.{VAR, IN, OUT, INOUT}
-    enum Special extends StableEnum derives CanEqual, ReadWriter:
+    enum Special derives CanEqual, ReadWriter:
       case Ordinary, REG, SHARED
     export Special.{Ordinary, REG, SHARED}
 
@@ -502,7 +502,7 @@ object DFVal:
     ).asInstanceOf[this.type]
   end Special
   object Special:
-    enum Kind extends StableEnum derives CanEqual, ReadWriter:
+    enum Kind derives CanEqual, ReadWriter:
       case NOTHING, OPEN, CLK_FREQ
     export Kind.{NOTHING, OPEN, CLK_FREQ}
 
@@ -594,7 +594,7 @@ object DFVal:
   end Func
 
   object Func:
-    enum Op extends StableEnum derives CanEqual, ReadWriter:
+    enum Op derives CanEqual, ReadWriter:
       case +, -, *, /, ===, =!=, <, >, <=, >=, &, |, ^, %, ++
       case >>, <<, **, ror, rol, reverse, repeat
       case unary_-, unary_~, unary_!
@@ -746,7 +746,7 @@ object DFVal:
 
     object History:
       type InitRef = DFRef.TwoWay[DFVal, History]
-      enum Op extends StableEnum derives CanEqual, ReadWriter:
+      enum Op derives CanEqual, ReadWriter:
         case State // represents either `prev` in DF domain or `reg` in RT domain
         case Pipe // pipe only represents a pipe constraint under DF domain
       extension (history: DFVal.Alias.History)
@@ -949,7 +949,7 @@ end DFRange
 
 object DFRange:
   type Ref = DFRef.TwoWay[DFVal, DFRange]
-  enum Op extends StableEnum derives CanEqual, ReadWriter:
+  enum Op derives CanEqual, ReadWriter:
     case Until, To
 
 final case class DFNet(
@@ -978,7 +978,7 @@ end DFNet
 
 object DFNet:
   type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner, DFNet]
-  enum Op extends StableEnum derives CanEqual, ReadWriter:
+  enum Op derives CanEqual, ReadWriter:
     case Assignment, NBAssignment, Connection, ViaConnection, LazyConnection
   extension (net: DFNet)
     def isAssignment = net.op match
@@ -1482,12 +1482,12 @@ end DFDesignBlock
 
 object DFDesignBlock:
   import InstMode.BlackBox.Source
-  enum InstMode extends StableEnum derives CanEqual, ReadWriter:
+  enum InstMode derives CanEqual, ReadWriter:
     case Normal, Def, Simulation
     case BlackBox(source: Source)
   object InstMode:
     object BlackBox:
-      enum Source extends StableEnum derives CanEqual, ReadWriter:
+      enum Source derives CanEqual, ReadWriter:
         case NA
         case Files(path: List[String])
         case Library(libName: String, nameSpace: String)
@@ -1677,9 +1677,9 @@ end TextOut
 
 object TextOut:
   type AssertionRef = DFRef.TwoWay[DFVal, TextOut]
-  enum Severity extends StableEnum derives CanEqual, ReadWriter:
+  enum Severity derives CanEqual, ReadWriter:
     case Info, Warning, Error, Fatal
-  enum Op extends HasRefCompare[Op], StableEnum derives CanEqual, ReadWriter:
+  enum Op extends HasRefCompare[Op] derives CanEqual, ReadWriter:
     case Print, Println, Debug, Finish
     case Report(severity: Severity) extends Op
     case Assert(assertionRef: AssertionRef, severity: Severity) extends Op

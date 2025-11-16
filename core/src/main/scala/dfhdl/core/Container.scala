@@ -27,28 +27,6 @@ abstract class DomainContainer[D <: DomainType](domainType: D) extends Container
   final private[core] lazy val __domainType: ir.DomainType = domainType.asIR
 
 abstract class RTDomainContainer(cfg: RTDomainCfg) extends DomainContainer(DomainType.RT(cfg)):
-
-  protected lazy val Clk: DFOpaque[DFOpaque.Clk] =
-    case class Clk() extends DFOpaque.Clk
-    cfg match
-      case ir.RTDomainCfg.Related(ref) =>
-        import dfc.getSet
-        throw new IllegalArgumentException(
-          s"Cannot create an explicit clock in a related domain.\nYou can create the clock in the primary domain `${ref.get.getName}` and reference it here instead."
-        )
-      case _ =>
-    DFOpaque(Clk())
-  end Clk
-
-  protected lazy val Rst: DFOpaque[DFOpaque.Rst] =
-    case class Rst() extends DFOpaque.Rst
-    cfg match
-      case ir.RTDomainCfg.Related(ref) =>
-        import dfc.getSet
-        throw new IllegalArgumentException(
-          s"Cannot create an explicit reset in a related domain.\nYou can create the reset in the primary domain `${ref.get.getName}` and reference it here instead."
-        )
-      case _ =>
-    DFOpaque(Rst())
-  end Rst
+  final case class Clk() extends DFOpaque.Clk
+  final case class Rst() extends DFOpaque.Rst
 end RTDomainContainer

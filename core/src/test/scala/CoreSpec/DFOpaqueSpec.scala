@@ -60,6 +60,21 @@ class DFOpaqueSpec extends DFSpec:
     o1u8.verifyWidth(8)
     y.verifyWidth(9)
   }
+  test("Connection error") {
+    case class o3bit() extends Opaque(Bit)
+    val x = o3bit <> VAR
+    val y = Bit <> VAR
+    assertCompileError(
+      "Unsupported value of type `Bit <> VAR` for DFHDL receiver type `o3bit`."
+    )(
+      """x <> y"""
+    )
+    assertCompileError(
+      "Unsupported value of type `o3bit <> VAR` for DFHDL receiver type `Bit`."
+    )(
+      """y <> x"""
+    )
+  }
 
   test("Comparison") {
     assertCompileError(

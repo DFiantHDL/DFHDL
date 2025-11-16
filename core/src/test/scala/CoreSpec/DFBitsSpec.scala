@@ -60,8 +60,8 @@ class DFBitsSpec extends DFSpec:
       val t10 = (
         b"100",
         1,
-        h"9"
-      ).toBits; t10.assertPosition(0, 5, 17, 15)
+        h"9" //format: off
+      ).toBits; t10.assertPosition(0, 5, 17, 15) //format: on
       def twice(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
       val t11 = twice(t1); t11.assertPosition(0, 1, 17, 26)
       assertLatestDesignDclPosition(2, 1, 7, 78)

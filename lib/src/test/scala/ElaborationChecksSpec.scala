@@ -435,4 +435,124 @@ class ElaborationChecksSpec extends DesignSpec:
           |RHS:       y.resize(8)
           |Message:   Unexpected write access to the immutable value y.resize(8).""".stripMargin
     )
+  test("no need for clock location constraint check in internal designs"):
+    object Test:
+      import hw.constraints.*
+      class Internal extends RTDesign:
+        val x = Bit <> IN
+        val y = Bit <> OUT
+        y <> x.reg(1, init = 0)
+      end Internal
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @timing.clock(rate = 20.MHz)
+      @io(loc = "locClk")
+      @top(false) class Top extends RTDesign:
+        @io(loc = "locx")
+        val x = Bit <> IN
+        @io(loc = "locy")
+        val y = Bit <> OUT
+        val internal = Internal()
+        internal.x <> x
+        internal.y <> y
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      "No error found"
+    )
+  test("no need for clock location constraint check in internal domains"):
+    object Test:
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @timing.clock(rate = 20.MHz)
+      @top(false) class Top extends RTDesign:
+        @io(loc = "locClk")
+        val clk = Clk <> IN
+        @io(loc = "locx")
+        val x = Bit <> IN
+        @io(loc = "locy")
+        val y = Bit <> OUT
+        @timing.clock(rate = 20.MHz)
+        val dmn = new RTDomain:
+          val clk = Clk <> VAR
+        dmn.clk <> clk.as(dmn.Clk)
+        y <> x.reg(1, init = 0)
+      end Top
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      "No error found"
+    )
+  test("domain constraint check"):
+    object Test:
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @top(false) class Top extends EDDesign:
+        @io(loc = "locClk")
+        @timing.clock(rate = 20.MHz)
+        val dmn1 = new RTDomain:
+          @io(loc = "locx")
+          val x = Bit <> IN
+          @io(loc = "locy")
+          val y = Bit <> OUT
+          y <> x.reg(1, init = 0)
+        end dmn1
+        @timing.clock(rate = 20.MHz)
+        val dmn2 = new RTDomain:
+          val x = Bit <> IN
+          val y = Bit <> OUT
+          y <> x.reg(1, init = 0)
+        end dmn2
+      end Top
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      """|Elaboration errors found!
+         |The following top device design ports or domains are missing location constraints:
+         |  Top.dmn2 is missing a clock location constraint
+         |  Top.dmn2.x
+         |  Top.dmn2.y
+         |To Fix:
+         |Add a location constraint to the ports by connecting them to a located resource or
+         |by using the `@io` constraint.""".stripMargin
+    )
+  test("clk/rst in related domain check"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val dmn = new RelatedDomain:
+          val clk = Clk <> IN
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:522:21 - 522:30
+          |Hierarchy: Top.clk
+          |Operation: `Port/Variable constructor`
+          |Message:   Cannot create a clk/rst in a related domain.
+          |You can create the clk/rst in the primary domain `Top` and reference it here instead.""".stripMargin
+    )
+  test("resource direction mismatch check"):
+    object Test:
+      import hw.constraints.*
+      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @timing.clock(rate = 20.MHz)
+      @top(false) class Top extends RTDesign:
+        @io(loc = "locClk")
+        val clk = Clk <> IN
+        @io(loc = "locx", dir = io.Dir.OUT)
+        val x = Bit <> IN
+        @io(loc = "locy", dir = io.Dir.IN)
+        val y = Bit <> OUT
+        y <> x.reg(1, init = 0)
+      end Top
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      """|Elaboration errors found!
+         |The following top device design ports have resource direction mismatches:
+         |  Top.x direction (IN) has a resource direction (OUT) mismatch.
+         |  Top.y direction (OUT) has a resource direction (IN) mismatch.
+         |To Fix:
+         |Make sure you connect the resource to the port with the correct direction.""".stripMargin
+    )
 end ElaborationChecksSpec

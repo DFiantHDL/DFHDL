@@ -18,7 +18,7 @@ final case class DFC(
     docOpt: Option[String],
     annotations: List[HWAnnotation] = Nil, // TODO: removing default causes stale symbol crash
     mutableDB: MutableDB = new MutableDB(),
-    refGen: ir.RefGen = new ir.RefGen((0, 0), 0),
+    refGen: ir.RefGen = ir.RefGen.initial,
     tags: ir.DFTags = ir.DFTags.empty,
     elaborationOptionsContr: () => ElaborationOptions = () =>
       summon[ElaborationOptions.Defaults[Design]]

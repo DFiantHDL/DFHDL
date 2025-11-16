@@ -113,7 +113,7 @@ class VivadoProjectTclConfigPrinter(using
       case configConstraint: constraints.DeviceConfig => configConstraint
     }.getOrElse(throw new IllegalArgumentException("No `@deviceConfig` constraint found"))
     if (bo.flash)
-      s"""\nwrite_cfgmem -format mcs -interface ${config.interface} -size ${config.sizeLimitMB} -loadbit "up 0x0 ./${topName}.bit" -file ./${topName}.mcs"""
+      s"""\nwrite_cfgmem -format mcs -interface ${config.interface} -size ${config.sizeLimitMb / 8} -loadbit "up 0x0 ./${topName}.bit" -file ./${topName}.mcs"""
     else ""
   def configFileName: String = s"$topName.tcl"
   def contents: String =
@@ -225,8 +225,10 @@ class VivadoProjectConstraintsPrinter(using
     // Slew rate constraint
     portConstraint.slewRate.foreach { slewRate =>
       val slewRateStr = slewRate match
-        case constraints.IO.SlewRate.SLOW => "SLOW"
-        case constraints.IO.SlewRate.FAST => "FAST"
+        case constraints.IO.SlewRate.SLOWEST       => "SLOW"
+        case constraints.IO.SlewRate.FASTEST       => "FAST"
+        case constraints.IO.SlewRate.CUSTOM(value) =>
+          throw new IllegalArgumentException(s"Custom slew rate is not supported in Vivado.")
       addToDict("SLEW", slewRateStr)
     }
 

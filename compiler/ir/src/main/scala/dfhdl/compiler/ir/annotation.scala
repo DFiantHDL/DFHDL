@@ -2,7 +2,6 @@ package dfhdl.compiler.ir
 import dfhdl.compiler.printing.{Printer, HasCodeString, refCodeString}
 import dfhdl.internals.*
 import upickle.default.*
-import dfhdl.internals.StableEnum
 
 object annotation:
   sealed abstract class HWAnnotation extends HasRefCompare[HWAnnotation], Product, Serializable,
@@ -39,7 +38,7 @@ object annotation:
     *   - prefix: $ownerName$sep$memberName
     *   - suffix: $memberName$sep$ownerName
     */
-  enum FlattenMode extends HWAnnotation, StableEnum derives ReadWriter:
+  enum FlattenMode extends HWAnnotation derives ReadWriter:
     case Transparent
     case Prefix(sep: String)
     case Suffix(sep: String)
@@ -85,6 +84,21 @@ object constraints:
       ).filter(_.nonEmpty).mkString(", ")
       s"""@deviceID($params)"""
   end DeviceID
+  final case class DeviceInfo(
+      slewRateSlowest: ConfigN[Int],
+      slewRateFastest: ConfigN[Int]
+  ) extends GlobalConstraint
+      derives CanEqual, ReadWriter:
+    protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs(using RefGen): this.type = this
+    def codeString(using Printer): String =
+      val params = List(
+        csParam("slewRateSlowest", slewRateSlowest),
+        csParam("slewRateFastest", slewRateFastest)
+      ).filter(_.nonEmpty).mkString(", ")
+      s"""@deviceInfo($params)"""
+  end DeviceInfo
   final case class DeviceProperties(properties: Map[String, String]) extends GlobalConstraint
       derives ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
@@ -94,9 +108,10 @@ object constraints:
       val props = properties.map { case (k, v) => s""""$k" -> "$v"""" }.mkString(", ")
       s"""@deviceProperties($props)"""
   object DeviceID:
-    enum Vendor extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
+    enum Vendor extends HasCodeString derives CanEqual, ReadWriter:
       case XilinxAMD, Lattice, Gowin
       case AlteraIntel(pro: Boolean)
+      case TinyTapeout
       def codeString(using Printer): String = "deviceID.Vendor." + this.toString
   final case class ToolOptions(options: Map[String, String]) extends GlobalConstraint
       derives ReadWriter:
@@ -110,7 +125,7 @@ object constraints:
   final case class DeviceConfig(
       flashPartName: String,
       interface: DeviceConfig.Interface,
-      sizeLimitMB: Int,
+      sizeLimitMb: Int,
       masterRate: ConfigN[RateNumber]
   ) extends GlobalConstraint derives ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
@@ -120,7 +135,7 @@ object constraints:
       val params = List(
         csParam("flashPartName", flashPartName),
         csParam("interface", interface),
-        csParam("sizeLimitMB", sizeLimitMB),
+        csParam("sizeLimitMb", sizeLimitMb),
         csParam("masterRate", masterRate)
       ).filter(_.nonEmpty).mkString(", ")
       s"""@deviceConfig($params)"""
@@ -199,6 +214,7 @@ object constraints:
   final case class IO(
       bitIdx: ConfigN[Int] = None,
       loc: ConfigN[String] = None,
+      dir: ConfigN[IO.Dir] = None,
       levelVolt: ConfigN[IO.LevelVolt] = None,
       standard: ConfigN[IO.Standard] = None,
       slewRate: ConfigN[IO.SlewRate] = None,
@@ -219,6 +235,7 @@ object constraints:
             IO(
               bitIdx = bitIdx,
               loc = loc.merge(that.loc),
+              dir = dir.merge(that.dir),
               levelVolt = levelVolt.merge(that.levelVolt),
               standard = standard.merge(that.standard),
               slewRate = slewRate.merge(that.slewRate),
@@ -237,6 +254,7 @@ object constraints:
       val params = List(
         csParam("bitIdx", bitIdx),
         csParam("loc", loc),
+        csParam("dir", dir),
         csParam("levelVolt", levelVolt),
         csParam("standard", standard),
         csParam("slewRate", slewRate),
@@ -251,8 +269,9 @@ object constraints:
     end codeString
   end IO
   object IO:
+    export DFVal.Modifier.Dir
     type LevelVolt = 3.3 | 3.0 | 2.5 | 1.8 | 1.5 | 1.2
-    enum Standard extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
+    enum Standard extends HasCodeString derives CanEqual, ReadWriter:
       case LVCMOS, LVTTL, LVDS, SchmittTrigger
       def codeString(using Printer): String = "io.Standard." + this.toString
       def withLevelVolt(levelVolt: LevelVolt): String =
@@ -263,10 +282,11 @@ object constraints:
           case LVDS           => s"LVDS_$num"
           case SchmittTrigger =>
             throw new IllegalArgumentException("Found unexpected use of SchmittTrigger.")
-    enum SlewRate extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
-      case SLOW, FAST
+    enum SlewRate extends HasCodeString derives CanEqual, ReadWriter:
+      case SLOWEST, FASTEST
+      case CUSTOM(value: Int)
       def codeString(using Printer): String = "io.SlewRate." + this.toString
-    enum PullMode extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
+    enum PullMode extends HasCodeString derives CanEqual, ReadWriter:
       case UP, DOWN
       def codeString(using Printer): String = "io.PullMode." + this.toString
   end IO

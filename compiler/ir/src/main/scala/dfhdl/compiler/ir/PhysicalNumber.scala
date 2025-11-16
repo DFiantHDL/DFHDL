@@ -1,7 +1,6 @@
 package dfhdl.compiler.ir
 import upickle.default.*
 import scala.annotation.targetName
-import dfhdl.internals.StableEnum
 
 extension (bd: BigDecimal.type)
   private def apply(arg: Int | Long | Double): BigDecimal = arg match
@@ -75,7 +74,7 @@ object LiteralNumber:
 
 final case class TimeNumber(value: BigDecimal, unit: TimeNumber.Unit) extends PhysicalNumber
 object TimeNumber:
-  enum Unit extends PhysicalNumber.Unit, StableEnum derives ReadWriter:
+  enum Unit extends PhysicalNumber.Unit derives ReadWriter:
     case fs, ps, ns, us, ms, sec, mn, hr
   extension (lhs: TimeNumber)
     private def to_psVal: BigDecimal = lhs.unit match
@@ -116,7 +115,7 @@ end TimeNumber
 
 final case class FreqNumber(value: BigDecimal, unit: FreqNumber.Unit) extends PhysicalNumber
 object FreqNumber:
-  enum Unit extends PhysicalNumber.Unit, StableEnum derives ReadWriter:
+  enum Unit extends PhysicalNumber.Unit derives ReadWriter:
     case Hz, KHz, MHz, GHz
   extension (lhs: FreqNumber)
     def to_hz: FreqNumber =

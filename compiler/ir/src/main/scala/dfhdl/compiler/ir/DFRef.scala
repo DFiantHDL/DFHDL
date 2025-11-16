@@ -2,6 +2,7 @@ package dfhdl.compiler.ir
 import scala.annotation.unchecked.uncheckedVariance
 import dfhdl.internals.hashString
 import upickle.default.*
+import scala.collection.mutable
 
 type DFRefAny = DFRef[DFMember]
 sealed trait DFRef[+M <: DFMember] extends Product, Serializable derives CanEqual:
@@ -139,21 +140,36 @@ extension (intCompanion: Int.type)
       case DFRef(dfVal: DFVal) =>
         dfVal.getConstData.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)
 
-class RefGen(private var grpId: (Int, Int), private var lastId: Int):
+class RefGen private (
+    private var magnetID: Int,
+    private var grpId: (Int, Int),
+    private var lastId: Int
+) extends Serializable:
+  private def nextMagnetID: Int =
+    val newId = magnetID + 1
+    magnetID = newId
+    newId
   private def nextId: Int =
     val newId = lastId + 1
     lastId = newId
     newId
+  private val magnetIDMap = mutable.Map.empty[Product, Int]
+  def getMagnetID(t: Product): Int = magnetIDMap.getOrElseUpdate(t, nextMagnetID)
   def getGrpId: (Int, Int) = grpId
   def setGrpId(newGrpId: (Int, Int)): Unit =
     grpId = newGrpId
   def genOneWay[M <: DFMember]: DFRef.OneWay[M] = DFRef.OneWay.Gen(grpId, nextId)
   def genTwoWay[M <: DFMember, O <: DFMember]: DFRef.TwoWay[M, O] = DFRef.TwoWay.Gen(grpId, nextId)
   def genTypeRef: DFRef.TypeRef = DFRef.TypeRef(grpId, nextId)
+end RefGen
 
 object RefGen:
+  def initial: RefGen = RefGen(0, (0, 0), 0)
   def fromGetSet(using getSet: MemberGetSet): RefGen =
     val rt = getSet.designDB.refTable
     val grpId = rt.last._1.grpId
     val lastId = rt.keys.map(_.id).max
-    RefGen(grpId, lastId)
+    val magnetID = getSet.designDB.members.view.collect {
+      case DFOpaque.Val(dfType) if dfType.isMagnet => dfType.id
+    }.maxOption.getOrElse(0)
+    RefGen(magnetID, grpId, lastId)

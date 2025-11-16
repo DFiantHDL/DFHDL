@@ -1091,6 +1091,7 @@ final case class DB(
         // Collect all location constraints to check for collisions
         val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
         (design :: members).foreach {
+          case designInstance: DFDesignBlock if designInstance != design => // no need to check for location constraints in nested designs
           case domainOwner: DFDomainOwner =>
             domainOwner.domainType match
               case DomainType.RT(_) =>
@@ -1104,7 +1105,12 @@ final case class DB(
                     foundLoc = true
                   case _ =>
                 }
-                if (!foundLoc)
+                val clkIsVar = domainOwnerMemberTable(domainOwner).view.collectFirst {
+                  case dcl: DFVal.Dcl if dcl.isClkDcl => dcl.isVar
+                }.getOrElse(false)
+
+                // for internal domains (indicated by a clock variable) we don't need to check for location constraints
+                if (!foundLoc && !clkIsVar)
                   errors += s"${domainOwner.getFullName} is missing a clock location constraint"
               case _ =>
             end match
@@ -1158,6 +1164,38 @@ final case class DB(
       )
   end portLocationCheck
 
+  def portResourceDirCheck(): Unit =
+    import DFVal.Modifier.Dir
+    val errors = mutable.ListBuffer.empty[String]
+
+    designMemberList.foreach {
+      case (design, members) if design.isDeviceTop =>
+        members.foreach {
+          case port: DFVal.Dcl if port.isPort =>
+            port.meta.annotations.foreach {
+              case constraints.IO(dir = dir: Dir) =>
+                (dir, port.modifier.dir) match
+                  case (Dir.IN, Dir.OUT) | (Dir.OUT, Dir.IN) =>
+                    errors += s"${port.getFullName} direction (${port.modifier.dir}) has a resource direction ($dir) mismatch."
+                  case _ =>
+              case _ =>
+            }
+          case _ =>
+        }
+      case _ =>
+    }
+
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(
+        s"""|The following top device design ports have resource direction mismatches:
+            |  ${errors.mkString("\n  ")}
+            |To Fix:
+            |Make sure you connect the resource to the port with the correct direction.
+            |""".stripMargin
+      )
+
+  end portResourceDirCheck
+
   def check(): Unit =
     nameCheck()
     connectionTable // causes connectivity checks
@@ -1168,6 +1206,8 @@ final case class DB(
     domainClkRateCheck()
     waitCheck()
     portLocationCheck()
+    portResourceDirCheck()
+  end check
 
   // There can only be a single connection to a value in a given range
   // (multiple assignments are possible)

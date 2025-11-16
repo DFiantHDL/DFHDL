@@ -78,6 +78,12 @@ object constraints:
       ir.constraints.DeviceID(vendor, deviceName, partName, deviceVersion)
   object deviceID:
     export ir.constraints.DeviceID.Vendor
+  final case class deviceInfo(
+      slewRateSlowest: ir.ConfigN[Int] = None,
+      slewRateFastest: ir.ConfigN[Int] = None
+  ) extends GlobalConstraint:
+    val asIR: ir.constraints.DeviceInfo =
+      ir.constraints.DeviceInfo(slewRateSlowest, slewRateFastest)
   final case class deviceProperties(properties: (String, String)*) extends GlobalConstraint:
     val asIR: ir.constraints.DeviceProperties = ir.constraints.DeviceProperties(properties.toMap)
   final case class toolOptions(options: (String, String)*) extends GlobalConstraint:
@@ -85,17 +91,18 @@ object constraints:
   final case class deviceConfig(
       flashPartName: String,
       interface: deviceConfig.Interface,
-      sizeLimitMB: Int,
+      sizeLimitMb: Int,
       masterRate: ir.ConfigN[ir.RateNumber] = None
   ) extends GlobalConstraint:
     val asIR: ir.constraints.DeviceConfig =
-      ir.constraints.DeviceConfig(flashPartName, interface, sizeLimitMB, masterRate)
+      ir.constraints.DeviceConfig(flashPartName, interface, sizeLimitMb, masterRate)
   object deviceConfig:
     export ir.constraints.DeviceConfig.Interface
 
   final case class io(
       bitIdx: ir.ConfigN[Int] = None,
       loc: ir.ConfigN[String] = None,
+      dir: ir.ConfigN[io.Dir] = None,
       levelVolt: ir.ConfigN[io.LevelVolt] = None,
       standard: ir.ConfigN[io.Standard] = None,
       slewRate: ir.ConfigN[io.SlewRate] = None,
@@ -108,12 +115,12 @@ object constraints:
   ) extends SigConstraint:
     val asIR: ir.constraints.IO =
       ir.constraints.IO(
-        bitIdx, loc, levelVolt, standard, slewRate, driveStrength, pullMode, dualPurposeGroups,
+        bitIdx, loc, dir, levelVolt, standard, slewRate, driveStrength, pullMode, dualPurposeGroups,
         unusedPullMode, invertActiveState, missingPullDownSupport
       )
   end io
   object io:
-    export ir.constraints.IO.{LevelVolt, Standard, SlewRate, PullMode}
+    export ir.constraints.IO.{LevelVolt, Standard, SlewRate, PullMode, Dir}
 
   object timing:
     final case class ignore(

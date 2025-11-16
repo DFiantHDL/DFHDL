@@ -748,7 +748,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                 idxHigh = idxHigh - partWidth
               case bindTree: Bind =>
                 bindTree.tpe.simple match
-                  case AndType(_, DFVal(DFBits(widthTpe))) =>
+                  case StripAndString(DFVal(DFBits(widthTpe))) =>
                     widthTpe match
                       case ConstantType(Constant(partWidth: Int)) if partWidth > 0 =>
                         val idxLow = idxHigh - partWidth + 1

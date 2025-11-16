@@ -1,7 +1,7 @@
 // format: off
 package issues.i116
 
-import dfhdl.* 
+import dfhdl.*
 
 case class Test (
   a : Bit <> VAL,
@@ -14,19 +14,19 @@ case class Test (
   val t = Test <> IN
   val t_b = Bit <> VAR
   t_b := t.b
-  val t_int = Test <> VAR 
+  val t_int = Test <> VAR
   t_int := t
   
   val cnt = UInt(width) <> OUT.REG init 0
    
   if (t.a) {
-    if (t.b) { 
+    if (t.b) {
         cnt.din := cnt + 1
     }
   }
   
   if (req) {
-    if (t.b) { 
+    if (t.b) {
         cnt.din := cnt + 1
     }
   }
@@ -36,13 +36,13 @@ case class Test (
   }
   
   if (t.a) {
-    if (t_b) { 
+    if (t_b) {
         cnt.din := cnt + 1
     }
   }
 
   if (t_int.a) {
-    if (t_int.b) { 
+    if (t_int.b) {
         cnt.din := cnt + 1
     }
   }

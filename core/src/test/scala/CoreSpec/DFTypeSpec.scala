@@ -21,7 +21,7 @@ class DFTypeSpec extends DFSpec:
     case Foo, Bar, Baz
   enum MyEnum3 extends Encoded.OneHot:
     case Foo, Bar, Baz
-  enum MyEnum4 extends Encoded.Grey:
+  enum MyEnum4 extends Encoded.Gray:
     case Foo, Bar, Baz
   enum MyEnum5(val value: UInt[8] <> CONST) extends Encoded.Manual(8):
     case Foo extends MyEnum5(200)

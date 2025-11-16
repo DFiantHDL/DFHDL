@@ -233,6 +233,7 @@ class NameRegAliasesSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT.REG init sd"16'0"
          |    y.din := x
+         |  end dmn1
          |  val dmn2 = new RTDomain:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
@@ -241,6 +242,7 @@ class NameRegAliasesSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    x_reg1.din := x
          |    x_reg2.din := x_reg1
          |    y := x_reg2 + x_reg2
+         |  end dmn2
          |end ID
          |""".stripMargin
     )

@@ -1177,7 +1177,7 @@ object DFVal extends DFValLP:
   export DFPhysical.Val.Ops.given
   export TDFDouble.Val.Ops.given
   export DFEnum.Val.Ops.given
-  export DFOpaque.Val.Ops.evOpAsDFOpaqueIterable
+  export DFOpaque.Val.Ops.{evOpAsDFOpaqueIterable, evOpClkAsClkComp, evOpRstAsRstComp}
   export TDFString.Val.Ops.given
   export ConnectOps.given
 
@@ -1252,8 +1252,9 @@ object DFVal extends DFValLP:
         // connection in either direction where both implicit directions are available
         inline if (lhsIsDFVal && rhsIsDFVal)
           inline lhs match
-            case lhs: DFValAny => inline rhs match
-                case rhs: DFValAny => ConnectOps.specialConnect(lhs, rhs)
+            case lhs: DFVal[lt, lm] => inline rhs match
+                case rhs: DFVal[rt, rm] =>
+                  ConnectOps.specialConnect[lt, lm, rt, rm](lhs, rhs)
         // if the RHS is a modifier, this is a port/variable constructor,
         // so we invoke the the implicit given operation only in one way
         else if (rhsIsModifier) exactOp2["<>", DFC, Any](lhs, rhs)
@@ -1541,24 +1542,34 @@ object ConnectOps:
   ]
   protected type ConnectableModifier[M <: ModifierAny] =
     M <:< Modifier[Any, Modifier.Connectable, Any, Any]
-  protected trait TC_Connect[Consumer <: DFValAny, Producer <: DFValAny]:
-    def connect(consumer: Consumer, producer: Producer)(using DFC): Unit
+  protected trait TC_Connect[
+      CT <: DFTypeAny,
+      CM <: ModifierAny,
+      PT <: DFTypeAny,
+      PM <: ModifierAny
+  ]:
+    def connect(consumer: DFVal[CT, CM], producer: DFVal[PT, PM])(using DFC): Unit
   protected object TC_Connect:
     given [
         CT <: DFTypeAny,
         CM <: ModifierAny,
-        Consumer <: DFVal[CT, CM],
-        Producer <: DFValAny
+        PT <: DFTypeAny,
+        PM <: ModifierAny
     ](using
         ConnectableModifier[CM]
-    )(using tc: DFVal.TC[CT, Producer]): TC_Connect[Consumer, Producer] with
-      def connect(consumer: Consumer, producer: Producer)(using DFC): Unit =
+    )(using tc: DFVal.TC[CT, DFVal[PT, PM]]): TC_Connect[CT, CM, PT, PM] with
+      def connect(consumer: DFVal[CT, CM], producer: DFVal[PT, PM])(using DFC): Unit =
         consumer.connect(tc(consumer.dfType, producer))
 
-  private def specialConnectRuntime[L <: DFValAny, R <: DFValAny](
-      lhs: L,
-      rhs: R,
-      dualSummon: DualSummonTrapError[TC_Connect[L, R], TC_Connect[R, L]]
+  private def specialConnectRuntime[
+      CT <: DFTypeAny,
+      CM <: ModifierAny,
+      PT <: DFTypeAny,
+      PM <: ModifierAny
+  ](
+      lhs: DFVal[CT, CM],
+      rhs: DFVal[PT, PM],
+      dualSummon: DualSummonTrapError[TC_Connect[CT, CM, PT, PM], TC_Connect[PT, PM, CT, CM]]
   )(using dfc: DFC): Unit = trydf {
     (dualSummon.valueL, dualSummon.valueR) match
       case (Some(tcL), Some(tcR)) =>
@@ -1573,12 +1584,19 @@ object ConnectOps:
     end match
   }(using dfc, CTName("<>"))
 
-  private[core] transparent inline def specialConnect[L <: DFValAny, R <: DFValAny](
-      inline lhs: L,
-      inline rhs: R
+  private[core] transparent inline def specialConnect[
+      LT <: DFTypeAny,
+      LM <: ModifierAny,
+      RT <: DFTypeAny,
+      RM <: ModifierAny
+  ](
+      inline lhs: DFVal[LT, LM],
+      inline rhs: DFVal[RT, RM]
   )(using dfc: DFC): Unit =
-    val dualSummon =
-      compiletime.summonInline[DualSummonTrapError[TC_Connect[L, R], TC_Connect[R, L]]]
+    val dualSummon = compiletime.summonInline[DualSummonTrapError[
+      TC_Connect[LT, LM, RT, RM],
+      TC_Connect[RT, RM, LT, LM]
+    ]]
     specialConnectRuntime(lhs, rhs, dualSummon)
   end specialConnect
 

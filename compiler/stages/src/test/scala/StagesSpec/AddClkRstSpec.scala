@@ -39,6 +39,7 @@ class AddClkRstSpec extends StageSpec:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
+         |  end internal
          |  y := x
          |end ID
          |""".stripMargin
@@ -115,6 +116,7 @@ class AddClkRstSpec extends StageSpec:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
+         |  end internal
          |  y := x
          |end ID
          |""".stripMargin
@@ -144,6 +146,7 @@ class AddClkRstSpec extends StageSpec:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
+         |  end internal
          |  y := x
          |end ID
          |""".stripMargin
@@ -171,6 +174,7 @@ class AddClkRstSpec extends StageSpec:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
+         |  end internal
          |  y := x
          |end ID
          |""".stripMargin
@@ -200,6 +204,7 @@ class AddClkRstSpec extends StageSpec:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
+         |  end internal
          |  y := x
          |end ID
          |""".stripMargin
@@ -237,12 +242,15 @@ class AddClkRstSpec extends StageSpec:
          |    val rst = Rst_cfgI <> IN
          |    val ii = new RelatedDomain:
          |      val x = SInt(16) <> IN
+         |    end ii
          |    val y = SInt(16) <> OUT
          |    y <> x
+         |  end internal1
          |  val internal2 = new internal1.RelatedDomain:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> (internal1.ii.x + x)
+         |  end internal2
          |  y := x
          |end ID
          |""".stripMargin
@@ -284,6 +292,7 @@ class AddClkRstSpec extends StageSpec:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
+         |  end internal
          |  y := x
          |end ID
          |""".stripMargin
@@ -298,8 +307,8 @@ class AddClkRstSpec extends StageSpec:
       val gen = new RTDomain(genCfg):
         val clk = Clk <> OUT
         val rst = Rst <> OUT
-      gen.clk <> src.clk
-      gen.rst <> src.rst
+      gen.clk <> src.clk.as(gen.Clk)
+      gen.rst <> src.rst.as(gen.Rst)
     class ID extends RTDesign(cfg):
       val x        = SInt(16) <> IN
       val y        = SInt(16) <> OUT
@@ -321,11 +330,13 @@ class AddClkRstSpec extends StageSpec:
          |  val src = new RTDomain(cfg):
          |    val clk = Clk_cfg <> IN
          |    val rst = Rst_cfg <> IN
+         |  end src
          |  val gen = new RTDomain(genCfg):
          |    val clk = Clk_genCfg <> OUT
          |    val rst = Rst_genCfg <> OUT
-         |  gen.clk <> src.clk
-         |  gen.rst <> src.rst
+         |  end gen
+         |  gen.clk <> src.clk.as(Clk_genCfg)
+         |  gen.rst <> src.rst.as(Rst_genCfg)
          |end ClkGen
          |
          |class ID extends RTDesign(cfg):
@@ -338,6 +349,7 @@ class AddClkRstSpec extends StageSpec:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
+         |  end internal
          |  y := x
          |end ID
          |""".stripMargin
@@ -383,14 +395,17 @@ class AddClkRstSpec extends StageSpec:
          |    val rst = Rst_default <> IN
          |    val id = ID()
          |    id.x <> x
+         |  end dmn1
          |  val dmn2 = new RTDomain(RTDomainCfg.Default):
          |    val clk = Clk_default <> IN
          |    val rst = Rst_default <> IN
          |    val id = ID()
          |    id.x <> dmn1.id.y.reg(1, init = sd"16'0")
+         |  end dmn2
          |  val dmn3 = new dmn1.RelatedDomain:
          |    val id = ID()
          |    id.x <> dmn2.id.y.reg(1, init = sd"16'0")
+         |  end dmn3
          |  y <> id.y
          |end IDTop
          |""".stripMargin
@@ -421,6 +436,7 @@ class AddClkRstSpec extends StageSpec:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
+         |  end internal
          |  y := x
          |end ID
          |""".stripMargin
@@ -494,6 +510,7 @@ class AddClkRstSpec extends StageSpec:
          |        10.ns.wait
          |        rst.actual :== 0
          |      end while
+         |  end clkRstSimGen
          |  val child = FooChild()
          |end Foo
          |""".stripMargin
@@ -535,6 +552,7 @@ class AddClkRstSpec extends StageSpec:
          |        10.ns.wait
          |        rst.actual :== 0
          |      end while
+         |  end clkRstSimGen
          |  val child = FooChild()
          |end Foo
          |""".stripMargin
@@ -569,6 +587,7 @@ class AddClkRstSpec extends StageSpec:
          |        clk.actual :== 1
          |        10.ns.wait
          |      end while
+         |  end clkRstSimGen
          |  val child = FooChild()
          |end Foo
          |""".stripMargin
@@ -641,6 +660,7 @@ class AddClkRstSpec extends StageSpec:
          |        clk.actual :== 1
          |        10.ns.wait
          |      end while
+         |  end clkRstSimGen
          |  val child = FooChild()
          |end Foo
          |""".stripMargin

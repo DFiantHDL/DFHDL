@@ -183,7 +183,7 @@ object Width extends WidthLP:
                     case _ => None
                 case '[DFEncoding.OneHot] =>
                   Some(entryCount)
-                case '[DFEncoding.Grey] =>
+                case '[DFEncoding.Gray] =>
                   Some((entryCount - 1).bitsWidth(false))
                 case '[DFEncoding.Manual[w]] =>
                   TypeRepr.of[w] match

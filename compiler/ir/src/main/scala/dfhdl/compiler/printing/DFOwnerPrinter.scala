@@ -290,7 +290,9 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val inst =
       if (body.isEmpty) s"${design.dclName}$designParamCS"
       else s"new ${design.dclName}$designParamCS:\n${body.hindent}"
-    s"val ${design.getName} = ${inst}"
+    val csVal = s"val ${design.getName} = ${inst}"
+    if (body.isEmpty) csVal else s"$csVal\nend ${design.getName}"
+  end csDFDesignBlockInst
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"
@@ -380,6 +382,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
+    val endName = domain.meta.nameOpt.map(n => s"end $n").getOrElse("end new")
     val domainStr = domain.domainType match
       case DomainType.DF     => "DFDomain"
       case rt: DomainType.RT =>
@@ -395,7 +398,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
             s"RTDomain(${printer.csRTDomainCfg(rt.cfg)})"
       case DomainType.ED => "EDDomain"
     sn"""|${named}new $domainStr:
-         |${body.hindent}"""
+         |${body.hindent}
+         |$endName"""
   end csDomainBlock
 
 end DFOwnerPrinter

@@ -18,7 +18,7 @@ object DFEncoding:
     val width: W
   abstract class Default extends StartAt(0)
 
-  abstract class Grey extends Auto:
+  abstract class Gray extends Auto:
     final def calcWidth(entryCount: Int): Int =
       (entryCount - 1).bitsWidth(false)
     final def encode(idx: Int): BigInt = BigInt(idx ^ (idx >>> 1))

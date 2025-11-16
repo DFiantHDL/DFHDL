@@ -1,9 +1,14 @@
 package dfhdl.platforms.resources
 
-class VGA() extends ResourceGroup:
-  val R = IOBus.fill(4)(Sig())
-  val G = IOBus.fill(4)(Sig())
-  val B = IOBus.fill(4)(Sig())
-  val HS = Sig()
-  val VS = Sig()
+/** VGA output.
+  *
+  * @param bitsPerColor
+  *   The number of bits for each of the RGB color channels.
+  */
+class VGA[BR <: Int & Singleton](val bitsPerColor: BR = 4) extends ResourceGroup:
+  val R = IOBus.fill(bitsPerColor)(Sig.OUT())
+  val G = IOBus.fill(bitsPerColor)(Sig.OUT())
+  val B = IOBus.fill(bitsPerColor)(Sig.OUT())
+  val HS = Sig.OUT()
+  val VS = Sig.OUT()
 end VGA

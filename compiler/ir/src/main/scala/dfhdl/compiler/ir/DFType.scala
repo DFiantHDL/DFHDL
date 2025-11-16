@@ -249,7 +249,7 @@ final case class DFDecimal(
 end DFDecimal
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
-  enum NativeType extends StableEnum derives CanEqual, ReadWriter:
+  enum NativeType derives CanEqual, ReadWriter:
     case BitAccurate, Int32
   object NativeType:
     type BitAccurate = BitAccurate.type
