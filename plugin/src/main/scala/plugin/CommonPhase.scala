@@ -115,6 +115,17 @@ abstract class CommonPhase extends PluginPhase:
   var dfValSym: Symbol = uninitialized
   var constModTpe: Type = uninitialized
   var genDesignParamSym: TermSymbol = uninitialized
+  private var bTpe: Type = uninitialized
+
+  object StripAndString:
+    def unapply(tpe: Type)(using Context): Option[Type] =
+      tpe.simple match
+        case AndType(str, t) if str =:= defn.StringType && t <:< bTpe =>
+          Some(t)
+        case AndType(t, str) if str =:= defn.StringType && t <:< bTpe =>
+          Some(t)
+        case _ => None
+  end StripAndString
 
   extension (tree: TypeDef)
     def hasDFC(using Context): Boolean =
@@ -405,6 +416,7 @@ abstract class CommonPhase extends PluginPhase:
     constModTpe = requiredClassRef("dfhdl.core.ISCONST").appliedTo(ConstantType(Constant(true)))
     contextFunctionSym = defn.FunctionSymbol(1, isContextual = true)
     genDesignParamSym = requiredMethod("dfhdl.core.r__For_Plugin.genDesignParam")
+    bTpe = requiredClassRef("dfhdl.hdl.B")
     if (debugFilter(tree.source.path.toString))
       println(
         s"""===============================================================
