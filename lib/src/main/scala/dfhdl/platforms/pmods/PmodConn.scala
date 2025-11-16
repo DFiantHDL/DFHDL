@@ -29,3 +29,18 @@ object PmodDualConn:
       male.pm1 <> female.pm1
       male.pm2 <> female.pm2
 end PmodDualConn
+
+object PmodTripleConn:
+  class Male(val pm1: PmodConn.Male, val pm2: PmodConn.Male, val pm3: PmodConn.Male)
+      extends ResourceDeps:
+    lazy val upstreamDeps: List[Resource] = List(pm1, pm2, pm3)
+  class Female(val pm1: PmodConn.Female, val pm2: PmodConn.Female, val pm3: PmodConn.Female)
+      extends ResourceDeps:
+    lazy val upstreamDeps: List[Resource] = List(pm1, pm2, pm3)
+
+  given [M <: Male, F <: Female]: CanConnect[M, F] with
+    def connect(male: M, female: F)(using DFC): Unit =
+      male.pm1 <> female.pm1
+      male.pm2 <> female.pm2
+      male.pm3 <> female.pm3
+end PmodTripleConn

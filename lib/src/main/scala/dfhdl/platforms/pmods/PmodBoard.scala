@@ -21,3 +21,12 @@ object PmodDualBoard:
   ): CanConnect[B, R] with
     def connect(board: B, resource: R)(using DFC): Unit =
       cc.connect(board.pmodDualConn, resource)
+
+trait PmodTripleBoard extends Board, Resource:
+  protected val pmodTripleConn: PmodTripleConn.Male
+object PmodTripleBoard:
+  given [B <: PmodTripleBoard, R <: Resource](using
+      cc: CanConnect[PmodTripleConn.Male, R]
+  ): CanConnect[B, R] with
+    def connect(board: B, resource: R)(using DFC): Unit =
+      cc.connect(board.pmodTripleConn, resource)
