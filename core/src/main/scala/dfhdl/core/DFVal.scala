@@ -844,6 +844,12 @@ object DFVal extends DFValLP:
           idxLow: IntParam[L]
       )(using DFC): DFVal[DFBits[H - L + 1], M] =
         forced(relVal.asIR, idxHigh, idxLow).asVal[DFBits[H - L + 1], M]
+      def applyDFXInt[S <: Boolean, W <: IntP, M <: ModifierAny, H <: IntP, L <: IntP](
+          relVal: DFVal[DFXInt[S, W, NativeType.BitAccurate], M],
+          idxHigh: IntParam[H],
+          idxLow: IntParam[L]
+      )(using DFC): DFVal[DFXInt[S, H - L + 1, NativeType.BitAccurate], M] =
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFXInt[S, H - L + 1, NativeType.BitAccurate], M]
       def applyVector[T <: DFTypeAny, M <: ModifierAny, H <: IntP, L <: IntP](
           relVal: DFVal[DFVector[T, Tuple1[?]], M],
           idxHigh: IntParam[H],
@@ -858,6 +864,8 @@ object DFVal extends DFValLP:
         val selLength = idxHigh - idxLow + 1
         val dfType = (relVal.dfType: @unchecked) match
           case ir.DFBits(_)                     => ir.DFBits(selLength.ref)
+          case ir.DFUInt(_)                     => ir.DFUInt(selLength.ref)
+          case ir.DFSInt(_)                     => ir.DFSInt(selLength.ref)
           case ir.DFVector(cellType = cellType) =>
             ir.DFVector(cellType, List(selLength.ref))
         relVal match
@@ -1173,7 +1181,7 @@ object DFVal extends DFValLP:
   export DFBits.Val.Ops.given
   export DFTuple.Val.Ops.given
   export DFVector.Val.Ops.given
-  export DFXInt.Val.Ops.evOpArithIntDFInt32
+  export DFXInt.Val.Ops.{evOpArithIntDFInt32, evOpApplyDFXInt, evOpApplyRangeDFXInt}
   export DFPhysical.Val.Ops.given
   export TDFDouble.Val.Ops.given
   export DFEnum.Val.Ops.given
@@ -1682,7 +1690,7 @@ extension (dfVal: ir.DFVal)
                   case const: DFConstInt32 => const.asIR.cloneAnonValueAndDepsHere
                 ret.asInstanceOf[IntParam[Int]]
               DFVal.Alias.ApplyRange(
-                clonedRelVal.asValOf[DFBits[Int]],
+                clonedRelVal.asValOf[DFBits[Int]], // this is OK even for UInt/SInt
                 cloneIntParam(alias.idxHighRef.get),
                 cloneIntParam(alias.idxLowRef.get)
               )(using dfcForClone)

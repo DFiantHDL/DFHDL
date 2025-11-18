@@ -764,8 +764,8 @@ object DFVal:
         tags: DFTags
     ) extends Partial derives ReadWriter:
       def elementWidth(using MemberGetSet): Int = (dfType: @unchecked) match
-        case DFBits(_)                     => 1
-        case DFVector(cellType = cellType) => cellType.width
+        case DFBits(_) | DFUInt(_) | DFSInt(_) => 1
+        case DFVector(cellType = cellType)     => cellType.width
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -789,9 +789,8 @@ object DFVal:
           case that: ApplyRange =>
             this.dfType.isSimilarTo(that.dfType) &&
             this.relValRef.get.isSimilarTo(that.relValRef.get) &&
-            this.idxHighRef.isSimilarTo(that.idxHighRef) && this.idxLowRef.isSimilarTo(
-              that.idxLowRef
-            )
+            this.idxHighRef.isSimilarTo(that.idxHighRef) &&
+            this.idxLowRef.isSimilarTo(that.idxLowRef)
           case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -834,12 +833,15 @@ object DFVal:
                   val data = relValData.asInstanceOf[(BitVector, BitVector)]
                   if (data._2.bit(idxInt)) None
                   else Some(data._1.bit(idxInt))
+                case DFUInt(_) | DFSInt(_) =>
+                  relValData.asInstanceOf[Option[BigInt]].map(_.testBit(idxInt))
                 case DFVector(_, _) =>
                   relValData.asInstanceOf[Vector[?]](idxInt)
                 case _ => ???
               Some(outData)
             case Some(_: None.type) => Some(None)
             case _                  => None
+          end match
         )
       end protGetConstData
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match

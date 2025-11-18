@@ -836,6 +836,54 @@ object DFXInt:
     object Ops:
       export DFUInt.Val.Ops.*
       export DFSInt.Val.Ops.*
+      import DFBits.{BitIndex, BitsHiLo}
+      import IntP.{-, +}
+      given evOpApplyDFXInt[
+          S <: Boolean,
+          W <: IntP,
+          A,
+          C,
+          I,
+          P,
+          L <: DFVal[DFXInt[S, W, BitAccurate], Modifier[A, C, I, P]],
+          R
+      ](using
+          ub: DFUInt.Val.UBArg[W, R]
+      ): ExactOp2Aux["apply", DFC, DFValAny, L, R, DFValTP[DFBit, P]] =
+        new ExactOp2["apply", DFC, DFValAny, L, R]:
+          type Out = DFValTP[DFBit, P]
+          def apply(lhs: L, idx: R)(using DFC): Out = trydf {
+            DFVal.Alias.ApplyIdx(DFBit, lhs, ub(lhs.widthIntParam, idx)(using dfc.anonymize))
+          }(using dfc, CTName("bit selection (apply)"))
+      end evOpApplyDFXInt
+      given evOpApplyRangeDFXInt[
+          S <: Boolean,
+          W <: IntP,
+          A,
+          C,
+          I,
+          P,
+          L <: DFVal[DFXInt[S, W, BitAccurate], Modifier[A, C, I, P]],
+          HI <: IntP,
+          LO <: IntP
+      ](using
+          checkHigh: BitIndex.CheckNUB[HI, W],
+          checkLow: BitIndex.CheckNUB[LO, W],
+          checkHiLo: BitsHiLo.CheckNUB[HI, LO]
+      ): ExactOp3Aux["apply", DFC, DFValAny, L, HI, LO, DFValTP[
+        DFXInt[S, HI - LO + 1, BitAccurate],
+        P
+      ]] =
+        new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
+          type Out = DFValTP[DFXInt[S, HI - LO + 1, BitAccurate], P]
+          def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
+            checkHigh(IntParam(idxHigh), lhs.widthInt)
+            checkLow(IntParam(idxLow), lhs.widthInt)
+            checkHiLo(IntParam(idxHigh), IntParam(idxLow))
+            DFVal.Alias.ApplyRange.applyDFXInt(lhs, IntParam(idxHigh), IntParam(idxLow))
+          }(using dfc, CTName("bit range selection (apply)"))
+      end evOpApplyRangeDFXInt
+
       export dfhdl.internals.clog2
       def clog2[P, S <: Boolean, W <: IntP, N <: NativeType](
           dfVal: DFValTP[DFXInt[S, W, N], P]

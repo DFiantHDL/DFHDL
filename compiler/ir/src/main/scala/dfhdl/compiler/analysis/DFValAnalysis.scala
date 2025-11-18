@@ -281,12 +281,13 @@ extension (dfVal: DFVal)
                 val maxValue = relVal.dfType match
                   case vector: DFVector => vector.length - 1
                   case bits: DFBits     => bits.width - 1
+                  case xInt: DFDecimal  => xInt.width - 1
                   case _                => ???
                 s"_${i.toPaddedString(maxValue)}"
               case _ => "_sel"
           case applyRange: DFVal.Alias.ApplyRange =>
             (applyRange.dfType: @unchecked) match
-              case DFBits(_) =>
+              case DFBits(_) | DFUInt(_) | DFSInt(_) =>
                 val idxHigh = applyRange.idxHighRef.getInt.toPaddedString(applyRange.width - 1)
                 val idxLow = applyRange.idxLowRef.getInt.toPaddedString(applyRange.width - 1)
                 s"_${idxHigh}_${idxLow}"

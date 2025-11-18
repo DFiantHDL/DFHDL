@@ -73,7 +73,7 @@ def selRangeData(
     fromData: Any,
     relBitHigh: Int,
     relBitLow: Int
-): Any = ((dfType, fromData): @unchecked) match
+)(using MemberGetSet): Any = ((dfType, fromData): @unchecked) match
   case (_: DFBits, (valueBits: BitVector, bubbleBits: BitVector)) =>
     assert(relBitHigh >= 0 && relBitHigh < valueBits.length)
     assert(relBitLow >= 0 && relBitLow < valueBits.length)
@@ -81,6 +81,11 @@ def selRangeData(
     val selValueBits = valueBits.bits(relBitHigh.toLong, relBitLow.toLong)
     val selBubbleBits = bubbleBits.bits(relBitHigh.toLong, relBitLow.toLong)
     (selValueBits, selBubbleBits)
+  case (
+        DFXInt(signed, Int(width), DFDecimal.NativeType.BitAccurate),
+        data: Option[BigInt] @unchecked
+      ) =>
+    data.map(_.toBitVector(width).bits(relBitHigh, relBitLow).toBigInt(signed))
   case (_: DFVector, data: Vector[Any]) =>
     data.slice(relBitLow, relBitHigh + 1)
 end selRangeData

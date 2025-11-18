@@ -115,6 +115,10 @@ class DFDecimalSpec extends DFSpec:
          |val sl: Int <> CONST = 1 << param
          |val sr: Int <> CONST = 1 >> param
          |val pow: Int <> CONST = 2 ** param
+         |val u4 = u6(3, 0)
+         |val ubit = u6(1)
+         |val s4 = s6(3, 0)
+         |val sbit = s6(1)
          |""".stripMargin
     } {
       val c: UInt[8] <> CONST = 1
@@ -244,6 +248,10 @@ class DFDecimalSpec extends DFSpec:
       val sl = 1 << param
       val sr = 1 >> param
       val pow = 2 ** param
+      val u4 = u6(3, 0)
+      val ubit = u6(1)
+      val s4 = s6(3, 0)
+      val sbit = s6(1)
     }
     assertDSLErrorLog(
       """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
