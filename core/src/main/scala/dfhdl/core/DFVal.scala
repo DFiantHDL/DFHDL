@@ -877,7 +877,7 @@ object DFVal extends DFValLP:
               const.data,
               idxHigh,
               idxLow
-            )
+            )(using dfc.getSet)
             Const.forced(dfType.asFE, updatedData).asIR
           // named constants or other non-constant values are referenced
           // in a new alias construct

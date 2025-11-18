@@ -293,9 +293,21 @@ class DFBitsSpec extends DFSpec:
     }
     val u5 = UInt(5) <> VAR
     assertCompileError(
-      "Expected argument width 3 but found: 5"
+      """|Expected argument width 3 but found: 5
+         |To Fix:
+         |Use `.truncate` to match the width automatically.""".stripMargin
     )(
       """b8(u5)"""
     )
+    val o5 = b8(u5.truncate)
+    val u2 = UInt(2) <> VAR
+    assertCompileError(
+      """|Expected argument width 3 but found: 2
+         |To Fix:
+         |Use `.extend` to match the width automatically.""".stripMargin
+    )(
+      """b8(u2)"""
+    )
+    val o2 = b8(u2.extend)
   }
 end DFBitsSpec

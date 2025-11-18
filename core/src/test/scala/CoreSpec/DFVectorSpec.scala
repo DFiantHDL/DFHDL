@@ -16,8 +16,11 @@ class DFVectorSpec extends DFSpec:
          |val t2 = v1 != DFVector(UInt(8) X 5)(x, x, x, x, x)
          |val t3 = v1(3)
          |val i = UInt(3) <> VAR
-         |val i2 = UInt(4) <> VAR
+         |val i2 = UInt(2) <> VAR
+         |val i4 = UInt(4) <> VAR
          |val t4 = v1(i.toInt)
+         |val o2 = v1(i2.resize(3).toInt)
+         |val o4 = v1(i4.resize(3).toInt)
          |val v3 = UInt(8) X 4 X 4 <> VAR
          |v3 := all(all(d"8'0"))
          |v3(3)(1) := d"8'25"
@@ -57,7 +60,8 @@ class DFVectorSpec extends DFSpec:
       val t2 = v1 != Vector.fill(5)(x)
       val t3 = v1(3)
       val i = UInt(3) <> VAR
-      val i2 = UInt(4) <> VAR
+      val i2 = UInt(2) <> VAR
+      val i4 = UInt(4) <> VAR
       val t4 = v1(i)
       assertCompileError(
         "The argument vector length (6) is different than the receiver vector length (5)."
@@ -65,10 +69,21 @@ class DFVectorSpec extends DFSpec:
         """v1 := v2"""
       )
       assertCompileError(
-        "Expected argument width 3 but found: 4"
+        """|Expected argument width 3 but found: 2
+           |To Fix:
+           |Use `.extend` to match the width automatically.""".stripMargin
       )(
         """v1(i2)"""
       )
+      val o2 = v1(i2.extend)
+      assertCompileError(
+        """|Expected argument width 3 but found: 4
+           |To Fix:
+           |Use `.truncate` to match the width automatically.""".stripMargin
+      )(
+        """v1(i4)"""
+      )
+      val o4 = v1(i4.truncate)
       assertCompileError(
         "The argument must be smaller than the upper-bound 5 but found: 5"
       )(

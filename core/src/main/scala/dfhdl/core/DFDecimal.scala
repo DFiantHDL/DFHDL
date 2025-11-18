@@ -944,6 +944,9 @@ object DFXInt:
         ): DFValOf[DFBool] = trydf { op(icL(lhs), rhs) }
       end extension
       extension [S <: Boolean, W <: IntP, N <: NativeType, P](lhs: DFValTP[DFXInt[S, W, N], P])
+        @targetName("extendDFXInt")
+        def extend(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
+          lhs.tag(ir.ExtendTag).asValTP[DFXInt[S, Int, N], P]
         @targetName("truncateDFXInt")
         def truncate(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
           lhs.tag(ir.TruncateTag).asValTP[DFXInt[S, Int, N], P]
@@ -1263,7 +1266,9 @@ object DFUInt:
         Int,
         Int,
         [UBW <: Int, RW <: Int] =>> UBW == RW,
-        [UBW <: Int, RW <: Int] =>> "Expected argument width " + UBW + " but found: " + RW
+        [UBW <: Int, RW <: Int] =>> "Expected argument width " + UBW + " but found: " + RW +
+          "\nTo Fix:\nUse " + ITE[UBW < RW, "`.truncate`", "`.extend`"] +
+          " to match the width automatically."
       ]
 
   object Val:
@@ -1314,18 +1319,29 @@ object DFUInt:
         def apply(ub: IntParam[UB], arg: R)(using DFC): Out =
           import dfc.getSet
           val argVal = ic(arg)
+          val argValIR = argVal.asIR
           // if the argument is a constant, we can check its value and width
-          argVal.asIR.getConstData match
+          val fixedArgValIR = argValIR.getConstData match
             case Some(Some(arg: BigInt)) =>
               unsignedCheck(arg < 0)
               summon[`UB > R`.CheckNUB[UB, Int]](ub, arg.toInt)
+              argValIR
             case _ =>
+              import DFXInt.Val.Ops.resize
               // skip checks if the argument is an Int32.
               // TODO: in the future, it's worth considering adding assertions
-              if (argVal.asIR.dfType != ir.DFInt32)
+              if (argValIR.dfType != ir.DFInt32)
                 unsignedCheck(argVal.dfType.signed)
-                widthCheck(ub.clog2, argVal.widthInt)
-          DFVal.Alias.AsIs(DFInt32, argVal)
+                if (
+                  ub.clog2 < argVal.widthInt && argValIR.hasTagOf[ir.TruncateTag] ||
+                  ub.clog2 > argVal.widthInt && argValIR.hasTagOf[ir.ExtendTag]
+                )
+                  argVal.resize(ub.clog2).asIR
+                else
+                  widthCheck(ub.clog2, argVal.widthInt)
+                  argValIR
+              else argValIR
+          DFVal.Alias.AsIs(DFInt32, fixedArgValIR.asValTP[DFUInt[Int], ic.OutP])
         end apply
       end fromR
     end UBArg
