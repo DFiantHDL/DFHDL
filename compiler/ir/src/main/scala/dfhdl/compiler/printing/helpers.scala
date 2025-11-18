@@ -113,10 +113,27 @@ extension (text: String)
     wordSet.foldLeft(text) { case (t, w) =>
       t.replaceAll(s" $w ", s"$color $w ${io.AnsiColor.RESET}")
     }
+  // Strip existing ANSI escape sequences so re-coloring comments doesn't retain
+  // any styling applied earlier in the pipeline.
+  private def ansiColorRegex = "\u001B\\[[;\\d]*m"
+
+  // Re-apply the requested color to every line comment after stripping any
+  // pre-existing ANSI sequences, ensuring the comment color is deterministic.
   def colorLineComment(begin: String, color: String): String =
-    text.replaceAll(s"(?m)($begin.*$$)", s"$color$$1${io.AnsiColor.RESET}")
+    s"(?m)($begin.*$$)".r.replaceAllIn(
+      text,
+      m =>
+        val comment = m.group(1).replaceAll(ansiColorRegex, "")
+        s"$color$comment${io.AnsiColor.RESET}"
+    )
+  // Same idea for block comments delimited by begin/end markers.
   def colorBlockComment(begin: String, end: String, color: String): String =
-    text.replaceAll(s"(?s)(${begin}.*?${end})", s"$color$$1${io.AnsiColor.RESET}")
+    s"(?s)(${begin}.*?${end})".r.replaceAllIn(
+      text,
+      m =>
+        val comment = m.group(1).replaceAll(ansiColorRegex, "")
+        s"$color$comment${io.AnsiColor.RESET}"
+    )
   def decolor: String = text.replaceAll("\u001B\\[[;\\d]*m", "")
 
 end extension
