@@ -18,7 +18,7 @@ module TrueDPR#(
   input  wire logic                    b_we
 );
   `include "dfhdl_defs.svh"
-  logic [DATA_WIDTH - 1:0] ram [0:2 ** ADDR_WIDTH - 1];
+  logic [DATA_WIDTH - 1:0] ram [0:(2 ** ADDR_WIDTH) - 1];
   always_ff @(posedge a_clk)
   begin
     if (a_we) begin

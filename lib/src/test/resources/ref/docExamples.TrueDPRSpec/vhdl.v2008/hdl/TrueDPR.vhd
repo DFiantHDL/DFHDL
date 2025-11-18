@@ -25,7 +25,7 @@ end TrueDPR;
 
 architecture TrueDPR_arch of TrueDPR is
   type t_arrX1_std_logic_vector is array (natural range <>) of std_logic_vector;
-  shared variable ram : t_arrX1_std_logic_vector(0 to 2 ** ADDR_WIDTH - 1)(DATA_WIDTH - 1 downto 0);
+  shared variable ram : t_arrX1_std_logic_vector(0 to (2 ** ADDR_WIDTH) - 1)(DATA_WIDTH - 1 downto 0);
 begin
   process (a_clk)
   begin

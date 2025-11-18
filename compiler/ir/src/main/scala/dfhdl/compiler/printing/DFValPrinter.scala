@@ -59,7 +59,7 @@ extension (intParamRef: IntParamRef)
       //     if (int == 1) csArg
       //     else s"$csArg $op ${int - 1}"
       //   case _ =>
-      s"${printer.csRef(ref, false)} - 1"
+      s"${printer.csRef(ref, false).applyBrackets()} - 1"
     case int: Int => (int - 1).toString
 end extension
 

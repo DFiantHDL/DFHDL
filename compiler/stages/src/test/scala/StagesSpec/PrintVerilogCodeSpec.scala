@@ -823,16 +823,16 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `width_def
          |  parameter integer width5 = 8;
          |  parameter integer length5 = 10;
-         |  input  wire [width * length - 1:0] x1;
-         |  output wire [width * length - 1:0] y1;
-         |  input  wire [width * (length + 1) - 1:0] x2;
-         |  output wire [width * (length + 1) - 1:0] y2;
-         |  input  wire [width * 7 - 1:0] x3;
-         |  output wire [width * 7 - 1:0] y3;
-         |  input  wire [(width * 7) * length - 1:0] x4;
-         |  output wire [(width * 7) * length - 1:0] y4;
-         |  input  wire [(width5 * 7) * length5 - 1:0] x5;
-         |  output wire [(width5 * 7) * length5 - 1:0] y5;
+         |  input  wire [(width * length) - 1:0] x1;
+         |  output wire [(width * length) - 1:0] y1;
+         |  input  wire [(width * (length + 1)) - 1:0] x2;
+         |  output wire [(width * (length + 1)) - 1:0] y2;
+         |  input  wire [(width * 7) - 1:0] x3;
+         |  output wire [(width * 7) - 1:0] y3;
+         |  input  wire [((width * 7) * length) - 1:0] x4;
+         |  output wire [((width * 7) * length) - 1:0] y4;
+         |  input  wire [((width5 * 7) * length5) - 1:0] x5;
+         |  output wire [((width5 * 7) * length5) - 1:0] y5;
          |  assign y1 = x1;
          |  assign y2 = x2;
          |  assign y3 = x3;
@@ -1282,7 +1282,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `include "Foo_defs.vh"
          |  parameter integer PORT_WIDTH = 8;
          |  parameter integer PORT_DEPTH = 4;
-         |  parameter [PORT_WIDTH * PORT_DEPTH - 1:0] initArg = {8'h01, 8'h02, 8'h03, 8'h04};
+         |  parameter [(PORT_WIDTH * PORT_DEPTH) - 1:0] initArg = {8'h01, 8'h02, 8'h03, 8'h04};
          |  reg [PORT_WIDTH - 1:0] v1 [0:PORT_DEPTH - 1];
          |  initial begin : v1_init
          |    v1[0] = 8'h01;
