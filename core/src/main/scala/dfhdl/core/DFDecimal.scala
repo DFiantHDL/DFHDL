@@ -902,7 +902,7 @@ object DFXInt:
             if (dfType.asIR.isDFInt32 && lhs.dfType.asIR.isDFInt32) lhs.asIR
             else
               val lhsSignFix: DFValOf[DFSInt[Int]] =
-                if (dfType.signed != lhsSigned)
+                if (dfType.signed != lhsSigned && !lhs.dfType.asIR.isDFInt32)
                   lhs.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
                 else lhs.asValOf[DFSInt[Int]]
               val nativeTypeChanged = dfType.nativeType != lhs.dfType.nativeType
