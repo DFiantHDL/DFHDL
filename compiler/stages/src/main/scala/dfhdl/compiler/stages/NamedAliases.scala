@@ -84,11 +84,7 @@ case object NamedVerilogSelection extends NamedAliases:
   end extension
   def criteria(dfVal: DFVal)(using getSet: MemberGetSet, co: CompilerOptions): List[DFVal] =
     dfVal match
-      case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName => Nil
-      case func @ DFVal.Func(op = FuncOp.max | FuncOp.min)          =>
-        func.getReadDeps.head match
-          case dfVal: DFVal => criteria(dfVal)
-          case _            => Nil
+      case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName                  => Nil
       case alias: DFVal.Alias.ApplyRange if alias.width != alias.relValRef.get.width =>
         List(alias.relValRef.get)
       case alias: DFVal.Alias.AsIs if alias.width < alias.relValRef.get.width =>
@@ -114,6 +110,10 @@ case object NamedVerilogSelection extends NamedAliases:
       case func @ DFVal.Func(op = op, args = DFRef(lhs) :: _ :: Nil)
           if !lhs.hasVerilogName && carryOps.contains(op) && func.width > lhs.width =>
         List(lhs)
+      case func: DFVal.Func =>
+        func.getReadDeps.headOption match
+          case Some(dfVal: DFVal) => criteria(dfVal)
+          case _                  => Nil
       // anonymous conditional expressions
       case ch: DFConditional.Header if ch.isAnonymous && ch.dfType != DFUnit =>
         ch.getReadDeps.head match
