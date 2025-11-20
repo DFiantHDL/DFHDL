@@ -29,6 +29,6 @@
 `define TO_VEC_HEX(hex, hw, vw) \
     /* verilator lint_off WIDTH */ \
     (vw == hw ? hw'h``hex : {{(vw - hw){1'b0}}, hw'h``hex}) \
-    /* verilator lint_on WIDTH */ \
+    /* verilator lint_on WIDTH */
 
 
