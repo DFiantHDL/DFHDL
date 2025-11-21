@@ -1332,13 +1332,15 @@ object DFUInt:
               // TODO: in the future, it's worth considering adding assertions
               if (argValIR.dfType != ir.DFInt32)
                 unsignedCheck(argVal.dfType.signed)
+                val ubWidth = clog2(ub.toScalaInt)
+                val argWidth = argVal.widthInt
                 if (
-                  ub.clog2 < argVal.widthInt && argValIR.hasTagOf[ir.TruncateTag] ||
-                  ub.clog2 > argVal.widthInt && argValIR.hasTagOf[ir.ExtendTag]
+                  ubWidth < argWidth && argValIR.hasTagOf[ir.TruncateTag] ||
+                  ubWidth > argWidth && argValIR.hasTagOf[ir.ExtendTag]
                 )
                   argVal.resize(ub.clog2).asIR
                 else
-                  widthCheck(ub.clog2, argVal.widthInt)
+                  widthCheck(ubWidth, argVal.widthInt)
                   argValIR
               else argValIR
           DFVal.Alias.AsIs(DFInt32, fixedArgValIR.asValTP[DFUInt[Int], ic.OutP])
