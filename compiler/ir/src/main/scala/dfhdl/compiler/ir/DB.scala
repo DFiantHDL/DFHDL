@@ -652,7 +652,7 @@ final case class DB(
             !magnetConnectionTable.contains(p) && !p.hasNonBubbleInit =>
         val ownerDesign = p.getOwnerDesign
         s"""|DFiant HDL connectivity error!
-            |Position:  ${ownerDesign.meta.position}
+            |Position:  ${p.meta.position}
             |Hierarchy: ${ownerDesign.getFullName}
             |Message:   Found a dangling (unconnected/unassigned and uninitialized) output port `${p.getName}`.""".stripMargin
     }

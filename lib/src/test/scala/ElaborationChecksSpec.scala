@@ -183,7 +183,7 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: IDTop.id
           |Message:   Found a dangling (unconnected) input port `x`.
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:176:18 - 176:20
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:169:15 - 169:30
           |Hierarchy: IDTop.id
           |Message:   Found a dangling (unconnected/unassigned and uninitialized) output port `y`.
           |""".stripMargin
