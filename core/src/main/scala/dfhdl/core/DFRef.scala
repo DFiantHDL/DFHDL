@@ -21,31 +21,14 @@ extension [M <: ir.DFMember](member: M)
   private[core] def getReachableMember(using dfc: DFC): ir.DFMember =
     import dfc.getSet
     member match
+      case dcl: ir.DFVal.Dcl               => member
+      case pbns: ir.DFVal.PortByNameSelect => member
       // only unreachable members are values, and we disable this mechanism during compiler stage
       // meta-programming since there we reference values outside of the design context entirely.
-      case dfVal: ir.DFVal if !dfc.inMetaProgramming =>
+      case dfVal: ir.DFVal if !dfc.inMetaProgramming && !dfVal.isGlobal =>
         dfc.ownerOption match
-          case Some(currentOwner) =>
-            // one case of unreachable value is when the value is global and anonymous.
-            // in this case we clone the entire chain of anonymous dependencies.
-            if (dfVal.isGlobal)
-              if (dfVal.isAnonymous) dfVal.cloneAnonValueAndDepsHere
-              else dfVal
-            // another case of unreachable value is when attempting to reference a value of an owner
-            // design.
-            else if (currentOwner.asIR.getThisOrOwnerDesign.isOneLevelBelow(dfVal.getOwnerDesign))
-              // if the value is anonymous, we clone it with its entire anonymous dependency.
-              if (dfVal.isAnonymous) dfVal.cloneAnonValueAndDepsHere
-              // if the value is named, we need to create a design parameter to propagate the
-              // named value into the design. since this can happen more than once, we memoize
-              // the named values we access and fetch the created design parameter accordingly.
-              else
-                dfc.mutableDB.DesignContext.getReachableNamedValue(
-                  dfVal,
-                  DFVal.DesignParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta).emptyTags).asIR
-                )
-            else member
-          case _ => member
+          case Some(currentOwner) => dfVal.cloneUnreachable
+          case _                  => member
       case _ => member
     end match
   end getReachableMember

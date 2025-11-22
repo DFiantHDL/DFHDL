@@ -385,8 +385,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val DATA_WIDTH: Int <> CONST = 8,
          |    val ADDR_WIDTH: Int <> CONST = 8
          |) extends EDDesign:
-         |  val RAM_LENGTH: Int <> CONST = 2 ** ADDR_WIDTH
-         |  val ram = Bits(DATA_WIDTH) X RAM_LENGTH <> VAR.SHARED
+         |  val ram = Bits(DATA_WIDTH) X (2 ** ADDR_WIDTH) <> VAR.SHARED
          |  val a = new RTDomain(RTDomainCfg.Default.norst):
          |    val data = Bits(DATA_WIDTH) <> IN
          |    val addr = Bits(ADDR_WIDTH) <> IN

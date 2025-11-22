@@ -1482,38 +1482,72 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
 
-  // TODO: requires fixing
-  // test("nesting parameters regression") {
-  //   class Inner(val width: Int <> CONST) extends RTDesign:
-  //     val depth: Int <> CONST = width + 1
-  //     val x                   = Bits(width) <> IN
-  //     val y                   = Bits(depth) <> OUT
-  //     y <> x.resize(depth)
-  //   end Inner
-  //   class Outer(val baseWidth: Int <> CONST = 8) extends RTDesign:
-  //     val inner = Inner(baseWidth)
-  //     val x     = Bits(baseWidth) <> IN
-  //     val y     = Bits(baseWidth) <> OUT
-  //     inner.x <> x
-  //     y       <> inner.y.resize(baseWidth)
-  //   end Outer
-  //   val top = (new Outer).getCodeString
-  //   assertNoDiff(
-  //     top,
-  //     """|class Inner(val width: Int <> CONST) extends RTDesign:
-  //        |  val depth: Int <> CONST = width + 1
-  //        |  val x = Bits(width) <> IN
-  //        |  val y = Bits(depth) <> OUT
-  //        |  y <> x.resize(depth)
-  //        |end Inner
-  //        |
-  //        |class Outer(val baseWidth: Int <> CONST = 8) extends RTDesign:
-  //        |  val inner = Inner(width = baseWidth)
-  //        |  val x = Bits(baseWidth) <> IN
-  //        |  val y = Bits(baseWidth) <> OUT
-  //        |  inner.x <> x
-  //        |  y <> inner.y.resize(baseWidth)
-  //        |end Outer""".stripMargin
-  //   )
-  // }
+  // Note: the `inner_depth` parameter is printed because the (invisible) port selector for `inner.y` is referencing it.
+  // In later stages (namely the Via-Connection stage) this parameter will be visibly used for the `inner_y` variable.
+  test("nesting parameters regression 1") {
+    class Inner(val width: Int <> CONST) extends RTDesign:
+      val depth: Int <> CONST = width + 1
+      val x                   = Bits(width) <> IN
+      val y                   = Bits(depth) <> OUT
+      y <> x.resize(depth)
+    end Inner
+    class Outer(val baseWidth: Int <> CONST = 8) extends RTDesign:
+      val inner = Inner(baseWidth)
+      val x     = Bits(baseWidth) <> IN
+      val y     = Bits(baseWidth) <> OUT
+      inner.x <> x
+      y       <> inner.y.resize(baseWidth)
+    end Outer
+    val top = (new Outer).getCodeString
+    assertNoDiff(
+      top,
+      """|class Inner(val width: Int <> CONST) extends RTDesign:
+         |  val depth: Int <> CONST = width + 1
+         |  val x = Bits(width) <> IN
+         |  val y = Bits(depth) <> OUT
+         |  y <> x.resize(depth)
+         |end Inner
+         |
+         |class Outer(val baseWidth: Int <> CONST = 8) extends RTDesign:
+         |  val inner = Inner(width = baseWidth)
+         |  val x = Bits(baseWidth) <> IN
+         |  val y = Bits(baseWidth) <> OUT
+         |  inner.x <> x
+         |  val inner_depth: Int <> CONST = baseWidth + 1
+         |  y <> inner.y.resize(baseWidth)
+         |end Outer""".stripMargin
+    )
+  }
+
+  test("nesting parameters regression 2") {
+    class Bar(
+        val data_width: Int <> CONST
+    ) extends RTDesign:
+      val dout = Bits(data_width) <> OUT
+      dout := all(0)
+    end Bar
+    class Foo extends RTDesign:
+      val data_width2: Int <> CONST = 4
+      val font                      = Bar(data_width = data_width2)
+      val col_index                 = UInt(8) <> VAR
+      col_index := 0
+      val x = font.dout(col_index.truncate)
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Bar(val data_width: Int <> CONST) extends RTDesign:
+         |  val dout = Bits(data_width) <> OUT
+         |  dout := b"0".repeat(data_width)
+         |end Bar
+         |
+         |class Foo extends RTDesign:
+         |  val data_width2: Int <> CONST = 4
+         |  val font = Bar(data_width = data_width2)
+         |  val col_index = UInt(8) <> VAR
+         |  col_index := d"8'0"
+         |  val x = font.dout(col_index.resize(clog2(data_width2)).toInt)
+         |end Foo""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

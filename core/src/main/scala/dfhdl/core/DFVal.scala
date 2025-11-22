@@ -1626,44 +1626,58 @@ object ConnectOps:
 end ConnectOps
 
 extension (dfVal: ir.DFVal)
-  protected[dfhdl] def isUnreachable(using dfc: DFC): Boolean =
+  protected[core] def isUnreachable(using dfc: DFC): Boolean =
     import dfc.getSet
     !dfVal.isGlobal && dfVal.getOwnerDesign.ownerRef != dfc.owner.asIR.getThisOrOwnerDesign.ownerRef
-
-  protected[dfhdl] def cloneUnreachable(using dfc: DFC): ir.DFVal =
+  private def cloneUnreachableWithNewRefs(using dfc: DFC): ir.DFVal =
     import dfc.getSet
     given ir.RefGen = dfc.refGen
     val currentOwner = dfc.owner.asIR
+    val newDFVal = dfVal.copyWithNewRefs
+    dfVal.getRefs.lazyZip(newDFVal.getRefs).foreach { case (oldRef, newRef) =>
+      dfc.mutableDB.newRefFor(
+        newRef,
+        oldRef.get match
+          case dfVal: ir.DFVal => dfVal.cloneUnreachable
+          case m               => m
+      )
+    }
+    dfc.mutableDB.newRefFor(newDFVal.ownerRef, currentOwner)
+    dfc.mutableDB.addMember(newDFVal)
+    newDFVal
+  end cloneUnreachableWithNewRefs
+
+  protected[core] def cloneUnreachable(using dfc: DFC): ir.DFVal =
     if (dfVal.isUnreachable)
-      dfVal match
-        case _
-            if !dfVal.isAnonymous &&
-              currentOwner.getThisOrOwnerDesign.isInsideOwner(dfVal.getOwnerDesign) =>
-          dfc.mutableDB.DesignContext.getReachableNamedValue(
-            dfVal, {
-              DFVal.DesignParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta)).asIR
-            }
-          )
-        case ir.DFVal.DesignParam(dfValRef = ir.DFRef(of)) =>
-          of.cloneUnreachable
-        case _ =>
-          def cloning: ir.DFVal =
-            val newDFVal = dfVal.copyWithNewRefs
-            dfVal.getRefs.lazyZip(newDFVal.getRefs).foreach { case (oldRef, newRef) =>
-              dfc.mutableDB.newRefFor(
-                newRef,
-                oldRef.get match
-                  case dfVal: ir.DFVal => dfVal.cloneUnreachable
-                  case m               => m
-              )
-            }
-            dfc.mutableDB.newRefFor(newDFVal.ownerRef, currentOwner)
-            dfc.mutableDB.addMember(newDFVal)
-            newDFVal
-          end cloning
-          if (dfVal.isAnonymous) cloning
-          else dfc.mutableDB.DesignContext.getReachableNamedValue(dfVal, cloning)
+      import dfc.getSet
+      val currentDesign = dfc.owner.asIR.getThisOrOwnerDesign
+      val dfValDesign = dfVal.getOwnerDesign
+      // anonymous cloning
+      if (dfVal.isAnonymous) cloneUnreachableWithNewRefs
+      // named value cloning
+      else
+        dfc.mutableDB.DesignContext.getReachableNamedValue(
+          dfVal,
+          // when the current design is within the value's owner design,
+          // create a design parameter to propagate the named value into the design.
+          if (currentDesign.isInsideOwner(dfValDesign))
+            DFVal.DesignParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta)).asIR
+          // when the current design is outside the value's owner design
+          else
+            dfVal match
+              // design parameter, so recurse on the referenced value
+              case ir.DFVal.DesignParam(dfValRef = ir.DFRef(of)) =>
+                of.cloneUnreachable
+              // named constant, so clone under a new name within relation to the current design
+              case _ =>
+                val newMeta =
+                  dfVal.meta.setName(dfVal.getRelativeName(currentDesign).replaceAll("\\.", "_"))
+                dfVal.cloneUnreachableWithNewRefs.setMeta(_ => newMeta)
+        )
+      end if
+    // reachable value, so no need to clone
     else dfVal
+    end if
   end cloneUnreachable
 
   protected[dfhdl] def cloneAnonValueAndDepsHere(using dfc: DFC): ir.DFVal =
