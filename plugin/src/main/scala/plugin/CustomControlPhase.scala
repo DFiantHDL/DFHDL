@@ -623,7 +623,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
               Some(elems)
             case TypeApply(sym @ Select(sel, _), _) if sym.symbol == defn.Any_isInstanceOf =>
               unapply(sel)
-            case _ => 
+            case _ =>
               None
     end SI
     object Struct:
