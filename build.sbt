@@ -138,7 +138,7 @@ lazy val dependencies =
     private val scodecV = "1.2.4"
     private val munitV = "1.2.1"
     private val airframelogV = "2025.1.21"
-    private val oslibV = "0.11.6"
+    private val oslibV = "0.11.7"
     private val scallopV = "5.2.0"
     private val upickleV = "4.4.1"
 
