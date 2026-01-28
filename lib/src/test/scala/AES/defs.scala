@@ -36,8 +36,7 @@ extension (lhs: AESByte <> VAL)
   // corresponding powers in the polynomials for the two elements. The addition is performed with
   // the XOR operation.
   @targetName("addByte")
-  @inline def +(rhs: AESByte <> VAL): AESByte <> DFRET =
-    (lhs.actual ^ rhs.actual).as(AESByte)
+  @inline def +(rhs: AESByte <> VAL): AESByte <> DFRET = (lhs.actual ^ rhs.actual).as(AESByte)
 
   private def xtime: AESByte <> DFRET = lhs.mapActual: lhs =>
     val shifted = lhs << 1

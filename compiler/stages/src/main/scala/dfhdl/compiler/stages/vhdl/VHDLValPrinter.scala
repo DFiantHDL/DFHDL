@@ -113,10 +113,11 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
               case DFString =>
                 args.map(_.refCodeString).mkString(" & ")
               case dfType @ DFStruct(_, _) =>
-                printer.csDFStructTypeName(dfType) + dfType.fieldMap
-                  .lazyZip(args.map(_.refCodeString))
-                  .map { case ((n, _), d) => s"$n = $d" }
-                  .mkStringBrackets
+                printer.csDFStructTypeName(dfType) +
+                  dfType.fieldMap
+                    .lazyZip(args.map(_.refCodeString))
+                    .map { case ((n, _), d) => s"$n = $d" }
+                    .mkStringBrackets
 
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>

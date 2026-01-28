@@ -153,7 +153,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     val origApply = applyStack.head
     applyStack = applyStack.drop(1)
     if (
-      fixedApply.tpe.isParameterless && !fixedApply.fun.symbol.ignoreMetaContext && !fixedApply.fun.symbol.forwardMetaContext
+      fixedApply.tpe.isParameterless && !fixedApply.fun.symbol.ignoreMetaContext &&
+      !fixedApply.fun.symbol.forwardMetaContext
     )
       fixedApply match
         // found a context argument
@@ -390,8 +391,10 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     tree match
       case Apply(Select(lhs, fun), List(rhs))
           if (fun == nme.EQ || fun == nme.NE) &&
-            (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType || lhs.tpe <:< defn
-              .TupleTypeRef) =>
+            (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType ||
+              lhs.tpe <:<
+              defn
+                .TupleTypeRef) =>
         val rhsSym = rhs.tpe.dealias.typeSymbol
         if (rhsSym == dfValSym)
           report.error(
@@ -399,7 +402,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
             pos
           )
       case Apply(Select(lhs, fun), List(Apply(Apply(Ident(hackName), _), _)))
-          if (fun == nme.ZOR || fun == nme.ZAND || fun == nme.XOR) && hackName.toString == "BooleanHack" =>
+          if (fun == nme.ZOR || fun == nme.ZAND || fun == nme.XOR) &&
+            hackName.toString == "BooleanHack" =>
         report.error(
           s"Unsupported Scala Boolean primitive at the LHS of `$fun` with a DFHDL value.\nConsider switching positions of the arguments.",
           pos

@@ -568,7 +568,8 @@ object DFVal:
       else Some(calcFuncData(dfType, op, argTypes, argData))
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Func =>
-        this.dfType =~ that.dfType && this.op == that.op && (this.args
+        this.dfType =~ that.dfType && this.op == that.op &&
+        (this.args
           .lazyZip(that.args)
           .forall((l, r) => l =~ r)) &&
         this.meta =~ that.meta && this.tags =~ that.tags
@@ -796,11 +797,13 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       override lazy val getRefs: List[DFRef.TwoWayAny] =
-        dfType.getRefs ++ meta.getRefs ++ List(relValRef) ++ (idxHighRef match
-          case ref: DFRef.TypeRef => List(ref);
-          case _                  => Nil) ++ (idxLowRef match
-          case ref: DFRef.TypeRef => List(ref);
-          case _                  => Nil)
+        dfType.getRefs ++ meta.getRefs ++ List(relValRef) ++
+          (idxHighRef match
+            case ref: DFRef.TypeRef => List(ref);
+            case _                  => Nil) ++
+          (idxLowRef match
+            case ref: DFRef.TypeRef => List(ref);
+            case _                  => Nil)
       def updateDFType(dfType: DFType): this.type = this
       def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
       def copyWithNewRefs(using RefGen): this.type = copy(
@@ -931,7 +934,8 @@ final case class DFRange(
 ) extends DFMember derives ReadWriter:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFRange =>
-      this.startRef =~ that.startRef && this.endRef =~ that.endRef && this.stepRef =~ that.stepRef &&
+      this.startRef =~ that.startRef && this.endRef =~ that.endRef &&
+      this.stepRef =~ that.stepRef &&
       this.op == that.op &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
@@ -1280,7 +1284,8 @@ object DFConditional:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
             case that: Struct =>
-              this.name == that.name && this.fieldPatterns
+              this.name == that.name &&
+              this.fieldPatterns
                 .lazyZip(that.fieldPatterns)
                 .forall(_ =~ _)
             case _ => false
@@ -1319,7 +1324,8 @@ object DFConditional:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
             case that: BindSI =>
-              this.op == that.op && this.parts == that.parts && this.refs
+              this.op == that.op && this.parts == that.parts &&
+              this.refs
                 .lazyZip(that.refs)
                 .forall(_ =~ _)
             case _ => false
@@ -1688,7 +1694,8 @@ object TextOut:
       case _                    => Nil
     protected def `prot_=~`(that: Op)(using MemberGetSet): Boolean = (this, that) match
       case (thisAssert: Assert, thatAssert: Assert) =>
-        thisAssert.assertionRef =~ thatAssert.assertionRef && thisAssert.severity == thatAssert.severity
+        thisAssert.assertionRef =~ thatAssert.assertionRef &&
+        thisAssert.severity == thatAssert.severity
       case _ => this equals that
     def copyWithNewRefs(using RefGen): this.type = this match
       case Assert(assertionRef, severity) =>

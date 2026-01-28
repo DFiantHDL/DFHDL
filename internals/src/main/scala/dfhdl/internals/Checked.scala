@@ -57,9 +57,9 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
           case "S" =>
             '{ ${ arg0.asExprOf[Int] } + 1 }
           case "!" =>
-            '{ !${ arg0.asExprOf[Boolean] } }
+            '{ ! ${ arg0.asExprOf[Boolean] } }
           case "Negate" =>
-            '{ -${ arg0.asExprOf[Int] } }
+            '{ - ${ arg0.asExprOf[Int] } }
           case "ITE" => // if-then-else
             '{
               if (${ arg0.asExprOf[Boolean] }) ${ arg1.asExpr } else ${ arg2.asExpr }

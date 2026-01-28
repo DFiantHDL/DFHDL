@@ -16,7 +16,8 @@ object ToggleIO:
         ExpectedActiveState[T],
         "Missing implicit expected active state for toggle resource `" +
           t.Out +
-          "`.\nTo fix this, add:\n  `given ExpectedActiveState[" + t.Out + "] = " + t.Out + ".EXPECTED_ACTIVE_STATE`"
+          "`.\nTo fix this, add:\n  `given ExpectedActiveState[" + t.Out + "] = " + t.Out +
+          ".EXPECTED_ACTIVE_STATE`"
       ]
   ): CanConnect[R, V] with
     def connect(resource: R, dfVal: V)(using DFC): Unit =

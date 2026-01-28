@@ -178,10 +178,10 @@ class DFMatchSpec extends DFSpec:
   test("Trivial tuple match skip") {
     import dfhdl.hw.flag.scalaRanges
     assertCodeString("") {
-      val (ret, _) =
-        (0 until 8).foldLeft[(Byte <> VAL, Byte <> VAL)]((all(0), all(0))) { case ((p, a), _) =>
+      val (ret, _) = (0 until 8).foldLeft[(Byte <> VAL, Byte <> VAL)]((all(0), all(0))) {
+        case ((p, a), _) =>
           (p, a)
-        }
+      }
     }
   }
 

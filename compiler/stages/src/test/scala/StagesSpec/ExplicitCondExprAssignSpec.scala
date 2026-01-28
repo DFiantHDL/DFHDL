@@ -98,10 +98,11 @@ class ExplicitCondExprAssignSpec extends StageSpec(stageCreatesUnrefAnons = true
       val lhs     = Bits(8) <> IN
       val shifted = lhs << 1
       val o       = Bits(8) <> OUT
-      o <> ((
-        if (lhs(7)) shifted ^ h"1b"
-        else shifted
-      ): Bits[8] <> VAL)
+      o <>
+        ((
+          if (lhs(7)) shifted ^ h"1b"
+          else shifted
+        ): Bits[8] <> VAL)
     end xtime
     val id = (new xtime).explicitCondExprAssign
     assertCodeString(

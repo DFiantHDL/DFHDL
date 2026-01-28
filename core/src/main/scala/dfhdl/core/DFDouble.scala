@@ -47,7 +47,8 @@ object TDFDouble:
 
     object Ops:
       given evOpArithDFDouble[
-          Op <: FuncOp.+.type | FuncOp.-.type | FuncOp.*.type | FuncOp./.type | FuncOp.max.type | FuncOp.min.type,
+          Op <: FuncOp.+.type | FuncOp.-.type | FuncOp.*.type | FuncOp./.type | FuncOp.max.type |
+            FuncOp.min.type,
           LPA,
           L <: DFValTP[DFDouble, LPA] | Double,
           LP,

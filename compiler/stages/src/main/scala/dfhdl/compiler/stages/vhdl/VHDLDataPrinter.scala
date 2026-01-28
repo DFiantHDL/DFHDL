@@ -80,12 +80,13 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     csConstData(dfType.actualType, data)
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
-    printer.csDFStructTypeName(dfType) + dfType.fieldMap
-      .lazyZip(data)
-      .map { case ((n, t), d) =>
-        s"$n = ${csConstData(t, d)}"
-      }
-      .mkStringBrackets
+    printer.csDFStructTypeName(dfType) +
+      dfType.fieldMap
+        .lazyZip(data)
+        .map { case ((n, t), d) =>
+          s"$n = ${csConstData(t, d)}"
+        }
+        .mkStringBrackets
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = printer.unsupported
   def csDFUnitData(dfType: DFUnit, data: Unit): String = printer.unsupported
   def csDFDoubleData(dfType: DFDouble, data: Option[Double]): String =

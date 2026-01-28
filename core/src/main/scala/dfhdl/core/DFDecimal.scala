@@ -1055,7 +1055,8 @@ object DFXInt:
       end extension
 
       type ArithOp =
-        FuncOp.+.type | FuncOp.-.type | FuncOp.*.type | FuncOp./.type | FuncOp.%.type | FuncOp.max.type | FuncOp.min.type
+        FuncOp.+.type | FuncOp.-.type | FuncOp.*.type | FuncOp./.type | FuncOp.%.type |
+          FuncOp.max.type | FuncOp.min.type
       given evOpArithIntDFInt32[
           Op <: ArithOp,
           L <: Int,

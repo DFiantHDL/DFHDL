@@ -85,7 +85,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             val cellWidth = dfType.cellType.width
             val length = dfType.cellDimParamRefs.head.getInt
             val ret = for (i <- 0 until length)
-              yield s"${dfVal.getName}[$i] = ${initVal.getName}[${(length - i) * cellWidth - 1}:${(length - i) * cellWidth - cellWidth}];"
+              yield s"${dfVal.getName}[$i] = ${initVal.getName}[${(length - i) * cellWidth -
+                  1}:${(length - i) * cellWidth - cellWidth}];"
             ret.mkString("\n")
           case Func(op = Func.Op.++, args = args) =>
             args.view.zipWithIndex
