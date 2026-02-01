@@ -438,8 +438,9 @@ final case class DFStruct(
   def getNameForced: String = name
   def width(using MemberGetSet): Int = fieldMap.values.map(_.width).sum
   def createBubbleData(using MemberGetSet): Data = fieldMap.values.map(_.createBubbleData).toList
-  def isDataBubble(data: Data): Boolean =
-    (fieldMap.values lazyZip data).exists((ft, fd) => ft.isDataBubble(fd.asInstanceOf[ft.Data]))
+  def isDataBubble(data: Data): Boolean = (fieldMap.values lazyZip data).exists((ft, fd) =>
+    ft.isDataBubble(fd.asInstanceOf[ft.Data])
+  )
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) =
     (fieldMap.values lazyZip data)
       .map((ft, fd) => ft.dataToBitsData(fd.asInstanceOf[ft.Data]))

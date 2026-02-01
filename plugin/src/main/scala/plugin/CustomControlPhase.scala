@@ -780,7 +780,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             }
             if (idxHigh != -1)
               report.error(
-                s"""Cannot compare a value of ${selectorWidth} bits width (LHS) to a value of ${selectorWidth - idxHigh - 1} bits width (RHS).
+                s"""Cannot compare a value of ${selectorWidth} bits width (LHS) to a value of ${selectorWidth -
+                    idxHigh - 1} bits width (RHS).
                    |An explicit conversion must be applied.""".stripMargin,
                 patternTree.srcPos
               )

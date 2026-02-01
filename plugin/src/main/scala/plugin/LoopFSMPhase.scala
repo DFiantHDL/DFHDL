@@ -271,7 +271,8 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
               List(domainTypeTree)
             )
             if anonfun.toString.startsWith("$anonfun") && process.toString == "process" &&
-              forever.toString == "forever" && domainTypeTree.tpe.widenDealias.typeSymbol.name.toString == "RT" =>
+              forever.toString == "forever" &&
+              domainTypeTree.tpe.widenDealias.typeSymbol.name.toString == "RT" =>
           processAnonDefSym = dd.symbol
           processScopeCtxSym = scopeCtx.symbol
           Some(ProcessForever(scopeCtx, dd.rhs))

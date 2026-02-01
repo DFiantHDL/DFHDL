@@ -373,8 +373,9 @@ final class MutableDB():
           else resource.allSigConstraints
         }
         // merge the existing constraints with the new constraints
-        val updatedSigConstraints =
-          (existingSigConstraints ++ newSigConstraints).merge.consolidate(dcl.width)
+        val updatedSigConstraints = (existingSigConstraints ++ newSigConstraints).merge.consolidate(
+          dcl.width
+        )
         // merge all other annotations
         val updatedAnnotations = updatedSigConstraints ++ otherAnnotations
         dcl -> dcl.copy(meta = dcl.meta.copy(annotations = updatedAnnotations))

@@ -168,8 +168,7 @@ case object AddClkRst extends Stage:
                 val updatedDFVal = dfVal match
                   // existing clocks also get the constraints from the domain owner
                   case clk: DFVal.Dcl if clk.isClkDcl =>
-                    val updatedAnnotations =
-                      (ownerClkConstraints ++ clk.meta.annotations).distinct
+                    val updatedAnnotations = (ownerClkConstraints ++ clk.meta.annotations).distinct
                     clk.copy(
                       dfType = opaqueReplaceMap(dfType),
                       meta = clk.meta.copy(annotations = updatedAnnotations)

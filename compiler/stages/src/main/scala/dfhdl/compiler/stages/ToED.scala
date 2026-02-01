@@ -160,11 +160,12 @@ case object ToED extends Stage:
                 }.toList
                 // create a combinational process if needed
                 val hasProcessAll =
-                  !domainIsPureSequential && (dclChangeList.nonEmpty || processBlockAllMembers.exists {
-                    case net: DFNet               => true
-                    case ch: DFConditional.Header => true
-                    case _                        => false
-                  })
+                  !domainIsPureSequential &&
+                    (dclChangeList.nonEmpty || processBlockAllMembers.exists {
+                      case net: DFNet               => true
+                      case ch: DFConditional.Header => true
+                      case _                        => false
+                    })
                 if (hasProcessAll)
                   process(all) {
                     val inVHDL = co.backend.isVHDL
@@ -256,7 +257,9 @@ case object ToED extends Stage:
                     block
                   )
                 val hasSeqProcess =
-                  clkCfg != None && (dclREGList.nonEmpty || processBlockAllMembers.nonEmpty && domainIsPureSequential)
+                  clkCfg != None &&
+                    (dclREGList.nonEmpty ||
+                      processBlockAllMembers.nonEmpty && domainIsPureSequential)
 
                 if (hasSeqProcess)
                   if (rstCfg != None)

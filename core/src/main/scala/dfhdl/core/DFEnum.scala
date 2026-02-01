@@ -19,13 +19,11 @@ object DFEncoding:
   abstract class Default extends StartAt(0)
 
   abstract class Gray extends Auto:
-    final def calcWidth(entryCount: Int): Int =
-      (entryCount - 1).bitsWidth(false)
+    final def calcWidth(entryCount: Int): Int = (entryCount - 1).bitsWidth(false)
     final def encode(idx: Int): BigInt = BigInt(idx ^ (idx >>> 1))
 
   abstract class StartAt[V <: Int & Singleton](value: V) extends Auto:
-    final def calcWidth(entryCount: Int): Int =
-      (entryCount - 1 + value).bitsWidth(false)
+    final def calcWidth(entryCount: Int): Int = (entryCount - 1 + value).bitsWidth(false)
     final def encode(idx: Int): BigInt = BigInt(idx + value)
 
   abstract class OneHot extends Auto:

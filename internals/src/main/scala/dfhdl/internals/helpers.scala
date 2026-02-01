@@ -343,10 +343,11 @@ extension (str: String)
   def forceWindowsToLinuxPath: String = str.replaceAll("""\\""", "/")
   def simplePattenToRegex: Regex =
     val updatedPattern =
-      "^" + str
-        .replace(".", "\\.") // Escape dots to match literal dots
-        .replace("*", ".*") // Replace * with .*
-        .replace("?", ".") // Replace ? with .
+      "^" +
+        str
+          .replace(".", "\\.") // Escape dots to match literal dots
+          .replace("*", ".*") // Replace * with .*
+          .replace("?", ".") // Replace ? with .
         + "$"
     updatedPattern.r
 end extension

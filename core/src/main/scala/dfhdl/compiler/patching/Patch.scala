@@ -360,16 +360,20 @@ extension (db: DB)
               tbl + (m -> Patch.Add(add.db, Patch.Add.Config.ReplaceWithFirst()))
             // add followed by a replacement is allowed via a tandem patch execution
             case (add: Patch.Add, replace: Patch.Replace) if add.config == Patch.Add.Config.After =>
-              tbl + (m -> Patch.Add(
-                add.db.copy(add.db.members.head :: replace.updatedMember :: add.db.members.drop(1)),
-                Patch.Add.Config.ReplaceWithFirst()
-              ))
+              tbl +
+                (m -> Patch.Add(
+                  add.db.copy(add.db.members.head :: replace.updatedMember ::
+                    add.db.members.drop(1)),
+                  Patch.Add.Config.ReplaceWithFirst()
+                ))
             // replacement followed by an add via a tandem patch execution
             case (replace: Patch.Replace, add: Patch.Add) if add.config == Patch.Add.Config.After =>
-              tbl + (m -> Patch.Add(
-                add.db.copy(add.db.members.head :: replace.updatedMember :: add.db.members.drop(1)),
-                Patch.Add.Config.ReplaceWithFirst()
-              ))
+              tbl +
+                (m -> Patch.Add(
+                  add.db.copy(add.db.members.head :: replace.updatedMember ::
+                    add.db.members.drop(1)),
+                  Patch.Add.Config.ReplaceWithFirst()
+                ))
             // allow the same member to be removed more than once by getting rid of the redundant removals
             case (Patch.Remove(isMovedL), Patch.Remove(isMovedR)) =>
               tbl + (m -> Patch.Remove(isMovedL || isMovedR))
