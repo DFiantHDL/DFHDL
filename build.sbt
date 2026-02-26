@@ -144,7 +144,7 @@ lazy val platforms = project
 lazy val dependencies =
   new {
     private val scodecV = "1.2.4"
-    private val munitV = "1.2.2"
+    private val munitV = "1.2.3"
     private val airframelogV = "2025.1.27"
     private val oslibV = "0.11.7"
     private val scallopV = "5.3.0"
