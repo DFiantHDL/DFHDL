@@ -790,6 +790,8 @@ class DFDecimalSpec extends DFSpec:
          |u9 := u8 +^ u5.resize(8)
          |u9 := u8 +^ d"8'200"
          |u12 := (u8 *^ u8).resize(12)
+         |u9 := (u8 + u8) +^ u8
+         |u9 := (u8 + u8 + u8) +^ u8
          |""".stripMargin
     } {
       // Basic carry promotion for +
@@ -815,6 +817,10 @@ class DFDecimalSpec extends DFSpec:
       u9 := u8 + 200
       // Partial mul promotion: target (12) > funcWidth (8), promote to 16, resize to 12
       u12 := u8 * u8
+      // carry promotion with 3 arguments
+      u9 := u8 + u8 + u8
+      // carry promotion with 4 arguments
+      u9 := u8 + u8 + u8 + u8
     }
   }
   test("Int32 arithmetic") {
