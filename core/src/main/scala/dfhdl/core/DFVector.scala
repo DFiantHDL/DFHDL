@@ -31,7 +31,7 @@ object DFVector:
   extension [T <: DFTypeAny, D <: NonEmptyTuple](dfType: DFVector[T, D])
     def cellType: T = dfType.asIR.cellType.asFE[T]
   extension [T <: DFTypeAny, D1 <: IntP](dfType: DFVector[T, Tuple1[D1]])
-    def lengthInt(using dfc: DFC): Int =
+    def lengthIntUNSAFE(using dfc: DFC): Int =
       import dfc.getSet
       dfType.asIR.cellDimParamRefs.head.getInt
     def lengthIntParam(using dfc: DFC): IntParam[D1] =
@@ -104,7 +104,7 @@ object DFVector:
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
           import dfc.getSet
           given Printer = DefaultPrinter
-          check(dfType.lengthInt, arg.dfType.lengthInt)
+          check(dfType.lengthIntUNSAFE, arg.dfType.lengthIntUNSAFE)
           if (dfType.asIR.isSimilarTo(arg.dfType.asIR))
             arg.asValTP[DFVector[T, Tuple1[D1]], RP]
           else
@@ -128,7 +128,7 @@ object DFVector:
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
           val dfVals = arg.view.map(tc.conv(dfType.cellType, _)(using dfc.anonymize)).toList
           val check = summon[`LL == RL`.Check[Int, Int]]
-          check(dfType.lengthInt, dfVals.length)
+          check(dfType.lengthIntUNSAFE, dfVals.length)
           Val(dfType)(dfVals)
       end DFVectorValFromDFValVector
       given DFVectorValFromSEV[
@@ -189,7 +189,7 @@ object DFVector:
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
           import dfc.getSet
           given Printer = DefaultPrinter
-          check(dfType.lengthInt, arg.dfType.lengthInt)
+          check(dfType.lengthIntUNSAFE, arg.dfType.lengthIntUNSAFE)
           if (dfType.asIR.isSimilarTo(arg.dfType.asIR))
             arg.asValTP[DFVector[T, Tuple1[D1]], RP]
           else
@@ -218,7 +218,7 @@ object DFVector:
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
           val dfVals = arg.view.map(tc.conv(dfType.cellType, _)(using dfc.anonymize)).toList
           val check = summon[`LL == RL`.Check[Int, Int]]
-          check(dfType.lengthInt, dfVals.length)
+          check(dfType.lengthIntUNSAFE, dfVals.length)
           Val(dfType)(dfVals)
       end DFVectorCompareDFValVector
     end Compare
@@ -280,7 +280,7 @@ object DFVector:
             ).asValTP[DFVector[T, Tuple1[D1]], P]
           else
             assert(
-              elems.size == dfhdl.core.DFVector.lengthInt(vectorType),
+              elems.size == dfhdl.core.DFVector.lengthIntUNSAFE(vectorType),
               "The number of elements in the vector does not match the vector length."
             )
             DFVal.Func(vectorType, FuncOp.++, elems.toList)
@@ -292,12 +292,12 @@ object DFVector:
         def elements(using DFC): Vector[DFValOf[T]] =
           import DFDecimal.StrInterpOps.d
           val elementType = lhs.dfType.cellType
-          Vector.tabulate(lhs.lengthInt)(i =>
+          Vector.tabulate(lhs.lengthIntUNSAFE)(i =>
             val idxVal = DFConstInt32(i)
             DFVal.Alias.ApplyIdx(elementType, lhs, idxVal)(using dfc.anonymize)
           )
         def length(using DFC): DFConstInt32 = lhs.dfType.lengthIntParam.toDFConst
-        def lengthInt(using DFC): Int = lhs.dfType.lengthIntParam.toScalaInt
+        def lengthIntUNSAFE(using DFC): Int = lhs.dfType.lengthIntParam.toScalaInt
       end extension
       extension (str: String)
         def toByteVector(using dfc: DFC): DFConstOf[DFVector[DFBits[8], Tuple1[Int]]] =

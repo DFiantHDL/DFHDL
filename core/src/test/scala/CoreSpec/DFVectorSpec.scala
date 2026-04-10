@@ -174,7 +174,7 @@ class DFVectorSpec extends DFSpec:
     assert((v == v2).toScalaBoolean)
     assert((v3 == v4).toScalaBoolean)
     assert((v5 == v6).toScalaBoolean)
-    assert(v.lengthInt == 4)
+    assert(v.lengthIntUNSAFE == 4)
     assert(v2.length.toScalaInt == 4)
     assert((b == v.bits).toScalaBoolean)
     assert((b.as(Bits[8] X 4) == v).toScalaBoolean)

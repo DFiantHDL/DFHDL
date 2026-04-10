@@ -574,9 +574,9 @@ object DFVal extends DFValLP:
     ): DFVal[DFVector[T, Tuple1[D1]], Modifier[A, C, Modifier.Initialized, P]] = trydf:
       import dfc.getSet
       val vectorType = dfVal.dfType
-      import DFVector.{lengthInt, cellType}
+      import DFVector.{lengthIntUNSAFE, cellType}
       val data = ir.InitFileFormat.readInitFile(
-        path, format, vectorType.lengthInt, vectorType.cellType.widthIntUNSAFE, undefinedValue
+        path, format, vectorType.lengthIntUNSAFE, vectorType.cellType.widthIntUNSAFE, undefinedValue
       )
       val initFileConst = vectorType.cellType.asIR match
         case ir.DFBits(_) => DFVal.Const(vectorType, data)
