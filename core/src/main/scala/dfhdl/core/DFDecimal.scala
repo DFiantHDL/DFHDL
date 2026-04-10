@@ -797,6 +797,7 @@ object DFXInt:
         int32Data match
           case Some(int) => (int < 0, IntInfo.calcWidth(int))
           case None      => (dfVal.dfType.signed.value, dfVal.dfType.widthInt.value)
+    end extension
 
     object TC:
       def apply(
@@ -977,7 +978,7 @@ object DFXInt:
                         dfType = dt: ir.DFDecimal,
                         op = op @ (FuncOp.+ | FuncOp.- | FuncOp.*)
                       )
-                      if func.isAnonymous && !dt.isDFInt32 && dfType.widthInt > func.width =>
+                      if func.isAnonymous && !dt.isDFInt32 && dfType.widthInt > func.widthUNSAFE =>
                     // For multi-arg merged Funcs (3+ args), peel the last arg:
                     // Func(+, [a, b, c]) → Func(+, [Func(+, [a, b]), c])
                     // Shrink the original func in-place to become the inner (non-carry)
@@ -989,16 +990,20 @@ object DFXInt:
                         val lastArgRef = func.args.last
                         // Shrink `func` in-place to the inner Func (N-1 args, non-carry)
                         val innerFunc = dfc.mutableDB.setMember(
-                          func, _.copy(args = func.args.dropRight(1))
+                          func,
+                          _.copy(args = func.args.dropRight(1))
                         )
                         // Add a new binary carry Func at the tail referencing innerFunc
                         ir.DFVal.Func(
-                          dt, op,
+                          dt,
+                          op,
                           List(
                             innerFunc.refTW[ir.DFVal](knownReachable = true),
                             lastArgRef
                           ),
-                          func.ownerRef, func.meta, func.tags
+                          func.ownerRef,
+                          func.meta,
+                          func.tags
                         ).addMember
                       else func
                     // Check B: warn if sub-expressions contain implicit Int with
@@ -1097,9 +1102,9 @@ object DFXInt:
           case func: ir.DFVal.Func if func.isAnonymous =>
             func.op match
               case FuncOp.+ | FuncOp.- | FuncOp.* =>
-                val maxArgWidth = func.args.map(_.get.width).max
-                val isNonCarry = func.width <= maxArgWidth
-                (isNonCarry && func.width < 32) ||
+                val maxArgWidth = func.args.map(_.get.widthUNSAFE).max
+                val isNonCarry = func.widthUNSAFE <= maxArgWidth
+                (isNonCarry && func.widthUNSAFE < 32) ||
                 func.args.exists(ref => containsNarrowNonCarryArith(ref.get))
               case _ =>
                 func.args.exists(ref => containsNarrowNonCarryArith(ref.get))
@@ -1116,9 +1121,9 @@ object DFXInt:
           case func: ir.DFVal.Func if func.isAnonymous =>
             func.op match
               case FuncOp.+ | FuncOp.- | FuncOp.* =>
-                val maxArgWidth = func.args.map(_.get.width).max
-                val isNonCarry = func.width <= maxArgWidth
-                val isNarrowNonCarry = isNonCarry && func.width < 32
+                val maxArgWidth = func.args.map(_.get.widthUNSAFE).max
+                val isNonCarry = func.widthUNSAFE <= maxArgWidth
+                val isNarrowNonCarry = isNonCarry && func.widthUNSAFE < 32
                 (isNarrowNonCarry &&
                   func.args.exists(ref => hasImplicitlyFromIntTag(ref.get))) ||
                 func.args.exists(ref =>

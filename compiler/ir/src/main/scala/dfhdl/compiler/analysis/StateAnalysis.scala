@@ -19,12 +19,12 @@ object StateAnalysis:
       case dfVal: DFVal.Alias if dfVal.relValRef.get.dfType.isUnbounded => currentSet
       case DFVal.Alias.AsIs(dfType = toType, relValRef = relValRef)     =>
         val relVal = relValRef.get
-        if (toType.width == relVal.width)
+        if (toType.width == relVal.widthUNSAFE)
           // casting maintains relative bit consumption
           consumeFrom(relVal, relWidth, relBitLow, assignMap, currentSet)
         else
           // conversion is treated like any function argument and restarts bit consumption
-          consumeFrom(relVal, relVal.width, 0, assignMap, currentSet)
+          consumeFrom(relVal, relVal.widthUNSAFE, 0, assignMap, currentSet)
       case applyRange @ DFVal.Alias.ApplyRange(
             relValRef = relValRef,
             idxHighRef = Int(idxHigh),

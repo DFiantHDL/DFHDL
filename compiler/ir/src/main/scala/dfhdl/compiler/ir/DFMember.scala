@@ -204,7 +204,7 @@ sealed trait Statement extends DFMember derives ReadWriter
 
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
-  def width(using MemberGetSet): Int = dfType.width
+  def widthUNSAFE(using MemberGetSet): Int = dfType.width
   def isGlobal(using MemberGetSet): Boolean = false
   protected def protIsFullyAnonymous(using MemberGetSet): Boolean
   // using just an integer to escape redundant boxing Option[Boolean] would have achieved
@@ -345,7 +345,7 @@ object DFVal:
             case partial: DFVal.Alias.ApplyIdx =>
               partial.relIdx.get match
                 case DFVal.Alias.ApplyIdx.ConstIdx(idx) =>
-                  relVal.departial(range.offset(idx * partial.width))
+                  relVal.departial(range.offset(idx * partial.widthUNSAFE))
                 // if not a constant index selection, then the entire value range is affected
                 case _ =>
                   relVal.dealias match
@@ -363,7 +363,7 @@ object DFVal:
       end match
     end departial
     // for a given value remove partial selections as possible
-    def departial(using MemberGetSet): (DFVal, Range) = departial(0 until dfVal.width)
+    def departial(using MemberGetSet): (DFVal, Range) = departial(0 until dfVal.widthUNSAFE)
     def departialDcl(using MemberGetSet): Option[(DFVal.Dcl, Range)] =
       departial match
         case (dcl: DFVal.Dcl, range) => Some(dcl, range)

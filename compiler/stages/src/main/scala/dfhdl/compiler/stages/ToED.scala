@@ -129,7 +129,7 @@ case object ToED extends Stage:
                   case _: DFConditional.Block =>
                     dclREGRequiresDefaultSet += dcl
                   // simple test: partially assigned even once -> requires a default
-                  case _ if range.length != dcl.width =>
+                  case _ if range.length != dcl.widthUNSAFE =>
                     dclREGRequiresDefaultSet += dcl
                   case _ => // do nothing
                 if (!dcl.isReg && !dcl.modifier.isShared)

@@ -900,7 +900,7 @@ object DFVal extends DFValLP:
           case asIs @ ir.DFVal.Alias.AsIs(relValRef = ir.DFRef(relValIR))
               if aliasType.asIR.isInstanceOf[ir.DFBits] && asIs.isAnonymous &&
                 dfc.isAnonymous && !forceNewAlias && asIs.tags.isEmpty &&
-                relValIR.width == asIs.width =>
+                relValIR.widthUNSAFE == asIs.widthUNSAFE =>
             asIs.relValRef.get.asVal[AT, M]
           // remove redundant intermediate casting converting from BoolOrBit to Bits/UInt/SInt + resize
           case asIs @ ir.DFVal.Alias.AsIs(
@@ -1749,8 +1749,8 @@ object DFVarOps:
       ): Unit =
         dfVars match
           case dfVar :: nextVars =>
-            val concatWidth = concat.map(_.width).sum
-            val missingConcatWidth = dfVar.width - concatWidth
+            val concatWidth = concat.map(_.widthUNSAFE).sum
+            val missingConcatWidth = dfVar.widthUNSAFE - concatWidth
             assert(missingConcatWidth >= 0)
             // widths match so we can assign
             if (missingConcatWidth == 0)
@@ -1771,7 +1771,7 @@ object DFVarOps:
             // missing more bits to complete assignment, so moving arg element into concat list
             else
               val arg = args.head
-              val argLeftoverWidth = arg.width - argReadWidth
+              val argLeftoverWidth = arg.widthUNSAFE - argReadWidth
               val extraWidth = argLeftoverWidth - missingConcatWidth
               if (extraWidth <= 0)
                 val concatArg =
@@ -1793,7 +1793,7 @@ object DFVarOps:
                 // the args order are from msbits to lsbits, so when we end up with extra bits
                 // those will be the lsbits that to be given back to the args list and just the
                 // remaining msbits are placed in the concat list
-                assignRecur(dfVars, args, argReadWidth + concatArg.width, concatArg :: concat)
+                assignRecur(dfVars, args, argReadWidth + concatArg.widthUNSAFE, concatArg :: concat)
               end if
             end if
           case Nil => // done!

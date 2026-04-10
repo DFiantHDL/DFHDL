@@ -57,7 +57,7 @@ case object ApplyInvertConstraint extends Stage:
             case constraints.IO(bitIdx = bitIdx, invertActiveState = true) =>
               bitIdx match
                 case bitIdx: Int => invertBitSet += bitIdx
-                case _           => invertBitSet ++= (0 until dcl.width)
+                case _           => invertBitSet ++= (0 until dcl.widthUNSAFE)
             case _ =>
           }
 

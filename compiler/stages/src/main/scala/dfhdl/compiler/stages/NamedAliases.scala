@@ -95,10 +95,10 @@ case object NamedVerilogSelection extends NamedAliases:
           case _                                         => false
       case _ => false
     dfVal match
-      case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName                  => Nil
-      case alias: DFVal.Alias.ApplyRange if alias.width != alias.relValRef.get.width =>
+      case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName => Nil
+      case alias: DFVal.Alias.ApplyRange if alias.widthUNSAFE != alias.relValRef.get.widthUNSAFE =>
         List(alias.relValRef.get)
-      case alias: DFVal.Alias.AsIs if alias.width < alias.relValRef.get.width =>
+      case alias: DFVal.Alias.AsIs if alias.widthUNSAFE < alias.relValRef.get.widthUNSAFE =>
         if (alias.relValRef.get.dfType == DFInt32)
           Nil // conversion from DFInt32 is not a bit selection, so no need to break the expression
         else
@@ -118,7 +118,7 @@ case object NamedVerilogSelection extends NamedAliases:
         List(alias.relValRef.get)
       case func @ DFVal.Func(op = op, args = DFRef(lhs) :: _ :: Nil)
           if isBasicVerilog && !lhs.hasVerilogName && carryOps.contains(op) &&
-            func.width > lhs.width =>
+            func.widthUNSAFE > lhs.widthUNSAFE =>
         List(lhs)
       case func: DFVal.Func =>
         func.getReadDeps.headOption match

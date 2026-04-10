@@ -23,8 +23,8 @@ extension (designDB: DB)
     designDB.members.flatMap:
       case net @ DFNet.Assignment(toVal, DFVal.Alias.AsIs(relValRef = DFRef(fromVal)))
           if !fromVal.isAnonymous && fromVal.getReadDeps.size == 1 &&
-            toVal.width < fromVal.width => // && fromVal.tags.hasTagOf[TruncateTag]
-        Some(fromVal, fromVal.width - 1, toVal.width)
+            toVal.widthUNSAFE < fromVal.widthUNSAFE => // && fromVal.tags.hasTagOf[TruncateTag]
+        Some(fromVal, fromVal.widthUNSAFE - 1, toVal.widthUNSAFE)
       case _ => None
   end getUnusedBitsValues
   def getOpenOutPorts: List[DFVal] =

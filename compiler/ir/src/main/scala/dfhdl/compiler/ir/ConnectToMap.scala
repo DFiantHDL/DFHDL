@@ -7,14 +7,14 @@ object ConnectToMap:
   extension (ctm: ConnectToMap)(using MemberGetSet)
     def dcls: Set[DFVal.Dcl] = ctm.keySet
     def getNets(dcl: DFVal.Dcl, range: Range): Set[DFNet] =
-      val vector = ctm.getOrElse(dcl, Vector.fill(dcl.width)(None))
+      val vector = ctm.getOrElse(dcl, Vector.fill(dcl.widthUNSAFE)(None))
       range.flatMap(vector(_)).toSet
     def getNets(dfVal: DFVal): Set[DFNet] =
       dfVal.departialDcl match
         case Some((dcl, range)) => getNets(dcl, range)
         case _                  => Set()
     def addNet(dcl: DFVal.Dcl, range: Range, net: DFNet): ConnectToMap =
-      val vector = ctm.getOrElse(dcl, Vector.fill(dcl.width)(None))
+      val vector = ctm.getOrElse(dcl, Vector.fill(dcl.widthUNSAFE)(None))
       val newVector = vector.zipWithIndex.map {
         case (_, idx) if range.contains(idx) => Some(net)
         case (elem, _)                       => elem

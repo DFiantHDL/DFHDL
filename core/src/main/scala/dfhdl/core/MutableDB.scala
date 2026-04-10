@@ -380,14 +380,14 @@ final class MutableDB():
         }.asInstanceOf[(List[SigConstraint], List[HWAnnotation])]
         // collect all constraints from the resources that are connected to this dcl
         val newSigConstraints = connections.flatMap { case (range, resource) =>
-          if (range.length != dcl.width) resource.allSigConstraints.flatMap { cs =>
+          if (range.length != dcl.widthUNSAFE) resource.allSigConstraints.flatMap { cs =>
             for (i <- range) yield cs.updateBitIdx(i)
           }
           else resource.allSigConstraints
         }
         // merge the existing constraints with the new constraints
         val updatedSigConstraints = (existingSigConstraints ++ newSigConstraints).merge.consolidate(
-          dcl.width
+          dcl.widthUNSAFE
         )
         // merge all other annotations
         val updatedAnnotations = updatedSigConstraints ++ otherAnnotations

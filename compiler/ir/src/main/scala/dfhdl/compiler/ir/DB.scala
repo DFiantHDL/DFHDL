@@ -308,14 +308,16 @@ final case class DB(
       }
       // 2. Build port copies (reusing origToDupMap from step 1)
       val pbnsTypes = pbnsByDesign.getOrElse(dupDesign, Map.empty)
-      portEntries += dupDesign -> ListMap.from(origPortMap.getOrElse(origDesign, ListMap.empty).view.map { (name, dcl) =>
-        val dfType = pbnsTypes.getOrElse(name, dcl.dfType)
-        val dupOwnerDomain = origToDupMap(dcl.getOwnerDomain)
-        name -> dcl.copy(ownerRef = DFRef.DuplicationRef(dupOwnerDomain), dfType = dfType)
-      })
+      portEntries += dupDesign ->
+        ListMap.from(origPortMap.getOrElse(origDesign, ListMap.empty).view.map { (name, dcl) =>
+          val dfType = pbnsTypes.getOrElse(name, dcl.dfType)
+          val dupOwnerDomain = origToDupMap(dcl.getOwnerDomain)
+          name -> dcl.copy(ownerRef = DFRef.DuplicationRef(dupOwnerDomain), dfType = dfType)
+        })
     }
     // dupEntries only fills in missing entries (designs without real port members)
     (domainBlockMap.toMap, portEntries.toMap ++ origPortMap)
+  end val
 
   lazy val dupDomainOwnerPublicMemberList: List[(DFDomainOwner, List[DFMember])] =
     def publicMemberFilter(member: DFMember): Boolean =
@@ -348,6 +350,7 @@ final case class DB(
       (dupOwner -> dupMembers) :: origMembers.collect { case db: DomainBlock =>
         dupEntriesFor(db, dupDesign)
       }.flatten
+    end dupEntriesFor
     domainOwnerMemberList.flatMap { case (owner, members) =>
       owner match
         case dupDesign: DFDesignBlock if dupDesign.isDuplicate =>
@@ -518,7 +521,7 @@ final case class DB(
               case None =>
                 newError(s"Unexpected write access to the immutable value ${v.relValString}.")
                 None
-              case Some(dcl, range) if dcl.width < range.length =>
+              case Some(dcl, range) if dcl.widthUNSAFE < range.length =>
                 newError(s"Unexpected write access to the immutable value ${v.relValString}.")
                 None
               case x => x
@@ -1201,7 +1204,7 @@ final case class DB(
             end match
           case clkPort: DFVal.Dcl if clkPort.isPortIn && clkPort.isClkDcl => // do nothing (checked in the domain itself)
           case port: DFVal.Dcl if port.isPort =>
-            val bitSet = mutable.BitSet((0 until port.width)*)
+            val bitSet = mutable.BitSet((0 until port.widthUNSAFE)*)
             port.meta.annotations.foreach {
               case constraints.IO(bitIdx = None, loc = loc: String) =>
                 bitSet.clear()
@@ -1210,7 +1213,7 @@ final case class DB(
                     s"${prevPort} and ${port.getFullName} are both assigned to location `${loc}`"
                 }
                 locationMap += loc -> port.getFullName
-                if (port.width != 1)
+                if (port.widthUNSAFE != 1)
                   locationCollisions +=
                     s"${port.getFullName} has mutliple bits assigned to location `${loc}`"
               case constraints.IO(bitIdx = bitIdx: Int, loc = loc: String) =>
@@ -1223,7 +1226,7 @@ final case class DB(
               case _ =>
             }
             if (bitSet.nonEmpty)
-              if (port.width == 1)
+              if (port.widthUNSAFE == 1)
                 errors += s"${port.getFullName}"
               else
                 errors += s"${port.getFullName} with bits ${bitSet.mkString(", ")}"
