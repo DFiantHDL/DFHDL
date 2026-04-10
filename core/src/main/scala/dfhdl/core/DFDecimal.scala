@@ -788,6 +788,10 @@ object DFXInt:
         val int32Data: Option[Int] =
           if (dfVal.dfType.asIR.isDFInt32)
             import dfc.getSet
+            // the value may originate from a foreign DFC (e.g. a global defined under a
+            // different inline DFCG summon), so make sure its global context is injected
+            // before reading const data that may traverse refs.
+            dfVal.asIR.injectGlobalCtx()
             dfVal.asIR.getConstData match
               case Some(Some(n: BigInt)) => Some(n.toInt)
               case _                     => None

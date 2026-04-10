@@ -218,10 +218,10 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDExt(gp)).getCodeString
     assertNoDiff(
       id,
-      """|val i: SInt[16] <> CONST = sd"16'0"
-         |val i2: SInt[16] <> CONST = i + sd"16'5"
-         |val gp: Bit <> CONST = 1
+      """|val gp: Bit <> CONST = 1
          |val gp2: Bit <> CONST = gp
+         |val i: SInt[16] <> CONST = sd"16'0"
+         |val i2: SInt[16] <> CONST = i + sd"16'5"
          |
          |class IDExt(
          |    val dp: Bit <> CONST = gp2 && gp,

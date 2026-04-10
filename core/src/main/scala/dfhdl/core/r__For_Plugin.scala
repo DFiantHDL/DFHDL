@@ -108,6 +108,9 @@ object r__For_Plugin:
       defaultVal: Option[DFValAny],
       paramMeta: ir.Meta
   )(using DFC): V =
+    // the applied values are not refernced in the usual way, so we inject a possible
+    // global context here.
+    appliedVal.asIR.injectGlobalCtx()
     trydf:
       dfc.mutableDB.DesignContext.getReachableNamedValue(
         appliedVal.asIR,
