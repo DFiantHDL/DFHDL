@@ -555,6 +555,7 @@ class DFDecimalSpec extends DFSpec:
     val param: Int <> CONST = 10
     val i42: Int = 42
 
+    //format: off
     // === Commutative + with Scala Int literals ===
     val t1 = u8 + 5;       t1.verifyValOf[UInt[8]]
     val t2 = 5 + u8;       t2.verifyValOf[UInt[8]]
@@ -640,6 +641,7 @@ class DFDecimalSpec extends DFSpec:
     val t46 = i42 - u8;    t46.verifyValOf[UInt[8]]
     val t47 = param - u8;  t47.verifyValOf[UInt[8]]
     val t48 = param / u8;  t48.verifyValOf[UInt[8]]
+    //format: on
 
     // === Constant propagation ===
     // All-constant expressions produce CONST results
@@ -652,8 +654,8 @@ class DFDecimalSpec extends DFSpec:
     val c6: UInt[8] <> CONST = d"8'5" + param
     val c7: SInt[8] <> CONST = sd"8'5" + param
     // Param + VAR is NOT const (verified by type — no CONST annotation)
-    val nc1 = u8 + param  // result is not CONST
-    val nc2 = param + u8  // result is not CONST
+    val nc1 = u8 + param // result is not CONST
+    val nc2 = param + u8 // result is not CONST
 
     // === Comparisons: wildcard adapts ===
     val cmp1 = u8 == 200
