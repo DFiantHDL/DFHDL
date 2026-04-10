@@ -49,7 +49,7 @@ class DFTupleSpec extends DFSpec:
     val (t14, t15) = (t1(0), t2._1)
     val (t16, t17) = t13.asScalaTuple
     val t18: (Bits[Int], Bit) <> CONST = (h"8", 1)
-    assert(t18.widthInt == 5)
+    assert(t18.widthIntUNSAFE == 5)
   }
 
   test("Inlined width") {

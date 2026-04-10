@@ -255,7 +255,7 @@ end Width
 
 extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   @targetName("dfValWidth")
-  def widthInt(using dfc: DFC, w: Width[T]): Inlined[w.OutI] =
+  def widthIntUNSAFE(using dfc: DFC, w: Width[T]): Inlined[w.OutI] =
     import dfc.getSet
     Inlined.forced[w.OutI](dfVal.asIR.dfType.widthUNSAFE)
   def widthIntParam(using dfc: DFC, w: Width[T]): IntParam[w.Out] =
@@ -264,7 +264,7 @@ extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
 
 extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tWidth")
-  def widthInt(using dfc: DFC, w: Width[tc.Type]): Inlined[w.OutI] =
+  def widthIntUNSAFE(using dfc: DFC, w: Width[tc.Type]): Inlined[w.OutI] =
     import dfc.getSet
     Inlined.forced[w.OutI](tc(t).asIR.widthUNSAFE)
   def widthIntParam(using dfc: DFC, w: Width[tc.Type]): IntParam[w.Out] =

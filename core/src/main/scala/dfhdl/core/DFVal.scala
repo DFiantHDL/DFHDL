@@ -576,7 +576,7 @@ object DFVal extends DFValLP:
       val vectorType = dfVal.dfType
       import DFVector.{lengthInt, cellType}
       val data = ir.InitFileFormat.readInitFile(
-        path, format, vectorType.lengthInt, vectorType.cellType.widthInt, undefinedValue
+        path, format, vectorType.lengthInt, vectorType.cellType.widthIntUNSAFE, undefinedValue
       )
       val initFileConst = vectorType.cellType.asIR match
         case ir.DFBits(_) => DFVal.Const(vectorType, data)
@@ -1595,7 +1595,7 @@ object DFVal extends DFValLP:
       }
       def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
       def width(using DFC): DFConstInt32 = dfVal.widthIntParam.toDFConst
-      def widthInt(using DFC): Int = dfVal.widthIntParam.toScalaInt
+      def widthIntUNSAFE(using DFC): Int = dfVal.widthIntParam.toScalaInt
     end extension
 
     extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])

@@ -50,7 +50,7 @@ object IOBus:
   ): CanConnect[R, V] with
     def connect(resource: R, dfVal: V)(using DFC): Unit =
       import dfhdl.core.DFVal.Ops.apply
-      check(resource.length, dfVal.widthInt)
+      check(resource.length, dfVal.widthIntUNSAFE)
       for (i <- 0 until resource.ios.length)
         cc.connect(resource.ios(i), dfVal.bits(i))
 end IOBus

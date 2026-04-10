@@ -662,7 +662,7 @@ object DFDecimal:
           dfType: DFDecimal[Boolean, Int, Int, NativeType],
           dfVal: DFValOf[DFDecimal[Boolean, Int, Int, NativeType]]
       )(using DFC): DFValOf[DFDecimal[Boolean, Int, Int, NativeType]] =
-        `LW >= RW`(dfType.widthInt, dfVal.widthInt)
+        `LW >= RW`(dfType.widthIntUNSAFE, dfVal.widthIntUNSAFE)
         `LS >= RS`(dfType.signed, dfVal.dfType.signed)
         dfVal
     end TC
@@ -796,7 +796,7 @@ object DFXInt:
           else None
         int32Data match
           case Some(int) => (int < 0, IntInfo.calcWidth(int))
-          case None      => (dfVal.dfType.signed.value, dfVal.dfType.widthInt.value)
+          case None      => (dfVal.dfType.signed.value, dfVal.dfType.widthIntUNSAFE.value)
     end extension
 
     object TC:
@@ -805,7 +805,12 @@ object DFXInt:
           dfVal: DFValOf[DFXInt[Boolean, Int, NativeType]]
       )(using DFC): DFValOf[DFXInt[Boolean, Int, NativeType]] =
         val check = summon[TCCheck[Boolean, Int, Boolean, Int]]
-        check(dfType.signed, dfType.widthInt, dfVal.dfType.signed, dfVal.dfType.widthInt)
+        check(
+          dfType.signed,
+          dfType.widthIntUNSAFE,
+          dfVal.dfType.signed,
+          dfVal.dfType.widthIntUNSAFE
+        )
         dfVal
       import DFVal.TC
       given [LS <: Boolean, LW <: IntP, LN <: NativeType, R, RP, IC <: Candidate[R]](using
@@ -820,7 +825,7 @@ object DFXInt:
           val rhs = ic(value)
           val (rhsSigned, rhsWidth) = rhs.getActualSignedWidth
           if (!rhs.hasTag[ir.TruncateTag] || dfType.signed != rhsSigned)
-            check(dfType.signed, dfType.widthInt, rhsSigned, rhsWidth)
+            check(dfType.signed, dfType.widthIntUNSAFE, rhsSigned, rhsWidth)
           DFXInt.Val.Ops.toDFXIntOf(rhs)(dfType).asValTP[DFXInt[LS, LW, LN], RP]
         end conv
       end given
@@ -867,7 +872,7 @@ object DFXInt:
           val (rhsSigned, rhsWidth) = dfValArg.getActualSignedWidth
           check(
             dfType.signed,
-            dfType.widthInt,
+            dfType.widthIntUNSAFE,
             rhsSigned,
             rhsWidth
           )
@@ -920,8 +925,8 @@ object DFXInt:
         new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
           type Out = DFValTP[DFXInt[S, HI - LO + 1, BitAccurate], P]
           def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
-            checkHigh(IntParam(idxHigh), lhs.widthInt)
-            checkLow(IntParam(idxLow), lhs.widthInt)
+            checkHigh(IntParam(idxHigh), lhs.widthIntUNSAFE)
+            checkLow(IntParam(idxLow), lhs.widthIntUNSAFE)
             checkHiLo(IntParam(idxHigh), IntParam(idxLow))
             DFVal.Alias.ApplyRange.applyDFXInt(lhs, IntParam(idxHigh), IntParam(idxLow))
           }(using dfc, CTName("bit range selection (apply)"))
@@ -978,7 +983,8 @@ object DFXInt:
                         dfType = dt: ir.DFDecimal,
                         op = op @ (FuncOp.+ | FuncOp.- | FuncOp.*)
                       )
-                      if func.isAnonymous && !dt.isDFInt32 && dfType.widthInt > func.widthUNSAFE =>
+                      if func.isAnonymous && !dt.isDFInt32 &&
+                        dfType.widthIntUNSAFE > func.widthUNSAFE =>
                     // For multi-arg merged Funcs (3+ args), peel the last arg:
                     // Func(+, [a, b, c]) → Func(+, [Func(+, [a, b]), c])
                     // Shrink the original func in-place to become the inner (non-carry)
@@ -1303,11 +1309,11 @@ object DFXInt:
               // Both concrete (or both wildcards): use max width, max signed
               val resultSigned = lhsVal.dfType.signed || rhsVal.dfType.signed
               val lhsEffWidth: Int =
-                if (resultSigned && !lhsVal.dfType.signed) lhsVal.dfType.widthInt + 1
-                else lhsVal.dfType.widthInt
+                if (resultSigned && !lhsVal.dfType.signed) lhsVal.dfType.widthIntUNSAFE + 1
+                else lhsVal.dfType.widthIntUNSAFE
               val rhsEffWidth: Int =
-                if (resultSigned && !rhsVal.dfType.signed) rhsVal.dfType.widthInt + 1
-                else rhsVal.dfType.widthInt
+                if (resultSigned && !rhsVal.dfType.signed) rhsVal.dfType.widthIntUNSAFE + 1
+                else rhsVal.dfType.widthIntUNSAFE
               if (lhsEffWidth >= rhsEffWidth)
                 if (resultSigned && !lhsVal.dfType.signed)
                   val lhsSigned = lhsVal.asValOf[DFUInt[Int]].signed(using dfcAnon)
@@ -1642,14 +1648,14 @@ object DFUInt:
               if (argValIR.dfType != ir.DFInt32)
                 unsignedCheck(argVal.dfType.signed)
                 val ubWidth = clog2(ub.toScalaInt)
-                val argWidth = argVal.widthInt
+                val argWidth = argVal.widthIntUNSAFE
                 if (
                   ubWidth < argWidth && argValIR.hasTagOf[ir.TruncateTag] ||
                   ubWidth > argWidth && argValIR.hasTagOf[ir.ExtendTag]
                 )
                   argVal.resize(ub.clog2).asIR
                 else
-                  widthCheck(ubWidth, argVal.widthInt)
+                  widthCheck(ubWidth, argVal.widthIntUNSAFE)
                   argValIR
               else argValIR
           DFVal.Alias.AsIs(DFInt32, fixedArgValIR.asValTP[DFUInt[Int], P])
@@ -1671,7 +1677,7 @@ object DFUInt:
             dfc: DFCG,
             check: `W <= 31`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
-          check(lhs.widthInt)
+          check(lhs.widthIntUNSAFE)
           DFVal.Alias.AsIs(DFInt32, lhs.signed)
         }
       end extension
@@ -1729,7 +1735,7 @@ object DFSInt:
             dfc: DFCG,
             check: `W <= 32`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
-          check(lhs.widthInt)
+          check(lhs.widthIntUNSAFE)
           DFVal.Alias.AsIs(DFInt32, lhs)
         }
     end Ops

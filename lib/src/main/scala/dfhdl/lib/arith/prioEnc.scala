@@ -5,7 +5,7 @@ import internals.{IntInfo, -}
 
 @hw.annotation.pure
 def prioEncRecur(value: Bits[Int] <> VAL): (Bit, Bits[Int]) <> DFRET =
-  val width = value.widthInt
+  val width = value.widthIntUNSAFE
   if (width == 2) (value(1) || value(0), value(1, 1))
   else
     val lsHalf = width / 2
@@ -20,7 +20,7 @@ def prioEncRecur(value: Bits[Int] <> VAL): (Bit, Bits[Int]) <> DFRET =
     info: IntInfo[W - 1]
 ): (Bit, Bits[info.OutW]) <> DFRET =
   require(
-    value.widthInt > 1,
-    s"Priority encoded value width must be larger than 1. Found: ${value.widthInt}"
+    value.widthIntUNSAFE > 1,
+    s"Priority encoded value width must be larger than 1. Found: ${value.widthIntUNSAFE}"
   )
   prioEncRecur(value).asValOf[(Bit, Bits[info.OutW])]

@@ -445,7 +445,7 @@ object DFBits:
           dfType: DFBits[Int],
           dfVal: DFValOf[DFBits[Int]]
       )(using DFC): DFValOf[DFBits[Int]] =
-        `LW == RW`(dfType.widthInt, dfVal.widthInt)
+        `LW == RW`(dfType.widthIntUNSAFE, dfVal.widthIntUNSAFE)
         dfVal
       protected object `LW == RW`
           extends Check2[
@@ -465,12 +465,12 @@ object DFBits:
         def conv(dfType: DFBits[LW], value: V)(using dfc: DFC): Out =
           import Ops.resizeBits
           val dfVal = ic(value)
-          if (dfVal.hasTag[ir.TruncateTag] && dfType.widthInt < dfVal.widthInt)
+          if (dfVal.hasTag[ir.TruncateTag] && dfType.widthIntUNSAFE < dfVal.widthIntUNSAFE)
             dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], RP]
-          else if (dfVal.hasTag[ir.ExtendTag] && dfType.widthInt > dfVal.widthInt)
+          else if (dfVal.hasTag[ir.ExtendTag] && dfType.widthIntUNSAFE > dfVal.widthIntUNSAFE)
             dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], RP]
           else
-            check(dfType.widthInt, dfVal.widthInt)
+            check(dfType.widthIntUNSAFE, dfVal.widthIntUNSAFE)
             dfVal.nameInDFCPosition.asValTP[DFBits[LW], RP]
         end conv
       end DFBitsFromCandidate
@@ -511,7 +511,7 @@ object DFBits:
         type OutP = RP
         def conv(dfType: DFBits[LW], arg: R)(using DFC): Out =
           val dfValArg = ic(arg)
-          check(dfType.widthInt, dfValArg.dfType.widthInt)
+          check(dfType.widthIntUNSAFE, dfValArg.dfType.widthIntUNSAFE)
           dfValArg.asValTP[DFBits[LW], RP]
       end DFBitsCompareCandidate
       given DFBitsCompareSEV[
@@ -589,8 +589,8 @@ object DFBits:
         new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
           type Out = DFVal[DFBits[HI - LO + 1], Modifier[A, Any, Any, P]]
           def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
-            checkHigh(IntParam(idxHigh), lhs.widthInt)
-            checkLow(IntParam(idxLow), lhs.widthInt)
+            checkHigh(IntParam(idxHigh), lhs.widthIntUNSAFE)
+            checkLow(IntParam(idxLow), lhs.widthIntUNSAFE)
             checkHiLo(IntParam(idxHigh), IntParam(idxLow))
             DFVal.Alias.ApplyRange(lhs, IntParam(idxHigh), IntParam(idxLow))
           }(using dfc, CTName("bit range selection (apply)"))
@@ -615,7 +615,7 @@ object DFBits:
           def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
             val lhsVal = icL(lhs)
             val rhsVal = icR(rhs)
-            check(lhsVal.widthInt, rhsVal.widthInt)
+            check(lhsVal.widthIntUNSAFE, rhsVal.widthIntUNSAFE)
             DFVal.Func(lhsVal.dfType, op.value, List(lhsVal, rhsVal))
           }
       end evLogicOpDFBits
@@ -751,7 +751,7 @@ object DFBits:
           def apply(lhs: L, aliasType: AT)(using DFC): Out = trydf {
             import dfc.getSet
             val aliasDFType = tc(aliasType)
-            check(aliasDFType.asIR.widthUNSAFE, lhs.widthInt)
+            check(aliasDFType.asIR.widthUNSAFE, lhs.widthIntUNSAFE)
             DFVal.Alias.AsIs(aliasDFType, lhs)
           }(using dfc, CTName("cast from bits"))
       end evOpAsDFBits
@@ -770,7 +770,7 @@ object DFBits:
         }
         def msbit(using DFCG): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           import DFVal.Ops.apply as applyBits
-          lhs.applyBits(lhs.widthInt.value - 1).asVal[DFBit, Modifier[A, Any, Any, P]]
+          lhs.applyBits(lhs.widthIntUNSAFE.value - 1).asVal[DFBit, Modifier[A, Any, Any, P]]
         def lsbit(using DFCG): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           import DFVal.Ops.apply as applyBits
           lhs.applyBits(0).asVal[DFBit, Modifier[A, Any, Any, P]]
@@ -778,7 +778,7 @@ object DFBits:
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFCG
         ): DFValTP[DFBits[RW], P] = trydf {
-          check(lhs.widthInt, updatedWidth)
+          check(lhs.widthIntUNSAFE, updatedWidth)
           DFVal.Alias.ApplyRange(lhs, lhs.widthIntParam - 1, lhs.widthIntParam - updatedWidth)
             .asValTP[DFBits[RW], P]
         }
@@ -786,7 +786,7 @@ object DFBits:
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFCG
         ): DFValTP[DFBits[RW], P] = trydf {
-          check(lhs.widthInt, updatedWidth)
+          check(lhs.widthIntUNSAFE, updatedWidth)
           DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0).asValTP[DFBits[RW], P]
         }
       end extension
