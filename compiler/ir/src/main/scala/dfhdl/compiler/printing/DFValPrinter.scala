@@ -226,7 +226,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
           // if the result width for +/-/* ops is larger than the left argument width
           // then we have a carry-inclusive operation
           case Func.Op.+ | Func.Op.- | Func.Op.`*`
-              if !dfVal.dfType.isUnbounded && dfVal.dfType.width > argL.get.dfType.width =>
+              if !dfVal.dfType.isUnbounded &&
+                dfVal.dfType.widthUNSAFE > argL.get.dfType.widthUNSAFE =>
             s"${dfVal.op}^"
           case op => commonOpStr
         s"${csArgL.applyBrackets()} $opStr ${csArgR.applyBrackets()}"
@@ -310,7 +311,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case (DFBits(tWidthParamRef), DFBit | DFBool) =>
         s"${relValStr}.toBits(${tWidthParamRef.refCodeString})"
       case (DFBits(Int(tWidth)), _) =>
-        assert(tWidth == fromType.width)
+        assert(tWidth == fromType.widthUNSAFE)
         s"${relValStr}.bits"
       case (DFUInt(tWidthParamRef), DFUInt(_)) =>
         s"${relValStr}.resize(${tWidthParamRef.refCodeString})"

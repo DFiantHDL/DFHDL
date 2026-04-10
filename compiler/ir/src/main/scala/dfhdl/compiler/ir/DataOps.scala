@@ -54,11 +54,11 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
         .getOrElse((BitVector.low(tWidth), BitVector.high(tWidth)))
     // Casting from any data to Bits
     case (DFBits(Int(tWidth)), _) =>
-      assert(tWidth == fromType.width)
+      assert(tWidth == fromType.widthUNSAFE)
       fromType.dataToBitsData(fromData)
     // Casting from Bits to any data
     case (_, DFBits(Int(fWidth))) =>
-      assert(fWidth == toType.width)
+      assert(fWidth == toType.widthUNSAFE)
       toType.bitsDataToData(fromData.asInstanceOf[(BitVector, BitVector)])
     // Casting from BoolOrBit to UInt/SInt
     case (DFUInt(_) | DFSInt(_), DFBit | DFBool) =>
@@ -72,7 +72,7 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
     case (DFNumber, DFDouble) =>
       LiteralNumber(BigDecimal(fromData.asInstanceOf[DFDouble.Data].get))
     // Casting from any data to any data
-    case _ if fromType.width == toType.width =>
+    case _ if fromType.widthUNSAFE == toType.widthUNSAFE =>
       toType.bitsDataToData(fromType.dataToBitsData(fromData))
     case x =>
       println(x)
@@ -262,12 +262,12 @@ def calcFuncData[OT <: DFType](
               case FuncOp.min => argData.map(_.get).reduce(_ min _)
             val widthNoTrunc = dataNoTrunc.bitsWidth(outType.signed)
             val dataTrunc =
-              if (widthNoTrunc > outType.width)
-                dataNoTrunc.toBitVector(outType.width).toBigInt(outType.signed)
+              if (widthNoTrunc > outType.widthUNSAFE)
+                dataNoTrunc.toBitVector(outType.widthUNSAFE).toBigInt(outType.signed)
               else dataNoTrunc
             val dataFixSign =
               if (dataTrunc < 0 && !outType.signed)
-                dataTrunc.asUnsigned(outType.width)
+                dataTrunc.asUnsigned(outType.widthUNSAFE)
               else dataTrunc
             Some(dataFixSign)
           // bits reduction operations

@@ -117,7 +117,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     else ""
     s"""|function bitWidth(A : ${typeName}) return integer is
         |begin
-        |  return ${dfType.width};
+        |  return ${dfType.widthUNSAFE};
         |end;
         |function to_slv(A : ${typeName}) return std_logic_vector is
         |  variable int_val : integer;
@@ -125,7 +125,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |  case A is
         |${to_slv_cases.mkString("\n").hindent(2)}
         |  end case;
-        |  return resize(to_slv(int_val), ${dfType.width});
+        |  return resize(to_slv(int_val), ${dfType.widthUNSAFE});
         |end;
         |function to_${typeName}(A : std_logic_vector) return ${typeName} is
         |begin

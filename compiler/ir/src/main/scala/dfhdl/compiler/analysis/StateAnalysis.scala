@@ -19,7 +19,7 @@ object StateAnalysis:
       case dfVal: DFVal.Alias if dfVal.relValRef.get.dfType.isUnbounded => currentSet
       case DFVal.Alias.AsIs(dfType = toType, relValRef = relValRef)     =>
         val relVal = relValRef.get
-        if (toType.width == relVal.widthUNSAFE)
+        if (toType.widthUNSAFE == relVal.widthUNSAFE)
           // casting maintains relative bit consumption
           consumeFrom(relVal, relWidth, relBitLow, assignMap, currentSet)
         else
@@ -78,7 +78,7 @@ object StateAnalysis:
     value.dfType match
       case _: DFUnbounded => currentSet
       case _              =>
-        consumeFrom(value, value.dfType.width, 0, assignMap, currentSet)
+        consumeFrom(value, value.dfType.widthUNSAFE, 0, assignMap, currentSet)
 
   @tailrec private def assignTo(
       value: DFVal,
@@ -114,7 +114,7 @@ object StateAnalysis:
       value: DFVal,
       assignMap: AssignMap
   )(using MemberGetSet): AssignMap =
-    assignTo(value, value.dfType.width, 0, assignMap)
+    assignTo(value, value.dfType.widthUNSAFE, 0, assignMap)
 
   // retrieves a list of variables that are consumed as their implicit previous value.
   // the assignment stack map is pushed on every conditional block entry and popped on the block exit

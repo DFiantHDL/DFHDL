@@ -90,11 +90,12 @@ case object ApplyInvertConstraint extends Stage:
                 case _: DFBoolOrBit => !dfVal.asValOf[dfhdl.core.DFBit]
                 case dfType: DFBits =>
                   // all bits are inverted
-                  if (dfType.width == invertBitSet.size) ~dfVal.asValOf[dfhdl.core.DFBits[Int]]
+                  if (dfType.widthUNSAFE == invertBitSet.size)
+                    ~dfVal.asValOf[dfhdl.core.DFBits[Int]]
                   // otherwise, we need to use a mask
                   else
                     val maskStr =
-                      (for (i <- dfType.width - 1 to 0 by -1)
+                      (for (i <- dfType.widthUNSAFE - 1 to 0 by -1)
                         yield
                           if (invertBitSet.contains(i)) "1"
                           else "0").mkString

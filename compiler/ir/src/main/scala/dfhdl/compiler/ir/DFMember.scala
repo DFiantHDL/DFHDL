@@ -204,7 +204,7 @@ sealed trait Statement extends DFMember derives ReadWriter
 
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
-  def widthUNSAFE(using MemberGetSet): Int = dfType.width
+  def widthUNSAFE(using MemberGetSet): Int = dfType.widthUNSAFE
   def isGlobal(using MemberGetSet): Boolean = false
   protected def protIsFullyAnonymous(using MemberGetSet): Boolean
   // using just an integer to escape redundant boxing Option[Boolean] would have achieved
@@ -803,7 +803,7 @@ object DFVal:
     ) extends Partial derives ReadWriter:
       def elementWidth(using MemberGetSet): Int = dfType.runtimeChecked match
         case DFBits(_) | DFUInt(_) | DFSInt(_) => 1
-        case DFVector(cellType = cellType)     => cellType.width
+        case DFVector(cellType = cellType)     => cellType.widthUNSAFE
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =

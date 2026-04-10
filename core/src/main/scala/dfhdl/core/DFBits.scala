@@ -751,7 +751,7 @@ object DFBits:
           def apply(lhs: L, aliasType: AT)(using DFC): Out = trydf {
             import dfc.getSet
             val aliasDFType = tc(aliasType)
-            check(aliasDFType.asIR.width, lhs.widthInt)
+            check(aliasDFType.asIR.widthUNSAFE, lhs.widthInt)
             DFVal.Alias.AsIs(aliasDFType, lhs)
           }(using dfc, CTName("cast from bits"))
       end evOpAsDFBits

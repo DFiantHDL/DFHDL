@@ -1147,7 +1147,7 @@ object DFXInt:
             import DFXInt.Val.getActualSignedWidth
             val (wSigned, wWidth) = wildcard.getActualSignedWidth
             val baTypeName =
-              if (d.signed) s"SInt[${d.width}]" else s"UInt[${d.width}]"
+              if (d.signed) s"SInt[${d.widthUNSAFE}]" else s"UInt[${d.widthUNSAFE}]"
             // Unsigned wildcard adapting to signed bit-accurate value needs an extra bit
             val effectiveWidth =
               if (d.signed && !wSigned) wWidth + 1 else wWidth
@@ -1155,9 +1155,9 @@ object DFXInt:
               throw new IllegalArgumentException(
                 s"Wildcard `Int` value is negative and cannot adapt to unsigned bit-accurate value $baTypeName."
               )
-            else if (effectiveWidth > d.width)
+            else if (effectiveWidth > d.widthUNSAFE)
               throw new IllegalArgumentException(
-                s"Wildcard `Int` value width ($effectiveWidth) is larger than the bit-accurate value width (${d.width})."
+                s"Wildcard `Int` value width ($effectiveWidth) is larger than the bit-accurate value width (${d.widthUNSAFE})."
               )
           case _ =>
       end checkWildcardFit

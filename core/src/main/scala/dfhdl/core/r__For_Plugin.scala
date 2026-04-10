@@ -40,7 +40,7 @@ object r__For_Plugin:
         DFVal.Const(dt.asFE[DFBoolOrBit], Some(v))
       case (dt: ir.DFBits, allBit: BitOrBool) =>
         // removing width as a parameter in patterns
-        val dfType = DFBits(dt.width)
+        val dfType = DFBits(dt.widthUNSAFE)
         SameElementsVector.bitsValOf(
           dfType.asFE[DFBits[Int]].widthIntParam,
           SameElementsVector(allBit)
@@ -48,8 +48,8 @@ object r__For_Plugin:
       case (dt: ir.DFDecimal, v: Int) =>
         // removing width as a parameter in patterns
         val dfType = dt.runtimeChecked match
-          case ir.DFUInt(_) => DFUInt(dt.width)
-          case ir.DFSInt(_) => DFSInt(dt.width)
+          case ir.DFUInt(_) => DFUInt(dt.widthUNSAFE)
+          case ir.DFSInt(_) => DFSInt(dt.widthUNSAFE)
         DFVal.Const(dfType.asFE[DFSInt[Int]], Some(BigInt(v)))
       case (dt: ir.DFEnum, v: DFEncoding) =>
         DFVal.Const(dt.asFE[DFEnum[DFEncoding]], Some(v.bigIntValue))

@@ -82,7 +82,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case DFRef(DFVal.Alias.AsIs(dfType = dfType: DFVector, relValRef = DFRef(initVal))) :: Nil =>
         initVal match
           case _ if !initVal.isAnonymous =>
-            val cellWidth = dfType.cellType.width
+            val cellWidth = dfType.cellType.widthUNSAFE
             val length = dfType.cellDimParamRefs.head.getInt
             val ret = for (i <- 0 until length)
               yield s"${dfVal.getName}[$i] = ${initVal.getName}[${(length - i) * cellWidth -
@@ -315,10 +315,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           vectorType.cellType match
             case cellType: DFVector =>
               List.tabulate(vecLength)(i =>
-                to_vector_conv(cellType, relHighIdx - i * cellType.width)
+                to_vector_conv(cellType, relHighIdx - i * cellType.widthUNSAFE)
               ).csList(literalGroupOpen, ",", "}")
             case cellType: DFBits =>
-              val cellWidth = cellType.width
+              val cellWidth = cellType.widthUNSAFE
               List.tabulate(vecLength)(i =>
                 s"$relValStr[${relHighIdx - i * cellWidth}:${relHighIdx - (i + 1) * cellWidth + 1}]"
               ).csList(literalGroupOpen, ",", "}")
@@ -331,7 +331,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               printer.unsupported
           end match
         end to_vector_conv
-        to_vector_conv(toVector, toVector.width - 1)
+        to_vector_conv(toVector, toVector.widthUNSAFE - 1)
       case (DFBits(Int(tWidth)), fromVector: DFVector) =>
         def from_vector_conv(vectorType: DFVector, prevSelect: String): String =
           val vecLength = vectorType.length
@@ -347,7 +347,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               println(x)
               printer.unsupported
         end from_vector_conv
-        assert(tWidth == fromType.width)
+        assert(tWidth == fromType.widthUNSAFE)
         from_vector_conv(fromVector, "")
       case (DFBits(tWidthParamRef), DFBit | DFBool) =>
         if (printer.allowWidthCastSyntax)
@@ -355,7 +355,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         else
           s"`EXTEND_U($relValStr, 1, ${tWidthParamRef.refCodeString})"
       case (DFBits(Int(tWidth)), _) =>
-        assert(tWidth == fromType.width)
+        assert(tWidth == fromType.widthUNSAFE)
         s"{$relValStr}"
       case x =>
         println(x)

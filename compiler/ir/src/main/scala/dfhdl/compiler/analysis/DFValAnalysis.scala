@@ -282,8 +282,8 @@ extension (dfVal: DFVal)
               case DFVal.Alias.ApplyIdx.ConstIdx(i) =>
                 val maxValue = relVal.dfType match
                   case vector: DFVector => vector.length - 1
-                  case bits: DFBits     => bits.width - 1
-                  case xInt: DFDecimal  => xInt.width - 1
+                  case bits: DFBits     => bits.widthUNSAFE - 1
+                  case xInt: DFDecimal  => xInt.widthUNSAFE - 1
                   case _                => ???
                 s"_${i.toPaddedString(maxValue)}"
               case _ => "_sel"

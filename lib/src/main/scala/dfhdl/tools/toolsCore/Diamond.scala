@@ -261,7 +261,7 @@ class DiamondProjectTimingConstraintsPrinter(using getSet: MemberGetSet, co: Com
           statements += s"set_false_path $dir [get_ports ${port.getName}]\n"
         case _ => constraint.bitIdx match
             case None =>
-              for (i <- 0 until port.dfType.width)
+              for (i <- 0 until port.dfType.widthUNSAFE)
                 statements += s"set_false_path $dir [get_ports ${port.getName}[$i]]\n"
             case bitIdx =>
               statements += s"set_false_path $dir [get_ports ${port.getName}[$bitIdx]]\n"

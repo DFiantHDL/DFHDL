@@ -1759,7 +1759,7 @@ object DFVarOps:
               val concatVal =
                 if (concat.size == 1) concat.head.asValAny
                 else
-                  DFVal.Func(DFBits(dfVar.dfType.width), FuncOp.++, concat.reverse)
+                  DFVal.Func(DFBits(dfVar.dfType.widthUNSAFE), FuncOp.++, concat.reverse)
               // non-bits variables need to be casted to
               val assignVal = dfVar.dfType match
                 // no need to cast
@@ -1804,7 +1804,7 @@ object DFVarOps:
       val argsBitsIR = argsIR.map { arg =>
         arg.dfType match
           case _: ir.DFBits => arg
-          case dfType       => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.width), arg)
+          case dfType       => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.widthUNSAFE), arg)
       }
       assignRecur(dfVarsIR, argsBitsIR, 0, Nil)
   end extension
