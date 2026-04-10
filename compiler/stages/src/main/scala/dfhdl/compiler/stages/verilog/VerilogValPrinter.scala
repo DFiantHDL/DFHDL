@@ -311,7 +311,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         s"${toStruct.name}'($relValStr)"
       case (toVector: DFVector, _: DFBits) =>
         def to_vector_conv(vectorType: DFVector, relHighIdx: Int): String =
-          val vecLength = vectorType.length
+          val vecLength = vectorType.lengthUNSAFE
           vectorType.cellType match
             case cellType: DFVector =>
               List.tabulate(vecLength)(i =>
@@ -334,7 +334,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         to_vector_conv(toVector, toVector.widthUNSAFE - 1)
       case (DFBits(Int(tWidth)), fromVector: DFVector) =>
         def from_vector_conv(vectorType: DFVector, prevSelect: String): String =
-          val vecLength = vectorType.length
+          val vecLength = vectorType.lengthUNSAFE
           vectorType.cellType match
             case cellType: DFVector =>
               List.tabulate(vecLength)(i => from_vector_conv(cellType, s"[$i]"))

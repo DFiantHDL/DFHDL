@@ -324,8 +324,8 @@ final case class DFVector(
   def widthUNSAFE(using MemberGetSet): Int = cellType.widthUNSAFE *
     cellDimParamRefs.map(_.getInt).product
   // TODO: change for multidimensional arrays
-  def length(using MemberGetSet): Int = cellDimParamRefs.head.getInt
-  def createBubbleData(using MemberGetSet): Data = Vector.fill(length)(
+  def lengthUNSAFE(using MemberGetSet): Int = cellDimParamRefs.head.getInt
+  def createBubbleData(using MemberGetSet): Data = Vector.fill(lengthUNSAFE)(
     cellType.createBubbleData
   )
   def isDataBubble(data: Data): Boolean =
