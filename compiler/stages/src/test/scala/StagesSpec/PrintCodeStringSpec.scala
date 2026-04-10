@@ -1828,15 +1828,56 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
 
-  // Regression test for exponential compile time with chained transparent inline operations.
-  // Before the FlattenInlinedPhase.minimizeCall optimization, 9 additions took 130s and
-  // 20 additions were impossible (hours/OOM). If this test causes compilation to hang or
-  // OOM, the optimization in FlattenInlinedPhase has regressed.
+  test("multi-arg func merging with global params, design param defaults, and applications") {
+    val GlobalA: Int <> CONST = 2
+    val GlobalB: Int <> CONST = GlobalA + GlobalA + GlobalA
+    class Foo(
+        val P1: Int <> CONST = GlobalA + GlobalB + GlobalA,
+        val P2: Int <> CONST = GlobalA * GlobalB * GlobalA
+    ) extends RTDesign:
+      val s: Int <> CONST = P1 + P2 + P1
+      val x               = UInt(s)       <> IN
+      val y               = UInt(s)       <> IN
+      val z               = UInt(s)       <> IN
+      val o               = UInt(s)       <> OUT
+      val w               = UInt(GlobalB) <> IN
+      val u               = UInt(GlobalB) <> OUT
+      o := x + y + z
+      u := w + w + w
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|val GlobalA: Int <> CONST = 2
+         |val GlobalB: Int <> CONST = GlobalA + GlobalA + GlobalA
+         |
+         |class Foo(
+         |    val P1: Int <> CONST = GlobalA + GlobalB + GlobalA,
+         |    val P2: Int <> CONST = GlobalA * GlobalB * GlobalA
+         |) extends RTDesign:
+         |  val s: Int <> CONST = P1 + P2 + P1
+         |  val x = UInt(s) <> IN
+         |  val y = UInt(s) <> IN
+         |  val z = UInt(s) <> IN
+         |  val o = UInt(s) <> OUT
+         |  val w = UInt(GlobalB) <> IN
+         |  val u = UInt(GlobalB) <> OUT
+         |  o := x + y + z
+         |  u := w + w + w
+         |end Foo""".stripMargin
+    )
+  }
+
   test("long chain of chained transparent inline operations compiles successfully") {
+    // Regression test for exponential compile time with chained transparent inline operations.
+    // Before the FlattenInlinedPhase.minimizeCall optimization, 9 additions took 130s and
+    // 20 additions were impossible (hours/OOM). If this test causes compilation to hang or
+    // OOM, the optimization in FlattenInlinedPhase has regressed.
     class LongChain extends DFDesign:
       val a = UInt(8) <> IN
       val o = UInt(8) <> OUT
-      o <> (a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a)
+      o <>
+        (a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a)
     end LongChain
     val top = (new LongChain).getCodeString
     assertNoDiff(
@@ -1844,7 +1885,7 @@ class PrintCodeStringSpec extends StageSpec:
       """|class LongChain extends DFDesign:
          |  val a = UInt(8) <> IN
          |  val o = UInt(8) <> OUT
-         |  o <> ((((((((((((((((((((a + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a)
+         |  o <> (a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a)
          |end LongChain""".stripMargin
     )
   }

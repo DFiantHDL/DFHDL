@@ -347,23 +347,23 @@ def calcFuncData[OT <: DFType](
                 DFNumber,
                 op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./),
                 DFNumber :: DFNumber :: _,
-                (lhs: LiteralNumber) :: (rhs: LiteralNumber) :: Nil
+                argData: List[LiteralNumber] @unchecked
               ) =>
             op match
-              case FuncOp.+ => lhs + rhs
-              case FuncOp.- => lhs - rhs
-              case FuncOp.* => lhs * rhs
-              case FuncOp./ => lhs / rhs
+              case FuncOp.+ => argData.reduce(_ + _)
+              case FuncOp.- => argData.reduce(_ - _)
+              case FuncOp.* => argData.reduce(_ * _)
+              case FuncOp./ => argData.reduce(_ / _)
           // DFTime add/sub arithmetic operations
           case (
                 DFTime,
                 op @ (FuncOp.+ | FuncOp.-),
                 DFTime :: DFTime :: _,
-                (lhs: TimeNumber) :: (rhs: TimeNumber) :: Nil
+                argData: List[TimeNumber] @unchecked
               ) =>
             op match
-              case FuncOp.+ => lhs + rhs
-              case FuncOp.- => lhs - rhs
+              case FuncOp.+ => argData.reduce(_ + _)
+              case FuncOp.- => argData.reduce(_ - _)
           // DFFreq div arithmetic operation
           case (
                 DFNumber,

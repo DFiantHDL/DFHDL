@@ -976,15 +976,38 @@ object DFXInt:
                         op = op @ (FuncOp.+ | FuncOp.- | FuncOp.*)
                       )
                       if func.isAnonymous && !dt.isDFInt32 && dfType.widthInt > func.width =>
+                    // For multi-arg merged Funcs (3+ args), peel the last arg:
+                    // Func(+, [a, b, c]) → Func(+, [Func(+, [a, b]), c])
+                    // Shrink the original func in-place to become the inner (non-carry)
+                    // Func, then add a new binary carry Func at the tail. This keeps
+                    // the inner before the carry Func in member order.
+                    // Skipped during meta-programming where MutableDB ref tracking is limited.
+                    val carryFunc =
+                      if (func.args.length > 2 && !dfc.inMetaProgramming)
+                        val lastArgRef = func.args.last
+                        // Shrink `func` in-place to the inner Func (N-1 args, non-carry)
+                        val innerFunc = dfc.mutableDB.setMember(
+                          func, _.copy(args = func.args.dropRight(1))
+                        )
+                        // Add a new binary carry Func at the tail referencing innerFunc
+                        ir.DFVal.Func(
+                          dt, op,
+                          List(
+                            innerFunc.refTW[ir.DFVal](knownReachable = true),
+                            lastArgRef
+                          ),
+                          func.ownerRef, func.meta, func.tags
+                        ).addMember
+                      else func
                     // Check B: warn if sub-expressions contain implicit Int with
                     // narrow non-carry arith. Check args (not func itself, since
                     // the func is about to be carry-promoted).
-                    if (func.args.exists(ref =>
+                    if (carryFunc.args.exists(ref =>
                         hasImplicitlyFromIntTag(ref.get)
-                      ) && func.args.exists(ref =>
+                      ) && carryFunc.args.exists(ref =>
                         containsNarrowNonCarryArith(ref.get)
                       )) ||
-                      func.args.exists(ref =>
+                      carryFunc.args.exists(ref =>
                         containsNarrowNonCarryArithWithTaggedOperand(ref.get)
                       )
                     then
@@ -994,12 +1017,13 @@ object DFXInt:
                           verilogSemanticsWarnMsg
                         )
                       )
-                    val cw: IntParam[Int] = func.op.runtimeChecked match
+                    end if
+                    val cw: IntParam[Int] = carryFunc.op.runtimeChecked match
                       case FuncOp.+ | FuncOp.- => funcWidth + 1
                       case FuncOp.*            => funcWidth + funcWidth
                     val newDT = dt.copy(widthParamRef = cw.ref)
                     dfc.mutableDB
-                      .setMember(func, _.updateDFType(newDT))
+                      .setMember(carryFunc, _.updateDFType(newDT))
                       .asValOf[DFSInt[Int]]
                   case _ => lhsSignFix
               val nativeTypeChanged = dfType.nativeType != lhsCarryPromo.dfType.nativeType
@@ -1008,7 +1032,9 @@ object DFXInt:
                   case Int32 =>
                     lhsCarryPromo.toInt.asIR
                   case BitAccurate =>
-                    DFVal.Alias.AsIs(dfType, lhsCarryPromo)(using dfc.tag(ir.ImplicitlyFromIntTag)).asIR
+                    DFVal.Alias.AsIs(dfType, lhsCarryPromo)(using
+                      dfc.tag(ir.ImplicitlyFromIntTag)
+                    ).asIR
               else if (
                 !dfType.asIR.widthParamRef.isSimilarTo(
                   lhsCarryPromo.dfType.asIR.widthParamRef

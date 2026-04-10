@@ -582,10 +582,11 @@ object DFVal:
       def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefList match
         case DFRef(dfVal) :: _ => !dfVal.isBubble
         case _                 => false
-  // Funcs with associative ops (&, |, ^, ++) may have more than 2 args when consecutive
-  // same-op anonymous Funcs are merged during elaboration (e.g., `a ^ b ^ c` produces
-  // a single `Func(^, [a, b, c])` instead of nested binary Funcs).
-  // +, -, * are NOT merged because carry promotion assumes binary (2-arg) Funcs.
+  // Funcs with associative ops (+, *, &, |, ^, ++) may have more than 2 args when
+  // consecutive same-op anonymous Funcs are merged during elaboration (e.g., `a + b + c`
+  // produces a single `Func(+, [a, b, c])` instead of nested binary Funcs).
+  // + and * are only merged when all args have the same width (non-carry).
+  // - is NOT merged (not truly associative for reordering).
   // ++ is only merged for flat DFBits concatenation, not struct/vector/string.
   // The position spans from the first operand to the last in the merged chain.
   final case class Func(
