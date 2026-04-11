@@ -341,7 +341,7 @@ object DFVal:
           val relVal = partial.relValRef.get
           partial match
             case partial: DFVal.Alias.ApplyRange =>
-              relVal.departial(range.offset(partial.idxLowRef.getInt))
+              relVal.departial(range.offset(partial.idxLowRef.getIntUNSAFE))
             case partial: DFVal.Alias.ApplyIdx =>
               partial.relIdx.get match
                 case DFVal.Alias.ApplyIdx.ConstIdx(idx) =>
@@ -812,8 +812,8 @@ object DFVal:
           selRangeData(
             relVal.dfType,
             relValData,
-            idxHighRef.getInt,
-            idxLowRef.getInt
+            idxHighRef.getIntUNSAFE,
+            idxLowRef.getIntUNSAFE
           )
         )
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match

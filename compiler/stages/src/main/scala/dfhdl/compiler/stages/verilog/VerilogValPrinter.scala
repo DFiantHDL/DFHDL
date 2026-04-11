@@ -83,7 +83,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         initVal match
           case _ if !initVal.isAnonymous =>
             val cellWidth = dfType.cellType.widthUNSAFE
-            val length = dfType.cellDimParamRefs.head.getInt
+            val length = dfType.cellDimParamRefs.head.getIntUNSAFE
             val ret = for (i <- 0 until length)
               yield s"${dfVal.getName}[$i] = ${initVal.getName}[${(length - i) * cellWidth -
                   1}:${(length - i) * cellWidth - cellWidth}];"

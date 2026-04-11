@@ -33,7 +33,7 @@ object DFVector:
   extension [T <: DFTypeAny, D1 <: IntP](dfType: DFVector[T, Tuple1[D1]])
     def lengthIntUNSAFE(using dfc: DFC): Int =
       import dfc.getSet
-      dfType.asIR.cellDimParamRefs.head.getInt
+      dfType.asIR.cellDimParamRefs.head.getIntUNSAFE
     def lengthIntParam(using dfc: DFC): IntParam[D1] =
       dfType.asIR.cellDimParamRefs.head.get.asInstanceOf[IntParam[D1]]
 

@@ -132,7 +132,7 @@ case object DFBit extends DFBoolOrBit
 /////////////////////////////////////////////////////////////////////////////
 final case class DFBits(widthParamRef: IntParamRef) extends DFType derives ReadWriter:
   type Data = (BitVector, BitVector)
-  def widthUNSAFE(using MemberGetSet): Int = widthParamRef.getInt
+  def widthUNSAFE(using MemberGetSet): Int = widthParamRef.getIntUNSAFE
   def createBubbleData(using MemberGetSet): Data =
     (BitVector.low(widthUNSAFE), BitVector.high(widthUNSAFE))
   def isDataBubble(data: Data): Boolean = !data._2.isZeros
@@ -216,7 +216,7 @@ final case class DFDecimal(
     nativeType: DFDecimal.NativeType
 ) extends DFType derives ReadWriter:
   type Data = Option[BigInt]
-  def widthUNSAFE(using MemberGetSet): Int = widthParamRef.getInt
+  def widthUNSAFE(using MemberGetSet): Int = widthParamRef.getIntUNSAFE
   def magnitudeWidth(using MemberGetSet): Int = widthUNSAFE - fractionWidth
   def isDFInt32: Boolean = this == DFInt32
   def createBubbleData(using MemberGetSet): Data = None
@@ -322,9 +322,9 @@ final case class DFVector(
 ) extends ComposedDFType derives ReadWriter:
   type Data = Vector[Any]
   def widthUNSAFE(using MemberGetSet): Int = cellType.widthUNSAFE *
-    cellDimParamRefs.map(_.getInt).product
+    cellDimParamRefs.map(_.getIntUNSAFE).product
   // TODO: change for multidimensional arrays
-  def lengthUNSAFE(using MemberGetSet): Int = cellDimParamRefs.head.getInt
+  def lengthUNSAFE(using MemberGetSet): Int = cellDimParamRefs.head.getIntUNSAFE
   def createBubbleData(using MemberGetSet): Data = Vector.fill(lengthUNSAFE)(
     cellType.createBubbleData
   )

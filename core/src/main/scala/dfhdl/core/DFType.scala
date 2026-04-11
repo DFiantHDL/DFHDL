@@ -289,7 +289,7 @@ extension (intParamRef: ir.IntParamRef)
         )
           intParamRef
         // inline reference value
-        else ir.IntParamRef(intParamRef.getInt)
+        else ir.IntParamRef(intParamRef.getIntUNSAFE)
       case _ => intParamRef
     end match
   end dropUnreachableRef

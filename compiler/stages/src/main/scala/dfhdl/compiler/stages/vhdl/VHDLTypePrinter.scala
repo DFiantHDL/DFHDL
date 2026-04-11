@@ -225,7 +225,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         val param = ref.get
         if (param.isAnonymous) s"P${getParamIdx(ref.get)}"
         else s"P${param.getName}"
-      case None => intParamRef.getInt.toString()
+      case None => intParamRef.getIntUNSAFE.toString()
 
   def csDFVectorDclName(cellTypeName: String, depth: Int): String =
     if (depth == 0) cellTypeName

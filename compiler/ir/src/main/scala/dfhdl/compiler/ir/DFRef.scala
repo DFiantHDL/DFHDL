@@ -110,7 +110,7 @@ object IntParamRef:
     def isInt: Boolean = intParamRef match
       case int: Int => true
       case _        => false
-    def getInt(using MemberGetSet): Int = intParamRef.runtimeChecked match
+    def getIntUNSAFE(using MemberGetSet): Int = intParamRef.runtimeChecked match
       case IntUNSAFE(int) => int
     def isRef: Boolean = intParamRef match
       case ref: DFRef.TypeRef => true
