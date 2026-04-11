@@ -62,3 +62,23 @@ object Data:
         case d => throw new Exception(s"Invalid data: $d")
   )
 end Data
+
+enum ConstData derives CanEqual:
+  case KnownConst(data: Any)
+  case UnknownConst
+  case NotConst
+object ConstData:
+  extension (cd: ConstData)
+    def toOption: Option[Any] = cd match
+      case KnownConst(data) => Some(data)
+      case _                => None
+    def isConst: Boolean = cd match
+      case NotConst => false
+      case _        => true
+    def isKnown: Boolean = cd match
+      case KnownConst(_) => true
+      case _             => false
+    def isUnknown: Boolean = cd match
+      case UnknownConst => true
+      case _            => false
+end ConstData
