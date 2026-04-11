@@ -790,7 +790,7 @@ object DFXInt:
             // different inline DFCG summon), so make sure its global context is injected
             // before reading const data that may traverse refs.
             dfVal.asIR.injectGlobalCtx()
-            dfVal.asIR.getConstData match
+            dfVal.asIR.getConstDataUNSAFE match
               case Some(Some(n: BigInt)) => Some(n.toInt)
               case _                     => None
           else None
@@ -1636,7 +1636,7 @@ object DFUInt:
           val argVal = ic(arg)
           val argValIR = argVal.asIR
           // if the argument is a constant, we can check its value and width
-          val fixedArgValIR = argValIR.getConstData match
+          val fixedArgValIR = argValIR.getConstDataUNSAFE match
             case Some(Some(arg: BigInt)) =>
               unsignedCheck(arg < 0)
               summon[`UB > R`.CheckNUB[UB, Int]](ub, arg.toInt)

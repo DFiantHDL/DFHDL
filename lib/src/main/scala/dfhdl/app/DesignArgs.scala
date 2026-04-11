@@ -23,7 +23,7 @@ case class DesignArg(name: String, value: Any, desc: String)(using DFC):
       case dfConst: DFValAny =>
         import dfc.getSet
         dfConst.asIR.injectGlobalCtx()
-        dfConst.asIR.getConstData.asInstanceOf[Option[Option[Any]]].get.get
+        dfConst.asIR.getConstDataUNSAFE.asInstanceOf[Option[Option[Any]]].get.get
       case _ => value
     data match
       case bigInt: BigInt => bigInt.toInt

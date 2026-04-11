@@ -119,7 +119,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
               // missing default values are not supported, so we fetch a valid constant data
               // (different instances may have different constant data, but for default,
               // a single module description can have any valid data, just to satisfy the standard)
-              else s" = ${printer.csConstData(param.dfType, param.getConstData.get)}"
+              else s" = ${printer.csConstData(param.dfType, param.getConstDataUNSAFE.get)}"
             case _ => s" = ${param.defaultValRef.refCodeString}"
       val csType = printer.csDFType(param.dfType).emptyOr(_ + " ")
       val csTypeNoLogic = if (printer.supportLogicType) csType else csType.replace("logic ", "")

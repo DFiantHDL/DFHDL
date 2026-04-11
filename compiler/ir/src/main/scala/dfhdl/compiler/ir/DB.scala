@@ -1019,7 +1019,7 @@ final case class DB(
                       |Hierarchy: ${wait.getOwnerDesign.getFullName}
                       |Message:   $msg""".stripMargin
       val ownerDomain = wait.getOwnerDomain
-      trigger.getConstData match
+      trigger.getConstDataUNSAFE match
         case Some(waitTime: TimeNumber) =>
           // Check if the wait statement is in a domain with a clock rate configuration
           explicitRTDomainCfgMap.get(ownerDomain) match

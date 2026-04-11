@@ -216,7 +216,7 @@ sealed trait DFVal extends DFMember.Named:
       localIsFullyAnonymous
     else if (cachedIsFullyAnonymous > 0) true
     else false
-  final def isConst(using MemberGetSet): Boolean = getConstData.nonEmpty
+  final def isConst(using MemberGetSet): Boolean = getConstDataUNSAFE.nonEmpty
   // two expressions are considered to be similar if
   final def isSimilarTo(that: DFVal)(using MemberGetSet): Boolean =
     def stripAsIsAndDesignParam(dfVal: DFVal): DFVal = dfVal match
@@ -235,12 +235,12 @@ sealed trait DFVal extends DFMember.Named:
           if !lhs.isGlobal && !rhs.isGlobal &&
             lhs.getOwnerDesign.isOutsideOwner(rhs.getOwnerDesign) ||
             lhs.isGlobal && lhs.isAnonymous =>
-        lhs.dfType.isSimilarTo(rhs.dfType) && lhs.getConstData.equals(rhs.getConstData)
+        lhs.dfType.isSimilarTo(rhs.dfType) && lhs.getConstDataUNSAFE.equals(rhs.getConstDataUNSAFE)
       case (lhs: DFVal.CanBeExpr, rhs: DFVal.Const)
           if !lhs.isGlobal && !rhs.isGlobal &&
             rhs.getOwnerDesign.isOutsideOwner(lhs.getOwnerDesign) ||
             rhs.isGlobal && rhs.isAnonymous =>
-        rhs.dfType.isSimilarTo(lhs.dfType) && rhs.getConstData.equals(lhs.getConstData)
+        rhs.dfType.isSimilarTo(lhs.dfType) && rhs.getConstDataUNSAFE.equals(lhs.getConstDataUNSAFE)
       case (lhs: DFVal.CanBeExpr, rhs: DFVal.CanBeExpr) =>
         lhs.protIsSimilarTo(rhs)
       case (lhs, rhs) => lhs == rhs
@@ -250,7 +250,7 @@ sealed trait DFVal extends DFMember.Named:
   private var cachedConstDataReady: Boolean = false
   private var cachedConstData: Option[Any] = None
   final def wasConstDataAccessed: Boolean = cachedConstDataReady
-  final def getConstData(using MemberGetSet): Option[Any] =
+  final def getConstDataUNSAFE(using MemberGetSet): Option[Any] =
     if (cachedConstDataReady) cachedConstData
     else
       cachedConstData = protGetConstData
@@ -474,7 +474,7 @@ object DFVal:
     protected[dfhdl] def clearCachedAppliedVal(): Unit = cachedAppliedVal = None
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using MemberGetSet): Option[Any] =
-      appliedOrDefaultVal.getConstData
+      appliedOrDefaultVal.getConstDataUNSAFE
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DesignParam =>
         // design parameters are considered to be the same even if they are referencing
@@ -602,7 +602,7 @@ object DFVal:
       args.forall(_.get.isFullyAnonymous)
     protected def protGetConstData(using MemberGetSet): Option[Any] =
       val args = this.args.map(_.get)
-      val argData = args.flatMap(_.getConstData)
+      val argData = args.flatMap(_.getConstDataUNSAFE)
       val argTypes = args.map(_.dfType)
       if (argData.length != this.args.length) None
       else Some(calcFuncData(dfType, op, argTypes, argData))
@@ -715,7 +715,7 @@ object DFVal:
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
         val relVal = relValRef.get
-        relVal.getConstData.map(relValData =>
+        relVal.getConstDataUNSAFE.map(relValData =>
           dataConversion(dfType, relVal.dfType)(relValData.asInstanceOf[relVal.dfType.Data])
         )
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -808,7 +808,7 @@ object DFVal:
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
         val relVal = relValRef.get
-        relVal.getConstData.map(relValData =>
+        relVal.getConstDataUNSAFE.map(relValData =>
           selRangeData(
             relVal.dfType,
             relValData,
@@ -863,9 +863,9 @@ object DFVal:
         relValRef.get.isFullyAnonymous && relIdx.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
         val relVal = relValRef.get
-        relVal.getConstData.flatMap(relValData =>
+        relVal.getConstDataUNSAFE.flatMap(relValData =>
           val relIdx = this.relIdx.get
-          relIdx.getConstData match
+          relIdx.getConstDataUNSAFE match
             case Some(Some(idx: BigInt)) =>
               val idxInt = idx.toInt
               val outData = relVal.dfType match
@@ -931,7 +931,7 @@ object DFVal:
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
         val relVal = relValRef.get
-        relVal.getConstData.map(relValData =>
+        relVal.getConstDataUNSAFE.map(relValData =>
           val idx = relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(fieldName)
           relValData.asInstanceOf[List[?]](idx)
         )

@@ -287,7 +287,7 @@ sealed protected trait DFValLP:
   ): Conversion[DFConstOf[DFTime | DFFreq], ir.RateNumber] =
     x =>
       import dfc.getSet
-      x.asIR.getConstData.get.asInstanceOf[ir.RateNumber]
+      x.asIR.getConstDataUNSAFE.get.asInstanceOf[ir.RateNumber]
   // lower priority than other evidence because this is more generic
   export DFXInt.Val.Ops.{evOpCommutativeArithDFXInt, evOpNonCommutativeArithDFXInt}
   export DFOpaque.Val.Ops.{evOpAsDFOpaqueTFE, evOpAsDFOpaqueComp}
@@ -354,7 +354,7 @@ object DFVal extends DFValLP:
               |Message:   ${errMsg}""".stripMargin
         )
       lhsIR.injectGlobalCtx()
-      lhsIR.getConstData.asInstanceOf[Option[Option[D]]]
+      lhsIR.getConstDataUNSAFE.asInstanceOf[Option[Option[D]]]
         .getOrElse(error("Cannot fetch a Scala value from a non-constant DFHDL value."))
         .getOrElse(error("Cannot fetch a Scala value from a bubble (invalid) DFHDL value."))
   end extension
