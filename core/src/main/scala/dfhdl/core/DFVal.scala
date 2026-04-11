@@ -877,7 +877,6 @@ object DFVal extends DFValLP:
           forceNewAlias: Boolean = false
       )(using dfc: DFC): DFVal[AT, M] =
         import dfc.getSet
-        import ir.unapply
         relVal.asIR match
           // anonymous constant are replaced by a different constant
           // after its data value was converted according to the alias

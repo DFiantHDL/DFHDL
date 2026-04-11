@@ -27,8 +27,8 @@ object StateAnalysis:
           consumeFrom(relVal, relVal.widthUNSAFE, 0, assignMap, currentSet)
       case applyRange @ DFVal.Alias.ApplyRange(
             relValRef = relValRef,
-            idxHighRef = Int(idxHigh),
-            idxLowRef = Int(idxLow)
+            idxHighRef = IntUNSAFE(idxHigh),
+            idxLowRef = IntUNSAFE(idxLow)
           ) =>
         val elementWidth = applyRange.elementWidth
         consumeFrom(
@@ -92,8 +92,8 @@ object StateAnalysis:
         assignTo(relValRef.get, relWidth, relBitLow, assignMap)
       case applyRange @ DFVal.Alias.ApplyRange(
             relValRef = relValRef,
-            idxHighRef = Int(idxHigh),
-            idxLowRef = Int(idxLow)
+            idxHighRef = IntUNSAFE(idxHigh),
+            idxLowRef = IntUNSAFE(idxLow)
           ) =>
         val elementWidth = applyRange.elementWidth
         assignTo(relValRef.get, relWidth, idxLow * elementWidth + relBitLow, assignMap)

@@ -111,7 +111,7 @@ object IntParamRef:
       case int: Int => true
       case _        => false
     def getInt(using MemberGetSet): Int = intParamRef.runtimeChecked match
-      case Int(int) => int
+      case IntUNSAFE(int) => int
     def isRef: Boolean = intParamRef match
       case ref: DFRef.TypeRef => true
       case _                  => false
@@ -153,7 +153,7 @@ object IntParamRef:
   )
 end IntParamRef
 
-extension (intCompanion: Int.type)
+object IntUNSAFE:
   def unapply(intParamRef: IntParamRef)(using MemberGetSet): Option[Int] =
     intParamRef.runtimeChecked match
       case int: Int            => Some(int)

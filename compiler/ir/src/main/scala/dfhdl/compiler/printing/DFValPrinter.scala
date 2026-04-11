@@ -294,23 +294,23 @@ protected trait DFValPrinter extends AbstractValPrinter:
         // applying brackets
         val callOwner = dfVal.ownerRef.get
         printer.csDFValRef(relVal, callOwner)
-      case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
+      case (DFSInt(IntUNSAFE(tWidth)), DFUInt(IntUNSAFE(fWidth))) =>
         assert(tWidth == fWidth + 1)
         s"${relValStr}.signed"
-      case (DFUInt(Int(tWidth)), DFSInt(Int(fWidth))) =>
+      case (DFUInt(IntUNSAFE(tWidth)), DFSInt(IntUNSAFE(fWidth))) =>
         assert(tWidth == fWidth - 1)
         s"${relValStr}.unsigned"
-      case (DFUInt(Int(tWidth)), DFBits(Int(fWidth))) =>
+      case (DFUInt(IntUNSAFE(tWidth)), DFBits(IntUNSAFE(fWidth))) =>
         assert(tWidth == fWidth)
         s"${relValStr}.uint"
-      case (DFSInt(Int(tWidth)), DFBits(Int(fWidth))) =>
+      case (DFSInt(IntUNSAFE(tWidth)), DFBits(IntUNSAFE(fWidth))) =>
         assert(tWidth == fWidth)
         s"${relValStr}.sint"
       case (DFBits(tWidthParamRef), DFBits(_)) =>
         s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
       case (DFBits(tWidthParamRef), DFBit | DFBool) =>
         s"${relValStr}.toBits(${tWidthParamRef.refCodeString})"
-      case (DFBits(Int(tWidth)), _) =>
+      case (DFBits(IntUNSAFE(tWidth)), _) =>
         assert(tWidth == fromType.widthUNSAFE)
         s"${relValStr}.bits"
       case (DFUInt(tWidthParamRef), DFUInt(_)) =>
