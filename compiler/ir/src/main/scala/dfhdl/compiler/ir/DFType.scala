@@ -15,8 +15,8 @@ given [T](using ReadWriter[T]): ReadWriter[ListMap[String, T]] =
 
 sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives CanEqual:
   type Data
-  def widthOpt(using MemberGetSet): Option[Int]
-  final def widthUNSAFE(using MemberGetSet): Int = widthOpt.get
+  def widthIntOpt(using MemberGetSet): Option[Int]
+  final def widthUNSAFE(using MemberGetSet): Int = widthIntOpt.get
   def createBubbleData(using MemberGetSet): Data
   def isDataBubble(data: Data): Boolean
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector)
@@ -107,7 +107,7 @@ end NamedDFTypes
 /////////////////////////////////////////////////////////////////////////////
 sealed trait DFBoolOrBit extends DFType derives ReadWriter:
   type Data = Option[Boolean]
-  def widthOpt(using MemberGetSet): Option[Int] = Some(1)
+  def widthIntOpt(using MemberGetSet): Option[Int] = Some(1)
   def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data match
@@ -133,7 +133,7 @@ case object DFBit extends DFBoolOrBit
 /////////////////////////////////////////////////////////////////////////////
 final case class DFBits(widthParamRef: IntParamRef) extends DFType derives ReadWriter:
   type Data = (BitVector, BitVector)
-  def widthOpt(using MemberGetSet): Option[Int] = widthParamRef.getIntOpt
+  def widthIntOpt(using MemberGetSet): Option[Int] = widthParamRef.getIntOpt
   def createBubbleData(using MemberGetSet): Data =
     (BitVector.low(widthUNSAFE), BitVector.high(widthUNSAFE))
   def isDataBubble(data: Data): Boolean = !data._2.isZeros
@@ -217,7 +217,7 @@ final case class DFDecimal(
     nativeType: DFDecimal.NativeType
 ) extends DFType derives ReadWriter:
   type Data = Option[BigInt]
-  def widthOpt(using MemberGetSet): Option[Int] = widthParamRef.getIntOpt
+  def widthIntOpt(using MemberGetSet): Option[Int] = widthParamRef.getIntOpt
   def magnitudeWidth(using MemberGetSet): Int = widthUNSAFE - fractionWidth
   def isDFInt32: Boolean = this == DFInt32
   def createBubbleData(using MemberGetSet): Data = None
@@ -296,7 +296,7 @@ final case class DFEnum(
   type Data = Option[BigInt]
   def updateName(newName: String)(using MemberGetSet): this.type =
     copy(name = newName).asInstanceOf[this.type]
-  def widthOpt(using MemberGetSet): Option[Int] = Some(widthParam)
+  def widthIntOpt(using MemberGetSet): Option[Int] = Some(widthParam)
   def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data match
@@ -322,15 +322,15 @@ final case class DFVector(
     cellDimParamRefs: List[IntParamRef]
 ) extends ComposedDFType derives ReadWriter:
   type Data = Vector[Any]
-  def widthOpt(using MemberGetSet): Option[Int] =
-    cellType.widthOpt.flatMap { cellTypeWidth =>
+  def widthIntOpt(using MemberGetSet): Option[Int] =
+    cellType.widthIntOpt.flatMap { cellTypeWidth =>
       val cellDimParamWidthsOpt = cellDimParamRefs.map(_.getIntOpt)
       if (cellDimParamWidthsOpt.exists(_.isEmpty)) None
       else Some(cellDimParamWidthsOpt.flatten.product * cellTypeWidth)
     }
   // TODO: change for multidimensional arrays
-  def lengthOpt(using MemberGetSet): Option[Int] = cellDimParamRefs.head.getIntOpt
-  def lengthUNSAFE(using MemberGetSet): Int = lengthOpt.get
+  def lengthIntOpt(using MemberGetSet): Option[Int] = cellDimParamRefs.head.getIntOpt
+  def lengthUNSAFE(using MemberGetSet): Int = lengthIntOpt.get
   def createBubbleData(using MemberGetSet): Data = Vector.fill(lengthUNSAFE)(
     cellType.createBubbleData
   )
@@ -383,7 +383,7 @@ final case class DFOpaque(
   type Data = Any
   def updateName(newName: String)(using MemberGetSet): this.type =
     copy(name = newName).asInstanceOf[this.type]
-  def widthOpt(using MemberGetSet): Option[Int] = actualType.widthOpt
+  def widthIntOpt(using MemberGetSet): Option[Int] = actualType.widthIntOpt
   def isMagnet: Boolean = kind match
     case _: DFOpaque.Kind.Magnet => true
     case _                       => false
@@ -443,8 +443,8 @@ final case class DFStruct(
   def updateName(newName: String)(using MemberGetSet): this.type =
     copy(name = newName).asInstanceOf[this.type]
   def getNameForced: String = name
-  def widthOpt(using MemberGetSet): Option[Int] =
-    val fieldWidthsOpt = fieldMap.values.map(_.widthOpt)
+  def widthIntOpt(using MemberGetSet): Option[Int] =
+    val fieldWidthsOpt = fieldMap.values.map(_.widthIntOpt)
     if (fieldWidthsOpt.exists(_.isEmpty)) None
     else Some(fieldWidthsOpt.flatten.sum)
   def createBubbleData(using MemberGetSet): Data = fieldMap.values.map(_.createBubbleData).toList
@@ -517,7 +517,7 @@ object DFTuple:
 /////////////////////////////////////////////////////////////////////////////
 sealed trait DFDouble extends DFType:
   type Data = Option[Double]
-  def widthOpt(using MemberGetSet): Option[Int] = Some(64)
+  def widthIntOpt(using MemberGetSet): Option[Int] = Some(64)
   def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data match
@@ -544,7 +544,7 @@ sealed trait DFUnbounded extends DFType:
   def noTypeErr = throw new Exception(
     s"Unexpected access to $this data type"
   )
-  def widthOpt(using MemberGetSet): Option[Int] = None
+  def widthIntOpt(using MemberGetSet): Option[Int] = None
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
