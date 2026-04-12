@@ -12,14 +12,14 @@ extension [T](t: T)(using tc: core.DFType.TC[T])
   def verifyWidth[R <: IntP](
       r: IntParam[R]
   )(using dfc: DFC, w: Width[tc.Type])(using w.Out =:= R): Unit =
-    assert(t.widthIntParam.toScalaInt == r.toScalaInt)
+    assert(t.widthIntParam.toScalaIntUNSAFE == r.toScalaIntUNSAFE)
 
 extension [T <: DFType](t: DFValOf[T])(using dfc: DFC, w: Width[T])
   @metaContextIgnore
   def verifyWidth[R <: IntP](
       r: IntParam[R]
   )(using w.Out =:= R): Unit =
-    assert(t.widthIntParam.toScalaInt == r.toScalaInt)
+    assert(t.widthIntParam.toScalaIntUNSAFE == r.toScalaIntUNSAFE)
 
 abstract class DFSpec extends NoDFCSpec, HasTypeName, HasDFC:
   final lazy val dfc: DFC = core.DFC.emptyNoEO

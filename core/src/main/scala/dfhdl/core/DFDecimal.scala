@@ -1647,7 +1647,7 @@ object DFUInt:
               // TODO: in the future, it's worth considering adding assertions
               if (argValIR.dfType != ir.DFInt32)
                 unsignedCheck(argVal.dfType.signed)
-                val ubWidth = clog2(ub.toScalaInt)
+                val ubWidth = clog2(ub.toScalaIntUNSAFE)
                 val argWidth = argVal.widthIntUNSAFE
                 if (
                   ubWidth < argWidth && argValIR.hasTagOf[ir.TruncateTag] ||
@@ -1655,7 +1655,7 @@ object DFUInt:
                 )
                   argVal.resize(ub.clog2).asIR
                 else
-                  widthCheck(ubWidth, argVal.widthIntUNSAFE)
+                  widthCheck(ubWidth, argWidth)
                   argValIR
               else argValIR
           DFVal.Alias.AsIs(DFInt32, fixedArgValIR.asValTP[DFUInt[Int], P])
@@ -1677,7 +1677,9 @@ object DFUInt:
             dfc: DFCG,
             check: `W <= 31`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
-          check(lhs.widthIntUNSAFE)
+          lhs.widthIntOpt match
+            case Some(w) => check(w)
+            case None    =>
           DFVal.Alias.AsIs(DFInt32, lhs.signed)
         }
       end extension
@@ -1735,7 +1737,9 @@ object DFSInt:
             dfc: DFCG,
             check: `W <= 32`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
-          check(lhs.widthIntUNSAFE)
+          lhs.widthIntOpt match
+            case Some(w) => check(w)
+            case None    =>
           DFVal.Alias.AsIs(DFInt32, lhs)
         }
     end Ops

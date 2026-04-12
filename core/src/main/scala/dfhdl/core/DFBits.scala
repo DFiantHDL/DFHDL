@@ -40,7 +40,9 @@ object DFBits:
       check: Arg.Width.CheckNUB[W]
   ): DFBits[W] = trydf:
     val width = IntParam.forced(v)
-    check(width.toScalaInt)
+    width.toScalaIntOpt match
+      case Some(w) => check(w)
+      case None    =>
     ir.DFBits(width.ref).asFE[DFBits[W]]
 
   protected object `AW == TW`
@@ -115,7 +117,7 @@ object DFBits:
           case "h" => ir.DFBits.dataFromHexString(fullTerm)
         var (valueBits, bubbleBits) = fromString.toOption.get
         explicitWidthOption.foreach(ew =>
-          val updatedWidth = IntParam.forced(ew).toScalaInt
+          val updatedWidth = IntParam.forced(ew).toScalaIntUNSAFE
           valueBits = valueBits.resize(updatedWidth)
           bubbleBits = bubbleBits.resize(updatedWidth)
         )
@@ -724,7 +726,7 @@ object DFBits:
           val lhsWidth = lhsVal.widthIntParam
           val width =
             // simplifying the representation if the argument is a single bit
-            if (lhsWidth.toScalaInt == 1) num.asInstanceOf[IntParam[IntP.*[icL.OutW, N]]]
+            if (lhsWidth.toScalaIntUNSAFE == 1) num.asInstanceOf[IntParam[IntP.*[icL.OutW, N]]]
             else lhsWidth * num
           DFVal.Func(DFBits(width), FuncOp.repeat, List(lhsVal, num.toDFConst))
         }
@@ -770,7 +772,7 @@ object DFBits:
         }
         def msbit(using DFCG): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           import DFVal.Ops.apply as applyBits
-          lhs.applyBits(lhs.widthIntUNSAFE.value - 1).asVal[DFBit, Modifier[A, Any, Any, P]]
+          lhs.applyBits((lhs.widthIntParam - 1).toDFConst).asVal[DFBit, Modifier[A, Any, Any, P]]
         def lsbit(using DFCG): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           import DFVal.Ops.apply as applyBits
           lhs.applyBits(0).asVal[DFBit, Modifier[A, Any, Any, P]]

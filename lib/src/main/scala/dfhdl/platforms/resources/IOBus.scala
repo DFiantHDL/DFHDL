@@ -50,7 +50,13 @@ object IOBus:
   ): CanConnect[R, V] with
     def connect(resource: R, dfVal: V)(using DFC): Unit =
       import dfhdl.core.DFVal.Ops.apply
-      check(resource.length, dfVal.widthIntUNSAFE)
+      val width = dfVal.widthIntOpt.getOrElse(
+        throw new IllegalArgumentException(
+          s"Cannot connect to a DFVal with non-constant width. Found: ${dfVal}"
+        )
+      )
+      check(resource.length, width)
       for (i <- 0 until resource.ios.length)
         cc.connect(resource.ios(i), dfVal.bits(i))
+  end given
 end IOBus

@@ -1,7 +1,7 @@
 package dfhdl.app
 import dfhdl.*
 import dfhdl.compiler.ir
-import core.{DFValAny, asValAny, injectGlobalCtx}
+import core.{DFValAny, asValAny, injectGlobalCtx, asConstOf, DFBit, DFInt32, DFDouble, DFString}
 import scala.collection.immutable.ListMap
 
 case class DesignArg(name: String, value: Any, desc: String)(using DFC):
@@ -16,14 +16,18 @@ case class DesignArg(name: String, value: Any, desc: String)(using DFC):
         dfConst.asIR.dfType match
           case ir.DFBit | ir.DFBool => "Boolean"
           case ir.DFInt32           => "Int"
+          case ir.DFDouble          => "Double"
+          case ir.DFString          => "String"
           case _                    => ""
       case _ => ""
   def getScalaValue: Any =
     val data = value match
       case dfConst: DFValAny =>
-        import dfc.getSet
-        dfConst.asIR.injectGlobalCtx()
-        dfConst.asIR.getConstDataUNSAFE.asInstanceOf[Option[Option[Any]]].get.get
+        dfConst.asIR.dfType.runtimeChecked match
+          case ir.DFBit | ir.DFBool => dfConst.asConstOf[DFBit].toScalaBoolean
+          case ir.DFInt32           => dfConst.asConstOf[DFInt32].toScalaInt
+          case ir.DFDouble          => dfConst.asConstOf[DFDouble].toScalaDouble
+          case ir.DFString          => dfConst.asConstOf[DFString].toScalaString
       case _ => value
     data match
       case bigInt: BigInt => bigInt.toInt

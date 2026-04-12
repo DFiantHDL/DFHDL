@@ -205,6 +205,7 @@ sealed trait Statement extends DFMember derives ReadWriter
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
   def widthUNSAFE(using MemberGetSet): Int = dfType.widthUNSAFE
+  def widthIntOpt(using MemberGetSet): Option[Int] = dfType.widthIntOpt
   def isGlobal(using MemberGetSet): Boolean = false
   protected def protIsFullyAnonymous(using MemberGetSet): Boolean
   // using just an integer to escape redundant boxing Option[Boolean] would have achieved
