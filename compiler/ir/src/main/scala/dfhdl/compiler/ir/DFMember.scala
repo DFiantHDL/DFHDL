@@ -216,7 +216,7 @@ sealed trait DFVal extends DFMember.Named:
       localIsFullyAnonymous
     else if (cachedIsFullyAnonymous > 0) true
     else false
-  final def isConst(using MemberGetSet): Boolean = getConstDataUNSAFE.nonEmpty
+  final def isConst(using MemberGetSet): Boolean = getConstData.isConst
   // two expressions are considered to be similar if
   final def isSimilarTo(that: DFVal)(using MemberGetSet): Boolean =
     def stripAsIsAndDesignParam(dfVal: DFVal): DFVal = dfVal match

@@ -110,8 +110,7 @@ object IntParamRef:
     def isInt: Boolean = intParamRef match
       case int: Int => true
       case _        => false
-    def getIntUNSAFE(using MemberGetSet): Int = intParamRef.runtimeChecked match
-      case IntUNSAFE(int) => int
+    def getIntUNSAFE(using MemberGetSet): Int = getIntOpt.get
     def getIntConstData(using MemberGetSet): ConstData = intParamRef.runtimeChecked match
       case int: Int            => ConstData.KnownConst(int)
       case DFRef(dfVal: DFVal) =>
@@ -119,6 +118,9 @@ object IntParamRef:
           case ConstData.KnownConst(Some(i: BigInt)) => ConstData.KnownConst(i.toInt)
           case ConstData.UnknownConst                => ConstData.UnknownConst
           case _                                     => ConstData.NotConst
+    def getIntOpt(using MemberGetSet): Option[Int] = getIntConstData match
+      case ConstData.KnownConst(i: Int) => Some(i)
+      case _                            => None
     def isRef: Boolean = intParamRef match
       case ref: DFRef.TypeRef => true
       case _                  => false
