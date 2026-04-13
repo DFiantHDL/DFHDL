@@ -889,8 +889,8 @@ object DFVal extends DFValLP:
             val updatedData = ir.selRangeData(
               dfType,
               const.data,
-              idxHigh.toScalaIntUNSAFE,
-              idxLow.toScalaIntUNSAFE
+              idxHigh.toScalaIntOpt.get,
+              idxLow.toScalaIntOpt.get
             )(using dfc.getSet)
             Const.forced(dfType.asFE, updatedData).asIR
           // named constants or other non-constant values are referenced

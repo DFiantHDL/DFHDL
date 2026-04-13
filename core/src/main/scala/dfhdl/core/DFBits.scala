@@ -738,10 +738,7 @@ object DFBits:
           val lhsVal = icL(lhs)
           num.toScalaIntOpt.foreach(check(_))
           val lhsWidth = lhsVal.widthIntParam
-          val width =
-            // simplifying the representation if the argument is a single bit
-            if (lhsWidth.toScalaIntUNSAFE == 1) num.asInstanceOf[IntParam[IntP.*[icL.OutW, N]]]
-            else lhsWidth * num
+          val width = lhsWidth * num
           DFVal.Func(DFBits(width), FuncOp.repeat, List(lhsVal, num.toDFConst))
         }
       end extension
