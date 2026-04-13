@@ -932,6 +932,36 @@ class DFDecimalSpec extends DFSpec:
 
     assertNoWarnings()
   }
+  test("Int32 algebraic simplifications") {
+    assertCodeString {
+      """|val p: Int <> CONST = 10
+         |val v = Int <> VAR
+         |v := p
+         |v := p
+         |v := 0
+         |v := 0
+         |v := p
+         |v := p
+         |v := p + 1
+         |v := p - 1
+         |v := 0
+         |v := 4
+         |""".stripMargin
+    } {
+      val p: Int <> CONST = 10
+      val v = Int <> VAR
+      v := p + 0
+      v := p * 1
+      v := p * 0
+      v := p - p
+      v := p max p
+      v := p min p
+      v := p max (p + 1)
+      v := p min (p - 1)
+      v := clog2(p + 1) - clog2(p + 1)
+      v := p - 1 - p + 5
+    }
+  }
   val sint8 = SInt(8) <> VAR
   test("Clean type in error messages (no ExactOp2Aux leakage)") {
     val errors = compiletime.testing.typeCheckErrors("(sint8 + sint8).sint")
