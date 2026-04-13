@@ -25,7 +25,7 @@ object DFVector:
       check: VectorLength.CheckNUB[D]
   ): DFVector[T, Tuple1[D]] = trydf:
     val cellDim = IntParam.fromValue(d)
-    check(cellDim)
+    cellDim.toScalaIntOpt.foreach(check(_))
     DFVector(cellType, List(cellDim))
 
   extension [T <: DFTypeAny, D <: NonEmptyTuple](dfType: DFVector[T, D])
@@ -63,13 +63,13 @@ object DFVector:
 
   object Ops:
     extension [T <: DFType.Supported, D <: IntP](t: T)(using tc: DFType.TC[T])
-      def X(
+      infix def X(
           cellDim: IntParam[D]
       )(using
           dfc: DFCG
       )(using check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] =
         trydf:
-          check(cellDim)
+          cellDim.toScalaIntOpt.foreach(check(_))
           DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim))
   end Ops
 
@@ -271,10 +271,21 @@ object DFVector:
         new ExactOp3["apply", DFC, DFValAny, L, LO, HI]:
           type Out = DFVal[DFVector[T, Tuple1[HI - LO + 1]], M]
           def apply(lhs: L, idxLow: LO, idxHigh: HI)(using DFC): Out = trydf {
-            checkLow(IntParam(idxLow), lhs.dfType.lengthIntParam)
-            checkHigh(IntParam(idxHigh), lhs.dfType.lengthIntParam)
-            checkHiLo(IntParam(idxHigh), IntParam(idxLow))
-            DFVal.Alias.ApplyRange.applyVector(lhs, IntParam(idxHigh), IntParam(idxLow))
+            val idxLowParam = IntParam(idxLow)
+            val idxHighParam = IntParam(idxHigh)
+            val idxLowIntOpt = idxLowParam.toScalaIntOpt
+            val idxHighIntOpt = idxHighParam.toScalaIntOpt
+            val lengthIntOpt = lhs.dfType.lengthIntOpt
+            (idxLowIntOpt, lengthIntOpt) match
+              case (Some(idxLowInt), Some(lengthInt)) => checkLow(idxLowInt, lengthInt)
+              case _                                  =>
+            (idxHighIntOpt, lengthIntOpt) match
+              case (Some(idxHighInt), Some(lengthInt)) => checkHigh(idxHighInt, lengthInt)
+              case _                                   =>
+            (idxHighIntOpt, idxLowIntOpt) match
+              case (Some(idxHighInt), Some(idxLowInt)) => checkHiLo(idxHighInt, idxLowInt)
+              case _                                   =>
+            DFVal.Alias.ApplyRange.applyVector(lhs, idxHighParam, idxLowParam)
           }(using dfc, CTName("cell range selection (apply)"))
       end evOpApplyRangeDFVector
 

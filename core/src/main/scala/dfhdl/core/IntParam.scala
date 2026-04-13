@@ -62,9 +62,6 @@ object IntParam extends IntParamLP:
   given [T <: IntP]: CanEqual[IntParam[T], Int] = CanEqual.derived
   given [T <: IntP]: CanEqual[Int, IntParam[T]] = CanEqual.derived
 
-  inline implicit def getValue[T <: IntP](inline intParam: IntParam[T])(using DFC): Int =
-    intParam.toScalaIntUNSAFE
-
   inline implicit def fromValue[T <: IntP & Singleton](inline value: T): IntParam[T] =
     value.asInstanceOf[IntParam[T]]
   @targetName("fromValueInlined")

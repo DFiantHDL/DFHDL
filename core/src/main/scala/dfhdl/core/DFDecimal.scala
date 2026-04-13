@@ -18,7 +18,7 @@ object DFDecimal:
       fractionWidth: Inlined[F],
       nativeType: N
   )(using dfc: DFC, check: Width.CheckNUB[S, W]): DFDecimal[S, W, F, N] = trydf:
-    check(signed, width)
+    width.toScalaIntOpt.foreach(check(signed, _))
     ir.DFDecimal(signed, width.ref, fractionWidth, nativeType).asFE[DFDecimal[S, W, F, N]]
   protected[core] def forced[S <: Boolean, W <: IntP, F <: Int, N <: NativeType](
       signed: Boolean,
@@ -925,10 +925,21 @@ object DFXInt:
         new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
           type Out = DFValTP[DFXInt[S, HI - LO + 1, BitAccurate], P]
           def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
-            checkHigh(IntParam(idxHigh), lhs.widthIntUNSAFE)
-            checkLow(IntParam(idxLow), lhs.widthIntUNSAFE)
-            checkHiLo(IntParam(idxHigh), IntParam(idxLow))
-            DFVal.Alias.ApplyRange.applyDFXInt(lhs, IntParam(idxHigh), IntParam(idxLow))
+            val idxHighParam = IntParam(idxHigh)
+            val idxLowParam = IntParam(idxLow)
+            val idxHighIntOpt = idxHighParam.toScalaIntOpt
+            val idxLowIntOpt = idxLowParam.toScalaIntOpt
+            val widthIntOpt = lhs.widthIntOpt
+            (idxHighIntOpt, widthIntOpt) match
+              case (Some(idxHighInt), Some(widthInt)) => checkHigh(idxHighInt, widthInt)
+              case _                                  =>
+            (idxLowIntOpt, widthIntOpt) match
+              case (Some(idxLowInt), Some(widthInt)) => checkLow(idxLowInt, widthInt)
+              case _                                 =>
+            (idxHighIntOpt, idxLowIntOpt) match
+              case (Some(idxHighInt), Some(idxLowInt)) => checkHiLo(idxHighInt, idxLowInt)
+              case _                                   =>
+            DFVal.Alias.ApplyRange.applyDFXInt(lhs, idxHighParam, idxLowParam)
           }(using dfc, CTName("bit range selection (apply)"))
       end evOpApplyRangeDFXInt
       given evOpShiftOrPowerInt[
@@ -1080,7 +1091,7 @@ object DFXInt:
             check: Width.CheckNUB[S, RW]
         ): DFValTP[DFXInt[S, RW, BitAccurate], P] = trydf {
           val signed = lhs.dfType.signed
-          check(signed, updatedWidth)
+          updatedWidth.toScalaIntOpt.foreach(check(signed, _))
           // TODO: why this causes anonymous references?
 //          if (lhs.width == updatedWidth) lhs.asValOf[DFXInt[S, RW, BitAccurate]]
 //          else
@@ -1309,10 +1320,10 @@ object DFXInt:
               // Both concrete (or both wildcards): use max width, max signed
               val resultSigned = lhsVal.dfType.signed || rhsVal.dfType.signed
               val lhsEffWidth: Int =
-                if (resultSigned && !lhsVal.dfType.signed) lhsVal.dfType.widthIntUNSAFE + 1
+                if (resultSigned && !lhsVal.dfType.signed) lhsVal.dfType.widthIntUNSAFE.value + 1
                 else lhsVal.dfType.widthIntUNSAFE
               val rhsEffWidth: Int =
-                if (resultSigned && !rhsVal.dfType.signed) rhsVal.dfType.widthIntUNSAFE + 1
+                if (resultSigned && !rhsVal.dfType.signed) rhsVal.dfType.widthIntUNSAFE.value + 1
                 else rhsVal.dfType.widthIntUNSAFE
               if (lhsEffWidth >= rhsEffWidth)
                 if (resultSigned && !lhsVal.dfType.signed)
@@ -1552,14 +1563,14 @@ object DFUInt:
       dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
   ): DFUInt[IntP.CLog2[V]] = trydf {
-    check(sup)
+    sup.toScalaIntOpt.foreach(check(_))
     DFXInt(false, sup.clog2, BitAccurate)
   }
   def to[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
   ): DFUInt[IntP.CLog2[IntP.+[V, 1]]] = trydf {
-    check(max)
+    max.toScalaIntOpt.foreach(check(_))
     DFXInt(false, (max + 1).clog2, BitAccurate)
   }
 
@@ -1614,7 +1625,7 @@ object DFUInt:
         type OutP = CONST
         def apply(ub: IntParam[UB], arg: R)(using DFC): Out =
           unsignedCheck(arg < 0)
-          ubCheck(ub, arg)
+          ub.toScalaIntOpt.foreach(ubCheck(_, arg))
           DFConstInt32(arg)
       end fromInt
       given fromR[
@@ -1639,7 +1650,7 @@ object DFUInt:
           val fixedArgValIR = argValIR.getConstDataUNSAFE match
             case Some(Some(arg: BigInt)) =>
               unsignedCheck(arg < 0)
-              summon[`UB > R`.CheckNUB[UB, Int]](ub, arg.toInt)
+              ub.toScalaIntOpt.foreach(ub => summon[`UB > R`.CheckNUB[UB, Int]](ub, arg.toInt))
               argValIR
             case _ =>
               import DFXInt.Val.Ops.resize
@@ -1677,9 +1688,7 @@ object DFUInt:
             dfc: DFCG,
             check: `W <= 31`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
-          lhs.widthIntOpt match
-            case Some(w) => check(w)
-            case None    =>
+          lhs.widthIntOpt.foreach(check(_))
           DFVal.Alias.AsIs(DFInt32, lhs.signed)
         }
       end extension
@@ -1699,14 +1708,14 @@ object DFSInt:
       dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
   ): DFSInt[IntP.+[IntP.CLog2[V], 1]] = trydf {
-    check(sup)
+    sup.toScalaIntOpt.foreach(check(_))
     DFXInt(true, sup.clog2 + 1, BitAccurate)
   }
   def toAbs[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
   ): DFSInt[IntP.+[IntP.CLog2[IntP.+[V, 1]], 1]] = trydf {
-    check(max)
+    max.toScalaIntOpt.foreach(check(_))
     DFXInt(true, (max + 1).clog2 + 1, BitAccurate)
   }
 
@@ -1737,9 +1746,7 @@ object DFSInt:
             dfc: DFCG,
             check: `W <= 32`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
-          lhs.widthIntOpt match
-            case Some(w) => check(w)
-            case None    =>
+          lhs.widthIntOpt.foreach(check(_))
           DFVal.Alias.AsIs(DFInt32, lhs)
         }
     end Ops

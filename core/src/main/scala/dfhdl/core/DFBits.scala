@@ -14,7 +14,7 @@ object DFBits:
       dfc: DFCG,
       check: Arg.Width.CheckNUB[W]
   ): DFBits[W] = trydf:
-    check(width)
+    width.toScalaIntOpt.foreach(check(_))
     ir.DFBits(width.ref).asFE[DFBits[W]]
   def forced[W <: IntP](width: Int): DFBits[W] =
     val check = summon[Arg.Width.Check[Int]]
@@ -25,13 +25,13 @@ object DFBits:
       dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
   ): DFBits[IntP.CLog2[V]] = trydf:
-    check(sup)
+    sup.toScalaIntOpt.foreach(check(_))
     ir.DFBits(sup.clog2.ref).asFE[DFBits[IntP.CLog2[V]]]
   def to[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
   ): DFBits[IntP.CLog2[IntP.+[V, 1]]] = trydf:
-    check(max)
+    max.toScalaIntOpt.foreach(check(_))
     ir.DFBits((max + 1).clog2.ref).asFE[DFBits[IntP.CLog2[IntP.+[V, 1]]]]
 
   given [W <: IntP & Singleton](using
@@ -40,9 +40,7 @@ object DFBits:
       check: Arg.Width.CheckNUB[W]
   ): DFBits[W] = trydf:
     val width = IntParam.forced(v)
-    width.toScalaIntOpt match
-      case Some(w) => check(w)
-      case None    =>
+    width.toScalaIntOpt.foreach(check(_))
     ir.DFBits(width.ref).asFE[DFBits[W]]
 
   protected object `AW == TW`
@@ -591,10 +589,21 @@ object DFBits:
         new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
           type Out = DFVal[DFBits[HI - LO + 1], Modifier[A, Any, Any, P]]
           def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
-            checkHigh(IntParam(idxHigh), lhs.widthIntUNSAFE)
-            checkLow(IntParam(idxLow), lhs.widthIntUNSAFE)
-            checkHiLo(IntParam(idxHigh), IntParam(idxLow))
-            DFVal.Alias.ApplyRange(lhs, IntParam(idxHigh), IntParam(idxLow))
+            val idxHighParam = IntParam(idxHigh)
+            val idxLowParam = IntParam(idxLow)
+            val idxHighIntOpt = idxHighParam.toScalaIntOpt
+            val idxLowIntOpt = idxLowParam.toScalaIntOpt
+            val widthIntOpt = lhs.widthIntOpt
+            (idxHighIntOpt, widthIntOpt) match
+              case (Some(idxHighInt), Some(widthInt)) => checkHigh(idxHighInt, widthInt)
+              case _                                  =>
+            (idxLowIntOpt, widthIntOpt) match
+              case (Some(idxLowInt), Some(widthInt)) => checkLow(idxLowInt, widthInt)
+              case _                                 =>
+            (idxHighIntOpt, idxLowIntOpt) match
+              case (Some(idxHighInt), Some(idxLowInt)) => checkHiLo(idxHighInt, idxLowInt)
+              case _                                   =>
+            DFVal.Alias.ApplyRange(lhs, idxHighParam, idxLowParam)
           }(using dfc, CTName("bit range selection (apply)"))
       end evOpApplyRangeDFBits
       given evLogicOpDFBits[
@@ -714,7 +723,7 @@ object DFBits:
             check: Arg.Width.CheckNUB[RW],
             dfc: DFCG
         ): DFValTP[DFBits[RW], icL.OutP] = trydf {
-          check(updatedWidth)
+          updatedWidth.toScalaIntOpt.foreach(check(_))
           icL(lhs).resizeBits(updatedWidth)
         }
         def repeat[N <: IntP](num: IntParam[N])(using
@@ -722,7 +731,7 @@ object DFBits:
             check: Arg.Positive.CheckNUB[N]
         ): DFValTP[DFBits[IntP.*[icL.OutW, N]], icL.OutP | CONST] = trydf {
           val lhsVal = icL(lhs)
-          check(num)
+          num.toScalaIntOpt.foreach(check(_))
           val lhsWidth = lhsVal.widthIntParam
           val width =
             // simplifying the representation if the argument is a single bit
@@ -780,7 +789,9 @@ object DFBits:
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFCG
         ): DFValTP[DFBits[RW], P] = trydf {
-          check(lhs.widthIntUNSAFE, updatedWidth)
+          (lhs.widthIntOpt, updatedWidth.toScalaIntOpt) match
+            case (Some(lhsWidthInt), Some(updatedWidthInt)) => check(lhsWidthInt, updatedWidthInt)
+            case _                                          =>
           DFVal.Alias.ApplyRange(lhs, lhs.widthIntParam - 1, lhs.widthIntParam - updatedWidth)
             .asValTP[DFBits[RW], P]
         }
@@ -788,7 +799,9 @@ object DFBits:
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFCG
         ): DFValTP[DFBits[RW], P] = trydf {
-          check(lhs.widthIntUNSAFE, updatedWidth)
+          (lhs.widthIntOpt, updatedWidth.toScalaIntOpt) match
+            case (Some(lhsWidthInt), Some(updatedWidthInt)) => check(lhsWidthInt, updatedWidthInt)
+            case _                                          =>
           DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0).asValTP[DFBits[RW], P]
         }
       end extension
