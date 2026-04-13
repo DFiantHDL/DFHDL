@@ -709,7 +709,7 @@ class DFDecimalSpec extends DFSpec:
       u8 + bigVal
     }
     assertDSLErrorLog(
-      "Wildcard `Int` value is negative and cannot adapt to unsigned bit-accurate value UInt[8]."
+      "Wildcard `Int` value is negative and cannot adapt to an unsigned bit-accurate value."
     )(
       ""
     ) {
