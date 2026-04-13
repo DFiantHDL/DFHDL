@@ -1305,37 +1305,33 @@ object DFXInt:
               // LHS is wildcard: adapt to RHS type
               checkWildcardFit(lhsVal.asValOf[DFInt32], rhsVal.dfType)
               arithOp(rhsVal.dfType, op.value, rhsVal, lhsVal).asInstanceOf[Out]
-            else if (rhsIsWildcard && !lhsIsWildcard)
+            else if (rhsIsWildcard) // LHS may be wildcard or concrete
               // RHS is wildcard: adapt to LHS type
               checkWildcardFit(rhsVal.asValOf[DFInt32], lhsVal.dfType)
               arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal).asInstanceOf[Out]
             else
-              // Both concrete (or both wildcards): use max width, max signed
+              // Both concrete: use max width, max signed
               val resultSigned = lhsVal.dfType.signed || rhsVal.dfType.signed
-              val lhsEffWidth: Int =
-                if (resultSigned && !lhsVal.dfType.signed) lhsVal.dfType.widthIntUNSAFE.value + 1
-                else lhsVal.dfType.widthIntUNSAFE
-              val rhsEffWidth: Int =
-                if (resultSigned && !rhsVal.dfType.signed) rhsVal.dfType.widthIntUNSAFE.value + 1
-                else rhsVal.dfType.widthIntUNSAFE
-              if (lhsEffWidth >= rhsEffWidth)
+              val lhsEffWidth: IntParam[Int] =
+                if (resultSigned && !lhsVal.dfType.signed) lhsVal.widthIntParam + 1
+                else lhsVal.dfType.widthIntParam
+              val rhsEffWidth: IntParam[Int] =
+                if (resultSigned && !rhsVal.dfType.signed) rhsVal.widthIntParam + 1
+                else rhsVal.dfType.widthIntParam
+              if (lhsEffWidth.toScalaIntUNSAFE >= rhsEffWidth.toScalaIntUNSAFE)
                 if (resultSigned && !lhsVal.dfType.signed)
                   val lhsSigned = lhsVal.asValOf[DFUInt[Int]].signed(using dfcAnon)
                   val rhsAdj = rhsVal.toDFXIntOf(lhsSigned.dfType)(using dfcAnon)
-                  DFVal.Func(lhsSigned.dfType, op.value, List(lhsSigned, rhsAdj))
-                    .asInstanceOf[Out]
+                  DFVal.Func(lhsSigned.dfType, op.value, List(lhsSigned, rhsAdj)).asInstanceOf[Out]
                 else
-                  arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal)
-                    .asInstanceOf[Out]
+                  arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal).asInstanceOf[Out]
               else
                 if (resultSigned && !rhsVal.dfType.signed)
                   val rhsSigned = rhsVal.asValOf[DFUInt[Int]].signed(using dfcAnon)
                   val lhsAdj = lhsVal.toDFXIntOf(rhsSigned.dfType)(using dfcAnon)
-                  DFVal.Func(rhsSigned.dfType, op.value, List(rhsSigned, lhsAdj))
-                    .asInstanceOf[Out]
+                  DFVal.Func(rhsSigned.dfType, op.value, List(rhsSigned, lhsAdj)).asInstanceOf[Out]
                 else
-                  arithOp(rhsVal.dfType, op.value, rhsVal, lhsVal)
-                    .asInstanceOf[Out]
+                  arithOp(rhsVal.dfType, op.value, rhsVal, lhsVal).asInstanceOf[Out]
               end if
             end if
           }(using dfc, CTName(op.value.toString))

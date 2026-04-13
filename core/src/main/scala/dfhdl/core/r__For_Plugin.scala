@@ -9,6 +9,7 @@ import dfhdl.internals.metaContextForward
 import dfhdl.compiler.ir.DFConditional
 import scala.annotation.Annotation
 import dfhdl.hw.annotation.getActiveHWAnnotations
+import dfhdl.compiler.printing.{Printer, DefaultPrinter}
 
 object r__For_Plugin:
   def metaGen(
@@ -33,23 +34,30 @@ object r__For_Plugin:
       .asInstanceOf[V]
   def patternSingleton(selector: DFValAny, value: Any)(using dfc: DFC): Pattern =
     import dfc.getSet
+    given Printer = DefaultPrinter
     val const = (selector.dfType.asIR, value) match
       case (dt: ir.DFBoolOrBit, v: Int) if v == 0 | v == 1 =>
         DFVal.Const(dt.asFE[DFBoolOrBit], Some(v > 0))
       case (dt: ir.DFBoolOrBit, v: Boolean) =>
         DFVal.Const(dt.asFE[DFBoolOrBit], Some(v))
       case (dt: ir.DFBits, allBit: BitOrBool) =>
-        // removing width as a parameter in patterns
-        val dfType = DFBits(dt.widthUNSAFE)
+        val width = dt.widthIntOpt.getOrElse(throw new IllegalArgumentException(
+          s"Cannot pattern match against parameterized `${selector.dfType.codeString}` type."
+        ))
+        // removing width as local parameter dependency in patterns
+        val dfType = DFBits(width)
         SameElementsVector.bitsValOf(
-          dfType.asFE[DFBits[Int]].widthIntParam,
+          dfType.widthIntParam,
           SameElementsVector(allBit)
         )
       case (dt: ir.DFDecimal, v: Int) =>
-        // removing width as a parameter in patterns
+        val width = dt.widthIntOpt.getOrElse(throw new IllegalArgumentException(
+          s"Cannot pattern match against parameterized `${selector.dfType.codeString}` type."
+        ))
+        // removing width as local parameter dependency in patterns
         val dfType = dt.runtimeChecked match
-          case ir.DFUInt(_) => DFUInt(dt.widthUNSAFE)
-          case ir.DFSInt(_) => DFSInt(dt.widthUNSAFE)
+          case ir.DFUInt(_) => DFUInt(width)
+          case ir.DFSInt(_) => DFSInt(width)
         DFVal.Const(dfType.asFE[DFSInt[Int]], Some(BigInt(v)))
       case (dt: ir.DFEnum, v: DFEncoding) =>
         DFVal.Const(dt.asFE[DFEnum[DFEncoding]], Some(v.bigIntValue))

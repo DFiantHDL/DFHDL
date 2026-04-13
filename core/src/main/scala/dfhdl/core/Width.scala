@@ -286,6 +286,6 @@ extension [T](t: T)(using tc: DFType.TC[T])
         )
       case ir.DFStruct(_, fieldMap) =>
         fieldMap.values.map(intParam).reduce(_ + _).asInstanceOf[IntParam[Int]]
-      case _ => IntParam.forced[Int](dfTypeIR.widthUNSAFE)
+      case _ => IntParam.forced[Int](dfTypeIR.widthIntOpt.get)
     intParam(tc(t).asIR).asInstanceOf[IntParam[w.Out]]
 end extension

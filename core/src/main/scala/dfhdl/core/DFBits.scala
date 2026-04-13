@@ -466,10 +466,12 @@ object DFBits:
         def conv(dfType: DFBits[LW], value: V)(using dfc: DFC): Out =
           import Ops.resizeBits
           val dfVal = ic(value)
-          if (dfVal.hasTag[ir.ResizeTag] && dfType.widthIntUNSAFE != dfVal.widthIntUNSAFE)
+          if (dfVal.hasTag[ir.ResizeTag])
             dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], RP]
           else
-            check(dfType.widthIntUNSAFE, dfVal.widthIntUNSAFE)
+            (dfType.widthIntOpt, dfVal.widthIntOpt) match
+              case (Some(lw), Some(rw)) => check(lw, rw)
+              case _                    =>
             dfVal.nameInDFCPosition.asValTP[DFBits[LW], RP]
         end conv
       end DFBitsFromCandidate
