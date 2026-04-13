@@ -1595,7 +1595,7 @@ class PrintCodeStringSpec extends StageSpec:
       val font                      = Bar(data_width = data_width2)
       val col_index                 = UInt(8) <> VAR
       col_index := 0
-      val x = font.dout(col_index.truncate)
+      val x = font.dout(col_index.resize)
     end Foo
     val top = (new Foo).getCodeString
     assertNoDiff(

@@ -385,8 +385,7 @@ object DFBits:
         type OutP = P
         def apply(value: R)(using DFC): Out =
           import DFVal.Ops.bits
-          if (value.hasTag[ir.TruncateTag]) value.bits.tag(ir.TruncateTag)
-          else if (value.hasTag[ir.ExtendTag]) value.bits.tag(ir.ExtendTag)
+          if (value.hasTag[ir.ResizeTag]) value.bits.tag(ir.ResizeTag)
           else value.bits
       transparent inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
@@ -467,9 +466,7 @@ object DFBits:
         def conv(dfType: DFBits[LW], value: V)(using dfc: DFC): Out =
           import Ops.resizeBits
           val dfVal = ic(value)
-          if (dfVal.hasTag[ir.TruncateTag] && dfType.widthIntUNSAFE < dfVal.widthIntUNSAFE)
-            dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], RP]
-          else if (dfVal.hasTag[ir.ExtendTag] && dfType.widthIntUNSAFE > dfVal.widthIntUNSAFE)
+          if (dfVal.hasTag[ir.ResizeTag] && dfType.widthIntUNSAFE != dfVal.widthIntUNSAFE)
             dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], RP]
           else
             check(dfType.widthIntUNSAFE, dfVal.widthIntUNSAFE)
@@ -706,8 +703,6 @@ object DFBits:
       end evOpShift
 
       extension [W <: IntP, P](lhs: DFValTP[DFBits[W], P])
-        def truncate(using DFCG): DFValTP[DFBits[Int], P] =
-          lhs.tag(ir.TruncateTag).asValTP[DFBits[Int], P]
         // TODO: IntP
         private[DFBits] def resizeBits[RW <: IntP](updatedWidth: IntParam[RW])(using
             DFC
@@ -716,6 +711,15 @@ object DFBits:
 //          if (lhs.width == updatedWidth) lhs.asValOf[DFBits[RW]]
 //          else
           DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
+        def resize(using DFCG): DFValTP[DFBits[Int], P] =
+          lhs.tag(ir.ResizeTag).asValTP[DFBits[Int], P]
+        def resize[RW <: IntP](updatedWidth: IntParam[RW])(using
+            check: Arg.Width.CheckNUB[RW],
+            dfc: DFCG
+        ): DFValTP[DFBits[RW], P] = trydf {
+          updatedWidth.toScalaIntOpt.foreach(check(_))
+          lhs.resizeBits(updatedWidth)
+        }
       end extension
       extension [T <: Int, P](iter: Iterable[DFValTP[DFBits[T], P]])
         protected[core] def concatBits(using DFC): DFValTP[DFBits[Int], P] =
@@ -723,15 +727,8 @@ object DFBits:
             iter.map(_.widthIntParam.asInstanceOf[IntParam[Int]]).reduce(_ + _)
           DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
       extension [L <: DFValAny, LW <: IntP, LP](lhs: L)(using icL: Candidate.Aux[L, LW, LP])
-        def extend(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
-          icL(lhs).tag(ir.ExtendTag).asValTP[DFBits[Int], icL.OutP]
-        def resize[RW <: IntP](updatedWidth: IntParam[RW])(using
-            check: Arg.Width.CheckNUB[RW],
-            dfc: DFCG
-        ): DFValTP[DFBits[RW], icL.OutP] = trydf {
-          updatedWidth.toScalaIntOpt.foreach(check(_))
-          icL(lhs).resizeBits(updatedWidth)
-        }
+        def resize(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
+          icL(lhs).tag(ir.ResizeTag).asValTP[DFBits[Int], icL.OutP]
         def repeat[N <: IntP](num: IntParam[N])(using
             dfc: DFCG,
             check: Arg.Positive.CheckNUB[N]

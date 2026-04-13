@@ -710,10 +710,8 @@ object DFXInt:
           import DFBits.Val.Ops.uint
           val dfVal = ic(arg)(using dfc.anonymize)
           val ret =
-            if (dfVal.hasTag[ir.TruncateTag])
-              dfVal.uint.tag(ir.TruncateTag)
-            else if (dfVal.hasTag[ir.ExtendTag])
-              dfVal.uint.tag(ir.ExtendTag)
+            if (dfVal.hasTag[ir.ResizeTag])
+              dfVal.uint.tag(ir.ResizeTag)
             else dfVal.uint
           ret.asValTP[DFXInt[OutS, OutW, OutN], OutP]
       end fromDFBitsValCandidate
@@ -827,7 +825,7 @@ object DFXInt:
           val rhs = ic(value)
           rhs.getActualSignedWidthOpt match
             case Some(rhsSigned, rhsWidthOpt) =>
-              if (!rhs.hasTag[ir.TruncateTag] || dfType.signed != rhsSigned)
+              if (!rhs.hasTag[ir.ResizeTag] || dfType.signed != rhsSigned)
                 (dfType.widthIntOpt, rhsWidthOpt) match
                   case (Some(dfTypeW), Some(rhsW)) => check(dfType.signed, dfTypeW, rhsSigned, rhsW)
                   case _                           =>
@@ -1081,12 +1079,9 @@ object DFXInt:
           lhs.toScalaValue
       end extension
       extension [S <: Boolean, W <: IntP, N <: NativeType, P](lhs: DFValTP[DFXInt[S, W, N], P])
-        @targetName("extendDFXInt")
-        def extend(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
-          lhs.tag(ir.ExtendTag).asValTP[DFXInt[S, Int, N], P]
-        @targetName("truncateDFXInt")
-        def truncate(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
-          lhs.tag(ir.TruncateTag).asValTP[DFXInt[S, Int, N], P]
+        @targetName("resizeDFXIntAuto")
+        def resize(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
+          lhs.tag(ir.ResizeTag).asValTP[DFXInt[S, Int, N], P]
         @targetName("resizeDFXInt")
         def resize[RW <: IntP](
             updatedWidth: IntParam[RW]
@@ -1587,8 +1582,7 @@ object DFUInt:
         Int,
         [UBW <: Int, RW <: Int] =>> UBW == RW,
         [UBW <: Int, RW <: Int] =>> "Expected argument width " + UBW + " but found: " + RW +
-          "\nTo Fix:\nUse " + ITE[UBW < RW, "`.truncate`", "`.extend`"] +
-          " to match the width automatically."
+          "\nTo Fix:\nUse `.resize` to match the width automatically."
       ]
 
   object Val:
@@ -1654,8 +1648,8 @@ object DFUInt:
                 val ubWidth = clog2(ub.toScalaIntUNSAFE)
                 val argWidth = argVal.widthIntUNSAFE
                 if (
-                  ubWidth < argWidth && argValIR.hasTagOf[ir.TruncateTag] ||
-                  ubWidth > argWidth && argValIR.hasTagOf[ir.ExtendTag]
+                  (ubWidth < argWidth || ubWidth > argWidth) &&
+                  argValIR.hasTagOf[ir.ResizeTag]
                 )
                   argVal.resize(ub.clog2).asIR
                 else

@@ -72,19 +72,19 @@ class DFVectorSpec extends DFSpec:
       assertCompileError(
         """|Expected argument width 3 but found: 2
            |To Fix:
-           |Use `.extend` to match the width automatically.""".stripMargin
+           |Use `.resize` to match the width automatically.""".stripMargin
       )(
         """v1(i2)"""
       )
-      val o2 = v1(i2.extend)
+      val o2 = v1(i2.resize)
       assertCompileError(
         """|Expected argument width 3 but found: 4
            |To Fix:
-           |Use `.truncate` to match the width automatically.""".stripMargin
+           |Use `.resize` to match the width automatically.""".stripMargin
       )(
         """v1(i4)"""
       )
-      val o4 = v1(i4.truncate)
+      val o4 = v1(i4.resize)
       assertCompileError(
         "The argument must be smaller than the upper-bound 5 but found: 5"
       )(

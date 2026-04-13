@@ -133,8 +133,8 @@ class DFBitsSpec extends DFSpec:
       b8 := ?
       b8 := u8
       b8 := u8.bits
-      b8 := b3M.extend
-      b3M := b8.truncate
+      b8 := b3M.resize
+      b3M := b8.resize
       b8 := (h"1", 1, 0, b"11").toBits
       (b4M, b4L) := (h"1", 1, 0, b"11")
       (b3M, u5L) := (h"1", 1, 0, b"11")
@@ -301,19 +301,19 @@ class DFBitsSpec extends DFSpec:
     assertCompileError(
       """|Expected argument width 3 but found: 5
          |To Fix:
-         |Use `.truncate` to match the width automatically.""".stripMargin
+         |Use `.resize` to match the width automatically.""".stripMargin
     )(
       """b8(u5)"""
     )
-    val o5 = b8(u5.truncate)
+    val o5 = b8(u5.resize)
     val u2 = UInt(2) <> VAR
     assertCompileError(
       """|Expected argument width 3 but found: 2
          |To Fix:
-         |Use `.extend` to match the width automatically.""".stripMargin
+         |Use `.resize` to match the width automatically.""".stripMargin
     )(
       """b8(u2)"""
     )
-    val o2 = b8(u2.extend)
+    val o2 = b8(u2.resize)
   }
 end DFBitsSpec

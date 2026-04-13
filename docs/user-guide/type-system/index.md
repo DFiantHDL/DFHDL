@@ -1641,7 +1641,7 @@ val dynbit = b8(idx)  // Bit at position idx
 
 /// admonition | Dynamic bit indexing
     type: tip
-You can index into a bit-vector value using a `UInt` variable, not just integer literals. The index must be a `UInt` whose width equals `clog2(bits_width)`. For example, indexing into `Bits(8)` requires a `UInt(3)` index. If the width does not match, the compiler will report an error and suggest using `.truncate` (to narrow) or `.extend` (to widen).
+You can index into a bit-vector value using a `UInt` variable, not just integer literals. The index must be a `UInt` whose width equals `clog2(bits_width)`. For example, indexing into `Bits(8)` requires a `UInt(3)` index. If the width does not match, the compiler will report an error and suggest using `.resize` to automatically adjust the width.
 
 Dynamic indexing works for both reads and writes:
 ```scala
@@ -1655,11 +1655,11 @@ process(clk):
     data(pos) :== din        // dynamic write
 ```
 
-When the index variable is wider than needed, use `.truncate` to automatically narrow it to the required width:
+When the index variable is wider or narrower than needed, use `.resize` to automatically adjust it to the required width:
 ```scala
 val data    = Bits(8) <> VAR init all(0)
 val pos     = UInt(4) <> VAR init 0  // 4-bit, but Bits(8) needs UInt(3)
-val bit_out = data(pos.truncate)     // .truncate narrows to UInt(3) automatically
+val bit_out = data(pos.resize)       // .resize adjusts to UInt(3) automatically
 ```
 ///
 
@@ -1668,38 +1668,24 @@ val bit_out = data(pos.truncate)     // .truncate narrows to UInt(3) automatical
 Applies to: `Bits`, `UInt`, `SInt`
 
 - `.resize(N)` sets the width to exactly `N` bits. For `UInt` and `Bits`, widening zero-extends; for `SInt`, widening sign-extends. Narrowing truncates the most-significant bits.
-- `.truncate` automatically narrows to the width expected by the assignment or operation context.
-- `.extend` automatically widens to the width expected by the context.
+- `.resize` (no argument) automatically adjusts the width to match the assignment or operation context; narrowing or widening as needed.
 
 ```scala
 val b8 = Bits(8) <> VAR
 val b4 = Bits(4) <> VAR
-b4 := b8.resize(4)    // truncate to 4 bits
-b8 := b4.extend       // auto-widen to match b8's width
+b4 := b8.resize(4)    // explicit narrow to 4 bits
+b8 := b4.resize       // auto-widen to match b8's width
 
 val u8 = UInt(8) <> VAR
 val u6 = UInt(6) <> VAR
-u6 := u8.truncate     // auto-narrow to match u6's width
+u6 := u8.resize       // auto-narrow to match u6's width
 u8 := u6.resize(8)    // explicit zero-extend to 8 bits
 
 val s8 = SInt(8) <> VAR
 val s4 = SInt(4) <> VAR
-s8 := s4.extend       // sign-extend to match s8's width
-s4 := s8.resize(4)    // truncate to 4 bits
+s8 := s4.resize       // sign-extend to match s8's width
+s4 := s8.resize(4)    // explicit narrow to 4 bits
 ```
-
-/// admonition | `.truncate` is not `.resize(N)` -- do not pass an argument to `.truncate`
-    type: warning
-`.truncate` (no argument) narrows the width to match the assignment context. There is no `.truncate(N)` method. Writing `expr.truncate(N)` is parsed by Scala as `expr.truncate` followed by `(N)`, which applies bit selection on the truncated result -- selecting a single bit at index `N`. This causes confusing errors like "argument must be smaller than the upper-bound". To keep the lowest `N` bits, use `.resize(N)`:
-
-```scala
-val b8 = Bits(8) <> VAR
-val b4 = Bits(4) <> VAR
-b4 := b8.truncate     // OK: auto-narrow from 8 to 4 bits
-b4 := b8.resize(4)    // OK: explicit narrow to 4 bits
-// b8.truncate(4)     // MISLEADING: this is b8.truncate followed by bit-select (4)
-```
-///
 
 ### Bit Concatenation {#bit-concat}
 
@@ -2087,7 +2073,7 @@ val result     = UInt(8) <> OUT
 result <> (a + b + c + d) / 4
 
 // Fix 1: use carry addition to prevent intermediate overflow
-result <> ((a +^ b +^ c +^ d) / 4).truncate
+result <> ((a +^ b +^ c +^ d) / 4).resize
 
 // Fix 2: use an explicit bit-accurate literal to accept DFHDL
 // overflow semantics and silence the warning

@@ -794,8 +794,7 @@ case object BindTag           // Alias is a pattern-match bind variable
 case object CombinationalTag  // loop/block is combinational (no cycles)
 case object FallThroughTag    // loop/block falls through to next step
 case class  DefaultRTDomainCfgTag(cfg: RTDomainCfg.Explicit)
-case object ExtendTag
-case object TruncateTag
+case object ResizeTag
 case class  DFHDLVersionTag(version: String)
 ```
 

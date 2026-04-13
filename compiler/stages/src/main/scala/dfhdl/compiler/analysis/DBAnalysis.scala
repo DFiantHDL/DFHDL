@@ -23,7 +23,7 @@ extension (designDB: DB)
     designDB.members.flatMap:
       case net @ DFNet.Assignment(toVal, DFVal.Alias.AsIs(relValRef = DFRef(fromVal)))
           if !fromVal.isAnonymous && fromVal.getReadDeps.size == 1 &&
-            toVal.widthUNSAFE < fromVal.widthUNSAFE => // && fromVal.tags.hasTagOf[TruncateTag]
+            toVal.widthUNSAFE < fromVal.widthUNSAFE =>
         Some(fromVal, fromVal.widthUNSAFE - 1, toVal.widthUNSAFE)
       case _ => None
   end getUnusedBitsValues

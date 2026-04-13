@@ -17,10 +17,8 @@ type CombinationalTag = CombinationalTag.type
 case object FallThroughTag extends DFTag
 type FallThroughTag = FallThroughTag.type
 case class DefaultRTDomainCfgTag(cfg: RTDomainCfg.Explicit) extends DFTag
-case object ExtendTag extends DFTag
-type ExtendTag = ExtendTag.type
-case object TruncateTag extends DFTag
-type TruncateTag = TruncateTag.type
+case object ResizeTag extends DFTag
+type ResizeTag = ResizeTag.type
 case object ImplicitlyFromIntTag extends DFTag
 type ImplicitlyFromIntTag = ImplicitlyFromIntTag.type
 case class DFHDLVersionTag(version: String) extends DFTag

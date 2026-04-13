@@ -850,7 +850,7 @@ val result     = UInt(8) <> OUT
 
 // Use carry ops to match Verilog's
 // overflow-free semantics
-result <> ((a +^ b +^ c +^ d) / 4).truncate
+result <> ((a +^ b +^ c +^ d) / 4).resize
 ```
 
 </div>
