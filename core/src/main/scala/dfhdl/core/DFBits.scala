@@ -445,7 +445,9 @@ object DFBits:
           dfType: DFBits[Int],
           dfVal: DFValOf[DFBits[Int]]
       )(using DFC): DFValOf[DFBits[Int]] =
-        `LW == RW`(dfType.widthIntUNSAFE, dfVal.widthIntUNSAFE)
+        (dfType.widthIntOpt, dfVal.widthIntOpt) match
+          case (Some(lw), Some(rw)) => `LW == RW`(lw, rw)
+          case _                    =>
         dfVal
       protected object `LW == RW`
           extends Check2[
@@ -511,7 +513,9 @@ object DFBits:
         type OutP = RP
         def conv(dfType: DFBits[LW], arg: R)(using DFC): Out =
           val dfValArg = ic(arg)
-          check(dfType.widthIntUNSAFE, dfValArg.dfType.widthIntUNSAFE)
+          (dfType.widthIntOpt, dfValArg.dfType.widthIntOpt) match
+            case (Some(lw), Some(rw)) => check(lw, rw)
+            case _                    =>
           dfValArg.asValTP[DFBits[LW], RP]
       end DFBitsCompareCandidate
       given DFBitsCompareSEV[
@@ -626,7 +630,9 @@ object DFBits:
           def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
             val lhsVal = icL(lhs)
             val rhsVal = icR(rhs)
-            check(lhsVal.widthIntUNSAFE, rhsVal.widthIntUNSAFE)
+            (lhsVal.widthIntOpt, rhsVal.widthIntOpt) match
+              case (Some(lw), Some(rw)) => check(lw, rw)
+              case _                    =>
             DFVal.Func(lhsVal.dfType, op.value, List(lhsVal, rhsVal))
           }
       end evLogicOpDFBits
@@ -762,7 +768,9 @@ object DFBits:
           def apply(lhs: L, aliasType: AT)(using DFC): Out = trydf {
             import dfc.getSet
             val aliasDFType = tc(aliasType)
-            check(aliasDFType.asIR.widthUNSAFE, lhs.widthIntUNSAFE)
+            (aliasDFType.asIR.widthIntOpt, lhs.widthIntOpt) match
+              case (Some(aw), Some(lw)) => check(aw, lw)
+              case _                    =>
             DFVal.Alias.AsIs(aliasDFType, lhs)
           }(using dfc, CTName("cast from bits"))
       end evOpAsDFBits
