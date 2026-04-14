@@ -377,12 +377,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    if rising_edge(clk) then
          |      if rst = '1' then
          |        led <= '1';
-         |        cnt <= resize(2d"0", clog2(HALF_PERIOD));
+         |        cnt <= resize(1d"0", clog2(HALF_PERIOD));
          |      else
          |        if cnt = to_unsigned(HALF_PERIOD - 1, clog2(HALF_PERIOD)) then
-         |          cnt <= resize(2d"0", clog2(HALF_PERIOD));
+         |          cnt <= resize(1d"0", clog2(HALF_PERIOD));
          |          led <= not led;
-         |        else cnt <= cnt + resize(2d"1", clog2(HALF_PERIOD));
+         |        else cnt <= cnt + resize(1d"1", clog2(HALF_PERIOD));
          |        end if;
          |      end if;
          |    end if;

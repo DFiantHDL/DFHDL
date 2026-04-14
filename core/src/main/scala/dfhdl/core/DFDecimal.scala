@@ -355,13 +355,35 @@ object DFDecimal:
         val (interpSigned, interpWidth, interpFractionWidth, interpValue) =
           fromDecString(fullTerm, op == "sd").toOption.get
         val signed = Inlined.forced[S](interpSigned)
-        val width = IntParam.forced[W](explicitWidthOption.getOrElse(interpWidth))
         val fractionWidth = Inlined.forced[F](interpFractionWidth)
-        DFVal.Const(
-          DFDecimal(signed, width, fractionWidth, BitAccurate),
-          Some(interpValue),
-          named = true
-        )
+        explicitWidthOption match
+          // explicit integer width
+          case Some(int: Int) =>
+            val width = IntParam.forced[W](int)
+            DFVal.Const(
+              DFDecimal(signed, width, fractionWidth, BitAccurate),
+              Some(interpValue),
+              named = true
+            )
+          // no explicit width, use inferred width from the value
+          case None =>
+            val width = IntParam.forced[W](interpWidth)
+            DFVal.Const(
+              DFDecimal(signed, width, fractionWidth, BitAccurate),
+              Some(interpValue),
+              named = true
+            )
+          // explicit parametric width, so use the inferred constant and resize it with the parameter
+          case Some(ref) =>
+            val width = IntParam.forced[W](ref)
+            import DFXInt.Val.Ops.resize
+            DFVal.Const(
+              DFDecimal(signed, interpWidth, fractionWidth, BitAccurate),
+              Some(interpValue)
+            )
+              .asConstOf[DFXInt[S, W, BitAccurate]].resize(width)
+              .asConstOf[DFDecimal[S, W, F, BitAccurate]]
+        end match
     end extension
 
     extension (using Quotes)(fullTerm: quotes.reflect.Term)

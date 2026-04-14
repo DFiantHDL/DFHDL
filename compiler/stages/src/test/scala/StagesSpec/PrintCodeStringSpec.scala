@@ -249,7 +249,7 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       id,
       """|class ID(val width: Int <> CONST = 8) extends DFDesign:
-         |  val x = SInt(width + 1) <> IN init sd"${width + 1}'0"
+         |  val x = SInt(width + 1) <> IN init sd"2'0".resize(width + 1)
          |  val y = SInt(width + 2) <> OUT
          |  y := x.resize(width + 2)
          |end ID
@@ -481,11 +481,11 @@ class PrintCodeStringSpec extends StageSpec:
          |  val maxCnt: Int <> CONST = ((CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2)) - 1
          |  /** LED output */
          |  val led = Bit <> OUT.REG init 1
-         |  val cnt = UInt(clog2(maxCnt + 1)) <> VAR.REG init d"${clog2(maxCnt + 1)}'0"
-         |  if (cnt == d"${clog2(maxCnt + 1)}'5000000")
-         |    cnt.din := d"${clog2(maxCnt + 1)}'0"
+         |  val cnt = UInt(clog2(maxCnt + 1)) <> VAR.REG init d"1'0".resize(clog2(maxCnt + 1))
+         |  if (cnt == d"23'5000000".resize(clog2(maxCnt + 1)))
+         |    cnt.din := d"1'0".resize(clog2(maxCnt + 1))
          |    led.din := !led
-         |  else cnt.din := cnt + d"${clog2(maxCnt + 1)}'1"
+         |  else cnt.din := cnt + d"1'1".resize(clog2(maxCnt + 1))
          |  end if
          |end Blinker
          |""".stripMargin
@@ -635,11 +635,11 @@ class PrintCodeStringSpec extends StageSpec:
          |  val HALF_PERIOD: Int <> CONST = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2)
          |  /** LED output */
          |  val led = Bit <> OUT.REG init 1
-         |  val cnt = UInt(clog2(HALF_PERIOD)) <> VAR.REG init d"${clog2(HALF_PERIOD)}'0"
+         |  val cnt = UInt(clog2(HALF_PERIOD)) <> VAR.REG init d"1'0".resize(clog2(HALF_PERIOD))
          |  if (cnt == d"${clog2(HALF_PERIOD)}'${(HALF_PERIOD - 1)}")
-         |    cnt.din := d"${clog2(HALF_PERIOD)}'0"
+         |    cnt.din := d"1'0".resize(clog2(HALF_PERIOD))
          |    led.din := !led
-         |  else cnt.din := cnt + d"${clog2(HALF_PERIOD)}'1"
+         |  else cnt.din := cnt + d"1'1".resize(clog2(HALF_PERIOD))
          |  end if
          |end Blinker
          |""".stripMargin

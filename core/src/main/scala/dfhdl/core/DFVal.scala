@@ -645,8 +645,12 @@ object DFVal extends DFValLP:
         named: Boolean = false
     )(using DFC): DFConstOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
+      assert(
+        dfType.asIR.getRefs.isEmpty,
+        "Constant DFType cannot be parametric."
+      )
       ir.DFVal
-        .Const(dfType.asIR.dropUnreachableRefs, data, dfc.ownerOrEmptyRef, meta, dfc.tags)
+        .Const(dfType.asIR, data, dfc.ownerOrEmptyRef, meta, dfc.tags)
         .addMember
         .asConstOf[T]
   end Const
@@ -767,18 +771,21 @@ object DFVal extends DFValLP:
           forceNewAlias: Boolean = false
       )(using dfc: DFC): DFVal[AT, M] =
         import dfc.getSet
+        val aliasTypeIR = aliasType.asIR
         relVal.asIR match
           // anonymous constant are replaced by a different constant
-          // after its data value was converted according to the alias
+          // after its data value was converted according to the alias.
+          // the target alias type must have a known width (constants must have a known width)
           case const: ir.DFVal.Const
-              if (const.isAnonymous || relVal.inDFCPosition) && !forceNewAlias =>
-            val updatedData = ir.dataConversion(aliasType.asIR, const.dfType)(
+              if (const.isAnonymous || relVal.inDFCPosition) && aliasTypeIR.getRefs.isEmpty &&
+                !forceNewAlias =>
+            val updatedData = ir.dataConversion(aliasTypeIR, const.dfType)(
               const.data.asInstanceOf[const.dfType.Data]
             )
             dfc.mutableDB.setMember(
               const,
               _.copy(
-                dfType = aliasType.asIR.dropUnreachableRefs,
+                dfType = aliasTypeIR.dropUnreachableRefs,
                 data = updatedData,
                 meta = dfc.getMeta
               )
@@ -787,7 +794,7 @@ object DFVal extends DFValLP:
           // as long as the alias is anonymous and has the same width as the related value,
           // to avoid modifying the semantics of named values that can be referenced in multiple places.
           case asIs @ ir.DFVal.Alias.AsIs(relValRef = ir.DFRef(relValIR))
-              if aliasType.asIR.isInstanceOf[ir.DFBits] && asIs.isAnonymous &&
+              if aliasTypeIR.isInstanceOf[ir.DFBits] && asIs.isAnonymous &&
                 dfc.isAnonymous && !forceNewAlias && asIs.tags.isEmpty &&
                 relValIR.asValAny.widthIntParam =~ asIs.asValAny.widthIntParam =>
             asIs.relValRef.get.asVal[AT, M]
@@ -799,14 +806,14 @@ object DFVal extends DFValLP:
             dfc.mutableDB.setMember(
               asIs,
               _.copy(
-                dfType = aliasType.asIR.dropUnreachableRefs,
+                dfType = aliasTypeIR.dropUnreachableRefs,
                 meta = dfc.getMeta
               )
             ).asVal[AT, M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
-            forced(aliasType.asIR, relVal.anonymizeInDFCPosition.asIR).asVal[AT, M]
+            forced(aliasTypeIR, relVal.anonymizeInDFCPosition.asIR).asVal[AT, M]
         end match
       end apply
       def forced(aliasType: ir.DFType, relVal: ir.DFVal)(using DFC): ir.DFVal =

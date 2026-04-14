@@ -90,8 +90,8 @@ class DFDecimalSpec extends DFSpec:
          |val u8b = UInt(8) <> VAR init d"8'${i}"
          |val u6 = UInt(6) <> OUT
          |val s6 = SInt(6) <> OUT
-         |val u8p = UInt(param) <> VAR init d"${param}'0"
-         |val s8p = SInt(param) <> VAR init sd"${param}'-1"
+         |val u8p = UInt(param) <> VAR init d"1'0".resize(param)
+         |val s8p = SInt(param) <> VAR init sd"2'-1".resize(param)
          |val ui = UInt(clog2(i)) <> VAR init d"${clog2(i)}'${(i - 1)}"
          |val si = SInt(8) <> VAR init sd"8'${ni}"
          |u8 := d"8'${i}"

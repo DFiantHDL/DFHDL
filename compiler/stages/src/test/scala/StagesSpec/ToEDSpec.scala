@@ -234,7 +234,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |      if (rst.actual == 1) cnt_reg :== b"0".repeat(width)
          |      else cnt_reg :== cnt
          |    end if
-         |  cnt <> (cnt_reg.uint + d"${width}'1").bits
+         |  cnt <> (cnt_reg.uint + d"1'1".resize(width)).bits
          |end Counter
          |""".stripMargin
     )
@@ -259,9 +259,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val cnt = UInt(width) <> OUT
          |  val cnt_reg = UInt(width) <> VAR
          |  process(clk, rst):
-         |    if (rst.actual == 0) cnt_reg :== d"${width}'0"
+         |    if (rst.actual == 0) cnt_reg :== d"1'0".resize(width)
          |    else if (clk.actual.falling) cnt_reg :== cnt
-         |  cnt <> (cnt_reg + d"${width}'1")
+         |  cnt <> (cnt_reg + d"1'1".resize(width))
          |end Counter
          |""".stripMargin
     )
@@ -279,7 +279,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       top,
       """|class Test(val width: Int <> CONST = 8) extends EDDesign:
          |  val z = UInt(clog2(width)) <> OUT
-         |  z <> d"${clog2(width)}'0"
+         |  z <> d"1'0".resize(clog2(width))
          |end Test
          |""".stripMargin
     )

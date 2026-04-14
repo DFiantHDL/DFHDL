@@ -473,7 +473,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    if (rst == 1'b1) cnt_reg <= {width{1'b0}};
          |    else cnt_reg <= cnt;
          |  end
-         |  assign cnt = cnt_reg + width'(1);
+         |  assign cnt = cnt_reg + width'(1'd1);
          |endmodule
          |""".stripMargin
     )
@@ -515,8 +515,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    y = |x;
          |    y = ^x;
          |  end
-         |  assign z = $clog2(width)'(0);
-         |  assign w = $clog2(width + 1)'(0);
+         |  assign z = $clog2(width)'(1'd0);
+         |  assign w = $clog2(width + 1)'(1'd0);
          |endmodule
          |""".stripMargin
     )
@@ -539,10 +539,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  logic [width - 1:0] cnt_reg;
          |  always_ff @(posedge clk)
          |  begin
-         |    if (rst == 1'b1) cnt_reg <= width'(0);
+         |    if (rst == 1'b1) cnt_reg <= width'(1'd0);
          |    else cnt_reg <= cnt;
          |  end
-         |  assign cnt = cnt_reg + width'(1);
+         |  assign cnt = cnt_reg + width'(1'd1);
          |endmodule
          |""".stripMargin
     )
@@ -588,14 +588,14 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  begin
          |    if (rst == 1'b1) begin
          |      led <= 1'b1;
-         |      cnt <= $clog2(HALF_PERIOD)'(0);
+         |      cnt <= $clog2(HALF_PERIOD)'(1'd0);
          |    end
          |    else begin
          |      if (cnt == $clog2(HALF_PERIOD)'(HALF_PERIOD - 1)) begin
-         |        cnt <= $clog2(HALF_PERIOD)'(0);
+         |        cnt <= $clog2(HALF_PERIOD)'(1'd0);
          |        led <= ~led;
          |      end
-         |      else cnt <= cnt + $clog2(HALF_PERIOD)'(1);
+         |      else cnt <= cnt + $clog2(HALF_PERIOD)'(1'd1);
          |    end
          |  end
          |endmodule

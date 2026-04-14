@@ -113,14 +113,27 @@ object DFBits:
         val fromString = op match
           case "b" => ir.DFBits.dataFromBinString(fullTerm)
           case "h" => ir.DFBits.dataFromHexString(fullTerm)
-        var (valueBits, bubbleBits) = fromString.toOption.get
-        explicitWidthOption.foreach(ew =>
-          val updatedWidth = IntParam.forced(ew).toScalaIntUNSAFE
-          valueBits = valueBits.resize(updatedWidth)
-          bubbleBits = bubbleBits.resize(updatedWidth)
-        )
-        val width = IntParam.forced[W](explicitWidthOption.getOrElse(valueBits.length.toInt))
-        DFVal.Const(DFBits(width), (valueBits, bubbleBits), named = true)
+        val (valueBits, bubbleBits) = fromString.toOption.get
+        val valueWidth = IntParam.forced[W](valueBits.length.toInt)
+        explicitWidthOption.map(IntParam.forced[W]) match
+          // has explicit width parameter
+          case Some(explicitWidthParam) => explicitWidthParam match
+              // the parameter width that is a Scala Int and we can use it directly in defining the constant
+              case explicitWidth: Int =>
+                DFVal.Const(
+                  DFBits(explicitWidthParam),
+                  (valueBits.resize(explicitWidth), bubbleBits.resize(explicitWidth)),
+                  named = true
+                )
+              // the parameter width is not a Scala Int, so we keep the original value width and add a resize operation
+              case _ =>
+                import DFBits.Val.Ops.resize
+                DFVal.Const(DFBits(valueWidth), (valueBits, bubbleBits))
+                  .resize(explicitWidthParam)
+          // has no parameter, so we can directly use the inferred width
+          case None =>
+            DFVal.Const(DFBits(valueWidth), (valueBits, bubbleBits), named = true)
+        end match
     end extension
 
     extension (using Quotes)(fullTerm: quotes.reflect.Term)
