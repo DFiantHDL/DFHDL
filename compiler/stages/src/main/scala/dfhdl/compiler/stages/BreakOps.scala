@@ -64,7 +64,9 @@ abstract class BreakOps(breakAssignments: Boolean) extends NoCheckStage:
                   Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
                 ):
                   val toVar = toVal.asVarOf[DFType X Int]
-                  for (i <- 0 until vectorType.lengthUNSAFE)
+                  // we assume concatenated vectors have known widths
+                  val length = vectorType.lengthIntOpt.get
+                  for (i <- 0 until length)
                     val lhs = toVar(i)
                     val rhs = args(i).get.asValAny
                     if (net.op == DFNet.Op.Assignment)

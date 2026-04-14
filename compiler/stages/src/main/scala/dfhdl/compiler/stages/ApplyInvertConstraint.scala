@@ -57,7 +57,9 @@ case object ApplyInvertConstraint extends Stage:
             case constraints.IO(bitIdx = bitIdx, invertActiveState = true) =>
               bitIdx match
                 case bitIdx: Int => invertBitSet += bitIdx
-                case _           => invertBitSet ++= (0 until dcl.widthUNSAFE)
+                // if no specific bit index is given, invert all bits.
+                // we assume constrained ports have known widths.
+                case _ => invertBitSet ++= (0 until dcl.widthIntOpt.get)
             case _ =>
           }
 
