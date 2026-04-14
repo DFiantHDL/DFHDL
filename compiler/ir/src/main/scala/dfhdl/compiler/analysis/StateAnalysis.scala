@@ -30,7 +30,7 @@ object StateAnalysis:
             idxHighRef = IntUNSAFE(idxHigh),
             idxLowRef = IntUNSAFE(idxLow)
           ) =>
-        val elementWidth = applyRange.elementWidth
+        val elementWidth = applyRange.elementWidthUNSAFE
         consumeFrom(
           relValRef.get,
           idxHigh * elementWidth - idxLow * elementWidth + 1,
@@ -95,7 +95,7 @@ object StateAnalysis:
             idxHighRef = IntUNSAFE(idxHigh),
             idxLowRef = IntUNSAFE(idxLow)
           ) =>
-        val elementWidth = applyRange.elementWidth
+        val elementWidth = applyRange.elementWidthUNSAFE
         assignTo(relValRef.get, relWidth, idxLow * elementWidth + relBitLow, assignMap)
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // for simplification, assigning the entirety of the array

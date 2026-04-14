@@ -810,7 +810,7 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial derives ReadWriter:
-      def elementWidth(using MemberGetSet): Int = dfType.runtimeChecked match
+      def elementWidthUNSAFE(using MemberGetSet): Int = dfType.runtimeChecked match
         case DFBits(_) | DFUInt(_) | DFSInt(_) => 1
         case DFVector(cellType = cellType)     => cellType.widthUNSAFE
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
