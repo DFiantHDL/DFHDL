@@ -339,9 +339,9 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
             s"waitWhile(${wait.triggerRef.refCodeString})"
       case DFTime => s"${wait.triggerRef.refCodeString}.wait"
       case _      =>
-        wait.triggerRef.get.getConstDataUNSAFE match
+        wait.triggerRef.get.getConstData match
           // simplify display for int constant waits
-          case Some(Some(value: BigInt)) if value.isValidInt =>
+          case ConstData.KnownConst(Some(value: BigInt)) if value.isValidInt =>
             s"${value}.cy.wait"
           case _ =>
             s"${wait.triggerRef.refCodeString}.cy.wait"

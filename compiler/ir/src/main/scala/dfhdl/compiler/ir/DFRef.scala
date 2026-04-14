@@ -167,7 +167,7 @@ object IntUNSAFE:
     intParamRef.runtimeChecked match
       case int: Int            => Some(int)
       case DFRef(dfVal: DFVal) =>
-        dfVal.getConstDataUNSAFE.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)
+        dfVal.getConstData.toOption.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)
 
 class RefGen private (
     private var magnetID: Int,

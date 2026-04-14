@@ -89,12 +89,13 @@ trait AbstractDataPrinter extends AbstractPrinter:
     csDFBitsData(DFBits(width), (BitVector.low(width), BitVector.high(width)))
 
   final def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
-    import dfType.{widthUNSAFE, widthParamRef}
+    import dfType.{widthParamRef}
+    val width = dfType.widthIntOpt.get
     data match
       case Some(value) =>
         def csBits = csDFBitsData(
-          DFBits(widthUNSAFE),
-          (value.toBitVector(widthUNSAFE), BitVector.low(widthUNSAFE))
+          DFBits(width),
+          (value.toBitVector(width), BitVector.low(width))
         )
         if (dfType.fractionWidth == 0) // DFXInt
           // native integers are printed as they are (this assumes in all backends integers are printed the same)
@@ -106,14 +107,14 @@ trait AbstractDataPrinter extends AbstractPrinter:
           // otherwise, we need to reply on small value representation or cast a bits representation
           // for big integers
           else if (dfType.signed)
-            if (value.bitsWidth(true) < 31) csDFSIntFormatSmall(value, widthUNSAFE)
+            if (value.bitsWidth(true) < 31) csDFSIntFormatSmall(value, width)
             else csDFSIntDataFromBits(csBits)
-          else if (value.bitsWidth(false) < 31) csDFUIntFormatSmall(value, widthUNSAFE)
+          else if (value.bitsWidth(false) < 31) csDFUIntFormatSmall(value, width)
           else csDFUIntDataFromBits(csBits)
         else ??? // DFXFix
       case None =>
-        if (dfType.signed) csDFSIntBubble(width = widthUNSAFE)
-        else csDFUIntBubble(width = widthUNSAFE)
+        if (dfType.signed) csDFSIntBubble(width = width)
+        else csDFUIntBubble(width = width)
     end match
   end csDFDecimalData
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String

@@ -289,7 +289,9 @@ extension (intParamRef: ir.IntParamRef)
         )
           intParamRef
         // inline reference value
-        else ir.IntParamRef(intParamRef.getIntUNSAFE)
+        else
+          // TODO: this is currently not triggered in tests. may not be needed
+          ir.IntParamRef(intParamRef.getIntUNSAFE)
       case _ => intParamRef
     end match
   end dropUnreachableRef

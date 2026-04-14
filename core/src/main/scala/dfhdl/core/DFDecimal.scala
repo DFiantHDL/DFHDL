@@ -1642,8 +1642,8 @@ object DFUInt:
           val argVal = ic(arg)
           val argValIR = argVal.asIR
           // if the argument is a constant, we can check its value and width
-          val fixedArgValIR = argValIR.getConstDataUNSAFE match
-            case Some(Some(arg: BigInt)) =>
+          val fixedArgValIR = argValIR.getConstData.toOption match
+            case Some(Some(arg: BigInt)) if arg.isValidInt =>
               unsignedCheck(arg < 0)
               ub.toScalaIntOpt.foreach(ub => summon[`UB > R`.CheckNUB[UB, Int]](ub, arg.toInt))
               argValIR
@@ -1653,15 +1653,14 @@ object DFUInt:
               // TODO: in the future, it's worth considering adding assertions
               if (argValIR.dfType != ir.DFInt32)
                 unsignedCheck(argVal.dfType.signed)
-                val ubWidth = clog2(ub.toScalaIntUNSAFE)
-                val argWidth = argVal.widthIntUNSAFE
-                if (
-                  (ubWidth < argWidth || ubWidth > argWidth) &&
-                  argValIR.hasTagOf[ir.ResizeTag]
-                )
+                if (argValIR.hasTagOf[ir.ResizeTag])
                   argVal.resize(ub.clog2).asIR
                 else
-                  widthCheck(ubWidth, argWidth)
+                  (ub.toScalaIntOpt, argVal.widthIntOpt) match
+                    case (Some(ubInt), Some(argWidth)) =>
+                      widthCheck(clog2(ubInt), argWidth)
+                      argValIR
+                    case _ =>
                   argValIR
               else argValIR
           DFVal.Alias.AsIs(DFInt32, fixedArgValIR.asValTP[DFUInt[Int], P])

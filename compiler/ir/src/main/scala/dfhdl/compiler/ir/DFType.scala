@@ -218,7 +218,7 @@ final case class DFDecimal(
 ) extends DFType derives ReadWriter:
   type Data = Option[BigInt]
   def widthIntOpt(using MemberGetSet): Option[Int] = widthParamRef.getIntOpt
-  def magnitudeWidth(using MemberGetSet): Int = widthUNSAFE - fractionWidth
+  def magnitudeWidthUNSAFE(using MemberGetSet): Int = widthUNSAFE - fractionWidth
   def isDFInt32: Boolean = this == DFInt32
   def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty

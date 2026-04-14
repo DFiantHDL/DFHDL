@@ -25,6 +25,11 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
+
+  def csDesignParamDefault(param: DesignParam): String = param.defaultValRef.get match
+    case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
+    case _ => printer.csConstData(param.dfType, param.appliedValOpt.get.getConstData.toOption.get)
+
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
     val endOfStatement = if (dfVal.isGlobal) ";" else ""
@@ -33,11 +38,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       // for all other cases, we get the parameter constant data and use that as default value.
       // using the constant data only happens in verilog.v95, since parameters are declared in
       // the body and must have defaults.
-      case param: DesignParam =>
-        param.defaultValRef.get match
-          case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
-          case _ => printer.csConstData(param.dfType, param.getConstDataUNSAFE.get)
-      case _ => csDFValExpr(dfVal)
+      case param: DesignParam => csDesignParamDefault(param)
+      case _                  => csDFValExpr(dfVal)
     val csType = printer.csDFType(dfVal.dfType).emptyOr(_ + " ")
     val csTypeNoLogic = if (supportLogicType) csType else csType.replace("logic ", "")
     val keyword =
@@ -83,7 +85,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         initVal match
           case _ if !initVal.isAnonymous =>
             val cellWidth = dfType.cellType.widthUNSAFE
-            val length = dfType.cellDimParamRefs.head.getIntUNSAFE
+            val length = dfType.cellDimParamRefs.head.getIntOpt.get
             val ret = for (i <- 0 until length)
               yield s"${dfVal.getName}[$i] = ${initVal.getName}[${(length - i) * cellWidth -
                   1}:${(length - i) * cellWidth - cellWidth}];"

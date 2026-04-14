@@ -100,19 +100,20 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
       case (true, 0)  =>
         if (dfType.isDFInt32) "Int"
         else s"SInt$ob$csWidth$cb"
-      case (false, _) => s"UFix$ob$magnitudeWidth, $fractionWidth$cb"
-      case (true, _)  => s"SFix$ob$magnitudeWidth, $fractionWidth$cb"
+      case (false, _) => s"UFix$ob$magnitudeWidthUNSAFE, $fractionWidth$cb"
+      case (true, _)  => s"SFix$ob$magnitudeWidthUNSAFE, $fractionWidth$cb"
   def csDFString(dfType: DFString, typeCS: Boolean): String = "String"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.name
+    val width = dfType.widthIntOpt.get
     val entries =
       dfType.entries.view
         .map((n, v) =>
-          s"case $n extends $enumName(${printer.csDFDecimalData(DFUInt(IntParamRef(dfType.widthUNSAFE)), Some(v))})"
+          s"case $n extends $enumName(${printer.csDFDecimalData(DFUInt(IntParamRef(width)), Some(v))})"
         )
         .mkString("\n")
         .hindent
-    s"enum ${enumName}(val value: ${csDFDecimal(DFUInt(IntParamRef(dfType.widthUNSAFE)), true)} <> CONST) extends Encoded.Manual(${dfType.widthUNSAFE}):\n$entries"
+    s"enum ${enumName}(val value: ${csDFDecimal(DFUInt(IntParamRef(width)), true)} <> CONST) extends Encoded.Manual($width):\n$entries"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.name
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*

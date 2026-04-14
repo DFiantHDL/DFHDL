@@ -224,10 +224,11 @@ protected trait DFValPrinter extends AbstractValPrinter:
         val csArgR = argR.refCodeString(typeCS)
         val opStr = dfVal.op match
           // if the result width for +/-/* ops is larger than the left argument width
-          // then we have a carry-inclusive operation
+          // then we have a carry-inclusive operation. to simplify the check given possible
+          // parameterized widths, we will just compare the type structure and assume the
+          // width is larger under such conditions.
           case Func.Op.+ | Func.Op.- | Func.Op.`*`
-              if !dfVal.dfType.isUnbounded &&
-                dfVal.dfType.widthUNSAFE > argL.get.dfType.widthUNSAFE =>
+              if !dfVal.dfType.isUnbounded && !(dfVal.dfType =~ argL.get.dfType) =>
             s"${dfVal.op}^"
           case op => commonOpStr
         s"${csArgL.applyBrackets()} $opStr ${csArgR.applyBrackets()}"
@@ -294,24 +295,19 @@ protected trait DFValPrinter extends AbstractValPrinter:
         // applying brackets
         val callOwner = dfVal.ownerRef.get
         printer.csDFValRef(relVal, callOwner)
-      case (DFSInt(IntUNSAFE(tWidth)), DFUInt(IntUNSAFE(fWidth))) =>
-        assert(tWidth == fWidth + 1)
+      case (DFSInt(_), DFUInt(_)) =>
         s"${relValStr}.signed"
-      case (DFUInt(IntUNSAFE(tWidth)), DFSInt(IntUNSAFE(fWidth))) =>
-        assert(tWidth == fWidth - 1)
+      case (DFUInt(_), DFSInt(_)) =>
         s"${relValStr}.unsigned"
-      case (DFUInt(IntUNSAFE(tWidth)), DFBits(IntUNSAFE(fWidth))) =>
-        assert(tWidth == fWidth)
+      case (DFUInt(tWidthRef), DFBits(fWidthRef)) =>
         s"${relValStr}.uint"
-      case (DFSInt(IntUNSAFE(tWidth)), DFBits(IntUNSAFE(fWidth))) =>
-        assert(tWidth == fWidth)
+      case (DFSInt(tWidthRef), DFBits(fWidthRef)) =>
         s"${relValStr}.sint"
       case (DFBits(tWidthParamRef), DFBits(_)) =>
         s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
       case (DFBits(tWidthParamRef), DFBit | DFBool) =>
         s"${relValStr}.toBits(${tWidthParamRef.refCodeString})"
-      case (DFBits(IntUNSAFE(tWidth)), _) =>
-        assert(tWidth == fromType.widthUNSAFE)
+      case (DFBits(_), _) =>
         s"${relValStr}.bits"
       case (DFUInt(tWidthParamRef), DFUInt(_)) =>
         s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
