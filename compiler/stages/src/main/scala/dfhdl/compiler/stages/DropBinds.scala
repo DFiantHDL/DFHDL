@@ -34,7 +34,7 @@ case object DropBinds extends Stage:
             case _                              => Some(pattern, ref.get :: Nil)
         case Pattern.BindSI(op, parts, refs) =>
           val bubbles =
-            refs.view.map(_.get.dfType.widthUNSAFE).map("?" * _).map { qmarks =>
+            refs.view.map(_.get.dfType.widthIntOpt.get).map("?" * _).map { qmarks =>
               op match
                 case "b" => qmarks
                 case "h" => s"{$qmarks}" // using binary mode for hex

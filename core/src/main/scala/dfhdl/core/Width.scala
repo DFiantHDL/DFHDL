@@ -257,7 +257,7 @@ extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   @targetName("dfValWidth")
   def widthIntUNSAFE(using dfc: DFC, w: Width[T]): Inlined[w.OutI] =
     import dfc.getSet
-    Inlined.forced[w.OutI](dfVal.asIR.dfType.widthUNSAFE)
+    Inlined.forced[w.OutI](dfVal.asIR.dfType.widthIntOpt.get)
   @targetName("dfValWidthOpt")
   def widthIntOpt(using dfc: DFC, w: Width[T]): Option[Int] =
     import dfc.getSet
@@ -270,7 +270,7 @@ extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tWidth")
   def widthIntUNSAFE(using dfc: DFC, w: Width[tc.Type]): Inlined[w.OutI] =
     import dfc.getSet
-    Inlined.forced[w.OutI](tc(t).asIR.widthUNSAFE)
+    Inlined.forced[w.OutI](tc(t).asIR.widthIntOpt.get)
   @targetName("tWidthOpt")
   def widthIntOpt(using dfc: DFC, w: Width[tc.Type]): Option[Int] =
     import dfc.getSet

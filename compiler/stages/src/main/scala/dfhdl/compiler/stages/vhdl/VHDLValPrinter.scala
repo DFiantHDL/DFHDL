@@ -77,9 +77,11 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                 infix = false
                 "slv_srl"
           // if the result width for +/-/* ops is larger than the left argument width
-          // then we have a carry-inclusive operation
+          // then we have a carry-inclusive operation. to simplify the check given possible
+          // parameterized widths, we will just compare the type structure and assume the
+          // width is larger under such conditions.
           case op @ (Func.Op.+ | Func.Op.- | Func.Op.`*`)
-              if dfVal.dfType.widthUNSAFE > argL.get.dfType.widthUNSAFE =>
+              if !dfVal.dfType.isSimilarTo(argL.get.dfType) =>
             infix = false
             op match
               case Func.Op.+   => "cadd"
@@ -198,12 +200,10 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
       case (DFBits(tWidthParamRef), DFBits(_)) =>
         s"resize($relValStr, ${tWidthParamRef.refCodeString})"
       case (toType: DFType, fromType: DFBits) =>
-        assert(toType.widthUNSAFE == fromType.widthUNSAFE)
         csBitsToType(toType, relValStr)
       case (DFBits(tWidthParamRef), DFBit | DFBool) =>
         s"to_slv($relValStr, ${tWidthParamRef.refCodeString})"
       case (DFBits(IntUNSAFE(tWidth)), fromType: DFType) =>
-        assert(tWidth == fromType.widthUNSAFE)
         csToSLV(fromType, relValStr)
       case (DFUInt(tWidthParamRef), DFUInt(_)) =>
         s"resize($relValStr, ${tWidthParamRef.refCodeString})"

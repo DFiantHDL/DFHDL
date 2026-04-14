@@ -344,7 +344,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String =
     val csBinds = pattern.refs.view
       .map { r => r.get }
-      .map(bindVal => s"$${${bindVal.getName}: B[${bindVal.dfType.widthUNSAFE}]}")
+      .map(bindVal => s"$${${bindVal.getName}: B[${bindVal.dfType.widthIntOpt.get}]}")
     val fullTerm = pattern.parts.coalesce(csBinds).mkString
     s"""${pattern.op}"$fullTerm""""
   def csDFCasePatternNamedArg(pattern: Pattern.NamedArg): String =

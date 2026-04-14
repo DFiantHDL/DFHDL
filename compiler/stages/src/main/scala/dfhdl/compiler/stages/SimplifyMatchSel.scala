@@ -77,7 +77,7 @@ case object SimplifyMatchSel extends Stage:
               val updatedSelector =
                 if (isLocallyStatic) convertedSelector
                 else convertedSelector.asValOf[dfhdl.core.DFBits[Int]].apply(
-                  selector.dfType.widthUNSAFE - 1,
+                  selector.dfType.widthIntOpt.get - 1,
                   0
                 )(using namedDFC).asIR
             // replace only for the match header
@@ -97,7 +97,7 @@ case object SimplifyMatchSel extends Stage:
               case DFRef(const @ DFVal.Const(dfType = DFUInt(_) | DFSInt(_))) =>
                 val newConst =
                   const.copy(
-                    dfType = DFBits(const.dfType.widthUNSAFE),
+                    dfType = DFBits(const.dfType.widthIntOpt.get),
                     data = const.dfType.dataToBitsData(const.data.asInstanceOf[const.dfType.Data])
                   )
                 Some(const -> Patch.Replace(newConst, Patch.Replace.Config.FullReplacement))

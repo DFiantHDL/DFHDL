@@ -14,7 +14,8 @@ trait AbstractDataPrinter extends AbstractPrinter:
   final def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String =
     val valueBits: BitVector = data._1
     val bubbleBits: BitVector = data._2
-    import dfType.{widthUNSAFE, widthParamRef}
+    import dfType.widthParamRef
+    val width = dfType.widthIntOpt.get
 
     def binZip(v: BitVector, b: BitVector): String =
       v.toBin.zip(b.toBin)
@@ -45,9 +46,9 @@ trait AbstractDataPrinter extends AbstractPrinter:
       // if bubbles in hex are not supported and the data has bubbles
       // then there is no valid hex representation
       if (!allowBitsBubbleInHex && !bubbleBits.isZeros) None
-      else if (widthUNSAFE % 4 == 0) hexZip(valueBits, bubbleBits)
+      else if (width % 4 == 0) hexZip(valueBits, bubbleBits)
       else
-        val headWidth = widthUNSAFE % 4
+        val headWidth = width % 4
         val (headValue, theRestValue) = valueBits.splitAt(headWidth)
         val (headBubble, theRestBubble) = bubbleBits.splitAt(headWidth)
         val headOption =
@@ -58,7 +59,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
     end toHexString
     val binRep = csDFBitsBinFormat(toBinString)
     val hexRepOption = toHexString match
-      case Some(v) if widthUNSAFE % 4 == 0   => Some(csDFBitsHexFormat(v))
+      case Some(v) if width % 4 == 0         => Some(csDFBitsHexFormat(v))
       case Some(v) if allowBitsExplicitWidth =>
         Some(csDFBitsHexFormat(v, binRep.length, widthParamRef))
       case _ => None

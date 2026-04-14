@@ -47,7 +47,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     }.mkString("\n")
   def csDFEnumTypeName(dfType: DFEnum): String =
     if (allowTypeDef) s"t_enum_${dfType.name}"
-    else csDFBits(DFBits(dfType.widthUNSAFE), false)
+    else csDFBits(DFBits(dfType.widthIntOpt.get), false)
   def csDFEnumToStringFuncDcl(dfType: DFEnum): String =
     val enumName = dfType.name
     val maxCharWidth = dfType.entries.view.keys.map(_.length).max + enumName.length + 1
@@ -59,7 +59,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     // workaround for verilator bug: https://github.com/verilator/verilator/issues/6893
     s"""|function [8*${maxCharWidth}:1] $funcName;
         |  /* verilator lint_off UNUSEDSIGNAL */
-        |  input [${dfType.widthUNSAFE - 1}:0] value;
+        |  input [${dfType.widthIntOpt.get - 1}:0] value;
         |  case (value)
         |${cases}
         |    default: $funcName = "?";
@@ -75,7 +75,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
           .map((n, v) => s"${enumName}_$n = $v")
           .mkString(",\n")
       // TODO: quartus seems to not accept an explicit size Globally
-      val explicitWidth = s" logic [${dfType.widthUNSAFE - 1}:0]"
+      val explicitWidth = s" logic [${dfType.widthIntOpt.get - 1}:0]"
       s"typedef enum$explicitWidth {\n${entries.hindent}\n} ${csDFEnumTypeName(dfType)};"
     else
       dfType.entries.view

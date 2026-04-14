@@ -228,7 +228,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
           // parameterized widths, we will just compare the type structure and assume the
           // width is larger under such conditions.
           case Func.Op.+ | Func.Op.- | Func.Op.`*`
-              if !dfVal.dfType.isUnbounded && !(dfVal.dfType =~ argL.get.dfType) =>
+              if !dfVal.dfType.isUnbounded && !dfVal.dfType.isSimilarTo(argL.get.dfType) =>
             s"${dfVal.op}^"
           case op => commonOpStr
         s"${csArgL.applyBrackets()} $opStr ${csArgR.applyBrackets()}"

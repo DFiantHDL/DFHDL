@@ -89,13 +89,15 @@ case object ApplyInvertConstraint extends Stage:
               def invert(dfVal: DFValAny): DFValAny = dfVal.asIR.dfType match
                 case _: DFBoolOrBit => !dfVal.asValOf[dfhdl.core.DFBit]
                 case dfType: DFBits =>
+                  // we assume constrained ports have known widths
+                  val width = dfType.widthIntOpt.get
                   // all bits are inverted
-                  if (dfType.widthUNSAFE == invertBitSet.size)
+                  if (width == invertBitSet.size)
                     ~dfVal.asValOf[dfhdl.core.DFBits[Int]]
                   // otherwise, we need to use a mask
                   else
                     val maskStr =
-                      (for (i <- dfType.widthUNSAFE - 1 to 0 by -1)
+                      (for (i <- width - 1 to 0 by -1)
                         yield
                           if (invertBitSet.contains(i)) "1"
                           else "0").mkString
