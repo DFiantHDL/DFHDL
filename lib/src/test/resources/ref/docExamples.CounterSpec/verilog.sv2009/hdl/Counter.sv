@@ -10,9 +10,9 @@ module Counter#(parameter int width = 8)(
   `include "dfhdl_defs.svh"
   always_ff @(posedge clk)
   begin
-    if (rst == 1'b1) cnt <= width'(0);
+    if (rst == 1'b1) cnt <= width'(1'd0);
     else begin
-      if (en) cnt <= cnt + width'(1);
+      if (en) cnt <= cnt + width'(1'd1);
     end
   end
 endmodule

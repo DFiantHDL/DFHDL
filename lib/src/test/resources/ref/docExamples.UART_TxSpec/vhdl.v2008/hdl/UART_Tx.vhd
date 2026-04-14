@@ -34,7 +34,7 @@ begin
     if rising_edge(clk) then
       if rst = '1' then
         status             <= Status_Idle;
-        bitClkCnt          <= resize(2d"0", clog2(BIT_CLOCKS));
+        bitClkCnt          <= resize(1d"0", clog2(BIT_CLOCKS));
         dataBitCnt         <= 3d"0";
       else
         case status is
@@ -42,7 +42,7 @@ begin
             tx_en          <= '0';
             tx             <= '1';
             tx_done        <= '0';
-            bitClkCnt      <= resize(2d"0", clog2(BIT_CLOCKS));
+            bitClkCnt      <= resize(1d"0", clog2(BIT_CLOCKS));
             dataBitCnt     <= 3d"0";
             if data_en then
               shiftData    <= data;
@@ -52,29 +52,29 @@ begin
             tx_en          <= '1';
             tx             <= '0';
             if bitClkCnt = to_unsigned(BIT_CLOCKS - 1, clog2(BIT_CLOCKS)) then
-              bitClkCnt    <= resize(2d"0", clog2(BIT_CLOCKS));
+              bitClkCnt    <= resize(1d"0", clog2(BIT_CLOCKS));
               status       <= Status_DataBits;
-            else bitClkCnt <= bitClkCnt + resize(2d"1", clog2(BIT_CLOCKS));
+            else bitClkCnt <= bitClkCnt + resize(1d"1", clog2(BIT_CLOCKS));
             end if;
           when Status_DataBits =>
             tx             <= shiftData(0);
             if bitClkCnt = to_unsigned(BIT_CLOCKS - 1, clog2(BIT_CLOCKS)) then
-              bitClkCnt    <= resize(2d"0", clog2(BIT_CLOCKS));
+              bitClkCnt    <= resize(1d"0", clog2(BIT_CLOCKS));
               shiftData    <= slv_srl(shiftData, 1);
               if dataBitCnt = 3d"7" then
                 dataBitCnt <= 3d"0";
                 status     <= Status_StopBit;
               else dataBitCnt <= dataBitCnt + 3d"1";
               end if;
-            else bitClkCnt <= bitClkCnt + resize(2d"1", clog2(BIT_CLOCKS));
+            else bitClkCnt <= bitClkCnt + resize(1d"1", clog2(BIT_CLOCKS));
             end if;
           when Status_StopBit  =>
             tx             <= '1';
             if bitClkCnt = to_unsigned(BIT_CLOCKS - 1, clog2(BIT_CLOCKS)) then
-              bitClkCnt    <= resize(2d"0", clog2(BIT_CLOCKS));
+              bitClkCnt    <= resize(1d"0", clog2(BIT_CLOCKS));
               tx_done      <= '1';
               status       <= Status_Finalize;
-            else bitClkCnt <= bitClkCnt + resize(2d"1", clog2(BIT_CLOCKS));
+            else bitClkCnt <= bitClkCnt + resize(1d"1", clog2(BIT_CLOCKS));
             end if;
           when Status_Finalize =>
             tx_en          <= '0';

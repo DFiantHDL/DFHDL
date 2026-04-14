@@ -94,9 +94,9 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val width: Int <> CONST = 8,
          |    val depth: Int <> CONST = 4
          |) extends DFDesign:
-         |  val v = UInt(width) X depth <> VAR init h"${width}'0".repeat(depth).as(UInt(width) X depth)
-         |  val v2 = UInt(width) X depth <> VAR init h"${width}'0".repeat(depth).as(UInt(width) X depth)
-         |  val v3 = Bits(width * depth) <> VAR init (h"${width}'0", h"${width}'1", h"${width}'2", h"${width}'3").toBits
+         |  val v = UInt(width) X depth <> VAR init h"0".resize(width).repeat(depth).as(UInt(width) X depth)
+         |  val v2 = UInt(width) X depth <> VAR init d"1'0".resize(width).bits.repeat(depth).as(UInt(width) X depth)
+         |  val v3 = Bits(width * depth) <> VAR init (d"1'0".resize(width).bits, d"1'1".resize(width).bits, d"2'2".resize(width).bits, d"2'3".resize(width).bits).toBits
          |  val sel = UInt(clog2(depth)) <> IN
          |  val o = UInt(width) <> OUT
          |  val o2 = Bits(width * depth) <> OUT

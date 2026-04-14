@@ -29,12 +29,12 @@ begin
     if rising_edge(clk) then
       if rst = '1' then
         led_sig   <= '1';
-        cnt       <= to_unsigned(0, clog2(HALF_PERIOD));
+        cnt       <= resize(to_unsigned(0, 1), clog2(HALF_PERIOD));
       else
         if cnt = to_unsigned(HALF_PERIOD - 1, clog2(HALF_PERIOD)) then
-          cnt     <= to_unsigned(0, clog2(HALF_PERIOD));
+          cnt     <= resize(to_unsigned(0, 1), clog2(HALF_PERIOD));
           led_sig <= not led_sig;
-        else cnt <= cnt + to_unsigned(1, clog2(HALF_PERIOD));
+        else cnt <= cnt + resize(to_unsigned(1, 1), clog2(HALF_PERIOD));
         end if;
       end if;
     end if;

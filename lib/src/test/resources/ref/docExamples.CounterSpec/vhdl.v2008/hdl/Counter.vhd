@@ -20,9 +20,9 @@ begin
   process (clk)
   begin
     if rising_edge(clk) then
-      if rst = '1' then cnt <= resize(2d"0", width);
+      if rst = '1' then cnt <= resize(1d"0", width);
       else
-        if en then cnt <= cnt + resize(2d"1", width);
+        if en then cnt <= cnt + resize(1d"1", width);
         end if;
       end if;
     end if;

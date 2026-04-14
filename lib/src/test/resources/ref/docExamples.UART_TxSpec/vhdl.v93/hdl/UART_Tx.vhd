@@ -34,7 +34,7 @@ begin
     if rising_edge(clk) then
       if rst = '1' then
         status             <= Status_Idle;
-        bitClkCnt          <= to_unsigned(0, clog2(BIT_CLOCKS));
+        bitClkCnt          <= resize(to_unsigned(0, 1), clog2(BIT_CLOCKS));
         dataBitCnt         <= to_unsigned(0, 3);
       else
         case status is
@@ -42,7 +42,7 @@ begin
             tx_en          <= '0';
             tx             <= '1';
             tx_done        <= '0';
-            bitClkCnt      <= to_unsigned(0, clog2(BIT_CLOCKS));
+            bitClkCnt      <= resize(to_unsigned(0, 1), clog2(BIT_CLOCKS));
             dataBitCnt     <= to_unsigned(0, 3);
             if to_bool(data_en) then
               shiftData    <= data;
@@ -52,29 +52,29 @@ begin
             tx_en          <= '1';
             tx             <= '0';
             if bitClkCnt = to_unsigned(BIT_CLOCKS - 1, clog2(BIT_CLOCKS)) then
-              bitClkCnt    <= to_unsigned(0, clog2(BIT_CLOCKS));
+              bitClkCnt    <= resize(to_unsigned(0, 1), clog2(BIT_CLOCKS));
               status       <= Status_DataBits;
-            else bitClkCnt <= bitClkCnt + to_unsigned(1, clog2(BIT_CLOCKS));
+            else bitClkCnt <= bitClkCnt + resize(to_unsigned(1, 1), clog2(BIT_CLOCKS));
             end if;
           when Status_DataBits =>
             tx             <= shiftData(0);
             if bitClkCnt = to_unsigned(BIT_CLOCKS - 1, clog2(BIT_CLOCKS)) then
-              bitClkCnt    <= to_unsigned(0, clog2(BIT_CLOCKS));
+              bitClkCnt    <= resize(to_unsigned(0, 1), clog2(BIT_CLOCKS));
               shiftData    <= slv_srl(shiftData, 1);
               if dataBitCnt = to_unsigned(7, 3) then
                 dataBitCnt <= to_unsigned(0, 3);
                 status     <= Status_StopBit;
               else dataBitCnt <= dataBitCnt + to_unsigned(1, 3);
               end if;
-            else bitClkCnt <= bitClkCnt + to_unsigned(1, clog2(BIT_CLOCKS));
+            else bitClkCnt <= bitClkCnt + resize(to_unsigned(1, 1), clog2(BIT_CLOCKS));
             end if;
           when Status_StopBit  =>
             tx             <= '1';
             if bitClkCnt = to_unsigned(BIT_CLOCKS - 1, clog2(BIT_CLOCKS)) then
-              bitClkCnt    <= to_unsigned(0, clog2(BIT_CLOCKS));
+              bitClkCnt    <= resize(to_unsigned(0, 1), clog2(BIT_CLOCKS));
               tx_done      <= '1';
               status       <= Status_Finalize;
-            else bitClkCnt <= bitClkCnt + to_unsigned(1, clog2(BIT_CLOCKS));
+            else bitClkCnt <= bitClkCnt + resize(to_unsigned(1, 1), clog2(BIT_CLOCKS));
             end if;
           when Status_Finalize =>
             tx_en          <= '0';

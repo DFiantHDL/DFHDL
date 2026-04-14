@@ -508,7 +508,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always_comb
          |  begin
          |    x = width'(2'h3);
-         |    x = width'(2'h3);
+         |    x = width'(4'h3);
          |    x = width'(2'h3);
          |    x = width'(2'h3);
          |    y = &x;
