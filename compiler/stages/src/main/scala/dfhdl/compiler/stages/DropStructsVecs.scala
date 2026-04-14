@@ -60,6 +60,7 @@ case object DropStructsVecs extends Stage:
           def updateArg(arg: DFVal): DFValAny = arg.dfType match
             // Structs and Vectors will be replaced with Bits in a different patch
             case _: (DFStruct | DFVector | DFBits) => arg.asValAny
+            case _ if !arg.isAnonymous             => arg.asValAny.bits
             case _                                 => arg.asValAny.bits
           def typeToBits(dfType: irDFType): DFTypeAny =
             val width = dfType.asFE[DFTypeAny].widthIntParam

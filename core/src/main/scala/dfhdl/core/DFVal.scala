@@ -773,6 +773,12 @@ object DFVal extends DFValLP:
         import dfc.getSet
         val aliasTypeIR = aliasType.asIR
         relVal.asIR match
+          // skipping alias simplification if in meta-programming and the related value is
+          // not defined in the current (meta) design context.
+          case _
+              if dfc.inMetaProgramming &&
+                !dfc.mutableDB.DesignContext.current.hasMember(relVal.asIR) =>
+            forced(aliasTypeIR, relVal.anonymizeInDFCPosition.asIR).asVal[AT, M]
           // anonymous constant are replaced by a different constant
           // after its data value was converted according to the alias.
           // the target alias type must have a known width (constants must have a known width)

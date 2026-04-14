@@ -92,7 +92,8 @@ case object MatchToIf extends Stage:
                           val bitsSelector = selector.asValOf[dfhdl.core.DFBits[Int]]
                           val bitsWildcard = const.asValOf[dfhdl.core.DFBits[Int]]
                           val condList = normalRanges.map(r =>
-                            bitsSelector.bits(r._1, r._2) == bitsWildcard.bits(r._1, r._2)
+                            bitsSelector.bits(r._1, r._2) ==
+                              bitsWildcard.asIR.cloneAnonValueAndDepsHere.asValAny.bits(r._1, r._2)
                           )
                           condListReduce(condList, FuncOp.&)
                         // regular singleton equality pattern

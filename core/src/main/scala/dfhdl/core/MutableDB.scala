@@ -126,6 +126,8 @@ class DesignContext:
     member
   end ignoreMember
 
+  def hasMember(member: DFMember): Boolean = memberTable.contains(member)
+
   def getLatestMember: DFMember =
     members.view.filterNot(e => e.ignore).map(e => e.irValue).head
 
