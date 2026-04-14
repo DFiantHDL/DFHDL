@@ -56,27 +56,16 @@ trait AbstractDataPrinter extends AbstractPrinter:
         val theRestOption = hexZip(theRestValue, theRestBubble)
         for (h <- headOption; tr <- theRestOption) yield h + tr
     end toHexString
-    widthParamRef match
-      case _: DFRefAny =>
-        // use minimal hex value representation
-        val actualWidth = valueBits.lengthOfValue.toInt
-        val rem = actualWidth % 4
-        val actualWidthDiv4 = if (rem == 0) actualWidth else actualWidth + (4 - rem)
-        val hexStr =
-          hexZip(valueBits.resize(actualWidthDiv4), bubbleBits.resize(actualWidthDiv4)).get
-        csDFBitsHexFormat(hexStr, actualWidth, widthParamRef)
-      case _ =>
-        val binRep = csDFBitsBinFormat(toBinString)
-        val hexRepOption = toHexString match
-          case Some(v) if widthUNSAFE % 4 == 0   => Some(csDFBitsHexFormat(v))
-          case Some(v) if allowBitsExplicitWidth =>
-            Some(csDFBitsHexFormat(v, binRep.length, widthParamRef))
-          case _ => None
-        // choosing the shorter representation for readability
-        hexRepOption match
-          case Some(hr) if hr.length < binRep.length => hr
-          case _                                     => binRep
-    end match
+    val binRep = csDFBitsBinFormat(toBinString)
+    val hexRepOption = toHexString match
+      case Some(v) if widthUNSAFE % 4 == 0   => Some(csDFBitsHexFormat(v))
+      case Some(v) if allowBitsExplicitWidth =>
+        Some(csDFBitsHexFormat(v, binRep.length, widthParamRef))
+      case _ => None
+    // choosing the shorter representation for readability
+    hexRepOption match
+      case Some(hr) if hr.length < binRep.length => hr
+      case _                                     => binRep
   end csDFBitsData
   def csDFBitFormat(bitRep: String): String
   def csDFBoolFormat(value: Boolean): String
@@ -111,7 +100,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
           // native integers are printed as they are (this assumes in all backends integers are printed the same)
           if (dfType.isDFInt32) value.toString()
           // if the language supports big integers (with explicit widths) we can simply display the values
-          else if (allowDecimalBigInt || widthParamRef.isRef)
+          else if (allowDecimalBigInt)
             if (dfType.signed) csDFSIntFormatBig(value, widthParamRef)
             else csDFUIntFormatBig(value, widthParamRef)
           // otherwise, we need to reply on small value representation or cast a bits representation
