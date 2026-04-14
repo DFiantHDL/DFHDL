@@ -789,7 +789,7 @@ object DFVal extends DFValLP:
           case asIs @ ir.DFVal.Alias.AsIs(relValRef = ir.DFRef(relValIR))
               if aliasType.asIR.isInstanceOf[ir.DFBits] && asIs.isAnonymous &&
                 dfc.isAnonymous && !forceNewAlias && asIs.tags.isEmpty &&
-                relValIR.widthUNSAFE == asIs.widthUNSAFE =>
+                relValIR.asValAny.widthIntParam =~ asIs.asValAny.widthIntParam =>
             asIs.relValRef.get.asVal[AT, M]
           // remove redundant intermediate casting converting from BoolOrBit to Bits/UInt/SInt + resize
           case asIs @ ir.DFVal.Alias.AsIs(

@@ -146,6 +146,12 @@ object IntParam extends IntParamLP:
       calc(FuncOp.min, lhs, rhs)((x, y) => RichInt(x) min y)
     def clog2: IntParam[IntP.CLog2[L]] =
       calc(FuncOp.clog2, lhs)(dfhdl.internals.clog2)
+    def =~[R <: IntP](that: IntParam[R]): Boolean =
+      import dfc.getSet
+      (lhs, that) match
+        case (intL: Int, intR: Int)                       => intL == intR
+        case (constL: DFConstInt32, constR: DFConstInt32) => constL =~ constR
+        case _                                            => false
     protected[dfhdl] def cloneAnonValueAndDepsHere: IntParam[Int] =
       lhs match
         case int: Int            => int
