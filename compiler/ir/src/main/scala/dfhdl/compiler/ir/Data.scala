@@ -63,13 +63,13 @@ object Data:
   )
 end Data
 
-enum ConstData derives CanEqual:
-  case KnownConst(data: Any)
-  case UnknownConst
-  case NotConst
+enum ConstData[+T] derives CanEqual:
+  case KnownConst(data: T) extends ConstData[T]
+  case UnknownConst[T](dfVal: DFVal) extends ConstData[T]
+  case NotConst extends ConstData[Nothing]
 object ConstData:
-  extension (cd: ConstData)
-    def toOption: Option[Any] = cd match
+  extension [T](cd: ConstData[T])
+    def toOption: Option[T] = cd match
       case KnownConst(data) => Some(data)
       case _                => None
     def isConst: Boolean = cd match
@@ -79,6 +79,6 @@ object ConstData:
       case KnownConst(_) => true
       case _             => false
     def isUnknown: Boolean = cd match
-      case UnknownConst => true
-      case _            => false
+      case UnknownConst(_) => true
+      case _               => false
 end ConstData

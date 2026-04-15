@@ -111,12 +111,12 @@ object IntParamRef:
       case int: Int => true
       case _        => false
     def getIntUNSAFE(using MemberGetSet): Int = getIntOpt.get
-    def getIntConstData(using MemberGetSet): ConstData = intParamRef.runtimeChecked match
+    def getIntConstData(using MemberGetSet): ConstData[Int] = intParamRef.runtimeChecked match
       case int: Int            => ConstData.KnownConst(int)
       case DFRef(dfVal: DFVal) =>
-        dfVal.getConstData match
+        dfVal.getConstData[Option[BigInt]] match
           case ConstData.KnownConst(Some(i: BigInt)) => ConstData.KnownConst(i.toInt)
-          case ConstData.UnknownConst                => ConstData.UnknownConst
+          case ConstData.UnknownConst(dfVal)         => ConstData.UnknownConst(dfVal)
           case _                                     => ConstData.NotConst
     def getIntOpt(using MemberGetSet): Option[Int] = getIntConstData match
       case ConstData.KnownConst(i: Int) => Some(i)
@@ -167,7 +167,7 @@ object IntUNSAFE:
     intParamRef.runtimeChecked match
       case int: Int            => Some(int)
       case DFRef(dfVal: DFVal) =>
-        dfVal.getConstData.toOption.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)
+        dfVal.getConstData[Option[BigInt]].toOption.flatten.map(_.toInt)
 
 class RefGen private (
     private var magnetID: Int,

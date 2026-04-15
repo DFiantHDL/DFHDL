@@ -812,7 +812,7 @@ object DFXInt:
         if (dfVal.dfType.asIR.isDFInt32)
           import dfc.getSet
           dfVal.asIR.injectGlobalCtx()
-          dfVal.asIR.getConstData match
+          dfVal.asIR.getConstData[Option[BigInt]] match
             case ir.ConstData.KnownConst(Some(n: BigInt)) =>
               val int = n.toInt
               Some(int < 0, Some(IntInfo.calcWidth(int)))
@@ -1642,7 +1642,7 @@ object DFUInt:
           val argVal = ic(arg)
           val argValIR = argVal.asIR
           // if the argument is a constant, we can check its value and width
-          val fixedArgValIR = argValIR.getConstData.toOption match
+          val fixedArgValIR = argValIR.getConstData[Option[BigInt]].toOption match
             case Some(Some(arg: BigInt)) if arg.isValidInt =>
               unsignedCheck(arg < 0)
               ub.toScalaIntOpt.foreach(ub => summon[`UB > R`.CheckNUB[UB, Int]](ub, arg.toInt))

@@ -115,7 +115,7 @@ object IntParam extends IntParamLP:
           import dfc.getSet
           val constIR = const.asIR
           constIR.injectGlobalCtx()
-          constIR.getConstData match
+          constIR.getConstData[Option[BigInt]] match
             case ir.ConstData.KnownConst(Some(i: BigInt)) => Some(i.toInt)
             case _                                        => None
     def toScalaIntUNSAFE: Int = toScalaIntOpt.get
