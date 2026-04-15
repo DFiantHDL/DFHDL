@@ -1019,8 +1019,8 @@ final case class DB(
                       |Hierarchy: ${wait.getOwnerDesign.getFullName}
                       |Message:   $msg""".stripMargin
       val ownerDomain = wait.getOwnerDomain
-      trigger.getConstDataUNSAFE match
-        case Some(waitTime: TimeNumber) =>
+      trigger.getConstData[TimeNumber].toOption match
+        case Some(waitTime) =>
           // Check if the wait statement is in a domain with a clock rate configuration
           explicitRTDomainCfgMap.get(ownerDomain) match
             case Some(RTDomainCfg.Explicit(_, clkCfg: ClkCfg.Explicit, _)) =>

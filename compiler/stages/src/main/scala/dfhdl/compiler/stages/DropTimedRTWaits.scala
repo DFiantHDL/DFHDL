@@ -33,7 +33,7 @@ case object DropTimedRTWaits extends Stage:
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
           dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
         ):
-          val waitTime = duration.getConstDataUNSAFE.get.asInstanceOf[TimeNumber]
+          val waitTime = duration.getConstData[TimeNumber].toOption.get
           val (RTDomainCfg.Explicit(clkCfg = ClkCfg.Explicit(rate = clkRate))) =
             designDB.explicitRTDomainCfgMap(waitMember.getOwnerDomain).runtimeChecked
           val cycles = (waitTime / clkRate.to_ps).value.toLong

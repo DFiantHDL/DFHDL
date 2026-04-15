@@ -161,7 +161,7 @@ case object DropStructsVecs extends Stage:
               currentPartial match
                 case elemSel: DFVal.Alias.ApplyIdx =>
                   val elemIdxVal = elemSel.relIdx.get
-                  val elemIdx = elemIdxVal.getConstDataUNSAFE match
+                  val elemIdx = elemIdxVal.getConstData[Option[BigInt]].toOption match
                     case Some(Some(idx: BigInt)) if elemIdxVal.isAnonymous =>
                       idx.toInt.asInstanceOf[IntParam[Int]]
                     case _ => elemIdxVal.asValAny.asInstanceOf[IntParam[Int]]

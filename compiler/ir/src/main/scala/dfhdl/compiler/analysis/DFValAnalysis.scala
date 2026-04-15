@@ -280,26 +280,29 @@ extension (dfVal: DFVal)
           case applyIdx: DFVal.Alias.ApplyIdx =>
             applyIdx.relIdx.get match
               case DFVal.Alias.ApplyIdx.ConstIdx(i) =>
-                val maxValue = relVal.dfType match
-                  case vector: DFVector => vector.lengthUNSAFE - 1
-                  case bits: DFBits     => bits.widthUNSAFE - 1
-                  case xInt: DFDecimal  => xInt.widthUNSAFE - 1
-                  case _                => ???
-                s"_${i.toPaddedString(maxValue)}"
+                val maxValueOpt = relVal.dfType match
+                  case vector: DFVector => vector.lengthIntOpt
+                  case bits: DFBits     => bits.widthIntOpt
+                  case xInt: DFDecimal  => xInt.widthIntOpt
+                  case _                => None
+                val padMaxValue = maxValueOpt.getOrElse(100) - 1
+                s"_${i.toPaddedString(padMaxValue)}"
               case _ => "_sel"
           case applyRange: DFVal.Alias.ApplyRange =>
             applyRange.dfType.runtimeChecked match
               case DFBits(_) | DFUInt(_) | DFSInt(_) =>
+                val padMaxValue = applyRange.widthIntOpt.getOrElse(100) - 1
                 val idxHigh =
-                  applyRange.idxHighRef.getIntUNSAFE.toPaddedString(applyRange.widthUNSAFE - 1)
+                  applyRange.idxHighRef.getIntOpt.map(_.toPaddedString(padMaxValue)).getOrElse("hi")
                 val idxLow =
-                  applyRange.idxLowRef.getIntUNSAFE.toPaddedString(applyRange.widthUNSAFE - 1)
+                  applyRange.idxLowRef.getIntOpt.map(_.toPaddedString(padMaxValue)).getOrElse("lo")
                 s"_${idxHigh}_${idxLow}"
               case dfType: DFVector =>
+                val padMaxValue = dfType.lengthIntOpt.getOrElse(100) - 1
                 val idxHigh =
-                  applyRange.idxHighRef.getIntUNSAFE.toPaddedString(dfType.lengthUNSAFE - 1)
+                  applyRange.idxHighRef.getIntOpt.map(_.toPaddedString(padMaxValue)).getOrElse("hi")
                 val idxLow =
-                  applyRange.idxLowRef.getIntUNSAFE.toPaddedString(dfType.lengthUNSAFE - 1)
+                  applyRange.idxLowRef.getIntOpt.map(_.toPaddedString(padMaxValue)).getOrElse("lo")
                 s"_${idxLow}_${idxHigh}"
           case selectField: DFVal.Alias.SelectField => s"_${selectField.fieldName}"
         flatName(relVal, s"$newSuffix$suffix")
