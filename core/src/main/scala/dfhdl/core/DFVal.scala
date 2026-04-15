@@ -287,7 +287,7 @@ sealed protected trait DFValLP:
   ): Conversion[DFConstOf[DFTime | DFFreq], ir.RateNumber] =
     x =>
       import dfc.getSet
-      x.asIR.getConstDataUNSAFE.get.asInstanceOf[ir.RateNumber]
+      x.asIR.getConstData[ir.RateNumber].toOption.get
   // lower priority than other evidence because this is more generic
   export DFXInt.Val.Ops.{evOpCommutativeArithDFXInt, evOpNonCommutativeArithDFXInt}
   export DFOpaque.Val.Ops.{evOpAsDFOpaqueTFE, evOpAsDFOpaqueComp}
@@ -358,6 +358,13 @@ object DFVal extends DFValLP:
         .getOrElse(error("Cannot fetch a Scala value from a non-constant DFHDL value."))
         .getOrElse(error("Cannot fetch a Scala value from a bubble (invalid) DFHDL value."))
   end extension
+
+  extension [LW <: IntP, LT <: DFTypeW[LW]](lhs: DFValOf[LT])
+    protected[core] def compareWidths[RW <: IntP, RT <: DFTypeW[RW]](
+        rhs: DFValOf[RT]
+    )(func: (Int, Int) => Boolean)(using dfc: DFC): Option[Boolean] =
+      import dfc.getSet
+      lhs.dfType.compareWidths(rhs.dfType)(func)
 
   trait InitCheck[I]
   given [I](using

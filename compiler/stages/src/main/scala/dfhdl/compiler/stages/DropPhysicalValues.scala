@@ -18,7 +18,7 @@ case object DropPhysicalValues extends Stage:
         // cast of number to int/double is inlined as a constant
         case alias @ DFVal.Alias.AsIs(dfType, DFRef(fromVal), ownerRef, meta, tags)
             if fromVal.dfType == DFNumber =>
-          val data = alias.getConstDataUNSAFE.get
+          val data = alias.getConstData[Option[BigInt]].toOption.get
           val const = DFVal.Const(dfType, data, ownerRef, meta, tags)
           Some(alias -> Patch.Replace(const, Patch.Replace.Config.FullReplacement))
         // the rest of physical values are removed if they are not used in a wait statement.
@@ -33,7 +33,10 @@ case object DropPhysicalValues extends Stage:
           // referenced by a wait statement, but not anonymous, so we inline it as an anonymous constant
           else if (keep)
             val const = DFVal.Const(
-              dfVal.dfType, dfVal.getConstDataUNSAFE.get, dfVal.ownerRef, dfVal.meta.anonymize,
+              dfVal.dfType,
+              dfVal.getConstData[PhysicalNumber].toOption.get,
+              dfVal.ownerRef,
+              dfVal.meta.anonymize,
               dfVal.tags
             )
             Some(dfVal -> Patch.Replace(const, Patch.Replace.Config.FullReplacement))

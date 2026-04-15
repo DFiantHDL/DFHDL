@@ -1013,12 +1013,9 @@ object DFXInt:
               import IntParam.+
               val funcWidth = lhsSignFix.widthIntParam
 
+              // if not a constant, optimistically assume it's large enough to allow carry promotion
               def carryPromoteWidthCheck: Boolean =
-                // we use the diff since subtraction may fold into a constant in SimplifyFunc
-                // where both sides of a comparison may not be constant
-                val widthDiff = dfType.widthIntParam - funcWidth
-                // if not a constant, optimistically assume it's large enough to allow carry promotion
-                widthDiff.toScalaIntOpt.getOrElse(1) > 0
+                dfType.asFE[DFSInt[Int]].compareWidths(lhsSignFix.dfType)(_ > _).getOrElse(true)
 
               val lhsCarryPromo: DFValOf[DFSInt[Int]] = lhsSignFix.asIR match
                 case func @ ir.DFVal.Func(

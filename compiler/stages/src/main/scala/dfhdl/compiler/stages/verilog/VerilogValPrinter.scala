@@ -248,24 +248,26 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (DFSInt(_), DFBits(_)) =>
         if (printer.allowSignedKeywordAndOps) s"$$signed($relValStr)"
         else relValStr
-      case (DFBits(tr @ IntUNSAFE(tWidth)), DFBits(fr @ IntUNSAFE(fWidth))) =>
+      case (DFBits(toWidthRef), DFBits(fromWidthRef)) =>
         if (printer.allowWidthCastSyntax)
-          s"${tr.refCodeString.applyBrackets()}'($relValStr)"
+          s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else
-          if (tWidth < fWidth) s"`TRUNCATE($relValStr, ${tr.refCodeString})"
+          val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
+          if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
           else
-            s"`EXTEND_U($relValStr, ${fr.refCodeString}, ${tr.refCodeString})"
+            s"`EXTEND_U($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
       case (t, DFOpaque(actualType = ot)) if ot =~ t =>
         relValStr
       case (DFOpaque(_, _, _, _), _) =>
         relValStr
-      case (DFUInt(tr @ IntUNSAFE(tWidth)), DFUInt(fr @ IntUNSAFE(fWidth))) =>
+      case (DFUInt(toWidthRef), DFUInt(fromWidthRef)) =>
         if (printer.allowWidthCastSyntax)
-          s"${tr.refCodeString.applyBrackets()}'($relValStr)"
+          s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else
-          if (tWidth < fWidth) s"`TRUNCATE($relValStr, ${tr.refCodeString})"
+          val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
+          if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
           else
-            s"`EXTEND_U($relValStr, ${fr.refCodeString}, ${tr.refCodeString})"
+            s"`EXTEND_U($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
       case (DFUInt(tWidthRef), DFInt32) =>
         if (printer.allowWidthCastSyntax)
           s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
@@ -274,16 +276,17 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         if (printer.allowWidthCastSyntax)
           s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else relValStr
-      case (DFSInt(tr @ IntUNSAFE(tWidth)), DFSInt(fr @ IntUNSAFE(fWidth))) =>
+      case (DFSInt(toWidthRef), DFSInt(fromWidthRef)) =>
         if (printer.allowWidthCastSyntax)
-          s"${tr.refCodeString.applyBrackets()}'($relValStr)"
+          s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else
-          if (tWidth < fWidth) s"`TRUNCATE($relValStr, ${tr.refCodeString})"
+          val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
+          if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
           else
             if (printer.allowSignedKeywordAndOps)
-              s"`EXTEND_S($relValStr, ${fr.refCodeString}, ${tr.refCodeString})"
+              s"`EXTEND_S($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
             else
-              s"`EXTEND_S_V95($relValStr, ${fr.refCodeString}, ${tr.refCodeString})"
+              s"`EXTEND_S_V95($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
       case (DFUInt(tWidthRef), DFBit | DFBool) =>
         if (printer.allowWidthCastSyntax)
           s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"

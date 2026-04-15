@@ -529,3 +529,10 @@ class ComposedDFTypeReplacement[H](
       case None         => composed
   end unapply
 end ComposedDFTypeReplacement
+
+extension (lhs: DFVal)(using MemberGetSet)
+  def compareWidths(rhs: DFVal)(func: (Int, Int) => Boolean): Option[Boolean] =
+    def widthRef(v: DFVal): IntParamRef = (v.dfType: @unchecked) match
+      case dt: DFBits    => dt.widthParamRef
+      case dt: DFDecimal => dt.widthParamRef
+    widthRef(lhs).compare(widthRef(rhs))(func)

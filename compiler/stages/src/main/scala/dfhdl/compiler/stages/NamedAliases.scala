@@ -96,10 +96,15 @@ case object NamedVerilogSelection extends NamedAliases:
       case _ => false
     dfVal match
       case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName => Nil
-      case alias: DFVal.Alias.ApplyRange if alias.widthUNSAFE != alias.relValRef.get.widthUNSAFE =>
+      case alias: DFVal.Alias.ApplyRange
+          if alias.compareWidths(alias.relValRef.get)(_ != _).getOrElse(true) =>
         List(alias.relValRef.get)
-      case alias: DFVal.Alias.AsIs if alias.widthUNSAFE < alias.relValRef.get.widthUNSAFE =>
-        if (alias.relValRef.get.dfType == DFInt32)
+      case alias @ DFVal.Alias.AsIs(
+            dfType = _: (DFDecimal | DFBits),
+            relValRef = DFRef(relVal @ (DFBits.Val(_) | DFDecimal.Val(_)))
+          )
+          if alias.compareWidths(relVal)(_ < _).getOrElse(true) =>
+        if (relVal.dfType == DFInt32)
           Nil // conversion from DFInt32 is not a bit selection, so no need to break the expression
         else
           // systemverilog truncation is does not use partial selection, but old verilog does,

@@ -4,6 +4,7 @@ import dfhdl.internals.hashString
 import upickle.default.*
 import scala.collection.mutable
 import scala.collection.immutable.ListMap
+import DFVal.Func.Op as FuncOp
 
 type DFRefAny = DFRef[DFMember]
 sealed trait DFRef[+M <: DFMember] extends Product, Serializable derives CanEqual:
@@ -146,6 +147,61 @@ object IntParamRef:
     def copyAsNewRef(using RefGen): IntParamRef = intParamRef match
       case ref: DFRef.TypeRef => ref.copyAsNewRef
       case _                  => intParamRef
+    // Compares two parametric integer references via the given comparator.
+    // If both reduce to a concrete Int, or their symbolic parts cancel under
+    // subtraction, returns `Some(func(diff, 0))` where `diff = this - that`.
+    // Returns `None` when the unknown parts don't cancel.
+    def compare(that: IntParamRef)(func: (Int, Int) => Boolean)(using
+        MemberGetSet
+    ): Option[Boolean] =
+      (intParamRef, that) match
+        // Fast path: both refs are already concrete Ints.
+        case (l: Int, r: Int) => Some(func(l, r))
+        case _                =>
+          object ConstInt:
+            def unapply(v: DFVal): Option[Int] = v match
+              case c: DFVal.Const =>
+                c.data match
+                  case Some(i: BigInt) => Some(i.toInt)
+                  case _               => None
+              case _ => None
+          // Decompose into (list of non-constant base terms, integer offset).
+          def decompose(v: DFVal): (List[DFVal], Int) = v match
+            case ConstInt(i)                            => (Nil, i)
+            case DFVal.Func(op = FuncOp.+, args = args) =>
+              args.map(_.get).foldLeft((List.empty[DFVal], 0)) { case ((bases, off), arg) =>
+                val (argBases, argOff) = decompose(arg)
+                (bases ++ argBases, off + argOff)
+              }
+            case DFVal.Func(op = FuncOp.-, args = List(aRef, bRef)) =>
+              (aRef.get, bRef.get) match
+                case (other, ConstInt(k)) =>
+                  val (bases, off) = decompose(other)
+                  (bases, off - k)
+                case _ => (List(v), 0)
+            case _ => (List(v), 0)
+          def reduce(ref: IntParamRef): Option[(List[DFVal], Int)] =
+            ref.getIntConstData match
+              case ConstData.KnownConst(i)    => Some((Nil, i))
+              case ConstData.UnknownConst(dv) => Some(decompose(dv))
+              case ConstData.NotConst         => None
+          // Check whether two base lists are equivalent as multi-sets under
+          // structural similarity.
+          def basesMatch(lhs: List[DFVal], rhs: List[DFVal]): Boolean =
+            lhs.length == rhs.length && {
+              val remaining = scala.collection.mutable.ListBuffer.from(rhs)
+              lhs.forall { l =>
+                remaining.indexWhere(_.isSimilarTo(l)) match
+                  case -1 => false
+                  case i  => remaining.remove(i); true
+              }
+            }
+          for
+            (lBases, lOff) <- reduce(intParamRef)
+            (rBases, rOff) <- reduce(that)
+            if basesMatch(lBases, rBases)
+          yield func(lOff - rOff, 0)
+    end compare
   end extension
 
   given ReadWriter[IntParamRef] = readwriter[ujson.Value].bimap(

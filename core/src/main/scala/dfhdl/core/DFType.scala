@@ -260,7 +260,18 @@ object DFType:
       }
     end ofNamedTupleMacro
   end TC
+  extension [LW <: IntP](lhs: DFTypeW[LW])
+    protected[core] def compareWidths[RW <: IntP](rhs: DFTypeW[RW])(
+        func: (Int, Int) => Boolean
+    )(using dfc: DFC): Option[Boolean] =
+      import dfc.getSet
+      def widthRef[W <: IntP](dfType: DFTypeW[W]): ir.IntParamRef = dfType.asIR.runtimeChecked match
+        case dt: ir.DFBits    => dt.widthParamRef
+        case dt: ir.DFDecimal => dt.widthParamRef
+      widthRef(lhs).compare(widthRef(rhs))(func)
 end DFType
+
+type DFTypeW[W <: IntP] = DFBits[W] | DFUInt[W] | DFSInt[W]
 
 extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tcDFType")
