@@ -331,7 +331,7 @@ class VivadoIPPrinter(using
     val members = vivadoIP.members(MemberView.Folded)
     val ipVersion = members.collectFirst {
       case param: DFVal.DesignParam if param.getName == "version" =>
-        val version = param.getConstDataUNSAFE.get.asInstanceOf[Option[String]].get
+        val version = param.getConstData.toOption.get.asInstanceOf[Option[String]].get
         if (version.nonEmpty) Some(" -version " + version) else None
     }.flatten.getOrElse("")
 
@@ -339,7 +339,7 @@ class VivadoIPPrinter(using
     // Each DFVal.DesignParam except "version" becomes a CONFIG.<PARAM_NAME> {value} line
     val ipConfigParams = members.collect {
       case param: DFVal.DesignParam if param.getName != "version" =>
-        val value = param.getConstDataUNSAFE.get.asInstanceOf[Option[Any]].get
+        val value = param.getConstData.toOption.get.asInstanceOf[Option[Any]].get
         s"CONFIG.${param.getName} {$value}"
     }
     val ipConfigBlock =

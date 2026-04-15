@@ -325,11 +325,11 @@ class QuartusPrimeIPPrinter(using
     val members = qsysIP.members(MemberView.Folded)
     val ipVersion = members.collectFirst {
       case param: DFVal.DesignParam if param.getName == "version" =>
-        " " + param.getConstDataUNSAFE.get.asInstanceOf[Option[String]].get
+        " " + param.getConstData.toOption.get.asInstanceOf[Option[String]].get
     }.getOrElse("")
     val ipParams = members.collect {
       case param: DFVal.DesignParam if param.getName != "version" =>
-        s"set_instance_parameter_value $ipInstanceName {${param.getName}} {${param.getConstDataUNSAFE.get.asInstanceOf[Option[Any]].get}}"
+        s"set_instance_parameter_value $ipInstanceName {${param.getName}} {${param.getConstData.toOption.get.asInstanceOf[Option[Any]].get}}"
     }.mkString("\n")
     val ipExports = members.collect {
       case port @ DclPort() =>

@@ -228,28 +228,23 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     (toType, fromType) match
       case (t, f) if t == f =>
         relValStr
-      case (DFSInt(IntUNSAFE(tWidth)), DFUInt(IntUNSAFE(fWidth))) =>
-        assert(tWidth == fWidth + 1)
+      case (DFSInt(_), DFUInt(_)) =>
         val extended = s"{1'b0, $relValStr}"
         if (printer.allowSignedKeywordAndOps) s"$$signed($extended)"
         else extended
-      case (DFUInt(tr @ IntUNSAFE(tWidth)), DFSInt(IntUNSAFE(fWidth))) =>
-        assert(tWidth == fWidth - 1)
+      case (DFUInt(toWidthRef), DFSInt(_)) =>
         val truncated =
           if (printer.allowWidthCastSyntax)
-            s"${tr.refCodeString.applyBrackets()}'($relValStr)"
+            s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
           else
-            s"$relValStr[${tr.uboundCS}:0]"
+            s"$relValStr[${toWidthRef.uboundCS}:0]"
         if (printer.allowSignedKeywordAndOps) s"$$unsigned($truncated)"
         else truncated
-      case (DFUInt(IntUNSAFE(tWidth)), DFBits(IntUNSAFE(fWidth))) =>
-        assert(tWidth == fWidth)
+      case (DFUInt(_), DFBits(_)) =>
         relValStr
-      case (DFBits(IntUNSAFE(tWidth)), DFUInt(IntUNSAFE(fWidth))) =>
-        assert(tWidth == fWidth)
+      case (DFBits(_), DFUInt(_)) =>
         relValStr
-      case (DFSInt(IntUNSAFE(tWidth)), DFBits(IntUNSAFE(fWidth))) =>
-        assert(tWidth == fWidth)
+      case (DFSInt(_), DFBits(_)) =>
         if (printer.allowSignedKeywordAndOps) s"$$signed($relValStr)"
         else relValStr
       case (DFBits(tr @ IntUNSAFE(tWidth)), DFBits(fr @ IntUNSAFE(fWidth))) =>
@@ -270,13 +265,13 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           if (tWidth < fWidth) s"`TRUNCATE($relValStr, ${tr.refCodeString})"
           else
             s"`EXTEND_U($relValStr, ${fr.refCodeString}, ${tr.refCodeString})"
-      case (DFUInt(tWidthParamRef), DFInt32) =>
+      case (DFUInt(tWidthRef), DFInt32) =>
         if (printer.allowWidthCastSyntax)
-          s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+          s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else relValStr
-      case (DFSInt(tWidthParamRef), DFInt32) =>
+      case (DFSInt(tWidthRef), DFInt32) =>
         if (printer.allowWidthCastSyntax)
-          s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+          s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else relValStr
       case (DFSInt(tr @ IntUNSAFE(tWidth)), DFSInt(fr @ IntUNSAFE(fWidth))) =>
         if (printer.allowWidthCastSyntax)
@@ -288,17 +283,17 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               s"`EXTEND_S($relValStr, ${fr.refCodeString}, ${tr.refCodeString})"
             else
               s"`EXTEND_S_V95($relValStr, ${fr.refCodeString}, ${tr.refCodeString})"
-      case (DFUInt(tWidthParamRef), DFBit | DFBool) =>
+      case (DFUInt(tWidthRef), DFBit | DFBool) =>
         if (printer.allowWidthCastSyntax)
-          s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+          s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else
-          s"`EXTEND_U($relValStr, 1, ${tWidthParamRef.refCodeString})"
-      case (DFSInt(tWidthParamRef), DFBit | DFBool) =>
+          s"`EXTEND_U($relValStr, 1, ${tWidthRef.refCodeString})"
+      case (DFSInt(tWidthRef), DFBit | DFBool) =>
         val extended =
           if (printer.allowWidthCastSyntax)
-            s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+            s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
           else
-            s"`EXTEND_U($relValStr, 1, ${tWidthParamRef.refCodeString})"
+            s"`EXTEND_U($relValStr, 1, ${tWidthRef.refCodeString})"
         if (printer.allowSignedKeywordAndOps)
           s"$$signed($extended)"
         else extended
@@ -351,13 +346,12 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         end from_vector_conv
         assert(tWidth == fromType.widthUNSAFE)
         from_vector_conv(fromVector, "")
-      case (DFBits(tWidthParamRef), DFBit | DFBool) =>
+      case (DFBits(tWidthRef), DFBit | DFBool) =>
         if (printer.allowWidthCastSyntax)
-          s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+          s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else
-          s"`EXTEND_U($relValStr, 1, ${tWidthParamRef.refCodeString})"
-      case (DFBits(IntUNSAFE(tWidth)), _) =>
-        assert(tWidth == fromType.widthUNSAFE)
+          s"`EXTEND_U($relValStr, 1, ${tWidthRef.refCodeString})"
+      case (DFBits(_), _) =>
         s"{$relValStr}"
       case x =>
         println(x)

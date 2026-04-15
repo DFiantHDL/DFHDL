@@ -375,6 +375,8 @@ final class MutableDB():
         case None => // do nothing
     def getConstrainedDcls(): Map[DFVal.Dcl, DFVal.Dcl] =
       connectedDclResourceMap.map { case (dcl, connections) =>
+        // assuming constrained dcls have known width
+        val dclWidth = dcl.widthIntOpt.get
         // separate existing constraints from other annotations
         val (existingSigConstraints, otherAnnotations) = dcl.meta.annotations.partition {
           case cs: SigConstraint => true
@@ -382,14 +384,14 @@ final class MutableDB():
         }.asInstanceOf[(List[SigConstraint], List[HWAnnotation])]
         // collect all constraints from the resources that are connected to this dcl
         val newSigConstraints = connections.flatMap { case (range, resource) =>
-          if (range.length != dcl.widthUNSAFE) resource.allSigConstraints.flatMap { cs =>
+          if (range.length != dclWidth) resource.allSigConstraints.flatMap { cs =>
             for (i <- range) yield cs.updateBitIdx(i)
           }
           else resource.allSigConstraints
         }
         // merge the existing constraints with the new constraints
         val updatedSigConstraints = (existingSigConstraints ++ newSigConstraints).merge.consolidate(
-          dcl.widthUNSAFE
+          dclWidth
         )
         // merge all other annotations
         val updatedAnnotations = updatedSigConstraints ++ otherAnnotations

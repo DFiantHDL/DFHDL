@@ -1204,7 +1204,9 @@ final case class DB(
             end match
           case clkPort: DFVal.Dcl if clkPort.isPortIn && clkPort.isClkDcl => // do nothing (checked in the domain itself)
           case port: DFVal.Dcl if port.isPort =>
-            val bitSet = mutable.BitSet((0 until port.widthUNSAFE)*)
+            val bitSet = port.widthIntOpt match
+              case Some(width) => mutable.BitSet((0 until width)*)
+              case None        => mutable.BitSet.empty
             port.meta.annotations.foreach {
               case constraints.IO(bitIdx = None, loc = loc: String) =>
                 bitSet.clear()
@@ -1213,7 +1215,7 @@ final case class DB(
                     s"${prevPort} and ${port.getFullName} are both assigned to location `${loc}`"
                 }
                 locationMap += loc -> port.getFullName
-                if (port.widthUNSAFE != 1)
+                if (port.widthIntOpt.get != 1)
                   locationCollisions +=
                     s"${port.getFullName} has mutliple bits assigned to location `${loc}`"
               case constraints.IO(bitIdx = bitIdx: Int, loc = loc: String) =>
@@ -1226,7 +1228,7 @@ final case class DB(
               case _ =>
             }
             if (bitSet.nonEmpty)
-              if (port.widthUNSAFE == 1)
+              if (port.widthIntOpt.get == 1)
                 errors += s"${port.getFullName}"
               else
                 errors += s"${port.getFullName} with bits ${bitSet.mkString(", ")}"

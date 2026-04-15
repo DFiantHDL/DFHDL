@@ -22,9 +22,11 @@ extension (designDB: DB)
     import designDB.getSet
     designDB.members.flatMap:
       case net @ DFNet.Assignment(toVal, DFVal.Alias.AsIs(relValRef = DFRef(fromVal)))
-          if !fromVal.isAnonymous && fromVal.getReadDeps.size == 1 &&
-            toVal.widthUNSAFE < fromVal.widthUNSAFE =>
-        Some(fromVal, fromVal.widthUNSAFE - 1, toVal.widthUNSAFE)
+          if !fromVal.isAnonymous && fromVal.getReadDeps.size == 1 =>
+        (toVal.widthIntOpt, fromVal.widthIntOpt) match
+          case (Some(toWidth), Some(fromWidth)) if toWidth < fromWidth =>
+            Some((fromVal, fromWidth - 1, toWidth - 1))
+          case _ => None
       case _ => None
   end getUnusedBitsValues
   def getOpenOutPorts: List[DFVal] =

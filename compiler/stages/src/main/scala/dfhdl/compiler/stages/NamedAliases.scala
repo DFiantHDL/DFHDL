@@ -78,11 +78,11 @@ case object NamedVerilogSelection extends NamedAliases:
         case alias: DFVal.Alias.AsIs     =>
           val relVal = alias.relValRef.get
           val transparentConversion = (alias.dfType, relVal.dfType) match
-            case (DFUInt(IntUNSAFE(toWidth)), DFBits(IntUNSAFE(fromWidth))) => toWidth == fromWidth
-            case (DFBits(IntUNSAFE(toWidth)), DFUInt(IntUNSAFE(fromWidth))) => toWidth == fromWidth
-            case (DFBit, DFBool)                                            => true
-            case (DFBool, DFBit)                                            => true
-            case _                                                          => false
+            case (DFUInt(toWidthRef), DFBits(fromWidthRef)) => toWidthRef.isSimilarTo(fromWidthRef)
+            case (DFBits(toWidthRef), DFUInt(fromWidthRef)) => toWidthRef.isSimilarTo(fromWidthRef)
+            case (DFBit, DFBool)                            => true
+            case (DFBool, DFBit)                            => true
+            case _                                          => false
           if (transparentConversion) relVal.hasVerilogName
           else false
         case _ => false
@@ -118,7 +118,7 @@ case object NamedVerilogSelection extends NamedAliases:
         List(alias.relValRef.get)
       case func @ DFVal.Func(op = op, args = DFRef(lhs) :: _ :: Nil)
           if isBasicVerilog && !lhs.hasVerilogName && carryOps.contains(op) &&
-            func.widthUNSAFE > lhs.widthUNSAFE =>
+            !func.dfType.isSimilarTo(lhs.dfType) =>
         List(lhs)
       case func: DFVal.Func =>
         func.getReadDeps.headOption match
