@@ -8,9 +8,14 @@ trait IO extends Resource:
   override protected[dfhdl] def connect(that: DFValAny)(using dfc: DFC): Unit =
     import dfc.getSet
     import dfhdl.compiler.analysis.DclPort
+    import dfhdl.compiler.ir.Slice
     that.asIR.departialDcl match
-      case Some(dcl @ DclPort(), range) =>
+      case Some(dcl @ DclPort(), Slice.Concrete(range)) =>
         dfc.mutableDB.ResourceOwnershipContext.connectDclResource(dcl, range, this)
+      case Some(dcl @ DclPort(), _) =>
+        throw new IllegalArgumentException(
+          s"Cannot connect resource to a port with a non-concrete bit range: ${dcl.getName}."
+        )
       case _ =>
         throw new IllegalArgumentException(
           "Cannot connect resource to a non-port value."

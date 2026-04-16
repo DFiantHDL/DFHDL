@@ -396,7 +396,7 @@ final case class DB(
   import Access.*
   import DFVal.Modifier.*
   import DFNet.Op.*
-  private def getValAccess(dfVal: DFVal, range: Range, net: DFNet)(
+  private def getValAccess(dfVal: DFVal, slice: Slice, net: DFNet)(
       connToDcls: ConnectToMap
   ): Access =
     def isExternalConn =
@@ -421,7 +421,7 @@ final case class DB(
           // internal connection to a var
           case VAR if isInternalConn =>
             // if already was connected as write, then it must be read
-            if (connToDcls.contains(dcl, range)) Read
+            if (connToDcls.contains(dcl, slice)) Read
             // otherwise it is unknown
             else Unknown
           // illegal connection
@@ -512,7 +512,7 @@ final case class DB(
             None
           case _ => None
         var hasOpenConn = false
-        val toDclAndRangeOption: Option[(DFVal.Dcl, Range)] = toValOption.flatMap(v =>
+        val toDclAndSliceOption: Option[(DFVal.Dcl, Slice)] = toValOption.flatMap(v =>
           if (v.isOpen)
             hasOpenConn = true
             None
@@ -521,15 +521,16 @@ final case class DB(
               case None =>
                 newError(s"Unexpected write access to the immutable value ${v.relValString}.")
                 None
-              case Some(dcl, range) if dcl.widthUNSAFE < range.length =>
+              case Some(dcl, Slice.Concrete(range))
+                  if dcl.dfType.widthIntOpt.exists(_ < range.length) =>
                 newError(s"Unexpected write access to the immutable value ${v.relValString}.")
                 None
               case x => x
         )
-        toDclAndRangeOption match
+        toDclAndSliceOption match
           // found target variable or port declaration for the given connection/assignment
-          case Some((toDcl, range)) =>
-            val prevNets = connToDcls.getNets(toDcl, range)
+          case Some((toDcl, slice)) =>
+            val prevNets = connToDcls.getNets(toDcl, slice)
             // checking multiple assignments from different domains, except for a condition
             // where the declaration is a shared variable.
             // this is used to define a shared variable which is against the RT model,
@@ -555,7 +556,7 @@ final case class DB(
                 )
             // if no previous connection in this range, we add it to the range map
             if (prevNets.isEmpty)
-              getConnToDcls(otherNets, pendingNets, connToDcls.addNet(toDcl, range, net), newErrors)
+              getConnToDcls(otherNets, pendingNets, connToDcls.addNet(toDcl, slice, net), newErrors)
             // if there are previous connections, it's either assignments or already reported as
             // errors, so no need to further modify the range map (the range map is not intended
             // to save all the previous assignment nets).
@@ -727,10 +728,10 @@ final case class DB(
     val assignmentsDclTable =
       assignmentsTable.keys
         .flatMap(_.departialDcl)
-        .foldLeft(Map.empty[DFVal.Dcl, BitSet]) { case (acc, (dcl, range)) =>
+        .foldLeft(Map.empty[DFVal.Dcl, Coverage]) { case (acc, (dcl, slice)) =>
           acc.updated(
             dcl,
-            acc.getOrElse(dcl, BitSet.empty) ++ BitSet.fromSpecific(range)
+            acc.getOrElse(dcl, Coverage.empty).assign(slice, dcl.dfType.widthIntOpt)
           )
         }
     // collect all ports that are not connected directly or implicitly as magnets

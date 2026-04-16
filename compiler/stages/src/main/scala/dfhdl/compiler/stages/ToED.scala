@@ -117,7 +117,7 @@ case object ToED extends Stage:
             var domainIsPureSequential = clkCfg != None // clock configuration -> not combinational
             processBlockAllMembers.foreach {
               case net @ DFNet.Assignment(dfVal: DFVal, _) =>
-                val (dcl, range) = dfVal.departialDcl.get
+                val (dcl, slice) = dfVal.departialDcl.get
                 if (dcl.isReg)
                   // it could be that we are assigning to a Dcl outside the domain. this is fine,
                   // as long as we mark it as handled. two different domains are guaranteed not to assign
@@ -128,8 +128,8 @@ case object ToED extends Stage:
                   // simple test: if guarded by a conditional -> requires a default
                   case _: DFConditional.Block =>
                     dclREGRequiresDefaultSet += dcl
-                  // simple test: partially assigned even once -> requires a default
-                  case _ if range.length != dcl.widthUNSAFE =>
+                  // conservative test: partially assigned (or can't be proven full) -> requires a default
+                  case _ if slice.isFullOf(dcl.dfType.widthIntOpt) != Tri.Yes =>
                     dclREGRequiresDefaultSet += dcl
                   case _ => // do nothing
                 if (!dcl.isReg && !dcl.modifier.isShared)
