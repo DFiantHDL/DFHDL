@@ -851,7 +851,28 @@ object DFXInt:
                 (dfType.widthIntOpt, rhsWidthOpt) match
                   case (Some(dfTypeW), Some(rhsW)) => check(dfType.signed, dfTypeW, rhsSigned, rhsW)
                   case _                           =>
+                    if (
+                      !dfType.asIR.isDFInt32 && !rhs.dfType.asIR.isDFInt32 &&
+                      !DFXInt.Val.Ops.hasImplicitlyFromIntTag(rhs.asIR)
+                    )
+                      import dfc.getSet
+                      val dfTypeWidthRef = dfType.asIR.widthParamRef
+                      val rhsWidthRef = rhs.dfType.asIR.widthParamRef
+                      def dfTypeWidthStr = dfTypeWidthRef.refCodeString
+                      def rhsWidthStr = rhsWidthRef.refCodeString
+                      dfTypeWidthRef.compare(rhsWidthRef)(_ >= _) match
+                        case Some(false) =>
+                          throw new IllegalArgumentException(
+                            s"""The applied RHS value width ($rhsWidthStr) is larger than the LHS variable width ($dfTypeWidthStr)."""
+                          )
+                        case None =>
+                          throw new IllegalArgumentException(
+                            s"""The applied RHS value width ($rhsWidthStr) is undefined compared to the LHS variable width ($dfTypeWidthStr)."""
+                          )
+                        case _ => // ok
+                    end if
             case None =>
+          end match
           DFXInt.Val.Ops.toDFXIntOf(rhs)(dfType).asValTP[DFXInt[LS, LW, LN], RP]
         end conv
       end given

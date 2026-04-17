@@ -150,14 +150,17 @@ object IntParamRef:
         // Fast path: both refs are already concrete Ints.
         case (l: Int, r: Int) => Some(func(l, r))
         case _                =>
-          // Strip type-preserving AsIs wrappers and non-top-device DesignParams
-          // (resolved via appliedOrDefaultVal). Top-device DesignParams remain
-          // opaque as the symbolic free variables.
+          // Strip type-preserving AsIs wrappers and DesignParams whose owner
+          // design has a parent (i.e., is not the top design). For non-top
+          // designs, the parameter was provided by the instantiating parent —
+          // resolve it via `appliedOrDefaultVal`. Params on a top design have
+          // no parent and stay opaque: they are the symbolic free variables
+          // exposed to the user at elaboration time.
           def strip(v: DFVal): DFVal = v match
             case DFVal.Alias.AsIs(dfType = dt, relValRef = DFRef(relVal))
                 if dt == relVal.dfType =>
               strip(relVal)
-            case dp: DFVal.DesignParam if !dp.getOwnerDesign.isDeviceTop =>
+            case dp: DFVal.DesignParam if !dp.getOwnerDesign.isTop =>
               strip(dp.appliedOrDefaultVal)
             case _ => v
           object ConstInt:

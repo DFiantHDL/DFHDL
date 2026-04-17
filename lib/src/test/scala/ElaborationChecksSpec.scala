@@ -555,4 +555,29 @@ class ElaborationChecksSpec extends DesignSpec:
          |To Fix:
          |Make sure you connect the resource to the port with the correct direction.""".stripMargin
     )
+  test("DFDecimal parameter width checks"):
+    object Test:
+      @top(false) class Foo(
+          val WIDTH1: Int <> CONST = 8,
+          val WIDTH2: Int <> CONST = 5
+      ) extends EDDesign:
+        val x = UInt(WIDTH1) <> OUT init h"${WIDTH2}'0"
+        val y = UInt(WIDTH1) <> OUT init h"${WIDTH1 + 2}'0"
+        val z = UInt(WIDTH2) <> OUT init h"${WIDTH2 - 1}'0"
+      end Foo
+    import Test.*
+    assertElaborationErrors(Foo())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:564:42 - 564:56
+          |Hierarchy: Foo
+          |Operation: `apply`
+          |Message:   The applied RHS value width (WIDTH2) is undefined compared to the LHS variable width (WIDTH1).
+          |
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:565:42 - 565:60
+          |Hierarchy: Foo
+          |Operation: `apply`
+          |Message:   The applied RHS value width (WIDTH1 + 2) is larger than the LHS variable width (WIDTH1).""".stripMargin
+    )
 end ElaborationChecksSpec
