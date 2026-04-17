@@ -22,6 +22,7 @@ sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector)
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean
+  def defaultData(using MemberGetSet): Data = createBubbleData
   lazy val getRefs: List[DFRef.TypeRef]
 
 object DFType:

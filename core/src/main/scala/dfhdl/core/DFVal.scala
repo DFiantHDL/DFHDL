@@ -354,10 +354,7 @@ object DFVal extends DFValLP:
               |Message:   ${errMsg}""".stripMargin
         )
       lhsIR.injectGlobalCtx()
-      lhsIR.getConstData[Option[D]](using
-        getSet,
-        ir.ConstData.CachePolicy.GoThroughDesignParams
-      ).toOption
+      lhsIR.getConstDataThroughParams[Option[D]]
         .getOrElse(error("Cannot fetch a Scala value from a non-constant DFHDL value."))
         .getOrElse(error("Cannot fetch a Scala value from a bubble (invalid) DFHDL value."))
   end extension
@@ -988,7 +985,9 @@ object DFVal extends DFValLP:
   end Alias
 
   object PortByNameSelect:
-    def apply(dfType: ir.DFType, designInst: ir.DFDesignBlock, namePath: String)(using DFC): ir.DFVal.PortByNameSelect =
+    def apply(dfType: ir.DFType, designInst: ir.DFDesignBlock, namePath: String)(using
+        DFC
+    ): ir.DFVal.PortByNameSelect =
       ir.DFVal.PortByNameSelect(
         dfType.dropUnreachableRefs,
         designInst.refTW[ir.DFVal.PortByNameSelect],
@@ -1921,8 +1920,10 @@ extension (dfVal: ir.DFVal)
               DFVal.Alias.SelectField(clonedRelVal, alias.fieldName)(using dfcForClone)
           end match
         case pbns: ir.DFVal.PortByNameSelect =>
-          DFVal.PortByNameSelect(pbns.dfType, pbns.designInstRef.get, pbns.portNamePath)(using dfcForClone).asValAny
-        case _ => 
+          DFVal.PortByNameSelect(pbns.dfType, pbns.designInstRef.get, pbns.portNamePath)(using
+            dfcForClone
+          ).asValAny
+        case _ =>
           throw new IllegalArgumentException(s"Unsupported cloning for: $dfVal")
       cloned.asIR
     else dfVal

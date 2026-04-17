@@ -245,8 +245,10 @@ sealed trait DFVal extends DFMember.Named:
             !(getSet.isMutable && cachedConstData == ConstData.NotConst)
       cachedConstData.asInstanceOf[ConstData[T]]
   end getConstData
-  final def getConstDataUNSAFE(using MemberGetSet): Option[Any] =
-    getConstData.toOption
+  final def getConstDataThroughParams[T](using MemberGetSet): Option[T] =
+    getConstData[T](using getSet, ConstData.CachePolicy.GoThroughDesignParams).toOption
+  final def getConstDataOrDefault[T](using MemberGetSet): T =
+    getConstDataThroughParams[T].getOrElse(dfType.defaultData.asInstanceOf[T])
   def updateDFType(dfType: DFType): this.type
 end DFVal
 

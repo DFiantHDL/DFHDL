@@ -56,8 +56,7 @@ case object DropDesignParamDeps extends Stage:
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)
         ):
           // Get the constant data from the design parameter
-          val constData =
-            default.getConstData[Any](using getSet, CachePolicy.GoThroughDesignParams).toOption.get
+          val constData = default.getConstDataOrDefault[Any]
           // Create an anonymous constant with the same data
           dfhdl.core.DFVal.Const.forced(default.dfType.asFE[DFTypeAny], constData, named = false)
         dsn.patch
