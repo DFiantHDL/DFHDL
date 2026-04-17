@@ -208,14 +208,22 @@ object DFVector:
           (dfType.lengthIntOpt, arg.dfType.lengthIntOpt) match
             case (Some(ll), Some(rl)) => check(ll, rl)
             case _                    =>
-          if (dfType.asIR.isSimilarTo(arg.dfType.asIR))
-            arg.asValTP[DFVector[T, Tuple1[D1]], RP]
-          else
+              val dfTypeLengthRef = dfType.asIR.cellDimParamRefs.head
+              val argLengthRef = arg.dfType.asIR.cellDimParamRefs.head
+              if (dfTypeLengthRef.compare(argLengthRef)(_ != _).getOrElse(true))
+                val dfTypeLengthStr = dfTypeLengthRef.refCodeString
+                val argLengthStr = argLengthRef.refCodeString
+                throw new IllegalArgumentException(
+                  s"""The argument vector length ($argLengthStr) is different than the receiver vector length ($dfTypeLengthStr)."""
+                )
+          if (!dfType.asIR.isSimilarTo(arg.dfType.asIR))
             throw new IllegalArgumentException(
               s"""|Vector types must be the same when comparing one vector to another.
                   |Expected type: ${dfType.codeString}
                   |Found type:    ${arg.dfType.codeString}""".stripMargin
             )
+          arg.asValTP[DFVector[T, Tuple1[D1]], RP]
+        end conv
       end DFVectorCompareFromDFVectorCompare
 
       given DFVectorCompareDFValVector[
@@ -240,6 +248,10 @@ object DFVector:
               val check = summon[`LL == RL`.Check[Int, Int]]
               check(ll, dfVals.length)
             case None =>
+              val dfTypeLengthStr = dfType.asIR.cellDimParamRefs.head.refCodeString
+              throw new IllegalArgumentException(
+                s"""The argument vector length (${dfVals.length}) is different than the receiver vector length ($dfTypeLengthStr)."""
+              )
           Val(dfType)(dfVals)
       end DFVectorCompareDFValVector
     end Compare

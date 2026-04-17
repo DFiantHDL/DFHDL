@@ -342,7 +342,7 @@ class DFDecimalSpec extends DFSpec:
     }
 
     assertDSLErrorLog(
-      """|Cannot apply this operation between a value of 8 bits width (LHS) to a value of 7 bits width (RHS).
+      """|Cannot apply this operation between a value of 8 bits width (LHS) and a value of 7 bits width (RHS).
          |An explicit conversion must be applied.
          |""".stripMargin
     )(

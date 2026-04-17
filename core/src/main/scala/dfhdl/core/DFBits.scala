@@ -534,7 +534,17 @@ object DFBits:
           (dfType.widthIntOpt, dfValArg.dfType.widthIntOpt) match
             case (Some(lw), Some(rw)) => check(lw, rw)
             case _                    =>
+              if (dfType.compareWidths(dfValArg.dfType)(_ != _).getOrElse(true))
+                val lhsStr =
+                  if (castling) dfValArg.dfType.widthCodeString else dfType.widthCodeString
+                val rhsStr =
+                  if (castling) dfType.widthCodeString else dfValArg.dfType.widthCodeString
+                throw new IllegalArgumentException(
+                  s"""|Cannot apply this operation between a value of $lhsStr bits width (LHS) and a value of $rhsStr bits width (RHS).
+                      |An explicit conversion must be applied.""".stripMargin
+                )
           dfValArg.asValTP[DFBits[LW], RP]
+        end conv
       end DFBitsCompareCandidate
       given DFBitsCompareSEV[
           LW <: IntP,

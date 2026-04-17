@@ -90,7 +90,7 @@ object DFDecimal:
           Int,
           [LW <: Int, RW <: Int] =>> LW == RW,
           [LW <: Int, RW <: Int] =>> "Cannot apply this operation between a value of " + LW +
-            " bits width (LHS) to a value of " + RW +
+            " bits width (LHS) and a value of " + RW +
             " bits width (RHS).\nAn explicit conversion must be applied."
         ]
     object `LS >= RS`

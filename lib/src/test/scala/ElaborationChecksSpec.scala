@@ -580,4 +580,32 @@ class ElaborationChecksSpec extends DesignSpec:
           |Operation: `apply`
           |Message:   The applied RHS value width (WIDTH1 + 2) is larger than the LHS variable width (WIDTH1).""".stripMargin
     )
+  test("DFBits parameter width checks"):
+    object Test:
+      @top(false) class Foo(
+          val WIDTH1: Int <> CONST = 8,
+          val WIDTH2: Int <> CONST = 5
+      ) extends EDDesign:
+        val x = Bits(WIDTH1) <> OUT init h"${WIDTH2}'0"
+        val y = Bits(WIDTH1) <> OUT
+        val z = Bits(WIDTH2) <> OUT
+        val w = y == z
+      end Foo
+    import Test.*
+    assertElaborationErrors(Foo())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:589:42 - 589:56
+          |Hierarchy: Foo
+          |Operation: `apply`
+          |Message:   The argument width (WIDTH2) is different than the receiver width (WIDTH1).
+          |Consider applying `.resize` to resolve this issue.
+          |
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:592:17 - 592:23
+          |Hierarchy: Foo.w
+          |Operation: `apply`
+          |Message:   Cannot apply this operation between a value of WIDTH1 bits width (LHS) and a value of WIDTH2 bits width (RHS).
+          |An explicit conversion must be applied.""".stripMargin
+    )
 end ElaborationChecksSpec

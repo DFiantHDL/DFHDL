@@ -2172,7 +2172,7 @@ val c4 = s8 >= 1            // Boolean: 1 is promoted to SInt (width 2 fits in 8
 // An explicit conversion must be applied.
 val e1 = u8 == s8
 // error: Cannot apply this operation between a value of
-// 8 bits width (LHS) to a value of 4 bits width (RHS).
+// 8 bits width (LHS) and a value of 4 bits width (RHS).
 // An explicit conversion must be applied.
 val e2 = u8 == u4
 // error: Cannot compare a DFHDL value (width = 8) with a
