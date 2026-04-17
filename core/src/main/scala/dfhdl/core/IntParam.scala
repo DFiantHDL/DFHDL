@@ -167,3 +167,9 @@ extension (intParamRef: ir.IntParamRef)
       case ref: ir.DFRef.TypeRef =>
         import dfc.getSet
         IntParam.forced[Int](ref.get.asConstOf[DFInt32])
+  protected[core] def refCodeString(using dfc: DFC): String =
+    import dfc.getSet
+    import dfhdl.compiler.printing.{Printer, DefaultPrinter}
+    import dfhdl.compiler.printing.refCodeString as refCodeStringIR
+    given printer: Printer = DefaultPrinter
+    intParamRef.refCodeStringIR
