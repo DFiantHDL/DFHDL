@@ -217,7 +217,7 @@ sealed trait DFVal extends DFMember.Named:
       localIsFullyAnonymous
     else if (cachedIsFullyAnonymous > 0) true
     else false
-  final def isConst(using MemberGetSet): Boolean = getConstData.isConst
+  final def isConst(using MemberGetSet): Boolean = getConstData[Any].isConst
   // two expressions are considered to be similar if
   final def isSimilarTo(that: DFVal)(using MemberGetSet): Boolean =
     def stripAsIsAndDesignParam(dfVal: DFVal): DFVal = dfVal match
@@ -333,43 +333,44 @@ object DFVal:
       case open: DFVal.Special if open.isOpen       => Some(open)
       case alias: DFVal.Alias                       => alias.relValRef.get.dealias
       case _                                        => None
-    @tailrec private def departial(range: Range)(using MemberGetSet): (DFVal, Range) =
-      extension (range: Range)
-        def offset(delta: Int) =
-          Range(range.start + delta, range.end + delta)
+    @tailrec private def departial(slice: Slice)(using MemberGetSet): (DFVal, Slice) =
       dfVal match
         case portByNameSelect: DFVal.PortByNameSelect =>
-          portByNameSelect.getPortDcl.departial(range)
+          portByNameSelect.getPortDcl.departial(slice)
         case partial: DFVal.Alias.Partial =>
           val relVal = partial.relValRef.get
           partial match
             case partial: DFVal.Alias.ApplyRange =>
-              relVal.departial(range.offset(partial.idxLowRef.getIntUNSAFE))
+              partial.idxLowRef.getIntOpt match
+                case Some(idxLow) => relVal.departial(slice.shift(idxLow))
+                case None         => relVal.departial(Slice.Unknown)
             case partial: DFVal.Alias.ApplyIdx =>
               partial.relIdx.get match
                 case DFVal.Alias.ApplyIdx.ConstIdx(idx) =>
-                  relVal.departial(range.offset(idx * partial.widthUNSAFE))
+                  partial.dfType.widthIntOpt match
+                    case Some(w) => relVal.departial(slice.shift(idx * w))
+                    case None    => relVal.departial(Slice.Unknown)
                 // if not a constant index selection, then the entire value range is affected
                 case _ =>
                   relVal.dealias match
-                    case Some(dcl: DFVal.Dcl) => (dcl, range)
-                    case _                    => (relVal, range)
+                    case Some(dcl: DFVal.Dcl) => (dcl, Slice.fromWidthOpt(dcl.dfType.widthIntOpt))
+                    case _ => (relVal, Slice.fromWidthOpt(relVal.dfType.widthIntOpt))
             case partial: DFVal.Alias.SelectField =>
-              relVal.departial(
-                range.offset(
-                  relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(partial.fieldName)
-                )
-              )
-            case _ => relVal.departial(range)
+              relVal.dfType match
+                case structType: DFStruct =>
+                  relVal.departial(slice.shift(structType.fieldRelBitLow(partial.fieldName)))
+                case _ => relVal.departial(slice)
+            case _ => relVal.departial(slice)
           end match
-        case _ => (dfVal, range)
+        case _ => (dfVal, slice)
       end match
     end departial
     // for a given value remove partial selections as possible
-    def departial(using MemberGetSet): (DFVal, Range) = departial(0 until dfVal.widthUNSAFE)
-    def departialDcl(using MemberGetSet): Option[(DFVal.Dcl, Range)] =
+    def departial(using MemberGetSet): (DFVal, Slice) =
+      departial(Slice.fromWidthOpt(dfVal.dfType.widthIntOpt))
+    def departialDcl(using MemberGetSet): Option[(DFVal.Dcl, Slice)] =
       departial match
-        case (dcl: DFVal.Dcl, range) => Some(dcl, range)
+        case (dcl: DFVal.Dcl, slice) => Some(dcl, slice)
         case _                       => None
     def stripPortSel(using MemberGetSet): DFVal = dfVal match
       case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
@@ -814,6 +815,10 @@ object DFVal:
       def elementWidthUNSAFE(using MemberGetSet): Int = dfType.runtimeChecked match
         case DFBits(_) | DFUInt(_) | DFSInt(_) => 1
         case DFVector(cellType = cellType)     => cellType.widthUNSAFE
+      def elementWidthIntOpt(using MemberGetSet): Option[Int] = dfType.runtimeChecked match
+        case DFBits(_) | DFUInt(_) | DFSInt(_) => Some(1)
+        case DFVector(cellType = cellType)     => cellType.widthIntOpt
+        case _                                 => None
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): ConstData[Any] =
