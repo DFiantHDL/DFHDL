@@ -128,6 +128,9 @@ class DesignContext:
 
   def hasMember(member: DFMember): Boolean = memberTable.contains(member)
 
+  def getMemberRefs(member: DFMember): Set[DFRefAny] =
+    memberTable.get(member).map(idx => members(idx).refSet).getOrElse(Set.empty)
+
   def getLatestMember: DFMember =
     members.view.filterNot(e => e.ignore).map(e => e.irValue).head
 

@@ -159,19 +159,25 @@ private object SimplifyFunc:
             currentPos.lineEnd, currentPos.columnEnd
           )
           val meta = currentMeta.copy(position = mergedPos)
+          // If prevFunc is referenced elsewhere, absorbing it would orphan those
+          // refs. Clone it so we consume a private copy and leave the original
+          // (and its referrers) intact.
+          val absorbable =
+            if (dfc.mutableDB.DesignContext.current.getMemberRefs(prevFunc).isEmpty) prevFunc
+            else prevFunc.cloneAnonValueAndDepsHere.asInstanceOf[ir.DFVal.Func]
           // Reuse absorbed Func's existing arg refs (so they aren't orphaned)
           // and create new refs only for the tail args being appended.
           val newArgRefs: List[ir.DFVal.Ref] =
-            prevFunc.args ++ rest.map(_.refTW[ir.DFVal](knownReachable = true))
+            absorbable.args ++ rest.map(_.refTW[ir.DFVal](knownReachable = true))
           val func: ir.DFVal = ir.DFVal.Func(
             dfType, op, newArgRefs,
             dfc.ownerOrEmptyRef, meta, dfc.tags
           )
           // Add positions newFunc at the tail (after any later-created arg deps).
-          // Reusing prevFunc.args causes setOriginRefs to update their origin to
+          // Reusing absorbable.args causes setOriginRefs to update their origin to
           // newFunc, so the absorbed Func can simply be marked ignored.
           func.addMember
-          getSet.remove(prevFunc)
+          getSet.remove(absorbable)
           Some(func)
         case _ => None
     end unapply
