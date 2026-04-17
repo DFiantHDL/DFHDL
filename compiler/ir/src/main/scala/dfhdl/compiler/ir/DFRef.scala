@@ -135,16 +135,7 @@ object IntParamRef:
         case (thisInt: Int, thatInt: Int)                     => thisInt == thatInt
         case _                                                => false
     def isSimilarTo(that: IntParamRef)(using MemberGetSet): Boolean =
-      def fakeConst(value: Int): DFVal.Const =
-        DFVal.Const(DFInt32, Some(BigInt(value)), DFRef.OneWay.Empty, Meta.empty, DFTags.empty)
-      (intParamRef, that) match
-        case (thisRef: DFRef.TypeRef, thatRef: DFRef.TypeRef) =>
-          thisRef.get.isSimilarTo(thatRef.get)
-        case (thisInt: Int, thatInt: Int)           => thisInt == thatInt
-        case (thisRef: DFRef.TypeRef, thatInt: Int) =>
-          thisRef.get.isSimilarTo(fakeConst(thatInt))
-        case (thisInt: Int, thatRef: DFRef.TypeRef) =>
-          thatRef.get.isSimilarTo(fakeConst(thisInt))
+      compare(that)(_ == _).getOrElse(false)
     def copyAsNewRef(using RefGen): IntParamRef = intParamRef match
       case ref: DFRef.TypeRef => ref.copyAsNewRef
       case _                  => intParamRef
