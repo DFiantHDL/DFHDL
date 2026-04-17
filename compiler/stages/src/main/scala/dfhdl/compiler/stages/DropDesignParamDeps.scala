@@ -8,6 +8,7 @@ import dfhdl.compiler.stages.vhdl.VHDLDialect
 import scala.collection.mutable
 import dfhdl.core.DFTypeAny
 import dfhdl.core.DFType.asFE
+import dfhdl.compiler.ir.ConstData.CachePolicy
 
 /** This stage inlines design parameter dependencies by replacing design parameters that depend on
   * other design parameters with anonymous constant values. This is needed only for VHDL'93 that
@@ -55,7 +56,8 @@ case object DropDesignParamDeps extends Stage:
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)
         ):
           // Get the constant data from the design parameter
-          val constData = default.getConstDataUNSAFE.get
+          val constData =
+            default.getConstData[Any](using getSet, CachePolicy.GoThroughDesignParams).toOption.get
           // Create an anonymous constant with the same data
           dfhdl.core.DFVal.Const.forced(default.dfType.asFE[DFTypeAny], constData, named = false)
         dsn.patch

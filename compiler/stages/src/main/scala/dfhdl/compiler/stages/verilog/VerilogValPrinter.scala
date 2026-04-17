@@ -4,6 +4,7 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 import DFVal.*
+import ConstData.CachePolicy
 
 protected trait VerilogValPrinter extends AbstractValPrinter:
   type TPrinter <: VerilogPrinter
@@ -29,7 +30,13 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csDesignParamDefault(param: DesignParam): String = param.defaultValRef.get match
     case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
     case _                                                    =>
-      printer.csConstData(param.dfType, param.appliedValOpt.get.getConstData[Any].toOption.get)
+      printer.csConstData(
+        param.dfType,
+        param.appliedValOpt.get.getConstData[Any](using
+          getSet,
+          CachePolicy.GoThroughDesignParams
+        ).toOption.get
+      )
 
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)

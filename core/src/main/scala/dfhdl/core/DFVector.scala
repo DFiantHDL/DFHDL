@@ -141,6 +141,10 @@ object DFVector:
           dfType.lengthIntOpt match
             case Some(ll) => check(ll, dfVals.length)
             case None     =>
+              val dfTypeLengthStr = dfType.asIR.cellDimParamRefs.head.refCodeString
+              throw new IllegalArgumentException(
+                s"""The argument vector length (${dfVals.length}) is different than the receiver vector length ($dfTypeLengthStr)."""
+              )
           Val(dfType)(dfVals)
       end DFVectorValFromDFValVector
       given DFVectorValFromSEV[

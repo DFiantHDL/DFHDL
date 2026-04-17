@@ -1258,10 +1258,9 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
   test("vector init printing under verilog.v95") {
     given options.CompilerOptions.Backend = backends.verilog.v95
-    class Foo(
-        val PORT_WIDTH: Int <> CONST = 8,
-        val PORT_DEPTH: Int <> CONST = 4
-    ) extends EDDesign:
+    class Foo extends EDDesign:
+      val PORT_WIDTH: Int <> CONST = 8
+      val PORT_DEPTH: Int <> CONST = 4
       val v1 = Bits(PORT_WIDTH) X PORT_DEPTH <> VAR init Vector(h"01", h"02", h"03", h"04")
       val v2 = Bits(PORT_WIDTH) X PORT_DEPTH <> VAR init all(all(0))
       val initArg: Bits[PORT_WIDTH.type] X PORT_DEPTH.type <> CONST =

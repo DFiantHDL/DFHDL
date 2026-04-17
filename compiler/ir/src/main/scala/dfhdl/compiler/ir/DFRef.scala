@@ -150,6 +150,16 @@ object IntParamRef:
         // Fast path: both refs are already concrete Ints.
         case (l: Int, r: Int) => Some(func(l, r))
         case _                =>
+          // Strip type-preserving AsIs wrappers and non-top-device DesignParams
+          // (resolved via appliedOrDefaultVal). Top-device DesignParams remain
+          // opaque as the symbolic free variables.
+          def strip(v: DFVal): DFVal = v match
+            case DFVal.Alias.AsIs(dfType = dt, relValRef = DFRef(relVal))
+                if dt == relVal.dfType =>
+              strip(relVal)
+            case dp: DFVal.DesignParam if !dp.getOwnerDesign.isDeviceTop =>
+              strip(dp.appliedOrDefaultVal)
+            case _ => v
           object ConstInt:
             def unapply(v: DFVal): Option[Int] = v match
               case c: DFVal.Const =>
@@ -158,7 +168,7 @@ object IntParamRef:
                   case _               => None
               case _ => None
           // Decompose into (list of non-constant base terms, integer offset).
-          def decompose(v: DFVal): (List[DFVal], Int) = v match
+          def decompose(v: DFVal): (List[DFVal], Int) = strip(v) match
             case ConstInt(i)                            => (Nil, i)
             case DFVal.Func(op = FuncOp.+, args = args) =>
               args.map(_.get).foldLeft((List.empty[DFVal], 0)) { case ((bases, off), arg) =>
@@ -166,31 +176,35 @@ object IntParamRef:
                 (bases ++ argBases, off + argOff)
               }
             case DFVal.Func(op = FuncOp.-, args = List(aRef, bRef)) =>
-              (aRef.get, bRef.get) match
-                case (other, ConstInt(k)) =>
-                  val (bases, off) = decompose(other)
-                  (bases, off - k)
+              decompose(bRef.get) match
+                case (Nil, k) =>
+                  val (aBases, aOff) = decompose(aRef.get)
+                  (aBases, aOff - k)
                 case _ => (List(v), 0)
-            case _ => (List(v), 0)
-          def reduce(ref: IntParamRef): Option[(List[DFVal], Int)] =
-            ref.getIntConstData match
-              case ConstData.KnownConst(i)    => Some((Nil, i))
-              case ConstData.UnknownConst(dv) => Some(decompose(dv))
-              case ConstData.NotConst         => None
+            case other => (List(other), 0)
           // Check whether two base lists are equivalent as multi-sets under
-          // structural similarity.
+          // `=~` (position-ignoring structural equality) after stripping.
           def basesMatch(lhs: List[DFVal], rhs: List[DFVal]): Boolean =
             lhs.length == rhs.length && {
-              val remaining = scala.collection.mutable.ListBuffer.from(rhs)
+              val remaining = mutable.ListBuffer.from(rhs.map(strip))
               lhs.forall { l =>
-                remaining.indexWhere(_.isSimilarTo(l)) match
+                val ls = strip(l)
+                remaining.indexWhere(_ =~ ls) match
                   case -1 => false
                   case i  => remaining.remove(i); true
               }
             }
+          def asDFVal(ref: IntParamRef): Option[DFVal] = ref match
+            case i: Int           =>
+              Some(DFVal.Const(
+                DFInt32, Some(BigInt(i)), DFRef.OneWay.Empty, Meta.empty, DFTags.empty
+              ))
+            case r: DFRef.TypeRef => r.getOption
           for
-            (lBases, lOff) <- reduce(intParamRef)
-            (rBases, rOff) <- reduce(that)
+            lVal <- asDFVal(intParamRef)
+            rVal <- asDFVal(that)
+            (lBases, lOff) = decompose(lVal)
+            (rBases, rOff) = decompose(rVal)
             if basesMatch(lBases, rBases)
           yield func(lOff - rOff, 0)
     end compare

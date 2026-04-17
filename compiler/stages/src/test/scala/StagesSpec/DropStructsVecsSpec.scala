@@ -77,8 +77,10 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
 
   test("Ignore block ram access vectors") {
     given options.CompilerOptions.Backend = backends.verilog.v95
-    class BlockRam(val width: Int <> CONST = 8, val depth: Int <> CONST = 4) extends DFDesign:
-      val v =
+    class BlockRam extends DFDesign:
+      val width: Int <> CONST = 8
+      val depth: Int <> CONST = 4
+      val v                   =
         UInt(width) X depth <> VAR init h"${width}'0".repeat(depth).as(UInt(width) X depth)
       val v2  = UInt(width) X depth <> VAR init all(0)
       val v3  = UInt(width) X depth <> VAR init Vector(0, 1, 2, 3)
@@ -90,10 +92,9 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val top = (new BlockRam).dropStructsVecs
     assertCodeString(
       top,
-      """|class BlockRam(
-         |    val width: Int <> CONST = 8,
-         |    val depth: Int <> CONST = 4
-         |) extends DFDesign:
+      """|class BlockRam extends DFDesign:
+         |  val width: Int <> CONST = 8
+         |  val depth: Int <> CONST = 4
          |  val v = UInt(width) X depth <> VAR init h"0".resize(width).repeat(depth).as(UInt(width) X depth)
          |  val v2 = UInt(width) X depth <> VAR init d"1'0".resize(width).bits.repeat(depth).as(UInt(width) X depth)
          |  val v3 = Bits(width * depth) <> VAR init (d"1'0".resize(width).bits, d"1'1".resize(width).bits, d"2'2".resize(width).bits, d"2'3".resize(width).bits).toBits
