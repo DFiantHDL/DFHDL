@@ -485,7 +485,13 @@ object DFBits:
             (dfType.widthIntOpt, dfVal.widthIntOpt) match
               case (Some(lw), Some(rw)) => check(lw, rw)
               case _                    =>
+                if (dfType.compareWidths(dfVal.dfType)(_ != _).getOrElse(true))
+                  throw new IllegalArgumentException(
+                    s"""|The argument width (${dfVal.dfType.widthCodeString}) is different than the receiver width (${dfType.widthCodeString}).
+                        |Consider applying `.resize` to resolve this issue.""".stripMargin
+                  )
             dfVal.nameInDFCPosition.asValTP[DFBits[LW], RP]
+          end if
         end conv
       end DFBitsFromCandidate
       given DFBitsFromSEV[LW <: IntP, T <: BitOrBool, V <: SameElementsVector[T]]: TC[DFBits[LW], V]
