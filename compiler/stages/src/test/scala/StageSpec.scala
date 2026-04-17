@@ -1,7 +1,7 @@
 package dfhdl
 import dfhdl.compiler.ir.DB
 import dfhdl.compiler.printing.DefaultPrinter
-import dfhdl.compiler.stages.{sanityCheck, dropUnreferencedAnons}
+import dfhdl.compiler.stages.{sanityCheck, dropUnreferencedAnons, getCodeString}
 import dfhdl.internals.NoTopAnnotIsRequired
 import munit.*
 
@@ -14,4 +14,6 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     else db.sanityCheck
     assertNoDiff(DefaultPrinter.csDB, cs)
 
+  inline def assertCodeString(dsn: core.Design, cs: String): Unit =
+    assertCodeString(dsn.getDB, cs)
 end StageSpec
