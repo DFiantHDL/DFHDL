@@ -181,11 +181,16 @@ case object NamedAnonMultiref extends NamedAliases, NoCheckStage:
       // referenced more than once (excluding else/case blocks referencing their headers & type refs)
       val refs = getSet.designDB.memberTable.getOrElse(dfVal, Set()).view.flatMap {
         case _: DFRef.TypeRef                                                => None
-        case r: DFRef.TwoWayAny if !r.get.isInstanceOf[DFConditional.Header] => Some(r)
-        case _                                                               => None
+        case r: DFRef.TwoWayAny if !r.get.isInstanceOf[DFConditional.Header] =>
+          getSet.designDB.originRefTable.get(r) match
+            case Some(_: DFDesignBlock) => None // skipping design param references
+            case Some(_)                => Some(r)
+            case other                  => None
+        case _ => None
       }
       if (refs.size > 1) List(dfVal)
       else Nil
+end NamedAnonMultiref
 
 //Names anonymous conditional expressions, as long as they are not referenced by an ident which indicates that
 //they are themselves inside another conditional expression, and as long as they are not directly assigned to
