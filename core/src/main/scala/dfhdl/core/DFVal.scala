@@ -354,7 +354,10 @@ object DFVal extends DFValLP:
               |Message:   ${errMsg}""".stripMargin
         )
       lhsIR.injectGlobalCtx()
-      lhsIR.getConstData[Option[D]].toOption
+      lhsIR.getConstData[Option[D]](using
+        getSet,
+        ir.ConstData.CachePolicy.GoThroughDesignParams
+      ).toOption
         .getOrElse(error("Cannot fetch a Scala value from a non-constant DFHDL value."))
         .getOrElse(error("Cannot fetch a Scala value from a bubble (invalid) DFHDL value."))
   end extension

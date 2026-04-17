@@ -81,4 +81,10 @@ object ConstData:
     def isUnknown: Boolean = cd match
       case UnknownConst(_) => true
       case _               => false
+
+  enum CachePolicy derives CanEqual:
+    case NoCache
+    case GoThroughDesignParams
+    case Always
+  given CachePolicy = CachePolicy.Always
 end ConstData

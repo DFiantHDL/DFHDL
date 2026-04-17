@@ -247,11 +247,14 @@ sealed trait DFVal extends DFMember.Named:
       case (lhs, rhs) => lhs == rhs
     end match
   end isSimilarTo
-  protected def protGetConstData(using MemberGetSet): ConstData[Any]
+  protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any]
   private var cachedConstDataReady: Boolean = false
   private var cachedConstData: ConstData[Any] = ConstData.NotConst
   final def wasConstDataAccessed: Boolean = cachedConstDataReady
-  final def getConstData[T](using MemberGetSet): ConstData[T] =
+  final def getConstData[T](using
+      getSet: MemberGetSet,
+      policy: ConstData.CachePolicy
+  ): ConstData[T] =
     if (cachedConstDataReady) cachedConstData.asInstanceOf[ConstData[T]]
     else
       cachedConstData = protGetConstData
@@ -425,7 +428,8 @@ object DFVal:
   ) extends CanBeExpr,
         CanBeGlobal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = this.isAnonymous
-    protected def protGetConstData(using MemberGetSet): ConstData[Any] = ConstData.KnownConst(data)
+    protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
+      ConstData.KnownConst(data)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
         this.dfType =~ that.dfType && this.data.equals(that.data) &&
@@ -477,8 +481,10 @@ object DFVal:
     protected[dfhdl] def setCachedAppliedVal(dfVal: DFVal): Unit = cachedAppliedVal = Some(dfVal)
     protected[dfhdl] def clearCachedAppliedVal(): Unit = cachedAppliedVal = None
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
-    protected def protGetConstData(using MemberGetSet): ConstData[Any] =
-      appliedOrDefaultVal.getConstData
+    protected def protGetConstData(using
+        getSet: MemberGetSet,
+        policy: ConstData.CachePolicy
+    ): ConstData[Any] = appliedOrDefaultVal.getConstData
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DesignParam =>
         // design parameters are considered to be the same even if they are referencing
@@ -515,14 +521,15 @@ object DFVal:
       tags: DFTags
   ) extends CanBeExpr derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
-    protected def protGetConstData(using MemberGetSet): ConstData[Any] = kind match
-      case Special.CLK_FREQ =>
-        if (getSet.isMutable) ConstData.NotConst // disable during elaboration
-        else
-          ConstData.KnownConst(getSet.designDB.explicitRTDomainCfgMap(
-            this.getOwnerDomain
-          ).clkCfg.toOption.map(_.rate.to_freq).getOrElse(0.MHz))
-      case _ => ConstData.NotConst
+    protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
+      kind match
+        case Special.CLK_FREQ =>
+          if (getSet.isMutable) ConstData.NotConst // disable during elaboration
+          else
+            ConstData.KnownConst(getSet.designDB.explicitRTDomainCfgMap(
+              this.getOwnerDomain
+            ).clkCfg.toOption.map(_.rate.to_freq).getOrElse(0.MHz))
+        case _ => ConstData.NotConst
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Special =>
         this.dfType =~ that.dfType && this.kind == that.kind &&
@@ -555,7 +562,8 @@ object DFVal:
       tags: DFTags
   ) extends DFVal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
-    protected def protGetConstData(using MemberGetSet): ConstData[Any] = ConstData.NotConst
+    protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
+      ConstData.NotConst
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
         this.dfType =~ that.dfType && this.modifier == that.modifier &&
@@ -600,11 +608,10 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends CanBeExpr,
-        CanBeGlobal derives ReadWriter:
+  ) extends CanBeExpr, CanBeGlobal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
       args.forall(_.get.isFullyAnonymous)
-    protected def protGetConstData(using MemberGetSet): ConstData[Any] =
+    protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
       val args = this.args.map(_.get)
       val argConstData = args.map(_.getConstData[Any])
       if (argConstData.exists(_ == ConstData.NotConst)) ConstData.NotConst
@@ -660,7 +667,8 @@ object DFVal:
       tags: DFTags
   ) extends DFVal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
-    protected def protGetConstData(using MemberGetSet): ConstData[Any] = ConstData.NotConst
+    protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
+      ConstData.NotConst
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: PortByNameSelect =>
         this.dfType =~ that.dfType && this.designInstRef =~ that.designInstRef &&
@@ -721,7 +729,7 @@ object DFVal:
     ) extends Partial derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
-      protected def protGetConstData(using MemberGetSet): ConstData[Any] =
+      protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
         val relVal = relValRef.get
         relVal.getConstData[Any] match
           case ConstData.KnownConst(relValData) =>
@@ -764,7 +772,8 @@ object DFVal:
     ) extends Consumer derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous && initRefOption.map(_.get.isFullyAnonymous).getOrElse(true)
-      protected def protGetConstData(using MemberGetSet): ConstData[Any] = ConstData.NotConst
+      protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
+        ConstData.NotConst
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: History =>
           val sameInit = (this.initRefOption, that.initRefOption) match
@@ -821,7 +830,7 @@ object DFVal:
         case _                                 => None
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
-      protected def protGetConstData(using MemberGetSet): ConstData[Any] =
+      protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
         val relVal = relValRef.get
         (relVal.getConstData[Any], idxHighRef.getIntConstData, idxLowRef.getIntConstData) match
           case (
@@ -886,7 +895,7 @@ object DFVal:
     ) extends Partial derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous && relIdx.get.isFullyAnonymous
-      protected def protGetConstData(using MemberGetSet): ConstData[Any] =
+      protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
         val relVal = relValRef.get
         val relIdx = this.relIdx.get
         (relVal.getConstData[Any], relIdx.getConstData[Option[BigInt]]) match
@@ -955,7 +964,7 @@ object DFVal:
     ) extends Partial derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
-      protected def protGetConstData(using MemberGetSet): ConstData[Any] =
+      protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
         val relVal = relValRef.get
         relVal.getConstData[Any] match
           case ConstData.KnownConst(relValData) =>
@@ -1276,7 +1285,8 @@ object DFConditional:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     // TODO: if all returned expressions in all blocks and the selector is constant, then
     // the returned result is a constant
-    protected def protGetConstData(using MemberGetSet): ConstData[Any] = ConstData.NotConst
+    protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
+      ConstData.NotConst
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFMatchHeader =>
         this.dfType =~ that.dfType && this.selectorRef =~ that.selectorRef &&
@@ -1411,7 +1421,8 @@ object DFConditional:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     // TODO: if all returned expressions in all blocks and the selector is constant, then
     // the returned result is a constant
-    protected def protGetConstData(using MemberGetSet): ConstData[Any] = ConstData.NotConst
+    protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
+      ConstData.NotConst
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFIfHeader =>
         this.dfType =~ that.dfType &&
@@ -1688,7 +1699,7 @@ object DomainBlock:
 //     val dfType: DFType = DFBool
 //     // TODO: revisit this in the future. can an active indication of a timer be fully anonymous?
 //     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
-//     protected def protGetConstData(using MemberGetSet): ConstData[Any] = ConstData.NotConst
+//     protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] = ConstData.NotConst
 //     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
 //       case that: IsActive =>
 //         this.timerRef =~ that.timerRef &&
