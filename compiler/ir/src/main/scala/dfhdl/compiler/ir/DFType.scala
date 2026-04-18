@@ -22,7 +22,7 @@ sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector)
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean
-  def defaultData(using MemberGetSet): Data = createBubbleData
+  def defaultData(using MemberGetSet): Data
   lazy val getRefs: List[DFRef.TypeRef]
 
 object DFType:
@@ -121,6 +121,7 @@ sealed trait DFBoolOrBit extends DFType derives ReadWriter:
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
   lazy val getRefs: List[DFRef.TypeRef] = Nil
   def copyWithNewRefs(using RefGen): this.type = this
+  def defaultData(using MemberGetSet): Data = Some(false)
 end DFBoolOrBit
 
 object DFBoolOrBit extends DFType.Companion[DFBoolOrBit, Option[Boolean]]
@@ -151,6 +152,7 @@ final case class DFBits(widthParamRef: IntParamRef) extends DFType derives ReadW
   lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
   def copyWithNewRefs(using RefGen): this.type =
     copy(widthParamRef.copyAsNewRef).asInstanceOf[this.type]
+  def defaultData(using MemberGetSet): Data = createBubbleData
 end DFBits
 
 object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
@@ -249,6 +251,7 @@ final case class DFDecimal(
   lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
   def copyWithNewRefs(using RefGen): this.type =
     copy(widthParamRef = widthParamRef.copyAsNewRef).asInstanceOf[this.type]
+  def defaultData(using MemberGetSet): Data = Some(BigInt(0))
 end DFDecimal
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
@@ -310,6 +313,7 @@ final case class DFEnum(
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
   lazy val getRefs: List[DFRef.TypeRef] = Nil
   def copyWithNewRefs(using RefGen): this.type = this
+  def defaultData(using MemberGetSet): Data = Some(entries.head._2)
 end DFEnum
 
 object DFEnum extends DFType.Companion[DFEnum, Option[BigInt]]
@@ -367,6 +371,9 @@ final case class DFVector(
     cellType = cellType.copyWithNewRefs,
     cellDimParamRefs = cellDimParamRefs.map(_.copyAsNewRef)
   ).asInstanceOf[this.type]
+  def defaultData(using MemberGetSet): Data = Vector.fill(lengthUNSAFE)(
+    cellType.defaultData
+  )
 end DFVector
 
 object DFVector extends DFType.Companion[DFVector, Vector[Any]]
@@ -409,6 +416,7 @@ final case class DFOpaque(
   def copyWithNewRefs(using RefGen): this.type = copy(
     actualType = actualType.copyWithNewRefs
   ).asInstanceOf[this.type]
+  def defaultData(using MemberGetSet): Data = actualType.defaultData
 end DFOpaque
 
 object DFOpaque extends DFType.Companion[DFOpaque, Any]:
@@ -499,6 +507,7 @@ final case class DFStruct(
   def copyWithNewRefs(using RefGen): this.type = copy(
     fieldMap = ListMap.from(fieldMap.view.mapValues(_.copyWithNewRefs))
   ).asInstanceOf[this.type]
+  def defaultData(using MemberGetSet): Data = fieldMap.values.map(_.defaultData).toList
 end DFStruct
 
 object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
@@ -535,6 +544,7 @@ sealed trait DFDouble extends DFType:
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
   lazy val getRefs: List[DFRef.TypeRef] = Nil
   def copyWithNewRefs(using RefGen): this.type = this
+  def defaultData(using MemberGetSet): Data = Some(0.0)
 end DFDouble
 
 case object DFDouble extends DFType.Companion[DFDouble, Option[Double]] with DFDouble:
@@ -564,7 +574,7 @@ sealed trait DFUnit extends DFUnbounded:
   type Data = Unit
   def isDataBubble(data: Data): Boolean = noTypeErr
   def createBubbleData(using MemberGetSet): Data = noTypeErr
-
+  def defaultData(using MemberGetSet): Data = ()
 case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit:
   given ReadWriter[DFUnit.type] = macroRW
 /////////////////////////////////////////////////////////////////////////////
@@ -578,6 +588,7 @@ sealed trait DFNothing extends DFUnbounded:
   type Data = Nothing
   def isDataBubble(data: Data): Boolean = noTypeErr
   def createBubbleData(using MemberGetSet): Data = noTypeErr
+  def defaultData(using MemberGetSet): Data = noTypeErr
 case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothing:
   given ReadWriter[DFNothing.type] = macroRW
 /////////////////////////////////////////////////////////////////////////////
@@ -590,6 +601,7 @@ sealed trait DFPhysical[U <: PhysicalNumber] extends DFUnbounded:
   type Data = U
   def isDataBubble(data: Data): Boolean = false
   def createBubbleData(using MemberGetSet): Data = noTypeErr
+  def defaultData(using MemberGetSet): Data = noTypeErr
 
 object DFPhysical
 
@@ -614,6 +626,7 @@ sealed trait DFString extends DFUnbounded:
   type Data = Option[String]
   def isDataBubble(data: Data): Boolean = data.isEmpty
   def createBubbleData(using MemberGetSet): Data = None
+  def defaultData(using MemberGetSet): Data = Some("")
 case object DFString extends DFType.Companion[DFString, Option[String]] with DFString:
   given ReadWriter[DFString.type] = macroRW
 /////////////////////////////////////////////////////////////////////////////
