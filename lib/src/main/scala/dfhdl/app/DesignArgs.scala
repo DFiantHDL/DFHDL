@@ -33,14 +33,20 @@ case class DesignArg(name: String, value: Any, desc: String)(using DFC):
       case bigInt: BigInt => bigInt.toInt
       case _              => data
   def updateScalaValue(updatedScalaValue: Any): DesignArg =
-    val updatedData = updatedScalaValue match
-      case int: Int if value.isInstanceOf[DFValAny] => BigInt(int)
-      case _                                        => updatedScalaValue
-    val updatedValue = value match
-      case dfConst: DFValAny =>
-        core.DFVal.Const.forced(dfConst.dfType, Some(updatedData))
-      case _ => updatedData
-    copy(value = updatedValue)
+    // If the CLI-supplied value equals the current default, keep the existing
+    // `DesignArg` as-is. This preserves the original const — including any
+    // tags (e.g. `SyntheticDefaultTag`) — which would otherwise be lost by
+    // constructing a fresh const below.
+    if (getScalaValue.equals(updatedScalaValue)) this
+    else
+      val updatedData = updatedScalaValue match
+        case int: Int if value.isInstanceOf[DFValAny] => BigInt(int)
+        case _                                        => updatedScalaValue
+      val updatedValue = value match
+        case dfConst: DFValAny =>
+          core.DFVal.Const.forced(dfConst.dfType, Some(updatedData))
+        case _ => updatedData
+      copy(value = updatedValue)
 end DesignArg
 
 type DesignArgs = ListMap[String, DesignArg]

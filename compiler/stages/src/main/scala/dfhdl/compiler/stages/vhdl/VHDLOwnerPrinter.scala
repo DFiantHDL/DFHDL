@@ -42,7 +42,9 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       .mkString(";\n")
     val designParamList = designMembers.collect { case param: DesignParam =>
       val defaultValue =
-        if (design.isTop) s" := ${param.appliedOrDefaultValRef.refCodeString}"
+        if (design.isTop)
+          if (param.appliedOrDefaultVal.hasTagOf[SyntheticDefaultTag]) ""
+          else s" := ${param.appliedOrDefaultValRef.refCodeString}"
         else
           param.defaultValRef.get match
             case DFMember.Empty => ""
