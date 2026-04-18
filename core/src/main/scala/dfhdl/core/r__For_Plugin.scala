@@ -175,4 +175,21 @@ object r__For_Plugin:
   end designFromDef
   def identVal[V <: DFValAny](value: V)(using DFC): V =
     DFVal.Alias.AsIs.ident(value).asInstanceOf[V]
+  object defaults:
+    private def mk[T <: DFTypeAny](dfType: T)(using dfc: DFC): DFConstOf[T] =
+      import dfc.getSet
+      DFVal.Const.forced[T](dfType, dfType.asIR.defaultData, named = false)
+        .tag(ir.SyntheticDefaultTag)
+    def bool(using DFC): DFConstOf[DFBool] = mk(DFBool)
+    def bit(using DFC): DFConstOf[DFBit] = mk(DFBit)
+    def int32(using DFC): DFConstOf[DFInt32] = mk(DFInt32)
+    def string(using DFC): DFConstOf[DFString] = mk(DFString)
+    def double(using DFC): DFConstOf[DFDouble] = mk(DFDouble)
+    def bits[W <: Int](width: Int)(using DFC): DFConstOf[DFBits[W]] =
+      mk(DFBits.forced[W](width))
+    def uint[W <: Int](width: Int)(using DFC): DFConstOf[DFUInt[W]] =
+      mk(DFUInt.forced[W](width))
+    def sint[W <: Int](width: Int)(using DFC): DFConstOf[DFSInt[W]] =
+      mk(DFSInt.forced[W](width))
+  end defaults
 end r__For_Plugin
