@@ -15,9 +15,9 @@ final case class ElaborationOptions(
   private[dfhdl] val defaultRTDomainCfg: RTDomainCfg.Explicit =
     RTDomainCfg.Explicit("RTDomainCfg.Default", defaultClkCfg, defaultRstCfg)
 object ElaborationOptions:
-  into opaque type Defaults[-T <: Design] <: ElaborationOptions = ElaborationOptions
+  into opaque type Defaults[-T] <: ElaborationOptions = ElaborationOptions
   object Defaults:
-    given conv[T <: Design]: Conversion[ElaborationOptions, Defaults[T]] = identity
+    given conv[T]: Conversion[ElaborationOptions, Defaults[T]] = identity
     given (using
         logLevel: LogLevel,
         onError: OnError,
@@ -26,7 +26,7 @@ object ElaborationOptions:
         defaultClkCfg: DefaultClkCfg,
         defaultRstCfg: DefaultRstCfg,
         printDFHDLCode: PrintDFHDLCode
-    ): Defaults[Design] = ElaborationOptions(
+    ): Defaults[Any] = ElaborationOptions(
       logLevel = logLevel, onError = onError, Werror = Werror, trapErrors = trapErrors,
       defaultClkCfg = defaultClkCfg, defaultRstCfg = defaultRstCfg, printDFHDLCode = printDFHDLCode
     )

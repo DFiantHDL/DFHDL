@@ -13,7 +13,7 @@ final case class BuilderOptions(
 
 //defaults common for all linting tools
 object BuilderOptions:
-  opaque type Defaults[-T <: Design] <: BuilderOptions = BuilderOptions
+  opaque type Defaults[-T] <: BuilderOptions = BuilderOptions
   object Defaults:
     given (using
         onError: OnError,
@@ -21,7 +21,7 @@ object BuilderOptions:
         tool: Tool,
         flash: Flash,
         compress: Compress
-    ): Defaults[Design] =
+    ): Defaults[Any] =
       BuilderOptions(
         onError = onError, Werror = Werror, tool = tool, flash = flash, compress = compress
       )

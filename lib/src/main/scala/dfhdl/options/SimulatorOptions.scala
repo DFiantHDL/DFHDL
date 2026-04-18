@@ -20,7 +20,7 @@ final case class SimulatorOptions(
 
 //defaults common for all linting tools
 object SimulatorOptions:
-  opaque type Defaults[-T <: Design] <: SimulatorOptions = SimulatorOptions
+  opaque type Defaults[-T] <: SimulatorOptions = SimulatorOptions
   object Defaults:
     given (using
         onError: OnError,
@@ -28,7 +28,7 @@ object SimulatorOptions:
         verilogSimulator: VerilogSimulator,
         vhdlSimulator: VHDLSimulator,
         runLimit: RunLimit
-    ): Defaults[Design] = SimulatorOptions(
+    ): Defaults[Any] = SimulatorOptions(
       onError = onError, Werror = Werror, verilogSimulator = verilogSimulator,
       vhdlSimulator = vhdlSimulator, runLimit = runLimit
     )

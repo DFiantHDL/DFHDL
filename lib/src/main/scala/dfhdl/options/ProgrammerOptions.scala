@@ -12,14 +12,14 @@ final case class ProgrammerOptions(
 
 //defaults common for all linting tools
 object ProgrammerOptions:
-  opaque type Defaults[-T <: Design] <: ProgrammerOptions = ProgrammerOptions
+  opaque type Defaults[-T] <: ProgrammerOptions = ProgrammerOptions
   object Defaults:
     given (using
         onError: OnError,
         Werror: WError,
         tool: Tool,
         flash: Flash
-    ): Defaults[Design] =
+    ): Defaults[Any] =
       ProgrammerOptions(onError = onError, Werror = Werror, tool = tool, flash = flash)
   given (using defaults: Defaults[Design]): ProgrammerOptions = defaults
 

@@ -11,13 +11,13 @@ case class AppOptions(
 )
 
 object AppOptions:
-  opaque type Defaults[-T <: Design] <: AppOptions = AppOptions
+  opaque type Defaults[-T] <: AppOptions = AppOptions
   object Defaults:
     given (using
         appMode: AppMode,
         clearConsole: ClearConsole,
         cacheEnable: CacheEnable
-    ): Defaults[Design] =
+    ): Defaults[Any] =
       AppOptions(appMode = appMode, clearConsole = clearConsole, cacheEnable = cacheEnable)
   given (using defaults: Defaults[Design]): AppOptions = defaults
 

@@ -180,11 +180,15 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
       }
 
     private def bodyUsesConnect(body: List[Tree])(using Context): Boolean =
-      // Only count `<>` that appears inside a val/var RHS at the top level of the class
-      // body — that's the defining shape of a DFHDL port declaration
-      // (`val p = Bit <> IN`). Top-level connection statements like `Vcc <> fpga.bank0`
-      // in platform wrappers, or `<>` buried in nested defs/lambdas (e.g. munit
-      // `test("..."):` blocks), should not qualify the outer class as a design.
+      // Look for `<>` in two top-level-statement shapes:
+      //  1. a val/var RHS (`val p = Bit <> IN`) — recurse into the RHS but stop at
+      //     nested defs/lambdas/blocks/templates so `<>` buried inside munit
+      //     `test("..."):` blocks or inner class bodies doesn't qualify the outer
+      //     class as a design.
+      //  2. a bare `<>` statement in the class body (`Vcc <> fpga.bank0`) — matched
+      //     non-recursively (the tree itself must be an `InfixOp` with `<>`).
+      // Over-matching here is now cheap: `@top(true)` is silently skipped by
+      // TopAnnotPhase on non-Design classes, so false positives don't cause errors.
       val acc = new UntypedTreeAccumulator[Boolean]:
         def apply(x: Boolean, tree: Tree)(using Context): Boolean =
           if (x) true
@@ -193,8 +197,9 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
             case _: Template | _: DefDef | _: Function | _: Block | _: TypeDef => x
             case _ => foldOver(x, tree)
       body.exists {
-        case vd: ValDef if !vd.rhs.isEmpty => acc(false, vd.rhs)
-        case _                             => false
+        case vd: ValDef if !vd.rhs.isEmpty                   => acc(false, vd.rhs)
+        case InfixOp(_, Ident(op), _) if op.toString == "<>" => true
+        case _                                               => false
       }
 
     private def hasDfhdlWildcardImport(stats: List[Tree]): Boolean =
@@ -207,9 +212,13 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
       }
 
     private def mkTopAnnot(span: util.Spans.Span)(using Context): Tree =
+      // Inject `@top(true)` rather than bare `@top`: the explicit-`true` form is the
+      // lenient variant — TopAnnotPhase silently skips entry-point generation when the
+      // annotated class turns out not to be a Design, whereas bare `@top` is strict
+      // and would surface a compile error on a false positive.
       untpd.Apply(
         untpd.Select(untpd.New(untpd.Ident("top".toTypeName)), nme.CONSTRUCTOR),
-        Nil
+        List(untpd.Literal(Constant(true)))
       ).withSpan(span)
 
     private def hasTopAnnot(mods: Modifiers): Boolean =

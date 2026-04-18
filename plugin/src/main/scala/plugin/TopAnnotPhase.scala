@@ -39,6 +39,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
   // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
+  var designTpe: TypeRef = uninitialized
   var resourceOwnerTpe: TypeRef = uninitialized
   var portModTpe: TypeRef = uninitialized
   // IR type discriminators — the first type arg of the front-end `DFType[IR, Args]`
@@ -156,21 +157,38 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
       val origOwner = ctx.owner
       val packageOwner = getPackageOwner
       explored match
-        case (td @ TypeDef(tn, template: Template)) :: rest if td.tpe <:< hasDFCTpe =>
+        case (td @ TypeDef(tn, template: Template)) :: rest
+            if td.symbol.isClass && !td.symbol.is(Trait) &&
+              td.symbol.hasAnnotation(topAnnotSym) =>
           // all thickets will be added at a package level
           inContext(ctx.withOwner(packageOwner)):
             val clsSym = td.symbol.asClass
             // has top annotation and no companion object
             clsSym.getAnnotation(topAnnotSym).map(a => dropProxies(a.tree)) match
               case Some(topAnnotTree @ Apply(Apply(Apply(_, topAnnotOptionsTrees), _), _)) =>
-                // genMain argument in top annotation is true by default
-                val genMain = topAnnotOptionsTrees match
-                  case Literal(Constant(genMain: Boolean)) :: _ => genMain
-                  case NamedArg(genMainName, Literal(Constant(genMain: Boolean))) :: _
-                      if genMainName.toString == "genMain" =>
-                    genMain
-                  case _ => true
-                if (genMain)
+                // Distinguish between `@top` (default genMain) and an explicitly-given
+                // `@top(true)` / `@top(false)`. An explicit literal/named-arg indicates
+                // the user opted into the lenient variant; an implicit default means
+                // the strict form was used.
+                val (genMain, genMainIsExplicit) = topAnnotOptionsTrees match
+                  case Literal(Constant(b: Boolean)) :: _ => (b, true)
+                  case NamedArg(n, Literal(Constant(b: Boolean))) :: _
+                      if n.toString == "genMain" =>
+                    (b, true)
+                  case _ => (true, false)
+                val isDesign = td.tpe <:< designTpe
+                if (!genMain) None
+                else if (!isDesign)
+                  if (genMainIsExplicit) None // `@top(true)` — silently skip
+                  else
+                    report.error(
+                      "`@top` must be applied to a subclass of `dfhdl.core.Design`.\n" +
+                        "Use `@top(true)` if you want the top entry point to be silently skipped " +
+                        "for non-Design classes, or `@top(false)` to disable entry point generation.",
+                      topAnnotTree.srcPos
+                    )
+                    None
+                else
                   if (template.constr.paramss.length > 1)
                     report.error(
                       "Unsupported multiple parameter blocks for top-level design.",
@@ -266,7 +284,6 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                       Some(td, ModuleDef(dfApp, List(setInitials, setDsn)), rest)
                     end if
                   end if
-                else None
                 end if
               case _ => None
             end match
@@ -306,6 +323,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     topAnnotSym = requiredClass("dfhdl.top")
     appTpe = requiredClassRef("dfhdl.app.DFApp")
+    designTpe = requiredClassRef("dfhdl.core.Design")
     resourceOwnerTpe = requiredClassRef("dfhdl.platforms.resources.ResourceOwner")
     portModTpe = requiredClassRef("dfhdl.core.Modifier.Port")
     // DFBool/DFBit exist only as case objects — the front-end type refers to the

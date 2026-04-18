@@ -17,7 +17,7 @@ final case class CompilerOptions(
     dropUserOpaques: DropUserOpaques
 )
 object CompilerOptions:
-  opaque type Defaults[-T <: Design] <: CompilerOptions = CompilerOptions
+  opaque type Defaults[-T] <: CompilerOptions = CompilerOptions
   object Defaults:
     given (using
         commitFolder: CommitFolder,
@@ -27,7 +27,7 @@ object CompilerOptions:
         printDFHDLCode: PrintDFHDLCode,
         printBackendCode: PrintBackendCode,
         dropUserOpaques: DropUserOpaques
-    ): Defaults[Design] = CompilerOptions(
+    ): Defaults[Any] = CompilerOptions(
       commitFolder = commitFolder, newFolderForTop = newFolderForTop, backend = backend,
       logLevel = logLevel, printDFHDLCode = printDFHDLCode, printBackendCode = printBackendCode,
       dropUserOpaques = dropUserOpaques

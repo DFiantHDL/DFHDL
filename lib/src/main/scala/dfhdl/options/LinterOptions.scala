@@ -11,14 +11,14 @@ final case class LinterOptions(
 
 //defaults common for all linting tools
 object LinterOptions:
-  opaque type Defaults[-T <: Design] <: LinterOptions = LinterOptions
+  opaque type Defaults[-T] <: LinterOptions = LinterOptions
   object Defaults:
     given (using
         onError: OnError,
         Werror: WError,
         verilogLinter: VerilogLinter,
         vhdlLinter: VHDLLinter
-    ): Defaults[Design] = LinterOptions(
+    ): Defaults[Any] = LinterOptions(
       onError = onError,
       Werror = Werror,
       verilogLinter = verilogLinter,
