@@ -3,10 +3,11 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 import scala.annotation.tailrec
 
-private abstract class OrderMembers(order: OrderMembers.Order) extends Stage:
+private abstract class OrderMembers(order: OrderMembers.Order) extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
   @tailrec private def orderMembers(
@@ -14,7 +15,7 @@ private abstract class OrderMembers(order: OrderMembers.Order) extends Stage:
       retList: List[DFMember]
   )(using MemberGetSet): List[DFMember] = remaining match
     case (block: DFOwnerNamed) :: mList =>
-      val members = getSet.designDB.namedOwnerMemberTable(block)
+      val members = getSet.designDB.namedOwnerMemberTable.getOrElse(block, Nil)
       val sortedMembers = block match
         case _: DFDesignBlock => members.sortBy(order())
         case _                => members
@@ -22,8 +23,14 @@ private abstract class OrderMembers(order: OrderMembers.Order) extends Stage:
     case m :: mList => orderMembers(mList, m :: retList)
     case Nil        => retList.reverse
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    designDB.copy(members = designDB.membersGlobals ++ orderMembers(List(designDB.top), List()))
+  def transformSubDB(subDB: DB)(using
+      getSet: MemberGetSet,
+      co: CompilerOptions,
+      refGen: RefGen
+  ): DB =
+    val reordered = subDB.membersGlobals ++ orderMembers(List(subDB.top), List())
+    if (reordered == subDB.members) subDB
+    else subDB.copy(members = reordered)
 
 end OrderMembers
 

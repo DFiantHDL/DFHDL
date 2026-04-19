@@ -8,13 +8,11 @@ import dfhdl.options.CompilerOptions
 /** This stage drops physical values by inlining them. For wait statements, their values are inlined
   * as anonymous constants.
   */
-case object DropPhysicalValues extends Stage:
+case object DropPhysicalValues extends HierarchyStage:
   override def dependencies: List[Stage] = List()
   override def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
-    val keepProcessDcls = co.backend.isVHDL
-    val patchList: List[(DFMember, Patch)] =
-      designDB.members.flatMap {
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patches = subDB.members.flatMap {
         // cast of number to int/double is inlined as a constant
         case alias @ DFVal.Alias.AsIs(dfType, DFRef(fromVal), ownerRef, meta, tags)
             if fromVal.dfType == DFNumber =>
@@ -43,10 +41,10 @@ case object DropPhysicalValues extends Stage:
           // not referenced by a wait statement, so we remove it
           else
             Some(dfVal -> Patch.Remove())
-        case _ => None
-      }
-    designDB.patch(patchList)
-  end transform
+      case _ => None
+    }
+    subDB.patch(patches)
+  end transformSubDB
 end DropPhysicalValues
 
 extension [T: HasDB](t: T)

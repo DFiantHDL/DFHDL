@@ -165,20 +165,21 @@ import scala.annotation.tailrec
   *   in Phases 0–2.
   */
 //format: on
-case object FlattenStepBlocks extends Stage:
+case object FlattenStepBlocks extends HierarchyStage:
+  // rebind off: `getOwnerStepBlock` / `collectRelMembers` walk refs across designs.
+  override def rebindGetSet: Boolean = false
   def dependencies: List[Stage] = List(DropRTWaits, ExplicitNamedVars, DropLocalDcls)
   def nullifies: Set[Stage] = Set()
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     // Phase 3 ChangeRef patches are computed from the original DB.
-    val gotoPatchList = designDB.members.view.flatMap {
+    val gotoPatchList = subDB.members.view.flatMap {
       case pb: ProcessBlock if pb.isInRTDomain => collectGotoPatches(pb)
       case _                                   => Nil
     }.toList
     // Phase 0: inter-step relocation (Step 5 inter-step + Step 6)
-    val db0 = designDB.patch(
-      designDB.members.view.flatMap {
+    val db0 = subDB.patch(
+      subDB.members.view.flatMap {
         case pb: ProcessBlock if pb.isInRTDomain => collectInterStepPatches(pb)
         case _                                   => Nil
       }.toList
@@ -197,7 +198,7 @@ case object FlattenStepBlocks extends Stage:
     val db2 = flattenRepeatedly(db1)
     // Phase 3: Goto ChangeRef
     db2.patch(gotoPatchList)
-  end transform
+  end transformSubDB
 
   // Repeatedly flatten one nesting level of StepBlocks until all are direct pb children.
   @tailrec private def flattenRepeatedly(db: DB)(using RefGen): DB =

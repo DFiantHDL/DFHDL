@@ -28,7 +28,7 @@ import dfhdl.options.CompilerOptions
   *       NextStep
   * }}}
   */
-case object ExplicitNamedVars extends Stage:
+case object ExplicitNamedVars extends HierarchyStage:
   def dependencies: List[Stage] = List(NamedAnonCondExpr)
   def nullifies: Set[Stage] = Set(DropLocalDcls)
 
@@ -82,10 +82,8 @@ case object ExplicitNamedVars extends Stage:
         case None => (regs = Set(), vars = dfVal.getReadDeps)
   end extension
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList =
-      designDB.members.view
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patches = subDB.members.view
         // just named values
         .collect { case dv: DFVal if !dv.isAnonymous => dv }
         .flatMap {
@@ -181,10 +179,10 @@ case object ExplicitNamedVars extends Stage:
               regPatchOpt,
               finalizePatches
             ).flatten
-        }
-        .toList
-    designDB.patch(patchList)
-  end transform
+      }
+      .toList
+    subDB.patch(patches)
+  end transformSubDB
 end ExplicitNamedVars
 
 extension [T: HasDB](t: T)

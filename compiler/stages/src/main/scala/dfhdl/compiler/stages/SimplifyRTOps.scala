@@ -102,18 +102,17 @@ import scala.collection.mutable
   * }}}
   */
 //format: on
-case object SimplifyRTOps extends Stage:
+case object SimplifyRTOps extends HierarchyStage:
   def dependencies: List[Stage] = List(DropTimedRTWaits)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons, DFHDLUniqueNames, DropLocalDcls)
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     extension (dfVal: DFVal)
       def isAnonReferencedByWait: Boolean = dfVal.isAnonymous && dfVal.originMembers.view.exists {
         case _: Wait => true
         case _       => false
       }
-    val patchList = designDB.members.view.flatMap {
+    val patches = subDB.members.view.flatMap {
       case trigger @ DFVal.Func(
             _,
             op @ (FuncOp.rising | FuncOp.falling),
@@ -258,9 +257,8 @@ case object SimplifyRTOps extends Stage:
 
       case _ => None
     }.toList
-
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patches)
+  end transformSubDB
 end SimplifyRTOps
 
 extension [T: HasDB](t: T)

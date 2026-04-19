@@ -15,11 +15,15 @@ import scala.annotation.tailrec
   * references, to be most effective. Without removing user opaques first, we pass through anonymous
   * to/from opaque casting while looking for the concatenation.
   */
-abstract class BreakOps(breakAssignments: Boolean) extends NoCheckStage:
+abstract class BreakOps(breakAssignments: Boolean) extends HierarchyStage, NoCheckStage:
   override def dependencies: List[Stage] = List()
   override def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
+  // iterate transform until fixpoint (no patches produced)
+  override def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    val result = super.transform(designDB)
+    if (result eq designDB) designDB
+    else transform(result)(using result.getSet)
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     object AnonConcatFuncOf:
       @tailrec def unapply(dfVal: DFVal): Option[List[DFVal.Ref]] =
         if (dfVal.isAnonymous) dfVal match
@@ -30,9 +34,8 @@ abstract class BreakOps(breakAssignments: Boolean) extends NoCheckStage:
           case AsOpaque(relVal)     => unapply(relVal)
           case _                    => None
         else None
-    val patchList: List[(DFMember, Patch)] =
-      designDB.members.view
-        .flatMap {
+    val patches = subDB.members.view
+      .flatMap {
           // constant index selection from a concat
           case dfVal @ DFVal.Alias.ApplyIdx(
                 _,
@@ -95,12 +98,8 @@ abstract class BreakOps(breakAssignments: Boolean) extends NoCheckStage:
           case _ => None
         }
         .toList
-    // recursive transformation as long as we still have something to patch
-    if (patchList.nonEmpty)
-      val updatedDB = designDB.patch(patchList)
-      transform(updatedDB)(using updatedDB.getSet)
-    else designDB
-  end transform
+    subDB.patch(patches)
+  end transformSubDB
 end BreakOps
 
 case object BreakOpsNoAssignments extends BreakOps(breakAssignments = false)

@@ -41,7 +41,10 @@ import dfhdl.core.RTDomainCfg.Derived
   *        z := ((i + 1).reg + 7).reg(2) //z_part1_reg, z_part2_reg1, z_part2_reg2
   *      }}}
   */
-case object NameRegAliases extends Stage:
+case object NameRegAliases extends HierarchyStage:
+  // rebind off: `getAssignmentsTo` / `suggestName` / `collectRelMembers` walk refs
+  // across the full hierarchy, so they need the outer flat getSet.
+  override def rebindGetSet: Boolean = false
   // We order the members to have declarations first and make sure there are unique names
   // so that the naming system will be more coherent. However, this stage also may cause naming
   // collisions in rare cases, so we also need to nullify the unique name stage.
@@ -70,9 +73,8 @@ case object NameRegAliases extends Stage:
         case dfVal: DFVal => NameGroup(dfVal.getName, false)
   end extension
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patchList: List[(DFMember, Patch)] = subDB.namedOwnerMemberList.flatMap {
       case (domainOwner: (DFDomainOwner & DFBlock), members) =>
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
         def patchRemoveHistoryInit(alias: DFVal.Alias.History): Unit =
@@ -196,8 +198,8 @@ case object NameRegAliases extends Stage:
         ).flatten
       case _ => None
     }
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patchList)
+  end transformSubDB
 end NameRegAliases
 
 extension [T: HasDB](t: T)

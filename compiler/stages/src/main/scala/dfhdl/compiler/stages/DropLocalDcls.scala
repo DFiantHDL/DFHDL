@@ -78,13 +78,12 @@ import dfhdl.options.CompilerOptions
   * }}}
   */
 //format: on
-case object DropLocalDcls extends Stage:
+case object DropLocalDcls extends HierarchyStage:
   override def dependencies: List[Stage] = List(ExplicitNamedVars)
   override def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
+  def transformSubDB(subDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
     val keepProcessDcls = co.backend.isVHDL
-    val patchList: List[(DFMember, Patch)] =
-      designDB.members.view
+    val patches = subDB.members.view
         // only var or constant declarations ,
         // and we also require their anonymous dependencies
         .flatMap {
@@ -111,8 +110,8 @@ case object DropLocalDcls extends Stage:
           case _ => None
         }
         .toList
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patches)
+  end transformSubDB
 end DropLocalDcls
 
 extension [T: HasDB](t: T)

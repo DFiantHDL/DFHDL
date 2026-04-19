@@ -182,13 +182,14 @@ import dfhdl.core.{DFValAny, DFOwnerAny, asValAny, DFC}
   * }}}
   */
 //format: on
-case object DropRTProcess extends Stage:
+case object DropRTProcess extends HierarchyStage:
+  // rebind off: `getOwnerStepBlock` / `collectRelMembers` etc walk refs across designs.
+  override def rebindGetSet: Boolean = false
   def dependencies: List[Stage] = List(FlattenStepBlocks)
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames)
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList = designDB.members.view.collect {
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patchList = subDB.members.view.collect {
       case pb: ProcessBlock if pb.isInRTDomain =>
         val stateBlocks = pb.members(MemberView.Folded).collect {
           case sb: StepBlock if sb.isRegular =>
@@ -308,8 +309,8 @@ case object DropRTProcess extends Stage:
         end if
     }.flatten.toList
 
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patchList)
+  end transformSubDB
 end DropRTProcess
 
 extension [T: HasDB](t: T)

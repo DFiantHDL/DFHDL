@@ -17,7 +17,7 @@ import dfhdl.internals.*
 
 /** This stage transforms match statements/expressions to if statements/expressions
   */
-case object MatchToIf extends Stage:
+case object MatchToIf extends HierarchyStage:
   override def dependencies: List[Stage] = List(DropBinds)
   override def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropUnreferencedAnons)
   def matchFilter(mh: DFMatchHeader)(using getSet: MemberGetSet, co: CompilerOptions): Boolean =
@@ -39,10 +39,9 @@ case object MatchToIf extends Stage:
     def wildcardsRemoval = !wildcardsSupported && mh.hasWildcards
     composedPatternRemoval || guardsRemoval || wildcardsRemoval
   end matchFilter
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList: List[(DFMember, Patch)] =
-      designDB.members.view
+  def transformSubDB(subDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, refGen: RefGen)
+      : DB =
+    val patches = subDB.members.view
         // only match headers and case blocks that match filter
         .flatMap {
           case mh: DFMatchHeader if matchFilter(mh) =>
@@ -141,8 +140,8 @@ case object MatchToIf extends Stage:
           case _ => Nil
         }
         .toList
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patches)
+  end transformSubDB
 end MatchToIf
 
 extension [T: HasDB](t: T)

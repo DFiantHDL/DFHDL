@@ -41,12 +41,48 @@ import dfhdl.core.DomainType.ED
   * }}}
   */
 //format: on
-case object ExplicitCondExprAssign extends Stage:
+case object ExplicitCondExprAssign extends HierarchyStage:
   def dependencies: List[Stage] = List(ExplicitNamedVars)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
+  // phase 1's DFNet.Connection extractor consults `connectionTable`, which in
+  // turn resolves PortByNameSelects targeting sibling sub-DBs. Use outer flat
+  // getSet so full-hierarchy resolution works.
+  override def rebindGetSet: Boolean = false
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+  // Two-phase transform: phase 1 runs via HierarchyStage.transformSubDB per-sub-DB;
+  // phase 2 wraps ED-domain non-process conditional statements in process(all) on
+  // the phase-1 result as a flat pass.
+  override def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    val phase1DB = super.transform(designDB)
+    phase2(phase1DB)
+
+  private def phase2(phase1DB: DB)(using CompilerOptions): DB =
+    given MemberGetSet = phase1DB.getSet
     given RefGen = RefGen.fromGetSet
+    val wrapPatches: List[(DFMember, Patch)] = phase1DB.members.view.flatMap {
+      case ch: DFConditional.Header
+          if ch.dfType == DFUnit && ch.isInEDDomain && !ch.isInProcess
+            && !ch.getOwnerBlock.isInstanceOf[DFConditional.Block] =>
+        val chain = phase1DB.conditionalChainTable(ch)
+        val chainBlocksAndMembers: List[DFMember] =
+          chain.flatMap(cb => cb :: cb.members(MemberView.Flattened))
+        val allToWrap: List[DFMember] = ch :: chainBlocksAndMembers
+        val owner = ch.getOwnerBlock
+        val wrapDsn = new MetaDesign(
+          ch,
+          Patch.Add.Config.Before,
+          domainType = ED
+        ):
+          process(all):
+            plantMembers(owner, allToWrap)
+        val removals = allToWrap.map(_ -> Patch.Remove(isMoved = true))
+        wrapDsn.patch :: removals
+      case _ => None
+    }.toList
+    phase1DB.patch(wrapPatches)
+  end phase2
+
+  def transformSubDB(subDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
     extension (ch: DFConditional.Header)
       // recursive call to patch conditional block chains
       private def patchChains(headerVar: DFVal, op: DFNet.Op): List[(DFMember, Patch)] =
@@ -88,7 +124,7 @@ case object ExplicitCondExprAssign extends Stage:
         removeNetPatch :: ch.patchChains(headerVar, op)
     end extension
     // Phase 1: transform conditional expressions to statements
-    val patchList = designDB.members.view
+    val patches = subDB.members.view
       // collect all the assignments from anonymous conditionals
       .flatMap {
         case net @ DFNet.Assignment(toVal, header: DFConditional.Header) if header.isAnonymous =>
@@ -98,33 +134,8 @@ case object ExplicitCondExprAssign extends Stage:
           header.patchChainsNet(toVal, net, DFNet.Op.Assignment)
         case _ => Nil
       }.toList
-    val phase1DB = designDB.patch(patchList)
-    // Phase 2: wrap ED-domain non-process conditional statements in process(all)
-    locally {
-      given MemberGetSet = phase1DB.getSet
-      val wrapPatches: List[(DFMember, Patch)] = phase1DB.members.view.flatMap {
-        case ch: DFConditional.Header
-            if ch.dfType == DFUnit && ch.isInEDDomain && !ch.isInProcess
-              && !ch.getOwnerBlock.isInstanceOf[DFConditional.Block] =>
-          val chain = phase1DB.conditionalChainTable(ch)
-          val chainBlocksAndMembers: List[DFMember] =
-            chain.flatMap(cb => cb :: cb.members(MemberView.Flattened))
-          val allToWrap: List[DFMember] = ch :: chainBlocksAndMembers
-          val owner = ch.getOwnerBlock
-          val wrapDsn = new MetaDesign(
-            ch,
-            Patch.Add.Config.Before,
-            domainType = ED
-          ):
-            process(all):
-              plantMembers(owner, allToWrap)
-          val removals = allToWrap.map(_ -> Patch.Remove(isMoved = true))
-          wrapDsn.patch :: removals
-        case _ => None
-      }.toList
-      phase1DB.patch(wrapPatches)
-    }
-  end transform
+    subDB.patch(patches)
+  end transformSubDB
 end ExplicitCondExprAssign
 
 extension [T: HasDB](t: T)

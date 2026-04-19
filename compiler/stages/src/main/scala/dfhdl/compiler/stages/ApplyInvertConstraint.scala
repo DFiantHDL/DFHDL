@@ -42,13 +42,11 @@ import dfhdl.internals.BitVector
   * y2_inverted <> x2
   * ```
   */
-case object ApplyInvertConstraint extends Stage:
+case object ApplyInvertConstraint extends HierarchyStage:
   override def dependencies: List[Stage] = List(ToED)
   override def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-
-    val patchList: List[(DFMember, Patch)] = designDB.members.flatMap { member =>
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patches = subDB.members.flatMap { member =>
       member match
         case dcl: DFVal.Dcl if dcl.isPort =>
           val invertBitSet = mutable.BitSet.empty
@@ -122,9 +120,8 @@ case object ApplyInvertConstraint extends Stage:
           end if
         case _ => Nil
     }
-
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patches)
+  end transformSubDB
 end ApplyInvertConstraint
 
 extension [T: HasDB](t: T)

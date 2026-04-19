@@ -12,15 +12,16 @@ import dfhdl.compiler.stages.verilog.VerilogDialect
 
 // Names an anonymous relative value which is aliased.
 // The aliasing is limited according to the criteria provided
-private abstract class NamedAliases extends Stage:
+private abstract class NamedAliases extends HierarchyStage:
   def dependencies: List[Stage] = Nil
   def nullifies: Set[Stage] =
     Set(DFHDLUniqueNames, DropLocalDcls, ExplicitNamedVars, DropUnreferencedAnons)
+  // criteria walks refs across designs (via getReadDeps etc.), so use outer
+  // flat getSet for cross-hierarchy resolution.
+  override def rebindGetSet: Boolean = false
   def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal]
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-
-    val patchList: List[(DFMember, Patch)] =
-      designDB.members.view
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patches = subDB.members.view
         // just values
         .collect { case dfVal: DFVal if dfVal.isAnonymous => dfVal }
         // filter out partial net destinations
@@ -59,10 +60,10 @@ private abstract class NamedAliases extends Stage:
                 Patch.Replace.Config.ChangeRefOnly
               )
             )
-          case _ => Nil
-        }.toList
-    designDB.patch(patchList)
-  end transform
+        case _ => Nil
+      }.toList
+    subDB.patch(patches)
+  end transformSubDB
 end NamedAliases
 
 // For verilog bit selection from unnamed values is limited.

@@ -12,7 +12,7 @@ import DFVal.Func.Op as FuncOp
   *   - drop UInt/SInt match patterns by transforming them to Bits match patterns.
   *   - drop non locally static pattern selection by applying non-parametrized range selection.
   */
-case object SimplifyMatchSel extends Stage:
+case object SimplifyMatchSel extends HierarchyStage:
   override def runCondition(using co: CompilerOptions): Boolean =
     co.backend match
       case be: dfhdl.backends.vhdl =>
@@ -22,8 +22,7 @@ case object SimplifyMatchSel extends Stage:
       case _ => false
   override def dependencies: List[Stage] = List(MatchToIf)
   override def nullifies: Set[Stage] = Set(ExplicitNamedVars, DFHDLUniqueNames)
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     // vhdl parameter is locally static for basic operations between locally static values (not design parameter)
     object LocallyStaticVHDL:
       def unapply(dfVal: DFVal): Boolean =
@@ -47,9 +46,8 @@ case object SimplifyMatchSel extends Stage:
           case DFBits(DFRef(dfVal: DFVal)) => !LocallyStaticVHDL.unapply(dfVal)
           case _                           => false
     end SimplifySelector
-    val patchList: List[(DFMember, Patch)] =
-      designDB.members.view
-        .flatMap {
+    val patches = subDB.members.view
+      .flatMap {
           // handling match selector
           case mh @ DFMatchHeader(selectorRef = DFRef(selector @ SimplifySelector())) =>
             val dsn = new MetaDesign(mh, Patch.Add.Config.Before):
@@ -103,11 +101,11 @@ case object SimplifyMatchSel extends Stage:
                 Some(const -> Patch.Replace(newConst, Patch.Replace.Config.FullReplacement))
               case _ => None
             }
-          case _ => None
-        }
-        .toList
-    designDB.patch(patchList)
-  end transform
+        case _ => None
+      }
+      .toList
+    subDB.patch(patches)
+  end transformSubDB
 end SimplifyMatchSel
 
 extension [T: HasDB](t: T)

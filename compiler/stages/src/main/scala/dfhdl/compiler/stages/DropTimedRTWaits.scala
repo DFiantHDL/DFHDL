@@ -14,13 +14,15 @@ import scala.collection.mutable
   *     2.ms.wait -> 100000.cy.wait
   */
 //format: on
-case object DropTimedRTWaits extends Stage:
+case object DropTimedRTWaits extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
+  // explicitRTDomainCfgMap needs full-hierarchy domain info, so resolve via
+  // the outer getSet (flat designDB) rather than per-sub-DB getSet.
+  override def rebindGetSet: Boolean = false
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList = designDB.members.collect {
+  def transformSubDB(subDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
+    val patches = subDB.members.collect {
       // replace wait statements with time durations to cycles
       case waitMember @ Wait(
             DFRef(duration @ DFTime.Val(_)),
@@ -35,14 +37,13 @@ case object DropTimedRTWaits extends Stage:
         ):
           val waitTime = duration.getConstData[TimeNumber].toOption.get
           val (RTDomainCfg.Explicit(clkCfg = ClkCfg.Explicit(rate = clkRate))) =
-            designDB.explicitRTDomainCfgMap(waitMember.getOwnerDomain).runtimeChecked
+            getSet.designDB.explicitRTDomainCfgMap(waitMember.getOwnerDomain).runtimeChecked
           val cycles = (waitTime / clkRate.to_ps).value.toLong
           cycles.cy.wait(using dfc.setMeta(waitMember.meta))
         dsn.patch
-    }
-
-    designDB.patch(patchList)
-  end transform
+    }.toList
+    subDB.patch(patches)
+  end transformSubDB
 end DropTimedRTWaits
 
 extension [T: HasDB](t: T)

@@ -9,6 +9,12 @@ import annotation.FlattenMode
 /** This stage flattens the domains by removing them and changing their named members according to
   * the flattening mode.
   */
+// TODO: Phase 2 re-migration pending. Under per-sub-DB patching, this stage
+// renames nested DFDesignBlocks via `setName` (producing new instances in the
+// parent's sub-DB). The child design's own sub-DB keeps the original
+// unrenamed instance, so `newToOld` emits both under identity dedup —
+// revisit once newToOld has `=~`-based dedup or the stages sharing mutation
+// protocol is nailed down.
 case object DropDomains extends Stage:
   def dependencies: List[Stage] = List(ToED)
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, SimpleOrderMembers)

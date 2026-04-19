@@ -265,12 +265,23 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     require(!hasViolations, "Failed member order check!")
   end orderCheck
 
+  // Temporary Phase 1 check: exercise the old<->new DB conversion round-trip
+  // against every design the test suite exercises via sanityCheck.
+  private def hierarchicalDBRoundTripCheck(designDB: DB): Unit =
+    val lhs = designDB.oldToNew.newToOld.canonicalForm
+    val rhs = designDB.canonicalForm
+    require(
+      lhs == rhs,
+      "Hierarchical DB round-trip (oldToNew -> newToOld) did not match canonical form of input."
+    )
+
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     refCheck()
     memberExistenceCheck()
     ownershipCheck(designDB.top, designDB.membersNoGlobals.drop(1))
     orderCheck()
     designDB.check()
+    hierarchicalDBRoundTripCheck(designDB)
     designDB
 end SanityCheck
 

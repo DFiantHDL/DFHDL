@@ -14,7 +14,9 @@ import dfhdl.compiler.ir.DFConditional.DFIfElseBlock
 
 /** This stage drops process(all) by transforming it to a process with explicit sensitivity list
   */
-case object DropProcessAll extends Stage:
+case object DropProcessAll extends HierarchyStage:
+  // rebind off: `departialDcl` / `collectRelMembers` walk refs across designs.
+  override def rebindGetSet: Boolean = false
   override def dependencies: List[Stage] = List(ToED, DropLocalDcls)
   override def nullifies: Set[Stage] = Set()
   override def runCondition(using co: CompilerOptions): Boolean =
@@ -28,10 +30,9 @@ case object DropProcessAll extends Stage:
         be.dialect match
           case VerilogDialect.v95 => true
           case _                  => false
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patchList: List[(DFMember, Patch)] =
-      designDB.members
+      subDB.members
         // patching all process(all) blocks
         .collect { case pb @ ProcessBlock(sensitivity = Sensitivity.All) =>
           // recursively through value dependents
@@ -41,7 +42,7 @@ case object DropProcessAll extends Stage:
             }.flatMap(getDFValDependents).++(Some(dfVal))
           // recursively through internal conditional block members
           def getBlockDependents(block: DFBlock): collection.View[DFVal] =
-            val members = designDB.blockMemberTable(block)
+            val members = subDB.blockMemberTable(block)
             members.view.flatMap {
               case DFNet.Assignment(_, fromVal) => Some(fromVal)
               case mh: DFMatchHeader            => Some(mh.selectorRef.get)
@@ -61,8 +62,8 @@ case object DropProcessAll extends Stage:
 
           dsn.patch
         }
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patchList)
+  end transformSubDB
 end DropProcessAll
 
 extension [T: HasDB](t: T)

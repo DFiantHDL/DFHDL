@@ -10,10 +10,10 @@ import dfhdl.compiler.stages.verilog.VerilogDialect
 /** This stage drops all opaque types that fit within the applied filter predicate.
   * @param filterPred
   */
-abstract class DropOpaques(filterPred: DFOpaque => Boolean) extends Stage:
+abstract class DropOpaques(filterPred: DFOpaque => Boolean) extends HierarchyStage:
   override def dependencies: List[Stage] = List()
   override def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     object ComposedOpaqueDFTypeReplacement
         extends ComposedDFTypeReplacement(
           preCheck = {
@@ -26,36 +26,35 @@ abstract class DropOpaques(filterPred: DFOpaque => Boolean) extends Stage:
       def unapply(dfVal: DFVal): Option[DFVal] = dfVal.dfType match
         case ComposedOpaqueDFTypeReplacement(dfType) => Some(dfVal.updateDFType(dfType))
         case _                                       => None
-    val patchList: List[(DFMember, Patch)] =
-      designDB.members.view
-        .flatMap {
-          // casting to/from an opaque needs to be removed
-          case dfVal: DFVal.Alias.AsIs =>
-            val relVal = dfVal.relValRef.get
-            (dfVal.dfType, relVal.dfType) match
-              // `x.as(opaque)` cast is changed to just `x`
-              case (toType @ DFOpaque(actualType = at), fromType)
-                  if at == fromType && filterPred(toType) =>
-                Some(dfVal -> Patch.Replace(relVal, Patch.Replace.Config.ChangeRefAndRemove))
-              // `opaqueX.actual` cast is changed to just `opaqueX`. The `opaqueX` member is changed at a different case.
-              case (toType, fromType @ DFOpaque(actualType = at))
-                  if at == toType && filterPred(fromType) =>
-                Some(dfVal -> Patch.Replace(relVal, Patch.Replace.Config.ChangeRefAndRemove))
-              // otherwise, the values should be checked for composed opaques and changed accordingly
-              case _ =>
-                dfVal match
-                  case dfVal @ ComposedOpaqueDFValReplacement(updatedDFVal) =>
-                    Some(dfVal -> Patch.Replace(updatedDFVal, Patch.Replace.Config.FullReplacement))
-                  case _ => None
-            end match
-          // all other opaque values need to be changed to their actual types
-          case dfVal @ ComposedOpaqueDFValReplacement(updatedDFVal) =>
-            Some(dfVal -> Patch.Replace(updatedDFVal, Patch.Replace.Config.FullReplacement))
-          case _ => None
-        }
-        .toList
-    designDB.patch(patchList)
-  end transform
+    val patches = subDB.members.view
+      .flatMap {
+        // casting to/from an opaque needs to be removed
+        case dfVal: DFVal.Alias.AsIs =>
+          val relVal = dfVal.relValRef.get
+          (dfVal.dfType, relVal.dfType) match
+            // `x.as(opaque)` cast is changed to just `x`
+            case (toType @ DFOpaque(actualType = at), fromType)
+                if at == fromType && filterPred(toType) =>
+              Some(dfVal -> Patch.Replace(relVal, Patch.Replace.Config.ChangeRefAndRemove))
+            // `opaqueX.actual` cast is changed to just `opaqueX`. The `opaqueX` member is changed at a different case.
+            case (toType, fromType @ DFOpaque(actualType = at))
+                if at == toType && filterPred(fromType) =>
+              Some(dfVal -> Patch.Replace(relVal, Patch.Replace.Config.ChangeRefAndRemove))
+            // otherwise, the values should be checked for composed opaques and changed accordingly
+            case _ =>
+              dfVal match
+                case dfVal @ ComposedOpaqueDFValReplacement(updatedDFVal) =>
+                  Some(dfVal -> Patch.Replace(updatedDFVal, Patch.Replace.Config.FullReplacement))
+                case _ => None
+          end match
+        // all other opaque values need to be changed to their actual types
+        case dfVal @ ComposedOpaqueDFValReplacement(updatedDFVal) =>
+          Some(dfVal -> Patch.Replace(updatedDFVal, Patch.Replace.Config.FullReplacement))
+        case _ => None
+      }
+      .toList
+    subDB.patch(patches)
+  end transformSubDB
 end DropOpaques
 
 //This stage drops all opaque types

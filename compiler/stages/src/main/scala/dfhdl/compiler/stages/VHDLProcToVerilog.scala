@@ -22,15 +22,14 @@ import dfhdl.compiler.ir.DFVal.PortByNameSelect
   *     ....
   * }}}
   */
-case object VHDLProcToVerilog extends Stage:
+case object VHDLProcToVerilog extends HierarchyStage:
   def dependencies: List[Stage] = List(DropMagnets)
 
   def nullifies: Set[Stage] = Set()
   override def runCondition(using co: CompilerOptions): Boolean = co.backend.isVerilog
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList: List[(DFMember, Patch)] = designDB.members.flatMap {
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patches = subDB.members.flatMap {
       case pb @ ProcessBlock(sensitivity = Sensitivity.List(stRefs)) =>
         def getStVals = stRefs.view.map(_.get)
         val stValsStripped = getStVals.map(_.stripPortSel).toSet
@@ -89,8 +88,8 @@ case object VHDLProcToVerilog extends Stage:
         end match
       case _ => None
     }
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patches)
+  end transformSubDB
 end VHDLProcToVerilog
 
 extension [T: HasDB](t: T)

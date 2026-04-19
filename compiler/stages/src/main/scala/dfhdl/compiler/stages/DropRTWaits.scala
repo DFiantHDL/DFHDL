@@ -153,13 +153,12 @@ import scala.collection.mutable
  *     ```
  */
 //format: on
-case object DropRTWaits extends Stage:
+case object DropRTWaits extends HierarchyStage:
   def dependencies: List[Stage] = List(DropTimedRTWaits, SimplifyRTOps)
   def nullifies: Set[Stage] = Set()
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList = designDB.members.view.collect {
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patches = subDB.members.view.collect {
       // each process block has its own step enumeration
       case pb: ProcessBlock if pb.isInRTDomain =>
         val pbMembers = pb.members(MemberView.Flattened)
@@ -336,9 +335,8 @@ case object DropRTWaits extends Stage:
           case member => checkAndExitStepBlock(member)
         }
     }.flatten.toList
-
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patches)
+  end transformSubDB
 end DropRTWaits
 
 extension [T: HasDB](t: T)
