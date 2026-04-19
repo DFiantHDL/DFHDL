@@ -57,8 +57,8 @@ trait HierarchyStage extends Stage:
       val result = transformSubDB(subDB)(using ctxGetSet, co, summon[RefGen])
       if (!(result eq subDB)) changed = true
       result
-    val transformedSubs: ListMap[DFDesignBlock, DB] =
-      newDB.internalDBs.map { case (d, subDB) => d -> run(subDB) }
+    val transformedSubs: ListMap[DFOwner.Ref, DB] =
+      newDB.internalDBs.map { case (k, subDB) => k -> run(subDB) }
     val transformedRoot = run(newDB)
     if (!changed) designDB
     else transformedRoot.copy(internalDBs = transformedSubs).newToOld

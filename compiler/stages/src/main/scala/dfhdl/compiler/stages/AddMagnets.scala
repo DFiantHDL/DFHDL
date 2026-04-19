@@ -64,7 +64,7 @@ case object AddMagnets extends HierarchyStage:
   ): DB =
     // Each sub-DB patches ONLY its own design. Skip root (whose designBlock
     // aliases the top sub-DB's designBlock — that sub-DB handles it).
-    val designOpt = subDB.designBlock.filterNot(subDB.internalDBs.contains)
+    val designOpt = subDB.designBlock.filterNot(d => subDB.internalDBs.contains(d.ownerRef))
     designOpt.flatMap(cachedDesignMagnets.get) match
       case Some(dfTypeMap) =>
         val design = designOpt.get

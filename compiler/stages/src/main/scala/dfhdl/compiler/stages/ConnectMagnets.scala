@@ -23,7 +23,7 @@ case object ConnectMagnets extends HierarchyStage:
   ): DB =
     // Each sub-DB patches ONLY its own design. Skip root, whose designBlock
     // aliases the top sub-DB's designBlock (which also processes it).
-    val designOpt = subDB.designBlock.filterNot(subDB.internalDBs.contains)
+    val designOpt = subDB.designBlock.filterNot(d => subDB.internalDBs.contains(d.ownerRef))
     designOpt match
       case Some(design) =>
         val outer = getSet.designDB

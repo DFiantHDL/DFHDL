@@ -14,7 +14,12 @@ final case class DB(
     refTable: Map[DFRefAny, DFMember],
     globalTags: DFTags,
     srcFiles: List[SourceFile],
-    internalDBs: ListMap[DFDesignBlock, DB] = ListMap.empty,
+    // Keyed by the sub-DB's `designBlock.ownerRef` — a lightweight, stable
+    // identity for the design instance that isn't invalidated when a stage
+    // replaces the DFDesignBlock object via a patch (the patch preserves
+    // ownerRef). Each sub-DB carries its own `designBlock: Some(d)` so the
+    // actual block is always accessible without a map lookup.
+    internalDBs: ListMap[DFOwner.Ref, DB] = ListMap.empty,
     // On new-style sub-DBs this is `Some(d)` where `d` is the design block
     // this sub-DB represents. The design block itself is NOT in `members` —
     // it is a member of its parent's design context. On root / old-style DBs
@@ -365,7 +370,8 @@ final case class DB(
       // Resolve origin's ownerRef chain using origin's own sub-DB getSet;
       // in old-style, this DB's getSet suffices.
       given MemberGetSet =
-        if (internalDBs.nonEmpty) internalDBs.get(origDesign).map(_.getSet).getOrElse(self.getSet)
+        if (internalDBs.nonEmpty)
+          internalDBs.get(origDesign.ownerRef).map(_.getSet).getOrElse(self.getSet)
         else self.getSet
       // 1. Build domain block copies
       val origToDupMap = mutable.Map.empty[DFDomainOwner, DFDomainOwner]
@@ -1483,7 +1489,7 @@ final case class DB(
           val directChildren = locals.collect { case c: DFDesignBlock => c }
           val childEntries = directChildren.map(c => c -> buildSubDB(c))
           val descendants = childEntries.flatMap { case (c, cDB) =>
-            (c -> cDB) :: cDB.internalDBs.toList
+            (c.ownerRef -> cDB) :: cDB.internalDBs.toList
           }
           DB(
             members = dbMembers,
@@ -1499,7 +1505,7 @@ final case class DB(
         }
       )
     val topSubDB = buildSubDB(topDsn)
-    val rootInternalDBs = (topDsn -> topSubDB) :: topSubDB.internalDBs.toList
+    val rootInternalDBs = (topDsn.ownerRef -> topSubDB) :: topSubDB.internalDBs.toList
     // Root members: ALL globals (in original order) + topDsn. No locals at
     // root — top's locals live in topSubDB. Keeping all globals at root keeps
     // the canonical ordering trivial for the round-trip check.
@@ -1541,8 +1547,8 @@ final case class DB(
           seen += m
           flat += m
           m match
-            case d: DFDesignBlock if internalDBs.contains(d) =>
-              emit(internalDBs(d).members)
+            case d: DFDesignBlock if internalDBs.contains(d.ownerRef) =>
+              emit(internalDBs(d.ownerRef).members)
             case _ =>
       }
     emit(this.members)
