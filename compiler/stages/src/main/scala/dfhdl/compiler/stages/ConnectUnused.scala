@@ -6,33 +6,45 @@ import dfhdl.compiler.patching.*
 import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 import scala.collection.mutable
+import scala.collection.immutable.ListMap
 
 /** This stage connects design instance output ports annotated with @unused to OPEN.
   */
-case object ConnectUnused extends Stage:
+case object ConnectUnused extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList: List[(DFMember, Patch)] = designDB.dupPortsByName.view.collect {
-      // For design instances
-      case (designInst, ports) if !designInst.isTop =>
-        val designInstPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
-        // Find ports annotated with @unused
+  // `unusedPort.asDclAny <> OPEN` uses `refTW` which calls `getOwnerDesign`
+  // on the port Dcl; its ownerRef chain only resolves against the flat
+  // refTable, so run with the outer getSet.
+  override def rebindGetSet: Boolean = false
+  def transformSubDB(subDB: DB)(using
+      getSet: MemberGetSet, co: CompilerOptions, rg: RefGen
+  ): DB =
+    // Each sub-DB handles its own direct-child design instances (patches anchor
+    // at `designInst` with Add.Config.After, which modifies the PARENT's scope).
+    // Skip top (not a child) and self (processed by parent's sub-DB).
+    // Use `getSet.designDB.dupPortsByName` (the outer flat DB, since
+    // rebindGetSet=false) to resolve ports for duplicates whose origin may live
+    // outside this sub-DB's subtree.
+    val self = subDB.designBlock
+    val patchList: List[(DFMember, Patch)] = subDB.members.view.collect {
+      case designInst: DFDesignBlock if !designInst.isTop && !self.contains(designInst) =>
+        val ports = getSet.designDB.dupPortsByName.getOrElse(designInst, ListMap.empty)
         val unusedPorts = ports.view.values.filter { port =>
           port.meta.annotations.exists {
             case _: annotation.Unused => true
             case _                    => false
           }
         }.toList
-        // Create connections to OPEN for unused ports
-        val dsn = new MetaDesign(designInst, Patch.Add.Config.After):
-          for (unusedPort <- unusedPorts) do
-            unusedPort.asDclAny <> OPEN
-        dsn.patch
-    }.toList
-    designDB.patch(patchList)
-  end transform
+        if (unusedPorts.nonEmpty)
+          val dsn = new MetaDesign(designInst, Patch.Add.Config.After):
+            for (unusedPort <- unusedPorts) do
+              unusedPort.asDclAny <> OPEN
+          Some(dsn.patch)
+        else None
+    }.flatten.toList
+    subDB.patch(patchList)
+  end transformSubDB
 end ConnectUnused
 
 extension [T: HasDB](t: T)
