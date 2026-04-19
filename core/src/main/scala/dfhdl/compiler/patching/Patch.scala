@@ -549,7 +549,22 @@ extension (db: DB)
       println(patchedRefTable.toList.sortBy(_._1.hashString).mkString("\n"))
       println("----------------------------------------------------------------------------")
     }
-    DB(patchedMembers, patchedRefTable, globalTags, srcFiles)
+    // Drop orphan OneWay.Gen refs — refTable entries whose key is no
+    // member's ownerRef. They leak in from elaboration scaffolding and some
+    // meta-design transitions whose source member was never attached (or was
+    // removed through a code path that didn't purge its entry). Safe to drop:
+    // no live member emits them, so nothing in `members` depends on them.
+    // Cleaning at patch-exit keeps every patched DB self-consistent and lets
+    // SanityCheck's orphan check be strict.
+    val cleanedRefTable =
+      val memberOwnerRefs = scala.collection.mutable.Set.empty[DFRefAny]
+      patchedMembers.foreach(m => memberOwnerRefs += m.ownerRef)
+      patchedRefTable.filter { (r, _) =>
+        r match
+          case _: DFRef.OneWay.Gen[?] => memberOwnerRefs.contains(r)
+          case _                      => true
+      }
+    db.copy(members = patchedMembers, refTable = cleanedRefTable)
   end patch
 
   def patchSingle(singlePatch: (DFMember, Patch), debug: Boolean = false): DB =

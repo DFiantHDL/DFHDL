@@ -18,7 +18,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     var hasViolations: Boolean = false
     def reportViolation(msg: String): Unit =
       hasViolations = true
-      println(msg)
+      System.err.println(msg)
 
     val memberSet = mutable.Set.empty[DFMember]
     // checks for all members
@@ -111,6 +111,15 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       end match
     }
     val originRefTable = getSet.designDB.originRefTable
+    // Collect every member's OneWay.Gen ownerRef so we can detect orphans —
+    // a OneWay ref in refTable whose source member was removed but the ref
+    // entry was left behind. Under the flat model these orphans are invisible
+    // because a later Patch.Replace on the target rewires them via
+    // `memberTable.invert`; under per-sub-DB patching a peer sub-DB's patch
+    // can't reach them, so they surface as "Ref exists for a removed member"
+    // after reassembly.
+    val memberOwnerRefs = mutable.Set.empty[DFRefAny]
+    memberSet.foreach(m => memberOwnerRefs += m.ownerRef)
     // checks for all references
     refTable.foreach { (r, m) =>
       if (!m.isInstanceOf[DFMember.Empty] && !memberSet.contains(m))
@@ -118,6 +127,15 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       r match
         case r: DFRef.TwoWayAny if !originRefTable.contains(r) =>
           reportViolation(s"Missing origin member with the reference $r for the member: $m")
+        // Orphan-ref detection is gated on `!skipAnonRefCheck` because some
+        // orphans are produced in elaboration / meta-design scaffolding and
+        // only get swept up once `DropUnreferencedAnons` has run in the
+        // pipeline. StageRunner invokes sanityCheck with skipAnonRefCheck=true
+        // until DropUnreferencedAnons is in the `done` set, matching how the
+        // anonymous-value check is already gated.
+        case _: DFRef.OneWay.Gen[?]
+            if !skipAnonRefCheck && !memberOwnerRefs.contains(r) =>
+          reportViolation(s"Orphan OneWay ref $r has no source member (target: $m)")
         case _ => // do nothing
     }
     // check a reference is only used by a single member

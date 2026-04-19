@@ -656,7 +656,19 @@ final class MutableDB():
       case m                    => m
     }
     val globalTags = GlobalTagContext.tags
-    val db = DB(membersNoGlobalCtx, refTable, globalTags, Nil)
+    // Drop orphan OneWay.Gen refs — refTable entries whose key is no live
+    // member's ownerRef. Elaboration scaffolding (especially meta-design /
+    // cloneAnon paths) can leak these; they're safe to drop because no
+    // member emits them.
+    val cleanedRefTable =
+      val memberOwnerRefs = mutable.Set.empty[DFRefAny]
+      membersNoGlobalCtx.foreach(m => memberOwnerRefs += m.ownerRef)
+      refTable.filter { (r, _) =>
+        r match
+          case _: DFRef.OneWay.Gen[?] => memberOwnerRefs.contains(r)
+          case _                      => true
+      }
+    val db = DB(membersNoGlobalCtx, cleanedRefTable, globalTags, Nil)
     memoizedDB = Some(db)
     db
   }
