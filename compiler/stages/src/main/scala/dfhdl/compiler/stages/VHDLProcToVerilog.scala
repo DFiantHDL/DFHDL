@@ -27,6 +27,10 @@ case object VHDLProcToVerilog extends HierarchyStage:
 
   def nullifies: Set[Stage] = Set()
   override def runCondition(using co: CompilerOptions): Boolean = co.backend.isVerilog
+  // `clk.rising` / `rst.falling` on a PortByNameSelect-resolved Dcl calls
+  // `refTW -> getOwnerDesign` on that Dcl. Origin Dcls carry an ownerRef that
+  // only resolves against the flat refTable, so run with the outer getSet.
+  override def rebindGetSet: Boolean = false
 
   def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patches = subDB.members.flatMap {

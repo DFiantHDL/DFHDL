@@ -31,6 +31,10 @@ import dfhdl.options.CompilerOptions
 case object ExplicitNamedVars extends HierarchyStage:
   def dependencies: List[Stage] = List(NamedAnonCondExpr)
   def nullifies: Set[Stage] = Set(DropLocalDcls)
+  // `getRegOrVarDeps` -> `getReadDeps` -> `connectionTable.getValAccess`
+  // calls `getOwnerDesign` on Dcls that may live in a sibling/child sub-DB,
+  // so we need the outer flat-DB getSet.
+  override def rebindGetSet: Boolean = false
 
   object WhenHeader extends Patch.Replace.RefFilter:
     def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
