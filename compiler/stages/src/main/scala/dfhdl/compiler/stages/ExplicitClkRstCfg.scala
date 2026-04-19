@@ -35,14 +35,31 @@ import dfhdl.core.{refTW, DFC}
   *      mangling is special-cased in various stages and compiler logic and used to indicated that
   *      both domain configurations are derived from one another.
   */
-case object ExplicitClkRstCfg extends Stage:
+case object ExplicitClkRstCfg extends HierarchyStage:
   def dependencies: List[Stage] = List(UniqueDesigns, NamedAnonMultiref)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+  // explicitRTDomainCfgMap / dependentRTDomainOwners / getOwnerDomain walk
+  // the full hierarchy across sub-DB boundaries, so resolve via the outer
+  // flat-DB getSet rather than per-sub-DB getSet.
+  override def rebindGetSet: Boolean = false
+  def transformSubDB(subDB: DB)(using
+      getSet: MemberGetSet,
+      co: CompilerOptions,
+      rg: RefGen
+  ): DB =
+    val designDB = getSet.designDB
     val relatedCfgRefs = mutable.Map.empty[DFRefAny, DFMember]
     given dfc: DFC = DFC.emptyNoEO
-    val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
-      case (owner: (DFDomainOwner & DFBlock), members) =>
+    // A DFDesignBlock D appears as a member in two sub-DBs: as the top of
+    // its own sub-DB AND as a child member of its parent sub-DB. Patch D
+    // only in its canonical sub-DB (where D's locals live) so that
+    // newToOld picks the patched version. DomainBlocks live in exactly
+    // one sub-DB (the surrounding design's sub-DB), so always process.
+    def isCanonicalHere(owner: DFOwnerNamed): Boolean = owner match
+      case d: DFDesignBlock => (subDB.top eq d) && !subDB.internalDBs.contains(d.ownerRef)
+      case _                => true
+    val patchList: List[(DFMember, Patch)] = subDB.namedOwnerMemberList.flatMap {
+      case (owner: (DFDomainOwner & DFBlock), members) if isCanonicalHere(owner) =>
         owner.domainType match
           case domainType @ DomainType.RT(RTDomainCfg.Derived) =>
             val explicitCfg = designDB.explicitRTDomainCfgMap(owner)
@@ -65,8 +82,9 @@ case object ExplicitClkRstCfg extends Stage:
           case _ => None
       case _ => None
     }
-    designDB.copy(refTable = designDB.refTable ++ relatedCfgRefs).patch(patchList)
-  end transform
+    if (patchList.isEmpty) subDB
+    else subDB.copy(refTable = subDB.refTable ++ relatedCfgRefs).patch(patchList)
+  end transformSubDB
 end ExplicitClkRstCfg
 
 extension [T: HasDB](t: T)
