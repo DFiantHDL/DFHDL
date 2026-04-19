@@ -12,25 +12,32 @@ import dfhdl.core.{asFE, ModifierAny}
 /** This stage adds missing magnet ports across the entire design. These will be connected at a
   * later stage.
   */
-case object AddMagnets extends Stage:
+case object AddMagnets extends HierarchyStage:
   def dependencies: List[Stage] = List(AddClkRst)
   def nullifies: Set[Stage] = Set(ViaConnection, SimpleOrderMembers)
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    // Populating a missing magnets map with the suggested port names and direction
-    val missingMagnets = mutable.Map.empty[DFDesignBlock, Map[DFType, (String, DFVal.Modifier)]]
+  // Magnet discovery (climbing design hierarchy via magnetConnectionTable)
+  // and port-planting both call `getOwnerDesign` on cross-design Dcls, which
+  // only resolves against the flat refTable. Run with the outer flat getSet.
+  override def rebindGetSet: Boolean = false
+
+  // Per-run cache: computed once in `transform` (the outer entry point) and
+  // consumed by each `transformSubDB` call. Reset at entry so the case
+  // object singleton doesn't leak across runs.
+  private var cachedDesignMagnets
+      : Map[DFDesignBlock, Map[DFType, (String, DFVal.Modifier)]] = Map.empty
+
+  override def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    val missing = mutable.Map.empty[DFDesignBlock, Map[DFType, (String, DFVal.Modifier)]]
     designDB.magnetConnectionTable.foreach { (toPort, fromPort) =>
       val toPortDsn = toPort.getOwnerDesign
       val fromPortDsn = fromPort.getOwnerDesign
       val dfType = toPort.dfType
       def anotherMissingMagnet(dsn: DFDesignBlock, mod: DFVal.Modifier): Unit =
-        missingMagnets.get(dsn) match
-          case None => missingMagnets += dsn -> Map(dfType -> (fromPort.getName, mod))
+        missing.get(dsn) match
+          case None => missing += dsn -> Map(dfType -> (fromPort.getName, mod))
           case Some(dfTypeNameMap) if !dfTypeNameMap.contains(dfType) =>
-            missingMagnets += dsn -> (dfTypeNameMap + (dfType -> (fromPort.getName, mod)))
+            missing += dsn -> (dfTypeNameMap + (dfType -> (fromPort.getName, mod)))
           case _ => // do nothing
-      // climb from a bottom design to a top design, while memoizing missing
-      // magnets between the designs
       def climbUpDsn(bottomDsn: DFDesignBlock, topDsn: DFDesignBlock, mod: DFVal.Modifier): Unit =
         var dsn = bottomDsn
         while (!dsn.isOneLevelBelow(topDsn))
@@ -39,35 +46,36 @@ case object AddMagnets extends Stage:
       def climbUp(bottomPort: DFVal.Dcl, topDsn: DFDesignBlock): Unit =
         climbUpDsn(bottomPort.getOwnerDesign, topDsn, bottomPort.modifier)
       (toPort, fromPort) match
-        // climbing up to the source input port
-        case (DclIn(), DclIn()) => climbUp(toPort, fromPortDsn)
-        // climbing up to the target output port
+        case (DclIn(), DclIn())   => climbUp(toPort, fromPortDsn)
         case (DclOut(), DclOut()) => climbUp(fromPort, toPortDsn)
-        // climbing up from the output source and up from the input target to the common design
         case (DclIn(), DclOut()) =>
           val commonDsn = toPortDsn.getCommonDesignWith(fromPortDsn)
-          if (commonDsn != fromPortDsn)
-            climbUp(fromPort, commonDsn)
-          if (commonDsn != toPortDsn)
-            climbUp(toPort, commonDsn)
+          if (commonDsn != fromPortDsn) climbUp(fromPort, commonDsn)
+          if (commonDsn != toPortDsn) climbUp(toPort, commonDsn)
         case _ => // do nothing
       end match
     }
-    val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {
-      // for all designs
-      case (design, _) if missingMagnets.contains(design) =>
-        // sorting added magnets for consistent port addition order
-        val magnets = missingMagnets(design).toList.sortBy(_._2._1)
+    cachedDesignMagnets = missing.toMap
+    try super.transform(designDB)
+    finally cachedDesignMagnets = Map.empty
+
+  def transformSubDB(subDB: DB)(using
+      getSet: MemberGetSet, co: CompilerOptions, rg: RefGen
+  ): DB =
+    // Each sub-DB patches ONLY its own design. Skip root (whose designBlock
+    // aliases the top sub-DB's designBlock — that sub-DB handles it).
+    val designOpt = subDB.designBlock.filterNot(subDB.internalDBs.contains)
+    designOpt.flatMap(cachedDesignMagnets.get) match
+      case Some(dfTypeMap) =>
+        val design = designOpt.get
+        val magnets = dfTypeMap.toList.sortBy(_._2._1)
         val dsn = new MetaDesign(design, Patch.Add.Config.InsideFirst):
           for ((dfType, (name, mod)) <- magnets)
             val modFE = new ModifierAny(mod)
             (dfType.asFE[DFType] <> modFE)(using dfc.setName(name))
-        // the ports are added as first members
-        Some(dsn.patch)
-      case _ => Nil
-    }
-    designDB.patch(patchList)
-  end transform
+        subDB.patch(List(dsn.patch))
+      case None => subDB
+  end transformSubDB
 end AddMagnets
 
 extension [T: HasDB](t: T)
