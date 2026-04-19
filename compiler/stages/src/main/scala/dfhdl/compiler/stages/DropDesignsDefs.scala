@@ -5,11 +5,19 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.compiler.ir.DFDesignBlock.InstMode
 import dfhdl.options.CompilerOptions
-case object DropDesignDefs extends Stage:
+case object DropDesignDefs extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls, DropUnreferencedAnons)
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    val patchList = designDB.designMemberList.flatMap {
+  // `DFNet.Connection.unapply` resolves via the full-DB `connectionTable`,
+  // which walks owner chains that cross sub-DB boundaries, so we keep the
+  // outer flat getSet.
+  override def rebindGetSet: Boolean = false
+  def transformSubDB(subDB: DB)(using
+      getSet: MemberGetSet,
+      co: CompilerOptions,
+      rg: RefGen
+  ): DB =
+    val patchList = subDB.designMemberList.flatMap {
       // only going after design definitions
       case (design @ DFDesignBlock(domainType = DomainType.DF, instMode = InstMode.Def), members) =>
         var outPortOpt: Option[DFVal.Dcl] = None
@@ -51,8 +59,8 @@ case object DropDesignDefs extends Stage:
         ) :: identRemovePatch ++ outPortPatch
       case _ => None
     }
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patchList)
+  end transformSubDB
 end DropDesignDefs
 
 //turns design definitions into normal designs, and set their instance names
