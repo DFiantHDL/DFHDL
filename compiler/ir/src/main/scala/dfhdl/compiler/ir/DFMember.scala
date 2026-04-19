@@ -662,10 +662,7 @@ object DFVal:
     extension (portByNameSelect: PortByNameSelect)
       def getPortDcl(using MemberGetSet): DFVal.Dcl =
         val designInst = portByNameSelect.designInstRef.get
-        // NEWDB variant: identical to `dupPortsByName` on old-style DBs and
-        // sub-DBs; walks `internalDBs` on a new-style root DB so PBNS into
-        // sibling/child designs resolves during per-design stage migration.
-        getSet.designDB.dupPortsByNameNEWDB(designInst)(portByNameSelect.portNamePath)
+        getSet.designDB.dupPortsByName(designInst)(portByNameSelect.portNamePath)
 
   sealed trait Alias extends CanBeExpr:
     val relValRef: Alias.Ref

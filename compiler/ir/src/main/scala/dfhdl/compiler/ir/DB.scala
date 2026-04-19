@@ -29,9 +29,9 @@ final case class DB(
     // `refTable` still resolve refs across sub-DBs. Identical to `refTable`
     // when `internalDBs.isEmpty` (old-style).
     def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0 =
-      flatRefTableNEWDB(ref).asInstanceOf[M0]
+      refTable(ref).asInstanceOf[M0]
     def getOption[M <: DFMember, M0 <: M](ref: DFRef[M]): Option[M0] =
-      flatRefTableNEWDB.get(ref).asInstanceOf[Option[M0]]
+      refTable.get(ref).asInstanceOf[Option[M0]]
     def getOrigin(ref: DFRef.TwoWayAny): DFMember = originRefTable(ref)
     def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M =
       newMemberFunc(originalMember)
@@ -77,7 +77,7 @@ final case class DB(
   lazy val top: DFDesignBlock = designBlock.getOrElse(
     membersNoGlobals.head match
       case m: DFDesignBlock => m
-      case invalidTop =>
+      case invalidTop       =>
         throw new IllegalArgumentException(s"Unexpected member as Top:\n$invalidTop")
   )
 
@@ -288,72 +288,6 @@ final case class DB(
     designMemberList.collect {
       case (design, _) if design.isDuplicate => design -> origByName(design.dclName)
     }.toMap
-
-  // Hierarchical-aware NEWDB variants of `dupDesignDomainBlockMap` and
-  // `dupPortsByName`. On old-style / sub-DBs (internalDBs empty) they delegate
-  // to the existing tuple. On a new-style root DB they recompute over
-  // `flatMembersNEWDB` so ports/domains from every sub-DB are included —
-  // required by `PortByNameSelect.getPortDcl` to resolve PBNS pointing into
-  // a sibling/child sub-DB during per-design Phase 2 migrations.
-  // NEWDB suffix stripped in Phase 3 cleanup.
-  lazy val (dupDesignDomainBlockMapNEWDB, dupPortsByNameNEWDB) =
-    if (internalDBs.isEmpty) (dupDesignDomainBlockMap, dupPortsByName)
-    else
-      given MemberGetSet = self.getSet
-      val flatMembersList = flatMembersNEWDB
-      val flatMembersNoGlobalsList = flatMembersList.filter {
-        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => false
-        case _                                          => true
-      }
-      val origDomainBlocks: Map[DFDesignBlock, List[DomainBlock]] =
-        flatMembersList.view
-          .collect { case db: DomainBlock => db }
-          .groupBy(_.getOwnerDesign)
-          .map { (design, blocks) => design -> blocks.toList }
-          .toMap
-      val origPortMap: Map[DFDesignBlock, ListMap[String, DFVal.Dcl]] = flatMembersList.view
-        .collect { case m: DFVal.Dcl if m.isPort => m }
-        .groupBy(_.getOwnerDesign)
-        .map { case (design, dcls) =>
-          design -> ListMap.from(dcls.view.map(m => m.getRelativeName(design) -> m))
-        }.toMap
-      val pbnsByDesign = flatMembersList.view
-        .collect { case m: DFVal.PortByNameSelect => m }
-        .groupBy(m => m.designInstRef.get)
-        .view.mapValues(_.map(m => m.portNamePath -> m.dfType).toMap).toMap
-      // Hierarchical designMemberList + dupDesignToOrigMap (both normally
-      // computed from per-DB `members`).
-      val flatDesignMemberList = OMLGen[DFDesignBlock](_.getOwnerDesign)(
-        List(), flatMembersNoGlobalsList.drop(1), List(top -> List())
-      ).reverse
-      val flatUniqueDesignMemberList = flatDesignMemberList.filterNot(_._1.isDuplicate)
-      val origByName =
-        flatUniqueDesignMemberList.map(_._1).groupBy(_.dclName).view.mapValues(_.head).toMap
-      val flatDupDesignToOrigMap: Map[DFDesignBlock, DFDesignBlock] =
-        flatDesignMemberList.collect {
-          case (design, _) if design.isDuplicate => design -> origByName(design.dclName)
-        }.toMap
-      val domainBlockMap = mutable.Map.empty[(DFDesignBlock, DomainBlock), DomainBlock]
-      val portEntries = mutable.Map.empty[DFDesignInst, ListMap[String, DFVal.Dcl]]
-      flatDupDesignToOrigMap.foreach { (dupDesign, origDesign) =>
-        val origToDupMap = mutable.Map.empty[DFDomainOwner, DFDomainOwner]
-        origToDupMap += origDesign -> dupDesign
-        origDomainBlocks.getOrElse(origDesign, Nil).foreach { origBlock =>
-          val dupOwner = origToDupMap(origBlock.getOwnerDomain)
-          val dupBlock = origBlock.copy(ownerRef = DFRef.DuplicationRef(dupOwner))
-          origToDupMap += origBlock -> dupBlock
-          domainBlockMap += (dupDesign, origBlock) -> dupBlock
-        }
-        val pbnsTypes = pbnsByDesign.getOrElse(dupDesign, Map.empty)
-        portEntries += dupDesign ->
-          ListMap.from(origPortMap.getOrElse(origDesign, ListMap.empty).view.map { (name, dcl) =>
-            val dfType = pbnsTypes.getOrElse(name, dcl.dfType)
-            val dupOwnerDomain = origToDupMap(dcl.getOwnerDomain)
-            name -> dcl.copy(ownerRef = DFRef.DuplicationRef(dupOwnerDomain), dfType = dfType)
-          })
-      }
-      (domainBlockMap.toMap, portEntries.toMap ++ origPortMap)
-  end val
 
   // Single pass: for each duplicate design, compute dup domain blocks AND dup ports together.
   // dupDesignDomainBlockMap: maps (dupDesign, origDomainBlock) -> dupDomainBlock
@@ -1417,48 +1351,6 @@ final case class DB(
       case (at, _) => at
     }
 
-  // ========= Phase 1 hierarchical-DB shape: converters + canonical form =========
-  // These exist to support the migration to a hierarchical `DB` model. The
-  // `sanityCheck` stage uses the round-trip `newToOld(oldToNew(db))` against
-  // `canonicalForm(db)` to validate the converters on every test design.
-  // All three will be removed once the migration completes (Phase 3 cleanup).
-
-  // Flat DFS view over root + sub-DBs, equivalent to old-style `members` on an
-  // `oldToNew` / `newToOld` round-trip. On an old-style DB (internalDBs empty)
-  // this is identically `members`. On a new-style DB it reconstructs the flat
-  // list by recursing into each sub-DB's members directly — sub-DB members are
-  // locals-only (no header), and the design block itself is emitted by its
-  // parent before recursion.
-  //
-  // Suffixed `NEWDB` while migration is in flight — per Phase 3 cleanup the
-  // suffix is stripped and the old-style `members` accessor becomes
-  // own-design-only.
-  lazy val flatMembersNEWDB: List[DFMember] =
-    if (internalDBs.isEmpty) members
-    else {
-      val buf = mutable.ListBuffer.empty[DFMember]
-      val seen = mutable.Set.empty[DFMember]
-      def emit(ms: List[DFMember]): Unit =
-        ms.foreach { m =>
-          if (!seen.contains(m))
-            seen += m
-            buf += m
-            m match
-              case d: DFDesignBlock if internalDBs.contains(d) =>
-                emit(internalDBs(d).members)
-              case _ =>
-        }
-      emit(members)
-      buf.toList
-    }
-
-  // Merged refTable across root + all sub-DBs. On old-style this equals the
-  // root `refTable`. On new-style this unions every partitioned refTable so
-  // ref lookups resolve across the whole design hierarchy.
-  lazy val flatRefTableNEWDB: Map[DFRefAny, DFMember] =
-    if (internalDBs.isEmpty) refTable
-    else internalDBs.values.foldLeft(refTable)(_ ++ _.refTable)
-
   // Converts an old-style flat DB (internalDBs.empty) to a canonical new-style DB
   // under the symmetric "option (a)" shape:
   //   - Every DB (root AND each sub-DB) has:
@@ -1529,28 +1421,30 @@ final case class DB(
     // Build sub-DBs bottom-up so each one captures its full descendant tree.
     val subDBs = mutable.Map.empty[DFDesignBlock, DB]
     def buildSubDB(d: DFDesignBlock): DB =
-      subDBs.getOrElseUpdate(d, {
-        val locals = designOwn(d).toList
-        val closure = globalsClosure(locals)
-        val dbMembers = closure ::: d :: locals
-        val dbRefTable = refsFor(dbMembers)
-        val directChildren = locals.collect { case c: DFDesignBlock => c }
-        val childEntries = directChildren.map(c => c -> buildSubDB(c))
-        val descendants = childEntries.flatMap { case (c, cDB) =>
-          (c -> cDB) :: cDB.internalDBs.toList
+      subDBs.getOrElseUpdate(
+        d, {
+          val locals = designOwn(d).toList
+          val closure = globalsClosure(locals)
+          val dbMembers = closure ::: d :: locals
+          val dbRefTable = refsFor(dbMembers)
+          val directChildren = locals.collect { case c: DFDesignBlock => c }
+          val childEntries = directChildren.map(c => c -> buildSubDB(c))
+          val descendants = childEntries.flatMap { case (c, cDB) =>
+            (c -> cDB) :: cDB.internalDBs.toList
+          }
+          DB(
+            members = dbMembers,
+            refTable = dbRefTable,
+            // Sub-DBs inherit globalTags from the root so per-design stage
+            // helpers (e.g. explicitRTDomainCfgMap) find project-wide tags
+            // like DefaultRTDomainCfgTag when dispatched against a sub-DB.
+            globalTags = this.globalTags,
+            srcFiles = Nil,
+            internalDBs = ListMap.from(descendants),
+            designBlock = Some(d)
+          )
         }
-        DB(
-          members = dbMembers,
-          refTable = dbRefTable,
-          // Sub-DBs inherit globalTags from the root so per-design stage
-          // helpers (e.g. explicitRTDomainCfgMap) find project-wide tags
-          // like DefaultRTDomainCfgTag when dispatched against a sub-DB.
-          globalTags = this.globalTags,
-          srcFiles = Nil,
-          internalDBs = ListMap.from(descendants),
-          designBlock = Some(d)
-        )
-      })
+      )
     val topSubDB = buildSubDB(topDsn)
     val rootInternalDBs = (topDsn -> topSubDB) :: topSubDB.internalDBs.toList
     // Root members: ALL globals (in original order) + topDsn. No locals at
@@ -1623,7 +1517,7 @@ final case class DB(
     val nonGlobals = mutable.ListBuffer.empty[DFMember]
     members.foreach {
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => globals += dfVal
-      case m => nonGlobals += m
+      case m                                          => nonGlobals += m
     }
     val newMembers = globals.toList ++ nonGlobals.toList
     if (newMembers == members) this else this.copy(members = newMembers)
