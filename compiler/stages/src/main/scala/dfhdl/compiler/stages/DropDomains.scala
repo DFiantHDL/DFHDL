@@ -9,17 +9,19 @@ import annotation.FlattenMode
 /** This stage flattens the domains by removing them and changing their named members according to
   * the flattening mode.
   */
-// TODO: Phase 2 re-migration pending. Under per-sub-DB patching, this stage
-// renames nested DFDesignBlocks via `setName` (producing new instances in the
-// parent's sub-DB). The child design's own sub-DB keeps the original
-// unrenamed instance, so `newToOld` emits both under identity dedup —
-// revisit once newToOld has `=~`-based dedup or the stages sharing mutation
-// protocol is nailed down.
-case object DropDomains extends Stage:
+case object DropDomains extends HierarchyStage:
   def dependencies: List[Stage] = List(ToED)
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, SimpleOrderMembers)
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    val patchList = designDB.membersNoGlobals.flatMap {
+  // `getOwnerDesign` on deeply-nested domain members walks up through the
+  // domain chain into ancestor designs that live in a parent sub-DB, so we
+  // keep the outer flat getSet.
+  override def rebindGetSet: Boolean = false
+  def transformSubDB(subDB: DB)(using
+      getSet: MemberGetSet,
+      co: CompilerOptions,
+      rg: RefGen
+  ): DB =
+    val patchList = subDB.membersNoGlobals.flatMap {
       // all domains are removed and their members referencing them need to point to the owner design
       case domain: DomainBlock =>
         Some(
@@ -56,8 +58,8 @@ case object DropDomains extends Stage:
           case _ => None
       case _ => None
     }
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patchList)
+  end transformSubDB
 end DropDomains
 
 extension [T: HasDB](t: T)
