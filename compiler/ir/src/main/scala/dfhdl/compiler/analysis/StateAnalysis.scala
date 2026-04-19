@@ -130,9 +130,13 @@ object StateAnalysis:
 
   // retrieves a list of variables that are consumed as their implicit previous value.
   // the assignment stack map is pushed on every conditional block entry and popped on the block exit
+  // `analysisRoot` is the design block at which the iteration began — recursion
+  // past this block is suppressed so that sub-DB analyses do not cross into
+  // parent designs whose members are absent from the current scope.
   @tailrec final def getImplicitStateVars(
       remaining: List[DFMember],
       currentBlock: DFBlock,
+      analysisRoot: DFDesignBlock,
       scopeMap: AssignMap,
       currentSet: Set[DFVal],
       checkedDomain: DomainType => Boolean
@@ -148,7 +152,8 @@ object StateAnalysis:
             (currentSet, scopeMap.branchEntry(cb.isFirstCB))
           case _ =>
             (currentSet, scopeMap)
-        getImplicitStateVars(rs, nextBlock, updatedScopeMap, updatedSet, checkedDomain)
+        getImplicitStateVars(rs, nextBlock, analysisRoot, updatedScopeMap, updatedSet,
+          checkedDomain)
       case r :: rs
           if r.getOwnerBlock == currentBlock && checkedDomain(
             currentBlock.getThisOrOwnerDomain.domainType
@@ -175,7 +180,8 @@ object StateAnalysis:
             (currentSet, scopeMap + (anyVar -> AssignedScope.empty))
           case _ =>
             (currentSet, scopeMap)
-        getImplicitStateVars(rs, currentBlock, updatedScopeMap, updatedSet, checkedDomain)
+        getImplicitStateVars(rs, currentBlock, analysisRoot, updatedScopeMap, updatedSet,
+          checkedDomain)
       case _ => // exiting child block or no more members
         val updatedSet = currentBlock match
           case d: DFDesignBlock if remaining.isEmpty =>
@@ -189,7 +195,7 @@ object StateAnalysis:
         val exitingBlock = remaining match
           case r :: _ if r.getOwnerBlock != currentBlock =>
             true // another member but not a child of current
-          case Nil if !currentBlock.isTop =>
+          case Nil if !currentBlock.isTop && !(currentBlock eq analysisRoot) =>
             true // there are no more members, but still not at top
           case _ => false // no more members and we are currently back at top
         if (exitingBlock)
@@ -201,8 +207,8 @@ object StateAnalysis:
             //                println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
             //                ret
             case _ => scopeMap
-          getImplicitStateVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, updatedSet,
-            checkedDomain)
+          getImplicitStateVars(remaining, currentBlock.getOwnerBlock, analysisRoot,
+            updatedScopeMap, updatedSet, checkedDomain)
         else (updatedSet, scopeMap)
     end match
   end getImplicitStateVars
@@ -274,15 +280,19 @@ object StateAnalysis:
 end StateAnalysis
 
 extension (designDB: DB)
+  // The implicit MemberGetSet is used for ref resolution during the walk
+  // (allowing callers to pass an outer flat-DB getSet when analyzing a
+  // sub-DB whose own getSet can't resolve cross-sub-DB refs).
   private def getImplicitStateVars(
       checkedDomain: DomainType => Boolean
-  ): Set[DFVal] =
-    import designDB.getSet
+  )(using MemberGetSet): Set[DFVal] =
     val (currentSet, scopeMap) = StateAnalysis.getImplicitStateVars(
-      designDB.membersNoGlobals.drop(1), designDB.top, Map(), Set(), checkedDomain
+      designDB.membersNoGlobals.drop(1), designDB.top, designDB.top, Map(), Set(), checkedDomain
     )
     currentSet.filter(p => scopeMap(p).hasAssignments)
 
-  def getImplicitStateVarsDF: Set[DFVal] = getImplicitStateVars(_ == DomainType.DF)
-  def getImplicitStateVarsRT: Set[DFVal] = getImplicitStateVars(_.isInstanceOf[DomainType.RT])
+  def getImplicitStateVarsDF(using MemberGetSet): Set[DFVal] =
+    getImplicitStateVars(_ == DomainType.DF)
+  def getImplicitStateVarsRT(using MemberGetSet): Set[DFVal] =
+    getImplicitStateVars(_.isInstanceOf[DomainType.RT])
 end extension
