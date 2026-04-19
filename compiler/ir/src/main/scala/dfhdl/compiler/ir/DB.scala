@@ -1532,30 +1532,64 @@ final case class DB(
   end oldToNew
 
   // Collapses a new-style (option-a) DB back into a flat old-style DB.
-  // All duplicated members (globals + DFDesignBlocks) are dedup'd by OBJECT
-  // identity since Phase 1's `oldToNew` shares them by identity across every
-  // DB that references them. Phase 2+ stages that diverge copies per-sub-DB
-  // will upgrade this to structural (`=~`) dedup later.
+  // Non-DFDesignBlock members dedup by OBJECT identity (globals are shared by
+  // identity across every DB that references them in Phase 1 / early Phase 2).
+  // DFDesignBlocks dedup by ownerRef because a stage that patches a sub-DB's
+  // own designBlock produces a new instance in that sub-DB only — the parent
+  // sub-DB (which also has the designBlock as a member) retains the stale
+  // instance. The sub-DB's version wins: it's the one that saw the patch.
   def newToOld: DB =
     if (internalDBs.isEmpty) return this
     val allDBs: List[DB] = this :: internalDBs.values.toList
+    // canonical DFDesignBlock per ownerRef: the one in its own sub-DB's
+    // `members` (the sub-DB owns patches against its header).
+    val canonicalDesign = mutable.Map.empty[DFOwner.Ref, DFDesignBlock]
+    internalDBs.foreach { (key, subDB) =>
+      subDB.members.collectFirst {
+        case d: DFDesignBlock if d.ownerRef == key => d
+      }.foreach(canonicalDesign(key) = _)
+    }
+    def canonicalize(m: DFMember): DFMember = m match
+      case d: DFDesignBlock => canonicalDesign.getOrElse(d.ownerRef, d)
+      case _                => m
     val flat = mutable.ListBuffer.empty[DFMember]
     val seen = mutable.Set.empty[DFMember]
     def emit(ms: List[DFMember]): Unit =
       ms.foreach { m =>
-        if (!seen.contains(m))
-          seen += m
-          flat += m
-          m match
+        val c = canonicalize(m)
+        if (!seen.contains(c))
+          seen += c
+          flat += c
+          c match
             case d: DFDesignBlock if internalDBs.contains(d.ownerRef) =>
               emit(internalDBs(d.ownerRef).members)
             case _ =>
       }
     emit(this.members)
-    // Merge refTables from root + every sub-DB. Duplicated entries collapse
-    // (same key → same target since globals are identity-shared).
+    // Merge refTables from root + every sub-DB. A shared ref key can live in
+    // multiple sub-DB refTables (e.g. a nested DFDesignBlock's ownerRef appears
+    // in both parent's refTable — where it points to the parent's own members —
+    // and child's refTable). When a sub-DB patches its member in-place, only
+    // that sub-DB's refTable is rewired; the peer sub-DB's entry for the same
+    // key still points at the pre-patch (now removed) instance. Prefer the
+    // entry whose target is in `flat` so stale targets lose when a fresh one
+    // exists for the same key. DFDesignBlock targets still go through
+    // `canonicalize` so refs pointing at the parent's stale copy retarget to
+    // the sub-DB's patched version.
+    val flatSet = mutable.Set.empty[DFMember]
+    flat.foreach(flatSet += _)
     val mergedRefTable = mutable.Map.empty[DFRefAny, DFMember]
-    allDBs.foreach(db => mergedRefTable ++= db.refTable)
+    allDBs.foreach { db =>
+      db.refTable.foreach { (k, target) =>
+        val canonicalTarget = canonicalize(target)
+        val isFresh = flatSet.contains(canonicalTarget)
+        mergedRefTable.get(k) match
+          case None => mergedRefTable(k) = canonicalTarget
+          case Some(existing) if !flatSet.contains(existing) && isFresh =>
+            mergedRefTable(k) = canonicalTarget
+          case _ => // keep existing
+      }
+    }
     DB(
       members = flat.toList,
       refTable = mergedRefTable.toMap,
