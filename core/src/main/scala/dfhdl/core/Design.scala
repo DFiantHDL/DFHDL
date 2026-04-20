@@ -169,13 +169,8 @@ object Design:
   type Block = DFOwner[ir.DFDesignBlock]
   object Block:
     def apply(domain: ir.DomainType, dclMeta: ir.Meta, instMode: InstMode)(using DFC): Block =
-      val paramMap = ListMap.from(
-        dfc.mutableDB.DesignContext.getDesignParamValueMap.view.mapValues(
-          _.asIR.refTW[ir.DFDesignBlock]
-        )
-      )
       ir.DFDesignBlock(
-        domain, dclMeta, instMode, paramMap, dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
+        domain, dclMeta, instMode, ListMap.empty, dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
       ).addMember.asFE
     end apply
     protected[core] def updateWithParams(designBlock: ir.DFDesignBlock)(using dfc: DFC): Unit =

@@ -175,16 +175,6 @@ final class MutableDB():
     val designMembers = mutable.Map.empty[DFDesignBlock, List[DFMember]]
     val uniqueDesigns = mutable.Map.empty[String, List[List[DFDesignBlock]]]
 
-    // for design parameters we save them via the plugin before the design is elaborated, and then
-    // construct the design block with the parameters referenced in its paramMap.
-    private var designParamValueMap = ListMap.empty[String, DFValAny]
-    def prepareDesignParamValues(paramNames: List[String], paramValues: List[DFValAny]): Unit =
-      designParamValueMap = ListMap.from(paramNames.lazyZip(paramValues))
-    def getDesignParamValueMap: ListMap[String, DFValAny] =
-      val ret = designParamValueMap
-      designParamValueMap = ListMap.empty
-      ret
-
     def startDesign(design: DFDesignBlock): Unit =
       stack = current :: stack
       current = new DesignContext
