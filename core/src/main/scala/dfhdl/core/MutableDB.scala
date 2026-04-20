@@ -4,7 +4,7 @@ import dfhdl.hw
 import dfhdl.compiler.ir.{
   DB,
   DuplicateTag,
-  DFDesignInst,
+  DFDesignInstOld,
   DFDesignBlock,
   DFMember,
   DFOwner,

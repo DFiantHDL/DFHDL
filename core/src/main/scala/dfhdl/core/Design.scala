@@ -58,7 +58,9 @@ trait Design extends Container, HasClsMetaArgs:
     if (dfc.owner.asIR.getThisOrOwnerDesign.isDeviceTop)
       handleResourceConstraints()
       dfc.mutableDB.ResourceOwnershipContext.emptyTopResourceOwners()
+    val endedDesign = containedOwner.asIR
     dfc.exitOwner()
+    Design.Inst(endedDesign)
     dfc.enterLate()
   private[dfhdl] def skipChecks: Boolean = false
 
@@ -190,6 +192,30 @@ object Design:
         )
       getSet.replace(designBlock)(designBlock.copy(paramMap = paramMap))
   end Block
+  object Inst:
+    // Construct a DFDesignInst member in the parent context that points back
+    // at `designBlock`. Called from `onCreateStartLate` after
+    // `dfc.exitOwner()` so `dfc.ownerOrEmptyRef` resolves to the enclosing
+    // owner. The top-level design has no instantiation site (no instance
+    // name, no applied parameters — only defaults), so we skip it. paramMap
+    // is left empty in phase 1 of the DFDesignInst split refactor.
+    protected[core] def apply(designBlock: ir.DFDesignBlock)(using dfc: DFC): Unit =
+      import dfc.getSet
+      if (!designBlock.isTop)
+        val designRef: ir.DFRef.OneWay[ir.DFDesignBlock] = designBlock.ref
+        // Phase 1 parks the DFDesignInst as an anonymous inert member so it
+        // does not collide with the DFDesignBlock's instance name in
+        // UniqueNames / printers. Phase 2 will migrate the instance name off
+        // DFDesignBlock.meta onto DFDesignInst.meta as consumers flip over.
+        val inst = ir.DFDesignInst(
+          designRef = designRef,
+          paramMap  = ListMap.empty,
+          ownerRef  = dfc.ownerOrEmptyRef,
+          meta      = designBlock.meta.anonymize,
+          tags      = designBlock.tags
+        )
+        dfc.mutableDB.addMember(inst)
+  end Inst
   extension [D <: Design](dsn: D)
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
     infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =

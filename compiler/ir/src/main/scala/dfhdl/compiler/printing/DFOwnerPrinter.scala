@@ -40,6 +40,10 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
           // no output port means a Unit return that cannot be referenced,
           // so we need to print it now
           hasOutput.getOrElse(true)
+        // DFDesignInst is a DFMember.Named but must not be rendered in
+        // phase 1 of the DFDesignInst split refactor; exclude it before the
+        // generic named-member arm below.
+        case _: DFDesignInst => false
         // named members
         case m: DFMember.Named if !m.isAnonymous => true
         // excluding late (via) connections

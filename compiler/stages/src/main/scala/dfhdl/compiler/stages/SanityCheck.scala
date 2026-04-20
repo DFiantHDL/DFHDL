@@ -119,7 +119,15 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     // can't reach them, so they surface as "Ref exists for a removed member"
     // after reassembly.
     val memberOwnerRefs = mutable.Set.empty[DFRefAny]
-    memberSet.foreach(m => memberOwnerRefs += m.ownerRef)
+    memberSet.foreach { m =>
+      memberOwnerRefs += m.ownerRef
+      m match
+        // DFDesignInst emits a OneWay ref to its DFDesignBlock via designRef,
+        // outside of getRefs (which only carries TwoWay refs). Register it so
+        // the orphan OneWay.Gen detection below does not flag it.
+        case inst: DFDesignInst => memberOwnerRefs += inst.designRef
+        case _                  =>
+    }
     // checks for all references
     refTable.foreach { (r, m) =>
       if (!m.isInstanceOf[DFMember.Empty] && !memberSet.contains(m))
@@ -210,14 +218,14 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
           case _: DFVal.Const => false
           case _              => !memberTable.contains(fromMember)
         if (toValMissing)
-          println(s"Foreign value ${toMember.getName} at net ${n.codeString}")
+          System.err.println(s"Foreign value ${toMember.getName} at net ${n.codeString}")
           members.collectFirst {
             case m: DFMember.Named if m.getName == toMember.getName => m
           } match
             case Some(value) => println(s"Found:\n$value\nInstead of:\n$toMember")
             case None        =>
         if (fromValMissing)
-          println(s"Foreign value ${fromMember.getName} at net ${n.codeString}")
+          System.err.println(s"Foreign value ${fromMember.getName} at net ${n.codeString}")
           members.collectFirst {
             case m: DFMember.Named if m.getName == fromMember.getName => m
           } match

@@ -140,7 +140,11 @@ trait Printer
       case goto: Goto       => csGoto(goto)
       case wait: Wait       => csWait(wait)
       case textOut: TextOut => csTextOut(textOut)
-      case _                => ???
+      // DFDesignInst is not independently rendered in phase 1 of the
+      // DFDesignInst split refactor — its declaration is emitted as part of
+      // the DFDesignBlock printing path.
+      case _: DFDesignInst => ""
+      case _               => ???
     s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta.annotations)}$cs"
   end csDFMember
   def designFileName(designName: String): String

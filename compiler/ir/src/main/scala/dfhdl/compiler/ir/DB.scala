@@ -333,7 +333,7 @@ final case class DB(
     def collectFrom(db: DB): (
         Map[DFDesignBlock, List[DomainBlock]],
         Map[DFDesignBlock, ListMap[String, DFVal.Dcl]],
-        Map[DFDesignInst, Map[String, DFType]]
+        Map[DFDesignInstOld, Map[String, DFType]]
     ) =
       given MemberGetSet = db.getSet
       val doms = db.members.view
@@ -360,12 +360,12 @@ final case class DB(
       dupAnalysisDBs.map(collectFrom).foldLeft((
           Map.empty[DFDesignBlock, List[DomainBlock]],
           Map.empty[DFDesignBlock, ListMap[String, DFVal.Dcl]],
-          Map.empty[DFDesignInst, Map[String, DFType]]
+          Map.empty[DFDesignInstOld, Map[String, DFType]]
       )) { case ((d1, p1, b1), (d2, p2, b2)) =>
         (d1 ++ d2, p1 ++ p2, b1 ++ b2)
       }
     val domainBlockMap = mutable.Map.empty[(DFDesignBlock, DomainBlock), DomainBlock]
-    val portEntries = mutable.Map.empty[DFDesignInst, ListMap[String, DFVal.Dcl]]
+    val portEntries = mutable.Map.empty[DFDesignInstOld, ListMap[String, DFVal.Dcl]]
     dupDesignToOrigMap.foreach { (dupDesign, origDesign) =>
       // Resolve origin's ownerRef chain using origin's own sub-DB getSet;
       // in old-style, this DB's getSet suffices.

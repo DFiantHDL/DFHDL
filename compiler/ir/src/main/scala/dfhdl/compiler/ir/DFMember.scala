@@ -114,7 +114,8 @@ object DFMember:
     summon[ReadWriter[DFInterfaceOwner]],
     summon[ReadWriter[DFBlock]],
     summon[ReadWriter[DFConditional.Header]],
-    summon[ReadWriter[DFRange]]
+    summon[ReadWriter[DFRange]],
+    summon[ReadWriter[DFDesignInst]]
   )
   extension (member: DFMember)
     def getTagOf[CT <: DFTag: ClassTag]: Option[CT] =
@@ -655,7 +656,7 @@ object DFVal:
     ).asInstanceOf[this.type]
   end PortByNameSelect
   object PortByNameSelect:
-    type Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
+    type Ref = DFRef.TwoWay[DFDesignInstOld, PortByNameSelect]
     object Of:
       def unapply(portByNameSelect: PortByNameSelect)(using MemberGetSet): Option[DFVal.Dcl] =
         Some(portByNameSelect.getPortDcl)
@@ -1543,8 +1544,40 @@ object DFDesignBlock:
     def unapply(block: DFDesignBlock)(using MemberGetSet): Boolean = !block.isTop
 end DFDesignBlock
 
-type DFDesignInst = DFDesignBlock
-val DFDesignInst = DFDesignBlock
+// Legacy alias retained during the DFDesignInst split refactor for call sites
+// that still mean "a DFDesignBlock behaving as an instantiation". Migrate them
+// to the new DFDesignInst case class as consumers are updated.
+type DFDesignInstOld = DFDesignBlock
+val DFDesignInstOld = DFDesignBlock
+
+final case class DFDesignInst(
+    designRef: DFDesignInst.DesignRef,
+    paramMap: ListMap[String, DFDesignInst.ParamRef],
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFMember.Named derives ReadWriter:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: DFDesignInst =>
+      this.designRef =~ that.designRef &&
+      this.paramMap =~ that.paramMap &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] =
+    paramMap.values.toList ++ meta.getRefs
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    meta = meta.copyWithNewRefs,
+    designRef = designRef.copyAsNewRef,
+    paramMap = paramMap.map((k, v) => k -> v.copyAsNewRef),
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end DFDesignInst
+
+object DFDesignInst:
+  type DesignRef = DFRef.OneWay[DFDesignBlock]
+  type ParamRef = DFRef.TwoWay[DFVal, DFDesignInst]
 
 final case class DomainBlock(
     domainType: DomainType,
