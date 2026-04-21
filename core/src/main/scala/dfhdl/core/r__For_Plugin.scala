@@ -150,8 +150,7 @@ object r__For_Plugin:
     def exitAndConnectInputs() =
       val endedDesign = designBlock.asIR
       dfc.exitOwner()
-      val instParamMap = Design.Inst.buildParamMap(paramEntries)
-      Design.Inst(endedDesign, instParamMap)
+      Design.Inst(endedDesign, paramEntries)
       inputs.lazyZip(args).foreach { case (input, (arg, _)) =>
         input.connect(arg)(using dfc.anonymize)
       }

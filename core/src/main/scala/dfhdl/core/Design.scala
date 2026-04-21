@@ -58,8 +58,7 @@ trait Design extends Container, HasClsMetaArgs:
       dfc.mutableDB.ResourceOwnershipContext.emptyTopResourceOwners()
     val endedDesign = containedOwner.asIR
     dfc.exitOwner()
-    val instParamMap = Design.Inst.buildParamMap(paramEntries)
-    Design.Inst(endedDesign, instParamMap)
+    Design.Inst(endedDesign, paramEntries)
     dfc.enterLate()
   private[dfhdl] def skipChecks: Boolean = false
 
@@ -186,28 +185,25 @@ object Design:
           dp.clearCachedAppliedVal()
           dp.getName -> dfVal
       }.toList
-    // Build the paramMap in the current (parent) context, so the generated
-    // TwoWay refs are registered there rather than in the now-exited child
-    // context — which is important for duplicate designs whose child refTable
-    // is only partially transferred up (public members only).
-    protected[core] def buildParamMap(
-        entries: List[(String, ir.DFVal)]
-    )(using dfc: DFC): ir.DFDesignInst.ParamMap =
-      import dfc.getSet
-      ListMap.from(entries.view.map { (name, dfVal) =>
-        name -> dfVal.refTW[ir.DFDesignInst](knownReachable = true)
-      })
     // Construct a DFDesignInst member in the parent context that points back
     // at `designBlock`. Called from `onCreateStartLate` after
     // `dfc.exitOwner()` so `dfc.ownerOrEmptyRef` resolves to the enclosing
     // owner. The top-level design has no instantiation site (no instance
     // name, no applied parameters — only defaults), so we skip it.
+    // The paramMap's TwoWay refs are built here so they are registered in the
+    // current (parent) context — important for duplicate designs whose child
+    // refTable is only partially transferred up (public members only). For
+    // top designs we skip building entirely because there is no DFDesignInst
+    // to register as the refs' origin member, which would orphan the refs.
     protected[core] def apply(
         designBlock: ir.DFDesignBlock,
-        paramMap: ir.DFDesignInst.ParamMap
+        paramEntries: List[(String, ir.DFVal)]
     )(using dfc: DFC): Unit =
       import dfc.getSet
       if (!designBlock.isTop)
+        val paramMap = ListMap.from(paramEntries.view.map { (name, dfVal) =>
+          name -> dfVal.refTW[ir.DFDesignInst](knownReachable = true)
+        })
         val inst = ir.DFDesignInst(
           designRef = designBlock.ref,
           paramMap = paramMap,
