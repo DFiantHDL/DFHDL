@@ -19,10 +19,10 @@ object DFError:
   )(using dfc: DFC)
       extends DFError(iae.getMessage):
     import dfc.getSet
-    val designName = dfc.ownerOption match
+    lazy val designName = dfc.ownerOption match
       case Some(owner) => owner.asIR.getThisOrOwnerDesign.getFullName
       case None        => ""
-    val fullName =
+    lazy val fullName =
       if (dfc.isAnonymous) designName
       else if (designName.nonEmpty) s"$designName.${dfc.name}"
       else dfc.name
