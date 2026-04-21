@@ -670,9 +670,9 @@ object DFVal extends DFValLP:
     )(using dfc: DFC): DFConstOf[T] =
       import dfc.getSet
       val defaultValIR: ir.DFVal | ir.DFMember.Empty = defaultVal match
-        case Some(dv)                     => dv.asIR
-        case None if dfc.owner.asIR.isTop => appliedVal.asIR
-        case None                         => ir.DFMember.Empty
+        case _ if dfc.owner.asIR.isTop => appliedVal.asIR
+        case Some(dv)                  => dv.asIR
+        case None                      => ir.DFMember.Empty
       val alias: ir.DFVal.DesignParam =
         ir.DFVal.DesignParam(
           appliedVal.asIR.dfType.dropUnreachableRefs,
