@@ -1488,6 +1488,11 @@ final case class DB(
       dbMembers.foreach { m =>
         refTable.get(m.ownerRef).foreach(t => result(m.ownerRef) = t)
         m.getRefs.foreach(r => refTable.get(r).foreach(t => result(r) = t))
+        // DFDesignInst.designRef is OneWay and not reported by getRefs — pick it up explicitly.
+        m match
+          case inst: DFDesignInst =>
+            refTable.get(inst.designRef).foreach(t => result(inst.designRef) = t)
+          case _ =>
       }
       result.toMap
     // Build sub-DBs bottom-up so each one captures its full descendant tree.
