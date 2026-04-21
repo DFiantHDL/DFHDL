@@ -45,13 +45,20 @@ case object GlobalizePortVectorParams extends Stage:
           val dupMember0 = origMember.copyWithNewRefs
           // Tag nested design blocks as duplicates
           val dupMember = dupMember0 match
-            case dsn: DFDesignBlock => dsn.setTags(_.tag(DuplicateTag)).asInstanceOf[dupMember0.type]
-            case _                 => dupMember0
+            case dsn: DFDesignBlock =>
+              dsn.setTags(_.tag(DuplicateTag)).asInstanceOf[dupMember0.type]
+            case _ => dupMember0
           origToDupMemberMap += origMember -> dupMember
           dupRefTable += dupMember.ownerRef -> getReplacement(origMember.getOwner)
           origMember.getRefs.lazyZip(dupMember.getRefs).foreach { (origRef, dupRef) =>
             dupRefTable += dupRef -> getReplacement(origRef.get)
           }
+          // DFDesignInst.designRef is a OneWay ref and is not in getRefs, so we
+          // register it explicitly here so it resolves in the reconstructed DB.
+          (origMember, dupMember) match
+            case (origInst: DFDesignInst, dupInst: DFDesignInst) =>
+              dupRefTable += dupInst.designRef -> getReplacement(origInst.designRef.get)
+            case _ =>
           dupMember
         }
         dupDesignMembersMap += dup -> dupMembers
@@ -62,6 +69,7 @@ case object GlobalizePortVectorParams extends Stage:
             duplicateDesignMembers(origNested, dupNested)
           case _ =>
         }
+      end duplicateDesignMembers
       designDB.dupDesignToOrigMap.groupBy(_._2).foreach { (orig, dupMap) =>
         dupMap.keys.foreach { dup => duplicateDesignMembers(orig, dup) }
       }
@@ -180,31 +188,33 @@ case object GlobalizePortVectorParams extends Stage:
         designParams.view.collect { case dp: DFVal.DesignParam => dp }
           .groupBy(_.getOwnerDesign)
           .view.mapValues(_.map(_.getName).toSet).toMap
-      def prunedParamMap(design: DFDesignBlock): ListMap[String, DFDesignBlock.ParamRef] =
-        val toRemove = globalizedParamNamesPerDesign.getOrElse(design, Set.empty)
-        if (toRemove.isEmpty) design.paramMap
-        else design.paramMap.filterNot((name, _) => toRemove.contains(name))
+      def prunedParamMap(inst: DFDesignInst): ListMap[String, DFDesignInst.ParamRef] =
+        val toRemove = globalizedParamNamesPerDesign.getOrElse(inst.getDesignBlock, Set.empty)
+        if (toRemove.isEmpty) inst.paramMap
+        else inst.paramMap.filterNot((name, _) => toRemove.contains(name))
+      def instPatchesFor(design: DFDesignBlock): Option[(DFDesignInst, Patch.Replace)] =
+        if (design.isTop) None
+        else
+          val inst = design.getDesignInst
+          Some(inst -> Patch.Replace(
+            inst.copy(paramMap = prunedParamMap(inst)),
+            Patch.Replace.Config.FullReplacement
+          ))
       val designPatches = dupDesignMap.view.flatMap {
         case (orig, dups) if dups.length >= 1 =>
-          (orig :: dups).map { design =>
-            val updatedDclMeta =
-              design.dclMeta.setName(
+          (orig :: dups).flatMap { design =>
+            val updatedMeta =
+              design.meta.setName(
                 s"${design.dclName}_${design.getFullName.replaceAll("\\.", "_")}"
               )
             val updatedDesign = design.removeTagOf[DuplicateTag].copy(
-              dclMeta = updatedDclMeta,
-              paramMap = prunedParamMap(design)
+              meta = updatedMeta
             )
-            design -> Patch.Replace(updatedDesign, Patch.Replace.Config.FullReplacement)
+            val blockPatch =
+              design -> Patch.Replace(updatedDesign, Patch.Replace.Config.FullReplacement)
+            blockPatch :: instPatchesFor(design).toList
           }
-        case (orig, _) =>
-          Some(
-            orig ->
-              Patch.Replace(
-                orig.copy(paramMap = prunedParamMap(orig)),
-                Patch.Replace.Config.FullReplacement
-              )
-          )
+        case (orig, _) => instPatchesFor(orig).toList
       }.toList
       val paramReplacementMap = mutable.Map.empty[DFVal, DFVal]
       def getUpdatedParamValue(param: DFVal.DesignParam): DFVal =
