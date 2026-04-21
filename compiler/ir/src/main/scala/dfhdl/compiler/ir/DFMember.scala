@@ -173,6 +173,7 @@ object DFMember:
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
       case o: DFDesignBlock if o.isTop => o.dclName
+      case o: DFDesignBlock            => o.getDesignInst.getName
       case _                           => meta.name
     final lazy val isAnonymous: Boolean = meta.isAnonymous
     final def getFullName(using MemberGetSet): String = this match
@@ -446,8 +447,7 @@ object DFVal:
     protected[compiler] def appliedValRefOpt(using MemberGetSet): Option[DFDesignInst.ParamRef] =
       val ownerDesign = getOwnerDesign
       if (ownerDesign.isTop) None
-      else
-        getSet.designDB.designInstMap(ownerDesign).paramMap.get(getName)
+      else ownerDesign.getDesignInst.paramMap.get(getName)
     def appliedValOpt(using MemberGetSet): Option[DFVal] =
       if (getSet.isMutable) cachedAppliedVal.orElse(appliedValRefOpt.map(_.get))
       else appliedValRefOpt.map(_.get)
@@ -1473,6 +1473,15 @@ final case class DFDesignBlock(
       DFDomainOwner derives ReadWriter:
   final val dclMeta: Meta = meta
   val dclName: String = dclMeta.name
+  private var designInstCache: Option[DFDesignInst] = None
+  protected[dfhdl] def setDesignInstCache(designInst: DFDesignInst): Unit =
+    designInstCache = Some(designInst)
+  protected[dfhdl] def clearDesignInstCache(): Unit = designInstCache = None
+  def getDesignInst(using MemberGetSet): DFDesignInst =
+    assert(!this.isTop, "Top-level designs have no design instantiations")
+    // cache is for elaboration only
+    if (getSet.isMutable) designInstCache.getOrElse(getSet.designDB.designInstMap(this))
+    else getSet.designDB.designInstMap(this)
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType =~ that.domainType &&

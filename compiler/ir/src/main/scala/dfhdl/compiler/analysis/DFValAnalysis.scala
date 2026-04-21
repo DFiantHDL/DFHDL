@@ -168,7 +168,7 @@ object PortOfDesignDef:
         val design = dcl.getOwnerDesign
         if (design.isTop) None
         else
-          val inst = getSet.designDB.designInstMap(design)
+          val inst = design.getDesignInst
           if (design.instMode == InstMode.Def) Some(mod, inst)
           else None
       case _ => None

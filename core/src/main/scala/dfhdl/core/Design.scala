@@ -215,6 +215,7 @@ object Design:
           meta = dfc.getMeta,
           tags = dfc.tags
         )
+        designBlock.setDesignInstCache(inst)
         dfc.mutableDB.addMember(inst)
       end if
     end apply
