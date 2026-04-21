@@ -146,10 +146,11 @@ object r__For_Plugin:
     }
     val (isDuplicate, ret): (Boolean, V) =
       dfc.mutableDB.DesignContext.runFuncWithInputs(func, inputs)
-    val instParamMap = Design.Inst.computeParamMap
+    val paramEntries = Design.Inst.collectParamEntries
     def exitAndConnectInputs() =
       val endedDesign = designBlock.asIR
       dfc.exitOwner()
+      val instParamMap = Design.Inst.buildParamMap(paramEntries)
       Design.Inst(endedDesign, instParamMap)
       inputs.lazyZip(args).foreach { case (input, (arg, _)) =>
         input.connect(arg)(using dfc.anonymize)

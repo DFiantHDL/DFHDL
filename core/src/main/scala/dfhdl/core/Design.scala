@@ -52,12 +52,13 @@ trait Design extends Container, HasClsMetaArgs:
   final override def onCreateStartLate: Unit =
     hasStartedLate = true
     import dfc.getSet
-    val instParamMap = Design.Inst.computeParamMap
+    val paramEntries = Design.Inst.collectParamEntries
     if (dfc.owner.asIR.getThisOrOwnerDesign.isDeviceTop)
       handleResourceConstraints()
       dfc.mutableDB.ResourceOwnershipContext.emptyTopResourceOwners()
     val endedDesign = containedOwner.asIR
     dfc.exitOwner()
+    val instParamMap = Design.Inst.buildParamMap(paramEntries)
     Design.Inst(endedDesign, instParamMap)
     dfc.enterLate()
   private[dfhdl] def skipChecks: Boolean = false
@@ -173,17 +174,29 @@ object Design:
     end apply
   end Block
   object Inst:
-    protected[core] def computeParamMap(using dfc: DFC): ir.DFDesignInst.ParamMap =
+    // Collect (name, appliedVal) entries while still inside the child design context.
+    // Must be called BEFORE `dfc.exitOwner()` because it relies on the cached
+    // applied value and the child context's member list.
+    protected[core] def collectParamEntries(using dfc: DFC): List[(String, ir.DFVal)] =
       import dfc.getSet
-      ListMap.from(
-        dfc.mutableDB.DesignContext.current.getImmutableMemberList.view.collect {
-          case dp: ir.DFVal.DesignParam =>
-            val dfVal = dp.appliedValOpt.get
-            // invalidating the param cache value after design elaboration
-            dp.clearCachedAppliedVal()
-            dp.getName -> dfVal.refTW[ir.DFDesignInst](knownReachable = true)
-        }
-      )
+      dfc.mutableDB.DesignContext.current.getImmutableMemberList.view.collect {
+        case dp: ir.DFVal.DesignParam =>
+          val dfVal = dp.appliedValOpt.get
+          // invalidating the param cache value after design elaboration
+          dp.clearCachedAppliedVal()
+          dp.getName -> dfVal
+      }.toList
+    // Build the paramMap in the current (parent) context, so the generated
+    // TwoWay refs are registered there rather than in the now-exited child
+    // context — which is important for duplicate designs whose child refTable
+    // is only partially transferred up (public members only).
+    protected[core] def buildParamMap(
+        entries: List[(String, ir.DFVal)]
+    )(using dfc: DFC): ir.DFDesignInst.ParamMap =
+      import dfc.getSet
+      ListMap.from(entries.view.map { (name, dfVal) =>
+        name -> dfVal.refTW[ir.DFDesignInst](knownReachable = true)
+      })
     // Construct a DFDesignInst member in the parent context that points back
     // at `designBlock`. Called from `onCreateStartLate` after
     // `dfc.exitOwner()` so `dfc.ownerOrEmptyRef` resolves to the enclosing
