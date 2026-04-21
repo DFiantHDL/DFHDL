@@ -138,16 +138,27 @@ object DFMember:
       case _                => None
     })
     def toJson(using Writer[DFMember]): String = write(member)
-    def getConstraints: List[constraints.Constraint] =
+    def getConstraints(using getSet: MemberGetSet): List[constraints.Constraint] =
       val allAnnotations = member match
+        case design: DFDesignBlock if design.isTop =>
+          design.meta.annotations.view
         case design: DFDesignBlock =>
-          design.dclMeta.annotations.view ++ design.meta.annotations
+          // during elaboration the DFDesignInst may not exist yet; fall back
+          // to just the design class annotations in that case.
+          val instAnnotations =
+            if (getSet.isMutable)
+              getSet.findDesignInst(design).map(_.meta.annotations).getOrElse(Nil)
+            else design.getDesignInst.meta.annotations
+          design.meta.annotations.view ++ instAnnotations
+        case designInst: DFDesignInst =>
+          designInst.getDesignBlock.getConstraints
         case interface: DFInterfaceOwner =>
           interface.dclMeta.annotations.view ++ interface.meta.annotations
         case _ => member.meta.annotations.view
       allAnnotations.collect {
         case c: constraints.Constraint => c
       }.toList
+    end getConstraints
   end extension
 
   sealed trait Empty extends DFMember:
@@ -1501,7 +1512,7 @@ final case class DFDesignBlock(
     * top-level design if it has a device ID constraint (usually as a result of a device resource
     * instantiated within).
     */
-  lazy val isDeviceTop: Boolean = this.getConstraints.exists {
+  lazy val isDeviceTop: Boolean = this.meta.annotations.exists {
     case _: constraints.DeviceID => true
     case _                       => false
   }

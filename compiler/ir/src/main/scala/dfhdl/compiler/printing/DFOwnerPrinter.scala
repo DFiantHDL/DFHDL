@@ -302,8 +302,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       if (bodyWithDcls.isEmpty || designIsVendorIPBlackbox) dcl
       else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     val annotations =
-      if (design.isTop) design.dclMeta.annotations ++ design.meta.annotations
-      else design.dclMeta.annotations
+      if (design.isTop) design.meta.annotations
+      else design.meta.annotations ++ design.getDesignInst.meta.annotations
     s"${printer.csAnnotations(annotations)}$dclWithBody\n"
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(inst: DFDesignInst): String =
