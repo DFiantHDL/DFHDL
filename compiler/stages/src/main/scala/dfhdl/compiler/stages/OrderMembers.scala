@@ -55,7 +55,7 @@ object OrderMembers:
         case dcl @ DclVar() if !dcl.hasTagOf[IteratorTag] => 6
         // seventh are design blocks that are direct children of named instances
         // (e.g., design blocks inside conditional blocks are not included)
-        case dsn: DFDesignBlock if dsn.getOwner == dsn.getOwnerNamed => 7
+        case dsn: (DFDesignBlock | DFDesignInst) if dsn.getOwner == dsn.getOwnerNamed => 7
         // then the rest
         case _ => 8
       }
