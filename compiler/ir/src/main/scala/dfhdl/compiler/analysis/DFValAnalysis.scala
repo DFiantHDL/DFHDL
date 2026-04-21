@@ -266,11 +266,11 @@ extension (dfVal: DFVal)
   end getReadDeps
   def isReferencedByAnyDclOrDesign(using MemberGetSet): Boolean =
     dfVal.originMembers.view.exists {
-      case _: DFVal.Dcl     => true
-      case DclConst()       => true
-      case _: DFDesignBlock => true
-      case dfVal: DFVal     => dfVal.isReferencedByAnyDclOrDesign
-      case _                => false
+      case _: DFVal.Dcl    => true
+      case DclConst()      => true
+      case _: DFDesignInst => true
+      case dfVal: DFVal    => dfVal.isReferencedByAnyDclOrDesign
+      case _               => false
     }
 
   @tailrec private def flatName(member: DFVal, suffix: String)(using MemberGetSet): String =
