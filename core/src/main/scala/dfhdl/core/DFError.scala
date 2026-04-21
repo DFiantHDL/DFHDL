@@ -19,13 +19,15 @@ object DFError:
   )(using dfc: DFC)
       extends DFError(iae.getMessage):
     import dfc.getSet
-    lazy val designName = dfc.ownerOption match
-      case Some(owner) => owner.asIR.getThisOrOwnerDesign.getFullName
+    val ownerOptionCurrent = dfc.ownerOption.map(_.asIR)
+    val dfcName = dfc.name
+    lazy val designName = ownerOptionCurrent match
+      case Some(owner) => owner.getThisOrOwnerDesign.getFullName
       case None        => ""
     lazy val fullName =
       if (dfc.isAnonymous) designName
-      else if (designName.nonEmpty) s"$designName.${dfc.name}"
-      else dfc.name
+      else if (designName.nonEmpty) s"$designName.${dfcName}"
+      else dfcName
     val position = dfc.position
     override def toString: String =
       s"""|DFiant HDL elaboration error!
