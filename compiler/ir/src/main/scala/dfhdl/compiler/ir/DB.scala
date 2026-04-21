@@ -288,7 +288,7 @@ final case class DB(
   // design has exactly one DFDesignInst introduced during elaboration; the
   // top-level DFDesignBlock has none (no instantiation site).
   lazy val designInstMap: Map[DFDesignBlock, DFDesignInst] =
-    members.view.collect { case inst: DFDesignInst => inst.designRef.get -> inst }.toMap
+    members.view.collect { case inst: DFDesignInst => inst.getDesignBlock -> inst }.toMap
 
   // holds the topological order of unique design block dependency
   lazy val uniqueDesignMemberList: List[(DFDesignBlock, List[DFMember])] =
@@ -366,9 +366,9 @@ final case class DB(
     end collectFrom
     val (origDomainBlocks, origPortMap, pbnsByDesign) =
       dupAnalysisDBs.map(collectFrom).foldLeft((
-          Map.empty[DFDesignBlock, List[DomainBlock]],
-          Map.empty[DFDesignBlock, ListMap[String, DFVal.Dcl]],
-          Map.empty[DFDesignInstOld, Map[String, DFType]]
+        Map.empty[DFDesignBlock, List[DomainBlock]],
+        Map.empty[DFDesignBlock, ListMap[String, DFVal.Dcl]],
+        Map.empty[DFDesignInstOld, Map[String, DFType]]
       )) { case ((d1, p1, b1), (d2, p2, b2)) =>
         (d1 ++ d2, p1 ++ p2, b1 ++ b2)
       }
@@ -1173,7 +1173,7 @@ final case class DB(
       case dcl: DFVal.Dcl if dcl.isAnonymous => dcl
       // design instantiations must carry an instance name (def-mode insts are
       // allowed to be anonymous)
-      case inst: DFDesignInst if inst.isAnonymous && inst.designRef.get.instMode != InstMode.Def =>
+      case inst: DFDesignInst if inst.isAnonymous && inst.getDesignBlock.instMode != InstMode.Def =>
         inst
       // domains cannot be anonymous
       case domain: DomainBlock if domain.isAnonymous => domain

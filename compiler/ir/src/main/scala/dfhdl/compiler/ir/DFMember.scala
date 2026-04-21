@@ -1564,6 +1564,7 @@ final case class DFDesignInst(
     meta: Meta,
     tags: DFTags
 ) extends DFMember.Named derives ReadWriter:
+  def getDesignBlock(using MemberGetSet): DFDesignBlock = designRef.get
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignInst =>
       this.designRef =~ that.designRef &&

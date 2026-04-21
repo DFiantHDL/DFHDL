@@ -128,7 +128,7 @@ trait Printer
       case dfVal: DFVal                                => csDFValNamed(dfVal)
       case net: DFNet                                  => csDFNet(net)
       case inst: DFDesignInst                          =>
-        inst.designRef.get.instMode match
+        inst.getDesignBlock.instMode match
           case InstMode.Def => csDFDesignDefInst(inst)
           case _            => csDFDesignBlockInst(inst)
       case pb: ProcessBlock                => csProcessBlock(pb)

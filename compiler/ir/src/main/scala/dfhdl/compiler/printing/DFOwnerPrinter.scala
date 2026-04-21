@@ -27,8 +27,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // an anonymous def-design inst may not be referenced later, so we
         // need to check if it has an output port that is referenced later
         case inst: DFDesignInst
-            if inst.designRef.get.instMode == InstMode.Def && inst.isAnonymous =>
-          val design = inst.designRef.get
+            if inst.getDesignBlock.instMode == InstMode.Def && inst.isAnonymous =>
+          val design = inst.getDesignBlock
           // For duplicate designs, ports may not be in the members list but are
           // available via dupPortsByName (with DuplicationRef owners).
           // For DuplicationRef-backed ports, we check the PBNS read deps instead.
@@ -68,7 +68,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       .mkString("\n")
   end csDFMembers
   final def csDFDesignLateBody(inst: DFDesignInst): String =
-    val design = inst.designRef.get
+    val design = inst.getDesignBlock
     inst.getOwner
       .members(MemberView.Folded)
       .view
@@ -226,7 +226,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       s"${name} = ${ref.refCodeString}"
     }.toList
   def csDFDesignDefInst(inst: DFDesignInst): String =
-    val design = inst.designRef.get
+    val design = inst.getDesignBlock
     val ports = getSet.designDB.dupPortsByName(design).view.values.collect { case port @ DclIn() =>
       val DFNet.Connection(_, from: DFVal, _) = port.getConnectionTo.get.runtimeChecked
       printer.csDFValRef(from, design.getOwner)
@@ -307,7 +307,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     s"${printer.csAnnotations(annotations)}$dclWithBody\n"
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(inst: DFDesignInst): String =
-    val design = inst.designRef.get
+    val design = inst.getDesignBlock
     val body = csDFDesignLateBody(inst)
     val designParamCS =
       // for vendor IP blackbox, we define the parameters in the class extension instead of the

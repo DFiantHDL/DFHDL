@@ -18,7 +18,9 @@ case object ConnectUnused extends HierarchyStage:
   // refTable, so run with the outer getSet.
   override def rebindGetSet: Boolean = false
   def transformSubDB(subDB: DB)(using
-      getSet: MemberGetSet, co: CompilerOptions, rg: RefGen
+      getSet: MemberGetSet,
+      co: CompilerOptions,
+      rg: RefGen
   ): DB =
     // Each sub-DB handles its own direct-child design instances (patches anchor
     // at `designInst` with Add.Config.After, which modifies the PARENT's scope).
@@ -26,10 +28,10 @@ case object ConnectUnused extends HierarchyStage:
     // Use `getSet.designDB.dupPortsByName` (the outer flat DB, since
     // rebindGetSet=false) to resolve ports for duplicates whose origin may live
     // outside this sub-DB's subtree.
-    val self = subDB.designBlock
     val patchList: List[(DFMember, Patch)] = subDB.members.view.collect {
-      case designInst: DFDesignBlock if !designInst.isTop && !self.contains(designInst) =>
-        val ports = getSet.designDB.dupPortsByName.getOrElse(designInst, ListMap.empty)
+      case designInst: DFDesignInst =>
+        val ports =
+          getSet.designDB.dupPortsByName.getOrElse(designInst.getDesignBlock, ListMap.empty)
         val unusedPorts = ports.view.values.filter { port =>
           port.meta.annotations.exists {
             case _: annotation.Unused => true

@@ -170,7 +170,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
        |${csModuleDcl(design)}
        |""".stripMargin
   def csDFDesignBlockInst(inst: DFDesignInst): String =
-    val design = inst.designRef.get
+    val design = inst.getDesignBlock
     val body = csDFDesignLateBody(inst)
     val designParamList = inst.paramMap.view.map { (name, ref) =>
       s".${name} (${ref.refCodeString})"
