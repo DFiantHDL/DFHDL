@@ -824,15 +824,16 @@ final case class DB(
         case (_, p: DFVal.Dcl)
             if p.isPortIn && !p.isClkDcl && !p.isRstDcl && !connectionTable.contains(p) &&
               !ownerDesign.isTop && !magnetConnectionTable.contains(p) =>
+          val designInst = ownerDesign.getDesignInst
           s"""|DFiant HDL connectivity error!
-              |Position:  ${ownerDesign.meta.position}
-              |Hierarchy: ${ownerDesign.getFullName}
+              |Position:  ${designInst.meta.position}
+              |Hierarchy: ${designInst.getFullName}
               |Message:   Found a dangling (unconnected) input port `${p.getName}`.""".stripMargin
         case (_, p: DFVal.Dcl)
             if p.isPortOut && !ownerDesign.isDuplicate && !ownerDesign.isBlackBox &&
               !connectionTable.contains(p) && !assignmentsDclTable.contains(p) &&
               !magnetConnectionTable.contains(p) && !p.hasNonBubbleInit =>
-          val ownerDesign = p.getOwnerDesign
+          val ownerDesign = p.getOwnerDesign.getDesignInst
           s"""|DFiant HDL connectivity error!
               |Position:  ${p.meta.position}
               |Hierarchy: ${ownerDesign.getFullName}
