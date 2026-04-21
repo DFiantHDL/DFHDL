@@ -558,7 +558,14 @@ extension (db: DB)
     // SanityCheck's orphan check be strict.
     val cleanedRefTable =
       val memberOwnerRefs = scala.collection.mutable.Set.empty[DFRefAny]
-      patchedMembers.foreach(m => memberOwnerRefs += m.ownerRef)
+      patchedMembers.foreach { m =>
+        memberOwnerRefs += m.ownerRef
+        m match
+          // DFDesignInst's designRef is a OneWay.Gen ref outside of getRefs
+          // (which only carries TwoWay refs); keep it from being swept away.
+          case inst: DFDesignInst => memberOwnerRefs += inst.designRef
+          case _                  =>
+      }
       patchedRefTable.filter { (r, _) =>
         r match
           case _: DFRef.OneWay.Gen[?] => memberOwnerRefs.contains(r)

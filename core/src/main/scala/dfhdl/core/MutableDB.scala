@@ -4,6 +4,7 @@ import dfhdl.hw
 import dfhdl.compiler.ir.{
   DB,
   DuplicateTag,
+  DFDesignInst,
   DFDesignInstOld,
   DFDesignBlock,
   DFMember,
@@ -652,12 +653,20 @@ final class MutableDB():
     // member emits them.
     val cleanedRefTable =
       val memberOwnerRefs = mutable.Set.empty[DFRefAny]
-      membersNoGlobalCtx.foreach(m => memberOwnerRefs += m.ownerRef)
+      membersNoGlobalCtx.foreach { m =>
+        memberOwnerRefs += m.ownerRef
+        m match
+          // DFDesignInst's designRef is a OneWay.Gen ref outside of getRefs
+          // (which only carries TwoWay refs); keep it from being swept away.
+          case inst: DFDesignInst => memberOwnerRefs += inst.designRef
+          case _                  =>
+      }
       refTable.filter { (r, _) =>
         r match
           case _: DFRef.OneWay.Gen[?] => memberOwnerRefs.contains(r)
           case _                      => true
       }
+    end cleanedRefTable
     val db = DB(membersNoGlobalCtx, cleanedRefTable, globalTags, Nil)
     memoizedDB = Some(db)
     db
