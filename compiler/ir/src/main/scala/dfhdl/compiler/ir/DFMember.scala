@@ -1477,6 +1477,8 @@ final case class DFDesignBlock(
   protected[dfhdl] def setDesignInstCache(designInst: DFDesignInst): Unit =
     designInstCache = Some(designInst)
   protected[dfhdl] def clearDesignInstCache(): Unit = designInstCache = None
+  protected[dfhdl] def copyDesignInstCacheFrom(other: DFDesignBlock): Unit =
+    designInstCache = other.designInstCache
   def getDesignInst(using MemberGetSet): DFDesignInst =
     assert(!this.isTop, "Top-level designs have no design instantiations")
     // cache is for elaboration only

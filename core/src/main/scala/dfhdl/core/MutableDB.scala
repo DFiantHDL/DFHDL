@@ -96,6 +96,14 @@ class DesignContext:
     val originalMemberUpdated = members(idx)._1.asInstanceOf[M]
     // apply function to get the new member
     val newMember = newMemberFunc(originalMemberUpdated)
+    // For DFDesignBlock, `copy` creates a fresh instance whose private
+    // `designInstCache` is None. Transfer the pre-copy cache so elaboration
+    // lookups via `designBlock.getDesignInst` keep working across replaces
+    // (e.g., `setClsNamePos` overwriting meta/instMode).
+    (originalMemberUpdated, newMember) match
+      case (orig: DFDesignBlock, upd: DFDesignBlock) =>
+        upd.copyDesignInstCacheFrom(orig)
+      case _ =>
     val memberEntry = members(idx)
     // update all references to the new member
     memberEntry.refSet.foreach(r => refTable.update(r, newMember))
