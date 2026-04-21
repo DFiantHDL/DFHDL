@@ -185,20 +185,32 @@ object IntParamRef:
                   (aBases, aOff - k)
                 case _ => (List(v), 0)
             case other => (List(other), 0)
+          // Deep structural equality that keeps stripping at every level,
+          // including through Func args — so `clog2(childParam)` matches
+          // `clog2(parentParam)` once `childParam` has been resolved to
+          // `parentParam` via `appliedOrDefaultVal`.
+          def structEq(a: DFVal, b: DFVal): Boolean =
+            val sa = strip(a)
+            val sb = strip(b)
+            (sa, sb) match
+              case (af: DFVal.Func, bf: DFVal.Func) =>
+                af.op == bf.op && af.dfType =~ bf.dfType &&
+                af.args.length == bf.args.length &&
+                af.args.lazyZip(bf.args).forall((ar, br) => structEq(ar.get, br.get))
+              case _ => sa =~ sb
           // Check whether two base lists are equivalent as multi-sets under
-          // `=~` (position-ignoring structural equality) after stripping.
+          // deep structural equality after stripping.
           def basesMatch(lhs: List[DFVal], rhs: List[DFVal]): Boolean =
             lhs.length == rhs.length && {
-              val remaining = mutable.ListBuffer.from(rhs.map(strip))
+              val remaining = mutable.ListBuffer.from(rhs)
               lhs.forall { l =>
-                val ls = strip(l)
-                remaining.indexWhere(_ =~ ls) match
+                remaining.indexWhere(structEq(_, l)) match
                   case -1 => false
                   case i  => remaining.remove(i); true
               }
             }
           def asDFVal(ref: IntParamRef): Option[DFVal] = ref match
-            case i: Int           =>
+            case i: Int =>
               Some(DFVal.Const(
                 DFInt32, Some(BigInt(i)), DFRef.OneWay.Empty, Meta.empty, DFTags.empty
               ))
