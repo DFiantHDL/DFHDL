@@ -162,12 +162,15 @@ object DclOut:
 object PortOfDesignDef:
   def unapply(dcl: DFVal.Dcl)(using
       MemberGetSet
-  ): Option[(Modifier.IN.type | Modifier.OUT.type, DFDesignBlock)] =
+  ): Option[(Modifier.IN.type | Modifier.OUT.type, DFDesignInst)] =
     dcl.modifier.dir match
       case mod: (Modifier.IN.type | Modifier.OUT.type) =>
         val design = dcl.getOwnerDesign
-        if (design.instMode == InstMode.Def) Some(mod, design)
-        else None
+        if (design.isTop) None
+        else
+          val inst = getSet.designDB.designInstMap(design)
+          if (design.instMode == InstMode.Def) Some(mod, inst)
+          else None
       case _ => None
 
 object InitialValueOf:

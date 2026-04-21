@@ -184,9 +184,9 @@ case object NamedAnonMultiref extends NamedAliases, NoCheckStage:
         case _: DFRef.TypeRef                                                => None
         case r: DFRef.TwoWayAny if !r.get.isInstanceOf[DFConditional.Header] =>
           getSet.designDB.originRefTable.get(r) match
-            case Some(_: DFDesignBlock) => None // skipping design param references
-            case Some(_)                => Some(r)
-            case other                  => None
+            case Some(_: DFDesignInst) => None // skipping design param references
+            case Some(_)               => Some(r)
+            case other                 => None
         case _ => None
       }
       if (refs.size > 1) List(dfVal)

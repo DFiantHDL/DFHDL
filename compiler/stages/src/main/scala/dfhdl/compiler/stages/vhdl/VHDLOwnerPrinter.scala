@@ -183,9 +183,10 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
        |${csArchitectureDcl(design)}
        |""".stripMargin
   end csDFDesignBlockDcl
-  def csDFDesignBlockInst(design: DFDesignBlock): String =
-    val body = csDFDesignLateBody(design)
-    val designParamList = design.paramMap.view.map { (name, ref) =>
+  def csDFDesignBlockInst(inst: DFDesignInst): String =
+    val design = inst.designRef.get
+    val body = csDFDesignLateBody(inst)
+    val designParamList = inst.paramMap.view.map { (name, ref) =>
       s"${name} => ${ref.refCodeString}"
     }.toList
     val designParamCS =
@@ -195,11 +196,11 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val header =
       if (design.isBlackBox) entityName(design)
       else s"entity work.${entityName(design)}(${archName(design)})"
-    val inst = s"${design.getName} : $header${designParamCS}"
-    if (body.isEmpty) s"$inst;" else s"$inst port map (\n${body.hindent}\n);"
+    val instCS = s"${inst.getName} : $header${designParamCS}"
+    if (body.isEmpty) s"$instCS;" else s"$instCS port map (\n${body.hindent}\n);"
   end csDFDesignBlockInst
   def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
-  def csDFDesignDefInst(design: DFDesignBlock): String = printer.unsupported
+  def csDFDesignDefInst(inst: DFDesignInst): String = printer.unsupported
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
   override def csDFIfGuard(ifBlock: DFConditional.DFIfElseBlock): String =

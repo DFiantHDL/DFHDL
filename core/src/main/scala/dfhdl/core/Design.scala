@@ -16,9 +16,7 @@ trait Design extends Container, HasClsMetaArgs:
   final protected given TScope = DFC.Scope.Design
   private[core] def mkInstMode: InstMode = InstMode.Normal
   private[dfhdl] def initOwner: TOwner =
-    Design.Block(__domainType, ir.Meta(Some("???"), Position.unknown, None, Nil), InstMode.Normal)(
-      using dfc
-    )
+    Design.Block(__domainType, InstMode.Normal)(using dfc.anonymize)
   final protected def setClsNamePos(
       name: String,
       position: Position,
@@ -45,7 +43,7 @@ trait Design extends Container, HasClsMetaArgs:
     getSet.setGlobalTag(ir.DFHDLVersionTag(dfhdl.dfhdlVersion))
     getSet.replace(designBlock)(
       designBlock.copy(
-        dclMeta = r__For_Plugin.metaGen(Some(name), position, docOpt, annotations),
+        meta = r__For_Plugin.metaGen(Some(name), position, docOpt, annotations),
         instMode = instMode
       )
     )
@@ -54,13 +52,13 @@ trait Design extends Container, HasClsMetaArgs:
   final override def onCreateStartLate: Unit =
     hasStartedLate = true
     import dfc.getSet
-    Design.Block.updateWithParams(containedOwner.asIR)
+    val instParamMap = Design.Inst.computeParamMap
     if (dfc.owner.asIR.getThisOrOwnerDesign.isDeviceTop)
       handleResourceConstraints()
       dfc.mutableDB.ResourceOwnershipContext.emptyTopResourceOwners()
     val endedDesign = containedOwner.asIR
     dfc.exitOwner()
-    Design.Inst(endedDesign)
+    Design.Inst(endedDesign, instParamMap)
     dfc.enterLate()
   private[dfhdl] def skipChecks: Boolean = false
 
@@ -168,48 +166,45 @@ object Design:
   import ir.DFDesignBlock.InstMode
   type Block = DFOwner[ir.DFDesignBlock]
   object Block:
-    def apply(domain: ir.DomainType, dclMeta: ir.Meta, instMode: InstMode)(using DFC): Block =
+    def apply(domain: ir.DomainType, instMode: InstMode)(using DFC): Block =
       ir.DFDesignBlock(
-        domain, dclMeta, instMode, ListMap.empty, dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
+        domain, instMode, dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
       ).addMember.asFE
     end apply
-    protected[core] def updateWithParams(designBlock: ir.DFDesignBlock)(using dfc: DFC): Unit =
-      import dfc.getSet
-      val paramMap =
-        ListMap.from(
-          dfc.mutableDB.DesignContext.current.getImmutableMemberList.view.collect {
-            case dp: ir.DFVal.DesignParam =>
-              val dfVal = dp.appliedValOpt.get
-              // invalidating the param cache value after design elaboration
-              dp.clearCachedAppliedVal()
-              dp.getName -> dfVal.refTW[ir.DFDesignBlock](knownReachable = true)
-          }.toMap
-        )
-      getSet.replace(designBlock)(designBlock.copy(paramMap = paramMap))
   end Block
   object Inst:
+    protected[core] def computeParamMap(using dfc: DFC): ir.DFDesignInst.ParamMap =
+      import dfc.getSet
+      ListMap.from(
+        dfc.mutableDB.DesignContext.current.getImmutableMemberList.view.collect {
+          case dp: ir.DFVal.DesignParam =>
+            val dfVal = dp.appliedValOpt.get
+            // invalidating the param cache value after design elaboration
+            dp.clearCachedAppliedVal()
+            dp.getName -> dfVal.refTW[ir.DFDesignInst](knownReachable = true)
+        }
+      )
     // Construct a DFDesignInst member in the parent context that points back
     // at `designBlock`. Called from `onCreateStartLate` after
     // `dfc.exitOwner()` so `dfc.ownerOrEmptyRef` resolves to the enclosing
     // owner. The top-level design has no instantiation site (no instance
-    // name, no applied parameters — only defaults), so we skip it. paramMap
-    // is left empty in phase 1 of the DFDesignInst split refactor.
-    protected[core] def apply(designBlock: ir.DFDesignBlock)(using dfc: DFC): Unit =
+    // name, no applied parameters — only defaults), so we skip it.
+    protected[core] def apply(
+        designBlock: ir.DFDesignBlock,
+        paramMap: ir.DFDesignInst.ParamMap
+    )(using dfc: DFC): Unit =
       import dfc.getSet
       if (!designBlock.isTop)
-        val designRef: ir.DFRef.OneWay[ir.DFDesignBlock] = designBlock.ref
-        // Phase 1 parks the DFDesignInst as an anonymous inert member so it
-        // does not collide with the DFDesignBlock's instance name in
-        // UniqueNames / printers. Phase 2 will migrate the instance name off
-        // DFDesignBlock.meta onto DFDesignInst.meta as consumers flip over.
         val inst = ir.DFDesignInst(
-          designRef = designRef,
-          paramMap  = ListMap.empty,
-          ownerRef  = dfc.ownerOrEmptyRef,
-          meta      = designBlock.meta.anonymize,
-          tags      = designBlock.tags
+          designRef = designBlock.ref,
+          paramMap = paramMap,
+          ownerRef = dfc.owner.ref,
+          meta = dfc.getMeta,
+          tags = dfc.tags
         )
         dfc.mutableDB.addMember(inst)
+      end if
+    end apply
   end Inst
   extension [D <: Design](dsn: D)
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable

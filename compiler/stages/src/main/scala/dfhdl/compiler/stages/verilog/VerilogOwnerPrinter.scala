@@ -169,18 +169,19 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
        |
        |${csModuleDcl(design)}
        |""".stripMargin
-  def csDFDesignBlockInst(design: DFDesignBlock): String =
-    val body = csDFDesignLateBody(design)
-    val designParamList = design.paramMap.view.map { (name, ref) =>
+  def csDFDesignBlockInst(inst: DFDesignInst): String =
+    val design = inst.designRef.get
+    val body = csDFDesignLateBody(inst)
+    val designParamList = inst.paramMap.view.map { (name, ref) =>
       s".${name} (${ref.refCodeString})"
     }.toList
     val designParamCS =
       if (designParamList.isEmpty || design.isVendorIPBlackbox) ""
       else " #(" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
-    val inst = s"${moduleName(design)}$designParamCS ${design.getName}"
-    if (body.isEmpty) s"$inst;" else s"$inst(\n${body.hindent}\n);"
+    val instCS = s"${moduleName(design)}$designParamCS ${inst.getName}"
+    if (body.isEmpty) s"$instCS;" else s"$instCS(\n${body.hindent}\n);"
   def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
-  def csDFDesignDefInst(design: DFDesignBlock): String = printer.unsupported
+  def csDFDesignDefInst(inst: DFDesignInst): String = printer.unsupported
   def csBlockBegin: String = "begin"
   def csBlockEnd: String = "end"
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"

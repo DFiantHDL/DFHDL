@@ -182,7 +182,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
             originMember match
               case originVal: DFVal if originVal.isGlobal =>
               case _: DFVal.DesignParam                   =>
-              case _: DFDesignBlock => // paramMap entries may reference global anon vals
+              case _: DFDesignInst  => // paramMap entries may reference global anon vals
               case _                =>
                 reportViolation(
                   s"""|A global anonymous member is referenced by a non-global member.

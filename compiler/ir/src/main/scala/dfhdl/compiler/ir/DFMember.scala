@@ -443,8 +443,11 @@ object DFVal:
     // will not be available until the design is fully elaborated. during initial contruction and mutation,
     // the value will be cached in core.DFVal.DesignParam, and later cleared in core.Design
     private var cachedAppliedVal: Option[DFVal] = None
-    protected[compiler] def appliedValRefOpt(using MemberGetSet): Option[DFDesignBlock.ParamRef] =
-      getOwnerDesign.paramMap.get(getName)
+    protected[compiler] def appliedValRefOpt(using MemberGetSet): Option[DFDesignInst.ParamRef] =
+      val ownerDesign = getOwnerDesign
+      if (ownerDesign.isTop) None
+      else
+        getSet.designDB.designInstMap(ownerDesign).paramMap.get(getName)
     def appliedValOpt(using MemberGetSet): Option[DFVal] =
       if (getSet.isMutable) cachedAppliedVal.orElse(appliedValRefOpt.map(_.get))
       else appliedValRefOpt.map(_.get)
@@ -1462,27 +1465,25 @@ end DFLoop
 
 final case class DFDesignBlock(
     domainType: DomainType,
-    dclMeta: Meta,
     instMode: DFDesignBlock.InstMode,
-    paramMap: ListMap[String, DFDesignBlock.ParamRef],
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
       DFDomainOwner derives ReadWriter:
+  final val dclMeta: Meta = meta
   val dclName: String = dclMeta.name
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType =~ that.domainType &&
       this.dclMeta =~ that.dclMeta &&
       this.instMode == that.instMode &&
-      this.paramMap =~ that.paramMap &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] =
-    domainType.getRefs ++ dclMeta.getRefs ++ paramMap.values.toList
+    domainType.getRefs ++ dclMeta.getRefs
 
   /** Whether this design is considered to be a device's top-level design. THIS MAY NOT BE THE TOP
     * DESIGN, for example if the design is in a simulation. A design is considered to be a device
@@ -1495,15 +1496,12 @@ final case class DFDesignBlock(
   }
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
-    dclMeta = dclMeta.copyWithNewRefs,
     domainType = domainType.copyWithNewRefs,
-    paramMap = paramMap.map((k, v) => k -> v.copyAsNewRef),
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
 end DFDesignBlock
 
 object DFDesignBlock:
-  type ParamRef = DFRef.TwoWay[DFVal, DFDesignBlock]
   import InstMode.BlackBox.Source
   enum InstMode derives CanEqual, ReadWriter:
     case Normal, Def, Simulation
@@ -1552,7 +1550,7 @@ val DFDesignInstOld = DFDesignBlock
 
 final case class DFDesignInst(
     designRef: DFDesignInst.DesignRef,
-    paramMap: ListMap[String, DFDesignInst.ParamRef],
+    paramMap: DFDesignInst.ParamMap,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
@@ -1578,6 +1576,7 @@ end DFDesignInst
 object DFDesignInst:
   type DesignRef = DFRef.OneWay[DFDesignBlock]
   type ParamRef = DFRef.TwoWay[DFVal, DFDesignInst]
+  type ParamMap = ListMap[String, ParamRef]
 
 final case class DomainBlock(
     domainType: DomainType,

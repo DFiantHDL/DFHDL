@@ -597,7 +597,7 @@ final class MutableDB():
                       duplicateDesignSet += design
                       design.tags.tag(DuplicateTag)
                   design -> design.copy(
-                    dclMeta = design.dclMeta.copy(nameOpt = Some(updatedDclName)),
+                    meta = design.meta.copy(nameOpt = Some(updatedDclName)),
                     tags = tags
                   )
                 )

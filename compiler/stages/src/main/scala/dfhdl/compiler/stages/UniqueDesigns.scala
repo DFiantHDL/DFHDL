@@ -43,7 +43,7 @@ case object UniqueDesigns extends Stage:
                 block.tags
               else block.tags.tag(DuplicateTag)
             block -> Patch.Replace(
-              block.copy(dclMeta = block.dclMeta.copy(nameOpt = Some(updatedDclName)), tags = tags),
+              block.copy(meta = block.meta.copy(nameOpt = Some(updatedDclName)), tags = tags),
               Patch.Replace.Config.FullReplacement
             )
           )

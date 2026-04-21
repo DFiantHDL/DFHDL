@@ -667,13 +667,17 @@ object DFVal extends DFValLP:
     def apply[T <: DFTypeAny](
         appliedVal: DFValOf[T],
         defaultVal: Option[DFValOf[T]] = None
-    )(using DFC): DFConstOf[T] =
+    )(using dfc: DFC): DFConstOf[T] =
+      import dfc.getSet
+      val defaultValIR: ir.DFVal | ir.DFMember.Empty = defaultVal match
+        case Some(dv)                     => dv.asIR
+        case None if dfc.owner.asIR.isTop => appliedVal.asIR
+        case None                         => ir.DFMember.Empty
       val alias: ir.DFVal.DesignParam =
         ir.DFVal.DesignParam(
           appliedVal.asIR.dfType.dropUnreachableRefs,
-          defaultVal.map(_.asIR.refTW[ir.DFVal.DesignParam])
-            .getOrElse(ir.DFMember.Empty.refTW[ir.DFVal.DesignParam]),
-          dfc.ownerOrEmptyRef,
+          defaultValIR.refTW[ir.DFVal.DesignParam],
+          dfc.owner.ref,
           dfc.getMeta,
           dfc.tags
         )

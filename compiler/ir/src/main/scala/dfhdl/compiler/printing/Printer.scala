@@ -127,10 +127,10 @@ trait Printer
       case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
       case dfVal: DFVal                                => csDFValNamed(dfVal)
       case net: DFNet                                  => csDFNet(net)
-      case design: DFDesignBlock                       =>
-        design.instMode match
-          case InstMode.Def => csDFDesignDefInst(design)
-          case _            => csDFDesignBlockInst(design)
+      case inst: DFDesignInst                          =>
+        inst.designRef.get.instMode match
+          case InstMode.Def => csDFDesignDefInst(inst)
+          case _            => csDFDesignBlockInst(inst)
       case pb: ProcessBlock                => csProcessBlock(pb)
       case stepBlock: StepBlock            => csStepBlock(stepBlock)
       case forBlock: DFLoop.DFForBlock     => csDFForBlock(forBlock)
@@ -140,11 +140,11 @@ trait Printer
       case goto: Goto       => csGoto(goto)
       case wait: Wait       => csWait(wait)
       case textOut: TextOut => csTextOut(textOut)
-      // DFDesignInst is not independently rendered in phase 1 of the
-      // DFDesignInst split refactor — its declaration is emitted as part of
-      // the DFDesignBlock printing path.
-      case _: DFDesignInst => ""
-      case _               => ???
+      // DFDesignBlock no longer renders an instantiation inside an owner
+      // body — that now flows through DFDesignInst. The declaration file is
+      // still produced by `csFile` via `csDFDesignBlockDcl`.
+      case _: DFDesignBlock => ""
+      case _                => ???
     s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta.annotations)}$cs"
   end csDFMember
   def designFileName(designName: String): String

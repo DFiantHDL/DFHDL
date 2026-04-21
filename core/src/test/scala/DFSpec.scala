@@ -29,11 +29,7 @@ abstract class DFSpec extends NoDFCSpec, HasTypeName, HasDFC:
   given TDomain = core.DomainType.DF
   given dfPrinter: Printer = DefaultPrinter(using dfc.getSet)
   private final val owner: core.Design.Block =
-    core.Design.Block(
-      ir.DomainType.DF,
-      ir.Meta(Some(typeName), Position.unknown, None, Nil),
-      InstMode.Normal
-    )
+    core.Design.Block(ir.DomainType.DF, InstMode.Normal)
   dfc.enterOwner(owner)
   private val noErrMsg = "No error found"
 

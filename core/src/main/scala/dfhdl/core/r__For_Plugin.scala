@@ -138,18 +138,19 @@ object r__For_Plugin:
     val designBlock =
       Design.Block.apply(
         domain = ir.DomainType.DF,
-        dclMeta = dclMeta,
         instMode = ir.DFDesignBlock.InstMode.Def
-      )
+      )(using dfc.setMeta(dclMeta))
     dfc.enterOwner(designBlock)
     val inputs = args.map { (arg, argMeta) =>
       DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
     }
     val (isDuplicate, ret): (Boolean, V) =
       dfc.mutableDB.DesignContext.runFuncWithInputs(func, inputs)
-    Design.Block.updateWithParams(designBlock.asIR)
+    val instParamMap = Design.Inst.computeParamMap
     def exitAndConnectInputs() =
+      val endedDesign = designBlock.asIR
       dfc.exitOwner()
+      Design.Inst(endedDesign, instParamMap)
       inputs.lazyZip(args).foreach { case (input, (arg, _)) =>
         input.connect(arg)(using dfc.anonymize)
       }

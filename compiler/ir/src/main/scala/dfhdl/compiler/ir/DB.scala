@@ -282,6 +282,12 @@ final case class DB(
   lazy val designMemberTable: Map[DFDesignBlock, List[DFMember]] =
     Map(designMemberList*)
 
+  // Reverse map from each DFDesignBlock to its DFDesignInst. Every non-top
+  // design has exactly one DFDesignInst introduced during elaboration; the
+  // top-level DFDesignBlock has none (no instantiation site).
+  lazy val designInstMap: Map[DFDesignBlock, DFDesignInst] =
+    members.view.collect { case inst: DFDesignInst => inst.designRef.get -> inst }.toMap
+
   // holds the topological order of unique design block dependency
   lazy val uniqueDesignMemberList: List[(DFDesignBlock, List[DFMember])] =
     designMemberList.filterNot(_._1.isDuplicate)
@@ -1158,10 +1164,15 @@ final case class DB(
   def nameCheck(): Unit =
     // We use a Set since meta programming is usually the cause and can result in
     // multiple anonymous members with the same position. The top can be anonymous.
+    // DFDesignBlocks are always anonymous post-Phase 2 (instance name lives on
+    // the associated DFDesignInst) so they're not checked here; DFDesignInsts
+    // are checked instead.
     val anonErrorMemberPositions: Set[Position] = localsForOML.view.collect {
       case dcl: DFVal.Dcl if dcl.isAnonymous => dcl
-      // designs cannot be anonymous, but design definitions are allowed to be anonymous
-      case dsn: DFDesignBlock if dsn.isAnonymous && dsn.instMode != InstMode.Def => dsn
+      // design instantiations must carry an instance name (def-mode insts are
+      // allowed to be anonymous)
+      case inst: DFDesignInst if inst.isAnonymous && inst.designRef.get.instMode != InstMode.Def =>
+        inst
       // domains cannot be anonymous
       case domain: DomainBlock if domain.isAnonymous => domain
     }.map(_.meta.position).toSet
