@@ -211,7 +211,11 @@ object Design:
           meta = dfc.getMeta,
           tags = dfc.tags
         )
-        designBlock.setDesignInstCache(inst)
+        // `designBlock` here is the pre-elaboration IR captured via
+        // `containedOwner.asIR`, which may be stale after `setClsNamePos`
+        // replaced it. Resolve the ref to reach the current DB version so
+        // the cache lives on the block that `getDesignInst` looks up later.
+        inst.designRef.get.setDesignInstCache(inst)
         dfc.mutableDB.addMember(inst)
       end if
     end apply
