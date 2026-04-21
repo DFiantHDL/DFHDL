@@ -698,6 +698,11 @@ final class MutableDB():
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = GlobalTagContext.get[CT]
     def findDesignInst(design: DFDesignBlock): Option[DFDesignInst] =
       metaGetSetList.view.flatMap(_.findDesignInst(design)).headOption
+        // fall back to the immutable DB's reverse-lookup map, which covers
+        // the normal elaboration path where metaGetSetList is empty
+        // TODO: this is required for DFBitsSpec tests that uses a design def in assertCodeString.
+        // this needs to be removed, but we'll leave it here until we get rid of DFDesignBlock duplicates completely.
+        .orElse(designDB.designInstMap.get(design))
   end getSet
 
 end MutableDB
