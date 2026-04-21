@@ -5,19 +5,11 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.compiler.ir.DFDesignBlock.InstMode
 import dfhdl.options.CompilerOptions
-case object DropDesignDefs extends HierarchyStage:
+case object DropDesignDefs extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls, DropUnreferencedAnons)
-  // `DFNet.Connection.unapply` resolves via the full-DB `connectionTable`,
-  // which walks owner chains that cross sub-DB boundaries, so we keep the
-  // outer flat getSet.
-  override def rebindGetSet: Boolean = false
-  def transformSubDB(subDB: DB)(using
-      getSet: MemberGetSet,
-      co: CompilerOptions,
-      rg: RefGen
-  ): DB =
-    val patchList = subDB.designMemberList.flatMap {
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    val patchList = designDB.designMemberList.flatMap {
       // only going after design definitions
       case (design @ DFDesignBlock(domainType = DomainType.DF, instMode = InstMode.Def), members) =>
         var outPortOpt: Option[DFVal.Dcl] = None
@@ -27,15 +19,16 @@ case object DropDesignDefs extends HierarchyStage:
             outPortOpt = Some(port)
             ident -> Patch.Replace(retVal, Patch.Replace.Config.FullReplacement)
         }.toList
+        val designInst = design.getDesignInst
         val updatedName =
-          // design definitions may be anonymous, so we name them
-          if (design.isAnonymous)
+          // design definition instances may be anonymous, so we name them
+          if (designInst.isAnonymous)
             // the output port is connected and used in the function and from that
             // we know the target name using `suggestName`
             outPortOpt
               .flatMap(_.suggestName.map(x => x + "_"))
               .getOrElse("") + s"${design.dclName}_inst"
-          else design.getName
+          else designInst.getName
 
         // we need to move the output port to the end of the inputs, to prevent
         // malformed ordering in future stages when referencing the output port.
@@ -54,13 +47,16 @@ case object DropDesignDefs extends HierarchyStage:
             case None => members.head -> Patch.Move(o, Patch.Move.Config.Before)
         }
         design -> Patch.Replace(
-          design.copy(instMode = InstMode.Normal).setName(updatedName),
+          design.copy(instMode = InstMode.Normal),
+          Patch.Replace.Config.FullReplacement
+        ) :: designInst -> Patch.Replace(
+          designInst.setName(updatedName),
           Patch.Replace.Config.FullReplacement
         ) :: identRemovePatch ++ outPortPatch
       case _ => None
     }
-    subDB.patch(patchList)
-  end transformSubDB
+    designDB.patch(patchList)
+  end transform
 end DropDesignDefs
 
 //turns design definitions into normal designs, and set their instance names
