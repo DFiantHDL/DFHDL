@@ -46,6 +46,8 @@ final case class DB(
       "Cannot set global tag on immutable DB"
     )
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = globalTags.getTagOf[CT]
+    def findDesignInst(design: DFDesignBlock): Option[DFDesignInst] =
+      designInstMap.get(design)
   end getSet
 
   // considered to be in simulation if the top design has no ports
@@ -1674,6 +1676,8 @@ trait MemberGetSet:
   def remove[M <: DFMember](member: M): M
   def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit
   def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT]
+  def findDesignInst(design: DFDesignBlock): Option[DFDesignInst]
   final lazy val topName: String = designDB.top.dclName
+end MemberGetSet
 
 def getSet(using MemberGetSet): MemberGetSet = summon[MemberGetSet]

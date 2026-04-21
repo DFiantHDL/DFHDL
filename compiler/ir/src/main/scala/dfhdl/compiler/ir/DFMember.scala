@@ -1480,8 +1480,8 @@ final case class DFDesignBlock(
   def getDesignInst(using MemberGetSet): DFDesignInst =
     assert(!this.isTop, "Top-level designs have no design instantiations")
     // cache is for elaboration only
-    if (getSet.isMutable) designInstCache.getOrElse(getSet.designDB.designInstMap(this))
-    else getSet.designDB.designInstMap(this)
+    if (getSet.isMutable) designInstCache.getOrElse(getSet.findDesignInst(this).get)
+    else getSet.findDesignInst(this).get
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType =~ that.domainType &&

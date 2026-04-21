@@ -643,8 +643,11 @@ final class MutableDB():
         }.toMap
         (finalMembers, finalRefTable)
     val membersNoGlobalCtx = members.map {
-      case m: DFVal.CanBeGlobal => m.copyWithoutGlobalCtx
-      case m                    => m
+      case m: DFVal.CanBeGlobal  => m.copyWithoutGlobalCtx
+      case design: DFDesignBlock =>
+        design.clearDesignInstCache()
+        design
+      case m => m
     }
     val globalTags = GlobalTagContext.tags
     // Drop orphan OneWay.Gen refs — refTable entries whose key is no live
@@ -685,6 +688,8 @@ final class MutableDB():
     def remove[M <: DFMember](member: M): M = ignoreMember(member)
     def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit = GlobalTagContext.set(tag)
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = GlobalTagContext.get[CT]
+    def findDesignInst(design: DFDesignBlock): Option[DFDesignInst] =
+      metaGetSetList.view.flatMap(_.findDesignInst(design)).headOption
   end getSet
 
 end MutableDB
