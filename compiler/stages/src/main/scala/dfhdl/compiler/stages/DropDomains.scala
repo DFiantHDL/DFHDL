@@ -27,6 +27,8 @@ case object DropDomains extends HierarchyStage:
         Some(
           domain -> Patch.Replace(domain.getOwnerDesign, Patch.Replace.Config.ChangeRefAndRemove)
         )
+      // ignore design block members
+      case designBlock: DFDesignBlock => None
       // named members owned by domains could need to change their name depending on the flattening mode
       // of its domain owner chain
       case member: DFMember.Named if !member.isAnonymous =>
