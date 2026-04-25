@@ -55,7 +55,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
             case _ =>
         // check by-name selectors
         case pbns: DFVal.PortByNameSelect =>
-          val design = pbns.designInstRef.get
+          val design = pbns.designInstRef.get.getDesignBlock
           // check port existence
           getSet.designDB.dupPortsByName(design).get(pbns.portNamePath) match
             case None =>

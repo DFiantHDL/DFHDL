@@ -253,8 +253,8 @@ extension (dfVal: DFVal)
       }
     dfVal match
       // for ports we need to also account for by-name referencing
-      case port @ DclPort() =>
-        val designInst = port.getOwnerDesign
+      case port @ DclPort() if !port.getOwnerDesign.isTop =>
+        val designInst = port.getOwnerDesign.getDesignInst
         designInst.originMembers.view
           .collect { case ps @ DFVal.PortByNameSelect.Of(p) if p == port => ps.getReadDeps }
           .flatten

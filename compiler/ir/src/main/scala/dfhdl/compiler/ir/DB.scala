@@ -347,7 +347,7 @@ final case class DB(
     def collectFrom(db: DB): (
         Map[DFDesignBlock, List[DomainBlock]],
         Map[DFDesignBlock, ListMap[String, DFVal.Dcl]],
-        Map[DFDesignInstOld, Map[String, DFType]]
+        Map[DFDesignInst, Map[String, DFType]]
     ) =
       given MemberGetSet = db.getSet
       val doms = db.members.view
@@ -374,7 +374,7 @@ final case class DB(
       dupAnalysisDBs.map(collectFrom).foldLeft((
         Map.empty[DFDesignBlock, List[DomainBlock]],
         Map.empty[DFDesignBlock, ListMap[String, DFVal.Dcl]],
-        Map.empty[DFDesignInstOld, Map[String, DFType]]
+        Map.empty[DFDesignInst, Map[String, DFType]]
       )) { case ((d1, p1, b1), (d2, p2, b2)) =>
         (d1 ++ d2, p1 ++ p2, b1 ++ b2)
       }
@@ -397,7 +397,9 @@ final case class DB(
         domainBlockMap += (dupDesign, origBlock) -> dupBlock
       }
       // 2. Build port copies (reusing origToDupMap from step 1)
-      val pbnsTypes = pbnsByDesign.getOrElse(dupDesign, Map.empty)
+      // pbnsByDesign is keyed on DFDesignInst (PBNS now references the inst);
+      // navigate from the duplicate DFDesignBlock to its DFDesignInst.
+      val pbnsTypes = pbnsByDesign.getOrElse(dupDesign.getDesignInst, Map.empty)
       portEntries += dupDesign ->
         ListMap.from(origPortMap.getOrElse(origDesign, ListMap.empty).view.map { (name, dcl) =>
           val dfType = pbnsTypes.getOrElse(name, dcl.dfType)

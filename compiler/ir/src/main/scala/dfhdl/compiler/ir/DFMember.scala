@@ -677,14 +677,14 @@ object DFVal:
     ).asInstanceOf[this.type]
   end PortByNameSelect
   object PortByNameSelect:
-    type Ref = DFRef.TwoWay[DFDesignInstOld, PortByNameSelect]
+    type Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
     object Of:
       def unapply(portByNameSelect: PortByNameSelect)(using MemberGetSet): Option[DFVal.Dcl] =
         Some(portByNameSelect.getPortDcl)
     extension (portByNameSelect: PortByNameSelect)
       def getPortDcl(using MemberGetSet): DFVal.Dcl =
         val designInst = portByNameSelect.designInstRef.get
-        getSet.designDB.dupPortsByName(designInst)(portByNameSelect.portNamePath)
+        getSet.designDB.dupPortsByName(designInst.getDesignBlock)(portByNameSelect.portNamePath)
 
   sealed trait Alias extends CanBeExpr:
     val relValRef: Alias.Ref

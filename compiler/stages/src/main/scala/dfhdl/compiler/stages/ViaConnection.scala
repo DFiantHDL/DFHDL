@@ -73,8 +73,11 @@ case object ViaConnection extends Stage:
             p.setReachableTypes()
             p -> p.asValAny.genNewVar(using dfc.setName(s"${ib.getName}_${p.getName}")).asIR
           }
-        // Meta design for connections between ports and the added variables
-        val connectDsn = new MetaDesign(ib, Patch.Add.Config.After):
+        // Meta design for connections between ports and the added variables.
+        // Anchored after the DFDesignInst (rather than the DFDesignBlock) so
+        // any synthesized PBNS that targets the inst sits AFTER it in the
+        // flat member list — preserves the order check invariant.
+        val connectDsn = new MetaDesign(ib.getDesignInst, Patch.Add.Config.After):
           dfc.mutableDB.injectMetaGetSet(addVarsDsn.getDB.getSet)
           dfc.enterLate()
           val refPatches: List[(DFMember, Patch)] = addVarsDsn.portsToVars.flatMap { case (p, v) =>

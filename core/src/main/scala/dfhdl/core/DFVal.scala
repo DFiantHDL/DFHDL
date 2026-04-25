@@ -989,7 +989,7 @@ object DFVal extends DFValLP:
   end Alias
 
   object PortByNameSelect:
-    def apply(dfType: ir.DFType, designInst: ir.DFDesignBlock, namePath: String)(using
+    def apply(dfType: ir.DFType, designInst: ir.DFDesignInst, namePath: String)(using
         DFC
     ): ir.DFVal.PortByNameSelect =
       ir.DFVal.PortByNameSelect(
