@@ -173,14 +173,20 @@ final case class DB(
     globalMembers match
       // current member indeed belongs to current owner
       case m :: mList if getOwnerFunc(m) == localOwner =>
-        val updatedStack1 = (localOwner -> (m :: localMembers)) :: updatedStack0
         m match
           // Deep borrowing into block as the new owner
           case o: O if classTag[O].runtimeClass.isInstance(o) =>
+            // DFDesignBlock opens a new scope but is NOT included in the
+            // parent owner's member list — the corresponding DFDesignInst
+            // already represents the instantiation in the parent's stream.
+            val updatedStack1 = m match
+              case _: DFDesignBlock => (localOwner -> localMembers) :: updatedStack0
+              case _                => (localOwner -> (m :: localMembers)) :: updatedStack0
             val updatedStack2 = (o -> List()) :: updatedStack1
             OMLGen[O](getOwnerFunc)(oml, mList, updatedStack2)
           // Just a member
           case _ =>
+            val updatedStack1 = (localOwner -> (m :: localMembers)) :: updatedStack0
             OMLGen[O](getOwnerFunc)(oml, mList, updatedStack1)
       // current member does not belong to current owner
       case x :: xs =>

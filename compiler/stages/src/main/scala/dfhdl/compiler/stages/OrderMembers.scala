@@ -12,15 +12,21 @@ private abstract class OrderMembers(order: OrderMembers.Order) extends Hierarchy
   def nullifies: Set[Stage] = Set()
   @tailrec private def orderMembers(
       remaining: List[DFMember],
-      retList: List[DFMember]
+      retList: List[DFMember],
+      expandedInsts: Set[DFDesignInst] = Set.empty
   )(using MemberGetSet): List[DFMember] = remaining match
+    // The referenced DFDesignBlock no longer appears in the parent owner's
+    // table, so inline it (and its children) right before the inst to keep
+    // the flat-list ordering [designBlock, ...children..., inst].
+    case (inst: DFDesignInst) :: mList if !expandedInsts(inst) =>
+      orderMembers(inst.getDesignBlock :: inst :: mList, retList, expandedInsts + inst)
     case (block: DFOwnerNamed) :: mList =>
       val members = getSet.designDB.namedOwnerMemberTable.getOrElse(block, Nil)
       val sortedMembers = block match
         case _: DFDesignBlock => members.sortBy(order())
         case _                => members
-      orderMembers(sortedMembers ++ mList, block :: retList)
-    case m :: mList => orderMembers(mList, m :: retList)
+      orderMembers(sortedMembers ++ mList, block :: retList, expandedInsts)
+    case m :: mList => orderMembers(mList, m :: retList, expandedInsts)
     case Nil        => retList.reverse
 
   def transformSubDB(subDB: DB)(using

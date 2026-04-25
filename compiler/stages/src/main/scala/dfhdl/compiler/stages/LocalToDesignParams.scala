@@ -25,7 +25,7 @@ case object LocalToDesignParams extends Stage:
         val localConsts = members.view.collect {
           case const @ DclConst() => const.getName -> const
         }.toMap
-        val designInstances = members.collect { case di: DFDesignBlock => di }
+        val designInstances = members.collect { case di: DFDesignInst => di.getDesignBlock }
         val exploredDesigns = if (design.isTop) design :: designInstances else designInstances
         exploredDesigns.flatMap { designInstance =>
           val ioLocalParams = designInstance.getIOLocalParams

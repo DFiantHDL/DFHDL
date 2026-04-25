@@ -36,7 +36,14 @@ case object GlobalizePortVectorParams extends Stage:
           orig: DFDesignBlock,
           dup: DFDesignBlock
       ): Unit =
-        val origMembers = designDB.designMemberTable(orig)
+        // After Step 1 of "Drop DFDesignBlock as an Instance Member", orig's
+        // table no longer lists nested DFDesignBlocks; expand them inline
+        // before each DFDesignInst so the duplication walk produces dup
+        // copies of nested designs and the recursion below still triggers.
+        val origMembers = designDB.designMemberTable(orig).flatMap {
+          case inst: DFDesignInst => List(inst.getDesignBlock, inst)
+          case m                  => List(m)
+        }
         val origToDupMemberMap = mutable.Map.empty[DFMember, DFMember]
         origToDupMemberMap += orig -> dup
         def getReplacement(member: DFMember): DFMember =
@@ -76,9 +83,18 @@ case object GlobalizePortVectorParams extends Stage:
       def populateWithDupMembers(members: List[DFMember]): List[DFMember] =
         members.flatMap {
           case design: DFDesignBlock =>
-            design :: populateWithDupMembers(
-              dupDesignMembersMap.getOrElse(design, designDB.designMemberTable(design))
-            )
+            // dupDesignMembersMap (set up via duplicateDesignMembers above) is
+            // already expanded with nested DFDesignBlocks. For non-dup designs
+            // we must expand from the table because Step 1 of "Drop
+            // DFDesignBlock as an Instance Member" no longer lists nested
+            // designs in the parent's table.
+            val children = dupDesignMembersMap.getOrElse(design, {
+              designDB.designMemberTable(design).flatMap {
+                case inst: DFDesignInst => List(inst.getDesignBlock, inst)
+                case m                  => List(m)
+              }
+            })
+            design :: populateWithDupMembers(children)
           case member => Some(member)
         }
       designDB.copy(
