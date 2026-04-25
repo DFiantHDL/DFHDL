@@ -321,24 +321,28 @@ final case class DB(
       }
     else members.collect { case d: DFDesignBlock => d }
 
-  // maps each duplicated design to its origin (first non-duplicate design with the same dclName)
-  lazy val dupDesignToOrigMap: Map[DFDesignBlock, DFDesignBlock] =
+  // maps each duplicate-design DFDesignInst to its origin DFDesignInst
+  // (the inst whose target is the first non-duplicate design with the same dclName).
+  lazy val dupDesignToOrigMap: Map[DFDesignInst, DFDesignInst] =
     if (internalDBs.nonEmpty)
       val origByName = dupAnalysisDesigns.filterNot(_.isDuplicate)
         .groupBy(_.dclName).view.mapValues(_.head).toMap
       dupAnalysisDesigns.collect {
-        case d if d.isDuplicate => d -> origByName(d.dclName)
+        case d if d.isDuplicate =>
+          designInstMap(d) -> designInstMap(origByName(d.dclName))
       }.toMap
     else
       val origByName =
         uniqueDesignMemberList.map(_._1).groupBy(_.dclName).view.mapValues(_.head).toMap
       designMemberList.collect {
-        case (design, _) if design.isDuplicate => design -> origByName(design.dclName)
+        case (design, _) if design.isDuplicate =>
+          designInstMap(design) -> designInstMap(origByName(design.dclName))
       }.toMap
 
   // Single pass: for each duplicate design, compute dup domain blocks AND dup ports together.
-  // dupDesignDomainBlockMap: maps (dupDesign, origDomainBlock) -> dupDomainBlock
-  // dupPortsByName: maps design -> port name -> Dcl (including dup entries with DuplicationRef)
+  // dupDesignDomainBlockMap: maps (dupInst, origDomainBlock) -> dupDomainBlock
+  // dupPortsByName: maps DFDesignInst -> port name -> Dcl (real ports for canonical
+  // insts, synth ports with DuplicationRef for duplicate insts).
   lazy val (dupDesignDomainBlockMap, dupPortsByName) =
     // Collect per-DB using each DB's own getSet — `getOwnerDesign` /
     // `getRelativeName` walk ownerRef chains that only resolve within the
@@ -378,9 +382,13 @@ final case class DB(
       )) { case ((d1, p1, b1), (d2, p2, b2)) =>
         (d1 ++ d2, p1 ++ p2, b1 ++ b2)
       }
-    val domainBlockMap = mutable.Map.empty[(DFDesignBlock, DomainBlock), DomainBlock]
-    val portEntries = mutable.Map.empty[DFDesignInstOld, ListMap[String, DFVal.Dcl]]
-    dupDesignToOrigMap.foreach { (dupDesign, origDesign) =>
+    val domainBlockMap = mutable.Map.empty[(DFDesignInst, DomainBlock), DomainBlock]
+    val portEntries = mutable.Map.empty[DFDesignInst, ListMap[String, DFVal.Dcl]]
+    dupDesignToOrigMap.foreach { (dupInst, origInst) =>
+      // Resolve via outer getSet first to avoid forward reference to the
+      // local `given MemberGetSet` below.
+      val dupDesign = dupInst.getDesignBlock(using self.getSet)
+      val origDesign = origInst.getDesignBlock(using self.getSet)
       // Resolve origin's ownerRef chain using origin's own sub-DB getSet;
       // in old-style, this DB's getSet suffices.
       given MemberGetSet =
@@ -394,21 +402,24 @@ final case class DB(
         val dupOwner = origToDupMap(origBlock.getOwnerDomain)
         val dupBlock = origBlock.copy(ownerRef = DFRef.DuplicationRef(dupOwner))
         origToDupMap += origBlock -> dupBlock
-        domainBlockMap += (dupDesign, origBlock) -> dupBlock
+        domainBlockMap += (dupInst, origBlock) -> dupBlock
       }
       // 2. Build port copies (reusing origToDupMap from step 1)
-      // pbnsByDesign is keyed on DFDesignInst (PBNS now references the inst);
-      // navigate from the duplicate DFDesignBlock to its DFDesignInst.
-      val pbnsTypes = pbnsByDesign.getOrElse(dupDesign.getDesignInst, Map.empty)
-      portEntries += dupDesign ->
+      val pbnsTypes = pbnsByDesign.getOrElse(dupInst, Map.empty)
+      portEntries += dupInst ->
         ListMap.from(origPortMap.getOrElse(origDesign, ListMap.empty).view.map { (name, dcl) =>
           val dfType = pbnsTypes.getOrElse(name, dcl.dfType)
           val dupOwnerDomain = origToDupMap(dcl.getOwnerDomain)
           name -> dcl.copy(ownerRef = DFRef.DuplicationRef(dupOwnerDomain), dfType = dfType)
         })
     }
-    // dupEntries only fills in missing entries (designs without real port members)
-    (domainBlockMap.toMap, portEntries.toMap ++ origPortMap)
+    // For canonical (non-duplicate, non-top) designs, the inst's ports are the
+    // real Dcls in the canonical block. Top has no inst and is excluded.
+    val origInstPortMap: Map[DFDesignInst, ListMap[String, DFVal.Dcl]] =
+      origPortMap.flatMap { (block, ports) =>
+        designInstMap.get(block).map(_ -> ports)
+      }
+    (domainBlockMap.toMap, portEntries.toMap ++ origInstPortMap)
   end val
 
   lazy val dupDomainOwnerPublicMemberList: List[(DFDomainOwner, List[DFMember])] =
@@ -422,32 +433,34 @@ final case class DB(
     // by mirroring the origin's domain owner structure.
     def dupEntriesFor(
         origOwner: DFDomainOwner,
-        dupDesign: DFDesignBlock
+        dupDesign: DFDesignBlock,
+        dupInst: DFDesignInst
     ): List[(DFDomainOwner, List[DFMember])] =
       val dupOwner: DFDomainOwner = origOwner match
         case _: DFDesignBlock    => dupDesign
-        case db: DomainBlock     => dupDesignDomainBlockMap((dupDesign, db))
+        case db: DomainBlock     => dupDesignDomainBlockMap((dupInst, db))
         case _: DFInterfaceOwner => ??? // TODO
       val origMembers = domainOwnerMemberTable(origOwner)
         .view.filter(publicMemberFilter).toList
-      val dupDesignPorts = dupPortsByName.getOrElse(dupDesign, ListMap.empty)
+      val dupDesignPorts = dupPortsByName.getOrElse(dupInst, ListMap.empty)
       val dupMembers = origMembers.map {
         case dcl: DFVal.Dcl =>
           val relName = dcl.getRelativeName(origOwner.getThisOrOwnerDesign)
           dupDesignPorts.getOrElse(relName, dcl)
         case design: DFDesignBlock => design // nested designs stay as-is
-        case db: DomainBlock       => dupDesignDomainBlockMap((dupDesign, db))
+        case db: DomainBlock       => dupDesignDomainBlockMap((dupInst, db))
         case m                     => m
       }
       (dupOwner -> dupMembers) :: origMembers.collect { case db: DomainBlock =>
-        dupEntriesFor(db, dupDesign)
+        dupEntriesFor(db, dupDesign, dupInst)
       }.flatten
     end dupEntriesFor
     domainOwnerMemberList.flatMap { case (owner, members) =>
       owner match
         case dupDesign: DFDesignBlock if dupDesign.isDuplicate =>
-          val origDesign = dupDesignToOrigMap(dupDesign)
-          dupEntriesFor(origDesign, dupDesign)
+          val dupInst = designInstMap(dupDesign)
+          val origDesign = dupDesignToOrigMap(dupInst).getDesignBlock
+          dupEntriesFor(origDesign, dupDesign, dupInst)
         case origDesign: DFDesignBlock =>
           List(origDesign -> members.filter(publicMemberFilter))
         case origDomainBlock: DomainBlock =>
@@ -826,13 +839,15 @@ final case class DB(
             acc.getOrElse(dcl, Coverage.empty).assign(slice, dcl.dfType.widthIntOpt)
           )
         }
-    // collect all ports that are not connected directly or implicitly as magnets
-    val danglingPorts = dupPortsByName.view.flatMap { (ownerDesign, ports) =>
+    // collect all ports that are not connected directly or implicitly as magnets.
+    // dupPortsByName is keyed on DFDesignInst (so top, which has no inst, is
+    // implicitly excluded — its inputs aren't dangling, they're top-level IO).
+    val danglingPorts = dupPortsByName.view.flatMap { (designInst, ports) =>
+      val ownerDesign = designInst.getDesignBlock
       ports.collect {
         case (_, p: DFVal.Dcl)
             if p.isPortIn && !p.isClkDcl && !p.isRstDcl && !connectionTable.contains(p) &&
-              !ownerDesign.isTop && !magnetConnectionTable.contains(p) =>
-          val designInst = ownerDesign.getDesignInst
+              !magnetConnectionTable.contains(p) =>
           s"""|DFiant HDL connectivity error!
               |Position:  ${designInst.meta.position}
               |Hierarchy: ${designInst.getFullName}
@@ -841,10 +856,10 @@ final case class DB(
             if p.isPortOut && !ownerDesign.isDuplicate && !ownerDesign.isBlackBox &&
               !connectionTable.contains(p) && !assignmentsDclTable.contains(p) &&
               !magnetConnectionTable.contains(p) && !p.hasNonBubbleInit =>
-          val ownerDesign = p.getOwnerDesign.getDesignInst
+          val portInst = p.getOwnerDesign.getDesignInst
           s"""|DFiant HDL connectivity error!
               |Position:  ${p.meta.position}
-              |Hierarchy: ${ownerDesign.getFullName}
+              |Hierarchy: ${portInst.getFullName}
               |Message:   Found a dangling (unconnected/unassigned and uninitialized) output port `${p.getName}`.""".stripMargin
       }
     }

@@ -684,7 +684,7 @@ object DFVal:
     extension (portByNameSelect: PortByNameSelect)
       def getPortDcl(using MemberGetSet): DFVal.Dcl =
         val designInst = portByNameSelect.designInstRef.get
-        getSet.designDB.dupPortsByName(designInst.getDesignBlock)(portByNameSelect.portNamePath)
+        getSet.designDB.dupPortsByName(designInst)(portByNameSelect.portNamePath)
 
   sealed trait Alias extends CanBeExpr:
     val relValRef: Alias.Ref

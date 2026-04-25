@@ -55,9 +55,9 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
             case _ =>
         // check by-name selectors
         case pbns: DFVal.PortByNameSelect =>
-          val design = pbns.designInstRef.get.getDesignBlock
+          val designInst = pbns.designInstRef.get
           // check port existence
-          getSet.designDB.dupPortsByName(design).get(pbns.portNamePath) match
+          getSet.designDB.dupPortsByName(designInst).get(pbns.portNamePath) match
             case None =>
               reportViolation(
                 s"Missing port ${pbns.portNamePath} for by-name port selection: ${pbns}"

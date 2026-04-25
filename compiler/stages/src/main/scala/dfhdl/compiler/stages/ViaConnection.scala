@@ -15,7 +15,7 @@ case object ViaConnection extends Stage:
       case (ib, members) if !ib.isTop =>
         // getting only ports that are not already connected to variables
         val (ports, nets): (List[DFVal.Dcl], List[DFNet]) =
-          val ports = designDB.dupPortsByName(ib).values
+          val ports = designDB.dupPortsByName(ib.getDesignInst).values
           ports.foldRight((List.empty[DFVal.Dcl], List.empty[DFNet])) {
             case (p @ DclOut(), (ports, nets)) =>
               val conns = p.getConnectionsFrom

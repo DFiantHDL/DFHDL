@@ -31,7 +31,7 @@ case object ConnectUnused extends HierarchyStage:
     val patchList: List[(DFMember, Patch)] = subDB.members.view.collect {
       case designInst: DFDesignInst =>
         val ports =
-          getSet.designDB.dupPortsByName.getOrElse(designInst.getDesignBlock, ListMap.empty)
+          getSet.designDB.dupPortsByName.getOrElse(designInst, ListMap.empty)
         val unusedPorts = ports.view.values.filter { port =>
           port.meta.annotations.exists {
             case _: annotation.Unused => true

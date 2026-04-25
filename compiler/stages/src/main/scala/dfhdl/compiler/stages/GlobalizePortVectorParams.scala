@@ -77,8 +77,9 @@ case object GlobalizePortVectorParams extends Stage:
           case _ =>
         }
       end duplicateDesignMembers
-      designDB.dupDesignToOrigMap.groupBy(_._2).foreach { (orig, dupMap) =>
-        dupMap.keys.foreach { dup => duplicateDesignMembers(orig, dup) }
+      designDB.dupDesignToOrigMap.groupBy(_._2).foreach { (origInst, dupMap) =>
+        val orig = origInst.getDesignBlock
+        dupMap.keys.foreach { dupInst => duplicateDesignMembers(orig, dupInst.getDesignBlock) }
       }
       def populateWithDupMembers(members: List[DFMember]): List[DFMember] =
         members.flatMap {

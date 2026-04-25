@@ -28,11 +28,10 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // need to check if it has an output port that is referenced later
         case inst: DFDesignInst
             if inst.getDesignBlock.instMode == InstMode.Def && inst.isAnonymous =>
-          val design = inst.getDesignBlock
           // For duplicate designs, ports may not be in the members list but are
           // available via dupPortsByName (with DuplicationRef owners).
           // For DuplicationRef-backed ports, we check the PBNS read deps instead.
-          val ports = getSet.designDB.dupPortsByName(design).view.values.collect {
+          val ports = getSet.designDB.dupPortsByName(inst).view.values.collect {
             case port @ DclOut() => port
           }
           val hasOutput = ports.lastOption.map(port =>
@@ -227,7 +226,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     }.toList
   def csDFDesignDefInst(inst: DFDesignInst): String =
     val design = inst.getDesignBlock
-    val ports = getSet.designDB.dupPortsByName(design).view.values.collect { case port @ DclIn() =>
+    val ports = getSet.designDB.dupPortsByName(inst).view.values.collect { case port @ DclIn() =>
       val DFNet.Connection(_, from: DFVal, _) = port.getConnectionTo.get.runtimeChecked
       printer.csDFValRef(from, design.getOwner)
     }.mkString(", ")
