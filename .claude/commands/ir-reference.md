@@ -717,40 +717,43 @@ paramRef.isRef              // true if parameterised
 
 ```scala
 enum DomainType:
-  case DF              // dataflow (timing-agnostic)
-  case RT(cfg: RTDomainCfg)  // register-transfer
-  case ED              // event-driven (Verilog/VHDL semantics)
+  case DF   // dataflow (timing-agnostic)
+  case RT   // register-transfer — clk/rst configuration lives on the owner's
+            // meta as @timing.clock / @timing.reset / @timing.related annotations
+  case ED   // event-driven (Verilog/VHDL semantics)
 ```
 
-### RTDomainCfg
-```scala
-enum RTDomainCfg:
-  case Derived                                             // inherit from context
-  case Related(relatedDomainRef: RTDomainCfg.RelatedDomainRef)
-  case Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg)
-```
+### Timing annotations (in `ir.constraints.Timing`)
+RT clock/reset configuration and inter-domain relations are carried by `SigConstraint`
+annotations on the domain owner's `meta.annotations`. All fields are `ConfigN[T]`
+(`= T | None.type`) so user-authored annotations may be partial; the resolver fills
+unset fields from `DefaultRTDomainCfgTag` defaults.
 
-### ClkCfg.Explicit
 ```scala
-final case class ClkCfg.Explicit(
-    edge:             ClkCfg.Edge,     // Rising | Falling
-    rate:             RateNumber,
-    portName:         String,
-    inclusionPolicy:  ClkRstInclusionPolicy
+final case class Timing.Clock(
+    rate:             ConfigN[RateNumber]            = None,
+    edge:             ConfigN[ClkCfg.Edge]           = None,  // Rising | Falling
+    portName:         ConfigN[String]                = None,
+    inclusionPolicy:  ConfigN[ClkRstInclusionPolicy] = None,  // AsNeeded | AlwaysAtTop
+    grpName:          ConfigN[String]                = None,
+    bitIdx:           ConfigN[Int]                   = None
 )
-enum ClkCfg.Edge: Rising, Falling
-```
 
-### RstCfg.Explicit
-```scala
-final case class RstCfg.Explicit(
-    mode:             RstCfg.Mode,     // Async | Sync
-    active:           RstCfg.Active,   // Low | High
-    portName:         String,
-    inclusionPolicy:  ClkRstInclusionPolicy
+final case class Timing.Reset(
+    mode:             ConfigN[RstCfg.Mode]           = None,  // Async | Sync
+    active:           ConfigN[RstCfg.Active]         = None,  // Low | High
+    portName:         ConfigN[String]                = None,
+    inclusionPolicy:  ConfigN[ClkRstInclusionPolicy] = None,
+    bitIdx:           ConfigN[Int]                   = None
 )
-enum RstCfg.Mode:   Async, Sync
-enum RstCfg.Active: Low, High
+
+final case class Timing.Related(ref: Timing.Related.Ref)
+object Timing.Related:
+  type Ref = DFRef.TwoWay[DomainBlock | DFDesignBlock, DomainBlock]
+
+enum ClkCfg.Edge:           Rising, Falling
+enum RstCfg.Mode:           Async, Sync
+enum RstCfg.Active:         Low, High
 enum ClkRstInclusionPolicy: AsNeeded, AlwaysAtTop
 ```
 
@@ -793,7 +796,7 @@ case object IdentTag          // Alias.AsIs is a pure identity (named alias of i
 case object BindTag           // Alias is a pattern-match bind variable
 case object CombinationalTag  // loop/block is combinational (no cycles)
 case object FallThroughTag    // loop/block falls through to next step
-case class  DefaultRTDomainCfgTag(cfg: RTDomainCfg.Explicit)
+case class  DefaultRTDomainCfgTag(clk: Timing.Clock, rst: Timing.Reset)
 case object ResizeTag
 case class  DFHDLVersionTag(version: String)
 ```

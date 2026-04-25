@@ -16,7 +16,10 @@ case object CombinationalTag extends DFTag
 type CombinationalTag = CombinationalTag.type
 case object FallThroughTag extends DFTag
 type FallThroughTag = FallThroughTag.type
-case class DefaultRTDomainCfgTag(cfg: RTDomainCfg.Explicit) extends DFTag
+case class DefaultRTDomainCfgTag(
+    clk: constraints.Timing.Clock,
+    rst: constraints.Timing.Reset
+) extends DFTag
 case object ResizeTag extends DFTag
 type ResizeTag = ResizeTag.type
 case object SyntheticDefaultTag extends DFTag

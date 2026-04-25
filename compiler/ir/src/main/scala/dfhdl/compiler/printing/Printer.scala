@@ -79,43 +79,6 @@ trait Printer
   def csWait(wait: Wait): String
   def csTextOut(textOut: TextOut): String
   // def csTimer(timer: Timer): String
-  def csClkEdgeCfg(edge: ClkCfg.Edge): String =
-    edge match
-      case ClkCfg.Edge.Rising  => "ClkCfg.Edge.Rising"
-      case ClkCfg.Edge.Falling => "ClkCfg.Edge.Falling"
-  def csClkCfg(clkCfg: ClkCfg): String =
-    clkCfg match
-      case _: None.type                             => "None"
-      case ClkCfg.Explicit(edge, rate, portName, _) =>
-        val csRate = rate.runtimeChecked match
-          case time @ TimeNumber(_, _) => csDFTimeData(time)
-          case freq @ FreqNumber(_, _) => csDFFreqData(freq)
-        s"ClkCfg(${csClkEdgeCfg(edge)}, $csRate, $portName)"
-  def csRstModeCfg(mode: RstCfg.Mode): String =
-    mode match
-      case RstCfg.Mode.Sync  => "RstCfg.Mode.Sync"
-      case RstCfg.Mode.Async => "RstCfg.Mode.Async"
-  def csRstActiveCfg(active: RstCfg.Active): String =
-    active match
-      case RstCfg.Active.High => "RstCfg.Active.High"
-      case RstCfg.Active.Low  => "RstCfg.Active.Low"
-  def csRstCfg(rstCfg: RstCfg): String =
-    rstCfg match
-      case _: None.type                               => "None"
-      case RstCfg.Explicit(mode, active, portName, _) =>
-        s"RstCfg(${csRstModeCfg(mode)}, ${csRstActiveCfg(active)}, $portName)"
-  def csRTDomainCfg(clkCfg: ClkCfg, rstCfg: RstCfg): String =
-    s"""RTDomainCfg(
-       |    clkCfg = ${printer.csClkCfg(clkCfg)},
-       |    rstCfg = ${printer.csRstCfg(rstCfg)}
-       |)""".stripMargin
-  def csRTDomainCfg(cfg: RTDomainCfg): String =
-    cfg match
-      case RTDomainCfg.Derived                        => "Derived"
-      case RTDomainCfg.Explicit(name, clkCfg, rstCfg) =>
-        if (name.isEmpty) csRTDomainCfg(clkCfg, rstCfg)
-        else name
-      case RTDomainCfg.Related(_) => ??? // should not be printed
   def csCommentInline(comment: String): String
   def csCommentEOL(comment: String): String
   def csDocString(doc: String): String

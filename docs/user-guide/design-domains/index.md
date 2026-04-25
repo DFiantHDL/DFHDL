@@ -31,108 +31,99 @@ The RT domain provides explicit control over registers and timing while maintain
 
 ### Domain Configuration
 
-#### Clock Configuration
-```scala
-// Clock edge options
-val risingEdge = ClkCfg.Edge.Rising   // Rising edge triggered
-val fallingEdge = ClkCfg.Edge.Falling // Falling edge triggered
+Clock, reset, and inter-domain relations are declared by attaching `@hw.constraints.timing.*`
+annotations to the `RTDesign` / `RTDomain`. Each annotation field is optional; unset fields are
+filled in from the global `ElaborationOptions` defaults at compile time, and from any
+`@timing.related` ancestor.
 
-// Clock configuration with options
-val clkCfg = ClkCfg(
-  edge = ClkCfg.Edge.Rising,    // Clock edge sensitivity
-  rate = 50.MHz,                // Clock frequency
-  portName = "clk",             // Port name in generated code
-  inclusionPolicy = ClkCfg.InclusionPolicy.AsNeeded // Port inclusion policy
+#### Clock Annotation
+```scala
+import dfhdl.hw.constraints.timing
+
+@timing.clock(
+  rate            = 50.MHz,                      // Clock frequency (or period, e.g. 20.ns)
+  edge            = timing.clock.Edge.Rising,    // Rising | Falling
+  portName        = "clk",                       // Port name in generated code
+  inclusionPolicy = timing.InclusionPolicy.AsNeeded
 )
+class MyDesign extends RTDesign:
+  ...
 ```
 
-#### Reset Configuration
+#### Reset Annotation
 ```scala
-// Reset mode options
-val asyncRst = RstCfg.Mode.Async  // Asynchronous reset
-val syncRst = RstCfg.Mode.Sync    // Synchronous reset
-
-// Reset active level
-val activeHigh = RstCfg.Active.High // Reset active at 1
-val activeLow = RstCfg.Active.Low   // Reset active at 0
-
-// Reset configuration with options
-val rstCfg = RstCfg(
-  mode = RstCfg.Mode.Sync,         // Reset mode
-  active = RstCfg.Active.High,     // Active level
-  portName = "rst",                // Port name in generated code
-  inclusionPolicy = RstCfg.InclusionPolicy.AsNeeded // Port inclusion policy
+@timing.reset(
+  mode            = timing.reset.Mode.Sync,      // Async | Sync
+  active          = timing.reset.Active.High,    // Low | High
+  portName        = "rst",
+  inclusionPolicy = timing.InclusionPolicy.AsNeeded
 )
+class MyDesign extends RTDesign:
+  ...
 ```
 
-#### RTDomain Configuration
-```scala
-// Complete domain configuration
-val domainCfg = RTDomainCfg(clkCfg, rstCfg)
-
-// Special configurations
-val combDomain = RTDomainCfg.Comb           // Combinational domain (no clk/rst)
-val defaultDomain = RTDomainCfg.Default     // Default configuration
-val derivedDomain = RTDomainCfg.Derived     // Derived from parent domain
-
-// Domain without reset
-val noRstDomain = domainCfg.norst           // Remove reset from configuration
-```
+Annotations may be partial — `@timing.clock(rate = 100.MHz)` overrides only the clock rate
+and inherits the rest from the elaboration defaults. The empty form `@timing.clock()` /
+`@timing.reset()` forces the slot to appear (e.g. on a combinational or blackbox owner) while
+still deriving every field from the defaults.
 
 #### Inclusion Policies
-The `InclusionPolicy` determines how clock and reset ports are included in the generated code:
-
-- `AsNeeded`: Only includes ports when they are actually used
-- `AlwaysAtTop`: Always includes ports at the top level with `@unused` annotation if not used
+- `AsNeeded`: Only emits clock/reset ports when actually used.
+- `AlwaysAtTop`: Always emits the ports at the top level (silenced with `@unused` if unused).
 
 ### Domain Types
 
 #### Basic RT Domain
 ```scala
-class BasicRTDesign extends RTDesign(domainCfg):
+class BasicRTDesign extends RTDesign:           // uses elaboration defaults
   val x = UInt(8) <> IN
   val y = UInt(8) <> OUT.REG init 0
-  y := x.reg  // Registered on configured clock edge
+  y := x.reg                                    // Registered on the resolved clock edge
 ```
 
 #### Multiple Clock Domains
 ```scala
-class MultiClockDesign extends RTDesign(mainCfg):
-  // Main domain at 100MHz
-  val mainClk = ClkCfg(edge = ClkCfg.Edge.Rising, rate = 100.MHz)
-  val mainRst = RstCfg(mode = RstCfg.Mode.Sync, active = RstCfg.Active.High)
-  
-  // Slow domain at 25MHz
-  val slowClk = ClkCfg(edge = ClkCfg.Edge.Rising, rate = 25.MHz)
-  val slowDomain = new RTDomain(RTDomainCfg(slowClk, mainRst)):
+@timing.clock(rate = 100.MHz, grpName = "main")
+class MultiClockDesign extends RTDesign:
+  @timing.clock(rate = 25.MHz, grpName = "slow")
+  val slowDomain = new RTDomain:
     val slow_reg = UInt(8) <> VAR.REG init 0
-    
-  // Fast domain at 200MHz
-  val fastClk = ClkCfg(edge = ClkCfg.Edge.Rising, rate = 200.MHz)
-  val fastDomain = new RTDomain(RTDomainCfg(fastClk, mainRst)):
+
+  @timing.clock(rate = 200.MHz, grpName = "fast")
+  val fastDomain = new RTDomain:
     val fast_reg = UInt(8) <> VAR.REG init 0
 ```
 
+`grpName` distinguishes domains that should generate independent `Clk_<grp>` / `Rst_<grp>`
+opaque port types and ports.
+
 #### Related Domains
+A domain whose clock/reset is inherited from another domain (sibling, parent, etc.) carries
+`@timing.related(target)` instead of its own `@timing.clock` / `@timing.reset`. The compiler
+omits the clock/reset ports for the related domain and reuses the target's.
+
 ```scala
-class RelatedDomainsDesign extends RTDesign(mainCfg):
-  val baseDomain = new RTDomain(baseCfg):
+class RelatedDomainsDesign extends RTDesign:
+  base =>
+  val baseDomain = new RTDomain:
     val base_reg = UInt(8) <> VAR.REG init 0
-    
+
   // Inherits clock/reset from baseDomain
-  val relatedDomain = new baseDomain.RelatedDomain:
+  @timing.related(baseDomain)
+  val relatedDomain = new RTDomain:
     val related_reg = UInt(8) <> VAR.REG init 0
-    
-  // Related domain without reset
-  val noRstRelated = new baseDomain.RelatedDomain(baseCfg.norst):
-    val norst_reg = UInt(8) <> VAR.REG init 0
+
+  // Inherits the enclosing design's clock/reset
+  @timing.related(base)
+  val designRelated = new RTDomain:
+    val from_top_reg = UInt(8) <> VAR.REG init 0
 ```
 
 ### Register Types and Initialization
 
 #### Register Declarations vs Aliases
 ```scala
-class RegisterPatterns extends RTDesign(cfg):
+class RegisterPatterns extends RTDesign:
   val x = UInt(8) <> IN
   
   // Register Declaration - creates a new register
@@ -146,7 +137,7 @@ class RegisterPatterns extends RTDesign(cfg):
 
 #### Register Access Patterns
 ```scala
-class RegisterAccess extends RTDesign(cfg):
+class RegisterAccess extends RTDesign:
   val x = UInt(8) <> IN
   val reg = UInt(8) <> VAR.REG init 0
   val out = UInt(8) <> OUT.REG init 0
@@ -166,7 +157,7 @@ class RegisterAccess extends RTDesign(cfg):
 
 #### Register Composition
 ```scala
-class RegisterComposition extends RTDesign(cfg):
+class RegisterComposition extends RTDesign:
   val x = UInt(8) <> IN
   
   // Using register declarations
@@ -186,7 +177,7 @@ class RegisterComposition extends RTDesign(cfg):
 
 #### Advanced Register Patterns
 ```scala
-class AdvancedRegisters extends RTDesign(cfg):
+class AdvancedRegisters extends RTDesign:
   val x = UInt(8) <> IN
   val y = UInt(8) <> IN
   
@@ -209,7 +200,7 @@ class AdvancedRegisters extends RTDesign(cfg):
 
 #### Common Patterns and Pitfalls
 ```scala
-class RegisterPitfalls extends RTDesign(cfg):
+class RegisterPitfalls extends RTDesign:
   val x = UInt(8) <> IN
   val reg = UInt(8) <> VAR.REG init 0
   
@@ -269,14 +260,17 @@ process(clk.rising):
 
 ### Cross-Domain Communication
 ```scala
-class CrossDomainExample extends RTDesign(mainCfg):
+@timing.clock(rate = 100.MHz, grpName = "main")
+class CrossDomainExample extends RTDesign:
   val x = UInt(8) <> IN
-  
-  val domainA = new RTDomain(cfgA):
+
+  @timing.clock(rate = 50.MHz, grpName = "a")
+  val domainA = new RTDomain:
     val reg_a = UInt(8) <> VAR.REG init 0
     reg_a := x.reg
-    
-  val domainB = new RTDomain(cfgB):
+
+  @timing.clock(rate = 25.MHz, grpName = "b")
+  val domainB = new RTDomain:
     val reg_b = UInt(8) <> VAR.REG init 0
     reg_b := domainA.reg_a.reg  // Cross-domain registration
 ```
@@ -285,7 +279,8 @@ class CrossDomainExample extends RTDesign(mainCfg):
 During compilation, nested domains are flattened while preserving clock and reset relationships:
 ```scala
 // Original nested domains
-val innerDomain = new RTDomain(innerCfg):
+@timing.clock(rate = 25.MHz, grpName = "inner")
+val innerDomain = new RTDomain:
   val reg = UInt(8) <> VAR.REG init 0
 
 // After flattening

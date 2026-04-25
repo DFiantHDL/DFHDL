@@ -49,9 +49,8 @@ class ApplyInvertConstraintSpec extends StageSpec:
   }
 
   test("Basic registered initialized output port inversion") {
-    val clkCfg = ClkCfg()
-    val cfg    = RTDomainCfg(clkCfg, None)
-    class ID extends RTDesign(cfg):
+    @hw.constraints.timing.clock(grpName = "cfg")
+    class ID extends RTDesign:
       val x = Bit <> IN
       @io(loc = "yloc", invertActiveState = true)
       val y = Bit <> OUT.REG init 0

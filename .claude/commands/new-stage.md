@@ -757,7 +757,7 @@ case forBlock: DFLoop.DFForBlock if forBlock.isInRTDomain =>
   val m1 = new MetaDesign(
     forBlock,
     Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove),
-    dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+    dfhdl.core.DomainType.RT
   ):
     // preamble members (e.g. iterator VAR.REG, guard expression) ...
     val whileBlock = dfhdl.core.DFWhile.Block(guard)(using dfc.setMeta(forBlock.meta))
@@ -786,7 +786,7 @@ if forBodyMembers.nonEmpty then
   val m2 = new MetaDesign(
     forBodyMembers.last,
     Patch.Add.Config.After,
-    dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+    dfhdl.core.DomainType.RT
   ):
     // members here are owned by forBodyMembers.last.getOwner = forBlock
     // after M1's ChangeRefAndRemove, their ownerRefs are redirected to whileBlock

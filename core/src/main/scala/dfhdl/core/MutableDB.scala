@@ -18,7 +18,6 @@ import dfhdl.compiler.ir.{
   MemberGetSet,
   SourceFile,
   MemberView,
-  RTDomainCfg,
   DFTags,
   annotation,
   DFDomainOwner,

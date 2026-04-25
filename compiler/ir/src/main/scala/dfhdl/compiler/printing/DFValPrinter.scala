@@ -371,9 +371,9 @@ protected trait DFValPrinter extends AbstractValPrinter:
     val opStr = dfVal.op match
       case Alias.History.Op.State =>
         dfVal.getOwnerDomain.domainType match
-          case DomainType.DF    => ".prev"
-          case DomainType.RT(_) => ".reg"
-          case DomainType.ED    => ??? // impossible!
+          case DomainType.DF => ".prev"
+          case DomainType.RT => ".reg"
+          case DomainType.ED => ??? // impossible!
       case Alias.History.Op.Pipe => ".pipe"
     val appliedStr =
       dfVal.initRefOption match

@@ -1,4 +1,5 @@
 package dfhdl.compiler.ir
+import dfhdl.compiler.printing.{Printer, HasCodeString}
 import upickle.default.*
 into opaque type ConfigN[T] = T | None.type
 object ConfigN:
@@ -26,6 +27,7 @@ object ConfigN:
         case value      => read[T](value)
   )
   extension [T](x: ConfigN[T])
+    inline def get: T = x.asInstanceOf[T]
     def getOrElse(default: => T): T = x match
       case None                => default
       case value: T @unchecked => value
@@ -56,7 +58,7 @@ end ConfigN
 
 /** Sets the policy for inclusing the clock or reset signals when they are not needed
   */
-enum ClkRstInclusionPolicy derives CanEqual, ReadWriter:
+enum ClkRstInclusionPolicy extends HasCodeString derives CanEqual, ReadWriter:
   /** Don't include if not needed
     */
   case AsNeeded
@@ -65,68 +67,20 @@ enum ClkRstInclusionPolicy derives CanEqual, ReadWriter:
     */
   case AlwaysAtTop
 
-type ClkCfg = ConfigN[ClkCfg.Explicit]
-object ClkCfg:
-  enum Edge derives CanEqual, ReadWriter:
-    case Rising, Falling
+  def codeString(using Printer): String = "timing.InclusionPolicy." + this.toString
 
-  final case class Explicit(
-      edge: Edge,
-      rate: RateNumber,
-      portName: String,
-      inclusionPolicy: ClkRstInclusionPolicy
-  ) derives CanEqual,
-        ReadWriter
+object ClkCfg:
+  enum Edge extends HasCodeString derives CanEqual, ReadWriter:
+    case Rising, Falling
+    def codeString(using Printer): String = "timing.clock.Edge." + this.toString
 end ClkCfg
 
-type RstCfg = ConfigN[RstCfg.Explicit]
 object RstCfg:
-  enum Mode derives CanEqual, ReadWriter:
+  enum Mode extends HasCodeString derives CanEqual, ReadWriter:
     case Async, Sync
-  enum Active derives CanEqual, ReadWriter:
+    def codeString(using Printer): String = "timing.reset.Mode." + this.toString
+  enum Active extends HasCodeString derives CanEqual, ReadWriter:
     case Low, High
-
-  final case class Explicit(
-      mode: Mode,
-      active: Active,
-      portName: String,
-      inclusionPolicy: ClkRstInclusionPolicy
-  ) derives CanEqual,
-        ReadWriter
+    def codeString(using Printer): String = "timing.reset.Active." + this.toString
 end RstCfg
 
-enum RTDomainCfg extends HasRefCompare[RTDomainCfg] derives CanEqual, ReadWriter:
-  case Derived
-  case Related(relatedDomainRef: RTDomainCfg.RelatedDomainRef) extends RTDomainCfg
-  case Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg) extends RTDomainCfg
-
-  def isDerivedNoRst: Boolean = this match
-    case cfg: Explicit if cfg.name.endsWith(".norst") => true
-    case _                                            => false
-
-  def norst: this.type = this match
-    case cfg: Explicit if cfg.rstCfg != None && !cfg.isDerivedNoRst =>
-      Explicit(s"${cfg.name}.norst", cfg.clkCfg, None).asInstanceOf[this.type]
-    case _ => this
-
-  protected def `prot_=~`(that: RTDomainCfg)(using MemberGetSet): Boolean =
-    (this, that) match
-      case (Related(thisRef), Related(thatRef)) => thisRef =~ thatRef
-      case (
-            Explicit(thisName, thisClkCfg: ClkCfg.Explicit, thisRstCfg),
-            Explicit(thatName, thatClkCfg: ClkCfg.Explicit, thatRstCfg)
-          ) =>
-        thisName == thatName && thisClkCfg == thatClkCfg && thisRstCfg == thatRstCfg
-      case _ => this == that
-
-  lazy val getRefs: List[DFRef.TwoWayAny] = this match
-    case Related(relatedDomainRef) => List(relatedDomainRef)
-    case _                         => Nil
-
-  def copyWithNewRefs(using RefGen): this.type = this match
-    case Related(relatedDomainRef) => Related(relatedDomainRef.copyAsNewRef).asInstanceOf[this.type]
-    case _                         => this
-end RTDomainCfg
-
-object RTDomainCfg:
-  type RelatedDomainRef = DFRef.TwoWay[DomainBlock | DFDesignBlock, DomainBlock]

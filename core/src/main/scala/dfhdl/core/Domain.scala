@@ -53,11 +53,6 @@ trait NoClkRstDomain extends Domain:
 
 abstract class DFDomain extends DomainContainer(DomainType.DF), NoClkRstDomain
 
-abstract class RTDomain(
-    cfg: RTDomainCfg = RTDomainCfg.Derived
-) extends RTDomainContainer(cfg),
-      Domain:
-  related =>
-  abstract class RelatedDomain extends RTDomain(RTDomainCfg.Related(related))
+abstract class RTDomain extends RTDomainContainer, Domain
 
 abstract class EDDomain extends DomainContainer(DomainType.ED), NoClkRstDomain

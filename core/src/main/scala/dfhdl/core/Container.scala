@@ -26,7 +26,7 @@ abstract class DomainContainer[D <: DomainType](domainType: D) extends Container
   final protected given TDomain = domainType
   final private[core] lazy val __domainType: ir.DomainType = domainType.asIR
 
-abstract class RTDomainContainer(cfg: RTDomainCfg) extends DomainContainer(DomainType.RT(cfg)):
+abstract class RTDomainContainer extends DomainContainer(DomainType.RT):
   final case class Clk() extends DFOpaque.Clk
   final case class Rst() extends DFOpaque.Rst
 end RTDomainContainer

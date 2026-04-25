@@ -111,7 +111,7 @@ trait DFApp:
   object elaborate extends diskCache.Step[core.Design, StagedDesign](dsn)(
         appCompileTime,
         dfhdlVersion,
-        elaborationOptions.defaultRTDomainCfg,
+        elaborationOptions.defaultRTDomainCfgTag,
         designArgs
       ):
     override protected def cacheEnable: Boolean = appOptions.cacheEnable
@@ -135,7 +135,7 @@ trait DFApp:
   end elaborate
 
   object compile extends diskCache.Step[StagedDesign, CompiledDesign](elaborate)(
-        elaborationOptions.defaultRTDomainCfg,
+        elaborationOptions.defaultRTDomainCfgTag,
         compilerOptions.dropUserOpaques,
         printerOptions.align,
         compilerOptions.backend.toString()

@@ -294,5 +294,5 @@ extension (designDB: DB)
   def getImplicitStateVarsDF(using MemberGetSet): Set[DFVal] =
     getImplicitStateVars(_ == DomainType.DF)
   def getImplicitStateVarsRT(using MemberGetSet): Set[DFVal] =
-    getImplicitStateVars(_.isInstanceOf[DomainType.RT])
+    getImplicitStateVars(_ == DomainType.RT)
 end extension

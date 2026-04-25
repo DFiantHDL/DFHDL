@@ -123,6 +123,9 @@ object constraints:
     export ir.constraints.IO.{LevelVolt, Standard, SlewRate, PullMode, Dir}
 
   object timing:
+    type InclusionPolicy = ir.ClkRstInclusionPolicy
+    final val InclusionPolicy = ir.ClkRstInclusionPolicy
+
     final case class ignore(
         bitIdx: ir.ConfigN[Int] = None,
         maxFreqMinPeriod: ir.ConfigN[ir.RateNumber] = None
@@ -131,9 +134,37 @@ object constraints:
         ir.constraints.Timing.Ignore(bitIdx, maxFreqMinPeriod)
 
     final case class clock(
-        rate: ir.RateNumber,
+        rate: ir.ConfigN[ir.RateNumber] = None,
+        edge: ir.ConfigN[ir.ClkCfg.Edge] = None,
+        portName: ir.ConfigN[String] = None,
+        inclusionPolicy: ir.ConfigN[ir.ClkRstInclusionPolicy] = None,
+        grpName: ir.ConfigN[String] = None,
         bitIdx: ir.ConfigN[Int] = None
     ) extends SigConstraint:
-      val asIR: ir.constraints.Timing.Clock = ir.constraints.Timing.Clock(rate, bitIdx)
+      val asIR: ir.constraints.Timing.Clock =
+        ir.constraints.Timing.Clock(rate, edge, portName, inclusionPolicy, grpName, bitIdx)
+    object clock:
+      export ir.ClkCfg.Edge
+      type Rate = DFConstOf[DFTime | DFFreq]
+
+    final case class reset(
+        mode: ir.ConfigN[ir.RstCfg.Mode] = None,
+        active: ir.ConfigN[ir.RstCfg.Active] = None,
+        portName: ir.ConfigN[String] = None,
+        inclusionPolicy: ir.ConfigN[ir.ClkRstInclusionPolicy] = None,
+        bitIdx: ir.ConfigN[Int] = None
+    ) extends SigConstraint:
+      val asIR: ir.constraints.Timing.Reset =
+        ir.constraints.Timing.Reset(mode, active, portName, inclusionPolicy, bitIdx)
+    object reset:
+      export ir.RstCfg.{Mode, Active}
+
+    final case class related(domainContainer: RTDomainContainer)(using DFC) extends Constraint:
+      val asIR: ir.constraints.Timing.Related =
+        ir.constraints.Timing.Related(
+          domainContainer.containedOwner.asIR
+            .asInstanceOf[ir.DomainBlock | ir.DFDesignBlock]
+            .refTW[ir.DomainBlock]
+        )
   end timing
 end constraints

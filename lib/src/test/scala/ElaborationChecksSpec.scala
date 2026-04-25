@@ -346,34 +346,7 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |Message:   Missing clock rate timing constraint.
           |To Fix:
-          |Connect the wanted clock resource to the domain.
-          |(the domain will automatically derive the clock rate from the resource).""".stripMargin
-    )
-  test("clock mismatching timing constraint check"):
-    object Test:
-      val clkCfg = ClkCfg(rate = 25.MHz)
-      val cfg = RTDomainCfg(clkCfg, None)
-      import hw.constraints.*
-      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
-      @timing.clock(rate = 20.MHz)
-      @top(false) class Top extends RTDesign(cfg):
-        @io(loc = "locx")
-        val x = Bit <> IN
-        @io(loc = "locy")
-        val y = Bit <> OUT
-        y <> x.reg(1, init = 0)
-    end Test
-    import Test.*
-    assertElaborationErrors(Top())(
-      s"""|Elaboration errors found!
-          |DFiant HDL domain clock rate error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:357:7 - 364:32
-          |Hierarchy: Top
-          |Message:   Mismatch between domain clock rate configuration (25.MHz) and timing constraint rate (20.MHz).
-          |To fix, do one of the following:
-          |* Connect a different clock resource to the domain to match your configuration.
-          |* Explicitly set the clock rate configuration to 20.MHz.
-          |* Remove the domain clock rate configuration and let it be derived from the timing constraint.""".stripMargin
+          |Connect a 50.MHz clock resource to the domain to match your configuration.""".stripMargin
     )
   test("clock location missing check"):
     object Test:
@@ -429,7 +402,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:425:9 - 425:15
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:398:9 - 398:15
           |Hierarchy: Top
           |LHS:       x
           |RHS:       y.resize(8)
@@ -518,14 +491,16 @@ class ElaborationChecksSpec extends DesignSpec:
   test("clk/rst in related domain check"):
     object Test:
       @top(false) class Top extends RTDesign:
-        val dmn = new RelatedDomain:
+        self =>
+        @hw.constraints.timing.related(self)
+        val dmn = new RTDomain:
           val clk = Clk <> IN
     end Test
     import Test.*
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:522:21 - 522:30
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:497:21 - 497:30
           |Hierarchy: Top.clk
           |Operation: `Port/Variable constructor`
           |Message:   Cannot create a clk/rst in a related domain.
@@ -569,13 +544,13 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Foo())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:564:42 - 564:56
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:539:42 - 539:56
           |Hierarchy: Foo
           |Operation: `apply`
           |Message:   The applied RHS value width (WIDTH2) is undefined compared to the LHS variable width (WIDTH1).
           |
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:565:42 - 565:60
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:540:42 - 540:60
           |Hierarchy: Foo
           |Operation: `apply`
           |Message:   The applied RHS value width (WIDTH1 + 2) is larger than the LHS variable width (WIDTH1).""".stripMargin
@@ -595,14 +570,14 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Foo())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:589:42 - 589:56
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:564:42 - 564:56
           |Hierarchy: Foo
           |Operation: `apply`
           |Message:   The argument width (WIDTH2) is different than the receiver width (WIDTH1).
           |Consider applying `.resize` to resolve this issue.
           |
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:592:17 - 592:23
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:567:17 - 567:23
           |Hierarchy: Foo.w
           |Operation: `apply`
           |Message:   Cannot apply this operation between a value of WIDTH1 bits width (LHS) and a value of WIDTH2 bits width (RHS).

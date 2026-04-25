@@ -127,8 +127,8 @@ object DFMember:
       case DomainType.DF => true
       case _             => false
     def isInRTDomain(using MemberGetSet): Boolean = member.getDomainType match
-      case DomainType.RT(_) => true
-      case _                => false
+      case DomainType.RT => true
+      case _             => false
     def isInEDDomain(using MemberGetSet): Boolean = member.getDomainType match
       case DomainType.ED => true
       case _             => false
@@ -518,9 +518,16 @@ object DFVal:
         case Special.CLK_FREQ =>
           if (getSet.isMutable) ConstData.NotConst // disable during elaboration
           else
-            ConstData.KnownConst(getSet.designDB.explicitRTDomainCfgMap(
-              this.getOwnerDomain
-            ).clkCfg.toOption.map(_.rate.to_freq).getOrElse(0.MHz))
+            // Read the resolved @timing.clock(rate = ...) for this owner. The
+            // DB.resolvedClkRstMap lazy val handles default-derivation,
+            // related-domain walking, and relaxation in one shot — no separate
+            // stage needs to run first.
+            val rate = getSet.designDB.resolvedClkRstMap.get(this.getOwnerDomain)
+              .flatMap(_._1)
+              .flatMap(_.rate.toOption)
+              .map(_.to_freq)
+              .getOrElse(0.MHz)
+            ConstData.KnownConst(rate)
         case _ => ConstData.NotConst
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Special =>

@@ -250,12 +250,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerBody(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val dsnCls = design.domainType match
-      case DomainType.DF     => "DFDesign"
-      case rt: DomainType.RT =>
-        val cfgStr = rt.cfg match
-          case RTDomainCfg.Derived => ""
-          case _                   => s"(${printer.csRTDomainCfg(rt.cfg)})"
-        s"""RTDesign$cfgStr""".stripMargin
+      case DomainType.DF => "DFDesign"
+      case DomainType.RT => "RTDesign"
       case _ =>
         design.instMode match
           case InstMode.BlackBox(source) => source match
@@ -421,18 +417,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val endName = domain.meta.nameOpt.map(n => s"end $n").getOrElse("end new")
     val domainStr = domain.domainType match
-      case DomainType.DF     => "DFDomain"
-      case rt: DomainType.RT =>
-        rt.cfg match
-          case RTDomainCfg.Related(relatedDomainRef) =>
-            val relatedDomain = relatedDomainRef.get
-            if (domain.isMemberOf(relatedDomain))
-              "RelatedDomain"
-            else
-              s"${relatedDomain.getRelativeName(domain.getOwnerNamed)}.RelatedDomain"
-          case RTDomainCfg.Derived => "RTDomain"
-          case _                   =>
-            s"RTDomain(${printer.csRTDomainCfg(rt.cfg)})"
+      case DomainType.DF => "DFDomain"
+      case DomainType.RT => "RTDomain"
       case DomainType.ED => "EDDomain"
     sn"""|${named}new $domainStr:
          |${body.hindent}

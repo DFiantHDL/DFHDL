@@ -17,7 +17,7 @@ import scala.collection.mutable
 case object DropTimedRTWaits extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  // explicitRTDomainCfgMap needs full-hierarchy domain info, so resolve via
+  // resolvedClkRstMap needs full-hierarchy domain info, so resolve via
   // the outer getSet (flat designDB) rather than per-sub-DB getSet.
   override def rebindGetSet: Boolean = false
 
@@ -33,11 +33,14 @@ case object DropTimedRTWaits extends HierarchyStage:
         val dsn = new MetaDesign(
           waitMember,
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
-          dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+          dfhdl.core.DomainType.RT
         ):
           val waitTime = duration.getConstData[TimeNumber].toOption.get
-          val (RTDomainCfg.Explicit(clkCfg = ClkCfg.Explicit(rate = clkRate))) =
-            getSet.designDB.explicitRTDomainCfgMap(waitMember.getOwnerDomain).runtimeChecked
+          val clkRate: RateNumber = getSet.designDB.resolvedClkRstMap
+            .get(waitMember.getOwnerDomain)
+            .flatMap(_._1)
+            .flatMap(_.rate.toOption)
+            .get
           val cycles = (waitTime / clkRate.to_ps).value.toLong
           cycles.cy.wait(using dfc.setMeta(waitMember.meta))
         dsn.patch

@@ -68,7 +68,7 @@ class BuilderProjectTimingConstraintsPrinter(
       port: DFVal.Dcl,
       constraint: constraints.Timing.Clock
   ): String =
-    s"create_clock -add -name ${port.getName} -period ${constraint.rate.to_ns.value.bigDecimal.toPlainString} [get_ports {${port.getName}}]"
+    s"create_clock -add -name ${port.getName} -period ${constraint.rate.get.to_ns.value.bigDecimal.toPlainString} [get_ports {${port.getName}}]"
   end sdcTimingClockConstraint
 
   def sdcPortConstraints(

@@ -115,7 +115,7 @@ case object ExplicitNamedVars extends HierarchyStage:
             val dsn = new MetaDesign(
               named,
               Patch.Add.Config.Before,
-              dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+              dfhdl.core.DomainType.RT
             ):
               val regDFC = dfc.setMeta(named.meta)
               lazy val varDFC = if (regUse) regDFC.setName(s"${named.getName}_din") else regDFC

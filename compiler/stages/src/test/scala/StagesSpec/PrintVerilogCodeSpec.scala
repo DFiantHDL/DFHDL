@@ -1439,7 +1439,8 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
 
   test("initialized output port register") {
-    class Foo extends RTDesign(RTDomainCfg(ClkCfg(), None)):
+    @hw.constraints.timing.clock()
+    class Foo extends RTDesign:
       val y = UInt(8) <> OUT.REG init 0
       y.din := y + 1
     val top = (new Foo).getCompiledCodeString

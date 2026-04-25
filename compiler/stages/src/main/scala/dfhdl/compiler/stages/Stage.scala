@@ -33,7 +33,7 @@ trait Stage extends Product, Serializable, HasTypeName derives CanEqual:
   *     to each DB's own getSet while `transformSubDB` runs. Set to `false`
   *     when the body needs full-hierarchy resolution (reverse lookups like
   *     `memberTable` / `getReadDeps`, or cross-design tables like
-  *     `dupPortsByName` / `connectionTable` / `explicitRTDomainCfgMap`) —
+  *     `dupPortsByName` / `connectionTable` / `resolvedClkRstMap`) —
   *     those need the outer flat-DB getSet.
   */
 trait HierarchyStage extends Stage:

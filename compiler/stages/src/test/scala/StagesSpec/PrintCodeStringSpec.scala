@@ -498,7 +498,8 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
         val pr = SInt(16) <> VAR init 0
         val pw = SInt(16) <> VAR
         pr := pr.reg + 1
-      val related = new fast.RelatedDomain:
+      @hw.constraints.timing.related(fast)
+      val related = new RTDomain:
         val x = SInt(16) <> VAR init 0
       y := fast.pr + related.x
       val fastdf = new DFDomain:
@@ -516,7 +517,8 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val pw = SInt(16) <> VAR
          |    pr := pr.reg + sd"16'1"
          |  end fast
-         |  val related = new fast.RelatedDomain:
+         |  @timing.related(fast)
+         |  val related = new RTDomain:
          |    val x = SInt(16) <> VAR init sd"16'0"
          |  end related
          |  y := fast.pr + related.x

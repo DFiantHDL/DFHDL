@@ -70,20 +70,18 @@ class DropPhysicalValuesSpec extends StageSpec:
       val mainDiv  = (mainFreq / 10.Hz).toInt
 
       // Slow domain at 25MHz
-      val slowClk    = ClkCfg(rate = 25.MHz)
-      val slowRst    = RstCfg()
-      val slowCfg    = RTDomainCfg(slowClk, slowRst)
-      val slowDomain = new RTDomain(slowCfg):
+      @hw.constraints.timing.clock(grpName = "slow", rate = 25.MHz)
+      @hw.constraints.timing.reset()
+      val slowDomain = new RTDomain:
         val slowFreq = CLK_FREQ
         val slowDiv  = (slowFreq / 5.Hz).toInt
         val slowReg  = Int <> VAR.REG init 0
         slowReg.din := i
 
       // Fast domain at 200MHz
-      val fastClk    = ClkCfg(rate = 200.MHz)
-      val fastRst    = RstCfg()
-      val fastCfg    = RTDomainCfg(fastClk, fastRst)
-      val fastDomain = new RTDomain(fastCfg):
+      @hw.constraints.timing.clock(grpName = "fast", rate = 200.MHz)
+      @hw.constraints.timing.reset()
+      val fastDomain = new RTDomain:
         val fastFreq = CLK_FREQ
         val fastDiv  = (fastFreq / 50.Hz).toInt
         val fastReg  = Int <> VAR.REG init 0
@@ -99,12 +97,16 @@ class DropPhysicalValuesSpec extends StageSpec:
          |  val i = Int <> IN
          |  val o = Int <> OUT
          |  val mainDiv: Int <> CONST = 5000000
-         |  val slowDomain = new RTDomain(slowCfg):
+         |  @timing.clock(rate = 25.MHz, grpName = "slow")
+         |  @timing.reset()
+         |  val slowDomain = new RTDomain:
          |    val slowDiv: Int <> CONST = 5000000
          |    val slowReg = Int <> VAR.REG init 0
          |    slowReg.din := i
          |  end slowDomain
-         |  val fastDomain = new RTDomain(fastCfg):
+         |  @timing.clock(rate = 200.MHz, grpName = "fast")
+         |  @timing.reset()
+         |  val fastDomain = new RTDomain:
          |    val fastDiv: Int <> CONST = 4000000
          |    val fastReg = Int <> VAR.REG init 0
          |    fastReg.din := slowDomain.slowReg

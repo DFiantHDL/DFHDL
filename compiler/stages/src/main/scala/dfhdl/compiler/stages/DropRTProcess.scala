@@ -213,7 +213,7 @@ case object DropRTProcess extends HierarchyStage:
           val dsn = new MetaDesign(
             pb,
             Patch.Add.Config.Before,
-            dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+            dfhdl.core.DomainType.RT
           ):
             val stateInit = dfhdl.core.DFVal.Const(stateEnumFE, Some(entries.head._2))
             val patterns = entries.map { case (_, value) =>
@@ -227,7 +227,7 @@ case object DropRTProcess extends HierarchyStage:
             new MetaDesign(
               sb,
               Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove),
-              dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+              dfhdl.core.DomainType.RT
             ):
               val block = dfhdl.core.DFMatch.Block(pattern, None, prevBlockOrHeader)(using
                 dfc.setMeta(sb.meta)
@@ -239,7 +239,7 @@ case object DropRTProcess extends HierarchyStage:
             new MetaDesign(
               g,
               Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove),
-              dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+              dfhdl.core.DomainType.RT
             ):
               import dfhdl.core.{DFIf, DFUnit, DFBool}
               val currentStepBlock = g.getOwnerStepBlock

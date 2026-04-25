@@ -11,7 +11,6 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import dfhdl.core.DomainType.RT
 import DFVal.Modifier as IRModifier
-import dfhdl.core.RTDomainCfg.Derived
 
 /** This stage names register aliases (e.g., `x.reg`) and replaces them with explicit register
   * variables. The most complex mechanism about this stage is the naming conversion convention.
@@ -91,7 +90,7 @@ case object NameRegAliases extends HierarchyStage:
                 regAlias @ DFVal.Alias.History(relValRef = DFRef(relVal), step = 1)
               ) if regAlias.isAnonymous && dcl.getAssignmentsTo.size == 1 =>
             patchRemoveHistoryInit(regAlias)
-            val dsn = new MetaDesign(dcl, Patch.Add.Config.ReplaceWithLast(), RT(Derived)):
+            val dsn = new MetaDesign(dcl, Patch.Add.Config.ReplaceWithLast(), RT):
               val modifierFE = dcl.modifier.dir match
                 case IRModifier.VAR => VAR.REG
                 case IRModifier.OUT => OUT.REG
@@ -128,7 +127,7 @@ case object NameRegAliases extends HierarchyStage:
         }.headOption match
           case Some(lastDcl) => (lastDcl, Patch.Add.Config.After)
           case None          => (domainOwner, Patch.Add.Config.InsideFirst)
-        val regDsn = new MetaDesign(posMember, addCfg, domainType = RT(Derived)):
+        val regDsn = new MetaDesign(posMember, addCfg, domainType = RT):
           def addRegs(
               aliases: List[DFVal.Alias.History],
               namePrefix: String,
@@ -152,7 +151,7 @@ case object NameRegAliases extends HierarchyStage:
             val relVal = alias.getNonRegAliasRelVal
             var initOptions = aliases.flatMap(a => List.fill(a.step)(a.initOption))
             def regDinPatch(posMember: DFMember, addCfg: Patch.Add.Config) =
-              new MetaDesign(posMember, addCfg, domainType = RT(Derived)):
+              new MetaDesign(posMember, addCfg, domainType = RT):
                 (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
                   curr.asVarAny.:=(prev.asValAny)(using dfc.setMetaAnon(alias.meta.position))
                 }

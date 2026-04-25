@@ -38,7 +38,7 @@ trait Design extends Container, HasClsMetaArgs:
             InstMode.BlackBox(InstMode.BlackBox.Source.VendorIP(vendor, name))
       case instMode => instMode
     // the default RT Domain configuration is set as a global tag
-    getSet.setGlobalTag(ir.DefaultRTDomainCfgTag(dfc.elaborationOptions.defaultRTDomainCfg))
+    getSet.setGlobalTag(dfc.elaborationOptions.defaultRTDomainCfgTag)
     // the DFHDL version is set as a global tag
     getSet.setGlobalTag(ir.DFHDLVersionTag(dfhdl.dfhdlVersion))
     getSet.replace(designBlock)(
@@ -255,11 +255,7 @@ end Design
 
 abstract class DFDesign extends DomainContainer(DomainType.DF), Design
 
-abstract class RTDesign(cfg: RTDomainCfg = RTDomainCfg.Derived)
-    extends RTDomainContainer(cfg),
-      Design:
-  related =>
-  abstract class RelatedDomain extends RTDomain(RTDomainCfg.Related(related))
+abstract class RTDesign extends RTDomainContainer, Design
 
 abstract class EDDesign extends DomainContainer(DomainType.ED), Design
 

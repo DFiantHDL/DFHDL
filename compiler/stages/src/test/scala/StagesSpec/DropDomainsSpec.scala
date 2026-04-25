@@ -63,7 +63,8 @@ class DropDomainsSpec extends StageSpec:
       val dmn2 = new RTDomain:
         val id = ID()
         id.x <> dmn1.id.y.reg(1, init = 0)
-      val dmn3 = new dmn1.RelatedDomain:
+      @hw.constraints.timing.related(dmn1)
+      val dmn3 = new RTDomain:
         val id = ID()
         id.x <> dmn2.id.y.reg(1, init = 0)
       y <> dmn3.id.y

@@ -1,5 +1,5 @@
 package dfhdl.platforms.resources
-import dfhdl.core.ClkCfg.Rate
+import dfhdl.core.Rate
 import Resource.CanConnect
 import dfhdl.compiler.ir.constraints.Timing
 import dfhdl.compiler.ir.DFDomainOwner

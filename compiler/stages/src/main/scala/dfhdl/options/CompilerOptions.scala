@@ -1,7 +1,7 @@
 package dfhdl.options
 import dfhdl.compiler.ir
 import dfhdl.compiler.stages.BackendCompiler
-import dfhdl.core.{ClkCfg, RstCfg, Design}
+import dfhdl.core.Design
 
 import java.io.File.separatorChar
 
