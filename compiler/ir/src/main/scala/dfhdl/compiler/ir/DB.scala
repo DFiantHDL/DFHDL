@@ -171,17 +171,26 @@ final case class DB(
     val ((localOwner, localMembers), updatedStack0) =
       (localStack.head, localStack.drop(1))
     globalMembers match
+      // DFDesignBlock is a Top-like definition — open its own scope without
+      // calling getOwnerFunc on it (a DFDesignBlock with ownerRef = Empty
+      // would throw). The DFS pre-order layout guarantees the current
+      // stack-top is the intended parent at this point, and Step 1 of
+      // "Drop DFDesignBlock as Instance Member" has it not appear in any
+      // parent's member list.
+      case (d: DFDesignBlock) :: mList =>
+        d match
+          case o: O if classTag[O].runtimeClass.isInstance(o) =>
+            val updatedStack2 = (o -> List()) :: localStack
+            OMLGen[O](getOwnerFunc)(oml, mList, updatedStack2)
+          case _ =>
+            // O does not include DFDesignBlock — drop it silently.
+            OMLGen[O](getOwnerFunc)(oml, mList, localStack)
       // current member indeed belongs to current owner
       case m :: mList if getOwnerFunc(m) == localOwner =>
         m match
           // Deep borrowing into block as the new owner
           case o: O if classTag[O].runtimeClass.isInstance(o) =>
-            // DFDesignBlock opens a new scope but is NOT included in the
-            // parent owner's member list — the corresponding DFDesignInst
-            // already represents the instantiation in the parent's stream.
-            val updatedStack1 = m match
-              case _: DFDesignBlock => (localOwner -> localMembers) :: updatedStack0
-              case _                => (localOwner -> (m :: localMembers)) :: updatedStack0
+            val updatedStack1 = (localOwner -> (m :: localMembers)) :: updatedStack0
             val updatedStack2 = (o -> List()) :: updatedStack1
             OMLGen[O](getOwnerFunc)(oml, mList, updatedStack2)
           // Just a member

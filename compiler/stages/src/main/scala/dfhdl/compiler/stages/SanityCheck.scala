@@ -241,13 +241,21 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       MemberGetSet
   ): Unit =
     members match
+      // a non-top DFDesignBlock is a Top in the immutable DB — its parent
+      // is captured by the DFDesignInst, not its own ownerRef. Treat it as
+      // entering a fresh scope rather than asserting ownership.
+      case (d: DFDesignBlock) :: nextMembers =>
+        ownershipCheck(d, nextMembers)
       case m :: nextMembers if (m.getOwner == currentOwner) =>
         m match // still in current owner
           case o: DFOwner => ownershipCheck(o, nextMembers) // entering new owner
           case _          => ownershipCheck(currentOwner, nextMembers) // new non-member found
       case Nil    => // Done! All is OK
       case m :: _ => // not in current owner
-        if (currentOwner.isTop)
+        // every DFDesignBlock now reports `isTop` in the immutable DB, so we
+        // must distinguish the actual top by identity instead of asking the
+        // member.
+        if (currentOwner == getSet.designDB.top)
           println(
             s"The member ${m.hashString}:\n$m\nHas owner ${m.getOwner.hashString}:\n${m.getOwner}"
           )
@@ -259,7 +267,13 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
                 .toHexString}:\n${prevMember.getOwner}"
           )
           require(false, "Failed ownership check!")
-        ownershipCheck(currentOwner.getOwner, members) // exiting current owner
+        // exiting current owner. For a non-top DFDesignBlock the ownerRef is
+        // Empty in the immutable DB; the parent is captured by its
+        // DFDesignInst, so route through the inst to find the enclosing scope.
+        val nextOwner = currentOwner match
+          case d: DFDesignBlock => d.getDesignInst.getOwner
+          case other            => other.getOwner
+        ownershipCheck(nextOwner, members)
 
   // checks that a member can only reference members that were defined before it
   private def orderCheck()(using MemberGetSet): Unit =

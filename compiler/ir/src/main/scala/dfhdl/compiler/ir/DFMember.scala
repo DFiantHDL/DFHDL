@@ -143,12 +143,7 @@ object DFMember:
         case design: DFDesignBlock if design.isTop =>
           design.meta.annotations.view
         case design: DFDesignBlock =>
-          // during elaboration the DFDesignInst may not exist yet; fall back
-          // to just the design class annotations in that case.
-          val instAnnotations =
-            if (getSet.isMutable)
-              getSet.findDesignInst(design).map(_.meta.annotations).getOrElse(Nil)
-            else design.getDesignInst.meta.annotations
+          val instAnnotations = design.getDesignInstOpt.map(_.meta.annotations).getOrElse(Nil)
           design.meta.annotations.view ++ instAnnotations
         case designInst: DFDesignInst =>
           designInst.getDesignBlock.getConstraints
@@ -1497,11 +1492,16 @@ final case class DFDesignBlock(
   protected[dfhdl] def clearDesignInstCache(): Unit = designInstCache = None
   protected[dfhdl] def copyDesignInstCacheFrom(other: DFDesignBlock): Unit =
     designInstCache = other.designInstCache
-  def getDesignInst(using MemberGetSet): DFDesignInst =
-    assert(!this.isTop, "Top-level designs have no design instantiations")
+  // override def isTop(using MemberGetSet): Boolean = getDesignInstOpt.isEmpty
+  def getDesignInstOpt(using MemberGetSet): Option[DFDesignInst] =
     // cache is for elaboration only
-    if (getSet.isMutable) designInstCache.getOrElse(getSet.findDesignInst(this).get)
-    else getSet.findDesignInst(this).get
+    if (getSet.isMutable) designInstCache.orElse(getSet.findDesignInst(this))
+    else getSet.findDesignInst(this)
+  def getDesignInst(using MemberGetSet): DFDesignInst = getDesignInstOpt.getOrElse {
+    throw new RuntimeException(
+      s"Top-level design ${this.dclName} has no design instantiations"
+    )
+  }
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType =~ that.domainType &&
