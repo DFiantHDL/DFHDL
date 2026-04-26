@@ -515,11 +515,13 @@ final case class DB(
   ): Access =
     def isExternalConn =
       if (dfVal.isGlobal) true
+      else if (dfVal.isInstanceOf[DFVal.PortByNameSelect]) true
       else dfVal.getOwnerDesign isSameOwnerDesignAs net
     def isInternalConn =
       if (dfVal.isGlobal) false
+      else if (dfVal.isInstanceOf[DFVal.PortByNameSelect]) false
       else dfVal isSameOwnerDesignAs net
-    dfVal match
+    dfVal.stripPortSel match
       case dcl: DFVal.Dcl =>
         dcl.modifier.dir match
           // external connection to an input port
@@ -1308,11 +1310,14 @@ final case class DB(
             case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => None
             // skip empty
             case empty: DFMember.Empty => None
-            // port referencing is done by name, and supported for
-            // internal designs, but not external ones
-            case PortByNameSelect.Of(refMember) =>
-              if (refMember.isOutsideOwner(m.getOwnerDesign))
-                Some(refMember)
+            // port referencing is done by name and validated via the
+            // PortByNameSelect's design instance, which lives in m's design
+            // scope. The underlying port DCL itself is owned by the (now Top)
+            // design class, so we can't walk owners to validate.
+            case pbns: PortByNameSelect =>
+              val designInst = pbns.designInstRef.get
+              if (designInst.isOutsideOwner(m.getOwnerDesign))
+                Some(pbns.getPortDcl)
               else None
             // design referenced by its member (e.g. via @timing.related)
             case refMember: DFDesignBlock =>
@@ -1547,7 +1552,11 @@ final case class DB(
     members.foreach {
       case d: DFDesignBlock if d == topDsn            => // top has no parent
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // globals handled separately
-      case m                                          => designOwn(m.getOwnerDesign) += m
+      // a non-top DFDesignBlock has no ownerRef-recorded parent (it's a Top in
+      // the immutable DB). Resolve its parent via its DFDesignInst, which is
+      // owned by the parent design.
+      case d: DFDesignBlock => designOwn(d.getDesignInst.getOwnerDesign) += d
+      case m                => designOwn(m.getOwnerDesign) += m
     }
     // Compute the closure of globals transitively reachable from a DB's refs.
     // Walks local members' refs; when a ref target is a global, we include it

@@ -160,14 +160,16 @@ object DclOut:
     case _            => false
 
 object PortOfDesignDef:
-  def unapply(dcl: DFVal.Dcl)(using
+  def unapply(pbns: DFVal.PortByNameSelect)(using
       getSet: MemberGetSet
   ): Option[(Modifier.IN.type | Modifier.OUT.type, DFDesignInst)] =
+    val dcl = pbns.getPortDcl
     dcl.modifier.dir match
       case mod: (Modifier.IN.type | Modifier.OUT.type) =>
-        val design = dcl.getOwnerDesign
-        if (design.isTop || design.instMode != InstMode.Def) None
-        else Some(mod, design.getDesignInst)
+        val inst = pbns.getDesignInst
+        val design = inst.getDesignBlock
+        if (design.instMode == InstMode.Def) Some(mod, inst)
+        else None
       case _ => None
 
 object InitialValueOf:

@@ -329,10 +329,16 @@ object DFVal:
       case open: DFVal.Special if open.isOpen       => Some(open)
       case alias: DFVal.Alias                       => alias.relValRef.get.dealias
       case _                                        => None
+    @tailrec def dealiasPBNS(using
+        MemberGetSet
+    ): Option[DFVal.Dcl | DFVal.PortByNameSelect | DFVal.Special] = dfVal match
+      case dcl: DFVal.Dcl                     => Some(dcl)
+      case pbns: DFVal.PortByNameSelect       => Some(pbns)
+      case open: DFVal.Special if open.isOpen => Some(open)
+      case alias: DFVal.Alias                 => alias.relValRef.get.dealiasPBNS
+      case _                                  => None
     @tailrec private def departial(slice: Slice)(using MemberGetSet): (DFVal, Slice) =
       dfVal match
-        case portByNameSelect: DFVal.PortByNameSelect =>
-          portByNameSelect.getPortDcl.departial(slice)
         case partial: DFVal.Alias.Partial =>
           val relVal = partial.relValRef.get
           partial match
@@ -366,8 +372,9 @@ object DFVal:
       departial(Slice.fromWidthOpt(dfVal.dfType.widthIntOpt))
     def departialDcl(using MemberGetSet): Option[(DFVal.Dcl, Slice)] =
       departial match
-        case (dcl: DFVal.Dcl, slice) => Some(dcl, slice)
-        case _                       => None
+        case (dcl: DFVal.Dcl, slice)               => Some(dcl, slice)
+        case (pbns: DFVal.PortByNameSelect, slice) => Some(pbns.getPortDcl, slice)
+        case _                                     => None
     def stripPortSel(using MemberGetSet): DFVal = dfVal match
       case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
       case _                               => dfVal
@@ -651,6 +658,7 @@ object DFVal:
       meta: Meta,
       tags: DFTags
   ) extends DFVal derives ReadWriter:
+    def getDesignInst(using MemberGetSet): DFDesignInst = designInstRef.get
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
       ConstData.NotConst
@@ -1051,6 +1059,26 @@ object DFNet:
     def unapply(arg: DFNet)(using MemberGetSet): Option[(toVal: DFVal, fromVal: DFVal)] = arg match
       case Assignment(lhs, rhs) if arg.op == Op.NBAssignment => Some(lhs, rhs)
       case _                                                 => None
+  object ConnectionPBNS:
+    def unapply(net: DFNet)(using
+        MemberGetSet
+    ): Option[
+      (
+          toVal: DFVal.Dcl | DFVal.PortByNameSelect | DFVal.Special | DFInterfaceOwner,
+          fromVal: DFVal | DFInterfaceOwner,
+          swapped: Boolean
+      )
+    ] =
+      if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
+        case (lhsVal: DFVal, rhsVal: DFVal) =>
+          val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)
+          if (toLeft) Some(lhsVal.dealiasPBNS.get, rhsVal, false)
+          else Some(rhsVal.dealiasPBNS.get, lhsVal, true)
+        case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
+          Some(lhsIfc, rhsIfc, false)
+        case _ => ??? // not possible
+      else None
+  end ConnectionPBNS
   object Connection:
     def unapply(net: DFNet)(using
         MemberGetSet

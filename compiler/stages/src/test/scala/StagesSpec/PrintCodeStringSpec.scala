@@ -562,7 +562,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val id = ID(arg = 0)
          |    id.x <> dmn1.id.y
          |  end dmn2
-         |  y <> id.y
+         |  y <> dmn2.id.y
          |end IDTop
          |""".stripMargin
     )

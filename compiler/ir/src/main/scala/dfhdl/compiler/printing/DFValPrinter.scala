@@ -178,12 +178,15 @@ trait AbstractValPrinter extends AbstractPrinter:
           case Special.CLK_FREQ => "CLK_FREQ"
   def csDFValNamed(dfVal: DFVal): String
   final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner | DFMember.Empty): String =
-    dfVal.stripPortSel match
-      case expr: CanBeExpr if expr.isAnonymous   => csDFValExpr(expr)
+    dfVal match
       case PortOfDesignDef(Modifier.OUT, design) =>
         if (design.isAnonymous) printer.csDFDesignDefInst(design)
         else design.getName
-      case dfVal => dfVal.getRelativeName(fromOwner)
+      case pbns: DFVal.PortByNameSelect =>
+        val designInst = pbns.designInstRef.get
+        s"${designInst.getRelativeName(fromOwner)}.${pbns.portNamePath}"
+      case expr: CanBeExpr if expr.isAnonymous => csDFValExpr(expr)
+      case _                                   => dfVal.getRelativeName(fromOwner)
 end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:

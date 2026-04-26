@@ -50,7 +50,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // excluding late (via) connections
         case net: DFNet if net.isViaConnection => false
         // excluding nets that are inputs to a design definition
-        case DFNet.Connection(toVal = PortOfDesignDef(Modifier.IN, _)) => false
+        case DFNet.ConnectionPBNS(toVal = PortOfDesignDef(Modifier.IN, _)) => false
         // include the rest of statements: nets, gotos, etc.
         case _: Statement => true
         // including only conditional statements (no type) headers
@@ -251,7 +251,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val dsnCls = design.domainType match
       case DomainType.DF => "DFDesign"
       case DomainType.RT => "RTDesign"
-      case _ =>
+      case _             =>
         design.instMode match
           case InstMode.BlackBox(source) => source match
               case InstMode.BlackBox.Source.VendorIP(_, "") =>

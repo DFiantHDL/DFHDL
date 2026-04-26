@@ -41,9 +41,13 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
   test("Basic hierarchy, combinational, always include clock and reset at top") {
     given options.ElaborationOptions.DefaultClkCfg =
-      hw.constraints.timing.clock(inclusionPolicy = hw.constraints.timing.InclusionPolicy.AlwaysAtTop)
+      hw.constraints.timing.clock(inclusionPolicy =
+        hw.constraints.timing.InclusionPolicy.AlwaysAtTop
+      )
     given options.ElaborationOptions.DefaultRstCfg =
-      hw.constraints.timing.reset(inclusionPolicy = hw.constraints.timing.InclusionPolicy.AlwaysAtTop)
+      hw.constraints.timing.reset(inclusionPolicy =
+        hw.constraints.timing.InclusionPolicy.AlwaysAtTop
+      )
     val eo = summon[options.ElaborationOptions]
     // force DFC with these elaboration options modifications (this is required because no @top annotation)
     val dfc                               = DFC.empty(eo)
@@ -164,7 +168,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val id = ID()
          |    id.x <> dmn2.id.y
          |  end dmn3
-         |  y <> id.y
+         |  y <> dmn3.id.y
          |end IDTop
          |""".stripMargin
     )
@@ -217,7 +221,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val id = ID()
          |    id.x <> dmn2.id.y.reg(1, init = sd"16'0")
          |  end dmn3
-         |  y <> id.y
+         |  y <> dmn3.id.y
          |end IDTop
          |""".stripMargin
     )
@@ -270,7 +274,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val id = ID()
          |    id.x <> dmn2.id.y
          |  end dmn3
-         |  y <> id.y
+         |  y <> dmn3.id.y
          |end IDTop
          |""".stripMargin
     )
@@ -325,7 +329,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val id = ID()
          |    id.x <> dmn2.id.y.reg(1, init = sd"16'0")
          |  end dmn3
-         |  y <> id.y
+         |  y <> dmn3.id.y
          |end IDTop
          |""".stripMargin
     )
@@ -356,9 +360,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
     // and why ID also picks up the resolved timing annotations of its enclosing IDTop.
     assertCodeString(
       id,
-      """|@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
-         |class ID extends RTDesign:
+      """|class ID extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x.reg(1, init = sd"16'5")
@@ -384,7 +386,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val id = ID()
          |    id.x <> dmn2.id.y.reg(1, init = sd"16'0")
          |  end dmn3
-         |  y <> id.y
+         |  y <> dmn3.id.y
          |end IDTop
          |""".stripMargin
     )
@@ -528,7 +530,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val id = ID()
          |    id.x <> dmn2.id.y.reg(1, init = sd"16'0")
          |  end dmn3
-         |  y <> id.y
+         |  y <> dmn3.id.y
          |end IDTop
          |""".stripMargin
     )

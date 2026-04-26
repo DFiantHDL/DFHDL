@@ -551,7 +551,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |        else dmn2_id_y_reg :== dmn2.id.y
          |      end if
          |  end dmn3
-         |  y <> id.y
+         |  y <> dmn3.id.y
          |end IDTop
          |""".stripMargin
     )

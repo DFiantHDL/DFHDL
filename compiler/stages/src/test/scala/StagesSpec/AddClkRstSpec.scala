@@ -480,7 +480,7 @@ class AddClkRstSpec extends StageSpec:
          |    val id = ID()
          |    id.x <> dmn2.id.y.reg(1, init = sd"16'0")
          |  end dmn3
-         |  y <> id.y
+         |  y <> dmn3.id.y
          |end IDTop
          |""".stripMargin
     )
