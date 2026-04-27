@@ -260,7 +260,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
       case DFBits(_) => "(others => 'Z')"
       case _         => printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
-    dfVal.stripPortSel match
+    dfVal match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)
       case const @ DclConst()    => csDFValDclConst(const)
       case expr: DFVal.CanBeExpr => csDFValExpr(expr)

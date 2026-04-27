@@ -394,7 +394,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case const @ DclConst()                              => printer.csDFValConstType(dfVal.dfType)
       case _                                               => ""
     def valDef = s"val ${dfVal.getName}$typeAnnot ="
-    val rhs = dfVal.stripPortSel match
+    val rhs = dfVal match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)
       case const @ DclConst()    => csDFValDclConst(const)
       case expr: DFVal.CanBeExpr => csDFValExpr(expr)
