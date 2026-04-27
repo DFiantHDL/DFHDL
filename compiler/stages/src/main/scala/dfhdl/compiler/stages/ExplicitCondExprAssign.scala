@@ -130,7 +130,7 @@ case object ExplicitCondExprAssign extends HierarchyStage:
         case net @ DFNet.Assignment(toVal, header: DFConditional.Header) if header.isAnonymous =>
           header.patchChainsNet(toVal, net, net.op)
         case net @ DFNet.Connection(toVal: DFVal, header: DFConditional.Header, _)
-            if !net.isViaConnection && header.isAnonymous && (toVal.isPortOut || toVal.isVar) =>
+            if !net.isViaConnection && header.isAnonymous && (toVal.isPortOutPBNS || toVal.isVar) =>
           header.patchChainsNet(toVal, net, DFNet.Op.Assignment)
         case _ => Nil
       }.toList

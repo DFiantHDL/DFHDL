@@ -27,13 +27,13 @@ case object ViaConnection extends Stage:
                 case Some(n) if n.isViaConnection => pbnsSkip += pbns
                 // connected to OPEN, so we skip it from variable creation, but add the net to
                 // the list of nets to be moved as via connections
-                case Some(n @ DFNet.ConnectionPBNS(toVal = openVal: DFVal.Special))
+                case Some(n @ DFNet.Connection(toVal = openVal: DFVal.Special))
                     if openVal.isOpen =>
                   pbnsSkip += pbns
                   nets += n
                 // already connected to a variable, but without via connection, so we add the net
                 // to the list of nets to be moved as via connections
-                case Some(n @ DFNet.ConnectionPBNS(toVal = DclVar())) =>
+                case Some(n @ DFNet.Connection(toVal = DclVar())) =>
                   pbnsSkip += pbns
                   nets += n
                 // not connected through a net

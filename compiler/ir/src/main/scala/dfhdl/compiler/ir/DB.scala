@@ -945,8 +945,8 @@ final case class DB(
                     }
                     val inSourceDomains = inPorts.view.flatMap { port =>
                       connectionTable.getNets(port).headOption match
-                        case Some(DFNet.Connection(_, from, _)) => from.getRTOwnerOption
-                        case _                                  => None
+                        case Some(DFNet.ConnectionPBNS(_, from, _)) => from.getRTOwnerOption
+                        case _                                      => None
                     }.toSet
                     if (inSourceDomains.isEmpty) domain.getRTOwnerOption.map(domain -> _)
                     else if (inSourceDomains.size > 1)
@@ -1500,7 +1500,7 @@ final case class DB(
   //                                    From       Via
   lazy val connectionTableInverted: Map[DFVal, Set[DFNet]] =
     members.view
-      .collect { case n @ DFNet.ConnectionPBNS(_: DFVal, fromVal: DFVal, _) => (fromVal, n) }
+      .collect { case n @ DFNet.Connection(_: DFVal, fromVal: DFVal, _) => (fromVal, n) }
       .groupMap(_._1)(_._2).view.mapValues(_.toSet).toMap
 
   //                              To       From

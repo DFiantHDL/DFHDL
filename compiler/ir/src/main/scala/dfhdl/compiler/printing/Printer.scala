@@ -33,7 +33,7 @@ trait Printer
   def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   final def csDFNet(net: DFNet): String =
     net match
-      case DFNet.ConnectionPBNS(lhsVal, rhsVal, swapped) =>
+      case DFNet.Connection(lhsVal, rhsVal, swapped) =>
         val (lhsOrig, rhsOrig) = if (swapped) (rhsVal, lhsVal) else (lhsVal, rhsVal)
         // True if the net needs to be shown in a swapped order.
         // Normalized via connections always have the internal port on the LHS.

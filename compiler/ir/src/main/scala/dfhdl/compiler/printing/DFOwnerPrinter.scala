@@ -43,7 +43,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // excluding late (via) connections
         case net: DFNet if net.isViaConnection => false
         // excluding nets that are inputs to a design definition
-        case DFNet.ConnectionPBNS(toVal = PortOfDesignDef(Modifier.IN, _)) => false
+        case DFNet.Connection(toVal = PortOfDesignDef(Modifier.IN, _)) => false
         // include the rest of statements: nets, gotos, etc.
         case _: Statement => true
         // including only conditional statements (no type) headers
@@ -60,7 +60,6 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       .mkString("\n")
   end csDFMembers
   final def csDFDesignLateBody(inst: DFDesignInst): String =
-    val design = inst.getDesignBlock
     inst.getOwner
       .members(MemberView.Folded)
       .view
@@ -69,7 +68,12 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // late construction nets
         case net @ DFNet.Connection(toVal, fromVal, _) if net.isViaConnection =>
           // getting the nets that belong to this design
-          toVal.isInsideOwner(design) || fromVal.isInsideOwner(design)
+          toVal match
+            case pbns: DFVal.PortByNameSelect if pbns.getDesignInst == inst => true
+            case _                                                          =>
+              fromVal match
+                case pbns: DFVal.PortByNameSelect if pbns.getDesignInst == inst => true
+                case _                                                          => false
         // the rest are not directly viewable
         case _ => false
       }
@@ -221,7 +225,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val design = inst.getDesignBlock
     val ports = getSet.designDB.designInstPBNS(inst).view.collect {
       case pbns if pbns.isIn =>
-        val DFNet.ConnectionPBNS(_, from: DFVal, _) = pbns.getConnectionTo.get.runtimeChecked
+        val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionTo.get.runtimeChecked
         printer.csDFValRef(from, inst.getOwner)
     }.mkString(", ")
     val designParamList = csDesignParamList(inst.paramMap)

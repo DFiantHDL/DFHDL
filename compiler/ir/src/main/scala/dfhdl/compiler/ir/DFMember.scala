@@ -302,12 +302,24 @@ object DFVal:
           case Modifier.OUT => true
           case _            => false
       case _ => false
+    def isPortOutPBNS(using MemberGetSet): Boolean = dfVal match
+      case pbns: DFVal.PortByNameSelect =>
+        pbns.dir match
+          case Modifier.OUT => true
+          case _            => false
+      case _ => dfVal.isPortOut
     def isPortIn: Boolean = dfVal match
       case dcl: DFVal.Dcl =>
         dcl.modifier.dir match
           case Modifier.IN => true
           case _           => false
       case _ => false
+    def isPortInPBNS(using MemberGetSet): Boolean = dfVal match
+      case pbns: DFVal.PortByNameSelect =>
+        pbns.dir match
+          case Modifier.IN => true
+          case _           => false
+      case _ => dfVal.isPortIn
     def isVar: Boolean = dfVal match
       case dcl: DFVal.Dcl =>
         dcl.modifier.dir match
@@ -1069,7 +1081,7 @@ object DFNet:
     def unapply(arg: DFNet)(using MemberGetSet): Option[(toVal: DFVal, fromVal: DFVal)] = arg match
       case Assignment(lhs, rhs) if arg.op == Op.NBAssignment => Some(lhs, rhs)
       case _                                                 => None
-  object ConnectionPBNS:
+  object Connection:
     def unapply(net: DFNet)(using
         MemberGetSet
     ): Option[
@@ -1084,26 +1096,6 @@ object DFNet:
           val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)
           if (toLeft) Some(lhsVal.dealiasPBNS.get, rhsVal, false)
           else Some(rhsVal.dealiasPBNS.get, lhsVal, true)
-        case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
-          Some(lhsIfc, rhsIfc, false)
-        case _ => ??? // not possible
-      else None
-  end ConnectionPBNS
-  object Connection:
-    def unapply(net: DFNet)(using
-        MemberGetSet
-    ): Option[
-      (
-          toVal: DFVal.Dcl | DFVal.Special | DFInterfaceOwner,
-          fromVal: DFVal | DFInterfaceOwner,
-          swapped: Boolean
-      )
-    ] =
-      if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
-        case (lhsVal: DFVal, rhsVal: DFVal) =>
-          val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)
-          if (toLeft) Some(lhsVal.dealias.get, rhsVal.stripPortSel, false)
-          else Some(rhsVal.dealias.get, lhsVal.stripPortSel, true)
         case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
           Some(lhsIfc, rhsIfc, false)
         case _ => ??? // not possible

@@ -238,7 +238,7 @@ extension (dfVal: DFVal)
       case net: DFNet =>
         net match
           // ignoring receiver or if connecting to an OPEN
-          case DFNet.ConnectionPBNS(toVal = toVal: DFVal) if toVal.isOpen || toVal == dfVal =>
+          case DFNet.Connection(toVal = toVal: DFVal) if toVal.isOpen || toVal == dfVal =>
             None
           // ignoring receiver
           case DFNet.Assignment(toVal = toVal) if toVal == dfVal => None
@@ -360,7 +360,7 @@ extension (dfVal: DFVal)
       // name from assignment destination
       case Some(DFNet.Assignment(toVal = toVal)) => Some(partName(member, toVal))
       // name from connection destination
-      case Some(DFNet.ConnectionPBNS(toVal = toVal: DFVal)) => Some(partName(member, toVal))
+      case Some(DFNet.Connection(toVal = toVal: DFVal)) => Some(partName(member, toVal))
       // name from a named value which was referenced by an alias
       case Some(value: DFVal) if !value.isAnonymous => Some(partName(member, value))
       // found an (anonymous) value -> checking suggestion for it
@@ -395,9 +395,9 @@ extension (dfVal: DFVal)
   def isPartialNetDest(using MemberGetSet): Boolean = dfVal match
     case dfVal: DFVal.Alias.Partial =>
       dfVal.originMembers.headOption match
-        case Some(DFNet.Assignment(toVal = toVal)) if toVal == dfVal     => true
-        case Some(DFNet.ConnectionPBNS(toVal = toVal)) if toVal == dfVal => true
-        case _                                                           => false
+        case Some(DFNet.Assignment(toVal = toVal)) if toVal == dfVal => true
+        case Some(DFNet.Connection(toVal = toVal)) if toVal == dfVal => true
+        case _                                                       => false
     case _ => false
 end extension
 

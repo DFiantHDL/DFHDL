@@ -22,44 +22,44 @@ private abstract class NamedAliases extends HierarchyStage:
   def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal]
   def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patches = subDB.members.view
-        // just values
-        .collect { case dfVal: DFVal if dfVal.isAnonymous => dfVal }
-        // filter out partial net destinations
-        .filterNot(_.isPartialNetDest)
-        // get all that meet the criteria
-        .flatMap(criteria)
-        // filter out the trivial cases (no need to name)
-        .filterNot(_.isAllowedMultipleReferences)
-        // tuple with the suggested name
-        .map(m => (m, m.suggestName.getOrElse("anon")))
-        // group dfhdl-equivalent values, as long as they are in the same scope.
-        // conditional headers are excluded from grouping because their =~ comparison
-        // does not account for block contents (conditions/branches), so structurally
-        // different conditionals could be incorrectly merged.
-        .groupByCompare(
-          (l, r) =>
-            !l._1.isInstanceOf[DFConditional.Header] &&
-              l._1 =~ r._1 && l._1.isInsideOwner(r._1.getOwner),
-          _._2.hashCode()
-        )
-        // split to list of aliases and list of suggested names for each group
-        .map(_.unzip)
-        // for each group use just the head to create the named member and patch
-        // all members to reference that member
-        .flatMap {
-          case (firstAlias :: restOfAliases, suggestedName :: _) =>
-            // we force set the underlying original name before it was anonymized
-            val namedMember = firstAlias.setName(suggestedName)
-            // first alias gets a full replacement
-            val firstPatch =
-              firstAlias -> Patch.Replace(namedMember, Patch.Replace.Config.FullReplacement)
-            // the rest of the aliases (if there are any) are just a reference change
-            firstPatch :: restOfAliases.map(
-              _ -> Patch.Replace(
-                namedMember,
-                Patch.Replace.Config.ChangeRefOnly
-              )
+      // just values
+      .collect { case dfVal: DFVal if dfVal.isAnonymous => dfVal }
+      // filter out partial net destinations
+      .filterNot(_.isPartialNetDest)
+      // get all that meet the criteria
+      .flatMap(criteria)
+      // filter out the trivial cases (no need to name)
+      .filterNot(_.isAllowedMultipleReferences)
+      // tuple with the suggested name
+      .map(m => (m, m.suggestName.getOrElse("anon")))
+      // group dfhdl-equivalent values, as long as they are in the same scope.
+      // conditional headers are excluded from grouping because their =~ comparison
+      // does not account for block contents (conditions/branches), so structurally
+      // different conditionals could be incorrectly merged.
+      .groupByCompare(
+        (l, r) =>
+          !l._1.isInstanceOf[DFConditional.Header] &&
+            l._1 =~ r._1 && l._1.isInsideOwner(r._1.getOwner),
+        _._2.hashCode()
+      )
+      // split to list of aliases and list of suggested names for each group
+      .map(_.unzip)
+      // for each group use just the head to create the named member and patch
+      // all members to reference that member
+      .flatMap {
+        case (firstAlias :: restOfAliases, suggestedName :: _) =>
+          // we force set the underlying original name before it was anonymized
+          val namedMember = firstAlias.setName(suggestedName)
+          // first alias gets a full replacement
+          val firstPatch =
+            firstAlias -> Patch.Replace(namedMember, Patch.Replace.Config.FullReplacement)
+          // the rest of the aliases (if there are any) are just a reference change
+          firstPatch :: restOfAliases.map(
+            _ -> Patch.Replace(
+              namedMember,
+              Patch.Replace.Config.ChangeRefOnly
             )
+          )
         case _ => Nil
       }.toList
     subDB.patch(patches)
@@ -205,7 +205,7 @@ case object NamedAnonCondExpr extends NamedAliases:
           // directly assigned to a declaration (variable or output port)
           case DFNet.Assignment(toVal = _: DFVal.Dcl) => false
           // directly connected to an output port
-          case DFNet.ConnectionPBNS(toVal = DclOut()) => false
+          case DFNet.Connection(toVal = DclOut()) => false
           // is referenced by an ident, which means it is used in another conditional expression
           case Ident(_) => false
         }.getOrElse(true)
