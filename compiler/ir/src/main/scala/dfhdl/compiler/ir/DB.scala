@@ -524,9 +524,12 @@ final case class DB(
       if (dfVal.isGlobal) false
       else if (dfVal.isInstanceOf[DFVal.PortByNameSelect]) false
       else dfVal isSameOwnerDesignAs net
-    dfVal.stripPortSel match
-      case dcl: DFVal.Dcl =>
-        dcl.modifier.dir match
+    dfVal match
+      case dfVal: (DFVal.Dcl | DFVal.PortByNameSelect) =>
+        val dir = dfVal match
+          case dcl: DFVal.Dcl               => dcl.modifier.dir
+          case pbns: DFVal.PortByNameSelect => pbns.dir
+        dir match
           // external connection to an input port
           case IN if isExternalConn => Write
           // internal connection to an output port
@@ -540,11 +543,12 @@ final case class DB(
           // internal connection to a var
           case VAR if isInternalConn =>
             // if already was connected as write, then it must be read
-            if (connToMap.contains(dcl, slice)) Read
+            if (connToMap.contains(dfVal, slice)) Read
             // otherwise it is unknown
             else Unknown
           // illegal connection
           case _ => Error
+        end match
       case open if open.isOpen => Unknown
       case _                   => Read
     end match

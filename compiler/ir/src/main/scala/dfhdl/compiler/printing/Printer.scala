@@ -54,8 +54,12 @@ trait Printer
               if (dfVal.getConnectionTo.contains(net) ^ swapLR) "<--"
               else "-->"
         val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)
-        val lhsStr = if (lhsRef.isViaRef) lhsRef.get.stripPortSel.getName else lhsRef.refCodeString
-        val rhsStr = if (rhsRef.isViaRef) rhsRef.get.stripPortSel.getName else rhsRef.refCodeString
+        def csNode(ref: DFNet.Ref): String =
+          ref.get match
+            case pbns: DFVal.PortByNameSelect if net.isViaConnection => pbns.portName
+            case _                                                   => ref.refCodeString
+        val lhsStr = csNode(lhsRef)
+        val rhsStr = csNode(rhsRef)
         net.op.runtimeChecked match
           case DFNet.Op.Connection     => csConnection(lhsStr, rhsStr, directionStr)
           case DFNet.Op.ViaConnection  => csViaConnection(lhsStr, rhsStr, directionStr)

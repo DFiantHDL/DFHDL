@@ -403,13 +403,6 @@ extension (dfVal: DFVal)
     case _ => false
 end extension
 
-extension (refTW: DFNet.Ref)
-  def isViaRef(using MemberGetSet): Boolean =
-    refTW.originMember match
-      case net: DFNet if net.isViaConnection =>
-        refTW.get.stripPortSel.getOwner.isSameOwnerDesignAs(net)
-      case _ => false
-
 extension (origVal: DFVal)
   private def collectRelMembersRecur(
       forceIncludeOrigVal: Boolean
