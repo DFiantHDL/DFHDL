@@ -260,8 +260,9 @@ extension (dfVal: DFVal)
 
   @tailrec private def flatName(member: DFVal, suffix: String)(using MemberGetSet): String =
     member match
-      case named if !named.isAnonymous => s"${member.getName}$suffix"
-      case alias: DFVal.Alias.Partial  =>
+      case named if !named.isAnonymous  => s"${member.getName}$suffix"
+      case pbns: DFVal.PortByNameSelect => s"${pbns.portNamePath.replace('.', '_')}$suffix"
+      case alias: DFVal.Alias.Partial   =>
         val relVal = alias.relValRef.get
         val newSuffix = alias match
           case _: DFVal.Alias.AsIs            => suffix
@@ -359,7 +360,7 @@ extension (dfVal: DFVal)
       // name from assignment destination
       case Some(DFNet.Assignment(toVal = toVal)) => Some(partName(member, toVal))
       // name from connection destination
-      case Some(DFNet.Connection(toVal = toVal: DFVal)) => Some(partName(member, toVal))
+      case Some(DFNet.ConnectionPBNS(toVal = toVal: DFVal)) => Some(partName(member, toVal))
       // name from a named value which was referenced by an alias
       case Some(value: DFVal) if !value.isAnonymous => Some(partName(member, value))
       // found an (anonymous) value -> checking suggestion for it
