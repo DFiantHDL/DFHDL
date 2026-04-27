@@ -202,10 +202,6 @@ object DFMember:
           s"${memberChain.drop(samePath).map(_.getName).mkString(".")}.$getName"
     end getRelativeName
   end Named
-  extension (member: Named)
-    def stripPortSel(using MemberGetSet): Named = member match
-      case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
-      case _                               => member
 end DFMember
 
 sealed trait Statement extends DFMember derives ReadWriter
@@ -393,9 +389,6 @@ object DFVal:
         case (dcl: DFVal.Dcl, slice)               => Some(dcl, slice)
         case (pbns: DFVal.PortByNameSelect, slice) => Some(pbns.getPortDcl, slice)
         case _                                     => None
-    def stripPortSel(using MemberGetSet): DFVal = dfVal match
-      case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
-      case _                               => dfVal
     def isBubble(using MemberGetSet): Boolean =
       dfVal match
         case c: DFVal.Const          => c.dfType.isDataBubble(c.data.asInstanceOf[c.dfType.Data])

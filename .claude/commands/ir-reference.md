@@ -137,7 +137,6 @@ dfVal.isDesignParam   // DFVal.DesignParam instance
 dfVal.dealias         // follow alias chain → Option[DFVal.Dcl | DFVal.Special]
 dfVal.departial       // strip partial selections → (DFVal, Range)
 dfVal.departialDcl    // strip partial selections → Option[(DFVal.Dcl, Range)]
-dfVal.stripPortSel    // PortByNameSelect → underlying Dcl, else identity
 dfVal.isBubble        // contains a don't-care / bubble constant
 ```
 

@@ -945,7 +945,7 @@ final case class DB(
                     }
                     val inSourceDomains = inPorts.view.flatMap { port =>
                       connectionTable.getNets(port).headOption match
-                        case Some(DFNet.ConnectionPBNS(_, from, _)) => from.getRTOwnerOption
+                        case Some(DFNet.Connection(_, from, _)) => from.getRTOwnerOption
                         case _                                      => None
                     }.toSet
                     if (inSourceDomains.isEmpty) domain.getRTOwnerOption.map(domain -> _)
