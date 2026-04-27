@@ -205,7 +205,7 @@ case object NamedAnonCondExpr extends NamedAliases:
           // directly assigned to a declaration (variable or output port)
           case DFNet.Assignment(toVal = _: DFVal.Dcl) => false
           // directly connected to an output port
-          case DFNet.Connection(toVal = DclOut()) => false
+          case DFNet.ConnectionPBNS(toVal = DclOut()) => false
           // is referenced by an ident, which means it is used in another conditional expression
           case Ident(_) => false
         }.getOrElse(true)

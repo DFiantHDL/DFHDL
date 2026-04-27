@@ -395,9 +395,9 @@ extension (dfVal: DFVal)
   def isPartialNetDest(using MemberGetSet): Boolean = dfVal match
     case dfVal: DFVal.Alias.Partial =>
       dfVal.originMembers.headOption match
-        case Some(DFNet.Assignment(toVal = toVal)) if toVal == dfVal => true
-        case Some(DFNet.Connection(toVal = toVal)) if toVal == dfVal => true
-        case _                                                       => false
+        case Some(DFNet.Assignment(toVal = toVal)) if toVal == dfVal     => true
+        case Some(DFNet.ConnectionPBNS(toVal = toVal)) if toVal == dfVal => true
+        case _                                                           => false
     case _ => false
 end extension
 
