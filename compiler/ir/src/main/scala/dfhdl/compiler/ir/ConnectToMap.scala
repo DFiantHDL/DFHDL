@@ -8,20 +8,26 @@ final case class ConnectToEntry(coverage: Coverage, nets: Vector[(Slice, DFNet)]
 object ConnectToEntry:
   val empty: ConnectToEntry = ConnectToEntry(Coverage.empty, Vector.empty)
 
-opaque type ConnectToMap = Map[DFVal.Dcl, ConnectToEntry]
+type ConnectToVal = DFVal.PortByNameSelect | DFVal.Dcl | DFVal.Special
+opaque type ConnectToMap = Map[ConnectToVal, ConnectToEntry]
 
 object ConnectToMap:
   def empty: ConnectToMap = Map()
   extension (ctm: ConnectToMap)(using MemberGetSet)
-    def dcls: Set[DFVal.Dcl] = ctm.keySet
+    def connectToVals: Set[ConnectToVal] = ctm.keySet
+    def dcls: Set[DFVal.Dcl] = ctm.connectToVals.flatMap {
+      case dcl: DFVal.Dcl               => Some(dcl)
+      case pbns: DFVal.PortByNameSelect => Some(pbns.getPortDcl)
+      case _                            => None
+    }.toSet
 
     /** All nets whose slice overlaps `slice` on `dcl`, including ones whose overlap status is
       * merely `Unknown` (conservative).
       */
-    def getNets(dcl: DFVal.Dcl, slice: Slice): Set[DFNet] =
-      ctm.get(dcl) match
+    def getNets(connectToVal: ConnectToVal, slice: Slice): Set[DFNet] =
+      ctm.get(connectToVal) match
         case Some(entry) =>
-          val widthOpt = dcl.dfType.widthIntOpt
+          val widthOpt = connectToVal.widthIntOpt
           entry.nets.collect {
             case (storedSlice, net)
                 if ConnectToMap.overlapsSlices(storedSlice, slice, widthOpt) != Tri.No =>
@@ -29,34 +35,33 @@ object ConnectToMap:
           }.toSet
         case None => Set.empty
     def getNets(dfVal: DFVal): Set[DFNet] =
-      dfVal.departialDcl match
-        case Some((dcl, slice)) => getNets(dcl, slice)
-        case _                  => Set.empty
-    def addNet(dcl: DFVal.Dcl, slice: Slice, net: DFNet): ConnectToMap =
-      val entry = ctm.getOrElse(dcl, ConnectToEntry.empty)
-      val widthOpt = dcl.dfType.widthIntOpt
+      dfVal.departialPBNS match
+        case Some(connectToVal, slice) => getNets(connectToVal, slice)
+        case _                         => Set.empty
+    def addNet(connectToVal: ConnectToVal, slice: Slice, net: DFNet): ConnectToMap =
+      val entry = ctm.getOrElse(connectToVal, ConnectToEntry.empty)
       val newEntry = entry.copy(
-        coverage = entry.coverage.assign(slice, widthOpt),
+        coverage = entry.coverage.assign(slice, connectToVal.widthIntOpt),
         nets = entry.nets :+ ((slice, net))
       )
-      ctm + (dcl -> newEntry)
+      ctm + (connectToVal -> newEntry)
     def removeAssignments: ConnectToMap =
       ctm.view
-        .map { (dcl, entry) =>
+        .map { (connectToVal, entry) =>
           val connectionNets = entry.nets.filter(_._2.isConnection)
-          val widthOpt = dcl.dfType.widthIntOpt
           val rebuiltCoverage = connectionNets.foldLeft(Coverage.empty) {
-            case (cov, (slice, _)) => cov.assign(slice, widthOpt)
+            case (cov, (slice, _)) => cov.assign(slice, connectToVal.widthIntOpt)
           }
-          dcl -> ConnectToEntry(rebuiltCoverage, connectionNets)
+          connectToVal -> ConnectToEntry(rebuiltCoverage, connectionNets)
         }.toMap
-    def contains(dcl: DFVal.Dcl, slice: Slice): Boolean = getNets(dcl, slice).nonEmpty
+    def contains(connectToVal: ConnectToVal, slice: Slice): Boolean =
+      getNets(connectToVal, slice).nonEmpty
     def contains(dfVal: DFVal): Boolean = getNets(dfVal).nonEmpty
 
     /** Coverage accumulated on a declaration. [[Coverage.empty]] when the declaration has no entry.
       */
-    def coverageOf(dcl: DFVal.Dcl): Coverage =
-      ctm.get(dcl).map(_.coverage).getOrElse(Coverage.empty)
+    def coverageOf(connectToVal: ConnectToVal): Coverage =
+      ctm.get(connectToVal).map(_.coverage).getOrElse(Coverage.empty)
   end extension
 
   /** Pairwise slice-overlap predicate used by `getNets`. Returns `Tri.Yes` only when provably

@@ -370,6 +370,12 @@ object DFVal:
     // for a given value remove partial selections as possible
     def departial(using MemberGetSet): (DFVal, Slice) =
       departial(Slice.fromWidthOpt(dfVal.dfType.widthIntOpt))
+    def departialPBNS(using MemberGetSet): Option[(ConnectToVal, Slice)] =
+      departial match
+        case (dcl: DFVal.Dcl, slice)                     => Some(dcl, slice)
+        case (pbns: DFVal.PortByNameSelect, slice)       => Some(pbns, slice)
+        case (open: DFVal.Special, slice) if open.isOpen => Some(open, slice)
+        case _                                           => None
     def departialDcl(using MemberGetSet): Option[(DFVal.Dcl, Slice)] =
       departial match
         case (dcl: DFVal.Dcl, slice)               => Some(dcl, slice)
@@ -652,6 +658,7 @@ object DFVal:
 
   final case class PortByNameSelect(
       dfType: DFType,
+      dir: Modifier.Dir,
       designInstRef: PortByNameSelect.Ref,
       portNamePath: String,
       ownerRef: DFOwner.Ref,
@@ -659,6 +666,9 @@ object DFVal:
       tags: DFTags
   ) extends DFVal derives ReadWriter:
     def getDesignInst(using MemberGetSet): DFDesignInst = designInstRef.get
+    def isIn: Boolean = dir == Modifier.IN
+    def isOut: Boolean = dir == Modifier.OUT
+    def portName: String = portNamePath.split('.').last
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
       ConstData.NotConst

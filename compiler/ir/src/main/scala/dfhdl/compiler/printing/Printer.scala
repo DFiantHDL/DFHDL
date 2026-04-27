@@ -33,15 +33,17 @@ trait Printer
   def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   final def csDFNet(net: DFNet): String =
     net match
-      case DFNet.Connection(lhsVal, rhsVal, swapped) =>
+      case DFNet.ConnectionPBNS(lhsVal, rhsVal, swapped) =>
         val (lhsOrig, rhsOrig) = if (swapped) (rhsVal, lhsVal) else (lhsVal, rhsVal)
         // True if the net needs to be shown in a swapped order.
         // Normalized via connections always have the internal port on the LHS.
         // Normalized connections always have the receiver port on the LHS.
         val swapLR =
           // swapped if the net is a via and the RHS is the internal port
-          if (net.isViaConnection)
-            normalizeViaConnection && rhsOrig.getOwner.isSameOwnerDesignAs(net)
+          if (net.isViaConnection) rhsOrig match
+            case pbns: DFVal.PortByNameSelect => normalizeViaConnection
+            case _                            =>
+              normalizeViaConnection && rhsOrig.getOwner.isSameOwnerDesignAs(net)
           // swapped if the net is a regular connection and the RHS is receiver and
           // as long as the LHS is not OPEN
           else swapped && normalizeConnection && !lhsVal.isInstanceOf[DFVal.Special]

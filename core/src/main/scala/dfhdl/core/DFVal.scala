@@ -989,17 +989,22 @@ object DFVal extends DFValLP:
   end Alias
 
   object PortByNameSelect:
-    def apply(dfType: ir.DFType, designInst: ir.DFDesignInst, namePath: String)(using
-        DFC
-    ): ir.DFVal.PortByNameSelect =
+    def apply(
+        dfType: ir.DFType,
+        dir: ir.DFVal.Modifier.Dir,
+        designInst: ir.DFDesignInst,
+        namePath: String
+    )(using DFC): ir.DFVal.PortByNameSelect =
       ir.DFVal.PortByNameSelect(
         dfType.dropUnreachableRefs,
+        dir,
         designInst.refTW[ir.DFVal.PortByNameSelect],
         namePath,
         dfc.owner.ref,
         dfc.getMeta.anonymize,
         dfc.tags
       ).addMember
+  end PortByNameSelect
 
   // object Iterator:
   //   def apply[P](range: DFRange[P])(using dfc: DFC): DFValTP[DFInt32, P] =
@@ -1924,9 +1929,12 @@ extension (dfVal: ir.DFVal)
               DFVal.Alias.SelectField(clonedRelVal, alias.fieldName)(using dfcForClone)
           end match
         case pbns: ir.DFVal.PortByNameSelect =>
-          DFVal.PortByNameSelect(pbns.dfType, pbns.designInstRef.get, pbns.portNamePath)(using
-            dfcForClone
-          ).asValAny
+          DFVal.PortByNameSelect(
+            pbns.dfType,
+            pbns.dir,
+            pbns.designInstRef.get,
+            pbns.portNamePath
+          )(using dfcForClone).asValAny
         case _ =>
           throw new IllegalArgumentException(s"Unsupported cloning for: $dfVal")
       cloned.asIR

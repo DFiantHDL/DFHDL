@@ -163,8 +163,7 @@ object PortOfDesignDef:
   def unapply(pbns: DFVal.PortByNameSelect)(using
       getSet: MemberGetSet
   ): Option[(Modifier.IN.type | Modifier.OUT.type, DFDesignInst)] =
-    val dcl = pbns.getPortDcl
-    dcl.modifier.dir match
+    pbns.dir match
       case mod: (Modifier.IN.type | Modifier.OUT.type) =>
         val inst = pbns.getDesignInst
         val design = inst.getDesignBlock
@@ -238,30 +237,20 @@ extension (dfVal: DFVal)
       .collect { case dfVal: DFVal => dfVal }
       .exists(dfVal => cond(dfVal) || dfVal.existsInComposedReadDeps(cond))
   def getReadDeps(using MemberGetSet): Set[DFValReadDep] =
-    val fromRefs: Set[DFValReadDep] =
-      dfVal.originMembersNoTypeRef.flatMap {
-        case net: DFNet =>
-          net match
-            // ignoring receiver or if connecting to an OPEN
-            case DFNet.Connection(toVal = toVal: DFVal) if toVal.isOpen || toVal == dfVal =>
-              None
-            // ignoring receiver
-            case DFNet.Assignment(toVal = toVal) if toVal == dfVal => None
-            case _                                                 => Some(net)
-        case dfVal: DFVal                                                        => Some(dfVal)
-        case guardBlock: DFConditional.Block if guardBlock.guardRef.get == dfVal => Some(guardBlock)
-        case textOut: TextOut                                                    => Some(textOut)
-        case _                                                                   => None
-      }
-    dfVal match
-      // for ports we need to also account for by-name referencing
-      case port @ DclPort() if !port.getOwnerDesign.isTop =>
-        val designInst = port.getOwnerDesign.getDesignInst
-        designInst.originMembers.view
-          .collect { case ps @ DFVal.PortByNameSelect.Of(p) if p == port => ps.getReadDeps }
-          .flatten
-          .toSet ++ fromRefs
-      case _ => fromRefs
+    dfVal.originMembersNoTypeRef.flatMap {
+      case net: DFNet =>
+        net match
+          // ignoring receiver or if connecting to an OPEN
+          case DFNet.ConnectionPBNS(toVal = toVal: DFVal) if toVal.isOpen || toVal == dfVal =>
+            None
+          // ignoring receiver
+          case DFNet.Assignment(toVal = toVal) if toVal == dfVal => None
+          case _                                                 => Some(net)
+      case dfVal: DFVal                                                        => Some(dfVal)
+      case guardBlock: DFConditional.Block if guardBlock.guardRef.get == dfVal => Some(guardBlock)
+      case textOut: TextOut                                                    => Some(textOut)
+      case _                                                                   => None
+    }
   end getReadDeps
   def isReferencedByAnyDclOrDesign(using MemberGetSet): Boolean =
     dfVal.originMembers.view.exists {

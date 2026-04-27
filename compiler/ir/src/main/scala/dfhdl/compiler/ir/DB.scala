@@ -309,6 +309,9 @@ final case class DB(
   lazy val uniqueDesignMemberList: List[(DFDesignBlock, List[DFMember])] =
     designMemberList.filterNot(_._1.isDuplicate)
 
+  lazy val designInstPBNS: Map[DFDesignInst, List[DFVal.PortByNameSelect]] =
+    members.collect { case pbns: DFVal.PortByNameSelect => pbns }.groupBy(_.getDesignInst)
+
   // DBs to iterate for `dup*` analyses. In new-style (internalDBs.nonEmpty),
   // each sub-DB holds only its own slice, so a single DB's `members` isn't
   // enough to find every port / domain block / PBNS. We include this DB and
@@ -511,7 +514,7 @@ final case class DB(
   import DFVal.Modifier.*
   import DFNet.Op.*
   private def getValAccess(dfVal: DFVal, slice: Slice, net: DFNet)(
-      connToDcls: ConnectToMap
+      connToMap: ConnectToMap
   ): Access =
     def isExternalConn =
       if (dfVal.isGlobal) true
@@ -537,7 +540,7 @@ final case class DB(
           // internal connection to a var
           case VAR if isInternalConn =>
             // if already was connected as write, then it must be read
-            if (connToDcls.contains(dcl, slice)) Read
+            if (connToMap.contains(dcl, slice)) Read
             // otherwise it is unknown
             else Unknown
           // illegal connection
@@ -547,10 +550,10 @@ final case class DB(
     end match
   end getValAccess
   private def getValAccess(dfVal: DFVal, net: DFNet)(
-      connToDcls: ConnectToMap
+      connToMap: ConnectToMap
   ): Access =
     val dpart = dfVal.departial
-    getValAccess(dpart._1, dpart._2, net)(connToDcls)
+    getValAccess(dpart._1, dpart._2, net)(connToMap)
   private case class FlatNet(lhsVal: DFVal, rhsVal: DFVal, net: DFNet) derives CanEqual
   private object FlatNet:
     def apply(net: DFNet): List[FlatNet] =
@@ -573,10 +576,10 @@ final case class DB(
       }
   end FlatNet
   given printer: Printer = DefaultPrinter
-  @tailrec private def getConnToDcls(
+  @tailrec private def getConnToMap(
       analyzeNets: List[FlatNet],
       pendingNets: List[FlatNet],
-      connToDcls: ConnectToMap,
+      connToMap: ConnectToMap,
       errors: List[String]
   ): ConnectToMap =
     analyzeNets match
@@ -608,7 +611,7 @@ final case class DB(
               case _ =>
                 (Write, Read)
           // connections are analyzed according to the context of the net
-          case _ => (getValAccess(lhsVal, net)(connToDcls), getValAccess(rhsVal, net)(connToDcls))
+          case _ => (getValAccess(lhsVal, net)(connToMap), getValAccess(rhsVal, net)(connToMap))
         val toValOption = (lhsAccess, rhsAccess) match
           case (Write, Read | ReadWrite | Unknown) => Some(lhsVal)
           case (Read | ReadWrite | Unknown, Write) => Some(rhsVal)
@@ -627,36 +630,33 @@ final case class DB(
             newError(s"Unknown access pattern with ${rhsVal.relValString}.")
             None
           case _ => None
-        var hasOpenConn = false
-        val toDclAndSliceOption: Option[(DFVal.Dcl, Slice)] = toValOption.flatMap(v =>
-          if (v.isOpen)
-            hasOpenConn = true
-            None
-          else
-            v.departialDcl match
-              case None =>
-                newError(s"Unexpected write access to the immutable value ${v.relValString}.")
-                None
-              case Some(dcl, Slice.Concrete(range))
-                  if dcl.dfType.widthIntOpt.exists(_ < range.length) =>
-                newError(s"Unexpected write access to the immutable value ${v.relValString}.")
-                None
-              case x => x
+        val toValAndSliceOption: Option[(ConnectToVal, Slice)] = toValOption.flatMap(v =>
+          v.departialPBNS match
+            case None =>
+              newError(s"Unexpected write access to the immutable value ${v.relValString}.")
+              None
+            case Some(connectToVal, Slice.Concrete(range))
+                if connectToVal.dfType.widthIntOpt.exists(_ < range.length) =>
+              newError(s"Unexpected write access to the immutable value ${v.relValString}.")
+              None
+            case x => x
         )
-        toDclAndSliceOption match
+        toValAndSliceOption match
           // found target variable or port declaration for the given connection/assignment
-          case Some((toDcl, slice)) =>
-            val prevNets = connToDcls.getNets(toDcl, slice)
+          case Some(connectToVal, slice) =>
+            val prevNets = connToMap.getNets(connectToVal, slice)
             // checking multiple assignments from different domains, except for a condition
             // where the declaration is a shared variable.
             // this is used to define a shared variable which is against the RT model,
             // but is useful to described inferred memories like True Dual Port RAM.
-            if (!toDcl.modifier.isShared)
+            val isSharedVar = connectToVal match
+              case dcl: DFVal.Dcl if dcl.modifier.isShared => true
+              case _                                       => false
+            if (!isSharedVar)
               prevNets.headOption.foreach: prevNet =>
                 if (prevNet.getOwnerDomain != net.getOwnerDomain)
                   newError(
-                    s"""|Found multiple domain assignments to the same variable/port `${toDcl
-                         .getFullName}`.
+                    s"""|Found multiple domain assignments to the same variable/port `${connectToVal.getFullName}`.
                         |Only variables declared as `VAR.SHARED` under ED domain allow this.
                         |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                   )
@@ -666,24 +666,25 @@ final case class DB(
               // connections or a combination of an assignment and a connection
               if (prevNet.isConnection || prevNet.isAssignment && !net.isAssignment)
                 newError(
-                  s"""Found multiple connections write to the same variable/port `${toDcl
-                      .getFullName}`.
+                  s"""Found multiple connections write to the same variable/port `${connectToVal.getFullName}`.
                      |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                 )
             // if no previous connection in this range, we add it to the range map
             if (prevNets.isEmpty)
-              getConnToDcls(otherNets, pendingNets, connToDcls.addNet(toDcl, slice, net), newErrors)
+              getConnToMap(
+                otherNets,
+                pendingNets,
+                connToMap.addNet(connectToVal, slice, net),
+                newErrors
+              )
             // if there are previous connections, it's either assignments or already reported as
             // errors, so no need to further modify the range map (the range map is not intended
             // to save all the previous assignment nets).
             else
-              getConnToDcls(otherNets, pendingNets, connToDcls, newErrors)
-          // has open connection, so we can skip to the next net as no further checks are needed
-          case None if hasOpenConn =>
-            getConnToDcls(otherNets, pendingNets, connToDcls, newErrors)
+              getConnToMap(otherNets, pendingNets, connToMap, newErrors)
           // unable to determine net directionality, so move net to pending
           case None =>
-            getConnToDcls(otherNets, flatNet :: pendingNets, connToDcls, newErrors)
+            getConnToMap(otherNets, flatNet :: pendingNets, connToMap, newErrors)
         end match
       case Nil if errors.nonEmpty =>
         throw new IllegalArgumentException(
@@ -691,9 +692,9 @@ final case class DB(
         )
       case Nil if pendingNets.nonEmpty =>
         val reexamine = pendingNets.exists { n =>
-          connToDcls.contains(n.lhsVal) | connToDcls.contains(n.rhsVal)
+          connToMap.contains(n.lhsVal) | connToMap.contains(n.rhsVal)
         }
-        if (reexamine) getConnToDcls(pendingNets, Nil, connToDcls, errors)
+        if (reexamine) getConnToMap(pendingNets, Nil, connToMap, errors)
         else
           throw new IllegalArgumentException(
             s"""DFiant HDL connectivity errors!
@@ -701,9 +702,9 @@ final case class DB(
                |${pendingNets.map(_.net.meta.position).mkString("\n")}""".stripMargin
           )
       case Nil =>
-        connToDcls
+        connToMap
     end match
-  end getConnToDcls
+  end getConnToMap
 
   //                                     To        From
   lazy val magnetConnectionTable: Map[DFVal.Dcl, DFVal.Dcl] =
@@ -1490,7 +1491,7 @@ final case class DB(
       case net: DFNet => FlatNet(net)
       case _          => Nil
     }
-    getConnToDcls(flatNets, Nil, ConnectToMap.empty, Nil).removeAssignments
+    getConnToMap(flatNets, Nil, ConnectToMap.empty, Nil).removeAssignments
 
   //                                    From       Via
   lazy val connectionTableInverted: Map[DFVal, Set[DFNet]] =

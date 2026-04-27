@@ -28,20 +28,13 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // need to check if it has an output port that is referenced later
         case inst: DFDesignInst
             if inst.getDesignBlock.instMode == InstMode.Def && inst.isAnonymous =>
-          // For duplicate designs, ports may not be in the members list but are
-          // available via dupPortsByName (with DuplicationRef owners).
-          // For DuplicationRef-backed ports, we check the PBNS read deps instead.
-          val ports = getSet.designDB.dupPortsByName(inst).view.values.collect {
-            case port @ DclOut() => port
-          }
-          val hasOutput = ports.lastOption.map(port =>
-            // no dependencies means the output is not read (referenced later),
-            // so we need to print now
-            port.getPortsByNameSelectors.forall(_.getReadDeps.isEmpty)
-          )
           // no output port means a Unit return that cannot be referenced,
           // so we need to print it now
-          hasOutput.getOrElse(true)
+          getSet.designDB.designInstPBNS(inst).view.reverse.collectFirst {
+            // no dependencies means the output is not read (referenced later),
+            // so we need to print now
+            case pbns if pbns.isOut => pbns.getReadDeps.isEmpty
+          }.getOrElse(true)
         // DFDesignBlock no longer participates in owner-body rendering — its
         // instantiation syntax is emitted via the DFDesignInst companion.
         case _: DFDesignBlock => false
@@ -226,9 +219,10 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     }.toList
   def csDFDesignDefInst(inst: DFDesignInst): String =
     val design = inst.getDesignBlock
-    val ports = getSet.designDB.dupPortsByName(inst).view.values.collect { case port @ DclIn() =>
-      val DFNet.Connection(_, from: DFVal, _) = port.getConnectionTo.get.runtimeChecked
-      printer.csDFValRef(from, design.getOwner)
+    val ports = getSet.designDB.designInstPBNS(inst).view.collect {
+      case pbns if pbns.isIn =>
+        val DFNet.ConnectionPBNS(_, from: DFVal, _) = pbns.getConnectionTo.get.runtimeChecked
+        printer.csDFValRef(from, inst.getOwner)
     }.mkString(", ")
     val designParamList = csDesignParamList(inst.paramMap)
     val designParamCS =
