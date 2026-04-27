@@ -21,9 +21,6 @@ object Ident:
     if (alias.hasTagOf[IdentTag]) Some(alias.relValRef.get)
     else None
 
-object StrippedPortByNameSelect:
-  def unapply(dfVal: DFVal)(using MemberGetSet): Option[DFVal] = Some(dfVal.stripPortSel)
-
 //A design parameter is an as-is alias that:
 //1. has `DesignParamTag` tag
 //TODO: This is not yet working. more complicated than initially thought.
