@@ -1496,7 +1496,7 @@ final case class DB(
   //                                    From       Via
   lazy val connectionTableInverted: Map[DFVal, Set[DFNet]] =
     members.view
-      .collect { case n @ DFNet.Connection(_: DFVal, fromVal: DFVal, _) => (fromVal, n) }
+      .collect { case n @ DFNet.ConnectionPBNS(_: DFVal, fromVal: DFVal, _) => (fromVal, n) }
       .groupMap(_._1)(_._2).view.mapValues(_.toSet).toMap
 
   //                              To       From
