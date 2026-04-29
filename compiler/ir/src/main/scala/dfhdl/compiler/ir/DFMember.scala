@@ -81,6 +81,8 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
       MemberGetSet
   ): Boolean =
     thisMember match
+      case thisDsn: DFDesignBlock if !getSet.isMutable =>
+        getSet.designDB.designBlockInstMap(thisDsn).exists(_.isInsideOwner(thatOwner))
       case DFDesignBlock.Top() => false
       case _                   =>
         (thisMember.getOwner, thatOwner) match
@@ -99,11 +101,12 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getDistanceFromOwnerDesign(outside: DFDesignBlock)(using MemberGetSet): Int =
     val inside = this.getThisOrOwnerDesign
     var distance = 0
-    var dsn = inside
-    while (dsn != outside)
+    var dsn = Set(inside)
+    while (!dsn.contains(outside) && dsn.nonEmpty)
       distance = distance + 1
-      dsn = dsn.getOwnerDesign
-    return distance
+      dsn = dsn.flatMap(getSet.designDB.designBlockOwnershipMap(_))
+    assert(dsn.nonEmpty)
+    distance
 end DFMember
 
 object DFMember:
@@ -1575,17 +1578,23 @@ object DFDesignBlock:
       case _                                                       => false
     def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
     def getCommonDesignWith(dsn2: DFDesignBlock)(using MemberGetSet): DFDesignBlock =
-      def getOwnerDesignChain(dsn: DFDesignBlock): List[DFDesignBlock] =
-        var chain = List(dsn)
-        while (!chain.head.isTop)
-          chain = chain.head.getOwnerDesign :: chain
-        chain
+      def getOwnerDesignChain(dsn: DFDesignBlock): List[Set[DFDesignBlock]] =
+        var chain = List(Set(dsn))
+        while (chain.head.nonEmpty)
+          chain = chain.head.flatMap(getSet.designDB.designBlockOwnershipMap(_)) :: chain
+        chain.drop(1) // drop the empty set at the end
       var chain1 = getOwnerDesignChain(dsn)
       var chain2 = getOwnerDesignChain(dsn2)
-      while (chain1.length > 1 && chain1.drop(1).headOption == chain2.drop(1).headOption)
+      while (
+        chain1.length > 1 &&
+        chain1.drop(1).head.intersect(chain2.drop(1).headOption.getOrElse(Set.empty)).nonEmpty
+      )
         chain1 = chain1.drop(1)
         chain2 = chain2.drop(1)
-      chain1.head
+      val finalIntersect = chain1.head.intersect(chain2.head)
+      assert(finalIntersect.size == 1)
+      finalIntersect.head
+    end getCommonDesignWith
   end extension
 
   object Top:

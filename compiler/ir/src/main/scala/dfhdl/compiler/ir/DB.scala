@@ -299,6 +299,15 @@ final case class DB(
   lazy val designMemberTable: Map[DFDesignBlock, List[DFMember]] =
     Map(designMemberList*)
 
+  // design block to its instances map
+  lazy val designBlockInstMap: Map[DFDesignBlock, List[DFDesignInst]] =
+    members.view.collect { case inst: DFDesignInst => inst }
+      .groupBy(_.getDesignBlock).view.mapValues(_.toList).toMap + (top -> Nil)
+
+  // design block to its owner design blocks map (multiple owners in case of multiple instantiations). Note that the top-level design block has no owner and thus is not included in the map.
+  lazy val designBlockOwnershipMap: Map[DFDesignBlock, Set[DFDesignBlock]] =
+    designBlockInstMap.view.mapValues(_.view.map(_.getOwnerDesign).toSet).toMap
+
   // Reverse map from each DFDesignBlock to its DFDesignInst. Every non-top
   // design has exactly one DFDesignInst introduced during elaboration; the
   // top-level DFDesignBlock has none (no instantiation site).
@@ -605,12 +614,12 @@ final case class DB(
         val (lhsAccess, rhsAccess) = net.op match
           // assignment is always from right to left
           case Assignment | NBAssignment =>
-            lhsVal.dealias match
-              case Some(dcl: DFVal.Dcl) if dcl.modifier.dir == IN =>
+            lhsVal.dealiasPBNS match
+              case Some(dfVal) if dfVal.isPortInPBNS =>
                 newError("Cannot assign to an input port.")
                 (Unknown, Unknown)
-              case Some(dcl: DFVal.Dcl) if !(dcl.isSameOwnerDesignAs(net)) =>
-                newError("Ports and variables can only be assigned at their own design scope.")
+              case Some(_: DFVal.PortByNameSelect) =>
+                newError("Ports can only be assigned at their own design scope.")
                 (Unknown, Unknown)
               case _ =>
                 (Write, Read)
@@ -710,7 +719,8 @@ final case class DB(
     end match
   end getConnToMap
 
-  //                                     To        From
+  //                                     To           From
+  lazy val magnetConnectionMap: Map[ConnectPoint, ConnectPoint] = MagnetMap.get
   lazy val magnetConnectionTable: Map[DFVal.Dcl, DFVal.Dcl] =
     var errors = List.empty[String]
     def newError(errMsg: String): Option[DFVal.Dcl] =
@@ -946,7 +956,7 @@ final case class DB(
                     val inSourceDomains = inPorts.view.flatMap { port =>
                       connectionTable.getNets(port).headOption match
                         case Some(DFNet.Connection(_, from, _)) => from.getRTOwnerOption
-                        case _                                      => None
+                        case _                                  => None
                     }.toSet
                     if (inSourceDomains.isEmpty) domain.getRTOwnerOption.map(domain -> _)
                     else if (inSourceDomains.size > 1)
@@ -1479,13 +1489,7 @@ final case class DB(
     nameCheck()
     connectionTable // causes connectivity checks
     magnetConnectionTable // causes magnet connectivity checks
-    checkDanglingPorts()
-    directRefCheck()
-    circularDerivedDomainsCheck()
-    domainClkRateCheck()
-    waitCheck()
-    portLocationCheck()
-    portResourceDirCheck()
+    magnetConnectionMap
   end check
 
   // There can only be a single connection to a value in a given range

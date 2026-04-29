@@ -18,9 +18,7 @@ case object ConnectMagnets extends HierarchyStage:
   // Dcls from potentially any design; magnetConnectionTable is also a
   // global (flat) analysis. Run with the outer flat getSet.
   override def rebindGetSet: Boolean = false
-  def transformSubDB(subDB: DB)(using
-      getSet: MemberGetSet, co: CompilerOptions, rg: RefGen
-  ): DB =
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     // Each sub-DB patches ONLY its own design. Skip root, whose designBlock
     // aliases the top sub-DB's designBlock (which also processes it).
     val designOpt = subDB.designBlock.filterNot(d => subDB.internalDBs.contains(d.ownerRef))
@@ -29,23 +27,30 @@ case object ConnectMagnets extends HierarchyStage:
         val outer = getSet.designDB
         // Collect magnet connections targeting this design (mirrors the
         // classification rules of the flat version, but scoped).
-        val connsForDesign = outer.magnetConnectionTable.iterator.flatMap { case (toPort, fromDcl) =>
-          val targetDsn = (toPort, fromDcl) match
-            case (DclIn(), DclIn() | DclVar())  => Some(fromDcl.getOwnerDesign)
-            case (DclOut(), DclOut())           => Some(toPort.getOwnerDesign)
-            case (DclIn(), DclOut())            => Some(toPort.getOwnerDesign.getOwnerDesign)
-            case (DclOut(), DclIn() | DclVar()) => Some(fromDcl.getOwnerDesign)
-            case _                              => None
-          if (targetDsn.contains(design)) Some((toPort, fromDcl)) else None
+        val connsForDesign = outer.magnetConnectionMap.iterator.flatMap { case (toMP, fromMP) =>
+          val targetDsn =
+            if (toMP.isPortIn && (fromMP.isPortIn || fromMP.isVar)) Some(fromMP.getOwnerDesign)
+            else if (toMP.isPortOut && fromMP.isPortOut) Some(toMP.getOwnerDesign)
+            else if (toMP.isPortIn && fromMP.isPortOut) Some(toMP.getOwnerDesign.getOwnerDesign)
+            else if (toMP.isPortOut && (fromMP.isPortIn || fromMP.isVar))
+              Some(fromMP.getOwnerDesign)
+            else None
+          if (targetDsn.contains(design)) Some((toMP, fromMP)) else None
         }.toList
         if (connsForDesign.nonEmpty)
           val magnets = connsForDesign.sortBy(_._1.getName)
           val dsn = new MetaDesign(design, Patch.Add.Config.InsideLast):
-            for ((toPort, fromPort) <- magnets)
-              toPort.asDclAny <> fromPort.asDclAny
+            extension (mp: ConnectPoint)
+              def toDclAny(using MemberGetSet) = mp match
+                case ConnectPoint.Via(dfType, dir, designInst, portNamePath) =>
+                  dfhdl.core.DFVal.PortByNameSelect(dfType, dir, designInst, portNamePath).asDclAny
+                case ConnectPoint.Direct(dcl) => dcl.asDclAny
+            for ((toMP, fromMP) <- magnets)
+              toMP.toDclAny <> fromMP.toDclAny
           subDB.patch(List(dsn.patch))
         else subDB
       case None => subDB
+    end match
   end transformSubDB
 end ConnectMagnets
 

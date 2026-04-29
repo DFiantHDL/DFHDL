@@ -121,6 +121,16 @@ object RstActive:
         case _                                         => None
 end RstActive
 
+object Magnet:
+  def unapply(dfVal: DFVal)(using MemberGetSet): Option[DFType] =
+    dfVal.dfType match
+      case dfType: DFOpaque if dfType.isMagnet => Some(dfType)
+      case _                                   => None
+
+object MagnetDcl:
+  def unapply(dcl: DFVal.Dcl)(using MemberGetSet): Option[DFType] =
+    Magnet.unapply(dcl)
+
 //not only `DFVal.Const` but all non-anonymous values that
 //are known to be constant from their dependencies.
 object DclConst:
