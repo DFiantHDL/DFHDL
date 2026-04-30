@@ -134,7 +134,7 @@ dfVal.isVar           // Dcl with VAR modifier
 dfVal.isReg           // Dcl with REG special modifier
 dfVal.isOpen          // DFVal.Special(OPEN)
 dfVal.isDesignParam   // DFVal.DesignParam instance
-dfVal.dealias         // follow alias chain → Option[DFVal.Dcl | DFVal.Special]
+dfVal.dealias         // follow alias chain → Option[ConnectToVal]
 dfVal.departial       // strip partial selections → (DFVal, Range)
 dfVal.departialDcl    // strip partial selections → Option[(DFVal.Dcl, Range)]
 dfVal.isBubble        // contains a don't-care / bubble constant
@@ -362,11 +362,6 @@ final case class DFVal.PortByNameSelect(
     tags:           DFTags
 )
 type PortByNameSelect.Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
-
-portByNameSelect.getPortDcl   // resolve to actual DFVal.Dcl (via DB.dupPortsByName)
-
-// Extractor:
-DFVal.PortByNameSelect.Of(dcl)  // unapply → Option[DFVal.Dcl]
 ```
 
 ---
@@ -818,7 +813,6 @@ type DFRefAny = DFRef[DFMember]
 - `DFRef.OneWay[M]` — unidirectional (e.g. `ownerRef`)
 - `DFRef.TwoWay[M, O]` — bidirectional; `O` is the member that owns this ref (enables reverse lookup)
 - `DFRef.TypeRef` — used for `IntParamRef` (width/index parameters)
-- `DFRef.DuplicationRef(owner: DFOwnerNamed)` — special `OneWay` ref for analysis-only members (not in `refTable` or `members`). Overrides `get` to return `owner` directly, bypassing `MemberGetSet` lookup. Used by `dupPortsByName`.
 
 **Pattern extractor** (very common in stages):
 ```scala
@@ -932,7 +926,6 @@ dfVal.getConnectionTo         // Option[DFNet]  — single connection driving th
 dfVal.getConnectionsFrom      // Set[DFNet]  — connections driven from this value
 dfVal.getAssignmentsTo        // Set[DFVal]  — values assigned to this
 dfVal.getAssignmentsFrom      // Set[DFVal]  — values assigned from this
-dfVal.getPortsByNameSelectors // List[DFVal.PortByNameSelect]  (ports only)
 dfVal.isReferencedByAnyDclOrDesign // Boolean — true if referenced by a Dcl, DclConst, or DFDesignBlock
 dfVal.isConstVAR              // VAR never assigned/connected
 dfVal.isAllowedMultipleReferences // Boolean

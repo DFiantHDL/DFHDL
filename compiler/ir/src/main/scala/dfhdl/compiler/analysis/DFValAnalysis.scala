@@ -232,11 +232,6 @@ extension (dfVal: DFVal)
     getSet.designDB.assignmentsTable.getOrElse(dfVal, Set())
   def getAssignmentsFrom(using MemberGetSet): Set[DFVal] =
     getSet.designDB.assignmentsTableInverted.getOrElse(dfVal, Set())
-  def getPortsByNameSelectors(using MemberGetSet): List[DFVal.PortByNameSelect] =
-    dfVal match
-      case dcl @ DclPort() =>
-        getSet.designDB.portsByNameSelectors.getOrElse(dcl, Nil)
-      case _ => Nil
   // search composed value read dependencies (without nets) if there is a value
   // that fits the given condition
   def existsInComposedReadDeps(cond: DFVal => Boolean)(using MemberGetSet): Boolean =

@@ -182,26 +182,14 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
             originMember match
               case originVal: DFVal if originVal.isGlobal =>
               case _: DFVal.DesignParam                   =>
-              case _: DFDesignInst  => // paramMap entries may reference global anon vals
-              case _                =>
+              case _: DFDesignInst => // paramMap entries may reference global anon vals
+              case _               =>
                 reportViolation(
                   s"""|A global anonymous member is referenced by a non-global member.
                       |Target member: ${targetVal}
                       |Origin member: ${originMember}""".stripMargin
                 )
           case _ =>
-    }
-    // check that no DuplicationRef exists in refTable
-    refTable.foreach { (ref, _) =>
-      if (ref.isInstanceOf[DFRef.DuplicationRef])
-        reportViolation(s"DuplicationRef found in refTable: $ref")
-    }
-    // check that no member has a DuplicationRef ownerRef
-    getSet.designDB.members.foreach { member =>
-      if (member.ownerRef.isInstanceOf[DFRef.DuplicationRef])
-        reportViolation(
-          s"Member with DuplicationRef ownerRef found in members: $member"
-        )
     }
     require(!hasViolations, "Failed reference check!")
   end refCheck
@@ -267,13 +255,8 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
                 .toHexString}:\n${prevMember.getOwner}"
           )
           require(false, "Failed ownership check!")
-        // exiting current owner. For a non-top DFDesignBlock the ownerRef is
-        // Empty in the immutable DB; the parent is captured by its
-        // DFDesignInst, so route through the inst to find the enclosing scope.
-        val nextOwner = currentOwner match
-          case d: DFDesignBlock => d.getDesignInst.getOwner
-          case other            => other.getOwner
-        ownershipCheck(nextOwner, members)
+        // exiting current owner.
+        ownershipCheck(currentOwner.getOwner, members)
 
   // checks that a member can only reference members that were defined before it
   private def orderCheck()(using MemberGetSet): Unit =

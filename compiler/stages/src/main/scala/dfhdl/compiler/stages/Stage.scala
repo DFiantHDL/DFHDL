@@ -14,27 +14,24 @@ trait Stage extends Product, Serializable, HasTypeName derives CanEqual:
 
 /** Phase-2 bridge for stages whose work decomposes cleanly per-sub-DB.
   *
-  * The stage implements `transformSubDB(subDB)` which returns the TRANSFORMED
-  * sub-DB (typically via `subDB.patch(patches)`). The trait handles:
+  * The stage implements `transformSubDB(subDB)` which returns the TRANSFORMED sub-DB (typically via
+  * `subDB.patch(patches)`). The trait handles:
   *   - flat old-style → option-(a) new-style conversion at entry (`oldToNew`)
-  *   - per-DB dispatch of `transformSubDB` on every DB in the hierarchy
-  *     (root AND each sub-DB). Each DB is self-contained under option (a),
-  *     so its patches apply to its own `members` + `refTable` independently
-  *   - reassembly via `.copy(internalDBs = ...).newToOld` to flatten back
-  *     into an old-style DB for the rest of the pipeline
+  *   - per-DB dispatch of `transformSubDB` on every DB in the hierarchy (root AND each sub-DB).
+  *     Each DB is self-contained under option (a), so its patches apply to its own `members` +
+  *     `refTable` independently
+  *   - reassembly via `.copy(internalDBs = ...).newToOld` to flatten back into an old-style DB for
+  *     the rest of the pipeline
   *
-  * If every `transformSubDB` returned its input by reference (no change),
-  * the original `designDB` is returned by reference too. This lets iterative
-  * stages (e.g. `BreakOps`, `DropUnreferencedAnons`) terminate via
-  * `result eq designDB`.
+  * If every `transformSubDB` returned its input by reference (no change), the original `designDB`
+  * is returned by reference too. This lets iterative stages (e.g. `BreakOps`,
+  * `DropUnreferencedAnons`) terminate via `result eq designDB`.
   *
   * Configuration knob:
-  *   - `rebindGetSet` (default `true`): rebind the implicit `MemberGetSet`
-  *     to each DB's own getSet while `transformSubDB` runs. Set to `false`
-  *     when the body needs full-hierarchy resolution (reverse lookups like
-  *     `memberTable` / `getReadDeps`, or cross-design tables like
-  *     `dupPortsByName` / `connectionTable` / `resolvedClkRstMap`) —
-  *     those need the outer flat-DB getSet.
+  *   - `rebindGetSet` (default `true`): rebind the implicit `MemberGetSet` to each DB's own getSet
+  *     while `transformSubDB` runs. Set to `false` when the body needs full-hierarchy resolution
+  *     (reverse lookups like `memberTable` / `getReadDeps`, or cross-design tables like
+  *     `connectionTable` / `resolvedClkRstMap`) — those need the outer flat-DB getSet.
   */
 trait HierarchyStage extends Stage:
   def rebindGetSet: Boolean = true

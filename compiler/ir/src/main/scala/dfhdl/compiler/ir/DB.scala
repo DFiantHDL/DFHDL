@@ -63,15 +63,6 @@ final case class DB(
     case dcl: DFVal.Dcl if dcl.isPort => dcl
   }
 
-  // map of all ports and their by-name selectors
-  lazy val portsByNameSelectors: Map[DFVal.Dcl, List[DFVal.PortByNameSelect]] =
-    members.view
-      .collect { case m: DFVal.PortByNameSelect => m }
-      .groupBy(_.getPortDcl)
-      .view
-      .mapValues(_.toList)
-      .toMap
-
   lazy val membersNoGlobals: List[DFMember] = members.filter {
     case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => false
     case _                                          => true
@@ -321,128 +312,6 @@ final case class DB(
   lazy val designInstPBNS: Map[DFDesignInst, List[DFVal.PortByNameSelect]] =
     members.collect { case pbns: DFVal.PortByNameSelect => pbns }.groupBy(_.getDesignInst)
 
-  // DBs to iterate for `dup*` analyses. In new-style (internalDBs.nonEmpty),
-  // each sub-DB holds only its own slice, so a single DB's `members` isn't
-  // enough to find every port / domain block / PBNS. We include this DB and
-  // every sub-DB — iteration must use each DB's own `getSet` because ownerRef
-  // chains are partitioned per sub-DB. In old-style, just this DB.
-  private lazy val dupAnalysisDBs: List[DB] =
-    if (internalDBs.nonEmpty) this :: internalDBs.values.toList
-    else List(this)
-
-  // All DFDesignBlocks in scope (origins and duplicates). In new-style,
-  // duplicates are NOT `internalDBs` keys but they do appear as members in
-  // their parent sub-DB's locals, so we walk each DB's members and dedup
-  // by object identity. In old-style, walk flat `members`.
-  private lazy val dupAnalysisDesigns: List[DFDesignBlock] =
-    if (internalDBs.nonEmpty)
-      val seen = mutable.Set.empty[DFDesignBlock]
-      dupAnalysisDBs.flatMap(_.members).collect {
-        case d: DFDesignBlock if seen.add(d) => d
-      }
-    else members.collect { case d: DFDesignBlock => d }
-
-  // maps each duplicate-design DFDesignInst to its origin DFDesignInst
-  // (the inst whose target is the first non-duplicate design with the same dclName).
-  lazy val dupDesignToOrigMap: Map[DFDesignInst, DFDesignInst] =
-    if (internalDBs.nonEmpty)
-      val origByName = dupAnalysisDesigns.filterNot(_.isDuplicate)
-        .groupBy(_.dclName).view.mapValues(_.head).toMap
-      dupAnalysisDesigns.collect {
-        case d if d.isDuplicate =>
-          designInstMap(d) -> designInstMap(origByName(d.dclName))
-      }.toMap
-    else
-      val origByName =
-        uniqueDesignMemberList.map(_._1).groupBy(_.dclName).view.mapValues(_.head).toMap
-      designMemberList.collect {
-        case (design, _) if design.isDuplicate =>
-          designInstMap(design) -> designInstMap(origByName(design.dclName))
-      }.toMap
-
-  // Single pass: for each duplicate design, compute dup domain blocks AND dup ports together.
-  // dupDesignDomainBlockMap: maps (dupInst, origDomainBlock) -> dupDomainBlock
-  // dupPortsByName: maps DFDesignInst -> port name -> Dcl (real ports for canonical
-  // insts, synth ports with DuplicationRef for duplicate insts).
-  lazy val (dupDesignDomainBlockMap, dupPortsByName) =
-    // Collect per-DB using each DB's own getSet — `getOwnerDesign` /
-    // `getRelativeName` walk ownerRef chains that only resolve within the
-    // owning DB's partitioned refTable. Each port / domain block / PBNS lives
-    // in exactly one DB, so per-DB maps union cleanly.
-    def collectFrom(db: DB): (
-        Map[DFDesignBlock, List[DomainBlock]],
-        Map[DFDesignBlock, ListMap[String, DFVal.Dcl]],
-        Map[DFDesignInst, Map[String, DFType]]
-    ) =
-      given MemberGetSet = db.getSet
-      val doms = db.members.view
-        .collect { case d: DomainBlock => d }
-        .groupBy(_.getOwnerDesign)
-        .map { (design, blocks) => design -> blocks.toList }
-        .toMap
-      val ports = db.members.view
-        .collect { case m: DFVal.Dcl if m.isPort => m }
-        .groupBy(_.getOwnerDesign)
-        .map { case (design, dcls) =>
-          design -> ListMap.from(dcls.view.map(m => m.getRelativeName(design) -> m))
-        }.toMap
-      // PBNS members carry the correct dfType for each duplicate's port
-      // (reflecting the actual instantiation parameters), so we use it to
-      // override the origin Dcl's dfType.
-      val pbns = db.members.view
-        .collect { case m: DFVal.PortByNameSelect => m }
-        .groupBy(m => m.designInstRef.get)
-        .view.mapValues(_.map(m => m.portNamePath -> m.dfType).toMap).toMap
-      (doms, ports, pbns)
-    end collectFrom
-    val (origDomainBlocks, origPortMap, pbnsByDesign) =
-      dupAnalysisDBs.map(collectFrom).foldLeft((
-        Map.empty[DFDesignBlock, List[DomainBlock]],
-        Map.empty[DFDesignBlock, ListMap[String, DFVal.Dcl]],
-        Map.empty[DFDesignInst, Map[String, DFType]]
-      )) { case ((d1, p1, b1), (d2, p2, b2)) =>
-        (d1 ++ d2, p1 ++ p2, b1 ++ b2)
-      }
-    val domainBlockMap = mutable.Map.empty[(DFDesignInst, DomainBlock), DomainBlock]
-    val portEntries = mutable.Map.empty[DFDesignInst, ListMap[String, DFVal.Dcl]]
-    dupDesignToOrigMap.foreach { (dupInst, origInst) =>
-      // Resolve via outer getSet first to avoid forward reference to the
-      // local `given MemberGetSet` below.
-      val dupDesign = dupInst.getDesignBlock(using self.getSet)
-      val origDesign = origInst.getDesignBlock(using self.getSet)
-      // Resolve origin's ownerRef chain using origin's own sub-DB getSet;
-      // in old-style, this DB's getSet suffices.
-      given MemberGetSet =
-        if (internalDBs.nonEmpty)
-          internalDBs.get(origDesign.ownerRef).map(_.getSet).getOrElse(self.getSet)
-        else self.getSet
-      // 1. Build domain block copies
-      val origToDupMap = mutable.Map.empty[DFDomainOwner, DFDomainOwner]
-      origToDupMap += origDesign -> dupDesign
-      origDomainBlocks.getOrElse(origDesign, Nil).foreach { origBlock =>
-        val dupOwner = origToDupMap(origBlock.getOwnerDomain)
-        val dupBlock = origBlock.copy(ownerRef = DFRef.DuplicationRef(dupOwner))
-        origToDupMap += origBlock -> dupBlock
-        domainBlockMap += (dupInst, origBlock) -> dupBlock
-      }
-      // 2. Build port copies (reusing origToDupMap from step 1)
-      val pbnsTypes = pbnsByDesign.getOrElse(dupInst, Map.empty)
-      portEntries += dupInst ->
-        ListMap.from(origPortMap.getOrElse(origDesign, ListMap.empty).view.map { (name, dcl) =>
-          val dfType = pbnsTypes.getOrElse(name, dcl.dfType)
-          val dupOwnerDomain = origToDupMap(dcl.getOwnerDomain)
-          name -> dcl.copy(ownerRef = DFRef.DuplicationRef(dupOwnerDomain), dfType = dfType)
-        })
-    }
-    // For canonical (non-duplicate, non-top) designs, the inst's ports are the
-    // real Dcls in the canonical block. Top has no inst and is excluded.
-    val origInstPortMap: Map[DFDesignInst, ListMap[String, DFVal.Dcl]] =
-      origPortMap.flatMap { (block, ports) =>
-        designInstMap.get(block).map(_ -> ports)
-      }
-    (domainBlockMap.toMap, portEntries.toMap ++ origInstPortMap)
-  end val
-
   private def conditionalChainGen: Map[DFConditional.Header, List[DFConditional.Block]] =
     val handled = mutable.Set.empty[DFConditional.Block]
     members.foldRight(
@@ -563,7 +432,7 @@ final case class DB(
         val (lhsAccess, rhsAccess) = net.op match
           // assignment is always from right to left
           case Assignment | NBAssignment =>
-            lhsVal.dealiasPBNS match
+            lhsVal.dealias match
               case Some(dfVal) if dfVal.isPortInPBNS =>
                 newError("Cannot assign to an input port.")
                 (Unknown, Unknown)

@@ -78,13 +78,6 @@ case object GlobalizePortVectorParams extends Stage:
       // subsequent insts each get a freshly cloned design block (with
       // freshly cloned members and refs). Recurse for nested DFDesignInsts
       // inside the freshly cloned members.
-      //
-      // We do NOT rely on the legacy `dupDesignToOrigMap` / DuplicateTag
-      // bookkeeping in the DB — duplication is driven entirely by the
-      // DFDesignInst stream we walk here. The fresh dups are tagged with
-      // DuplicateTag so the existing partition-by-isDuplicate logic in
-      // Phase 3 still recognises them as the dups belonging to the canonical
-      // origin.
       // -------------------------------------------------------------------
       val freshDupForInst = mutable.LinkedHashMap.empty[DFDesignInst, DFDesignBlock]
       val freshDupMembers = mutable.LinkedHashMap.empty[DFDesignBlock, List[DFMember]]
@@ -213,9 +206,7 @@ case object GlobalizePortVectorParams extends Stage:
         val vecTypeReplaceMap = mutable.Map.empty[DFVector, DFVector]
         // Index every port declaration by (target design, portNamePath) so a
         // PortByNameSelect can resolve its underlying Dcl directly from the
-        // augmented DB without the legacy `dupPortsByName` machinery (which
-        // walks `dupDesignToOrigMap` and breaks under the new model where
-        // duplicates have no members and no DFDesignInst pointing at them).
+        // augmented DB without the legacy machinery.
         val portByDesign: Map[DFDesignBlock, Map[String, DFVal.Dcl]] =
           dupAugDB.members.iterator.collect {
             case dcl: DFVal.Dcl if dcl.isPort => dcl

@@ -217,8 +217,7 @@ final class MutableDB():
       // parameters, domain blocks, and their dependencies) during elaboration, because
       // user code may still reference them (e.g., connecting to a port requires the Dcl
       // before a PortByNameSelect is created). These public members are later removed
-      // during immutable DB creation (see `immutable`), where ports are resolved
-      // on-demand via DuplicationRef in `DB.dupPortsByName`.
+      // during immutable DB creation (see `immutable`).
       // If the current design context is already known to be a duplicate (as a result
       // of a `hw.pure` annotation), then we can skip this extra step since the design
       // context is already minimized to the named members.
@@ -635,8 +634,7 @@ final class MutableDB():
         // Remove all remaining public members (ports, domain blocks, and their
         // dependencies) from duplicate designs. During elaboration these were kept
         // so user code could reference them, but in the immutable DB they are no
-        // longer needed. Ports for duplicate designs are resolved on-demand via
-        // DuplicationRef in `DB.dupPortsByName`.
+        // longer needed.
         val redundantRefs = mutable.Set.empty[DFRefAny]
         val dupRefs = mutable.Map.empty[DFRefAny, DFMember]
         val finalMembers = members.flatMap {

@@ -334,19 +334,13 @@ object DFVal:
     def isReg: Boolean = dfVal match
       case dcl: DFVal.Dcl => dcl.modifier.isReg
       case _              => false
-    @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.Special] = dfVal match
-      case dcl: DFVal.Dcl                           => Some(dcl)
-      case portByNameSelect: DFVal.PortByNameSelect => Some(portByNameSelect.getPortDcl)
-      case open: DFVal.Special if open.isOpen       => Some(open)
-      case alias: DFVal.Alias                       => alias.relValRef.get.dealias
-      case _                                        => None
-    @tailrec def dealiasPBNS(using
+    @tailrec def dealias(using
         MemberGetSet
-    ): Option[DFVal.Dcl | DFVal.PortByNameSelect | DFVal.Special] = dfVal match
+    ): Option[ConnectToVal] = dfVal match
       case dcl: DFVal.Dcl                     => Some(dcl)
       case pbns: DFVal.PortByNameSelect       => Some(pbns)
       case open: DFVal.Special if open.isOpen => Some(open)
-      case alias: DFVal.Alias                 => alias.relValRef.get.dealiasPBNS
+      case alias: DFVal.Alias                 => alias.relValRef.get.dealias
       case _                                  => None
     @tailrec private def departial(slice: Slice)(using MemberGetSet): (DFVal, Slice) =
       dfVal match
@@ -389,9 +383,8 @@ object DFVal:
         case _                                           => None
     def departialDcl(using MemberGetSet): Option[(DFVal.Dcl, Slice)] =
       departial match
-        case (dcl: DFVal.Dcl, slice)               => Some(dcl, slice)
-        case (pbns: DFVal.PortByNameSelect, slice) => Some(pbns.getPortDcl, slice)
-        case _                                     => None
+        case (dcl: DFVal.Dcl, slice) => Some(dcl, slice)
+        case _                       => None
     def isBubble(using MemberGetSet): Boolean =
       dfVal match
         case c: DFVal.Const          => c.dfType.isDataBubble(c.data.asInstanceOf[c.dfType.Data])
@@ -699,13 +692,6 @@ object DFVal:
   end PortByNameSelect
   object PortByNameSelect:
     type Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
-    object Of:
-      def unapply(portByNameSelect: PortByNameSelect)(using MemberGetSet): Option[DFVal.Dcl] =
-        Some(portByNameSelect.getPortDcl)
-    extension (portByNameSelect: PortByNameSelect)
-      def getPortDcl(using MemberGetSet): DFVal.Dcl =
-        val designInst = portByNameSelect.designInstRef.get
-        getSet.designDB.dupPortsByName(designInst)(portByNameSelect.portNamePath)
 
   sealed trait Alias extends CanBeExpr:
     val relValRef: Alias.Ref
@@ -1090,8 +1076,8 @@ object DFNet:
       if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
         case (lhsVal: DFVal, rhsVal: DFVal) =>
           val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)
-          if (toLeft) Some(lhsVal.dealiasPBNS.get, rhsVal, false)
-          else Some(rhsVal.dealiasPBNS.get, lhsVal, true)
+          if (toLeft) Some(lhsVal.dealias.get, rhsVal, false)
+          else Some(rhsVal.dealias.get, lhsVal, true)
         case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
           Some(lhsIfc, rhsIfc, false)
         case _ => ??? // not possible
@@ -1665,11 +1651,7 @@ final case class DomainBlock(
   ).asInstanceOf[this.type]
 end DomainBlock
 
-object DomainBlock:
-  extension (domainBlock: DomainBlock)
-    def isDuplicate: Boolean = domainBlock.ownerRef match
-      case _: DFRef.DuplicationRef => true
-      case _                       => false
+object DomainBlock
 
 // sealed trait Timer extends DFMember.Named
 // object Timer:
