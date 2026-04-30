@@ -181,9 +181,9 @@ object DFMember:
 
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
-      case o: DFDesignBlock if o.isTop => o.dclName
-      case o: DFDesignBlock            => o.getDesignInst.getName
-      case _                           => meta.name
+      case o: DFDesignBlock if o.isTop          => o.dclName
+      case o: DFDesignBlock if getSet.isMutable => o.getDesignInst.getName
+      case _                                    => meta.name
     final lazy val isAnonymous: Boolean = meta.isAnonymous
     final def getFullName(using MemberGetSet): String = this match
       case o: DFDesignBlock if o.isTop => getName

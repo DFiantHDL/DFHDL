@@ -30,18 +30,26 @@ case object ConnectUnused extends HierarchyStage:
     // outside this sub-DB's subtree.
     val patchList: List[(DFMember, Patch)] = subDB.members.view.collect {
       case designInst: DFDesignInst =>
-        val ports =
-          getSet.designDB.dupPortsByName.getOrElse(designInst, ListMap.empty)
-        val unusedPorts = ports.view.values.filter { port =>
-          port.meta.annotations.exists {
-            case _: annotation.Unused => true
-            case _                    => false
-          }
-        }.toList
+        val design = designInst.getDesignBlock
+        val unusedPorts = design.members(MemberView.Folded).view
+          .collect {
+            case port: DFVal.Dcl if port.isPort => port
+          }.filter {
+            _.meta.annotations.exists {
+              case _: annotation.Unused => true
+              case _                    => false
+            }
+          }.toList
         if (unusedPorts.nonEmpty)
           val dsn = new MetaDesign(designInst, Patch.Add.Config.After):
             for (unusedPort <- unusedPorts) do
-              unusedPort.asDclAny <> OPEN
+              val pbns = dfhdl.core.DFVal.PortByNameSelect(
+                unusedPort.dfType,
+                unusedPort.modifier.dir,
+                designInst,
+                unusedPort.getRelativeName(design)
+              ).asDclAny
+              pbns <> OPEN
           Some(dsn.patch)
         else None
     }.flatten.toList

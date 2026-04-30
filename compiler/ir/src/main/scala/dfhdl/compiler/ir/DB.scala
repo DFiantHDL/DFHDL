@@ -721,139 +721,6 @@ final case class DB(
 
   //                                     To           From
   lazy val magnetConnectionMap: Map[ConnectPoint, ConnectPoint] = MagnetMap.get
-  lazy val magnetConnectionTable: Map[DFVal.Dcl, DFVal.Dcl] =
-    var errors = List.empty[String]
-    def newError(errMsg: String): Option[DFVal.Dcl] =
-      errors = errMsg :: errors
-      None
-    // TODO: what to do with missing clk/rst definitions in RTDomains when they are not declared?
-    // Option 1: create a dedicated check for clk/rst
-    // Option 2: always add clk/rst in RTDomains in elaboration using injection, if the user did not construct them.
-    //           this will remove the need for AddClkRst stage.
-    // Option 3: apply AddClkRst stage after elaboration and before elaboration checks. this is interesting since we could
-    //           use this mechanism to apply various design fixes from elaboration meta-programming.
-    def missingSourceError(targetPort: DFVal.Dcl) =
-      // newError(
-      //   s"""|Missing magnet source for target port ${targetPort.getName}
-      //       |Position:  ${targetPort.meta.position}
-      //       |Hierarchy: ${targetPort.getOwnerNamed.getFullName}""".stripMargin
-      // )
-      None
-    // group magnet ports/vars according to the magnet type
-    val magnetDclGroups =
-      members.view
-        .collect {
-          case dcl @ DFVal.Dcl(dfType = dfType: DFOpaque) if dfType.isMagnet =>
-            (dcl, dfType)
-        }
-        .groupMap(_._2)(_._1).values.map(_.toSet).toList
-    // println(magnetDclGroups.map(_.mkString("\n").hindent).mkString("G\n", "G\n", ""))
-    // set of magnet ports that are explicitly connected/assigned
-    val alreadyConnectedOrAssigned =
-      assignmentsTable.keys.flatMap(_.dealias).collect {
-        case dcl @ DFVal.Dcl(dfType = dfType: DFOpaque) if dcl.isPort && dfType.isMagnet =>
-          dcl
-      }.toSet ++ connectionTable.dcls.collect {
-        case dcl @ DFVal.Dcl(dfType = dfType: DFOpaque) if dcl.isPort && dfType.isMagnet =>
-          dcl
-      }
-    // flatten connection map for all magnet groups
-    val ret = magnetDclGroups.flatMap { dclGrp =>
-      dclGrp.view
-        // first rejecting inviable magnet targets
-        .filterNot { dcl =>
-          val dclOwnerDesign = dcl.getOwnerDesign
-          // rejecting top level inputs
-          (dcl.isPortIn && dclOwnerDesign.isTop) ||
-          // rejecting blackbox and duplicated design outputs
-          (dcl.isPortOut && (dclOwnerDesign.isBlackBox || dclOwnerDesign.isDuplicate)) ||
-          // rejecting explicitly connected/assigned ports
-          alreadyConnectedOrAssigned.contains(dcl)
-        }
-        // finding the magnet source port for each target port
-        .flatMap { targetPort =>
-          val targetDsn = targetPort.getOwnerDesign
-          val sourcePort: Option[DFVal.Dcl] =
-            if (targetPort.isPortIn)
-              // sorted source in port candidates according to the distance
-              val sourceInCandidates = dclGrp.filter { dcl =>
-                (dcl.isPortIn || dcl.isVar) && !dcl.isSameOwnerDesignAs(targetPort) &&
-                targetPort.isInsideOwner(dcl.getOwnerDesign)
-              }.map { dcl =>
-                (dcl, targetDsn.getDistanceFromOwnerDesign(dcl.getOwnerDesign))
-              }.toList.sortBy(_._2)
-              // sorted source out port candidates according to the distance
-              val sourceOutCandidates = dclGrp.filter(_.isPortOut)
-                .map { port =>
-                  val portDsn = port.getOwnerDesign
-                  val commonDesign = targetDsn.getCommonDesignWith(portDsn)
-                  (
-                    port,
-                    targetDsn.getDistanceFromOwnerDesign(commonDesign),
-                    portDsn.getDistanceFromOwnerDesign(commonDesign)
-                  )
-                }.toList.sortBy(_._3).sortBy(_._2)
-              (sourceInCandidates, sourceOutCandidates) match
-                case (Nil, Nil) =>
-                  missingSourceError(targetPort)
-                case (Nil, (src, _, _) :: _) =>
-                  Some(src)
-                case ((src, _) :: _, Nil) =>
-                  Some(src)
-                case ((srcIn, distIn) :: _, (srcOut, distOut, _) :: _) =>
-                  if (distIn < distOut) Some(srcIn)
-                  else
-                    newError(
-                      s"""|Found two possible magnet sources for a target magnet.
-                          |Target Position:  ${targetPort.meta.position}
-                          |Target Path:      ${targetPort.getFullName}
-                          |Source1 Position: ${srcIn.meta.position} 
-                          |Source1 Path:     ${srcIn.getFullName}
-                          |Source2 Position: ${srcOut.meta.position} 
-                          |Source2 Path:     ${srcOut.getFullName}""".stripMargin
-                    )
-              end match
-            // target is an output
-            else
-              // sorted source candidates according to the distance
-              val sourceOutCandidates = dclGrp.filter { dcl =>
-                (dcl.isPortOut || dcl.isVar) && !dcl.isSameOwnerDesignAs(targetPort) &&
-                dcl.isInsideOwner(targetDsn) ||
-                dcl.isPortIn && dcl.isSameOwnerDesignAs(targetPort)
-              }.map { dcl =>
-                (dcl, dcl.getDistanceFromOwnerDesign(targetDsn))
-              }.toList.sortBy(_._2)
-              sourceOutCandidates match
-                case Nil =>
-                  missingSourceError(targetPort)
-                case (src, ld) :: otherCandidates =>
-                  var lastDistance: Int = ld
-                  var lastSrc: DFVal.Dcl = src
-                  otherCandidates.foreach { case (src, distance) =>
-                    if (distance == lastDistance)
-                      newError(
-                        s"""|Found two possible magnet sources for a target magnet.
-                            |Target Position:  ${targetPort.meta.position}
-                            |Target Path:      ${targetPort.getFullName}
-                            |Source1 Position: ${lastSrc.meta.position} 
-                            |Source1 Path:     ${lastSrc.getFullName}
-                            |Source2 Position: ${src.meta.position} 
-                            |Source2 Path:     ${src.getFullName}""".stripMargin
-                      )
-                    lastDistance = distance
-                    lastSrc = src
-                  }
-                  Some(src)
-              end match
-          sourcePort.map(targetPort -> _)
-        }
-    }.toMap
-    if (errors.nonEmpty)
-      throw new IllegalArgumentException(
-        errors.view.reverse.mkString("\n\n")
-      )
-    ret
-  end magnetConnectionTable
 
   def checkDanglingPorts(): Unit =
     val assignmentsDclTable =
@@ -865,30 +732,42 @@ final case class DB(
             acc.getOrElse(dcl, Coverage.empty).assign(slice, dcl.dfType.widthIntOpt)
           )
         }
-    // collect all ports that are not connected directly or implicitly as magnets.
-    // dupPortsByName is keyed on DFDesignInst (so top, which has no inst, is
-    // implicitly excluded — its inputs aren't dangling, they're top-level IO).
-    val danglingPorts = dupPortsByName.view.flatMap { (designInst, ports) =>
-      val ownerDesign = designInst.getDesignBlock
-      ports.collect {
-        case (_, p: DFVal.Dcl)
-            if p.isPortIn && !p.isClkDcl && !p.isRstDcl && !connectionTable.contains(p) &&
-              !magnetConnectionTable.contains(p) =>
-          s"""|DFiant HDL connectivity error!
-              |Position:  ${designInst.meta.position}
-              |Hierarchy: ${designInst.getFullName}
-              |Message:   Found a dangling (unconnected) input port `${p.getName}`.""".stripMargin
-        case (_, p: DFVal.Dcl)
-            if p.isPortOut && !ownerDesign.isDuplicate && !ownerDesign.isBlackBox &&
-              !connectionTable.contains(p) && !assignmentsDclTable.contains(p) &&
-              !magnetConnectionTable.contains(p) && !p.hasNonBubbleInit =>
-          val portInst = p.getOwnerDesign.getDesignInst
-          s"""|DFiant HDL connectivity error!
-              |Position:  ${p.meta.position}
-              |Hierarchy: ${portInst.getFullName}
-              |Message:   Found a dangling (unconnected/unassigned and uninitialized) output port `${p.getName}`.""".stripMargin
+    val alreadyConnectedPoints = connectionTable.connectToVals.view.collect {
+      case dcl: DFVal.Dcl               => ConnectPoint.Direct(dcl)
+      case pbns: DFVal.PortByNameSelect => ConnectPoint.Via(pbns)
+    }.toSet ++ magnetConnectionMap.keySet
+
+    // go through all designs and their instances
+    val danglingPorts = designBlockInstMap.view.flatMap { (design, insts) =>
+      designMemberTable(design).flatMap {
+        // all input ports that are not clock/reset and not already connected
+        case port: DFVal.Dcl if port.isPortIn && !port.isClkDcl && !port.isRstDcl =>
+          // all design instances
+          insts.flatMap { designInst =>
+            val cp = ConnectPoint.Via(designInst, port)
+            if (alreadyConnectedPoints.contains(ConnectPoint.Via(designInst, port))) None
+            else Some(
+              s"""|DFiant HDL connectivity error!
+                  |Position:  ${designInst.meta.position}
+                  |Hierarchy: ${designInst.getFullName}
+                  |Message:   Found a dangling (unconnected) input port `${port.getName}`.""".stripMargin
+            )
+          }
+        // all output ports that are not blackbox and not already assigned/connected/initialized
+        case port: DFVal.Dcl
+            if port.isPortOut && !design.isBlackBox && !port.hasNonBubbleInit &&
+              !assignmentsDclTable.contains(port) &&
+              !alreadyConnectedPoints.contains(ConnectPoint.Direct(port)) =>
+          Some(
+            s"""|DFiant HDL connectivity error!
+                |Position:  ${port.meta.position}
+                |Hierarchy: ${design.getFullName}
+                |Message:   Found a dangling (unconnected/unassigned and uninitialized) output port `${port.getName}`.""".stripMargin
+          )
+        case _ => None
       }
     }
+
     if (danglingPorts.nonEmpty)
       throw new IllegalArgumentException(
         danglingPorts.mkString("\n")
@@ -1488,8 +1367,7 @@ final case class DB(
   def check(): Unit =
     nameCheck()
     connectionTable // causes connectivity checks
-    magnetConnectionTable // causes magnet connectivity checks
-    magnetConnectionMap
+    magnetConnectionMap // causes magnet connectivity checks
   end check
 
   // There can only be a single connection to a value in a given range

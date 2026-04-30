@@ -36,6 +36,18 @@ enum ConnectPoint(_dfType: DFType, _dir: DFVal.Modifier.Dir) derives CanEqual:
   def getName(using MemberGetSet): String = this match
     case Via(_, _, _, portNamePath) => portNamePath.replace('.', '_')
     case Direct(dcl)                => dcl.getName
+  // override equals and hashCode to ignore the Via dfType that may be different across different
+  // different connection point hierachies due to the ReachableType mechanism
+  override def equals(that: Any): Boolean =
+    (this, that) match
+      case (thisVia: Via, thatVia: Via) =>
+        thisVia.designInst == thatVia.designInst && thisVia.portNamePath == thatVia.portNamePath &&
+        thisVia.dir == thatVia.dir
+      case (Direct(dcl1), Direct(dcl2)) => dcl1 == dcl2
+      case _                            => false
+  override def hashCode: Int = this match
+    case Via(_, dir, designInst, portNamePath) => (dir, designInst, portNamePath).hashCode()
+    case Direct(dcl)                           => dcl.hashCode()
 end ConnectPoint
 object ConnectPoint:
   object Via:

@@ -15,7 +15,7 @@ case object ConnectMagnets extends HierarchyStage:
   def dependencies: List[Stage] = List(AddMagnets)
   def nullifies: Set[Stage] = Set(ViaConnection, SimpleOrderMembers)
   // `toPort.asDclAny <> fromPort.asDclAny` uses refTW → getOwnerDesign on
-  // Dcls from potentially any design; magnetConnectionTable is also a
+  // Dcls from potentially any design; magnetConnectionMap is also a
   // global (flat) analysis. Run with the outer flat getSet.
   override def rebindGetSet: Boolean = false
   def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =

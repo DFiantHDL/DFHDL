@@ -587,7 +587,7 @@ final class MutableDB():
           case (ref: DFRef.TypeRef, m) => usedTypeRefs.contains(ref)
           case _                       => true
         }.toMap
-        val duplicateDesignSet = mutable.Set.empty[DFDesignBlock]
+        val dupToOrigDesignMap = mutable.Map.empty[DFDesignBlock, DFDesignBlock]
         val duplicateDesignRepMap = DesignContext.uniqueDesigns.view.flatMap {
           case (designType, groupList) =>
             groupList.view.reverse.zipWithIndex.flatMap {
@@ -596,13 +596,14 @@ final class MutableDB():
                   if (groupList.length > 1) s"${designType}_${i.toPaddedString(groupList.length)}"
                   else designType
                 var first = true
+                val orig = group.head
                 group.view.map(design =>
                   val tags =
                     if (first)
                       first = false
                       design.tags
                     else
-                      duplicateDesignSet += design
+                      dupToOrigDesignMap += design -> orig
                       design.tags.tag(DuplicateTag)
                   design -> design.copy(
                     meta = design.meta.copy(nameOpt = Some(updatedDclName)),
@@ -637,12 +638,19 @@ final class MutableDB():
         // longer needed. Ports for duplicate designs are resolved on-demand via
         // DuplicationRef in `DB.dupPortsByName`.
         val redundantRefs = mutable.Set.empty[DFRefAny]
+        val dupRefs = mutable.Map.empty[DFRefAny, DFMember]
         val finalMembers = members.flatMap {
           case m: DFVal if m.isGlobal => Some(finalFixFunc(m))
-          case m: (DomainBlock | DFVal) if duplicateDesignSet.contains(m.getOwnerDesign) =>
+          case m: (DomainBlock | DFVal) if dupToOrigDesignMap.contains(m.getOwnerDesign) =>
             redundantRefs += m.ownerRef
             redundantRefs ++= m.getRefs
             None
+          case designInst: DFDesignInst =>
+            dupToOrigDesignMap.get(designInst.designRef.get) match
+              case Some(origDesign) =>
+                dupRefs += designInst.designRef -> origDesign
+              case _ =>
+            Some(designInst)
           case m => Some(finalFixFunc(m))
         }
         val finalRefTable = fixedRefTable.view.flatMap { case (ref, member) =>

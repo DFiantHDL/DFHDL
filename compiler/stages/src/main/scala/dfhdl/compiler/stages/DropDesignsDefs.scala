@@ -5,13 +5,21 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.compiler.ir.DFDesignBlock.InstMode
 import dfhdl.options.CompilerOptions
+import scala.collection.mutable
+
 case object DropDesignDefs extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls, DropUnreferencedAnons)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    val patchList = designDB.designMemberList.flatMap {
+    val handledDesigns = mutable.Set.empty[DFDesignBlock]
+    val patchList = designDB.members.view.flatMap {
       // only going after design definitions
-      case (design @ DFDesignBlock(domainType = DomainType.DF, instMode = InstMode.Def), members) =>
+      case designInst @ DFDesignInst(
+            designRef = DFRef(
+              design @ DFDesignBlock(domainType = DomainType.DF, instMode = InstMode.Def)
+            )
+          ) =>
+        val members = design.members(MemberView.Folded)
         var outPortOpt: Option[DFVal.Dcl] = None
         // we remove redundant ident that is wrapped around the return value
         val identRemovePatch = members.view.reverse.collectFirst {
@@ -19,7 +27,6 @@ case object DropDesignDefs extends Stage:
             outPortOpt = Some(port)
             ident -> Patch.Replace(retVal, Patch.Replace.Config.FullReplacement)
         }.toList
-        val designInst = design.getDesignInst
         val updatedName =
           // design definition instances may be anonymous, so we name them
           if (designInst.isAnonymous)
@@ -46,15 +53,20 @@ case object DropDesignDefs extends Stage:
             // if there are no inputs, we move the output port to the beginning
             case None => members.head -> Patch.Move(o, Patch.Move.Config.Before)
         }
-        design -> Patch.Replace(
-          design.copy(instMode = InstMode.Normal),
-          Patch.Replace.Config.FullReplacement
-        ) :: designInst -> Patch.Replace(
+        val designInstPatch = designInst -> Patch.Replace(
           designInst.setName(updatedName),
           Patch.Replace.Config.FullReplacement
-        ) :: identRemovePatch ++ outPortPatch
+        )
+        val designPatch = design -> Patch.Replace(
+          design.copy(instMode = InstMode.Normal),
+          Patch.Replace.Config.FullReplacement
+        )
+        if (handledDesigns.contains(design)) Some(designInstPatch)
+        else
+          handledDesigns += design
+          designPatch :: designInstPatch :: identRemovePatch ++ outPortPatch
       case _ => None
-    }
+    }.toList
     designDB.patch(patchList)
   end transform
 end DropDesignDefs
