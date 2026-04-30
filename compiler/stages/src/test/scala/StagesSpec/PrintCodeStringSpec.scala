@@ -1486,28 +1486,52 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val y = Bit <> OUT
 
     class Foo extends RTDesign:
-      val x  = Bit <> IN
-      val y  = Bit <> OUT
-      val ip = testIP(param1 = "Hello", param2 = 42)
-      x <> ip.x
-      y <> ip.y
+      val x1   = Bit <> IN
+      val y1   = Bit <> OUT
+      val ip1a = testIP(param1 = "Hello", param2 = 42)
+      val ip1b = testIP(param1 = "Hello", param2 = 42)
+      x1     <> ip1a.x
+      ip1a.y <> ip1b.x
+      y1     <> ip1b.y
+      val x2   = Bit <> IN
+      val y2   = Bit <> OUT
+      val ip2a = testIP(param1 = "Hello2", param2 = 222)
+      val ip2b = testIP(param1 = "Hello2", param2 = 222)
+      x2     <> ip2a.x
+      ip2a.y <> ip2b.x
+      y2     <> ip2b.y
     end Foo
 
     val top = (new Foo)
     assertCodeString(
       top,
-      """|class testIP extends dfhdl.platforms.ips.alteraintel.testIP(
+      """|class testIP_0 extends dfhdl.platforms.ips.alteraintel.testIP(
          |    param1 = "Hello",
          |    param2 = 42,
          |    version = ""
          |)
          |
+         |class testIP_1 extends dfhdl.platforms.ips.alteraintel.testIP(
+         |    param1 = "Hello2",
+         |    param2 = 222,
+         |    version = ""
+         |)
+         |
          |class Foo extends RTDesign:
-         |  val x = Bit <> IN
-         |  val y = Bit <> OUT
-         |  val ip = testIP()
-         |  ip.x <> x
-         |  y <> ip.y
+         |  val x1 = Bit <> IN
+         |  val y1 = Bit <> OUT
+         |  val ip1a = testIP_0()
+         |  val ip1b = testIP_0()
+         |  ip1a.x <> x1
+         |  ip1b.x <> ip1a.y
+         |  y1 <> ip1b.y
+         |  val x2 = Bit <> IN
+         |  val y2 = Bit <> OUT
+         |  val ip2a = testIP_1()
+         |  val ip2b = testIP_1()
+         |  ip2a.x <> x2
+         |  ip2b.x <> ip2a.y
+         |  y2 <> ip2b.y
          |end Foo""".stripMargin
     )
   }
@@ -1521,31 +1545,56 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val x = Bit <> IN
       val y = Bit <> OUT
 
-    class myIP extends testIP(param1 = "Hello", param2 = 42)
+    class myIP1 extends testIP(param1 = "Hello", param2 = 42)
+    class myIP2 extends testIP(param1 = "Hello2", param2 = 222)
 
     class Foo extends RTDesign:
-      val x  = Bit <> IN
-      val y  = Bit <> OUT
-      val ip = myIP()
-      x <> ip.x
-      y <> ip.y
+      val x1   = Bit <> IN
+      val y1   = Bit <> OUT
+      val ip1a = myIP1()
+      val ip1b = myIP1()
+      x1     <> ip1a.x
+      ip1a.y <> ip1b.x
+      y1     <> ip1b.y
+      val x2   = Bit <> IN
+      val y2   = Bit <> OUT
+      val ip2a = myIP2()
+      val ip2b = myIP2()
+      x2     <> ip2a.x
+      ip2a.y <> ip2b.x
+      y2     <> ip2b.y
     end Foo
 
     val top = (new Foo)
     assertCodeString(
       top,
-      """|class myIP extends dfhdl.platforms.ips.alteraintel.testIP(
+      """|class myIP1 extends dfhdl.platforms.ips.alteraintel.testIP(
          |    param1 = "Hello",
          |    param2 = 42,
          |    version = ""
          |)
          |
+         |class myIP2 extends dfhdl.platforms.ips.alteraintel.testIP(
+         |    param1 = "Hello2",
+         |    param2 = 222,
+         |    version = ""
+         |)
+         |
          |class Foo extends RTDesign:
-         |  val x = Bit <> IN
-         |  val y = Bit <> OUT
-         |  val ip = myIP()
-         |  ip.x <> x
-         |  y <> ip.y
+         |  val x1 = Bit <> IN
+         |  val y1 = Bit <> OUT
+         |  val ip1a = myIP1()
+         |  val ip1b = myIP1()
+         |  ip1a.x <> x1
+         |  ip1b.x <> ip1a.y
+         |  y1 <> ip1b.y
+         |  val x2 = Bit <> IN
+         |  val y2 = Bit <> OUT
+         |  val ip2a = myIP2()
+         |  val ip2b = myIP2()
+         |  ip2a.x <> x2
+         |  ip2b.x <> ip2a.y
+         |  y2 <> ip2b.y
          |end Foo""".stripMargin
     )
   }

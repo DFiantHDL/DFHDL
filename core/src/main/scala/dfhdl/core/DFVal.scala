@@ -669,10 +669,11 @@ object DFVal extends DFValLP:
         defaultVal: Option[DFValOf[T]] = None
     )(using dfc: DFC): DFConstOf[T] =
       import dfc.getSet
+      val ownerIR = dfc.owner.asIR.asInstanceOf[ir.DFDesignBlock]
       val defaultValIR: ir.DFVal | ir.DFMember.Empty = defaultVal match
-        case _ if dfc.owner.asIR.isTop => appliedVal.asIR
-        case Some(dv)                  => dv.asIR
-        case None                      => ir.DFMember.Empty
+        case _ if ownerIR.isTop || ownerIR.isVendorIPBlackbox => appliedVal.asIR
+        case Some(dv)                                         => dv.asIR
+        case None                                             => ir.DFMember.Empty
       val alias: ir.DFVal.DesignParam =
         ir.DFVal.DesignParam(
           appliedVal.asIR.dfType.dropUnreachableRefs,

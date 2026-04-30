@@ -143,13 +143,10 @@ object DFMember:
     def toJson(using Writer[DFMember]): String = write(member)
     def getConstraints(using getSet: MemberGetSet): List[constraints.Constraint] =
       val allAnnotations = member match
-        case design: DFDesignBlock if design.isTop =>
-          design.meta.annotations.view
         case design: DFDesignBlock =>
-          val instAnnotations = design.getDesignInstOpt.map(_.meta.annotations).getOrElse(Nil)
-          design.meta.annotations.view ++ instAnnotations
+          design.meta.annotations
         case designInst: DFDesignInst =>
-          designInst.getDesignBlock.getConstraints
+          designInst.meta.annotations ++ designInst.getDesignBlock.getConstraints
         case interface: DFInterfaceOwner =>
           interface.dclMeta.annotations.view ++ interface.meta.annotations
         case _ => member.meta.annotations.view
@@ -182,7 +179,7 @@ object DFMember:
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
       case o: DFDesignBlock if o.isTop          => o.dclName
-      case o: DFDesignBlock if getSet.isMutable => o.getDesignInst.getName
+      case o: DFDesignBlock if getSet.isMutable => o.getCachedDesignInst.getName
       case _                                    => meta.name
     final lazy val isAnonymous: Boolean = meta.isAnonymous
     final def getFullName(using MemberGetSet): String = this match
@@ -467,7 +464,7 @@ object DFVal:
     protected[compiler] def appliedValRefOpt(using MemberGetSet): Option[DFDesignInst.ParamRef] =
       val ownerDesign = getOwnerDesign
       if (ownerDesign.isTop) None
-      else ownerDesign.getDesignInst.paramMap.get(getName)
+      else ownerDesign.getCachedDesignInst.paramMap.get(getName)
     def appliedValOpt(using MemberGetSet): Option[DFVal] =
       if (getSet.isMutable) cachedAppliedVal.orElse(appliedValRefOpt.map(_.get))
       else appliedValRefOpt.map(_.get)
@@ -1509,11 +1506,14 @@ final case class DFDesignBlock(
     // cache is for elaboration only
     if (getSet.isMutable) designInstCache.orElse(getSet.findDesignInst(this))
     else getSet.findDesignInst(this)
-  def getDesignInst(using MemberGetSet): DFDesignInst = getDesignInstOpt.getOrElse {
+  def getCachedDesignInst(using MemberGetSet): DFDesignInst = getDesignInstOpt.getOrElse {
     throw new RuntimeException(
       s"Top-level design ${this.dclName} has no design instantiations"
     )
   }
+  // protected[dfhdl] def getCachedDesignInst(using MemberGetSet): DFDesignInst =
+  //   assert(getSet.isMutable, "Design inst cache should only be used during elaboration")
+  //   designInstCache.get
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType =~ that.domainType &&

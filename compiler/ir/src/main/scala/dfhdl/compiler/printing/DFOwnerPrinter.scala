@@ -285,7 +285,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       // blackbox instantiation
       if (designIsVendorIPBlackbox) csDFDesignBlockParamInst(
         ListMap.from(designParams.view.map(param =>
-          param.getName -> param.appliedOrDefaultValRef
+          param.getName -> param.defaultValRef.asInstanceOf[DFVal.Ref]
         ))
       )
       else ""

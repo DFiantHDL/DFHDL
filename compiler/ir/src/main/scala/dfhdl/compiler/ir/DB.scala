@@ -1184,6 +1184,13 @@ final case class DB(
     nameCheck()
     connectionTable // causes connectivity checks
     magnetConnectionMap // causes magnet connectivity checks
+    checkDanglingPorts()
+    directRefCheck()
+    circularDerivedDomainsCheck()
+    domainClkRateCheck()
+    waitCheck()
+    portLocationCheck()
+    portResourceDirCheck()
   end check
 
   // There can only be a single connection to a value in a given range

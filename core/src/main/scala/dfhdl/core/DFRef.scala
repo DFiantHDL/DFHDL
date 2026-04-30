@@ -55,7 +55,7 @@ extension [M <: ir.DFMember](member: M)
         val portSelect = DFVal.PortByNameSelect(
           port.dfType,
           port.modifier.dir,
-          port.getOwnerDesign.getDesignInst,
+          port.getOwnerDesign.getCachedDesignInst,
           namePath
         )
         portSelect.refTW[O].asInstanceOf[ir.DFRef.TwoWay[M, O]]

@@ -646,7 +646,7 @@ final class MutableDB():
           case designInst: DFDesignInst =>
             dupToOrigDesignMap.get(designInst.designRef.get) match
               case Some(origDesign) =>
-                dupRefs += designInst.designRef -> origDesign
+                dupRefs += designInst.designRef -> finalFixFunc(origDesign)
               case _ =>
             Some(designInst)
           case m => Some(finalFixFunc(m))
