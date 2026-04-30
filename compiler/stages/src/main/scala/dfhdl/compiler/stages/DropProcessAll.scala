@@ -11,6 +11,7 @@ import scala.collection.immutable.ListSet
 import dfhdl.compiler.ir.DFConditional.DFMatchHeader
 import dfhdl.compiler.ir.DFConditional.DFCaseBlock
 import dfhdl.compiler.ir.DFConditional.DFIfElseBlock
+import scala.collection.mutable
 
 /** This stage drops process(all) by transforming it to a process with explicit sensitivity list
   */
@@ -49,11 +50,23 @@ case object DropProcessAll extends HierarchyStage:
               case cb: DFConditional.Block      => getBlockDependents(cb) ++ cb.getGuardOption
               case _                            => None
             }.flatMap(getDFValDependents)
+          // memoization of added port-by-name
+          val addedCPs = mutable.Set.empty[ConnectPoint]
           // get all dependent declarations (except local variables)
           val dcls =
-            ListSet.from(getBlockDependents(pb).flatMap(_.departialDcl.map(_._1)))
-              // filter out local variables
-              .view.filterNot(_.isInsideOwner(pb)).toList
+            ListSet.from(getBlockDependents(pb).flatMap(_.departialPBNS.map(_._1)))
+              // filter out local variables, but keep port-by-name which may be inside the process,
+              // but refer to vias outside of it. we also need to account that different PBNS are
+              // considered to be different values, so we use `addedCPs` to only add one port-by-name per connect point.
+              .view.filter {
+                case pbns: DFVal.PortByNameSelect =>
+                  val cp = ConnectPoint.Via(pbns)
+                  if (addedCPs.contains(cp)) false
+                  else
+                    addedCPs += cp
+                    true
+                case v => !v.isInsideOwner(pb)
+              }.toList
           val dsn = new MetaDesign(
             pb,
             Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)

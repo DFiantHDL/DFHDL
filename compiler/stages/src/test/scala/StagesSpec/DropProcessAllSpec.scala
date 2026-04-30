@@ -74,4 +74,41 @@ class DropProcessAllSpec extends StageSpec:
          |end ID
          |""".stripMargin
     )
+  test("Hierarchical dependency"):
+    class ID extends EDDesign:
+      val iBits = Bits(8) <> IN
+      val oBits = Bits(8) <> OUT
+      oBits <> iBits
+    end ID
+
+    class Foo extends EDDesign:
+      val iBits    = Bits(8) <> IN
+      val oBits    = Bits(8) <> OUT
+      val dir      = Bit     <> IN
+      val rshifter = ID()
+      rshifter.iBits <> iBits
+      process(all):
+        if (dir) oBits := rshifter.oBits
+        else oBits     := rshifter.oBits
+    end Foo
+    val top = (new Foo).dropProcessAll
+    assertCodeString(
+      top,
+      """|class ID extends EDDesign:
+         |  val iBits = Bits(8) <> IN
+         |  val oBits = Bits(8) <> OUT
+         |  oBits <> iBits
+         |end ID
+         |
+         |class Foo extends EDDesign:
+         |  val iBits = Bits(8) <> IN
+         |  val oBits = Bits(8) <> OUT
+         |  val dir = Bit <> IN
+         |  val rshifter = ID()
+         |  rshifter.iBits <> iBits
+         |  process(rshifter.oBits, dir):
+         |    if (dir) oBits := rshifter.oBits
+         |    else oBits := rshifter.oBits
+         |end Foo""".stripMargin
+    )
 end DropProcessAllSpec
