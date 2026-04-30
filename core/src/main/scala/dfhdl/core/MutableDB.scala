@@ -654,7 +654,9 @@ final class MutableDB():
           case m => Some(finalFixFunc(m))
         }
         val finalRefTable = fixedRefTable.view.flatMap { case (ref, member) =>
-          if (redundantRefs.contains(ref)) None else Some(ref -> finalFixFunc(member))
+          if (redundantRefs.contains(ref)) None
+          else if (dupRefs.contains(ref)) Some(ref -> dupRefs(ref))
+          else Some(ref -> finalFixFunc(member))
         }.toMap
         (finalMembers, finalRefTable)
     val membersNoGlobalCtx = members.map {

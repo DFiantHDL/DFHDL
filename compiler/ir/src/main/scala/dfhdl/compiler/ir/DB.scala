@@ -443,57 +443,6 @@ final case class DB(
     (domainBlockMap.toMap, portEntries.toMap ++ origInstPortMap)
   end val
 
-  lazy val dupDomainOwnerPublicMemberList: List[(DFDomainOwner, List[DFMember])] =
-    def publicMemberFilter(member: DFMember): Boolean =
-      member match
-        case dcl: DFVal.Dcl if dcl.isPort => true
-        case design: DFDesignBlock        => true
-        case domainBlock: DomainBlock     => true
-        case _                            => false
-    // For duplicate designs, generate entries for their dup-copy domain blocks
-    // by mirroring the origin's domain owner structure.
-    def dupEntriesFor(
-        origOwner: DFDomainOwner,
-        dupDesign: DFDesignBlock,
-        dupInst: DFDesignInst
-    ): List[(DFDomainOwner, List[DFMember])] =
-      val dupOwner: DFDomainOwner = origOwner match
-        case _: DFDesignBlock    => dupDesign
-        case db: DomainBlock     => dupDesignDomainBlockMap((dupInst, db))
-        case _: DFInterfaceOwner => ??? // TODO
-      val origMembers = domainOwnerMemberTable(origOwner)
-        .view.filter(publicMemberFilter).toList
-      val dupDesignPorts = dupPortsByName.getOrElse(dupInst, ListMap.empty)
-      val dupMembers = origMembers.map {
-        case dcl: DFVal.Dcl =>
-          val relName = dcl.getRelativeName(origOwner.getThisOrOwnerDesign)
-          dupDesignPorts.getOrElse(relName, dcl)
-        case design: DFDesignBlock => design // nested designs stay as-is
-        case db: DomainBlock       => dupDesignDomainBlockMap((dupInst, db))
-        case m                     => m
-      }
-      (dupOwner -> dupMembers) :: origMembers.collect { case db: DomainBlock =>
-        dupEntriesFor(db, dupDesign, dupInst)
-      }.flatten
-    end dupEntriesFor
-    domainOwnerMemberList.flatMap { case (owner, members) =>
-      owner match
-        case dupDesign: DFDesignBlock if dupDesign.isDuplicate =>
-          val dupInst = designInstMap(dupDesign)
-          val origDesign = dupDesignToOrigMap(dupInst).getDesignBlock
-          dupEntriesFor(origDesign, dupDesign, dupInst)
-        case origDesign: DFDesignBlock =>
-          List(origDesign -> members.filter(publicMemberFilter))
-        case origDomainBlock: DomainBlock =>
-          List(origDomainBlock -> members.filter(publicMemberFilter))
-        // TODO: missing interface handling
-        case interface: DFInterfaceOwner => ???
-    }
-  end dupDomainOwnerPublicMemberList
-
-  lazy val dupDomainOwnerPublicMemberTable: Map[DFDomainOwner, List[DFMember]] =
-    Map(dupDomainOwnerPublicMemberList*)
-
   private def conditionalChainGen: Map[DFConditional.Header, List[DFConditional.Block]] =
     val handled = mutable.Set.empty[DFConditional.Block]
     members.foldRight(
@@ -798,7 +747,7 @@ final case class DB(
   // =========================================================================
 
   private lazy val relatedAnnotMap: Map[DFDomainOwner, DFDomainOwner] =
-    dupDomainOwnerPublicMemberList.view.flatMap { case (owner, _) =>
+    domainOwnerMemberList.view.flatMap { case (owner, _) =>
       owner.meta.annotations.collectFirst {
         case rel: constraints.Timing.Related => rel.ref.get
       }.map(owner -> _)
@@ -811,7 +760,7 @@ final case class DB(
         owner.domainType match
           case DomainType.RT => Some(owner)
           case _             => None
-    dupDomainOwnerPublicMemberList.view.flatMap { (domainOwner, domainMembers) =>
+    domainOwnerMemberList.view.flatMap { (domainOwner, domainMembers) =>
       domainOwner.domainType match
         case DomainType.RT =>
           relatedAnnotMap.get(domainOwner) match
@@ -1206,12 +1155,10 @@ final case class DB(
             case empty: DFMember.Empty => None
             // port referencing is done by name and validated via the
             // PortByNameSelect's design instance, which lives in m's design
-            // scope. The underlying port DCL itself is owned by the (now Top)
-            // design class, so we can't walk owners to validate.
+            // scope.
             case pbns: PortByNameSelect =>
-              val designInst = pbns.designInstRef.get
-              if (designInst.isOutsideOwner(m.getOwnerDesign))
-                Some(pbns.getPortDcl)
+              val designInst = pbns.getDesignInst
+              if (designInst.isOutsideOwner(m.getOwnerDesign)) Some(pbns)
               else None
             // design referenced by its member (e.g. via @timing.related)
             case refMember: DFDesignBlock =>
@@ -1439,11 +1386,7 @@ final case class DB(
     members.foreach {
       case d: DFDesignBlock if d == topDsn            => // top has no parent
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // globals handled separately
-      // a non-top DFDesignBlock has no ownerRef-recorded parent (it's a Top in
-      // the immutable DB). Resolve its parent via its DFDesignInst, which is
-      // owned by the parent design.
-      case d: DFDesignBlock => designOwn(d.getDesignInst.getOwnerDesign) += d
-      case m                => designOwn(m.getOwnerDesign) += m
+      case m                                          => designOwn(m.getOwnerDesign) += m
     }
     // Compute the closure of globals transitively reachable from a DB's refs.
     // Walks local members' refs; when a ref target is a global, we include it

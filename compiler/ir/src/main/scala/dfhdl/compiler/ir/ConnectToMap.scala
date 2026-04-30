@@ -15,11 +15,6 @@ object ConnectToMap:
   def empty: ConnectToMap = Map()
   extension (ctm: ConnectToMap)(using MemberGetSet)
     def connectToVals: Set[ConnectToVal] = ctm.keySet
-    def dcls: Set[DFVal.Dcl] = ctm.connectToVals.flatMap {
-      case dcl: DFVal.Dcl               => Some(dcl)
-      case pbns: DFVal.PortByNameSelect => Some(pbns.getPortDcl)
-      case _                            => None
-    }.toSet
 
     /** All nets whose slice overlaps `slice` on `dcl`, including ones whose overlap status is
       * merely `Unknown` (conservative).

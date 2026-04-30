@@ -977,14 +977,7 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     type pattern instead: `case x: DFLoop.DFForBlock`. The same applies to other multi-field IR
     case classes that have no dedicated single-argument unapply.
 16. **Assuming duplicate designs have members** — designs tagged `DuplicateTag` have **no members**
-    in the DB (ports, domain blocks, and values are removed during immutable DB creation). Use
-    `db.dupPortsByName` for port lookups (works for both origin and duplicate designs) and
-    `db.dupDomainOwnerPublicMemberList` for domain owner analysis. If your stage needs the full
-    member hierarchy of duplicates (e.g. for parameter analysis), you must reconstruct it by
-    duplicating the origin design's members with `copyWithNewRefs` — see `GlobalizePortVectorParams`
-    for the pattern. Never iterate `designMemberTable` or `domainOwnerMemberTable` expecting to
-    find members for duplicate designs.
-
+    in the DB (ports, domain blocks, and values are removed during immutable DB creation). 
 ---
 
 ## API Notes

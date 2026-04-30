@@ -25,9 +25,6 @@ case object ConnectUnused extends HierarchyStage:
     // Each sub-DB handles its own direct-child design instances (patches anchor
     // at `designInst` with Add.Config.After, which modifies the PARENT's scope).
     // Skip top (not a child) and self (processed by parent's sub-DB).
-    // Use `getSet.designDB.dupPortsByName` (the outer flat DB, since
-    // rebindGetSet=false) to resolve ports for duplicates whose origin may live
-    // outside this sub-DB's subtree.
     val patchList: List[(DFMember, Patch)] = subDB.members.view.collect {
       case designInst: DFDesignInst =>
         val design = designInst.getDesignBlock

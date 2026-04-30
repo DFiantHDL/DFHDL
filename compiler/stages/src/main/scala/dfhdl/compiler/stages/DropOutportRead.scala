@@ -19,8 +19,6 @@ case object DropOutportRead extends HierarchyStage:
           case VHDLDialect.v93 => true
           case _               => false
       case _ => false
-  // `port.getReadDeps` consults dupPortsByName for PBNS resolution across
-  // sibling sub-DBs, so keep outer flat getSet.
   override def rebindGetSet: Boolean = false
   def transformSubDB(subDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
     val patches = subDB.members.collect {
