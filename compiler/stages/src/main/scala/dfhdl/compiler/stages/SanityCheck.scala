@@ -20,6 +20,16 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       hasViolations = true
       System.err.println(msg)
 
+    // for quick lookup of by-name port selections during ref checks
+    val instPortsByNameSet = getSet.designDB.members.view.flatMap {
+      case inst: DFDesignInst =>
+        val design = inst.getDesignBlock
+        design.members(MemberView.Folded).view.collect {
+          case port: DFVal.Dcl if port.isPort => (inst, port.getRelativeName(design))
+        }
+      case _ => Nil
+    }.toSet
+
     val memberSet = mutable.Set.empty[DFMember]
     // checks for all members
     getSet.designDB.members.foreach { m =>
@@ -57,12 +67,12 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
         case pbns: DFVal.PortByNameSelect =>
           val designInst = pbns.designInstRef.get
           // check port existence
-          getSet.designDB.dupPortsByName(designInst).get(pbns.portNamePath) match
-            case None =>
-              reportViolation(
-                s"Missing port ${pbns.portNamePath} for by-name port selection: ${pbns}"
-              )
-            case _ =>
+          if (!instPortsByNameSet.contains((designInst, pbns.portNamePath)))
+            reportViolation(
+              s"""|By-name port selection references non-existent port.
+                  |Design instance: ${designInst}
+                  |Port name path:  ${pbns.portNamePath}""".stripMargin
+            )
           // check usage
           if (pbns.originMembers.isEmpty)
             reportViolation(s"No references to the by-name port selection: ${pbns}")
