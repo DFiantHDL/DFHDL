@@ -176,126 +176,126 @@ module keyExpansion(
   t_opaque_AESByte o_part_117;
   t_opaque_AESByte o_part_118;
   t_opaque_AESByte o_part_119;
-  t_opaque_AESWord o_part_rotWord_inst_o;
-  t_opaque_AESWord o_part_subWord_inst_lhs;
-  t_opaque_AESWord o_part_subWord_inst_o;
-  t_opaque_AESWord rotWord_inst_0_o;
-  t_opaque_AESWord subWord_inst_0_lhs;
-  t_opaque_AESWord subWord_inst_0_o;
-  t_opaque_AESWord rotWord_inst_1_o;
-  t_opaque_AESWord subWord_inst_1_lhs;
-  t_opaque_AESWord subWord_inst_1_o;
-  t_opaque_AESWord rotWord_inst_2_o;
-  t_opaque_AESWord subWord_inst_2_lhs;
-  t_opaque_AESWord subWord_inst_2_o;
-  t_opaque_AESWord rotWord_inst_3_o;
-  t_opaque_AESWord subWord_inst_3_lhs;
-  t_opaque_AESWord subWord_inst_3_o;
-  t_opaque_AESWord rotWord_inst_4_o;
-  t_opaque_AESWord subWord_inst_4_lhs;
-  t_opaque_AESWord subWord_inst_4_o;
-  t_opaque_AESWord rotWord_inst_5_o;
-  t_opaque_AESWord subWord_inst_5_lhs;
-  t_opaque_AESWord subWord_inst_5_o;
-  t_opaque_AESWord rotWord_inst_6_o;
-  t_opaque_AESWord subWord_inst_6_lhs;
-  t_opaque_AESWord subWord_inst_6_o;
-  t_opaque_AESWord rotWord_inst_7_o;
-  t_opaque_AESWord subWord_inst_7_lhs;
-  t_opaque_AESWord subWord_inst_7_o;
-  t_opaque_AESWord rotWord_inst_8_o;
-  t_opaque_AESWord subWord_inst_8_lhs;
-  t_opaque_AESWord subWord_inst_8_o;
-  rotWord o_part_rotWord_inst(
-    .o   /*-->*/ (o_part_rotWord_inst_o),
+  t_opaque_AESWord o_part_rotWord_inst_00_o;
+  t_opaque_AESWord o_part_subWord_inst_00_lhs;
+  t_opaque_AESWord o_part_subWord_inst_00_o;
+  t_opaque_AESWord o_part_rotWord_inst_01_o;
+  t_opaque_AESWord o_part_subWord_inst_01_lhs;
+  t_opaque_AESWord o_part_subWord_inst_01_o;
+  t_opaque_AESWord o_part_rotWord_inst_02_o;
+  t_opaque_AESWord o_part_subWord_inst_02_lhs;
+  t_opaque_AESWord o_part_subWord_inst_02_o;
+  t_opaque_AESWord o_part_rotWord_inst_03_o;
+  t_opaque_AESWord o_part_subWord_inst_03_lhs;
+  t_opaque_AESWord o_part_subWord_inst_03_o;
+  t_opaque_AESWord o_part_rotWord_inst_04_o;
+  t_opaque_AESWord o_part_subWord_inst_04_lhs;
+  t_opaque_AESWord o_part_subWord_inst_04_o;
+  t_opaque_AESWord o_part_rotWord_inst_05_o;
+  t_opaque_AESWord o_part_subWord_inst_05_lhs;
+  t_opaque_AESWord o_part_subWord_inst_05_o;
+  t_opaque_AESWord o_part_rotWord_inst_06_o;
+  t_opaque_AESWord o_part_subWord_inst_06_lhs;
+  t_opaque_AESWord o_part_subWord_inst_06_o;
+  t_opaque_AESWord o_part_rotWord_inst_07_o;
+  t_opaque_AESWord o_part_subWord_inst_07_lhs;
+  t_opaque_AESWord o_part_subWord_inst_07_o;
+  t_opaque_AESWord o_part_rotWord_inst_08_o;
+  t_opaque_AESWord o_part_subWord_inst_08_lhs;
+  t_opaque_AESWord o_part_subWord_inst_08_o;
+  t_opaque_AESWord o_part_rotWord_inst_09_o;
+  t_opaque_AESWord o_part_subWord_inst_09_lhs;
+  t_opaque_AESWord o_part_subWord_inst_09_o;
+  rotWord o_part_rotWord_inst_00(
+    .o   /*-->*/ (o_part_rotWord_inst_00_o),
     .lhs /*<--*/ (w_3)
   );
-  subWord o_part_subWord_inst(
-    .lhs /*<--*/ (o_part_subWord_inst_lhs),
-    .o   /*-->*/ (o_part_subWord_inst_o)
+  subWord o_part_subWord_inst_00(
+    .lhs /*<--*/ (o_part_subWord_inst_00_lhs),
+    .o   /*-->*/ (o_part_subWord_inst_00_o)
   );
-  rotWord rotWord_inst_0(
-    .o   /*-->*/ (rotWord_inst_0_o),
+  rotWord o_part_rotWord_inst_01(
+    .o   /*-->*/ (o_part_rotWord_inst_01_o),
     .lhs /*<--*/ (lhs_part_04)
   );
-  subWord subWord_inst_0(
-    .lhs /*<--*/ (subWord_inst_0_lhs),
-    .o   /*-->*/ (subWord_inst_0_o)
+  subWord o_part_subWord_inst_01(
+    .lhs /*<--*/ (o_part_subWord_inst_01_lhs),
+    .o   /*-->*/ (o_part_subWord_inst_01_o)
   );
-  rotWord rotWord_inst_1(
-    .o   /*-->*/ (rotWord_inst_1_o),
+  rotWord o_part_rotWord_inst_02(
+    .o   /*-->*/ (o_part_rotWord_inst_02_o),
     .lhs /*<--*/ (lhs_part_09)
   );
-  subWord subWord_inst_1(
-    .lhs /*<--*/ (subWord_inst_1_lhs),
-    .o   /*-->*/ (subWord_inst_1_o)
+  subWord o_part_subWord_inst_02(
+    .lhs /*<--*/ (o_part_subWord_inst_02_lhs),
+    .o   /*-->*/ (o_part_subWord_inst_02_o)
   );
-  rotWord rotWord_inst_2(
-    .o   /*-->*/ (rotWord_inst_2_o),
+  rotWord o_part_rotWord_inst_03(
+    .o   /*-->*/ (o_part_rotWord_inst_03_o),
     .lhs /*<--*/ (lhs_part_14)
   );
-  subWord subWord_inst_2(
-    .lhs /*<--*/ (subWord_inst_2_lhs),
-    .o   /*-->*/ (subWord_inst_2_o)
+  subWord o_part_subWord_inst_03(
+    .lhs /*<--*/ (o_part_subWord_inst_03_lhs),
+    .o   /*-->*/ (o_part_subWord_inst_03_o)
   );
-  rotWord rotWord_inst_3(
-    .o   /*-->*/ (rotWord_inst_3_o),
+  rotWord o_part_rotWord_inst_04(
+    .o   /*-->*/ (o_part_rotWord_inst_04_o),
     .lhs /*<--*/ (lhs_part_19)
   );
-  subWord subWord_inst_3(
-    .lhs /*<--*/ (subWord_inst_3_lhs),
-    .o   /*-->*/ (subWord_inst_3_o)
+  subWord o_part_subWord_inst_04(
+    .lhs /*<--*/ (o_part_subWord_inst_04_lhs),
+    .o   /*-->*/ (o_part_subWord_inst_04_o)
   );
-  rotWord rotWord_inst_4(
-    .o   /*-->*/ (rotWord_inst_4_o),
+  rotWord o_part_rotWord_inst_05(
+    .o   /*-->*/ (o_part_rotWord_inst_05_o),
     .lhs /*<--*/ (lhs_part_24)
   );
-  subWord subWord_inst_4(
-    .lhs /*<--*/ (subWord_inst_4_lhs),
-    .o   /*-->*/ (subWord_inst_4_o)
+  subWord o_part_subWord_inst_05(
+    .lhs /*<--*/ (o_part_subWord_inst_05_lhs),
+    .o   /*-->*/ (o_part_subWord_inst_05_o)
   );
-  rotWord rotWord_inst_5(
-    .o   /*-->*/ (rotWord_inst_5_o),
+  rotWord o_part_rotWord_inst_06(
+    .o   /*-->*/ (o_part_rotWord_inst_06_o),
     .lhs /*<--*/ (lhs_part_29)
   );
-  subWord subWord_inst_5(
-    .lhs /*<--*/ (subWord_inst_5_lhs),
-    .o   /*-->*/ (subWord_inst_5_o)
+  subWord o_part_subWord_inst_06(
+    .lhs /*<--*/ (o_part_subWord_inst_06_lhs),
+    .o   /*-->*/ (o_part_subWord_inst_06_o)
   );
-  rotWord rotWord_inst_6(
-    .o   /*-->*/ (rotWord_inst_6_o),
+  rotWord o_part_rotWord_inst_07(
+    .o   /*-->*/ (o_part_rotWord_inst_07_o),
     .lhs /*<--*/ (lhs_part_34)
   );
-  subWord subWord_inst_6(
-    .lhs /*<--*/ (subWord_inst_6_lhs),
-    .o   /*-->*/ (subWord_inst_6_o)
+  subWord o_part_subWord_inst_07(
+    .lhs /*<--*/ (o_part_subWord_inst_07_lhs),
+    .o   /*-->*/ (o_part_subWord_inst_07_o)
   );
-  rotWord rotWord_inst_7(
-    .o   /*-->*/ (rotWord_inst_7_o),
+  rotWord o_part_rotWord_inst_08(
+    .o   /*-->*/ (o_part_rotWord_inst_08_o),
     .lhs /*<--*/ (lhs_part_39)
   );
-  subWord subWord_inst_7(
-    .lhs /*<--*/ (subWord_inst_7_lhs),
-    .o   /*-->*/ (subWord_inst_7_o)
+  subWord o_part_subWord_inst_08(
+    .lhs /*<--*/ (o_part_subWord_inst_08_lhs),
+    .o   /*-->*/ (o_part_subWord_inst_08_o)
   );
-  rotWord rotWord_inst_8(
-    .o   /*-->*/ (rotWord_inst_8_o),
+  rotWord o_part_rotWord_inst_09(
+    .o   /*-->*/ (o_part_rotWord_inst_09_o),
     .lhs /*<--*/ (lhs_part_44)
   );
-  subWord subWord_inst_8(
-    .lhs /*<--*/ (subWord_inst_8_lhs),
-    .o   /*-->*/ (subWord_inst_8_o)
+  subWord o_part_subWord_inst_09(
+    .lhs /*<--*/ (o_part_subWord_inst_09_lhs),
+    .o   /*-->*/ (o_part_subWord_inst_09_o)
   );
-  assign o_part_subWord_inst_lhs = o_part_rotWord_inst_o;
-  assign subWord_inst_0_lhs = rotWord_inst_0_o;
-  assign subWord_inst_1_lhs = rotWord_inst_1_o;
-  assign subWord_inst_2_lhs = rotWord_inst_2_o;
-  assign subWord_inst_3_lhs = rotWord_inst_3_o;
-  assign subWord_inst_4_lhs = rotWord_inst_4_o;
-  assign subWord_inst_5_lhs = rotWord_inst_5_o;
-  assign subWord_inst_6_lhs = rotWord_inst_6_o;
-  assign subWord_inst_7_lhs = rotWord_inst_7_o;
-  assign subWord_inst_8_lhs = rotWord_inst_8_o;
+  assign o_part_subWord_inst_00_lhs = o_part_rotWord_inst_00_o;
+  assign o_part_subWord_inst_01_lhs = o_part_rotWord_inst_01_o;
+  assign o_part_subWord_inst_02_lhs = o_part_rotWord_inst_02_o;
+  assign o_part_subWord_inst_03_lhs = o_part_rotWord_inst_03_o;
+  assign o_part_subWord_inst_04_lhs = o_part_rotWord_inst_04_o;
+  assign o_part_subWord_inst_05_lhs = o_part_rotWord_inst_05_o;
+  assign o_part_subWord_inst_06_lhs = o_part_rotWord_inst_06_o;
+  assign o_part_subWord_inst_07_lhs = o_part_rotWord_inst_07_o;
+  assign o_part_subWord_inst_08_lhs = o_part_rotWord_inst_08_o;
+  assign o_part_subWord_inst_09_lhs = o_part_rotWord_inst_09_o;
   assign o = '{
      0: w_0,                                                            1: w_1,
      2: w_2,                                                            3: w_3,
@@ -324,10 +324,10 @@ module keyExpansion(
   assign w_1         = key[1];
   assign w_2         = key[2];
   assign w_3         = key[3];
-  assign o_part_000  = w_0[0] ^ (o_part_subWord_inst_o[0] ^ Rcon[1][0]);
-  assign o_part_001  = w_0[1] ^ (o_part_subWord_inst_o[1] ^ Rcon[1][1]);
-  assign o_part_002  = w_0[2] ^ (o_part_subWord_inst_o[2] ^ Rcon[1][2]);
-  assign o_part_003  = w_0[3] ^ (o_part_subWord_inst_o[3] ^ Rcon[1][3]);
+  assign o_part_000  = w_0[0] ^ (o_part_subWord_inst_00_o[0] ^ Rcon[1][0]);
+  assign o_part_001  = w_0[1] ^ (o_part_subWord_inst_00_o[1] ^ Rcon[1][1]);
+  assign o_part_002  = w_0[2] ^ (o_part_subWord_inst_00_o[2] ^ Rcon[1][2]);
+  assign o_part_003  = w_0[3] ^ (o_part_subWord_inst_00_o[3] ^ Rcon[1][3]);
   assign o_part_004  = w_1[0] ^ o_part_000;
   assign o_part_005  = w_1[1] ^ o_part_001;
   assign o_part_006  = w_1[2] ^ o_part_002;
@@ -341,10 +341,10 @@ module keyExpansion(
   assign lhs_part_02 = w_3[2] ^ o_part_010;
   assign lhs_part_03 = w_3[3] ^ o_part_011;
   assign lhs_part_04 = '{0: lhs_part_00, 1: lhs_part_01, 2: lhs_part_02, 3: lhs_part_03};
-  assign o_part_012  = o_part_000 ^ (subWord_inst_0_o[0] ^ Rcon[2][0]);
-  assign o_part_013  = o_part_001 ^ (subWord_inst_0_o[1] ^ Rcon[2][1]);
-  assign o_part_014  = o_part_002 ^ (subWord_inst_0_o[2] ^ Rcon[2][2]);
-  assign o_part_015  = o_part_003 ^ (subWord_inst_0_o[3] ^ Rcon[2][3]);
+  assign o_part_012  = o_part_000 ^ (o_part_subWord_inst_01_o[0] ^ Rcon[2][0]);
+  assign o_part_013  = o_part_001 ^ (o_part_subWord_inst_01_o[1] ^ Rcon[2][1]);
+  assign o_part_014  = o_part_002 ^ (o_part_subWord_inst_01_o[2] ^ Rcon[2][2]);
+  assign o_part_015  = o_part_003 ^ (o_part_subWord_inst_01_o[3] ^ Rcon[2][3]);
   assign o_part_016  = o_part_004 ^ o_part_012;
   assign o_part_017  = o_part_005 ^ o_part_013;
   assign o_part_018  = o_part_006 ^ o_part_014;
@@ -358,10 +358,10 @@ module keyExpansion(
   assign lhs_part_07 = lhs_part_02 ^ o_part_022;
   assign lhs_part_08 = lhs_part_03 ^ o_part_023;
   assign lhs_part_09 = '{0: lhs_part_05, 1: lhs_part_06, 2: lhs_part_07, 3: lhs_part_08};
-  assign o_part_024  = o_part_012 ^ (subWord_inst_1_o[0] ^ Rcon[3][0]);
-  assign o_part_025  = o_part_013 ^ (subWord_inst_1_o[1] ^ Rcon[3][1]);
-  assign o_part_026  = o_part_014 ^ (subWord_inst_1_o[2] ^ Rcon[3][2]);
-  assign o_part_027  = o_part_015 ^ (subWord_inst_1_o[3] ^ Rcon[3][3]);
+  assign o_part_024  = o_part_012 ^ (o_part_subWord_inst_02_o[0] ^ Rcon[3][0]);
+  assign o_part_025  = o_part_013 ^ (o_part_subWord_inst_02_o[1] ^ Rcon[3][1]);
+  assign o_part_026  = o_part_014 ^ (o_part_subWord_inst_02_o[2] ^ Rcon[3][2]);
+  assign o_part_027  = o_part_015 ^ (o_part_subWord_inst_02_o[3] ^ Rcon[3][3]);
   assign o_part_028  = o_part_016 ^ o_part_024;
   assign o_part_029  = o_part_017 ^ o_part_025;
   assign o_part_030  = o_part_018 ^ o_part_026;
@@ -375,10 +375,10 @@ module keyExpansion(
   assign lhs_part_12 = lhs_part_07 ^ o_part_034;
   assign lhs_part_13 = lhs_part_08 ^ o_part_035;
   assign lhs_part_14 = '{0: lhs_part_10, 1: lhs_part_11, 2: lhs_part_12, 3: lhs_part_13};
-  assign o_part_036  = o_part_024 ^ (subWord_inst_2_o[0] ^ Rcon[4][0]);
-  assign o_part_037  = o_part_025 ^ (subWord_inst_2_o[1] ^ Rcon[4][1]);
-  assign o_part_038  = o_part_026 ^ (subWord_inst_2_o[2] ^ Rcon[4][2]);
-  assign o_part_039  = o_part_027 ^ (subWord_inst_2_o[3] ^ Rcon[4][3]);
+  assign o_part_036  = o_part_024 ^ (o_part_subWord_inst_03_o[0] ^ Rcon[4][0]);
+  assign o_part_037  = o_part_025 ^ (o_part_subWord_inst_03_o[1] ^ Rcon[4][1]);
+  assign o_part_038  = o_part_026 ^ (o_part_subWord_inst_03_o[2] ^ Rcon[4][2]);
+  assign o_part_039  = o_part_027 ^ (o_part_subWord_inst_03_o[3] ^ Rcon[4][3]);
   assign o_part_040  = o_part_028 ^ o_part_036;
   assign o_part_041  = o_part_029 ^ o_part_037;
   assign o_part_042  = o_part_030 ^ o_part_038;
@@ -392,10 +392,10 @@ module keyExpansion(
   assign lhs_part_17 = lhs_part_12 ^ o_part_046;
   assign lhs_part_18 = lhs_part_13 ^ o_part_047;
   assign lhs_part_19 = '{0: lhs_part_15, 1: lhs_part_16, 2: lhs_part_17, 3: lhs_part_18};
-  assign o_part_048  = o_part_036 ^ (subWord_inst_3_o[0] ^ Rcon[5][0]);
-  assign o_part_049  = o_part_037 ^ (subWord_inst_3_o[1] ^ Rcon[5][1]);
-  assign o_part_050  = o_part_038 ^ (subWord_inst_3_o[2] ^ Rcon[5][2]);
-  assign o_part_051  = o_part_039 ^ (subWord_inst_3_o[3] ^ Rcon[5][3]);
+  assign o_part_048  = o_part_036 ^ (o_part_subWord_inst_04_o[0] ^ Rcon[5][0]);
+  assign o_part_049  = o_part_037 ^ (o_part_subWord_inst_04_o[1] ^ Rcon[5][1]);
+  assign o_part_050  = o_part_038 ^ (o_part_subWord_inst_04_o[2] ^ Rcon[5][2]);
+  assign o_part_051  = o_part_039 ^ (o_part_subWord_inst_04_o[3] ^ Rcon[5][3]);
   assign o_part_052  = o_part_040 ^ o_part_048;
   assign o_part_053  = o_part_041 ^ o_part_049;
   assign o_part_054  = o_part_042 ^ o_part_050;
@@ -409,10 +409,10 @@ module keyExpansion(
   assign lhs_part_22 = lhs_part_17 ^ o_part_058;
   assign lhs_part_23 = lhs_part_18 ^ o_part_059;
   assign lhs_part_24 = '{0: lhs_part_20, 1: lhs_part_21, 2: lhs_part_22, 3: lhs_part_23};
-  assign o_part_060  = o_part_048 ^ (subWord_inst_4_o[0] ^ Rcon[6][0]);
-  assign o_part_061  = o_part_049 ^ (subWord_inst_4_o[1] ^ Rcon[6][1]);
-  assign o_part_062  = o_part_050 ^ (subWord_inst_4_o[2] ^ Rcon[6][2]);
-  assign o_part_063  = o_part_051 ^ (subWord_inst_4_o[3] ^ Rcon[6][3]);
+  assign o_part_060  = o_part_048 ^ (o_part_subWord_inst_05_o[0] ^ Rcon[6][0]);
+  assign o_part_061  = o_part_049 ^ (o_part_subWord_inst_05_o[1] ^ Rcon[6][1]);
+  assign o_part_062  = o_part_050 ^ (o_part_subWord_inst_05_o[2] ^ Rcon[6][2]);
+  assign o_part_063  = o_part_051 ^ (o_part_subWord_inst_05_o[3] ^ Rcon[6][3]);
   assign o_part_064  = o_part_052 ^ o_part_060;
   assign o_part_065  = o_part_053 ^ o_part_061;
   assign o_part_066  = o_part_054 ^ o_part_062;
@@ -426,10 +426,10 @@ module keyExpansion(
   assign lhs_part_27 = lhs_part_22 ^ o_part_070;
   assign lhs_part_28 = lhs_part_23 ^ o_part_071;
   assign lhs_part_29 = '{0: lhs_part_25, 1: lhs_part_26, 2: lhs_part_27, 3: lhs_part_28};
-  assign o_part_072  = o_part_060 ^ (subWord_inst_5_o[0] ^ Rcon[7][0]);
-  assign o_part_073  = o_part_061 ^ (subWord_inst_5_o[1] ^ Rcon[7][1]);
-  assign o_part_074  = o_part_062 ^ (subWord_inst_5_o[2] ^ Rcon[7][2]);
-  assign o_part_075  = o_part_063 ^ (subWord_inst_5_o[3] ^ Rcon[7][3]);
+  assign o_part_072  = o_part_060 ^ (o_part_subWord_inst_06_o[0] ^ Rcon[7][0]);
+  assign o_part_073  = o_part_061 ^ (o_part_subWord_inst_06_o[1] ^ Rcon[7][1]);
+  assign o_part_074  = o_part_062 ^ (o_part_subWord_inst_06_o[2] ^ Rcon[7][2]);
+  assign o_part_075  = o_part_063 ^ (o_part_subWord_inst_06_o[3] ^ Rcon[7][3]);
   assign o_part_076  = o_part_064 ^ o_part_072;
   assign o_part_077  = o_part_065 ^ o_part_073;
   assign o_part_078  = o_part_066 ^ o_part_074;
@@ -443,10 +443,10 @@ module keyExpansion(
   assign lhs_part_32 = lhs_part_27 ^ o_part_082;
   assign lhs_part_33 = lhs_part_28 ^ o_part_083;
   assign lhs_part_34 = '{0: lhs_part_30, 1: lhs_part_31, 2: lhs_part_32, 3: lhs_part_33};
-  assign o_part_084  = o_part_072 ^ (subWord_inst_6_o[0] ^ Rcon[8][0]);
-  assign o_part_085  = o_part_073 ^ (subWord_inst_6_o[1] ^ Rcon[8][1]);
-  assign o_part_086  = o_part_074 ^ (subWord_inst_6_o[2] ^ Rcon[8][2]);
-  assign o_part_087  = o_part_075 ^ (subWord_inst_6_o[3] ^ Rcon[8][3]);
+  assign o_part_084  = o_part_072 ^ (o_part_subWord_inst_07_o[0] ^ Rcon[8][0]);
+  assign o_part_085  = o_part_073 ^ (o_part_subWord_inst_07_o[1] ^ Rcon[8][1]);
+  assign o_part_086  = o_part_074 ^ (o_part_subWord_inst_07_o[2] ^ Rcon[8][2]);
+  assign o_part_087  = o_part_075 ^ (o_part_subWord_inst_07_o[3] ^ Rcon[8][3]);
   assign o_part_088  = o_part_076 ^ o_part_084;
   assign o_part_089  = o_part_077 ^ o_part_085;
   assign o_part_090  = o_part_078 ^ o_part_086;
@@ -460,10 +460,10 @@ module keyExpansion(
   assign lhs_part_37 = lhs_part_32 ^ o_part_094;
   assign lhs_part_38 = lhs_part_33 ^ o_part_095;
   assign lhs_part_39 = '{0: lhs_part_35, 1: lhs_part_36, 2: lhs_part_37, 3: lhs_part_38};
-  assign o_part_096  = o_part_084 ^ (subWord_inst_7_o[0] ^ Rcon[9][0]);
-  assign o_part_097  = o_part_085 ^ (subWord_inst_7_o[1] ^ Rcon[9][1]);
-  assign o_part_098  = o_part_086 ^ (subWord_inst_7_o[2] ^ Rcon[9][2]);
-  assign o_part_099  = o_part_087 ^ (subWord_inst_7_o[3] ^ Rcon[9][3]);
+  assign o_part_096  = o_part_084 ^ (o_part_subWord_inst_08_o[0] ^ Rcon[9][0]);
+  assign o_part_097  = o_part_085 ^ (o_part_subWord_inst_08_o[1] ^ Rcon[9][1]);
+  assign o_part_098  = o_part_086 ^ (o_part_subWord_inst_08_o[2] ^ Rcon[9][2]);
+  assign o_part_099  = o_part_087 ^ (o_part_subWord_inst_08_o[3] ^ Rcon[9][3]);
   assign o_part_100  = o_part_088 ^ o_part_096;
   assign o_part_101  = o_part_089 ^ o_part_097;
   assign o_part_102  = o_part_090 ^ o_part_098;
@@ -477,10 +477,10 @@ module keyExpansion(
   assign lhs_part_42 = lhs_part_37 ^ o_part_106;
   assign lhs_part_43 = lhs_part_38 ^ o_part_107;
   assign lhs_part_44 = '{0: lhs_part_40, 1: lhs_part_41, 2: lhs_part_42, 3: lhs_part_43};
-  assign o_part_108  = o_part_096 ^ (subWord_inst_8_o[0] ^ Rcon[10][0]);
-  assign o_part_109  = o_part_097 ^ (subWord_inst_8_o[1] ^ Rcon[10][1]);
-  assign o_part_110  = o_part_098 ^ (subWord_inst_8_o[2] ^ Rcon[10][2]);
-  assign o_part_111  = o_part_099 ^ (subWord_inst_8_o[3] ^ Rcon[10][3]);
+  assign o_part_108  = o_part_096 ^ (o_part_subWord_inst_09_o[0] ^ Rcon[10][0]);
+  assign o_part_109  = o_part_097 ^ (o_part_subWord_inst_09_o[1] ^ Rcon[10][1]);
+  assign o_part_110  = o_part_098 ^ (o_part_subWord_inst_09_o[2] ^ Rcon[10][2]);
+  assign o_part_111  = o_part_099 ^ (o_part_subWord_inst_09_o[3] ^ Rcon[10][3]);
   assign o_part_112  = o_part_100 ^ o_part_108;
   assign o_part_113  = o_part_101 ^ o_part_109;
   assign o_part_114  = o_part_102 ^ o_part_110;

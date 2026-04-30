@@ -74,4 +74,44 @@ class DropDesignDefsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("Nested design def") {
+    def sbox(lhs: Bits[8] <> VAL): Bits[8] <> DFRET = lhs
+
+    def subWord(lhs: Bits[8] X 2 <> VAL): Bits[8] X 2 <> DFRET =
+      DFVector(Bits(8) X 2)(sbox(lhs(0)), sbox(lhs(1)))
+    end subWord
+
+    class Foo extends DFDesign:
+      val key = Bits(8) X 2 <> IN
+      val o   = Bits(8) X 2 <> OUT
+      o := subWord(key)
+
+    val top = (new Foo).dropDesignDefs
+    assertCodeString(
+      top,
+      """|class sbox extends DFDesign:
+         |  val lhs = Bits(8) <> IN
+         |  val o = Bits(8) <> OUT
+         |  o <> lhs
+         |end sbox
+         |
+         |class subWord extends DFDesign:
+         |  val lhs = Bits(8) X 2 <> IN
+         |  val o = Bits(8) X 2 <> OUT
+         |  val o_part_sbox_inst = sbox()
+         |  o_part_sbox_inst.lhs <> lhs(0)
+         |  val o_part_sbox_inst = sbox()
+         |  o_part_sbox_inst.lhs <> lhs(1)
+         |  o <> DFVector(Bits(8) X 2)(o_part_sbox_inst.o, o_part_sbox_inst.o)
+         |end subWord
+         |
+         |class Foo extends DFDesign:
+         |  val key = Bits(8) X 2 <> IN
+         |  val o = Bits(8) X 2 <> OUT
+         |  val o_part_subWord_inst = subWord()
+         |  o_part_subWord_inst.lhs <> key
+         |  o := o_part_subWord_inst.o
+         |end Foo""".stripMargin
+    )
+  }
 end DropDesignDefsSpec

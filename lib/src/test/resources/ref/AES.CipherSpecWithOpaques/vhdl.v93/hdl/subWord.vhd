@@ -12,34 +12,34 @@ port (
 end subWord;
 
 architecture subWord_arch of subWord is
-  signal o_part_sbox_inst_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_o   : t_opaque_AESByte;
-  signal sbox_inst_0_lhs      : t_opaque_AESByte;
-  signal sbox_inst_0_o        : t_opaque_AESByte;
-  signal sbox_inst_1_lhs      : t_opaque_AESByte;
-  signal sbox_inst_1_o        : t_opaque_AESByte;
-  signal sbox_inst_2_lhs      : t_opaque_AESByte;
-  signal sbox_inst_2_o        : t_opaque_AESByte;
+  signal o_part_sbox_inst_0_lhs : t_opaque_AESByte;
+  signal o_part_sbox_inst_0_o   : t_opaque_AESByte;
+  signal o_part_sbox_inst_1_lhs : t_opaque_AESByte;
+  signal o_part_sbox_inst_1_o   : t_opaque_AESByte;
+  signal o_part_sbox_inst_2_lhs : t_opaque_AESByte;
+  signal o_part_sbox_inst_2_o   : t_opaque_AESByte;
+  signal o_part_sbox_inst_3_lhs : t_opaque_AESByte;
+  signal o_part_sbox_inst_3_o   : t_opaque_AESByte;
 begin
-  o_part_sbox_inst : entity work.sbox(sbox_arch) port map (
-    lhs                => o_part_sbox_inst_lhs,
-    o                  => o_part_sbox_inst_o
+  o_part_sbox_inst_0 : entity work.sbox(sbox_arch) port map (
+    lhs                  => o_part_sbox_inst_0_lhs,
+    o                    => o_part_sbox_inst_0_o
   );
-  sbox_inst_0 : entity work.sbox(sbox_arch) port map (
-    lhs                => sbox_inst_0_lhs,
-    o                  => sbox_inst_0_o
+  o_part_sbox_inst_1 : entity work.sbox(sbox_arch) port map (
+    lhs                  => o_part_sbox_inst_1_lhs,
+    o                    => o_part_sbox_inst_1_o
   );
-  sbox_inst_1 : entity work.sbox(sbox_arch) port map (
-    lhs                => sbox_inst_1_lhs,
-    o                  => sbox_inst_1_o
+  o_part_sbox_inst_2 : entity work.sbox(sbox_arch) port map (
+    lhs                  => o_part_sbox_inst_2_lhs,
+    o                    => o_part_sbox_inst_2_o
   );
-  sbox_inst_2 : entity work.sbox(sbox_arch) port map (
-    lhs                => sbox_inst_2_lhs,
-    o                  => sbox_inst_2_o
+  o_part_sbox_inst_3 : entity work.sbox(sbox_arch) port map (
+    lhs                  => o_part_sbox_inst_3_lhs,
+    o                    => o_part_sbox_inst_3_o
   );
-  o_part_sbox_inst_lhs <= lhs(0);
-  sbox_inst_0_lhs      <= lhs(1);
-  sbox_inst_1_lhs      <= lhs(2);
-  sbox_inst_2_lhs      <= lhs(3);
-  o <= (0 => o_part_sbox_inst_o, 1 => sbox_inst_0_o, 2 => sbox_inst_1_o, 3 => sbox_inst_2_o);
+  o_part_sbox_inst_0_lhs <= lhs(0);
+  o_part_sbox_inst_1_lhs <= lhs(1);
+  o_part_sbox_inst_2_lhs <= lhs(2);
+  o_part_sbox_inst_3_lhs <= lhs(3);
+  o <= (0 => o_part_sbox_inst_0_o, 1 => o_part_sbox_inst_1_o, 2 => o_part_sbox_inst_2_o, 3 => o_part_sbox_inst_3_o);
 end subWord_arch;
