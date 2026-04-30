@@ -71,7 +71,8 @@ case object DropProcessAll extends HierarchyStage:
             pb,
             Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)
           ):
-            dfhdl.core.Process.Block.list(dcls.map(_.asValAny))(using dfc.setMeta(pb.meta))
+            val updatedDcls = dcls.map(_.cloneAnonValueAndDepsHere.asValAny)
+            dfhdl.core.Process.Block.list(updatedDcls)(using dfc.setMeta(pb.meta))
 
           dsn.patch
         }
