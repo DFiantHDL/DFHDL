@@ -12,6 +12,42 @@ trait Stage extends Product, Serializable, HasTypeName derives CanEqual:
   def runCondition(using CompilerOptions): Boolean = true
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB
 
+/** Phase-2 bridge for stages that need cross-design information or whose work
+  * cannot be decomposed cleanly per-sub-DB. The stage implements
+  * `transformGlobal(newDB)` and operates on the NEW-STYLE hierarchical DB.
+  *
+  * The trait handles:
+  *   - `oldToNew` at entry — converts a legacy flat DB into the hierarchical
+  *     representation (root + per-design sub-DBs) so the body can walk the
+  *     hierarchy via `internalDBs` and patch each sub-DB independently.
+  *   - `newToOld` at exit — flattens the result back into an old-style DB for
+  *     the rest of the pipeline.
+  *
+  * Use `GlobalStage` when the body needs:
+  *   - cross-design tracking state (e.g. shared opaque type maps)
+  *   - global analyses that span the entire hierarchy
+  *   - patches that affect multiple sub-DBs (e.g. dedup, renaming)
+  *
+  * Otherwise prefer `HierarchyStage` for per-sub-DB decomposition.
+  */
+trait GlobalStage extends Stage:
+  def transformGlobal(designDB: DB)(using
+      getSet: MemberGetSet,
+      co: CompilerOptions,
+      refGen: RefGen
+  ): DB
+
+  override def transform(designDB: DB)(using
+      outerGetSet: MemberGetSet,
+      co: CompilerOptions
+  ): DB =
+    val newDB = designDB.oldToNew
+    val newGetSet = newDB.getSet
+    val refGen = RefGen.fromGetSet(using newGetSet)
+    val transformed = transformGlobal(newDB)(using newGetSet, co, refGen)
+    transformed.newToOld
+end GlobalStage
+
 /** Phase-2 bridge for stages whose work decomposes cleanly per-sub-DB.
   *
   * The stage implements `transformSubDB(subDB)` which returns the TRANSFORMED sub-DB (typically via
