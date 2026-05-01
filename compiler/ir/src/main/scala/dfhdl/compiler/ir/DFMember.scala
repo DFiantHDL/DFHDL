@@ -1501,19 +1501,9 @@ final case class DFDesignBlock(
   protected[dfhdl] def clearDesignInstCache(): Unit = designInstCache = None
   protected[dfhdl] def copyDesignInstCacheFrom(other: DFDesignBlock): Unit =
     designInstCache = other.designInstCache
-  // override def isTop(using MemberGetSet): Boolean = getDesignInstOpt.isEmpty
-  def getDesignInstOpt(using MemberGetSet): Option[DFDesignInst] =
-    // cache is for elaboration only
-    if (getSet.isMutable) designInstCache.orElse(getSet.findDesignInst(this))
-    else getSet.findDesignInst(this)
-  def getCachedDesignInst(using MemberGetSet): DFDesignInst = getDesignInstOpt.getOrElse {
-    throw new RuntimeException(
-      s"Top-level design ${this.dclName} has no design instantiations"
-    )
-  }
-  // protected[dfhdl] def getCachedDesignInst(using MemberGetSet): DFDesignInst =
-  //   assert(getSet.isMutable, "Design inst cache should only be used during elaboration")
-  //   designInstCache.get
+  protected[dfhdl] def getCachedDesignInst(using MemberGetSet): DFDesignInst =
+    assert(getSet.isMutable, "Design inst cache should only be used during elaboration")
+    designInstCache.get
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType =~ that.domainType &&
