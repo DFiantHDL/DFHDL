@@ -52,12 +52,12 @@ case object DropDesignParamDeps extends HierarchyStage:
 
     // Create patches to replace design parameters with anonymous constants
     val patches = designParamDefaultsToInline.view.map { default =>
+      // Get the constant data from the design parameter
+      val constData = default.getConstDataOrDefault[Any]
       val dsn = new MetaDesign(
         default,
         Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)
       ):
-        // Get the constant data from the design parameter
-        val constData = default.getConstDataOrDefault[Any]
         // Create an anonymous constant with the same data
         dfhdl.core.DFVal.Const.forced(default.dfType.asFE[DFTypeAny], constData, named = false)
       dsn.patch
