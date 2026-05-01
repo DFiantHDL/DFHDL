@@ -256,13 +256,23 @@ case object GlobalizePortVectorParams extends Stage:
               Patch.Replace.Config.FullReplacement
             )
         }.partition((m, _) => m.isInstanceOf[DFVal.PortByNameSelect])
+        // Resolve a design param's applied value by reading the owning
+        // design's inst paramMap directly (or falling back to the param's
+        // default). Avoids `appliedOrDefaultVal`, which routes through
+        // `getCachedDesignInst` and is unavailable in immutable mode.
+        def appliedOrDefault(param: DFVal.DesignParam): DFVal =
+          val owner = param.getOwnerDesign
+          designToInst.get(owner)
+            .flatMap(_.paramMap.get(param.getName))
+            .map(_.get)
+            .getOrElse(param.defaultValRef.get.asInstanceOf[DFVal])
         def movedMembers(namedParam: DFVal): List[DFVal] =
           namedParam match
             // for DesignParams, also collect anonymous deps of the actual param value
             // (from paramMap), since collectRelMembers only follows getRefs which
             // does not include the paramMap value reference
             case param: DFVal.DesignParam =>
-              param.appliedOrDefaultVal.collectRelMembers(false).filterNot(_.isGlobal) ++
+              appliedOrDefault(param).collectRelMembers(false).filterNot(_.isGlobal) ++
                 List(param)
             case _ =>
               namedParam.collectRelMembers(true).filterNot(_.isGlobal)
@@ -334,7 +344,7 @@ case object GlobalizePortVectorParams extends Stage:
         }.toList
         val paramReplacementMap = mutable.Map.empty[DFVal, DFVal]
         def getUpdatedParamValue(param: DFVal.DesignParam): DFVal =
-          var dfVal = param.appliedOrDefaultVal
+          var dfVal = appliedOrDefault(param)
           while (paramReplacementMap.contains(dfVal)) dfVal = paramReplacementMap(dfVal)
           dfVal
         // Compose a global identifier from the owning design's inst path
