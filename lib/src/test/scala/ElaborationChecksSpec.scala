@@ -4,57 +4,65 @@ import java.io.File.separatorChar as S
 given options.ElaborationOptions.OnError = options.OnError.Exception
 class ElaborationChecksSpec extends DesignSpec:
   val currentFilePos = s"lib${S}src${S}test${S}scala${S}"
-  // test("ambiguous RT dependency errors"):
-  //   class Internal1 extends EDDesign:
-  //     val dmn1 = new RTDomain:
-  //       val o = Bit <> OUT
-  //       o := 1
-  //     val dmn2 = new RTDomain:
-  //       val o = Bit <> OUT
-  //       o := 1
-  //   class Internal2 extends EDDesign:
-  //     val dmn = new RTDomain:
-  //       val i1 = Bit <> IN
-  //       val i2 = Bit <> IN
-  //   object Test:
-  //     @top(false) class Top extends EDDesign:
-  //       val internal1 = Internal1()
-  //       val internal2 = Internal2()
-  //       internal1.dmn1.o <> internal2.dmn.i1
-  //       internal1.dmn2.o <> internal2.dmn.i2
-  //   import Test.*
-  //   assertElaborationErrors(Top())(
-  //     """|Elaboration errors found!
-  //        |Found ambiguous source RT configurations for the domain:
-  //        |Top.internal2.dmn
-  //        |Sources:
-  //        |Top.internal1.dmn1
-  //        |Top.internal1.dmn2
-  //        |Possible solution:
-  //        |Either explicitly define a configuration for the domain or drive it from a single source domain.
-  //        |""".stripMargin
-  //   )
+  test("ambiguous RT dependency errors"):
+    class Internal1 extends EDDesign:
+      val dmn1 = new RTDomain:
+        val o = Bit <> OUT
+        o := 1
+      val dmn2 = new RTDomain:
+        val o = Bit <> OUT
+        o := 1
+    class Internal2 extends EDDesign:
+      val dmn = new RTDomain:
+        val i1 = Bit <> IN
+        val i2 = Bit <> IN
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val internal1 = Internal1()
+        val internal2 = Internal2()
+        internal1.dmn1.o <> internal2.dmn.i1
+        internal1.dmn2.o <> internal2.dmn.i2
+    import Test.*
+    assertElaborationErrors(Top())(
+      """|Elaboration errors found!
+         |Found ambiguous source RT configurations for the domain:
+         |Top.internal2.dmn
+         |Sources:
+         |Top.internal1.dmn1
+         |Top.internal1.dmn2
+         |Possible solution:
+         |Either explicitly define a configuration for the domain or drive it from a single source domain.
+         |""".stripMargin
+    )
 
-  // test("cyclic RT dependency errors"):
-  //   class Internal extends EDDesign:
-  //     val dmn = new RTDomain:
-  //       val i = Bit <> IN
-  //       val o = Bit <> OUT
-  //       o := i
-  //   object Test:
-  //     @top(false) class Top extends EDDesign:
-  //       val internal1 = Internal()
-  //       val internal2 = Internal()
-  //       internal1.dmn.i <> internal2.dmn.o
-  //       internal1.dmn.o <> internal2.dmn.i
-  //   import Test.*
-  //   assertElaborationErrors(Top())(
-  //     """|Elaboration errors found!
-  //        |Circular derived RT configuration detected. Involved in the cycle:
-  //        |Top.internal1.dmn
-  //        |Top.internal2.dmn
-  //        |""".stripMargin
-  //   )
+  test("cyclic RT dependency errors"):
+    // Two distinct design classes are used so dedup keeps each canonical
+    // block separate; the dependency cycle is detected between the two
+    // distinct internal domains.
+    class Internal1 extends EDDesign:
+      val dmn = new RTDomain:
+        val i = Bit <> IN
+        val o = Bit <> OUT
+        o := i
+    class Internal2 extends EDDesign:
+      val dmn = new RTDomain:
+        val i = Bit <> IN
+        val o = Bit <> OUT
+        o := i
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val internal1 = Internal1()
+        val internal2 = Internal2()
+        internal1.dmn.i <> internal2.dmn.o
+        internal1.dmn.o <> internal2.dmn.i
+    import Test.*
+    assertElaborationErrors(Top())(
+      """|Elaboration errors found!
+         |Circular derived RT configuration detected. Involved in the cycle:
+         |Top.internal1.dmn
+         |Top.internal2.dmn
+         |""".stripMargin
+    )
 
   test("domain creation in the wrong spot"):
     object Test:
@@ -66,7 +74,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:64:25 - 64:33
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:72:25 - 72:33
           |Hierarchy: Top.dmn
           |Operation: `apply`
           |Message:   A domain can only be directly owned by a design, an interface, or another domain.
@@ -83,7 +91,7 @@ class ElaborationChecksSpec extends DesignSpec:
       s"""|Elaboration errors found!
           |DFiant HDL name errors!
           |Unable to determine names for the members declared at the following positions:
-          |${currentFilePos}ElaborationChecksSpec.scala:80:13 - 80:21
+          |${currentFilePos}ElaborationChecksSpec.scala:88:13 - 88:21
           |
           |Explanation:
           |This can happen when utilizing the meta programming power of Scala in a way that
@@ -127,22 +135,22 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:123:11 - 123:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:131:11 - 131:17
           |Hierarchy: Top
           |LHS:       x
           |RHS:       0
           |Message:   Found multiple domain assignments to the same variable/port `Top.x`.
           |Only variables declared as `VAR.SHARED` under ED domain allow this.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:119:11 - 119:17
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:127:11 - 127:17
           |
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:124:11 - 124:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:132:11 - 132:17
           |Hierarchy: Top
           |LHS:       y
           |RHS:       0
           |Message:   Found multiple domain assignments to the same variable/port `Top.y`.
           |Only variables declared as `VAR.SHARED` under ED domain allow this.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:120:11 - 120:17
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:128:11 - 128:17
           |""".stripMargin
     )
 
@@ -156,7 +164,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:154:19 - 154:28
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:162:19 - 162:28
           |Hierarchy: Top.y
           |Operation: `Port/Variable constructor`
           |Message:   Ports can only be directly owned by a design, a domain or an interface.
@@ -179,11 +187,11 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(IDTop())( // TODO: fix fullName
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:176:18 - 176:20
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:184:18 - 184:20
           |Hierarchy: IDTop.id
           |Message:   Found a dangling (unconnected) input port `x`.
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:169:15 - 169:30
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:177:15 - 177:30
           |Hierarchy: IDTop.ID
           |Message:   Found a dangling (unconnected/unassigned and uninitialized) output port `y`.
           |""".stripMargin
@@ -200,8 +208,8 @@ class ElaborationChecksSpec extends DesignSpec:
       s"""|Elaboration errors found!
           |DFiant HDL name errors!
           |Unable to determine names for the members declared at the following positions:
-          |${currentFilePos}ElaborationChecksSpec.scala:195:9 - 195:18
-          |${currentFilePos}ElaborationChecksSpec.scala:197:9 - 197:26
+          |${currentFilePos}ElaborationChecksSpec.scala:203:9 - 203:18
+          |${currentFilePos}ElaborationChecksSpec.scala:205:9 - 205:26
           |
           |Explanation:
           |This can happen when utilizing the meta programming power of Scala in a way that
@@ -248,7 +256,7 @@ class ElaborationChecksSpec extends DesignSpec:
       err,
       s"""|Elaboration errors found!
           |DFiant HDL wait error!
-          |Position:  lib${S}src${S}test${S}scala${S}ElaborationChecksSpec.scala:237:11 - 237:21
+          |Position:  lib${S}src${S}test${S}scala${S}ElaborationChecksSpec.scala:245:11 - 245:21
           |Hierarchy: Top
           |Message:   Wait duration 1.sec is not exactly divisible by the clock period 4.sec.""".stripMargin
     )
@@ -263,7 +271,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity/assignment error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:259:17 - 259:27
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:267:17 - 267:27
           |Hierarchy: Top
           |Message:   Found a latch variable `y`. Latches are not allowed under RT domains.""".stripMargin
     )
@@ -342,7 +350,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL domain clock rate error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:333:7 - 339:32
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:341:7 - 347:32
           |Hierarchy: Top
           |Message:   Missing clock rate timing constraint.
           |To Fix:
@@ -402,7 +410,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:398:9 - 398:15
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:406:9 - 406:15
           |Hierarchy: Top
           |LHS:       x
           |RHS:       y.resize(8)
@@ -500,7 +508,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:497:21 - 497:30
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:505:21 - 505:30
           |Hierarchy: Top.clk
           |Operation: `Port/Variable constructor`
           |Message:   Cannot create a clk/rst in a related domain.
@@ -544,13 +552,13 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Foo())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:539:42 - 539:56
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:547:42 - 547:56
           |Hierarchy: Foo
           |Operation: `apply`
           |Message:   The applied RHS value width (WIDTH2) is undefined compared to the LHS variable width (WIDTH1).
           |
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:540:42 - 540:60
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:548:42 - 548:60
           |Hierarchy: Foo
           |Operation: `apply`
           |Message:   The applied RHS value width (WIDTH1 + 2) is larger than the LHS variable width (WIDTH1).""".stripMargin
@@ -570,14 +578,14 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Foo())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:564:42 - 564:56
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:572:42 - 572:56
           |Hierarchy: Foo
           |Operation: `apply`
           |Message:   The argument width (WIDTH2) is different than the receiver width (WIDTH1).
           |Consider applying `.resize` to resolve this issue.
           |
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:567:17 - 567:23
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:575:17 - 575:23
           |Hierarchy: Foo.w
           |Operation: `apply`
           |Message:   Cannot apply this operation between a value of WIDTH1 bits width (LHS) and a value of WIDTH2 bits width (RHS).
