@@ -235,38 +235,47 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     }
     require(violations.isEmpty, "Failed member existence check!")
   end memberExistenceCheck
-  @tailrec private def ownershipCheck(currentOwner: DFOwner, members: List[DFMember])(using
+  // Walks the flat member list maintaining an explicit owner stack instead of
+  // relying on getOwner to walk up — non-top DFDesignBlocks now resolve
+  // `ownerRef` to DFMember.Empty under the new convention, so the parent must
+  // be recovered from the walk position rather than the block itself. Treats
+  // every DFDesignBlock encountered as entering a fresh scope; on mismatch
+  // we pop until the next member's owner is on top of the stack.
+  private def ownershipCheck(initialOwner: DFOwner, members: List[DFMember])(using
       MemberGetSet
   ): Unit =
-    members match
-      // a non-top DFDesignBlock is a Top in the immutable DB — its parent
-      // is captured by the DFDesignInst, not its own ownerRef. Treat it as
-      // entering a fresh scope rather than asserting ownership.
-      case (d: DFDesignBlock) :: nextMembers =>
-        ownershipCheck(d, nextMembers)
-      case m :: nextMembers if (m.getOwner == currentOwner) =>
-        m match // still in current owner
-          case o: DFOwner => ownershipCheck(o, nextMembers) // entering new owner
-          case _          => ownershipCheck(currentOwner, nextMembers) // new non-member found
-      case Nil    => // Done! All is OK
-      case m :: _ => // not in current owner
-        // every DFDesignBlock now reports `isTop` in the immutable DB, so we
-        // must distinguish the actual top by identity instead of asking the
-        // member.
-        if (currentOwner == getSet.designDB.top)
-          println(
-            s"The member ${m.hashString}:\n$m\nHas owner ${m.getOwner.hashString}:\n${m.getOwner}"
-          )
-          val idx = getSet.designDB.members.indexOf(m)
-          val prevMember = getSet.designDB.members(idx - 1)
-          println(
-            s"Previous member ${prevMember.hashString}:\n$prevMember\nHas owner ${prevMember.getOwner
-                .hashCode()
-                .toHexString}:\n${prevMember.getOwner}"
-          )
-          require(false, "Failed ownership check!")
-        // exiting current owner.
-        ownershipCheck(currentOwner.getOwner, members)
+    val ownerStack = mutable.Stack[DFOwner](initialOwner)
+    var remaining: List[DFMember] = members
+    while (remaining.nonEmpty)
+      val m = remaining.head
+      m match
+        case d: DFDesignBlock =>
+          // DFDesignBlock encountered: enter as a fresh scope.
+          ownerStack.push(d)
+          remaining = remaining.tail
+        case _ if m.getOwner == ownerStack.top =>
+          m match
+            case o: DFOwner => ownerStack.push(o)
+            case _          => // stay in current owner
+          remaining = remaining.tail
+        case _ =>
+          // Member doesn't belong to current owner — pop until it does. If we
+          // pop past the initial owner, ownership is genuinely violated.
+          if (ownerStack.size == 1)
+            println(
+              s"The member ${m.hashString}:\n$m\nHas owner ${m.getOwner.hashString}:\n${m.getOwner}"
+            )
+            val idx = getSet.designDB.members.indexOf(m)
+            val prevMember = getSet.designDB.members(idx - 1)
+            println(
+              s"Previous member ${prevMember.hashString}:\n$prevMember\nHas owner ${prevMember.getOwner
+                  .hashCode()
+                  .toHexString}:\n${prevMember.getOwner}"
+            )
+            require(false, "Failed ownership check!")
+          ownerStack.pop()
+    end while
+  end ownershipCheck
 
   // checks that a member can only reference members that were defined before it
   private def orderCheck()(using MemberGetSet): Unit =

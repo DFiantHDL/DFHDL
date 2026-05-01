@@ -18,9 +18,22 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   protected def setMeta(meta: Meta): this.type
   protected def setTags(tags: DFTags): this.type
   final def getOwner(using MemberGetSet): DFOwner = ownerRef.get match
-    case o: DFOwner        => o
+    case o: DFOwner => o
     case _: DFMember.Empty =>
-      throw new Exception(s"No owner found for member $this.")
+      // Empty ownerRef on a DFDesignBlock typically indicates a non-top
+      // sub-design whose `ownerRef` has been remapped to Empty under the new
+      // convention. Recover the parent owner via any DFDesignInst whose
+      // `designRef` targets this block (every non-top design has at least
+      // one instance after duplicate elimination). The actual top has no
+      // DFDesignInst, so it falls through to the standard "No owner" throw.
+      this match
+        case d: DFDesignBlock =>
+          getSet.designDB.designBlockInstMap.get(d).flatMap(_.headOption) match
+            case Some(inst) => inst.getOwner
+            case None       =>
+              throw new Exception(s"No owner found for member $this.")
+        case _ =>
+          throw new Exception(s"No owner found for member $this.")
   final def getOwnerNamed(using MemberGetSet): DFOwnerNamed = getOwner match
     case b: DFOwnerNamed => b
     case o               => o.getOwnerNamed
@@ -1504,6 +1517,15 @@ final case class DFDesignBlock(
   protected[dfhdl] def getCachedDesignInst(using MemberGetSet): DFDesignInst =
     assert(getSet.isMutable, "Design inst cache should only be used during elaboration")
     designInstCache.get
+  // Under the new convention every non-top sub-design has its `ownerRef`
+  // remapped to DFMember.Empty in the immutable DB (so it "behaves as Top in
+  // its own sub-DB"). The base `DFOwner.isTop` (which checks ownerRef.get) is
+  // therefore unreliable for "is this the actual top of the design DB?" once
+  // the DB is immutable. During elaboration the ownerRef hasn't been remapped
+  // yet and the DB isn't queryable, so we keep the ownerRef-based answer.
+  override def isTop(using MemberGetSet): Boolean =
+    if (getSet.isMutable) ownerRef.get == DFMember.Empty
+    else this eq getSet.designDB.top
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType =~ that.domainType &&

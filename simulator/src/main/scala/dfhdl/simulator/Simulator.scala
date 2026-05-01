@@ -13,8 +13,7 @@ class Simulator(db: DB)(using system: ActorSystem, ec: ExecutionContext):
 
   /** Maps a DFHDL design to a Pekko Stream */
   def simulateDesign(design: DFDesignBlock): Source[Map[String, Any], NotUsed] =
-    // Walk members directly: dupPortsByName is keyed on DFDesignInst, so the
-    // top design (which has no inst) isn't a key.
+    // Walk members directly:
     val designPorts = db.members.view.collect {
       case dcl: DFVal.Dcl if dcl.isPort && dcl.getOwnerDesign == design =>
         dcl.getName -> dcl

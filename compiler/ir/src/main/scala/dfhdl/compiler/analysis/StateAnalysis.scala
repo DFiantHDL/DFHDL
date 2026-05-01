@@ -142,8 +142,20 @@ object StateAnalysis:
       checkedDomain: DomainType => Boolean
   )(using MemberGetSet): (Set[DFVal], AssignMap) =
     given DFBlock = currentBlock
+    // Non-top DFDesignBlocks resolve `ownerRef` to DFMember.Empty under the
+    // new convention, so `getOwnerBlock` throws on them. Recover the parent
+    // via any DFDesignInst whose `designRef` targets the block — for the flat
+    // walk we just need ONE inst's owner, since the block appears in the flat
+    // list only at the position of its first elaboration site.
+    def parentBlockOf(d: DFDesignBlock): DFBlock =
+      getSet.designDB.designBlockInstMap.get(d).flatMap(_.headOption) match
+        case Some(inst) => inst.getOwnerBlock
+        case None       => d.getOwnerBlock // top design (will throw — caller guards)
+    def ownerBlockOf(m: DFMember): DFBlock = m match
+      case d: DFDesignBlock => parentBlockOf(d)
+      case _                => m.getOwnerBlock
     remaining match
-      case (nextBlock: DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => // entering child block
+      case (nextBlock: DFBlock) :: rs if ownerBlockOf(nextBlock) == currentBlock => // entering child block
         val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = nextBlock match
           case cb: DFConditional.Block =>
             cb.guardRef.get match
@@ -155,7 +167,7 @@ object StateAnalysis:
         getImplicitStateVars(rs, nextBlock, analysisRoot, updatedScopeMap, updatedSet,
           checkedDomain)
       case r :: rs
-          if r.getOwnerBlock == currentBlock && checkedDomain(
+          if ownerBlockOf(r) == currentBlock && checkedDomain(
             currentBlock.getThisOrOwnerDomain.domainType
           ) => // checking member consumers
         val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = r match
@@ -192,22 +204,27 @@ object StateAnalysis:
             outPorts.foldLeft(currentSet) { case (cs, p) => consumeFrom(p, scopeMap, cs) }
           case _ =>
             currentSet
+        // The actual top is identified by reference (every DFDesignBlock now
+        // reports `isTop == true` due to the ownerRef remap); only the
+        // designDB's `top` should suppress further walk-up.
+        val isAtTop = currentBlock match
+          case d: DFDesignBlock => d eq getSet.designDB.top
+          case _                => false
         val exitingBlock = remaining match
-          case r :: _ if r.getOwnerBlock != currentBlock =>
+          case r :: _ if ownerBlockOf(r) != currentBlock =>
             true // another member but not a child of current
-          case Nil if !currentBlock.isTop && !(currentBlock eq analysisRoot) =>
+          case Nil if !isAtTop && !(currentBlock eq analysisRoot) =>
             true // there are no more members, but still not at top
           case _ => false // no more members and we are currently back at top
         if (exitingBlock)
           val updatedScopeMap = currentBlock match
             case cb: DFConditional.Block =>
-              //                println(s"exiting $cb", cb.isLastCB, cb.isExhaustive)
-              //                val ret =
               scopeMap.branchExit(cb.isLastCB, cb.isExhaustive.getOrElse(false))
-            //                println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
-            //                ret
             case _ => scopeMap
-          getImplicitStateVars(remaining, currentBlock.getOwnerBlock, analysisRoot,
+          val nextOwner = currentBlock match
+            case d: DFDesignBlock => parentBlockOf(d)
+            case _                => currentBlock.getOwnerBlock
+          getImplicitStateVars(remaining, nextOwner, analysisRoot,
             updatedScopeMap, updatedSet, checkedDomain)
         else (updatedSet, scopeMap)
     end match

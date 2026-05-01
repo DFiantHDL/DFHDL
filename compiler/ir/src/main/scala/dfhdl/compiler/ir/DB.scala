@@ -1251,8 +1251,20 @@ final case class DB(
       case d: DFDesignBlock => designOwn.getOrElseUpdate(d, mutable.ListBuffer.empty)
       case _                =>
     }
+    // Non-top DFDesignBlocks no longer carry their parent in `ownerRef` — it
+    // resolves to DFMember.Empty under the new convention. Recover the parent
+    // design via any DFDesignInst whose `designRef` targets the block (every
+    // non-top design has at least one instance after duplicate elimination).
+    val designBlockParent = mutable.Map.empty[DFDesignBlock, DFDesignBlock]
+    members.foreach {
+      case inst: DFDesignInst =>
+        designBlockParent.getOrElseUpdate(inst.designRef.get, inst.getOwnerDesign)
+      case _ =>
+    }
     members.foreach {
       case d: DFDesignBlock if d == topDsn            => // top has no parent
+      case d: DFDesignBlock                           =>
+        designBlockParent.get(d).foreach(parent => designOwn(parent) += d)
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // globals handled separately
       case m                                          => designOwn(m.getOwnerDesign) += m
     }
