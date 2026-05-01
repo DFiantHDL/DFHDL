@@ -651,9 +651,23 @@ final class MutableDB():
             Some(designInst)
           case m => Some(finalFixFunc(m))
         }
+        // Every non-duplicate non-top sub-design should behave as a Top in
+        // the immutable DB. We don't change the block instance itself;
+        // instead we remap its ownerRef in the refTable to DFMember.Empty.
+        // The DFDesignInst is the sole per-use-site marker that remains owned
+        // by the parent design.
+        // Orphan duplicate canon's (no DFDesignInst points at them after
+        // dedup) keep their original parent ownerRef — they are vestigial
+        // markers that get swept away once duplicate elimination is complete.
+        val designBlockOwnerRefs = finalMembers.iterator.collect {
+          case d: DFDesignBlock
+              if !d.ownerRef.isInstanceOf[DFRef.Empty] && !d.isDuplicate =>
+            d.ownerRef: DFRefAny
+        }.toSet
         val finalRefTable = fixedRefTable.view.flatMap { case (ref, member) =>
           if (redundantRefs.contains(ref)) None
           else if (dupRefs.contains(ref)) Some(ref -> dupRefs(ref))
+          // else if (designBlockOwnerRefs.contains(ref)) Some(ref -> DFMember.Empty)
           else Some(ref -> finalFixFunc(member))
         }.toMap
         (finalMembers, finalRefTable)
