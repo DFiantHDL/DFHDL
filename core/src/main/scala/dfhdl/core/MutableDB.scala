@@ -643,6 +643,15 @@ final class MutableDB():
             redundantRefs += m.ownerRef
             redundantRefs ++= m.getRefs
             None
+          // Duplicate DFDesignBlocks are eliminated entirely from the
+          // immutable DB. Their DFDesignInsts have been rewired to the
+          // canonical above, so the duplicate block itself has no remaining
+          // role. Its refs (ownerRef + meta/domainType refs) are dropped
+          // alongside its members below.
+          case d: DFDesignBlock if dupToOrigDesignMap.contains(d) =>
+            redundantRefs += d.ownerRef
+            redundantRefs ++= d.getRefs
+            None
           case designInst: DFDesignInst =>
             dupToOrigDesignMap.get(designInst.designRef.get) match
               case Some(origDesign) =>
@@ -651,17 +660,13 @@ final class MutableDB():
             Some(designInst)
           case m => Some(finalFixFunc(m))
         }
-        // Every non-duplicate non-top sub-design should behave as a Top in
-        // the immutable DB. We don't change the block instance itself;
-        // instead we remap its ownerRef in the refTable to DFMember.Empty.
-        // The DFDesignInst is the sole per-use-site marker that remains owned
-        // by the parent design.
-        // Orphan duplicate canon's (no DFDesignInst points at them after
-        // dedup) keep their original parent ownerRef — they are vestigial
-        // markers that get swept away once duplicate elimination is complete.
+        // Every non-top sub-design should behave as a Top in the immutable
+        // DB. We don't change the block instance itself; instead we remap
+        // its ownerRef in the refTable to DFMember.Empty. The DFDesignInst
+        // is the sole per-use-site marker that remains owned by the parent
+        // design.
         val designBlockOwnerRefs = finalMembers.iterator.collect {
-          case d: DFDesignBlock
-              if !d.ownerRef.isInstanceOf[DFRef.Empty] && !d.isDuplicate =>
+          case d: DFDesignBlock if !d.ownerRef.isInstanceOf[DFRef.Empty] =>
             d.ownerRef: DFRefAny
         }.toSet
         val finalRefTable = fixedRefTable.view.flatMap { case (ref, member) =>
@@ -717,13 +722,6 @@ final class MutableDB():
     def remove[M <: DFMember](member: M): M = ignoreMember(member)
     def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit = GlobalTagContext.set(tag)
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = GlobalTagContext.get[CT]
-    def findDesignInst(design: DFDesignBlock): Option[DFDesignInst] =
-      metaGetSetList.view.flatMap(_.findDesignInst(design)).headOption
-        // fall back to the immutable DB's reverse-lookup map, which covers
-        // the normal elaboration path where metaGetSetList is empty
-        // TODO: this is required for DFBitsSpec tests that uses a design def in assertCodeString.
-        // this needs to be removed, but we'll leave it here until we get rid of DFDesignBlock duplicates completely.
-        .orElse(designDB.designInstMap.get(design))
   end getSet
 
 end MutableDB

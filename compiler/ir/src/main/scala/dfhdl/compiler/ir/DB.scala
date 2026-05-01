@@ -46,8 +46,6 @@ final case class DB(
       "Cannot set global tag on immutable DB"
     )
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = globalTags.getTagOf[CT]
-    def findDesignInst(design: DFDesignBlock): Option[DFDesignInst] =
-      designInstMap.get(design)
   end getSet
 
   // considered to be in simulation if the top design has no ports
@@ -298,12 +296,6 @@ final case class DB(
   // design block to its owner design blocks map (multiple owners in case of multiple instantiations). Note that the top-level design block has no owner and thus is not included in the map.
   lazy val designBlockOwnershipMap: Map[DFDesignBlock, Set[DFDesignBlock]] =
     designBlockInstMap.view.mapValues(_.view.map(_.getOwnerDesign).toSet).toMap
-
-  // Reverse map from each DFDesignBlock to its DFDesignInst. Every non-top
-  // design has exactly one DFDesignInst introduced during elaboration; the
-  // top-level DFDesignBlock has none (no instantiation site).
-  lazy val designInstMap: Map[DFDesignBlock, DFDesignInst] =
-    members.view.collect { case inst: DFDesignInst => inst.getDesignBlock -> inst }.toMap
 
   // holds the topological order of unique design block dependency
   lazy val uniqueDesignMemberList: List[(DFDesignBlock, List[DFMember])] =
@@ -1482,7 +1474,6 @@ trait MemberGetSet:
   def remove[M <: DFMember](member: M): M
   def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit
   def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT]
-  def findDesignInst(design: DFDesignBlock): Option[DFDesignInst]
   final lazy val topName: String = designDB.top.dclName
 end MemberGetSet
 
