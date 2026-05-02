@@ -614,10 +614,60 @@ final case class DB(
       }.map(owner -> _)
     }.toMap
 
+  // Resolves a PortByNameSelect to its underlying DFVal.Dcl by walking the
+  // dotted `portNamePath` from the targeted design block. Cross-design refs
+  // go through PBNS (the target port lives in a different sub-DB), so this
+  // is needed whenever an analysis needs the actual port (e.g. to read its
+  // owning RT domain).
+  private def pbnsToPort(pbns: DFVal.PortByNameSelect): Option[DFVal.Dcl] =
+    val designBlock: DFDesignBlock = pbns.designInstRef.get.getDesignBlock
+    val pathParts = pbns.portNamePath.split('.').toList
+    @tailrec def walk(owner: DFOwnerNamed, parts: List[String]): Option[DFMember] =
+      parts match
+        case Nil => None
+        case head :: rest =>
+          namedOwnerMemberTable.getOrElse(owner, Nil).collectFirst {
+            case n: DFMember.Named if !n.isAnonymous && n.getName == head => n
+          } match
+            case Some(m) if rest.isEmpty   => Some(m)
+            case Some(o: DFOwnerNamed)     => walk(o, rest)
+            case _                         => None
+    walk(designBlock, pathParts) match
+      case Some(dcl: DFVal.Dcl) => Some(dcl)
+      case _                    => None
+  end pbnsToPort
+
+  // Full path for a domain owner that prefers the per-instance name over the
+  // canonical design-block class name. With dedup, a non-top DFDesignBlock
+  // is reached through one or more DFDesignInsts; we walk through the head
+  // inst so that error messages show user-visible instance paths
+  // ("Top.internal1.dmn1") rather than class-name paths ("Top.Internal1.dmn1").
+  // For design blocks that have multiple instances, the choice picks the
+  // first inst — callers that need every instance path must enumerate them
+  // separately.
+  private def fullNameViaInst(owner: DFDomainOwner): String =
+    val design = owner.getThisOrOwnerDesign
+    if (design.isTop) owner.getFullName
+    else
+      designBlockInstMap.get(design).flatMap(_.headOption) match
+        case Some(inst) =>
+          owner match
+            case _: DFDesignBlock => inst.getFullName
+            case _                =>
+              val relPath = owner.getRelativeName(design)
+              s"${inst.getFullName}.$relPath"
+        case None => owner.getFullName
+  end fullNameViaInst
+
   lazy val dependentRTDomainOwners: Map[DFDomainOwner, DFDomainOwner] =
     extension (member: DFMember)
       def getRTOwnerOption: Option[DFDomainOwner] =
-        val owner = member.getOwnerDomain
+        val owner = member match
+          case pbns: DFVal.PortByNameSelect =>
+            // Resolve through PBNS so we get the RT domain of the underlying
+            // port rather than the parent design that owns the PBNS net.
+            pbnsToPort(pbns).map(_.getOwnerDomain).getOrElse(member.getOwnerDomain)
+          case _ => member.getOwnerDomain
         owner.domainType match
           case DomainType.RT => Some(owner)
           case _             => None
@@ -642,8 +692,21 @@ final case class DB(
                     val inPorts = domainMembers.collect {
                       case dcl: DFVal.Dcl if dcl.isPortIn && !dcl.isClkDcl && !dcl.isRstDcl => dcl
                     }
+                    // Cross-design connections to an internal RT-domain input
+                    // are keyed in the connectionTable by the PBNS at the
+                    // parent scope, not by the inner port — collect both so
+                    // the source-domain analysis covers external drivers.
+                    val enclosingDesign = domain.getOwnerDesign
+                    val designInsts = designBlockInstMap.getOrElse(enclosingDesign, Nil)
                     val inSourceDomains = inPorts.view.flatMap { port =>
-                      connectionTable.getNets(port).headOption match
+                      val portRelName = port.getRelativeName(enclosingDesign)
+                      val pbnsNets = designInsts.view.flatMap { inst =>
+                        designInstPBNS.getOrElse(inst, Nil)
+                          .filter(_.portNamePath == portRelName)
+                          .flatMap(connectionTable.getNets(_))
+                      }.toSet
+                      val allNets = connectionTable.getNets(port) ++ pbnsNets
+                      allNets.headOption match
                         case Some(DFNet.Connection(_, from, _)) => from.getRTOwnerOption
                         case _                                  => None
                     }.toSet
@@ -651,9 +714,9 @@ final case class DB(
                     else if (inSourceDomains.size > 1)
                       throw new IllegalArgumentException(
                         s"""|Found ambiguous source RT configurations for the domain:
-                            |${domain.getFullName}
+                            |${fullNameViaInst(domain)}
                             |Sources:
-                            |${inSourceDomains.map(_.getFullName).mkString("\n")}
+                            |${inSourceDomains.map(fullNameViaInst).mkString("\n")}
                             |Possible solution:
                             |Either explicitly define a configuration for the domain or drive it from a single source domain.
                             |""".stripMargin
@@ -940,7 +1003,7 @@ final case class DB(
       if (stack.contains(node))
         throw new IllegalArgumentException(
           s"""|Circular derived RT configuration detected. Involved in the cycle:
-              |${stack.map(_.getFullName).mkString("\n")}
+              |${stack.map(fullNameViaInst).mkString("\n")}
               |""".stripMargin
         )
       if (!visited.contains(node))
@@ -1251,8 +1314,20 @@ final case class DB(
       case d: DFDesignBlock => designOwn.getOrElseUpdate(d, mutable.ListBuffer.empty)
       case _                =>
     }
+    // Non-top DFDesignBlocks no longer carry their parent in `ownerRef` — it
+    // resolves to DFMember.Empty under the new convention. Recover the parent
+    // design via any DFDesignInst whose `designRef` targets the block (every
+    // non-top design has at least one instance after duplicate elimination).
+    val designBlockParent = mutable.Map.empty[DFDesignBlock, DFDesignBlock]
+    members.foreach {
+      case inst: DFDesignInst =>
+        designBlockParent.getOrElseUpdate(inst.designRef.get, inst.getOwnerDesign)
+      case _ =>
+    }
     members.foreach {
       case d: DFDesignBlock if d == topDsn            => // top has no parent
+      case d: DFDesignBlock                           =>
+        designBlockParent.get(d).foreach(parent => designOwn(parent) += d)
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // globals handled separately
       case m                                          => designOwn(m.getOwnerDesign) += m
     }
