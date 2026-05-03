@@ -26,10 +26,10 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       """|Elaboration errors found!
          |Found ambiguous source RT configurations for the domain:
-         |Top.internal2.dmn
+         |Internal2.dmn
          |Sources:
-         |Top.internal1.dmn1
-         |Top.internal1.dmn2
+         |Internal1.dmn1
+         |Internal1.dmn2
          |Possible solution:
          |Either explicitly define a configuration for the domain or drive it from a single source domain.
          |""".stripMargin
@@ -59,8 +59,8 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       """|Elaboration errors found!
          |Circular derived RT configuration detected. Involved in the cycle:
-         |Top.internal1.dmn
-         |Top.internal2.dmn
+         |Internal1.dmn
+         |Internal2.dmn
          |""".stripMargin
     )
 
@@ -192,7 +192,7 @@ class ElaborationChecksSpec extends DesignSpec:
           |Message:   Found a dangling (unconnected) input port `x`.
           |DFiant HDL connectivity error!
           |Position:  ${currentFilePos}ElaborationChecksSpec.scala:177:15 - 177:30
-          |Hierarchy: IDTop.ID
+          |Hierarchy: ID
           |Message:   Found a dangling (unconnected/unassigned and uninitialized) output port `y`.
           |""".stripMargin
     )

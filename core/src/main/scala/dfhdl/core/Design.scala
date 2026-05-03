@@ -240,14 +240,18 @@ object Design:
 
   extension (designDB: ir.DB)
     def latchesCheck(): Unit =
-      import designDB.getSet
-      val danglingVars = designDB.getImplicitStateVarsRT.view
-        .map { v =>
-          s"""|DFiant HDL connectivity/assignment error!
-              |Position:  ${v.meta.position}
-              |Hierarchy: ${v.getOwnerDomain.getFullName}
-              |Message:   Found a latch variable `${v.getName}`. Latches are not allowed under RT domains.""".stripMargin
-        }
+      val newDB = designDB.oldToNew
+      val allDBs = newDB :: newDB.internalDBs.values.toList
+      val danglingVars = allDBs.view.flatMap { db =>
+        given ir.MemberGetSet = db.getSet
+        db.getImplicitStateVarsRT.view
+          .map { v =>
+            s"""|DFiant HDL connectivity/assignment error!
+                |Position:  ${v.meta.position}
+                |Hierarchy: ${v.getOwnerDomain.getFullName}
+                |Message:   Found a latch variable `${v.getName}`. Latches are not allowed under RT domains.""".stripMargin
+          }
+      }
       if (danglingVars.nonEmpty)
         throw new IllegalArgumentException(danglingVars.mkString("\n"))
   end extension
