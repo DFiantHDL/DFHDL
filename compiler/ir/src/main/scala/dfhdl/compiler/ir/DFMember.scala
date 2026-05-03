@@ -464,7 +464,11 @@ object DFVal:
     protected[compiler] def appliedValRefOpt(using MemberGetSet): Option[DFDesignInst.ParamRef] =
       val ownerDesign = getOwnerDesign
       if (ownerDesign.isTop) None
-      else ownerDesign.getCachedDesignInst.paramMap.get(getName)
+      else
+        val instOpt =
+          if (getSet.isMutable) Some(ownerDesign.getCachedDesignInst)
+          else getSet.designDB.designBlockInstMap.get(ownerDesign).flatMap(_.headOption)
+        instOpt.flatMap(_.paramMap.get(getName))
     def appliedValOpt(using MemberGetSet): Option[DFVal] =
       if (getSet.isMutable) cachedAppliedVal.orElse(appliedValRefOpt.map(_.get))
       else appliedValRefOpt.map(_.get)

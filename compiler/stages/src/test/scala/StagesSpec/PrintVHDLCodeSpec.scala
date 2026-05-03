@@ -802,72 +802,72 @@ class PrintVHDLCodeSpec extends StageSpec:
     )
   }
 
-  // test("Global parameters under vhdl.v93") {
-  //   given options.CompilerOptions.Backend = backends.vhdl.v93
-  //   val width: Int <> CONST               = 8
-  //   val length: Int <> CONST              = 10
-  //   class Foo(
-  //       val width5: Int <> CONST  = 8,
-  //       val length5: Int <> CONST = 10
-  //   ) extends RTDesign:
-  //     val x1 = Bits(width) X length <> IN
-  //     val y1 = Bits(width) X length <> OUT
-  //     y1 <> x1
-  //     val x2 = Bits(width) X (length + 1) <> IN
-  //     val y2 = Bits(width) X (length + 1) <> OUT
-  //     y2 <> x2
-  //     val x3 = Bits(width) X 7 <> IN
-  //     val y3 = Bits(width) X 7 <> OUT
-  //     y3 <> x3
-  //     val x4 = Bits(width) X 7 X length <> IN
-  //     val y4 = Bits(width) X 7 X length <> OUT
-  //     y4 <> x4
-  //     val x5 = Bits(width5) X 7 X length5 <> IN
-  //     val y5 = Bits(width5) X 7 X length5 <> OUT
-  //     y5 <> x5
-  //   end Foo
-  //   val top = (new Foo).getCompiledCodeString
-  //   assertNoDiff(
-  //     top,
-  //     """|constant width : integer := 8;
-  //        |constant length : integer := 10;
-  //        |constant Foo_length5 : integer := 10;
-  //        |
-  //        |library ieee;
-  //        |use ieee.std_logic_1164.all;
-  //        |use ieee.numeric_std.all;
-  //        |use work.dfhdl_pkg.all;
-  //        |use work.Foo_pkg.all;
-  //        |
-  //        |entity Foo is
-  //        |generic (
-  //        |  width5 : integer := 8
-  //        |);
-  //        |port (
-  //        |  x1 : in t_arrXPlength_slvPwidth;
-  //        |  y1 : out t_arrXPlength_slvPwidth;
-  //        |  x2 : in t_arrXP1_slvPwidth;
-  //        |  y2 : out t_arrXP1_slvPwidth;
-  //        |  x3 : in t_arrX7_slvPwidth;
-  //        |  y3 : out t_arrX7_slvPwidth;
-  //        |  x4 : in t_arrXPlength_t_arrX7_slvPwidth;
-  //        |  y4 : out t_arrXPlength_t_arrX7_slvPwidth;
-  //        |  x5 : in t_arrXPFoo_length5_t_arrX7_slvPwidth5;
-  //        |  y5 : out t_arrXPFoo_length5_t_arrX7_slvPwidth5
-  //        |);
-  //        |end Foo;
-  //        |
-  //        |architecture Foo_arch of Foo is
-  //        |begin
-  //        |  y1 <= x1;
-  //        |  y2 <= x2;
-  //        |  y3 <= x3;
-  //        |  y4 <= x4;
-  //        |  y5 <= x5;
-  //        |end Foo_arch;
-  //        |""".stripMargin
-  //   )
-  // }
+  test("Global parameters under vhdl.v93") {
+    given options.CompilerOptions.Backend = backends.vhdl.v93
+    val width: Int <> CONST               = 8
+    val length: Int <> CONST              = 10
+    class Foo(
+        val width5: Int <> CONST  = 8,
+        val length5: Int <> CONST = 10
+    ) extends RTDesign:
+      val x1 = Bits(width) X length <> IN
+      val y1 = Bits(width) X length <> OUT
+      y1 <> x1
+      val x2 = Bits(width) X (length + 1) <> IN
+      val y2 = Bits(width) X (length + 1) <> OUT
+      y2 <> x2
+      val x3 = Bits(width) X 7 <> IN
+      val y3 = Bits(width) X 7 <> OUT
+      y3 <> x3
+      val x4 = Bits(width) X 7 X length <> IN
+      val y4 = Bits(width) X 7 X length <> OUT
+      y4 <> x4
+      val x5 = Bits(width5) X 7 X length5 <> IN
+      val y5 = Bits(width5) X 7 X length5 <> OUT
+      y5 <> x5
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|constant width : integer := 8;
+         |constant length : integer := 10;
+         |constant Foo_length5 : integer := 10;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |generic (
+         |  width5 : integer := 8
+         |);
+         |port (
+         |  x1 : in t_arrXPlength_slvPwidth;
+         |  y1 : out t_arrXPlength_slvPwidth;
+         |  x2 : in t_arrXP1_slvPwidth;
+         |  y2 : out t_arrXP1_slvPwidth;
+         |  x3 : in t_arrX7_slvPwidth;
+         |  y3 : out t_arrX7_slvPwidth;
+         |  x4 : in t_arrXPlength_t_arrX7_slvPwidth;
+         |  y4 : out t_arrXPlength_t_arrX7_slvPwidth;
+         |  x5 : in t_arrXPFoo_length5_t_arrX7_slvPwidth5;
+         |  y5 : out t_arrXPFoo_length5_t_arrX7_slvPwidth5
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  y1 <= x1;
+         |  y2 <= x2;
+         |  y3 <= x3;
+         |  y4 <= x4;
+         |  y5 <= x5;
+         |end Foo_arch;
+         |""".stripMargin
+    )
+  }
   test("wait statements") {
     class Foo extends EDDesign:
       val x = Bit <> OUT
