@@ -16,7 +16,7 @@ case object LocalToDesignParams extends Stage:
       case be: dfhdl.backends.vhdl => true
       case _                       => false
   override def dependencies: List[Stage] = List(
-    GlobalizePortVectorParams,
+    // GlobalizePortVectorParams,
     SimpleOrderMembers
   )
   override def nullifies: Set[Stage] = Set()
