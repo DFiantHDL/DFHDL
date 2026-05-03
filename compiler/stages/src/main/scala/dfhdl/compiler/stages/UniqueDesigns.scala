@@ -32,7 +32,7 @@ case object UniqueDesigns extends Stage:
           // naming. we only lower-cased it for case-insensitive grouping.
           val updatedDclName =
             if (list.length > 1)
-              if (groupHead.isTop) groupHead.dclName // top name should not be mangled
+              if (groupHead.isTopTop) groupHead.dclName // top name should not be mangled
               else s"${groupHead.dclName}_${i.toPaddedString(list.length)}"
             else groupHead.dclName
           var first = true

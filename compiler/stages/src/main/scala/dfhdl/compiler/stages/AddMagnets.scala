@@ -31,16 +31,24 @@ case object AddMagnets extends Stage:
             missingMagnets += dsn -> (dfTypeNameMap + (dfType -> (fromMP.getName, dir)))
           case _ => // do nothing
       // climb from a bottom design to a top design, while memoizing missing
-      // magnets between the designs
+      // magnets between the designs. With DFDesignBlock.ownerRef == Empty the
+      // lexical parent is no longer reachable via getOwnerDesign — walk up
+      // through `designBlockOwnershipMap` (parents-via-instances) instead.
+      // Multiple parents at any level are all visited; iteration stops once
+      // we reach `topDsn`. Both endpoints are excluded from the registration.
       def climbUpDsn(
           bottomDsn: DFDesignBlock,
           topDsn: DFDesignBlock,
           dir: DFVal.Modifier.Dir
       ): Unit =
-        var dsn = bottomDsn
-        while (!dsn.isOneLevelBelow(topDsn))
-          dsn = dsn.getOwnerDesign
-          anotherMissingMagnet(dsn, dir)
+        val visited = mutable.Set.empty[DFDesignBlock]
+        val queue = mutable.Queue.empty[DFDesignBlock]
+        queue ++= designDB.designBlockOwnershipMap.getOrElse(bottomDsn, Set.empty)
+        while (queue.nonEmpty)
+          val dsn = queue.dequeue()
+          if (dsn != topDsn && visited.add(dsn))
+            anotherMissingMagnet(dsn, dir)
+            queue ++= designDB.designBlockOwnershipMap.getOrElse(dsn, Set.empty)
       def climbUp(bottomPort: ConnectPoint, topDsn: DFDesignBlock): Unit =
         climbUpDsn(bottomPort.getOwnerDesign, topDsn, bottomPort.dir)
       (toMP.dir, fromMP.dir) match

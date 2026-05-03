@@ -29,7 +29,7 @@ case object LocalToDesignParams extends Stage:
           case const @ DclConst() => const.getName -> const
         }.toMap
         val designInstances = members.collect { case di: DFDesignInst => di.getDesignBlock }
-        val exploredDesigns = if (design.isTop) design :: designInstances else designInstances
+        val exploredDesigns = if (design.isTopTop) design :: designInstances else designInstances
         exploredDesigns.flatMap { designInstance =>
           val ioLocalParams = designInstance.getIOLocalParams
           ioLocalParams.view.collect { lp =>
@@ -39,7 +39,7 @@ case object LocalToDesignParams extends Stage:
             ):
               val lpAnon = plantMember(lp.anonymize).asValAny
               val paramValue =
-                if (designInstance.isTop) lpAnon
+                if (designInstance.isTopTop) lpAnon
                 else
                   val paramName = s"${designInstance.getName}_${lp.getName}"
                   localConsts.get(paramName).getOrElse(lpAnon.asIR).asValAny

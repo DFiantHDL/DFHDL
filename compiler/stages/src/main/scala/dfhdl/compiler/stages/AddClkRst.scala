@@ -9,8 +9,8 @@ import scala.collection.mutable
 import dfhdl.core.DFOpaque as coreDFOpaque
 import dfhdl.core.{asFE, DFCG}
 
-/** Reads the resolved `@timing.clock` / `@timing.reset` / `@timing.related` annotations written
-  * by [[ExplicitClkRstCfg]] onto each owner's meta, and:
+/** Reads the resolved `@timing.clock` / `@timing.reset` / `@timing.related` annotations written by
+  * [[ExplicitClkRstCfg]] onto each owner's meta, and:
   *
   *   - Adds clk/rst input ports to non-related RT domain owners that carry the corresponding
   *     annotations, unless already explicitly declared.
@@ -90,8 +90,9 @@ case object AddClkRst extends Stage:
               val existingClk = members.collectFirst {
                 case clk: DFVal.Dcl if clk.isClkDcl =>
                   clkAnnotOpt.foreach { clkAnnot =>
-                    if (clk.modifier.dir == DFVal.Modifier.OUT && !design.isTop)
-                      designClkOut += Tuple2(design.getOwnerDesign, clkAnnot)
+                    if (clk.modifier.dir == DFVal.Modifier.OUT && !design.isTopTop)
+                      designDB.designBlockOwnershipMap.getOrElse(design, Set.empty)
+                        .foreach(parent => designClkOut += ((parent, clkAnnot)))
                   }
                   clk
               }
@@ -99,8 +100,9 @@ case object AddClkRst extends Stage:
                 case rst: DFVal.Dcl if rst.isRstDcl =>
                   (rstAnnotOpt, clkAnnotOpt) match
                     case (Some(rstAnnot), Some(clkAnnot))
-                        if rst.modifier.dir == DFVal.Modifier.OUT && !design.isTop =>
-                      designRstOut += ((design.getOwnerDesign, grpName(clkAnnot), rstAnnot))
+                        if rst.modifier.dir == DFVal.Modifier.OUT && !design.isTopTop =>
+                      designDB.designBlockOwnershipMap.getOrElse(design, Set.empty)
+                        .foreach(parent => designRstOut += ((parent, grpName(clkAnnot), rstAnnot)))
                     case _ =>
                   rst
               }
@@ -154,7 +156,7 @@ case object AddClkRst extends Stage:
 
               // add missing clk/rst ports
               if (addClk || addRst)
-                val simGen = designDB.inSimulation && design.isTop
+                val simGen = designDB.inSimulation && design.isTopTop
                 val dsn = new MetaDesign(owner, Patch.Add.Config.InsideFirst):
                   val selfDFC = dfc
                   if (simGen)

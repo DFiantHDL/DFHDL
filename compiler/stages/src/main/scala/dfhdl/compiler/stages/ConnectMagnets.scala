@@ -27,11 +27,18 @@ case object ConnectMagnets extends HierarchyStage:
         val outer = getSet.designDB
         // Collect magnet connections targeting this design (mirrors the
         // classification rules of the flat version, but scoped).
+        // For (IN, OUT): connection lives in the design containing both
+        // ports' designs — i.e., the parent of `toMP.getOwnerDesign`.
+        // DFDesignBlock.ownerRef is Empty under the new model, so walk up
+        // via designBlockInstMap (first inst's owner). Singleton hierarchies
+        // resolve cleanly; multi-instance picks an arbitrary parent.
+        def parentOf(d: DFDesignBlock): Option[DFDesignBlock] =
+          outer.designBlockInstMap.get(d).flatMap(_.headOption).map(_.getOwnerDesign)
         val connsForDesign = outer.magnetConnectionMap.iterator.flatMap { case (toMP, fromMP) =>
           val targetDsn =
             if (toMP.isPortIn && (fromMP.isPortIn || fromMP.isVar)) Some(fromMP.getOwnerDesign)
             else if (toMP.isPortOut && fromMP.isPortOut) Some(toMP.getOwnerDesign)
-            else if (toMP.isPortIn && fromMP.isPortOut) Some(toMP.getOwnerDesign.getOwnerDesign)
+            else if (toMP.isPortIn && fromMP.isPortOut) parentOf(toMP.getOwnerDesign)
             else if (toMP.isPortOut && (fromMP.isPortIn || fromMP.isVar))
               Some(fromMP.getOwnerDesign)
             else None

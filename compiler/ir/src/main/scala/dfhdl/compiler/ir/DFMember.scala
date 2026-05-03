@@ -1148,6 +1148,9 @@ sealed trait DFOwner extends DFMember:
   def isTop(using MemberGetSet): Boolean = ownerRef.get match
     case DFMember.Empty => true
     case _              => false
+  def isTopTop(using MemberGetSet): Boolean =
+    assert(!getSet.isMutable)
+    getSet.designDB.top == this
 
 sealed trait DFOwnerNamed extends DFOwner, DFMember.Named
 sealed trait DFDomainOwner extends DFOwnerNamed:

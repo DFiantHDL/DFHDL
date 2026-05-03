@@ -29,15 +29,6 @@ case object ExplicitClkRstCfg extends HierarchyStage:
     val designDB = getSet.designDB
     val relatedCfgRefs = mutable.Map.empty[DFRefAny, DFMember]
     given dfc: DFC = DFC.emptyNoEO
-    // A DFDesignBlock D appears as a member in two sub-DBs: as the top of
-    // its own sub-DB AND as a child member of its parent sub-DB. Patch D
-    // only in its canonical sub-DB (where D's locals live) so that
-    // newToOld picks the patched version. DomainBlocks live in exactly
-    // one sub-DB (the surrounding design's sub-DB), so always process.
-    def isCanonicalHere(owner: DFOwnerNamed): Boolean = owner match
-      case d: DFDesignBlock => (subDB.top eq d) && !subDB.internalDBs.contains(d.ownerRef)
-      case _                => true
-
     // Strip any @timing.clock / @timing.reset / @timing.related from the annotation
     // list — this stage will re-emit them based on the resolved result.
     def stripTimingAnnotations(
@@ -51,7 +42,7 @@ case object ExplicitClkRstCfg extends HierarchyStage:
       }
 
     val patchList: List[(DFMember, Patch)] = subDB.namedOwnerMemberList.flatMap {
-      case (owner: (DFDomainOwner & DFBlock), members) if isCanonicalHere(owner) =>
+      case (owner: (DFDomainOwner & DFBlock), members) =>
         owner.domainType match
           case DomainType.RT =>
             val (resolvedClk, resolvedRst) =

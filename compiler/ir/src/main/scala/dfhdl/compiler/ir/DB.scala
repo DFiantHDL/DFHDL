@@ -624,14 +624,14 @@ final case class DB(
     val pathParts = pbns.portNamePath.split('.').toList
     @tailrec def walk(owner: DFOwnerNamed, parts: List[String]): Option[DFMember] =
       parts match
-        case Nil => None
+        case Nil          => None
         case head :: rest =>
           namedOwnerMemberTable.getOrElse(owner, Nil).collectFirst {
             case n: DFMember.Named if !n.isAnonymous && n.getName == head => n
           } match
-            case Some(m) if rest.isEmpty   => Some(m)
-            case Some(o: DFOwnerNamed)     => walk(o, rest)
-            case _                         => None
+            case Some(m) if rest.isEmpty => Some(m)
+            case Some(o: DFOwnerNamed)   => walk(o, rest)
+            case _                       => None
     walk(designBlock, pathParts) match
       case Some(dcl: DFVal.Dcl) => Some(dcl)
       case _                    => None
@@ -662,15 +662,21 @@ final case class DB(
   lazy val dependentRTDomainOwners: Map[DFDomainOwner, DFDomainOwner] =
     extension (member: DFMember)
       def getRTOwnerOption: Option[DFDomainOwner] =
+        // A DFDesignBlock no longer carries a lexical parent in `ownerRef`,
+        // so resolve its enclosing domain via the (first) DFDesignInst
+        // instead of `getOwnerDomain` (which would throw on the empty ref).
         val owner = member match
+          case design: DFDesignBlock =>
+            designBlockInstMap.get(design).flatMap(_.headOption).map(_.getOwnerDomain)
           case pbns: DFVal.PortByNameSelect =>
             // Resolve through PBNS so we get the RT domain of the underlying
             // port rather than the parent design that owns the PBNS net.
-            pbnsToPort(pbns).map(_.getOwnerDomain).getOrElse(member.getOwnerDomain)
-          case _ => member.getOwnerDomain
-        owner.domainType match
-          case DomainType.RT => Some(owner)
-          case _             => None
+            Some(pbnsToPort(pbns).map(_.getOwnerDomain).getOrElse(member.getOwnerDomain))
+          case _ => Some(member.getOwnerDomain)
+        owner.flatMap(_.domainType match
+          case DomainType.RT => owner
+          case _             => None)
+    end extension
     domainOwnerMemberList.view.flatMap { (domainOwner, domainMembers) =>
       domainOwner.domainType match
         case DomainType.RT =>
@@ -686,7 +692,7 @@ final case class DB(
               else
                 domainOwner match
                   case design: DFDesignBlock =>
-                    if (design.isTop) None
+                    if (design.isTopTop) None
                     else design.getRTOwnerOption.map(design -> _)
                   case domain: DomainBlock =>
                     val inPorts = domainMembers.collect {
@@ -822,9 +828,10 @@ final case class DB(
       case reg: DFVal.Alias.History            => true
       case pb: ProcessBlock if pb.isInRTDomain => true
       case internal: DFDesignBlock             => internal.usesClkRst.usesClk
+      case inst: DFDesignInst                  => inst.getDesignBlock.usesClkRst.usesClk
       case _                                   => false
     } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst.usesClk) ||
-      domainOwner.isTop && domainOwner.isAlwaysAtTopClk ||
+      domainOwner.isTopTop && domainOwner.isAlwaysAtTopClk ||
       domainOwner.hasClkAnnot
 
     private def usesRst: Boolean = domainOwnerMemberTable(domainOwner).exists {
@@ -833,9 +840,10 @@ final case class DB(
       case reg: DFVal.Alias.History            => reg.hasNonBubbleInit
       case pb: ProcessBlock if pb.isInRTDomain => true
       case internal: DFDesignBlock             => internal.usesClkRst.usesRst
+      case inst: DFDesignInst                  => inst.getDesignBlock.usesClkRst.usesRst
       case _                                   => false
     } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst.usesRst) ||
-      domainOwner.isTop && domainOwner.isAlwaysAtTopRst ||
+      domainOwner.isTopTop && domainOwner.isAlwaysAtTopRst ||
       domainOwner.hasRstAnnot
   end extension
 
@@ -1333,7 +1341,7 @@ final case class DB(
       case _ =>
     }
     members.foreach {
-      case _: DFDesignBlock                           => // nested blocks live in their own sub-DB only
+      case _: DFDesignBlock => // nested blocks live in their own sub-DB only
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // globals handled separately
       case m                                          => designOwn(m.getOwnerDesign) += m
     }
@@ -1503,6 +1511,7 @@ final case class DB(
                 case d: DFDesignBlock if internalDBs.contains(d.ownerRef) =>
                   emit(internalDBs(d.ownerRef).members)
                 case _ =>
+        end match
       }
     emit(this.members)
     // Merge refTables from root + every sub-DB. A shared ref key can live in
