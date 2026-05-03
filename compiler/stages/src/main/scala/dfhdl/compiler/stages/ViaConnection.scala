@@ -7,17 +7,16 @@ import dfhdl.options.CompilerOptions
 import dfhdl.internals.*
 import scala.collection.mutable
 
-case object ViaConnection extends Stage:
+case object ViaConnection extends HierarchyStage:
   def dependencies: List[Stage] = List(DropDesignDefs, ExplicitNamedVars, SimpleOrderMembers)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList: List[(DFMember, Patch)] = designDB.members.flatMap {
+  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patchList: List[(DFMember, Patch)] = subDB.members.flatMap {
       case ib: DFDesignInst =>
         val nets = mutable.ListBuffer.empty[DFNet]
         val pbnsSkip = mutable.Set.empty[DFVal.PortByNameSelect]
         val pbnsGrps =
-          designDB.designInstPBNS.getOrElse(ib, Nil).groupBy(_.portNamePath).values.toList
+          subDB.designInstPBNS.getOrElse(ib, Nil).groupBy(_.portNamePath).values.toList
         pbnsGrps.foreach {
           // a single PBNS is connected to no more than a single net
           case List(pbns) =>
@@ -100,8 +99,8 @@ case object ViaConnection extends Stage:
         addVarsDsn.patch :: connectDsn.patch :: connectDsn.refPatches ++ connectDsn.movedNets
       case _ => Nil
     }
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patchList)
+  end transformSubDB
 end ViaConnection
 
 extension [T: HasDB](t: T)
