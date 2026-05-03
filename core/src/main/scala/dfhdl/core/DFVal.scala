@@ -660,6 +660,11 @@ object DFVal extends DFValLP:
         .Const(dfType.asIR, data, dfc.ownerOrEmptyRef, meta, dfc.tags)
         .addMember
         .asConstOf[T]
+    def synthetic[T <: DFTypeAny](dfType: T)(using dfc: DFC): DFConstOf[T] =
+      import dfc.getSet
+      forced[T](dfType, dfType.asIR.defaultData, named = false)(using
+        dfc.tag(ir.SyntheticDefaultTag)
+      )
   end Const
 
   object DesignParam:
