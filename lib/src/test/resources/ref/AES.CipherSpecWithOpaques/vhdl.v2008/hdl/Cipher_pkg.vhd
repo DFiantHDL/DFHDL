@@ -4,11 +4,6 @@ use ieee.numeric_std.all;
 use work.dfhdl_pkg.all;
 
 package Cipher_pkg is
-type t_arrX1_std_logic_vector is array (natural range <>) of std_logic_vector;
-function bitWidth(A : t_arrX1_std_logic_vector) return integer;
-function to_slv(A : t_arrX1_std_logic_vector) return std_logic_vector;
-function to_t_arrX1_std_logic_vector(A : std_logic_vector; D1 : integer; D0 : integer) return t_arrX1_std_logic_vector;
-function bool_sel(C : boolean; T : t_arrX1_std_logic_vector; F : t_arrX1_std_logic_vector) return t_arrX1_std_logic_vector;
 subtype t_opaque_AESByte is std_logic_vector(7 downto 0);
 function to_t_opaque_AESByte(A: std_logic_vector) return t_opaque_AESByte;
 type t_arrX1_t_opaque_AESByte is array (natural range <>) of t_opaque_AESByte;
@@ -29,10 +24,23 @@ subtype t_opaque_AESData is t_arrX1_t_opaque_AESWord(0 to 3);
 function to_t_opaque_AESData(A: std_logic_vector) return t_opaque_AESData;
 subtype t_opaque_AESKeySchedule is t_arrX1_t_opaque_AESWord(0 to 43);
 function to_t_opaque_AESKeySchedule(A: std_logic_vector) return t_opaque_AESKeySchedule;
+type t_arrX1_std_logic_vector is array (natural range <>) of std_logic_vector;
+function bitWidth(A : t_arrX1_std_logic_vector) return integer;
+function to_slv(A : t_arrX1_std_logic_vector) return std_logic_vector;
+function to_t_arrX1_std_logic_vector(A : std_logic_vector; D1 : integer; D0 : integer) return t_arrX1_std_logic_vector;
+function bool_sel(C : boolean; T : t_arrX1_std_logic_vector; F : t_arrX1_std_logic_vector) return t_arrX1_std_logic_vector;
 subtype t_opaque_AESState is t_arrX1_t_opaque_AESWord(0 to 3);
 function to_t_opaque_AESState(A: std_logic_vector) return t_opaque_AESState;
 subtype t_opaque_AESRoundKey is t_arrX1_t_opaque_AESWord(0 to 3);
 function to_t_opaque_AESRoundKey(A: std_logic_vector) return t_opaque_AESRoundKey;
+constant Rcon  : t_arrX1_t_opaque_AESWord(0 to 10) := (
+   0 => (0 => x"00", 1 => x"00", 2 => x"00", 3 => x"00"),  1 => (0 => x"01", 1 => x"00", 2 => x"00", 3 => x"00"),
+   2 => (0 => x"02", 1 => x"00", 2 => x"00", 3 => x"00"),  3 => (0 => x"04", 1 => x"00", 2 => x"00", 3 => x"00"),
+   4 => (0 => x"08", 1 => x"00", 2 => x"00", 3 => x"00"),  5 => (0 => x"10", 1 => x"00", 2 => x"00", 3 => x"00"),
+   6 => (0 => x"20", 1 => x"00", 2 => x"00", 3 => x"00"),  7 => (0 => x"40", 1 => x"00", 2 => x"00", 3 => x"00"),
+   8 => (0 => x"80", 1 => x"00", 2 => x"00", 3 => x"00"),  9 => (0 => x"1b", 1 => x"00", 2 => x"00", 3 => x"00"),
+  10 => (0 => x"36", 1 => x"00", 2 => x"00", 3 => x"00")
+);
 constant sboxLookupTable : t_arrX1_std_logic_vector(0 to 255)(7 downto 0) := (
     0 => x"63",   1 => x"7c",   2 => x"77",   3 => x"7b",   4 => x"f2",   5 => x"6b",   6 => x"6f",   7 => x"c5",
     8 => x"30",   9 => x"01",  10 => x"67",  11 => x"2b",  12 => x"fe",  13 => x"d7",  14 => x"ab",  15 => x"76",
@@ -66,14 +74,6 @@ constant sboxLookupTable : t_arrX1_std_logic_vector(0 to 255)(7 downto 0) := (
   232 => x"9b", 233 => x"1e", 234 => x"87", 235 => x"e9", 236 => x"ce", 237 => x"55", 238 => x"28", 239 => x"df",
   240 => x"8c", 241 => x"a1", 242 => x"89", 243 => x"0d", 244 => x"bf", 245 => x"e6", 246 => x"42", 247 => x"68",
   248 => x"41", 249 => x"99", 250 => x"2d", 251 => x"0f", 252 => x"b0", 253 => x"54", 254 => x"bb", 255 => x"16"
-);
-constant Rcon  : t_arrX1_t_opaque_AESWord(0 to 10) := (
-   0 => (0 => x"00", 1 => x"00", 2 => x"00", 3 => x"00"),  1 => (0 => x"01", 1 => x"00", 2 => x"00", 3 => x"00"),
-   2 => (0 => x"02", 1 => x"00", 2 => x"00", 3 => x"00"),  3 => (0 => x"04", 1 => x"00", 2 => x"00", 3 => x"00"),
-   4 => (0 => x"08", 1 => x"00", 2 => x"00", 3 => x"00"),  5 => (0 => x"10", 1 => x"00", 2 => x"00", 3 => x"00"),
-   6 => (0 => x"20", 1 => x"00", 2 => x"00", 3 => x"00"),  7 => (0 => x"40", 1 => x"00", 2 => x"00", 3 => x"00"),
-   8 => (0 => x"80", 1 => x"00", 2 => x"00", 3 => x"00"),  9 => (0 => x"1b", 1 => x"00", 2 => x"00", 3 => x"00"),
-  10 => (0 => x"36", 1 => x"00", 2 => x"00", 3 => x"00")
 );
 end package Cipher_pkg;
 
@@ -119,46 +119,6 @@ function to_t_opaque_AESRoundKey(A : std_logic_vector) return t_opaque_AESRoundK
 begin
   A0           := A;
   return to_t_arrX1_t_opaque_AESWord(A0, 4);
-end;
-function bitWidth(A : t_arrX1_std_logic_vector) return integer is
-begin
-  return A'length * bitWidth(A(0));
-end;
-function to_slv(A : t_arrX1_std_logic_vector) return std_logic_vector is
-  variable hi  : integer;
-  variable lo  : integer;
-  variable cellBitWidth: integer;
-  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
-begin
-  cellBitWidth := bitWidth(A(0));
-  lo           := bitWidth(A);
-  for i in 0 to A'length-1 loop
-    hi         := lo - 1; lo := hi - cellBitWidth + 1;
-    ret(hi downto lo) := A(i);
-  end loop;
-  return ret;
-end;
-function to_t_arrX1_std_logic_vector(A : std_logic_vector; D1 : integer; D0 : integer) return t_arrX1_std_logic_vector is
-  variable hi  : integer;
-  variable lo  : integer;
-  variable cellBitWidth: integer;
-  variable ret : t_arrX1_std_logic_vector(0 to D1 - 1)(D0 - 1 downto 0);
-begin
-  cellBitWidth := bitWidth(ret(0));
-  lo           := A'high + 1;
-  for i in 0 to ret'length - 1 loop
-    hi         := lo - 1; lo := hi - cellBitWidth + 1;
-    ret(i)     := A(hi downto lo);
-  end loop;
-  return ret;
-end;
-function bool_sel(C : boolean; T : t_arrX1_std_logic_vector; F : t_arrX1_std_logic_vector) return t_arrX1_std_logic_vector is
-begin
-  if C then
-    return T;
-  else
-    return F;
-  end if;
 end;
 function bitWidth(A : t_arrX1_t_opaque_AESByte) return integer is
 begin
@@ -233,6 +193,46 @@ begin
   return ret;
 end;
 function bool_sel(C : boolean; T : t_arrX1_t_opaque_AESWord; F : t_arrX1_t_opaque_AESWord) return t_arrX1_t_opaque_AESWord is
+begin
+  if C then
+    return T;
+  else
+    return F;
+  end if;
+end;
+function bitWidth(A : t_arrX1_std_logic_vector) return integer is
+begin
+  return A'length * bitWidth(A(0));
+end;
+function to_slv(A : t_arrX1_std_logic_vector) return std_logic_vector is
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+begin
+  cellBitWidth := bitWidth(A(0));
+  lo           := bitWidth(A);
+  for i in 0 to A'length-1 loop
+    hi         := lo - 1; lo := hi - cellBitWidth + 1;
+    ret(hi downto lo) := A(i);
+  end loop;
+  return ret;
+end;
+function to_t_arrX1_std_logic_vector(A : std_logic_vector; D1 : integer; D0 : integer) return t_arrX1_std_logic_vector is
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : t_arrX1_std_logic_vector(0 to D1 - 1)(D0 - 1 downto 0);
+begin
+  cellBitWidth := bitWidth(ret(0));
+  lo           := A'high + 1;
+  for i in 0 to ret'length - 1 loop
+    hi         := lo - 1; lo := hi - cellBitWidth + 1;
+    ret(i)     := A(hi downto lo);
+  end loop;
+  return ret;
+end;
+function bool_sel(C : boolean; T : t_arrX1_std_logic_vector; F : t_arrX1_std_logic_vector) return t_arrX1_std_logic_vector is
 begin
   if C then
     return T;

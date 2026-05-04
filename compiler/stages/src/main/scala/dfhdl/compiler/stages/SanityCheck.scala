@@ -308,13 +308,45 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
   end orderCheck
 
   // Temporary Phase 1 check: exercise the old<->new DB conversion round-trip
-  // against every design the test suite exercises via sanityCheck.
+  // against every design the test suite exercises via sanityCheck. Under
+  // B-pure, globals no longer live at root in the new-style DB and are
+  // partitioned per sub-DB by closure; the elaboration order of globals is
+  // not preserved across the round-trip. Compare globals by identity-set and
+  // the rest of the members as an ordered list. RefTable, globalTags, and
+  // srcFiles still must match exactly.
   private def hierarchicalDBRoundTripCheck(designDB: DB): Unit =
     val lhs = designDB.oldToNew.newToOld.canonicalForm
     val rhs = designDB.canonicalForm
+    def partition(db: DB): (Set[DFMember], List[DFMember]) =
+      given MemberGetSet = db.getSet
+      val globals = mutable.Set.empty[DFMember]
+      val nonGlobals = mutable.ListBuffer.empty[DFMember]
+      db.members.foreach {
+        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => globals += dfVal
+        case m                                          => nonGlobals += m
+      }
+      (globals.toSet, nonGlobals.toList)
+    val (lhsGlobals, lhsNonGlobals) = partition(lhs)
+    val (rhsGlobals, rhsNonGlobals) = partition(rhs)
+    if (lhsGlobals != rhsGlobals)
+      val onlyLhs = lhsGlobals -- rhsGlobals
+      val onlyRhs = rhsGlobals -- lhsGlobals
+      throw new IllegalArgumentException(
+        s"""Hierarchical DB round-trip globals identity-set mismatch.
+           |Only in lhs (round-trip): ${onlyLhs.mkString(", ")}
+           |Only in rhs (input):     ${onlyRhs.mkString(", ")}""".stripMargin
+      )
     require(
-      lhs == rhs,
-      "Hierarchical DB round-trip (oldToNew -> newToOld) did not match canonical form of input."
+      lhsNonGlobals == rhsNonGlobals,
+      "Hierarchical DB round-trip non-globals member list mismatch."
+    )
+    require(
+      lhs.refTable == rhs.refTable,
+      "Hierarchical DB round-trip refTable mismatch."
+    )
+    require(
+      lhs.globalTags == rhs.globalTags && lhs.srcFiles == rhs.srcFiles,
+      "Hierarchical DB round-trip globalTags or srcFiles mismatch."
     )
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =

@@ -19,9 +19,10 @@ case object ConnectMagnets extends HierarchyStage:
   // global (flat) analysis. Run with the outer flat getSet.
   override def rebindGetSet: Boolean = false
   def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
-    // Each sub-DB patches ONLY its own design. Skip root, whose designBlock
-    // aliases the top sub-DB's designBlock (which also processes it).
-    val designOpt = subDB.designBlock.filterNot(d => subDB.internalDBs.contains(d.ownerRef))
+    // Under B-pure, HierarchyStage only dispatches sub-DBs (never root), and
+    // each sub-DB has `designBlock = Some(d)`. The defensive filter remains
+    // in case any future refactor passes the root through.
+    val designOpt = subDB.designBlock.filterNot(_ => subDB.isRoot)
     designOpt match
       case Some(design) =>
         val outer = getSet.designDB

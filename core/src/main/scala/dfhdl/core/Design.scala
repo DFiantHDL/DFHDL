@@ -241,7 +241,9 @@ object Design:
   extension (designDB: ir.DB)
     def latchesCheck(): Unit =
       val newDB = designDB.oldToNew
-      val allDBs = newDB :: newDB.internalDBs.values.toList
+      // Under B-pure, root has empty members and a non-functional getSet —
+      // only iterate the sub-DBs (which already cover every design).
+      val allDBs = newDB.internalDBs.values.toList
       val danglingVars = allDBs.view.flatMap { db =>
         given ir.MemberGetSet = db.getSet
         db.getImplicitStateVarsRT.view
