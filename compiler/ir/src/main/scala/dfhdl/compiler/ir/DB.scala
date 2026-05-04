@@ -19,10 +19,10 @@ final case class DB(
     // replaces the DFDesignBlock object via a patch (the patch preserves
     // ownerRef). Each sub-DB carries its own `designBlock: Some(d)` so the
     // actual block is always accessible without a map lookup. Only the
-    // new-style root DB has a populated `internalDBs`: a flat ListMap of
+    // new-style root DB has a populated `subDBs`: a flat ListMap of
     // every design in elaboration order (top first, then descendants). Sub-DBs
-    // and old-style flat DBs both have an empty `internalDBs`.
-    internalDBs: ListMap[DFOwner.Ref, DB] = ListMap.empty,
+    // and old-style flat DBs both have an empty `subDBs`.
+    subDBs: ListMap[DFOwner.Ref, DB] = ListMap.empty,
     // On new-style sub-DBs this is `Some(d)` where `d` is the design block
     // this sub-DB represents — and `d` IS a member of this sub-DB's `members`
     // list. On the new-style root and on old-style flat DBs this is `None`;
@@ -66,15 +66,15 @@ final case class DB(
 
   // True for the new-style root DB: a hierarchy container with empty members
   // and empty refTable, holding all designs (including the top) in
-  // `internalDBs`. False for sub-DBs (which have `internalDBs.empty` and
+  // `subDBs`. False for sub-DBs (which have `subDBs.empty` and
   // `designBlock = Some(d)`) and for old-style flat DBs (which also have
-  // `internalDBs.empty` and `designBlock = None`).
-  lazy val isRoot: Boolean = internalDBs.nonEmpty
+  // `subDBs.empty` and `designBlock = None`).
+  lazy val isRoot: Boolean = subDBs.nonEmpty
 
   // The sub-DB representing the top design. Only meaningful on the new-style
   // root DB; by construction in `oldToNew`, the top design's sub-DB is the
-  // first entry of `internalDBs`.
-  lazy val topDB: DB = internalDBs.head._2
+  // first entry of `subDBs`.
+  lazy val topDB: DB = subDBs.head._2
 
   lazy val top: DFDesignBlock =
     if (isRoot) topDB.top
@@ -1304,11 +1304,11 @@ final case class DB(
       case (at, _) => at
     }
 
-  // Converts an old-style flat DB (internalDBs.empty) to a canonical new-style DB
+  // Converts an old-style flat DB (subDBs.empty) to a canonical new-style DB
   // under the "B-pure" shape:
   //   - The root DB is a pure hierarchy container:
   //         members = [], refTable = {}, designBlock = None
-  //         internalDBs = ListMap of every design (top first, then descendants)
+  //         subDBs = ListMap of every design (top first, then descendants)
   //         globalTags and srcFiles preserved as project metadata.
   //   - Every sub-DB (including the top's) has:
   //         members = [globalMembers, designBlock, localMembers]
@@ -1316,7 +1316,7 @@ final case class DB(
   //     local refs, `designBlock` = the DB's own top-level design header (as
   //     `Some(d)` AND as a member of the sub-DB's `members`), and
   //     `localMembers` = the DB's direct locals (excluding the designBlock).
-  //   - The TOP design lives only in `internalDBs` (as the first entry by
+  //   - The TOP design lives only in `subDBs` (as the first entry by
   //     insertion order), no longer at the root level. There is no root-level
   //     duplicate of the top.
   //   - A nested DFDesignBlock is NEVER a member of its parent's sub-DB; only
@@ -1327,14 +1327,14 @@ final case class DB(
   //   - Each sub-DB's `refTable` is self-contained for its own refs (refs
   //     emitted by any of its members — including the shared globals and
   //     designBlock).
-  //   - Only the root carries `internalDBs` — a flat ListMap of every design
+  //   - Only the root carries `subDBs` — a flat ListMap of every design
   //     in elaboration order (top first). Sub-DBs themselves have an empty
-  //     `internalDBs`; descendant lookups always go through the root.
+  //     `subDBs`; descendant lookups always go through the root.
   //   - Round-trip note: with all globals partitioned per sub-DB by closure,
   //     `newToOld` no longer guarantees global ordering matches the input.
   //     The round-trip check in SanityCheck compares globals as a set.
   def oldToNew: DB =
-    if (internalDBs.nonEmpty) return this
+    if (subDBs.nonEmpty) return this
     given MemberGetSet = self.getSet
     val topDsn = this.top
     // designOwn(d) = d's own (non-global, non-self, non-nested-block) members
@@ -1416,12 +1416,12 @@ final case class DB(
       }
       result.toMap
     // Build sub-DBs in top-down elaboration order. Sub-DBs themselves have
-    // empty `internalDBs` — only the root collects the flat hierarchy. The
+    // empty `subDBs` — only the root collects the flat hierarchy. The
     // LinkedHashMap preserves insertion order so the resulting list runs
     // top → top's first child → grandchildren … in elaboration order.
-    val subDBs = mutable.LinkedHashMap.empty[DFDesignBlock, DB]
+    val builtSubDBs = mutable.LinkedHashMap.empty[DFDesignBlock, DB]
     def buildSubDB(d: DFDesignBlock): DB =
-      subDBs.get(d) match
+      builtSubDBs.get(d) match
         case Some(db) => db
         case None =>
           val locals = designOwn(d).toList
@@ -1440,12 +1440,12 @@ final case class DB(
             // like DefaultRTDomainCfgTag when dispatched against a sub-DB.
             globalTags = this.globalTags,
             srcFiles = Nil,
-            internalDBs = ListMap.empty,
+            subDBs = ListMap.empty,
             designBlock = Some(d)
           )
           // Insert d BEFORE recursing into children so the LinkedHashMap
           // ordering is top-down (parent before children).
-          subDBs(d) = builtForD
+          builtSubDBs(d) = builtForD
           val directChildren = parentToChildren.getOrElse(d, Nil).toList
           directChildren.foreach(buildSubDB)
           builtForD
@@ -1456,7 +1456,7 @@ final case class DB(
     // because root.members is empty and only sub-DB closures carry globals.
     // Anchor them at the top design's sub-DB so they survive the round-trip.
     val coveredGlobals = mutable.Set.empty[DFMember]
-    subDBs.valuesIterator.foreach { sub =>
+    builtSubDBs.valuesIterator.foreach { sub =>
       sub.members.foreach {
         case g: DFVal.CanBeGlobal if g.isGlobal => coveredGlobals += g
         case _                                  =>
@@ -1466,13 +1466,13 @@ final case class DB(
       case g: DFVal.CanBeGlobal if g.isGlobal && !coveredGlobals.contains(g) => g
     }
     if (orphanGlobals.nonEmpty)
-      val topSub = subDBs(topDsn)
+      val topSub = builtSubDBs(topDsn)
       val newMembers = orphanGlobals ::: topSub.members
       val orphanRefs = refsFor(orphanGlobals)
       val newRefTable = topSub.refTable ++ orphanRefs
-      subDBs(topDsn) = topSub.copy(members = newMembers, refTable = newRefTable)
+      builtSubDBs(topDsn) = topSub.copy(members = newMembers, refTable = newRefTable)
     // Root is a pure hierarchy container: empty members, empty refTable,
-    // designBlock = None. `internalDBs` lists every design — top first (so
+    // designBlock = None. `subDBs` lists every design — top first (so
     // `topDB` resolves correctly), then the top's descendants in elaboration
     // order.
     DB(
@@ -1480,7 +1480,7 @@ final case class DB(
       refTable = Map.empty,
       globalTags = this.globalTags,
       srcFiles = this.srcFiles,
-      internalDBs = ListMap.from(subDBs.iterator.map((d, sub) => d.ownerRef -> sub)),
+      subDBs = ListMap.from(builtSubDBs.iterator.map((d, sub) => d.ownerRef -> sub)),
       designBlock = None
     )
   end oldToNew
@@ -1498,14 +1498,14 @@ final case class DB(
   // nested block is added during the first instance's elaboration and so
   // appears just before that inst in the flat DB).
   def newToOld: DB =
-    if (internalDBs.isEmpty) return this
+    if (subDBs.isEmpty) return this
     // Under B-pure, root has empty `members` and empty `refTable`; all design
     // content lives in sub-DBs. `allDBs` only needs the sub-DBs.
-    val allDBs: List[DB] = internalDBs.values.toList
+    val allDBs: List[DB] = subDBs.values.toList
     // canonical DFDesignBlock per ownerRef: the one in its own sub-DB's
     // `members` (the sub-DB owns patches against its header).
     val canonicalDesign = mutable.Map.empty[DFOwner.Ref, DFDesignBlock]
-    internalDBs.foreach { (key, subDB) =>
+    subDBs.foreach { (key, subDB) =>
       subDB.members.collectFirst {
         case d: DFDesignBlock if d.ownerRef == key => d
       }.foreach(canonicalDesign(key) = _)
@@ -1542,7 +1542,7 @@ final case class DB(
               if (!seen.contains(targetBlock))
                 seen += targetBlock
                 flat += targetBlock
-                internalDBs.get(targetBlock.ownerRef).foreach(sub => emit(sub.members))
+                subDBs.get(targetBlock.ownerRef).foreach(sub => emit(sub.members))
             }
             if (!seen.contains(c))
               seen += c
@@ -1552,8 +1552,8 @@ final case class DB(
               seen += c
               flat += c
               c match
-                case d: DFDesignBlock if internalDBs.contains(d.ownerRef) =>
-                  emit(internalDBs(d.ownerRef).members)
+                case d: DFDesignBlock if subDBs.contains(d.ownerRef) =>
+                  emit(subDBs(d.ownerRef).members)
                 case _ =>
         end match
       }
@@ -1591,7 +1591,7 @@ final case class DB(
       refTable = mergedRefTable.toMap,
       globalTags = this.globalTags,
       srcFiles = this.srcFiles,
-      internalDBs = ListMap.empty,
+      subDBs = ListMap.empty,
       designBlock = None
     )
   end newToOld
@@ -1609,7 +1609,7 @@ final case class DB(
   // Idempotent on already-canonical DBs; a no-op on new-style DBs (those
   // are already canonical).
   def canonicalForm: DB =
-    if (internalDBs.nonEmpty) return this
+    if (subDBs.nonEmpty) return this
     given MemberGetSet = self.getSet
     val globals = mutable.ListBuffer.empty[DFMember]
     val nonGlobals = mutable.ListBuffer.empty[DFMember]
@@ -1653,8 +1653,8 @@ final case class DB(
 end DB
 
 object DB:
-  // Custom ReadWriter for DB: excludes `internalDBs` from serialization.
-  // Phase 1 never persists a populated `internalDBs` (it's only used
+  // Custom ReadWriter for DB: excludes `subDBs` from serialization.
+  // Phase 1 never persists a populated `subDBs` (it's only used
   // transiently inside `sanityCheck`), so the round-trip over JSON stays
   // lossless. When Phase 5 introduces disk-cached sub-DBs this will be
   // replaced with a full recursive ReadWriter.

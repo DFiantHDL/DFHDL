@@ -19,7 +19,7 @@ trait Stage extends Product, Serializable, HasTypeName derives CanEqual:
   * The trait handles:
   *   - `oldToNew` at entry — converts a legacy flat DB into the hierarchical
   *     representation (root + per-design sub-DBs) so the body can walk the
-  *     hierarchy via `internalDBs` and patch each sub-DB independently.
+  *     hierarchy via `subDBs` and patch each sub-DB independently.
   *   - `newToOld` at exit — flattens the result back into an old-style DB for
   *     the rest of the pipeline.
   *
@@ -58,8 +58,8 @@ end GlobalStage
   *   - flat old-style → B-pure new-style conversion at entry (`oldToNew`)
   *   - per-DB dispatch of `transformSubDB` on every sub-DB in the hierarchy. The root DB is a pure
   *     hierarchy container (empty members, empty refTable) and is NOT passed to `transformSubDB`;
-  *     all design content lives in `internalDBs`.
-  *   - reassembly via `.copy(internalDBs = ...).newToOld` to flatten back into an old-style DB for
+  *     all design content lives in `subDBs`.
+  *   - reassembly via `.copy(subDBs = ...).newToOld` to flatten back into an old-style DB for
   *     the rest of the pipeline
   *
   * If every `transformSubDB` returned its input by reference (no change), the original `designDB`
@@ -94,9 +94,9 @@ trait HierarchyStage extends Stage:
       if (!(result eq subDB)) changed = true
       result
     val transformedSubs: ListMap[DFOwner.Ref, DB] =
-      newDB.internalDBs.map { case (k, subDB) => k -> run(subDB) }
+      newDB.subDBs.map { case (k, subDB) => k -> run(subDB) }
     if (!changed) designDB
-    else newDB.copy(internalDBs = transformedSubs).newToOld
+    else newDB.copy(subDBs = transformedSubs).newToOld
   end transform
 end HierarchyStage
 
