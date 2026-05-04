@@ -48,18 +48,22 @@ final case class DB(
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = globalTags.getTagOf[CT]
   end getSet
 
-  // considered to be in simulation if the top design has no ports
-  lazy val inSimulation: Boolean = membersNoGlobals.forall {
-    case dcl: DFVal.Dcl if dcl.isPort => dcl.getOwnerDesign != top
-    case _                            => true
-  }
-
-  // considered to be in build if not in simulation and has a device constraint
-  lazy val inBuild: Boolean = !inSimulation && top.isDeviceTop
+  lazy val top: DFDesignBlock = designBlock.getOrElse(
+    membersNoGlobals.head match
+      case m: DFDesignBlock => m
+      case invalidTop       =>
+        throw new IllegalArgumentException(s"Unexpected member as Top:\n$invalidTop")
+  )
 
   lazy val topIOs: List[DFVal.Dcl] = designMemberTable(top).collect {
     case dcl: DFVal.Dcl if dcl.isPort => dcl
   }
+
+  // considered to be in simulation if the top design has no ports
+  lazy val inSimulation: Boolean = topIOs.isEmpty
+
+  // considered to be in build if not in simulation and has a device constraint
+  lazy val inBuild: Boolean = !inSimulation && top.isDeviceTop
 
   lazy val membersNoGlobals: List[DFMember] = members.filter {
     case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => false
@@ -69,13 +73,6 @@ final case class DB(
   lazy val membersGlobals: List[DFVal.CanBeGlobal] = members.collect {
     case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => dfVal
   }
-
-  lazy val top: DFDesignBlock = designBlock.getOrElse(
-    membersNoGlobals.head match
-      case m: DFDesignBlock => m
-      case invalidTop       =>
-        throw new IllegalArgumentException(s"Unexpected member as Top:\n$invalidTop")
-  )
 
   lazy val memberTable: Map[DFMember, Set[DFRefAny]] = refTable.invert
 
@@ -198,27 +195,6 @@ final case class DB(
     end match
   end OMLGen
 
-  // Members to feed into OMLGen as "locals excluding top". Both old-style
-  // and new-style (option-a) DBs have the top designBlock at
-  // `membersNoGlobals.head`, so dropping it yields the locals uniformly.
-  private lazy val localsForOML: List[DFMember] = membersNoGlobals.drop(1)
-
-  // holds the topological order of owner owner dependency
-  lazy val ownerMemberList: List[(DFOwner, List[DFMember])] =
-    // head will always be the TOP owner
-    OMLGen[DFOwner](_.getOwner)(List(), localsForOML, List(top -> List())).reverse
-//  def printOwnerMemberList(implicit printConfig: CSPrinter.Config): DB = {
-//    implicit val printer: CSPrinter = new CSPrinter {
-//      val getSet: MemberGetSet = __getset
-//      val config: CSPrinter.Config = printConfig
-//    }
-//    println(
-//      ownerMemberList
-//        .map(e => (e._1.show, s"(${e._2.map(x => x.show).mkString(", ")})"))
-//        .mkString("\n")
-//    )
-//    this
-//  }
   def getMembersOf(owner: DFOwner, memberView: MemberView)(using MemberGetSet): List[DFMember] =
     memberView match
       case MemberView.Folded =>
@@ -235,6 +211,16 @@ final case class DB(
         owner match
           case d: DFDesignBlock => designMemberTable(d)
           case _                => recur(owner)
+
+  // Members to feed into OMLGen as "locals excluding top". Both old-style
+  // and new-style (option-a) DBs have the top designBlock at
+  // `membersNoGlobals.head`, so dropping it yields the locals uniformly.
+  private lazy val localsForOML: List[DFMember] = membersNoGlobals.drop(1)
+
+  // holds the topological order of owner owner dependency
+  lazy val ownerMemberList: List[(DFOwner, List[DFMember])] =
+    // head will always be the TOP owner
+    OMLGen[DFOwner](_.getOwner)(List(), localsForOML, List(top -> List())).reverse
 
   // holds a hash table that lists members of each owner. The member list order is maintained.
   lazy val ownerMemberTable: Map[DFOwner, List[DFMember]] =
