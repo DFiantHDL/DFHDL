@@ -114,7 +114,7 @@ class QuartusPrimeProjectTclConfigPrinter(using
       s"set_global_assignment -name ${name}_FILE $file -hdl_version $std"
     ).mkString("\n")
   def activeDualPurposeGroups: List[String] =
-    designDB.topIOs.view.flatMap(_.meta.annotations.collect {
+    designDB.toptopIOs.view.flatMap(_.meta.annotations.collect {
       case constraint: constraints.IO =>
         constraint.dualPurposeGroups.toList.flatMap(_.split("/"))
     }).flatten.toList.distinct
@@ -242,7 +242,7 @@ class QuartusPrimeProjectPhysicalConstraintsPrinter(using
   end qsfPortConstraints
 
   def qsfPortConstraints: List[String] =
-    designDB.topIOs.view.flatMap(qsfPortConstraints).toList
+    designDB.toptopIOs.view.flatMap(qsfPortConstraints).toList
   def qsfDeviceProperties: String =
     designDB.top.dclMeta.annotations.collect {
       case constraint: constraints.DeviceProperties =>

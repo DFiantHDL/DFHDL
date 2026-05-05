@@ -851,7 +851,7 @@ final case class DB(
 **Key computed properties:**
 ```scala
 db.top                    // DFDesignBlock — first member, always the root design
-db.topIOs                 // List[DFVal.Dcl] — ports of the top design
+db.toptopIOs              // List[DFVal.Dcl] — ports of the top design
 db.getSet                 // MemberGetSet (immutable)
 db.memberTable            // Map[DFMember, Set[DFRefAny]] — member → refs pointing to it
 db.originRefTable         // Map[DFRef.TwoWayAny, DFMember] — ref → member that owns it

@@ -81,7 +81,7 @@ class BuilderProjectTimingConstraintsPrinter(
   end sdcPortConstraints
 
   def sdcPortConstraints: List[String] =
-    designDB.topIOs.view.flatMap(sdcPortConstraints).toList
+    designDB.toptopIOs.view.flatMap(sdcPortConstraints).toList
 
   def deriveClockUncertainty: String =
     if (enableDerivedClockUncertainty) "\nderive_clock_uncertainty" else ""

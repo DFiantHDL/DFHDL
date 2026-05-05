@@ -266,7 +266,7 @@ class VivadoProjectConstraintsPrinter(using
   end xdcPortConstraints
 
   def xdcPortConstraints: List[String] =
-    designDB.topIOs.view.flatMap(xdcPortConstraints).toList
+    designDB.toptopIOs.view.flatMap(xdcPortConstraints).toList
 
   def contents: String =
     s"""|${xdcDesignConstraints.mkString("\n")}

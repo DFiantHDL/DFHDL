@@ -70,15 +70,15 @@ final case class DB private (
 
   // True for the new-style root DB: a hierarchy container with empty members
   // and empty refTable, holding all designs (including the top) in
-  // `subDBs`. False for sub-DBs (which have `subDBs.empty` and
-  // `designBlock = Some(d)`) and for old-style flat DBs (which also have
-  // `subDBs.empty` and `designBlock = None`).
+  // `subDBs`. False for sub-DBs and old-style flat DBs.
   lazy val isRoot: Boolean = subDBs.nonEmpty
 
   // The sub-DB representing the top design. Only meaningful on the new-style
   // root DB; by construction in `oldToNew`, the top design's sub-DB is the
   // first entry of `subDBs`.
-  lazy val topDB: DB = subDBs.head._2
+  lazy val topDB: DB =
+    if (isRoot) subDBs.head._2
+    else rootDB.topDB
 
   lazy val top: DFDesignBlock =
     if (isRoot) topDB.top
@@ -88,15 +88,21 @@ final case class DB private (
         case invalidTop       =>
           throw new IllegalArgumentException(s"Unexpected member as Top:\n$invalidTop")
 
-  lazy val topIOs: List[DFVal.Dcl] = designMemberTable(top).collect {
-    case dcl: DFVal.Dcl if dcl.isPort => dcl
-  }
+  lazy val toptop: DFDesignBlock =
+    if (isRoot) top
+    else rootDB.top
+
+  lazy val toptopIOs: List[DFVal.Dcl] =
+    val members = if (isRoot) topDB.membersNoGlobals else designMemberTable(top)
+    members.collect {
+      case dcl: DFVal.Dcl if dcl.isPort => dcl
+    }
 
   // considered to be in simulation if the top design has no ports
-  lazy val inSimulation: Boolean = topIOs.isEmpty
+  lazy val inSimulation: Boolean = toptopIOs.isEmpty
 
   // considered to be in build if not in simulation and has a device constraint
-  lazy val inBuild: Boolean = !inSimulation && top.isDeviceTop
+  lazy val inBuild: Boolean = !inSimulation && toptop.isDeviceTop
 
   lazy val membersNoGlobals: List[DFMember] = members.filter {
     case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => false
@@ -296,12 +302,14 @@ final case class DB private (
 
   // holds the topological order of design block dependency
   lazy val designMemberList: List[(DFDesignBlock, List[DFMember])] =
-    // head will always be the TOP block
-    OMLGen[DFDesignBlock](_.getOwnerDesign)(
-      List(),
-      localsForOML,
-      List(top -> List())
-    ).reverse
+    if (isRoot) subDBs.view.values.map(db => db.top -> db.membersNoGlobals).toList
+    else
+      // head will always be the TOP block
+      OMLGen[DFDesignBlock](_.getOwnerDesign)(
+        List(),
+        localsForOML,
+        List(top -> List())
+      ).reverse
 
   // holds a hash table that lists members of each owner block. The member list order is maintained.
   lazy val designMemberTable: Map[DFDesignBlock, List[DFMember]] =
@@ -309,8 +317,12 @@ final case class DB private (
 
   // design block to its instances map
   lazy val designBlockInstMap: Map[DFDesignBlock, List[DFDesignInst]] =
-    members.view.collect { case inst: DFDesignInst => inst }
-      .groupBy(_.getDesignBlock).view.mapValues(_.toList).toMap + (top -> Nil)
+    val designInsts =
+      if (isRoot) subDBs.view.values.flatMap(_.membersNoGlobals).collect {
+        case inst: DFDesignInst => inst
+      }
+      else members.view.collect { case inst: DFDesignInst => inst }
+    designInsts.groupBy(_.getDesignBlock).view.mapValues(_.toList).toMap + (top -> Nil)
 
   // design block to its owner design blocks map (multiple owners in case of multiple instantiations). Note that the top-level design block has no owner and thus is not included in the map.
   lazy val designBlockOwnershipMap: Map[DFDesignBlock, Set[DFDesignBlock]] =
