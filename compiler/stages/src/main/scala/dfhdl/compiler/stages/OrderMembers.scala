@@ -29,11 +29,7 @@ private abstract class OrderMembers(order: OrderMembers.Order) extends Hierarchy
     case m :: mList => orderMembers(mList, m :: retList, expandedInsts)
     case Nil        => retList.reverse
 
-  def transformSubDB(subDB: DB)(using
-      getSet: MemberGetSet,
-      co: CompilerOptions,
-      refGen: RefGen
-  ): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val reordered = subDB.membersGlobals ++ orderMembers(List(subDB.top), List())
     if (reordered == subDB.members) subDB
     else subDB.copy(members = reordered)

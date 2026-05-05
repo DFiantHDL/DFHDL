@@ -19,8 +19,7 @@ case object DropOutportRead extends HierarchyStage:
           case VHDLDialect.v93 => true
           case _               => false
       case _ => false
-  override def rebindGetSet: Boolean = false
-  def transformSubDB(subDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
+  def transformSubDB(rootDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
     val patches = subDB.members.collect {
       // go through all output ports that are read from within their design
       case port @ DclOut() if port.getReadDeps.exists(_.isSameOwnerDesignAs(port)) =>

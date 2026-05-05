@@ -9,7 +9,7 @@ import scala.annotation.tailrec
 case object DropUnreferencedVars extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  def transformSubDB(subDB: DB)(using
+  def transformSubDB(rootDB: DB)(using
       getSet: MemberGetSet,
       co: CompilerOptions,
       refGen: RefGen
@@ -23,7 +23,7 @@ case object DropUnreferencedVars extends HierarchyStage:
 case object DropUnreferencedAnons extends HierarchyStage, NoCheckStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  @tailrec private def loop(subDB: DB)(using MemberGetSet, RefGen): DB =
+  @tailrec private def loop(rootDB: DB)(using MemberGetSet, RefGen): DB =
     val patchList = subDB.members.flatMap {
       // skipping over conditional headers that can be considered values as well.
       case _: DFConditional.Header => None
@@ -42,11 +42,12 @@ case object DropUnreferencedAnons extends HierarchyStage, NoCheckStage:
       // that need to be removed.
       val patched = subDB.patch(patchList)
       loop(patched)(using patched.getSet, summon[RefGen])
-  def transformSubDB(subDB: DB)(using
+  end loop
+  def transformSubDB(rootDB: DB)(using
       getSet: MemberGetSet,
       co: CompilerOptions,
       refGen: RefGen
-  ): DB = loop(subDB)
+  ): DB = loop(rootDB)
 end DropUnreferencedAnons
 
 extension [T: HasDB](t: T)

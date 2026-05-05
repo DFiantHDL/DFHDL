@@ -106,7 +106,7 @@ case object SimplifyRTOps extends HierarchyStage:
   def dependencies: List[Stage] = List(DropTimedRTWaits)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons, DFHDLUniqueNames, DropLocalDcls)
 
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     extension (dfVal: DFVal)
       def isAnonReferencedByWait: Boolean = dfVal.isAnonymous && dfVal.originMembers.view.exists {
         case _: Wait => true

@@ -21,15 +21,8 @@ case object ExplicitRomVar extends HierarchyStage:
       case _ => false
   override def dependencies: List[Stage] = List()
   override def nullifies: Set[Stage] = Set(DFHDLUniqueNames)
-  // `handled` must persist across sub-DB iterations so the same global ROM
-  // constant (shared by identity across every sub-DB that accesses it) only
-  // gets its ROM variable materialized once per design.
-  override def rebindGetSet: Boolean = false
-  private val handled = mutable.Set.empty[(DFDesignBlock, DFVal)]
-  override def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    handled.clear()
-    super.transform(designDB)
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val handled = mutable.Set.empty[(DFDesignBlock, DFVal)]
     object ROMIndexAccessOf:
       def unapply(applyIdx: ApplyIdx)(using MemberGetSet): Option[DFVal] =
         val relVal = applyIdx.relValRef.get

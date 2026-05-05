@@ -16,8 +16,7 @@ case object ConnectUnused extends HierarchyStage:
   // `unusedPort.asDclAny <> OPEN` uses `refTW` which calls `getOwnerDesign`
   // on the port Dcl; its ownerRef chain only resolves against the flat
   // refTable, so run with the outer getSet.
-  override def rebindGetSet: Boolean = false
-  def transformSubDB(subDB: DB)(using
+  def transformSubDB(rootDB: DB)(using
       getSet: MemberGetSet,
       co: CompilerOptions,
       rg: RefGen
@@ -28,15 +27,18 @@ case object ConnectUnused extends HierarchyStage:
     val patchList: List[(DFMember, Patch)] = subDB.members.view.collect {
       case designInst: DFDesignInst =>
         val design = designInst.getDesignBlock
-        val unusedPorts = design.members(MemberView.Folded).view
-          .collect {
-            case port: DFVal.Dcl if port.isPort => port
-          }.filter {
-            _.meta.annotations.exists {
-              case _: annotation.Unused => true
-              case _                    => false
-            }
-          }.toList
+        val subDB = rootDB.subDBs(design.ownerRef)
+        val unusedPorts = subDB.atGetSet { // getSet must be the outer flat-DB getSet for ref resolution to work
+          subDB.members.view
+            .collect {
+              case port: DFVal.Dcl if port.isPort => port
+            }.filter {
+              _.meta.annotations.exists {
+                case _: annotation.Unused => true
+                case _                    => false
+              }
+            }.toList
+        }
         if (unusedPorts.nonEmpty)
           val dsn = new MetaDesign(designInst, Patch.Add.Config.After):
             for (unusedPort <- unusedPorts) do
@@ -44,7 +46,7 @@ case object ConnectUnused extends HierarchyStage:
                 unusedPort.dfType,
                 unusedPort.modifier.dir,
                 designInst,
-                unusedPort.getRelativeName(design)
+                subDB.atGetSet{unusedPort.getRelativeName(design)}
               ).asDclAny
               pbns <> OPEN
           Some(dsn.patch)

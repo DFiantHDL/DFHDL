@@ -63,6 +63,7 @@ final case class DB(
     )
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = globalTags.getTagOf[CT]
   end getSet
+  def atGetSet[T](block : MemberGetSet ?=> T): T = block(using getSet)
 
   // True for the new-style root DB: a hierarchy container with empty members
   // and empty refTable, holding all designs (including the top) in

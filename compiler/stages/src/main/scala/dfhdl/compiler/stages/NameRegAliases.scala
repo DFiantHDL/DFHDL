@@ -41,9 +41,6 @@ import DFVal.Modifier as IRModifier
   *      }}}
   */
 case object NameRegAliases extends HierarchyStage:
-  // rebind off: `getAssignmentsTo` / `suggestName` / `collectRelMembers` walk refs
-  // across the full hierarchy, so they need the outer flat getSet.
-  override def rebindGetSet: Boolean = false
   // We order the members to have declarations first and make sure there are unique names
   // so that the naming system will be more coherent. However, this stage also may cause naming
   // collisions in rare cases, so we also need to nullify the unique name stage.
@@ -72,7 +69,7 @@ case object NameRegAliases extends HierarchyStage:
         case dfVal: DFVal => NameGroup(dfVal.getName, false)
   end extension
 
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patchList: List[(DFMember, Patch)] = subDB.namedOwnerMemberList.flatMap {
       case (domainOwner: (DFDomainOwner & DFBlock), members) =>
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]

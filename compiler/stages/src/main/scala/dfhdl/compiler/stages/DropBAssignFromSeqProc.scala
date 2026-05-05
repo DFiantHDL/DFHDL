@@ -8,35 +8,35 @@ case object DropBAssignFromSeqProc extends HierarchyStage:
   override def dependencies: List[Stage] = List(DropLocalDcls, ExplicitNamedVars)
   override def nullifies: Set[Stage] = Set()
   override def runCondition(using co: CompilerOptions): Boolean = co.backend.isVerilog
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     var latestSeqProc: Option[ProcessBlock] = None
     val patches = subDB.members.view
       .flatMap:
-          case proc: ProcessBlock =>
-            // cache the latest sequential process we passed through
-            if (proc.isSequential) latestSeqProc = Some(proc)
-            else latestSeqProc = None
-            None
-          // only modify nets that are blocking assignments and the assigned variable is assigned once
-          case net @ DFNet.BAssignment(toVal: DFVal.Dcl, fromVal: DFVal)
-              if latestSeqProc.map(proc => net.isOneLevelBelow(proc)).getOrElse(false) &&
-                toVal.getAssignmentsTo.size == 1 =>
-            // blocking assignment changed to connection (to be moved outside a process)
-            val connNet = net.copy(op = DFNet.Op.Connection)
-            val changeToConnPatch =
-              net -> Patch.Replace(connNet, Patch.Replace.Config.ChangeRefAndRemove)
-            val movedMembers = net.collectRelMembers :+ connNet
-            // relevant members must move alongside the net
-            List(
-              changeToConnPatch,
-              // patch to move the assignments to be before the process as DFHDL connection
-              latestSeqProc.get -> Patch.Move(
-                movedMembers,
-                net.getOwnerBlock,
-                Patch.Move.Config.Before
-              )
+        case proc: ProcessBlock =>
+          // cache the latest sequential process we passed through
+          if (proc.isSequential) latestSeqProc = Some(proc)
+          else latestSeqProc = None
+          None
+        // only modify nets that are blocking assignments and the assigned variable is assigned once
+        case net @ DFNet.BAssignment(toVal: DFVal.Dcl, fromVal: DFVal)
+            if latestSeqProc.map(proc => net.isOneLevelBelow(proc)).getOrElse(false) &&
+              toVal.getAssignmentsTo.size == 1 =>
+          // blocking assignment changed to connection (to be moved outside a process)
+          val connNet = net.copy(op = DFNet.Op.Connection)
+          val changeToConnPatch =
+            net -> Patch.Replace(connNet, Patch.Replace.Config.ChangeRefAndRemove)
+          val movedMembers = net.collectRelMembers :+ connNet
+          // relevant members must move alongside the net
+          List(
+            changeToConnPatch,
+            // patch to move the assignments to be before the process as DFHDL connection
+            latestSeqProc.get -> Patch.Move(
+              movedMembers,
+              net.getOwnerBlock,
+              Patch.Move.Config.Before
             )
-          case _ => None
+          )
+        case _ => None
       .toList
     subDB.patch(patches)
   end transformSubDB

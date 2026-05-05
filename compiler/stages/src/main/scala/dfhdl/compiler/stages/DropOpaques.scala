@@ -13,7 +13,7 @@ import dfhdl.compiler.stages.verilog.VerilogDialect
 abstract class DropOpaques(filterPred: DFOpaque => Boolean) extends HierarchyStage:
   override def dependencies: List[Stage] = List()
   override def nullifies: Set[Stage] = Set()
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     object ComposedOpaqueDFTypeReplacement
         extends ComposedDFTypeReplacement(
           preCheck = {

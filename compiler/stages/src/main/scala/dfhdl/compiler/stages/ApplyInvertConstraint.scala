@@ -45,7 +45,7 @@ import dfhdl.internals.BitVector
 case object ApplyInvertConstraint extends HierarchyStage:
   override def dependencies: List[Stage] = List(ToED)
   override def nullifies: Set[Stage] = Set()
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patches = subDB.members.flatMap { member =>
       member match
         case dcl: DFVal.Dcl if dcl.isPort =>

@@ -47,7 +47,7 @@ case object DropBinds extends HierarchyStage:
           Some(dfhdl.core.DFMatch.Pattern.Singleton(dfVal), refs.map(_.get))
         case _ => None
   end ReplacePattern
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     // going through all DFHDL matches
     val patches = subDB.conditionalChainTable.toList.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>

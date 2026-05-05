@@ -12,15 +12,7 @@ import annotation.FlattenMode
 case object DropDomains extends HierarchyStage:
   def dependencies: List[Stage] = List(ToED)
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, SimpleOrderMembers)
-  // `getOwnerDesign` on deeply-nested domain members walks up through the
-  // domain chain into ancestor designs that live in a parent sub-DB, so we
-  // keep the outer flat getSet.
-  override def rebindGetSet: Boolean = false
-  def transformSubDB(subDB: DB)(using
-      getSet: MemberGetSet,
-      co: CompilerOptions,
-      rg: RefGen
-  ): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patchList = subDB.membersNoGlobals.flatMap {
       // all domains are removed and their members referencing them need to point to the owner design
       case domain: DomainBlock =>

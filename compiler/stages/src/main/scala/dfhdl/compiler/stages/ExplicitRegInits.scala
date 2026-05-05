@@ -16,7 +16,7 @@ import collection.mutable
 case object ExplicitRegInits extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patches = subDB.members.collect {
       case dcl: DFVal.Dcl
           if dcl.initRefList.nonEmpty && !dcl.isReg && dcl.isInRTDomain && !dcl.isConstVAR =>

@@ -9,13 +9,8 @@ import dfhdl.options.CompilerOptions
 case object ExplicitState extends HierarchyStage:
   def dependencies: List[Stage] = List(ExplicitNamedVars, DropLocalDcls)
   def nullifies: Set[Stage] = Set()
-  // getImplicitStateVarsDF uses connectionTable (via DFNet.Connection.unapply)
-  // which walks owner chains across sub-DB boundaries, so resolve refs via
-  // the outer flat-DB getSet. Recursion past the design's top is suppressed
-  // by the `analysisRoot` parameter in StateAnalysis.
-  override def rebindGetSet: Boolean = false
 
-  def transformSubDB(subDB: DB)(using
+  def transformSubDB(rootDB: DB)(using
       getSet: MemberGetSet,
       co: CompilerOptions,
       rg: RefGen

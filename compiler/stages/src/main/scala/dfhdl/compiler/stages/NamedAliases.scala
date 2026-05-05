@@ -16,11 +16,8 @@ private abstract class NamedAliases extends HierarchyStage:
   def dependencies: List[Stage] = Nil
   def nullifies: Set[Stage] =
     Set(DFHDLUniqueNames, DropLocalDcls, ExplicitNamedVars, DropUnreferencedAnons)
-  // criteria walks refs across designs (via getReadDeps etc.), so use outer
-  // flat getSet for cross-hierarchy resolution.
-  override def rebindGetSet: Boolean = false
   def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal]
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patches = subDB.members.view
       // just values
       .collect { case dfVal: DFVal if dfVal.isAnonymous => dfVal }

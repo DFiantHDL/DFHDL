@@ -10,7 +10,7 @@ import scala.collection.mutable
 case object ViaConnection extends HierarchyStage:
   def dependencies: List[Stage] = List(DropDesignDefs, ExplicitNamedVars, SimpleOrderMembers)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patchList: List[(DFMember, Patch)] = subDB.members.flatMap {
       case ib: DFDesignInst =>
         val nets = mutable.ListBuffer.empty[DFNet]

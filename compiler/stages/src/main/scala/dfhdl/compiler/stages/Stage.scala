@@ -12,16 +12,16 @@ trait Stage extends Product, Serializable, HasTypeName derives CanEqual:
   def runCondition(using CompilerOptions): Boolean = true
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB
 
-/** Phase-2 bridge for stages that need cross-design information or whose work
-  * cannot be decomposed cleanly per-sub-DB. The stage implements
-  * `transformGlobal(newDB)` and operates on the NEW-STYLE hierarchical DB.
+/** Phase-2 bridge for stages that need cross-design information or whose work cannot be decomposed
+  * cleanly per-sub-DB. The stage implements `transformGlobal(newDB)` and operates on the NEW-STYLE
+  * hierarchical DB.
   *
   * The trait handles:
-  *   - `oldToNew` at entry — converts a legacy flat DB into the hierarchical
-  *     representation (root + per-design sub-DBs) so the body can walk the
-  *     hierarchy via `subDBs` and patch each sub-DB independently.
-  *   - `newToOld` at exit — flattens the result back into an old-style DB for
-  *     the rest of the pipeline.
+  *   - `oldToNew` at entry — converts a legacy flat DB into the hierarchical representation (root +
+  *     per-design sub-DBs) so the body can walk the hierarchy via `subDBs` and patch each sub-DB
+  *     independently.
+  *   - `newToOld` at exit — flattens the result back into an old-style DB for the rest of the
+  *     pipeline.
   *
   * Use `GlobalStage` when the body needs:
   *   - cross-design tracking state (e.g. shared opaque type maps)
@@ -59,8 +59,8 @@ end GlobalStage
   *   - per-DB dispatch of `transformSubDB` on every sub-DB in the hierarchy. The root DB is a pure
   *     hierarchy container (empty members, empty refTable) and is NOT passed to `transformSubDB`;
   *     all design content lives in `subDBs`.
-  *   - reassembly via `.copy(subDBs = ...).newToOld` to flatten back into an old-style DB for
-  *     the rest of the pipeline
+  *   - reassembly via `.copy(subDBs = ...).newToOld` to flatten back into an old-style DB for the
+  *     rest of the pipeline
   *
   * If every `transformSubDB` returned its input by reference (no change), the original `designDB`
   * is returned by reference too. This lets iterative stages (e.g. `BreakOps`,
@@ -74,23 +74,18 @@ end GlobalStage
   */
 trait HierarchyStage extends Stage:
   def rebindGetSet: Boolean = true
-  def transformSubDB(subDB: DB)(using
-      getSet: MemberGetSet,
-      co: CompilerOptions,
-      refGen: RefGen
-  ): DB
+  final protected def subDB(using MemberGetSet): DB = getSet.designDB
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB
 
-  def transform(designDB: DB)(using
-      outerGetSet: MemberGetSet,
-      co: CompilerOptions
-  ): DB =
+  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
     import scala.collection.immutable.ListMap
-    given RefGen = RefGen.fromGetSet
+    given refGen: RefGen = RefGen.fromGetSet
     val newDB = designDB.oldToNew
     var changed = false
     def run(subDB: DB): DB =
-      val ctxGetSet: MemberGetSet = if (rebindGetSet) subDB.getSet else outerGetSet
-      val result = transformSubDB(subDB)(using ctxGetSet, co, summon[RefGen])
+      val rebindDB = if (rebindGetSet) newDB else subDB
+      val rebindGS = if (rebindGetSet) subDB.getSet else designDB.getSet
+      val result = transformSubDB(rebindDB)(using rebindGS, co, refGen)
       if (!(result eq subDB)) changed = true
       result
     val transformedSubs: ListMap[DFOwner.Ref, DB] =

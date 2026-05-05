@@ -157,7 +157,7 @@ case object DropRTWaits extends HierarchyStage:
   def dependencies: List[Stage] = List(DropTimedRTWaits, SimplifyRTOps)
   def nullifies: Set[Stage] = Set()
 
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patches = subDB.members.view.collect {
       // each process block has its own step enumeration
       case pb: ProcessBlock if pb.isInRTDomain =>

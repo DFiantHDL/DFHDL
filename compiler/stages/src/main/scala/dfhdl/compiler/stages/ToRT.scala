@@ -9,11 +9,7 @@ import dfhdl.compiler.ir.DFDesignBlock.InstMode
 case object ToRT extends HierarchyStage:
   def dependencies: List[Stage] = List(DropDesignDefs, ExplicitState)
   def nullifies: Set[Stage] = Set()
-  def transformSubDB(subDB: DB)(using
-      getSet: MemberGetSet,
-      co: CompilerOptions,
-      rg: RefGen
-  ): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patchList = subDB.members.collect {
       case h @ DFVal.Alias.History(op = HistoryOp.Pipe) =>
         h -> Patch.Replace(

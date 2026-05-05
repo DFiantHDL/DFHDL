@@ -166,12 +166,10 @@ import scala.annotation.tailrec
   */
 //format: on
 case object FlattenStepBlocks extends HierarchyStage:
-  // rebind off: `getOwnerStepBlock` / `collectRelMembers` walk refs across designs.
-  override def rebindGetSet: Boolean = false
   def dependencies: List[Stage] = List(DropRTWaits, ExplicitNamedVars, DropLocalDcls)
   def nullifies: Set[Stage] = Set()
 
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     // Phase 3 ChangeRef patches are computed from the original DB.
     val gotoPatchList = subDB.members.view.flatMap {
       case pb: ProcessBlock if pb.isInRTDomain => collectGotoPatches(pb)

@@ -27,7 +27,7 @@ case object DropDesignParamDeps extends HierarchyStage:
   // DesignParams referenced via `hasDesignParamDependency` can resolve to
   // params in other sub-DBs; use outer flat getSet for cross-hierarchy refs.
   override def rebindGetSet: Boolean = false
-  def transformSubDB(subDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
+  def transformSubDB(rootDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
     val designParamDefaultsToInline = mutable.LinkedHashSet.empty[DFVal]
 
     // Check if a design parameter depends on other design parameters

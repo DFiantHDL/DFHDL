@@ -23,7 +23,7 @@ abstract class BreakOps(breakAssignments: Boolean) extends HierarchyStage, NoChe
     val result = super.transform(designDB)
     if (result eq designDB) designDB
     else transform(result)(using result.getSet)
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     object AnonConcatFuncOf:
       @tailrec def unapply(dfVal: DFVal): Option[List[DFVal.Ref]] =
         if (dfVal.isAnonymous) dfVal match
@@ -36,68 +36,68 @@ abstract class BreakOps(breakAssignments: Boolean) extends HierarchyStage, NoChe
         else None
     val patches = subDB.members.view
       .flatMap {
-          // constant index selection from a concat
-          case dfVal @ DFVal.Alias.ApplyIdx(
-                _,
-                DFRef(AnonConcatFuncOf(args)),
-                DFRef(DFVal.Alias.ApplyIdx.ConstIdx(idx)),
-                _,
-                _,
-                _
-              ) =>
-            Some(dfVal -> Patch.Replace(args(idx).get, Patch.Replace.Config.ChangeRefAndRemove))
-          // constant field selection from a concat
-          case dfVal @ DFVal.Alias.SelectField(
-                _,
-                DFRef(relVal @ AnonConcatFuncOf(args)),
-                fieldName,
-                _,
-                _,
-                _
-              ) =>
-            val idx = relVal.dfType.asInstanceOf[DFStruct].fieldIndex(fieldName)
-            Some(dfVal -> Patch.Replace(args(idx).get, Patch.Replace.Config.ChangeRefAndRemove))
-          // assignments (blocking/non-blocking) breaking
-          case net @ DFNet.Assignment(toVal, AnonConcatFuncOf(args)) if breakAssignments =>
-            import dfhdl.core.{assign, nbassign}
-            toVal.dfType match
-              case vectorType: DFVector =>
-                val dsn = new MetaDesign(
-                  net,
-                  Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
-                ):
-                  val toVar = toVal.asVarOf[DFType X Int]
-                  // we assume concatenated vectors have known widths
-                  val length = vectorType.lengthIntOpt.get
-                  for (i <- 0 until length)
-                    val lhs = toVar(i)
-                    val rhs = args(i).get.asValAny
-                    if (net.op == DFNet.Op.Assignment)
-                      lhs.assign(rhs)
-                    else
-                      lhs.nbassign(rhs)
-                Some(dsn.patch)
-              case structType: DFStruct =>
-                val dsn = new MetaDesign(
-                  net,
-                  Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
-                ):
-                  val toVar = toVal.asVarOf[dfhdl.core.DFStruct[dfhdl.core.DFStruct.Fields]]
+        // constant index selection from a concat
+        case dfVal @ DFVal.Alias.ApplyIdx(
+              _,
+              DFRef(AnonConcatFuncOf(args)),
+              DFRef(DFVal.Alias.ApplyIdx.ConstIdx(idx)),
+              _,
+              _,
+              _
+            ) =>
+          Some(dfVal -> Patch.Replace(args(idx).get, Patch.Replace.Config.ChangeRefAndRemove))
+        // constant field selection from a concat
+        case dfVal @ DFVal.Alias.SelectField(
+              _,
+              DFRef(relVal @ AnonConcatFuncOf(args)),
+              fieldName,
+              _,
+              _,
+              _
+            ) =>
+          val idx = relVal.dfType.asInstanceOf[DFStruct].fieldIndex(fieldName)
+          Some(dfVal -> Patch.Replace(args(idx).get, Patch.Replace.Config.ChangeRefAndRemove))
+        // assignments (blocking/non-blocking) breaking
+        case net @ DFNet.Assignment(toVal, AnonConcatFuncOf(args)) if breakAssignments =>
+          import dfhdl.core.{assign, nbassign}
+          toVal.dfType match
+            case vectorType: DFVector =>
+              val dsn = new MetaDesign(
+                net,
+                Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
+              ):
+                val toVar = toVal.asVarOf[DFType X Int]
+                // we assume concatenated vectors have known widths
+                val length = vectorType.lengthIntOpt.get
+                for (i <- 0 until length)
+                  val lhs = toVar(i)
+                  val rhs = args(i).get.asValAny
+                  if (net.op == DFNet.Op.Assignment)
+                    lhs.assign(rhs)
+                  else
+                    lhs.nbassign(rhs)
+              Some(dsn.patch)
+            case structType: DFStruct =>
+              val dsn = new MetaDesign(
+                net,
+                Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
+              ):
+                val toVar = toVal.asVarOf[dfhdl.core.DFStruct[dfhdl.core.DFStruct.Fields]]
 
-                  structType.fieldIndexes.foreach: (fieldName, i) =>
-                    val lhs = dfhdl.core.DFVal.Alias.SelectField(toVar, fieldName)
-                    val rhs = args(i).get.asValAny
-                    if (net.op == DFNet.Op.Assignment)
-                      lhs.assign(rhs)
-                    else
-                      lhs.nbassign(rhs)
-                Some(dsn.patch)
-              case _ => None
-            end match
+                structType.fieldIndexes.foreach: (fieldName, i) =>
+                  val lhs = dfhdl.core.DFVal.Alias.SelectField(toVar, fieldName)
+                  val rhs = args(i).get.asValAny
+                  if (net.op == DFNet.Op.Assignment)
+                    lhs.assign(rhs)
+                  else
+                    lhs.nbassign(rhs)
+              Some(dsn.patch)
+            case _ => None
+          end match
 
-          case _ => None
-        }
-        .toList
+        case _ => None
+      }
+      .toList
     subDB.patch(patches)
   end transformSubDB
 end BreakOps

@@ -17,11 +17,7 @@ import scala.collection.mutable
 case object DropTimedRTWaits extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  // resolvedClkRstMap needs full-hierarchy domain info, so resolve via
-  // the outer getSet (flat designDB) rather than per-sub-DB getSet.
-  override def rebindGetSet: Boolean = false
-
-  def transformSubDB(subDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patches = subDB.members.collect {
       // replace wait statements with time durations to cycles
       case waitMember @ Wait(

@@ -16,8 +16,6 @@ import scala.collection.mutable
 /** This stage drops process(all) by transforming it to a process with explicit sensitivity list
   */
 case object DropProcessAll extends HierarchyStage:
-  // rebind off: `departialDcl` / `collectRelMembers` walk refs across designs.
-  override def rebindGetSet: Boolean = false
   override def dependencies: List[Stage] = List(ToED, DropLocalDcls)
   override def nullifies: Set[Stage] = Set()
   override def runCondition(using co: CompilerOptions): Boolean =
@@ -31,7 +29,7 @@ case object DropProcessAll extends HierarchyStage:
         be.dialect match
           case VerilogDialect.v95 => true
           case _                  => false
-  def transformSubDB(subDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patchList: List[(DFMember, Patch)] =
       subDB.members
         // patching all process(all) blocks
