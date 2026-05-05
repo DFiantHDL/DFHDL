@@ -854,7 +854,6 @@ final case class DB private (
       case dcl: DFVal.Dcl                      => dcl.isReg || dcl.isClkDcl
       case reg: DFVal.Alias.History            => true
       case pb: ProcessBlock if pb.isInRTDomain => true
-      case internal: DFDesignBlock             => internal.usesClkRst.usesClk
       case inst: DFDesignInst                  => inst.getDesignBlock.usesClkRst.usesClk
       case _                                   => false
     } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst.usesClk) ||
@@ -866,7 +865,6 @@ final case class DB private (
         (dcl.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
       case reg: DFVal.Alias.History            => reg.hasNonBubbleInit
       case pb: ProcessBlock if pb.isInRTDomain => true
-      case internal: DFDesignBlock             => internal.usesClkRst.usesRst
       case inst: DFDesignInst                  => inst.getDesignBlock.usesClkRst.usesRst
       case _                                   => false
     } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst.usesRst) ||
