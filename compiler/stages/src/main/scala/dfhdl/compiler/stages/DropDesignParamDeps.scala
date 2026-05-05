@@ -24,9 +24,6 @@ case object DropDesignParamDeps extends HierarchyStage:
       case _ => false
   override def dependencies: List[Stage] = List(LocalToDesignParams)
   override def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  // DesignParams referenced via `hasDesignParamDependency` can resolve to
-  // params in other sub-DBs; use outer flat getSet for cross-hierarchy refs.
-  override def rebindGetSet: Boolean = false
   def transformSubDB(rootDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
     val designParamDefaultsToInline = mutable.LinkedHashSet.empty[DFVal]
 

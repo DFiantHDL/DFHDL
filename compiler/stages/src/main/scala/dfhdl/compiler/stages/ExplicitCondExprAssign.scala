@@ -44,17 +44,6 @@ import dfhdl.core.DomainType.ED
 case object ExplicitCondExprAssign extends HierarchyStage:
   def dependencies: List[Stage] = List(ExplicitNamedVars)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  // phase 1's DFNet.Connection extractor consults `connectionTable`, which in
-  // turn resolves PortByNameSelects targeting sibling sub-DBs. Use outer flat
-  // getSet so full-hierarchy resolution works.
-  override def rebindGetSet: Boolean = false
-
-  // Two-phase transform: phase 1 runs via HierarchyStage.transformSubDB per-sub-DB;
-  // phase 2 wraps ED-domain non-process conditional statements in process(all) on
-  // the phase-1 result as a flat pass.
-  override def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    val phase1DB = super.transform(designDB)
-    phase2(phase1DB)
 
   private def phase2(phase1DB: DB)(using CompilerOptions): DB =
     given MemberGetSet = phase1DB.getSet
@@ -82,7 +71,7 @@ case object ExplicitCondExprAssign extends HierarchyStage:
     phase1DB.patch(wrapPatches)
   end phase2
 
-  def transformSubDB(subDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     extension (ch: DFConditional.Header)
       // recursive call to patch conditional block chains
       private def patchChains(headerVar: DFVal, op: DFNet.Op): List[(DFMember, Patch)] =
@@ -134,7 +123,7 @@ case object ExplicitCondExprAssign extends HierarchyStage:
           header.patchChainsNet(toVal, net, DFNet.Op.Assignment)
         case _ => Nil
       }.toList
-    subDB.patch(patches)
+    phase2(subDB.patch(patches))
   end transformSubDB
 end ExplicitCondExprAssign
 
