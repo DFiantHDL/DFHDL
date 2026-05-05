@@ -60,7 +60,7 @@ case object AddClkRst extends Stage:
     // Extract the resolved @timing.clock / @timing.reset from the owner's meta.
     // Ignores @timing.related (those owners don't get clk/rst ports here).
     def resolvedAnnots(owner: DFDomainOwner)
-        : (Option[constraints.Timing.Clock], Option[constraints.Timing.Reset]) =
+        : ClkRstTiming =
       val hasRelated = owner.meta.annotations.exists {
         case _: constraints.Timing.Related => true
         case _                             => false

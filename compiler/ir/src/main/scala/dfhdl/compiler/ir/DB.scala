@@ -803,8 +803,7 @@ final case class DB private (
   private lazy val reversedDependents = dependentRTDomainOwners.invert
 
   extension (domainOwner: DFDomainOwner)
-    private def getResolvedClkRst
-        : (Option[constraints.Timing.Clock], Option[constraints.Timing.Reset]) =
+    private def getResolvedClkRst: ClkRstTiming =
       val defaultTag = globalTags.getTagOf[DefaultRTDomainCfgTag].get
       val userClkOpt = domainOwner.meta.annotations.collectFirst {
         case c: constraints.Timing.Clock => c
@@ -817,8 +816,7 @@ final case class DB private (
       // that explicitly declares "this group has no reset" — we suppress the default
       // reset that would otherwise be merged in.
       val explicitNoRst = userClkOpt.isDefined && userRstOpt.isEmpty
-      val (baseClkOpt, baseRstOpt)
-          : (Option[constraints.Timing.Clock], Option[constraints.Timing.Reset]) =
+      val (baseClkOpt, baseRstOpt): ClkRstTiming =
         if (isDeviceTop)
           val clk = domainOwner.getTimingConstraintClkRateOpt match
             case Some(rate) => defaultTag.clk.copy(rate = rate)
@@ -908,11 +906,8 @@ final case class DB private (
       domainOwner.hasRstAnnot
   end extension
 
-  extension (
-      resolved: (Option[constraints.Timing.Clock], Option[constraints.Timing.Reset])
-  )
-    private def relaxed(atDomain: DFDomainOwner)
-        : (Option[constraints.Timing.Clock], Option[constraints.Timing.Reset]) =
+  extension (resolved: ClkRstTiming)
+    private def relaxed(atDomain: DFDomainOwner): ClkRstTiming =
       val (usesClk, usesRst) = atDomain.usesClkRst
       val (clk, rst) = resolved
       val updatedClk = if (usesClk) clk else None
@@ -923,10 +918,7 @@ final case class DB private (
   @tailrec private def fillDomainMap(
       domains: List[DFDomainOwner],
       stack: List[DFDomainOwner],
-      domainMap: mutable.Map[
-        DFDomainOwner,
-        (Option[constraints.Timing.Clock], Option[constraints.Timing.Reset])
-      ]
+      domainMap: mutable.Map[DFDomainOwner, ClkRstTiming]
   ): Unit =
     domains match
       case domain :: rest if domainMap.contains(domain) =>
@@ -950,14 +942,8 @@ final case class DB private (
     end match
   end fillDomainMap
 
-  lazy val resolvedClkRstMap: Map[
-    DFDomainOwner,
-    (Option[constraints.Timing.Clock], Option[constraints.Timing.Reset])
-  ] =
-    val domainMap = mutable.Map.empty[
-      DFDomainOwner,
-      (Option[constraints.Timing.Clock], Option[constraints.Timing.Reset])
-    ]
+  lazy val resolvedClkRstMap: Map[DFDomainOwner, ClkRstTiming] =
+    val domainMap = mutable.Map.empty[DFDomainOwner, ClkRstTiming]
     val rtDomainOwners = domainOwnerMemberList.view.map(_._1).filter(_.domainType match
       case DomainType.RT => true
       case _             => false).toList
