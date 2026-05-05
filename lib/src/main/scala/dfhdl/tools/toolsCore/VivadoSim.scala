@@ -99,7 +99,7 @@ trait VivadoSimCommon extends Linter, Simulator:
         case _: backends.verilog => Nil
     val compiledFiles =
       s"$workFolder${separatorChar}work.rlx" :: compiledVHDLPackageFiles ++
-        getSet.designDB.uniqueDesignMemberList.view.map(_._1.dclName).map(compiledFilePath).toList
+        getSet.designDB.designMemberList.view.map(_._1.dclName).map(compiledFilePath).toList
     axsimScript :: axsimRunExec :: xsimSupportFiles ++ compiledFiles
   end producedFiles
 

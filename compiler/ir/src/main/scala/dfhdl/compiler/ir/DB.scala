@@ -328,10 +328,6 @@ final case class DB private (
   lazy val designBlockOwnershipMap: Map[DFDesignBlock, Set[DFDesignBlock]] =
     designBlockInstMap.view.mapValues(_.view.map(_.getOwnerDesign).toSet).toMap
 
-  // holds the topological order of unique design block dependency
-  lazy val uniqueDesignMemberList: List[(DFDesignBlock, List[DFMember])] =
-    designMemberList.filterNot(_._1.isDuplicate)
-
   lazy val designInstPBNS: Map[DFDesignInst, List[DFVal.PortByNameSelect]] =
     members.collect { case pbns: DFVal.PortByNameSelect => pbns }.groupBy(_.getDesignInst)
 

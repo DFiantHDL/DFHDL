@@ -122,7 +122,7 @@ class QuartusPrimeProjectTclConfigPrinter(using
   def generateSVFFileCmd: String =
     if (pro) "" else "set_global_assignment -name GENERATE_SVF_FILE ON"
   def qsysIPs: String =
-    designDB.uniqueDesignMemberList.collect {
+    designDB.designMemberList.collect {
       case (qsysIP: DFDesignBlock, _) if qsysIP.isVendorIPBlackbox =>
         s"catch {exec qsys-script --script=ips/${qsysIP.dclName}.tcl --quartus-project=${topName}}"
     }.mkString("\n")
@@ -360,7 +360,7 @@ class QuartusPrimeIPPrinter(using
          |"""
   end contents
   def getSourceFiles: List[SourceFile] =
-    getSet.designDB.uniqueDesignMemberList.collect {
+    getSet.designDB.designMemberList.collect {
       case (qsysIP: DFDesignBlock, _) if qsysIP.isVendorIPBlackbox =>
         SourceFile(
           SourceOrigin.Compiled,

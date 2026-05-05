@@ -120,7 +120,7 @@ class VivadoProjectTclConfigPrinter(using
     else ""
   def configFileName: String = s"$topName.tcl"
   def vivadoIPs: String =
-    designDB.uniqueDesignMemberList.collect {
+    designDB.designMemberList.collect {
       case (vivadoIP: DFDesignBlock, _) if vivadoIP.isVendorIPBlackbox =>
         s"source ips/${vivadoIP.dclName}.tcl"
     }.mkString("\n")
@@ -354,7 +354,7 @@ class VivadoIPPrinter(using
          |"""
   end contents
   def getSourceFiles: List[SourceFile] =
-    getSet.designDB.uniqueDesignMemberList.collect {
+    getSet.designDB.designMemberList.collect {
       case (vivadoIP: DFDesignBlock, _) if vivadoIP.isVendorIPBlackbox =>
         SourceFile(
           SourceOrigin.Compiled,

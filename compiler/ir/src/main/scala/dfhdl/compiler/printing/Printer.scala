@@ -173,7 +173,7 @@ trait Printer
     val compiledFiles = Iterable(
       dfhdlSourceFile,
       globalSourceFile,
-      designDB.uniqueDesignMemberList.view.map { case (block: DFDesignBlock, _) =>
+      designDB.designMemberList.view.map { case (block: DFDesignBlock, _) =>
         val sourceType = block.instMode match
           case _: DFDesignBlock.InstMode.BlackBox => SourceType.BlackBox
           case _                                  => SourceType.Design
@@ -197,7 +197,7 @@ trait Printer
 
   final def csDB: String =
     val designDB = getSet.designDB
-    val csFileList = designDB.uniqueDesignMemberList.collect {
+    val csFileList = designDB.designMemberList.collect {
       case (block: DFDesignBlock, _)
           if printerOptions.designPrintFilter(block) &&
             (!block.isVendorIPBlackbox || printVendorIPBlackbox) =>

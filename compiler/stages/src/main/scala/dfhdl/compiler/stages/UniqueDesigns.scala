@@ -20,7 +20,7 @@ case object UniqueDesigns extends Stage:
     // the eventual file names and we want these to be different across all operating systems.
     // the actual name case is preserved for design/entity/module generation.
     val sameBlockLists: List[List[DFDesignBlock]] =
-      designDB.uniqueDesignMemberList.view
+      designDB.designMemberList.view
         .groupByCompare(eqDesign, _._1.dclName.toLowerCase().hashCode()).map(_.unzip._1).toList
     val uniqueTypeMap: Map[String, List[List[DFDesignBlock]]] =
       sameBlockLists.groupBy(g => g.head.dclName.toLowerCase())
