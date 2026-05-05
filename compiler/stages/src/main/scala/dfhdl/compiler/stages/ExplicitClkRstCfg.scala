@@ -11,8 +11,8 @@ import dfhdl.core.{refTW, DFC}
 
 /** Resolves each RT domain owner's clock/reset configuration from the user-authored partial
   * `@timing.clock` / `@timing.reset` / `@timing.related` annotations and the global
-  * `DefaultRTDomainCfgTag` defaults. Writes fully-populated annotations back onto the owner's
-  * meta so downstream stages (`AddClkRst`, `ToED`) can read a single, resolved source of truth.
+  * `DefaultRTDomainCfgTag` defaults. Writes fully-populated annotations back onto the owner's meta
+  * so downstream stages (`AddClkRst`, `ToED`) can read a single, resolved source of truth.
   */
 case object ExplicitClkRstCfg extends HierarchyStage:
   def dependencies: List[Stage] = List(UniqueDesigns, NamedAnonMultiref)
@@ -90,7 +90,7 @@ case object ExplicitClkRstCfg extends HierarchyStage:
       case _ => None
     }
     if (patchList.isEmpty) subDB
-    else subDB.copy(refTable = subDB.refTable ++ relatedCfgRefs).patch(patchList)
+    else subDB.update(refTable = subDB.refTable ++ relatedCfgRefs).patch(patchList)
   end transformSubDB
 end ExplicitClkRstCfg
 

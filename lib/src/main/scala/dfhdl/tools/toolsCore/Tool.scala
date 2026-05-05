@@ -23,7 +23,7 @@ trait Tool:
       sourceFiles: List[SourceFile]
   )(using CompilerOptions): CompiledDesign =
     val stagedDB = cd.stagedDB
-    cd.newStage(stagedDB.copy(srcFiles = stagedDB.srcFiles ++ sourceFiles)).commit
+    cd.newStage(stagedDB.update(srcFiles = stagedDB.srcFiles ++ sourceFiles)).commit
 
   protected def versionCmd: String
   protected def extractVersion(cmdRetStr: String): Option[String]

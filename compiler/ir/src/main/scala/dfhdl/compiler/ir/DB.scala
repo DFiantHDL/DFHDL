@@ -9,7 +9,7 @@ import dfhdl.compiler.printing.{Printer, DefaultPrinter}
 import DFDesignBlock.InstMode
 import upickle.default.*
 
-final case class DB(
+final case class DB private (
     members: List[DFMember],
     refTable: Map[DFRefAny, DFMember],
     globalTags: DFTags,
@@ -23,8 +23,17 @@ final case class DB(
     // every design in elaboration order (top first, then descendants). Sub-DBs
     // and old-style flat DBs both have an empty `subDBs`.
     subDBs: ListMap[DFOwner.Ref, DB] = ListMap.empty
-) derives CanEqual:
+)(_rootDB: => DB) derives CanEqual:
   private val self = this
+  lazy val rootDB: DB = _rootDB
+  def update(
+      members: List[DFMember] = members,
+      refTable: Map[DFRefAny, DFMember] = refTable,
+      globalTags: DFTags = globalTags,
+      srcFiles: List[SourceFile] = srcFiles,
+      subDBs: ListMap[DFOwner.Ref, DB] = subDBs
+  ): DB = DB(members, refTable, globalTags, srcFiles, subDBs)
+
   given getSet: MemberGetSet with
     val isMutable: Boolean = false
     val designDB: DB = self
@@ -1432,8 +1441,7 @@ final case class DB(
             // helpers (e.g. resolvedClkRstMap) find project-wide tags
             // like DefaultRTDomainCfgTag when dispatched against a sub-DB.
             globalTags = this.globalTags,
-            srcFiles = Nil,
-            subDBs = ListMap.empty
+            srcFiles = Nil
           )
           // Insert d BEFORE recursing into children so the LinkedHashMap
           // ordering is top-down (parent before children).
@@ -1462,7 +1470,7 @@ final case class DB(
       val newMembers = orphanGlobals ::: topSub.members
       val orphanRefs = refsFor(orphanGlobals)
       val newRefTable = topSub.refTable ++ orphanRefs
-      builtSubDBs(topDsn) = topSub.copy(members = newMembers, refTable = newRefTable)
+      builtSubDBs(topDsn) = topSub.update(members = newMembers, refTable = newRefTable)
     // Root is a pure hierarchy container: empty members, empty refTable,
     // designBlock = None. `subDBs` lists every design — top first (so
     // `topDB` resolves correctly), then the top's descendants in elaboration
@@ -1581,8 +1589,7 @@ final case class DB(
       members = flat.toList,
       refTable = mergedRefTable.toMap,
       globalTags = this.globalTags,
-      srcFiles = this.srcFiles,
-      subDBs = ListMap.empty
+      srcFiles = this.srcFiles
     )
   end newToOld
 
@@ -1637,12 +1644,34 @@ final case class DB(
     emittedDesigns += topD
     emitDesign(topD)
     val newMembers = globals.toList ++ out.toList
-    if (newMembers == members) this else this.copy(members = newMembers)
+    if (newMembers == members) this else this.update(members = newMembers)
   end canonicalForm
 
 end DB
 
 object DB:
+  def apply(
+      members: List[DFMember],
+      refTable: Map[DFRefAny, DFMember],
+      globalTags: DFTags,
+      srcFiles: List[SourceFile]
+  ): DB =
+    lazy val db: DB = new DB(members, refTable, globalTags, srcFiles, ListMap.empty)(db)
+    db.rootDB
+    db
+  def apply(
+      members: List[DFMember],
+      refTable: Map[DFRefAny, DFMember],
+      globalTags: DFTags,
+      srcFiles: List[SourceFile],
+      subDBs: ListMap[DFOwner.Ref, DB]
+  ): DB =
+    lazy val updatedSubDBs = subDBs.map((r, subDB) => r -> subDB.copy()(db))
+    lazy val db: DB = new DB(members, refTable, globalTags, srcFiles, subDBs)(db)
+    updatedSubDBs.foreach(_._2.rootDB)
+    db.rootDB
+    db
+
   // Custom ReadWriter for DB: excludes `subDBs` from serialization.
   // Phase 1 never persists a populated `subDBs` (it's only used
   // transiently inside `sanityCheck`), so the round-trip over JSON stays
@@ -1654,7 +1683,7 @@ object DB:
     readwriter[DBSerialized].bimap[DB](
       db => (db.members, db.refTable, db.globalTags, db.srcFiles),
       { case (members, refTable, globalTags, srcFiles) =>
-        DB(members, refTable, globalTags, srcFiles, ListMap.empty)
+        DB(members, refTable, globalTags, srcFiles)
       }
     )
   extension (db: DB)

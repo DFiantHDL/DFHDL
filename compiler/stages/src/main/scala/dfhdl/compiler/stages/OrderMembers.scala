@@ -32,7 +32,7 @@ private abstract class OrderMembers(order: OrderMembers.Order) extends Hierarchy
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val reordered = subDB.membersGlobals ++ orderMembers(List(subDB.top), List())
     if (reordered == subDB.members) subDB
-    else subDB.copy(members = reordered)
+    else subDB.update(members = reordered)
 
 end OrderMembers
 

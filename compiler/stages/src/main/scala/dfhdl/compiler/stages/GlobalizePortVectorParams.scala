@@ -168,7 +168,7 @@ case object GlobalizePortVectorParams extends Stage:
               case None => List(inst)
           case m => List(m)
         }
-      val dupAugDB = designDB.copy(
+      val dupAugDB = designDB.update(
         members = designDB.membersGlobals ++ expandMembers(designDB.membersNoGlobals),
         refTable = designDB.refTable ++ newRefs
       )

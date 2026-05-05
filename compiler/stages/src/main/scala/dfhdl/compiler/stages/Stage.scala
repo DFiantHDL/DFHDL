@@ -91,7 +91,7 @@ trait HierarchyStage extends Stage:
     val transformedSubs: ListMap[DFOwner.Ref, DB] =
       newDB.subDBs.map { case (k, subDB) => k -> run(subDB) }
     if (!changed) designDB
-    else newDB.copy(subDBs = transformedSubs).newToOld
+    else newDB.update(subDBs = transformedSubs).newToOld
   end transform
 end HierarchyStage
 

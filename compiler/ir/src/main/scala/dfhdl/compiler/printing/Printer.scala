@@ -190,7 +190,7 @@ trait Printer
       case SourceFile(sourceOrigin = SourceOrigin.Compiled | SourceOrigin.Committed) => false
       case _                                                                         => true
     } ++ compiledFiles
-    designDB.copy(srcFiles = srcFiles)
+    designDB.update(srcFiles = srcFiles)
   end printedDB
 
   val printVendorIPBlackbox: Boolean = false
@@ -258,7 +258,7 @@ object Printer:
         srcFile.copy(sourceOrigin = SourceOrigin.Committed)
       case other => other
     }
-    db.copy(srcFiles = updatedSrcFiles)
+    db.update(srcFiles = updatedSrcFiles)
   end commit
 end Printer
 

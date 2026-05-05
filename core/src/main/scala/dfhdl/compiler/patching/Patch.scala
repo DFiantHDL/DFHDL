@@ -393,7 +393,7 @@ extension (db: DB)
                   Patch.Add(db1, Patch.Add.Config.Before),
                   Patch.Add(db2, Patch.Add.Config.After)
                 ) =>
-              val combinedDB = (db1 concat db2).copy(members =
+              val combinedDB = (db1 concat db2).update(members =
                 db1.members ++ (m :: db2.members.drop(1))
               )
               val config = Patch.Add.Config.ReplaceWithMemberN(
@@ -406,7 +406,7 @@ extension (db: DB)
                   Patch.Add(db1, Patch.Add.Config.After),
                   Patch.Add(db2, Patch.Add.Config.Before)
                 ) =>
-              val combinedDB = (db1 concat db2).copy(members =
+              val combinedDB = (db1 concat db2).update(members =
                 (db1.members.head :: db2.members.drop(1)) ++ (m :: db1.members.drop(1))
               )
               val config = Patch.Add.Config.ReplaceWithMemberN(
@@ -438,7 +438,7 @@ extension (db: DB)
             case (add: Patch.Add, replace: Patch.Replace) if add.config == Patch.Add.Config.After =>
               tbl +
                 (m -> Patch.Add(
-                  add.db.copy(add.db.members.head :: replace.updatedMember ::
+                  add.db.update(add.db.members.head :: replace.updatedMember ::
                     add.db.members.drop(1)),
                   Patch.Add.Config.ReplaceWithFirst()
                 ))
@@ -446,7 +446,7 @@ extension (db: DB)
             case (replace: Patch.Replace, add: Patch.Add) if add.config == Patch.Add.Config.After =>
               tbl +
                 (m -> Patch.Add(
-                  add.db.copy(add.db.members.head :: replace.updatedMember ::
+                  add.db.update(add.db.members.head :: replace.updatedMember ::
                     add.db.members.drop(1)),
                   Patch.Add.Config.ReplaceWithFirst()
                 ))
@@ -571,7 +571,8 @@ extension (db: DB)
           case _: DFRef.OneWay.Gen[?] => memberOwnerRefs.contains(r)
           case _                      => true
       }
-    db.copy(members = patchedMembers, refTable = cleanedRefTable)
+    end cleanedRefTable
+    db.update(members = patchedMembers, refTable = cleanedRefTable)
   end patch
 
   def patchSingle(singlePatch: (DFMember, Patch), debug: Boolean = false): DB =
@@ -583,6 +584,6 @@ extension (db: DB)
     db.srcFiles ++ that.srcFiles
   )
   def setGlobalTags(tagList: DFTags): DB =
-    db.copy(globalTags = db.globalTags ++ tagList)
+    db.update(globalTags = db.globalTags ++ tagList)
 
 end extension
