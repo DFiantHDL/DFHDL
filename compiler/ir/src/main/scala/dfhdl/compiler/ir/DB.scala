@@ -22,13 +22,7 @@ final case class DB(
     // new-style root DB has a populated `subDBs`: a flat ListMap of
     // every design in elaboration order (top first, then descendants). Sub-DBs
     // and old-style flat DBs both have an empty `subDBs`.
-    subDBs: ListMap[DFOwner.Ref, DB] = ListMap.empty,
-    // On new-style sub-DBs this is `Some(d)` where `d` is the design block
-    // this sub-DB represents — and `d` IS a member of this sub-DB's `members`
-    // list. On the new-style root and on old-style flat DBs this is `None`;
-    // on root, `top` is resolved through `topDB.designBlock`, and on
-    // old-style flat DBs `top` falls back to `membersNoGlobals.head`.
-    designBlock: Option[DFDesignBlock] = None
+    subDBs: ListMap[DFOwner.Ref, DB] = ListMap.empty
 ) derives CanEqual:
   private val self = this
   given getSet: MemberGetSet with
@@ -63,7 +57,7 @@ final case class DB(
     )
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = globalTags.getTagOf[CT]
   end getSet
-  def atGetSet[T](block : MemberGetSet ?=> T): T = block(using getSet)
+  def atGetSet[T](block: MemberGetSet ?=> T): T = block(using getSet)
 
   // True for the new-style root DB: a hierarchy container with empty members
   // and empty refTable, holding all designs (including the top) in
@@ -80,12 +74,10 @@ final case class DB(
   lazy val top: DFDesignBlock =
     if (isRoot) topDB.top
     else
-      designBlock.getOrElse(
-        membersNoGlobals.head match
-          case m: DFDesignBlock => m
-          case invalidTop       =>
-            throw new IllegalArgumentException(s"Unexpected member as Top:\n$invalidTop")
-      )
+      membersNoGlobals.head match
+        case m: DFDesignBlock => m
+        case invalidTop       =>
+          throw new IllegalArgumentException(s"Unexpected member as Top:\n$invalidTop")
 
   lazy val topIOs: List[DFVal.Dcl] = designMemberTable(top).collect {
     case dcl: DFVal.Dcl if dcl.isPort => dcl
@@ -1424,7 +1416,7 @@ final case class DB(
     def buildSubDB(d: DFDesignBlock): DB =
       builtSubDBs.get(d) match
         case Some(db) => db
-        case None =>
+        case None     =>
           val locals = designOwn(d).toList
           // Walk d's own refs in addition to its locals: with nested blocks
           // no longer present in the parent's `localMembers`, globals reached
@@ -1441,8 +1433,7 @@ final case class DB(
             // like DefaultRTDomainCfgTag when dispatched against a sub-DB.
             globalTags = this.globalTags,
             srcFiles = Nil,
-            subDBs = ListMap.empty,
-            designBlock = Some(d)
+            subDBs = ListMap.empty
           )
           // Insert d BEFORE recursing into children so the LinkedHashMap
           // ordering is top-down (parent before children).
@@ -1481,8 +1472,7 @@ final case class DB(
       refTable = Map.empty,
       globalTags = this.globalTags,
       srcFiles = this.srcFiles,
-      subDBs = ListMap.from(builtSubDBs.iterator.map((d, sub) => d.ownerRef -> sub)),
-      designBlock = None
+      subDBs = ListMap.from(builtSubDBs.iterator.map((d, sub) => d.ownerRef -> sub))
     )
   end oldToNew
 
@@ -1592,8 +1582,7 @@ final case class DB(
       refTable = mergedRefTable.toMap,
       globalTags = this.globalTags,
       srcFiles = this.srcFiles,
-      subDBs = ListMap.empty,
-      designBlock = None
+      subDBs = ListMap.empty
     )
   end newToOld
 
