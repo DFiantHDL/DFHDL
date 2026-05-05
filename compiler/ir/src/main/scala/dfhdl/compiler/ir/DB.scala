@@ -73,6 +73,9 @@ final case class DB private (
   // `subDBs`. False for sub-DBs and old-style flat DBs.
   lazy val isRoot: Boolean = subDBs.nonEmpty
 
+  // TODO: remove this once we don't need the old-style anymore
+  lazy val isOldStyleFlatDB: Boolean = rootDB.eq(this) && !isRoot
+
   // The sub-DB representing the top design. Only meaningful on the new-style
   // root DB; by construction in `oldToNew`, the top design's sub-DB is the
   // first entry of `subDBs`.
@@ -280,12 +283,15 @@ final case class DB private (
 
   // holds the topological order of domain owner dependency
   lazy val domainOwnerMemberList: List[(DFDomainOwner, List[DFMember])] =
-    // head will always be the TOP owner
-    OMLGen[DFDomainOwner](_.getOwnerDomain)(
-      List(),
-      localsForOML,
-      List(top -> List())
-    ).reverse
+    if (isRoot)
+      subDBs.view.values.flatMap(_.domainOwnerMemberList).toList
+    else
+      // head will always be the TOP owner
+      OMLGen[DFDomainOwner](_.getOwnerDomain)(
+        List(),
+        localsForOML,
+        List(top -> List())
+      ).reverse
 
   // holds a hash table that lists members of each named owner. The member list order is maintained.
   lazy val domainOwnerMemberTable: Map[DFDomainOwner, List[DFMember]] =
@@ -317,16 +323,46 @@ final case class DB private (
 
   // design block to its instances map
   lazy val designBlockInstMap: Map[DFDesignBlock, List[DFDesignInst]] =
-    val designInsts =
-      if (isRoot) subDBs.view.values.flatMap(_.membersNoGlobals).collect {
-        case inst: DFDesignInst => inst
+    if (isRoot) subDBs.view.values.flatMap { subDB =>
+      // need to use the context of each subDB to be able to call `.getDesignBlock`
+      // TODO: in the future, once all stages are updated to use the new-style root DB,
+      // we can use the DFDesignBlock's ownerRef as a specialized ref instead.
+      subDB.atGetSet {
+        subDB.membersNoGlobals.view.collect {
+          case inst: DFDesignInst => inst -> inst.getDesignBlock
+        }
       }
-      else members.view.collect { case inst: DFDesignInst => inst }
-    designInsts.groupBy(_.getDesignBlock).view.mapValues(_.toList).toMap + (top -> Nil)
+    }.groupBy(_._2).view.mapValues(_.map(_._1).toList).toMap + (top -> Nil)
+    else
+      members.view.collect { case inst: DFDesignInst => inst }
+        .groupBy(_.getDesignBlock).view.mapValues(_.toList).toMap + (top -> Nil)
 
-  // design block to its owner design blocks map (multiple owners in case of multiple instantiations). Note that the top-level design block has no owner and thus is not included in the map.
+  // design block to its owner design blocks map (multiple owners in case of multiple instantiations).
   lazy val designBlockOwnershipMap: Map[DFDesignBlock, Set[DFDesignBlock]] =
-    designBlockInstMap.view.mapValues(_.view.map(_.getOwnerDesign).toSet).toMap
+    if (isOldStyleFlatDB)
+      designBlockInstMap.view.mapValues(_.view.map(_.getOwnerDesign).toSet).toMap
+    else if (isRoot)
+      subDBs.view.values.flatMap { subDB =>
+        subDB.atGetSet {
+          subDB.membersNoGlobals.view.collect {
+            case inst: DFDesignInst => inst.getDesignBlock -> subDB.top
+          }
+        }
+      }.groupBy(_._1).view.mapValues(_.map(_._2).toSet).toMap + (top -> Set.empty)
+    else rootDB.designBlockOwnershipMap
+
+  lazy val designBlockDomainOwnershipMap: Map[DFDesignBlock, Set[DFDomainOwner]] =
+    if (isOldStyleFlatDB)
+      designBlockInstMap.view.mapValues(_.view.map(_.getOwnerDomain).toSet).toMap
+    else if (isRoot)
+      subDBs.view.values.flatMap { subDB =>
+        subDB.atGetSet {
+          subDB.membersNoGlobals.view.collect {
+            case inst: DFDesignInst => inst.getDesignBlock -> inst.getOwnerDomain
+          }
+        }
+      }.groupBy(_._1).view.mapValues(_.map(_._2).toSet).toMap + (top -> Set.empty)
+    else rootDB.designBlockDomainOwnershipMap
 
   lazy val designInstPBNS: Map[DFDesignInst, List[DFVal.PortByNameSelect]] =
     members.collect { case pbns: DFVal.PortByNameSelect => pbns }.groupBy(_.getDesignInst)
