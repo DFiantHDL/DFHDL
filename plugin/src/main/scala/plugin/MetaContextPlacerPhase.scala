@@ -187,7 +187,9 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
                   Literal(Constant(finalName)),
                   tree.positionTree,
                   mkOptionString(clsSym.docString),
-                  mkList(clsSym.staticAnnotations.map(a => dropProxies(a.tree)))
+                  mkList(clsSym.staticAnnotations.map(a =>
+                    reownLocalDefs(dropProxies(a.tree), clsSym.primaryConstructor)
+                  ))
                 )
               )
           val newTemplate =
