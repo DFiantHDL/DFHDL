@@ -7,6 +7,10 @@ object ConfigN:
     def apply(x: None.type): ConfigN[T] = x
   given [T]: Conversion[T, ConfigN[T]] with
     def apply(x: T): ConfigN[T] = x
+  implicit def fromNoneToFunc[T, Comp](from: None.type): Comp => ConfigN[T] = _ => None
+  // TODO: `into` is not working with the new conversion (get warnings)
+  // given [T, Comp]: Conversion[None.type, Comp => ConfigN[T]] with
+  //   def apply(x: None.type): Comp => ConfigN[T] = _ => None
   given [F, T](using conv: Conversion[F, T]): Conversion[F, ConfigN[T]] with
     def apply(x: F): ConfigN[T] = conv(x)
   given [T1, T2](using CanEqual[T1, T2]): CanEqual[ConfigN[T1], ConfigN[T2]] = CanEqual.derived
@@ -67,20 +71,19 @@ enum ClkRstInclusionPolicy extends HasCodeString derives CanEqual, ReadWriter:
     */
   case AlwaysAtTop
 
-  def codeString(using Printer): String = "timing.InclusionPolicy." + this.toString
+  def codeString(using Printer): String = "_." + this.toString.toLowerCase
 
 object ClkCfg:
   enum Edge extends HasCodeString derives CanEqual, ReadWriter:
     case Rising, Falling
-    def codeString(using Printer): String = "timing.clock.Edge." + this.toString
+    def codeString(using Printer): String = "_." + this.toString.toLowerCase
 end ClkCfg
 
 object RstCfg:
   enum Mode extends HasCodeString derives CanEqual, ReadWriter:
     case Async, Sync
-    def codeString(using Printer): String = "timing.reset.Mode." + this.toString
+    def codeString(using Printer): String = "_." + this.toString.toLowerCase
   enum Active extends HasCodeString derives CanEqual, ReadWriter:
     case Low, High
-    def codeString(using Printer): String = "timing.reset.Active." + this.toString
+    def codeString(using Printer): String = "_." + this.toString.toLowerCase
 end RstCfg
-

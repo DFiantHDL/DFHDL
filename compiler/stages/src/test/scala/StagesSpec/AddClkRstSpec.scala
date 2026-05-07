@@ -26,15 +26,15 @@ class AddClkRstSpec extends StageSpec:
          |case class Clk_cfgI() extends Clk
          |case class Rst_cfgI() extends Rst
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class ID extends RTDesign:
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfgI")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfgI")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val internal = new RTDomain:
          |    val clk = Clk_cfgI <> IN
          |    val rst = Rst_cfgI <> IN
@@ -70,8 +70,8 @@ class AddClkRstSpec extends StageSpec:
       """|case class Clk_cfg() extends Clk
          |case class Rst_cfg() extends Rst
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class ID extends RTDesign:
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
@@ -80,8 +80,8 @@ class AddClkRstSpec extends StageSpec:
          |  y := x.reg(1, init = ?)
          |end ID
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class IDTop extends RTDesign:
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
@@ -120,15 +120,15 @@ class AddClkRstSpec extends StageSpec:
          |case class Clk_cfgI() extends Clk
          |case class Rst_cfgI() extends Rst
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class ID extends RTDesign:
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfgI")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfgI")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val internal = new RTDomain:
          |    val clk = Clk_cfgI <> IN
          |    val rst = Rst_cfgI <> IN
@@ -158,12 +158,12 @@ class AddClkRstSpec extends StageSpec:
       """|case class Clk_cfgNoRst() extends Clk
          |case class Clk_cfgNoRstI() extends Clk
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfgNoRst")
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfgNoRst")
          |class ID extends RTDesign:
          |  val clk = Clk_cfgNoRst <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfgNoRstI")
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfgNoRstI")
          |  val internal = new RTDomain:
          |    val clk = Clk_cfgNoRstI <> IN
          |    val x = SInt(16) <> IN
@@ -193,7 +193,7 @@ class AddClkRstSpec extends StageSpec:
          |class ID extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfgNoRstI")
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfgNoRstI")
          |  val internal = new RTDomain:
          |    val clk = Clk_cfgNoRstI <> IN
          |    val x = SInt(16) <> IN
@@ -224,8 +224,8 @@ class AddClkRstSpec extends StageSpec:
       """|case class Clk_cfg() extends Clk
          |case class Rst_cfg() extends Rst
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class ID extends RTDesign:
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
@@ -272,15 +272,15 @@ class AddClkRstSpec extends StageSpec:
          |case class Clk_cfgI() extends Clk
          |case class Rst_cfgI() extends Rst
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class ID extends RTDesign:
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfgI")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfgI")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val internal1 = new RTDomain:
          |    val clk = Clk_cfgI <> IN
          |    val rst = Rst_cfgI <> IN
@@ -328,16 +328,16 @@ class AddClkRstSpec extends StageSpec:
          |case class Clk_cfgSlow() extends Clk
          |case class Rst_cfgSlow() extends Rst
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class ID extends RTDesign:
          |  @io(loc = "pinClk")
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.clock(rate = 25.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfgSlow")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 25.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfgSlow")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val internal = new RTDomain:
          |    @io(loc = "pinClk2")
          |    val clk = Clk_cfgSlow <> IN
@@ -387,14 +387,14 @@ class AddClkRstSpec extends StageSpec:
          |case class Rst_genCfg() extends Rst
          |
          |class ClkGen extends EDDesign:
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val src = new RTDomain:
          |    val clk = Clk_cfg <> IN
          |    val rst = Rst_cfg <> IN
          |  end src
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "genCfg")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "genCfg")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val gen = new RTDomain:
          |    val clk = Clk_genCfg <> OUT
          |    val rst = Rst_genCfg <> OUT
@@ -403,16 +403,16 @@ class AddClkRstSpec extends StageSpec:
          |  gen.rst <> src.rst.as(Rst_genCfg)
          |end ClkGen
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class ID extends RTDesign:
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val clkGen = ClkGen()
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "genCfg")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "genCfg")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val internal = new RTDomain:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
@@ -459,16 +459,16 @@ class AddClkRstSpec extends StageSpec:
          |class IDTop extends EDDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val dmn1 = new RTDomain:
          |    val clk = Clk_default <> IN
          |    val rst = Rst_default <> IN
          |    val id = ID()
          |    id.x <> x
          |  end dmn1
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val dmn2 = new RTDomain:
          |    val clk = Clk_default <> IN
          |    val rst = Rst_default <> IN
@@ -503,14 +503,14 @@ class AddClkRstSpec extends StageSpec:
       """|case class Clk_cfg() extends Clk
          |case class Rst_cfg() extends Rst
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class ID extends RTDesign:
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val internal = new RTDomain:
          |    val clk = Clk_cfg <> IN
          |    val x = SInt(16) <> IN
@@ -541,8 +541,8 @@ class AddClkRstSpec extends StageSpec:
       """|case class Clk_cfg() extends Clk
          |case class Rst_cfg() extends Rst
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class FooChild extends RTDesign:
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
@@ -550,8 +550,8 @@ class AddClkRstSpec extends StageSpec:
          |  y.din := y + d"8'1"
          |end FooChild
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class Foo extends RTDesign:
          |  val clk = Clk_cfg <> VAR
          |  val rst = Rst_cfg <> VAR
@@ -577,8 +577,8 @@ class AddClkRstSpec extends StageSpec:
       """|case class Clk_cfg() extends Clk
          |case class Rst_cfg() extends Rst
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class FooChild extends RTDesign:
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
@@ -586,8 +586,8 @@ class AddClkRstSpec extends StageSpec:
          |  y.din := y + d"8'1"
          |end FooChild
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class Foo extends RTDesign:
          |  val clk = Clk_cfg <> VAR
          |  val rst = Rst_cfg <> VAR
@@ -625,8 +625,8 @@ class AddClkRstSpec extends StageSpec:
       """|case class Clk_cfg() extends Clk
          |case class Rst_cfg() extends Rst
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class FooChild extends RTDesign:
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
@@ -634,8 +634,8 @@ class AddClkRstSpec extends StageSpec:
          |  y.din := y + d"8'1"
          |end FooChild
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfg")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class Foo extends RTDesign:
          |  val clk = Clk_cfg <> VAR
          |  val rst = Rst_cfg <> VAR
@@ -670,14 +670,14 @@ class AddClkRstSpec extends StageSpec:
       top,
       """|case class Clk_cfgNoRst() extends Clk
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfgNoRst")
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfgNoRst")
          |class FooChild extends RTDesign:
          |  val clk = Clk_cfgNoRst <> IN
          |  val y = UInt(8) <> OUT.REG init d"8'0"
          |  y.din := y + d"8'1"
          |end FooChild
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfgNoRst")
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfgNoRst")
          |class Foo extends RTDesign:
          |  val clk = Clk_cfgNoRst <> VAR
          |  @hw.annotation.flattenMode.transparent()
@@ -710,14 +710,14 @@ class AddClkRstSpec extends StageSpec:
       top,
       """|case class Clk_cfgNoRst() extends Clk
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfgNoRst")
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfgNoRst")
          |class FooChild extends RTDesign:
          |  val clk = Clk_cfgNoRst <> IN
          |  val y = UInt(8) <> OUT.REG init d"8'0"
          |  y.din := y + d"8'1"
          |end FooChild
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "cfgNoRst")
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfgNoRst")
          |class Foo extends RTDesign:
          |  val clk = Clk_cfgNoRst <> VAR
          |  @hw.annotation.flattenMode.transparent()

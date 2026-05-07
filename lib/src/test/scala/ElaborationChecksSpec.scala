@@ -278,7 +278,7 @@ class ElaborationChecksSpec extends DesignSpec:
   test("missing port location check"):
     object Test:
       import hw.constraints.*
-      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @deviceID(_.xilinxamd, "test", "test", "")
       @io(loc = "locClk")
       @top(false) class Top extends RTDesign:
         @io(loc = "locx")
@@ -308,7 +308,7 @@ class ElaborationChecksSpec extends DesignSpec:
   test("location collision check"):
     object Test:
       import hw.constraints.*
-      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @deviceID(_.xilinxamd, "test", "test", "")
       @io(loc = "locClk")
       @top(false) class Top extends RTDesign:
         @io(loc = "locx")
@@ -338,7 +338,7 @@ class ElaborationChecksSpec extends DesignSpec:
   test("clock missing timing constraint check"):
     object Test:
       import hw.constraints.*
-      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @deviceID(_.xilinxamd, "test", "test", "")
       @top(false) class Top extends RTDesign:
         @io(loc = "locx")
         val x = Bit <> IN
@@ -359,7 +359,7 @@ class ElaborationChecksSpec extends DesignSpec:
   test("clock location missing check"):
     object Test:
       import hw.constraints.*
-      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @deviceID(_.xilinxamd, "test", "test", "")
       @timing.clock(rate = 20.MHz)
       @top(false) class Top extends RTDesign:
         @io(loc = "locx")
@@ -380,7 +380,7 @@ class ElaborationChecksSpec extends DesignSpec:
   test("clock location collision check"):
     object Test:
       import hw.constraints.*
-      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @deviceID(_.xilinxamd, "test", "test", "")
       @timing.clock(rate = 20.MHz)
       @io(loc = "locx")
       @top(false) class Top extends RTDesign:
@@ -424,7 +424,7 @@ class ElaborationChecksSpec extends DesignSpec:
         val y = Bit <> OUT
         y <> x.reg(1, init = 0)
       end Internal
-      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @deviceID(_.xilinxamd, "test", "test", "")
       @timing.clock(rate = 20.MHz)
       @io(loc = "locClk")
       @top(false) class Top extends RTDesign:
@@ -443,7 +443,7 @@ class ElaborationChecksSpec extends DesignSpec:
   test("no need for clock location constraint check in internal domains"):
     object Test:
       import hw.constraints.*
-      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @deviceID(_.xilinxamd, "test", "test", "")
       @timing.clock(rate = 20.MHz)
       @top(false) class Top extends RTDesign:
         @io(loc = "locClk")
@@ -466,7 +466,7 @@ class ElaborationChecksSpec extends DesignSpec:
   test("domain constraint check"):
     object Test:
       import hw.constraints.*
-      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @deviceID(_.xilinxamd, "test", "test", "")
       @top(false) class Top extends EDDesign:
         @io(loc = "locClk")
         @timing.clock(rate = 20.MHz)
@@ -517,14 +517,14 @@ class ElaborationChecksSpec extends DesignSpec:
   test("resource direction mismatch check"):
     object Test:
       import hw.constraints.*
-      @deviceID(deviceID.Vendor.XilinxAMD, "test", "test", "")
+      @deviceID(_.xilinxamd, "test", "test", "")
       @timing.clock(rate = 20.MHz)
       @top(false) class Top extends RTDesign:
         @io(loc = "locClk")
         val clk = Clk <> IN
-        @io(loc = "locx", dir = io.Dir.OUT)
+        @io(loc = "locx", dir = _.out)
         val x = Bit <> IN
-        @io(loc = "locy", dir = io.Dir.IN)
+        @io(loc = "locy", dir = _.in)
         val y = Bit <> OUT
         y <> x.reg(1, init = 0)
       end Top

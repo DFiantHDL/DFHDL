@@ -73,7 +73,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
   test("Rising clk, Async Reset") {
     @hw.constraints.timing.clock(grpName = "cfg")
-    @hw.constraints.timing.reset(mode = hw.constraints.timing.reset.Mode.Async)
+    @hw.constraints.timing.reset(mode = _.async)
     class ID extends RTDesign:
       val x  = SInt(16) <> IN
       val r1 = SInt(16) <> VAR
@@ -97,7 +97,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("Falling clk, no Reset") {
-    @hw.constraints.timing.clock(grpName = "cfg", edge = hw.constraints.timing.clock.Edge.Falling)
+    @hw.constraints.timing.clock(grpName = "cfg", edge = _.falling)
     class ID extends RTDesign:
       val x  = SInt(16) <> IN
       val r1 = SInt(16) <> VAR
@@ -119,10 +119,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
   test("Rising clk, Sync Reset & Active-low") {
     @hw.constraints.timing.clock(grpName = "cfg")
-    @hw.constraints.timing.reset(
-      mode   = hw.constraints.timing.reset.Mode.Async,
-      active = hw.constraints.timing.reset.Active.Low
-    )
+    @hw.constraints.timing.reset(mode = _.async, active = _.low)
     class ID extends RTDesign:
       val x  = SInt(16) <> IN
       val r1 = SInt(16) <> VAR
@@ -238,11 +235,8 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("Basic UInt Counter") {
-    @hw.constraints.timing.clock(grpName = "cfg", edge = hw.constraints.timing.clock.Edge.Falling)
-    @hw.constraints.timing.reset(
-      mode   = hw.constraints.timing.reset.Mode.Async,
-      active = hw.constraints.timing.reset.Active.Low
-    )
+    @hw.constraints.timing.clock(grpName = "cfg", edge = _.falling)
+    @hw.constraints.timing.reset(mode = _.async, active = _.low)
     class Counter(val width: Int <> CONST = 8) extends RTDesign:
       val cnt = UInt(width) <> OUT init 0
       cnt := cnt.reg + 1

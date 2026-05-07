@@ -112,7 +112,7 @@ object constraints:
       case XilinxAMD, Lattice, Gowin
       case AlteraIntel(pro: Boolean)
       case TinyTapeout
-      def codeString(using Printer): String = "deviceID.Vendor." + this.toString
+      def codeString(using Printer): String = "_." + this.toString.toLowerCase
       def libName: String = this match
         case AlteraIntel(_) => "alteraintel"
         case _              => this.toString.toLowerCase
@@ -148,19 +148,19 @@ object constraints:
       val busWidth: Int
     object Interface:
       final case class MasterSMAP(busWidth: Int) extends Interface:
-        def codeString(using Printer): String = s"deviceConfig.Interface.MasterSMAP($busWidth)"
+        def codeString(using Printer): String = s"_.mastersmap($busWidth)"
       final case class SlaveSMAP(busWidth: Int) extends Interface:
-        def codeString(using Printer): String = s"deviceConfig.Interface.SlaveSMAP($busWidth)"
+        def codeString(using Printer): String = s"_.slavesmap($busWidth)"
       final case class MasterSPI(busWidth: Int) extends Interface:
-        def codeString(using Printer): String = s"deviceConfig.Interface.MasterSPI($busWidth)"
+        def codeString(using Printer): String = s"_.masterspi($busWidth)"
       final case class MasterBPI(busWidth: Int) extends Interface:
-        def codeString(using Printer): String = s"deviceConfig.Interface.MasterBPI($busWidth)"
+        def codeString(using Printer): String = s"_.masterbpi($busWidth)"
       case object SlaveSerial extends Interface:
         val busWidth: Int = 1
-        def codeString(using Printer): String = s"deviceConfig.Interface.SlaveSerial"
+        def codeString(using Printer): String = s"_.slaveserial"
       case object MasterSerial extends Interface:
         val busWidth: Int = 1
-        def codeString(using Printer): String = s"deviceConfig.Interface.MasterSerial"
+        def codeString(using Printer): String = s"_.masterserial"
     end Interface
   end DeviceConfig
 
@@ -278,7 +278,7 @@ object constraints:
     type LevelVolt = 3.3 | 3.0 | 2.5 | 1.8 | 1.5 | 1.2
     enum Standard extends HasCodeString derives CanEqual, ReadWriter:
       case LVCMOS, LVTTL, LVDS, SchmittTrigger
-      def codeString(using Printer): String = "io.Standard." + this.toString
+      def codeString(using Printer): String = "_." + this.toString.toLowerCase
       def withLevelVolt(levelVolt: LevelVolt): String =
         val num = (levelVolt * 10).toInt
         this match
@@ -290,10 +290,10 @@ object constraints:
     enum SlewRate extends HasCodeString derives CanEqual, ReadWriter:
       case SLOWEST, FASTEST
       case CUSTOM(value: Int)
-      def codeString(using Printer): String = "io.SlewRate." + this.toString
+      def codeString(using Printer): String = "_." + this.toString.toLowerCase
     enum PullMode extends HasCodeString derives CanEqual, ReadWriter:
       case UP, DOWN
-      def codeString(using Printer): String = "io.PullMode." + this.toString
+      def codeString(using Printer): String = "_." + this.toString.toLowerCase
   end IO
 
   object Timing:

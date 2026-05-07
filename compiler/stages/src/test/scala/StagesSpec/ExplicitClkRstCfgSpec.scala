@@ -41,13 +41,9 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
   test("Basic hierarchy, combinational, always include clock and reset at top") {
     given options.ElaborationOptions.DefaultClkCfg =
-      hw.constraints.timing.clock(inclusionPolicy =
-        hw.constraints.timing.InclusionPolicy.AlwaysAtTop
-      )
+      hw.constraints.timing.clock(inclusionPolicy = _.alwaysattop)
     given options.ElaborationOptions.DefaultRstCfg =
-      hw.constraints.timing.reset(inclusionPolicy =
-        hw.constraints.timing.InclusionPolicy.AlwaysAtTop
-      )
+      hw.constraints.timing.reset(inclusionPolicy = _.alwaysattop)
     val eo = summon[options.ElaborationOptions]
     // force DFC with these elaboration options modifications (this is required because no @top annotation)
     val dfc                               = DFC.empty(eo)
@@ -74,8 +70,8 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  y := x
          |end ID
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AlwaysAtTop, grpName = "default")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AlwaysAtTop)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.alwaysattop, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.alwaysattop)
          |class IDTop extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
@@ -102,16 +98,16 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val id = (new IDTop).explicitClkRstCfg
     assertCodeString(
       id,
-      """|@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+      """|@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class ID extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x.reg(1, init = sd"16'0")
          |end ID
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class IDTop extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
@@ -206,8 +202,8 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |class IDTop extends EDDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val dmn1 = new RTDomain:
          |    val id = ID()
          |    id.x <> x
@@ -309,8 +305,8 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  y := x
          |end ID
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class IDTop extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
@@ -360,16 +356,16 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
     // and why ID also picks up the resolved timing annotations of its enclosing IDTop.
     assertCodeString(
       id,
-      """|@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+      """|@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class ID extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x.reg(1, init = sd"16'5")
          |end ID
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class IDTop extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
@@ -419,7 +415,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val ADDR_WIDTH: Int <> CONST = 8
          |) extends EDDesign:
          |  val ram = Bits(DATA_WIDTH) X (2 ** ADDR_WIDTH) <> VAR.SHARED
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val a = new RTDomain:
          |    val data = Bits(DATA_WIDTH) <> IN
          |    val addr = Bits(ADDR_WIDTH) <> IN
@@ -428,7 +424,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    if (we) ram(addr.uint.toInt) := data
          |    q.din := ram(addr.uint.toInt)
          |  end a
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val b = new RTDomain:
          |    val data = Bits(DATA_WIDTH) <> IN
          |    val addr = Bits(ADDR_WIDTH) <> IN
@@ -450,7 +446,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val id = (new ID).explicitClkRstCfg
     assertCodeString(
       id,
-      """|@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
+      """|@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |class ID extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT.REG init ?
@@ -470,8 +466,8 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val id = (new ID).explicitClkRstCfg
     assertCodeString(
       id,
-      """|@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+      """|@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class ID extends RTDesign:
          |  val clk = Clk <> IN
          |  val rst = Rst <> IN
@@ -515,14 +511,14 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |class IDTop extends EDDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val dmn1 = new RTDomain:
          |    val id = ID()
          |    id.x <> x
          |  end dmn1
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val dmn2 = new RTDomain:
          |    val id = ID()
          |    id.x <> dmn1.id.y.reg(1, init = sd"16'0")
@@ -560,14 +556,14 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertCodeString(
       id,
       """|class ClkGen extends EDDesign:
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val src = new RTDomain:
          |    val clk = Clk <> IN
          |    val rst = Rst <> IN
          |  end src
-         |  @timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |  @timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  @timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |  val gen = new RTDomain:
          |    val clk = Clk <> OUT
          |    val rst = Rst <> OUT
@@ -605,15 +601,15 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val top = (new Foo).explicitClkRstCfg
     assertCodeString(
       top,
-      """|@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+      """|@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class FooChild extends RTDesign:
          |  val y = UInt(8) <> OUT.REG init d"8'0"
          |  y.din := y + d"8'1"
          |end FooChild
          |
-         |@timing.clock(rate = 50.MHz, edge = timing.clock.Edge.Rising, portName = "clk", inclusionPolicy = timing.InclusionPolicy.AsNeeded, grpName = "default")
-         |@timing.reset(mode = timing.reset.Mode.Sync, active = timing.reset.Active.High, portName = "rst", inclusionPolicy = timing.InclusionPolicy.AsNeeded)
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
          |class Foo extends RTDesign:
          |  val clk = Clk <> VAR
          |  val rst = Rst <> VAR
