@@ -45,8 +45,9 @@ case object GlobalizePortVectorParams extends Stage:
           val dupMember0 = origMember.copyWithNewRefs
           // Tag nested design blocks as duplicates
           val dupMember = dupMember0 match
-            case dsn: DFDesignBlock => dsn.setTags(_.tag(DuplicateTag)).asInstanceOf[dupMember0.type]
-            case _                 => dupMember0
+            case dsn: DFDesignBlock =>
+              dsn.setTags(_.tag(DuplicateTag)).asInstanceOf[dupMember0.type]
+            case _ => dupMember0
           origToDupMemberMap += origMember -> dupMember
           dupRefTable += dupMember.ownerRef -> getReplacement(origMember.getOwner)
           origMember.getRefs.lazyZip(dupMember.getRefs).foreach { (origRef, dupRef) =>
@@ -62,6 +63,7 @@ case object GlobalizePortVectorParams extends Stage:
             duplicateDesignMembers(origNested, dupNested)
           case _ =>
         }
+      end duplicateDesignMembers
       designDB.dupDesignToOrigMap.groupBy(_._2).foreach { (orig, dupMap) =>
         dupMap.keys.foreach { dup => duplicateDesignMembers(orig, dup) }
       }

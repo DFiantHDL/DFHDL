@@ -205,16 +205,16 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csConstData(dfType.actualType, data).applyBrackets()}.as(${dfType.name})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
-    dfType.name + dfType.fieldMap
-      .lazyZip(data)
-      .map { case ((n, t), d) =>
-        s"$n = ${csConstData(t, d)}"
-      }
-      .mkStringBrackets
-  def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String =
-    (dfTypes lazyZip data)
-      .map((t, d) => csConstData(t, d))
-      .mkStringBrackets
+    dfType.name +
+      dfType.fieldMap
+        .lazyZip(data)
+        .map { case ((n, t), d) =>
+          s"$n = ${csConstData(t, d)}"
+        }
+        .mkStringBrackets
+  def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = (dfTypes lazyZip data)
+    .map((t, d) => csConstData(t, d))
+    .mkStringBrackets
   def csDFUnitData(dfType: DFUnit, data: Unit): String = "()"
   def csDFDoubleData(dfType: DFDouble, data: Option[Double]): String =
     data match

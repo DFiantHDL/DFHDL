@@ -556,42 +556,42 @@ class DFDecimalSpec extends DFSpec:
     val i42: Int = 42
 
     // === Commutative + with Scala Int literals ===
-    val t1 = u8 + 5;       t1.verifyValOf[UInt[8]]
-    val t2 = 5 + u8;       t2.verifyValOf[UInt[8]]
-    val t3 = s8 + 5;       t3.verifyValOf[SInt[8]]
-    val t4 = 5 + s8;       t4.verifyValOf[SInt[8]]
-    val t5 = (-5) + s8;    t5.verifyValOf[SInt[8]]
-    val t6 = s8 + (-5);    t6.verifyValOf[SInt[8]]
+    val t1 = u8 + 5; t1.verifyValOf[UInt[8]]
+    val t2 = 5 + u8; t2.verifyValOf[UInt[8]]
+    val t3 = s8 + 5; t3.verifyValOf[SInt[8]]
+    val t4 = 5 + s8; t4.verifyValOf[SInt[8]]
+    val t5 = (-5) + s8; t5.verifyValOf[SInt[8]]
+    val t6 = s8 + (-5); t6.verifyValOf[SInt[8]]
 
     // === Commutative * with Scala Int literals ===
-    val t7 = u8 * 3;       t7.verifyValOf[UInt[8]]
-    val t8 = 3 * u8;       t8.verifyValOf[UInt[8]]
-    val t9 = s8 * 3;       t9.verifyValOf[SInt[8]]
-    val t10 = 3 * s8;      t10.verifyValOf[SInt[8]]
+    val t7 = u8 * 3; t7.verifyValOf[UInt[8]]
+    val t8 = 3 * u8; t8.verifyValOf[UInt[8]]
+    val t9 = s8 * 3; t9.verifyValOf[SInt[8]]
+    val t10 = 3 * s8; t10.verifyValOf[SInt[8]]
 
     // === Commutative + with Scala non-literal Int ===
-    val t11 = u8 + i42;    t11.verifyValOf[UInt[8]]
-    val t12 = i42 + u8;    t12.verifyValOf[UInt[8]]
-    val t13 = s8 + i42;    t13.verifyValOf[SInt[8]]
-    val t14 = i42 + s8;    t14.verifyValOf[SInt[8]]
+    val t11 = u8 + i42; t11.verifyValOf[UInt[8]]
+    val t12 = i42 + u8; t12.verifyValOf[UInt[8]]
+    val t13 = s8 + i42; t13.verifyValOf[SInt[8]]
+    val t14 = i42 + s8; t14.verifyValOf[SInt[8]]
 
     // === Commutative * with Scala non-literal Int ===
-    val t15 = u8 * i42;    t15.verifyValOf[UInt[8]]
-    val t16 = i42 * u8;    t16.verifyValOf[UInt[8]]
-    val t17 = s8 * i42;    t17.verifyValOf[SInt[8]]
-    val t18 = i42 * s8;    t18.verifyValOf[SInt[8]]
+    val t15 = u8 * i42; t15.verifyValOf[UInt[8]]
+    val t16 = i42 * u8; t16.verifyValOf[UInt[8]]
+    val t17 = s8 * i42; t17.verifyValOf[SInt[8]]
+    val t18 = i42 * s8; t18.verifyValOf[SInt[8]]
 
     // === Commutative + with DFHDL Int param ===
-    val t19 = u8 + param;  t19.verifyValOf[UInt[8]]
-    val t20 = param + u8;  t20.verifyValOf[UInt[8]]
-    val t21 = s8 + param;  t21.verifyValOf[SInt[8]]
-    val t22 = param + s8;  t22.verifyValOf[SInt[8]]
+    val t19 = u8 + param; t19.verifyValOf[UInt[8]]
+    val t20 = param + u8; t20.verifyValOf[UInt[8]]
+    val t21 = s8 + param; t21.verifyValOf[SInt[8]]
+    val t22 = param + s8; t22.verifyValOf[SInt[8]]
 
     // === Commutative * with DFHDL Int param ===
-    val t23 = u8 * param;  t23.verifyValOf[UInt[8]]
-    val t24 = param * u8;  t24.verifyValOf[UInt[8]]
-    val t25 = s8 * param;  t25.verifyValOf[SInt[8]]
-    val t26 = param * s8;  t26.verifyValOf[SInt[8]]
+    val t23 = u8 * param; t23.verifyValOf[UInt[8]]
+    val t24 = param * u8; t24.verifyValOf[UInt[8]]
+    val t25 = s8 * param; t25.verifyValOf[SInt[8]]
+    val t26 = param * s8; t26.verifyValOf[SInt[8]]
 
     // === Bits (implicit UInt) with wildcards ===
     val t27 = b8 + 5
@@ -600,46 +600,46 @@ class DFDecimalSpec extends DFSpec:
     val t30 = param + b8
 
     // === Commutative max/min with wildcards ===
-    val t27b = u8 max 5;       t27b.verifyValOf[UInt[8]]
-    val t27c = 5 max u8;       t27c.verifyValOf[UInt[8]]
-    val t27d = s8 max (-5);    t27d.verifyValOf[SInt[8]]
-    val t27e = (-5) max s8;    t27e.verifyValOf[SInt[8]]
-    val t27f = u8 min i42;     t27f.verifyValOf[UInt[8]]
-    val t27g = i42 min u8;     t27g.verifyValOf[UInt[8]]
-    val t27h = s8 min i42;     t27h.verifyValOf[SInt[8]]
-    val t27i = i42 min s8;     t27i.verifyValOf[SInt[8]]
-    val t27j = u8 max param;   t27j.verifyValOf[UInt[8]]
-    val t27k = param max u8;   t27k.verifyValOf[UInt[8]]
-    val t27l = s8 min param;   t27l.verifyValOf[SInt[8]]
-    val t27m = param min s8;   t27m.verifyValOf[SInt[8]]
+    val t27b = u8 max 5; t27b.verifyValOf[UInt[8]]
+    val t27c = 5 max u8; t27c.verifyValOf[UInt[8]]
+    val t27d = s8 max (-5); t27d.verifyValOf[SInt[8]]
+    val t27e = (-5) max s8; t27e.verifyValOf[SInt[8]]
+    val t27f = u8 min i42; t27f.verifyValOf[UInt[8]]
+    val t27g = i42 min u8; t27g.verifyValOf[UInt[8]]
+    val t27h = s8 min i42; t27h.verifyValOf[SInt[8]]
+    val t27i = i42 min s8; t27i.verifyValOf[SInt[8]]
+    val t27j = u8 max param; t27j.verifyValOf[UInt[8]]
+    val t27k = param max u8; t27k.verifyValOf[UInt[8]]
+    val t27l = s8 min param; t27l.verifyValOf[SInt[8]]
+    val t27m = param min s8; t27m.verifyValOf[SInt[8]]
 
     // === Param + Param: stays Int (DFInt32) ===
     val param2: Int <> CONST = 20
-    val t31 = param + param2;  t31.verifyValOf[DFInt32]
-    val t32 = param * param2;  t32.verifyValOf[DFInt32]
+    val t31 = param + param2; t31.verifyValOf[DFInt32]
+    val t32 = param * param2; t32.verifyValOf[DFInt32]
     val t33b = param max param2; t33b.verifyValOf[DFInt32]
     val t33c = param min param2; t33c.verifyValOf[DFInt32]
 
     // === Non-commutative ops: wildcard adapts to LHS ===
-    val t33 = u8 - 3;      t33.verifyValOf[UInt[8]]
-    val t34 = u8 - i42;    t34.verifyValOf[UInt[8]]
-    val t35 = u8 - param;  t35.verifyValOf[UInt[8]]
-    val t36 = u8 / 3;      t36.verifyValOf[UInt[8]]
-    val t37 = u8 / i42;    t37.verifyValOf[UInt[8]]
-    val t38 = u8 / param;  t38.verifyValOf[UInt[8]]
-    val t39 = s8 - 3;      t39.verifyValOf[SInt[8]]
-    val t40 = s8 - i42;    t40.verifyValOf[SInt[8]]
-    val t41 = s8 - param;  t41.verifyValOf[SInt[8]]
-    val t42 = s8 % 3;      t42.verifyValOf[SInt[8]]
-    val t43 = s8 % i42;    t43.verifyValOf[SInt[8]]
-    val t44 = s8 % param;  t44.verifyValOf[SInt[8]]
+    val t33 = u8 - 3; t33.verifyValOf[UInt[8]]
+    val t34 = u8 - i42; t34.verifyValOf[UInt[8]]
+    val t35 = u8 - param; t35.verifyValOf[UInt[8]]
+    val t36 = u8 / 3; t36.verifyValOf[UInt[8]]
+    val t37 = u8 / i42; t37.verifyValOf[UInt[8]]
+    val t38 = u8 / param; t38.verifyValOf[UInt[8]]
+    val t39 = s8 - 3; t39.verifyValOf[SInt[8]]
+    val t40 = s8 - i42; t40.verifyValOf[SInt[8]]
+    val t41 = s8 - param; t41.verifyValOf[SInt[8]]
+    val t42 = s8 % 3; t42.verifyValOf[SInt[8]]
+    val t43 = s8 % i42; t43.verifyValOf[SInt[8]]
+    val t44 = s8 % param; t44.verifyValOf[SInt[8]]
 
     // === Non-commutative with wildcard LHS ===
     // Wildcard always adapts, even in non-commutative ops
-    val t45 = 200 - u8;    t45.verifyValOf[UInt[8]]
-    val t46 = i42 - u8;    t46.verifyValOf[UInt[8]]
-    val t47 = param - u8;  t47.verifyValOf[UInt[8]]
-    val t48 = param / u8;  t48.verifyValOf[UInt[8]]
+    val t45 = 200 - u8; t45.verifyValOf[UInt[8]]
+    val t46 = i42 - u8; t46.verifyValOf[UInt[8]]
+    val t47 = param - u8; t47.verifyValOf[UInt[8]]
+    val t48 = param / u8; t48.verifyValOf[UInt[8]]
 
     // === Constant propagation ===
     // All-constant expressions produce CONST results
@@ -652,8 +652,8 @@ class DFDecimalSpec extends DFSpec:
     val c6: UInt[8] <> CONST = d"8'5" + param
     val c7: SInt[8] <> CONST = sd"8'5" + param
     // Param + VAR is NOT const (verified by type — no CONST annotation)
-    val nc1 = u8 + param  // result is not CONST
-    val nc2 = param + u8  // result is not CONST
+    val nc1 = u8 + param // result is not CONST
+    val nc2 = param + u8 // result is not CONST
 
     // === Comparisons: wildcard adapts ===
     val cmp1 = u8 == 200

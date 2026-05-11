@@ -108,19 +108,17 @@ object DFDecimal:
           Boolean,
           Boolean,
           [BaS <: Boolean, WcS <: Boolean] =>> BaS || ![WcS],
-          [BaS <: Boolean, WcS <: Boolean] =>>
-            "Cannot apply a signed wildcard `Int` value to " +
-              ITE[BaS, "a signed", "an unsigned"] +
-              " bit-accurate value.\nUse an explicit conversion or `sd\"\"` interpolation."
+          [BaS <: Boolean, WcS <: Boolean] =>> "Cannot apply a signed wildcard `Int` value to " +
+            ITE[BaS, "a signed", "an unsigned"] +
+            " bit-accurate value.\nUse an explicit conversion or `sd\"\"` interpolation."
         ]
     object `BaW >= WcW`
         extends Check2[
           Int,
           Int,
           [BaW <: Int, WcW <: Int] =>> BaW >= WcW,
-          [BaW <: Int, WcW <: Int] =>>
-            "The wildcard `Int` value width (" + WcW +
-              ") is larger than the bit-accurate value width (" + BaW + ")."
+          [BaW <: Int, WcW <: Int] =>> "The wildcard `Int` value width (" + WcW +
+            ") is larger than the bit-accurate value width (" + BaW + ")."
         ]
     type SignStr[S <: Boolean] = ITE[S, "a signed", "an unsigned"]
     object `LS == RS`
@@ -994,6 +992,7 @@ object DFXInt:
                           verilogSemanticsWarnMsg
                         )
                       )
+                    end if
                     val cw: IntParam[Int] = func.op.runtimeChecked match
                       case FuncOp.+ | FuncOp.- => funcWidth + 1
                       case FuncOp.*            => funcWidth + funcWidth
@@ -1008,7 +1007,9 @@ object DFXInt:
                   case Int32 =>
                     lhsCarryPromo.toInt.asIR
                   case BitAccurate =>
-                    DFVal.Alias.AsIs(dfType, lhsCarryPromo)(using dfc.tag(ir.ImplicitlyFromIntTag)).asIR
+                    DFVal.Alias.AsIs(dfType, lhsCarryPromo)(using
+                      dfc.tag(ir.ImplicitlyFromIntTag)
+                    ).asIR
               else if (
                 !dfType.asIR.widthParamRef.isSimilarTo(
                   lhsCarryPromo.dfType.asIR.widthParamRef
@@ -1204,8 +1205,12 @@ object DFXInt:
           // (Int32 NativeType), adapt to the bit-accurate value's sign and width.
           // When both are wildcards, use LS || RS and Max (both-wildcard = DFInt32-like).
           resultSign: Id[ITE[LN && ![RN], RS, ITE[RN && ![LN], LS, ITE[LN && RN, LS, LS || RS]]]],
-          resultWidth: Id[ITE[LN && ![RN], RW, ITE[RN && ![LN], LW,
-            ITE[LN && RN, LW,
+          resultWidth: Id[ITE[LN && ![RN], RW, ITE[
+            RN && ![LN],
+            LW,
+            ITE[
+              LN && RN,
+              LW,
               IntP.Max[
                 ITE[![LS] && RS, LW + 1, LW],
                 ITE[![RS] && LS, RW + 1, RW]
@@ -1223,9 +1228,11 @@ object DFXInt:
           ],
           checkWW: `BaW >= WcW`.Check[
             ITE[RN && ![LN], ubLW.Out, ITE[LN && ![RN], ubRW.Out, ubLW.Out]],
-            ITE[RN && ![LN],
+            ITE[
+              RN && ![LN],
               ITE[LS && ![RS], ubRW.Out + 1, ubRW.Out],
-              ITE[LN && ![RN],
+              ITE[
+                LN && ![RN],
                 ITE[RS && ![LS], ubLW.Out + 1, ubLW.Out],
                 ubLW.Out
               ]
@@ -1287,6 +1294,8 @@ object DFXInt:
                 else
                   arithOp(rhsVal.dfType, op.value, rhsVal, lhsVal)
                     .asInstanceOf[Out]
+              end if
+            end if
           }(using dfc, CTName(op.value.toString))
       end evOpCommutativeArithDFXInt
 
@@ -1324,7 +1333,8 @@ object DFXInt:
           ],
           checkWW: `BaW >= WcW`.Check[
             ITE[LN && ![RN], ubRW.Out, ubLW.Out],
-            ITE[LN && ![RN],
+            ITE[
+              LN && ![RN],
               ITE[RS && ![LS], ubLW.Out + 1, ubLW.Out],
               ubLW.Out
             ]

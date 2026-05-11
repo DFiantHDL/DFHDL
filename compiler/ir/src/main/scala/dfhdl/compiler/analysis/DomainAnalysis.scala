@@ -21,21 +21,24 @@ final class DomainAnalysis(designDB: DB):
             if clkCfg != None || rstCfg != None =>
           collectedDesignDomains.get(key) match
             case Some(clkRstOpt) =>
-              (clkCfg != None && clkRstOpt.clkOpt.isEmpty) || (rstCfg != None && clkRstOpt.rstOpt.isEmpty)
+              (clkCfg != None && clkRstOpt.clkOpt.isEmpty) ||
+              (rstCfg != None && clkRstOpt.rstOpt.isEmpty)
             case None => true
         case _ =>
           setEmpty(key) // TODO: probably ugly to do this here
           false
     private def addClk(key: DFDomainOwner, clk: DFVal.Dcl): Unit =
-      collectedDesignDomains += key -> collectedDesignDomains
-        .get(key)
-        .map(_.addClk(clk))
-        .getOrElse(ClkRstOpt(Some(clk), None))
+      collectedDesignDomains += key ->
+        collectedDesignDomains
+          .get(key)
+          .map(_.addClk(clk))
+          .getOrElse(ClkRstOpt(Some(clk), None))
     private def addRst(key: DFDomainOwner, rst: DFVal.Dcl): Unit =
-      collectedDesignDomains += key -> collectedDesignDomains
-        .get(key)
-        .map(_.addRst(rst))
-        .getOrElse(ClkRstOpt(None, Some(rst)))
+      collectedDesignDomains += key ->
+        collectedDesignDomains
+          .get(key)
+          .map(_.addRst(rst))
+          .getOrElse(ClkRstOpt(None, Some(rst)))
     private def setEmpty(key: DFDomainOwner): Unit =
       collectedDesignDomains += key -> ClkRstOpt(None, None)
   end extension

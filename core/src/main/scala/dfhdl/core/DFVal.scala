@@ -809,9 +809,9 @@ object DFVal extends DFValLP:
               args.flatMap {
                 case prevFunc: ir.DFVal.Func
                     if prevFunc.op == op
-                    && prevFunc.isAnonymous
-                    && argCounts(prevFunc) == 1
-                    && canMergeFunc(dfType, op, prevFunc) =>
+                      && prevFunc.isAnonymous
+                      && argCounts(prevFunc) == 1
+                      && canMergeFunc(dfType, op, prevFunc) =>
                   // Track the earliest start position from absorbed Funcs
                   val prevPos = prevFunc.meta.position
                   mergedPositionStart = Some(
@@ -855,13 +855,15 @@ object DFVal extends DFValLP:
     // +, -, * are excluded because carry promotion assumes binary (2-arg) Funcs.
     // ++ is only merged for flat bits concatenation, not struct/vector/string.
     private def canMergeFunc(
-        resultType: ir.DFType, op: FuncOp, prevFunc: ir.DFVal.Func
+        resultType: ir.DFType,
+        op: FuncOp,
+        prevFunc: ir.DFVal.Func
     )(using ir.MemberGetSet): Boolean =
       op match
         case FuncOp.++ =>
           resultType.isInstanceOf[ir.DFBits] && prevFunc.dfType.isInstanceOf[ir.DFBits]
         case FuncOp.+ | FuncOp.- | FuncOp.`*` => false
-        case _ => true // &, |, ^, max, min — no carry concept
+        case _                                => true // &, |, ^, max, min — no carry concept
   end Func
 
   object Alias:

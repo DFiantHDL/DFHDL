@@ -39,7 +39,9 @@ class FlattenInlinedPhase(setting: Setting) extends PluginPhase:
         val topLevelCls = callSym.topLevelClass
         if !topLevelCls.exists then call
         else if callSym.is(Macro) then
-          ref(topLevelCls.owner).select(topLevelCls.name)(using ctx.withOwner(topLevelCls.owner)).withSpan(call.span)
+          ref(topLevelCls.owner).select(topLevelCls.name)(using
+            ctx.withOwner(topLevelCls.owner)
+          ).withSpan(call.span)
         else
           Ident(topLevelCls.typeRef).withSpan(call.span)
 

@@ -288,7 +288,9 @@ private def ascribeWidenedType(using Quotes)(term: quotes.reflect.Term): quotes.
   import quotes.reflect.*
   Typed(term, TypeTree.of(using term.tpe.dealias.asType))
 
-private def flattenInlined(using Quotes)(term: quotes.reflect.Term): (List[quotes.reflect.Definition], quotes.reflect.Term) =
+private def flattenInlined(using
+    Quotes
+)(term: quotes.reflect.Term): (List[quotes.reflect.Definition], quotes.reflect.Term) =
   import quotes.reflect.*
   term match
     case Inlined(_, bindings, inner) =>
@@ -315,7 +317,7 @@ private def exactOp1Macro[Op, Ctx, OutUB](lhs: Expr[Any])(ctx: Expr[Ctx])(using
       else
         val innerTerm = appTerm match
           case Inlined(_, Nil, inner) => inner
-          case t => t
+          case t                      => t
         Block(lhsBindings, innerTerm).asExprOf[OutUB]
     case None =>
       ControlledMacroError.report("Unsupported argument type for this operation.")
@@ -380,13 +382,24 @@ private def exactOp2Macro[Op, Ctx, OutUB](
     val (lhsBindings, lhsInner) = flattenInlined(lhsTerm)
     val (rhsBindings, rhsInner) = flattenInlined(rhsTerm)
     val allBindings = lhsBindings ++ rhsBindings
-    val appTerm = ascribeWidenedType('{ ${ expr.asInstanceOf[Expr[ExactOp2[Op, Ctx, OutUB, lhsExactInfo.Underlying, rhsExactInfo.Underlying]]] }(${ lhsInner.asExpr }, ${ rhsInner.asExpr })(using $ctx) }.asTerm)
+    val appTerm = ascribeWidenedType('{
+      ${
+        expr.asInstanceOf[Expr[ExactOp2[
+          Op,
+          Ctx,
+          OutUB,
+          lhsExactInfo.Underlying,
+          rhsExactInfo.Underlying
+        ]]]
+      }(${ lhsInner.asExpr }, ${ rhsInner.asExpr })(using $ctx)
+    }.asTerm)
     if allBindings.isEmpty then appTerm.asExprOf[OutUB]
     else
       val innerTerm = appTerm match
         case Inlined(_, Nil, inner) => inner
-        case t => t
+        case t                      => t
       Block(allBindings, innerTerm).asExprOf[OutUB]
+  end buildFlattened
   exactOp2ExprOrError match
     case Right(expr) =>
       buildFlattened(lhsExactInfo.exactExpr.asTerm, rhsExactInfo.exactExpr.asTerm, expr)
@@ -460,7 +473,7 @@ private def exactOp3Macro[Op, Ctx, OutUB](
       else
         val innerTerm = appTerm match
           case Inlined(_, Nil, inner) => inner
-          case t => t
+          case t                      => t
         Block(allBindings, innerTerm).asExprOf[OutUB]
     case None =>
       ControlledMacroError.report("Unsupported argument types for this operation.")

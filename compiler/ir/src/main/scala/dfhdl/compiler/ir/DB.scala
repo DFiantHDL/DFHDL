@@ -308,14 +308,16 @@ final case class DB(
       }
       // 2. Build port copies (reusing origToDupMap from step 1)
       val pbnsTypes = pbnsByDesign.getOrElse(dupDesign, Map.empty)
-      portEntries += dupDesign -> ListMap.from(origPortMap.getOrElse(origDesign, ListMap.empty).view.map { (name, dcl) =>
-        val dfType = pbnsTypes.getOrElse(name, dcl.dfType)
-        val dupOwnerDomain = origToDupMap(dcl.getOwnerDomain)
-        name -> dcl.copy(ownerRef = DFRef.DuplicationRef(dupOwnerDomain), dfType = dfType)
-      })
+      portEntries += dupDesign ->
+        ListMap.from(origPortMap.getOrElse(origDesign, ListMap.empty).view.map { (name, dcl) =>
+          val dfType = pbnsTypes.getOrElse(name, dcl.dfType)
+          val dupOwnerDomain = origToDupMap(dcl.getOwnerDomain)
+          name -> dcl.copy(ownerRef = DFRef.DuplicationRef(dupOwnerDomain), dfType = dfType)
+        })
     }
     // dupEntries only fills in missing entries (designs without real port members)
     (domainBlockMap.toMap, portEntries.toMap ++ origPortMap)
+  end val
 
   lazy val dupDomainOwnerPublicMemberList: List[(DFDomainOwner, List[DFMember])] =
     def publicMemberFilter(member: DFMember): Boolean =
@@ -348,6 +350,7 @@ final case class DB(
       (dupOwner -> dupMembers) :: origMembers.collect { case db: DomainBlock =>
         dupEntriesFor(db, dupDesign)
       }.flatten
+    end dupEntriesFor
     domainOwnerMemberList.flatMap { case (owner, members) =>
       owner match
         case dupDesign: DFDesignBlock if dupDesign.isDuplicate =>

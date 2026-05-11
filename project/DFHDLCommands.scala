@@ -19,7 +19,7 @@ object DFHDLCommands {
       (LocalProject("lib") / Test / sources) := Nil
     ), state)
     newState
-  }  
+  }
   val libPlayground = Command.command("libPlayground") { state =>
     val extracted = Project.extract(state)
     val newState = extracted.appendWithSession(Seq(

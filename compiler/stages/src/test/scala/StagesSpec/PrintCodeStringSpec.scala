@@ -1836,7 +1836,8 @@ class PrintCodeStringSpec extends StageSpec:
     class LongChain extends DFDesign:
       val a = UInt(8) <> IN
       val o = UInt(8) <> OUT
-      o <> (a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a)
+      o <>
+        (a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a)
     end LongChain
     val top = (new LongChain).getCodeString
     assertNoDiff(
