@@ -65,7 +65,7 @@ class ParsedCommandLine(
     trait CompileMode extends ElaborateMode:
       this: ScallopConf & Mode =>
       private val hidden = modeOption != AppMode.compile
-      val backend = opt[CompilerOptions.Backend](
+      val backend = opt[CompilerOptions._Backend](
         name = "backend", short = 'b',
         descr = "backend selection (run `help backend` to get full list of languages and dialects)",
         default = Some(co.backend), argName = "lang[.dialect]", hidden = hidden

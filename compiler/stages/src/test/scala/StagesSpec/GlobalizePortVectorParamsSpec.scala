@@ -5,7 +5,7 @@
 // // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 // class GlobalizePortVectorParamsSpec extends StageSpec(stageCreatesUnrefAnons = true):
-//   given options.CompilerOptions.Backend = backends.vhdl.v93
+//   given options.CompilerOptions.Backend = _.vhdl.v93
 //   test("Various vector params are kept"):
 //     val width: Int <> CONST  = 8
 //     val length: Int <> CONST = 10
@@ -108,7 +108,7 @@
 //          |""".stripMargin
 //     )
 //   test("Various vector params are kept under vhdl.v2008"):
-//     given options.CompilerOptions.Backend = backends.vhdl.v2008
+//     given options.CompilerOptions.Backend = _.vhdl.v2008
 //     class Foo(
 //         val width: Int <> CONST  = 8,
 //         val length: Int <> CONST = 10

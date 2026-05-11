@@ -1056,7 +1056,7 @@ The following runnable example is the same as the [`LRShiftDirect`][LRShiftDirec
     type: dfhdl
 ```scastie
 import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 //disable the default backend code print (in scastie)
 given options.CompilerOptions.PrintBackendCode = false
 //enable the DFHDL code print after compilation

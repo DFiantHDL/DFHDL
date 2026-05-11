@@ -6,7 +6,7 @@ import dfhdl.compiler.stages.simplifyMatchSel
 
 class SimplifyMatchSelSpec extends StageSpec:
   test("UInt/SInt match selectors are converted to Bits match selectors"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo extends DFDesign:
       val iu = UInt(8) <> IN
       val is = SInt(9) <> IN
@@ -48,7 +48,7 @@ class SimplifyMatchSelSpec extends StageSpec:
     )
 
   test("Design-parameterized UInt/SInt match selectors are converted to Bits match selectors"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     val WG: Int <> CONST                  = 8
     class Foo extends RTDesign:
       val WP: Int <> CONST = 8
@@ -118,7 +118,7 @@ class SimplifyMatchSelSpec extends StageSpec:
   test(
     "Bits global/local parameter selector is not dropped, but design parameter selection is dropped"
   ):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     val WG: Int <> CONST                  = 8
     class Foo extends RTDesign:
       val WP: Int <> CONST = 8

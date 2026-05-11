@@ -21,7 +21,7 @@ import dfhdl.* //import all the DFHDL goodness
 // Enables printing the generated chosen backend code:
 given options.CompilerOptions.PrintBackendCode = true
 // Uncomment to select vhdl compilation (default is verilog):
-// given options.CompilerOptions.Backend = backends.vhdl
+// given options.CompilerOptions.Backend = _.vhdl
 // Uncomment to enable printing design code after elaboration (before compilation):
 // given options.ElaborationOptions.PrintDFHDLCode = true
 // Uncomment to enable printing design code after compilation:

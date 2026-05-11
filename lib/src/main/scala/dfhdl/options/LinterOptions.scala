@@ -3,10 +3,10 @@ import dfhdl.core.Design
 import LinterOptions.*
 
 final case class LinterOptions(
-    onError: OnError,
+    onError: _OnError,
     Werror: WError,
-    verilogLinter: VerilogLinter,
-    vhdlLinter: VHDLLinter
+    verilogLinter: _VerilogLinter,
+    vhdlLinter: _VHDLLinter
 ) extends ToolOptions
 
 //defaults common for all linting tools
@@ -19,18 +19,19 @@ object LinterOptions:
         verilogLinter: VerilogLinter,
         vhdlLinter: VHDLLinter
     ): Defaults[Any] = LinterOptions(
-      onError = onError,
+      onError = onError(dfhdl.options.OnError),
       Werror = Werror,
-      verilogLinter = verilogLinter,
-      vhdlLinter = vhdlLinter
+      verilogLinter = verilogLinter(dfhdl.tools.linters.verilogLinters),
+      vhdlLinter = vhdlLinter(dfhdl.tools.linters.vhdlLinters)
     )
   given (using defaults: Defaults[Design]): LinterOptions = defaults
 
-  into opaque type OnError <: dfhdl.options.ToolOptions.OnError = dfhdl.options.ToolOptions.OnError
-  object OnError:
+  type OnError = dfhdl.options.OnError.type => _OnError
+  private[dfhdl] into opaque type _OnError <: dfhdl.options.ToolOptions._OnError =
+    dfhdl.options.ToolOptions._OnError
+  private[dfhdl] object _OnError:
     given (using onError: dfhdl.options.ToolOptions.OnError): OnError = onError
-    given Conversion[dfhdl.options.OnError, OnError] = x => x.asInstanceOf[OnError]
-    export dfhdl.options.OnError.*
+    given Conversion[dfhdl.options._OnError, _OnError] = x => x.asInstanceOf[_OnError]
 
   into opaque type WError <: dfhdl.options.ToolOptions.WError = dfhdl.options.ToolOptions.WError
   object WError:
@@ -38,17 +39,18 @@ object LinterOptions:
     given [T](using conv: Conversion[T, dfhdl.options.ToolOptions.WError]): Conversion[T, WError] =
       t => conv(t).asInstanceOf[WError]
 
-  into opaque type VerilogLinter <: dfhdl.tools.toolsCore.VerilogLinter =
+  type VerilogLinter = dfhdl.tools.linters.verilogLinters.type => _VerilogLinter
+  private[dfhdl] into opaque type _VerilogLinter <: dfhdl.tools.toolsCore.VerilogLinter =
     dfhdl.tools.toolsCore.VerilogLinter
-  object VerilogLinter:
-    export dfhdl.tools.linters.{verilator, iverilog, vlog, xvlog}
-    given VerilogLinter = verilator
-    given Conversion[dfhdl.tools.toolsCore.VerilogLinter, VerilogLinter] = identity
+  private[dfhdl] object _VerilogLinter:
+    given VerilogLinter = _.verilator
+    given Conversion[dfhdl.tools.toolsCore.VerilogLinter, _VerilogLinter] = identity
 
-  into opaque type VHDLLinter <: dfhdl.tools.toolsCore.VHDLLinter = dfhdl.tools.toolsCore.VHDLLinter
-  object VHDLLinter:
-    export dfhdl.tools.linters.{ghdl, nvc, vcom, xvhdl}
-    given VHDLLinter = ghdl
-    given Conversion[dfhdl.tools.toolsCore.VHDLLinter, VHDLLinter] = identity
+  type VHDLLinter = dfhdl.tools.linters.vhdlLinters.type => _VHDLLinter
+  private[dfhdl] into opaque type _VHDLLinter <: dfhdl.tools.toolsCore.VHDLLinter =
+    dfhdl.tools.toolsCore.VHDLLinter
+  private[dfhdl] object _VHDLLinter:
+    given VHDLLinter = _.ghdl
+    given Conversion[dfhdl.tools.toolsCore.VHDLLinter, _VHDLLinter] = identity
 
 end LinterOptions

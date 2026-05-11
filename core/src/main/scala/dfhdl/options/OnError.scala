@@ -1,7 +1,10 @@
 package dfhdl.options
 import dfhdl.internals.{sbtShellIsRunning, sbtTestIsRunning, sbtnIsRunning}
 
-enum OnError derives CanEqual:
+type OnError = _OnError.type => _OnError
+val OnError = _OnError
+protected[dfhdl] enum _OnError derives CanEqual:
   case Exit, Exception
-object OnError:
-  given OnError = if (sbtShellIsRunning || sbtnIsRunning || sbtTestIsRunning) Exception else Exit
+protected[dfhdl] object _OnError:
+  given OnError =
+    _ => if (sbtShellIsRunning || sbtnIsRunning || sbtTestIsRunning) Exception else Exit

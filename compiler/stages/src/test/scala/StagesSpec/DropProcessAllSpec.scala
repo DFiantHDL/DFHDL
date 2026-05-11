@@ -5,7 +5,7 @@ import dfhdl.compiler.stages.dropProcessAll
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class DropProcessAllSpec extends StageSpec:
-  given options.CompilerOptions.Backend = backends.vhdl.v93
+  given options.CompilerOptions.Backend = _.vhdl.v93
   test("Basic process"):
     class ID extends EDDesign:
       val x = SInt(16) <> IN

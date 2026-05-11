@@ -2,7 +2,7 @@ package dfhdl.lib.arith.constdiv
 import dfhdl.*
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-given options.CompilerOptions.LogLevel = options.LogLevel.TRACE
+given options.CompilerOptions.LogLevel = _.TRACE
 class PrimeDiv(
     val primeDivisor: Int <> CONST
 ) extends RTDesign:

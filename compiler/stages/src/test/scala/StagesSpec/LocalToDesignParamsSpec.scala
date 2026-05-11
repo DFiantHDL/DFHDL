@@ -6,7 +6,7 @@ import dfhdl.compiler.stages.localToDesignParams
 
 class LocalToDesignParamsSpec extends StageSpec:
   test("Local parameters used in IO are converted to design parameters"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo extends RTDesign:
       val width: Int <> CONST = 8
       val x                   = Bits(width)     <> IN
@@ -31,7 +31,7 @@ class LocalToDesignParamsSpec extends StageSpec:
     )
 
   test("Local parameters used in nested designs are converted"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Inner(val width: Int <> CONST) extends RTDesign:
       val x = Bits(width) <> IN
       val y = Bits(width) <> OUT
@@ -65,7 +65,7 @@ class LocalToDesignParamsSpec extends StageSpec:
     )
 
   test("Stage only runs for VHDL backends"):
-    given options.CompilerOptions.Backend = backends.verilog.v2001
+    given options.CompilerOptions.Backend = _.verilog.v2001
     class Foo extends RTDesign:
       val width: Int <> CONST = 8
       val x                   = Bits(width) <> IN
@@ -85,7 +85,7 @@ class LocalToDesignParamsSpec extends StageSpec:
     )
 
   test("Anonymous local parameters are not converted"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo extends RTDesign:
       val x = Bits(8) <> IN
       val y = Bits(8) <> OUT
@@ -103,7 +103,7 @@ class LocalToDesignParamsSpec extends StageSpec:
     )
 
   test("Global parameters are not converted"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     val globalWidth: Int <> CONST         = 8
     class Foo extends RTDesign:
       val x = Bits(globalWidth) <> IN
@@ -124,7 +124,7 @@ class LocalToDesignParamsSpec extends StageSpec:
     )
 
   test("Design parameters are not converted"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo(val width: Int <> CONST = 8) extends RTDesign:
       val x = Bits(width) <> IN
       val y = Bits(width) <> OUT
@@ -142,7 +142,7 @@ class LocalToDesignParamsSpec extends StageSpec:
     )
 
   test("Complex parameter expressions and different data types in IO"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo extends RTDesign:
       val width: Int <> CONST  = 8
       val depth: Int <> CONST  = 4
@@ -179,7 +179,7 @@ class LocalToDesignParamsSpec extends StageSpec:
     )
 
   test("constant parameter regression"):
-    given options.CompilerOptions.Backend = backends.vhdl.v2008
+    given options.CompilerOptions.Backend = _.vhdl.v2008
     class PrimeDiv(
         val primeDivisor: Int <> CONST
     ) extends RTDesign:

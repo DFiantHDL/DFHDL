@@ -7,8 +7,8 @@ import dfhdl.compiler.ir.{
 import dfhdl.core.DFPhysical.Val.Ops.MHz
 import ElaborationOptions.*
 final case class ElaborationOptions(
-    logLevel: LogLevel,
-    onError: OnError,
+    logLevel: _LogLevel,
+    onError: _OnError,
     Werror: WError,
     trapErrors: TrapErrors,
     defaultClkCfg: DefaultClkCfg,
@@ -31,23 +31,25 @@ object ElaborationOptions:
         defaultRstCfg: DefaultRstCfg,
         printDFHDLCode: PrintDFHDLCode
     ): Defaults[Any] = ElaborationOptions(
-      logLevel = logLevel, onError = onError, Werror = Werror, trapErrors = trapErrors,
+      logLevel = logLevel(wvlet.log.LogLevel), onError = onError(dfhdl.options.OnError),
+      Werror = Werror, trapErrors = trapErrors,
       defaultClkCfg = defaultClkCfg, defaultRstCfg = defaultRstCfg, printDFHDLCode = printDFHDLCode
     )
   end Defaults
   given defaults(using defaults: Defaults[Design]): ElaborationOptions = defaults
 
-  into opaque type LogLevel <: dfhdl.options.LogLevel = dfhdl.options.LogLevel
-  object LogLevel:
-    given Conversion[wvlet.log.LogLevel, LogLevel] = x => x.asInstanceOf[LogLevel]
+  type LogLevel = wvlet.log.LogLevel.type => _LogLevel
+  private[dfhdl] into opaque type _LogLevel <: dfhdl.options._LogLevel =
+    dfhdl.options._LogLevel
+  private[dfhdl] object _LogLevel:
+    given Conversion[wvlet.log.LogLevel, _LogLevel] = x => x.asInstanceOf[_LogLevel]
     given (using logLevel: dfhdl.options.LogLevel): LogLevel = logLevel
-    export dfhdl.options.LogLevel.*
 
-  into opaque type OnError <: dfhdl.options.OnError = dfhdl.options.OnError
-  object OnError:
+  type OnError = dfhdl.options.OnError.type => _OnError
+  private[dfhdl] into opaque type _OnError <: dfhdl.options._OnError = dfhdl.options._OnError
+  private[dfhdl] object _OnError:
     given (using onError: dfhdl.options.OnError): OnError = onError
-    given Conversion[dfhdl.options.OnError, OnError] = x => x.asInstanceOf[OnError]
-    export dfhdl.options.OnError.*
+    given Conversion[dfhdl.options._OnError, _OnError] = x => x.asInstanceOf[_OnError]
 
   into opaque type WError <: dfhdl.options.WError = dfhdl.options.WError
   object WError:

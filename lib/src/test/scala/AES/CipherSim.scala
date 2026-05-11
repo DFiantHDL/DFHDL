@@ -1,4 +1,4 @@
-package AES
+package dfhdl.AES
 import dfhdl.*
 given options.CompilerOptions.DropUserOpaques = true
 

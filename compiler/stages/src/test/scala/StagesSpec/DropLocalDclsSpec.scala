@@ -89,7 +89,7 @@ class DropLocalDclsSpec extends StageSpec:
          |""".stripMargin
     )
   test("Process keeps local dcls under VHDL"):
-    given options.CompilerOptions.Backend = backends.vhdl
+    given options.CompilerOptions.Backend = _.vhdl
     class ID extends EDDesign:
       val x = SInt(16) <> IN
       val y = SInt(16) <> OUT

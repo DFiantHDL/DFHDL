@@ -83,7 +83,7 @@ In a scala-cli project with multiple `.scala` files, shared `given` declarations
 //> using plugin io.github.dfianthdl:::dfhdl-plugin:0.17.0
 
 import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 given options.CompilerOptions.PrintBackendCode = true
 ```
 

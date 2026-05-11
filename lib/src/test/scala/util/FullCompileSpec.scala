@@ -1,4 +1,4 @@
-package util
+package dfhdl.util
 import munit.*
 
 import dfhdl.*
@@ -18,48 +18,49 @@ abstract class FullCompileSpec extends FunSuite:
   def projectSandboxFolder = s"sandbox${S}FullCompileSpec$S$projectFolderName"
   def projectResourceFolder = s"lib${S}src${S}test${S}resources${S}ref$S$projectFolderName"
   inline given options.CompilerOptions.CommitFolder =
-    s"$projectSandboxFolder$S${compiletime.summonInline[options.CompilerOptions.Backend]}"
-  given options.OnError = options.OnError.Exception
+    val backend = compiletime.summonInline[options.CompilerOptions.Backend](backends)
+    s"$projectSandboxFolder$S${backend}"
+  given options.OnError = _.Exception
   given options.LinterOptions.WError = true
-  def verilogLinters(using CompilerOptions): List[LinterOptions.VerilogLinter] =
+  def verilogLinters(using CompilerOptions): List[LinterOptions._VerilogLinter] =
     List(verilator, vlog, xvlog) // missing iverilog
-  def vhdlLinters(using CompilerOptions): List[LinterOptions.VHDLLinter] =
+  def vhdlLinters(using CompilerOptions): List[LinterOptions._VHDLLinter] =
     List(ghdl, nvc, vcom, xvhdl)
   extension [D <: core.Design](cd: CompiledDesign)
     def lintVerilog(using CompilerOptions): CompiledDesign =
       verilogLinters.foreach { linter =>
         if (linter.isAvailable)
-          given LinterOptions.VerilogLinter = linter
+          given LinterOptions.VerilogLinter = _ => linter
           cd.lint
       }
       cd
     def lintVHDL(using CompilerOptions): CompiledDesign =
       vhdlLinters.foreach { linter =>
         if (linter.isAvailable)
-          given LinterOptions.VHDLLinter = linter
+          given LinterOptions.VHDLLinter = _ => linter
           cd.lint
       }
       cd
   end extension
 
   test("verilog[default = sv2009] compilation with no error"):
-    given options.CompilerOptions.Backend = backends.verilog
+    given options.CompilerOptions.Backend = _.verilog
     dut.compile.lintVerilog
 
   // test("verilog.v2001 compilation with no error"):
-  //   given options.CompilerOptions.Backend = backends.verilog.v2001
+  //   given options.CompilerOptions.Backend = _.verilog.v2001
   //   dut.compile.lintVerilog
 
   // test("verilog.v95 compilation with no error"):
-  //   given options.CompilerOptions.Backend = backends.verilog.v95
+  //   given options.CompilerOptions.Backend = _.verilog.v95
   //   dut.compile.lintVerilog
 
   test("vhdl[default = v2008] compilation with no error"):
-    given options.CompilerOptions.Backend = backends.vhdl
+    given options.CompilerOptions.Backend = _.vhdl
     dut.compile.lintVHDL
 
   // test("vhdl.v93 compilation with no error"):
-  //   given options.CompilerOptions.Backend = backends.vhdl.v93
+  //   given options.CompilerOptions.Backend = _.vhdl.v93
   //   dut.compile.lintVHDL
 
   def compareDirectories(

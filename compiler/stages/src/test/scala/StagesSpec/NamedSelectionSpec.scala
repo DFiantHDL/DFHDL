@@ -151,7 +151,7 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("Named selection with functions under basic verilog") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     class ID extends DFDesign:
       val x                  = UInt(6) <> IN
       val y: UInt[5] <> VAL  = (x min x).resize

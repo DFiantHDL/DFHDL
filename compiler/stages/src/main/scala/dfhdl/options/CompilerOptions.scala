@@ -10,8 +10,8 @@ import dfhdl.internals.scastieIsRunning
 final case class CompilerOptions(
     commitFolder: CommitFolder,
     newFolderForTop: NewFolderForTop,
-    backend: Backend,
-    logLevel: LogLevel,
+    backend: _Backend,
+    logLevel: _LogLevel,
     printDFHDLCode: PrintDFHDLCode,
     printBackendCode: PrintBackendCode,
     dropUserOpaques: DropUserOpaques
@@ -28,8 +28,10 @@ object CompilerOptions:
         printBackendCode: PrintBackendCode,
         dropUserOpaques: DropUserOpaques
     ): Defaults[Any] = CompilerOptions(
-      commitFolder = commitFolder, newFolderForTop = newFolderForTop, backend = backend,
-      logLevel = logLevel, printDFHDLCode = printDFHDLCode, printBackendCode = printBackendCode,
+      commitFolder = commitFolder, newFolderForTop = newFolderForTop,
+      backend = backend(dfhdl.backends),
+      logLevel = logLevel(wvlet.log.LogLevel), printDFHDLCode = printDFHDLCode,
+      printBackendCode = printBackendCode,
       dropUserOpaques = dropUserOpaques
     )
   end Defaults
@@ -53,24 +55,25 @@ object CompilerOptions:
     given NewFolderForTop = true
     given Conversion[Boolean, NewFolderForTop] = identity
 
-  into opaque type Backend <: BackendCompiler = BackendCompiler
-  object Backend:
-    given Backend = dfhdl.backends.verilog.sv2009
-    given Conversion[BackendCompiler, Backend] = identity
-    extension (backend: Backend)
+  type Backend = dfhdl.backends.type => _Backend
+  private[dfhdl] into opaque type _Backend <: BackendCompiler = BackendCompiler
+  private[dfhdl] object _Backend:
+    given Backend = _ => dfhdl.backends.verilog.sv2009
+    given Conversion[BackendCompiler, _Backend] = identity
+    extension (backend: _Backend)
       def isVHDL: Boolean = backend match
         case _: dfhdl.backends.vhdl => true
         case _                      => false
       def isVerilog: Boolean = backend match
         case _: dfhdl.backends.verilog => true
         case _                         => false
-    export dfhdl.backends.*
 
-  into opaque type LogLevel <: dfhdl.options.LogLevel = dfhdl.options.LogLevel
-  given Conversion[wvlet.log.LogLevel, LogLevel] = x => x.asInstanceOf[LogLevel]
-  object LogLevel:
+  type LogLevel = wvlet.log.LogLevel.type => _LogLevel
+  private[dfhdl] into opaque type _LogLevel <: dfhdl.options._LogLevel =
+    dfhdl.options._LogLevel
+  private[dfhdl] object _LogLevel:
+    given Conversion[wvlet.log.LogLevel, _LogLevel] = x => x.asInstanceOf[_LogLevel]
     given (using logLevel: dfhdl.options.LogLevel): LogLevel = logLevel
-    export dfhdl.options.LogLevel.*
 
   into opaque type PrintDFHDLCode <: Boolean = Boolean
   object PrintDFHDLCode:

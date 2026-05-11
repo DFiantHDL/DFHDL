@@ -1,7 +1,7 @@
 //format: off
 package docExamples.ugdemos.demo6
 import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 
 /** A generic left shifter */
 def LeftShiftGen(

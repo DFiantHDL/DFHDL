@@ -1,7 +1,7 @@
 import dfhdl.*
 import munit.*
 import java.io.File.separatorChar as S
-given options.ElaborationOptions.OnError = options.OnError.Exception
+given options.ElaborationOptions.OnError = _.Exception
 class ElaborationChecksSpec extends DesignSpec:
   val currentFilePos = s"lib${S}src${S}test${S}scala${S}"
   test("ambiguous RT dependency errors"):

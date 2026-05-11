@@ -908,7 +908,7 @@ class MyStageSpec extends StageSpec:
   }
 
   test("backend-specific behaviour under VHDL") {
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Top extends EDDesign:
       ...
     val result = (new Top).myStage

@@ -1,10 +1,10 @@
 package dfhdl.app
 import dfhdl.options.CompilerOptions
 
-given SingleValueConverter[CompilerOptions.Backend] with
+given SingleValueConverter[CompilerOptions._Backend] with
   def parse(
       arg: String
-  ): Either[String, Option[CompilerOptions.Backend]] =
+  ): Either[String, Option[CompilerOptions._Backend]] =
     arg.split("\\.").toList match
       case lang :: Nil =>
         lang match

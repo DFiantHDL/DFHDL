@@ -1,4 +1,4 @@
-package AES
+package dfhdl.AES
 import dfhdl.*
 
 @top(false) class Cipher extends DFDesign:

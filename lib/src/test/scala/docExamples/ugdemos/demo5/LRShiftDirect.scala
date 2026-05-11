@@ -1,7 +1,7 @@
 //format: off
 package docExamples.ugdemos.demo5
 import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 
 /** A generic abstract shifter with only IOs */
 abstract class ShiftGen extends RTDesign:
