@@ -11,6 +11,11 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   val ownerRef: DFOwner.Ref
   val meta: Meta
   val tags: DFTags
+  // Uniform enumeration of every ref emitted by this member (TwoWay + OneWay).
+  // Used to pair old/new refs after `copyWithNewRefs` for sub-tree cloning.
+  // Default covers `ownerRef + getRefs`; members with additional OneWay refs
+  // (e.g. DFDesignInst.designRef) override.
+  def getAllRefs: List[DFRefAny] = ownerRef :: getRefs
   final def setMeta(metaFunc: Meta => Meta)(using getSet: MemberGetSet): this.type =
     getSet.set(this)(m => setMeta(metaFunc(m.meta)))
   final def setTags(tagsFunc: DFTags => DFTags)(using getSet: MemberGetSet): this.type =
@@ -1610,6 +1615,7 @@ final case class DFDesignInst(
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] =
     paramMap.values.toList ++ meta.getRefs
+  override def getAllRefs: List[DFRefAny] = ownerRef :: designRef :: getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
     designRef = designRef.copyAsNewRef,
