@@ -1695,7 +1695,7 @@ object DB:
       subDBs: ListMap[DFOwner.Ref, DB]
   ): DB =
     lazy val updatedSubDBs = subDBs.map((r, subDB) => r -> subDB.copy()(db))
-    lazy val db: DB = new DB(members, refTable, globalTags, srcFiles, subDBs)(db)
+    lazy val db: DB = new DB(members, refTable, globalTags, srcFiles, updatedSubDBs)(db)
     updatedSubDBs.foreach(_._2.rootDB)
     db.rootDB
     db
