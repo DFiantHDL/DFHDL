@@ -24,50 +24,35 @@ case object Duplicate4GlobalizePortVectorParams extends ReduplicateDesign:
           case _               => false
       case _ => false
 
-  // The set of canonical (post-`UniqueDesigns`) `DFDesignBlock`s that own
-  // `DFVal.DesignParam`s reached from a port `DFVector` dim/cell-type width.
-  // Pre-computed by the `transform` override below before `transformGlobal`
-  // runs, because sub-DBs don't carry a back-pointer to the new-style root
-  // (so `criteria` can't walk other sub-DBs from `getSet.designDB`). The set
-  // is checked by object identity in `criteria` — `oldToNew` doesn't clone
-  // design blocks, so the same `DFDesignBlock` instances reachable from the
-  // flat DB are the targets seen by each `DFDesignInst.designRef.get`.
-  private var designsNeedingGlob: Set[DFDesignBlock] = Set.empty
-
-  override def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
-    designsNeedingGlob = computeDesignsNeedingGlob(designDB)
-    try super.transform(designDB)
-    finally designsNeedingGlob = Set.empty
-
-  private def computeDesignsNeedingGlob(designDB: DB)(using MemberGetSet): Set[DFDesignBlock] =
-    val preParams = mutable.LinkedHashSet.empty[DFVal]
-    def preCheckRef(ref: DFRef.TwoWayAny): Unit =
-      ref.get match
-        case dfVal: DFVal if !dfVal.isGlobal =>
-          dfVal.getRefs.foreach(preCheckRef)
-          if (!dfVal.isAnonymous) preParams += dfVal
-        case _ =>
-    def preCheckIntParamRef(ref: IntParamRef): Unit =
-      ref.getRef.foreach(preCheckRef)
-    def preCheckVector(dfType: DFType): Unit = dfType match
-      case dt: DFVector =>
-        dt.cellDimParamRefs.foreach(preCheckIntParamRef)
-        dt.cellType match
-          case DFBits(w)    => preCheckIntParamRef(w)
-          case DFUInt(w)    => preCheckIntParamRef(w)
-          case DFSInt(w)    => preCheckIntParamRef(w)
-          case dt: DFVector => preCheckVector(dt.cellType)
-          case _            =>
-      case _ =>
-    designDB.members.foreach {
-      case dcl @ DclPort() => preCheckVector(dcl.dfType)
-      case _               =>
-    }
-    preParams.view.collect { case dp: DFVal.DesignParam => dp.getOwnerDesign }.toSet
-  end computeDesignsNeedingGlob
-
   def criteria(inst: DFDesignInst)(using MemberGetSet, CompilerOptions): Boolean =
-    designsNeedingGlob.contains(inst.getDesignBlock)
+    val design = inst.getDesignBlock
+    val subDB = getSet.designDB.rootDB.subDBs(design.ownerRef)
+    subDB.atGetSet {
+      def preCheckRef(ref: DFRef.TwoWayAny): Boolean =
+        ref.get match
+          case dfVal: DFVal if !dfVal.isGlobal =>
+            !dfVal.isAnonymous || dfVal.getRefs.exists(preCheckRef)
+          case _ => false
+      def preCheckIntParamRef(ref: IntParamRef): Boolean =
+        ref.getRef.exists(preCheckRef)
+      def preCheckVector(dfType: DFType): Boolean = dfType match
+        case dt: DFVector =>
+          dt.cellDimParamRefs.exists(preCheckIntParamRef) ||
+          (
+            dt.cellType match
+              case DFBits(w)    => preCheckIntParamRef(w)
+              case DFUInt(w)    => preCheckIntParamRef(w)
+              case DFSInt(w)    => preCheckIntParamRef(w)
+              case dt: DFVector => preCheckVector(dt.cellType)
+              case _            => false
+          )
+        case _ => false
+      subDB.members.exists {
+        case dcl @ DclPort() => preCheckVector(dcl.dfType)
+        case _               => false
+      }
+    }
+  end criteria
 end Duplicate4GlobalizePortVectorParams
 
 /** Globalizes design parameters that set port vector lengths. Required only for vhdl.v93 (which
@@ -78,8 +63,8 @@ end Duplicate4GlobalizePortVectorParams
   * `DFDesignInst` referencing it.
   *
   * All globalization is concentrated in the TOP sub-DB's `transformSubDB` call (the first DFS
-  * iteration): a single `MetaDesign(top, Before)` block creates a new global `DFVal.Alias.AsIs`
-  * for every `DesignParam` reachable from any design's port `DFVector` widths, in DFS order so
+  * iteration): a single `MetaDesign(top, Before)` block creates a new global `DFVal.Alias.AsIs` for
+  * every `DesignParam` reachable from any design's port `DFVector` widths, in DFS order so
   * `${design.dclName}_${param.getName}` aliases can reference their ancestor counterparts
   * (`ID_id1_width.relValRef → IDTop_widthTop`). The same global objects are reused across
   * descendant sub-DBs via a per-`rootDB` cache, so `newToOld`'s object-identity dedup emits each
@@ -167,7 +152,7 @@ case object GlobalizePortVectorParams extends HierarchyStage:
     val sub = subDB
     val thisDesignOpt = sub.members.collectFirst { case d: DFDesignBlock => d }
     thisDesignOpt match
-      case None => sub
+      case None             => sub
       case Some(thisDesign) =>
         // The very first transformSubDB call for a given `rootDB` is the
         // top design's call (DFS order). It populates the shared state by
@@ -257,7 +242,7 @@ case object GlobalizePortVectorParams extends HierarchyStage:
         )
         def depsFor(applied: DFVal)(using MemberGetSet): List[DFVal] =
           applied match
-            case _: DFVal.DesignParam => Nil
+            case _: DFVal.DesignParam     => Nil
             case _ if applied.isAnonymous =>
               applied.collectRelMembers(false).filterNot(_.isGlobal)
             case _ =>
@@ -372,8 +357,10 @@ case object GlobalizePortVectorParams extends HierarchyStage:
       computeVecTypePatches(sub, vecTypeReplaceMap)
     val instPatches = computeInstPatches(sub, state.globalizedNamesByDesign)
 
-    if (replacePatches.isEmpty && vecTypePbnsPatches.isEmpty &&
-        vecTypeOtherPatches.isEmpty && instPatches.isEmpty)
+    if (
+      replacePatches.isEmpty && vecTypePbnsPatches.isEmpty &&
+      vecTypeOtherPatches.isEmpty && instPatches.isEmpty
+    )
       sub
     else
       // PBNS type patches first (they introduce shared port-derived TypeRefs);
@@ -426,7 +413,7 @@ case object GlobalizePortVectorParams extends HierarchyStage:
             val otherRef = if (net.lhsRef.get eq pbns) net.rhsRef else net.lhsRef
             otherRef.get match
               case other: DFVal.PortByNameSelect => // skip — both PBNS, handled separately
-              case other: DFVal =>
+              case other: DFVal                  =>
                 other.dfType match
                   case otherVec: DFVector if otherVec != dclType =>
                     out += otherVec -> dclType
