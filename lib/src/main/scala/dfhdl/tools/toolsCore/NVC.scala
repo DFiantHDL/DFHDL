@@ -41,17 +41,32 @@ object NVC extends VHDLLinter, VHDLSimulator:
         List(s"WORK.${nameUC}", s"WORK.${nameUC}-${nameUC}_ARCH")
       ).toList
     val topNameUC = topName.toUpperCase()
+    // TODO: this is kind of a hack. We assume if this number is 2 then
+    // we have a global def, and not just the DFHDL package
+    val globalDefCount = getSet.designDB.srcFiles.count { src =>
+      src.sourceType match
+        case SourceType.GlobalDef => true
+        case _                    => false
+    }
     val dsnPackageWorkFiles = List(
       "WORK.DFHDL_PKG",
-      "WORK.DFHDL_PKG-body",
-      s"WORK.${topNameUC}_PKG",
-      s"WORK.${topNameUC}_PKG-body"
+      "WORK.DFHDL_PKG-body"
+    ) ++ (
+      if (globalDefCount >= 1)
+        List(
+          s"WORK.${topNameUC}_PKG",
+          s"WORK.${topNameUC}_PKG-body"
+        )
+      else Nil
     )
     val versionDouble = this.installedVersion.get.split("\\.").take(2).mkString(".").toDouble
     val topElabFile =
-      if (versionDouble >= 1.17) s"_WORK.${topNameUC}.elab.pack"
+      if (versionDouble >= 1.20) ""
+      else if (versionDouble >= 1.17) s"_WORK.${topNameUC}.elab.pack"
       else s"_WORK.${topNameUC}.pack"
-    val topWorkFiles = List(s"WORK.${topNameUC}.elab", topElabFile)
+    val topWorkFiles =
+      if (topElabFile.nonEmpty) List(s"WORK.${topNameUC}.elab", topElabFile)
+      else List(s"WORK.${topNameUC}.elab")
     val extraFiles = List("_index", "_NVC_LIB")
     val allFiles = extraFiles ++ topWorkFiles ++ dsnPackageWorkFiles ++ designWorkFiles
     allFiles.map(name => s"work${separatorChar}${name}")
