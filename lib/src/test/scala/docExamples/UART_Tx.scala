@@ -2,7 +2,7 @@ package docExamples.uart_tx
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.* //import all the DFHDL goodness
 
-@top class UART_Tx(
+class UART_Tx(
     val CLK_FREQ_KHz: Int <> CONST  = 50000,
     val BAUD_RATE_BPS: Int <> CONST = 115200
 ) extends RTDesign:

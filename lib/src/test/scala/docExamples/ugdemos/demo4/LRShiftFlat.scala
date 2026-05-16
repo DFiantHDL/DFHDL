@@ -11,7 +11,7 @@ enum ShiftDir extends Encoded:
   * @param width
   *   the width of the input and output bits
   */
-@top class LRShiftFlat(
+class LRShiftFlat(
     val width: Int <> CONST = 8
 ) extends RTDesign:
   /** bits input */

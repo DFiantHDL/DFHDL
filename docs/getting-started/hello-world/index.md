@@ -11,8 +11,8 @@ Since DFHDL is a Scala library, we are creating a Scala program that takes DFHDL
 /// admonition | Writing a DFHDL compilation program – as easy as 01-10-11!
     type: summary
 1. `#!scala import dfhdl.*` once per source file, to import all the required namespace objects, types, and functionality.
-2. `#!scala class _design_name_ extends RTDesign:` to define your register-transfer (RT) domain design. Populate your design with the required interface and functionality. DFHDL supports two additional design domains: dataflow (DF), and event-driven (ED).
-3. Add `#!scala @top` annotation to your top-level design (e.g., `#!scala @top class top_design_name_ ...`) to automatically create a compilation program entry point for the design, instantiate it, elaborate it, compile it to Verilog or VHDL (see compiler options), and finally commit the files to disk.
+2. `#!scala class _design_name_ extends RTDesign:` to define your register-transfer (RT) domain design. Populate your design with the required interface and functionality. DFHDL supports two additional design domains: dataflow (DF), and event-driven (ED). This will automatically create a compilation program entry point for the design to elaborate it, compile it to Verilog or VHDL (see compiler options), and finally commit the files to disk.
+3. Run the Scala program. 
 ///
 
 ## Run It In Your Browser

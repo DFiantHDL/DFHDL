@@ -2,7 +2,7 @@ package docExamples.regfile
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.*
 
-@top class RegFile(
+class RegFile(
     val DATA_WIDTH: Int <> CONST = 32,
     val REG_NUM: Int <> CONST    = 32
 ) extends RTDesign:

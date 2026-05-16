@@ -5,7 +5,7 @@ import dfhdl.* //import all the DFHDL goodness
 enum ALUSel extends Encoded:
   case ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1
 
-@top class ALU extends DFDesign:
+class ALU extends DFDesign:
   val op1    = Bits(32) <> IN
   val op2    = Bits(32) <> IN
   val aluSel = ALUSel   <> IN

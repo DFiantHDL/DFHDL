@@ -5,7 +5,7 @@
 import dfhdl.* //import all the DFHDL goodness
 
 /** Generates an 8-bit overlapping count */
-@top class Counter8 extends RTDesign:
+class Counter8 extends RTDesign:
   val cnt = UInt(8) <> OUT.REG init 0
   cnt.din := cnt + 1
 

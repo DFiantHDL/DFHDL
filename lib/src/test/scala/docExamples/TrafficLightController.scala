@@ -13,7 +13,7 @@ object TrafficLight:
   val GREEN = TrafficLight(red = 0, yellow = 0, green = 1)
   val RED_YELLOW = TrafficLight(red = 1, yellow = 1, green = 0)
 
-@top class TrafficLightController(
+class TrafficLightController(
     val RED_TIME: Time <> CONST = 1.mn,
     val YELLOW_TIME: Time <> CONST = 5.sec,
     val RED_YELLOW_TIME: Time <> CONST = 3.sec,

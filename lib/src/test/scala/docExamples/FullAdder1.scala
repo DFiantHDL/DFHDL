@@ -2,7 +2,7 @@ package docExamples.fullAdder1
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.* //import all the DFHDL goodness
 
-@top class FullAdder1 extends EDDesign:
+class FullAdder1 extends EDDesign:
   val a, b, c_in = Bit <> IN
   val sum, c_out = Bit <> OUT
 

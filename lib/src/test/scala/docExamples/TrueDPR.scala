@@ -2,7 +2,7 @@ package docExamples.trueDPR
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.*
 
-@top class TrueDPR(
+class TrueDPR(
     val DATA_WIDTH: Int <> CONST = 8,
     val ADDR_WIDTH: Int <> CONST = 8
 ) extends EDDesign:

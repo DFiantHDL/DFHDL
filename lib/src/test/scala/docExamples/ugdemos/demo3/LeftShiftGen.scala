@@ -8,7 +8,7 @@ given options.CompilerOptions.Backend = _.verilog
   * @param width
   *   the width of the input and output bits
   */
-@top class LeftShiftGen(
+class LeftShiftGen(
     val width: Int <> CONST = 8,
 ) extends RTDesign:
   /** bits input */

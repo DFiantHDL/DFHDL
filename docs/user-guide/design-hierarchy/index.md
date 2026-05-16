@@ -367,7 +367,7 @@ In this example, the top-app supported parameters `pureIntArg` and `dfhdlIntArg`
 ```scala title="DFHDL code"
 import dfhdl.*
 class CustomArg
-@top class Foo(
+class Foo(
     val pureIntArg:   Int              = 5,
     val dfhdlIntArg:  Int <> CONST     = 7,
     val ignored:      CustomArg        = CustomArg(),
@@ -392,7 +392,7 @@ import dfhdl.*
 given options.AppOptions.AppMode = 
   options.AppOptions.AppMode.help
 class CustomArg
-@top class Foo(
+class Foo(
     val pureIntArg:   Int              = 5,
     val dfhdlIntArg:  Int <> CONST     = 7,
     val ignored:      CustomArg        = CustomArg(),
@@ -400,51 +400,6 @@ class CustomArg
 ) extends DFDesign
 ```
 ///
-///
-
-#### Design Parameter Default Value Rules
-For top-app designs, all parameters must have default values.
-
-/// admonition | `@top` annotation and default parameter value requirement example
-    type: example
-This example shows `FooErr` is missing a default value and throws an error. There are three ways to resolve this, shown in `FooOK1`, `FooOK2`, and `FooOK3`.
-
-```scala
-//Error: Missing argument's default value 
-//for top-level design with a default app 
-//entry point. Either add a default value 
-//or disable the app entry point generation 
-//with `@top(false)`.
-@top class FooErr(
-    val arg1: Int = 5,
-    val arg2: Boolean <> CONST
-) extends DFDesign
-
-//OK: all parameters have default values
-//Top-app capability: YES
-//Top-level design capability: YES
-@top class FooOK1(
-    val arg1: Int = 5,
-    val arg2: Boolean <> CONST = true
-) extends DFDesign
-
-//OK: the `genMain` argument in the `@top` 
-//annotation is set to `false`
-//Top-app capability: NO
-//Top-level design capability: YES
-@top(false) class FooOK2(
-    val arg1: Int = 5,
-    val arg2: Boolean <> CONST
-) extends DFDesign
-
-//OK: no top annotation
-//Top-app capability: NO
-//Top-level design capability: NO
-class FooOK3(
-    val arg1: Int = 5,
-    val arg2: Boolean <> CONST
-) extends DFDesign
-```
 ///
 
 /// admonition | Good design practice - avoid default parameter value overuse
@@ -900,7 +855,7 @@ children = [
 
 /// details | Runnable example
     type: dfhdl
-```scastie
+```scastie main="top_LRShiftDirect"
 --8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftDirect.scala:3"
 ```
 ///
@@ -1054,7 +1009,7 @@ Note how the compiler adds comments (`/*<--*/` and `/*-->*/`) to indicate the di
 The following runnable example is the same as the [`LRShiftDirect`][LRShiftDirect] example, except for the default compiler options, which we altered to print the compiled design in DFHDL code format rather than the backend code format.
 /// details | Runnable example
     type: dfhdl
-```scastie
+```scastie main="top_LRShiftDirect"
 import dfhdl.*
 given options.CompilerOptions.Backend = _.verilog
 //disable the default backend code print (in scastie)

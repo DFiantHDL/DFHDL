@@ -42,7 +42,7 @@ enum ShiftDir extends Encoded:
   * @param width
   *   the width of the input and output bits
   */
-@top class LRShiftDirect(
+class LRShiftDirect(
     val width: Int <> CONST = 8
 ) extends ShiftGen:
   /** direction of shift */

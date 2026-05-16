@@ -2,10 +2,9 @@ package app
 import dfhdl.*
 
 // Fixture used by `DesignArgsCLISpec`. The DFHDL plugin synthesizes a
-// `top_TestCLIFoo` DFApp object from the `@top` annotation; the spec invokes
-// its `main` reflectively since the generated object is not visible at typer
-// time.
-@top class TestCLIFoo(
+// `top_TestCLIFoo` DFApp object; the spec invokes its `main` reflectively
+// since the generated object is not visible at typer time.
+class TestCLIFoo(
     val a: Int <> CONST,
     val b: Boolean <> CONST = true,
     val c: Bit <> CONST,

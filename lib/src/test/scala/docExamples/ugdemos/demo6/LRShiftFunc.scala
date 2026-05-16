@@ -34,7 +34,7 @@ def LRShiftFunc(
   * @param width
   *   the width of the input and output bits
   */
-@top class LRShiftFuncWrapper(
+class LRShiftFuncWrapper(
     val width: Int <> CONST = 8
 ) extends RTDesign:
   /** bits input */

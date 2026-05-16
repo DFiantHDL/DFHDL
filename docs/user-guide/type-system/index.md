@@ -940,7 +940,7 @@ given options.ElaborationOptions.PrintDFHDLCode = true
 //set mode to elaborate only
 given options.AppOptions.AppMode = options.AppOptions.AppMode.elaborate
 
-@top class Foo extends DFDesign:
+class Foo extends DFDesign:
   val i4 = Bits(4) <> IN
   val b2 = Bits(2) <> OUT
   val b3 = Bits(3) <> OUT
