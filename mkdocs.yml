@@ -79,7 +79,7 @@ nav:
   #   - Functions/Methods: user-guide/methods/index.md
     - Conditionals: user-guide/conditionals/index.md
     - Domain Abstractions: user-guide/design-domains/index.md
-  #   - Processes: user-guide/processes/index.md
+    - Processes: user-guide/processes/index.md
   #   - Interfaces [WIP]: user-guide/interfaces/index.md
   #   - Domains [WIP]: user-guide/domains/index.md
   #   - Scopes [WIP]: user-guide/scopes/index.md
@@ -89,8 +89,8 @@ nav:
   #   - Simulation: user-guide/simulation/index.md
   #   - Synthesis: user-guide/synthesis/index.md
   #   - Errors: user-guide/errors/index.md
-  # - Transitioning:
-  #   - From Verilog: transitioning/from-verilog/index.md
+  - Transitioning:
+    - From Verilog: transitioning/from-verilog/index.md
     # - From VHDL: transitioning/from-vhdl/index.md
   - About:
     # - Release Notes: about/release-notes.md
