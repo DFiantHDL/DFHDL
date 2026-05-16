@@ -15,7 +15,7 @@ module LeftShiftGen(
   `include "dfhdl_defs.vh"
   `include "LRShiftDirect_defs.vh"
   /* the width of the input and output bits */
-  parameter integer width = 8;
+  parameter integer width = 0;
   /* bits input */
   input  wire [width - 1:0]        iBits;
   /* requested shift */

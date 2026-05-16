@@ -47,21 +47,21 @@ abstract class FullCompileSpec extends FunSuite:
     given options.CompilerOptions.Backend = _.verilog
     dut.compile.lintVerilog
 
-  // test("verilog.v2001 compilation with no error"):
-  //   given options.CompilerOptions.Backend = _.verilog.v2001
-  //   dut.compile.lintVerilog
+  test("verilog.v2001 compilation with no error"):
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    dut.compile.lintVerilog
 
-  // test("verilog.v95 compilation with no error"):
-  //   given options.CompilerOptions.Backend = _.verilog.v95
-  //   dut.compile.lintVerilog
+  test("verilog.v95 compilation with no error"):
+    given options.CompilerOptions.Backend = _.verilog.v95
+    dut.compile.lintVerilog
 
   test("vhdl[default = v2008] compilation with no error"):
     given options.CompilerOptions.Backend = _.vhdl
     dut.compile.lintVHDL
 
-  // test("vhdl.v93 compilation with no error"):
-  //   given options.CompilerOptions.Backend = _.vhdl.v93
-  //   dut.compile.lintVHDL
+  test("vhdl.v93 compilation with no error"):
+    given options.CompilerOptions.Backend = _.vhdl.v93
+    dut.compile.lintVHDL
 
   def compareDirectories(
       obtainedDir: String,

@@ -37,7 +37,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     printer.dialect match
       case VerilogDialect.v95 => false
       case _                  => true
-  val noDefaultParamSupport: Boolean =
+  val missingParamDefaultSupport: Boolean =
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
@@ -110,14 +110,14 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     )
     val designParamList = designMembers.collect { case param: DesignParam =>
       val defaultValue =
-        if (design.isTop)
+        if (design.isTopTop)
           if (param.appliedOrDefaultVal.hasTagOf[SyntheticDefaultTag]) ""
           else s" = ${param.appliedOrDefaultValRef.refCodeString}"
         else
           param.defaultValRef.get match
             case DFMember.Empty =>
               // missing default values are supported
-              if (noDefaultParamSupport) ""
+              if (missingParamDefaultSupport) ""
               // missing default values are not supported, so we fetch a valid constant data
               // (different instances may have different constant data, but for default,
               // a single module description can have any valid data, just to satisfy the standard)

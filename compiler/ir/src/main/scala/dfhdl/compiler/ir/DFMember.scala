@@ -494,7 +494,32 @@ object DFVal:
           // it should be updated to NoCache to avoid irrelevant data caching
           case ConstData.CachePolicy.GoThroughDesignParams => ConstData.CachePolicy.NoCache
           case other                                       => other
-        appliedOrDefaultVal.getConstData(using getSet, updatedPolicy)
+        appliedValOpt match
+          case Some(av) => av.getConstData(using getSet, updatedPolicy)
+          case None     =>
+            // Under the hierarchical model the owner design's `ownerRef` is
+            // empty, so `appliedValRefOpt` (which gates on `isTop`) never finds
+            // the parent's binding for a non-top design. Walk up via
+            // `parentSubDBOpt` and evaluate the `paramMap` entry in the parent
+            // sub-DB's getSet — its refTable owns the ref. Fall back to the
+            // (possibly synthetic) default value if no parent binding exists.
+            val ownerDesign = getOwnerDesign
+            val paramName = getName
+            val viaParent: Option[ConstData[Any]] =
+              getSet.designDB.parentSubDBOpt.flatMap { parentSubDB =>
+                parentSubDB.atGetSet {
+                  parentSubDB.members.collectFirst {
+                    case inst: DFDesignInst if inst.getDesignBlock eq ownerDesign => inst
+                  }.flatMap(_.paramMap.get(paramName)).map { paramRef =>
+                    paramRef.get.getConstData[Any](using parentSubDB.getSet, updatedPolicy)
+                  }
+                }
+              }
+            viaParent.getOrElse {
+              defaultValRef.get match
+                case dv: DFVal => dv.getConstData(using getSet, updatedPolicy)
+                case _         => ConstData.NotConst
+            }
       else ConstData.UnknownConst(this)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DesignParam =>

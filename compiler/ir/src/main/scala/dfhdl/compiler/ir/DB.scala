@@ -351,6 +351,13 @@ final case class DB private (
       }.groupBy(_._1).view.mapValues(_.map(_._2).toSet).toMap + (top -> Set.empty)
     else rootDB.designBlockOwnershipMap
 
+  lazy val parentSubDBOpt: Option[DB] =
+    if (isOldStyleFlatDB) None
+    else if (isRoot) None
+    else designBlockOwnershipMap.get(top).flatMap(_.headOption).flatMap { parentBlock =>
+      rootDB.subDBs.get(parentBlock.ownerRef)
+    }
+
   lazy val designBlockDomainOwnershipMap: Map[DFDesignBlock, Set[DFDomainOwner]] =
     if (isOldStyleFlatDB)
       designBlockInstMap.view.mapValues(_.view.map(_.getOwnerDomain).toSet).toMap

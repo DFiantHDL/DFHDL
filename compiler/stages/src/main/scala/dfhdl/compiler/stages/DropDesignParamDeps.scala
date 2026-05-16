@@ -8,7 +8,6 @@ import dfhdl.compiler.stages.vhdl.VHDLDialect
 import scala.collection.mutable
 import dfhdl.core.DFTypeAny
 import dfhdl.core.DFType.asFE
-import dfhdl.compiler.ir.ConstData.CachePolicy
 
 /** This stage inlines design parameter dependencies by replacing design parameters that depend on
   * other design parameters with anonymous constant values. This is needed only for VHDL'93 that
