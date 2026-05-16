@@ -54,9 +54,9 @@ function updateCodeBlocksAndDetails(preferredLanguage) {
   codeBlocks.forEach(function(codeBlock) {
     let content = codeBlock.textContent;
     if (preferredLanguage === "Verilog") {
-      content = content.replace(/(backends\.)vhdl/g, '$1verilog');
+      content = content.replace(/(_\.)vhdl/g, '$1verilog');
     } else { // VHDL
-      content = content.replace(/(backends\.)verilog/g, '$1vhdl');
+      content = content.replace(/(_\.)verilog/g, '$1vhdl');
     }
     codeBlock.textContent = content;
   });
