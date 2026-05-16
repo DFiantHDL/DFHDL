@@ -1,7 +1,8 @@
 let dfhdlVersion = "0.17.0";
 let scalaVersion = "3.8.1";
 
-let sbtConfig = `
+function buildSbtConfig(mainClass) {
+  let config = `
 val dfhdlVersion = "${dfhdlVersion}"
 scalacOptions ++= Seq(
   "-deprecation",
@@ -16,6 +17,11 @@ libraryDependencies ++= Seq(
 )
 resolvers += Resolver.sonatypeRepo("snapshots")
 `;
+  if (mainClass) {
+    config += `Compile / run / mainClass := Some("${mainClass}")\n`;
+  }
+  return config;
+}
 
 function getScastieTheme() {
   return document.body.getAttribute('data-md-color-scheme') === 'default' ? 'light' : 'dark';
@@ -26,14 +32,19 @@ function updateScastieTheme() {
   scastieDivs.forEach(function(div) {
       div.remove();
   });
-  var settings = {
-      theme: getScastieTheme(),
-      isWorksheetMode: false,
-      sbtConfig: sbtConfig,
-      targetType: 'scala3',
-      scalaVersion: scalaVersion
-  };
-  scastie.Embedded('.scastie', settings);
+  var theme = getScastieTheme();
+  // Embed each block individually so per-block options (e.g. data-main → mainClass) apply
+  document.querySelectorAll('.scastie:not(.embedded)').forEach(function(elem) {
+    var mainClass = elem.getAttribute('data-main');
+    var settings = {
+        theme: theme,
+        isWorksheetMode: false,
+        sbtConfig: buildSbtConfig(mainClass),
+        targetType: 'scala3',
+        scalaVersion: scalaVersion
+    };
+    scastie.Embedded(elem, settings);
+  });
 }
 
 //simulate click event without changing the view
