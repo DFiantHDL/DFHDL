@@ -41,10 +41,10 @@ filled in from the global `ElaborationOptions` defaults at compile time, and fro
 import dfhdl.hw.constraints.timing
 
 @timing.clock(
-  rate            = 50.MHz,                      // Clock frequency (or period, e.g. 20.ns)
-  edge            = timing.clock.Edge.Rising,    // Rising | Falling
-  portName        = "clk",                       // Port name in generated code
-  inclusionPolicy = timing.InclusionPolicy.AsNeeded
+  rate            = 50.MHz,    // Clock frequency (or period, e.g. 20.ns)
+  edge            = _.rising,  // rising | falling
+  portName        = "clk",     // Port name in generated code
+  inclusionPolicy = _.asneeded
 )
 class MyDesign extends RTDesign:
   ...
@@ -53,10 +53,10 @@ class MyDesign extends RTDesign:
 #### Reset Annotation
 ```scala
 @timing.reset(
-  mode            = timing.reset.Mode.Sync,      // Async | Sync
-  active          = timing.reset.Active.High,    // Low | High
-  portName        = "rst",
-  inclusionPolicy = timing.InclusionPolicy.AsNeeded
+  mode            = _.sync,    // async | sync
+  active          = _.high,    // low | high
+  portName        = "rst",     // Port name in generated code
+  inclusionPolicy = _.asneeded
 )
 class MyDesign extends RTDesign:
   ...
