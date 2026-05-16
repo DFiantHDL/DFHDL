@@ -9,56 +9,56 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
     // no casting needed
     case (t, f) if t =~ f => fromData
     // unsigned to signed conversion
-    case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
+    case (DFSInt(IntUNSAFE(tWidth)), DFUInt(IntUNSAFE(fWidth))) =>
       assert(tWidth == fWidth + 1)
       fromData
     // signed to unsigned conversion
-    case (DFUInt(Int(tWidth)), DFSInt(Int(fWidth))) =>
+    case (DFUInt(IntUNSAFE(tWidth)), DFSInt(IntUNSAFE(fWidth))) =>
       assert(tWidth == fWidth - 1)
       fromData
     // Double to Bits conversion
-    case (DFBits(Int(tWidth)), DFDouble) =>
+    case (DFBits(IntUNSAFE(tWidth)), DFDouble) =>
       assert(tWidth == 64)
       fromType.dataToBitsData(fromData)
     // Bits to Double conversion
-    case (DFDouble, DFBits(Int(fWidth))) =>
+    case (DFDouble, DFBits(IntUNSAFE(fWidth))) =>
       assert(fWidth == 64)
       toType.bitsDataToData(fromData.asInstanceOf[(BitVector, BitVector)])
     // Bits resize
-    case (DFBits(Int(tWidth)), DFBits(_)) =>
+    case (DFBits(IntUNSAFE(tWidth)), DFBits(_)) =>
       import dfhdl.internals.{resize => resizeBV}
       val data = fromData.asInstanceOf[(BitVector, BitVector)]
       (data._1.resizeBV(tWidth), data._2.resizeBV(tWidth))
     // UInt resize
-    case (DFUInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
+    case (DFUInt(IntUNSAFE(tWidth)), DFUInt(IntUNSAFE(fWidth))) =>
       if (tWidth > fWidth) fromData
       else
         fromData.asInstanceOf[Option[BigInt]].map(_.truncateAsUnsigned(tWidth))
     // SInt resize or conversion to/from DFInt32
-    case (DFXInt(true, Int(tWidth), _), DFXInt(true, Int(fWidth), _)) =>
+    case (DFXInt(true, IntUNSAFE(tWidth), _), DFXInt(true, IntUNSAFE(fWidth), _)) =>
       if (tWidth > fWidth) fromData
       else
         fromData.asInstanceOf[Option[BigInt]].map(_.truncateAsUnsigned(tWidth).asSigned(tWidth))
     // Casting from DFInt32 to UInt
-    case (DFUInt(Int(fWidth)), DFInt32) =>
+    case (DFUInt(IntUNSAFE(fWidth)), DFInt32) =>
       assert(fWidth <= 31)
       fromData.asInstanceOf[Option[BigInt]].map(_.truncateAsUnsigned(fWidth))
     // Casting from UInt to DFInt32
-    case (DFInt32, DFUInt(Int(fWidth))) =>
+    case (DFInt32, DFUInt(IntUNSAFE(fWidth))) =>
       assert(fWidth <= 31)
       fromData
     // Conversion from BoolOrBit to Bits
-    case (DFBits(Int(tWidth)), DFBit | DFBool) =>
+    case (DFBits(IntUNSAFE(tWidth)), DFBit | DFBool) =>
       fromData.asInstanceOf[Option[Boolean]]
         .map(x => (BitVector.bit(x).resize(tWidth), BitVector.low(tWidth)))
         .getOrElse((BitVector.low(tWidth), BitVector.high(tWidth)))
     // Casting from any data to Bits
-    case (DFBits(Int(tWidth)), _) =>
-      assert(tWidth == fromType.width)
+    case (DFBits(IntUNSAFE(tWidth)), _) =>
+      assert(tWidth == fromType.widthUNSAFE)
       fromType.dataToBitsData(fromData)
     // Casting from Bits to any data
-    case (_, DFBits(Int(fWidth))) =>
-      assert(fWidth == toType.width)
+    case (_, DFBits(IntUNSAFE(fWidth))) =>
+      assert(fWidth == toType.widthUNSAFE)
       toType.bitsDataToData(fromData.asInstanceOf[(BitVector, BitVector)])
     // Casting from BoolOrBit to UInt/SInt
     case (DFUInt(_) | DFSInt(_), DFBit | DFBool) =>
@@ -72,7 +72,7 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
     case (DFNumber, DFDouble) =>
       LiteralNumber(BigDecimal(fromData.asInstanceOf[DFDouble.Data].get))
     // Casting from any data to any data
-    case _ if fromType.width == toType.width =>
+    case _ if fromType.widthUNSAFE == toType.widthUNSAFE =>
       toType.bitsDataToData(fromType.dataToBitsData(fromData))
     case x =>
       println(x)
@@ -94,7 +94,7 @@ def selRangeData(
     val selBubbleBits = bubbleBits.bits(relBitHigh.toLong, relBitLow.toLong)
     (selValueBits, selBubbleBits)
   case (
-        DFXInt(signed, Int(width), DFDecimal.NativeType.BitAccurate),
+        DFXInt(signed, IntUNSAFE(width), DFDecimal.NativeType.BitAccurate),
         data: Option[BigInt] @unchecked
       ) =>
     data.map(_.toBitVector(width).bits(relBitHigh, relBitLow).toBigInt(signed))
@@ -262,12 +262,12 @@ def calcFuncData[OT <: DFType](
               case FuncOp.min => argData.map(_.get).reduce(_ min _)
             val widthNoTrunc = dataNoTrunc.bitsWidth(outType.signed)
             val dataTrunc =
-              if (widthNoTrunc > outType.width)
-                dataNoTrunc.toBitVector(outType.width).toBigInt(outType.signed)
+              if (widthNoTrunc > outType.widthUNSAFE)
+                dataNoTrunc.toBitVector(outType.widthUNSAFE).toBigInt(outType.signed)
               else dataNoTrunc
             val dataFixSign =
               if (dataTrunc < 0 && !outType.signed)
-                dataTrunc.asUnsigned(outType.width)
+                dataTrunc.asUnsigned(outType.widthUNSAFE)
               else dataTrunc
             Some(dataFixSign)
           // bits reduction operations
@@ -347,23 +347,23 @@ def calcFuncData[OT <: DFType](
                 DFNumber,
                 op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./),
                 DFNumber :: DFNumber :: _,
-                (lhs: LiteralNumber) :: (rhs: LiteralNumber) :: Nil
+                argData: List[LiteralNumber] @unchecked
               ) =>
             op match
-              case FuncOp.+ => lhs + rhs
-              case FuncOp.- => lhs - rhs
-              case FuncOp.* => lhs * rhs
-              case FuncOp./ => lhs / rhs
+              case FuncOp.+ => argData.reduce(_ + _)
+              case FuncOp.- => argData.reduce(_ - _)
+              case FuncOp.* => argData.reduce(_ * _)
+              case FuncOp./ => argData.reduce(_ / _)
           // DFTime add/sub arithmetic operations
           case (
                 DFTime,
                 op @ (FuncOp.+ | FuncOp.-),
                 DFTime :: DFTime :: _,
-                (lhs: TimeNumber) :: (rhs: TimeNumber) :: Nil
+                argData: List[TimeNumber] @unchecked
               ) =>
             op match
-              case FuncOp.+ => lhs + rhs
-              case FuncOp.- => lhs - rhs
+              case FuncOp.+ => argData.reduce(_ + _)
+              case FuncOp.- => argData.reduce(_ - _)
           // DFFreq div arithmetic operation
           case (
                 DFNumber,

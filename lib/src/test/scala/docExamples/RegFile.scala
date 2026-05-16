@@ -2,18 +2,21 @@ package docExamples.regfile
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.*
 
-@top class RegFile(
+class RegFile(
     val DATA_WIDTH: Int <> CONST = 32,
     val REG_NUM: Int <> CONST    = 32
 ) extends RTDesign:
+  self =>
   val regs = Bits(DATA_WIDTH) X REG_NUM <> VAR.REG
 
-  val rs1, rs2 = new RelatedDomain:
+  @hw.constraints.timing.related(self)
+  val rs1, rs2 = new RTDomain:
     val addr = Bits.until(REG_NUM) <> IN
     val data = Bits(DATA_WIDTH)    <> OUT.REG
     data.din := regs(addr)
 
-  val rd = new RelatedDomain:
+  @hw.constraints.timing.related(self)
+  val rd = new RTDomain:
     val addr = Bits.until(REG_NUM) <> IN
     val data = Bits(DATA_WIDTH)    <> IN
     val wren = Bit                 <> IN
@@ -31,7 +34,7 @@ end RegFile
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Select backend compiler:
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 // Uncomment to enable printing design code after elaboration (before compilation):
 // given options.ElaborationOptions.PrintDFHDLCode = true
 // Uncomment to enable printing design code after compilation:

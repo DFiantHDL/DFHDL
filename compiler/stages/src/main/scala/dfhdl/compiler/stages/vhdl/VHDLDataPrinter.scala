@@ -25,33 +25,21 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
   def csDFBitsBinFormat(binRep: String): String = s""""$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""x"$hexRep""""
   def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String =
-    if (width.isRef)
-      s"""resize(x"$hexRep", ${width.refCodeString})"""
-    else
-      s"""${width.refCodeString.applyBrackets()}x"$hexRep""""
+    s"""${width.refCodeString.applyBrackets()}x"$hexRep""""
   def csDFBoolFormat(value: Boolean): String = value.toString()
   def csDFBitFormat(bitRep: String): String = s"'$bitRep'"
   def csDFUIntFormatBig(value: BigInt, width: IntParamRef): String =
     if (allowDecimalSyntax)
-      if (width.isRef)
-        val actualWidth = value.bitsWidth(true)
-        s"""resize(${actualWidth}d"$value", ${width.refCodeString})"""
-      else
-        s"""${width.refCodeString.applyBrackets()}d"$value""""
+      s"""${width.refCodeString.applyBrackets()}d"$value""""
     else
       val intRepIsValid = value.bitsWidth(false) < 31
       if (intRepIsValid) s"""to_unsigned($value, ${width.refCodeString})"""
       else s"""unsigned'(resize(x"${value.toString(16)}", ${width.refCodeString}))"""
   def csDFSIntFormatBig(value: BigInt, width: IntParamRef): String =
     if (allowDecimalSyntax)
-      if (width.isRef)
-        val actualWidth = value.bitsWidth(true)
-        if (value >= 0) s"""resize(${actualWidth}d"$value", ${width.refCodeString})"""
-        else s"""resize(-${actualWidth}d"${-value}", ${width.refCodeString})"""
-      else
-        val csWidth = width.refCodeString.applyBrackets()
-        if (value >= 0) s"""${csWidth}d"$value""""
-        else s"""-${csWidth}d"${-value}""""
+      val csWidth = width.refCodeString.applyBrackets()
+      if (value >= 0) s"""${csWidth}d"$value""""
+      else s"""-${csWidth}d"${-value}""""
     else
       val intRepIsValid = value.bitsWidth(true) < 31
       if (intRepIsValid) s"""to_signed($value, ${width.refCodeString})"""
@@ -81,12 +69,13 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     csConstData(dfType.actualType, data)
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
-    printer.csDFStructTypeName(dfType) + dfType.fieldMap
-      .lazyZip(data)
-      .map { case ((n, t), d) =>
-        s"$n = ${csConstData(t, d)}"
-      }
-      .mkStringBrackets
+    printer.csDFStructTypeName(dfType) +
+      dfType.fieldMap
+        .lazyZip(data)
+        .map { case ((n, t), d) =>
+          s"$n = ${csConstData(t, d)}"
+        }
+        .mkStringBrackets
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = printer.unsupported
   def csDFUnitData(dfType: DFUnit, data: Unit): String = printer.unsupported
   def csDFDoubleData(dfType: DFDouble, data: Option[Double]): String =

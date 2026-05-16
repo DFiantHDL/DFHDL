@@ -29,6 +29,7 @@ protected object hdl:
   val Time = core.DFTime
   type Freq = core.DFFreq
   val Freq = core.DFFreq
+  type Rate = core.Rate
   export core.DFRange.Ops.*
   export core.Step.Ops.*
   export core.Wait.Ops.*
@@ -77,13 +78,6 @@ protected object hdl:
   export core.<>
   export core.X
   export core.Process.Ops.*
-
-  type ClkCfg = core.ClkCfg
-  val ClkCfg = core.ClkCfg
-  type RstCfg = core.RstCfg
-  val RstCfg = core.RstCfg
-  type RTDomainCfg = core.RTDomainCfg
-  val RTDomainCfg = core.RTDomainCfg
 
   // shorthand for annotating a DFBits value (useful for string interpolation)
   type B[W <: Int] = core.DFValOf[Bits[W]]

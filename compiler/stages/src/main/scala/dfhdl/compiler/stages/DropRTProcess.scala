@@ -182,13 +182,12 @@ import dfhdl.core.{DFValAny, DFOwnerAny, asValAny, DFC}
   * }}}
   */
 //format: on
-case object DropRTProcess extends Stage:
+case object DropRTProcess extends HierarchyStage:
   def dependencies: List[Stage] = List(FlattenStepBlocks)
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames)
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList = designDB.members.view.collect {
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patchList = subDB.members.view.collect {
       case pb: ProcessBlock if pb.isInRTDomain =>
         val stateBlocks = pb.members(MemberView.Folded).collect {
           case sb: StepBlock if sb.isRegular =>
@@ -212,7 +211,7 @@ case object DropRTProcess extends Stage:
           val dsn = new MetaDesign(
             pb,
             Patch.Add.Config.Before,
-            dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+            dfhdl.core.DomainType.RT
           ):
             val stateInit = dfhdl.core.DFVal.Const(stateEnumFE, Some(entries.head._2))
             val patterns = entries.map { case (_, value) =>
@@ -226,7 +225,7 @@ case object DropRTProcess extends Stage:
             new MetaDesign(
               sb,
               Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove),
-              dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+              dfhdl.core.DomainType.RT
             ):
               val block = dfhdl.core.DFMatch.Block(pattern, None, prevBlockOrHeader)(using
                 dfc.setMeta(sb.meta)
@@ -238,7 +237,7 @@ case object DropRTProcess extends Stage:
             new MetaDesign(
               g,
               Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove),
-              dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+              dfhdl.core.DomainType.RT
             ):
               import dfhdl.core.{DFIf, DFUnit, DFBool}
               val currentStepBlock = g.getOwnerStepBlock
@@ -308,8 +307,8 @@ case object DropRTProcess extends Stage:
         end if
     }.flatten.toList
 
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patchList)
+  end transformSubDB
 end DropRTProcess
 
 extension [T: HasDB](t: T)

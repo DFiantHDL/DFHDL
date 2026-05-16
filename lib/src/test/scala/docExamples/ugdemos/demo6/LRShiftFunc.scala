@@ -1,7 +1,7 @@
 //format: off
 package docExamples.ugdemos.demo6
 import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 
 /** A generic left shifter */
 def LeftShiftGen(
@@ -34,7 +34,7 @@ def LRShiftFunc(
   * @param width
   *   the width of the input and output bits
   */
-@top class LRShiftFuncWrapper(
+class LRShiftFuncWrapper(
     val width: Int <> CONST = 8
 ) extends RTDesign:
   /** bits input */

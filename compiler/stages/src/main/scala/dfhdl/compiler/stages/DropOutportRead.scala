@@ -9,7 +9,7 @@ import dfhdl.compiler.stages.vhdl.VHDLDialect
 /** This stage drops reading internally from an output port, by creating an intermediate variable.
   * This is typically required by backends like vhdl.v93 that cannot read from output
   */
-case object DropOutportRead extends Stage:
+case object DropOutportRead extends HierarchyStage:
   override def dependencies: List[Stage] = List(ExplicitNamedVars)
   override def nullifies: Set[Stage] = Set()
   override def runCondition(using co: CompilerOptions): Boolean =
@@ -19,9 +19,8 @@ case object DropOutportRead extends Stage:
           case VHDLDialect.v93 => true
           case _               => false
       case _ => false
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList: List[(DFMember, Patch)] = designDB.members.collect {
+  def transformSubDB(rootDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
+    val patches = subDB.members.collect {
       // go through all output ports that are read from within their design
       case port @ DclOut() if port.getReadDeps.exists(_.isSameOwnerDesignAs(port)) =>
         val dsn = new MetaDesign(
@@ -39,9 +38,9 @@ case object DropOutportRead extends Stage:
           // connect it
           port_sig.asDclAny <> port.asValAny
         dsn.patch
-    }
-    designDB.patch(patchList)
-  end transform
+    }.toList
+    subDB.patch(patches)
+  end transformSubDB
 end DropOutportRead
 
 extension [T: HasDB](t: T)

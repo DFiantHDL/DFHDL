@@ -5,7 +5,7 @@ import dfhdl.compiler.stages.getCompiledCodeString
 // scalafmt: { align.tokens = [{code = ":"}, {code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}, {code = ":=="}]}
 
 class PrintVerilogCodeSpec extends StageSpec:
-  given options.CompilerOptions.Backend = backends.verilog.sv2005
+  given options.CompilerOptions.Backend = _.verilog.sv2005
   given options.PrinterOptions.Align    = false
   class ID extends EDDesign:
     val x  = SInt(16) <> IN
@@ -163,7 +163,7 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
 
   test("Basic hierarchy design with parameters verilog.v95") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     class ID(val width: Int <> CONST = 7) extends DFDesign:
       val x = SInt(width) <> IN
       val y = SInt(width) <> OUT
@@ -473,7 +473,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    if (rst == 1'b1) cnt_reg <= {width{1'b0}};
          |    else cnt_reg <= cnt;
          |  end
-         |  assign cnt = cnt_reg + width'(1);
+         |  assign cnt = cnt_reg + width'(1'd1);
          |endmodule
          |""".stripMargin
     )
@@ -508,15 +508,15 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always_comb
          |  begin
          |    x = width'(2'h3);
-         |    x = width'(2'h3);
+         |    x = width'(4'h3);
          |    x = width'(2'h3);
          |    x = width'(2'h3);
          |    y = &x;
          |    y = |x;
          |    y = ^x;
          |  end
-         |  assign z = $clog2(width)'(0);
-         |  assign w = $clog2(width + 1)'(0);
+         |  assign z = $clog2(width)'(1'd0);
+         |  assign w = $clog2(width + 1)'(1'd0);
          |endmodule
          |""".stripMargin
     )
@@ -539,10 +539,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  logic [width - 1:0] cnt_reg;
          |  always_ff @(posedge clk)
          |  begin
-         |    if (rst == 1'b1) cnt_reg <= width'(0);
+         |    if (rst == 1'b1) cnt_reg <= width'(1'd0);
          |    else cnt_reg <= cnt;
          |  end
-         |  assign cnt = cnt_reg + width'(1);
+         |  assign cnt = cnt_reg + width'(1'd1);
          |endmodule
          |""".stripMargin
     )
@@ -588,14 +588,14 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  begin
          |    if (rst == 1'b1) begin
          |      led <= 1'b1;
-         |      cnt <= $clog2(HALF_PERIOD)'(0);
+         |      cnt <= $clog2(HALF_PERIOD)'(1'd0);
          |    end
          |    else begin
          |      if (cnt == $clog2(HALF_PERIOD)'(HALF_PERIOD - 1)) begin
-         |        cnt <= $clog2(HALF_PERIOD)'(0);
+         |        cnt <= $clog2(HALF_PERIOD)'(1'd0);
          |        led <= ~led;
          |      end
-         |      else cnt <= cnt + $clog2(HALF_PERIOD)'(1);
+         |      else cnt <= cnt + $clog2(HALF_PERIOD)'(1'd1);
          |    end
          |  end
          |endmodule
@@ -745,7 +745,7 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
 
   test("Wildcards and don't cares under verilog.v95") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     class Foo extends RTDesign:
       val num = 16
       val x   = Bits(num) <> IN init all(0)
@@ -777,7 +777,7 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
 
   test("Global parameters under verilog.v95") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     val width:  Int <> CONST = 8
     val length: Int <> CONST = 10
     class Foo(
@@ -955,7 +955,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     )
   }
   test("for loop printing verilog.v2001") {
-    given options.CompilerOptions.Backend = backends.verilog.v2001
+    given options.CompilerOptions.Backend = _.verilog.v2001
     class Foo extends EDDesign:
       val matrix = Bits(10) X 8 X 8 <> OUT
       process:
@@ -1087,10 +1087,10 @@ class PrintVerilogCodeSpec extends StageSpec:
         debug(param3, param4, param5, param6, param7, param8, param9, param10)
     end Foo
     object sv2005:
-      given options.CompilerOptions.Backend = backends.verilog.sv2005
+      given options.CompilerOptions.Backend = _.verilog.sv2005
       val csTop                             = (new Foo).getCompiledCodeString
     object v95:
-      given options.CompilerOptions.Backend = backends.verilog.v95
+      given options.CompilerOptions.Backend = _.verilog.v95
       val csTop                             = (new Foo).getCompiledCodeString
     assertNoDiff(
       sv2005.csTop,
@@ -1257,11 +1257,10 @@ class PrintVerilogCodeSpec extends StageSpec:
     )
   }
   test("vector init printing under verilog.v95") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
-    class Foo(
-        val PORT_WIDTH: Int <> CONST = 8,
-        val PORT_DEPTH: Int <> CONST = 4
-    ) extends EDDesign:
+    given options.CompilerOptions.Backend = _.verilog.v95
+    class Foo extends EDDesign:
+      val PORT_WIDTH: Int <> CONST = 8
+      val PORT_DEPTH: Int <> CONST = 4
       val v1 = Bits(PORT_WIDTH) X PORT_DEPTH <> VAR init Vector(h"01", h"02", h"03", h"04")
       val v2 = Bits(PORT_WIDTH) X PORT_DEPTH <> VAR init all(all(0))
       val initArg: Bits[PORT_WIDTH.type] X PORT_DEPTH.type <> CONST =
@@ -1352,7 +1351,7 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
 
   test("toggle enum printing under verilog.v2001") {
-    given options.CompilerOptions.Backend = backends.verilog.v2001
+    given options.CompilerOptions.Backend = _.verilog.v2001
     enum MyEnum extends Encoded.Toggle:
       case Zero, One
 
@@ -1440,7 +1439,8 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
 
   test("initialized output port register") {
-    class Foo extends RTDesign(RTDomainCfg(ClkCfg(), None)):
+    @hw.constraints.timing.clock()
+    class Foo extends RTDesign:
       val y = UInt(8) <> OUT.REG init 0
       y.din := y + 1
     val top = (new Foo).getCompiledCodeString
@@ -1488,7 +1488,7 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
 
   test("abs function under verilog.v95") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     class Foo extends RTDesign:
       val x = SInt(8) <> IN
       val y = SInt(8) <> OUT

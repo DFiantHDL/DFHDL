@@ -9,7 +9,7 @@ import dfhdl.internals.*
 
 import scala.collection.mutable
 
-case object DropBinds extends Stage:
+case object DropBinds extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   // this unapply matches on bind patterns, strip them of their binds, and returns the binds as a list
@@ -34,7 +34,7 @@ case object DropBinds extends Stage:
             case _                              => Some(pattern, ref.get :: Nil)
         case Pattern.BindSI(op, parts, refs) =>
           val bubbles =
-            refs.view.map(_.get.dfType.width).map("?" * _).map { qmarks =>
+            refs.view.map(_.get.dfType.widthIntOpt.get).map("?" * _).map { qmarks =>
               op match
                 case "b" => qmarks
                 case "h" => s"{$qmarks}" // using binary mode for hex
@@ -47,10 +47,9 @@ case object DropBinds extends Stage:
           Some(dfhdl.core.DFMatch.Pattern.Singleton(dfVal), refs.map(_.get))
         case _ => None
   end ReplacePattern
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     // going through all DFHDL matches
-    val patchList = designDB.conditionalChainTable.toList.flatMap {
+    val patches = subDB.conditionalChainTable.toList.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>
         val bindCaseMap = mutable.Map.empty[DFVal, DFConditional.DFCaseBlock]
         // TODO: casesPatchList is not used!!!!!
@@ -127,8 +126,8 @@ case object DropBinds extends Stage:
         singletonPatternConstsPatch :: bindsPatchList ++ casesPatchList // ++ stallsPatchList
       case _ => None
     }
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patches)
+  end transformSubDB
 end DropBinds
 
 // Drops match case bind values and replaces them with either a variable

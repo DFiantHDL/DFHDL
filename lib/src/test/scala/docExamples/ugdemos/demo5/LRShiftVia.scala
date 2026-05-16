@@ -7,7 +7,7 @@ import dfhdl.*
   * @param width
   *   the width of the input and output bits
   */
-@top class LRShiftVia(
+class LRShiftVia(
     val width: Int <> CONST = 8
 ) extends ShiftGen:
   parent => //parent design reference

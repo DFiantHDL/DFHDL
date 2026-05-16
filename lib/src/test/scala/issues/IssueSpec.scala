@@ -5,18 +5,18 @@ import dfhdl.*
 import dfhdl.compiler.stages.getCompiledCodeString
 
 class IssuesSpec extends FunSuite:
-  given options.OnError = options.OnError.Exception
+  given options.OnError = _.Exception
   given options.LinterOptions.WError = true
   test("i116 compiles with no exception"):
     i116.GlobCounter(64).compile
   test("i118 compiles and passes VHDL linting"):
-    given options.CompilerOptions.Backend = backends.vhdl
+    given options.CompilerOptions.Backend = _.vhdl
     i118.ShiftIssue().compile.lint
   test("i126 compiles and passes VHDL linting"):
-    given options.CompilerOptions.Backend = backends.vhdl
+    given options.CompilerOptions.Backend = _.vhdl
     i126.TypeConvertIssue().compile.lint
   test("i128 compiles with the expected code output"):
-    given options.CompilerOptions.Backend = backends.vhdl
+    given options.CompilerOptions.Backend = _.vhdl
     assertNoDiff(
       i128.ArrayIssue().getCompiledCodeString,
       """|library ieee;
@@ -49,7 +49,7 @@ class IssuesSpec extends FunSuite:
          |""".stripMargin
     )
   test("i129 compiles and passes VHDL linting"):
-    given options.CompilerOptions.Backend = backends.vhdl
+    given options.CompilerOptions.Backend = _.vhdl
     i129.StdLogicConvIssue().compile.lint
   test("i131 compiles with no exception"):
     i131.DictControl(fetch_count = 2).compile
@@ -71,16 +71,16 @@ class IssuesSpec extends FunSuite:
          |""".stripMargin
     )
   test("i141 compiles and passes VHDL linting"):
-    given options.CompilerOptions.Backend = backends.vhdl.v2008
+    given options.CompilerOptions.Backend = _.vhdl.v2008
     i141.StructArrayIssue().compile.lint
   test("i142 compiles and passes VHDL linting"):
-    given options.CompilerOptions.Backend = backends.vhdl
+    given options.CompilerOptions.Backend = _.vhdl
     i142.IntegerIndexingIssue().compile.lint
   // verilog wasn't part of the issue, but proved to be a good test to include
   test("i142 compiles and passes Verilog linting"):
     i142.IntegerIndexingIssue().compile.lint
   test("i146 compiles and passes VHDL linting"):
-    given options.CompilerOptions.Backend = backends.vhdl.v2008
+    given options.CompilerOptions.Backend = _.vhdl.v2008
     i146.DoubleStructDecl().compile.lint
   test("i147 compiles and passes Verilog linting"):
     i147.ClockRstConnection().compile.lint

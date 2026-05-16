@@ -6,7 +6,7 @@ import dfhdl.compiler.stages.dropOutportRead
 
 class DropOutportReadSpec extends StageSpec:
   test("Basic outport read"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class ID extends DFDesign:
       val x = SInt(16) <> IN
       val y = SInt(16) <> OUT

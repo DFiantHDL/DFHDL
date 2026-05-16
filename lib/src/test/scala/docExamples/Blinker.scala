@@ -3,7 +3,7 @@ package docExamples.led_blinker
 import dfhdl.* //import all the DFHDL goodness
 
 /** This is a led blinker */
-@top class Blinker(
+class Blinker(
     val CLK_FREQ_KHz: Int <> CONST = 50000,
     val LED_FREQ_Hz: Int <> CONST  = 1
 ) extends RTDesign:
@@ -29,7 +29,7 @@ end Blinker
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Select backend compiler:
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 // Uncomment to enable printing design code after elaboration (before compilation):
 // given options.ElaborationOptions.PrintDFHDLCode = true
 // Uncomment to enable printing design code after compilation:

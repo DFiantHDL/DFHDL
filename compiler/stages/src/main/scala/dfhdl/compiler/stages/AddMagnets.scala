@@ -8,6 +8,7 @@ import dfhdl.options.CompilerOptions
 import scala.collection.mutable
 import dfhdl.core.DFOpaque as coreDFOpaque
 import dfhdl.core.{asFE, ModifierAny}
+import DFVal.Modifier.Dir.{IN, OUT}
 
 /** This stage adds missing magnet ports across the entire design. These will be connected at a
   * later stage.
@@ -18,38 +19,50 @@ case object AddMagnets extends Stage:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     given RefGen = RefGen.fromGetSet
     // Populating a missing magnets map with the suggested port names and direction
-    val missingMagnets = mutable.Map.empty[DFDesignBlock, Map[DFType, (String, DFVal.Modifier)]]
-    designDB.magnetConnectionTable.foreach { (toPort, fromPort) =>
-      val toPortDsn = toPort.getOwnerDesign
-      val fromPortDsn = fromPort.getOwnerDesign
-      val dfType = toPort.dfType
-      def anotherMissingMagnet(dsn: DFDesignBlock, mod: DFVal.Modifier): Unit =
+    val missingMagnets = mutable.Map.empty[DFDesignBlock, Map[DFType, (String, DFVal.Modifier.Dir)]]
+    designDB.magnetConnectionMap.foreach { (toMP, fromMP) =>
+      val toDsn = toMP.getOwnerDesign
+      val fromDsn = fromMP.getOwnerDesign
+      val dfType = toMP.dfType
+      def anotherMissingMagnet(dsn: DFDesignBlock, dir: DFVal.Modifier.Dir): Unit =
         missingMagnets.get(dsn) match
-          case None => missingMagnets += dsn -> Map(dfType -> (fromPort.getName, mod))
+          case None => missingMagnets += dsn -> Map(dfType -> (fromMP.getName, dir))
           case Some(dfTypeNameMap) if !dfTypeNameMap.contains(dfType) =>
-            missingMagnets += dsn -> (dfTypeNameMap + (dfType -> (fromPort.getName, mod)))
+            missingMagnets += dsn -> (dfTypeNameMap + (dfType -> (fromMP.getName, dir)))
           case _ => // do nothing
       // climb from a bottom design to a top design, while memoizing missing
-      // magnets between the designs
-      def climbUpDsn(bottomDsn: DFDesignBlock, topDsn: DFDesignBlock, mod: DFVal.Modifier): Unit =
-        var dsn = bottomDsn
-        while (!dsn.isOneLevelBelow(topDsn))
-          dsn = dsn.getOwnerDesign
-          anotherMissingMagnet(dsn, mod)
-      def climbUp(bottomPort: DFVal.Dcl, topDsn: DFDesignBlock): Unit =
-        climbUpDsn(bottomPort.getOwnerDesign, topDsn, bottomPort.modifier)
-      (toPort, fromPort) match
+      // magnets between the designs. With DFDesignBlock.ownerRef == Empty the
+      // lexical parent is no longer reachable via getOwnerDesign — walk up
+      // through `designBlockOwnershipMap` (parents-via-instances) instead.
+      // Multiple parents at any level are all visited; iteration stops once
+      // we reach `topDsn`. Both endpoints are excluded from the registration.
+      def climbUpDsn(
+          bottomDsn: DFDesignBlock,
+          topDsn: DFDesignBlock,
+          dir: DFVal.Modifier.Dir
+      ): Unit =
+        val visited = mutable.Set.empty[DFDesignBlock]
+        val queue = mutable.Queue.empty[DFDesignBlock]
+        queue ++= designDB.designBlockOwnershipMap.getOrElse(bottomDsn, Set.empty)
+        while (queue.nonEmpty)
+          val dsn = queue.dequeue()
+          if (dsn != topDsn && visited.add(dsn))
+            anotherMissingMagnet(dsn, dir)
+            queue ++= designDB.designBlockOwnershipMap.getOrElse(dsn, Set.empty)
+      def climbUp(bottomPort: ConnectPoint, topDsn: DFDesignBlock): Unit =
+        climbUpDsn(bottomPort.getOwnerDesign, topDsn, bottomPort.dir)
+      (toMP.dir, fromMP.dir) match
         // climbing up to the source input port
-        case (DclIn(), DclIn()) => climbUp(toPort, fromPortDsn)
+        case (IN, IN) => climbUp(toMP, fromDsn)
         // climbing up to the target output port
-        case (DclOut(), DclOut()) => climbUp(fromPort, toPortDsn)
+        case (OUT, OUT) => climbUp(fromMP, toDsn)
         // climbing up from the output source and up from the input target to the common design
-        case (DclIn(), DclOut()) =>
-          val commonDsn = toPortDsn.getCommonDesignWith(fromPortDsn)
-          if (commonDsn != fromPortDsn)
-            climbUp(fromPort, commonDsn)
-          if (commonDsn != toPortDsn)
-            climbUp(toPort, commonDsn)
+        case (IN, OUT) =>
+          val commonDsn = toDsn.getCommonDesignWith(fromDsn)
+          if (commonDsn != fromDsn)
+            climbUp(fromMP, commonDsn)
+          if (commonDsn != toDsn)
+            climbUp(toMP, commonDsn)
         case _ => // do nothing
       end match
     }
@@ -59,8 +72,8 @@ case object AddMagnets extends Stage:
         // sorting added magnets for consistent port addition order
         val magnets = missingMagnets(design).toList.sortBy(_._2._1)
         val dsn = new MetaDesign(design, Patch.Add.Config.InsideFirst):
-          for ((dfType, (name, mod)) <- magnets)
-            val modFE = new ModifierAny(mod)
+          for ((dfType, (name, dir)) <- magnets)
+            val modFE = new ModifierAny(DFVal.Modifier(dir, DFVal.Modifier.Special.Ordinary))
             (dfType.asFE[DFType] <> modFE)(using dfc.setName(name))
         // the ports are added as first members
         Some(dsn.patch)

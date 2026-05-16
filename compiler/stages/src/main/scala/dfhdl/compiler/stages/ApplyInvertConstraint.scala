@@ -42,13 +42,11 @@ import dfhdl.internals.BitVector
   * y2_inverted <> x2
   * ```
   */
-case object ApplyInvertConstraint extends Stage:
+case object ApplyInvertConstraint extends HierarchyStage:
   override def dependencies: List[Stage] = List(ToED)
   override def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-
-    val patchList: List[(DFMember, Patch)] = designDB.members.flatMap { member =>
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patches = subDB.members.flatMap { member =>
       member match
         case dcl: DFVal.Dcl if dcl.isPort =>
           val invertBitSet = mutable.BitSet.empty
@@ -57,7 +55,9 @@ case object ApplyInvertConstraint extends Stage:
             case constraints.IO(bitIdx = bitIdx, invertActiveState = true) =>
               bitIdx match
                 case bitIdx: Int => invertBitSet += bitIdx
-                case _           => invertBitSet ++= (0 until dcl.width)
+                // if no specific bit index is given, invert all bits.
+                // we assume constrained ports have known widths.
+                case _ => invertBitSet ++= (0 until dcl.widthIntOpt.get)
             case _ =>
           }
 
@@ -89,12 +89,15 @@ case object ApplyInvertConstraint extends Stage:
               def invert(dfVal: DFValAny): DFValAny = dfVal.asIR.dfType match
                 case _: DFBoolOrBit => !dfVal.asValOf[dfhdl.core.DFBit]
                 case dfType: DFBits =>
+                  // we assume constrained ports have known widths
+                  val width = dfType.widthIntOpt.get
                   // all bits are inverted
-                  if (dfType.width == invertBitSet.size) ~dfVal.asValOf[dfhdl.core.DFBits[Int]]
+                  if (width == invertBitSet.size)
+                    ~dfVal.asValOf[dfhdl.core.DFBits[Int]]
                   // otherwise, we need to use a mask
                   else
                     val maskStr =
-                      (for (i <- dfType.width - 1 to 0 by -1)
+                      (for (i <- width - 1 to 0 by -1)
                         yield
                           if (invertBitSet.contains(i)) "1"
                           else "0").mkString
@@ -117,9 +120,8 @@ case object ApplyInvertConstraint extends Stage:
           end if
         case _ => Nil
     }
-
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patches)
+  end transformSubDB
 end ApplyInvertConstraint
 
 extension [T: HasDB](t: T)

@@ -18,9 +18,9 @@ trait ResourceOwner extends ResourceContext:
     if (globalConstraints.nonEmpty)
       import dfc.getSet
       val ownerDesign = dfc.owner.asIR.getThisOrOwnerDesign
-      val updatedDclMeta =
-        ownerDesign.dclMeta.copy(annotations = ownerDesign.dclMeta.annotations ++ globalConstraints)
-      val updatedOwnerDesign = ownerDesign.copy(dclMeta = updatedDclMeta)
+      val updatedMeta =
+        ownerDesign.meta.copy(annotations = ownerDesign.meta.annotations ++ globalConstraints)
+      val updatedOwnerDesign = ownerDesign.copy(meta = updatedMeta)
       dfc.mutableDB.replaceMember(ownerDesign, updatedOwnerDesign)
     end if
   end projectGlobalConstraints

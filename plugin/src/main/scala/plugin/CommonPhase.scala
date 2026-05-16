@@ -9,7 +9,7 @@ import Flags.*
 import SymDenotations.*
 import Decorators.*
 import ast.Trees.*
-import ast.{tpd, untpd}
+import ast.{tpd, untpd, TreeTypeMap}
 import StdNames.nme
 import Names.*
 import Types.*
@@ -67,8 +67,8 @@ abstract class CommonPhase extends PluginPhase:
 
   private val dropProxiesTreeMap = new TreeMap:
     override def transform(tree: tpd.Tree)(using Context): tpd.Tree =
-      def dropProxies(expr: Tree, trees: List[Tree]): Tree =
-        val proxyMap = trees.collect {
+      def dropProxies(expr: Tree, proxies: List[Tree], otherStats: List[Tree]): Tree =
+        val proxyMap = proxies.collect {
           case vd: ValDef if vd.symbol.is(InlineProxy) => vd.name -> vd.rhs
         }.toMap
         object Transform:
@@ -88,20 +88,52 @@ abstract class CommonPhase extends PluginPhase:
               case Typed(Transform(tree), x) => Some(Typed(tree, x))
               case _                         => None
         end Transform
-        Transform.unapply(expr).getOrElse(expr)
+        val updatedExpr = Transform.unapply(expr).getOrElse(expr)
+        if (otherStats.isEmpty) updatedExpr
+        else Block(otherStats, updatedExpr)
       end dropProxies
+
+      def isProxy(stat: Tree): Boolean = stat match
+        case vd: ValDef if vd.symbol.is(InlineProxy) => true
+        case _                                       => false
 
       super.transform(tree) match
         case inlined: Inlined if inlined.bindings.nonEmpty =>
-          dropProxies(inlined.expansion, inlined.bindings)
-        case block: Block =>
-          dropProxies(block.expr, block.stats)
+          val (proxies, others) = inlined.bindings.partition(isProxy)
+          dropProxies(inlined.expansion, proxies, others)
+        case block: Block if block.stats.exists(isProxy) =>
+          val (proxies, others) = block.stats.partition(isProxy)
+          dropProxies(block.expr, proxies, others)
         case tree => tree
       end match
     end transform
 
   protected def dropProxies(tree: Tree)(using Context): Tree =
     dropProxiesTreeMap.transform(tree)
+
+  // Re-own all local MemberDefs (DefDefs/ValDefs from inlined lambdas, etc.) inside `tree` to
+  // `newOwner`, cloning their symbols. Needed when an annotation tree (whose nested symbols were
+  // typed in the annotation context) is embedded into regular code: without re-owning, the same
+  // DefDef symbol ends up referenced from two locations (the original annotation and the embedded
+  // copy), which confuses LambdaLift's analysis.
+  protected def reownLocalDefs(tree: Tree, newOwner: Symbol)(using Context): Tree =
+    val owners = scala.collection.mutable.LinkedHashSet.empty[Symbol]
+    new TreeTraverser:
+      def traverse(t: Tree)(using Context): Unit =
+        t match
+          case d: MemberDef if d.symbol.exists && d.symbol.owner.exists =>
+            owners += d.symbol.owner
+          case _ =>
+        traverseChildren(t)
+    .traverse(tree)
+    if (owners.isEmpty) tree
+    else
+      val ownerList = owners.toList
+      TreeTypeMap(
+        oldOwners = ownerList,
+        newOwners = ownerList.map(_ => newOwner)
+      ).transform(tree)
+  end reownLocalDefs
 
   var metaContextTpe: TypeRef = uninitialized
   var metaContextCls: ClassSymbol = uninitialized

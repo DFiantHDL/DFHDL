@@ -8,7 +8,7 @@ import dfhdl.backends.verilog
 
 class ExplicitRomVarSpec extends StageSpec:
   test("Basic constant vector ROM access") {
-    given CompilerOptions.Backend = verilog.v95
+    given CompilerOptions.Backend = _.verilog.v95
     class ROMAccess extends DFDesign:
       val lookupTable: Bits[8] X 4 <> CONST = Vector(h"01", h"02", h"03", h"04")
       val index                             = UInt(2) <> IN
@@ -29,7 +29,7 @@ class ExplicitRomVarSpec extends StageSpec:
   }
 
   test("Multi-dimensional constant vector ROM access") {
-    given CompilerOptions.Backend = verilog.v2001
+    given CompilerOptions.Backend = _.verilog.v2001
     class MultiDimROM extends DFDesign:
       val lookupTable: Bits[8] X 4 X 4 <> CONST = Vector(
         Vector(h"01", h"02", h"03", h"04"),
@@ -61,7 +61,7 @@ class ExplicitRomVarSpec extends StageSpec:
   }
 
   test("Multiple ROM accesses in same design") {
-    given CompilerOptions.Backend = verilog.v2001
+    given CompilerOptions.Backend = _.verilog.v2001
     class MultipleROMs extends DFDesign:
       val table1: Bits[8] X 4 <> CONST = Vector(h"01", h"02", h"03", h"04")
       val table2: Bits[8] X 4 <> CONST = Vector(h"AA", h"BB", h"CC", h"DD")
@@ -95,7 +95,7 @@ class ExplicitRomVarSpec extends StageSpec:
   }
 
   test("ROM access in conditional block") {
-    given CompilerOptions.Backend = verilog.v95
+    given CompilerOptions.Backend = _.verilog.v95
     class ConditionalROM extends DFDesign:
       val lookupTable: Bits[8] X 4 <> CONST = Vector(h"01", h"02", h"03", h"04")
       val index                             = UInt(2) <> IN
@@ -122,7 +122,7 @@ class ExplicitRomVarSpec extends StageSpec:
   }
 
   test("ROM access in process block") {
-    given CompilerOptions.Backend = verilog.v2001
+    given CompilerOptions.Backend = _.verilog.v2001
     class ProcessROM extends EDDesign:
       val lookupTable: Bits[8] X 4 <> CONST = Vector(h"01", h"02", h"03", h"04")
       val index                             = UInt(2) <> IN
@@ -146,7 +146,7 @@ class ExplicitRomVarSpec extends StageSpec:
   }
 
   test("No ROM creation for constant index access") {
-    given CompilerOptions.Backend = verilog.v95
+    given CompilerOptions.Backend = _.verilog.v95
     class ConstantIndex extends DFDesign:
       val lookupTable: Bits[8] X 4 <> CONST = Vector(h"01", h"02", h"03", h"04")
       val output                            = Bits(8) <> OUT
@@ -164,7 +164,7 @@ class ExplicitRomVarSpec extends StageSpec:
   }
 
   test("No ROM creation for non-vector constants") {
-    given CompilerOptions.Backend = verilog.v2001
+    given CompilerOptions.Backend = _.verilog.v2001
     class NonVectorConstant extends DFDesign:
       val constant: Bits[8] <> CONST = h"AA"
       val index                      = UInt(3) <> IN
@@ -184,7 +184,7 @@ class ExplicitRomVarSpec extends StageSpec:
   }
 
   test("No ROM creation for non-constant vectors") {
-    given CompilerOptions.Backend = verilog.v95
+    given CompilerOptions.Backend = _.verilog.v95
     class NonConstantVector extends DFDesign:
       val lookupTable = Bits(8) X 4 <> VAR init Vector(h"01", h"02", h"03", h"04")
       val index       = UInt(2)     <> IN
@@ -204,7 +204,7 @@ class ExplicitRomVarSpec extends StageSpec:
   }
 
   test("ROM creation only for supported backends") {
-    given CompilerOptions.Backend = verilog.sv2005 // Not supported
+    given CompilerOptions.Backend = _.verilog.sv2005 // Not supported
     class UnsupportedBackend extends DFDesign:
       val lookupTable: Bits[8] X 4 <> CONST = Vector(h"01", h"02", h"03", h"04")
       val index                             = UInt(2) <> IN
@@ -224,7 +224,7 @@ class ExplicitRomVarSpec extends StageSpec:
   }
 
   test("ROM creation with complex vector types") {
-    given CompilerOptions.Backend = verilog.v95
+    given CompilerOptions.Backend = _.verilog.v95
     case class ComplexType(x: Bits[8] <> VAL, y: Bits[8] <> VAL) extends Struct
     class ComplexROM extends DFDesign:
       val lookupTable: ComplexType X 4 <> CONST = Vector(
@@ -260,7 +260,7 @@ class ExplicitRomVarSpec extends StageSpec:
   }
 
   test("Global constant vector used in multiple internal designs") {
-    given CompilerOptions.Backend         = verilog.v2001
+    given CompilerOptions.Backend         = _.verilog.v2001
     val globalTable: Bits[8] X 4 <> CONST = Vector(h"01", h"02", h"03", h"04")
 
     class InnerDesign1 extends DFDesign:

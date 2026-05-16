@@ -120,7 +120,7 @@ class VivadoProjectTclConfigPrinter(using
     else ""
   def configFileName: String = s"$topName.tcl"
   def vivadoIPs: String =
-    designDB.uniqueDesignMemberList.collect {
+    designDB.designMemberList.collect {
       case (vivadoIP: DFDesignBlock, _) if vivadoIP.isVendorIPBlackbox =>
         s"source ips/${vivadoIP.dclName}.tcl"
     }.mkString("\n")
@@ -266,7 +266,7 @@ class VivadoProjectConstraintsPrinter(using
   end xdcPortConstraints
 
   def xdcPortConstraints: List[String] =
-    designDB.topIOs.view.flatMap(xdcPortConstraints).toList
+    designDB.toptopIOs.view.flatMap(xdcPortConstraints).toList
 
   def contents: String =
     s"""|${xdcDesignConstraints.mkString("\n")}
@@ -331,7 +331,7 @@ class VivadoIPPrinter(using
     val members = vivadoIP.members(MemberView.Folded)
     val ipVersion = members.collectFirst {
       case param: DFVal.DesignParam if param.getName == "version" =>
-        val version = param.getConstData.get.asInstanceOf[Option[String]].get
+        val version = param.getConstData[Option[String]].toOption.get.get
         if (version.nonEmpty) Some(" -version " + version) else None
     }.flatten.getOrElse("")
 
@@ -339,7 +339,7 @@ class VivadoIPPrinter(using
     // Each DFVal.DesignParam except "version" becomes a CONFIG.<PARAM_NAME> {value} line
     val ipConfigParams = members.collect {
       case param: DFVal.DesignParam if param.getName != "version" =>
-        val value = param.getConstData.get.asInstanceOf[Option[Any]].get
+        val value = param.getConstData[Option[Any]].toOption.get.get
         s"CONFIG.${param.getName} {$value}"
     }
     val ipConfigBlock =
@@ -354,7 +354,7 @@ class VivadoIPPrinter(using
          |"""
   end contents
   def getSourceFiles: List[SourceFile] =
-    getSet.designDB.uniqueDesignMemberList.collect {
+    getSet.designDB.designMemberList.collect {
       case (vivadoIP: DFDesignBlock, _) if vivadoIP.isVendorIPBlackbox =>
         SourceFile(
           SourceOrigin.Compiled,

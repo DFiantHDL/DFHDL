@@ -77,9 +77,11 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                 infix = false
                 "slv_srl"
           // if the result width for +/-/* ops is larger than the left argument width
-          // then we have a carry-inclusive operation
+          // then we have a carry-inclusive operation. to simplify the check given possible
+          // parameterized widths, we will just compare the type structure and assume the
+          // width is larger under such conditions.
           case op @ (Func.Op.+ | Func.Op.- | Func.Op.`*`)
-              if dfVal.dfType.width > argL.get.dfType.width =>
+              if !dfVal.dfType.isSimilarTo(argL.get.dfType) =>
             infix = false
             op match
               case Func.Op.+   => "cadd"
@@ -117,10 +119,11 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
               case DFString =>
                 args.map(_.refCodeString).mkString(" & ")
               case dfType @ DFStruct(_, _) =>
-                printer.csDFStructTypeName(dfType) + dfType.fieldMap
-                  .lazyZip(args.map(_.refCodeString))
-                  .map { case ((n, _), d) => s"$n = $d" }
-                  .mkStringBrackets
+                printer.csDFStructTypeName(dfType) +
+                  dfType.fieldMap
+                    .lazyZip(args.map(_.refCodeString))
+                    .map { case ((n, _), d) => s"$n = $d" }
+                    .mkStringBrackets
 
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
@@ -187,27 +190,23 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     val fromType = relVal.dfType
     val toType = dfVal.dfType
     (toType, fromType) match
-      case (t, f) if t == f                                => relValStr
-      case (DFSInt(tr @ Int(tWidth)), DFUInt(Int(fWidth))) =>
-        assert(tWidth == fWidth + 1)
-        s"signed(resize($relValStr, ${tr.refCodeString}))"
-      case (DFUInt(tr @ Int(tWidth)), DFSInt(Int(fWidth))) =>
-        assert(tWidth == fWidth - 1)
-        s"resize(unsigned($relValStr), ${tr.refCodeString})"
-      case (DFBits(tWidthParamRef), DFBits(_)) =>
-        s"resize($relValStr, ${tWidthParamRef.refCodeString})"
+      case (t, f) if t == f               => relValStr
+      case (DFSInt(tWidthRef), DFUInt(_)) =>
+        s"signed(resize($relValStr, ${tWidthRef.refCodeString}))"
+      case (DFUInt(tWidthRef), DFSInt(_)) =>
+        s"resize(unsigned($relValStr), ${tWidthRef.refCodeString})"
+      case (DFBits(tWidthRef), DFBits(_)) =>
+        s"resize($relValStr, ${tWidthRef.refCodeString})"
       case (toType: DFType, fromType: DFBits) =>
-        assert(toType.width == fromType.width)
         csBitsToType(toType, relValStr)
-      case (DFBits(tWidthParamRef), DFBit | DFBool) =>
-        s"to_slv($relValStr, ${tWidthParamRef.refCodeString})"
-      case (DFBits(Int(tWidth)), fromType: DFType) =>
-        assert(tWidth == fromType.width)
+      case (DFBits(tWidthRef), DFBit | DFBool) =>
+        s"to_slv($relValStr, ${tWidthRef.refCodeString})"
+      case (DFBits(_), fromType: DFType) =>
         csToSLV(fromType, relValStr)
-      case (DFUInt(tWidthParamRef), DFUInt(_)) =>
-        s"resize($relValStr, ${tWidthParamRef.refCodeString})"
-      case (DFSInt(tWidthParamRef), DFSInt(_)) =>
-        s"resize($relValStr, ${tWidthParamRef.refCodeString})"
+      case (DFUInt(tWidthRef), DFUInt(_)) =>
+        s"resize($relValStr, ${tWidthRef.refCodeString})"
+      case (DFSInt(tWidthRef), DFSInt(_)) =>
+        s"resize($relValStr, ${tWidthRef.refCodeString})"
       case (t, DFOpaque(actualType = ot)) if ot =~ t =>
         relValStr
       case (DFOpaque(_, _, _, _), _) =>
@@ -218,14 +217,14 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         s"to_bool($relValStr)"
       case (toType @ DFEnum(widthParam = 1), DFBit | DFBool) =>
         s"to_${printer.csDFEnumTypeName(toType)}($relValStr)"
-      case (DFUInt(tWidthParamRef), DFInt32) =>
-        s"to_unsigned($relValStr, ${tWidthParamRef.refCodeString})"
-      case (DFSInt(tWidthParamRef), DFInt32) =>
-        s"to_signed($relValStr, ${tWidthParamRef.refCodeString})"
-      case (DFUInt(tWidthParamRef), DFBit | DFBool) =>
-        s"to_unsigned($relValStr, ${tWidthParamRef.refCodeString})"
-      case (DFSInt(tWidthParamRef), DFBit | DFBool) =>
-        s"to_signed($relValStr, ${tWidthParamRef.refCodeString})"
+      case (DFUInt(tWidthRef), DFInt32) =>
+        s"to_unsigned($relValStr, ${tWidthRef.refCodeString})"
+      case (DFSInt(tWidthRef), DFInt32) =>
+        s"to_signed($relValStr, ${tWidthRef.refCodeString})"
+      case (DFUInt(tWidthRef), DFBit | DFBool) =>
+        s"to_unsigned($relValStr, ${tWidthRef.refCodeString})"
+      case (DFSInt(tWidthRef), DFBit | DFBool) =>
+        s"to_signed($relValStr, ${tWidthRef.refCodeString})"
       case (DFInt32, DFUInt(_) | DFSInt(_)) =>
         s"to_integer($relValStr)"
       case _ => printer.unsupported
@@ -261,7 +260,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
       case DFBits(_) => "(others => 'Z')"
       case _         => printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
-    dfVal.stripPortSel match
+    dfVal match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)
       case const @ DclConst()    => csDFValDclConst(const)
       case expr: DFVal.CanBeExpr => csDFValExpr(expr)

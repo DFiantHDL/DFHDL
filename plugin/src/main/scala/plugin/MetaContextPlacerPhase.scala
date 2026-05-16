@@ -105,25 +105,36 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
 
   override def prepareForStats(trees: List[Tree])(using Context): Context =
     var explored: List[Tree] = trees
+    object CompanionExtractor:
+      def unapply(trees: List[Tree])
+          : Option[(clsSym: ClassSymbol, module: ValDef, compTemplate: Template)] =
+        trees match
+          case (td @ TypeDef(tn, template: Template)) :: rest if td.hasDFC =>
+            val clsSym = td.symbol.asClass
+            var explore = rest
+            var ret: Option[(clsSym: ClassSymbol, module: ValDef, compTemplate: Template)] = None
+            while (explore.nonEmpty && ret.isEmpty)
+              explore match
+                case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
+                    if compSym.symbol.companionClass == clsSym =>
+                  ret = Some((clsSym, module, compTemplate))
+                case _ => explore = explore.tail
+            ret
+          case _ => None
+    end CompanionExtractor
     while (explored.nonEmpty)
       explored match
-        case (td @ TypeDef(tn, template: Template)) :: rest if td.hasDFC =>
-          val clsSym = td.symbol.asClass
+        case CompanionExtractor(clsSym, module, compTemplate) =>
           val defaultMap = mutable.Map.empty[Int, Tree]
-          rest match
-            case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
-                if compSym.symbol.companionClass == clsSym =>
-              compTemplate.body.foreach {
-                case dd @ DefDef(name = NameKinds.DefaultGetterName(n, i))
-                    if dd.dfValTpeOpt.nonEmpty =>
-                  defaultMap += i -> ref(module.symbol).select(dd.symbol)
-                case _ =>
-              }
-              defaultParamMap += clsSym -> defaultMap.toMap
+          compTemplate.body.foreach {
+            case dd @ DefDef(name = NameKinds.DefaultGetterName(n, i))
+                if dd.dfValTpeOpt.nonEmpty =>
+              defaultMap += i -> ref(module.symbol).select(dd.symbol)
             case _ =>
-          explored = rest
+          }
+          defaultParamMap += clsSym -> defaultMap.toMap
         case _ =>
-          explored = explored.drop(1)
+      explored = explored.drop(1)
     end while
     ctx
   end prepareForStats
@@ -176,7 +187,9 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
                   Literal(Constant(finalName)),
                   tree.positionTree,
                   mkOptionString(clsSym.docString),
-                  mkList(clsSym.staticAnnotations.map(a => dropProxies(a.tree)))
+                  mkList(clsSym.staticAnnotations.map(a =>
+                    reownLocalDefs(dropProxies(a.tree), clsSym.primaryConstructor)
+                  ))
                 )
               )
           val newTemplate =

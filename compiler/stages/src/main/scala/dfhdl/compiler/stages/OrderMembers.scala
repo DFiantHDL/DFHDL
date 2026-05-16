@@ -3,27 +3,36 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 import scala.annotation.tailrec
 
-private abstract class OrderMembers(order: OrderMembers.Order) extends Stage:
+private abstract class OrderMembers(order: OrderMembers.Order) extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
   @tailrec private def orderMembers(
       remaining: List[DFMember],
-      retList: List[DFMember]
+      retList: List[DFMember],
+      expandedInsts: Set[DFDesignInst] = Set.empty
   )(using MemberGetSet): List[DFMember] = remaining match
+    // The referenced DFDesignBlock no longer appears in the parent owner's
+    // table, so inline it (and its children) right before the inst to keep
+    // the flat-list ordering [designBlock, ...children..., inst].
+    case (inst: DFDesignInst) :: mList if !expandedInsts(inst) =>
+      orderMembers(inst.getDesignBlock :: inst :: mList, retList, expandedInsts + inst)
     case (block: DFOwnerNamed) :: mList =>
-      val members = getSet.designDB.namedOwnerMemberTable(block)
+      val members = getSet.designDB.namedOwnerMemberTable.getOrElse(block, Nil)
       val sortedMembers = block match
         case _: DFDesignBlock => members.sortBy(order())
         case _                => members
-      orderMembers(sortedMembers ++ mList, block :: retList)
-    case m :: mList => orderMembers(mList, m :: retList)
+      orderMembers(sortedMembers ++ mList, block :: retList, expandedInsts)
+    case m :: mList => orderMembers(mList, m :: retList, expandedInsts)
     case Nil        => retList.reverse
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    designDB.copy(members = designDB.membersGlobals ++ orderMembers(List(designDB.top), List()))
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val reordered = subDB.membersGlobals ++ orderMembers(List(subDB.top), List())
+    if (reordered == subDB.members) subDB
+    else subDB.update(members = reordered)
 
 end OrderMembers
 
@@ -48,7 +57,7 @@ object OrderMembers:
         case dcl @ DclVar() if !dcl.hasTagOf[IteratorTag] => 6
         // seventh are design blocks that are direct children of named instances
         // (e.g., design blocks inside conditional blocks are not included)
-        case dsn: DFDesignBlock if dsn.getOwner == dsn.getOwnerNamed => 7
+        case dsn: (DFDesignBlock | DFDesignInst) if dsn.getOwner == dsn.getOwnerNamed => 7
         // then the rest
         case _ => 8
       }

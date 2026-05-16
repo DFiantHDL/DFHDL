@@ -9,16 +9,18 @@ import annotation.FlattenMode
 /** This stage flattens the domains by removing them and changing their named members according to
   * the flattening mode.
   */
-case object DropDomains extends Stage:
+case object DropDomains extends HierarchyStage:
   def dependencies: List[Stage] = List(ToED)
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, SimpleOrderMembers)
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    val patchList = designDB.membersNoGlobals.flatMap {
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patchList = subDB.membersNoGlobals.flatMap {
       // all domains are removed and their members referencing them need to point to the owner design
       case domain: DomainBlock =>
         Some(
           domain -> Patch.Replace(domain.getOwnerDesign, Patch.Replace.Config.ChangeRefAndRemove)
         )
+      // ignore design block members
+      case designBlock: DFDesignBlock => None
       // named members owned by domains could need to change their name depending on the flattening mode
       // of its domain owner chain
       case member: DFMember.Named if !member.isAnonymous =>
@@ -50,8 +52,8 @@ case object DropDomains extends Stage:
           case _ => None
       case _ => None
     }
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patchList)
+  end transformSubDB
 end DropDomains
 
 extension [T: HasDB](t: T)

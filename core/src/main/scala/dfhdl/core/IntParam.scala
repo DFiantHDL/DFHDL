@@ -62,9 +62,6 @@ object IntParam extends IntParamLP:
   given [T <: IntP]: CanEqual[IntParam[T], Int] = CanEqual.derived
   given [T <: IntP]: CanEqual[Int, IntParam[T]] = CanEqual.derived
 
-  inline implicit def getValue[T <: IntP](inline intParam: IntParam[T])(using DFC): Int =
-    intParam.toScalaInt
-
   inline implicit def fromValue[T <: IntP & Singleton](inline value: T): IntParam[T] =
     value.asInstanceOf[IntParam[T]]
   @targetName("fromValueInlined")
@@ -111,15 +108,22 @@ object IntParam extends IntParamLP:
       lhs match
         case int: Int            => DFConstInt32(int, named = true)
         case const: DFConstInt32 => const
-    def toScalaInt: Int =
+    def toScalaIntOpt: Option[Int] =
       lhs match
-        case int: Int            => int
-        case const: DFConstInt32 => DFXInt.Val.Ops.toScalaInt(const)
+        case int: Int            => Some(int)
+        case const: DFConstInt32 =>
+          import dfc.getSet
+          val constIR = const.asIR
+          constIR.injectGlobalCtx()
+          constIR.getConstData[Option[BigInt]] match
+            case ir.ConstData.KnownConst(Some(i: BigInt)) => Some(i.toInt)
+            case _                                        => None
+    def toScalaIntUNSAFE: Int = toScalaIntOpt.get
     def ref: ir.IntParamRef =
       lhs match
         case int: Int            => ir.IntParamRef(int)
         case const: DFConstInt32 =>
-          val constIR = const.asInstanceOf[DFValAny].asIR
+          val constIR = const.asIR
           constIR.injectGlobalCtx()
           val reachable = constIR.getReachableMember
           val newRef = dfc.refGen.genTypeRef
@@ -142,6 +146,12 @@ object IntParam extends IntParamLP:
       calc(FuncOp.min, lhs, rhs)((x, y) => RichInt(x) min y)
     def clog2: IntParam[IntP.CLog2[L]] =
       calc(FuncOp.clog2, lhs)(dfhdl.internals.clog2)
+    def =~[R <: IntP](that: IntParam[R]): Boolean =
+      import dfc.getSet
+      (lhs, that) match
+        case (intL: Int, intR: Int)                       => intL == intR
+        case (constL: DFConstInt32, constR: DFConstInt32) => constL =~ constR
+        case _                                            => false
     protected[dfhdl] def cloneAnonValueAndDepsHere: IntParam[Int] =
       lhs match
         case int: Int            => int
@@ -157,3 +167,9 @@ extension (intParamRef: ir.IntParamRef)
       case ref: ir.DFRef.TypeRef =>
         import dfc.getSet
         IntParam.forced[Int](ref.get.asConstOf[DFInt32])
+  protected[core] def refCodeString(using dfc: DFC): String =
+    import dfc.getSet
+    import dfhdl.compiler.printing.{Printer, DefaultPrinter}
+    import dfhdl.compiler.printing.refCodeString as refCodeStringIR
+    given printer: Printer = DefaultPrinter
+    intParamRef.refCodeStringIR

@@ -20,49 +20,20 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
   def csDFBitsHexFormat(hexRep: String): String = s"""${hexRep.length * 4}'h$hexRep"""
   def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String =
     val csWidth = width.refCodeString.applyBrackets()
-    if (width.isRef)
-      if (allowWidthCastSyntax)
-        s"""${csWidth}'(${actualWidth}'h$hexRep)"""
-      else
-        s"`hPW($hexRep, $actualWidth, $csWidth)"
-    else s"""${csWidth}'h$hexRep"""
+    s"""${csWidth}'h$hexRep"""
   def csDFBoolFormat(value: Boolean): String = if (value) "1" else "0"
   def csDFBitFormat(bitRep: String): String = csDFBitsBinFormat(bitRep)
   def csDFUIntFormatBig(value: BigInt, width: IntParamRef): String =
     val csWidth = width.refCodeString.applyBrackets()
-    if (width.isRef)
-      if (value.isValidInt && allowWidthCastSyntax) s"""${csWidth}'($value)"""
-      else
-        val actualWidth = value.bitsWidth(false)
-        if (allowWidthCastSyntax)
-          s"""${csWidth}'(${actualWidth}'d$value)"""
-        else
-          s"`dPW($value, $actualWidth, $csWidth)"
-    else s"""${csWidth}'d$value"""
+    s"""${csWidth}'d$value"""
   def csDFSIntFormatBig(value: BigInt, width: IntParamRef): String =
     val csWidth = width.refCodeString.applyBrackets()
-    if (width.isRef)
-      val actualWidth = value.bitsWidth(true)
-      if (value.isValidInt && allowWidthCastSyntax)
-        if (value >= 0) s"""${csWidth}'($actualWidth'sd$value)"""
-        else s"${csWidth}'(-$actualWidth'sd${-value})"
-      else
-        if (allowWidthCastSyntax && printer.allowSignedKeywordAndOps)
-          if (value >= 0) s"""${csWidth}'($actualWidth'sd$value)"""
-          else s"""${csWidth}'(-$actualWidth'sd${-value})"""
-        else if (printer.allowSignedKeywordAndOps)
-          if (value >= 0) s"`sdPPW($value, $actualWidth, $csWidth)"
-          else s"`sdNPW(${-value}, $actualWidth, $csWidth)"
-        else
-          if (value >= 0) s"`dPW($value, $actualWidth, $csWidth)"
-          else s"`sdNPW_V95(${-value}, $actualWidth, $csWidth)"
+    if (printer.allowSignedKeywordAndOps)
+      if (value >= 0) s"""$csWidth'sd$value"""
+      else s"""-$csWidth'sd${-value}"""
     else
-      if (printer.allowSignedKeywordAndOps)
-        if (value >= 0) s"""$csWidth'sd$value"""
-        else s"""-$csWidth'sd${-value}"""
-      else
-        if (value >= 0) s"""$csWidth'd$value"""
-        else s"""-$csWidth'd${-value}"""
+      if (value >= 0) s"""$csWidth'd$value"""
+      else s"""-$csWidth'd${-value}"""
     end if
   end csDFSIntFormatBig
   def csDFUIntFormatSmall(value: BigInt, width: Int): String =

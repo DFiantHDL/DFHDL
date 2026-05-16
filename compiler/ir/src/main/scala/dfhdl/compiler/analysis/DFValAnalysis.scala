@@ -21,9 +21,6 @@ object Ident:
     if (alias.hasTagOf[IdentTag]) Some(alias.relValRef.get)
     else None
 
-object StrippedPortByNameSelect:
-  def unapply(dfVal: DFVal)(using MemberGetSet): Option[DFVal] = Some(dfVal.stripPortSel)
-
 //A design parameter is an as-is alias that:
 //1. has `DesignParamTag` tag
 //TODO: This is not yet working. more complicated than initially thought.
@@ -124,6 +121,16 @@ object RstActive:
         case _                                         => None
 end RstActive
 
+object Magnet:
+  def unapply(dfVal: DFVal)(using MemberGetSet): Option[DFType] =
+    dfVal.dfType match
+      case dfType: DFOpaque if dfType.isMagnet => Some(dfType)
+      case _                                   => None
+
+object MagnetDcl:
+  def unapply(dcl: DFVal.Dcl)(using MemberGetSet): Option[DFType] =
+    Magnet.unapply(dcl)
+
 //not only `DFVal.Const` but all non-anonymous values that
 //are known to be constant from their dependencies.
 object DclConst:
@@ -160,13 +167,14 @@ object DclOut:
     case _            => false
 
 object PortOfDesignDef:
-  def unapply(dcl: DFVal.Dcl)(using
-      MemberGetSet
-  ): Option[(Modifier.IN.type | Modifier.OUT.type, DFDesignBlock)] =
-    dcl.modifier.dir match
+  def unapply(pbns: DFVal.PortByNameSelect)(using
+      getSet: MemberGetSet
+  ): Option[(Modifier.IN.type | Modifier.OUT.type, DFDesignInst)] =
+    pbns.dir match
       case mod: (Modifier.IN.type | Modifier.OUT.type) =>
-        val design = dcl.getOwnerDesign
-        if (design.instMode == InstMode.Def) Some(mod, design)
+        val inst = pbns.getDesignInst
+        val design = inst.getDesignBlock
+        if (design.instMode == InstMode.Def) Some(mod, inst)
         else None
       case _ => None
 
@@ -224,11 +232,6 @@ extension (dfVal: DFVal)
     getSet.designDB.assignmentsTable.getOrElse(dfVal, Set())
   def getAssignmentsFrom(using MemberGetSet): Set[DFVal] =
     getSet.designDB.assignmentsTableInverted.getOrElse(dfVal, Set())
-  def getPortsByNameSelectors(using MemberGetSet): List[DFVal.PortByNameSelect] =
-    dfVal match
-      case dcl @ DclPort() =>
-        getSet.designDB.portsByNameSelectors.getOrElse(dcl, Nil)
-      case _ => Nil
   // search composed value read dependencies (without nets) if there is a value
   // that fits the given condition
   def existsInComposedReadDeps(cond: DFVal => Boolean)(using MemberGetSet): Boolean =
@@ -236,66 +239,64 @@ extension (dfVal: DFVal)
       .collect { case dfVal: DFVal => dfVal }
       .exists(dfVal => cond(dfVal) || dfVal.existsInComposedReadDeps(cond))
   def getReadDeps(using MemberGetSet): Set[DFValReadDep] =
-    val fromRefs: Set[DFValReadDep] =
-      dfVal.originMembersNoTypeRef.flatMap {
-        case net: DFNet =>
-          net match
-            // ignoring receiver or if connecting to an OPEN
-            case DFNet.Connection(toVal = toVal: DFVal) if toVal.isOpen || toVal == dfVal =>
-              None
-            // ignoring receiver
-            case DFNet.Assignment(toVal = toVal) if toVal == dfVal => None
-            case _                                                 => Some(net)
-        case dfVal: DFVal                                                        => Some(dfVal)
-        case guardBlock: DFConditional.Block if guardBlock.guardRef.get == dfVal => Some(guardBlock)
-        case textOut: TextOut                                                    => Some(textOut)
-        case _                                                                   => None
-      }
-    dfVal match
-      // for ports we need to also account for by-name referencing
-      case port @ DclPort() =>
-        val designInst = port.getOwnerDesign
-        designInst.originMembers.view
-          .collect { case ps @ DFVal.PortByNameSelect.Of(p) if p == port => ps.getReadDeps }
-          .flatten
-          .toSet ++ fromRefs
-      case _ => fromRefs
+    dfVal.originMembersNoTypeRef.flatMap {
+      case net: DFNet =>
+        net match
+          // ignoring receiver or if connecting to an OPEN
+          case DFNet.Connection(toVal = toVal: DFVal) if toVal.isOpen || toVal == dfVal =>
+            None
+          // ignoring receiver
+          case DFNet.Assignment(toVal = toVal) if toVal == dfVal => None
+          case _                                                 => Some(net)
+      case dfVal: DFVal                                                        => Some(dfVal)
+      case guardBlock: DFConditional.Block if guardBlock.guardRef.get == dfVal => Some(guardBlock)
+      case textOut: TextOut                                                    => Some(textOut)
+      case _                                                                   => None
+    }
   end getReadDeps
   def isReferencedByAnyDclOrDesign(using MemberGetSet): Boolean =
     dfVal.originMembers.view.exists {
-      case _: DFVal.Dcl     => true
-      case DclConst()       => true
-      case _: DFDesignBlock => true
-      case dfVal: DFVal     => dfVal.isReferencedByAnyDclOrDesign
-      case _                => false
+      case _: DFVal.Dcl    => true
+      case DclConst()      => true
+      case _: DFDesignInst => true
+      case dfVal: DFVal    => dfVal.isReferencedByAnyDclOrDesign
+      case _               => false
     }
 
   @tailrec private def flatName(member: DFVal, suffix: String)(using MemberGetSet): String =
     member match
-      case named if !named.isAnonymous => s"${member.getName}$suffix"
-      case alias: DFVal.Alias.Partial  =>
+      case named if !named.isAnonymous  => s"${member.getName}$suffix"
+      case pbns: DFVal.PortByNameSelect => s"${pbns.portNamePath.replace('.', '_')}$suffix"
+      case alias: DFVal.Alias.Partial   =>
         val relVal = alias.relValRef.get
         val newSuffix = alias match
           case _: DFVal.Alias.AsIs            => suffix
           case applyIdx: DFVal.Alias.ApplyIdx =>
             applyIdx.relIdx.get match
               case DFVal.Alias.ApplyIdx.ConstIdx(i) =>
-                val maxValue = relVal.dfType match
-                  case vector: DFVector => vector.length - 1
-                  case bits: DFBits     => bits.width - 1
-                  case xInt: DFDecimal  => xInt.width - 1
-                  case _                => ???
-                s"_${i.toPaddedString(maxValue)}"
+                val maxValueOpt = relVal.dfType match
+                  case vector: DFVector => vector.lengthIntOpt
+                  case bits: DFBits     => bits.widthIntOpt
+                  case xInt: DFDecimal  => xInt.widthIntOpt
+                  case _                => None
+                val padMaxValue = maxValueOpt.getOrElse(100) - 1
+                s"_${i.toPaddedString(padMaxValue)}"
               case _ => "_sel"
           case applyRange: DFVal.Alias.ApplyRange =>
             applyRange.dfType.runtimeChecked match
               case DFBits(_) | DFUInt(_) | DFSInt(_) =>
-                val idxHigh = applyRange.idxHighRef.getInt.toPaddedString(applyRange.width - 1)
-                val idxLow = applyRange.idxLowRef.getInt.toPaddedString(applyRange.width - 1)
+                val padMaxValue = applyRange.widthIntOpt.getOrElse(100) - 1
+                val idxHigh =
+                  applyRange.idxHighRef.getIntOpt.map(_.toPaddedString(padMaxValue)).getOrElse("hi")
+                val idxLow =
+                  applyRange.idxLowRef.getIntOpt.map(_.toPaddedString(padMaxValue)).getOrElse("lo")
                 s"_${idxHigh}_${idxLow}"
               case dfType: DFVector =>
-                val idxHigh = applyRange.idxHighRef.getInt.toPaddedString(dfType.length - 1)
-                val idxLow = applyRange.idxLowRef.getInt.toPaddedString(dfType.length - 1)
+                val padMaxValue = dfType.lengthIntOpt.getOrElse(100) - 1
+                val idxHigh =
+                  applyRange.idxHighRef.getIntOpt.map(_.toPaddedString(padMaxValue)).getOrElse("hi")
+                val idxLow =
+                  applyRange.idxLowRef.getIntOpt.map(_.toPaddedString(padMaxValue)).getOrElse("lo")
                 s"_${idxLow}_${idxHigh}"
           case selectField: DFVal.Alias.SelectField => s"_${selectField.fieldName}"
         flatName(relVal, s"$newSuffix$suffix")
@@ -404,13 +405,6 @@ extension (dfVal: DFVal)
         case _                                                       => false
     case _ => false
 end extension
-
-extension (refTW: DFNet.Ref)
-  def isViaRef(using MemberGetSet): Boolean =
-    refTW.originMember match
-      case net: DFNet if net.isViaConnection =>
-        refTW.get.stripPortSel.getOwner.isSameOwnerDesignAs(net)
-      case _ => false
 
 extension (origVal: DFVal)
   private def collectRelMembersRecur(
@@ -525,3 +519,10 @@ class ComposedDFTypeReplacement[H](
       case None         => composed
   end unapply
 end ComposedDFTypeReplacement
+
+extension (lhs: DFVal)(using MemberGetSet)
+  def compareWidths(rhs: DFVal)(func: (Int, Int) => Boolean): Option[Boolean] =
+    def widthRef(v: DFVal): IntParamRef = (v.dfType: @unchecked) match
+      case dt: DFBits    => dt.widthParamRef
+      case dt: DFDecimal => dt.widthParamRef
+    widthRef(lhs).compare(widthRef(rhs))(func)

@@ -9,7 +9,7 @@ class FullAdder1 extends EDDesign:
   sum   <> a ^ b ^ c_in
   c_out <> a && b || b && c_in || c_in && a
 
-@top class FullAdderN(val n: Int = 4) extends EDDesign:
+class FullAdderN(val n: Int = 4) extends EDDesign:
   val a, b  = Bits(n) <> IN
   val c_in  = Bit     <> IN
   val sum   = Bits(n) <> OUT
@@ -32,7 +32,7 @@ end FullAdderN
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Select backend compiler:
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 // Uncomment to enable printing design code after elaboration (before compilation):
 // given options.ElaborationOptions.PrintDFHDLCode = true
 // Uncomment to enable printing design code after compilation:

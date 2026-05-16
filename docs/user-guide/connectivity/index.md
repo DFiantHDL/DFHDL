@@ -97,7 +97,7 @@ end Plus2
 /// details | Runnable example
     type: dfhdl
 
-```scastie
+```scastie main="top_Plus2"
 import dfhdl.* 
 
 class Plus1 extends DFDesign:
@@ -105,7 +105,7 @@ class Plus1 extends DFDesign:
   val y = UInt(8) <> OUT
   y <> x + 1
 
-@top class Plus2 extends DFDesign:
+class Plus2 extends DFDesign:
   val x = UInt(8) <> IN
   val y = UInt(8) <> OUT
   val p1A = Plus1()

@@ -287,7 +287,7 @@ sealed protected trait DFValLP:
   ): Conversion[DFConstOf[DFTime | DFFreq], ir.RateNumber] =
     x =>
       import dfc.getSet
-      x.asIR.getConstData.get.asInstanceOf[ir.RateNumber]
+      x.asIR.getConstData[ir.RateNumber].toOption.get
   // lower priority than other evidence because this is more generic
   export DFXInt.Val.Ops.{evOpCommutativeArithDFXInt, evOpNonCommutativeArithDFXInt}
   export DFOpaque.Val.Ops.{evOpAsDFOpaqueTFE, evOpAsDFOpaqueComp}
@@ -354,10 +354,17 @@ object DFVal extends DFValLP:
               |Message:   ${errMsg}""".stripMargin
         )
       lhsIR.injectGlobalCtx()
-      lhsIR.getConstData.asInstanceOf[Option[Option[D]]]
+      lhsIR.getConstDataThroughParams[Option[D]]
         .getOrElse(error("Cannot fetch a Scala value from a non-constant DFHDL value."))
         .getOrElse(error("Cannot fetch a Scala value from a bubble (invalid) DFHDL value."))
   end extension
+
+  extension [LW <: IntP, LT <: DFTypeW[LW]](lhs: DFValOf[LT])
+    protected[core] def compareWidths[RW <: IntP, RT <: DFTypeW[RW]](
+        rhs: DFValOf[RT]
+    )(func: (Int, Int) => Boolean)(using dfc: DFC): Option[Boolean] =
+      import dfc.getSet
+      lhs.dfType.compareWidths(rhs.dfType)(func)
 
   trait InitCheck[I]
   given [I](using
@@ -574,9 +581,19 @@ object DFVal extends DFValLP:
     ): DFVal[DFVector[T, Tuple1[D1]], Modifier[A, C, Modifier.Initialized, P]] = trydf:
       import dfc.getSet
       val vectorType = dfVal.dfType
-      import DFVector.{lengthInt, cellType}
+      import DFVector.{lengthIntOpt, cellType}
+      val length = vectorType.lengthIntOpt.getOrElse {
+        throw new IllegalArgumentException(
+          s"Vector length must be a known integer literal to be initialized from a file."
+        )
+      }
+      val width = vectorType.cellType.widthIntOpt.getOrElse {
+        throw new IllegalArgumentException(
+          s"Vector cell type must have a known width to be initialized from a file."
+        )
+      }
       val data = ir.InitFileFormat.readInitFile(
-        path, format, vectorType.lengthInt, vectorType.cellType.widthInt, undefinedValue
+        path, format, length, width, undefinedValue
       )
       val initFileConst = vectorType.cellType.asIR match
         case ir.DFBits(_) => DFVal.Const(vectorType, data)
@@ -635,10 +652,19 @@ object DFVal extends DFValLP:
         named: Boolean = false
     )(using DFC): DFConstOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
+      assert(
+        dfType.asIR.getRefs.isEmpty,
+        "Constant DFType cannot be parametric."
+      )
       ir.DFVal
-        .Const(dfType.asIR.dropUnreachableRefs, data, dfc.ownerOrEmptyRef, meta, dfc.tags)
+        .Const(dfType.asIR, data, dfc.ownerOrEmptyRef, meta, dfc.tags)
         .addMember
         .asConstOf[T]
+    def synthetic[T <: DFTypeAny](dfType: T)(using dfc: DFC): DFConstOf[T] =
+      import dfc.getSet
+      forced[T](dfType, dfType.asIR.defaultData, named = false)(using
+        dfc.tag(ir.SyntheticDefaultTag)
+      )
   end Const
 
   object DesignParam:
@@ -646,13 +672,19 @@ object DFVal extends DFValLP:
     def apply[T <: DFTypeAny](
         appliedVal: DFValOf[T],
         defaultVal: Option[DFValOf[T]] = None
-    )(using DFC): DFConstOf[T] =
+    )(using dfc: DFC): DFConstOf[T] =
+      import dfc.getSet
+      val ownerIR = dfc.owner.asIR.asInstanceOf[ir.DFDesignBlock]
+      val dfTypeIR = appliedVal.dfType.asIR.dropUnreachableRefs
+      val defaultValIR: ir.DFVal | ir.DFMember.Empty = defaultVal match
+        case _ if ownerIR.isTop || ownerIR.isVendorIPBlackbox => appliedVal.asIR
+        case Some(dv)                                         => dv.asIR
+        case None => Const.synthetic(dfTypeIR.asFE[T]).asIR
       val alias: ir.DFVal.DesignParam =
         ir.DFVal.DesignParam(
-          appliedVal.asIR.dfType.dropUnreachableRefs,
-          defaultVal.map(_.asIR.refTW[ir.DFVal.DesignParam])
-            .getOrElse(ir.DFMember.Empty.refTW[ir.DFVal.DesignParam]),
-          dfc.ownerOrEmptyRef,
+          dfTypeIR,
+          defaultValIR.refTW[ir.DFVal.DesignParam],
+          dfc.owner.ref,
           dfc.getMeta,
           dfc.tags
         )
@@ -726,68 +758,6 @@ object DFVal extends DFValLP:
     )(using DFC): DFValTP[T, P] =
       args.foreach(_.anonymizeInDFCPosition)
       apply(dfType, op, args.map(_.asIR))
-    private object SimplifyFunc:
-      def unapply(opArgs: (ir.DFType, FuncOp, List[ir.DFVal]))(using dfc: DFC): Option[ir.DFVal] =
-        import dfc.getSet
-        opArgs match
-          // TODO: maybe drop this limitation, if we can make DropStructsVecs work in meta programming
-          // or global context.
-          case _ if dfc.inMetaProgramming || dfc.ownerOption.isEmpty => None
-          // special case to handle unary negation of anonymous decimal constants
-          case (
-                _: ir.DFDecimal,
-                FuncOp.unary_-,
-                List(const @ ir.DFVal.Const(dfType = _: ir.DFDecimal, data = Some(data: BigInt)))
-              ) if (const.isAnonymous || const.asValAny.inDFCPosition) =>
-            Some(
-              dfc.mutableDB.setMember(
-                const,
-                _.copy(
-                  data = Some(-data),
-                  meta = dfc.getMeta
-                )
-              )
-            )
-          case (
-                ir.DFInt32,
-                currentOp @ (FuncOp.+ | FuncOp.-),
-                List(
-                  prevFunc: ir.DFVal.Func,
-                  currentRHSArg @ ir.DFVal.Const(data = Some(currentRHSData: BigInt))
-                )
-              ) if currentRHSArg.isAnonymous && prevFunc.isAnonymous =>
-            (prevFunc.dfType, prevFunc.op, prevFunc.args.map(_.get)) match
-              case (
-                    ir.DFInt32,
-                    prevOp @ (FuncOp.+ | FuncOp.-),
-                    List(prevLHSArg, prevRHSArg @ ir.DFVal.Const(data = Some(prevRHSData: BigInt)))
-                  ) if prevRHSArg.isAnonymous =>
-                val newRHSData = (prevOp, currentOp).runtimeChecked match
-                  // (x + c1) + c2 => x + (c1 + c2)
-                  case (FuncOp.+, FuncOp.+) => prevRHSData + currentRHSData
-                  // (x - c1) - c2 => x - (c1 + c2)
-                  case (FuncOp.-, FuncOp.-) => prevRHSData + currentRHSData
-                  // (x + c1) - c2 => x + (c1 - c2)
-                  case (FuncOp.+, FuncOp.-) => prevRHSData - currentRHSData
-                  // (x - c1) + c2 => x - (c1 - c2)
-                  case (FuncOp.-, FuncOp.+) => prevRHSData - currentRHSData
-                if (newRHSData == BigInt(0))
-                  if (prevLHSArg.isAnonymous) Some(prevLHSArg.setMeta(_ => dfc.getMeta))
-                  else Some(prevLHSArg)
-                else
-                  // Clone prevFunc to avoid destructively modifying shared IR nodes
-                  val clonedFunc = prevFunc.cloneAnonValueAndDepsHere
-                    .asInstanceOf[ir.DFVal.Func]
-                  val clonedRHSArg = clonedFunc.args.last.get
-                    .asInstanceOf[ir.DFVal.Const]
-                  dfc.mutableDB.setMember(clonedRHSArg, _.copy(data = Some(newRHSData)))
-                  Some(dfc.mutableDB.setMember(clonedFunc, _.copy(meta = dfc.getMeta)))
-              case _ => None
-            end match
-          case _ => None
-        end match
-      end unapply
-    end SimplifyFunc
     @targetName("applyFromIR")
     def apply[T <: DFTypeAny, P](
         dfType: T,
@@ -798,70 +768,17 @@ object DFVal extends DFValLP:
         case SimplifyFunc(func) => func.asValTP[T, P]
         case (dfType, op, args) =>
           import dfc.getSet
-          // Merge consecutive same-op anonymous Funcs for associative operations.
-          // E.g., `a + b + c` becomes Func(+, [a, b, c]) instead of nested binary Funcs.
-          // Only merge args that appear once (multi-referenced Funcs must stay as-is).
-          var mergedPositionStart: Option[Position] = None
-          val mergedArgs =
-            if (ir.DFVal.Func.Op.associativeSet.contains(op))
-              // Count how many times each arg appears to avoid merging multi-referenced nodes
-              val argCounts = args.groupBy(identity).view.mapValues(_.length)
-              args.flatMap {
-                case prevFunc: ir.DFVal.Func
-                    if prevFunc.op == op
-                    && prevFunc.isAnonymous
-                    && argCounts(prevFunc) == 1
-                    && canMergeFunc(dfType, op, prevFunc) =>
-                  // Track the earliest start position from absorbed Funcs
-                  val prevPos = prevFunc.meta.position
-                  mergedPositionStart = Some(
-                    mergedPositionStart.fold(prevPos)(existing =>
-                      if prevPos.lineStart < existing.lineStart ||
-                        (prevPos.lineStart == existing.lineStart &&
-                          prevPos.columnStart < existing.columnStart)
-                      then prevPos
-                      else existing
-                    )
-                  )
-                  // Don't remove prevFunc here — it becomes unreferenced and
-                  // DropUnreferencedAnons will clean it up with proper ref cleanup.
-                  prevFunc.args.map(_.get)
-                case arg => List(arg)
-              }
-            else args
-          // Merge position: start from absorbed LHS, end from current (RHS)
-          val meta = mergedPositionStart match
-            case Some(lhsPos) =>
-              val currentMeta = dfc.getMeta
-              val currentPos = currentMeta.position
-              val merged = Position(
-                lhsPos.file, lhsPos.lineStart, lhsPos.columnStart,
-                currentPos.lineEnd, currentPos.columnEnd
-              )
-              currentMeta.copy(position = merged)
-            case None => dfc.getMeta
           val func: ir.DFVal = ir.DFVal.Func(
             dfType,
             op,
-            mergedArgs.map(_.refTW[ir.DFVal](knownReachable = true)),
+            args.map(_.refTW[ir.DFVal](knownReachable = true)),
             dfc.ownerOrEmptyRef,
-            meta,
+            dfc.getMeta,
             dfc.tags
           )
           func.addMember.asValTP[T, P]
       end match
     end apply
-    // Checks if an intermediate Func can be merged into the current one.
-    // +, -, * are excluded because carry promotion assumes binary (2-arg) Funcs.
-    // ++ is only merged for flat bits concatenation, not struct/vector/string.
-    private def canMergeFunc(
-        resultType: ir.DFType, op: FuncOp, prevFunc: ir.DFVal.Func
-    )(using ir.MemberGetSet): Boolean =
-      op match
-        case FuncOp.++ =>
-          resultType.isInstanceOf[ir.DFBits] && prevFunc.dfType.isInstanceOf[ir.DFBits]
-        case FuncOp.+ | FuncOp.- | FuncOp.`*` => false
-        case _ => true // &, |, ^, max, min — no carry concept
   end Func
 
   object Alias:
@@ -872,19 +789,27 @@ object DFVal extends DFValLP:
           forceNewAlias: Boolean = false
       )(using dfc: DFC): DFVal[AT, M] =
         import dfc.getSet
-        import ir.unapply
+        val aliasTypeIR = aliasType.asIR
         relVal.asIR match
+          // skipping alias simplification if in meta-programming and the related value is
+          // not defined in the current (meta) design context.
+          case _
+              if dfc.inMetaProgramming &&
+                !dfc.mutableDB.DesignContext.current.hasMember(relVal.asIR) =>
+            forced(aliasTypeIR, relVal.anonymizeInDFCPosition.asIR).asVal[AT, M]
           // anonymous constant are replaced by a different constant
-          // after its data value was converted according to the alias
+          // after its data value was converted according to the alias.
+          // the target alias type must have a known width (constants must have a known width)
           case const: ir.DFVal.Const
-              if (const.isAnonymous || relVal.inDFCPosition) && !forceNewAlias =>
-            val updatedData = ir.dataConversion(aliasType.asIR, const.dfType)(
+              if (const.isAnonymous || relVal.inDFCPosition) && aliasTypeIR.getRefs.isEmpty &&
+                !forceNewAlias =>
+            val updatedData = ir.dataConversion(aliasTypeIR, const.dfType)(
               const.data.asInstanceOf[const.dfType.Data]
             )
             dfc.mutableDB.setMember(
               const,
               _.copy(
-                dfType = aliasType.asIR.dropUnreachableRefs,
+                dfType = aliasTypeIR.dropUnreachableRefs,
                 data = updatedData,
                 meta = dfc.getMeta
               )
@@ -893,9 +818,9 @@ object DFVal extends DFValLP:
           // as long as the alias is anonymous and has the same width as the related value,
           // to avoid modifying the semantics of named values that can be referenced in multiple places.
           case asIs @ ir.DFVal.Alias.AsIs(relValRef = ir.DFRef(relValIR))
-              if aliasType.asIR.isInstanceOf[ir.DFBits] && asIs.isAnonymous &&
+              if aliasTypeIR.isInstanceOf[ir.DFBits] && asIs.isAnonymous &&
                 dfc.isAnonymous && !forceNewAlias && asIs.tags.isEmpty &&
-                relValIR.width == asIs.width =>
+                relValIR.asValAny.widthIntParam =~ asIs.asValAny.widthIntParam =>
             asIs.relValRef.get.asVal[AT, M]
           // remove redundant intermediate casting converting from BoolOrBit to Bits/UInt/SInt + resize
           case asIs @ ir.DFVal.Alias.AsIs(
@@ -905,14 +830,14 @@ object DFVal extends DFValLP:
             dfc.mutableDB.setMember(
               asIs,
               _.copy(
-                dfType = aliasType.asIR.dropUnreachableRefs,
+                dfType = aliasTypeIR.dropUnreachableRefs,
                 meta = dfc.getMeta
               )
             ).asVal[AT, M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
-            forced(aliasType.asIR, relVal.anonymizeInDFCPosition.asIR).asVal[AT, M]
+            forced(aliasTypeIR, relVal.anonymizeInDFCPosition.asIR).asVal[AT, M]
         end match
       end apply
       def forced(aliasType: ir.DFType, relVal: ir.DFVal)(using DFC): ir.DFVal =
@@ -995,8 +920,8 @@ object DFVal extends DFValLP:
             val updatedData = ir.selRangeData(
               dfType,
               const.data,
-              idxHigh,
-              idxLow
+              idxHigh.toScalaIntOpt.get,
+              idxLow.toScalaIntOpt.get
             )(using dfc.getSet)
             Const.forced(dfType.asFE, updatedData).asIR
           // named constants or other non-constant values are referenced
@@ -1069,6 +994,24 @@ object DFVal extends DFValLP:
       end apply
     end SelectField
   end Alias
+
+  object PortByNameSelect:
+    def apply(
+        dfType: ir.DFType,
+        dir: ir.DFVal.Modifier.Dir,
+        designInst: ir.DFDesignInst,
+        namePath: String
+    )(using DFC): ir.DFVal.PortByNameSelect =
+      ir.DFVal.PortByNameSelect(
+        dfType.dropUnreachableRefs,
+        dir,
+        designInst.refTW[ir.DFVal.PortByNameSelect],
+        namePath,
+        dfc.owner.ref,
+        dfc.getMeta.anonymize,
+        dfc.tags
+      ).addMember
+  end PortByNameSelect
 
   // object Iterator:
   //   def apply[P](range: DFRange[P])(using dfc: DFC): DFValTP[DFInt32, P] =
@@ -1590,7 +1533,6 @@ object DFVal extends DFValLP:
       }
       def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
       def width(using DFC): DFConstInt32 = dfVal.widthIntParam.toDFConst
-      def widthInt(using DFC): Int = dfVal.widthIntParam.toScalaInt
     end extension
 
     extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
@@ -1744,8 +1686,8 @@ object DFVarOps:
       ): Unit =
         dfVars match
           case dfVar :: nextVars =>
-            val concatWidth = concat.map(_.width).sum
-            val missingConcatWidth = dfVar.width - concatWidth
+            val concatWidth = concat.map(_.widthUNSAFE).sum
+            val missingConcatWidth = dfVar.widthUNSAFE - concatWidth
             assert(missingConcatWidth >= 0)
             // widths match so we can assign
             if (missingConcatWidth == 0)
@@ -1754,7 +1696,7 @@ object DFVarOps:
               val concatVal =
                 if (concat.size == 1) concat.head.asValAny
                 else
-                  DFVal.Func(DFBits(dfVar.dfType.width), FuncOp.++, concat.reverse)
+                  DFVal.Func(DFBits(dfVar.dfType.widthUNSAFE), FuncOp.++, concat.reverse)
               // non-bits variables need to be casted to
               val assignVal = dfVar.dfType match
                 // no need to cast
@@ -1766,7 +1708,7 @@ object DFVarOps:
             // missing more bits to complete assignment, so moving arg element into concat list
             else
               val arg = args.head
-              val argLeftoverWidth = arg.width - argReadWidth
+              val argLeftoverWidth = arg.widthUNSAFE - argReadWidth
               val extraWidth = argLeftoverWidth - missingConcatWidth
               if (extraWidth <= 0)
                 val concatArg =
@@ -1788,7 +1730,7 @@ object DFVarOps:
                 // the args order are from msbits to lsbits, so when we end up with extra bits
                 // those will be the lsbits that to be given back to the args list and just the
                 // remaining msbits are placed in the concat list
-                assignRecur(dfVars, args, argReadWidth + concatArg.width, concatArg :: concat)
+                assignRecur(dfVars, args, argReadWidth + concatArg.widthUNSAFE, concatArg :: concat)
               end if
             end if
           case Nil => // done!
@@ -1799,7 +1741,7 @@ object DFVarOps:
       val argsBitsIR = argsIR.map { arg =>
         arg.dfType match
           case _: ir.DFBits => arg
-          case dfType       => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.width), arg)
+          case dfType       => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.widthUNSAFE), arg)
       }
       assignRecur(dfVarsIR, argsBitsIR, 0, Nil)
   end extension
@@ -1993,7 +1935,15 @@ extension (dfVal: ir.DFVal)
             case alias: ir.DFVal.Alias.SelectField =>
               DFVal.Alias.SelectField(clonedRelVal, alias.fieldName)(using dfcForClone)
           end match
-        case _ => throw new IllegalArgumentException(s"Unsupported cloning for: $dfVal")
+        case pbns: ir.DFVal.PortByNameSelect =>
+          DFVal.PortByNameSelect(
+            pbns.dfType,
+            pbns.dir,
+            pbns.designInstRef.get,
+            pbns.portNamePath
+          )(using dfcForClone).asValAny
+        case _ =>
+          throw new IllegalArgumentException(s"Unsupported cloning for: $dfVal")
       cloned.asIR
     else dfVal
     end if

@@ -135,8 +135,8 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Named selection with functions under system verilog") {
     class ID extends DFDesign:
       val x                  = UInt(6) <> IN
-      val y: UInt[5] <> VAL  = (x min x).truncate
-      val z: UInt[5] <> VAL  = (x + x).truncate
+      val y: UInt[5] <> VAL  = (x min x).resize
+      val z: UInt[5] <> VAL  = (x + x).resize
       val w: UInt[20] <> VAL = (x + x) + x
 
     val id = (new ID).verilogNamedSelection
@@ -151,11 +151,11 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("Named selection with functions under basic verilog") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     class ID extends DFDesign:
       val x                  = UInt(6) <> IN
-      val y: UInt[5] <> VAL  = (x min x).truncate
-      val z: UInt[5] <> VAL  = (x + x).truncate
+      val y: UInt[5] <> VAL  = (x min x).resize
+      val z: UInt[5] <> VAL  = (x + x).resize
       val w: UInt[20] <> VAL = (x + x) + x
 
     val id = (new ID).verilogNamedSelection

@@ -65,7 +65,7 @@ class ParsedCommandLine(
     trait CompileMode extends ElaborateMode:
       this: ScallopConf & Mode =>
       private val hidden = modeOption != AppMode.compile
-      val backend = opt[CompilerOptions.Backend](
+      val backend = opt[CompilerOptions._Backend](
         name = "backend", short = 'b',
         descr = "backend selection (run `help backend` to get full list of languages and dialects)",
         default = Some(co.backend), argName = "lang[.dialect]", hidden = hidden
@@ -267,21 +267,35 @@ class ParsedCommandLine(
   private lazy val designArgOptionGroup = group("Design arguments:")
   private val designArgOptions =
     designArgs.view.values.collect {
-      case designArg if designArg.typeName.nonEmpty =>
-        val conv = designArg.typeName match
-          case "String"  => summon[ValueConverter[String]]
-          case "Int"     => summon[ValueConverter[Int]]
-          case "Double"  => summon[ValueConverter[Double]]
-          case "Boolean" => summon[ValueConverter[Boolean]]
+      // Skip design arguments that do not have a (user-written or synthetic)
+      // default — they have no value to offer via the CLI.
+      case designArg if designArg.hasDefault && designArg.typeName.nonEmpty =>
+        val conv: ValueConverter[?] = designArg.typeName match
+          case "String" => summon[ValueConverter[String]]
+          case "Int"    => summon[ValueConverter[Int]]
+          case "Double" => summon[ValueConverter[Double]]
+          // Boolean / Bit / Bits / UInt / SInt: accept the DFHDL literal as a
+          // raw string so the user must always pass an explicit value
+          // (`--b true`, `--c 0`, `--f h"ff"`, `--g d"16'5"`, `--h sd"32'-5"`)
+          // rather than scallop's implicit-flag toggle.
+          case _ => summon[ValueConverter[String]]
+        val descrWithDefault =
+          if (designArg.isSyntheticDefault) designArg.desc
+          else s"${designArg.desc} (default = ${designArg.defaultDisplay})".stripLeading()
         designArg.name -> opt[Any](
-          name = designArg.name, descr = designArg.desc, argName = designArg.typeName,
-          default = Some(designArg.getScalaValue), noshort = true, group = designArgOptionGroup
+          name = designArg.name, descr = descrWithDefault, argName = designArg.typeName,
+          // default is rendered in the description above, so scallop does not
+          // auto-append one. `updatedDesignArgs` falls back to the original
+          // designArg when the option is not supplied.
+          default = None, noshort = true, group = designArgOptionGroup
         )(using conv.asInstanceOf[ValueConverter[Any]])
     }.toMap
   lazy val updatedDesignArgs: DesignArgs = DesignArgs(designArgs.map { case (argName, designArg) =>
     designArgOptions.get(argName) match
       case None      => argName -> designArg
-      case Some(opt) => argName -> designArg.updateScalaValue(opt.toOption.get)
+      case Some(opt) => opt.toOption match
+          case Some(v) => argName -> designArg.updateScalaValue(v)
+          case None    => argName -> designArg
   })
 
   addSubcommand(Mode.elaborate)

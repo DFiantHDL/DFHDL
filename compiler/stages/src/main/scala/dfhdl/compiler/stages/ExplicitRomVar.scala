@@ -11,7 +11,7 @@ import scala.collection.mutable
 /** This stage creates a ROM variable for a constant vector access pattern that matches a block-ram
   * access. In verilog v95/v2001 this is mandatory.
   */
-case object ExplicitRomVar extends Stage:
+case object ExplicitRomVar extends HierarchyStage:
   override def runCondition(using co: CompilerOptions): Boolean =
     co.backend match
       case be: dfhdl.backends.verilog =>
@@ -21,10 +21,9 @@ case object ExplicitRomVar extends Stage:
       case _ => false
   override def dependencies: List[Stage] = List()
   override def nullifies: Set[Stage] = Set(DFHDLUniqueNames)
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val handled = mutable.Set.empty[(DFDesignBlock, DFVal)]
     object ROMIndexAccessOf:
-      private val handled = mutable.Set.empty[(DFDesignBlock, DFVal)]
       def unapply(applyIdx: ApplyIdx)(using MemberGetSet): Option[DFVal] =
         val relVal = applyIdx.relValRef.get
         relVal.dfType match
@@ -41,7 +40,7 @@ case object ExplicitRomVar extends Stage:
           case _ => None
     end ROMIndexAccessOf
 
-    val patchList: List[(DFMember, Patch)] = designDB.members.flatMap {
+    val patches = subDB.members.flatMap {
       case applyIdx @ ROMIndexAccessOf(initVal) =>
         val (positionMember, config) =
           if (initVal.isGlobal) (applyIdx.getOwnerDesign, Patch.Add.Config.InsideFirst)
@@ -64,9 +63,9 @@ case object ExplicitRomVar extends Stage:
           initVal -> Patch.Replace(dsn.romVar, Patch.Replace.Config.ChangeRefOnly, filter)
         dsn.patch :: replaceIndexRefPatch :: Nil
       case _ => Nil
-    }
-    designDB.patch(patchList)
-  end transform
+    }.toList
+    subDB.patch(patches)
+  end transformSubDB
 end ExplicitRomVar
 
 extension [T: HasDB](t: T)

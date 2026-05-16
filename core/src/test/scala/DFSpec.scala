@@ -12,14 +12,14 @@ extension [T](t: T)(using tc: core.DFType.TC[T])
   def verifyWidth[R <: IntP](
       r: IntParam[R]
   )(using dfc: DFC, w: Width[tc.Type])(using w.Out =:= R): Unit =
-    assert(t.widthIntParam.toScalaInt == r.toScalaInt)
+    assert(t.widthIntParam.toScalaIntOpt.get == r.toScalaIntOpt.get)
 
 extension [T <: DFType](t: DFValOf[T])(using dfc: DFC, w: Width[T])
   @metaContextIgnore
   def verifyWidth[R <: IntP](
       r: IntParam[R]
   )(using w.Out =:= R): Unit =
-    assert(t.widthIntParam.toScalaInt == r.toScalaInt)
+    assert(t.widthIntParam.toScalaIntOpt.get == r.toScalaIntOpt.get)
 
 abstract class DFSpec extends NoDFCSpec, HasTypeName, HasDFC:
   final lazy val dfc: DFC = core.DFC.emptyNoEO
@@ -29,11 +29,7 @@ abstract class DFSpec extends NoDFCSpec, HasTypeName, HasDFC:
   given TDomain = core.DomainType.DF
   given dfPrinter: Printer = DefaultPrinter(using dfc.getSet)
   private final val owner: core.Design.Block =
-    core.Design.Block(
-      ir.DomainType.DF,
-      ir.Meta(Some(typeName), Position.unknown, None, Nil),
-      InstMode.Normal
-    )
+    core.Design.Block(ir.DomainType.DF, InstMode.Normal)
   dfc.enterOwner(owner)
   private val noErrMsg = "No error found"
 

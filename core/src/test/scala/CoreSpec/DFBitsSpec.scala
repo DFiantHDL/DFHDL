@@ -70,10 +70,10 @@ class DFBitsSpec extends DFSpec:
       def twice(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
       val t11 = twice(t1); t11.assertPosition(0, 1, 17, 26)
       assertLatestDesignDclPosition(2, 1, 7, 78)
-      assert(t11.widthInt == 16)
+      assert(t11.width.toScalaInt == 16)
       @inline def twiceInline(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
       val t12 = twiceInline(t1); t12.assertPosition(0, 1, 17, 32)
-      assert(t12.widthInt == 16)
+      assert(t12.width.toScalaInt == 16)
       val t13: Bits[8] <> CONST = (b"1001", h"2")
       val t14: Bits[16] <> CONST = (t13, t13)
       val u8v = Bits(8) <> VAR init (h"aa", h"bb", (h"c", h"d"))
@@ -103,7 +103,10 @@ class DFBitsSpec extends DFSpec:
     val u5L = UInt(5) <> VAR
     val u8 = UInt(8) <> VAR
     assertCodeString {
-      """|val byte = Bits(8) <> VAR init h"00"
+      """|val param: Int <> CONST = 8
+         |val b8p = Bits(param) <> VAR init b"0".repeat(param)
+         |b8p := b"10".resize(param)
+         |val byte = Bits(8) <> VAR init h"00"
          |b8 := h"11"
          |b8 := h"00"
          |b8 := h"ff"
@@ -126,6 +129,9 @@ class DFBitsSpec extends DFSpec:
          |b4L := b8(3, 0)
          |""".stripMargin
     } {
+      val param: Int <> CONST = 8
+      val b8p = Bits(param) <> VAR init all(0)
+      b8p := b"${param}'10"
       val byte: Byte <> VAL = Byte <> VAR init all(0)
       b8 := h"11"
       b8 := all(0)
@@ -133,8 +139,8 @@ class DFBitsSpec extends DFSpec:
       b8 := ?
       b8 := u8
       b8 := u8.bits
-      b8 := b3M.extend
-      b3M := b8.truncate
+      b8 := b3M.resize
+      b3M := b8.resize
       b8 := (h"1", 1, 0, b"11").toBits
       (b4M, b4L) := (h"1", 1, 0, b"11")
       (b3M, u5L) := (h"1", 1, 0, b"11")
@@ -301,19 +307,19 @@ class DFBitsSpec extends DFSpec:
     assertCompileError(
       """|Expected argument width 3 but found: 5
          |To Fix:
-         |Use `.truncate` to match the width automatically.""".stripMargin
+         |Use `.resize` to match the width automatically.""".stripMargin
     )(
       """b8(u5)"""
     )
-    val o5 = b8(u5.truncate)
+    val o5 = b8(u5.resize)
     val u2 = UInt(2) <> VAR
     assertCompileError(
       """|Expected argument width 3 but found: 2
          |To Fix:
-         |Use `.extend` to match the width automatically.""".stripMargin
+         |Use `.resize` to match the width automatically.""".stripMargin
     )(
       """b8(u2)"""
     )
-    val o2 = b8(u2.extend)
+    val o2 = b8(u2.resize)
   }
 end DFBitsSpec

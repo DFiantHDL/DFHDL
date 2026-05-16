@@ -3,8 +3,8 @@ package StagesSpec
 import dfhdl.*
 import dfhdl.compiler.stages.{getCodeString, sanityCheck}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
-
-class PrintCodeStringSpec extends StageSpec:
+//TODO: figure out why some tests require `assertNoDiff` for proper behavior, while others work with `assertCodeString`
+class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
   class ID(arg: Bit <> CONST = 1) extends DFDesign:
     val x = SInt(16) <> IN
     val y = SInt(16) <> OUT
@@ -46,8 +46,8 @@ class PrintCodeStringSpec extends StageSpec:
   end IDTopVia
 
   test("Basic ID design") {
-    val id = (new ID).getCodeString
-    assertNoDiff(
+    val id = (new ID)
+    assertCodeString(
       id,
       """|class ID(val arg: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
@@ -58,8 +58,8 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
   test("Basic ID design through companion constructor") {
-    val id = (ID()).getCodeString
-    assertNoDiff(
+    val id = (ID())
+    assertCodeString(
       id,
       """|class ID(val arg: Bit <> CONST = 0) extends DFDesign:
          |  val x = SInt(16) <> IN
@@ -70,8 +70,8 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
   test("Generic ID design") {
-    val id = (new IDGen(Bits(8))).getCodeString
-    assertNoDiff(
+    val id = (new IDGen(Bits(8)))
+    assertCodeString(
       id,
       """|class IDGen extends DFDesign:
          |  val x = Bits(8) <> IN
@@ -80,8 +80,8 @@ class PrintCodeStringSpec extends StageSpec:
          |end IDGen
          |""".stripMargin
     )
-    val id2 = (new IDGen((Bits(4), SInt(4)))).getCodeString
-    assertNoDiff(
+    val id2 = (new IDGen((Bits(4), SInt(4))))
+    assertCodeString(
       id2,
       """|class IDGen extends DFDesign:
          |  val x = (Bits(4), SInt(4)) <> IN
@@ -92,8 +92,8 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
   test("Basic ID design hierarchy") {
-    val id = (new IDTop).getCodeString
-    assertNoDiff(
+    val id = (new IDTop)
+    assertCodeString(
       id,
       """|class ID(val arg: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
@@ -124,8 +124,8 @@ class PrintCodeStringSpec extends StageSpec:
       id1.y <> id2.x
       id2.y <> y
 
-    val id = (new IDTopGen).getCodeString
-    assertNoDiff(
+    val id = (new IDTopGen)
+    assertCodeString(
       id,
       """|class IDGen(val w: Int <> CONST) extends DFDesign:
          |  val x = SInt(w) <> IN
@@ -146,8 +146,8 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
   test("Via-connection ID design hierarchy") {
-    val id = (new IDTopVia).getCodeString
-    assertNoDiff(
+    val id = (new IDTopVia)
+    assertCodeString(
       id,
       """|class ID(val arg: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
@@ -215,13 +215,13 @@ class PrintCodeStringSpec extends StageSpec:
       val z = Bit <> OUT
       z := dpNew
 
-    val id = (new IDExt(gp)).getCodeString
-    assertNoDiff(
+    val id = (new IDExt(gp))
+    assertCodeString(
       id,
-      """|val i: SInt[16] <> CONST = sd"16'0"
-         |val i2: SInt[16] <> CONST = i + sd"16'5"
-         |val gp: Bit <> CONST = 1
+      """|val gp: Bit <> CONST = 1
          |val gp2: Bit <> CONST = gp
+         |val i: SInt[16] <> CONST = sd"16'0"
+         |val i2: SInt[16] <> CONST = i + sd"16'5"
          |
          |class IDExt(
          |    val dp: Bit <> CONST = gp2 && gp,
@@ -245,11 +245,11 @@ class PrintCodeStringSpec extends StageSpec:
       val y = SInt(width + 2) <> OUT
       y := x
 
-    val id = (new ID(8)).getCodeString
-    assertNoDiff(
+    val id = (new ID(8))
+    assertCodeString(
       id,
       """|class ID(val width: Int <> CONST = 8) extends DFDesign:
-         |  val x = SInt(width + 1) <> IN init sd"${width + 1}'0"
+         |  val x = SInt(width + 1) <> IN init sd"2'0".resize(width + 1)
          |  val y = SInt(width + 2) <> OUT
          |  y := x.resize(width + 2)
          |end ID
@@ -270,8 +270,8 @@ class PrintCodeStringSpec extends StageSpec:
   //     val styp1 = st.y + 1
   //     y := styp1
 
-  //   val id = Top().getCodeString
-  //   assertNoDiff(
+  //   val id = Top()
+  //   assertCodeString(
   //     id,
   //     """|class ID(val width: Int <> CONST = 8) extends DFDesign:
   //        |  val x = SInt(width + 1) <> IN init sd"${width + 1}'0"
@@ -366,8 +366,8 @@ class PrintCodeStringSpec extends StageSpec:
       val x = test(10)(data)
       o := x
     end IDWithDesignDef
-    val id = (new IDWithDesignDef).getCodeString
-    assertNoDiff(
+    val id = (new IDWithDesignDef)
+    assertCodeString(
       id,
       """|def test2(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
          |  arg
@@ -403,8 +403,8 @@ class PrintCodeStringSpec extends StageSpec:
         test2(arg)
       test(data)
       o := data
-    val id = (new UnitDesignDef).getCodeString
-    assertNoDiff(
+    val id = (new UnitDesignDef)
+    assertCodeString(
       id,
       """|def test2(arg: UInt[32] <> VAL): Unit <> DFRET =
          |  val x = arg + arg
@@ -432,8 +432,8 @@ class PrintCodeStringSpec extends StageSpec:
         arg + const.toScalaInt
       o := test(1)(data)
       o := test(10)(data)
-    val id = (new DesignDefCont).getCodeString
-    assertNoDiff(
+    val id = (new DesignDefCont)
+    assertCodeString(
       id,
       """|def test_0(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
          |  arg + d"32'1"
@@ -470,8 +470,8 @@ class PrintCodeStringSpec extends StageSpec:
         led.din := !led
       else cnt.din := cnt + 1
     end Blinker
-    val id = (new Blinker(50000, 1)).getCodeString
-    assertNoDiff(
+    val id = (new Blinker(50000, 1))
+    assertCodeString(
       id,
       """|class Blinker(
          |    val CLK_FREQ_KHz: Int <> CONST = 50000,
@@ -481,11 +481,11 @@ class PrintCodeStringSpec extends StageSpec:
          |  val maxCnt: Int <> CONST = ((CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2)) - 1
          |  /** LED output */
          |  val led = Bit <> OUT.REG init 1
-         |  val cnt = UInt(clog2(maxCnt + 1)) <> VAR.REG init d"${clog2(maxCnt + 1)}'0"
-         |  if (cnt == d"${clog2(maxCnt + 1)}'5000000")
-         |    cnt.din := d"${clog2(maxCnt + 1)}'0"
+         |  val cnt = UInt(clog2(maxCnt + 1)) <> VAR.REG init d"1'0".resize(clog2(maxCnt + 1))
+         |  if (cnt == d"23'5000000".resize(clog2(maxCnt + 1)))
+         |    cnt.din := d"1'0".resize(clog2(maxCnt + 1))
          |    led.din := !led
-         |  else cnt.din := cnt + d"${clog2(maxCnt + 1)}'1"
+         |  else cnt.din := cnt + d"1'1".resize(clog2(maxCnt + 1))
          |  end if
          |end Blinker
          |""".stripMargin
@@ -498,7 +498,8 @@ class PrintCodeStringSpec extends StageSpec:
         val pr = SInt(16) <> VAR init 0
         val pw = SInt(16) <> VAR
         pr := pr.reg + 1
-      val related = new fast.RelatedDomain:
+      @hw.constraints.timing.related(fast)
+      val related = new RTDomain:
         val x = SInt(16) <> VAR init 0
       y := fast.pr + related.x
       val fastdf = new DFDomain:
@@ -506,8 +507,8 @@ class PrintCodeStringSpec extends StageSpec:
         p := 1
       fast.pw := fastdf.p
     end IDWithDomains
-    val id = (new IDWithDomains).getCodeString
-    assertNoDiff(
+    val id = (new IDWithDomains)
+    assertCodeString(
       id,
       """|class IDWithDomains extends DFDesign:
          |  val y = SInt(16) <> OUT
@@ -516,7 +517,8 @@ class PrintCodeStringSpec extends StageSpec:
          |    val pw = SInt(16) <> VAR
          |    pr := pr.reg + sd"16'1"
          |  end fast
-         |  val related = new fast.RelatedDomain:
+         |  @timing.related(fast)
+         |  val related = new RTDomain:
          |    val x = SInt(16) <> VAR init sd"16'0"
          |  end related
          |  y := fast.pr + related.x
@@ -540,8 +542,8 @@ class PrintCodeStringSpec extends StageSpec:
         val id = new ID(0)
         id.x <> dmn1.id.y
       y <> dmn2.id.y
-    val top = (new IDTop).getCodeString
-    assertNoDiff(
+    val top = (new IDTop)
+    assertCodeString(
       top,
       """|class ID(val arg: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
@@ -560,7 +562,7 @@ class PrintCodeStringSpec extends StageSpec:
          |    val id = ID(arg = 0)
          |    id.x <> dmn1.id.y
          |  end dmn2
-         |  y <> id.y
+         |  y <> dmn2.id.y
          |end IDTop
          |""".stripMargin
     )
@@ -584,8 +586,8 @@ class PrintCodeStringSpec extends StageSpec:
       y <> z
     end HasDocs
 
-    val top = (new HasDocs).getCodeString
-    assertNoDiff(
+    val top = (new HasDocs)
+    assertCodeString(
       top,
       """|/** HasDocs has docs */
          |class HasDocs extends DFDesign:
@@ -623,8 +625,8 @@ class PrintCodeStringSpec extends StageSpec:
         led.din := !led
       else cnt.din := cnt + 1
     end Blinker
-    val top = (Blinker(50000, 1)).getCodeString
-    assertNoDiff(
+    val top = (Blinker(50000, 1))
+    assertCodeString(
       top,
       """|/** This is a led blinker */
          |class Blinker(
@@ -635,11 +637,11 @@ class PrintCodeStringSpec extends StageSpec:
          |  val HALF_PERIOD: Int <> CONST = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2)
          |  /** LED output */
          |  val led = Bit <> OUT.REG init 1
-         |  val cnt = UInt(clog2(HALF_PERIOD)) <> VAR.REG init d"${clog2(HALF_PERIOD)}'0"
+         |  val cnt = UInt(clog2(HALF_PERIOD)) <> VAR.REG init d"1'0".resize(clog2(HALF_PERIOD))
          |  if (cnt == d"${clog2(HALF_PERIOD)}'${(HALF_PERIOD - 1)}")
-         |    cnt.din := d"${clog2(HALF_PERIOD)}'0"
+         |    cnt.din := d"1'0".resize(clog2(HALF_PERIOD))
          |    led.din := !led
-         |  else cnt.din := cnt + d"${clog2(HALF_PERIOD)}'1"
+         |  else cnt.din := cnt + d"1'1".resize(clog2(HALF_PERIOD))
          |  end if
          |end Blinker
          |""".stripMargin
@@ -664,8 +666,8 @@ class PrintCodeStringSpec extends StageSpec:
       val c   = h"4'7"
       val bx  = BigXor(Vector.tabulate(8)(i => c | h"4'$i"))
       sum <> bx.sum
-    val top = BigXorContainer().getCodeString
-    assertNoDiff(
+    val top = BigXorContainer()
+    assertCodeString(
       top,
       """|class BigXor(val c: Bits[4] <> CONST) extends DFDesign:
          |  val sum = Bits(4) <> OUT
@@ -688,8 +690,8 @@ class PrintCodeStringSpec extends StageSpec:
   //     val c               = h"$w'7"
   //     val bx              = BigXor(Vector.tabulate(8)(i => c | h"$w'$i"))
   //     sum <> bx.sum
-  //   val top = BigXorContainer().getCodeString
-  //   assertNoDiff(
+  //   val top = BigXorContainer()
+  //   assertCodeString(
   //     top,
   //     """|class BigXor(val c: Bits[4] <> CONST) extends DFDesign:
   //        |  val sum = Bits(4) <> OUT
@@ -712,8 +714,8 @@ class PrintCodeStringSpec extends StageSpec:
         val x = Bit <> IN
         val y = Bit <> OUT
         y <> x
-    val top = IDWithDomains().getCodeString
-    assertNoDiff(
+    val top = IDWithDomains()
+    assertCodeString(
       top,
       """|class IDWithDomains extends EDDesign:
          |  @hw.annotation.flattenMode.suffix("_")
@@ -751,8 +753,8 @@ class PrintCodeStringSpec extends StageSpec:
               ram(addr) := data
             q :== ram(addr)
     end TrueDPR
-    val top = TrueDPR().getCodeString
-    assertNoDiff(
+    val top = TrueDPR()
+    assertCodeString(
       top,
       """|class TrueDPR(
          |    val DATA_WIDTH: Int <> CONST = 4,
@@ -796,8 +798,8 @@ class PrintCodeStringSpec extends StageSpec:
       val x0 = i(0)
       val x1 = i(1)
       o := x0 ^ x1
-    val id = (new Exporting).getCodeString
-    assertNoDiff(
+    val id = (new Exporting)
+    assertCodeString(
       id,
       """|class Exporting extends DFDesign:
          |  val i = Bits(2) <> IN
@@ -820,8 +822,8 @@ class PrintCodeStringSpec extends StageSpec:
       val x3 = Bit <> IN
       val y3 = Bit <> OUT
       y3 <> x3 && x3 || x3
-    val id = (new Precedence).getCodeString
-    assertNoDiff(
+    val id = (new Precedence)
+    assertCodeString(
       id,
       """|class Precedence extends DFDesign:
          |  val x1 = Bits(8) <> IN
@@ -854,8 +856,8 @@ class PrintCodeStringSpec extends StageSpec:
       y1 := c.sel(all(0), x2)
       val zz = x2 != c.sel(x1, x2)
     end SelOp
-    val id = (new SelOp).getCodeString
-    assertNoDiff(
+    val id = (new SelOp)
+    assertCodeString(
       id,
       """|class SelOp extends DFDesign:
          |  val c = Boolean <> IN
@@ -882,8 +884,8 @@ class PrintCodeStringSpec extends StageSpec:
       val y = Bits(8) <> OUT
       if (x.|) y := x
       else y     := NOTHING
-    val top = (new HighZ).getCodeString
-    assertNoDiff(
+    val top = (new HighZ)
+    assertCodeString(
       top,
       """|class HighZ extends RTDesign:
          |  val x = Bits(8) <> IN
@@ -902,8 +904,8 @@ class PrintCodeStringSpec extends StageSpec:
       val iBits = Bits(width) <> IN
       val oBits = Bits(width) <> VAR
       oBits := (if (sel) iBits else all(0))
-    val top = (new IfWithParams).getCodeString
-    assertNoDiff(
+    val top = (new IfWithParams)
+    assertCodeString(
       top,
       """|class IfWithParams(val width: Int <> CONST = 8) extends DFDesign:
          |  val sel = Bit <> IN
@@ -927,8 +929,8 @@ class PrintCodeStringSpec extends StageSpec:
         case 0 => all(0)
         case 1 => iBits
     end MatchWithParams
-    val top = (new MatchWithParams).getCodeString
-    assertNoDiff(
+    val top = (new MatchWithParams)
+    assertCodeString(
       top,
       """|class MatchWithParams(val width: Int <> CONST = 8) extends DFDesign:
          |  val sel = Bit <> IN
@@ -958,8 +960,8 @@ class PrintCodeStringSpec extends StageSpec:
           y.din := 0
           if (x) S2 else FirstStep
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Foo extends RTDesign:
          |  val x = Bit <> IN
@@ -1002,8 +1004,8 @@ class PrintCodeStringSpec extends StageSpec:
           10.ms.wait
           if (!i) S_1 else S_2
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Foo extends RTDesign:
          |  val i = Bit <> IN
@@ -1051,8 +1053,8 @@ class PrintCodeStringSpec extends StageSpec:
         x :== 0
         1.ns.wait
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Foo extends EDDesign:
          |  val x = Bit <> OUT
@@ -1094,8 +1096,8 @@ class PrintCodeStringSpec extends StageSpec:
         ) matrix(i)(j)(k) :== 0
         10.ns.wait
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Foo extends EDDesign:
          |  val matrix = Bits(10) X 8 X 8 <> OUT
@@ -1147,8 +1149,8 @@ class PrintCodeStringSpec extends StageSpec:
           ii                   := ii + 1
         10.sec.wait
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Foo extends RTDesign:
          |  val matrix = Bits(10) X 8 X 8 <> OUT.REG
@@ -1198,8 +1200,8 @@ class PrintCodeStringSpec extends StageSpec:
           ii                   := ii + 1
         10.sec.wait
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Foo extends RTDesign:
          |  val matrix = Bits(10) X 8 X 8 <> OUT.REG
@@ -1240,8 +1242,8 @@ class PrintCodeStringSpec extends StageSpec:
           x :== !b
           5.ns.wait
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Foo extends EDDesign:
          |  val x = Bit <> OUT
@@ -1288,8 +1290,8 @@ class PrintCodeStringSpec extends StageSpec:
         debug(param3, param4, param5, param6, param7, param8, param9, param10)
         finish()
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Foo(val param: String <> CONST = "Hello\n..\"World\"!") extends EDDesign:
          |  enum MyEnum(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
@@ -1332,8 +1334,8 @@ class PrintCodeStringSpec extends StageSpec:
       val x   = Bit <> OUT
       x := bar.y
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Bar extends RTDesign:
          |  val y = Bit <> OUT
@@ -1348,10 +1350,11 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
   test("dropping width parameter in patterns") {
-    class Foo(val width: Int <> CONST = 8) extends RTDesign:
-      val bW = Bits(width) <> IN
-      val uW = UInt(width) <> IN
-      val sW = SInt(width) <> IN
+    class Foo extends RTDesign:
+      val width: Int <> CONST = 8
+      val bW                  = Bits(width) <> IN
+      val uW                  = UInt(width) <> IN
+      val sW                  = SInt(width) <> IN
       bW match
         case all(0) =>
         case all(1) =>
@@ -1365,10 +1368,11 @@ class PrintCodeStringSpec extends StageSpec:
         case 1  =>
         case _  =>
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
-      """|class Foo(val width: Int <> CONST = 8) extends RTDesign:
+      """|class Foo extends RTDesign:
+         |  val width: Int <> CONST = 8
          |  val bW = Bits(width) <> IN
          |  val uW = UInt(width) <> IN
          |  val sW = SInt(width) <> IN
@@ -1398,8 +1402,8 @@ class PrintCodeStringSpec extends StageSpec:
         val o = foo.bits
       end Bar
     import Test.*
-    val top = Bar().sanityCheck.getCodeString
-    assertNoDiff(
+    val top = Bar().sanityCheck
+    assertCodeString(
       top,
       """|val foo: UInt[8] <> CONST = d"8'0"
          |
@@ -1426,8 +1430,8 @@ class PrintCodeStringSpec extends StageSpec:
       y1 := x1.as(MyEnum)
       y2 := x2.as(MyEnum)
     end Bar
-    val top = (new Bar).getCodeString
-    assertNoDiff(
+    val top = (new Bar)
+    assertCodeString(
       top,
       """|enum MyEnum(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
          |  case Zero extends MyEnum(d"1'0")
@@ -1457,8 +1461,8 @@ class PrintCodeStringSpec extends StageSpec:
     class Foo extends RTDesign:
       val child1 = new FooChild
       val child2 = new FooChild
-    val top = (new Foo).sanityCheck.getCodeString
-    assertNoDiff(
+    val top = (new Foo).sanityCheck
+    assertCodeString(
       top,
       """|class FooChild extends RTDesign:
          |  val y = UInt(8) <> OUT init d"8'0"
@@ -1482,28 +1486,52 @@ class PrintCodeStringSpec extends StageSpec:
       val y = Bit <> OUT
 
     class Foo extends RTDesign:
-      val x  = Bit <> IN
-      val y  = Bit <> OUT
-      val ip = testIP(param1 = "Hello", param2 = 42)
-      x <> ip.x
-      y <> ip.y
+      val x1   = Bit <> IN
+      val y1   = Bit <> OUT
+      val ip1a = testIP(param1 = "Hello", param2 = 42)
+      val ip1b = testIP(param1 = "Hello", param2 = 42)
+      x1     <> ip1a.x
+      ip1a.y <> ip1b.x
+      y1     <> ip1b.y
+      val x2   = Bit <> IN
+      val y2   = Bit <> OUT
+      val ip2a = testIP(param1 = "Hello2", param2 = 222)
+      val ip2b = testIP(param1 = "Hello2", param2 = 222)
+      x2     <> ip2a.x
+      ip2a.y <> ip2b.x
+      y2     <> ip2b.y
     end Foo
 
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
-      """|class testIP extends dfhdl.platforms.ips.alteraintel.testIP(
+      """|class testIP_0 extends dfhdl.platforms.ips.alteraintel.testIP(
          |    param1 = "Hello",
          |    param2 = 42,
          |    version = ""
          |)
          |
+         |class testIP_1 extends dfhdl.platforms.ips.alteraintel.testIP(
+         |    param1 = "Hello2",
+         |    param2 = 222,
+         |    version = ""
+         |)
+         |
          |class Foo extends RTDesign:
-         |  val x = Bit <> IN
-         |  val y = Bit <> OUT
-         |  val ip = testIP()
-         |  ip.x <> x
-         |  y <> ip.y
+         |  val x1 = Bit <> IN
+         |  val y1 = Bit <> OUT
+         |  val ip1a = testIP_0()
+         |  val ip1b = testIP_0()
+         |  ip1a.x <> x1
+         |  ip1b.x <> ip1a.y
+         |  y1 <> ip1b.y
+         |  val x2 = Bit <> IN
+         |  val y2 = Bit <> OUT
+         |  val ip2a = testIP_1()
+         |  val ip2b = testIP_1()
+         |  ip2a.x <> x2
+         |  ip2b.x <> ip2a.y
+         |  y2 <> ip2b.y
          |end Foo""".stripMargin
     )
   }
@@ -1517,31 +1545,56 @@ class PrintCodeStringSpec extends StageSpec:
       val x = Bit <> IN
       val y = Bit <> OUT
 
-    class myIP extends testIP(param1 = "Hello", param2 = 42)
+    class myIP1 extends testIP(param1 = "Hello", param2 = 42)
+    class myIP2 extends testIP(param1 = "Hello2", param2 = 222)
 
     class Foo extends RTDesign:
-      val x  = Bit <> IN
-      val y  = Bit <> OUT
-      val ip = myIP()
-      x <> ip.x
-      y <> ip.y
+      val x1   = Bit <> IN
+      val y1   = Bit <> OUT
+      val ip1a = myIP1()
+      val ip1b = myIP1()
+      x1     <> ip1a.x
+      ip1a.y <> ip1b.x
+      y1     <> ip1b.y
+      val x2   = Bit <> IN
+      val y2   = Bit <> OUT
+      val ip2a = myIP2()
+      val ip2b = myIP2()
+      x2     <> ip2a.x
+      ip2a.y <> ip2b.x
+      y2     <> ip2b.y
     end Foo
 
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
-      """|class myIP extends dfhdl.platforms.ips.alteraintel.testIP(
+      """|class myIP1 extends dfhdl.platforms.ips.alteraintel.testIP(
          |    param1 = "Hello",
          |    param2 = 42,
          |    version = ""
          |)
          |
+         |class myIP2 extends dfhdl.platforms.ips.alteraintel.testIP(
+         |    param1 = "Hello2",
+         |    param2 = 222,
+         |    version = ""
+         |)
+         |
          |class Foo extends RTDesign:
-         |  val x = Bit <> IN
-         |  val y = Bit <> OUT
-         |  val ip = myIP()
-         |  ip.x <> x
-         |  y <> ip.y
+         |  val x1 = Bit <> IN
+         |  val y1 = Bit <> OUT
+         |  val ip1a = myIP1()
+         |  val ip1b = myIP1()
+         |  ip1a.x <> x1
+         |  ip1b.x <> ip1a.y
+         |  y1 <> ip1b.y
+         |  val x2 = Bit <> IN
+         |  val y2 = Bit <> OUT
+         |  val ip2a = myIP2()
+         |  val ip2b = myIP2()
+         |  ip2a.x <> x2
+         |  ip2b.x <> ip2a.y
+         |  y2 <> ip2b.y
          |end Foo""".stripMargin
     )
   }
@@ -1562,8 +1615,8 @@ class PrintCodeStringSpec extends StageSpec:
       inner.x <> x
       y       <> inner.y.resize(baseWidth)
     end Outer
-    val top = (new Outer).getCodeString
-    assertNoDiff(
+    val top = (new Outer)
+    assertCodeString(
       top,
       """|class Inner(val width: Int <> CONST) extends RTDesign:
          |  val depth: Int <> CONST = width + 1
@@ -1595,10 +1648,10 @@ class PrintCodeStringSpec extends StageSpec:
       val font                      = Bar(data_width = data_width2)
       val col_index                 = UInt(8) <> VAR
       col_index := 0
-      val x = font.dout(col_index.truncate)
+      val x = font.dout(col_index.resize)
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Bar(val data_width: Int <> CONST) extends RTDesign:
          |  val dout = Bits(data_width) <> OUT
@@ -1621,8 +1674,8 @@ class PrintCodeStringSpec extends StageSpec:
     class Foo extends RTDesign:
       val x = UInt(ParamB) <> IN
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|val ParamA: Int <> CONST = 1000
          |val ParamB: Int <> CONST = ParamA + 1
@@ -1646,8 +1699,8 @@ class PrintCodeStringSpec extends StageSpec:
       val p6 = p5 - 2 + 1
       val p7 = p6 - 2 - 1 - 4
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|val p0: Int <> CONST = 11
          |val w: Int <> CONST = clog2(p0) + 1
@@ -1681,8 +1734,8 @@ class PrintCodeStringSpec extends StageSpec:
           x.din := !x
         end MyFor
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Foo extends RTDesign:
          |  val x = Bit <> OUT.REG init 0
@@ -1708,8 +1761,8 @@ class PrintCodeStringSpec extends StageSpec:
       val LEN: Int <> CONST = 8
       val v                 = Bits(LEN) <> VAR
       val o                 = v(LEN - 2, 0)
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Foo extends DFDesign:
          |  val LEN: Int <> CONST = 8
@@ -1724,8 +1777,8 @@ class PrintCodeStringSpec extends StageSpec:
       val x = UInt(3) <> IN
       val y = x.resize(16).bits.sint
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Foo extends DFDesign:
          |  val x = UInt(3) <> IN
@@ -1739,8 +1792,8 @@ class PrintCodeStringSpec extends StageSpec:
     class Foo extends EDDesign:
       val inst_a = Mid()
       val inst_b = Mid()
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class Mid extends EDDesign
          |
@@ -1775,8 +1828,8 @@ class PrintCodeStringSpec extends StageSpec:
       // Instance 2: B omitted (uses default 0), C explicit
       val c2 = child(A = W, C = 7)
       c2.din <> din
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|class child(
          |    val A: Int <> CONST = 8,
@@ -1814,8 +1867,8 @@ class PrintCodeStringSpec extends StageSpec:
       val x = Bits(8) <> IN
       val o = bar(x)
     end Foo
-    val top = (new Foo).getCodeString
-    assertNoDiff(
+    val top = (new Foo)
+    assertCodeString(
       top,
       """|def bar(lhs: Bits[8] <> VAL): Bits[8] <> DFRET =
          |  lhs ^ h"1b"
@@ -1828,25 +1881,114 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
 
-  // Regression test for exponential compile time with chained transparent inline operations.
-  // Before the FlattenInlinedPhase.minimizeCall optimization, 9 additions took 130s and
-  // 20 additions were impossible (hours/OOM). If this test causes compilation to hang or
-  // OOM, the optimization in FlattenInlinedPhase has regressed.
+  test("multi-arg func merging with global params, design param defaults, and applications") {
+    val GlobalA: Int <> CONST = 2
+    val GlobalB: Int <> CONST = GlobalA + GlobalA + GlobalA
+    class Foo(
+        val P1: Int <> CONST = GlobalA + GlobalB + GlobalA,
+        val P2: Int <> CONST = GlobalA * GlobalB * GlobalA
+    ) extends RTDesign:
+      val s: Int <> CONST = P1 + P2 + P1
+      val x               = UInt(s)       <> IN
+      val y               = UInt(s)       <> IN
+      val z               = UInt(s)       <> IN
+      val o               = UInt(s)       <> OUT
+      val w               = UInt(GlobalB) <> IN
+      val u               = UInt(GlobalB) <> OUT
+      o := x + y + z
+      u := w + w + w
+    end Foo
+    val top = (new Foo)
+    assertCodeString(
+      top,
+      """|val GlobalA: Int <> CONST = 2
+         |val GlobalB: Int <> CONST = GlobalA + GlobalA + GlobalA
+         |
+         |class Foo(
+         |    val P1: Int <> CONST = GlobalA + GlobalB + GlobalA,
+         |    val P2: Int <> CONST = GlobalA * GlobalB * GlobalA
+         |) extends RTDesign:
+         |  val s: Int <> CONST = P1 + P2 + P1
+         |  val x = UInt(s) <> IN
+         |  val y = UInt(s) <> IN
+         |  val z = UInt(s) <> IN
+         |  val o = UInt(s) <> OUT
+         |  val w = UInt(GlobalB) <> IN
+         |  val u = UInt(GlobalB) <> OUT
+         |  o := x + y + z
+         |  u := w + w + w
+         |end Foo""".stripMargin
+    )
+  }
+
   test("long chain of chained transparent inline operations compiles successfully") {
+    // Regression test for exponential compile time with chained transparent inline operations.
+    // Before the FlattenInlinedPhase.minimizeCall optimization, 9 additions took 130s and
+    // 20 additions were impossible (hours/OOM). If this test causes compilation to hang or
+    // OOM, the optimization in FlattenInlinedPhase has regressed.
     class LongChain extends DFDesign:
       val a = UInt(8) <> IN
       val o = UInt(8) <> OUT
-      o <> (a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a)
+      o <>
+        (a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a)
     end LongChain
-    val top = (new LongChain).getCodeString
-    assertNoDiff(
+    val top = (new LongChain)
+    assertCodeString(
       top,
       """|class LongChain extends DFDesign:
          |  val a = UInt(8) <> IN
          |  val o = UInt(8) <> OUT
-         |  o <> ((((((((((((((((((((a + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a) + a)
+         |  o <> (a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a + a)
          |end LongChain""".stripMargin
     )
   }
 
+  test("different width parameters in nested designs") {
+    class ID(val WIDTH: Int <> CONST = 10) extends EDDesign:
+      val x = Bits(WIDTH) <> IN
+      val y = Bits(WIDTH) <> OUT
+      y <> x
+    end ID
+
+    class Foo(
+        val WIDTH1: Int <> CONST = 8,
+        val WIDTH2: Int <> CONST = 4
+    ) extends EDDesign:
+      val x1  = Bits(WIDTH1 + 2)          <> IN
+      val x2  = Bits(WIDTH2 + 3)          <> IN
+      val y   = Bits(WIDTH1 + WIDTH2 + 5) <> OUT
+      val id1 = ID(WIDTH = WIDTH1 + 2)
+      val id2 = ID(WIDTH = WIDTH2 + 3)
+      id1.x <> x1
+      id2.x <> x2
+      val id1_y = id1.y
+      val id2_y = id2.y
+      y <> (id1_y, id2_y).toBits
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class ID(val WIDTH: Int <> CONST = 10) extends EDDesign:
+         |  val x = Bits(WIDTH) <> IN
+         |  val y = Bits(WIDTH) <> OUT
+         |  y <> x
+         |end ID
+         |
+         |class Foo(
+         |    val WIDTH1: Int <> CONST = 8,
+         |    val WIDTH2: Int <> CONST = 4
+         |) extends EDDesign:
+         |  val x1 = Bits(WIDTH1 + 2) <> IN
+         |  val x2 = Bits(WIDTH2 + 3) <> IN
+         |  val y = Bits(WIDTH1 + WIDTH2 + 5) <> OUT
+         |  val id1 = ID(WIDTH = WIDTH1 + 2)
+         |  val id2 = ID(WIDTH = WIDTH2 + 3)
+         |  id1.x <> x1
+         |  id2.x <> x2
+         |  val id1_y = id1.y
+         |  val id2_y = id2.y
+         |  y <> (id1_y, id2_y).toBits
+         |end Foo""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

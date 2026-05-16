@@ -17,8 +17,8 @@ class ALU extends DFDesign:
     case AND   => op1 & op2
     case OR    => op1 | op2
     case XOR   => op1 ^ op2
-    case SLT   => (op1.sint < op2.sint).extend
-    case SLTU  => (op1.uint < op2.uint).extend
+    case SLT   => (op1.sint < op2.sint).resize
+    case SLTU  => (op1.uint < op2.uint).resize
     case SLL   => op1 << shamt
     case SRL   => op1 >> shamt
     case SRA   => (op1.sint >> shamt).bits

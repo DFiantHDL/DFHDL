@@ -1,4 +1,4 @@
 package docExamples.ugdemos.demo3
 
-class LeftShiftGenSpec extends util.FullCompileSpec:
+class LeftShiftGenSpec extends dfhdl.util.FullCompileSpec:
   def dut = LeftShiftGen()

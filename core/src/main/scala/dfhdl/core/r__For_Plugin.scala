@@ -9,6 +9,7 @@ import dfhdl.internals.metaContextForward
 import dfhdl.compiler.ir.DFConditional
 import scala.annotation.Annotation
 import dfhdl.hw.annotation.getActiveHWAnnotations
+import dfhdl.compiler.printing.{Printer, DefaultPrinter}
 
 object r__For_Plugin:
   def metaGen(
@@ -33,23 +34,30 @@ object r__For_Plugin:
       .asInstanceOf[V]
   def patternSingleton(selector: DFValAny, value: Any)(using dfc: DFC): Pattern =
     import dfc.getSet
+    given Printer = DefaultPrinter
     val const = (selector.dfType.asIR, value) match
       case (dt: ir.DFBoolOrBit, v: Int) if v == 0 | v == 1 =>
         DFVal.Const(dt.asFE[DFBoolOrBit], Some(v > 0))
       case (dt: ir.DFBoolOrBit, v: Boolean) =>
         DFVal.Const(dt.asFE[DFBoolOrBit], Some(v))
       case (dt: ir.DFBits, allBit: BitOrBool) =>
-        // removing width as a parameter in patterns
-        val dfType = DFBits(dt.width)
+        val width = dt.widthIntOpt.getOrElse(throw new IllegalArgumentException(
+          s"Cannot pattern match against parameterized `${selector.dfType.codeString}` type."
+        ))
+        // removing width as local parameter dependency in patterns
+        val dfType = DFBits(width)
         SameElementsVector.bitsValOf(
-          dfType.asFE[DFBits[Int]].widthIntParam,
+          dfType.widthIntParam,
           SameElementsVector(allBit)
         )
       case (dt: ir.DFDecimal, v: Int) =>
-        // removing width as a parameter in patterns
+        val width = dt.widthIntOpt.getOrElse(throw new IllegalArgumentException(
+          s"Cannot pattern match against parameterized `${selector.dfType.codeString}` type."
+        ))
+        // removing width as local parameter dependency in patterns
         val dfType = dt.runtimeChecked match
-          case ir.DFUInt(_) => DFUInt(dt.width)
-          case ir.DFSInt(_) => DFSInt(dt.width)
+          case ir.DFUInt(_) => DFUInt(width)
+          case ir.DFSInt(_) => DFSInt(width)
         DFVal.Const(dfType.asFE[DFSInt[Int]], Some(BigInt(v)))
       case (dt: ir.DFEnum, v: DFEncoding) =>
         DFVal.Const(dt.asFE[DFEnum[DFEncoding]], Some(v.bigIntValue))
@@ -108,15 +116,15 @@ object r__For_Plugin:
       defaultVal: Option[DFValAny],
       paramMeta: ir.Meta
   )(using DFC): V =
+    // the applied values are not refernced in the usual way, so we inject a possible
+    // global context here.
+    appliedVal.asIR.injectGlobalCtx()
     trydf:
       dfc.mutableDB.DesignContext.getReachableNamedValue(
         appliedVal.asIR,
         DFVal.DesignParam(appliedVal, defaultVal)(using dfc.setMeta(paramMeta)).asIR
       ).asValAny.asInstanceOf[V]
-  def prepareDesignParamValues(paramNames: List[String], paramValues: List[DFValAny])(using
-      DFC
-  ): Unit =
-    dfc.mutableDB.DesignContext.prepareDesignParamValues(paramNames, paramValues)
+
   @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =
     dfc.mutableDB.DesignContext.getDefInput(idx).asInstanceOf[V]
@@ -130,18 +138,19 @@ object r__For_Plugin:
     val designBlock =
       Design.Block.apply(
         domain = ir.DomainType.DF,
-        dclMeta = dclMeta,
         instMode = ir.DFDesignBlock.InstMode.Def
-      )
+      )(using dfc.setMeta(dclMeta))
     dfc.enterOwner(designBlock)
     val inputs = args.map { (arg, argMeta) =>
       DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
     }
     val (isDuplicate, ret): (Boolean, V) =
       dfc.mutableDB.DesignContext.runFuncWithInputs(func, inputs)
-    Design.Block.updateWithParams(designBlock.asIR)
+    val paramEntries = Design.Inst.collectParamEntries
     def exitAndConnectInputs() =
+      val endedDesign = designBlock.asIR
       dfc.exitOwner()
+      Design.Inst(endedDesign, paramEntries)
       inputs.lazyZip(args).foreach { case (input, (arg, _)) =>
         input.connect(arg)(using dfc.anonymize)
       }
@@ -164,4 +173,17 @@ object r__For_Plugin:
   end designFromDef
   def identVal[V <: DFValAny](value: V)(using DFC): V =
     DFVal.Alias.AsIs.ident(value).asInstanceOf[V]
+  object defaults:
+    def bool(using DFC): DFConstOf[DFBool] = DFVal.Const.synthetic(DFBool)
+    def bit(using DFC): DFConstOf[DFBit] = DFVal.Const.synthetic(DFBit)
+    def int32(using DFC): DFConstOf[DFInt32] = DFVal.Const.synthetic(DFInt32)
+    def string(using DFC): DFConstOf[DFString] = DFVal.Const.synthetic(DFString)
+    def double(using DFC): DFConstOf[DFDouble] = DFVal.Const.synthetic(DFDouble)
+    def bits[W <: Int](width: Int)(using DFC): DFConstOf[DFBits[W]] =
+      DFVal.Const.synthetic(DFBits.forced[W](width))
+    def uint[W <: Int](width: Int)(using DFC): DFConstOf[DFUInt[W]] =
+      DFVal.Const.synthetic(DFUInt.forced[W](width))
+    def sint[W <: Int](width: Int)(using DFC): DFConstOf[DFSInt[W]] =
+      DFVal.Const.synthetic(DFSInt.forced[W](width))
+  end defaults
 end r__For_Plugin

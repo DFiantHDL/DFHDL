@@ -37,7 +37,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     printer.dialect match
       case VerilogDialect.v95 => false
       case _                  => true
-  val noDefaultParamSupport: Boolean =
+  val missingParamDefaultSupport: Boolean =
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
@@ -110,17 +110,20 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     )
     val designParamList = designMembers.collect { case param: DesignParam =>
       val defaultValue =
-        if (design.isTop) s" = ${param.appliedOrDefaultValRef.refCodeString}"
+        if (design.isTopTop)
+          if (param.appliedOrDefaultVal.hasTagOf[SyntheticDefaultTag]) ""
+          else s" = ${param.appliedOrDefaultValRef.refCodeString}"
         else
           param.defaultValRef.get match
             case DFMember.Empty =>
               // missing default values are supported
-              if (noDefaultParamSupport) ""
+              if (missingParamDefaultSupport) ""
               // missing default values are not supported, so we fetch a valid constant data
               // (different instances may have different constant data, but for default,
               // a single module description can have any valid data, just to satisfy the standard)
-              else s" = ${printer.csConstData(param.dfType, param.getConstData.get)}"
-            case _ => s" = ${param.defaultValRef.refCodeString}"
+              else
+                s" = ${printer.csDesignParamDefault(param)}"
+            case _ => s" = ${printer.csDesignParamDefault(param)}"
       val csType = printer.csDFType(param.dfType).emptyOr(_ + " ")
       val csTypeNoLogic = if (printer.supportLogicType) csType else csType.replace("logic ", "")
       s"parameter ${csTypeNoLogic}${param.getName}$defaultValue"
@@ -166,18 +169,19 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
        |
        |${csModuleDcl(design)}
        |""".stripMargin
-  def csDFDesignBlockInst(design: DFDesignBlock): String =
-    val body = csDFDesignLateBody(design)
-    val designParamList = design.paramMap.view.map { (name, ref) =>
+  def csDFDesignBlockInst(inst: DFDesignInst): String =
+    val design = inst.getDesignBlock
+    val body = csDFDesignLateBody(inst)
+    val designParamList = inst.paramMap.view.map { (name, ref) =>
       s".${name} (${ref.refCodeString})"
     }.toList
     val designParamCS =
       if (designParamList.isEmpty || design.isVendorIPBlackbox) ""
       else " #(" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
-    val inst = s"${moduleName(design)}$designParamCS ${design.getName}"
-    if (body.isEmpty) s"$inst;" else s"$inst(\n${body.hindent}\n);"
+    val instCS = s"${moduleName(design)}$designParamCS ${inst.getName}"
+    if (body.isEmpty) s"$instCS;" else s"$instCS(\n${body.hindent}\n);"
   def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
-  def csDFDesignDefInst(design: DFDesignBlock): String = printer.unsupported
+  def csDFDesignDefInst(inst: DFDesignInst): String = printer.unsupported
   def csBlockBegin: String = "begin"
   def csBlockEnd: String = "end"
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"

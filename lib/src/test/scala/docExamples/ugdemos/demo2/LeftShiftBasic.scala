@@ -1,10 +1,10 @@
 //format: off
 package docExamples.ugdemos.demo2
 import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 
 /** A basic left shifter */
-@top class LeftShiftBasic(
+class LeftShiftBasic(
     val width: Int = 8
 ) extends RTDesign:
   /** bits input */

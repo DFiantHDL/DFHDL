@@ -71,7 +71,7 @@ endmodule
 ```
 
 ```scala linenums="0" title="DFHDL"
-@top class lfsr(
+class lfsr(
   val LEN: Int <> CONST = 8
 ) extends EDDesign:
   val clk  = Bit      <> IN
@@ -394,7 +394,7 @@ endmodule
 ```
 
 ```scala linenums="0" title="DFHDL"
-@top class Foo extends EDDesign:
+class Foo extends EDDesign:
   val clk  = Bit <> IN
   val din  = Bit <> IN
   val dout = Bit <> OUT init 1
@@ -850,7 +850,7 @@ val result     = UInt(8) <> OUT
 
 // Use carry ops to match Verilog's
 // overflow-free semantics
-result <> ((a +^ b +^ c +^ d) / 4).truncate
+result <> ((a +^ b +^ c +^ d) / 4).resize
 ```
 
 </div>

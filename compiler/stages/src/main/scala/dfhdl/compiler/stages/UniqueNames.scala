@@ -83,7 +83,9 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
           case IteratorDcl() => None
           // no need to rename binds, since there is no collision
           // and will be handled after the binds are converted to explicit selectors
-          case Bind(_)                             => None
+          case Bind(_) => None
+          // design block names are their declaration names (design/class name), so they are handled differently
+          case _: DFDesignBlock                    => None
           case m: DFMember.Named if !m.isAnonymous => Some(m)
           case _                                   => None
         },

@@ -1,14 +1,14 @@
 //format: off
 package docExamples.ugdemos.demo3
 import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 
 /** A generic left shifter 
   *   
   * @param width
   *   the width of the input and output bits
   */
-@top class LeftShiftGen(
+class LeftShiftGen(
     val width: Int <> CONST = 8,
 ) extends RTDesign:
   /** bits input */

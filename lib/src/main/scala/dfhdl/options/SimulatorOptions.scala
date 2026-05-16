@@ -7,10 +7,10 @@ import dfhdl.tools.toolsCore.Simulator
 import dfhdl.backends
 
 final case class SimulatorOptions(
-    onError: OnError,
+    onError: _OnError,
     Werror: WError,
-    verilogSimulator: VerilogSimulator,
-    vhdlSimulator: VHDLSimulator,
+    verilogSimulator: _VerilogSimulator,
+    vhdlSimulator: _VHDLSimulator,
     runLimit: RunLimit
 ) extends ToolOptions:
   def getTool(using co: CompilerOptions): Simulator =
@@ -20,7 +20,7 @@ final case class SimulatorOptions(
 
 //defaults common for all linting tools
 object SimulatorOptions:
-  opaque type Defaults[-T <: Design] <: SimulatorOptions = SimulatorOptions
+  opaque type Defaults[-T] <: SimulatorOptions = SimulatorOptions
   object Defaults:
     given (using
         onError: OnError,
@@ -28,17 +28,19 @@ object SimulatorOptions:
         verilogSimulator: VerilogSimulator,
         vhdlSimulator: VHDLSimulator,
         runLimit: RunLimit
-    ): Defaults[Design] = SimulatorOptions(
-      onError = onError, Werror = Werror, verilogSimulator = verilogSimulator,
-      vhdlSimulator = vhdlSimulator, runLimit = runLimit
+    ): Defaults[Any] = SimulatorOptions(
+      onError = onError(dfhdl.options.OnError), Werror = Werror,
+      verilogSimulator = verilogSimulator(dfhdl.tools.simulators.verilogSimulators),
+      vhdlSimulator = vhdlSimulator(dfhdl.tools.simulators.vhdlSimulators), runLimit = runLimit
     )
   given (using defaults: Defaults[Design]): SimulatorOptions = defaults
 
-  into opaque type OnError <: dfhdl.options.ToolOptions.OnError = dfhdl.options.ToolOptions.OnError
-  object OnError:
+  type OnError = dfhdl.options.OnError.type => _OnError
+  private[dfhdl] into opaque type _OnError <: dfhdl.options.ToolOptions._OnError =
+    dfhdl.options.ToolOptions._OnError
+  private[dfhdl] object _OnError:
     given (using onError: dfhdl.options.ToolOptions.OnError): OnError = onError
-    given Conversion[dfhdl.options.OnError, OnError] = x => x.asInstanceOf[OnError]
-    export dfhdl.options.OnError.*
+    given Conversion[dfhdl.options._OnError, _OnError] = x => x.asInstanceOf[_OnError]
 
   into opaque type WError <: dfhdl.options.ToolOptions.WError = dfhdl.options.ToolOptions.WError
   object WError:
@@ -46,23 +48,23 @@ object SimulatorOptions:
     given [T](using conv: Conversion[T, dfhdl.options.ToolOptions.WError]): Conversion[T, WError] =
       t => conv(t).asInstanceOf[WError]
 
-  into opaque type VerilogSimulator <: dfhdl.tools.toolsCore.VerilogSimulator =
+  type VerilogSimulator = dfhdl.tools.simulators.verilogSimulators.type => _VerilogSimulator
+  protected[dfhdl] into opaque type _VerilogSimulator <: dfhdl.tools.toolsCore.VerilogSimulator =
     dfhdl.tools.toolsCore.VerilogSimulator
-  object VerilogSimulator:
-    export dfhdl.tools.simulators.{verilator, iverilog, vlog, xvlog, questa, vsim, vivado, xsim}
-    given VerilogSimulator = verilator
-    given Conversion[dfhdl.tools.toolsCore.VerilogSimulator, VerilogSimulator] = identity
-    given Conversion[questa.type, VerilogSimulator] = _ => vlog
-    given Conversion[vivado.type, VerilogSimulator] = _ => xvlog
+  protected[dfhdl] object _VerilogSimulator:
+    given VerilogSimulator = _.verilator
+    given Conversion[dfhdl.tools.toolsCore.VerilogSimulator, _VerilogSimulator] = identity
+    given Conversion[dfhdl.tools.simulators.questa.type, VerilogSimulator] = _ => _.vlog
+    given Conversion[dfhdl.tools.simulators.vivado.type, VerilogSimulator] = _ => _.xvlog
 
-  into opaque type VHDLSimulator <: dfhdl.tools.toolsCore.VHDLSimulator =
+  type VHDLSimulator = dfhdl.tools.simulators.vhdlSimulators.type => _VHDLSimulator
+  protected[dfhdl] into opaque type _VHDLSimulator <: dfhdl.tools.toolsCore.VHDLSimulator =
     dfhdl.tools.toolsCore.VHDLSimulator
-  object VHDLSimulator:
-    export dfhdl.tools.simulators.{ghdl, nvc, vcom, xvhdl, questa, vsim, vivado, xsim}
-    given VHDLSimulator = ghdl
-    given Conversion[dfhdl.tools.toolsCore.VHDLSimulator, VHDLSimulator] = identity
-    given Conversion[questa.type, VHDLSimulator] = _ => vcom
-    given Conversion[vivado.type, VHDLSimulator] = _ => xvhdl
+  protected[dfhdl] object _VHDLSimulator:
+    given VHDLSimulator = _.ghdl
+    given Conversion[dfhdl.tools.toolsCore.VHDLSimulator, _VHDLSimulator] = identity
+    given Conversion[dfhdl.tools.simulators.questa.type, VHDLSimulator] = _ => _.vcom
+    given Conversion[dfhdl.tools.simulators.vivado.type, VHDLSimulator] = _ => _.xvhdl
 
   into opaque type RunLimit <: (Duration | None.type) = (Duration | None.type)
   object RunLimit:

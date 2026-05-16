@@ -2,7 +2,7 @@ package docExamples.trueDPR
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.*
 
-@top class TrueDPR(
+class TrueDPR(
     val DATA_WIDTH: Int <> CONST = 8,
     val ADDR_WIDTH: Int <> CONST = 8
 ) extends EDDesign:
@@ -29,7 +29,7 @@ end TrueDPR
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Select backend compiler:
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 // Uncomment to enable printing design code after elaboration (before compilation):
 // given options.ElaborationOptions.PrintDFHDLCode = true
 // Uncomment to enable printing design code after compilation:

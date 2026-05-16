@@ -2,7 +2,7 @@ package docExamples.counter
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.* //import all the DFHDL goodness
 
-@top class Counter(val width: Int <> CONST = 8) extends RTDesign:
+class Counter(val width: Int <> CONST = 8) extends RTDesign:
   val en  = Bit         <> IN
   val cnt = UInt(width) <> OUT.REG init 0
   if (en)
@@ -18,7 +18,7 @@ import dfhdl.* //import all the DFHDL goodness
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Select backend compiler:
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 // Uncomment to enable printing design code after elaboration (before compilation):
 // given options.ElaborationOptions.PrintDFHDLCode = true
 // Uncomment to enable printing design code after compilation:

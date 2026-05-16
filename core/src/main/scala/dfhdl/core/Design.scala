@@ -16,9 +16,7 @@ trait Design extends Container, HasClsMetaArgs:
   final protected given TScope = DFC.Scope.Design
   private[core] def mkInstMode: InstMode = InstMode.Normal
   private[dfhdl] def initOwner: TOwner =
-    Design.Block(__domainType, ir.Meta(Some("???"), Position.unknown, None, Nil), InstMode.Normal)(
-      using dfc
-    )
+    Design.Block(__domainType, InstMode.Normal)(using dfc.anonymize)
   final protected def setClsNamePos(
       name: String,
       position: Position,
@@ -40,12 +38,12 @@ trait Design extends Container, HasClsMetaArgs:
             InstMode.BlackBox(InstMode.BlackBox.Source.VendorIP(vendor, name))
       case instMode => instMode
     // the default RT Domain configuration is set as a global tag
-    getSet.setGlobalTag(ir.DefaultRTDomainCfgTag(dfc.elaborationOptions.defaultRTDomainCfg))
+    getSet.setGlobalTag(dfc.elaborationOptions.defaultRTDomainCfgTag)
     // the DFHDL version is set as a global tag
     getSet.setGlobalTag(ir.DFHDLVersionTag(dfhdl.dfhdlVersion))
     getSet.replace(designBlock)(
       designBlock.copy(
-        dclMeta = r__For_Plugin.metaGen(Some(name), position, docOpt, annotations),
+        meta = r__For_Plugin.metaGen(Some(name), position, docOpt, annotations),
         instMode = instMode
       )
     )
@@ -54,11 +52,13 @@ trait Design extends Container, HasClsMetaArgs:
   final override def onCreateStartLate: Unit =
     hasStartedLate = true
     import dfc.getSet
-    Design.Block.updateWithParams(containedOwner.asIR)
+    val paramEntries = Design.Inst.collectParamEntries
     if (dfc.owner.asIR.getThisOrOwnerDesign.isDeviceTop)
       handleResourceConstraints()
       dfc.mutableDB.ResourceOwnershipContext.emptyTopResourceOwners()
+    val endedDesign = containedOwner.asIR
     dfc.exitOwner()
+    Design.Inst(endedDesign, paramEntries)
     dfc.enterLate()
   private[dfhdl] def skipChecks: Boolean = false
 
@@ -166,30 +166,60 @@ object Design:
   import ir.DFDesignBlock.InstMode
   type Block = DFOwner[ir.DFDesignBlock]
   object Block:
-    def apply(domain: ir.DomainType, dclMeta: ir.Meta, instMode: InstMode)(using DFC): Block =
-      val paramMap = ListMap.from(
-        dfc.mutableDB.DesignContext.getDesignParamValueMap.view.mapValues(
-          _.asIR.refTW[ir.DFDesignBlock]
-        )
-      )
+    def apply(domain: ir.DomainType, instMode: InstMode)(using DFC): Block =
       ir.DFDesignBlock(
-        domain, dclMeta, instMode, paramMap, dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
+        domain, instMode, dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
       ).addMember.asFE
     end apply
-    protected[core] def updateWithParams(designBlock: ir.DFDesignBlock)(using dfc: DFC): Unit =
-      import dfc.getSet
-      val paramMap =
-        ListMap.from(
-          dfc.mutableDB.DesignContext.current.getImmutableMemberList.view.collect {
-            case dp: ir.DFVal.DesignParam =>
-              val dfVal = dp.appliedValOpt.get
-              // invalidating the param cache value after design elaboration
-              dp.clearCachedAppliedVal()
-              dp.getName -> dfVal.refTW[ir.DFDesignBlock](knownReachable = true)
-          }.toMap
-        )
-      getSet.replace(designBlock)(designBlock.copy(paramMap = paramMap))
   end Block
+  object Inst:
+    // Collect (name, appliedVal) entries while still inside the child design context.
+    // Must be called BEFORE `dfc.exitOwner()` because it relies on the cached
+    // applied value and the child context's member list.
+    protected[core] def collectParamEntries(using dfc: DFC): List[(String, ir.DFVal)] =
+      import dfc.getSet
+      dfc.mutableDB.DesignContext.current.getImmutableMemberList.view.collect {
+        case dp: ir.DFVal.DesignParam =>
+          val dfVal = dp.appliedValOpt.get
+          // invalidating the param cache value after design elaboration
+          dp.clearCachedAppliedVal()
+          dp.getName -> dfVal
+      }.toList
+    // Construct a DFDesignInst member in the parent context that points back
+    // at `designBlock`. Called from `onCreateStartLate` after
+    // `dfc.exitOwner()` so `dfc.ownerOrEmptyRef` resolves to the enclosing
+    // owner. The top-level design has no instantiation site (no instance
+    // name, no applied parameters — only defaults), so we skip it.
+    // The paramMap's TwoWay refs are built here so they are registered in the
+    // current (parent) context — important for duplicate designs whose child
+    // refTable is only partially transferred up (public members only). For
+    // top designs we skip building entirely because there is no DFDesignInst
+    // to register as the refs' origin member, which would orphan the refs.
+    protected[core] def apply(
+        designBlock: ir.DFDesignBlock,
+        paramEntries: List[(String, ir.DFVal)]
+    )(using dfc: DFC): Unit =
+      import dfc.getSet
+      if (!designBlock.isTop)
+        val paramMap = ListMap.from(paramEntries.view.map { (name, dfVal) =>
+          name -> dfVal.refTW[ir.DFDesignInst](knownReachable = true)
+        })
+        val inst = ir.DFDesignInst(
+          designRef = designBlock.ref,
+          paramMap = paramMap,
+          ownerRef = dfc.owner.ref,
+          meta = dfc.getMeta,
+          tags = dfc.tags
+        )
+        // `designBlock` here is the pre-elaboration IR captured via
+        // `containedOwner.asIR`, which may be stale after `setClsNamePos`
+        // replaced it. Resolve the ref to reach the current DB version so
+        // the cache lives on the block that `getDesignInst` looks up later.
+        inst.designRef.get.setDesignInstCache(inst)
+        dfc.mutableDB.addMember(inst)
+      end if
+    end apply
+  end Inst
   extension [D <: Design](dsn: D)
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
     infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
@@ -210,14 +240,20 @@ object Design:
 
   extension (designDB: ir.DB)
     def latchesCheck(): Unit =
-      import designDB.getSet
-      val danglingVars = designDB.getImplicitStateVarsRT.view
-        .map { v =>
-          s"""|DFiant HDL connectivity/assignment error!
-              |Position:  ${v.meta.position}
-              |Hierarchy: ${v.getOwnerDomain.getFullName}
-              |Message:   Found a latch variable `${v.getName}`. Latches are not allowed under RT domains.""".stripMargin
-        }
+      val newDB = designDB.oldToNew
+      // Under B-pure, root has empty members and a non-functional getSet —
+      // only iterate the sub-DBs (which already cover every design).
+      val allDBs = newDB.subDBs.values.toList
+      val danglingVars = allDBs.view.flatMap { db =>
+        given ir.MemberGetSet = db.getSet
+        db.getImplicitStateVarsRT.view
+          .map { v =>
+            s"""|DFiant HDL connectivity/assignment error!
+                |Position:  ${v.meta.position}
+                |Hierarchy: ${v.getOwnerDomain.getFullName}
+                |Message:   Found a latch variable `${v.getName}`. Latches are not allowed under RT domains.""".stripMargin
+          }
+      }
       if (danglingVars.nonEmpty)
         throw new IllegalArgumentException(danglingVars.mkString("\n"))
   end extension
@@ -225,11 +261,7 @@ end Design
 
 abstract class DFDesign extends DomainContainer(DomainType.DF), Design
 
-abstract class RTDesign(cfg: RTDomainCfg = RTDomainCfg.Derived)
-    extends RTDomainContainer(cfg),
-      Design:
-  related =>
-  abstract class RelatedDomain extends RTDomain(RTDomainCfg.Related(related))
+abstract class RTDesign extends RTDomainContainer, Design
 
 abstract class EDDesign extends DomainContainer(DomainType.ED), Design
 

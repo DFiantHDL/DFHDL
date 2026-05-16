@@ -178,12 +178,15 @@ trait AbstractValPrinter extends AbstractPrinter:
           case Special.CLK_FREQ => "CLK_FREQ"
   def csDFValNamed(dfVal: DFVal): String
   final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner | DFMember.Empty): String =
-    dfVal.stripPortSel match
-      case expr: CanBeExpr if expr.isAnonymous   => csDFValExpr(expr)
+    dfVal match
       case PortOfDesignDef(Modifier.OUT, design) =>
         if (design.isAnonymous) printer.csDFDesignDefInst(design)
         else design.getName
-      case dfVal => dfVal.getRelativeName(fromOwner)
+      case pbns: DFVal.PortByNameSelect =>
+        val designInst = pbns.designInstRef.get
+        s"${designInst.getRelativeName(fromOwner)}.${pbns.portNamePath}"
+      case expr: CanBeExpr if expr.isAnonymous => csDFValExpr(expr)
+      case _                                   => dfVal.getRelativeName(fromOwner)
 end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:
@@ -224,9 +227,11 @@ protected trait DFValPrinter extends AbstractValPrinter:
         val csArgR = argR.refCodeString(typeCS)
         val opStr = dfVal.op match
           // if the result width for +/-/* ops is larger than the left argument width
-          // then we have a carry-inclusive operation
+          // then we have a carry-inclusive operation. to simplify the check given possible
+          // parameterized widths, we will just compare the type structure and assume the
+          // width is larger under such conditions.
           case Func.Op.+ | Func.Op.- | Func.Op.`*`
-              if !dfVal.dfType.isUnbounded && dfVal.dfType.width > argL.get.dfType.width =>
+              if !dfVal.dfType.isUnbounded && !dfVal.dfType.isSimilarTo(argL.get.dfType) =>
             s"${dfVal.op}^"
           case op => commonOpStr
         s"${csArgL.applyBrackets()} $opStr ${csArgR.applyBrackets()}"
@@ -293,24 +298,19 @@ protected trait DFValPrinter extends AbstractValPrinter:
         // applying brackets
         val callOwner = dfVal.ownerRef.get
         printer.csDFValRef(relVal, callOwner)
-      case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
-        assert(tWidth == fWidth + 1)
+      case (DFSInt(_), DFUInt(_)) =>
         s"${relValStr}.signed"
-      case (DFUInt(Int(tWidth)), DFSInt(Int(fWidth))) =>
-        assert(tWidth == fWidth - 1)
+      case (DFUInt(_), DFSInt(_)) =>
         s"${relValStr}.unsigned"
-      case (DFUInt(Int(tWidth)), DFBits(Int(fWidth))) =>
-        assert(tWidth == fWidth)
+      case (DFUInt(tWidthRef), DFBits(fWidthRef)) =>
         s"${relValStr}.uint"
-      case (DFSInt(Int(tWidth)), DFBits(Int(fWidth))) =>
-        assert(tWidth == fWidth)
+      case (DFSInt(tWidthRef), DFBits(fWidthRef)) =>
         s"${relValStr}.sint"
       case (DFBits(tWidthParamRef), DFBits(_)) =>
         s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
       case (DFBits(tWidthParamRef), DFBit | DFBool) =>
         s"${relValStr}.toBits(${tWidthParamRef.refCodeString})"
-      case (DFBits(Int(tWidth)), _) =>
-        assert(tWidth == fromType.width)
+      case (DFBits(_), _) =>
         s"${relValStr}.bits"
       case (DFUInt(tWidthParamRef), DFUInt(_)) =>
         s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
@@ -374,9 +374,9 @@ protected trait DFValPrinter extends AbstractValPrinter:
     val opStr = dfVal.op match
       case Alias.History.Op.State =>
         dfVal.getOwnerDomain.domainType match
-          case DomainType.DF    => ".prev"
-          case DomainType.RT(_) => ".reg"
-          case DomainType.ED    => ??? // impossible!
+          case DomainType.DF => ".prev"
+          case DomainType.RT => ".reg"
+          case DomainType.ED => ??? // impossible!
       case Alias.History.Op.Pipe => ".pipe"
     val appliedStr =
       dfVal.initRefOption match
@@ -394,7 +394,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case const @ DclConst()                              => printer.csDFValConstType(dfVal.dfType)
       case _                                               => ""
     def valDef = s"val ${dfVal.getName}$typeAnnot ="
-    val rhs = dfVal.stripPortSel match
+    val rhs = dfVal match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)
       case const @ DclConst()    => csDFValDclConst(const)
       case expr: DFVal.CanBeExpr => csDFValExpr(expr)

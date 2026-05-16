@@ -97,7 +97,7 @@ class DiamondProjectTclConfigPrinter(using
       path.forceWindowsToLinuxPath
   }
   def activeDualPurposeGroups: List[String] =
-    designDB.topIOs.view.flatMap(_.meta.annotations.collect {
+    designDB.toptopIOs.view.flatMap(_.meta.annotations.collect {
       case constraint: constraints.IO =>
         constraint.dualPurposeGroups.toList.flatMap(_.split("/"))
     }).flatten.toList.distinct
@@ -202,7 +202,7 @@ class DiamondProjectPhysicalConstraintsPrinter(using
   end cstPortConstraints
 
   def cstPortConstraints: List[String] =
-    designDB.topIOs.view.flatMap(cstPortConstraints).toList
+    designDB.toptopIOs.view.flatMap(cstPortConstraints).toList
 
   def sysConfig: String =
     val config = designDB.top.dclMeta.annotations.collectFirst {
@@ -261,7 +261,7 @@ class DiamondProjectTimingConstraintsPrinter(using getSet: MemberGetSet, co: Com
           statements += s"set_false_path $dir [get_ports ${port.getName}]\n"
         case _ => constraint.bitIdx match
             case None =>
-              for (i <- 0 until port.dfType.width)
+              for (i <- 0 until port.dfType.widthIntOpt.get)
                 statements += s"set_false_path $dir [get_ports ${port.getName}[$i]]\n"
             case bitIdx =>
               statements += s"set_false_path $dir [get_ports ${port.getName}[$bitIdx]]\n"
@@ -279,7 +279,7 @@ class DiamondProjectTimingConstraintsPrinter(using getSet: MemberGetSet, co: Com
       port: DFVal.Dcl,
       constraint: constraints.Timing.Clock
   ): String =
-    s"create_clock -add -name ${port.getName} -period ${constraint.rate.to_ns.value.bigDecimal.toPlainString} [get_ports {${port.getName}}]"
+    s"create_clock -add -name ${port.getName} -period ${constraint.rate.get.to_ns.value.bigDecimal.toPlainString} [get_ports {${port.getName}}]"
   end ldcTimingClockConstraint
 
   def ldcPortConstraints(
@@ -292,7 +292,7 @@ class DiamondProjectTimingConstraintsPrinter(using getSet: MemberGetSet, co: Com
   end ldcPortConstraints
 
   def ldcPortConstraints: List[String] =
-    designDB.topIOs.view.flatMap(ldcPortConstraints).toList
+    designDB.toptopIOs.view.flatMap(ldcPortConstraints).toList
 
   def contents: String =
     s"""|${ldcPortConstraints.mkString("\n")}

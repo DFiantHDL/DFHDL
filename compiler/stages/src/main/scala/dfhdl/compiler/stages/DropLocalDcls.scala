@@ -78,41 +78,40 @@ import dfhdl.options.CompilerOptions
   * }}}
   */
 //format: on
-case object DropLocalDcls extends Stage:
+case object DropLocalDcls extends HierarchyStage:
   override def dependencies: List[Stage] = List(ExplicitNamedVars)
   override def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
+  def transformSubDB(rootDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
     val keepProcessDcls = co.backend.isVHDL
-    val patchList: List[(DFMember, Patch)] =
-      designDB.members.view
-        // only var or constant declarations ,
-        // and we also require their anonymous dependencies
-        .flatMap {
-          // skip iterator declarations
-          case IteratorDcl()                 => None
-          case m @ DclVar()                  => m.collectRelMembers(includeOrigVal = true)
-          case m @ DclConst() if !m.isGlobal => m.collectRelMembers(includeOrigVal = true)
-          case _                             => None
-        }
-        .map(m => (m, m.getOwnerBlock))
-        .flatMap {
-          // declarations inside conditional blocks
-          case (dcl, cb: DFConditional.Block) =>
-            val topCondHeader = cb.getTopConditionalHeader
-            // if we don't keep process vars, we check if the owner is a process block,
-            // and if so, we need to move the declarations before it.
-            val moveBeforeMember = topCondHeader.getOwnerBlock match
-              case pb: ProcessBlock if !keepProcessDcls => pb
-              case _                                    => topCondHeader
-            Some(moveBeforeMember -> Patch.Move(dcl, Patch.Move.Config.Before))
-          // declarations inside process blocks if we should not keep them
-          case (dcl, pb: ProcessBlock) if !keepProcessDcls =>
-            Some(pb -> Patch.Move(dcl, Patch.Move.Config.Before))
-          case _ => None
-        }
-        .toList
-    designDB.patch(patchList)
-  end transform
+    val patches = subDB.members.view
+      // only var or constant declarations ,
+      // and we also require their anonymous dependencies
+      .flatMap {
+        // skip iterator declarations
+        case IteratorDcl()                 => None
+        case m @ DclVar()                  => m.collectRelMembers(includeOrigVal = true)
+        case m @ DclConst() if !m.isGlobal => m.collectRelMembers(includeOrigVal = true)
+        case _                             => None
+      }
+      .map(m => (m, m.getOwnerBlock))
+      .flatMap {
+        // declarations inside conditional blocks
+        case (dcl, cb: DFConditional.Block) =>
+          val topCondHeader = cb.getTopConditionalHeader
+          // if we don't keep process vars, we check if the owner is a process block,
+          // and if so, we need to move the declarations before it.
+          val moveBeforeMember = topCondHeader.getOwnerBlock match
+            case pb: ProcessBlock if !keepProcessDcls => pb
+            case _                                    => topCondHeader
+          Some(moveBeforeMember -> Patch.Move(dcl, Patch.Move.Config.Before))
+        // declarations inside process blocks if we should not keep them
+        case (dcl, pb: ProcessBlock) if !keepProcessDcls =>
+          Some(pb -> Patch.Move(dcl, Patch.Move.Config.Before))
+        case _ => None
+      }
+      .toList
+    subDB.patch(patches)
+  end transformSubDB
 end DropLocalDcls
 
 extension [T: HasDB](t: T)

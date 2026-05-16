@@ -3,41 +3,52 @@ package analysis
 import ir.*
 import dfhdl.internals.*
 import scala.annotation.tailrec
-import scala.collection.immutable
 
 object StateAnalysis:
   @tailrec private def consumeFrom(
       value: DFVal,
-      relWidth: Int,
-      relBitLow: Int,
+      slice: Slice,
       assignMap: AssignMap,
       currentSet: Set[DFVal]
   )(using MemberGetSet, DFBlock): Set[DFVal] =
     val currentBlock = summon[DFBlock]
-    val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match
       case dfVal: DFVal.Alias if dfVal.relValRef.get.dfType.isUnbounded => currentSet
       case DFVal.Alias.AsIs(dfType = toType, relValRef = relValRef)     =>
         val relVal = relValRef.get
-        if (toType.width == relVal.width)
+        val widthsEqual = (toType.widthIntOpt, relVal.dfType.widthIntOpt) match
+          case (Some(a), Some(b)) => a == b
+          case _                  => false
+        if (widthsEqual)
           // casting maintains relative bit consumption
-          consumeFrom(relVal, relWidth, relBitLow, assignMap, currentSet)
+          consumeFrom(relVal, slice, assignMap, currentSet)
         else
           // conversion is treated like any function argument and restarts bit consumption
-          consumeFrom(relVal, relVal.width, 0, assignMap, currentSet)
+          consumeFrom(
+            relVal,
+            Slice.fromWidthOpt(relVal.dfType.widthIntOpt),
+            assignMap,
+            currentSet
+          )
       case applyRange @ DFVal.Alias.ApplyRange(
             relValRef = relValRef,
-            idxHighRef = Int(idxHigh),
-            idxLowRef = Int(idxLow)
+            idxHighRef = idxHighRef,
+            idxLowRef = idxLowRef
           ) =>
-        val elementWidth = applyRange.elementWidth
-        consumeFrom(
-          relValRef.get,
-          idxHigh * elementWidth - idxLow * elementWidth + 1,
-          relBitLow + idxLow * elementWidth,
-          assignMap,
-          currentSet
-        )
+        // Re-seed the slice to the ApplyRange's full extent in the parent's coordinates.
+        // This replicates the pre-existing behavior where the passed-in slice would be
+        // replaced by the ApplyRange's own span when encountered.
+        val newSlice: Slice = (
+          idxHighRef.getIntOpt,
+          idxLowRef.getIntOpt,
+          applyRange.elementWidthIntOpt
+        ) match
+          case (Some(idxHigh), Some(idxLow), Some(eW)) =>
+            val start = idxLow * eW
+            val len = (idxHigh - idxLow) * eW + 1
+            Slice.Concrete(Range(start, start + len))
+          case _ => Slice.Unknown
+        consumeFrom(relValRef.get, newSlice, assignMap, currentSet)
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // For simplification, consuming the entirety of selection index and array
         val rvSet = consumeFrom(relValRef.get, assignMap, currentSet)
@@ -62,10 +73,12 @@ object StateAnalysis:
       case dcl: DFVal.Dcl if (dcl.isPortOut || dcl.isVar) && !dcl.isReg && !dcl.isInProcess =>
         value.getConnectionTo match
           case Some(DFNet.Connection(_, fromVal: DFVal, _)) =>
-            consumeFrom(fromVal, relWidth, relBitLow, assignMap, currentSet)
+            consumeFrom(fromVal, slice, assignMap, currentSet)
           case _ =>
             val scope = assignMap(value)
-            if (scope.isConsumingStateAt(access)) currentSet + value else currentSet
+            scope.contains(slice, value.dfType.widthIntOpt) match
+              case Tri.Yes => currentSet
+              case _       => currentSet + value
       case _ => currentSet
     end match
   end consumeFrom
@@ -78,25 +91,24 @@ object StateAnalysis:
     value.dfType match
       case _: DFUnbounded => currentSet
       case _              =>
-        consumeFrom(value, value.dfType.width, 0, assignMap, currentSet)
+        consumeFrom(value, Slice.fromWidthOpt(value.dfType.widthIntOpt), assignMap, currentSet)
 
   @tailrec private def assignTo(
       value: DFVal,
-      relWidth: Int,
-      relBitLow: Int,
+      slice: Slice,
       assignMap: AssignMap
   )(using MemberGetSet): AssignMap =
-    val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match
       case DFVal.Alias.AsIs(relValRef = relValRef) =>
-        assignTo(relValRef.get, relWidth, relBitLow, assignMap)
+        assignTo(relValRef.get, slice, assignMap)
       case applyRange @ DFVal.Alias.ApplyRange(
             relValRef = relValRef,
-            idxHighRef = Int(idxHigh),
-            idxLowRef = Int(idxLow)
+            idxLowRef = idxLowRef
           ) =>
-        val elementWidth = applyRange.elementWidth
-        assignTo(relValRef.get, relWidth, idxLow * elementWidth + relBitLow, assignMap)
+        val newSlice: Slice = (idxLowRef.getIntOpt, applyRange.elementWidthIntOpt) match
+          case (Some(idxLow), Some(eW)) => slice.shift(idxLow * eW)
+          case _                        => Slice.Unknown
+        assignTo(relValRef.get, newSlice, assignMap)
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // for simplification, assigning the entirety of the array
         assignTo(relValRef.get, assignMap)
@@ -106,7 +118,7 @@ object StateAnalysis:
             fieldName = fieldName
           ) =>
         ???
-      case x => assignMap.assignTo(x, access)
+      case x => assignMap.assignTo(x, slice)
     end match
   end assignTo
 
@@ -114,13 +126,17 @@ object StateAnalysis:
       value: DFVal,
       assignMap: AssignMap
   )(using MemberGetSet): AssignMap =
-    assignTo(value, value.dfType.width, 0, assignMap)
+    assignTo(value, Slice.fromWidthOpt(value.dfType.widthIntOpt), assignMap)
 
   // retrieves a list of variables that are consumed as their implicit previous value.
   // the assignment stack map is pushed on every conditional block entry and popped on the block exit
+  // `analysisRoot` is the design block at which the iteration began — recursion
+  // past this block is suppressed so that sub-DB analyses do not cross into
+  // parent designs whose members are absent from the current scope.
   @tailrec final def getImplicitStateVars(
       remaining: List[DFMember],
       currentBlock: DFBlock,
+      analysisRoot: DFDesignBlock,
       scopeMap: AssignMap,
       currentSet: Set[DFVal],
       checkedDomain: DomainType => Boolean
@@ -136,7 +152,8 @@ object StateAnalysis:
             (currentSet, scopeMap.branchEntry(cb.isFirstCB))
           case _ =>
             (currentSet, scopeMap)
-        getImplicitStateVars(rs, nextBlock, updatedScopeMap, updatedSet, checkedDomain)
+        getImplicitStateVars(rs, nextBlock, analysisRoot, updatedScopeMap, updatedSet,
+          checkedDomain)
       case r :: rs
           if r.getOwnerBlock == currentBlock && checkedDomain(
             currentBlock.getThisOrOwnerDomain.domainType
@@ -163,7 +180,8 @@ object StateAnalysis:
             (currentSet, scopeMap + (anyVar -> AssignedScope.empty))
           case _ =>
             (currentSet, scopeMap)
-        getImplicitStateVars(rs, currentBlock, updatedScopeMap, updatedSet, checkedDomain)
+        getImplicitStateVars(rs, currentBlock, analysisRoot, updatedScopeMap, updatedSet,
+          checkedDomain)
       case _ => // exiting child block or no more members
         val updatedSet = currentBlock match
           case d: DFDesignBlock if remaining.isEmpty =>
@@ -177,7 +195,7 @@ object StateAnalysis:
         val exitingBlock = remaining match
           case r :: _ if r.getOwnerBlock != currentBlock =>
             true // another member but not a child of current
-          case Nil if !currentBlock.isTop =>
+          case Nil if !currentBlock.isTop && !(currentBlock eq analysisRoot) =>
             true // there are no more members, but still not at top
           case _ => false // no more members and we are currently back at top
         if (exitingBlock)
@@ -189,8 +207,8 @@ object StateAnalysis:
             //                println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
             //                ret
             case _ => scopeMap
-          getImplicitStateVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, updatedSet,
-            checkedDomain)
+          getImplicitStateVars(remaining, currentBlock.getOwnerBlock, analysisRoot,
+            updatedScopeMap, updatedSet, checkedDomain)
         else (updatedSet, scopeMap)
     end match
   end getImplicitStateVars
@@ -198,34 +216,40 @@ object StateAnalysis:
   type AssignMap = Map[DFVal, AssignedScope]
 
   extension (sm: AssignMap)(using MemberGetSet)
-    def assignTo(toVal: DFVal, assignBitSet: immutable.BitSet): AssignMap =
-      sm + (toVal -> sm.getOrElse(toVal, AssignedScope.empty).assign(assignBitSet))
+    def assignTo(toVal: DFVal, slice: Slice): AssignMap =
+      val widthOpt = toVal.dfType.widthIntOpt
+      sm + (toVal -> sm.getOrElse(toVal, AssignedScope.empty).assign(slice, widthOpt))
     def branchEntry(firstBranch: Boolean): AssignMap =
       sm.view.mapValues(_.branchEntry(firstBranch)).toMap
     def branchExit(lastBranch: Boolean, exhaustive: Boolean): AssignMap =
       sm.view.mapValues(_.branchExit(lastBranch, exhaustive)).toMap
 
   final case class AssignedScope(
-      latest: immutable.BitSet,
-      branchHistory: Option[immutable.BitSet],
+      latest: Coverage,
+      branchHistory: Option[Coverage],
       parentScopeOption: Option[AssignedScope],
       hasAssignments: Boolean
   ) derives CanEqual:
     @tailrec private def getLatest(
-        latest: immutable.BitSet,
+        acc: Coverage,
         parentScopeOption: Option[AssignedScope]
-    ): immutable.BitSet =
+    ): Coverage =
       parentScopeOption match
-        case Some(s) => getLatest(latest | s.latest, s.parentScopeOption)
-        case None    => latest
-    def getLatest: immutable.BitSet = getLatest(latest, parentScopeOption)
-    def isConsumingStateAt(consumeBitSet: immutable.BitSet): Boolean =
-      (consumeBitSet &~ getLatest).nonEmpty
-    def assign(assignBitSet: immutable.BitSet): AssignedScope =
-      copy(latest = latest | assignBitSet, hasAssignments = true)
+        case Some(s) => getLatest(acc | s.latest, s.parentScopeOption)
+        case None    => acc
+    def getLatest: Coverage = getLatest(latest, parentScopeOption)
+
+    /** Proof that `slice` is fully covered by this scope's assignments. Returns `Tri.Yes` only when
+      * provably covered; `Tri.No` or `Tri.Unknown` otherwise (both are treated as "still consuming
+      * state" by callers).
+      */
+    def contains(slice: Slice, widthOpt: Option[Int]): Tri =
+      getLatest.contains(slice, widthOpt)
+    def assign(slice: Slice, widthOpt: Option[Int]): AssignedScope =
+      copy(latest = latest.assign(slice, widthOpt), hasAssignments = true)
     def branchEntry(firstBranch: Boolean): AssignedScope =
       val parentScope = if (firstBranch) this.copy(branchHistory = Some(getLatest)) else this
-      AssignedScope(immutable.BitSet(), None, Some(this), hasAssignments)
+      AssignedScope(Coverage.empty, None, Some(this), hasAssignments)
     def branchExit(lastBranch: Boolean, exhaustive: Boolean): AssignedScope =
       parentScopeOption match
         case Some(parentScope) =>
@@ -252,19 +276,23 @@ object StateAnalysis:
         case None => this
   end AssignedScope
   private object AssignedScope:
-    val empty: AssignedScope = AssignedScope(immutable.BitSet(), None, None, hasAssignments = false)
+    val empty: AssignedScope = AssignedScope(Coverage.empty, None, None, hasAssignments = false)
 end StateAnalysis
 
 extension (designDB: DB)
+  // The implicit MemberGetSet is used for ref resolution during the walk
+  // (allowing callers to pass an outer flat-DB getSet when analyzing a
+  // sub-DB whose own getSet can't resolve cross-sub-DB refs).
   private def getImplicitStateVars(
       checkedDomain: DomainType => Boolean
-  ): Set[DFVal] =
-    import designDB.getSet
+  )(using MemberGetSet): Set[DFVal] =
     val (currentSet, scopeMap) = StateAnalysis.getImplicitStateVars(
-      designDB.membersNoGlobals.drop(1), designDB.top, Map(), Set(), checkedDomain
+      designDB.membersNoGlobals.drop(1), designDB.top, designDB.top, Map(), Set(), checkedDomain
     )
     currentSet.filter(p => scopeMap(p).hasAssignments)
 
-  def getImplicitStateVarsDF: Set[DFVal] = getImplicitStateVars(_ == DomainType.DF)
-  def getImplicitStateVarsRT: Set[DFVal] = getImplicitStateVars(_.isInstanceOf[DomainType.RT])
+  def getImplicitStateVarsDF(using MemberGetSet): Set[DFVal] =
+    getImplicitStateVars(_ == DomainType.DF)
+  def getImplicitStateVarsRT(using MemberGetSet): Set[DFVal] =
+    getImplicitStateVars(_ == DomainType.RT)
 end extension

@@ -1,7 +1,7 @@
 //format: off
 package docExamples.ugdemos.demo5
 import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 
 /** A generic abstract shifter with only IOs */
 abstract class ShiftGen extends RTDesign:
@@ -42,7 +42,7 @@ enum ShiftDir extends Encoded:
   * @param width
   *   the width of the input and output bits
   */
-@top class LRShiftDirect(
+class LRShiftDirect(
     val width: Int <> CONST = 8
 ) extends ShiftGen:
   /** direction of shift */

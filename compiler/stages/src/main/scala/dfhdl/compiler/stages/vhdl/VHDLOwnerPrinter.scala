@@ -42,7 +42,9 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       .mkString(";\n")
     val designParamList = designMembers.collect { case param: DesignParam =>
       val defaultValue =
-        if (design.isTop) s" := ${param.appliedOrDefaultValRef.refCodeString}"
+        if (design.isTop)
+          if (param.appliedOrDefaultVal.hasTagOf[SyntheticDefaultTag]) ""
+          else s" := ${param.appliedOrDefaultValRef.refCodeString}"
         else
           param.defaultValRef.get match
             case DFMember.Empty => ""
@@ -150,7 +152,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         .map(printer.csDFMember)
         .mkString("\n")
     val components = designMembers.view.collect {
-      case design: DFDesignBlock if design.isBlackBox => design
+      case inst: DFDesignInst if inst.getDesignBlock.isBlackBox => inst.getDesignBlock
     }.map(printer.csEntityDcl(_, asComponent = true)).mkString("\n")
     val declarations =
       sn"""|$constIntDcls
@@ -181,9 +183,10 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
        |${csArchitectureDcl(design)}
        |""".stripMargin
   end csDFDesignBlockDcl
-  def csDFDesignBlockInst(design: DFDesignBlock): String =
-    val body = csDFDesignLateBody(design)
-    val designParamList = design.paramMap.view.map { (name, ref) =>
+  def csDFDesignBlockInst(inst: DFDesignInst): String =
+    val design = inst.getDesignBlock
+    val body = csDFDesignLateBody(inst)
+    val designParamList = inst.paramMap.view.map { (name, ref) =>
       s"${name} => ${ref.refCodeString}"
     }.toList
     val designParamCS =
@@ -193,11 +196,11 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val header =
       if (design.isBlackBox) entityName(design)
       else s"entity work.${entityName(design)}(${archName(design)})"
-    val inst = s"${design.getName} : $header${designParamCS}"
-    if (body.isEmpty) s"$inst;" else s"$inst port map (\n${body.hindent}\n);"
+    val instCS = s"${inst.getName} : $header${designParamCS}"
+    if (body.isEmpty) s"$instCS;" else s"$instCS port map (\n${body.hindent}\n);"
   end csDFDesignBlockInst
   def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
-  def csDFDesignDefInst(design: DFDesignBlock): String = printer.unsupported
+  def csDFDesignDefInst(inst: DFDesignInst): String = printer.unsupported
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
   override def csDFIfGuard(ifBlock: DFConditional.DFIfElseBlock): String =

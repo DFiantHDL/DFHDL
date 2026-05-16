@@ -22,9 +22,9 @@ begin
   process (clk)
   begin
     if rising_edge(clk) then
-      if rst = '1' then cnt_sig <= to_unsigned(0, width);
+      if rst = '1' then cnt_sig <= resize(to_unsigned(0, 1), width);
       else
-        if to_bool(en) then cnt_sig <= cnt_sig + to_unsigned(1, width);
+        if to_bool(en) then cnt_sig <= cnt_sig + resize(to_unsigned(1, 1), width);
         end if;
       end if;
     end if;

@@ -153,10 +153,10 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
       case _ =>
 
   def processStatCheck(trees: List[Tree], srcPos: util.SrcPos)(using Context): Unit =
-    val (allDefs: List[DefDef] @unchecked, allStepBlocks: List[Tree]) = (trees.partition {
+    val (allDefs: List[DefDef], allStepBlocks: List[Tree]) = (trees.partition {
       case _: DefDef => true
       case _         => false
-    }).runtimeChecked
+    }).asInstanceOf[(List[DefDef], List[Tree])]
     val (onEntryExitFallThrough: List[DefDef], stepDefs: List[DefDef]) = allDefs.partition {
       case OnEntryDef() | OnExitDef() | FallThroughDef() => true
       case _                                             => false

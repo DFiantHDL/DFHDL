@@ -75,6 +75,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
   def csDFEnumConvFuncsBody(dfType: DFEnum): String =
     val enumName = dfType.name
     val typeName = csDFEnumTypeName(dfType)
+    val width = dfType.widthIntOpt.get
     val to_slv_cases = dfType.entries.map((e, v) => s"when ${enumName}_$e => int_val := $v;")
     val from_slv_cases = dfType.entries.map((e, v) => s"when $v => return ${enumName}_$e;")
     val toggleEnumFuncs = if dfType.widthParam == 1 then
@@ -117,7 +118,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     else ""
     s"""|function bitWidth(A : ${typeName}) return integer is
         |begin
-        |  return ${dfType.width};
+        |  return ${width};
         |end;
         |function to_slv(A : ${typeName}) return std_logic_vector is
         |  variable int_val : integer;
@@ -125,7 +126,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |  case A is
         |${to_slv_cases.mkString("\n").hindent(2)}
         |  end case;
-        |  return resize(to_slv(int_val), ${dfType.width});
+        |  return resize(to_slv(int_val), ${width});
         |end;
         |function to_${typeName}(A : std_logic_vector) return ${typeName} is
         |begin
@@ -225,7 +226,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         val param = ref.get
         if (param.isAnonymous) s"P${getParamIdx(ref.get)}"
         else s"P${param.getName}"
-      case None => intParamRef.getInt.toString()
+      case None => intParamRef.getIntOpt.get.toString()
 
   def csDFVectorDclName(cellTypeName: String, depth: Int): String =
     if (depth == 0) cellTypeName

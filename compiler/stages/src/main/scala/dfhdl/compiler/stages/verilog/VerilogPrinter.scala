@@ -249,7 +249,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
   )
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] = Set(
-    "wire", "reg", "logic", "wire", "signed", "unsigned", "int", "integer", "string"
+    "wire", "reg", "logic", "wire", "signed", "unsigned", "int", "integer", "string", "real"
   )
   def colorCode(cs: String): String =
     cs

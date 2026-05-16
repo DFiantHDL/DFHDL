@@ -18,7 +18,7 @@ object DFDecimal:
       fractionWidth: Inlined[F],
       nativeType: N
   )(using dfc: DFC, check: Width.CheckNUB[S, W]): DFDecimal[S, W, F, N] = trydf:
-    check(signed, width)
+    width.toScalaIntOpt.foreach(check(signed, _))
     ir.DFDecimal(signed, width.ref, fractionWidth, nativeType).asFE[DFDecimal[S, W, F, N]]
   protected[core] def forced[S <: Boolean, W <: IntP, F <: Int, N <: NativeType](
       signed: Boolean,
@@ -90,7 +90,7 @@ object DFDecimal:
           Int,
           [LW <: Int, RW <: Int] =>> LW == RW,
           [LW <: Int, RW <: Int] =>> "Cannot apply this operation between a value of " + LW +
-            " bits width (LHS) to a value of " + RW +
+            " bits width (LHS) and a value of " + RW +
             " bits width (RHS).\nAn explicit conversion must be applied."
         ]
     object `LS >= RS`
@@ -108,19 +108,17 @@ object DFDecimal:
           Boolean,
           Boolean,
           [BaS <: Boolean, WcS <: Boolean] =>> BaS || ![WcS],
-          [BaS <: Boolean, WcS <: Boolean] =>>
-            "Cannot apply a signed wildcard `Int` value to " +
-              ITE[BaS, "a signed", "an unsigned"] +
-              " bit-accurate value.\nUse an explicit conversion or `sd\"\"` interpolation."
+          [BaS <: Boolean, WcS <: Boolean] =>> "Cannot apply a signed wildcard `Int` value to " +
+            ITE[BaS, "a signed", "an unsigned"] +
+            " bit-accurate value.\nUse an explicit conversion or `sd\"\"` interpolation."
         ]
     object `BaW >= WcW`
         extends Check2[
           Int,
           Int,
           [BaW <: Int, WcW <: Int] =>> BaW >= WcW,
-          [BaW <: Int, WcW <: Int] =>>
-            "The wildcard `Int` value width (" + WcW +
-              ") is larger than the bit-accurate value width (" + BaW + ")."
+          [BaW <: Int, WcW <: Int] =>> "The wildcard `Int` value width (" + WcW +
+            ") is larger than the bit-accurate value width (" + BaW + ")."
         ]
     type SignStr[S <: Boolean] = ITE[S, "a signed", "an unsigned"]
     object `LS == RS`
@@ -264,14 +262,18 @@ object DFDecimal:
       )(using dfc: DFC): Unit =
         if (!isWildcardL.value)
           import dfc.getSet
-          import DFXInt.Val.getActualSignedWidth
-          val (lhsSigned, lhsWidth) = lhs.getActualSignedWidth
-          val (rhsSigned, rhsWidth) = rhs.getActualSignedWidth
-          val rhsSignedWidth: Int =
-            if (lhsSigned && !rhsSigned) rhsWidth + 1
-            else rhsWidth
-          checkS(lhsSigned, rhsSigned)
-          checkW(lhsWidth, rhsSignedWidth)
+          import DFXInt.Val.getActualSignedWidthOpt
+          (lhs.getActualSignedWidthOpt, rhs.getActualSignedWidthOpt) match
+            case (Some(lhsSigned, lhsWidthIntOpt), Some(rhsSigned, rhsWidthIntOpt)) =>
+              checkS(lhsSigned, rhsSigned)
+              (lhsWidthIntOpt, rhsWidthIntOpt) match
+                case (Some(lhsWidth), Some(rhsWidth)) =>
+                  val rhsSignedWidth: Int =
+                    if (lhsSigned && !rhsSigned) rhsWidth + 1
+                    else rhsWidth
+                  checkW(lhsWidth, rhsSignedWidth)
+                case _ =>
+            case _ =>
       end apply
     end given
 
@@ -353,13 +355,35 @@ object DFDecimal:
         val (interpSigned, interpWidth, interpFractionWidth, interpValue) =
           fromDecString(fullTerm, op == "sd").toOption.get
         val signed = Inlined.forced[S](interpSigned)
-        val width = IntParam.forced[W](explicitWidthOption.getOrElse(interpWidth))
         val fractionWidth = Inlined.forced[F](interpFractionWidth)
-        DFVal.Const(
-          DFDecimal(signed, width, fractionWidth, BitAccurate),
-          Some(interpValue),
-          named = true
-        )
+        explicitWidthOption match
+          // explicit integer width
+          case Some(int: Int) =>
+            val width = IntParam.forced[W](int)
+            DFVal.Const(
+              DFDecimal(signed, width, fractionWidth, BitAccurate),
+              Some(interpValue),
+              named = true
+            )
+          // no explicit width, use inferred width from the value
+          case None =>
+            val width = IntParam.forced[W](interpWidth)
+            DFVal.Const(
+              DFDecimal(signed, width, fractionWidth, BitAccurate),
+              Some(interpValue),
+              named = true
+            )
+          // explicit parametric width, so use the inferred constant and resize it with the parameter
+          case Some(ref) =>
+            val width = IntParam.forced[W](ref)
+            import DFXInt.Val.Ops.resize
+            DFVal.Const(
+              DFDecimal(signed, interpWidth, fractionWidth, BitAccurate),
+              Some(interpValue)
+            )
+              .asConstOf[DFXInt[S, W, BitAccurate]].resize(width)
+              .asConstOf[DFDecimal[S, W, F, BitAccurate]]
+        end match
     end extension
 
     extension (using Quotes)(fullTerm: quotes.reflect.Term)
@@ -664,7 +688,9 @@ object DFDecimal:
           dfType: DFDecimal[Boolean, Int, Int, NativeType],
           dfVal: DFValOf[DFDecimal[Boolean, Int, Int, NativeType]]
       )(using DFC): DFValOf[DFDecimal[Boolean, Int, Int, NativeType]] =
-        `LW >= RW`(dfType.widthInt, dfVal.widthInt)
+        (dfType.widthIntOpt, dfVal.widthIntOpt) match
+          case (Some(lw), Some(rw)) => `LW >= RW`(lw, rw)
+          case _                    =>
         `LS >= RS`(dfType.signed, dfVal.dfType.signed)
         dfVal
     end TC
@@ -706,10 +732,8 @@ object DFXInt:
           import DFBits.Val.Ops.uint
           val dfVal = ic(arg)(using dfc.anonymize)
           val ret =
-            if (dfVal.hasTag[ir.TruncateTag])
-              dfVal.uint.tag(ir.TruncateTag)
-            else if (dfVal.hasTag[ir.ExtendTag])
-              dfVal.uint.tag(ir.ExtendTag)
+            if (dfVal.hasTag[ir.ResizeTag])
+              dfVal.uint.tag(ir.ResizeTag)
             else dfVal.uint
           ret.asValTP[DFXInt[OutS, OutW, OutN], OutP]
       end fromDFBitsValCandidate
@@ -782,19 +806,21 @@ object DFXInt:
     end Candidate
 
     extension [S <: Boolean, W <: IntP, N <: NativeType](dfVal: DFValOf[DFXInt[S, W, N]])
-      private[core] def getActualSignedWidth(using
+      private[core] def getActualSignedWidthOpt(using
           dfc: DFC
-      ): (signed: Boolean, width: Int) =
-        val int32Data: Option[Int] =
-          if (dfVal.dfType.asIR.isDFInt32)
-            import dfc.getSet
-            dfVal.asIR.getConstData match
-              case Some(Some(n: BigInt)) => Some(n.toInt)
-              case _                     => None
-          else None
-        int32Data match
-          case Some(int) => (int < 0, IntInfo.calcWidth(int))
-          case None      => (dfVal.dfType.signed.value, dfVal.dfType.widthInt.value)
+      ): Option[(signed: Boolean, widthIntOpt: Option[Int])] =
+        if (dfVal.dfType.asIR.isDFInt32)
+          import dfc.getSet
+          dfVal.asIR.injectGlobalCtx()
+          dfVal.asIR.getConstData[Option[BigInt]] match
+            case ir.ConstData.KnownConst(Some(n: BigInt)) =>
+              val int = n.toInt
+              Some(int < 0, Some(IntInfo.calcWidth(int)))
+            case _ => None
+        else
+          Some(dfVal.dfType.signed.value, dfVal.widthIntOpt)
+      end getActualSignedWidthOpt
+    end extension
 
     object TC:
       def apply(
@@ -802,8 +828,12 @@ object DFXInt:
           dfVal: DFValOf[DFXInt[Boolean, Int, NativeType]]
       )(using DFC): DFValOf[DFXInt[Boolean, Int, NativeType]] =
         val check = summon[TCCheck[Boolean, Int, Boolean, Int]]
-        check(dfType.signed, dfType.widthInt, dfVal.dfType.signed, dfVal.dfType.widthInt)
+        (dfType.widthIntOpt, dfVal.widthIntOpt) match
+          case (Some(dfTypeW), Some(dfValW)) =>
+            check(dfType.signed, dfTypeW, dfVal.dfType.signed, dfValW)
+          case _ =>
         dfVal
+      end apply
       import DFVal.TC
       given [LS <: Boolean, LW <: IntP, LN <: NativeType, R, RP, IC <: Candidate[R]](using
           ic: IC { type OutP = RP }
@@ -815,9 +845,34 @@ object DFXInt:
         def conv(dfType: DFXInt[LS, LW, LN], value: R)(using dfc: DFC): Out =
           import DFUInt.Val.Ops.signed
           val rhs = ic(value)
-          val (rhsSigned, rhsWidth) = rhs.getActualSignedWidth
-          if (!rhs.hasTag[ir.TruncateTag] || dfType.signed != rhsSigned)
-            check(dfType.signed, dfType.widthInt, rhsSigned, rhsWidth)
+          rhs.getActualSignedWidthOpt match
+            case Some(rhsSigned, rhsWidthOpt) =>
+              if (!rhs.hasTag[ir.ResizeTag] || dfType.signed != rhsSigned)
+                (dfType.widthIntOpt, rhsWidthOpt) match
+                  case (Some(dfTypeW), Some(rhsW)) => check(dfType.signed, dfTypeW, rhsSigned, rhsW)
+                  case _                           =>
+                    if (
+                      !dfType.asIR.isDFInt32 && !rhs.dfType.asIR.isDFInt32 &&
+                      !DFXInt.Val.Ops.hasImplicitlyFromIntTag(rhs.asIR)
+                    )
+                      import dfc.getSet
+                      val dfTypeWidthRef = dfType.asIR.widthParamRef
+                      val rhsWidthRef = rhs.dfType.asIR.widthParamRef
+                      def dfTypeWidthStr = dfTypeWidthRef.refCodeString
+                      def rhsWidthStr = rhsWidthRef.refCodeString
+                      dfTypeWidthRef.compare(rhsWidthRef)(_ >= _) match
+                        case Some(false) =>
+                          throw new IllegalArgumentException(
+                            s"""The applied RHS value width ($rhsWidthStr) is larger than the LHS variable width ($dfTypeWidthStr)."""
+                          )
+                        case None =>
+                          throw new IllegalArgumentException(
+                            s"""The applied RHS value width ($rhsWidthStr) is undefined compared to the LHS variable width ($dfTypeWidthStr)."""
+                          )
+                        case _ => // ok
+                    end if
+            case None =>
+          end match
           DFXInt.Val.Ops.toDFXIntOf(rhs)(dfType).asValTP[DFXInt[LS, LW, LN], RP]
         end conv
       end given
@@ -861,13 +916,12 @@ object DFXInt:
         def conv(dfType: DFXInt[LS, LW, LN], arg: R)(using dfc: DFC): Out =
           given dfcAnon: DFC = dfc.anonymize
           val dfValArg = ic(arg)
-          val (rhsSigned, rhsWidth) = dfValArg.getActualSignedWidth
-          check(
-            dfType.signed,
-            dfType.widthInt,
-            rhsSigned,
-            rhsWidth
-          )
+          dfValArg.getActualSignedWidthOpt match
+            case Some(rhsSigned, rhsWidthOpt) =>
+              (dfType.widthIntOpt, rhsWidthOpt) match
+                case (Some(dfTypeW), Some(rhsW)) => check(dfType.signed, dfTypeW, rhsSigned, rhsW)
+                case _                           =>
+            case None =>
           DFXInt.Val.Ops.toDFXIntOf(dfValArg)(dfType).asValTP[DFXInt[LS, LW, LN], RP]
         end conv
       end DFXIntCompare
@@ -917,10 +971,21 @@ object DFXInt:
         new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
           type Out = DFValTP[DFXInt[S, HI - LO + 1, BitAccurate], P]
           def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
-            checkHigh(IntParam(idxHigh), lhs.widthInt)
-            checkLow(IntParam(idxLow), lhs.widthInt)
-            checkHiLo(IntParam(idxHigh), IntParam(idxLow))
-            DFVal.Alias.ApplyRange.applyDFXInt(lhs, IntParam(idxHigh), IntParam(idxLow))
+            val idxHighParam = IntParam(idxHigh)
+            val idxLowParam = IntParam(idxLow)
+            val idxHighIntOpt = idxHighParam.toScalaIntOpt
+            val idxLowIntOpt = idxLowParam.toScalaIntOpt
+            val widthIntOpt = lhs.widthIntOpt
+            (idxHighIntOpt, widthIntOpt) match
+              case (Some(idxHighInt), Some(widthInt)) => checkHigh(idxHighInt, widthInt)
+              case _                                  =>
+            (idxLowIntOpt, widthIntOpt) match
+              case (Some(idxLowInt), Some(widthInt)) => checkLow(idxLowInt, widthInt)
+              case _                                 =>
+            (idxHighIntOpt, idxLowIntOpt) match
+              case (Some(idxHighInt), Some(idxLowInt)) => checkHiLo(idxHighInt, idxLowInt)
+              case _                                   =>
+            DFVal.Alias.ApplyRange.applyDFXInt(lhs, idxHighParam, idxLowParam)
           }(using dfc, CTName("bit range selection (apply)"))
       end evOpApplyRangeDFXInt
       given evOpShiftOrPowerInt[
@@ -959,60 +1024,77 @@ object DFXInt:
         )(using dfc: DFC): DFValTP[DFXInt[RS, RW, RN], P] =
           import dfc.getSet
           val dfValIR =
-            val (lhsSigned, lhsWidth) = lhs.getActualSignedWidth
             if (dfType.asIR.isDFInt32 && lhs.dfType.asIR.isDFInt32) lhs.asIR
             else
               val lhsSignFix: DFValOf[DFSInt[Int]] =
-                if (dfType.signed != lhsSigned && !lhs.dfType.asIR.isDFInt32)
+                if (!lhs.dfType.asIR.isDFInt32 && dfType.signed && !lhs.dfType.signed)
                   lhs.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
                 else lhs.asValOf[DFSInt[Int]]
               // Auto-promote anonymous +/-/* to carry when target is wide enough
               import IntParam.+
               val funcWidth = lhsSignFix.widthIntParam
-              val lhsCarryPromo: DFValOf[DFSInt[Int]] =
-                lhsSignFix.asIR match
-                  case func @ ir.DFVal.Func(
-                        dfType = dt: ir.DFDecimal,
-                        op = op @ (FuncOp.+ | FuncOp.- | FuncOp.*)
-                      )
-                      if func.isAnonymous && !dt.isDFInt32 && dfType.widthInt > func.width =>
-                    // Check B: warn if sub-expressions contain implicit Int with
-                    // narrow non-carry arith. Check args (not func itself, since
-                    // the func is about to be carry-promoted).
-                    if (func.args.exists(ref =>
-                        hasImplicitlyFromIntTag(ref.get)
-                      ) && func.args.exists(ref =>
-                        containsNarrowNonCarryArith(ref.get)
-                      )) ||
-                      func.args.exists(ref =>
-                        containsNarrowNonCarryArithWithTaggedOperand(ref.get)
-                      )
-                    then
-                      dfc.logEvent(
-                        DFWarning(
-                          op.toString,
-                          verilogSemanticsWarnMsg
-                        )
-                      )
-                    val cw: IntParam[Int] = func.op.runtimeChecked match
-                      case FuncOp.+ | FuncOp.- => funcWidth + 1
-                      case FuncOp.*            => funcWidth + funcWidth
-                    val newDT = dt.copy(widthParamRef = cw.ref)
-                    dfc.mutableDB
-                      .setMember(func, _.updateDFType(newDT))
-                      .asValOf[DFSInt[Int]]
-                  case _ => lhsSignFix
+
+              // if not a constant, optimistically assume it's large enough to allow carry promotion
+              def carryPromoteWidthCheck: Boolean =
+                dfType.asFE[DFSInt[Int]].compareWidths(lhsSignFix.dfType)(_ > _).getOrElse(true)
+
+              val lhsCarryPromo: DFValOf[DFSInt[Int]] = lhsSignFix.asIR match
+                case func @ ir.DFVal.Func(
+                      dfType = dt @ (ir.DFUInt(_) | ir.DFSInt(_)),
+                      op = op @ (FuncOp.+ | FuncOp.- | FuncOp.*)
+                    )
+                    if func.isAnonymous && carryPromoteWidthCheck =>
+                  // For multi-arg merged Funcs (3+ args), peel the last arg:
+                  // Func(+, [a, b, c]) → Func(+, [Func(+, [a, b]), c])
+                  // Shrink the original func in-place to become the inner (non-carry)
+                  // Func, then add a new binary carry Func at the tail. This keeps
+                  // the inner before the carry Func in member order.
+                  // Skipped during meta-programming where MutableDB ref tracking is limited.
+                  val carryFunc =
+                    if (func.args.length > 2 && !dfc.inMetaProgramming)
+                      val lastArgRef = func.args.last
+                      // Shrink `func` in-place to the inner Func (N-1 args, non-carry)
+                      val innerFunc =
+                        dfc.mutableDB.setMember(func, _.copy(args = func.args.dropRight(1)))
+                      // Add a new binary carry Func at the tail referencing innerFunc
+                      func.copy(args =
+                        List(innerFunc.refTW[ir.DFVal](knownReachable = true), lastArgRef)
+                      ).addMember
+                    else func
+                  // Check B: warn if sub-expressions contain implicit Int with
+                  // narrow non-carry arith. Check args (not func itself, since
+                  // the func is about to be carry-promoted).
+                  val argHasImplicitFromIntTag =
+                    carryFunc.args.exists(ref => hasImplicitlyFromIntTag(ref.get))
+                  val argsContainNarrowNonCarryArith =
+                    carryFunc.args.exists(ref => containsNarrowNonCarryArith(ref.get))
+                  val argsContainNarrowNonCarryArithWithTaggedOperand = carryFunc.args.exists(ref =>
+                    containsNarrowNonCarryArithWithTaggedOperand(ref.get)
+                  )
+                  if argHasImplicitFromIntTag && argsContainNarrowNonCarryArith ||
+                    argsContainNarrowNonCarryArithWithTaggedOperand
+                  then
+                    dfc.logEvent(DFWarning(op.toString, verilogSemanticsWarnMsg))
+                  end if
+                  val cw: IntParam[Int] = carryFunc.op.runtimeChecked match
+                    case FuncOp.+ | FuncOp.- => funcWidth + 1
+                    case FuncOp.*            => funcWidth + funcWidth
+                  val newDT = dt.copy(widthParamRef = cw.ref)
+                  dfc.mutableDB
+                    .setMember(carryFunc, _.updateDFType(newDT))
+                    .asValOf[DFSInt[Int]]
+                case _ => lhsSignFix
+              end lhsCarryPromo
               val nativeTypeChanged = dfType.nativeType != lhsCarryPromo.dfType.nativeType
-              if (nativeTypeChanged)
-                dfType.asIR.nativeType match
-                  case Int32 =>
-                    lhsCarryPromo.toInt.asIR
-                  case BitAccurate =>
-                    DFVal.Alias.AsIs(dfType, lhsCarryPromo)(using dfc.tag(ir.ImplicitlyFromIntTag)).asIR
+              if (nativeTypeChanged) dfType.asIR.nativeType match
+                case Int32 =>
+                  lhsCarryPromo.toInt.asIR
+                case BitAccurate =>
+                  DFVal.Alias.AsIs(dfType, lhsCarryPromo)(using
+                    dfc.tag(ir.ImplicitlyFromIntTag)
+                  ).asIR
               else if (
-                !dfType.asIR.widthParamRef.isSimilarTo(
-                  lhsCarryPromo.dfType.asIR.widthParamRef
-                )
+                !dfType.asIR.widthParamRef.isSimilarTo(lhsCarryPromo.dfType.asIR.widthParamRef)
               )
                 lhsCarryPromo.resize(dfType.widthIntParam).asIR
               else lhsCarryPromo.asIR
@@ -1027,12 +1109,9 @@ object DFXInt:
           lhs.toScalaValue
       end extension
       extension [S <: Boolean, W <: IntP, N <: NativeType, P](lhs: DFValTP[DFXInt[S, W, N], P])
-        @targetName("extendDFXInt")
-        def extend(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
-          lhs.tag(ir.ExtendTag).asValTP[DFXInt[S, Int, N], P]
-        @targetName("truncateDFXInt")
-        def truncate(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
-          lhs.tag(ir.TruncateTag).asValTP[DFXInt[S, Int, N], P]
+        @targetName("resizeDFXIntAuto")
+        def resize(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
+          lhs.tag(ir.ResizeTag).asValTP[DFXInt[S, Int, N], P]
         @targetName("resizeDFXInt")
         def resize[RW <: IntP](
             updatedWidth: IntParam[RW]
@@ -1041,7 +1120,7 @@ object DFXInt:
             check: Width.CheckNUB[S, RW]
         ): DFValTP[DFXInt[S, RW, BitAccurate], P] = trydf {
           val signed = lhs.dfType.signed
-          check(signed, updatedWidth)
+          updatedWidth.toScalaIntOpt.foreach(check(signed, _))
           // TODO: why this causes anonymous references?
 //          if (lhs.width == updatedWidth) lhs.asValOf[DFXInt[S, RW, BitAccurate]]
 //          else
@@ -1061,7 +1140,6 @@ object DFXInt:
         dfVal.tags.hasTagOf[ir.ImplicitlyFromIntTag]
 
       // Check if an anonymous sub-tree contains non-carry +/-/* with width < 32.
-      // Carry ops have func.width > max(arg widths) and are excluded.
       private[core] def containsNarrowNonCarryArith(
           dfVal: ir.DFVal
       )(using ir.MemberGetSet): Boolean =
@@ -1069,9 +1147,9 @@ object DFXInt:
           case func: ir.DFVal.Func if func.isAnonymous =>
             func.op match
               case FuncOp.+ | FuncOp.- | FuncOp.* =>
-                val maxArgWidth = func.args.map(_.get.width).max
-                val isNonCarry = func.width <= maxArgWidth
-                (isNonCarry && func.width < 32) ||
+                val isNonCarry = func.dfType =~ func.args.head.get.dfType
+                val isNarrowNonCarry = isNonCarry && func.widthIntOpt.map(_ < 32).getOrElse(false)
+                isNarrowNonCarry ||
                 func.args.exists(ref => containsNarrowNonCarryArith(ref.get))
               case _ =>
                 func.args.exists(ref => containsNarrowNonCarryArith(ref.get))
@@ -1080,7 +1158,6 @@ object DFXInt:
       // Check if an anonymous sub-tree contains narrow non-carry arith that
       // also has an ImplicitlyFromIntTag operand (Verilog "Forcing Larger
       // Evaluation" pattern, or implicit Int in a chain assigned to wider target).
-      // Carry ops (func.width > max arg width) are excluded.
       private[core] def containsNarrowNonCarryArithWithTaggedOperand(
           dfVal: ir.DFVal
       )(using ir.MemberGetSet): Boolean =
@@ -1088,11 +1165,9 @@ object DFXInt:
           case func: ir.DFVal.Func if func.isAnonymous =>
             func.op match
               case FuncOp.+ | FuncOp.- | FuncOp.* =>
-                val maxArgWidth = func.args.map(_.get.width).max
-                val isNonCarry = func.width <= maxArgWidth
-                val isNarrowNonCarry = isNonCarry && func.width < 32
-                (isNarrowNonCarry &&
-                  func.args.exists(ref => hasImplicitlyFromIntTag(ref.get))) ||
+                val isNonCarry = func.dfType =~ func.args.head.get.dfType
+                val isNarrowNonCarry = isNonCarry && func.widthIntOpt.map(_ < 32).getOrElse(false)
+                (isNarrowNonCarry && func.args.exists(ref => hasImplicitlyFromIntTag(ref.get))) ||
                 func.args.exists(ref =>
                   containsNarrowNonCarryArithWithTaggedOperand(ref.get)
                 )
@@ -1105,28 +1180,30 @@ object DFXInt:
       // Check that a wildcard `Int` value fits in the bit-accurate value's type.
       // Produces an elaboration error if it doesn't.
       private def checkWildcardFit(
-          wildcard: DFValOf[DFXInt[Boolean, Int, NativeType]],
-          counterPartType: DFTypeAny
+          wildcard: DFValOf[DFInt32],
+          bitAccurateType: DFTypeAny
       )(using dfc: DFC): Unit =
-        counterPartType.asIR match
-          case d: ir.DFDecimal =>
-            import dfc.getSet
-            import DFXInt.Val.getActualSignedWidth
-            val (wSigned, wWidth) = wildcard.getActualSignedWidth
-            val baTypeName =
-              if (d.signed) s"SInt[${d.width}]" else s"UInt[${d.width}]"
-            // Unsigned wildcard adapting to signed bit-accurate value needs an extra bit
-            val effectiveWidth =
-              if (d.signed && !wSigned) wWidth + 1 else wWidth
-            if (!d.signed && wSigned)
+        val baType = bitAccurateType.asIR.asInstanceOf[ir.DFDecimal]
+        import dfc.getSet
+        import DFXInt.Val.getActualSignedWidthOpt
+        wildcard.getActualSignedWidthOpt match
+          case Some(wcSigned, wcWidthIntOpt) =>
+            if (!baType.signed && wcSigned)
               throw new IllegalArgumentException(
-                s"Wildcard `Int` value is negative and cannot adapt to unsigned bit-accurate value $baTypeName."
+                s"Wildcard `Int` value is negative and cannot adapt to an unsigned bit-accurate value."
               )
-            else if (effectiveWidth > d.width)
-              throw new IllegalArgumentException(
-                s"Wildcard `Int` value width ($effectiveWidth) is larger than the bit-accurate value width (${d.width})."
-              )
+            (baType.widthIntOpt, wcWidthIntOpt) match
+              case (Some(baWidth), Some(wcWidth)) =>
+                // Unsigned wildcard adapting to signed bit-accurate value needs an extra bit
+                val effectiveWidth =
+                  if (baType.signed && !wcSigned) wcWidth + 1 else wcWidth
+                if (effectiveWidth > baWidth)
+                  throw new IllegalArgumentException(
+                    s"Wildcard `Int` value width ($effectiveWidth) is larger than the bit-accurate value width ($baWidth)."
+                  )
+              case _ =>
           case _ =>
+        end match
       end checkWildcardFit
 
       private def arithOp[
@@ -1204,8 +1281,12 @@ object DFXInt:
           // (Int32 NativeType), adapt to the bit-accurate value's sign and width.
           // When both are wildcards, use LS || RS and Max (both-wildcard = DFInt32-like).
           resultSign: Id[ITE[LN && ![RN], RS, ITE[RN && ![LN], LS, ITE[LN && RN, LS, LS || RS]]]],
-          resultWidth: Id[ITE[LN && ![RN], RW, ITE[RN && ![LN], LW,
-            ITE[LN && RN, LW,
+          resultWidth: Id[ITE[LN && ![RN], RW, ITE[
+            RN && ![LN],
+            LW,
+            ITE[
+              LN && RN,
+              LW,
               IntP.Max[
                 ITE[![LS] && RS, LW + 1, LW],
                 ITE[![RS] && LS, RW + 1, RW]
@@ -1223,9 +1304,11 @@ object DFXInt:
           ],
           checkWW: `BaW >= WcW`.Check[
             ITE[RN && ![LN], ubLW.Out, ITE[LN && ![RN], ubRW.Out, ubLW.Out]],
-            ITE[RN && ![LN],
+            ITE[
+              RN && ![LN],
               ITE[LS && ![RS], ubRW.Out + 1, ubRW.Out],
-              ITE[LN && ![RN],
+              ITE[
+                LN && ![RN],
                 ITE[RS && ![LS], ubLW.Out + 1, ubLW.Out],
                 ubLW.Out
               ]
@@ -1244,49 +1327,38 @@ object DFXInt:
             import IntParam.{+, max}
             val lhsIsWildcard = isWildcardL.value
             val rhsIsWildcard = isWildcardR.value
-            if (lhsIsWildcard && !rhsIsWildcard)
-              // LHS is wildcard: adapt to RHS type
-              checkWildcardFit(
-                lhsVal.asValOf[DFXInt[Boolean, Int, NativeType]],
-                rhsVal.dfType
-              )
-              arithOp(rhsVal.dfType, op.value, rhsVal, lhsVal)
-                .asInstanceOf[Out]
-            else if (rhsIsWildcard && !lhsIsWildcard)
-              // RHS is wildcard: adapt to LHS type
-              checkWildcardFit(
-                rhsVal.asValOf[DFXInt[Boolean, Int, NativeType]],
-                lhsVal.dfType
-              )
-              arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal)
-                .asInstanceOf[Out]
-            else
-              // Both concrete (or both wildcards): use max width, max signed
-              val resultSigned = lhsVal.dfType.signed || rhsVal.dfType.signed
-              val lhsEffWidth: Int =
-                if (resultSigned && !lhsVal.dfType.signed) lhsVal.dfType.widthInt + 1
-                else lhsVal.dfType.widthInt
-              val rhsEffWidth: Int =
-                if (resultSigned && !rhsVal.dfType.signed) rhsVal.dfType.widthInt + 1
-                else rhsVal.dfType.widthInt
-              if (lhsEffWidth >= rhsEffWidth)
-                if (resultSigned && !lhsVal.dfType.signed)
-                  val lhsSigned = lhsVal.asValOf[DFUInt[Int]].signed(using dfcAnon)
-                  val rhsAdj = rhsVal.toDFXIntOf(lhsSigned.dfType)(using dfcAnon)
-                  DFVal.Func(lhsSigned.dfType, op.value, List(lhsSigned, rhsAdj))
-                    .asInstanceOf[Out]
-                else
-                  arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal)
-                    .asInstanceOf[Out]
+            val retVal =
+              if (lhsIsWildcard && !rhsIsWildcard)
+                // LHS is wildcard: adapt to RHS type
+                checkWildcardFit(lhsVal.asValOf[DFInt32], rhsVal.dfType)
+                arithOp(rhsVal.dfType, op.value, rhsVal, lhsVal)
+              else if (rhsIsWildcard) // LHS may be wildcard or concrete
+                // RHS is wildcard: adapt to LHS type
+                checkWildcardFit(rhsVal.asValOf[DFInt32], lhsVal.dfType)
+                arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal)
               else
-                if (resultSigned && !rhsVal.dfType.signed)
-                  val rhsSigned = rhsVal.asValOf[DFUInt[Int]].signed(using dfcAnon)
-                  val lhsAdj = lhsVal.toDFXIntOf(rhsSigned.dfType)(using dfcAnon)
-                  DFVal.Func(rhsSigned.dfType, op.value, List(rhsSigned, lhsAdj))
-                    .asInstanceOf[Out]
-                else
-                  arithOp(rhsVal.dfType, op.value, rhsVal, lhsVal)
-                    .asInstanceOf[Out]
+                // Both concrete: use max width, max signed
+                val lhsSFix =
+                  if (!lhsVal.dfType.signed && rhsVal.dfType.signed)
+                    lhsVal.asValOf[DFUInt[Int]].signed(using dfcAnon).asValOf[DFSInt[Int]]
+                  else lhsVal.asValOf[DFSInt[Int]]
+                val rhsSFix =
+                  if (!rhsVal.dfType.signed && lhsVal.dfType.signed)
+                    rhsVal.asValOf[DFUInt[Int]].signed(using dfcAnon).asValOf[DFSInt[Int]]
+                  else rhsVal.asValOf[DFSInt[Int]]
+                lhsSFix.compareWidths(rhsSFix)(_ >= _) match
+                  case Some(true)  => arithOp(lhsSFix.dfType, op.value, lhsSFix, rhsSFix)
+                  case Some(false) => arithOp(rhsSFix.dfType, op.value, rhsSFix, lhsSFix)
+                  case None        =>
+                    val lhsEffWidth: IntParam[Int] = lhsSFix.widthIntParam
+                    val rhsEffWidth: IntParam[Int] = rhsSFix.widthIntParam
+                    val maxWidth = lhsEffWidth.max(rhsEffWidth)
+                    val lhsWFix = lhsSFix.resize(maxWidth)
+                    val rhsWFix = rhsSFix.resize(maxWidth)
+                    arithOp(lhsWFix.dfType, op.value, lhsWFix, rhsWFix)
+              end if
+            end retVal
+            retVal.asInstanceOf[Out]
           }(using dfc, CTName(op.value.toString))
       end evOpCommutativeArithDFXInt
 
@@ -1324,7 +1396,8 @@ object DFXInt:
           ],
           checkWW: `BaW >= WcW`.Check[
             ITE[LN && ![RN], ubRW.Out, ubLW.Out],
-            ITE[LN && ![RN],
+            ITE[
+              LN && ![RN],
               ITE[RS && ![LS], ubLW.Out + 1, ubLW.Out],
               ubLW.Out
             ]
@@ -1343,18 +1416,13 @@ object DFXInt:
             val rhsIsWildcard = isWildcardR.value
             if (lhsIsWildcard && !rhsIsWildcard)
               // LHS is wildcard, RHS is concrete: adapt LHS to RHS type, keep operand order
-              checkWildcardFit(
-                lhsVal.asValOf[DFXInt[Boolean, Int, NativeType]],
-                rhsVal.dfType
-              )
+              checkWildcardFit(lhsVal.asValOf[DFInt32], rhsVal.dfType)
               val lhsAdj = lhsVal.toDFXIntOf(rhsVal.dfType)(using dfcAnon)
-              DFVal.Func(rhsVal.dfType, op.value, List(lhsAdj, rhsVal))
-                .asInstanceOf[Out]
+              DFVal.Func(rhsVal.dfType, op.value, List(lhsAdj, rhsVal)).asInstanceOf[Out]
             else
               // Both concrete, both wildcards, or only RHS is wildcard: LHS-dominant
               check(lhsVal, rhsVal)
-              arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal)
-                .asInstanceOf[Out]
+              arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal).asInstanceOf[Out]
           }(using dfc, CTName(op.value.toString))
       end evOpNonCommutativeArithDFXInt
 
@@ -1504,14 +1572,14 @@ object DFUInt:
       dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
   ): DFUInt[IntP.CLog2[V]] = trydf {
-    check(sup)
+    sup.toScalaIntOpt.foreach(check(_))
     DFXInt(false, sup.clog2, BitAccurate)
   }
   def to[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
   ): DFUInt[IntP.CLog2[IntP.+[V, 1]]] = trydf {
-    check(max)
+    max.toScalaIntOpt.foreach(check(_))
     DFXInt(false, (max + 1).clog2, BitAccurate)
   }
 
@@ -1535,8 +1603,7 @@ object DFUInt:
         Int,
         [UBW <: Int, RW <: Int] =>> UBW == RW,
         [UBW <: Int, RW <: Int] =>> "Expected argument width " + UBW + " but found: " + RW +
-          "\nTo Fix:\nUse " + ITE[UBW < RW, "`.truncate`", "`.extend`"] +
-          " to match the width automatically."
+          "\nTo Fix:\nUse `.resize` to match the width automatically."
       ]
 
   object Val:
@@ -1566,7 +1633,7 @@ object DFUInt:
         type OutP = CONST
         def apply(ub: IntParam[UB], arg: R)(using DFC): Out =
           unsignedCheck(arg < 0)
-          ubCheck(ub, arg)
+          ub.toScalaIntOpt.foreach(ubCheck(_, arg))
           DFConstInt32(arg)
       end fromInt
       given fromR[
@@ -1588,10 +1655,10 @@ object DFUInt:
           val argVal = ic(arg)
           val argValIR = argVal.asIR
           // if the argument is a constant, we can check its value and width
-          val fixedArgValIR = argValIR.getConstData match
-            case Some(Some(arg: BigInt)) =>
+          val fixedArgValIR = argValIR.getConstData[Option[BigInt]].toOption match
+            case Some(Some(arg: BigInt)) if arg.isValidInt =>
               unsignedCheck(arg < 0)
-              summon[`UB > R`.CheckNUB[UB, Int]](ub, arg.toInt)
+              ub.toScalaIntOpt.foreach(ub => summon[`UB > R`.CheckNUB[UB, Int]](ub, arg.toInt))
               argValIR
             case _ =>
               import DFXInt.Val.Ops.resize
@@ -1599,15 +1666,14 @@ object DFUInt:
               // TODO: in the future, it's worth considering adding assertions
               if (argValIR.dfType != ir.DFInt32)
                 unsignedCheck(argVal.dfType.signed)
-                val ubWidth = clog2(ub.toScalaInt)
-                val argWidth = argVal.widthInt
-                if (
-                  ubWidth < argWidth && argValIR.hasTagOf[ir.TruncateTag] ||
-                  ubWidth > argWidth && argValIR.hasTagOf[ir.ExtendTag]
-                )
+                if (argValIR.hasTagOf[ir.ResizeTag])
                   argVal.resize(ub.clog2).asIR
                 else
-                  widthCheck(ubWidth, argVal.widthInt)
+                  (ub.toScalaIntOpt, argVal.widthIntOpt) match
+                    case (Some(ubInt), Some(argWidth)) =>
+                      widthCheck(clog2(ubInt), argWidth)
+                      argValIR
+                    case _ =>
                   argValIR
               else argValIR
           DFVal.Alias.AsIs(DFInt32, fixedArgValIR.asValTP[DFUInt[Int], P])
@@ -1629,7 +1695,7 @@ object DFUInt:
             dfc: DFCG,
             check: `W <= 31`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
-          check(lhs.widthInt)
+          lhs.widthIntOpt.foreach(check(_))
           DFVal.Alias.AsIs(DFInt32, lhs.signed)
         }
       end extension
@@ -1649,14 +1715,14 @@ object DFSInt:
       dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
   ): DFSInt[IntP.+[IntP.CLog2[V], 1]] = trydf {
-    check(sup)
+    sup.toScalaIntOpt.foreach(check(_))
     DFXInt(true, sup.clog2 + 1, BitAccurate)
   }
   def toAbs[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
   ): DFSInt[IntP.+[IntP.CLog2[IntP.+[V, 1]], 1]] = trydf {
-    check(max)
+    max.toScalaIntOpt.foreach(check(_))
     DFXInt(true, (max + 1).clog2 + 1, BitAccurate)
   }
 
@@ -1687,7 +1753,7 @@ object DFSInt:
             dfc: DFCG,
             check: `W <= 32`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
-          check(lhs.widthInt)
+          lhs.widthIntOpt.foreach(check(_))
           DFVal.Alias.AsIs(DFInt32, lhs)
         }
     end Ops

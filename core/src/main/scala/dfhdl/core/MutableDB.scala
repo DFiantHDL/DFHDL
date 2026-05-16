@@ -5,6 +5,7 @@ import dfhdl.compiler.ir.{
   DB,
   DuplicateTag,
   DFDesignInst,
+  DFDesignInstOld,
   DFDesignBlock,
   DFMember,
   DFOwner,
@@ -17,7 +18,6 @@ import dfhdl.compiler.ir.{
   MemberGetSet,
   SourceFile,
   MemberView,
-  RTDomainCfg,
   DFTags,
   annotation,
   DFDomainOwner,
@@ -95,6 +95,14 @@ class DesignContext:
     val originalMemberUpdated = members(idx)._1.asInstanceOf[M]
     // apply function to get the new member
     val newMember = newMemberFunc(originalMemberUpdated)
+    // For DFDesignBlock, `copy` creates a fresh instance whose private
+    // `designInstCache` is None. Transfer the pre-copy cache so elaboration
+    // lookups via `designBlock.getDesignInst` keep working across replaces
+    // (e.g., `setClsNamePos` overwriting meta/instMode).
+    (originalMemberUpdated, newMember) match
+      case (orig: DFDesignBlock, upd: DFDesignBlock) =>
+        upd.copyDesignInstCacheFrom(orig)
+      case _ =>
     val memberEntry = members(idx)
     // update all references to the new member
     memberEntry.refSet.foreach(r => refTable.update(r, newMember))
@@ -125,6 +133,11 @@ class DesignContext:
     }
     member
   end ignoreMember
+
+  def hasMember(member: DFMember): Boolean = memberTable.contains(member)
+
+  def getMemberRefs(member: DFMember): Set[DFRefAny] =
+    memberTable.get(member).map(idx => members(idx).refSet).getOrElse(Set.empty)
 
   def getLatestMember: DFMember =
     members.view.filterNot(e => e.ignore).map(e => e.irValue).head
@@ -170,16 +183,6 @@ final class MutableDB():
     val designMembers = mutable.Map.empty[DFDesignBlock, List[DFMember]]
     val uniqueDesigns = mutable.Map.empty[String, List[List[DFDesignBlock]]]
 
-    // for design parameters we save them via the plugin before the design is elaborated, and then
-    // construct the design block with the parameters referenced in its paramMap.
-    private var designParamValueMap = ListMap.empty[String, DFValAny]
-    def prepareDesignParamValues(paramNames: List[String], paramValues: List[DFValAny]): Unit =
-      designParamValueMap = ListMap.from(paramNames.lazyZip(paramValues))
-    def getDesignParamValueMap: ListMap[String, DFValAny] =
-      val ret = designParamValueMap
-      designParamValueMap = ListMap.empty
-      ret
-
     def startDesign(design: DFDesignBlock): Unit =
       stack = current :: stack
       current = new DesignContext
@@ -214,8 +217,7 @@ final class MutableDB():
       // parameters, domain blocks, and their dependencies) during elaboration, because
       // user code may still reference them (e.g., connecting to a port requires the Dcl
       // before a PortByNameSelect is created). These public members are later removed
-      // during immutable DB creation (see `immutable`), where ports are resolved
-      // on-demand via DuplicationRef in `DB.dupPortsByName`.
+      // during immutable DB creation (see `immutable`).
       // If the current design context is already known to be a duplicate (as a result
       // of a `hw.pure` annotation), then we can skip this extra step since the design
       // context is already minimized to the named members.
@@ -373,6 +375,8 @@ final class MutableDB():
         case None => // do nothing
     def getConstrainedDcls(): Map[DFVal.Dcl, DFVal.Dcl] =
       connectedDclResourceMap.map { case (dcl, connections) =>
+        // assuming constrained dcls have known width
+        val dclWidth = dcl.widthIntOpt.get
         // separate existing constraints from other annotations
         val (existingSigConstraints, otherAnnotations) = dcl.meta.annotations.partition {
           case cs: SigConstraint => true
@@ -380,14 +384,14 @@ final class MutableDB():
         }.asInstanceOf[(List[SigConstraint], List[HWAnnotation])]
         // collect all constraints from the resources that are connected to this dcl
         val newSigConstraints = connections.flatMap { case (range, resource) =>
-          if (range.length != dcl.width) resource.allSigConstraints.flatMap { cs =>
+          if (range.length != dclWidth) resource.allSigConstraints.flatMap { cs =>
             for (i <- range) yield cs.updateBitIdx(i)
           }
           else resource.allSigConstraints
         }
         // merge the existing constraints with the new constraints
         val updatedSigConstraints = (existingSigConstraints ++ newSigConstraints).merge.consolidate(
-          dcl.width
+          dclWidth
         )
         // merge all other annotations
         val updatedAnnotations = updatedSigConstraints ++ otherAnnotations
@@ -582,7 +586,7 @@ final class MutableDB():
           case (ref: DFRef.TypeRef, m) => usedTypeRefs.contains(ref)
           case _                       => true
         }.toMap
-        val duplicateDesignSet = mutable.Set.empty[DFDesignBlock]
+        val dupToOrigDesignMap = mutable.Map.empty[DFDesignBlock, DFDesignBlock]
         val duplicateDesignRepMap = DesignContext.uniqueDesigns.view.flatMap {
           case (designType, groupList) =>
             groupList.view.reverse.zipWithIndex.flatMap {
@@ -591,16 +595,17 @@ final class MutableDB():
                   if (groupList.length > 1) s"${designType}_${i.toPaddedString(groupList.length)}"
                   else designType
                 var first = true
+                val orig = group.head
                 group.view.map(design =>
                   val tags =
                     if (first)
                       first = false
                       design.tags
                     else
-                      duplicateDesignSet += design
+                      dupToOrigDesignMap += design -> orig
                       design.tags.tag(DuplicateTag)
                   design -> design.copy(
-                    dclMeta = design.dclMeta.copy(nameOpt = Some(updatedDclName)),
+                    meta = design.meta.copy(nameOpt = Some(updatedDclName)),
                     tags = tags
                   )
                 )
@@ -629,27 +634,77 @@ final class MutableDB():
         // Remove all remaining public members (ports, domain blocks, and their
         // dependencies) from duplicate designs. During elaboration these were kept
         // so user code could reference them, but in the immutable DB they are no
-        // longer needed. Ports for duplicate designs are resolved on-demand via
-        // DuplicationRef in `DB.dupPortsByName`.
+        // longer needed.
         val redundantRefs = mutable.Set.empty[DFRefAny]
+        val dupRefs = mutable.Map.empty[DFRefAny, DFMember]
         val finalMembers = members.flatMap {
           case m: DFVal if m.isGlobal => Some(finalFixFunc(m))
-          case m: (DomainBlock | DFVal) if duplicateDesignSet.contains(m.getOwnerDesign) =>
+          case m: (DomainBlock | DFVal) if dupToOrigDesignMap.contains(m.getOwnerDesign) =>
             redundantRefs += m.ownerRef
             redundantRefs ++= m.getRefs
             None
+          // Duplicate DFDesignBlocks are eliminated entirely from the
+          // immutable DB. Their DFDesignInsts have been rewired to the
+          // canonical above, so the duplicate block itself has no remaining
+          // role. Its refs (ownerRef + meta/domainType refs) are dropped
+          // alongside its members below.
+          case d: DFDesignBlock if dupToOrigDesignMap.contains(d) =>
+            redundantRefs += d.ownerRef
+            redundantRefs ++= d.getRefs
+            None
+          case designInst: DFDesignInst =>
+            dupToOrigDesignMap.get(designInst.designRef.get) match
+              case Some(origDesign) =>
+                dupRefs += designInst.designRef -> finalFixFunc(origDesign)
+              case _ =>
+            Some(designInst)
           case m => Some(finalFixFunc(m))
         }
+        // Every non-top sub-design should behave as a Top in the immutable
+        // DB. We don't change the block instance itself; instead we remap
+        // its ownerRef in the refTable to DFMember.Empty. The DFDesignInst
+        // is the sole per-use-site marker that remains owned by the parent
+        // design.
+        val designBlockOwnerRefs = finalMembers.iterator.collect {
+          case d: DFDesignBlock if !d.ownerRef.isInstanceOf[DFRef.Empty] =>
+            d.ownerRef: DFRefAny
+        }.toSet
         val finalRefTable = fixedRefTable.view.flatMap { case (ref, member) =>
-          if (redundantRefs.contains(ref)) None else Some(ref -> finalFixFunc(member))
+          if (redundantRefs.contains(ref)) None
+          else if (dupRefs.contains(ref)) Some(ref -> dupRefs(ref))
+          else if (designBlockOwnerRefs.contains(ref)) Some(ref -> DFMember.Empty)
+          else Some(ref -> finalFixFunc(member))
         }.toMap
         (finalMembers, finalRefTable)
     val membersNoGlobalCtx = members.map {
-      case m: DFVal.CanBeGlobal => m.copyWithoutGlobalCtx
-      case m                    => m
+      case m: DFVal.CanBeGlobal  => m.copyWithoutGlobalCtx
+      case design: DFDesignBlock =>
+        design.clearDesignInstCache()
+        design
+      case m => m
     }
     val globalTags = GlobalTagContext.tags
-    val db = DB(membersNoGlobalCtx, refTable, globalTags, Nil)
+    // Drop orphan OneWay.Gen refs — refTable entries whose key is no live
+    // member's ownerRef. Elaboration scaffolding (especially meta-design /
+    // cloneAnon paths) can leak these; they're safe to drop because no
+    // member emits them.
+    val cleanedRefTable =
+      val memberOwnerRefs = mutable.Set.empty[DFRefAny]
+      membersNoGlobalCtx.foreach { m =>
+        memberOwnerRefs += m.ownerRef
+        m match
+          // DFDesignInst's designRef is a OneWay.Gen ref outside of getRefs
+          // (which only carries TwoWay refs); keep it from being swept away.
+          case inst: DFDesignInst => memberOwnerRefs += inst.designRef
+          case _                  =>
+      }
+      refTable.filter { (r, _) =>
+        r match
+          case _: DFRef.OneWay.Gen[?] => memberOwnerRefs.contains(r)
+          case _                      => true
+      }
+    end cleanedRefTable
+    val db = DB(membersNoGlobalCtx, cleanedRefTable, globalTags, Nil)
     memoizedDB = Some(db)
     db
   }

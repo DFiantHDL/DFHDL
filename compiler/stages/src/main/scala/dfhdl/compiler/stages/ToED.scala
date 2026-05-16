@@ -9,6 +9,20 @@ import dfhdl.core.{DFIf, DFOwnerAny, DFOpaque}
 import dfhdl.core.DomainType.ED
 import scala.annotation.tailrec
 import scala.collection.mutable
+
+/** Lowers RT domains to ED domains.
+  *
+  * Reads the resolved `@timing.clock` / `@timing.reset` / `@timing.related` annotations from each
+  * RT domain owner's meta (written by [[ExplicitClkRstCfg]] and preserved by [[AddClkRst]]) to:
+  *
+  *   - Pick the clock-edge condition for sequential `process(clk)` / `process(clk, rst)`.
+  *   - Pick the reset mode (sync vs async) and active polarity for the reset branch.
+  *   - Walk `@timing.related(ref)` to the related target's clk/rst Dcls.
+  *
+  * Strips the resolved timing annotations on RT→ED conversion — by that point the configuration
+  * is fully baked into the generated `Clk_<grp>` / `Rst_<grp>` opaque port types and the
+  * annotations are redundant.
+  */
 case object ToED extends Stage:
   def dependencies: List[Stage] =
     List(DropUnreferencedAnons, ToRT, DropRTProcess, NameRegAliases, ExplicitNamedVars,
@@ -16,7 +30,32 @@ case object ToED extends Stage:
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
     given RefGen = RefGen.fromGetSet
-    val domainAnalysis = new DomainAnalysis(designDB)
+
+    // Annotation-based mirror of `DomainAnalysis.designDomains`. For an RT owner returns
+    // its (clkOpt, rstOpt) Dcl pair; if the owner carries `@timing.related(ref)`, the
+    // pair is taken from the related target (transitively).
+    val ownerClkRstCache =
+      mutable.Map.empty[DFDomainOwner, (Option[DFVal.Dcl], Option[DFVal.Dcl])]
+    def relatedTarget(owner: DFDomainOwner): Option[DFDomainOwner] =
+      owner.meta.annotations.collectFirst {
+        case rel: constraints.Timing.Related => rel.ref.get
+      }
+    def lookupClkRst(owner: DFDomainOwner): (Option[DFVal.Dcl], Option[DFVal.Dcl]) =
+      ownerClkRstCache.getOrElseUpdate(
+        owner,
+        relatedTarget(owner) match
+          case Some(target) => lookupClkRst(target)
+          case None         =>
+            val members = designDB.domainOwnerMemberTable(owner)
+            val clkOpt = members.collectFirst {
+              case clk: DFVal.Dcl if clk.isClkDcl => clk
+            }
+            val rstOpt = members.collectFirst {
+              case rst: DFVal.Dcl if rst.isRstDcl => rst
+            }
+            (clkOpt, rstOpt)
+      )
+
     // the last handled design to know when a design is switched to clear
     // the handledDesignDcls set (saving as top for initial since transforming bottom-up,
     // and this guarantees to work at any case and not required if we only have a single design top
@@ -33,18 +72,28 @@ case object ToED extends Stage:
         if (handledDesign != design)
           handledDesign = design
           handledDesignREGDclSet.clear()
-        object Config:
-          def unapply(domainType: DomainType): Option[RTDomainCfg.Explicit] =
-            domainType match
-              case DomainType.RT(cfg: RTDomainCfg.Explicit) => Some(cfg)
-              case DomainType.RT(RTDomainCfg.Related(ref))  => unapply(ref.get.domainType)
-              case _                                        => None
         domainOwner.domainType match
-          // only care about register-transfer domains.
-          // those have wires and regs that we need to simplify.
-          case domainType @ Config(cfg) =>
-            import cfg.{clkCfg, rstCfg}
-            val clkRstOpt = domainAnalysis.designDomains(domainOwner)
+          case DomainType.RT =>
+            // Resolve the effective clk/rst annotations: walk through any `@timing.related`
+            // chain to the originating owner whose meta carries the actual clk/rst annotations.
+            @tailrec def resolveTimingOwner(o: DFDomainOwner): DFDomainOwner =
+              relatedTarget(o) match
+                case Some(t) => resolveTimingOwner(t)
+                case None    => o
+            val timingOwner = resolveTimingOwner(domainOwner)
+            val clkAnnotOpt: Option[constraints.Timing.Clock] =
+              timingOwner.meta.annotations.collectFirst {
+                case c: constraints.Timing.Clock => c
+              }
+            val rstAnnotOpt: Option[constraints.Timing.Reset] =
+              timingOwner.meta.annotations.collectFirst {
+                case r: constraints.Timing.Reset => r
+              }
+            // Note: a purely combinational RT owner has no clk/rst annotations after relaxation;
+            // we still process it (the original ToED falls into the same branch via `Config(cfg)`
+            // even when `clkCfg = None && rstCfg = None`) so single-assignment promotion to
+            // connections and `process(all)` wrapping still happen.
+            val clkRstOpt = lookupClkRst(domainOwner)
 
             val assignCnt = mutable.Map.empty[DFVal.Dcl, Int]
             def anotherAssignCnt(toVal: DFVal): Unit =
@@ -114,10 +163,10 @@ case object ToED extends Stage:
             val dclREGRequiresDefaultSet = mutable.Set.empty[DFVal.Dcl]
             // domain is purely sequential if the configuration is not combinational and
             // all the remaining non-single assignment variables are either REGs or SHARED variables
-            var domainIsPureSequential = clkCfg != None // clock configuration -> not combinational
+            var domainIsPureSequential = clkAnnotOpt.isDefined
             processBlockAllMembers.foreach {
               case net @ DFNet.Assignment(dfVal: DFVal, _) =>
-                val (dcl, range) = dfVal.departialDcl.get
+                val (dcl, slice) = dfVal.departialDcl.get
                 if (dcl.isReg)
                   // it could be that we are assigning to a Dcl outside the domain. this is fine,
                   // as long as we mark it as handled. two different domains are guaranteed not to assign
@@ -128,8 +177,8 @@ case object ToED extends Stage:
                   // simple test: if guarded by a conditional -> requires a default
                   case _: DFConditional.Block =>
                     dclREGRequiresDefaultSet += dcl
-                  // simple test: partially assigned even once -> requires a default
-                  case _ if range.length != dcl.width =>
+                  // conservative test: partially assigned (or can't be proven full) -> requires a default
+                  case _ if slice.isFullOf(dcl.dfType.widthIntOpt) != Tri.Yes =>
                     dclREGRequiresDefaultSet += dcl
                   case _ => // do nothing
                 if (!dcl.isReg && !dcl.modifier.isShared)
@@ -138,11 +187,6 @@ case object ToED extends Stage:
             }
             // the full list of handled REG Dcls in this domain
             val dclREGList = dclREGSet.toList
-            // println("singleAssignments:")
-            // println(singleAssignments.mkString("\n"))
-            // println("processBlockAllMembers:")
-            // println(processBlockAllMembers.mkString("\n"))
-            // println("----")
             val processAllDsn =
               new MetaDesign(domainOwner, Patch.Add.Config.InsideLast, domainType = ED):
                 // variables to transfer combinational information from the combinational block
@@ -214,8 +258,8 @@ case object ToED extends Stage:
 
             val processSeqDsn =
               new MetaDesign(domainOwner, Patch.Add.Config.InsideLast, domainType = ED):
-                lazy val clk = clkRstOpt.clkOpt.get.asValOf[DFOpaque[DFOpaque.Clk]]
-                lazy val rst = clkRstOpt.rstOpt.get.asValOf[DFOpaque[DFOpaque.Rst]]
+                lazy val clk = clkRstOpt._1.get.asValOf[DFOpaque[DFOpaque.Clk]]
+                lazy val rst = clkRstOpt._2.get.asValOf[DFOpaque[DFOpaque.Rst]]
 
                 import processAllDsn.dclChangeList
 
@@ -238,7 +282,7 @@ case object ToED extends Stage:
                     dclChangeList.foreach: (dclREG, dcl_din) =>
                       dclREG.asVarAny :== dcl_din.asValAny
                 def ifRstActive =
-                  val RstCfg.Explicit(active = active) = rstCfg.runtimeChecked
+                  val active = rstAnnotOpt.get.active.get
                   val cond = active match
                     case RstCfg.Active.High => rst.actual == 1
                     case RstCfg.Active.Low  => rst.actual == 0
@@ -247,7 +291,7 @@ case object ToED extends Stage:
                   val (_, rstBranch) = ifRstActive
                   DFIf.singleBranch(None, rstBranch, regSaveBlock)
                 def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
-                  val ClkCfg.Explicit(edge = edge) = clkCfg.runtimeChecked
+                  val edge = clkAnnotOpt.get.edge.get
                   val cond = edge match
                     case ClkCfg.Edge.Rising  => clk.actual.rising
                     case ClkCfg.Edge.Falling => clk.actual.falling
@@ -257,13 +301,13 @@ case object ToED extends Stage:
                     block
                   )
                 val hasSeqProcess =
-                  clkCfg != None &&
+                  clkAnnotOpt.isDefined &&
                     (dclREGList.nonEmpty ||
                       processBlockAllMembers.nonEmpty && domainIsPureSequential)
 
                 if (hasSeqProcess)
-                  if (rstCfg != None)
-                    val RstCfg.Explicit(mode = mode) = rstCfg.runtimeChecked
+                  if (rstAnnotOpt.isDefined)
+                    val mode = rstAnnotOpt.get.mode.get
                     mode match
                       case RstCfg.Mode.Sync =>
                         process(clk) {
@@ -308,11 +352,24 @@ case object ToED extends Stage:
       val patchList = firstPart.members.collect {
         case dcl: DFVal.Dcl if dcl.isReg =>
           // if the domain has no reset, then the register init is preserved for the signal
-          // as a startup reset value
-          val updatedInitRefList = dcl.getDomainType match
-            case DomainType.RT(RTDomainCfg.Explicit(rstCfg = None)) =>
-              dcl.initRefList
-            case _ => Nil
+          // as a startup reset value. The annotation channel encodes "no reset" as
+          // an owner that has `@timing.clock` but no `@timing.reset` (the user-explicit
+          // no-reset opt-out implemented in `getResolvedClkRst`).
+          val ownerDomain = dcl.getOwnerDomain
+          @tailrec def resolveTimingOwner(o: DFDomainOwner): DFDomainOwner =
+            o.meta.annotations.collectFirst {
+              case rel: constraints.Timing.Related => rel.ref.get
+            } match
+              case Some(t) => resolveTimingOwner(t)
+              case None    => o
+          val timingOwner = resolveTimingOwner(ownerDomain)
+          val annots = timingOwner.meta.annotations
+          val hasClkAnnot =
+            annots.exists { case _: constraints.Timing.Clock => true; case _ => false }
+          val hasRstAnnot =
+            annots.exists { case _: constraints.Timing.Reset => true; case _ => false }
+          val updatedInitRefList =
+            if (hasClkAnnot && !hasRstAnnot) dcl.initRefList else Nil
           val updatedDcl =
             dcl.copy(
               initRefList = updatedInitRefList,
@@ -320,11 +377,28 @@ case object ToED extends Stage:
             )
           dcl -> Patch.Replace(updatedDcl, Patch.Replace.Config.FullReplacement)
         case domainOwner: DFDomainOwner if domainOwner.domainType != DomainType.ED =>
-          // changing the owner from RT domain to ED domain
+          // changing the owner from RT domain to ED domain. Strip all timing annotations
+          // from the owner's meta — by this point the clk/rst configuration is fully baked
+          // into the generated Clk_<grp>/Rst_<grp> opaque types and ports, so the
+          // @timing.clock / @timing.reset / @timing.related annotations are redundant.
+          def stripTimingAnnotations(meta: Meta): Meta =
+            meta.copy(annotations = meta.annotations.filter {
+              case _: constraints.Timing.Clock   => false
+              case _: constraints.Timing.Reset   => false
+              case _: constraints.Timing.Related => false
+              case _                             => true
+            })
           val updatedOwner = domainOwner match
-            case design: DFDesignBlock => design.copy(domainType = DomainType.ED)
-            case domain: DomainBlock   => domain.copy(domainType = DomainType.ED)
-            case ifc: DFInterfaceOwner => ifc.copy(domainType = DomainType.ED)
+            case design: DFDesignBlock =>
+              design.copy(domainType = DomainType.ED, meta = stripTimingAnnotations(design.meta))
+            case domain: DomainBlock =>
+              domain.copy(domainType = DomainType.ED, meta = stripTimingAnnotations(domain.meta))
+            case ifc: DFInterfaceOwner =>
+              ifc.copy(
+                domainType = DomainType.ED,
+                dclMeta = stripTimingAnnotations(ifc.dclMeta),
+                meta = stripTimingAnnotations(ifc.meta)
+              )
           domainOwner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
       }
       firstPart.patch(patchList)
@@ -332,4 +406,5 @@ case object ToED extends Stage:
   end transform
 end ToED
 
-extension [T: HasDB](t: T) def toED(using CompilerOptions): DB = StageRunner.run(ToED)(t.db)
+extension [T: HasDB](t: T)
+  def toED(using CompilerOptions): DB = StageRunner.run(ToED)(t.db)

@@ -11,7 +11,6 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import dfhdl.core.DomainType.RT
 import DFVal.Modifier as IRModifier
-import dfhdl.core.RTDomainCfg.Derived
 
 /** This stage names register aliases (e.g., `x.reg`) and replaces them with explicit register
   * variables. The most complex mechanism about this stage is the naming conversion convention.
@@ -41,7 +40,7 @@ import dfhdl.core.RTDomainCfg.Derived
   *        z := ((i + 1).reg + 7).reg(2) //z_part1_reg, z_part2_reg1, z_part2_reg2
   *      }}}
   */
-case object NameRegAliases extends Stage:
+case object NameRegAliases extends HierarchyStage:
   // We order the members to have declarations first and make sure there are unique names
   // so that the naming system will be more coherent. However, this stage also may cause naming
   // collisions in rare cases, so we also need to nullify the unique name stage.
@@ -70,9 +69,8 @@ case object NameRegAliases extends Stage:
         case dfVal: DFVal => NameGroup(dfVal.getName, false)
   end extension
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patchList: List[(DFMember, Patch)] = subDB.namedOwnerMemberList.flatMap {
       case (domainOwner: (DFDomainOwner & DFBlock), members) =>
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
         def patchRemoveHistoryInit(alias: DFVal.Alias.History): Unit =
@@ -89,7 +87,7 @@ case object NameRegAliases extends Stage:
                 regAlias @ DFVal.Alias.History(relValRef = DFRef(relVal), step = 1)
               ) if regAlias.isAnonymous && dcl.getAssignmentsTo.size == 1 =>
             patchRemoveHistoryInit(regAlias)
-            val dsn = new MetaDesign(dcl, Patch.Add.Config.ReplaceWithLast(), RT(Derived)):
+            val dsn = new MetaDesign(dcl, Patch.Add.Config.ReplaceWithLast(), RT):
               val modifierFE = dcl.modifier.dir match
                 case IRModifier.VAR => VAR.REG
                 case IRModifier.OUT => OUT.REG
@@ -126,7 +124,7 @@ case object NameRegAliases extends Stage:
         }.headOption match
           case Some(lastDcl) => (lastDcl, Patch.Add.Config.After)
           case None          => (domainOwner, Patch.Add.Config.InsideFirst)
-        val regDsn = new MetaDesign(posMember, addCfg, domainType = RT(Derived)):
+        val regDsn = new MetaDesign(posMember, addCfg, domainType = RT):
           def addRegs(
               aliases: List[DFVal.Alias.History],
               namePrefix: String,
@@ -150,7 +148,7 @@ case object NameRegAliases extends Stage:
             val relVal = alias.getNonRegAliasRelVal
             var initOptions = aliases.flatMap(a => List.fill(a.step)(a.initOption))
             def regDinPatch(posMember: DFMember, addCfg: Patch.Add.Config) =
-              new MetaDesign(posMember, addCfg, domainType = RT(Derived)):
+              new MetaDesign(posMember, addCfg, domainType = RT):
                 (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
                   curr.asVarAny.:=(prev.asValAny)(using dfc.setMetaAnon(alias.meta.position))
                 }
@@ -196,8 +194,8 @@ case object NameRegAliases extends Stage:
         ).flatten
       case _ => None
     }
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patchList)
+  end transformSubDB
 end NameRegAliases
 
 extension [T: HasDB](t: T)

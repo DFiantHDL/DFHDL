@@ -6,7 +6,7 @@ import dfhdl.compiler.stages.dropStructsVecs
 
 class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Drop vector") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     class Foo extends DFDesign:
       val x  = UInt(8) X 4     <> IN
       val y  = UInt(8) X 4     <> OUT
@@ -42,7 +42,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
 
   test("Drop vector with parameters") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     class VectorWithParams(
         val width: Int <> CONST = 8,
         val depth: Int <> CONST = 4
@@ -76,9 +76,11 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
 
   test("Ignore block ram access vectors") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
-    class BlockRam(val width: Int <> CONST = 8, val depth: Int <> CONST = 4) extends DFDesign:
-      val v =
+    given options.CompilerOptions.Backend = _.verilog.v95
+    class BlockRam extends DFDesign:
+      val width: Int <> CONST = 8
+      val depth: Int <> CONST = 4
+      val v                   =
         UInt(width) X depth <> VAR init h"${width}'0".repeat(depth).as(UInt(width) X depth)
       val v2  = UInt(width) X depth <> VAR init all(0)
       val v3  = UInt(width) X depth <> VAR init Vector(0, 1, 2, 3)
@@ -90,13 +92,12 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val top = (new BlockRam).dropStructsVecs
     assertCodeString(
       top,
-      """|class BlockRam(
-         |    val width: Int <> CONST = 8,
-         |    val depth: Int <> CONST = 4
-         |) extends DFDesign:
-         |  val v = UInt(width) X depth <> VAR init h"${width}'0".repeat(depth).as(UInt(width) X depth)
-         |  val v2 = UInt(width) X depth <> VAR init h"${width}'0".repeat(depth).as(UInt(width) X depth)
-         |  val v3 = Bits(width * depth) <> VAR init (h"${width}'0", h"${width}'1", h"${width}'2", h"${width}'3").toBits
+      """|class BlockRam extends DFDesign:
+         |  val width: Int <> CONST = 8
+         |  val depth: Int <> CONST = 4
+         |  val v = UInt(width) X depth <> VAR init h"0".resize(width).repeat(depth).as(UInt(width) X depth)
+         |  val v2 = UInt(width) X depth <> VAR init d"1'0".resize(width).bits.repeat(depth).as(UInt(width) X depth)
+         |  val v3 = Bits(width * depth) <> VAR init (d"1'0".resize(width).bits, d"1'1".resize(width).bits, d"2'2".resize(width).bits, d"2'3".resize(width).bits).toBits
          |  val sel = UInt(clog2(depth)) <> IN
          |  val o = UInt(width) <> OUT
          |  val o2 = Bits(width * depth) <> OUT
@@ -108,7 +109,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
 
   test("Drop struct") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     case class Point(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends Struct
     class StructExample extends DFDesign:
       val p = Point   <> IN
@@ -135,7 +136,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
 
   test("Drop struct with parameters") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     val w: Int <> CONST                   = 8
     case class Point(x: UInt[w.type] <> VAL, y: UInt[w.type] <> VAL) extends Struct
     class StructExample extends DFDesign:
@@ -165,7 +166,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
 
   test("Drop complex composition") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     case class Point(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends Struct
     case class VectorHolder(vec: UInt[8] X 4 <> VAL) extends Struct
     case class ComplexStruct(
@@ -201,7 +202,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
 
   test("Global constant vector") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     val arg: Bits[8] X 4 <> CONST         = Vector(h"01", h"02", h"03", h"04")
     val arg2: Bits[8] X 4 X 4 <> CONST    = Vector(
       Vector(h"01", h"02", h"03", h"04"),
@@ -249,7 +250,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
 
   test("Inline anomaly") {
-    given options.CompilerOptions.Backend = backends.verilog.v95
+    given options.CompilerOptions.Backend = _.verilog.v95
     val Rcon: Bits[8] X 4 X 2 <> CONST    = DFVector(Bits(8) X 4 X 2)(
       DFVector(Bits(8) X 4)(h"01", h"02", h"03", h"04"),
       DFVector(Bits(8) X 4)(h"05", h"06", h"07", h"08")

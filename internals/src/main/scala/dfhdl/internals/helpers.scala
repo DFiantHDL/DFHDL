@@ -476,11 +476,15 @@ object AnnotatedWith:
       line == macroLine || line == macroLine + 1
     }
 
-    val tpe = annotated.headOption.map(_.typeRef.asTypeOf[UB]).getOrElse(
-      report.errorAndAbort("No annotated class found")
-    )
-
-    '{ annotWith[T, UB, tpe.Underlying] }
+    annotated.headOption.map(_.typeRef.asTypeOf[UB]) match
+      case Some(tpe) => '{ annotWith[T, UB, tpe.Underlying] }
+      // Fallback when the annotated class can't be located (e.g. the annotation was
+      // synthetically attached by the compiler plugin, or the class is nested inside a
+      // scope the macro can't traverse). Returning Out = UB keeps implicit resolution
+      // alive so the annotation's downstream implicits (option defaults, etc.) can
+      // still resolve at the broadest bound — callers that depend on a specific Out
+      // will surface the mismatch later.
+      case None      => '{ annotWith[T, UB, UB] }
   end annotWithMacro
 end AnnotatedWith
 

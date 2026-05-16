@@ -28,7 +28,7 @@ import dfhdl.options.CompilerOptions
   *       NextStep
   * }}}
   */
-case object ExplicitNamedVars extends Stage:
+case object ExplicitNamedVars extends HierarchyStage:
   def dependencies: List[Stage] = List(NamedAnonCondExpr)
   def nullifies: Set[Stage] = Set(DropLocalDcls)
 
@@ -82,109 +82,107 @@ case object ExplicitNamedVars extends Stage:
         case None => (regs = Set(), vars = dfVal.getReadDeps)
   end extension
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList =
-      designDB.members.view
-        // just named values
-        .collect { case dv: DFVal if !dv.isAnonymous => dv }
-        .flatMap {
-          // ignoring port and variable declarations
-          case _: DFVal.Dcl => None
-          // ignoring constant declarations (named constants or derived constants)
-          case DclConst() => None
-          // all other named values
-          case named =>
-            // anonymized value
-            val anonValueIR = named match
-              // named ident requires removal of the ident itself
-              case Ident(value) => value
-              // removing name and type from header
-              case mh: DFConditional.DFMatchHeader => mh.copy(dfType = DFUnit).anonymize
-              // removing name and type from header
-              case ih: DFConditional.DFIfHeader => ih.copy(dfType = DFUnit).anonymize
-              case _                            => named.anonymize
-            val readDeps = named.getRegOrVarDeps
-            // println(s"regs: ${readDeps.regs}")
-            // println(s"vars: ${readDeps.vars}")
-            val regUse = readDeps.regs.nonEmpty
-            // var is also used if there are no dependencies at all
-            val varUse = readDeps.vars.nonEmpty || readDeps.regs.isEmpty && readDeps.vars.isEmpty
-            val dsn = new MetaDesign(
-              named,
-              Patch.Add.Config.Before,
-              dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
-            ):
-              val regDFC = dfc.setMeta(named.meta)
-              lazy val varDFC = if (regUse) regDFC.setName(s"${named.getName}_din") else regDFC
-              lazy val plantedNewVar = named.asValAny.dfType.<>(VAR)(using varDFC)
-              if (varUse) plantedNewVar // touch to trigger the lazy val
-              lazy val plantedNewReg = named.asValAny.dfType.<>(VAR.REG)(using regDFC)
-              if (regUse) plantedNewReg // touch to trigger the lazy val
-              val anonValue = named match
-                case Ident(_) => anonValueIR.asValAny
-                case _        => plantMember(anonValueIR).asValAny
-              named match
-                case _: DFConditional.Header => // do nothing
-                case _                       =>
-                  if (varUse && regUse)
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patches = subDB.members.view
+      // just named values
+      .collect { case dv: DFVal if !dv.isAnonymous => dv }
+      .flatMap {
+        // ignoring port and variable declarations
+        case _: DFVal.Dcl => None
+        // ignoring constant declarations (named constants or derived constants)
+        case DclConst() => None
+        // all other named values
+        case named =>
+          // anonymized value
+          val anonValueIR = named match
+            // named ident requires removal of the ident itself
+            case Ident(value) => value
+            // removing name and type from header
+            case mh: DFConditional.DFMatchHeader => mh.copy(dfType = DFUnit).anonymize
+            // removing name and type from header
+            case ih: DFConditional.DFIfHeader => ih.copy(dfType = DFUnit).anonymize
+            case _                            => named.anonymize
+          val readDeps = named.getRegOrVarDeps
+          // println(s"regs: ${readDeps.regs}")
+          // println(s"vars: ${readDeps.vars}")
+          val regUse = readDeps.regs.nonEmpty
+          // var is also used if there are no dependencies at all
+          val varUse = readDeps.vars.nonEmpty || readDeps.regs.isEmpty && readDeps.vars.isEmpty
+          val dsn = new MetaDesign(
+            named,
+            Patch.Add.Config.Before,
+            dfhdl.core.DomainType.RT
+          ):
+            val regDFC = dfc.setMeta(named.meta)
+            lazy val varDFC = if (regUse) regDFC.setName(s"${named.getName}_din") else regDFC
+            lazy val plantedNewVar = named.asValAny.dfType.<>(VAR)(using varDFC)
+            if (varUse) plantedNewVar // touch to trigger the lazy val
+            lazy val plantedNewReg = named.asValAny.dfType.<>(VAR.REG)(using regDFC)
+            if (regUse) plantedNewReg // touch to trigger the lazy val
+            val anonValue = named match
+              case Ident(_) => anonValueIR.asValAny
+              case _        => plantMember(anonValueIR).asValAny
+            named match
+              case _: DFConditional.Header => // do nothing
+              case _                       =>
+                if (varUse && regUse)
+                  plantedNewVar := anonValue
+                  plantedNewReg.din := plantedNewVar
+                else if (varUse)
+                  if (named.isInEDDomain && !named.isInProcess)
+                    plantedNewVar <> anonValue
+                  else
                     plantedNewVar := anonValue
-                    plantedNewReg.din := plantedNewVar
-                  else if (varUse)
-                    if (named.isInEDDomain && !named.isInProcess)
-                      plantedNewVar <> anonValue
-                    else
-                      plantedNewVar := anonValue
-                  else if (regUse)
-                    plantedNewReg.din := anonValue
-            val varPatchOpt =
-              if (varUse)
-                Some(named ->
-                  Patch.Replace(
-                    dsn.plantedNewVar.asIR,
-                    Patch.Replace.Config.ChangeRefOnly,
-                    Patch.Replace.RefFilter.OfMembers(readDeps.vars.asInstanceOf[Set[DFMember]])
-                  ))
-              else None
-            val regPatchOpt =
-              if (regUse)
-                Some(named ->
-                  Patch.Replace(
-                    dsn.plantedNewReg.asIR,
-                    Patch.Replace.Config.ChangeRefOnly,
-                    Patch.Replace.RefFilter.OfMembers(readDeps.regs.asInstanceOf[Set[DFMember]])
-                  ))
-              else None
-            // final named value handling according to the specialized use-cases
-            val finalizePatches = named match
-              // only ident values are removed completely, along with their references
-              case Ident(_)                 => Some(named -> Patch.Remove())
-              case ch: DFConditional.Header =>
-                val headerVar = if (varUse) dsn.plantedNewVar.asIR else dsn.plantedNewReg.asIR
-                // replacing all the references of header as a conditional header
-                val headerPatch = ch -> Patch.Replace(
-                  anonValueIR,
+                else if (regUse)
+                  plantedNewReg.din := anonValue
+          val varPatchOpt =
+            if (varUse)
+              Some(named ->
+                Patch.Replace(
+                  dsn.plantedNewVar.asIR,
                   Patch.Replace.Config.ChangeRefOnly,
-                  WhenHeader
-                )
-                // named header removal while preserving the references
-                ch -> Patch.Remove(true) ::
-                  // setting the conditional blocks to reference the new anonymous header
-                  headerPatch ::
-                  // patching chains
-                  ch.patchChains(headerVar)
-              // remove the member, but preserve the references
-              case _ => Some(named -> Patch.Remove(isMoved = true))
-            Iterable(
-              Some(dsn.patch),
-              varPatchOpt,
-              regPatchOpt,
-              finalizePatches
-            ).flatten
-        }
-        .toList
-    designDB.patch(patchList)
-  end transform
+                  Patch.Replace.RefFilter.OfMembers(readDeps.vars.asInstanceOf[Set[DFMember]])
+                ))
+            else None
+          val regPatchOpt =
+            if (regUse)
+              Some(named ->
+                Patch.Replace(
+                  dsn.plantedNewReg.asIR,
+                  Patch.Replace.Config.ChangeRefOnly,
+                  Patch.Replace.RefFilter.OfMembers(readDeps.regs.asInstanceOf[Set[DFMember]])
+                ))
+            else None
+          // final named value handling according to the specialized use-cases
+          val finalizePatches = named match
+            // only ident values are removed completely, along with their references
+            case Ident(_)                 => Some(named -> Patch.Remove())
+            case ch: DFConditional.Header =>
+              val headerVar = if (varUse) dsn.plantedNewVar.asIR else dsn.plantedNewReg.asIR
+              // replacing all the references of header as a conditional header
+              val headerPatch = ch -> Patch.Replace(
+                anonValueIR,
+                Patch.Replace.Config.ChangeRefOnly,
+                WhenHeader
+              )
+              // named header removal while preserving the references
+              ch -> Patch.Remove(true) ::
+                // setting the conditional blocks to reference the new anonymous header
+                headerPatch ::
+                // patching chains
+                ch.patchChains(headerVar)
+            // remove the member, but preserve the references
+            case _ => Some(named -> Patch.Remove(isMoved = true))
+          Iterable(
+            Some(dsn.patch),
+            varPatchOpt,
+            regPatchOpt,
+            finalizePatches
+          ).flatten
+      }
+      .toList
+    subDB.patch(patches)
+  end transformSubDB
 end ExplicitNamedVars
 
 extension [T: HasDB](t: T)

@@ -393,7 +393,7 @@ extension (db: DB)
                   Patch.Add(db1, Patch.Add.Config.Before),
                   Patch.Add(db2, Patch.Add.Config.After)
                 ) =>
-              val combinedDB = (db1 concat db2).copy(members =
+              val combinedDB = (db1 concat db2).update(members =
                 db1.members ++ (m :: db2.members.drop(1))
               )
               val config = Patch.Add.Config.ReplaceWithMemberN(
@@ -406,7 +406,7 @@ extension (db: DB)
                   Patch.Add(db1, Patch.Add.Config.After),
                   Patch.Add(db2, Patch.Add.Config.Before)
                 ) =>
-              val combinedDB = (db1 concat db2).copy(members =
+              val combinedDB = (db1 concat db2).update(members =
                 (db1.members.head :: db2.members.drop(1)) ++ (m :: db1.members.drop(1))
               )
               val config = Patch.Add.Config.ReplaceWithMemberN(
@@ -438,7 +438,7 @@ extension (db: DB)
             case (add: Patch.Add, replace: Patch.Replace) if add.config == Patch.Add.Config.After =>
               tbl +
                 (m -> Patch.Add(
-                  add.db.copy(add.db.members.head :: replace.updatedMember ::
+                  add.db.update(add.db.members.head :: replace.updatedMember ::
                     add.db.members.drop(1)),
                   Patch.Add.Config.ReplaceWithFirst()
                 ))
@@ -446,7 +446,7 @@ extension (db: DB)
             case (replace: Patch.Replace, add: Patch.Add) if add.config == Patch.Add.Config.After =>
               tbl +
                 (m -> Patch.Add(
-                  add.db.copy(add.db.members.head :: replace.updatedMember ::
+                  add.db.update(add.db.members.head :: replace.updatedMember ::
                     add.db.members.drop(1)),
                   Patch.Add.Config.ReplaceWithFirst()
                 ))
@@ -549,7 +549,30 @@ extension (db: DB)
       println(patchedRefTable.toList.sortBy(_._1.hashString).mkString("\n"))
       println("----------------------------------------------------------------------------")
     }
-    DB(patchedMembers, patchedRefTable, globalTags, srcFiles)
+    // Drop orphan OneWay.Gen refs — refTable entries whose key is no
+    // member's ownerRef. They leak in from elaboration scaffolding and some
+    // meta-design transitions whose source member was never attached (or was
+    // removed through a code path that didn't purge its entry). Safe to drop:
+    // no live member emits them, so nothing in `members` depends on them.
+    // Cleaning at patch-exit keeps every patched DB self-consistent and lets
+    // SanityCheck's orphan check be strict.
+    val cleanedRefTable =
+      val memberOwnerRefs = scala.collection.mutable.Set.empty[DFRefAny]
+      patchedMembers.foreach { m =>
+        memberOwnerRefs += m.ownerRef
+        m match
+          // DFDesignInst's designRef is a OneWay.Gen ref outside of getRefs
+          // (which only carries TwoWay refs); keep it from being swept away.
+          case inst: DFDesignInst => memberOwnerRefs += inst.designRef
+          case _                  =>
+      }
+      patchedRefTable.filter { (r, _) =>
+        r match
+          case _: DFRef.OneWay.Gen[?] => memberOwnerRefs.contains(r)
+          case _                      => true
+      }
+    end cleanedRefTable
+    db.update(members = patchedMembers, refTable = cleanedRefTable)
   end patch
 
   def patchSingle(singlePatch: (DFMember, Patch), debug: Boolean = false): DB =
@@ -561,6 +584,6 @@ extension (db: DB)
     db.srcFiles ++ that.srcFiles
   )
   def setGlobalTags(tagList: DFTags): DB =
-    db.copy(globalTags = db.globalTags ++ tagList)
+    db.update(globalTags = db.globalTags ++ tagList)
 
 end extension

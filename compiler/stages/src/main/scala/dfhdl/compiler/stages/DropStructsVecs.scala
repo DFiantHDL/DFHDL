@@ -61,7 +61,7 @@ case object DropStructsVecs extends Stage:
             // Structs and Vectors will be replaced with Bits in a different patch
             case _: (DFStruct | DFVector | DFBits) => arg.asValAny
             case _ if !arg.isAnonymous             => arg.asValAny.bits
-            case _                                 => recurToBits(arg).asValAny
+            case _                                 => arg.asValAny.bits
           def typeToBits(dfType: irDFType): DFTypeAny =
             val width = dfType.asFE[DFTypeAny].widthIntParam
             DFBits(width.ref).asFE[DFTypeAny]
@@ -161,21 +161,23 @@ case object DropStructsVecs extends Stage:
               currentPartial match
                 case elemSel: DFVal.Alias.ApplyIdx =>
                   val elemIdxVal = elemSel.relIdx.get
-                  val elemIdx = elemIdxVal.getConstData match
+                  val elemIdx = elemIdxVal.getConstData[Option[BigInt]].toOption match
                     case Some(Some(idx: BigInt)) if elemIdxVal.isAnonymous =>
                       idx.toInt.asInstanceOf[IntParam[Int]]
                     case _ => elemIdxVal.asValAny.asInstanceOf[IntParam[Int]]
                   val elemWidth = elemSel.asValAny.widthIntParam
                   val relValWidth = relVal.asValAny.widthIntParam
-                  idxLow = (relValWidth - elemWidth * (elemIdx + 1)) + idxLow
-                    .asInstanceOf[IntParam[Int]]
+                  idxLow = (relValWidth - elemWidth * (elemIdx + 1)) +
+                    idxLow
+                      .asInstanceOf[IntParam[Int]]
                 case rangeSel: DFVal.Alias.ApplyRange =>
                   val elemWidth =
                     replacementMap(relVal).dfType.asInstanceOf[DFVector]
                       .cellType.asFE[DFTypeAny].widthIntParam
                   val relValWidth = relVal.asValAny.widthIntParam
-                  idxLow = (relValWidth - elemWidth * (rangeSel.idxHighRef.get + 1)) + idxLow
-                    .asInstanceOf[IntParam[Int]]
+                  idxLow = (relValWidth - elemWidth * (rangeSel.idxHighRef.get + 1)) +
+                    idxLow
+                      .asInstanceOf[IntParam[Int]]
                 case fieldSel: DFVal.Alias.SelectField =>
                   var relBitLow: IntParam[Int] = idxLow
                   val dfType = replacementMap(relVal).dfType.asInstanceOf[DFStruct]
@@ -205,8 +207,9 @@ case object DropStructsVecs extends Stage:
               case _: DFStruct => false
               case _           => true
             val bitsMeta = if (requireCast) partial.meta.anonymize else partial.meta
-            val idxHigh: IntParam[Int] =
-              (partial.asValAny.widthIntParam + idxLow - 1).asInstanceOf[IntParam[Int]]
+            val idxHigh: IntParam[
+              Int
+            ] = (partial.asValAny.widthIntParam + idxLow - 1).asInstanceOf[IntParam[Int]]
             val bitsVal =
               dfhdl.core.DFVal.Alias.ApplyRange(
                 relVal.asValOf[Bits[Int]],

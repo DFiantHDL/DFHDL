@@ -7,7 +7,7 @@
 `timescale 1ns/1ps
 `include "LRShiftDirect_defs.svh"
 
-module LeftShiftGen#(parameter int width)(
+module LeftShiftGen#(parameter int width = 0)(
   /* bits input */
   input  wire logic [width - 1:0]         iBits,
   /* requested shift */

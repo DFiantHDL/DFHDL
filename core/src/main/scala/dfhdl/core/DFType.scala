@@ -260,7 +260,23 @@ object DFType:
       }
     end ofNamedTupleMacro
   end TC
+
+  private def widthRef[W <: IntP](dfType: DFTypeW[W]): ir.IntParamRef =
+    dfType.asIR.runtimeChecked match
+      case dt: ir.DFBits    => dt.widthParamRef
+      case dt: ir.DFDecimal => dt.widthParamRef
+  extension [LW <: IntP](lhs: DFTypeW[LW])
+    protected[core] def compareWidths[RW <: IntP](rhs: DFTypeW[RW])(
+        func: (Int, Int) => Boolean
+    )(using dfc: DFC): Option[Boolean] =
+      import dfc.getSet
+      widthRef(lhs).compare(widthRef(rhs))(func)
+    protected[core] def widthCodeString(using dfc: DFC): String =
+      widthRef(lhs).refCodeString
+
 end DFType
+
+type DFTypeW[W <: IntP] = DFBits[W] | DFUInt[W] | DFSInt[W]
 
 extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tcDFType")
@@ -289,7 +305,9 @@ extension (intParamRef: ir.IntParamRef)
         )
           intParamRef
         // inline reference value
-        else ir.IntParamRef(intParamRef.getInt)
+        else
+          // TODO: this is currently not triggered in tests. may not be needed
+          ir.IntParamRef(intParamRef.getIntUNSAFE)
       case _ => intParamRef
     end match
   end dropUnreachableRef

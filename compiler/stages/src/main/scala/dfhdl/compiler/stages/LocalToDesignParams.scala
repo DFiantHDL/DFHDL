@@ -15,7 +15,10 @@ case object LocalToDesignParams extends Stage:
     co.backend match
       case be: dfhdl.backends.vhdl => true
       case _                       => false
-  override def dependencies: List[Stage] = List(GlobalizePortVectorParams, SimpleOrderMembers)
+  override def dependencies: List[Stage] = List(
+    GlobalizePortVectorParams,
+    SimpleOrderMembers
+  )
   override def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
     given RefGen = RefGen.fromGetSet
@@ -25,8 +28,8 @@ case object LocalToDesignParams extends Stage:
         val localConsts = members.view.collect {
           case const @ DclConst() => const.getName -> const
         }.toMap
-        val designInstances = members.collect { case di: DFDesignBlock => di }
-        val exploredDesigns = if (design.isTop) design :: designInstances else designInstances
+        val designInstances = members.collect { case di: DFDesignInst => di.getDesignBlock }
+        val exploredDesigns = if (design.isTopTop) design :: designInstances else designInstances
         exploredDesigns.flatMap { designInstance =>
           val ioLocalParams = designInstance.getIOLocalParams
           ioLocalParams.view.collect { lp =>
@@ -36,7 +39,7 @@ case object LocalToDesignParams extends Stage:
             ):
               val lpAnon = plantMember(lp.anonymize).asValAny
               val paramValue =
-                if (designInstance.isTop) lpAnon
+                if (designInstance.isTopTop) lpAnon
                 else
                   val paramName = s"${designInstance.getName}_${lp.getName}"
                   localConsts.get(paramName).getOrElse(lpAnon.asIR).asValAny

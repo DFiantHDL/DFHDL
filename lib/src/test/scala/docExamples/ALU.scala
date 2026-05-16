@@ -5,7 +5,7 @@ import dfhdl.* //import all the DFHDL goodness
 enum ALUSel extends Encoded:
   case ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1
 
-@top class ALU extends DFDesign:
+class ALU extends DFDesign:
   val op1    = Bits(32) <> IN
   val op2    = Bits(32) <> IN
   val aluSel = ALUSel   <> IN
@@ -20,8 +20,8 @@ enum ALUSel extends Encoded:
     case AND   => op1 & op2
     case OR    => op1 | op2
     case XOR   => op1 ^ op2
-    case SLT   => (op1.sint < op2.sint).extend
-    case SLTU  => (op1.uint < op2.uint).extend
+    case SLT   => (op1.sint < op2.sint).resize
+    case SLTU  => (op1.uint < op2.uint).resize
     case SLL   => op1 << shamt
     case SRL   => op1 >> shamt
     case SRA   => (op1.sint >> shamt).bits
@@ -33,7 +33,7 @@ end ALU
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Select backend compiler:
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 // Uncomment to enable printing design code after elaboration (before compilation):
 // given options.ElaborationOptions.PrintDFHDLCode = true
 // Uncomment to enable printing design code after compilation:

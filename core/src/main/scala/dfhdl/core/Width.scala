@@ -254,19 +254,19 @@ object Width extends WidthLP:
 end Width
 
 extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
-  @targetName("dfValWidth")
-  def widthInt(using dfc: DFC, w: Width[T]): Inlined[w.OutI] =
+  @targetName("dfValWidthOpt")
+  def widthIntOpt(using dfc: DFC, w: Width[T]): Option[Int] =
     import dfc.getSet
-    Inlined.forced[w.OutI](dfVal.asIR.dfType.width)
+    dfVal.asIR.dfType.widthIntOpt
   def widthIntParam(using dfc: DFC, w: Width[T]): IntParam[w.Out] =
     import dfc.getSet
     dfVal.dfType.widthIntParam
 
 extension [T](t: T)(using tc: DFType.TC[T])
-  @targetName("tWidth")
-  def widthInt(using dfc: DFC, w: Width[tc.Type]): Inlined[w.OutI] =
+  @targetName("tWidthOpt")
+  def widthIntOpt(using dfc: DFC, w: Width[tc.Type]): Option[Int] =
     import dfc.getSet
-    Inlined.forced[w.OutI](tc(t).asIR.width)
+    tc(t).asIR.widthIntOpt
   def widthIntParam(using dfc: DFC, w: Width[tc.Type]): IntParam[w.Out] =
     import dfc.getSet
     def intParam(dfTypeIR: ir.DFType): IntParam[Int] = dfTypeIR match
@@ -278,6 +278,6 @@ extension [T](t: T)(using tc: DFType.TC[T])
         )
       case ir.DFStruct(_, fieldMap) =>
         fieldMap.values.map(intParam).reduce(_ + _).asInstanceOf[IntParam[Int]]
-      case _ => IntParam.forced[Int](dfTypeIR.width)
+      case _ => IntParam.forced[Int](dfTypeIR.widthIntOpt.get)
     intParam(tc(t).asIR).asInstanceOf[IntParam[w.Out]]
 end extension

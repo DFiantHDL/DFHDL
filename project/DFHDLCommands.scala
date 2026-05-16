@@ -19,7 +19,7 @@ object DFHDLCommands {
       (LocalProject("lib") / Test / sources) := Nil
     ), state)
     newState
-  }  
+  }
   val libPlayground = Command.command("libPlayground") { state =>
     val extracted = Project.extract(state)
     val newState = extracted.appendWithSession(Seq(
@@ -163,12 +163,12 @@ object DFHDLCommands {
     }
     //TODO: fix caching issues
     for (tool <- vhdlTools if existingTools.contains(tool); dialect <- vhdlDialects if !skip.contains((tool, dialect))) {
-      val arguments = s" AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
+      val arguments = s" dfhdl.AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }
     for (tool <- verilogTools if existingTools.contains(tool); dialect <- verilogDialects if !skip.contains((tool, dialect))) {
-      val arguments = s" AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
+      val arguments = s" dfhdl.AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }

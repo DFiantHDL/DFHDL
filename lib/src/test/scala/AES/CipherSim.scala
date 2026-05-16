@@ -1,8 +1,8 @@
-package AES
+package dfhdl.AES
 import dfhdl.*
 given options.CompilerOptions.DropUserOpaques = true
 
-@top class CipherSim extends RTDesign:
+class CipherSim extends RTDesign:
   val cipher = Cipher()
   val data = Bits(128) <> VAR.REG init CipherSim.initData
   val key = Bits(128) <> VAR.REG init CipherSim.initKey

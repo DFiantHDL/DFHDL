@@ -4,6 +4,7 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 import DFVal.*
+import ConstData.CachePolicy
 
 protected trait VerilogValPrinter extends AbstractValPrinter:
   type TPrinter <: VerilogPrinter
@@ -25,6 +26,15 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
+
+  def csDesignParamDefault(param: DesignParam): String = param.defaultValRef.get match
+    case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
+    case _                                                    =>
+      // top designs have no DFDesignInst.paramMap — but `DFVal.DesignParam.apply`
+      // stores the applied value in `defaultValRef` for top, so `appliedOrDefaultVal`
+      // yields the applied value in both cases.
+      printer.csConstData(param.dfType, param.appliedOrDefaultVal.getConstDataOrDefault[Any])
+
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
     val endOfStatement = if (dfVal.isGlobal) ";" else ""
@@ -33,11 +43,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       // for all other cases, we get the parameter constant data and use that as default value.
       // using the constant data only happens in verilog.v95, since parameters are declared in
       // the body and must have defaults.
-      case param: DesignParam =>
-        param.defaultValRef.get match
-          case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
-          case _ => printer.csConstData(param.dfType, param.getConstData.get)
-      case _ => csDFValExpr(dfVal)
+      case param: DesignParam => csDesignParamDefault(param)
+      case _                  => csDFValExpr(dfVal)
     val csType = printer.csDFType(dfVal.dfType).emptyOr(_ + " ")
     val csTypeNoLogic = if (supportLogicType) csType else csType.replace("logic ", "")
     val keyword =
@@ -82,8 +89,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case DFRef(DFVal.Alias.AsIs(dfType = dfType: DFVector, relValRef = DFRef(initVal))) :: Nil =>
         initVal match
           case _ if !initVal.isAnonymous =>
-            val cellWidth = dfType.cellType.width
-            val length = dfType.cellDimParamRefs.head.getInt
+            val cellWidth = dfType.cellType.widthUNSAFE
+            val length = dfType.cellDimParamRefs.head.getIntOpt.get
             val ret = for (i <- 0 until length)
               yield s"${dfVal.getName}[$i] = ${initVal.getName}[${(length - i) * cellWidth -
                   1}:${(length - i) * cellWidth - cellWidth}];"
@@ -226,77 +233,75 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     (toType, fromType) match
       case (t, f) if t == f =>
         relValStr
-      case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
-        assert(tWidth == fWidth + 1)
+      case (DFSInt(_), DFUInt(_)) =>
         val extended = s"{1'b0, $relValStr}"
         if (printer.allowSignedKeywordAndOps) s"$$signed($extended)"
         else extended
-      case (DFUInt(tr @ Int(tWidth)), DFSInt(Int(fWidth))) =>
-        assert(tWidth == fWidth - 1)
+      case (DFUInt(toWidthRef), DFSInt(_)) =>
         val truncated =
           if (printer.allowWidthCastSyntax)
-            s"${tr.refCodeString.applyBrackets()}'($relValStr)"
+            s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
           else
-            s"$relValStr[${tr.uboundCS}:0]"
+            s"$relValStr[${toWidthRef.uboundCS}:0]"
         if (printer.allowSignedKeywordAndOps) s"$$unsigned($truncated)"
         else truncated
-      case (DFUInt(Int(tWidth)), DFBits(Int(fWidth))) =>
-        assert(tWidth == fWidth)
+      case (DFUInt(_), DFBits(_)) =>
         relValStr
-      case (DFBits(Int(tWidth)), DFUInt(Int(fWidth))) =>
-        assert(tWidth == fWidth)
+      case (DFBits(_), DFUInt(_)) =>
         relValStr
-      case (DFSInt(Int(tWidth)), DFBits(Int(fWidth))) =>
-        assert(tWidth == fWidth)
+      case (DFSInt(_), DFBits(_)) =>
         if (printer.allowSignedKeywordAndOps) s"$$signed($relValStr)"
         else relValStr
-      case (DFBits(tr @ Int(tWidth)), DFBits(fr @ Int(fWidth))) =>
+      case (DFBits(toWidthRef), DFBits(fromWidthRef)) =>
         if (printer.allowWidthCastSyntax)
-          s"${tr.refCodeString.applyBrackets()}'($relValStr)"
+          s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else
-          if (tWidth < fWidth) s"`TRUNCATE($relValStr, ${tr.refCodeString})"
+          val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
+          if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
           else
-            s"`EXTEND_U($relValStr, ${fr.refCodeString}, ${tr.refCodeString})"
+            s"`EXTEND_U($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
       case (t, DFOpaque(actualType = ot)) if ot =~ t =>
         relValStr
       case (DFOpaque(_, _, _, _), _) =>
         relValStr
-      case (DFUInt(tr @ Int(tWidth)), DFUInt(fr @ Int(fWidth))) =>
+      case (DFUInt(toWidthRef), DFUInt(fromWidthRef)) =>
         if (printer.allowWidthCastSyntax)
-          s"${tr.refCodeString.applyBrackets()}'($relValStr)"
+          s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else
-          if (tWidth < fWidth) s"`TRUNCATE($relValStr, ${tr.refCodeString})"
+          val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
+          if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
           else
-            s"`EXTEND_U($relValStr, ${fr.refCodeString}, ${tr.refCodeString})"
-      case (DFUInt(tWidthParamRef), DFInt32) =>
+            s"`EXTEND_U($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
+      case (DFUInt(tWidthRef), DFInt32) =>
         if (printer.allowWidthCastSyntax)
-          s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+          s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else relValStr
-      case (DFSInt(tWidthParamRef), DFInt32) =>
+      case (DFSInt(tWidthRef), DFInt32) =>
         if (printer.allowWidthCastSyntax)
-          s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+          s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else relValStr
-      case (DFSInt(tr @ Int(tWidth)), DFSInt(fr @ Int(fWidth))) =>
+      case (DFSInt(toWidthRef), DFSInt(fromWidthRef)) =>
         if (printer.allowWidthCastSyntax)
-          s"${tr.refCodeString.applyBrackets()}'($relValStr)"
+          s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else
-          if (tWidth < fWidth) s"`TRUNCATE($relValStr, ${tr.refCodeString})"
+          val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
+          if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
           else
             if (printer.allowSignedKeywordAndOps)
-              s"`EXTEND_S($relValStr, ${fr.refCodeString}, ${tr.refCodeString})"
+              s"`EXTEND_S($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
             else
-              s"`EXTEND_S_V95($relValStr, ${fr.refCodeString}, ${tr.refCodeString})"
-      case (DFUInt(tWidthParamRef), DFBit | DFBool) =>
+              s"`EXTEND_S_V95($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
+      case (DFUInt(tWidthRef), DFBit | DFBool) =>
         if (printer.allowWidthCastSyntax)
-          s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+          s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else
-          s"`EXTEND_U($relValStr, 1, ${tWidthParamRef.refCodeString})"
-      case (DFSInt(tWidthParamRef), DFBit | DFBool) =>
+          s"`EXTEND_U($relValStr, 1, ${tWidthRef.refCodeString})"
+      case (DFSInt(tWidthRef), DFBit | DFBool) =>
         val extended =
           if (printer.allowWidthCastSyntax)
-            s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+            s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
           else
-            s"`EXTEND_U($relValStr, 1, ${tWidthParamRef.refCodeString})"
+            s"`EXTEND_U($relValStr, 1, ${tWidthRef.refCodeString})"
         if (printer.allowSignedKeywordAndOps)
           s"$$signed($extended)"
         else extended
@@ -311,14 +316,14 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         s"${toStruct.name}'($relValStr)"
       case (toVector: DFVector, _: DFBits) =>
         def to_vector_conv(vectorType: DFVector, relHighIdx: Int): String =
-          val vecLength = vectorType.length
+          val vecLength = vectorType.lengthUNSAFE
           vectorType.cellType match
             case cellType: DFVector =>
               List.tabulate(vecLength)(i =>
-                to_vector_conv(cellType, relHighIdx - i * cellType.width)
+                to_vector_conv(cellType, relHighIdx - i * cellType.widthUNSAFE)
               ).csList(literalGroupOpen, ",", "}")
             case cellType: DFBits =>
-              val cellWidth = cellType.width
+              val cellWidth = cellType.widthUNSAFE
               List.tabulate(vecLength)(i =>
                 s"$relValStr[${relHighIdx - i * cellWidth}:${relHighIdx - (i + 1) * cellWidth + 1}]"
               ).csList(literalGroupOpen, ",", "}")
@@ -331,10 +336,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               printer.unsupported
           end match
         end to_vector_conv
-        to_vector_conv(toVector, toVector.width - 1)
-      case (DFBits(Int(tWidth)), fromVector: DFVector) =>
+        to_vector_conv(toVector, toVector.widthUNSAFE - 1)
+      case (DFBits(IntUNSAFE(tWidth)), fromVector: DFVector) =>
         def from_vector_conv(vectorType: DFVector, prevSelect: String): String =
-          val vecLength = vectorType.length
+          val vecLength = vectorType.lengthUNSAFE
           vectorType.cellType match
             case cellType: DFVector =>
               List.tabulate(vecLength)(i => from_vector_conv(cellType, s"[$i]"))
@@ -347,15 +352,14 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               println(x)
               printer.unsupported
         end from_vector_conv
-        assert(tWidth == fromType.width)
+        assert(tWidth == fromType.widthUNSAFE)
         from_vector_conv(fromVector, "")
-      case (DFBits(tWidthParamRef), DFBit | DFBool) =>
+      case (DFBits(tWidthRef), DFBit | DFBool) =>
         if (printer.allowWidthCastSyntax)
-          s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+          s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else
-          s"`EXTEND_U($relValStr, 1, ${tWidthParamRef.refCodeString})"
-      case (DFBits(Int(tWidth)), _) =>
-        assert(tWidth == fromType.width)
+          s"`EXTEND_U($relValStr, 1, ${tWidthRef.refCodeString})"
+      case (DFBits(_), _) =>
         s"{$relValStr}"
       case x =>
         println(x)
@@ -394,7 +398,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         s"""${csWidth}'bz"""
       case _ => printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
-    dfVal.stripPortSel match
+    dfVal match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)
       case const @ DclConst()    => csDFValDclConst(const)
       case expr: DFVal.CanBeExpr => csDFValExpr(expr)

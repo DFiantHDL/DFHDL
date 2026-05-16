@@ -82,13 +82,15 @@ object Modifier:
             case ir.DFOpaque.Kind.Clk | ir.DFOpaque.Kind.Rst =>
               ownerIR match
                 case domainOwner: ir.DFDomainOwner =>
-                  domainOwner.domainType match
-                    case ir.DomainType.RT(ir.RTDomainCfg.Related(ref)) =>
-                      import dfc.getSet
+                  import dfc.getSet
+                  domainOwner.meta.annotations.collectFirst {
+                    case rel: ir.constraints.Timing.Related => rel.ref.get
+                  } match
+                    case Some(target) =>
                       throw new IllegalArgumentException(
-                        s"Cannot create a clk/rst in a related domain.\nYou can create the clk/rst in the primary domain `${ref.get.getName}` and reference it here instead."
+                        s"Cannot create a clk/rst in a related domain.\nYou can create the clk/rst in the primary domain `${target.getName}` and reference it here instead."
                       )
-                    case _ =>
+                    case None =>
                 case _ =>
             case _ =>
         case _ =>

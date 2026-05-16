@@ -41,12 +41,37 @@ import dfhdl.core.DomainType.ED
   * }}}
   */
 //format: on
-case object ExplicitCondExprAssign extends Stage:
+case object ExplicitCondExprAssign extends HierarchyStage:
   def dependencies: List[Stage] = List(ExplicitNamedVars)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+  private def phase2(phase1DB: DB)(using CompilerOptions): DB =
+    given MemberGetSet = phase1DB.getSet
     given RefGen = RefGen.fromGetSet
+    val wrapPatches: List[(DFMember, Patch)] = phase1DB.members.view.flatMap {
+      case ch: DFConditional.Header
+          if ch.dfType == DFUnit && ch.isInEDDomain && !ch.isInProcess
+            && !ch.getOwnerBlock.isInstanceOf[DFConditional.Block] =>
+        val chain = phase1DB.conditionalChainTable(ch)
+        val chainBlocksAndMembers: List[DFMember] =
+          chain.flatMap(cb => cb :: cb.members(MemberView.Flattened))
+        val allToWrap: List[DFMember] = ch :: chainBlocksAndMembers
+        val owner = ch.getOwnerBlock
+        val wrapDsn = new MetaDesign(
+          ch,
+          Patch.Add.Config.Before,
+          domainType = ED
+        ):
+          process(all):
+            plantMembers(owner, allToWrap)
+        val removals = allToWrap.map(_ -> Patch.Remove(isMoved = true))
+        wrapDsn.patch :: removals
+      case _ => None
+    }.toList
+    phase1DB.patch(wrapPatches)
+  end phase2
+
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     extension (ch: DFConditional.Header)
       // recursive call to patch conditional block chains
       private def patchChains(headerVar: DFVal, op: DFNet.Op): List[(DFMember, Patch)] =
@@ -88,43 +113,18 @@ case object ExplicitCondExprAssign extends Stage:
         removeNetPatch :: ch.patchChains(headerVar, op)
     end extension
     // Phase 1: transform conditional expressions to statements
-    val patchList = designDB.members.view
+    val patches = subDB.members.view
       // collect all the assignments from anonymous conditionals
       .flatMap {
         case net @ DFNet.Assignment(toVal, header: DFConditional.Header) if header.isAnonymous =>
           header.patchChainsNet(toVal, net, net.op)
         case net @ DFNet.Connection(toVal: DFVal, header: DFConditional.Header, _)
-            if !net.isViaConnection && header.isAnonymous && (toVal.isPortOut || toVal.isVar) =>
+            if !net.isViaConnection && header.isAnonymous && (toVal.isPortOutPBNS || toVal.isVar) =>
           header.patchChainsNet(toVal, net, DFNet.Op.Assignment)
         case _ => Nil
       }.toList
-    val phase1DB = designDB.patch(patchList)
-    // Phase 2: wrap ED-domain non-process conditional statements in process(all)
-    locally {
-      given MemberGetSet = phase1DB.getSet
-      val wrapPatches: List[(DFMember, Patch)] = phase1DB.members.view.flatMap {
-        case ch: DFConditional.Header
-            if ch.dfType == DFUnit && ch.isInEDDomain && !ch.isInProcess
-              && !ch.getOwnerBlock.isInstanceOf[DFConditional.Block] =>
-          val chain = phase1DB.conditionalChainTable(ch)
-          val chainBlocksAndMembers: List[DFMember] =
-            chain.flatMap(cb => cb :: cb.members(MemberView.Flattened))
-          val allToWrap: List[DFMember] = ch :: chainBlocksAndMembers
-          val owner = ch.getOwnerBlock
-          val wrapDsn = new MetaDesign(
-            ch,
-            Patch.Add.Config.Before,
-            domainType = ED
-          ):
-            process(all):
-              plantMembers(owner, allToWrap)
-          val removals = allToWrap.map(_ -> Patch.Remove(isMoved = true))
-          wrapDsn.patch :: removals
-        case _ => None
-      }.toList
-      phase1DB.patch(wrapPatches)
-    }
-  end transform
+    phase2(subDB.patch(patches))
+  end transformSubDB
 end ExplicitCondExprAssign
 
 extension [T: HasDB](t: T)

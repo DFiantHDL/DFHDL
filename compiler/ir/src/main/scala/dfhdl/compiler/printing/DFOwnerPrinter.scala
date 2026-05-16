@@ -7,6 +7,7 @@ import DFVal.*
 import ProcessBlock.Sensitivity
 import DFConditional.DFCaseBlock.Pattern
 import DFDesignBlock.InstMode
+import scala.collection.immutable.ListMap
 
 trait AbstractOwnerPrinter extends AbstractPrinter:
   final def csDFOwnerBody(owner: DFOwner): String =
@@ -23,23 +24,20 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         case Ident(_) => true
         // excluding iterator declarations
         case IteratorDcl() => false
-        // a def design that is anonymous may not be referenced later,
-        // so we need to check if it has an output port that is referenced later
-        case design: DFDesignBlock if design.instMode == InstMode.Def && design.isAnonymous =>
-          // For duplicate designs, ports may not be in the members list but are
-          // available via dupPortsByName (with DuplicationRef owners).
-          // For DuplicationRef-backed ports, we check the PBNS read deps instead.
-          val ports = getSet.designDB.dupPortsByName(design).view.values.collect {
-            case port @ DclOut() => port
-          }
-          val hasOutput = ports.lastOption.map(port =>
-            // no dependencies means the output is not read (referenced later),
-            // so we need to print now
-            port.getPortsByNameSelectors.forall(_.getReadDeps.isEmpty)
-          )
+        // an anonymous def-design inst may not be referenced later, so we
+        // need to check if it has an output port that is referenced later
+        case inst: DFDesignInst
+            if inst.getDesignBlock.instMode == InstMode.Def && inst.isAnonymous =>
           // no output port means a Unit return that cannot be referenced,
           // so we need to print it now
-          hasOutput.getOrElse(true)
+          getSet.designDB.designInstPBNS(inst).view.reverse.collectFirst {
+            // no dependencies means the output is not read (referenced later),
+            // so we need to print now
+            case pbns if pbns.isOut => pbns.getReadDeps.isEmpty
+          }.getOrElse(true)
+        // DFDesignBlock no longer participates in owner-body rendering — its
+        // instantiation syntax is emitted via the DFDesignInst companion.
+        case _: DFDesignBlock => false
         // named members
         case m: DFMember.Named if !m.isAnonymous => true
         // excluding late (via) connections
@@ -61,8 +59,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       .filter(_.nonEmpty)
       .mkString("\n")
   end csDFMembers
-  final def csDFDesignLateBody(design: DFDesignBlock): String =
-    design.getOwner
+  final def csDFDesignLateBody(inst: DFDesignInst): String =
+    inst.getOwner
       .members(MemberView.Folded)
       .view
       // selecting viewable members:
@@ -70,7 +68,12 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // late construction nets
         case net @ DFNet.Connection(toVal, fromVal, _) if net.isViaConnection =>
           // getting the nets that belong to this design
-          toVal.isInsideOwner(design) || fromVal.isInsideOwner(design)
+          toVal match
+            case pbns: DFVal.PortByNameSelect if pbns.getDesignInst == inst => true
+            case _                                                          =>
+              fromVal match
+                case pbns: DFVal.PortByNameSelect if pbns.getDesignInst == inst => true
+                case _                                                          => false
         // the rest are not directly viewable
         case _ => false
       }
@@ -79,9 +82,9 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       .mkString(s"${printer.csViaConnectionSep}\n")
   end csDFDesignLateBody
   def csDFDesignBlockDcl(design: DFDesignBlock): String
-  def csDFDesignBlockInst(design: DFDesignBlock): String
+  def csDFDesignBlockInst(inst: DFDesignInst): String
   def csDFDesignDefDcl(design: DFDesignBlock): String
-  def csDFDesignDefInst(design: DFDesignBlock): String
+  def csDFDesignDefInst(inst: DFDesignInst): String
   def csBlockBegin: String
   def csBlockEnd: String
   def csDFIfGuard(ifBlock: DFConditional.DFIfElseBlock): String = ifBlock.guardRef.refCodeString
@@ -214,26 +217,28 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       s"def ${design.dclName}$designParamCS($defArgsCS)$retTypeCS =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     s"${printer.csAnnotations(design.dclMeta.annotations)}$dcl\n"
   end csDFDesignDefDcl
-  private def csDesignParamList(design: DFDesignBlock): List[String] =
-    design.paramMap.view.map { (name, ref) =>
+  private def csDesignParamList(paramMap: ListMap[String, DFVal.Ref]): List[String] =
+    paramMap.view.map { (name, ref) =>
       s"${name} = ${ref.refCodeString}"
     }.toList
-  def csDFDesignDefInst(design: DFDesignBlock): String =
-    val ports = getSet.designDB.dupPortsByName(design).view.values.collect { case port @ DclIn() =>
-      val DFNet.Connection(_, from: DFVal, _) = port.getConnectionTo.get.runtimeChecked
-      printer.csDFValRef(from, design.getOwner)
+  def csDFDesignDefInst(inst: DFDesignInst): String =
+    val design = inst.getDesignBlock
+    val ports = getSet.designDB.designInstPBNS(inst).view.collect {
+      case pbns if pbns.isIn =>
+        val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionTo.get.runtimeChecked
+        printer.csDFValRef(from, inst.getOwner)
     }.mkString(", ")
-    val designParamList = csDesignParamList(design)
+    val designParamList = csDesignParamList(inst.paramMap)
     val designParamCS =
       if (designParamList.length == 0) ""
       else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
       else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
     val dcl = s"${design.dclName}$designParamCS($ports)"
-    if (design.isAnonymous) dcl
-    else s"val ${design.getName} = $dcl"
+    if (inst.isAnonymous) dcl
+    else s"val ${inst.getName} = $dcl"
   end csDFDesignDefInst
-  def csDFDesignBlockParamInst(design: DFDesignBlock): String =
-    val designParamList = csDesignParamList(design)
+  def csDFDesignBlockParamInst(paramMap: ListMap[String, DFVal.Ref]): String =
+    val designParamList = csDesignParamList(paramMap)
     if (designParamList.length <= 1) designParamList.mkString("(", ", ", ")")
     else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
@@ -242,13 +247,9 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerBody(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val dsnCls = design.domainType match
-      case DomainType.DF     => "DFDesign"
-      case rt: DomainType.RT =>
-        val cfgStr = rt.cfg match
-          case RTDomainCfg.Derived => ""
-          case _                   => s"(${printer.csRTDomainCfg(rt.cfg)})"
-        s"""RTDesign$cfgStr""".stripMargin
-      case _ =>
+      case DomainType.DF => "DFDesign"
+      case DomainType.RT => "RTDesign"
+      case _             =>
         design.instMode match
           case InstMode.BlackBox(source) => source match
               case InstMode.BlackBox.Source.VendorIP(_, "") =>
@@ -257,9 +258,14 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
                 s"dfhdl.platforms.ips.${vendor.libName}.$typeName"
               case _ => s"EDBlackBox(EDBlackBox.Source.${source})"
           case _ => "EDDesign"
-    val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
+    val designParams = design.members(MemberView.Folded).collect { case param: DesignParam =>
+      param
+    }
+    val designParamList = designParams.map { param =>
       val defaultValue =
-        if (design.isTop) s" = ${param.appliedOrDefaultValRef.refCodeString}"
+        if (design.isTop)
+          if (param.appliedOrDefaultVal.hasTagOf[SyntheticDefaultTag]) ""
+          else s" = ${param.appliedOrDefaultValRef.refCodeString}"
         else
           param.defaultValRef.get match
             case DFMember.Empty => ""
@@ -277,31 +283,33 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val designParamInstCS =
       // for vendor IP blackbox, we define the parameters in the class extension instead of the
       // blackbox instantiation
-      if (designIsVendorIPBlackbox) csDFDesignBlockParamInst(design)
+      if (designIsVendorIPBlackbox) csDFDesignBlockParamInst(
+        ListMap.from(designParams.view.map(param =>
+          param.getName -> param.defaultValRef.asInstanceOf[DFVal.Ref]
+        ))
+      )
       else ""
     val dcl =
       s"class ${design.dclName}$designParamDclCS extends $dsnCls$designParamInstCS"
     val dclWithBody =
       if (bodyWithDcls.isEmpty || designIsVendorIPBlackbox) dcl
       else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
-    val annotations =
-      if (design.isTop) design.dclMeta.annotations ++ design.meta.annotations
-      else design.dclMeta.annotations
-    s"${printer.csAnnotations(annotations)}$dclWithBody\n"
+    s"${printer.csAnnotations(design.meta.annotations)}$dclWithBody\n"
   end csDFDesignBlockDcl
-  def csDFDesignBlockInst(design: DFDesignBlock): String =
-    val body = csDFDesignLateBody(design)
-    val designParamList = csDesignParamList(design)
+  def csDFDesignBlockInst(inst: DFDesignInst): String =
+    val design = inst.getDesignBlock
+    val body = csDFDesignLateBody(inst)
     val designParamCS =
       // for vendor IP blackbox, we define the parameters in the class extension instead of the
       // blackbox instantiation
       if (design.isVendorIPBlackbox) "()"
-      else csDFDesignBlockParamInst(design)
-    val inst =
+      else csDFDesignBlockParamInst(inst.paramMap)
+    val instCS =
       if (body.isEmpty) s"${design.dclName}$designParamCS"
       else s"new ${design.dclName}$designParamCS:\n${body.hindent}"
-    val csVal = s"val ${design.getName} = ${inst}"
-    if (body.isEmpty) csVal else s"$csVal\nend ${design.getName}"
+    val csVal = sn"""|${printer.csAnnotations(inst.meta.annotations)}
+                     |val ${inst.getName} = ${instCS}"""
+    if (body.isEmpty) csVal else s"$csVal\nend ${inst.getName}"
   end csDFDesignBlockInst
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
@@ -344,7 +352,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String =
     val csBinds = pattern.refs.view
       .map { r => r.get }
-      .map(bindVal => s"$${${bindVal.getName}: B[${bindVal.dfType.width}]}")
+      .map(bindVal => s"$${${bindVal.getName}: B[${bindVal.dfType.widthIntOpt.get}]}")
     val fullTerm = pattern.parts.coalesce(csBinds).mkString
     s"""${pattern.op}"$fullTerm""""
   def csDFCasePatternNamedArg(pattern: Pattern.NamedArg): String =
@@ -404,18 +412,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val endName = domain.meta.nameOpt.map(n => s"end $n").getOrElse("end new")
     val domainStr = domain.domainType match
-      case DomainType.DF     => "DFDomain"
-      case rt: DomainType.RT =>
-        rt.cfg match
-          case RTDomainCfg.Related(relatedDomainRef) =>
-            val relatedDomain = relatedDomainRef.get
-            if (domain.isMemberOf(relatedDomain))
-              "RelatedDomain"
-            else
-              s"${relatedDomain.getRelativeName(domain.getOwnerNamed)}.RelatedDomain"
-          case RTDomainCfg.Derived => "RTDomain"
-          case _                   =>
-            s"RTDomain(${printer.csRTDomainCfg(rt.cfg)})"
+      case DomainType.DF => "DFDomain"
+      case DomainType.RT => "RTDomain"
       case DomainType.ED => "EDDomain"
     sn"""|${named}new $domainStr:
          |${body.hindent}

@@ -6,7 +6,7 @@ import dfhdl.compiler.stages.simplifyMatchSel
 
 class SimplifyMatchSelSpec extends StageSpec:
   test("UInt/SInt match selectors are converted to Bits match selectors"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo extends DFDesign:
       val iu = UInt(8) <> IN
       val is = SInt(9) <> IN
@@ -48,13 +48,14 @@ class SimplifyMatchSelSpec extends StageSpec:
     )
 
   test("Design-parameterized UInt/SInt match selectors are converted to Bits match selectors"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     val WG: Int <> CONST                  = 8
-    class Foo(val WP: Int <> CONST = 8) extends RTDesign:
-      val iu  = UInt(WP)       <> IN
-      val is  = SInt(WP)       <> IN
-      val iug = UInt.until(WG) <> IN
-      val isg = SInt(WG)       <> IN
+    class Foo extends RTDesign:
+      val WP: Int <> CONST = 8
+      val iu               = UInt(WP)       <> IN
+      val is               = SInt(WP)       <> IN
+      val iug              = UInt.until(WG) <> IN
+      val isg              = SInt(WG)       <> IN
 
       iu match
         case 0 =>
@@ -81,18 +82,19 @@ class SimplifyMatchSelSpec extends StageSpec:
       top,
       """|val WG: Int <> CONST = 8
          |
-         |class Foo(val WP: Int <> CONST = 8) extends RTDesign:
+         |class Foo extends RTDesign:
+         |  val WP: Int <> CONST = 8
          |  val iu = UInt(WP) <> IN
          |  val is = SInt(WP) <> IN
          |  val iug = UInt(clog2(WG)) <> IN
          |  val isg = SInt(WG) <> IN
-         |  val iu_slv = iu.bits(7, 0)
+         |  val iu_slv = iu.bits
          |  iu_slv match
          |    case h"00" =>
          |    case h"01" =>
          |    case _ =>
          |  end match
-         |  val is_slv = is.bits(7, 0)
+         |  val is_slv = is.bits
          |  is_slv match
          |    case h"ff" =>
          |    case h"01" =>
@@ -116,9 +118,10 @@ class SimplifyMatchSelSpec extends StageSpec:
   test(
     "Bits global/local parameter selector is not dropped, but design parameter selection is dropped"
   ):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     val WG: Int <> CONST                  = 8
-    class Foo(val WP: Int <> CONST = 8) extends RTDesign:
+    class Foo extends RTDesign:
+      val WP: Int <> CONST = 8
       val i                = Bits(WG) <> IN
       val i2               = Bits(WP) <> IN
       val WL: Int <> CONST = 8
@@ -144,7 +147,8 @@ class SimplifyMatchSelSpec extends StageSpec:
       top,
       """|val WG: Int <> CONST = 8
          |
-         |class Foo(val WP: Int <> CONST = 8) extends RTDesign:
+         |class Foo extends RTDesign:
+         |  val WP: Int <> CONST = 8
          |  val i = Bits(WG) <> IN
          |  val i2 = Bits(WP) <> IN
          |  val WL: Int <> CONST = 8
@@ -154,8 +158,7 @@ class SimplifyMatchSelSpec extends StageSpec:
          |    case h"01" =>
          |    case _ =>
          |  end match
-         |  val i2_slv = i2(7, 0)
-         |  i2_slv match
+         |  i2 match
          |    case h"00" =>
          |    case h"01" =>
          |    case _ =>

@@ -93,7 +93,7 @@ class GowinDesignerProjectTclConfigPrinter(using
       path.forceWindowsToLinuxPath
   }
   def activeDualPurposeGroups: List[String] =
-    designDB.topIOs.view.flatMap(_.meta.annotations.collect {
+    designDB.toptopIOs.view.flatMap(_.meta.annotations.collect {
       case constraint: constraints.IO =>
         constraint.dualPurposeGroups.toList.flatMap(_.split("/"))
     }).flatten.toList.distinct
@@ -179,7 +179,7 @@ class GowinDesignerProjectPhysicalConstraintsPrinter(using
   end cstPortConstraints
 
   def cstPortConstraints: List[String] =
-    designDB.topIOs.view.flatMap(cstPortConstraints).toList
+    designDB.toptopIOs.view.flatMap(cstPortConstraints).toList
 
   def contents: String =
     s"""|${cstPortConstraints.mkString("\n")}

@@ -2,23 +2,29 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.compiler.analysis.*
+import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
+import scala.annotation.tailrec
 
-case object DropUnreferencedVars extends Stage:
+case object DropUnreferencedVars extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    val patchList = designDB.members.collect {
-      case m @ DclVar() if !designDB.memberTable.contains(m) && m.initRefList.isEmpty =>
+  def transformSubDB(rootDB: DB)(using
+      getSet: MemberGetSet,
+      co: CompilerOptions,
+      refGen: RefGen
+  ): DB =
+    val patchList = subDB.members.collect {
+      case m @ DclVar() if !subDB.memberTable.contains(m) && m.initRefList.isEmpty =>
         m -> Patch.Remove()
     }
-    designDB.patch(patchList)
+    if (patchList.isEmpty) subDB else subDB.patch(patchList)
 
-case object DropUnreferencedAnons extends Stage, NoCheckStage:
+case object DropUnreferencedAnons extends HierarchyStage, NoCheckStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    val patchList = designDB.members.flatMap {
+  @tailrec private def loop(rootDB: DB)(using MemberGetSet, RefGen): DB =
+    val patchList = subDB.members.flatMap {
       // skipping over conditional headers that can be considered values as well.
       case _: DFConditional.Header => None
       // idents are always kept
@@ -28,15 +34,20 @@ case object DropUnreferencedAnons extends Stage, NoCheckStage:
       case m: DFRange if m.originMembers.isEmpty => Some(m -> Patch.Remove())
       case _                                     => None
     }
-    if (patchList.isEmpty) designDB
+    if (patchList.isEmpty) subDB
     else
       // recursively running until no more unreferenced values to remove.
-      // recalling the stage is required because unreferenced removed value that refers to values that
-      // are only referenced by the removed value creates more unreferenced values that need to be
-      // removed.
-      val newDesignDB = designDB.patch(patchList)
-      transform(newDesignDB)(using newDesignDB.getSet)
-  end transform
+      // recalling is required because unreferenced removed value that refers to values
+      // that are only referenced by the removed value creates more unreferenced values
+      // that need to be removed.
+      val patched = subDB.patch(patchList)
+      loop(patched)(using patched.getSet, summon[RefGen])
+  end loop
+  def transformSubDB(rootDB: DB)(using
+      getSet: MemberGetSet,
+      co: CompilerOptions,
+      refGen: RefGen
+  ): DB = loop(rootDB)
 end DropUnreferencedAnons
 
 extension [T: HasDB](t: T)

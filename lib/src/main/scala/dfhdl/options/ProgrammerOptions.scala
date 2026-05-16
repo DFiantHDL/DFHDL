@@ -4,30 +4,36 @@ import ProgrammerOptions.*
 import dfhdl.core.Design
 
 final case class ProgrammerOptions(
-    onError: OnError,
+    onError: _OnError,
     Werror: WError,
-    tool: Tool,
+    tool: _Tool,
     flash: Flash
 ) extends ToolOptions
 
 //defaults common for all linting tools
 object ProgrammerOptions:
-  opaque type Defaults[-T <: Design] <: ProgrammerOptions = ProgrammerOptions
+  opaque type Defaults[-T] <: ProgrammerOptions = ProgrammerOptions
   object Defaults:
     given (using
         onError: OnError,
         Werror: WError,
         tool: Tool,
         flash: Flash
-    ): Defaults[Design] =
-      ProgrammerOptions(onError = onError, Werror = Werror, tool = tool, flash = flash)
+    ): Defaults[Any] =
+      ProgrammerOptions(
+        onError = onError(dfhdl.options.OnError),
+        Werror = Werror,
+        tool = tool(dfhdl.tools.programmers),
+        flash = flash
+      )
   given (using defaults: Defaults[Design]): ProgrammerOptions = defaults
 
-  into opaque type OnError <: dfhdl.options.ToolOptions.OnError = dfhdl.options.ToolOptions.OnError
-  object OnError:
+  type OnError = dfhdl.options.OnError.type => _OnError
+  private[dfhdl] into opaque type _OnError <: dfhdl.options.ToolOptions._OnError =
+    dfhdl.options.ToolOptions._OnError
+  private[dfhdl] object _OnError:
     given (using onError: dfhdl.options.ToolOptions.OnError): OnError = onError
-    given Conversion[dfhdl.options.OnError, OnError] = x => x.asInstanceOf[OnError]
-    export dfhdl.options.OnError.*
+    given Conversion[dfhdl.options._OnError, _OnError] = x => x.asInstanceOf[_OnError]
 
   into opaque type WError <: dfhdl.options.ToolOptions.WError = dfhdl.options.ToolOptions.WError
   object WError:
@@ -35,11 +41,12 @@ object ProgrammerOptions:
     given [T](using conv: Conversion[T, dfhdl.options.ToolOptions.WError]): Conversion[T, WError] =
       t => conv(t).asInstanceOf[WError]
 
-  into opaque type Tool <: dfhdl.tools.programmers = dfhdl.tools.programmers
-  object Tool:
+  type Tool = dfhdl.tools.programmers.type => _Tool
+  private[dfhdl] into opaque type _Tool <: dfhdl.tools.programmers = dfhdl.tools.programmers
+  private[dfhdl] object _Tool:
     export dfhdl.tools.programmers.{foss, vendor}
-    given Tool = dfhdl.tools.programmers.vendor
-    given Conversion[dfhdl.tools.programmers, Tool] = identity
+    given Tool = _.vendor
+    given Conversion[dfhdl.tools.programmers, _Tool] = identity
 
   into opaque type Flash <: Boolean = Boolean
   object Flash:

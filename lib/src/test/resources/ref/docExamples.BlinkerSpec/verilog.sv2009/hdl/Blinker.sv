@@ -19,14 +19,14 @@ module Blinker#(
   begin
     if (rst == 1'b1) begin
       led   <= 1'b1;
-      cnt   <= $clog2(HALF_PERIOD)'(0);
+      cnt   <= $clog2(HALF_PERIOD)'(1'd0);
     end
     else begin
       if (cnt == $clog2(HALF_PERIOD)'(HALF_PERIOD - 1)) begin
-        cnt <= $clog2(HALF_PERIOD)'(0);
+        cnt <= $clog2(HALF_PERIOD)'(1'd0);
         led <= ~led;
       end
-      else cnt <= cnt + $clog2(HALF_PERIOD)'(1);
+      else cnt <= cnt + $clog2(HALF_PERIOD)'(1'd1);
     end
   end
 endmodule

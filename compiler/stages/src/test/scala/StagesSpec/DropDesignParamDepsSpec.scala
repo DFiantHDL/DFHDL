@@ -6,7 +6,7 @@ import dfhdl.compiler.stages.dropDesignParamDeps
 
 class DropDesignParamDepsSpec extends StageSpec:
   test("Design parameter depending on another design parameter is inlined"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo(val width: Int <> CONST = 8) extends RTDesign:
       val depth: Int <> CONST = width + 2
       val x                   = Bits(width) <> IN
@@ -28,7 +28,7 @@ class DropDesignParamDepsSpec extends StageSpec:
     )
 
   test("Multiple design parameter dependencies are inlined"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo(val width: Int <> CONST = 8) extends RTDesign:
       val depth: Int <> CONST  = width + 2
       val length: Int <> CONST = depth * 2
@@ -52,7 +52,7 @@ class DropDesignParamDepsSpec extends StageSpec:
     )
 
   test("Stage only runs for VHDL'93"):
-    given options.CompilerOptions.Backend = backends.vhdl.v2008
+    given options.CompilerOptions.Backend = _.vhdl.v2008
     class Foo(val width: Int <> CONST = 8) extends RTDesign:
       val depth: Int <> CONST = width + 2
       val x                   = Bits(width) <> IN
@@ -72,7 +72,7 @@ class DropDesignParamDepsSpec extends StageSpec:
     )
 
   test("Stage does not run for Verilog backends"):
-    given options.CompilerOptions.Backend = backends.verilog.v2001
+    given options.CompilerOptions.Backend = _.verilog.v2001
     class Foo(val width: Int <> CONST = 8) extends RTDesign:
       val depth: Int <> CONST = width + 2
       val x                   = Bits(width) <> IN
@@ -94,7 +94,7 @@ class DropDesignParamDepsSpec extends StageSpec:
   test("Nested design parameter dependencies are inlined"):
     // Note: the `inner_depth` parameter is printed because the (invisible) port selector for `inner.y` is referencing it.
     // In later stages (namely the Via-Connection stage) this parameter will be visibly used for the `inner_y` variable.
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Inner(val width: Int <> CONST) extends RTDesign:
       val depth: Int <> CONST = width + 1
       val x                   = Bits(width) <> IN
@@ -132,7 +132,7 @@ class DropDesignParamDepsSpec extends StageSpec:
     )
 
   test("Complex parameter expressions are correctly evaluated"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo(val width: Int <> CONST = 8) extends RTDesign:
       val depth: Int <> CONST  = width * 2
       val length: Int <> CONST = depth + width

@@ -6,13 +6,20 @@ import dfhdl.compiler.patching.*
 import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 
-case object ExplicitState extends Stage:
+case object ExplicitState extends HierarchyStage:
   def dependencies: List[Stage] = List(ExplicitNamedVars, DropLocalDcls)
   def nullifies: Set[Stage] = Set()
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList = designDB.getImplicitStateVarsDF.view.flatMap {
+  def transformSubDB(rootDB: DB)(using
+      getSet: MemberGetSet,
+      co: CompilerOptions,
+      rg: RefGen
+  ): DB =
+    // Root sub-DB has no design locals (just [globals, topDsn]); the
+    // analysis would consume topDsn's outPorts against an empty scopeMap
+    // and fail. The actual iteration happens in topDsn's own sub-DB.
+    if (subDB.membersNoGlobals.sizeIs <= 1) return subDB
+    val patchList = subDB.getImplicitStateVarsDF.view.flatMap {
       // for initialized ports and variables we just add an explicit prev self-assignment
       case e: DFVal.Dcl if e.initRefList.nonEmpty =>
         Some(
@@ -38,8 +45,8 @@ case object ExplicitState extends Stage:
         List(dclPatch, explicitStateAssignDsn.patch)
       case _ => None
     }.toList
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patchList)
+  end transformSubDB
 end ExplicitState
 
 extension [T: HasDB](t: T)

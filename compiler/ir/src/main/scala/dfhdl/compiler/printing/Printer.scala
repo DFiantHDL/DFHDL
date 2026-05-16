@@ -40,8 +40,10 @@ trait Printer
         // Normalized connections always have the receiver port on the LHS.
         val swapLR =
           // swapped if the net is a via and the RHS is the internal port
-          if (net.isViaConnection)
-            normalizeViaConnection && rhsOrig.getOwner.isSameOwnerDesignAs(net)
+          if (net.isViaConnection) rhsOrig match
+            case pbns: DFVal.PortByNameSelect => normalizeViaConnection
+            case _                            =>
+              normalizeViaConnection && rhsOrig.getOwner.isSameOwnerDesignAs(net)
           // swapped if the net is a regular connection and the RHS is receiver and
           // as long as the LHS is not OPEN
           else swapped && normalizeConnection && !lhsVal.isInstanceOf[DFVal.Special]
@@ -52,8 +54,12 @@ trait Printer
               if (dfVal.getConnectionTo.contains(net) ^ swapLR) "<--"
               else "-->"
         val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)
-        val lhsStr = if (lhsRef.isViaRef) lhsRef.get.stripPortSel.getName else lhsRef.refCodeString
-        val rhsStr = if (rhsRef.isViaRef) rhsRef.get.stripPortSel.getName else rhsRef.refCodeString
+        def csNode(ref: DFNet.Ref): String =
+          ref.get match
+            case pbns: DFVal.PortByNameSelect if net.isViaConnection => pbns.portName
+            case _                                                   => ref.refCodeString
+        val lhsStr = csNode(lhsRef)
+        val rhsStr = csNode(rhsRef)
         net.op.runtimeChecked match
           case DFNet.Op.Connection     => csConnection(lhsStr, rhsStr, directionStr)
           case DFNet.Op.ViaConnection  => csViaConnection(lhsStr, rhsStr, directionStr)
@@ -79,43 +85,6 @@ trait Printer
   def csWait(wait: Wait): String
   def csTextOut(textOut: TextOut): String
   // def csTimer(timer: Timer): String
-  def csClkEdgeCfg(edge: ClkCfg.Edge): String =
-    edge match
-      case ClkCfg.Edge.Rising  => "ClkCfg.Edge.Rising"
-      case ClkCfg.Edge.Falling => "ClkCfg.Edge.Falling"
-  def csClkCfg(clkCfg: ClkCfg): String =
-    clkCfg match
-      case _: None.type                             => "None"
-      case ClkCfg.Explicit(edge, rate, portName, _) =>
-        val csRate = rate.runtimeChecked match
-          case time @ TimeNumber(_, _) => csDFTimeData(time)
-          case freq @ FreqNumber(_, _) => csDFFreqData(freq)
-        s"ClkCfg(${csClkEdgeCfg(edge)}, $csRate, $portName)"
-  def csRstModeCfg(mode: RstCfg.Mode): String =
-    mode match
-      case RstCfg.Mode.Sync  => "RstCfg.Mode.Sync"
-      case RstCfg.Mode.Async => "RstCfg.Mode.Async"
-  def csRstActiveCfg(active: RstCfg.Active): String =
-    active match
-      case RstCfg.Active.High => "RstCfg.Active.High"
-      case RstCfg.Active.Low  => "RstCfg.Active.Low"
-  def csRstCfg(rstCfg: RstCfg): String =
-    rstCfg match
-      case _: None.type                               => "None"
-      case RstCfg.Explicit(mode, active, portName, _) =>
-        s"RstCfg(${csRstModeCfg(mode)}, ${csRstActiveCfg(active)}, $portName)"
-  def csRTDomainCfg(clkCfg: ClkCfg, rstCfg: RstCfg): String =
-    s"""RTDomainCfg(
-       |    clkCfg = ${printer.csClkCfg(clkCfg)},
-       |    rstCfg = ${printer.csRstCfg(rstCfg)}
-       |)""".stripMargin
-  def csRTDomainCfg(cfg: RTDomainCfg): String =
-    cfg match
-      case RTDomainCfg.Derived                        => "Derived"
-      case RTDomainCfg.Explicit(name, clkCfg, rstCfg) =>
-        if (name.isEmpty) csRTDomainCfg(clkCfg, rstCfg)
-        else name
-      case RTDomainCfg.Related(_) => ??? // should not be printed
   def csCommentInline(comment: String): String
   def csCommentEOL(comment: String): String
   def csDocString(doc: String): String
@@ -127,10 +96,10 @@ trait Printer
       case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
       case dfVal: DFVal                                => csDFValNamed(dfVal)
       case net: DFNet                                  => csDFNet(net)
-      case design: DFDesignBlock                       =>
-        design.instMode match
-          case InstMode.Def => csDFDesignDefInst(design)
-          case _            => csDFDesignBlockInst(design)
+      case inst: DFDesignInst                          =>
+        inst.getDesignBlock.instMode match
+          case InstMode.Def => csDFDesignDefInst(inst)
+          case _            => csDFDesignBlockInst(inst)
       case pb: ProcessBlock                => csProcessBlock(pb)
       case stepBlock: StepBlock            => csStepBlock(stepBlock)
       case forBlock: DFLoop.DFForBlock     => csDFForBlock(forBlock)
@@ -140,6 +109,10 @@ trait Printer
       case goto: Goto       => csGoto(goto)
       case wait: Wait       => csWait(wait)
       case textOut: TextOut => csTextOut(textOut)
+      // DFDesignBlock no longer renders an instantiation inside an owner
+      // body — that now flows through DFDesignInst. The declaration file is
+      // still produced by `csFile` via `csDFDesignBlockDcl`.
+      case _: DFDesignBlock => ""
       case _                => ???
     s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta.annotations)}$cs"
   end csDFMember
@@ -200,7 +173,7 @@ trait Printer
     val compiledFiles = Iterable(
       dfhdlSourceFile,
       globalSourceFile,
-      designDB.uniqueDesignMemberList.view.map { case (block: DFDesignBlock, _) =>
+      designDB.designMemberList.view.map { case (block: DFDesignBlock, _) =>
         val sourceType = block.instMode match
           case _: DFDesignBlock.InstMode.BlackBox => SourceType.BlackBox
           case _                                  => SourceType.Design
@@ -217,14 +190,14 @@ trait Printer
       case SourceFile(sourceOrigin = SourceOrigin.Compiled | SourceOrigin.Committed) => false
       case _                                                                         => true
     } ++ compiledFiles
-    designDB.copy(srcFiles = srcFiles)
+    designDB.update(srcFiles = srcFiles)
   end printedDB
 
   val printVendorIPBlackbox: Boolean = false
 
   final def csDB: String =
     val designDB = getSet.designDB
-    val csFileList = designDB.uniqueDesignMemberList.collect {
+    val csFileList = designDB.designMemberList.collect {
       case (block: DFDesignBlock, _)
           if printerOptions.designPrintFilter(block) &&
             (!block.isVendorIPBlackbox || printVendorIPBlackbox) =>
@@ -285,7 +258,7 @@ object Printer:
         srcFile.copy(sourceOrigin = SourceOrigin.Committed)
       case other => other
     }
-    db.copy(srcFiles = updatedSrcFiles)
+    db.update(srcFiles = updatedSrcFiles)
   end commit
 end Printer
 
@@ -339,9 +312,9 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
             s"waitWhile(${wait.triggerRef.refCodeString})"
       case DFTime => s"${wait.triggerRef.refCodeString}.wait"
       case _      =>
-        wait.triggerRef.get.getConstData match
+        wait.triggerRef.get.getConstData[Option[BigInt]] match
           // simplify display for int constant waits
-          case Some(Some(value: BigInt)) if value.isValidInt =>
+          case ConstData.KnownConst(Some(value: BigInt)) if value.isValidInt =>
             s"${value}.cy.wait"
           case _ =>
             s"${wait.triggerRef.refCodeString}.cy.wait"
@@ -429,8 +402,8 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] = Set(
     "Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encoded", "Struct", "Opaque",
-    "StartAt", "OneHot", "Gray", "Unit", "Time", "Freq", "String", "fs", "ns", "ps", "us", "ms",
-    "sec", "min", "hr", "Hz", "KHz", "MHz", "GHz"
+    "StartAt", "OneHot", "Gray", "Unit", "Time", "Freq", "String", "Double", "fs", "ns", "ps", "us",
+    "ms", "sec", "min", "hr", "Hz", "KHz", "MHz", "GHz"
   )
   def colorCode(cs: String): String =
     cs

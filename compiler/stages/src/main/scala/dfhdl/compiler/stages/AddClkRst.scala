@@ -9,167 +9,226 @@ import scala.collection.mutable
 import dfhdl.core.DFOpaque as coreDFOpaque
 import dfhdl.core.{asFE, DFCG}
 
-/** This stage adds clock and reset input ports across the entire design. This stage is run after
-  * ExplicitClkRstCfg, so no Derived is expected here. The rules are:
-  *   1. Explicit Clk/Rst configuration always causes Clk/Rst port inputs to be added, unless they
-  *      are already explicitly declared by the user or an internal design has outputs of Clk/Rst of
-  *      the same configuration.
-  *   1. Related Clk/Rst configuration does not add Clk/Rst ports.
-  *   1. Simulation top-level designs (do not have any ports) will have Clk/Rst VARs that are driven
-  *      according to their configuration.
+/** Reads the resolved `@timing.clock` / `@timing.reset` / `@timing.related` annotations written by
+  * [[ExplicitClkRstCfg]] onto each owner's meta, and:
+  *
+  *   - Adds clk/rst input ports to non-related RT domain owners that carry the corresponding
+  *     annotations, unless already explicitly declared.
+  *   - Memoizes the opaque clk/rst types by the annotation content tuples (so identical
+  *     configurations share the same opaque type).
+  *   - Generates the sim-driver block for top-level simulation designs.
   */
 case object AddClkRst extends Stage:
   def dependencies: List[Stage] = List(ToRT, ExplicitClkRstCfg)
   def nullifies: Set[Stage] = Set(ViaConnection)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     given RefGen = RefGen.fromGetSet
-    // saves domains that are outputting clk and rst
-    val designDomainOut = mutable.Set.empty[(DFDesignBlock, RTDomainCfg)]
-    // saves clk type used for a domain
-    val clkTypeMap = mutable.Map.empty[RTDomainCfg.Explicit, coreDFOpaque[coreDFOpaque.Clk]]
-    // saves rst type used for a domain
-    val rstTypeMap = mutable.Map.empty[RTDomainCfg.Explicit, coreDFOpaque[coreDFOpaque.Rst]]
+    val defaultTag = designDB.globalTags.getTagOf[DefaultRTDomainCfgTag].get
+    // saves (design, clkContent) pairs that are outputting clk, and
+    // (design, clkGrpName, rstContent) triples for outputting rst. Rst is keyed together
+    // with its paired clock's grpName so two rsts with identical mode/active but belonging
+    // to different clock groups are treated as distinct.
+    val designClkOut = mutable.Set.empty[(DFDesignBlock, constraints.Timing.Clock)]
+    val designRstOut = mutable.Set.empty[(DFDesignBlock, String, constraints.Timing.Reset)]
+    // memoize opaque types: clk by its content (grpName is a field — distinct grpNames
+    // with otherwise-identical content yield distinct Clock instances and distinct keys).
+    // rst is memoized by its paired clk's grpName + rst content, so rsts belonging to
+    // different clock groups (even with the same mode/active) get distinct opaque types.
+    val clkTypeMap = mutable.Map.empty[constraints.Timing.Clock, coreDFOpaque[coreDFOpaque.Clk]]
+    val rstTypeMap =
+      mutable.Map.empty[(String, constraints.Timing.Reset), coreDFOpaque[coreDFOpaque.Rst]]
     // saves opaque clk/rst type replacements
     val opaqueReplaceMap = mutable.Map.empty[DFOpaque, DFOpaque]
+
+    // The opaque-type suffix comes from the clock's `grpName` (the Rst opaque uses the
+    // same grpName as its paired clock — per design, reset doesn't have its own grpName).
+    // After resolution the grpName is always populated (DefaultRTDomainCfgTag seeds
+    // it with "Default"), so `.get` is safe.
+    def grpName(clk: constraints.Timing.Clock): String = clk.grpName.get
+
     extension (domainOwner: DFDomainOwner)
+      // Only IO constraints are moved from the owner onto the generated clk port —
+      // `@timing.clock` / `@timing.reset` stay on the owner (the domain is the canonical
+      // carrier of the timing configuration; the opaque Clk_<grp> / Rst_<grp> port type
+      // encodes the same info into the clk/rst port's static type).
       def getClkConstraints: List[constraints.Constraint] =
         domainOwner.getConstraints.collect {
-          case c: constraints.IO           => c
-          case c: constraints.Timing.Clock => c
+          case c: constraints.IO => c
         }
     end extension
+
+    // Extract the resolved @timing.clock / @timing.reset from the owner's meta.
+    // Ignores @timing.related (those owners don't get clk/rst ports here).
+    def resolvedAnnots(owner: DFDomainOwner)
+        : ClkRstTiming =
+      val hasRelated = owner.meta.annotations.exists {
+        case _: constraints.Timing.Related => true
+        case _                             => false
+      }
+      if (hasRelated) (None, None)
+      else
+        val clk = owner.meta.annotations.collectFirst {
+          case c: constraints.Timing.Clock => c
+        }
+        val rst = owner.meta.annotations.collectFirst {
+          case r: constraints.Timing.Reset => r
+        }
+        (clk, rst)
+    end resolvedAnnots
+
     val patchList: List[(DFMember, Patch)] = designDB.domainOwnerMemberList.flatMap {
-      // for all designs
       case (owner, members) =>
         val ownerClkConstraints = owner.getClkConstraints
         val design = owner.getThisOrOwnerDesign
-        // new configuration unapply object
-        object NewCfg:
-          // a configuration that was not yet handled by an internal design that has a domain output
-          def unapply(cfg: RTDomainCfg.Explicit): Option[(ClkCfg, RstCfg)] =
-            val RTDomainCfg.Explicit(_, clkCfg, rstCfg) = cfg
-            if (!designDomainOut.contains((design, cfg)))
-              Some(clkCfg, rstCfg)
-            else None
-        end NewCfg
         val ownerDomainPatchOption = owner.domainType match
-          // just register-transfer domains with new configuration
-          case DomainType.RT(cfg @ NewCfg(clkCfg, rstCfg)) =>
-            // clk and rst names are according to the configuration
-            val requiredClkName = clkCfg match
-              case ClkCfg.Explicit(portName = portName) => Some(portName)
-              case _                                    => None
-            val requiredRstName = rstCfg match
-              case RstCfg.Explicit(portName = portName) => Some(portName)
-              case _                                    => None
-            // collect existing clk and rst DFHDL value members
-            val existingClk = members.collectFirst {
-              case clk: DFVal.Dcl if clk.isClkDcl =>
-                // if clk is an output then this is an output domain.
-                // if the design is not a top-level, then the design owner is the receiver of this domain.
-                if (clk.modifier.dir == DFVal.Modifier.OUT && !design.isTop)
-                  designDomainOut += Tuple2(design.getOwnerDesign, cfg)
-                clk
-            }
-            val existingRst = members.collectFirst {
-              case rst: DFVal.Dcl if rst.isRstDcl => rst
-            }
-            // need to add clk and rst flags
-            val addClk = requiredClkName.nonEmpty && existingClk.isEmpty
-            val addRst = requiredRstName.nonEmpty && existingRst.isEmpty
-            val magnetNameSuffix =
-              // special-casing a default configuration name to be simply "default" for naming Clk/Rst types
-              if (cfg.name.startsWith("RTDomainCfg.Default")) "default"
-              // special-casing a config name with `<name>.norst` is derived from a configuration with a reset,
-              // so the clocks are the same and the name mangling should be dropped.
-              else cfg.name.replaceFirst(".norst", "")
-            // clk and rst magnet types are either fetched from the memoization
-            // or created and memoized
-            val opaqueDFC = DFCG()
-            val clkType =
-              class Unique:
-                case class Clk() extends coreDFOpaque.Clk:
-                  override lazy val typeName: String = s"Clk_${magnetNameSuffix}"
-              // the memoization for clock is always for the `.norst`, so only a single memoization
-              // is required for both regular and `.norst` versions
-              clkTypeMap.getOrElseUpdate(cfg.norst, coreDFOpaque(Unique().Clk())(using opaqueDFC))
-            val rstType =
-              class Unique:
-                case class Rst() extends coreDFOpaque.Rst:
-                  override lazy val typeName: String = s"Rst_${magnetNameSuffix}"
-              rstTypeMap.getOrElseUpdate(cfg, coreDFOpaque(Unique().Rst())(using opaqueDFC))
-            // saving changed opaques to change in all relevant members later
-            existingClk.foreach(dcl =>
-              opaqueReplaceMap += dcl.dfType.asInstanceOf[DFOpaque] -> clkType.asIR
-            )
-            existingRst.foreach(dcl =>
-              opaqueReplaceMap += dcl.dfType.asInstanceOf[DFOpaque] -> rstType.asIR
-            )
-            // adding missing clk/rst ports patch
-            if (addClk || addRst)
-              val simGen = designDB.inSimulation && design.isTop
-              val dsn = new MetaDesign(owner, Patch.Add.Config.InsideFirst):
-                val selfDFC = dfc
-                if (simGen)
-                  val clk = (clkType <> VAR)(using dfc.setName(requiredClkName.get))
-                  lazy val rst = (rstType <> VAR)(using dfc.setName(requiredRstName.get))
-                  if (addRst) rst // touch lazy rst to create
-                  val clkRstSimGen = new EDDomain:
-                    override protected def __dfc: DFC =
-                      selfDFC.setName("clkRstSimGen")
-                        .setAnnotations(List(annotation.FlattenMode.Transparent))
-                    val dfcAnon = selfDFC.anonymize.setAnnotations(Nil)
-                    locally {
-                      given DFC = selfDFC.anonymize.setAnnotations(Nil)
-                      val clkRate = clkCfg.asInstanceOf[ClkCfg.Explicit].rate
-                      val clkActive = clkCfg.asInstanceOf[ClkCfg.Explicit].edge match
-                        case ClkCfg.Edge.Rising  => true
-                        case ClkCfg.Edge.Falling => false
-                      val clkPeriodHalf = clkRate.to_period / 2
-                      lazy val rstActive = rstCfg.asInstanceOf[RstCfg.Explicit].active match
-                        case RstCfg.Active.Low  => false
-                        case RstCfg.Active.High => true
-                      def clkPeriodHalfConst(using DFC): dfhdl.core.DFConstOf[dfhdl.core.DFTime] =
-                        dfhdl.core.DFVal.Const(dfhdl.core.DFTime, clkPeriodHalf)
-                      process.forever {
-                        if (addRst)
-                          rst.actual :== dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(rstActive))
-                        val cond: Boolean <> VAL = true
-                        dfhdl.core.DFWhile.plugin(cond) {
-                          clk.actual :== dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(!clkActive))
-                          wait(clkPeriodHalfConst)
-                          clk.actual :== dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(clkActive))
-                          wait(clkPeriodHalfConst)
+          case DomainType.RT =>
+            val (clkAnnotOpt, rstAnnotOpt) = resolvedAnnots(owner)
+            // skip if no clk/rst slots (relaxed combinational or Related)
+            if (clkAnnotOpt.isEmpty && rstAnnotOpt.isEmpty) None
+            else
+              // check for existing clk/rst dcls
+              val existingClk = members.collectFirst {
+                case clk: DFVal.Dcl if clk.isClkDcl =>
+                  clkAnnotOpt.foreach { clkAnnot =>
+                    if (clk.modifier.dir == DFVal.Modifier.OUT && !design.isTopTop)
+                      designDB.designBlockOwnershipMap.getOrElse(design, Set.empty)
+                        .foreach(parent => designClkOut += ((parent, clkAnnot)))
+                  }
+                  clk
+              }
+              val existingRst = members.collectFirst {
+                case rst: DFVal.Dcl if rst.isRstDcl =>
+                  (rstAnnotOpt, clkAnnotOpt) match
+                    case (Some(rstAnnot), Some(clkAnnot))
+                        if rst.modifier.dir == DFVal.Modifier.OUT && !design.isTopTop =>
+                      designDB.designBlockOwnershipMap.getOrElse(design, Set.empty)
+                        .foreach(parent => designRstOut += ((parent, grpName(clkAnnot), rstAnnot)))
+                    case _ =>
+                  rst
+              }
+              // "already handled by an internal design that has an OUT of the same config" check
+              val clkAlreadyHandled = clkAnnotOpt.exists(c => designClkOut.contains((design, c)))
+              val rstAlreadyHandled = (clkAnnotOpt, rstAnnotOpt) match
+                case (Some(c), Some(r)) => designRstOut.contains((design, grpName(c), r))
+                case _                  => false
+
+              // required names from the resolved annotations
+              val requiredClkName = clkAnnotOpt.collect {
+                case c if !clkAlreadyHandled => c.portName.get
+              }
+              val requiredRstName = rstAnnotOpt.collect {
+                case r if !rstAlreadyHandled => r.portName.get
+              }
+              // whether to add new clk/rst ports
+              val addClk = requiredClkName.nonEmpty && existingClk.isEmpty
+              val addRst = requiredRstName.nonEmpty && existingRst.isEmpty
+
+              val opaqueDFC = DFCG()
+              val clkTypeOpt: Option[coreDFOpaque[coreDFOpaque.Clk]] = clkAnnotOpt.map { clkAnnot =>
+                val name = grpName(clkAnnot)
+                class Unique:
+                  case class Clk() extends coreDFOpaque.Clk:
+                    override lazy val typeName: String = s"Clk_${name}"
+                clkTypeMap.getOrElseUpdate(clkAnnot, coreDFOpaque(Unique().Clk())(using opaqueDFC))
+              }
+              val rstTypeOpt: Option[coreDFOpaque[coreDFOpaque.Rst]] = rstAnnotOpt.map { rstAnnot =>
+                // rst is paired with its domain's clk — use the clk's grpName for naming
+                // and memoization keying. If no clk slot (rare — reset without clock),
+                // fall back to a synthetic "nogrp" suffix to avoid a name collision.
+                val name = clkAnnotOpt.map(grpName).getOrElse("nogrp")
+                class Unique:
+                  case class Rst() extends coreDFOpaque.Rst:
+                    override lazy val typeName: String = s"Rst_${name}"
+                rstTypeMap.getOrElseUpdate(
+                  (name, rstAnnot),
+                  coreDFOpaque(Unique().Rst())(using opaqueDFC)
+                )
+              }
+              // saving changed opaques to change in all relevant members later
+              (existingClk, clkTypeOpt) match
+                case (Some(dcl), Some(clkType)) =>
+                  opaqueReplaceMap += dcl.dfType.asInstanceOf[DFOpaque] -> clkType.asIR
+                case _ =>
+              (existingRst, rstTypeOpt) match
+                case (Some(dcl), Some(rstType)) =>
+                  opaqueReplaceMap += dcl.dfType.asInstanceOf[DFOpaque] -> rstType.asIR
+                case _ =>
+
+              // add missing clk/rst ports
+              if (addClk || addRst)
+                val simGen = designDB.inSimulation && design.isTopTop
+                val dsn = new MetaDesign(owner, Patch.Add.Config.InsideFirst):
+                  val selfDFC = dfc
+                  if (simGen)
+                    val clk = (clkTypeOpt.get <> VAR)(using dfc.setName(requiredClkName.get))
+                    lazy val rst = (rstTypeOpt.get <> VAR)(using dfc.setName(requiredRstName.get))
+                    if (addRst) rst
+                    val clkRstSimGen = new EDDomain:
+                      override protected def __dfc: DFC =
+                        selfDFC.setName("clkRstSimGen")
+                          .setAnnotations(List(annotation.FlattenMode.Transparent))
+                      locally {
+                        given DFC = selfDFC.anonymize.setAnnotations(Nil)
+                        val clkAnnot = clkAnnotOpt.get
+                        val clkRate: RateNumber = clkAnnot.rate.get
+                        val clkActive = clkAnnot.edge.get match
+                          case ClkCfg.Edge.Rising  => true
+                          case ClkCfg.Edge.Falling => false
+                        val clkPeriodHalf = clkRate.to_period / 2
+                        lazy val rstActive =
+                          rstAnnotOpt.get.active.get match
+                            case RstCfg.Active.Low  => false
+                            case RstCfg.Active.High => true
+                        def clkPeriodHalfConst(using
+                            DFC
+                        )
+                            : dfhdl.core.DFConstOf[dfhdl.core.DFTime] =
+                          dfhdl.core.DFVal.Const(dfhdl.core.DFTime, clkPeriodHalf)
+                        process.forever {
                           if (addRst)
-                            rst.actual :==
-                              dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(!rstActive))
+                            rst.actual :== dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(rstActive))
+                          val cond: Boolean <> VAL = true
+                          dfhdl.core.DFWhile.plugin(cond) {
+                            clk.actual :== dfhdl.core.DFVal.Const(
+                              dfhdl.core.DFBit,
+                              Some(!clkActive)
+                            )
+                            wait(clkPeriodHalfConst)
+                            clk.actual :== dfhdl.core.DFVal.Const(
+                              dfhdl.core.DFBit,
+                              Some(clkActive)
+                            )
+                            wait(clkPeriodHalfConst)
+                            if (addRst)
+                              rst.actual :==
+                                dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(!rstActive))
+                          }
                         }
                       }
-                    }
-                else
-                  // added clocks are created with the constraints from the domain owner
-                  lazy val clk = (clkType <> IN)(using
-                    dfc.setName(requiredClkName.get).setAnnotations(ownerClkConstraints)
-                  )
-                  if (addClk) clk // touch lazy clk to create
-                  lazy val rst = (rstType <> IN)(using dfc.setName(requiredRstName.get))
-                  if (addRst) rst // touch lazy rst to create
-                end if
-              // the ports are added as first members
-              Some(dsn.patch)
-            else None
+                  else
+                    lazy val clk = (clkTypeOpt.get <> IN)(using
+                      dfc.setName(requiredClkName.get).setAnnotations(ownerClkConstraints)
+                    )
+                    if (addClk) clk
+                    lazy val rst = (rstTypeOpt.get <> IN)(using
+                      dfc.setName(requiredRstName.get)
+                    )
+                    if (addRst) rst
+                  end if
+                Some(dsn.patch)
+              else None
+              end if
             end if
           case _ => None
         // replace clk/rst value DFTypes with updated ones
         val opaqueTypeReplacePatches = members.view.flatMap {
           case dfVal: DFVal =>
             dfVal.dfType match
-              case dfType @ DFOpaque(kind = (DFOpaque.Kind.Clk | DFOpaque.Kind.Rst)) =>
+              case dfType @ DFOpaque(kind = (DFOpaque.Kind.Clk | DFOpaque.Kind.Rst))
+                  if opaqueReplaceMap.contains(dfType) =>
                 val updatedDFVal = dfVal match
-                  // existing clocks also get the constraints from the domain owner
                   case clk: DFVal.Dcl if clk.isClkDcl =>
-                    val updatedAnnotations =
-                      (ownerClkConstraints ++ clk.meta.annotations).distinct
+                    val updatedAnnotations = (ownerClkConstraints ++ clk.meta.annotations).distinct
                     clk.copy(
                       dfType = opaqueReplaceMap(dfType),
                       meta = clk.meta.copy(annotations = updatedAnnotations)
@@ -179,18 +238,22 @@ case object AddClkRst extends Stage:
               case _ => None
           case _ => None
         }
-        // remove the constraints from the owner
+        // Strip only IO constraints from the owner (they moved to the clk port). Keep the
+        // resolved `@timing.clock` / `@timing.reset` on the owner so that subsequent re-runs
+        // of the pipeline (e.g. idempotent `.addClkRst.addClkRst`) see the resolved state
+        // and don't re-derive defaults that conflict with ports already created.
+        val hasOwnerIO =
+          owner.meta.annotations.exists { case _: constraints.IO => true; case _ => false }
         val ownerConstraintRemovalPatchOption =
-          if (ownerClkConstraints.nonEmpty)
+          if (hasOwnerIO)
             def updateMeta(meta: Meta): Meta =
               meta.copy(annotations = meta.annotations.flatMap {
-                case _: constraints.IO           => None
-                case _: constraints.Timing.Clock => None
-                case c                           => Some(c)
+                case _: constraints.IO => None
+                case c                 => Some(c)
               })
             val updatedOwner = owner match
               case design: DFDesignBlock =>
-                design.copy(dclMeta = updateMeta(design.dclMeta), meta = updateMeta(design.meta))
+                design.copy(meta = updateMeta(design.meta))
               case interface: DFInterfaceOwner =>
                 interface.copy(
                   dclMeta = updateMeta(interface.dclMeta),

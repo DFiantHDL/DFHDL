@@ -5,7 +5,7 @@ import dfhdl.compiler.stages.dropProcessAll
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class DropProcessAllSpec extends StageSpec:
-  given options.CompilerOptions.Backend = backends.vhdl.v93
+  given options.CompilerOptions.Backend = _.vhdl.v93
   test("Basic process"):
     class ID extends EDDesign:
       val x = SInt(16) <> IN
@@ -73,5 +73,42 @@ class DropProcessAllSpec extends StageSpec:
          |    else y := v
          |end ID
          |""".stripMargin
+    )
+  test("Hierarchical dependency"):
+    class ID extends EDDesign:
+      val iBits = Bits(8) <> IN
+      val oBits = Bits(8) <> OUT
+      oBits <> iBits
+    end ID
+
+    class Foo extends EDDesign:
+      val iBits    = Bits(8) <> IN
+      val oBits    = Bits(8) <> OUT
+      val dir      = Bit     <> IN
+      val rshifter = ID()
+      rshifter.iBits <> iBits
+      process(all):
+        if (dir) oBits := rshifter.oBits
+        else oBits     := rshifter.oBits
+    end Foo
+    val top = (new Foo).dropProcessAll
+    assertCodeString(
+      top,
+      """|class ID extends EDDesign:
+         |  val iBits = Bits(8) <> IN
+         |  val oBits = Bits(8) <> OUT
+         |  oBits <> iBits
+         |end ID
+         |
+         |class Foo extends EDDesign:
+         |  val iBits = Bits(8) <> IN
+         |  val oBits = Bits(8) <> OUT
+         |  val dir = Bit <> IN
+         |  val rshifter = ID()
+         |  rshifter.iBits <> iBits
+         |  process(rshifter.oBits, dir):
+         |    if (dir) oBits := rshifter.oBits
+         |    else oBits := rshifter.oBits
+         |end Foo""".stripMargin
     )
 end DropProcessAllSpec

@@ -52,15 +52,13 @@ extension [M <: ir.DFMember](member: M)
           if port.getOwnerDesign.ownerRef != dfc.owner.asIR.getThisOrOwnerDesign.ownerRef =>
         // name path accounts for domains within the design that can contain the port
         val namePath = port.getRelativeName(port.getOwnerDesign)
-        val portSelect: ir.DFVal.PortByNameSelect = ir.DFVal.PortByNameSelect(
-          port.dfType.dropUnreachableRefs,
-          port.getOwnerDesign.refTW[ir.DFVal.PortByNameSelect],
-          namePath,
-          dfc.owner.ref,
-          dfc.getMeta.anonymize,
-          dfc.tags
+        val portSelect = DFVal.PortByNameSelect(
+          port.dfType,
+          port.modifier.dir,
+          port.getOwnerDesign.getCachedDesignInst,
+          namePath
         )
-        portSelect.addMember.refTW[O].asInstanceOf[ir.DFRef.TwoWay[M, O]]
+        portSelect.refTW[O].asInstanceOf[ir.DFRef.TwoWay[M, O]]
       // any other kind of reference
       case member =>
         val newRef = dfc.refGen.genTwoWay[M, O]

@@ -21,14 +21,14 @@ module Blinker(
   begin
     if (rst == 1'b1) begin
       led   <= 1'b1;
-      cnt   <= `dPW(0, 1, clog2(HALF_PERIOD));
+      cnt   <= `EXTEND_U(1'd0, 1, clog2(HALF_PERIOD));
     end
     else begin
       if (cnt == (HALF_PERIOD - 1)) begin
-        cnt <= `dPW(0, 1, clog2(HALF_PERIOD));
+        cnt <= `EXTEND_U(1'd0, 1, clog2(HALF_PERIOD));
         led <= ~led;
       end
-      else cnt <= cnt + `dPW(1, 1, clog2(HALF_PERIOD));
+      else cnt <= cnt + `EXTEND_U(1'd1, 1, clog2(HALF_PERIOD));
     end
   end
 endmodule

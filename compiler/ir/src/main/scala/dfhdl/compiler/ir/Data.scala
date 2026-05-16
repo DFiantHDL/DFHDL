@@ -62,3 +62,29 @@ object Data:
         case d => throw new Exception(s"Invalid data: $d")
   )
 end Data
+
+enum ConstData[+T] derives CanEqual:
+  case KnownConst(data: T) extends ConstData[T]
+  case UnknownConst[T](dfVal: DFVal) extends ConstData[T]
+  case NotConst extends ConstData[Nothing]
+object ConstData:
+  extension [T](cd: ConstData[T])
+    def toOption: Option[T] = cd match
+      case KnownConst(data) => Some(data)
+      case _                => None
+    def isConst: Boolean = cd match
+      case NotConst => false
+      case _        => true
+    def isKnown: Boolean = cd match
+      case KnownConst(_) => true
+      case _             => false
+    def isUnknown: Boolean = cd match
+      case UnknownConst(_) => true
+      case _               => false
+
+  enum CachePolicy derives CanEqual:
+    case NoCache
+    case GoThroughDesignParams
+    case Always
+  given CachePolicy = CachePolicy.Always
+end ConstData

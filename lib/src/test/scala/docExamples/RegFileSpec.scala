@@ -1,5 +1,5 @@
 package docExamples
 
-class RegFileSpec extends util.FullCompileSpec:
+class RegFileSpec extends dfhdl.util.FullCompileSpec:
   def dut = regfile.RegFile()
 end RegFileSpec

@@ -6,11 +6,11 @@ import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
 import DFVal.Alias.History.Op as HistoryOp
 import dfhdl.compiler.ir.DFDesignBlock.InstMode
-case object ToRT extends Stage:
+case object ToRT extends HierarchyStage:
   def dependencies: List[Stage] = List(DropDesignDefs, ExplicitState)
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    val patchList = designDB.members.collect {
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patchList = subDB.members.collect {
       case h @ DFVal.Alias.History(op = HistoryOp.Pipe) =>
         h -> Patch.Replace(
           h.copy(op = HistoryOp.State),
@@ -18,17 +18,17 @@ case object ToRT extends Stage:
         )
       case d @ DFDesignBlock(domainType = DomainType.DF) =>
         d -> Patch.Replace(
-          d.copy(domainType = new DomainType.RT(RTDomainCfg.Derived)),
+          d.copy(domainType = DomainType.RT),
           Patch.Replace.Config.FullReplacement
         )
       case i @ DFInterfaceOwner(domainType = DomainType.DF) =>
         i -> Patch.Replace(
-          i.copy(domainType = new DomainType.RT(RTDomainCfg.Derived)),
+          i.copy(domainType = DomainType.RT),
           Patch.Replace.Config.FullReplacement
         )
     }
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patchList)
+  end transformSubDB
 end ToRT
 
 //converts the dataflow domains to RT domains

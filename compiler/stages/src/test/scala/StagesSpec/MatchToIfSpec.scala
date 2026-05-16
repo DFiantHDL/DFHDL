@@ -119,7 +119,7 @@ class MatchToIfSpec extends StageSpec:
     )
 
   test("Bits pattern match with wildcards"):
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class ID extends DFDesign:
       val x = Bits(16) <> IN
       val y = Bits(16) <> OUT

@@ -4,9 +4,9 @@ import dfhdl.hw.constraints.io
 abstract class Sig extends IO
 
 object Sig:
-  @io(dir = io.Dir.IN)
+  @io(dir = _.in)
   class IN extends Sig
-  @io(dir = io.Dir.OUT)
+  @io(dir = _.out)
   class OUT extends Sig
-  @io(dir = io.Dir.INOUT)
+  @io(dir = _.inout)
   class INOUT extends Sig

@@ -102,18 +102,17 @@ import scala.collection.mutable
   * }}}
   */
 //format: on
-case object SimplifyRTOps extends Stage:
+case object SimplifyRTOps extends HierarchyStage:
   def dependencies: List[Stage] = List(DropTimedRTWaits)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons, DFHDLUniqueNames, DropLocalDcls)
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     extension (dfVal: DFVal)
       def isAnonReferencedByWait: Boolean = dfVal.isAnonymous && dfVal.originMembers.view.exists {
         case _: Wait => true
         case _       => false
       }
-    val patchList = designDB.members.view.flatMap {
+    val patches = subDB.members.view.flatMap {
       case trigger @ DFVal.Func(
             _,
             op @ (FuncOp.rising | FuncOp.falling),
@@ -125,7 +124,7 @@ case object SimplifyRTOps extends Stage:
         val dsn = new MetaDesign(
           trigger,
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
-          dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+          dfhdl.core.DomainType.RT
         ):
           val argFE = arg.asValOf[dfhdl.core.DFBit]
           op match
@@ -141,7 +140,7 @@ case object SimplifyRTOps extends Stage:
         val dsn = new MetaDesign(
           waitMember,
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
-          dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+          dfhdl.core.DomainType.RT
         ):
           // If the trigger is a rising or falling edge, we need to negate it
           val fixedTrigger = trigger match
@@ -171,7 +170,7 @@ case object SimplifyRTOps extends Stage:
           val dsn = new MetaDesign(
             waitMember,
             Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
-            dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+            dfhdl.core.DomainType.RT
           ):
             val iterType = cyclesVal.asValOf[UInt[Int]].dfType
             // TODO: unclear why we cannot directly use 0 and 1 here, but there is indication that
@@ -223,7 +222,7 @@ case object SimplifyRTOps extends Stage:
         val m1 = new MetaDesign(
           forBlock,
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove),
-          dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+          dfhdl.core.DomainType.RT
         ):
           val startConst = dfhdl.core.DFVal.Const(dfhdl.core.DFInt32, Some(startBigInt))
           val newIterDcl = dfhdl.core.DFInt32.<>(VAR.REG)(using dfc.setName(iterName))
@@ -248,7 +247,7 @@ case object SimplifyRTOps extends Stage:
           val m2 = new MetaDesign(
             forBodyMembers.last,
             Patch.Add.Config.After,
-            dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+            dfhdl.core.DomainType.RT
           ):
             val stepConst = dfhdl.core.DFVal.Const(dfhdl.core.DFInt32, Some(stepBigInt))
             m1.newIterDcl.din := m1.newIterDcl + stepConst
@@ -258,9 +257,8 @@ case object SimplifyRTOps extends Stage:
 
       case _ => None
     }.toList
-
-    designDB.patch(patchList)
-  end transform
+    subDB.patch(patches)
+  end transformSubDB
 end SimplifyRTOps
 
 extension [T: HasDB](t: T)

@@ -75,13 +75,13 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
         .toSet
       selectorVal.dfType match
         case _ if complexPattern => None
-        case DFBits(Int(width))  =>
+        case dt: DFBits          =>
           if (constSet.exists(_.isBubble)) None // currently not checking don't-care patterns
-          else Some((1 << width) == constSet.size)
+          else Some((1 << dt.widthIntOpt.get) == constSet.size)
         case dec: DFDecimal =>
           // A decimal is considered covered when all its values are covered.
           // All the possible values are determined by the width of the decimal.
-          Some((1 << dec.width) == constSet.size)
+          Some((1 << dec.widthIntOpt.get) == constSet.size)
         case DFEnum(name, width, entries) =>
           // An enum is considered covered when all its entries are covered.
           // Since both constant set and entries set are unique and type checking

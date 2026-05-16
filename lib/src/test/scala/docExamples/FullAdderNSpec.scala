@@ -1,5 +1,5 @@
 package docExamples
 
-class FullAdderNSpec extends util.FullCompileSpec:
+class FullAdderNSpec extends dfhdl.util.FullCompileSpec:
   def dut = fullAdderN.FullAdderN()
 end FullAdderNSpec

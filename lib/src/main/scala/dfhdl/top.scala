@@ -2,7 +2,7 @@ package dfhdl
 import internals.AnnotatedWith
 
 final case class top(genMain: Boolean = true)(using
-    private[dfhdl] val annot: AnnotatedWith[top, dfhdl.core.Design]
+    private[dfhdl] val annot: AnnotatedWith[top, Any]
 )(using
     val elaborationOptions: dfhdl.options.ElaborationOptions.Defaults[annot.Out],
     val compilerOptions: dfhdl.options.CompilerOptions.Defaults[annot.Out],

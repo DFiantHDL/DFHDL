@@ -114,7 +114,7 @@ class QuartusPrimeProjectTclConfigPrinter(using
       s"set_global_assignment -name ${name}_FILE $file -hdl_version $std"
     ).mkString("\n")
   def activeDualPurposeGroups: List[String] =
-    designDB.topIOs.view.flatMap(_.meta.annotations.collect {
+    designDB.toptopIOs.view.flatMap(_.meta.annotations.collect {
       case constraint: constraints.IO =>
         constraint.dualPurposeGroups.toList.flatMap(_.split("/"))
     }).flatten.toList.distinct
@@ -122,7 +122,7 @@ class QuartusPrimeProjectTclConfigPrinter(using
   def generateSVFFileCmd: String =
     if (pro) "" else "set_global_assignment -name GENERATE_SVF_FILE ON"
   def qsysIPs: String =
-    designDB.uniqueDesignMemberList.collect {
+    designDB.designMemberList.collect {
       case (qsysIP: DFDesignBlock, _) if qsysIP.isVendorIPBlackbox =>
         s"catch {exec qsys-script --script=ips/${qsysIP.dclName}.tcl --quartus-project=${topName}}"
     }.mkString("\n")
@@ -242,7 +242,7 @@ class QuartusPrimeProjectPhysicalConstraintsPrinter(using
   end qsfPortConstraints
 
   def qsfPortConstraints: List[String] =
-    designDB.topIOs.view.flatMap(qsfPortConstraints).toList
+    designDB.toptopIOs.view.flatMap(qsfPortConstraints).toList
   def qsfDeviceProperties: String =
     designDB.top.dclMeta.annotations.collect {
       case constraint: constraints.DeviceProperties =>
@@ -325,11 +325,11 @@ class QuartusPrimeIPPrinter(using
     val members = qsysIP.members(MemberView.Folded)
     val ipVersion = members.collectFirst {
       case param: DFVal.DesignParam if param.getName == "version" =>
-        " " + param.getConstData.get.asInstanceOf[Option[String]].get
+        " " + param.getConstData[Option[String]].toOption.get.get
     }.getOrElse("")
     val ipParams = members.collect {
       case param: DFVal.DesignParam if param.getName != "version" =>
-        s"set_instance_parameter_value $ipInstanceName {${param.getName}} {${param.getConstData.get.asInstanceOf[Option[Any]].get}}"
+        s"set_instance_parameter_value $ipInstanceName {${param.getName}} {${param.getConstData[Option[Any]].toOption.get.get}}"
     }.mkString("\n")
     val ipExports = members.collect {
       case port @ DclPort() =>
@@ -360,7 +360,7 @@ class QuartusPrimeIPPrinter(using
          |"""
   end contents
   def getSourceFiles: List[SourceFile] =
-    getSet.designDB.uniqueDesignMemberList.collect {
+    getSet.designDB.designMemberList.collect {
       case (qsysIP: DFDesignBlock, _) if qsysIP.isVendorIPBlackbox =>
         SourceFile(
           SourceOrigin.Compiled,

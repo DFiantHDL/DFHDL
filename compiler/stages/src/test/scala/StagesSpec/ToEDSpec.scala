@@ -7,10 +7,9 @@ import dfhdl.compiler.stages.toED
 //TODO: rethink rising_edge for VHDL vs. Verilog
 class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Basic wires and reg") {
-    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
-    val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
-    val cfg    = RTDomainCfg(clkCfg, rstCfg)
-    class ID extends RTDesign(cfg):
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class ID extends RTDesign:
       val x  = SInt(16) <> IN
       val y  = SInt(16) <> OUT
       val w1 = SInt(16) <> VAR
@@ -73,10 +72,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("Rising clk, Async Reset") {
-    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
-    val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.High)
-    val cfg    = RTDomainCfg(clkCfg, rstCfg)
-    class ID extends RTDesign(cfg):
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset(mode = _.async)
+    class ID extends RTDesign:
       val x  = SInt(16) <> IN
       val r1 = SInt(16) <> VAR
       r1 := x.reg(1, init = 0)
@@ -99,10 +97,8 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("Falling clk, no Reset") {
-    val clkCfg = ClkCfg(ClkCfg.Edge.Falling)
-    val rstCfg = None
-    val cfg    = RTDomainCfg(clkCfg, rstCfg)
-    class ID extends RTDesign(cfg):
+    @hw.constraints.timing.clock(grpName = "cfg", edge = _.falling)
+    class ID extends RTDesign:
       val x  = SInt(16) <> IN
       val r1 = SInt(16) <> VAR
       r1 := x.reg(1, init = 0)
@@ -122,10 +118,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("Rising clk, Sync Reset & Active-low") {
-    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
-    val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
-    val cfg    = RTDomainCfg(clkCfg, rstCfg)
-    class ID extends RTDesign(cfg):
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset(mode = _.async, active = _.low)
+    class ID extends RTDesign:
       val x  = SInt(16) <> IN
       val r1 = SInt(16) <> VAR
       r1 := x.reg(1, init = 0)
@@ -148,10 +143,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("Basic Hierarchy") {
-    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
-    val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
-    val cfg    = RTDomainCfg(clkCfg, rstCfg)
-    class ID extends RTDesign(cfg):
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class ID extends RTDesign:
       val x = SInt(16) <> IN
       val y = SInt(16) <> OUT
       val r = SInt(16) <> VAR
@@ -159,7 +153,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       r := x + r
       y := r.reg(1, init = ?)
 
-    class IDTop extends RTDesign(cfg):
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class IDTop extends RTDesign:
       val x    = SInt(16) <> IN
       val y    = SInt(16) <> OUT
       val temp = SInt(16) <> VAR
@@ -211,10 +207,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("Basic Bits Counter") {
-    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
-    val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
-    val cfg    = RTDomainCfg(clkCfg, rstCfg)
-    class Counter(val width: Int <> CONST = 8) extends RTDesign(cfg):
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class Counter(val width: Int <> CONST = 8) extends RTDesign:
       val cnt = Bits(width) <> OUT init all(0)
       cnt := cnt.reg + 1
 
@@ -234,16 +229,15 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |      if (rst.actual == 1) cnt_reg :== b"0".repeat(width)
          |      else cnt_reg :== cnt
          |    end if
-         |  cnt <> (cnt_reg.uint + d"${width}'1").bits
+         |  cnt <> (cnt_reg.uint + d"1'1".resize(width)).bits
          |end Counter
          |""".stripMargin
     )
   }
   test("Basic UInt Counter") {
-    val clkCfg = ClkCfg(ClkCfg.Edge.Falling)
-    val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
-    val cfg    = RTDomainCfg(clkCfg, rstCfg)
-    class Counter(val width: Int <> CONST = 8) extends RTDesign(cfg):
+    @hw.constraints.timing.clock(grpName = "cfg", edge = _.falling)
+    @hw.constraints.timing.reset(mode = _.async, active = _.low)
+    class Counter(val width: Int <> CONST = 8) extends RTDesign:
       val cnt = UInt(width) <> OUT init 0
       cnt := cnt.reg + 1
 
@@ -259,17 +253,14 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val cnt = UInt(width) <> OUT
          |  val cnt_reg = UInt(width) <> VAR
          |  process(clk, rst):
-         |    if (rst.actual == 0) cnt_reg :== d"${width}'0"
+         |    if (rst.actual == 0) cnt_reg :== d"1'0".resize(width)
          |    else if (clk.actual.falling) cnt_reg :== cnt
-         |  cnt <> (cnt_reg + d"${width}'1")
+         |  cnt <> (cnt_reg + d"1'1".resize(width))
          |end Counter
          |""".stripMargin
     )
   }
   test("Declaration with type operation") {
-    val clkCfg = ClkCfg(ClkCfg.Edge.Falling)
-    val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
-    val cfg    = RTDomainCfg(clkCfg, rstCfg)
     class Test(val width: Int <> CONST) extends DFDesign:
       val z = UInt.until(width) <> OUT
       z := 0
@@ -279,7 +270,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       top,
       """|class Test(val width: Int <> CONST = 8) extends EDDesign:
          |  val z = UInt(clog2(width)) <> OUT
-         |  z <> d"${clog2(width)}'0"
+         |  z <> d"1'0".resize(clog2(width))
          |end Test
          |""".stripMargin
     )
@@ -417,7 +408,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("If + param test case") {
-    class Test(val width: Int <> CONST) extends RTDesign():
+    class Test(val width: Int <> CONST) extends RTDesign:
       val c = Boolean     <> IN
       val v = Bits(width) <> VAR
       v           := all(0)
@@ -505,7 +496,8 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val dmn2 = new RTDomain:
         val id = ID()
         id.x <> dmn1.id.y.reg(1, init = 0)
-      val dmn3 = new dmn1.RelatedDomain:
+      @hw.constraints.timing.related(dmn1)
+      val dmn3 = new RTDomain:
         val id = ID()
         id.x <> dmn2.id.y.reg(1, init = 0)
       y <> dmn3.id.y
@@ -553,7 +545,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |        else dmn2_id_y_reg :== dmn2.id.y
          |      end if
          |  end dmn3
-         |  y <> id.y
+         |  y <> dmn3.id.y
          |end IDTop
          |""".stripMargin
     )
@@ -609,14 +601,15 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("related domain uses external REG Dcls") {
-    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
-    val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
-    val cfg    = RTDomainCfg(clkCfg, rstCfg)
-    class ID extends RTDesign(cfg):
-      val x   = SInt(16) <> IN
-      val y   = SInt(16) <> OUT.REG init 0
-      val r   = SInt(16) <> VAR.REG init 0
-      val foo = new RelatedDomain:
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class ID extends RTDesign:
+      self =>
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+      val r = SInt(16) <> VAR.REG init 0
+      @hw.constraints.timing.related(self)
+      val foo = new RTDomain:
         y.din := r
       r.din := 1
     end ID
@@ -653,14 +646,17 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
         val DATA_WIDTH: Int <> CONST = 32,
         val REG_NUM: Int <> CONST    = 32
     ) extends RTDesign:
+      self =>
       val regs = Bits(DATA_WIDTH) X REG_NUM <> VAR.REG
 
-      val rs1, rs2 = new RelatedDomain:
+      @hw.constraints.timing.related(self)
+      val rs1, rs2 = new RTDomain:
         val addr = Bits.until(REG_NUM) <> IN
         val data = Bits(DATA_WIDTH)    <> OUT.REG
         data.din := regs(addr)
 
-      val rd = new RelatedDomain:
+      @hw.constraints.timing.related(self)
+      val rd = new RTDomain:
         val addr = Bits.until(REG_NUM) <> IN
         val data = Bits(DATA_WIDTH)    <> IN
         val wren = Bit                 <> IN

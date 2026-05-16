@@ -14,13 +14,11 @@ import scala.collection.mutable
   *     2.ms.wait -> 100000.cy.wait
   */
 //format: on
-case object DropTimedRTWaits extends Stage:
+case object DropTimedRTWaits extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList = designDB.members.collect {
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patches = subDB.members.collect {
       // replace wait statements with time durations to cycles
       case waitMember @ Wait(
             DFRef(duration @ DFTime.Val(_)),
@@ -31,18 +29,20 @@ case object DropTimedRTWaits extends Stage:
         val dsn = new MetaDesign(
           waitMember,
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
-          dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+          dfhdl.core.DomainType.RT
         ):
-          val waitTime = duration.getConstData.get.asInstanceOf[TimeNumber]
-          val (RTDomainCfg.Explicit(clkCfg = ClkCfg.Explicit(rate = clkRate))) =
-            designDB.explicitRTDomainCfgMap(waitMember.getOwnerDomain).runtimeChecked
+          val waitTime = duration.getConstData[TimeNumber].toOption.get
+          val clkRate: RateNumber = getSet.designDB.resolvedClkRstMap
+            .get(waitMember.getOwnerDomain)
+            .flatMap(_._1)
+            .flatMap(_.rate.toOption)
+            .get
           val cycles = (waitTime / clkRate.to_ps).value.toLong
           cycles.cy.wait(using dfc.setMeta(waitMember.meta))
         dsn.patch
-    }
-
-    designDB.patch(patchList)
-  end transform
+    }.toList
+    subDB.patch(patches)
+  end transformSubDB
 end DropTimedRTWaits
 
 extension [T: HasDB](t: T)

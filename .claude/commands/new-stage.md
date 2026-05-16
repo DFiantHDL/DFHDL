@@ -757,7 +757,7 @@ case forBlock: DFLoop.DFForBlock if forBlock.isInRTDomain =>
   val m1 = new MetaDesign(
     forBlock,
     Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove),
-    dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+    dfhdl.core.DomainType.RT
   ):
     // preamble members (e.g. iterator VAR.REG, guard expression) ...
     val whileBlock = dfhdl.core.DFWhile.Block(guard)(using dfc.setMeta(forBlock.meta))
@@ -786,7 +786,7 @@ if forBodyMembers.nonEmpty then
   val m2 = new MetaDesign(
     forBodyMembers.last,
     Patch.Add.Config.After,
-    dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+    dfhdl.core.DomainType.RT
   ):
     // members here are owned by forBodyMembers.last.getOwner = forBlock
     // after M1's ChangeRefAndRemove, their ownerRefs are redirected to whileBlock
@@ -908,7 +908,7 @@ class MyStageSpec extends StageSpec:
   }
 
   test("backend-specific behaviour under VHDL") {
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Top extends EDDesign:
       ...
     val result = (new Top).myStage
@@ -977,14 +977,7 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     type pattern instead: `case x: DFLoop.DFForBlock`. The same applies to other multi-field IR
     case classes that have no dedicated single-argument unapply.
 16. **Assuming duplicate designs have members** — designs tagged `DuplicateTag` have **no members**
-    in the DB (ports, domain blocks, and values are removed during immutable DB creation). Use
-    `db.dupPortsByName` for port lookups (works for both origin and duplicate designs) and
-    `db.dupDomainOwnerPublicMemberList` for domain owner analysis. If your stage needs the full
-    member hierarchy of duplicates (e.g. for parameter analysis), you must reconstruct it by
-    duplicating the origin design's members with `copyWithNewRefs` — see `GlobalizePortVectorParams`
-    for the pattern. Never iterate `designMemberTable` or `domainOwnerMemberTable` expecting to
-    find members for duplicate designs.
-
+    in the DB (ports, domain blocks, and values are removed during immutable DB creation). 
 ---
 
 ## API Notes

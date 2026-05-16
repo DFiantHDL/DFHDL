@@ -14,7 +14,8 @@ trait AbstractDataPrinter extends AbstractPrinter:
   final def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String =
     val valueBits: BitVector = data._1
     val bubbleBits: BitVector = data._2
-    import dfType.{width, widthParamRef}
+    import dfType.widthParamRef
+    val width = dfType.widthIntOpt.get
 
     def binZip(v: BitVector, b: BitVector): String =
       v.toBin.zip(b.toBin)
@@ -56,27 +57,16 @@ trait AbstractDataPrinter extends AbstractPrinter:
         val theRestOption = hexZip(theRestValue, theRestBubble)
         for (h <- headOption; tr <- theRestOption) yield h + tr
     end toHexString
-    widthParamRef match
-      case _: DFRefAny =>
-        // use minimal hex value representation
-        val actualWidth = valueBits.lengthOfValue.toInt
-        val rem = actualWidth % 4
-        val actualWidthDiv4 = if (rem == 0) actualWidth else actualWidth + (4 - rem)
-        val hexStr =
-          hexZip(valueBits.resize(actualWidthDiv4), bubbleBits.resize(actualWidthDiv4)).get
-        csDFBitsHexFormat(hexStr, actualWidth, widthParamRef)
-      case _ =>
-        val binRep = csDFBitsBinFormat(toBinString)
-        val hexRepOption = toHexString match
-          case Some(v) if width % 4 == 0         => Some(csDFBitsHexFormat(v))
-          case Some(v) if allowBitsExplicitWidth =>
-            Some(csDFBitsHexFormat(v, binRep.length, widthParamRef))
-          case _ => None
-        // choosing the shorter representation for readability
-        hexRepOption match
-          case Some(hr) if hr.length < binRep.length => hr
-          case _                                     => binRep
-    end match
+    val binRep = csDFBitsBinFormat(toBinString)
+    val hexRepOption = toHexString match
+      case Some(v) if width % 4 == 0         => Some(csDFBitsHexFormat(v))
+      case Some(v) if allowBitsExplicitWidth =>
+        Some(csDFBitsHexFormat(v, binRep.length, widthParamRef))
+      case _ => None
+    // choosing the shorter representation for readability
+    hexRepOption match
+      case Some(hr) if hr.length < binRep.length => hr
+      case _                                     => binRep
   end csDFBitsData
   def csDFBitFormat(bitRep: String): String
   def csDFBoolFormat(value: Boolean): String
@@ -100,15 +90,19 @@ trait AbstractDataPrinter extends AbstractPrinter:
     csDFBitsData(DFBits(width), (BitVector.low(width), BitVector.high(width)))
 
   final def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
-    import dfType.{width, widthParamRef}
+    import dfType.{widthParamRef}
+    val width = dfType.widthIntOpt.get
     data match
       case Some(value) =>
-        def csBits = csDFBitsData(DFBits(width), (value.toBitVector(width), BitVector.low(width)))
+        def csBits = csDFBitsData(
+          DFBits(width),
+          (value.toBitVector(width), BitVector.low(width))
+        )
         if (dfType.fractionWidth == 0) // DFXInt
           // native integers are printed as they are (this assumes in all backends integers are printed the same)
           if (dfType.isDFInt32) value.toString()
           // if the language supports big integers (with explicit widths) we can simply display the values
-          else if (allowDecimalBigInt || widthParamRef.isRef)
+          else if (allowDecimalBigInt)
             if (dfType.signed) csDFSIntFormatBig(value, widthParamRef)
             else csDFUIntFormatBig(value, widthParamRef)
           // otherwise, we need to reply on small value representation or cast a bits representation
@@ -205,16 +199,16 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csConstData(dfType.actualType, data).applyBrackets()}.as(${dfType.name})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
-    dfType.name + dfType.fieldMap
-      .lazyZip(data)
-      .map { case ((n, t), d) =>
-        s"$n = ${csConstData(t, d)}"
-      }
-      .mkStringBrackets
-  def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String =
-    (dfTypes lazyZip data)
-      .map((t, d) => csConstData(t, d))
-      .mkStringBrackets
+    dfType.name +
+      dfType.fieldMap
+        .lazyZip(data)
+        .map { case ((n, t), d) =>
+          s"$n = ${csConstData(t, d)}"
+        }
+        .mkStringBrackets
+  def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = (dfTypes lazyZip data)
+    .map((t, d) => csConstData(t, d))
+    .mkStringBrackets
   def csDFUnitData(dfType: DFUnit, data: Unit): String = "()"
   def csDFDoubleData(dfType: DFDouble, data: Option[Double]): String =
     data match

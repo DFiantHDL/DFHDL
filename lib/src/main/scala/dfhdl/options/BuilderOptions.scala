@@ -4,16 +4,16 @@ import BuilderOptions.*
 import dfhdl.core.Design
 
 final case class BuilderOptions(
-    onError: OnError,
+    onError: _OnError,
     Werror: WError,
-    tool: Tool,
+    tool: _Tool,
     flash: Flash,
     compress: Compress
 ) extends ToolOptions
 
 //defaults common for all linting tools
 object BuilderOptions:
-  opaque type Defaults[-T <: Design] <: BuilderOptions = BuilderOptions
+  opaque type Defaults[-T] <: BuilderOptions = BuilderOptions
   object Defaults:
     given (using
         onError: OnError,
@@ -21,17 +21,19 @@ object BuilderOptions:
         tool: Tool,
         flash: Flash,
         compress: Compress
-    ): Defaults[Design] =
+    ): Defaults[Any] =
       BuilderOptions(
-        onError = onError, Werror = Werror, tool = tool, flash = flash, compress = compress
+        onError = onError(dfhdl.options.OnError),
+        Werror = Werror, tool = tool(dfhdl.tools.builders), flash = flash, compress = compress
       )
   given (using defaults: Defaults[Design]): BuilderOptions = defaults
 
-  into opaque type OnError <: dfhdl.options.ToolOptions.OnError = dfhdl.options.ToolOptions.OnError
-  object OnError:
+  type OnError = dfhdl.options.OnError.type => _OnError
+  private[dfhdl] into opaque type _OnError <: dfhdl.options.ToolOptions._OnError =
+    dfhdl.options.ToolOptions._OnError
+  private[dfhdl] object _OnError:
     given (using onError: dfhdl.options.ToolOptions.OnError): OnError = onError
-    given Conversion[dfhdl.options.OnError, OnError] = x => x.asInstanceOf[OnError]
-    export dfhdl.options.OnError.*
+    given Conversion[dfhdl.options._OnError, _OnError] = x => x.asInstanceOf[_OnError]
 
   into opaque type WError <: dfhdl.options.ToolOptions.WError = dfhdl.options.ToolOptions.WError
   object WError:
@@ -39,11 +41,12 @@ object BuilderOptions:
     given [T](using conv: Conversion[T, dfhdl.options.ToolOptions.WError]): Conversion[T, WError] =
       t => conv(t).asInstanceOf[WError]
 
-  into opaque type Tool <: dfhdl.tools.builders = dfhdl.tools.builders
-  object Tool:
+  type Tool = dfhdl.tools.builders.type => _Tool
+  private[dfhdl] into opaque type _Tool <: dfhdl.tools.builders = dfhdl.tools.builders
+  private[dfhdl] object _Tool:
     export dfhdl.tools.builders.{foss, vendor}
-    given Tool = dfhdl.tools.builders.vendor
-    given Conversion[dfhdl.tools.builders, Tool] = identity
+    given Tool = _.vendor
+    given Conversion[dfhdl.tools.builders, _Tool] = identity
 
   into opaque type Flash <: Boolean = Boolean
   object Flash:

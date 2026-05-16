@@ -13,12 +13,11 @@ import collection.mutable
 /** This stage propagates initialization values to the reg alias init value, and removes all
   * declaration initializations.
   */
-case object ExplicitRegInits extends Stage:
+case object ExplicitRegInits extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
-    val patchList = designDB.members.collect {
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    val patches = subDB.members.collect {
       case dcl: DFVal.Dcl
           if dcl.initRefList.nonEmpty && !dcl.isReg && dcl.isInRTDomain && !dcl.isConstVAR =>
         dcl -> Patch.Replace(dcl.copy(initRefList = Nil), Patch.Replace.Config.FullReplacement)
@@ -37,9 +36,9 @@ case object ExplicitRegInits extends Stage:
             Some(clonedInit)
           )(using dfc.setMeta(ra.meta))
         .patch
-    }
-    designDB.patch(patchList)
-  end transform
+    }.toList
+    subDB.patch(patches)
+  end transformSubDB
 end ExplicitRegInits
 
 extension [T: HasDB](t: T)

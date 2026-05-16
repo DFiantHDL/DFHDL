@@ -134,10 +134,9 @@ dfVal.isVar           // Dcl with VAR modifier
 dfVal.isReg           // Dcl with REG special modifier
 dfVal.isOpen          // DFVal.Special(OPEN)
 dfVal.isDesignParam   // DFVal.DesignParam instance
-dfVal.dealias         // follow alias chain → Option[DFVal.Dcl | DFVal.Special]
+dfVal.dealias         // follow alias chain → Option[ConnectToVal]
 dfVal.departial       // strip partial selections → (DFVal, Range)
 dfVal.departialDcl    // strip partial selections → Option[(DFVal.Dcl, Range)]
-dfVal.stripPortSel    // PortByNameSelect → underlying Dcl, else identity
 dfVal.isBubble        // contains a don't-care / bubble constant
 ```
 
@@ -363,11 +362,6 @@ final case class DFVal.PortByNameSelect(
     tags:           DFTags
 )
 type PortByNameSelect.Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
-
-portByNameSelect.getPortDcl   // resolve to actual DFVal.Dcl (via DB.dupPortsByName)
-
-// Extractor:
-DFVal.PortByNameSelect.Of(dcl)  // unapply → Option[DFVal.Dcl]
 ```
 
 ---
@@ -475,7 +469,6 @@ enum InstMode.BlackBox: NA, Files(path), Library(libName, nameSpace), VendorIP(v
 **Extension methods:**
 ```scala
 design.isDuplicate          // tagged DuplicateTag — has NO members in DB (ports/domains removed)
-                            // Use dupPortsByName/dupDesignDomainBlockMap for synthetic members
 design.isBlackBox           // instMode is BlackBox
 design.isVendorIPBlackbox
 design.inSimulation         // instMode is Simulation
@@ -717,40 +710,43 @@ paramRef.isRef              // true if parameterised
 
 ```scala
 enum DomainType:
-  case DF              // dataflow (timing-agnostic)
-  case RT(cfg: RTDomainCfg)  // register-transfer
-  case ED              // event-driven (Verilog/VHDL semantics)
+  case DF   // dataflow (timing-agnostic)
+  case RT   // register-transfer — clk/rst configuration lives on the owner's
+            // meta as @timing.clock / @timing.reset / @timing.related annotations
+  case ED   // event-driven (Verilog/VHDL semantics)
 ```
 
-### RTDomainCfg
-```scala
-enum RTDomainCfg:
-  case Derived                                             // inherit from context
-  case Related(relatedDomainRef: RTDomainCfg.RelatedDomainRef)
-  case Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg)
-```
+### Timing annotations (in `ir.constraints.Timing`)
+RT clock/reset configuration and inter-domain relations are carried by `SigConstraint`
+annotations on the domain owner's `meta.annotations`. All fields are `ConfigN[T]`
+(`= T | None.type`) so user-authored annotations may be partial; the resolver fills
+unset fields from `DefaultRTDomainCfgTag` defaults.
 
-### ClkCfg.Explicit
 ```scala
-final case class ClkCfg.Explicit(
-    edge:             ClkCfg.Edge,     // Rising | Falling
-    rate:             RateNumber,
-    portName:         String,
-    inclusionPolicy:  ClkRstInclusionPolicy
+final case class Timing.Clock(
+    rate:             ConfigN[RateNumber]            = None,
+    edge:             ConfigN[ClkCfg.Edge]           = None,  // Rising | Falling
+    portName:         ConfigN[String]                = None,
+    inclusionPolicy:  ConfigN[ClkRstInclusionPolicy] = None,  // AsNeeded | AlwaysAtTop
+    grpName:          ConfigN[String]                = None,
+    bitIdx:           ConfigN[Int]                   = None
 )
-enum ClkCfg.Edge: Rising, Falling
-```
 
-### RstCfg.Explicit
-```scala
-final case class RstCfg.Explicit(
-    mode:             RstCfg.Mode,     // Async | Sync
-    active:           RstCfg.Active,   // Low | High
-    portName:         String,
-    inclusionPolicy:  ClkRstInclusionPolicy
+final case class Timing.Reset(
+    mode:             ConfigN[RstCfg.Mode]           = None,  // Async | Sync
+    active:           ConfigN[RstCfg.Active]         = None,  // Low | High
+    portName:         ConfigN[String]                = None,
+    inclusionPolicy:  ConfigN[ClkRstInclusionPolicy] = None,
+    bitIdx:           ConfigN[Int]                   = None
 )
-enum RstCfg.Mode:   Async, Sync
-enum RstCfg.Active: Low, High
+
+final case class Timing.Related(ref: Timing.Related.Ref)
+object Timing.Related:
+  type Ref = DFRef.TwoWay[DomainBlock | DFDesignBlock, DomainBlock]
+
+enum ClkCfg.Edge:           Rising, Falling
+enum RstCfg.Mode:           Async, Sync
+enum RstCfg.Active:         Low, High
 enum ClkRstInclusionPolicy: AsNeeded, AlwaysAtTop
 ```
 
@@ -787,15 +783,14 @@ DFTags.empty
 
 **Built-in tags:**
 ```scala
-case object DuplicateTag      // duplicate design instance — NO members in DB; use dupPortsByName
+case object DuplicateTag      // duplicate design instance — NO members in DB
 case object IteratorTag       // Dcl is a for-loop iterator variable
 case object IdentTag          // Alias.AsIs is a pure identity (named alias of itself)
 case object BindTag           // Alias is a pattern-match bind variable
 case object CombinationalTag  // loop/block is combinational (no cycles)
 case object FallThroughTag    // loop/block falls through to next step
-case class  DefaultRTDomainCfgTag(cfg: RTDomainCfg.Explicit)
-case object ExtendTag
-case object TruncateTag
+case class  DefaultRTDomainCfgTag(clk: Timing.Clock, rst: Timing.Reset)
+case object ResizeTag
 case class  DFHDLVersionTag(version: String)
 ```
 
@@ -818,7 +813,6 @@ type DFRefAny = DFRef[DFMember]
 - `DFRef.OneWay[M]` — unidirectional (e.g. `ownerRef`)
 - `DFRef.TwoWay[M, O]` — bidirectional; `O` is the member that owns this ref (enables reverse lookup)
 - `DFRef.TypeRef` — used for `IntParamRef` (width/index parameters)
-- `DFRef.DuplicationRef(owner: DFOwnerNamed)` — special `OneWay` ref for analysis-only members (not in `refTable` or `members`). Overrides `get` to return `owner` directly, bypassing `MemberGetSet` lookup. Used by `dupPortsByName` and `dupDesignDomainBlockMap` to create synthetic port Dcls and domain blocks for duplicate designs.
 
 **Pattern extractor** (very common in stages):
 ```scala
@@ -857,7 +851,7 @@ final case class DB(
 **Key computed properties:**
 ```scala
 db.top                    // DFDesignBlock — first member, always the root design
-db.topIOs                 // List[DFVal.Dcl] — ports of the top design
+db.toptopIOs              // List[DFVal.Dcl] — ports of the top design
 db.getSet                 // MemberGetSet (immutable)
 db.memberTable            // Map[DFMember, Set[DFRefAny]] — member → refs pointing to it
 db.originRefTable         // Map[DFRef.TwoWayAny, DFMember] — ref → member that owns it
@@ -871,22 +865,7 @@ db.inBuild                // top has a device constraint tag
 
 **Design duplication properties:**
 
-Duplicate designs (tagged `DuplicateTag`) have **no members** in the DB — their ports, domain blocks, and other members are removed during immutable DB creation. Instead, synthetic members with `DuplicationRef` owners are created on-demand:
-
-```scala
-db.dupDesignToOrigMap     // Map[DFDesignBlock, DFDesignBlock] — dup design → origin design
-db.dupPortsByName         // Map[DFDesignInst, ListMap[String, DFVal.Dcl]] — design → named ports
-                          //   includes both real ports (for origins) and DuplicationRef-backed
-                          //   synthetic ports (for duplicates, with PBNS dfType overrides)
-db.dupDesignDomainBlockMap // Map[(DFDesignBlock, DomainBlock), DomainBlock]
-                          //   maps (dupDesign, origDomainBlock) → dupDomainBlock
-db.dupDomainOwnerPublicMemberList  // List[(DFDomainOwner, List[DFMember])]
-                          //   domain owners with their public members (ports, designs, domains),
-                          //   including dup-copy entries for duplicate designs
-db.dupDomainOwnerPublicMemberTable // Map form of the above
-```
-
-**Important:** `dupPortsByName` is the primary port lookup — use it instead of iterating `members` for ports. It handles duplicate designs transparently. `getPortDcl` on `PortByNameSelect` uses it internally.
+Duplicate designs (tagged `DuplicateTag`) have **no members** in the DB — their ports, domain blocks, and other members are removed during immutable DB creation. 
 
 **Patching:**
 ```scala
@@ -947,7 +926,6 @@ dfVal.getConnectionTo         // Option[DFNet]  — single connection driving th
 dfVal.getConnectionsFrom      // Set[DFNet]  — connections driven from this value
 dfVal.getAssignmentsTo        // Set[DFVal]  — values assigned to this
 dfVal.getAssignmentsFrom      // Set[DFVal]  — values assigned from this
-dfVal.getPortsByNameSelectors // List[DFVal.PortByNameSelect]  (ports only)
 dfVal.isReferencedByAnyDclOrDesign // Boolean — true if referenced by a Dcl, DclConst, or DFDesignBlock
 dfVal.isConstVAR              // VAR never assigned/connected
 dfVal.isAllowedMultipleReferences // Boolean

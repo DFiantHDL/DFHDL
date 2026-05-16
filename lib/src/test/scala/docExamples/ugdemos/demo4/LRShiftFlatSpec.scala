@@ -1,4 +1,4 @@
 package docExamples.ugdemos.demo4
 
-class LRShiftFlatSpec extends util.FullCompileSpec:
+class LRShiftFlatSpec extends dfhdl.util.FullCompileSpec:
   def dut = LRShiftFlat()

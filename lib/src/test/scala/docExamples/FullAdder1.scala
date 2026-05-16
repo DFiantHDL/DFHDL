@@ -2,7 +2,7 @@ package docExamples.fullAdder1
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.* //import all the DFHDL goodness
 
-@top class FullAdder1 extends EDDesign:
+class FullAdder1 extends EDDesign:
   val a, b, c_in = Bit <> IN
   val sum, c_out = Bit <> OUT
 
@@ -13,7 +13,7 @@ import dfhdl.* //import all the DFHDL goodness
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Select backend compiler:
-given options.CompilerOptions.Backend = backends.vhdl
+given options.CompilerOptions.Backend = _.vhdl
 // Uncomment to enable printing design code after elaboration (before compilation):
 // given options.ElaborationOptions.PrintDFHDLCode = true
 // Uncomment to enable printing design code after compilation:

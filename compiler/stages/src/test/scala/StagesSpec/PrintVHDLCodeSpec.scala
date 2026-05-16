@@ -5,7 +5,7 @@ import dfhdl.compiler.stages.getCompiledCodeString
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}, {code = ":=="}]}
 
 class PrintVHDLCodeSpec extends StageSpec:
-  given options.CompilerOptions.Backend = backends.vhdl.v2008
+  given options.CompilerOptions.Backend = _.vhdl.v2008
   given options.PrinterOptions.Align    = false
   class ID extends EDDesign:
     val x = SInt(16) <> IN
@@ -377,12 +377,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    if rising_edge(clk) then
          |      if rst = '1' then
          |        led <= '1';
-         |        cnt <= resize(2d"0", clog2(HALF_PERIOD));
+         |        cnt <= resize(1d"0", clog2(HALF_PERIOD));
          |      else
          |        if cnt = to_unsigned(HALF_PERIOD - 1, clog2(HALF_PERIOD)) then
-         |          cnt <= resize(2d"0", clog2(HALF_PERIOD));
+         |          cnt <= resize(1d"0", clog2(HALF_PERIOD));
          |          led <= not led;
-         |        else cnt <= cnt + resize(2d"1", clog2(HALF_PERIOD));
+         |        else cnt <= cnt + resize(1d"1", clog2(HALF_PERIOD));
          |        end if;
          |      end if;
          |    end if;
@@ -766,7 +766,7 @@ class PrintVHDLCodeSpec extends StageSpec:
   }
 
   test("Wildcards and don't cares under vhdl.v93") {
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo extends RTDesign:
       val num = 16
       val x   = Bits(num) <> IN init all(0)
@@ -803,7 +803,7 @@ class PrintVHDLCodeSpec extends StageSpec:
   }
 
   test("Global parameters under vhdl.v93") {
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     val width: Int <> CONST               = 8
     val length: Int <> CONST              = 10
     class Foo(
@@ -920,7 +920,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     )
   }
   test("wait statements vhdl.v93") {
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo extends EDDesign:
       val x = Bit <> OUT
       val i = Bit <> IN
@@ -1085,7 +1085,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     )
   }
   test("while loop printing vhdl.v93") {
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo extends EDDesign:
       val x = Bit <> OUT
       val b = Bit <> IN
@@ -1158,10 +1158,10 @@ class PrintVHDLCodeSpec extends StageSpec:
         debug(param3, param4, param5, param6, param7, param8, param9, param10)
     end Foo
     object vhdl2008:
-      given options.CompilerOptions.Backend = backends.vhdl.v2008
+      given options.CompilerOptions.Backend = _.vhdl.v2008
       val csTop                             = (new Foo).getCompiledCodeString
     object vhdl93:
-      given options.CompilerOptions.Backend = backends.vhdl.v93
+      given options.CompilerOptions.Backend = _.vhdl.v93
       val csTop                             = (new Foo).getCompiledCodeString
     assertNoDiff(
       vhdl2008.csTop,
@@ -1337,7 +1337,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     )
   }
   test("pattern matching on anonymous value in vhdl.v93") {
-    given options.CompilerOptions.Backend = backends.vhdl.v93
+    given options.CompilerOptions.Backend = _.vhdl.v93
     class Foo extends RTDesign:
       val uW = Bits(8) <> IN
       uW.resize(4) match

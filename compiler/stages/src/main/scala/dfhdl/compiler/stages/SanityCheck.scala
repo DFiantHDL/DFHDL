@@ -18,7 +18,17 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     var hasViolations: Boolean = false
     def reportViolation(msg: String): Unit =
       hasViolations = true
-      println(msg)
+      System.err.println(msg)
+
+    // for quick lookup of by-name port selections during ref checks
+    val instPortsByNameSet = getSet.designDB.members.view.flatMap {
+      case inst: DFDesignInst =>
+        val design = inst.getDesignBlock
+        design.members(MemberView.Folded).view.collect {
+          case port: DFVal.Dcl if port.isPort => (inst, port.getRelativeName(design))
+        }
+      case _ => Nil
+    }.toSet
 
     val memberSet = mutable.Set.empty[DFMember]
     // checks for all members
@@ -55,14 +65,14 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
             case _ =>
         // check by-name selectors
         case pbns: DFVal.PortByNameSelect =>
-          val design = pbns.designInstRef.get
+          val designInst = pbns.designInstRef.get
           // check port existence
-          getSet.designDB.dupPortsByName(design).get(pbns.portNamePath) match
-            case None =>
-              reportViolation(
-                s"Missing port ${pbns.portNamePath} for by-name port selection: ${pbns}"
-              )
-            case _ =>
+          if (!instPortsByNameSet.contains((designInst, pbns.portNamePath)))
+            reportViolation(
+              s"""|By-name port selection references non-existent port.
+                  |Design instance: ${designInst}
+                  |Port name path:  ${pbns.portNamePath}""".stripMargin
+            )
           // check usage
           if (pbns.originMembers.isEmpty)
             reportViolation(s"No references to the by-name port selection: ${pbns}")
@@ -111,6 +121,23 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       end match
     }
     val originRefTable = getSet.designDB.originRefTable
+    // Collect every member's OneWay.Gen ownerRef so we can detect orphans —
+    // a OneWay ref in refTable whose source member was removed but the ref
+    // entry was left behind. Under the flat model these orphans are invisible
+    // because a later Patch.Replace on the target rewires them via
+    // `memberTable.invert`; under per-sub-DB patching a peer sub-DB's patch
+    // can't reach them, so they surface as "Ref exists for a removed member"
+    // after reassembly.
+    val memberOwnerRefs = mutable.Set.empty[DFRefAny]
+    memberSet.foreach { m =>
+      memberOwnerRefs += m.ownerRef
+      m match
+        // DFDesignInst emits a OneWay ref to its DFDesignBlock via designRef,
+        // outside of getRefs (which only carries TwoWay refs). Register it so
+        // the orphan OneWay.Gen detection below does not flag it.
+        case inst: DFDesignInst => memberOwnerRefs += inst.designRef
+        case _                  =>
+    }
     // checks for all references
     refTable.foreach { (r, m) =>
       if (!m.isInstanceOf[DFMember.Empty] && !memberSet.contains(m))
@@ -118,6 +145,15 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       r match
         case r: DFRef.TwoWayAny if !originRefTable.contains(r) =>
           reportViolation(s"Missing origin member with the reference $r for the member: $m")
+        // Orphan-ref detection is gated on `!skipAnonRefCheck` because some
+        // orphans are produced in elaboration / meta-design scaffolding and
+        // only get swept up once `DropUnreferencedAnons` has run in the
+        // pipeline. StageRunner invokes sanityCheck with skipAnonRefCheck=true
+        // until DropUnreferencedAnons is in the `done` set, matching how the
+        // anonymous-value check is already gated.
+        case _: DFRef.OneWay.Gen[?]
+            if !skipAnonRefCheck && !memberOwnerRefs.contains(r) =>
+          reportViolation(s"Orphan OneWay ref $r has no source member (target: $m)")
         case _ => // do nothing
     }
     // check a reference is only used by a single member
@@ -156,26 +192,14 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
             originMember match
               case originVal: DFVal if originVal.isGlobal =>
               case _: DFVal.DesignParam                   =>
-              case _: DFDesignBlock => // paramMap entries may reference global anon vals
-              case _                =>
+              case _: DFDesignInst => // paramMap entries may reference global anon vals
+              case _               =>
                 reportViolation(
                   s"""|A global anonymous member is referenced by a non-global member.
                       |Target member: ${targetVal}
                       |Origin member: ${originMember}""".stripMargin
                 )
           case _ =>
-    }
-    // check that no DuplicationRef exists in refTable
-    refTable.foreach { (ref, _) =>
-      if (ref.isInstanceOf[DFRef.DuplicationRef])
-        reportViolation(s"DuplicationRef found in refTable: $ref")
-    }
-    // check that no member has a DuplicationRef ownerRef
-    getSet.designDB.members.foreach { member =>
-      if (member.ownerRef.isInstanceOf[DFRef.DuplicationRef])
-        reportViolation(
-          s"Member with DuplicationRef ownerRef found in members: $member"
-        )
     }
     require(!hasViolations, "Failed reference check!")
   end refCheck
@@ -192,14 +216,14 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
           case _: DFVal.Const => false
           case _              => !memberTable.contains(fromMember)
         if (toValMissing)
-          println(s"Foreign value ${toMember.getName} at net ${n.codeString}")
+          System.err.println(s"Foreign value ${toMember.getName} at net ${n.codeString}")
           members.collectFirst {
             case m: DFMember.Named if m.getName == toMember.getName => m
           } match
             case Some(value) => println(s"Found:\n$value\nInstead of:\n$toMember")
             case None        =>
         if (fromValMissing)
-          println(s"Foreign value ${fromMember.getName} at net ${n.codeString}")
+          System.err.println(s"Foreign value ${fromMember.getName} at net ${n.codeString}")
           members.collectFirst {
             case m: DFMember.Named if m.getName == fromMember.getName => m
           } match
@@ -211,29 +235,47 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     }
     require(violations.isEmpty, "Failed member existence check!")
   end memberExistenceCheck
-  @tailrec private def ownershipCheck(currentOwner: DFOwner, members: List[DFMember])(using
+  // Walks the flat member list maintaining an explicit owner stack instead of
+  // relying on getOwner to walk up — non-top DFDesignBlocks now resolve
+  // `ownerRef` to DFMember.Empty under the new convention, so the parent must
+  // be recovered from the walk position rather than the block itself. Treats
+  // every DFDesignBlock encountered as entering a fresh scope; on mismatch
+  // we pop until the next member's owner is on top of the stack.
+  private def ownershipCheck(initialOwner: DFOwner, members: List[DFMember])(using
       MemberGetSet
   ): Unit =
-    members match
-      case m :: nextMembers if (m.getOwner == currentOwner) =>
-        m match // still in current owner
-          case o: DFOwner => ownershipCheck(o, nextMembers) // entering new owner
-          case _          => ownershipCheck(currentOwner, nextMembers) // new non-member found
-      case Nil    => // Done! All is OK
-      case m :: _ => // not in current owner
-        if (currentOwner.isTop)
-          println(
-            s"The member ${m.hashString}:\n$m\nHas owner ${m.getOwner.hashString}:\n${m.getOwner}"
-          )
-          val idx = getSet.designDB.members.indexOf(m)
-          val prevMember = getSet.designDB.members(idx - 1)
-          println(
-            s"Previous member ${prevMember.hashString}:\n$prevMember\nHas owner ${prevMember.getOwner
-                .hashCode()
-                .toHexString}:\n${prevMember.getOwner}"
-          )
-          require(false, "Failed ownership check!")
-        ownershipCheck(currentOwner.getOwner, members) // exiting current owner
+    val ownerStack = mutable.Stack[DFOwner](initialOwner)
+    var remaining: List[DFMember] = members
+    while (remaining.nonEmpty)
+      val m = remaining.head
+      m match
+        case d: DFDesignBlock =>
+          // DFDesignBlock encountered: enter as a fresh scope.
+          ownerStack.push(d)
+          remaining = remaining.tail
+        case _ if m.getOwner == ownerStack.top =>
+          m match
+            case o: DFOwner => ownerStack.push(o)
+            case _          => // stay in current owner
+          remaining = remaining.tail
+        case _ =>
+          // Member doesn't belong to current owner — pop until it does. If we
+          // pop past the initial owner, ownership is genuinely violated.
+          if (ownerStack.size == 1)
+            println(
+              s"The member ${m.hashString}:\n$m\nHas owner ${m.getOwner.hashString}:\n${m.getOwner}"
+            )
+            val idx = getSet.designDB.members.indexOf(m)
+            val prevMember = getSet.designDB.members(idx - 1)
+            println(
+              s"Previous member ${prevMember.hashString}:\n$prevMember\nHas owner ${prevMember.getOwner
+                  .hashCode()
+                  .toHexString}:\n${prevMember.getOwner}"
+            )
+            require(false, "Failed ownership check!")
+          ownerStack.pop()
+    end while
+  end ownershipCheck
 
   // checks that a member can only reference members that were defined before it
   private def orderCheck()(using MemberGetSet): Unit =
@@ -265,12 +307,55 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     require(!hasViolations, "Failed member order check!")
   end orderCheck
 
+  // Temporary Phase 1 check: exercise the old<->new DB conversion round-trip
+  // against every design the test suite exercises via sanityCheck. Under
+  // B-pure, globals no longer live at root in the new-style DB and are
+  // partitioned per sub-DB by closure; the elaboration order of globals is
+  // not preserved across the round-trip. Compare globals by identity-set and
+  // the rest of the members as an ordered list. RefTable, globalTags, and
+  // srcFiles still must match exactly.
+  private def hierarchicalDBRoundTripCheck(designDB: DB): Unit =
+    val lhs = designDB.oldToNew.newToOld.canonicalForm
+    val rhs = designDB.canonicalForm
+    def partition(db: DB): (Set[DFMember], List[DFMember]) =
+      given MemberGetSet = db.getSet
+      val globals = mutable.Set.empty[DFMember]
+      val nonGlobals = mutable.ListBuffer.empty[DFMember]
+      db.members.foreach {
+        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => globals += dfVal
+        case m                                          => nonGlobals += m
+      }
+      (globals.toSet, nonGlobals.toList)
+    val (lhsGlobals, lhsNonGlobals) = partition(lhs)
+    val (rhsGlobals, rhsNonGlobals) = partition(rhs)
+    if (lhsGlobals != rhsGlobals)
+      val onlyLhs = lhsGlobals -- rhsGlobals
+      val onlyRhs = rhsGlobals -- lhsGlobals
+      throw new IllegalArgumentException(
+        s"""Hierarchical DB round-trip globals identity-set mismatch.
+           |Only in lhs (round-trip): ${onlyLhs.mkString(", ")}
+           |Only in rhs (input):     ${onlyRhs.mkString(", ")}""".stripMargin
+      )
+    require(
+      lhsNonGlobals == rhsNonGlobals,
+      "Hierarchical DB round-trip non-globals member list mismatch."
+    )
+    require(
+      lhs.refTable == rhs.refTable,
+      "Hierarchical DB round-trip refTable mismatch."
+    )
+    require(
+      lhs.globalTags == rhs.globalTags && lhs.srcFiles == rhs.srcFiles,
+      "Hierarchical DB round-trip globalTags or srcFiles mismatch."
+    )
+
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     refCheck()
     memberExistenceCheck()
     ownershipCheck(designDB.top, designDB.membersNoGlobals.drop(1))
     orderCheck()
     designDB.check()
+    hierarchicalDBRoundTripCheck(designDB)
     designDB
 end SanityCheck
 

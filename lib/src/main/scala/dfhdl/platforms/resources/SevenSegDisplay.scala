@@ -24,7 +24,7 @@ object SevenSegDisplay:
   enum Segment extends Encoded.Toggle:
     case Off, On
   object Segment:
-    @io(dir = io.Dir.OUT, standard = io.Standard.LVCMOS, slewRate = io.SlewRate.SLOWEST)
+    @io(dir = _.out, standard = _.lvcmos, slewRate = _.slowest)
     @timing.ignore(maxFreqMinPeriod = 200.us)
     protected[SevenSegDisplay] class Resource private[Segment] (val activeState: Segment)
         extends ToggleIO[Segment]

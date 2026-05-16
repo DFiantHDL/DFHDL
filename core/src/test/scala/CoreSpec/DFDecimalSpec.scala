@@ -90,8 +90,8 @@ class DFDecimalSpec extends DFSpec:
          |val u8b = UInt(8) <> VAR init d"8'${i}"
          |val u6 = UInt(6) <> OUT
          |val s6 = SInt(6) <> OUT
-         |val u8p = UInt(param) <> VAR init d"${param}'0"
-         |val s8p = SInt(param) <> VAR init sd"${param}'-1"
+         |val u8p = UInt(param) <> VAR init d"1'0".resize(param)
+         |val s8p = SInt(param) <> VAR init sd"2'-1".resize(param)
          |val ui = UInt(clog2(i)) <> VAR init d"${clog2(i)}'${(i - 1)}"
          |val si = SInt(8) <> VAR init sd"8'${ni}"
          |u8 := d"8'${i}"
@@ -211,8 +211,8 @@ class DFDecimalSpec extends DFSpec:
       s8 := -127
       s8 := u6
       s8 := s6
-      u6 := u8.truncate
-      s6 := s8.truncate
+      u6 := u8.resize
+      s6 := s8.resize
       assertDSLErrorLog(
         """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
            |An explicit conversion must be applied.""".stripMargin
@@ -342,7 +342,7 @@ class DFDecimalSpec extends DFSpec:
     }
 
     assertDSLErrorLog(
-      """|Cannot apply this operation between a value of 8 bits width (LHS) to a value of 7 bits width (RHS).
+      """|Cannot apply this operation between a value of 8 bits width (LHS) and a value of 7 bits width (RHS).
          |An explicit conversion must be applied.
          |""".stripMargin
     )(
@@ -555,6 +555,7 @@ class DFDecimalSpec extends DFSpec:
     val param: Int <> CONST = 10
     val i42: Int = 42
 
+    //format: off
     // === Commutative + with Scala Int literals ===
     val t1 = u8 + 5;       t1.verifyValOf[UInt[8]]
     val t2 = 5 + u8;       t2.verifyValOf[UInt[8]]
@@ -640,6 +641,7 @@ class DFDecimalSpec extends DFSpec:
     val t46 = i42 - u8;    t46.verifyValOf[UInt[8]]
     val t47 = param - u8;  t47.verifyValOf[UInt[8]]
     val t48 = param / u8;  t48.verifyValOf[UInt[8]]
+    //format: on
 
     // === Constant propagation ===
     // All-constant expressions produce CONST results
@@ -652,8 +654,8 @@ class DFDecimalSpec extends DFSpec:
     val c6: UInt[8] <> CONST = d"8'5" + param
     val c7: SInt[8] <> CONST = sd"8'5" + param
     // Param + VAR is NOT const (verified by type — no CONST annotation)
-    val nc1 = u8 + param  // result is not CONST
-    val nc2 = param + u8  // result is not CONST
+    val nc1 = u8 + param // result is not CONST
+    val nc2 = param + u8 // result is not CONST
 
     // === Comparisons: wildcard adapts ===
     val cmp1 = u8 == 200
@@ -707,7 +709,7 @@ class DFDecimalSpec extends DFSpec:
       u8 + bigVal
     }
     assertDSLErrorLog(
-      "Wildcard `Int` value is negative and cannot adapt to unsigned bit-accurate value UInt[8]."
+      "Wildcard `Int` value is negative and cannot adapt to an unsigned bit-accurate value."
     )(
       ""
     ) {
@@ -762,7 +764,7 @@ class DFDecimalSpec extends DFSpec:
     val b8 = Bits(8) <> VAR
     // single binary op: position spans the full expression
     val t1 = u8 + u8; t1.assertPosition(0, 1, 14, 21)
-    // chained +: NOT merged (carry promotion requires binary), position is the last op
+    // chained +: merged into multi-arg, position spans from first to last operand
     val t2 = u8 + u8 + u8; t2.assertPosition(0, 1, 14, 26)
     // chained ^: merged into multi-arg, position spans from first to last operand
     val t3 = b8 ^ b8 ^ b8; t3.assertPosition(0, 1, 14, 26)
@@ -790,6 +792,8 @@ class DFDecimalSpec extends DFSpec:
          |u9 := u8 +^ u5.resize(8)
          |u9 := u8 +^ d"8'200"
          |u12 := (u8 *^ u8).resize(12)
+         |u9 := (u8 + u8) +^ u8
+         |u9 := (u8 + u8 + u8) +^ u8
          |""".stripMargin
     } {
       // Basic carry promotion for +
@@ -815,6 +819,10 @@ class DFDecimalSpec extends DFSpec:
       u9 := u8 + 200
       // Partial mul promotion: target (12) > funcWidth (8), promote to 16, resize to 12
       u12 := u8 * u8
+      // carry promotion with 3 arguments
+      u9 := u8 + u8 + u8
+      // carry promotion with 4 arguments
+      u9 := u8 + u8 + u8 + u8
     }
   }
   test("Int32 arithmetic") {
@@ -923,6 +931,36 @@ class DFDecimalSpec extends DFSpec:
     val t7 = (w32 + w32b) / 4
 
     assertNoWarnings()
+  }
+  test("Int32 algebraic simplifications") {
+    assertCodeString {
+      """|val p: Int <> CONST = 10
+         |val v = Int <> VAR
+         |v := p
+         |v := p
+         |v := 0
+         |v := 0
+         |v := p
+         |v := p
+         |v := p + 1
+         |v := p - 1
+         |v := 0
+         |v := 4
+         |""".stripMargin
+    } {
+      val p: Int <> CONST = 10
+      val v = Int <> VAR
+      v := p + 0
+      v := p * 1
+      v := p * 0
+      v := p - p
+      v := p max p
+      v := p min p
+      v := p max (p + 1)
+      v := p min (p - 1)
+      v := clog2(p + 1) - clog2(p + 1)
+      v := p - 1 - p + 5
+    }
   }
   val sint8 = SInt(8) <> VAR
   test("Clean type in error messages (no ExactOp2Aux leakage)") {

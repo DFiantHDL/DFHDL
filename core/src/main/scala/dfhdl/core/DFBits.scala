@@ -14,7 +14,7 @@ object DFBits:
       dfc: DFCG,
       check: Arg.Width.CheckNUB[W]
   ): DFBits[W] = trydf:
-    check(width)
+    width.toScalaIntOpt.foreach(check(_))
     ir.DFBits(width.ref).asFE[DFBits[W]]
   def forced[W <: IntP](width: Int): DFBits[W] =
     val check = summon[Arg.Width.Check[Int]]
@@ -25,13 +25,13 @@ object DFBits:
       dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
   ): DFBits[IntP.CLog2[V]] = trydf:
-    check(sup)
+    sup.toScalaIntOpt.foreach(check(_))
     ir.DFBits(sup.clog2.ref).asFE[DFBits[IntP.CLog2[V]]]
   def to[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
   ): DFBits[IntP.CLog2[IntP.+[V, 1]]] = trydf:
-    check(max)
+    max.toScalaIntOpt.foreach(check(_))
     ir.DFBits((max + 1).clog2.ref).asFE[DFBits[IntP.CLog2[IntP.+[V, 1]]]]
 
   given [W <: IntP & Singleton](using
@@ -40,7 +40,7 @@ object DFBits:
       check: Arg.Width.CheckNUB[W]
   ): DFBits[W] = trydf:
     val width = IntParam.forced(v)
-    check(width.toScalaInt)
+    width.toScalaIntOpt.foreach(check(_))
     ir.DFBits(width.ref).asFE[DFBits[W]]
 
   protected object `AW == TW`
@@ -113,14 +113,27 @@ object DFBits:
         val fromString = op match
           case "b" => ir.DFBits.dataFromBinString(fullTerm)
           case "h" => ir.DFBits.dataFromHexString(fullTerm)
-        var (valueBits, bubbleBits) = fromString.toOption.get
-        explicitWidthOption.foreach(ew =>
-          val updatedWidth = IntParam.forced(ew).toScalaInt
-          valueBits = valueBits.resize(updatedWidth)
-          bubbleBits = bubbleBits.resize(updatedWidth)
-        )
-        val width = IntParam.forced[W](explicitWidthOption.getOrElse(valueBits.length.toInt))
-        DFVal.Const(DFBits(width), (valueBits, bubbleBits), named = true)
+        val (valueBits, bubbleBits) = fromString.toOption.get
+        val valueWidth = IntParam.forced[W](valueBits.length.toInt)
+        explicitWidthOption.map(IntParam.forced[W]) match
+          // has explicit width parameter
+          case Some(explicitWidthParam) => explicitWidthParam match
+              // the parameter width that is a Scala Int and we can use it directly in defining the constant
+              case explicitWidth: Int =>
+                DFVal.Const(
+                  DFBits(explicitWidthParam),
+                  (valueBits.resize(explicitWidth), bubbleBits.resize(explicitWidth)),
+                  named = true
+                )
+              // the parameter width is not a Scala Int, so we keep the original value width and add a resize operation
+              case _ =>
+                import DFBits.Val.Ops.resize
+                DFVal.Const(DFBits(valueWidth), (valueBits, bubbleBits))
+                  .resize(explicitWidthParam)
+          // has no parameter, so we can directly use the inferred width
+          case None =>
+            DFVal.Const(DFBits(valueWidth), (valueBits, bubbleBits), named = true)
+        end match
     end extension
 
     extension (using Quotes)(fullTerm: quotes.reflect.Term)
@@ -385,8 +398,7 @@ object DFBits:
         type OutP = P
         def apply(value: R)(using DFC): Out =
           import DFVal.Ops.bits
-          if (value.hasTag[ir.TruncateTag]) value.bits.tag(ir.TruncateTag)
-          else if (value.hasTag[ir.ExtendTag]) value.bits.tag(ir.ExtendTag)
+          if (value.hasTag[ir.ResizeTag]) value.bits.tag(ir.ResizeTag)
           else value.bits
       transparent inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
@@ -445,7 +457,9 @@ object DFBits:
           dfType: DFBits[Int],
           dfVal: DFValOf[DFBits[Int]]
       )(using DFC): DFValOf[DFBits[Int]] =
-        `LW == RW`(dfType.widthInt, dfVal.widthInt)
+        (dfType.widthIntOpt, dfVal.widthIntOpt) match
+          case (Some(lw), Some(rw)) => `LW == RW`(lw, rw)
+          case _                    =>
         dfVal
       protected object `LW == RW`
           extends Check2[
@@ -465,13 +479,19 @@ object DFBits:
         def conv(dfType: DFBits[LW], value: V)(using dfc: DFC): Out =
           import Ops.resizeBits
           val dfVal = ic(value)
-          if (dfVal.hasTag[ir.TruncateTag] && dfType.widthInt < dfVal.widthInt)
-            dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], RP]
-          else if (dfVal.hasTag[ir.ExtendTag] && dfType.widthInt > dfVal.widthInt)
+          if (dfVal.hasTag[ir.ResizeTag])
             dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], RP]
           else
-            check(dfType.widthInt, dfVal.widthInt)
+            (dfType.widthIntOpt, dfVal.widthIntOpt) match
+              case (Some(lw), Some(rw)) => check(lw, rw)
+              case _                    =>
+                if (dfType.compareWidths(dfVal.dfType)(_ != _).getOrElse(true))
+                  throw new IllegalArgumentException(
+                    s"""|The argument width (${dfVal.dfType.widthCodeString}) is different than the receiver width (${dfType.widthCodeString}).
+                        |Consider applying `.resize` to resolve this issue.""".stripMargin
+                  )
             dfVal.nameInDFCPosition.asValTP[DFBits[LW], RP]
+          end if
         end conv
       end DFBitsFromCandidate
       given DFBitsFromSEV[LW <: IntP, T <: BitOrBool, V <: SameElementsVector[T]]: TC[DFBits[LW], V]
@@ -511,8 +531,20 @@ object DFBits:
         type OutP = RP
         def conv(dfType: DFBits[LW], arg: R)(using DFC): Out =
           val dfValArg = ic(arg)
-          check(dfType.widthInt, dfValArg.dfType.widthInt)
+          (dfType.widthIntOpt, dfValArg.dfType.widthIntOpt) match
+            case (Some(lw), Some(rw)) => check(lw, rw)
+            case _                    =>
+              if (dfType.compareWidths(dfValArg.dfType)(_ != _).getOrElse(true))
+                val lhsStr =
+                  if (castling) dfValArg.dfType.widthCodeString else dfType.widthCodeString
+                val rhsStr =
+                  if (castling) dfType.widthCodeString else dfValArg.dfType.widthCodeString
+                throw new IllegalArgumentException(
+                  s"""|Cannot apply this operation between a value of $lhsStr bits width (LHS) and a value of $rhsStr bits width (RHS).
+                      |An explicit conversion must be applied.""".stripMargin
+                )
           dfValArg.asValTP[DFBits[LW], RP]
+        end conv
       end DFBitsCompareCandidate
       given DFBitsCompareSEV[
           LW <: IntP,
@@ -589,10 +621,21 @@ object DFBits:
         new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
           type Out = DFVal[DFBits[HI - LO + 1], Modifier[A, Any, Any, P]]
           def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
-            checkHigh(IntParam(idxHigh), lhs.widthInt)
-            checkLow(IntParam(idxLow), lhs.widthInt)
-            checkHiLo(IntParam(idxHigh), IntParam(idxLow))
-            DFVal.Alias.ApplyRange(lhs, IntParam(idxHigh), IntParam(idxLow))
+            val idxHighParam = IntParam(idxHigh)
+            val idxLowParam = IntParam(idxLow)
+            val idxHighIntOpt = idxHighParam.toScalaIntOpt
+            val idxLowIntOpt = idxLowParam.toScalaIntOpt
+            val widthIntOpt = lhs.widthIntOpt
+            (idxHighIntOpt, widthIntOpt) match
+              case (Some(idxHighInt), Some(widthInt)) => checkHigh(idxHighInt, widthInt)
+              case _                                  =>
+            (idxLowIntOpt, widthIntOpt) match
+              case (Some(idxLowInt), Some(widthInt)) => checkLow(idxLowInt, widthInt)
+              case _                                 =>
+            (idxHighIntOpt, idxLowIntOpt) match
+              case (Some(idxHighInt), Some(idxLowInt)) => checkHiLo(idxHighInt, idxLowInt)
+              case _                                   =>
+            DFVal.Alias.ApplyRange(lhs, idxHighParam, idxLowParam)
           }(using dfc, CTName("bit range selection (apply)"))
       end evOpApplyRangeDFBits
       given evLogicOpDFBits[
@@ -615,7 +658,9 @@ object DFBits:
           def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
             val lhsVal = icL(lhs)
             val rhsVal = icR(rhs)
-            check(lhsVal.widthInt, rhsVal.widthInt)
+            (lhsVal.widthIntOpt, rhsVal.widthIntOpt) match
+              case (Some(lw), Some(rw)) => check(lw, rw)
+              case _                    =>
             DFVal.Func(lhsVal.dfType, op.value, List(lhsVal, rhsVal))
           }
       end evLogicOpDFBits
@@ -689,8 +734,6 @@ object DFBits:
       end evOpShift
 
       extension [W <: IntP, P](lhs: DFValTP[DFBits[W], P])
-        def truncate(using DFCG): DFValTP[DFBits[Int], P] =
-          lhs.tag(ir.TruncateTag).asValTP[DFBits[Int], P]
         // TODO: IntP
         private[DFBits] def resizeBits[RW <: IntP](updatedWidth: IntParam[RW])(using
             DFC
@@ -699,6 +742,15 @@ object DFBits:
 //          if (lhs.width == updatedWidth) lhs.asValOf[DFBits[RW]]
 //          else
           DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
+        def resize(using DFCG): DFValTP[DFBits[Int], P] =
+          lhs.tag(ir.ResizeTag).asValTP[DFBits[Int], P]
+        def resize[RW <: IntP](updatedWidth: IntParam[RW])(using
+            check: Arg.Width.CheckNUB[RW],
+            dfc: DFCG
+        ): DFValTP[DFBits[RW], P] = trydf {
+          updatedWidth.toScalaIntOpt.foreach(check(_))
+          lhs.resizeBits(updatedWidth)
+        }
       end extension
       extension [T <: Int, P](iter: Iterable[DFValTP[DFBits[T], P]])
         protected[core] def concatBits(using DFC): DFValTP[DFBits[Int], P] =
@@ -706,26 +758,16 @@ object DFBits:
             iter.map(_.widthIntParam.asInstanceOf[IntParam[Int]]).reduce(_ + _)
           DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
       extension [L <: DFValAny, LW <: IntP, LP](lhs: L)(using icL: Candidate.Aux[L, LW, LP])
-        def extend(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
-          icL(lhs).tag(ir.ExtendTag).asValTP[DFBits[Int], icL.OutP]
-        def resize[RW <: IntP](updatedWidth: IntParam[RW])(using
-            check: Arg.Width.CheckNUB[RW],
-            dfc: DFCG
-        ): DFValTP[DFBits[RW], icL.OutP] = trydf {
-          check(updatedWidth)
-          icL(lhs).resizeBits(updatedWidth)
-        }
+        def resize(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
+          icL(lhs).tag(ir.ResizeTag).asValTP[DFBits[Int], icL.OutP]
         def repeat[N <: IntP](num: IntParam[N])(using
             dfc: DFCG,
             check: Arg.Positive.CheckNUB[N]
         ): DFValTP[DFBits[IntP.*[icL.OutW, N]], icL.OutP | CONST] = trydf {
           val lhsVal = icL(lhs)
-          check(num)
+          num.toScalaIntOpt.foreach(check(_))
           val lhsWidth = lhsVal.widthIntParam
-          val width =
-            // simplifying the representation if the argument is a single bit
-            if (lhsWidth.toScalaInt == 1) num.asInstanceOf[IntParam[IntP.*[icL.OutW, N]]]
-            else lhsWidth * num
+          val width = lhsWidth * num
           DFVal.Func(DFBits(width), FuncOp.repeat, List(lhsVal, num.toDFConst))
         }
       end extension
@@ -751,7 +793,9 @@ object DFBits:
           def apply(lhs: L, aliasType: AT)(using DFC): Out = trydf {
             import dfc.getSet
             val aliasDFType = tc(aliasType)
-            check(aliasDFType.asIR.width, lhs.widthInt)
+            (aliasDFType.asIR.widthIntOpt, lhs.widthIntOpt) match
+              case (Some(aw), Some(lw)) => check(aw, lw)
+              case _                    =>
             DFVal.Alias.AsIs(aliasDFType, lhs)
           }(using dfc, CTName("cast from bits"))
       end evOpAsDFBits
@@ -770,7 +814,7 @@ object DFBits:
         }
         def msbit(using DFCG): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           import DFVal.Ops.apply as applyBits
-          lhs.applyBits(lhs.widthInt.value - 1).asVal[DFBit, Modifier[A, Any, Any, P]]
+          lhs.applyBits((lhs.widthIntParam - 1).toDFConst).asVal[DFBit, Modifier[A, Any, Any, P]]
         def lsbit(using DFCG): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           import DFVal.Ops.apply as applyBits
           lhs.applyBits(0).asVal[DFBit, Modifier[A, Any, Any, P]]
@@ -778,7 +822,9 @@ object DFBits:
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFCG
         ): DFValTP[DFBits[RW], P] = trydf {
-          check(lhs.widthInt, updatedWidth)
+          (lhs.widthIntOpt, updatedWidth.toScalaIntOpt) match
+            case (Some(lhsWidthInt), Some(updatedWidthInt)) => check(lhsWidthInt, updatedWidthInt)
+            case _                                          =>
           DFVal.Alias.ApplyRange(lhs, lhs.widthIntParam - 1, lhs.widthIntParam - updatedWidth)
             .asValTP[DFBits[RW], P]
         }
@@ -786,7 +832,9 @@ object DFBits:
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFCG
         ): DFValTP[DFBits[RW], P] = trydf {
-          check(lhs.widthInt, updatedWidth)
+          (lhs.widthIntOpt, updatedWidth.toScalaIntOpt) match
+            case (Some(lhsWidthInt), Some(updatedWidthInt)) => check(lhsWidthInt, updatedWidthInt)
+            case _                                          =>
           DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0).asValTP[DFBits[RW], P]
         }
       end extension

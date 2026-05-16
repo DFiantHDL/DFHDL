@@ -1,8 +1,8 @@
 package dfhdl.options
 import wvlet.log.LogLevel as wvletLogLevel
 
-into opaque type LogLevel <: wvletLogLevel = wvletLogLevel
-given Conversion[wvletLogLevel, LogLevel] = x => x.asInstanceOf[LogLevel]
-object LogLevel:
-  export wvletLogLevel.{OFF, ERROR, WARN, INFO, DEBUG, TRACE, ALL}
-  given LogLevel = wvletLogLevel.WARN
+type LogLevel = wvlet.log.LogLevel.type => _LogLevel
+private[dfhdl] into opaque type _LogLevel <: wvletLogLevel = wvletLogLevel
+private[dfhdl] object _LogLevel:
+  given Conversion[wvletLogLevel, _LogLevel] = x => x.asInstanceOf[_LogLevel]
+  given LogLevel = _ => wvlet.log.LogLevel.WARN

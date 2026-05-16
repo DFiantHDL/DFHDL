@@ -5,7 +5,7 @@ import dfhdl.compiler.stages.globalizePortVectorParams
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class GlobalizePortVectorParamsSpec extends StageSpec(stageCreatesUnrefAnons = true):
-  given options.CompilerOptions.Backend = backends.vhdl.v93
+  given options.CompilerOptions.Backend = _.vhdl.v93
   test("Various vector params are kept"):
     val width: Int <> CONST  = 8
     val length: Int <> CONST = 10
@@ -108,7 +108,7 @@ class GlobalizePortVectorParamsSpec extends StageSpec(stageCreatesUnrefAnons = t
          |""".stripMargin
     )
   test("Various vector params are kept under vhdl.v2008"):
-    given options.CompilerOptions.Backend = backends.vhdl.v2008
+    given options.CompilerOptions.Backend = _.vhdl.v2008
     class Foo(
         val width: Int <> CONST  = 8,
         val length: Int <> CONST = 10
@@ -183,51 +183,51 @@ class GlobalizePortVectorParamsSpec extends StageSpec(stageCreatesUnrefAnons = t
       top,
       """|val IDTop_lengthTop: Int <> CONST = 10
          |val IDTop_widthTop: Int <> CONST = 8
-         |val IDTop_id1_length: Int <> CONST = IDTop_lengthTop
-         |val IDTop_id1_width: Int <> CONST = IDTop_widthTop
-         |val IDTop_id2_length: Int <> CONST = IDTop_lengthTop + 1
-         |val IDTop_id2_width: Int <> CONST = IDTop_widthTop
-         |val IDTop_id3_length: Int <> CONST = 7
-         |val IDTop_id3_width: Int <> CONST = IDTop_widthTop
+         |val ID_id1_length: Int <> CONST = IDTop_lengthTop
+         |val ID_id1_width: Int <> CONST = IDTop_widthTop
+         |val ID_id2_length: Int <> CONST = IDTop_lengthTop + 1
+         |val ID_id2_width: Int <> CONST = IDTop_widthTop
+         |val ID_id3_length: Int <> CONST = 7
+         |val ID_id3_width: Int <> CONST = IDTop_widthTop
          |
-         |class ID_IDTop_id1 extends RTDesign:
-         |  val x = Bits(IDTop_id1_width) X IDTop_id1_length <> IN
-         |  val y = Bits(IDTop_id1_width) X IDTop_id1_length <> OUT
-         |  val v = Bits(IDTop_id1_width) X IDTop_id1_length <> VAR
+         |class ID_id1 extends RTDesign:
+         |  val x = Bits(ID_id1_width) X ID_id1_length <> IN
+         |  val y = Bits(ID_id1_width) X ID_id1_length <> OUT
+         |  val v = Bits(ID_id1_width) X ID_id1_length <> VAR
          |  v <> x
          |  y <> v
-         |end ID_IDTop_id1
+         |end ID_id1
          |
-         |class ID_IDTop_id2 extends RTDesign:
-         |  val x = Bits(IDTop_id2_width) X IDTop_id2_length <> IN
-         |  val y = Bits(IDTop_id2_width) X IDTop_id2_length <> OUT
-         |  val v = Bits(IDTop_id2_width) X IDTop_id2_length <> VAR
+         |class ID_id2 extends RTDesign:
+         |  val x = Bits(ID_id2_width) X ID_id2_length <> IN
+         |  val y = Bits(ID_id2_width) X ID_id2_length <> OUT
+         |  val v = Bits(ID_id2_width) X ID_id2_length <> VAR
          |  v <> x
          |  y <> v
-         |end ID_IDTop_id2
+         |end ID_id2
          |
-         |class ID_IDTop_id3 extends RTDesign:
-         |  val x = Bits(IDTop_id3_width) X IDTop_id3_length <> IN
-         |  val y = Bits(IDTop_id3_width) X IDTop_id3_length <> OUT
-         |  val v = Bits(IDTop_id3_width) X IDTop_id3_length <> VAR
+         |class ID_id3 extends RTDesign:
+         |  val x = Bits(ID_id3_width) X ID_id3_length <> IN
+         |  val y = Bits(ID_id3_width) X ID_id3_length <> OUT
+         |  val v = Bits(ID_id3_width) X ID_id3_length <> VAR
          |  v <> x
          |  y <> v
-         |end ID_IDTop_id3
+         |end ID_id3
          |
          |class IDTop extends RTDesign:
-         |  val x1 = Bits(IDTop_id1_width) X IDTop_id1_length <> IN
-         |  val y1 = Bits(IDTop_id1_width) X IDTop_id1_length <> OUT
-         |  val id1 = ID_IDTop_id1()
+         |  val x1 = Bits(ID_id1_width) X ID_id1_length <> IN
+         |  val y1 = Bits(ID_id1_width) X ID_id1_length <> OUT
+         |  val id1 = ID_id1()
          |  id1.x <> x1
          |  y1 <> id1.y
-         |  val x2 = Bits(IDTop_id2_width) X IDTop_id2_length <> IN
-         |  val y2 = Bits(IDTop_id2_width) X IDTop_id2_length <> OUT
-         |  val id2 = ID_IDTop_id2()
+         |  val x2 = Bits(ID_id2_width) X ID_id2_length <> IN
+         |  val y2 = Bits(ID_id2_width) X ID_id2_length <> OUT
+         |  val id2 = ID_id2()
          |  id2.x <> x2
          |  y2 <> id2.y
-         |  val x3 = Bits(IDTop_id3_width) X IDTop_id3_length <> IN
-         |  val y3 = Bits(IDTop_id3_width) X IDTop_id3_length <> OUT
-         |  val id3 = ID_IDTop_id3()
+         |  val x3 = Bits(ID_id3_width) X ID_id3_length <> IN
+         |  val y3 = Bits(ID_id3_width) X ID_id3_length <> OUT
+         |  val id3 = ID_id3()
          |  id3.x <> x3
          |  y3 <> id3.y
          |end IDTop""".stripMargin
@@ -269,52 +269,52 @@ class GlobalizePortVectorParamsSpec extends StageSpec(stageCreatesUnrefAnons = t
       top,
       """|val IDTop_length: Int <> CONST = 10
          |val IDTop_width: Int <> CONST = 8
-         |val IDTop_id1_length: Int <> CONST = IDTop_length
-         |val IDTop_id1_width: Int <> CONST = IDTop_width
-         |val IDTop_id2_length: Int <> CONST = IDTop_length + 1
-         |val IDTop_id2_width: Int <> CONST = IDTop_width
+         |val ID_id1_length: Int <> CONST = IDTop_length
+         |val ID_id1_width: Int <> CONST = IDTop_width
+         |val ID_id2_length: Int <> CONST = IDTop_length + 1
+         |val ID_id2_width: Int <> CONST = IDTop_width
          |val IDTop_length3: Int <> CONST = IDTop_length + 1
-         |val IDTop_id3_length: Int <> CONST = IDTop_length3
-         |val IDTop_id3_width: Int <> CONST = IDTop_width
+         |val ID_id3_length: Int <> CONST = IDTop_length3
+         |val ID_id3_width: Int <> CONST = IDTop_width
          |
-         |class ID_IDTop_id1 extends RTDesign:
-         |  val x = Bits(IDTop_id1_width) X IDTop_id1_length <> IN
-         |  val y = Bits(IDTop_id1_width) X IDTop_id1_length <> OUT
-         |  val v = Bits(IDTop_id1_width) X IDTop_id1_length <> VAR
+         |class ID_id1 extends RTDesign:
+         |  val x = Bits(ID_id1_width) X ID_id1_length <> IN
+         |  val y = Bits(ID_id1_width) X ID_id1_length <> OUT
+         |  val v = Bits(ID_id1_width) X ID_id1_length <> VAR
          |  v <> x
          |  y <> v
-         |end ID_IDTop_id1
+         |end ID_id1
          |
-         |class ID_IDTop_id2 extends RTDesign:
-         |  val x = Bits(IDTop_id2_width) X IDTop_id2_length <> IN
-         |  val y = Bits(IDTop_id2_width) X IDTop_id2_length <> OUT
-         |  val v = Bits(IDTop_id2_width) X IDTop_id2_length <> VAR
+         |class ID_id2 extends RTDesign:
+         |  val x = Bits(ID_id2_width) X ID_id2_length <> IN
+         |  val y = Bits(ID_id2_width) X ID_id2_length <> OUT
+         |  val v = Bits(ID_id2_width) X ID_id2_length <> VAR
          |  v <> x
          |  y <> v
-         |end ID_IDTop_id2
+         |end ID_id2
          |
-         |class ID_IDTop_id3 extends RTDesign:
-         |  val x = Bits(IDTop_id3_width) X IDTop_id3_length <> IN
-         |  val y = Bits(IDTop_id3_width) X IDTop_id3_length <> OUT
-         |  val v = Bits(IDTop_id3_width) X IDTop_id3_length <> VAR
+         |class ID_id3 extends RTDesign:
+         |  val x = Bits(ID_id3_width) X ID_id3_length <> IN
+         |  val y = Bits(ID_id3_width) X ID_id3_length <> OUT
+         |  val v = Bits(ID_id3_width) X ID_id3_length <> VAR
          |  v <> x
          |  y <> v
-         |end ID_IDTop_id3
+         |end ID_id3
          |
          |class IDTop extends RTDesign:
-         |  val x1 = Bits(IDTop_id1_width) X IDTop_id1_length <> IN
-         |  val y1 = Bits(IDTop_id1_width) X IDTop_id1_length <> OUT
-         |  val id1 = ID_IDTop_id1()
+         |  val x1 = Bits(ID_id1_width) X ID_id1_length <> IN
+         |  val y1 = Bits(ID_id1_width) X ID_id1_length <> OUT
+         |  val id1 = ID_id1()
          |  id1.x <> x1
          |  y1 <> id1.y
-         |  val x2 = Bits(IDTop_id2_width) X IDTop_id2_length <> IN
-         |  val y2 = Bits(IDTop_id2_width) X IDTop_id2_length <> OUT
-         |  val id2 = ID_IDTop_id2()
+         |  val x2 = Bits(ID_id2_width) X ID_id2_length <> IN
+         |  val y2 = Bits(ID_id2_width) X ID_id2_length <> OUT
+         |  val id2 = ID_id2()
          |  id2.x <> x2
          |  y2 <> id2.y
-         |  val x3 = Bits(IDTop_id3_width) X IDTop_id3_length <> IN
-         |  val y3 = Bits(IDTop_id3_width) X IDTop_id3_length <> OUT
-         |  val id3 = ID_IDTop_id3()
+         |  val x3 = Bits(ID_id3_width) X ID_id3_length <> IN
+         |  val y3 = Bits(ID_id3_width) X ID_id3_length <> OUT
+         |  val id3 = ID_id3()
          |  id3.x <> x3
          |  y3 <> id3.y
          |end IDTop""".stripMargin

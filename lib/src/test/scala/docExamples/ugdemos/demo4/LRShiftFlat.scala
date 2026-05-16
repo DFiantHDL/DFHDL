@@ -1,7 +1,7 @@
 //format: off
 package docExamples.ugdemos.demo4
 import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
+given options.CompilerOptions.Backend = _.verilog
 
 enum ShiftDir extends Encoded:
   case Left, Right
@@ -11,7 +11,7 @@ enum ShiftDir extends Encoded:
   * @param width
   *   the width of the input and output bits
   */
-@top class LRShiftFlat(
+class LRShiftFlat(
     val width: Int <> CONST = 8
 ) extends RTDesign:
   /** bits input */

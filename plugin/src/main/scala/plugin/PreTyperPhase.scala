@@ -41,6 +41,9 @@ end CustomReporter
   *   - change infix operator precedence of terms: `a := b match {...}` to be `a := (b match {...})`
   *     and `a <> b match {...}` to be `a <> (b match {...})`
   *   - change process{} to process.forever{}
+  *   - auto-add `@top` annotation to concrete classes that look like DFHDL designs (extend
+  *     EDDesign/RTDesign/DFDesign, have `type <> CONST` parameters, or use `<>` in their body),
+  *     provided `import dfhdl.*` is in lexical scope and no `@top` annotation is already present
   */
 class PreTyperPhase(setting: Setting) extends CommonPhase:
   import untpd.*
@@ -123,6 +126,156 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
         case t => t
       end match
     end transform
+
+  private val `autoTopAnnot` = new UntypedTreeMap:
+    private var dfhdlImported: Boolean = false
+    // True while traversing a subtree whose innermost enclosing owner is a class, object,
+    // or package (i.e. a context in which a class definition is directly owned by a
+    // class/object — the requirement enforced by the `@top` AnnotatedWith macro).
+    // Flipped to false when entering a method body, lambda, or block expression.
+    private var validOwnerScope: Boolean = true
+
+    private def rightmostName(tree: Tree): Option[String] =
+      tree match
+        case Apply(fn, _) => rightmostName(fn)
+        case Select(_, n) => Some(n.toString)
+        case Ident(n)     => Some(n.toString)
+        case New(tpt)     => rightmostName(tpt)
+        case _            => None
+
+    private def isTopAnnot(tree: Tree): Boolean =
+      tree match
+        case Apply(Select(New(tpt), ctor), _) if ctor == nme.CONSTRUCTOR =>
+          rightmostName(tpt).contains("top")
+        case Select(New(tpt), ctor) if ctor == nme.CONSTRUCTOR =>
+          rightmostName(tpt).contains("top")
+        case New(tpt) => rightmostName(tpt).contains("top")
+        case _        => false
+
+    private val designParentNames = Set("EDDesign", "RTDesign", "DFDesign")
+
+    private def hasDesignParent(parents: List[Tree]): Boolean =
+      parents.exists(p => rightmostName(p).exists(designParentNames))
+
+    private def isConstParamTpt(tpt: Tree): Boolean =
+      tpt match
+        case InfixOp(_, Ident(op), Ident(mod)) =>
+          op.toString == "<>" && mod.toString == "CONST"
+        case _ => false
+
+    private def hasConstParam(paramss: List[ParamClause]): Boolean =
+      paramss.flatten.exists {
+        case vd: ValDef => isConstParamTpt(vd.tpt)
+        case _          => false
+      }
+
+    // TopAnnotPhase's main-entry-point synthesis requires every constructor param to be
+    // either defaulted or typed as `T <> CONST` (so the default can be synthesized). If
+    // any param fails both tests, auto-adding `@top` would produce a confusing downstream
+    // error — so we skip these classes and let users opt in manually with `@top`.
+    private def allParamsTopCompatible(paramss: List[ParamClause])(using Context): Boolean =
+      paramss.flatten.forall {
+        case vd: ValDef => !vd.rhs.isEmpty || isConstParamTpt(vd.tpt)
+        case _          => true
+      }
+
+    private def bodyUsesConnect(body: List[Tree])(using Context): Boolean =
+      // Look for `<>` in two top-level-statement shapes:
+      //  1. a val/var RHS (`val p = Bit <> IN`) — recurse into the RHS but stop at
+      //     nested defs/lambdas/blocks/templates so `<>` buried inside munit
+      //     `test("..."):` blocks or inner class bodies doesn't qualify the outer
+      //     class as a design.
+      //  2. a bare `<>` statement in the class body (`Vcc <> fpga.bank0`) — matched
+      //     non-recursively (the tree itself must be an `InfixOp` with `<>`).
+      // Over-matching here is now cheap: `@top(true)` is silently skipped by
+      // TopAnnotPhase on non-Design classes, so false positives don't cause errors.
+      val acc = new UntypedTreeAccumulator[Boolean]:
+        def apply(x: Boolean, tree: Tree)(using Context): Boolean =
+          if (x) true
+          else tree match
+            case InfixOp(_, Ident(op), _) if op.toString == "<>" => true
+            case _: Template | _: DefDef | _: Function | _: Block | _: TypeDef => x
+            case _ => foldOver(x, tree)
+      body.exists {
+        case vd: ValDef if !vd.rhs.isEmpty                   => acc(false, vd.rhs)
+        case InfixOp(_, Ident(op), _) if op.toString == "<>" => true
+        case _                                               => false
+      }
+
+    private def hasDfhdlWildcardImport(stats: List[Tree]): Boolean =
+      stats.exists {
+        case Import(expr, selectors) =>
+          rightmostName(expr).contains("dfhdl") && selectors.exists {
+            case ImportSelector(Ident(name), _, _) => name == nme.WILDCARD
+          }
+        case _ => false
+      }
+
+    private def mkTopAnnot(span: util.Spans.Span)(using Context): Tree =
+      // Inject `@top(true)` rather than bare `@top`: the explicit-`true` form is the
+      // lenient variant — TopAnnotPhase silently skips entry-point generation when the
+      // annotated class turns out not to be a Design, whereas bare `@top` is strict
+      // and would surface a compile error on a false positive.
+      untpd.Apply(
+        untpd.Select(untpd.New(untpd.Ident("top".toTypeName)), nme.CONSTRUCTOR),
+        List(untpd.Literal(Constant(true)))
+      ).withSpan(span)
+
+    private def hasTopAnnot(mods: Modifiers): Boolean =
+      mods.annotations.exists(isTopAnnot)
+
+    private def shouldAddTop(td: TypeDef, tmpl: Template)(using Context): Boolean =
+      val m = td.mods
+      !m.is(Abstract) &&
+      !m.is(Trait) &&
+      !m.is(Case) &&
+      !m.is(Enum) &&
+      !hasTopAnnot(m) &&
+      tmpl.constr.paramss.length <= 1 &&
+      allParamsTopCompatible(tmpl.constr.paramss) &&
+      (hasDesignParent(tmpl.parents) ||
+        hasConstParam(tmpl.constr.paramss) ||
+        bodyUsesConnect(tmpl.body))
+
+    private inline def withScope[A](stats: List[Tree])(body: => A): A =
+      val prev = dfhdlImported
+      if (!dfhdlImported && hasDfhdlWildcardImport(stats)) dfhdlImported = true
+      try body
+      finally dfhdlImported = prev
+
+    private inline def withInvalidScope[A](body: => A): A =
+      val prev = validOwnerScope
+      validOwnerScope = false
+      try body
+      finally validOwnerScope = prev
+
+    override def transform(tree: Tree)(using Context): Tree =
+      tree match
+        case pkg @ PackageDef(_, stats) =>
+          withScope(stats)(super.transform(pkg))
+        case md @ ModuleDef(_, tmpl: Template) =>
+          withScope(tmpl.body)(super.transform(md))
+        case td @ TypeDef(_, _: Template) =>
+          val canAnnotate = dfhdlImported && validOwnerScope
+          // While descending into this class's own body, its nested classes ARE directly
+          // owned by a class (this one), so re-enable validOwnerScope for the recursion.
+          val prev = validOwnerScope
+          validOwnerScope = true
+          val transformed =
+            try super.transform(td).asInstanceOf[TypeDef]
+            finally validOwnerScope = prev
+          transformed.rhs match
+            case newTmpl: Template if canAnnotate && shouldAddTop(transformed, newTmpl) =>
+              transformed.withMods(
+                transformed.mods.withAddedAnnotation(mkTopAnnot(transformed.nameSpan))
+              )
+            case _ => transformed
+        case _: DefDef | _: Function | _: Block =>
+          withInvalidScope(super.transform(tree))
+        case _ =>
+          super.transform(tree)
+    end transform
+  end `autoTopAnnot`
 
   private val `fixXand<>Precedence` = new UntypedTreeMap:
     object InfixOpChange:
@@ -266,10 +419,15 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
 
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
     val parsed = super.runOn(units)
+    // `dfhdl.top` lives in the `lib` subproject — only apply the auto-@top
+    // rewrite when it's reachable on the classpath of this compilation.
+    val topAvailable = getClassIfDefined("dfhdl.top").exists
     parsed.foreach { cu =>
       debugFlag = cu.source.file.path.contains("Playground.scala")
       cu.untpdTree = `fix<>andOpPrecedence`.transform(cu.untpdTree)
       cu.untpdTree = `fixXand<>Precedence`.transform(cu.untpdTree)
+      if (topAvailable)
+        cu.untpdTree = `autoTopAnnot`.transform(cu.untpdTree)
     }
     parsed
   end runOn

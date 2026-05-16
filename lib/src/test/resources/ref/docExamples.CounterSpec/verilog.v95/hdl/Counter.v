@@ -15,9 +15,9 @@ module Counter(
   output reg [width - 1:0] cnt;
   always @(posedge clk)
   begin
-    if (rst == 1'b1) cnt <= `dPW(0, 1, width);
+    if (rst == 1'b1) cnt <= `EXTEND_U(1'd0, 1, width);
     else begin
-      if (en) cnt <= cnt + `dPW(1, 1, width);
+      if (en) cnt <= cnt + `EXTEND_U(1'd1, 1, width);
     end
   end
 endmodule
