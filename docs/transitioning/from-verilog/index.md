@@ -49,6 +49,58 @@ end AndGate
 </div>
 ///
 
+/// admonition | Parameter Declarations
+    type: verilog
+<div class="grid" markdown>
+
+```sv linenums="0" title="Verilog"
+parameter [7:0] p = 8’b1011;
+```
+
+```scala linenums="0" title="DFHDL"
+val p: Bits[8] <> CONST = b"8'1011"
+```
+</div>
+
+Inter-dependent parameters and ports example:
+
+<div class="grid" markdown>
+
+```sv linenums="0" title="Verilog"
+module Concat#(
+    parameter int len1 = 8,
+    parameter int len2 = 8,
+    parameter logic [7:0] midVec = 8'h55
+)(
+  input  wire logic [len1 - 1:0]   i1,
+  input  wire logic [len2 - 1:0]   i2,
+  output      logic [outlen - 1:0] o
+);
+  localparam int midLen = 8;
+  localparam int outlen = len1 + midLen + len2;
+  assign o = {i1, midVec, i2};
+endmodule
+```
+
+```scala linenums="0" title="DFHDL"
+class Concat(
+    val len1: Int <> CONST = 8,
+    val len2: Int <> CONST = 8,
+    val midVec: Bits[Int] <> CONST = h"55"
+) extends EDDesign:
+  val midLen = midVec.width
+  val outlen = len1 + midLen + len2
+  val i1 = Bits(len1) <> IN
+  val i2 = Bits(len2) <> IN
+  val o = Bits(outlen) <> OUT
+
+  o <> (i1, midVec, i2)
+end Concat
+```
+
+</div>
+///
+
 /// admonition | Unconnected Output Ports
     type: verilog
 <div class="grid" markdown>
