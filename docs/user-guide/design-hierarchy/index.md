@@ -13,7 +13,6 @@ DFHDL supports composable design hierarchies through design class instantiation 
 * _design member_ - Any DFHDL object instantiated within a design (the design *contains* or *owns* all its members).
 * _child design/component_ - A design instance that is owned by another design.
 * _top design_ - The highest-level design in the hierarchy (not contained by any other design), also known as the *top-level design*.
-* _top-app design_ - A `@top` annotated *top design* that generates a main entry point with the default application.
 
 ///
 
@@ -97,7 +96,6 @@ A DFHDL design declaration follows standard [Scala class](https://docs.scala-lan
 
 ```scala linenums="0" title="Design declaration syntax"
 /** _documentation_ */
-@top(genMain) //required only for top-level designs
 [_modifiers_] class _name_(_params_) extends XXDesign:
   _contents_
 end _name_ //optional `end` marker
@@ -111,16 +109,12 @@ end _name_ //optional `end` marker
 
 * __`_contents_`__ - The design interface (ports/interfaces/domains) and functionality (variables, functions, child designs, processes, etc.), based on the selected design domain's semantics.
 
-* __`@top(genMain)`__ - A required annotation for top-level designs (designs not instantiated within another design). The annotation has an optional `#!scala val genMain: Boolean = true` parameter:
-    - When `genMain = true`, the design becomes a top-app design where all parameters must have default values, and a main Scala entry point named `top__name_` is generated
-    - When `genMain = false`, the annotation only provides a default top-level context for the design
-
 * __`_documentation_`__ - Design documentation in [Scaladoc format](https://docs.scala-lang.org/style/scaladoc.html){target="_blank"}. This documentation is preserved throughout compilation and included in the generated backend code.
 
 * __`_modifiers_`__ - Optional Scala modifiers. See [Design Class Modifier Rules][design-class-modifier-rules] for details.
 
 ### `LeftShift2` example {#LeftShift2}
-/// admonition | Basic top-app design example: a two-bits left shifter
+/// admonition | Basic top design example: a two-bits left shifter
     type: example
 The DFHDL code below implements a two-bit left shifter design named `LeftShift2`. The design:
 
@@ -164,12 +158,12 @@ children = [
 
 </div>
 
-Since this design is annotated with `@top`, it is a top-app design that generates an executable Scala program. This program compiles the design and generates backend code (Verilog or VHDL). The backend can be configured through:
+This top design generates an executable Scala program. This program compiles the design and generates backend code (Verilog or VHDL). The backend can be configured through:
 
 - Command-line arguments when running the program
 - Implicit backend settings in the code (as shown in this example)
 
-The `@top` annotation captures any [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} options within its scope and provides them as defaults when no CLI arguments are specified.
+The design captures any [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} options within its scope and provides them as defaults when no CLI arguments are specified.
 
 /// tab | Generated Verilog
 ```verilog
@@ -230,14 +224,14 @@ The DFHDL design parameter block follows standard Scala syntax, accepting a comm
 * __`_name_`__ - The parameter name. For DFHDL parameters, this name is:
     - Preserved throughout compilation
     - Used in the generated backend code
-    - Available through the CLI for top-app designs
+    - Available through the CLI for top designs
 
-* __`_default_`__ - Optional default value. Required for all parameters in top-app designs. See [Design Parameter Default Value Rules][design-parameter-default-value-rules] for details.
+* __`_default_`__ - Optional default value.
 
 * __`_access_`__ - Optional [Scala access modifier](https://docs.scala-lang.org/scala3/book/domain-modeling-oop.html#access-modifiers){target="_blank"}. Usually `#!scala val` to make the parameter public. See [Design Parameter Access Rules][design-parameter-access-rules] for details.
 
 #### `LeftShiftBasic` example {#LeftShiftBasic}
-/// admonition | Scala-parameterized top-app design example: a basic left shifter
+/// admonition | Scala-parameterized top design example: a basic left shifter
     type: example
 The DFHDL code below implements a basic left shifter design named `LeftShiftBasic`. This design is similar to the earlier example of [`LeftShift2`][LeftShift2], except here the design has the shift value as an input, and its input and output port widths are set according to the Scala parameter `width`.
 
@@ -297,7 +291,7 @@ children = [
 The basic code shifter above did not generate the `width` parameter in the Verilog and VHDL backend code. The following example shows how to preserve the `width` parameter:
 
 #### `LeftShiftGen` example {#LeftShiftGen}
-/// admonition | DFHDL-parameterized top-app design example: a generic left shifter
+/// admonition | DFHDL-parameterized top design example: a generic left shifter
     type: example
 The DFHDL code below implements a generic left shifter design named `LeftShiftGen`. This design is similar to the earlier example of [`LeftShiftBasic`][LeftShiftBasic], except here the `width` parameter is now a DFHDL parameter, as indicated by its `Int <> CONST` type. This enables the DFHDL compiler to preserve the parameter name and directly use it in the generated backend code where applicable.
 
@@ -356,13 +350,13 @@ children = [
 
 #### Design Parameter Type Rules
 - Any pure Scala parameter or DFHDL parameter types are acceptable.
-- Top-app design parameters that can be modified from the CLI must be one of:
+- Top design parameters that can be modified from the CLI must be one of:
     - Pure Scala Types: `#!scala String`, `#!scala Boolean`, `#!scala Int`, and `#!scala Double`
-    - DFHDL Types: `#!scala Int <> CONST`, `#!scala Bit <> CONST`, and `#!scala Boolean <> CONST`
+    - DFHDL Types: `#!scala String <> CONST`, `#!scala Int <> CONST`, `#!scala Bit <> CONST`, and `#!scala Boolean <> CONST`, `#!scala Bits[W] <> CONST`, `#!scala UInt[W] <> CONST`, `#!scala SInt[W] <> CONST`, where `W` is a literal integer.
 
-/// admonition | Top-app design with accepted and ignored CLI arguments example
+/// admonition | Top design with accepted and ignored CLI arguments example
     type: example
-In this example, the top-app supported parameters `pureIntArg` and `dfhdlIntArg` are preserved to be modifiable from the CLI, while `ignored` and `dfhdlIgnored` keep their default values.
+In this example, the top supported parameters `pureIntArg` and `dfhdlIntArg` are preserved to be modifiable from the CLI, while `ignored` and `dfhdlIgnored` keep their default values.
 
 ```scala title="DFHDL code"
 import dfhdl.*
@@ -387,7 +381,7 @@ Usage: sbt runMain "top_Foo [design-args] <mode> [options]"
     type: dfhdl
 ```scastie
 import dfhdl.*
-//this option forces the top-app
+//this option forces the top application
 //to run help mode by default
 given options.AppOptions.AppMode = 
   options.AppOptions.AppMode.help

@@ -78,9 +78,9 @@ For more information, please run `scala run --help` or consult the [online docum
 In a scala-cli project with multiple `.scala` files, shared `given` declarations (such as compiler options) must appear in exactly one file. Place them in your `project.scala` file to avoid duplicate definition errors.
 
 ```scala title="project.scala"
-//> using scala 3.8.1
-//> using dep io.github.dfianthdl::dfhdl::0.17.0
-//> using plugin io.github.dfianthdl:::dfhdl-plugin:0.17.0
+//> using scala 3.8.3
+//> using dep io.github.dfianthdl::dfhdl::0.18.0
+//> using plugin io.github.dfianthdl:::dfhdl-plugin:0.18.0
 
 import dfhdl.*
 given options.CompilerOptions.Backend = _.verilog

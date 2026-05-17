@@ -18,7 +18,7 @@ class PrimeDiv(
   remainder.din := underflow.sel(primeDivisor, diff.resize(clog2(primeDivisor)))
 end PrimeDiv
 
-@top class PrimeDiv5 extends RTDesign:
+class PrimeDiv5 extends RTDesign:
   val dividend  = UInt(4) <> VAR.REG init 0
   val primeDiv5 = PrimeDiv(5)
   primeDiv5.dividend <> dividend

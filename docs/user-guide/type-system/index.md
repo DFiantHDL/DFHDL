@@ -2486,10 +2486,10 @@ class Foo(
 
 /// details | Runnable example
     type: dfhdl
-```scastie
+```scastie main="main"
 import dfhdl.*
 
-@top(false) class Foo(
+class Foo(
     val arg: Boolean <> CONST
 ) extends DFDesign:
   val o = Bit <> OUT
