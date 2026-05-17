@@ -49,42 +49,6 @@ end AndGate
 </div>
 ///
 
-/// admonition | `@top` Annotation
-    type: verilog
-The `@top` annotation marks a design as a compilation entry point. The compiler generates a `main` method that elaborates, compiles, and emits HDL output for that design. In a typical design flow, only the testbench or top-level wrapper carries `@top`, and sub-modules are elaborated transitively.
-
-When translating and verifying modules one at a time (bottom-up), you may need to compile each module independently. In that case, every module being compiled must have `@top` so the compiler can generate an entry point for it. `@top`-annotated designs require **all** parameters to have default values.
-
-When a `@top`-annotated design is instantiated as a child of another design, the annotation has no effect. So the question is not whether `@top` causes harm, but whether it is practical: requiring default values for all parameters is annoying for reusable internal components and is not recommended. Mark only the designs you actually need to compile standalone.
-
-<div class="grid" markdown>
-
-```sv linenums="0" title="Verilog"
-module lfsr #(
-  parameter LEN = 8
-)(
-  input  clk,
-  output [LEN-1:0] data
-);
-  // ...
-endmodule
-```
-
-```scala linenums="0" title="DFHDL"
-class lfsr(
-  val LEN: Int <> CONST = 8
-) extends EDDesign:
-  val clk  = Bit      <> IN
-  val data = Bits(LEN) <> OUT
-  // ...
-end lfsr
-```
-
-</div>
-
-Without `@top`, running the compiled output fails with `ClassNotFoundException: top_<ModuleName>`. See [Design Hierarchy][design-hierarchy] for full details on `@top` and `@top(false)`.
-///
-
 /// admonition | Parameter Declarations
     type: verilog
 <div class="grid" markdown>
