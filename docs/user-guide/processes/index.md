@@ -173,6 +173,54 @@ process(clk, rst):
     out :== nextVal
 ```
 
+For the **Verilog-style async reset** pattern, put the edges in the sensitivity list and branch on reset only:
+
+```scala
+process(clk.rising, rst.rising):
+  if (rst)
+    out :== 0
+  else
+    out :== nextVal
+```
+
+/// admonition | ED is a faithful mirror of Verilog/VHDL — write synthesizable patterns
+    type: warning
+The ED domain is intentionally a low-level, faithful mapping to Verilog `always` blocks / VHDL `process` blocks. **DFHDL does not enforce synthesizability in the ED domain.** If you describe a non-synthesizable process pattern, the generated Verilog/VHDL will faithfully reflect that pattern — and downstream synthesis (or even a parser like Yosys) may reject it.
+
+It is your responsibility to write process bodies that match a synthesizable template. In particular, when an edge is **already in the sensitivity list**, do not re-check that edge inside the body — the body has already been triggered by it.
+
+**Non-synthesizable** (clock edge appears both in sensitivity list and as a nested `else if`):
+
+```scala
+// BAD: emits `else if (posedge clk)` inside an always_ff — not valid Verilog
+process(clk.rising, rst.rising):
+  if (rst)
+    x :== 0
+  else if (clk.rising)   // redundant — body already runs on rising clk
+    x :== x + 1
+```
+
+**Synthesizable** equivalents — pick the style that matches the intent:
+
+```scala
+// Verilog-style async reset: edges in the sensitivity list, branch on reset only
+process(clk.rising, rst.rising):
+  if (rst)
+    x :== 0
+  else
+    x :== x + 1
+
+// VHDL-style: list the signals, branch on reset, then on the clock edge
+process(clk, rst):
+  if (rst)
+    x :== 0
+  else if (clk.rising)
+    x :== x + 1
+```
+
+The rule of thumb: an edge qualifier (`.rising` / `.falling`) belongs in **either** the sensitivity list **or** an `if` inside the body — not both for the same signal.
+///
+
 ## Assignments inside processes
 
 ### Blocking assignment `:=`
