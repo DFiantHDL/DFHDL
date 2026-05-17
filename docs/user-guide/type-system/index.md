@@ -1717,7 +1717,8 @@ These operations propagate constant modifiers, meaning that if all arguments are
 | `lhs & rhs`  | Logical AND | The LHS argument must be a `Bit`/`Boolean` DFHDL value. The RHS must be a `Bit`/`Boolean` candidate. | LHS-Type DFHDL value |
 | `lhs | rhs` | Logical OR  | The LHS argument must be a `Bit`/`Boolean` DFHDL value. The RHS must be a `Bit`/`Boolean` candidate. | LHS-Type DFHDL value |
 | `lhs ^ rhs`  | Logical XOR | The LHS argument must be a `Bit`/`Boolean` DFHDL value. The RHS must be a `Bit`/`Boolean` candidate. | LHS-Type DFHDL value |
-| `!lhs`       | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
+| `!lhs` | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
+| `~lhs` | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
 ///
 
 ```scala
@@ -1748,9 +1749,9 @@ val e3 = 0 ^ true
 val sc: Boolean = true && true
 ```
 
-/// admonition | Logical `||`/`&&` and bitwise `|`/`&` on Bit and Boolean values
+/// admonition | Logical `||`/`&&`/`!` and bitwise `|`/`&`/`~` on Bit and Boolean values
     type: tip
-In DFHDL, the operators `||` and `&&` are equivalent to `|` and `&`, respectively, when applied on either DFHDL `Bit` or `Boolean` types. In Verilog, the actual operator printed depends on the LHS argument of the operation: if it's `Bit`, the operator will be `|`/`&`; if it's `Boolean`, the operator will be `||`/`&&`.
+In DFHDL, the operators `||`, `&&`, and `!` are equivalent to `|`, `&`, `~`, respectively, when applied on either DFHDL `Bit` or `Boolean` types. In Verilog, the actual operator printed depends on the LHS argument of the operation: if it's `Bit`, the operator will be `|`/`&`/`~`; if it's `Boolean`, the operator will be `||`/`&&`/`!`.
 ///
 
 /// details | Transitioning from Verilog
@@ -1764,7 +1765,8 @@ Under the ED domain, the following operations are equivalent:
 | `lhs & rhs`     | `lhs & rhs`                 | `lhs && rhs`                    |
 | `lhs | rhs`     | `lhs | rhs`                 | `lhs || rhs`                    |
 | `lhs ^ rhs`     | `lhs ^ rhs`                 | `lhs ^ rhs`                     |
-| `!lhs`          | `!lhs`                      | `!lhs`                          |
+| `!lhs`          | `~lhs`                      | `!lhs`                          |
+| `~lhs`          | `~lhs`                      | `!lhs`                          |
 ///
 
 /// details | Transitioning from VHDL

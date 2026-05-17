@@ -520,9 +520,9 @@ There is no `>>>` operator in DFHDL. The type of the LHS determines the shift se
 ///
 
 
-/// admonition | Bit/Boolean Operators: `|`/`&` and `||`/`&&`
+/// admonition | Bit/Boolean Operators: `|`/`&`/`~` and `||`/`&&`/`!`
     type: verilog
-In DFHDL, `||`/`&&` and `|`/`&` are interchangeable on `Bit` and `Boolean` types. The generated Verilog operator depends on the LHS type: `Bit` produces bitwise `|`/`&`, `Boolean` produces logical `||`/`&&`.
+In DFHDL, `||`/`&&`/`!` and `|`/`&`/`~` are interchangeable on `Bit` and `Boolean` types. The generated Verilog operator depends on the LHS type: `Bit` produces bitwise `|`/`&`/`~`, `Boolean` produces logical `||`/`&&`/`!`.
 <div class="grid" markdown>
 
 ```sv linenums="0" title="Verilog"
