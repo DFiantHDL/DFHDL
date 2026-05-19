@@ -2027,36 +2027,75 @@ u9 := sum          // resized from 8 to 9, no carry promotion
 
 /// admonition | Implicit Scala `Int` and Verilog-semantics mismatch
     type: warning
-In Verilog, unsized integer literals are 32-bit. When such a literal appears in an expression like `(a + b + c + d) / 4`, Verilog's context-dependent width propagation widens the entire expression to 32 bits, preventing intermediate overflow.
+Verilog and DFHDL disagree on the width of an unsized integer literal, and that disagreement determines whether intermediate `+`/`-`/`*` operations should be treated as carry (widening) or non-carry (modular) operations:
 
-In DFHDL, a Scala `Int` literal like `4` is implicitly converted to the minimum bit-accurate width (`UInt[3]` for value 4). Each `+` independently uses the LHS width, so intermediate additions stay at the LHS width (e.g., 8 bits) and can overflow before the `/` is applied. Similarly, the Verilog pattern of "forcing larger evaluation" by adding a zero constant (e.g., `(a + b + 0) >> 1`) does not widen the expression in DFHDL.
+- In **Verilog**, an unsized integer literal is 32-bit, and context-dependent width propagation widens narrower operands up to the literal's width. Intermediate `+`/`-`/`*` therefore effectively act as carry operations and cannot overflow into the surrounding `/`, `%`, shift, comparison, or wider-target assignment.
+- In **DFHDL**, a Scala `Int` literal (or DFHDL `Int` parameter) adapts to the minimum bit-accurate width of the surrounding bit-accurate value. Intermediate `+`/`-`/`*` stay at that narrow width and are modular, so the chain can overflow before the surrounding non-modular operation is applied.
 
-DFHDL issues an **elaboration warning** when it detects these patterns:
+When DFHDL detects an arithmetic chain whose Verilog vs DFHDL result may diverge because of an implicit `Int`, it issues an **elaboration warning** so you can pick the intent you actually want:
 
-**1. Non-modular operation with implicit `Int` and overflowing chain:**
-A `/` or `%` operation has an implicit Scala `Int` (or DFHDL `Int`) operand, and the other operand contains anonymous sub-32-bit `+`/`-`/`*` operations.
+- **Accept overflow** (DFHDL modular semantics): replace the implicit `Int` operand(s) with explicit bit-accurate literals (`d"..."`/`sd"..."`). The warning is silenced because the operand is no longer treated as a widening `Int`.
+- **Prevent overflow** (Verilog widening semantics): use carry operations (`+^`, `-^`, `*^`) to widen the chain so it cannot overflow at the operand widths involved. The warning is silenced because the chain is no longer a narrow non-carry chain.
+
+The patterns DFHDL flags are:
+
+**1. Non-modular operation with implicit `Int`:**
+A `/` or `%` operation where (a) one operand is an implicit Scala `Int` (or DFHDL `Int`) and the other contains anonymous sub-32-bit `+`/`-`/`*` operations, OR (b) one operand is itself an anonymous narrow `+`/`-`/`*` whose direct arguments include an implicit `Int`.
 ```scala
 val a, b = UInt(8) <> VAR
-val t1 = (a + b) / 4           // WARNING: a + b can overflow at 8-bit
-val t2 = (a * 3 + b) % 3       // WARNING: a * 3 + b can overflow
-val t3 = a / 4                  // OK: no intermediate overflow possible
+val t1 = (a + b) / 4                    // WARNING: a + b can overflow at 8-bit
+val t2 = (a * 3 + b) % 3                // WARNING: a * 3 + b can overflow
+val t3 = (a + 1) / b                    // WARNING: 1 is implicit Int inside the chain
+val t4 = a / 4                          // OK: no intermediate overflow possible
+// Accept overflow: replace implicit Ints with bit-accurate literals
+val t1a = (a + b) / d"3'4"              // OK: 4 is explicit, modular semantics accepted
+val t2a = (a * d"3" + b) % d"2'3"       // OK: all literals are bit-accurate
+val t3a = (a + d"1") / b                // OK: 1 is explicit
+// Prevent overflow: use carry operations to widen the chain (matches Verilog)
+val t1c = (a +^ b) / 4                  // OK: carry add -> UInt[9], cannot overflow
+val t2c = (a *^ 3 +^ b) % 3             // OK: carry mul + carry add
+val t3c = (a +^ 1) / b                  // OK: carry add widens chain before divide
 ```
 
-**2. Shift with implicit `Int` inside the expression chain ("forcing larger evaluation"):**
+**2. Comparison with implicit `Int` and narrow chain:**
+A comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`) where (a) one operand is an implicit `Int` and the other contains an anonymous narrow `+`/`-`/`*` chain, OR (b) one operand is itself an anonymous narrow `+`/`-`/`*` with an implicit `Int` directly inside it.
+```scala
+val t5 = (a + b) == 5                   // WARNING: chain wraps to 5 only in DFHDL when a + b = 261
+val t6 = (a + 1) == b                   // WARNING: a + 1 wraps to 0 only in DFHDL when a = 255
+val t7 = (a + 1) == 5                   // WARNING: chain has implicit Int inside
+val t8 = a == 5                         // OK: no chain
+val t9 = (a + b) == b                   // OK: no implicit Int involved
+// Accept overflow: replace implicit Ints with bit-accurate literals
+val t5a = (a + b) == d"8'5"             // OK: 5 is explicit, modular compare accepted
+val t6a = (a + d"1") == b               // OK: 1 is explicit
+val t7a = (a + d"1") == d"8'5"          // OK: both literals are bit-accurate
+// Prevent overflow: widen the chain with carry so it sees the true value
+val t5c = (a +^ b) == 5                 // OK: carry add -> UInt[9], 5 adapts to 9 bits
+val t7c = (a +^ 1) == 5                 // OK: carry add prevents wrap
+```
+
+**3. Shift with implicit `Int` inside the expression chain ("forcing larger evaluation"):**
 A `>>` or `<<` operation whose LHS expression contains both an implicit `Int` operand and sub-32-bit `+`/`-`/`*` operations.
 ```scala
-val t4 = (a + b + 0) >> 1      // WARNING: + 0 forces 32-bit in Verilog, not in DFHDL
-val t5 = (a + b) >> 2          // OK: no implicit Int in the + chain, Verilog also loses carry
+val t10 = (a + b + 0) >> 1              // WARNING: + 0 forces 32-bit in Verilog, not in DFHDL
+val t11 = (a + b) >> 2                  // OK: no implicit Int in the + chain, Verilog also loses carry
+// Accept overflow: replace the implicit Int with a bit-accurate literal
+val t10a = (a + b + d"1'0") >> 1        // OK: 0 is explicit
+// Prevent overflow: widen the chain with carry before shifting
+val t10c = (a +^ b +^ 0) >> 1           // OK: carry chain cannot overflow
 ```
 
-**3. Assignment to wider target with implicit `Int` in the chain:**
+**4. Assignment to wider target with implicit `Int` in the chain:**
 An anonymous expression assigned to a wider target contains both an implicit `Int` and sub-32-bit `+`/`-`/`*` operations.
 ```scala
 val sum = UInt(10) <> VAR
-sum := a + b + 1               // WARNING: + 1 widens to 32-bit in Verilog, not in DFHDL
-sum := a + b + d"1"            // OK: explicit literal, no implicit Int
+sum := a + b + 1                        // WARNING: + 1 widens to 32-bit in Verilog, not in DFHDL
 val cnt = UInt(8) <> VAR
-cnt := cnt + 1                 // OK: same-width target, modular truncation matches
+cnt := cnt + 1                          // OK: same-width target, modular truncation matches
+// Accept overflow: replace the implicit Int with a bit-accurate literal
+sum := a + b + d"1"                     // OK: 1 is explicit
+// Prevent overflow: widen the chain with carry to match the wider target
+sum := a +^ b +^ 1                      // OK: carry chain widens result before assignment
 ```
 
 **No warning** is issued when:
@@ -2065,22 +2104,6 @@ cnt := cnt + 1                 // OK: same-width target, modular truncation matc
 - The integer constant is an explicit bit-accurate literal (e.g., `d"3'4"`).
 - The bit-accurate expression width is already 32 bits or wider.
 - The implicit `Int` is only used in modular operations (`+`, `-`, `*`) assigned to a same-width target.
-
-**Mitigation strategies:**
-```scala
-val a, b, c, d = UInt(8) <> IN
-val result     = UInt(8) <> OUT
-
-// WARNING: implicit Int with non-carry chain before division
-result <> (a + b + c + d) / 4
-
-// Fix 1: use carry addition to prevent intermediate overflow
-result <> ((a +^ b +^ c +^ d) / 4).resize
-
-// Fix 2: use an explicit bit-accurate literal to accept DFHDL
-// overflow semantics and silence the warning
-result <> (a + b + c + d) / d"3'4"
-```
 ///
 
 ### Carry Arithmetic (`+^`, `-^`, `*^`) {#carry-ops}

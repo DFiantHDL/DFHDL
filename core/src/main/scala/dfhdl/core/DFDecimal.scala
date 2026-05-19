@@ -924,6 +924,27 @@ object DFXInt:
             case None =>
           DFXInt.Val.Ops.toDFXIntOf(dfValArg)(dfType).asValTP[DFXInt[LS, LW, LN], RP]
         end conv
+        // Check Verilog-semantics mismatch for comparisons: same trigger as
+        // `/`, `%` -- a narrow non-carry chain mixed with an implicit Int on
+        // either side widens to 32-bit in Verilog but not in DFHDL.
+        override def apply[P](dfVal: DFValTP[DFXInt[LS, LW, LN], P], arg: R)(using
+            dfc: DFC,
+            opv: ValueOf[Op],
+            cv: ValueOf[C]
+        ): DFValTP[DFBool, P | RP] = trydf:
+          val dfValArg = conv(dfVal.dfType, arg)(using dfc.anonymize)
+          import dfc.getSet
+          val op = opv.value
+          op match
+            case FuncOp.=== | FuncOp.=!= | FuncOp.< | FuncOp.> | FuncOp.<= | FuncOp.>= =>
+              if DFXInt.Val.Ops.shouldWarnVerilogSemantics(dfVal.asIR, dfValArg.asIR)
+              then
+                dfc.logEvent(
+                  DFWarning(op.toString, DFXInt.Val.Ops.verilogSemanticsWarnMsg)
+                )
+            case _ =>
+          func(dfVal, dfValArg)
+        end apply
       end DFXIntCompare
     end Compare
 
@@ -1177,6 +1198,19 @@ object DFXInt:
                 )
           case _ => false
 
+      // Unified Verilog-semantics warning trigger shared by `/`, `%` (arithOp)
+      // and comparison operations (DFXIntCompare). Warns when a narrow non-carry
+      // chain mixes with a tagged-from-Int operand on either side - directly OR
+      // nested inside the chain.
+      private[core] def shouldWarnVerilogSemantics(
+          lhs: ir.DFVal,
+          rhs: ir.DFVal
+      )(using ir.MemberGetSet): Boolean =
+        (hasImplicitlyFromIntTag(rhs) && containsNarrowNonCarryArith(lhs)) ||
+          (hasImplicitlyFromIntTag(lhs) && containsNarrowNonCarryArith(rhs)) ||
+          containsNarrowNonCarryArithWithTaggedOperand(lhs) ||
+          containsNarrowNonCarryArithWithTaggedOperand(rhs)
+
       // Check that a wildcard `Int` value fits in the bit-accurate value's type.
       // Produces an elaboration error if it doesn't.
       private def checkWildcardFit(
@@ -1226,13 +1260,11 @@ object DFXInt:
       )(using dfc: DFC): DFValTP[DFXInt[OS, OW, ON], LP | RP] =
         val rhsFix = rhs.toDFXIntOf(lhs.dfType)(using dfc.anonymize)
         import dfc.getSet
-        // Check A: / and % — both operands are context-determined in Verilog
+        // Check A: / and % — both operands are context-determined in Verilog,
+        // so any narrow non-carry chain mixed with an implicit Int diverges.
         val shouldWarn = op match
           case FuncOp./ | FuncOp.% =>
-            (hasImplicitlyFromIntTag(rhsFix.asIR) &&
-              containsNarrowNonCarryArith(lhs.asIR)) ||
-            (hasImplicitlyFromIntTag(lhs.asIR) &&
-              containsNarrowNonCarryArith(rhsFix.asIR))
+            shouldWarnVerilogSemantics(lhs.asIR, rhsFix.asIR)
           case _ => false
         if shouldWarn then
           dfc.logEvent(DFWarning(op.toString, verilogSemanticsWarnMsg))

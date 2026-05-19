@@ -930,6 +930,47 @@ class DFDecimalSpec extends DFSpec:
     val w32b = UInt(32) <> VAR
     val t7 = (w32 + w32b) / 4
 
+    // Generalized / and %: warn when the chain has an implicit Int inside,
+    // even when neither outer operand is itself an implicit Int.
+    assertRuntimeWarningLog(warnMsg) {
+      val t8 = (a + 1) / b
+    }
+    assertRuntimeWarningLog(warnMsg) {
+      val t9 = (a + 1) % b
+    }
+
+    // Comparisons: warn when a narrow non-carry chain mixes with an implicit
+    // Int on either side - directly OR nested inside the chain.
+    assertRuntimeWarningLog(warnMsg) {
+      val tc1 = (a + 1) == b
+    }
+    assertRuntimeWarningLog(warnMsg) {
+      val tc2 = (a + b) == 5
+    }
+    assertRuntimeWarningLog(warnMsg) {
+      val tc3 = (a + 1) == 5
+    }
+    assertRuntimeWarningLog(warnMsg) {
+      val tc4 = 5 < (a + 1)
+    }
+    assertRuntimeWarningLog(warnMsg) {
+      val tc5 = (a + b + 0) != c
+    }
+    assertRuntimeWarningLog(warnMsg) {
+      val tc6 = (a + 1) < b
+    }
+    assertRuntimeWarningLog(warnMsg) {
+      val tc7 = b == (a + 1)
+    }
+
+    // Comparisons - NO WARN: no chain, no implicit Int, or carry op chain
+    val nc1 = a == 5
+    val nc2 = a == b
+    val nc3 = (a + b) == c
+    val nc4 = (a +^ b) == 5
+    val nc5 = (a + d"1") == b
+    val nc6 = (a + b) == d"8'5"
+
     assertNoWarnings()
   }
   test("Int32 algebraic simplifications") {
