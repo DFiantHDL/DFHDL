@@ -986,11 +986,11 @@ object DFXInt:
           checkLow: BitIndex.CheckNUB[LO, W],
           checkHiLo: BitsHiLo.CheckNUB[HI, LO]
       ): ExactOp3Aux["apply", DFC, DFValAny, L, HI, LO, DFValTP[
-        DFXInt[S, HI - LO + 1, BitAccurate],
+        DFUInt[HI - LO + 1],
         P
       ]] =
         new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
-          type Out = DFValTP[DFXInt[S, HI - LO + 1, BitAccurate], P]
+          type Out = DFValTP[DFUInt[HI - LO + 1], P]
           def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
             val idxHighParam = IntParam(idxHigh)
             val idxLowParam = IntParam(idxLow)

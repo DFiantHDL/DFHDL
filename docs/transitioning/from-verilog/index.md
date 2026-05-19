@@ -669,21 +669,22 @@ val bit5 = data(5)         // single bit
 
 </div>
 
-Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with the same syntax. Slicing preserves the source type:
+Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with the same syntax. As in Verilog, a slice is a bit-level operation and yields an unsigned result — `SInt` slices return `UInt`, not `SInt`:
 
 | Source type | Slice result |
 |---|---|
 | `Bits[N]` | `Bits` |
 | `UInt[N]` | `UInt` |
-| `SInt[N]` | `SInt` |
-
-You do **not** need to convert `SInt` to `Bits` before slicing — the result is already `SInt`:
+| `SInt[N]` | `UInt` (chain `.bits.sint` to re-interpret as signed) |
 
 ```scala
-val prod = SInt(16) <> VAR
-val top8 = prod(15, 8)  // 8-bit SInt slice
-val sign = prod(15)     // single bit access
+val prod  = SInt(16) <> VAR
+val top8U = prod(15, 8)             // UInt[8]: raw upper byte
+val top8S = prod(15, 8).bits.sint   // SInt[8]: sign-preserving truncation
+val sign  = prod(15)                // single-bit access (Bit)
 ```
+
+To recover signed semantics on a slice, chain `.bits.sint` (re-interpret the bits as signed, same width). Do **not** use `.signed` for this — `.signed` is a numeric conversion that widens by one zero-extension bit, which is not what slice migration wants.
 ///
 
 /// admonition | Arithmetic with Signed Values and Constants

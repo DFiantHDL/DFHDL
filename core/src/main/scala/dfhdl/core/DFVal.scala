@@ -893,8 +893,8 @@ object DFVal extends DFValLP:
           relVal: DFVal[DFXInt[S, W, NativeType.BitAccurate], M],
           idxHigh: IntParam[H],
           idxLow: IntParam[L]
-      )(using DFC): DFVal[DFXInt[S, H - L + 1, NativeType.BitAccurate], M] =
-        forced(relVal.asIR, idxHigh, idxLow).asVal[DFXInt[S, H - L + 1, NativeType.BitAccurate], M]
+      )(using DFC): DFVal[DFUInt[H - L + 1], M] =
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFUInt[H - L + 1], M]
       def applyVector[T <: DFTypeAny, M <: ModifierAny, H <: IntP, L <: IntP](
           relVal: DFVal[DFVector[T, Tuple1[?]], M],
           idxHigh: IntParam[H],
@@ -909,8 +909,7 @@ object DFVal extends DFValLP:
         val selLength = idxHigh - idxLow + 1
         val dfType = relVal.dfType.runtimeChecked match
           case ir.DFBits(_)                     => ir.DFBits(selLength.ref)
-          case ir.DFUInt(_)                     => ir.DFUInt(selLength.ref)
-          case ir.DFSInt(_)                     => ir.DFSInt(selLength.ref)
+          case ir.DFUInt(_) | ir.DFSInt(_)      => ir.DFUInt(selLength.ref)
           case ir.DFVector(cellType = cellType) =>
             ir.DFVector(cellType, List(selLength.ref))
         relVal match

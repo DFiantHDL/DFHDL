@@ -1617,7 +1617,7 @@ val u = e.uint  // Enum -> UInt (encoding-dependent width)
 
 Applies to: `Bits`, `UInt`, `SInt`
 
-- **Range slice**: `value(hi, lo)` extracts bits `hi` down to `lo`, returning a narrower value of the **same type** (`Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `SInt`).
+- **Range slice**: `value(hi, lo)` extracts bits `hi` down to `lo`. A slice is a bit-level operation and produces an unsigned result: `Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `UInt`. This matches Verilog's "slices are unsigned" convention. To recover signed bit-semantics on an `SInt` slice, chain `.bits.sint` to re-interpret the slice as signed (same width). Do **not** use `.signed` for this — `.signed` is a numeric conversion that adds a zero-extension sign bit, widening by 1.
 - **Single-bit access**: `value(idx)` returns the bit at position `idx` (as `Bit`). The index can be a static integer or a dynamic `UInt` variable.
 
 ```scala
@@ -1625,10 +1625,11 @@ val b8 = Bits(8) <> VAR
 val u8 = UInt(8) <> VAR
 val s8 = SInt(8) <> VAR
 
-// Range slicing — preserves the original type
-val b4 = b8(7, 4)    // Bits[4]: upper nibble
-val u4 = u8(3, 0)    // UInt[4]: lower nibble
-val s4 = s8(3, 0)    // SInt[4]: lower nibble
+// Range slicing — always produces an unsigned result
+val b4 = b8(7, 4)              // Bits[4]: upper nibble
+val u4 = u8(3, 0)              // UInt[4]: lower nibble
+val u4FromS = s8(3, 0)         // UInt[4]: SInt slice is unsigned
+val s4 = s8(7, 4).bits.sint    // SInt[4]: sign-preserving truncation via re-interpret
 
 // Single-bit access
 val msb = b8(7)       // Bit

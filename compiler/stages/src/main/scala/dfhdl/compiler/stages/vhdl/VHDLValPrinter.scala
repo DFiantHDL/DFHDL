@@ -233,7 +233,13 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     dfVal.dfType match
       case DFBits(_) | DFUInt(_) | DFSInt(_) =>
-        s"${dfVal.relValCodeString}(${dfVal.idxHighRef.refCodeString} downto ${dfVal.idxLowRef.refCodeString})"
+        val slice =
+          s"${dfVal.relValCodeString}(${dfVal.idxHighRef.refCodeString} downto ${dfVal.idxLowRef.refCodeString})"
+        // SInt slice now produces DFUInt; wrap with `unsigned(...)` since
+        // VHDL preserves the signed subtype across slicing.
+        (dfVal.relValRef.get.dfType, dfVal.dfType) match
+          case (DFSInt(_), DFUInt(_)) => s"unsigned($slice)"
+          case _                      => slice
       case _ =>
         s"${dfVal.relValCodeString}(${dfVal.idxLowRef.refCodeString} to ${dfVal.idxHighRef.refCodeString})"
     end match

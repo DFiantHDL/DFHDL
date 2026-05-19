@@ -126,7 +126,8 @@ class DFDecimalSpec extends DFSpec:
          |val pow: Int <> CONST = 2 ** param
          |val u4 = u6(3, 0)
          |val ubit = u6(1)
-         |val s4 = s6(3, 0)
+         |val s4u = s6(3, 0)
+         |val s4 = s6(3, 0).bits.sint
          |val sbit = s6(1)
          |val uint42: UInt[6] <> CONST = d"6'42"
          |val sint42: SInt[7] <> CONST = sd"7'42"
@@ -272,7 +273,8 @@ class DFDecimalSpec extends DFSpec:
       val pow = 2 ** param
       val u4 = u6(3, 0)
       val ubit = u6(1)
-      val s4 = s6(3, 0)
+      val s4u = s6(3, 0)
+      val s4 = s6(3, 0).bits.sint
       val sbit = s6(1)
       val str42 = "42"
       val strNeg42 = "-42"
