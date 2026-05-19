@@ -669,7 +669,7 @@ val bit5 = data(5)         // single bit
 
 </div>
 
-Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with the same syntax. As in Verilog, a slice is a bit-level operation and yields an unsigned result — `SInt` slices return `UInt`, not `SInt`:
+Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with the same syntax, including the `.msbits(W)` and `.lsbits(W)` convenience methods. As in Verilog, a slice is a bit-level operation and yields an unsigned result — `SInt` slices return `UInt`, not `SInt`:
 
 | Source type | Slice result |
 |---|---|
@@ -680,6 +680,7 @@ Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with
 ```scala
 val prod  = SInt(16) <> VAR
 val top8U = prod(15, 8)             // UInt[8]: raw upper byte
+val top8M = prod.msbits(8)          // UInt[8]: same as prod(15, 8)
 val top8S = prod(15, 8).bits.sint   // SInt[8]: sign-preserving truncation
 val sign  = prod(15)                // single-bit access (Bit)
 ```

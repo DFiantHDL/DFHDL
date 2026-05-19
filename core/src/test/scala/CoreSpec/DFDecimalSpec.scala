@@ -77,6 +77,67 @@ class DFDecimalSpec extends DFSpec:
       t2 := t1
     }
   }
+  test("DFVal Selection") {
+    val u8 = UInt(8) <> VAR
+    val s8 = SInt(8) <> VAR
+    assertCodeString {
+      """|val u_ms8 = u8(7, 0)
+         |val u_ms7 = u8(7, 1)
+         |val u_ms1 = u8(7, 7)
+         |val u_ls8 = u8(7, 0)
+         |val u_ls7 = u8(6, 0)
+         |val u_ls1 = u8(0, 0)
+         |val s_ms8 = s8(7, 0)
+         |val s_ms7 = s8(7, 1)
+         |val s_ms1 = s8(7, 7)
+         |val s_ls8 = s8(7, 0)
+         |val s_ls7 = s8(6, 0)
+         |val s_ls1 = s8(0, 0)
+         |""".stripMargin
+    } {
+      val u_ms8 = u8.msbits(8)
+      val u_ms7 = u8.msbits(7)
+      val u_ms1 = u8.msbits(1)
+      val u_ls8 = u8.lsbits(8)
+      val u_ls7 = u8.lsbits(7)
+      val u_ls1 = u8.lsbits(1)
+      val s_ms8 = s8.msbits(8)
+      val s_ms7 = s8.msbits(7)
+      val s_ms1 = s8.msbits(1)
+      val s_ls8 = s8.lsbits(8)
+      val s_ls7 = s8.lsbits(7)
+      val s_ls1 = s8.lsbits(1)
+    }
+    val nine = 9
+    assertDSLErrorLog(
+      """The applied RHS value width (9) is larger than the LHS variable width (8)."""
+    )(
+      """u8.msbits(9)"""
+    ) {
+      u8.msbits(nine)
+    }
+    assertDSLErrorLog(
+      """The applied RHS value width (9) is larger than the LHS variable width (8)."""
+    )(
+      """u8.lsbits(9)"""
+    ) {
+      u8.lsbits(nine)
+    }
+    assertDSLErrorLog(
+      """The applied RHS value width (9) is larger than the LHS variable width (8)."""
+    )(
+      """s8.msbits(9)"""
+    ) {
+      s8.msbits(nine)
+    }
+    assertDSLErrorLog(
+      """The applied RHS value width (9) is larger than the LHS variable width (8)."""
+    )(
+      """s8.lsbits(9)"""
+    ) {
+      s8.lsbits(nine)
+    }
+  }
   test("Assignment") {
     assertCodeString {
       """|val c: UInt[8] <> CONST = d"8'1"

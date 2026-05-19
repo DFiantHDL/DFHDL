@@ -1730,6 +1730,30 @@ object DFUInt:
           lhs.widthIntOpt.foreach(check(_))
           DFVal.Alias.AsIs(DFInt32, lhs.signed)
         }
+        @targetName("msbitsDFUInt")
+        def msbits[RW <: IntP](updatedWidth: IntParam[RW])(using
+            check: `LW >= RW`.CheckNUB[W, RW],
+            dfc: DFCG
+        ): DFValTP[DFUInt[RW], P] = trydf {
+          (lhs.widthIntOpt, updatedWidth.toScalaIntOpt) match
+            case (Some(lhsWidthInt), Some(updatedWidthInt)) => check(lhsWidthInt, updatedWidthInt)
+            case _                                          =>
+          DFVal.Alias.ApplyRange
+            .applyDFXInt(lhs, lhs.widthIntParam - 1, lhs.widthIntParam - updatedWidth)
+            .asValTP[DFUInt[RW], P]
+        }
+        @targetName("lsbitsDFUInt")
+        def lsbits[RW <: IntP](updatedWidth: IntParam[RW])(using
+            check: `LW >= RW`.CheckNUB[W, RW],
+            dfc: DFCG
+        ): DFValTP[DFUInt[RW], P] = trydf {
+          (lhs.widthIntOpt, updatedWidth.toScalaIntOpt) match
+            case (Some(lhsWidthInt), Some(updatedWidthInt)) => check(lhsWidthInt, updatedWidthInt)
+            case _                                          =>
+          DFVal.Alias.ApplyRange
+            .applyDFXInt(lhs, updatedWidth - 1, 0)
+            .asValTP[DFUInt[RW], P]
+        }
       end extension
     end Ops
   end Val
@@ -1773,6 +1797,30 @@ object DFSInt:
           DFVal.Alias.ApplyIdx(DFBit, lhs, idx).asValTP[DFBit, P]
         def unsigned(using DFCG): DFValTP[DFUInt[IntP.-[W, 1]], P] = trydf {
           DFVal.Alias.AsIs(DFUInt(lhs.widthIntParam - 1), lhs)
+        }
+        @targetName("msbitsDFSInt")
+        def msbits[RW <: IntP](updatedWidth: IntParam[RW])(using
+            check: `LW >= RW`.CheckNUB[W, RW],
+            dfc: DFCG
+        ): DFValTP[DFUInt[RW], P] = trydf {
+          (lhs.widthIntOpt, updatedWidth.toScalaIntOpt) match
+            case (Some(lhsWidthInt), Some(updatedWidthInt)) => check(lhsWidthInt, updatedWidthInt)
+            case _                                          =>
+          DFVal.Alias.ApplyRange
+            .applyDFXInt(lhs, lhs.widthIntParam - 1, lhs.widthIntParam - updatedWidth)
+            .asValTP[DFUInt[RW], P]
+        }
+        @targetName("lsbitsDFSInt")
+        def lsbits[RW <: IntP](updatedWidth: IntParam[RW])(using
+            check: `LW >= RW`.CheckNUB[W, RW],
+            dfc: DFCG
+        ): DFValTP[DFUInt[RW], P] = trydf {
+          (lhs.widthIntOpt, updatedWidth.toScalaIntOpt) match
+            case (Some(lhsWidthInt), Some(updatedWidthInt)) => check(lhsWidthInt, updatedWidthInt)
+            case _                                          =>
+          DFVal.Alias.ApplyRange
+            .applyDFXInt(lhs, updatedWidth - 1, 0)
+            .asValTP[DFUInt[RW], P]
         }
       extension [P](lhs: DFValTP[DFInt32, P])
         @targetName("negateDFInt32")
