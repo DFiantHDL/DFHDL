@@ -300,6 +300,8 @@ class Top extends EDDesign:
 
 ## Valid Connection and Assignment Examples
 
+<div class="grid" markdown>
+
 ```scala
 class IODesign extends DFDesign:
   val i = UInt(8) <> IN
@@ -307,9 +309,23 @@ class IODesign extends DFDesign:
   o <> i
 ```
 
-![1531312715988](1541501963343.png)
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = IODesign
+    inPorts = [i]
+    outPorts = [o]
+    edges = [[IODesign.i, IODesign.o]]
+  }
+]
+```
+
+</div>
 
 ---
+
+<div class="grid" markdown>
 
 ```scala
 class IODesign1 extends DFDesign:
@@ -320,9 +336,27 @@ class IODesign1 extends DFDesign:
   o   <> tmp
 ```
 
-![1531313031884](1541502005694.png)
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = IODesign1
+    inPorts = [i]
+    outPorts = [o]
+    children = [{ id = tmp }]
+    edges = [
+      [IODesign1.i, tmp]
+      [tmp, IODesign1.o]
+    ]
+  }
+]
+```
+
+</div>
 
 ---
+
+<div class="grid" markdown>
 
 ```scala
 class IODesign2 extends DFDesign:
@@ -334,9 +368,26 @@ class IODesign2 extends DFDesign:
   o2 <> i2
 ```
 
-![1531313204197](1541501792059.png)
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = IODesign2
+    inPorts = [i1, i2]
+    outPorts = [o1, o2]
+    edges = [
+      [IODesign2.i1, IODesign2.o1]
+      [IODesign2.i2, IODesign2.o2]
+    ]
+  }
+]
+```
+
+</div>
 
 ---
+
+<div class="grid" markdown>
 
 ```scala
 class Container extends DFDesign:
@@ -347,9 +398,29 @@ class Container extends DFDesign:
   io.o <> o    // connecting child output to owner output
 ```
 
-![1531313619621](1541502049075.png)
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = Container
+    inPorts = [i]
+    outPorts = [o]
+    children = [
+      { id = io, type = IODesign, highlight = 1, inPorts = [i], outPorts = [o] }
+    ]
+    edges = [
+      [Container.i, io.i]
+      [io.o, Container.o]
+    ]
+  }
+]
+```
+
+</div>
 
 ---
+
+<div class="grid" markdown>
 
 ```scala
 class Container2 extends DFDesign:
@@ -362,9 +433,31 @@ class Container2 extends DFDesign:
   io2.o <> o     // connecting child output to owner output
 ```
 
-![1531314589019](1541502098181.png)
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = Container2
+    inPorts = [i]
+    outPorts = [o]
+    children = [
+      { id = io1, type = IODesign, highlight = 1, inPorts = [i], outPorts = [o] }
+      { id = io2, type = IODesign, highlight = 1, inPorts = [i], outPorts = [o] }
+    ]
+    edges = [
+      [Container2.i, io1.i]
+      [io1.o, io2.i]
+      [io2.o, Container2.o]
+    ]
+  }
+]
+```
+
+</div>
 
 ---
+
+<div class="grid" markdown>
 
 ```scala
 class Container3 extends DFDesign:
@@ -376,9 +469,33 @@ class Container3 extends DFDesign:
   o <> (io.o1 + io.o2)
 ```
 
-![1531322811065](1541502127823.png)
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = Container3
+    inPorts = [i]
+    outPorts = [o]
+    children = [
+      { id = io, type = IODesign2, highlight = 1, inPorts = [i1, i2], outPorts = [o1, o2] }
+      { id = op, label = "+" }
+    ]
+    edges = [
+      [Container3.i, io.i1]
+      [Container3.i, io.i2]
+      [io.o1, op]
+      [io.o2, op]
+      [op, Container3.o]
+    ]
+  }
+]
+```
+
+</div>
 
 ---
+
+<div class="grid" markdown>
 
 ```scala
 class Container4 extends DFDesign:
@@ -390,7 +507,27 @@ class Container4 extends DFDesign:
   o     <> io.o2
 ```
 
-![1531344446287](1541502151965.png)
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = Container4
+    inPorts = [i]
+    outPorts = [o]
+    children = [
+      { id = const, label = 5, constant = 1 }
+      { id = io, type = IODesign2, highlight = 1, inPorts = [i1, i2], outPorts = [o1, o2] }
+    ]
+    edges = [
+      [Container4.i, io.i1]
+      [const, io.i2]
+      [io.o2, Container4.o]
+    ]
+  }
+]
+```
+
+</div>
 
 ---
 

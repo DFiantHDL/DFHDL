@@ -91,6 +91,27 @@ var hdelk = (function() {
     };
 
     /**
+     * Returns the subset of a node's edges that are "feed-throughs": edges whose source and
+     * target are both ports of this same node (e.g. connecting an input port directly to an
+     * output port). These represent a direct internal wire and are rendered as a straight
+     * line across the node rather than routed by ELK (which would loop them around the
+     * outside, since boundary ports face outward).
+     * Must be called after ports and edges have been normalized.
+     * @param {object} child node under consideration
+     * @returns {Array} the feed-through edges
+     */
+    var feedThroughEdges = function( child ) {
+        if ( !child.edges || !child.ports ) return [];
+        var ownPortIds = {};
+        child.ports.forEach( function( p ) { if ( p && p.id ) ownPortIds[ p.id ] = true; } );
+        return child.edges.filter( function( e ) {
+            var s = e.sources && e.sources[ 0 ];
+            var t = e.targets && e.targets[ 0 ];
+            return s && t && ownPortIds[ s ] && ownPortIds[ t ];
+        } );
+    };
+
+    /**
      * Takes the child object and recursively transforms sub-objects into a form that Elk.JS can use
      * @param {object} child present child node under consideration
      */
@@ -435,6 +456,16 @@ var hdelk = (function() {
             } );
         }
 
+        // Nodes with internal feed-through wires (input port wired straight to output
+        // port) get their label placed at the top and a minimum height, so the straight
+        // wire(s) drawn across the node don't overlap the centered label text.
+        if ( feedThroughEdges( child ).length > 0 ) {
+            child.layoutOptions[ 'elk.nodeLabels.placement' ] = 'V_TOP H_CENTER INSIDE';
+            child.layoutOptions[ 'elk.nodeSize.constraints' ] = 'NODE_LABELS PORTS MINIMUM_SIZE';
+            child.layoutOptions[ 'elk.nodeSize.minimum' ] = '(0, 60)';
+            delete child.layoutOptions[ 'elk.nodeSize.options' ];
+        }
+
         var children = child.children;
         if ( children ) {
             children.forEach( function( item, index ) {
@@ -506,8 +537,18 @@ var hdelk = (function() {
 
         var edges = child.edges;
         if ( edges ) {
+            // build a lookup of this node's own ports to detect feed-through edges
+            var ownPorts = {};
+            if ( child.ports )
+                child.ports.forEach( function( p ) { if ( p && p.id ) ownPorts[ p.id ] = p; } );
             edges.forEach( function( item, index ) {
-                edge( group, item, offsetX + child.x, offsetY + child.y );
+                var s = item.sources && item.sources[ 0 ];
+                var t = item.targets && item.targets[ 0 ];
+                if ( s && t && ownPorts[ s ] && ownPorts[ t ] )
+                    // feed-through wire: draw a direct line between the two own ports
+                    feedThroughWire( group, ownPorts[ s ], ownPorts[ t ], offsetX + child.x, offsetY + child.y );
+                else
+                    edge( group, item, offsetX + child.x, offsetY + child.y );
             } );
         }
 
@@ -582,6 +623,23 @@ var hdelk = (function() {
             shape = group.rect(width, height);
         }
         shape.attr({ fill:color, 'stroke-width': strokeWidthValue, stroke:stroke_color }).stroke({width:strokeWidthValue}).move(x,y);
+        return group;
+    }
+
+    /**
+     * Draws a direct internal wire between two ports of the same node (a feed-through),
+     * as a straight line from the source port center to the target port center, with a
+     * terminator at the target end to indicate direction.
+     */
+    var feedThroughWire = function( draw, srcPort, tgtPort, offsetX, offsetY ) {
+        var group = draw.group();
+        var x1 = offsetX + srcPort.x + srcPort.width / 2;
+        var y1 = offsetY + srcPort.y + srcPort.height / 2;
+        var x2 = offsetX + tgtPort.x + tgtPort.width / 2;
+        var y2 = offsetY + tgtPort.y + tgtPort.height / 2;
+        group.line( x1, y1, x2, y2 ).stroke( { color: edge_color, width: edge_width } );
+        var terminator = ( edge_width < 3 ) ? 3 : edge_width;
+        group.rect( terminator * 2, terminator * 2 ).attr( { fill: edge_color } ).move( x2 - terminator, y2 - terminator );
         return group;
     }
 

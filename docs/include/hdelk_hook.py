@@ -1,16 +1,28 @@
 import re
 import json
+import hashlib
 import subprocess
 import tempfile
 import os
 from pyhocon import ConfigFactory
 
 CACHE_DIR = os.path.join('.cache', 'plugin', 'hdelk')
+GENERATOR_PATH = os.path.join('docs', 'javascripts', 'hdelk.js')
+
+# The cache key incorporates the generator source so that any change to hdelk.js
+# automatically invalidates previously cached SVGs. A deterministic hash (md5) is used
+# so the cache is also reused across separate builds (unlike the randomized builtin hash).
+try:
+    with open(GENERATOR_PATH, 'r', encoding='utf-8') as _gen_file:
+        GENERATOR_SRC = _gen_file.read()
+except OSError:
+    GENERATOR_SRC = ''
 
 def replace_hdelk(match):
     width = match.group(1) or "100%"  # Default to 100% if width is not specified
     diagram_json = json.dumps(ConfigFactory.parse_string(match.group(2)), indent=2)
-    diagram_id = f"hdelk-diagram-{hash(diagram_json)}"  # Generate a unique ID
+    cache_key = hashlib.md5((diagram_json + GENERATOR_SRC).encode('utf-8')).hexdigest()
+    diagram_id = f"hdelk-diagram-{cache_key}"  # Generate a unique ID
     svg_file_path = os.path.join(CACHE_DIR, f"{diagram_id}.svg")
 
     # Ensure the cache directory exists
