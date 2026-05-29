@@ -594,9 +594,9 @@ object DFBits:
           R
       ](using
           ub: DFUInt.Val.UBArg[W, R]
-      ): ExactOp2Aux["apply", DFC, DFValAny, L, R, DFVal[DFBit, Modifier[A, Any, Any, P]]] =
+      ): ExactOp2Aux["apply", DFC, DFValAny, L, R, DFVal[DFBit, Modifier[A, C, Any, P]]] =
         new ExactOp2["apply", DFC, DFValAny, L, R]:
-          type Out = DFVal[DFBit, Modifier[A, Any, Any, P]]
+          type Out = DFVal[DFBit, Modifier[A, C, Any, P]]
           def apply(lhs: L, idx: R)(using DFC): Out = trydf {
             DFVal.Alias.ApplyIdx(DFBit, lhs, ub(lhs.widthIntParam, idx)(using dfc.anonymize))
           }(using dfc, CTName("bit selection (apply)"))
@@ -616,10 +616,10 @@ object DFBits:
           checkHiLo: BitsHiLo.CheckNUB[HI, LO]
       ): ExactOp3Aux["apply", DFC, DFValAny, L, HI, LO, DFVal[
         DFBits[HI - LO + 1],
-        Modifier[A, Any, Any, P]
+        Modifier[A, C, Any, P]
       ]] =
         new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
-          type Out = DFVal[DFBits[HI - LO + 1], Modifier[A, Any, Any, P]]
+          type Out = DFVal[DFBits[HI - LO + 1], Modifier[A, C, Any, P]]
           def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
             val idxHighParam = IntParam(idxHigh)
             val idxLowParam = IntParam(idxLow)
@@ -812,12 +812,12 @@ object DFBits:
         def unary_~(using DFCG): DFValTP[DFBits[W], P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
         }
-        def msbit(using DFCG): DFVal[DFBit, Modifier[A, Any, Any, P]] =
+        def msbit(using DFCG): DFVal[DFBit, Modifier[A, C, Any, P]] =
           import DFVal.Ops.apply as applyBits
-          lhs.applyBits((lhs.widthIntParam - 1).toDFConst).asVal[DFBit, Modifier[A, Any, Any, P]]
-        def lsbit(using DFCG): DFVal[DFBit, Modifier[A, Any, Any, P]] =
+          lhs.applyBits((lhs.widthIntParam - 1).toDFConst).asVal[DFBit, Modifier[A, C, Any, P]]
+        def lsbit(using DFCG): DFVal[DFBit, Modifier[A, C, Any, P]] =
           import DFVal.Ops.apply as applyBits
-          lhs.applyBits(0).asVal[DFBit, Modifier[A, Any, Any, P]]
+          lhs.applyBits(0).asVal[DFBit, Modifier[A, C, Any, P]]
         def msbits[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFCG

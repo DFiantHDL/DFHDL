@@ -1616,4 +1616,83 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+  test("partial bit and range connections to a single port") {
+    class Foo extends EDDesign:
+      val a = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      y(0)    <> a(7)
+      y(7, 1) <> a(6, 0)
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Foo(
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign y[0] = a[7];
+         |  assign y[7:1] = a[6:0];
+         |endmodule""".stripMargin
+    )
+  }
+  test("struct field connections to a single port") {
+    case class AB(a: Bits[4] <> VAL, b: Bits[4] <> VAL) extends Struct
+    class Foo extends EDDesign:
+      val i = AB <> IN
+      val y = AB <> OUT
+      y.a <> i.b
+      y.b <> i.a
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|typedef struct packed {
+         |  logic [3:0] a;
+         |  logic [3:0] b;
+         |} t_struct_AB;
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.svh"
+         |
+         |module Foo(
+         |  input  wire t_struct_AB i,
+         |  output t_struct_AB y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign y.a = i.b;
+         |  assign y.b = i.a;
+         |endmodule""".stripMargin
+    )
+  }
+  test("partial connect and assign mix under RTDesign") {
+    class Foo extends RTDesign:
+      val a = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      y(3, 0) <> a(3, 0)
+      y(7, 4) := a(7, 4)
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Foo(
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign y[3:0] = a[3:0];
+         |  always_comb
+         |  begin
+         |    y[7:4] = a[7:4];
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

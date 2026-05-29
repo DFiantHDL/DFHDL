@@ -297,7 +297,7 @@ object DFVal extends DFValLP:
   protected type FieldWithModifier[V, M <: ModifierAny] = V match
     case DFVal[t, _] =>
       M match
-        case Modifier[a, Any, i, p] => DFVal[t, Modifier[a, Any, i, p]]
+        case Modifier[a, c, i, p] => DFVal[t, Modifier[a, c, i, p]]
   protected type FieldsWithModifier[V <: NamedTuple.AnyNamedTuple, M <: ModifierAny] =
     NamedTuple.Map[V, [t] =>> FieldWithModifier[t, M]]
   protected[core] type Fields[T <: DFTypeAny, M <: ModifierAny] = T match

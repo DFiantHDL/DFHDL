@@ -88,17 +88,12 @@ class DFTypeSpec extends DFSpec:
     )(
       """z(3, 0).prev"""
     )
-    assertCompileError(
-      "At least one of the connection arguments must be a connectable DFHDL value (var/port)."
-    )(
-      """z(3, 0) <> all(0)"""
-    )
+    // a partial selection of a connectable (var/port) is itself connectable
+    z(3, 0) <> all(0)
     val tplx = tpl <> VAR
     tplx._1 := 1
-    assertCompileError(
-      "At least one of the connection arguments must be a connectable DFHDL value (var/port)."
-    )(
-      """tplx._1 <> 1"""
-    )
+    // struct/tuple field selection of a connectable is also connectable
+    val tplc = tpl <> VAR
+    tplc._1 <> 1
   }
 end DFTypeSpec

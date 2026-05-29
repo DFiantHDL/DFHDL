@@ -225,7 +225,10 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val design = inst.getDesignBlock
     val ports = getSet.designDB.designInstPBNS(inst).view.collect {
       case pbns if pbns.isIn =>
-        val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionTo.get.runtimeChecked
+        // the positional def-instance form expects a single producer per input port;
+        // a piecewise-connected input port (multiple partial nets) cannot be rendered
+        // here, so we fall back to the first connection's producer.
+        val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionsTo.head.runtimeChecked
         printer.csDFValRef(from, inst.getOwner)
     }.mkString(", ")
     val designParamList = csDesignParamList(inst.paramMap)

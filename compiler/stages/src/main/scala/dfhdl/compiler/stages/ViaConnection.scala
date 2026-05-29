@@ -17,40 +17,49 @@ case object ViaConnection extends HierarchyStage:
         val pbnsSkip = mutable.Set.empty[DFVal.PortByNameSelect]
         val pbnsGrps =
           subDB.designInstPBNS.getOrElse(ib, Nil).groupBy(_.portNamePath).values.toList
-        pbnsGrps.foreach {
-          // a single PBNS is connected to no more than a single net
-          case List(pbns) =>
-            if (pbns.isOut)
-              pbns.getConnectionsFrom.headOption match
-                // already has via connections
-                case Some(n) if n.isViaConnection => pbnsSkip += pbns
-                // connected to OPEN, so we skip it from variable creation, but add the net to
-                // the list of nets to be moved as via connections
-                case Some(n @ DFNet.Connection(toVal = openVal: DFVal.Special))
-                    if openVal.isOpen =>
-                  pbnsSkip += pbns
-                  nets += n
-                // already connected to a variable, but without via connection, so we add the net
-                // to the list of nets to be moved as via connections
-                case Some(n @ DFNet.Connection(toVal = DclVar())) =>
-                  pbnsSkip += pbns
-                  nets += n
-                // not connected through a net
-                case _ => // do nothing
-              end match
-            else // input port
-              pbns.getConnectionTo match
-                // already has via connections
-                case Some(n) if n.isViaConnection => pbnsSkip += pbns
-                // we have a single net that is assigned not more than once (otherwise, for RTL purposes we require another value so an internal multi-assignment rtl variable/reg can be assigned into a signal/wire)
-                case Some(n @ DFNet.Connection(fromVal = v @ DclVar()))
-                    if v.getAssignmentsTo.isEmpty =>
-                  nets += n
-                  pbnsSkip += pbns
-                // not connected through a net
-                case _ => // do nothing
-          // multiple PBNS (all belong to the same port)
-          case _ => // do nothing
+        pbnsGrps.foreach { pbnss =>
+          // all connection nets driving (input) or driven by (output) this port group.
+          // a port may be wired by several nets, each covering a disjoint bit range.
+          val groupNets =
+            pbnss.flatMap(p => if (p.isOut) p.getConnectionsFrom else p.getConnectionsTo).toSet
+          // a port already wired through via-connections (possibly several partial ones)
+          // is left untouched
+          if (groupNets.nonEmpty && groupNets.forall(_.isViaConnection))
+            pbnss.foreach(pbnsSkip += _)
+          else
+            pbnss match
+              // a single PBNS that is not already a via-connection
+              case List(pbns) =>
+                if (pbns.isOut)
+                  pbns.getConnectionsFrom.headOption match
+                    // connected to OPEN, so we skip it from variable creation, but add the net to
+                    // the list of nets to be moved as via connections
+                    case Some(n @ DFNet.Connection(toVal = openVal: DFVal.Special))
+                        if openVal.isOpen =>
+                      pbnsSkip += pbns
+                      nets += n
+                    // already connected to a variable, but without via connection, so we add the
+                    // net to the list of nets to be moved as via connections
+                    case Some(n @ DFNet.Connection(toVal = DclVar())) =>
+                      pbnsSkip += pbns
+                      nets += n
+                    // not connected through a net
+                    case _ => // do nothing
+                  end match
+                else // input port
+                  pbns.getConnectionsTo.toList match
+                    // we have a single net that is assigned not more than once (otherwise, for RTL purposes we require another value so an internal multi-assignment rtl variable/reg can be assigned into a signal/wire)
+                    case (n @ DFNet.Connection(fromVal = v @ DclVar())) :: Nil
+                        if v.getAssignmentsTo.isEmpty =>
+                      nets += n
+                      pbnsSkip += pbns
+                    // not connected through a net
+                    case _ => // do nothing
+                  end match
+              // multiple PBNS (all belong to the same port) that are not via-connected are
+              // bridged through a synthesized variable
+              case _ => // do nothing
+            end match
         }
 
         // Meta design to construct the variables to be connected to the ports

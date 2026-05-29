@@ -302,6 +302,82 @@ class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("Partial via-connections on an input port are preserved") {
+    class ID extends DFDesign:
+      val x = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      y := x
+
+    class IDTop extends DFDesign:
+      val a  = Bits(8) <> IN
+      val y  = Bits(8) <> OUT
+      val id = new ID:
+        this.x(3, 0) <> a(3, 0)
+        this.x(7, 4) <> a(7, 4)
+      id.y <> y
+
+    val top = (new IDTop).viaConnection
+    assertCodeString(
+      top,
+      """|class ID extends DFDesign:
+         |  val x = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
+         |  y := x
+         |end ID
+         |
+         |class IDTop extends DFDesign:
+         |  val a = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
+         |  val id_y = Bits(8) <> VAR
+         |  val id = new ID():
+         |    this.y <>/*-->*/ id_y
+         |    this.id.x(3, 0) <>/*<--*/ a(3, 0)
+         |    this.id.x(7, 4) <>/*<--*/ a(7, 4)
+         |  end id
+         |  y <> id_y
+         |end IDTop
+         |""".stripMargin
+    )
+  }
+  test("Partial connections to an instance input port are bridged through a variable") {
+    class ID extends DFDesign:
+      val x = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      y := x
+
+    class IDTop extends DFDesign:
+      val x  = Bits(8) <> IN
+      val y  = Bits(8) <> OUT
+      val id = new ID
+      id.x(3, 0) <> x(3, 0)
+      id.x(7, 4) <> x(7, 4)
+      id.y       <> y
+
+    val top = (new IDTop).viaConnection
+    assertCodeString(
+      top,
+      """|class ID extends DFDesign:
+         |  val x = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
+         |  y := x
+         |end ID
+         |
+         |class IDTop extends DFDesign:
+         |  val x = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
+         |  val id_x = Bits(8) <> VAR
+         |  val id_y = Bits(8) <> VAR
+         |  val id = new ID():
+         |    this.x <>/*<--*/ id_x
+         |    this.y <>/*-->*/ id_y
+         |  end id
+         |  id_x(3, 0) <> x(3, 0)
+         |  id_x(7, 4) <> x(7, 4)
+         |  y <> id_y
+         |end IDTop
+         |""".stripMargin
+    )
+  }
   test("Hierarchical design with parameters 1") {
     class ID(
         val width: Int <> CONST,

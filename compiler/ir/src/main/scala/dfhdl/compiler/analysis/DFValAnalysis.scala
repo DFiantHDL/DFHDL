@@ -224,8 +224,8 @@ extension (dfVal: DFVal)
   //     case _ => false
   //   }
   // end hasPrevAlias
-  def getConnectionTo(using MemberGetSet): Option[DFNet] =
-    getSet.designDB.connectionTable.getNets(dfVal).headOption
+  def getConnectionsTo(using MemberGetSet): Set[DFNet] =
+    getSet.designDB.connectionTable.getNets(dfVal)
   def getConnectionsFrom(using MemberGetSet): Set[DFNet] =
     getSet.designDB.connectionTableInverted.getOrElse(dfVal, Set())
   def getAssignmentsTo(using MemberGetSet): Set[DFVal] =
@@ -385,7 +385,7 @@ extension (dfVal: DFVal)
   def isConstVAR(using MemberGetSet): Boolean =
     dfVal match
       case dcl @ DclVar() =>
-        dcl.getAssignmentsTo.isEmpty && dcl.getConnectionTo.isEmpty
+        dcl.getAssignmentsTo.isEmpty && dcl.getConnectionsTo.isEmpty
       case _ => false
   def isAllowedMultipleReferences(using MemberGetSet): Boolean = dfVal match
     case _ if !dfVal.isAnonymous    => true // allow named

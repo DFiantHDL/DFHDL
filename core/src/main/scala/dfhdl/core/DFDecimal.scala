@@ -964,9 +964,9 @@ object DFXInt:
           R
       ](using
           ub: DFUInt.Val.UBArg[W, R]
-      ): ExactOp2Aux["apply", DFC, DFValAny, L, R, DFValTP[DFBit, P]] =
+      ): ExactOp2Aux["apply", DFC, DFValAny, L, R, DFVal[DFBit, Modifier[A, C, Any, P]]] =
         new ExactOp2["apply", DFC, DFValAny, L, R]:
-          type Out = DFValTP[DFBit, P]
+          type Out = DFVal[DFBit, Modifier[A, C, Any, P]]
           def apply(lhs: L, idx: R)(using DFC): Out = trydf {
             DFVal.Alias.ApplyIdx(DFBit, lhs, ub(lhs.widthIntParam, idx)(using dfc.anonymize))
           }(using dfc, CTName("bit selection (apply)"))
@@ -985,12 +985,12 @@ object DFXInt:
           checkHigh: BitIndex.CheckNUB[HI, W],
           checkLow: BitIndex.CheckNUB[LO, W],
           checkHiLo: BitsHiLo.CheckNUB[HI, LO]
-      ): ExactOp3Aux["apply", DFC, DFValAny, L, HI, LO, DFValTP[
+      ): ExactOp3Aux["apply", DFC, DFValAny, L, HI, LO, DFVal[
         DFUInt[HI - LO + 1],
-        P
+        Modifier[A, C, Any, P]
       ]] =
         new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
-          type Out = DFValTP[DFUInt[HI - LO + 1], P]
+          type Out = DFVal[DFUInt[HI - LO + 1], Modifier[A, C, Any, P]]
           def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
             val idxHighParam = IntParam(idxHigh)
             val idxLowParam = IntParam(idxLow)
