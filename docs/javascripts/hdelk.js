@@ -456,14 +456,19 @@ var hdelk = (function() {
             } );
         }
 
-        // Nodes with internal feed-through wires (input port wired straight to output
-        // port) get their label placed at the top and a minimum height, so the straight
-        // wire(s) drawn across the node don't overlap the centered label text.
-        if ( feedThroughEdges( child ).length > 0 ) {
+        // Nodes with internal feed-through wires (an input port wired straight to an
+        // output port) place their label at the top and reserve vertical space between
+        // the top border and the ports. This keeps the straight wire(s), which are drawn
+        // at the port positions, below the label text so they never cross it. The reserved
+        // space is counted into the node size (NODE_LABELS PORTS), so the box grows to fit.
+        var ftCount = feedThroughEdges( child ).length;
+        if ( ftCount > 0 ) {
+            // Place the label at the top and pack the ports (where the feed-through wires
+            // attach) toward the bottom. The node is grown to fit a top label band plus one
+            // wire row per feed-through, so the wires stay clear below the label text.
             child.layoutOptions[ 'elk.nodeLabels.placement' ] = 'V_TOP H_CENTER INSIDE';
-            child.layoutOptions[ 'elk.nodeSize.constraints' ] = 'NODE_LABELS PORTS MINIMUM_SIZE';
-            child.layoutOptions[ 'elk.nodeSize.minimum' ] = '(0, 60)';
-            delete child.layoutOptions[ 'elk.nodeSize.options' ];
+            child.layoutOptions[ 'elk.portAlignment.default' ] = 'END';
+            child.layoutOptions[ 'elk.nodeSize.minimum' ] = '(0, ' + ( 30 + ftCount * 22 ) + ')';
         }
 
         var children = child.children;
