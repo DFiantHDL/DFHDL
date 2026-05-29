@@ -4,19 +4,26 @@ typora-copy-images-to: ./
 [](){#connectivity}
 # Connectivity
 
+DFHDL wires designs together with two kinds of operators:
+
+* The connection operator `<>`.
+* The assignment operators `:=` (blocking) and `:==` (non-blocking).
+
+This section focuses on the `<>` connection operator and how it relates to the assignment operators.
+
 ## Key Differences Between `<>` and `:=`/`:==`
 
-| Criteria                            | `<>` Connection                                              | `:=`/`:==` Assignment                                              |
-| ----------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| Directionality &<br />Commutativity | The operator is commutative, meaning `a <> b` is equivalent to b `b <> a`.  One argument is the *producer*, while the other *consumer*. The dataflow direction is sensitive to the context in which the operator is applied. | The operator is non-commutative, meaning `a := b` determines that `b` is the *producer*, transferring data to the *consumer* `a`. |
-| Mutation                            | A consumer can only be connected once.                       | Consumer assignments are unlimited.                          |
-| Statement Order                     | Connections statements can be placed in any order.           | Assignment statements                                        |
+| Criteria | `<>` Connection | `:=`/`:==` Assignment |
+| --- | :--- | :--- |
+| Directionality &<br />Commutativity | Commutative: `a <> b` is equivalent to `b <> a`. One side is the *producer* and the other the *consumer*; the dataflow direction is inferred from the operands and the context in which the operator is applied. | Non-commutative: `a := b` makes `b` the *producer*, transferring data to the *consumer* `a`. |
+| Mutation | Each consumer bit can be connected at most once. A consumer may still receive several connections, as long as they target disjoint bit ranges (e.g. `y(3, 0) <> a` and `y(7, 4) <> b`). | A consumer bit can be assigned any number of times; the last assignment in program order wins. |
+| Statement Order | Connection statements can be placed in any order. | Assignment statements are order-sensitive. |
 
-##Connection `<>` Rules
+## Connection `<>` Rules
 
-###Port Direct Connections
+### Port Direct Connections
 
-The onnection operator `<>` is generally used to connect parent designs to their child designs (components) and connect between sibling designs (children of the same parent). Opposed to VHDL/Verilog, there is no need to go through 'signals' to connect sibling design ports, e.g.:
+The connection operator `<>` is generally used to connect parent designs to their child designs (components) and to connect between sibling designs (children of the same parent). Unlike VHDL/Verilog, there is no need to go through intermediate 'signals' to connect sibling design ports, e.g.:
 
 <div class="grid" markdown>
 
@@ -67,7 +74,7 @@ children = [
 
 </div>
 
-###Port Via Connections
+### Port Via Connections
 
 ```scala
 class Plus1 extends DFDesign:
@@ -88,9 +95,9 @@ class Plus2 extends EDDesign:
   val p1B = new Plus1():
     this.x <> p1B_x
     this.y <> p1B_y
-  p1A_x    <> x
-  p1B_x    <> p1A_y
-  y        <> p1B_y
+  p1A_x <> x
+  p1B_x <> p1A_y
+  y     <> p1B_y
 end Plus2
 ```
 
@@ -98,7 +105,7 @@ end Plus2
     type: dfhdl
 
 ```scastie main="top_Plus2"
-import dfhdl.* 
+import dfhdl.*
 
 class Plus1 extends DFDesign:
   val x = UInt(8) <> IN
@@ -120,186 +127,152 @@ given options.CompilerOptions.PrintDFHDLCode = true
 
 ///
 
+### Connectable Value Connections
 
-
-###Dataflow Value Connections
-
-At least one of the connected sides must be a dataflow port (cannot connect two dataflow values together), e.g.:
+At least one side of a connection must be a *connectable* DFHDL value — a variable (`VAR`) or a port (`IN`/`OUT`/`INOUT`). Connecting two immutable values (e.g. two constants or two read-only aliases) is not allowed, e.g.:
 
 ```scala
-trait Conn1 {
-  val port = DFUInt(8) <> OUT
-  val temp1 = DFUInt(8)
-  val temp2 = DFUInt(8)
-  port <> temp1 //OK!
-  temp1 <> temp2 //Bad connection! At least one connection side must be a port
-}
+class Conn1 extends DFDesign:
+  val port  = UInt(8) <> OUT
+  val temp1 = UInt(8) <> VAR
+  val temp2 = UInt(8) <> VAR
+  port  <> temp1 // OK: a port connected to a variable
+  temp1 <> temp2 // OK: both sides are connectable variables
 ```
 
+### Partial Selection Connections
 
-
-### Dataflow Input Port Assignment `:=` Rule
-
-An input port cannot be assigned to. A connection must be used to transfer data to an input port, e.g.:
+A partial selection of a connectable value is itself connectable. This includes bit selection and bit-range selection of `Bits`/`UInt`/`SInt` values, as well as struct field and tuple element selection. This lets you drive a single port or variable from several sources, as long as each bit is driven exactly once (see [Multiple Connections](#multiple-connections)):
 
 ```scala
-trait IO extends DFDesign {
-  val in  = DFUInt(8) <> IN
-  val out = DFUInt(8) <> OUT
-  out := in //OK! Can assign internally to an output port
-}
-trait Assign1 extends DFDesign {
-  val io = new IO{}
-  io.in := 1 //Bad assignment! Must use a connection annotation
-  io.in <> 1 //OK!
-  io.out := 1 //Bad assignment! Output ports can only be assigned internally
-}
+class Split extends EDDesign:
+  val hi = UInt(4) <> IN
+  val lo = UInt(4) <> IN
+  val y  = Bits(8) <> OUT
+  y(7, 4) <> hi.bits
+  y(3, 0) <> lo.bits
 ```
 
+### Input Port Assignment `:=` Rule
 
-
-###Immutable Value Connections
-
-When connecting a port to an immutable value, the port must be a consumer, meaning the connection is done internally to an output port or externally to an input port, e.g.:
+An input port cannot be assigned to. A connection must be used to drive data into an input port, e.g.:
 
 ```scala
-trait IO extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  //For brevity, we consider every connection/assignment in this example separately.
-  //We ignore multiple connection issues that should arise.
-  o <> 1 //OK!
-  i <> 1 //Bad connection! 1 is immutable (constant)
-  i <> o.prev //Bad connection! o.prev is immutable
-  i.prev <> o //OK!
-}
-trait IOUser extends DFDesign {
-  val io = new IO {}
-  io.i <> 1 //OK!
-  io.o <> 1 //Bad connection! 1 is immutable
-}
+class IO extends DFDesign:
+  val in  = UInt(8) <> IN
+  val out = UInt(8) <> OUT
+  out := in // OK: an output port can be assigned internally
+
+class Assign1 extends DFDesign:
+  val io = IO()
+  // io.in := 1  // Bad assignment! An input port cannot be assigned to
+  io.in <> 1     // OK: use a connection instead
+  // io.out := 1 // Bad assignment! An output port can only be assigned internally
 ```
 
- <div style="page-break-after: always;"></div>
+### Immutable Value Connections
+
+When connecting a port to an immutable value (such as a constant), the port must be the consumer. This means the connection is done internally to an output port or externally to an input port, e.g.:
+
+```scala
+class IO extends DFDesign:
+  val i = UInt(8) <> IN
+  val o = UInt(8) <> OUT
+  o <> 1     // OK: `o` (output) is the consumer of the constant `1`
+  // i <> 1  // Bad connection! `i` is a producer internally; a constant cannot drive into it
+
+class IOUser extends DFDesign:
+  val io = IO()
+  io.i <> 1    // OK: `io.i` is a consumer externally
+  // io.o <> 1 // Bad connection! `io.o` is a producer externally
+```
+
 ### Different Type Connections
 
-Connecting between different types is possible, but depends on the specific type: if it enables automatic conversion for the connection to succeed. Different port widths are considered different types and casting is required. An alias/casted/converted dataflow value is considered immutable for the connection (see above). Here are some examples:
+Connecting between different types requires the types to match, possibly through an explicit cast. Different widths are considered different types and require an explicit cast/resize. A casted/converted dataflow value is immutable for the purposes of the connection (see [above](#immutable-value-connections)), so it can only be used as a producer. Here are some examples:
 
 ```scala
-trait DifferentTypesConn extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  val ob9 = DFBits(9) <> OUT
-  
-  val u7 = DFUInt(7)
-  val u9 = DFUInt(9)
-  val b8 = DFBits(8)
-  
-  //For brevity, we consider every connection/assignment in this example separately.
-  //We ignore multiple connection issues that should arise.
-  u7 <> o //OK! u7 is automatically extended to connect to 
-  u7 <> i //Bad connection! u7 is considered immutable when extended to 8 bits
-  o <> b8 //Bad connection! There is not automatic casting between bits and uint
-  o <> b8.uint //OK!
-  o.bits <> b8 //Bad connection! An alias of output port cannot be connected to
-               //This may change in the future.
-  o.bits := b8 //OK!
-  u9 <> i //OK! In this example u9 is the consumer
-  ob9 <> b8 //Bad connection! Bit vectors are NOT automatically extended.
-  ob9 := b8 //Bad assignment! Bit vectors are NOT automatically extended.
-}
+class DifferentTypesConn extends DFDesign:
+  val o   = UInt(8) <> OUT
+  val ob9 = Bits(9) <> OUT
+  val b8  = Bits(8) <> VAR
+  val b9  = Bits(9) <> VAR
+  o   <> b8.uint  // OK: an explicit Bits-to-UInt cast is applied
+  ob9 <> b9       // OK: matching 9-bit Bits widths
+  // o   <> b8    // Bad connection! There is no automatic casting between Bits and UInt
+  // ob9 <> b8    // Bad connection! Bit vectors are NOT automatically extended (8 vs 9)
+  // o.bits <> b8 // Bad connection! `.bits` is a type-cast alias (immutable) of the output port
 ```
 
- <div style="page-break-after: always;"></div>
-### Multiple Connections
+In contrast to type casts, *bit and bit-range selections* of a port (e.g. `o(3, 0)`) are connectable, as shown in [Partial Selection Connections](#partial-selection-connections).
 
-Two or more dataflow producers cannot be connected to the same consumer (a single producer can be connected to more than one consumer), e.g.:
+### Multiple Connections {#multiple-connections}
+
+A given consumer bit can be connected at most once. A single producer, however, can be connected to more than one consumer. Connecting two producers to the *same* consumer bit is an error:
 
 ```scala
-trait Gen extends DFDesign {
-  val out1 = DFUInt(8) <> OUT init 1
-  val out2 = DFUInt(8) <> OUT init 2
-}
-trait Conn2 extends DFDesign {
-  val in1 = DFUInt(8) <> IN
-  val in2 = DFUInt(8) <> IN
-  val out = DFUInt(8) <> OUT
-  val temp1 = DFUInt(8)
-  temp1 <> in1 //OK!
-  out   <> in1 //Also OK! (Same producer can connect to more than one cosumer)
-  temp1 <> in2 //Bad connection! Second producer connection to temp1
-  
-  val gen = new Gen {}
-  val temp2 = DFUInt(8)
-  val temp3 = DFUInt(8)
-  gen.out1 <> temp2 //OK!
-  gen.out1 <> temp3 //Also OK! (Same producer can connect to more than one cosumer)
-  gen.out2 <> temp2 //Bad connection! Second producer connection to temp2
-} 
+class Conn2 extends DFDesign:
+  val in1   = UInt(8) <> IN
+  val in2   = UInt(8) <> IN
+  val out   = UInt(8) <> OUT
+  val temp1 = UInt(8) <> VAR
+  temp1 <> in1   // OK
+  out   <> in1   // Also OK! The same producer can connect to more than one consumer
+  // temp1 <> in2 // Bad connection! A second producer drives the same bits of `temp1`
 ```
 
-
-
-###Mixing Assignments and Connections 
-
-The same consumer cannot be both assigned to and connected to as the consumer, e.g.:
+Because a partial selection is connectable, the same consumer may be driven by several connections that cover *disjoint* bit ranges:
 
 ```scala
-trait Conn3 extends DFDesign {
-  val out1 = DFUInt(8) <> OUT
-  val out2 = DFUInt(8) <> OUT
-  val out3 = DFUInt(8) <> OUT
-  out1 <> 1 //OK!
-  out1 := 1 //Bad assignment! Cannot assign to a connected dataflow variable
-
-  out2 := 2 //OK!
-  out2 <> 2 //Bad connection! Cannot connect to an assigned dataflow variable
-
-  out3 := 1 //OK!
-  out3 := 2 //Also OK! (Multiple assignments are accepted)
-}
+class Conn3 extends EDDesign:
+  val a   = UInt(4) <> IN
+  val b   = UInt(4) <> IN
+  val out = Bits(8) <> OUT
+  out(3, 0) <> a.bits // OK: drives bits 3..0
+  out(7, 4) <> b.bits // OK: drives bits 7..4 (disjoint from the above)
+  // out(0) <> a(0)    // Bad connection! bit 0 is already driven above
 ```
 
+### Mixing Assignments and Connections
 
+The same consumer bit cannot be both assigned to (`:=`/`:==`) and connected to (`<>`), e.g.:
+
+```scala
+class Conn4 extends RTDesign:
+  val out1 = UInt(8) <> OUT
+  val out2 = UInt(8) <> OUT
+  val out3 = UInt(8) <> OUT
+  out1 <> 1   // OK
+  // out1 := 1 // Bad assignment! Cannot assign to a connected value
+
+  out2 := 2   // OK
+  // out2 <> 2 // Bad connection! Cannot connect to an assigned value
+
+  out3 := 1   // OK
+  out3 := 2   // Also OK! Multiple assignments to the same bits are accepted
+```
+
+Different bits of the same value may be split between an assignment and a connection, as long as the bit ranges are disjoint:
+
+```scala
+class Conn5 extends RTDesign:
+  val a = Bits(8) <> IN
+  val y = Bits(8) <> OUT
+  y(3, 0) <> a(3, 0) // OK: connection drives bits 3..0
+  y(7, 4) := a(7, 4) // OK: assignment drives bits 7..4 (disjoint from the above)
+```
 
 ### Connection Statement Order
 
-The connection `<>` statement ordering does not matter.
+The order of `<>` connection statements does not matter.
 
- <div style="page-break-after: always;"></div>
-### Connection and Initial Conditions
+### Open (Unconnected) Ports {#connectivity-open-ports}
 
-A connection `<>` transfers initial conditions to the consumer, but if the consumer is already initialized then the consumer keeps its existing initial conditions. Here is an example:
+Ports have two connection sides: a consumer side and a producer side. Typically both sides are connected, except for top-level ports. When either side is unconnected, the port is *open*, with the following behavior:
 
-```scala
-trait IOInit extends DFDesign {
-  val i = DFUInt(8)        //init = (11, 12) Overriden from TopInit connection
-  val o = DFUInt(8) init 5 //init = (5)      Not overridden due to assignment
-  val ip = i.prev          //init = (12)     Prev moves down the init queue
-  o := ip 
-}
-trait TopInit extends DFDesign {
-  val i = DFUInt(8) <> IN.init(1, 2)  //init = (1, 2)   The top-level initial conditions
-  val o = DFUInt(8) <> OUT init 1     //init = (1)      Keeps its initializaion
-  val iPlus10 = in + 10               //init = (11, 12) Arithmetics affect init
-  val io = new IOInit {}
-  io.i <> inPlus10  										
-  o <> io.o											
-}
-```
+* When the port consumer side is open, the port produces its initial value. An uninitialized open-consumer port produces a bubble (undefined) value.
 
-![1541618117728](1541618117728.png)
-
-We learn from the above that port initial conditions are often overridden due to connections. So why should we apply initial conditions to a port? Answer: If we want to define what happens when a port is open (unconnected). Read the next two sections for more information.
-
- <div style="page-break-after: always;"></div>
-###Open (Unconnected) Ports {#connectivity-open-ports}
-
-Ports have two connection sides: a consumer side and a producer side. Typically ports have both sides connected, except for top-level ports. When either port side is unconnected, we refer to it as *open*, and expect the following behavior:
-
-* When the port consumer side is open, the port produces tokens according to its initial condition. Uninitialized open-consumer ports generate bubble tokens.
-
-* When the port producer side is open (unless it is a top-level output port), the port is considered as not used, and is pruned during compilation. All dataflow streams that are only used by this port will be pruned as well.
+* When the port producer side is open (unless it is a top-level output port), the port is considered unused and is pruned during compilation, along with any logic used only to drive it.
 
 To explicitly mark a port as unconnected, use the `OPEN` keyword with the `<>` connection operator:
 
@@ -317,65 +290,21 @@ class Top extends EDDesign:
   val sensor_inst = Sensor()
   sensor_inst.din   <> din
   sensor_inst.dout  <> dout
-  sensor_inst.debug <> OPEN  // explicitly unconnected
+  sensor_inst.debug <> OPEN // explicitly unconnected
 ```
 
-**Note**: `OPEN` can only be used with the `<>` connection operator. Using it with `:=` assignment will result in a compile error.
+/// admonition
+    type: note
+`OPEN` can only be used with the `<>` connection operator. Using it with `:=` assignment results in a compile error.
+///
 
- <div style="page-break-after: always;"></div>
-### Initial Condition Cyclic Loop Errors
-
-Connections enable dataflow feedbacks and even dataflow dependency loops. There is no problem in dependency loops, other than pipelining limitations (see chapter TBD for more information). However, if we only apply connections and references that transfer initial conditions, we end up with a cyclic dependency for initial condition which is illegal. Therefore to enable dependency loops, at least one link in the loop must be an assignment, which has an implicit state and does not affect initial conditions. Consider the following examples:
-
-```scala
-trait IO1 extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  o <> i //Connection transfers initial conditions from i to o
-}
-trait BadConnLoop1 extends DFDesign {
-  val o = DFUInt(8) <> OUT
-  val io = new IO1 {}
-  io.i <> io.o //Bad connection! An initial conditions cyclic loop
-  o  <> io.o
-}
-trait IO2 extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  o <> i.prev //prev transfers initial conditions
-}
-trait BadConnLoop2 extends DFDesign {
-  val o = DFUInt(8) <> OUT
-  val io = new IO2 {}
-  io.i <> io.o //Bad connection! An initial conditions cyclic loop
-  o  <> io.o
-}
-trait IO3 extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  o := i //Assignment does not affect initial conditions and therefore breaks the loop
-}
-trait OKConnLoop extends DFDesign {
-  val o = DFUInt(8) <> OUT
-  val io = new IO3 {}
-  io.i <> io.o //OK!
-  o  <> io.o
-}
-```
-
-![1541525350659](1541603175175.png)
-
-**Note**: when following the drawing convention within this document, we want to avoid a double-lined loop in order to avoid a cyclic initial conditions dependency.
-
- <div style="page-break-after: always;"></div>
-##Valid Connection and Assignment Examples
+## Valid Connection and Assignment Examples
 
 ```scala
-trait IODesign extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
+class IODesign extends DFDesign:
+  val i = UInt(8) <> IN
+  val o = UInt(8) <> OUT
   o <> i
-}
 ```
 
 ![1531312715988](1541501963343.png)
@@ -383,13 +312,12 @@ trait IODesign extends DFDesign {
 ---
 
 ```scala
-trait IODesign1 extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  val tmp = DFUInt(8)
+class IODesign1 extends DFDesign:
+  val i   = UInt(8) <> IN
+  val o   = UInt(8) <> OUT
+  val tmp = UInt(8) <> VAR
   tmp <> i
-  o <> tmp
-}
+  o   <> tmp
 ```
 
 ![1531313031884](1541502005694.png)
@@ -397,14 +325,13 @@ trait IODesign1 extends DFDesign {
 ---
 
 ```scala
-trait IODesign2 extends DFDesign {
-  val i1 = DFUInt(8) <> IN
-  val o1 = DFUInt(8) <> OUT
-  val i2 = DFUInt(8) <> IN
-  val o2 = DFUInt(8) <> OUT
+class IODesign2 extends DFDesign:
+  val i1 = UInt(8) <> IN
+  val o1 = UInt(8) <> OUT
+  val i2 = UInt(8) <> IN
+  val o2 = UInt(8) <> OUT
   o1 <> i1
   o2 <> i2
-}
 ```
 
 ![1531313204197](1541501792059.png)
@@ -412,13 +339,12 @@ trait IODesign2 extends DFDesign {
 ---
 
 ```scala
-trait Container extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  val io = new IODesign {}
-  i    <> io.i //Connecting between owner input and child input
-  io.o <> o    //Connecting between child output and owner output
-}
+class Container extends DFDesign:
+  val i  = UInt(8) <> IN
+  val o  = UInt(8) <> OUT
+  val io = IODesign()
+  i    <> io.i // connecting owner input to child input
+  io.o <> o    // connecting child output to owner output
 ```
 
 ![1531313619621](1541502049075.png)
@@ -426,15 +352,14 @@ trait Container extends DFDesign {
 ---
 
 ```scala
-trait Container2 extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  val io1 = new IODesign {}
-  val io2 = new IODesign {}
-  i     <> io1.i //Connecting between owner input and child input
-  io1.o <> io2.i //Connecting between siblings (output <> input)
-  io2.o <> o     //Connecting between child output and owner output
-}
+class Container2 extends DFDesign:
+  val i   = UInt(8) <> IN
+  val o   = UInt(8) <> OUT
+  val io1 = IODesign()
+  val io2 = IODesign()
+  i     <> io1.i // connecting owner input to child input
+  io1.o <> io2.i // connecting between siblings (output <> input)
+  io2.o <> o     // connecting child output to owner output
 ```
 
 ![1531314589019](1541502098181.png)
@@ -442,14 +367,13 @@ trait Container2 extends DFDesign {
 ---
 
 ```scala
-trait Container3 extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  val io = new IODesign2 {}
-  i <> io.i1 //Connecting between owner input and child input
-  i <> io.i2 //Connecting between owner input and child input
+class Container3 extends DFDesign:
+  val i  = UInt(8) <> IN
+  val o  = UInt(8) <> OUT
+  val io = IODesign2()
+  i <> io.i1 // connecting owner input to child input
+  i <> io.i2 // connecting owner input to child input
   o <> (io.o1 + io.o2)
-}
 ```
 
 ![1531322811065](1541502127823.png)
@@ -457,51 +381,22 @@ trait Container3 extends DFDesign {
 ---
 
 ```scala
-trait Container4 extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  val io = new IODesign2 {}
-  i     <> io.i1 //Connecting between owner input and child input
-  io.i2 <> 5     //Connecting between constant value and child input
+class Container4 extends DFDesign:
+  val i  = UInt(8) <> IN
+  val o  = UInt(8) <> OUT
+  val io = IODesign2()
+  i     <> io.i1 // connecting owner input to child input
+  io.i2 <> 5     // connecting a constant value to a child input
   o     <> io.o2
-}
 ```
 
 ![1531344446287](1541502151965.png)
 
 ---
 
-```scala
-trait Blank2 extends DFDesign {
-  val i1 = DFUInt(8) <> IN
-  val o1 = DFUInt(8) <> OUT
-  val i2 = DFUInt(8) <> IN
-  val o2 = DFUInt(8) <> OUT    
-}
-trait Container5 extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  val io = new Blank2 {
-    o1 <> i1 //Assignment
-    o2 <> i2 //Internal connection   
-  }
-  i     <> io.i1 //Connecting between owner input and child input
-  io.i2 <> io.o1 //External connection between child input/output creates a feeback
-  o     <> io.o2
-}
-```
-
-![1531345077704](1541609861696.png)
-
-Note: although there is a feedback in this design, there is no circular initial conditions dependency.
-
----
-
-
 ## Magnet Port Connections
 
 ## Future Work
 
 * In the future `<>` will be used to connect multi-port interfaces.
-* We will add support to treat an alias of a port as a port when connection `<>` rules are enforced.
-* Connecting between any ancestor which is not a parent and child. Currently not supported fully.
+* Connecting between any ancestor which is not a direct parent and child. Currently not fully supported.
