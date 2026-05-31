@@ -67,7 +67,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     def regOrWireRep = dfVal.modifier.dir match
       case Modifier.IN => ""
       case _           =>
-        if (dfVal.getConnectionTo.nonEmpty) "wire "
+        if (dfVal.getConnectionsTo.nonEmpty) "wire "
         else "reg "
     val fixedDFTypeStr =
       if (supportLogicType) dfTypeStr

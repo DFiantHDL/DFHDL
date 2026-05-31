@@ -520,9 +520,9 @@ There is no `>>>` operator in DFHDL. The type of the LHS determines the shift se
 ///
 
 
-/// admonition | Bit/Boolean Operators: `|`/`&` and `||`/`&&`
+/// admonition | Bit/Boolean Operators: `|`/`&`/`~` and `||`/`&&`/`!`
     type: verilog
-In DFHDL, `||`/`&&` and `|`/`&` are interchangeable on `Bit` and `Boolean` types. The generated Verilog operator depends on the LHS type: `Bit` produces bitwise `|`/`&`, `Boolean` produces logical `||`/`&&`.
+In DFHDL, `||`/`&&`/`!` and `|`/`&`/`~` are interchangeable on `Bit` and `Boolean` types. The generated Verilog operator depends on the LHS type: `Bit` produces bitwise `|`/`&`/`~`, `Boolean` produces logical `||`/`&&`/`!`.
 <div class="grid" markdown>
 
 ```sv linenums="0" title="Verilog"
@@ -669,21 +669,23 @@ val bit5 = data(5)         // single bit
 
 </div>
 
-Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with the same syntax. Slicing preserves the source type:
+Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with the same syntax, including the `.msbits(W)` and `.lsbits(W)` convenience methods. As in Verilog, a slice is a bit-level operation and yields an unsigned result — `SInt` slices return `UInt`, not `SInt`:
 
 | Source type | Slice result |
 |---|---|
 | `Bits[N]` | `Bits` |
 | `UInt[N]` | `UInt` |
-| `SInt[N]` | `SInt` |
-
-You do **not** need to convert `SInt` to `Bits` before slicing — the result is already `SInt`:
+| `SInt[N]` | `UInt` (chain `.bits.sint` to re-interpret as signed) |
 
 ```scala
-val prod = SInt(16) <> VAR
-val top8 = prod(15, 8)  // 8-bit SInt slice
-val sign = prod(15)     // single bit access
+val prod  = SInt(16) <> VAR
+val top8U = prod(15, 8)             // UInt[8]: raw upper byte
+val top8M = prod.msbits(8)          // UInt[8]: same as prod(15, 8)
+val top8S = prod(15, 8).bits.sint   // SInt[8]: sign-preserving truncation
+val sign  = prod(15)                // single-bit access (Bit)
 ```
+
+To recover signed semantics on a slice, chain `.bits.sint` (re-interpret the bits as signed, same width). Do **not** use `.signed` for this — `.signed` is a numeric conversion that widens by one zero-extension bit, which is not what slice migration wants.
 ///
 
 /// admonition | Arithmetic with Signed Values and Constants
@@ -793,7 +795,7 @@ See [Arithmetic Operations][arithmetic-ops] and [Carry Arithmetic][carry-ops] fo
     type: verilog
 In Verilog, unsized integer literals are 32-bit. When combined with narrower signals, the wider literal causes the entire expression to evaluate at 32-bit width via context-dependent propagation. This prevents intermediate overflow in expressions like `(a + b + c + d) / 4`.
 
-In DFHDL, Scala `Int` literals are implicitly converted to minimum-width bit-accurate types (e.g., `4` becomes `UInt[3]`). Each arithmetic operation independently uses the LHS width, so intermediate results can overflow before reaching a division or shift.
+In DFHDL, Scala `Int` literals are implicitly converted to minimum-width bit-accurate types (e.g., `4` becomes `UInt[3]`). Each arithmetic operation independently uses the LHS width, so intermediate results can overflow before reaching a division, shift, comparison, or wider-target assignment.
 
 DFHDL detects this pattern at elaboration and issues a warning. See [Implicit Scala `Int` and Verilog-semantics mismatch][arithmetic-ops] for the full list of warning triggers.
 

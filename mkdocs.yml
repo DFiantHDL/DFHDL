@@ -140,13 +140,12 @@ markdown_extensions:
 
 extra_javascript:
   - javascripts/nav-workaround.js
-  - javascripts/config.js 
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - javascripts/config.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js
   - https://scastie.scala-lang.org/embedded.js
   - javascripts/scastie.js
   - javascripts/d3.js
-  - https://cdn.jsdelivr.net/gh/kieler/elkjs@0.9.3/lib/elk.bundled.js
+  - https://cdn.jsdelivr.net/gh/kieler/elkjs@0.11.1/lib/elk.bundled.js
   - javascripts/d3-hwschematic.js
   - javascripts/d3-hwschematic-embed.js
 

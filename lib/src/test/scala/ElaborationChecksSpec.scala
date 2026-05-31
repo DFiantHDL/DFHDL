@@ -591,4 +591,42 @@ class ElaborationChecksSpec extends DesignSpec:
           |Message:   Cannot apply this operation between a value of WIDTH1 bits width (LHS) and a value of WIDTH2 bits width (RHS).
           |An explicit conversion must be applied.""".stripMargin
     )
+
+  test("the same bit connected more than once check"):
+    object Test:
+      @top(false) class MultiConn extends EDDesign:
+        val y = Bits(4) <> OUT
+        y(0) <> 1
+        y(0) <> 0
+      end MultiConn
+    import Test.*
+    assertElaborationErrors(MultiConn())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:600:9 - 600:18
+          |Hierarchy: MultiConn
+          |LHS:       y(0)
+          |RHS:       0
+          |Message:   Found multiple connections write to the same variable/port `MultiConn.y`.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:599:9 - 599:18""".stripMargin
+    )
+
+  test("the same bit assigned and connected check"):
+    object Test:
+      @top(false) class AssignConn extends RTDesign:
+        val y = Bits(4) <> OUT
+        y(1, 0) := b"00"
+        y(0) <> 1
+      end AssignConn
+    import Test.*
+    assertElaborationErrors(AssignConn())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:619:9 - 619:18
+          |Hierarchy: AssignConn
+          |LHS:       y(0)
+          |RHS:       1
+          |Message:   Found multiple connections write to the same variable/port `AssignConn.y`.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:618:9 - 618:25""".stripMargin
+    )
 end ElaborationChecksSpec

@@ -1943,6 +1943,66 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("partial bit and range connections to a single port") {
+    class Foo extends EDDesign:
+      val a = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      y(0)    <> a(7)
+      y(7, 1) <> a(6, 0)
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends EDDesign:
+         |  val a = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
+         |  y(0) <> a(7)
+         |  y(7, 1) <> a(6, 0)
+         |end Foo""".stripMargin
+    )
+  }
+  test("struct field connections to a single port") {
+    case class AB(a: Bits[4] <> VAL, b: Bits[4] <> VAL) extends Struct
+    class Foo extends EDDesign:
+      val i = AB <> IN
+      val y = AB <> OUT
+      y.a <> i.b
+      y.b <> i.a
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|final case class AB(
+         |    a: Bits[4] <> VAL
+         |    b: Bits[4] <> VAL
+         |) extends Struct
+         |
+         |class Foo extends EDDesign:
+         |  val i = AB <> IN
+         |  val y = AB <> OUT
+         |  y.a <> i.b
+         |  y.b <> i.a
+         |end Foo""".stripMargin
+    )
+  }
+  test("partial connect and assign mix under RTDesign") {
+    class Foo extends RTDesign:
+      val a = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      y(3, 0) <> a(3, 0)
+      y(7, 4) := a(7, 4)
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends RTDesign:
+         |  val a = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
+         |  y(3, 0) <> a(3, 0)
+         |  y(7, 4) := a(7, 4)
+         |end Foo""".stripMargin
+    )
+  }
   test("different width parameters in nested designs") {
     class ID(val WIDTH: Int <> CONST = 10) extends EDDesign:
       val x = Bits(WIDTH) <> IN

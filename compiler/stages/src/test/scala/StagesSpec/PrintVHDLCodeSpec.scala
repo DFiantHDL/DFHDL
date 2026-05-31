@@ -1577,4 +1577,101 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("partial bit and range connections to a single port") {
+    class Foo extends EDDesign:
+      val a = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      y(0)    <> a(7)
+      y(7, 1) <> a(6, 0)
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  a : in std_logic_vector(7 downto 0);
+         |  y : out std_logic_vector(7 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  y(0) <= a(7);
+         |  y(7 downto 1) <= a(6 downto 0);
+         |end Foo_arch;""".stripMargin
+    )
+  }
+  test("struct field connections to a single port") {
+    case class AB(a: Bits[4] <> VAL, b: Bits[4] <> VAL) extends Struct
+    class Foo extends EDDesign:
+      val i = AB <> IN
+      val y = AB <> OUT
+      y.a <> i.b
+      y.b <> i.a
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|type t_struct_AB is record
+         |  a : std_logic_vector(3 downto 0);
+         |  b : std_logic_vector(3 downto 0);
+         |end record;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  i : in t_struct_AB;
+         |  y : out t_struct_AB
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  y.a <= i.b;
+         |  y.b <= i.a;
+         |end Foo_arch;""".stripMargin
+    )
+  }
+  test("partial connect and assign mix under RTDesign") {
+    class Foo extends RTDesign:
+      val a = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      y(3, 0) <> a(3, 0)
+      y(7, 4) := a(7, 4)
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  a : in std_logic_vector(7 downto 0);
+         |  y : out std_logic_vector(7 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  y(3 downto 0) <= a(3 downto 0);
+         |  process (all)
+         |  begin
+         |    y(7 downto 4) <= a(7 downto 4);
+         |  end process;
+         |end Foo_arch;""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

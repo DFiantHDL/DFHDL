@@ -5,7 +5,7 @@ import dfhdl.internals.*
 import scala.annotation.tailrec
 
 object StateAnalysis:
-  @tailrec private def consumeFrom(
+  private def consumeFrom(
       value: DFVal,
       slice: Slice,
       assignMap: AssignMap,
@@ -54,31 +54,40 @@ object StateAnalysis:
         val rvSet = consumeFrom(relValRef.get, assignMap, currentSet)
         val idxSet = consumeFrom(idxRef.get, assignMap, currentSet)
         (rvSet union idxSet)
-      case DFVal.Alias.SelectField(
-            dfType = dfType: DFStruct,
-            relValRef = relValRef,
-            fieldName = fieldName
-          ) =>
-        //        var rbh = dfType.width - 1
-        //        dfType.fieldMap.foreach { case (n, t) =>
-        //          val rbl = rbh - t.width + 1
-        //          if (n == fieldName)
-        //          rbh = rbl - 1
-        //        }
-        ???
+      case sf @ DFVal.Alias.SelectField(relValRef = relValRef, fieldName = fieldName) =>
+        // Re-seed the slice to the field's extent in the parent struct's coordinates,
+        // mirroring the ApplyRange case above.
+        val relVal = relValRef.get
+        relVal.dfType match
+          case structType: DFStruct =>
+            val low = structType.fieldRelBitLow(fieldName)
+            val newSlice: Slice = sf.dfType.widthIntOpt match
+              case Some(w) => Slice.Concrete(Range(low, low + w))
+              case None    => Slice.Unknown
+            consumeFrom(relVal, newSlice, assignMap, currentSet)
+          case _ => consumeFrom(relVal, slice, assignMap, currentSet)
       case IteratorDcl() => currentSet
       // out ports of child designs are not consuming state within the current design
       case dcl @ DclOut()
           if dcl.getOwnerDesign.isOneLevelBelow(currentBlock.getThisOrOwnerDesign) => currentSet
       case dcl: DFVal.Dcl if (dcl.isPortOut || dcl.isVar) && !dcl.isReg && !dcl.isInProcess =>
-        value.getConnectionTo match
-          case Some(DFNet.Connection(_, fromVal: DFVal, _)) =>
-            consumeFrom(fromVal, slice, assignMap, currentSet)
-          case _ =>
+        // A declaration may be driven by multiple connections, each covering a
+        // disjoint bit range. Consume state from every connecting producer, and
+        // for the portion of `slice` not driven by any connection fall back to the
+        // assignment-coverage check (an uncovered, unassigned slice still consumes
+        // its implicit previous value).
+        value.getConnectionsTo.toList match
+          case Nil =>
             val scope = assignMap(value)
             scope.contains(slice, value.dfType.widthIntOpt) match
               case Tri.Yes => currentSet
               case _       => currentSet + value
+          case conns =>
+            conns.foldLeft(currentSet) {
+              case (cs, DFNet.Connection(_, fromVal: DFVal, _)) =>
+                consumeFrom(fromVal, slice, assignMap, cs)
+              case (cs, _) => cs
+            }
       case _ => currentSet
     end match
   end consumeFrom
@@ -112,12 +121,12 @@ object StateAnalysis:
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // for simplification, assigning the entirety of the array
         assignTo(relValRef.get, assignMap)
-      case DFVal.Alias.SelectField(
-            dfType = dfType: DFStruct,
-            relValRef = relValRef,
-            fieldName = fieldName
-          ) =>
-        ???
+      case DFVal.Alias.SelectField(relValRef = relValRef, fieldName = fieldName) =>
+        // shift the field-relative slice into the parent struct's coordinates
+        relValRef.get.dfType match
+          case structType: DFStruct =>
+            assignTo(relValRef.get, slice.shift(structType.fieldRelBitLow(fieldName)), assignMap)
+          case _ => assignTo(relValRef.get, slice, assignMap)
       case x => assignMap.assignTo(x, slice)
     end match
   end assignTo

@@ -922,7 +922,7 @@ All require `using MemberGetSet`.
 ```scala
 dfVal.getReadDeps             // Set[DFValReadDep]  — things that read this value
 dfVal.getPartialAliases       // Set[DFVal.Alias.Partial]  — aliases of this value
-dfVal.getConnectionTo         // Option[DFNet]  — single connection driving this value
+dfVal.getConnectionsTo        // Set[DFNet]  — connections driving this value (per-slice; a Dcl may have multiple, one per disjoint bit range)
 dfVal.getConnectionsFrom      // Set[DFNet]  — connections driven from this value
 dfVal.getAssignmentsTo        // Set[DFVal]  — values assigned to this
 dfVal.getAssignmentsFrom      // Set[DFVal]  — values assigned from this
