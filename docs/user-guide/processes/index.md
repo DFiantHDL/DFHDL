@@ -129,6 +129,22 @@ class CombLogic extends EDDesign:
     y := a + b
 ```
 
+/// admonition | The inline single-line `process(all): stmt` form does not parse
+    type: warning
+A process body must be a **block**, not an inline statement on the same line as the `process(...)` colon. Writing the body inline like `process(all): y := a + b` does **not** parse. Use one of these two accepted forms instead:
+
+```scala
+// 1. Braces around the body (body may be on the same line)
+process(all) { y := a + b }
+
+// 2. Colon with the body on the next, indented line
+process(all):
+  y := a + b
+```
+
+This applies to every process form (`process(sig)`, `process(all)`, `process(clk)`, etc.).
+///
+
 ### Forever process: `process.forever` / `process`
 
 A process with no sensitivity list runs continuously. It is allowed in RT and ED, but **not** in DF. The shorthand `process:` (no arguments) is rewritten by the compiler to `process.forever`.

@@ -1668,6 +1668,15 @@ val data    = Bits(8) <> VAR init all(0)
 val pos     = UInt(4) <> VAR init 0  // 4-bit, but Bits(8) needs UInt(3)
 val bit_out = data(pos.resize)       // .resize adjusts to UInt(3) automatically
 ```
+
+The same `.resize` trick applies to **any** dynamic index, including writes into a memory/vector when the index comes from a wider source such as a slice of a larger `UInt`. The index width is checked against `clog2` of the indexed size, so let `.resize` reconcile it:
+```scala
+val mem = Bits(8) X 16 <> VAR        // 16-deep memory, needs a UInt(4) index
+val idx = UInt(8) <> IN              // wider index source (e.g. a sliced address)
+process(clk):
+  if (clk.rising)
+    mem(idx.resize) :== din          // .resize adjusts idx to UInt(4) for the write
+```
 ///
 
 ### Width Adjustment {#width-adjustment}
