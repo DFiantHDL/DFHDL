@@ -140,8 +140,7 @@ markdown_extensions:
 
 extra_javascript:
   - javascripts/nav-workaround.js
-  - javascripts/config.js 
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - javascripts/config.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js
   - https://scastie.scala-lang.org/embedded.js
   - javascripts/scastie.js
