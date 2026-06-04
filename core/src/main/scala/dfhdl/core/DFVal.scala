@@ -178,7 +178,7 @@ sealed protected trait DFValLP:
    */
   type CommonR = DFValAny | Bubble | DFVal.NOTHING | BoolSelWrapper[?, ?, ?]
 
-  implicit transparent inline def DFBitsValConversion[
+  transparent inline implicit def DFBitsValConversion[
       W <: IntP,
       P <: Boolean,
       R <: CommonR | SameElementsVector[?] | NonEmptyTuple
@@ -188,7 +188,7 @@ sealed protected trait DFValLP:
     DFValConversionMacro[DFBits[W], ISCONST[P], R]('from)('dfc)
   }
   // TODO: candidate should be fixed to cause UInt[?]->SInt[Int] conversion
-  implicit transparent inline def DFXIntValConversion[
+  transparent inline implicit def DFXIntValConversion[
       S <: Boolean,
       W <: IntP,
       N <: NativeType,
@@ -199,7 +199,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFXInt[S, W, N], ISCONST[P]] = ${
     DFValConversionMacro[DFXInt[S, W, N], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFOpaqueValConversion[
+  transparent inline implicit def DFOpaqueValConversion[
       TFE <: DFOpaque.Abstract,
       P <: Boolean,
       R <: CommonR
@@ -208,7 +208,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFOpaque[TFE], ISCONST[P]] = ${
     DFValConversionMacro[DFOpaque[TFE], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFStructValConversion[
+  transparent inline implicit def DFStructValConversion[
       F <: DFStruct.Fields,
       P <: Boolean,
       R <: CommonR | DFStruct.Fields
@@ -217,7 +217,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFStruct[F], ISCONST[P]] = ${
     DFValConversionMacro[DFStruct[F], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFTupleValConversion[
+  transparent inline implicit def DFTupleValConversion[
       T <: NonEmptyTuple,
       P <: Boolean,
       R <: CommonR | NonEmptyTuple
@@ -226,7 +226,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFTuple[T], ISCONST[P]] = ${
     DFValConversionMacro[DFTuple[T], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFVectorValConversion[
+  transparent inline implicit def DFVectorValConversion[
       T <: DFTypeAny,
       D <: IntP,
       P <: Boolean,
@@ -236,7 +236,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${
     DFValConversionMacro[DFVector[T, Tuple1[D]], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFBitValConversion[
+  transparent inline implicit def DFBitValConversion[
       P <: Boolean,
       R <: CommonR | Int | Boolean
   ](
@@ -244,7 +244,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFBit, ISCONST[P]] = ${
     DFValConversionMacro[DFBit, ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFBoolValConversion[
+  transparent inline implicit def DFBoolValConversion[
       P <: Boolean,
       R <: CommonR | Int | Boolean
   ](
@@ -252,7 +252,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFBool, ISCONST[P]] = ${
     DFValConversionMacro[DFBool, ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFEnumValConversion[
+  transparent inline implicit def DFEnumValConversion[
       E <: DFEncoding,
       P <: Boolean,
       R <: CommonR | E
@@ -261,7 +261,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFEnum[E], ISCONST[P]] = ${
     DFValConversionMacro[DFEnum[E], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFDoubleValConversion[
+  transparent inline implicit def DFDoubleValConversion[
       P <: Boolean,
       R <: CommonR | Double
   ](
@@ -269,7 +269,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFDouble, ISCONST[P]] = ${
     DFValConversionMacro[DFDouble, ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFStringValConversion[
+  transparent inline implicit def DFStringValConversion[
       P <: Boolean,
       R <: CommonR | String
   ](

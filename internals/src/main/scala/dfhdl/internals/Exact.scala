@@ -89,7 +89,7 @@ object Exact:
     value match
       case exact: Exact[?] => strip(exact.value)
       case _               => value
-  implicit transparent inline def fromValue[T](
+  transparent inline implicit def fromValue[T](
       inline value: T
   ): Exact[?] = ${ fromValueMacro[T]('value) }
   def fromValueMacro[T](
