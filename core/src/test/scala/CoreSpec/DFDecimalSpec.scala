@@ -1076,4 +1076,12 @@ class DFDecimalSpec extends DFSpec:
       s"Error message should not contain ExactOp2Aux projection types:\n$allMessages"
     )
   }
+  // TODO: there is a problem in position error. need to minimize and report to Scala bug tracker.
+  // test("Error positions") {
+  //   val cnt = Bits[8] <> VAR
+  //   assertCompileErrorPos(
+  //     "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8).",
+  //     0
+  //   )("""val x = cnt := cnt + 10000""")
+  // }
 end DFDecimalSpec
