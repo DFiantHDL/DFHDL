@@ -948,11 +948,13 @@ isolated unit test in one step — write the test, watch it fail with the same e
 
 - Re-running an unchanged design may short-circuit on the on-disk cache
   (`Loading committed design from cache...`) and skip the stages (and the trace) entirely. Pass
-  **`--nocache`** to disable caching — it goes *after* `--` and *before* the DFHDL App command
-  (`compile` / `simulate` / …):
+  **`--nocache`** to disable caching — it is a DFHDL App option that goes *before* the `--`
+  separator (it is NOT a positional arg after `--`; placing it after `--` fails with
+  `[scallop] Error: Excess arguments provided: '--nocache'`). The DFHDL App command
+  (`compile` / `simulate` / …) goes *after* `--`:
   ```bash
-  sbtn.bat ";libPlayground;lib/Test/runMain top_Foo -- --nocache compile"
-  sbtn.bat ";libPlayground;lib/Test/runMain top_Foo -- --nocache simulate -t questa"
+  sbtn.bat ";libPlayground;lib/Test/runMain top_Foo --nocache -- compile"
+  sbtn.bat ";libPlayground;lib/Test/runMain top_Foo --nocache -- simulate -t questa"
   ```
   (Alternatively clear `sandbox/<Top>` via `sbtn clearSandbox`, or edit the design — but `--nocache`
   is the lightweight option for repeated trace runs.)
