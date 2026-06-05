@@ -368,6 +368,59 @@ class FlattenStepBlocksSpec extends StageSpec():
     )
   }
 
+  test("nested steps inside nested conditional branches") {
+    class Foo extends RTDesign:
+      val i = Bit <> IN
+      val x = Bit <> OUT.REG
+      process:
+        def S_0: Step =
+          if (i)
+            def S_0_0: Step =
+              if (i)
+                def S_0_0_0: Step =
+                  NextStep
+                end S_0_0_0
+                x.din := 1
+                ThisStep
+              else
+                NextStep
+              end if
+            end S_0_0
+            ThisStep
+          else
+            NextStep
+          end if
+        end S_0
+        def S_1: Step =
+          NextStep
+        end S_1
+    end Foo
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val i = Bit <> IN
+         |  val x = Bit <> OUT.REG
+         |  process:
+         |    def S_0: Step =
+         |      if (i) S_0_0
+         |      else S_1
+         |    end S_0
+         |    def S_0_0: Step =
+         |      if (i) S_0_0_0
+         |      else S_0
+         |    end S_0_0
+         |    def S_0_0_0: Step =
+         |      x.din := 1
+         |      S_0_0
+         |    end S_0_0_0
+         |    def S_1: Step =
+         |      S_0
+         |    end S_1
+         |end Foo""".stripMargin
+    )
+  }
+
   test("onEntry and onExit blocks move with their parent step during flattening") {
     class Foo extends RTDesign:
       val x = Bit <> OUT.REG
