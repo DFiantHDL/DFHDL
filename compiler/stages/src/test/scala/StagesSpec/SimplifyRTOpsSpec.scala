@@ -287,4 +287,33 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("nested RT for loops are converted to nested while loops") {
+    class Foo extends RTDesign:
+      val o = Int <> OUT.REG
+      process:
+        for (i <- 0 until 10)
+          for (j <- 0 until 10)
+            o.din := i + j
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val o = Int <> OUT.REG
+         |  process:
+         |    val i = Int <> VAR.REG
+         |    i.din := 0
+         |    while (i < 10)
+         |      val j = Int <> VAR.REG
+         |      j.din := 0
+         |      while (j < 10)
+         |        o.din := i + j
+         |        j.din := j + 1
+         |      end while
+         |      i.din := i + 1
+         |    end while
+         |end Foo""".stripMargin
+    )
+  }
+
 end SimplifyRTOpsSpec

@@ -7,6 +7,7 @@ import dfhdl.options.CompilerOptions
 import dfhdl.internals.*
 import DFVal.Func.Op as FuncOp
 import scala.collection.mutable
+import scala.annotation.tailrec
 //format: off
 /** This stage simplifies RT-domain operations into lower-level constructs that downstream stages
   * can process. It handles four kinds of transformations: rising/falling edge predicates, boolean
@@ -107,12 +108,32 @@ case object SimplifyRTOps extends HierarchyStage:
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons, DFHDLUniqueNames, DropLocalDcls)
 
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    transformRepeatedly(subDB)
+
+  // Nested for loops must not be rewritten in the same pass: the inner loop is a body member of the
+  // outer loop, so transforming both at once (each via `ReplaceWithLast(ChangeRefAndRemove)` plus an
+  // `After` increment patch) interleaves their patches and mis-orders the inner while-block's members
+  // relative to the outer one, breaking the flat-list ownership invariant. Instead, rewrite one
+  // nesting level per pass (innermost transformable for loops first) until none remain. The edge and
+  // wait rules only match their original IR shapes, so they fire once on the first pass and produce
+  // no further patches on later passes.
+  @tailrec private def transformRepeatedly(db: DB)(using CompilerOptions, RefGen): DB =
+    given MemberGetSet = db.getSet
+    val patches = collectPatches
+    if patches.isEmpty then db
+    else transformRepeatedly(db.patch(patches))
+
+  // A for loop this stage rewrites into a while loop (Rule 4).
+  private def isTransformableForLoop(fb: DFLoop.DFForBlock)(using MemberGetSet): Boolean =
+    fb.isInRTDomain && !fb.isCombinational && fb.isInProcess
+
+  private def collectPatches(using MemberGetSet, CompilerOptions, RefGen): List[(DFMember, Patch)] =
     extension (dfVal: DFVal)
       def isAnonReferencedByWait: Boolean = dfVal.isAnonymous && dfVal.originMembers.view.exists {
         case _: Wait => true
         case _       => false
       }
-    val patches = subDB.members.view.flatMap {
+    subDB.members.view.flatMap {
       case trigger @ DFVal.Func(
             _,
             op @ (FuncOp.rising | FuncOp.falling),
@@ -199,9 +220,16 @@ case object SimplifyRTOps extends HierarchyStage:
         else None
         end if
 
-      // replace RT for loops with while loops + iterator VAR.REG + increment at end of body
+      // replace RT for loops with while loops + iterator VAR.REG + increment at end of body.
+      // Only rewrite the innermost transformable for loop in each pass (one whose body contains no
+      // further transformable for loop); outer loops are handled in subsequent passes (see
+      // `transformRepeatedly`).
       case forBlock: DFLoop.DFForBlock
-          if forBlock.isInRTDomain && !forBlock.isCombinational && forBlock.isInProcess =>
+          if isTransformableForLoop(forBlock) &&
+            !forBlock.members(MemberView.Flattened).exists {
+              case inner: DFLoop.DFForBlock => isTransformableForLoop(inner)
+              case _                        => false
+            } =>
         val iteratorDcl = forBlock.iteratorRef.get
         val range = forBlock.rangeRef.get
         val startBigInt: BigInt = range.startRef.get match
@@ -257,8 +285,7 @@ case object SimplifyRTOps extends HierarchyStage:
 
       case _ => None
     }.toList
-    subDB.patch(patches)
-  end transformSubDB
+  end collectPatches
 end SimplifyRTOps
 
 extension [T: HasDB](t: T)
