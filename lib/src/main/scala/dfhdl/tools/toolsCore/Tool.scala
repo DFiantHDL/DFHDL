@@ -82,6 +82,10 @@ trait Tool:
     protected def convertWindowsToLinuxPaths: String =
       if (this.convertWindowsToLinuxPaths) path.forceWindowsToLinuxPath else path
 
+  // Extra environment variables to set for the spawned tool process, merged over the inherited
+  // environment. Empty by default; tools override this to inject/normalize env vars they need.
+  protected def execEnv: Map[String, String] = Map.empty
+
   protected def designFiles(using getSet: MemberGetSet): List[String] =
     getSet.designDB.srcFiles.collect {
       case SourceFile(
@@ -151,6 +155,7 @@ trait Tool:
     // spawn the process
     val process = os.proc(os.Shellable(fullExec.split(" ").toSeq)).spawn(
       cwd = os.Path(execPath, os.pwd),
+      env = execEnv,
       stdin = os.Inherit,
       stdout = processOutput,
       mergeErrIntoOut = true
