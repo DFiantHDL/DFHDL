@@ -130,4 +130,63 @@ class DropLocalDclsSpec extends StageSpec:
          |end ID
          |""".stripMargin
     )
+
+  test("Step block drops local dcls"):
+    class ID extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG
+      process:
+        def S_0: Step =
+          val zz = SInt(16) <> VAR
+          zz    := x
+          y.din := zz
+          NextStep
+        end S_0
+    end ID
+    val id = (new ID).dropLocalDcls
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT.REG
+         |  val zz = SInt(16) <> VAR
+         |  process:
+         |    def S_0: Step =
+         |      zz := x
+         |      y.din := zz
+         |      NextStep
+         |    end S_0
+         |end ID
+         |""".stripMargin
+    )
+
+  test("Step block keeps local dcls under VHDL"):
+    given options.CompilerOptions.Backend = _.vhdl
+    class ID extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG
+      process:
+        def S_0: Step =
+          val zz = SInt(16) <> VAR
+          zz    := x
+          y.din := zz
+          NextStep
+        end S_0
+    end ID
+    val id = (new ID).dropLocalDcls
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT.REG
+         |  process:
+         |    val zz = SInt(16) <> VAR
+         |    def S_0: Step =
+         |      zz := x
+         |      y.din := zz
+         |      NextStep
+         |    end S_0
+         |end ID
+         |""".stripMargin
+    )
 end DropLocalDclsSpec

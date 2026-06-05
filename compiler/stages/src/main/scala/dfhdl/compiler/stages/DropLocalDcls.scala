@@ -4,6 +4,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
+import scala.annotation.tailrec
 
 //format: off
 /** This stage moves local variable and constant declarations out of their lexical scope to a
@@ -76,6 +77,36 @@ import dfhdl.options.CompilerOptions
   *     stmt1
   *     stmt2
   * }}}
+  *
+  * ===Rule 3: Declarations inside step blocks===
+  * A local variable or constant declared inside a `StepBlock` (an RT FSM state) — either directly
+  * or nested inside a conditional within the step — is lifted out of the step, because the FSM
+  * states generated from steps cannot carry declarations:
+  *   - For non-VHDL backends: moved to before the enclosing process block (design level).
+  *   - For VHDL: moved to just before the outermost (top-level) step block, keeping the declaration
+  *     at the process-body level where VHDL allows process variable declarations.
+  * {{{
+  * // Before — zz declared inside a step
+  * class ID extends RTDesign:
+  *   process:
+  *     def S_0: Step =
+  *       val zz = SInt(16) <> VAR
+  *       ...
+  *
+  * // After (Verilog) — moved to design level, before the process
+  * class ID extends RTDesign:
+  *   val zz = SInt(16) <> VAR
+  *   process:
+  *     def S_0: Step =
+  *       ...
+  *
+  * // After (VHDL) — moved to just before the top-level step, inside the process
+  * class ID extends RTDesign:
+  *   process:
+  *     val zz = SInt(16) <> VAR
+  *     def S_0: Step =
+  *       ...
+  * }}}
   */
 //format: on
 case object DropLocalDcls extends HierarchyStage:
@@ -84,7 +115,7 @@ case object DropLocalDcls extends HierarchyStage:
   def transformSubDB(rootDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
     val keepProcessDcls = co.backend.isVHDL
     val patches = subDB.members.view
-      // only var or constant declarations ,
+      // only var or constant declarations,
       // and we also require their anonymous dependencies
       .flatMap {
         // skip iterator declarations
@@ -93,25 +124,43 @@ case object DropLocalDcls extends HierarchyStage:
         case m @ DclConst() if !m.isGlobal => m.collectRelMembers(includeOrigVal = true)
         case _                             => None
       }
-      .map(m => (m, m.getOwnerBlock))
-      .flatMap {
-        // declarations inside conditional blocks
-        case (dcl, cb: DFConditional.Block) =>
-          val topCondHeader = cb.getTopConditionalHeader
-          // if we don't keep process vars, we check if the owner is a process block,
-          // and if so, we need to move the declarations before it.
-          val moveBeforeMember = topCondHeader.getOwnerBlock match
-            case pb: ProcessBlock if !keepProcessDcls => pb
-            case _                                    => topCondHeader
-          Some(moveBeforeMember -> Patch.Move(dcl, Patch.Move.Config.Before))
-        // declarations inside process blocks if we should not keep them
-        case (dcl, pb: ProcessBlock) if !keepProcessDcls =>
-          Some(pb -> Patch.Move(dcl, Patch.Move.Config.Before))
-        case _ => None
-      }
+      .flatMap(dclMovePatch(_, keepProcessDcls))
       .toList
     subDB.patch(patches)
   end transformSubDB
+
+  // Computes the move patch (if any) relocating a local declaration `dcl` out of its lexical scope
+  // to a position supported by the target language. Returns `None` when the declaration is already
+  // at a valid position (directly at design level, or — under VHDL — directly inside a process).
+  private def dclMovePatch(dcl: DFMember, keepProcessDcls: Boolean)(using
+      MemberGetSet
+  ): Option[(DFMember, Patch)] =
+    val (anchor, scopeBlock) = climbToScope(dcl)
+    scopeBlock match
+      // non-VHDL: declarations are not allowed inside process blocks, so move to the design level
+      // before the process block.
+      case pb: ProcessBlock if !keepProcessDcls =>
+        Some(pb -> Patch.Move(dcl, Patch.Move.Config.Before))
+      // VHDL process scope, or design scope: move before the outermost in-scope anchor, but only
+      // when the declaration actually needs to escape an enclosing conditional or step block.
+      case _ =>
+        if anchor ne dcl then Some(anchor -> Patch.Move(dcl, Patch.Move.Config.Before))
+        else None
+
+  // Climbs from a member up through enclosing conditional and step blocks, returning the outermost
+  // in-scope anchor to move before, paired with the nearest enclosing non-conditional, non-step
+  // scope block (a ProcessBlock or DFDesignBlock, or a loop block). When the member is inside a
+  // conditional, the anchor is the top-level conditional header for that scope; otherwise it is the
+  // member itself. Step blocks are escaped one level at a time until a non-step scope is reached.
+  @tailrec private def climbToScope(m: DFMember)(using MemberGetSet): (DFMember, DFBlock) =
+    val (anchor, scopeBlock) = m.getOwnerBlock match
+      case cb: DFConditional.Block =>
+        val topCondHeader = cb.getTopConditionalHeader
+        (topCondHeader, topCondHeader.getOwnerBlock)
+      case b => (m, b)
+    scopeBlock match
+      case sb: StepBlock => climbToScope(sb)
+      case _             => (anchor, scopeBlock)
 end DropLocalDcls
 
 extension [T: HasDB](t: T)
