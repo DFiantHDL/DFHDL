@@ -160,32 +160,50 @@ trait Tool:
       stdout = processOutput,
       mergeErrIntoOut = true
     )
-    // setup an interrupt handler to destroy the process
-    val handler = new sun.misc.SignalHandler:
+    // setup an interrupt handler to destroy the process.
+    // this covers the `sbt` case, where Ctrl+C is delivered to the JVM as a POSIX/Windows
+    // SIGINT signal. we keep the previously installed handler so we can restore it afterwards,
+    // which matters under `sbtn` where the same long-lived server JVM is reused across runs.
+    val interruptHandler = new sun.misc.SignalHandler:
       def handle(sig: sun.misc.Signal): Unit =
         process.destroy(shutdownGracePeriod = 100)
         println(s"\n${toolName} interrupted by user")
-    sun.misc.Signal.handle(new sun.misc.Signal("INT"), handler)
-    // wait for the process to finish
-    process.waitFor()
-    // get the error code, which may be overridden by the logger
-    val errCode = loggerOpt.map { logger =>
-      if (logger.lineIsErrorOpt.nonEmpty)
-        if (logger.hasErrors) 1 else 0
-      else process.exitCode()
-    }.getOrElse(process.exitCode())
-    // check if there are warnings
-    val hasWarnings = loggerOpt.map(logger => logger.hasWarnings).getOrElse(false)
-    // if there are errors or warnings and Werror is turned on, raise an application error
-    if (errCode != 0 || hasWarnings && summon[ToolOptions].Werror.toBoolean)
-      val msg =
-        if (errCode != 0) s"${toolName} exited with the error code ${errCode}."
-        else s"${toolName} exited with warnings while `Werror-tool` is turned on."
-      error(
-        s"""|$msg
-            |Path: ${Paths.get(execPath).toAbsolutePath()}
-            |Command: $fullExec""".stripMargin
-      )
+    val prevHandler = sun.misc.Signal.handle(new sun.misc.Signal("INT"), interruptHandler)
+    // wait for the process to finish.
+    // under `sbtn`, the app runs on an sbt background-job thread that is cancelled via
+    // Thread.interrupt() rather than a SIGINT, so the signal handler above never fires and
+    // waitFor() throws InterruptedException. destroy the process here as well so the spawned
+    // tool never outlives the run in that case.
+    val interrupted =
+      try
+        process.waitFor()
+        false
+      catch
+        case _: InterruptedException =>
+          process.destroy(shutdownGracePeriod = 100)
+          println(s"\n${toolName} interrupted by user")
+          true
+      finally sun.misc.Signal.handle(new sun.misc.Signal("INT"), prevHandler)
+    if (interrupted) {}
+    else
+      // get the error code, which may be overridden by the logger
+      val errCode = loggerOpt.map { logger =>
+        if (logger.lineIsErrorOpt.nonEmpty)
+          if (logger.hasErrors) 1 else 0
+        else process.exitCode()
+      }.getOrElse(process.exitCode())
+      // check if there are warnings
+      val hasWarnings = loggerOpt.map(logger => logger.hasWarnings).getOrElse(false)
+      // if there are errors or warnings and Werror is turned on, raise an application error
+      if (errCode != 0 || hasWarnings && summon[ToolOptions].Werror.toBoolean)
+        val msg =
+          if (errCode != 0) s"${toolName} exited with the error code ${errCode}."
+          else s"${toolName} exited with warnings while `Werror-tool` is turned on."
+        error(
+          s"""|$msg
+              |Path: ${Paths.get(execPath).toAbsolutePath()}
+              |Command: $fullExec""".stripMargin
+        )
   end exec
   override def toString(): String = binExec
 end Tool
