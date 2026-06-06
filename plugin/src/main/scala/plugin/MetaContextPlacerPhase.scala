@@ -315,10 +315,11 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     object DFValIdent:
       def unapply(tree: Tree)(using Context): Option[Tree] =
         tree match
-          case ident @ Ident(name) if !name.toString.contains("$") => Some(tree)
-          case Select(DFValIdent(_), _)                            => Some(tree)
-          case This(DFValIdent(_))                                 => Some(tree)
-          case _                                                   => None
+          case ident @ Ident(name)
+              if !ident.symbol.is(InlineProxy) && !name.toString.contains("$") => Some(tree)
+          case Select(DFValIdent(_), _) => Some(tree)
+          case This(DFValIdent(_))      => Some(tree)
+          case _                        => None
     end DFValIdent
     tree.rhs match
       case DFValIdent(rhs)
