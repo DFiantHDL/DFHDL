@@ -147,11 +147,21 @@ trait Tool:
       // so we use the full tool path and resolve the executable
       else s"${Paths.get(this.runExecFullPath).getParent().resolve(runExec)} $cmd"
 
-    // process the output if we have a logger set.
-    // note that setting a logger may affect the program behavior, since it is disengaged from TTY.
+    // process the output.
+    // note that reading the output line-by-line may affect the program behavior, since it is
+    // disengaged from the TTY.
+    // when no logger is set we would like to inherit the parent's stdout/stderr so the tool keeps
+    // its TTY (colors, live progress). however, os.Inherit writes to the JVM's real file
+    // descriptors, which under `sbtn` belong to the detached build server rather than the client
+    // terminal, so the tool's output becomes invisible. when there is no real console (the `sbtn`
+    // case, and CI), fall back to reading the tool's lines and re-emitting them through
+    // System.out, which sbt forwards to the client.
     val processOutput = loggerOpt.map(logger =>
       os.ProcessOutput.Readlines(line => logger.out(line))
-    ).getOrElse(os.Inherit)
+    ).getOrElse(
+      if (System.console() != null) os.Inherit
+      else os.ProcessOutput.Readlines(line => println(line))
+    )
     // spawn the process
     val process = os.proc(os.Shellable(fullExec.split(" ").toSeq)).spawn(
       cwd = os.Path(execPath, os.pwd),
