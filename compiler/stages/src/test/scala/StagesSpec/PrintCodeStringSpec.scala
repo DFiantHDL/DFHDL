@@ -1036,6 +1036,44 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
+  test("RTDesign step with statement before a nested conditional goto") {
+    // Regression: a step-control branch that is a block `{ statement; nested-if(goto) }` used to
+    // throw `java.lang.ClassCastException: DFVal cannot be cast to Step`, because the nested `if`
+    // returned the if-header DFVal where a `Step` token was expected.
+    class Foo extends RTDesign:
+      val x = Bit     <> IN
+      val c = UInt(4) <> VAR.REG init 0
+      process:
+        def S: Step =
+          if (x) ThisStep
+          else
+            c.din := 0
+            if (c < 9) ThisStep
+            else NextStep
+        def T: Step =
+          ThisStep
+    end Foo
+    val top = (new Foo)
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val c = UInt(4) <> VAR.REG init d"4'0"
+         |  process:
+         |    def S: Step =
+         |      if (x) ThisStep
+         |      else
+         |        c.din := d"4'0"
+         |        if (c < d"4'9") ThisStep
+         |        else NextStep
+         |      end if
+         |    end S
+         |    def T: Step =
+         |      ThisStep
+         |    end T
+         |end Foo""".stripMargin
+    )
+  }
   test("wait statements") {
     class Foo extends EDDesign:
       val x = Bit <> OUT

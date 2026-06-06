@@ -29,7 +29,7 @@ object LinterOptions:
   type OnError = dfhdl.options.OnError.type => _OnError
   private[dfhdl] into opaque type _OnError <: dfhdl.options.ToolOptions._OnError =
     dfhdl.options.ToolOptions._OnError
-  private[dfhdl] object _OnError:
+  object _OnError:
     given (using onError: dfhdl.options.ToolOptions.OnError): OnError = onError
     given Conversion[dfhdl.options._OnError, _OnError] = x => x.asInstanceOf[_OnError]
 
@@ -42,14 +42,14 @@ object LinterOptions:
   type VerilogLinter = dfhdl.tools.linters.verilogLinters.type => _VerilogLinter
   private[dfhdl] into opaque type _VerilogLinter <: dfhdl.tools.toolsCore.VerilogLinter =
     dfhdl.tools.toolsCore.VerilogLinter
-  private[dfhdl] object _VerilogLinter:
+  object _VerilogLinter:
     given VerilogLinter = _.verilator
     given Conversion[dfhdl.tools.toolsCore.VerilogLinter, _VerilogLinter] = identity
 
   type VHDLLinter = dfhdl.tools.linters.vhdlLinters.type => _VHDLLinter
   private[dfhdl] into opaque type _VHDLLinter <: dfhdl.tools.toolsCore.VHDLLinter =
     dfhdl.tools.toolsCore.VHDLLinter
-  private[dfhdl] object _VHDLLinter:
+  object _VHDLLinter:
     given VHDLLinter = _.ghdl
     given Conversion[dfhdl.tools.toolsCore.VHDLLinter, _VHDLLinter] = identity
 

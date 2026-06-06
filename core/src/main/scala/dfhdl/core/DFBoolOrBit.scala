@@ -215,25 +215,25 @@ object DFBoolOrBit:
           // onTrue type has priority, except when onTrue is a DFHDL Int parameter while onFalse is not
           inline if (onTrueIsDFVal && !(onTrueIsDFConstInt32 && !onFalseIsDFConstInt32))
             inline onTrue match
-              case onTrueDFVal: DFValTP[tt, tp] =>
+              case ___onTrueDFVal: DFValTP[tt, tp] =>
                 val tc = compiletime.summonInline[DFVal.TC[tt, OF]]
-                val dfType = onTrueDFVal.dfType
+                val dfType = ___onTrueDFVal.dfType
                 inline if (isConstCheck[OF])
-                  DFVal.Func(dfType, FuncOp.sel, List(lhs, onTrueDFVal, tc(dfType, onFalse)))
+                  DFVal.Func(dfType, FuncOp.sel, List(lhs, ___onTrueDFVal, tc(dfType, onFalse)))
                     .asValTP[tt, P | tp]
                 else
-                  DFVal.Func(dfType, FuncOp.sel, List(lhs, onTrueDFVal, tc(dfType, onFalse)))
+                  DFVal.Func(dfType, FuncOp.sel, List(lhs, ___onTrueDFVal, tc(dfType, onFalse)))
                     .asValOf[tt]
           else if (onFalseIsDFVal)
             inline onFalse match
-              case onFalseDFVal: DFValTP[ft, fp] =>
+              case ___onFalseDFVal: DFValTP[ft, fp] =>
                 val tc = compiletime.summonInline[DFVal.TC[ft, OT]]
-                val dfType = onFalseDFVal.dfType
+                val dfType = ___onFalseDFVal.dfType
                 inline if (isConstCheck[OT])
-                  DFVal.Func(dfType, FuncOp.sel, List(lhs, tc(dfType, onTrue), onFalseDFVal))
+                  DFVal.Func(dfType, FuncOp.sel, List(lhs, tc(dfType, onTrue), ___onFalseDFVal))
                     .asValTP[ft, P | fp]
                 else
-                  DFVal.Func(dfType, FuncOp.sel, List(lhs, tc(dfType, onTrue), onFalseDFVal))
+                  DFVal.Func(dfType, FuncOp.sel, List(lhs, tc(dfType, onTrue), ___onFalseDFVal))
                     .asValOf[ft]
           else
             BoolSelWrapper[P, OT, OF](lhs, onTrue, onFalse)

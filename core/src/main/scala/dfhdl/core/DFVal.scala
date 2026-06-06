@@ -178,7 +178,7 @@ sealed protected trait DFValLP:
    */
   type CommonR = DFValAny | Bubble | DFVal.NOTHING | BoolSelWrapper[?, ?, ?]
 
-  implicit transparent inline def DFBitsValConversion[
+  transparent inline implicit def DFBitsValConversion[
       W <: IntP,
       P <: Boolean,
       R <: CommonR | SameElementsVector[?] | NonEmptyTuple
@@ -188,7 +188,7 @@ sealed protected trait DFValLP:
     DFValConversionMacro[DFBits[W], ISCONST[P], R]('from)('dfc)
   }
   // TODO: candidate should be fixed to cause UInt[?]->SInt[Int] conversion
-  implicit transparent inline def DFXIntValConversion[
+  transparent inline implicit def DFXIntValConversion[
       S <: Boolean,
       W <: IntP,
       N <: NativeType,
@@ -199,7 +199,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFXInt[S, W, N], ISCONST[P]] = ${
     DFValConversionMacro[DFXInt[S, W, N], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFOpaqueValConversion[
+  transparent inline implicit def DFOpaqueValConversion[
       TFE <: DFOpaque.Abstract,
       P <: Boolean,
       R <: CommonR
@@ -208,7 +208,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFOpaque[TFE], ISCONST[P]] = ${
     DFValConversionMacro[DFOpaque[TFE], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFStructValConversion[
+  transparent inline implicit def DFStructValConversion[
       F <: DFStruct.Fields,
       P <: Boolean,
       R <: CommonR | DFStruct.Fields
@@ -217,7 +217,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFStruct[F], ISCONST[P]] = ${
     DFValConversionMacro[DFStruct[F], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFTupleValConversion[
+  transparent inline implicit def DFTupleValConversion[
       T <: NonEmptyTuple,
       P <: Boolean,
       R <: CommonR | NonEmptyTuple
@@ -226,7 +226,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFTuple[T], ISCONST[P]] = ${
     DFValConversionMacro[DFTuple[T], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFVectorValConversion[
+  transparent inline implicit def DFVectorValConversion[
       T <: DFTypeAny,
       D <: IntP,
       P <: Boolean,
@@ -236,7 +236,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${
     DFValConversionMacro[DFVector[T, Tuple1[D]], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFBitValConversion[
+  transparent inline implicit def DFBitValConversion[
       P <: Boolean,
       R <: CommonR | Int | Boolean
   ](
@@ -244,7 +244,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFBit, ISCONST[P]] = ${
     DFValConversionMacro[DFBit, ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFBoolValConversion[
+  transparent inline implicit def DFBoolValConversion[
       P <: Boolean,
       R <: CommonR | Int | Boolean
   ](
@@ -252,7 +252,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFBool, ISCONST[P]] = ${
     DFValConversionMacro[DFBool, ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFEnumValConversion[
+  transparent inline implicit def DFEnumValConversion[
       E <: DFEncoding,
       P <: Boolean,
       R <: CommonR | E
@@ -261,7 +261,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFEnum[E], ISCONST[P]] = ${
     DFValConversionMacro[DFEnum[E], ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFDoubleValConversion[
+  transparent inline implicit def DFDoubleValConversion[
       P <: Boolean,
       R <: CommonR | Double
   ](
@@ -269,7 +269,7 @@ sealed protected trait DFValLP:
   )(using dfc: DFCG): DFValTP[DFDouble, ISCONST[P]] = ${
     DFValConversionMacro[DFDouble, ISCONST[P], R]('from)('dfc)
   }
-  implicit transparent inline def DFStringValConversion[
+  transparent inline implicit def DFStringValConversion[
       P <: Boolean,
       R <: CommonR | String
   ](
@@ -1045,11 +1045,11 @@ object DFVal extends DFValLP:
       type OutP = CONST
       def conv(dfType: T, value: V)(using DFC): Out = Bubble.constValOf(dfType, named = true)
     // Accept NOTHING for any DFType, unless not in DF domain, and then we limit it to Bits or Bit type
-    given fromNOTHING[T <: DFTypeAny](using
+    given fromNOTHING[IRT <: ir.DFType, A <: Args, T <: DFType[IRT, A]](using
         dt: DomainType
     )(using
         AssertGiven[
-          dt.type <:< DomainType.DF | T <:< DFBit | T <:< DFType[ir.DFBits, Args],
+          dt.type <:< DomainType.DF | T =:= DFBit | IRT =:= ir.DFBits,
           "`NOTHING` can only be assigned to either `Bits` or `Bit` DFHDL values outside of a dataflow (DF) domain."
         ]
     ): TC[T, NOTHING] with
@@ -1273,6 +1273,7 @@ object DFVal extends DFValLP:
   export DFOpaque.Val.Ops.{evOpAsDFOpaqueIterable, evOpClkAsClkComp, evOpRstAsRstComp}
   export TDFString.Val.Ops.given
   export ConnectOps.given
+  export DFVarOps.given
 
   given evOpCompare[LT <: DFTypeAny, LP, L <: DFValTP[LT, LP], R, Op <: FuncOp, RP](using
       tc: Compare.Aux[LT, R, Op, false, RP],
@@ -1402,9 +1403,9 @@ object DFVal extends DFValLP:
         // connection in either direction where both implicit directions are available
         inline if (lhsIsDFVal && rhsIsDFVal)
           inline lhs match
-            case lhs: DFVal[lt, lm] => inline rhs match
-                case rhs: DFVal[rt, rm] =>
-                  ConnectOps.specialConnect[lt, lm, rt, rm](lhs, rhs)
+            case ___lhs: DFVal[lt, lm] => inline rhs match
+                case ___rhs: DFVal[rt, rm] =>
+                  ConnectOps.specialConnect[lt, lm, rt, rm](___lhs, ___rhs)
         // if the RHS is a modifier, this is a port/variable constructor,
         // so we invoke the the implicit given operation only in one way
         else if (rhsIsModifier) exactOp2["<>", DFC, Any](lhs, rhs)
@@ -1436,9 +1437,9 @@ object DFVal extends DFValLP:
         case _           => false
       inline if (lhsIsDFVal && rhsIsDFVal)
         inline lhs match
-          case lhs: DFValTP[lt, lp] => inline rhs match
-              case rhs: DFValTP[rt, rp] =>
-                specialCompare[Op, lt, lp, rt, rp](lhs, rhs)
+          case ___lhs: DFValTP[lt, lp] => inline rhs match
+              case ___rhs: DFValTP[rt, rp] =>
+                specialCompare[Op, lt, lp, rt, rp](___lhs, ___rhs)
       else exactOp2[Op, DFC, DFValOf[DFBool]](lhs, rhs)
     end compare
 
@@ -1590,6 +1591,21 @@ final class REG_DIN[T <: DFTypeAny](val irValue: DFError.REG_DIN[T]) extends Any
     val dfVar = irValue.dfVar
     dfVar.assign(rhs(dfVar.dfType))
   }
+  // transparent inline def :=[R](inline rhs: R)(using DFC): Unit =
+  //   exactOp2[":=", DFC, Unit](this, rhs)
+object REG_DIN:
+  given evREG_DIN_AssignDcl[
+      T <: DFTypeAny,
+      L <: REG_DIN[T],
+      R
+  ](using
+      tc: DFVal.TC[T, R]
+  ): ExactOp2Aux[":=", DFC, Unit, L, R, Unit] = new ExactOp2[":=", DFC, Unit, L, R]:
+    type Out = Unit
+    def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
+      val dfVar = lhs.irValue.dfVar
+      dfVar.assign(tc(dfVar.dfType, rhs))
+    }(using dfc, CTName(":="))
 
 object DFVarOps:
   protected type NotREG[A] = AssertGiven[
@@ -1628,6 +1644,12 @@ object DFVarOps:
     A <:< DomainType.RT,
     "`.din` selection is only allowed under register-transfer (RT) domains."
   ]
+  // extension [L](inline lhs: L)
+  //   transparent inline def :=[R](inline rhs: R)(using DFC): Unit =
+  //     exactOp2[":=", DFC, Unit](lhs, rhs)
+  // extension [L](inline lhs: L)
+  //   transparent inline def :==[R](inline rhs: R)(using DFC): Unit =
+  //     exactOp2[":==", DFC, Unit](lhs, rhs)
   extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
     def :=(rhs: DFVal.TC.Exact[T])(using
         DFC
@@ -1744,6 +1766,46 @@ object DFVarOps:
       }
       assignRecur(dfVarsIR, argsBitsIR, 0, Nil)
   end extension
+
+  given evAssignDcl[
+      T <: DFTypeAny,
+      A,
+      M <: Modifier[A, Any, Any, Any],
+      L <: DFVal[T, M],
+      R
+  ](using
+      dt: DomainType,
+      idA: Id[A] // hack to prevent widening A to Any
+  )(using
+      notREG: NotREG[A],
+      varOnly: VarOnly[A],
+      insideProcess: `InsideProcess:=`[dt.type, A],
+      tc: DFVal.TC[T, R]
+  ): ExactOp2Aux[":=", DFC, Unit, L, R, Unit] = new ExactOp2[":=", DFC, Unit, L, R]:
+    type Out = Unit
+    def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
+      lhs.assign(tc(lhs.dfType, rhs))
+    }(using dfc, CTName(":="))
+
+  given evNBAssignDcl[
+      T <: DFTypeAny,
+      A,
+      M <: Modifier[A, Any, Any, Any],
+      L <: DFVal[T, M],
+      R
+  ](using
+      dt: DomainType,
+      idA: Id[A] // hack to prevent widening A to Any
+  )(using
+      varOnly: VarOnly[A],
+      edDomainOnly: EDDomainOnly[dt.type],
+      insideProcess: `InsideProcess:=`[dt.type, A],
+      tc: DFVal.TC[T, R]
+  ): ExactOp2Aux[":==", DFC, Unit, L, R, Unit] = new ExactOp2[":==", DFC, Unit, L, R]:
+    type Out = Unit
+    def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
+      lhs.nbassign(tc(lhs.dfType, rhs))
+    }(using dfc, CTName(":=="))
 end DFVarOps
 
 object ConnectOps:

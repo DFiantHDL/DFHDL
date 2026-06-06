@@ -12,6 +12,7 @@ object DFHDLCommands {
     val newState = extracted.appendWithSession(Seq(
       (LocalProject("internals") / Test / sources) := Nil,
       (LocalProject("core") / Test / sources) := ((LocalProject("core") / Test / sources).value.filter(_.toString.contains("Playground.scala"))),
+      (LocalProject("compiler_stages") / Compile / sources) := Nil,
       (LocalProject("compiler_stages") / Test / sources) := Nil,
       (LocalProject("platforms") / Compile / sources) := Nil,
       (LocalProject("platforms") / Test / sources) := Nil,

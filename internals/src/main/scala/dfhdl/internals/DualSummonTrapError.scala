@@ -24,7 +24,7 @@ object DualSummonTrapError:
         case iss: ImplicitSearchSuccess =>
           Success(iss.tree.asExprOf[T])
         case isf: ImplicitSearchFailure =>
-          val lastError = ControlledMacroError.getLastError
+          val lastError = ControlledMacroError.getLastMacroAbortError
           if (lastError.nonEmpty) PriorityError[T](lastError)
           else NotFoundError[T](isf.explanation)
       end match

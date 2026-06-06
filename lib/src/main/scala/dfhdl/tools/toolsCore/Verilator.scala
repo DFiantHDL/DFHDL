@@ -24,6 +24,16 @@ object Verilator extends VerilogLinter, VerilogSimulator:
   override val convertWindowsToLinuxPaths: Boolean = true
   protected def includeFolderFlag: String = "-I"
 
+  // On Windows the oss-cad-suite sets VERILATOR_ROOT with backslashes (e.g.
+  // `c:\oss-cad-suite\share\verilator`). Verilator's generated Makefile invokes its Python
+  // includer as `$(PYTHON3) $(VERILATOR_ROOT)/bin/verilator_includer ...`, and the MSYS shell
+  // eats those backslashes as escapes, mangling the script path. The includer then fails and
+  // writes an empty `V<top>__ALL.cpp` (no `main()`), so the final link fails with
+  // `undefined reference to WinMain`. Normalizing VERILATOR_ROOT to forward slashes for the
+  // spawned process avoids this (no-op on non-Windows, where there are no backslashes).
+  override protected def execEnv: Map[String, String] =
+    sys.env.get("VERILATOR_ROOT").map(root => "VERILATOR_ROOT" -> root.replace('\\', '/')).toMap
+
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
     val language = dialect match
       case VerilogDialect.v95    => "1364-1995"

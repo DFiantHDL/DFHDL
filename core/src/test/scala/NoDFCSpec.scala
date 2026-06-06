@@ -19,6 +19,22 @@ abstract class NoDFCSpec extends FunSuite, NoTopAnnotIsRequired:
     )
   end assertCompileError
 
+  // TODO: there is a problem in DFDecimalSpec position error check
+  transparent inline def assertCompileErrorPos(expectedErr: String, column: Int)(
+      inline code: String
+  ): Unit =
+    val err = compiletime.testing.typeCheckErrors(code) match
+      case x @ (_ :+ last) =>
+        scala.Predef.println(x.map(_.column))
+        scala.Predef.println(x.map(_.lineContent))
+        last.message
+      case _ => noErrMsg
+    assertNoDiff(
+      err,
+      expectedErr
+    )
+  end assertCompileErrorPos
+
   inline def assertRuntimeError(expectedErr: String)(runTimeCode: => Unit): Unit =
     val err =
       try

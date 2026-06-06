@@ -38,7 +38,7 @@ object SimulatorOptions:
   type OnError = dfhdl.options.OnError.type => _OnError
   private[dfhdl] into opaque type _OnError <: dfhdl.options.ToolOptions._OnError =
     dfhdl.options.ToolOptions._OnError
-  private[dfhdl] object _OnError:
+  object _OnError:
     given (using onError: dfhdl.options.ToolOptions.OnError): OnError = onError
     given Conversion[dfhdl.options._OnError, _OnError] = x => x.asInstanceOf[_OnError]
 
@@ -51,7 +51,7 @@ object SimulatorOptions:
   type VerilogSimulator = dfhdl.tools.simulators.verilogSimulators.type => _VerilogSimulator
   protected[dfhdl] into opaque type _VerilogSimulator <: dfhdl.tools.toolsCore.VerilogSimulator =
     dfhdl.tools.toolsCore.VerilogSimulator
-  protected[dfhdl] object _VerilogSimulator:
+  object _VerilogSimulator:
     given VerilogSimulator = _.verilator
     given Conversion[dfhdl.tools.toolsCore.VerilogSimulator, _VerilogSimulator] = identity
     given Conversion[dfhdl.tools.simulators.questa.type, VerilogSimulator] = _ => _.vlog
@@ -60,7 +60,7 @@ object SimulatorOptions:
   type VHDLSimulator = dfhdl.tools.simulators.vhdlSimulators.type => _VHDLSimulator
   protected[dfhdl] into opaque type _VHDLSimulator <: dfhdl.tools.toolsCore.VHDLSimulator =
     dfhdl.tools.toolsCore.VHDLSimulator
-  protected[dfhdl] object _VHDLSimulator:
+  object _VHDLSimulator:
     given VHDLSimulator = _.ghdl
     given Conversion[dfhdl.tools.toolsCore.VHDLSimulator, _VHDLSimulator] = identity
     given Conversion[dfhdl.tools.simulators.questa.type, VHDLSimulator] = _ => _.vcom

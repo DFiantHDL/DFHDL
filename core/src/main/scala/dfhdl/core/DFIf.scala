@@ -132,29 +132,40 @@ object DFIf:
         val (dfType, _) = singleBranch(None, midIfsBlock, e)(using dfcAnon)
         branchTypes = dfType.asIR :: branchTypes
       }
-      val hasNoType = branchTypes.contains(ir.DFUnit)
-      // if one branch has DFUnit, the return type is DFUnit.
-      // otherwise, all types must be the same.
-      if (hasNoType || branchTypes.forall(_.isSimilarTo(branchTypes.head)))
-        val retDFType = if (hasNoType) ir.DFUnit else branchTypes.head
-        val DFVal(headerIR: DFIfHeader) = header.runtimeChecked
-        val headerUpdate = headerIR.copy(dfType = retDFType.dropUnreachableRefs)
-        // updating the type of the if header
-        headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
-      else // violation
-        given printer: Printer = DefaultPrinter(using dfc.getSet)
-        val err = DFError.Basic(
-          "if",
-          new IllegalArgumentException(
-            s"""|This DFHDL `if` expression has different return types for branches.
-                |These are its branch types in order:
-                |${branchTypes.view.reverse.map(t => printer.csDFType(t)).mkString("\n")}
-                |""".stripMargin
-          )
-        )
-        dfc.logEvent(err)
-        err.asVal[DFTypeAny, ModifierAny].asInstanceOf[R]
-      end if
+      firstIfRet match
+        // Control-flow `if`: its branches are gotos (`ThisStep`/`NextStep`/`FirstStep` return the
+        // `Step` token). The value of such an `if` is that `Step` token, NOT the if-header value.
+        // Returning the header is harmless when the value is discarded (a plain step body), but
+        // when the `if` is itself the value of a step-control branch — e.g. an `else { stmt; if
+        // (...) goto else goto }` block, whose lambda is typed `() => Step` — the returned value is
+        // cast to `Step`, and a `DFVal` header throws a `ClassCastException`. Return the `Step`
+        // token so the cast succeeds. The conditional IR structure (header/blocks/gotos) has
+        // already been built above as a side effect of running the branches.
+        case Some(step: Step) => step.asInstanceOf[R]
+        case _                =>
+          val hasNoType = branchTypes.contains(ir.DFUnit)
+          // if one branch has DFUnit, the return type is DFUnit.
+          // otherwise, all types must be the same.
+          if (hasNoType || branchTypes.forall(_.isSimilarTo(branchTypes.head)))
+            val retDFType = if (hasNoType) ir.DFUnit else branchTypes.head
+            val DFVal(headerIR: DFIfHeader) = header.runtimeChecked
+            val headerUpdate = headerIR.copy(dfType = retDFType.dropUnreachableRefs)
+            // updating the type of the if header
+            headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
+          else // violation
+            given printer: Printer = DefaultPrinter(using dfc.getSet)
+            val err = DFError.Basic(
+              "if",
+              new IllegalArgumentException(
+                s"""|This DFHDL `if` expression has different return types for branches.
+                    |These are its branch types in order:
+                    |${branchTypes.view.reverse.map(t => printer.csDFType(t)).mkString("\n")}
+                    |""".stripMargin
+              )
+            )
+            dfc.logEvent(err)
+            err.asVal[DFTypeAny, ModifierAny].asInstanceOf[R]
+          end if
     catch case e: DFError => DFVal(DFError.Derived(e)).asInstanceOf[R]
   end fromBranches
 

@@ -166,6 +166,7 @@ import scala.annotation.tailrec
   */
 //format: on
 case object FlattenStepBlocks extends HierarchyStage:
+  // TODO: Not running FoldControlSteps for now
   def dependencies: List[Stage] = List(DropRTWaits, ExplicitNamedVars, DropLocalDcls)
   def nullifies: Set[Stage] = Set()
 
@@ -182,21 +183,28 @@ case object FlattenStepBlocks extends HierarchyStage:
         case _                                   => Nil
       }.toList
     )
-    // Phase 1: conditional branch extraction (uses db0 for updated member structure)
-    val db1 = locally {
-      given MemberGetSet = db0.getSet
-      db0.patch(
-        db0.members.view.flatMap {
-          case pb: ProcessBlock if pb.isInRTDomain => collectConditionalExtractionPatches(pb)
-          case _                                   => Nil
-        }.toList
-      )
-    }
+    // Phase 1: conditional branch extraction, one level at a time (uses db0 for updated structure)
+    val db1 = extractCondBranchStepsRepeatedly(db0)
     // Phase 2: structural flattening, one level at a time (uses db1, applied repeatedly)
     val db2 = flattenRepeatedly(db1)
     // Phase 3: Goto ChangeRef
     db2.patch(gotoPatchList)
   end transformSubDB
+
+  // Repeatedly extract one nesting level of conditional-branch StepBlocks until none remain nested
+  // inside another conditional-branch step. Extracting an outer and an inner conditional-branch step
+  // in the same pass conflicts: the inner step (and its Gotos) appears both in the outer step's
+  // moved descendants (`Flattened`) and in its own extraction patches. Processing the outermost
+  // conditional-branch steps first un-nests them to ProcessBlock level, so the formerly-inner steps
+  // become outermost on the next pass.
+  @tailrec private def extractCondBranchStepsRepeatedly(db: DB)(using RefGen): DB =
+    given MemberGetSet = db.getSet
+    val patches = db.members.view.flatMap {
+      case pb: ProcessBlock if pb.isInRTDomain => collectConditionalExtractionPatches(pb)
+      case _                                   => Nil
+    }.toList
+    if patches.isEmpty then db
+    else extractCondBranchStepsRepeatedly(db.patch(patches))
 
   // Repeatedly flatten one nesting level of StepBlocks until all are direct pb children.
   @tailrec private def flattenRepeatedly(db: DB)(using RefGen): DB =
@@ -209,6 +217,19 @@ case object FlattenStepBlocks extends HierarchyStage:
     else flattenRepeatedly(db.patch(patches))
 
   // --- Shared helpers ---
+
+  // A regular StepBlock that sits directly inside a conditional branch.
+  private def isCondBranchStep(s: StepBlock)(using MemberGetSet): Boolean =
+    s.isRegular && s.getOwner.isInstanceOf[DFConditional.Block]
+
+  // True if any enclosing StepBlock ancestor (up to the ProcessBlock) is itself a conditional-branch
+  // step — i.e. `s` is nested inside another conditional-branch step and must wait for a later pass.
+  @tailrec private def hasCondBranchStepAncestor(m: DFMember)(using MemberGetSet): Boolean =
+    m.getOwner match
+      case parentStep: StepBlock =>
+        isCondBranchStep(parentStep) || hasCondBranchStepAncestor(parentStep)
+      case _: ProcessBlock => false
+      case owner           => hasCondBranchStepAncestor(owner)
 
   private def collectDirectFlatSteps(owner: DFOwner)(using MemberGetSet): List[StepBlock] =
     owner.members(MemberView.Folded).flatMap {
@@ -350,15 +371,19 @@ case object FlattenStepBlocks extends HierarchyStage:
     step5InterStep ++ step6
   end collectInterStepPatches
 
-  // --- Phase 1: Conditional branch extraction (uses db0's member structure) ---
+  // --- Phase 1: Conditional branch extraction (one level per pass; see
+  // `extractCondBranchStepsRepeatedly`) ---
 
   private def collectConditionalExtractionPatches(
       pb: ProcessBlock
   )(using MemberGetSet, RefGen): List[(DFMember, Patch)] =
     val flatSteps = collectDirectFlatSteps(pb)
     if flatSteps.isEmpty then return Nil
+    // Only the outermost conditional-branch steps this pass: a step nested inside another
+    // conditional-branch step is moved as part of that ancestor's descendants and is extracted on a
+    // later pass, avoiding overlapping Move/Remove patches on the shared nested members.
     val conditionalBranchSteps = pb.members(MemberView.Flattened).collect {
-      case sb: StepBlock if sb.isRegular && sb.getOwner.isInstanceOf[DFConditional.Block] => sb
+      case sb: StepBlock if isCondBranchStep(sb) && !hasCondBranchStepAncestor(sb) => sb
     }
     conditionalBranchSteps.flatMap { s =>
       val (cb, consumedGoto) = findConsumedGoto(s)

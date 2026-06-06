@@ -57,7 +57,7 @@ object CompilerOptions:
 
   type Backend = dfhdl.backends.type => _Backend
   private[dfhdl] into opaque type _Backend <: BackendCompiler = BackendCompiler
-  private[dfhdl] object _Backend:
+  object _Backend:
     given Backend = _ => dfhdl.backends.verilog.sv2009
     given Conversion[BackendCompiler, _Backend] = identity
     extension (backend: _Backend)
@@ -71,7 +71,7 @@ object CompilerOptions:
   type LogLevel = wvlet.log.LogLevel.type => _LogLevel
   private[dfhdl] into opaque type _LogLevel <: dfhdl.options._LogLevel =
     dfhdl.options._LogLevel
-  private[dfhdl] object _LogLevel:
+  object _LogLevel:
     given Conversion[wvlet.log.LogLevel, _LogLevel] = x => x.asInstanceOf[_LogLevel]
     given (using logLevel: dfhdl.options.LogLevel): LogLevel = logLevel
 

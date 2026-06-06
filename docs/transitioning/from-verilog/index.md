@@ -566,8 +566,8 @@ val v = Bits(8) <> VAR
 val all_set  = v.&     // Bit: AND reduce
 val any_set  = v.|     // Bit: OR reduce
 val parity   = v.^     // Bit: XOR reduce
-val not_all  = !v.&    // Bit: NAND reduce
-val none_set = !v.|    // Bit: NOR reduce
+val not_all  = ~v.&    // Bit: NAND reduce
+val none_set = ~v.|    // Bit: NOR reduce
 ```
 
 </div>

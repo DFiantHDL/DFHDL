@@ -744,6 +744,39 @@ Key invariants:
 - `given MemberGetSet = db.getSet` must be re-established at the top of each recursive call so
   navigation helpers see the updated member structure.
 
+**This pattern is not just for flattening — it is the general cure for "nested same-kind
+rewrites".** Whenever a stage rewrites a construct via `Patch.Move` or
+`ReplaceWithLast(ChangeRefAndRemove)` *plus* a satellite patch anchored on its body (an `After`
+increment, a `Before` goto, a consumed-member `Remove`), and that construct can **nest inside
+another of the same kind**, rewriting both in one pass conflicts: the inner one appears both inside
+the outer one's moved descendants (`Flattened`) AND in its own patches → ownership-order breakage
+or `Received two different patches for the same member`. Two real instances from this codebase:
+- `SimplifyRTOps` rewriting nested `for` loops (`DFForBlock` → `while` + iterator + `After`
+  increment).
+- `FlattenStepBlocks` extracting `StepBlock`s nested in conditional branches (`Move` + inserted
+  goto + consumed-goto `Remove`).
+
+The fix in both was identical: drive the rewrite with `@tailrec ...Repeatedly(db)` and **gate each
+pass to the non-nested instances** so an outer and inner are never patched together — e.g. process
+only the *innermost* (no transformable descendant) or only the *outermost* (no transformable
+ancestor), and let later passes pick up the rest:
+```scala
+// innermost-first gate (SimplifyRTOps): skip a for loop that contains another transformable one
+case fb: DFLoop.DFForBlock
+    if isTransformable(fb) && !fb.members(MemberView.Flattened).exists {
+      case inner: DFLoop.DFForBlock => isTransformable(inner); case _ => false
+    } =>
+
+// outermost-first gate (FlattenStepBlocks): skip a step that has a transformable step ancestor
+val targets = pb.members(MemberView.Flattened).collect {
+  case sb: StepBlock if isCondBranchStep(sb) && !hasCondBranchStepAncestor(sb) => sb
+}
+```
+Each pass strictly reduces the count of nested instances, so the `@tailrec` loop converges. This
+keeps the multi-phase structure intact — a stage with several phases can wrap just the affected
+phase(s) in their own `...Repeatedly` driver (as `FlattenStepBlocks` does for conditional
+extraction and structural flattening independently).
+
 ### Pattern 10 — Replace a DFOwner while preserving its children
 
 Use when you want to swap one owner block for another (e.g. `DFForBlock` → `DFWhileBlock`) but
@@ -867,6 +900,69 @@ extension [T: HasDB](t: T)
 
 ---
 
+## Debugging a Stage Failure with TRACE
+
+When a full compilation blows up inside the stage pipeline (a `SanityCheck` failure, a patch
+conflict, etc.), the fastest way to localize and reproduce it is the **TRACE log**, which prints
+the full design code string after every stage that changes the DB.
+
+### Enabling and running
+
+Put a design in `lib/src/test/scala/Playground.scala` (or `core/.../Playground.scala`) and add at
+the top of the file:
+```scala
+given options.CompilerOptions.LogLevel = _.TRACE
+```
+Then run the whole pipeline for a top-level design named `Foo` via its generated `top_Foo` main:
+```bash
+sbtn.bat ";libPlayground;lib/Test/runMain top_Foo"          # core equivalent: corePlayground + core/Test/runMain
+```
+Pass tool/backend arguments after `--`:
+```bash
+sbtn.bat ";libPlayground;lib/Test/runMain top_Foo -- simulate -t questa"     # or -t nvc/ghdl with -b vhdl
+```
+A design with **no ports + a `finish()`** is treated as a self-contained simulation top, so the
+default (no-arg) action becomes *simulate* instead of *compile*.
+
+### Reading the trace to localize the failing stage
+
+The log emits `Running stage X....` / `Finished stage X` around each stage, runs a `SanityCheck`
+after every non-`NoCheckStage`, and prints the code string after any stage that changed the DB. So:
+- The **`SanityCheck` that throws** (`Failed ownership check!`, `Received two different patches for
+  the same member`, …) fires *immediately after* the offending stage — that stage name is your
+  culprit, even if the symptom (a dangling owner, a duplicate Goto) looks structural.
+- **Don't assume the failing stage is the one you changed.** A stage can pass its own sanity check
+  and emit a valid DB, yet a *later* stage chokes on a shape your stage newly produced. Read the
+  `Running stage` sequence to find the first failure, not the first suspect.
+
+### Harvesting a self-contained reproducer from the trace
+
+The code printout emitted **immediately before** the failing stage is that stage's *input* — and
+crucially it is a **valid** design (it just passed the previous stage's sanity check). Because
+stages run before later lowering, the printed constructs are exactly the failing stage's input
+form, so you can drop that printout almost verbatim into a self-contained `<Stage>Spec` test (see
+*Test Authoring Rules* below) as the reproducer. This turns an opaque end-to-end crash into a fast,
+isolated unit test in one step — write the test, watch it fail with the same error, then fix.
+
+### Caveats
+
+- Re-running an unchanged design may short-circuit on the on-disk cache
+  (`Loading committed design from cache...`) and skip the stages (and the trace) entirely. Pass
+  **`--nocache`** to disable caching — it is a DFHDL App option that goes *before* the `--`
+  separator (it is NOT a positional arg after `--`; placing it after `--` fails with
+  `[scallop] Error: Excess arguments provided: '--nocache'`). The DFHDL App command
+  (`compile` / `simulate` / …) goes *after* `--`:
+  ```bash
+  sbtn.bat ";libPlayground;lib/Test/runMain top_Foo --nocache -- compile"
+  sbtn.bat ";libPlayground;lib/Test/runMain top_Foo --nocache -- simulate -t questa"
+  ```
+  (Alternatively clear `sandbox/<Top>` via `sbtn clearSandbox`, or edit the design — but `--nocache`
+  is the lightweight option for repeated trace runs.)
+- `libPlayground` / `corePlayground` zero out other subprojects' test sources for the session. To
+  run `StagesSpec` tests again afterwards, reset with a leading `;reload`.
+
+---
+
 ## Test Authoring Rules
 
 **Tests must be self-contained.** Each test should only exercise the stage under test. Do not write input designs that rely on a prior stage to produce the IR shape that the current stage expects — write that IR shape directly using the DFHDL DSL.
@@ -978,6 +1074,14 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     case classes that have no dedicated single-argument unapply.
 16. **Assuming duplicate designs have members** — designs tagged `DuplicateTag` have **no members**
     in the DB (ports, domain blocks, and values are removed during immutable DB creation). 
+17. **Rewriting nested same-kind constructs in one pass** — if your stage rewrites a construct that
+    can nest inside another of the same kind (nested `for` loops, steps-in-conditionals nested in
+    steps, etc.) via a `Move` / `ReplaceWithLast(ChangeRefAndRemove)` plus a body-anchored satellite
+    patch, doing the outer and inner in one patch list conflicts: the inner appears both in the
+    outer's `Flattened` moved descendants and in its own patches → ownership breakage or
+    `Received two different patches for the same member`. Drive it `@tailrec` and gate each pass to
+    the innermost-only or outermost-only instances (see Pattern 9). This is easy to miss because a
+    single-level test passes — **always add a nested test** for any such rewrite.
 ---
 
 ## API Notes
