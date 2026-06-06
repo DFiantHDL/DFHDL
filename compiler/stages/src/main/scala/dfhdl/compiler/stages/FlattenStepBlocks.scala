@@ -166,7 +166,8 @@ import scala.annotation.tailrec
   */
 //format: on
 case object FlattenStepBlocks extends HierarchyStage:
-  def dependencies: List[Stage] = List(FoldControlSteps)
+  // TODO: Not running FoldControlSteps for now
+  def dependencies: List[Stage] = List(DropRTWaits, ExplicitNamedVars, DropLocalDcls)
   def nullifies: Set[Stage] = Set()
 
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =

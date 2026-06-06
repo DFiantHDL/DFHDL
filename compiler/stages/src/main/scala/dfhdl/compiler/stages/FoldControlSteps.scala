@@ -6,6 +6,8 @@ import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
 import dfhdl.internals.*
 import scala.annotation.tailrec
+
+//// NOTICE: THIS STAGE IS DISABLED FOR NOW, SINCE IT CAUSES MORE PROBLEMS THAN IT SOLVES IN ITS CURRENT FORM.
 //format: off
 /** This stage removes the gratuitous clock cycle that every loop iteration costs in an RT process.
   *
@@ -194,7 +196,9 @@ case object FoldControlSteps extends HierarchyStage:
   // transitive reference-closure of `seed` restricted to members owned within `block` — used to pull
   // in values that belong to a member but are loosely owned by the enclosing block (e.g. a nested
   // step's `if` condition, which `DropRTWaits` parks in the parent block rather than the step).
-  private def refClosureWithin(block: DFOwner, seed: Set[DFMember])(using MemberGetSet): Set[DFMember] =
+  private def refClosureWithin(block: DFOwner, seed: Set[DFMember])(using
+      MemberGetSet
+  ): Set[DFMember] =
     val within = block.members(MemberView.Flattened).toSet
     @tailrec def loop(cur: Set[DFMember]): Set[DFMember] =
       val next = cur ++ cur.iterator.flatMap(_.getRefs.iterator.map(_.get)).filter(within.contains)
@@ -299,7 +303,8 @@ case object FoldControlSteps extends HierarchyStage:
     val regDsn =
       new MetaDesign(enclosingProcess(c1), Patch.Add.Config.Before, dfhdl.core.DomainType.RT):
         import dfhdl.core.*
-        val regs = levels.map(L => (Bit <> VAR.REG).init(1)(using dfc.setName(s"${L.c.getName}_entered")))
+        val regs =
+          levels.map(L => (Bit <> VAR.REG).init(1)(using dfc.setName(s"${L.c.getName}_entered")))
     val enteredRegs = regDsn.regs
 
     val stepDsn =
@@ -316,8 +321,7 @@ case object FoldControlSteps extends HierarchyStage:
         def idxMembers(lvl: Level): List[DFMember] =
           lvl.cThen.members(MemberView.Flattened).filter(idxSubtree(lvl).contains)
         // re-arm the guard regs for control levels `from..k-1` (inner-first ordering)
-        def reArm(from: Int): Unit =
-          (k - 1 to from by -1).foreach(p => enteredRegs(p).din := 1)
+        def reArm(from: Int): Unit = (k - 1 to from by -1).foreach(p => enteredRegs(p).din := 1)
         // clone the innermost level's bookkeeping (the wait-counter reset etc.) that re-initialises
         // the wait for the next iteration
         def resetWaitCounter(): Unit = cloneMembers(innermost.cThen, restMembers(innermost))
@@ -331,7 +335,8 @@ case object FoldControlSteps extends HierarchyStage:
           else
             cloneMembers(levels(mi).cThen, restMembers(levels(mi)))
             val nh = DFIf.Header(DFUnit)
-            val cont = DFIf.Block(Some(levels(mi).cCond.cloneAnonValueAndDepsHere.asValOf[DFBool]), nh)
+            val cont =
+              DFIf.Block(Some(levels(mi).cCond.cloneAnonValueAndDepsHere.asValOf[DFBool]), nh)
             dfc.enterOwner(cont)
             resetWaitCounter()
             reArm(mi)
@@ -346,7 +351,8 @@ case object FoldControlSteps extends HierarchyStage:
         dfc.enterOwner(step)
         val header = DFIf.Header(DFUnit)
         // count branch: guarded per-level index updates (inner-first), then W's full body
-        val countBlock = DFIf.Block(Some(chain.wCond.cloneAnonValueAndDepsHere.asValOf[DFBool]), header)
+        val countBlock =
+          DFIf.Block(Some(chain.wCond.cloneAnonValueAndDepsHere.asValOf[DFBool]), header)
         dfc.enterOwner(countBlock)
         levels.zipWithIndex.reverse.foreach { (lvl, idx) =>
           val gIf = DFIf.Block(Some(enteredRegs(idx).asValOf[DFBool]), DFIf.Header(DFUnit))
@@ -358,7 +364,10 @@ case object FoldControlSteps extends HierarchyStage:
         // W's count-branch body verbatim (counter increment, prints, nested combinational ifs, …),
         // everything except its loop-back goto
         val wGotos: Set[DFMember] = directGotos(chain.wThen).toSet
-        cloneMembers(chain.wThen, chain.wThen.members(MemberView.Flattened).filterNot(wGotos.contains))
+        cloneMembers(
+          chain.wThen,
+          chain.wThen.members(MemberView.Flattened).filterNot(wGotos.contains)
+        )
         ThisStep
         dfc.exitOwner()
         // innermost continue (part of the main chain, rendered as `else if`)
@@ -384,8 +393,9 @@ case object FoldControlSteps extends HierarchyStage:
     // — so an external cond-member is removed only if no surviving member still references it.
     val baseRemove = c1.members(MemberView.Flattened)
     val baseSet = baseRemove.toSet
-    val condCands =
-      (chain.wCond :: levels.map(_.cCond)).flatMap(c => c :: c.collectRelMembers(false)).distinct
+    val condCands = (chain.wCond :: levels.map(_.cCond)).flatMap(c =>
+      c :: c.collectRelMembers(false)
+    ).distinct
     val extraConds = condCands.filterNot(baseSet.contains)
     val tentativeRemove = baseSet ++ extraConds + c1
     // ref targets of everything that will survive (resolved on the intact pre-patch DB)
