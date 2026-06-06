@@ -169,7 +169,7 @@ abstract class CommonPhase extends PluginPhase:
 
   extension (tpe: Type)(using Context)
     def isMetaContext: Boolean =
-      tpe <:< metaContextTpe
+      tpe <:< metaContextTpe && !(tpe <:< defn.NullType)
     def dfValTpeOpt: Option[Type] =
       tpe.dealias match
         case res if res.dealias.typeSymbol == dfValSym => Some(res)
