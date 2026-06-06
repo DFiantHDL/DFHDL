@@ -407,8 +407,8 @@ class FoldControlStepsSpec extends StageSpec():
           while (i != 100)
             while (waitCnt != 49)
               waitCnt.din := waitCnt + 1
-            waitCnt.din := 0
-            i.din        := i + 1
+            waitCnt.din   := 0
+            i.din         := i + 1
           Done
         end Count
         def Done: Step =
@@ -470,8 +470,8 @@ class FoldControlStepsSpec extends StageSpec():
       process:
         while (waitCnt1 != 149)
           waitCnt1.din := waitCnt1 + 1
-        waitCnt1.din := 0
-        x.din := !x
+        waitCnt1.din   := 0
+        x.din          := !x
     end Foo
     val top = (new Foo).foldControlSteps
     assertCodeString(
@@ -501,12 +501,12 @@ class FoldControlStepsSpec extends StageSpec():
       process:
         while (waitCnt1 != 149)
           waitCnt1.din := waitCnt1 + 1
-        waitCnt1.din := 0
-        x.din := !x
+        waitCnt1.din   := 0
+        x.din          := !x
         while (waitCnt2 != 149)
           waitCnt2.din := waitCnt2 + 1
-        waitCnt2.din := 0
-        x.din := 1
+        waitCnt2.din   := 0
+        x.din          := 1
     end Foo
     val top = (new Foo).foldControlSteps
     assertCodeString(
@@ -532,6 +532,129 @@ class FoldControlStepsSpec extends StageSpec():
          |    end S_1
          |    waitCnt2.din := d"8'0"
          |    x.din := 1
+         |end Foo""".stripMargin
+    )
+  }
+
+  // ── No-op (safety): the inner loop body READS the outer index `i` (`println(i, j)`). Entry-folding
+  //    would move `i.din := i + 1` to the wait's first cycle, changing `i` mid-loop and corrupting
+  //    those reads — so the `i` loop is left unfolded. Crucially, every body statement (the `println`
+  //    and any nested combinational logic) is preserved verbatim; nothing is dropped. ──────────────
+  test("a loop whose body reads its index is left unfolded (statements preserved)") {
+    class Foo extends RTDesign:
+      val i = Int <> VAR.REG
+      val j = Int <> VAR.REG
+      process:
+        def S_0: Step =
+          NextStep
+        end S_0
+        i.din := 0
+        def S_1: Step =
+          if (i < 3)
+            j.din := 0
+            def S_1_0: Step =
+              if (j < 3)
+                println(s"Hello i: ${i}, j: ${j}")
+                j.din := j + 1
+                ThisStep
+              else NextStep
+            end S_1_0
+            i.din := i + 1
+            ThisStep
+          else NextStep
+          end if
+        end S_1
+        finish()
+    end Foo
+    val top = (new Foo).foldControlSteps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val i = Int <> VAR.REG
+         |  val j = Int <> VAR.REG
+         |  process:
+         |    def S_0: Step =
+         |      NextStep
+         |    end S_0
+         |    i.din := 0
+         |    def S_1: Step =
+         |      if (i < 3)
+         |        j.din := 0
+         |        def S_1_0: Step =
+         |          if (j < 3)
+         |            println(s"Hello i: ${i}, j: ${j}")
+         |            j.din := j + 1
+         |            ThisStep
+         |          else NextStep
+         |        end S_1_0
+         |        i.din := i + 1
+         |        ThisStep
+         |      else NextStep
+         |      end if
+         |    end S_1
+         |    finish()
+         |end Foo""".stripMargin
+    )
+  }
+
+  // ── Fold: a wait body with an extra statement that does NOT read the folded index — the loop
+  //    folds and the body statement is preserved in the count branch (no drop). ────────────────────
+  test("fold preserves a wait-body statement that does not read the index") {
+    class Foo extends RTDesign:
+      val o       = Bit     <> OUT.REG init 0
+      val i       = Int     <> VAR.REG init 0
+      val waitCnt = UInt(6) <> VAR.REG init 0
+      process:
+        def S_0: Step =
+          NextStep
+        end S_0
+        def S_1: Step =
+          if (i < 100)
+            def S_1_0: Step =
+              if (waitCnt != 49)
+                o.din       := !o
+                waitCnt.din := waitCnt + 1
+                ThisStep
+              else NextStep
+            end S_1_0
+            waitCnt.din := 0
+            i.din       := i + 1
+            ThisStep
+          else
+            finish()
+            NextStep
+        end S_1
+    end Foo
+    val top = (new Foo).foldControlSteps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val o = Bit <> OUT.REG init 0
+         |  val i = Int <> VAR.REG init 0
+         |  val waitCnt = UInt(6) <> VAR.REG init d"6'0"
+         |  val S_1_entered = Bit <> VAR.REG init 1
+         |  process:
+         |    def S_0: Step =
+         |      NextStep
+         |    end S_0
+         |    def S_1_0: Step =
+         |      if (waitCnt != d"6'49")
+         |        if (S_1_entered)
+         |          i.din := i + 1
+         |          S_1_entered.din := 0
+         |        end if
+         |        o.din := !o
+         |        waitCnt.din := waitCnt + d"6'1"
+         |        ThisStep
+         |      else if (i < 100)
+         |        waitCnt.din := d"6'0"
+         |        S_1_entered.din := 1
+         |        ThisStep
+         |      else
+         |        finish()
+         |        NextStep
+         |      end if
+         |    end S_1_0
          |end Foo""".stripMargin
     )
   }

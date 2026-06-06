@@ -132,13 +132,16 @@ case object FoldControlSteps extends HierarchyStage:
 
   // One control level `C_m` of a (possibly nested) loop chain: its `if (cCond)` then-block, the loop
   // condition, the index-update net (writes the reg the condition tests — folds at entry) and the
-  // remaining bookkeeping nets (reset of the level below — replayed on continue / exhaust).
+  // nested step (the level below, excluded from the cloned bookkeeping). Everything in the then-block
+  // other than the index update, the nested step and the loop-back goto is the level's "rest"
+  // bookkeeping — any statements, including `println`/`report` and nested combinational `if`s — which
+  // is replayed (verbatim, deep-cloned) on continue / exhaust.
   private case class Level(
       c: StepBlock,
       cThen: DFConditional.DFIfElseBlock,
       cCond: DFVal,
       idxNet: DFNet,
-      resetNets: List[DFNet]
+      nested: StepBlock
   )
   // A foldable control chain `C_1` ⊃ … ⊃ `C_k` ⊃ `W` (outer→inner), down to the leaf wait `W`.
   private case class Chain(
@@ -146,7 +149,6 @@ case object FoldControlSteps extends HierarchyStage:
       w: StepBlock,
       wThen: DFConditional.DFIfElseBlock,
       wCond: DFVal,
-      wCountNets: List[DFNet],
       c1Else: DFConditional.DFIfElseBlock // the outermost control step's else-body (the loop exit)
   )
 
@@ -183,6 +185,30 @@ case object FoldControlSteps extends HierarchyStage:
     n.lhsRef.get match
       case v: DFVal => v.departialDcl.map(_._1)
       case _        => None
+  // the index-update net plus its anonymous dependency subtree (the rhs expression)
+  private def idxSubtree(lvl: Level)(using MemberGetSet): Set[DFMember] =
+    (lvl.idxNet :: lvl.idxNet.collectRelMembers).toSet
+  // the nested step and everything under it
+  private def nestedSubtree(lvl: Level)(using MemberGetSet): Set[DFMember] =
+    (lvl.nested :: lvl.nested.members(MemberView.Flattened)).toSet
+  // transitive reference-closure of `seed` restricted to members owned within `block` — used to pull
+  // in values that belong to a member but are loosely owned by the enclosing block (e.g. a nested
+  // step's `if` condition, which `DropRTWaits` parks in the parent block rather than the step).
+  private def refClosureWithin(block: DFOwner, seed: Set[DFMember])(using MemberGetSet): Set[DFMember] =
+    val within = block.members(MemberView.Flattened).toSet
+    @tailrec def loop(cur: Set[DFMember]): Set[DFMember] =
+      val next = cur ++ cur.iterator.flatMap(_.getRefs.iterator.map(_.get)).filter(within.contains)
+      if (next.size == cur.size) cur else loop(next)
+    loop(seed)
+  // the members of a level's then-block that are NOT the index update, the nested step (with its
+  // loosely-owned condition closure), or the loop-back goto — i.e. the iteration bookkeeping (resets,
+  // prints, nested combinational ifs, …), in pre-order. Deep-cloned verbatim so no statement is
+  // dropped, while the nested step's own condition is not spuriously duplicated.
+  private def restMembers(lvl: Level)(using MemberGetSet): List[DFMember] =
+    val excl =
+      refClosureWithin(lvl.cThen, idxSubtree(lvl) ++ nestedSubtree(lvl)) ++
+        directGotos(lvl.cThen).lastOption.toSet
+    lvl.cThen.members(MemberView.Flattened).filterNot(excl.contains)
   // the declarations read by a (condition) value
   private def condDcls(cond: DFVal)(using MemberGetSet): Set[DFVal.Dcl] =
     (cond :: cond.collectRelMembers(false))
@@ -220,8 +246,19 @@ case object FoldControlSteps extends HierarchyStage:
               val cCond = cThen.getGuardOption.get
               val thenNets = cThen.members(MemberView.Folded).collect { case n: DFNet => n }
               val dcls = condDcls(cCond)
-              thenNets.find(n => lhsDcl(n).exists(dcls.contains)).map { idxNet =>
-                (Level(c, cThen, cCond, idxNet, thenNets.filterNot(_ == idxNet)), nested, cElse)
+              thenNets.find(n => lhsDcl(n).exists(dcls.contains)).flatMap { idxNet =>
+                // Safety: entry-folding moves the index update to the wait's first cycle, so the
+                // index reg changes mid-wait. That is only sound if the wait body never *reads* the
+                // index (true for pure timing loops, where the index is condition-only). If the
+                // nested subtree reads the index (e.g. `println(i, …)` inside the loop body), folding
+                // would corrupt those reads — so this level is not foldable (leaving it unfolded is
+                // correct, just un-optimised; an inner safe level can still fold via the fixpoint).
+                val idxDcl = lhsDcl(idxNet)
+                val readInNested = nested.members(MemberView.Flattened).iterator
+                  .flatMap(_.getRefs.iterator.map(_.get))
+                  .exists(m => idxDcl.contains(m))
+                if (readInNested) None
+                else Some((Level(c, cThen, cCond, idxNet, nested), nested, cElse))
               }
             case _ => None
         }
@@ -233,10 +270,7 @@ case object FoldControlSteps extends HierarchyStage:
     controlLevel(c).flatMap { case (level, nested, cElse) =>
       if (isWaitStep(nested))
         val wThen = thenBlockOf(nested, singleIfHeader(nested).get)
-        Some(Chain(
-          List(level), nested, wThen, wThen.getGuardOption.get,
-          wThen.members(MemberView.Folded).collect { case n: DFNet => n }, cElse
-        ))
+        Some(Chain(List(level), nested, wThen, wThen.getGuardOption.get, cElse))
       else
         chainOf(nested).map(inner => inner.copy(levels = level :: inner.levels, c1Else = cElse))
     }
@@ -268,11 +302,6 @@ case object FoldControlSteps extends HierarchyStage:
         val regs = levels.map(L => (Bit <> VAR.REG).init(1)(using dfc.setName(s"${L.c.getName}_entered")))
     val enteredRegs = regDsn.regs
 
-    def cloneNets(md: MetaDesign[?], baseOwner: DFOwner, nets: List[DFNet]): Unit =
-      nets.foreach { n =>
-        md.plantClonedMembers(baseOwner, n.collectRelMembers.asInstanceOf[List[DFMember]] :+ n)
-      }
-
     val stepDsn =
       new MetaDesign(
         c1,
@@ -280,19 +309,27 @@ case object FoldControlSteps extends HierarchyStage:
         dfhdl.core.DomainType.RT
       ):
         import dfhdl.core.{StepBlock, DFIf, DFBool, DFUnit}
+        // deep-clone a list of members (with their owner/ref structure) under the current owner
+        def cloneMembers(baseOwner: DFOwner, members: List[DFMember]): Unit =
+          if (members.nonEmpty) plantClonedMembers(baseOwner, members)
+        // a level's index update + its dependency subtree, in pre-order
+        def idxMembers(lvl: Level): List[DFMember] =
+          lvl.cThen.members(MemberView.Flattened).filter(idxSubtree(lvl).contains)
         // re-arm the guard regs for control levels `from..k-1` (inner-first ordering)
         def reArm(from: Int): Unit =
           (k - 1 to from by -1).foreach(p => enteredRegs(p).din := 1)
-        // clone the wait-counter reset that re-initialises the wait for the next iteration
-        def resetWaitCounter(): Unit = cloneNets(this, innermost.cThen, innermost.resetNets)
-        def cloneElse(): Unit = plantClonedMembers(chain.c1Else, chain.c1Else.members(MemberView.Flattened))
-        // the leave path for the outer control levels (k-2..0): each resets the level below's index,
+        // clone the innermost level's bookkeeping (the wait-counter reset etc.) that re-initialises
+        // the wait for the next iteration
+        def resetWaitCounter(): Unit = cloneMembers(innermost.cThen, restMembers(innermost))
+        def cloneElse(): Unit =
+          cloneMembers(chain.c1Else, chain.c1Else.members(MemberView.Flattened))
+        // the leave path for the outer control levels (k-2..0): each replays the level's bookkeeping,
         // then tests its own condition (continue vs. recurse outward); the outermost else is C_1's
         // else-body. For a single loop (k==1) this is just C_1's else-body.
         def buildOuterExit(mi: Int): Unit =
           if (mi < 0) cloneElse()
           else
-            cloneNets(this, levels(mi).cThen, levels(mi).resetNets)
+            cloneMembers(levels(mi).cThen, restMembers(levels(mi)))
             val nh = DFIf.Header(DFUnit)
             val cont = DFIf.Block(Some(levels(mi).cCond.cloneAnonValueAndDepsHere.asValOf[DFBool]), nh)
             dfc.enterOwner(cont)
@@ -308,17 +345,20 @@ case object FoldControlSteps extends HierarchyStage:
         val step = StepBlock.forced(using dfc.setName(chain.w.getName))
         dfc.enterOwner(step)
         val header = DFIf.Header(DFUnit)
-        // count branch: guarded per-level index updates (inner-first), then W's counter increment
+        // count branch: guarded per-level index updates (inner-first), then W's full body
         val countBlock = DFIf.Block(Some(chain.wCond.cloneAnonValueAndDepsHere.asValOf[DFBool]), header)
         dfc.enterOwner(countBlock)
         levels.zipWithIndex.reverse.foreach { (lvl, idx) =>
           val gIf = DFIf.Block(Some(enteredRegs(idx).asValOf[DFBool]), DFIf.Header(DFUnit))
           dfc.enterOwner(gIf)
-          cloneNets(this, lvl.cThen, List(lvl.idxNet))
+          cloneMembers(lvl.cThen, idxMembers(lvl))
           enteredRegs(idx).din := 0
           dfc.exitOwner()
         }
-        cloneNets(this, chain.wThen, chain.wCountNets)
+        // W's count-branch body verbatim (counter increment, prints, nested combinational ifs, …),
+        // everything except its loop-back goto
+        val wGotos: Set[DFMember] = directGotos(chain.wThen).toSet
+        cloneMembers(chain.wThen, chain.wThen.members(MemberView.Flattened).filterNot(wGotos.contains))
         ThisStep
         dfc.exitOwner()
         // innermost continue (part of the main chain, rendered as `else if`)
