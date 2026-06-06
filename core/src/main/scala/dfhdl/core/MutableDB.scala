@@ -409,7 +409,10 @@ final class MutableDB():
           val newSigConstraints = clkResource.allSigConstraints
           // merge the existing constraints with the new constraints
           val updatedSigConstraints = (existingSigConstraints ++ newSigConstraints).merge
-          val updatedMeta = domainOwner.meta.copy(annotations = updatedSigConstraints)
+          // preserve non-SigConstraint annotations (e.g. global constraints such as
+          // DeviceID/DeviceProperties/DeviceConfig/ToolOptions) which would otherwise be dropped
+          val updatedAnnotations = updatedSigConstraints ++ otherAnnotations
+          val updatedMeta = domainOwner.meta.copy(annotations = updatedAnnotations)
           val updatedDomainOwner = domainOwner match
             case design: DFDesignBlock       => design.copy(meta = updatedMeta)
             case domain: DomainBlock         => domain.copy(meta = updatedMeta)
