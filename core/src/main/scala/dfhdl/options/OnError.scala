@@ -5,6 +5,6 @@ type OnError = _OnError.type => _OnError
 val OnError = _OnError
 protected[dfhdl] enum _OnError derives CanEqual:
   case Exit, Exception
-protected[dfhdl] object _OnError:
+object _OnError:
   given OnError =
     _ => if (sbtShellIsRunning || sbtnIsRunning || sbtTestIsRunning) Exception else Exit

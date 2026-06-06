@@ -41,13 +41,13 @@ object ElaborationOptions:
   type LogLevel = wvlet.log.LogLevel.type => _LogLevel
   private[dfhdl] into opaque type _LogLevel <: dfhdl.options._LogLevel =
     dfhdl.options._LogLevel
-  private[dfhdl] object _LogLevel:
+  object _LogLevel:
     given Conversion[wvlet.log.LogLevel, _LogLevel] = x => x.asInstanceOf[_LogLevel]
     given (using logLevel: dfhdl.options.LogLevel): LogLevel = logLevel
 
   type OnError = dfhdl.options.OnError.type => _OnError
   private[dfhdl] into opaque type _OnError <: dfhdl.options._OnError = dfhdl.options._OnError
-  private[dfhdl] object _OnError:
+  object _OnError:
     given (using onError: dfhdl.options.OnError): OnError = onError
     given Conversion[dfhdl.options._OnError, _OnError] = x => x.asInstanceOf[_OnError]
 

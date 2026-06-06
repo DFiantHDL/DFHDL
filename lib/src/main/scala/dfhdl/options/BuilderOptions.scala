@@ -31,7 +31,7 @@ object BuilderOptions:
   type OnError = dfhdl.options.OnError.type => _OnError
   private[dfhdl] into opaque type _OnError <: dfhdl.options.ToolOptions._OnError =
     dfhdl.options.ToolOptions._OnError
-  private[dfhdl] object _OnError:
+  object _OnError:
     given (using onError: dfhdl.options.ToolOptions.OnError): OnError = onError
     given Conversion[dfhdl.options._OnError, _OnError] = x => x.asInstanceOf[_OnError]
 
@@ -43,7 +43,7 @@ object BuilderOptions:
 
   type Tool = dfhdl.tools.builders.type => _Tool
   private[dfhdl] into opaque type _Tool <: dfhdl.tools.builders = dfhdl.tools.builders
-  private[dfhdl] object _Tool:
+  object _Tool:
     export dfhdl.tools.builders.{foss, vendor}
     given Tool = _.vendor
     given Conversion[dfhdl.tools.builders, _Tool] = identity
