@@ -83,7 +83,7 @@ nav:
   #   - Interfaces [WIP]: user-guide/interfaces/index.md
   #   - Domains [WIP]: user-guide/domains/index.md
   #   - Scopes [WIP]: user-guide/scopes/index.md
-  #   - Naming: user-guide/naming/index.md
+    - Naming: user-guide/naming/index.md
   #   - Meta Hardware Description: user-guide/meta/index.md
   #   - Compilation: user-guide/compilation/index.md
   #   - Simulation: user-guide/simulation/index.md
