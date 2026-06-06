@@ -1403,9 +1403,9 @@ object DFVal extends DFValLP:
         // connection in either direction where both implicit directions are available
         inline if (lhsIsDFVal && rhsIsDFVal)
           inline lhs match
-            case lhs: DFVal[lt, lm] => inline rhs match
-                case rhs: DFVal[rt, rm] =>
-                  ConnectOps.specialConnect[lt, lm, rt, rm](lhs, rhs)
+            case ___lhs: DFVal[lt, lm] => inline rhs match
+                case ___rhs: DFVal[rt, rm] =>
+                  ConnectOps.specialConnect[lt, lm, rt, rm](___lhs, ___rhs)
         // if the RHS is a modifier, this is a port/variable constructor,
         // so we invoke the the implicit given operation only in one way
         else if (rhsIsModifier) exactOp2["<>", DFC, Any](lhs, rhs)
@@ -1437,9 +1437,9 @@ object DFVal extends DFValLP:
         case _           => false
       inline if (lhsIsDFVal && rhsIsDFVal)
         inline lhs match
-          case lhs: DFValTP[lt, lp] => inline rhs match
-              case rhs: DFValTP[rt, rp] =>
-                specialCompare[Op, lt, lp, rt, rp](lhs, rhs)
+          case ___lhs: DFValTP[lt, lp] => inline rhs match
+              case ___rhs: DFValTP[rt, rp] =>
+                specialCompare[Op, lt, lp, rt, rp](___lhs, ___rhs)
       else exactOp2[Op, DFC, DFValOf[DFBool]](lhs, rhs)
     end compare
 
