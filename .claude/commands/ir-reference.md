@@ -39,6 +39,8 @@ DFMember  (sealed)
 │   ├── DFDesignBlock           — module / design definition
 │   ├── DomainBlock             — clock-domain grouping
 │   ├── ProcessBlock            — always / process block
+│   ├── ForkBlock               — fork-join (forkJoin/forkJoinAny/forkJoinNone); join mode
+│   ├── LocalBlock              — local statement block (locally:); a fork branch when owned by ForkBlock
 │   ├── StepBlock               — FSM step
 │   ├── DFConditional.Block     — if / match clause
 │   │   ├── DFIfElseBlock
@@ -508,6 +510,29 @@ sealed trait ProcessBlock.Sensitivity
 case object ProcessBlock.Sensitivity.All                          // process(all)
 final case class ProcessBlock.Sensitivity.List(refs: List[DFVal.Ref])  // process(x, y)
 ```
+
+---
+
+### ForkBlock & LocalBlock
+```scala
+final case class ForkBlock(
+    join:     ForkBlock.Join,   // All | Any | None
+    ownerRef: DFOwner.Ref,
+    meta:     Meta,
+    tags:     DFTags
+)
+enum ForkBlock.Join: All, Any, None   // forkJoin / forkJoinAny / forkJoinNone
+
+final case class LocalBlock(            // produced by `locally:`
+    ownerRef: DFOwner.Ref,
+    meta:     Meta,
+    tags:     DFTags
+)
+```
+ED-domain only (for now). A `LocalBlock` whose `getOwner` is a `ForkBlock` is a concurrent
+fork branch; elsewhere it is a plain local statement scope. SystemVerilog emits both natively
+(`fork…join[_any|_none]`, `begin[: name]…end`); `DropForkJoins` lowers forks to processes +
+handshake signals for VHDL/old-Verilog, and `DropLocalBlocks` flattens local blocks for VHDL.
 
 ---
 

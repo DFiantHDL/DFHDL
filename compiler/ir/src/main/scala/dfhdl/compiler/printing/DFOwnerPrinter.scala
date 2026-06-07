@@ -50,6 +50,9 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         case ch: DFConditional.Header => ch.dfType =~ DFUnit
         // process blocks
         case pb: ProcessBlock => true
+        // fork and local blocks
+        case _: ForkBlock  => true
+        case _: LocalBlock => true
         // loops
         case _: DFLoop.Block => true
         // the rest are not directly viewable
@@ -176,6 +179,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
              |${csDFMatchEnd}"""
       case ih: DFConditional.DFIfHeader => csChains
   def csProcessBlock(pb: ProcessBlock): String
+  def csForkBlock(fb: ForkBlock): String
+  def csLocalBlock(lb: LocalBlock): String
   def csDomainBlock(pb: DomainBlock): String
 end AbstractOwnerPrinter
 
@@ -375,6 +380,18 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.List(refs) if refs.isEmpty => ""
       case Sensitivity.List(refs)                 => refs.map(_.refCodeString).mkStringBrackets
     s"${named}process${senList}:\n${body.hindent}"
+  def csForkBlock(fb: ForkBlock): String =
+    val body = csDFOwnerBody(fb)
+    val named = fb.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
+    val kw = fb.join match
+      case ForkBlock.Join.All  => "forkJoin"
+      case ForkBlock.Join.Any  => "forkJoinAny"
+      case ForkBlock.Join.None => "forkJoinNone"
+    s"${named}${kw}:\n${body.hindent}"
+  def csLocalBlock(lb: LocalBlock): String =
+    val body = csDFOwnerBody(lb)
+    val named = lb.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
+    s"${named}locally:\n${body.hindent}"
   def csStepBlock(stepBlock: StepBlock): String =
     val body = csDFOwnerBody(stepBlock)
     val name = stepBlock.getName

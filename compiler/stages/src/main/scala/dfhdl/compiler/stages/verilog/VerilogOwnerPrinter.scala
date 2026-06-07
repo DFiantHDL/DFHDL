@@ -257,6 +257,28 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
         else s" @${refs.map(_.refCodeString).mkString("(", sensitivityListSep, ")")}"
     s"$dcl${named}$alwaysKW$senList\nbegin\n${body.hindent}\nend"
   end csProcessBlock
+  def csForkBlock(fb: ForkBlock): String =
+    val body = csDFMembers(fb.members(MemberView.Folded))
+    val label = fb.meta.nameOpt.map(n => s" : $n").getOrElse("")
+    val joinKW = fb.join match
+      case ForkBlock.Join.All  => "join"
+      case ForkBlock.Join.Any  => "join_any"
+      case ForkBlock.Join.None => "join_none"
+    s"fork$label\n${body.hindent}\n$joinKW"
+  def csLocalBlock(lb: LocalBlock): String =
+    val (statements, dcls) = lb
+      .members(MemberView.Folded)
+      .partition {
+        case dcl: DFVal.Dcl                           => false
+        case const: DFVal.Const if !const.isAnonymous => false
+        case _                                        => true
+      }
+    val label = lb.meta.nameOpt.map(n => s" : $n").getOrElse("")
+    val dcl =
+      if (dcls.isEmpty) ""
+      else s"${csDFMembers(dcls)}\n"
+    val body = dcl + csDFMembers(statements)
+    s"begin$label\n${body.hindent}\nend"
   val forInteratorDclSupport: Boolean =
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false

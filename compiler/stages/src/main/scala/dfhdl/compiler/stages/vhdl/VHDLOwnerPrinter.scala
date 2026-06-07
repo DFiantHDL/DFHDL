@@ -244,6 +244,10 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
          |${body.hindent}
          |end process;"""
   end csProcessBlock
+  // fork-join and local blocks are lowered away (DropForkJoins / DropLocalBlocks) before
+  // VHDL printing; these are only safety nets.
+  def csForkBlock(fb: ForkBlock): String = printer.unsupported
+  def csLocalBlock(lb: LocalBlock): String = printer.unsupported
   def csStepBlock(stepBlock: StepBlock): String = printer.unsupported
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
     val body = csDFOwnerBody(forBlock)

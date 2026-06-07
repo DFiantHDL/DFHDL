@@ -1674,4 +1674,110 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo_arch;""".stripMargin
     )
   }
+  test("fork-join lowering to processes + handshake signals") {
+    given options.PrinterOptions.Align = false
+    class FJ3 extends EDDesign:
+      val a = Bit <> OUT
+      val b = Bit <> OUT
+      val c = Bit <> OUT
+      process:
+        val jAll = forkJoin:
+          locally:
+            a :== 0
+          locally:
+            b :== 0
+        val jAny = forkJoinAny:
+          locally:
+            a :== 1
+          locally:
+            c :== 1
+        val jNone = forkJoinNone:
+          locally:
+            c :== 0
+    end FJ3
+    val fj = (new FJ3).getCompiledCodeString
+    assertNoDiff(
+      fj,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity FJ3 is
+         |port (
+         |  a : out std_logic;
+         |  b : out std_logic;
+         |  c : out std_logic
+         |);
+         |end FJ3;
+         |
+         |architecture FJ3_arch of FJ3 is
+         |  signal jAll_start_0 : std_logic;
+         |  signal jAll_start_1 : std_logic;
+         |  signal jAll_done_0 : std_logic;
+         |  signal jAll_done_1 : std_logic;
+         |  signal jAny_start_0 : std_logic;
+         |  signal jAny_start_1 : std_logic;
+         |  signal jAny_done_0 : std_logic;
+         |  signal jAny_done_1 : std_logic;
+         |  signal jNone_start_0 : std_logic;
+         |  signal jNone_done_0 : std_logic;
+         |begin
+         |  process
+         |  begin
+         |    jAll_start_0 <= '1';
+         |    jAll_start_1 <= '1';
+         |    wait until jAll_done_0 and jAll_done_1;
+         |    jAll_start_0 <= '0';
+         |    jAll_start_1 <= '0';
+         |    jAny_start_0 <= '1';
+         |    jAny_start_1 <= '1';
+         |    wait until jAny_done_0 or jAny_done_1;
+         |    jAny_start_0 <= '0';
+         |    jAny_start_1 <= '0';
+         |    jNone_start_0 <= '1';
+         |  end process;
+         |  process
+         |  begin
+         |    wait until jAll_start_0;
+         |    a <= '0';
+         |    jAll_done_0 <= '1';
+         |    wait until not jAll_start_0;
+         |    jAll_done_0 <= '0';
+         |  end process;
+         |  process
+         |  begin
+         |    wait until jAll_start_1;
+         |    b <= '0';
+         |    jAll_done_1 <= '1';
+         |    wait until not jAll_start_1;
+         |    jAll_done_1 <= '0';
+         |  end process;
+         |  process
+         |  begin
+         |    wait until jAny_start_0;
+         |    a <= '1';
+         |    jAny_done_0 <= '1';
+         |    wait until not jAny_start_0;
+         |    jAny_done_0 <= '0';
+         |  end process;
+         |  process
+         |  begin
+         |    wait until jAny_start_1;
+         |    c <= '1';
+         |    jAny_done_1 <= '1';
+         |    wait until not jAny_start_1;
+         |    jAny_done_1 <= '0';
+         |  end process;
+         |  process
+         |  begin
+         |    wait until jNone_start_0;
+         |    c <= '0';
+         |    jNone_done_0 <= '1';
+         |    wait until not jNone_start_0;
+         |    jNone_done_0 <= '0';
+         |  end process;
+         |end FJ3_arch;""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

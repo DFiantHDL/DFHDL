@@ -1216,6 +1216,8 @@ sealed trait DFBlock extends DFOwner
 object DFBlock:
   given ReadWriter[DFBlock] = ReadWriter.merge(
     summon[ReadWriter[ProcessBlock]],
+    summon[ReadWriter[ForkBlock]],
+    summon[ReadWriter[LocalBlock]],
     summon[ReadWriter[DFConditional.Block]],
     summon[ReadWriter[DFLoop.Block]],
     summon[ReadWriter[StepBlock]],
@@ -1263,6 +1265,49 @@ object ProcessBlock:
       def copyWithNewRefs(using RefGen): this.type =
         List(refs.map(_.copyAsNewRef)).asInstanceOf[this.type]
 end ProcessBlock
+
+final case class ForkBlock(
+    join: ForkBlock.Join,
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFBlock,
+      DFOwnerNamed derives ReadWriter:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: ForkBlock =>
+      this.join == that.join &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = meta.getRefs
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    meta = meta.copyWithNewRefs,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end ForkBlock
+object ForkBlock:
+  enum Join derives CanEqual, ReadWriter:
+    case All, Any, None
+
+final case class LocalBlock(
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFBlock,
+      DFOwnerNamed derives ReadWriter:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: LocalBlock =>
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = meta.getRefs
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    meta = meta.copyWithNewRefs,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end LocalBlock
 
 object DFConditional:
   sealed trait Block extends DFBlock derives ReadWriter:

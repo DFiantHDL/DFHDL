@@ -101,6 +101,8 @@ trait Printer
           case InstMode.Def => csDFDesignDefInst(inst)
           case _            => csDFDesignBlockInst(inst)
       case pb: ProcessBlock                => csProcessBlock(pb)
+      case fb: ForkBlock                   => csForkBlock(fb)
+      case lb: LocalBlock                  => csLocalBlock(lb)
       case stepBlock: StepBlock            => csStepBlock(stepBlock)
       case forBlock: DFLoop.DFForBlock     => csDFForBlock(forBlock)
       case whileBlock: DFLoop.DFWhileBlock => csDFWhileBlock(whileBlock)
@@ -303,13 +305,15 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     val trigger = wait.triggerRef.get
     trigger.dfType match
       case _: DFBoolOrBit =>
+        // `ir.Wait(X)` resumes when X is true: `waitUntil(X)`. A negated trigger `not inner`
+        // renders back as `waitWhile(inner)`.
         trigger match
           case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
             s"waitUntil(${wait.triggerRef.refCodeString})"
-          case DFVal.Func(op = FuncOp.unary_!, args = List(triggerRef)) =>
-            s"waitUntil(${triggerRef.refCodeString})"
+          case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
+            s"waitWhile(${innerRef.refCodeString})"
           case _ =>
-            s"waitWhile(${wait.triggerRef.refCodeString})"
+            s"waitUntil(${wait.triggerRef.refCodeString})"
       case DFTime => s"${wait.triggerRef.refCodeString}.wait"
       case _      =>
         wait.triggerRef.get.getConstData[Option[BigInt]] match

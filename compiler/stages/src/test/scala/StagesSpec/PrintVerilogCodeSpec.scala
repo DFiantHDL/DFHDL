@@ -878,13 +878,13 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always
          |  begin
          |    x <= 1'b1;
-         |    wait(i);
+         |    wait(~i);
          |    #50ms;
          |    x <= 1'b0;
          |    @(posedge i);
          |    #50us;
          |    x <= 1'b1;
-         |    wait(~i);
+         |    wait(i);
          |    #50ns;
          |    x <= 1'b0;
          |    #1ns;
@@ -1691,6 +1691,180 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always_comb
          |  begin
          |    y[7:4] = a[7:4];
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("fork-join and local blocks") {
+    class FJ extends EDDesign:
+      val a = Bit <> OUT
+      val b = Bit <> OUT
+      val c = Bit <> OUT
+      process:
+        val namedBlk = locally:
+          a :== 1
+        locally:
+          b :== 1
+        val namedFork = forkJoin:
+          locally:
+            a :== 0
+          locally:
+            b :== 0
+        forkJoinAny:
+          locally:
+            a :== 1
+          locally:
+            c :== 1
+        forkJoinNone:
+          locally:
+            c :== 0
+    end FJ
+    val fj = (new FJ).getCompiledCodeString
+    assertNoDiff(
+      fj,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module FJ(
+         |  output logic a,
+         |  output logic b,
+         |  output logic c
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  always
+         |  begin
+         |    begin : namedBlk
+         |      a <= 1'b1;
+         |    end
+         |    begin
+         |      b <= 1'b1;
+         |    end
+         |    fork : namedFork
+         |      begin
+         |        a <= 1'b0;
+         |      end
+         |      begin
+         |        b <= 1'b0;
+         |      end
+         |    join
+         |    fork
+         |      begin
+         |        a <= 1'b1;
+         |      end
+         |      begin
+         |        c <= 1'b1;
+         |      end
+         |    join_any
+         |    fork
+         |      begin
+         |        c <= 1'b0;
+         |      end
+         |    join_none
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("forkJoin (wait-all) stays native under old Verilog (v2001)") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    // v2001 supports `fork ... join` (wait-all) natively, so forkJoin is NOT lowered there.
+    // Local blocks also remain native `begin ... end`.
+    class FJv extends EDDesign:
+      val a = Bit <> OUT
+      val b = Bit <> OUT
+      process:
+        locally:
+          a :== 1
+        val j = forkJoin:
+          locally:
+            a :== 0
+          locally:
+            b :== 0
+    end FJv
+    val fj = (new FJv).getCompiledCodeString
+    assertNoDiff(
+      fj,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module FJv(
+         |  output reg a,
+         |  output reg b
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  always
+         |  begin
+         |    begin
+         |      a <= 1'b1;
+         |    end
+         |    fork : j
+         |      begin
+         |        a <= 1'b0;
+         |      end
+         |      begin
+         |        b <= 1'b0;
+         |      end
+         |    join
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("forkJoinAny is lowered to handshake processes under old Verilog (v2001)") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    // v2001 lacks join_any/join_none, so forkJoinAny is lowered to multiple always blocks with
+    // start/done handshake signals (parent waits for ANY done). Local blocks stay native.
+    class FJvAny extends EDDesign:
+      val a = Bit <> OUT
+      val b = Bit <> OUT
+      process.forever:
+        val j = forkJoinAny:
+          locally:
+            a :== 0
+          locally:
+            b :== 0
+    end FJvAny
+    val fj = (new FJvAny).getCompiledCodeString
+    assertNoDiff(
+      fj,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module FJvAny(
+         |  output reg a,
+         |  output reg b
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  reg j_start_0;
+         |  reg j_start_1;
+         |  reg j_done_0;
+         |  reg j_done_1;
+         |  always
+         |  begin
+         |    j_start_0 <= 1'b1;
+         |    j_start_1 <= 1'b1;
+         |    wait(j_done_0 | j_done_1);
+         |    j_start_0 <= 1'b0;
+         |    j_start_1 <= 1'b0;
+         |  end
+         |  always
+         |  begin
+         |    wait(j_start_0);
+         |    begin
+         |      a <= 1'b0;
+         |    end
+         |    j_done_0 <= 1'b1;
+         |    wait(~j_start_0);
+         |    j_done_0 <= 1'b0;
+         |  end
+         |  always
+         |  begin
+         |    wait(j_start_1);
+         |    begin
+         |      b <= 1'b0;
+         |    end
+         |    j_done_1 <= 1'b1;
+         |    wait(~j_start_1);
+         |    j_done_1 <= 1'b0;
          |  end
          |endmodule""".stripMargin
     )
