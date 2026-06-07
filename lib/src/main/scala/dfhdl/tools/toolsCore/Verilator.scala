@@ -32,7 +32,8 @@ object Verilator extends VerilogLinter, VerilogSimulator:
   // `undefined reference to WinMain`. Normalizing VERILATOR_ROOT to forward slashes for the
   // spawned process avoids this (no-op on non-Windows, where there are no backslashes).
   override protected def execEnv: Map[String, String] =
-    sys.env.get("VERILATOR_ROOT").map(root => "VERILATOR_ROOT" -> root.replace('\\', '/')).toMap
+    super.execEnv ++
+      sys.env.get("VERILATOR_ROOT").map(root => "VERILATOR_ROOT" -> root.replace('\\', '/')).toMap
 
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
     val language = dialect match

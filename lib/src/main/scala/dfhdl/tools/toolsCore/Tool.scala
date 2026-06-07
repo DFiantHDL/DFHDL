@@ -83,8 +83,33 @@ trait Tool:
       if (this.convertWindowsToLinuxPaths) path.forceWindowsToLinuxPath else path
 
   // Extra environment variables to set for the spawned tool process, merged over the inherited
-  // environment. Empty by default; tools override this to inject/normalize env vars they need.
-  protected def execEnv: Map[String, String] = Map.empty
+  // environment. Defaults to the Windows DLL-search guard below; tools that override this should
+  // fold in `winDllPathEnv` so they keep that protection.
+  protected def execEnv: Map[String, String] = winDllPathEnv
+
+  // Windows DLL-hell guard.
+  // Many bundled tools (oss-cad-suite's iverilog/ivl, ghdl, nvc, verilator, ...) dynamically link
+  // the MinGW runtime `libstdc++-6.dll` / `libgcc_s_seh-1.dll`. For Icarus Verilog these live in
+  // `<root>\lib` (a sibling of the `bin` that holds the launcher, and two levels above `ivl.exe`
+  // itself) rather than next to the executable, so the loader resolves them through PATH. If an
+  // unrelated toolchain on PATH (Git's mingw64, Quartus, Intel FPGA, ...) ships an incompatible
+  // copy earlier than oss-cad-suite, the tool loads the wrong DLL and is killed at load time with
+  // STATUS_ENTRYPOINT_NOT_FOUND (0xC0000139) or an access violation, producing no output. We
+  // prepend the executable's own directory plus its sibling `lib` and `lib\ivl` so the tool
+  // always finds its own bundled runtime DLLs first. No-op off Windows.
+  protected final def winDllPathEnv: Map[String, String] =
+    if (!osIsWindows || runExecFullPath.isEmpty) Map.empty
+    else
+      Option(Paths.get(runExecFullPath).getParent) match
+        case None         => Map.empty
+        case Some(exeDir) =>
+          val root = Option(exeDir.getParent)
+          val dllDirs =
+            (exeDir ::
+              root.toList.flatMap(r => List(r.resolve("lib"), r.resolve("lib").resolve("ivl"))))
+              .map(_.toString)
+          val pathSep = java.io.File.pathSeparator
+          Map("PATH" -> (dllDirs :+ sys.env.getOrElse("PATH", "")).mkString(pathSep))
 
   protected def designFiles(using getSet: MemberGetSet): List[String] =
     getSet.designDB.srcFiles.collect {
@@ -214,6 +239,7 @@ trait Tool:
               |Path: ${Paths.get(execPath).toAbsolutePath()}
               |Command: $fullExec""".stripMargin
         )
+    end if
   end exec
   override def toString(): String = binExec
 end Tool
