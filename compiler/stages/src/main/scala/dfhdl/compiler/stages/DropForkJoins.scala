@@ -29,7 +29,7 @@ private type BitFE = dfhdl.core.DFValOf[dfhdl.core.DFBit]
   *     natively, so nothing is lowered there. Handshake signals are plain `Bit <> VAR` driven with
   *     non-blocking assignments.
   *   - [[DropForkJoinsRT]] lowers join-all fork-joins in the register-transfer (RT) domain into the
-  *     per-branch `process.forever` + handshake form, which the RT->FSM pipeline (`SimplifyRTOps`
+  *     per-branch `process` + handshake form, which the RT->FSM pipeline (`SimplifyRTOps`
   *     -> `DropRTWaits` -> `DropRTProcess`) then turns into a clocked state-machine. Handshake
   *     signals must hold value across clock edges, so they are registered (`Bit <> VAR.REG`) and
   *     driven with blocking assignments (equivalent to `.din :=`).
@@ -40,7 +40,7 @@ private type BitFE = dfhdl.core.DFValOf[dfhdl.core.DFBit]
   *   2. replaces the fork in the parent process with: drive every `start_i` high, a join wait
   *      (All: wait for all dones; Any: wait for any done; None: no wait), then re-arm the `start_i`
   *      signals (All/Any only);
-  *   3. emits one `process.forever` per branch (placed right *after* the parent process) that waits
+  *   3. emits one `process` per branch (placed right *after* the parent process) that waits
   *      for its `start_i`, runs the branch body, raises `done_i`, then waits for `start_i` to drop
   *      and clears `done_i`.
   *

@@ -1816,7 +1816,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     class FJvAny extends EDDesign:
       val a = Bit <> OUT
       val b = Bit <> OUT
-      process.forever:
+      process:
         val j = forkJoinAny:
           locally:
             a :== 0
