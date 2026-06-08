@@ -1674,28 +1674,21 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo_arch;""".stripMargin
     )
   }
-  test("fork-join lowering to processes + handshake signals") {
+  // join-all is the only mode lowered for VHDL (no native fork-join). join-any / join-none can
+  // dynamically spawn threads and are rejected by the VHDL backend (see DropForkJoins).
+  test("ED forkJoin (wait-all) lowering to processes + handshake signals") {
     given options.PrinterOptions.Align = false
-    class FJ3 extends EDDesign:
+    class FJ extends EDDesign:
       val a = Bit <> OUT
       val b = Bit <> OUT
-      val c = Bit <> OUT
       process:
         val jAll = forkJoin:
           locally:
             a :== 0
           locally:
             b :== 0
-        val jAny = forkJoinAny:
-          locally:
-            a :== 1
-          locally:
-            c :== 1
-        val jNone = forkJoinNone:
-          locally:
-            c :== 0
-    end FJ3
-    val fj = (new FJ3).getCompiledCodeString
+    end FJ
+    val fj = (new FJ).getCompiledCodeString
     assertNoDiff(
       fj,
       """|library ieee;
@@ -1703,25 +1696,18 @@ class PrintVHDLCodeSpec extends StageSpec:
          |use ieee.numeric_std.all;
          |use work.dfhdl_pkg.all;
          |
-         |entity FJ3 is
+         |entity FJ is
          |port (
          |  a : out std_logic;
-         |  b : out std_logic;
-         |  c : out std_logic
+         |  b : out std_logic
          |);
-         |end FJ3;
+         |end FJ;
          |
-         |architecture FJ3_arch of FJ3 is
+         |architecture FJ_arch of FJ is
          |  signal jAll_start_0 : std_logic;
          |  signal jAll_start_1 : std_logic;
          |  signal jAll_done_0 : std_logic;
          |  signal jAll_done_1 : std_logic;
-         |  signal jAny_start_0 : std_logic;
-         |  signal jAny_start_1 : std_logic;
-         |  signal jAny_done_0 : std_logic;
-         |  signal jAny_done_1 : std_logic;
-         |  signal jNone_start_0 : std_logic;
-         |  signal jNone_done_0 : std_logic;
          |begin
          |  process
          |  begin
@@ -1730,12 +1716,6 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    wait until jAll_done_0 and jAll_done_1;
          |    jAll_start_0 <= '0';
          |    jAll_start_1 <= '0';
-         |    jAny_start_0 <= '1';
-         |    jAny_start_1 <= '1';
-         |    wait until jAny_done_0 or jAny_done_1;
-         |    jAny_start_0 <= '0';
-         |    jAny_start_1 <= '0';
-         |    jNone_start_0 <= '1';
          |  end process;
          |  process
          |  begin
@@ -1753,31 +1733,109 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    wait until not jAll_start_1;
          |    jAll_done_1 <= '0';
          |  end process;
-         |  process
+         |end FJ_arch;""".stripMargin
+    )
+  }
+  // a register-transfer forkJoin lowers all the way to a clocked FSM (each branch + the parent
+  // handshake becomes its own state-register process).
+  test("RT forkJoin lowers to a clocked FSM") {
+    given options.PrinterOptions.Align = false
+    class ForkJoinFSM extends RTDesign:
+      val a = Bit <> OUT.REG init 0
+      val b = Bit <> OUT.REG init 0
+      process:
+        val fk = forkJoin:
+          locally:
+            a.din := 1
+          locally:
+            b.din := 1
+    end ForkJoinFSM
+    val top = (new ForkJoinFSM).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity ForkJoinFSM is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  a : out std_logic;
+         |  b : out std_logic
+         |);
+         |end ForkJoinFSM;
+         |
+         |architecture ForkJoinFSM_arch of ForkJoinFSM is
+         |  type t_enum_State is (
+         |    State_S_0, State_S_1
+         |  );
+         |  signal fk_start_0 : std_logic;
+         |  signal fk_start_1 : std_logic;
+         |  signal fk_done_0 : std_logic;
+         |  signal fk_done_1 : std_logic;
+         |  signal state_0 : t_enum_State;
+         |  signal state_1 : t_enum_State;
+         |  signal state_2 : t_enum_State;
+         |begin
+         |  process (clk)
          |  begin
-         |    wait until jAny_start_0;
-         |    a <= '1';
-         |    jAny_done_0 <= '1';
-         |    wait until not jAny_start_0;
-         |    jAny_done_0 <= '0';
+         |    if rising_edge(clk) then
+         |      if rst = '1' then
+         |        a <= '0';
+         |        b <= '0';
+         |        state_0 <= State_S_0;
+         |        state_1 <= State_S_0;
+         |        state_2 <= State_S_0;
+         |      else
+         |        case state_0 is
+         |          when State_S_0 =>
+         |            fk_start_0 <= '1';
+         |            fk_start_1 <= '1';
+         |            state_0 <= State_S_1;
+         |          when State_S_1 =>
+         |            if not (fk_done_0 and fk_done_1) then state_0 <= State_S_1;
+         |            else
+         |              fk_start_0 <= '0';
+         |              fk_start_1 <= '0';
+         |              state_0 <= State_S_0;
+         |            end if;
+         |        end case;
+         |        case state_1 is
+         |          when State_S_0 =>
+         |            if not fk_start_0 then state_1 <= State_S_0;
+         |            else
+         |              a <= '1';
+         |              fk_done_0 <= '1';
+         |              state_1 <= State_S_1;
+         |            end if;
+         |          when State_S_1 =>
+         |            if fk_start_0 then state_1 <= State_S_1;
+         |            else
+         |              fk_done_0 <= '0';
+         |              state_1 <= State_S_0;
+         |            end if;
+         |        end case;
+         |        case state_2 is
+         |          when State_S_0 =>
+         |            if not fk_start_1 then state_2 <= State_S_0;
+         |            else
+         |              b <= '1';
+         |              fk_done_1 <= '1';
+         |              state_2 <= State_S_1;
+         |            end if;
+         |          when State_S_1 =>
+         |            if fk_start_1 then state_2 <= State_S_1;
+         |            else
+         |              fk_done_1 <= '0';
+         |              state_2 <= State_S_0;
+         |            end if;
+         |        end case;
+         |      end if;
+         |    end if;
          |  end process;
-         |  process
-         |  begin
-         |    wait until jAny_start_1;
-         |    c <= '1';
-         |    jAny_done_1 <= '1';
-         |    wait until not jAny_start_1;
-         |    jAny_done_1 <= '0';
-         |  end process;
-         |  process
-         |  begin
-         |    wait until jNone_start_0;
-         |    c <= '0';
-         |    jNone_done_0 <= '1';
-         |    wait until not jNone_start_0;
-         |    jNone_done_0 <= '0';
-         |  end process;
-         |end FJ3_arch;""".stripMargin
+         |end ForkJoinFSM_arch;""".stripMargin
     )
   }
 end PrintVHDLCodeSpec

@@ -1,7 +1,7 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.dropLocalBlocks
+import dfhdl.compiler.stages.{dropLocalBlocksED, dropLocalBlocksRT}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class DropLocalBlocksSpec extends StageSpec:
@@ -16,7 +16,7 @@ class DropLocalBlocksSpec extends StageSpec:
           b :== 1
           a :== 0
     end LB
-    val lb = (new LB).dropLocalBlocks
+    val lb = (new LB).dropLocalBlocksED
     assertCodeString(
       lb,
       """|class LB extends EDDesign:
@@ -43,7 +43,7 @@ class DropLocalBlocksSpec extends StageSpec:
           locally:
             c :== 1
     end LB
-    val lb = (new LB).dropLocalBlocks
+    val lb = (new LB).dropLocalBlocksED
     assertCodeString(
       lb,
       """|class LB extends EDDesign:
@@ -69,7 +69,7 @@ class DropLocalBlocksSpec extends StageSpec:
           b :== 1
           a :== 0
     end LB
-    val lb = (new LB).dropLocalBlocks
+    val lb = (new LB).dropLocalBlocksED
     assertCodeString(
       lb,
       """|class LB extends EDDesign:
@@ -80,6 +80,57 @@ class DropLocalBlocksSpec extends StageSpec:
          |    locally:
          |      b :== 1
          |      a :== 0
+         |end LB
+         |""".stripMargin
+    )
+
+  test("standalone local block flattening under RT"):
+    class LB extends RTDesign:
+      val a = Bit <> OUT.REG
+      val b = Bit <> OUT.REG
+      process:
+        a.din := 1
+        locally:
+          b.din := 1
+          a.din := 0
+    end LB
+    val lb = (new LB).dropLocalBlocksRT
+    assertCodeString(
+      lb,
+      """|class LB extends RTDesign:
+         |  val a = Bit <> OUT.REG
+         |  val b = Bit <> OUT.REG
+         |  process:
+         |    a.din := 1
+         |    b.din := 1
+         |    a.din := 0
+         |end LB
+         |""".stripMargin
+    )
+
+  test("nested local blocks flattening under RT"):
+    class LB extends RTDesign:
+      val a = Bit <> OUT.REG
+      val b = Bit <> OUT.REG
+      val c = Bit <> OUT.REG
+      process:
+        a.din := 1
+        locally:
+          b.din := 1
+          locally:
+            c.din := 1
+    end LB
+    val lb = (new LB).dropLocalBlocksRT
+    assertCodeString(
+      lb,
+      """|class LB extends RTDesign:
+         |  val a = Bit <> OUT.REG
+         |  val b = Bit <> OUT.REG
+         |  val c = Bit <> OUT.REG
+         |  process:
+         |    a.din := 1
+         |    b.din := 1
+         |    c.din := 1
          |end LB
          |""".stripMargin
     )

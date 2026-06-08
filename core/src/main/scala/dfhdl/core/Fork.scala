@@ -15,9 +15,18 @@ object Fork:
   end Block
 
   object Ops:
+    // forkJoinAny / forkJoinNone can dynamically spawn threads (e.g. a fork inside a loop), which
+    // cannot be represented as a static set of synthesized processes. For now they are restricted
+    // to event-driven (ED) domains, where they map to native SystemVerilog `join_any` / `join_none`.
     protected type EDDomainOnly[A] = AssertGiven[
       A <:< DomainType.ED,
-      "Fork-join is only allowed under event-driven (ED) domains (RT support is planned)."
+      "forkJoinAny and forkJoinNone are only allowed under event-driven (ED) domains."
+    ]
+    // forkJoin (join-all) blocks the parent until all branches complete, so it is safe in any
+    // non-dataflow domain (including register-transfer, where it lowers to a clocked FSM).
+    protected type NotDFDomain[A] = AssertGiven[
+      util.NotGiven[A <:< DomainType.DF],
+      "Fork-join is not supported under dataflow (DF) domains."
     ]
     protected type InProcess = AssertGiven[
       DFC.Scope.Process,
@@ -30,20 +39,17 @@ object Fork:
       dfc.enterOwner(owner)
       block(using DFC.Scope.Process)
       dfc.exitOwner()
-    object forkJoin:
-      def apply(block: DFC.Scope.Process ?=> Unit)(using
-          dt: DomainType
-      )(using EDDomainOnly[dt.type], InProcess, DFC): Unit =
-        forkBlock(ir.ForkBlock.Join.All)(block)
-    object forkJoinAny:
-      def apply(block: DFC.Scope.Process ?=> Unit)(using
-          dt: DomainType
-      )(using EDDomainOnly[dt.type], InProcess, DFC): Unit =
-        forkBlock(ir.ForkBlock.Join.Any)(block)
-    object forkJoinNone:
-      def apply(block: DFC.Scope.Process ?=> Unit)(using
-          dt: DomainType
-      )(using EDDomainOnly[dt.type], InProcess, DFC): Unit =
-        forkBlock(ir.ForkBlock.Join.None)(block)
+    def forkJoin(block: DFC.Scope.Process ?=> Unit)(using
+        dt: DomainType
+    )(using NotDFDomain[dt.type], InProcess, DFC): Unit =
+      forkBlock(ir.ForkBlock.Join.All)(block)
+    def forkJoinAny(block: DFC.Scope.Process ?=> Unit)(using
+        dt: DomainType
+    )(using EDDomainOnly[dt.type], InProcess, DFC): Unit =
+      forkBlock(ir.ForkBlock.Join.Any)(block)
+    def forkJoinNone(block: DFC.Scope.Process ?=> Unit)(using
+        dt: DomainType
+    )(using EDDomainOnly[dt.type], InProcess, DFC): Unit =
+      forkBlock(ir.ForkBlock.Join.None)(block)
   end Ops
 end Fork

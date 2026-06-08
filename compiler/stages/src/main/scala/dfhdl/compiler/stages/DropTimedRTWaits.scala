@@ -15,7 +15,10 @@ import scala.collection.mutable
   */
 //format: on
 case object DropTimedRTWaits extends HierarchyStage:
-  def dependencies: List[Stage] = List()
+  // DropForkJoinsRT / DropLocalBlocksRT must run before any RT-wait lowering so that RT fork-joins
+  // are already lowered to the per-branch handshake form (and their local blocks flattened) before
+  // waits are turned into FSM steps. Anchoring at the root of the RT-wait chain guarantees this.
+  def dependencies: List[Stage] = List(DropLocalBlocksRT)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patches = subDB.members.collect {

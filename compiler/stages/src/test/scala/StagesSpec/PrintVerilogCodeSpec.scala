@@ -1809,10 +1809,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
-  test("forkJoinAny is lowered to handshake processes under old Verilog (v2001)") {
+  test("forkJoinAny is unsupported under old Verilog (v2001)") {
     given options.CompilerOptions.Backend = _.verilog.v2001
-    // v2001 lacks join_any/join_none, so forkJoinAny is lowered to multiple always blocks with
-    // start/done handshake signals (parent waits for ANY done). Local blocks stay native.
+    // v2001 lacks join_any/join_none and they are never lowered (they may dynamically spawn
+    // threads, e.g. a fork inside a loop), so forkJoinAny is rejected by the backend.
     class FJvAny extends EDDesign:
       val a = Bit <> OUT
       val b = Bit <> OUT
@@ -1823,48 +1823,105 @@ class PrintVerilogCodeSpec extends StageSpec:
           locally:
             b :== 0
     end FJvAny
-    val fj = (new FJvAny).getCompiledCodeString
+    intercept[IllegalArgumentException]((new FJvAny).getCompiledCodeString)
+  }
+  // a register-transfer forkJoin lowers all the way to a clocked FSM (each branch + the parent
+  // handshake becomes its own state-register process).
+  test("RT forkJoin lowers to a clocked FSM") {
+    class ForkJoinFSM extends RTDesign:
+      val a = Bit <> OUT.REG init 0
+      val b = Bit <> OUT.REG init 0
+      process:
+        val fk = forkJoin:
+          locally:
+            a.din := 1
+          locally:
+            b.din := 1
+    end ForkJoinFSM
+    val top = (new ForkJoinFSM).getCompiledCodeString
     assertNoDiff(
-      fj,
+      top,
       """|`default_nettype none
          |`timescale 1ns/1ps
          |
-         |module FJvAny(
-         |  output reg a,
-         |  output reg b
+         |module ForkJoinFSM(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  output logic a,
+         |  output logic b
          |);
-         |  `include "dfhdl_defs.vh"
-         |  reg j_start_0;
-         |  reg j_start_1;
-         |  reg j_done_0;
-         |  reg j_done_1;
-         |  always
+         |  `include "dfhdl_defs.svh"
+         |  typedef enum logic [0:0] {
+         |    State_S_0 = 0,
+         |    State_S_1 = 1
+         |  } t_enum_State;
+         |  logic fk_start_0;
+         |  logic fk_start_1;
+         |  logic fk_done_0;
+         |  logic fk_done_1;
+         |  t_enum_State state_0;
+         |  t_enum_State state_1;
+         |  t_enum_State state_2;
+         |  always_ff @(posedge clk)
          |  begin
-         |    j_start_0 <= 1'b1;
-         |    j_start_1 <= 1'b1;
-         |    wait(j_done_0 | j_done_1);
-         |    j_start_0 <= 1'b0;
-         |    j_start_1 <= 1'b0;
-         |  end
-         |  always
-         |  begin
-         |    wait(j_start_0);
-         |    begin
+         |    if (rst == 1'b1) begin
          |      a <= 1'b0;
-         |    end
-         |    j_done_0 <= 1'b1;
-         |    wait(~j_start_0);
-         |    j_done_0 <= 1'b0;
-         |  end
-         |  always
-         |  begin
-         |    wait(j_start_1);
-         |    begin
          |      b <= 1'b0;
+         |      state_0 <= State_S_0;
+         |      state_1 <= State_S_0;
+         |      state_2 <= State_S_0;
          |    end
-         |    j_done_1 <= 1'b1;
-         |    wait(~j_start_1);
-         |    j_done_1 <= 1'b0;
+         |    else begin
+         |      unique case (state_0)
+         |        State_S_0: begin
+         |          fk_start_0 <= 1'b1;
+         |          fk_start_1 <= 1'b1;
+         |          state_0 <= State_S_1;
+         |        end
+         |        State_S_1: begin
+         |          if (~(fk_done_0 & fk_done_1)) state_0 <= State_S_1;
+         |          else begin
+         |            fk_start_0 <= 1'b0;
+         |            fk_start_1 <= 1'b0;
+         |            state_0 <= State_S_0;
+         |          end
+         |        end
+         |      endcase
+         |      unique case (state_1)
+         |        State_S_0: begin
+         |          if (~fk_start_0) state_1 <= State_S_0;
+         |          else begin
+         |            a <= 1'b1;
+         |            fk_done_0 <= 1'b1;
+         |            state_1 <= State_S_1;
+         |          end
+         |        end
+         |        State_S_1: begin
+         |          if (fk_start_0) state_1 <= State_S_1;
+         |          else begin
+         |            fk_done_0 <= 1'b0;
+         |            state_1 <= State_S_0;
+         |          end
+         |        end
+         |      endcase
+         |      unique case (state_2)
+         |        State_S_0: begin
+         |          if (~fk_start_1) state_2 <= State_S_0;
+         |          else begin
+         |            b <= 1'b1;
+         |            fk_done_1 <= 1'b1;
+         |            state_2 <= State_S_1;
+         |          end
+         |        end
+         |        State_S_1: begin
+         |          if (fk_start_1) state_2 <= State_S_1;
+         |          else begin
+         |            fk_done_1 <= 1'b0;
+         |            state_2 <= State_S_0;
+         |          end
+         |        end
+         |      endcase
+         |    end
          |  end
          |endmodule""".stripMargin
     )

@@ -244,7 +244,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
          |${body.hindent}
          |end process;"""
   end csProcessBlock
-  // fork-join and local blocks are lowered away (DropForkJoins / DropLocalBlocks) before
+  // fork-join and local blocks are lowered away (DropForkJoinsED / DropLocalBlocksED) before
   // VHDL printing; these are only safety nets.
   def csForkBlock(fb: ForkBlock): String = printer.unsupported
   def csLocalBlock(lb: LocalBlock): String = printer.unsupported
