@@ -1076,12 +1076,32 @@ class DFDecimalSpec extends DFSpec:
       s"Error message should not contain ExactOp2Aux projection types:\n$allMessages"
     )
   }
-  // TODO: there is a problem in position error. need to minimize and report to Scala bug tracker.
-  // test("Error positions") {
-  //   val cnt = Bits[8] <> VAR
-  //   assertCompileErrorPos(
-  //     "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8).",
-  //     0
-  //   )("""val x = cnt := cnt + 10000""")
-  // }
+
+  test("Error positions") {
+    val cnt = Bits[8] <> VAR
+    val err1 = compiletime.testing.typeCheckErrors("cnt := cnt + 10000").last
+    val err2 = compiletime.testing.typeCheckErrors("cnt := cnt + (cnt + 10000)").last
+    val err3 = compiletime.testing.typeCheckErrors("cnt := cnt + 10000 + cnt").last
+    val err4 = compiletime.testing.typeCheckErrors("val x: Bits[8] <> VAL = cnt + 10000").last
+    assertEquals(
+      err1.message,
+      "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
+    )
+    assertEquals(err1.column, 7)
+    assertEquals(
+      err2.message,
+      "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
+    )
+    assertEquals(err2.column, 14)
+    assertEquals(
+      err3.message,
+      "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
+    )
+    assertEquals(err3.column, 7)
+    assertEquals(
+      err4.message,
+      "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
+    )
+    assertEquals(err4.column, 24)
+  }
 end DFDecimalSpec
