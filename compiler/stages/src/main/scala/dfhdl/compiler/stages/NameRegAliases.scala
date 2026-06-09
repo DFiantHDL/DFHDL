@@ -118,7 +118,7 @@ case object NameRegAliases extends HierarchyStage:
         // we keep in mind that the declaration may have anonymous value
         // representing the initialized values among them, before the declarations,
         // so we go from the bottom to the top searching for the first declaration.
-        val (posMember, addCfg): (DFMember, Patch.Add.Config) = members.view.reverse.dropWhile {
+        val (posMember, addCfg) = members.view.reverse.dropWhile {
           case dcl: DFVal.Dcl if dcl.getOwnerDomain == domainOwner => false
           case _                                                   => true
         }.headOption match

@@ -69,7 +69,7 @@ class DiamondProjectTclConfigPrinter(using
 ):
   val designDB: DB = getSet.designDB
   val topName: String = getSet.topName
-  val (part, deviceVersion): (String, String) =
+  val (part, deviceVersion) =
     designDB.top.dclMeta.annotations.collectFirst {
       case annotation: constraints.DeviceID => (annotation.partName, annotation.deviceVersion)
     }.getOrElse(throw new IllegalArgumentException("No device constraint found"))

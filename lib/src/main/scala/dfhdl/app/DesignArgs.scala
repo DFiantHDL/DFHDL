@@ -53,11 +53,11 @@ case class DesignArg(name: String, value: Any, desc: String)(using dfc: DFC):
     val data = value match
       case dfConst: DFValAny =>
         dfConst.asIR.dfType.runtimeChecked match
-          case ir.DFBool    => dfConst.asConstOf[DFBool].toScalaBoolean
-          case ir.DFInt32   => dfConst.asConstOf[DFInt32].toScalaInt
-          case ir.DFDouble  => dfConst.asConstOf[DFDouble].toScalaDouble
-          case ir.DFString  => dfConst.asConstOf[DFString].toScalaString
-          case _            =>
+          case ir.DFBool   => dfConst.asConstOf[DFBool].toScalaBoolean
+          case ir.DFInt32  => dfConst.asConstOf[DFInt32].toScalaInt
+          case ir.DFDouble => dfConst.asConstOf[DFDouble].toScalaDouble
+          case ir.DFString => dfConst.asConstOf[DFString].toScalaString
+          case _           =>
             // Bit / Bits / UInt / SInt: show the DFHDL literal form the user
             // would type at the CLI.
             formatDFHDLLiteral(dfConst)
@@ -65,6 +65,7 @@ case class DesignArg(name: String, value: Any, desc: String)(using dfc: DFC):
     data match
       case bigInt: BigInt => bigInt.toInt
       case _              => data
+  end getScalaValue
 
   // DFHDL-literal display of the default value for help output.
   def defaultDisplay: String =
@@ -121,6 +122,7 @@ case class DesignArg(name: String, value: Any, desc: String)(using dfc: DFC):
             case ir.DFSInt(_) =>
               parseDecimalLiteral(updatedScalaValue.toString, dfConst, signedForced = true)
             case _ => dfConst
+          end match
         case _ =>
           updatedScalaValue match
             case i: Int if value.isInstanceOf[BigInt] => BigInt(i)
@@ -164,7 +166,7 @@ case class DesignArg(name: String, value: Any, desc: String)(using dfc: DFC):
           )
         )
       case _ => throw new IllegalArgumentException(s"Design argument $name is not a Bits type.")
-    val (payload, explicitWidth): (String, Option[Int]) = body match
+    val (payload, explicitWidth) = body match
       case s"$w'$rest" if w.nonEmpty && w.forall(_.isDigit) => (rest, Some(w.toInt))
       case s                                                => (s, None)
     val dataOrErr = op match

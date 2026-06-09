@@ -144,7 +144,7 @@ object r__For_Plugin:
     val inputs = args.map { (arg, argMeta) =>
       DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
     }
-    val (isDuplicate, ret): (Boolean, V) =
+    val (isDuplicate, ret) =
       dfc.mutableDB.DesignContext.runFuncWithInputs(func, inputs)
     val paramEntries = Design.Inst.collectParamEntries
     def exitAndConnectInputs() =

@@ -396,7 +396,7 @@ object DFDecimal:
           case '{ Some($expr) } => Some(expr.asTerm.tpe)
           case _                => None
         val signedForced = opExpr.value.get == "sd"
-        val (signedTpe, interpWidthTpe, fractionWidthTpe): (TypeRepr, TypeRepr, TypeRepr) =
+        val (signedTpe, interpWidthTpe, fractionWidthTpe) =
           fullTerm match
             case Literal(StringConstant(t)) =>
               fromDecString(t, signedForced) match
@@ -1822,6 +1822,7 @@ object DFSInt:
             .applyDFXInt(lhs, updatedWidth - 1, 0)
             .asValTP[DFUInt[RW], P]
         }
+      end extension
       extension [P](lhs: DFValTP[DFInt32, P])
         @targetName("negateDFInt32")
         def unary_-(using DFCG): DFValTP[DFInt32, P] = trydf {

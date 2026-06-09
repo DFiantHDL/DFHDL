@@ -31,7 +31,7 @@ trait Tool:
     Nil
   protected[dfhdl] def cleanUpBeforeFileRestore()(using MemberGetSet, CompilerOptions): Unit = {}
 
-  private[dfhdl] lazy val (runExecFullPath, installedVersion): (String, Option[String]) =
+  private[dfhdl] lazy val (runExecFullPath, installedVersion) =
     var runExecFullPathRet: String = ""
     val installedVersionRet = programFullPaths(runExec).view.flatMap { runExecFullPath =>
       runExecFullPathRet = runExecFullPath

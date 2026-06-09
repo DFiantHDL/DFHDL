@@ -823,7 +823,7 @@ final case class DB private (
       // that explicitly declares "this group has no reset" — we suppress the default
       // reset that would otherwise be merged in.
       val explicitNoRst = userClkOpt.isDefined && userRstOpt.isEmpty
-      val (baseClkOpt, baseRstOpt): ClkRstTiming =
+      val (baseClkOpt, baseRstOpt) =
         if (isDeviceTop)
           val clk = domainOwner.getTimingConstraintClkRateOpt match
             case Some(rate) => defaultTag.clk.copy(rate = rate)
