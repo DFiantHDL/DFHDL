@@ -29,7 +29,8 @@ class CustomReporter(
   override def flush()(using ctx: Context): Unit = orig.flush()
   override def doReport(dia: Diagnostic)(using ctx: Context): Unit =
     val updatedMsg = dia.msg.toString
-    val updatedDia = Diagnostic(dia.msg.mapMsg(x => updatedMsg), dia.pos, dia.level)
+    val diaPos = dia.pos.copy(outer = null) // disable inline stack error printing
+    val updatedDia = Diagnostic(dia.msg.mapMsg(x => updatedMsg), diaPos, dia.level)
     orig.doReport(updatedDia)
   end doReport
 end CustomReporter
@@ -193,14 +194,15 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
         def apply(x: Boolean, tree: Tree)(using Context): Boolean =
           if (x) true
           else tree match
-            case InfixOp(_, Ident(op), _) if op.toString == "<>" => true
+            case InfixOp(_, Ident(op), _) if op.toString == "<>"               => true
             case _: Template | _: DefDef | _: Function | _: Block | _: TypeDef => x
-            case _ => foldOver(x, tree)
+            case _                                                             => foldOver(x, tree)
       body.exists {
         case vd: ValDef if !vd.rhs.isEmpty                   => acc(false, vd.rhs)
         case InfixOp(_, Ident(op), _) if op.toString == "<>" => true
         case _                                               => false
       }
+    end bodyUsesConnect
 
     private def hasDfhdlWildcardImport(stats: List[Tree]): Boolean =
       stats.exists {
