@@ -33,14 +33,27 @@ abstract class DFSpec extends NoDFCSpec, HasTypeName, HasDFC:
   dfc.enterOwner(owner)
   private val noErrMsg = "No error found"
 
-  inline def assertRuntimeErrorLog(expectedErr: String)(runTimeCode: => Unit): Unit =
+  inline def assertRuntimeErrorLog(
+      expectedErr: String,
+      colStart: Int = -1,
+      colEnd: Int = -1
+  )(runTimeCode: => Unit): Unit =
     val currentEvents = dfc.getEvents
     dfc.clearEvents()
     runTimeCode
-    val err = dfc.getErrors.headOption.map(_.dfMsg).getOrElse(noErrMsg)
+    val errOpt = dfc.getErrors.headOption
+    val err = errOpt.map(_.dfMsg).getOrElse(noErrMsg)
     dfc.clearEvents()
     dfc.injectEvents(currentEvents)
     assertNoDiff(err, expectedErr)
+    // optionally also verify the error position's column span
+    if (colStart >= 0 || colEnd >= 0)
+      val position = errOpt match
+        case Some(err: core.DFError.Basic) => err.position
+        case _                             => Position.unknown
+      assertEquals(position.columnStart, colStart)
+      assertEquals(position.columnEnd, colEnd)
+  end assertRuntimeErrorLog
 
   def assertEquals[T <: DFType, L <: DFConstOf[T], R <: DFConstOf[T]](l: L, r: R)(using DFC): Unit =
     assert((l == r).toScalaBoolean)
