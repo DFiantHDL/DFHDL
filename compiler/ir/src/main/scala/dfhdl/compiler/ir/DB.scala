@@ -602,6 +602,14 @@ final case class DB private (
   //                                     To           From
   lazy val magnetConnectionMap: Map[ConnectPoint, ConnectPoint] = MagnetMap.get
 
+  // Hierarchical clone of `magnetConnectionMap`, invoked on the root DB. The
+  // magnet matching is intrinsically cross-design; `MagnetMap.getHierarchical`
+  // precomputes each magnet point's design context per sub-DB, then matches on
+  // the root-aware design tree (no flattening).
+  lazy val new_magnetConnectionMap: Map[ConnectPoint, ConnectPoint] =
+    if (!isRoot) rootDB.new_magnetConnectionMap
+    else MagnetMap.getHierarchical(this)
+
   def checkDanglingPorts(): Unit =
     val assignmentsDclTable =
       assignmentsTable.keys
@@ -963,9 +971,9 @@ final case class DB private (
   // route every ref resolution / per-design table lookup to the OWNING sub-DB's
   // getSet (the root getSet throws). On sub-DBs and old-style flat DBs they
   // delegate to the root. Gated against the flat versions by
-  // `new_clkRstEquivalenceCheck` (run from SanityCheck) until the consuming
-  // stages (ExplicitClkRstCfg, AddClkRst) are migrated, after which the flat
-  // versions are dropped and these lose the `new_` prefix.
+  // `new_hierEquivalenceCheck` (run from SanityCheck) until the consuming
+  // stages are migrated, after which the flat versions are dropped and these
+  // lose the `new_` prefix.
   // ===========================================================================
 
   // Cross-design reaches navigate the DESIGN TREE (no global member index):
@@ -1337,7 +1345,7 @@ final case class DB private (
   // Temporary equivalence gate: on an old-style flat DB, assert the flat RT
   // clk/rst analyses match their new-style clones computed on `oldToNew`.
   // Dropped once the consuming stages are migrated and the flat versions removed.
-  def new_clkRstEquivalenceCheck(): Unit =
+  def new_hierEquivalenceCheck(): Unit =
     if (isOldStyleFlatDB)
       val newRoot = this.oldToNew
       def fail(name: String, flat: Any, neu: Any): Nothing =
@@ -1356,7 +1364,9 @@ final case class DB private (
         )
       if (this.resolvedClkRstMap != newRoot.new_resolvedClkRstMap)
         fail("resolvedClkRstMap", this.resolvedClkRstMap, newRoot.new_resolvedClkRstMap)
-  end new_clkRstEquivalenceCheck
+      if (this.magnetConnectionMap != newRoot.new_magnetConnectionMap)
+        fail("magnetConnectionMap", this.magnetConnectionMap, newRoot.new_magnetConnectionMap)
+  end new_hierEquivalenceCheck
 
   /** Checks that device top design domains all have timing clock rate constraints. Additionally, if
     * there is an explicit clock rate configuration, it must match the timing constraint rate.
