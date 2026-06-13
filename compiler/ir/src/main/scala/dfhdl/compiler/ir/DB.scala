@@ -1376,6 +1376,7 @@ final case class DB private (
       // tests validate that failing designs still throw the right message once
       // callers switch to oldToNew.check.)
       newRoot.new_circularDerivedDomainsCheck()
+      newRoot.new_domainClkRateCheck()
   end new_hierEquivalenceCheck
 
   /** Checks that device top design domains all have timing clock rate constraints. Additionally, if
@@ -1428,6 +1429,65 @@ final case class DB private (
     if (errors.nonEmpty)
       throw new IllegalArgumentException(errors.mkString("\n"))
   end domainClkRateCheck
+
+  // Hierarchical clone of `domainClkRateCheck`, invoked on the root DB. The flat
+  // `usesClk` filter (cross-design, flat-only) is equivalent to "the resolver
+  // produced a clock" (new_resolvedClkRstMap(owner)._1.isDefined), so the
+  // resolved-clock map drives both the filter and the explicit rate. Per-owner
+  // local reads (isDeviceTop, isTop position, getFullName, the clk timing
+  // constraint) are routed through the owner's sub-DB getSet via `atOwner`.
+  def new_domainClkRateCheck(): Unit =
+    def atOwner[T](owner: DFDomainOwner)(f: MemberGetSet ?=> T): T =
+      domainOwnerToSubDB(owner).atGetSet(f)
+    val errors = collection.mutable.ArrayBuffer[String]()
+    domainOwnerMemberList.view.map(_._1).foreach { domainOwner =>
+      val resolvedClkOpt = new_resolvedClkRstMap.get(domainOwner).flatMap(_._1)
+      if (
+        resolvedClkOpt.isDefined &&
+        atOwner(domainOwner)(domainOwner.getThisOrOwnerDesign.isDeviceTop)
+      )
+        def waitError(msg: String): Unit =
+          val pos = atOwner(domainOwner) {
+            if (domainOwner.isTop) domainOwner.asInstanceOf[DFDesignBlock].dclMeta.position
+            else domainOwner.meta.position
+          }
+          errors += s"""|DFiant HDL domain clock rate error!
+                        |Position:  ${pos}
+                        |Hierarchy: ${atOwner(domainOwner)(domainOwner.getFullName)}
+                        |Message:   $msg""".stripMargin
+        val explicitRateOpt = resolvedClkOpt.flatMap(_.rate.toOption)
+        val timingConstraintRateOpt =
+          atOwner(domainOwner)(domainOwner.getTimingConstraintClkRateOpt)
+        (explicitRateOpt, timingConstraintRateOpt) match
+          case (Some(explicitRate), Some(timingConstraintRate)) =>
+            if (explicitRate.to_freq.to_hz != timingConstraintRate.to_freq.to_hz)
+              waitError(
+                s"""|Mismatch between domain clock rate configuration ($explicitRate) and timing constraint rate ($timingConstraintRate).
+                    |To fix, do one of the following:
+                    |* Connect a different clock resource to the domain to match your configuration.
+                    |* Explicitly set the clock rate configuration to $timingConstraintRate.
+                    |* Remove the domain clock rate configuration and let it be derived from the timing constraint.""".stripMargin
+              )
+          case (Some(explicitRate), None) =>
+            waitError(
+              s"""|Missing clock rate timing constraint.
+                  |To Fix:
+                  |Connect a $explicitRate clock resource to the domain to match your configuration.""".stripMargin
+            )
+          case (None, None) =>
+            waitError(
+              s"""|Missing clock rate timing constraint.
+                  |To Fix:
+                  |Connect the wanted clock resource to the domain.
+                  |(the domain will automatically derive the clock rate from the resource).""".stripMargin
+            )
+          case _ =>
+        end match
+      end if
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end new_domainClkRateCheck
 
   def waitCheck(): Unit =
     val errors = collection.mutable.ArrayBuffer[String]()
