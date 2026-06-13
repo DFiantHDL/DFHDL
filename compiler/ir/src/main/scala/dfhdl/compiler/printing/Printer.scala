@@ -17,6 +17,22 @@ protected trait AbstractPrinter:
   given getSet: MemberGetSet
   given printerOptions: PrinterOptions
   val tupleSupportEnable: Boolean
+  // Construct a printer of the same concrete type bound to `subGetSet`. Used to
+  // render each sub-DB's design (and its globals) under that sub-DB's own getSet
+  // when the DB is a hierarchical root — the root's own getSet throws on ref
+  // resolution, so the trait-level print methods dispatch through one of these
+  // per sub-DB.
+  protected def withGetSet(subGetSet: MemberGetSet): TPrinter
+  // The printer to use when rendering `design`'s own members: for a hierarchical
+  // root, a sub-printer bound to that design's sub-DB getSet (its members live
+  // there); for a flat DB, `this` printer (every design shares one getSet). Used
+  // for cross-design renders such as a blackbox component/module declaration,
+  // where a design's body references another design's port list.
+  protected final def printerForDesign(design: DFDesignBlock): TPrinter =
+    getSet.designDB.rootDB.subDBs.get(design.ownerRef) match
+      case Some(sub) => withGetSet(sub.getSet)
+      case None      => printer
+end AbstractPrinter
 
 trait Printer
     extends AbstractTypePrinter,
@@ -121,7 +137,12 @@ trait Printer
   def designFileName(designName: String): String
   def globalFileName: String
   protected def hasGlobalContentCheck: Boolean =
-    getSet.designDB.membersGlobals.exists(!_.isAnonymous) || csGlobalTypeDcls.nonEmpty
+    val designDB = getSet.designDB
+    val anyNamedGlobal =
+      if (designDB.isRoot)
+        designDB.subDBs.view.values.exists(_.membersGlobals.exists(!_.isAnonymous))
+      else designDB.membersGlobals.exists(!_.isAnonymous)
+    anyNamedGlobal || csGlobalTypeDcls.nonEmpty
   lazy val hasGlobalContent: Boolean = hasGlobalContentCheck
   def csGlobalFileContent: String =
     sn"""|$csGlobalConstIntDcls
@@ -175,7 +196,7 @@ trait Printer
     val compiledFiles = Iterable(
       dfhdlSourceFile,
       globalSourceFile,
-      designDB.designMemberList.view.map { case (block: DFDesignBlock, _) =>
+      designPrinters.view.map { case (block, p) =>
         val sourceType = block.instMode match
           case _: DFDesignBlock.InstMode.BlackBox => SourceType.BlackBox
           case _                                  => SourceType.Design
@@ -183,7 +204,7 @@ trait Printer
           SourceOrigin.Compiled,
           sourceType,
           hdlFolderName + separatorChar + designFileName(block.dclName),
-          formatCode(csFile(block), withColor = false)
+          formatCode(p.csFile(block), withColor = false)
         )
       }
     ).flatten
@@ -197,13 +218,38 @@ trait Printer
 
   val printVendorIPBlackbox: Boolean = false
 
-  final def csDB: String =
+  // The (design block, printer-bound-to-its-getSet) pairs to render, in order.
+  // Flat DB: every design under `this` printer. Hierarchical root: each sub-DB's
+  // design under a sub-printer bound to that sub-DB's getSet (the root's own
+  // getSet throws on ref resolution).
+  protected final def designPrinters: List[(DFDesignBlock, TPrinter)] =
     val designDB = getSet.designDB
-    val csFileList = designDB.designMemberList.collect {
-      case (block: DFDesignBlock, _)
+    if (designDB.isRoot)
+      // Flat `designMemberList` prints designs in post-order DFS of the design
+      // tree (children in instantiation order, then the parent); the `subDBs`
+      // ListMap is pre-order (parent first). Reorder to post-order so the
+      // hierarchical output matches the flat output design-for-design.
+      val childrenOf = mutable.LinkedHashMap.empty[DFOwner.Ref, mutable.ListBuffer[DB]]
+      designDB.subDBs.values.foreach { sub =>
+        sub.parentSubDBOpt.foreach { parent =>
+          childrenOf.getOrElseUpdate(parent.top.ownerRef, mutable.ListBuffer.empty) += sub
+        }
+      }
+      def postOrder(sub: DB): List[DB] =
+        childrenOf.getOrElse(sub.top.ownerRef, mutable.ListBuffer.empty).toList
+          .flatMap(postOrder) :+ sub
+      postOrder(designDB.topDB).map(sub => sub.top -> withGetSet(sub.getSet))
+    else
+      designDB.designMemberList.collect { case (block: DFDesignBlock, _) => block -> printer }
+    end if
+  end designPrinters
+
+  final def csDB: String =
+    val csFileList = designPrinters.collect {
+      case (block, p)
           if printerOptions.designPrintFilter(block) &&
             (!block.isVendorIPBlackbox || printVendorIPBlackbox) =>
-        formatCode(csFile(block))
+        formatCode(p.csFile(block))
     }
     val globals = formatCode(
       sn"""|$csGlobalConstIntDcls
@@ -272,6 +318,8 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
       DFOwnerPrinter:
   type TPrinter = DFPrinter
   given printer: TPrinter = this
+  protected def withGetSet(subGetSet: MemberGetSet): DFPrinter =
+    new DFPrinter(using subGetSet, printerOptions)
   override val printVendorIPBlackbox: Boolean = true
   val tupleSupportEnable: Boolean = true
   def csViaConnectionSep: String = ""

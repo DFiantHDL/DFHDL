@@ -153,7 +153,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         .mkString("\n")
     val components = designMembers.view.collect {
       case inst: DFDesignInst if inst.getDesignBlock.isBlackBox => inst.getDesignBlock
-    }.map(printer.csEntityDcl(_, asComponent = true)).mkString("\n")
+    }.map(bb => printerForDesign(bb).csEntityDcl(bb, asComponent = true)).mkString("\n")
     val declarations =
       sn"""|$constIntDcls
            |$namedTypeConvFuncsDcl

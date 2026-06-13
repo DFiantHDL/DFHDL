@@ -17,6 +17,8 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       VerilogOwnerPrinter:
   type TPrinter = VerilogPrinter
   given printer: TPrinter = this
+  protected def withGetSet(subGetSet: MemberGetSet): VerilogPrinter =
+    new VerilogPrinter(dialect)(using subGetSet, printerOptions)
   def unsupported: Nothing = throw new IllegalArgumentException(
     "Unsupported member for this VerilogPrinter."
   )

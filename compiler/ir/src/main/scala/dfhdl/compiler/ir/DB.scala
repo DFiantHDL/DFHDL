@@ -188,6 +188,20 @@ final case class DB private (
   def getLocalNamedDFTypes(design: DFDesignBlock): Set[NamedDFType] =
     localNamedDFTypes.getOrElse(design, Set())
 
+  // Cross-design global named types for the hierarchical root. Each sub-DB only
+  // sees one design, so a type used as IO in a child but as a plain local in a
+  // parent gets classified global by the child and local by the parent — the
+  // union of every sub-DB's `getGlobalNamedDFTypes` is the authoritative global
+  // set. The printer prints these once globally and excludes them from every
+  // design's local type declarations. Empty on non-root DBs (a flat DB already
+  // classifies named types directly).
+  // TODO: a named type used as a plain local in more than one design (never as
+  // IO/global) is global in the flat model but not captured here; add the
+  // multi-design count if such a case arises.
+  lazy val hierGlobalNamedDFTypes: ListSet[NamedDFType] =
+    if (!isRoot) ListSet.empty
+    else subDBs.view.values.flatMap(_.getGlobalNamedDFTypes).to(ListSet)
+
   @tailrec private def OMLGen[O <: DFOwner: ClassTag](
       getOwnerFunc: DFMember => O
   )(

@@ -2,6 +2,7 @@ package dfhdl.compiler
 package printing
 import ir.*
 import dfhdl.internals.*
+import scala.collection.mutable
 
 trait AbstractTypePrinter extends AbstractPrinter:
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String
@@ -19,25 +20,59 @@ trait AbstractTypePrinter extends AbstractPrinter:
           case DFInt32 => true
           case _       => false
       case _ => false
+  // Per-sub-printer fresh global members for a hierarchical root: each sub-DB's
+  // global members not yet emitted by an earlier sub-DB (first-occurrence dedup
+  // in sub-DB iteration order), printed under that sub-DB's getSet. A flat DB is
+  // a single (this, all globals) group.
+  private def globalConstGroups: List[(TPrinter, List[DFMember])] =
+    val designDB = getSet.designDB
+    if (designDB.isRoot)
+      val seen = mutable.HashSet.empty[DFMember]
+      designDB.subDBs.view.values.flatMap { sub =>
+        val fresh = sub.membersGlobals.filter(seen.add)
+        Option.when(fresh.nonEmpty)(withGetSet(sub.getSet) -> fresh)
+      }.toList
+    else List(printer -> designDB.membersGlobals)
   final def csGlobalConstIntDcls: String =
-    printer.csDFMembers(getSet.designDB.membersGlobals.filter(isInt32Val))
+    globalConstGroups.iterator
+      .map((p, gs) => p.csDFMembers(gs.filter(isInt32Val)))
+      .filter(_.nonEmpty).mkString("\n")
   final def csGlobalConstNonIntDcls: String =
-    printer.csDFMembers(getSet.designDB.membersGlobals.filterNot(isInt32Val))
+    globalConstGroups.iterator
+      .map((p, gs) => p.csDFMembers(gs.filterNot(isInt32Val)))
+      .filter(_.nonEmpty).mkString("\n")
   final def csGlobalTypeDcls: String =
-    getSet.designDB.getGlobalNamedDFTypes.view
-      .filter {
-        // show tuple structures only if tuple support is disabled
-        case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
-        // skipping unknown clock and reset definitions (they are unknown because
-        // they lack additional name suffix that belongs to their configuration)
-        case DFOpaque(name = "Clk", kind = DFOpaque.Kind.Clk) => false
-        case DFOpaque(name = "Rst", kind = DFOpaque.Kind.Rst) => false
-        case _                                                => true
-      }
-      .map(x => printer.csNamedDFTypeDcl(x, global = true))
-      .mkString("\n")
+    val designDB = getSet.designDB
+    val typeGroups: List[(TPrinter, List[NamedDFType])] =
+      if (designDB.isRoot)
+        val seen = mutable.HashSet.empty[NamedDFType]
+        designDB.subDBs.view.values.flatMap { sub =>
+          val fresh = sub.getGlobalNamedDFTypes.iterator.filter(seen.add).toList
+          Option.when(fresh.nonEmpty)(withGetSet(sub.getSet) -> fresh)
+        }.toList
+      else List(printer -> designDB.getGlobalNamedDFTypes.toList)
+    typeGroups.iterator.flatMap { (p, types) =>
+      types.view
+        .filter {
+          // show tuple structures only if tuple support is disabled
+          case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
+          // skipping unknown clock and reset definitions (they are unknown because
+          // they lack additional name suffix that belongs to their configuration)
+          case DFOpaque(name = "Clk", kind = DFOpaque.Kind.Clk) => false
+          case DFOpaque(name = "Rst", kind = DFOpaque.Kind.Rst) => false
+          case _                                                => true
+        }
+        .map(x => p.csNamedDFTypeDcl(x, global = true))
+    }.mkString("\n")
+  end csGlobalTypeDcls
   final def csLocalTypeDcls(design: DFDesignBlock): String =
-    getSet.designDB.getLocalNamedDFTypes(design).view
+    val designDB = getSet.designDB
+    // Exclude types promoted to global across the hierarchy: a sub-DB sees only
+    // its one design and may mis-classify a cross-design global type as local
+    // (empty for a flat DB, which classifies named types directly).
+    val hierGlobal = designDB.rootDB.hierGlobalNamedDFTypes
+    designDB.getLocalNamedDFTypes(design).view
+      .filterNot(hierGlobal)
       .filter {
         // show tuple structures only if tuple support is disabled
         case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
@@ -49,6 +84,7 @@ trait AbstractTypePrinter extends AbstractPrinter:
       }
       .map(x => printer.csNamedDFTypeDcl(x, global = false))
       .mkString("\n")
+  end csLocalTypeDcls
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String
   def csDFVector(dfType: DFVector, typeCS: Boolean): String
