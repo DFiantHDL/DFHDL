@@ -244,7 +244,7 @@ object MagnetMap:
   // design) ONCE under its owning sub-DB getSet, then run the distance / inside-owner
   // matching purely on the root-aware design tree (designBlockOwnershipMap) — no ref
   // resolution during matching, so the throwing root getSet is fine.
-  def getHierarchical(rootDB: DB): MagnetMap =
+  def getHierarchical(rootDB: DB): (MagnetMap, Map[ConnectPoint, (DFDesignBlock, String)]) =
     // a magnet ConnectPoint with its design context precomputed under the
     // owning sub-DB getSet (so the matching never resolves refs)
     final case class RMP(
@@ -252,6 +252,7 @@ object MagnetMap:
         ownerDesign: DFDesignBlock, // cp.getOwnerDesign
         containerDesign: DFDesignBlock, // design directly containing the point's member
         ownerIsBlackBox: Boolean,
+        name: String,
         fullName: String,
         position: Position
     ):
@@ -286,6 +287,7 @@ object MagnetMap:
                       childDesign,
                       containerDesign,
                       childDesign.isBlackBox,
+                      cp.getName,
                       s"$instFullName.${dcl.getRelativeName(childDesign)}",
                       instPos
                     )
@@ -303,8 +305,8 @@ object MagnetMap:
           case dcl @ MagnetDcl(_) =>
             val cp = ConnectPoint.Direct(dcl)
             val ownerDesign = dcl.getOwnerDesign
-            RMP(cp, ownerDesign, ownerDesign, ownerDesign.isBlackBox, dcl.getFullName,
-              dcl.meta.position)
+            RMP(cp, ownerDesign, ownerDesign, ownerDesign.isBlackBox, dcl.getName,
+              dcl.getFullName, dcl.meta.position)
         }
       }
     }.toList
@@ -449,6 +451,8 @@ object MagnetMap:
     }.toMap
     if (errors.nonEmpty)
       throw new IllegalArgumentException(errors.view.reverse.mkString("\n\n"))
-    ret
+    val pointInfo: Map[ConnectPoint, (DFDesignBlock, String)] =
+      allRMPs.iterator.map(rmp => rmp.cp -> (rmp.ownerDesign, rmp.name)).toMap
+    (ret, pointInfo)
   end getHierarchical
 end MagnetMap

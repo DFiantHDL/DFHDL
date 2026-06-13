@@ -605,10 +605,15 @@ final case class DB private (
   // Hierarchical clone of `magnetConnectionMap`, invoked on the root DB. The
   // magnet matching is intrinsically cross-design; `MagnetMap.getHierarchical`
   // precomputes each magnet point's design context per sub-DB, then matches on
-  // the root-aware design tree (no flattening).
-  lazy val new_magnetConnectionMap: Map[ConnectPoint, ConnectPoint] =
-    if (!isRoot) rootDB.new_magnetConnectionMap
+  // the root-aware design tree (no flattening). It also returns each magnet
+  // point's (owner design, name) so migrating consumers don't re-resolve a
+  // cross-design ConnectPoint (which would need a flat member index).
+  private lazy val new_magnetData
+      : (Map[ConnectPoint, ConnectPoint], Map[ConnectPoint, (DFDesignBlock, String)]) =
+    if (!isRoot) rootDB.new_magnetData
     else MagnetMap.getHierarchical(this)
+  lazy val new_magnetConnectionMap: Map[ConnectPoint, ConnectPoint] = new_magnetData._1
+  lazy val new_magnetPointInfo: Map[ConnectPoint, (DFDesignBlock, String)] = new_magnetData._2
 
   def checkDanglingPorts(): Unit =
     val assignmentsDclTable =
