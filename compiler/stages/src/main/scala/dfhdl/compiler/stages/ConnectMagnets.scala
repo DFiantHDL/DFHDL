@@ -18,13 +18,13 @@ case object ConnectMagnets extends HierarchyStage:
     val design = subDB.top
     // owner design + name of each magnet point, precomputed cross-design by the
     // analysis so a ConnectPoint living in another sub-DB is never re-resolved.
-    def ownerOf(cp: ConnectPoint): DFDesignBlock = rootDB.new_magnetPointInfo(cp)._1
+    def ownerOf(cp: ConnectPoint): DFDesignBlock = rootDB.magnetPointInfo(cp)._1
     // a design's parent design via the root-aware design tree (no ref resolution).
     // For (IN, OUT) the connection lives in the design containing both ports'
     // designs — i.e. the parent of `toMP`'s design.
     def parentOf(d: DFDesignBlock): Option[DFDesignBlock] =
       rootDB.designBlockOwnershipMap.get(d).flatMap(_.headOption)
-    val connsForDesign = rootDB.new_magnetConnectionMap.iterator.flatMap { case (toMP, fromMP) =>
+    val connsForDesign = rootDB.magnetConnectionMap.iterator.flatMap { case (toMP, fromMP) =>
       val targetDsn =
         if (toMP.isPortIn && (fromMP.isPortIn || fromMP.isVar)) Some(ownerOf(fromMP))
         else if (toMP.isPortOut && fromMP.isPortOut) Some(ownerOf(toMP))
@@ -34,7 +34,7 @@ case object ConnectMagnets extends HierarchyStage:
       if (targetDsn.contains(design)) Some((toMP, fromMP)) else None
     }.toList
     if (connsForDesign.nonEmpty)
-      val magnets = connsForDesign.sortBy { case (toMP, _) => rootDB.new_magnetPointInfo(toMP)._2 }
+      val magnets = connsForDesign.sortBy { case (toMP, _) => rootDB.magnetPointInfo(toMP)._2 }
       val dsn = new MetaDesign(design, Patch.Add.Config.InsideLast):
         extension (mp: ConnectPoint)
           def toDclAny(using MemberGetSet) = mp match

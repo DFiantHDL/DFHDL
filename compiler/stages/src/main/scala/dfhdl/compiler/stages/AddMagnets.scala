@@ -23,11 +23,11 @@ case object AddMagnets extends GlobalStage:
     given MemberGetSet = designDB.getSet
     // owner design + name of each magnet point, precomputed cross-design by the
     // analysis so a ConnectPoint living in another sub-DB is never re-resolved.
-    def ownerOf(cp: ConnectPoint): DFDesignBlock = designDB.new_magnetPointInfo(cp)._1
-    def nameOf(cp: ConnectPoint): String = designDB.new_magnetPointInfo(cp)._2
+    def ownerOf(cp: ConnectPoint): DFDesignBlock = designDB.magnetPointInfo(cp)._1
+    def nameOf(cp: ConnectPoint): String = designDB.magnetPointInfo(cp)._2
     // Populating a missing magnets map with the suggested port names and direction
     val missingMagnets = mutable.Map.empty[DFDesignBlock, Map[DFType, (String, DFVal.Modifier.Dir)]]
-    designDB.new_magnetConnectionMap.foreach { (toMP, fromMP) =>
+    designDB.magnetConnectionMap.foreach { (toMP, fromMP) =>
       val toDsn = ownerOf(toMP)
       val fromDsn = ownerOf(fromMP)
       val fromName = nameOf(fromMP)

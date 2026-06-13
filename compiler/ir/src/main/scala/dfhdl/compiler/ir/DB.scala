@@ -605,12 +605,12 @@ final case class DB private (
   // the root-aware design tree (no flattening). It also returns each magnet
   // point's (owner design, name) so migrating consumers don't re-resolve a
   // cross-design ConnectPoint (which would need a flat member index).
-  private lazy val new_magnetData
+  private lazy val magnetData
       : (Map[ConnectPoint, ConnectPoint], Map[ConnectPoint, (DFDesignBlock, String)]) =
-    if (!isRoot) rootDB.new_magnetData
+    if (!isRoot) rootDB.magnetData
     else MagnetMap.getHierarchical(this)
-  lazy val new_magnetConnectionMap: Map[ConnectPoint, ConnectPoint] = new_magnetData._1
-  lazy val new_magnetPointInfo: Map[ConnectPoint, (DFDesignBlock, String)] = new_magnetData._2
+  lazy val magnetConnectionMap: Map[ConnectPoint, ConnectPoint] = magnetData._1
+  lazy val magnetPointInfo: Map[ConnectPoint, (DFDesignBlock, String)] = magnetData._2
 
   // Hierarchical clone of `checkDanglingPorts`, invoked on the root DB. The
   // assignment coverage and the connected-point set are aggregated across all
@@ -621,7 +621,7 @@ final case class DB private (
   // are checked per instantiated design under its own sub-DB getSet. Only
   // instantiated designs (designBlockInstMap keys) are checked, matching the
   // flat version (the toptop's own ports are device IO, not dangling).
-  def new_checkDanglingPorts(): Unit =
+  def checkDanglingPorts(): Unit =
     val assignmentsDclTable: Map[DFVal.Dcl, Coverage] =
       subDBs.view.values.flatMap { sub =>
         // resolve the dcl width inside the sub-DB's getSet (a DFBits width-param
@@ -642,7 +642,7 @@ final case class DB private (
             case pbns: DFVal.PortByNameSelect => ConnectPoint.Via(pbns)
           }.toList
         }
-      }.toSet ++ new_magnetConnectionMap.keySet
+      }.toSet ++ magnetConnectionMap.keySet
     // input ports: checked from the parent sub-DB that owns the instance
     val danglingInputs = subDBs.view.values.flatMap { parentSub =>
       parentSub.atGetSet {
@@ -687,7 +687,7 @@ final case class DB private (
     val danglingPorts = (danglingInputs ++ danglingOutputs).toList
     if (danglingPorts.nonEmpty)
       throw new IllegalArgumentException(danglingPorts.mkString("\n"))
-  end new_checkDanglingPorts
+  end checkDanglingPorts
 
   extension (domainOwner: DFDomainOwner)
     // Aggregates `@hw.constraints.IO` / `@timing.clock` annotations applied at
@@ -717,24 +717,21 @@ final case class DB private (
   end extension
 
   // ===========================================================================
-  // New-style (hierarchical) clones of the RT clk/rst domain analyses. They are
-  // invoked on the new-style ROOT DB and mirror the flat versions above, but
-  // route every ref resolution / per-design table lookup to the OWNING sub-DB's
-  // getSet (the root getSet throws). On sub-DBs and old-style flat DBs they
-  // delegate to the root. Gated against the flat versions by
-  // `new_hierEquivalenceCheck` (run from SanityCheck) until the consuming
-  // stages are migrated, after which the flat versions are dropped and these
-  // lose the `new_` prefix.
+  // RT clk/rst domain analyses, computed on the hierarchical ROOT DB. Each
+  // routes ref resolution / per-design table lookups to the OWNING sub-DB's
+  // getSet (the root getSet throws); a sub-DB delegates up to its root. The
+  // public entry point `resolvedClkRstMap` additionally accepts a bare
+  // old-style flat DB by converting it via `oldToNew` first.
   // ===========================================================================
 
   // Cross-design reaches navigate the DESIGN TREE (no global member index):
   // `subDBs.get(d.ownerRef)` goes DOWN to a child design's sub-DB;
   // `subDB.parentSubDBOpt` goes UP to the parent sub-DB where that design is
-  // instantiated. Each new_* analysis processes one sub-DB's own members at a
-  // time, under that sub-DB's getSet, hopping between neighbors via the tree.
+  // instantiated. Each analysis processes one sub-DB's own members at a time,
+  // under that sub-DB's getSet, hopping between neighbors via the tree.
 
-  lazy val new_relatedAnnotMap: Map[DFDomainOwner, DFDomainOwner] =
-    if (!isRoot) rootDB.new_relatedAnnotMap
+  lazy val relatedAnnotMap: Map[DFDomainOwner, DFDomainOwner] =
+    if (!isRoot) rootDB.relatedAnnotMap
     else
       subDBs.view.values.flatMap { sub =>
         sub.atGetSet {
@@ -750,7 +747,7 @@ final case class DB private (
   // navigating DOWN to the targeted child design's sub-DB and walking its
   // namedOwnerMemberTable there. Returns the port with the child sub-DB that
   // owns it, so callers can resolve the port's domain in the right getSet.
-  private def new_pbnsToPort(
+  private def pbnsToPort(
       pbns: DFVal.PortByNameSelect,
       ctxSub: DB
   ): Option[(DFVal.Dcl, DB)] =
@@ -773,12 +770,12 @@ final case class DB private (
           case _                    => None
       }
     }
-  end new_pbnsToPort
+  end pbnsToPort
 
   // The domain that encloses `design`'s instantiation: navigate UP to `design`'s
   // parent sub-DB and read the owning domain of `design`'s inst there. Returns
   // the domain owner with the parent sub-DB that owns it.
-  private def new_designEnclosingDomain(design: DFDesignBlock): Option[(DFDomainOwner, DB)] =
+  private def designEnclosingDomain(design: DFDesignBlock): Option[(DFDomainOwner, DB)] =
     subDBs.get(design.ownerRef).flatMap(_.parentSubDBOpt).flatMap { parentSub =>
       parentSub.atGetSet {
         parentSub.membersNoGlobals.view.collectFirst {
@@ -790,14 +787,14 @@ final case class DB private (
   // Routed clone of the local `getRTOwnerOption` from `dependentRTDomainOwners`.
   // `member` lives in `ctxSub`; returns its RT domain owner with the sub-DB that
   // owns that domain (None if the resolved domain is not RT).
-  private def new_getRTOwnerWithSub(
+  private def getRTOwnerWithSub(
       member: DFMember,
       ctxSub: DB
   ): Option[(DFDomainOwner, DB)] =
     val ownerAndSub: Option[(DFDomainOwner, DB)] = member match
-      case design: DFDesignBlock        => new_designEnclosingDomain(design)
+      case design: DFDesignBlock        => designEnclosingDomain(design)
       case pbns: DFVal.PortByNameSelect =>
-        new_pbnsToPort(pbns, ctxSub) match
+        pbnsToPort(pbns, ctxSub) match
           case Some((port, portSub)) => Some(portSub.atGetSet(port.getOwnerDomain) -> portSub)
           case None                  => Some(ctxSub.atGetSet(pbns.getOwnerDomain) -> ctxSub)
       case _ => Some(ctxSub.atGetSet(member.getOwnerDomain) -> ctxSub)
@@ -806,11 +803,11 @@ final case class DB private (
         case DomainType.RT => Some(o -> sub)
         case _             => None
     }
-  end new_getRTOwnerWithSub
+  end getRTOwnerWithSub
 
   // Routed, best-effort clone of `fullNameViaInst` (error messages only).
   // `owner` lives in `ownerSub`; instance paths are recovered by navigating UP.
-  private def new_fullNameViaInst(owner: DFDomainOwner, ownerSub: DB): String =
+  private def fullNameViaInst(owner: DFDomainOwner, ownerSub: DB): String =
     val design = ownerSub.atGetSet(owner.getThisOrOwnerDesign)
     if (design eq topDB.top) ownerSub.atGetSet(owner.getFullName)
     else
@@ -823,17 +820,17 @@ final case class DB private (
         case _                =>
           val designName = ownerSub.atGetSet(design.getFullName)
           s"$designName.${ownerSub.atGetSet(owner.getRelativeName(design))}"
-  end new_fullNameViaInst
+  end fullNameViaInst
 
-  lazy val new_dependentRTDomainOwners: Map[DFDomainOwner, DFDomainOwner] =
-    if (!isRoot) rootDB.new_dependentRTDomainOwners
+  lazy val dependentRTDomainOwners: Map[DFDomainOwner, DFDomainOwner] =
+    if (!isRoot) rootDB.dependentRTDomainOwners
     else
       subDBs.view.values.flatMap { subDB =>
         subDB.domainOwnerMemberList.view.flatMap { case (domainOwner, domainMembers) =>
           subDB.atGetSet {
             domainOwner.domainType match
               case DomainType.RT =>
-                new_relatedAnnotMap.get(domainOwner) match
+                relatedAnnotMap.get(domainOwner) match
                   case Some(relatedOwner) => Some(domainOwner -> relatedOwner)
                   case None               =>
                     val hasClkOrRst = domainOwner.meta.annotations.exists {
@@ -849,7 +846,7 @@ final case class DB private (
                           // sub-DB's own `isTopTop`/`isTop` can't tell because
                           // every design block has an Empty ownerRef.
                           if (design eq topDB.top) None
-                          else new_getRTOwnerWithSub(design, subDB).map { case (o, _) =>
+                          else getRTOwnerWithSub(design, subDB).map { case (o, _) =>
                             design -> o
                           }
                         case domain: DomainBlock =>
@@ -885,22 +882,22 @@ final case class DB private (
                                 netSub.atGetSet {
                                   net match
                                     case DFNet.Connection(_, from, _) =>
-                                      new_getRTOwnerWithSub(from, netSub)
+                                      getRTOwnerWithSub(from, netSub)
                                     case _ => None
                                 }
                               }
                             }.toSet
                           val inSourceDomains = inSources.map { case (o, _) => o }
                           if (inSourceDomains.isEmpty)
-                            new_getRTOwnerWithSub(domain, subDB).map { case (o, _) =>
+                            getRTOwnerWithSub(domain, subDB).map { case (o, _) =>
                               domain -> o
                             }
                           else if (inSourceDomains.size > 1)
                             throw new IllegalArgumentException(
                               s"""|Found ambiguous source RT configurations for the domain:
-                                  |${new_fullNameViaInst(domain, subDB)}
+                                  |${fullNameViaInst(domain, subDB)}
                                   |Sources:
-                                  |${inSources.map { case (o, s) => new_fullNameViaInst(o, s) }
+                                  |${inSources.map { case (o, s) => fullNameViaInst(o, s) }
                                    .mkString("\n")}
                                   |Possible solution:
                                   |Either explicitly define a configuration for the domain or drive it from a single source domain.
@@ -914,16 +911,16 @@ final case class DB private (
       }.toMap
 
   // Hierarchical equivalent of the `isDependentOn` analysis: does `domainOwner`
-  // transitively depend on `thatDomainOwner` per `new_dependentRTDomainOwners`?
+  // transitively depend on `thatDomainOwner` per `dependentRTDomainOwners`?
   // Invoked on the root DB.
-  @tailrec final def new_isDependentOn(
+  @tailrec final def isDependentOn(
       domainOwner: DFDomainOwner,
       thatDomainOwner: DFDomainOwner
   ): Boolean =
-    new_dependentRTDomainOwners.get(domainOwner) match
+    dependentRTDomainOwners.get(domainOwner) match
       case Some(dependency) =>
         if (dependency == thatDomainOwner) true
-        else new_isDependentOn(dependency, thatDomainOwner)
+        else isDependentOn(dependency, thatDomainOwner)
       case None => false
 
   // Structural map: every domain owner -> its sub-DB. Keys are domain owners
@@ -947,7 +944,7 @@ final case class DB private (
     else if (!isRoot) rootDB.resolvedClkRstMap
     else
       val reversedDependents: Map[DFDomainOwner, Set[DFDomainOwner]] =
-        new_dependentRTDomainOwners.invert
+        dependentRTDomainOwners.invert
       val designUsesClkRst =
         mutable.Map.empty[String, (usesClk: Boolean, usesRst: Boolean)]
       val domainOwnerUsesClkRst =
@@ -1066,7 +1063,7 @@ final case class DB private (
           case domain :: rest if domainMap.contains(domain) =>
             fillDomainMap(rest, stack, domainMap)
           case domain :: rest =>
-            new_dependentRTDomainOwners.get(domain) match
+            dependentRTDomainOwners.get(domain) match
               case Some(dependencyDomain) =>
                 domainMap.get(dependencyDomain) match
                   case Some(dependencyResolved) =>
@@ -1097,7 +1094,7 @@ final case class DB private (
   // resolved-clock map drives both the filter and the explicit rate. Per-owner
   // local reads (isDeviceTop, isTop position, getFullName, the clk timing
   // constraint) are routed through the owner's sub-DB getSet via `atOwner`.
-  def new_domainClkRateCheck(): Unit =
+  def domainClkRateCheck(): Unit =
     def atOwner[T](owner: DFDomainOwner)(f: MemberGetSet ?=> T): T =
       domainOwnerToSubDB(owner).atGetSet(f)
     val errors = collection.mutable.ArrayBuffer[String]()
@@ -1148,14 +1145,14 @@ final case class DB private (
     }
     if (errors.nonEmpty)
       throw new IllegalArgumentException(errors.mkString("\n"))
-  end new_domainClkRateCheck
+  end domainClkRateCheck
 
   // Hierarchical clone of `waitCheck`, invoked on the root DB. Iterates each
   // sub-DB's RT waits under that sub-DB's getSet (the root has no members of its
   // own); the clock rate comes from resolvedClkRstMap. The error hierarchy
-  // uses new_fullNameViaInst so a wait in a nested design reports its full
+  // uses fullNameViaInst so a wait in a nested design reports its full
   // instance path (plain getFullName on a sub-DB would be relative).
-  def new_waitCheck(): Unit =
+  def waitCheck(): Unit =
     val errors = collection.mutable.ArrayBuffer[String]()
     subDBs.view.values.foreach { sub =>
       sub.atGetSet {
@@ -1167,7 +1164,7 @@ final case class DB private (
           def waitError(msg: String): Unit =
             errors += s"""|DFiant HDL wait error!
                           |Position:  ${wait.meta.position}
-                          |Hierarchy: ${new_fullNameViaInst(wait.getOwnerDesign, sub)}
+                          |Hierarchy: ${fullNameViaInst(wait.getOwnerDesign, sub)}
                           |Message:   $msg""".stripMargin
           val ownerDomain = wait.getOwnerDomain
           trigger.getConstData[TimeNumber].toOption match
@@ -1196,12 +1193,12 @@ final case class DB private (
     }
     if (errors.nonEmpty)
       throw new IllegalArgumentException(errors.mkString("\n"))
-  end new_waitCheck
+  end waitCheck
 
   // Hierarchical clone of `circularDerivedDomainsCheck`, invoked on the root DB.
-  // Same DFS, over `new_dependentRTDomainOwners`; the cycle error names each
-  // owner via `new_fullNameViaInst` routed through that owner's sub-DB.
-  def new_circularDerivedDomainsCheck(): Unit =
+  // Same DFS, over `dependentRTDomainOwners`; the cycle error names each
+  // owner via `fullNameViaInst` routed through that owner's sub-DB.
+  def circularDerivedDomainsCheck(): Unit =
     @tailrec def dfs(
         node: DFDomainOwner,
         visited: Set[DFDomainOwner],
@@ -1210,17 +1207,17 @@ final case class DB private (
       if (stack.contains(node))
         throw new IllegalArgumentException(
           s"""|Circular derived RT configuration detected. Involved in the cycle:
-              |${stack.map(o => new_fullNameViaInst(o, domainOwnerToSubDB(o))).mkString("\n")}
+              |${stack.map(o => fullNameViaInst(o, domainOwnerToSubDB(o))).mkString("\n")}
               |""".stripMargin
         )
       if (!visited.contains(node))
-        new_dependentRTDomainOwners.get(node) match
+        dependentRTDomainOwners.get(node) match
           case Some(dependentNode) => dfs(dependentNode, visited + node, stack + node)
           case None                =>
     end dfs
-    for (node <- new_dependentRTDomainOwners.keys)
+    for (node <- dependentRTDomainOwners.keys)
       dfs(node, Set.empty, Set.empty)
-  end new_circularDerivedDomainsCheck
+  end circularDerivedDomainsCheck
 
   def nameCheck(): Unit =
     // We use a Set since meta programming is usually the cause and can result in
@@ -1322,7 +1319,7 @@ final case class DB private (
   // Hierarchical clone of `portLocationCheck`, invoked on the root DB. Only the
   // device-top design is examined; its members are resolved under that design's
   // sub-DB getSet (device top == toptop, so getFullName is the full path).
-  def new_portLocationCheck(): Unit =
+  def portLocationCheck(): Unit =
     val errors = mutable.ListBuffer.empty[String]
     val locationCollisions = mutable.ListBuffer.empty[String]
     designMemberList.foreach {
@@ -1407,11 +1404,11 @@ final case class DB private (
             |Ensure each location is used by a single port bit.
             |""".stripMargin
       )
-  end new_portLocationCheck
+  end portLocationCheck
 
   // Hierarchical clone of `portResourceDirCheck`, invoked on the root DB. Same
   // device-top-only check, members resolved under the device-top sub-DB getSet.
-  def new_portResourceDirCheck(): Unit =
+  def portResourceDirCheck(): Unit =
     import DFVal.Modifier.Dir
     val errors = mutable.ListBuffer.empty[String]
     designMemberList.foreach {
@@ -1441,7 +1438,7 @@ final case class DB private (
             |Make sure you connect the resource to the port with the correct direction.
             |""".stripMargin
       )
-  end new_portResourceDirCheck
+  end portResourceDirCheck
 
   // Uniform entry point, representation-aware:
   //   - hierarchical root: run each sub-DB's per-design checks, then the
@@ -1451,7 +1448,7 @@ final case class DB private (
   lazy val check: Unit =
     if (isRoot)
       subDBs.view.values.foreach(_.subDBCheck)
-      new_rootDBCheck
+      rootDBCheck
     else subDBCheck
 
   // Per-design structural checks: each validates a single design's own members
@@ -1463,16 +1460,16 @@ final case class DB private (
     directRefCheck()
 
   // Whole-tree checks, run once on the root: the cross-design connectivity /
-  // RT-domain / device-top checks, via the `new_*` clones that navigate the
+  // RT-domain / device-top checks, via the `*` clones that navigate the
   // sub-DB tree.
-  private lazy val new_rootDBCheck: Unit =
-    new_magnetConnectionMap // causes magnet connectivity checks
-    new_checkDanglingPorts()
-    new_circularDerivedDomainsCheck()
-    new_domainClkRateCheck()
-    new_waitCheck()
-    new_portLocationCheck()
-    new_portResourceDirCheck()
+  private lazy val rootDBCheck: Unit =
+    magnetConnectionMap // causes magnet connectivity checks
+    checkDanglingPorts()
+    circularDerivedDomainsCheck()
+    domainClkRateCheck()
+    waitCheck()
+    portLocationCheck()
+    portResourceDirCheck()
 
   // There can only be a single connection to a value in a given range
   // (multiple assignments are possible)

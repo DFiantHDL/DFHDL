@@ -17,7 +17,7 @@ import dfhdl.core.{refTW, DFC}
 case object ExplicitClkRstCfg extends HierarchyStage:
   def dependencies: List[Stage] = List(UniqueDesigns, NamedAnonMultiref)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  // Cross-design clk/rst resolution (`resolvedClkRstMap` / `new_isDependentOn`)
+  // Cross-design clk/rst resolution (`resolvedClkRstMap` / `isDependentOn`)
   // is read from the root DB; everything else is per-sub-DB via the `subDB`
   // helper (this stage's current sub-DB).
   def transformSubDB(rootDB: DB)(using
@@ -59,7 +59,7 @@ case object ExplicitClkRstCfg extends HierarchyStage:
                 owner match
                   case domain: DomainBlock =>
                     val domainOwner = domain.getOwnerDomain
-                    if (rootDB.new_isDependentOn(domain, domainOwner))
+                    if (rootDB.isDependentOn(domain, domainOwner))
                       val ref =
                         domainOwner.asInstanceOf[DomainBlock | DFDesignBlock].refTW[DomainBlock]
                       relatedCfgRefs += ref -> domainOwner
