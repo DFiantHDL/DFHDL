@@ -68,7 +68,7 @@ end GlobalStage
   *
   * `transformSubDB` always runs with the implicit `MemberGetSet` rebound to the current sub-DB's
   * own getSet (so the `subDB` helper resolves that design's members); the root DB is passed as the
-  * parameter for cross-design needs (e.g. `rootDB.new_resolvedClkRstMap`).
+  * parameter for cross-design needs (e.g. `rootDB.resolvedClkRstMap`).
   */
 trait HierarchyStage extends Stage:
   final protected def subDB(using MemberGetSet): DB = getSet.designDB

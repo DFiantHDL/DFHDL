@@ -32,7 +32,7 @@ case object DropTimedRTWaits extends HierarchyStage:
         // The resolved clk rate comes from the root DB's hierarchical clk/rst map
         // (cross-design resolution); the owner domain is resolved under this
         // sub-DB's getSet.
-        val clkRate: RateNumber = rootDB.new_resolvedClkRstMap
+        val clkRate: RateNumber = rootDB.resolvedClkRstMap
           .get(waitMember.getOwnerDomain)
           .flatMap(_._1)
           .flatMap(_.rate.toOption)

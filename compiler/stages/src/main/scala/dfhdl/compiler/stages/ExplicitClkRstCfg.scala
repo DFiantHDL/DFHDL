@@ -17,7 +17,7 @@ import dfhdl.core.{refTW, DFC}
 case object ExplicitClkRstCfg extends HierarchyStage:
   def dependencies: List[Stage] = List(UniqueDesigns, NamedAnonMultiref)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  // Cross-design clk/rst resolution (`new_resolvedClkRstMap` / `new_isDependentOn`)
+  // Cross-design clk/rst resolution (`resolvedClkRstMap` / `new_isDependentOn`)
   // is read from the root DB; everything else is per-sub-DB via the `subDB`
   // helper (this stage's current sub-DB).
   def transformSubDB(rootDB: DB)(using
@@ -44,7 +44,7 @@ case object ExplicitClkRstCfg extends HierarchyStage:
         owner.domainType match
           case DomainType.RT =>
             val (resolvedClk, resolvedRst) =
-              rootDB.new_resolvedClkRstMap.getOrElse(owner, (None, None))
+              rootDB.resolvedClkRstMap.getOrElse(owner, (None, None))
             // Preserve any existing user-authored @timing.related annotation. For a domain
             // related to a sibling or to its enclosing owner the downstream pipeline uses the
             // annotation to skip clk/rst port insertion.
