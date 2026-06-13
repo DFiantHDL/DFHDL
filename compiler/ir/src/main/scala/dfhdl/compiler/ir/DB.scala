@@ -599,9 +599,6 @@ final case class DB private (
     end match
   end getConnToMap
 
-  //                                     To           From
-  lazy val magnetConnectionMap: Map[ConnectPoint, ConnectPoint] = MagnetMap.get
-
   // Hierarchical clone of `magnetConnectionMap`, invoked on the root DB. The
   // magnet matching is intrinsically cross-design; `MagnetMap.getHierarchical`
   // precomputes each magnet point's design context per sub-DB, then matches on
@@ -1364,32 +1361,6 @@ final case class DB private (
         }.toList
       fillDomainMap(rtDomainOwners, Nil, domainMap)
       domainMap.toMap
-
-  // Temporary equivalence gate: on an old-style flat DB, assert the flat RT
-  // clk/rst analyses match their new-style clones computed on `oldToNew`.
-  // Dropped once the consuming stages are migrated and the flat versions removed.
-  def new_hierEquivalenceCheck(): Unit =
-    if (isOldStyleFlatDB)
-      val newRoot = this.oldToNew
-      def fail(name: String, flat: Any, neu: Any): Nothing =
-        throw new IllegalArgumentException(
-          s"""|new_$name mismatch between flat and hierarchical computation.
-              |flat: $flat
-              |new:  $neu""".stripMargin
-        )
-      if (this.relatedAnnotMap != newRoot.new_relatedAnnotMap)
-        fail("relatedAnnotMap", this.relatedAnnotMap, newRoot.new_relatedAnnotMap)
-      if (this.dependentRTDomainOwners != newRoot.new_dependentRTDomainOwners)
-        fail(
-          "dependentRTDomainOwners",
-          this.dependentRTDomainOwners,
-          newRoot.new_dependentRTDomainOwners
-        )
-      if (this.resolvedClkRstMap != newRoot.new_resolvedClkRstMap)
-        fail("resolvedClkRstMap", this.resolvedClkRstMap, newRoot.new_resolvedClkRstMap)
-      if (this.magnetConnectionMap != newRoot.new_magnetConnectionMap)
-        fail("magnetConnectionMap", this.magnetConnectionMap, newRoot.new_magnetConnectionMap)
-  end new_hierEquivalenceCheck
 
   // Hierarchical clone of `domainClkRateCheck`, invoked on the root DB. The flat
   // `usesClk` filter (cross-design, flat-only) is equivalent to "the resolver
