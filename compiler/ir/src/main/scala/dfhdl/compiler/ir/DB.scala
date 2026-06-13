@@ -615,58 +615,6 @@ final case class DB private (
   lazy val new_magnetConnectionMap: Map[ConnectPoint, ConnectPoint] = new_magnetData._1
   lazy val new_magnetPointInfo: Map[ConnectPoint, (DFDesignBlock, String)] = new_magnetData._2
 
-  def checkDanglingPorts(): Unit =
-    val assignmentsDclTable =
-      assignmentsTable.keys
-        .flatMap(_.departialDcl)
-        .foldLeft(Map.empty[DFVal.Dcl, Coverage]) { case (acc, (dcl, slice)) =>
-          acc.updated(
-            dcl,
-            acc.getOrElse(dcl, Coverage.empty).assign(slice, dcl.dfType.widthIntOpt)
-          )
-        }
-    val alreadyConnectedPoints = connectionTable.connectToVals.view.collect {
-      case dcl: DFVal.Dcl               => ConnectPoint.Direct(dcl)
-      case pbns: DFVal.PortByNameSelect => ConnectPoint.Via(pbns)
-    }.toSet ++ magnetConnectionMap.keySet
-
-    // go through all designs and their instances
-    val danglingPorts = designBlockInstMap.view.flatMap { (design, insts) =>
-      designMemberTable(design).flatMap {
-        // all input ports that are not clock/reset and not already connected
-        case port: DFVal.Dcl if port.isPortIn && !port.isClkDcl && !port.isRstDcl =>
-          // all design instances
-          insts.flatMap { designInst =>
-            val cp = ConnectPoint.Via(designInst, port)
-            if (alreadyConnectedPoints.contains(ConnectPoint.Via(designInst, port))) None
-            else Some(
-              s"""|DFiant HDL connectivity error!
-                  |Position:  ${designInst.meta.position}
-                  |Hierarchy: ${designInst.getFullName}
-                  |Message:   Found a dangling (unconnected) input port `${port.getName}`.""".stripMargin
-            )
-          }
-        // all output ports that are not blackbox and not already assigned/connected/initialized
-        case port: DFVal.Dcl
-            if port.isPortOut && !design.isBlackBox && !port.hasNonBubbleInit &&
-              !assignmentsDclTable.contains(port) &&
-              !alreadyConnectedPoints.contains(ConnectPoint.Direct(port)) =>
-          Some(
-            s"""|DFiant HDL connectivity error!
-                |Position:  ${port.meta.position}
-                |Hierarchy: ${design.getFullName}
-                |Message:   Found a dangling (unconnected/unassigned and uninitialized) output port `${port.getName}`.""".stripMargin
-          )
-        case _ => None
-      }
-    }
-
-    if (danglingPorts.nonEmpty)
-      throw new IllegalArgumentException(
-        danglingPorts.mkString("\n")
-      )
-  end checkDanglingPorts
-
   // Hierarchical clone of `checkDanglingPorts`, invoked on the root DB. The
   // assignment coverage and the connected-point set are aggregated across all
   // sub-DBs (each design's assignments/connections live in its own sub-DB) plus
@@ -1443,57 +1391,6 @@ final case class DB private (
         fail("magnetConnectionMap", this.magnetConnectionMap, newRoot.new_magnetConnectionMap)
   end new_hierEquivalenceCheck
 
-  /** Checks that device top design domains all have timing clock rate constraints. Additionally, if
-    * there is an explicit clock rate configuration, it must match the timing constraint rate.
-    */
-  def domainClkRateCheck(): Unit =
-    val errors = collection.mutable.ArrayBuffer[String]()
-    domainOwnerMemberList.view.map(_._1).foreach {
-      case domainOwner if domainOwner.getThisOrOwnerDesign.isDeviceTop && domainOwner.usesClk =>
-        def waitError(msg: String): Unit =
-          val pos =
-            if (domainOwner.isTop) domainOwner.asInstanceOf[DFDesignBlock].dclMeta.position
-            else domainOwner.meta.position
-          errors += s"""|DFiant HDL domain clock rate error!
-                        |Position:  ${pos}
-                        |Hierarchy: ${domainOwner.getFullName}
-                        |Message:   $msg""".stripMargin
-        val explicitRateOpt = resolvedClkRstMap.get(domainOwner)
-          .flatMap(_._1)
-          .flatMap(_.rate.toOption)
-        val timingConstraintRateOpt = domainOwner.getTimingConstraintClkRateOpt
-
-        (explicitRateOpt, timingConstraintRateOpt) match
-          case (Some(explicitRate), Some(timingConstraintRate)) =>
-            if (explicitRate.to_freq.to_hz != timingConstraintRate.to_freq.to_hz)
-              waitError(
-                s"""|Mismatch between domain clock rate configuration ($explicitRate) and timing constraint rate ($timingConstraintRate).
-                    |To fix, do one of the following:
-                    |* Connect a different clock resource to the domain to match your configuration.
-                    |* Explicitly set the clock rate configuration to $timingConstraintRate.
-                    |* Remove the domain clock rate configuration and let it be derived from the timing constraint.""".stripMargin
-              )
-          case (Some(explicitRate), None) =>
-            waitError(
-              s"""|Missing clock rate timing constraint.
-                  |To Fix:
-                  |Connect a $explicitRate clock resource to the domain to match your configuration.""".stripMargin
-            )
-          case (None, None) =>
-            waitError(
-              s"""|Missing clock rate timing constraint.
-                  |To Fix:
-                  |Connect the wanted clock resource to the domain.
-                  |(the domain will automatically derive the clock rate from the resource).""".stripMargin
-            )
-          case _ =>
-        end match
-      case _ =>
-    }
-    if (errors.nonEmpty)
-      throw new IllegalArgumentException(errors.mkString("\n"))
-  end domainClkRateCheck
-
   // Hierarchical clone of `domainClkRateCheck`, invoked on the root DB. The flat
   // `usesClk` filter (cross-design, flat-only) is equivalent to "the resolver
   // produced a clock" (new_resolvedClkRstMap(owner)._1.isDefined), so the
@@ -1553,53 +1450,6 @@ final case class DB private (
       throw new IllegalArgumentException(errors.mkString("\n"))
   end new_domainClkRateCheck
 
-  def waitCheck(): Unit =
-    val errors = collection.mutable.ArrayBuffer[String]()
-    for
-      wait <- members.collect { case w: Wait if w.isInRTDomain => w }
-      trigger = wait.triggerRef.get
-      if trigger.dfType == DFTime
-    do
-      def waitError(msg: String): Unit =
-        errors += s"""|DFiant HDL wait error!
-                      |Position:  ${wait.meta.position}
-                      |Hierarchy: ${wait.getOwnerDesign.getFullName}
-                      |Message:   $msg""".stripMargin
-      val ownerDomain = wait.getOwnerDomain
-      trigger.getConstData[TimeNumber].toOption match
-        case Some(waitTime) =>
-          // Check if the wait statement is in a domain with a clock rate configuration
-          resolvedClkRstMap.get(ownerDomain).flatMap(_._1).flatMap(_.rate.toOption) match
-            case Some(rate) =>
-
-              // Get the clock period in picoseconds
-              val clockPeriodPs = rate.to_ps.value
-              val desc = rate match
-                case time: TimeNumber => s"period ${time}"
-                case freq: FreqNumber => s"frequency ${freq}"
-
-              // Get wait duration in picoseconds
-              val waitDurationPs = waitTime.to_ps.value
-
-              // Check if wait duration is exactly divisible by clock period
-              if (!(waitDurationPs / clockPeriodPs).isWhole)
-                waitError(
-                  s"Wait duration ${waitTime} is not exactly divisible by the clock $desc."
-                )
-            case _ =>
-              waitError(
-                s"Wait statement is missing an explicit clock configuration in its domain."
-              )
-          end match
-        case _ =>
-          waitError(s"Wait duration is not constant.")
-      end match
-    end for
-
-    if (errors.nonEmpty)
-      throw new IllegalArgumentException(errors.mkString("\n"))
-  end waitCheck
-
   // Hierarchical clone of `waitCheck`, invoked on the root DB. Iterates each
   // sub-DB's RT waits under that sub-DB's getSet (the root has no members of its
   // own); the clock rate comes from new_resolvedClkRstMap. The error hierarchy
@@ -1647,31 +1497,6 @@ final case class DB private (
     if (errors.nonEmpty)
       throw new IllegalArgumentException(errors.mkString("\n"))
   end new_waitCheck
-
-  def circularDerivedDomainsCheck(): Unit =
-    // Helper function to perform DFS and detect cycles
-    @tailrec def dfs(
-        node: DFDomainOwner,
-        visited: Set[DFDomainOwner],
-        stack: Set[DFDomainOwner]
-    ): Unit =
-      if (stack.contains(node))
-        throw new IllegalArgumentException(
-          s"""|Circular derived RT configuration detected. Involved in the cycle:
-              |${stack.map(fullNameViaInst).mkString("\n")}
-              |""".stripMargin
-        )
-      if (!visited.contains(node))
-        val newVisited = visited + node
-        val newStack = stack + node
-        dependentRTDomainOwners.get(node) match
-          case Some(dependentNode) => dfs(dependentNode, newVisited, newStack)
-          case None                => // No dependency, end of this path
-    end dfs
-    // Iterate over all nodes in the map and perform DFS
-    for (node <- dependentRTDomainOwners.keys)
-      dfs(node, Set.empty, Set.empty)
-  end circularDerivedDomainsCheck
 
   // Hierarchical clone of `circularDerivedDomainsCheck`, invoked on the root DB.
   // Same DFS, over `new_dependentRTDomainOwners`; the cycle error names each
@@ -1793,126 +1618,6 @@ final case class DB private (
            |""".stripMargin
       )
   end directRefCheck
-
-  def portLocationCheck(): Unit =
-    val errors = mutable.ListBuffer.empty[String]
-    val locationCollisions = mutable.ListBuffer.empty[String]
-
-    designMemberList.foreach {
-      case (design, members) if design.isDeviceTop =>
-        // Collect all location constraints to check for collisions
-        val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
-        (design :: members).foreach {
-          case designInstance: DFDesignBlock if designInstance != design => // no need to check for location constraints in nested designs
-          case domainOwner: DFDomainOwner =>
-            domainOwner.domainType match
-              case DomainType.RT =>
-                var foundLoc = false
-                domainOwner.getDomainClkConstraintsView.foreach {
-                  case constraints.IO(loc = loc: String) =>
-                    locationMap.get(loc).foreach { prevPort =>
-                      locationCollisions +=
-                        s"${prevPort} and ${domainOwner.getFullName} are both assigned to location `${loc}`"
-                    }
-                    locationMap += loc -> domainOwner.getFullName
-                    foundLoc = true
-                  case _ =>
-                }
-                val clkIsVar = domainOwnerMemberTable(domainOwner).view.collectFirst {
-                  case dcl: DFVal.Dcl if dcl.isClkDcl => dcl.isVar
-                }.getOrElse(false)
-
-                // for internal domains (indicated by a clock variable) we don't need to check for location constraints
-                if (!foundLoc && !clkIsVar)
-                  errors += s"${domainOwner.getFullName} is missing a clock location constraint"
-              case _ =>
-            end match
-          case clkPort: DFVal.Dcl if clkPort.isPortIn && clkPort.isClkDcl => // do nothing (checked in the domain itself)
-          case port: DFVal.Dcl if port.isPort =>
-            val bitSet = port.widthIntOpt match
-              case Some(width) => mutable.BitSet((0 until width)*)
-              case None        => mutable.BitSet.empty
-            port.meta.annotations.foreach {
-              case constraints.IO(bitIdx = None, loc = loc: String) =>
-                bitSet.clear()
-                locationMap.get(loc).foreach { prevPort =>
-                  locationCollisions +=
-                    s"${prevPort} and ${port.getFullName} are both assigned to location `${loc}`"
-                }
-                locationMap += loc -> port.getFullName
-                if (port.widthIntOpt.get != 1)
-                  locationCollisions +=
-                    s"${port.getFullName} has mutliple bits assigned to location `${loc}`"
-              case constraints.IO(bitIdx = bitIdx: Int, loc = loc: String) =>
-                locationMap.get(loc).foreach { prevPort =>
-                  locationCollisions +=
-                    s"${prevPort} and ${port.getFullName}(${bitIdx}) are both assigned to location `${loc}`"
-                }
-                locationMap += loc -> s"${port.getFullName}(${bitIdx})"
-                bitSet -= bitIdx
-              case _ =>
-            }
-            if (bitSet.nonEmpty)
-              if (port.widthIntOpt.get == 1)
-                errors += s"${port.getFullName}"
-              else
-                errors += s"${port.getFullName} with bits ${bitSet.mkString(", ")}"
-          case _ =>
-        }
-      case _ =>
-    }
-
-    if (errors.nonEmpty)
-      throw new IllegalArgumentException(
-        s"""|The following top device design ports or domains are missing location constraints:
-            |  ${errors.mkString("\n  ")}
-            |To Fix:
-            |Add a location constraint to the ports by connecting them to a located resource or
-            |by using the `@io` constraint.
-            |""".stripMargin
-      )
-
-    if (locationCollisions.nonEmpty)
-      throw new IllegalArgumentException(
-        s"""|The following location constraints have collisions:
-            |  ${locationCollisions.mkString("\n  ")}
-            |To Fix:
-            |Ensure each location is used by a single port bit.
-            |""".stripMargin
-      )
-  end portLocationCheck
-
-  def portResourceDirCheck(): Unit =
-    import DFVal.Modifier.Dir
-    val errors = mutable.ListBuffer.empty[String]
-
-    designMemberList.foreach {
-      case (design, members) if design.isDeviceTop =>
-        members.foreach {
-          case port: DFVal.Dcl if port.isPort =>
-            port.meta.annotations.foreach {
-              case constraints.IO(dir = dir: Dir) =>
-                (dir, port.modifier.dir) match
-                  case (Dir.IN, Dir.OUT) | (Dir.OUT, Dir.IN) =>
-                    errors +=
-                      s"${port.getFullName} direction (${port.modifier.dir}) has a resource direction ($dir) mismatch."
-                  case _ =>
-              case _ =>
-            }
-          case _ =>
-        }
-      case _ =>
-    }
-
-    if (errors.nonEmpty)
-      throw new IllegalArgumentException(
-        s"""|The following top device design ports have resource direction mismatches:
-            |  ${errors.mkString("\n  ")}
-            |To Fix:
-            |Make sure you connect the resource to the port with the correct direction.
-            |""".stripMargin
-      )
-  end portResourceDirCheck
 
   // Hierarchical clone of `portLocationCheck`, invoked on the root DB. Only the
   // device-top design is examined; its members are resolved under that design's
@@ -2041,18 +1746,12 @@ final case class DB private (
   // Uniform entry point, representation-aware:
   //   - hierarchical root: run each sub-DB's per-design checks, then the
   //     cross-design root checks once on the root;
-  //   - in-hierarchy sub-DB: run only its per-design checks;
-  //   - old-style flat DB: the whole design lives in one DB, so run BOTH groups
-  //     on itself (preserves legacy behavior). This is the path callers use
-  //     today; the root path is dormant until `rootDBCheck` is rewired to the
-  //     hierarchical `new_*` analyses and callers switch to `oldToNew.check`.
+  //   - in-hierarchy sub-DB: run only its per-design checks.
+  // Callers always invoke this on the root (via `oldToNew.check`).
   lazy val check: Unit =
     if (isRoot)
       subDBs.view.values.foreach(_.subDBCheck)
       new_rootDBCheck
-    else if (isOldStyleFlatDB)
-      subDBCheck
-      rootDBCheck
     else subDBCheck
 
   // Per-design structural checks: each validates a single design's own members
@@ -2063,21 +1762,9 @@ final case class DB private (
     connectionTable // causes connectivity checks
     directRefCheck()
 
-  // Whole-tree checks, FLAT implementation. Used only on an old-style flat DB
-  // (the `isOldStyleFlatDB` branch of `check`); the hierarchical root path uses
-  // `new_rootDBCheck`. Dead once the flat DB is gone (Step 3).
-  private lazy val rootDBCheck: Unit =
-    magnetConnectionMap // causes magnet connectivity checks
-    checkDanglingPorts()
-    circularDerivedDomainsCheck()
-    domainClkRateCheck()
-    waitCheck()
-    portLocationCheck()
-    portResourceDirCheck()
-
-  // Whole-tree checks, HIERARCHICAL implementation. Run once on the root: the
-  // same cross-design connectivity / RT-domain / device-top checks as
-  // `rootDBCheck`, via the `new_*` clones that navigate the sub-DB tree.
+  // Whole-tree checks, run once on the root: the cross-design connectivity /
+  // RT-domain / device-top checks, via the `new_*` clones that navigate the
+  // sub-DB tree.
   private lazy val new_rootDBCheck: Unit =
     new_magnetConnectionMap // causes magnet connectivity checks
     new_checkDanglingPorts()
