@@ -667,6 +667,83 @@ final case class DB private (
       )
   end checkDanglingPorts
 
+  // Hierarchical clone of `checkDanglingPorts`, invoked on the root DB. The
+  // assignment coverage and the connected-point set are aggregated across all
+  // sub-DBs (each design's assignments/connections live in its own sub-DB) plus
+  // the cross-design magnet connections. Input ports are checked from each
+  // parent sub-DB (which owns the instance and its connections), reading the
+  // child design's port list via the root-aware designMemberTable; output ports
+  // are checked per instantiated design under its own sub-DB getSet. Only
+  // instantiated designs (designBlockInstMap keys) are checked, matching the
+  // flat version (the toptop's own ports are device IO, not dangling).
+  def new_checkDanglingPorts(): Unit =
+    val assignmentsDclTable: Map[DFVal.Dcl, Coverage] =
+      subDBs.view.values.flatMap { sub =>
+        // resolve the dcl width inside the sub-DB's getSet (a DFBits width-param
+        // ref can't be resolved against the root getSet)
+        sub.atGetSet {
+          sub.assignmentsTable.keys.flatMap(_.departialDcl).map { case (dcl, slice) =>
+            (dcl, slice, dcl.dfType.widthIntOpt)
+          }.toList
+        }
+      }.foldLeft(Map.empty[DFVal.Dcl, Coverage]) { case (acc, (dcl, slice, widthOpt)) =>
+        acc.updated(dcl, acc.getOrElse(dcl, Coverage.empty).assign(slice, widthOpt))
+      }
+    val alreadyConnectedPoints: Set[ConnectPoint] =
+      subDBs.view.values.flatMap { sub =>
+        sub.atGetSet {
+          sub.connectionTable.connectToVals.view.collect {
+            case dcl: DFVal.Dcl               => ConnectPoint.Direct(dcl)
+            case pbns: DFVal.PortByNameSelect => ConnectPoint.Via(pbns)
+          }.toList
+        }
+      }.toSet ++ new_magnetConnectionMap.keySet
+    // input ports: checked from the parent sub-DB that owns the instance
+    val danglingInputs = subDBs.view.values.flatMap { parentSub =>
+      parentSub.atGetSet {
+        parentSub.membersNoGlobals.view.collect { case inst: DFDesignInst => inst }.flatMap {
+          designInst =>
+            val childDesign = designInst.getDesignBlock
+            val instFullName = designInst.getFullName
+            val instPos = designInst.meta.position
+            domainOwnerToSubDB(childDesign).atGetSet {
+              designMemberTable(childDesign).view.collect {
+                case port: DFVal.Dcl if port.isPortIn && !port.isClkDcl && !port.isRstDcl =>
+                  (ConnectPoint.Via(designInst, port), port.getName)
+              }.toList
+            }.flatMap { case (via, portName) =>
+              if (alreadyConnectedPoints.contains(via)) None
+              else
+                Some(
+                  s"""|DFiant HDL connectivity error!
+                      |Position:  ${instPos}
+                      |Hierarchy: ${instFullName}
+                      |Message:   Found a dangling (unconnected) input port `${portName}`.""".stripMargin
+                )
+            }
+        }.toList
+      }
+    }
+    // output ports: checked per instantiated design under its own sub-DB getSet
+    val danglingOutputs = designBlockInstMap.keys.view.flatMap { design =>
+      domainOwnerToSubDB(design).atGetSet {
+        designMemberTable(design).view.collect {
+          case port: DFVal.Dcl
+              if port.isPortOut && !design.isBlackBox && !port.hasNonBubbleInit &&
+                !assignmentsDclTable.contains(port) &&
+                !alreadyConnectedPoints.contains(ConnectPoint.Direct(port)) =>
+            s"""|DFiant HDL connectivity error!
+                |Position:  ${port.meta.position}
+                |Hierarchy: ${design.getFullName}
+                |Message:   Found a dangling (unconnected/unassigned and uninitialized) output port `${port.getName}`.""".stripMargin
+        }.toList
+      }
+    }
+    val danglingPorts = (danglingInputs ++ danglingOutputs).toList
+    if (danglingPorts.nonEmpty)
+      throw new IllegalArgumentException(danglingPorts.mkString("\n"))
+  end new_checkDanglingPorts
+
   extension (domainOwner: DFDomainOwner)
     // Aggregates `@hw.constraints.IO` / `@timing.clock` annotations applied at
     // the domain owner and on its (single) clk-port-in declaration. Used by the
@@ -1380,6 +1457,7 @@ final case class DB private (
       newRoot.new_waitCheck()
       newRoot.new_portLocationCheck()
       newRoot.new_portResourceDirCheck()
+      newRoot.new_checkDanglingPorts()
   end new_hierEquivalenceCheck
 
   /** Checks that device top design domains all have timing clock rate constraints. Additionally, if
