@@ -20,13 +20,27 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       hasViolations = true
       System.err.println(msg)
 
-    // for quick lookup of by-name port selections during ref checks
+    // For quick lookup of by-name port selections during ref checks. refCheck
+    // runs per sub-DB, so an instantiated child design's ports live in the
+    // child's own sub-DB (not the current one). Fetch the child sub-DB through
+    // the design tree and read its folded ports under the child's getSet — the
+    // resulting (inst, relativeName) tuples are consumed below under the current
+    // (parent) sub-DB's getSet.
+    val rootDB = getSet.designDB.rootDB
     val instPortsByNameSet = getSet.designDB.members.view.flatMap {
       case inst: DFDesignInst =>
-        val design = inst.getDesignBlock
-        design.members(MemberView.Folded).view.collect {
-          case port: DFVal.Dcl if port.isPort => (inst, port.getRelativeName(design))
-        }
+        val childBlock = inst.getDesignBlock
+        // TODO: once DFDesignInst.designRef is unified with the child
+        // DFDesignBlock.ownerRef (the `subDBs` key), this simplifies to
+        // `rootDB.subDBs.get(inst.designRef)` with no block resolution first.
+        rootDB.subDBs.get(childBlock.ownerRef) match
+          case Some(childSub) =>
+            childSub.atGetSet {
+              childBlock.members(MemberView.Folded).view.collect {
+                case port: DFVal.Dcl if port.isPort => (inst, port.getRelativeName(childBlock))
+              }.toList
+            }
+          case None => Nil
       case _ => Nil
     }.toSet
 
@@ -140,7 +154,16 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     }
     // checks for all references
     refTable.foreach { (r, m) =>
-      if (!m.isInstanceOf[DFMember.Empty] && !memberSet.contains(m))
+      // A DFDesignInst.designRef targets its child DFDesignBlock, which lives in
+      // the child's own sub-DB rather than this one — a legitimate cross-sub-DB
+      // reference, not a removed member (refCheck runs per sub-DB).
+      // TODO: once DFDesignInst.designRef is unified with the child
+      // DFDesignBlock.ownerRef (the `subDBs` key), the whitelist key `d.ownerRef`
+      // is exactly that unified ref.
+      val isLiveChildDesign = m match
+        case d: DFDesignBlock => rootDB.subDBs.contains(d.ownerRef)
+        case _                => false
+      if (!m.isInstanceOf[DFMember.Empty] && !isLiveChildDesign && !memberSet.contains(m))
         reportViolation(s"Ref $r exists for a removed member: $m")
       r match
         case r: DFRef.TwoWayAny if !originRefTable.contains(r) =>
@@ -308,60 +331,23 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     require(!hasViolations, "Failed member order check!")
   end orderCheck
 
-  // Temporary Phase 1 check: exercise the old<->new DB conversion round-trip
-  // against every design the test suite exercises via sanityCheck. Under
-  // B-pure, globals no longer live at root in the new-style DB and are
-  // partitioned per sub-DB by closure; the elaboration order of globals is
-  // not preserved across the round-trip. Compare globals by identity-set and
-  // the rest of the members as an ordered list. RefTable, globalTags, and
-  // srcFiles still must match exactly.
-  private def hierarchicalDBRoundTripCheck(designDB: DB, hierDB: DB): Unit =
-    val lhs = hierDB.newToOld.canonicalForm
-    val rhs = designDB.canonicalForm
-    def partition(db: DB): (Set[DFMember], List[DFMember]) =
-      given MemberGetSet = db.getSet
-      val globals = mutable.Set.empty[DFMember]
-      val nonGlobals = mutable.ListBuffer.empty[DFMember]
-      db.members.foreach {
-        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => globals += dfVal
-        case m                                          => nonGlobals += m
-      }
-      (globals.toSet, nonGlobals.toList)
-    val (lhsGlobals, lhsNonGlobals) = partition(lhs)
-    val (rhsGlobals, rhsNonGlobals) = partition(rhs)
-    if (lhsGlobals != rhsGlobals)
-      val onlyLhs = lhsGlobals -- rhsGlobals
-      val onlyRhs = rhsGlobals -- lhsGlobals
-      throw new IllegalArgumentException(
-        s"""Hierarchical DB round-trip globals identity-set mismatch.
-           |Only in lhs (round-trip): ${onlyLhs.mkString(", ")}
-           |Only in rhs (input):     ${onlyRhs.mkString(", ")}""".stripMargin
-      )
-    require(
-      lhsNonGlobals == rhsNonGlobals,
-      "Hierarchical DB round-trip non-globals member list mismatch."
-    )
-    require(
-      lhs.refTable == rhs.refTable,
-      "Hierarchical DB round-trip refTable mismatch."
-    )
-    require(
-      lhs.globalTags == rhs.globalTags && lhs.srcFiles == rhs.srcFiles,
-      "Hierarchical DB round-trip globalTags or srcFiles mismatch."
-    )
-  end hierarchicalDBRoundTripCheck
-
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    refCheck()
-    memberExistenceCheck()
-    ownershipCheck(designDB.top, designDB.membersNoGlobals.drop(1))
-    orderCheck()
-    // Build the hierarchical DB once and reuse it for both the checks and the
-    // round-trip (oldToNew is O(members) and SanityCheck runs after every stage).
+    // Build the hierarchical DB once (oldToNew is O(members) and SanityCheck
+    // runs after every stage). Run the per-design structural checks under each
+    // sub-DB's own getSet, then the design checks (per-sub-DB `subDBCheck` plus
+    // the cross-design root checks) once on the root via `check`.
     val hierDB = designDB.oldToNew
+    hierDB.subDBs.view.values.foreach { subDB =>
+      subDB.atGetSet {
+        refCheck()
+        memberExistenceCheck()
+        ownershipCheck(subDB.top, subDB.membersNoGlobals.drop(1))
+        orderCheck()
+      }
+    }
     hierDB.check
-    hierarchicalDBRoundTripCheck(designDB, hierDB)
     designDB
+  end transform
 end SanityCheck
 
 extension [T: HasDB](t: T)
