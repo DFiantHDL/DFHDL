@@ -274,6 +274,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
             )
             require(false, "Failed ownership check!")
           ownerStack.pop()
+      end match
     end while
   end ownershipCheck
 
@@ -348,6 +349,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       lhs.globalTags == rhs.globalTags && lhs.srcFiles == rhs.srcFiles,
       "Hierarchical DB round-trip globalTags or srcFiles mismatch."
     )
+  end hierarchicalDBRoundTripCheck
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     refCheck()
@@ -355,6 +357,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     ownershipCheck(designDB.top, designDB.membersNoGlobals.drop(1))
     orderCheck()
     designDB.check()
+    designDB.new_clkRstEquivalenceCheck()
     hierarchicalDBRoundTripCheck(designDB)
     designDB
 end SanityCheck

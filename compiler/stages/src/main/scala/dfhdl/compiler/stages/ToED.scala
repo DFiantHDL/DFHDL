@@ -19,17 +19,23 @@ import scala.collection.mutable
   *   - Pick the reset mode (sync vs async) and active polarity for the reset branch.
   *   - Walk `@timing.related(ref)` to the related target's clk/rst Dcls.
   *
-  * Strips the resolved timing annotations on RT→ED conversion — by that point the configuration
-  * is fully baked into the generated `Clk_<grp>` / `Rst_<grp>` opaque port types and the
-  * annotations are redundant.
+  * Strips the resolved timing annotations on RT→ED conversion — by that point the configuration is
+  * fully baked into the generated `Clk_<grp>` / `Rst_<grp>` opaque port types and the annotations
+  * are redundant.
   */
-case object ToED extends Stage:
+case object ToED extends HierarchyStage:
   def dependencies: List[Stage] =
     List(DropUnreferencedAnons, ToRT, DropRTProcess, NameRegAliases, ExplicitNamedVars,
       ExplicitCondExprAssign, AddClkRst, SimpleOrderMembers)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
-    given RefGen = RefGen.fromGetSet
+  // ToED is per-design: every domain owner it transforms, and the clk/rst Dcls
+  // it reads, live in the current sub-DB. The default `rebindGetSet = true` gives
+  // the sub-DB's getSet, and the `subDB` helper is that current design's DB.
+  def transformSubDB(rootDB: DB)(using
+      getSet: MemberGetSet,
+      co: CompilerOptions,
+      rg: RefGen
+  ): DB =
 
     // Annotation-based mirror of `DomainAnalysis.designDomains`. For an RT owner returns
     // its (clkOpt, rstOpt) Dcl pair; if the owner carries `@timing.related(ref)`, the
@@ -46,7 +52,7 @@ case object ToED extends Stage:
         relatedTarget(owner) match
           case Some(target) => lookupClkRst(target)
           case None         =>
-            val members = designDB.domainOwnerMemberTable(owner)
+            val members = subDB.domainOwnerMemberTable(owner)
             val clkOpt = members.collectFirst {
               case clk: DFVal.Dcl if clk.isClkDcl => clk
             }
@@ -60,10 +66,10 @@ case object ToED extends Stage:
     // the handledDesignDcls set (saving as top for initial since transforming bottom-up,
     // and this guarantees to work at any case and not required if we only have a single design top
     // with no hierarchies)
-    var handledDesign: DFDesignBlock = designDB.top
+    var handledDesign: DFDesignBlock = subDB.top
     // save handled REG dcls for a given design at any domain level
     val handledDesignREGDclSet = mutable.Set.empty[DFVal.Dcl]
-    val patchList: List[(DFMember, Patch)] = designDB.domainOwnerMemberList.flatMap {
+    val patchList: List[(DFMember, Patch)] = subDB.domainOwnerMemberList.flatMap {
       // for all domain owners that are also blocks (RTDesign, RTDomain)
       case (domainOwner: (DFDomainOwner & DFBlock), members) =>
         val design = domainOwner.getThisOrOwnerDesign
@@ -346,7 +352,7 @@ case object ToED extends Stage:
       // other owners
       case _ => None
     }
-    val firstPart = designDB.patch(patchList)
+    val firstPart = subDB.patch(patchList)
     locally {
       import firstPart.getSet
       val patchList = firstPart.members.collect {
@@ -403,7 +409,7 @@ case object ToED extends Stage:
       }
       firstPart.patch(patchList)
     }
-  end transform
+  end transformSubDB
 end ToED
 
 extension [T: HasDB](t: T)

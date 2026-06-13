@@ -957,6 +957,407 @@ final case class DB private (
     fillDomainMap(rtDomainOwners, Nil, domainMap)
     domainMap.toMap
 
+  // ===========================================================================
+  // New-style (hierarchical) clones of the RT clk/rst domain analyses. They are
+  // invoked on the new-style ROOT DB and mirror the flat versions above, but
+  // route every ref resolution / per-design table lookup to the OWNING sub-DB's
+  // getSet (the root getSet throws). On sub-DBs and old-style flat DBs they
+  // delegate to the root. Gated against the flat versions by
+  // `new_clkRstEquivalenceCheck` (run from SanityCheck) until the consuming
+  // stages (ExplicitClkRstCfg, AddClkRst) are migrated, after which the flat
+  // versions are dropped and these lose the `new_` prefix.
+  // ===========================================================================
+
+  // Cross-design reaches navigate the DESIGN TREE (no global member index):
+  // `subDBs.get(d.ownerRef)` goes DOWN to a child design's sub-DB;
+  // `subDB.parentSubDBOpt` goes UP to the parent sub-DB where that design is
+  // instantiated. Each new_* analysis processes one sub-DB's own members at a
+  // time, under that sub-DB's getSet, hopping between neighbors via the tree.
+
+  lazy val new_relatedAnnotMap: Map[DFDomainOwner, DFDomainOwner] =
+    if (!isRoot) rootDB.new_relatedAnnotMap
+    else
+      subDBs.view.values.flatMap { sub =>
+        sub.atGetSet {
+          sub.domainOwnerMemberList.view.flatMap { (owner, _) =>
+            owner.meta.annotations.collectFirst {
+              case rel: constraints.Timing.Related => rel.ref.get
+            }.map(owner -> _)
+          }
+        }
+      }.toMap
+
+  // Resolves a PortByNameSelect (living in `ctxSub`) to its underlying Dcl by
+  // navigating DOWN to the targeted child design's sub-DB and walking its
+  // namedOwnerMemberTable there. Returns the port with the child sub-DB that
+  // owns it, so callers can resolve the port's domain in the right getSet.
+  private def new_pbnsToPort(
+      pbns: DFVal.PortByNameSelect,
+      ctxSub: DB
+  ): Option[(DFVal.Dcl, DB)] =
+    val childDesign = ctxSub.atGetSet(pbns.designInstRef.get.getDesignBlock)
+    subDBs.get(childDesign.ownerRef).flatMap { childSub =>
+      childSub.atGetSet {
+        val pathParts = pbns.portNamePath.split('.').toList
+        @tailrec def walk(owner: DFOwnerNamed, parts: List[String]): Option[DFMember] =
+          parts match
+            case Nil          => None
+            case head :: rest =>
+              childSub.namedOwnerMemberTable.getOrElse(owner, Nil).collectFirst {
+                case n: DFMember.Named if !n.isAnonymous && n.getName == head => n
+              } match
+                case Some(m) if rest.isEmpty => Some(m)
+                case Some(o: DFOwnerNamed)   => walk(o, rest)
+                case _                       => None
+        walk(childDesign, pathParts) match
+          case Some(dcl: DFVal.Dcl) => Some(dcl -> childSub)
+          case _                    => None
+      }
+    }
+  end new_pbnsToPort
+
+  // The domain that encloses `design`'s instantiation: navigate UP to `design`'s
+  // parent sub-DB and read the owning domain of `design`'s inst there. Returns
+  // the domain owner with the parent sub-DB that owns it.
+  private def new_designEnclosingDomain(design: DFDesignBlock): Option[(DFDomainOwner, DB)] =
+    subDBs.get(design.ownerRef).flatMap(_.parentSubDBOpt).flatMap { parentSub =>
+      parentSub.atGetSet {
+        parentSub.membersNoGlobals.view.collectFirst {
+          case inst: DFDesignInst if inst.getDesignBlock eq design => inst.getOwnerDomain
+        }
+      }.map(_ -> parentSub)
+    }
+
+  // Routed clone of the local `getRTOwnerOption` from `dependentRTDomainOwners`.
+  // `member` lives in `ctxSub`; returns its RT domain owner with the sub-DB that
+  // owns that domain (None if the resolved domain is not RT).
+  private def new_getRTOwnerWithSub(
+      member: DFMember,
+      ctxSub: DB
+  ): Option[(DFDomainOwner, DB)] =
+    val ownerAndSub: Option[(DFDomainOwner, DB)] = member match
+      case design: DFDesignBlock        => new_designEnclosingDomain(design)
+      case pbns: DFVal.PortByNameSelect =>
+        new_pbnsToPort(pbns, ctxSub) match
+          case Some((port, portSub)) => Some(portSub.atGetSet(port.getOwnerDomain) -> portSub)
+          case None                  => Some(ctxSub.atGetSet(pbns.getOwnerDomain) -> ctxSub)
+      case _ => Some(ctxSub.atGetSet(member.getOwnerDomain) -> ctxSub)
+    ownerAndSub.flatMap { case (o, sub) =>
+      o.domainType match
+        case DomainType.RT => Some(o -> sub)
+        case _             => None
+    }
+  end new_getRTOwnerWithSub
+
+  // Routed, best-effort clone of `fullNameViaInst` (error messages only).
+  // `owner` lives in `ownerSub`; instance paths are recovered by navigating UP.
+  private def new_fullNameViaInst(owner: DFDomainOwner, ownerSub: DB): String =
+    def instFullName(d: DFDesignBlock, dSub: DB): Option[String] =
+      dSub.parentSubDBOpt.flatMap { parentSub =>
+        parentSub.atGetSet {
+          parentSub.membersNoGlobals.view.collectFirst {
+            case inst: DFDesignInst if inst.getDesignBlock eq d => inst.getFullName
+          }
+        }
+      }
+    val design = ownerSub.atGetSet(owner.getThisOrOwnerDesign)
+    if (design eq topDB.top) ownerSub.atGetSet(owner.getFullName)
+    else
+      owner match
+        case d: DFDesignBlock =>
+          instFullName(d, ownerSub).getOrElse(ownerSub.atGetSet(owner.getFullName))
+        case _ =>
+          instFullName(design, ownerSub) match
+            case Some(instName) =>
+              s"$instName.${ownerSub.atGetSet(owner.getRelativeName(design))}"
+            case None => ownerSub.atGetSet(owner.getFullName)
+  end new_fullNameViaInst
+
+  lazy val new_dependentRTDomainOwners: Map[DFDomainOwner, DFDomainOwner] =
+    if (!isRoot) rootDB.new_dependentRTDomainOwners
+    else
+      subDBs.view.values.flatMap { subDB =>
+        subDB.domainOwnerMemberList.view.flatMap { case (domainOwner, domainMembers) =>
+          subDB.atGetSet {
+            domainOwner.domainType match
+              case DomainType.RT =>
+                new_relatedAnnotMap.get(domainOwner) match
+                  case Some(relatedOwner) => Some(domainOwner -> relatedOwner)
+                  case None               =>
+                    val hasClkOrRst = domainOwner.meta.annotations.exists {
+                      case _: constraints.Timing.Clock => true
+                      case _: constraints.Timing.Reset => true
+                      case _                           => false
+                    }
+                    if (hasClkOrRst) None
+                    else
+                      domainOwner match
+                        case design: DFDesignBlock =>
+                          // The absolute top is the root's top-top design; a
+                          // sub-DB's own `isTopTop`/`isTop` can't tell because
+                          // every design block has an Empty ownerRef.
+                          if (design eq topDB.top) None
+                          else new_getRTOwnerWithSub(design, subDB).map { case (o, _) =>
+                            design -> o
+                          }
+                        case domain: DomainBlock =>
+                          val ed = domain.getOwnerDesign
+                          val portRelNames = domainMembers.collect {
+                            case dcl: DFVal.Dcl
+                                if dcl.isPortIn && !dcl.isClkDcl && !dcl.isRstDcl =>
+                              dcl -> dcl.getRelativeName(ed)
+                          }
+                          // External drivers come from `ed`'s instantiations in
+                          // each PARENT sub-DB — navigate the design tree up.
+                          val parentDesigns = designBlockOwnershipMap.getOrElse(ed, Set.empty)
+                          val inSources: Set[(DFDomainOwner, DB)] =
+                            portRelNames.view.flatMap { case (port, portRelName) =>
+                              val externalNets: List[(DFNet, DB)] =
+                                parentDesigns.toList.flatMap { parentDesign =>
+                                  subDBs.get(parentDesign.ownerRef).toList.flatMap { parentSub =>
+                                    parentSub.atGetSet {
+                                      parentSub.membersNoGlobals.collect {
+                                        case inst: DFDesignInst
+                                            if inst.getDesignBlock eq ed => inst
+                                      }.flatMap { inst =>
+                                        parentSub.designInstPBNS.getOrElse(inst, Nil)
+                                          .filter(_.portNamePath == portRelName)
+                                          .flatMap(parentSub.connectionTable.getNets(_))
+                                      }
+                                    }.map(_ -> parentSub)
+                                  }
+                                }
+                              val localNets: List[(DFNet, DB)] =
+                                subDB.connectionTable.getNets(port).toList.map(_ -> subDB)
+                              (localNets ++ externalNets).headOption.flatMap { case (net, netSub) =>
+                                netSub.atGetSet {
+                                  net match
+                                    case DFNet.Connection(_, from, _) =>
+                                      new_getRTOwnerWithSub(from, netSub)
+                                    case _ => None
+                                }
+                              }
+                            }.toSet
+                          val inSourceDomains = inSources.map { case (o, _) => o }
+                          if (inSourceDomains.isEmpty)
+                            new_getRTOwnerWithSub(domain, subDB).map { case (o, _) =>
+                              domain -> o
+                            }
+                          else if (inSourceDomains.size > 1)
+                            throw new IllegalArgumentException(
+                              s"""|Found ambiguous source RT configurations for the domain:
+                                  |${new_fullNameViaInst(domain, subDB)}
+                                  |Sources:
+                                  |${inSources.map { case (o, s) => new_fullNameViaInst(o, s) }
+                                   .mkString("\n")}
+                                  |Possible solution:
+                                  |Either explicitly define a configuration for the domain or drive it from a single source domain.
+                                  |""".stripMargin
+                            )
+                          else Some(domain -> inSourceDomains.head)
+                        case ifc: DFInterfaceOwner => ???
+              case _ => None
+          }
+        }
+      }.toMap
+
+  // Hierarchical equivalent of the `isDependentOn` analysis: does `domainOwner`
+  // transitively depend on `thatDomainOwner` per `new_dependentRTDomainOwners`?
+  // Invoked on the root DB.
+  @tailrec final def new_isDependentOn(
+      domainOwner: DFDomainOwner,
+      thatDomainOwner: DFDomainOwner
+  ): Boolean =
+    new_dependentRTDomainOwners.get(domainOwner) match
+      case Some(dependency) =>
+        if (dependency == thatDomainOwner) true
+        else new_isDependentOn(dependency, thatDomainOwner)
+      case None => false
+
+  // Structural map: every domain owner -> its sub-DB. Keys are domain owners
+  // only (designs + domain blocks), built from each sub-DB's own
+  // domainOwnerMemberList — the same category as designBlockOwnershipMap, NOT a
+  // member index. Routes a domain owner's getResolvedClkRst / usesClkRst to its
+  // own getSet, including reverse-dependent domains reached by usesClk/usesRst.
+  private lazy val domainOwnerToSubDB: Map[DFDomainOwner, DB] =
+    if (isRoot)
+      subDBs.view.values.flatMap { sub =>
+        sub.domainOwnerMemberList.view.map { case (owner, _) => owner -> sub }
+      }.toMap
+    else rootDB.domainOwnerToSubDB
+
+  lazy val new_resolvedClkRstMap: Map[DFDomainOwner, ClkRstTiming] =
+    if (!isRoot) rootDB.new_resolvedClkRstMap
+    else
+      val reversedDependents: Map[DFDomainOwner, Set[DFDomainOwner]] =
+        new_dependentRTDomainOwners.invert
+      val designUsesClkRst =
+        mutable.Map.empty[String, (usesClk: Boolean, usesRst: Boolean)]
+      val domainOwnerUsesClkRst =
+        mutable.Map.empty[DFDomainOwner, (usesClk: Boolean, usesRst: Boolean)]
+      // run `f` under the getSet of `owner`'s sub-DB (looked up structurally)
+      def atOwner[T](owner: DFDomainOwner)(f: MemberGetSet ?=> T): T =
+        domainOwnerToSubDB(owner).atGetSet(f)
+      // getSet-threaded clones of the clk/rst resolver extensions: the originals
+      // bind to the class's `this.getSet` (which throws on the root), so they
+      // can't be reused here — these take an explicit `using MemberGetSet` that
+      // `atOwner` supplies from the owner's sub-DB.
+      def domainClkConstraints(owner: DFDomainOwner)(using
+          MemberGetSet
+      ): collection.View[constraints.Constraint] =
+        owner.getConstraints.view ++
+          domainOwnerMemberTable(owner).view.collectFirst {
+            case dcl: DFVal.Dcl if dcl.isPortIn && dcl.isClkDcl => dcl.getConstraints
+          }.getOrElse(Nil)
+      def timingClkRateOpt(owner: DFDomainOwner)(using MemberGetSet): Option[RateNumber] =
+        domainClkConstraints(owner).collectFirst {
+          case constraints.Timing.Clock(rate = rate: RateNumber @unchecked) => rate
+        }
+      def resolvedClkRst(owner: DFDomainOwner)(using MemberGetSet): ClkRstTiming =
+        val defaultTag = globalTags.getTagOf[DefaultRTDomainCfgTag].get
+        val userClkOpt = owner.meta.annotations.collectFirst {
+          case c: constraints.Timing.Clock => c
+        }
+        val userRstOpt = owner.meta.annotations.collectFirst {
+          case r: constraints.Timing.Reset => r
+        }
+        val isDeviceTop = owner.getThisOrOwnerDesign.isDeviceTop
+        val explicitNoRst = userClkOpt.isDefined && userRstOpt.isEmpty
+        val (baseClkOpt, baseRstOpt) =
+          if (isDeviceTop)
+            val clk = timingClkRateOpt(owner) match
+              case Some(rate) => defaultTag.clk.copy(rate = rate)
+              case None       => defaultTag.clk
+            (Some(clk), None)
+          else if (explicitNoRst) (Some(defaultTag.clk), None)
+          else (Some(defaultTag.clk), Some(defaultTag.rst))
+        def mergeClk(
+            base: Option[constraints.Timing.Clock],
+            user: Option[constraints.Timing.Clock]
+        ): Option[constraints.Timing.Clock] = (base, user) match
+          case (Some(b), Some(u)) =>
+            Some(b.merge(u, withPriority = true).get.asInstanceOf[constraints.Timing.Clock])
+          case (Some(b), None) => Some(b)
+          case (None, Some(u)) => Some(u)
+          case (None, None)    => None
+        def mergeRst(
+            base: Option[constraints.Timing.Reset],
+            user: Option[constraints.Timing.Reset]
+        ): Option[constraints.Timing.Reset] = (base, user) match
+          case (Some(b), Some(u)) =>
+            Some(b.merge(u, withPriority = true).get.asInstanceOf[constraints.Timing.Reset])
+          case (Some(b), None) => Some(b)
+          case (None, Some(u)) => Some(u)
+          case (None, None)    => None
+        (mergeClk(baseClkOpt, userClkOpt), mergeRst(baseRstOpt, userRstOpt))
+      end resolvedClkRst
+      def isAlwaysAtTopClk(owner: DFDomainOwner)(using MemberGetSet): Boolean =
+        resolvedClkRst(owner)._1 match
+          case Some(clk) =>
+            clk.inclusionPolicy match
+              case ClkRstInclusionPolicy.AlwaysAtTop => true
+              case _                                 => false
+          case None => false
+      def isAlwaysAtTopRst(owner: DFDomainOwner)(using MemberGetSet): Boolean =
+        resolvedClkRst(owner)._2 match
+          case Some(rst) =>
+            rst.inclusionPolicy match
+              case ClkRstInclusionPolicy.AlwaysAtTop => true
+              case _                                 => false
+          case None => false
+      def usesClkRst(owner: DFDomainOwner): (usesClk: Boolean, usesRst: Boolean) =
+        owner match
+          case design: DFDesignBlock =>
+            designUsesClkRst.getOrElseUpdate(design.dclName, (usesClk(design), usesRst(design)))
+          case _ =>
+            domainOwnerUsesClkRst.getOrElseUpdate(owner, (usesClk(owner), usesRst(owner)))
+      def usesClk(owner: DFDomainOwner): Boolean =
+        atOwner(owner) {
+          domainOwnerMemberTable(owner).exists {
+            case dcl: DFVal.Dcl                      => dcl.isReg || dcl.isClkDcl
+            case reg: DFVal.Alias.History            => true
+            case pb: ProcessBlock if pb.isInRTDomain => true
+            case inst: DFDesignInst                  => usesClkRst(inst.getDesignBlock).usesClk
+            case _                                   => false
+          }
+        } || reversedDependents.getOrElse(owner, Set()).exists(d => usesClkRst(d).usesClk) ||
+          (owner eq topDB.top) && atOwner(owner)(isAlwaysAtTopClk(owner)) ||
+          owner.hasClkAnnot
+      def usesRst(owner: DFDomainOwner): Boolean =
+        atOwner(owner) {
+          domainOwnerMemberTable(owner).exists {
+            case dcl: DFVal.Dcl =>
+              (dcl.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
+            case reg: DFVal.Alias.History            => reg.hasNonBubbleInit
+            case pb: ProcessBlock if pb.isInRTDomain => true
+            case inst: DFDesignInst                  => usesClkRst(inst.getDesignBlock).usesRst
+            case _                                   => false
+          }
+        } || reversedDependents.getOrElse(owner, Set()).exists(d => usesClkRst(d).usesRst) ||
+          (owner eq topDB.top) && atOwner(owner)(isAlwaysAtTopRst(owner)) ||
+          owner.hasRstAnnot
+      def relaxed(resolved: ClkRstTiming, atDomain: DFDomainOwner): ClkRstTiming =
+        val (uClk, uRst) = usesClkRst(atDomain)
+        val (clk, rst) = resolved
+        (if (uClk) clk else None, if (uRst) rst else None)
+      @tailrec def fillDomainMap(
+          domains: List[DFDomainOwner],
+          stack: List[DFDomainOwner],
+          domainMap: mutable.Map[DFDomainOwner, ClkRstTiming]
+      ): Unit =
+        domains match
+          case domain :: rest if domainMap.contains(domain) =>
+            fillDomainMap(rest, stack, domainMap)
+          case domain :: rest =>
+            new_dependentRTDomainOwners.get(domain) match
+              case Some(dependencyDomain) =>
+                domainMap.get(dependencyDomain) match
+                  case Some(dependencyResolved) =>
+                    domainMap += domain -> relaxed(dependencyResolved, domain)
+                    fillDomainMap(rest, stack, domainMap)
+                  case None => fillDomainMap(rest, domain :: stack, domainMap)
+              case _ =>
+                val resolved = atOwner(domain)(resolvedClkRst(domain))
+                domainMap += domain -> relaxed(resolved, domain)
+                fillDomainMap(rest, stack, domainMap)
+          case Nil if stack.nonEmpty => fillDomainMap(stack, Nil, domainMap)
+          case _                     =>
+      val domainMap = mutable.Map.empty[DFDomainOwner, ClkRstTiming]
+      val rtDomainOwners: List[DFDomainOwner] =
+        subDBs.view.values.flatMap { sub =>
+          sub.domainOwnerMemberList.view.map { case (owner, _) => owner }
+        }.filter { owner =>
+          owner.domainType match
+            case DomainType.RT => true
+            case _             => false
+        }.toList
+      fillDomainMap(rtDomainOwners, Nil, domainMap)
+      domainMap.toMap
+
+  // Temporary equivalence gate: on an old-style flat DB, assert the flat RT
+  // clk/rst analyses match their new-style clones computed on `oldToNew`.
+  // Dropped once the consuming stages are migrated and the flat versions removed.
+  def new_clkRstEquivalenceCheck(): Unit =
+    if (isOldStyleFlatDB)
+      val newRoot = this.oldToNew
+      def fail(name: String, flat: Any, neu: Any): Nothing =
+        throw new IllegalArgumentException(
+          s"""|new_$name mismatch between flat and hierarchical computation.
+              |flat: $flat
+              |new:  $neu""".stripMargin
+        )
+      if (this.relatedAnnotMap != newRoot.new_relatedAnnotMap)
+        fail("relatedAnnotMap", this.relatedAnnotMap, newRoot.new_relatedAnnotMap)
+      if (this.dependentRTDomainOwners != newRoot.new_dependentRTDomainOwners)
+        fail(
+          "dependentRTDomainOwners",
+          this.dependentRTDomainOwners,
+          newRoot.new_dependentRTDomainOwners
+        )
+      if (this.resolvedClkRstMap != newRoot.new_resolvedClkRstMap)
+        fail("resolvedClkRstMap", this.resolvedClkRstMap, newRoot.new_resolvedClkRstMap)
+  end new_clkRstEquivalenceCheck
+
   /** Checks that device top design domains all have timing clock rate constraints. Additionally, if
     * there is an explicit clock rate configuration, it must match the timing constraint rate.
     */
