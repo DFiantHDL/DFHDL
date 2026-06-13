@@ -612,15 +612,15 @@ final case class DB private (
   lazy val magnetConnectionMap: Map[ConnectPoint, ConnectPoint] = magnetData._1
   lazy val magnetPointInfo: Map[ConnectPoint, (DFDesignBlock, String)] = magnetData._2
 
-  // Hierarchical clone of `checkDanglingPorts`, invoked on the root DB. The
-  // assignment coverage and the connected-point set are aggregated across all
-  // sub-DBs (each design's assignments/connections live in its own sub-DB) plus
-  // the cross-design magnet connections. Input ports are checked from each
-  // parent sub-DB (which owns the instance and its connections), reading the
-  // child design's port list via the root-aware designMemberTable; output ports
-  // are checked per instantiated design under its own sub-DB getSet. Only
-  // instantiated designs (designBlockInstMap keys) are checked, matching the
-  // flat version (the toptop's own ports are device IO, not dangling).
+  // Dangling-port check, run on the root DB. The assignment coverage and the
+  // connected-point set are aggregated across all sub-DBs (each design's
+  // assignments/connections live in its own sub-DB) plus the cross-design
+  // magnet connections. Input ports are checked from each parent sub-DB (which
+  // owns the instance and its connections), reading the child design's port
+  // list via the root-aware designMemberTable; output ports are checked per
+  // instantiated design under its own sub-DB getSet. Only instantiated designs
+  // (designBlockInstMap keys) are checked — the toptop's own ports are device
+  // IO, not dangling.
   def checkDanglingPorts(): Unit =
     val assignmentsDclTable: Map[DFVal.Dcl, Coverage] =
       subDBs.view.values.flatMap { sub =>
@@ -784,9 +784,8 @@ final case class DB private (
       }.map(_ -> parentSub)
     }
 
-  // Routed clone of the local `getRTOwnerOption` from `dependentRTDomainOwners`.
-  // `member` lives in `ctxSub`; returns its RT domain owner with the sub-DB that
-  // owns that domain (None if the resolved domain is not RT).
+  // `member` lives in `ctxSub`; returns its RT domain owner together with the
+  // sub-DB that owns that domain (None if the resolved domain is not RT).
   private def getRTOwnerWithSub(
       member: DFMember,
       ctxSub: DB
@@ -805,14 +804,14 @@ final case class DB private (
     }
   end getRTOwnerWithSub
 
-  // Routed, best-effort clone of `fullNameViaInst` (error messages only).
-  // `owner` lives in `ownerSub`; instance paths are recovered by navigating UP.
+  // Best-effort full instance path for `owner` (error messages only). `owner`
+  // lives in `ownerSub`; instance paths are recovered by navigating UP.
   private def fullNameViaInst(owner: DFDomainOwner, ownerSub: DB): String =
     val design = ownerSub.atGetSet(owner.getThisOrOwnerDesign)
     if (design eq topDB.top) ownerSub.atGetSet(owner.getFullName)
     else
-      // Mirror the flat `fullNameViaInst`, whose `inst.getFullName` yields the
-      // design CLASS name (e.g. `Internal2`), not the instance path: resolve the
+      // The enclosing design's `inst.getFullName` yields the design CLASS name
+      // (e.g. `Internal2`), not the instance path: resolve the
       // enclosing design by its own full name in its sub-DB (where it is the
       // top), then append the owner's design-relative name.
       owner match
@@ -1088,10 +1087,10 @@ final case class DB private (
       fillDomainMap(rtDomainOwners, Nil, domainMap)
       domainMap.toMap
 
-  // Hierarchical clone of `domainClkRateCheck`, invoked on the root DB. The flat
-  // `usesClk` filter (cross-design, flat-only) is equivalent to "the resolver
-  // produced a clock" (resolvedClkRstMap(owner)._1.isDefined), so the
-  // resolved-clock map drives both the filter and the explicit rate. Per-owner
+  // Device-top clock-rate check, run on the root DB. A device-top RT domain
+  // "uses a clock" exactly when the resolver produced a clock
+  // (resolvedClkRstMap(owner)._1.isDefined), so the resolved-clock map drives
+  // both the filter and the explicit rate. Per-owner
   // local reads (isDeviceTop, isTop position, getFullName, the clk timing
   // constraint) are routed through the owner's sub-DB getSet via `atOwner`.
   def domainClkRateCheck(): Unit =
@@ -1147,7 +1146,7 @@ final case class DB private (
       throw new IllegalArgumentException(errors.mkString("\n"))
   end domainClkRateCheck
 
-  // Hierarchical clone of `waitCheck`, invoked on the root DB. Iterates each
+  // Timed-wait divisibility check, run on the root DB. Iterates each
   // sub-DB's RT waits under that sub-DB's getSet (the root has no members of its
   // own); the clock rate comes from resolvedClkRstMap. The error hierarchy
   // uses fullNameViaInst so a wait in a nested design reports its full
@@ -1195,8 +1194,8 @@ final case class DB private (
       throw new IllegalArgumentException(errors.mkString("\n"))
   end waitCheck
 
-  // Hierarchical clone of `circularDerivedDomainsCheck`, invoked on the root DB.
-  // Same DFS, over `dependentRTDomainOwners`; the cycle error names each
+  // Circular-derived-domain check, run on the root DB. DFS over
+  // `dependentRTDomainOwners`; the cycle error names each
   // owner via `fullNameViaInst` routed through that owner's sub-DB.
   def circularDerivedDomainsCheck(): Unit =
     @tailrec def dfs(
@@ -1316,7 +1315,7 @@ final case class DB private (
       )
   end directRefCheck
 
-  // Hierarchical clone of `portLocationCheck`, invoked on the root DB. Only the
+  // Device-top port location-constraint check, run on the root DB. Only the
   // device-top design is examined; its members are resolved under that design's
   // sub-DB getSet (device top == toptop, so getFullName is the full path).
   def portLocationCheck(): Unit =
@@ -1406,8 +1405,8 @@ final case class DB private (
       )
   end portLocationCheck
 
-  // Hierarchical clone of `portResourceDirCheck`, invoked on the root DB. Same
-  // device-top-only check, members resolved under the device-top sub-DB getSet.
+  // Device-top port resource-direction check, run on the root DB. Members
+  // resolved under the device-top sub-DB getSet.
   def portResourceDirCheck(): Unit =
     import DFVal.Modifier.Dir
     val errors = mutable.ListBuffer.empty[String]
