@@ -356,7 +356,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     memberExistenceCheck()
     ownershipCheck(designDB.top, designDB.membersNoGlobals.drop(1))
     orderCheck()
-    designDB.check()
+    designDB.check
     designDB.new_hierEquivalenceCheck()
     hierarchicalDBRoundTripCheck(designDB)
     designDB

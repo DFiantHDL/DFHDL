@@ -151,7 +151,7 @@ trait Design extends Container, HasClsMetaArgs:
         try
           import Design.latchesCheck
           val designDB = dfc.mutableDB.immutable
-          designDB.check() // various checks post initial elaboration
+          designDB.check // various checks post initial elaboration
           designDB.latchesCheck()
           customTopChecks() // custom user/library checks
         catch

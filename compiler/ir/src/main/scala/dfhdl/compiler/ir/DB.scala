@@ -1713,18 +1713,47 @@ final case class DB private (
       )
   end portResourceDirCheck
 
-  def check(): Unit =
+  // Uniform entry point, representation-aware:
+  //   - hierarchical root: run each sub-DB's per-design checks, then the
+  //     cross-design root checks once on the root;
+  //   - in-hierarchy sub-DB: run only its per-design checks;
+  //   - old-style flat DB: the whole design lives in one DB, so run BOTH groups
+  //     on itself (preserves legacy behavior). This is the path callers use
+  //     today; the root path is dormant until `rootDBCheck` is rewired to the
+  //     hierarchical `new_*` analyses and callers switch to `oldToNew.check`.
+  lazy val check: Unit =
+    if (isRoot)
+      subDBs.view.values.foreach(_.subDBCheck)
+      rootDBCheck
+    else if (isOldStyleFlatDB)
+      subDBCheck
+      rootDBCheck
+    else subDBCheck
+
+  // Per-design structural checks: each validates a single design's own members
+  // and references in isolation. Run on each sub-DB (and on the flat DB, on the
+  // whole design).
+  private lazy val subDBCheck: Unit =
     nameCheck()
     connectionTable // causes connectivity checks
+    directRefCheck()
+
+  // Whole-tree checks: cross-design connectivity / RT-domain correlation
+  // (dangling ports vs connections made at parent instantiation sites;
+  // derived-domain cycles; clk/rst rates) plus the device-top port
+  // location/direction checks (the device top is a single root-identified
+  // design). These consume the genuinely-global analyses (magnetConnectionMap,
+  // dependentRTDomainOwners, resolvedClkRstMap). Currently the flat
+  // implementations (correct on a flat DB); to be rewired to the hierarchical
+  // `new_*` analyses so they also run on the root.
+  private lazy val rootDBCheck: Unit =
     magnetConnectionMap // causes magnet connectivity checks
     checkDanglingPorts()
-    directRefCheck()
     circularDerivedDomainsCheck()
     domainClkRateCheck()
     waitCheck()
     portLocationCheck()
     portResourceDirCheck()
-  end check
 
   // There can only be a single connection to a value in a given range
   // (multiple assignments are possible)
