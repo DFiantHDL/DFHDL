@@ -1142,25 +1142,18 @@ final case class DB private (
   // Routed, best-effort clone of `fullNameViaInst` (error messages only).
   // `owner` lives in `ownerSub`; instance paths are recovered by navigating UP.
   private def new_fullNameViaInst(owner: DFDomainOwner, ownerSub: DB): String =
-    def instFullName(d: DFDesignBlock, dSub: DB): Option[String] =
-      dSub.parentSubDBOpt.flatMap { parentSub =>
-        parentSub.atGetSet {
-          parentSub.membersNoGlobals.view.collectFirst {
-            case inst: DFDesignInst if inst.getDesignBlock eq d => inst.getFullName
-          }
-        }
-      }
     val design = ownerSub.atGetSet(owner.getThisOrOwnerDesign)
     if (design eq topDB.top) ownerSub.atGetSet(owner.getFullName)
     else
+      // Mirror the flat `fullNameViaInst`, whose `inst.getFullName` yields the
+      // design CLASS name (e.g. `Internal2`), not the instance path: resolve the
+      // enclosing design by its own full name in its sub-DB (where it is the
+      // top), then append the owner's design-relative name.
       owner match
-        case d: DFDesignBlock =>
-          instFullName(d, ownerSub).getOrElse(ownerSub.atGetSet(owner.getFullName))
-        case _ =>
-          instFullName(design, ownerSub) match
-            case Some(instName) =>
-              s"$instName.${ownerSub.atGetSet(owner.getRelativeName(design))}"
-            case None => ownerSub.atGetSet(owner.getFullName)
+        case d: DFDesignBlock => ownerSub.atGetSet(d.getFullName)
+        case _                =>
+          val designName = ownerSub.atGetSet(design.getFullName)
+          s"$designName.${ownerSub.atGetSet(owner.getRelativeName(design))}"
   end new_fullNameViaInst
 
   lazy val new_dependentRTDomainOwners: Map[DFDomainOwner, DFDomainOwner] =
@@ -1448,16 +1441,6 @@ final case class DB private (
         fail("resolvedClkRstMap", this.resolvedClkRstMap, newRoot.new_resolvedClkRstMap)
       if (this.magnetConnectionMap != newRoot.new_magnetConnectionMap)
         fail("magnetConnectionMap", this.magnetConnectionMap, newRoot.new_magnetConnectionMap)
-      // rootDBCheck members already rewired to hierarchical form: assert they do
-      // not falsely flag this design, which just passed the flat check. (Error
-      // tests validate that failing designs still throw the right message once
-      // callers switch to oldToNew.check.)
-      newRoot.new_circularDerivedDomainsCheck()
-      newRoot.new_domainClkRateCheck()
-      newRoot.new_waitCheck()
-      newRoot.new_portLocationCheck()
-      newRoot.new_portResourceDirCheck()
-      newRoot.new_checkDanglingPorts()
   end new_hierEquivalenceCheck
 
   /** Checks that device top design domains all have timing clock rate constraints. Additionally, if
@@ -1941,7 +1924,10 @@ final case class DB private (
       case (design, members) if design.isDeviceTop =>
         domainOwnerToSubDB(design).atGetSet {
           val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
-          (design :: members).foreach {
+          // the root-aware designMemberList already includes the design block as
+          // the head of its member list, so iterate `members` directly (the flat
+          // version prepended `design ::` to a children-only list).
+          members.foreach {
             case designInstance: DFDesignBlock if designInstance != design =>
             case domainOwner: DFDomainOwner                                =>
               domainOwner.domainType match
@@ -2063,7 +2049,7 @@ final case class DB private (
   lazy val check: Unit =
     if (isRoot)
       subDBs.view.values.foreach(_.subDBCheck)
-      rootDBCheck
+      new_rootDBCheck
     else if (isOldStyleFlatDB)
       subDBCheck
       rootDBCheck
@@ -2077,14 +2063,9 @@ final case class DB private (
     connectionTable // causes connectivity checks
     directRefCheck()
 
-  // Whole-tree checks: cross-design connectivity / RT-domain correlation
-  // (dangling ports vs connections made at parent instantiation sites;
-  // derived-domain cycles; clk/rst rates) plus the device-top port
-  // location/direction checks (the device top is a single root-identified
-  // design). These consume the genuinely-global analyses (magnetConnectionMap,
-  // dependentRTDomainOwners, resolvedClkRstMap). Currently the flat
-  // implementations (correct on a flat DB); to be rewired to the hierarchical
-  // `new_*` analyses so they also run on the root.
+  // Whole-tree checks, FLAT implementation. Used only on an old-style flat DB
+  // (the `isOldStyleFlatDB` branch of `check`); the hierarchical root path uses
+  // `new_rootDBCheck`. Dead once the flat DB is gone (Step 3).
   private lazy val rootDBCheck: Unit =
     magnetConnectionMap // causes magnet connectivity checks
     checkDanglingPorts()
@@ -2093,6 +2074,18 @@ final case class DB private (
     waitCheck()
     portLocationCheck()
     portResourceDirCheck()
+
+  // Whole-tree checks, HIERARCHICAL implementation. Run once on the root: the
+  // same cross-design connectivity / RT-domain / device-top checks as
+  // `rootDBCheck`, via the `new_*` clones that navigate the sub-DB tree.
+  private lazy val new_rootDBCheck: Unit =
+    new_magnetConnectionMap // causes magnet connectivity checks
+    new_checkDanglingPorts()
+    new_circularDerivedDomainsCheck()
+    new_domainClkRateCheck()
+    new_waitCheck()
+    new_portLocationCheck()
+    new_portResourceDirCheck()
 
   // There can only be a single connection to a value in a given range
   // (multiple assignments are possible)
