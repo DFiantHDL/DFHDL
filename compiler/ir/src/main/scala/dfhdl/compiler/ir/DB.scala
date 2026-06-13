@@ -599,16 +599,16 @@ final case class DB private (
     end match
   end getConnToMap
 
-  // Hierarchical clone of `magnetConnectionMap`, invoked on the root DB. The
-  // magnet matching is intrinsically cross-design; `MagnetMap.getHierarchical`
+  // Magnet connection map + per-point (owner design, name) info, computed on the
+  // root DB. Magnet matching is intrinsically cross-design; `MagnetMap.get`
   // precomputes each magnet point's design context per sub-DB, then matches on
-  // the root-aware design tree (no flattening). It also returns each magnet
-  // point's (owner design, name) so migrating consumers don't re-resolve a
-  // cross-design ConnectPoint (which would need a flat member index).
+  // the root-aware design tree (no flattening). The point info lets consumers
+  // avoid re-resolving a cross-design ConnectPoint (which would need a flat
+  // member index).
   private lazy val magnetData
       : (Map[ConnectPoint, ConnectPoint], Map[ConnectPoint, (DFDesignBlock, String)]) =
     if (!isRoot) rootDB.magnetData
-    else MagnetMap.getHierarchical(this)
+    else MagnetMap.get(this)
   lazy val magnetConnectionMap: Map[ConnectPoint, ConnectPoint] = magnetData._1
   lazy val magnetPointInfo: Map[ConnectPoint, (DFDesignBlock, String)] = magnetData._2
 

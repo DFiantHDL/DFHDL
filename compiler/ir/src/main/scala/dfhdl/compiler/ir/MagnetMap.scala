@@ -73,178 +73,15 @@ end ConnectPoint
 type MagnetMap = Map[ConnectPoint, ConnectPoint]
 
 object MagnetMap:
-  def get(using MemberGetSet): MagnetMap =
-    var errors = List.empty[String]
-    def newError(errMsg: String): Option[ConnectPoint] =
-      errors = errMsg :: errors
-      None
-    val magnetPointView: View[ConnectPoint] =
-      // include the magnet points that are declared via design instances
-      getSet.designDB.members.view.flatMap {
-        case designInst: DFDesignInst =>
-          designInst.getDesignBlock.members(MemberView.Folded).view.flatMap {
-            case dcl @ MagnetDcl(_) => Some(ConnectPoint.Via(designInst, dcl))
-            case _                  => None
-          }
-        case _ => Nil
-      } ++
-        // also include the magnet points that are directly declared in the design,
-        // not via a design instance
-        getSet.designDB.designMemberList.view.flatMap { (design, members) =>
-          members.view.flatMap {
-            case dcl @ MagnetDcl(_) => Some(ConnectPoint.Direct(dcl))
-            case _                  => None
-          }
-        }
-    val magnetPointGrps: List[List[ConnectPoint]] = magnetPointView.groupBy {
-      case cp => cp.dfType
-    }.view.values.map(_.toList).toList
-
-    // set of magnet ports that are explicitly connected/assigned
-    val alreadyConnectedOrAssignedDcls: Set[DFVal.Dcl] =
-      getSet.designDB.assignmentsTable.keys.flatMap(_.dealias).collect {
-        case dcl @ MagnetDcl(_) if dcl.isPort => dcl
-      }.toSet ++ getSet.designDB.connectionTable.connectToVals.collect {
-        case dcl @ MagnetDcl(_) if dcl.isPort => dcl
-      }
-
-    val alreadyConnectedMPVias: Set[ConnectPoint.Via] =
-      getSet.designDB.connectionTable.connectToVals.flatMap {
-        case dfVal @ Magnet(_) => dfVal match
-            case pbns: DFVal.PortByNameSelect => Some(ConnectPoint.Via(pbns))
-            case _                            => None
-        case _ => None
-      }
-    // TODO: what to do with missing clk/rst definitions in RTDomains when they are not declared?
-    // Option 1: create a dedicated check for clk/rst
-    // Option 2: always add clk/rst in RTDomains in elaboration using injection, if the user did not construct them.
-    //           this will remove the need for AddClkRst stage.
-    // Option 3: apply AddClkRst stage after elaboration and before elaboration checks. this is interesting since we could
-    //           use this mechanism to apply various design fixes from elaboration meta-programming.
-    def missingSourceError(targetMP: ConnectPoint): Option[ConnectPoint] =
-      // newError(
-      //   s"""|Missing magnet source for target port ${targetPort.getName}
-      //       |Position:  ${targetPort.meta.position}
-      //       |Hierarchy: ${targetPort.getOwnerNamed.getFullName}""".stripMargin
-      // )
-      None
-
-    val ret = magnetPointGrps.flatMap { mpGrp =>
-      mpGrp.view
-        // first rejecting inviable magnet targets
-        .filter {
-          // rejecting design block inputs or outputs of blackbox design blocks or
-          // already connected/assigned direct design blocks variables/ports
-          case ConnectPoint.Direct(dcl)
-              if dcl.isPortIn || dcl.isPortOut && dcl.getOwnerDesign.isBlackBox ||
-                alreadyConnectedOrAssignedDcls.contains(dcl) => false
-          // rejecting connected port vias that are outputs or already connected
-          case via: ConnectPoint.Via if via.isPortOut || alreadyConnectedMPVias.contains(via) =>
-            false
-          // the rest of the points are viable magnet targets
-          case _ => true
-        }
-        // finding the magnet source point for each target point
-        .flatMap { targetMP =>
-          val targetDsn = targetMP.getOwnerDesign
-          val sourceMP: Option[ConnectPoint] =
-            // target is a via port in (direct port in cannot be a target)
-            if (targetMP.isPortIn)
-              // sorted source in port candidates according to the distance
-              val sourceInCandidates = mpGrp.filter {
-                case ConnectPoint.Direct(dcl)
-                    if (dcl.isPortIn || dcl.isVar) && targetMP.isInsideOwner(dcl.getOwnerDesign) =>
-                  true
-                case _ => false
-              }.map { srcMP =>
-                (srcMP, targetDsn.getDistanceFromOwnerDesign(srcMP.getOwnerDesign))
-              }.toList.sortBy(_._2)
-              // sorted source out port candidates according to the distance
-              val sourceOutCandidates = mpGrp.filter {
-                case via: ConnectPoint.Via if via.isPortOut => true
-                case _                                      => false
-              }.map { srcMP =>
-                val mpDsn = srcMP.getOwnerDesign
-                val commonDesign = targetDsn.getCommonDesignWith(mpDsn)
-                (
-                  srcMP,
-                  targetDsn.getDistanceFromOwnerDesign(commonDesign),
-                  mpDsn.getDistanceFromOwnerDesign(commonDesign)
-                )
-              }.toList.sortBy(_._3).sortBy(_._2)
-              (sourceInCandidates, sourceOutCandidates) match
-                case (Nil, Nil) =>
-                  missingSourceError(targetMP)
-                case (Nil, (src, _, _) :: _) =>
-                  Some(src)
-                case ((src, _) :: _, Nil) =>
-                  Some(src)
-                case ((srcIn, distIn) :: _, (srcOut, distOut, _) :: _) =>
-                  if (distIn < distOut) Some(srcIn)
-                  else
-                    newError(
-                      s"""|Found two possible magnet sources for a target magnet.
-                          |Target Position:  ${targetMP.position}
-                          |Target Path:      ${targetMP.getFullName}
-                          |Source1 Position: ${srcIn.position} 
-                          |Source1 Path:     ${srcIn.getFullName}
-                          |Source2 Position: ${srcOut.position} 
-                          |Source2 Path:     ${srcOut.getFullName}""".stripMargin
-                    )
-              end match
-            // target is direct output port
-            else
-              // sorted source candidates according to the distance
-              val sourceOutCandidates = mpGrp.filter {
-                case via: ConnectPoint.Via if via.isPortOut && via.isInsideOwner(targetDsn) => true
-                case direct: ConnectPoint.Direct
-                    if direct.isVar && direct.isInsideOwner(targetDsn) ||
-                      direct.isPortIn && direct.getOwnerDesign == targetDsn => true
-                case _ => false
-              }.map { srcMP =>
-                (srcMP, srcMP.getOwnerDesign.getDistanceFromOwnerDesign(targetDsn))
-              }.toList.sortBy(_._2)
-              sourceOutCandidates match
-                case Nil =>
-                  missingSourceError(targetMP)
-                case (src, ld) :: otherCandidates =>
-                  var lastDistance: Int = ld
-                  var lastSrc: ConnectPoint = src
-                  otherCandidates.foreach { case (src, distance) =>
-                    if (distance == lastDistance)
-                      newError(
-                        s"""|Found two possible magnet sources for a target magnet.
-                            |Target Position:  ${targetMP.position}
-                            |Target Path:      ${targetMP.getFullName}
-                            |Source1 Position: ${lastSrc.position} 
-                            |Source1 Path:     ${lastSrc.getFullName}
-                            |Source2 Position: ${src.position} 
-                            |Source2 Path:     ${src.getFullName}""".stripMargin
-                      )
-                    lastDistance = distance
-                    lastSrc = src
-                  }
-                  Some(src)
-              end match
-            end if
-          end sourceMP
-          sourceMP.map(targetMP -> _)
-        }
-    }.toMap
-    if (errors.nonEmpty)
-      throw new IllegalArgumentException(
-        errors.view.reverse.mkString("\n\n")
-      )
-    ret
-  end get
-
-  // Hierarchical (new-style root DB) clone of `get`. Magnet matching is intrinsically
-  // cross-design: it pairs sources to targets across the whole hierarchy by distance.
-  // Approach: resolve each magnet ConnectPoint's design context (owner + container
-  // design) ONCE under its owning sub-DB getSet, then run the distance / inside-owner
-  // matching purely on the root-aware design tree (designBlockOwnershipMap) — no ref
-  // resolution during matching, so the throwing root getSet is fine.
-  def getHierarchical(rootDB: DB): (MagnetMap, Map[ConnectPoint, (DFDesignBlock, String)]) =
+  // Computes the magnet connection map on the hierarchical ROOT DB. Magnet
+  // matching is intrinsically cross-design: it pairs sources to targets across
+  // the whole hierarchy by distance. Approach: resolve each magnet ConnectPoint's
+  // design context (owner + container design) ONCE under its owning sub-DB getSet,
+  // then run the distance / inside-owner matching purely on the root-aware design
+  // tree (designBlockOwnershipMap) — no ref resolution during matching, so the
+  // throwing root getSet is fine. Also returns each magnet point's (owner design,
+  // name) so consumers don't re-resolve a cross-design ConnectPoint.
+  def get(rootDB: DB): (MagnetMap, Map[ConnectPoint, (DFDesignBlock, String)]) =
     // a magnet ConnectPoint with its design context precomputed under the
     // owning sub-DB getSet (so the matching never resolves refs)
     final case class RMP(
@@ -454,5 +291,5 @@ object MagnetMap:
     val pointInfo: Map[ConnectPoint, (DFDesignBlock, String)] =
       allRMPs.iterator.map(rmp => rmp.cp -> (rmp.ownerDesign, rmp.name)).toMap
     (ret, pointInfo)
-  end getHierarchical
+  end get
 end MagnetMap
