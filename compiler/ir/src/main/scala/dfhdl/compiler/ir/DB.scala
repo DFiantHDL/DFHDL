@@ -1377,6 +1377,7 @@ final case class DB private (
       // callers switch to oldToNew.check.)
       newRoot.new_circularDerivedDomainsCheck()
       newRoot.new_domainClkRateCheck()
+      newRoot.new_waitCheck()
   end new_hierEquivalenceCheck
 
   /** Checks that device top design domains all have timing clock rate constraints. Additionally, if
@@ -1535,6 +1536,54 @@ final case class DB private (
     if (errors.nonEmpty)
       throw new IllegalArgumentException(errors.mkString("\n"))
   end waitCheck
+
+  // Hierarchical clone of `waitCheck`, invoked on the root DB. Iterates each
+  // sub-DB's RT waits under that sub-DB's getSet (the root has no members of its
+  // own); the clock rate comes from new_resolvedClkRstMap. The error hierarchy
+  // uses new_fullNameViaInst so a wait in a nested design reports its full
+  // instance path (plain getFullName on a sub-DB would be relative).
+  def new_waitCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    subDBs.view.values.foreach { sub =>
+      sub.atGetSet {
+        for
+          wait <- sub.members.collect { case w: Wait if w.isInRTDomain => w }
+          trigger = wait.triggerRef.get
+          if trigger.dfType == DFTime
+        do
+          def waitError(msg: String): Unit =
+            errors += s"""|DFiant HDL wait error!
+                          |Position:  ${wait.meta.position}
+                          |Hierarchy: ${new_fullNameViaInst(wait.getOwnerDesign, sub)}
+                          |Message:   $msg""".stripMargin
+          val ownerDomain = wait.getOwnerDomain
+          trigger.getConstData[TimeNumber].toOption match
+            case Some(waitTime) =>
+              new_resolvedClkRstMap.get(ownerDomain).flatMap(_._1).flatMap(_.rate.toOption) match
+                case Some(rate) =>
+                  val clockPeriodPs = rate.to_ps.value
+                  val desc = rate match
+                    case time: TimeNumber => s"period ${time}"
+                    case freq: FreqNumber => s"frequency ${freq}"
+                  val waitDurationPs = waitTime.to_ps.value
+                  if (!(waitDurationPs / clockPeriodPs).isWhole)
+                    waitError(
+                      s"Wait duration ${waitTime} is not exactly divisible by the clock $desc."
+                    )
+                case _ =>
+                  waitError(
+                    s"Wait statement is missing an explicit clock configuration in its domain."
+                  )
+              end match
+            case _ =>
+              waitError(s"Wait duration is not constant.")
+          end match
+        end for
+      }
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end new_waitCheck
 
   def circularDerivedDomainsCheck(): Unit =
     // Helper function to perform DFS and detect cycles
