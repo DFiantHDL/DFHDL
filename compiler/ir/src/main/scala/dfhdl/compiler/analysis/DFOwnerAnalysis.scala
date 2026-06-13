@@ -2,7 +2,6 @@ package dfhdl.compiler
 package analysis
 import dfhdl.internals.*
 import ir.*
-import scala.annotation.tailrec
 import scala.collection.mutable
 extension (owner: DFOwner)
   def members(memberView: MemberView)(using MemberGetSet): List[DFMember] =
@@ -21,15 +20,6 @@ extension (owner: DFOwner)
           case x    => x // return the very last member
       case x => x
 end extension
-
-extension (domainOwner: DFDomainOwner)
-  // true if the domainOwner is dependent at any level of thatDomainOwner's configuration
-  @tailrec def isDependentOn(thatDomainOwner: DFDomainOwner)(using getSet: MemberGetSet): Boolean =
-    getSet.designDB.dependentRTDomainOwners.get(domainOwner) match
-      case Some(dependency) =>
-        if (dependency == thatDomainOwner) true
-        else dependency.isDependentOn(thatDomainOwner)
-      case None => false
 
 extension (design: DFDesignBlock)
   // collect all local parameters that are used in IOs

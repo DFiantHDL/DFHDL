@@ -29,17 +29,20 @@ case object DropTimedRTWaits extends HierarchyStage:
             _,
             _
           ) if waitMember.isInRTDomain =>
+        // The resolved clk rate comes from the root DB's hierarchical clk/rst map
+        // (cross-design resolution); the owner domain is resolved under this
+        // sub-DB's getSet.
+        val clkRate: RateNumber = rootDB.new_resolvedClkRstMap
+          .get(waitMember.getOwnerDomain)
+          .flatMap(_._1)
+          .flatMap(_.rate.toOption)
+          .get
         val dsn = new MetaDesign(
           waitMember,
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
           dfhdl.core.DomainType.RT
         ):
           val waitTime = duration.getConstData[TimeNumber].toOption.get
-          val clkRate: RateNumber = getSet.designDB.resolvedClkRstMap
-            .get(waitMember.getOwnerDomain)
-            .flatMap(_._1)
-            .flatMap(_.rate.toOption)
-            .get
           val cycles = (waitTime / clkRate.to_ps).value.toLong
           cycles.cy.wait(using dfc.setMeta(waitMember.meta))
         dsn.patch
