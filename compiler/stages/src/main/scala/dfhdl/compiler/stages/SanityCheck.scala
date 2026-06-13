@@ -315,8 +315,8 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
   // not preserved across the round-trip. Compare globals by identity-set and
   // the rest of the members as an ordered list. RefTable, globalTags, and
   // srcFiles still must match exactly.
-  private def hierarchicalDBRoundTripCheck(designDB: DB): Unit =
-    val lhs = designDB.oldToNew.newToOld.canonicalForm
+  private def hierarchicalDBRoundTripCheck(designDB: DB, hierDB: DB): Unit =
+    val lhs = hierDB.newToOld.canonicalForm
     val rhs = designDB.canonicalForm
     def partition(db: DB): (Set[DFMember], List[DFMember]) =
       given MemberGetSet = db.getSet
@@ -356,8 +356,11 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     memberExistenceCheck()
     ownershipCheck(designDB.top, designDB.membersNoGlobals.drop(1))
     orderCheck()
-    designDB.oldToNew.check
-    hierarchicalDBRoundTripCheck(designDB)
+    // Build the hierarchical DB once and reuse it for both the checks and the
+    // round-trip (oldToNew is O(members) and SanityCheck runs after every stage).
+    val hierDB = designDB.oldToNew
+    hierDB.check
+    hierarchicalDBRoundTripCheck(designDB, hierDB)
     designDB
 end SanityCheck
 
