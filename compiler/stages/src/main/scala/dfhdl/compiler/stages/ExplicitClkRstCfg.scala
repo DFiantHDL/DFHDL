@@ -18,8 +18,8 @@ case object ExplicitClkRstCfg extends HierarchyStage:
   def dependencies: List[Stage] = List(UniqueDesigns, NamedAnonMultiref)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   // Cross-design clk/rst resolution (`new_resolvedClkRstMap` / `new_isDependentOn`)
-  // is read from the root DB; everything else is per-sub-DB, so the default
-  // `rebindGetSet = true` applies and `subDB` is this stage's current sub-DB.
+  // is read from the root DB; everything else is per-sub-DB via the `subDB`
+  // helper (this stage's current sub-DB).
   def transformSubDB(rootDB: DB)(using
       getSet: MemberGetSet,
       co: CompilerOptions,

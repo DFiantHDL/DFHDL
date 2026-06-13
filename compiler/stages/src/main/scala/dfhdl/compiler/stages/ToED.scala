@@ -29,8 +29,7 @@ case object ToED extends HierarchyStage:
       ExplicitCondExprAssign, AddClkRst, SimpleOrderMembers)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   // ToED is per-design: every domain owner it transforms, and the clk/rst Dcls
-  // it reads, live in the current sub-DB. The default `rebindGetSet = true` gives
-  // the sub-DB's getSet, and the `subDB` helper is that current design's DB.
+  // it reads, live in the current sub-DB (the `subDB` helper).
   def transformSubDB(rootDB: DB)(using
       getSet: MemberGetSet,
       co: CompilerOptions,

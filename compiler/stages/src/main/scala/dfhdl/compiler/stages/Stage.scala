@@ -66,14 +66,11 @@ end GlobalStage
   * is returned by reference too. This lets iterative stages (e.g. `BreakOps`,
   * `DropUnreferencedAnons`) terminate via `result eq designDB`.
   *
-  * Configuration knob:
-  *   - `rebindGetSet` (default `true`): rebind the implicit `MemberGetSet` to each DB's own getSet
-  *     while `transformSubDB` runs. Set to `false` when the body needs full-hierarchy resolution
-  *     (reverse lookups like `memberTable` / `getReadDeps`, or cross-design tables like
-  *     `connectionTable` / `resolvedClkRstMap`) — those need the outer flat-DB getSet.
+  * `transformSubDB` always runs with the implicit `MemberGetSet` rebound to the current sub-DB's
+  * own getSet (so the `subDB` helper resolves that design's members); the root DB is passed as the
+  * parameter for cross-design needs (e.g. `rootDB.new_resolvedClkRstMap`).
   */
 trait HierarchyStage extends Stage:
-  def rebindGetSet: Boolean = true
   final protected def subDB(using MemberGetSet): DB = getSet.designDB
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB
 
@@ -83,9 +80,8 @@ trait HierarchyStage extends Stage:
     val newDB = designDB.oldToNew
     var changed = false
     def run(subDB: DB): DB =
-      val rebindDB = if (rebindGetSet) newDB else subDB
-      val rebindGS = if (rebindGetSet) subDB.getSet else designDB.getSet
-      val result = transformSubDB(rebindDB)(using rebindGS, co, refGen)
+      // `transformSubDB` always sees the root DB and the current sub-DB's getSet.
+      val result = transformSubDB(newDB)(using subDB.getSet, co, refGen)
       if (!(result eq subDB)) changed = true
       result
     val transformedSubs: ListMap[DFOwner.Ref, DB] =
