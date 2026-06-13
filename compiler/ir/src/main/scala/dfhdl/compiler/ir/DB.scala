@@ -1371,6 +1371,11 @@ final case class DB private (
         fail("resolvedClkRstMap", this.resolvedClkRstMap, newRoot.new_resolvedClkRstMap)
       if (this.magnetConnectionMap != newRoot.new_magnetConnectionMap)
         fail("magnetConnectionMap", this.magnetConnectionMap, newRoot.new_magnetConnectionMap)
+      // rootDBCheck members already rewired to hierarchical form: assert they do
+      // not falsely flag this design, which just passed the flat check. (Error
+      // tests validate that failing designs still throw the right message once
+      // callers switch to oldToNew.check.)
+      newRoot.new_circularDerivedDomainsCheck()
   end new_hierEquivalenceCheck
 
   /** Checks that device top design domains all have timing clock rate constraints. Additionally, if
@@ -1495,6 +1500,30 @@ final case class DB private (
     for (node <- dependentRTDomainOwners.keys)
       dfs(node, Set.empty, Set.empty)
   end circularDerivedDomainsCheck
+
+  // Hierarchical clone of `circularDerivedDomainsCheck`, invoked on the root DB.
+  // Same DFS, over `new_dependentRTDomainOwners`; the cycle error names each
+  // owner via `new_fullNameViaInst` routed through that owner's sub-DB.
+  def new_circularDerivedDomainsCheck(): Unit =
+    @tailrec def dfs(
+        node: DFDomainOwner,
+        visited: Set[DFDomainOwner],
+        stack: Set[DFDomainOwner]
+    ): Unit =
+      if (stack.contains(node))
+        throw new IllegalArgumentException(
+          s"""|Circular derived RT configuration detected. Involved in the cycle:
+              |${stack.map(o => new_fullNameViaInst(o, domainOwnerToSubDB(o))).mkString("\n")}
+              |""".stripMargin
+        )
+      if (!visited.contains(node))
+        new_dependentRTDomainOwners.get(node) match
+          case Some(dependentNode) => dfs(dependentNode, visited + node, stack + node)
+          case None                =>
+    end dfs
+    for (node <- new_dependentRTDomainOwners.keys)
+      dfs(node, Set.empty, Set.empty)
+  end new_circularDerivedDomainsCheck
 
   def nameCheck(): Unit =
     // We use a Set since meta programming is usually the cause and can result in
