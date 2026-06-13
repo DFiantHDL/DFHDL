@@ -1378,6 +1378,8 @@ final case class DB private (
       newRoot.new_circularDerivedDomainsCheck()
       newRoot.new_domainClkRateCheck()
       newRoot.new_waitCheck()
+      newRoot.new_portLocationCheck()
+      newRoot.new_portResourceDirCheck()
   end new_hierEquivalenceCheck
 
   /** Checks that device top design domains all have timing clock rate constraints. Additionally, if
@@ -1850,6 +1852,127 @@ final case class DB private (
             |""".stripMargin
       )
   end portResourceDirCheck
+
+  // Hierarchical clone of `portLocationCheck`, invoked on the root DB. Only the
+  // device-top design is examined; its members are resolved under that design's
+  // sub-DB getSet (device top == toptop, so getFullName is the full path).
+  def new_portLocationCheck(): Unit =
+    val errors = mutable.ListBuffer.empty[String]
+    val locationCollisions = mutable.ListBuffer.empty[String]
+    designMemberList.foreach {
+      case (design, members) if design.isDeviceTop =>
+        domainOwnerToSubDB(design).atGetSet {
+          val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
+          (design :: members).foreach {
+            case designInstance: DFDesignBlock if designInstance != design =>
+            case domainOwner: DFDomainOwner                                =>
+              domainOwner.domainType match
+                case DomainType.RT =>
+                  var foundLoc = false
+                  domainOwner.getDomainClkConstraintsView.foreach {
+                    case constraints.IO(loc = loc: String) =>
+                      locationMap.get(loc).foreach { prevPort =>
+                        locationCollisions +=
+                          s"${prevPort} and ${domainOwner.getFullName} are both assigned to location `${loc}`"
+                      }
+                      locationMap += loc -> domainOwner.getFullName
+                      foundLoc = true
+                    case _ =>
+                  }
+                  val clkIsVar = domainOwnerMemberTable(domainOwner).view.collectFirst {
+                    case dcl: DFVal.Dcl if dcl.isClkDcl => dcl.isVar
+                  }.getOrElse(false)
+                  if (!foundLoc && !clkIsVar)
+                    errors += s"${domainOwner.getFullName} is missing a clock location constraint"
+                case _ =>
+              end match
+            case clkPort: DFVal.Dcl if clkPort.isPortIn && clkPort.isClkDcl =>
+            case port: DFVal.Dcl if port.isPort                             =>
+              val bitSet = port.widthIntOpt match
+                case Some(width) => mutable.BitSet((0 until width)*)
+                case None        => mutable.BitSet.empty
+              port.meta.annotations.foreach {
+                case constraints.IO(bitIdx = None, loc = loc: String) =>
+                  bitSet.clear()
+                  locationMap.get(loc).foreach { prevPort =>
+                    locationCollisions +=
+                      s"${prevPort} and ${port.getFullName} are both assigned to location `${loc}`"
+                  }
+                  locationMap += loc -> port.getFullName
+                  if (port.widthIntOpt.get != 1)
+                    locationCollisions +=
+                      s"${port.getFullName} has mutliple bits assigned to location `${loc}`"
+                case constraints.IO(bitIdx = bitIdx: Int, loc = loc: String) =>
+                  locationMap.get(loc).foreach { prevPort =>
+                    locationCollisions +=
+                      s"${prevPort} and ${port.getFullName}(${bitIdx}) are both assigned to location `${loc}`"
+                  }
+                  locationMap += loc -> s"${port.getFullName}(${bitIdx})"
+                  bitSet -= bitIdx
+                case _ =>
+              }
+              if (bitSet.nonEmpty)
+                if (port.widthIntOpt.get == 1)
+                  errors += s"${port.getFullName}"
+                else
+                  errors += s"${port.getFullName} with bits ${bitSet.mkString(", ")}"
+            case _ =>
+          }
+        }
+      case _ =>
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(
+        s"""|The following top device design ports or domains are missing location constraints:
+            |  ${errors.mkString("\n  ")}
+            |To Fix:
+            |Add a location constraint to the ports by connecting them to a located resource or
+            |by using the `@io` constraint.
+            |""".stripMargin
+      )
+    if (locationCollisions.nonEmpty)
+      throw new IllegalArgumentException(
+        s"""|The following location constraints have collisions:
+            |  ${locationCollisions.mkString("\n  ")}
+            |To Fix:
+            |Ensure each location is used by a single port bit.
+            |""".stripMargin
+      )
+  end new_portLocationCheck
+
+  // Hierarchical clone of `portResourceDirCheck`, invoked on the root DB. Same
+  // device-top-only check, members resolved under the device-top sub-DB getSet.
+  def new_portResourceDirCheck(): Unit =
+    import DFVal.Modifier.Dir
+    val errors = mutable.ListBuffer.empty[String]
+    designMemberList.foreach {
+      case (design, members) if design.isDeviceTop =>
+        domainOwnerToSubDB(design).atGetSet {
+          members.foreach {
+            case port: DFVal.Dcl if port.isPort =>
+              port.meta.annotations.foreach {
+                case constraints.IO(dir = dir: Dir) =>
+                  (dir, port.modifier.dir) match
+                    case (Dir.IN, Dir.OUT) | (Dir.OUT, Dir.IN) =>
+                      errors +=
+                        s"${port.getFullName} direction (${port.modifier.dir}) has a resource direction ($dir) mismatch."
+                    case _ =>
+                case _ =>
+              }
+            case _ =>
+          }
+        }
+      case _ =>
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(
+        s"""|The following top device design ports have resource direction mismatches:
+            |  ${errors.mkString("\n  ")}
+            |To Fix:
+            |Make sure you connect the resource to the port with the correct direction.
+            |""".stripMargin
+      )
+  end new_portResourceDirCheck
 
   // Uniform entry point, representation-aware:
   //   - hierarchical root: run each sub-DB's per-design checks, then the
