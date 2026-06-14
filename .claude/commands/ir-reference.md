@@ -470,7 +470,6 @@ enum InstMode.BlackBox: NA, Files(path), Library(libName, nameSpace), VendorIP(v
 
 **Extension methods:**
 ```scala
-design.isDuplicate          // tagged DuplicateTag — has NO members in DB (ports/domains removed)
 design.isBlackBox           // instMode is BlackBox
 design.isVendorIPBlackbox
 design.inSimulation         // instMode is Simulation
@@ -808,7 +807,6 @@ DFTags.empty
 
 **Built-in tags:**
 ```scala
-case object DuplicateTag      // duplicate design instance — NO members in DB
 case object IteratorTag       // Dcl is a for-loop iterator variable
 case object IdentTag          // Alias.AsIs is a pure identity (named alias of itself)
 case object BindTag           // Alias is a pattern-match bind variable
@@ -887,10 +885,6 @@ db.membersGlobals         // global CanBeGlobal values only
 db.inSimulation           // top has no ports (simulation context)
 db.inBuild                // top has a device constraint tag
 ```
-
-**Design duplication properties:**
-
-Duplicate designs (tagged `DuplicateTag`) have **no members** in the DB — their ports, domain blocks, and other members are removed during immutable DB creation. 
 
 **Patching:**
 ```scala

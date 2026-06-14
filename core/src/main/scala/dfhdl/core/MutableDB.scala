@@ -3,7 +3,6 @@ import dfhdl.internals.*
 import dfhdl.hw
 import dfhdl.compiler.ir.{
   DB,
-  DuplicateTag,
   DFDesignInst,
   DFDesignInstOld,
   DFDesignBlock,
@@ -600,17 +599,9 @@ final class MutableDB():
                 var first = true
                 val orig = group.head
                 group.view.map(design =>
-                  val tags =
-                    if (first)
-                      first = false
-                      design.tags
-                    else
-                      dupToOrigDesignMap += design -> orig
-                      design.tags.tag(DuplicateTag)
-                  design -> design.copy(
-                    meta = design.meta.copy(nameOpt = Some(updatedDclName)),
-                    tags = tags
-                  )
+                  if (first) first = false
+                  else dupToOrigDesignMap += design -> orig
+                  design -> design.copy(meta = design.meta.copy(nameOpt = Some(updatedDclName)))
                 )
               case _ => Nil
             }

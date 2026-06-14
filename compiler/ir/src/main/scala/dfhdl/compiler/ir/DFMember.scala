@@ -1630,7 +1630,6 @@ object DFDesignBlock:
         case VendorIP(vendor: Vendor, typeName: String)
 
   extension (dsn: DFDesignBlock)
-    def isDuplicate: Boolean = dsn.hasTagOf[DuplicateTag]
     def isBlackBox: Boolean = dsn.instMode.isInstanceOf[InstMode.BlackBox]
     def isVendorIPBlackbox: Boolean = dsn.instMode match
       case InstMode.BlackBox(_: InstMode.BlackBox.Source.VendorIP) => true
