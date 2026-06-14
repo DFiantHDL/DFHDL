@@ -1703,7 +1703,11 @@ final case class DFDesignInst(
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] =
     paramMap.values.toList ++ meta.getRefs
-  override def getAllRefs: List[DFRefAny] = ownerRef :: designRef :: getRefs
+  // NOTE: `designRef` is deliberately NOT part of `getAllRefs` (the default
+  // `ownerRef :: getRefs` is used): it is unified with the target block's
+  // `ownerRef` (the sub-DB key) and is resolved structurally via `subDBs`, never
+  // through a refTable, so it must not appear where refs are enumerated for
+  // refTable building/rewiring.
   // NOTE: `designRef` is intentionally NOT freshened here. It is unified with the
   // target block's `ownerRef` (the sub-DB key); when cloning a design sub-tree the
   // caller rebinds it to the cloned block's ownerRef (see ReduplicateDesign).

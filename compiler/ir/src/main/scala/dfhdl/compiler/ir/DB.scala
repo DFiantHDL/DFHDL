@@ -1862,7 +1862,7 @@ final case class DB private (
       // fills the missing global bindings) — mirrors `oldToNew`'s `refsFor`.
       val newRefTable = mutable.Map.empty[DFRefAny, DFMember]
       newMembers.foreach { m =>
-        (m.ownerRef :: m.getRefs).foreach(r => resolve(r).foreach(t => newRefTable(r) = t))
+        m.getAllRefs.foreach(r => resolve(r).foreach(t => newRefTable(r) = t))
       }
       val rebuilt = newRefTable.toMap
       if (newMembers == sub.members && rebuilt == sub.refTable) k -> sub
