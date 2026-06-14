@@ -40,7 +40,11 @@ trait Tool:
           val getVersionFullCmd =
             Process(
               s"$runExecFullPath $versionCmd",
-              new java.io.File(System.getProperty("java.io.tmpdir"))
+              new java.io.File(System.getProperty("java.io.tmpdir")),
+              // apply the same Windows DLL-search guard as `exec` (see `winDllPathEnv`); otherwise
+              // the version probe inherits the polluted PATH and the tool's own sub-process (e.g.
+              // `ivl -V`) loads the wrong runtime DLL and prints a spurious "Unable to get version"
+              winDllSearchPath(runExecFullPath).map("PATH" -> _).toSeq*
             )
           getVersionFullCmd.lazyLines_!.mkString("\n")
         else runExecFullPath
@@ -98,18 +102,22 @@ trait Tool:
   // prepend the executable's own directory plus its sibling `lib` and `lib\ivl` so the tool
   // always finds its own bundled runtime DLLs first. No-op off Windows.
   protected final def winDllPathEnv: Map[String, String] =
-    if (!osIsWindows || runExecFullPath.isEmpty) Map.empty
+    winDllSearchPath(runExecFullPath).map("PATH" -> _).toMap
+
+  // Builds the PATH value used by `winDllPathEnv` (and the version probe), with the tool's own
+  // install dirs (its exe dir plus the sibling `lib` and `lib\ivl`) prepended ahead of the
+  // inherited PATH. Returns None off Windows or when the executable path is unknown.
+  private def winDllSearchPath(exeFullPath: String): Option[String] =
+    if (!osIsWindows || exeFullPath.isEmpty) None
     else
-      Option(Paths.get(runExecFullPath).getParent) match
-        case None         => Map.empty
-        case Some(exeDir) =>
-          val root = Option(exeDir.getParent)
-          val dllDirs =
-            (exeDir ::
-              root.toList.flatMap(r => List(r.resolve("lib"), r.resolve("lib").resolve("ivl"))))
-              .map(_.toString)
-          val pathSep = java.io.File.pathSeparator
-          Map("PATH" -> (dllDirs :+ sys.env.getOrElse("PATH", "")).mkString(pathSep))
+      Option(Paths.get(exeFullPath).getParent).map { exeDir =>
+        val root = Option(exeDir.getParent)
+        val dllDirs =
+          (exeDir ::
+            root.toList.flatMap(r => List(r.resolve("lib"), r.resolve("lib").resolve("ivl"))))
+            .map(_.toString)
+        (dllDirs :+ sys.env.getOrElse("PATH", "")).mkString(java.io.File.pathSeparator)
+      }
 
   protected def designFiles(using getSet: MemberGetSet): List[String] =
     getSet.designDB.srcFiles.collect {
