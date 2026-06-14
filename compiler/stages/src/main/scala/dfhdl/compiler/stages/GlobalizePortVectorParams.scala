@@ -88,15 +88,14 @@ case object GlobalizePortVectorParams extends HierarchyStage:
           case _               => false
       case _ => false
 
-  // The vec-type `FullReplacement`s purge this stage's globalized port-vector
-  // `TypeRef`s from the sub-DB refTables (and the purge recurs in the downstream
-  // dfType-rewrite of DFHDLUniqueNames). Re-normalize the output via
-  // `newToOld -> oldToNew` — the closure/refTable repair the per-stage round-trip
-  // used to perform — so the globally-shared `TypeRef` bindings are restored.
-  // TODO: temporary — replace once the patch system maintains global-targeting
-  // `TypeRef`s across `FullReplacement` without re-normalization.
+  // This stage mints the globalized port-vector params in the top's MetaDesign,
+  // so the descendant sub-DBs that reference them never receive the globals in
+  // their closure, and the vec-type `FullReplacement`s purge the top's
+  // globalized `TypeRef`->global bindings from its refTable. `repairGlobalClosures`
+  // restores both gaps in place (far cheaper than a full `newToOld.oldToNew`
+  // re-normalization).
   override def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    super.transform(designDB).newToOld.oldToNew
+    super.transform(designDB).repairGlobalClosures
 
   // Per-rootDB shared state, populated by the TOP sub-DB's `transformSubDB`
   // (the first DFS iteration). Subsequent sub-DBs read it.

@@ -1809,6 +1809,70 @@ final case class DB private (
     )
   end newToOld
 
+  // Lightweight repair of the per-sub-DB global closure: adds any global member
+  // (and its missing ref bindings) that a sub-DB's members reference but that is
+  // absent from that sub-DB — the `globalsClosure`/`refsFor` work `oldToNew`
+  // does, but applied IN PLACE to the existing hierarchy with no flatten and no
+  // full rebuild. A stage that mints globals shared across sub-DBs (e.g.
+  // GlobalizePortVectorParams creates the globalized port-vector params in the
+  // top's MetaDesign, and the vec-type `FullReplacement`s purge their `TypeRef`
+  // bindings) leaves exactly these gaps; this restores them far more cheaply
+  // than `newToOld.oldToNew`. Only meaningful on a root DB; returns `this`
+  // unchanged (by reference) when nothing is missing. Sub-DBs needing no repair
+  // are likewise carried over by reference.
+  def repairGlobalClosures: DB =
+    if (subDBs.isEmpty) return this
+    // Merged ref pool: a member's ref whose binding is missing from its own
+    // sub-DB is recovered from whichever sub-DB does carry it (globals and their
+    // bindings are shared across sub-DBs by identity). First-wins is correct for
+    // the global/Empty targets we redistribute (their target is consistent).
+    val pool = mutable.Map.empty[DFRefAny, DFMember]
+    subDBs.valuesIterator.foreach(_.refTable.foreach((r, t) => pool.getOrElseUpdate(r, t)))
+    // Global members + a deterministic (first-occurrence) order across sub-DBs;
+    // `topDB` carries them first in canonical order, so this is topological (a
+    // global never references a later global).
+    val globalOrder = mutable.LinkedHashSet.empty[DFMember]
+    subDBs.valuesIterator.foreach { sub =>
+      sub.atGetSet {
+        sub.members.foreach {
+          case g: DFVal.CanBeGlobal if g.isGlobal => globalOrder += g
+          case _                                  =>
+        }
+      }
+    }
+    val globalSet: Set[DFMember] = globalOrder.toSet
+    var anyChanged = false
+    val updatedSubDBs = subDBs.map { (k, sub) =>
+      // Resolve a ref preferring the sub-DB's own binding (the correct local
+      // target), falling back to the shared pool for a binding the sub-DB is
+      // missing.
+      def resolve(r: DFRefAny): Option[DFMember] = sub.refTable.get(r).orElse(pool.get(r))
+      // Global closure: globals transitively reachable from the sub-DB's
+      // non-global members' refs (mirrors `oldToNew`'s `globalsClosure`).
+      val reachable = mutable.HashSet.empty[DFMember]
+      def pull(t: DFMember): Unit = t match
+        case g: DFVal.CanBeGlobal if globalSet.contains(g) && reachable.add(g) =>
+          g.getRefs.foreach(r => resolve(r).foreach(pull))
+        case _ =>
+      val nonGlobals = sub.members.filterNot(globalSet.contains)
+      nonGlobals.foreach(_.getRefs.foreach(r => resolve(r).foreach(pull)))
+      // globals first, in canonical order, then the rest — `closure ::: d :: locals`.
+      val newMembers = globalOrder.iterator.filter(reachable.contains).toList ::: nonGlobals
+      // Rebuild the refTable from the new members' refs (drops orphan entries,
+      // fills the missing global bindings) — mirrors `oldToNew`'s `refsFor`.
+      val newRefTable = mutable.Map.empty[DFRefAny, DFMember]
+      newMembers.foreach { m =>
+        (m.ownerRef :: m.getRefs).foreach(r => resolve(r).foreach(t => newRefTable(r) = t))
+      }
+      val rebuilt = newRefTable.toMap
+      if (newMembers == sub.members && rebuilt == sub.refTable) k -> sub
+      else
+        anyChanged = true
+        k -> sub.update(members = newMembers, refTable = rebuilt)
+    }
+    if (anyChanged) update(subDBs = updatedSubDBs) else this
+  end repairGlobalClosures
+
   // Normalizes an old-style flat DB so:
   //   1. globals appear BEFORE `top` in `members` (their mutual order
   //      preserved).
