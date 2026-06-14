@@ -64,6 +64,16 @@ case object UniqueDesigns extends GlobalStage:
       // `designRef` IS that key under unification).
       val dupKeyToCanonicalKey: Map[DFOwner.Ref, DFOwner.Ref] =
         dupToCanonical.iterator.map((dup, canon) => dup.ownerRef -> canon.ownerRef).toMap
+      // canonical design block -> its renamed copy. Built ONCE and reused so the
+      // member-list head and EVERY refTable entry resolving to it stay the SAME
+      // object. Otherwise a member's `ownerRef` would resolve (via refTable) to the
+      // pre-rename block while the member list shows the renamed one — an
+      // inconsistency `newToOld.canonicalize` used to mask but which now breaks
+      // hierarchy navigation (e.g. OMLGen) since the root is threaded directly.
+      val canonicalReplace: Map[DFDesignBlock, DFDesignBlock] =
+        canonicalRenames.iterator.map { (canon, newName) =>
+          canon -> canon.copy(meta = canon.meta.copy(nameOpt = Some(newName)))
+        }.toMap
       val newSubDBs: ListMap[DFOwner.Ref, DB] = ListMap.from(
         designDB.subDBs.iterator.flatMap { (key, sub) =>
           // drop the redundant duplicate sub-DBs entirely
@@ -72,8 +82,7 @@ case object UniqueDesigns extends GlobalStage:
             val instReplace = collection.mutable.Map.empty[DFDesignInst, DFDesignInst]
             val newMembers = sub.members.map {
               // rename the sub-DB's top if it is a renamed canonical design
-              case d: DFDesignBlock if canonicalRenames.contains(d) =>
-                d.copy(meta = d.meta.copy(nameOpt = Some(canonicalRenames(d))))
+              case d: DFDesignBlock if canonicalReplace.contains(d) => canonicalReplace(d)
               // retarget a parent inst that targeted a duplicate onto the canonical
               // key (its `designRef` IS that key under unification)
               case inst: DFDesignInst if dupKeyToCanonicalKey.contains(inst.designRef) =>
@@ -85,13 +94,18 @@ case object UniqueDesigns extends GlobalStage:
               case m => m
             }
             // keep refTable values consistent: point any ref that targeted a
-            // retargeted inst at its replacement, and any remaining duplicate design
-            // block at its canonical (designRef itself no longer lives in refTable).
+            // retargeted inst at its replacement, a renamed canonical at its renamed
+            // block (so members resolve their owner to the renamed design), and any
+            // remaining duplicate design block at its canonical (renamed if so).
+            // `designRef` itself no longer lives in refTable.
             val newRefTable =
               sub.refTable.view.mapValues {
                 case inst: DFDesignInst if instReplace.contains(inst) => instReplace(inst)
-                case d: DFDesignBlock if dupToCanonical.contains(d)   => dupToCanonical(d)
-                case t                                                => t
+                case d: DFDesignBlock if canonicalReplace.contains(d) => canonicalReplace(d)
+                case d: DFDesignBlock if dupToCanonical.contains(d)   =>
+                  val canon = dupToCanonical(d)
+                  canonicalReplace.getOrElse(canon, canon)
+                case t => t
               }.toMap
             Some(key -> sub.update(members = newMembers, refTable = newRefTable))
         }

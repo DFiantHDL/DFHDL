@@ -15,14 +15,20 @@ extension [T: HasDB](t: T)
     given PrinterOptions.Align = align
     val designDB =
       StageRunner.run(PrintCodeString)(t.db)
-    val printer = new DFPrinter(using designDB.getSet)
+    // flatten the hierarchical pipeline output for the (flat-only) printer.
+    // TODO: temporary — remove once the backend/DFHDL printers are hardened for
+    // the hierarchical root DB; until then the printer always renders from flat.
+    val printer = new DFPrinter(using designDB.newToOld.getSet)
     printer.csDB
   def getCodeString(using CompilerOptions): String = getCodeString(align = false)
   def getCompiledCodeString(using po: PrinterOptions, co: CompilerOptions): String =
     co.backend.printer(t.db).csDB
   def printCodeString(using po: PrinterOptions, co: CompilerOptions): T =
     val designDB = StageRunner.run(PrintCodeString)(t.db)
-    val printer = new DFPrinter(using designDB.getSet)
+    // flatten the hierarchical pipeline output for the (flat-only) printer.
+    // TODO: temporary — remove once the backend/DFHDL printers are hardened for
+    // the hierarchical root DB; until then the printer always renders from flat.
+    val printer = new DFPrinter(using designDB.newToOld.getSet)
     println(printer.csDB)
     t
 end extension

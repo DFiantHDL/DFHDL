@@ -1888,18 +1888,26 @@ object DB:
     db.rootDB
     db
 
-  // Custom ReadWriter for DB: excludes `subDBs` from serialization.
-  // Phase 1 never persists a populated `subDBs` (it's only used
-  // transiently inside `sanityCheck`), so the round-trip over JSON stays
-  // lossless. When Phase 5 introduces disk-cached sub-DBs this will be
-  // replaced with a full recursive ReadWriter.
+  // Custom ReadWriter for DB: recursively serializes `subDBs` so a hierarchical
+  // (root) DB round-trips losslessly through JSON. The disk cache now persists
+  // root DBs because the pipeline runs natively on the hierarchical form. Sub-DBs
+  // and old-style flat DBs carry an empty `subDBs`, so the recursion terminates
+  // immediately (one level: root -> its sub-DBs). `subDBs` is serialized as an
+  // ordered list of (key, sub-DB) pairs to preserve the elaboration-order ListMap.
   private type DBSerialized =
-    (List[DFMember], Map[DFRefAny, DFMember], DFTags, List[SourceFile])
+    (
+        List[DFMember],
+        Map[DFRefAny, DFMember],
+        DFTags,
+        List[SourceFile],
+        List[(DFOwner.Ref, DB)]
+    )
   given ReadWriter[DB] =
     readwriter[DBSerialized].bimap[DB](
-      db => (db.members, db.refTable, db.globalTags, db.srcFiles),
-      { case (members, refTable, globalTags, srcFiles) =>
-        DB(members, refTable, globalTags, srcFiles)
+      db => (db.members, db.refTable, db.globalTags, db.srcFiles, db.subDBs.toList),
+      { case (members, refTable, globalTags, srcFiles, subDBs) =>
+        if (subDBs.isEmpty) DB(members, refTable, globalTags, srcFiles)
+        else DB(members, refTable, globalTags, srcFiles, ListMap.from(subDBs))
       }
     )
   extension (db: DB)

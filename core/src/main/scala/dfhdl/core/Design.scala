@@ -221,7 +221,16 @@ object Design:
     end apply
   end Inst
   extension [D <: Design](dsn: D)
-    def getDB: ir.DB = dsn.dfc.mutableDB.immutable
+    // The compiled design DB is hierarchical (root + per-design sub-DBs): the
+    // stage pipeline runs natively on this form. `oldToNew` is applied ONCE here
+    // at the source so the staged DB is hierarchical end-to-end (no per-stage
+    // round-trips).
+    def getDB: ir.DB = dsn.dfc.mutableDB.immutable.oldToNew
+    // The raw FLAT immutable DB (the pre-`oldToNew` form). Needed where a design's
+    // members are consumed as a flat container without the hierarchy — e.g. a
+    // meta-design in the patch system, whose DB is just the freshly-created
+    // members to inject (root would have empty `members`).
+    def getDBOld: ir.DB = dsn.dfc.mutableDB.immutable
     infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
       import dfc.getSet
       dsn.containedOwner.asIR

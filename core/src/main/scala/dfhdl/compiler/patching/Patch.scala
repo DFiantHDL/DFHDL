@@ -61,7 +61,12 @@ object Patch:
     override def toString(): String =
       s"""\nAdd $config, Members: ${db.members.mkString("\n    ", ",\n    ", "")}"""
   object Add:
-    def apply(design: MetaDesignAny, config: Config): Add = Add(design.getDB, config)
+    // A meta-design's DB is a flat container of the freshly-created members to
+    // inject (it has no design hierarchy), so use `getDBOld` (the raw flat
+    // immutable) — NOT `getDB`, which is the hierarchical staged form whose root
+    // has empty `members`.
+    def apply(design: MetaDesignAny, config: Config): Add =
+      Add(design.getDBOld, config)
     sealed trait Config extends Product with Serializable derives CanEqual:
       def ==(moveConfig: Move.Config): Boolean = (this, moveConfig) match
         case (Config.Before, Move.Config.Before)           => true

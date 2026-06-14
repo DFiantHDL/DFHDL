@@ -13,15 +13,10 @@ trait Stage extends Product, Serializable, HasTypeName derives CanEqual:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB
 
 /** Phase-2 bridge for stages that need cross-design information or whose work cannot be decomposed
-  * cleanly per-sub-DB. The stage implements `transformGlobal(newDB)` and operates on the NEW-STYLE
-  * hierarchical DB.
-  *
-  * The trait handles:
-  *   - `oldToNew` at entry — converts a legacy flat DB into the hierarchical representation (root +
-  *     per-design sub-DBs) so the body can walk the hierarchy via `subDBs` and patch each sub-DB
-  *     independently.
-  *   - `newToOld` at exit — flattens the result back into an old-style DB for the rest of the
-  *     pipeline.
+  * cleanly per-sub-DB. The stage implements `transformGlobal(designDB)` and operates on the
+  * hierarchical DB (root + per-design sub-DBs), which is the native representation threaded through
+  * the whole pipeline by `StageRunner` (it does the single `oldToNew`/`newToOld` at the pipeline
+  * boundary, so individual stages neither convert at entry nor flatten at exit).
   *
   * Use `GlobalStage` when the body needs:
   *   - cross-design tracking state (e.g. shared opaque type maps)
@@ -40,27 +35,23 @@ trait GlobalStage extends Stage:
       outerGetSet: MemberGetSet,
       co: CompilerOptions
   ): DB =
-    // Seed RefGen from the flat old-style DB, whose refTable still has every
-    // ref. Under B-pure, the new-style root has empty refTable so
-    // `RefGen.fromGetSet(newDB.getSet)` would crash. The body must dispatch
-    // any ref resolution through sub-DB getSets explicitly — root's getSet
-    // is non-functional.
+    // `designDB` is the hierarchical root. Seed RefGen from it (root-aware:
+    // `RefGen.fromGetSet` aggregates across sub-DBs) — the root's own getSet is
+    // non-functional, so the body must dispatch any ref resolution through
+    // sub-DB getSets explicitly.
     val refGen = RefGen.fromGetSet(using outerGetSet)
-    val newDB = designDB.oldToNew
-    val transformed = transformGlobal(newDB)(using co, refGen)
-    transformed.newToOld
+    transformGlobal(designDB)(using co, refGen)
 end GlobalStage
 
 /** Phase-2 bridge for stages whose work decomposes cleanly per-sub-DB.
   *
   * The stage implements `transformSubDB(subDB)` which returns the TRANSFORMED sub-DB (typically via
-  * `subDB.patch(patches)`). The trait handles:
-  *   - flat old-style → B-pure new-style conversion at entry (`oldToNew`)
+  * `subDB.patch(patches)`). `designDB` is the hierarchical root threaded through the pipeline by
+  * `StageRunner` (which does the single `oldToNew`/`newToOld` at the boundary). The trait handles:
   *   - per-DB dispatch of `transformSubDB` on every sub-DB in the hierarchy. The root DB is a pure
   *     hierarchy container (empty members, empty refTable) and is NOT passed to `transformSubDB`;
   *     all design content lives in `subDBs`.
-  *   - reassembly via `.copy(subDBs = ...).newToOld` to flatten back into an old-style DB for the
-  *     rest of the pipeline
+  *   - reassembly via `.update(subDBs = ...)` of the patched sub-DBs back into the root.
   *
   * If every `transformSubDB` returned its input by reference (no change), the original `designDB`
   * is returned by reference too. This lets iterative stages (e.g. `BreakOps`,
@@ -77,17 +68,16 @@ trait HierarchyStage extends Stage:
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
     import scala.collection.immutable.ListMap
     given refGen: RefGen = RefGen.fromGetSet
-    val newDB = designDB.oldToNew
     var changed = false
     def run(subDB: DB): DB =
       // `transformSubDB` always sees the root DB and the current sub-DB's getSet.
-      val result = transformSubDB(newDB)(using subDB.getSet, co, refGen)
+      val result = transformSubDB(designDB)(using subDB.getSet, co, refGen)
       if (!(result eq subDB)) changed = true
       result
     val transformedSubs: ListMap[DFOwner.Ref, DB] =
-      newDB.subDBs.map { case (k, subDB) => k -> run(subDB) }
+      designDB.subDBs.map { case (k, subDB) => k -> run(subDB) }
     if (!changed) designDB
-    else newDB.update(subDBs = transformedSubs).newToOld
+    else designDB.update(subDBs = transformedSubs)
   end transform
 end HierarchyStage
 

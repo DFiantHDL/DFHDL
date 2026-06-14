@@ -11,9 +11,9 @@ import dfhdl.compiler.printing.DefaultPrinter
 // the printer a flat DB, so without this the root path would be unexercised.
 class HierarchicalPrintSpec extends StageSpec:
   private def assertSamePrintFlatVsHier(dsn: core.Design): Unit =
-    val db   = dsn.getDB
-    val flat = DefaultPrinter(using db.getSet).csDB
-    val hier = DefaultPrinter(using db.oldToNew.getSet).csDB
+    val db   = dsn.getDB // hierarchical (root): getDB applies oldToNew
+    val flat = DefaultPrinter(using db.newToOld.getSet).csDB
+    val hier = DefaultPrinter(using db.getSet).csDB
     assertNoDiff(hier, flat)
 
   test("nested hierarchy: flat and hierarchical printing match") {
