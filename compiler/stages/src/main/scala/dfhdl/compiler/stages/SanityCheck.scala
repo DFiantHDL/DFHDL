@@ -145,12 +145,6 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     val memberOwnerRefs = mutable.Set.empty[DFRefAny]
     memberSet.foreach { m =>
       memberOwnerRefs += m.ownerRef
-      m match
-        // DFDesignInst emits a OneWay ref to its DFDesignBlock via designRef,
-        // outside of getRefs (which only carries TwoWay refs). Register it so
-        // the orphan OneWay.Gen detection below does not flag it.
-        case inst: DFDesignInst => memberOwnerRefs += inst.designRef
-        case _                  =>
     }
     // checks for all references
     refTable.foreach { (r, m) =>

@@ -520,6 +520,7 @@ object DFVal:
                 case dv: DFVal => dv.getConstData(using getSet, updatedPolicy)
                 case _         => ConstData.NotConst
             }
+        end match
       else ConstData.UnknownConst(this)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DesignParam =>
@@ -1674,10 +1675,28 @@ final case class DFDesignInst(
     meta: Meta,
     tags: DFTags
 ) extends DFMember.Named derives ReadWriter:
-  def getDesignBlock(using MemberGetSet): DFDesignBlock = designRef.get
+  // Resolve the instantiated child design block. `designRef` is unified with the
+  // child block's `ownerRef` (the hierarchy key) and is deliberately NOT present
+  // in the parent's refTable, so resolution goes structurally:
+  //   - mutable (elaboration): the ref still resolves via the live refTable.
+  //   - hierarchical root: the ref is the `subDBs` key → the child sub-DB's top.
+  //   - flat (round-trip) DB: the ref is the `designBlockByKey` map key.
+  // Each non-mutable path falls back to `designRef.get` for the pre-unification
+  // form (where `designRef` is still a distinct parent-side refTable entry).
+  def getDesignBlock(using getSet: MemberGetSet): DFDesignBlock =
+    if (getSet.isMutable) designRef.get
+    else
+      val root = getSet.designDB.rootDB
+      if (root.isRoot)
+        root.subDBs.get(designRef).map(_.top).getOrElse(designRef.get)
+      else root.designBlockByKey.getOrElse(designRef, designRef.get)
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignInst =>
-      this.designRef =~ that.designRef &&
+      // `designRef` is unified with the child block's `ownerRef` (the sub-DB key)
+      // and is not in the parent refTable, so compare the resolved design blocks
+      // structurally rather than via the ref's own `=~` (which resolves through
+      // the refTable).
+      this.getDesignBlock =~ that.getDesignBlock &&
       this.paramMap =~ that.paramMap &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
@@ -1686,9 +1705,11 @@ final case class DFDesignInst(
   lazy val getRefs: List[DFRef.TwoWayAny] =
     paramMap.values.toList ++ meta.getRefs
   override def getAllRefs: List[DFRefAny] = ownerRef :: designRef :: getRefs
+  // NOTE: `designRef` is intentionally NOT freshened here. It is unified with the
+  // target block's `ownerRef` (the sub-DB key); when cloning a design sub-tree the
+  // caller rebinds it to the cloned block's ownerRef (see ReduplicateDesign).
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
-    designRef = designRef.copyAsNewRef,
     paramMap = paramMap.map((k, v) => k -> v.copyAsNewRef),
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]

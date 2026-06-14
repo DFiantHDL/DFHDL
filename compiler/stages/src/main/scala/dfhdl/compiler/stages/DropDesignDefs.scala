@@ -33,11 +33,11 @@ case object DropDesignDefs extends GlobalStage:
       parentSubDB.members.foreach {
         // only going after design definition instances
         case designInst: DFDesignInst =>
-          parentSubDB.refTable.get(designInst.designRef) match
-            case Some(design @ DFDesignBlock(
+          designInst.getDesignBlock(using parentSubDB.getSet) match
+            case design @ DFDesignBlock(
                   domainType = DomainType.DF,
                   instMode = InstMode.Def
-                )) =>
+                ) =>
               val defKey = design.ownerRef
               // On the first instance of a given def design, stage its conversion
               // patches (in the def design's own sub-DB) and cache the output-port-

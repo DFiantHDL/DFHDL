@@ -118,6 +118,14 @@ final case class DB private (
 
   lazy val memberTable: Map[DFMember, Set[DFRefAny]] = refTable.invert
 
+  // Flat-DB analog of `subDBs` lookup: maps each design block's `ownerRef`
+  // (which, once unified with the instantiating `DFDesignInst.designRef`, is the
+  // design's hierarchy key) to the block itself. Used by `getDesignBlock` to
+  // resolve a parent's inst to its child block in the flat (round-trip) DB
+  // without a parent-side refTable entry for `designRef`.
+  lazy val designBlockByKey: Map[DFRefAny, DFDesignBlock] =
+    members.view.collect { case d: DFDesignBlock => (d.ownerRef: DFRefAny) -> d }.toMap
+
   lazy val originRefTable: Map[DFRef.TwoWayAny, DFMember] =
     members.view.flatMap(origMember => origMember.getRefs.map(_ -> origMember)).toMap
 
@@ -1568,7 +1576,7 @@ final case class DB private (
     val designBlockParent = mutable.LinkedHashMap.empty[DFDesignBlock, DFDesignBlock]
     members.foreach {
       case inst: DFDesignInst =>
-        designBlockParent.getOrElseUpdate(inst.designRef.get, inst.getOwnerDesign)
+        designBlockParent.getOrElseUpdate(inst.getDesignBlock, inst.getOwnerDesign)
       case _ =>
     }
     members.foreach {
@@ -1619,11 +1627,9 @@ final case class DB private (
       dbMembers.foreach { m =>
         refTable.get(m.ownerRef).foreach(t => result(m.ownerRef) = t)
         m.getRefs.foreach(r => refTable.get(r).foreach(t => result(r) = t))
-        // DFDesignInst.designRef is OneWay and not reported by getRefs — pick it up explicitly.
-        m match
-          case inst: DFDesignInst =>
-            refTable.get(inst.designRef).foreach(t => result(inst.designRef) = t)
-          case _ =>
+        // NOTE: `DFDesignInst.designRef` is deliberately NOT added here. It is
+        // unified with the child block's `ownerRef` (the `subDBs` key) and is
+        // resolved structurally via `subDBs`, not through the parent's refTable.
       }
       result.toMap
     // Build sub-DBs in top-down elaboration order. Sub-DBs themselves have
@@ -1728,11 +1734,12 @@ final case class DB private (
     allDBs.foreach { db =>
       db.members.foreach {
         case inst: DFDesignInst =>
-          db.refTable.get(inst.designRef).foreach {
-            case d: DFDesignBlock =>
-              instToDesign(inst) = canonicalize(d).asInstanceOf[DFDesignBlock]
-            case _ =>
-          }
+          // Resolve inst -> child block structurally: `designRef` is unified with
+          // the child block's `ownerRef` (the `subDBs` key) and is not present in
+          // the parent sub-DB's refTable. `getDesignBlock` handles both the
+          // unified form and the pre-unification distinct form.
+          instToDesign(inst) =
+            canonicalize(inst.getDesignBlock(using db.getSet)).asInstanceOf[DFDesignBlock]
         case _ =>
       }
     }
@@ -1843,7 +1850,7 @@ final case class DB private (
       out += d
       designLocals.getOrElse(d, mutable.ListBuffer.empty).foreach {
         case inst: DFDesignInst =>
-          val target = inst.designRef.get
+          val target = inst.getDesignBlock
           if (!emittedDesigns.contains(target))
             emittedDesigns += target
             emitDesign(target)

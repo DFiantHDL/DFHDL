@@ -639,7 +639,17 @@ final class MutableDB():
         // so user code could reference them, but in the immutable DB they are no
         // longer needed.
         val redundantRefs = mutable.Set.empty[DFRefAny]
-        val dupRefs = mutable.Map.empty[DFRefAny, DFMember]
+        // Unify a DFDesignInst's `designRef` with its (canonical) target block's
+        // `ownerRef` — the design's hierarchy / `subDBs` key. This replaces the old
+        // `dupRefs` remap: a duplicate inst now points directly at the canonical
+        // design's key. The previous distinct `designRef -> block` entry is no longer
+        // emitted by any member and is swept by `cleanedRefTable` below. Recomputed
+        // per occurrence (not memoized by object identity) so that the member-list
+        // and refTable occurrences of the same inst — which may be distinct objects —
+        // both map to EQUAL unified copies.
+        def unifyInst(inst: DFDesignInst): DFDesignInst =
+          val target = dupToOrigDesignMap.getOrElse(inst.designRef.get, inst.designRef.get)
+          inst.copy(designRef = target.ownerRef.asInstanceOf[DFDesignInst.DesignRef])
         val finalMembers = members.flatMap {
           case m: DFVal if m.isGlobal => Some(finalFixFunc(m))
           case m: (DomainBlock | DFVal) if dupToOrigDesignMap.contains(m.getOwnerDesign) =>
@@ -655,13 +665,8 @@ final class MutableDB():
             redundantRefs += d.ownerRef
             redundantRefs ++= d.getRefs
             None
-          case designInst: DFDesignInst =>
-            dupToOrigDesignMap.get(designInst.designRef.get) match
-              case Some(origDesign) =>
-                dupRefs += designInst.designRef -> finalFixFunc(origDesign)
-              case _ =>
-            Some(designInst)
-          case m => Some(finalFixFunc(m))
+          case designInst: DFDesignInst => Some(unifyInst(designInst))
+          case m                        => Some(finalFixFunc(m))
         }
         // Every non-top sub-design should behave as a Top in the immutable
         // DB. We don't change the block instance itself; instead we remap
@@ -674,9 +679,11 @@ final class MutableDB():
         }.toSet
         val finalRefTable = fixedRefTable.view.flatMap { case (ref, member) =>
           if (redundantRefs.contains(ref)) None
-          else if (dupRefs.contains(ref)) Some(ref -> dupRefs(ref))
           else if (designBlockOwnerRefs.contains(ref)) Some(ref -> DFMember.Empty)
-          else Some(ref -> finalFixFunc(member))
+          else
+            member match
+              case inst: DFDesignInst => Some(ref -> unifyInst(inst))
+              case _                  => Some(ref -> finalFixFunc(member))
         }.toMap
         (finalMembers, finalRefTable)
     val membersNoGlobalCtx = members.map {

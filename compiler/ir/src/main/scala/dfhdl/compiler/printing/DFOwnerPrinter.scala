@@ -228,7 +228,18 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     }.toList
   def csDFDesignDefInst(inst: DFDesignInst): String =
     val design = inst.getDesignBlock
-    val ports = getSet.designDB.designInstPBNS(inst).view.collect {
+    // `designInstPBNS` is keyed by the unified immutable insts. Elaboration-time
+    // printing (e.g. test helpers that print live mutable members) holds insts
+    // still carrying their pre-unification `designRef`, so a direct lookup can
+    // miss; fall back to resolving the PBNSes via the current getSet, which
+    // matches the member being printed.
+    val instPBNS = getSet.designDB.designInstPBNS.getOrElse(
+      inst,
+      getSet.designDB.members.collect {
+        case pbns: DFVal.PortByNameSelect if pbns.getDesignInst == inst => pbns
+      }
+    )
+    val ports = instPBNS.view.collect {
       case pbns if pbns.isIn =>
         // the positional def-instance form expects a single producer per input port;
         // a piecewise-connected input port (multiple partial nets) cannot be rendered

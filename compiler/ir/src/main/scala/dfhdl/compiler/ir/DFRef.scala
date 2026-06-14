@@ -263,10 +263,21 @@ end RefGen
 object RefGen:
   def initial: RefGen = RefGen(0, (0, 0), 0)
   def fromGetSet(using getSet: MemberGetSet): RefGen =
-    val rt = getSet.designDB.refTable
+    val db = getSet.designDB
+    // The hierarchical root holds no members/refTable of its own (all content
+    // lives in the sub-DBs), so aggregate across every sub-DB. A non-root DB
+    // (flat or a single sub-DB) is handled exactly as before.
+    val rt =
+      if (db.isRoot) db.subDBs.values.view.flatMap(_.refTable).toMap
+      else db.refTable
+    val members =
+      if (db.isRoot) db.subDBs.values.view.flatMap(_.members).toList
+      else db.members
     val grpId = rt.last._1.grpId
     val lastId = rt.keys.map(_.id).max
-    val magnetID = getSet.designDB.members.view.collect {
+    val magnetID = members.view.collect {
       case DFOpaque.Val(dfType) if dfType.isMagnet => dfType.id
     }.maxOption.getOrElse(0)
     RefGen(magnetID, grpId, lastId)
+  end fromGetSet
+end RefGen
