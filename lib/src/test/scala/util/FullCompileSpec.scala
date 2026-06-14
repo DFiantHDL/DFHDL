@@ -14,6 +14,7 @@ import munit.Location
 abstract class FullCompileSpec extends FunSuite:
   def dut: core.Design
   given options.CompilerOptions.NewFolderForTop = false
+  given options.AppOptions.CacheEnable = false
   def projectFolderName = s"${this.getClass.getPackageName()}.${this.getClass.getSimpleName()}"
   def projectSandboxFolder = s"sandbox${S}FullCompileSpec$S$projectFolderName"
   def projectResourceFolder = s"lib${S}src${S}test${S}resources${S}ref$S$projectFolderName"
