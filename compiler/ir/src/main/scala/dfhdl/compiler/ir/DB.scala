@@ -1552,151 +1552,152 @@ final case class DB private (
   //   - Round-trip note: with all globals partitioned per sub-DB by closure,
   //     `newToOld` no longer guarantees global ordering matches the input.
   //     The round-trip check in SanityCheck compares globals as a set.
-  def oldToNew: DB =
-    if (subDBs.nonEmpty) return this
-    given MemberGetSet = self.getSet
-    val topDsn = this.top
-    // designOwn(d) = d's own (non-global, non-self, non-nested-block) members
-    // in original order. Nested DFDesignBlocks are NOT included here — they
-    // become the `designBlock` of their own sub-DB and are reachable from the
-    // parent only through their DFDesignInst entries.
-    val designOwn = mutable.LinkedHashMap.empty[DFDesignBlock, mutable.ListBuffer[DFMember]]
-    designOwn(topDsn) = mutable.ListBuffer.empty
-    members.foreach {
-      case d: DFDesignBlock => designOwn.getOrElseUpdate(d, mutable.ListBuffer.empty)
-      case _                =>
-    }
-    // Non-top DFDesignBlocks no longer carry their parent in `ownerRef` — it
-    // resolves to DFMember.Empty under the new convention. Recover the parent
-    // design via the FIRST DFDesignInst (in elaboration order) whose
-    // `designRef` targets the block. That parent is the canonical owner of
-    // the child's sub-DB in the design tree; any other parents that also
-    // instantiate the same block reach it only through their own
-    // DFDesignInst, not via a `directChildren` claim.
-    val designBlockParent = mutable.LinkedHashMap.empty[DFDesignBlock, DFDesignBlock]
-    members.foreach {
-      case inst: DFDesignInst =>
-        designBlockParent.getOrElseUpdate(inst.getDesignBlock, inst.getOwnerDesign)
-      case _ =>
-    }
-    members.foreach {
-      case _: DFDesignBlock => // nested blocks live in their own sub-DB only
-      case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // globals handled separately
-      case m                                          => designOwn(m.getOwnerDesign) += m
-    }
-    // parent → ordered list of canonical child DFDesignBlocks. Iteration of
-    // `designBlockParent` (a LinkedHashMap) preserves first-inst-encounter
-    // order, which matches the elaboration order of the children.
-    val parentToChildren =
-      mutable.LinkedHashMap.empty[DFDesignBlock, mutable.ListBuffer[DFDesignBlock]]
-    designBlockParent.foreach { (child, parent) =>
-      parentToChildren.getOrElseUpdate(parent, mutable.ListBuffer.empty) += child
-    }
-    // All globals in their original elaboration order — used to project each
-    // sub-DB's closure back into a deterministic, topological, source-faithful
-    // order (elaboration order is itself topological since a global cannot
-    // reference a later-defined global).
-    val allGlobalsOrdered: List[DFMember] = members.collect {
-      case g: DFVal.CanBeGlobal if g.isGlobal => g
-    }
-    // Compute the closure of globals transitively reachable from a DB's refs.
-    // Walks local members' refs; when a ref target is a global, we include it
-    // and recurse through its own refs to pick up globals-referenced-by-globals.
-    // Non-global intermediaries are NOT included (they belong to their own
-    // design's locals), but their refs ARE walked because we iterate all of
-    // the design's locals directly. Returns reachable globals in original
-    // elaboration order — required because `newToOld` emits a sub-DB's
-    // members directly into the flat output, and both `SanityCheck.orderCheck`
-    // and code generation depend on stable, topological ordering.
-    def globalsClosure(localMembers: Iterable[DFMember]): List[DFMember] =
-      val reachable = mutable.Set.empty[DFMember]
-      def pull(target: DFMember): Unit = target match
-        case g: DFVal.CanBeGlobal if g.isGlobal && !reachable.contains(g) =>
-          reachable += g
-          g.getRefs.foreach(r => refTable.get(r).foreach(pull))
+  lazy val oldToNew: DB =
+    if (subDBs.nonEmpty) this
+    else
+      given MemberGetSet = self.getSet
+      val topDsn = this.top
+      // designOwn(d) = d's own (non-global, non-self, non-nested-block) members
+      // in original order. Nested DFDesignBlocks are NOT included here — they
+      // become the `designBlock` of their own sub-DB and are reachable from the
+      // parent only through their DFDesignInst entries.
+      val designOwn = mutable.LinkedHashMap.empty[DFDesignBlock, mutable.ListBuffer[DFMember]]
+      designOwn(topDsn) = mutable.ListBuffer.empty
+      members.foreach {
+        case d: DFDesignBlock => designOwn.getOrElseUpdate(d, mutable.ListBuffer.empty)
+        case _                =>
+      }
+      // Non-top DFDesignBlocks no longer carry their parent in `ownerRef` — it
+      // resolves to DFMember.Empty under the new convention. Recover the parent
+      // design via the FIRST DFDesignInst (in elaboration order) whose
+      // `designRef` targets the block. That parent is the canonical owner of
+      // the child's sub-DB in the design tree; any other parents that also
+      // instantiate the same block reach it only through their own
+      // DFDesignInst, not via a `directChildren` claim.
+      val designBlockParent = mutable.LinkedHashMap.empty[DFDesignBlock, DFDesignBlock]
+      members.foreach {
+        case inst: DFDesignInst =>
+          designBlockParent.getOrElseUpdate(inst.getDesignBlock, inst.getOwnerDesign)
         case _ =>
-      localMembers.foreach { m =>
-        m.getRefs.foreach(r => refTable.get(r).foreach(pull))
       }
-      allGlobalsOrdered.filter(reachable.contains)
-    // Build the refTable partition for a DB: every ref emitted (via ownerRef
-    // or getRefs) by any of the DB's members, resolved against the original
-    // flat refTable.
-    def refsFor(dbMembers: Iterable[DFMember]): Map[DFRefAny, DFMember] =
-      val result = mutable.Map.empty[DFRefAny, DFMember]
-      dbMembers.foreach { m =>
-        refTable.get(m.ownerRef).foreach(t => result(m.ownerRef) = t)
-        m.getRefs.foreach(r => refTable.get(r).foreach(t => result(r) = t))
-        // NOTE: `DFDesignInst.designRef` is deliberately NOT added here. It is
-        // unified with the child block's `ownerRef` (the `subDBs` key) and is
-        // resolved structurally via `subDBs`, not through the parent's refTable.
+      members.foreach {
+        case _: DFDesignBlock => // nested blocks live in their own sub-DB only
+        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // globals handled separately
+        case m                                          => designOwn(m.getOwnerDesign) += m
       }
-      result.toMap
-    // Build sub-DBs in top-down elaboration order. Sub-DBs themselves have
-    // empty `subDBs` — only the root collects the flat hierarchy. The
-    // LinkedHashMap preserves insertion order so the resulting list runs
-    // top → top's first child → grandchildren … in elaboration order.
-    val builtSubDBs = mutable.LinkedHashMap.empty[DFDesignBlock, DB]
-    def buildSubDB(d: DFDesignBlock): DB =
-      builtSubDBs.get(d) match
-        case Some(db) => db
-        case None     =>
-          val locals = designOwn(d).toList
-          // Walk d's own refs in addition to its locals: with nested blocks
-          // no longer present in the parent's `localMembers`, globals reached
-          // only through a sub-DB's `designBlock` refs would otherwise be
-          // missed by every closure that needs them.
-          val closure = globalsClosure(d :: locals)
-          val dbMembers = closure ::: d :: locals
-          val dbRefTable = refsFor(dbMembers)
-          val builtForD = DB(
-            members = dbMembers,
-            refTable = dbRefTable,
-            // Sub-DBs inherit globalTags from the root so per-design stage
-            // helpers (e.g. resolvedClkRstMap) find project-wide tags
-            // like DefaultRTDomainCfgTag when dispatched against a sub-DB.
-            globalTags = this.globalTags,
-            srcFiles = Nil
-          )
-          // Insert d BEFORE recursing into children so the LinkedHashMap
-          // ordering is top-down (parent before children).
-          builtSubDBs(d) = builtForD
-          val directChildren = parentToChildren.getOrElse(d, Nil).toList
-          directChildren.foreach(buildSubDB)
-          builtForD
-    buildSubDB(topDsn)
-    // Orphan globals: any global in the original flat DB that is not reached
-    // by any sub-DB's `globalsClosure` (e.g. a global that nothing references).
-    // Without explicit handling these would vanish across `oldToNew + newToOld`,
-    // because root.members is empty and only sub-DB closures carry globals.
-    // Anchor them at the top design's sub-DB so they survive the round-trip.
-    val coveredGlobals = mutable.Set.empty[DFMember]
-    builtSubDBs.valuesIterator.foreach { sub =>
-      sub.members.foreach {
-        case g: DFVal.CanBeGlobal if g.isGlobal => coveredGlobals += g
-        case _                                  =>
+      // parent → ordered list of canonical child DFDesignBlocks. Iteration of
+      // `designBlockParent` (a LinkedHashMap) preserves first-inst-encounter
+      // order, which matches the elaboration order of the children.
+      val parentToChildren =
+        mutable.LinkedHashMap.empty[DFDesignBlock, mutable.ListBuffer[DFDesignBlock]]
+      designBlockParent.foreach { (child, parent) =>
+        parentToChildren.getOrElseUpdate(parent, mutable.ListBuffer.empty) += child
       }
-    }
-    val orphanGlobals: List[DFMember] = members.collect {
-      case g: DFVal.CanBeGlobal if g.isGlobal && !coveredGlobals.contains(g) => g
-    }
-    if (orphanGlobals.nonEmpty)
-      val topSub = builtSubDBs(topDsn)
-      val newMembers = orphanGlobals ::: topSub.members
-      val orphanRefs = refsFor(orphanGlobals)
-      val newRefTable = topSub.refTable ++ orphanRefs
-      builtSubDBs(topDsn) = topSub.update(members = newMembers, refTable = newRefTable)
-    // Root is a pure hierarchy container: empty members, empty refTable,
-    // designBlock = None. `subDBs` lists every design — top first (so
-    // `topDB` resolves correctly), then the top's descendants in elaboration
-    // order.
-    DB(
-      members = Nil,
-      refTable = Map.empty,
-      globalTags = this.globalTags,
-      srcFiles = this.srcFiles,
-      subDBs = ListMap.from(builtSubDBs.iterator.map((d, sub) => d.ownerRef -> sub))
-    )
+      // All globals in their original elaboration order — used to project each
+      // sub-DB's closure back into a deterministic, topological, source-faithful
+      // order (elaboration order is itself topological since a global cannot
+      // reference a later-defined global).
+      val allGlobalsOrdered: List[DFMember] = members.collect {
+        case g: DFVal.CanBeGlobal if g.isGlobal => g
+      }
+      // Compute the closure of globals transitively reachable from a DB's refs.
+      // Walks local members' refs; when a ref target is a global, we include it
+      // and recurse through its own refs to pick up globals-referenced-by-globals.
+      // Non-global intermediaries are NOT included (they belong to their own
+      // design's locals), but their refs ARE walked because we iterate all of
+      // the design's locals directly. Returns reachable globals in original
+      // elaboration order — required because `newToOld` emits a sub-DB's
+      // members directly into the flat output, and both `SanityCheck.orderCheck`
+      // and code generation depend on stable, topological ordering.
+      def globalsClosure(localMembers: Iterable[DFMember]): List[DFMember] =
+        val reachable = mutable.Set.empty[DFMember]
+        def pull(target: DFMember): Unit = target match
+          case g: DFVal.CanBeGlobal if g.isGlobal && !reachable.contains(g) =>
+            reachable += g
+            g.getRefs.foreach(r => refTable.get(r).foreach(pull))
+          case _ =>
+        localMembers.foreach { m =>
+          m.getRefs.foreach(r => refTable.get(r).foreach(pull))
+        }
+        allGlobalsOrdered.filter(reachable.contains)
+      // Build the refTable partition for a DB: every ref emitted (via ownerRef
+      // or getRefs) by any of the DB's members, resolved against the original
+      // flat refTable.
+      def refsFor(dbMembers: Iterable[DFMember]): Map[DFRefAny, DFMember] =
+        val result = mutable.Map.empty[DFRefAny, DFMember]
+        dbMembers.foreach { m =>
+          refTable.get(m.ownerRef).foreach(t => result(m.ownerRef) = t)
+          m.getRefs.foreach(r => refTable.get(r).foreach(t => result(r) = t))
+          // NOTE: `DFDesignInst.designRef` is deliberately NOT added here. It is
+          // unified with the child block's `ownerRef` (the `subDBs` key) and is
+          // resolved structurally via `subDBs`, not through the parent's refTable.
+        }
+        result.toMap
+      // Build sub-DBs in top-down elaboration order. Sub-DBs themselves have
+      // empty `subDBs` — only the root collects the flat hierarchy. The
+      // LinkedHashMap preserves insertion order so the resulting list runs
+      // top → top's first child → grandchildren … in elaboration order.
+      val builtSubDBs = mutable.LinkedHashMap.empty[DFDesignBlock, DB]
+      def buildSubDB(d: DFDesignBlock): DB =
+        builtSubDBs.get(d) match
+          case Some(db) => db
+          case None     =>
+            val locals = designOwn(d).toList
+            // Walk d's own refs in addition to its locals: with nested blocks
+            // no longer present in the parent's `localMembers`, globals reached
+            // only through a sub-DB's `designBlock` refs would otherwise be
+            // missed by every closure that needs them.
+            val closure = globalsClosure(d :: locals)
+            val dbMembers = closure ::: d :: locals
+            val dbRefTable = refsFor(dbMembers)
+            val builtForD = DB(
+              members = dbMembers,
+              refTable = dbRefTable,
+              // Sub-DBs inherit globalTags from the root so per-design stage
+              // helpers (e.g. resolvedClkRstMap) find project-wide tags
+              // like DefaultRTDomainCfgTag when dispatched against a sub-DB.
+              globalTags = this.globalTags,
+              srcFiles = Nil
+            )
+            // Insert d BEFORE recursing into children so the LinkedHashMap
+            // ordering is top-down (parent before children).
+            builtSubDBs(d) = builtForD
+            val directChildren = parentToChildren.getOrElse(d, Nil).toList
+            directChildren.foreach(buildSubDB)
+            builtForD
+      buildSubDB(topDsn)
+      // Orphan globals: any global in the original flat DB that is not reached
+      // by any sub-DB's `globalsClosure` (e.g. a global that nothing references).
+      // Without explicit handling these would vanish across `oldToNew + newToOld`,
+      // because root.members is empty and only sub-DB closures carry globals.
+      // Anchor them at the top design's sub-DB so they survive the round-trip.
+      val coveredGlobals = mutable.Set.empty[DFMember]
+      builtSubDBs.valuesIterator.foreach { sub =>
+        sub.members.foreach {
+          case g: DFVal.CanBeGlobal if g.isGlobal => coveredGlobals += g
+          case _                                  =>
+        }
+      }
+      val orphanGlobals: List[DFMember] = members.collect {
+        case g: DFVal.CanBeGlobal if g.isGlobal && !coveredGlobals.contains(g) => g
+      }
+      if (orphanGlobals.nonEmpty)
+        val topSub = builtSubDBs(topDsn)
+        val newMembers = orphanGlobals ::: topSub.members
+        val orphanRefs = refsFor(orphanGlobals)
+        val newRefTable = topSub.refTable ++ orphanRefs
+        builtSubDBs(topDsn) = topSub.update(members = newMembers, refTable = newRefTable)
+      // Root is a pure hierarchy container: empty members, empty refTable,
+      // designBlock = None. `subDBs` lists every design — top first (so
+      // `topDB` resolves correctly), then the top's descendants in elaboration
+      // order.
+      DB(
+        members = Nil,
+        refTable = Map.empty,
+        globalTags = this.globalTags,
+        srcFiles = this.srcFiles,
+        subDBs = ListMap.from(builtSubDBs.iterator.map((d, sub) => d.ownerRef -> sub))
+      )
   end oldToNew
 
   // Collapses a new-style (option-a) DB back into a flat old-style DB.
@@ -1711,102 +1712,103 @@ final case class DB private (
   // pointing at it (mirroring the original elaboration order, in which the
   // nested block is added during the first instance's elaboration and so
   // appears just before that inst in the flat DB).
-  def newToOld: DB =
-    if (subDBs.isEmpty) return this
-    // Under B-pure, root has empty `members` and empty `refTable`; all design
-    // content lives in sub-DBs. `allDBs` only needs the sub-DBs.
-    val allDBs: List[DB] = subDBs.values.toList
-    // canonical DFDesignBlock per ownerRef: the one in its own sub-DB's
-    // `members` (the sub-DB owns patches against its header).
-    val canonicalDesign = mutable.Map.empty[DFOwner.Ref, DFDesignBlock]
-    subDBs.foreach { (key, subDB) =>
-      subDB.members.collectFirst {
-        case d: DFDesignBlock if d.ownerRef == key => d
-      }.foreach(canonicalDesign(key) = _)
-    }
-    def canonicalize(m: DFMember): DFMember = m match
-      case d: DFDesignBlock => canonicalDesign.getOrElse(d.ownerRef, d)
-      case _                => m
-    // inst → canonical target DFDesignBlock. Resolved through each sub-DB's
-    // own refTable because the root DB's refTable does not necessarily cover
-    // refs that originate in sub-DB members.
-    val instToDesign = mutable.Map.empty[DFDesignInst, DFDesignBlock]
-    allDBs.foreach { db =>
-      db.members.foreach {
-        case inst: DFDesignInst =>
-          // Resolve inst -> child block structurally: `designRef` is unified with
-          // the child block's `ownerRef` (the `subDBs` key) and is not present in
-          // the parent sub-DB's refTable. `getDesignBlock` handles both the
-          // unified form and the pre-unification distinct form.
-          instToDesign(inst) =
-            canonicalize(inst.getDesignBlock(using db.getSet)).asInstanceOf[DFDesignBlock]
-        case _ =>
+  lazy val newToOld: DB =
+    if (subDBs.isEmpty) this
+    else
+      // Under B-pure, root has empty `members` and empty `refTable`; all design
+      // content lives in sub-DBs. `allDBs` only needs the sub-DBs.
+      val allDBs: List[DB] = subDBs.values.toList
+      // canonical DFDesignBlock per ownerRef: the one in its own sub-DB's
+      // `members` (the sub-DB owns patches against its header).
+      val canonicalDesign = mutable.Map.empty[DFOwner.Ref, DFDesignBlock]
+      subDBs.foreach { (key, subDB) =>
+        subDB.members.collectFirst {
+          case d: DFDesignBlock if d.ownerRef == key => d
+        }.foreach(canonicalDesign(key) = _)
       }
-    }
-    val flat = mutable.ListBuffer.empty[DFMember]
-    val seen = mutable.Set.empty[DFMember]
-    def emit(ms: List[DFMember]): Unit =
-      ms.foreach { m =>
-        val c = canonicalize(m)
-        c match
+      def canonicalize(m: DFMember): DFMember = m match
+        case d: DFDesignBlock => canonicalDesign.getOrElse(d.ownerRef, d)
+        case _                => m
+      // inst → canonical target DFDesignBlock. Resolved through each sub-DB's
+      // own refTable because the root DB's refTable does not necessarily cover
+      // refs that originate in sub-DB members.
+      val instToDesign = mutable.Map.empty[DFDesignInst, DFDesignBlock]
+      allDBs.foreach { db =>
+        db.members.foreach {
           case inst: DFDesignInst =>
-            // Emit the target design block (and its sub-DB body) before the
-            // inst, on the first inst that references it. Subsequent insts
-            // for the same block just emit themselves.
-            instToDesign.get(inst).foreach { targetBlock =>
-              if (!seen.contains(targetBlock))
-                seen += targetBlock
-                flat += targetBlock
-                subDBs.get(targetBlock.ownerRef).foreach(sub => emit(sub.members))
-            }
-            if (!seen.contains(c))
-              seen += c
-              flat += c
+            // Resolve inst -> child block structurally: `designRef` is unified with
+            // the child block's `ownerRef` (the `subDBs` key) and is not present in
+            // the parent sub-DB's refTable. `getDesignBlock` handles both the
+            // unified form and the pre-unification distinct form.
+            instToDesign(inst) =
+              canonicalize(inst.getDesignBlock(using db.getSet)).asInstanceOf[DFDesignBlock]
           case _ =>
-            if (!seen.contains(c))
-              seen += c
-              flat += c
-              c match
-                case d: DFDesignBlock if subDBs.contains(d.ownerRef) =>
-                  emit(subDBs(d.ownerRef).members)
-                case _ =>
-        end match
+        }
       }
-    // B-pure: root has empty `members`. Start emission from the topDB's
-    // members. The DFDesignBlock-descent guard inside `emit` prevents the
-    // re-entry from looping when topDsn (a member of topDB.members) triggers
-    // a recursive `emit(topDB.members)` on its own sub-DB.
-    emit(topDB.members)
-    // Merge refTables from root + every sub-DB. A shared ref key can live in
-    // multiple sub-DB refTables (e.g. a nested DFDesignBlock's ownerRef appears
-    // in both parent's refTable — where it points to the parent's own members —
-    // and child's refTable). When a sub-DB patches its member in-place, only
-    // that sub-DB's refTable is rewired; the peer sub-DB's entry for the same
-    // key still points at the pre-patch (now removed) instance. Prefer the
-    // entry whose target is in `flat` so stale targets lose when a fresh one
-    // exists for the same key. DFDesignBlock targets still go through
-    // `canonicalize` so refs pointing at the parent's stale copy retarget to
-    // the sub-DB's patched version.
-    val flatSet = mutable.Set.empty[DFMember]
-    flat.foreach(flatSet += _)
-    val mergedRefTable = mutable.Map.empty[DFRefAny, DFMember]
-    allDBs.foreach { db =>
-      db.refTable.foreach { (k, target) =>
-        val canonicalTarget = canonicalize(target)
-        val isFresh = flatSet.contains(canonicalTarget)
-        mergedRefTable.get(k) match
-          case None => mergedRefTable(k) = canonicalTarget
-          case Some(existing) if !flatSet.contains(existing) && isFresh =>
-            mergedRefTable(k) = canonicalTarget
-          case _ => // keep existing
+      val flat = mutable.ListBuffer.empty[DFMember]
+      val seen = mutable.Set.empty[DFMember]
+      def emit(ms: List[DFMember]): Unit =
+        ms.foreach { m =>
+          val c = canonicalize(m)
+          c match
+            case inst: DFDesignInst =>
+              // Emit the target design block (and its sub-DB body) before the
+              // inst, on the first inst that references it. Subsequent insts
+              // for the same block just emit themselves.
+              instToDesign.get(inst).foreach { targetBlock =>
+                if (!seen.contains(targetBlock))
+                  seen += targetBlock
+                  flat += targetBlock
+                  subDBs.get(targetBlock.ownerRef).foreach(sub => emit(sub.members))
+              }
+              if (!seen.contains(c))
+                seen += c
+                flat += c
+            case _ =>
+              if (!seen.contains(c))
+                seen += c
+                flat += c
+                c match
+                  case d: DFDesignBlock if subDBs.contains(d.ownerRef) =>
+                    emit(subDBs(d.ownerRef).members)
+                  case _ =>
+          end match
+        }
+      // B-pure: root has empty `members`. Start emission from the topDB's
+      // members. The DFDesignBlock-descent guard inside `emit` prevents the
+      // re-entry from looping when topDsn (a member of topDB.members) triggers
+      // a recursive `emit(topDB.members)` on its own sub-DB.
+      emit(topDB.members)
+      // Merge refTables from root + every sub-DB. A shared ref key can live in
+      // multiple sub-DB refTables (e.g. a nested DFDesignBlock's ownerRef appears
+      // in both parent's refTable — where it points to the parent's own members —
+      // and child's refTable). When a sub-DB patches its member in-place, only
+      // that sub-DB's refTable is rewired; the peer sub-DB's entry for the same
+      // key still points at the pre-patch (now removed) instance. Prefer the
+      // entry whose target is in `flat` so stale targets lose when a fresh one
+      // exists for the same key. DFDesignBlock targets still go through
+      // `canonicalize` so refs pointing at the parent's stale copy retarget to
+      // the sub-DB's patched version.
+      val flatSet = mutable.Set.empty[DFMember]
+      flat.foreach(flatSet += _)
+      val mergedRefTable = mutable.Map.empty[DFRefAny, DFMember]
+      allDBs.foreach { db =>
+        db.refTable.foreach { (k, target) =>
+          val canonicalTarget = canonicalize(target)
+          val isFresh = flatSet.contains(canonicalTarget)
+          mergedRefTable.get(k) match
+            case None => mergedRefTable(k) = canonicalTarget
+            case Some(existing) if !flatSet.contains(existing) && isFresh =>
+              mergedRefTable(k) = canonicalTarget
+            case _ => // keep existing
+        }
       }
-    }
-    DB(
-      members = flat.toList,
-      refTable = mergedRefTable.toMap,
-      globalTags = this.globalTags,
-      srcFiles = this.srcFiles
-    )
+      DB(
+        members = flat.toList,
+        refTable = mergedRefTable.toMap,
+        globalTags = this.globalTags,
+        srcFiles = this.srcFiles
+      )
   end newToOld
 
   // Lightweight repair of the per-sub-DB global closure: adds any global member
@@ -1966,6 +1968,7 @@ object DB:
         List[SourceFile],
         List[(DFOwner.Ref, DB)]
     )
+  @scala.annotation.nowarn("msg=Infinite loop")
   given ReadWriter[DB] =
     readwriter[DBSerialized].bimap[DB](
       db => (db.members, db.refTable, db.globalTags, db.srcFiles, db.subDBs.toList),
