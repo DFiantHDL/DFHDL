@@ -129,7 +129,6 @@ DFMember (sealed)
 │   ├── StepBlock        ─ RT step (FSM state)
 │   └── DFConditional.Block ─ if/match/while clause
 ├── DFConditional.Header ─ if/match/while header
-├── DFInterfaceOwner
 └── DFRange
 ```
 

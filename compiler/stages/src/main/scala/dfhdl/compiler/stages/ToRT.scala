@@ -21,11 +21,6 @@ case object ToRT extends HierarchyStage:
           d.copy(domainType = DomainType.RT),
           Patch.Replace.Config.FullReplacement
         )
-      case i @ DFInterfaceOwner(domainType = DomainType.DF) =>
-        i -> Patch.Replace(
-          i.copy(domainType = DomainType.RT),
-          Patch.Replace.Config.FullReplacement
-        )
     }
     subDB.patch(patchList)
   end transformSubDB

@@ -278,11 +278,6 @@ case object AddClkRst extends GlobalStage:
               val updatedOwner = owner match
                 case design: DFDesignBlock =>
                   design.copy(meta = updateMeta(design.meta))
-                case interface: DFInterfaceOwner =>
-                  interface.copy(
-                    dclMeta = updateMeta(interface.dclMeta),
-                    meta = updateMeta(interface.meta)
-                  )
                 case _ => owner.setMeta(updateMeta)
               Some(owner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement))
             else None

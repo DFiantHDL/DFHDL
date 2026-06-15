@@ -475,20 +475,6 @@ final case class DB private (
       (net.lhsRef.get, net.rhsRef.get) match
         case (lhsVal: DFVal, rhsVal: DFVal) =>
           List(FlatNet(lhsVal, rhsVal, net))
-        case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
-          FlatNet(lhsIfc, rhsIfc, net)
-        case _ => ???
-    def apply(lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner, net: DFNet): List[FlatNet] =
-      val lhsMembers = getMembersOf(lhsIfc, MemberView.Folded)
-      val rhsMembers = getMembersOf(rhsIfc, MemberView.Folded)
-      assert(lhsMembers.length == rhsMembers.length)
-      lhsMembers.lazyZip(rhsMembers).flatMap {
-        case (lhsVal: DFVal, rhsVal: DFVal) =>
-          List(FlatNet(lhsVal, rhsVal, net))
-        case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
-          FlatNet(lhsIfc, rhsIfc, net)
-        case _ => ???
-      }
   end FlatNet
   given printer: Printer = DefaultPrinter
   @tailrec private def getConnToMap(
@@ -925,7 +911,6 @@ final case class DB private (
                                   |""".stripMargin
                             )
                           else Some(domain -> inSourceDomains.head)
-                        case ifc: DFInterfaceOwner => ???
               case _ => None
           }
         }

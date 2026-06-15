@@ -20,7 +20,6 @@ import dfhdl.compiler.ir.{
   DFTags,
   annotation,
   DFDomainOwner,
-  DFInterfaceOwner,
   Meta
 }
 import dfhdl.compiler.analysis.filterPublicMembers
@@ -413,9 +412,8 @@ final class MutableDB():
           val updatedAnnotations = updatedSigConstraints ++ otherAnnotations
           val updatedMeta = domainOwner.meta.copy(annotations = updatedAnnotations)
           val updatedDomainOwner = domainOwner match
-            case design: DFDesignBlock       => design.copy(meta = updatedMeta)
-            case domain: DomainBlock         => domain.copy(meta = updatedMeta)
-            case interface: DFInterfaceOwner => interface.copy(meta = updatedMeta)
+            case design: DFDesignBlock => design.copy(meta = updatedMeta)
+            case domain: DomainBlock   => domain.copy(meta = updatedMeta)
           updatedDomainOwner
         case None => domainOwner
     end getConstrainedDomainOwner

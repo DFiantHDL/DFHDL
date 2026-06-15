@@ -119,7 +119,6 @@ object DFMember:
     summon[ReadWriter[DFMember.Empty]],
     summon[ReadWriter[DFVal]],
     summon[ReadWriter[Statement]],
-    summon[ReadWriter[DFInterfaceOwner]],
     summon[ReadWriter[DFBlock]],
     summon[ReadWriter[DFConditional.Header]],
     summon[ReadWriter[DFRange]],
@@ -152,8 +151,6 @@ object DFMember:
           design.meta.annotations
         case designInst: DFDesignInst =>
           designInst.meta.annotations ++ designInst.getDesignBlock.getConstraints
-        case interface: DFInterfaceOwner =>
-          interface.dclMeta.annotations.view ++ interface.meta.annotations
         case _ => member.meta.annotations.view
       allAnnotations.collect {
         case c: constraints.Constraint => c
@@ -1058,7 +1055,7 @@ final case class DFNet(
 end DFNet
 
 object DFNet:
-  type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner, DFNet]
+  type Ref = DFRef.TwoWay[DFVal, DFNet]
   enum Op derives CanEqual, ReadWriter:
     case Assignment, NBAssignment, Connection, ViaConnection, LazyConnection
   extension (net: DFNet)
@@ -1100,8 +1097,8 @@ object DFNet:
         MemberGetSet
     ): Option[
       (
-          toVal: DFVal.Dcl | DFVal.PortByNameSelect | DFVal.Special | DFInterfaceOwner,
-          fromVal: DFVal | DFInterfaceOwner,
+          toVal: DFVal.Dcl | DFVal.PortByNameSelect | DFVal.Special,
+          fromVal: DFVal,
           swapped: Boolean
       )
     ] =
@@ -1110,9 +1107,6 @@ object DFNet:
           val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)
           if (toLeft) Some(lhsVal.dealias.get, rhsVal, false)
           else Some(rhsVal.dealias.get, lhsVal, true)
-        case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
-          Some(lhsIfc, rhsIfc, false)
-        case _ => ??? // not possible
       else None
   end Connection
 end DFNet
@@ -1189,29 +1183,6 @@ sealed trait DFDomainOwner extends DFOwnerNamed:
 
 object DFOwner:
   type Ref = DFRef.OneWay[DFOwner | DFMember.Empty]
-
-final case class DFInterfaceOwner(
-    domainType: DomainType,
-    dclMeta: Meta,
-    ownerRef: DFOwner.Ref,
-    meta: Meta,
-    tags: DFTags
-) extends DFDomainOwner derives ReadWriter:
-  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-    case that: DFInterfaceOwner =>
-      this.domainType =~ that.domainType &&
-      this.dclMeta =~ that.dclMeta && this.meta =~ that.meta && this.tags =~ that.tags
-    case _ => false
-  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs ++ meta.getRefs
-  def copyWithNewRefs(using RefGen): this.type = copy(
-    dclMeta = dclMeta.copyWithNewRefs,
-    meta = meta.copyWithNewRefs,
-    domainType = domainType.copyWithNewRefs,
-    ownerRef = ownerRef.copyAsNewRef
-  ).asInstanceOf[this.type]
-end DFInterfaceOwner
 
 sealed trait DFBlock extends DFOwner
 object DFBlock:

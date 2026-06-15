@@ -398,12 +398,6 @@ case object ToED extends HierarchyStage:
               design.copy(domainType = DomainType.ED, meta = stripTimingAnnotations(design.meta))
             case domain: DomainBlock =>
               domain.copy(domainType = DomainType.ED, meta = stripTimingAnnotations(domain.meta))
-            case ifc: DFInterfaceOwner =>
-              ifc.copy(
-                domainType = DomainType.ED,
-                dclMeta = stripTimingAnnotations(ifc.dclMeta),
-                meta = stripTimingAnnotations(ifc.meta)
-              )
           domainOwner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
       }
       firstPart.patch(patchList)

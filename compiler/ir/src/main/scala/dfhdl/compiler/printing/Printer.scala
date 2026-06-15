@@ -65,8 +65,7 @@ trait Printer
           else swapped && normalizeConnection && !lhsVal.isInstanceOf[DFVal.Special]
         val directionStr =
           lhsOrig match
-            case dfIfc: DFInterfaceOwner => "<->"
-            case dfVal: DFVal            =>
+            case dfVal: DFVal =>
               if (dfVal.getConnectionsTo.contains(net) ^ swapLR) "<--"
               else "-->"
         val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)

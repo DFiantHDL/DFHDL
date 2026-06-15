@@ -51,7 +51,6 @@ DFMember  (sealed)
 ├── DFConditional.Header    — if / match header expression
 │   ├── DFIfHeader
 │   └── DFMatchHeader
-├── DFInterfaceOwner        — interface abstraction
 └── DFRange                 — for-loop range
 ```
 
@@ -374,7 +373,7 @@ type PortByNameSelect.Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
 
 ```scala
 final case class DFNet(
-    lhsRef:   DFNet.Ref,   // DFRef.TwoWay[DFVal | DFInterfaceOwner, DFNet]
+    lhsRef:   DFNet.Ref,   // DFRef.TwoWay[DFVal, DFNet]
     op:       DFNet.Op,
     rhsRef:   DFNet.Ref,
     ownerRef: DFOwner.Ref,
@@ -398,8 +397,8 @@ DFNet.Assignment(toVal, fromVal)   // Assignment or NBAssignment; toVal and from
 DFNet.BAssignment(toVal, fromVal)  // blocking only (op == Assignment)
 DFNet.NBAssignment(toVal, fromVal) // non-blocking only (op == NBAssignment)
 DFNet.Connection(toVal, fromVal, swapped)
-  // toVal: DFVal.Dcl | DFVal.Special | DFInterfaceOwner
-  // fromVal: DFVal | DFInterfaceOwner
+  // toVal: DFVal.Dcl | DFVal.PortByNameSelect | DFVal.Special
+  // fromVal: DFVal
   // swapped: Boolean — true if lhs/rhs were physically reversed
 ```
 
