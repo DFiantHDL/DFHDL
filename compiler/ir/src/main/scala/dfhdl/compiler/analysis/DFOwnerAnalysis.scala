@@ -11,7 +11,6 @@ extension (owner: DFOwner)
     val last = owner match
       case block: DFDesignBlock => designDB.designMemberTable(block).lastOption
       case block: DFBlock       => designDB.blockMemberTable(block).lastOption
-      case _                    => designDB.ownerMemberTable(owner).lastOption
     last match
       // if last member is an owner then we search further
       case Some(o: DFOwner) =>

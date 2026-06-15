@@ -184,9 +184,7 @@ case object FoldControlSteps extends HierarchyStage:
       case b: DFConditional.DFIfElseBlock if b.prevBlockOrHeaderRef.get == thenB => b
     }
   private def lhsDcl(n: DFNet)(using MemberGetSet): Option[DFVal.Dcl] =
-    n.lhsRef.get match
-      case v: DFVal => v.departialDcl.map(_._1)
-      case _        => None
+    n.lhsRef.get.departialDcl.map(_._1)
   // the index-update net plus its anonymous dependency subtree (the rhs expression)
   private def idxSubtree(lvl: Level)(using MemberGetSet): Set[DFMember] =
     (lvl.idxNet :: lvl.idxNet.collectRelMembers).toSet

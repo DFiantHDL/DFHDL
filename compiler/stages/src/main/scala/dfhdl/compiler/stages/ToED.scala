@@ -348,8 +348,6 @@ case object ToED extends HierarchyStage:
           // other domains
           case _ => None
         end match
-      // other owners
-      case _ => None
     }
     val firstPart = subDB.patch(patchList)
     locally {

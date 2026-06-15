@@ -427,7 +427,6 @@ case object GlobalizePortVectorParams extends HierarchyStage:
                   case otherVec: DFVector if otherVec != dclType =>
                     out += otherVec -> dclType
                   case _ =>
-              case _ =>
           }
         }
       case _ =>

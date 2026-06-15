@@ -84,9 +84,8 @@ trait Printer
         val lhsDin = net.lhsRef.get match
           case dfVal: DFVal if dfVal.dealias.get.asInstanceOf[DFVal.Dcl].isReg => ".din"
           case _                                                               => ""
-        val lhsShared = net.lhsRef.get match
-          case dfVal: DFVal => dfVal.dealias.get.asInstanceOf[DFVal.Dcl].modifier.isShared
-          case _            => false
+        val lhsShared =
+          net.lhsRef.get.dealias.get.asInstanceOf[DFVal.Dcl].modifier.isShared
         val lhsStr = net.lhsRef.refCodeString + lhsDin
         val rhsStr = net.rhsRef.refCodeString
         net.op.runtimeChecked match

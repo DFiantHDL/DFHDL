@@ -31,7 +31,6 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
     case o               => o.getOwnerNamed
   final def getOwnerBlock(using MemberGetSet): DFBlock = getOwner match
     case b: DFBlock => b
-    case o          => o.getOwnerBlock
   final def getOwnerStepBlock(using MemberGetSet): StepBlock = getOwner match
     case b: StepBlock => b
     case o            => o.getOwnerStepBlock
