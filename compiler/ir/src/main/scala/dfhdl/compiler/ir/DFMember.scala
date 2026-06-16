@@ -1588,7 +1588,7 @@ end DFDesignBlock
 object DFDesignBlock:
   import InstMode.BlackBox.Source
   enum InstMode derives CanEqual, ReadWriter:
-    case Normal, Def, Simulation
+    case Normal, Def, Simulation, Interface
     case BlackBox(source: Source)
   object InstMode:
     import constraints.DeviceID.Vendor
