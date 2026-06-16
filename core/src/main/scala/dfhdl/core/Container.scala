@@ -30,3 +30,10 @@ abstract class RTDomainContainer extends DomainContainer(DomainType.RT):
   final case class Clk() extends DFOpaque.Clk
   final case class Rst() extends DFOpaque.Rst
 end RTDomainContainer
+
+// Common ancestor of `Design` and `Interface`: marks a container whose
+// `<> CONST` constructor parameters are turned into design-parameter members
+// (`DFVal.DesignParam`) by the compiler plugin. The plugin keys body-parameter
+// generation on this trait rather than on `Design` specifically, so interfaces
+// (which are not `Design`s) get the same treatment.
+trait HasConstParams

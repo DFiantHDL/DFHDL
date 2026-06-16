@@ -10,7 +10,7 @@ import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
-trait Design extends Container, HasClsMetaArgs:
+trait Design extends Container, HasClsMetaArgs, HasConstParams:
   private[core] type TScope = DFC.Scope.Design
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
