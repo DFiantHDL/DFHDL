@@ -45,8 +45,8 @@ end CustomReporter
   *   - auto-add `@top` annotation to concrete classes that look like DFHDL designs (extend
   *     EDDesign/RTDesign/DFDesign, have `type <> CONST` parameters, or use `<>` in their body),
   *     provided `import dfhdl.*` is in lexical scope and no `@top` annotation is already present.
-  *     Interfaces (EDInterface/RTInterface/DFInterface) are excluded, since they are never
-  *     entry points and must not receive `@top`.
+  *     Classes extending `Interface` are excluded, since they are never entry points and
+  *     must not receive `@top`.
   */
 class PreTyperPhase(setting: Setting) extends CommonPhase:
   import untpd.*
@@ -156,7 +156,7 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
         case _        => false
 
     private val designParentNames = Set("EDDesign", "RTDesign", "DFDesign")
-    private val interfaceParentNames = Set("EDInterface", "RTInterface", "DFInterface")
+    private val interfaceParentNames = Set("Interface")
 
     private def hasDesignParent(parents: List[Tree]): Boolean =
       parents.exists(p => rightmostName(p).exists(designParentNames))
