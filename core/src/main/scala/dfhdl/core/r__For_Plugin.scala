@@ -111,7 +111,7 @@ object r__For_Plugin:
   ): Pattern =
     Pattern.BindSI(op, parts, bindVals.map(_.asIR.refTW[DFConditional.DFCaseBlock]))
   @metaContextIgnore
-  def genDesignParam[V <: DFValAny](
+  def genContainerParam[V <: DFValAny](
       appliedVal: DFValAny,
       defaultVal: Option[DFValAny],
       paramMeta: ir.Meta

@@ -44,7 +44,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   var dfSpecTpe: Type = uninitialized
   var hasClsMetaArgsTpe: TypeRef = uninitialized
   var clsMetaArgsTpe: TypeRef = uninitialized
-  var designTpe: TypeRef = uninitialized
+  var hasConstParamsTpe: TypeRef = uninitialized
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
   var noTopAnnotIsRequired: TypeRef = uninitialized
@@ -78,7 +78,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
 
   private def clsMetaArgsOverrideDef(owner: Symbol)(using Context): Tree =
     clsMetaArgsOverrideDef(owner, ref(requiredMethod("dfhdl.internals.ClsMetaArgs.empty")))
-  private def genDesignBodyParams(
+  private def genContainerBodyParams(
       body: List[Tree],
       paramList: List[Tree],
       defaults: Map[Int, Tree],
@@ -86,22 +86,22 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   )(using
       Context
   ): (List[Tree], List[ValDef]) =
-    val designParamMap = mutable.Map.empty[Symbol, Tree]
-    val designParamGenValDefs: List[ValDef] = paramList.view.zipWithIndex.collect {
+    val paramMap = mutable.Map.empty[Symbol, Tree]
+    val paramGenValDefs: List[ValDef] = paramList.view.zipWithIndex.collect {
       case (v: ValDef, i) if v.dfValTpeOpt.nonEmpty =>
         // check and report error if the user did not apply a constant modifier
-        // on a design parameter
+        // on a design/interface parameter
         if (!v.tpt.tpe.isDFConst)
           report.error(
-            "DFHDL design parameters must be constant values (use a `<> CONST` modifier).",
+            "DFHDL design/interface parameters must be constant values (use a `<> CONST` modifier).",
             v.tpt
           )
-        val valDef = v.genDesignParamValDef(defaults.get(i), dfcTree)
-        designParamMap += v.symbol -> ref(valDef.symbol)
+        val valDef = v.genContainerParamValDef(defaults.get(i), dfcTree)
+        paramMap += v.symbol -> ref(valDef.symbol)
         valDef
     }.toList
-    (body.map(b => replaceArgs(b, designParamMap.toMap)), designParamGenValDefs)
-  end genDesignBodyParams
+    (body.map(b => replaceArgs(b, paramMap.toMap)), paramGenValDefs)
+  end genContainerBodyParams
 
   override def prepareForStats(trees: List[Tree])(using Context): Context =
     var explored: List[Tree] = trees
@@ -156,10 +156,10 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
             case _                          => false
           }
           val nonParamBody = template.body.drop(paramBody.length)
-          val (updatedBody, designParamGenValDefs) = dfcArgOpt match
-            case Some(dfcTree) if clsTpe <:< designTpe =>
+          val (updatedBody, containerParamGenValDefs) = dfcArgOpt match
+            case Some(dfcTree) if clsTpe <:< hasConstParamsTpe =>
               val defaults = defaultParamMap.getOrElse(clsSym, Map.empty)
-              genDesignBodyParams(nonParamBody, paramBody, defaults, dfcTree)(using
+              genContainerBodyParams(nonParamBody, paramBody, defaults, dfcTree)(using
                 ctx.withOwner(clsSym.primaryConstructor)
               )
             case _ => (nonParamBody, Nil)
@@ -194,7 +194,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
               )
           val newTemplate =
             cpy.Template(template)(body =
-              paramBody ++ List(setClsNamePosTree) ++ designParamGenValDefs ++ updatedBody
+              paramBody ++ List(setClsNamePosTree) ++ containerParamGenValDefs ++ updatedBody
             )
           cpy.TypeDef(tree)(rhs = newTemplate)
         else tree
@@ -347,7 +347,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     dfSpecTpe = requiredClassRef("dfhdl.DFSpec")
     hasClsMetaArgsTpe = requiredClassRef("dfhdl.internals.HasClsMetaArgs")
     clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
-    designTpe = requiredClassRef("dfhdl.core.Design")
+    hasConstParamsTpe = requiredClassRef("dfhdl.core.HasConstParams")
     topAnnotSym = requiredClass("dfhdl.top")
     appTpe = requiredClassRef("dfhdl.app.DFApp")
     noTopAnnotIsRequired = requiredClassRef("dfhdl.internals.NoTopAnnotIsRequired")

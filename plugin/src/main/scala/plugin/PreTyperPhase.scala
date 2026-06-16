@@ -44,7 +44,9 @@ end CustomReporter
   *   - change process{} to process.forever{}
   *   - auto-add `@top` annotation to concrete classes that look like DFHDL designs (extend
   *     EDDesign/RTDesign/DFDesign, have `type <> CONST` parameters, or use `<>` in their body),
-  *     provided `import dfhdl.*` is in lexical scope and no `@top` annotation is already present
+  *     provided `import dfhdl.*` is in lexical scope and no `@top` annotation is already present.
+  *     Interfaces (EDInterface/RTInterface/DFInterface) are excluded, since they are never
+  *     entry points and must not receive `@top`.
   */
 class PreTyperPhase(setting: Setting) extends CommonPhase:
   import untpd.*
@@ -154,9 +156,12 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
         case _        => false
 
     private val designParentNames = Set("EDDesign", "RTDesign", "DFDesign")
+    private val interfaceParentNames = Set("EDInterface", "RTInterface", "DFInterface")
 
     private def hasDesignParent(parents: List[Tree]): Boolean =
       parents.exists(p => rightmostName(p).exists(designParentNames))
+    private def hasInterfaceParent(parents: List[Tree]): Boolean =
+      parents.exists(p => rightmostName(p).exists(interfaceParentNames))
 
     private def isConstParamTpt(tpt: Tree): Boolean =
       tpt match
@@ -233,6 +238,9 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
       !m.is(Case) &&
       !m.is(Enum) &&
       !hasTopAnnot(m) &&
+      // interfaces are never entry points, so never auto-`@top` them (even when they
+      // carry `<> CONST` params or use `<>` in their body for port/view declarations)
+      !hasInterfaceParent(tmpl.parents) &&
       tmpl.constr.paramss.length <= 1 &&
       allParamsTopCompatible(tmpl.constr.paramss) &&
       (hasDesignParent(tmpl.parents) ||

@@ -146,7 +146,7 @@ abstract class CommonPhase extends PluginPhase:
   var inlineAnnotSym: Symbol = uninitialized
   var dfValSym: Symbol = uninitialized
   var constModTpe: Type = uninitialized
-  var genDesignParamSym: TermSymbol = uninitialized
+  var genContainerParamSym: TermSymbol = uninitialized
   private var bTpe: Type = uninitialized
 
   extension (tree: TypeDef)
@@ -201,10 +201,10 @@ abstract class CommonPhase extends PluginPhase:
   end extension
 
   extension (v: ValDef)(using Context)
-    def genDesignParamValDef(default: Option[Tree], dfcTree: Tree): ValDef =
+    def genContainerParamValDef(default: Option[Tree], dfcTree: Tree): ValDef =
       val meta = v.genMeta
       val paramGen =
-        ref(genDesignParamSym)
+        ref(genContainerParamSym)
           .appliedToType(v.tpt.tpe)
           .appliedToArgs(List(ref(v.symbol), mkOption(default), meta))
           .appliedTo(dfcTree)
@@ -445,7 +445,7 @@ abstract class CommonPhase extends PluginPhase:
     inlineAnnotSym = requiredClass("scala.inline")
     constModTpe = requiredClassRef("dfhdl.core.ISCONST").appliedTo(ConstantType(Constant(true)))
     contextFunctionSym = defn.FunctionSymbol(1, isContextual = true)
-    genDesignParamSym = requiredMethod("dfhdl.core.r__For_Plugin.genDesignParam")
+    genContainerParamSym = requiredMethod("dfhdl.core.r__For_Plugin.genContainerParam")
     bTpe = requiredClassRef("dfhdl.hdl.B")
     if (debugFilter(tree.source.path.toString))
       println(
