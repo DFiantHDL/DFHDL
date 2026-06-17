@@ -80,7 +80,7 @@ nav:
     - Conditionals: user-guide/conditionals/index.md
     - Processes: user-guide/processes/index.md
     - Domain Abstractions: user-guide/design-domains/index.md
-  #   - Interfaces [WIP]: user-guide/interfaces/index.md
+    - Interfaces: user-guide/interfaces/index.md
   #   - Domains [WIP]: user-guide/domains/index.md
   #   - Scopes [WIP]: user-guide/scopes/index.md
     - Naming: user-guide/naming/index.md
