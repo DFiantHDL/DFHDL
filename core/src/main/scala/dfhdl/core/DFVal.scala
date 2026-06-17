@@ -303,10 +303,15 @@ object DFVal extends DFValLP:
   protected type FieldsWithModifier[V <: NamedTuple.AnyNamedTuple, M <: ModifierAny] =
     NamedTuple.Map[V, [t] =>> FieldWithModifier[t, M]]
   protected[core] type Fields[T <: DFTypeAny, M <: ModifierAny] = T match
-    case DFType[t, Args1[a]] =>
+    case DFType[t, args] =>
       t match
-        case ir.DFStruct => FieldsWithModifier[NamedTuple.From[a], M]
-        case _           => Any
+        case ir.DFStruct =>
+          args match
+            case Args1[a] => FieldsWithModifier[NamedTuple.From[a], M]
+        case ir.DFView =>
+          args match
+            case Args2[i, f] => f
+        case _ => Any
     case _ => Any
 
   // constructing a front-end DFVal value class object. if it's a global value, then
