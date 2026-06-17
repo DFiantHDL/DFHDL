@@ -45,6 +45,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   var hasClsMetaArgsTpe: TypeRef = uninitialized
   var clsMetaArgsTpe: TypeRef = uninitialized
   var hasConstParamsTpe: TypeRef = uninitialized
+  var interfaceTpe: TypeRef = uninitialized
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
   var noTopAnnotIsRequired: TypeRef = uninitialized
@@ -310,6 +311,22 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           cpy.Block(tree)(stats = List(updatedTypeDef), expr = tree.expr)
       case _ =>
         tree
+  // Any DFVal member of an interface (port or const parameter) must be
+  // access-restricted so it is only reachable through a view's `.VIEW`.
+  override def prepareForValDef(tree: ValDef)(using Context): Context =
+    val sym = tree.symbol
+    if (
+      sym.exists && sym.owner.isClass && sym.owner.typeRef <:< interfaceTpe &&
+      tree.dfValTpeOpt.nonEmpty && !sym.isOneOf(Protected | Private)
+    )
+      report.error(
+        """|Interface ports and parameters must be declared `protected`.
+           |They are internal to the interface; expose ports through a view and
+           |access them via `<instance>.<view>.VIEW`.""".stripMargin,
+        tree.srcPos
+      )
+    ctx
+
   // transform basic val x = y to val x = dfhdl.core.r__For_Plugin.identVal(y) if y is a DFVal
   override def transformValDef(tree: ValDef)(using Context): ValDef =
     object DFValIdent:
@@ -348,6 +365,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     hasClsMetaArgsTpe = requiredClassRef("dfhdl.internals.HasClsMetaArgs")
     clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
     hasConstParamsTpe = requiredClassRef("dfhdl.core.HasConstParams")
+    interfaceTpe = requiredClassRef("dfhdl.core.Interface")
     topAnnotSym = requiredClass("dfhdl.top")
     appTpe = requiredClassRef("dfhdl.app.DFApp")
     noTopAnnotIsRequired = requiredClassRef("dfhdl.internals.NoTopAnnotIsRequired")
