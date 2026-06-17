@@ -380,6 +380,13 @@ object DFVal extends DFValLP:
         "Can only initialize a DFHDL port or variable that are not already initialized."
       ]
   ): InitCheck[I] with {}
+  // An interface is purely structural and carries no initial values, so `init`
+  // (and `initFile`) are rejected on its ports/variables. The declaration scope
+  // is carried in the modifier's `A` type parameter (see `<>` in `Modifier`).
+  protected type NotInsideInterface[A] = AssertGiven[
+    util.NotGiven[A <:< DFC.Scope.Interface],
+    "Cannot initialize a port or variable inside an interface.\nAn interface is purely structural and carries no initial values."
+  ]
 
   extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
     @metaContextForward(0)
@@ -566,7 +573,11 @@ object DFVal extends DFValLP:
 
     infix def init(
         initValues: InitValue[T]*
-    )(using DFC, InitCheck[I]): DFVal[T, Modifier[A, C, Modifier.Initialized, P]] = trydf {
+    )(using
+        DFC,
+        InitCheck[I],
+        NotInsideInterface[A]
+    ): DFVal[T, Modifier[A, C, Modifier.Initialized, P]] = trydf {
       val tvList =
         initValues.view.filter(_.enable).map(tv => tv(dfVal.dfType)(using dfc.anonymize)).toList
       dfVal.initForced(tvList)
@@ -575,7 +586,11 @@ object DFVal extends DFValLP:
   extension [T <: NonEmptyTuple, A, C, I, P](dfVal: DFVal[DFTuple[T], Modifier[A, C, I, P]])
     infix def init(
         initValues: InitTupleValues[T]
-    )(using DFC, InitCheck[I]): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized, P]] =
+    )(using
+        DFC,
+        InitCheck[I],
+        NotInsideInterface[A]
+    ): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized, P]] =
       trydf {
         if (initValues.enable)
           dfVal.initForced(initValues(dfVal.dfType)(using dfc.anonymize))
@@ -591,7 +606,8 @@ object DFVal extends DFValLP:
         undefinedValue: ir.InitFileUndefinedValue = ir.InitFileUndefinedValue.Zeros
     )(using
         dfc: DFC,
-        check: InitCheck[I]
+        check: InitCheck[I],
+        notInsideInterface: NotInsideInterface[A]
     ): DFVal[DFVector[T, Tuple1[D1]], Modifier[A, C, Modifier.Initialized, P]] = trydf:
       import dfc.getSet
       val vectorType = dfVal.dfType
