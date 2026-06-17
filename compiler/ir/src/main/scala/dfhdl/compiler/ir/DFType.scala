@@ -533,14 +533,11 @@ object DFTuple:
 // type is itself a DFInterface. A directed view over it is a DFView (below).
 /////////////////////////////////////////////////////////////////////////////
 final case class DFInterface(
-    name: String,
+    interfaceRef: DFInterface.Ref,
     fieldMap: ListMap[String, DFType]
-) extends NamedDFType,
-      ComposedDFType derives ReadWriter:
+) extends ComposedDFType derives ReadWriter:
   type Data = Unit
   private def noTypeErr = throw new Exception(s"Unexpected access to $this data type")
-  def updateName(newName: String)(using MemberGetSet): this.type =
-    copy(name = newName).asInstanceOf[this.type]
   def widthIntOpt(using MemberGetSet): Option[Int] = None
   def createBubbleData(using MemberGetSet): Data = noTypeErr
   def isDataBubble(data: Data): Boolean = noTypeErr
@@ -549,25 +546,31 @@ final case class DFInterface(
   def defaultData(using MemberGetSet): Data = noTypeErr
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFInterface =>
-      this.name == that.name &&
+      // interfaceRef is intentionally compared by regular equality (not `=~`) because
+      // it is a OneWay ref unified with the interface block's ownerRef.
+      this.interfaceRef == that.interfaceRef &&
       this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, ftL), (fnR, ftR)) =>
         fnL == fnR && ftL =~ ftR
       }
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFInterface =>
-      this.name == that.name &&
       this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, ftL), (fnR, ftR)) =>
         fnL == fnR && ftL.isSimilarTo(ftR)
       }
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = fieldMap.values.flatMap(_.getRefs).toList
+  // NOTE: `interfaceRef` is a OneWay ref unified with the interface block's
+  // `ownerRef` (the sub-DB key); like `DFDesignInst.designRef` it is intentionally
+  // NOT freshened here. When cloning a design sub-tree the caller rebinds it to the
+  // cloned block's ownerRef.
   def copyWithNewRefs(using RefGen): this.type = copy(
     fieldMap = ListMap.from(fieldMap.view.mapValues(_.copyWithNewRefs))
   ).asInstanceOf[this.type]
 end DFInterface
 
-object DFInterface extends DFType.Companion[DFInterface, Unit]
+object DFInterface extends DFType.Companion[DFInterface, Unit]:
+  type Ref = DFRef.OneWay[DFDesignBlock]
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
