@@ -61,9 +61,21 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           report.error("DFHDL classes cannot be final.", tree.srcPos)
         else if (sym.is(CaseClass))
           report.error("DFHDL classes cannot be case classes.", tree.srcPos)
+        // Reject user-written anonymous interface instances (e.g. `new MyIfc() {}`).
+        // An interface must be a named class so it has a stable identity (its
+        // `interfaceRef` design block). The plugin's own instance anon-classes are
+        // created in the transform pass (`transformApply`), which this prepare hook
+        // never re-traverses, so every anon interface class seen here is user-written.
+        else if (sym.isAnonymousClass && sym.typeRef <:< interfaceTpe)
+          report.error(
+            s"Cannot create an anonymous Interface class instance.\nInstantiate the class without a body (e.g. just `${sym.typeRef.parents.head.typeSymbol.name}()`)",
+            tree.srcPos
+          )
         dfcArgStack = ContextArg.at(tree).get :: dfcArgStack
       case _ =>
+    end match
     ctx
+  end prepareForTypeDef
 
   private def clsMetaArgsOverrideDef(owner: Symbol, clsMetaArgsTree: Tree)(using
       Context
