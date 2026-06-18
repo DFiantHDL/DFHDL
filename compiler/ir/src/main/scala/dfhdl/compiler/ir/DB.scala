@@ -1945,21 +1945,39 @@ object DB:
   // and old-style flat DBs carry an empty `subDBs`, so the recursion terminates
   // immediately (one level: root -> its sub-DBs). `subDBs` is serialized as an
   // ordered list of (key, sub-DB) pairs to preserve the elaboration-order ListMap.
+  // Each sub-DB is serialized as its own JSON string rather than a nested `DB`.
+  // This keeps `DBSerialized` free of any reference to `DB`, so deriving
+  // `ReadWriter[DBSerialized]` does not recursively summon `ReadWriter[DB]` (which
+  // would trigger a spurious "Infinite loop in function body" warning). The
+  // recursion now happens only at runtime inside the mapping functions below.
   private type DBSerialized =
     (
         List[DFMember],
         Map[DFRefAny, DFMember],
         DFTags,
         List[SourceFile],
-        List[(StaticRef, DB)]
+        List[(StaticRef, String)]
     )
-  @scala.annotation.nowarn("msg=Infinite loop")
   given ReadWriter[DB] =
     readwriter[DBSerialized].bimap[DB](
-      db => (db.members, db.refTable, db.globalTags, db.srcFiles, db.subDBs.toList),
+      db =>
+        (
+          db.members,
+          db.refTable,
+          db.globalTags,
+          db.srcFiles,
+          db.subDBs.toList.map((ref, subDB) => ref -> write(subDB))
+        ),
       { case (members, refTable, globalTags, srcFiles, subDBs) =>
         if (subDBs.isEmpty) DB(members, refTable, globalTags, srcFiles)
-        else DB(members, refTable, globalTags, srcFiles, ListMap.from(subDBs))
+        else
+          DB(
+            members,
+            refTable,
+            globalTags,
+            srcFiles,
+            ListMap.from(subDBs.map((ref, json) => ref -> read[DB](json)))
+          )
       }
     )
   extension (db: DB)
