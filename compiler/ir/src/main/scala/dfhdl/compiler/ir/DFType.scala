@@ -552,8 +552,9 @@ final case class DFInterface(
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFInterface =>
+      this.fieldMap.size == that.fieldMap.size &&
       this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, flL), (fnR, frR)) =>
-        fnL == fnR && flL.dfType.isSimilarTo(frR.dfType) && flL.dir == frR.dir
+        fnL == fnR && flL.isSimilarTo(frR)
       }
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = fieldMap.values.flatMap(_.getRefs).toList
@@ -569,15 +570,17 @@ end DFInterface
 object DFInterface extends DFType.Companion[DFInterface, Unit]:
   type Ref = DFRef.OneWay[DFDesignBlock]
   // A field of an interface (or a resolved view): its DFType plus its direction.
-  // For a leaf port `dir` is the declared/resolved direction (VAR = flippable,
-  // IN/OUT = anchored). For a nested field `dfType` is itself a DFInterface (in a
-  // declaration) or a DFView (in a resolved view), which is self-describing, so
+  // For a leaf port `dir` is the declared/resolved direction (VAR = flippable;
+  // IN / OUT / INOUT = anchored). For a nested field `dfType` is itself a DFInterface
+  // (in a declaration) or a DFView (in a resolved view), which is self-describing, so
   // `dir` is unused. Extending `HasRefCompare` gives `=~`/`getRefs`/`copyWithNewRefs`
   // and lets a `ListMap[String, Field]` be compared with `=~` directly.
   final case class Field(dfType: DFType, dir: DFVal.Modifier.Dir)
       extends HasRefCompare[Field] derives ReadWriter:
     protected def `prot_=~`(that: Field)(using MemberGetSet): Boolean =
       this.dfType =~ that.dfType && this.dir == that.dir
+    def isSimilarTo(that: Field)(using MemberGetSet): Boolean =
+      this.dfType.isSimilarTo(that.dfType) && this.dir == that.dir
     lazy val getRefs: List[DFRef.TypeRef] = dfType.getRefs
     def copyWithNewRefs(using RefGen): this.type =
       copy(dfType = dfType.copyWithNewRefs).asInstanceOf[this.type]
@@ -626,19 +629,18 @@ final case class DFView(
     })
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFView =>
+      // `projectedFieldMap` (a ListMap of HasRefCompare `Field`s) folds in both the leaf
+      // `dirMap` and the `nestedMap` sub-views, so a single `=~` covers the whole overlay.
       this.name == that.name && this.interfaceType =~ that.interfaceType &&
-      this.dirMap.size == that.dirMap.size &&
-      this.dirMap.forall { case (k, d) => that.dirMap.get(k).contains(d) } &&
-      this.nestedMap.size == that.nestedMap.size &&
-      this.nestedMap.forall { case (k, v) => that.nestedMap.get(k).exists(_ =~ v) }
+      this.projectedFieldMap =~ that.projectedFieldMap
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFView =>
       this.name == that.name && this.interfaceType.isSimilarTo(that.interfaceType) &&
-      this.dirMap.size == that.dirMap.size &&
-      this.dirMap.forall { case (k, d) => that.dirMap.get(k).contains(d) } &&
-      this.nestedMap.size == that.nestedMap.size &&
-      this.nestedMap.forall { case (k, v) => that.nestedMap.get(k).exists(_.isSimilarTo(v)) }
+      this.projectedFieldMap.size == that.projectedFieldMap.size &&
+      this.projectedFieldMap.lazyZip(that.projectedFieldMap).forall {
+        case ((fnL, flL), (fnR, frR)) => fnL == fnR && flL.isSimilarTo(frR)
+      }
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] =
     interfaceType.getRefs ++ nestedMap.values.flatMap(_.getRefs)
@@ -648,6 +650,8 @@ final case class DFView(
   ).asInstanceOf[this.type]
 
   // ---- direction transforms (recursive into nested views) ----
+  // INOUT is its own converse (and VAR/VIEW are not flippable directions), so only
+  // IN/OUT swap; everything else passes through unchanged.
   private def invert(dir: DFVal.Modifier.Dir): DFVal.Modifier.Dir = dir match
     case DFVal.Modifier.IN  => DFVal.Modifier.OUT
     case DFVal.Modifier.OUT => DFVal.Modifier.IN
