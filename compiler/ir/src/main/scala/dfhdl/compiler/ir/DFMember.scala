@@ -282,8 +282,21 @@ object DFVal:
       def isPort: Boolean = mod.dir match
         case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
         case _                                           => false
+    // The projection terminal applied to a view at a use site (1:1 with the
+    // frontend terminals ASIS / FLIP / FLIPALL / MONITOR / DRIVER).
+    enum Terminal derives CanEqual, ReadWriter:
+      case AsIs, Flip, FlipAll, Monitor, Driver
+    // Where a view value lives: a `Template` declared inside the interface, or a
+    // `Projection` of a template onto an instance via a given terminal.
+    enum ViewSite derives CanEqual, ReadWriter:
+      case Template
+      case Projection(terminal: Terminal)
     enum Dir derives CanEqual, ReadWriter:
       case VAR, IN, OUT, INOUT
+      // IR-only: marks a `DFView`-typed declaration as a view template/projection.
+      // Never produced by a user port declaration. Parametrized, so it is auto-
+      // excluded by the wildcard fall-through in the `isPort`/`isVar`/... predicates.
+      case VIEW(site: ViewSite)
     export Dir.{VAR, IN, OUT, INOUT}
     enum Special derives CanEqual, ReadWriter:
       case Ordinary, REG, SHARED

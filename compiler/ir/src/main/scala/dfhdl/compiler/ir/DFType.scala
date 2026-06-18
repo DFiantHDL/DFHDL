@@ -534,7 +534,7 @@ object DFTuple:
 /////////////////////////////////////////////////////////////////////////////
 final case class DFInterface(
     interfaceRef: DFInterface.Ref,
-    fieldMap: ListMap[String, DFType]
+    fieldMap: ListMap[String, DFInterface.Field]
 ) extends ComposedDFType derives ReadWriter:
   type Data = Unit
   private def noTypeErr = throw new Exception(s"Unexpected access to $this data type")
@@ -548,15 +548,12 @@ final case class DFInterface(
     case that: DFInterface =>
       // interfaceRef is intentionally compared by regular equality (not `=~`) because
       // it is a OneWay ref unified with the interface block's ownerRef.
-      this.interfaceRef == that.interfaceRef &&
-      this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, ftL), (fnR, ftR)) =>
-        fnL == fnR && ftL =~ ftR
-      }
+      this.interfaceRef == that.interfaceRef && this.fieldMap =~ that.fieldMap
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFInterface =>
-      this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, ftL), (fnR, ftR)) =>
-        fnL == fnR && ftL.isSimilarTo(ftR)
+      this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, flL), (fnR, frR)) =>
+        fnL == fnR && flL.dfType.isSimilarTo(frR.dfType) && flL.dir == frR.dir
       }
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = fieldMap.values.flatMap(_.getRefs).toList
@@ -571,78 +568,110 @@ end DFInterface
 
 object DFInterface extends DFType.Companion[DFInterface, Unit]:
   type Ref = DFRef.OneWay[DFDesignBlock]
+  // A field of an interface (or a resolved view): its DFType plus its direction.
+  // For a leaf port `dir` is the declared/resolved direction (VAR = flippable,
+  // IN/OUT = anchored). For a nested field `dfType` is itself a DFInterface (in a
+  // declaration) or a DFView (in a resolved view), which is self-describing, so
+  // `dir` is unused. Extending `HasRefCompare` gives `=~`/`getRefs`/`copyWithNewRefs`
+  // and lets a `ListMap[String, Field]` be compared with `=~` directly.
+  final case class Field(dfType: DFType, dir: DFVal.Modifier.Dir)
+      extends HasRefCompare[Field] derives ReadWriter:
+    protected def `prot_=~`(that: Field)(using MemberGetSet): Boolean =
+      this.dfType =~ that.dfType && this.dir == that.dir
+    lazy val getRefs: List[DFRef.TypeRef] = dfType.getRefs
+    def copyWithNewRefs(using RefGen): this.type =
+      copy(dfType = dfType.copyWithNewRefs).asInstanceOf[this.type]
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
 // DFView
 // ------
 // A directed view over a DFInterface (the IR of a SV modport / VHDL mode view).
-// `AsIs` carries a per-leaf-port direction overlay (`dirMap`); a nested-view
-// field's directions live in its own DFView type inside `interfaceType`.
-// `Flipped` is the converse of another view (the IR analog of VHDL `'converse`),
-// inverting directions recursively. The frontend `.flip` normalizes
-// Flipped(Flipped(v)) -> v, so `Flipped` always wraps a base `AsIs` view.
+// A single concrete type carrying the *resolved* per-field directions in
+// `fieldMap` (parallel to the interface's shape): a leaf field is (scalar, dir);
+// a nested field is (nested DFView, _) and is self-describing. The direction
+// transforms recompute a new view, recursing into nested views: `flip` consults
+// the *declared* dirs in `interfaceType` to leave anchored (IN/OUT-declared)
+// leaves untouched, while `flipAll`/`monitor`/`driver` ignore that distinction.
 /////////////////////////////////////////////////////////////////////////////
-sealed trait DFView extends NamedDFType, ComposedDFType derives ReadWriter:
-  def interfaceType: DFInterface
+final case class DFView(
+    interfaceType: DFInterface,
+    name: String,
+    // direction overlay over `interfaceType`, for LEAF ports only. The field
+    // DFTypes are NOT repeated here — they live in `interfaceType`.
+    dirMap: Map[String, DFVal.Modifier.Dir],
+    // the chosen sub-view per nested field (whose declared type in `interfaceType`
+    // is an undirected nested DFInterface). This is the only structure a view adds
+    // beyond `interfaceType`, so nothing is reduplicated.
+    nestedMap: ListMap[String, DFView]
+) extends NamedDFType, ComposedDFType derives ReadWriter:
   type Data = Unit
   private def noTypeErr = throw new Exception(s"Unexpected access to $this data type")
-  final def widthIntOpt(using MemberGetSet): Option[Int] = None
-  final def createBubbleData(using MemberGetSet): Data = noTypeErr
-  final def isDataBubble(data: Data): Boolean = noTypeErr
-  final def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
-  final def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
-  final def defaultData(using MemberGetSet): Data = noTypeErr
+  def widthIntOpt(using MemberGetSet): Option[Int] = None
+  def createBubbleData(using MemberGetSet): Data = noTypeErr
+  def isDataBubble(data: Data): Boolean = noTypeErr
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
+  def defaultData(using MemberGetSet): Data = noTypeErr
+  def updateName(newName: String)(using MemberGetSet): this.type =
+    copy(name = newName).asInstanceOf[this.type]
+  // The full, directed field map of this view: `interfaceType`'s structure with the
+  // resolved directions merged in (leaf dirs from `dirMap`; nested fields replaced by
+  // their chosen sub-view). Derived on demand, so nothing is stored redundantly.
+  lazy val projectedFieldMap: ListMap[String, DFInterface.Field] =
+    ListMap.from(interfaceType.fieldMap.view.map { case (fname, field) =>
+      nestedMap.get(fname) match
+        case Some(nestedView) => fname -> field.copy(dfType = nestedView)
+        case None             => fname -> field.copy(dir = dirMap.getOrElse(fname, field.dir))
+    })
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFView =>
+      this.name == that.name && this.interfaceType =~ that.interfaceType &&
+      this.dirMap.size == that.dirMap.size &&
+      this.dirMap.forall { case (k, d) => that.dirMap.get(k).contains(d) } &&
+      this.nestedMap.size == that.nestedMap.size &&
+      this.nestedMap.forall { case (k, v) => that.nestedMap.get(k).exists(_ =~ v) }
+    case _ => false
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFView =>
+      this.name == that.name && this.interfaceType.isSimilarTo(that.interfaceType) &&
+      this.dirMap.size == that.dirMap.size &&
+      this.dirMap.forall { case (k, d) => that.dirMap.get(k).contains(d) } &&
+      this.nestedMap.size == that.nestedMap.size &&
+      this.nestedMap.forall { case (k, v) => that.nestedMap.get(k).exists(_.isSimilarTo(v)) }
+    case _ => false
+  lazy val getRefs: List[DFRef.TypeRef] =
+    interfaceType.getRefs ++ nestedMap.values.flatMap(_.getRefs)
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    interfaceType = interfaceType.copyWithNewRefs,
+    nestedMap = ListMap.from(nestedMap.view.mapValues(_.copyWithNewRefs))
+  ).asInstanceOf[this.type]
 
-object DFView:
-  // A base (directly-defined) view: `dirMap` assigns a direction to each leaf
-  // port of `interfaceType`; nested-view fields carry their own directions.
-  final case class AsIs(
-      interfaceType: DFInterface,
-      instName: String,
-      name: String,
-      dirMap: Map[String, DFVal.Modifier.Dir]
-  ) extends DFView:
-    def updateName(newName: String)(using MemberGetSet): this.type =
-      copy(name = newName).asInstanceOf[this.type]
-    protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
-      case that: AsIs =>
-        this.interfaceType =~ that.interfaceType &&
-        this.instName == that.instName &&
-        this.name == that.name &&
-        this.dirMap.size == that.dirMap.size &&
-        this.dirMap.forall { case (k, d) => that.dirMap.get(k).contains(d) }
-      case _ => false
-    def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
-      case that: AsIs =>
-        this.interfaceType.isSimilarTo(that.interfaceType) &&
-        this.name == that.name &&
-        this.dirMap.size == that.dirMap.size &&
-        this.dirMap.forall { case (k, d) => that.dirMap.get(k).contains(d) }
-      case _ => false
-    lazy val getRefs: List[DFRef.TypeRef] = interfaceType.getRefs
-    def copyWithNewRefs(using RefGen): this.type =
-      copy(interfaceType = interfaceType.copyWithNewRefs).asInstanceOf[this.type]
-  end AsIs
-
-  // The converse of a base view (≙ VHDL `'converse`): same structure, all
-  // directions inverted recursively.
-  final case class Flipped(name: String, view: DFView.AsIs) extends DFView:
-    def interfaceType: DFInterface = view.interfaceType
-    def updateName(newName: String)(using MemberGetSet): this.type =
-      copy(name = newName).asInstanceOf[this.type]
-    protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
-      case that: Flipped =>
-        this.name == that.name && this.view =~ that.view
-      case _ => false
-    def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
-      case that: Flipped =>
-        this.name == that.name && this.view.isSimilarTo(that.view)
-      case _ => false
-    lazy val getRefs: List[DFRef.TypeRef] = view.getRefs
-    def copyWithNewRefs(using RefGen): this.type =
-      copy(view = view.copyWithNewRefs).asInstanceOf[this.type]
-  end Flipped
+  // ---- direction transforms (recursive into nested views) ----
+  private def invert(dir: DFVal.Modifier.Dir): DFVal.Modifier.Dir = dir match
+    case DFVal.Modifier.IN  => DFVal.Modifier.OUT
+    case DFVal.Modifier.OUT => DFVal.Modifier.IN
+    case other              => other
+  private def mapDirs(
+      leaf: (DFVal.Modifier.Dir, DFVal.Modifier.Dir) => DFVal.Modifier.Dir,
+      recurse: DFView => DFView
+  ): DFView = copy(
+    dirMap = dirMap.map { case (k, cur) =>
+      // consult the declared dir to decide whether the leaf is anchored
+      val declared = interfaceType.fieldMap.get(k).fold(cur)(_.dir)
+      k -> leaf(declared, cur)
+    },
+    nestedMap = ListMap.from(nestedMap.view.mapValues(recurse))
+  )
+  // flip: invert flippable (VAR-declared) leaves only; anchored leaves pass through.
+  def flip: DFView =
+    mapDirs((declared, cur) => if (declared == DFVal.Modifier.VAR) invert(cur) else cur, _.flip)
+  // flipAll: invert every leaf (≙ VHDL `'converse`), anchored included.
+  def flipAll: DFView = mapDirs((_, cur) => invert(cur), _.flipAll)
+  // monitor: force every leaf to an input (observe-all).
+  def monitor: DFView = mapDirs((_, _) => DFVal.Modifier.IN, _.monitor)
+  // driver: force every leaf to an output (drive-all).
+  def driver: DFView = mapDirs((_, _) => DFVal.Modifier.OUT, _.driver)
 end DFView
 /////////////////////////////////////////////////////////////////////////////
 
