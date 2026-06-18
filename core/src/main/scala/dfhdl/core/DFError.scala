@@ -65,10 +65,16 @@ class DFWarning(
 )(using dfc: DFC)
     extends LogEvent derives CanEqual:
   import dfc.getSet
-  val designName = dfc.ownerOption match
+  // TODO: revisit this in the future, since maybe laziness will get a wrong position
+  // ---
+  // Names are computed lazily: a warning may be constructed while its design is
+  // still mid-elaboration (its `designInstCache` not yet set). Deferring the
+  // lookup to `toString` time -- which happens at the end of top-level
+  // elaboration -- ensures all design inst caches are populated.
+  lazy val designName = dfc.ownerOption match
     case Some(owner) => owner.asIR.getThisOrOwnerDesign.getFullName
     case None        => ""
-  val fullName =
+  lazy val fullName =
     if (dfc.isAnonymous) designName
     else if (designName.nonEmpty) s"$designName.${dfc.name}"
     else dfc.name
