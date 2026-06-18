@@ -123,7 +123,7 @@ class GoodIfc extends Interface:
 /// admonition | Why ports are protected
     type: note
 A view, not a raw port, is the public surface of an interface. Ports are the internal
-wiring, reachable only through a view's `.VIEW` projection. Marking them `protected` means
+wiring, reachable only through a view's `.ASIS` projection. Marking them `protected` means
 Scala's own access control (enforced by the typechecker) blocks any `ifc.data` selection
 from outside the interface, and the ports are hidden from IDE autocomplete. This keeps every
 connection going through a *directed* view, so the compiler can check directionality. The
@@ -199,7 +199,7 @@ languages: a VHDL-2019 `'converse` alias, or an inverted SystemVerilog `modport`
 
 ### The generic view {#generic-view}
 
-Every interface instance also exposes a generic, undirected view through `.VIEW` directly
+Every interface instance also exposes a generic, undirected view through `.ASIS` directly
 on the instance (without naming a declared view). The generic view carries all ports with
 no enforced direction and is useful for internal wiring where directionality is not being
 checked. Prefer a named, directed view for design boundaries. A generic projection also
@@ -264,14 +264,14 @@ class Producer extends RTDesign:
   // ...
 ```
 
-### Projecting a view: `instance.view.VIEW` {#projecting-a-view}
+### Projecting a view: `instance.view.ASIS` {#projecting-a-view}
 
-To obtain a connectable value, select a declared view on the instance and call `.VIEW`.
+To obtain a connectable value, select a declared view on the instance and call `.ASIS`.
 This *projects* the view onto that specific instance:
 
 ```scala linenums="0"
-val src = io.source.VIEW   // the producer side of `io`
-val snk = io.sink.VIEW     // the consumer side of `io`
+val src = io.source.ASIS   // the producer side of `io`
+val snk = io.sink.ASIS     // the consumer side of `io`
 ```
 
 Because the interface ports are `protected`, `io.data` is rejected by the compiler; all
@@ -279,13 +279,13 @@ access goes through a view's projection terminal.
 
 #### Projection terminals {#projection-terminals}
 
-`.VIEW` is one of a small family of *projection terminals*. Each one projects the view onto the
+`.ASIS` is one of a small family of *projection terminals*. Each one projects the view onto the
 instance and bakes in a directionality, so you choose the terminal instead of transforming the
 view first. On a named view:
 
 | Terminal | Projects the view... |
 |---|---|
-| `.VIEW`    | as declared |
+| `.ASIS`    | as declared |
 | `.FLIP`    | flipped, anchored ports respected (the same as projecting `view.flip`) |
 | `.FLIPALL` | flipped, anchored ports inverted too |
 | `.MONITOR` | with *every* port forced to an input (observe everything) |
@@ -298,7 +298,7 @@ Unlike `flip`, these overrides exist *only* as projection terminals: there is no
 "forced" view, so an override is always visible at the connection site and can never be hidden
 inside a shared named view.
 
-On the [generic projection](#generic-view) only `.VIEW`, `.MONITOR`, and `.DRIVER` are
+On the [generic projection](#generic-view) only `.ASIS`, `.MONITOR`, and `.DRIVER` are
 available: the flip terminals need declared relative directions to act on, and a generic
 projection's ports carry none, so there is nothing for `.FLIP`/`.FLIPALL` to reverse.
 
@@ -314,8 +314,8 @@ class Link extends RTDesign:
   val io   = Stream(8)
   val prod = Producer()
   val cons = Consumer()
-  prod.out <> io.source.VIEW   // producer drives the source side
-  cons.in  <> io.sink.VIEW     // consumer reads the sink side
+  prod.out <> io.source.ASIS   // producer drives the source side
+  cons.in  <> io.sink.ASIS     // consumer reads the sink side
 ```
 
 A single `<>` here replaces one connection per port (`data`, `valid`, `ready`), and the
@@ -377,8 +377,8 @@ A manager and a subordinate side then connect with a single `<>`:
 
 ```scala linenums="0"
 val bus = Axi4Lite(addrWidth = 32, dataWidth = 32)
-val mgr = bus.manager.VIEW
-val sub = bus.subordinate.VIEW
+val mgr = bus.manager.ASIS
+val sub = bus.subordinate.ASIS
 mgr <> sub   // legal: matches port-per-port through all five nested channels
 ```
 ///
@@ -391,7 +391,7 @@ A view can be replicated into a vector with the `X` operator, mirroring DFHDL
 index:
 
 ```scala linenums="0"
-val managers = Axi4Lite(32, 32).manager.VIEW X 4   // a vector of 4 manager-side views
+val managers = Axi4Lite(32, 32).manager.ASIS X 4   // a vector of 4 manager-side views
 val m0 = managers(0)                               // select element 0
 ```
 
@@ -461,5 +461,5 @@ alias axi4lite_aw_subordinate is axi4lite_aw_manager'converse;
 * An anchored-direction port (`<> IN`/`<> OUT`) may be added to a view only in its declared
   direction, and `flip` never reverses it.
 * Interfaces must be named classes; anonymous instances (`new Ifc() {}`) are rejected.
-* External access to ports is only through a view's projection terminal (`.VIEW`, `.FLIP`,
+* External access to ports is only through a view's projection terminal (`.ASIS`, `.FLIP`,
   `.MONITOR`, etc.).
