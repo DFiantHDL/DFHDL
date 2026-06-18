@@ -99,7 +99,7 @@ end DFRef
 // `<: OneWay[...]` bound) so it is NOT a regular reference: it cannot be resolved,
 // freshened, or placed in a refTable by accident. Use `.asRef` for the deliberate,
 // explicit unwrap when the underlying design-block reference is genuinely needed.
-opaque type StaticRef = DFRef.OneWay[DFDesignBlock]
+into opaque type StaticRef = DFRef.OneWay[DFDesignBlock]
 object StaticRef:
   // The source is `DFOwner.Ref` (the broad owner-ref type) rather than just
   // `OneWay[DFDesignBlock]`: a design block's `ownerRef` is unified with its
