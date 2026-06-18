@@ -381,10 +381,12 @@ object DFVal extends DFValLP:
       ]
   ): InitCheck[I] with {}
   // An interface is purely structural and carries no initial values, so `init`
-  // (and `initFile`) are rejected on its ports/variables. The declaration scope
-  // is carried in the modifier's `A` type parameter (see `<>` in `Modifier`).
-  protected type NotInsideInterface[A] = AssertGiven[
-    util.NotGiven[A <:< DFC.Scope.Interface],
+  // (and `initFile`) are rejected on its ports/variables. Detection is via the
+  // ambient `DFC.Scope.Interface` given (present inside an interface body), NOT the
+  // modifier's `A` type parameter: constraining `A` here destabilizes inference of
+  // register/assignable markers at call sites like `(Bit <> VAR.REG).init(1)`.
+  protected type NotInsideInterface = AssertGiven[
+    util.NotGiven[DFC.Scope.Interface],
     "Cannot initialize a port or variable inside an interface.\nAn interface is purely structural and carries no initial values."
   ]
 
@@ -576,7 +578,7 @@ object DFVal extends DFValLP:
     )(using
         DFC,
         InitCheck[I],
-        NotInsideInterface[A]
+        NotInsideInterface
     ): DFVal[T, Modifier[A, C, Modifier.Initialized, P]] = trydf {
       val tvList =
         initValues.view.filter(_.enable).map(tv => tv(dfVal.dfType)(using dfc.anonymize)).toList
@@ -589,7 +591,7 @@ object DFVal extends DFValLP:
     )(using
         DFC,
         InitCheck[I],
-        NotInsideInterface[A]
+        NotInsideInterface
     ): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized, P]] =
       trydf {
         if (initValues.enable)
@@ -607,7 +609,7 @@ object DFVal extends DFValLP:
     )(using
         dfc: DFC,
         check: InitCheck[I],
-        notInsideInterface: NotInsideInterface[A]
+        notInsideInterface: NotInsideInterface
     ): DFVal[DFVector[T, Tuple1[D1]], Modifier[A, C, Modifier.Initialized, P]] = trydf:
       import dfc.getSet
       val vectorType = dfVal.dfType
