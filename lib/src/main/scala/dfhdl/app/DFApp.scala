@@ -6,7 +6,7 @@ import wvlet.log.{Logger, LogFormatter}
 import scala.collection.mutable
 import dfhdl.options.*
 import org.rogach.scallop.*
-import dfhdl.internals.{sbtShellIsRunning, sbtnIsRunning}
+import dfhdl.internals.{sbtShellIsRunning, sbtnIsRunning, ToolInterruptedException}
 import scala.util.chaining.scalaUtilChainingOps
 import java.time.Instant
 import dfhdl.compiler.stages.{StagedDesign, CompiledDesign}
@@ -356,16 +356,23 @@ trait DFApp:
   end listSimulateTools
 
   private def execute(mode: AppMode): Unit =
-    mode match
-      case AppMode.help      => ???
-      case AppMode.elaborate => elaborate()
-      case AppMode.compile   => compile()
-      case AppMode.commit    => commit()
-      case AppMode.lint      => lint(uncached = true)
-      case AppMode.simulate  => simRun(uncached = true)
-      case AppMode.build     => build()
-      case AppMode.program   => program(uncached = true)
-    end match
+    try
+      mode match
+        case AppMode.help      => ???
+        case AppMode.elaborate => elaborate()
+        case AppMode.compile   => compile()
+        case AppMode.commit    => commit()
+        case AppMode.lint      => lint(uncached = true)
+        case AppMode.simulate  => simRun(uncached = true)
+        case AppMode.build     => build()
+        case AppMode.program   => program(uncached = true)
+      end match
+    catch
+      case _: ToolInterruptedException =>
+        // user cancelled a tool run with Ctrl+C. `Tool.exec` already printed the interruption
+        // notice and killed the tool's process tree, so just stop cleanly here without
+        // re-reporting it (logging the message again is what caused the duplicate print).
+        ()
   end execute
 
   def runManual(appMode: AppMode)(using
