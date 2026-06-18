@@ -568,7 +568,7 @@ final case class DFInterface(
 end DFInterface
 
 object DFInterface extends DFType.Companion[DFInterface, Unit]:
-  type Ref = DFRef.OneWay[DFDesignBlock]
+  type Ref = StaticRef
   // A field of an interface (or a resolved view): its DFType plus its direction.
   // For a leaf port `dir` is the declared/resolved direction (VAR = flippable;
   // IN / OUT / INOUT = anchored). For a nested field `dfType` is itself a DFInterface
@@ -584,6 +584,7 @@ object DFInterface extends DFType.Companion[DFInterface, Unit]:
     lazy val getRefs: List[DFRef.TypeRef] = dfType.getRefs
     def copyWithNewRefs(using RefGen): this.type =
       copy(dfType = dfType.copyWithNewRefs).asInstanceOf[this.type]
+end DFInterface
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

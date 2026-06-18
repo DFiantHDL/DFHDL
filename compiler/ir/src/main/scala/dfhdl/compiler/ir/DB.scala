@@ -22,7 +22,7 @@ final case class DB private (
     // new-style root DB has a populated `subDBs`: a flat ListMap of
     // every design in elaboration order (top first, then descendants). Sub-DBs
     // and old-style flat DBs both have an empty `subDBs`.
-    subDBs: ListMap[DFOwner.Ref, DB] = ListMap.empty
+    subDBs: ListMap[StaticRef, DB] = ListMap.empty
 )(_rootDB: => DB) derives CanEqual:
   private val self = this
   lazy val rootDB: DB = _rootDB
@@ -31,7 +31,7 @@ final case class DB private (
       refTable: Map[DFRefAny, DFMember] = refTable,
       globalTags: DFTags = globalTags,
       srcFiles: List[SourceFile] = srcFiles,
-      subDBs: ListMap[DFOwner.Ref, DB] = subDBs
+      subDBs: ListMap[StaticRef, DB] = subDBs
   ): DB = DB(members, refTable, globalTags, srcFiles, subDBs)
 
   given getSet: MemberGetSet with
@@ -1681,7 +1681,7 @@ final case class DB private (
         refTable = Map.empty,
         globalTags = this.globalTags,
         srcFiles = this.srcFiles,
-        subDBs = ListMap.from(builtSubDBs.iterator.map((d, sub) => d.ownerRef -> sub))
+        subDBs = ListMap.from(builtSubDBs.iterator.map((d, sub) => StaticRef(d.ownerRef) -> sub))
       )
   end oldToNew
 
@@ -1708,8 +1708,8 @@ final case class DB private (
       val canonicalDesign = mutable.Map.empty[DFOwner.Ref, DFDesignBlock]
       subDBs.foreach { (key, subDB) =>
         subDB.members.collectFirst {
-          case d: DFDesignBlock if d.ownerRef == key => d
-        }.foreach(canonicalDesign(key) = _)
+          case d: DFDesignBlock if StaticRef(d.ownerRef) == key => d
+        }.foreach(canonicalDesign(key.asRef) = _)
       }
       def canonicalize(m: DFMember): DFMember = m match
         case d: DFDesignBlock => canonicalDesign.getOrElse(d.ownerRef, d)
@@ -1931,7 +1931,7 @@ object DB:
       refTable: Map[DFRefAny, DFMember],
       globalTags: DFTags,
       srcFiles: List[SourceFile],
-      subDBs: ListMap[DFOwner.Ref, DB]
+      subDBs: ListMap[StaticRef, DB]
   ): DB =
     lazy val updatedSubDBs = subDBs.map((r, subDB) => r -> subDB.copy()(db))
     lazy val db: DB = new DB(members, refTable, globalTags, srcFiles, updatedSubDBs)(db)
@@ -1951,7 +1951,7 @@ object DB:
         Map[DFRefAny, DFMember],
         DFTags,
         List[SourceFile],
-        List[(DFOwner.Ref, DB)]
+        List[(StaticRef, DB)]
     )
   @scala.annotation.nowarn("msg=Infinite loop")
   given ReadWriter[DB] =

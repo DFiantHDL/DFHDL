@@ -120,7 +120,7 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     }
 
     // ---- phase 1: patch the member names, per sub-DB ----
-    val firstStepSubs: ListMap[DFOwner.Ref, DB] = ListMap.from(
+    val firstStepSubs: ListMap[StaticRef, DB] = ListMap.from(
       designDB.subDBs.iterator.map { (key, sub) =>
         val patches = sub.members.collect {
           case m if memberRenamePatches.contains(m) => memberRenamePatches(m)
@@ -166,7 +166,7 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
           }
           patches
         }
-      val secondStepSubs: ListMap[DFOwner.Ref, DB] = ListMap.from(
+      val secondStepSubs: ListMap[StaticRef, DB] = ListMap.from(
         firstStep.subDBs.iterator.map { (key, sub) =>
           val patches = sub.members.collect {
             case m if typeUpdatePatches.contains(m) => typeUpdatePatches(m)

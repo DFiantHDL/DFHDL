@@ -147,7 +147,7 @@ case object DropStructsVecs extends GlobalStage:
       dsn.patch
     end stage1Patch
 
-    val stage1Subs: ListMap[DFOwner.Ref, DB] = ListMap.from(
+    val stage1Subs: ListMap[StaticRef, DB] = ListMap.from(
       designDB.subDBs.iterator.map { (key, sub) =>
         val patchList = sub.atGetSet {
           sub.members.collect {
@@ -246,7 +246,7 @@ case object DropStructsVecs extends GlobalStage:
       dsn.patch
     end stage2Patch
 
-    val stage2Subs: ListMap[DFOwner.Ref, DB] = ListMap.from(
+    val stage2Subs: ListMap[StaticRef, DB] = ListMap.from(
       stage1Root.subDBs.iterator.map { (key, sub) =>
         // we need to reverse the list because we want to handle the innermost partial first
         val patchList2 = sub.atGetSet {

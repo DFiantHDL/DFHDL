@@ -33,7 +33,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
         // TODO: once DFDesignInst.designRef is unified with the child
         // DFDesignBlock.ownerRef (the `subDBs` key), this simplifies to
         // `rootDB.subDBs.get(inst.designRef)` with no block resolution first.
-        rootDB.subDBs.get(childBlock.ownerRef) match
+        rootDB.subDBs.get(StaticRef(childBlock.ownerRef)) match
           case Some(childSub) =>
             childSub.atGetSet {
               childBlock.members(MemberView.Folded).view.collect {
@@ -155,7 +155,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       // DFDesignBlock.ownerRef (the `subDBs` key), the whitelist key `d.ownerRef`
       // is exactly that unified ref.
       val isLiveChildDesign = m match
-        case d: DFDesignBlock => rootDB.subDBs.contains(d.ownerRef)
+        case d: DFDesignBlock => rootDB.subDBs.contains(StaticRef(d.ownerRef))
         case _                => false
       if (!m.isInstanceOf[DFMember.Empty] && !isLiveChildDesign && !memberSet.contains(m))
         reportViolation(s"Ref $r exists for a removed member: $m")

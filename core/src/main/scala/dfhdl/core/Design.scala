@@ -215,7 +215,7 @@ object Design:
         // `containedOwner.asIR`, which may be stale after `setClsNamePos`
         // replaced it. Resolve the ref to reach the current DB version so
         // the cache lives on the block that `getDesignInst` looks up later.
-        inst.designRef.get.setDesignInstCache(inst)
+        inst.designRef.asRef.get.setDesignInstCache(inst)
         dfc.mutableDB.addMember(inst)
       end if
     end apply

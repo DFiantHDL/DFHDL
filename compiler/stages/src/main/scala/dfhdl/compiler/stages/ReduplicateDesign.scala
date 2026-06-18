@@ -103,7 +103,7 @@ abstract class ReduplicateDesign extends GlobalStage:
 
       // ----- Step 4: rewire each touched parent sub-DB -----
       val updatedParents = parentRewires.map { case (parentKey, rewires) =>
-        val parentSubDB = designDB.subDBs(parentKey)
+        val parentSubDB = designDB.subDBs(StaticRef(parentKey))
         parentKey -> rewireParentSubDB(parentSubDB, rewires.toMap)
       }.toMap
 
@@ -125,14 +125,14 @@ abstract class ReduplicateDesign extends GlobalStage:
           }.toMap
           sub.update(members = newMembers, refTable = newRefTable)
 
-      val mergedByKey = mutable.LinkedHashMap.empty[DFOwner.Ref, DB]
+      val mergedByKey = mutable.LinkedHashMap.empty[StaticRef, DB]
       designDB.subDBs.foreach { case (key, sub) =>
-        mergedByKey(key) = applyOriginalRenames(updatedParents.getOrElse(key, sub))
+        mergedByKey(key) = applyOriginalRenames(updatedParents.getOrElse(key.asRef, sub))
       }
-      newClonedSubDBs.foreach { case (key, sub) => mergedByKey(key) = sub }
+      newClonedSubDBs.foreach { case (key, sub) => mergedByKey(StaticRef(key)) = sub }
 
-      val emitted = mutable.LinkedHashMap.empty[DFOwner.Ref, DB]
-      def emit(key: DFOwner.Ref): Unit =
+      val emitted = mutable.LinkedHashMap.empty[StaticRef, DB]
+      def emit(key: StaticRef): Unit =
         if (!emitted.contains(key))
           mergedByKey.get(key).foreach { sub =>
             emitted(key) = sub
@@ -171,7 +171,7 @@ abstract class ReduplicateDesign extends GlobalStage:
       acc: CloneAcc,
       designDB: DB
   )(using RefGen): DFDesignBlock =
-    val origSubDB = designDB.subDBs(d.ownerRef)
+    val origSubDB = designDB.subDBs(StaticRef(d.ownerRef))
 
     // Clone every member; record (oldMember -> newMember) and pairwise
     // (oldRef -> newRef) via the symmetric `getAllRefs` enumeration on
@@ -245,9 +245,7 @@ abstract class ReduplicateDesign extends GlobalStage:
     // resolved structurally via `subDBs`, so it is not added to the parent refTable.
     val instMap: Map[DFMember, DFMember] =
       rewires.map { case (origInst, clonedBlock) =>
-        origInst -> origInst.copy(designRef =
-          clonedBlock.ownerRef.asInstanceOf[DFRef.OneWay[DFDesignBlock]]
-        )
+        origInst -> origInst.copy(designRef = StaticRef(clonedBlock.ownerRef))
       }
     val newMembers = parentSubDB.members.map(m => instMap.getOrElse(m, m))
     // Retarget any ref whose value was an old inst to the new inst.

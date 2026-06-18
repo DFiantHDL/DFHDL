@@ -326,7 +326,7 @@ case object AddClkRst extends GlobalStage:
     // Iterate sub-DBs in elaboration order (top first) so the shared cross-design
     // state accumulates deterministically; build and apply each sub-DB's patches
     // under its own getSet.
-    val newSubDBs = mutable.ListBuffer.empty[(DFOwner.Ref, DB)]
+    val newSubDBs = mutable.ListBuffer.empty[(StaticRef, DB)]
     designDB.subDBs.foreach { case (subKey, subDB) =>
       val patchList = subDB.atGetSet(subDBPatches(subDB))
       newSubDBs += subKey -> (if (patchList.isEmpty) subDB else subDB.patch(patchList))

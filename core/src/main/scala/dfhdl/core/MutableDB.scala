@@ -10,6 +10,7 @@ import dfhdl.compiler.ir.{
   DFOwner,
   DFRef,
   DFRefAny,
+  StaticRef,
   DFTag,
   DFVal,
   DFType,
@@ -637,8 +638,9 @@ final class MutableDB():
         // and refTable occurrences of the same inst — which may be distinct objects —
         // both map to EQUAL unified copies.
         def unifyInst(inst: DFDesignInst): DFDesignInst =
-          val target = dupToOrigDesignMap.getOrElse(inst.designRef.get, inst.designRef.get)
-          inst.copy(designRef = target.ownerRef.asInstanceOf[DFDesignInst.DesignRef])
+          val target =
+            dupToOrigDesignMap.getOrElse(inst.designRef.asRef.get, inst.designRef.asRef.get)
+          inst.copy(designRef = StaticRef(target.ownerRef))
         val finalMembers = members.flatMap {
           case m: DFVal if m.isGlobal => Some(finalFixFunc(m))
           case m: (DomainBlock | DFVal) if dupToOrigDesignMap.contains(m.getOwnerDesign) =>
@@ -694,7 +696,7 @@ final class MutableDB():
         m match
           // DFDesignInst's designRef is a OneWay.Gen ref outside of getRefs
           // (which only carries TwoWay refs); keep it from being swept away.
-          case inst: DFDesignInst => memberOwnerRefs += inst.designRef
+          case inst: DFDesignInst => memberOwnerRefs += inst.designRef.asRef
           case _                  =>
       }
       refTable.filter { (r, _) =>

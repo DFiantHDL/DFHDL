@@ -74,10 +74,10 @@ case object UniqueDesigns extends GlobalStage:
         canonicalRenames.iterator.map { (canon, newName) =>
           canon -> canon.copy(meta = canon.meta.copy(nameOpt = Some(newName)))
         }.toMap
-      val newSubDBs: ListMap[DFOwner.Ref, DB] = ListMap.from(
+      val newSubDBs: ListMap[StaticRef, DB] = ListMap.from(
         designDB.subDBs.iterator.flatMap { (key, sub) =>
           // drop the redundant duplicate sub-DBs entirely
-          if (dupKeys.contains(key)) None
+          if (dupKeys.contains(key.asRef)) None
           else
             val instReplace = collection.mutable.Map.empty[DFDesignInst, DFDesignInst]
             val newMembers = sub.members.map {
@@ -85,9 +85,9 @@ case object UniqueDesigns extends GlobalStage:
               case d: DFDesignBlock if canonicalReplace.contains(d) => canonicalReplace(d)
               // retarget a parent inst that targeted a duplicate onto the canonical
               // key (its `designRef` IS that key under unification)
-              case inst: DFDesignInst if dupKeyToCanonicalKey.contains(inst.designRef) =>
+              case inst: DFDesignInst if dupKeyToCanonicalKey.contains(inst.designRef.asRef) =>
                 val newInst = inst.copy(designRef =
-                  dupKeyToCanonicalKey(inst.designRef).asInstanceOf[DFDesignInst.DesignRef]
+                  StaticRef(dupKeyToCanonicalKey(inst.designRef.asRef))
                 )
                 instReplace(inst) = newInst
                 newInst

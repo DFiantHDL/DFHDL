@@ -301,6 +301,7 @@ object DFVal:
     enum Special derives CanEqual, ReadWriter:
       case Ordinary, REG, SHARED
     export Special.{Ordinary, REG, SHARED}
+  end Modifier
 
   extension (dfVal: DFVal)
     def isPort: Boolean = dfVal match
@@ -1666,12 +1667,12 @@ final case class DFDesignInst(
   // Each non-mutable path falls back to `designRef.get` for the pre-unification
   // form (where `designRef` is still a distinct parent-side refTable entry).
   def getDesignBlock(using getSet: MemberGetSet): DFDesignBlock =
-    if (getSet.isMutable) designRef.get
+    if (getSet.isMutable) designRef.asRef.get
     else
       val root = getSet.designDB.rootDB
       if (root.isRoot)
-        root.subDBs.get(designRef).map(_.top).getOrElse(designRef.get)
-      else root.designBlockByKey.getOrElse(designRef, designRef.get)
+        root.subDBs.get(designRef).map(_.top).getOrElse(designRef.asRef.get)
+      else root.designBlockByKey.getOrElse(designRef.asRef, designRef.asRef.get)
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignInst =>
       // `designRef` is unified with the child block's `ownerRef` (the sub-DB key)
@@ -1702,7 +1703,7 @@ final case class DFDesignInst(
 end DFDesignInst
 
 object DFDesignInst:
-  type DesignRef = DFRef.OneWay[DFDesignBlock]
+  type DesignRef = StaticRef
   type ParamRef = DFRef.TwoWay[DFVal, DFDesignInst]
   type ParamMap = ListMap[String, ParamRef]
 

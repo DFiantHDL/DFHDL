@@ -22,12 +22,12 @@ case object DropDesignDefs extends GlobalStage:
     // lands in the def design's own sub-DB. `newToOld` canonicalizes the parents'
     // cross-sub-DB `designRef`s onto the now-Normal block.
     val patchesByKey =
-      mutable.LinkedHashMap.empty[DFOwner.Ref, mutable.ListBuffer[(DFMember, Patch)]]
-    def addPatch(key: DFOwner.Ref, patch: (DFMember, Patch)): Unit =
+      mutable.LinkedHashMap.empty[StaticRef, mutable.ListBuffer[(DFMember, Patch)]]
+    def addPatch(key: StaticRef, patch: (DFMember, Patch)): Unit =
       patchesByKey.getOrElseUpdate(key, mutable.ListBuffer.empty) += patch
     // For each def design (computed once), the name prefix derived from its output
     // port's `suggestName`, reused to name every anonymous instance of it.
-    val suggestPrefixByDef = mutable.Map.empty[DFOwner.Ref, String]
+    val suggestPrefixByDef = mutable.Map.empty[StaticRef, String]
 
     designDB.subDBs.foreach { (parentKey, parentSubDB) =>
       parentSubDB.members.foreach {
@@ -38,7 +38,7 @@ case object DropDesignDefs extends GlobalStage:
                   domainType = DomainType.DF,
                   instMode = InstMode.Def
                 ) =>
-              val defKey = design.ownerRef
+              val defKey = StaticRef(design.ownerRef)
               // On the first instance of a given def design, stage its conversion
               // patches (in the def design's own sub-DB) and cache the output-port-
               // derived name prefix reused by every anonymous instance.

@@ -227,7 +227,7 @@ case object GlobalizePortVectorParams extends HierarchyStage:
         val parentSubOpt = instOpt.flatMap { inst =>
           rootDB.subDBs.values.find(_.members.exists(_ eq inst))
         }
-        val designSub = rootDB.subDBs.get(design.ownerRef).getOrElse(topSub)
+        val designSub = rootDB.subDBs.get(StaticRef(design.ownerRef)).getOrElse(topSub)
         val parentDesignOpt = parentSubOpt.flatMap(
           _.members.collectFirst { case d: DFDesignBlock => d }
         )
@@ -389,7 +389,7 @@ case object GlobalizePortVectorParams extends HierarchyStage:
     val out = mutable.Map.empty[DFVector, DFVector]
     def pbnsPortType(pbns: DFVal.PortByNameSelect): Option[DFVector] =
       val target = pbns.designInstRef.get.getDesignBlock
-      rootDB.subDBs.get(target.ownerRef).flatMap { tsub =>
+      rootDB.subDBs.get(StaticRef(target.ownerRef)).flatMap { tsub =>
         tsub.atGetSet {
           tsub.members.collectFirst {
             case dcl: DFVal.Dcl
