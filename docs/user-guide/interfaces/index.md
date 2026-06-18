@@ -165,11 +165,13 @@ to mix directions:
 val v1 = view.out(a, b)          // a, b are outputs of the using design
 val v2 = view.in(a, b, c)        // a, b, c are inputs of the using design
 val v3 = view.in(a, b).out(c)    // mixed: a, b inputs; c output
+val v4 = view.in(a).inout(b)     // b is bidirectional
 ```
 
-The ports passed to `view.in`/`view.out` must be ports declared in *this* interface; the
-builder reads them by reference. A view is itself a public `val`; it is the member you
-reach through from outside the interface.
+The ports passed to `view.in`/`view.out`/`view.inout` must be ports declared in *this*
+interface; the builder reads them by reference. A view is itself a public `val`; it is the
+member you reach through from outside the interface. A port given `inout` keeps that direction
+under `flip` (`inout` is its own converse).
 
 ### Direction perspective {#direction-perspective}
 
@@ -214,8 +216,8 @@ view gives them a *relative* direction that `flip` reverses. Some signals, thoug
 example is a clock or reset: it enters an interface one way and is observed identically by
 everyone connected to it.
 
-For these, declare the port with an *anchored* direction, `<> IN` or `<> OUT`, instead of
-`<> VAR`:
+For these, declare the port with an *anchored* direction, `<> IN`, `<> OUT`, or `<> INOUT`,
+instead of `<> VAR`:
 
 ```scala linenums="0"
 class Bus(protected val width: Int <> CONST) extends Interface:
@@ -237,6 +239,10 @@ Anchored ports follow two rules:
 * **`flip` leaves anchored ports untouched.** It reverses only the flippable ports of a view
   (recursing through nested views), so an anchored `clk : in` stays `in` on both the `manager`
   and the `subordinate` side.
+
+A bidirectional `<> INOUT` port is a special case: `inout` is its own converse, so `flip` (and
+`flipAll`) leave it `inout` on both sides. It maps directly to a SystemVerilog `inout` modport
+entry and a VHDL mode-view `inout` element (whose `'converse` is also `inout`).
 
 ### How anchored ports affect connections {#anchored-connections}
 
