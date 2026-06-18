@@ -19,11 +19,15 @@ connection instead of dozens of per-port connections.
   processes, connections, or assignments).
 * _port_ - A value declared inside an interface (e.g. `Bits(8) <> VAR`). Ports are
   internal to the interface and are exposed only through a view.
+* _flippable port_ - A `<> VAR` port: undirected at declaration, given a *relative*
+  direction by each view (opposite on the two ends of a connection). This is the default.
+* _anchored-direction port_ - A `<> IN` or `<> OUT` port: its direction is *absolute* (the
+  same for every side, never reversed by `flip`), like a clock or reset.
 * _view_ - A named, directional projection of an interface's ports. A view assigns each
   port a direction (`in`/`out`) *from the point of view of the design that uses it*. An
   interface may declare several views over the same ports.
-* _flip_ - The converse of a view: every `in` becomes `out` and every `out` becomes `in`.
-  Used to derive the opposite side of a protocol (e.g. `subordinate = manager.flip`).
+* _flip_ - The converse of a view: every flippable `in` becomes `out` and every `out` becomes
+  `in`. Used to derive the opposite side of a protocol (e.g. `subordinate = manager.flip`).
 * _interface instance_ - An interface class instantiated inside a design, exactly like a
   child design instance.
 ///
@@ -88,9 +92,11 @@ end _name_ //optional `end` marker
   preserved through compilation and may shape port widths; pure Scala parameters are
   inlined during elaboration. Interface parameters must be `protected` (see below).
 
-* __`_port_`__ - An interface port, declared just like a design [variable/port][Dcl] but
-  always with the `<> VAR` modifier. Ports are undirected at declaration; a view assigns
-  each port its direction. Ports must be `protected`.
+* __`_port_`__ - An interface port, declared just like a design [variable/port][Dcl]. A
+  `<> VAR` port is *flippable*: undirected at declaration, with a view assigning its direction.
+  A `<> IN` or `<> OUT` port is *anchored*: its direction is fixed at declaration and never
+  reversed by a view or by `flip` (see [Anchored-Direction Ports](#anchored-ports)). Ports
+  must be `protected`.
 
 * __`_view_`__ - A named view built with the `view` builder (see [Views](#views)).
 
@@ -196,7 +202,54 @@ languages: a VHDL-2019 `'converse` alias, or an inverted SystemVerilog `modport`
 Every interface instance also exposes a generic, undirected view through `.VIEW` directly
 on the instance (without naming a declared view). The generic view carries all ports with
 no enforced direction and is useful for internal wiring where directionality is not being
-checked. Prefer a named, directed view for design boundaries.
+checked. Prefer a named, directed view for design boundaries. A generic projection also
+supports the `.MONITOR` and `.DRIVER` terminals (see [Projection terminals](#projection-terminals));
+it has no `.FLIP`/`.FLIPALL`, because its ports carry no direction to flip.
+
+## Anchored-Direction Ports {#anchored-ports}
+
+Most interface ports are *flippable* (`<> VAR`): they have no direction of their own, and each
+view gives them a *relative* direction that `flip` reverses. Some signals, though, have an
+*absolute* direction that is the same for every side and must never be reversed. The canonical
+example is a clock or reset: it enters an interface one way and is observed identically by
+everyone connected to it.
+
+For these, declare the port with an *anchored* direction, `<> IN` or `<> OUT`, instead of
+`<> VAR`:
+
+```scala linenums="0"
+class Bus(protected val width: Int <> CONST) extends Interface:
+  protected val clk   = Bit         <> IN    // anchored: always an input
+  protected val data  = Bits(width) <> VAR   // flippable
+  protected val valid = Bit         <> VAR   // flippable
+  val manager     = view.in(clk).out(data, valid)
+  val subordinate = manager.flip             // data/valid flip; clk stays `in`
+```
+
+An anchored port is the DFHDL counterpart of a SystemVerilog interface *header port* (the
+`(input clk, ...)` list): the direction belongs to the signal itself, not to the view.
+
+Anchored ports follow two rules:
+
+* **A view may use an anchored port only in its declared direction.** Adding a `<> OUT` port
+  with `view.in(...)` (or a `<> IN` port with `view.out(...)`) is a compile error. Flippable
+  ports, by contrast, take whichever direction the view assigns.
+* **`flip` leaves anchored ports untouched.** It reverses only the flippable ports of a view
+  (recursing through nested views), so an anchored `clk : in` stays `in` on both the `manager`
+  and the `subordinate` side.
+
+### How anchored ports affect connections {#anchored-connections}
+
+Because an anchored port keeps its direction on both sides, what a `<>` connection wires up
+depends on where the connection is made:
+
+* **Between sibling designs** (a view connected to its `flip`): only the *flippable* ports are
+  connected. Anchored ports are left for you to wire separately, since both ends see the same
+  direction (two `clk : in` ports cannot drive each other); a shared clock is typically routed
+  from a common source.
+* **From a parent design down into a child** (a view connected to the same-orientation view, no
+  `flip`): *all* ports are connected, flippable and anchored alike, so the parent passes its
+  anchored inputs (such as `clk`/`rst`) down into the child.
 
 ## Using an Interface in a Design
 
@@ -222,7 +275,32 @@ val snk = io.sink.VIEW     // the consumer side of `io`
 ```
 
 Because the interface ports are `protected`, `io.data` is rejected by the compiler; all
-access goes through a view's `.VIEW`.
+access goes through a view's projection terminal.
+
+#### Projection terminals {#projection-terminals}
+
+`.VIEW` is one of a small family of *projection terminals*. Each one projects the view onto the
+instance and bakes in a directionality, so you choose the terminal instead of transforming the
+view first. On a named view:
+
+| Terminal | Projects the view... |
+|---|---|
+| `.VIEW`    | as declared |
+| `.FLIP`    | flipped, anchored ports respected (the same as projecting `view.flip`) |
+| `.FLIPALL` | flipped, anchored ports inverted too |
+| `.MONITOR` | with *every* port forced to an input (observe everything) |
+| `.DRIVER`  | with *every* port forced to an output (drive everything) |
+
+`.FLIP` is the safe, anchor-respecting flip. `.FLIPALL`, `.MONITOR`, and `.DRIVER` are
+*overrides*: they ignore the anchored/flippable distinction, so reach for them deliberately
+(for example, a `.MONITOR` tap that observes a whole bus, or a `.DRIVER` stimulus block).
+Unlike `flip`, these overrides exist *only* as projection terminals: there is no reusable
+"forced" view, so an override is always visible at the connection site and can never be hidden
+inside a shared named view.
+
+On the [generic projection](#generic-view) only `.VIEW`, `.MONITOR`, and `.DRIVER` are
+available: the flip terminals need declared relative directions to act on, and a generic
+projection's ports carry none, so there is nothing for `.FLIP`/`.FLIPALL` to reverse.
 
 ### Connecting views with `<>` {#connecting-views}
 
@@ -242,6 +320,10 @@ class Link extends RTDesign:
 
 A single `<>` here replaces one connection per port (`data`, `valid`, `ready`), and the
 direction of every wire is guaranteed consistent by construction.
+
+If the interface has [anchored-direction ports](#anchored-connections), what a `<>` connects
+depends on the connection site: a sibling-to-sibling connection wires only the flippable ports,
+while a parent-to-child connection wires all ports, including the anchored ones.
 
 /// admonition | Interfaces are purely structural
     type: note
@@ -374,5 +456,10 @@ alias axi4lite_aw_subordinate is axi4lite_aw_manager'converse;
 * Interface ports and DFHDL parameters must be `protected` (or `private`).
 * An interface body may contain only ports and views: no processes, connections, or
   assignments.
+* Ports cannot be initialized (`init`/`initFile`) inside an interface; an interface is purely
+  structural and carries no initial values.
+* An anchored-direction port (`<> IN`/`<> OUT`) may be added to a view only in its declared
+  direction, and `flip` never reverses it.
 * Interfaces must be named classes; anonymous instances (`new Ifc() {}`) are rejected.
-* External access to ports is only through a view's `.VIEW` projection.
+* External access to ports is only through a view's projection terminal (`.VIEW`, `.FLIP`,
+  `.MONITOR`, etc.).
