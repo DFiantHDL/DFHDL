@@ -61,7 +61,12 @@ object Patch:
     override def toString(): String =
       s"""\nAdd $config, Members: ${db.members.mkString("\n    ", ",\n    ", "")}"""
   object Add:
-    def apply(design: MetaDesignAny, config: Config): Add = Add(design.getDB, config)
+    // A meta-design's DB is a flat container of the freshly-created members to
+    // inject (it has no design hierarchy), so use `getDBOld` (the raw flat
+    // immutable) — NOT `getDB`, which is the hierarchical staged form whose root
+    // has empty `members`.
+    def apply(design: MetaDesignAny, config: Config): Add =
+      Add(design.getDBOld, config)
     sealed trait Config extends Product with Serializable derives CanEqual:
       def ==(moveConfig: Move.Config): Boolean = (this, moveConfig) match
         case (Config.Before, Move.Config.Before)           => true
@@ -560,11 +565,6 @@ extension (db: DB)
       val memberOwnerRefs = scala.collection.mutable.Set.empty[DFRefAny]
       patchedMembers.foreach { m =>
         memberOwnerRefs += m.ownerRef
-        m match
-          // DFDesignInst's designRef is a OneWay.Gen ref outside of getRefs
-          // (which only carries TwoWay refs); keep it from being swept away.
-          case inst: DFDesignInst => memberOwnerRefs += inst.designRef
-          case _                  =>
       }
       patchedRefTable.filter { (r, _) =>
         r match

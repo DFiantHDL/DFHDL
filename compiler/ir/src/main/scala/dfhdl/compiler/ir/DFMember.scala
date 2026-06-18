@@ -31,7 +31,6 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
     case o               => o.getOwnerNamed
   final def getOwnerBlock(using MemberGetSet): DFBlock = getOwner match
     case b: DFBlock => b
-    case o          => o.getOwnerBlock
   final def getOwnerStepBlock(using MemberGetSet): StepBlock = getOwner match
     case b: StepBlock => b
     case o            => o.getOwnerStepBlock
@@ -119,7 +118,6 @@ object DFMember:
     summon[ReadWriter[DFMember.Empty]],
     summon[ReadWriter[DFVal]],
     summon[ReadWriter[Statement]],
-    summon[ReadWriter[DFInterfaceOwner]],
     summon[ReadWriter[DFBlock]],
     summon[ReadWriter[DFConditional.Header]],
     summon[ReadWriter[DFRange]],
@@ -152,8 +150,6 @@ object DFMember:
           design.meta.annotations
         case designInst: DFDesignInst =>
           designInst.meta.annotations ++ designInst.getDesignBlock.getConstraints
-        case interface: DFInterfaceOwner =>
-          interface.dclMeta.annotations.view ++ interface.meta.annotations
         case _ => member.meta.annotations.view
       allAnnotations.collect {
         case c: constraints.Constraint => c
@@ -286,12 +282,26 @@ object DFVal:
       def isPort: Boolean = mod.dir match
         case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
         case _                                           => false
+    // The projection terminal applied to a view at a use site (1:1 with the
+    // frontend terminals ASIS / FLIP / FLIPALL / MONITOR / DRIVER).
+    enum Terminal derives CanEqual, ReadWriter:
+      case AsIs, Flip, FlipAll, Monitor, Driver
+    // Where a view value lives: a `Template` declared inside the interface, or a
+    // `Projection` of a template onto an instance via a given terminal.
+    enum ViewSite derives CanEqual, ReadWriter:
+      case Template
+      case Projection(terminal: Terminal)
     enum Dir derives CanEqual, ReadWriter:
       case VAR, IN, OUT, INOUT
+      // IR-only: marks a `DFView`-typed declaration as a view template/projection.
+      // Never produced by a user port declaration. Parametrized, so it is auto-
+      // excluded by the wildcard fall-through in the `isPort`/`isVar`/... predicates.
+      case VIEW(site: ViewSite)
     export Dir.{VAR, IN, OUT, INOUT}
     enum Special derives CanEqual, ReadWriter:
       case Ordinary, REG, SHARED
     export Special.{Ordinary, REG, SHARED}
+  end Modifier
 
   extension (dfVal: DFVal)
     def isPort: Boolean = dfVal match
@@ -520,6 +530,7 @@ object DFVal:
                 case dv: DFVal => dv.getConstData(using getSet, updatedPolicy)
                 case _         => ConstData.NotConst
             }
+        end match
       else ConstData.UnknownConst(this)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DesignParam =>
@@ -1057,7 +1068,7 @@ final case class DFNet(
 end DFNet
 
 object DFNet:
-  type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner, DFNet]
+  type Ref = DFRef.TwoWay[DFVal, DFNet]
   enum Op derives CanEqual, ReadWriter:
     case Assignment, NBAssignment, Connection, ViaConnection, LazyConnection
   extension (net: DFNet)
@@ -1099,8 +1110,8 @@ object DFNet:
         MemberGetSet
     ): Option[
       (
-          toVal: DFVal.Dcl | DFVal.PortByNameSelect | DFVal.Special | DFInterfaceOwner,
-          fromVal: DFVal | DFInterfaceOwner,
+          toVal: DFVal.Dcl | DFVal.PortByNameSelect | DFVal.Special,
+          fromVal: DFVal,
           swapped: Boolean
       )
     ] =
@@ -1109,9 +1120,6 @@ object DFNet:
           val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)
           if (toLeft) Some(lhsVal.dealias.get, rhsVal, false)
           else Some(rhsVal.dealias.get, lhsVal, true)
-        case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
-          Some(lhsIfc, rhsIfc, false)
-        case _ => ??? // not possible
       else None
   end Connection
 end DFNet
@@ -1189,33 +1197,12 @@ sealed trait DFDomainOwner extends DFOwnerNamed:
 object DFOwner:
   type Ref = DFRef.OneWay[DFOwner | DFMember.Empty]
 
-final case class DFInterfaceOwner(
-    domainType: DomainType,
-    dclMeta: Meta,
-    ownerRef: DFOwner.Ref,
-    meta: Meta,
-    tags: DFTags
-) extends DFDomainOwner derives ReadWriter:
-  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-    case that: DFInterfaceOwner =>
-      this.domainType =~ that.domainType &&
-      this.dclMeta =~ that.dclMeta && this.meta =~ that.meta && this.tags =~ that.tags
-    case _ => false
-  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs ++ meta.getRefs
-  def copyWithNewRefs(using RefGen): this.type = copy(
-    dclMeta = dclMeta.copyWithNewRefs,
-    meta = meta.copyWithNewRefs,
-    domainType = domainType.copyWithNewRefs,
-    ownerRef = ownerRef.copyAsNewRef
-  ).asInstanceOf[this.type]
-end DFInterfaceOwner
-
 sealed trait DFBlock extends DFOwner
 object DFBlock:
   given ReadWriter[DFBlock] = ReadWriter.merge(
     summon[ReadWriter[ProcessBlock]],
+    summon[ReadWriter[ForkBlock]],
+    summon[ReadWriter[LocalBlock]],
     summon[ReadWriter[DFConditional.Block]],
     summon[ReadWriter[DFLoop.Block]],
     summon[ReadWriter[StepBlock]],
@@ -1263,6 +1250,49 @@ object ProcessBlock:
       def copyWithNewRefs(using RefGen): this.type =
         List(refs.map(_.copyAsNewRef)).asInstanceOf[this.type]
 end ProcessBlock
+
+final case class ForkBlock(
+    join: ForkBlock.Join,
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFBlock,
+      DFOwnerNamed derives ReadWriter:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: ForkBlock =>
+      this.join == that.join &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = meta.getRefs
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    meta = meta.copyWithNewRefs,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end ForkBlock
+object ForkBlock:
+  enum Join derives CanEqual, ReadWriter:
+    case All, Any, None
+
+final case class LocalBlock(
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFBlock,
+      DFOwnerNamed derives ReadWriter:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: LocalBlock =>
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = meta.getRefs
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    meta = meta.copyWithNewRefs,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end LocalBlock
 
 object DFConditional:
   sealed trait Block extends DFBlock derives ReadWriter:
@@ -1572,7 +1602,7 @@ end DFDesignBlock
 object DFDesignBlock:
   import InstMode.BlackBox.Source
   enum InstMode derives CanEqual, ReadWriter:
-    case Normal, Def, Simulation
+    case Normal, Def, Simulation, Interface
     case BlackBox(source: Source)
   object InstMode:
     import constraints.DeviceID.Vendor
@@ -1584,7 +1614,6 @@ object DFDesignBlock:
         case VendorIP(vendor: Vendor, typeName: String)
 
   extension (dsn: DFDesignBlock)
-    def isDuplicate: Boolean = dsn.hasTagOf[DuplicateTag]
     def isBlackBox: Boolean = dsn.instMode.isInstanceOf[InstMode.BlackBox]
     def isVendorIPBlackbox: Boolean = dsn.instMode match
       case InstMode.BlackBox(_: InstMode.BlackBox.Source.VendorIP) => true
@@ -1629,10 +1658,28 @@ final case class DFDesignInst(
     meta: Meta,
     tags: DFTags
 ) extends DFMember.Named derives ReadWriter:
-  def getDesignBlock(using MemberGetSet): DFDesignBlock = designRef.get
+  // Resolve the instantiated child design block. `designRef` is unified with the
+  // child block's `ownerRef` (the hierarchy key) and is deliberately NOT present
+  // in the parent's refTable, so resolution goes structurally:
+  //   - mutable (elaboration): the ref still resolves via the live refTable.
+  //   - hierarchical root: the ref is the `subDBs` key → the child sub-DB's top.
+  //   - flat (round-trip) DB: the ref is the `designBlockByKey` map key.
+  // Each non-mutable path falls back to `designRef.get` for the pre-unification
+  // form (where `designRef` is still a distinct parent-side refTable entry).
+  def getDesignBlock(using getSet: MemberGetSet): DFDesignBlock =
+    if (getSet.isMutable) designRef.asRef.get
+    else
+      val root = getSet.designDB.rootDB
+      if (root.isRoot)
+        root.subDBs.get(designRef).map(_.top).getOrElse(designRef.asRef.get)
+      else root.designBlockByKey.getOrElse(designRef.asRef, designRef.asRef.get)
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignInst =>
-      this.designRef =~ that.designRef &&
+      // `designRef` is unified with the child block's `ownerRef` (the sub-DB key)
+      // and is not in the parent refTable, so compare the resolved design blocks
+      // structurally rather than via the ref's own `=~` (which resolves through
+      // the refTable).
+      this.getDesignBlock =~ that.getDesignBlock &&
       this.paramMap =~ that.paramMap &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
@@ -1640,17 +1687,23 @@ final case class DFDesignInst(
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] =
     paramMap.values.toList ++ meta.getRefs
-  override def getAllRefs: List[DFRefAny] = ownerRef :: designRef :: getRefs
+  // NOTE: `designRef` is deliberately NOT part of `getAllRefs` (the default
+  // `ownerRef :: getRefs` is used): it is unified with the target block's
+  // `ownerRef` (the sub-DB key) and is resolved structurally via `subDBs`, never
+  // through a refTable, so it must not appear where refs are enumerated for
+  // refTable building/rewiring.
+  // NOTE: `designRef` is intentionally NOT freshened here. It is unified with the
+  // target block's `ownerRef` (the sub-DB key); when cloning a design sub-tree the
+  // caller rebinds it to the cloned block's ownerRef (see ReduplicateDesign).
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
-    designRef = designRef.copyAsNewRef,
     paramMap = paramMap.map((k, v) => k -> v.copyAsNewRef),
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
 end DFDesignInst
 
 object DFDesignInst:
-  type DesignRef = DFRef.OneWay[DFDesignBlock]
+  type DesignRef = StaticRef
   type ParamRef = DFRef.TwoWay[DFVal, DFDesignInst]
   type ParamMap = ListMap[String, ParamRef]
 

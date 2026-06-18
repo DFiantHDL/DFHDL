@@ -44,7 +44,8 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   var dfSpecTpe: Type = uninitialized
   var hasClsMetaArgsTpe: TypeRef = uninitialized
   var clsMetaArgsTpe: TypeRef = uninitialized
-  var designTpe: TypeRef = uninitialized
+  var hasConstParamsTpe: TypeRef = uninitialized
+  var interfaceTpe: TypeRef = uninitialized
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
   var noTopAnnotIsRequired: TypeRef = uninitialized
@@ -60,9 +61,21 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           report.error("DFHDL classes cannot be final.", tree.srcPos)
         else if (sym.is(CaseClass))
           report.error("DFHDL classes cannot be case classes.", tree.srcPos)
+        // Reject user-written anonymous interface instances (e.g. `new MyIfc() {}`).
+        // An interface must be a named class so it has a stable identity (its
+        // `interfaceRef` design block). The plugin's own instance anon-classes are
+        // created in the transform pass (`transformApply`), which this prepare hook
+        // never re-traverses, so every anon interface class seen here is user-written.
+        else if (sym.isAnonymousClass && sym.typeRef <:< interfaceTpe)
+          report.error(
+            s"Cannot create an anonymous Interface class instance.\nInstantiate the class without a body (e.g. just `${sym.typeRef.parents.head.typeSymbol.name}()`)",
+            tree.srcPos
+          )
         dfcArgStack = ContextArg.at(tree).get :: dfcArgStack
       case _ =>
+    end match
     ctx
+  end prepareForTypeDef
 
   private def clsMetaArgsOverrideDef(owner: Symbol, clsMetaArgsTree: Tree)(using
       Context
@@ -78,7 +91,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
 
   private def clsMetaArgsOverrideDef(owner: Symbol)(using Context): Tree =
     clsMetaArgsOverrideDef(owner, ref(requiredMethod("dfhdl.internals.ClsMetaArgs.empty")))
-  private def genDesignBodyParams(
+  private def genContainerBodyParams(
       body: List[Tree],
       paramList: List[Tree],
       defaults: Map[Int, Tree],
@@ -86,22 +99,22 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   )(using
       Context
   ): (List[Tree], List[ValDef]) =
-    val designParamMap = mutable.Map.empty[Symbol, Tree]
-    val designParamGenValDefs: List[ValDef] = paramList.view.zipWithIndex.collect {
+    val paramMap = mutable.Map.empty[Symbol, Tree]
+    val paramGenValDefs: List[ValDef] = paramList.view.zipWithIndex.collect {
       case (v: ValDef, i) if v.dfValTpeOpt.nonEmpty =>
         // check and report error if the user did not apply a constant modifier
-        // on a design parameter
+        // on a design/interface parameter
         if (!v.tpt.tpe.isDFConst)
           report.error(
-            "DFHDL design parameters must be constant values (use a `<> CONST` modifier).",
+            "DFHDL design/interface parameters must be constant values (use a `<> CONST` modifier).",
             v.tpt
           )
-        val valDef = v.genDesignParamValDef(defaults.get(i), dfcTree)
-        designParamMap += v.symbol -> ref(valDef.symbol)
+        val valDef = v.genContainerParamValDef(defaults.get(i), dfcTree)
+        paramMap += v.symbol -> ref(valDef.symbol)
         valDef
     }.toList
-    (body.map(b => replaceArgs(b, designParamMap.toMap)), designParamGenValDefs)
-  end genDesignBodyParams
+    (body.map(b => replaceArgs(b, paramMap.toMap)), paramGenValDefs)
+  end genContainerBodyParams
 
   override def prepareForStats(trees: List[Tree])(using Context): Context =
     var explored: List[Tree] = trees
@@ -156,10 +169,10 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
             case _                          => false
           }
           val nonParamBody = template.body.drop(paramBody.length)
-          val (updatedBody, designParamGenValDefs) = dfcArgOpt match
-            case Some(dfcTree) if clsTpe <:< designTpe =>
+          val (updatedBody, containerParamGenValDefs) = dfcArgOpt match
+            case Some(dfcTree) if clsTpe <:< hasConstParamsTpe =>
               val defaults = defaultParamMap.getOrElse(clsSym, Map.empty)
-              genDesignBodyParams(nonParamBody, paramBody, defaults, dfcTree)(using
+              genContainerBodyParams(nonParamBody, paramBody, defaults, dfcTree)(using
                 ctx.withOwner(clsSym.primaryConstructor)
               )
             case _ => (nonParamBody, Nil)
@@ -194,7 +207,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
               )
           val newTemplate =
             cpy.Template(template)(body =
-              paramBody ++ List(setClsNamePosTree) ++ designParamGenValDefs ++ updatedBody
+              paramBody ++ List(setClsNamePosTree) ++ containerParamGenValDefs ++ updatedBody
             )
           cpy.TypeDef(tree)(rhs = newTemplate)
         else tree
@@ -310,6 +323,22 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           cpy.Block(tree)(stats = List(updatedTypeDef), expr = tree.expr)
       case _ =>
         tree
+  // Any DFVal member of an interface (port or const parameter) must be
+  // access-restricted so it is only reachable through a view's `.VIEW`.
+  override def prepareForValDef(tree: ValDef)(using Context): Context =
+    val sym = tree.symbol
+    if (
+      sym.exists && sym.owner.isClass && sym.owner.typeRef <:< interfaceTpe &&
+      tree.dfValTpeOpt.nonEmpty && !sym.isOneOf(Protected | Private)
+    )
+      report.error(
+        """|Interface ports and parameters must be declared `protected`.
+           |They are internal to the interface; expose ports through a view and
+           |access them via `<instance>.<view>.VIEW`.""".stripMargin,
+        tree.srcPos
+      )
+    ctx
+
   // transform basic val x = y to val x = dfhdl.core.r__For_Plugin.identVal(y) if y is a DFVal
   override def transformValDef(tree: ValDef)(using Context): ValDef =
     object DFValIdent:
@@ -347,7 +376,8 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     dfSpecTpe = requiredClassRef("dfhdl.DFSpec")
     hasClsMetaArgsTpe = requiredClassRef("dfhdl.internals.HasClsMetaArgs")
     clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
-    designTpe = requiredClassRef("dfhdl.core.Design")
+    hasConstParamsTpe = requiredClassRef("dfhdl.core.HasConstParams")
+    interfaceTpe = requiredClassRef("dfhdl.core.Interface")
     topAnnotSym = requiredClass("dfhdl.top")
     appTpe = requiredClassRef("dfhdl.app.DFApp")
     noTopAnnotIsRequired = requiredClassRef("dfhdl.internals.NoTopAnnotIsRequired")

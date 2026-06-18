@@ -404,6 +404,13 @@ lazy val sbtIsRunning: Boolean =
 
 lazy val scala_cliIsRunning: Boolean = getShellCommand.exists(_.contains(".scala-build"))
 
+// Thrown to unwind a tool execution that the user cancelled with Ctrl+C. It carries no stack
+// trace (so propagation stays quiet) and is caught at the application boundary (`DFApp`), which
+// lets the run stop cleanly without a noisy trace and without `sys.exit` — the latter matters
+// under `sbtn`/sbt-shell, where exiting would tear down the reusable server JVM.
+final class ToolInterruptedException(message: String)
+    extends RuntimeException(message, null, false, false)
+
 // detecting if running in Scastie by checking the PWD
 lazy val scastieIsRunning: Boolean =
   System.getProperty("user.dir").startsWith("/tmp/scastie")

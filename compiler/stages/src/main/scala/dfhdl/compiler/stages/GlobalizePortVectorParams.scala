@@ -88,6 +88,15 @@ case object GlobalizePortVectorParams extends HierarchyStage:
           case _               => false
       case _ => false
 
+  // This stage mints the globalized port-vector params in the top's MetaDesign,
+  // so the descendant sub-DBs that reference them never receive the globals in
+  // their closure, and the vec-type `FullReplacement`s purge the top's
+  // globalized `TypeRef`->global bindings from its refTable. `repairGlobalClosures`
+  // restores both gaps in place (far cheaper than a full `newToOld.oldToNew`
+  // re-normalization).
+  override def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    super.transform(designDB).repairGlobalClosures
+
   // Per-rootDB shared state, populated by the TOP sub-DB's `transformSubDB`
   // (the first DFS iteration). Subsequent sub-DBs read it.
   private case class GlobState(
@@ -218,7 +227,7 @@ case object GlobalizePortVectorParams extends HierarchyStage:
         val parentSubOpt = instOpt.flatMap { inst =>
           rootDB.subDBs.values.find(_.members.exists(_ eq inst))
         }
-        val designSub = rootDB.subDBs.get(design.ownerRef).getOrElse(topSub)
+        val designSub = rootDB.subDBs.get(StaticRef(design.ownerRef)).getOrElse(topSub)
         val parentDesignOpt = parentSubOpt.flatMap(
           _.members.collectFirst { case d: DFDesignBlock => d }
         )
@@ -380,7 +389,7 @@ case object GlobalizePortVectorParams extends HierarchyStage:
     val out = mutable.Map.empty[DFVector, DFVector]
     def pbnsPortType(pbns: DFVal.PortByNameSelect): Option[DFVector] =
       val target = pbns.designInstRef.get.getDesignBlock
-      rootDB.subDBs.get(target.ownerRef).flatMap { tsub =>
+      rootDB.subDBs.get(StaticRef(target.ownerRef)).flatMap { tsub =>
         tsub.atGetSet {
           tsub.members.collectFirst {
             case dcl: DFVal.Dcl
@@ -418,7 +427,6 @@ case object GlobalizePortVectorParams extends HierarchyStage:
                   case otherVec: DFVector if otherVec != dclType =>
                     out += otherVec -> dclType
                   case _ =>
-              case _ =>
           }
         }
       case _ =>

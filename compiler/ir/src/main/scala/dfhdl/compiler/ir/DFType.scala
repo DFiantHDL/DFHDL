@@ -33,6 +33,8 @@ object DFType:
     summon[ReadWriter[DFEnum]],
     summon[ReadWriter[DFVector]],
     summon[ReadWriter[DFStruct]],
+    summon[ReadWriter[DFInterface]],
+    summon[ReadWriter[DFView]],
     summon[ReadWriter[DFOpaque]],
     summon[ReadWriter[DFDouble.type]],
     summon[ReadWriter[DFString.type]],
@@ -520,6 +522,162 @@ object DFTuple:
       structName(fieldList.length),
       ListMap.from(fieldList.view.zipWithIndex.map((f, i) => (fieldName(i), f)))
     )
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFInterface
+// -----------
+// A bundle of named ports/fields, structurally similar to DFStruct but NOT a
+// packed data aggregate: it has no bit representation and is never lowered to
+// Bits. A leaf field is a scalar DFType (a port); a nested-interface field's
+// type is itself a DFInterface. A directed view over it is a DFView (below).
+/////////////////////////////////////////////////////////////////////////////
+final case class DFInterface(
+    interfaceRef: DFInterface.Ref,
+    fieldMap: ListMap[String, DFInterface.Field]
+) extends ComposedDFType derives ReadWriter:
+  type Data = Unit
+  private def noTypeErr = throw new Exception(s"Unexpected access to $this data type")
+  def widthIntOpt(using MemberGetSet): Option[Int] = None
+  def createBubbleData(using MemberGetSet): Data = noTypeErr
+  def isDataBubble(data: Data): Boolean = noTypeErr
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
+  def defaultData(using MemberGetSet): Data = noTypeErr
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFInterface =>
+      // interfaceRef is intentionally compared by regular equality (not `=~`) because
+      // it is a OneWay ref unified with the interface block's ownerRef.
+      this.interfaceRef == that.interfaceRef && this.fieldMap =~ that.fieldMap
+    case _ => false
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFInterface =>
+      this.fieldMap.size == that.fieldMap.size &&
+      this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, flL), (fnR, frR)) =>
+        fnL == fnR && flL.isSimilarTo(frR)
+      }
+    case _ => false
+  lazy val getRefs: List[DFRef.TypeRef] = fieldMap.values.flatMap(_.getRefs).toList
+  // NOTE: `interfaceRef` is a OneWay ref unified with the interface block's
+  // `ownerRef` (the sub-DB key); like `DFDesignInst.designRef` it is intentionally
+  // NOT freshened here. When cloning a design sub-tree the caller rebinds it to the
+  // cloned block's ownerRef.
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    fieldMap = ListMap.from(fieldMap.view.mapValues(_.copyWithNewRefs))
+  ).asInstanceOf[this.type]
+end DFInterface
+
+object DFInterface extends DFType.Companion[DFInterface, Unit]:
+  type Ref = StaticRef
+  // A field of an interface (or a resolved view): its DFType plus its direction.
+  // For a leaf port `dir` is the declared/resolved direction (VAR = flippable;
+  // IN / OUT / INOUT = anchored). For a nested field `dfType` is itself a DFInterface
+  // (in a declaration) or a DFView (in a resolved view), which is self-describing, so
+  // `dir` is unused. Extending `HasRefCompare` gives `=~`/`getRefs`/`copyWithNewRefs`
+  // and lets a `ListMap[String, Field]` be compared with `=~` directly.
+  final case class Field(dfType: DFType, dir: DFVal.Modifier.Dir)
+      extends HasRefCompare[Field] derives ReadWriter:
+    protected def `prot_=~`(that: Field)(using MemberGetSet): Boolean =
+      this.dfType =~ that.dfType && this.dir == that.dir
+    def isSimilarTo(that: Field)(using MemberGetSet): Boolean =
+      this.dfType.isSimilarTo(that.dfType) && this.dir == that.dir
+    lazy val getRefs: List[DFRef.TypeRef] = dfType.getRefs
+    def copyWithNewRefs(using RefGen): this.type =
+      copy(dfType = dfType.copyWithNewRefs).asInstanceOf[this.type]
+end DFInterface
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFView
+// ------
+// A directed view over a DFInterface (the IR of a SV modport / VHDL mode view).
+// A single concrete type carrying the *resolved* per-field directions in
+// `fieldMap` (parallel to the interface's shape): a leaf field is (scalar, dir);
+// a nested field is (nested DFView, _) and is self-describing. The direction
+// transforms recompute a new view, recursing into nested views: `flip` consults
+// the *declared* dirs in `interfaceType` to leave anchored (IN/OUT-declared)
+// leaves untouched, while `flipAll`/`monitor`/`driver` ignore that distinction.
+/////////////////////////////////////////////////////////////////////////////
+final case class DFView(
+    interfaceType: DFInterface,
+    name: String,
+    // direction overlay over `interfaceType`, for LEAF ports only. The field
+    // DFTypes are NOT repeated here — they live in `interfaceType`.
+    dirMap: Map[String, DFVal.Modifier.Dir],
+    // the chosen sub-view per nested field (whose declared type in `interfaceType`
+    // is an undirected nested DFInterface). This is the only structure a view adds
+    // beyond `interfaceType`, so nothing is reduplicated.
+    nestedMap: ListMap[String, DFView]
+) extends NamedDFType, ComposedDFType derives ReadWriter:
+  type Data = Unit
+  private def noTypeErr = throw new Exception(s"Unexpected access to $this data type")
+  def widthIntOpt(using MemberGetSet): Option[Int] = None
+  def createBubbleData(using MemberGetSet): Data = noTypeErr
+  def isDataBubble(data: Data): Boolean = noTypeErr
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
+  def defaultData(using MemberGetSet): Data = noTypeErr
+  def updateName(newName: String)(using MemberGetSet): this.type =
+    copy(name = newName).asInstanceOf[this.type]
+  // The full, directed field map of this view: `interfaceType`'s structure with the
+  // resolved directions merged in (leaf dirs from `dirMap`; nested fields replaced by
+  // their chosen sub-view). Derived on demand, so nothing is stored redundantly.
+  lazy val projectedFieldMap: ListMap[String, DFInterface.Field] =
+    ListMap.from(interfaceType.fieldMap.view.map { case (fname, field) =>
+      nestedMap.get(fname) match
+        case Some(nestedView) => fname -> field.copy(dfType = nestedView)
+        case None             => fname -> field.copy(dir = dirMap.getOrElse(fname, field.dir))
+    })
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFView =>
+      // `projectedFieldMap` (a ListMap of HasRefCompare `Field`s) folds in both the leaf
+      // `dirMap` and the `nestedMap` sub-views, so a single `=~` covers the whole overlay.
+      this.name == that.name && this.interfaceType =~ that.interfaceType &&
+      this.projectedFieldMap =~ that.projectedFieldMap
+    case _ => false
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFView =>
+      this.name == that.name && this.interfaceType.isSimilarTo(that.interfaceType) &&
+      this.projectedFieldMap.size == that.projectedFieldMap.size &&
+      this.projectedFieldMap.lazyZip(that.projectedFieldMap).forall {
+        case ((fnL, flL), (fnR, frR)) => fnL == fnR && flL.isSimilarTo(frR)
+      }
+    case _ => false
+  lazy val getRefs: List[DFRef.TypeRef] =
+    interfaceType.getRefs ++ nestedMap.values.flatMap(_.getRefs)
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    interfaceType = interfaceType.copyWithNewRefs,
+    nestedMap = ListMap.from(nestedMap.view.mapValues(_.copyWithNewRefs))
+  ).asInstanceOf[this.type]
+
+  // ---- direction transforms (recursive into nested views) ----
+  // INOUT is its own converse (and VAR/VIEW are not flippable directions), so only
+  // IN/OUT swap; everything else passes through unchanged.
+  private def invert(dir: DFVal.Modifier.Dir): DFVal.Modifier.Dir = dir match
+    case DFVal.Modifier.IN  => DFVal.Modifier.OUT
+    case DFVal.Modifier.OUT => DFVal.Modifier.IN
+    case other              => other
+  private def mapDirs(
+      leaf: (DFVal.Modifier.Dir, DFVal.Modifier.Dir) => DFVal.Modifier.Dir,
+      recurse: DFView => DFView
+  ): DFView = copy(
+    dirMap = dirMap.map { case (k, cur) =>
+      // consult the declared dir to decide whether the leaf is anchored
+      val declared = interfaceType.fieldMap.get(k).fold(cur)(_.dir)
+      k -> leaf(declared, cur)
+    },
+    nestedMap = ListMap.from(nestedMap.view.mapValues(recurse))
+  )
+  // flip: invert flippable (VAR-declared) leaves only; anchored leaves pass through.
+  def flip: DFView =
+    mapDirs((declared, cur) => if (declared == DFVal.Modifier.VAR) invert(cur) else cur, _.flip)
+  // flipAll: invert every leaf (≙ VHDL `'converse`), anchored included.
+  def flipAll: DFView = mapDirs((_, cur) => invert(cur), _.flipAll)
+  // monitor: force every leaf to an input (observe-all).
+  def monitor: DFView = mapDirs((_, _) => DFVal.Modifier.IN, _.monitor)
+  // driver: force every leaf to an output (drive-all).
+  def driver: DFView = mapDirs((_, _) => DFVal.Modifier.OUT, _.driver)
+end DFView
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

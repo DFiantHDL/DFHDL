@@ -249,6 +249,38 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("Cross-design global vector") {
+    given options.CompilerOptions.Backend = _.verilog.v95
+    // `arg` is a global constant vector referenced from two different designs.
+    // It must be flattened to a single shared `Bits` global (not duplicated per
+    // design), exercising the cross-design global handling of the stage.
+    val arg: Bits[8] X 4 <> CONST = Vector(h"01", h"02", h"03", h"04")
+    class Sub extends DFDesign:
+      val o = Bits(8) <> OUT
+      o := arg(0)
+    class Top extends DFDesign:
+      val o   = Bits(8) <> OUT
+      val sub = new Sub
+      o := arg(1) ^ sub.o
+    val top = (new Top).dropStructsVecs
+    assertCodeString(
+      top,
+      """|val arg: Bits[32] <> CONST = (h"01", h"02", h"03", h"04").toBits
+         |
+         |class Sub extends DFDesign:
+         |  val o = Bits(8) <> OUT
+         |  o := arg(31, 24)
+         |end Sub
+         |
+         |class Top extends DFDesign:
+         |  val o = Bits(8) <> OUT
+         |  val sub = Sub()
+         |  o := arg(23, 16) ^ sub.o
+         |end Top
+         |""".stripMargin
+    )
+  }
+
   test("Inline anomaly") {
     given options.CompilerOptions.Backend = _.verilog.v95
     val Rcon: Bits[8] X 4 X 2 <> CONST    = DFVector(Bits(8) X 4 X 2)(

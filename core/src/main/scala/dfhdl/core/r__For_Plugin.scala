@@ -111,7 +111,7 @@ object r__For_Plugin:
   ): Pattern =
     Pattern.BindSI(op, parts, bindVals.map(_.asIR.refTW[DFConditional.DFCaseBlock]))
   @metaContextIgnore
-  def genDesignParam[V <: DFValAny](
+  def genContainerParam[V <: DFValAny](
       appliedVal: DFValAny,
       defaultVal: Option[DFValAny],
       paramMeta: ir.Meta
@@ -144,7 +144,7 @@ object r__For_Plugin:
     val inputs = args.map { (arg, argMeta) =>
       DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
     }
-    val (isDuplicate, ret): (Boolean, V) =
+    val (isDuplicate, ret) =
       dfc.mutableDB.DesignContext.runFuncWithInputs(func, inputs)
     val paramEntries = Design.Inst.collectParamEntries
     def exitAndConnectInputs() =

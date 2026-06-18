@@ -78,6 +78,8 @@ protected object hdl:
   export core.<>
   export core.X
   export core.Process.Ops.*
+  export core.Fork.Ops.*
+  export core.LocalBlock.Ops.*
 
   // shorthand for annotating a DFBits value (useful for string interpolation)
   type B[W <: Int] = core.DFValOf[Bits[W]]

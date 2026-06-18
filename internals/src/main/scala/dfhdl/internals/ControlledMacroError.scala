@@ -50,14 +50,17 @@ object ControlledMacroError:
           Some(msg)
         case Apply(fun, args) => searchList(fun :: args)
         case _                => None
-    if (getLastCompiletimeError.nonEmpty) search(expr.asTerm)
-    else None
+    search(expr.asTerm)
   end getLastErrorInExpr
 end ControlledMacroError
 
 extension [T](expr: Expr[T])(using Quotes, Type[T])
   def mapExprOrError[R](f: Expr[T] => Expr[R]): Expr[R] =
+    import quotes.reflect.*
     ControlledMacroError.getLastErrorInExpr(expr) match
-      case Some(msg) => '{ compiletime.error(${ Expr(msg) }) }
-      case None      => f(expr)
+      case Some(msg) =>
+        if (ControlledMacroError.getLastCompiletimeError.nonEmpty)
+          '{ compiletime.error(${ Expr(msg) }) }
+        else report.errorAndAbort(msg, expr.asTerm.underlying.pos)
+      case None => f(expr)
   end mapExprOrError

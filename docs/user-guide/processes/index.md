@@ -11,9 +11,9 @@ Processes are not available in the dataflow (DF) domain. Processes cannot be nes
 
 In an [RT design][design-domains], a process is used to describe a finite-state machine that is **clock-bound**: it advances on the domain clock and is compiled to a state register plus combinational next-state and output logic.
 
-### Syntax: `process` / `process.forever`
+### Syntax: `process:`
 
-Use the shorthand `process:` (or `process.forever`) inside an `RTDesign` or `RTDomain`. The block contains either plain combinational logic (assignments, no steps) or step definitions that form an FSM.
+Use the argument-less `process:` inside an `RTDesign` or `RTDomain`. The block contains either plain combinational logic (assignments, no steps) or step definitions that form an FSM.
 
 ### Step-based FSM
 
@@ -145,9 +145,9 @@ process(all):
 This applies to every process form (`process(sig)`, `process(all)`, `process(clk)`, etc.).
 ///
 
-### Forever process: `process.forever` / `process`
+### Forever process: `process:`
 
-A process with no sensitivity list runs continuously. It is allowed in RT and ED, but **not** in DF. The shorthand `process:` (no arguments) is rewritten by the compiler to `process.forever`.
+A process with no sensitivity list runs continuously. It is allowed in RT and ED, but **not** in DF. 
 
 - **In RT**: `process:` is the [clock-bound FSM process](#rt-domain-clock-bound-fsm-process) described above (steps, waits, etc.).
 - **In ED**: Use it for testbenches or clock generation (e.g. toggling a clock with `wait`).
@@ -155,7 +155,7 @@ A process with no sensitivity list runs continuously. It is allowed in RT and ED
 ```scala
 class Testbench extends EDDesign:
   val clk = Bit <> VAR
-  process.forever:
+  process:
     clk := !clk
     5.ns.wait
 ```
@@ -312,8 +312,8 @@ If you need a purely combinational intermediate inside a clocked process, use a 
 | Domain | Processes |
 |--------|-----------|
 | **DF** | No processes. Behavior is expressed with dataflow and `.prev`; the compiler introduces registers and eventually ED processes. |
-| **RT** | **Clock-bound FSM process**: `process:` (or `process.forever`) with optional step definitions (`def Name: Step = ...`), `onEntry`/`onExit`, and waits. Compiled to a state register and match logic. Plain RT register code (no process) is also lowered to ED processes by the compiler. |
-| **ED** | **Sensitivity-driven**: `process(sig1, sig2, ...)`, `process(all)`, and `process.forever` / `process`. Full control over sensitivity and blocking vs non-blocking assignment. |
+| **RT** | **Clock-bound FSM process**: `process:` with optional step definitions (`def Name: Step = ...`), `onEntry`/`onExit`, and waits. Compiled to a state register and match logic. Plain RT register code (no process) is also lowered to ED processes by the compiler. |
+| **ED** | **Sensitivity-driven**: `process(sig1, sig2, ...)`, `process(all)`, and `process`. Full control over sensitivity and blocking vs non-blocking assignment. |
 
 See [Design Domains][design-domains] for the overall flow from DF → RT → ED and how processes fit into compilation.
 

@@ -257,6 +257,37 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
         else s" @${refs.map(_.refCodeString).mkString("(", sensitivityListSep, ")")}"
     s"$dcl${named}$alwaysKW$senList\nbegin\n${body.hindent}\nend"
   end csProcessBlock
+  def csForkBlock(fb: ForkBlock): String =
+    // `join_any` / `join_none` exist only in SystemVerilog (sv2005+). Old Verilog (v95/v2001) has
+    // only `fork ... join` (wait-all); the other modes are never lowered for it (see DropForkJoins)
+    // and must be rejected here rather than emitted as invalid code.
+    val joinAnyNoneSupported = printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
+    if (fb.join != ForkBlock.Join.All && !joinAnyNoneSupported) printer.unsupported
+    else
+      val body = csDFMembers(fb.members(MemberView.Folded))
+      val label = fb.meta.nameOpt.map(n => s" : $n").getOrElse("")
+      val joinKW = fb.join match
+        case ForkBlock.Join.All  => "join"
+        case ForkBlock.Join.Any  => "join_any"
+        case ForkBlock.Join.None => "join_none"
+      s"fork$label\n${body.hindent}\n$joinKW"
+  end csForkBlock
+  def csLocalBlock(lb: LocalBlock): String =
+    val (statements, dcls) = lb
+      .members(MemberView.Folded)
+      .partition {
+        case dcl: DFVal.Dcl                           => false
+        case const: DFVal.Const if !const.isAnonymous => false
+        case _                                        => true
+      }
+    val label = lb.meta.nameOpt.map(n => s" : $n").getOrElse("")
+    val dcl =
+      if (dcls.isEmpty) ""
+      else s"${csDFMembers(dcls)}\n"
+    val body = dcl + csDFMembers(statements)
+    s"begin$label\n${body.hindent}\nend"
   val forInteratorDclSupport: Boolean =
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false

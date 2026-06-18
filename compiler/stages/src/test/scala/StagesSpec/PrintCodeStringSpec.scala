@@ -329,6 +329,59 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("Fork-join and local blocks") {
+    class FJ extends EDDesign:
+      val a = Bit <> OUT
+      val b = Bit <> OUT
+      val c = Bit <> OUT
+      process:
+        val namedBlk = locally:
+          a :== 1
+        locally:
+          b :== 1
+        val namedFork = forkJoin:
+          locally:
+            a :== 0
+          locally:
+            b :== 0
+        forkJoinAny:
+          locally:
+            a :== 1
+          locally:
+            c :== 1
+        forkJoinNone:
+          locally:
+            c :== 0
+    end FJ
+    val fj = (new FJ).getCodeString
+    assertNoDiff(
+      fj,
+      """|class FJ extends EDDesign:
+         |  val a = Bit <> OUT
+         |  val b = Bit <> OUT
+         |  val c = Bit <> OUT
+         |  process:
+         |    val namedBlk = locally:
+         |      a :== 1
+         |    locally:
+         |      b :== 1
+         |    val namedFork = forkJoin:
+         |      locally:
+         |        a :== 0
+         |      locally:
+         |        b :== 0
+         |    forkJoinAny:
+         |      locally:
+         |        a :== 1
+         |      locally:
+         |        c :== 1
+         |    forkJoinNone:
+         |      locally:
+         |        c :== 0
+         |end FJ
+         |""".stripMargin
+    )
+  }
   test("Named anonymous multireference") {
     class IDMultiRef extends DFDesign:
       val data = UInt(32) <> IN

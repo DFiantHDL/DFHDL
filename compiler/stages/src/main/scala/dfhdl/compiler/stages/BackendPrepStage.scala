@@ -11,6 +11,8 @@ case object BackendPrepStage
       NamedVerilogSelection,
       NamedVHDLSelection,
       ToED,
+      DropForkJoinsED,
+      DropLocalBlocksED,
       ApplyInvertConstraint,
       DropStructsVecs,
       MatchToIf,

@@ -153,7 +153,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         .mkString("\n")
     val components = designMembers.view.collect {
       case inst: DFDesignInst if inst.getDesignBlock.isBlackBox => inst.getDesignBlock
-    }.map(printer.csEntityDcl(_, asComponent = true)).mkString("\n")
+    }.map(bb => printerForDesign(bb).csEntityDcl(bb, asComponent = true)).mkString("\n")
     val declarations =
       sn"""|$constIntDcls
            |$namedTypeConvFuncsDcl
@@ -244,6 +244,10 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
          |${body.hindent}
          |end process;"""
   end csProcessBlock
+  // fork-join and local blocks are lowered away (DropForkJoinsED / DropLocalBlocksED) before
+  // VHDL printing; these are only safety nets.
+  def csForkBlock(fb: ForkBlock): String = printer.unsupported
+  def csLocalBlock(lb: LocalBlock): String = printer.unsupported
   def csStepBlock(stepBlock: StepBlock): String = printer.unsupported
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
     val body = csDFOwnerBody(forBlock)

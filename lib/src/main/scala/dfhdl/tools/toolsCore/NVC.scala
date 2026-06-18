@@ -35,7 +35,7 @@ object NVC extends VHDLLinter, VHDLSimulator:
       so: SimulatorOptions
   ): List[String] =
     val designWorkFiles = getSet.designDB.designMemberList.view.map(_._1)
-      .filterNot(_.isDuplicate).map(_.dclName)
+      .map(_.dclName)
       .flatMap(name =>
         val nameUC = name.toUpperCase()
         List(s"WORK.${nameUC}", s"WORK.${nameUC}-${nameUC}_ARCH")

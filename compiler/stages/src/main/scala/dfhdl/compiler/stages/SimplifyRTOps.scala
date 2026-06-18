@@ -163,7 +163,7 @@ case object SimplifyRTOps extends HierarchyStage:
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
           dfhdl.core.DomainType.RT
         ):
-          // If the trigger is a rising or falling edge, we need to negate it
+          // `ir.Wait(X)` resumes when X is true, so the loop must run *while* `not X`.
           val fixedTrigger = trigger match
             case DFVal.Func(op = op @ (FuncOp.rising | FuncOp.falling), args = List(DFRef(arg))) =>
               if (trigger.isAnonReferencedByWait)
@@ -174,13 +174,26 @@ case object SimplifyRTOps extends HierarchyStage:
                   case FuncOp.falling =>
                     (!argFE.reg(1, init = 0)).||(argFE)(using dfc.setMeta(trigger.meta))
               else !(trigger.asValOf[dfhdl.core.DFBool])
+            // trigger is `not inner` (e.g. from `waitWhile(inner)`) -> loop while `inner`
+            case DFVal.Func(op = FuncOp.unary_!, args = List(DFRef(inner))) =>
+              inner.asValOf[dfhdl.core.DFBoolOrBit]
+            // plain trigger (e.g. from `waitUntil(trigger)`) -> loop while `not trigger`
             case _ =>
-              trigger.asValOf[dfhdl.core.DFBoolOrBit]
+              trigger.dfType match
+                case DFBit => !(trigger.asValOf[dfhdl.core.DFBit])
+                case _     => !(trigger.asValOf[dfhdl.core.DFBool])
           val whileBlock =
             dfhdl.core.DFWhile.Block(fixedTrigger)(using dfc.setMeta(waitMember.meta))
           dfc.enterOwner(whileBlock)
           dfc.exitOwner()
-        Some(dsn.patch)
+        // a `not inner` trigger (from `waitWhile`) is discarded above (we loop on `inner`).
+        // If it was created solely for this wait, drop it so it does not linger as a dead value.
+        val triggerRemoval = trigger match
+          case DFVal.Func(op = FuncOp.unary_!, args = List(_))
+              if trigger.originMembers.forall(_ == waitMember) =>
+            List(trigger -> Patch.Remove())
+          case _ => Nil
+        dsn.patch :: triggerRemoval
       // replace wait statements with time durations with cycles
       case waitMember @ Wait(triggerRef = DFRef(cyclesVal @ DFDecimal.Val(DFUInt(_)))) =>
         val replaceWithWhile = cyclesVal match

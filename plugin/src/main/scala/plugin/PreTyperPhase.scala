@@ -29,7 +29,8 @@ class CustomReporter(
   override def flush()(using ctx: Context): Unit = orig.flush()
   override def doReport(dia: Diagnostic)(using ctx: Context): Unit =
     val updatedMsg = dia.msg.toString
-    val updatedDia = Diagnostic(dia.msg.mapMsg(x => updatedMsg), dia.pos, dia.level)
+    val diaPos = dia.pos.copy(outer = null) // disable inline stack error printing
+    val updatedDia = Diagnostic(dia.msg.mapMsg(x => updatedMsg), diaPos, dia.level)
     orig.doReport(updatedDia)
   end doReport
 end CustomReporter
@@ -43,7 +44,9 @@ end CustomReporter
   *   - change process{} to process.forever{}
   *   - auto-add `@top` annotation to concrete classes that look like DFHDL designs (extend
   *     EDDesign/RTDesign/DFDesign, have `type <> CONST` parameters, or use `<>` in their body),
-  *     provided `import dfhdl.*` is in lexical scope and no `@top` annotation is already present
+  *     provided `import dfhdl.*` is in lexical scope and no `@top` annotation is already present.
+  *     Classes extending `Interface` are excluded, since they are never entry points and
+  *     must not receive `@top`.
   */
 class PreTyperPhase(setting: Setting) extends CommonPhase:
   import untpd.*
@@ -153,9 +156,12 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
         case _        => false
 
     private val designParentNames = Set("EDDesign", "RTDesign", "DFDesign")
+    private val interfaceParentNames = Set("Interface")
 
     private def hasDesignParent(parents: List[Tree]): Boolean =
       parents.exists(p => rightmostName(p).exists(designParentNames))
+    private def hasInterfaceParent(parents: List[Tree]): Boolean =
+      parents.exists(p => rightmostName(p).exists(interfaceParentNames))
 
     private def isConstParamTpt(tpt: Tree): Boolean =
       tpt match
@@ -193,14 +199,15 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
         def apply(x: Boolean, tree: Tree)(using Context): Boolean =
           if (x) true
           else tree match
-            case InfixOp(_, Ident(op), _) if op.toString == "<>" => true
+            case InfixOp(_, Ident(op), _) if op.toString == "<>"               => true
             case _: Template | _: DefDef | _: Function | _: Block | _: TypeDef => x
-            case _ => foldOver(x, tree)
+            case _                                                             => foldOver(x, tree)
       body.exists {
         case vd: ValDef if !vd.rhs.isEmpty                   => acc(false, vd.rhs)
         case InfixOp(_, Ident(op), _) if op.toString == "<>" => true
         case _                                               => false
       }
+    end bodyUsesConnect
 
     private def hasDfhdlWildcardImport(stats: List[Tree]): Boolean =
       stats.exists {
@@ -231,6 +238,9 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
       !m.is(Case) &&
       !m.is(Enum) &&
       !hasTopAnnot(m) &&
+      // interfaces are never entry points, so never auto-`@top` them (even when they
+      // carry `<> CONST` params or use `<>` in their body for port/view declarations)
+      !hasInterfaceParent(tmpl.parents) &&
       tmpl.constr.paramss.length <= 1 &&
       allParamsTopCompatible(tmpl.constr.paramss) &&
       (hasDesignParent(tmpl.parents) ||

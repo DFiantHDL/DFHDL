@@ -60,6 +60,7 @@ case object ViaConnection extends HierarchyStage:
               // bridged through a synthesized variable
               case _ => // do nothing
             end match
+          end if
         }
 
         // Meta design to construct the variables to be connected to the ports
@@ -77,7 +78,9 @@ case object ViaConnection extends HierarchyStage:
         // any synthesized PBNS that targets the inst sits AFTER it in the
         // flat member list — preserves the order check invariant.
         val connectDsn = new MetaDesign(ib, Patch.Add.Config.After):
-          dfc.mutableDB.injectMetaGetSet(addVarsDsn.getDB.getSet)
+          // the other meta-design's flat member container (its getSet resolves
+          // the added vars); `getDB` is the hierarchical staged form, unusable here.
+          dfc.mutableDB.injectMetaGetSet(addVarsDsn.getDBOld.getSet)
           dfc.enterLate()
           val refPatches: List[(DFMember, Patch)] = addVarsDsn.pbnssToVars.flatMap {
             case (pbnss @ (pbns :: _), v) =>

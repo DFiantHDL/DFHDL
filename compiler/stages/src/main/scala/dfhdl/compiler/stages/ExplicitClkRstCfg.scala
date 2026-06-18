@@ -17,16 +17,14 @@ import dfhdl.core.{refTW, DFC}
 case object ExplicitClkRstCfg extends HierarchyStage:
   def dependencies: List[Stage] = List(UniqueDesigns, NamedAnonMultiref)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
-  // resolvedClkRstMap / dependentRTDomainOwners / getOwnerDomain walk the full
-  // hierarchy across sub-DB boundaries, so resolve via the outer flat-DB getSet
-  // rather than per-sub-DB getSet.
-  override def rebindGetSet: Boolean = false
-  def transformSubDB(subDB: DB)(using
+  // Cross-design clk/rst resolution (`resolvedClkRstMap` / `isDependentOn`)
+  // is read from the root DB; everything else is per-sub-DB via the `subDB`
+  // helper (this stage's current sub-DB).
+  def transformSubDB(rootDB: DB)(using
       getSet: MemberGetSet,
       co: CompilerOptions,
       rg: RefGen
   ): DB =
-    val designDB = getSet.designDB
     val relatedCfgRefs = mutable.Map.empty[DFRefAny, DFMember]
     given dfc: DFC = DFC.emptyNoEO
     // Strip any @timing.clock / @timing.reset / @timing.related from the annotation
@@ -46,7 +44,7 @@ case object ExplicitClkRstCfg extends HierarchyStage:
         owner.domainType match
           case DomainType.RT =>
             val (resolvedClk, resolvedRst) =
-              designDB.resolvedClkRstMap.getOrElse(owner, (None, None))
+              rootDB.resolvedClkRstMap.getOrElse(owner, (None, None))
             // Preserve any existing user-authored @timing.related annotation. For a domain
             // related to a sibling or to its enclosing owner the downstream pipeline uses the
             // annotation to skip clk/rst port insertion.
@@ -61,7 +59,7 @@ case object ExplicitClkRstCfg extends HierarchyStage:
                 owner match
                   case domain: DomainBlock =>
                     val domainOwner = domain.getOwnerDomain
-                    if (domain.isDependentOn(domainOwner))
+                    if (rootDB.isDependentOn(domain, domainOwner))
                       val ref =
                         domainOwner.asInstanceOf[DomainBlock | DFDesignBlock].refTW[DomainBlock]
                       relatedCfgRefs += ref -> domainOwner

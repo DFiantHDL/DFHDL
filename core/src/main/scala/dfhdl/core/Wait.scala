@@ -50,6 +50,8 @@ object Wait:
       }
     extension (lhs: DFValOf[DFUInt[Int]]) def cy(using DFCG): Cycles = Cycles(lhs)
 
+    // `ir.Wait(X)` means "block until X becomes true" (resume when X is true). So `waitUntil`
+    // stores the trigger as-is, and `waitWhile` stores its negation.
     def waitWhile(cond: DFValOf[DFBoolOrBit])(using DFC): Wait =
       trydf {
         cond.asIR match
@@ -58,16 +60,11 @@ object Wait:
               "`waitWhile` does not support rising/falling edges. Use `waitUntil` instead."
             )
           case _ =>
-            Wait(cond)
+            import DFBoolOrBit.Val.Ops.not
+            Wait(cond.not)
       }
     def waitUntil(trigger: DFValOf[DFBoolOrBit])(using DFC): Wait = trydf {
-      trigger.asIR match
-        // special case for rising/falling edges, the trigger remains as is inside the wait
-        case ir.DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
-          Wait(trigger)
-        case _ =>
-          import DFBoolOrBit.Val.Ops.not
-          Wait(trigger.not)
+      Wait(trigger)
     }
   end Ops
 end Wait

@@ -84,7 +84,7 @@ class QuartusPrimeProjectTclConfigPrinter(using
   val targetLanguage: String = co.backend match
     case _: backends.verilog => "verilog"
     case _: backends.vhdl    => "vhdl"
-  val (part, deviceVersion): (String, String) =
+  val (part, deviceVersion) =
     designDB.top.dclMeta.annotations.collectFirst {
       case annotation: constraints.DeviceID => (annotation.partName, annotation.deviceVersion)
     }.getOrElse(throw new IllegalArgumentException("No device constraint found"))

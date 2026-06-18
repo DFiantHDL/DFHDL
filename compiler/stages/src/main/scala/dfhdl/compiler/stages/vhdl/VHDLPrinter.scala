@@ -18,6 +18,8 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       VHDLOwnerPrinter:
   type TPrinter = VHDLPrinter
   given printer: TPrinter = this
+  protected def withGetSet(subGetSet: MemberGetSet): VHDLPrinter =
+    new VHDLPrinter(dialect)(using subGetSet, printerOptions)
   val inVHDL93: Boolean = dialect match
     case VHDLDialect.v93 => true
     case _               => false
@@ -45,15 +47,15 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
     val trigger = wait.triggerRef.get
     trigger.dfType match
       case _: DFBoolOrBit =>
+        // `ir.Wait(X)` resumes when X is true -> `wait until X`.
         trigger match
-          // rising or falling edge does not need to be negated
           case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
             s"wait until ${wait.triggerRef.refCodeString};"
-          // no need for `not not`, so just skipping the not operation
-          case DFVal.Func(op = FuncOp.unary_!, args = List(triggerRef)) =>
-            s"wait until ${printer.csFixedCond(triggerRef)};"
+          // X = `not inner` -> `wait until not inner` (avoids a `not (not ...)`)
+          case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
+            s"wait until not ${printer.csFixedCond(innerRef)};"
           case _ =>
-            s"wait until not ${printer.csFixedCond(wait.triggerRef)};"
+            s"wait until ${printer.csFixedCond(wait.triggerRef)};"
       case DFTime => s"wait for ${wait.triggerRef.refCodeString};"
       case _      => printer.unsupported
   end csWait

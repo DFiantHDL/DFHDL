@@ -15,7 +15,10 @@ import scala.collection.mutable
   */
 //format: on
 case object DropTimedRTWaits extends HierarchyStage:
-  def dependencies: List[Stage] = List()
+  // DropForkJoinsRT / DropLocalBlocksRT must run before any RT-wait lowering so that RT fork-joins
+  // are already lowered to the per-branch handshake form (and their local blocks flattened) before
+  // waits are turned into FSM steps. Anchoring at the root of the RT-wait chain guarantees this.
+  def dependencies: List[Stage] = List(DropLocalBlocksRT)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patches = subDB.members.collect {
@@ -26,17 +29,20 @@ case object DropTimedRTWaits extends HierarchyStage:
             _,
             _
           ) if waitMember.isInRTDomain =>
+        // The resolved clk rate comes from the root DB's hierarchical clk/rst map
+        // (cross-design resolution); the owner domain is resolved under this
+        // sub-DB's getSet.
+        val clkRate: RateNumber = rootDB.resolvedClkRstMap
+          .get(waitMember.getOwnerDomain)
+          .flatMap(_._1)
+          .flatMap(_.rate.toOption)
+          .get
         val dsn = new MetaDesign(
           waitMember,
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
           dfhdl.core.DomainType.RT
         ):
           val waitTime = duration.getConstData[TimeNumber].toOption.get
-          val clkRate: RateNumber = getSet.designDB.resolvedClkRstMap
-            .get(waitMember.getOwnerDomain)
-            .flatMap(_._1)
-            .flatMap(_.rate.toOption)
-            .get
           val cycles = (waitTime / clkRate.to_ps).value.toLong
           cycles.cy.wait(using dfc.setMeta(waitMember.meta))
         dsn.patch

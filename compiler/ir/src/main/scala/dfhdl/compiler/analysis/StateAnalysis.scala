@@ -153,7 +153,7 @@ object StateAnalysis:
     given DFBlock = currentBlock
     remaining match
       case (nextBlock: DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => // entering child block
-        val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = nextBlock match
+        val (updatedSet, updatedScopeMap) = nextBlock match
           case cb: DFConditional.Block =>
             cb.guardRef.get match
               case dfVal: DFVal => consumeFrom(dfVal, scopeMap, currentSet)
@@ -167,7 +167,7 @@ object StateAnalysis:
           if r.getOwnerBlock == currentBlock && checkedDomain(
             currentBlock.getThisOrOwnerDomain.domainType
           ) => // checking member consumers
-        val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = r match
+        val (updatedSet, updatedScopeMap) = r match
           case net @ DFNet.Assignment(toVal, fromVal) =>
             (consumeFrom(fromVal, scopeMap, currentSet), assignTo(toVal, scopeMap))
           case net @ DFNet.Connection(toVal: DFVal, fromVal: DFVal, _) =>

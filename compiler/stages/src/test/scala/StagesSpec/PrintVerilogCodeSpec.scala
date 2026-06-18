@@ -878,13 +878,13 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always
          |  begin
          |    x <= 1'b1;
-         |    wait(i);
+         |    wait(~i);
          |    #50ms;
          |    x <= 1'b0;
          |    @(posedge i);
          |    #50us;
          |    x <= 1'b1;
-         |    wait(~i);
+         |    wait(i);
          |    #50ns;
          |    x <= 1'b0;
          |    #1ns;
@@ -1691,6 +1691,237 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always_comb
          |  begin
          |    y[7:4] = a[7:4];
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("fork-join and local blocks") {
+    class FJ extends EDDesign:
+      val a = Bit <> OUT
+      val b = Bit <> OUT
+      val c = Bit <> OUT
+      process:
+        val namedBlk = locally:
+          a :== 1
+        locally:
+          b :== 1
+        val namedFork = forkJoin:
+          locally:
+            a :== 0
+          locally:
+            b :== 0
+        forkJoinAny:
+          locally:
+            a :== 1
+          locally:
+            c :== 1
+        forkJoinNone:
+          locally:
+            c :== 0
+    end FJ
+    val fj = (new FJ).getCompiledCodeString
+    assertNoDiff(
+      fj,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module FJ(
+         |  output logic a,
+         |  output logic b,
+         |  output logic c
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  always
+         |  begin
+         |    begin : namedBlk
+         |      a <= 1'b1;
+         |    end
+         |    begin
+         |      b <= 1'b1;
+         |    end
+         |    fork : namedFork
+         |      begin
+         |        a <= 1'b0;
+         |      end
+         |      begin
+         |        b <= 1'b0;
+         |      end
+         |    join
+         |    fork
+         |      begin
+         |        a <= 1'b1;
+         |      end
+         |      begin
+         |        c <= 1'b1;
+         |      end
+         |    join_any
+         |    fork
+         |      begin
+         |        c <= 1'b0;
+         |      end
+         |    join_none
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("forkJoin (wait-all) stays native under old Verilog (v2001)") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    // v2001 supports `fork ... join` (wait-all) natively, so forkJoin is NOT lowered there.
+    // Local blocks also remain native `begin ... end`.
+    class FJv extends EDDesign:
+      val a = Bit <> OUT
+      val b = Bit <> OUT
+      process:
+        locally:
+          a :== 1
+        val j = forkJoin:
+          locally:
+            a :== 0
+          locally:
+            b :== 0
+    end FJv
+    val fj = (new FJv).getCompiledCodeString
+    assertNoDiff(
+      fj,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module FJv(
+         |  output reg a,
+         |  output reg b
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  always
+         |  begin
+         |    begin
+         |      a <= 1'b1;
+         |    end
+         |    fork : j
+         |      begin
+         |        a <= 1'b0;
+         |      end
+         |      begin
+         |        b <= 1'b0;
+         |      end
+         |    join
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("forkJoinAny is unsupported under old Verilog (v2001)") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    // v2001 lacks join_any/join_none and they are never lowered (they may dynamically spawn
+    // threads, e.g. a fork inside a loop), so forkJoinAny is rejected by the backend.
+    class FJvAny extends EDDesign:
+      val a = Bit <> OUT
+      val b = Bit <> OUT
+      process:
+        val j = forkJoinAny:
+          locally:
+            a :== 0
+          locally:
+            b :== 0
+    end FJvAny
+    intercept[IllegalArgumentException]((new FJvAny).getCompiledCodeString)
+  }
+  // a register-transfer forkJoin lowers all the way to a clocked FSM (each branch + the parent
+  // handshake becomes its own state-register process).
+  test("RT forkJoin lowers to a clocked FSM") {
+    class ForkJoinFSM extends RTDesign:
+      val a = Bit <> OUT.REG init 0
+      val b = Bit <> OUT.REG init 0
+      process:
+        val fk = forkJoin:
+          locally:
+            a.din := 1
+          locally:
+            b.din := 1
+    end ForkJoinFSM
+    val top = (new ForkJoinFSM).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module ForkJoinFSM(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  output logic a,
+         |  output logic b
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  typedef enum logic [0:0] {
+         |    State_S_0 = 0,
+         |    State_S_1 = 1
+         |  } t_enum_State;
+         |  logic fk_start_0;
+         |  logic fk_start_1;
+         |  logic fk_done_0;
+         |  logic fk_done_1;
+         |  t_enum_State state_0;
+         |  t_enum_State state_1;
+         |  t_enum_State state_2;
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) begin
+         |      a <= 1'b0;
+         |      b <= 1'b0;
+         |      state_0 <= State_S_0;
+         |      state_1 <= State_S_0;
+         |      state_2 <= State_S_0;
+         |    end
+         |    else begin
+         |      unique case (state_0)
+         |        State_S_0: begin
+         |          fk_start_0 <= 1'b1;
+         |          fk_start_1 <= 1'b1;
+         |          state_0 <= State_S_1;
+         |        end
+         |        State_S_1: begin
+         |          if (~(fk_done_0 & fk_done_1)) state_0 <= State_S_1;
+         |          else begin
+         |            fk_start_0 <= 1'b0;
+         |            fk_start_1 <= 1'b0;
+         |            state_0 <= State_S_0;
+         |          end
+         |        end
+         |      endcase
+         |      unique case (state_1)
+         |        State_S_0: begin
+         |          if (~fk_start_0) state_1 <= State_S_0;
+         |          else begin
+         |            a <= 1'b1;
+         |            fk_done_0 <= 1'b1;
+         |            state_1 <= State_S_1;
+         |          end
+         |        end
+         |        State_S_1: begin
+         |          if (fk_start_0) state_1 <= State_S_1;
+         |          else begin
+         |            fk_done_0 <= 1'b0;
+         |            state_1 <= State_S_0;
+         |          end
+         |        end
+         |      endcase
+         |      unique case (state_2)
+         |        State_S_0: begin
+         |          if (~fk_start_1) state_2 <= State_S_0;
+         |          else begin
+         |            b <= 1'b1;
+         |            fk_done_1 <= 1'b1;
+         |            state_2 <= State_S_1;
+         |          end
+         |        end
+         |        State_S_1: begin
+         |          if (fk_start_1) state_2 <= State_S_1;
+         |          else begin
+         |            fk_done_1 <= 1'b0;
+         |            state_2 <= State_S_0;
+         |          end
+         |        end
+         |      endcase
+         |    end
          |  end
          |endmodule""".stripMargin
     )

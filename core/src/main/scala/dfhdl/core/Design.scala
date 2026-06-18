@@ -10,7 +10,7 @@ import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
-trait Design extends Container, HasClsMetaArgs:
+trait Design extends Container, HasClsMetaArgs, HasConstParams:
   private[core] type TScope = DFC.Scope.Design
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
@@ -151,7 +151,7 @@ trait Design extends Container, HasClsMetaArgs:
         try
           import Design.latchesCheck
           val designDB = dfc.mutableDB.immutable
-          designDB.check() // various checks post initial elaboration
+          designDB.oldToNew.check // various checks post initial elaboration
           designDB.latchesCheck()
           customTopChecks() // custom user/library checks
         catch
@@ -215,13 +215,22 @@ object Design:
         // `containedOwner.asIR`, which may be stale after `setClsNamePos`
         // replaced it. Resolve the ref to reach the current DB version so
         // the cache lives on the block that `getDesignInst` looks up later.
-        inst.designRef.get.setDesignInstCache(inst)
+        inst.designRef.asRef.get.setDesignInstCache(inst)
         dfc.mutableDB.addMember(inst)
       end if
     end apply
   end Inst
   extension [D <: Design](dsn: D)
-    def getDB: ir.DB = dsn.dfc.mutableDB.immutable
+    // The compiled design DB is hierarchical (root + per-design sub-DBs): the
+    // stage pipeline runs natively on this form. `oldToNew` is applied ONCE here
+    // at the source so the staged DB is hierarchical end-to-end (no per-stage
+    // round-trips).
+    def getDB: ir.DB = dsn.dfc.mutableDB.immutable.oldToNew
+    // The raw FLAT immutable DB (the pre-`oldToNew` form). Needed where a design's
+    // members are consumed as a flat container without the hierarchy — e.g. a
+    // meta-design in the patch system, whose DB is just the freshly-created
+    // members to inject (root would have empty `members`).
+    def getDBOld: ir.DB = dsn.dfc.mutableDB.immutable
     infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
       import dfc.getSet
       dsn.containedOwner.asIR

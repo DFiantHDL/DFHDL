@@ -314,20 +314,22 @@ private def exactOp1Macro[Op, Ctx, OutUB](lhs: Expr[Any])(ctx: Expr[Ctx])(using
     Type[OutUB]
 ): Expr[OutUB] =
   import quotes.reflect.*
-  val lhsExactInfo = lhs.exactInfo
-  val (lhsBindings, lhsInner) = flattenInlined(lhsExactInfo.exactExpr.asTerm)
-  Expr.summon[ExactOp1[Op, Ctx, OutUB, lhsExactInfo.Underlying]] match
-    case Some(expr) =>
-      val appTerm = ascribeWidenedType('{ $expr(${ lhsInner.asExpr })(using $ctx) }.asTerm)
-      if lhsBindings.isEmpty then appTerm.asExprOf[OutUB]
-      else
-        val innerTerm = appTerm match
-          case Inlined(_, Nil, inner) => inner
-          case t                      => t
-        Block(lhsBindings, innerTerm).asExprOf[OutUB]
-    case None =>
-      ControlledMacroError.report("Unsupported argument type for this operation.")
-  end match
+  lhs.mapExprOrError { lhs =>
+    val lhsExactInfo = lhs.exactInfo
+    val (lhsBindings, lhsInner) = flattenInlined(lhsExactInfo.exactExpr.asTerm)
+    Expr.summon[ExactOp1[Op, Ctx, OutUB, lhsExactInfo.Underlying]] match
+      case Some(expr) =>
+        val appTerm = ascribeWidenedType('{ $expr(${ lhsInner.asExpr })(using $ctx) }.asTerm)
+        if lhsBindings.isEmpty then appTerm.asExprOf[OutUB]
+        else
+          val innerTerm = appTerm match
+            case Inlined(_, Nil, inner) => inner
+            case t                      => t
+          Block(lhsBindings, innerTerm).asExprOf[OutUB]
+      case None =>
+        ControlledMacroError.report("Unsupported argument type for this operation.")
+    end match
+  }
 end exactOp1Macro
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -357,74 +359,78 @@ private def exactOp2Macro[Op, Ctx, OutUB](
     Type[OutUB]
 ): Expr[OutUB] =
   import quotes.reflect.*
-  val lhsExactInfo = lhs.exactInfo
-  val rhsExactInfo = rhs.exactInfo
-  val exactOp2ExprOrError =
-    try
-      Expr.summonOrError[ExactOp2[
-        Op,
-        Ctx,
-        OutUB,
-        lhsExactInfo.Underlying,
-        rhsExactInfo.Underlying
-      ]]
-    catch
-      // TODO: this is a workaround for a Scala compiler bug that is not minimized yet.
-      // It throws an exception which somehow disappears when we widen the types and run show.
-      // Regression test is in platforms/src/test/scala/PlatformSpec.scala
-      case e: Throwable =>
-        lhsExactInfo.exactTpe.widen.show
-        rhsExactInfo.exactTpe.widen.show
-        Expr.summonOrError[ExactOp2[
-          Op,
-          Ctx,
-          OutUB,
-          lhsExactInfo.Underlying,
-          rhsExactInfo.Underlying
-        ]]
-    end try
-  end exactOp2ExprOrError
-  def buildFlattened(lhsTerm: Term, rhsTerm: Term, expr: Expr[?]): Expr[OutUB] =
-    val (lhsBindings, lhsInner) = flattenInlined(lhsTerm)
-    val (rhsBindings, rhsInner) = flattenInlined(rhsTerm)
-    val allBindings = lhsBindings ++ rhsBindings
-    val appTerm = ascribeWidenedType('{
-      ${
-        expr.asInstanceOf[Expr[ExactOp2[
-          Op,
-          Ctx,
-          OutUB,
-          lhsExactInfo.Underlying,
-          rhsExactInfo.Underlying
-        ]]]
-      }(${ lhsInner.asExpr }, ${ rhsInner.asExpr })(using $ctx)
-    }.asTerm)
-    if allBindings.isEmpty then appTerm.asExprOf[OutUB]
-    else
-      val innerTerm = appTerm match
-        case Inlined(_, Nil, inner) => inner
-        case t                      => t
-      Block(allBindings, innerTerm).asExprOf[OutUB]
-  end buildFlattened
-  exactOp2ExprOrError match
-    case Right(expr) =>
-      buildFlattened(lhsExactInfo.exactExpr.asTerm, rhsExactInfo.exactExpr.asTerm, expr)
-    case Left(msg) =>
-      if (bothWays.value.getOrElse(false))
-        Expr.summonOrError[ExactOp2[
-          Op,
-          Ctx,
-          OutUB,
-          rhsExactInfo.Underlying,
-          lhsExactInfo.Underlying
-        ]] match
-          case Right(expr) =>
-            buildFlattened(rhsExactInfo.exactExpr.asTerm, lhsExactInfo.exactExpr.asTerm, expr)
-          case Left(msg) =>
+  lhs.mapExprOrError { lhs =>
+    rhs.mapExprOrError { rhs =>
+      val lhsExactInfo = lhs.exactInfo
+      val rhsExactInfo = rhs.exactInfo
+      val exactOp2ExprOrError =
+        try
+          Expr.summonOrError[ExactOp2[
+            Op,
+            Ctx,
+            OutUB,
+            lhsExactInfo.Underlying,
+            rhsExactInfo.Underlying
+          ]]
+        catch
+          // TODO: this is a workaround for a Scala compiler bug that is not minimized yet.
+          // It throws an exception which somehow disappears when we widen the types and run show.
+          // Regression test is in platforms/src/test/scala/PlatformSpec.scala
+          case e: Throwable =>
+            lhsExactInfo.exactTpe.widen.show
+            rhsExactInfo.exactTpe.widen.show
+            Expr.summonOrError[ExactOp2[
+              Op,
+              Ctx,
+              OutUB,
+              lhsExactInfo.Underlying,
+              rhsExactInfo.Underlying
+            ]]
+        end try
+      end exactOp2ExprOrError
+      def buildFlattened(lhsTerm: Term, rhsTerm: Term, expr: Expr[?]): Expr[OutUB] =
+        val (lhsBindings, lhsInner) = flattenInlined(lhsTerm)
+        val (rhsBindings, rhsInner) = flattenInlined(rhsTerm)
+        val allBindings = lhsBindings ++ rhsBindings
+        val appTerm = ascribeWidenedType('{
+          ${
+            expr.asInstanceOf[Expr[ExactOp2[
+              Op,
+              Ctx,
+              OutUB,
+              lhsExactInfo.Underlying,
+              rhsExactInfo.Underlying
+            ]]]
+          }(${ lhsInner.asExpr }, ${ rhsInner.asExpr })(using $ctx)
+        }.asTerm)
+        if allBindings.isEmpty then appTerm.asExprOf[OutUB]
+        else
+          val innerTerm = appTerm match
+            case Inlined(_, Nil, inner) => inner
+            case t                      => t
+          Block(allBindings, innerTerm).asExprOf[OutUB]
+      end buildFlattened
+      exactOp2ExprOrError match
+        case Right(expr) =>
+          buildFlattened(lhsExactInfo.exactExpr.asTerm, rhsExactInfo.exactExpr.asTerm, expr)
+        case Left(msg) =>
+          if (bothWays.value.getOrElse(false))
+            Expr.summonOrError[ExactOp2[
+              Op,
+              Ctx,
+              OutUB,
+              rhsExactInfo.Underlying,
+              lhsExactInfo.Underlying
+            ]] match
+              case Right(expr) =>
+                buildFlattened(rhsExactInfo.exactExpr.asTerm, lhsExactInfo.exactExpr.asTerm, expr)
+              case Left(msg) =>
+                ControlledMacroError.report("Unsupported argument types for this operation.")
+          else
             ControlledMacroError.report("Unsupported argument types for this operation.")
-      else
-        ControlledMacroError.report("Unsupported argument types for this operation.")
-  end match
+      end match
+    }
+  }
 end exactOp2Macro
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -452,36 +458,42 @@ private def exactOp3Macro[Op, Ctx, OutUB](
     Type[OutUB]
 ): Expr[OutUB] =
   import quotes.reflect.*
-  val lhsExactInfo = lhs.exactInfo
-  val mhsExactInfo = mhs.exactInfo
-  val rhsExactInfo = rhs.exactInfo
-  val (lhsBindings, lhsInner) = flattenInlined(lhsExactInfo.exactExpr.asTerm)
-  val (mhsBindings, mhsInner) = flattenInlined(mhsExactInfo.exactExpr.asTerm)
-  val (rhsBindings, rhsInner) = flattenInlined(rhsExactInfo.exactExpr.asTerm)
-  val allBindings = lhsBindings ++ mhsBindings ++ rhsBindings
-  Expr.summon[ExactOp3[
-    Op,
-    Ctx,
-    OutUB,
-    lhsExactInfo.Underlying,
-    mhsExactInfo.Underlying,
-    rhsExactInfo.Underlying
-  ]] match
-    case Some(expr) =>
-      val appTerm = ascribeWidenedType('{
-        $expr(
-          ${ lhsInner.asExpr },
-          ${ mhsInner.asExpr },
-          ${ rhsInner.asExpr }
-        )(using $ctx)
-      }.asTerm)
-      if allBindings.isEmpty then appTerm.asExprOf[OutUB]
-      else
-        val innerTerm = appTerm match
-          case Inlined(_, Nil, inner) => inner
-          case t                      => t
-        Block(allBindings, innerTerm).asExprOf[OutUB]
-    case None =>
-      ControlledMacroError.report("Unsupported argument types for this operation.")
-  end match
+  lhs.mapExprOrError { lhs =>
+    mhs.mapExprOrError { mhs =>
+      rhs.mapExprOrError { rhs =>
+        val lhsExactInfo = lhs.exactInfo
+        val mhsExactInfo = mhs.exactInfo
+        val rhsExactInfo = rhs.exactInfo
+        val (lhsBindings, lhsInner) = flattenInlined(lhsExactInfo.exactExpr.asTerm)
+        val (mhsBindings, mhsInner) = flattenInlined(mhsExactInfo.exactExpr.asTerm)
+        val (rhsBindings, rhsInner) = flattenInlined(rhsExactInfo.exactExpr.asTerm)
+        val allBindings = lhsBindings ++ mhsBindings ++ rhsBindings
+        Expr.summon[ExactOp3[
+          Op,
+          Ctx,
+          OutUB,
+          lhsExactInfo.Underlying,
+          mhsExactInfo.Underlying,
+          rhsExactInfo.Underlying
+        ]] match
+          case Some(expr) =>
+            val appTerm = ascribeWidenedType('{
+              $expr(
+                ${ lhsInner.asExpr },
+                ${ mhsInner.asExpr },
+                ${ rhsInner.asExpr }
+              )(using $ctx)
+            }.asTerm)
+            if allBindings.isEmpty then appTerm.asExprOf[OutUB]
+            else
+              val innerTerm = appTerm match
+                case Inlined(_, Nil, inner) => inner
+                case t                      => t
+              Block(allBindings, innerTerm).asExprOf[OutUB]
+          case None =>
+            ControlledMacroError.report("Unsupported argument types for this operation.")
+        end match
+      }
+    }
+  }
 end exactOp3Macro

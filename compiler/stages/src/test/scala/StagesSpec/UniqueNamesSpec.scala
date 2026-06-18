@@ -106,4 +106,36 @@ class UniqueNamesSpec extends StageSpec:
     )
   }
 
+  test("Unique names of a global shared across designs") {
+    // `gv` is a pair of colliding global constants both referenced from two
+    // different designs. They must be renamed ONCE into shared globals (gv_0,
+    // gv_1), not duplicated/diverged per design.
+    val gv = Vector("01", "02").map(x => h"$x")
+    class Sub extends DFDesign:
+      val o = Bits(8) <> OUT
+      o := gv(0) ^ gv(1)
+    class Top extends DFDesign:
+      val o   = Bits(8) <> OUT
+      val sub = new Sub
+      o := gv(0) ^ sub.o
+    val top = (new Top).uniqueNames(Set(), true)
+    assertCodeString(
+      top,
+      """|val gv_0: Bits[8] <> CONST = h"01"
+         |val gv_1: Bits[8] <> CONST = h"02"
+         |
+         |class Sub extends DFDesign:
+         |  val o = Bits(8) <> OUT
+         |  o := gv_0 ^ gv_1
+         |end Sub
+         |
+         |class Top extends DFDesign:
+         |  val o = Bits(8) <> OUT
+         |  val sub = Sub()
+         |  o := gv_0 ^ sub.o
+         |end Top
+         |""".stripMargin
+    )
+  }
+
 end UniqueNamesSpec

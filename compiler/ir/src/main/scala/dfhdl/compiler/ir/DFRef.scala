@@ -94,6 +94,29 @@ object DFRef:
     )
 end DFRef
 
+// A reference to a design block used as a stable structural key — the `subDBs`
+// key, `DFDesignInst.designRef`, and `DFInterface.interfaceRef`. Fully opaque (no
+// `<: OneWay[...]` bound) so it is NOT a regular reference: it cannot be resolved,
+// freshened, or placed in a refTable by accident. Use `.asRef` for the deliberate,
+// explicit unwrap when the underlying design-block reference is genuinely needed.
+into opaque type StaticRef = DFRef.OneWay[DFDesignBlock]
+object StaticRef:
+  // The source is `DFOwner.Ref` (the broad owner-ref type) rather than just
+  // `OneWay[DFDesignBlock]`: a design block's `ownerRef` is unified with its
+  // instantiating `designRef` (a design-block key) but is typed as `DFOwner.Ref`,
+  // so this also re-tags those `subDBs` keys/lookups. `designRef`/`interfaceRef`
+  // (`OneWay[DFDesignBlock] <: DFOwner.Ref`) convert through the same path.
+  def apply(ref: DFOwner.Ref): StaticRef = ref.asInstanceOf[StaticRef]
+  given Conversion[DFOwner.Ref, StaticRef] = apply(_)
+  given CanEqual[StaticRef, StaticRef] = CanEqual.derived
+  // Opaque, so it does not inherit the `[T <: DFRefAny]` ReadWriter; provide its own
+  // (the underlying ref serializes with the standard DFRef string format).
+  given ReadWriter[StaticRef] =
+    summon[ReadWriter[DFRefAny]].asInstanceOf[ReadWriter[StaticRef]]
+  // The deliberate, explicit unwrap to the underlying design-block reference.
+  extension (ref: StaticRef) def asRef: DFRef.OneWay[DFDesignBlock] = ref
+end StaticRef
+
 opaque type IntParamRef = DFRef.TypeRef | Int
 object IntParamRef:
   def apply(int: Int): IntParamRef = int
@@ -263,10 +286,21 @@ end RefGen
 object RefGen:
   def initial: RefGen = RefGen(0, (0, 0), 0)
   def fromGetSet(using getSet: MemberGetSet): RefGen =
-    val rt = getSet.designDB.refTable
+    val db = getSet.designDB
+    // The hierarchical root holds no members/refTable of its own (all content
+    // lives in the sub-DBs), so aggregate across every sub-DB. A non-root DB
+    // (flat or a single sub-DB) is handled exactly as before.
+    val rt =
+      if (db.isRoot) db.subDBs.values.view.flatMap(_.refTable).toMap
+      else db.refTable
+    val members =
+      if (db.isRoot) db.subDBs.values.view.flatMap(_.members).toList
+      else db.members
     val grpId = rt.last._1.grpId
     val lastId = rt.keys.map(_.id).max
-    val magnetID = getSet.designDB.members.view.collect {
+    val magnetID = members.view.collect {
       case DFOpaque.Val(dfType) if dfType.isMagnet => dfType.id
     }.maxOption.getOrElse(0)
     RefGen(magnetID, grpId, lastId)
+  end fromGetSet
+end RefGen

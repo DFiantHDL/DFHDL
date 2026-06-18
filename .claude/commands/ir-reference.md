@@ -39,6 +39,8 @@ DFMember  (sealed)
 │   ├── DFDesignBlock           — module / design definition
 │   ├── DomainBlock             — clock-domain grouping
 │   ├── ProcessBlock            — always / process block
+│   ├── ForkBlock               — fork-join (forkJoin/forkJoinAny/forkJoinNone); join mode
+│   ├── LocalBlock              — local statement block (locally:); a fork branch when owned by ForkBlock
 │   ├── StepBlock               — FSM step
 │   ├── DFConditional.Block     — if / match clause
 │   │   ├── DFIfElseBlock
@@ -49,7 +51,6 @@ DFMember  (sealed)
 ├── DFConditional.Header    — if / match header expression
 │   ├── DFIfHeader
 │   └── DFMatchHeader
-├── DFInterfaceOwner        — interface abstraction
 └── DFRange                 — for-loop range
 ```
 
@@ -372,7 +373,7 @@ type PortByNameSelect.Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
 
 ```scala
 final case class DFNet(
-    lhsRef:   DFNet.Ref,   // DFRef.TwoWay[DFVal | DFInterfaceOwner, DFNet]
+    lhsRef:   DFNet.Ref,   // DFRef.TwoWay[DFVal, DFNet]
     op:       DFNet.Op,
     rhsRef:   DFNet.Ref,
     ownerRef: DFOwner.Ref,
@@ -396,8 +397,8 @@ DFNet.Assignment(toVal, fromVal)   // Assignment or NBAssignment; toVal and from
 DFNet.BAssignment(toVal, fromVal)  // blocking only (op == Assignment)
 DFNet.NBAssignment(toVal, fromVal) // non-blocking only (op == NBAssignment)
 DFNet.Connection(toVal, fromVal, swapped)
-  // toVal: DFVal.Dcl | DFVal.Special | DFInterfaceOwner
-  // fromVal: DFVal | DFInterfaceOwner
+  // toVal: DFVal.Dcl | DFVal.PortByNameSelect | DFVal.Special
+  // fromVal: DFVal
   // swapped: Boolean — true if lhs/rhs were physically reversed
 ```
 
@@ -468,7 +469,6 @@ enum InstMode.BlackBox: NA, Files(path), Library(libName, nameSpace), VendorIP(v
 
 **Extension methods:**
 ```scala
-design.isDuplicate          // tagged DuplicateTag — has NO members in DB (ports/domains removed)
 design.isBlackBox           // instMode is BlackBox
 design.isVendorIPBlackbox
 design.inSimulation         // instMode is Simulation
@@ -508,6 +508,29 @@ sealed trait ProcessBlock.Sensitivity
 case object ProcessBlock.Sensitivity.All                          // process(all)
 final case class ProcessBlock.Sensitivity.List(refs: List[DFVal.Ref])  // process(x, y)
 ```
+
+---
+
+### ForkBlock & LocalBlock
+```scala
+final case class ForkBlock(
+    join:     ForkBlock.Join,   // All | Any | None
+    ownerRef: DFOwner.Ref,
+    meta:     Meta,
+    tags:     DFTags
+)
+enum ForkBlock.Join: All, Any, None   // forkJoin / forkJoinAny / forkJoinNone
+
+final case class LocalBlock(            // produced by `locally:`
+    ownerRef: DFOwner.Ref,
+    meta:     Meta,
+    tags:     DFTags
+)
+```
+ED-domain only (for now). A `LocalBlock` whose `getOwner` is a `ForkBlock` is a concurrent
+fork branch; elsewhere it is a plain local statement scope. SystemVerilog emits both natively
+(`fork…join[_any|_none]`, `begin[: name]…end`); `DropForkJoins` lowers forks to processes +
+handshake signals for VHDL/old-Verilog, and `DropLocalBlocks` flattens local blocks for VHDL.
 
 ---
 
@@ -783,7 +806,6 @@ DFTags.empty
 
 **Built-in tags:**
 ```scala
-case object DuplicateTag      // duplicate design instance — NO members in DB
 case object IteratorTag       // Dcl is a for-loop iterator variable
 case object IdentTag          // Alias.AsIs is a pure identity (named alias of itself)
 case object BindTag           // Alias is a pattern-match bind variable
@@ -862,10 +884,6 @@ db.membersGlobals         // global CanBeGlobal values only
 db.inSimulation           // top has no ports (simulation context)
 db.inBuild                // top has a device constraint tag
 ```
-
-**Design duplication properties:**
-
-Duplicate designs (tagged `DuplicateTag`) have **no members** in the DB — their ports, domain blocks, and other members are removed during immutable DB creation. 
 
 **Patching:**
 ```scala

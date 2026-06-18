@@ -129,7 +129,6 @@ DFMember (sealed)
 │   ├── StepBlock        ─ RT step (FSM state)
 │   └── DFConditional.Block ─ if/match/while clause
 ├── DFConditional.Header ─ if/match/while header
-├── DFInterfaceOwner
 └── DFRange
 ```
 
@@ -1072,9 +1071,7 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     fails with "wrong number of argument patterns" because `DFForBlock` has multiple fields. Use a
     type pattern instead: `case x: DFLoop.DFForBlock`. The same applies to other multi-field IR
     case classes that have no dedicated single-argument unapply.
-16. **Assuming duplicate designs have members** — designs tagged `DuplicateTag` have **no members**
-    in the DB (ports, domain blocks, and values are removed during immutable DB creation). 
-17. **Rewriting nested same-kind constructs in one pass** — if your stage rewrites a construct that
+16. **Rewriting nested same-kind constructs in one pass** — if your stage rewrites a construct that
     can nest inside another of the same kind (nested `for` loops, steps-in-conditionals nested in
     steps, etc.) via a `Move` / `ReplaceWithLast(ChangeRefAndRemove)` plus a body-anchored satellite
     patch, doing the outer and inner in one patch list conflicts: the inner appears both in the

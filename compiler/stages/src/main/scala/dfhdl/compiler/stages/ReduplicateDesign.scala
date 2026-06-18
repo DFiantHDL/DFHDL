@@ -37,11 +37,9 @@ abstract class ReduplicateDesign extends GlobalStage:
     designDB.subDBs.foreach { case (_, parentSubDB) =>
       parentSubDB.members.foreach {
         case inst: DFDesignInst =>
-          parentSubDB.refTable.get(inst.designRef) match
-            case Some(d: DFDesignBlock) =>
-              instsByTarget
-                .getOrElseUpdate(d.ownerRef, mutable.ListBuffer.empty) += ((inst, parentSubDB))
-            case _ =>
+          val d = inst.getDesignBlock(using parentSubDB.getSet)
+          instsByTarget
+            .getOrElseUpdate(d.ownerRef, mutable.ListBuffer.empty) += ((inst, parentSubDB))
         case _ =>
       }
     }
@@ -68,7 +66,7 @@ abstract class ReduplicateDesign extends GlobalStage:
           if (k == n)
             val (firstInst, firstParent) = matching.head
             val firstName = firstParent.atGetSet(firstInst.getName)
-            val d = firstParent.refTable(firstInst.designRef).asInstanceOf[DFDesignBlock]
+            val d = firstInst.getDesignBlock(using firstParent.getSet)
             val renamed = d.copy(meta = d.meta.setName(s"${d.dclName}_$firstName"))
             originalRenames(d) = renamed
             cloneRequests ++= matching.drop(1)
@@ -86,7 +84,7 @@ abstract class ReduplicateDesign extends GlobalStage:
         mutable.LinkedHashMap.empty[DFOwner.Ref, mutable.LinkedHashMap[DFDesignInst, DFDesignBlock]]
 
       cloneRequests.foreach { case (inst, parentSubDB) =>
-        val origTargetBlock = parentSubDB.refTable(inst.designRef).asInstanceOf[DFDesignBlock]
+        val origTargetBlock = inst.getDesignBlock(using parentSubDB.getSet)
         val instName = parentSubDB.atGetSet(inst.getName)
         val acc = CloneAcc(
           memberMap = mutable.Map.empty,
@@ -105,7 +103,7 @@ abstract class ReduplicateDesign extends GlobalStage:
 
       // ----- Step 4: rewire each touched parent sub-DB -----
       val updatedParents = parentRewires.map { case (parentKey, rewires) =>
-        val parentSubDB = designDB.subDBs(parentKey)
+        val parentSubDB = designDB.subDBs(StaticRef(parentKey))
         parentKey -> rewireParentSubDB(parentSubDB, rewires.toMap)
       }.toMap
 
@@ -127,23 +125,23 @@ abstract class ReduplicateDesign extends GlobalStage:
           }.toMap
           sub.update(members = newMembers, refTable = newRefTable)
 
-      val mergedByKey = mutable.LinkedHashMap.empty[DFOwner.Ref, DB]
+      val mergedByKey = mutable.LinkedHashMap.empty[StaticRef, DB]
       designDB.subDBs.foreach { case (key, sub) =>
-        mergedByKey(key) = applyOriginalRenames(updatedParents.getOrElse(key, sub))
+        mergedByKey(key) = applyOriginalRenames(updatedParents.getOrElse(key.asRef, sub))
       }
-      newClonedSubDBs.foreach { case (key, sub) => mergedByKey(key) = sub }
+      newClonedSubDBs.foreach { case (key, sub) => mergedByKey(StaticRef(key)) = sub }
 
-      val emitted = mutable.LinkedHashMap.empty[DFOwner.Ref, DB]
-      def emit(key: DFOwner.Ref): Unit =
+      val emitted = mutable.LinkedHashMap.empty[StaticRef, DB]
+      def emit(key: StaticRef): Unit =
         if (!emitted.contains(key))
           mergedByKey.get(key).foreach { sub =>
             emitted(key) = sub
             sub.members.foreach {
-              case inst: DFDesignInst =>
-                sub.refTable.get(inst.designRef) match
-                  case Some(target: DFDesignBlock) => emit(target.ownerRef)
-                  case _                           =>
-              case _ =>
+              // `designRef` IS the target design's sub-DB key under unification,
+              // so it can be used directly (these merged sub-DBs are not yet wired
+              // into a root, so structural `getDesignBlock` is not available here).
+              case inst: DFDesignInst => emit(inst.designRef)
+              case _                  =>
             }
           }
       val topKey = designDB.subDBs.head._1
@@ -153,6 +151,7 @@ abstract class ReduplicateDesign extends GlobalStage:
       mergedByKey.foreach { case (key, sub) => if (!emitted.contains(key)) emitted(key) = sub }
 
       designDB.update(subDBs = ListMap.from(emitted))
+    end if
   end transformGlobal
 
   // Mutable accumulators threaded through `cloneSubTree`.
@@ -172,7 +171,7 @@ abstract class ReduplicateDesign extends GlobalStage:
       acc: CloneAcc,
       designDB: DB
   )(using RefGen): DFDesignBlock =
-    val origSubDB = designDB.subDBs(d.ownerRef)
+    val origSubDB = designDB.subDBs(StaticRef(d.ownerRef))
 
     // Clone every member; record (oldMember -> newMember) and pairwise
     // (oldRef -> newRef) via the symmetric `getAllRefs` enumeration on
@@ -188,10 +187,22 @@ abstract class ReduplicateDesign extends GlobalStage:
     // is reached by multiple peer insts inside this sub-DB).
     origSubDB.members.foreach {
       case inst: DFDesignInst =>
-        origSubDB.refTable.get(inst.designRef) match
-          case Some(childBlock: DFDesignBlock) if !acc.memberMap.contains(childBlock) =>
-            cloneSubTree(childBlock, None, acc, designDB)
-          case _ =>
+        val childBlock = inst.getDesignBlock(using origSubDB.getSet)
+        if (!acc.memberMap.contains(childBlock))
+          cloneSubTree(childBlock, None, acc, designDB)
+      case _ =>
+    }
+
+    // Under unification a cloned inst's `designRef` must equal its cloned target
+    // block's `ownerRef` (the `subDBs` key). `copyWithNewRefs` does not freshen
+    // `designRef`, so set it explicitly to the cloned child block's fresh ownerRef.
+    origSubDB.members.foreach {
+      case inst: DFDesignInst =>
+        val clonedInst = acc.memberMap(inst).asInstanceOf[DFDesignInst]
+        val clonedChild =
+          acc.memberMap(inst.getDesignBlock(using origSubDB.getSet)).asInstanceOf[DFDesignBlock]
+        acc.memberMap(inst) =
+          clonedInst.copy(designRef = clonedChild.ownerRef.asInstanceOf[DFDesignInst.DesignRef])
       case _ =>
     }
 
@@ -209,7 +220,7 @@ abstract class ReduplicateDesign extends GlobalStage:
     val newRefTable: Map[DFRefAny, DFMember] = origSubDB.refTable.map { case (oR, target) =>
       val nR = acc.refMap(oR)
       val newTarget = target match
-        case _: DFMember.Empty => target  // sentinel — passthrough
+        case _: DFMember.Empty => target // sentinel — passthrough
         case t                 => acc.memberMap(t)
       nR -> newTarget
     }.toMap
@@ -228,27 +239,18 @@ abstract class ReduplicateDesign extends GlobalStage:
   private def rewireParentSubDB(
       parentSubDB: DB,
       rewires: Map[DFDesignInst, DFDesignBlock]
-  )(using refGen: RefGen): DB =
-    // For each rewired inst, mint a fresh OneWay designRef pointing at the clone.
-    val instReplacements: Map[DFDesignInst, (DFDesignInst, DFRef.OneWay[DFDesignBlock])] =
-      rewires.map { case (origInst, _) =>
-        val newDesignRef = refGen.genOneWay[DFDesignBlock]
-        val newInst = origInst.copy(designRef = newDesignRef)
-        origInst -> ((newInst, newDesignRef))
-      }
+  ): DB =
+    // Point each rewired inst's `designRef` at its cloned target block's `ownerRef`
+    // (the cloned sub-DB's key). Under unification `designRef` IS that key and is
+    // resolved structurally via `subDBs`, so it is not added to the parent refTable.
     val instMap: Map[DFMember, DFMember] =
-      instReplacements.map { case (o, (n, _)) => o -> n }
-    val newMembers = parentSubDB.members.map(m => instMap.getOrElse(m, m))
-    // Retarget any ref whose value was an old inst to the new inst, then strip
-    // the obsolete designRef entries and add the fresh designRef -> clone pairs.
-    val retargeted: Map[DFRefAny, DFMember] =
-      parentSubDB.refTable.view.mapValues(t => instMap.getOrElse(t, t)).toMap
-    val withoutOldDesignRefs: Map[DFRefAny, DFMember] =
-      retargeted -- instReplacements.keys.map(_.designRef)
-    val newRefTable: Map[DFRefAny, DFMember] =
-      withoutOldDesignRefs ++ instReplacements.map { case (origInst, (_, newDesignRef)) =>
-        newDesignRef -> rewires(origInst)
+      rewires.map { case (origInst, clonedBlock) =>
+        origInst -> origInst.copy(designRef = StaticRef(clonedBlock.ownerRef))
       }
+    val newMembers = parentSubDB.members.map(m => instMap.getOrElse(m, m))
+    // Retarget any ref whose value was an old inst to the new inst.
+    val newRefTable: Map[DFRefAny, DFMember] =
+      parentSubDB.refTable.view.mapValues(t => instMap.getOrElse(t, t)).toMap
     parentSubDB.update(members = newMembers, refTable = newRefTable)
   end rewireParentSubDB
 end ReduplicateDesign

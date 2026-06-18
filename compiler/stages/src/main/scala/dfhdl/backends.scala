@@ -7,18 +7,22 @@ import dfhdl.compiler.stages.{BackendCompiler, CompiledDesign, StagedDesign, Sta
 import dfhdl.compiler.stages.verilog.{VerilogBackend, VerilogPrinter, VerilogDialect}
 import dfhdl.compiler.stages.vhdl.{VHDLBackend, VHDLPrinter, VHDLDialect}
 import dfhdl.compiler.ir.DB
+// NOTE: the stage pipeline runs natively on the hierarchical (root) DB, but the
+// printers are not yet hardened for it. `.newToOld` flattens the pipeline output
+// right before constructing the printer (a no-op on an already-flat DB).
+// TODO: temporary — drop the `.newToOld` once the printers render from root.
 object backends:
   sealed class verilog(val dialect: VerilogDialect) extends BackendCompiler:
     def printer(
         cd: CompiledDesign
     )(using CompilerOptions, PrinterOptions): Printer =
       val compiledDB = cd.stagedDB
-      new VerilogPrinter(dialect)(using compiledDB.getSet)
+      new VerilogPrinter(dialect)(using compiledDB.newToOld.getSet)
     def printer(
         designDB: DB
     )(using CompilerOptions, PrinterOptions): Printer =
       val compiledDB = StageRunner.run(VerilogBackend)(designDB)
-      new VerilogPrinter(dialect)(using compiledDB.getSet)
+      new VerilogPrinter(dialect)(using compiledDB.newToOld.getSet)
     override def toString(): String = s"verilog.$dialect"
   object verilog extends verilog(VerilogDialect.sv2009):
     val v95: verilog = new verilog(VerilogDialect.v95)
@@ -33,12 +37,12 @@ object backends:
         cd: CompiledDesign
     )(using CompilerOptions, PrinterOptions): Printer =
       val compiledDB = cd.stagedDB
-      new VHDLPrinter(dialect)(using compiledDB.getSet)
+      new VHDLPrinter(dialect)(using compiledDB.newToOld.getSet)
     def printer(
         designDB: DB
     )(using CompilerOptions, PrinterOptions): Printer =
       val compiledDB = StageRunner.run(VHDLBackend)(designDB)
-      new VHDLPrinter(dialect)(using compiledDB.getSet)
+      new VHDLPrinter(dialect)(using compiledDB.newToOld.getSet)
     override def toString(): String = s"vhdl.$dialect"
   object vhdl extends vhdl(VHDLDialect.v2008):
     val v93: vhdl = new vhdl(VHDLDialect.v93)
