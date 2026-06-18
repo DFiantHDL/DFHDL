@@ -16,7 +16,7 @@ Outputs: Verilog, SystemVerilog, VHDL.
 
 ## Build System
 
-**Tool**: SBT 1.12.9 — **Scala**: 3.8.3 (nightly resolver enabled)
+**Tool**: SBT 1.12.12 — **Scala**: 3.8.4 (nightly resolver enabled)
 
 ```bash
 sbtn compile          # compile all subprojects
