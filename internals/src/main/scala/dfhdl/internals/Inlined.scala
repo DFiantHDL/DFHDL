@@ -3,7 +3,7 @@ import scala.quoted.*
 import compiletime.ops.{int, string, boolean, any}
 import compiletime.{constValue, constValueOpt}
 export int.{ToString => _, + => _, ^ => _, *}
-export string.{+ => _, *}
+export string.Length
 export boolean.{^ => _, *}
 export any.*
 type +[L, R] = (L, R) match
