@@ -116,7 +116,8 @@ trait Tool:
           (exeDir ::
             root.toList.flatMap(r => List(r.resolve("lib"), r.resolve("lib").resolve("ivl"))))
             .map(_.toString)
-        (dllDirs :+ sys.env.getOrElse("PATH", "")).mkString(java.io.File.pathSeparator)
+        val inheritedPath = Option(System.getenv("PATH")).getOrElse("")
+        (dllDirs :+ inheritedPath).mkString(java.io.File.pathSeparator)
       }
 
   protected def designFiles(using getSet: MemberGetSet): List[String] =
