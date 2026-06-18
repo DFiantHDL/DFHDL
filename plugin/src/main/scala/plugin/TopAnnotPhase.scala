@@ -209,6 +209,14 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                       None
                     else
                       topName = s"top_${topName}"
+                      // Anchor the synthetic entry point on the design class's
+                      // name. This is what tooling (e.g. Metals `run`/`debug`
+                      // code lenses) uses to position itself on the class that
+                      // introduces the entry point rather than at the top of the
+                      // file. Using the class name (instead of the `@top`
+                      // annotation) also keeps this working if/when the design no
+                      // longer needs an explicit `@top` annotation.
+                      val designNameSpan = td.nameSpan
                       // the top entry point module symbol
                       val dfApp = newCompleteModuleSymbol(
                         packageOwner,
@@ -217,7 +225,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                         Touched | NoInits,
                         List(defn.ObjectType, appTpe),
                         Scopes.newScope,
-                        coord = topAnnotTree.span,
+                        coord = designNameSpan,
                         compUnitInfo = clsSym.compUnitInfo
                       )
                       val moduleCls = dfApp.moduleClass.asClass
@@ -281,7 +289,18 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                       )
                       val dsnInst = New(clsSym.typeRef, dsnInstArgs)
                       val setDsn = This(moduleCls).select("setDsn".toTermName).appliedTo(dsnInst)
-                      Some(td, ModuleDef(dfApp, List(setInitials, setDsn)), rest)
+                      // Give the generated module definition a real source span
+                      // (the design class's name) so that `ExtractSemanticDB`
+                      // records a definition *occurrence* for it. Without a
+                      // positioned tree the synthetic entry point only appears in
+                      // the SemanticDB `Symbols` section (no `Occurrences`), which
+                      // forces Metals to fall back to placing the run/debug code
+                      // lenses at the very top of the file instead of above the
+                      // design class.
+                      val moduleDef = ModuleDef(dfApp, List(setInitials, setDsn))
+                      val positionedModuleDef =
+                        Thicket(moduleDef.trees.map(_.withSpan(designNameSpan)))
+                      Some(td, positionedModuleDef, rest)
                     end if
                   end if
                 end if
