@@ -89,7 +89,9 @@ extension (cd: CompiledDesign)
     case (Vendor.Gowin, builders.vendor)            => GowinDesigner
     case (Vendor.Lattice, builders.vendor)          => Diamond
     case (Vendor.AlteraIntel(pro), builders.vendor) => if (pro) QuartusPrimePro else QuartusPrime
-    case (vendor, tool)                             => throw new IllegalArgumentException(
+    // the open-source flow is a single generic builder that dispatches on the device id
+    case (Vendor.Gowin | Vendor.Lattice, builders.foss) => YosysNextPNR
+    case (vendor, tool)     => throw new IllegalArgumentException(
         s"No $tool builder tool support for vendor $vendor"
       )
 

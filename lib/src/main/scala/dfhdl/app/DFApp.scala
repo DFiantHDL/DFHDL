@@ -460,12 +460,20 @@ trait DFApp:
                 case "vendor" => dfhdl.tools.builders.vendor
             )
           case mode: Mode.ProgramMode =>
+            val toolName = mode.tool.toOption.get
             programmerOptions = programmerOptions.copy(
               Werror = mode.`Werror-tool`.toOption.get,
               flash = mode.flash.toOption.get,
-              tool = mode.tool.toOption.get match
+              tool = toolName match
                 case "foss"   => dfhdl.tools.programmers.foss
                 case "vendor" => dfhdl.tools.programmers.vendor
+            )
+            // the build sub-step (run before programming) must use the matching tool family, so
+            // that `program -t foss` both builds and programs with the open-source flow.
+            builderOptions = builderOptions.copy(
+              tool = toolName match
+                case "foss"   => dfhdl.tools.builders.foss
+                case "vendor" => dfhdl.tools.builders.vendor
             )
             // if the programmer is set to flash, then the builder must be set to flash
             if (mode.flash.toOption.get)
