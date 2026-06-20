@@ -183,23 +183,34 @@ trait Tool:
       runExec: String = ""
   )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     val dftools = usesDFTools
-    if (dftools)
-      if (!DFToolsImage.isAvailable)
-        error(s"DFTools image (${DFToolsImage.version}) could not be resolved for ${toolName}.")
-    else preCheck()
-    prepare
     // the executable to run: an explicit `runExec`, else the host full path (local) or the bare
     // tool name (dftools, mapped to its in-image name by `containerExec`).
     val effRunExec =
       if (runExec.nonEmpty) runExec
       else if (dftools) this.runExec
       else this.runExecFullPath
+    // the DFTools image this executable lives in (yosys depends on the backend dialect)
+    val containerName = if (dftools) containerExec(effRunExec) else ""
+    val dftoolsImage =
+      if (dftools)
+        val vhdl = summon[CompilerOptions].backend match
+          case _: dfhdl.backends.vhdl => true
+          case _                      => false
+        DFToolsImage.imageFor(containerName, vhdl)
+      else ""
+    if (dftools)
+      if (!DFToolsImage.isAvailable(dftoolsImage))
+        error(
+          s"DFTools image '$dftoolsImage' (${DFToolsImage.version}) could not be resolved for ${toolName}."
+        )
+    else preCheck()
+    prepare
     val argv: Seq[String] =
       if (dftools)
-        // run the bare tool inside the DFTools image; apptainer mounts the cwd (execPath) as $PWD,
+        // run the bare tool inside its DFTools image; apptainer mounts the cwd (execPath) as $PWD,
         // so committed source/tool files are visible without an explicit bind.
-        val containerCmd = containerExec(effRunExec) +: cmd.split(" ").filter(_.nonEmpty).toSeq
-        DFToolsImage.execArgv(containerCmd, needsX11)
+        val containerCmd = containerName +: cmd.split(" ").filter(_.nonEmpty).toSeq
+        DFToolsImage.execArgv(dftoolsImage, containerCmd, needsX11)
       else
         val fullExec =
           // absolute path
