@@ -189,14 +189,25 @@ trait Tool:
       if (runExec.nonEmpty) runExec
       else if (dftools) this.runExec
       else this.runExecFullPath
-    // the DFTools image this executable lives in (yosys depends on the backend dialect)
-    val containerName = if (dftools) containerExec(effRunExec) else ""
+    // a produced artifact to run in place (e.g. verilator's obj_dir/V<top>) has a path separator;
+    // a plain tool name does not. The former runs by its relative path inside the mounted cwd.
+    val produced = dftools && (effRunExec.contains(separatorChar) || effRunExec.contains('/'))
+    val containerName =
+      if (!dftools) ""
+      else if (produced)
+        // the container produces a Linux binary (no .exe); run it by relative ./path with /-seps
+        val rel0 = effRunExec.replace('\\', '/')
+        val rel = if (rel0.endsWith(".exe")) rel0.dropRight(4) else rel0
+        if (rel.startsWith("./") || rel.startsWith("/")) rel else s"./$rel"
+      else containerExec(effRunExec)
+    // the DFTools image this command runs in. A produced artifact runs in its producing tool's
+    // image; a tool name maps directly (yosys also depends on the backend dialect).
     val dftoolsImage =
       if (dftools)
         val vhdl = summon[CompilerOptions].backend match
           case _: dfhdl.backends.vhdl => true
           case _                      => false
-        DFToolsImage.imageFor(containerName, vhdl)
+        DFToolsImage.imageFor(if (produced) containerExec(this.runExec) else containerName, vhdl)
       else ""
     if (dftools)
       if (!DFToolsImage.isAvailable(dftoolsImage))
