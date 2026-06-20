@@ -6,6 +6,7 @@ import dfhdl.core.Design
 final case class BuilderOptions(
     onError: _OnError,
     Werror: WError,
+    location: _Location,
     tool: _Tool,
     flash: Flash,
     compress: Compress
@@ -18,13 +19,15 @@ object BuilderOptions:
     given (using
         onError: OnError,
         Werror: WError,
+        location: Location,
         tool: Tool,
         flash: Flash,
         compress: Compress
     ): Defaults[Any] =
       BuilderOptions(
         onError = onError(dfhdl.options.OnError),
-        Werror = Werror, tool = tool(dfhdl.tools.builders), flash = flash, compress = compress
+        Werror = Werror, location = location(dfhdl.options.ToolOptions.Location),
+        tool = tool(dfhdl.tools.builders), flash = flash, compress = compress
       )
   given (using defaults: Defaults[Design]): BuilderOptions = defaults
 
@@ -40,6 +43,14 @@ object BuilderOptions:
     given (using Werror: dfhdl.options.ToolOptions.WError): WError = Werror
     given [T](using conv: Conversion[T, dfhdl.options.ToolOptions.WError]): Conversion[T, WError] =
       t => conv(t).asInstanceOf[WError]
+
+  type Location = dfhdl.options.ToolOptions.Location.type => _Location
+  private[dfhdl] into opaque type _Location <: dfhdl.options.ToolOptions._Location =
+    dfhdl.options.ToolOptions._Location
+  object _Location:
+    given (using location: dfhdl.options.ToolOptions.Location): Location = location
+    given Conversion[dfhdl.options.ToolOptions._Location, _Location] = x =>
+      x.asInstanceOf[_Location]
 
   type Tool = dfhdl.tools.builders.type => _Tool
   private[dfhdl] into opaque type _Tool <: dfhdl.tools.builders = dfhdl.tools.builders

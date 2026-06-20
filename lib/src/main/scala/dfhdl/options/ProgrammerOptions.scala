@@ -6,6 +6,7 @@ import dfhdl.core.Design
 final case class ProgrammerOptions(
     onError: _OnError,
     Werror: WError,
+    location: _Location,
     tool: _Tool,
     flash: Flash
 ) extends ToolOptions
@@ -17,15 +18,18 @@ object ProgrammerOptions:
     given (using
         onError: OnError,
         Werror: WError,
+        location: Location,
         tool: Tool,
         flash: Flash
     ): Defaults[Any] =
       ProgrammerOptions(
         onError = onError(dfhdl.options.OnError),
         Werror = Werror,
+        location = location(dfhdl.options.ToolOptions.Location),
         tool = tool(dfhdl.tools.programmers),
         flash = flash
       )
+  end Defaults
   given (using defaults: Defaults[Design]): ProgrammerOptions = defaults
 
   type OnError = dfhdl.options.OnError.type => _OnError
@@ -40,6 +44,14 @@ object ProgrammerOptions:
     given (using Werror: dfhdl.options.ToolOptions.WError): WError = Werror
     given [T](using conv: Conversion[T, dfhdl.options.ToolOptions.WError]): Conversion[T, WError] =
       t => conv(t).asInstanceOf[WError]
+
+  type Location = dfhdl.options.ToolOptions.Location.type => _Location
+  private[dfhdl] into opaque type _Location <: dfhdl.options.ToolOptions._Location =
+    dfhdl.options.ToolOptions._Location
+  object _Location:
+    given (using location: dfhdl.options.ToolOptions.Location): Location = location
+    given Conversion[dfhdl.options.ToolOptions._Location, _Location] = x =>
+      x.asInstanceOf[_Location]
 
   type Tool = dfhdl.tools.programmers.type => _Tool
   private[dfhdl] into opaque type _Tool <: dfhdl.tools.programmers = dfhdl.tools.programmers

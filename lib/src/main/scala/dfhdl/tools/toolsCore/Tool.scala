@@ -162,24 +162,57 @@ trait Tool:
   protected def constructCommand(args: String*): String =
     args.filter(_.nonEmpty).mkString(" ")
 
+  // --- DFTools (Apptainer image) execution support --------------------------
+  // Whether this tool needs an X11 display forwarded into the container (GUI tools).
+  protected def needsX11: Boolean = false
+  // The executable name to invoke inside the Linux DFTools image, derived from the
+  // (possibly Windows/host) `runExec`. Default: the file name with any `.exe` dropped.
+  // Tools whose host launcher name differs from the in-image name can override.
+  protected def containerExec(runExec: String): String =
+    val base = Paths.get(runExec).getFileName.toString
+    if (base.endsWith(".exe")) base.dropRight(4) else base
+  // True when the given tool options select the DFTools image rather than local PATH tools.
+  protected final def usesDFTools(using to: ToolOptions): Boolean =
+    to.runLocation == dfhdl.options.ToolOptions.Location.dftools
+
   final protected def exec(
       cmd: String,
       prepare: => Unit = (),
       loggerOpt: Option[Tool.ProcessLogger] = None,
-      runExec: String = this.runExecFullPath
+      // empty => resolved below per tools-location (host full path, or bare in-image name)
+      runExec: String = ""
   )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
-    preCheck()
+    val dftools = usesDFTools
+    if (dftools)
+      if (!DFToolsImage.isAvailable)
+        error(s"DFTools image (${DFToolsImage.version}) could not be resolved for ${toolName}.")
+    else preCheck()
     prepare
-    val fullExec =
-      // absolute path
-      if (Paths.get(runExec).isAbsolute()) s"$runExec $cmd"
-      // relative path with separator char, so we assume this is a product of the execution,
-      // and therefore should be resolved against the exec path
-      else if (runExec.contains(separatorChar))
-        s"${Paths.get(execPath).toAbsolutePath().resolve(runExec)} $cmd"
-      // for just executable name, we assume this is just another executable of the same tools,
-      // so we use the full tool path and resolve the executable
-      else s"${Paths.get(this.runExecFullPath).getParent().resolve(runExec)} $cmd"
+    // the executable to run: an explicit `runExec`, else the host full path (local) or the bare
+    // tool name (dftools, mapped to its in-image name by `containerExec`).
+    val effRunExec =
+      if (runExec.nonEmpty) runExec
+      else if (dftools) this.runExec
+      else this.runExecFullPath
+    val argv: Seq[String] =
+      if (dftools)
+        // run the bare tool inside the DFTools image; apptainer mounts the cwd (execPath) as $PWD,
+        // so committed source/tool files are visible without an explicit bind.
+        val containerCmd = containerExec(effRunExec) +: cmd.split(" ").filter(_.nonEmpty).toSeq
+        DFToolsImage.execArgv(containerCmd, needsX11)
+      else
+        val fullExec =
+          // absolute path
+          if (Paths.get(effRunExec).isAbsolute()) s"$effRunExec $cmd"
+          // relative path with separator char, so we assume this is a product of the execution,
+          // and therefore should be resolved against the exec path
+          else if (effRunExec.contains(separatorChar))
+            s"${Paths.get(execPath).toAbsolutePath().resolve(effRunExec)} $cmd"
+          // for just executable name, we assume this is just another executable of the same tools,
+          // so we use the full tool path and resolve the executable
+          else s"${Paths.get(this.runExecFullPath).getParent().resolve(effRunExec)} $cmd"
+        fullExec.split(" ").toSeq
+    val displayCmd = argv.mkString(" ")
 
     // process the output.
     // note that reading the output line-by-line may affect the program behavior, since it is
@@ -197,9 +230,9 @@ trait Tool:
       else os.ProcessOutput.Readlines(line => println(line))
     )
     // spawn the process
-    val process = os.proc(os.Shellable(fullExec.split(" ").toSeq)).spawn(
+    val process = os.proc(os.Shellable(argv)).spawn(
       cwd = os.Path(execPath, os.pwd),
-      env = execEnv,
+      env = if (dftools) Map.empty[String, String] else execEnv,
       stdin = os.Inherit,
       stdout = processOutput,
       mergeErrIntoOut = true
@@ -213,7 +246,10 @@ trait Tool:
     // killing only the direct child (`gw_sh`, `vsim` -> `vsimk`, ...) leaves the real workers
     // running, hence the descendants walk. Best-effort and idempotent: safe to call repeatedly.
     def destroyToolTree(): Unit =
-      try process.wrapped.toHandle.descendants().forEach(p => { p.destroyForcibly(); () })
+      try
+        process.wrapped.toHandle.descendants().forEach(p =>
+          p.destroyForcibly(); ()
+        )
       catch case _: Throwable => ()
       process.wrapped.destroyForcibly()
 
@@ -273,7 +309,7 @@ trait Tool:
         error(
           s"""|$msg
               |Path: ${Paths.get(execPath).toAbsolutePath()}
-              |Command: $fullExec""".stripMargin
+              |Command: $displayCmd""".stripMargin
         )
     end if
   end exec

@@ -355,6 +355,10 @@ trait DFApp:
     )
   end listSimulateTools
 
+  private def toToolsLocation(s: String): dfhdl.options.ToolOptions._Location = s match
+    case "local" => dfhdl.options.ToolOptions.Location.local
+    case _       => dfhdl.options.ToolOptions.Location.dftools
+
   private def execute(mode: AppMode): Unit =
     try
       mode match
@@ -441,6 +445,7 @@ trait DFApp:
             linterOptions = linterOptions.copy(
               verilogLinter = toolSelection.verilogLinter,
               vhdlLinter = toolSelection.vhdlLinter,
+              location = toToolsLocation(mode.`tools-location`.toOption.get),
               Werror = mode.`Werror-tool`.toOption.get
             )
           case mode: Mode.SimulateMode =>
@@ -448,11 +453,13 @@ trait DFApp:
             simulatorOptions = simulatorOptions.copy(
               verilogSimulator = toolSelection.verilogSimulator,
               vhdlSimulator = toolSelection.vhdlSimulator,
+              location = toToolsLocation(mode.`tools-location`.toOption.get),
               Werror = mode.`Werror-tool`.toOption.get
             )
           case mode: Mode.BuildMode =>
             builderOptions = builderOptions.copy(
               Werror = mode.`Werror-tool`.toOption.get,
+              location = toToolsLocation(mode.`tools-location`.toOption.get),
               flash = mode.flash.toOption.get,
               compress = mode.compress.toOption.get,
               tool = mode.tool.toOption.get match
@@ -463,6 +470,7 @@ trait DFApp:
             val toolName = mode.tool.toOption.get
             programmerOptions = programmerOptions.copy(
               Werror = mode.`Werror-tool`.toOption.get,
+              location = toToolsLocation(mode.`tools-location`.toOption.get),
               flash = mode.flash.toOption.get,
               tool = toolName match
                 case "foss"   => dfhdl.tools.programmers.foss
@@ -471,6 +479,7 @@ trait DFApp:
             // the build sub-step (run before programming) must use the matching tool family, so
             // that `program -t foss` both builds and programs with the open-source flow.
             builderOptions = builderOptions.copy(
+              location = toToolsLocation(mode.`tools-location`.toOption.get),
               tool = toolName match
                 case "foss"   => dfhdl.tools.builders.foss
                 case "vendor" => dfhdl.tools.builders.vendor

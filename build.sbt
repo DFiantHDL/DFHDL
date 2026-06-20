@@ -117,7 +117,9 @@ lazy val lib = project
     name := projectName,
     settings,
     pluginUseSettings,
-    libraryDependencies ++= commonDependencies
+    libraryDependencies ++= commonDependencies,
+    // Scalapptainer: cross-platform Apptainer wrapper used to run the DFTools image
+    libraryDependencies += "io.github.dfiantworks" %% "scalapptainer" % "0.2.1"
   )
   .dependsOn(
     core % "test->test;compile->compile",
