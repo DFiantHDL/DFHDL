@@ -56,9 +56,39 @@ trait Tool:
     (runExecFullPathRet, installedVersionRet)
   end val
   final def isAvailable: Boolean = installedVersion.nonEmpty
+
+  // Version probed from inside this tool's DFTools image (dftools mode), memoized. The tool is not
+  // on the host PATH in this mode, so `installedVersion` (a PATH scan) is empty; instead we run the
+  // tool's `versionCmd` inside its image and parse it with the same `extractVersion`.
+  private var dftoolsVersionCache: Option[Option[String]] = None
+  private def dftoolsInstalledVersion(using ToolOptions): Option[String] =
+    dftoolsVersionCache.getOrElse {
+      val exec = containerExec(this.runExec)
+      // version is dialect-independent, so the vhdl flag (only relevant for yosys) doesn't matter.
+      val image = DFToolsImage.imageFor(exec, vhdl = false)
+      val ret =
+        if (!DFToolsImage.isAvailable(image)) None
+        else
+          val probeCmd =
+            if (versionCmd.nonEmpty) exec +: versionCmd.split(" ").filter(_.nonEmpty).toSeq
+            else Seq(exec)
+          val out = try DFToolsImage.probe(image, probeCmd)
+          catch case _: Throwable => ""
+          try extractVersion(out)
+          catch case _: Exception => None
+      dftoolsVersionCache = Some(ret)
+      ret
+    }
+
   protected def getInstalledVersion(using to: ToolOptions): String =
-    preCheck()
-    installedVersion.get
+    if (usesDFTools)
+      dftoolsInstalledVersion.getOrElse {
+        error(s"${toolName} could not be found in its DFTools image.")
+        "" // unreachable: `error` either exits or throws
+      }
+    else
+      preCheck()
+      installedVersion.get
   private var preCheckDone: Boolean = false
   final protected def error(msg: String)(using to: ToolOptions): Unit =
     // TODO: there is a false exhaustivity warning here in 3.4.2 or later

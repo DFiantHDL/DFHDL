@@ -74,6 +74,14 @@ object DFToolsImage:
     try handle(image).exists
     catch case _: Throwable => false
 
+  /** Run a command inside the image and return its combined stdout+stderr (trimmed). Used for
+    * version probes in `dftools` mode, where the tool lives in the image rather than on the host
+    * PATH. Some tools print their version banner to stderr, so both streams are returned.
+    */
+  def probe(image: String, cmd: Seq[String]): String =
+    val r = handle(image).exec(cmd*)
+    s"${r.out}\n${r.err}".trim
+
   /** Build the host argv for `apptainer exec [opts] <image> <containerCmd...>`, optionally
     * forwarding X11 (for GUI tools such as the waveform viewer).
     */

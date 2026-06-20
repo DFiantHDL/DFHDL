@@ -59,7 +59,7 @@ object NVC extends VHDLLinter, VHDLSimulator:
         )
       else Nil
     )
-    val versionDouble = this.installedVersion.get.split("\\.").take(2).mkString(".").toDouble
+    val versionDouble = getInstalledVersion.split("\\.").take(2).mkString(".").toDouble
     val topElabFile =
       if (versionDouble >= 1.20) ""
       else if (versionDouble >= 1.17) s"_WORK.${topNameUC}.elab.pack"
