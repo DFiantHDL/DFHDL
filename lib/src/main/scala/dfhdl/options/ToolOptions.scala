@@ -23,8 +23,7 @@ object ToolOptions:
   protected[dfhdl] enum _Location derives CanEqual:
     case dftools, local
   object _Location:
-    // TODO: switch the default to `dftools` once a DFTools image release is published
-    given Location = _ => local
+    given Location = _ => dftools
 
   into opaque type WError <: dfhdl.options.WError = dfhdl.options.WError
   object WError:
