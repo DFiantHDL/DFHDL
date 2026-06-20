@@ -208,8 +208,10 @@ trait Tool:
     val argv: Seq[String] =
       if (dftools)
         // run the bare tool inside its DFTools image; apptainer mounts the cwd (execPath) as $PWD,
-        // so committed source/tool files are visible without an explicit bind.
-        val containerCmd = containerName +: cmd.split(" ").filter(_.nonEmpty).toSeq
+        // so committed source/tool files are visible without an explicit bind. The tool runs on
+        // Linux, so normalize Windows path separators in the args (relative source/include paths).
+        val linuxCmd = cmd.replace('\\', '/')
+        val containerCmd = containerName +: linuxCmd.split(" ").filter(_.nonEmpty).toSeq
         DFToolsImage.execArgv(dftoolsImage, containerCmd, needsX11)
       else
         val fullExec =
