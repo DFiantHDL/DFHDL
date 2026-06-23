@@ -57,28 +57,24 @@ trait Tool:
   end val
   final def isAvailable: Boolean = installedVersion.nonEmpty
 
-  // Version probed from inside this tool's DFTools image (dftools mode), memoized. The tool is not
-  // on the host PATH in this mode, so `installedVersion` (a PATH scan) is empty; instead we run the
-  // tool's `versionCmd` inside its image and parse it with the same `extractVersion`.
-  private var dftoolsVersionCache: Option[Option[String]] = None
-  private def dftoolsInstalledVersion(using ToolOptions): Option[String] =
-    dftoolsVersionCache.getOrElse {
-      val exec = containerExec(this.runExec)
-      // version is dialect-independent, so the vhdl flag (only relevant for yosys) doesn't matter.
-      val image = DFToolsImage.imageFor(exec, vhdl = false)
-      val ret =
-        if (!DFToolsImage.isAvailable(image)) None
-        else
-          val probeCmd =
-            if (versionCmd.nonEmpty) exec +: versionCmd.split(" ").filter(_.nonEmpty).toSeq
-            else Seq(exec)
-          val out = try DFToolsImage.probe(image, probeCmd)
-          catch case _: Throwable => ""
-          try extractVersion(out)
-          catch case _: Exception => None
-      dftoolsVersionCache = Some(ret)
-      ret
-    }
+  // Version probed from inside this tool's DFTools image (dftools mode). The tool is not on the
+  // host PATH in this mode, so `installedVersion` (a PATH scan) is empty; instead we run the tool's
+  // `versionCmd` inside its image and parse it with the same `extractVersion`. A `lazy val` (not a
+  // var) so the probe runs once and is published safely across threads, like `installedVersion`.
+  private lazy val dftoolsInstalledVersion: Option[String] =
+    val exec = containerExec(this.runExec)
+    // version is dialect-independent, so the vhdl flag (only relevant for yosys) doesn't matter.
+    val image = DFToolsImage.imageFor(exec, vhdl = false)
+    if (!DFToolsImage.isAvailable(image)) None
+    else
+      val probeCmd =
+        if (versionCmd.nonEmpty) exec +: versionCmd.split(" ").filter(_.nonEmpty).toSeq
+        else Seq(exec)
+      val out =
+        try DFToolsImage.probe(image, probeCmd)
+        catch case _: Throwable => ""
+      try extractVersion(out)
+      catch case _: Exception => None
 
   protected def getInstalledVersion(using to: ToolOptions): String =
     if (usesDFTools)
