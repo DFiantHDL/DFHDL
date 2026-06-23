@@ -65,15 +65,7 @@ object DFToolsImage:
       case Some(p) => Apptainer.image(p)
       case None    =>
         val dest = s"${Apptainer.imagesDir}/dftools-$image-$version-$archTag.sif"
-        val img = Apptainer.image(dest)
-        if (!img.exists)
-          Apptainer.backend
-            .runShell(
-              s"mkdir -p ${ShellQuote.single(Apptainer.imagesDir)} && " +
-                s"curl -fL --retry 3 -o ${ShellQuote.single(dest)} ${ShellQuote.single(assetUrl(image))}"
-            )
-            .throwIfFailed()
-        Apptainer.image(dest)
+        Apptainer.pull(assetUrl(image), dest = Some(dest))
 
   /** Whether the given image is resolvable (present locally / overridden / downloadable). */
   def isAvailable(image: String): Boolean =
