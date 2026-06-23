@@ -16,8 +16,14 @@ import scalapptainer.*
   * it shares DFHDL's stdout/cancellation handling.
   */
 object DFToolsImage:
-  /** The DFTools release this DFHDL build targets. Bump when adopting a new DFTools release. */
-  val version: String = "v0.1.0"
+  /** The DFTools release this DFHDL build targets, set from `build.sbt` (`dftoolsVersion`) via the
+    * generated `version.properties` resource. Bump it there when adopting a new DFTools release.
+    */
+  val version: String =
+    val props = new java.util.Properties()
+    val inputStream = getClass.getClassLoader.getResourceAsStream("version.properties")
+    props.load(inputStream)
+    props.getProperty("dftools.version")
   private val repo = "DFiantHDL/DFTools"
 
   /** Map an in-image executable name to its DFTools image. Yosys depends on the backend dialect

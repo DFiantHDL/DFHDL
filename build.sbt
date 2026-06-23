@@ -7,6 +7,10 @@ commands += DFHDLCommands.docExamplesRefUpdate
 // format: off
 val projectName = "dfhdl"
 val compilerVersion = "3.8.4"
+// The DFTools binary toolchain release this DFHDL build targets (versioned independently of
+// DFHDL). Surfaced to the library via version.properties and read by DFToolsImage. Bump when
+// adopting a new DFTools release.
+val dftoolsVersion = "v0.1.0"
 
 inThisBuild(
   List(
@@ -87,7 +91,7 @@ lazy val core = project
     libraryDependencies ++= commonDependencies,
     Compile / resourceGenerators += Def.task {
       val file = (Compile / resourceManaged).value / "version.properties"
-      val contents = s"version=${version.value}"
+      val contents = s"version=${version.value}\ndftools.version=$dftoolsVersion"
       IO.write(file, contents)
       Seq(file)
     }.taskValue
