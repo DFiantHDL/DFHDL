@@ -20,7 +20,7 @@ val airframelogVersion   = "2026.1.6"
 val oslibVersion         = "0.11.8"
 val scallopVersion       = "6.0.0"
 val upickleVersion       = "4.4.3"
-val scalapptainerVersion = "0.2.1"
+val scalapptainerVersion = "0.5.0"
 
 inThisBuild(
   List(
