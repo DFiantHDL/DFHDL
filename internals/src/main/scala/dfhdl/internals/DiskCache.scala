@@ -112,7 +112,13 @@ class DiskCache(val cacheFolderStr: String):
     private def cacheGenFilePath(filePath: String): Path =
       val filePathBase64 = base64Encoder.encodeToString(filePath.getBytes).replace('=', '_')
       val suffix = s"${filePathBase64}.file"
-      cacheFolderPath.resolve(cacheFilePath(name, suffix, getDataHash))
+      // Key generated files by `keyHash` (not just `getDataHash`). `getDataHash` is the hash of the
+      // serialized step output (e.g. the compiled-design JSON), which is identical across toolchains
+      // because it only depends on the source. The produced binaries, however, are toolchain-specific
+      // (a verilator/iverilog/vvp build from a local install vs. the DFTools image, or a different
+      // tool version). `keyHash` folds in `otherDeps` (tool, version, location, backend), so each
+      // toolchain gets its own artifact slot instead of clobbering a shared one.
+      cacheFolderPath.resolve(cacheFilePath(name, suffix, s"${keyHash}_${getDataHash}"))
     private def cacheFiles(value: R): Unit =
       genFiles(value).foreach { filePath =>
         val file = Paths.get(filePath)

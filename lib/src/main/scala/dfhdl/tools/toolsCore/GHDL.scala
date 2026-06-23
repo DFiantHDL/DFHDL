@@ -29,16 +29,28 @@ object GHDL extends VHDLLinter, VHDLSimulator:
       case VHDLDialect.v2019 => "19"
     s"--std=$std"
 
+  // GHDL stores its entire analyzed design library in a single `work-obj*.cf` file, recording the
+  // *source path* of each analyzed unit. The path differs between a local install and the DFTools
+  // image (`hdl\Foo.vhd` vs `hdl/Foo.vhd`), so re-analyzing into a `.cf` left over from the other
+  // toolchain makes GHDL see each unit as defined twice (`-Wlibrary` duplicate warnings). The
+  // library isn't cache-managed across toolchains, so it's purged on a toolchain switch.
+  private def workLibFile(using co: CompilerOptions): String =
+    co.backend.asInstanceOf[backends.vhdl].dialect match
+      case VHDLDialect.v93   => "work-obj93.cf"
+      case VHDLDialect.v2008 => "work-obj08.cf"
+      case VHDLDialect.v2019 => "work-obj19.cf"
+
+  override protected def staleToolArtifacts(using
+      MemberGetSet,
+      CompilerOptions,
+      ToolOptions
+  ): List[os.Path] = List(os.Path(execPath, os.pwd) / workLibFile)
+
   override protected[dfhdl] def producedFiles(using
       getSet: MemberGetSet,
       co: CompilerOptions,
       so: SimulatorOptions
-  ): List[String] =
-    val workFile = co.backend.asInstanceOf[backends.vhdl].dialect match
-      case VHDLDialect.v93   => "work-obj93.cf"
-      case VHDLDialect.v2008 => "work-obj08.cf"
-      case VHDLDialect.v2019 => "work-obj19.cf"
-    List(workFile)
+  ): List[String] = List(workLibFile)
 
   override protected def lintCmdPreLangFlags(using
       CompilerOptions,

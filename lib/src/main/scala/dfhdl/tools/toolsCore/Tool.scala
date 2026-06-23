@@ -212,6 +212,39 @@ trait Tool:
   protected final def usesDFTools(using to: ToolOptions): Boolean =
     to.runLocation == dfhdl.options.ToolOptions.Location.dftools
 
+  // A short identifier of the active toolchain: its install location (local vs. the DFTools image)
+  // and resolved version. Tools that keep cache-unmanaged build intermediates in the sandbox use
+  // this to detect a toolchain switch.
+  protected final def toolFingerprint(using ToolOptions): String =
+    s"dftools=${usesDFTools};version=${getInstalledVersion}"
+
+  // Cache-unmanaged, tool-owned build intermediates in the sandbox (e.g. verilator's `obj_dir`, the
+  // GHDL `work-obj*.cf` library) that become invalid when the toolchain changes. They are NOT
+  // tracked by the gen-file cache, so switching tools-location/version leaves the other toolchain's
+  // stale objects behind — breaking incremental rebuilds or triggering spurious duplicate-definition
+  // warnings. Tools override this to list such paths (files or directories).
+  protected def staleToolArtifacts(using MemberGetSet, CompilerOptions, ToolOptions): List[os.Path] =
+    Nil
+
+  // Purge the stale tool artifacts when the toolchain fingerprint differs from the previous run,
+  // then record the current fingerprint in a per-tool stamp file. Same-toolchain runs keep their
+  // intermediates (incremental rebuilds); a switched toolchain starts clean. Call once before the
+  // tool analyzes/builds.
+  protected final def purgeStaleToolArtifactsOnSwitch()(using
+      CompilerOptions,
+      ToolOptions,
+      MemberGetSet
+  ): Unit =
+    val artifacts = staleToolArtifacts
+    if (artifacts.nonEmpty)
+      val stamp = os.Path(execPath, os.pwd) / s".dfhdl-toolchain-${toolName.filter(_.isLetterOrDigit)}"
+      val fingerprint = toolFingerprint
+      val unchanged = os.exists(stamp) && os.read(stamp) == fingerprint
+      if (!unchanged)
+        artifacts.foreach(p => if (os.exists(p)) os.remove.all(p))
+        os.write.over(stamp, fingerprint)
+  end purgeStaleToolArtifactsOnSwitch
+
   final protected def exec(
       cmd: String,
       prepare: => Unit = (),
@@ -523,6 +556,8 @@ trait Simulator extends Tool:
       CompilerOptions,
       SimulatorOptions
   ): CompiledDesign =
+    given MemberGetSet = cd.stagedDB.getSet
+    purgeStaleToolArtifactsOnSwitch()
     if (simRunsLint) this.asInstanceOf[Linter].lint(cd)
     else cd
   def simulate(
