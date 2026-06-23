@@ -6,11 +6,21 @@ commands += DFHDLCommands.docExamplesRefUpdate
 
 // format: off
 val projectName = "dfhdl"
+
+// VERSIONS — all version literals live here.
 val compilerVersion = "3.8.4"
 // The DFTools binary toolchain release this DFHDL build targets (versioned independently of
 // DFHDL). Surfaced to the library via version.properties and read by DFToolsImage. Bump when
 // adopting a new DFTools release.
 val dftoolsVersion = "v0.1.0"
+// dependency versions
+val scodecVersion        = "1.2.5"
+val munitVersion         = "1.3.3"
+val airframelogVersion   = "2026.1.6"
+val oslibVersion         = "0.11.8"
+val scallopVersion       = "6.0.0"
+val upickleVersion       = "4.4.3"
+val scalapptainerVersion = "0.2.1"
 
 inThisBuild(
   List(
@@ -122,8 +132,7 @@ lazy val lib = project
     settings,
     pluginUseSettings,
     libraryDependencies ++= commonDependencies,
-    // Scalapptainer: cross-platform Apptainer wrapper used to run the DFTools image
-    libraryDependencies += "io.github.dfiantworks" %% "scalapptainer" % "0.2.1"
+    libraryDependencies += dependencies.scalapptainer
   )
   .dependsOn(
     core % "test->test;compile->compile",
@@ -150,19 +159,14 @@ lazy val platforms = project
 
 lazy val dependencies =
   new {
-    private val scodecV = "1.2.5"
-    private val munitV = "1.3.3"
-    private val airframelogV = "2026.1.6"
-    private val oslibV = "0.11.8"
-    private val scallopV = "6.0.0"
-    private val upickleV = "4.4.3"
-
-    val scodec = "org.scodec" %% "scodec-bits" % scodecV
-    val munit = "org.scalameta" %% "munit" % munitV % Test
-    val airframelog = "org.wvlet.airframe" %% "airframe-log" % airframelogV
-    val oslib = "com.lihaoyi" %% "os-lib" % oslibV
-    val scallop = "org.rogach" %% "scallop" % scallopV
-    val upickle = "com.lihaoyi" %% "upickle" % upickleV
+    val scodec = "org.scodec" %% "scodec-bits" % scodecVersion
+    val munit = "org.scalameta" %% "munit" % munitVersion % Test
+    val airframelog = "org.wvlet.airframe" %% "airframe-log" % airframelogVersion
+    val oslib = "com.lihaoyi" %% "os-lib" % oslibVersion
+    val scallop = "org.rogach" %% "scallop" % scallopVersion
+    val upickle = "com.lihaoyi" %% "upickle" % upickleVersion
+    // Scalapptainer: cross-platform Apptainer wrapper used to run the DFTools image
+    val scalapptainer = "io.github.dfiantworks" %% "scalapptainer" % scalapptainerVersion
   }
 
 lazy val commonDependencies = Seq(
