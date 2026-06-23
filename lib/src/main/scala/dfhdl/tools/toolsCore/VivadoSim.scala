@@ -123,7 +123,8 @@ trait VivadoSimCommon extends Linter, Simulator:
     ret
   end simulatePreprocess
 
-  override protected def simRunExec(using MemberGetSet): String = s".${separatorChar}${axsimScript}"
+  override protected def simRunExec(using MemberGetSet, ToolOptions): String =
+    s".${separatorChar}${axsimScript}"
 end VivadoSimCommon
 
 object VivadoSimVerilog extends VivadoSimCommon, VerilogLinter, VerilogSimulator:

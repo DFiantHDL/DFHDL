@@ -43,7 +43,7 @@ trait QuestaSimCommon extends Linter, Simulator:
       work.delete()
     Process("vlib work", new java.io.File(execPath)).!
 
-  override protected def simRunExec(using MemberGetSet): String =
+  override protected def simRunExec(using MemberGetSet, ToolOptions): String =
     if (osIsWindows) "vsimk.exe" else "vsimk"
 
   // we do not cache the work directory because it is too complex,

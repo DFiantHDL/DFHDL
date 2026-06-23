@@ -14,10 +14,24 @@ import java.io.File.separatorChar
 trait Tool:
   type TOptions <: ToolOptions
   val toolName: String
-  final protected def runExec: String =
+  // The launcher name the tool is invoked by: the Windows `.exe`/`.bat` form on a Windows host, but
+  // the plain `binExec` in dftools mode where the tool runs inside the Linux image (see
+  // `isToolInWindows`).
+  final protected def runExec(using ToolOptions): String =
+    if (isToolInWindows) windowsBinExec else binExec
+  // The host-native launcher name, used only for the local PATH lookup (`installedVersion`); in
+  // dftools mode the version is probed inside the image instead.
+  private def hostExec: String =
     if (osIsWindows) windowsBinExec else binExec
   protected def binExec: String
   protected def windowsBinExec: String = s"$binExec.exe"
+  // True only when the tool actually runs as a Windows executable: a Windows host AND not inside the
+  // (Linux) DFTools image. In dftools mode the tool runs on Linux even on a Windows host, so every
+  // `.exe`/backslash decision keys off this instead of the raw host `osIsWindows`.
+  protected final def isToolInWindows(using ToolOptions): Boolean = osIsWindows && !usesDFTools
+  // The path separator the tool sees: host-native locally, '/' inside the Linux image.
+  protected final def toolSeparatorChar(using ToolOptions): Char =
+    if (isToolInWindows) '\\' else '/'
   final protected def addSourceFiles(
       cd: CompiledDesign,
       sourceFiles: List[SourceFile]
@@ -33,7 +47,7 @@ trait Tool:
 
   private[dfhdl] lazy val (runExecFullPath, installedVersion) =
     var runExecFullPathRet: String = ""
-    val installedVersionRet = programFullPaths(runExec).view.flatMap { runExecFullPath =>
+    val installedVersionRet = programFullPaths(hostExec).view.flatMap { runExecFullPath =>
       runExecFullPathRet = runExecFullPath
       val versionText =
         if (versionCmd.nonEmpty)
@@ -62,14 +76,14 @@ trait Tool:
   // `versionCmd` inside its image and parse it with the same `extractVersion`. A `lazy val` (not a
   // var) so the probe runs once and is published safely across threads, like `installedVersion`.
   private lazy val dftoolsInstalledVersion: Option[String] =
-    val exec = containerExec(this.runExec)
-    // version is dialect-independent, so the vhdl flag (only relevant for yosys) doesn't matter.
-    val image = DFToolsImage.imageFor(exec, vhdl = false)
+    // in the image the tool is the plain `binExec`. version is dialect-independent, so the vhdl
+    // flag (only relevant for yosys) doesn't matter.
+    val image = DFToolsImage.imageFor(binExec, vhdl = false)
     if (!DFToolsImage.isAvailable(image)) None
     else
       val probeCmd =
-        if (versionCmd.nonEmpty) exec +: versionCmd.split(" ").filter(_.nonEmpty).toSeq
-        else Seq(exec)
+        if (versionCmd.nonEmpty) binExec +: versionCmd.split(" ").filter(_.nonEmpty).toSeq
+        else Seq(binExec)
       val out =
         try DFToolsImage.probe(image, probeCmd)
         catch case _: Throwable => ""
@@ -109,8 +123,11 @@ trait Tool:
 
   protected val convertWindowsToLinuxPaths: Boolean = false
   extension (path: String)
-    protected def convertWindowsToLinuxPaths: String =
-      if (this.convertWindowsToLinuxPaths) path.forceWindowsToLinuxPath else path
+    // convert to forward slashes when the tool always wants them (e.g. Verilator under MSYS) or
+    // whenever the tool runs on Linux — natively or inside the DFTools image (`!isToolInWindows`).
+    protected def convertWindowsToLinuxPaths(using ToolOptions): String =
+      if (this.convertWindowsToLinuxPaths || !isToolInWindows) path.forceWindowsToLinuxPath
+      else path
 
   // Extra environment variables to set for the spawned tool process, merged over the inherited
   // environment. Defaults to the Windows DLL-search guard below; tools that override this should
@@ -146,7 +163,7 @@ trait Tool:
         (dllDirs :+ inheritedPath).mkString(java.io.File.pathSeparator)
       }
 
-  protected def designFiles(using getSet: MemberGetSet): List[String] =
+  protected def designFiles(using getSet: MemberGetSet, to: ToolOptions): List[String] =
     getSet.designDB.srcFiles.collect {
       case SourceFile(
             SourceOrigin.Committed,
@@ -157,13 +174,13 @@ trait Tool:
         path.convertWindowsToLinuxPaths
     }
 
-  protected def toolFiles(using getSet: MemberGetSet): List[String] =
+  protected def toolFiles(using getSet: MemberGetSet, to: ToolOptions): List[String] =
     getSet.designDB.srcFiles.collect {
       case SourceFile(SourceOrigin.Committed, SourceType.Tool(tn, _), path, _) if tn == toolName =>
         path.convertWindowsToLinuxPaths
     }
 
-  protected def designDefFiles(using getSet: MemberGetSet): List[String] =
+  protected def designDefFiles(using getSet: MemberGetSet, to: ToolOptions): List[String] =
     getSet.designDB.srcFiles.collect {
       case SourceFile(
             SourceOrigin.Committed,
@@ -174,7 +191,7 @@ trait Tool:
         path.convertWindowsToLinuxPaths
     }
 
-  protected def designDefFolders(using getSet: MemberGetSet): List[String] =
+  protected def designDefFolders(using getSet: MemberGetSet, to: ToolOptions): List[String] =
     getSet.designDB.srcFiles.collect {
       case SourceFile(
             SourceOrigin.Committed,
@@ -191,12 +208,6 @@ trait Tool:
   // --- DFTools (Apptainer image) execution support --------------------------
   // Whether this tool needs an X11 display forwarded into the container (GUI tools).
   protected def needsX11: Boolean = false
-  // The executable name to invoke inside the Linux DFTools image, derived from the
-  // (possibly Windows/host) `runExec`. Default: the file name with any `.exe` dropped.
-  // Tools whose host launcher name differs from the in-image name can override.
-  protected def containerExec(runExec: String): String =
-    val base = Paths.get(runExec).getFileName.toString
-    if (base.endsWith(".exe")) base.dropRight(4) else base
   // True when the given tool options select the DFTools image rather than local PATH tools.
   protected final def usesDFTools(using to: ToolOptions): Boolean =
     to.runLocation == dfhdl.options.ToolOptions.Location.dftools
@@ -209,31 +220,25 @@ trait Tool:
       runExec: String = ""
   )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     val dftools = usesDFTools
-    // the executable to run: an explicit `runExec`, else the host full path (local) or the bare
-    // tool name (dftools, mapped to its in-image name by `containerExec`).
+    // the executable to run: an explicit `runExec`, else the bare launcher name (dftools, run inside
+    // the image) or the resolved host full path (local).
     val effRunExec =
       if (runExec.nonEmpty) runExec
       else if (dftools) this.runExec
       else this.runExecFullPath
-    // a produced artifact to run in place (e.g. verilator's obj_dir/V<top>) has a path separator;
-    // a plain tool name does not. The former runs by its relative path inside the mounted cwd.
-    val produced = dftools && (effRunExec.contains(separatorChar) || effRunExec.contains('/'))
-    val containerName =
-      if (!dftools) ""
-      else if (produced)
-        // the container produces a Linux binary (no .exe); run it by relative ./path with /-seps
-        val rel0 = effRunExec.replace('\\', '/')
-        val rel = if (rel0.endsWith(".exe")) rel0.dropRight(4) else rel0
-        if (rel.startsWith("./") || rel.startsWith("/")) rel else s"./$rel"
-      else containerExec(effRunExec)
+    // a produced artifact to run in place (e.g. verilator's obj_dir/V<top>) carries a path
+    // separator; a bare tool name does not. `effRunExec` is already in the tool's own form
+    // (`toolSeparatorChar`, no `.exe`) since runExec/simRunExec/verilatedBinary key off
+    // `isToolInWindows`, so no container-specific rewriting is needed here.
+    val produced = effRunExec.contains(toolSeparatorChar)
     // the DFTools image this command runs in. A produced artifact runs in its producing tool's
-    // image; a tool name maps directly (yosys also depends on the backend dialect).
+    // image; a bare name maps directly (yosys also depends on the backend dialect).
     val dftoolsImage =
       if (dftools)
         val vhdl = summon[CompilerOptions].backend match
           case _: dfhdl.backends.vhdl => true
           case _                      => false
-        DFToolsImage.imageFor(if (produced) containerExec(this.runExec) else containerName, vhdl)
+        DFToolsImage.imageFor(if (produced) this.runExec else effRunExec, vhdl)
       else ""
     if (dftools)
       if (!DFToolsImage.isAvailable(dftoolsImage))
@@ -244,11 +249,14 @@ trait Tool:
     prepare
     val argv: Seq[String] =
       if (dftools)
-        // run the bare tool inside its DFTools image; apptainer mounts the cwd (execPath) as $PWD,
-        // so committed source/tool files are visible without an explicit bind. The tool runs on
-        // Linux, so normalize Windows path separators in the args (relative source/include paths).
-        val linuxCmd = cmd.replace('\\', '/')
-        val containerCmd = containerName +: linuxCmd.split(" ").filter(_.nonEmpty).toSeq
+        // run the tool inside its DFTools image; apptainer mounts the cwd (execPath) as $PWD, so
+        // committed source/tool files are visible without an explicit bind. A produced artifact is
+        // run by its relative ./path.
+        val command =
+          if (produced && !effRunExec.startsWith("./") && !effRunExec.startsWith("/"))
+            s"./$effRunExec"
+          else effRunExec
+        val containerCmd = command +: cmd.split(" ").filter(_.nonEmpty).toSeq
         DFToolsImage.execArgv(dftoolsImage, containerCmd, needsX11)
       else
         val fullExec =
@@ -438,7 +446,7 @@ trait VHDLLinter extends Linter, VHDLTool:
 trait Simulator extends Tool:
   type TOptions = SimulatorOptions
   val simRunsLint: Boolean = false
-  protected def simRunExec(using MemberGetSet): String = this.runExec
+  protected def simRunExec(using MemberGetSet, ToolOptions): String = this.runExec
   protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       SimulatorOptions

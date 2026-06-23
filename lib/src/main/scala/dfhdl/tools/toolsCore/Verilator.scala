@@ -24,10 +24,6 @@ object Verilator extends VerilogLinter, VerilogSimulator:
   override val convertWindowsToLinuxPaths: Boolean = true
   protected def includeFolderFlag: String = "-I"
 
-  // Inside the Linux DFTools image use the `verilator` wrapper (it sets VERILATOR_ROOT and invokes
-  // verilator_bin), not the Windows-specific verilator_bin launcher.
-  override protected def containerExec(runExec: String): String = "verilator"
-
   // On Windows the oss-cad-suite sets VERILATOR_ROOT with backslashes (e.g.
   // `c:\oss-cad-suite\share\verilator`). Verilator's generated Makefile invokes its Python
   // includer as `$(PYTHON3) $(VERILATOR_ROOT)/bin/verilator_includer ...`, and the MSYS shell
@@ -178,11 +174,8 @@ object Verilator extends VerilogLinter, VerilogSimulator:
   end simulateLogger
 
   def verilatedBinary(using MemberGetSet, SimulatorOptions): String =
-    // under DFTools the model is built inside the Linux image: forward slash, no .exe
-    if (usesDFTools) s"obj_dir/V${topName}"
-    else
-      val bin = s"obj_dir${separatorChar}V${topName}"
-      if (osIsWindows) s"${bin}.exe" else bin
+    val bin = s"obj_dir${toolSeparatorChar}V${topName}"
+    if (isToolInWindows) s"${bin}.exe" else bin
 
   override protected[dfhdl] def producedFiles(using
       MemberGetSet,

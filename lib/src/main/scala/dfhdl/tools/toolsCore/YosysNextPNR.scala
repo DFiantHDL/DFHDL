@@ -39,8 +39,10 @@ object YosysNextPNR extends Builder:
     val versionPattern = """Yosys\s+(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
-  // platform-aware sibling-executable name (oss-cad-suite ships `.exe` launchers on Windows)
-  private def osExe(name: String): String = if (osIsWindows) s"$name.exe" else name
+  // platform-aware sibling-executable name (oss-cad-suite ships `.exe` launchers on Windows; in the
+  // DFTools image the tools run on Linux, so no `.exe` — see `isToolInWindows`)
+  private def osExe(name: String)(using ToolOptions): String =
+    if (isToolInWindows) s"$name.exe" else name
 
   private def deviceID(using getSet: MemberGetSet): DeviceID =
     getSet.designDB.top.dclMeta.annotations.collectFirst {
