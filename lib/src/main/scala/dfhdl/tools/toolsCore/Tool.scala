@@ -281,11 +281,19 @@ trait Tool:
     // terminal, so the tool's output becomes invisible. when there is no real console (the `sbtn`
     // case, and CI), fall back to reading the tool's lines and re-emitting them through
     // System.out, which sbt forwards to the client.
+    // Set once cancellation begins so the output pumper stops forwarding the tool's backlog: a killed
+    // tool can leave a large buffered backlog that would otherwise keep trickling to the console
+    // (paced by the throttle below), making the run look slow to stop. We drain it silently instead.
+    @volatile var aborted = false
     val processOutput = loggerOpt.map(logger =>
-      os.ProcessOutput.Readlines(line => logger.out(line))
+      os.ProcessOutput.Readlines(line => if (!aborted) logger.out(line))
     ).getOrElse(
       if (System.console() != null) os.Inherit
-      else os.ProcessOutput.Readlines(line => println(line))
+      else os.ProcessOutput.Readlines(line =>
+        if (!aborted)
+          Tool.outputThrottle.gate()
+          println(line)
+      )
     )
     // spawn the process
     val process = os.proc(os.Shellable(argv)).spawn(
@@ -304,6 +312,8 @@ trait Tool:
     // killing only the direct child (`gw_sh`, `vsim` -> `vsimk`, ...) leaves the real workers
     // running, hence the descendants walk. Best-effort and idempotent: safe to call repeatedly.
     def destroyToolTree(): Unit =
+      // stop forwarding the output backlog so cancellation is prompt (the pumper drains silently).
+      aborted = true
       try
         process.wrapped.toHandle.descendants().forEach(p =>
           p.destroyForcibly(); ()
@@ -374,6 +384,31 @@ trait Tool:
   override def toString(): String = binExec
 end Tool
 object Tool:
+  // Rate-limits how fast tool output is forwarded to the console. Under `sbtn` an output flood
+  // saturates the client<->server channel so the client can't process a Ctrl+C and send the cancel —
+  // the run isn't interrupted and the tool keeps going. We can't prioritise the cancel directly (it
+  // arrives as a Thread.interrupt from sbt, not something we read), and any full-speed burst instantly
+  // re-saturates the channel, so the rate must be capped *continuously*. Once the per-window cap is
+  // hit, `gate()` sleeps out the rest of the window on the reader thread (which also back-pressures
+  // the tool), leaving the channel idle most of each window so the cancel gets through promptly.
+  // Output below the cap is unaffected; nothing is dropped. The cap is a one-line tunable.
+  private[toolsCore] object outputThrottle:
+    private val windowNanos = 100_000_000L // 100ms
+    private val maxLinesPerWindow = 50 // ~500 lines/s, leaving most of each window idle
+    private var windowStartNanos = System.nanoTime()
+    private var linesThisWindow = 0
+    def gate(): Unit = synchronized {
+      if (linesThisWindow == 0) windowStartNanos = System.nanoTime()
+      linesThisWindow += 1
+      if (linesThisWindow >= maxLinesPerWindow)
+        val remaining = windowNanos - (System.nanoTime() - windowStartNanos)
+        if (remaining > 0)
+          try Thread.sleep(remaining / 1_000_000L, (remaining % 1_000_000L).toInt)
+          catch case _: InterruptedException => Thread.currentThread().interrupt()
+        linesThisWindow = 0
+    }
+  end outputThrottle
+
   class ProcessLogger(
       lineIsWarning: String => Boolean,
       lineIsSuppressed: String => Boolean,
@@ -388,6 +423,7 @@ object Tool:
       if (!lineIsSuppressed(line))
         if (!_hasWarnings && lineIsWarning(line)) _hasWarnings = true
         if (!_hasErrors && lineIsErrorOpt.map(_(line)).getOrElse(false)) _hasErrors = true
+        outputThrottle.gate()
         println(line)
     final def out(s: => String): Unit = useLine(s)
     final def err(s: => String): Unit = useLine(s)
