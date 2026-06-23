@@ -417,13 +417,16 @@ trait Tool:
   override def toString(): String = binExec
 end Tool
 object Tool:
-  // Rate-limits how fast tool output is forwarded to the console. Under `sbtn` an output flood
-  // saturates the client<->server channel so the client can't process a Ctrl+C and send the cancel —
-  // the run isn't interrupted and the tool keeps going. We can't prioritise the cancel directly (it
-  // arrives as a Thread.interrupt from sbt, not something we read), and any full-speed burst instantly
-  // re-saturates the channel, so the rate must be capped *continuously*. Once the per-window cap is
-  // hit, `gate()` sleeps out the rest of the window on the reader thread (which also back-pressures
-  // the tool), leaving the channel idle most of each window so the cancel gets through promptly.
+  // Rate-limits how fast tool output is forwarded to the console. This serves two purposes under an
+  // `sbtn` output flood:
+  //  1. It keeps the client<->server channel idle enough to deliver a Ctrl+C: the cancel arrives as a
+  //     Thread.interrupt from sbt (not something we can read and prioritise), and a saturated channel
+  //     never delivers it. Any full-speed burst re-saturates instantly, so the rate must be capped
+  //     *continuously* (adaptive/burst variants failed).
+  //  2. By sleeping out the rest of each window on the reader thread it back-pressures the tool, so a
+  //     flood's backlog stays *upstream* (in `wsl.exe`, where killing the launcher drops it) instead
+  //     of being slurped into JVM / sbt-server memory at full speed (observed: multi-GB), where
+  //     killing the launcher no longer stops it.
   // Output below the cap is unaffected; nothing is dropped. The cap is a one-line tunable.
   private[toolsCore] object outputThrottle:
     private val windowNanos = 100_000_000L // 100ms
