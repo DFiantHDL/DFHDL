@@ -115,13 +115,40 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       )
     )
 
+  // Verilator builds incrementally under `obj_dir`, and the dependency files (`*.d`) and
+  // objects it leaves there embed the absolute path of the verilator runtime include
+  // (`.../share/verilator/include/verilated.cpp`). That path differs between a local install
+  // and the DFTools image (and between verilator versions), so an `obj_dir` left over from a
+  // different toolchain makes the next `make` fail with
+  // `*** No rule to make target '.../verilated.cpp'` or `*** multiple target patterns`.
+  // We stamp `obj_dir` with a fingerprint of the active toolchain and purge it only when that
+  // fingerprint changes, so same-toolchain rebuilds stay incremental while a switched (i.e.
+  // cache-invalidated) toolchain starts clean.
+  private val toolchainStampFile = ".dfhdl-toolchain"
+  private def toolFingerprint(using ToolOptions): String =
+    s"dftools=${usesDFTools};version=${getInstalledVersion}"
+  private def objDir(using MemberGetSet, CompilerOptions): os.Path =
+    os.Path(execPath, os.pwd) / "obj_dir"
+  private def purgeStaleObjDir()(using MemberGetSet, CompilerOptions, ToolOptions): Unit =
+    val dir = objDir
+    if (os.exists(dir))
+      val stamp = dir / toolchainStampFile
+      val matches = os.exists(stamp) && os.read(stamp) == toolFingerprint
+      if (!matches) os.remove.all(dir)
+  end purgeStaleObjDir
+  private def stampObjDir()(using MemberGetSet, CompilerOptions, ToolOptions): Unit =
+    val dir = objDir
+    if (os.exists(dir)) os.write.over(dir / toolchainStampFile, toolFingerprint)
+
   override protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       SimulatorOptions
   ): CompiledDesign =
     val linted = lintPreprocess(cd)
     given MemberGetSet = linted.stagedDB.getSet
+    purgeStaleObjDir()
     exec(simulateCmdFlags, (), simulateLogger, simRunExec)
+    stampObjDir()
     linted
 
   override protected def simulateCmdLanguageFlag(dialect: VerilogDialect): String =

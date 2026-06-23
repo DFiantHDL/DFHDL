@@ -201,6 +201,7 @@ trait DFApp:
       )(
         simulatorOptions.getTool.toString,
         simulatorOptions.getTool.installedVersion,
+        simulatorOptions.location.toString,
         compilerOptions.backend.toString()
       ):
     override protected def cacheEnable: Boolean = appOptions.cacheEnable
@@ -219,7 +220,7 @@ trait DFApp:
   end simPrep
 
   object simRun
-      extends diskCache.Step[CompiledDesign, CompiledDesign](simPrep)():
+      extends diskCache.Step[CompiledDesign, CompiledDesign](simPrep)(simulatorOptions.location.toString):
     override protected def cacheEnable: Boolean = appOptions.cacheEnable
     protected def run(simPrepped: CompiledDesign): CompiledDesign =
       simPrepped.tap(_ => logger.info("Running external simulation...")).simRun
