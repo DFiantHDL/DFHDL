@@ -303,53 +303,86 @@ trait Tool:
       stdout = processOutput,
       mergeErrIntoOut = true
     )
-    // Destroys the spawned tool together with any child processes it forked. We force-kill the
-    // descendants and the process itself directly via the underlying java.lang.Process rather
-    // than os-lib's `destroy`: `destroy(async = false)` joins the output-pumper thread, which can
-    // be blocked on a back-pressured write when the tool floods stdout (e.g. a runaway sim print
-    // loop), stalling the whole cancellation. `destroyForcibly` returns immediately; the orphaned
-    // pumper hits EOF once the process dies and exits on its own. On Windows in particular,
-    // killing only the direct child (`gw_sh`, `vsim` -> `vsimk`, ...) leaves the real workers
-    // running, hence the descendants walk. Best-effort and idempotent: safe to call repeatedly.
+    @volatile var interruptedBySignal = false
+    // Force-kills the spawned launcher together with any child processes it forked, directly via the
+    // underlying java.lang.Process rather than os-lib's `destroy`: `destroy(async = false)` joins the
+    // output pumper, which can be blocked on a back-pressured write under an output flood, stalling
+    // the cancellation. `destroyForcibly` returns immediately; the orphaned pumper hits EOF once the
+    // process dies. On Windows the direct child is often a launcher (`gw_sh`, `vsim` -> `vsimk`, ...)
+    // rather than the real worker, hence the descendants walk. Best-effort and idempotent.
     def destroyToolTree(): Unit =
       // stop forwarding the output backlog so cancellation is prompt (the pumper drains silently).
       aborted = true
       try
         process.wrapped.toHandle.descendants().forEach(p =>
-          p.destroyForcibly(); ()
+          p.destroyForcibly()
+          ()
         )
       catch case _: Throwable => ()
       process.wrapped.destroyForcibly()
+    end destroyToolTree
 
-    // Ctrl+C handling. The cancellation reaches us through two different mechanisms depending on
-    // the launcher:
-    //  - under `sbt`/standalone, Ctrl+C is delivered to the JVM as a POSIX/Windows SIGINT and the
-    //    signal handler below fires on the signal-dispatch thread.
-    //  - under `sbtn`, the run executes on an sbt background-job thread that is cancelled via
-    //    Thread.interrupt(); no signal is raised, so `waitFor()` throws InterruptedException.
-    // We keep and restore the previous signal handler since under `sbtn` the same long-lived
-    // server JVM is reused across runs.
-    @volatile var interruptedBySignal = false
+    // dftools-on-Windows cancellation marker. There the tool runs behind a `wsl.exe` launcher, and a
+    // console Ctrl+C reaches the in-VM signal wrapper but not this JVM (e.g. scala-cli). The wrapper
+    // kills our host `wsl.exe` itself via WSL->Windows interop — the only thing that stops the flood,
+    // since killing the in-VM tool alone leaves `wsl.exe` draining its output buffer — and drops a
+    // `.dfhdl-cancel` marker in the (apptainer-mounted) cwd. This JVM watches for the marker to (a)
+    // tear the launcher down from here too, as a fallback should the in-VM interop kill not land, and
+    // (b) recognise the run as interrupted rather than read the killed launcher's exit code as an
+    // error. We clear any stale marker before the run, and below after it.
+    val cancelMarker: Option[os.Path] =
+      if (dftools) Some(os.Path(execPath, os.pwd) / ".dfhdl-cancel") else None
+    cancelMarker.foreach(m =>
+      try os.remove(m)
+      catch case _: Throwable => ()
+    )
+    cancelMarker.foreach { marker =>
+      val t = new Thread(
+        () =>
+          try
+            while (process.wrapped.isAlive && !interruptedBySignal)
+              if (os.exists(marker))
+                interruptedBySignal = true
+                destroyToolTree()
+              else Thread.sleep(50)
+          catch case _: Throwable => (),
+        s"$toolName cancel-marker watcher"
+      )
+      t.setDaemon(true)
+      t.start()
+    }
+
+    // Ctrl+C reaches us through three mechanisms depending on the launcher:
+    //  - `sbt`/standalone: a POSIX/Windows SIGINT delivered to this JVM fires the handler below.
+    //  - `sbtn`: the run is on an sbt background-job thread cancelled via Thread.interrupt(), so
+    //    `waitFor()` throws InterruptedException (no signal is raised).
+    //  - dftools under a launcher that hides Ctrl+C from the JVM (scala-cli): neither fires; the
+    //    in-VM wrapper kills our `wsl.exe` and drops the marker watched above.
+    // We keep and restore the previous signal handler since under `sbtn` the long-lived server JVM is
+    // reused across runs.
     val interruptHandler = new sun.misc.SignalHandler:
       def handle(sig: sun.misc.Signal): Unit =
         interruptedBySignal = true
         destroyToolTree()
     val prevHandler = sun.misc.Signal.handle(new sun.misc.Signal("INT"), interruptHandler)
-    // Block on the underlying java.lang.Process rather than os-lib's `process.waitFor()`. Both
-    // wait on the same handle and are interrupted promptly by a thread cancel (`sbtn`), but
-    // os-lib's no-arg `waitFor()` additionally joins the output-pumper thread once the process
-    // exits — and under an output flood that join blocks on the back-pressured writer, which is
-    // what made the abort feel slow on the signal path. Waiting on `wrapped` skips that join, so
-    // cancellation is immediate via either mechanism. (Polling with the timed `waitFor` was worse:
-    // it doesn't surface the interrupt as promptly.) We drain the pumper below, only when the tool
-    // finishes on its own.
+    // Block on the underlying java.lang.Process rather than os-lib's `process.waitFor()`: the latter
+    // also joins the output pumper once the process exits, and under an output flood that join blocks
+    // on the back-pressured writer. Waiting on `wrapped` skips the join, so cancellation is immediate.
     val interruptedByThread =
       try
         process.wrapped.waitFor()
         false
       catch case _: InterruptedException => true
       finally sun.misc.Signal.handle(new sun.misc.Signal("INT"), prevHandler)
-    if (interruptedByThread || interruptedBySignal)
+    // A dropped marker also means interrupted (the scala-cli path): the wrapper writes it before
+    // killing our `wsl.exe`, so by the time `waitFor` returns it is visible. The single check keeps
+    // normal runs free of latency (no marker -> instant false).
+    val interrupted = interruptedByThread || interruptedBySignal || cancelMarker.exists(os.exists)
+    cancelMarker.foreach(m =>
+      try os.remove(m)
+      catch case _: Throwable => ()
+    )
+    if (interrupted)
       // the tool (and its children) are now being torn down; unwind the whole run so the app
       // actually stops instead of silently continuing past the cancelled step.
       // ToolInterruptedException carries no stack trace and is caught by DFApp, so this neither
