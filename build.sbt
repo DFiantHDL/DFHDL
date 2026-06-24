@@ -12,7 +12,7 @@ val compilerVersion = "3.8.4"
 // The DFTools binary toolchain release this DFHDL build targets (versioned independently of
 // DFHDL). Surfaced to the library via version.properties and read by DFToolsImage. Bump when
 // adopting a new DFTools release.
-val dftoolsVersion = "v0.1.0"
+val dftoolsVersion = "v0.2.0"
 // dependency versions
 val scodecVersion        = "1.2.5"
 val munitVersion         = "1.3.3"
@@ -20,7 +20,7 @@ val airframelogVersion   = "2026.1.6"
 val oslibVersion         = "0.11.8"
 val scallopVersion       = "6.0.0"
 val upickleVersion       = "4.4.3"
-val scalapptainerVersion = "0.5.0"
+val scalapptainerVersion = "0.5.1"
 
 inThisBuild(
   List(
