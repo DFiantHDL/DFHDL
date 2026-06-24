@@ -49,7 +49,7 @@ Key facts established by experiment:
 4. WSL→Windows **interop** lets an in-VM process run Windows executables (`wmic.exe`, `taskkill.exe`).
 
 So the tool is run inside the VM through a small **signal-trapping bash wrapper**
-([`DFToolsImage.signalWrapper`](../../lib/src/main/scala/dfhdl/tools/toolsCore/DFToolsImage.scala)).
+([`DFToolsImage.signalWrapper`](../lib/src/main/scala/dfhdl/tools/toolsCore/DFToolsImage.scala)).
 On a trapped INT/TERM/HUP it:
 
 1. **Kills our host `wsl.exe` via interop** —
