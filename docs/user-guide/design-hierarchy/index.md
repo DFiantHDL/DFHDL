@@ -371,7 +371,7 @@ class Foo(
 
 ```title="CLI help mode output, when running via sbt (truncated)"
 Design Name: Foo
-Usage: sbt runMain "top_Foo [design-args] <mode> [options]"
+Usage: sbt runMain "Foo [design-args] <mode> [options]"
  Design arguments:
       --pureIntArg  <Int>    (default = 5)
       --dfhdlIntArg  <Int>   (default = 7)
@@ -849,7 +849,7 @@ children = [
 
 /// details | Runnable example
     type: dfhdl
-```scastie main="top_LRShiftDirect"
+```scastie main="LRShiftDirect"
 --8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftDirect.scala:3"
 ```
 ///
@@ -1003,7 +1003,7 @@ Note how the compiler adds comments (`/*<--*/` and `/*-->*/`) to indicate the di
 The following runnable example is the same as the [`LRShiftDirect`][LRShiftDirect] example, except for the default compiler options, which we altered to print the compiled design in DFHDL code format rather than the backend code format.
 /// details | Runnable example
     type: dfhdl
-```scastie main="top_LRShiftDirect"
+```scastie main="LRShiftDirect"
 import dfhdl.*
 given options.CompilerOptions.Backend = _.verilog
 //disable the default backend code print (in scastie)

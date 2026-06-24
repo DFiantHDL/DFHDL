@@ -146,7 +146,7 @@ object DFHDLCommands {
       val ps = new PrintStream(baos)
       val oldOut = System.out
       val oldErr = System.err
-      val arguments = s" util.top_EmptyDesign help simulate-tool -s"
+      val arguments = s" util.EmptyDesign help simulate-tool -s"
       try {
         System.setOut(ps)
         System.setErr(ps)
@@ -164,12 +164,12 @@ object DFHDLCommands {
     }
     //TODO: fix caching issues
     for (tool <- vhdlTools if existingTools.contains(tool); dialect <- vhdlDialects if !skip.contains((tool, dialect))) {
-      val arguments = s" dfhdl.AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
+      val arguments = s" dfhdl.AES.CipherSim simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }
     for (tool <- verilogTools if existingTools.contains(tool); dialect <- verilogDialects if !skip.contains((tool, dialect))) {
-      val arguments = s" dfhdl.AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
+      val arguments = s" dfhdl.AES.CipherSim simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }

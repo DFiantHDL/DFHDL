@@ -45,8 +45,8 @@ end CustomReporter
   *   - auto-add `@top` annotation to concrete classes that look like DFHDL designs (extend
   *     EDDesign/RTDesign/DFDesign, have `type <> CONST` parameters, or use `<>` in their body),
   *     provided `import dfhdl.*` is in lexical scope and no `@top` annotation is already present.
-  *     Classes extending `Interface` are excluded, since they are never entry points and
-  *     must not receive `@top`.
+  *     Classes extending `Interface` are excluded, since they are never entry points and must not
+  *     receive `@top`.
   */
 class PreTyperPhase(setting: Setting) extends CommonPhase:
   import untpd.*
@@ -246,6 +246,7 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
       (hasDesignParent(tmpl.parents) ||
         hasConstParam(tmpl.constr.paramss) ||
         bodyUsesConnect(tmpl.body))
+    end shouldAddTop
 
     private inline def withScope[A](stats: List[Tree])(body: => A): A =
       val prev = dfhdlImported
@@ -258,6 +259,44 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
       validOwnerScope = false
       try body
       finally validOwnerScope = prev
+
+    // Approach A: ensure every `@top` class has a companion object *before* the
+    // typer runs, so the namer establishes real companion linkage. The
+    // entry-point `main` is later injected into this companion by TopAnnotPhase
+    // (a same-named module created post-typer is NOT recognized as a companion,
+    // so the backend would emit a clashing mirror class).
+    //
+    // This stands in as the *primary* companion the user would have written, so
+    // it must NOT be `Synthetic`: when the class has default constructor args,
+    // the desugarer emits its own `Synthetic` companion for the default getters,
+    // and `Namer.mergeCompanionDefs` only merges the two when exactly one of
+    // them is synthetic (two synthetics => "X is already defined" error). It
+    // carries the class definition's full span (`cdef.span`), matching dotty's
+    // own synthetic-companion span convention in `Desugar.companionDefs`.
+    private def mkEmptyCompanion(td: TypeDef)(using Context): ModuleDef =
+      val tmpl = untpd.Template(untpd.emptyConstructor, Nil, Nil, untpd.EmptyValDef, Nil)
+      untpd.ModuleDef(td.name.toTermName, tmpl).withSpan(td.span)
+    end mkEmptyCompanion
+
+    private def addTopCompanions(stats: List[Tree])(using Context): List[Tree] =
+      val moduleNames = stats.collect { case md: ModuleDef => md.name.toString }.toSet
+      val newCompanions = stats.collect {
+        case td @ TypeDef(name, _: Template)
+            if !td.mods.is(Trait) && hasTopAnnot(td.mods) &&
+              !moduleNames.contains(name.toString) =>
+          mkEmptyCompanion(td)
+      }
+      if (newCompanions.isEmpty) stats else stats ++ newCompanions
+    end addTopCompanions
+
+    override def transformStats(trees: List[Tree], exprOwner: Symbol)(using
+        Context
+    ): List[Tree] =
+      val transformed = super.transformStats(trees, exprOwner)
+      // Only synthesize companions in class/object/package scopes (where auto-
+      // `@top` is also permitted) — never inside method bodies, lambdas, blocks.
+      if (validOwnerScope) addTopCompanions(transformed) else transformed
+    end transformStats
 
     override def transform(tree: Tree)(using Context): Tree =
       tree match

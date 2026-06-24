@@ -15,13 +15,25 @@ import dfhdl.compiler.ir.SourceFile
 import java.nio.file.Paths
 import dfhdl.internals.scastieIsRunning
 
-trait DFApp:
+// `DFApp` is the application engine behind every generated top-level entry
+// point. It deliberately has NO `main`: the compiler plugin injects a `main`
+// into the design's companion object that instantiates this class and reroutes
+// the command-line to `run`. Keeping `main` out of here means the companion
+// object (`Foo`) is the single, cleanly-named runnable entry point — there is
+// no separate `top_Foo` object anymore.
+class DFApp:
   private val logger = Logger("DFHDL App")
   logger.setFormatter(LogFormatter.BareFormatter)
   private var designName: String = ""
   private var topScalaPath: String = ""
-  private val appCompileTime: Instant =
-    val clazz = this.getClass
+  // The class of the design's generated entry point, supplied by the plugin via
+  // `setInitials`. It locates the user's compiled output so `appCompileTime`
+  // reflects the design's build time (for cache invalidation). Falls back to
+  // `this.getClass` for the manual path (`ManualDFApp`), whose anonymous
+  // subclass already lives in the user's output.
+  private var topClassOpt: Option[Class[?]] = None
+  private lazy val appCompileTime: Instant =
+    val clazz = topClassOpt.getOrElse(this.getClass)
     val location = clazz.getProtectionDomain.getCodeSource.getLocation
     val classPath = Paths.get(location.toURI).toRealPath().getParent()
     // Helper function to recursively get all files in a directory
@@ -61,12 +73,13 @@ trait DFApp:
   private var dsn: () => core.Design = compiletime.uninitialized
   // used by the plugin to get the updated design arguments that could be changed by the
   // command-line options
-  final protected def getDsnArg(name: String): Any =
+  final def getDsnArg(name: String): Any =
     designArgs(name).value
   // used by the plugin to get the updated elaboration options that could be changed by the
   // command-line options
   final protected def getElaborationOptions: options.ElaborationOptions = elaborationOptions
-  final protected def setInitials(
+  final def setInitials(
+      topClass: Class[?],
       designName: String,
       topScalaPath: String,
       top: dfhdl.top,
@@ -77,6 +90,7 @@ trait DFApp:
       hasResourceOwner: Boolean,
       hasPorts: Boolean
   ): Unit =
+    this.topClassOpt = Some(topClass)
     this.designName = designName
     this.topScalaPath = topScalaPath
     elaborationOptions = top.elaborationOptions
@@ -105,7 +119,7 @@ trait DFApp:
     designArgs = DesignArgs(argNames, argValues, argDescs)
   end setInitials
 
-  final protected def setDsn(d: => core.Design): Unit = dsn = () => d
+  final def setDsn(d: => core.Design): Unit = dsn = () => d
 
   object diskCache extends DiskCache(compilerOptions.cachePath(designName))
   object elaborate extends diskCache.Step[core.Design, StagedDesign](dsn)(
@@ -220,7 +234,10 @@ trait DFApp:
   end simPrep
 
   object simRun
-      extends diskCache.Step[CompiledDesign, CompiledDesign](simPrep)(simulatorOptions.location.toString):
+      extends diskCache.Step[
+        CompiledDesign,
+        CompiledDesign
+      ](simPrep)(simulatorOptions.location.toString):
     override protected def cacheEnable: Boolean = appOptions.cacheEnable
     protected def run(simPrepped: CompiledDesign): CompiledDesign =
       simPrepped.tap(_ => logger.info("Running external simulation...")).simRun
@@ -401,7 +418,8 @@ trait DFApp:
     execute(appMode)
   end runManual
 
-  def main(commandArgs: Array[String]): Unit =
+  // The plugin-injected companion `main` reroutes here with the raw argv.
+  def run(commandArgs: Array[String]): Unit =
     if (appOptions.clearConsole) print("\u001bc")
     logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
     val parsedCommandLine = ParsedCommandLine(designName, topScalaPath, designArgs, commandArgs)
@@ -503,7 +521,7 @@ trait DFApp:
           case _ => execute(parsedCommandLine.mode.modeOption)
         end match
     end match
-  end main
+  end run
 end DFApp
 
 class ManualDFApp(dsn: => core.Design) extends DFApp:

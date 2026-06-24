@@ -104,7 +104,7 @@ end Plus2
 /// details | Runnable example
     type: dfhdl
 
-```scastie main="top_Plus2"
+```scastie main="Plus2"
 import dfhdl.*
 
 class Plus1 extends DFDesign:

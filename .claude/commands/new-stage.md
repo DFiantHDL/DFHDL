@@ -912,13 +912,13 @@ the top of the file:
 ```scala
 given options.CompilerOptions.LogLevel = _.TRACE
 ```
-Then run the whole pipeline for a top-level design named `Foo` via its generated `top_Foo` main:
+Then run the whole pipeline for a top-level design named `Foo` via the `main` injected into its companion object:
 ```bash
-sbtn.bat ";libPlayground;lib/Test/runMain top_Foo"          # core equivalent: corePlayground + core/Test/runMain
+sbtn.bat ";libPlayground;lib/Test/runMain Foo"          # core equivalent: corePlayground + core/Test/runMain
 ```
 Pass tool/backend arguments after `--`:
 ```bash
-sbtn.bat ";libPlayground;lib/Test/runMain top_Foo -- simulate -t questa"     # or -t nvc/ghdl with -b vhdl
+sbtn.bat ";libPlayground;lib/Test/runMain Foo -- simulate -t questa"     # or -t nvc/ghdl with -b vhdl
 ```
 A design with **no ports + a `finish()`** is treated as a self-contained simulation top, so the
 default (no-arg) action becomes *simulate* instead of *compile*.
@@ -952,8 +952,8 @@ isolated unit test in one step — write the test, watch it fail with the same e
   `[scallop] Error: Excess arguments provided: '--nocache'`). The DFHDL App command
   (`compile` / `simulate` / …) goes *after* `--`:
   ```bash
-  sbtn.bat ";libPlayground;lib/Test/runMain top_Foo --nocache -- compile"
-  sbtn.bat ";libPlayground;lib/Test/runMain top_Foo --nocache -- simulate -t questa"
+  sbtn.bat ";libPlayground;lib/Test/runMain Foo --nocache -- compile"
+  sbtn.bat ";libPlayground;lib/Test/runMain Foo --nocache -- simulate -t questa"
   ```
   (Alternatively clear `sandbox/<Top>` via `sbtn clearSandbox`, or edit the design — but `--nocache`
   is the lightweight option for repeated trace runs.)

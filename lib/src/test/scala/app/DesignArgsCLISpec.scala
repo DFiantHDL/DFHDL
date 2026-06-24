@@ -2,28 +2,28 @@ package app
 import munit.*
 import java.io.{ByteArrayOutputStream, PrintStream}
 
-// Integration tests that drive the plugin-generated `top_TestCLIFoo.main`.
+// Integration tests that drive the plugin-injected `TestCLIFoo` entry point
+// (the `main` synthesized into its companion object).
 //
-// DFApp's `elaborate` Step caches its output in a lazy val, so the very first
-// elaborate call in this JVM fixes the elaborated design for the life of the
-// object. That means we only get one meaningful `elaborate --print-elaborate`
-// invocation per test run: we make it a comprehensive override test that
-// covers every supported type at once. Stateless tests (help output, malformed
-// literal rejection) run freely before or after that single elaborate call.
+// Each `main` call instantiates a fresh `DFApp`, so its `elaborate` Step (a
+// lazy val on that instance) is per-invocation — there is no cross-call state
+// to reset. We still drive every supported type through a single comprehensive
+// override test; stateless tests (help output, malformed literal rejection)
+// run freely alongside it.
 //
 // Per-type unit coverage for `updateScalaValue` / `defaultDisplay` lives in
 // `DesignArgSpec.scala`; this file just verifies the scallop wiring and the
 // end-to-end propagation of CLI overrides into elaboration.
 class DesignArgsCLISpec extends FunSuite:
 
-  // Run `top_TestCLIFoo.main` against a synthetic CLI argv and return the
+  // Run `TestCLIFoo.main` against a synthetic CLI argv and return the
   // captured stdout + stderr. DFApp uses a wvlet logger that writes directly
   // to System.err, so we redirect System-level streams (not just the Scala
   // `Console` facade) to capture everything. The actual reflective call is in
   // `DesignArgsCLIHelper.java` — keeping it in a Java file avoids the DFHDL
-  // plugin rewriting the reflection calls with meta-context forwarders, and
-  // the helper saves/restores `designArgs` around each invocation so tests
-  // that touch help-formatting see a pristine synthetic-default state.
+  // plugin rewriting the reflection calls with meta-context forwarders. Each
+  // invocation builds a fresh `DFApp`, so help-formatting tests already see a
+  // pristine synthetic-default state without any save/restore.
   // Matches ANSI CSI / SGR escape sequences so our substring assertions
   // operate on clean text. The wvlet logger wraps lines with `\u001b[0J`
   // (erase-below) and similar control codes that otherwise pollute the output.

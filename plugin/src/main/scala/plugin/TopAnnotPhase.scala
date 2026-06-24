@@ -24,10 +24,15 @@ import dotty.tools.dotc.semanticdb.BooleanConstant
 import java.time.Instant
 
 /*
-  This phase creates a `top_<design_name>` object with a `DFApp` main entry point
-  for each design that has a `@top` annotation. The design parameters must have
-  default arguments and have the supported types. These arguments can then be
-  overridden by the command-line options that `DFApp` application provides.
+  This phase injects a `main` entry point into the companion object of each
+  design that has a `@top` annotation (the companion is guaranteed to exist —
+  PreTyperPhase synthesizes an empty one when the user did not write it). The
+  injected `main` instantiates a `DFApp`, primes it, and reroutes the argv to
+  `DFApp.run`, so the design's companion object (e.g. `Foo`) is itself the
+  runnable entry point — there is no separate `top_Foo` object. The design
+  parameters must have default arguments and have the supported types. These
+  arguments can then be overridden by the command-line options that the `DFApp`
+  application provides.
  */
 class TopAnnotPhase(setting: Setting) extends CommonPhase:
   import tpd._
@@ -62,13 +67,6 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
   // `DFC.emptyNoEO` — an empty DFC instance supplied when we inject a synthetic
   // default tree, since there is no DFC in scope where setInitials evaluates them.
   var emptyNoEODFCSym: TermSymbol = uninitialized
-
-  private def getPackageOwner(using Context): Symbol =
-    var owner = ctx.owner
-    while (!owner.is(Package))
-      owner = owner.owner
-    owner
-  end getPackageOwner
 
   // Extract a literal `Int` from a type arg (e.g. from `Args1[8]` or the width
   // slot of `Args4[_, 8, _, _]`). Returns None for non-literal widths.
@@ -152,190 +150,227 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
     end if
   end synthDefaultFor
 
-  object TopMainThicket:
-    def unapply(explored: List[Tree])(using Context): Option[(TypeDef, Thicket, List[Tree])] =
-      val origOwner = ctx.owner
-      val packageOwner = getPackageOwner
-      explored match
-        case (td @ TypeDef(tn, template: Template)) :: rest
-            if td.symbol.isClass && !td.symbol.is(Trait) &&
-              td.symbol.hasAnnotation(topAnnotSym) =>
-          // all thickets will be added at a package level
-          inContext(ctx.withOwner(packageOwner)):
-            val clsSym = td.symbol.asClass
-            // has top annotation and no companion object
-            clsSym.getAnnotation(topAnnotSym).map(a => dropProxies(a.tree)) match
-              case Some(topAnnotTree @ Apply(Apply(Apply(_, topAnnotOptionsTrees), _), _)) =>
-                // Distinguish between `@top` (default genMain) and an explicitly-given
-                // `@top(true)` / `@top(false)`. An explicit literal/named-arg indicates
-                // the user opted into the lenient variant; an implicit default means
-                // the strict form was used.
-                val (genMain, genMainIsExplicit) = topAnnotOptionsTrees match
-                  case Literal(Constant(b: Boolean)) :: _ => (b, true)
-                  case NamedArg(n, Literal(Constant(b: Boolean))) :: _
-                      if n.toString == "genMain" =>
-                    (b, true)
-                  case _ => (true, false)
-                val isDesign = td.tpe <:< designTpe
-                if (!genMain) None
-                else if (!isDesign)
-                  if (genMainIsExplicit) None // `@top(true)` — silently skip
-                  else
-                    report.error(
-                      "`@top` must be applied to a subclass of `dfhdl.core.Design`.\n" +
-                        "Use `@top(true)` if you want the top entry point to be silently skipped " +
-                        "for non-Design classes, or `@top(false)` to disable entry point generation.",
-                      topAnnotTree.srcPos
-                    )
-                    None
-                else
-                  if (template.constr.paramss.length > 1)
-                    report.error(
-                      "Unsupported multiple parameter blocks for top-level design.",
-                      template.constr.srcPos
-                    )
-                    None
-                  else
-                    var topName = tn.toString
-                    var owner = origOwner
-                    while (!owner.is(Package) && owner.is(ModuleClass))
-                      topName = s"${owner.name.toString.replace("$", "")}_$topName"
-                      owner = owner.owner
-                    if (!owner.is(Package))
-                      report.error(
-                        "Top-level main generation must be defined only in nested objects or packages.",
-                        topAnnotTree.srcPos
-                      )
-                      None
-                    else
-                      topName = s"top_${topName}"
-                      // Anchor the synthetic entry point on the design class's
-                      // name. This is what tooling (e.g. Metals `run`/`debug`
-                      // code lenses) uses to position itself on the class that
-                      // introduces the entry point rather than at the top of the
-                      // file. Using the class name (instead of the `@top`
-                      // annotation) also keeps this working if/when the design no
-                      // longer needs an explicit `@top` annotation.
-                      val designNameSpan = td.nameSpan
-                      // the top entry point module symbol
-                      val dfApp = newCompleteModuleSymbol(
-                        packageOwner,
-                        topName.toTermName,
-                        Touched,
-                        Touched | NoInits,
-                        List(defn.ObjectType, appTpe),
-                        Scopes.newScope,
-                        coord = designNameSpan,
-                        compUnitInfo = clsSym.compUnitInfo
-                      )
-                      val moduleCls = dfApp.moduleClass.asClass
-                      val designNameTree = Literal(Constant(tn.toString))
-                      val topScalaPathTree = Literal(Constant(dfApp.fullName.toString()))
-                      val paramVDs =
-                        template.constr.paramss.flatten.collect { case vd: ValDef => vd }
-                      val dsnArgNames =
-                        mkList(paramVDs.map(vd => Literal(Constant(vd.name.toString))))
-                      val defaultMap = mutable.Map.empty[Int, Tree]
-                      rest match
-                        case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
-                            if compSym.symbol.companionClass == clsSym =>
-                          compTemplate.body.foreach {
-                            case dd @ DefDef(name = NameKinds.DefaultGetterName(n, i)) =>
-                              defaultMap += i -> ref(module.symbol).select(dd.symbol)
-                            case _ =>
-                          }
-                        case _ =>
-                      val dsnArgValues =
-                        mkList(
-                          paramVDs.zipWithIndex.map((vd, i) =>
-                            defaultMap.get(i).orElse(synthDefaultFor(vd)) match
-                              case Some(value) => value
-                              case None        =>
-                                report.error(
-                                  "Missing argument's default value for top-level design with a default app entry point.\nEither add a default value, use one of the supported `<> CONST` primitive types (Int, Boolean, Bit, String, Double, Bits[W], UInt[W], SInt[W] with literal W), or disable the app entry point generation with `@top(false)`.",
-                                  vd.srcPos
-                                )
-                                EmptyTree
-                          )
-                        )
-                      val dsnArgDescs =
-                        mkList(paramVDs.map(vd =>
-                          Literal(Constant(vd.symbol.docString.getOrElse("")))
-                        ))
-                      val Werror = Literal(Constant(ctx.settings.Werror.value))
-                      val hasResourceOwnerTree =
-                        Literal(Constant(clsSym.hasNestedMemberCond(_ <:< resourceOwnerTpe)))
-                      def portCond(tpe: Type): Boolean =
-                        if (tpe.typeSymbol == dfValSym)
-                          tpe match
-                            // DFVal[_, Modifier[Port, _, _, _]]
-                            case AppliedType(_, _ :: AppliedType(_, a :: _) :: Nil) =>
-                              a <:< portModTpe
-                            case _ => false
-                        else false
-                      val hasPorts = Literal(Constant(clsSym.hasNestedMemberCond(portCond)))
-                      val setInitials =
-                        This(moduleCls).select("setInitials".toTermName).appliedToArgs(
-                          List(
-                            designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames,
-                            dsnArgValues,
-                            dsnArgDescs, Werror, hasResourceOwnerTree, hasPorts
-                          )
-                        )
-                      val dsnInstArgs = paramVDs.map(vd =>
-                        This(moduleCls).select("getDsnArg".toTermName).appliedTo(
-                          Literal(Constant(vd.name.toString))
-                        )
-                      )
-                      val dsnInst = New(clsSym.typeRef, dsnInstArgs)
-                      val setDsn = This(moduleCls).select("setDsn".toTermName).appliedTo(dsnInst)
-                      // Give the generated module definition a real source span
-                      // (the design class's name) so that `ExtractSemanticDB`
-                      // records a definition *occurrence* for it. Without a
-                      // positioned tree the synthetic entry point only appears in
-                      // the SemanticDB `Symbols` section (no `Occurrences`), which
-                      // forces Metals to fall back to placing the run/debug code
-                      // lenses at the very top of the file instead of above the
-                      // design class.
-                      val moduleDef = ModuleDef(dfApp, List(setInitials, setDsn))
-                      val positionedModuleDef =
-                        Thicket(moduleDef.trees.map(_.withSpan(designNameSpan)))
-                      Some(td, positionedModuleDef, rest)
-                    end if
-                  end if
-                end if
-              case _ => None
-            end match
-        case _ => None
-      end match
-    end unapply
-  end TopMainThicket
+  private def portCond(tpe: Type)(using Context): Boolean =
+    if (tpe.typeSymbol == dfValSym)
+      tpe match
+        // DFVal[_, Modifier[Port, _, _, _]]
+        case AppliedType(_, _ :: AppliedType(_, a :: _) :: Nil) => a <:< portModTpe
+        case _                                                  => false
+    else false
 
-  val thickets = mutable.ListBuffer.empty[Thicket]
+  // Build the `main(args)` entry point hosted by `moduleClsSym` (a companion
+  // module class). Rather than extending `DFApp`, the body instantiates one,
+  // primes it via `setInitials`, hands it the design thunk via `setDsn`, and
+  // reroutes the raw argv to `DFApp.run`. The design instance itself is built
+  // lazily from the (possibly CLI-overridden) `getDsnArg` values.
+  private def mkMainDef(
+      moduleClsSym: ClassSymbol,
+      clsSym: ClassSymbol,
+      paramVDs: List[ValDef],
+      classOfTree: Tree,
+      designNameTree: Tree,
+      topScalaPathTree: Tree,
+      topAnnotTree: Tree,
+      dsnArgNames: Tree,
+      dsnArgValues: Tree,
+      dsnArgDescs: Tree,
+      werror: Tree,
+      hasResourceOwnerTree: Tree,
+      hasPorts: Tree,
+      span: util.Spans.Span
+  )(using Context): DefDef =
+    val mainSym = newSymbol(
+      moduleClsSym,
+      "main".toTermName,
+      Method,
+      MethodType(
+        List("args".toTermName),
+        List(defn.ArrayOf(defn.StringType)),
+        defn.UnitType
+      ),
+      coord = span
+    ).entered.asTerm
+    val mainDef = DefDef(
+      mainSym,
+      paramss =>
+        val argsRef = paramss.head.head
+        val appSym = newSymbol(mainSym, "app".toTermName, Synthetic, appTpe, coord = span).asTerm
+        val appVal = ValDef(appSym, New(appTpe, Nil))
+        val setInitialsCall =
+          ref(appSym).select("setInitials".toTermName).appliedToArgs(
+            List(
+              classOfTree, designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames,
+              dsnArgValues, dsnArgDescs, werror, hasResourceOwnerTree, hasPorts
+            )
+          )
+        val dsnInstArgs = paramVDs.map(vd =>
+          ref(appSym).select("getDsnArg".toTermName).appliedTo(Literal(Constant(vd.name.toString)))
+        )
+        val dsnInst = New(clsSym.typeRef, dsnInstArgs)
+        val setDsnCall = ref(appSym).select("setDsn".toTermName).appliedTo(dsnInst)
+        val runCall = ref(appSym).select("run".toTermName).appliedTo(argsRef)
+        Block(List(appVal, setInitialsCall, setDsnCall), runCall)
+    )
+    mainDef.withSpan(span)
+  end mkMainDef
+
+  // For a `@top` design class `td`, build the entry-point `main` to inject into
+  // its companion module class (guaranteed to exist — synthesized by PreTyper
+  // when the user did not write one). Returns the (companion module class,
+  // `main` DefDef) pair, or None when no entry point should be generated (e.g.
+  // `@top(false)`, a non-Design `@top(true)`, or a validation error).
+  private def planEntryPoint(td: TypeDef, template: Template, trees: List[Tree])(using
+      Context
+  ): Option[(ClassSymbol, DefDef)] =
+    val clsSym = td.symbol.asClass
+    clsSym.getAnnotation(topAnnotSym).map(a => dropProxies(a.tree)) match
+      case Some(topAnnotTree @ Apply(Apply(Apply(_, topAnnotOptionsTrees), _), _)) =>
+        // Distinguish `@top` (default genMain) from explicit `@top(true)`/`@top(false)`.
+        val (genMain, genMainIsExplicit) = topAnnotOptionsTrees match
+          case Literal(Constant(b: Boolean)) :: _ => (b, true)
+          case NamedArg(n, Literal(Constant(b: Boolean))) :: _ if n.toString == "genMain" =>
+            (b, true)
+          case _ => (true, false)
+        val isDesign = td.tpe <:< designTpe
+        if (!genMain) None
+        else if (!isDesign)
+          if (genMainIsExplicit) None // `@top(true)` — silently skip
+          else
+            report.error(
+              "`@top` must be applied to a subclass of `dfhdl.core.Design`.\n" +
+                "Use `@top(true)` if you want the top entry point to be silently skipped " +
+                "for non-Design classes, or `@top(false)` to disable entry point generation.",
+              topAnnotTree.srcPos
+            )
+            None
+        else if (template.constr.paramss.length > 1)
+          report.error(
+            "Unsupported multiple parameter blocks for top-level design.",
+            template.constr.srcPos
+          )
+          None
+        else
+          // The entry point must be reachable as a top-level name, i.e. the
+          // design lives directly in a package or nested only inside objects.
+          var owner = clsSym.owner
+          while (!owner.is(Package) && owner.is(ModuleClass))
+            owner = owner.owner
+          if (!owner.is(Package))
+            report.error(
+              "Top-level main generation must be defined only in nested objects or packages.",
+              topAnnotTree.srcPos
+            )
+            None
+          else
+            // Anchor the entry point on the design class's name span so tooling
+            // (e.g. Metals run/debug code lenses) positions on the class.
+            val span = td.nameSpan
+            val companionModuleSym = clsSym.companionModule
+            // The companion module class TypeDef (and its template) within the
+            // current stat list, if a companion already exists. A companion is
+            // also synthesized by the typer to hold constructor default getters,
+            // so designs with Scala-level default args always have one here.
+            val companionInfo: Option[(TypeDef, Template)] =
+              if (!companionModuleSym.exists) None
+              else
+                trees.collectFirst {
+                  case ctd @ TypeDef(_, ct: Template)
+                      if ctd.symbol == companionModuleSym.moduleClass =>
+                    (ctd, ct)
+                }
+            // Constructor default getters live in the companion template; map
+            // each parameter index to a reference to its default getter.
+            val defaultMap = mutable.Map.empty[Int, Tree]
+            companionInfo.foreach { (_, ct) =>
+              ct.body.foreach {
+                case dd @ DefDef(name = NameKinds.DefaultGetterName(_, i)) =>
+                  defaultMap += i -> ref(companionModuleSym).select(dd.symbol)
+                case _ =>
+              }
+            }
+            val paramVDs = template.constr.paramss.flatten.collect { case vd: ValDef => vd }
+            val classOfTree = Literal(Constant(clsSym.typeRef))
+            val designNameTree = Literal(Constant(clsSym.name.toString))
+            // The runnable Scala path is the companion object — same dotted name
+            // as the design class.
+            val topScalaPathTree = Literal(Constant(clsSym.fullName.toString))
+            val dsnArgNames = mkList(paramVDs.map(vd => Literal(Constant(vd.name.toString))))
+            val dsnArgValues =
+              mkList(
+                paramVDs.zipWithIndex.map((vd, i) =>
+                  defaultMap.get(i).orElse(synthDefaultFor(vd)) match
+                    case Some(value) => value
+                    case None        =>
+                      report.error(
+                        "Missing argument's default value for top-level design with a default app entry point.\nEither add a default value, use one of the supported `<> CONST` primitive types (Int, Boolean, Bit, String, Double, Bits[W], UInt[W], SInt[W] with literal W), or disable the app entry point generation with `@top(false)`.",
+                        vd.srcPos
+                      )
+                      EmptyTree
+                )
+              )
+            val dsnArgDescs =
+              mkList(paramVDs.map(vd => Literal(Constant(vd.symbol.docString.getOrElse("")))))
+            val werror = Literal(Constant(ctx.settings.Werror.value))
+            val hasResourceOwnerTree =
+              Literal(Constant(clsSym.hasNestedMemberCond(_ <:< resourceOwnerTpe)))
+            val hasPorts = Literal(Constant(clsSym.hasNestedMemberCond(portCond)))
+
+            companionInfo match
+              case Some((compTd, compTemplate)) =>
+                val alreadyHasMain = compTemplate.body.exists {
+                  case dd: DefDef => dd.name.toString == "main"
+                  case _          => false
+                }
+                if (alreadyHasMain)
+                  report.error(
+                    "The companion object already defines a `main`; cannot generate a top-level entry point. Use `@top(false)` to disable entry point generation.",
+                    topAnnotTree.srcPos
+                  )
+                  None
+                else
+                  val moduleClsSym = compTd.symbol.asClass
+                  val mainDef = mkMainDef(
+                    moduleClsSym, clsSym, paramVDs, classOfTree, designNameTree, topScalaPathTree,
+                    topAnnotTree, dsnArgNames, dsnArgValues, dsnArgDescs, werror,
+                    hasResourceOwnerTree, hasPorts, span
+                  )
+                  Some(moduleClsSym -> mainDef)
+              case None =>
+                report.error(
+                  "Internal error: expected a companion object for the top-level design " +
+                    "(it should have been synthesized in the PreTyper phase).",
+                  topAnnotTree.srcPos
+                )
+                None
+            end match
+          end if
+        end if
+      case _ => None
+    end match
+  end planEntryPoint
 
   override def transformStats(trees: List[Tree])(using Context): List[Tree] =
-    val retTrees = mutable.ListBuffer.empty[Tree]
-    var explored: List[Tree] = trees
-    while (explored.nonEmpty)
-      explored match
-        case TopMainThicket(td, thicket, rest) =>
-          // all thickets are added at a package level
-          if (ctx.owner.is(Package))
-            retTrees ++= td :: thicket.trees
-          else
-            thickets += thicket
-            retTrees += td
-          explored = rest
-        case _ =>
-          retTrees += explored.head
-          explored = explored.drop(1)
-      end match
-    end while
-    if (ctx.owner.is(Package))
-      retTrees ++= thickets.view.flatMap(_.trees)
-      thickets.clear()
-    end if
-    retTrees.toList
+    // First pass: plan an entry point for every `@top` design class in this stat
+    // list, keyed by its companion module class. Symbols are created/entered
+    // here; the second pass splices the `main` into the companion's template.
+    val injections = mutable.Map.empty[Symbol, DefDef] // companion module class -> main
+    trees.foreach {
+      case td @ TypeDef(_, template: Template)
+          if td.symbol.isClass && !td.symbol.is(Trait) && td.symbol.hasAnnotation(topAnnotSym) =>
+        planEntryPoint(td, template, trees).foreach { (moduleClsSym, mainDef) =>
+          injections += moduleClsSym -> mainDef
+        }
+      case _ =>
+    }
+    if (injections.isEmpty) trees
+    else
+      trees.map {
+        // inject the main into the companion module class
+        case td @ TypeDef(_, template: Template) if injections.contains(td.symbol) =>
+          val mainDef = injections(td.symbol)
+          cpy.TypeDef(td)(rhs = cpy.Template(template)(body = template.body :+ mainDef))
+        case other => other
+      }
   end transformStats
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
@@ -366,4 +401,5 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
     defaultsSIntSym = requiredMethod("dfhdl.core.r__For_Plugin.defaults.sint")
     emptyNoEODFCSym = requiredMethod("dfhdl.core.DFC.emptyNoEO")
     ctx
+  end prepareForUnit
 end TopAnnotPhase
