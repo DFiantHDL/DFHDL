@@ -1,11 +1,11 @@
 pygments==2.20.0
-mkdocs==1.6.1
+properdocs==1.6.7
 mkdocs-material==9.7.6
-pymdown-extensions==10.21.3
+pymdown-extensions==11.0.0
 mkdocs-redirects==1.2.3
 mkdocs-glightbox==0.5.2
 mkdocs-autorefs==1.4.4
 mkdocs-d2-plugin==1.7.0
-mkdocs-drawio==1.15.0
-schemdraw==0.22.0
+mkdocs-drawio==1.16.2
+schemdraw==0.23.0
 pyhocon==0.3.63

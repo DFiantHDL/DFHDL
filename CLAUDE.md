@@ -100,7 +100,7 @@ Generated HDL reference files live in `lib/src/test/resources/ref/`. Update them
 | `build.sbt` | Multi-project build definition |
 | `project/DFHDLCommands.scala` | Custom SBT commands |
 | `.scalafmt.conf` | Code formatting rules |
-| `mkdocs.yml` | Documentation site config |
+| `properdocs.yml` | Documentation site config (ProperDocs, a maintained MkDocs fork; build with `properdocs build`) |
 | `sandbox/` | Generated output during tests/apps (gitignored, cleared by `clearSandbox`) |
 | `lib/src/test/resources/ref/` | Reference HDL output snapshots for regression tests |
 

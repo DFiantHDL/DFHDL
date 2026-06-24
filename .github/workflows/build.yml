@@ -9,7 +9,7 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'docs_overrides/**'
-      - 'mkdocs.yml'  
+      - 'properdocs.yml'
       - '.github/workflows/dfdocs.yml'
   pull_request:
     branches: 
@@ -19,7 +19,7 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'docs_overrides/**'
-      - 'mkdocs.yml'
+      - 'properdocs.yml'
       - '.github/workflows/dfdocs.yml'
 jobs:
   build:

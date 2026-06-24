@@ -8,7 +8,7 @@ on:
     paths:
       - 'docs/**'
       - 'docs_overrides/**'
-      - 'mkdocs.yml'
+      - 'properdocs.yml'
       - '.github/workflows/dfdocs.yml'
       - 'lib/src/test/scala/docExamples/**'
       - 'lib/src/test/resources/ref/**'
@@ -19,7 +19,7 @@ on:
     paths:
       - 'docs/**'
       - 'docs_overrides/**'
-      - 'mkdocs.yml'
+      - 'properdocs.yml'
       - '.github/workflows/dfdocs.yml'
       - 'lib/src/test/scala/docExamples/**'
       - 'lib/src/test/resources/ref/**'
@@ -49,7 +49,7 @@ jobs:
           pip install -r docs/requirements.txt
           curl -fsSL https://d2lang.com/install.sh | sh
           npm install d3-hwschematic --save
-          mkdocs build --verbose --clean #--strict
+          properdocs build --verbose --clean #--strict
       - name: Deploy
         if: ${{ github.event_name == 'push' }}
         uses: JamesIves/github-pages-deploy-action@v4
