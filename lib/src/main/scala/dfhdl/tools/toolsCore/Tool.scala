@@ -208,9 +208,18 @@ trait Tool:
   // --- DFTools (Apptainer image) execution support --------------------------
   // Whether this tool needs an X11 display forwarded into the container (GUI tools).
   protected def needsX11: Boolean = false
-  // True when the given tool options select the DFTools image rather than local PATH tools.
+  // Whether this tool can run from a DFTools image at all. Proprietary tools (Questa, Vivado,
+  // Quartus, Diamond, Gowin) have no DFTools image, so they transparently fall back to a local
+  // install even when the default tools-location is `dftools`. Derived from the single source of
+  // truth — the `DFToolsImage.imageForOpt` mapping (the `vhdl` flag only picks between two yosys
+  // images, so it never affects whether an image exists).
+  protected def supportsDFTools: Boolean =
+    DFToolsImage.imageForOpt(binExec, vhdl = false).isDefined
+
+  // True when the tool options select the DFTools image AND this tool actually has one; an
+  // unsupported tool always runs from the local PATH (fallback) regardless of the option.
   protected final def usesDFTools(using to: ToolOptions): Boolean =
-    to.runLocation == dfhdl.options.ToolOptions.Location.dftools
+    supportsDFTools && to.runLocation == dfhdl.options.ToolOptions.Location.dftools
 
   // A short identifier of the active toolchain: its install location (local vs. the DFTools image)
   // and resolved version. Tools that keep cache-unmanaged build intermediates in the sandbox use

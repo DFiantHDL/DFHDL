@@ -27,19 +27,28 @@ object DFToolsImage:
     props.getProperty("dftools.version")
   private val repo = "DFiantHDL/DFTools"
 
-  /** Map an in-image executable name to its DFTools image. Yosys depends on the backend dialect
-    * (VHDL synthesis loads the ghdl frontend, hence `synth-vhdl`).
+  /** Map an in-image executable name to its DFTools image, or `None` if no DFTools image provides it
+    * (proprietary tools such as Questa/Vivado/Quartus/Diamond/Gowin). Yosys depends on the backend
+    * dialect (VHDL synthesis loads the ghdl frontend, hence `synth-vhdl`).
     */
-  def imageFor(exec: String, vhdl: Boolean): String = exec match
-    case "yosys" => if (vhdl) "synth-vhdl" else "synth-verilog"
-    case "eqy"   => "synth-verilog"
-    case "nextpnr-ecp5" | "nextpnr-himbaechel" | "ecppack" | "gowin_pack" => "pnr"
-    case "ghdl" | "nvc"                                                   => "sim-llvm"
-    case "verilator" | "verilator_bin"                                    => "sim-verilator"
-    case "iverilog" | "vvp"                                               => "sim-iverilog"
-    case "surfer"                                                         => "wavegen"
-    case "openFPGALoader"                                                 => "program"
-    case other => throw new IllegalArgumentException(s"no DFTools image for tool '$other'")
+  def imageForOpt(exec: String, vhdl: Boolean): Option[String] = exec match
+    case "yosys" => Some(if (vhdl) "synth-vhdl" else "synth-verilog")
+    case "eqy"   => Some("synth-verilog")
+    case "nextpnr-ecp5" | "nextpnr-himbaechel" | "ecppack" | "gowin_pack" => Some("pnr")
+    case "ghdl" | "nvc"                                                   => Some("sim-llvm")
+    case "verilator" | "verilator_bin"                                    => Some("sim-verilator")
+    case "iverilog" | "vvp"                                               => Some("sim-iverilog")
+    case "surfer"                                                         => Some("wavegen")
+    case "openFPGALoader"                                                 => Some("program")
+    case _                                                                => None
+
+  /** Like [[imageForOpt]] but throws for an unsupported tool. Callers reach this only after
+    * [[Tool.usesDFTools]] has confirmed the tool has an image.
+    */
+  def imageFor(exec: String, vhdl: Boolean): String =
+    imageForOpt(exec, vhdl).getOrElse(
+      throw new IllegalArgumentException(s"no DFTools image for tool '$exec'")
+    )
 
   /** Dev/test override: run a given image from a specific local .sif (path valid in the backend).
     */
