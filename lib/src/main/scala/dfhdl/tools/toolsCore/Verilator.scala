@@ -100,7 +100,9 @@ object Verilator extends VerilogLinter, VerilogSimulator:
   ): CompiledDesign =
     addSourceFiles(
       cd,
-      List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
+      List(new VerilatorConfigPrinter(getInstalledVersion, isToolInWindows)(using
+        cd.stagedDB.getSet
+      ).getSourceFile)
     )
 
   override protected def lintLogger(using
@@ -224,9 +226,10 @@ end Verilator
 
 val VerilatorConfig = SourceType.Tool("Verilator", "Config")
 
-class VerilatorConfigPrinter(verilatorVersion: String)(using
+class VerilatorConfigPrinter(verilatorVersion: String, isToolInWindows: Boolean)(using
     getSet: MemberGetSet,
-    co: CompilerOptions
+    co: CompilerOptions,
+    so: SimulatorOptions
 ):
   val designDB: DB = getSet.designDB
   val verilatorVersionMajor: Int = verilatorVersion.split("\\.").head.toInt
@@ -253,7 +256,7 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
   ): String =
     val ruleArg = rule.emptyOr(" -rule " + _)
     val fileArg =
-      val sep = if (separatorChar == '\\') "\\\\" else separatorChar
+      val sep = if (osIsWindows && isToolInWindows) "\\\\" else "/"
       file.emptyOr(f => s""" -file "*$sep$f"""")
     val lineArg = lines.emptyOr(" -lines " + _)
     val matchWildArg = matchWild.emptyOr(m => s""" -match "$m"""")

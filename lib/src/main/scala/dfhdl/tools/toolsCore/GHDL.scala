@@ -10,7 +10,6 @@ import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
-import java.io.File.separatorChar
 import dfhdl.compiler.stages.vhdl.VHDLBackend
 
 object GHDL extends VHDLLinter, VHDLSimulator:
