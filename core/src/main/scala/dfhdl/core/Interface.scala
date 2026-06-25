@@ -28,22 +28,13 @@ abstract class Interface
   final protected given TScope = DFC.Scope.Interface
   private[core] def mkInstMode: InstMode = InstMode.Interface
   private[dfhdl] def initOwner: TOwner =
-    Design.Block(__domainType, InstMode.Interface)(using dfc.anonymize)
-  final protected def setClsNamePos(
-      name: String,
-      position: Position,
-      docOpt: Option[String],
-      annotations: List[Annotation]
-  ): Unit =
-    import dfc.getSet
-    val designBlock = containedOwner.asIR
-    getSet.replace(designBlock)(
-      designBlock.copy(
-        meta = r__For_Plugin.metaGen(Some(name), position, docOpt, annotations),
-        instMode = mkInstMode
-      )
-    )
-  end setClsNamePos
+    // Build the interface block directly from the `__clsMetaArgs` chain (leaf
+    // names the interface).
+    val blockDFC = __clsMetaArgs.headOption match
+      case Some(a) =>
+        dfc.setMeta(r__For_Plugin.metaGen(Some(a.name), a.position, a.docOpt, a.annotations))
+      case None => dfc.anonymize
+    Design.Block(__domainType, mkInstMode)(using blockDFC)
   private var hasStartedLate: Boolean = false
   final override def onCreateStartLate: Unit =
     hasStartedLate = true

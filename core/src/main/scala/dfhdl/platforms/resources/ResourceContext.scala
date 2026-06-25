@@ -12,7 +12,8 @@ trait ResourceContext extends OnCreateEvents, HasDFC, HasClsMetaArgs:
     this
   final lazy val dfc: DFC = __dfc
   final lazy val id: String = _injectedID.getOrElse(dfc.nameOpt.getOrElse("anon"))
-  private var resourceType: String = ""
+  // the resource's type name is the leaf class name (head of the meta chain)
+  private lazy val resourceType: String = __clsMetaArgs.headOption.map(_.name).getOrElse("")
   def getResourceType: String = resourceType
   def getFullId: String =
     if (isTopResource) id
@@ -22,9 +23,14 @@ trait ResourceContext extends OnCreateEvents, HasDFC, HasClsMetaArgs:
     dfc.mutableDB.ResourceOwnershipContext.ownerOpt.getOrElse(this)
   private[resources] val isTopResource: Boolean =
     dfc.mutableDB.ResourceOwnershipContext.ownerOpt.isEmpty
-  private var resourceConstraints = ListBuffer.from(dfc.annotations.collect {
-    case constraint: Constraint => constraint
-  })
+  // constraints come from the DFC annotations plus the class-annotation
+  // constraints across the whole `__clsMetaArgs` meta chain
+  private var resourceConstraints = ListBuffer.from(
+    dfc.annotations.collect { case constraint: Constraint => constraint } ++
+      __clsMetaArgs.flatMap(_.annotations).collect {
+        case constraint: dfhdl.hw.constraints.Constraint => constraint.asIR
+      }
+  )
   def getResourceConstraints: List[Constraint] = resourceConstraints.toList
   // the constraints that are applied to this resource and its owners (including connections for groups)
   private[resources] lazy val directAndOwnerSigConstraints: List[SigConstraint] =
@@ -42,16 +48,4 @@ trait ResourceContext extends OnCreateEvents, HasDFC, HasClsMetaArgs:
   final protected[resources] def injectConstraint(constraint: Constraint): this.type =
     resourceConstraints += constraint
     this
-  protected def setClsNamePos(
-      name: String,
-      position: Position,
-      docOpt: Option[String],
-      annotations: List[Annotation]
-  ): Unit =
-    resourceType = name
-    annotations.foreach {
-      case constraint: dfhdl.hw.constraints.Constraint =>
-        resourceConstraints += constraint.asIR
-      case _ =>
-    }
 end ResourceContext

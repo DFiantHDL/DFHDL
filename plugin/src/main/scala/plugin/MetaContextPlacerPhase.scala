@@ -14,6 +14,7 @@ import StdNames.nme
 import Names.{Designator, *}
 import Constants.Constant
 import Types.*
+import DenotTransformers.IdentityDenotTransformer
 
 import scala.language.implicitConversions
 import scala.compiletime.uninitialized
@@ -29,13 +30,18 @@ import dotty.tools.dotc.ast.Trees.Alternative
   additional override to an existing anonymous DFHDL class instance.
   Additionally, it transforms basic val x = y to val x = dfhdl.core.r__For_Plugin.identVal(y) if y is a DFVal
  */
-class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
+class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDenotTransformer:
   import tpd._
 
   val phaseName = "MetaContextPlacer"
 
   override val runsAfter = Set("TopAnnot")
   override val runsBefore = Set("inlinedPositions")
+  // We enter new (non-private) members into existing classes (e.g. the injected
+  // overrides), so this phase must declare that it changes class members —
+  // otherwise `enteredAfter(this)` asserts, and later phases (notably Mixin)
+  // would not see the new members.
+  override def changesMembers: Boolean = true
   // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   var dfcArgStack = List.empty[Tree]
   var emptyDFCSym: TermSymbol = uninitialized
@@ -77,20 +83,6 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     ctx
   end prepareForTypeDef
 
-  private def clsMetaArgsOverrideDef(owner: Symbol, clsMetaArgsTree: Tree)(using
-      Context
-  ): Tree =
-    val sym = newSymbol(
-      owner,
-      "__clsMetaArgs".toTermName,
-      Override | Protected | Method | Touched,
-      clsMetaArgsTpe
-    )
-    DefDef(sym, clsMetaArgsTree)
-  end clsMetaArgsOverrideDef
-
-  private def clsMetaArgsOverrideDef(owner: Symbol)(using Context): Tree =
-    clsMetaArgsOverrideDef(owner, ref(requiredMethod("dfhdl.internals.ClsMetaArgs.empty")))
   private def genContainerBodyParams(
       body: List[Tree],
       paramList: List[Tree],
@@ -152,6 +144,50 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     ctx
   end prepareForStats
 
+  // Build the
+  //   override protected def __clsMetaArgs: List[ClsMetaArgs] =
+  //     ClsMetaArgs(...) :: super.__clsMetaArgs
+  // injected into a DFHDL class. Each class in the inheritance chain prepends
+  // its own meta, so the leaf's `__clsMetaArgs` yields the full chain
+  // (most-derived first). It is the declarative source of truth for class
+  // metadata; each container builds its design block directly from this chain at
+  // creation (`initOwner`), with no mutation.
+  //
+  // For the override to actually take effect via virtual dispatch (rather than
+  // leaving the inherited default and letting Mixin emit a competing forwarder),
+  // the symbol must (a) be owned by the class, (b) copy the inherited symbol's
+  // flags/info for an exact signature match, and (c) be entered into the class's
+  // decls before later phases (Mixin) run — hence `enteredAfter(this)`, enabled
+  // by this phase being an `IdentityDenotTransformer` with `changesMembers`.
+  private def clsMetaArgsOverrideDef(tree: TypeDef, clsSym: ClassSymbol)(using Context): DefDef =
+    // resolve the inherited (super) `__clsMetaArgs` before entering our override
+    val superSym = clsSym.requiredMethod("__clsMetaArgs".toTermName)
+    val sym = newSymbol(
+      clsSym,
+      "__clsMetaArgs".toTermName,
+      (superSym.flags & (Protected | Method)) | Override | Touched,
+      superSym.info,
+      coord = tree.span
+    ).enteredAfter(this)
+    val newClsMetaArgsTree =
+      New(
+        clsMetaArgsTpe,
+        List(
+          Literal(Constant(clsSym.getFinalName())),
+          tree.positionTree,
+          mkOptionString(clsSym.docString),
+          mkList(clsSym.staticAnnotations.map(a => reownLocalDefs(dropProxies(a.tree), sym)))
+        )
+      )
+    // ClsMetaArgs(...) :: super.__clsMetaArgs   (i.e. super.__clsMetaArgs.::(ClsMetaArgs(...)))
+    val superClsMetaArgs = Super(This(clsSym), StdNames.tpnme.EMPTY).select(superSym)
+    val chain =
+      superClsMetaArgs.select("::".toTermName).appliedToType(clsMetaArgsTpe).appliedTo(
+        newClsMetaArgsTree
+      )
+    DefDef(sym, chain)
+  end clsMetaArgsOverrideDef
+
   override def transformTypeDef(tree: TypeDef)(using Context): TypeDef =
     tree.rhs match
       case template: Template =>
@@ -176,38 +212,10 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
                 ctx.withOwner(clsSym.primaryConstructor)
               )
             case _ => (nonParamBody, Nil)
-          // TODO: The override does not seem to be actually used by the runtime,
-          // probably because it's selected during the typer stage and needs to be
-          // changed somehow to reference the new overridden tree symbol.
-          // val clsMetaArgsTree = New(
-          //   clsMetaArgsTpe,
-          //   List(
-          //     Literal(Constant(tree.name.toString)),
-          //     tree.positionTree,
-          //     mkOptionString(clsSym.docString),
-          //     mkList(clsSym.staticAnnotations.map(_.tree)),
-          //     simpleArgsListMapTree
-          //   )
-          // )
-          // val clsMetaArgsDefTree =
-          //   clsMetaArgsOverrideDef(clsSym.primaryConstructor, clsMetaArgsTree)
-          val finalName = tree.symbol.getFinalName()
-          val setClsNamePosTree =
-            This(clsSym)
-              .select("setClsNamePos".toTermName)
-              .appliedToArgs(
-                List(
-                  Literal(Constant(finalName)),
-                  tree.positionTree,
-                  mkOptionString(clsSym.docString),
-                  mkList(clsSym.staticAnnotations.map(a =>
-                    reownLocalDefs(dropProxies(a.tree), clsSym.primaryConstructor)
-                  ))
-                )
-              )
+          val clsMetaArgsDef = clsMetaArgsOverrideDef(tree, clsSym)
           val newTemplate =
             cpy.Template(template)(body =
-              paramBody ++ List(setClsNamePosTree) ++ containerParamGenValDefs ++ updatedBody
+              paramBody ++ List(clsMetaArgsDef) ++ containerParamGenValDefs ++ updatedBody
             )
           cpy.TypeDef(tree)(rhs = newTemplate)
         else tree

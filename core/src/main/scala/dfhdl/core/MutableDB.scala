@@ -97,7 +97,7 @@ class DesignContext:
     // For DFDesignBlock, `copy` creates a fresh instance whose private
     // `designInstCache` is None. Transfer the pre-copy cache so elaboration
     // lookups via `designBlock.getDesignInst` keep working across replaces
-    // (e.g., `setClsNamePos` overwriting meta/instMode).
+    // (e.g., `tag`/`setName` updating a design block's meta/tags).
     (originalMemberUpdated, newMember) match
       case (orig: DFDesignBlock, upd: DFDesignBlock) =>
         upd.copyDesignInstCacheFrom(orig)

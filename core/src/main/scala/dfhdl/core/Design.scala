@@ -16,38 +16,24 @@ trait Design extends Container, HasClsMetaArgs, HasConstParams:
   final protected given TScope = DFC.Scope.Design
   private[core] def mkInstMode: InstMode = InstMode.Normal
   private[dfhdl] def initOwner: TOwner =
-    Design.Block(__domainType, InstMode.Normal)(using dfc.anonymize)
-  final protected def setClsNamePos(
-      name: String,
-      position: Position,
-      docOpt: Option[String],
-      annotations: List[Annotation]
-  ): Unit =
     import dfc.getSet
-    val designBlock = containedOwner.asIR
-    // the first class extending EDBlackBox.xyzIP will set the actual typeName of the IP
-    val instMode = mkInstMode match
-      case InstMode.BlackBox(InstMode.BlackBox.Source.VendorIP(vendor, _)) =>
-        designBlock.instMode match
-          // preserve the current typeName if it is already set
-          case InstMode.BlackBox(InstMode.BlackBox.Source.VendorIP(vendor, typeName))
-              if typeName.nonEmpty =>
-            designBlock.instMode
-          case _ =>
-            // set the IP typeName to the name of the class
-            InstMode.BlackBox(InstMode.BlackBox.Source.VendorIP(vendor, name))
-      case instMode => instMode
-    // the default RT Domain configuration is set as a global tag
     getSet.setGlobalTag(dfc.elaborationOptions.defaultRTDomainCfgTag)
-    // the DFHDL version is set as a global tag
     getSet.setGlobalTag(ir.DFHDLVersionTag(dfhdl.dfhdlVersion))
-    getSet.replace(designBlock)(
-      designBlock.copy(
-        meta = r__For_Plugin.metaGen(Some(name), position, docOpt, annotations),
-        instMode = instMode
-      )
-    )
-  end setClsNamePos
+    // Build the design block directly from the `__clsMetaArgs` chain (the
+    // plugin-injected, per-class metadata, most-derived first). The leaf names
+    // the design (meta); for a blackbox IP, the base-most concrete class
+    // extending the IP marker names the IP type (`typeName`).
+    val chain = __clsMetaArgs
+    val instMode = mkInstMode match
+      case InstMode.BlackBox(InstMode.BlackBox.Source.VendorIP(vendor, _)) if chain.nonEmpty =>
+        InstMode.BlackBox(InstMode.BlackBox.Source.VendorIP(vendor, chain.last.name))
+      case other => other
+    val blockDFC = chain.headOption match
+      case Some(a) =>
+        dfc.setMeta(r__For_Plugin.metaGen(Some(a.name), a.position, a.docOpt, a.annotations))
+      case None => dfc.anonymize
+    Design.Block(__domainType, instMode)(using blockDFC)
+  end initOwner
   private var hasStartedLate: Boolean = false
   final override def onCreateStartLate: Unit =
     hasStartedLate = true
@@ -211,10 +197,9 @@ object Design:
           meta = dfc.getMeta,
           tags = dfc.tags
         )
-        // `designBlock` here is the pre-elaboration IR captured via
-        // `containedOwner.asIR`, which may be stale after `setClsNamePos`
-        // replaced it. Resolve the ref to reach the current DB version so
-        // the cache lives on the block that `getDesignInst` looks up later.
+        // Resolve the ref to reach the current DB version of the block so the
+        // cache lives on the block that `getDesignInst` looks up later (the
+        // captured `designBlock` IR could otherwise be an older revision).
         inst.designRef.asRef.get.setDesignInstCache(inst)
         dfc.mutableDB.addMember(inst)
       end if
@@ -274,13 +259,19 @@ abstract class RTDesign extends RTDomainContainer, Design
 
 abstract class EDDesign extends DomainContainer(DomainType.ED), Design
 
-abstract class EDBlackBox(source: EDBlackBox.Source) extends EDDesign:
+abstract class EDBlackBox extends EDDesign:
+  // `source` is a `def` (not a constructor-param field) so `mkInstMode` is safe
+  // to evaluate during construction — before this class's fields are assigned —
+  // which lets the design block be built with its final `instMode` at creation.
+  protected def source: EDBlackBox.Source
   override private[core] def mkInstMode: InstMode = InstMode.BlackBox(source)
 object EDBlackBox:
   export ir.DFDesignBlock.InstMode.BlackBox.Source
   import ir.constraints.DeviceID.Vendor
-  abstract class QsysIP
-      extends EDBlackBox(Source.VendorIP(Vendor.AlteraIntel(pro = true), typeName = "")):
+  abstract class QsysIP extends EDBlackBox:
+    override protected def source: Source =
+      Source.VendorIP(Vendor.AlteraIntel(pro = true), typeName = "")
     val version: String <> CONST
-  abstract class VivadoIP extends EDBlackBox(Source.VendorIP(Vendor.XilinxAMD, typeName = "")):
+  abstract class VivadoIP extends EDBlackBox:
+    override protected def source: Source = Source.VendorIP(Vendor.XilinxAMD, typeName = "")
     val version: String <> CONST

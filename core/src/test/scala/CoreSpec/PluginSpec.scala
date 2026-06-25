@@ -109,27 +109,15 @@ class PluginSpec extends DFSpec:
   }
   assertLastNames("wrappedTryName")
 
+  // reads the plugin-injected `__clsMetaArgs` chain (leaf = head) to expose the
+  // class's name/position/doc/annotations
   trait HasNamePosWithVars extends internals.HasClsMetaArgs:
-    private var _clsName: String = ""
-    private var _clsPosition: Position = Position.unknown
-    private var _clsDocOpt: Option[String] = None
-    private var _clsAnnotations: List[Annotation] = Nil
-
-    final protected def setClsNamePos(
-        name: String,
-        position: Position,
-        docOpt: Option[String],
-        annotations: List[Annotation]
-    ): Unit =
-      _clsName = name
-      _clsPosition = position
-      _clsDocOpt = docOpt
-      _clsAnnotations = annotations
-
-    final def clsName: String = _clsName
-    final def clsPosition: Position = _clsPosition
-    final def clsDocOpt: Option[String] = _clsDocOpt
-    final def clsAnnotations: List[Annotation] = _clsAnnotations
+    final def clsName: String = __clsMetaArgs.headOption.map(_.name).getOrElse("")
+    final def clsPosition: Position =
+      __clsMetaArgs.headOption.map(_.position).getOrElse(Position.unknown)
+    final def clsDocOpt: Option[String] = __clsMetaArgs.headOption.flatMap(_.docOpt)
+    final def clsAnnotations: List[Annotation] =
+      __clsMetaArgs.headOption.map(_.annotations).getOrElse(Nil)
   end HasNamePosWithVars
 
   /** This is doc */
