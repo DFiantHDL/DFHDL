@@ -2,7 +2,7 @@ package dfhdl.internals
 
 import java.nio.file.{Paths, Files, Path, StandardCopyOption}
 import java.io.File.separatorChar
-import java.io.FileWriter
+import java.nio.charset.StandardCharsets
 import scala.collection.mutable.ListBuffer
 import scala.util.hashing.MurmurHash3
 
@@ -18,12 +18,13 @@ class DiskCache(val cacheFolderStr: String):
   def isValid(step: String, suffix: String, key: String): Boolean =
     Files.exists(Paths.get(cacheFilePath(step, suffix, key)))
   def put(step: String, suffix: String, key: String, value: String): Unit =
-    val writer = new FileWriter(cacheFilePath(step, suffix, key))
-    writer.write(value)
-    writer.close()
+    // Always write UTF-8. `FileWriter` would use the platform default charset (e.g. windows-1252),
+    // which mangles non-ASCII content (an em-dash in a doc comment, an accented identifier, ...)
+    // into bytes that `get`'s UTF-8 `readString` then rejects with a MalformedInputException.
+    Files.write(Paths.get(cacheFilePath(step, suffix, key)), value.getBytes(StandardCharsets.UTF_8))
   def get(step: String, suffix: String, key: String): Option[String] =
     val file = Paths.get(cacheFilePath(step, suffix, key))
-    if (Files.exists(file)) Some(Files.readString(file))
+    if (Files.exists(file)) Some(Files.readString(file, StandardCharsets.UTF_8))
     else None
   def getOrElsePut(step: String, suffix: String, key: String)(value: => String): String =
     get(step, suffix, key).getOrElse {
