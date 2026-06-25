@@ -17,19 +17,24 @@ import dfhdl.internals.osIsWindows
   * it shares DFHDL's stdout/cancellation handling.
   */
 object DFToolsImage:
-  /** The DFTools release this DFHDL build targets, set from `build.sbt` (`dftoolsVersion`) via the
-    * generated `version.properties` resource. Bump it there when adopting a new DFTools release.
+  /** The DFTools release this DFHDL build targets, set from `build.sbt` (`dftoolsVersion`) via
+    * lib's generated `dftools.properties` resource. Bump it there when adopting a new DFTools
+    * release.
     */
   val version: String =
     val props = new java.util.Properties()
-    val inputStream = getClass.getClassLoader.getResourceAsStream("version.properties")
-    props.load(inputStream)
+    // `lib` owns this file (kept separate from core's `version.properties` so the two are
+    // decoupled). Close the stream: a leaked handle blocks the build from re-copying the resource
+    // on Windows (AccessDenied during copyResources).
+    val inputStream = getClass.getClassLoader.getResourceAsStream("dftools.properties")
+    try props.load(inputStream)
+    finally inputStream.close()
     props.getProperty("dftools.version")
   private val repo = "DFiantHDL/DFTools"
 
-  /** Map an in-image executable name to its DFTools image, or `None` if no DFTools image provides it
-    * (proprietary tools such as Questa/Vivado/Quartus/Diamond/Gowin). Yosys depends on the backend
-    * dialect (VHDL synthesis loads the ghdl frontend, hence `synth-vhdl`).
+  /** Map an in-image executable name to its DFTools image, or `None` if no DFTools image provides
+    * it (proprietary tools such as Questa/Vivado/Quartus/Diamond/Gowin). Yosys depends on the
+    * backend dialect (VHDL synthesis loads the ghdl frontend, hence `synth-vhdl`).
     */
   def imageForOpt(exec: String, vhdl: Boolean): Option[String] = exec match
     case "yosys" => Some(if (vhdl) "synth-vhdl" else "synth-verilog")

@@ -10,8 +10,8 @@ val projectName = "dfhdl"
 // VERSIONS — all version literals live here.
 val compilerVersion = "3.8.4"
 // The DFTools binary toolchain release this DFHDL build targets (versioned independently of
-// DFHDL). Surfaced to the library via version.properties and read by DFToolsImage. Bump when
-// adopting a new DFTools release.
+// DFHDL). Surfaced to the library via lib's generated `dftools.properties` and read by
+// DFToolsImage. Bump when adopting a new DFTools release.
 val dftoolsVersion = "v0.2.0"
 // dependency versions
 val scodecVersion        = "1.2.5"
@@ -101,8 +101,12 @@ lazy val core = project
     libraryDependencies ++= commonDependencies,
     Compile / resourceGenerators += Def.task {
       val file = (Compile / resourceManaged).value / "version.properties"
-      val contents = s"version=${version.value}\ndftools.version=$dftoolsVersion"
-      IO.write(file, contents)
+      val contents = s"version=${version.value}"
+      // Only (re)write when the content actually changes. An unconditional `IO.write` bumps the
+      // file mtime every build, forcing `copyResources` to re-copy it to `classes/` each run; on
+      // Windows that rename intermittently fails with AccessDenied if any reader still holds the
+      // file open. Preserving mtime when unchanged avoids the needless re-copy entirely.
+      if (!file.exists || IO.read(file) != contents) IO.write(file, contents)
       Seq(file)
     }.taskValue
   )
@@ -132,7 +136,15 @@ lazy val lib = project
     settings,
     pluginUseSettings,
     libraryDependencies ++= commonDependencies,
-    libraryDependencies += dependencies.scalapptainer
+    libraryDependencies += dependencies.scalapptainer,
+    // The DFTools toolchain version is owned by `lib` (where `DFToolsImage` reads it) rather than
+    // shared with core's `version.properties`. Conditional write to avoid mtime churn (see core).
+    Compile / resourceGenerators += Def.task {
+      val file = (Compile / resourceManaged).value / "dftools.properties"
+      val contents = s"dftools.version=$dftoolsVersion"
+      if (!file.exists || IO.read(file) != contents) IO.write(file, contents)
+      Seq(file)
+    }.taskValue
   )
   .dependsOn(
     core % "test->test;compile->compile",

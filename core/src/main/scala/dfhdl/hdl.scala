@@ -101,8 +101,11 @@ protected object hdl:
 
   val dfhdlVersion: String =
     val props = new Properties()
+    // close the stream: a leaked handle keeps `version.properties` open and, on Windows, blocks
+    // the build from re-copying it (AccessDenied during `copyResources`)
     val inputStream = getClass.getClassLoader.getResourceAsStream("version.properties")
-    props.load(inputStream)
+    try props.load(inputStream)
+    finally inputStream.close()
     props.getProperty("version")
 end hdl
 
