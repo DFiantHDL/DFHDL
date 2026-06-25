@@ -1612,12 +1612,45 @@ object DFDesignBlock:
         case Files(path: List[String])
         case Library(libName: String, nameSpace: String)
         case VendorIP(vendor: Vendor, typeName: String)
+        // A foreign IP whose HDL wrapper and per-system simulator integration binaries are bundled
+        // as classpath resources. DFHDL mirrors all resources under `resourcePath` into the project
+        // (see commit) and, at simulate time, loads the relevant FFI shim per tool/system:
+        //   - `clsName`:      FQN of the IP class (used when re-emitting DFHDL that instantiates it)
+        //   - `resourcePath`: classpath root holding the HDL wrappers + per-system binaries; kept out
+        //                     of any Scala package namespace (e.g. `dfhdl-ips/<dclName>`) so the
+        //                     resource directory is not read as a package colliding with the IP
+        //                     class. It also serves as the in-project copy target. The IP name (HDL
+        //                     module + folder leaf) is the design block's `dclName`, not stored here.
+        //   - `dpiLib`:       DPI lib base name (no `lib` prefix / extension), "" if unsupported
+        //   - `vpiModule`:    VPI module name, "" if unsupported
+        //   - `vhpiLib`:      VHPI lib base name, "" if unsupported
+        //   - `simHookClass`: FQN of a `ForeignSimHook` object invoked around simulation, "" if none
+        case ForeignIP(
+            clsName: String,
+            resourcePath: String,
+            dpiLib: String,
+            vpiModule: String,
+            vhpiLib: String,
+            simHookClass: String
+        )
+      end Source
+    end BlackBox
+  end InstMode
 
   extension (dsn: DFDesignBlock)
     def isBlackBox: Boolean = dsn.instMode.isInstanceOf[InstMode.BlackBox]
     def isVendorIPBlackbox: Boolean = dsn.instMode match
       case InstMode.BlackBox(_: InstMode.BlackBox.Source.VendorIP) => true
       case _                                                       => false
+    def isForeignIPBlackbox: Boolean = dsn.instMode match
+      case InstMode.BlackBox(_: InstMode.BlackBox.Source.ForeignIP) => true
+      case _                                                        => false
+    // true for any IP blackbox that extends a pre-existing IP class (vendor IP or foreign IP) — used
+    // where both are handled the same (e.g. parameters live in the class extension, no generated body)
+    def isExternalIPBlackbox: Boolean = dsn.isVendorIPBlackbox || dsn.isForeignIPBlackbox
+    def foreignIPSource: Option[InstMode.BlackBox.Source.ForeignIP] = dsn.instMode match
+      case InstMode.BlackBox(src: InstMode.BlackBox.Source.ForeignIP) => Some(src)
+      case _                                                          => None
     def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
     def getCommonDesignWith(dsn2: DFDesignBlock)(using MemberGetSet): DFDesignBlock =
       def getOwnerDesignChain(dsn: DFDesignBlock): List[Set[DFDesignBlock]] =

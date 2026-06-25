@@ -74,7 +74,15 @@ object GHDL extends VHDLLinter, VHDLSimulator:
       SimulatorOptions,
       MemberGetSet
   ): String = constructCommand(
-    "--elab-run"
+    "--elab-run",
+    // Foreign IP VHPIDIRECT integration: link each IP's VHPI shared library at elaboration and embed
+    // its dir as an rpath so the run finds it (these are elaboration options, before the unit name).
+    constructCommand(
+      foreignSources.filter(_.vhpiLib.nonEmpty).flatMap { f =>
+        val dir = foreignLibDir(f)
+        Seq(s"-Wl,-L$dir", s"-Wl,-l${f.vhpiLib}", s"-Wl,-rpath,$dir")
+      }*
+    )
   )
 
   override protected def simulateCmdPostLangFlags(using

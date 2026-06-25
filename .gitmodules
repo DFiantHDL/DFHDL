@@ -1,3 +1,6 @@
 [submodule "platforms"]
 	path = platforms
 	url = https://github.com/DFiantHDL/dfhdl-platforms
+[submodule "ips"]
+	path = ips
+	url = https://github.com/DFiantHDL/dfhdl-ips

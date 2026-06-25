@@ -55,14 +55,27 @@ trait QuestaSimCommon extends Linter, Simulator:
     val ret = lint(cd)
     given MemberGetSet = ret.stagedDB.getSet
     val doCmd = "set NumericStdNoWarnings 1; run -all; quit"
+    // Foreign IP DPI integration: load each IP's DPI library (Questa uses the MSVC bundle on Windows).
+    // NOTE: the `ForeignSimHook` viewer is not yet wired for Questa (it overrides `simulate`).
+    val foreignFlags = constructCommand(
+      foreignSources.filter(_.dpiLib.nonEmpty).map { f =>
+        s"-sv_lib ${foreignLibDir(f, windowsUsesMSVC = true)}/${f.dpiLib}"
+      }*
+    )
     val cmd = constructCommand(
       "-quiet",
       "-batch",
+      foreignFlags,
       "-do",
       s"\"${doCmd}\"",
       topName
     )
-    exec(cmd = cmd, loggerOpt = simulateLogger, runExec = simRunExec)
+    exec(
+      cmd = cmd,
+      loggerOpt = simulateLogger,
+      runExec = simRunExec,
+      extraEnv = foreignRuntimeLibPathEnv(windowsUsesMSVC = true)
+    )
     ret
   end simulate
 end QuestaSimCommon

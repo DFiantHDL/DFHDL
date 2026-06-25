@@ -82,7 +82,21 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       "--assert",
       "--quiet-stats",
       "--build-jobs 0",
-      s"--top-module ${topName}"
+      s"--top-module ${topName}",
+      foreignDPIFlags
+    )
+
+  // Foreign IP DPI integration: link each foreign IP's DPI shared library into the verilated binary
+  // and embed its directory as an rpath so the built binary finds it at run time. The HDL wrapper
+  // itself is already compiled via the committed source files.
+  // NOTE: flags validated against the verilator/oss-cad toolchain; Windows DLL resolution may need
+  // the lib dir on PATH in addition to the rpath.
+  private def foreignDPIFlags(using CompilerOptions, SimulatorOptions, MemberGetSet): String =
+    constructCommand(
+      foreignSources.filter(_.dpiLib.nonEmpty).map { f =>
+        val dir = foreignLibDir(f)
+        s"""-LDFLAGS "-L$dir -l${f.dpiLib} -Wl,-rpath,$dir""""
+      }*
     )
 
   override protected def simulateCmdPostLangFlags(using

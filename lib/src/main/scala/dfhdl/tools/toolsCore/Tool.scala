@@ -129,6 +129,42 @@ trait Tool:
       if (this.convertWindowsToLinuxPaths || !isToolInWindows) path.forceWindowsToLinuxPath
       else path
 
+  // The distinct foreign IP sources present in the design (see `EDBlackBox.ForeignIP`).
+  protected final def foreignSources(using
+      getSet: MemberGetSet
+  ): List[DFDesignBlock.InstMode.BlackBox.Source.ForeignIP] =
+    getSet.designDB.members
+      .collect { case d: DFDesignBlock => d.foreignIPSource }
+      .flatten
+      .distinctBy(_.resourcePath)
+
+  // The distinct foreign IP design blocks. Used where the IP name is needed — that name is the
+  // block's `dclName` (the HDL module/entity and the `hdl/<dclName>.<ext>` wrapper basename).
+  protected final def foreignBlocks(using getSet: MemberGetSet): List[DFDesignBlock] =
+    getSet.designDB.members.collect { case d: DFDesignBlock if d.isForeignIPBlackbox => d }
+      .distinctBy(_.dclName)
+
+  // The foreign IP HDL wrapper basename(s) under `hdl/` that THIS tool must compile, for an IP of
+  // the given name (`dclName`), selected by the tool's foreign-function interface. Overridden per
+  // tool family (DPI SystemVerilog, VPI Verilog, VHPI VHDL); the base tool consumes no wrapper.
+  protected def foreignWrapperHdlNames(ipName: String): List[String] = Nil
+
+  // Full (committed) paths of the foreign IP HDL wrappers this tool compiles, ordered so a VHDL
+  // package precedes the entity that uses it. Empty for designs with no foreign IP. Paths are
+  // relative to the exec dir (the tool's cwd), matching `designFiles`, so they resolve both for a
+  // local tool and inside the DFTools image where only the cwd is mounted.
+  protected final def foreignWrapperFiles(using
+      CompilerOptions,
+      ToolOptions,
+      MemberGetSet
+  ): List[String] =
+    foreignBlocks.flatMap { b =>
+      val resourcePath = b.foreignIPSource.get.resourcePath
+      foreignWrapperHdlNames(b.dclName).map { name =>
+        s"$resourcePath/hdl/$name".convertWindowsToLinuxPaths
+      }
+    }
+
   // Extra environment variables to set for the spawned tool process, merged over the inherited
   // environment. Defaults to the Windows DLL-search guard below; tools that override this should
   // fold in `winDllPathEnv` so they keep that protection.
@@ -232,7 +268,11 @@ trait Tool:
   // tracked by the gen-file cache, so switching tools-location/version leaves the other toolchain's
   // stale objects behind — breaking incremental rebuilds or triggering spurious duplicate-definition
   // warnings. Tools override this to list such paths (files or directories).
-  protected def staleToolArtifacts(using MemberGetSet, CompilerOptions, ToolOptions): List[os.Path] =
+  protected def staleToolArtifacts(using
+      MemberGetSet,
+      CompilerOptions,
+      ToolOptions
+  ): List[os.Path] =
     Nil
 
   // Purge the stale tool artifacts when the toolchain fingerprint differs from the previous run,
@@ -246,7 +286,8 @@ trait Tool:
   ): Unit =
     val artifacts = staleToolArtifacts
     if (artifacts.nonEmpty)
-      val stamp = os.Path(execPath, os.pwd) / s".dfhdl-toolchain-${toolName.filter(_.isLetterOrDigit)}"
+      val stamp = os.Path(execPath, os.pwd) /
+        s".dfhdl-toolchain-${toolName.filter(_.isLetterOrDigit)}"
       val fingerprint = toolFingerprint
       val unchanged = os.exists(stamp) && os.read(stamp) == fingerprint
       if (!unchanged)
@@ -259,7 +300,10 @@ trait Tool:
       prepare: => Unit = (),
       loggerOpt: Option[Tool.ProcessLogger] = None,
       // empty => resolved below per tools-location (host full path, or bare in-image name)
-      runExec: String = ""
+      runExec: String = "",
+      // extra environment variables merged over `execEnv` for the spawned process (e.g. foreign IP
+      // runtime config such as a viewer rendezvous address). Ignored in dftools (container) mode.
+      extraEnv: Map[String, String] = Map.empty
   )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     val dftools = usesDFTools
     // the executable to run: an explicit `runExec`, else the bare launcher name (dftools, run inside
@@ -340,7 +384,19 @@ trait Tool:
     // spawn the process
     val process = os.proc(os.Shellable(argv)).spawn(
       cwd = os.Path(execPath, os.pwd),
-      env = if (dftools) Map.empty[String, String] else execEnv,
+      env =
+        if (dftools) Map.empty[String, String]
+        else
+          // merge extraEnv over execEnv; for path-like vars prepend (don't clobber the tool's own
+          // DLL-search guard or an inherited search path) by appending the existing value after.
+          val pathKeys = Set("PATH", "LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH")
+          extraEnv.foldLeft(execEnv) { case (acc, (k, v)) =>
+            if (pathKeys(k))
+              val tail = acc.get(k).orElse(Option(System.getenv(k))).filter(_.nonEmpty)
+              acc.updated(k, (v +: tail.toSeq).mkString(java.io.File.pathSeparator))
+            else acc.updated(k, v)
+          }
+      ,
       stdin = os.Inherit,
       stdout = processOutput,
       mergeErrIntoOut = true
@@ -512,8 +568,15 @@ end Tool
 trait VerilogTool extends Tool:
   // The include flag to be attached before each included folder
   protected def includeFolderFlag: String
+  // DPI-C tools (Verilator, Questa, Vivado XSim) compile the SystemVerilog wrapper; the VPI tool
+  // (Icarus) overrides this to the Verilog wrapper.
+  override protected def foreignWrapperHdlNames(ipName: String): List[String] =
+    List(s"$ipName.sv")
 
-trait VHDLTool extends Tool
+trait VHDLTool extends Tool:
+  // VHPIDIRECT tools (GHDL, NVC) compile the VHDL package then the entity that uses it.
+  override protected def foreignWrapperHdlNames(ipName: String): List[String] =
+    List(s"${ipName}_pkg.vhdl", s"$ipName.vhdl")
 
 trait Linter extends Tool:
   protected[dfhdl] def lintPreprocess(cd: CompiledDesign)(using
@@ -547,13 +610,15 @@ trait VerilogLinter extends Linter, VerilogTool:
   final protected def lintCmdLanguageFlag(using co: CompilerOptions): String =
     lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.verilog].dialect)
   final protected def lintCmdSources(using CompilerOptions, ToolOptions, MemberGetSet): String =
-    (designDefFolders.map(includeFolderFlag + _) ++ toolFiles ++ designFiles).mkString(" ")
+    (designDefFolders.map(includeFolderFlag + _) ++ foreignWrapperFiles ++ toolFiles ++ designFiles)
+      .mkString(" ")
 
 trait VHDLLinter extends Linter, VHDLTool:
   // Converts the selected compiler vhdl dialect to the relevant lint flag
   protected def lintCmdLanguageFlag(dialect: VHDLDialect): String
   final protected def lintCmdSources(using CompilerOptions, ToolOptions, MemberGetSet): String =
-    (designDefFiles ++ toolFiles ++ designFiles).mkString(" ")
+    // foreign VHDL wrappers (package then entity) must precede the design that instantiates them
+    (designDefFiles ++ foreignWrapperFiles ++ toolFiles ++ designFiles).mkString(" ")
   final protected def lintCmdLanguageFlag(using co: CompilerOptions): String =
     lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
@@ -573,8 +638,78 @@ trait Simulator extends Tool:
       cd: CompiledDesign
   )(using CompilerOptions, SimulatorOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
-    exec(simulateCmdFlags, simulatePrepare(), simulateLogger, simRunExec)
+    val hooks = foreignSimHooks
+    hooks.foreach(_.onSimStart())
+    // query env AFTER onSimStart so a hook can report e.g. the port it is now listening on
+    val foreignEnv = foreignRuntimeLibPathEnv() ++ hooks.flatMap(_.simEnv()).toMap
+    try exec(simulateCmdFlags, simulatePrepare(), simulateLogger, simRunExec, foreignEnv)
+    finally hooks.foreach(_.onSimEnd())
     cd
+
+  // The per-system library directory of a foreign IP (committed under `dfhdl-ips/<ip>/<platform>`).
+  // On Windows, `windowsUsesMSVC` picks the MSVC bundle (Questa) over the default MinGW one.
+  protected final def foreignLibDir(
+      f: DFDesignBlock.InstMode.BlackBox.Source.ForeignIP,
+      windowsUsesMSVC: Boolean = false
+  )(using co: CompilerOptions, to: SimulatorOptions, getSet: MemberGetSet): String =
+    // relative to the tool's cwd (the exec dir), so it works locally and in the mounted-cwd image;
+    // `resourcePath` is the IP's `dfhdl-ips/<dclName>` folder
+    s"${f.resourcePath}/${dfhdl.internals.ClasspathResources.hostPlatformTag(windowsUsesMSVC)}".convertWindowsToLinuxPaths
+
+  // OS-specific shared-library file name for a base name (no `lib` prefix on Windows; `lib*.so` on
+  // Linux; `lib*.dylib` on macOS), matching how the IP binaries are bundled per platform.
+  protected final def foreignSharedLibFile(base: String): String =
+    if (osIsWindows) s"$base.dll"
+    else if (osIsLinux) s"lib$base.so"
+    else s"lib$base.dylib"
+
+  // Runtime dynamic-library search path for the simulator process: prepend every foreign IP's
+  // selected lib dir to the OS loader variable so a shim linked without an rpath is still found.
+  protected final def foreignRuntimeLibPathEnv(windowsUsesMSVC: Boolean = false)(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): Map[String, String] =
+    val dirs = foreignSources.map(f => foreignLibDir(f, windowsUsesMSVC)).distinct
+    if (dirs.isEmpty) Map.empty
+    else
+      val varName =
+        if (osIsWindows) "PATH" else if (osIsLinux) "LD_LIBRARY_PATH" else "DYLD_LIBRARY_PATH"
+      // only the foreign dirs here; `exec` prepends these ahead of the existing path value
+      Map(varName -> dirs.mkString(java.io.File.pathSeparator))
+
+  // Foreign IP simulation hooks present in the design, each bound to its (IP-specific) context.
+  // Loaded reflectively from the `simHookClass` FQN each foreign IP relays through its IR source (a
+  // Scala `object` extending `ForeignSimHook`); the hook builds its own context from the generic
+  // one we provide. Missing/unloadable hooks are silently skipped.
+  protected final def foreignSimHooks(using
+      co: CompilerOptions,
+      to: SimulatorOptions,
+      getSet: MemberGetSet
+  ): List[dfhdl.tools.ForeignSimHook.Bound] =
+    foreignBlocks
+      .filter(_.foreignIPSource.exists(_.simHookClass.nonEmpty))
+      .flatMap { b =>
+        val fsrc = b.foreignIPSource.get
+        loadForeignSimHook(fsrc.simHookClass).map { hook =>
+          val ipDir = os.Path(execPath, os.pwd) / os.RelPath(fsrc.resourcePath)
+          val base = new dfhdl.tools.ForeignSimContext(b.dclName, ipDir, topName)
+          dfhdl.tools.ForeignSimHook.bind(hook, base)
+        }
+      }
+
+  private def loadForeignSimHook(fqn: String): Option[dfhdl.tools.ForeignSimHook[?]] =
+    // a Scala `object`'s runtime class carries a trailing `$` and exposes its singleton via the
+    // static `MODULE$` field; accept the FQN with or without the `$`.
+    val candidates = if (fqn.endsWith("$")) List(fqn) else List(fqn + "$", fqn)
+    candidates.iterator.flatMap { name =>
+      try
+        Some(
+          Class.forName(name).getField("MODULE$").get(null)
+            .asInstanceOf[dfhdl.tools.ForeignSimHook[?]]
+        )
+      catch case _: Throwable => None
+    }.nextOption()
   protected def simulatePrepare()(using CompilerOptions, SimulatorOptions, MemberGetSet): Unit = {}
   protected def simulateLogger(using
       CompilerOptions,
@@ -618,7 +753,11 @@ trait VerilogSimulator extends Simulator, VerilogTool:
       MemberGetSet
   ): String =
     if (simRunsLint) ""
-    else (designDefFolders.map(includeFolderFlag + _) ++ toolFiles ++ designFiles).mkString(" ")
+    else
+      (designDefFolders.map(includeFolderFlag + _) ++ foreignWrapperFiles ++ toolFiles ++
+        designFiles)
+        .mkString(" ")
+end VerilogSimulator
 
 trait VHDLSimulator extends Simulator, VHDLTool:
   // Converts the selected compiler vhdl dialect to the relevant lint flag
@@ -629,7 +768,7 @@ trait VHDLSimulator extends Simulator, VHDLTool:
       MemberGetSet
   ): String =
     if (simRunsLint) ""
-    else (designDefFiles ++ toolFiles ++ designFiles).mkString(" ")
+    else (designDefFiles ++ foreignWrapperFiles ++ toolFiles ++ designFiles).mkString(" ")
   final protected def simulateCmdLanguageFlag(using co: CompilerOptions): String =
     simulateCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 

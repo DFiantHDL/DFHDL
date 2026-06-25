@@ -470,7 +470,10 @@ enum InstMode.BlackBox: NA, Files(path), Library(libName, nameSpace), VendorIP(v
 **Extension methods:**
 ```scala
 design.isBlackBox           // instMode is BlackBox
-design.isVendorIPBlackbox
+design.isVendorIPBlackbox   // BlackBox.Source.VendorIP
+design.isForeignIPBlackbox  // BlackBox.Source.ForeignIP
+design.isExternalIPBlackbox // vendor IP or foreign IP (both extend a pre-existing IP class)
+design.foreignIPSource      // Option[BlackBox.Source.ForeignIP]
 design.inSimulation         // instMode is Simulation
 design.isTop                // no ownerRef pointing to another design
 design.dclName              // design class name (from dclMeta)

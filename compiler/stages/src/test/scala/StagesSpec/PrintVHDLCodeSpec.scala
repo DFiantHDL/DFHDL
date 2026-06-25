@@ -1838,4 +1838,79 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end ForkJoinFSM_arch;""".stripMargin
     )
   }
+
+  test("foreign blackbox: instance emitted, no entity generated") {
+    class vga_monitor extends EDBlackBox.ForeignIP:
+      val hsync = Bit     <> IN
+      val vsync = Bit     <> IN
+      val r     = Bits(8) <> IN
+      val g     = Bits(8) <> IN
+      val b     = Bits(8) <> IN
+      override protected def clsName    = "dfhdl.ips.video.vga.vga_monitor"
+      override protected def vhpiLib    = "vga_monitor_vhpi"
+
+    class Foo extends EDDesign:
+      val hsync = Bit     <> IN
+      val vsync = Bit     <> IN
+      val r     = Bits(8) <> IN
+      val g     = Bits(8) <> IN
+      val b     = Bits(8) <> IN
+      val mon   = vga_monitor()
+      mon.hsync <> hsync
+      mon.vsync <> vsync
+      mon.r     <> r
+      mon.g     <> g
+      mon.b     <> b
+    end Foo
+
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  hsync : in std_logic;
+         |  vsync : in std_logic;
+         |  r : in std_logic_vector(7 downto 0);
+         |  g : in std_logic_vector(7 downto 0);
+         |  b : in std_logic_vector(7 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |  signal mon_b : std_logic_vector(7 downto 0);
+         |  signal mon_g : std_logic_vector(7 downto 0);
+         |  signal mon_vsync : std_logic;
+         |  signal mon_hsync : std_logic;
+         |  signal mon_r : std_logic_vector(7 downto 0);
+         |  component vga_monitor is
+         |  port (
+         |    hsync : in std_logic;
+         |    vsync : in std_logic;
+         |    r : in std_logic_vector(7 downto 0);
+         |    g : in std_logic_vector(7 downto 0);
+         |    b : in std_logic_vector(7 downto 0)
+         |  );
+         |  end component vga_monitor;
+         |begin
+         |  mon : vga_monitor port map (
+         |    b => mon_b,
+         |    g => mon_g,
+         |    vsync => mon_vsync,
+         |    hsync => mon_hsync,
+         |    r => mon_r
+         |  );
+         |  mon_hsync <= hsync;
+         |  mon_vsync <= vsync;
+         |  mon_r <= r;
+         |  mon_g <= g;
+         |  mon_b <= b;
+         |end Foo_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

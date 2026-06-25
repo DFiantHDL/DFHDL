@@ -275,6 +275,9 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
                 "EDBlackBox.VendorIP"
               case InstMode.BlackBox.Source.VendorIP(vendor, typeName) =>
                 s"dfhdl.platforms.ips.${vendor.libName}.$typeName"
+              case foreign: InstMode.BlackBox.Source.ForeignIP =>
+                // re-instantiate via the IP's fully-qualified class name
+                foreign.clsName
               case _ => s"EDBlackBox(EDBlackBox.Source.${source})"
           case _ => "EDDesign"
     val designParams = design.members(MemberView.Folded).collect { case param: DesignParam =>
@@ -291,18 +294,20 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
             case _              => s" = ${param.defaultValRef.refCodeString}"
       s"val ${param.getName}${printer.csDFValConstType(param.dfType)}$defaultValue"
     }
-    val designIsVendorIPBlackbox = design.isVendorIPBlackbox
+    // external IP blackboxes (vendor IP and foreign IP) extend a pre-existing IP class, so they
+    // pass their parameters in the class extension rather than declaring/instantiating new ones
+    val designIsExternalIPBlackbox = design.isExternalIPBlackbox
     val designParamDclCS =
-      // for vendor IP blackbox, we extend the base IP class with its parameters and declare no new parameters
-      if (designIsVendorIPBlackbox) ""
+      // for an external IP blackbox, we extend the base IP class with its parameters and declare no new parameters
+      if (designIsExternalIPBlackbox) ""
       else
         if (designParamList.length == 0) ""
         else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
         else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
     val designParamInstCS =
-      // for vendor IP blackbox, we define the parameters in the class extension instead of the
+      // for an external IP blackbox, we define the parameters in the class extension instead of the
       // blackbox instantiation
-      if (designIsVendorIPBlackbox) csDFDesignBlockParamInst(
+      if (designIsExternalIPBlackbox) csDFDesignBlockParamInst(
         ListMap.from(designParams.view.map(param =>
           param.getName -> param.defaultValRef.asInstanceOf[DFVal.Ref]
         ))
@@ -311,7 +316,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val dcl =
       s"class ${design.dclName}$designParamDclCS extends $dsnCls$designParamInstCS"
     val dclWithBody =
-      if (bodyWithDcls.isEmpty || designIsVendorIPBlackbox) dcl
+      if (bodyWithDcls.isEmpty || designIsExternalIPBlackbox) dcl
       else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     s"${printer.csAnnotations(design.meta.annotations)}$dclWithBody\n"
   end csDFDesignBlockDcl
@@ -319,9 +324,9 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val design = inst.getDesignBlock
     val body = csDFDesignLateBody(inst)
     val designParamCS =
-      // for vendor IP blackbox, we define the parameters in the class extension instead of the
-      // blackbox instantiation
-      if (design.isVendorIPBlackbox) "()"
+      // for an external IP blackbox (vendor/foreign), we define the parameters in the class
+      // extension instead of the blackbox instantiation
+      if (design.isExternalIPBlackbox) "()"
       else csDFDesignBlockParamInst(inst.paramMap)
     val instCS =
       if (body.isEmpty) s"${design.dclName}$designParamCS"

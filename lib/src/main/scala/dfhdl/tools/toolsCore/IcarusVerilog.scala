@@ -24,6 +24,9 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
 
   protected def includeFolderFlag: String = "-I"
 
+  // Icarus uses VPI (not DPI), so it compiles the plain-Verilog wrapper rather than the SV one.
+  override protected def foreignWrapperHdlNames(ipName: String): List[String] = List(s"$ipName.v")
+
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
     val generation = dialect match
       case VerilogDialect.v95    => "1995"
@@ -78,6 +81,17 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
       CompilerOptions,
       SimulatorOptions
   ): List[String] = List(s"${topName}")
+
+  // Foreign IP VPI integration: tell `vvp` where to find each IP's VPI module and to load it.
+  override protected def simulateCmdPreLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    foreignSources.filter(_.vpiModule.nonEmpty).flatMap { f =>
+      Seq(s"-M${foreignLibDir(f)}", s"-m${f.vpiModule}")
+    }*
+  )
 
   override protected def simulateCmdPostLangFlags(using
       CompilerOptions,

@@ -27,6 +27,12 @@ trait Design extends Container, HasClsMetaArgs, HasConstParams:
     val instMode = mkInstMode match
       case InstMode.BlackBox(InstMode.BlackBox.Source.VendorIP(vendor, _)) if chain.nonEmpty =>
         InstMode.BlackBox(InstMode.BlackBox.Source.VendorIP(vendor, chain.last.name))
+      // a foreign IP's identity is its base-most concrete class (the one defining the bundled
+      // resources/wrapper), not the most-derived design name — so default the resource root from the
+      // chain (like VendorIP's `typeName`); its leaf is the IP name (the design block's `dclName`).
+      case InstMode.BlackBox(f: InstMode.BlackBox.Source.ForeignIP)
+          if chain.nonEmpty && f.resourcePath.isEmpty =>
+        InstMode.BlackBox(f.copy(resourcePath = s"dfhdl-ips/${chain.last.name}"))
       case other => other
     val blockDFC = chain.headOption match
       case Some(a) =>
@@ -275,3 +281,30 @@ object EDBlackBox:
   abstract class VivadoIP extends EDBlackBox:
     override protected def source: Source = Source.VendorIP(Vendor.XilinxAMD, typeName = "")
     val version: String <> CONST
+
+  /** A foreign IP blackbox: its HDL wrapper and per-system simulator-integration binaries (DPI /
+    * VPI / VHPI shims) ship as classpath resources bundled with the IP library. DFHDL mirrors all
+    * resources under [[resourcePath]] into `dfhdl-ips/<ipName>` in the project when committing, and
+    * at simulate time loads the right shim for the chosen tool/system and invokes the optional
+    * [[simHookClass]] around the run (e.g. to launch a viewer). The IP name is the design's class
+    * name; subclasses just set the relevant FFI base names ([[resourcePath]] defaults to
+    * `dfhdl-ips/<ipName>`).
+    */
+  abstract class ForeignIP extends EDBlackBox:
+    // FQN of this IP class, used when re-emitting DFHDL that re-instantiates the IP
+    protected def clsName: String = getClass.getName.replace("$", ".")
+    // Where the bundled resources live on the classpath. Defaults (resolved at elaboration) to
+    // `dfhdl-ips/<ipName>` — a non-package root (`dfhdl-ips/...`) so the resource directory is never
+    // read by the Scala compiler as a package colliding with the IP class/object name. The IP name
+    // itself is derived from the class chain (the base-most concrete IP class), not supplied here.
+    protected def resourcePath: String = ""
+    protected def dpiLib: String = ""
+    protected def vpiModule: String = ""
+    protected def vhpiLib: String = ""
+    protected def simHookClass: String = ""
+    final override protected def source: Source =
+      // an empty `resourcePath` is defaulted at elaboration from the class chain to
+      // `dfhdl-ips/<ipName>` (see `Design.initOwner`)
+      Source.ForeignIP(clsName, resourcePath, dpiLib, vpiModule, vhpiLib, simHookClass)
+  end ForeignIP
+end EDBlackBox

@@ -153,6 +153,12 @@ object NVC extends VHDLLinter, VHDLSimulator:
       MemberGetSet
   ): String = constructCommand(
     "-r",
+    // Foreign IP VHPIDIRECT integration: load each IP's VHPI shared library at run time.
+    constructCommand(
+      foreignSources.filter(_.vhpiLib.nonEmpty).map { f =>
+        s"--load ${foreignLibDir(f)}/${foreignSharedLibFile(f.vhpiLib)}"
+      }*
+    ),
     topName,
     "--ieee-warnings=off"
   )

@@ -13,6 +13,10 @@ val compilerVersion = "3.8.4"
 // DFHDL). Surfaced to the library via lib's generated `dftools.properties` and read by
 // DFToolsImage. Bump when adopting a new DFTools release.
 val dftoolsVersion = "v0.2.0"
+// The vga-monitor-sim release wrapped by the `dfhdl.ips.video.vga.vga_monitor` foreign IP. The IP's
+// per-FFI library base names embed this version (e.g. `vga_monitor_dpi_v0_2_0`), so keep it in sync
+// with the literal in `ips/.../vga/vga_monitor.scala`.
+val vgaMonitorVersion = "0.2.0"
 // dependency versions
 val scodecVersion        = "1.2.5"
 val munitVersion         = "1.3.3"
@@ -64,7 +68,8 @@ lazy val root = (project in file("."))
     core,
 	  compiler_stages,
     lib,
-    platforms
+    platforms,
+    ips
   )
 
 lazy val internals = project
@@ -161,6 +166,105 @@ lazy val platforms = project
     ),
     pluginUseSettings,
     libraryDependencies ++= commonDependencies
+  )
+  .dependsOn(
+    core % "test->test",
+    lib
+  )
+
+lazy val ips = project
+  .settings(
+    name := s"$projectName-ips",
+    settings,
+    pluginUseSettings,
+    libraryDependencies ++= commonDependencies,
+    // Download the vga-monitor-sim release binaries + HDL wrappers and bundle them as resources of
+    // the `vga_monitor` foreign IP. Per-system binaries go under `<platform>/` (versioned names,
+    // selected at simulate time); the HDL wrappers (identical across platforms) are copied once
+    // under `hdl/`, renamed to unversioned. Downloads are cached, so this only fetches when missing.
+    Compile / resourceGenerators += Def.task {
+      val log = streams.value.log
+      val ver = vgaMonitorVersion
+      val suffix = "v" + ver.replace('.', '_')
+      val repo = "DFiantWorks/vga-monitor-sim"
+      val platforms = Seq(
+        "linux-x86_64", "linux-arm64", "macos-x86_64", "macos-arm64",
+        "windows-x86_64", "windows-x86_64-mingw"
+      )
+      // under a non-package root (`dfhdl-ips`) so the resource dir is not read as a Scala package
+      val baseRes = (Compile / resourceManaged).value / "dfhdl-ips" / "vga_monitor"
+      val cacheDir = target.value / "vga-monitor-cache"
+      IO.createDirectory(cacheDir)
+      val hdlNames = Set(
+        s"vga_monitor_$suffix.sv", s"vga_monitor_$suffix.v",
+        s"vga_monitor_$suffix.vhdl", s"vga_monitor_pkg_$suffix.vhdl"
+      )
+      val hdlRename = Map(
+        s"vga_monitor_$suffix.sv"       -> "vga_monitor.sv",
+        s"vga_monitor_$suffix.v"        -> "vga_monitor.v",
+        s"vga_monitor_$suffix.vhdl"     -> "vga_monitor.vhdl",
+        s"vga_monitor_pkg_$suffix.vhdl" -> "vga_monitor_pkg.vhdl"
+      )
+      val generated = scala.collection.mutable.ListBuffer.empty[File]
+      var hdlCopied = false
+      platforms.foreach { plat =>
+        val asset = s"vga-monitor-$ver-$plat.tar.gz"
+        val tarball = cacheDir / asset
+        val srcDir = cacheDir / s"vga-monitor-$ver-$plat"
+        try {
+          if (!tarball.exists) {
+            val url =
+              java.net.URI.create(s"https://github.com/$repo/releases/download/v$ver/$asset").toURL
+            log.info(s"[vga_monitor] downloading $asset")
+            val in = url.openStream()
+            try {
+              java.nio.file.Files.copy(
+                in, tarball.toPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING
+              )
+            } finally {
+              in.close()
+            }
+          }
+          if (!srcDir.exists) {
+            val rc = scala.sys.process.Process(
+              Seq("tar", "-xzf", tarball.getAbsolutePath, "-C", cacheDir.getAbsolutePath)
+            ).!
+            if (rc != 0) sys.error(s"tar extraction failed for $asset (exit $rc)")
+          }
+          // per-platform binaries (everything but HDL wrappers + LICENSE/VERSION)
+          val platRes = baseRes / plat
+          IO.createDirectory(platRes)
+          srcDir.listFiles.filter(_.isFile).foreach { f =>
+            val n = f.getName
+            if (n != "LICENSE" && n != "VERSION" && !hdlNames.contains(n)) {
+              val dest = platRes / n
+              IO.copyFile(f, dest)
+              generated += dest
+            }
+          }
+          // HDL wrappers: copy once, renamed to unversioned
+          if (!hdlCopied) {
+            val hdlDir = baseRes / "hdl"
+            IO.createDirectory(hdlDir)
+            hdlRename.foreach { case (from, to) =>
+              val src = srcDir / from
+              if (src.exists) {
+                val dest = hdlDir / to
+                IO.copyFile(src, dest)
+                generated += dest
+              }
+            }
+            hdlCopied = true
+          }
+        } catch {
+          case scala.util.control.NonFatal(e) =>
+            log.warn(s"[vga_monitor] skipping $plat: ${e.getMessage}")
+        }
+      }
+      if (!hdlCopied)
+        log.warn("[vga_monitor] no platform bundle could be fetched; IP resources are incomplete")
+      generated.toSeq
+    }.taskValue
   )
   .dependsOn(
     core % "test->test",

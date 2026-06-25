@@ -1926,4 +1926,64 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+
+  test("foreign blackbox: instance emitted, no module generated") {
+    class vga_monitor extends EDBlackBox.ForeignIP:
+      val hsync = Bit     <> IN
+      val vsync = Bit     <> IN
+      val r     = Bits(8) <> IN
+      val g     = Bits(8) <> IN
+      val b     = Bits(8) <> IN
+      override protected def clsName    = "dfhdl.ips.video.vga.vga_monitor"
+      override protected def dpiLib     = "vga_monitor_dpi"
+
+    class Foo extends EDDesign:
+      val hsync = Bit     <> IN
+      val vsync = Bit     <> IN
+      val r     = Bits(8) <> IN
+      val g     = Bits(8) <> IN
+      val b     = Bits(8) <> IN
+      val mon   = vga_monitor()
+      mon.hsync <> hsync
+      mon.vsync <> vsync
+      mon.r     <> r
+      mon.g     <> g
+      mon.b     <> b
+    end Foo
+
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Foo(
+         |  input  wire logic hsync,
+         |  input  wire logic vsync,
+         |  input  wire logic [7:0] r,
+         |  input  wire logic [7:0] g,
+         |  input  wire logic [7:0] b
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] mon_b;
+         |  logic [7:0] mon_g;
+         |  logic mon_vsync;
+         |  logic mon_hsync;
+         |  logic [7:0] mon_r;
+         |  vga_monitor mon(
+         |    .b /*<--*/ (mon_b),
+         |    .g /*<--*/ (mon_g),
+         |    .vsync /*<--*/ (mon_vsync),
+         |    .hsync /*<--*/ (mon_hsync),
+         |    .r /*<--*/ (mon_r)
+         |  );
+         |  assign mon_hsync = hsync;
+         |  assign mon_vsync = vsync;
+         |  assign mon_r = r;
+         |  assign mon_g = g;
+         |  assign mon_b = b;
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec
