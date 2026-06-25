@@ -81,6 +81,10 @@ final case class DB private (
   // first entry of `subDBs`.
   lazy val topDB: DB =
     if (isRoot) subDBs.head._2
+    // old-style flat DB: it is its own root and holds the (flattened) top design
+    // directly, so it *is* the top DB. Guard against `rootDB.topDB` re-entering
+    // this same lazy val (self-recursive init → CountDownLatch deadlock).
+    else if (rootDB.eq(this)) this
     else rootDB.topDB
 
   lazy val top: DFDesignBlock =
