@@ -13,11 +13,13 @@ val compilerVersion = "3.8.4"
 // DFHDL). Surfaced to the library via lib's generated `dftools.properties` and read by
 // DFToolsImage. Bump when adopting a new DFTools release.
 val dftoolsVersion = "v0.2.0"
-// The vga-monitor-sim release wrapped by the `dfhdl.ips.video.vga.vga_monitor` foreign IP. Keep in
-// sync with the `version` literal in `ips/.../vga/vga_monitor.scala`. Since v0.3.0 the release names
+// The vga-monitor-sim release wrapped by the `dfhdl.ips.video.vga.vga_monitor` foreign IP. This is
+// the single source of truth: it is surfaced to the IP code via the generated `vga-monitor.properties`
+// resource (read by `vga_monitor.version`), like core's version.properties. Since v0.3.0 the release names
 // all files unversioned (the version lives only in the archive/folder name), so the IP's per-FFI lib
-// base names are unversioned too.
-val vgaMonitorVersion = "0.3.0"
+// base names are unversioned too. v0.4.0 adds the self-describing `VGA_MONITOR_FORMAT=ppm` stream
+// (per-frame P6 header carrying width/height); the viewer opts into it to auto-size frames.
+val vgaMonitorVersion = "0.4.0"
 // dependency versions
 val scodecVersion        = "1.2.5"
 val munitVersion         = "1.3.3"
@@ -179,6 +181,16 @@ lazy val ips = project
     settings,
     pluginUseSettings,
     libraryDependencies ++= commonDependencies,
+    // Surface the wrapped vga-monitor-sim version to the IP code (read by
+    // `dfhdl.ips.video.vga.vga_monitor.version`), mirroring core's `version.properties` and lib's
+    // `dftools.properties`. Conditional write to avoid mtime churn (see core's note: an unconditional
+    // IO.write forces a re-copy each build, which intermittently fails with AccessDenied on Windows).
+    Compile / resourceGenerators += Def.task {
+      val file = (Compile / resourceManaged).value / "vga-monitor.properties"
+      val contents = s"vga-monitor.version=$vgaMonitorVersion"
+      if (!file.exists || IO.read(file) != contents) IO.write(file, contents)
+      Seq(file)
+    }.taskValue,
     // Download the vga-monitor-sim release binaries + HDL wrappers and bundle them as resources of
     // the `vga_monitor` foreign IP. The HDL wrappers (identical across platforms) live directly in
     // the IP folder root; per-system binaries go under `<platform>/` (selected at simulate time, and
