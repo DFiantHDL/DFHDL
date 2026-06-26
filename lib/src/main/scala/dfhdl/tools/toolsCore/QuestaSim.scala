@@ -56,7 +56,6 @@ trait QuestaSimCommon extends Linter, Simulator:
     given MemberGetSet = ret.stagedDB.getSet
     val doCmd = "set NumericStdNoWarnings 1; run -all; quit"
     // Foreign IP DPI integration: load each IP's DPI library (Questa uses the MSVC bundle on Windows).
-    // NOTE: the `ForeignSimHook` viewer is not yet wired for Questa (it overrides `simulate`).
     val foreignFlags = constructCommand(
       foreignSources.filter(_.dpiLib.nonEmpty).map { f =>
         s"-sv_lib ${foreignLibDir(f, windowsUsesMSVC = true)}/${f.dpiLib}"
@@ -70,12 +69,17 @@ trait QuestaSimCommon extends Linter, Simulator:
       s"\"${doCmd}\"",
       topName
     )
-    exec(
-      cmd = cmd,
-      loggerOpt = simulateLogger,
-      runExec = simRunExec,
-      extraEnv = foreignRuntimeLibPathEnv(windowsUsesMSVC = true)
-    )
+    // run the foreign-IP sim hooks (viewer/streamer) around the vsim run and pass it their env (e.g.
+    // VGA_MONITOR_STREAM) on top of the MSVC runtime lib path; otherwise the IP backend locks but
+    // has no viewer to stream to.
+    withForeignSimHooks(foreignRuntimeLibPathEnv(windowsUsesMSVC = true)) { env =>
+      exec(
+        cmd = cmd,
+        loggerOpt = simulateLogger,
+        runExec = simRunExec,
+        extraEnv = env
+      )
+    }
     ret
   end simulate
 end QuestaSimCommon

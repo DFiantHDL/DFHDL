@@ -27,7 +27,10 @@ object ForeignResources:
       val ipDir = base.resolve(fsrc.resourcePath)
       val resources = ClasspathResources.listResources(fsrc.resourcePath)
       val prefix = fsrc.resourcePath.stripPrefix("/").stripSuffix("/") + "/"
-      // mirror every resource (binaries for all systems + all HDL wrappers), preserving subpaths
+      // mirror every resource (binaries for all systems + all HDL wrappers), preserving subpaths.
+      // The release names files unversioned (the binaries' internal names — DLL export name, VPI
+      // module name, ABI symbols — are never versioned, and the IP's `dpiLib`/`vpiModule`/`vhpiLib`
+      // base names match), so they are copied verbatim.
       resources.foreach { res =>
         val rel = res.stripPrefix(prefix)
         val dest = ipDir.resolve(rel)

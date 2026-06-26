@@ -55,18 +55,4 @@ object ClasspathResources:
       try is.readAllBytes()
       finally is.close()
     }
-
-  /** The host platform subfolder used to organize per-system IP binaries. These tags mirror the
-    * vga-monitor release per-platform archive suffixes (`linux-x86_64`, `linux-arm64`,
-    * `macos-x86_64`, `macos-arm64`, `windows-x86_64`, `windows-x86_64-mingw`); the IP build lays
-    * the binaries out under subfolders named exactly these. On Windows two C runtimes coexist: MSVC
-    * (for Questa) and MinGW (everything else), selected via [[windowsUsesMSVC]].
-    */
-  def hostPlatformTag(windowsUsesMSVC: Boolean = false): String =
-    val arch = sys.props.getOrElse("os.arch", "").toLowerCase
-    val isArm = arch.contains("aarch64") || arch.contains("arm64")
-    if (osIsWindows) if (windowsUsesMSVC) "windows-x86_64" else "windows-x86_64-mingw"
-    else if (osIsLinux) if (isArm) "linux-arm64" else "linux-x86_64"
-    else if (isArm) "macos-arm64"
-    else "macos-x86_64"
 end ClasspathResources

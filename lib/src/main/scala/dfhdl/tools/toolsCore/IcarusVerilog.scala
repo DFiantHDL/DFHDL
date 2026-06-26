@@ -25,7 +25,8 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
   protected def includeFolderFlag: String = "-I"
 
   // Icarus uses VPI (not DPI), so it compiles the plain-Verilog wrapper rather than the SV one.
-  override protected def foreignWrapperHdlNames(ipName: String): List[String] = List(s"$ipName.v")
+  override protected def foreignWrapperHdlNames(ipName: String)(using ToolOptions): List[String] =
+    List(s"$ipName.v")
 
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
     val generation = dialect match

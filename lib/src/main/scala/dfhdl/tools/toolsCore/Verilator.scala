@@ -86,16 +86,20 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       foreignDPIFlags
     )
 
-  // Foreign IP DPI integration: link each foreign IP's DPI shared library into the verilated binary
-  // and embed its directory as an rpath so the built binary finds it at run time. The HDL wrapper
-  // itself is already compiled via the committed source files.
-  // NOTE: flags validated against the verilator/oss-cad toolchain; Windows DLL resolution may need
-  // the lib dir on PATH in addition to the rpath.
+  // Foreign IP DPI integration: link each foreign IP's DPI library into the verilated binary and
+  // embed its directory as an rpath so the built binary finds it at run time. The HDL wrapper itself
+  // is already compiled via the committed source files.
+  // Verilator runs the g++ link step inside `obj_dir/` (one level below the exec dir), so the lib
+  // dir is referenced from there with a leading `../`. The library is passed by full file name
+  // rather than `-l<name>`: that is portable across GNU and Apple ld and sidesteps the `lib` prefix
+  // that GNU `ld -l` requires but the Windows import lib (`<base>.a`) lacks. At run time the loader
+  // finds the shared object via the rpath plus the lib dir prepended to PATH/LD_LIBRARY_PATH (see
+  // `foreignRuntimeLibPathEnv`).
   private def foreignDPIFlags(using CompilerOptions, SimulatorOptions, MemberGetSet): String =
     constructCommand(
       foreignSources.filter(_.dpiLib.nonEmpty).map { f =>
         val dir = foreignLibDir(f)
-        s"""-LDFLAGS "-L$dir -l${f.dpiLib} -Wl,-rpath,$dir""""
+        s"""-LDFLAGS "../$dir/${foreignLinkLibFile(f.dpiLib)} -Wl,-rpath,$dir""""
       }*
     )
 
@@ -232,7 +236,11 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       "+verilator+quiet",
       s"+verilator+error+limit+${Int.MaxValue}"
     )
-    exec(cmd = cmd, loggerOpt = logger, runExec = verilatedBinary)
+    // run the foreign-IP sim hooks (viewer/streamer) around the verilated binary and pass it their
+    // env (e.g. VGA_MONITOR_STREAM); otherwise a foreign IP's backend has no viewer to stream to.
+    withForeignSimHooks(foreignRuntimeLibPathEnv()) { env =>
+      exec(cmd = cmd, loggerOpt = logger, runExec = verilatedBinary, extraEnv = env)
+    }
     cd
   end simulate
 

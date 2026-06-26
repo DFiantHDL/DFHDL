@@ -139,15 +139,18 @@ trait Tool:
       .distinctBy(_.resourcePath)
 
   // The distinct foreign IP design blocks. Used where the IP name is needed — that name is the
-  // block's `dclName` (the HDL module/entity and the `hdl/<dclName>.<ext>` wrapper basename).
+  // block's `dclName` (the HDL module/entity and the `<dclName>.<ext>` wrapper basename, which sits
+  // directly in the IP resource folder).
   protected final def foreignBlocks(using getSet: MemberGetSet): List[DFDesignBlock] =
     getSet.designDB.members.collect { case d: DFDesignBlock if d.isForeignIPBlackbox => d }
       .distinctBy(_.dclName)
 
-  // The foreign IP HDL wrapper basename(s) under `hdl/` that THIS tool must compile, for an IP of
+  // The foreign IP HDL wrapper basename(s) in the IP folder that THIS tool must compile, for an IP of
   // the given name (`dclName`), selected by the tool's foreign-function interface. Overridden per
   // tool family (DPI SystemVerilog, VPI Verilog, VHPI VHDL); the base tool consumes no wrapper.
-  protected def foreignWrapperHdlNames(ipName: String): List[String] = Nil
+  // `ToolOptions` is in scope so an override can vary the wrapper by tool back-end (e.g. GHDL picks
+  // the mcode VHPI package on its mcode JIT back-end).
+  protected def foreignWrapperHdlNames(ipName: String)(using ToolOptions): List[String] = Nil
 
   // Full (committed) paths of the foreign IP HDL wrappers this tool compiles, ordered so a VHDL
   // package precedes the entity that uses it. Empty for designs with no foreign IP. Paths are
@@ -161,7 +164,7 @@ trait Tool:
     foreignBlocks.flatMap { b =>
       val resourcePath = b.foreignIPSource.get.resourcePath
       foreignWrapperHdlNames(b.dclName).map { name =>
-        s"$resourcePath/hdl/$name".convertWindowsToLinuxPaths
+        s"$resourcePath/$name".convertWindowsToLinuxPaths
       }
     }
 
@@ -570,12 +573,12 @@ trait VerilogTool extends Tool:
   protected def includeFolderFlag: String
   // DPI-C tools (Verilator, Questa, Vivado XSim) compile the SystemVerilog wrapper; the VPI tool
   // (Icarus) overrides this to the Verilog wrapper.
-  override protected def foreignWrapperHdlNames(ipName: String): List[String] =
+  override protected def foreignWrapperHdlNames(ipName: String)(using ToolOptions): List[String] =
     List(s"$ipName.sv")
 
 trait VHDLTool extends Tool:
   // VHPIDIRECT tools (GHDL, NVC) compile the VHDL package then the entity that uses it.
-  override protected def foreignWrapperHdlNames(ipName: String): List[String] =
+  override protected def foreignWrapperHdlNames(ipName: String)(using ToolOptions): List[String] =
     List(s"${ipName}_pkg.vhdl", s"$ipName.vhdl")
 
 trait Linter extends Tool:
@@ -634,34 +637,71 @@ trait Simulator extends Tool:
     purgeStaleToolArtifactsOnSwitch()
     if (simRunsLint) this.asInstanceOf[Linter].lint(cd)
     else cd
+  // Runs the foreign-IP simulation hooks (the viewer/streamer) around a tool's own run command, and
+  // hands the run the environment the hooks need (e.g. `VGA_MONITOR_STREAM`) merged over `baseEnv`.
+  // Factored out so tools that override `simulate` (Verilator, Questa) keep the hook lifecycle and
+  // injected env instead of silently dropping them. `baseEnv` is the tool's own extra env (typically
+  // the foreign runtime lib path). The hooks' `simEnv` is queried AFTER `onSimStart` so a hook can
+  // report state it only knows once started (e.g. the TCP port it is now listening on).
+  protected final def withForeignSimHooks(baseEnv: Map[String, String])(
+      run: Map[String, String] => Unit
+  )(using CompilerOptions, SimulatorOptions, MemberGetSet): Unit =
+    val hooks = foreignSimHooks
+    hooks.foreach(_.onSimStart())
+    val env = baseEnv ++ hooks.flatMap(_.simEnv()).toMap
+    try run(env)
+    finally hooks.foreach(_.onSimEnd())
+
   def simulate(
       cd: CompiledDesign
   )(using CompilerOptions, SimulatorOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
-    val hooks = foreignSimHooks
-    hooks.foreach(_.onSimStart())
-    // query env AFTER onSimStart so a hook can report e.g. the port it is now listening on
-    val foreignEnv = foreignRuntimeLibPathEnv() ++ hooks.flatMap(_.simEnv()).toMap
-    try exec(simulateCmdFlags, simulatePrepare(), simulateLogger, simRunExec, foreignEnv)
-    finally hooks.foreach(_.onSimEnd())
+    withForeignSimHooks(foreignRuntimeLibPathEnv()) { env =>
+      exec(simulateCmdFlags, simulatePrepare(), simulateLogger, simRunExec, env)
+    }
     cd
 
+  // The per-system subfolder of a foreign IP's bundled binaries, keyed off the platform the tool
+  // actually runs on. Mirrors the vga-monitor release per-platform archive suffixes (`linux-x86_64`,
+  // `linux-arm64`, `macos-x86_64`, `macos-arm64`, `windows-x86_64`, `windows-x86_64-mingw`). In
+  // dftools the tool runs inside a native-arch Linux container, so the Linux binaries are selected
+  // regardless of the host OS. On Windows two C runtimes coexist: MSVC (Questa) and MinGW (the
+  // rest), selected via `windowsUsesMSVC`.
+  protected final def hostPlatformTag(windowsUsesMSVC: Boolean = false)(using ToolOptions): String =
+    val arch = sys.props.getOrElse("os.arch", "").toLowerCase
+    val isArm = arch.contains("aarch64") || arch.contains("arm64")
+    if (usesDFTools) if (isArm) "linux-arm64" else "linux-x86_64"
+    else if (osIsWindows) if (windowsUsesMSVC) "windows-x86_64" else "windows-x86_64-mingw"
+    else if (osIsLinux) if (isArm) "linux-arm64" else "linux-x86_64"
+    else if (isArm) "macos-arm64"
+    else "macos-x86_64"
+
   // The per-system library directory of a foreign IP (committed under `dfhdl-ips/<ip>/<platform>`).
-  // On Windows, `windowsUsesMSVC` picks the MSVC bundle (Questa) over the default MinGW one.
   protected final def foreignLibDir(
       f: DFDesignBlock.InstMode.BlackBox.Source.ForeignIP,
       windowsUsesMSVC: Boolean = false
   )(using co: CompilerOptions, to: SimulatorOptions, getSet: MemberGetSet): String =
     // relative to the tool's cwd (the exec dir), so it works locally and in the mounted-cwd image;
     // `resourcePath` is the IP's `dfhdl-ips/<dclName>` folder
-    s"${f.resourcePath}/${dfhdl.internals.ClasspathResources.hostPlatformTag(windowsUsesMSVC)}".convertWindowsToLinuxPaths
+    s"${f.resourcePath}/${hostPlatformTag(windowsUsesMSVC)}".convertWindowsToLinuxPaths
 
-  // OS-specific shared-library file name for a base name (no `lib` prefix on Windows; `lib*.so` on
-  // Linux; `lib*.dylib` on macOS), matching how the IP binaries are bundled per platform.
-  protected final def foreignSharedLibFile(base: String): String =
-    if (osIsWindows) s"$base.dll"
-    else if (osIsLinux) s"lib$base.so"
+  // Shared-library file name for a base name, keyed off the OS the tool actually runs on (no `lib`
+  // prefix on Windows; `lib*.so` on Linux/in-container; `lib*.dylib` on macOS), matching how the IP
+  // binaries are bundled per platform.
+  protected final def foreignSharedLibFile(base: String)(using ToolOptions): String =
+    if (isToolInWindows) s"$base.dll"
+    else if (usesDFTools || osIsLinux) s"lib$base.so"
     else s"lib$base.dylib"
+
+  // Link-time library file name for a foreign IP base name. On Unix the linker links the shared
+  // object directly (`lib<base>.so`/`.dylib`). On Windows we also link the `<base>.dll` directly:
+  // MinGW ld records a proper import from it. We deliberately do NOT use the bundled `<base>.a` here
+  // — that archive is an xsim-specific shim (a tiny `*_xsim.o` that LoadLibrary's the DLL at call
+  // time), not a generic import library, so linking it into a verilated binary never reaches the
+  // backend.
+  protected final def foreignLinkLibFile(base: String)(using ToolOptions): String =
+    if (isToolInWindows) s"$base.dll"
+    else foreignSharedLibFile(base)
 
   // Runtime dynamic-library search path for the simulator process: prepend every foreign IP's
   // selected lib dir to the OS loader variable so a shim linked without an rpath is still found.
@@ -673,10 +713,14 @@ trait Simulator extends Tool:
     val dirs = foreignSources.map(f => foreignLibDir(f, windowsUsesMSVC)).distinct
     if (dirs.isEmpty) Map.empty
     else
+      // keyed off the OS the tool runs on: in dftools it's the Linux container, not the host
       val varName =
-        if (osIsWindows) "PATH" else if (osIsLinux) "LD_LIBRARY_PATH" else "DYLD_LIBRARY_PATH"
+        if (isToolInWindows) "PATH"
+        else if (usesDFTools || osIsLinux) "LD_LIBRARY_PATH"
+        else "DYLD_LIBRARY_PATH"
       // only the foreign dirs here; `exec` prepends these ahead of the existing path value
       Map(varName -> dirs.mkString(java.io.File.pathSeparator))
+  end foreignRuntimeLibPathEnv
 
   // Foreign IP simulation hooks present in the design, each bound to its (IP-specific) context.
   // Loaded reflectively from the `simHookClass` FQN each foreign IP relays through its IR source (a
