@@ -35,6 +35,12 @@ object NVC extends VHDLLinter, VHDLSimulator:
       so: SimulatorOptions
   ): List[String] =
     val designWorkFiles = getSet.designDB.designMemberList.view.map(_._1)
+      // Foreign IP wrappers are external VHDL whose architecture name DFHDL does not control (the
+      // vga-monitor wrapper uses `rtl`, not the `<name>_arch` DFHDL emits for its own designs), so
+      // the predicted `WORK.<NAME>-<NAME>_ARCH` file never exists and `cacheFiles` would fail trying
+      // to cache it. They are not needed as cached intermediates anyway: NVC runs from the
+      // elaborated `.elab`, which already embeds the foreign design unit.
+      .filterNot(_.isForeignIPBlackbox)
       .map(_.dclName)
       .flatMap(name =>
         val nameUC = name.toUpperCase()
