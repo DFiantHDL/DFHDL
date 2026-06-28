@@ -20,6 +20,13 @@ val dftoolsVersion = "v0.2.0"
 // base names are unversioned too. v0.4.0 adds the self-describing `VGA_MONITOR_FORMAT=ppm` stream
 // (per-frame P6 header carrying width/height); the viewer opts into it to auto-size frames.
 val vgaMonitorVersion = "0.4.0"
+// The interactive-sim release wrapped by the `dfhdl.ips.interactive.{interactive_ctrl,
+// interactive_flag}` foreign IPs. Single source of truth, surfaced to the IP code via the generated
+// `interactive.properties` resource (read by `dfhdl.ips.interactive.InteractiveSim.version`). Both
+// IPs share one bundle (one C++ singleton backend + one VHDL package), so the release lays its files
+// out exactly like vga-monitor-sim: HDL wrappers (identical across platforms) in the bundle root,
+// per-system binaries in `<platform>/`. All filenames unversioned (version only in archive/folder).
+val interactiveSimVersion = "0.2.0"
 // dependency versions
 val scodecVersion        = "1.2.5"
 val munitVersion         = "1.3.3"
@@ -266,6 +273,88 @@ lazy val ips = project
       }
       if (!hdlCopied)
         log.warn("[vga_monitor] no platform bundle could be fetched; IP resources are incomplete")
+      generated.toSeq
+    }.taskValue,
+    // Surface the wrapped interactive-sim version to the IP code (read by
+    // `dfhdl.ips.interactive.InteractiveSim.version`). Conditional write to avoid mtime churn.
+    Compile / resourceGenerators += Def.task {
+      val file = (Compile / resourceManaged).value / "interactive.properties"
+      val contents = s"interactive.version=$interactiveSimVersion"
+      if (!file.exists || IO.read(file) != contents) IO.write(file, contents)
+      Seq(file)
+    }.taskValue,
+    // Download the interactive-sim release binaries + HDL wrappers and bundle them as resources of the
+    // shared `interactive` foreign-IP bundle. Identical layout to vga-monitor: HDL wrappers (the same
+    // across platforms — `.sv`/`.v`/`.vhdl`, including the shared `interactive_pkg.vhdl` and its mcode
+    // variant) live in the bundle root; per-system binaries (libs, import libs, `.vpi`, `.lib`/`.exp`)
+    // go under `<platform>/`, selected at simulate time. Both `interactive_ctrl` and `interactive_flag`
+    // resolve to this one bundle (`dfhdl-ips/interactive`). Downloads are cached.
+    Compile / resourceGenerators += Def.task {
+      val log = streams.value.log
+      val ver = interactiveSimVersion
+      val repo = "DFiantWorks/interactive-sim"
+      val platforms = Seq(
+        "linux-x86_64", "linux-arm64", "macos-x86_64", "macos-arm64",
+        "windows-x86_64", "windows-x86_64-mingw"
+      )
+      val baseRes = (Compile / resourceManaged).value / "dfhdl-ips" / "interactive"
+      val cacheDir = target.value / "interactive-sim-cache"
+      IO.createDirectory(cacheDir)
+      def isHdl(n: String): Boolean =
+        n.endsWith(".sv") || n.endsWith(".v") || n.endsWith(".vhdl")
+      val generated = scala.collection.mutable.ListBuffer.empty[File]
+      var hdlCopied = false
+      platforms.foreach { plat =>
+        val asset = s"interactive-sim-$ver-$plat.tar.gz"
+        val tarball = cacheDir / asset
+        val srcDir = cacheDir / s"interactive-sim-$ver-$plat"
+        try {
+          if (!tarball.exists) {
+            val url =
+              java.net.URI.create(s"https://github.com/$repo/releases/download/v$ver/$asset").toURL
+            log.info(s"[interactive] downloading $asset")
+            val in = url.openStream()
+            try {
+              java.nio.file.Files.copy(
+                in, tarball.toPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING
+              )
+            } finally {
+              in.close()
+            }
+          }
+          if (!srcDir.exists) {
+            val rc = scala.sys.process.Process(
+              Seq("tar", "-xzf", tarball.getAbsolutePath, "-C", cacheDir.getAbsolutePath)
+            ).!
+            if (rc != 0) sys.error(s"tar extraction failed for $asset (exit $rc)")
+          }
+          val platRes = baseRes / plat
+          IO.createDirectory(platRes)
+          srcDir.listFiles.filter(_.isFile).foreach { f =>
+            val n = f.getName
+            if (n != "LICENSE" && n != "VERSION") {
+              if (isHdl(n)) {
+                // HDL wrappers (and the shared package) are identical across platforms; copy once.
+                if (!hdlCopied) {
+                  val dest = baseRes / n
+                  IO.copyFile(f, dest)
+                  generated += dest
+                }
+              } else {
+                val dest = platRes / n
+                IO.copyFile(f, dest)
+                generated += dest
+              }
+            }
+          }
+          hdlCopied = true
+        } catch {
+          case scala.util.control.NonFatal(e) =>
+            log.warn(s"[interactive] skipping $plat: ${e.getMessage}")
+        }
+      }
+      if (!hdlCopied)
+        log.warn("[interactive] no platform bundle could be fetched; IP resources are incomplete")
       generated.toSeq
     }.taskValue
   )
