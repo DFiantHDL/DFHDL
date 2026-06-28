@@ -145,28 +145,51 @@ trait Tool:
     getSet.designDB.members.collect { case d: DFDesignBlock if d.isForeignIPBlackbox => d }
       .distinctBy(_.dclName)
 
-  // The foreign IP HDL wrapper basename(s) in the IP folder that THIS tool must compile, for an IP of
-  // the given name (`dclName`), selected by the tool's foreign-function interface. Overridden per
+  // True if any foreign IP in the design declares its HDL wrapper uses delay (`#`) controls, so a
+  // tool that does not handle delays by default (Verilator) must enable timing support. Checks every
+  // block (not the per-bundle-deduped sources), so it holds whichever sibling IP set the flag.
+  protected final def foreignNeedsTiming(using getSet: MemberGetSet): Boolean =
+    getSet.designDB.members.collect { case d: DFDesignBlock => d.foreignIPSource }.flatten
+      .exists(_.needsTiming)
+
+  // The per-IP HDL ENTITY wrapper basename(s) in the IP folder that THIS tool must compile, for an IP
+  // of the given name (`dclName`), selected by the tool's foreign-function interface. Overridden per
   // tool family (DPI SystemVerilog, VPI Verilog, VHPI VHDL); the base tool consumes no wrapper.
-  // `ToolOptions` is in scope so an override can vary the wrapper by tool back-end (e.g. GHDL picks
-  // the mcode VHPI package on its mcode JIT back-end).
   protected def foreignWrapperHdlNames(ipName: String)(using ToolOptions): List[String] = Nil
 
-  // Full (committed) paths of the foreign IP HDL wrappers this tool compiles, ordered so a VHDL
-  // package precedes the entity that uses it. Empty for designs with no foreign IP. Paths are
+  // The SHARED HDL wrapper basename(s) a foreign-IP bundle exposes once per bundle (`resourcePath`),
+  // not once per IP — e.g. a single VHDL package (`<family>_pkg.vhdl`) used by every entity in the
+  // bundle, which must be compiled exactly once and before any entity. `familyName` is the bundle's
+  // resource-folder leaf. `ToolOptions` is in scope so an override can vary the file by tool back-end
+  // (e.g. GHDL picks the mcode VHPI package on its mcode JIT back-end). The base tool exposes none.
+  protected def foreignSharedHdlNames(familyName: String)(using ToolOptions): List[String] = Nil
+
+  // Full (committed) paths of the foreign IP HDL wrappers this tool compiles, ordered so a shared
+  // VHDL package precedes every entity that uses it. Empty for designs with no foreign IP. Paths are
   // relative to the exec dir (the tool's cwd), matching `designFiles`, so they resolve both for a
-  // local tool and inside the DFTools image where only the cwd is mounted.
+  // local tool and inside the DFTools image where only the cwd is mounted. The shared files are
+  // emitted once per bundle (`foreignSources` is deduped by `resourcePath`), so sibling IPs sharing a
+  // bundle (e.g. a control + flag IP backed by one C++ singleton and one VHDL package) compile that
+  // package only once.
   protected final def foreignWrapperFiles(using
       CompilerOptions,
       ToolOptions,
       MemberGetSet
   ): List[String] =
-    foreignBlocks.flatMap { b =>
+    val shared = foreignSources.flatMap { f =>
+      val familyName = f.resourcePath.split('/').last
+      foreignSharedHdlNames(familyName).map { name =>
+        s"${f.resourcePath}/$name".convertWindowsToLinuxPaths
+      }
+    }
+    val entities = foreignBlocks.flatMap { b =>
       val resourcePath = b.foreignIPSource.get.resourcePath
       foreignWrapperHdlNames(b.dclName).map { name =>
         s"$resourcePath/$name".convertWindowsToLinuxPaths
       }
     }
+    shared ++ entities
+  end foreignWrapperFiles
 
   // Extra environment variables to set for the spawned tool process, merged over the inherited
   // environment. Defaults to the Windows DLL-search guard below; tools that override this should
@@ -577,9 +600,14 @@ trait VerilogTool extends Tool:
     List(s"$ipName.sv")
 
 trait VHDLTool extends Tool:
-  // VHPIDIRECT tools (GHDL, NVC) compile the VHDL package then the entity that uses it.
+  // VHPIDIRECT tools (GHDL, NVC) compile each IP's VHDL entity wrapper...
   override protected def foreignWrapperHdlNames(ipName: String)(using ToolOptions): List[String] =
-    List(s"${ipName}_pkg.vhdl", s"$ipName.vhdl")
+    List(s"$ipName.vhdl")
+  // ...preceded once per bundle by the shared VHDL package (`<family>_pkg.vhdl`) the entities use.
+  override protected def foreignSharedHdlNames(familyName: String)(using
+      ToolOptions
+  ): List[String] =
+    List(s"${familyName}_pkg.vhdl")
 
 trait Linter extends Tool:
   protected[dfhdl] def lintPreprocess(cd: CompiledDesign)(using
@@ -733,6 +761,9 @@ trait Simulator extends Tool:
   ): List[dfhdl.tools.ForeignSimHook.Bound] =
     foreignBlocks
       .filter(_.foreignIPSource.exists(_.simHookClass.nonEmpty))
+      // one hook instance per hook class: sibling IPs in a bundle (e.g. control + flag) share a
+      // single process-global hook (one viewer/socket), so it must run once, not once per IP.
+      .distinctBy(_.foreignIPSource.get.simHookClass)
       .flatMap { b =>
         val fsrc = b.foreignIPSource.get
         loadForeignSimHook(fsrc.simHookClass).map { hook =>

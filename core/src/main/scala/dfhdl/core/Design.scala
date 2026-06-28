@@ -302,9 +302,11 @@ object EDBlackBox:
     protected def vpiModule: String = ""
     protected def vhpiLib: String = ""
     protected def simHookClass: String = ""
+    // set true when the HDL wrapper uses delay (`#`) controls so Verilator builds with `--timing`
+    protected def needsTiming: Boolean = false
     final override protected def source: Source =
       // an empty `resourcePath` is defaulted at elaboration from the class chain to
       // `dfhdl-ips/<ipName>` (see `Design.initOwner`)
-      Source.ForeignIP(clsName, resourcePath, dpiLib, vpiModule, vhpiLib, simHookClass)
+      Source.ForeignIP(clsName, resourcePath, dpiLib, vpiModule, vhpiLib, simHookClass, needsTiming)
   end ForeignIP
 end EDBlackBox

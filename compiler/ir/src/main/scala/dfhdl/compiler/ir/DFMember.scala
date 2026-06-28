@@ -1625,13 +1625,20 @@ object DFDesignBlock:
         //   - `vpiModule`:    VPI module name, "" if unsupported
         //   - `vhpiLib`:      VHPI lib base name, "" if unsupported
         //   - `simHookClass`: FQN of a `ForeignSimHook` object invoked around simulation, "" if none
+        //   - `needsTiming`:  the HDL wrapper uses delay (`#`) controls, so Verilator must build with
+        //                     `--timing` (other simulators handle delays natively). Default false.
+        // Several IPs may share one bundle (same `resourcePath` + FFI libs + hook) — e.g. a control
+        // and a flag IP backed by one C++ singleton. Such sibling IPs MUST relay identical
+        // `resourcePath`/`dpiLib`/`vpiModule`/`vhpiLib`/`simHookClass` so the per-bundle dedup
+        // (`distinctBy(resourcePath)`) is well-defined; only `clsName` differs per IP.
         case ForeignIP(
             clsName: String,
             resourcePath: String,
             dpiLib: String,
             vpiModule: String,
             vhpiLib: String,
-            simHookClass: String
+            simHookClass: String,
+            needsTiming: Boolean = false
         )
       end Source
     end BlackBox

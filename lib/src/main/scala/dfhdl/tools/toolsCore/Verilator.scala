@@ -50,10 +50,6 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       ToolOptions,
       MemberGetSet
   ): String =
-    val hasTiming = getSet.designDB.members.exists {
-      case _: Wait => true
-      case _       => false
-    }
     constructCommand(
       "--lint-only",
       "--assert",
@@ -62,6 +58,15 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       if (hasTiming) "--timing" else ""
     )
   end lintCmdPreLangFlags
+
+  // Verilator builds without delay support by default; enable `--timing` when the design uses delays
+  // (`Wait`) or when a foreign IP's HDL wrapper does (e.g. a self-paced control polling on a `#`
+  // timer). Other simulators handle delays natively, so this is Verilator-specific.
+  private def hasTiming(using getSet: MemberGetSet): Boolean =
+    getSet.designDB.members.exists {
+      case _: Wait => true
+      case _       => false
+    } || foreignNeedsTiming
 
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
@@ -83,6 +88,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       "--quiet-stats",
       "--build-jobs 0",
       s"--top-module ${topName}",
+      if (hasTiming) "--timing" else "",
       foreignDPIFlags
     )
 

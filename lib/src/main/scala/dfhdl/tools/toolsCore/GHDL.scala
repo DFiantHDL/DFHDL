@@ -64,10 +64,13 @@ object GHDL extends VHDLLinter, VHDLSimulator:
 
   // On the mcode back-end compile the mcode VHPI package (whose foreign attributes embed the shared
   // library name for runtime dlopen); the LLVM/GCC back-ends compile the plain package whose symbols
-  // are resolved by the elaboration-time link.
-  override protected def foreignWrapperHdlNames(ipName: String)(using ToolOptions): List[String] =
-    if (isMcode) List(s"${ipName}_pkg_mcode.vhdl", s"$ipName.vhdl")
-    else List(s"${ipName}_pkg.vhdl", s"$ipName.vhdl")
+  // are resolved by the elaboration-time link. This is the bundle's SHARED package (one per
+  // `resourcePath`, before any entity); the entity wrappers come from `VHDLTool`.
+  override protected def foreignSharedHdlNames(familyName: String)(using
+      ToolOptions
+  ): List[String] =
+    if (isMcode) List(s"${familyName}_pkg_mcode.vhdl")
+    else List(s"${familyName}_pkg.vhdl")
 
   override protected def lintCmdPreLangFlags(using
       CompilerOptions,
@@ -89,14 +92,16 @@ object GHDL extends VHDLLinter, VHDLSimulator:
       MemberGetSet
   ): Unit =
     if (isMcode)
-      foreignBlocks.foreach { b =>
-        val fsrc = b.foreignIPSource.get
+      // the mcode package is shared once per bundle (`foreignSources` is deduped by `resourcePath`),
+      // so patch each bundle's `<family>_pkg_mcode.vhdl` once.
+      foreignSources.foreach { fsrc =>
         if (fsrc.vhpiLib.nonEmpty)
           val soname = s"lib${fsrc.vhpiLib}.so"
           val target = foreignSharedLibFile(fsrc.vhpiLib)
           if (soname != target)
+            val familyName = fsrc.resourcePath.split('/').last
             val pkg = os.Path(execPath, os.pwd) / os.RelPath(fsrc.resourcePath) /
-              s"${b.dclName}_pkg_mcode.vhdl"
+              s"${familyName}_pkg_mcode.vhdl"
             if (os.exists(pkg))
               val content = os.read(pkg)
               if (content.contains(soname))
