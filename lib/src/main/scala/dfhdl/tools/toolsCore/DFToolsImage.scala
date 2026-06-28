@@ -66,8 +66,38 @@ object DFToolsImage:
       case "aarch64" | "arm64" => "linux-arm64"
       case _                   => "linux-x64"
 
-  private def assetUrl(image: String): String =
-    s"https://github.com/$repo/releases/download/$version/dftools-$image-$archTag.sif"
+  /** Parsed once from the build-time–bundled `dftools.lock.json` (the DFTools release lockfile for
+    * [[version]]): `image -> arch -> (sha256, immutable asset name)`. The lockfile is the umbrella
+    * tag's only version-keyed artifact; everything below resolves and caches per-image by sha256, so
+    * a DFTools version bump that did not change a given image keeps its digest and asset name, and
+    * the image is never re-downloaded just because the tag moved.
+    */
+  private lazy val lock: Map[String, Map[String, (String, String)]] =
+    val in = getClass.getClassLoader.getResourceAsStream("dftools.lock.json")
+    require(in != null, "dftools.lock.json resource missing from the DFHDL build (rebuild `lib`)")
+    try
+      val js = ujson.read(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8))
+      require(
+        js("tag").str == version,
+        s"dftools.lock.json tag '${js("tag").str}' != dftoolsVersion '$version' " +
+          "(rebuild `lib` to refresh the bundled lockfile)"
+      )
+      js("images").obj.view.mapValues { arches =>
+        arches.obj.view.mapValues(e => (e("sha256").str, e("asset").str)).toMap
+      }.toMap
+    finally in.close()
+
+  /** `(sha256, asset)` for an image on the current arch, from the bundled lockfile. */
+  private def lockEntry(image: String): (String, String) =
+    lock
+      .getOrElse(image, throw new IllegalStateException(s"image '$image' absent from dftools.lock.json"))
+      .getOrElse(
+        archTag,
+        throw new IllegalStateException(s"image '$image' has no $archTag asset in dftools.lock.json")
+      )
+
+  private def assetUrl(asset: String): String =
+    s"https://github.com/$repo/releases/download/$version/$asset"
 
   private val handles = scala.collection.concurrent.TrieMap.empty[String, ApptainerImage]
 
@@ -79,8 +109,35 @@ object DFToolsImage:
     overrideSif(image) match
       case Some(p) => Apptainer.image(p)
       case None    =>
-        val dest = s"${Apptainer.imagesDir}/dftools-$image-$version-$archTag.sif"
-        Apptainer.pull(assetUrl(image), dest = Some(dest))
+        val (sha, asset) = lockEntry(image)
+        // The asset name is immutable and content-addressed (it embeds the digest), so its presence
+        // in the backend image cache means we already have exactly these bytes — a DFTools version
+        // bump that didn't change this image resolves to the same asset and skips the pull entirely.
+        // `Apptainer.pull` reuses an existing dest (backend `test -f`) without re-downloading.
+        val dest         = s"${Apptainer.imagesDir}/$asset"
+        val alreadyCached = Apptainer.image(dest).exists
+        val img           = Apptainer.pull(assetUrl(asset), dest = Some(dest))
+        if (!alreadyCached) verifySha256(dest, sha) // verify only freshly pulled bytes, backend-side
+        img
+
+  /** Verify a freshly pulled SIF against its expected sha256. The file lives in the backend (a WSL
+    * VM on Windows), so hash it there — a host-side digest would read a non-existent path. On a
+    * mismatch the corrupt download is removed and the failure is surfaced loudly.
+    */
+  private def verifySha256(dest: String, expected: String): Unit =
+    val got = Apptainer.backend
+      .runShell(s"sha256sum '$dest'")
+      .out
+      .trim
+      .split("\\s+")
+      .headOption
+      .getOrElse("")
+    if (got != expected)
+      Apptainer.backend.runShell(s"rm -f '$dest'")
+      throw new IllegalStateException(
+        s"sha256 mismatch for DFTools image '$dest': got '$got', expected '$expected' " +
+          "(corrupt download removed; retry)"
+      )
 
   /** Whether the given image is resolvable (present locally / overridden / downloadable). */
   def isAvailable(image: String): Boolean =

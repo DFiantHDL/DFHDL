@@ -12,7 +12,7 @@ val compilerVersion = "3.8.4"
 // The DFTools binary toolchain release this DFHDL build targets (versioned independently of
 // DFHDL). Surfaced to the library via lib's generated `dftools.properties` and read by
 // DFToolsImage. Bump when adopting a new DFTools release.
-val dftoolsVersion = "v0.2.0"
+val dftoolsVersion = "v1.0.0"
 // The vga-monitor-sim release wrapped by the `dfhdl.ips.video.vga.vga_monitor` foreign IP. This is
 // the single source of truth: it is surfaced to the IP code via the generated `vga-monitor.properties`
 // resource (read by `vga_monitor.version`), like core's version.properties. Since v0.3.0 the release names
@@ -152,12 +152,43 @@ lazy val lib = project
     pluginUseSettings,
     libraryDependencies ++= commonDependencies,
     libraryDependencies += dependencies.scalapptainer,
+    libraryDependencies += dependencies.upickle, // DFToolsImage parses the bundled dftools.lock.json
     // The DFTools toolchain version is owned by `lib` (where `DFToolsImage` reads it) rather than
     // shared with core's `version.properties`. Conditional write to avoid mtime churn (see core).
     Compile / resourceGenerators += Def.task {
       val file = (Compile / resourceManaged).value / "dftools.properties"
       val contents = s"dftools.version=$dftoolsVersion"
       if (!file.exists || IO.read(file) != contents) IO.write(file, contents)
+      Seq(file)
+    }.taskValue,
+    // Bundle the DFTools release lockfile (`dftools.lock.json` for `dftoolsVersion`) as a resource.
+    // It maps each image+arch to the sha256 of its sif and the immutable asset carrying those bytes;
+    // `DFToolsImage` reads it to know the full digest set offline and resolve/cache each image BY
+    // sha256 rather than by tag. Downloads are cached under target/ by version (vga-monitor pattern);
+    // conditional copy avoids mtime churn / the Windows AccessDenied re-copy issue.
+    Compile / resourceGenerators += Def.task {
+      val log    = streams.value.log
+      val ver    = dftoolsVersion
+      val file   = (Compile / resourceManaged).value / "dftools.lock.json"
+      val cached = target.value / "dftools-lock-cache" / s"$ver.json"
+      if (!cached.exists) {
+        IO.createDirectory(cached.getParentFile)
+        val url =
+          java.net.URI.create(
+            s"https://github.com/DFiantHDL/DFTools/releases/download/$ver/dftools.lock.json").toURL
+        log.info(s"[dftools] fetching lockfile for $ver")
+        val in = url.openStream()
+        try
+          java.nio.file.Files.copy(
+            in, cached.toPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        catch {
+          case scala.util.control.NonFatal(e) =>
+            IO.delete(cached) // don't leave a truncated/empty cache file behind
+            sys.error(s"[dftools] could not fetch dftools.lock.json for $ver from the DFTools " +
+              s"release (does the tag publish a lockfile?): ${e.getMessage}")
+        } finally in.close()
+      }
+      if (!file.exists || IO.read(file) != IO.read(cached)) IO.copyFile(cached, file)
       Seq(file)
     }.taskValue
   )
