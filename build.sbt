@@ -12,7 +12,7 @@ val compilerVersion = "3.8.4"
 // The DFTools binary toolchain release this DFHDL build targets (versioned independently of
 // DFHDL). Surfaced to the library via lib's generated `dftools.properties` and read by
 // DFToolsImage. Bump when adopting a new DFTools release.
-val dftoolsVersion = "v1.0.0"
+val dftoolsVersion = "v1.1.0"
 // The vga-monitor-sim release wrapped by the `dfhdl.ips.video.vga.vga_monitor` foreign IP. This is
 // the single source of truth: it is surfaced to the IP code via the generated `vga-monitor.properties`
 // resource (read by `vga_monitor.version`), like core's version.properties. Since v0.3.0 the release names
@@ -28,7 +28,7 @@ val vgaMonitorVersion = "1.0.0"
 // IPs share one bundle (one C++ singleton backend + one VHDL package), so the release lays its files
 // out exactly like vga-monitor-sim: HDL wrappers (identical across platforms) in the bundle root,
 // per-system binaries in `<platform>/`. All filenames unversioned (version only in archive/folder).
-val interactiveSimVersion = "0.2.0"
+val interactiveSimVersion = "0.4.0"
 // dependency versions
 val scodecVersion        = "1.2.5"
 val munitVersion         = "1.3.3"

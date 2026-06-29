@@ -189,6 +189,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     var totalCompilations = 0
     var cpps = 0
     var silence = false
+    var hintedCxx = false
     def setCppsFromFolder(): Unit =
       val objDirPath = s"${execPath}${separatorChar}obj_dir"
       val objDir = new java.io.File(objDirPath)
@@ -200,29 +201,49 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       Tool.ProcessLogger(
         lineIsWarning = (line: String) => false,
         lineIsSuppressed = (line: String) =>
-          val ret =
-            if (line.startsWith("make: Entering directory"))
-              setCppsFromFolder()
-              silence = true
-              true
-            else if (line.startsWith("g++"))
-              cpps += 1
-              true
-            else if (line.startsWith("make: Leaving directory"))
-              cpps = totalCompilations
-              silence = false
-              true
-            else if (line.endsWith("verilator_deplist.tmp")) true
-            else silence
-          // Print progress percentage
-          if (totalCompilations > 0)
-            val percentage = (cpps * 100) / totalCompilations
-            print(s"\rCompiling verilated C++ files: $percentage%")
-            if (cpps >= totalCompilations)
-              println() // Add a newline when complete
-              totalCompilations = 0
-              cpps = 0
-          ret
+          // The verilated C++ build runs `g++` from PATH. On Windows an MSYS2 `/usr/bin/g++` — which
+          // has no C++ header search path outside an MSYS2 login shell — ahead of a native MinGW g++
+          // fails here with a header-not-found error for a standard header like <cstdint> (most
+          // visibly on the `--timing` path, which recompiles the verilator runtime). The progress
+          // logger otherwise swallows it, so detect it, break out with an actionable hint (once), and
+          // let the underlying error through.
+          if (
+            !hintedCxx && line.contains("cstdint") &&
+            (line.contains("No such file") || line.contains("no include path"))
+          )
+            hintedCxx = true
+            println() // end the progress line
+            println(
+              "[verilator] the C++ compiler (g++) on PATH cannot find a standard C++ header " +
+                "(<cstdint>). This is usually an MSYS2 `/usr/bin/g++` (no header search path outside " +
+                "an MSYS2 shell) ahead of a native MinGW g++ on PATH; put a working MinGW g++ (e.g. " +
+                "C:\\msys64\\mingw64\\bin) before it on PATH and retry."
+            )
+            false // show the underlying compiler error too
+          else
+            val ret =
+              if (line.startsWith("make: Entering directory"))
+                setCppsFromFolder()
+                silence = true
+                true
+              else if (line.startsWith("g++"))
+                cpps += 1
+                true
+              else if (line.startsWith("make: Leaving directory"))
+                cpps = totalCompilations
+                silence = false
+                true
+              else if (line.endsWith("verilator_deplist.tmp")) true
+              else silence
+            // Print progress percentage
+            if (totalCompilations > 0)
+              val percentage = (cpps * 100) / totalCompilations
+              print(s"\rCompiling verilated C++ files: $percentage%")
+              if (cpps >= totalCompilations)
+                println() // Add a newline when complete
+                totalCompilations = 0
+                cpps = 0
+            ret
       )
     )
   end simulateLogger
