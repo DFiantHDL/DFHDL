@@ -133,7 +133,13 @@ object GHDL extends VHDLLinter, VHDLSimulator:
       constructCommand(
         foreignSources.filter(_.vhpiLib.nonEmpty).flatMap { f =>
           val dir = foreignLibDir(f)
-          Seq(s"-Wl,-L$dir", s"-Wl,-l${f.vhpiLib}", s"-Wl,-rpath,$dir")
+          // GHDL's `-Wl,<x>` passes <x> to the gcc *driver*, not straight to ld: `-L`/`-l` are gcc
+          // options so a single `-Wl,` reaches them, but `-rpath` is an ld option, so it needs the
+          // prefix TWICE (`-Wl,-Wl,-rpath,DIR` -> gcc `-Wl,-rpath,DIR` -> ld `-rpath DIR`). A single
+          // `-Wl,-rpath,DIR` makes gcc choke on an unknown `-rpath,DIR` option. (Runtime lookup also
+          // works via the LD_LIBRARY_PATH DFHDL sets — local in the process env, in dftools forwarded
+          // as `--env` — but the embedded rpath keeps the elaborated binary self-locating.)
+          Seq(s"-Wl,-L$dir", s"-Wl,-l${f.vhpiLib}", s"-Wl,-Wl,-rpath,$dir")
         }*
       )
   )

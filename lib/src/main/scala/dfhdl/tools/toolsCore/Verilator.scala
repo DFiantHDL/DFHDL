@@ -105,7 +105,21 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     constructCommand(
       foreignSources.filter(_.dpiLib.nonEmpty).map { f =>
         val dir = foreignLibDir(f)
-        s"""-LDFLAGS "../$dir/${foreignLinkLibFile(f.dpiLib)} -Wl,-rpath,$dir""""
+        val lib = foreignLinkLibFile(f.dpiLib)
+        // How the library is named to the linker decides the verilated binary's DT_NEEDED:
+        //  - Linux (incl. the dftools container): pass it slash-free via `-L../$dir -l:<lib>` so the
+        //    recorded DT_NEEDED is just `lib<base>.so`. A DT_NEEDED that CONTAINS a slash is resolved
+        //    by the loader as a literal path relative to the process cwd, bypassing the rpath AND
+        //    LD_LIBRARY_PATH; slash-free lets the rpath / (in dftools) the forwarded LD_LIBRARY_PATH —
+        //    both the relative lib dir, resolved against the exec-dir cwd — find it at run time.
+        //  - Windows: the DLL is linked by full path and found at run time via PATH (DLL-name search),
+        //    so the baked-in path is harmless (and `-l:` is a GNU-ld-ism).
+        //  - macOS: Apple ld has no `-l:`, so keep the full-path form.
+        val linkLib =
+          if (isToolInWindows) s"../$dir/$lib"
+          else if (usesDFTools || osIsLinux) s"-L../$dir -l:$lib"
+          else s"../$dir/$lib"
+        s"""-LDFLAGS "$linkLib -Wl,-rpath,$dir""""
       }*
     )
 

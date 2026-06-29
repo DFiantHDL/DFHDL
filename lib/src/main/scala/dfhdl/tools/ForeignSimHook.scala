@@ -1,5 +1,7 @@
 package dfhdl.tools
 
+import dfhdl.options.SimulatorOptions
+
 /** The generic context DFHDL provides to every foreign IP simulation hook:
   *
   *   - [[ipName]]: the IP name (its `dfhdl-ips/<ipName>` subfolder)
@@ -29,14 +31,20 @@ trait ForeignSimHook[Ctx <: ForeignSimContext]:
   /** Build this hook's context from the generic one DFHDL provides (read IP-specific config here).
     */
   def context(base: ForeignSimContext): Ctx
-  def onSimStart(ctx: Ctx): Unit = {}
-  def onSimEnd(ctx: Ctx): Unit = {}
+
+  /** Run before the simulator process starts. The [[SimulatorOptions]] are provided so a hook can
+    * honor the active `tools-location` — e.g. launch its viewer locally (host PATH) or inside a
+    * DFTools image to match wherever the simulator itself runs.
+    */
+  def onSimStart(ctx: Ctx)(using SimulatorOptions): Unit = {}
+  def onSimEnd(ctx: Ctx)(using SimulatorOptions): Unit = {}
 
   /** Environment variables the simulator process must see for this IP to work (e.g. a viewer
     * rendezvous address). Queried after [[onSimStart]] (so a hook can report e.g. a port it just
     * bound) and merged into the spawned simulator's environment. Defaults to none.
     */
   def simEnv(ctx: Ctx): Map[String, String] = Map.empty
+end ForeignSimHook
 
 object ForeignSimHook:
   /** A hook with its context already bound, letting the tools layer drive the lifecycle without
@@ -48,9 +56,12 @@ object ForeignSimHook:
     def onSimEnd(): Unit
 
   /** Build a hook's context and bind it, capturing the existential `Ctx` of a reflectively-loaded
-    * hook in one place so call sites stay untyped.
+    * hook in one place so call sites stay untyped. The current [[SimulatorOptions]] are captured
+    * here and replayed into the lifecycle methods, so [[Bound]] stays no-arg for the tools layer.
     */
-  def bind[Ctx <: ForeignSimContext](hook: ForeignSimHook[Ctx], base: ForeignSimContext): Bound =
+  def bind[Ctx <: ForeignSimContext](hook: ForeignSimHook[Ctx], base: ForeignSimContext)(using
+      SimulatorOptions
+  ): Bound =
     val ctx = hook.context(base)
     new Bound:
       def onSimStart(): Unit = hook.onSimStart(ctx)

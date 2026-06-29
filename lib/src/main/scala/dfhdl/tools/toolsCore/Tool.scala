@@ -328,7 +328,9 @@ trait Tool:
       // empty => resolved below per tools-location (host full path, or bare in-image name)
       runExec: String = "",
       // extra environment variables merged over `execEnv` for the spawned process (e.g. foreign IP
-      // runtime config such as a viewer rendezvous address). Ignored in dftools (container) mode.
+      // runtime config such as a viewer rendezvous address). In dftools (container) mode these are
+      // forwarded into the image as `--env` flags (see the dftools branch) rather than set on the
+      // host process.
       extraEnv: Map[String, String] = Map.empty
   )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     val dftools = usesDFTools
@@ -369,7 +371,10 @@ trait Tool:
             s"./$effRunExec"
           else effRunExec
         val containerCmd = command +: cmd.split(" ").filter(_.nonEmpty).toSeq
-        DFToolsImage.execArgv(dftoolsImage, containerCmd, needsX11)
+        // forward the caller's extra env (foreign-IP runtime lib path + viewer rendezvous such as
+        // VGA_MONITOR_STREAM) into the image as `--env` flags. The host process env (below) is left
+        // untouched in dftools, so this is the only channel by which the in-image tool sees it.
+        DFToolsImage.execArgv(dftoolsImage, containerCmd, needsX11, extraEnv)
       else
         val fullExec =
           // absolute path

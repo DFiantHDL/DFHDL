@@ -18,8 +18,10 @@ val dftoolsVersion = "v1.0.0"
 // resource (read by `vga_monitor.version`), like core's version.properties. Since v0.3.0 the release names
 // all files unversioned (the version lives only in the archive/folder name), so the IP's per-FFI lib
 // base names are unversioned too. v0.4.0 adds the self-describing `VGA_MONITOR_FORMAT=ppm` stream
-// (per-frame P6 header carrying width/height); the viewer opts into it to auto-size frames.
-val vgaMonitorVersion = "0.4.0"
+// (per-frame P6 header carrying width/height); the viewer opts into it to auto-size frames. Since
+// v1.0.0 the backend is the TCP server (it binds+listens on VGA_MONITOR_STREAM) and a standard
+// viewer (ffplay/ffmpeg) connects to it — see `VgaMonitorSimHook`.
+val vgaMonitorVersion = "1.0.0"
 // The interactive-sim release wrapped by the `dfhdl.ips.interactive.{interactive_ctrl,
 // interactive_flag}` foreign IPs. Single source of truth, surfaced to the IP code via the generated
 // `interactive.properties` resource (read by `dfhdl.ips.interactive.InteractiveSim.version`). Both

@@ -68,9 +68,9 @@ object DFToolsImage:
 
   /** Parsed once from the build-time–bundled `dftools.lock.json` (the DFTools release lockfile for
     * [[version]]): `image -> arch -> (sha256, immutable asset name)`. The lockfile is the umbrella
-    * tag's only version-keyed artifact; everything below resolves and caches per-image by sha256, so
-    * a DFTools version bump that did not change a given image keeps its digest and asset name, and
-    * the image is never re-downloaded just because the tag moved.
+    * tag's only version-keyed artifact; everything below resolves and caches per-image by sha256,
+    * so a DFTools version bump that did not change a given image keeps its digest and asset name,
+    * and the image is never re-downloaded just because the tag moved.
     */
   private lazy val lock: Map[String, Map[String, (String, String)]] =
     val in = getClass.getClassLoader.getResourceAsStream("dftools.lock.json")
@@ -90,10 +90,15 @@ object DFToolsImage:
   /** `(sha256, asset)` for an image on the current arch, from the bundled lockfile. */
   private def lockEntry(image: String): (String, String) =
     lock
-      .getOrElse(image, throw new IllegalStateException(s"image '$image' absent from dftools.lock.json"))
+      .getOrElse(
+        image,
+        throw new IllegalStateException(s"image '$image' absent from dftools.lock.json")
+      )
       .getOrElse(
         archTag,
-        throw new IllegalStateException(s"image '$image' has no $archTag asset in dftools.lock.json")
+        throw new IllegalStateException(
+          s"image '$image' has no $archTag asset in dftools.lock.json"
+        )
       )
 
   private def assetUrl(asset: String): String =
@@ -114,10 +119,11 @@ object DFToolsImage:
         // in the backend image cache means we already have exactly these bytes — a DFTools version
         // bump that didn't change this image resolves to the same asset and skips the pull entirely.
         // `Apptainer.pull` reuses an existing dest (backend `test -f`) without re-downloading.
-        val dest         = s"${Apptainer.imagesDir}/$asset"
+        val dest = s"${Apptainer.imagesDir}/$asset"
         val alreadyCached = Apptainer.image(dest).exists
-        val img           = Apptainer.pull(assetUrl(asset), dest = Some(dest))
-        if (!alreadyCached) verifySha256(dest, sha) // verify only freshly pulled bytes, backend-side
+        val img = Apptainer.pull(assetUrl(asset), dest = Some(dest))
+        if (!alreadyCached)
+          verifySha256(dest, sha) // verify only freshly pulled bytes, backend-side
         img
 
   /** Verify a freshly pulled SIF against its expected sha256. The file lives in the backend (a WSL
@@ -187,11 +193,24 @@ object DFToolsImage:
     path
 
   /** Build the host argv for `apptainer exec [opts] <image> <containerCmd...>`, optionally
-    * forwarding X11 (for GUI tools such as the waveform viewer).
+    * forwarding X11 (for GUI tools such as the waveform viewer) and a set of environment variables.
+    *
+    * The `env` entries are emitted as `--env KEY=VAL` apptainer flags rather than set on the host
+    * process: the in-image command's environment must carry e.g. the foreign-IP runtime lib path
+    * (`LD_LIBRARY_PATH`) and a viewer rendezvous (`VGA_MONITOR_STREAM`), and `--env` flags are
+    * plain argv tokens that survive the `wsl.exe` boundary on Windows (host env vars would need a
+    * `WSLENV` allow-list to cross). Path-like values may be relative — they resolve against the
+    * in-container cwd (the mounted `$PWD`), which is the exec dir.
     */
-  def execArgv(image: String, containerCmd: Seq[String], withX11: Boolean): Seq[String] =
-    val img = if (withX11) handle(image).withX11() else handle(image)
-    val cmd = commands.ExecCommand(img.ref, containerCmd, img.options)
+  def execArgv(
+      image: String,
+      containerCmd: Seq[String],
+      withX11: Boolean,
+      env: Map[String, String] = Map.empty
+  ): Seq[String] =
+    val base = if (withX11) handle(image).withX11() else handle(image)
+    val opts = if (env.isEmpty) base.options else base.options.env(env.toSeq*)
+    val cmd = commands.ExecCommand(base.ref, containerCmd, opts)
     if (osIsWindows)
       // Run apptainer through the signal-trapping wrapper installed in the VM. `wrapApptainer` just
       // prepends the backend command prefix and treats its first arg as the in-VM program, so the
