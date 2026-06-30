@@ -1628,16 +1628,16 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
 
   test("foreign blackbox printing") {
-    class vga_monitor extends EDBlackBox.ForeignIP:
-      val hsync = Bit     <> IN
-      val vsync = Bit     <> IN
-      val r     = Bits(8) <> IN
-      val g     = Bits(8) <> IN
-      val b     = Bits(8) <> IN
-      override protected def clsName    = "dfhdl.ips.video.vga.vga_monitor"
-      override protected def dpiLib     = "vga_monitor_dpi"
-      override protected def vpiModule  = "vga_monitor"
-      override protected def vhpiLib    = "vga_monitor_vhpi"
+    class vga_monitor(val WIDTH: Int <> CONST = 8) extends EDBlackBox.ForeignIP:
+      val hsync                        = Bit         <> IN
+      val vsync                        = Bit         <> IN
+      val r                            = Bits(WIDTH) <> IN
+      val g                            = Bits(WIDTH) <> IN
+      val b                            = Bits(WIDTH) <> IN
+      override protected def clsName   = "dfhdl.ips.video.vga.vga_monitor"
+      override protected def dpiLib    = "vga_monitor_dpi"
+      override protected def vpiModule = "vga_monitor"
+      override protected def vhpiLib   = "vga_monitor_vhpi"
 
     class Foo extends RTDesign:
       val hsync = Bit     <> IN
@@ -1645,7 +1645,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val r     = Bits(8) <> IN
       val g     = Bits(8) <> IN
       val b     = Bits(8) <> IN
-      val mon   = vga_monitor()
+      val mon   = vga_monitor(8)
       mon.hsync <> hsync
       mon.vsync <> vsync
       mon.r     <> r
@@ -1656,7 +1656,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val top = (new Foo)
     assertCodeString(
       top,
-      """|class vga_monitor extends dfhdl.ips.video.vga.vga_monitor()
+      """|import dfhdl.ips.video.vga.vga_monitor
          |
          |class Foo extends RTDesign:
          |  val hsync = Bit <> IN
@@ -1664,7 +1664,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val r = Bits(8) <> IN
          |  val g = Bits(8) <> IN
          |  val b = Bits(8) <> IN
-         |  val mon = vga_monitor()
+         |  val mon = vga_monitor(WIDTH = 8)
          |  mon.hsync <> hsync
          |  mon.vsync <> vsync
          |  mon.r <> r

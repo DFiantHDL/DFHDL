@@ -291,8 +291,24 @@ object EDBlackBox:
     * `dfhdl-ips/<ipName>`).
     */
   abstract class ForeignIP extends EDBlackBox:
-    // FQN of this IP class, used when re-emitting DFHDL that re-instantiates the IP
-    protected def clsName: String = getClass.getName.replace("$", ".")
+    // FQN of this IP class, used when re-emitting DFHDL that re-instantiates the IP.
+    // The runtime class is an elaboration-time anonymous subclass of the IP class (the
+    // instantiation is wrapped to attach meta), so `getClass.getName` would yield that synthetic
+    // wrapper's name. Walk the superclass chain (bounded to the `ForeignIP` subtypes) and take the
+    // base-most *concrete* class — the one that actually defines the IP (the class chain's base
+    // entry) — and use its fully-qualified name.
+    protected def clsName: String =
+      val foreignIPCls = classOf[ForeignIP]
+      var cls: Class[?] = getClass
+      var ipCls: Class[?] = cls
+      while (cls != null && foreignIPCls.isAssignableFrom(cls))
+        if (
+          !cls.isAnonymousClass && !cls.isSynthetic &&
+          !java.lang.reflect.Modifier.isAbstract(cls.getModifiers)
+        )
+          ipCls = cls
+        cls = cls.getSuperclass
+      ipCls.getName.replace("$", ".")
     // Where the bundled resources live on the classpath. Defaults (resolved at elaboration) to
     // `dfhdl-ips/<ipName>` — a non-package root (`dfhdl-ips/...`) so the resource directory is never
     // read by the Scala compiler as a package colliding with the IP class/object name. The IP name

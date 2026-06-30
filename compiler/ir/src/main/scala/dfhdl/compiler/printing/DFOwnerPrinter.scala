@@ -262,6 +262,15 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     import design.instMode
+    design.foreignIPSource match
+      // a foreign IP wraps a pre-existing external class; render an import of that class instead
+      // of a class declaration that extends it. duplicate imports (multiple foreign IP design
+      // blocks sharing the same class) are removed by the caller.
+      case Some(foreign) => s"import ${foreign.clsName}\n"
+      case None          => csDFDesignBlockDclImpl(design)
+  end csDFDesignBlockDcl
+  private def csDFDesignBlockDclImpl(design: DFDesignBlock): String =
+    import design.instMode
     val localDcls = printer.csLocalTypeDcls(design)
     val body = csDFOwnerBody(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
@@ -275,9 +284,6 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
                 "EDBlackBox.VendorIP"
               case InstMode.BlackBox.Source.VendorIP(vendor, typeName) =>
                 s"dfhdl.platforms.ips.${vendor.libName}.$typeName"
-              case foreign: InstMode.BlackBox.Source.ForeignIP =>
-                // re-instantiate via the IP's fully-qualified class name
-                foreign.clsName
               case _ => s"EDBlackBox(EDBlackBox.Source.${source})"
           case _ => "EDDesign"
     val designParams = design.members(MemberView.Folded).collect { case param: DesignParam =>
@@ -319,14 +325,15 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       if (bodyWithDcls.isEmpty || designIsExternalIPBlackbox) dcl
       else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     s"${printer.csAnnotations(design.meta.annotations)}$dclWithBody\n"
-  end csDFDesignBlockDcl
+  end csDFDesignBlockDclImpl
   def csDFDesignBlockInst(inst: DFDesignInst): String =
     val design = inst.getDesignBlock
     val body = csDFDesignLateBody(inst)
     val designParamCS =
-      // for an external IP blackbox (vendor/foreign), we define the parameters in the class
-      // extension instead of the blackbox instantiation
-      if (design.isExternalIPBlackbox) "()"
+      // a vendor IP blackbox defines its parameters in the class extension, so the instantiation
+      // takes no parameters; a foreign IP (rendered as an import) and a regular design both apply
+      // their parameters at the instantiation
+      if (design.isVendorIPBlackbox) "()"
       else csDFDesignBlockParamInst(inst.paramMap)
     val instCS =
       if (body.isEmpty) s"${design.dclName}$designParamCS"
