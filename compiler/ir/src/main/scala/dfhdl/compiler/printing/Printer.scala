@@ -457,7 +457,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   import io.AnsiColor._
   val scalaKW: Set[String] = Set(
     "class", "def", "end", "enum", "extends", "new", "object", "val", "if", "else", "match",
-    "case", "final", "for", "while", "until", "to", "by"
+    "case", "final", "for", "while", "until", "to", "by", "import"
   )
   val dfhdlKW: Set[String] = Set(
     "VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
