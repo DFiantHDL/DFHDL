@@ -24,9 +24,21 @@ public final class DesignArgsCLIHelper {
 
     private static final String MODULE_CLASS = "app.TestCLIFoo$";
 
+    // For a design nested inside an object the plugin generates a *top-level*
+    // entry object named by the nesting path, so its `main` is a static method.
+    private static final String NESTED_MODULE_CLASS = "app.nestedcli_NestedCLIFoo$";
+
     public static void invokeTopTestCLIFoo(String[] args) {
+        invokeModuleMain(MODULE_CLASS, args);
+    }
+
+    public static void invokeTopNestedCLIFoo(String[] args) {
+        invokeModuleMain(NESTED_MODULE_CLASS, args);
+    }
+
+    private static void invokeModuleMain(String moduleClass, String[] args) {
         try {
-            Class<?> cls = Class.forName(MODULE_CLASS);
+            Class<?> cls = Class.forName(moduleClass);
             Object instance = cls.getField("MODULE$").get(null);
             Method method = cls.getMethod("main", String[].class);
             method.invoke(instance, (Object) args);

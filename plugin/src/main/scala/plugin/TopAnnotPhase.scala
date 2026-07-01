@@ -24,15 +24,22 @@ import dotty.tools.dotc.semanticdb.BooleanConstant
 import java.time.Instant
 
 /*
-  This phase injects a `main` entry point into the companion object of each
-  design that has a `@top` annotation (the companion is guaranteed to exist —
-  PreTyperPhase synthesizes an empty one when the user did not write it). The
-  injected `main` instantiates a `DFApp`, primes it, and reroutes the argv to
-  `DFApp.run`, so the design's companion object (e.g. `Foo`) is itself the
-  runnable entry point — there is no separate `top_Foo` object. The design
-  parameters must have default arguments and have the supported types. These
-  arguments can then be overridden by the command-line options that the `DFApp`
-  application provides.
+  This phase injects a `main` entry point for each design that has a `@top`
+  annotation. The `main` instantiates a `DFApp`, primes it, and reroutes the argv
+  to `DFApp.run`; the design instance is built lazily from the (possibly
+  CLI-overridden) argument values. The design parameters must have default
+  arguments of the supported types, which the command-line options may override.
+
+  Where the `main` is hosted depends on how the design is nested:
+    - Top-level design (directly in a package): `main` is injected into the
+      design's own companion object (guaranteed to exist — PreTyperPhase
+      synthesizes an empty one when the user did not write it), so the companion
+      (e.g. `Foo`) is itself the runnable entry point — no separate object.
+    - Design nested inside object(s): a nested companion cannot be exposed as a
+      runnable top-level `main` (the JVM/Zinc do not surface it under a usable
+      name), so a fresh top-level object named by the nesting path (e.g.
+      `inside_Foo` for `object inside { class Foo }`) is generated at the
+      enclosing package to host the `main`.
  */
 class TopAnnotPhase(setting: Setting) extends CommonPhase:
   import tpd._
@@ -67,6 +74,30 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
   // `DFC.emptyNoEO` — an empty DFC instance supplied when we inject a synthetic
   // default tree, since there is no DFC in scope where setInitials evaluates them.
   var emptyNoEODFCSym: TermSymbol = uninitialized
+
+  // The enclosing package of the current owner.
+  private def getPackageOwner(using Context): Symbol =
+    var owner = ctx.owner
+    while (!owner.is(Package))
+      owner = owner.owner
+    owner
+
+  // The plan for a `@top` design's entry point:
+  //   - `CompanionInject` for a top-level design: splice `main` into its own
+  //     companion module (guaranteed to exist), so the design is runnable under
+  //     its plain name (e.g. `Foo`).
+  //   - `PackageObject` for a design nested inside object(s): a new top-level
+  //     object at package level (named by the nesting path, e.g. `inside_Foo`)
+  //     that hosts `main`. A nested companion cannot serve as the entry point —
+  //     the JVM/Zinc do not expose a nested object's `main` under a runnable
+  //     top-level name.
+  private enum EntryPlan:
+    case CompanionInject(moduleClsSym: ClassSymbol, mainDef: DefDef)
+    case PackageObject(moduleDef: Thicket)
+
+  // Buffer for `PackageObject` thickets discovered while transforming the stats
+  // of a nested owner; flushed into the enclosing package's stat list.
+  private val pendingPackageObjects = mutable.ListBuffer.empty[Thicket]
 
   // Extract a literal `Int` from a type arg (e.g. from `Args1[8]` or the width
   // slot of `Args4[_, 8, _, _]`). Returns None for non-literal widths.
@@ -214,6 +245,48 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
     mainDef.withSpan(span)
   end mkMainDef
 
+  // Build a fresh top-level object at `packageOwner` named `moduleName`, hosting
+  // the entry-point `main`. Used for designs nested inside object(s), which
+  // cannot expose a runnable `main` through their (nested) companion.
+  private def mkPackageEntryObject(
+      packageOwner: Symbol,
+      moduleName: String,
+      clsSym: ClassSymbol,
+      paramVDs: List[ValDef],
+      classOfTree: Tree,
+      designNameTree: Tree,
+      topAnnotTree: Tree,
+      dsnArgNames: Tree,
+      dsnArgValues: Tree,
+      dsnArgDescs: Tree,
+      werror: Tree,
+      hasResourceOwnerTree: Tree,
+      hasPorts: Tree,
+      span: util.Spans.Span
+  )(using Context): Thicket =
+    val moduleSym = newCompleteModuleSymbol(
+      packageOwner,
+      moduleName.toTermName,
+      Touched,
+      Touched | NoInits,
+      List(defn.ObjectType),
+      Scopes.newScope,
+      coord = span,
+      compUnitInfo = clsSym.compUnitInfo
+    )
+    val moduleClsSym = moduleSym.moduleClass.asClass
+    // The runnable Scala path is this new top-level object.
+    val topScalaPathTree = Literal(Constant(moduleSym.fullName.toString))
+    val mainDef = mkMainDef(
+      moduleClsSym, clsSym, paramVDs, classOfTree, designNameTree, topScalaPathTree,
+      topAnnotTree, dsnArgNames, dsnArgValues, dsnArgDescs, werror, hasResourceOwnerTree,
+      hasPorts, span
+    )
+    // Give the module def a real source span (the design class's name) so tooling
+    // (e.g. Metals run/debug code lenses) anchors on the design class.
+    Thicket(ModuleDef(moduleSym, List(mainDef)).trees.map(_.withSpan(span)))
+  end mkPackageEntryObject
+
   // For a `@top` design class `td`, build the entry-point `main` to inject into
   // its companion module class (guaranteed to exist — synthesized by PreTyper
   // when the user did not write one). Returns the (companion module class,
@@ -221,7 +294,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
   // `@top(false)`, a non-Design `@top(true)`, or a validation error).
   private def planEntryPoint(td: TypeDef, template: Template, trees: List[Tree])(using
       Context
-  ): Option[(ClassSymbol, DefDef)] =
+  ): Option[EntryPlan] =
     val clsSym = td.symbol.asClass
     clsSym.getAnnotation(topAnnotSym).map(a => dropProxies(a.tree)) match
       case Some(topAnnotTree @ Apply(Apply(Apply(_, topAnnotOptionsTrees), _), _)) =>
@@ -252,6 +325,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
         else
           // The entry point must be reachable as a top-level name, i.e. the
           // design lives directly in a package or nested only inside objects.
+          val nested = !clsSym.owner.is(Package)
           var owner = clsSym.owner
           while (!owner.is(Package) && owner.is(ModuleClass))
             owner = owner.owner
@@ -291,9 +365,6 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
             val paramVDs = template.constr.paramss.flatten.collect { case vd: ValDef => vd }
             val classOfTree = Literal(Constant(clsSym.typeRef))
             val designNameTree = Literal(Constant(clsSym.name.toString))
-            // The runnable Scala path is the companion object — same dotted name
-            // as the design class.
-            val topScalaPathTree = Literal(Constant(clsSym.fullName.toString))
             val dsnArgNames = mkList(paramVDs.map(vd => Literal(Constant(vd.name.toString))))
             val dsnArgValues =
               mkList(
@@ -315,34 +386,57 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
               Literal(Constant(clsSym.hasNestedMemberCond(_ <:< resourceOwnerTpe)))
             val hasPorts = Literal(Constant(clsSym.hasNestedMemberCond(portCond)))
 
-            companionInfo match
-              case Some((compTd, compTemplate)) =>
-                val alreadyHasMain = compTemplate.body.exists {
-                  case dd: DefDef => dd.name.toString == "main"
-                  case _          => false
-                }
-                if (alreadyHasMain)
+            if (nested)
+              // A design nested inside object(s) cannot expose a runnable `main`
+              // through its (nested) companion, so host the entry point in a fresh
+              // top-level object named by the nesting path (e.g. `inside_Foo`).
+              val packageOwner = getPackageOwner
+              var moduleName = td.name.toString
+              var o = clsSym.owner
+              while (!o.is(Package) && o.is(ModuleClass))
+                moduleName = s"${o.name.toString.replace("$", "")}_$moduleName"
+                o = o.owner
+              inContext(ctx.withOwner(packageOwner)):
+                val thicket = mkPackageEntryObject(
+                  packageOwner, moduleName, clsSym, paramVDs, classOfTree, designNameTree,
+                  topAnnotTree, dsnArgNames, dsnArgValues, dsnArgDescs, werror,
+                  hasResourceOwnerTree, hasPorts, span
+                )
+                Some(EntryPlan.PackageObject(thicket))
+            else
+              // Top-level design: inject `main` into its own companion module
+              // (guaranteed to exist — synthesized by PreTyper when absent), so the
+              // design is runnable under its plain name.
+              val topScalaPathTree = Literal(Constant(clsSym.fullName.toString))
+              companionInfo match
+                case Some((compTd, compTemplate)) =>
+                  val alreadyHasMain = compTemplate.body.exists {
+                    case dd: DefDef => dd.name.toString == "main"
+                    case _          => false
+                  }
+                  if (alreadyHasMain)
+                    report.error(
+                      "The companion object already defines a `main`; cannot generate a top-level entry point. Use `@top(false)` to disable entry point generation.",
+                      topAnnotTree.srcPos
+                    )
+                    None
+                  else
+                    val moduleClsSym = compTd.symbol.asClass
+                    val mainDef = mkMainDef(
+                      moduleClsSym, clsSym, paramVDs, classOfTree, designNameTree,
+                      topScalaPathTree, topAnnotTree, dsnArgNames, dsnArgValues, dsnArgDescs,
+                      werror, hasResourceOwnerTree, hasPorts, span
+                    )
+                    Some(EntryPlan.CompanionInject(moduleClsSym, mainDef))
+                case None =>
                   report.error(
-                    "The companion object already defines a `main`; cannot generate a top-level entry point. Use `@top(false)` to disable entry point generation.",
+                    "Internal error: expected a companion object for the top-level design " +
+                      "(it should have been synthesized in the PreTyper phase).",
                     topAnnotTree.srcPos
                   )
                   None
-                else
-                  val moduleClsSym = compTd.symbol.asClass
-                  val mainDef = mkMainDef(
-                    moduleClsSym, clsSym, paramVDs, classOfTree, designNameTree, topScalaPathTree,
-                    topAnnotTree, dsnArgNames, dsnArgValues, dsnArgDescs, werror,
-                    hasResourceOwnerTree, hasPorts, span
-                  )
-                  Some(moduleClsSym -> mainDef)
-              case None =>
-                report.error(
-                  "Internal error: expected a companion object for the top-level design " +
-                    "(it should have been synthesized in the PreTyper phase).",
-                  topAnnotTree.srcPos
-                )
-                None
-            end match
+              end match
+            end if
           end if
         end if
       case _ => None
@@ -351,26 +445,41 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
 
   override def transformStats(trees: List[Tree])(using Context): List[Tree] =
     // First pass: plan an entry point for every `@top` design class in this stat
-    // list, keyed by its companion module class. Symbols are created/entered
-    // here; the second pass splices the `main` into the companion's template.
+    // list. Top-level designs inject `main` into their companion module (spliced
+    // below); designs nested inside object(s) produce a fresh top-level object
+    // that must be added at the enclosing package's stat list.
     val injections = mutable.Map.empty[Symbol, DefDef] // companion module class -> main
+    val packageObjects = mutable.ListBuffer.empty[Thicket]
     trees.foreach {
       case td @ TypeDef(_, template: Template)
           if td.symbol.isClass && !td.symbol.is(Trait) && td.symbol.hasAnnotation(topAnnotSym) =>
-        planEntryPoint(td, template, trees).foreach { (moduleClsSym, mainDef) =>
-          injections += moduleClsSym -> mainDef
+        planEntryPoint(td, template, trees).foreach {
+          case EntryPlan.CompanionInject(moduleClsSym, mainDef) =>
+            injections += moduleClsSym -> mainDef
+          case EntryPlan.PackageObject(thicket) =>
+            packageObjects += thicket
         }
       case _ =>
     }
-    if (injections.isEmpty) trees
-    else
-      trees.map {
-        // inject the main into the companion module class
-        case td @ TypeDef(_, template: Template) if injections.contains(td.symbol) =>
-          val mainDef = injections(td.symbol)
-          cpy.TypeDef(td)(rhs = cpy.Template(template)(body = template.body :+ mainDef))
-        case other => other
-      }
+    // Splice companion `main`s into the matching companion module classes.
+    val withInjections =
+      if (injections.isEmpty) trees
+      else
+        trees.map {
+          case td @ TypeDef(_, template: Template) if injections.contains(td.symbol) =>
+            val mainDef = injections(td.symbol)
+            cpy.TypeDef(td)(rhs = cpy.Template(template)(body = template.body :+ mainDef))
+          case other => other
+        }
+    // Package-level entry objects are always emitted at the enclosing package's
+    // stat list. When this stat list belongs to a nested owner, buffer them until
+    // the package's stat list is transformed; otherwise flush them here.
+    packageObjects.foreach(pendingPackageObjects += _)
+    if (ctx.owner.is(Package))
+      val flushed = withInjections ++ pendingPackageObjects.view.flatMap(_.trees)
+      pendingPackageObjects.clear()
+      flushed
+    else withInjections
   end transformStats
 
   override def prepareForUnit(tree: Tree)(using Context): Context =

@@ -30,6 +30,14 @@ class DesignArgsCLISpec extends FunSuite:
   private val ansiRe = "\u001b\\[[;\\d]*[A-Za-z]".r
 
   private def runCLI(args: String*): String =
+    captureMain(DesignArgsCLIHelper.invokeTopTestCLIFoo, args)
+
+  // Same capture harness, but drives the entry point generated for a design
+  // nested inside an object (a top-level `app.nestedcli_NestedCLIFoo` object).
+  private def runNestedCLI(args: String*): String =
+    captureMain(DesignArgsCLIHelper.invokeTopNestedCLIFoo, args)
+
+  private def captureMain(invoke: Array[String] => Unit, args: Seq[String]): String =
     val buf = new ByteArrayOutputStream()
     val ps = new PrintStream(buf, /*autoFlush = */ true, "UTF-8")
     val savedOut = System.out
@@ -39,12 +47,12 @@ class DesignArgsCLISpec extends FunSuite:
     try
       Console.withOut(ps):
         Console.withErr(ps):
-          DesignArgsCLIHelper.invokeTopTestCLIFoo(args.toArray)
+          invoke(args.toArray)
     finally
       System.setOut(savedOut)
       System.setErr(savedErr)
     ansiRe.replaceAllIn(buf.toString("UTF-8"), "")
-  end runCLI
+  end captureMain
 
   // --------------------------------------------------------------------
   // 1. Help output: every param listed, synthetic defaults suppressed,
@@ -126,6 +134,15 @@ class DesignArgsCLISpec extends FunSuite:
     val ex = intercept[IllegalArgumentException]:
       runCLI("--nocache", "--f", "zzz", "elaborate")
     assert(clue(ex.getMessage).contains("f"))
+
+  // --------------------------------------------------------------------
+  // 4. A design nested inside an object gets its entry point in a generated
+  //    top-level object (`app.nestedcli_NestedCLIFoo`). Verify it is runnable
+  //    and that a CLI override still propagates into elaboration.
+  // --------------------------------------------------------------------
+  test("nested design generates a runnable top-level entry object"):
+    val out = runNestedCLI("--nocache", "--a", "9", "elaborate", "--print-elaborate")
+    assert(clue(out).contains("val a: Int <> CONST = 9"))
 
   // --------------------------------------------------------------------
   // Helpers
