@@ -32,4 +32,13 @@ class DFStringSpec extends DFSpec:
       val ifTest = s1 + (if (t4) s2 else " Everyone")
     }
   }
+  test("non-ASCII string values are rejected") {
+    assertRuntimeErrorLog(
+      """|Unsupported non-ASCII character in DFHDL string value.
+         |Found character 'é' (U+00E9) at index 3.
+         |Only ASCII characters are supported in DFHDL string values.""".stripMargin
+    ) {
+      val s: String <> CONST = "café"
+    }
+  }
 end DFStringSpec

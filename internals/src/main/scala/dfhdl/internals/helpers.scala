@@ -21,6 +21,11 @@ extension (text: String)
     else
       text.linesIterator
 
+  /** Index of the first non-ASCII character (code point > 127), or -1 if the string is pure ASCII.
+    */
+  def firstNonASCIIIndex: Int = text.indexWhere(_ > 127)
+  def isASCII: Boolean = firstNonASCIIIndex < 0
+
 transparent inline def showTree[T](inline arg: T): Unit = ${
   showTreeMacro[T]('arg)
 }
@@ -491,7 +496,7 @@ object AnnotatedWith:
       // alive so the annotation's downstream implicits (option defaults, etc.) can
       // still resolve at the broadest bound — callers that depend on a specific Out
       // will surface the mismatch later.
-      case None      => '{ annotWith[T, UB, UB] }
+      case None => '{ annotWith[T, UB, UB] }
   end annotWithMacro
 end AnnotatedWith
 

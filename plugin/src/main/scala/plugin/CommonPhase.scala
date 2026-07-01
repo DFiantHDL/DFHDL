@@ -243,11 +243,24 @@ abstract class CommonPhase extends PluginPhase:
         pattern.findFirstMatchIn(docstring) match
           case Some(m) => Some(m.group(1).trim)
           case None    => None
+      def asciiCheck(doc: String): String =
+        val idx = doc.indexWhere(_ > 127)
+        if (idx >= 0)
+          val ch = doc(idx)
+          report.error(
+            f"""|Unsupported non-ASCII character in DFHDL documentation comment.
+                |Found character '$ch' (U+${ch.toInt}%04X) at index $idx.
+                |Only ASCII characters are supported in DFHDL documentation.""".stripMargin,
+            sym.srcPos
+          )
+        doc
+      // Params and constructors delegate to the owner's docString, which is already
+      // ASCII-checked here, so the check is applied only at the extraction source.
       if (sym.is(Param))
         sym.owner.docString.flatMap(d => extractParamDescription(d, sym.name.toString))
       else if (sym.isConstructor)
         sym.owner.docString
-      else ctx.docCtx.flatMap(_.docstring(sym)).map(_.raw).map(extract)
+      else ctx.docCtx.flatMap(_.docstring(sym)).map(_.raw).map(extract).map(asciiCheck)
     end docString
 
     def staticAnnotations(using Context): List[Annotations.Annotation] =
