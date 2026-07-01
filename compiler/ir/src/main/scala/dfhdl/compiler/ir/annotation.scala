@@ -65,6 +65,18 @@ object constraints:
       if (this == that) Some(this) else None
     def updateBitIdx(bitIdx: ConfigN[Int]): SigConstraint
     val bitIdx: ConfigN[Int]
+  final case class PlatformID(
+      platformName: String
+  ) extends GlobalConstraint derives CanEqual, ReadWriter:
+    protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs(using RefGen): this.type = this
+    def codeString(using Printer): String =
+      val params = List(
+        csParam("platformName", platformName)
+      ).filter(_.nonEmpty).mkString(", ")
+      s"""@platformID($params)"""
+  end PlatformID
   final case class DeviceID(
       vendor: DeviceID.Vendor,
       deviceName: String,
