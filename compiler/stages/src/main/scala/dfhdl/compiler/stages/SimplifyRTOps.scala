@@ -16,15 +16,16 @@ import scala.annotation.tailrec
   * ==Rule 1: Rising/falling edge simplification==
   *
   * `rising` and `falling` predicates on a `Bit` signal are replaced with register-based edge
-  * detection expressions:
+  * detection expressions. Since `rising`/`falling` are Boolean-typed, the bit-level expression is
+  * converted back to Boolean with `.bool`:
   * {{{
   * // Before
   * i.rising
   * i.falling
   *
   * // After
-  * (!i.reg(1, init = 1)) && i
-  * i.reg(1, init = 0) && (!i)
+  * ((!i.reg(1, init = 1)) && i).bool
+  * (i.reg(1, init = 0) && (!i)).bool
   * }}}
   *
   * ==Rule 2: Boolean wait → while loop==
@@ -165,11 +166,14 @@ case object SimplifyRTOps extends HierarchyStage:
           dfhdl.core.DomainType.RT
         ):
           val argFE = arg.asValOf[dfhdl.core.DFBit]
+          // `rising`/`falling` are Boolean-typed, so the bit-level edge expression is converted to
+          // Boolean via `.bool`; a raw `!`/`&&` result would be a Bit and violate the
+          // FullReplacement type-preservation invariant.
           op match
             case FuncOp.rising =>
-              (!argFE.reg(1, init = 1)).&&(argFE)(using dfc.setMeta(trigger.meta))
+              ((!argFE.reg(1, init = 1)) && argFE).bool(using dfc.setMeta(trigger.meta))
             case FuncOp.falling =>
-              argFE.reg(1, init = 0).&&(!argFE)(using dfc.setMeta(trigger.meta))
+              (argFE.reg(1, init = 0) && (!argFE)).bool(using dfc.setMeta(trigger.meta))
         Some(dsn.patch)
 
       case waitMember @ Wait(triggerRef = DFRef(trigger @ DFBoolOrBit.Val(_)))

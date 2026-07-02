@@ -74,8 +74,8 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val i = Bit <> IN
          |  process:
          |    x.din := 1
-         |    x.din := (!i.reg(1, init = 1)) && i
-         |    x.din := i.reg(1, init = 0) && (!i)
+         |    x.din := ((!i.reg(1, init = 1)) && i).bool.bit
+         |    x.din := (i.reg(1, init = 0) && (!i)).bool.bit
          |    while (!i)
          |    end while
          |    val MyWait = while ((!i.reg(1, init = 0)) || i)
