@@ -764,6 +764,11 @@ trait Simulator extends Tool:
       to: SimulatorOptions,
       getSet: MemberGetSet
   ): List[dfhdl.tools.ForeignSimHook.Bound] =
+    // the top design's `@platformID(...)` name, if annotated (e.g. a hook may map it to a viewer
+    // board). Read once here (the same for every hook) since the hook only sees the generic context.
+    val platformID = getSet.designDB.top.dclMeta.annotations.collectFirst {
+      case a: constraints.PlatformID => a.platformName
+    }
     foreignBlocks
       .filter(_.foreignIPSource.exists(_.simHookClass.nonEmpty))
       // one hook instance per hook class: sibling IPs in a bundle (e.g. control + flag) share a
@@ -773,10 +778,11 @@ trait Simulator extends Tool:
         val fsrc = b.foreignIPSource.get
         loadForeignSimHook(fsrc.simHookClass).map { hook =>
           val ipDir = os.Path(execPath, os.pwd) / os.RelPath(fsrc.resourcePath)
-          val base = new dfhdl.tools.ForeignSimContext(b.dclName, ipDir, topName)
+          val base = new dfhdl.tools.ForeignSimContext(b.dclName, ipDir, topName, platformID)
           dfhdl.tools.ForeignSimHook.bind(hook, base)
         }
       }
+  end foreignSimHooks
 
   private def loadForeignSimHook(fqn: String): Option[dfhdl.tools.ForeignSimHook[?]] =
     // a Scala `object`'s runtime class carries a trailing `$` and exposes its singleton via the

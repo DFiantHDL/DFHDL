@@ -7,6 +7,7 @@ import dfhdl.options.SimulatorOptions
   *   - [[ipName]]: the IP name (its `dfhdl-ips/<ipName>` subfolder)
   *   - [[ipDir]]: the committed IP folder in the project (`<project>/dfhdl-ips/<ipName>`)
   *   - [[topName]]: the top design name being simulated
+  *   - [[platformID]]: the top design's `@platformID(...)` name, if annotated (e.g. `ulx3s`)
   *
   * An IP that needs more (test/capture config, per-run state, …) extends this with its own context
   * type and carries it through the whole lifecycle — DFHDL never needs to know those specifics.
@@ -14,7 +15,8 @@ import dfhdl.options.SimulatorOptions
 open class ForeignSimContext(
     val ipName: String,
     val ipDir: os.Path,
-    val topName: String
+    val topName: String,
+    val platformID: Option[String] = None
 )
 
 /** A hook a foreign IP can register to run code around a DFHDL-driven simulation (e.g. launch a
