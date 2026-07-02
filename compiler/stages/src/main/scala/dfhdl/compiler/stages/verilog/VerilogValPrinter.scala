@@ -245,6 +245,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             s"$relValStr[${toWidthRef.uboundCS}:0]"
         if (printer.allowSignedKeywordAndOps) s"$$unsigned($truncated)"
         else truncated
+      case (DFBit, DFBits(_)) =>
+        s"$relValStr[0]"
       case (DFUInt(_), DFBits(_)) =>
         relValStr
       case (DFBits(_), DFUInt(_)) =>
