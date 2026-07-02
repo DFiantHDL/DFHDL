@@ -1841,13 +1841,13 @@ class PrintVHDLCodeSpec extends StageSpec:
 
   test("foreign blackbox: instance emitted, no entity generated") {
     class vga_monitor extends EDBlackBox.ForeignIP:
-      val hsync = Bit     <> IN
-      val vsync = Bit     <> IN
-      val r     = Bits(8) <> IN
-      val g     = Bits(8) <> IN
-      val b     = Bits(8) <> IN
-      override protected def clsName    = "dfhdl.ips.video.vga.vga_monitor"
-      override protected def vhpiLib    = "vga_monitor_vhpi"
+      val hsync                      = Bit     <> IN
+      val vsync                      = Bit     <> IN
+      val r                          = Bits(8) <> IN
+      val g                          = Bits(8) <> IN
+      val b                          = Bits(8) <> IN
+      override protected def clsName = "dfhdl.ips.video.vga.vga_monitor"
+      override protected def vhpiLib = "vga_monitor_vhpi"
 
     class Foo extends EDDesign:
       val hsync = Bit     <> IN
@@ -1887,17 +1887,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  signal mon_vsync : std_logic;
          |  signal mon_hsync : std_logic;
          |  signal mon_r : std_logic_vector(7 downto 0);
-         |  component vga_monitor is
-         |  port (
-         |    hsync : in std_logic;
-         |    vsync : in std_logic;
-         |    r : in std_logic_vector(7 downto 0);
-         |    g : in std_logic_vector(7 downto 0);
-         |    b : in std_logic_vector(7 downto 0)
-         |  );
-         |  end component vga_monitor;
          |begin
-         |  mon : vga_monitor port map (
+         |  mon : entity work.vga_monitor(rtl) port map (
          |    b => mon_b,
          |    g => mon_g,
          |    vsync => mon_vsync,
