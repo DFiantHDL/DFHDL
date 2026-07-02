@@ -17,6 +17,13 @@ import scala.annotation.tailrec
   * must appear at the design (module) level. VHDL `process` blocks DO support variable
   * declarations, so only conditional-block-level declarations need lifting in VHDL.
   *
+  * ==REG exception==
+  *
+  * A register declaration (`VAR.REG`) holds state across clock cycles and must be emitted as a
+  * design-level signal rather than a process variable. Therefore, under VHDL, a `REG` declaration is
+  * always moved out to the design level (before the process block), exactly as under Verilog — the
+  * VHDL "keep inside the process" rules below apply only to non-`REG` local variables and constants.
+  *
   * ==Rules==
   *
   * ===Rule 1: Declarations inside conditional blocks===
@@ -113,18 +120,21 @@ case object DropLocalDcls extends HierarchyStage:
   override def dependencies: List[Stage] = List(ExplicitNamedVars)
   override def nullifies: Set[Stage] = Set()
   def transformSubDB(rootDB: DB)(using getSet: MemberGetSet, co: CompilerOptions, rg: RefGen): DB =
-    val keepProcessDcls = co.backend.isVHDL
     val patches = subDB.members.view
       // only var or constant declarations,
       // and we also require their anonymous dependencies
       .flatMap {
         // skip iterator declarations
-        case IteratorDcl()                 => None
-        case m @ DclVar()                  => m.collectRelMembers(includeOrigVal = true)
-        case m @ DclConst() if !m.isGlobal => m.collectRelMembers(includeOrigVal = true)
+        case IteratorDcl() => None
+        // A REG declaration holds state across clock cycles and must become a
+        // design-level signal (it cannot be a VHDL process variable), so under
+        // VHDL it is moved out of the process just like under Verilog.
+        case m @ DclVar()                  => Some(m -> (co.backend.isVHDL && !m.isReg))
+        case m @ DclConst() if !m.isGlobal => Some(m -> co.backend.isVHDL)
         case _                             => None
       }
-      .flatMap(dclMovePatch(_, keepProcessDcls))
+      .flatMap: (dcl, keepProcessDcls) =>
+        dcl.collectRelMembers(includeOrigVal = true).flatMap(dclMovePatch(_, keepProcessDcls))
       .toList
     subDB.patch(patches)
   end transformSubDB
