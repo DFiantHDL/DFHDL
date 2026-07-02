@@ -33,6 +33,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_cfg() extends Rst
          |
          |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
@@ -85,6 +86,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_cfg() extends Rst
          |
          |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
@@ -108,6 +110,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       """|case class Clk_cfg() extends Clk
          |
          |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.falling, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val clk = Clk_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val r1 = SInt(16) <> VAR init sd"16'0"
@@ -131,6 +134,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_cfg() extends Rst
          |
          |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
@@ -173,6 +177,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_cfg() extends Rst
          |
          |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
@@ -191,6 +196,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end ID
          |
          |class IDTop extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
@@ -220,6 +226,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_cfg() extends Rst
          |
          |class Counter(val width: Int <> CONST = 8) extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val cnt = Bits(width) <> OUT
@@ -248,6 +255,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_cfg() extends Rst
          |
          |class Counter(val width: Int <> CONST = 8) extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.falling, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val cnt = UInt(width) <> OUT
@@ -290,6 +298,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_default() extends Rst
          |
          |class Test extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val rst = Rst_default <> IN
          |  val c = Boolean <> IN
@@ -331,6 +340,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_default() extends Rst
          |
          |class Test extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val rst = Rst_default <> IN
          |  val c = Boolean <> IN
@@ -392,6 +402,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       """|case class Clk_default() extends Clk
          |
          |class Test extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val y = Bit <> OUT
          |  val status = UInt(8) <> VAR
@@ -455,6 +466,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end ID
          |
          |class IDTop extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val rst = Rst_default <> IN
          |  val x = SInt(16) <> IN
@@ -518,12 +530,14 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val dmn1 = new EDDomain:
+         |    @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |    val clk = Clk_default <> IN
          |    val rst = Rst_default <> IN
          |    val id = ID()
          |    id.x <> x
          |  end dmn1
          |  val dmn2 = new EDDomain:
+         |    @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |    val clk = Clk_default <> IN
          |    val rst = Rst_default <> IN
          |    val dmn1_id_y_reg = SInt(16) <> VAR
@@ -587,6 +601,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_default() extends Rst
          |
          |class IDTop extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val rst = Rst_default <> IN
          |  val x = SInt(16) <> IN
@@ -620,6 +635,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_cfg() extends Rst
          |
          |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val clk = Clk_cfg <> IN
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
@@ -673,6 +689,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val DATA_WIDTH: Int <> CONST = 32,
          |    val REG_NUM: Int <> CONST = 32
          |) extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val regs = Bits(DATA_WIDTH) X REG_NUM <> VAR
          |  val rs1 = new EDDomain:
@@ -861,6 +878,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_default() extends Rst
          |
          |class FooChild extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val rst = Rst_default <> IN
          |  val y = UInt(8) <> OUT
@@ -872,6 +890,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end FooChild
          |
          |class Foo extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val rst = Rst_default <> IN
          |  val child = FooChild()
@@ -903,6 +922,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_default() extends Rst
          |
          |class Foo(val PORT_WIDTH: Int <> CONST = 5) extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val rst = Rst_default <> IN
          |  val r = Bits(PORT_WIDTH) <> OUT
@@ -944,6 +964,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |case class Rst_default() extends Rst
          |
          |class Foo(val PORT_WIDTH: Int <> CONST = 5) extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val rst = Rst_default <> IN
          |  val r = Bits(PORT_WIDTH) <> OUT
@@ -992,6 +1013,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  enum State(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
          |    case S0 extends State(d"1'0")
          |
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val rst = Rst_default <> IN
          |  val x = Bit <> IN
@@ -1027,6 +1049,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       """|case class Clk_default() extends Clk
          |
          |class Foo extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val clk = Clk_default <> IN
          |  val FooStr: Bits[8] X 12 <> CONST = DFVector(Bits(8) X 12)(h"48", h"65", h"6c", h"6c", h"6f", h"20", h"57", h"6f", h"72", h"6c", h"64", h"21")
          |  val z = Bit <> IN

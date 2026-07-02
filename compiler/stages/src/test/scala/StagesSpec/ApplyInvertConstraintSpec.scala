@@ -61,6 +61,7 @@ class ApplyInvertConstraintSpec extends StageSpec:
       """|case class Clk_cfg() extends Clk
          |
          |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val clk = Clk_cfg <> IN
          |  val x = Bit <> IN
          |  @io(loc = "yloc")

@@ -352,6 +352,14 @@ case object ToED extends HierarchyStage:
     val firstPart = subDB.patch(patchList)
     locally {
       import firstPart.getSet
+      // Walk the `@timing.related` chain from a domain owner to the originating owner
+      // whose meta carries the actual resolved clk/rst annotations.
+      @tailrec def resolveTimingOwner(o: DFDomainOwner): DFDomainOwner =
+        o.meta.annotations.collectFirst {
+          case rel: constraints.Timing.Related => rel.ref.get
+        } match
+          case Some(t) => resolveTimingOwner(t)
+          case None    => o
       val patchList = firstPart.members.collect {
         case dcl: DFVal.Dcl if dcl.isReg =>
           // if the domain has no reset, then the register init is preserved for the signal
@@ -359,12 +367,6 @@ case object ToED extends HierarchyStage:
           // an owner that has `@timing.clock` but no `@timing.reset` (the user-explicit
           // no-reset opt-out implemented in `getResolvedClkRst`).
           val ownerDomain = dcl.getOwnerDomain
-          @tailrec def resolveTimingOwner(o: DFDomainOwner): DFDomainOwner =
-            o.meta.annotations.collectFirst {
-              case rel: constraints.Timing.Related => rel.ref.get
-            } match
-              case Some(t) => resolveTimingOwner(t)
-              case None    => o
           val timingOwner = resolveTimingOwner(ownerDomain)
           val annots = timingOwner.meta.annotations
           val hasClkAnnot =
@@ -398,7 +400,30 @@ case object ToED extends HierarchyStage:
               domain.copy(domainType = DomainType.ED, meta = stripTimingAnnotations(domain.meta))
           domainOwner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
       }
-      firstPart.patch(patchList)
+      // Transfer the resolved `@timing.clock` constraint from the owner domain onto the
+      // clock input port. In RT the domain owner is the canonical carrier of the timing
+      // configuration, but once we lower to ED the owner's timing annotations are stripped
+      // (see the owner case above), so the clock rate/edge would otherwise be lost. Moving
+      // the annotation onto the port keeps it available for downstream timing-constraint
+      // generation (e.g. the SDC `create_clock` in `BuilderProjectTimingConstraints`, which
+      // reads `@timing.clock` off the top-level clock port).
+      val clkPatchList = firstPart.members.flatMap {
+        case dcl: DFVal.Dcl if dcl.isClkDcl && dcl.isPortIn =>
+          val alreadyHasClk = dcl.meta.annotations.exists {
+            case _: constraints.Timing.Clock => true; case _ => false
+          }
+          if (alreadyHasClk) None
+          else
+            resolveTimingOwner(dcl.getOwnerDomain).meta.annotations.collectFirst {
+              case c: constraints.Timing.Clock => c
+            }.map { clkAnnot =>
+              val updatedDcl =
+                dcl.setMeta(_.copy(annotations = dcl.meta.annotations :+ clkAnnot))
+              dcl -> Patch.Replace(updatedDcl, Patch.Replace.Config.FullReplacement)
+            }
+        case _ => None
+      }
+      firstPart.patch(patchList ++ clkPatchList)
     }
   end transformSubDB
 end ToED
