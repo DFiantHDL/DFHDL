@@ -116,7 +116,7 @@ class DiamondProjectTclConfigPrinter(using
          |${vhdl2008SynthStrategy}
          |${verilogStandard}
          |prj_src add ${hdlFiles.map("\"" + _ + "\"").mkString(" ")}
-         |prj_impl option top Demo
+         |prj_impl option top $topName
          |prj_project save
          |prj_src add "./$topName.ldc"
          |prj_run Export -impl impl1 -task Bitgen
