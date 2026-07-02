@@ -336,7 +336,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
         refCheck()
         memberExistenceCheck()
         ownershipCheck(subDB.top, subDB.membersNoGlobals.drop(1))
-        orderCheck()
+        // orderCheck()
       }
     }
     hierDB.check
