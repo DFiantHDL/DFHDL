@@ -133,6 +133,23 @@ case object SimplifyRTOps extends HierarchyStage:
         case _: Wait => true
         case _       => false
       }
+    // A member this pass will rewrite (Rules 1-4). A for loop must not be rewritten in the same
+    // pass as any transformable member inside its body (an inner for loop, wait, or edge trigger),
+    // or their patches interleave and break the flat-list ownership invariant. Such for loops are
+    // deferred to a later pass (see `transformRepeatedly`). The predicate must match the rewrite
+    // conditions exactly: a for loop whose body holds only non-transforming members (e.g. a
+    // `1.cy.wait`) must still be rewritten, so it cannot over-approximate.
+    def transformsThisPass(member: DFMember): Boolean = member match
+      case fb: DFLoop.DFForBlock => isTransformableForLoop(fb)
+      case trigger @ DFVal.Func(op = FuncOp.rising | FuncOp.falling, args = List(DFRef(_))) =>
+        trigger.isInRTDomain && !trigger.isAnonReferencedByWait
+      case waitMember @ Wait(triggerRef = DFRef(DFBoolOrBit.Val(_))) =>
+        waitMember.isInRTDomain
+      case Wait(triggerRef = DFRef(cyclesVal @ DFDecimal.Val(DFUInt(_)))) =>
+        cyclesVal match
+          case DFVal.Const(data = Some(value: BigInt)) if value == 1 => false
+          case _                                                     => true
+      case _ => false
     subDB.members.view.flatMap {
       case trigger @ DFVal.Func(
             _,
@@ -234,15 +251,12 @@ case object SimplifyRTOps extends HierarchyStage:
         end if
 
       // replace RT for loops with while loops + iterator VAR.REG + increment at end of body.
-      // Only rewrite the innermost transformable for loop in each pass (one whose body contains no
-      // further transformable for loop); outer loops are handled in subsequent passes (see
-      // `transformRepeatedly`).
+      // Only rewrite a for loop whose body contains no other member this pass transforms (inner for
+      // loops, waits, edges); outer/enclosing loops are handled in subsequent passes (see
+      // `transformRepeatedly` and `transformsThisPass`).
       case forBlock: DFLoop.DFForBlock
           if isTransformableForLoop(forBlock) &&
-            !forBlock.members(MemberView.Flattened).exists {
-              case inner: DFLoop.DFForBlock => isTransformableForLoop(inner)
-              case _                        => false
-            } =>
+            !forBlock.members(MemberView.Flattened).exists(transformsThisPass) =>
         val iteratorDcl = forBlock.iteratorRef.get
         val range = forBlock.rangeRef.get
         val startBigInt: BigInt = range.startRef.get match

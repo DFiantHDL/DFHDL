@@ -316,4 +316,36 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("nested RT for loop, while and wait") {
+    class Foo extends RTDesign:
+      val o = Int <> OUT.REG
+      process:
+        for (i <- 0 until 10)
+          while (true)
+            o.din := 0
+            wait(20.ms)
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val o = Int <> OUT.REG
+         |  process:
+         |    val i = Int <> VAR.REG
+         |    i.din := 0
+         |    while (i < 10)
+         |      while (true)
+         |        o.din := 0
+         |        val waitCnt = UInt(20) <> VAR.REG
+         |        waitCnt.din := d"20'0"
+         |        while (waitCnt != d"20'999999")
+         |          waitCnt.din := waitCnt + d"20'1"
+         |        end while
+         |      end while
+         |      i.din := i + 1
+         |    end while
+         |end Foo""".stripMargin
+    )
+  }
+
 end SimplifyRTOpsSpec
