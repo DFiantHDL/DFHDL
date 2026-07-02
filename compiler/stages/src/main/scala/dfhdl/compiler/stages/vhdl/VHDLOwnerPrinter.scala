@@ -151,8 +151,13 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         }
         .map(printer.csDFMember)
         .mkString("\n")
+    // Foreign IPs supply their own HDL wrapper (compiled into the `work` library at simulate
+    // time), so they are instanced directly via `entity work.<name>(rtl)` and need no component
+    // declaration here. Other blackboxes (e.g. vendor IPs) still require a component declaration.
     val components = designMembers.view.collect {
-      case inst: DFDesignInst if inst.getDesignBlock.isBlackBox => inst.getDesignBlock
+      case inst: DFDesignInst
+          if inst.getDesignBlock.isBlackBox && !inst.getDesignBlock.isForeignIPBlackbox =>
+        inst.getDesignBlock
     }.map(bb => printerForDesign(bb).csEntityDcl(bb, asComponent = true)).mkString("\n")
     val declarations =
       sn"""|$constIntDcls
@@ -192,9 +197,13 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val designParamCS =
       if (designParamList.isEmpty || design.isVendorIPBlackbox) ""
       else " generic map (" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
-    // for blackboxes we use component declaration, so the header is just the entity name
     val header =
-      if (design.isBlackBox) entityName(design)
+      // Foreign IPs are compiled into the `work` library from their bundled wrapper, so they are
+      // instanced directly like regular designs. Their wrapper always uses the `rtl` architecture.
+      if (design.isForeignIPBlackbox) s"entity work.${entityName(design)}(rtl)"
+      // other blackboxes (e.g. vendor IPs) use a component declaration, so the header is just the
+      // entity name
+      else if (design.isBlackBox) entityName(design)
       else s"entity work.${entityName(design)}(${archName(design)})"
     val instCS = s"${inst.getName} : $header${designParamCS}"
     if (body.isEmpty) s"$instCS;" else s"$instCS port map (\n${body.hindent}\n);"
