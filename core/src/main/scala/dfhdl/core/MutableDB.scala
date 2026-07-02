@@ -372,28 +372,35 @@ final class MutableDB():
           connectedDclResourceMap -= fromPort
           connectedDclResourceMap += toPort -> connections
         case None => // do nothing
-    def getConstrainedDcls(): Map[DFVal.Dcl, DFVal.Dcl] =
-      connectedDclResourceMap.map { case (dcl, connections) =>
-        // assuming constrained dcls have known width
-        val dclWidth = dcl.widthIntOpt.get
-        // separate existing constraints from other annotations
-        val (existingSigConstraints, otherAnnotations) = dcl.meta.annotations.partition {
-          case cs: SigConstraint => true
-          case _                 => false
-        }.asInstanceOf[(List[SigConstraint], List[HWAnnotation])]
-        // collect all constraints from the resources that are connected to this dcl
-        val newSigConstraints = connections.flatMap { case (range, resource) =>
+    /** The effective signal constraints for a declaration: those already on its `meta` merged with
+      * those contributed by any connected platform resources. The resource-derived constraints are
+      * only written onto the member during [[getConstrainedDcls]] at DB commit; this exposes the
+      * same result on demand (e.g. for elaboration-time inspection of a port's pin locations).
+      */
+    def getDclSigConstraints(dcl: DFVal.Dcl): List[SigConstraint] =
+      // assuming constrained dcls have known width
+      val dclWidth = dcl.widthIntOpt.get
+      // existing constraints already on the declaration's meta
+      val existingSigConstraints = dcl.meta.annotations.collect { case cs: SigConstraint => cs }
+      // collect all constraints from the resources that are connected to this dcl
+      val newSigConstraints = connectedDclResourceMap.getOrElse(dcl, Nil).flatMap {
+        case (range, resource) =>
           if (range.length != dclWidth) resource.allSigConstraints.flatMap { cs =>
             for (i <- range) yield cs.updateBitIdx(i)
           }
           else resource.allSigConstraints
+      }
+      // merge the existing constraints with the new constraints
+      (existingSigConstraints ++ newSigConstraints).merge.consolidate(dclWidth)
+    end getDclSigConstraints
+    def getConstrainedDcls(): Map[DFVal.Dcl, DFVal.Dcl] =
+      connectedDclResourceMap.map { case (dcl, _) =>
+        // preserve non-SigConstraint annotations, replacing the SigConstraints with the merged set
+        val otherAnnotations = dcl.meta.annotations.filterNot {
+          case cs: SigConstraint => true
+          case _                 => false
         }
-        // merge the existing constraints with the new constraints
-        val updatedSigConstraints = (existingSigConstraints ++ newSigConstraints).merge.consolidate(
-          dclWidth
-        )
-        // merge all other annotations
-        val updatedAnnotations = updatedSigConstraints ++ otherAnnotations
+        val updatedAnnotations = getDclSigConstraints(dcl) ++ otherAnnotations
         dcl -> dcl.copy(meta = dcl.meta.copy(annotations = updatedAnnotations))
       }.toMap
     end getConstrainedDcls
