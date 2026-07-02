@@ -498,10 +498,10 @@ class DFApp:
             // the build sub-step (run before programming) must use the matching tool family, so
             // that `program -t foss` both builds and programs with the open-source flow.
             builderOptions = builderOptions.copy(
-              location = toToolsLocation(mode.`tools-location`.toOption.get),
-              tool = toolName match
-                case "foss"   => dfhdl.tools.builders.foss
-                case "vendor" => dfhdl.tools.builders.vendor
+              location = toToolsLocation(mode.`tools-location`.toOption.get)
+              // tool = toolName match
+              //   case "foss"   => dfhdl.tools.builders.foss
+              //   case "vendor" => dfhdl.tools.builders.vendor
             )
             // if the programmer is set to flash, then the builder must be set to flash
             if (mode.flash.toOption.get)
