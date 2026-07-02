@@ -20,6 +20,15 @@ object Diamond extends Builder:
   val toolName: String = "Diamond"
   protected def binExec: String = "diamondc"
   override protected def windowsBinExec: String = "pnmainc.exe"
+  // Lattice's `synthesis`/`map`/`par` engines are NeoCAD-derived and read environment variables
+  // named after their single-letter command-line options as option defaults. The sbt Windows
+  // launcher leaks its internal `p` variable (sbt's global base, e.g.
+  // `C:\Users\<user>\AppData\Local\sbt`) into the server JVM's environment; the engine then consumes
+  // it as its `-p` (search-path) option and aborts Bitgen with "Wrong command line option ...". Unset
+  // `p` for the Diamond process so a polluted host environment cannot corrupt the build — the
+  // `pnmainc`-spawned sub-tools inherit the scrub. Keep the base Windows DLL-search guard (execEnv).
+  override protected def execEnv: Map[String, String] =
+    super.execEnv ++ Map[String, String]("p" -> null)
   // tool does not have a version command and it will be extracted from installed path
   protected def versionCmd: String = ""
   protected def extractVersion(cmdRetStr: String): Option[String] =
