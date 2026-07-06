@@ -764,11 +764,14 @@ trait Simulator extends Tool:
       to: SimulatorOptions,
       getSet: MemberGetSet
   ): List[dfhdl.tools.ForeignSimHook.Bound] =
-    // the top design's `@platformID(...)` name, if annotated (e.g. a hook may map it to a viewer
+    // the design's `@platformID(...)` name, if annotated (e.g. a hook may map it to a viewer
     // board). Read once here (the same for every hook) since the hook only sees the generic context.
-    val platformID = getSet.designDB.top.dclMeta.annotations.collectFirst {
-      case a: constraints.PlatformID => a.platformName
-    }
+    // The annotation may sit on the top or on any design deeper in the hierarchy (e.g. a device-top
+    // wrapped inside a plain simulation testbench), so scan all designs (top-first) and take the
+    // first match. `designMemberList` covers the whole hierarchy for both flat and root-style DBs.
+    val platformID = getSet.designDB.designMemberList.iterator.map(_._1).flatMap {
+      _.dclMeta.annotations.collectFirst { case a: constraints.PlatformID => a.platformName }
+    }.nextOption()
     foreignBlocks
       .filter(_.foreignIPSource.exists(_.simHookClass.nonEmpty))
       // one hook instance per hook class: sibling IPs in a bundle (e.g. control + flag) share a
