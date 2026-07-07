@@ -692,6 +692,7 @@ object DFDecimal:
           tpe.asTypeOf[Any] match
             case '[DFConstInt32] => Some(arg.asExprOf[DFConstInt32])
             case '[Int]          => Some(ConstIntExpr(arg.asExprOf[Int]))
+            case '[Long]         => Some(ConstLongExpr(arg.asExprOf[Long]))
             case '[BigInt]       => Some(ConstBigIntExpr(arg.asExprOf[BigInt]))
             case '[String]       => Some(ConstStringExpr(arg.asExprOf[String]))
             case _               =>
@@ -700,6 +701,8 @@ object DFDecimal:
                 arg.asTerm.pos
               )
       def ConstIntExpr(valueExpr: Expr[Int]): Expr[DFConstAny] =
+        ConstBigIntExpr('{ BigInt($valueExpr) })
+      def ConstLongExpr(valueExpr: Expr[Long]): Expr[DFConstAny] =
         ConstBigIntExpr('{ BigInt($valueExpr) })
       def ConstStringExpr(valueExpr: Expr[String]): Expr[DFConstAny] =
         ConstBigIntExpr('{ BigInt($valueExpr) })
