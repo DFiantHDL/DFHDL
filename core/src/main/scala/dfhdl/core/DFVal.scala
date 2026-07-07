@@ -243,7 +243,7 @@ sealed protected trait DFValLP:
   }
   transparent inline implicit def DFBitValConversion[
       P <: Boolean,
-      R <: CommonR | Int | Boolean
+      R <: CommonR | Int | Boolean | BitNumWrapper
   ](
       inline from: R
   )(using dfc: DFCG): DFValTP[DFBit, ISCONST[P]] = ${
@@ -251,7 +251,7 @@ sealed protected trait DFValLP:
   }
   transparent inline implicit def DFBoolValConversion[
       P <: Boolean,
-      R <: CommonR | Int | Boolean
+      R <: CommonR | Int | Boolean | BitNumWrapper
   ](
       inline from: R
   )(using dfc: DFCG): DFValTP[DFBool, ISCONST[P]] = ${

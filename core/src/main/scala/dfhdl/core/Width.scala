@@ -31,6 +31,9 @@ object Width extends WidthLP:
   val wide: Width[DFTypeAny] = new Width[DFTypeAny]:
     type Out = Int
     type OutI = Int
+  given fromBitNumWrapper[T <: BitNumWrapper]: Width[T] with
+    type Out = 1
+    type OutI = 1
   given fromDFBoolOrBit[T <: DFBoolOrBit]: Width[T] with
     type Out = 1
     type OutI = 1
@@ -141,6 +144,7 @@ object Width extends WidthLP:
         case '[IntP.Sig]      => TypeRepr.of[Int]
         case '[Int]           => dfTpe
         case '[Boolean.type]  => ConstantType(IntConstant(1))
+        case '[BitNumWrapper] => ConstantType(IntConstant(1))
         case '[Double.type]   => ConstantType(IntConstant(64))
         case '[Byte.type]     => ConstantType(IntConstant(8))
         case '[Int.type]      => ConstantType(IntConstant(32))

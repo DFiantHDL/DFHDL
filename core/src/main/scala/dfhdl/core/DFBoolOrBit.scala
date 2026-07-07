@@ -23,7 +23,7 @@ object DFBoolOrBit:
       def conv(from: R)(using DFC): Out = apply(from)
       def apply(arg: R)(using DFC): Out
     object Candidate:
-      type Types = DFValOf[DFBoolOrBit] | Boolean | BitNum | IfWrapper[?, ?, ?]
+      type Types = DFValOf[DFBoolOrBit] | Boolean | BitNum | IfWrapper[?, ?, ?] | BitNumWrapper
       type Aux[R, T <: DFBoolOrBit, P] = Candidate[R] { type OutT = T; type OutP = P }
       type Exact = Exact0[DFC, Candidate]
       given fromBoolean[R <: Boolean]: Candidate[R] with
@@ -36,6 +36,11 @@ object DFBoolOrBit:
         type OutP = CONST
         def apply(arg: R)(using DFC): Out =
           DFVal.Const(DFBit, Some(arg > 0), named = true)
+      given fromBitNumWrapper[R <: BitNumWrapper]: Candidate[R] with
+        type OutT = DFBit
+        type OutP = CONST
+        def apply(arg: R)(using DFC): Out =
+          DFVal.Const(DFBit, Some(arg.value > 0), named = true)
       given fromDFBoolOrBitVal[T <: DFBoolOrBit, P, R <: DFValTP[T, P]]: Candidate[R] with
         type OutT = T
         type OutP = P
@@ -251,3 +256,27 @@ given CanEqual[DFBoolOrBit, DFBoolOrBit] = CanEqual.derived
 
 type DFConstBool = DFConstOf[DFBool]
 type DFConstBit = DFConstOf[DFBit]
+
+//BitNumWrapper is a wrapper for BitNum to preserve 0 or 1 values in basic operations
+//The type is also used as `Bit` in the DFHDL frontend, to allow using BitNum values in DFHDL code
+//and constructing DFBit DFHDL valeu types such as `Bit <> CONST`.
+into sealed class BitNumWrapper(val value: BitNum) extends AnyVal derives CanEqual:
+  def unary_! : BitNumWrapper = BitNumWrapper(if value == 0 then 1 else 0)
+  def unary_~ : BitNumWrapper = unary_!
+  def |(rhs: BitNumWrapper): BitNumWrapper =
+    BitNumWrapper(if value == 1 || rhs.value == 1 then 1 else 0)
+  def &(rhs: BitNumWrapper): BitNumWrapper =
+    BitNumWrapper(if value == 1 && rhs.value == 1 then 1 else 0)
+  def ^(rhs: BitNumWrapper): BitNumWrapper =
+    BitNumWrapper(if value != rhs.value then 1 else 0)
+  def &&(rhs: BitNumWrapper): BitNumWrapper = this & rhs
+  def ||(rhs: BitNumWrapper): BitNumWrapper = this | rhs
+  def ==(rhs: BitNum): Boolean = value == rhs
+  def !=(rhs: BitNum): Boolean = value != rhs
+
+object BitNumWrapper:
+  def apply(value: BitNum): BitNumWrapper = new BitNumWrapper(value)
+  given [T <: Int & Singleton](using T <:< BitNum): Conversion[T, BitNumWrapper] =
+    x => BitNumWrapper(x.asInstanceOf[BitNum])
+  given CanEqual[BitNumWrapper, BitNum] = CanEqual.derived
+  implicit def toBitNum(wrapper: BitNumWrapper): BitNum = wrapper.value

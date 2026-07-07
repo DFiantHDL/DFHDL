@@ -40,7 +40,7 @@ protected object hdl:
   export internals.Inlined
   type DFType = core.DFTypeAny
   lazy val Bit = core.DFBit
-  type Bit = core.DFBit
+  type Bit = core.BitNumWrapper
   type Bits[W <: IntP] = core.DFBits[W]
   val Bits = core.DFBits
   type UInt[W <: IntP] = core.DFUInt[W]

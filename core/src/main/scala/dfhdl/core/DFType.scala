@@ -30,16 +30,17 @@ type DFTypeAny = DFType[ir.DFType, Args]
 
 object DFType:
   type Of[T <: Supported] <: DFTypeAny = T match
-    case DFTypeAny => T & DFTypeAny
-    case Int       => DFInt32
-    case Long      => DFSInt[64]
-    case Byte      => DFBits[8]
-    case Boolean   => DFBool
-    case Double    => DFDouble
-    case DFOpaqueA => DFOpaque[T]
-    case String    => DFString
-    case Product   => FromProduct[T]
-    case Unit      => DFUnit
+    case DFTypeAny     => T & DFTypeAny
+    case BitNumWrapper => DFBit
+    case Int           => DFInt32
+    case Long          => DFSInt[64]
+    case Byte          => DFBits[8]
+    case Boolean       => DFBool
+    case Double        => DFDouble
+    case DFOpaqueA     => DFOpaque[T]
+    case String        => DFString
+    case Product       => FromProduct[T]
+    case Unit          => DFUnit
 
   type FromProduct[T <: Product] <: DFTypeAny = T match
     case DFEncoding      => DFEnum[T]
@@ -99,8 +100,7 @@ object DFType:
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
   type Supported = DFTypeAny | FieldsOrTuple | DFEncoding | DFOpaqueA | Byte | Int | Long |
-    Boolean | Double | String | Object | Unit
-
+    Boolean | Double | String | Object | Unit | BitNumWrapper
   trait TC[T]:
     type Type <: DFTypeAny
     def apply(t: T)(using DFC): Type
