@@ -2189,4 +2189,53 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
+  class FixID extends DFDesign:
+    val x                        = UFix(8, 10) <> IN
+    val y                        = UFix(8, 10) <> OUT
+    val c: UFix[8, 10] <> CONST  = d"8.10'11.223"
+    val d1: UFix[8, 10] <> CONST = 0.25
+    y := x
+    y := c
+    y := d1
+
+  class FixConv extends DFDesign:
+    val x = UFix(4, 4) <> IN
+    val y = SFix(6, 6) <> OUT
+    y <> x
+  test("Fixed-point types design") {
+    val id = (new IDGen(UFix(8, 10)))
+    assertCodeString(
+      id,
+      """|class IDGen extends DFDesign:
+         |  val x = UFix(8, 10) <> IN
+         |  val y = UFix(8, 10) <> OUT
+         |  y := x
+         |end IDGen
+         |""".stripMargin
+    )
+    val fixId = (new FixID)
+    assertCodeString(
+      fixId,
+      """|class FixID extends DFDesign:
+         |  val x = UFix(8, 10) <> IN
+         |  val y = UFix(8, 10) <> OUT
+         |  val c: UFix[8, 10] <> CONST = d"8.10'11.22265625"
+         |  val d1: UFix[8, 10] <> CONST = d"8.10'0.25"
+         |  y := x
+         |  y := c
+         |  y := d1
+         |end FixID
+         |""".stripMargin
+    )
+    val fixConv = (new FixConv)
+    assertCodeString(
+      fixConv,
+      """|class FixConv extends DFDesign:
+         |  val x = UFix(4, 4) <> IN
+         |  val y = SFix(6, 6) <> OUT
+         |  y <> x.signed.resize(6, 6)
+         |end FixConv
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

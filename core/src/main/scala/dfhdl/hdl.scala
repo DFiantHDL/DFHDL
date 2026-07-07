@@ -47,6 +47,10 @@ protected object hdl:
   val UInt = core.DFUInt
   type SInt[W <: IntP] = core.DFSInt[W]
   val SInt = core.DFSInt
+  type UFix[M <: IntP, F <: Int] = core.DFUFix[M, F]
+  val UFix = core.DFUFix
+  type SFix[M <: IntP, F <: Int] = core.DFSFix[M, F]
+  val SFix = core.DFSFix
   type Encoded = core.DFEncoding.Default
   val Encoded = core.DFEncoding
   export core.DFStruct.Fields as Struct

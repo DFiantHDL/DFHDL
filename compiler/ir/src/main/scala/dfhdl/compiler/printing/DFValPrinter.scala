@@ -344,6 +344,16 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.toInt"
       case (DFDouble, DFNumber) =>
         s"${relValStr}.toDouble"
+      // fixed-point conversions mirror the integer ones: `.signed`/`.unsigned` sign casts and
+      // `.resize(magnitude, fraction)` reformats (the integer F==0 cases are matched above)
+      case (DFSFix(_, _), DFUFix(_, _)) =>
+        s"${relValStr}.signed"
+      case (DFUFix(_, _), DFSFix(_, _)) =>
+        s"${relValStr}.unsigned"
+      case (DFUFix(tMagnitude, tFraction), DFUFix(_, _)) =>
+        s"${relValStr}.resize(${tMagnitude.refCodeString}, $tFraction)"
+      case (DFSFix(tMagnitude, tFraction), DFSFix(_, _)) =>
+        s"${relValStr}.resize(${tMagnitude.refCodeString}, $tFraction)"
       case _ =>
         throw new IllegalArgumentException("Unsupported alias/conversion")
     end match

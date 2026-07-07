@@ -215,15 +215,23 @@ end DFBits
 /////////////////////////////////////////////////////////////////////////////
 final case class DFDecimal(
     signed: Boolean,
-    widthParamRef: IntParamRef,
+    // the magnitude (integer-part) width, including the sign bit for signed values. The
+    // total bit width is `magnitudeWidthParamRef + fractionWidth`; for integer types
+    // (fractionWidth == 0) the magnitude width *is* the total width.
+    magnitudeWidthParamRef: IntParamRef,
     fractionWidth: Int,
     // currently nativeType only applies when width is 32-bit and is indicating
     // an `Int` in DFHDL, an `integer` in VHDL, and `int` in Verilog
     nativeType: DFDecimal.NativeType
 ) extends DFType derives ReadWriter:
   type Data = Option[BigInt]
-  def widthIntOpt(using MemberGetSet): Option[Int] = widthParamRef.getIntOpt
-  def magnitudeWidthUNSAFE(using MemberGetSet): Int = widthUNSAFE - fractionWidth
+  def magnitudeWidthIntOpt(using MemberGetSet): Option[Int] = magnitudeWidthParamRef.getIntOpt
+  def magnitudeWidthUNSAFE(using MemberGetSet): Int = magnitudeWidthParamRef.getIntUNSAFE
+  // total bit width = magnitude + fraction. The magnitude may be a parametric integer
+  // width (fraction == 0), so this is an Option; fixed-point magnitudes are always
+  // constant, so the total width of a fixed-point type is always known.
+  def widthIntOpt(using MemberGetSet): Option[Int] =
+    magnitudeWidthParamRef.getIntOpt.map(_ + fractionWidth)
   def isDFInt32: Boolean = this == DFInt32
   def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
@@ -232,27 +240,26 @@ final case class DFDecimal(
     case None        => (BitVector.low(widthUNSAFE), BitVector.high(widthUNSAFE))
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data =
     if (data._2.isZeros)
-      (signed, fractionWidth) match
-        // DFUInt
-        case (false, 0) => Some(data._1.toBigInt(false).asUnsigned(widthUNSAFE))
-        // DFSInt
-        case (true, 0) => Some(data._1.toBigInt(true))
-        // DFUFix/DFSFix
-        case _ => ??? // not supported yet
+      // the data is the raw scaled integer (value = raw / 2^fractionWidth), so the
+      // conversion is identical for DFUInt/DFSInt and DFUFix/DFSFix
+      if (signed) Some(data._1.toBigInt(true))
+      else Some(data._1.toBigInt(false).asUnsigned(widthUNSAFE))
     else None
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFDecimal =>
-      this.signed == that.signed && this.widthParamRef =~ that.widthParamRef &&
+      this.signed == that.signed &&
+      this.magnitudeWidthParamRef =~ that.magnitudeWidthParamRef &&
       this.fractionWidth == that.fractionWidth && this.nativeType == that.nativeType
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFDecimal =>
-      this.signed == that.signed && this.widthParamRef.isSimilarTo(that.widthParamRef) &&
+      this.signed == that.signed &&
+      this.magnitudeWidthParamRef.isSimilarTo(that.magnitudeWidthParamRef) &&
       this.fractionWidth == that.fractionWidth && this.nativeType == that.nativeType
     case _ => false
-  lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
+  lazy val getRefs: List[DFRef.TypeRef] = magnitudeWidthParamRef.getRef.toList
   def copyWithNewRefs(using RefGen): this.type =
-    copy(widthParamRef = widthParamRef.copyAsNewRef).asInstanceOf[this.type]
+    copy(magnitudeWidthParamRef = magnitudeWidthParamRef.copyAsNewRef).asInstanceOf[this.type]
   def defaultData(using MemberGetSet): Data = Some(BigInt(0))
 end DFDecimal
 
@@ -287,6 +294,28 @@ object DFSInt:
     arg match
       case DFDecimal(true, width, 0, BitAccurate) => Some(width)
       case _                                      => None
+
+// the first extracted value is the magnitude width (integer part, incl. sign for signed).
+// A DFUInt is the degenerate `fractionWidth == 0` case, so this extractor matches it as
+// well (magnitude == total width there) — match DFUInt first when the integer case needs
+// special handling.
+object DFUFix:
+  def apply(magnitudeWidth: IntParamRef, fractionWidth: Int): DFDecimal =
+    DFDecimal(false, magnitudeWidth, fractionWidth, BitAccurate)
+  def unapply(arg: DFDecimal): Option[(IntParamRef, Int)] =
+    arg match
+      case DFDecimal(false, magnitudeWidth, fractionWidth, BitAccurate) =>
+        Some(magnitudeWidth, fractionWidth)
+      case _ => None
+
+object DFSFix:
+  def apply(magnitudeWidth: IntParamRef, fractionWidth: Int): DFDecimal =
+    DFDecimal(true, magnitudeWidth, fractionWidth, BitAccurate)
+  def unapply(arg: DFDecimal): Option[(IntParamRef, Int)] =
+    arg match
+      case DFDecimal(true, magnitudeWidth, fractionWidth, BitAccurate) =>
+        Some(magnitudeWidth, fractionWidth)
+      case _ => None
 
 final val DFInt32 = ir.DFDecimal(true, ir.IntParamRef(32), 0, Int32)
 /////////////////////////////////////////////////////////////////////////////

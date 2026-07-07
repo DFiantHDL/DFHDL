@@ -1929,13 +1929,13 @@ class PrintVerilogCodeSpec extends StageSpec:
 
   test("foreign blackbox: instance emitted, no module generated") {
     class vga_monitor extends EDBlackBox.ForeignIP:
-      val hsync = Bit     <> IN
-      val vsync = Bit     <> IN
-      val r     = Bits(8) <> IN
-      val g     = Bits(8) <> IN
-      val b     = Bits(8) <> IN
-      override protected def clsName    = "dfhdl.ips.video.vga.vga_monitor"
-      override protected def dpiLib     = "vga_monitor_dpi"
+      val hsync                      = Bit     <> IN
+      val vsync                      = Bit     <> IN
+      val r                          = Bits(8) <> IN
+      val g                          = Bits(8) <> IN
+      val b                          = Bits(8) <> IN
+      override protected def clsName = "dfhdl.ips.video.vga.vga_monitor"
+      override protected def dpiLib  = "vga_monitor_dpi"
 
     class Foo extends EDDesign:
       val hsync = Bit     <> IN
@@ -1982,6 +1982,100 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  assign mon_r = r;
          |  assign mon_g = g;
          |  assign mon_b = b;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  class FixID extends EDDesign:
+    val x = UFix(8, 10) <> IN
+    val y = UFix(8, 10) <> OUT
+    val c: UFix[1, 2] <> CONST = 0.75
+    y <> x
+
+  class FixConv extends EDDesign:
+    val x = UFix(4, 4) <> IN
+    val y = SFix(6, 6) <> OUT
+    y <> x
+
+  class SFixID extends EDDesign:
+    val x = SFix(6, 6) <> IN
+    val y = SFix(6, 6) <> OUT
+    y <> x
+
+  test("Fixed-point identity design") {
+    val id = (new FixID).getCompiledCodeString
+    assertNoDiff(
+      id,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module FixID(
+         |  input  wire logic `ufix(8, 10) x,
+         |  output logic `ufix(8, 10) y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam logic `ufix(1, 2) c = 3'd3;
+         |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("Fixed-point conversion design") {
+    val conv = (new FixConv).getCompiledCodeString
+    assertNoDiff(
+      conv,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module FixConv(
+         |  input  wire logic `ufix(4, 4) x,
+         |  output logic `sfix(6, 6) y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign y = 12'($signed({1'b0, x})) << 2;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("Fixed-point identity design verilog.v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    val id = (new FixID).getCompiledCodeString
+    assertNoDiff(
+      id,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module FixID(
+         |  input  wire `ufix(8, 10) x,
+         |  output wire `ufix(8, 10) y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  parameter `ufix(1, 2) c = 3'd3;
+         |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("Signed fixed-point identity design verilog.v95") {
+    given options.CompilerOptions.Backend = _.verilog.v95
+    val id = (new SFixID).getCompiledCodeString
+    assertNoDiff(
+      id,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module SFixID(
+         |  x,
+         |  y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  input  wire `sfix_v95(6, 6) x;
+         |  output wire `sfix_v95(6, 6) y;
+         |  assign y = x;
          |endmodule
          |""".stripMargin
     )

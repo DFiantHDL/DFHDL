@@ -363,6 +363,27 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           s"`EXTEND_U($relValStr, 1, ${tWidthRef.refCodeString})"
       case (DFBits(_), _) =>
         s"{$relValStr}"
+      // fixed-point (target fraction != 0): `.signed`/`.unsigned` sign casts and `.resize`
+      // reformats. Verilog is positional, so these are the vector operations: add/drop the
+      // sign bit, and a width-cast + shift by the fraction delta to preserve the value.
+      case (DFSFix(_, _), DFUFix(_, _)) =>
+        val extended = s"{1'b0, $relValStr}"
+        if (printer.allowSignedKeywordAndOps) s"$$signed($extended)" else extended
+      case (DFUFix(_, _), DFSFix(_, _)) =>
+        val total = dfVal.dfType.widthUNSAFE
+        val truncated =
+          if (printer.allowWidthCastSyntax) s"$total'($relValStr)"
+          else s"$relValStr[${total - 1}:0]"
+        if (printer.allowSignedKeywordAndOps) s"$$unsigned($truncated)" else truncated
+      case (t @ (DFUFix(_, _) | DFSFix(_, _)), f @ (DFUFix(_, _) | DFSFix(_, _))) =>
+        val tDecimal = t.asInstanceOf[DFDecimal]
+        val total = tDecimal.widthUNSAFE
+        val shift = tDecimal.fractionWidth - f.asInstanceOf[DFDecimal].fractionWidth
+        val widthCast =
+          if (printer.allowWidthCastSyntax) s"$total'($relValStr)" else relValStr
+        if (shift > 0) s"$widthCast << $shift"
+        else if (shift < 0) s"$widthCast >> ${-shift}"
+        else widthCast
       case x =>
         println(x)
         printer.unsupported

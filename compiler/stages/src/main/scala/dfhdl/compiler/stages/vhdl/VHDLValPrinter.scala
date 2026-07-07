@@ -227,6 +227,18 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         s"to_signed($relValStr, ${tWidthRef.refCodeString})"
       case (DFInt32, DFUInt(_) | DFSInt(_)) =>
         s"to_integer($relValStr)"
+      // fixed-point (target fraction != 0): `.signed`/`.unsigned` sign casts and
+      // `.resize(m, f)` reformats. The sign casts derive the target range from the source
+      // (magnitude +/- the sign bit), so they need no explicit format; `resize` takes the
+      // target magnitude and fraction to build the `(m-1 downto -f)` range.
+      case (DFSFix(_, _), DFUFix(_, _)) =>
+        s"to_sfix($relValStr)"
+      case (DFUFix(_, _), DFSFix(_, _)) =>
+        s"to_ufix($relValStr)"
+      case (DFUFix(tM, tF), DFUFix(_, _)) =>
+        s"resize($relValStr, ${tM.refCodeString}, $tF)"
+      case (DFSFix(tM, tF), DFSFix(_, _)) =>
+        s"resize($relValStr, ${tM.refCodeString}, $tF)"
       case _ => printer.unsupported
     end match
   end csDFValAliasAsIs

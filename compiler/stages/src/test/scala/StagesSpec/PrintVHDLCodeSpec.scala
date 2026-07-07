@@ -1904,4 +1904,64 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  class FixID extends EDDesign:
+    val x                      = UFix(8, 10) <> IN
+    val y                      = UFix(8, 10) <> OUT
+    val c: UFix[1, 2] <> CONST = 0.75
+    y <> x
+
+  class FixConv extends EDDesign:
+    val x = UFix(4, 4) <> IN
+    val y = SFix(6, 6) <> OUT
+    y <> x
+
+  test("Fixed-point identity design") {
+    val id = (new FixID).getCompiledCodeString
+    assertNoDiff(
+      id,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity FixID is
+         |port (
+         |  x : in ufix(7 downto -10);
+         |  y : out ufix(7 downto -10)
+         |);
+         |end FixID;
+         |
+         |architecture FixID_arch of FixID is
+         |  constant c : ufix(0 downto -2) := 3d"3";
+         |begin
+         |  y <= x;
+         |end FixID_arch;
+         |""".stripMargin
+    )
+  }
+
+  test("Fixed-point conversion design") {
+    val conv = (new FixConv).getCompiledCodeString
+    assertNoDiff(
+      conv,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity FixConv is
+         |port (
+         |  x : in ufix(3 downto -4);
+         |  y : out sfix(5 downto -6)
+         |);
+         |end FixConv;
+         |
+         |architecture FixConv_arch of FixConv is
+         |begin
+         |  y <= resize(to_sfix(x), 6, 6);
+         |end FixConv_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

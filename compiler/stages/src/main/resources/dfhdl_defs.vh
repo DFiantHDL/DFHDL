@@ -27,6 +27,14 @@
 `define MAX(a, b) ((a) > (b) ? (a) : (b))
 `define MIN(a, b) ((a) < (b) ? (a) : (b))
 `define ABS(a) ((a) < 0 ? -(a) : (a))
+// Fixed-point types: `M` integer (magnitude) bits and `F` fraction bits, laid out with the
+// binary point at index 0 so bit weights are 2^index (integer bits M-1..0, fraction bits
+// -1..-F). `sfix` carries the `signed` keyword so it is not repeated at the declaration.
+// Verilog-95 has no `signed` keyword, so signed fixed-point uses `sfix_v95` (an unsigned
+// range) and applies signedness at the operation sites, like `SInt`.
+`define ufix(M, F) [(M)-1:-(F)]
+`define sfix(M, F) signed [(M)-1:-(F)]
+`define sfix_v95(M, F) [(M)-1:-(F)]
 `define hPW(hex, hw, vw) \
     /* verilator lint_off WIDTH */ \
     ((vw) == (hw) ? hw'h``hex : {{(vw - hw){1'b0}}, hw'h``hex}) \

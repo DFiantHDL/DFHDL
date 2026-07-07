@@ -19,12 +19,17 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
         case '[Tuple1[d]] => TypeRepr.of[d].showType
         case _            => d.showType
     tpe.asTypeOf[DFTypeAny] match
-      case '[DFBit]          => "Bit"
-      case '[DFBool]         => "Boolean"
-      case '[DFBits[w]]      => s"Bits[${Type.show[w]}]"
-      case '[DFUInt[w]]      => s"UInt[${Type.show[w]}]"
-      case '[DFInt32]        => "Int"
-      case '[DFSInt[w]]      => s"SInt[${Type.show[w]}]"
+      case '[DFBit]     => "Bit"
+      case '[DFBool]    => "Boolean"
+      case '[DFBits[w]] => s"Bits[${Type.show[w]}]"
+      case '[DFUInt[w]] => s"UInt[${Type.show[w]}]"
+      case '[DFInt32]   => "Int"
+      case '[DFSInt[w]] => s"SInt[${Type.show[w]}]"
+      // fixed-point types (non-zero fraction width); UInt/SInt/Int are the zero-fraction
+      // cases already matched above. The magnitude width `m` sits directly in the type's
+      // second parameter, so it binds cleanly here.
+      case '[DFUFix[m, f]]   => s"UFix[${Type.show[m]}, ${Type.show[f]}]"
+      case '[DFSFix[m, f]]   => s"SFix[${Type.show[m]}, ${Type.show[f]}]"
       case '[DFEnum[t]]      => Type.show[t]
       case '[DFDouble]       => "Double"
       case '[DFTime]         => "Time"

@@ -261,10 +261,12 @@ object DFType:
     end ofNamedTupleMacro
   end TC
 
-  private def widthRef[W <: IntP](dfType: DFTypeW[W]): ir.IntParamRef =
+  // DFTypeW covers only integer decimals (DFUInt/DFSInt), where the magnitude ref is the
+  // total-width ref (and may be parametric)
+  private def widthRef[W <: IntP](dfType: DFTypeW[W])(using ir.MemberGetSet): ir.IntParamRef =
     dfType.asIR.runtimeChecked match
       case dt: ir.DFBits    => dt.widthParamRef
-      case dt: ir.DFDecimal => dt.widthParamRef
+      case dt: ir.DFDecimal => dt.magnitudeWidthParamRef
   extension [LW <: IntP](lhs: DFTypeW[LW])
     protected[core] def compareWidths[RW <: IntP](rhs: DFTypeW[RW])(
         func: (Int, Int) => Boolean
@@ -272,6 +274,7 @@ object DFType:
       import dfc.getSet
       widthRef(lhs).compare(widthRef(rhs))(func)
     protected[core] def widthCodeString(using dfc: DFC): String =
+      import dfc.getSet
       widthRef(lhs).refCodeString
 
 end DFType

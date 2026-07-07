@@ -319,10 +319,11 @@ extension (dfVal: DFVal)
           case r: TypeRef =>
             // looking for what kind of type reference it is
             r.originMember.asInstanceOf[DFVal].dfType match
-              case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r    => Some("length")
-              case DFBits(widthRef: TypeRef) if widthRef == r                    => Some("width")
-              case DFDecimal(widthParamRef = widthRef: TypeRef) if widthRef == r => Some("width")
-              case _                                                             => None
+              case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r => Some("length")
+              case DFBits(widthRef: TypeRef) if widthRef == r                 => Some("width")
+              case DFDecimal(magnitudeWidthParamRef = widthRef: TypeRef) if widthRef == r =>
+                Some("width")
+              case _ => None
           case _ => None
         }.headOption
       else None
@@ -522,7 +523,10 @@ end ComposedDFTypeReplacement
 
 extension (lhs: DFVal)(using MemberGetSet)
   def compareWidths(rhs: DFVal)(func: (Int, Int) => Boolean): Option[Boolean] =
+    // total-width ref: for integer decimals the magnitude ref is the total ref (and may be
+    // parametric); fixed-point total widths are always constant
     def widthRef(v: DFVal): IntParamRef = (v.dfType: @unchecked) match
-      case dt: DFBits    => dt.widthParamRef
-      case dt: DFDecimal => dt.widthParamRef
+      case dt: DFBits                             => dt.widthParamRef
+      case dt: DFDecimal if dt.fractionWidth == 0 => dt.magnitudeWidthParamRef
+      case dt: DFDecimal                          => IntParamRef(dt.widthUNSAFE)
     widthRef(lhs).compare(widthRef(rhs))(func)

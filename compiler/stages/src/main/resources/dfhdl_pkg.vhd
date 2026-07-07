@@ -30,6 +30,30 @@ use ieee.numeric_std.all;
 use std.textio.all;
 
 package dfhdl_pkg is
+-- Fixed-point types: `M` integer (magnitude) bits and `F` fraction bits, with the binary
+-- point at index 0 (integer bits M-1 downto 0, fraction bits -1 downto -F). They are raw
+-- std_logic arrays over an *integer* range so the binary point can lie outside the stored
+-- bits; arithmetic is done by converting to numeric_std unsigned/signed.
+type ufix is array (integer range <>) of std_logic;
+type sfix is array (integer range <>) of std_logic;
+-- Fixed-point conversions. `to_slv`/`to_unsigned`/`to_signed` normalize the (possibly
+-- negative-indexed) fixed value to a 0-based raw vector. `resize(x, m, f)` reformats to a
+-- `(m-1 downto -f)` value preserving the represented value (scaling the raw by the fraction
+-- delta); overloads accept an integer (fraction 0) numeric_std source. `to_sfix`/`to_ufix`
+-- are the sign casts (mirroring `signed`/`unsigned` on the integer types), also with explicit
+-- `m`/`f` for the target range.
+function to_slv(A : ufix) return std_logic_vector;
+function to_slv(A : sfix) return std_logic_vector;
+function to_unsigned(A : ufix) return unsigned;
+function to_signed(A : sfix) return signed;
+function to_ufix(A : std_logic_vector; m : integer; f : integer) return ufix;
+function to_sfix(A : std_logic_vector; m : integer; f : integer) return sfix;
+function resize(A : ufix; m : integer; f : integer) return ufix;
+function resize(A : sfix; m : integer; f : integer) return sfix;
+function resize(A : unsigned; m : integer; f : integer) return ufix;
+function resize(A : signed; m : integer; f : integer) return sfix;
+function to_sfix(A : ufix) return sfix;
+function to_ufix(A : sfix) return ufix;
 function cadd(A, B : unsigned) return unsigned;
 function cadd(A, B : signed) return signed;
 function csub(A, B : unsigned) return unsigned;
@@ -117,6 +141,107 @@ end;
 function to_slv(A : integer) return std_logic_vector is
 begin
   return std_logic_vector(to_signed(A, 32));
+end;
+-- fixed-point value -> 0-based raw vector (normalizes the integer/negative index range)
+function to_slv(A : ufix) return std_logic_vector is
+  variable r : std_logic_vector(A'length - 1 downto 0);
+begin
+  for i in 0 to A'length - 1 loop
+    r(i) := A(A'low + i);
+  end loop;
+  return r;
+end;
+function to_slv(A : sfix) return std_logic_vector is
+  variable r : std_logic_vector(A'length - 1 downto 0);
+begin
+  for i in 0 to A'length - 1 loop
+    r(i) := A(A'low + i);
+  end loop;
+  return r;
+end;
+function to_unsigned(A : ufix) return unsigned is
+begin
+  return unsigned(to_slv(A));
+end;
+function to_signed(A : sfix) return signed is
+begin
+  return signed(to_slv(A));
+end;
+-- 0-based raw vector -> fixed-point value with an explicit (m-1 downto -f) range (same bits,
+-- copied by position so the negative fraction indices are restored)
+function to_ufix(A : std_logic_vector; m : integer; f : integer) return ufix is
+  variable r : ufix(m - 1 downto -f);
+begin
+  for i in 0 to A'length - 1 loop
+    r(r'low + i) := A(A'low + i);
+  end loop;
+  return r;
+end;
+function to_sfix(A : std_logic_vector; m : integer; f : integer) return sfix is
+  variable r : sfix(m - 1 downto -f);
+begin
+  for i in 0 to A'length - 1 loop
+    r(r'low + i) := A(A'low + i);
+  end loop;
+  return r;
+end;
+-- resize to the (m, f) format, preserving the represented value: scale the raw integer by
+-- 2^(f - sourceFraction), then fit into the m+f-bit total width
+function resize(A : ufix; m : integer; f : integer) return ufix is
+  constant srcF  : integer := -A'low;
+  constant total : integer := m + f;
+  variable raw   : unsigned(A'length - 1 downto 0);
+  variable scaled : unsigned(total - 1 downto 0);
+begin
+  raw := to_unsigned(A);
+  if (f >= srcF) then scaled := resize(raw, total) sll (f - srcF);
+  else scaled := resize(shift_right(raw, srcF - f), total);
+  end if;
+  return to_ufix(std_logic_vector(scaled), m, f);
+end;
+function resize(A : sfix; m : integer; f : integer) return sfix is
+  constant srcF  : integer := -A'low;
+  constant total : integer := m + f;
+  variable raw   : signed(A'length - 1 downto 0);
+  variable scaled : signed(total - 1 downto 0);
+begin
+  raw := to_signed(A);
+  if (f >= srcF) then scaled := resize(raw, total) sll (f - srcF);
+  else scaled := resize(shift_right(raw, srcF - f), total);
+  end if;
+  return to_sfix(std_logic_vector(scaled), m, f);
+end;
+-- integer (fraction 0) source overloads
+function resize(A : unsigned; m : integer; f : integer) return ufix is
+  variable scaled : unsigned(m + f - 1 downto 0);
+begin
+  scaled := resize(A, m + f) sll f;
+  return to_ufix(std_logic_vector(scaled), m, f);
+end;
+function resize(A : signed; m : integer; f : integer) return sfix is
+  variable scaled : signed(m + f - 1 downto 0);
+begin
+  scaled := resize(A, m + f) sll f;
+  return to_sfix(std_logic_vector(scaled), m, f);
+end;
+-- sign casts (value-preserving), mirroring `signed`/`unsigned` on the integer types. The
+-- target range is derived from the source: `to_sfix` adds a sign bit (magnitude +1) and
+-- `to_ufix` drops it (magnitude -1); the fraction is unchanged.
+function to_sfix(A : ufix) return sfix is
+  variable r : sfix(A'high + 1 downto A'low) := (others => '0');
+begin
+  for i in A'range loop
+    r(i) := A(i);
+  end loop;
+  return r;
+end;
+function to_ufix(A : sfix) return ufix is
+  variable r : ufix(A'high - 1 downto A'low);
+begin
+  for i in r'range loop
+    r(i) := A(i);
+  end loop;
+  return r;
 end;
 function to_slv(A : boolean) return std_logic_vector is
 begin

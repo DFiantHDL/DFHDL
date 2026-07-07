@@ -39,6 +39,18 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
       if (tWidth > fWidth) fromData
       else
         fromData.asInstanceOf[Option[BigInt]].map(_.truncateAsUnsigned(tWidth).asSigned(tWidth))
+    // fixed-point conversion: the data is the raw scaled integer (value = raw / 2^fraction).
+    // A fraction-width change scales the raw by 2^(targetFraction - sourceFraction) to
+    // preserve the value; the result is then fit into the target's total width per its sign
+    // (a sign/magnitude change has zero fraction shift and just reinterprets/extends).
+    case (t: DFDecimal, f: DFDecimal) if t.fractionWidth != 0 || f.fractionWidth != 0 =>
+      val tWidth = t.widthUNSAFE
+      val fractionShift = t.fractionWidth - f.fractionWidth
+      fromData.asInstanceOf[Option[BigInt]].map { raw =>
+        val scaled = if (fractionShift >= 0) raw << fractionShift else raw >> -fractionShift
+        if (t.signed) scaled.truncateAsUnsigned(tWidth).asSigned(tWidth)
+        else scaled.truncateAsUnsigned(tWidth)
+      }
     // Casting from DFInt32 to UInt
     case (DFUInt(IntUNSAFE(fWidth)), DFInt32) =>
       assert(fWidth <= 31)

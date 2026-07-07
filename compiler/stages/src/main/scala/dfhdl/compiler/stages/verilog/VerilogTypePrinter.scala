@@ -20,15 +20,25 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
     val signedKeyword = if (allowSignedKeywordAndOps) "signed " else ""
-    (signed, fractionWidth) match
-      case (false, 0) => s"logic [${dfType.widthParamRef.uboundCS}:0]"
-      case (true, 0)  =>
-        if (dfType.isDFInt32)
-          if (intTypeIsSupported) "int"
-          else "integer"
-        else s"logic $signedKeyword[${dfType.widthParamRef.uboundCS}:0]"
-      case (false, _) => ???
-      case (true, _)  => ???
+    // fixed-point (fractionWidth != 0) types come from the `ufix`/`sfix` macro (the single
+    // control point for the range convention), with `M` magnitude bits and `F` fraction
+    // bits. `sfix` carries the `signed` keyword itself, so it is not repeated here; on
+    // Verilog-95 (no `signed` keyword) signed values use `sfix_v95` and apply signedness at
+    // the operation sites, like `SInt`. Integers keep the plain `[magnitude-1:0]` range.
+    if (fractionWidth != 0)
+      val csMag = magnitudeWidthParamRef.refCodeString
+      val macroName =
+        if (!signed) "ufix"
+        else if (allowSignedKeywordAndOps) "sfix"
+        else "sfix_v95"
+      s"logic `$macroName($csMag, $fractionWidth)"
+    else if (signed)
+      if (dfType.isDFInt32)
+        if (intTypeIsSupported) "int"
+        else "integer"
+      else s"logic $signedKeyword[${magnitudeWidthParamRef.uboundCS}:0]"
+    else s"logic [${magnitudeWidthParamRef.uboundCS}:0]"
+  end csDFDecimal
   val allowDynamicString: Boolean =
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false

@@ -190,16 +190,19 @@ sealed protected trait DFValLP:
     DFValConversionMacro[DFBits[W], ISCONST[P], R]('from)('dfc)
   }
   // TODO: candidate should be fixed to cause UInt[?]->SInt[Int] conversion
-  transparent inline implicit def DFXIntValConversion[
+  // covers the entire decimal family: DFUInt/DFSInt (F == 0, with an `Int` wildcard) and
+  // DFUFix/DFSFix (F != 0, with a `Double` wildcard)
+  transparent inline implicit def DFDecimalValConversion[
       S <: Boolean,
       W <: IntP,
+      F <: Int,
       N <: NativeType,
       P <: Boolean,
-      R <: CommonR | Int
+      R <: CommonR | Int | Double
   ](
       inline from: R
-  )(using dfc: DFCG): DFValTP[DFXInt[S, W, N], ISCONST[P]] = ${
-    DFValConversionMacro[DFXInt[S, W, N], ISCONST[P], R]('from)('dfc)
+  )(using dfc: DFCG): DFValTP[DFDecimal[S, W, F, N], ISCONST[P]] = ${
+    DFValConversionMacro[DFDecimal[S, W, F, N], ISCONST[P], R]('from)('dfc)
   }
   transparent inline implicit def DFOpaqueValConversion[
       TFE <: DFOpaque.Abstract,

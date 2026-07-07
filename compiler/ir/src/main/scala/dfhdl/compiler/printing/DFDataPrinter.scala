@@ -90,7 +90,12 @@ trait AbstractDataPrinter extends AbstractPrinter:
     csDFBitsData(DFBits(width), (BitVector.low(width), BitVector.high(width)))
 
   final def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
-    import dfType.{widthParamRef}
+    // the raw-integer formatting below (used by both the integer branch and the default
+    // fixed-point representation) needs the total-width ref: for integers the magnitude ref
+    // is the total ref (and may be parametric); fixed-point total widths are always constant
+    val widthParamRef: IntParamRef =
+      if (dfType.fractionWidth == 0) dfType.magnitudeWidthParamRef
+      else IntParamRef(dfType.widthIntOpt.get)
     val width = dfType.widthIntOpt.get
     data match
       case Some(value) =>
@@ -98,11 +103,11 @@ trait AbstractDataPrinter extends AbstractPrinter:
           DFBits(width),
           (value.toBitVector(width), BitVector.low(width))
         )
-        if (dfType.fractionWidth == 0) // DFXInt
-          // native integers are printed as they are (this assumes in all backends integers are printed the same)
-          if (dfType.isDFInt32) value.toString()
+        // the raw scaled integer representation, shared by DFXInt and (as the default
+        // fixed-point representation) DFUFix/DFSFix
+        def csRawData: String =
           // if the language supports big integers (with explicit widths) we can simply display the values
-          else if (allowDecimalBigInt)
+          if (allowDecimalBigInt)
             if (dfType.signed) csDFSIntFormatBig(value, widthParamRef)
             else csDFUIntFormatBig(value, widthParamRef)
           // otherwise, we need to reply on small value representation or cast a bits representation
@@ -112,12 +117,22 @@ trait AbstractDataPrinter extends AbstractPrinter:
             else csDFSIntDataFromBits(csBits)
           else if (value.bitsWidth(false) < 31) csDFUIntFormatSmall(value, width)
           else csDFUIntDataFromBits(csBits)
-        else ??? // DFXFix
+        if (dfType.fractionWidth == 0) // DFXInt
+          // native integers are printed as they are (this assumes in all backends integers are printed the same)
+          if (dfType.isDFInt32) value.toString()
+          else csRawData
+        else csDFXFixData(dfType, value, csRawData) // DFUFix/DFSFix
       case None =>
         if (dfType.signed) csDFSIntBubble(width = width)
         else csDFUIntBubble(width = width)
     end match
   end csDFDecimalData
+  // fixed-point (fractionWidth != 0) data. The default prints the raw scaled integer exactly
+  // like DFUInt/DFSInt of the same total width, matching the raw-vector fixed-point
+  // representation of the backends. The DFHDL printer overrides this with an exact decimal
+  // literal.
+  protected def csDFXFixData(dfType: DFDecimal, value: BigInt, csRawData: => String): String =
+    csRawData
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String
@@ -180,6 +195,19 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
   def csDFSIntDataFromBits(csBits: String): String = s"$csBits.sint"
   def csDFUIntBubble(width: Int): String = "?"
   def csDFSIntBubble(width: Int): String = "?"
+  override protected def csDFXFixData(
+      dfType: DFDecimal,
+      value: BigInt,
+      csRawData: => String
+  ): String =
+    val fractionWidth = dfType.fractionWidth
+    val magnitudeWidth = dfType.magnitudeWidthUNSAFE
+    // raw / 2^F printed exactly: raw * 5^F has a finite decimal form with scale F
+    // toPlainString avoids scientific notation for tiny values (e.g. raw 1 with F=30)
+    val decStr = BigDecimal(value * BigInt(5).pow(fractionWidth), fractionWidth)
+      .bigDecimal.stripTrailingZeros().toPlainString
+    if (dfType.signed) s"""sd"$magnitudeWidth.$fractionWidth'$decStr""""
+    else s"""d"$magnitudeWidth.$fractionWidth'$decStr""""
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
     data match
       case Some(value) =>

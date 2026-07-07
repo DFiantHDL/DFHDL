@@ -129,15 +129,17 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     else s"Bits($csWidth)"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
-    val csWidth = dfType.widthParamRef.refCodeString(typeCS)
+    // the magnitude-width code string is the total width for integer types (fractionWidth
+    // == 0) and the integer-part width for fixed-point types
+    val csMagWidth = dfType.magnitudeWidthParamRef.refCodeString(typeCS)
     val (ob, cb) = if (typeCS) ("[", "]") else ("(", ")")
     (signed, fractionWidth) match
-      case (false, 0) => s"UInt$ob$csWidth$cb"
+      case (false, 0) => s"UInt$ob$csMagWidth$cb"
       case (true, 0)  =>
         if (dfType.isDFInt32) "Int"
-        else s"SInt$ob$csWidth$cb"
-      case (false, _) => s"UFix$ob$magnitudeWidthUNSAFE, $fractionWidth$cb"
-      case (true, _)  => s"SFix$ob$magnitudeWidthUNSAFE, $fractionWidth$cb"
+        else s"SInt$ob$csMagWidth$cb"
+      case (false, _) => s"UFix$ob$csMagWidth, $fractionWidth$cb"
+      case (true, _)  => s"SFix$ob$csMagWidth, $fractionWidth$cb"
   def csDFString(dfType: DFString, typeCS: Boolean): String = "String"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.name
