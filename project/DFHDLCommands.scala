@@ -17,7 +17,9 @@ object DFHDLCommands {
       (LocalProject("platforms") / Compile / sources) := Nil,
       (LocalProject("platforms") / Test / sources) := Nil,
       (LocalProject("lib") / Compile / sources) := Nil,
-      (LocalProject("lib") / Test / sources) := Nil
+      (LocalProject("lib") / Test / sources) := Nil,
+      (LocalProject("ips") / Compile / sources) := Nil,
+      (LocalProject("ips") / Test / sources) := Nil
     ), state)
     newState
   }
@@ -29,7 +31,9 @@ object DFHDLCommands {
       (LocalProject("compiler_stages") / Test / sources) := Nil,
       (LocalProject("platforms") / Compile / sources) := Nil,
       (LocalProject("platforms") / Test / sources) := Nil,
-      (LocalProject("lib") / Test / sources) := ((LocalProject("lib") / Test / sources).value.filter(_.toString.contains("Playground.scala")))
+      (LocalProject("lib") / Test / sources) := ((LocalProject("lib") / Test / sources).value.filter(_.toString.contains("Playground.scala"))),
+      (LocalProject("ips") / Compile / sources) := Nil,
+      (LocalProject("ips") / Test / sources) := Nil
     ), state)
     newState
   }
