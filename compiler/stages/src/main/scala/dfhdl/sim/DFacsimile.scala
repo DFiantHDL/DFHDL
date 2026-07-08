@@ -18,6 +18,8 @@ enum SimTier derives CanEqual:
   *   - Dcls (vars/ports) of DFBits/DFDecimal/DFBool/DFBit/DFEnum of any width, plus DFStruct /
   *     DFVector / DFOpaque compositions (packed-bits representation, nesting included)
   *   - REG Dcls with constant init; register hold semantics when unassigned in a branch
+  *   - `.reg`/`.prev` (History State) aliases with any step and constant init, sampling the target
+  *     at the alias position (wires sampled inside a conditional branch are rejected)
   *   - funcs: n-ary `+`/`-`/`&`/`|`/`^` (width-extending variants included), `*`/`/`/`%` (up to
   *     64-bit results), `++`, comparisons, `unary_-`/`unary_~`/`unary_!`, `<<`/`>>` by constant or
   *     dynamic amount, `ror`/`rol`, `reverse`/`repeat`, `max`/`min`/`abs`, `sel`
@@ -32,10 +34,10 @@ enum SimTier derives CanEqual:
   *   - top-level IN ports become pokeable hold-state cells; init applies at time zero (no reset
   *     modeling); design params resolve per instance when constant
   *
-  * Known minimum limitations: processes/domains, `.reg`/`.prev` aliases, `**`/`clog2` on
-  * non-constants, multiplication/division with results wider than 64 bits, bubble (`?`) values
-  * simulate as 0 (2-state), and per-instance param-dependent *widths* (widths resolve via the
-  * sub-DB's canonical instance).
+  * Known minimum limitations: processes/domains, `**`/`clog2` on non-constants,
+  * multiplication/division with results wider than 64 bits, bubble (`?`) values simulate as 0
+  * (2-state), and per-instance param-dependent *widths* (widths resolve via the sub-DB's canonical
+  * instance).
   */
 object DFacsimile:
   def simulate(db: DB, tier: SimTier = SimTier.Interpreter): Sim =
@@ -151,6 +153,8 @@ private final class Builder(rawDB: DB):
     private val childScopes = mutable.Map.empty[DFDesignInst, Scope]
     // net sink values (raw, pre-dealias) — skipped as reads during the walk
     private val netSinkOf = mutable.Map.empty[DFNet, DFVal]
+    // nonzero while walking conditional-branch members (position-sensitive constructs care)
+    private var condDepth = 0
     // write-only views: net sinks and the alias chains under them (never built as reads)
     private val writeViews = mutable.Set.empty[DFVal]
 
@@ -221,6 +225,7 @@ private final class Builder(rawDB: DB):
               case a: DFVal.Alias.ApplyIdx     => bindVal(a, buildApplyIdx(a))
               case a: DFVal.Alias.ApplyRange   => bindVal(a, buildApplyRange(a))
               case sf: DFVal.Alias.SelectField => bindVal(sf, buildSelectField(sf))
+              case h: DFVal.Alias.History      => bindVal(h, buildHistory(h))
               case c: DFVal.Const              =>
                 // reached only for bubble (don't-care) constants (`?`) — simulate as 0 (2-state)
                 bindVal(c, wide.const(widthOf(c), lenientDataToBits(c.dfType, c.data, c)))
@@ -432,6 +437,33 @@ private final class Builder(rawDB: DB):
           wide.extract(readWV(rel), st.fieldRelBitLow(sf.fieldName), widthOf(sf))
         case t => unsupported(s"field selection on $t", sf)
 
+    /** `.reg`/`.prev` (History State) alias: a chain of `step` registers sampling the target's
+      * value at the alias position (matching NameRegAliases' versioned-sampling semantics for
+      * mutable wires), with the same init on every stage.
+      */
+    private def buildHistory(h: DFVal.Alias.History): WV =
+      h.op match
+        case DFVal.Alias.History.Op.State =>
+          val relVal = h.relValRef.get
+          relVal match
+            // a wire sampled inside a conditional branch would need a conditional (hold-when-
+            // untaken) din per NameRegAliases' versioning — out of the minimum's scope
+            case dcl: DFVal.Dcl if condDepth > 0 && !regNodeOf.contains(dcl) =>
+              unsupported("`.reg` of a mutable wire inside a conditional block", h)
+            case _ => ()
+          val w = widthOf(h)
+          val init = h.initRefOption match
+            case Some(ref) => regInitBits(ref.get, w)
+            case None      => BitVector.low(w)
+          var out = readWV(relVal)
+          if out.width != w then unsupported("width-changing history alias", h)
+          for _ <- 0 until h.step do
+            val stage = wide.reg(w, init)
+            wide.setNext(stage, out)
+            out = stage
+          out
+        case op => unsupported(s"history op $op", h)
+
     /** The dynamic index value as a 32-bit lane (bit offsets always fit 32 bits). */
     private def dynBitOffset(idx: DFVal): WV =
       WV(Vector(wide.bitField(readWV(idx), 0, 32)), 32)
@@ -478,7 +510,9 @@ private final class Builder(rawDB: DB):
               case (p, g)             => p.orElse(g)
           case _ => guardCond
         val blockMembers = childrenOf.getOrElse(block, Vector.empty)
+        condDepth += 1
         processMembers(blockMembers)
+        condDepth -= 1
         val yieldOpt =
           if isExpr then
             blockMembers.lastOption match
