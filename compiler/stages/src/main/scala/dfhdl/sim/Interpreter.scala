@@ -71,41 +71,56 @@ object Interpreter:
         val a = code(i + 2)
         val b = code(i + 3)
         (code(i): @switch) match
-          case 2 => sig(dst) = (sig(a) + sig(b)) & masks(dst) // ADD
-          case 3 => sig(dst) = sig(a) ^ sig(b) // XOR
-          case 4 => sig(dst) = sig(a) & sig(b) // AND
-          case 5 => sig(dst) = sig(a) | sig(b) // OR
-          case 6 => sig(dst) = ~sig(a) & masks(dst) // NOT
-          case 7 => // ROTR
+          case Op.MOV    => sig(dst) = sig(a)
+          case Op.NOT    => sig(dst) = ~sig(a) & masks(dst)
+          case Op.RESIZE => sig(dst) = sig(a) & masks(dst)
+          case Op.REV    => sig(dst) = java.lang.Long.reverse(sig(a)) >>> (64 - nodeWidths(dst))
+          case Op.SHL    => sig(dst) = (sig(a) << b) & masks(dst)
+          case Op.SHR    => sig(dst) = sig(a) >>> b
+          case Op.ROTR   =>
             val x = sig(a)
             sig(dst) = ((x >>> b) | (x << (nodeWidths(dst) - b))) & masks(dst)
-          case 8  => sig(dst) = (sig(a) << b) & masks(dst) // SHL
-          case 9  => sig(dst) = sig(a) >>> b // SHR
-          case 10 => sig(dst) = if sig(a) != 0L then sig(b) else sig(code(i + 4)) // MUX
-          case 11 => // ROM (pow2 table, masked address)
+          case Op.ROM => // pow2 table, masked address
             val table = roms(b)
             sig(dst) = table((sig(a) & (table.length - 1)).toInt)
-          case 12 => sig(dst) = sig(a) & masks(dst) // RESIZE
-          case 13 => sig(dst) = if sig(a) == sig(b) then 1L else 0L // EQ
-          case 14 => sig(dst) = if sig(a) != sig(b) then 1L else 0L // NEQ
-          case 15 => sig(dst) = sig(a) // MOV
-          case 16 => sig(dst) = (sig(a) - sig(b)) & masks(dst) // SUB
-          case 17 => // SHLV
+          case Op.ADD  => sig(dst) = (sig(a) + sig(b)) & masks(dst)
+          case Op.SUB  => sig(dst) = (sig(a) - sig(b)) & masks(dst)
+          case Op.MUL  => sig(dst) = (sig(a) * sig(b)) & masks(dst)
+          case Op.UDIV => // x/0 = 0
+            sig(dst) = if sig(b) == 0L then 0L else java.lang.Long.divideUnsigned(sig(a), sig(b))
+          case Op.SDIV => // x/0 = 0, operands sign-extended from their width
+            val s = 64 - nodeWidths(dst)
+            val bv = (sig(b) << s) >> s
+            sig(dst) = if bv == 0L then 0L else (((sig(a) << s) >> s) / bv) & masks(dst)
+          case Op.UREM => // x%0 = 0
+            sig(dst) = if sig(b) == 0L then 0L
+            else java.lang.Long.remainderUnsigned(sig(a), sig(b))
+          case Op.SREM => // x%0 = 0, operands sign-extended from their width
+            val s = 64 - nodeWidths(dst)
+            val bv = (sig(b) << s) >> s
+            sig(dst) = if bv == 0L then 0L else (((sig(a) << s) >> s) % bv) & masks(dst)
+          case Op.AND => sig(dst) = sig(a) & sig(b)
+          case Op.OR  => sig(dst) = sig(a) | sig(b)
+          case Op.XOR => sig(dst) = sig(a) ^ sig(b)
+          case Op.EQ  => sig(dst) = if sig(a) == sig(b) then 1L else 0L
+          case Op.NEQ => sig(dst) = if sig(a) != sig(b) then 1L else 0L
+          case Op.ULT =>
+            sig(dst) = if java.lang.Long.compareUnsigned(sig(a), sig(b)) < 0 then 1L else 0L
+          case Op.SLT =>
+            val s = 64 - nodeWidths(a)
+            sig(dst) = if ((sig(a) << s) >> s) < ((sig(b) << s) >> s) then 1L else 0L
+          case Op.SHLV =>
             val n = sig(b)
             sig(dst) = if n >= 64L then 0L else (sig(a) << n) & masks(dst)
-          case 18 => // SHRV
+          case Op.SHRV =>
             val n = sig(b)
             sig(dst) = if n >= 64L then 0L else sig(a) >>> n
-          case 19 => // SRAV (sign-extend from the operand width, then arithmetic shift)
+          case Op.SRAV => // sign-extend from the operand width, then arithmetic shift
             val s = 64 - nodeWidths(dst)
             val n = math.min(sig(b), 63L)
             sig(dst) = (((sig(a) << s) >> s) >> n) & masks(dst)
-          case 20 => // ULT
-            sig(dst) = if java.lang.Long.compareUnsigned(sig(a), sig(b)) < 0 then 1L else 0L
-          case 21 => // SLT
-            val s = 64 - nodeWidths(a)
-            sig(dst) = if ((sig(a) << s) >> s) < ((sig(b) << s) >> s) then 1L else 0L
-          case _ => throw new IllegalStateException(s"bad opcode ${code(i)}")
+          case Op.MUX => sig(dst) = if sig(a) != 0L then sig(b) else sig(code(i + 4))
+          case _      => throw new IllegalStateException(s"bad opcode ${code(i)}")
         end match
         i += 5
       end while

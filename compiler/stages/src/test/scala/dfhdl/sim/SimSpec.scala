@@ -1,7 +1,7 @@
 package dfhdl.sim
 import dfhdl.toScalaBoolean
-import dfhdl.core.{DFConstOf, DFTypeAny, DFVal, DFCG, CONST, dfType, DFValAny}
-import dfhdl.internals.NoTopAnnotIsRequired
+import dfhdl.core.{DFConstOf, DFTypeAny, DFVal, DFCG, CONST, dfType, DFValAny, DFBool}
+import dfhdl.internals.*
 import dfhdl.compiler.ir
 import ir.DFVal.Func.Op as FuncOp
 import munit.*
@@ -31,14 +31,46 @@ abstract class SimSpec extends munit.FunSuite, NoTopAnnotIsRequired:
         case _ => false
 
   given [T1 <: DFTypeAny, V](using
-      tc: DFVal.Compare[T1, V, FuncOp.===.type, false] { type OutP = CONST },
+      tc: DFVal.Compare[T1, V, FuncOp.===.type, false],
       dfc: DFCG
   ): munit.Compare[DFConstOf[T1], V] with
     def isEqual(obtained: DFConstOf[T1], expected: V): Boolean =
-      tc(obtained, expected).toScalaBoolean
+      tc(obtained, expected).asInstanceOf[DFConstOf[DFBool]].toScalaBoolean
   end given
 
   protected def bothTiers(name: String)(body: SimTier => Unit): Unit =
     for tier <- List(SimTier.Interpreter, SimTier.Codegen) do
       test(s"$name [$tier]")(body(tier))
+
+  given [
+      T <: DFTypeAny,
+      O <: DFConstOf[T],
+      E
+  ](using
+      tc: DFVal.TC[T, E]
+  )(using
+      compare: munit.Compare[DFConstOf[T], tc.Out]
+  ): ExactOp3Aux["assertEquals", (DFCG, Location), Unit, O, E, () => Any, Unit] =
+    new ExactOp3["assertEquals", (DFCG, Location), Unit, O, E, () => Any]:
+      type Out = Unit
+      def apply(obtained: O, expected: E, clue: () => Any)(using dfcLoc: (DFCG, Location)): Out =
+        munit.Assertions.assertEquals(
+          obtained,
+          tc(obtained.dfType, expected)(using dfcLoc._1),
+          clue()
+        )(using dfcLoc._2, compare)
+  transparent inline def assertEquals[T <: DFTypeAny, E](
+      obtained: DFConstOf[T],
+      inline expected: E
+  )(using dfc: DFCG, loc: Location): Unit =
+    assertEquals(obtained, expected, () => "values are the same")
+
+  transparent inline def assertEquals[T <: DFTypeAny, E](
+      obtained: DFConstOf[T],
+      inline expected: E,
+      clue: => Any
+  )(using dfc: DFCG, loc: Location): Unit =
+    exactOp3["assertEquals", (DFCG, Location), Unit](obtained, expected, () => clue)(using
+      (dfc, loc)
+    )
 end SimSpec

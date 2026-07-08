@@ -3,31 +3,47 @@ package dfhdl.sim
 import scala.collection.mutable
 
 /** Opcodes for the mockup netlist. Values are stable literals so the interpreter tier can dispatch
-  * on them with a table switch.
+  * on them with a table switch, grouped contiguously by arity so the number of node arguments falls
+  * out of two range checks (see [[Netlist.nodeInputs]]).
   */
 object Op:
+  // sources — no node inputs, no per-cycle evaluation
   inline val REG = 0
   inline val CONST = 1
-  inline val ADD = 2
-  inline val XOR = 3
-  inline val AND = 4
-  inline val OR = 5
-  inline val NOT = 6
-  inline val ROTR = 7
-  inline val SHL = 8
-  inline val SHR = 9
-  inline val MUX = 10
-  inline val ROM = 11
-  inline val RESIZE = 12 // zero-extend or truncate to the destination width
-  inline val EQ = 13
-  inline val NEQ = 14
-  inline val MOV = 15 // patchable identity, for forward references (e.g. port connections)
-  inline val SUB = 16
-  inline val SHLV = 17 // shift left by a dynamic (node) amount
-  inline val SHRV = 18 // logical shift right by a dynamic (node) amount
-  inline val SRAV = 19 // arithmetic shift right by a dynamic (node) amount
-  inline val ULT = 20 // unsigned less-than
-  inline val SLT = 21 // signed less-than (operands sign-extended from their width)
+  // unary ops — the single node input is in `inA` (`inB` holds an immediate / ROM table id)
+  inline val MOV = 2 // patchable identity, for forward references (e.g. port connections)
+  inline val NOT = 3
+  inline val RESIZE = 4 // zero-extend or truncate to the destination width
+  inline val REV = 5 // bit reversal within the destination width
+  inline val SHL = 6 // shift left by an immediate amount
+  inline val SHR = 7 // logical shift right by an immediate amount
+  inline val ROTR = 8 // rotate right by an immediate amount
+  inline val ROM = 9 // constant-table read (`inB` is the table id)
+  // binary ops — node inputs in `inA`/`inB`
+  inline val ADD = 10
+  inline val SUB = 11
+  inline val MUL = 12 // multiplication (low bits — correct for both signednesses)
+  inline val UDIV = 13 // unsigned division (division by zero yields 0)
+  inline val SDIV = 14 // signed division, operands sign-extended from their width
+  inline val UREM = 15 // unsigned remainder (division by zero yields 0)
+  inline val SREM = 16 // signed remainder, operands sign-extended from their width
+  inline val AND = 17
+  inline val OR = 18
+  inline val XOR = 19
+  inline val EQ = 20
+  inline val NEQ = 21
+  inline val ULT = 22 // unsigned less-than
+  inline val SLT = 23 // signed less-than (operands sign-extended from their width)
+  inline val SHLV = 24 // shift left by a dynamic (node) amount
+  inline val SHRV = 25 // logical shift right by a dynamic (node) amount
+  inline val SRAV = 26 // arithmetic shift right by a dynamic (node) amount
+  // ternary ops — node inputs in `inA`/`inB`/`inC`
+  inline val MUX = 27
+  // arity-group boundaries
+  inline val unaryFirst = MOV
+  inline val unaryLast = ROM
+  inline val binaryFirst = ADD
+  inline val binaryLast = SRAV
 end Op
 
 /** A tiny pre-scheduled netlist — the SimGraph precursor the DFacsimile lowering targets. Nodes are
@@ -85,7 +101,17 @@ final class Netlist:
   def xor(a: Int, b: Int): Int = bin(Op.XOR, a, b)
   def and(a: Int, b: Int): Int = bin(Op.AND, a, b)
   def or(a: Int, b: Int): Int = bin(Op.OR, a, b)
+  def mul(a: Int, b: Int): Int = bin(Op.MUL, a, b)
+  def udiv(a: Int, b: Int): Int = bin(Op.UDIV, a, b)
+  def sdiv(a: Int, b: Int): Int = bin(Op.SDIV, a, b)
+  def urem(a: Int, b: Int): Int = bin(Op.UREM, a, b)
+  def srem(a: Int, b: Int): Int = bin(Op.SREM, a, b)
   def not(a: Int): Int = newNode(Op.NOT, widths(a), a)
+
+  /** Bit reversal of `a` within width `w` (>= the width of `a`; bits above `a`'s width read 0). */
+  def rev(a: Int, w: Int): Int =
+    require(w >= widths(a), "reversal width below the operand width")
+    newNode(Op.REV, w, a)
 
   def rotr(a: Int, n: Int): Int =
     require(n > 0 && n < widths(a), "rotate amount out of range")
@@ -174,12 +200,14 @@ final class Netlist:
     order.result()
   end combNodeIds
 
-  /** Node-id inputs of a combinational node (excludes immediates and ROM table ids). */
-  private[sim] def nodeInputs(id: Int): List[Int] = opcodes(id) match
-    case Op.ADD | Op.SUB | Op.XOR | Op.AND | Op.OR | Op.EQ | Op.NEQ | Op.ULT | Op.SLT |
-        Op.SHLV | Op.SHRV | Op.SRAV =>
-      List(inA(id), inB(id))
-    case Op.NOT | Op.ROTR | Op.SHL | Op.SHR | Op.ROM | Op.RESIZE | Op.MOV => List(inA(id))
-    case Op.MUX => List(inA(id), inB(id), inC(id))
-    case _      => Nil
+  /** Node-id inputs of a combinational node (excludes immediates and ROM table ids). The opcode
+    * grouping makes the arity a pair of range checks.
+    */
+  private[sim] def nodeInputs(id: Int): List[Int] =
+    val op = opcodes(id)
+    if op >= Op.binaryFirst then
+      if op <= Op.binaryLast then List(inA(id), inB(id))
+      else List(inA(id), inB(id), inC(id)) // MUX
+    else if op >= Op.unaryFirst then List(inA(id))
+    else Nil // sources (REG/CONST)
 end Netlist

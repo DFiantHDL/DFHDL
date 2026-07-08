@@ -8,9 +8,11 @@ import dfhdl.internals.*
 /** The typed, object-based simulation frontend (locked decision 10): a deferred [[Simulation]]
   * builder entered via `dsn.simulation { dut => ... }`, with `peek`/`poke` extensions on the
   * design's member objects. Values are DFHDL constants (`peek` on a port of type `T` returns
-  * `T <> CONST`; `poke` accepts what `:=` accepts). The typed layer is a thin wrapper over the raw
-  * kernel access ([[Sim]]: name-path handles, packed `Long` values), which is internal-only — the
-  * typed surface is the sole public value interface.
+  * `T <> CONST`; `poke` accepts what `:=` accepts) of ANY type — wide values and composites
+  * (structs, vectors) cross the boundary as packed bits and convert through the IR's canonical
+  * `dataToBitsData`/`bitsDataToData`. The typed layer is a thin wrapper over the raw kernel access
+  * ([[Sim]]: name-path handles, packed bits), which is internal-only — the typed surface is the
+  * sole public value interface.
   */
 final class Simulation[D <: Design] private[sim] (
     dsn: D,
@@ -25,7 +27,7 @@ final class Simulation[D <: Design] private[sim] (
   /** Execute the simulation: fresh state per run; the host block runs as the main process. */
   def run(): Unit =
     val raw = DFacsimile.simulate(dsn.getDB, tier)
-    val ctx = new SimCtx(raw, memberPath)
+    val ctx = new SimCtx(raw, memberPath, concretize)
     val dfc = DFCG()
     block.foreach(b => b(using dfc)(using ctx)(dsn))
 
@@ -44,6 +46,27 @@ final class Simulation[D <: Design] private[sim] (
       path = s"${instSegment(d)}.$path"
       d = d.getOwnerDesign
     path
+
+  /** Resolve every param-dependent width/dimension in the type to a literal (host-side constants
+    * must carry a concrete type). Recurses through composites.
+    */
+  private def concretize(t: ir.DFType): ir.DFType =
+    given MemberGetSet = dsn.dfc.getSet
+    given ir.ConstData.CachePolicy = ir.ConstData.CachePolicy.NoCache
+    def lit(ref: ir.IntParamRef): ir.IntParamRef =
+      ir.IntParamRef(ref.getIntConstData.toOption.getOrElse(
+        throw new IllegalArgumentException(s"cannot resolve a param-dependent width in type:\n$t")
+      ))
+    def rec(t: ir.DFType): ir.DFType = t match
+      case b: ir.DFBits    => b.copy(widthParamRef = lit(b.widthParamRef))
+      case d: ir.DFDecimal => d.copy(magnitudeWidthParamRef = lit(d.magnitudeWidthParamRef))
+      case v: ir.DFVector  =>
+        v.copy(cellType = rec(v.cellType), cellDimParamRefs = v.cellDimParamRefs.map(lit))
+      case s: ir.DFStruct => s.copy(fieldMap = s.fieldMap.map((n, ft) => (n, rec(ft))))
+      case o: ir.DFOpaque => o.copy(actualType = rec(o.actualType))
+      case other          => other
+    rec(t)
+  end concretize
 
   // flat immutable DB used only by the bridge to enumerate sibling instances
   private lazy val flatDB = dsn.dfc.getSet.designDB
@@ -69,10 +92,11 @@ end Simulation
 
 /** Simulation capability context: passed contextually into the host block. */
 final class SimCtx private[sim] (
-    // internal kernel access: by-name-path handles, packed Long values (not public API —
+    // internal kernel access: by-name-path handles, packed bits (not public API —
     // the typed peek/poke surface is the only value interface)
     private[sim] val raw: Sim,
-    private[sim] val memberPath: ir.DFVal => String
+    private[sim] val memberPath: ir.DFVal => String,
+    private[sim] val concretize: ir.DFType => ir.DFType
 ):
   def step(cycles: Long = 1L): Unit = raw.step(cycles)
   def settle(): Unit = raw.settle()
@@ -90,74 +114,26 @@ extension [D <: Design](dsn: D)
   def simulation: Simulation[D] =
     new Simulation(dsn, None, SimTier.Interpreter, 0L)
 
-// host-side constants must carry a concrete (non-parametric) type; the netlist knows the
-// param-resolved width even when the member's own type references design params
-private def concreteFE[T <: DFTypeAny](irType: ir.DFType, width: Int): T =
-  val concreteIR = irType match
-    case b: ir.DFBits    => b.copy(widthParamRef = ir.IntParamRef(width))
-    case d: ir.DFDecimal =>
-      d.copy(magnitudeWidthParamRef = ir.IntParamRef(width - d.fractionWidth))
-    case other => other
-  concreteIR.asFE[T]
-
 extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   /** Read the combinationally settled value of this member as a DFHDL constant. */
   def peek(using ctx: SimCtx, dfc: DFCG): DFConstOf[T] =
-    val irVal = dfVal.asIR
-    val path = ctx.memberPath(irVal)
-    val value = ctx.raw.peek(path)
-    val width = ctx.raw.widthOf(path)
-    val data = DataConv.longToData(irVal.dfType, width, value)
-    DFVal.Const.forced(concreteFE(irVal.dfType, width), data)
-
-  /** Convert anything `:=` accepts into a constant of this member's concrete type — the
-    * expected-value counterpart of `poke` (e.g. `dut.sum.constOf(5)`).
-    */
-  def constOf(value: DFVal.TC.Exact[T])(using ctx: SimCtx, dfc: DFCG): DFConstOf[T] =
     import dfc.getSet
     val irVal = dfVal.asIR
-    val path = ctx.memberPath(irVal)
-    val converted = value(concreteFE(irVal.dfType, ctx.raw.widthOf(path)))
-    converted.asIR match
-      case c: ir.DFVal if c.isConst => converted.asInstanceOf[DFConstOf[T]]
-      case other                    =>
-        throw new IllegalArgumentException(s"value must convert to a constant, got:\n$other")
+    val bits = ctx.raw.peekBits(ctx.memberPath(irVal))
+    val concreteType = ctx.concretize(irVal.dfType)
+    val data = concreteType.bitsDataToData((bits, BitVector.low(bits.width)))
+    DFVal.Const.forced(concreteType.asFE[T], data)
 
   /** Deposit a value on this member; accepts exactly what `:=` accepts. */
   def poke(value: DFVal.TC.Exact[T])(using ctx: SimCtx, dfc: DFCG): Unit =
     import dfc.getSet
-    val constIR = constOf(value).asIR
-    val packed =
-      DataConv.dataToLongOpt(constIR.dfType, constIR.getConstDataOrDefault[Any]).getOrElse(
-        throw new IllegalArgumentException(s"unsupported poke value data:\n$constIR")
-      )
-    ctx.raw.poke(ctx.memberPath(dfVal.asIR), packed)
+    val constIR = value(ctx.concretize(dfVal.asIR.dfType).asFE[T]).asIR match
+      case c: ir.DFVal if c.isConst => c
+      case other                    =>
+        throw new IllegalArgumentException(s"poke value must convert to a constant, got:\n$other")
+    val t = constIR.dfType
+    val (bits, bubble) = t.dataToBitsData(constIR.getConstDataOrDefault[Any].asInstanceOf[t.Data])
+    if !bubble.isZeros then
+      throw new IllegalArgumentException(s"cannot poke a bubble (?) value:\n$constIR")
+    ctx.raw.pokeBits(ctx.memberPath(dfVal.asIR), bits)
 end extension
-
-/** Packed-Long <-> `Data` conversion at the typed/raw boundary (widths <= 64). */
-private[sim] object DataConv:
-  def longToData(dfType: ir.DFType, width: Int, value: Long): Any = dfType match
-    case _: ir.DFBits =>
-      (BitVector.fromLong(value, width), BitVector.low(width))
-    case d: ir.DFDecimal =>
-      val bigVal =
-        if d.signed && width < 64 && ((value >> (width - 1)) & 1L) == 1L then
-          BigInt(value - (1L << width))
-        else if !d.signed && width == 64 && value < 0 then
-          (BigInt(value >>> 1) << 1) | (value & 1L)
-        else BigInt(value)
-      Some(bigVal)
-    case _: ir.DFBoolOrBit => Some(value != 0L)
-    case _: ir.DFEnum      => Some(BigInt(value))
-    case t                 => throw new UnsupportedOperationException(s"unsupported peek type $t")
-
-  def dataToLongOpt(dfType: ir.DFType, data: Any): Option[Long] = dfType match
-    case _: ir.DFBits =>
-      val (value, bubble) = data.asInstanceOf[(BitVector, BitVector)]
-      if bubble.isZeros then Some(value.toLong(signed = false)) else None
-    case _: ir.DFDecimal | _: ir.DFEnum =>
-      data.asInstanceOf[Option[BigInt]].map(_.toLong)
-    case _: ir.DFBoolOrBit =>
-      data.asInstanceOf[Option[Boolean]].map(v => if v then 1L else 0L)
-    case _ => None
-end DataConv

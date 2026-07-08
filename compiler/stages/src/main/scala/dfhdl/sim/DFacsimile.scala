@@ -10,14 +10,21 @@ enum SimTier derives CanEqual:
 
 /** Minimum-viable DFacsimile: lowers an elaborated DFHDL design DB (new-style hierarchical root DB)
   * into the flat pre-scheduled [[Netlist]] and executes it on a kernel tier ([[Interpreter]] or
-  * [[Codegen]]).
+  * [[Codegen]]). Values of any width lower through [[WideOps]] into 64-bit lanes (word-slicing),
+  * and composite types (structs, vectors, opaques) lower as their packed bits — so the kernels stay
+  * pure-`Long` machines.
   *
   * Supported IR subset (fails loudly on anything else):
-  *   - scalar Dcls (vars/ports) of DFBits/DFDecimal/DFBool/DFBit up to 64 bits
+  *   - Dcls (vars/ports) of DFBits/DFDecimal/DFBool/DFBit/DFEnum of any width, plus DFStruct /
+  *     DFVector / DFOpaque compositions (packed-bits representation, nesting included)
   *   - REG Dcls with constant init; register hold semantics when unassigned in a branch
-  *   - funcs: n-ary `+`/`&`/`|`/`^`, `++`, `===`/`=!=`, `unary_~`/`unary_!`, `<<`/`>>` by constant
-  *     amount, `ror`/`rol`, `sel`
-  *   - `AsIs` casts, bit-select/range on Bits (constant index), constant-vector indexing (ROM)
+  *   - funcs: n-ary `+`/`-`/`&`/`|`/`^` (width-extending variants included), `*`/`/`/`%` (up to
+  *     64-bit results), `++`, comparisons, `unary_-`/`unary_~`/`unary_!`, `<<`/`>>` by constant or
+  *     dynamic amount, `ror`/`rol`, `reverse`/`repeat`, `max`/`min`/`abs`, `sel`
+  *   - `AsIs` casts (sign-extending for signed sources), bit-select/range on Bits (constant or
+  *     dynamic index), field select on structs, vector indexing (constant or dynamic index;
+  *     constant-vector indexing becomes per-lane ROMs)
+  *   - assignments to partial targets (bit/range/field/cell, dynamic indices included) as RMW
   *   - conditionals: `if`/`match` chains (statement and expression form) lowered to mux trees with
   *     sequential-assignment semantics per scope
   *   - hierarchy: per-instance elaboration of sub-design instances over their (shared) sub-DBs;
@@ -25,8 +32,9 @@ enum SimTier derives CanEqual:
   *   - top-level IN ports become pokeable hold-state cells; init applies at time zero (no reset
   *     modeling); design params resolve per instance when constant
   *
-  * Known minimum limitations: dynamic shift amounts, processes/domains, `.reg`/`.prev` aliases,
-  * assignment to partial targets, and per-instance param-dependent *widths* (widths resolve via the
+  * Known minimum limitations: processes/domains, `.reg`/`.prev` aliases, `**`/`clog2` on
+  * non-constants, multiplication/division with results wider than 64 bits, bubble (`?`) values
+  * simulate as 0 (2-state), and per-instance param-dependent *widths* (widths resolve via the
   * sub-DB's canonical instance).
   */
 object DFacsimile:
@@ -36,18 +44,20 @@ object DFacsimile:
     val kernel = tier match
       case SimTier.Interpreter => Interpreter.compile(builder.nl)
       case SimTier.Codegen     =>
-        // named values are peekable — force them into the signal array
-        Codegen.compile(builder.nl, observed = builder.namedNodes.values.toSet)
+        // named values are peekable — force their lanes into the signal array
+        Codegen.compile(builder.nl, observed = builder.namedNodes.values.flatMap(_.lanes).toSet)
     new Sim(builder.nl, kernel, builder.namedNodes.toMap)
 end DFacsimile
 
 /** A running simulation instance: one state/signal array + a kernel over it. Values are addressed
-  * by name; hierarchy paths use instance names (e.g. "alu0.res").
+  * by name; hierarchy paths use instance names (e.g. "alu0.res"). Values of any width move across
+  * this boundary as packed [[BitVector]]s; the `Long` variants are a convenience for values up to
+  * 64 bits.
   */
 final class Sim private[sim] (
     val nl: Netlist,
     kernel: SimKernel,
-    nameToNode: Map[String, Int]
+    nameToWV: Map[String, WV]
 ):
   private val sig = nl.initialSig
   // settle-on-peek: peeks always observe combinationally settled state (Amaranth's rule)
@@ -58,27 +68,46 @@ final class Sim private[sim] (
   def settle(): Unit =
     kernel.settle(sig)
     needsSettle = false
-  private def nodeOf(name: String): Int =
-    nameToNode.getOrElse(
+  private def wvOf(name: String): WV =
+    nameToWV.getOrElse(
       name,
       throw new NoSuchElementException(
-        s"no named value: $name\navailable: ${nameToNode.keySet.toList.sorted.mkString(", ")}"
+        s"no named value: $name\navailable: ${nameToWV.keySet.toList.sorted.mkString(", ")}"
       )
     )
+  def peekBits(name: String): BitVector =
+    if needsSettle then settle()
+    val wv = wvOf(name)
+    wv.lanes.zipWithIndex.reverse.map { (n, i) =>
+      BitVector.fromLong(sig(n), math.min(64, wv.width - 64 * i))
+    }.reduce(_ ++ _)
+  def pokeBits(name: String, bits: BitVector): Unit =
+    val wv = wvOf(name)
+    require(
+      bits.width == wv.width,
+      s"poke width mismatch on '$name': got ${bits.width}, expected ${wv.width}"
+    )
+    for (n, i) <- wv.lanes.zipWithIndex do
+      sig(n) = bits.bitsWL(math.min(64, wv.width - 64 * i), 64 * i).toLong(signed = false)
+    needsSettle = true
   def peek(name: String): Long =
     if needsSettle then settle()
-    sig(nodeOf(name))
+    val wv = wvOf(name)
+    require(wv.width <= 64, s"'$name' is ${wv.width} bits wide — use peekBits")
+    sig(wv.lanes(0))
   def poke(name: String, value: Long): Unit =
-    val node = nodeOf(name)
-    sig(node) = value & nl.maskOf(node)
+    val wv = wvOf(name)
+    require(wv.width <= 64, s"'$name' is ${wv.width} bits wide — use pokeBits")
+    sig(wv.lanes(0)) = value & nl.maskOf(wv.lanes(0))
     needsSettle = true
-  def widthOf(name: String): Int = nl.widthOf(nodeOf(name))
-  def names: Set[String] = nameToNode.keySet
+  def widthOf(name: String): Int = wvOf(name).width
+  def names: Set[String] = nameToWV.keySet
 end Sim
 
 private final class Builder(rawDB: DB):
   private[sim] val nl = new Netlist
-  private[sim] val namedNodes = mutable.Map.empty[String, Int]
+  private val wide = new WideOps(nl)
+  private[sim] val namedNodes = mutable.Map.empty[String, WV]
   // the new-style root DB is only a hierarchy container; content lives in per-design sub-DBs
   private val topScopeDB: DB = if rawDB.isRoot then rawDB.topDB else rawDB
 
@@ -113,15 +142,17 @@ private final class Builder(rawDB: DB):
           case _              => ()
       map.view.mapValues(_.toVector).toMap
 
-    private val nodeOf = mutable.Map.empty[DFVal, Int]
-    private val regNodeOf = mutable.Map.empty[DFVal.Dcl, Int]
-    private val inPortMov = mutable.Map.empty[DFVal.Dcl, Int]
+    private val nodeOf = mutable.Map.empty[DFVal, WV]
+    private val regNodeOf = mutable.Map.empty[DFVal.Dcl, WV]
+    private val inPortMov = mutable.Map.empty[DFVal.Dcl, WV]
     // sequential current-value: wires = current driven value; REG dcls = pending din
-    private val env = mutable.Map.empty[DFVal.Dcl, Int]
-    private val partialDrivers = mutable.Map.empty[DFVal.Dcl, mutable.ArrayBuffer[(Int, Int, Int)]]
+    private val env = mutable.Map.empty[DFVal.Dcl, WV]
+    private val partialDrivers = mutable.Map.empty[DFVal.Dcl, mutable.ArrayBuffer[(Int, Int, WV)]]
     private val childScopes = mutable.Map.empty[DFDesignInst, Scope]
     // net sink values (raw, pre-dealias) — skipped as reads during the walk
     private val netSinkOf = mutable.Map.empty[DFNet, DFVal]
+    // write-only views: net sinks and the alias chains under them (never built as reads)
+    private val writeViews = mutable.Set.empty[DFVal]
 
     def elaborate(): Unit =
       // pre-pass: net sink direction (connections are continuous — order-free via MOV patching)
@@ -137,19 +168,29 @@ private final class Builder(rawDB: DB):
             case _ => ()
         case _ => ()
       }
+      netSinkOf.values.foreach { sink =>
+        var v = sink
+        writeViews += v
+        while v.isInstanceOf[DFVal.Alias] do
+          v = v.asInstanceOf[DFVal.Alias].relValRef.get
+          v match
+            case _: DFVal.Dcl => () // the target itself stays readable
+            case _            => writeViews += v
+      }
       // pre-pass: state cells — registers, and IN ports (pokeable hold cells at top,
       // MOV placeholders patched by the parent's connections otherwise)
       designMembers.foreach {
         case dcl: DFVal.Dcl if dcl.modifier.isReg =>
+          val w = widthOf(dcl)
           val init = dcl.initRefList.headOption match
-            case Some(initRef) => constLongOf(initRef.get)
-            case None          => 0L
-          regNodeOf(dcl) = nl.reg(widthOf(dcl), init)
+            case Some(initRef) => regInitBits(initRef.get, w)
+            case None          => BitVector.low(w)
+          regNodeOf(dcl) = wide.reg(w, init)
         case dcl: DFVal.Dcl =>
           dcl.modifier.dir match
             case DFVal.Modifier.Dir.IN =>
-              if isTop then regNodeOf(dcl) = nl.reg(widthOf(dcl), 0L)
-              else inPortMov(dcl) = nl.mov(widthOf(dcl))
+              if isTop then regNodeOf(dcl) = wide.reg(widthOf(dcl), BitVector.low(widthOf(dcl)))
+              else inPortMov(dcl) = wide.mov(widthOf(dcl))
             case _ => // wires/OUT ports bind at their driving net
         case _ =>
       }
@@ -165,40 +206,50 @@ private final class Builder(rawDB: DB):
       case p: DFVal.DesignParam    => bindParam(p)
       case _: DFConditional.Block  => () // processed by its header's chain
       case h: DFConditional.Header => processConditionalChain(h)
-      case v: DFVal if netSinkOf.valuesIterator.contains(v) => () // write-only view of a sink
-      case v: DFVal if isConstVector(v) => () // ROM data, materialized at its use site
-      case v: DFVal                     =>
+      case v: DFVal if writeViews.contains(v) => () // write-only view of a sink
+      case v: DFVal if isConstVector(v)       => () // ROM data, materialized at its use site
+      case v: DFVal                           =>
         tryFoldConst(v) match
-          case Some(node) => bindVal(v, node)
-          case None       =>
+          case Some(wv) => bindVal(v, wv)
+          case None     =>
             v match
-              case pbns: DFVal.PortByNameSelect => bindVal(pbns, pbnsReadNode(pbns))
+              case pbns: DFVal.PortByNameSelect => bindVal(pbns, pbnsReadWV(pbns))
               case f: DFVal.Func                => bindVal(f, buildFunc(f))
               case a: DFVal.Alias.AsIs          =>
-                bindVal(a, nl.resize(readNode(a.relValRef.get), widthOf(a)))
-              case a: DFVal.Alias.ApplyIdx   => bindVal(a, buildApplyIdx(a))
-              case a: DFVal.Alias.ApplyRange => bindVal(a, buildApplyRange(a))
-              case c: DFVal.Const            =>
+                val rel = a.relValRef.get
+                bindVal(a, wide.resize(readWV(rel), widthOf(a), isSignedType(rel.dfType)))
+              case a: DFVal.Alias.ApplyIdx     => bindVal(a, buildApplyIdx(a))
+              case a: DFVal.Alias.ApplyRange   => bindVal(a, buildApplyRange(a))
+              case sf: DFVal.Alias.SelectField => bindVal(sf, buildSelectField(sf))
+              case c: DFVal.Const              =>
                 // reached only for bubble (don't-care) constants (`?`) — simulate as 0 (2-state)
-                bindVal(c, nl.const(widthOf(c), lenientDataToLong(c.dfType, c.data, c)))
+                bindVal(c, wide.const(widthOf(c), lenientDataToBits(c.dfType, c.data, c)))
               case m => unsupported("value kind", m)
       case net: DFNet         => buildNet(net)
       case inst: DFDesignInst => elaborateChild(inst)
       case m                  => unsupported("member kind", m)
     }
 
-    private def bindVal(v: DFVal, node: Int): Unit =
-      nodeOf(v) = node
-      if !v.isAnonymous then namedNodes(prefix + v.getName) = node
+    private def bindVal(v: DFVal, wv: WV): Unit =
+      nodeOf(v) = wv
+      if !v.isAnonymous then namedNodes(prefix + v.getName) = wv
 
     // ---- reads ----------------------------------------------------------------------------
 
-    private def readNode(v: DFVal): Int = v match
+    private def readWV(v: DFVal): WV = v match
       case dcl: DFVal.Dcl =>
         regNodeOf.get(dcl).orElse(env.get(dcl)).orElse(inPortMov.get(dcl))
           .getOrElse(unsupported("reading a value before it is driven", dcl))
       case v =>
-        nodeOf.getOrElse(v, unsupported("reading a value before it is built", v))
+        nodeOf.get(v) match
+          case Some(wv) => wv
+          case None     =>
+            // whole-value reads of constants that were skipped in the walk (e.g. ROM vectors)
+            tryFoldConst(v) match
+              case Some(wv) =>
+                nodeOf(v) = wv
+                wv
+              case None => unsupported("reading a value before it is built", v)
 
     /** Const resolution for simulation: the NoCache policy recomputes through design params, immune
       * to previously-cached symbolic (Always-policy) results.
@@ -209,109 +260,189 @@ private final class Builder(rawDB: DB):
     private def constDataOf(v: DFVal): Any =
       constOpt[Any](v).getOrElse(unsupported("non-constant data here", v))
 
-    /** Constant value as a Long. Falls through value-preserving casts whose data-level fold fails
-      * on param-dependent widths (the caller masks to the target width).
-      */
-    private def constLongOf(v: DFVal): Long =
-      constOpt[Any](v).flatMap(dataToLongOpt(v.dfType, _)) match
-        case Some(value) => value
-        case None        =>
-          v match
-            case a: DFVal.Alias.AsIs => constLongOf(a.relValRef.get)
-            case _                   => unsupported("non-constant data here", v)
-
     private def constIntOf(v: DFVal): Int =
       constOpt[Option[BigInt]](v) match
         case Some(Some(i)) => i.toInt
         case _             => unsupported("non-constant index/amount", v)
+
+    private def constIdxOpt(v: DFVal): Option[Int] =
+      constOpt[Option[BigInt]](v) match
+        case Some(Some(i)) => Some(i.toInt)
+        case _             => None
+
+    // ---- data -> packed bits ----------------------------------------------------------------
+
+    private def dataToBitsOpt(t: DFType, data: Any): Option[BitVector] =
+      scala.util.Try(t.dataToBitsData(data.asInstanceOf[t.Data])).toOption.flatMap {
+        (value, bubble) => if bubble.isZeros then Some(value) else None
+      }
+
+    /** Like [[dataToBitsOpt]], but bubble (don't-care) bits become 0 — 2-state minimum. */
+    private def lenientDataToBits(t: DFType, data: Any, where: Any): BitVector =
+      scala.util.Try(t.dataToBitsData(data.asInstanceOf[t.Data])).toOption match
+        case Some((value, bubble)) =>
+          if bubble.isZeros then value else value.and(bubble.not)
+        case None => unsupported(s"constant of type $t", where)
+
+    private def constBitsOpt(v: DFVal): Option[BitVector] =
+      constOpt[Any](v).flatMap(dataToBitsOpt(v.dfType, _))
+
+    /** Register init as packed bits; bubble bits lower to 0, and value-preserving casts whose
+      * data-level fold fails on param-dependent widths fall through to their source.
+      */
+    private def regInitBits(v: DFVal, w: Int): BitVector =
+      constOpt[Any](v) match
+        case Some(data) => lenientDataToBits(v.dfType, data, v)
+        case None       =>
+          v match
+            case a: DFVal.Alias.AsIs =>
+              resizeBits(regInitBits(a.relValRef.get, w), w, isSignedType(a.relValRef.get.dfType))
+            case _ => unsupported("non-constant register init", v)
+
+    private def resizeBits(bits: BitVector, w: Int, signed: Boolean): BitVector =
+      if bits.width == w then bits
+      else if w < bits.width then bits.drop(bits.width.toLong - w)
+      else
+        BitVector.fill(w.toLong - bits.width)(signed && bits.width > 0 &&
+          bits.bit(bits.width - 1)) ++ bits
+
+    private def isSignedType(t: DFType): Boolean = t match
+      case d: DFDecimal => d.signed
+      case _            => false
 
     // ---- value builders -------------------------------------------------------------------
 
     private def isConstVector(v: DFVal): Boolean =
       v.dfType.isInstanceOf[DFVector] && v.isConst
 
-    private def tryFoldConst(v: DFVal): Option[Int] = v.dfType match
-      case t @ (_: DFBits | _: DFDecimal | _: DFEnum | _: DFBoolOrBit) =>
-        for
-          data <- constOpt[Any](v)
-          value <- dataToLongOpt(t, data)
-        yield nl.const(widthOf(v), value)
-      case _ => None
+    private def tryFoldConst(v: DFVal): Option[WV] =
+      constBitsOpt(v).map(bits => wide.const(widthOf(v), bits))
 
-    private def buildFunc(f: DFVal.Func): Int =
+    private def buildFunc(f: DFVal.Func): WV =
       import DFVal.Func.Op as FO
       val args = f.args.map(_.get)
-      def chain(op: (Int, Int) => Int): Int = args.map(readNode).reduce(op)
-      def signedArgs: Boolean = args.head.dfType match
-        case d: DFDecimal => d.signed
-        case _            => false
-      def lt(x: DFVal, y: DFVal): Int =
-        if signedArgs then nl.slt(readNode(x), readNode(y)) else nl.ult(readNode(x), readNode(y))
+      val resW = widthOf(f)
+      def signedArgs: Boolean = isSignedType(args.head.dfType)
+      def rd(a: DFVal): WV = readWV(a)
+      def rdAt(a: DFVal, w: Int): WV = wide.resize(rd(a), w, isSignedType(a.dfType))
+      def cmpArgs: (WV, WV) =
+        val w = math.max(widthOf(args.head), widthOf(args(1)))
+        (rdAt(args.head, w), rdAt(args(1), w))
+      def bool(n: Int): WV = WV(Vector(n), 1)
+      def ltN(x: DFVal, y: DFVal): Int =
+        val w = math.max(widthOf(x), widthOf(y))
+        wide.ltNode(rdAt(x, w), rdAt(y, w), signedArgs)
+      def singleLaneAt(w: Int)(mk: (Int, Int) => Int): WV =
+        if w > 64 then unsupported(s"result width $w for op ${f.op} (only 1..64)", f)
+        WV(Vector(mk(rdAt(args.head, w).lanes(0), rdAt(args(1), w).lanes(0))), w)
       def constAmountOpt: Option[Int] = constOpt[Option[BigInt]](args(1)) match
         case Some(Some(v)) => Some(v.toInt)
         case _             => None
-      val n = f.op match
-        case FO.+         => chain(nl.add)
-        case FO.-         => chain(nl.sub)
-        case FO.^         => chain(nl.xor)
-        case FO.&         => chain(nl.and)
-        case FO.|         => chain(nl.or)
-        case FO.++        => buildConcat(args)
-        case FO.===       => nl.eq(readNode(args.head), readNode(args(1)))
-        case FO.=!=       => nl.neq(readNode(args.head), readNode(args(1)))
-        case FO.<         => lt(args.head, args(1))
-        case FO.>         => lt(args(1), args.head)
-        case FO.<=        => nl.not(lt(args(1), args.head))
-        case FO.>=        => nl.not(lt(args.head, args(1)))
-        case FO.`unary_~` => nl.not(readNode(args.head))
-        case FO.`unary_!` => nl.not(readNode(args.head))
-        case FO.sel       => nl.mux(readNode(args.head), readNode(args(1)), readNode(args(2)))
-        case FO.<<        =>
+      val res = f.op match
+        case FO.+         => args.map(rdAt(_, resW)).reduce(wide.add)
+        case FO.-         => args.map(rdAt(_, resW)).reduce(wide.sub)
+        case FO.^         => args.map(rdAt(_, resW)).reduce(wide.xor)
+        case FO.&         => args.map(rdAt(_, resW)).reduce(wide.and)
+        case FO.|         => args.map(rdAt(_, resW)).reduce(wide.or)
+        case FO.*         => singleLaneAt(resW)(nl.mul)
+        case FO./         => singleLaneAt(resW)(if signedArgs then nl.sdiv else nl.udiv)
+        case FO.%         => singleLaneAt(resW)(if signedArgs then nl.srem else nl.urem)
+        case FO.++        => wide.concat(args.map(rd))
+        case FO.===       => val (a, b) = cmpArgs; bool(wide.eqNode(a, b))
+        case FO.=!=       => val (a, b) = cmpArgs; bool(wide.neqNode(a, b))
+        case FO.<         => bool(ltN(args.head, args(1)))
+        case FO.>         => bool(ltN(args(1), args.head))
+        case FO.<=        => bool(nl.not(ltN(args(1), args.head)))
+        case FO.>=        => bool(nl.not(ltN(args.head, args(1))))
+        case FO.`unary_-` => wide.neg(rdAt(args.head, resW))
+        case FO.`unary_~` => wide.not(rd(args.head))
+        case FO.`unary_!` => wide.not(rd(args.head))
+        case FO.max       => val (a, b) = cmpArgs; wide.mux(wide.ltNode(a, b, signedArgs), b, a)
+        case FO.min       => val (a, b) = cmpArgs; wide.mux(wide.ltNode(a, b, signedArgs), a, b)
+        case FO.abs       =>
+          val a = rdAt(args.head, resW)
+          if signedArgs then
+            wide.mux(wide.ltNode(a, wide.zero(resW), signed = true), wide.neg(a), a)
+          else a
+        case FO.sel => wide.mux(rd(args.head).lanes(0), rd(args(1)), rd(args(2)))
+        case FO.<<  =>
+          val a = rdAt(args.head, resW)
           constAmountOpt match
-            case Some(amt) => nl.shl(readNode(args.head), amt)
-            case None      => nl.shlv(readNode(args.head), readNode(args(1)))
+            case Some(amt) => wide.shlConst(a, amt)
+            case None      => wide.shlDyn(a, rd(args(1)))
         case FO.>> =>
-          if signedArgs then nl.srav(readNode(args.head), readNode(args(1)))
-          else
-            constAmountOpt match
-              case Some(amt) => nl.shr(readNode(args.head), amt)
-              case None      => nl.shrv(readNode(args.head), readNode(args(1)))
-        case FO.ror => nl.rotr(readNode(args.head), constIntOf(args(1)))
-        case FO.rol =>
-          val a = readNode(args.head)
-          nl.rotr(a, nl.widthOf(a) - constIntOf(args(1)))
-        case op => unsupported(s"func op $op", f)
-      if nl.widthOf(n) != widthOf(f) then unsupported("width-changing func result", f)
-      n
+          val a = rdAt(args.head, resW)
+          constAmountOpt match
+            case Some(amt) => wide.shrConst(a, amt, arith = signedArgs)
+            case None      => wide.shrDyn(a, rd(args(1)), arith = signedArgs)
+        case FO.ror     => wide.rotr(rd(args.head), constIntOf(args(1)))
+        case FO.rol     => wide.rotl(rd(args.head), constIntOf(args(1)))
+        case FO.reverse =>
+          args.head.dfType match
+            case vt: DFVector => // vector reversal reverses the cell order, not the bits
+              val cellW = widthOfType(vt.cellType, f)
+              val a = rd(args.head)
+              wide.concat(Vector.tabulate(a.width / cellW)(i => wide.extract(a, i * cellW, cellW)))
+            case _ => wide.reverse(rd(args.head))
+        case FO.repeat => wide.repeat(rd(args.head), constIntOf(args(1)))
+        case op        => unsupported(s"func op $op", f)
+      if res.width != resW then unsupported("width-changing func result", f)
+      res
     end buildFunc
 
-    private def buildConcat(args: List[DFVal]): Int =
-      // args.head holds the MSBs
-      val totalWidth = args.map(widthOf).sum
-      args.map(a => (readNode(a), widthOf(a))).reduceLeft { case ((accN, accW), (n, w)) =>
-        (nl.or(nl.shl(nl.resize(accN, totalWidth), w), nl.resize(n, totalWidth)), accW + w)
-      }(0)
-
-    private def buildApplyIdx(a: DFVal.Alias.ApplyIdx): Int =
+    private def buildApplyIdx(a: DFVal.Alias.ApplyIdx): WV =
       val rel = a.relValRef.get
       rel.dfType match
         case vt: DFVector =>
-          val data = constOpt[Vector[Any]](rel)
-            .getOrElse(unsupported("dynamic indexing of a non-constant vector", a))
-          val cellType = vt.cellType
-          val cellWidth = cellType.widthUNSAFE
-          if cellWidth > 64 then unsupported(s"ROM cell width $cellWidth", a)
-          val table = data.map(cell => dataToLong(cellType, cell, a)).toArray
-          nl.rom(table, cellWidth, readNode(a.relIdx.get))
+          val cellW = widthOfType(vt.cellType, a)
+          constIdxOpt(a.relIdx.get) match
+            case Some(i) =>
+              val relWV = readWV(rel)
+              wide.extract(relWV, (relWV.width / cellW - 1 - i) * cellW, cellW)
+            case None =>
+              if rel.isConst then // constant table with a dynamic address — per-lane ROMs
+                val data = constOpt[Vector[Any]](rel)
+                  .getOrElse(unsupported("dynamic indexing of this vector", a))
+                val cells = data.map(cell => lenientDataToBits(vt.cellType, cell, a))
+                wide.rom(cells, cellW, wide.bitField(readWV(a.relIdx.get), 0, 32))
+              else
+                val relWV = readWV(rel)
+                val off = dynCellOffset(relWV.width / cellW, cellW, a.relIdx.get)
+                wide.dynExtract(relWV, off, cellW)
         case _: DFBits =>
-          nl.resize(nl.shr(readNode(rel), constIntOf(a.relIdx.get)), 1)
+          constIdxOpt(a.relIdx.get) match
+            case Some(i) => wide.extract(readWV(rel), i, 1)
+            case None    => wide.dynExtract(readWV(rel), dynBitOffset(a.relIdx.get), 1)
         case t => unsupported(s"indexing into $t", a)
+      end match
+    end buildApplyIdx
 
-    private def buildApplyRange(a: DFVal.Alias.ApplyRange): Int =
+    private def buildApplyRange(a: DFVal.Alias.ApplyRange): WV =
       val rel = a.relValRef.get
       val hi = a.idxHighRef.getIntOpt.getOrElse(unsupported("non-constant range", a))
       val lo = a.idxLowRef.getIntOpt.getOrElse(unsupported("non-constant range", a))
-      nl.resize(nl.shr(readNode(rel), lo), hi - lo + 1)
+      rel.dfType match
+        case _: DFBits => wide.extract(readWV(rel), lo, hi - lo + 1)
+        case t         => unsupported(s"range selection on $t", a)
+
+    private def buildSelectField(sf: DFVal.Alias.SelectField): WV =
+      val rel = sf.relValRef.get
+      rel.dfType match
+        case st: DFStruct =>
+          wide.extract(readWV(rel), st.fieldRelBitLow(sf.fieldName), widthOf(sf))
+        case t => unsupported(s"field selection on $t", sf)
+
+    /** The dynamic index value as a 32-bit lane (bit offsets always fit 32 bits). */
+    private def dynBitOffset(idx: DFVal): WV =
+      WV(Vector(wide.bitField(readWV(idx), 0, 32)), 32)
+
+    /** Bit offset of a dynamically indexed vector cell: `(len-1-idx) * cellW` (cell 0 packs at the
+      * MSBs).
+      */
+    private def dynCellOffset(len: Int, cellW: Int, idx: DFVal): WV =
+      val idxNode = wide.bitField(readWV(idx), 0, 32)
+      val rev = nl.sub(nl.const(32, (len - 1).toLong), idxNode)
+      WV(Vector(nl.mul(rev, nl.const(32, cellW.toLong))), 32)
 
     // ---- conditionals ---------------------------------------------------------------------
 
@@ -319,11 +450,11 @@ private final class Builder(rawDB: DB):
       import DFConditional.DFCaseBlock.Pattern
       val blocks = db.conditionalChainTable.getOrElse(header, Nil)
       if blocks.isEmpty then unsupported("conditional header without blocks", header)
-      val selectorNode = header match
-        case mh: DFConditional.DFMatchHeader => Some(readNode(mh.selectorRef.get))
+      val selectorWV = header match
+        case mh: DFConditional.DFMatchHeader => Some(readWV(mh.selectorRef.get))
         case _                               => None
       def patternCond(p: Pattern): Int = p match
-        case Pattern.Singleton(ref)    => nl.eq(selectorNode.get, readNode(ref.get))
+        case Pattern.Singleton(ref)    => wide.eqNode(selectorWV.get, readWV(ref.get))
         case Pattern.Alternative(list) => list.map(patternCond).reduce(nl.or)
         case p                         => unsupported(s"match pattern $p", header)
       val isExpr = header.dfType match
@@ -331,11 +462,11 @@ private final class Builder(rawDB: DB):
         case _      => true
 
       val baseEnv = env.toMap
-      case class Branch(condOpt: Option[Int], resultEnv: Map[DFVal.Dcl, Int], yieldOpt: Option[Int])
+      case class Branch(condOpt: Option[Int], resultEnv: Map[DFVal.Dcl, WV], yieldOpt: Option[WV])
       val branches = blocks.map { block =>
         env.clear(); env ++= baseEnv
         val guardCond = block.guardRef.get match
-          case g: DFVal => Some(readNode(g))
+          case g: DFVal => Some(readWV(g).lanes(0))
           case _        => None
         val condOpt = block match
           case cb: DFConditional.DFCaseBlock =>
@@ -351,7 +482,7 @@ private final class Builder(rawDB: DB):
         val yieldOpt =
           if isExpr then
             blockMembers.lastOption match
-              case Some(v: DFVal) => Some(readNode(v))
+              case Some(v: DFVal) => Some(readWV(v))
               case _ => unsupported("expression conditional block without a yield value", block)
           else None
         Branch(condOpt, env.toMap, yieldOpt)
@@ -366,15 +497,15 @@ private final class Builder(rawDB: DB):
         .filter(dcl => branches.exists(b => b.resultEnv.get(dcl) != baseEnv.get(dcl)))
       for dcl <- assignedKeys do
         // registers hold their value when unassigned; wires fall back to their prior value
-        val default: Option[Int] =
+        val default: Option[WV] =
           if regNodeOf.contains(dcl) then Some(baseEnv.getOrElse(dcl, regNodeOf(dcl)))
           else baseEnv.get(dcl)
-        val start: Option[Int] = elseBranch match
+        val start: Option[WV] = elseBranch match
           case Some(b) => b.resultEnv.get(dcl).orElse(default)
           case None    => default
         val merged = condBranches.foldRight(start) { (b, acc) =>
           (b.resultEnv.get(dcl).orElse(default), acc) match
-            case (Some(t), Some(f)) => Some(nl.mux(b.condOpt.get, t, f))
+            case (Some(t), Some(f)) => Some(wide.mux(b.condOpt.get, t, f))
             case _                  => None
         }
         merged match
@@ -387,7 +518,7 @@ private final class Builder(rawDB: DB):
         val start = elseBranch.get.yieldOpt
         val merged = condBranches.foldRight(start) { (b, acc) =>
           (b.yieldOpt, acc) match
-            case (Some(t), Some(f)) => Some(nl.mux(b.condOpt.get, t, f))
+            case (Some(t), Some(f)) => Some(wide.mux(b.condOpt.get, t, f))
             case _                  => None
         }
         bindVal(header, merged.getOrElse(unsupported("unmergeable conditional expression", header)))
@@ -398,43 +529,85 @@ private final class Builder(rawDB: DB):
     private def buildNet(net: DFNet): Unit = net.op match
       case DFNet.Op.Assignment =>
         net.lhsRef.get match
-          case dcl: DFVal.Dcl => env(dcl) = readNode(net.rhsRef.get)
-          case other          => unsupported("assignment to a partial/alias target", net)
+          case dcl: DFVal.Dcl     => env(dcl) = readWV(net.rhsRef.get)
+          case alias: DFVal.Alias => assignPartial(alias, readWV(net.rhsRef.get), net)
+          case other              => unsupported("assignment target", net)
       case DFNet.Op.Connection | DFNet.Op.ViaConnection =>
         val sink = netSinkOf.getOrElse(net, unsupported("connection direction resolution", net))
         val src = if sink eq net.lhsRef.get then net.rhsRef.get else net.lhsRef.get
-        connectSink(sink, readNode(src), net)
+        connectSink(sink, readWV(src), net)
       case op => unsupported(s"net op $op", net)
 
-    private def connectSink(sink: DFVal, srcNode: Int, net: DFNet): Unit = sink match
+    /** RMW lowering of an assignment through a partial view (bit/range/field/cell, dynamic indices
+      * included) into a whole-value update of the underlying declaration.
+      */
+    private def assignPartial(alias: DFVal.Alias, part: WV, net: DFNet): Unit =
+      val (dcl, staticLo, dynOffOpt) = assignTarget(alias, net)
+      val base = env.get(dcl).orElse(regNodeOf.get(dcl))
+        .getOrElse(unsupported("partial assignment to an undriven value", net))
+      env(dcl) = dynOffOpt match
+        case None      => wide.insert(base, part, staticLo)
+        case Some(dyn) =>
+          val off =
+            if staticLo == 0 then dyn
+            else WV(Vector(nl.add(dyn.lanes(0), nl.const(32, staticLo.toLong))), 32)
+          wide.dynInsert(base, part, off)
+
+    /** Resolve a write-view alias chain to its declaration + bit offset (static part + optional
+      * dynamic part).
+      */
+    private def assignTarget(v: DFVal, net: DFNet): (DFVal.Dcl, Int, Option[WV]) =
+      def addDyn(acc: Option[WV], more: WV): Option[WV] = acc match
+        case None    => Some(more)
+        case Some(a) => Some(WV(Vector(nl.add(a.lanes(0), more.lanes(0))), 32))
+      v match
+        case dcl: DFVal.Dcl             => (dcl, 0, None)
+        case ar: DFVal.Alias.ApplyRange =>
+          val (dcl, lo0, dyn) = assignTarget(ar.relValRef.get, net)
+          val lo = ar.idxLowRef.getIntOpt.getOrElse(unsupported("non-constant range", net))
+          (dcl, lo0 + lo, dyn)
+        case ai: DFVal.Alias.ApplyIdx =>
+          val rel = ai.relValRef.get
+          val (dcl, lo0, dyn) = assignTarget(rel, net)
+          rel.dfType match
+            case vt: DFVector =>
+              val cellW = widthOfType(vt.cellType, net)
+              val len = widthOfType(rel.dfType, net) / cellW
+              constIdxOpt(ai.relIdx.get) match
+                case Some(i) => (dcl, lo0 + (len - 1 - i) * cellW, dyn)
+                case None    => (dcl, lo0, addDyn(dyn, dynCellOffset(len, cellW, ai.relIdx.get)))
+            case _: DFBits =>
+              constIdxOpt(ai.relIdx.get) match
+                case Some(i) => (dcl, lo0 + i, dyn)
+                case None    => (dcl, lo0, addDyn(dyn, dynBitOffset(ai.relIdx.get)))
+            case t => unsupported(s"assignment through indexing into $t", net)
+        case sf: DFVal.Alias.SelectField =>
+          val rel = sf.relValRef.get
+          val (dcl, lo0, dyn) = assignTarget(rel, net)
+          rel.dfType match
+            case st: DFStruct => (dcl, lo0 + st.fieldRelBitLow(sf.fieldName), dyn)
+            case t            => unsupported(s"assignment through field selection on $t", net)
+        case other => unsupported("assignment target", other)
+      end match
+    end assignTarget
+
+    private def connectSink(sink: DFVal, srcWV: WV, net: DFNet): Unit = sink match
       case pbns: DFVal.PortByNameSelect =>
         val inst = pbns.designInstRef.get
         val child =
           childScopes.getOrElse(inst, unsupported("connection before instance elaboration", net))
-        child.connectInPort(pbns.portNamePath, srcNode, net)
+        child.connectInPort(pbns.portNamePath, srcWV, net)
       case dcl: DFVal.Dcl =>
         if env.contains(dcl) || partialDrivers.contains(dcl) then
           unsupported("multiple drivers of a value", net)
-        env(dcl) = srcNode
+        env(dcl) = srcWV
       case alias: DFVal.Alias =>
-        val (dcl, hi, lo) = partialTarget(alias)
+        val (dcl, lo, dynOpt) = assignTarget(alias, net)
+        if dynOpt.nonEmpty then unsupported("dynamic partial connection target", net)
         if env.contains(dcl) then unsupported("mixed whole and partial drivers", net)
-        partialDrivers.getOrElseUpdate(dcl, mutable.ArrayBuffer.empty) += ((hi, lo, srcNode))
+        val hi = lo + widthOf(alias) - 1
+        partialDrivers.getOrElseUpdate(dcl, mutable.ArrayBuffer.empty) += ((hi, lo, srcWV))
       case other => unsupported("connection sink", other)
-
-    private def partialTarget(alias: DFVal.Alias): (DFVal.Dcl, Int, Int) =
-      def relDcl(rel: DFVal): DFVal.Dcl = rel match
-        case dcl: DFVal.Dcl => dcl
-        case other          => unsupported("nested partial connection target", alias)
-      alias match
-        case ai: DFVal.Alias.ApplyIdx if ai.relValRef.get.dfType.isInstanceOf[DFBits] =>
-          val idx = constIntOf(ai.relIdx.get)
-          (relDcl(ai.relValRef.get), idx, idx)
-        case ar: DFVal.Alias.ApplyRange =>
-          val hi = ar.idxHighRef.getIntOpt.getOrElse(unsupported("non-constant range", alias))
-          val lo = ar.idxLowRef.getIntOpt.getOrElse(unsupported("non-constant range", alias))
-          (relDcl(ar.relValRef.get), hi, lo)
-        case other => unsupported("partial connection target", other)
 
     // repeated instance names (e.g. `List.fill(n)(SubDesign())`) get indexed path segments
     // (adder_0, adder_1, ...) — matching the uniqueNames convention of the compiler stages
@@ -465,18 +638,18 @@ private final class Builder(rawDB: DB):
             .orElse(constOpt[Any](p))
             .getOrElse(unsupported("non-constant design param", p))
         case None => constDataOf(p)
-      bindVal(p, nl.const(widthOf(p), dataToLong(p.dfType, data, p)))
+      bindVal(p, wide.const(widthOf(p), lenientDataToBits(p.dfType, data, p)))
 
     /** Resolve a child instance's param value in THIS (parent) scope's context. */
     private def paramDataOf(inst: DFDesignInst, name: String): Option[Any] =
       inst.paramMap.get(name).flatMap(ref => constOpt[Any](ref.get))
 
     /** Parent-side read of a child port (child is fully elaborated at this point). */
-    private def pbnsReadNode(pbns: DFVal.PortByNameSelect): Int =
+    private def pbnsReadWV(pbns: DFVal.PortByNameSelect): WV =
       val inst = pbns.designInstRef.get
       val child =
         childScopes.getOrElse(inst, unsupported("port select before instance elaboration", pbns))
-      child.portReadNode(pbns.portNamePath, pbns)
+      child.portReadWV(pbns.portNamePath, pbns)
 
     private def portByName(path: String, where: Any): DFVal.Dcl =
       if path.contains('.') then unsupported(s"nested port path '$path'", where)
@@ -484,15 +657,15 @@ private final class Builder(rawDB: DB):
         case dcl: DFVal.Dcl if !dcl.isAnonymous && dcl.getName == path => dcl
       }.getOrElse(unsupported(s"port '$path' of design '${design.dclName}'", where))
 
-    private def portReadNode(path: String, where: Any): Int =
+    private def portReadWV(path: String, where: Any): WV =
       val dcl = portByName(path, where)
       regNodeOf.get(dcl).orElse(inPortMov.get(dcl)).orElse(env.get(dcl))
         .getOrElse(unsupported("reading an undriven port", dcl))
 
-    private def connectInPort(path: String, srcNode: Int, where: Any): Unit =
+    private def connectInPort(path: String, srcWV: WV, where: Any): Unit =
       val dcl = portByName(path, where)
-      val mov = inPortMov.getOrElse(dcl, unsupported("connection to a non-input port", dcl))
-      nl.patchMov(mov, srcNode)
+      val movWV = inPortMov.getOrElse(dcl, unsupported("connection to a non-input port", dcl))
+      wide.patchMov(movWV, srcWV)
 
     // ---- finalize ------------------------------------------------------------------------
 
@@ -507,29 +680,26 @@ private final class Builder(rawDB: DB):
             unsupported(s"partial drivers with gaps/overlaps at bit $lo", dcl)
           expectedLo = hi + 1
         if expectedLo != w then unsupported("partial drivers not covering the full value", dcl)
-        val composed = sorted.map { (_, lo, n) =>
-          if lo == 0 then nl.resize(n, w) else nl.shl(nl.resize(n, w), lo)
-        }.reduce(nl.or)
-        env(dcl) = composed
+        env(dcl) = wide.assemble(sorted.toSeq.map((_, lo, wv) => wv -> lo), w)
       // registers commit their pending value; unassigned registers (incl. top IN hold cells) hold
-      for (dcl, regId) <- regNodeOf do nl.setNext(regId, env.getOrElse(dcl, regId))
+      for (dcl, regWV) <- regNodeOf do wide.setNext(regWV, env.getOrElse(dcl, regWV))
       // names for state cells and driven wires
       designMembers.foreach {
         case dcl: DFVal.Dcl if !dcl.isAnonymous =>
-          regNodeOf.get(dcl).orElse(env.get(dcl)).orElse(inPortMov.get(dcl)).foreach { n =>
-            namedNodes(prefix + dcl.getName) = n
+          regNodeOf.get(dcl).orElse(env.get(dcl)).orElse(inPortMov.get(dcl)).foreach { wv =>
+            namedNodes(prefix + dcl.getName) = wv
           }
         case _ =>
       }
     end finalizeScope
 
-    // ---- data helpers ---------------------------------------------------------------------
+    // ---- width helpers ---------------------------------------------------------------------
 
     private def widthOf(v: DFVal): Int = widthOfType(v.dfType, v)
     private def widthOfType(t: DFType, where: Any): Int =
       val w = t.widthIntOpt.orElse(widthThroughParams(t))
         .getOrElse(unsupported("unresolvable (param-dependent) width", where))
-      if w < 1 || w > 64 then unsupported(s"width $w (only 1..64)", where)
+      if w < 1 then unsupported(s"width $w", where)
       w
 
     /** `widthIntOpt` resolves param refs with the default `Always` cache policy, under which a
@@ -541,31 +711,16 @@ private final class Builder(rawDB: DB):
         case b: DFBits    => b.widthParamRef.getIntConstData.toOption
         case d: DFDecimal =>
           d.magnitudeWidthParamRef.getIntConstData.toOption.map(_ + d.fractionWidth)
-        case _ => None
-
-    private def dataToLongOpt(dfType: DFType, data: Any): Option[Long] = dfType match
-      case _: DFBits =>
-        val (value, bubble) = data.asInstanceOf[(BitVector, BitVector)]
-        if bubble.isZeros then Some(value.toLong(signed = false)) else None
-      case _: DFDecimal | _: DFEnum =>
-        data.asInstanceOf[Option[BigInt]].map(_.toLong)
-      case _: DFBoolOrBit =>
-        data.asInstanceOf[Option[Boolean]].map(v => if v then 1L else 0L)
-      case _ => None
-
-    private def dataToLong(dfType: DFType, data: Any, where: Any): Long =
-      dataToLongOpt(dfType, data)
-        .getOrElse(unsupported(s"constant data of type $dfType (or bubble data)", where))
-
-    /** Like [[dataToLong]], but bubble (don't-care) data becomes 0 — 2-state minimum. */
-    private def lenientDataToLong(dfType: DFType, data: Any, where: Any): Long = dfType match
-      case _: DFBits =>
-        val (value, bubble) = data.asInstanceOf[(BitVector, BitVector)]
-        (value.toLong(signed = false)) & ~bubble.toLong(signed = false)
-      case _: DFDecimal | _: DFEnum =>
-        data.asInstanceOf[Option[BigInt]].map(_.toLong).getOrElse(0L)
-      case _: DFBoolOrBit =>
-        data.asInstanceOf[Option[Boolean]].map(v => if v then 1L else 0L).getOrElse(0L)
-      case t => unsupported(s"constant of type $t", where)
+        case v: DFVector =>
+          val cellW = v.cellType.widthIntOpt.orElse(widthThroughParams(v.cellType))
+          val dims = v.cellDimParamRefs.map(_.getIntConstData.toOption)
+          if dims.exists(_.isEmpty) then None
+          else cellW.map(_ * dims.flatten.product)
+        case s: DFStruct =>
+          val ws = s.fieldMap.values.map(ft => ft.widthIntOpt.orElse(widthThroughParams(ft)))
+          if ws.exists(_.isEmpty) then None else Some(ws.flatten.sum)
+        case o: DFOpaque => o.actualType.widthIntOpt.orElse(widthThroughParams(o.actualType))
+        case _           => None
+    end widthThroughParams
   end Scope
 end Builder

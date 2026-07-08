@@ -98,7 +98,21 @@ object Codegen:
         case Op.SLT =>
           val s = 64 - nl.widths(a)
           s"(((${rd(a, ci)} << $s) >> $s) < ((${rd(b, ci)} << $s) >> $s) ? 1L : 0L)"
-        case other => throw new IllegalStateException(s"bad opcode $other")
+        case Op.MUL  => s"(${rd(a, ci)} * ${rd(b, ci)}) & $m"
+        case Op.UDIV =>
+          s"(${rd(b, ci)} == 0L ? 0L : Long.divideUnsigned(${rd(a, ci)}, ${rd(b, ci)}))"
+        case Op.SDIV =>
+          val s = 64 - w
+          s"(((${rd(b, ci)} << $s) >> $s) == 0L ? 0L : " +
+            s"(((${rd(a, ci)} << $s) >> $s) / ((${rd(b, ci)} << $s) >> $s)) & $m)"
+        case Op.UREM =>
+          s"(${rd(b, ci)} == 0L ? 0L : Long.remainderUnsigned(${rd(a, ci)}, ${rd(b, ci)}))"
+        case Op.SREM =>
+          val s = 64 - w
+          s"(((${rd(b, ci)} << $s) >> $s) == 0L ? 0L : " +
+            s"(((${rd(a, ci)} << $s) >> $s) % ((${rd(b, ci)} << $s) >> $s)) & $m)"
+        case Op.REV => s"Long.reverse(${rd(a, ci)}) >>> ${64 - w}"
+        case other  => throw new IllegalStateException(s"bad opcode $other")
       val store = if spill.contains(id) then s" sig[$id] = v$id;" else ""
       s"      long v$id = $expr;$store"
     end emitOp
