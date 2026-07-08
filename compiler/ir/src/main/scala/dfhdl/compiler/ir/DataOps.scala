@@ -251,11 +251,19 @@ def calcFuncData[OT <: DFType](
                 Some(lhs: String) :: Some(rhs: String) :: Nil
               ) =>
             Some(lhs + rhs)
-          // DFXInt arithmetic operations and shifting
+          // DFUInt unary_~ operation
+          case (
+                DFUInt(_),
+                FuncOp.unary_~,
+                DFUInt(_) :: Nil,
+                Some(data: BigInt) :: Nil
+              ) =>
+            Some((~data).asUnsigned(outType.widthUNSAFE))
+          // DFXInt arithmetic/logic operations and shifting
           case (
                 outType @ DFXInt(_),
                 op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./ | FuncOp.% | FuncOp.<< |
-                FuncOp.>> | FuncOp.** | FuncOp.max | FuncOp.min),
+                FuncOp.>> | FuncOp.** | FuncOp.max | FuncOp.min | FuncOp.| | FuncOp.& | FuncOp.^),
                 DFXInt(_) :: DFXInt(_) :: maybeMoreTypes,
                 argData: List[Option[BigInt]] @unchecked
               ) =>
@@ -272,6 +280,9 @@ def calcFuncData[OT <: DFType](
               case FuncOp.**  => lhs pow rhs.toInt
               case FuncOp.max => argData.map(_.get).reduce(_ max _)
               case FuncOp.min => argData.map(_.get).reduce(_ min _)
+              case FuncOp.|   => argData.map(_.get).reduce(_ | _)
+              case FuncOp.&   => argData.map(_.get).reduce(_ & _)
+              case FuncOp.^   => argData.map(_.get).reduce(_ ^ _)
             val widthNoTrunc = dataNoTrunc.bitsWidth(outType.signed)
             val dataTrunc =
               if (widthNoTrunc > outType.widthUNSAFE)

@@ -1272,6 +1272,28 @@ object DFXInt:
             DFVal.Func(DFInt32, op.value, List(DFConstInt32(lhs), rhs)).asValTP[DFInt32, RP]
           }
       end evOpShiftOrPowerInt
+      given evOpLogicUInt[
+          Op <: FuncOp.|.type | FuncOp.&.type | FuncOp.^.type,
+          LW <: IntP,
+          LP,
+          RW <: IntP,
+          RP,
+          L <: DFValTP[DFUInt[LW], LP],
+          R <: DFValTP[DFUInt[RW], RP]
+      ](using
+          op: ValueOf[Op]
+      )(using
+          check: `LW == RW`.CheckNUB[LW, RW]
+      ): ExactOp2Aux[Op, DFC, DFValAny, L, R, DFValTP[DFUInt[LW], LP | RP]] =
+        new ExactOp2[Op, DFC, DFValAny, L, R]:
+          type Out = DFValTP[DFUInt[LW], LP | RP]
+          def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
+            (lhs.widthIntOpt, rhs.widthIntOpt) match
+              case (Some(lw), Some(rw)) => check(lw, rw)
+              case _                    =>
+            DFVal.Func(lhs.dfType, op.value, List(lhs, rhs))
+          }
+      end evOpLogicUInt
 
       export dfhdl.internals.clog2
       def clog2[P, S <: Boolean, W <: IntP, N <: NativeType](

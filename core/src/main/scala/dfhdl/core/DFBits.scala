@@ -638,7 +638,7 @@ object DFBits:
             DFVal.Alias.ApplyRange(lhs, idxHighParam, idxLowParam)
           }(using dfc, CTName("bit range selection (apply)"))
       end evOpApplyRangeDFBits
-      given evLogicOpDFBits[
+      given evOpLogicDFBits[
           Op <: FuncOp.|.type | FuncOp.&.type | FuncOp.^.type,
           L,
           LW <: IntP,
@@ -663,7 +663,7 @@ object DFBits:
               case _                    =>
             DFVal.Func(lhsVal.dfType, op.value, List(lhsVal, rhsVal))
           }
-      end evLogicOpDFBits
+      end evOpLogicDFBits
       given evOpLogicReduceDFBits[
           Op <: FuncOp.|.type | FuncOp.&.type | FuncOp.^.type,
           LW <: IntP,
@@ -800,6 +800,12 @@ object DFBits:
           }(using dfc, CTName("cast from bits"))
       end evOpAsDFBits
 
+      extension [W <: IntP, T <: DFBits[W] | DFUInt[W], P](
+          lhs: DFValTP[T, P]
+      )
+        def unary_~(using DFCG): DFValTP[T, P] = trydf {
+          DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
+        }
       extension [W <: IntP, A, C, I, P](
           lhs: DFVal[DFBits[W], Modifier[A, C, I, P]]
       )
@@ -808,9 +814,6 @@ object DFBits:
         }
         def sint(using DFCG): DFValTP[DFSInt[W], P] = trydf {
           DFVal.Alias.AsIs(DFSInt(lhs.widthIntParam), lhs)
-        }
-        def unary_~(using DFCG): DFValTP[DFBits[W], P] = trydf {
-          DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
         }
         def msbit(using DFCG): DFVal[DFBit, Modifier[A, C, Any, P]] =
           import DFVal.Ops.apply as applyBits

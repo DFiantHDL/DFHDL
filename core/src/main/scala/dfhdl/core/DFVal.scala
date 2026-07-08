@@ -296,7 +296,7 @@ sealed protected trait DFValLP:
   // lower priority than other evidence because this is more generic
   export DFXInt.Val.Ops.{evOpCommutativeArithDFXInt, evOpNonCommutativeArithDFXInt}
   export DFOpaque.Val.Ops.{evOpAsDFOpaqueTFE, evOpAsDFOpaqueComp}
-  export DFBits.Val.Ops.{evLogicOpDFBits, evConcatOpDFBits}
+  export DFBits.Val.Ops.{evOpLogicDFBits, evConcatOpDFBits}
 end DFValLP
 object DFVal extends DFValLP:
   protected type FieldWithModifier[V, M <: ModifierAny] = V match
@@ -1300,7 +1300,8 @@ object DFVal extends DFValLP:
     evOpApplyRangeDFXInt,
     evOpShiftOrPowerInt,
     evOpCarryAddSubDFXInt,
-    evOpCarryMulDFXInt
+    evOpCarryMulDFXInt,
+    evOpLogicUInt
   }
   export DFPhysical.Val.Ops.given
   export TDFDouble.Val.Ops.given

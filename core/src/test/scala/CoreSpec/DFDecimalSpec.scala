@@ -182,6 +182,10 @@ class DFDecimalSpec extends DFSpec:
          |s8 := s6.resize(8)
          |u6 := u8.resize(6)
          |s6 := s8.resize(6)
+         |u6 := u6 ^ u6
+         |u6 := u6 & u6
+         |u6 := u6 | u6
+         |u6 := ~u6
          |val sl: Int <> CONST = 1 << param
          |val sr: Int <> CONST = 1 >> param
          |val pow: Int <> CONST = 2 ** param
@@ -275,6 +279,10 @@ class DFDecimalSpec extends DFSpec:
       s8 := s6
       u6 := u8.resize
       s6 := s8.resize
+      u6 := u6 ^ u6
+      u6 := u6 & u6
+      u6 := u6 | u6
+      u6 := ~u6
       assertDSLErrorLog(
         """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
            |An explicit conversion must be applied.""".stripMargin
