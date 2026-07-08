@@ -7,6 +7,7 @@ project/project
 project/target
 target/
 null/
+private-plans/
 private/doc/**/_minted*/
 private/doc/**/*.aux
 private/doc/**/*.bbl
