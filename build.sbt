@@ -196,7 +196,8 @@ lazy val lib = project
   )
   .dependsOn(
     core % "test->test;compile->compile",
-    compiler_stages
+    // test->test so lib simulation specs can reuse the SimSpec base from dfhdl.sim tests
+    compiler_stages % "compile->compile;test->test"
   )
 
 lazy val platforms = project
