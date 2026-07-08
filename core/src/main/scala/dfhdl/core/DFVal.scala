@@ -832,23 +832,40 @@ object DFVal extends DFValLP:
               if dfc.inMetaProgramming &&
                 !dfc.mutableDB.DesignContext.current.hasMember(relVal.asIR) =>
             forced(aliasTypeIR, relVal.anonymizeInDFCPosition.asIR).asVal[AT, M]
-          // anonymous constant are replaced by a different constant
-          // after its data value was converted according to the alias.
-          // the target alias type must have a known width (constants must have a known width)
+          // an anonymous constant is converted directly into a constant of the alias type
+          // (with its data value converted according to the alias), instead of wrapping it
+          // in an alias construct. the target alias type must have a known width (constants
+          // must have a known width).
           case const: ir.DFVal.Const
               if (const.isAnonymous || relVal.inDFCPosition) && aliasTypeIR.getRefs.isEmpty &&
                 !forceNewAlias =>
             val updatedData = ir.dataConversion(aliasTypeIR, const.dfType)(
               const.data.asInstanceOf[const.dfType.Data]
             )
-            dfc.mutableDB.setMember(
-              const,
-              _.copy(
-                dfType = aliasTypeIR.dropUnreachableRefs,
-                data = updatedData,
-                meta = dfc.getMeta
-              )
-            ).asVal[AT, M]
+            val newDFType = aliasTypeIR.dropUnreachableRefs
+            // the constant is replaced in place only when it is a throwaway literal freshly
+            // created at the current position. otherwise (an anonymous constant created
+            // elsewhere) it may be aliased by a live Scala reference and reused (e.g. a value
+            // bound via tuple destructuring), so mutating it in place would corrupt those
+            // uses; instead we materialize a new converted constant and leave the original
+            // untouched.
+            if (relVal.inDFCPosition)
+              dfc.mutableDB.setMember(
+                const,
+                _.copy(
+                  dfType = newDFType,
+                  data = updatedData,
+                  meta = dfc.getMeta
+                )
+              ).asVal[AT, M]
+            else
+              ir.DFVal.Const(
+                newDFType,
+                updatedData,
+                dfc.ownerOrEmptyRef,
+                dfc.getMeta,
+                dfc.tags
+              ).addMember.asVal[AT, M]
           // remove redundant intermediate casting when the final result needs to be `.bits` anyways
           // as long as the alias is anonymous and has the same width as the related value,
           // to avoid modifying the semantics of named values that can be referenced in multiple places.
