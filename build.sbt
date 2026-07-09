@@ -37,7 +37,7 @@ val oslibVersion         = "0.11.8"
 val scallopVersion       = "6.0.0"
 val upickleVersion       = "4.4.3"
 val scalapptainerVersion = "0.5.1"
-val factumVersion        = "0.1.0"
+val factumVersion        = "0.2.0"
 
 inThisBuild(
   List(

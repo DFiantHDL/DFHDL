@@ -8,7 +8,6 @@ import dfhdl.options.*
 import org.rogach.scallop.*
 import dfhdl.internals.{sbtShellIsRunning, sbtnIsRunning, ToolInterruptedException}
 import scala.util.chaining.scalaUtilChainingOps
-import java.time.Instant
 import dfhdl.compiler.stages.{StagedDesign, CompiledDesign}
 import dfhdl.internals.DiskCache
 import dfhdl.compiler.ir.SourceFile
@@ -27,27 +26,18 @@ class DFApp:
   private var designName: String = ""
   private var topScalaPath: String = ""
   // The class of the design's generated entry point, supplied by the plugin via
-  // `setInitials`. It locates the user's compiled output so `appCompileTime`
-  // reflects the design's build time (for cache invalidation). Falls back to
-  // `this.getClass` for the manual path (`ManualDFApp`), whose anonymous
-  // subclass already lives in the user's output.
+  // `setInitials`. It anchors `designCodeRef` at the user's compiled output (for
+  // cache invalidation). Falls back to `this.getClass` for the manual path
+  // (`ManualDFApp`), whose anonymous subclass already lives in the user's output.
   private var topClassOpt: Option[Class[?]] = None
-  private lazy val appCompileTime: Instant =
-    val clazz = topClassOpt.getOrElse(this.getClass)
-    val location = clazz.getProtectionDomain.getCodeSource.getLocation
-    val classPath = Paths.get(location.toURI).toRealPath().getParent()
-    // Helper function to recursively get all files in a directory
-    def getAllFiles(dir: java.io.File): List[java.io.File] =
-      val files = dir.listFiles()
-      if (files.isEmpty) Nil
-      else
-        val (dirs, regularFiles) = files.toList.partition(_.isDirectory)
-        regularFiles ++ dirs.flatMap(getAllFiles)
-    val classPathFiles = getAllFiles(classPath.toFile)
-    classPathFiles.map(
-      _.lastModified()
-    ).maxOption.map(Instant.ofEpochMilli).getOrElse(Instant.now())
-  end appCompileTime
+  // Content digest of the design's code: the entry-point class plus every class it
+  // transitively references (per-class in directory classpath entries, whole-jar for
+  // jar entries). Elaboration is cached against this, so rebuilds that change no
+  // relevant code keep the cache warm, while a body change anywhere in the design's
+  // dependency closure invalidates it - even when the top class itself was not
+  // recompiled.
+  private lazy val designCodeRef: factum.CodeRef =
+    factum.CodeRef(topClassOpt.getOrElse(this.getClass))
 
   // this context is just for enabling `getConstData` to work.
   // the internal global context inside `value` will be actually at play here.
@@ -123,7 +113,7 @@ class DFApp:
 
   object diskCache extends DiskCache(compilerOptions.cachePath(designName))
   object elaborate extends diskCache.Step[core.Design, StagedDesign](dsn)(
-        appCompileTime,
+        designCodeRef,
         dfhdlVersion,
         elaborationOptions.defaultRTDomainCfgTag,
         designArgs
