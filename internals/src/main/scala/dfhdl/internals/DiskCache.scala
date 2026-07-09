@@ -1,10 +1,11 @@
 package dfhdl.internals
 
-import factum.{Codec, Evaluator, Output, Task}
+import factum.{Codec, Evaluator, Output, Task, TaskListener}
 import factum.store.DiskStore
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
+import java.util.concurrent.ConcurrentHashMap
 import scala.util.hashing.MurmurHash3
 
 /** Disk cache for the DFHDL app pipeline steps.
@@ -19,8 +20,10 @@ import scala.util.hashing.MurmurHash3
   *   - `otherDeps` keying is bit-compatible (MurmurHash3 over the deps sequence), because some deps
   *     (e.g. `DesignArgs` values, tool objects) are not yet stable under Factum's strict `KeyHash`.
   *     Migrating steps to typed, checked keys is a follow-up.
-  *   - On a cache hit the order of events is: `logCachedRun()`, value decode,
-  *     `cleanUpBeforeFileRestore(value)`, then generated-files restore.
+  *   - On a cache hit the order of events is: `logCachedRun()`, then for steps with generated
+  *     files: value decode, `cleanUpBeforeFileRestore(value)`, and file restore. Steps without
+  *     generated files decode lazily: an upstream hit whose value is never demanded downstream is
+  *     not deserialized at all.
   *   - `apply(uncached = true)` runs only this step uncached (its dependencies still use their own
   *     caching defaults) and does not write to the cache.
   */
@@ -32,7 +35,19 @@ class DiskCache(val cacheFolderStr: String):
     if (folderPath.isAbsolute) folderPath
     else folderPath.toAbsolutePath.normalize()
 
-  private lazy val evaluator = Evaluator(DiskStore(cacheFolderPath))
+  // steps register themselves by cache name so evaluator hooks dispatch back to them
+  private val steps = ConcurrentHashMap[String, Step[?, ?]]()
+  private object stepListener extends TaskListener:
+    override def onCacheHit(name: String): Unit =
+      steps.get(name) match
+        case null => ()
+        case step => step.onCacheHitHook()
+    override def onBeforeFilesRestore(name: String, value: () => Any): Unit =
+      steps.get(name) match
+        case null => ()
+        case step => step.onBeforeRestoreHook(value())
+
+  private lazy val evaluator = Evaluator(DiskStore(cacheFolderPath), listener = stepListener)
 
   /** A Step represents a cacheable computation step in a processing pipeline.
     *
@@ -79,16 +94,21 @@ class DiskCache(val cacheFolderStr: String):
     // folded with MurmurHash3 and enters the Factum action key as a plain string.
     private def otherDepsKey: String = MurmurHash3.orderedHash(otherDeps).toHexString
 
-    // Factum decodes the cached value before restoring generated files, which is
-    // exactly where the original implementation ran its cache-hit hooks.
+    // Cache-hit hooks are dispatched through the evaluator's TaskListener (see
+    // stepListener above), keeping the codec pure so Factum can decode values
+    // lazily: steps without generated files only deserialize when demanded.
+    private[DiskCache] def onCacheHitHook(): Unit = logCachedRun()
+    private[DiskCache] def onBeforeRestoreHook(value: Any): Unit =
+      cleanUpBeforeFileRestore(value.asInstanceOf[R])
+
     private object stepCodec extends Codec[R]:
       def encode(value: R): Array[Byte] =
         valueToCacheStr(value).getBytes(StandardCharsets.UTF_8)
       def decode(bytes: Array[Byte]): R =
-        logCachedRun()
-        val value = cacheStrToValue(String(bytes, StandardCharsets.UTF_8))
-        if (hasGenFiles) cleanUpBeforeFileRestore(value)
-        value
+        cacheStrToValue(String(bytes, StandardCharsets.UTF_8))
+
+    // register after `name` is initialized above
+    DiskCache.this.steps.put(name, this)
 
     private def runWithFiles(from: F): (R, Vector[Output]) =
       val value = run(from)
