@@ -13,6 +13,10 @@ import dfhdl.internals.*
   * `dataToBitsData`/`bitsDataToData`. The typed layer is a thin wrapper over the raw kernel access
   * ([[Sim]]: name-path handles, packed bits), which is internal-only — the typed surface is the
   * sole public value interface.
+  *
+  * Executing a [[Simulation]] yields a [[SimulationRun]] — the live context of that execution
+  * (state, elapsed cycles, lifecycle status), which can be inspected while not running and
+  * continued while paused.
   */
 final class Simulation[D <: Design] private[sim] (
     dsn: D,
@@ -24,12 +28,37 @@ final class Simulation[D <: Design] private[sim] (
   // seed is carried for API completeness; randomization support lands later
   def withSeed(seed: Long): Simulation[D] = new Simulation(dsn, block, tier, seed)
 
-  /** Execute the simulation: fresh state per run; the host block runs as the main process. */
-  def run(): Unit =
+  private def newRun[R <: SimulationRun[D]](
+      mk: (
+          D,
+          Sim,
+          ir.DFVal => String,
+          ir.DFType => ir.DFType,
+          Option[DFCG ?=> SimCtx ?=> D => Unit]
+      ) => R,
+      limit: Long
+  ): R =
     val raw = DFacsimile.simulate(dsn.getDB, tier)
-    val ctx = new SimCtx(raw, memberPath, concretize)
-    val dfc = DFCG()
-    block.foreach(b => b(using dfc)(using ctx)(dsn))
+    val r = mk(dsn, raw, memberPath, concretize, block)
+    r.start(limit)
+    r
+
+  /** Execute the simulation on the calling flow: fresh state per run; the host block runs as the
+    * main process (on a managed worker thread, so a cycle-limit can pause it). Returns once the run
+    * pauses or finishes; host-block failures are rethrown here. Block-less simulations start paused
+    * and are driven imperatively via [[SimulationRun.continue]]/[[SimulationRun.inspect]].
+    */
+  def run(limit: Long = Long.MaxValue): SimulationRun[D] =
+    newRun(new SimulationRun[D](_, _, _, _, _), limit)
+
+  /** Execute the simulation in the background: returns immediately with a running handle that can
+    * be paused, inspected, continued, and finished. Host-block failures are recorded as
+    * `Finished(HostError)` and rethrown by [[SimulationBackgroundRun.finish]].
+    */
+  def runBackground(limit: Long = Long.MaxValue): SimulationBackgroundRun[D] =
+    if block.isEmpty then
+      throw new IllegalStateException("a background run requires a simulation host block")
+    newRun(new SimulationBackgroundRun[D](_, _, _, _, _), limit)
 
   // The member-object -> hierarchical-name-path bridge: frontend member objects are
   // elaboration-time IR values; resolving their owner chain through the design's own
@@ -90,15 +119,280 @@ final class Simulation[D <: Design] private[sim] (
       case None => name
 end Simulation
 
-/** Simulation capability context: passed contextually into the host block. */
+/** Why a simulation run is paused. A paused run holds its full context and can be continued. */
+enum PausedReason derives CanEqual:
+  /** an explicit external `pause()` request (background runs) */
+  case User
+
+  /** the granted cycle budget (the `run`/`continue` limit) was exhausted */
+  case Limit
+
+  /** an assertion error occurred, configured to pause (lands with assertion support) */
+  case Error
+
+  /** an assertion warning occurred, configured to pause (lands with assertion support) */
+  case Warning
+
+/** Why a simulation run finished. A finished run is terminal — it cannot be continued. */
+enum FinishedReason derives CanEqual:
+  /** the host block (and, later, all forked processes) ran to completion */
+  case MainDone
+
+  /** a `finish` statement was reached (lands with assertion/process support) */
+  case Finish
+
+  /** a fatal assertion fired (lands with assertion support) */
+  case Fatal
+
+  /** an assertion error occurred, configured to terminate (lands with assertion support) */
+  case Error
+
+  /** an assertion warning occurred, configured to terminate (lands with assertion support) */
+  case Warning
+
+  /** the host block died with an exception (rethrown by foreground `run`/`continue` and by
+    * background `finish`)
+    */
+  case HostError
+end FinishedReason
+
+/** Lifecycle status of a [[SimulationRun]]. */
+enum RunStatus derives CanEqual:
+  case Running
+  case Paused(reason: PausedReason)
+  case Finished(reason: FinishedReason)
+
+/** The live context of one simulation execution: the state, the elapsed cycle count, and the
+  * lifecycle status. This is the run-closure of locked decision 9 in object form — everything a
+  * checkpoint needs is reachable from here. While the run is paused (or finished) it can be
+  * [[inspect]]ed with the same typed peek/poke surface as the host block; while paused it can be
+  * [[continue]]d with a fresh cycle budget. Once finished, a run is terminal.
+  *
+  * The host block executes on a managed daemon worker thread, advancing the kernel in bounded
+  * slices with a pause/budget gate between them — so limits and external pauses interrupt even a
+  * single huge `step(n)` call with slice-level responsiveness.
+  */
+class SimulationRun[D <: Design] private[sim] (
+    dsn: D,
+    private[sim] val raw: Sim,
+    memberPath: ir.DFVal => String,
+    concretizeType: ir.DFType => ir.DFType,
+    blockOpt: Option[DFCG ?=> SimCtx ?=> D => Unit]
+):
+  import RunStatus.*
+  private val lock = new Object
+  private var statusVar: RunStatus = Running
+  private var cyclesVar: Long = 0L
+  private var budget: Long = 0L // remaining cycle budget; Long.MaxValue = unbounded
+  private var pauseRequested = false
+  private var hostError: Option[Throwable] = None
+  private var worker: Option[Thread] = None
+  // pause/limit responsiveness: the worker advances in slices of this many cycles
+  private val sliceSize = 4096L
+
+  /** `run`/`continue` on a foreground run block until the run is no longer running; a background
+    * run returns control immediately instead.
+    */
+  protected def continueSync: Boolean = true
+
+  def getRunStatus: RunStatus = lock.synchronized(statusVar)
+
+  /** Total clock cycles this run has advanced. */
+  def cycles: Long = lock.synchronized(cyclesVar)
+
+  /** Grant a paused run a fresh cycle budget and let it proceed. Foreground runs block until the
+    * next pause/finish (host-block failures rethrown); background runs return immediately.
+    * Block-less runs advance on the calling flow and therefore require a finite limit. A finished
+    * run cannot be continued.
+    */
+  def continue(limit: Long = Long.MaxValue): RunStatus =
+    require(limit > 0, "the cycle limit must be positive")
+    val hasWorker = lock.synchronized {
+      statusVar match
+        case Finished(_) =>
+          throw new IllegalStateException("a finished simulation run cannot be continued")
+        case Running =>
+          throw new IllegalStateException("the simulation run is already running")
+        case Paused(_) => ()
+      budget = limit
+      if worker.nonEmpty then
+        statusVar = Running
+        lock.notifyAll()
+      worker.nonEmpty
+    }
+    if !hasWorker then // block-less: imperative driving on the calling flow
+      if limit == Long.MaxValue then
+        throw new IllegalArgumentException("a block-less simulation run requires a finite limit")
+      raw.step(limit)
+      lock.synchronized {
+        cyclesVar += limit
+        statusVar = Paused(PausedReason.Limit)
+      }
+    else if continueSync then
+      awaitNotRunning()
+      rethrowHostError()
+    getRunStatus
+  end continue
+
+  /** Enter the run's context while it is not running (paused or finished): peek, poke, and settle
+    * with the same typed surface as the host block. Advancing cycles from here is rejected — use
+    * [[continue]].
+    */
+  def inspect[T](f: DFCG ?=> SimCtx ?=> D => T): T =
+    lock.synchronized {
+      if isRunningLocked then
+        throw new IllegalStateException("cannot inspect a running simulation — pause it first")
+    }
+    f(using DFCG())(using makeCtx())(dsn)
+
+  // ---- run machinery (private[sim]) --------------------------------------------------------
+
+  private def makeCtx(): SimCtx = new SimCtx(raw, memberPath, concretizeType, this)
+
+  private def isRunningLocked: Boolean = statusVar match
+    case Running => true
+    case _       => false
+
+  private def isFinishedLocked: Boolean = statusVar match
+    case Finished(_) => true
+    case _           => false
+
+  private def awaitNotRunning(): Unit =
+    lock.synchronized { while isRunningLocked do lock.wait() }
+
+  private def rethrowHostError(): Unit =
+    lock.synchronized(hostError) match
+      case Some(e) => throw e
+      case None    => ()
+
+  private[sim] def start(limit: Long): Unit = blockOpt match
+    case Some(block) =>
+      val t = new Thread(() => runBlock(block), "dfacsimile-run")
+      t.setDaemon(true)
+      lock.synchronized {
+        budget = limit
+        worker = Some(t)
+      }
+      t.start()
+      if continueSync then
+        awaitNotRunning()
+        rethrowHostError()
+    case None => // block-less: start paused; drive via continue(limit)/inspect
+      if limit != Long.MaxValue && limit > 0 then
+        raw.step(limit)
+        lock.synchronized {
+          cyclesVar += limit
+          statusVar = Paused(PausedReason.Limit)
+        }
+      else lock.synchronized { statusVar = Paused(PausedReason.Limit) }
+
+  private def runBlock(block: DFCG ?=> SimCtx ?=> D => Unit): Unit =
+    val (endStatus, error) =
+      try
+        block(using DFCG())(using makeCtx())(dsn)
+        (Finished(FinishedReason.MainDone), None)
+      catch case e: Throwable => (Finished(FinishedReason.HostError), Some(e))
+    lock.synchronized {
+      hostError = error
+      statusVar = endStatus
+      lock.notifyAll()
+    }
+
+  /** The block-side clock driver: advances in slices, parking at the pause/budget gate. Only the
+    * worker thread may call this (via [[SimCtx.step]]).
+    */
+  private[sim] def blockStep(n: Long): Unit =
+    require(n >= 0, "negative cycle count")
+    val isWorker = lock.synchronized(worker.exists(_ eq Thread.currentThread))
+    if !isWorker then
+      throw new IllegalStateException(
+        "`step` is only available to the simulation's driving block — " +
+          "advance a paused run with `continue(...)`"
+      )
+    var remaining = n
+    while remaining > 0 do
+      val slice = lock.synchronized {
+        while pauseRequested || budget == 0L do
+          statusVar = Paused(if pauseRequested then PausedReason.User else PausedReason.Limit)
+          pauseRequested = false
+          lock.notifyAll()
+          lock.wait()
+        math.min(sliceSize, math.min(remaining, budget))
+      }
+      raw.step(slice)
+      lock.synchronized {
+        cyclesVar += slice
+        if budget != Long.MaxValue then budget -= slice
+      }
+      remaining -= slice
+    end while
+  end blockStep
+
+  /** Request a pause and wait until the run is actually paused (or finished) — after this returns,
+    * inspection is safe.
+    */
+  protected final def doPause(): RunStatus = lock.synchronized {
+    if isRunningLocked then
+      pauseRequested = true
+      while isRunningLocked do lock.wait()
+    statusVar
+  }
+
+  /** Lift the budget, let the run proceed to its natural end, and wait for it; host-block failures
+    * are rethrown here.
+    */
+  protected final def doFinish(): RunStatus =
+    lock.synchronized {
+      if !isFinishedLocked then
+        budget = Long.MaxValue
+        pauseRequested = false
+        statusVar match
+          case Paused(_) =>
+            statusVar = Running
+            lock.notifyAll()
+          case _ => ()
+        while !isFinishedLocked do lock.wait()
+    }
+    rethrowHostError()
+    getRunStatus
+end SimulationRun
+
+/** A background run handle: the host block keeps running while the caller holds this. `continue`
+  * returns immediately (the run keeps going in the background); [[pause]] suspends the run at the
+  * next slice boundary for safe inspection; [[finish]] lets it run to its natural end and joins.
+  */
+final class SimulationBackgroundRun[D <: Design] private[sim] (
+    dsn: D,
+    raw: Sim,
+    memberPath: ir.DFVal => String,
+    concretizeType: ir.DFType => ir.DFType,
+    blockOpt: Option[DFCG ?=> SimCtx ?=> D => Unit]
+) extends SimulationRun[D](dsn, raw, memberPath, concretizeType, blockOpt):
+  override protected def continueSync: Boolean = false
+
+  /** Suspend the run at the next slice boundary; blocks until it is actually paused (or has
+    * finished on its own). After this returns, [[inspect]] is safe.
+    */
+  def pause(): RunStatus = doPause()
+
+  /** Let the run proceed unbounded to its natural end and wait for it; host-block failures are
+    * rethrown here. Returns the terminal status.
+    */
+  def finish(): RunStatus = doFinish()
+end SimulationBackgroundRun
+
+/** Simulation capability context: passed contextually into the host block (and
+  * [[SimulationRun.inspect]]).
+  */
 final class SimCtx private[sim] (
     // internal kernel access: by-name-path handles, packed bits (not public API —
     // the typed peek/poke surface is the only value interface)
     private[sim] val raw: Sim,
     private[sim] val memberPath: ir.DFVal => String,
-    private[sim] val concretize: ir.DFType => ir.DFType
+    private[sim] val concretize: ir.DFType => ir.DFType,
+    private[sim] val run: SimulationRun[?]
 ):
-  def step(cycles: Long = 1L): Unit = raw.step(cycles)
+  def step(cycles: Long = 1L): Unit = run.blockStep(cycles)
   def settle(): Unit = raw.settle()
 end SimCtx
 
