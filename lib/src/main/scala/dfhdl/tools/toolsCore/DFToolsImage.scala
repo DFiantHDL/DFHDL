@@ -209,7 +209,18 @@ object DFToolsImage:
       env: Map[String, String] = Map.empty
   ): Seq[String] =
     val base = if (withX11) handle(image).withX11() else handle(image)
-    val opts = if (env.isEmpty) base.options else base.options.env(env.toSeq*)
+    val opts0 = if (env.isEmpty) base.options else base.options.env(env.toSeq*)
+    // Skip Apptainer's default `/etc/resolv.conf` bind mount. Our sim/synth containers are fully
+    // offline and every foreign-IP endpoint is a literal `127.0.0.1:port`, so none of them need DNS.
+    // On WSL2 `/etc/resolv.conf` is a symlink into the shared tmpfs `/mnt/wsl`, which is
+    // intermittently unpropagated in a freshly-spawned `wsl.exe` session under systemd; Apptainer
+    // then stats the mount source, finds the whole subtree momentarily absent, and aborts with a
+    // random `FATAL: mount source /etc/resolv.conf doesn't exist` (see apptainer#2931 / PR #3284 —
+    // the shipped symlink-directory fix doesn't cover this WSL whole-subtree-absent case). Dropping
+    // the useless mount removes the dependency entirely. NB: use the absolute-path token
+    // `/etc/resolv.conf` — the short `resolv.conf` key is rejected ("unknown mount type") on the
+    // Apptainer we target; PR #3284 added `--no-mount` support specifically for the path form.
+    val opts = opts0.arg("--no-mount", "/etc/resolv.conf")
     val cmd = commands.ExecCommand(base.ref, containerCmd, opts)
     if (osIsWindows)
       // Run apptainer through the signal-trapping wrapper installed in the VM. `wrapApptainer` just
