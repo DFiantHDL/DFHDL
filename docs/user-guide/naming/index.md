@@ -2,7 +2,7 @@
 
 ## Name Collisions & Shadowing
 
-When translating from Verilog/VHDL, signal, port, and module names may collide with names already in scope — Scala keywords, DFHDL built-ins, or your own design classes. This section is the single place that covers how to detect and resolve all such collisions.
+When translating from Verilog/VHDL, signal, port, and module names may collide with names already in scope: Scala keywords, DFHDL built-ins, or your own design classes. This section is the single place that covers how to detect and resolve all such collisions.
 
 ### General recommendation: Capitalize design-class names
 
@@ -26,7 +26,7 @@ val adder = Adder(WIDTH = 16)
 
 /// admonition | Caveat: direct Verilog/VHDL translation that preserves original names
     type: warning
-When you translate an existing Verilog/VHDL design and deliberately **preserve the original names** (so the generated HDL matches the source), you cannot always apply the Capitalized convention — the original names may already collide. These cases need the targeted resolutions below.
+When you translate an existing Verilog/VHDL design and deliberately **preserve the original names** (so the generated HDL matches the source), you cannot always apply the Capitalized convention, since the original names may already collide. These cases need the targeted resolutions below.
 ///
 
 ### Scala reserved keywords

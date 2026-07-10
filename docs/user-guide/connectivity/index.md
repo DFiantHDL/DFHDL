@@ -129,7 +129,7 @@ given options.CompilerOptions.PrintDFHDLCode = true
 
 ### Connectable Value Connections
 
-At least one side of a connection must be a *connectable* DFHDL value — a variable (`VAR`) or a port (`IN`/`OUT`/`INOUT`). Connecting two immutable values (e.g. two constants or two read-only aliases) is not allowed, e.g.:
+At least one side of a connection must be a *connectable* DFHDL value: a variable (`VAR`) or a port (`IN`/`OUT`/`INOUT`). Connecting two immutable values (e.g. two constants or two read-only aliases) is not allowed, e.g.:
 
 ```scala
 class Conn1 extends DFDesign:

@@ -256,7 +256,7 @@ class Sum(val MAX: Int <> CONST = 16)
 
 </div>
 
-`.width` works on any DFHDL value (a port, variable, or constant — anything declared with `<>`; see [logic/reg/wire](#logicregwire) above). Use it to derive widths from existing declarations:
+`.width` works on any DFHDL value (a port, variable, or constant: anything declared with `<>`; see [logic/reg/wire](#logicregwire) above). Use it to derive widths from existing declarations:
 
 ```scala
 val a = UInt.until(MAX) <> IN
@@ -669,7 +669,7 @@ val bit5 = data(5)         // single bit
 
 </div>
 
-Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with the same syntax, including the `.msbits(W)` and `.lsbits(W)` convenience methods. As in Verilog, a slice is a bit-level operation and yields an unsigned result — `SInt` slices return `UInt`, not `SInt`:
+Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with the same syntax, including the `.msbits(W)` and `.lsbits(W)` convenience methods. As in Verilog, a slice is a bit-level operation and yields an unsigned result (`SInt` slices return `UInt`, not `SInt`):
 
 | Source type | Slice result |
 |---|---|
@@ -685,7 +685,7 @@ val top8S = prod(15, 8).bits.sint   // SInt[8]: sign-preserving truncation
 val sign  = prod(15)                // single-bit access (Bit)
 ```
 
-To recover signed semantics on a slice, chain `.bits.sint` (re-interpret the bits as signed, same width). Do **not** use `.signed` for this — `.signed` is a numeric conversion that widens by one zero-extension bit, which is not what slice migration wants.
+To recover signed semantics on a slice, chain `.bits.sint` (re-interpret the bits as signed, same width). Do **not** use `.signed` for this: `.signed` is a numeric conversion that widens by one zero-extension bit, which is not what slice migration wants.
 ///
 
 /// admonition | Arithmetic with Signed Values and Constants
@@ -806,7 +806,7 @@ input  logic [7:0] a, b, c, d;
 output logic [7:0] result;
 
 // 4 is 32-bit, so (a+b+c+d) evaluates
-// at 32-bit width — no overflow
+// at 32-bit width, no overflow
 assign result = (a + b + c + d) / 4;
 ```
 
