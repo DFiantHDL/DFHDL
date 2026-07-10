@@ -106,7 +106,7 @@ class FlattenStepBlocksSpec extends StageSpec():
          |      MyStep_0
          |    end MyStep
          |    def MyStep_0: Step =
-         |      MyStep
+         |      MyStep_0
          |    end MyStep_0
          |end Foo""".stripMargin
     )
@@ -190,7 +190,8 @@ class FlattenStepBlocksSpec extends StageSpec():
          |      S_1
          |    end S_0_1
          |    def S_1: Step =
-         |      S_0
+         |      a.din := 1
+         |      S_0_0
          |    end S_1
          |end Foo""".stripMargin
     )
@@ -227,19 +228,17 @@ class FlattenStepBlocksSpec extends StageSpec():
          |  val c = Int <> OUT.REG
          |  process:
          |    def S_0: Step =
-         |      S_0_0
-         |    end S_0
-         |    def S_0_0: Step =
          |      a.din := 1
          |      S_0_0_0
-         |    end S_0_0
+         |    end S_0
          |    def S_0_0_0: Step =
          |      b.din := 2
          |      c.din := 3
          |      S_1
          |    end S_0_0_0
          |    def S_1: Step =
-         |      S_0
+         |      a.din := 1
+         |      S_0_0_0
          |    end S_1
          |end Foo""".stripMargin
     )
@@ -317,10 +316,12 @@ class FlattenStepBlocksSpec extends StageSpec():
          |      else S_1
          |    end S_0
          |    def S_0_0: Step =
-         |      S_0
+         |      if (i) S_0_0
+         |      else S_1
          |    end S_0_0
          |    def S_1: Step =
-         |      S_0
+         |      if (i) S_0_0
+         |      else S_1
          |    end S_1
          |end Foo""".stripMargin
     )
@@ -359,10 +360,12 @@ class FlattenStepBlocksSpec extends StageSpec():
          |    end S_0
          |    def S_0_0: Step =
          |      x.din := 1
-         |      S_0
+         |      if (i) S_0_0
+         |      else S_1
          |    end S_0_0
          |    def S_1: Step =
-         |      S_0
+         |      if (i) S_0_0
+         |      else S_1
          |    end S_1
          |end Foo""".stripMargin
     )
@@ -408,14 +411,18 @@ class FlattenStepBlocksSpec extends StageSpec():
          |    end S_0
          |    def S_0_0: Step =
          |      if (i) S_0_0_0
-         |      else S_0
+         |      else
+         |        if (i) S_0_0
+         |        else S_1
+         |      end if
          |    end S_0_0
          |    def S_0_0_0: Step =
          |      x.din := 1
          |      S_0_0
          |    end S_0_0_0
          |    def S_1: Step =
-         |      S_0
+         |      if (i) S_0_0
+         |      else S_1
          |    end S_1
          |end Foo""".stripMargin
     )
@@ -512,7 +519,7 @@ class FlattenStepBlocksSpec extends StageSpec():
          |      S_1
          |    end S_0_0
          |    def S_1: Step =
-         |      S_0
+         |      S_0_0
          |    end S_1
          |end Foo""".stripMargin
     )
@@ -551,16 +558,9 @@ class FlattenStepBlocksSpec extends StageSpec():
          |  process:
          |    def S_0: Step =
          |      i.din := 0
-         |      S_1
+         |      println(s"Hello")
+         |      S_1_0
          |    end S_0
-         |    def S_1: Step =
-         |      if (i < 3)
-         |        println(s"Hello")
-         |        S_1_0
-         |      else
-         |        finish()
-         |        S_0
-         |    end S_1
          |    def S_1_0: Step =
          |      println(s"World")
          |      S_1_1
@@ -568,8 +568,261 @@ class FlattenStepBlocksSpec extends StageSpec():
          |    def S_1_1: Step =
          |      println(s"!")
          |      i.din := i + 1
-         |      S_1
+         |      if ((i + 1) < 3)
+         |        println(s"Hello")
+         |        S_1_0
+         |      else
+         |        finish()
+         |        S_0
          |    end S_1_1
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("fusion: deeply nested first steps fuse into a single state") {
+    class Foo extends RTDesign:
+      process:
+        def S1: Step =
+          def S2: Step =
+            def S3: Step =
+              NextStep
+            end S3
+            NextStep
+          end S2
+          NextStep
+        end S1
+        finish()
+    end Foo
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  process:
+         |    def S1: Step =
+         |      S1_S2_S3
+         |    end S1
+         |    def S1_S2_S3: Step =
+         |      finish()
+         |      S1_S2_S3
+         |    end S1_S2_S3
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("fusion: loop control step fuses into its wait with guard forwarding") {
+    class Foo extends RTDesign:
+      val x       = Bit     <> OUT.REG
+      val i       = Int     <> VAR.REG
+      val waitCnt = UInt(8) <> VAR.REG init 0
+      process:
+        def S_0: Step =
+          NextStep
+        end S_0
+        i.din := 0
+        def S_1: Step =
+          if (i < 4)
+            waitCnt.din := 0
+            def S_1_0: Step =
+              if (waitCnt != 9)
+                waitCnt.din := waitCnt + 1
+                ThisStep
+              else NextStep
+              end if
+            end S_1_0
+            i.din := i + 1
+            ThisStep
+          else NextStep
+          end if
+        end S_1
+        x.din := 1
+    end Foo
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  val i = Int <> VAR.REG
+         |  val waitCnt = UInt(8) <> VAR.REG init d"8'0"
+         |  process:
+         |    def S_0: Step =
+         |      i.din := 0
+         |      waitCnt.din := d"8'0"
+         |      S_1_0
+         |    end S_0
+         |    def S_1_0: Step =
+         |      if (waitCnt != d"8'9")
+         |        waitCnt.din := waitCnt + d"8'1"
+         |        S_1_0
+         |      else
+         |        i.din := i + 1
+         |        if ((i + 1) < 4)
+         |          waitCnt.din := d"8'0"
+         |          S_1_0
+         |        else
+         |          x.din := 1
+         |          S_0
+         |      end if
+         |    end S_1_0
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("fusion: nested loop control steps fuse into the innermost wait") {
+    class Foo extends RTDesign:
+      val x       = Bit     <> OUT.REG
+      val i       = Int     <> VAR.REG
+      val j       = Int     <> VAR.REG
+      val waitCnt = UInt(8) <> VAR.REG init 0
+      process:
+        def S_0: Step =
+          NextStep
+        end S_0
+        i.din := 0
+        def S_1: Step =
+          if (i < 2)
+            j.din := 0
+            def S_1_0: Step =
+              if (j < 2)
+                waitCnt.din := 0
+                def S_1_0_0: Step =
+                  if (waitCnt != 9)
+                    waitCnt.din := waitCnt + 1
+                    ThisStep
+                  else NextStep
+                  end if
+                end S_1_0_0
+                j.din := j + 1
+                ThisStep
+              else NextStep
+              end if
+            end S_1_0
+            i.din := i + 1
+            ThisStep
+          else NextStep
+          end if
+        end S_1
+        x.din := 1
+    end Foo
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  val i = Int <> VAR.REG
+         |  val j = Int <> VAR.REG
+         |  val waitCnt = UInt(8) <> VAR.REG init d"8'0"
+         |  process:
+         |    def S_0: Step =
+         |      i.din := 0
+         |      j.din := 0
+         |      waitCnt.din := d"8'0"
+         |      S_1_0_0
+         |    end S_0
+         |    def S_1_0_0: Step =
+         |      if (waitCnt != d"8'9")
+         |        waitCnt.din := waitCnt + d"8'1"
+         |        S_1_0_0
+         |      else
+         |        j.din := j + 1
+         |        if ((j + 1) < 2)
+         |          waitCnt.din := d"8'0"
+         |          S_1_0_0
+         |        else
+         |          i.din := i + 1
+         |          if ((i + 1) < 2)
+         |            j.din := 0
+         |            waitCnt.din := d"8'0"
+         |            S_1_0_0
+         |          else
+         |            x.din := 1
+         |            S_0
+         |          end if
+         |        end if
+         |      end if
+         |    end S_1_0_0
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("fusion: dynamic re-entry guard falls back to a control state for the inner loop") {
+    class Foo extends RTDesign:
+      val n       = Int     <> IN
+      val x       = Bit     <> OUT.REG
+      val i       = Int     <> VAR.REG
+      val j       = Int     <> VAR.REG
+      val waitCnt = UInt(8) <> VAR.REG init 0
+      process:
+        def S_0: Step =
+          NextStep
+        end S_0
+        i.din := 0
+        def S_1: Step =
+          if (i < 2)
+            j.din := 0
+            def S_1_0: Step =
+              if (j < n)
+                waitCnt.din := 0
+                def S_1_0_0: Step =
+                  if (waitCnt != 9)
+                    waitCnt.din := waitCnt + 1
+                    ThisStep
+                  else NextStep
+                  end if
+                end S_1_0_0
+                j.din := j + 1
+                ThisStep
+              else NextStep
+              end if
+            end S_1_0
+            i.din := i + 1
+            ThisStep
+          else NextStep
+          end if
+        end S_1
+        x.din := 1
+    end Foo
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val n = Int <> IN
+         |  val x = Bit <> OUT.REG
+         |  val i = Int <> VAR.REG
+         |  val j = Int <> VAR.REG
+         |  val waitCnt = UInt(8) <> VAR.REG init d"8'0"
+         |  process:
+         |    def S_0: Step =
+         |      i.din := 0
+         |      S_1
+         |    end S_0
+         |    def S_1: Step =
+         |      if (i < 2)
+         |        j.din := 0
+         |        if (0 < n)
+         |          waitCnt.din := d"8'0"
+         |          S_1_0_0
+         |        else
+         |          i.din := i + 1
+         |          S_1
+         |      else
+         |        x.din := 1
+         |        S_0
+         |      end if
+         |    end S_1
+         |    def S_1_0_0: Step =
+         |      if (waitCnt != d"8'9")
+         |        waitCnt.din := waitCnt + d"8'1"
+         |        S_1_0_0
+         |      else
+         |        j.din := j + 1
+         |        if ((j + 1) < n)
+         |          waitCnt.din := d"8'0"
+         |          S_1_0_0
+         |        else
+         |          i.din := i + 1
+         |          S_1
+         |      end if
+         |    end S_1_0_0
          |end Foo""".stripMargin
     )
   }

@@ -1079,9 +1079,75 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     `Received two different patches for the same member`. Drive it `@tailrec` and gate each pass to
     the innermost-only or outermost-only instances (see Pattern 9). This is easy to miss because a
     single-level test passes — **always add a nested test** for any such rewrite.
+17. **Resolving fresh clone refs inside MetaDesign** — refs created by `copyWithNewRefs` /
+    `cloneAnonValueAndDepsHere` are registered only in the MetaDesign's own `MutableDB`. Calling
+    `ref.get` on them with the stage's outer `MemberGetSet` misses (or worse, resolves stale).
+    Inside code that traverses freshly cloned members, bind `given MemberGetSet = dfc.getSet` —
+    the DFC's getSet chains to the parent DB via `injectMetaGetSet`, so it resolves both new and
+    original members.
+18. **Name shadowing inside MetaDesign bodies** — `MetaDesign` extends `Design`, whose
+    `export dfhdl.hdl.*` brings frontend names (`DFVal`, `StepBlock`, …) into the *class* scope,
+    shadowing the file-level `import dfhdl.compiler.ir.*` wildcard for overlapping names. Inside
+    a MetaDesign body, add `import dfhdl.compiler.ir` at the file top and qualify IR types as
+    `ir.DFVal`, `ir.StepBlock`, etc., importing only the core names actually needed (e.g.
+    `import dfhdl.core.{DFIf, DFBool, DFUnit, refTW, addMember}`).
+
+---
+
+## Additional Transformation Patterns
+
+### Pattern 12 — Memoize original-DB analysis across restructuring phases
+
+A multi-phase stage can compute an analysis on its *input* DB, hold the results (member
+instances or patch lists) across intermediate `db.patch()` phases, and apply/use them at the
+end — because `Patch.Move` preserves member instances (only ownership refs are rewired).
+`FlattenStepBlocks` uses this twice: Phase 3's `gotoPatchList` (computed on the nested input,
+applied after phases 0–2 flattened everything) and Phase 4's fusion-candidate `Set[StepBlock]`
+(nesting provenance is destroyed by flattening, so it must be captured up front). Prefer this
+over inventing an IR tag to transport analysis between two separate stages — a tag also makes
+self-contained spec inputs inexpressible when the frontend has no syntax for it.
+
+### Pattern 13 — MetaDesign as an abortable sandbox (try/fallback transforms)
+
+Constructing a `MetaDesign` mutates only its own private `MutableDB`; nothing touches the real
+DB until its `.patch` is applied. You can therefore `throw` mid-construction to abandon a
+speculative transform and fall back (e.g. `FirstStepFusion` throws `AbortFusion` when a dispatch
+turns out not to be soundly inlinable, drops the offending step from its candidate set, and
+rebuilds all patches from scratch in a `@tailrec` restart loop — the set shrinks each restart,
+guaranteeing termination). Just never apply a partially-built design's `.patch`.
+
 ---
 
 ## API Notes
+
+### Raw `ir.DFNet` construction inside MetaDesign
+
+Mirrors the raw `ir.Goto` idiom for emitting an assignment without going through typed core ops:
+
+```scala
+ir.DFNet(
+  lhsIR.refTW[ir.DFNet], ir.DFNet.Op.Assignment, rhsIR.refTW[ir.DFNet],
+  dfc.ownerOrEmptyRef, origNet.meta, origNet.tags
+).addMember
+```
+
+### Cloning a single member with remapped refs
+
+Mirror `plantClonedMembers`'s per-member mechanics when a custom per-ref remap is needed:
+`val cloned = m.copyWithNewRefs` → `dfc.mutableDB.addMember(cloned)` →
+`dfc.mutableDB.newRefFor(cloned.ownerRef, dfc.owner.asIR)` → zip `m.getRefs` with
+`cloned.getRefs` and `newRefFor` each cloned ref to the (remapped) original target.
+
+### Compile-time constant evaluation of values
+
+`dfVal.getConstDataThroughParams[Any]` returns `Some(data)` when the (possibly substituted)
+expression tree folds to a constant. Note the data may be `Option`-wrapped for bubble-capable
+types — match both `Some(Some(b: Boolean))` and `Some(b: Boolean)` for a Bool/Bit guard.
+
+### Full-width assignment check
+
+`net.lhsRef.get.departialDcl` yields `(dcl, slice)`; the assignment covers the whole declaration
+iff `slice.isFullOf(dcl.dfType.widthIntOpt) == Tri.Yes`.
 
 ### `dfhdl.core.DFInt32`
 

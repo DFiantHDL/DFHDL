@@ -47,4 +47,6 @@ In ED designs, `for` and `while` loops inside processes produce combinational or
 
 ## RT Domain Loops
 
-In RT designs, `for` and `while` loops inside processes create synthesizable procedural FSMs. The compiler transforms the loop body into state machine transitions. See [Processes][processes] for details on RT domain process semantics.
+In RT designs, `for` and `while` loops inside processes create synthesizable procedural FSMs. The compiler transforms the loop body into state machine transitions. Loop iterators become registers, and the loop boundaries (entry, exit, and loop-back) consume zero extra cycles: each executed iteration costs exactly the cycles its body consumes, so a flat wait, a loop of waits, and nested loops of waits with the same total time are cycle-identical. See [Processes][processes] for the full RT cycle semantics.
+
+[processes]: ../processes/index.md

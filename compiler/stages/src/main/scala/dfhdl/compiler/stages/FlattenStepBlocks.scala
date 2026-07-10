@@ -149,9 +149,57 @@ import scala.annotation.tailrec
   *      end S_1
   *    ```
   *
+  * 6. First-step fusion: a step whose first time-consuming action — scanning through prologue
+  *    statements and through conditional branch guards — is entering a nested step shares its
+  *    entry cycle with that nested step ("same label"). Instead of occupying an FSM state, such a
+  *    step's dispatch (prologue + guard tree + gotos) is inlined combinationally at every goto
+  *    site that targets it, with *value forwarding*: a register with a pending assignment at the
+  *    site is read as the assigned value, so a loop-back site evaluates the loop guard on the
+  *    next-cycle values (e.g. `(i + 1) < 4` after `i.din := i + 1`), and statically resolved
+  *    guards prune their branches. This makes loop entry/exit/loop-back cost zero extra cycles:
+  *    `wait(100.ms)`, `for (i <- 0 until 100) wait(1.ms)`, and nested-loop equivalents all
+  *    consume identical cycle counts, and a zero-iteration loop consumes zero cycles.
+  *    ```scala
+  *    // input
+  *    process:
+  *      def S_0: Step = NextStep
+  *      end S_0
+  *      i.din := 0
+  *      def S_1: Step =            // loop control step — fused away
+  *        if (i < 4)
+  *          def S_1_0: Step =      // the loop body's wait step
+  *            ...ThisStep/NextStep
+  *          end S_1_0
+  *          i.din := i + 1
+  *          ThisStep
+  *        else NextStep
+  *        end if
+  *      end S_1
+  *    // output — S_1 has no state; its dispatch is inlined at both sites
+  *    process:
+  *      def S_0: Step =
+  *        i.din := 0               // entry site: guard (0 < 4) pruned as true
+  *        S_1_0
+  *      end S_0
+  *      def S_1_0: Step =
+  *        if (...)                 // wait counting
+  *          ...
+  *          S_1_0
+  *        else
+  *          i.din := i + 1
+  *          if ((i + 1) < 4) S_1_0 // loop-back: forwarded guard, no control state
+  *          else S_0
+  *      end S_1_0
+  *    ```
+  *    A step is kept as a real state (consuming its entry cycle, as before) when its dispatch
+  *    cannot be soundly inlined — see [[FirstStepFusion]] for the exact fallback conditions —
+  *    and when it is the process's first step, in which case it remains solely as the one-time
+  *    reset bootstrap state.
+  *
   * == Implementation Phases ==
   *
-  * The stage applies four sequential `db.patch()` calls to avoid patch conflicts:
+  * The stage applies four sequential `db.patch()` calls to avoid patch conflicts, followed by the
+  * fusion phase:
   *
   * - **Phase 0** (inter-step relocation): moves trailing statements before the `NextStep` Goto of
   *   `deepestLastChild(stepI)` — processed inner-first so Move patches concatenate correctly.
@@ -163,14 +211,20 @@ import scala.annotation.tailrec
   * - **Phase 3** (goto resolution): `ChangeRef` patches computed from the *original* DB, so
   *   `nextStepMap` and `conditionalStepMap` remain correct regardless of structural changes made
   *   in Phases 0–2.
+  * - **Phase 4** (first-step fusion, Rule 6): candidates are identified on the *original* nested
+  *   DB (only nesting provenance distinguishes a parent-of-first-step from an ordinary sequential
+  *   step — the two are structurally identical once flat) and fused on the flat DB, where their
+  *   bodies are pure dispatch and all gotos are explicit. See [[FirstStepFusion]].
   */
 //format: on
 case object FlattenStepBlocks extends HierarchyStage:
-  // TODO: Not running FoldControlSteps for now
   def dependencies: List[Stage] = List(DropRTWaits, ExplicitNamedVars, DropLocalDcls)
   def nullifies: Set[Stage] = Set()
 
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    // Phase 4 fusion candidates are computed from the original (nested) DB — only nesting
+    // provenance identifies a step whose first time-consuming action is its nested child.
+    val fusionCandidates = FirstStepFusion.collectCandidates(subDB)
     // Phase 3 ChangeRef patches are computed from the original DB.
     val gotoPatchList = subDB.members.view.flatMap {
       case pb: ProcessBlock if pb.isInRTDomain => collectGotoPatches(pb)
@@ -188,7 +242,9 @@ case object FlattenStepBlocks extends HierarchyStage:
     // Phase 2: structural flattening, one level at a time (uses db1, applied repeatedly)
     val db2 = flattenRepeatedly(db1)
     // Phase 3: Goto ChangeRef
-    db2.patch(gotoPatchList)
+    val db3 = db2.patch(gotoPatchList)
+    // Phase 4: first-step fusion — inline candidate dispatches at their goto sites
+    FirstStepFusion.fuse(db3, fusionCandidates)
   end transformSubDB
 
   // Repeatedly extract one nesting level of conditional-branch StepBlocks until none remain nested
