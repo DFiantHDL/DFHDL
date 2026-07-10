@@ -77,59 +77,60 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
           if (printer.allowTypeDef) s"$csDFVal.name()"
           else s"${dfType.name}_to_string($csDFVal)"
         case _ => csDFVal
-    val msg =
+    // literal `%` must be escaped since the message is used as a display format string
+    def escapeFmt(str: String): String = str.replace("%", "%%")
+    // each message line is a single format string followed by its dependent value arguments
+    type MsgLine = (String, List[String])
+    val msgLines: List[MsgLine] =
       textOut.op match
         case TextOut.Op.Debug =>
           import textOut.meta.position as pos
           val preambleLF = if (textOut.msgArgs.nonEmpty) "\n" else ""
-          //format: off
-          val preamble =
-            s"""|${scalaToVerilogString(s"Debug at ${textOut.getOwnerDomain.getFullName}\n")},
-                |${scalaToVerilogString(s"${pos.fileUnixPath}:${pos.lineStart}:${pos.columnStart}$preambleLF")}""".stripMargin
-          //format: on
-          val args =
-            if (textOut.msgArgs.isEmpty) ""
-            else
-              textOut.msgArgs.view.zipWithIndex.map((a, i) =>
-                val argLF = if (i == textOut.msgArgs.length - 1) "" else "\n"
-                s"${scalaToVerilogString(s"${a.get.getName} = ${csDFValToVerilogFormat(a)}$argLF")}, ${csDFValToVerilogString(a)}"
-              ).mkString(",\n", ",\n", "")
-          "\n" + (preamble + args).hindent + "\n"
+          val preambleLines = List(
+            (escapeFmt(s"Debug at ${textOut.getOwnerDomain.getFullName}\n"), Nil),
+            (escapeFmt(s"${pos.fileUnixPath}:${pos.lineStart}:${pos.columnStart}$preambleLF"), Nil)
+          )
+          val argLines = textOut.msgArgs.zipWithIndex.map((a, i) =>
+            val argLF = if (i == textOut.msgArgs.length - 1) "" else "\n"
+            (
+              s"${escapeFmt(a.get.getName)} = ${csDFValToVerilogFormat(a)}$argLF",
+              List(csDFValToVerilogString(a))
+            )
+          )
+          preambleLines ++ argLines
         case _ =>
-          val allParts = textOut.msgParts.coalesce(textOut.msgArgs).flatMap {
-            case str: String if str.contains("\n") =>
-              val strs = str.split("\n")
-              if (strs.last.isEmpty) strs.dropRight(1).map(_ + "\n")
-              else strs.dropRight(1).map(_ + "\n") :+ strs.last
-            case p =>
-              List(p)
-          }.toList
-          if (allParts.isEmpty) ""
-          else if (allParts.length == 1) scalaToVerilogString(allParts.head.asInstanceOf[String])
-          else
-            val unindented = allParts.lazyZip(allParts.tail :+ "").map {
-              case (part: String, arg: DFVal.Ref) =>
-                if (part.endsWith("\n"))
-                  s"${scalaToVerilogString(part.dropRight(1) + csDFValToVerilogFormat(arg) + "\n")}, ${csDFValToVerilogString(arg)},\n"
+          val (completedLines, openLine) = textOut.msgParts.coalesce(textOut.msgArgs)
+            .foldLeft((List.empty[MsgLine], ("", List.empty[String]))) {
+              case ((lines, (fmt, args)), str: String) =>
+                val segments = str.split("\n", -1)
+                if (segments.length == 1) (lines, (fmt + escapeFmt(str), args))
                 else
-                  s"${scalaToVerilogString(part + csDFValToVerilogFormat(arg))}, ${csDFValToVerilogString(arg)}, "
-              case (part: String, next: String) =>
-                if (next.isEmpty) scalaToVerilogString(part)
-                else if (part.endsWith("\n")) scalaToVerilogString(part) + ",\n"
-                else scalaToVerilogString(part) + ", "
-              case _ => ""
-            }.mkString
-            if (unindented.contains("\n")) "\n" + unindented.hindent + "\n"
-            else unindented
-          end if
-      end match
-    end msg
+                  val headLine = (fmt + escapeFmt(segments.head) + "\n", args)
+                  val midLines =
+                    segments.tail.init.toList.map(s => (escapeFmt(s) + "\n", List.empty[String]))
+                  (lines ++ (headLine :: midLines), (escapeFmt(segments.last), Nil))
+              case ((lines, (fmt, args)), arg: DFVal.Ref) =>
+                (lines, (fmt + csDFValToVerilogFormat(arg), args :+ csDFValToVerilogString(arg)))
+            }
+          if (openLine._1.nonEmpty || openLine._2.nonEmpty) completedLines :+ openLine
+          else completedLines
+    def csMsgLine(line: MsgLine): String = (scalaToVerilogString(line._1) :: line._2).mkString(", ")
+    def csMsg(lines: List[MsgLine]): String =
+      lines match
+        case Nil         => ""
+        case line :: Nil => csMsgLine(line)
+        case _           => "\n" + lines.map(csMsgLine).mkString(",\n").hindent + "\n"
+    val msg = csMsg(msgLines)
     def csSeverity(severity: TextOut.Severity): String =
       "$" + severity.toString.toLowerCase
     def csFinish(severity: TextOut.Severity) =
       if (severity == TextOut.Severity.Fatal) "\n$finish;" else ""
-    def csDisplay(severity: TextOut.Severity, msg: String) =
-      s"""$$display("${severity.toString.toUpperCase()}: ", $msg);${csFinish(severity)}"""
+    def csDisplay(severity: TextOut.Severity, lines: List[MsgLine]) =
+      val prefix = s"${severity.toString.toUpperCase()}: "
+      val prefixedLines = lines match
+        case (fmt, args) :: rest => (prefix + fmt, args) :: rest
+        case Nil                 => List((prefix, Nil))
+      s"""$$display(${csMsg(prefixedLines)});${csFinish(severity)}"""
     textOut.op match
       case TextOut.Op.Finish           => "$finish;"
       case TextOut.Op.Report(severity) =>
@@ -138,26 +139,26 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
             case Severity.Fatal => "1, "
             case _              => ""
           s"${csSeverity(severity)}($errCodeArg$msg);"
-        else csDisplay(severity, msg)
+        else csDisplay(severity, msgLines)
       case TextOut.Op.Assert(assertionRef, severity) =>
         if (msg.isEmpty)
           if (assertIsSupported) s"assert (${assertionRef.refCodeString});"
           else
             s"""|if (!(${assertionRef.refCodeString})) begin
-                |${csDisplay(severity, "\"Assertion failed!\"").hindent}
+                |${csDisplay(severity, List(("Assertion failed!", Nil))).hindent}
                 |end""".stripMargin
         else if (assertIsSupported)
           s"""|assert (${assertionRef.refCodeString})
               |else ${csSeverity(severity)}($msg);""".stripMargin
         else
           s"""|if (!(${assertionRef.refCodeString})) begin
-              |${csDisplay(severity, msg).hindent}
+              |${csDisplay(severity, msgLines).hindent}
               |end""".stripMargin
       case TextOut.Op.Print   => s"$$write($msg);"
       case TextOut.Op.Println => s"$$display($msg);"
       case TextOut.Op.Debug   =>
         if (assertIsSupported) s"$$info($msg);"
-        else csDisplay(TextOut.Severity.Info, msg)
+        else csDisplay(TextOut.Severity.Info, msgLines)
     end match
   end csTextOut
   def csCommentInline(comment: String): String =

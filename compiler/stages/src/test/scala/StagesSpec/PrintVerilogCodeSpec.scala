@@ -1119,21 +1119,22 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always_comb
          |  begin
          |    assert (param == "hello2");
-         |    $warning("%s", param, "");
+         |    $warning("%s", param);
          |    assert (param == "hello2")
-         |    else $error("I am the one %s", param, " who knocks");
+         |    else $error("I am the one %s who knocks", param);
          |    assert (param8)
          |    else $fatal(
          |      "I\\am\n",
-         |      "the \"one\"(!)%s", param, "\n",
+         |      "the \"one\"(!)\n",
+         |      "%s\n", param,
          |      "who\n",
          |      "knocks"
          |    );
-         |    $display("%s", bar, "");
+         |    $display("%s", bar);
          |    $display();
-         |    $write("I am the one %s", param2, " who knocks");
+         |    $write("I am the one %s who knocks", param2);
          |    $write("hello");
-         |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", param10.name(), "");
+         |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", param10.name());
          |    $info(
          |      "Debug at Foo\n",
          |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
@@ -1184,28 +1185,29 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always
          |  begin
          |    if (!(param == "hello2")) begin
-         |      $display("ERROR: ", "Assertion failed!");
+         |      $display("ERROR: Assertion failed!");
          |    end
-         |    $display("WARNING: ", "%s", param, "");
+         |    $display("WARNING: %s", param);
          |    if (!(param == "hello2")) begin
-         |      $display("ERROR: ", "I am the one %s", param, " who knocks");
+         |      $display("ERROR: I am the one %s who knocks", param);
          |    end
          |    if (!(param8)) begin
-         |      $display("FATAL: ", 
-         |        "I\\am\n",
-         |        "the \"one\"(!)%s", param, "\n",
+         |      $display(
+         |        "FATAL: I\\am\n",
+         |        "the \"one\"(!)\n",
+         |        "%s\n", param,
          |        "who\n",
          |        "knocks"
          |      );
          |      $finish;
          |    end
-         |    $display("%s", bar, "");
+         |    $display("%s", bar);
          |    $display();
-         |    $write("I am the one %s", param2, " who knocks");
+         |    $write("I am the one %s who knocks", param2);
          |    $write("hello");
-         |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", MyEnum_to_string(param10), "");
-         |    $display("INFO: ", 
-         |      "Debug at Foo\n",
+         |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", MyEnum_to_string(param10));
+         |    $display(
+         |      "INFO: Debug at Foo\n",
          |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
