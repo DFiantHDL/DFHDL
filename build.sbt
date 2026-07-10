@@ -12,7 +12,7 @@ val compilerVersion = "3.8.4"
 // The DFTools binary toolchain release this DFHDL build targets (versioned independently of
 // DFHDL). Surfaced to the library via lib's generated `dftools.properties` and read by
 // DFToolsImage. Bump when adopting a new DFTools release.
-val dftoolsVersion = "v1.1.0"
+val dftoolsVersion = "v1.1.1"
 // The vga-monitor-sim release wrapped by the `dfhdl.ips.video.vga.vga_monitor` foreign IP. This is
 // the single source of truth: it is surfaced to the IP code via the generated `vga-monitor.properties`
 // resource (read by `vga_monitor.version`), like core's version.properties. Since v0.3.0 the release names
