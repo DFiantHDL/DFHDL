@@ -120,11 +120,18 @@ object DFToolsImage:
         // bump that didn't change this image resolves to the same asset and skips the pull entirely.
         // `Apptainer.pull` reuses an existing dest (backend `test -f`) without re-downloading.
         val dest = s"${Apptainer.imagesDir}/$asset"
-        val alreadyCached = Apptainer.image(dest).exists
-        val img = Apptainer.pull(assetUrl(asset), dest = Some(dest))
-        if (!alreadyCached)
+        if (Apptainer.image(dest).exists) Apptainer.image(dest) // already cached — reuse silently
+        else
+          // Missing: announce the download (image + DFTools version) so the wait is explained even
+          // when there is no live progress bar (no TTY — e.g. under sbtn). `interactive = true` also
+          // lets a terminal-attached run surface Apptainer's own download progress bar. Then verify
+          // the fresh bytes and report completion. Both messages are gated on the cache miss so the
+          // common warm-cache path stays noise-free.
+          println(s"[dftools] downloading image '$image' ($version)...")
+          val img = Apptainer.pull(assetUrl(asset), dest = Some(dest), interactive = true)
           verifySha256(dest, sha) // verify only freshly pulled bytes, backend-side
-        img
+          println(s"[dftools] image '$image' ready")
+          img
 
   /** Verify a freshly pulled SIF against its expected sha256. The file lives in the backend (a WSL
     * VM on Windows), so hash it there — a host-side digest would read a non-existent path. On a
