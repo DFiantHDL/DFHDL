@@ -1,7 +1,7 @@
 pygments==2.20.0
 properdocs==1.6.7
 mkdocs-material==9.7.6
-pymdown-extensions==11.0.0
+pymdown-extensions==11.0.1
 mkdocs-redirects==1.2.3
 mkdocs-glightbox==0.5.2
 mkdocs-autorefs==1.4.4
