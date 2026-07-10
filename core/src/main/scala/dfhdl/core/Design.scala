@@ -10,7 +10,7 @@ import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
-trait Design extends Container, HasClsMetaArgs, HasConstParams:
+trait Design extends Container, HasClsMeta, HasClsArgs:
   private[core] type TScope = DFC.Scope.Design
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
@@ -19,11 +19,11 @@ trait Design extends Container, HasClsMetaArgs, HasConstParams:
     import dfc.getSet
     getSet.setGlobalTag(dfc.elaborationOptions.defaultRTDomainCfgTag)
     getSet.setGlobalTag(ir.DFHDLVersionTag(dfhdl.dfhdlVersion))
-    // Build the design block directly from the `__clsMetaArgs` chain (the
+    // Build the design block directly from the `__clsMeta` chain (the
     // plugin-injected, per-class metadata, most-derived first). The leaf names
     // the design (meta); for a blackbox IP, the base-most concrete class
     // extending the IP marker names the IP type (`typeName`).
-    val chain = __clsMetaArgs
+    val chain = __clsMeta
     val instMode = mkInstMode match
       case InstMode.BlackBox(InstMode.BlackBox.Source.VendorIP(vendor, _)) if chain.nonEmpty =>
         InstMode.BlackBox(InstMode.BlackBox.Source.VendorIP(vendor, chain.last.name))
@@ -35,16 +35,15 @@ trait Design extends Container, HasClsMetaArgs, HasConstParams:
         InstMode.BlackBox(f.copy(resourcePath = s"dfhdl-ips/${chain.last.name}"))
       case other => other
     val blockDFC = chain.headOption match
-      case Some(a) =>
-        dfc.setMeta(r__For_Plugin.metaGen(Some(a.name), a.position, a.docOpt, a.annotations))
-      case None => dfc.anonymize
+      case Some(meta) => dfc.setMeta(meta)
+      case None       => dfc.anonymize
     Design.Block(__domainType, instMode)(using blockDFC)
   end initOwner
   private var hasStartedLate: Boolean = false
   final override def onCreateStartLate: Unit =
     hasStartedLate = true
     import dfc.getSet
-    val paramEntries = Design.Inst.collectParamEntries
+    val paramEntries = Design.Inst.collectParamEntries(__clsAppliedArgs)
     if (dfc.owner.asIR.getThisOrOwnerDesign.isDeviceTop)
       handleResourceConstraints()
       dfc.mutableDB.ResourceOwnershipContext.emptyTopResourceOwners()
@@ -166,17 +165,36 @@ object Design:
   end Block
   object Inst:
     // Collect (name, appliedVal) entries while still inside the child design context.
-    // Must be called BEFORE `dfc.exitOwner()` because it relies on the cached
-    // applied value and the child context's member list.
-    protected[core] def collectParamEntries(using dfc: DFC): List[(String, ir.DFVal)] =
+    // Must be called BEFORE `dfc.exitOwner()` because it relies on the child context's
+    // member list. The design's `DesignParam` members are scanned in member order; each
+    // parameter's applied value comes from the compiler-plugin-provided `clsAppliedArgs`
+    // (`__clsAppliedArgs` for design/interface classes, the explicit const args for design
+    // defs), matched by the parameter's name. Parameters NOT in the plugin list — base-class
+    // constructor parameters and AUTO-CREATED parameters (an unreachable named value captured
+    // from an enclosing design — see `cloneUnreachable`) — recover their applied value from
+    // the key of their creation entry in the context's `unreachableNamedValues` memoization.
+    // That map also memoizes resolutions of child-design values, so a creation entry is
+    // identified by its key originating OUTSIDE this design (globals trivially so).
+    protected[core] def collectParamEntries(
+        clsAppliedArgs: List[(String, ir.DFVal)]
+    )(using dfc: DFC): List[(String, ir.DFVal)] =
       import dfc.getSet
-      dfc.mutableDB.DesignContext.current.getImmutableMemberList.view.collect {
+      val appliedMap = clsAppliedArgs.toMap
+      val ctx = dfc.mutableDB.DesignContext.current
+      val endingDesign = dfc.owner.asIR
+      def autoAppliedValOf(dp: ir.DFVal.DesignParam): Option[ir.DFVal] =
+        ctx.unreachableNamedValues.collectFirst {
+          case (appliedVal, `dp`)
+              if appliedVal.isGlobal || !appliedVal.isInsideOwner(endingDesign) =>
+            appliedVal
+        }
+      ctx.getImmutableMemberList.view.flatMap {
         case dp: ir.DFVal.DesignParam =>
-          val dfVal = dp.appliedValOpt.get
-          // invalidating the param cache value after design elaboration
-          dp.clearCachedAppliedVal()
-          dp.getName -> dfVal
+          val name = dp.getName
+          appliedMap.get(name).orElse(autoAppliedValOf(dp)).map(name -> _)
+        case _ => None
       }.toList
+    end collectParamEntries
     // Construct a DFDesignInst member in the parent context that points back
     // at `designBlock`. Called from `onCreateStartLate` after
     // `dfc.exitOwner()` so `dfc.ownerOrEmptyRef` resolves to the enclosing

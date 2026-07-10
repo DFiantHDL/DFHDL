@@ -65,6 +65,11 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
         val updatedAnonRHS: Tree =
           // list of tuples of the old arguments and their meta data
           val args = mkList(dfValArgs.map(a => mkTuple(List(a.ident, a.genMeta))))
+          // list of (name, applied value) tuples of the `<> CONST` arguments — the design
+          // parameters as applied at the call site, used for the design's `paramMap`
+          val constArgs = mkList(dfConstValArgs.map(v =>
+            mkTuple(List(Literal(Constant(v.name.toString.nameCheck(v))), v.ident))
+          ))
           // input map to replace old arg references with new input references
           val inputMap = mutable.Map.empty[Symbol, Tree]
           dfValArgs.view.zipWithIndex.foreach((a, i) =>
@@ -89,7 +94,11 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
           // calling the runtime method that constructs the design from the definition
           ref(designFromDefSym)
             .appliedToType(anonDef.dfValTpeOpt.get.widen)
-            .appliedToArgs(List(args, tree.genMeta)) // meta represents the transformed tree
+            .appliedToArgs(List(
+              args,
+              constArgs,
+              tree.genMeta
+            )) // meta represents the transformed tree
             .appliedTo(updatedBody)
             .appliedTo(dfc)
         end updatedAnonRHS

@@ -48,9 +48,9 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDeno
   var emptyNoEODFCSym: TermSymbol = uninitialized
   var dfcTpe: Type = uninitialized
   var dfSpecTpe: Type = uninitialized
-  var hasClsMetaArgsTpe: TypeRef = uninitialized
-  var clsMetaArgsTpe: TypeRef = uninitialized
-  var hasConstParamsTpe: TypeRef = uninitialized
+  var hasClsMetaTpe: TypeRef = uninitialized
+  var hasClsArgsTpe: TypeRef = uninitialized
+  var metaTpe: TypeRef = uninitialized
   var interfaceTpe: TypeRef = uninitialized
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
@@ -58,6 +58,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDeno
   var listMapEmptySym: TermSymbol = uninitialized
   var listMapSym: TermSymbol = uninitialized
   var dfhdlDFValIdentSym: TermSymbol = uninitialized
+  var clsAppliedArgsSym: TermSymbol = uninitialized
   val defaultParamMap = mutable.Map.empty[ClassSymbol, Map[Int, Tree]]
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     val sym = tree.symbol
@@ -145,10 +146,39 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDeno
   end prepareForStats
 
   // Build the
-  //   override protected def __clsMetaArgs: List[ClsMetaArgs] =
-  //     ClsMetaArgs(...) :: super.__clsMetaArgs
+  //   override protected def __clsAppliedArgs: List[(String, ir.DFVal)] =
+  //     r__For_Plugin.clsAppliedArgs(List(("name", param), ...))
+  // injected into a DFHDL class (`HasClsArgs`) that declares `<> CONST` constructor
+  // parameters — the applied parameter values at the instantiation site, used to construct
+  // the design instance's `paramMap` at design end. A simple override suffices (no super
+  // chaining): base-class parameters are recovered from their creation entries in the design
+  // context (see `Design.Inst.collectParamEntries`).
+  private def clsAppliedArgsOverrideDef(
+      tree: TypeDef,
+      clsSym: ClassSymbol,
+      constParams: List[ValDef]
+  )(using Context): DefDef =
+    val superSym = clsSym.requiredMethod("__clsAppliedArgs".toTermName)
+    val sym = newSymbol(
+      clsSym,
+      "__clsAppliedArgs".toTermName,
+      (superSym.flags & (Protected | Method)) | Override | Touched,
+      superSym.info,
+      coord = tree.span
+    ).enteredAfter(this)
+    val ownArgs = mkList(
+      constParams.map(v =>
+        mkTuple(List(Literal(Constant(v.name.toString.nameCheck(v))), ref(v.symbol)))
+      )
+    )
+    DefDef(sym, ref(clsAppliedArgsSym).appliedTo(ownArgs))
+  end clsAppliedArgsOverrideDef
+
+  // Build the
+  //   override protected def __clsMeta: List[ir.Meta] =
+  //     r__For_Plugin.metaGen(...) :: super.__clsMeta
   // injected into a DFHDL class. Each class in the inheritance chain prepends
-  // its own meta, so the leaf's `__clsMetaArgs` yields the full chain
+  // its own meta, so the leaf's `__clsMeta` yields the full chain
   // (most-derived first). It is the declarative source of truth for class
   // metadata; each container builds its design block directly from this chain at
   // creation (`initOwner`), with no mutation.
@@ -159,34 +189,31 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDeno
   // flags/info for an exact signature match, and (c) be entered into the class's
   // decls before later phases (Mixin) run — hence `enteredAfter(this)`, enabled
   // by this phase being an `IdentityDenotTransformer` with `changesMembers`.
-  private def clsMetaArgsOverrideDef(tree: TypeDef, clsSym: ClassSymbol)(using Context): DefDef =
-    // resolve the inherited (super) `__clsMetaArgs` before entering our override
-    val superSym = clsSym.requiredMethod("__clsMetaArgs".toTermName)
+  private def clsMetaOverrideDef(tree: TypeDef, clsSym: ClassSymbol)(using Context): DefDef =
+    // resolve the inherited (super) `__clsMeta` before entering our override
+    val superSym = clsSym.requiredMethod("__clsMeta".toTermName)
     val sym = newSymbol(
       clsSym,
-      "__clsMetaArgs".toTermName,
+      "__clsMeta".toTermName,
       (superSym.flags & (Protected | Method)) | Override | Touched,
       superSym.info,
       coord = tree.span
     ).enteredAfter(this)
-    val newClsMetaArgsTree =
-      New(
-        clsMetaArgsTpe,
+    val newMetaTree =
+      ref(metaGenSym).appliedToArgs(
         List(
-          Literal(Constant(clsSym.getFinalName())),
+          mkOptionString(Some(clsSym.getFinalName())),
           tree.positionTree,
           mkOptionString(clsSym.docString),
           mkList(clsSym.staticAnnotations.map(a => reownLocalDefs(dropProxies(a.tree), sym)))
         )
       )
-    // ClsMetaArgs(...) :: super.__clsMetaArgs   (i.e. super.__clsMetaArgs.::(ClsMetaArgs(...)))
-    val superClsMetaArgs = Super(This(clsSym), StdNames.tpnme.EMPTY).select(superSym)
+    // metaGen(...) :: super.__clsMeta   (i.e. super.__clsMeta.::(metaGen(...)))
+    val superClsMeta = Super(This(clsSym), StdNames.tpnme.EMPTY).select(superSym)
     val chain =
-      superClsMetaArgs.select("::".toTermName).appliedToType(clsMetaArgsTpe).appliedTo(
-        newClsMetaArgsTree
-      )
+      superClsMeta.select("::".toTermName).appliedToType(metaTpe).appliedTo(newMetaTree)
     DefDef(sym, chain)
-  end clsMetaArgsOverrideDef
+  end clsMetaOverrideDef
 
   override def transformTypeDef(tree: TypeDef)(using Context): TypeDef =
     tree.rhs match
@@ -198,24 +225,39 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDeno
         val clsTpe = tree.tpe
         val clsSym = clsTpe.classSymbol.asClass
 
-        if (clsTpe <:< hasClsMetaArgsTpe && !clsSym.isAnonymousClass && !clsSym.flags.is(Trait))
+        if (clsTpe <:< hasClsMetaTpe && !clsSym.isAnonymousClass && !clsSym.flags.is(Trait))
           val paramBody = template.body.takeWhile {
             case x: TypeDef                 => true
             case x: ValDef if x.rhs.isEmpty => true
             case _                          => false
           }
           val nonParamBody = template.body.drop(paramBody.length)
+          // only `HasClsArgs` classes (designs/interfaces) turn `<> CONST` constructor
+          // parameters into design-parameter members — other `HasClsMeta` classes (e.g.
+          // platform resources) may carry DFHDL-value parameters that must stay untouched
+          val hasClsArgs = clsTpe <:< hasClsArgsTpe
           val (updatedBody, containerParamGenValDefs) = dfcArgOpt match
-            case Some(dfcTree) if clsTpe <:< hasConstParamsTpe =>
+            case Some(dfcTree) if hasClsArgs =>
               val defaults = defaultParamMap.getOrElse(clsSym, Map.empty)
               genContainerBodyParams(nonParamBody, paramBody, defaults, dfcTree)(using
                 ctx.withOwner(clsSym.primaryConstructor)
               )
             case _ => (nonParamBody, Nil)
-          val clsMetaArgsDef = clsMetaArgsOverrideDef(tree, clsSym)
+          val clsMetaDef = clsMetaOverrideDef(tree, clsSym)
+          // expose the class's applied `<> CONST` parameters (if any) through
+          // `__clsAppliedArgs`
+          val clsAppliedArgsDefOpt =
+            val constParams =
+              if (hasClsArgs)
+                paramBody.collect { case v: ValDef if v.dfValTpeOpt.nonEmpty => v }
+              else Nil
+            if (constParams.nonEmpty)
+              Some(clsAppliedArgsOverrideDef(tree, clsSym, constParams))
+            else None
           val newTemplate =
             cpy.Template(template)(body =
-              paramBody ++ List(clsMetaArgsDef) ++ containerParamGenValDefs ++ updatedBody
+              paramBody ++ List(clsMetaDef) ++ clsAppliedArgsDefOpt ++
+                containerParamGenValDefs ++ updatedBody
             )
           cpy.TypeDef(tree)(rhs = newTemplate)
         else tree
@@ -382,9 +424,9 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDeno
     emptyNoEODFCSym = requiredMethod("dfhdl.core.DFC.emptyNoEO")
     dfcTpe = requiredClassRef("dfhdl.core.DFC")
     dfSpecTpe = requiredClassRef("dfhdl.DFSpec")
-    hasClsMetaArgsTpe = requiredClassRef("dfhdl.internals.HasClsMetaArgs")
-    clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
-    hasConstParamsTpe = requiredClassRef("dfhdl.core.HasConstParams")
+    hasClsMetaTpe = requiredClassRef("dfhdl.core.HasClsMeta")
+    hasClsArgsTpe = requiredClassRef("dfhdl.core.HasClsArgs")
+    metaTpe = requiredClassRef("dfhdl.compiler.ir.Meta")
     interfaceTpe = requiredClassRef("dfhdl.core.Interface")
     topAnnotSym = requiredClass("dfhdl.top")
     appTpe = requiredClassRef("dfhdl.app.DFApp")
@@ -392,6 +434,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDeno
     listMapEmptySym = requiredMethod("scala.collection.immutable.ListMap.empty")
     listMapSym = requiredModule("scala.collection.immutable.ListMap")
     dfhdlDFValIdentSym = requiredMethod("dfhdl.core.r__For_Plugin.identVal")
+    clsAppliedArgsSym = requiredMethod("dfhdl.core.r__For_Plugin.clsAppliedArgs")
     dfcArgStack = Nil
     defaultParamMap.clear()
     ctx

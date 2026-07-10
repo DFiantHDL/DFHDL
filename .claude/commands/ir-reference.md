@@ -326,12 +326,23 @@ final case class DFVal.DesignParam(
     ownerRef:      DFOwner.Ref,
     meta:          Meta,
     tags:          DFTags
+)(
+    appliedData:   Option[Data]  // applied constant-data snapshot (see below)
 )
 type DesignParam.DefaultValRef = DFRef.TwoWay[DFVal | DFMember.Empty, DesignParam]
 ```
 
+`appliedData` is the instantiation-site constant data, snapshotted immutably when the
+parameter is created during elaboration. `None` means no snapshot: meta-programming (guarded
+from taking one), data unattainable during elaboration (e.g. CLK_FREQ-dependent), or a
+deserialized DB. It lives in a secondary parameter list so it is excluded from case-class
+equality (`==`/`=~` — instances of the same design with different applied values must still
+unify) and from serialization (deserializes to `None`). During elaboration (mutable DB) it is
+the authoritative source for `getConstData` piercing, since the design's `DFDesignInst` and
+its `paramMap` only exist after the design ends.
+
 Key accessor methods on `DesignParam`:
-- `param.appliedValRefOpt` — `Option[DFDesignBlock.ParamRef]` — `Some` when the owner design has an applied value in its `paramMap`, `None` otherwise
+- `param.appliedValRefOpt` — `Option[DFDesignBlock.ParamRef]` — `Some` when the owner design has an applied value in its `paramMap`, `None` otherwise (including while the owner design is still elaborating and in meta-programming)
 - `param.appliedValOpt` — `Option[DFVal]` — resolved applied value (if any)
 - `param.appliedOrDefaultValRef` — `DFVal.Ref` — applied ref if present, else `defaultValRef`
 - `param.appliedOrDefaultVal` — `DFVal` — applied value if present, else default value

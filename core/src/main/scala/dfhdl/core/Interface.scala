@@ -21,24 +21,23 @@ import scala.quoted.*
 // never has clk/rst injected, and the same `Interface` is reusable inside a
 // design of any domain.
 abstract class Interface
-    extends DomainContainer(DomainType.ED), HasClsMetaArgs, HasConstParams:
+    extends DomainContainer(DomainType.ED), HasClsMeta, HasClsArgs:
   self =>
   private[core] type TScope = DFC.Scope.Interface
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Interface
   private[core] def mkInstMode: InstMode = InstMode.Interface
   private[dfhdl] def initOwner: TOwner =
-    // Build the interface block directly from the `__clsMetaArgs` chain (leaf
+    // Build the interface block directly from the `__clsMeta` chain (leaf
     // names the interface).
-    val blockDFC = __clsMetaArgs.headOption match
-      case Some(a) =>
-        dfc.setMeta(r__For_Plugin.metaGen(Some(a.name), a.position, a.docOpt, a.annotations))
-      case None => dfc.anonymize
+    val blockDFC = __clsMeta.headOption match
+      case Some(meta) => dfc.setMeta(meta)
+      case None       => dfc.anonymize
     Design.Block(__domainType, mkInstMode)(using blockDFC)
   private var hasStartedLate: Boolean = false
   final override def onCreateStartLate: Unit =
     hasStartedLate = true
-    val paramEntries = Design.Inst.collectParamEntries
+    val paramEntries = Design.Inst.collectParamEntries(__clsAppliedArgs)
     val endedInterface = containedOwner.asIR
     // TODO: check interface has at least one port or view, otherwise error
     dfc.exitOwner()

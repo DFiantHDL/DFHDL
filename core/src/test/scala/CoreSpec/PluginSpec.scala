@@ -109,24 +109,29 @@ class PluginSpec extends DFSpec:
   }
   assertLastNames("wrappedTryName")
 
-  // reads the plugin-injected `__clsMetaArgs` chain (leaf = head) to expose the
+  // reads the plugin-injected `__clsMeta` chain (leaf = head) to expose the
   // class's name/position/doc/annotations
-  trait HasNamePosWithVars extends internals.HasClsMetaArgs:
-    final def clsName: String = __clsMetaArgs.headOption.map(_.name).getOrElse("")
+  trait HasNamePosWithVars extends core.HasClsMeta:
+    final def clsName: String = __clsMeta.headOption.flatMap(_.nameOpt).getOrElse("")
     final def clsPosition: Position =
-      __clsMetaArgs.headOption.map(_.position).getOrElse(Position.unknown)
-    final def clsDocOpt: Option[String] = __clsMetaArgs.headOption.flatMap(_.docOpt)
-    final def clsAnnotations: List[Annotation] =
-      __clsMetaArgs.headOption.map(_.annotations).getOrElse(Nil)
+      __clsMeta.headOption.map(_.position).getOrElse(Position.unknown)
+    final def clsDocOpt: Option[String] = __clsMeta.headOption.flatMap(_.docOpt)
+    final def clsAnnotations: List[compiler.ir.annotation.HWAnnotation] =
+      __clsMeta.headOption.map(_.annotations).getOrElse(Nil)
   end HasNamePosWithVars
 
   /** This is doc */
   @nowarn
+  @hw.annotation.flattenMode.transparent()
   class GotName(x: Int, y: String, z: Int) extends HasNamePosWithVars
   val gotName = new GotName(1, "2", 3)
   assertEquals(gotName.clsName, "GotName")
   assertEquals(gotName.clsDocOpt, Some(" This is doc "))
-  assert(gotName.clsAnnotations.head.isInstanceOf[nowarn])
+  // only active HW annotations survive in the meta (`@nowarn` is filtered out)
+  assertEquals(
+    gotName.clsAnnotations,
+    List(compiler.ir.annotation.FlattenMode.Transparent)
+  )
   extension (bar: Bar)(using DFC) @inline def ++(that: Bar): Bar = new Plus(bar, that)
 
   extension (bar: Bar) @inline def +++(that: Bar)(using DFC): Bar = new Plus(bar, that)

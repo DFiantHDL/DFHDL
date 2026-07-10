@@ -715,6 +715,15 @@ object DFVal extends DFValLP:
         case _ if ownerIR.isTop || ownerIR.isVendorIPBlackbox => appliedVal.asIR
         case Some(dv)                                         => dv.asIR
         case None => Const.synthetic(dfTypeIR.asFE[T]).asIR
+      // The applied constant data is snapshotted here — while the applied value (a member of
+      // an enclosing context) is still resolvable — and carried immutably on the design
+      // parameter for elaboration-time evaluation. No snapshot is taken in meta-programming
+      // (the patched DB resolves through the applied/default value refs instead), and `None`
+      // is also the result when the data is unattainable during elaboration (e.g.,
+      // CLK_FREQ-dependent).
+      val appliedData =
+        if (dfc.inMetaProgramming) None
+        else appliedVal.asIR.getConstDataThroughParams[ir.Data]
       val alias: ir.DFVal.DesignParam =
         ir.DFVal.DesignParam(
           dfTypeIR,
@@ -722,8 +731,7 @@ object DFVal extends DFValLP:
           dfc.owner.ref,
           dfc.getMeta,
           dfc.tags
-        )
-      if (!dfc.inMetaProgramming) alias.setCachedAppliedVal(appliedVal.asIR)
+        )(appliedData = appliedData)
       alias.addMember.asConstOf[T]
     end apply
   end DesignParam

@@ -110,6 +110,10 @@ object r__For_Plugin:
       DFC
   ): Pattern =
     Pattern.BindSI(op, parts, bindVals.map(_.asIR.refTW[DFConditional.DFCaseBlock]))
+  // Builds the `__clsAppliedArgs` value for a DFHDL class (see `HasClsArgs`): this class's
+  // (name, applied value) parameter pairs.
+  def clsAppliedArgs(args: List[(String, DFValAny)]): List[(String, ir.DFVal)] =
+    args.map((name, dfVal) => (name, dfVal.asIR))
   @metaContextIgnore
   def genContainerParam[V <: DFValAny](
       appliedVal: DFValAny,
@@ -131,6 +135,7 @@ object r__For_Plugin:
   @metaContextForward(2)
   def designFromDef[V <: DFValAny](
       args: List[(DFValAny, ir.Meta)],
+      constArgs: List[(String, DFValAny)],
       dclMeta: ir.Meta
   )(
       func: => V
@@ -146,7 +151,7 @@ object r__For_Plugin:
     }
     val (isDuplicate, ret) =
       dfc.mutableDB.DesignContext.runFuncWithInputs(func, inputs)
-    val paramEntries = Design.Inst.collectParamEntries
+    val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(constArgs))
     def exitAndConnectInputs() =
       val endedDesign = designBlock.asIR
       dfc.exitOwner()
