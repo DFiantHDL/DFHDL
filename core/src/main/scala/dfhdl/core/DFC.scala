@@ -142,6 +142,8 @@ object DFC:
       // (the plugin will make sure that the name is unique)
       private[core] val stepCache = mutable.Map.empty[String, ir.StepBlock]
     object Process extends Process
+    sealed trait Initial extends Local
+    object Initial extends Initial
     sealed trait Interface extends Local
     object Interface extends Interface
   end Scope

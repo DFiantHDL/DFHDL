@@ -247,6 +247,8 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.All        => " (all)"
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
+      // initial blocks never reach VHDL printing (SplitInitialBlocks lowers them beforehand)
+      case Sensitivity.Initial => printer.unsupported
     sn"""|${named}process$senList
          |${csDcls.hindent}
          |begin

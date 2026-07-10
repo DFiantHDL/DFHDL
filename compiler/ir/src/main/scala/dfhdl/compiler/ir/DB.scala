@@ -1205,6 +1205,110 @@ final case class DB private (
       throw new IllegalArgumentException(errors.mkString("\n"))
   end waitCheck
 
+  // `initial` block content and conflict checks, run per design (initial blocks may
+  // only reference values of their own design, so no cross-design pass is needed):
+  //   * Both domains: only blocking assignments — no non-blocking assignments,
+  //     connections, waits, gotos, or nested owners (processes/steps/forks/domains/designs).
+  //   * RT domain: assignments must have a constant RHS; for-loops and conditionals with
+  //     constant guards/selectors as control flow; no while loops, text output, or
+  //     declarations (except loop iterators).
+  //   * ED domain: also allows non-constant conditionals, while loops, text output, and
+  //     local declarations.
+  //   * Conflict rules: a declaration may be assigned by at most one `initial` block, and a
+  //     declaration `init` is mutually exclusive with an `initial` block assignment.
+  def initialCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    def memberError(member: DFMember, msg: String): Unit =
+      errors += s"""|DFiant HDL initial block error!
+                    |Position:  ${member.meta.position}
+                    |Hierarchy: ${member.getOwnerDesign.getFullName}
+                    |Message:   $msg""".stripMargin
+    val initialPBs = members.collect {
+      case pb @ ProcessBlock(sensitivity = ProcessBlock.Sensitivity.Initial) => pb
+    }
+    // per-block content checks, while collecting the externally-declared assigned dcls
+    // (ordered and deduped per block) for the cross-block conflict checks
+    val assignedDclsPerPB: List[(ProcessBlock, List[(DFVal.Dcl, DFNet)])] = initialPBs.map { pb =>
+      val isRT = pb.isInRTDomain
+      if (pb.isInDFDomain)
+        memberError(pb, "An `initial` block is not supported under dataflow (DF) domains.")
+      val assigned = mutable.LinkedHashMap.empty[DFVal.Dcl, DFNet]
+      getMembersOf(pb, MemberView.Flattened).foreach {
+        case net @ DFNet.BAssignment(toVal, fromVal) =>
+          if (isRT && !fromVal.isConst)
+            memberError(
+              net,
+              "An `initial` block under a register-transfer (RT) domain may only assign constant values."
+            )
+          toVal.departialDcl.foreach { (dcl, _) =>
+            // local declarations (inside the initial block itself) are exempt from
+            // the cross-block conflict rules
+            if (!dcl.isInsideOwner(pb) && !assigned.contains(dcl)) assigned += dcl -> net
+          }
+        case net @ DFNet.NBAssignment(_, _) =>
+          memberError(net, "Non-blocking assignments are not allowed inside an `initial` block.")
+        case net: DFNet =>
+          memberError(net, "Connections are not allowed inside an `initial` block.")
+        case wait: Wait =>
+          memberError(wait, "Wait statements are not allowed inside an `initial` block.")
+        case goto: Goto =>
+          memberError(goto, "Step transitions are not allowed inside an `initial` block.")
+        case textOut: TextOut if isRT =>
+          memberError(
+            textOut,
+            "Text output statements are not allowed inside an `initial` block under a register-transfer (RT) domain."
+          )
+        case mh: DFConditional.DFMatchHeader if isRT && !mh.selectorRef.get.isConst =>
+          memberError(
+            mh,
+            "A `match` selector inside an `initial` block under a register-transfer (RT) domain must be a constant."
+          )
+        case cb: DFConditional.Block if isRT =>
+          cb.guardRef.get match
+            case guard: DFVal if !guard.isConst =>
+              memberError(
+                cb,
+                "A conditional guard inside an `initial` block under a register-transfer (RT) domain must be a constant."
+              )
+            case _ => // no guard (else branch / catch-all case) or a constant guard — ok
+        case wb: DFLoop.DFWhileBlock if isRT =>
+          memberError(
+            wb,
+            "While loops are not allowed inside an `initial` block under a register-transfer (RT) domain (only for-loops are)."
+          )
+        case dcl: DFVal.Dcl if isRT && !dcl.hasTagOf[IteratorTag] =>
+          memberError(
+            dcl,
+            "Declarations are not allowed inside an `initial` block under a register-transfer (RT) domain."
+          )
+        case owner @ (_: ProcessBlock | _: StepBlock | _: ForkBlock | _: DomainBlock |
+            _: DFDesignBlock | _: DFDesignInst) =>
+          memberError(owner, "This construct is not allowed inside an `initial` block.")
+        case _ => // ok
+      }
+      pb -> assigned.toList
+    }
+    // cross-block conflict checks
+    val seenDcls = mutable.Set.empty[DFVal.Dcl]
+    assignedDclsPerPB.foreach { (pb, assigned) =>
+      assigned.foreach { (dcl, net) =>
+        if (dcl.hasNonBubbleInit)
+          memberError(
+            net,
+            s"The declaration `${dcl.getName}` has an `init` value and is also assigned inside an `initial` block. These are mutually exclusive."
+          )
+        if (seenDcls.contains(dcl))
+          memberError(
+            net,
+            s"The declaration `${dcl.getName}` is assigned inside more than one `initial` block."
+          )
+        else seenDcls += dcl
+      }
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end initialCheck
+
   // Circular-derived-domain check, run on the root DB. DFS over
   // `dependentRTDomainOwners`; the cycle error names each
   // owner via `fullNameViaInst` routed through that owner's sub-DB.
@@ -1468,6 +1572,7 @@ final case class DB private (
     nameCheck()
     connectionTable // causes connectivity checks
     directRefCheck()
+    initialCheck()
 
   // Whole-tree checks, run once on the root: the cross-design connectivity /
   // RT-domain / device-top checks, via the `*` clones that navigate the

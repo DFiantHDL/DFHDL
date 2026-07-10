@@ -398,11 +398,13 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csProcessBlock(pb: ProcessBlock): String =
     val body = csDFOwnerBody(pb)
     val named = pb.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
-    val senList = pb.sensitivity match
-      case Sensitivity.All                        => "(all)"
-      case Sensitivity.List(refs) if refs.isEmpty => ""
-      case Sensitivity.List(refs)                 => refs.map(_.refCodeString).mkStringBrackets
-    s"${named}process${senList}:\n${body.hindent}"
+    val keyword = pb.sensitivity match
+      case Sensitivity.Initial                    => "initial"
+      case Sensitivity.All                        => "process(all)"
+      case Sensitivity.List(refs) if refs.isEmpty => "process"
+      case Sensitivity.List(refs)                 =>
+        s"process${refs.map(_.refCodeString).mkStringBrackets}"
+    s"${named}${keyword}:\n${body.hindent}"
   def csForkBlock(fb: ForkBlock): String =
     val body = csDFOwnerBody(fb)
     val named = fb.meta.nameOpt.map(n => s"val $n = ").getOrElse("")

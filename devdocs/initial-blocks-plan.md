@@ -1,7 +1,9 @@
 # `initial` Blocks Plan
 
-> Status: **approved design; Step 0 (endless `wait`) IMPLEMENTED** — phases A onward not yet
-> implemented.
+> Status: **approved design; Step 0 (endless `wait`) and Phase A (IR `Sensitivity.Initial`,
+> frontend `initial`, elaboration checks, DFHDL printer) IMPLEMENTED** — phases B onward not
+> yet implemented (the backend printers already emit Verilog `initial` / VHDL-unsupported as a
+> Phase-A side effect, but Phase B's end-to-end docExample + ref updates remain).
 > Decisions locked: loop-rotation mechanism (not goto tagging); synthetic `S_0` fallback for
 > non-convertible first-step `onEntry` (accepted behavior change); RT initial assignments are
 > const-RHS only; both RT and ED initial blocks are semantically once-only.
@@ -29,16 +31,24 @@ plus dropping/conditioning Rule 6 so prologue code migrates into a generated `in
 - Under RT **without a reset** and under ED: power-on initialization (declaration inits /
   Verilog `initial` block).
 - **RT initial content restriction**: only blocking assignments with constant RHS
-  (`dfVal.isConst`) and combinational for-loops (iterator indexing on the LHS is fine).
-  No TextOut, no waits, no `.din`, no `:==`. This makes non-blocking conversion into reset
-  branches trivially sound (no read-after-write possible) and per-variable splitting sound.
+  (`dfVal.isConst`), combinational for-loops (iterator indexing on the LHS is fine), and
+  conditionals whose guards/`match` selectors are all constant (`dfVal.isConst` — an
+  iterator-dependent guard, e.g. a for-comprehension `if` filter, is NOT constant).
+  No TextOut, no waits, no `:==`. REG targets are assigned through `.din` as usual (IR-wise a
+  `.din` assignment *is* an assignment to the REG Dcl, so nothing special is needed — the
+  printer keeps the `.din` form inside `initial` too). The const-RHS rule makes non-blocking
+  conversion into reset branches trivially sound (no read-after-write possible) and
+  per-variable splitting sound.
 - **ED initial content**: blocking assignments, combinational loops/conditionals, TextOut.
   No waits, no `:==`.
 - **Conflict rules** (new elaboration checks): a variable may be assigned by at most one
   `initial` block; declaration `init` and `initial`-block assignment are mutually exclusive.
-  (For *generated* IR — which elaboration checks never see — `SplitInitialBlocks` uses an
-  "initial wins" rule: e.g. SimplifyRTOps' `initForced` iterator init meeting the
-  `DropRTProcess`-generated `i := 0`.)
+  **Phase A finding**: `DB.check` (which hosts `initialCheck()` in `subDBCheck`) is also run by
+  `SanityCheck` after *every* stage — generated IR is checked too. So stages must keep the IR
+  conflict-free at every stage boundary: `DropRTProcess` must *move* an existing decl `init`
+  (e.g. SimplifyRTOps' `initForced` iterator init) into the generated `initial` block rather
+  than leaving both alive for `SplitInitialBlocks` to reconcile later ("initial wins" is thus
+  enforced structurally, not as a special stage rule).
 
 ## Step 0 — endless `wait` (prerequisite) — IMPLEMENTED
 
@@ -65,35 +75,52 @@ plus dropping/conditioning Rule 6 so prologue code migrates into a generated `in
   Note: those two printer specs embed hardcoded source positions (a `debug` call's file:line) in
   expected strings — inserting lines above shifts them and they must be updated.
 
-## IR change
+## IR change — IMPLEMENTED (Phase A)
 
 `case object Initial extends Sensitivity` in `ProcessBlock.Sensitivity`
-(`compiler/ir/src/main/scala/dfhdl/compiler/ir/DFMember.scala:1295-1313`); needs `prot_=~`,
-`getRefs`, `copyWithNewRefs`; derived `ReadWriter` on the sealed trait covers serialization
-(IR format bump ⇒ DiskCache invalidates via version tag).
+(`compiler/ir/src/main/scala/dfhdl/compiler/ir/DFMember.scala`); `prot_=~`, `getRefs`,
+`copyWithNewRefs` are trivial (no refs); derived `ReadWriter` on the sealed trait covers
+serialization (IR format bump ⇒ DiskCache invalidates via version tag).
 
-Match/extractor sites to update or audit:
+Match/extractor sites updated/audited (all done in Phase A):
 
 | Site | Action |
 |---|---|
-| `compiler/ir/.../printing/DFOwnerPrinter.scala:398-405` `csProcessBlock` | print `initial:` |
-| `compiler/stages/.../verilog/VerilogOwnerPrinter.scala:243` (alwaysKW) and `:253` (senList) | keyword `initial`, no sensitivity suffix |
-| `compiler/stages/.../vhdl/VHDLOwnerPrinter.scala:246` | should never see one (SplitInitialBlocks forced under VHDL); throw/assert |
-| `compiler/ir/.../analysis/ProcessBlockAnalysis.scala:9-11` `isSequential` | extend; add `pb.isInitial` + `member.isInInitialBlock` helpers |
-| `compiler/stages/.../DropProcessAll.scala:36`, `VHDLProcToVerilog.scala:39` | skip naturally (match All/List extractors) — cover with tests |
-| `core/src/main/scala/dfhdl/core/Process.scala` | new constructor |
+| `compiler/ir/.../printing/DFOwnerPrinter.scala` `csProcessBlock` | prints `initial:` |
+| `compiler/stages/.../verilog/VerilogOwnerPrinter.scala` (alwaysKW + senList) | keyword `initial`, no sensitivity suffix (works for all dialects incl. v95/v2001) |
+| `compiler/stages/.../vhdl/VHDLOwnerPrinter.scala` senList | `printer.unsupported` (SplitInitialBlocks forced under VHDL) |
+| `compiler/ir/.../analysis/ProcessBlockAnalysis.scala` | `isSequential` → false for Initial; added `pb.isInitial` (no getSet needed) + `member.isInInitialBlock` helpers |
+| `compiler/stages/.../DropProcessAll.scala`, `VHDLProcToVerilog.scala` | skip naturally (narrow All/List extractors in `collect`) — audited |
+| `core/src/main/scala/dfhdl/core/Process.scala` | `Block.initial` + `Ops.initial` constructor |
 
-## Frontend
+Note: a `.din` assignment to a REG is IR-wise a plain `DFNet` assignment to the REG Dcl (the
+DFHDL printer adds `.din` for any REG-LHS assignment, incl. inside `initial`), so REG
+initialization inside `initial` needs no special IR/printer/frontend handling at all.
 
-- `Scope.Initial extends Local` in `core/src/main/scala/dfhdl/core/DFC.scala:130-147`.
-- Top-level `initial` constructor in `Process.scala` mirroring `process.forever` but with
-  `Sensitivity.Initial`; restricted to RT/ED domains (`NotDFDomain`) and non-nested
-  (`AssertGiven[NotGiven[...]]` pattern, same as `NoNestingProcess`).
-- Inside `Scope.Initial`: steps/waits won't compile (they require `Scope.Process`); add
-  `NotGiven[Scope.Initial]` guards on `:==`; in RT, `:=` targets the REG Dcl directly (initial
-  sets time-zero values — no `.din`).
-- Elaboration checks (backstop for scope laundering through `def`s): the content restrictions
-  and conflict rules from the Semantics section.
+## Frontend — IMPLEMENTED (Phase A)
+
+- `Scope.Initial extends Local` in `core/src/main/scala/dfhdl/core/DFC.scala`.
+- `initial` constructor in `Process.scala` `Ops` (exported via `hdl.scala`), body takes
+  `DFC.Scope.Initial ?=> Unit`; guards: `InitialNotDFDomain`, `InitialNotInsideProcess`,
+  `NoNestingInitial` (the latter also added to all three `process` constructors so processes
+  can't nest inside `initial`).
+- Inside `Scope.Initial`: steps/waits-as-steps won't compile (they require `Scope.Process`);
+  `:==` is blocked by a `NotInInitial:==` guard in `DFVarOps` — **placed before**
+  `InsideProcess:==` in the using-parameter list so its message wins (given-resolution reports
+  the first failing `AssertGiven` in declaration order); `InsideProcess:=` extended with
+  `DFC.Scope.Initial` in its union so ED-domain `:=` works inside `initial`; in RT, REG
+  initialization uses the regular `x.din := const` form (same IR as any `.din` assignment;
+  the printer keeps `.din`).
+- Elaboration checks (backstop for scope laundering through `def`s): `initialCheck()` in
+  `DB.scala`, part of `subDBCheck` (per-design), covering the content restrictions
+  (RT: const-RHS blocking assignments + for-loops + const-guarded/const-selector
+  conditionals + iterator dcls only; ED: also non-const conditionals, while loops, text
+  output, local dcls; both: no NB assignments, connections, waits, gotos, or nested owners) and the conflict rules (one initial block per dcl; decl
+  `init` XOR initial assignment; dcls local to the initial block are exempt).
+- Tests: `core/CoreSpec.InitialSpec` (5 compile-guard errors), `StagesSpec.PrintCodeStringSpec`
+  ("initial block printing under ED/RT", the RT one incl. a const-guard `if`),
+  `lib/ElaborationChecksSpec` (RT content errors + conflict errors + non-const
+  conditional guard/selector errors).
 
 ## `SplitInitialBlocks` (new stage)
 
@@ -144,9 +171,10 @@ At `ToED.scala:264-328`:
 The prologue (statements before the first step, plus the first step's `onEntry`) runs in
 exactly two situations:
 
-1. **Initialization** — via the `initial` block that `DropRTProcess` generates (copied, with
-   `.din`-alias LHS rewritten to direct-Dcl assignment). With a reset this lands in the reset
-   branch; without one, as declaration inits / power-on initial block.
+1. **Initialization** — via the `initial` block that `DropRTProcess` generates (a plain copy —
+   `.din` assignments to REGs are kept as-is, since a `.din` assignment is IR-wise an
+   assignment to the REG Dcl). With a reset this lands in the reset branch; without one, as
+   declaration inits / power-on initial block.
 2. **Forever wrap-around** — when the *last* step's *implicit* `NextStep` rolls back to the
    first step, a copy of the prologue executes on that exit path.
 
@@ -209,8 +237,8 @@ Also consider fusing steps whose only non-regular child is an initial-convertibl
 
 | Phase | Content | Gate |
 |---|---|---|
-| 0 | endless `wait` (IR-less; frontend + printers + DropRTWaits/DropTimedRTWaits) | specs + full test |
-| A | IR `Sensitivity.Initial`, `Scope.Initial`, frontend `initial`, elaboration checks, DFHDL printer | core/elab error tests + PrintCodeString |
+| 0 (DONE) | endless `wait` (IR-less; frontend + printers + DropRTWaits/DropTimedRTWaits) | specs + full test |
+| A (DONE) | IR `Sensitivity.Initial`, `Scope.Initial`, frontend `initial`, elaboration checks, DFHDL printer | core/elab error tests + PrintCodeString |
 | B | Verilog printer `initial` (ED path end-to-end) | docExample + ref update |
 | C | `SplitInitialBlocks` + `usesRst` extension | `SplitInitialBlocksSpec` (self-contained: write initial-block IR directly) |
 | D | ToED reset planting / pass-through | `ToEDSpec` |

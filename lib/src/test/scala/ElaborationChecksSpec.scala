@@ -629,4 +629,80 @@ class ElaborationChecksSpec extends DesignSpec:
           |Message:   Found multiple connections write to the same variable/port `AssignConn.y`.
           |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:618:9 - 618:25""".stripMargin
     )
+  test("initial block content errors under RT domain"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val x = SInt(16) <> IN
+        val y = SInt(16) <> OUT.REG
+        initial:
+          y.din := x
+          println("bad")
+          wait
+        y.din := x
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL initial block error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:638:11 - 638:21
+          |Hierarchy: Top
+          |Message:   An `initial` block under a register-transfer (RT) domain may only assign constant values.
+          |DFiant HDL initial block error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:639:11 - 639:25
+          |Hierarchy: Top
+          |Message:   Text output statements are not allowed inside an `initial` block under a register-transfer (RT) domain.
+          |DFiant HDL initial block error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:640:11 - 640:15
+          |Hierarchy: Top
+          |Message:   Wait statements are not allowed inside an `initial` block.""".stripMargin
+    )
+
+  test("initial block conflict errors"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val a = SInt(16) <> VAR init 0
+        val b = SInt(16) <> VAR
+        val c = SInt(16) <> OUT
+        initial:
+          a := 1
+          b := 0
+        initial:
+          b := 1
+        process(all):
+          c :== a + b
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL initial block error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:666:11 - 666:17
+          |Hierarchy: Top
+          |Message:   The declaration `a` has an `init` value and is also assigned inside an `initial` block. These are mutually exclusive.
+          |DFiant HDL initial block error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:669:11 - 669:17
+          |Hierarchy: Top
+          |Message:   The declaration `b` is assigned inside more than one `initial` block.""".stripMargin
+    )
+  test("initial block non-constant conditional errors under RT domain"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val x = Bit <> IN
+        val s = SInt(16) <> IN
+        val y = SInt(16) <> OUT.REG
+        initial:
+          if (x) y.din := 0
+          s match
+            case 1 => y.din := 1
+            case _ => y.din := 2
+        y.din := 3
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL initial block error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:691:15 - 691:28
+          |Hierarchy: Top
+          |Message:   A conditional guard inside an `initial` block under a register-transfer (RT) domain must be a constant.
+          |DFiant HDL initial block error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:691:28 - 694:33
+          |Hierarchy: Top
+          |Message:   A `match` selector inside an `initial` block under a register-transfer (RT) domain must be a constant.""".stripMargin
+    )
 end ElaborationChecksSpec

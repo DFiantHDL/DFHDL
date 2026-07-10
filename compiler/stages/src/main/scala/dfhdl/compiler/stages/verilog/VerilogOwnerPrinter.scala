@@ -237,20 +237,25 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       if (dcls.isEmpty) ""
       else s"${csDFMembers(dcls)}\n"
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
-    val alwaysKW = printer.dialect match
-      case VerilogDialect.v2001 | VerilogDialect.v95 => "always"
-      case _                                         =>
-        pb.sensitivity match
-          case Sensitivity.All        => "always_comb"
-          case Sensitivity.List(refs) =>
-            refs match
-              case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
-                "always_ff"
-              case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) ::
-                  DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
-                "always_ff"
-              case _ => "always"
+    val alwaysKW = pb.sensitivity match
+      case Sensitivity.Initial => "initial"
+      case _                   =>
+        printer.dialect match
+          case VerilogDialect.v2001 | VerilogDialect.v95 => "always"
+          case _                                         =>
+            pb.sensitivity match
+              case Sensitivity.All        => "always_comb"
+              case Sensitivity.List(refs) =>
+                refs match
+                  case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
+                    "always_ff"
+                  case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) ::
+                      DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
+                    "always_ff"
+                  case _ => "always"
+              case Sensitivity.Initial => "initial" // unreachable (handled above)
     val senList = pb.sensitivity match
+      case Sensitivity.Initial    => ""
       case Sensitivity.All        => if (alwaysKW == "always") " @(*)" else ""
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) ""

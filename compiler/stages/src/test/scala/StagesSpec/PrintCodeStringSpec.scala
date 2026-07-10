@@ -2238,4 +2238,63 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("initial block printing under ED") {
+    class InitED extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      val v = SInt(16) <> VAR
+      initial:
+        v := 0
+        println("initialized")
+      process(all):
+        y :== x + v
+    end InitED
+    val top = (new InitED)
+    assertCodeString(
+      top,
+      """|class InitED extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val v = SInt(16) <> VAR
+         |  initial:
+         |    v := sd"16'0"
+         |    println(s"initialized")
+         |  process(all):
+         |    y :== x + v
+         |end InitED
+         |""".stripMargin
+    )
+  }
+  test("initial block printing under RT") {
+    class InitRT extends RTDesign:
+      val EN: Boolean <> CONST = true
+      val x                    = SInt(16)     <> IN
+      val y                    = SInt(16)     <> OUT.REG
+      val vec                  = SInt(16) X 4 <> VAR
+      initial:
+        if (EN) y.din := 0
+        else y.din    := 1
+        for (i <- 0 until 4)
+          vec(i) := 0
+      y.din := x + vec(0)
+    end InitRT
+    val top = (new InitRT)
+    assertCodeString(
+      top,
+      """|class InitRT extends RTDesign:
+         |  val EN: Boolean <> CONST = true
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT.REG
+         |  val vec = SInt(16) X 4 <> VAR
+         |  initial:
+         |    if (EN) y.din := sd"16'0"
+         |    else y.din := sd"16'1"
+         |    for (i <- 0 until 4)
+         |      vec(i) := sd"16'0"
+         |    end for
+         |  y.din := x + vec(0)
+         |end InitRT
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

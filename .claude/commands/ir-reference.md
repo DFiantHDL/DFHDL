@@ -521,7 +521,24 @@ final case class ProcessBlock(
 sealed trait ProcessBlock.Sensitivity
 case object ProcessBlock.Sensitivity.All                          // process(all)
 final case class ProcessBlock.Sensitivity.List(refs: List[DFVal.Ref])  // process(x, y)
+case object ProcessBlock.Sensitivity.Initial                      // initial (once-only block)
 ```
+
+**Analysis helpers** (`ProcessBlockAnalysis.scala`):
+```scala
+pb.isInitial              // sensitivity == Initial (no MemberGetSet needed)
+pb.isSequential           // false for All and Initial, true for List (TODO note in source)
+member.isInInitialBlock   // nearest process-block owner is an initial block
+```
+
+`Sensitivity.Initial` blocks print as `initial:` (DFHDL) / `initial` (Verilog); they must be
+lowered before VHDL printing (`SplitInitialBlocks`). Stages that match `Sensitivity.All` /
+`Sensitivity.List` via narrow extractors skip them naturally. `initialCheck()` in `DB.scala`
+(part of per-design `subDBCheck`, so it also runs in `SanityCheck` after every stage) enforces
+their content restrictions and conflict rules — stages generating initial blocks must keep the
+IR valid at every stage boundary (e.g. no dcl with both `init` and an initial-block assignment).
+Note: an assignment to a REG Dcl inside an initial block is a plain `DFNet` — the DFHDL printer
+renders any REG-LHS assignment as `x.din := ...`, including inside `initial`.
 
 ---
 

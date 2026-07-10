@@ -1694,7 +1694,8 @@ object DFVarOps:
     "Non-blocking assignments `:==` are allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=` or the logic domain to ED."
   ]
   protected type `InsideProcess:=`[D, A] = AssertGiven[
-    DFC.Scope.Process | util.NotGiven[A <:< DomainType.ED] | D <:< DomainType.RT,
+    DFC.Scope.Process | DFC.Scope.Initial | util.NotGiven[A <:< DomainType.ED] |
+      D <:< DomainType.RT,
     "Blocking assignments `:=` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
   protected type `InsideProcess:==`[D, A] = AssertGiven[
@@ -1704,6 +1705,10 @@ object DFVarOps:
   protected type RTDomainOnly[A] = AssertGiven[
     A <:< DomainType.RT,
     "`.din` selection is only allowed under register-transfer (RT) domains."
+  ]
+  protected type `NotInInitial:==` = AssertGiven[
+    util.NotGiven[DFC.Scope.Initial],
+    "Non-blocking assignments `:==` are not allowed inside an `initial` block.\nChange the assignment to a blocking assignment `:=`."
   ]
   // extension [L](inline lhs: L)
   //   transparent inline def :=[R](inline rhs: R)(using DFC): Unit =
@@ -1732,6 +1737,7 @@ object DFVarOps:
         varOnly: VarOnly[A],
         edDomainOnly: EDDomainOnly[dt.type],
 //        notLocalVar: NotLocalVar[A],
+        notInInitial: `NotInInitial:==`,
         insideProcess: `InsideProcess:==`[dt.type, A]
     ): Unit = trydf {
       dfVar.nbassign(rhs(dfVar.dfType))

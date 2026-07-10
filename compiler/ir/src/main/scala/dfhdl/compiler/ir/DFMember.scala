@@ -1310,6 +1310,15 @@ object ProcessBlock:
       lazy val getRefs: scala.List[DFRef.TwoWayAny] = refs
       def copyWithNewRefs(using RefGen): this.type =
         List(refs.map(_.copyAsNewRef)).asInstanceOf[this.type]
+    // A once-only initialization block (Verilog-like `initial`). Not sensitivity-driven:
+    // runs exactly once at time zero (ED) or is lowered into reset/declaration-init logic (RT).
+    case object Initial extends Sensitivity:
+      protected def `prot_=~`(that: Sensitivity)(using MemberGetSet): Boolean = that match
+        case Initial => true
+        case _       => false
+      lazy val getRefs: scala.List[DFRef.TwoWayAny] = Nil
+      def copyWithNewRefs(using RefGen): this.type = this
+  end Sensitivity
 end ProcessBlock
 
 final case class ForkBlock(
