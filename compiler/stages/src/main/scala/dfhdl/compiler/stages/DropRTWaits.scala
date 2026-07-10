@@ -206,18 +206,69 @@ case object DropRTWaits extends HierarchyStage:
               if (prefix.isEmpty) s"S_${stepNameStack.head.counter}"
               else s"${prefix}_${stepNameStack.head.counter}"
 
-        // Rule 6: If process does not start with step, wait, or while, add empty S_0 before first member
-        val needsInitialStep =
+        // Rule 6: If process does not start with step, wait, or while, add empty S_0 before
+        // first member — unless the prologue (the leading members before the first
+        // step-generating member) and the first step's `onEntry` (if any) are
+        // initial-convertible, in which case `DropRTProcess` lowers them into a generated
+        // `initial` block and no bootstrap step (and its extra cycle) is needed.
+        // Conversely, a process *starting* with a step whose `onEntry` is NOT convertible
+        // gets a bootstrap step so the `onEntry` fires on the S_0 -> first-step transition
+        // at reset entry (previously it was silently lost).
+        val foldedMembers = pb.members(MemberView.Folded)
+        val prologue = foldedMembers.takeWhile {
+          case _: Wait                 => false
+          case wb: DFLoop.DFWhileBlock => wb.isCombinational
+          case _: StepBlock            => false
+          case _                       => true
+        }
+        // the first step's onEntry body (only a user-written StepBlock can carry one)
+        val firstStepOnEntryMembers: List[DFMember] =
+          foldedMembers.collectFirst { case sb: StepBlock if sb.isRegular => sb }
+            .flatMap {
+              _.members(MemberView.Folded).collectFirst {
+                case onEntry: StepBlock if onEntry.isOnEntry => onEntry
+              }
+            }
+            .map(_.members(MemberView.Flattened))
+            .getOrElse(Nil)
+        val startsWithStepGenerator =
           pbMembers
             .dropWhile {
               case v: DFVal => v.isAnonymous
               case _        => false
             }.headOption match
-            case None                          => true
-            case Some(_: Wait)                 => false
-            case Some(wb: DFLoop.DFWhileBlock) => wb.isCombinational
-            case Some(_: StepBlock)            => false
-            case _                             => true
+            case None                          => false
+            case Some(_: Wait)                 => true
+            case Some(wb: DFLoop.DFWhileBlock) => !wb.isCombinational
+            case Some(_: StepBlock)            => true
+            case _                             => false
+        // Prologue conversion is disallowed when a trailing statement (after the last
+        // step-generating member — relocated by FlattenStepBlocks to the wrap-around exit)
+        // assigns a declaration the prologue also assigns: the prologue re-initialization
+        // inlined by DropRTProcess at the wrap-around goto site would shadow that trailing
+        // write in the same cycle, whereas with the bootstrap step it is observable for one
+        // cycle (e.g. the fork-join start/done handshake's low pulse).
+        def assignedDclsOf(members: List[DFMember]): Set[DFVal.Dcl] =
+          members.view.collect { case DFNet.BAssignment(toVal, _) =>
+            toVal.departialDcl.map(_._1)
+          }.flatten.toSet
+        val trailing =
+          if (startsWithStepGenerator || prologue.sizeIs == foldedMembers.size) Nil
+          else
+            foldedMembers.reverse.takeWhile {
+              case _: Wait                 => false
+              case wb: DFLoop.DFWhileBlock => wb.isCombinational
+              case _: StepBlock            => false
+              case _                       => true
+            }
+        val trailingSharesPrologueDcl =
+          val prologueDcls = assignedDclsOf(prologue)
+          prologueDcls.nonEmpty && assignedDclsOf(trailing).exists(prologueDcls.contains)
+        val needsInitialStep =
+          if (startsWithStepGenerator) !isInitialConvertible(firstStepOnEntryMembers)
+          else
+            !(isInitialConvertible(prologue) && isInitialConvertible(firstStepOnEntryMembers) &&
+              !trailingSharesPrologueDcl)
 
         val initialStepPatches = if needsInitialStep then
           val stepName = "S_0"

@@ -271,38 +271,45 @@ class DropRTProcessSpec extends StageSpec():
     val top = (new Foo).dropRTProcess
     assertCodeString(
       top,
+      // The first step's onEntry is not initial-convertible (`y.din := y` reads y), so a
+      // bootstrap S_0 step is generated (DropRTWaits Rule 6) and correctly fires S0's
+      // onEntry on reset entry (previously it was silently lost); the wrap-around and the
+      // circular fall-through cascade now pass through S_0.
       """|class Foo extends RTDesign:
          |  enum State(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
-         |    case S0 extends State(d"2'0")
-         |    case S1 extends State(d"2'1")
-         |    case S2 extends State(d"2'2")
+         |    case S_0 extends State(d"2'0")
+         |    case S0 extends State(d"2'1")
+         |    case S1 extends State(d"2'2")
+         |    case S2 extends State(d"2'3")
          |
          |  val x = Bit <> IN
          |  val y = Bit <> OUT.REG init 0
-         |  val state = State <> VAR.REG init State.S0
+         |  val state = State <> VAR.REG init State.S_0
          |  state match
+         |    case State.S_0 =>
+         |      y.din := y
+         |      state.din := State.S0
+         |      if (x)
+         |        y.din := !y
+         |        state.din := State.S1
+         |        if (!x)
+         |          y.din := y ^ y.reg
+         |          state.din := State.S2
+         |          if (x ^ x.reg(1, init = 0)) state.din := State.S_0
+         |        end if
+         |      end if
          |    case State.S0 =>
          |      y.din := !y
          |      state.din := State.S1
          |      if (!x)
          |        y.din := y ^ y.reg
          |        state.din := State.S2
-         |        if (x ^ x.reg(1, init = 0))
-         |          y.din := y
-         |          state.din := State.S0
-         |        end if
+         |        if (x ^ x.reg(1, init = 0)) state.din := State.S_0
          |      end if
          |    case State.S1 =>
          |      y.din := y ^ y.reg
          |      state.din := State.S2
-         |      if (x ^ x.reg(1, init = 0))
-         |        y.din := y
-         |        state.din := State.S0
-         |        if (x)
-         |          y.din := !y
-         |          state.din := State.S1
-         |        end if
-         |      end if
+         |      if (x ^ x.reg(1, init = 0)) state.din := State.S_0
          |    case State.S2 =>
          |      y.din := y
          |      state.din := State.S0
@@ -313,6 +320,85 @@ class DropRTProcessSpec extends StageSpec():
          |          y.din := y ^ y.reg
          |          state.din := State.S2
          |        end if
+         |      end if
+         |  end match
+         |end Foo""".stripMargin
+    )
+  }
+  test("convertible prologue moves into a generated initial block") {
+    class Foo extends RTDesign:
+      val x = Bit <> IN
+      val y = Bit <> OUT.REG init 0
+      process:
+        y.din := 1
+        def S0: Step =
+          if (x) S1 else S0
+        def S1: Step =
+          if (x) S0 else S1
+    end Foo
+    val top = (new Foo).dropRTProcess
+    // the prologue `y.din := 1` moves into a generated initial block (superseding the
+    // decl init — `init 0` is stripped); no bootstrap step is added. Both steps exit via
+    // explicit gotos (no wrap-around NextStep), so the prologue runs only at initialization
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  enum State(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
+         |    case S0 extends State(d"1'0")
+         |    case S1 extends State(d"1'1")
+         |
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT.REG
+         |  initial:
+         |    y.din := 1
+         |  val state = State <> VAR.REG init State.S0
+         |  state match
+         |    case State.S0 =>
+         |      if (x) state.din := State.S1
+         |      else state.din := State.S0
+         |    case State.S1 =>
+         |      if (x) state.din := State.S0
+         |      else state.din := State.S1
+         |  end match
+         |end Foo""".stripMargin
+    )
+  }
+  test("first-step onEntry is cloned into the generated initial block") {
+    class Foo extends RTDesign:
+      val x = Bit <> IN
+      val y = Bit <> OUT.REG
+      process:
+        def S0: Step =
+          def onEntry =
+            y.din := 0
+          if (x) S1 else S0
+        def S1: Step =
+          if (x) S0 else S1
+    end Foo
+    val top = (new Foo).dropRTProcess
+    // reset entry into S0 runs onEntry via the generated initial block; the S1->S0
+    // transition still inlines it at the goto site
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  enum State(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
+         |    case S0 extends State(d"1'0")
+         |    case S1 extends State(d"1'1")
+         |
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT.REG
+         |  initial:
+         |    y.din := 0
+         |  val state = State <> VAR.REG init State.S0
+         |  state match
+         |    case State.S0 =>
+         |      if (x) state.din := State.S1
+         |      else state.din := State.S0
+         |    case State.S1 =>
+         |      if (x)
+         |        y.din := 0
+         |        state.din := State.S0
+         |      else state.din := State.S1
          |      end if
          |  end match
          |end Foo""".stripMargin

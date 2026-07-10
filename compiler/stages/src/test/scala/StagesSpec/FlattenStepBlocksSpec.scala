@@ -827,4 +827,36 @@ class FlattenStepBlocksSpec extends StageSpec():
     )
   }
 
+  test("forever-loop rotation clones the prologue before the wrap-around NextStep") {
+    class Foo extends RTDesign:
+      val x = Bit <> IN
+      val y = Bit <> OUT.REG
+      process:
+        y.din := 1
+        def S0: Step =
+          NextStep
+        def S1: Step =
+          NextStep
+    end Foo
+    // the rotation clone is triggered ONLY by the relative NextStep goto that wraps past
+    // the last step — after resolution it is a named goto, so re-running the stage creates
+    // no further copies (fix-point), verified by applying the stage twice
+    val expected =
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT.REG
+         |  process:
+         |    y.din := 1
+         |    def S0: Step =
+         |      S1
+         |    end S0
+         |    def S1: Step =
+         |      y.din := 1
+         |      S0
+         |    end S1
+         |end Foo""".stripMargin
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(top, expected)
+    assertCodeString(top.flattenStepBlocks, expected)
+  }
 end FlattenStepBlocksSpec

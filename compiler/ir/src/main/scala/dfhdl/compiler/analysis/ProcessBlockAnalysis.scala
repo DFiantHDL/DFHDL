@@ -23,3 +23,23 @@ extension (member: DFMember)(using MemberGetSet)
     case _: DFDomainOwner => Some(false)
     case _                => None
   })
+
+/** True when the given members (an RT process prologue or a first-step `onEntry` body) can be
+  * lowered into a generated `initial` block: every member is either an anonymous value dependency
+  * or a blocking assignment with a constant RHS targeting a REG declaration (the `.din` form).
+  * Vacuously true for an empty list (nothing to convert). Used by `DropRTWaits` to decide whether
+  * the synthetic bootstrap step (Rule 6) is needed, and by `DropRTProcess` to gate the
+  * initial-block generation.
+  */
+def isInitialConvertible(members: List[DFMember])(using MemberGetSet): Boolean =
+  members.forall {
+    case DFNet.BAssignment(toVal, fromVal) =>
+      fromVal.isConst && toVal.departialDcl.exists((dcl, _) => dcl.isReg)
+    // process-local declarations (e.g. SimplifyRTOps' iterator REG) and range bookkeeping
+    // are neutral — only the assignment-net closures are lowered into the initial block;
+    // the rest stays in place (dcls are hoisted by DropLocalDcls, anons serve their users)
+    case _: DFVal.Dcl                      => true
+    case _: DFRange                        => true
+    case dfVal: DFVal if dfVal.isAnonymous => true
+    case _                                 => false
+  }

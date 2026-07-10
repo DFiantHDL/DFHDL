@@ -1163,4 +1163,60 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("for-loop process start costs no bootstrap cycle") {
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class Foo extends RTDesign:
+      val y = SInt(16) <> OUT.REG
+      process:
+        for (i <- 0 until 4)
+          y.din := i
+          1.cy.wait
+    end Foo
+    val top = (new Foo).toED
+    // the payoff of the initial-block lowering: the iterator reset value comes from the
+    // generated initial block (planted into the reset branch), the first loop iteration
+    // dispatches immediately after reset (no bootstrap state), and the forever wrap-around
+    // re-initializes the iterator via the rotation clone at zero extra cycles
+    assertCodeString(
+      top,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class Foo extends EDDesign:
+         |  enum State(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
+         |    case S_0 extends State(d"1'0")
+         |    case S_0_0 extends State(d"1'1")
+         |
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val y = SInt(16) <> OUT
+         |  val i = Int <> VAR
+         |  val state = State <> VAR
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1)
+         |        i :== 0
+         |        state :== State.S_0
+         |      else
+         |        state match
+         |          case State.S_0 =>
+         |            if (i < 4)
+         |              y :== sd"16'${i}"
+         |              state :== State.S_0_0
+         |            else
+         |              i :== 0
+         |              state :== State.S_0
+         |            end if
+         |          case State.S_0_0 =>
+         |            i :== i + 1
+         |            state :== State.S_0
+         |        end match
+         |      end if
+         |    end if
+         |end Foo
+         |""".stripMargin
+    )
+  }
 end ToEDSpec

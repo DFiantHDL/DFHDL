@@ -1,11 +1,9 @@
 # `initial` Blocks Plan
 
-> Status: **approved design; Step 0 (endless `wait`), Phase A (IR `Sensitivity.Initial`,
-> frontend `initial`, elaboration checks, DFHDL printer), Phase B (Verilog `initial`
-> end-to-end), and Phase C (`SplitInitialBlocks` + `usesRst`/`usesClk` refinement +
-> StateAnalysis initial-skip) IMPLEMENTED** — Phase D (ToED planting/pass-through + RT-stage
-> initial skips) IMPLEMENTED; phase E (Rule 6 / rotation / DropRTProcess initial generation)
-> not yet implemented.
+> Status: **ALL PHASES (0, A, B, C, D, E) IMPLEMENTED.** Remaining follow-ups: Phase F
+> (reset-site fusion), the VHDL init-function form for RT-without-reset non-convertible
+> blocks, and an end-to-end simulation test (cycle counts + mid-run reset across the
+> wrap-around) once the sim environment allows.
 > Decisions locked: loop-rotation mechanism (not goto tagging); synthetic `S_0` fallback for
 > non-convertible first-step `onEntry` (accepted behavior change); RT initial assignments are
 > const-RHS only; both RT and ED initial blocks are semantically once-only.
@@ -262,6 +260,57 @@ assignment through `.din` to a REG with `dfVal.isConst` RHS.
   `DropRTProcess`, and ToED's domain partitioning all skip `Sensitivity.Initial` blocks and
   their members — for-loops inside `initial` must survive untransformed.
 
+## Phase E — IMPLEMENTED (final architecture, user-revised)
+
+The rotation lives in FlattenStepBlocks after all, keyed so the stage remains a fix-point
+(`f(f(x)) == f(x)`): the clone is triggered ONLY by the relative `NextStep` wrap goto, which
+the same run resolves into a named goto — so a re-run has no trigger left. (Two interim
+designs were rejected along the way: an unconditionally-anchored rotation clone, which
+re-cloned on every run, and a `WrapGotoTag` carried to DropRTProcess, which the
+`NextStep`-trigger insight made unnecessary.) Final division of labor:
+
+- **`isInitialConvertible(members)`** (ProcessBlockAnalysis): blocking const-RHS REG
+  assignments + anonymous values are convertible; process-local **Dcls and DFRange members
+  are neutral** (SimplifyRTOps leaves the iterator REG dcl, the range bookkeeping, and the
+  while-guard func in the prologue region — they must not block conversion, and they are
+  never moved either).
+- **DropRTWaits — conditional Rule 6**: the bootstrap `S_0` is skipped when the prologue and
+  the first step's `onEntry` are initial-convertible. A process *starting* with a step whose
+  `onEntry` is non-convertible now gets a bootstrap `S_0` (approved change — `onEntry` fires
+  on reset entry instead of being silently lost). **Trailing-share gate**: conversion is
+  refused when a trailing statement (relocated by FlattenStepBlocks to the wrap-around exit)
+  assigns a prologue-assigned dcl — the wrap-site prologue re-init would shadow it in the
+  same cycle (preserves the fork-join start/done handshake's one-cycle low pulse).
+  Step-less processes fall under this gate naturally (prologue == trailing); empty
+  processes now simply dissolve.
+- **FlattenStepBlocks — rotation triggered by the relative `NextStep` (user-final)**: while
+  computing Phase 3's goto resolution, the `NextStep` goto whose resolution wraps past the
+  last step back to the first (`nextStepMap` path, owning step == last flat step) anchors a
+  rotation clone of the prologue's assignment-net closures, bundled into the Phase-0 patch
+  call (Move-before-Add ordering keeps relocated trailing statements before the clone).
+  **Fix-point holds because the trigger is consumed by the same run**: Phase 3 replaces the
+  `NextStep` with a named goto, so a re-run finds no wrap trigger and creates no further
+  copies (verified by a double-application spec test). Explicit/`FirstStep` gotos never
+  trigger the copy — matching the "prologue runs exactly twice" definition. No tag needed.
+- **DropRTProcess**: the prologue's assignment-net closures
+  (`net :: net.collectRelMembers`) are CLONED into a generated `initial` block before the
+  process and the originals are REMOVED (they must not survive the unwrap as every-cycle
+  logic); the first step's convertible `onEntry` is cloned in as well (original stays for
+  Rule-2 site inlining); assigned dcls' existing decl inits are stripped ("initial wins")
+  with their orphaned anonymous init trees removed; `nullifies` gained
+  `DropUnreferencedAnons`. Only fall-through cascades past the last step still plant the
+  prologue here (position-based, no tag needed).
+- **Patch-system pitfalls found** (documented in the new-stage skill): `plantMembers`
+  re-owning + a same-list `Replace(ChangeRefAndRemove)` on the old owner loses the re-own
+  (replaceMember's reverse `memberTable` index is not updated by Add patches) — clone
+  instead; and Replace patches must precede MetaDesign Adds whose members reference the
+  replaced instance (ref-table effects apply in patch-list order).
+- Tests: `DropRTWaitsSpec` (no-S_0 for convertible prologue), `FlattenStepBlocksSpec`
+  (prologue untouched + wrap resolution), `DropRTProcessSpec` (initial generation from
+  prologue and from first-step onEntry; explicit-goto-only processes get init-only
+  prologue), `ToEDSpec` end-to-end for-loop payoff (reset init via reset branch, no
+  bootstrap state, wrap re-init at the loop-exit goto site, zero extra cycles).
+
 ## Follow-up (separate effort, not in scope)
 
 Teach FirstStepFusion a "reset virtual site": fuse a candidate first step by evaluating its
@@ -279,7 +328,7 @@ Also consider fusing steps whose only non-regular child is an initial-convertibl
 | B (DONE) | Verilog printer `initial` (ED path end-to-end; `PrintVerilogCodeSpec` sv2005 + v95 through the full backend pipeline) | docExample + ref update |
 | C (DONE) | `SplitInitialBlocks` + `usesRst` extension + StateAnalysis initial-skip | `SplitInitialBlocksSpec` (6 tests: split+convert, non-convertible, no-reset untouched, VHDL sim content, cross-read gate, conditional-chain split) |
 | D (DONE) | ToED reset planting / pass-through + RT-stage initial skips | `ToEDSpec` + `PrintVHDLCodeSpec` |
-| E | Rule 6 conditional + rotation + `DropRTProcess` initial generation | `DropRTWaitsSpec`, `FlattenStepBlocksSpec` (nested + prologue matrix), `DropRTProcessSpec`, end-to-end sim test: cycle counts + mid-run reset across the wrap-around |
+| E (DONE) | Rule 6 conditional + rotation + `DropRTProcess` initial generation | `DropRTWaitsSpec`, `FlattenStepBlocksSpec` (rotation), `DropRTProcessSpec` (prologue + onEntry initial generation), `ToEDSpec` end-to-end for-loop payoff test (sim test still pending) |
 | F | reset-site fusion (follow-up) | — |
 
 Each phase goes through the verification ladder (individual specs → `testOnly StagesSpec.*` →

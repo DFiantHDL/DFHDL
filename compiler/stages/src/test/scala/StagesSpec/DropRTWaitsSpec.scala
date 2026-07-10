@@ -13,9 +13,7 @@ class DropRTWaitsSpec extends StageSpec():
       top,
       """|class Foo extends RTDesign:
          |  process:
-         |    def S_0: Step =
-         |      NextStep
-         |    end S_0
+         |
          |end Foo""".stripMargin
     )
   }
@@ -494,19 +492,18 @@ class DropRTWaitsSpec extends StageSpec():
     val top = (new Foo).dropRTWaits
     assertCodeString(
       top,
+      // `x.din := 1` is an initial-convertible prologue (const RHS to a REG), so no
+      // bootstrap step (S_0) is inserted; DropRTProcess lowers it into an `initial` block
       """|class Foo extends RTDesign:
          |  val x = Bit <> OUT.REG init 0
          |  process:
-         |    def S_0: Step =
-         |      NextStep
-         |    end S_0
          |    x.din := 1
          |    def MyStep: Step =
          |      NextStep
          |    end MyStep
-         |    def S_2: Step =
+         |    def S_1: Step =
          |      NextStep
-         |    end S_2
+         |    end S_1
          |end Foo""".stripMargin
     )
   }

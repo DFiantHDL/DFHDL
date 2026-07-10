@@ -49,6 +49,13 @@ This is a **design guideline**, not something that needs to be formally proved. 
 **How to achieve idempotency in practice:**
 - **Match on the source form only.** Pattern-match on the exact IR shape that the stage is responsible for transforming. The transformed shape should not match the same pattern, so a second run produces an empty patch list.
 - **Structural self-consistency.** After `f(x)` is applied, the resulting DB should contain no members that satisfy the stage's match predicates.
+- **Injected members must consume their trigger.** A stage may inject/clone members for a
+  downstream stage ONLY if the IR shape that triggered the injection is rewritten away by the
+  same run (e.g. FlattenStepBlocks clones the process prologue at the wrap-around goto — but
+  keyed on the relative `NextStep` form of that goto, which the same run resolves into a
+  named goto, so a re-run finds no trigger). If the trigger cannot be consumed, carry the
+  provenance as a **member tag** (`DFTag`) instead — tagging an already-tagged member is a
+  no-op, so tags are fix-point-safe.
 
 ---
 
@@ -1115,7 +1122,17 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     Inside code that traverses freshly cloned members, bind `given MemberGetSet = dfc.getSet` —
     the DFC's getSet chains to the parent DB via `injectMetaGetSet`, so it resolves both new and
     original members.
-18. **Name shadowing inside MetaDesign bodies** — `MetaDesign` extends `Design`, whose
+18. **`plantMembers` re-owning is lost when the old owner is Replaced in the same list** —
+    `plantMembers(oldOwner, members)` re-owns by registering the members' ownerRefs to the new
+    owner in the Add's ref table, but `Patch.Replace`'s `replaceMember` collects refs from the
+    reverse `memberTable` index, which Add patches do NOT update. A same-list
+    `Replace(oldOwner → x, ChangeRefAndRemove/FullReplacement)` therefore re-redirects the
+    "moved" members' ownerRefs to `x`, undoing the re-own. Fix: use `plantClonedMembers` +
+    `Patch.Remove()` of the originals (fresh clone refs are invisible to the Replace), or split
+    into two patch phases. Relatedly, place `Replace` patches BEFORE a MetaDesign `Add` in the
+    patch list when the Add's members reference the replaced instance — ref-table effects apply
+    in list order, so the Add's references then resolve to the replacement.
+19. **Name shadowing inside MetaDesign bodies** — `MetaDesign` extends `Design`, whose
     `export dfhdl.hdl.*` brings frontend names (`DFVal`, `StepBlock`, …) into the *class* scope,
     shadowing the file-level `import dfhdl.compiler.ir.*` wildcard for overlapping names. Inside
     a MetaDesign body, add `import dfhdl.compiler.ir` at the file top and qualify IR types as
