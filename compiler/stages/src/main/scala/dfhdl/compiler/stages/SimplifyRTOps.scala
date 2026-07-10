@@ -145,7 +145,9 @@ case object SimplifyRTOps extends HierarchyStage:
       case trigger @ DFVal.Func(op = FuncOp.rising | FuncOp.falling, args = List(DFRef(_))) =>
         trigger.isInRTDomain && !trigger.isAnonReferencedByWait
       case waitMember @ Wait(triggerRef = DFRef(DFBoolOrBit.Val(_))) =>
-        waitMember.isInRTDomain
+        // an endless wait (anonymous const-false trigger) is kept as-is and lowered to a
+        // self-looping step by DropRTWaits
+        waitMember.isInRTDomain && !waitMember.isEndless
       case Wait(triggerRef = DFRef(cyclesVal @ DFDecimal.Val(DFUInt(_)))) =>
         cyclesVal match
           case DFVal.Const(data = Some(value: BigInt)) if value == 1 => false
@@ -177,7 +179,7 @@ case object SimplifyRTOps extends HierarchyStage:
         Some(dsn.patch)
 
       case waitMember @ Wait(triggerRef = DFRef(trigger @ DFBoolOrBit.Val(_)))
-          if waitMember.isInRTDomain =>
+          if waitMember.isInRTDomain && !waitMember.isEndless =>
         // Create a while loop with a cycle wait
         val dsn = new MetaDesign(
           waitMember,

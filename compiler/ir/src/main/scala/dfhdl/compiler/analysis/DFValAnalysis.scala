@@ -478,6 +478,21 @@ extension (member: DFMember)
       case _ => false
 end extension
 
+extension (wait: Wait)
+  /** An endless wait — a `Wait` whose trigger is an anonymous constant `false` (constructed by the
+    * frontend's parameterless `wait`). Since `ir.Wait(X)` resumes when X becomes true, a constant
+    * `false` trigger blocks forever. Printed as bare `wait` (VHDL `wait;`, Verilog `wait(0);`) and
+    * lowered to a self-looping step in RT processes.
+    */
+  def isEndless(using MemberGetSet): Boolean =
+    wait.triggerRef.get match
+      case const @ DFVal.Const(dfType = DFBool) if const.isAnonymous =>
+        const.data match
+          case Some(b: Boolean) => !b
+          case _                => false
+      case _ => false
+end extension
+
 /** An extractor that transforms a DFType using a provided update function.
   *
   * This extractor works in two phases:

@@ -364,26 +364,29 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     s"${range.startRef.refCodeString} ${op} ${range.endRef.refCodeString}$csBy"
   def csWait(wait: Wait): String =
     val trigger = wait.triggerRef.get
-    trigger.dfType match
-      case _: DFBoolOrBit =>
-        // `ir.Wait(X)` resumes when X is true: `waitUntil(X)`. A negated trigger `not inner`
-        // renders back as `waitWhile(inner)`.
-        trigger match
-          case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
-            s"waitUntil(${wait.triggerRef.refCodeString})"
-          case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
-            s"waitWhile(${innerRef.refCodeString})"
-          case _ =>
-            s"waitUntil(${wait.triggerRef.refCodeString})"
-      case DFTime => s"${wait.triggerRef.refCodeString}.wait"
-      case _      =>
-        wait.triggerRef.get.getConstData[Option[BigInt]] match
-          // simplify display for int constant waits
-          case ConstData.KnownConst(Some(value: BigInt)) if value.isValidInt =>
-            s"${value}.cy.wait"
-          case _ =>
-            s"${wait.triggerRef.refCodeString}.cy.wait"
-    end match
+    if (wait.isEndless) "wait"
+    else
+      trigger.dfType match
+        case _: DFBoolOrBit =>
+          // `ir.Wait(X)` resumes when X is true: `waitUntil(X)`. A negated trigger `not inner`
+          // renders back as `waitWhile(inner)`.
+          trigger match
+            case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
+              s"waitUntil(${wait.triggerRef.refCodeString})"
+            case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
+              s"waitWhile(${innerRef.refCodeString})"
+            case _ =>
+              s"waitUntil(${wait.triggerRef.refCodeString})"
+        case DFTime => s"${wait.triggerRef.refCodeString}.wait"
+        case _      =>
+          wait.triggerRef.get.getConstData[Option[BigInt]] match
+            // simplify display for int constant waits
+            case ConstData.KnownConst(Some(value: BigInt)) if value.isValidInt =>
+              s"${value}.cy.wait"
+            case _ =>
+              s"${wait.triggerRef.refCodeString}.cy.wait"
+      end match
+    end if
   end csWait
   def csTextOut(textOut: TextOut): String =
     val msg =

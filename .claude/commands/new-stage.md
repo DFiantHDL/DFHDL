@@ -970,6 +970,8 @@ For example, a stage that operates on `StepBlock`s should use explicit `def MySt
 
 The same principle applies to any other prior-stage construct: if `DropFoo` normally feeds into `AddBar`, the `AddBarSpec` tests should express the output of `DropFoo` directly, without triggering `DropFoo`.
 
+**Line-number-sensitive expected strings.** `PrintVHDLCodeSpec` and `PrintVerilogCodeSpec` contain tests (e.g. "text out printing") whose expected output embeds hardcoded source positions of the spec file itself (a `debug(...)` call prints `PrintXCodeSpec.scala:<line>:<col>`). Inserting or removing lines *anywhere above* those tests shifts the positions and fails them with an unrelated-looking diff. After editing these files, grep for `CodeSpec.scala:[0-9]` and realign the embedded line numbers with the actual call sites.
+
 ## Test File Template
 
 ### Test file: `compiler/stages/src/test/scala/StagesSpec/MyStageSpec.scala`

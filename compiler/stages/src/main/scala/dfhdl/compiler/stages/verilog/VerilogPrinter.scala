@@ -46,15 +46,17 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
   def csDFRange(range: DFRange): String = unsupported
   def csWait(wait: Wait): String =
     val trigger = wait.triggerRef.get
-    trigger.dfType match
-      case _: DFBoolOrBit =>
-        trigger match
-          case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
-            s"@(${wait.triggerRef.refCodeString});"
-          case _ =>
-            s"wait(${wait.triggerRef.refCodeString});"
-      case DFTime => s"#${wait.triggerRef.refCodeString};"
-      case _      => printer.unsupported
+    if (wait.isEndless) "wait(0);"
+    else
+      trigger.dfType match
+        case _: DFBoolOrBit =>
+          trigger match
+            case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
+              s"@(${wait.triggerRef.refCodeString});"
+            case _ =>
+              s"wait(${wait.triggerRef.refCodeString});"
+        case DFTime => s"#${wait.triggerRef.refCodeString};"
+        case _      => printer.unsupported
   val assertIsSupported: Boolean =
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false

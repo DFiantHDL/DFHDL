@@ -40,6 +40,53 @@ class DropRTWaitsSpec extends StageSpec():
          |end Foo""".stripMargin
     )
   }
+  test("endless wait halts the FSM") {
+    class Foo extends RTDesign:
+      val i = Bit <> IN
+      val x = Bit <> OUT.REG
+      process:
+        x.din := i
+        1.cy.wait
+        x.din := i
+        wait
+    end Foo
+    val top = (new Foo).dropRTWaits
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val i = Bit <> IN
+         |  val x = Bit <> OUT.REG
+         |  process:
+         |    def S_0: Step =
+         |      NextStep
+         |    end S_0
+         |    x.din := i
+         |    def S_1: Step =
+         |      NextStep
+         |    end S_1
+         |    x.din := i
+         |    def S_2: Step =
+         |      ThisStep
+         |    end S_2
+         |end Foo""".stripMargin
+    )
+  }
+  test("endless wait as the only process member") {
+    class Foo extends RTDesign:
+      process:
+        wait
+    end Foo
+    val top = (new Foo).dropRTWaits
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  process:
+         |    def S_0: Step =
+         |      ThisStep
+         |    end S_0
+         |end Foo""".stripMargin
+    )
+  }
   test("basic single cycle wait before assignment") {
     class Foo extends RTDesign:
       val i = Bit <> IN

@@ -17,6 +17,13 @@ import scala.collection.mutable
  *     end S_N
  *     ```
  *     where N is the step number.
+ *     An endless wait (`wait` with a constant `false` trigger) is likewise replaced with a step,
+ *     but with a `ThisStep` return value, so the FSM halts there:
+ *     ```scala
+ *     def S_N: Step =
+ *       ThisStep
+ *     end S_N
+ *     ```
  *  2. Multiple single cycle waits are replaced with sequential step definitions (S_0, S_1, S_2, ...)
  *     ```scala
  *     def S_0: Step =
@@ -228,10 +235,13 @@ case object DropRTWaits extends HierarchyStage:
         // all members except the while loops can be an exit member, and need to be handled with `checkAndExitStepBlock`.
         // waits and while loops are handled specially.
         initialStepPatches ++ pbMembers.flatMap {
-          // transform a wait statement into a step block (assuming the wait is a single cycle wait, due to previous stages)
+          // transform a wait statement into a step block. Due to previous stages, the wait is
+          // either a single cycle wait (-> step advancing with NextStep) or an endless wait
+          // (-> step looping back to itself with ThisStep, so the FSM halts there).
           case wait: Wait =>
             val stepName = getStepName(wait)
             nextStepBlock()
+            val isEndlessWait = wait.isEndless
             val dsn = new MetaDesign(
               wait,
               Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
@@ -239,7 +249,7 @@ case object DropRTWaits extends HierarchyStage:
               import dfhdl.core.StepBlock
               val step = StepBlock.forced(using dfc.setName(stepName))
               dfc.enterOwner(step)
-              NextStep
+              if (isEndlessWait) ThisStep else NextStep
               dfc.exitOwner()
             dsn.patch :: checkAndExitStepBlock(wait)
           // transform a while loop into a step block.

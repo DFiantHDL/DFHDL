@@ -45,19 +45,21 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   def csDFRange(range: DFRange): String = unsupported
   def csWait(wait: Wait): String =
     val trigger = wait.triggerRef.get
-    trigger.dfType match
-      case _: DFBoolOrBit =>
-        // `ir.Wait(X)` resumes when X is true -> `wait until X`.
-        trigger match
-          case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
-            s"wait until ${wait.triggerRef.refCodeString};"
-          // X = `not inner` -> `wait until not inner` (avoids a `not (not ...)`)
-          case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
-            s"wait until not ${printer.csFixedCond(innerRef)};"
-          case _ =>
-            s"wait until ${printer.csFixedCond(wait.triggerRef)};"
-      case DFTime => s"wait for ${wait.triggerRef.refCodeString};"
-      case _      => printer.unsupported
+    if (wait.isEndless) "wait;"
+    else
+      trigger.dfType match
+        case _: DFBoolOrBit =>
+          // `ir.Wait(X)` resumes when X is true -> `wait until X`.
+          trigger match
+            case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
+              s"wait until ${wait.triggerRef.refCodeString};"
+            // X = `not inner` -> `wait until not inner` (avoids a `not (not ...)`)
+            case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
+              s"wait until not ${printer.csFixedCond(innerRef)};"
+            case _ =>
+              s"wait until ${printer.csFixedCond(wait.triggerRef)};"
+        case DFTime => s"wait for ${wait.triggerRef.refCodeString};"
+        case _      => printer.unsupported
   end csWait
   def csTextOut(textOut: TextOut): String =
     def csDFValToVHDLString(dfValRef: DFVal.Ref): String =

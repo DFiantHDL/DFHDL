@@ -28,6 +28,27 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("endless wait is untouched") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      val i = Bit <> IN
+      process:
+        x.din := i
+        wait
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  val i = Bit <> IN
+         |  process:
+         |    x.din := i
+         |    wait
+         |end Foo""".stripMargin
+    )
+  }
+
   test("ED domain is untouched") {
     class Foo extends EDDesign:
       val x = Bit <> OUT

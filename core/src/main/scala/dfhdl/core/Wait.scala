@@ -32,6 +32,10 @@ object Wait:
   // with our own wait method, so we need to extend this in the Container trait, instead
   // of relying on export like the rest of the core API.
   trait ContainerOps:
+    // An endless wait: modeled as a wait on an anonymous constant `false` trigger, which never
+    // resumes (`ir.Wait(X)` resumes when X becomes true). A bare `wait` statement resolves here
+    // (Java's `Object.wait()` requires explicit parentheses, so there is no ambiguity).
+    final def wait(using DFC): Unit = trydf { Wait(DFVal.Const(DFBool, Some(false))) }
     final def wait(lhs: DFConstOf[DFTime])(using DFC): Unit = trydf { Wait(lhs) }
     final def wait(lhs: Cycles)(using DFC, CYInRT): Unit = trydf { Wait(lhs) }
     inline def java_wait(): Unit = this.wait()

@@ -863,6 +863,7 @@ class PrintVerilogCodeSpec extends StageSpec:
         50.ns.wait
         x :== 0
         1.ns.wait
+        wait
     end Foo
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
@@ -888,6 +889,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    #50ns;
          |    x <= 1'b0;
          |    #1ns;
+         |    wait(0);
          |  end
          |endmodule""".stripMargin
     )
@@ -1134,7 +1136,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", param10.name(), "");
          |    $info(
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1087:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1204,7 +1206,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", MyEnum_to_string(param10), "");
          |    $display("INFO: ", 
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1087:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -2042,7 +2044,7 @@ class PrintVerilogCodeSpec extends StageSpec:
 
   test("Fixed-point identity design verilog.v2001") {
     given options.CompilerOptions.Backend = _.verilog.v2001
-    val id = (new FixID).getCompiledCodeString
+    val id                                = (new FixID).getCompiledCodeString
     assertNoDiff(
       id,
       """|`default_nettype none
@@ -2062,7 +2064,7 @@ class PrintVerilogCodeSpec extends StageSpec:
 
   test("Signed fixed-point identity design verilog.v95") {
     given options.CompilerOptions.Backend = _.verilog.v95
-    val id = (new SFixID).getCompiledCodeString
+    val id                                = (new SFixID).getCompiledCodeString
     assertNoDiff(
       id,
       """|`default_nettype none
