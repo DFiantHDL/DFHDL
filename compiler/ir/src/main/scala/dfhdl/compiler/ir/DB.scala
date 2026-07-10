@@ -1035,12 +1035,25 @@ final case class DB private (
             designUsesClkRst.getOrElseUpdate(design.dclName, (usesClk(design), usesRst(design)))
           case _ =>
             domainOwnerUsesClkRst.getOrElseUpdate(owner, (usesClk(owner), usesRst(owner)))
+      def isInitialPB(pb: ProcessBlock): Boolean = pb.sensitivity match
+        case ProcessBlock.Sensitivity.Initial => true
+        case _                                => false
+      // An RT initial block counts as using reset only when it assigns a REG — semantically
+      // identical to that REG having a declaration init (its content is lowered into the
+      // reset branch / decl init by SplitInitialBlocks and ToED).
+      def initialAssignsREG(pb: ProcessBlock)(using gs: MemberGetSet): Boolean =
+        gs.designDB.getMembersOf(pb, MemberView.Flattened).exists {
+          case DFNet.BAssignment(toVal, _) => toVal.departialDcl.exists(_._1.isReg)
+          case _                           => false
+        }
       def usesClk(owner: DFDomainOwner): Boolean =
         atOwner(owner) {
           domainOwnerMemberTable(owner).exists {
+            // an initial block on its own does not imply a clock (a REG it may assign
+            // already implies one via its Dcl)
+            case pb: ProcessBlock if pb.isInRTDomain => !isInitialPB(pb)
             case dcl: DFVal.Dcl                      => dcl.isReg || dcl.isClkDcl
             case reg: DFVal.Alias.History            => true
-            case pb: ProcessBlock if pb.isInRTDomain => true
             case inst: DFDesignInst                  => usesClkRst(inst.getDesignBlock).usesClk
             case _                                   => false
           }
@@ -1050,12 +1063,13 @@ final case class DB private (
       def usesRst(owner: DFDomainOwner): Boolean =
         atOwner(owner) {
           domainOwnerMemberTable(owner).exists {
+            case pb: ProcessBlock if pb.isInRTDomain =>
+              if (isInitialPB(pb)) initialAssignsREG(pb) else true
             case dcl: DFVal.Dcl =>
               (dcl.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
-            case reg: DFVal.Alias.History            => reg.hasNonBubbleInit
-            case pb: ProcessBlock if pb.isInRTDomain => true
-            case inst: DFDesignInst                  => usesClkRst(inst.getDesignBlock).usesRst
-            case _                                   => false
+            case reg: DFVal.Alias.History => reg.hasNonBubbleInit
+            case inst: DFDesignInst       => usesClkRst(inst.getDesignBlock).usesRst
+            case _                        => false
           }
         } || reversedDependents.getOrElse(owner, Set()).exists(d => usesClkRst(d).usesRst) ||
           (owner eq topDB.top) && atOwner(owner)(isAlwaysAtTopRst(owner)) ||

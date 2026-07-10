@@ -167,7 +167,7 @@ case object DropRTWaits extends HierarchyStage:
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patches = subDB.members.view.collect {
       // each process block has its own step enumeration
-      case pb: ProcessBlock if pb.isInRTDomain =>
+      case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial =>
         val pbMembers = pb.members(MemberView.Flattened)
         // Rule 7: step scope (prefix, counter).
         case class StepScope(prefix: String, counter: Int)

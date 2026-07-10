@@ -188,7 +188,7 @@ case object DropRTProcess extends HierarchyStage:
 
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patchList = subDB.members.view.collect {
-      case pb: ProcessBlock if pb.isInRTDomain =>
+      case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial =>
         val stateBlocks = pb.members(MemberView.Folded).collect {
           case sb: StepBlock if sb.isRegular =>
             sb

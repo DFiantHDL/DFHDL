@@ -183,6 +183,12 @@ All mutations are expressed as a **patch list**: `List[(DFMember, Patch)]`. Appl
 designDB.patch(patchList)
 ```
 
+`patch` returns the same `DB` instance when the list is empty — do NOT wrap the call in an
+`if (patchList.isEmpty)` guard.
+
+`patch` returns the same `DB` instance when the list is empty — do NOT wrap the call in an
+`if (patchList.isEmpty)` guard.
+
 ### Patch types
 
 | Patch | Effect |
@@ -242,17 +248,37 @@ not to `anchor` itself.
 If you add several `anchor -> Patch.Move(...)` entries for the same `(anchor, Config.After)`,
 all the member lists are merged and inserted together after the anchor (or its redirect target).
 
-**Conflict: a member cannot appear in two patches simultaneously.** If `Patch.Move` lists a
-member AND that same member appears in a separate `Patch.Remove` (or another `Patch.Move`),
-the DB throws `IllegalArgumentException: Received two different patches for the same member`.
-Note that `Patch.Move` internally generates `Patch.Remove` for each listed member. Common
-triggers:
+**Same-member patches: the patch system MERGES many combinations — prefer ONE bundled
+patch list.** Each `db.patch()` call is costly (full ref-table fold + member-list rebuild),
+so do not reach for sequential `db.patch()` phases just because two patches share a key.
+The patch-table fold in `Patch.scala` merges these same-member combinations:
+- `Add(cfg)` + `Add(cfg)` (same config) → concatenated Add
+- `Add(Before)` + `Add(After)` (and the reverse) → combined `ReplaceWithMemberN`
+- `Add(After)` + `ReplaceWithFirst/Last` combinations → combined Add
+- `Add` + `Remove` → `Add(ReplaceWithFirst())`; `Remove` + `Add` → `Add(ReplaceWithLast())`
+  (e.g. a `Before`-anchored Add plus a Remove on the same block = "replace the block with
+  the added members" — no second phase needed to delete the anchor)
+- `Replace` + `Add(After)` (either order) → Add with the replacement inserted
+  (note: `Add(InsideLast)` on an owner with members is re-keyed to the owner's very last
+  member first, so it usually doesn't even collide with a `Replace` on the owner)
+- `Move` + `Move` (same config) → concatenated; `Add` + `Move` (same config) → merged Move
+- `Remove` + `Remove` → single Remove
+
+Ref-table effects are applied in **patch-list order** (the raw list, before merging), so a
+`Replace(old → new)` placed *before* a MetaDesign `Add` in the list correctly redirects the
+added members' references from `old` to `new`.
+
+Combinations NOT in the list above throw
+`IllegalArgumentException: Received two different patches for the same member`. Note that
+`Patch.Move` internally generates `Patch.Remove` for each listed member. Common triggers:
 - Using a `Goto` as a `Move.Before` anchor (so the Move internally removes it on re-insertion)
   while the same `Goto` is also in another Move's members list.
 - Moving a parent block with all descendants AND separately moving one of those descendants.
 
-The fix is always **multi-phase patching**: split conflicting patches into sequential
-`db.patch()` calls so each phase operates on a clean, conflict-free DB.
+Resort to **multi-phase patching** (sequential `db.patch()` calls) only when the combination
+is genuinely unmergeable, or when a later patch's *computation* must observe the already
+patched DB (e.g. anchoring a MetaDesign on a member that only exists after the first phase —
+though often the merge rules let you anchor on the original member instead).
 
 ### `Patch.Add` via `MetaDesign`
 Use `MetaDesign` when you need to construct new IR members using the DFHDL frontend DSL:
@@ -1054,10 +1080,12 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     in the moved-members list. If you need to move multiple nesting levels, use the one-level-at-a-time
     `@tailrec` pattern (Pattern 9) to avoid duplicating descendants across multiple Move entries.
 12. **Conflicting patches on the same member** — `Patch.Move` internally generates `Patch.Remove`
-    for each moved member. If that same member also appears in another patch in the same list, you
-    get `IllegalArgumentException: Received two different patches for the same member`. The most
-    common cause is using a `Goto` as a `Move.Before` anchor while that same `Goto` also appears
-    in another Move's members list. Fix by splitting into sequential `db.patch()` calls (multi-phase).
+    for each moved member. If that same member also appears in an *unmergeable* patch in the same
+    list, you get `IllegalArgumentException: Received two different patches for the same member`.
+    The most common cause is using a `Goto` as a `Move.Before` anchor while that same `Goto` also
+    appears in another Move's members list. Before splitting into sequential `db.patch()` calls
+    (multi-phase — each call is costly), check the same-member merge table in the Patch System
+    section: many combinations (Add+Remove, Replace+Add, Add+Add, …) merge fine in one list.
 13. **Using `dfc.owner.ref` inside MetaDesign** — `import dfhdl.core.*` introduces extension
     methods that conflict with `.ref`. Use `dfc.ownerOrEmptyRef` instead to obtain the owner's
     `ir.DFOwner.Ref` when constructing raw IR members.

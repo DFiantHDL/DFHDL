@@ -26,7 +26,7 @@ import scala.collection.mutable
 case object ToED extends HierarchyStage:
   def dependencies: List[Stage] =
     List(DropUnreferencedAnons, ToRT, DropRTProcess, NameRegAliases, ExplicitNamedVars,
-      ExplicitCondExprAssign, AddClkRst, SimpleOrderMembers)
+      ExplicitCondExprAssign, SplitInitialBlocks, AddClkRst, SimpleOrderMembers)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   // ToED is per-design: every domain owner it transforms, and the clk/rst Dcls
   // it reads, live in the current sub-DB (the `subDB` helper).
@@ -100,6 +100,18 @@ case object ToED extends HierarchyStage:
             // connections and `process(all)` wrapping still happen.
             val clkRstOpt = lookupClkRst(domainOwner)
 
+            // Initial blocks and their contents are excluded from the combinational/sequential
+            // accounting below (`domainOwnerMemberList` groups members by owner *domain*, so an
+            // initial block's inner members appear in `members` too). When the domain has a
+            // reset and a sequential process, the (post-SplitInitialBlocks, non-converted)
+            // initial blocks are planted into the reset branch with non-blocking assignments;
+            // otherwise they stay as-is and exit ToED as ED initial blocks.
+            val initialPBs = members.collect { case pb: ProcessBlock if pb.isInitial => pb }
+            val initialMemberSet: Set[DFMember] =
+              initialPBs.view.flatMap(pb => pb :: pb.members(MemberView.Flattened)).toSet
+            val nonInitialMembers =
+              if (initialPBs.isEmpty) members else members.filterNot(initialMemberSet)
+
             val assignCnt = mutable.Map.empty[DFVal.Dcl, Int]
             def anotherAssignCnt(toVal: DFVal): Unit =
               toVal.departialDcl.foreach {
@@ -140,7 +152,7 @@ case object ToED extends HierarchyStage:
                 case _                                          => None
               }.toList
             end getProcessAllMembers
-            val combinationalMembers = getProcessAllMembers(members)
+            val combinationalMembers = getProcessAllMembers(nonInitialMembers)
             val singleAssignments = combinationalMembers.flatMap {
               case net @ DFNet.Assignment(dcl: DFVal.Dcl, from)
                   if !dcl.isReg &&
@@ -192,6 +204,13 @@ case object ToED extends HierarchyStage:
             }
             // the full list of handled REG Dcls in this domain
             val dclREGList = dclREGSet.toList
+            val hasSeqProcess =
+              clkAnnotOpt.isDefined &&
+                (dclREGList.nonEmpty ||
+                  processBlockAllMembers.nonEmpty && domainIsPureSequential)
+            // initial blocks are planted into the reset branch (see `regInitBlock`) exactly
+            // when a sequential process with a reset is generated; only then are they removed
+            val plantInitialPBs = hasSeqProcess && rstAnnotOpt.isDefined && initialPBs.nonEmpty
             val processAllDsn =
               new MetaDesign(domainOwner, Patch.Add.Config.InsideLast, domainType = ED):
                 // variables to transfer combinational information from the combinational block
@@ -268,10 +287,22 @@ case object ToED extends HierarchyStage:
 
                 import processAllDsn.dclChangeList
 
-                def regInitBlock() = dclREGList.foreach:
-                  case dcl if dcl.hasNonBubbleInit =>
-                    dcl.asVarAny :== dcl.initRefList.head.get.cloneAnonValueAndDepsHere.asValAny
-                  case _ =>
+                def regInitBlock() =
+                  dclREGList.foreach:
+                    case dcl if dcl.hasNonBubbleInit =>
+                      dcl.asVarAny :== dcl.initRefList.head.get.cloneAnonValueAndDepsHere.asValAny
+                    case _ =>
+                  // plant the initial blocks' contents (cloned, with assignments converted to
+                  // non-blocking) after the reg inits — RT initial content is const-RHS only,
+                  // so the blocking→non-blocking conversion cannot change read semantics
+                  initialPBs.foreach { pb =>
+                    val contents = pb.members(MemberView.Flattened).map {
+                      case net: DFNet => net.copy(op = DFNet.Op.NBAssignment)
+                      case m          => m
+                    }
+                    plantClonedMembers(pb, contents)
+                  }
+                end regInitBlock
                 def regSaveBlock() =
                   if (domainIsPureSequential)
                     plantMembers(
@@ -305,11 +336,6 @@ case object ToED extends HierarchyStage:
                     ifRstOption.getOrElse(DFIf.Header(dfhdl.core.DFUnit)),
                     block
                   )
-                val hasSeqProcess =
-                  clkAnnotOpt.isDefined &&
-                    (dclREGList.nonEmpty ||
-                      processBlockAllMembers.nonEmpty && domainIsPureSequential)
-
                 if (hasSeqProcess)
                   if (rstAnnotOpt.isDefined)
                     val mode = rstAnnotOpt.get.mode.get
@@ -339,11 +365,20 @@ case object ToED extends HierarchyStage:
             val movedMembersRemovalPatches = combinationalMembers.map { m =>
               m -> Patch.Remove(isMoved = true)
             }
+            // initial blocks whose contents were planted (cloned) into the reset branch
+            // are removed along with all their members
+            val initialRemovalPatches =
+              if (plantInitialPBs)
+                initialPBs.flatMap { pb =>
+                  (pb :: pb.members(MemberView.Flattened)).map(_ -> Patch.Remove())
+                }
+              else Nil
             List(
               Some(domainOwner -> Patch.Add(processAllDsn, Patch.Add.Config.InsideLast)),
               processAllDsn.dclChangePatch,
               Some(domainOwner -> Patch.Add(processSeqDsn, Patch.Add.Config.InsideLast)),
-              movedMembersRemovalPatches
+              movedMembersRemovalPatches,
+              initialRemovalPatches
             ).flatten
           // other domains
           case _ => None

@@ -1966,4 +1966,46 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("initial block") {
+    class InitID extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      val v = SInt(16) <> VAR
+      initial:
+        v := 0
+        println("initialized")
+      process(all):
+        y :== x + v
+    end InitID
+    val top = (new InitID).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity InitID is
+         |port (
+         |  x : in signed(15 downto 0);
+         |  y : out signed(15 downto 0)
+         |);
+         |end InitID;
+         |
+         |architecture InitID_arch of InitID is
+         |  signal v : signed(15 downto 0) := 16d"0";
+         |begin
+         |  process
+         |  begin
+         |    println("initialized");
+         |    wait;
+         |  end process;
+         |  process (all)
+         |  begin
+         |    y <= x + v;
+         |  end process;
+         |end InitID_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

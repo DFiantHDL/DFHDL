@@ -227,14 +227,14 @@ case object FlattenStepBlocks extends HierarchyStage:
     val fusionCandidates = FirstStepFusion.collectCandidates(subDB)
     // Phase 3 ChangeRef patches are computed from the original DB.
     val gotoPatchList = subDB.members.view.flatMap {
-      case pb: ProcessBlock if pb.isInRTDomain => collectGotoPatches(pb)
-      case _                                   => Nil
+      case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial => collectGotoPatches(pb)
+      case _                                                    => Nil
     }.toList
     // Phase 0: inter-step relocation (Step 5 inter-step + Step 6)
     val db0 = subDB.patch(
       subDB.members.view.flatMap {
-        case pb: ProcessBlock if pb.isInRTDomain => collectInterStepPatches(pb)
-        case _                                   => Nil
+        case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial => collectInterStepPatches(pb)
+        case _                                                    => Nil
       }.toList
     )
     // Phase 1: conditional branch extraction, one level at a time (uses db0 for updated structure)
@@ -256,8 +256,9 @@ case object FlattenStepBlocks extends HierarchyStage:
   @tailrec private def extractCondBranchStepsRepeatedly(db: DB)(using RefGen): DB =
     given MemberGetSet = db.getSet
     val patches = db.members.view.flatMap {
-      case pb: ProcessBlock if pb.isInRTDomain => collectConditionalExtractionPatches(pb)
-      case _                                   => Nil
+      case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial =>
+        collectConditionalExtractionPatches(pb)
+      case _ => Nil
     }.toList
     if patches.isEmpty then db
     else extractCondBranchStepsRepeatedly(db.patch(patches))
@@ -266,8 +267,8 @@ case object FlattenStepBlocks extends HierarchyStage:
   @tailrec private def flattenRepeatedly(db: DB)(using RefGen): DB =
     given MemberGetSet = db.getSet
     val patches = db.members.view.flatMap {
-      case pb: ProcessBlock if pb.isInRTDomain => collectFlattenPatchesOneLevel(pb)
-      case _                                   => Nil
+      case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial => collectFlattenPatchesOneLevel(pb)
+      case _                                                    => Nil
     }.toList
     if patches.isEmpty then db
     else flattenRepeatedly(db.patch(patches))

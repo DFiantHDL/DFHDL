@@ -2082,4 +2082,69 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  class InitID extends EDDesign:
+    val x = SInt(16) <> IN
+    val y = SInt(16) <> OUT
+    val v = SInt(16) <> VAR
+    initial:
+      v := 0
+      println("initialized")
+    process(all):
+      y :== x + v
+  end InitID
+  test("initial block") {
+    val top = (new InitID).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module InitID(
+         |  input  wire logic signed [15:0] x,
+         |  output logic signed [15:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic signed [15:0] v;
+         |  initial
+         |  begin
+         |    v = 16'sd0;
+         |    $display("initialized");
+         |  end
+         |  always_comb
+         |  begin
+         |    y <= x + v;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("initial block under old Verilog (v95)") {
+    given options.CompilerOptions.Backend = _.verilog.v95
+    val top                               = (new InitID).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module InitID(
+         |  x,
+         |  y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  input  wire [15:0] x;
+         |  output reg [15:0] y;
+         |  reg [15:0] v;
+         |  initial
+         |  begin
+         |    v = 16'd0;
+         |    $display("initialized");
+         |  end
+         |  always @(x or v)
+         |  begin
+         |    y <= x + v;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

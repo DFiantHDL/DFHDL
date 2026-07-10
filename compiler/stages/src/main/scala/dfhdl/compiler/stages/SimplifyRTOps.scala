@@ -126,7 +126,7 @@ case object SimplifyRTOps extends HierarchyStage:
 
   // A for loop this stage rewrites into a while loop (Rule 4).
   private def isTransformableForLoop(fb: DFLoop.DFForBlock)(using MemberGetSet): Boolean =
-    fb.isInRTDomain && !fb.isCombinational && fb.isInProcess
+    fb.isInRTDomain && !fb.isCombinational && fb.isInProcess && !fb.isInInitialBlock
 
   private def collectPatches(using MemberGetSet, CompilerOptions, RefGen): List[(DFMember, Patch)] =
     extension (dfVal: DFVal)

@@ -1,9 +1,11 @@
 # `initial` Blocks Plan
 
-> Status: **approved design; Step 0 (endless `wait`) and Phase A (IR `Sensitivity.Initial`,
-> frontend `initial`, elaboration checks, DFHDL printer) IMPLEMENTED** — phases B onward not
-> yet implemented (the backend printers already emit Verilog `initial` / VHDL-unsupported as a
-> Phase-A side effect, but Phase B's end-to-end docExample + ref updates remain).
+> Status: **approved design; Step 0 (endless `wait`), Phase A (IR `Sensitivity.Initial`,
+> frontend `initial`, elaboration checks, DFHDL printer), Phase B (Verilog `initial`
+> end-to-end), and Phase C (`SplitInitialBlocks` + `usesRst`/`usesClk` refinement +
+> StateAnalysis initial-skip) IMPLEMENTED** — Phase D (ToED planting/pass-through + RT-stage
+> initial skips) IMPLEMENTED; phase E (Rule 6 / rotation / DropRTProcess initial generation)
+> not yet implemented.
 > Decisions locked: loop-rotation mechanism (not goto tagging); synthetic `S_0` fallback for
 > non-convertible first-step `onEntry` (accepted behavior change); RT initial assignments are
 > const-RHS only; both RT and ED initial blocks are semantically once-only.
@@ -122,47 +124,82 @@ initialization inside `initial` needs no special IR/printer/frontend handling at
   `lib/ElaborationChecksSpec` (RT content errors + conflict errors + non-const
   conditional guard/selector errors).
 
-## `SplitInitialBlocks` (new stage)
+## `SplitInitialBlocks` (new stage) — IMPLEMENTED (Phase C)
 
-- `dependencies: List(ExplicitClkRstCfg)` (reads resolved `@timing.reset` presence off the
-  timing owner's meta, like `AddClkRst` does); `ToED` adds it to its own dependencies.
+- `HierarchyStage`; `dependencies: List(ExplicitClkRstCfg)` — reads the resolved
+  `@timing.reset` presence off the timing owner's meta, walking the `@timing.related` chain
+  like `ToED` does; `nullifies: Set(DropUnreferencedAnons)`. `ToED` adds it to its own
+  dependencies in Phase D.
 - Transforms an initial block when **(a)** RT-domain and its resolved timing owner has a reset,
   or **(b)** the backend is VHDL.
-- **Rule 1 (per-variable split)**: for each assigned variable, clone the block
-  (`plantClonedMembers`), keep only that variable's assignments plus enclosing control flow,
-  drop unreferenced anons. Sound because of the const-RHS / no-cross-read restrictions.
+- **Soundness gate (implemented)**: a block whose statements *read* a declaration that is
+  *assigned within the same block* (RHS trees, guards/selectors, TextOut args, and LHS
+  selection indexes — but not the LHS target itself) is left untouched — splitting would lose
+  the intra-block initialization order. Const-RHS RT content passes trivially.
+- **Rule 1 (per-variable split)**: groups = assigned dcls in first-assignment order + one
+  residual group for sim-only statements (TextOut). Per group, a keep-list is computed
+  (seed statements + transitive in-block value deps + enclosing control flow; conditional
+  chains pull predecessors in backwards via `prevBlockOrHeaderRef`, so a group keeps exactly
+  the branches on its path — verified by the "conditional split" spec test) and planted via
+  `plantClonedMembers` into a fresh initial block created `Before` the original. The original
+  block's descendants are removed in the same patch; the (now empty) block itself in a second
+  patch phase (the `Before`-anchored Add patch is keyed by the block, so it cannot also carry
+  its Remove — same-member patch conflict).
 - **Rule 2 (init conversion)**: a block reduced to a single full-width assignment
-  (`departialDcl` slice full) with const RHS is deleted and becomes `initRefList` on the Dcl.
-  After this, most RT initial content needs zero new ToED logic — the existing init/reset
-  machinery takes over. "Initial wins" over an existing generated decl init.
-- **Rule 3 (VHDL sim content)**: residual non-assignment statements (asserts/prints in ED
-  initial blocks) become a `process.forever` terminated by the endless `wait` — the VHDL
-  printer emits the classic one-shot `process ... wait; end process;`. Only multi-statement
-  per-variable *assignment* blocks still need the VHDL init-function form
-  (function generation plugs into the declarations region assembled at
-  `VHDLOwnerPrinter.scala:162-166`).
-- Determinism: iterate `designDB.members`; idempotency: a block already assigning exactly one
-  variable doesn't re-match the split predicate.
+  (`departialDcl` slice `isFullOf == Tri.Yes`) with const RHS is deleted; the RHS is cloned
+  before the Dcl (`cloneAnonValueAndDepsHere` — note: returns `ir.DFVal`, no `.asIR` needed)
+  and a Dcl copy with `initRefList = List(clonedInit.refTW[ir.DFVal.Dcl])` replaces it via
+  `MetaDesign(dcl, ReplaceWithLast(FullReplacement))`. After this, most RT initial content
+  needs zero new ToED logic — the existing init/reset machinery takes over.
+- **Rule 3 (VHDL one-shot process, user-revised in Phase D)**: under VHDL, *any* ED-domain
+  initial block remaining after Rules 1/2 (sim-only content, cross-reading blocks,
+  non-convertible assignment blocks) becomes a `process` (empty sensitivity list) + endless
+  `wait` appended `InsideLast` (two patch phases: sensitivity replace, then wait insertion —
+  both keyed on the block otherwise), preserving the block's sequential time-zero execution.
+  The VHDL printer emits the classic one-shot `process ... wait; end process;` form.
+  RT-domain blocks are left for ToED's reset-branch planting; an RT-without-reset
+  non-convertible block under VHDL remains a documented gap (VHDL printer `unsupported`).
+- Determinism: iterate `subDB.members`; idempotency: a block already assigning exactly one
+  variable doesn't re-match the split predicate; post-Rule-3 blocks are no longer initial.
+- **Latch-check interaction (Phase C finding)**: `StateAnalysis.getImplicitStateVars` (the
+  RT latch check + DF `.prev` analysis) now skips initial blocks entirely — a variable
+  assigned only (or partially) inside an initial block is not an implicit state variable, and
+  an initial assignment does not "cover" a partial combinational assignment elsewhere.
 
-## `usesRst` participation
+## `usesRst` participation — IMPLEMENTED (Phase C)
 
-Extend `usesRst` (`compiler/ir/src/main/scala/dfhdl/compiler/ir/DB.scala:1050-1062`): a domain
-containing an RT `initial` block that assigns a REG counts as using reset (semantically
-identical to the reg having an init). This breaks the circularity between reset resolution
-(`ExplicitClkRstCfg`) and `SplitInitialBlocks`' init conversion (which changes
-`hasNonBubbleInit`).
+`usesRst` in `DB.scala` refined: the blanket "any RT process block ⇒ uses reset" rule now
+excludes initial blocks — an RT `initial` block counts as using reset only when it assigns a
+REG (semantically identical to the reg having an init). This breaks the circularity between
+reset resolution (`ExplicitClkRstCfg`) and `SplitInitialBlocks`' init conversion (which changes
+`hasNonBubbleInit`). `usesClk` similarly excludes initial blocks (a REG the block assigns
+already implies a clock via its Dcl).
 
-## `ToED`
+## `ToED` — IMPLEMENTED (Phase D)
 
-At `ToED.scala:264-328`:
-
-- **RT initial + reset**: plant the (post-split, non-converted) initial blocks' members into
-  the reset-active branch after `regInitBlock()`'s entries (`ToED.scala:271-274`), converting
-  assignments to non-blocking (`:==`). Works for both sync (`:317`) and async (`:322`) shapes.
-- **RT initial, no reset**: leave the block as-is — exits ToED as an ED initial block (Verilog
-  `initial`; under VHDL nothing remains, since condition (b) split everything).
-- Exclude initial blocks from `processBlockAllMembers` / `hasSeqProcess` accounting so they
-  don't trigger a bogus sequential process.
+- `SplitInitialBlocks` added to ToED's dependency list (after `ExplicitCondExprAssign`,
+  before `AddClkRst`).
+- **Exclusion (critical finding)**: `domainOwnerMemberList` groups members by owner *domain*,
+  so an initial block's inner members appear in the domain's member list too — without
+  exclusion they leaked into `getProcessAllMembers` and were moved into the generated
+  process(all)/seq processes. ToED now computes `initialPBs`/`nonInitialMembers` up front and
+  runs all combinational/sequential accounting on `nonInitialMembers`.
+- **RT initial + reset**: `regInitBlock()` plants clones of each initial block's members
+  (assignments converted to non-blocking) after the reg-init entries — works for both sync
+  and async reset shapes; the planted blocks (and all their members) are then removed.
+  Planting/removal is gated on `plantInitialPBs = hasSeqProcess && rstAnnotOpt.isDefined &&
+  initialPBs.nonEmpty` (`hasSeqProcess` hoisted out of the seq MetaDesign for this).
+- **RT initial, no reset**: left as-is — exits ToED as an ED initial block (Verilog
+  `initial`; under VHDL only the RT-without-reset non-convertible case remains, see Rule 3).
+- **RT-stage audit (pulled forward from Phase E — required for pass-through)**:
+  `DropRTWaits`, `DropRTProcess`, `FlattenStepBlocks` (all 4 collect sites) now match
+  `pb.isInRTDomain && !pb.isInitial`; `SimplifyRTOps.isTransformableForLoop` adds
+  `!fb.isInInitialBlock` (a for-loop inside an initial block would otherwise be rewritten to
+  a while+iterator-REG and then FSM-ified by Rule 6).
+- Tests: `ToEDSpec` "initial block planted into the reset branch" (REG vector for-loop init →
+  reset branch, direct REG NB assignment, no `_din` redirection) and "initial block without a
+  reset passes through as an ED initial block"; `PrintVHDLCodeSpec` "initial block" (decl init
+  + one-shot process end-to-end).
 
 ## RT process improvement (the payoff)
 
@@ -239,9 +276,9 @@ Also consider fusing steps whose only non-regular child is an initial-convertibl
 |---|---|---|
 | 0 (DONE) | endless `wait` (IR-less; frontend + printers + DropRTWaits/DropTimedRTWaits) | specs + full test |
 | A (DONE) | IR `Sensitivity.Initial`, `Scope.Initial`, frontend `initial`, elaboration checks, DFHDL printer | core/elab error tests + PrintCodeString |
-| B | Verilog printer `initial` (ED path end-to-end) | docExample + ref update |
-| C | `SplitInitialBlocks` + `usesRst` extension | `SplitInitialBlocksSpec` (self-contained: write initial-block IR directly) |
-| D | ToED reset planting / pass-through | `ToEDSpec` |
+| B (DONE) | Verilog printer `initial` (ED path end-to-end; `PrintVerilogCodeSpec` sv2005 + v95 through the full backend pipeline) | docExample + ref update |
+| C (DONE) | `SplitInitialBlocks` + `usesRst` extension + StateAnalysis initial-skip | `SplitInitialBlocksSpec` (6 tests: split+convert, non-convertible, no-reset untouched, VHDL sim content, cross-read gate, conditional-chain split) |
+| D (DONE) | ToED reset planting / pass-through + RT-stage initial skips | `ToEDSpec` + `PrintVHDLCodeSpec` |
 | E | Rule 6 conditional + rotation + `DropRTProcess` initial generation | `DropRTWaitsSpec`, `FlattenStepBlocksSpec` (nested + prologue matrix), `DropRTProcessSpec`, end-to-end sim test: cycle counts + mid-run reset across the wrap-around |
 | F | reset-site fusion (follow-up) | — |
 

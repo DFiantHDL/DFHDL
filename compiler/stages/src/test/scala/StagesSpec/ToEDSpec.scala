@@ -1099,4 +1099,68 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
+  test("initial block planted into the reset branch") {
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class Init extends RTDesign:
+      val x   = SInt(16)     <> IN
+      val y   = SInt(16)     <> OUT.REG
+      val vec = SInt(16) X 4 <> VAR.REG
+      initial:
+        for (i <- 0 until 4)
+          vec(i).din := 0
+      y.din      := x + vec(0)
+      vec(1).din := x
+    end Init
+    val top = (new Init).toED
+    assertCodeString(
+      top,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class Init extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val vec = SInt(16) X 4 <> VAR
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1)
+         |        for (i <- 0 until 4)
+         |          vec(i) :== sd"16'0"
+         |        end for
+         |      else
+         |        y :== x + vec(0)
+         |        vec(1) :== x
+         |      end if
+         |    end if
+         |end Init
+         |""".stripMargin
+    )
+  }
+  test("initial block without a reset passes through as an ED initial block") {
+    class Init extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      val v = SInt(16) <> VAR
+      initial:
+        v := 1
+      y := x + v
+    end Init
+    val top = (new Init).toED
+    assertCodeString(
+      top,
+      """|class Init extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val v = SInt(16) <> VAR
+         |  initial:
+         |    v := sd"16'1"
+         |  y <> (x + v)
+         |end Init
+         |""".stripMargin
+    )
+  }
 end ToEDSpec
