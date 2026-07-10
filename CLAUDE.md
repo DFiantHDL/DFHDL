@@ -92,6 +92,7 @@ Generated HDL reference files live in `lib/src/test/resources/ref/`. Update them
 - **Implicit conversions**: only enabled in `internals` and `compiler_ir` via `implicitConversionSettings`
 - **Naming**: `DF`-prefixed types (e.g., `DFVal`, `DFType`), `DFC` for context; stage names follow `Drop*`, `Add*`, `Connect*`, `Break*` patterns
 - **Package root**: `dfhdl.*`
+- **No em dashes**: never use em dashes in official documentation (`docs/`) or in code documentation/comments; use commas, colons, semicolons, parentheses, or separate sentences instead
 
 ## Key Files
 
