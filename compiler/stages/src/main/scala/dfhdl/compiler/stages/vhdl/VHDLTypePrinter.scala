@@ -34,6 +34,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       else s"signed(${magnitudeWidthParamRef.uboundCS} downto 0)"
     else if (typeCS) "unsigned"
     else s"unsigned(${magnitudeWidthParamRef.uboundCS} downto 0)"
+  end csDFDecimal
   def csDFString(dfType: DFString, typeCS: Boolean): String = "string"
 
   def csNamedDFTypeConvFuncsDcl(dfType: NamedDFType): String =
