@@ -43,6 +43,7 @@ class DesignContext:
   val unreachableNamedValues = mutable.Map.empty[DFVal, DFVal]
   val unreachableDFTypes = mutable.Map.empty[DFType, DFType]
   var defInputs = List.empty[DFValAny]
+  var defParams = List.empty[DFValAny]
   val loopIterMap = mutable.Map.empty[Meta, DFValAny]
   var isDuplicate = false
 
@@ -240,28 +241,66 @@ final class MutableDB():
       current = stack.head
       stack = stack.drop(1)
     end endDesign
-    val pureDesignDefOutCache = mutable.Map.empty[(Position, List[DFType]), DFValAny]
-    def runFuncWithInputs[V <: DFValAny](func: => V, inputs: List[DFValAny]): (Boolean, V) =
+    // The cached result of a pure design def elaboration. `autoParamEntries` are the design
+    // parameters AUTO-created by running the body (captured non-global outer values, see
+    // `cloneUnreachable`), which a cache hit cannot re-create since the body is skipped.
+    // When any captured value is non-global, the entry is not hittable: the capture may bind
+    // to a different scope at another call site, so the body must re-elaborate (structural
+    // dedup still unifies identical bodies afterwards).
+    final case class PureDefEntry(
+        ret: DFValAny,
+        autoParamEntries: List[(String, DFVal)],
+        hittable: Boolean
+    )
+    val pureDesignDefOutCache = mutable.Map.empty[(Meta, List[DFType], List[Any]), PureDefEntry]
+    def runFuncWithInputs[V <: DFValAny](
+        func: => V,
+        inputs: List[DFValAny],
+        params: List[DFValAny],
+        scalaArgs: List[Any]
+    )(paramEntriesOf: => List[(String, DFVal)]): (Boolean, V, List[(String, DFVal)]) =
       current.defInputs = inputs
+      current.defParams = params
       val currentDesign = OwnershipContext.currentDesign
       val isPure = currentDesign.dclMeta.annotations.exists {
         case annotation.Pure => true
         case _               => false
       }
       if (isPure)
-        val key = (currentDesign.dclMeta.position, inputs.map(_.dfType.asIR))
+        // The applied design parameter values are deliberately NOT part of the key: a pure
+        // body cannot depend on them (forcing a parameter's data to affect elaboration is
+        // impure by definition), so all applications share one cached body and differ only
+        // in their instance parameter bindings, which the design-def harness constructs
+        // afresh on hit and miss alike. Plain Scala arguments (`scalaArgs`), however, may
+        // legitimately shape the elaborated structure, so they are part of the key.
+        val key = (currentDesign.dclMeta, inputs.map(_.dfType.asIR), scalaArgs)
         pureDesignDefOutCache.get(key) match
-          case Some(ret) =>
+          case Some(entry) if entry.hittable =>
             current.isDuplicate = true
-            (true, ret.asInstanceOf[V])
-          case None =>
+            // only the explicit (harness-created) parameters exist in this context, so the
+            // auto-created ones are appended from the cached entry (all global, hence valid
+            // at any call site)
+            (true, entry.ret.asInstanceOf[V], paramEntriesOf ++ entry.autoParamEntries)
+          case cachedOpt =>
             val ret = func
-            pureDesignDefOutCache += key -> ret
-            (false, ret)
-      else (false, func)
+            val paramEntries = paramEntriesOf
+            if (cachedOpt.isEmpty)
+              val explicitNames = params.view.map(_.asIR.meta.name).toSet
+              val autoParamEntries = paramEntries.filterNot((name, _) => explicitNames(name))
+              pureDesignDefOutCache += key -> PureDefEntry(
+                ret,
+                autoParamEntries,
+                autoParamEntries.forall(_._2.isGlobal)
+              )
+            (false, ret, paramEntries)
+        end match
+      else (false, func, paramEntriesOf)
+      end if
     end runFuncWithInputs
     def getDefInput(idx: Int): DFValAny =
       current.defInputs(idx)
+    def getDefParam(idx: Int): DFValAny =
+      current.defParams(idx)
     def addLoopIter(meta: Meta, iter: DFValAny): Unit =
       current.loopIterMap += meta -> iter
     def getLoopIter(meta: Meta): DFValAny =

@@ -33,6 +33,7 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
 
   var designFromDefSym: Symbol = uninitialized
   var designFromDefGetInputSym: Symbol = uninitialized
+  var designFromDefGetParamSym: Symbol = uninitialized
 
   // DFHDL design construction from definitions transformation.
   // Such transformation rely on code like `def foo(arg: Bit <> VAL): Bit <> VAL`
@@ -44,6 +45,9 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
     }.toList
     lazy val dfConstValArgs = tree.paramss.view.flatten.collect {
       case vd: ValDef if vd.dfValTpeOpt.nonEmpty && vd.tpt.tpe.isDFConst => vd
+    }.toList
+    lazy val scalaValArgs = tree.paramss.view.flatten.collect {
+      case vd: ValDef if vd.dfValTpeOpt.isEmpty && !vd.tpt.tpe.isMetaContext => vd
     }.toList
     tree.rhs match
       case Block(List(anonDef: DefDef), closure: Closure)
@@ -65,11 +69,16 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
         val updatedAnonRHS: Tree =
           // list of tuples of the old arguments and their meta data
           val args = mkList(dfValArgs.map(a => mkTuple(List(a.ident, a.genMeta))))
-          // list of (name, applied value) tuples of the `<> CONST` arguments — the design
-          // parameters as applied at the call site, used for the design's `paramMap`
+          // list of (name, applied value, meta) tuples of the `<> CONST` arguments — the
+          // design parameters as applied at the call site. The harness (`designFromDef`)
+          // creates the design parameters from these, outside the body, so a pure cache hit
+          // that skips the body still binds fresh parameters to this call's applied values.
           val constArgs = mkList(dfConstValArgs.map(v =>
-            mkTuple(List(Literal(Constant(v.name.toString.nameCheck(v))), v.ident))
+            mkTuple(List(Literal(Constant(v.name.toString.nameCheck(v))), v.ident, v.genMeta))
           ))
+          // list of the plain Scala (non-DFHDL) argument values. A pure body may legitimately
+          // depend on them, so they are part of the pure cache key.
+          val scalaArgs = mkList(scalaValArgs.map(_.ident), Some(defn.AnyType))
           // input map to replace old arg references with new input references
           val inputMap = mutable.Map.empty[Symbol, Tree]
           dfValArgs.view.zipWithIndex.foreach((a, i) =>
@@ -79,26 +88,26 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
                 .appliedTo(Literal(Constant(i)))
                 .appliedTo(dfc)
           )
-          // constant parameter generation
-          val designParamGenValDefs: List[ValDef] = inContext(ctx.withOwner(anonDef.symbol)) {
-            dfConstValArgs.map { v =>
-              val valDef = v.genContainerParamValDef(None, dfc)
-              inputMap += v.symbol -> ref(valDef.symbol)
-              valDef
-            }
-          }
-          // updated body with the extra design parameter definition after replacing parameter references
-          val updatedBody = replaceArgs(anonDef.rhs, inputMap.toMap) match
-            case Block(stats, expr) => Block(designParamGenValDefs ++ stats, expr)
-            case simpleTree         => Block(designParamGenValDefs, simpleTree)
+          // constant parameter references are rewired to fetch the harness-created design
+          // parameters by index
+          dfConstValArgs.view.zipWithIndex.foreach((v, i) =>
+            inputMap +=
+              v.symbol -> ref(designFromDefGetParamSym)
+                .appliedToType(v.tpt.tpe)
+                .appliedTo(Literal(Constant(i)))
+                .appliedTo(dfc)
+          )
+          // updated body after replacing parameter references
+          val updatedBody = replaceArgs(anonDef.rhs, inputMap.toMap)
           // calling the runtime method that constructs the design from the definition
           ref(designFromDefSym)
             .appliedToType(anonDef.dfValTpeOpt.get.widen)
             .appliedToArgs(List(
               args,
               constArgs,
-              tree.genMeta
-            )) // meta represents the transformed tree
+              tree.genMeta, // meta represents the transformed tree
+              scalaArgs
+            ))
             .appliedTo(updatedBody)
             .appliedTo(dfc)
         end updatedAnonRHS
@@ -137,6 +146,7 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
   override def prepareForUnit(tree: Tree)(using Context): Context =
     designFromDefSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDef")
     designFromDefGetInputSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefGetInput")
+    designFromDefGetParamSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefGetParam")
     super.prepareForUnit(tree)
     ctx
 end DesignDefsPhase

@@ -132,11 +132,15 @@ object r__For_Plugin:
   @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =
     dfc.mutableDB.DesignContext.getDefInput(idx).asInstanceOf[V]
+  @metaContextIgnore
+  def designFromDefGetParam[V <: DFValAny](idx: Int)(using DFC): V =
+    dfc.mutableDB.DesignContext.getDefParam(idx).asInstanceOf[V]
   @metaContextForward(2)
   def designFromDef[V <: DFValAny](
       args: List[(DFValAny, ir.Meta)],
-      constArgs: List[(String, DFValAny)],
-      dclMeta: ir.Meta
+      constArgs: List[(String, DFValAny, ir.Meta)],
+      dclMeta: ir.Meta,
+      scalaArgs: List[Any]
   )(
       func: => V
   )(using DFC): V = trydf:
@@ -149,9 +153,17 @@ object r__For_Plugin:
     val inputs = args.map { (arg, argMeta) =>
       DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
     }
-    val (isDuplicate, ret) =
-      dfc.mutableDB.DesignContext.runFuncWithInputs(func, inputs)
-    val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(constArgs))
+    // The design parameters are created by this harness rather than by the body, so a pure
+    // cache hit, which skips the body, still creates fresh parameters bound to this call's
+    // applied values (the body fetches them via `designFromDefGetParam`).
+    val params = constArgs.map { (_, arg, argMeta) =>
+      genContainerParam[DFValAny](arg, None, argMeta)
+    }
+    val (isDuplicate, ret, paramEntries) =
+      dfc.mutableDB.DesignContext.runFuncWithInputs(func, inputs, params, scalaArgs):
+        Design.Inst.collectParamEntries(
+          clsAppliedArgs(constArgs.map((name, arg, _) => (name, arg)))
+        )
     def exitAndConnectInputs() =
       val endedDesign = designBlock.asIR
       dfc.exitOwner()
