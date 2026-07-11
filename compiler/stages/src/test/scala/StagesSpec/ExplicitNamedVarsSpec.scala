@@ -278,7 +278,7 @@ class ExplicitNamedVarsSpec extends StageSpec:
   //         shifted ^ o
   //       else shifted
   //     o <> anon.as(AESByte)
-  //   end xtime  
+  //   end xtime
 
   //   val top = (new xtime).explicitNamedVars
   //   assertCodeString(
