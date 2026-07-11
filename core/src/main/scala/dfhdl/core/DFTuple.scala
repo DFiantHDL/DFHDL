@@ -231,6 +231,7 @@ object DFTuple:
           .SelectField(dfTupleVal, s"_${i + 1}")
           .asIR
           .asVal[OT, M]
+        @dfhdl.hw.annotation.pure(false)
         def toScalaTuple(using dfc: DFC, size: ValueOf[Tuple.Size[T]]): T =
           given DFC = dfc.anonymize
           val elements = Array.tabulate(size)(applyForced)

@@ -16,6 +16,9 @@ def prioEncRecur(value: Bits[Int] <> VAL): (Bit, Bits[Int]) <> DFRET =
     val selPrio = if (msPrio._1) msPrio._2 else lsPrio._2
     (msPrio._1 || lsPrio._1, (msPrio._1, selPrio))
 
+// pure override: the forced width data derives from the input TYPE, which is already part
+// of the elaboration cache key, so the detection over-approximates here
+@hw.annotation.pure
 @inline def prioEnc[W <: Int](value: Bits[W] <> VAL)(using
     info: IntInfo[W - 1]
 ): (Bit, Bits[info.OutW]) <> DFRET =

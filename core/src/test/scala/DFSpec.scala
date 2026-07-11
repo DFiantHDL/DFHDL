@@ -7,8 +7,11 @@ import compiler.ir
 import ir.DFDesignBlock.InstMode
 import java.nio.file._
 
+// pure override: these assertions force width data derived from TYPES only and do not
+// shape the elaborated structure
 extension [T](t: T)(using tc: core.DFType.TC[T])
   @metaContextIgnore
+  @hw.annotation.pure
   def verifyWidth[R <: IntP](
       r: IntParam[R]
   )(using dfc: DFC, w: Width[tc.Type])(using w.Out =:= R): Unit =
@@ -16,6 +19,7 @@ extension [T](t: T)(using tc: core.DFType.TC[T])
 
 extension [T <: DFType](t: DFValOf[T])(using dfc: DFC, w: Width[T])
   @metaContextIgnore
+  @hw.annotation.pure
   def verifyWidth[R <: IntP](
       r: IntParam[R]
   )(using w.Out =:= R): Unit =

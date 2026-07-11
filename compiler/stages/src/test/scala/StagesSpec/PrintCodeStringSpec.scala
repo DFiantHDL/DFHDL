@@ -488,14 +488,17 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val id = (new DesignDefCont)
     assertCodeString(
       id,
-      """|def test_0(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+      """|@hw.annotation.pure(false)
+         |def test_0(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
          |  arg + d"32'1"
          |end test_0
          |
+         |@hw.annotation.pure(false)
          |def test_1(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
          |  arg + d"32'10"
          |end test_1
          |
+         |@hw.annotation.pure(false)
          |class DesignDefCont extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT

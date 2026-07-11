@@ -90,6 +90,7 @@ object TDFDouble:
       end evOpArithDFDouble
 
       extension [P](lhs: DFValTP[DFDouble, P])
+        @dfhdl.hw.annotation.pure(false)
         def toScalaDouble(using DFC, DFVal.ConstCheck[P]): Double =
           lhs.toScalaValue
 

@@ -10,7 +10,7 @@ object annotation:
   object HWAnnotation:
     given ReadWriter[HWAnnotation] = ReadWriter.merge(
       summon[ReadWriter[Unused]],
-      summon[ReadWriter[Pure.type]],
+      summon[ReadWriter[Pure]],
       summon[ReadWriter[FlattenMode]],
       summon[ReadWriter[constraints.Constraint]]
     )
@@ -26,12 +26,16 @@ object annotation:
         case Keep  => "@hw.annotation.unused.keep"
         case Prune => "@hw.annotation.unused.prune"
 
-  case object Pure extends HWAnnotation:
-    given ReadWriter[Pure.type] = macroRW
+  /** Purity marking. Elaboration is pure by default; `Pure(false)` marks it impure (its results
+    * must not be cached) and `Pure(true)` is the user's explicit trust override for the compiler's
+    * purity detection.
+    */
+  final case class Pure(isPure: Boolean) extends HWAnnotation derives CanEqual, ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs(using RefGen): this.type = this
-    def codeString(using Printer): String = "@hw.annotation.pure"
+    def codeString(using Printer): String =
+      if (isPure) "@hw.annotation.pure" else "@hw.annotation.pure(false)"
 
   /** Flattening Mode:
     *   - transparent: $memberName

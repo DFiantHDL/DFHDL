@@ -262,9 +262,11 @@ final class MutableDB():
       current.defInputs = inputs
       current.defParams = params
       val currentDesign = OwnershipContext.currentDesign
-      val isPure = currentDesign.dclMeta.annotations.exists {
-        case annotation.Pure => true
-        case _               => false
+      // pure by default: only an explicit or PureCheck-synthesized `@pure(false)` marking
+      // disables elaboration caching for this design def
+      val isPure = !currentDesign.dclMeta.annotations.exists {
+        case annotation.Pure(false) => true
+        case _                      => false
       }
       if (isPure)
         // The applied design parameter values are deliberately NOT part of the key: a pure

@@ -39,9 +39,22 @@ object annotation:
       val asIR: ir.annotation.Unused = ir.annotation.Unused.Prune
   end unused
 
-  final class pure(val isActive: Boolean) extends HWAnnotation:
+  /** Purity marking. Designs and design defs are PURE BY DEFAULT: their elaboration is assumed to
+    * be a function of their code, applied parameters, input types, and plain Scala arguments, which
+    * enables caching (skipping redundant elaboration).
+    *   - `@pure(false)` marks elaboration as impure, so its results are never cached. The
+    *     compiler's `PureCheck` phase synthesizes this transitively for detectably impure code
+    *     (known-impure calls like the `toScalaXYZ` family, outer `var` access, or references to
+    *     other impure code). Effects the compiler cannot detect must be marked manually and are
+    *     otherwise the user's responsibility.
+    *   - `@pure` (or `@pure(true)`) actively marks elaboration as pure, overriding the compiler's
+    *     detection; use it when you know the elaboration is deterministic despite the detection
+    *     (the detection over-approximates).
+    */
+  final class pure(val isPure: Boolean) extends HWAnnotation:
     def this() = this(true)
-    val asIR: ir.annotation.Pure.type = ir.annotation.Pure
+    val isActive: Boolean = true
+    val asIR: ir.annotation.Pure = ir.annotation.Pure(isPure)
 
   /** Flattening Mode:
     *   - transparent: $memberName

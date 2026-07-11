@@ -146,8 +146,10 @@ object DFBoolOrBit:
       end evLogicOpDFBoolOrBit2
 
       extension [P](lhs: DFValTP[DFBoolOrBit, P])
+        @dfhdl.hw.annotation.pure(false)
         def toScalaBoolean(using DFC, DFVal.ConstCheck[P]): Boolean =
           lhs.toScalaValue
+        @dfhdl.hw.annotation.pure(false)
         def toScalaBitNum(using DFC, DFVal.ConstCheck[P]): BitNum =
           if (lhs.toScalaBoolean) 1 else 0
         def toBits[W <: IntP](width: IntParam[W])(using

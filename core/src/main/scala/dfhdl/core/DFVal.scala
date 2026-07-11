@@ -353,6 +353,10 @@ object DFVal extends DFValLP:
   ): ConstCheck[P] with {}
 
   extension [D, T <: ir.DFType, P](lhs: DFValTP[DFType[ir.DFType.Aux[T, Option[D]], ?], P])
+    // forcing constant data into Scala is impure by definition: elaboration that depends on
+    // it cannot be cached without keying on the forced data (see the PureCheck plugin phase;
+    // export forwarders carry this annotation to the user-facing call sites)
+    @dfhdl.hw.annotation.pure(false)
     protected[dfhdl] def toScalaValue(using dfc: DFC, check: ConstCheck[P]): D =
       import dfc.getSet
       val lhsIR = lhs.asIR

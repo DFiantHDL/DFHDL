@@ -304,10 +304,45 @@ brings class designs to the def-design shape:
   (Phase 1), `oldToNew` attachment (Phase 3.4), and the class body extraction (Phase 4.2).
   Phase 4.2 deserves a standalone spike before committing to the approach.
 
-## Evolution: pure by default, `@impure`, and PureCheckPhase
+## Evolution: pure by default and PureCheckPhase
 
 Direction set 2026-07-11 (supersedes the opt-in `@hw.pure` model; Phase 1's harness mechanics
 carry over unchanged, only the gate's polarity and key composition evolve).
+
+STATUS: the base model is IMPLEMENTED (2026-07-11). What landed:
+
+- SINGLE annotation `hw.annotation.pure(isPure: Boolean)` (user decision: no separate
+  `@impure`): `@pure(false)` marks impure (user-written or PureCheck-synthesized), `@pure` /
+  `@pure(true)` is the explicit trust override, absence means pure by default. IR:
+  `ir.annotation.Pure(isPure)`; the runtime def-design cache gate skips caching only when
+  `Pure(false)` is present in `dclMeta`.
+- `PureCheckPhase` (plugin, runsAfter TopAnnot, runsBefore MetaContextPlacer so synthesized
+  annotations land in `__clsMeta` and TASTy): global `runOn` fixpoint over all units of the
+  run (roots = defs, classes, class/module-owned vals; worklist propagation), synthesizing
+  `@pure(false)`. Detection: references to `@pure(false)`-marked symbols (incl. from
+  dependencies' TASTy), an FQN blacklist (random/IO/net/time/sys), and outer `var` access.
+- The `toScalaXYZ` family carries EXPLICIT `@pure(false)` source annotations in core.
+  Empirically verified: export forwarders carry the annotation to the user-facing call
+  sites, so annotating the defining methods suffices. (An initial cyclic compile error that
+  seemed to forbid these annotations turned out to be the pre-existing zinc incremental
+  artifact, not a real typing cycle; clean compilation always works and no code
+  restructuring is warranted for it.)
+- Implementation pitfalls encoded in the phase (each found by a failing test):
+  `This`/`Super` references must not create impurity edges (every member references the
+  enclosing class through the implicit `this.dfc`); container-typed instance vals are not
+  analysis roots and are never annotated (the child's class marking plus the owner's template
+  scan carry the poison; the template scan descends into such vals' rhs directly); the
+  immediate-parents inheritance check consults MARKINGS ONLY (user decision: transitivity is
+  guaranteed by induction, and symbol-level parents include compiler-added ones like
+  `java.io.Serializable` on case classes, which would falsely match the IO blacklist).
+- Tests: `PureCheckSpec` (toScala detection through forwarders, outer var, blacklist,
+  transitive helpers, `@pure` override wrong-sharing contract, class-inheritance impurity,
+  and instance-hierarchy poison propagation).
+
+NOT yet implemented from this section: param-level data-impurity attribution (`toScala` on a
+param root marking THAT PARAM instead of the whole design, with the param's applied data
+joining the cache key), the impure-params key extension, tracked-effect manifests, and user
+documentation.
 
 1. Model: designs and design defs are PURE BY DEFAULT. A single argument-less `hw.impure`
    annotation marks impurity, written by users or synthesized by the compiler. Documented

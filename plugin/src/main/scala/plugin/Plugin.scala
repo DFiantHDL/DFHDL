@@ -11,6 +11,7 @@ class Plugin extends StandardPlugin:
     val setting = new Setting(options.headOption)
     PreTyperPhase(setting) ::
       TopAnnotPhase(setting) ::
+      PureCheckPhase(setting) ::
       MetaContextPlacerPhase(setting) ::
       FlattenInlinedPhase(setting) ::
       LoopFSMPhase(setting) ::
