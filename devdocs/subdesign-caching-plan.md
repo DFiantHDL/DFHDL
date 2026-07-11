@@ -1,6 +1,22 @@
 # Sub-Design Caching and the Generalized Design Load Harness
 
-Status: Phase 1 IMPLEMENTED (2026-07-11); Phases 2-4 planned
+Status (2026-07-11, branch `pure-checks`):
+
+- Phase 1 (pure def cache fix: harness-created params, extended key, capture handling)
+  IMPLEMENTED and committed (`0101e0211`).
+- Pure-by-default + `PureCheckPhase` (see the Evolution section, which is the authoritative
+  current model) IMPLEMENTED and committed (`fa05842af`).
+- NEXT increments, in order:
+  1. Param-level data-impurity attribution: a `toScala*` forcing whose root is a design
+     param marks THAT PARAM impure instead of the whole design; the runtime key then gains
+     the impure params' applied data. Restores caching for param-forcing defs and stops
+     impurity at its hierarchy level.
+  2. Phase 2: extract the `DesignLoadGate` abstraction from `runFuncWithInputs`.
+  3. Phase 3: disk tier for pure def designs (factum CodeRef keys, sub-DB bundles).
+  4. Phase 4: class designs (instantiation-gate + body-extraction rigging).
+  5. Recovery tiers for impure sub-design poison (tracked-effect manifests first).
+  6. User documentation for the purity model (docs/), including the "unmarked effects are
+     the user's responsibility" contract and the `@pure` override.
 
 ## Goal
 
