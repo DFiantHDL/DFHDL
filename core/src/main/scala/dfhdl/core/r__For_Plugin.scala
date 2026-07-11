@@ -159,8 +159,31 @@ object r__For_Plugin:
     val params = constArgs.map { (_, arg, argMeta) =>
       genContainerParam[DFValAny](arg, None, argMeta)
     }
+    // Params named data-impure by the design def's `pure` annotation (synthesized by the
+    // PureCheck plugin phase or declared by the user) contribute their applied type+data to
+    // the elaboration cache key. Unknown applied data (no snapshot, e.g. unattainable during
+    // this elaboration) yields None, which makes this call uncacheable (runs live; structural
+    // dedup still unifies identical bodies).
+    val impureParamsKeyOpt: Option[List[Any]] =
+      val impureParamNames = dclMeta.annotations.collectFirst {
+        case ir.annotation.Pure(true, names) if names.nonEmpty => names.toSet
+      }.getOrElse(Set.empty)
+      if (impureParamNames.isEmpty) Some(Nil)
+      else
+        // `"*"` (e.g. from a user-written `@pure(true, "*")`) marks ALL params data-impure
+        val allImpure = impureParamNames.contains("*")
+        val keyPartOpts = params.zip(constArgs).collect {
+          case (param, (name, _, _)) if allImpure || impureParamNames.contains(name) =>
+            param.asIR match
+              case dp: ir.DFVal.DesignParam => dp.appliedData.map(data => (dp.dfType, data))
+              case _                        => None
+        }
+        if (keyPartOpts.forall(_.isDefined)) Some(keyPartOpts.map(_.get)) else None
+    end impureParamsKeyOpt
     val (isDuplicate, ret, paramEntries) =
-      dfc.mutableDB.DesignContext.runFuncWithInputs(func, inputs, params, scalaArgs):
+      dfc.mutableDB.DesignContext.runFuncWithInputs(
+        func, inputs, params, scalaArgs, impureParamsKeyOpt
+      ):
         Design.Inst.collectParamEntries(
           clsAppliedArgs(constArgs.map((name, arg, _) => (name, arg)))
         )

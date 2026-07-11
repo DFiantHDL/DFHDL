@@ -6,17 +6,59 @@ Status (2026-07-11, branch `pure-checks`):
   IMPLEMENTED and committed (`0101e0211`).
 - Pure-by-default + `PureCheckPhase` (see the Evolution section, which is the authoritative
   current model) IMPLEMENTED and committed (`fa05842af`).
+- Param-level data-impurity attribution IMPLEMENTED (see the "Forcing attribution" section
+  below for what actually landed, including the two elaboration-dedup fixes it forced).
+- Annotation shape (user decision, 2026-07-11): `pure(isPure: Boolean = true,
+  impureParams: String*)`. Data-impure params are recorded BY NAME on the DEF's own
+  annotation (synthesized `pure(true, "const")`, PRINTED as
+  `@hw.annotation.pure(impureParams = "const")`), not on param symbols: it prints at the
+  declaration (valuable, self-documenting output), and it covers PHANTOM parameters that
+  have no source symbol. A user-written `pure(true, names*)` is a per-param escape hatch:
+  declares data-dependence the detection cannot see while keeping the def cacheable
+  (detection is then off, as with any explicit marking). IMPLEMENTED.
+- `"*"` wildcard (user decision, 2026-07-11): the `toScalaXYZ` family is marked
+  `@pure(true, "*")` ("pure given its receiver's data; ALL params data-impure"), replacing
+  the interim `forcesConstData` marker entirely: the forcers are now simply the BASE CASE
+  of the generic marked-param propagation (their receiver is the extension's first term
+  argument, attributed at every application like any marked param; bare references escalate
+  through the same generic unapplied-param path). The wildcard also works for users (all
+  const params keyed) and at the runtime gate. CONVENTION: a data forcer's forced value
+  must be a PARAMETER (extension receiver); a `this`-qualified forcer would escape
+  call-site attribution. IMPLEMENTED (forcesConstData deleted).
+- Known pre-existing wart (surfaced by the multi-param test): a compound forced expression
+  used in place, e.g. `(a + b).toScalaInt` without naming the sum, leaves the derivation
+  member as a dangling anonymous value that fails the sanity check (same before
+  attribution, under design-level impurity). Fold into the planned forcing errors/warnings
+  work: either drop force-only derivations or report them properly.
+- LOCKED (user decisions, 2026-07-11), for the next increment:
+  - Phantom params/ports creation (making design defs self-contained, as on the `ed-defs`
+    branch) belongs in `DesignDefsPhase` (post-Pickler rigging), NOT in PureCheck: rigging
+    must not be pickled into TASTy, and DesignDefs already owns the harness. The two phases
+    share a capture-discovery helper (ordered out-of-scope value list + deterministic
+    phantom naming) so PureCheck can attribute forcings to phantom param names before the
+    params exist.
+  - Plain Scala captures do NOT become phantom values; they join the cache key through the
+    `scalaArgs` list (the rigging appends captured Scala value idents, evaluated in the
+    def's rhs scope per call). This closes the per-instance-Scala-data soundness hole for
+    design DEFS; design CLASSES get the same treatment in Phase 4's instantiation-gate
+    rigging. Residual for detection: captures of METHODS whose results depend on instance
+    state cannot be keyed by value and must escalate (PureCheck per-instance-data reads).
 - NEXT increments, in order:
-  1. Param-level data-impurity attribution: a `toScala*` forcing whose root is a design
-     param marks THAT PARAM impure instead of the whole design; the runtime key then gains
-     the impure params' applied data. Restores caching for param-forcing defs and stops
-     impurity at its hierarchy level.
+  1. Shared capture-discovery helper + phantom params/ports + Scala-capture `scalaArgs`
+     extension in DesignDefs (retires the runtime auto-param/`cloneUnreachable` path and
+     unhittable entries for def designs; flips the per-instance PureCheckSpec test from
+     design-level impurity to a keyed phantom param).
   2. Phase 2: extract the `DesignLoadGate` abstraction from `runFuncWithInputs`.
   3. Phase 3: disk tier for pure def designs (factum CodeRef keys, sub-DB bundles).
-  4. Phase 4: class designs (instantiation-gate + body-extraction rigging).
+  4. Phase 4: class designs (instantiation-gate + body-extraction rigging); includes
+     class-ctor-param attribution (currently a forced root at a class param accessor
+     conservatively escalates to design-level impurity) and Scala-capture keying for
+     class bodies.
   5. Recovery tiers for impure sub-design poison (tracked-effect manifests first).
   6. User documentation for the purity model (docs/), including the "unmarked effects are
-     the user's responsibility" contract and the `@pure` override.
+     the user's responsibility" contract, the `@pure` overrides (with and without named
+     impure params), and the static-dispatch approximation (the analysis never models
+     subclass overrides).
 
 ## Goal
 
@@ -355,10 +397,66 @@ STATUS: the base model is IMPLEMENTED (2026-07-11). What landed:
   transitive helpers, `@pure` override wrong-sharing contract, class-inheritance impurity,
   and instance-hierarchy poison propagation).
 
-NOT yet implemented from this section: param-level data-impurity attribution (`toScala` on a
-param root marking THAT PARAM instead of the whole design, with the param's applied data
-joining the cache key), the impure-params key extension, tracked-effect manifests, and user
-documentation.
+NOT yet implemented from this section: tracked-effect manifests and user documentation.
+
+### Forcing attribution (param-level data impurity) - IMPLEMENTED
+
+Implementation notes (2026-07-11). The `toScalaXYZ` family carries a new internal marker,
+`dfhdl.internals.forcesConstData` (export forwarders carry it to user call sites, like the
+`pure` annotation). `PureCheckPhase` no longer treats a marked forcer reference as impure by
+itself; instead it attributes the forcing to the forced expression's dataflow roots.
+Data-impure params are recorded BY NAME on their def's own annotation,
+`pure(true, impureParams*)` (see the Status block for why), which prints at the declaration:
+
+- CONST param of an enclosing design def: the def gets a synthesized `pure(true, <name>)`;
+  the design def stays pure. The runtime harness (`designFromDef`) matches `constArgs` by
+  name against the dclMeta annotation and keys the cache on the named params' applied
+  (dfType, data), read from the created `DesignParam.appliedData` snapshot (the dfType
+  covers width-generic params whose TYPE would otherwise escape the key). Unknown applied
+  data makes that call uncacheable (runs live; structural dedup unifies).
+- `<> VAL` input or plain Scala arg of a design def: fully pure (types/values already keyed;
+  forcing a non-constant's data is impossible, so a VAL root implies a type-derived
+  constant, e.g. `value.width.toScalaInt` - this made both `prioEnc` `@pure` overrides
+  removable, and they were removed).
+- Param of any OTHER same-run def (helpers, `@inline`-hinted defs like `prioEnc`, local
+  defs): the param is recorded the same way on its def, and every APPLICATION of it
+  re-attributes the applied argument in the caller's context, so forcing propagates to its
+  true root across helper layers and across compilations (the def annotation persists to
+  TASTy; call sites match applied args by param name). Same-run ordering is handled by
+  recorded edges (param -> pending call-site attribution thunks) fired when a param becomes
+  marked. Anonymous functions are excluded (their call sites are not attributable); bare
+  method references (closures/eta-expansion) and partial applications of markable params
+  escalate conservatively.
+- Immutable vals (locals, sibling class members, globals): traced through their definitions
+  (a global `sym -> rhs` map collected over all units), so code-determined captures (e.g. a
+  literal-initialized design-local constant) attribute as PURE. NOTE: resolution is STATIC,
+  like the rest of the phase; subclass val overrides are not modeled.
+- Trusted library symbols (fields included, e.g. the implicit `dfc`), the dfhdl root
+  package's export forwarders, Scala core value ops, and literals are data-transparent;
+  `this.x` defers to `x`'s own rule (the instance link is not data). Implicit/contextual
+  arguments are skipped unless DFHDL-valued.
+- Everything else (per-instance data such as Scala ctor params via captured vals, mutable
+  state, opaque user methods, unknown shapes): design-level impurity, as before.
+- An explicit design-def marking wins: `@pure` (trust) suppresses param attribution
+  entirely (documented wrong-sharing contract preserved), `@pure(false)` makes it moot.
+
+Two elaboration-dedup fixes were forced by data-keyed entries (both in `MutableDB`):
+
+1. `endDesign` on a pure cache hit used to join the FIRST group of the design's dclName
+   unconditionally; with per-data groups it must join the CANONICAL entry's group, so
+   `PureDefEntry` now records the canonical `DFDesignBlock` and the hit context records
+   `duplicateOf` for `endDesign` to match groups by identity.
+2. `sameDesignAs` compared member lists in which child designs appear only as HEADERS
+   (equal `dclMeta`), so parents of same-dclMeta-but-diverged children (different forced
+   data) wrongly unified; corresponding child design blocks must now also belong to the
+   same body group. (The stage-level `UniqueDesigns` is immune: its `DFDesignInst.designRef`
+   is a `StaticRef` sub-DB key, distinct for diverged children.)
+
+Tests: `PureCheckSpec` covers param-rooted forcing (separate bodies per applied value plus
+a repeated-value cache hit), per-instance-data-rooted forcing (design-level impurity),
+input-type-rooted forcing (fully pure, shared body), and nested design-def propagation
+(`outer` passing its own param into `inner`'s forced param, both pure, both keyed).
+`PrioEncSpec` passes with no `prioEnc` annotations.
 
 1. Model: designs and design defs are PURE BY DEFAULT. A single argument-less `hw.impure`
    annotation marks impurity, written by users or synthesized by the compiler. Documented

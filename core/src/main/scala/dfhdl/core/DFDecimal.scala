@@ -1399,10 +1399,10 @@ object DFXInt:
           end dfValIR
           dfValIR.asValTP[DFXInt[RS, RW, RN], P]
         end toDFXIntOf
-        @dfhdl.hw.annotation.pure(false)
+        @dfhdl.hw.annotation.pure(true, "*")
         def toScalaInt(using DFC, DFVal.ConstCheck[P]): Int =
           lhs.toScalaValue.toInt
-        @dfhdl.hw.annotation.pure(false)
+        @dfhdl.hw.annotation.pure(true, "*")
         def toScalaBigInt(using DFC, DFVal.ConstCheck[P]): BigInt =
           lhs.toScalaValue
       end extension

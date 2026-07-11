@@ -44,17 +44,24 @@ object annotation:
     * enables caching (skipping redundant elaboration).
     *   - `@pure(false)` marks elaboration as impure, so its results are never cached. The
     *     compiler's `PureCheck` phase synthesizes this transitively for detectably impure code
-    *     (known-impure calls like the `toScalaXYZ` family, outer `var` access, or references to
-    *     other impure code). Effects the compiler cannot detect must be marked manually and are
-    *     otherwise the user's responsibility.
+    *     (known-impure calls, outer `var` access, or references to other impure code). Effects the
+    *     compiler cannot detect must be marked manually and are otherwise the user's
+    *     responsibility.
+    *   - `@pure(true, impureParams*)` marks elaboration as pure and cacheable while naming the
+    *     DATA-IMPURE parameters: parameters whose applied data is forced into elaboration (the
+    *     `toScalaXYZ` family), so the cache must additionally key on their applied values. The
+    *     `PureCheck` phase synthesizes this by attributing each forcing to its dataflow root. `"*"`
+    *     marks ALL parameters data-impure; the library's `toScalaXYZ` forcers themselves carry
+    *     `@pure(true, "*")`, making them the base case of the attribution: applying any value to a
+    *     marked parameter re-attributes that value at the call site.
     *   - `@pure` (or `@pure(true)`) actively marks elaboration as pure, overriding the compiler's
     *     detection; use it when you know the elaboration is deterministic despite the detection
-    *     (the detection over-approximates).
+    *     (the detection over-approximates). An explicit marking (with or without named params)
+    *     disables the detection entirely, so correctness becomes the user's responsibility.
     */
-  final class pure(val isPure: Boolean) extends HWAnnotation:
-    def this() = this(true)
+  final class pure(val isPure: Boolean = true, val impureParams: String*) extends HWAnnotation:
     val isActive: Boolean = true
-    val asIR: ir.annotation.Pure = ir.annotation.Pure(isPure)
+    val asIR: ir.annotation.Pure = ir.annotation.Pure(isPure, impureParams.toList)
 
   /** Flattening Mode:
     *   - transparent: $memberName

@@ -46,6 +46,10 @@ class DesignContext:
   var defParams = List.empty[DFValAny]
   val loopIterMap = mutable.Map.empty[Meta, DFValAny]
   var isDuplicate = false
+  // on a pure cache hit, the canonical design whose body this context duplicates; `endDesign`
+  // must join the duplicate to the CANONICAL's group (a design def may now have several
+  // structurally-distinct groups, one per impure-params key)
+  var duplicateOf: Option[DFDesignBlock] = None
 
   def setOriginRefs(member: DFMember): Unit =
     member.getRefs.foreach { r => originRefTable += r -> member }
@@ -191,16 +195,35 @@ final class MutableDB():
       val currentRefTable = current.getImmutableRefTable
       val designType = design.dclName
       var isDuplicate = false
+      // the group head a (previously ended) child design belongs to, by identity
+      def groupHeadOf(d: DFDesignBlock): Option[DFDesignBlock] =
+        uniqueDesigns.get(d.dclName).flatMap(_.find(_.exists(_ eq d))).map(_.head)
       def sameDesignAs(groupDesign: DFDesignBlock): Boolean =
         if (design.dclMeta == groupDesign.dclMeta)
-          currentMembers =~ designMembers(groupDesign)
+          val otherMembers = designMembers(groupDesign)
+          currentMembers =~ otherMembers &&
+          // a `=~` member comparison sees only the child design HEADERS (same dclMeta),
+          // not their bodies, which may have diverged (e.g. impure-param data folding),
+          // so corresponding child designs must also belong to the same body group
+          currentMembers.lazyZip(otherMembers).forall {
+            case (a: DFDesignBlock, b: DFDesignBlock) =>
+              (a eq b) || groupHeadOf(a).exists(ah => groupHeadOf(b).exists(_ eq ah))
+            case _ => true
+          }
         else false
+      // a pure-cache-hit context joins its CANONICAL design's group (several groups may
+      // exist per design type, one per impure-params key); a live-elaborated design joins
+      // the first group with structurally identical members
+      def belongsToGroup(group: List[DFDesignBlock]): Boolean =
+        current.duplicateOf match
+          case Some(canonical) => group.contains(canonical)
+          case None            => sameDesignAs(group.head)
       uniqueDesigns.get(designType) match
         // this design type already exists and has at least one group
         case Some(groupList) =>
           // searching for the first group of designs that has the same members
           val updatedGroupList = groupList.map { group =>
-            if (current.isDuplicate || !isDuplicate && sameDesignAs(group.head))
+            if (!isDuplicate && belongsToGroup(group))
               isDuplicate = true
               // the head of each group will always be the first design discovered
               // from that group and it keeps all its elements and not marked as a duplicate.
@@ -248,16 +271,19 @@ final class MutableDB():
     // to a different scope at another call site, so the body must re-elaborate (structural
     // dedup still unifies identical bodies afterwards).
     final case class PureDefEntry(
+        design: DFDesignBlock,
         ret: DFValAny,
         autoParamEntries: List[(String, DFVal)],
         hittable: Boolean
     )
-    val pureDesignDefOutCache = mutable.Map.empty[(Meta, List[DFType], List[Any]), PureDefEntry]
+    val pureDesignDefOutCache =
+      mutable.Map.empty[(Meta, List[DFType], List[Any], List[Any]), PureDefEntry]
     def runFuncWithInputs[V <: DFValAny](
         func: => V,
         inputs: List[DFValAny],
         params: List[DFValAny],
-        scalaArgs: List[Any]
+        scalaArgs: List[Any],
+        impureParamsKeyOpt: Option[List[Any]]
     )(paramEntriesOf: => List[(String, DFVal)]): (Boolean, V, List[(String, DFVal)]) =
       current.defInputs = inputs
       current.defParams = params
@@ -265,20 +291,25 @@ final class MutableDB():
       // pure by default: only an explicit or PureCheck-synthesized `@pure(false)` marking
       // disables elaboration caching for this design def
       val isPure = !currentDesign.dclMeta.annotations.exists {
-        case annotation.Pure(false) => true
-        case _                      => false
+        case annotation.Pure(false, _) => true
+        case _                         => false
       }
-      if (isPure)
+      if (isPure && impureParamsKeyOpt.nonEmpty)
         // The applied design parameter values are deliberately NOT part of the key: a pure
         // body cannot depend on them (forcing a parameter's data to affect elaboration is
         // impure by definition), so all applications share one cached body and differ only
         // in their instance parameter bindings, which the design-def harness constructs
-        // afresh on hit and miss alike. Plain Scala arguments (`scalaArgs`), however, may
-        // legitimately shape the elaborated structure, so they are part of the key.
-        val key = (currentDesign.dclMeta, inputs.map(_.dfType.asIR), scalaArgs)
+        // afresh on hit and miss alike. Two exceptions ARE part of the key: plain Scala
+        // arguments (`scalaArgs`), which may legitimately shape the elaborated structure,
+        // and the applied type+data of params marked data-impure by the PureCheck phase
+        // (`impureParamsKeyOpt`, empty when a marked param's applied data is unknown, which
+        // makes the call uncacheable and runs it live).
+        val key =
+          (currentDesign.dclMeta, inputs.map(_.dfType.asIR), scalaArgs, impureParamsKeyOpt.get)
         pureDesignDefOutCache.get(key) match
           case Some(entry) if entry.hittable =>
             current.isDuplicate = true
+            current.duplicateOf = Some(entry.design)
             // only the explicit (harness-created) parameters exist in this context, so the
             // auto-created ones are appended from the cached entry (all global, hence valid
             // at any call site)
@@ -290,6 +321,7 @@ final class MutableDB():
               val explicitNames = params.view.map(_.asIR.meta.name).toSet
               val autoParamEntries = paramEntries.filterNot((name, _) => explicitNames(name))
               pureDesignDefOutCache += key -> PureDefEntry(
+                currentDesign,
                 ret,
                 autoParamEntries,
                 autoParamEntries.forall(_._2.isGlobal)

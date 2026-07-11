@@ -27,15 +27,20 @@ object annotation:
         case Prune => "@hw.annotation.unused.prune"
 
   /** Purity marking. Elaboration is pure by default; `Pure(false)` marks it impure (its results
-    * must not be cached) and `Pure(true)` is the user's explicit trust override for the compiler's
-    * purity detection.
+    * must not be cached), `Pure(true)` is the user's explicit trust override for the compiler's
+    * purity detection, and `Pure(true, names)` keeps elaboration pure and cacheable while the cache
+    * additionally keys on the named (data-impure) parameters' applied values.
     */
-  final case class Pure(isPure: Boolean) extends HWAnnotation derives CanEqual, ReadWriter:
+  final case class Pure(isPure: Boolean, impureParams: List[String] = Nil) extends HWAnnotation
+      derives CanEqual, ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs(using RefGen): this.type = this
     def codeString(using Printer): String =
-      if (isPure) "@hw.annotation.pure" else "@hw.annotation.pure(false)"
+      if (!isPure) "@hw.annotation.pure(false)"
+      else if (impureParams.isEmpty) "@hw.annotation.pure"
+      else impureParams.map(n => s"\"$n\"")
+        .mkString("@hw.annotation.pure(impureParams = ", ", ", ")")
 
   /** Flattening Mode:
     *   - transparent: $memberName

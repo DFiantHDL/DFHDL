@@ -353,10 +353,13 @@ object DFVal extends DFValLP:
   ): ConstCheck[P] with {}
 
   extension [D, T <: ir.DFType, P](lhs: DFValTP[DFType[ir.DFType.Aux[T, Option[D]], ?], P])
-    // forcing constant data into Scala is impure by definition: elaboration that depends on
-    // it cannot be cached without keying on the forced data (see the PureCheck plugin phase;
-    // export forwarders carry this annotation to the user-facing call sites)
-    @dfhdl.hw.annotation.pure(false)
+    // `pure(true, "*")` marks a constant-data forcer: the result is a pure function of the
+    // receiver's DATA, so elaboration that depends on it can only be cached by keying on
+    // that data. The PureCheck plugin phase attributes each application to the receiver
+    // argument's dataflow roots (export forwarders carry this annotation to the user-facing
+    // call sites). NOTE: the forced value must be a PARAMETER (here, the extension
+    // receiver); a `this`-qualified forcer would escape the call-site attribution.
+    @dfhdl.hw.annotation.pure(true, "*")
     protected[dfhdl] def toScalaValue(using dfc: DFC, check: ConstCheck[P]): D =
       import dfc.getSet
       val lhsIR = lhs.asIR

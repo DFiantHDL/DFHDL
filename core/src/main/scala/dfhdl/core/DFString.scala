@@ -105,7 +105,7 @@ object TDFString:
           }(using dfc, CTName("+"))
       end evOpArithDFString
       extension [P](lhs: DFValTP[DFString, P])
-        @dfhdl.hw.annotation.pure(false)
+        @dfhdl.hw.annotation.pure(true, "*")
         def toScalaString(using DFC, DFVal.ConstCheck[P]): String =
           lhs.toScalaValue
       end extension
