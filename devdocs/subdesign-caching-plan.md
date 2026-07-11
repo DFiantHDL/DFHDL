@@ -43,11 +43,43 @@ Status (2026-07-11, branch `pure-checks`):
     design DEFS; design CLASSES get the same treatment in Phase 4's instantiation-gate
     rigging. Residual for detection: captures of METHODS whose results depend on instance
     state cannot be keyed by value and must escalate (PureCheck per-instance-data reads).
+- CORRECTIONS + additional locked decisions (user, 2026-07-12):
+  - `cloneUnreachable` is STILL REQUIRED even with phantom params/ports: ports may
+    introduce parameters they depend on (e.g. through their type) that the design does not
+    explicitly declare, so the harness must still clone such unreachable dependencies. The
+    earlier "retires the cloneUnreachable path" expectation in NEXT item 1 is wrong.
+  - The whole (ugly) MutableDB elaboration-dedup mechanism (uniqueDesigns grouping,
+    `duplicateOf`/canonical-group joining, `sameDesignAs` child-group pairing) is expected
+    to become unnecessary once the proper caching rigging is in place; RETIRE it only
+    AFTER the caching mechanism proves it works.
+  - Realistically only design DEFS get phantom parameters and ports (class designs declare
+    theirs in source). Hiding applies to the design-def VIEW form ONLY: once a def is
+    dropped to a regular design block (`DropDesignDefs`), its phantom ports/params are
+    visible just like any other port/parameter.
+- `PhantomTag` IMPLEMENTED (2026-07-12): `compiler_ir` `PhantomTag` marks
+  compiler-synthesized phantom members. The DFHDL printer (`hidePhantoms` hook, true only
+  for `DFPrinter`) hides them in the DEF VIEW form only: phantom def args and params at
+  the def dcl (arg list, param list, and the def-return detection skips phantom OUT
+  nets), phantom positional args and param applications at the def call site
+  (`DB.phantomParamNamesOf(design)`: hierarchical-aware, navigates to the design's own
+  sub-DB since the instantiation scope only holds the design header), and call-site
+  wiring nets whose lhs/rhs endpoint is a phantom-tagged `PortByNameSelect` of a DEF
+  instance (input wiring is already generically excluded for def instances, so this
+  effectively covers phantom output captures). Def-body references print the phantom
+  NAMES, which (with deterministic phantom naming after the captured values) read exactly
+  like the host values the def captures. Design-BLOCK printing paths and backend printers
+  are untouched: post-drop, phantoms print like any port/parameter. CONTRACT for the
+  future creation code: tag the phantom port Dcl, the phantom DesignParam, AND every PBNS
+  targeting a phantom port. THROWAWAY `PhantomTagSpec` (StagesSpec) simulates creation by
+  tagging `ph*`-named members via a test-local HierarchyStage: a def within a host design
+  takes its "captured" host locals as same-named args/params; one test asserts the hidden
+  def view, another asserts full visibility after `dropDesignDefs`. Replace with
+  end-to-end tests once real phantom creation lands.
 - NEXT increments, in order:
   1. Shared capture-discovery helper + phantom params/ports + Scala-capture `scalaArgs`
-     extension in DesignDefs (retires the runtime auto-param/`cloneUnreachable` path and
-     unhittable entries for def designs; flips the per-instance PureCheckSpec test from
-     design-level impurity to a keyed phantom param).
+     extension in DesignDefs (retires unhittable entries for def designs; flips the
+     per-instance PureCheckSpec test from design-level impurity to a keyed phantom param;
+     the `cloneUnreachable` path REMAINS, see the 2026-07-12 correction above).
   2. Phase 2: extract the `DesignLoadGate` abstraction from `runFuncWithInputs`.
   3. Phase 3: disk tier for pure def designs (factum CodeRef keys, sub-DB bundles).
   4. Phase 4: class designs (instantiation-gate + body-extraction rigging); includes

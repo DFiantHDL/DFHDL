@@ -784,6 +784,25 @@ final case class DB private (
     }
   end pbnsToPort
 
+  // The names of `design`'s phantom-tagged design parameters (see PhantomTag),
+  // resolvable from the design's instantiation site: on a flat DB the design's
+  // body members are directly in this DB's ownerMemberTable, while under a
+  // hierarchical root the instantiation scope holds only the design's header,
+  // so we navigate DOWN to the design's own sub-DB. Used by the DFHDL printer
+  // to drop phantom parameter applications at a design-def instantiation site
+  // (only the def view form hides phantoms).
+  def phantomParamNamesOf(design: DFDesignBlock): Set[String] =
+    def collectNames(sub: DB, members: List[DFMember]): Set[String] = sub.atGetSet {
+      members.view.collect {
+        case param: DFVal.DesignParam if param.hasTagOf[PhantomTag] => param.getName
+      }.toSet
+    }
+    if (rootDB.isRoot)
+      rootDB.subDBs.get(design.ownerRef) match
+        case Some(sub) => collectNames(sub, sub.ownerMemberTable.getOrElse(design, Nil))
+        case None      => Set.empty
+    else collectNames(this, ownerMemberTable.getOrElse(design, Nil))
+
   // The domain that encloses `design`'s instantiation: navigate UP to `design`'s
   // parent sub-DB and read the owning domain of `design`'s inst there. Returns
   // the domain owner with the parent sub-DB that owns it.

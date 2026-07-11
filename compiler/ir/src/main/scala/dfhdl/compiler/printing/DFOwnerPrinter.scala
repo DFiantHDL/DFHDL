@@ -10,12 +10,35 @@ import DFDesignBlock.InstMode
 import scala.collection.immutable.ListMap
 
 trait AbstractOwnerPrinter extends AbstractPrinter:
+  // Phantom members are compiler-synthesized ports/parameters (and their by-name
+  // selection and wiring artifacts) that make design defs self-contained when they
+  // use values from outside their own scope. The DFHDL printer hides them in the
+  // design-def VIEW form only, so the printed def matches the user-written source
+  // (its body references the captured host values by name). Once a def is dropped
+  // to a regular design block, phantoms print like any other port/parameter, and
+  // the backend printers always keep them.
+  protected def hidePhantoms: Boolean = false
+  final protected def isHiddenPhantom(member: DFMember): Boolean =
+    // call-site wiring nets of a design-def instance are hidden through their
+    // phantom port selection endpoint (input wiring is already excluded for def
+    // instances, so this effectively covers phantom output captures)
+    def isDefPhantomPBNS(endpoint: DFMember): Boolean = endpoint match
+      case pbns: DFVal.PortByNameSelect =>
+        pbns.hasTagOf[PhantomTag] &&
+        pbns.getDesignInst.getDesignBlock.instMode == InstMode.Def
+      case _ => false
+    hidePhantoms &&
+    (member match
+      case net: DFNet => isDefPhantomPBNS(net.lhsRef.get) || isDefPhantomPBNS(net.rhsRef.get)
+      case _          => false)
   final def csDFOwnerBody(owner: DFOwner): String =
     csDFMembers(owner.members(MemberView.Folded))
   final def csDFMembers(members: List[DFMember]): String =
     members.view
       // selecting viewable members:
       .filter {
+        // excluding phantom members and their wiring
+        case m if isHiddenPhantom(m) => false
         // excluding binds
         case Bind(_) => false
         // excluding design params
@@ -186,12 +209,14 @@ end AbstractOwnerPrinter
 
 protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter = DFPrinter
+  override protected def hidePhantoms: Boolean = true
   def csDFDesignDefDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
     // if no output net, then this def has a Unit return
     var retValOpt: Option[DFVal] = None
     val outNetOpt = designMembers.view.reverse.collectFirst {
-      case outNet @ DFNet.Connection(DclOut(), rv: DFVal, _) =>
+      case outNet @ DFNet.Connection(port @ DclOut(), rv: DFVal, _)
+          if !port.hasTagOf[PhantomTag] =>
         retValOpt = Some(rv)
         outNet
     }
@@ -203,14 +228,16 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFMembers(defMembers)
     val localDcls = printer.csLocalTypeDcls(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
-    val defArgList = designMembers.collect { case port @ DclIn() =>
-      s"${port.getName}${printer.csDFValType(port.dfType)}"
+    val defArgList = designMembers.collect {
+      case port @ DclIn() if !port.hasTagOf[PhantomTag] =>
+        s"${port.getName}${printer.csDFValType(port.dfType)}"
     }
     val defArgsCS =
       if (defArgList.length <= 2) defArgList.mkString(", ")
       else defArgList.mkString("\n", ",\n", "\n").hindent(2)
-    val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
-      s"${param.getName}${printer.csDFValConstType(param.dfType)}"
+    val designParamList = design.members(MemberView.Folded).collect {
+      case param: DesignParam if !param.hasTagOf[PhantomTag] =>
+        s"${param.getName}${printer.csDFValConstType(param.dfType)}"
     }
     val designParamCS =
       if (designParamList.length == 0) ""
@@ -226,6 +253,12 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     paramMap.view.map { (name, ref) =>
       s"${name} = ${ref.refCodeString}"
     }.toList
+  // drops phantom parameter applications at a design-def instantiation site by
+  // matching the def design's phantom-tagged parameters by name
+  private def nonPhantomParamMap(inst: DFDesignInst): ListMap[String, DFVal.Ref] =
+    val phantomNames = getSet.designDB.phantomParamNamesOf(inst.getDesignBlock)
+    if (phantomNames.isEmpty) inst.paramMap
+    else inst.paramMap.filter((name, _) => !phantomNames(name))
   def csDFDesignDefInst(inst: DFDesignInst): String =
     val design = inst.getDesignBlock
     // `designInstPBNS` is keyed by the unified immutable insts. Elaboration-time
@@ -240,14 +273,14 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       }
     )
     val ports = instPBNS.view.collect {
-      case pbns if pbns.isIn =>
+      case pbns if pbns.isIn && !pbns.hasTagOf[PhantomTag] =>
         // the positional def-instance form expects a single producer per input port;
         // a piecewise-connected input port (multiple partial nets) cannot be rendered
         // here, so we fall back to the first connection's producer.
         val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionsTo.head.runtimeChecked
         printer.csDFValRef(from, inst.getOwner)
     }.mkString(", ")
-    val designParamList = csDesignParamList(inst.paramMap)
+    val designParamList = csDesignParamList(nonPhantomParamMap(inst))
     val designParamCS =
       if (designParamList.length == 0) ""
       else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
