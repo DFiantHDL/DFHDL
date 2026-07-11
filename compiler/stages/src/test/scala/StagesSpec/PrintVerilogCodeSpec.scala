@@ -2149,4 +2149,165 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("ED method (function)") {
+    class EDFunc extends EDDesign:
+      val a = UInt(8) <> IN
+      val b = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      val z = UInt(8) <> OUT
+      def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        val tmp = UInt(8) <> VAR
+        tmp := l + r
+        tmp
+      val k:                        UInt[8] <> CONST = 5
+      def addBK(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b + k
+      y <> add(a, b)
+      process(all):
+        z := addBK(a)
+    end EDFunc
+    val top = (new EDFunc).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDFunc(
+         |  input  wire logic [7:0] a,
+         |  input  wire logic [7:0] b,
+         |  output logic [7:0] y,
+         |  output logic [7:0] z
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam logic [7:0] k = 8'd5;
+         |  function automatic logic [7:0] add(input logic [7:0] l, input logic [7:0] r);
+         |    logic [7:0] tmp;
+         |  begin
+         |    tmp = l + r;
+         |    add = tmp;
+         |  end
+         |  endfunction
+         |
+         |  function automatic logic [7:0] addBK(input logic [7:0] l);
+         |  begin
+         |    addBK = l + b + k;
+         |  end
+         |  endfunction
+         |  assign y = add(a, b);
+         |  always_comb
+         |  begin
+         |    z = addBK(a);
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("ED method (function) under v95") {
+    given options.CompilerOptions.Backend = _.verilog.v95
+    class EDFuncOld extends EDDesign:
+      val a = UInt(8) <> IN
+      val b = UInt(8) <> IN
+      val z = UInt(8) <> OUT
+      def addB(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b
+      process(all):
+        z := addB(a)
+    end EDFuncOld
+    val top = (new EDFuncOld).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDFuncOld(
+         |  a,
+         |  b,
+         |  z
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  input  wire [7:0] a;
+         |  input  wire [7:0] b;
+         |  output reg [7:0] z;
+         |  function [7:0] addB;
+         |    input [7:0] l;
+         |  begin
+         |    addB = l + b;
+         |  end
+         |  endfunction
+         |  always @(a or b)
+         |  begin
+         |    z = addB(a);
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("ED method zero-arg function under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class EDFuncZero extends EDDesign:
+      val y = UInt(8) <> OUT
+      def zero(): UInt[8] <> EDRET = d"8'0"
+      y <> zero()
+    end EDFuncZero
+    val top = (new EDFuncZero).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDFuncZero(
+         |  output wire [7:0] y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  function automatic [7:0] zero(input __dummy__);
+         |  begin
+         |    zero = 8'd0;
+         |  end
+         |  endfunction
+         |  assign y = zero(0);
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("ED method (procedural task)") {
+    class EDTask extends EDDesign:
+      val a = UInt(8) <> IN
+      def show(l: UInt[8] <> VAL): Unit <> EDRET =
+        report(s"value is $l")
+        wait(1.ns)
+      def pause(): Unit <> EDRET =
+        wait(2.ns)
+      process.forever:
+        show(a)
+        pause()
+    end EDTask
+    val top = (new EDTask).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDTask(
+         |  input  wire logic [7:0] a
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  task automatic show(input logic [7:0] l);
+         |  begin
+         |    $info("value is %d", l);
+         |    #1ns;
+         |  end
+         |  endtask
+         |
+         |  task automatic pause;
+         |  begin
+         |    #2ns;
+         |  end
+         |  endtask
+         |  always
+         |  begin
+         |    show(a);
+         |    pause;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

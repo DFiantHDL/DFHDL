@@ -10,7 +10,28 @@ case object UniqueDesigns extends GlobalStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
 
-  private def groupDesigns(db: DB)(using MemberGetSet): List[List[DFDesignBlock]] =
+  // ED methods are locally scoped (printed inside their owning design as HDL subprograms),
+  // so their name-uniqueness scope is the owning design rather than the whole design tree —
+  // same-named methods in different designs must not trigger collision renaming.
+  // Design-block ownership in a flat DB is structural (not in the refTable), so the
+  // owner is derived from the design member lists.
+  private def scopedDclNameKey(
+      design: DFDesignBlock,
+      ownerByDesign: Map[DFDesignBlock, DFDesignBlock]
+  ): String =
+    ownerByDesign.get(design) match
+      case Some(owner) if design.isEDMethod =>
+        s"${owner.dclName.toLowerCase()}::${design.dclName.toLowerCase()}"
+      case _ => design.dclName.toLowerCase()
+
+  private def designOwnerMap(db: DB): Map[DFDesignBlock, DFDesignBlock] =
+    db.designMemberList.iterator.flatMap { (owner, members) =>
+      members.collect { case child: DFDesignBlock => child -> owner }
+    }.toMap
+
+  private def groupDesigns(db: DB, ownerByDesign: Map[DFDesignBlock, DFDesignBlock])(using
+      MemberGetSet
+  ): List[List[DFDesignBlock]] =
     val eqDesign: ((DFDesignBlock, List[DFMember]), (DFDesignBlock, List[DFMember])) => Boolean =
       case ((thisBlock, theseMembers), (thatBlock, thoseMembers))
           if thisBlock.dclMeta == thatBlock.dclMeta =>
@@ -20,7 +41,8 @@ case object UniqueDesigns extends GlobalStage:
     // the eventual file names and we want these to be different across all operating systems.
     // the actual name case is preserved for design/entity/module generation.
     db.designMemberList.view
-      .groupByCompare(eqDesign, _._1.dclName.toLowerCase().hashCode()).map(_.unzip._1).toList
+      .groupByCompare(eqDesign, d => scopedDclNameKey(d._1, ownerByDesign).hashCode())
+      .map(_.unzip._1).toList
 
   def transformGlobal(designDB: DB)(using co: CompilerOptions, refGen: RefGen): DB =
     // Cross-design structural comparison resolves refs from BOTH designs, so it
@@ -28,9 +50,11 @@ case object UniqueDesigns extends GlobalStage:
     // this — its design blocks are the SAME objects as the sub-DB tops, so the
     // grouping/decisions map straight back onto the hierarchy.
     val flatDB = designDB.newToOld
-    val sameBlockLists: List[List[DFDesignBlock]] = flatDB.atGetSet(groupDesigns(flatDB))
+    val ownerByDesign = designOwnerMap(flatDB)
+    val sameBlockLists: List[List[DFDesignBlock]] =
+      flatDB.atGetSet(groupDesigns(flatDB, ownerByDesign))
     val uniqueTypeMap: Map[String, List[List[DFDesignBlock]]] =
-      sameBlockLists.groupBy(g => g.head.dclName.toLowerCase())
+      sameBlockLists.groupBy(g => scopedDclNameKey(g.head, ownerByDesign))
 
     val topTop = designDB.top
     // canonical design -> its unique (possibly renamed) declaration name

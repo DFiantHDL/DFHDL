@@ -202,15 +202,30 @@ abstract class CommonPhase extends PluginPhase:
 
   extension (v: ValDef)(using Context)
     def genContainerParamValDef(default: Option[Tree], dfcTree: Tree): ValDef =
-      val meta = v.genMeta
-      val paramGen =
-        ref(genContainerParamSym)
-          .appliedToType(v.tpt.tpe)
-          .appliedToArgs(List(ref(v.symbol), mkOption(default), meta))
-          .appliedTo(dfcTree)
-      val uniqueName = NameKinds.UniqueName.fresh(s"${v.name}_plugin".toTermName)
-      val flags: FlagSet = if (ctx.owner.isConstructor) Private else EmptyFlags
-      SyntheticValDef(uniqueName, paramGen, flags)
+      genContainerParamValDefImpl(
+        ref(v.symbol), v.tpt.tpe, v.name.toString, v.genMeta, default, dfcTree, phantom = false
+      )
+
+  // shared by explicit design/def parameters and plugin-captured phantom parameters of ED
+  // methods (`phantom = true` tags the generated parameter so printers hide it)
+  def genContainerParamValDefImpl(
+      appliedTree: Tree,
+      dfValTpe: Type,
+      name: String,
+      meta: Tree,
+      default: Option[Tree],
+      dfcTree: Tree,
+      phantom: Boolean
+  )(using Context): ValDef =
+    val paramGen =
+      ref(genContainerParamSym)
+        .appliedToType(dfValTpe)
+        .appliedToArgs(List(appliedTree, mkOption(default), meta, Literal(Constant(phantom))))
+        .appliedTo(dfcTree)
+    val uniqueName = NameKinds.UniqueName.fresh(s"${name}_plugin".toTermName)
+    val flags: FlagSet = if (ctx.owner.isConstructor) Private else EmptyFlags
+    SyntheticValDef(uniqueName, paramGen, flags)
+  end genContainerParamValDefImpl
 
   extension (sym: Symbol)
     def ignoreMetaContext(using Context): Boolean =

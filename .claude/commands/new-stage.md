@@ -1138,6 +1138,16 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     a MetaDesign body, add `import dfhdl.compiler.ir` at the file top and qualify IR types as
     `ir.DFVal`, `ir.StepBlock`, etc., importing only the core names actually needed (e.g.
     `import dfhdl.core.{DFIf, DFBool, DFUnit, refTW, addMember}`).
+20. **Design-block ownership is structural in flat DBs** — calling `getOwnerDesign` (or any
+    owner navigation) on a `DFDesignBlock` throws `No owner found` in a `newToOld` flat DB: a
+    design's `ownerRef` is the hierarchy key (`StaticRef`) and is deliberately NOT in the
+    refTable. To find a design's owning design, build a map from `designMemberList` by
+    collecting child `DFDesignBlock` members per design (see `UniqueDesigns.designOwnerMap`).
+21. **Every read of a def-design (ED method) output creates its own `PortByNameSelect`** —
+    when redirecting readers of a call result, collect ALL `designInstPBNS(inst).filter(_.isOut)`
+    members, not just the first: each read site references a different PBNS member (see
+    `PrepEDDefs` — the main PBNS kept via `ChangeRefOnly` + `OfMembers`, the rest
+    `ChangeRefAndRemove`d).
 
 ---
 

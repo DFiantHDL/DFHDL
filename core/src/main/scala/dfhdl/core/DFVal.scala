@@ -100,9 +100,17 @@ end extension
 infix type <>[T <: DFType.Supported, M] = M match
   case DFRET => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
   case RTRET => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
-  case EDRET => (DFC, DomainType.ED) ?=> DFValOf[DFType.Of[T]]
+  case EDRET => EDRETOf[T]
   case VAL   => DFValOf[DFType.Of[T]]
   case CONST => DFConstOf[DFType.Of[T]]
+
+// ED methods are modeled as HDL subprograms: a `Unit` return type declares a procedural
+// method (Verilog task / VHDL procedure — body+call sites under `Scope.Procedural`),
+// any other return type declares a function (body under `Scope.Function`, callable
+// anywhere in the ED domain via the ambient low-priority `Scope.Function` given).
+type EDRETOf[T <: DFType.Supported] = T match
+  case Unit => (DFC, DomainType.ED, DFC.Scope.Procedural) ?=> DFValOf[DFType.Of[T]]
+  case Any  => (DFC, DomainType.ED, DFC.Scope.Function) ?=> DFValOf[DFType.Of[T]]
 
 infix type X[T <: DFType.Supported, M] = DFVector[DFType.Of[T], Tuple1[M]]
 type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
@@ -1694,8 +1702,9 @@ object DFVarOps:
     "Non-blocking assignments `:==` are allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=` or the logic domain to ED."
   ]
   protected type `InsideProcess:=`[D, A] = AssertGiven[
-    DFC.Scope.Process | DFC.Scope.Initial | util.NotGiven[A <:< DomainType.ED] |
-      D <:< DomainType.RT,
+    DFC.Scope.Process | DFC.Scope.Initial | DFC.Scope.Procedural |
+      util.NotGiven[A <:< DomainType.ED] |
+      D <:< DomainType.RT | A <:< DFC.Scope.Function,
     "Blocking assignments `:=` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
   protected type `InsideProcess:==`[D, A] = AssertGiven[

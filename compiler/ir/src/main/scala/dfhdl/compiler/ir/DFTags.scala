@@ -25,6 +25,10 @@ type SyntheticDefaultTag = SyntheticDefaultTag.type
 case object ImplicitlyFromIntTag extends DFTag
 type ImplicitlyFromIntTag = ImplicitlyFromIntTag.type
 case class DFHDLVersionTag(version: String) extends DFTag
+// Marks auto-constructed members that materialize an ED method's captured outer
+// references (phantom ports/params — see the ed-methods plan). Printers hide them.
+case object PhantomTag extends DFTag
+type PhantomTag = PhantomTag.type
 
 opaque type DFTags = Map[String, DFTag]
 object DFTags:

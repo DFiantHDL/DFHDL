@@ -114,20 +114,28 @@ object r__For_Plugin:
   // (name, applied value) parameter pairs.
   def clsAppliedArgs(args: List[(String, DFValAny)]): List[(String, ir.DFVal)] =
     args.map((name, dfVal) => (name, dfVal.asIR))
+  // A phantom design parameter (`phantom = true`) materializes an ED method's captured
+  // outer constant (see the ed-methods plan): same construction as an explicit `<> CONST`
+  // argument parameter, but tagged so printers hide it from signatures and call sites.
+  // Its applied value flows per call through the design's `paramMap` (via `constArgs`),
+  // exactly like explicit const args — sound under `@hw.pure` memoization.
   @metaContextIgnore
   def genContainerParam[V <: DFValAny](
       appliedVal: DFValAny,
       defaultVal: Option[DFValAny],
-      paramMeta: ir.Meta
+      paramMeta: ir.Meta,
+      phantom: Boolean
   )(using DFC): V =
     // the applied values are not refernced in the usual way, so we inject a possible
     // global context here.
     appliedVal.asIR.injectGlobalCtx()
+    val paramDFC = if (phantom) dfc.tag(ir.PhantomTag) else dfc
     trydf:
       dfc.mutableDB.DesignContext.getReachableNamedValue(
         appliedVal.asIR,
-        DFVal.DesignParam(appliedVal, defaultVal)(using dfc.setMeta(paramMeta)).asIR
+        DFVal.DesignParam(appliedVal, defaultVal)(using paramDFC.setMeta(paramMeta)).asIR
       ).asValAny.asInstanceOf[V]
+  end genContainerParam
 
   @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =
@@ -139,16 +147,55 @@ object r__For_Plugin:
       dclMeta: ir.Meta
   )(
       func: => V
+  )(using DFC): V =
+    designFromDefImpl(ir.DomainType.DF, args, Nil, constArgs, dclMeta)(func)
+  // ED methods (HDL functions/tasks — see the ed-methods plan): same construction as DF
+  // design defs, but under the ED domain. ED methods are `@hw.pure` by default —
+  // `defaultPure` is false only when the user explicitly annotated the def (the plugin
+  // checks for the annotation's presence, since an inactive `@hw.pure(false)` is dropped
+  // from the meta annotations and would otherwise be indistinguishable from an absent one).
+  // `phantomArgs` are the plugin-lifted captured outer references: they become
+  // `PhantomTag`-tagged input ports (hidden by the HDL printers), evaluated inside the def
+  // at call time and connected in the caller's scope exactly like explicit arguments —
+  // which also keeps `@hw.pure` memoization sound (phantoms partake in the cache key and
+  // reconnect per call site even on a cache hit).
+  @metaContextForward(2)
+  def designFromDefED[V <: DFValAny](
+      args: List[(DFValAny, ir.Meta)],
+      phantomArgs: List[(DFValAny, ir.Meta)],
+      constArgs: List[(String, DFValAny)],
+      defaultPure: Boolean,
+      dclMeta: ir.Meta
+  )(
+      func: => V
+  )(using DFC): V =
+    val updatedMeta =
+      if (defaultPure) dclMeta.copy(annotations = ir.annotation.Pure :: dclMeta.annotations)
+      else dclMeta
+    designFromDefImpl(ir.DomainType.ED, args, phantomArgs, constArgs, updatedMeta)(func)
+  private def designFromDefImpl[V <: DFValAny](
+      domain: ir.DomainType,
+      args: List[(DFValAny, ir.Meta)],
+      phantomArgs: List[(DFValAny, ir.Meta)],
+      constArgs: List[(String, DFValAny)],
+      dclMeta: ir.Meta
+  )(
+      func: => V
   )(using DFC): V = trydf:
     val designBlock =
       Design.Block.apply(
-        domain = ir.DomainType.DF,
+        domain = domain,
         instMode = ir.DFDesignBlock.InstMode.Def
       )(using dfc.setMeta(dclMeta))
     dfc.enterOwner(designBlock)
-    val inputs = args.map { (arg, argMeta) =>
+    val explicitInputs = args.map { (arg, argMeta) =>
       DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
     }
+    val phantomInputs = phantomArgs.map { (arg, argMeta) =>
+      DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta).tag(ir.PhantomTag))
+    }
+    val inputs = explicitInputs ++ phantomInputs
+    val allArgs = args ++ phantomArgs
     val (isDuplicate, ret) =
       dfc.mutableDB.DesignContext.runFuncWithInputs(func, inputs)
     val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(constArgs))
@@ -156,8 +203,15 @@ object r__For_Plugin:
       val endedDesign = designBlock.asIR
       dfc.exitOwner()
       Design.Inst(endedDesign, paramEntries)
-      inputs.lazyZip(args).foreach { case (input, (arg, _)) =>
-        input.connect(arg)(using dfc.anonymize)
+      val phantomStartIdx = args.length
+      inputs.lazyZip(allArgs).lazyZip(LazyList.from(0)).foreach { case (input, (arg, _), i) =>
+        // phantom connects (and the port-by-name selects they create) carry the
+        // PhantomTag so printers/stages can detect phantom wiring locally, without
+        // resolving the method design's members
+        val connDFC =
+          if (i >= phantomStartIdx) dfc.anonymize.tag(ir.PhantomTag)
+          else dfc.anonymize
+        input.connect(arg)(using connDFC)
       }
     def genOutPort = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setName("o"))
     if (ret.dfType.asIR == ir.DFUnit)
@@ -175,7 +229,7 @@ object r__For_Plugin:
       exitAndConnectInputs()
       output.asInstanceOf[V]
     end if
-  end designFromDef
+  end designFromDefImpl
   def identVal[V <: DFValAny](value: V)(using DFC): V =
     DFVal.Alias.AsIs.ident(value).asInstanceOf[V]
   object defaults:

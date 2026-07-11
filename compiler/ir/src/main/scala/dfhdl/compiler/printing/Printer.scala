@@ -244,11 +244,39 @@ trait Printer
       def postOrder(sub: DB): List[DB] =
         childrenOf.getOrElse(sub.top.ownerRef, mutable.ListBuffer.empty).toList
           .flatMap(postOrder) :+ sub
-      postOrder(designDB.topDB).map(sub => sub.top -> withGetSet(sub.getSet))
+      // ED methods are locally scoped — they print inside their owning design (see
+      // `edMethodPrinters`) rather than as standalone design files
+      postOrder(designDB.topDB).collect {
+        case sub if !sub.top.isEDMethod => sub.top -> withGetSet(sub.getSet)
+      }
     else
-      designDB.designMemberList.collect { case (block: DFDesignBlock, _) => block -> printer }
+      designDB.designMemberList.collect {
+        case (block: DFDesignBlock, _) if !block.isEDMethod => block -> printer
+      }
     end if
   end designPrinters
+
+  // The (ED method design, printer-bound-to-its-getSet) pairs locally declared by `design`.
+  // ED methods print inside their owning design's declaration; they are discovered through
+  // the owner's DFDesignInst members (including calls made inside process blocks), distinct
+  // by design block, in first-call order.
+  final def edMethodPrinters(design: DFDesignBlock): List[(DFDesignBlock, TPrinter)] =
+    val designDB = getSet.designDB
+    val seen = mutable.LinkedHashMap.empty[DFDesignBlock, TPrinter]
+    design.members(MemberView.Flattened).foreach {
+      case inst: DFDesignInst =>
+        val block = inst.getDesignBlock
+        if (block.isEDMethod && !seen.contains(block))
+          val root = designDB.rootDB
+          val boundPrinter =
+            if (root.isRoot)
+              root.subDBs.get(inst.designRef).map(sub => withGetSet(sub.getSet)).getOrElse(printer)
+            else printer
+          seen(block) = boundPrinter
+      case _ =>
+    }
+    seen.toList
+  end edMethodPrinters
 
   final def csDB: String =
     // a foreign IP renders as an `import <clsName>` of its pre-existing external class; multiple

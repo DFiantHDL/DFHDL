@@ -12,7 +12,9 @@ case object ViaConnection extends HierarchyStage:
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patchList: List[(DFMember, Patch)] = subDB.members.flatMap {
-      case ib: DFDesignInst =>
+      // ED method (function/task) instances are printed as inline HDL subprogram calls —
+      // their port connections must NOT be rewired through via variables
+      case ib: DFDesignInst if !ib.getDesignBlock.isEDMethod =>
         val nets = mutable.ListBuffer.empty[DFNet]
         val pbnsSkip = mutable.Set.empty[DFVal.PortByNameSelect]
         val pbnsGrps =

@@ -476,6 +476,100 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("ED method (function) def") {
+    class EDMethodTop extends EDDesign:
+      val a                                                           = UInt(8) <> IN
+      val b                                                           = UInt(8) <> IN
+      val y                                                           = UInt(8) <> OUT
+      val z                                                           = UInt(8) <> OUT
+      def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        val tmp = UInt(8) <> VAR
+        tmp := l + r
+        tmp
+      def zero(): UInt[8] <> EDRET = d"8'0"
+      y <> add(a, b)
+      process(all):
+        z := add(a, b) + zero()
+    end EDMethodTop
+    val id = (new EDMethodTop)
+    // ED methods print inside the owning design class body (locally scoped),
+    // unlike DF design defs which print as standalone defs
+    assertCodeString(
+      id,
+      """|class EDMethodTop extends EDDesign:
+         |  def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    val tmp = UInt(8) <> VAR
+         |    tmp := l + r
+         |    tmp
+         |  end add
+         |
+         |  def zero(): UInt[8] <> EDRET =
+         |    d"8'0"
+         |  end zero
+         |
+         |  val a = UInt(8) <> IN
+         |  val b = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  val z = UInt(8) <> OUT
+         |  y <> add(a, b)
+         |  process(all):
+         |    z := add(a, b) + zero()
+         |end EDMethodTop
+         |""".stripMargin
+    )
+  }
+  test("ED method phantom capture printing") {
+    class FooCap extends EDDesign:
+      val a                   = UInt(8) <> IN
+      val b                   = UInt(8) <> IN
+      val y                   = UInt(8) <> OUT
+      val k: UInt[8] <> CONST = 5
+      // `b` is captured as a phantom input and `k` as a phantom design parameter —
+      // both hidden from the printed signature and call site; the body references
+      // print the captured values' names directly
+      def addBK(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b + k
+      y <> addBK(a)
+    end FooCap
+    val id = (new FooCap)
+    assertCodeString(
+      id,
+      """|class FooCap extends EDDesign:
+         |  def addBK(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    l + b + k
+         |  end addBK
+         |
+         |  val a = UInt(8) <> IN
+         |  val b = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  val k: UInt[8] <> CONST = d"8'5"
+         |  y <> addBK(a)
+         |end FooCap
+         |""".stripMargin
+    )
+  }
+  test("ED method (procedural task) printing") {
+    class EDTaskTop extends EDDesign:
+      val a                      = UInt(8) <> IN
+      def pause(): Unit <> EDRET =
+        wait(1.ns)
+      process:
+        pause()
+    end EDTaskTop
+    val id = (new EDTaskTop)
+    assertCodeString(
+      id,
+      """|class EDTaskTop extends EDDesign:
+         |  def pause(): Unit <> EDRET =
+         |    1.ns.wait
+         |  end pause
+         |
+         |  val a = UInt(8) <> IN
+         |  process:
+         |    pause()
+         |end EDTaskTop
+         |""".stripMargin
+    )
+  }
   test("Design def with toScalaValue effects") {
     class DesignDefCont extends DFDesign:
       val data = UInt(32) <> IN

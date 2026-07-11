@@ -2008,4 +2008,153 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("ED method (function)") {
+    class EDFunc extends EDDesign:
+      val a                                                           = UInt(8) <> IN
+      val b                                                           = UInt(8) <> IN
+      val y                                                           = UInt(8) <> OUT
+      val z                                                           = UInt(8) <> OUT
+      def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        val tmp = UInt(8) <> VAR
+        tmp := l + r
+        tmp
+      val k: UInt[8] <> CONST                        = 5
+      def addBK(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b + k
+      y <> add(a, b)
+      process(all):
+        z :== addBK(a)
+    end EDFunc
+    val top = (new EDFunc).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDFunc is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  b : in unsigned(7 downto 0);
+         |  y : out unsigned(7 downto 0);
+         |  z : out unsigned(7 downto 0)
+         |);
+         |end EDFunc;
+         |
+         |architecture EDFunc_arch of EDFunc is
+         |  constant k : unsigned(7 downto 0) := 8d"5";
+         |  function add(l : unsigned(7 downto 0); r : unsigned(7 downto 0)) return unsigned is
+         |    variable tmp : unsigned(7 downto 0);
+         |  begin
+         |    tmp := l + r;
+         |    return tmp;
+         |  end function;
+         |
+         |  impure function addBK(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return l + b + k;
+         |  end function;
+         |begin
+         |  y <= add(a, b);
+         |  process (a, b)
+         |  begin
+         |    z <= addBK(a);
+         |  end process;
+         |end EDFunc_arch;
+         |""".stripMargin
+    )
+  }
+  test("ED method (function) under v93") {
+    given options.CompilerOptions.Backend = _.vhdl.v93
+    class EDFuncOld extends EDDesign:
+      val a                                         = UInt(8) <> IN
+      val b                                         = UInt(8) <> IN
+      val z                                         = UInt(8) <> OUT
+      def addB(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b
+      def zero(): UInt[8] <> EDRET                  = d"8'0"
+      process(all):
+        z :== addB(a) + zero()
+    end EDFuncOld
+    val top = (new EDFuncOld).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDFuncOld is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  b : in unsigned(7 downto 0);
+         |  z : out unsigned(7 downto 0)
+         |);
+         |end EDFuncOld;
+         |
+         |architecture EDFuncOld_arch of EDFuncOld is
+         |  impure function addB(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return l + b;
+         |  end function;
+         |
+         |  function zero return unsigned is
+         |  begin
+         |    return to_unsigned(0, 8);
+         |  end function;
+         |begin
+         |  process (a, b)
+         |  begin
+         |    z <= addB(a) + zero;
+         |  end process;
+         |end EDFuncOld_arch;
+         |""".stripMargin
+    )
+  }
+  test("ED method (procedural procedure)") {
+    class EDTask extends EDDesign:
+      val a                                      = UInt(8) <> IN
+      def show(l: UInt[8] <> VAL): Unit <> EDRET =
+        report(s"value is $l")
+        wait(1.ns)
+      def pause(): Unit <> EDRET =
+        wait(2.ns)
+      process.forever:
+        show(a)
+        pause()
+    end EDTask
+    val top = (new EDTask).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDTask is
+         |port (
+         |  a : in unsigned(7 downto 0)
+         |);
+         |end EDTask;
+         |
+         |architecture EDTask_arch of EDTask is
+         |  procedure show(l : unsigned(7 downto 0)) is
+         |  begin
+         |    report "value is " & to_string(l) & "" severity NOTE;
+         |    wait for 1 ns;
+         |  end procedure;
+         |
+         |  procedure pause is
+         |  begin
+         |    wait for 2 ns;
+         |  end procedure;
+         |begin
+         |  process
+         |  begin
+         |    show(a);
+         |    pause;
+         |  end process;
+         |end EDTask_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

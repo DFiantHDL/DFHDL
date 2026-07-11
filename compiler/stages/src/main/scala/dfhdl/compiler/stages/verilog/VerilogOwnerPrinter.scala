@@ -97,10 +97,16 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
           case _ => None
         }
         .mkString("\n")
+    // ED methods (HDL functions) are locally scoped — declared in this module's
+    // declaration region
+    val edMethodDcls = printer.edMethodPrinters(design)
+      .map((block, p) => s"${p.csDocString(block.dclMeta)}${p.csDFDesignDefDcl(block)}")
+      .mkString("\n\n")
     val declarations =
       sn"""|$constIntDcls
            |$localTypeDcls
-           |$dfValDcls"""
+           |$dfValDcls
+           |$edMethodDcls"""
     val statements = csDFMembers(
       designMembers.filter {
         case _: DFVal.Dcl => false
@@ -180,8 +186,113 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       else " #(" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
     val instCS = s"${moduleName(design)}$designParamCS ${inst.getName}"
     if (body.isEmpty) s"$instCS;" else s"$instCS(\n${body.hindent}\n);"
-  def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
-  def csDFDesignDefInst(inst: DFDesignInst): String = printer.unsupported
+  // v95/v2001 require at least one function input; when the printed input list is empty
+  // (no explicit args — phantoms are hidden), a dummy input is declared and call sites
+  // pass a literal `0`
+  val dummyLessFunctionSupport: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
+  // ED methods (HDL functions) print inside their owning module's declaration region
+  def csDFDesignDefDcl(design: DFDesignBlock): String =
+    val designMembers = design.members(MemberView.Folded)
+    // the return value: the (single, full) connection to the output port
+    var retValOpt: Option[DFVal] = None
+    val outNetOpt = designMembers.view.reverse.collectFirst {
+      case outNet @ DFNet.Connection(DclOut(), rv: DFVal, _) =>
+        retValOpt = Some(rv)
+        outNet
+    }
+    val funcName = design.dclName
+    val ansiHeader = printer.dialect match
+      case VerilogDialect.v95 => false
+      case _                  => true
+    // HDL subprograms are static by default — `automatic` gives the expected
+    // fresh-per-call semantics (unavailable in v95, where functions cannot wait anyway)
+    val automatic = if (ansiHeader) "automatic " else ""
+    def csFuncType(dfType: DFType): String =
+      val csType = printer.csDFType(dfType).emptyOr(_ + " ")
+      if (printer.supportLogicType) csType else csType.replace("logic ", "")
+    val retTypeCS = retValOpt.map(rv => csFuncType(rv.dfType)).getOrElse("")
+    val inputs = designMembers.collect {
+      // phantom ports materialize captured outer references — hidden from the signature
+      // (their body references print the captured value's name, resolved at module scope)
+      case p @ DclIn() if !p.hasTagOf[PhantomTag] => p
+    }
+    def csInput(p: DFVal.Dcl): String =
+      s"input ${csFuncType(p.dfType)}${p.getName}"
+    // a procedural method (Unit return — no return output port) prints as a task
+    val isProcedural = retValOpt.isEmpty
+    val subprogram = if (isProcedural) "task" else "function"
+    // the v95/v2001 minimum-one-input rule applies to functions only; tasks may have no
+    // arguments in all dialects
+    val needsDummy = !isProcedural && inputs.isEmpty && !dummyLessFunctionSupport
+    val header =
+      if (ansiHeader)
+        val inputList =
+          if (needsDummy) "input __dummy__"
+          else inputs.map(csInput).mkString(", ")
+        // a parameterless task is declared without parentheses (portable across dialects)
+        if (isProcedural && inputs.isEmpty) s"task automatic $funcName;"
+        else s"$subprogram $automatic$retTypeCS$funcName($inputList);"
+      else
+        val inputDcls =
+          (if (needsDummy) List("input __dummy__;") else inputs.map(csInput(_) + ";"))
+            .mkString("\n")
+        val headerLine = s"$subprogram $retTypeCS$funcName;"
+        if (inputDcls.isEmpty) headerLine
+        else s"$headerLine\n${inputDcls.hindent}"
+    val localDcls = designMembers.view.flatMap {
+      // phantom design parameters (captured outer constants) print nowhere — their body
+      // references resolve to the captured constant's name at module scope
+      case _: DesignParam              => None
+      case dcl: DFVal.Dcl if dcl.isVar => Some(printer.csDFMember(dcl) + ";")
+      case c @ DclConst()              => Some(printer.csDFMember(c) + ";")
+      case _                           => None
+    }.mkString("\n")
+    val statements = csDFMembers(designMembers.filter {
+      case _: DFVal.Dcl                          => false
+      case DclConst()                            => false
+      case net: DFNet if outNetOpt.contains(net) => false
+      // the return value ident placeholder is rendered by the return assignment below
+      case m: DFVal if retValOpt.contains(m) => false
+      case _                                 => true
+    })
+    val retAssign =
+      retValOpt.map(rv => s"$funcName = ${printer.csDFValRef(rv, design)};").getOrElse("")
+    val body =
+      sn"""|$statements
+           |$retAssign"""
+    sn"""|$header
+         |${localDcls.hindent}
+         |begin
+         |${body.hindent}
+         |end
+         |end$subprogram"""
+  end csDFDesignDefDcl
+  def csDFDesignDefInst(inst: DFDesignInst): String =
+    val design = inst.getDesignBlock
+    val instPBNS = getSet.designDB.designInstPBNS.getOrElse(
+      inst,
+      getSet.designDB.members.collect {
+        case pbns: DFVal.PortByNameSelect if pbns.getDesignInst == inst => pbns
+      }
+    )
+    // a procedural method call (no return output port) is a statement
+    val isProcedural = !instPBNS.exists(_.isOut)
+    val args = instPBNS.view.collect {
+      case pbns if pbns.isIn && !pbns.hasTagOf[PhantomTag] =>
+        val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionsTo.head.runtimeChecked
+        printer.csDFValRef(from, inst.getOwner)
+    }.mkString(", ")
+    if (isProcedural)
+      // a parameterless task call has no parentheses
+      if (args.isEmpty) s"${moduleName(design)};"
+      else s"${moduleName(design)}($args);"
+    else
+      val argList = if (args.isEmpty && !dummyLessFunctionSupport) "0" else args
+      s"${moduleName(design)}($argList)"
+  end csDFDesignDefInst
   def csBlockBegin: String = "begin"
   def csBlockEnd: String = "end"
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"
@@ -243,7 +354,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
         printer.dialect match
           case VerilogDialect.v2001 | VerilogDialect.v95 => "always"
           case _                                         =>
-            pb.sensitivity match
+            pb.sensitivity.runtimeChecked match
               case Sensitivity.All        => "always_comb"
               case Sensitivity.List(refs) =>
                 refs match
@@ -253,7 +364,6 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
                       DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
                     "always_ff"
                   case _ => "always"
-              case Sensitivity.Initial => "initial" // unreachable (handled above)
     val senList = pb.sensitivity match
       case Sensitivity.Initial    => ""
       case Sensitivity.All        => if (alwaysKW == "always") " @(*)" else ""
