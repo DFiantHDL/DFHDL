@@ -103,7 +103,10 @@ object constraints:
   ) extends GlobalConstraint:
     val asIR: ir.constraints.DeviceConfig =
       ir.constraints.DeviceConfig(
-        flashPartName, interface(deviceConfig.interface), sizeLimitMb, masterRate
+        flashPartName,
+        interface(deviceConfig.interface),
+        sizeLimitMb,
+        masterRate
       )
   object deviceConfig:
     import ir.constraints.DeviceConfig.Interface
@@ -163,6 +166,7 @@ object constraints:
       import ir.constraints.IO.PullMode
       export PullMode.UP as up
       export PullMode.DOWN as down
+  end io
 
   object timing:
     type InclusionPolicy = ir.ClkRstInclusionPolicy
