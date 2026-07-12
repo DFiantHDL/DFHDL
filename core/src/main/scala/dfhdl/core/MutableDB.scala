@@ -563,6 +563,33 @@ final class MutableDB():
       case member => List(member)
     topMemberList.flatMap(flattenMembers)
 
+  // The dclName uniquification and duplicate-design canonicalization maps, derived from
+  // the whole-run `uniqueDesigns` groups: (duplicate design -> its canonical group head,
+  // design -> its dclName-renamed block copy). Shared by the flat `immutable` path and
+  // the hierarchical by-construction assembly (`hierarchical`).
+  private def designDedupMaps
+      : (Map[DFDesignBlock, DFDesignBlock], Map[DFDesignBlock, DFDesignBlock]) =
+    val dupToOrigDesignMap = mutable.Map.empty[DFDesignBlock, DFDesignBlock]
+    val duplicateDesignRepMap = DesignContext.uniqueDesigns.view.flatMap {
+      case (designType, groupList) =>
+        groupList.view.reverse.zipWithIndex.flatMap {
+          case (group, i) if group.length > 1 || groupList.length > 1 =>
+            val updatedDclName =
+              if (groupList.length > 1) s"${designType}_${i.toPaddedString(groupList.length)}"
+              else designType
+            var first = true
+            val orig = group.head
+            group.view.map(design =>
+              if (first) first = false
+              else dupToOrigDesignMap += design -> orig
+              design -> design.copy(meta = design.meta.copy(nameOpt = Some(updatedDclName)))
+            )
+          case _ => Nil
+        }
+    }.toMap
+    (dupToOrigDesignMap.toMap, duplicateDesignRepMap)
+  end designDedupMaps
+
   def immutable: DB = memoizedDB.getOrElse {
     // if in meta-programming (indicated by the existence of an external context),
     // then we need to just get the current hierarchy members and refTable
@@ -584,24 +611,7 @@ final class MutableDB():
           case (ref: DFRef.TypeRef, m) => usedTypeRefs.contains(ref)
           case _                       => true
         }.toMap
-        val dupToOrigDesignMap = mutable.Map.empty[DFDesignBlock, DFDesignBlock]
-        val duplicateDesignRepMap = DesignContext.uniqueDesigns.view.flatMap {
-          case (designType, groupList) =>
-            groupList.view.reverse.zipWithIndex.flatMap {
-              case (group, i) if group.length > 1 || groupList.length > 1 =>
-                val updatedDclName =
-                  if (groupList.length > 1) s"${designType}_${i.toPaddedString(groupList.length)}"
-                  else designType
-                var first = true
-                val orig = group.head
-                group.view.map(design =>
-                  if (first) first = false
-                  else dupToOrigDesignMap += design -> orig
-                  design -> design.copy(meta = design.meta.copy(nameOpt = Some(updatedDclName)))
-                )
-              case _ => Nil
-            }
-        }.toMap
+        val (dupToOrigDesignMap, duplicateDesignRepMap) = designDedupMaps
         // replacement map for domain owners that includes both duplicated designs and constrained domain owners
         val domainOwnerRepMap = members.collect {
           case design: DFDesignBlock =>
@@ -706,6 +716,186 @@ final class MutableDB():
     memoizedDB = Some(db)
     db
   }
+
+  // ~~~ hierarchical DB by construction ~~~
+  // Assembles the final hierarchical DB DIRECTLY from the mutable model: the per-design
+  // member snapshots that `endDesign` finalized (`DesignContext.designMembers`), the
+  // merged run refTable, and the global context. The whole-run final fixes (dclName
+  // uniquification, duplicate dropping, instance unification, resource constraints)
+  // apply per member and per ref target at assembly time. No flat DB is involved: this
+  // replaces the flatten + re-partition round trip (`immutable` followed by
+  // `DB.oldToNew`) and proves the substrate for caching a design at its end: a design's
+  // end-of-elaboration snapshot IS its final sub-DB content, modulo those fixes.
+  // VALIDATION PHASE: the flat path remains as the REFERENCE ONLY; this assembly must
+  // equal `immutable.oldToNew` exactly (`verifyHierarchicalConstruction`, soaked
+  // suite-wide). The end state makes `immutable` itself return this hierarchical DB and
+  // retires the flat form.
+  def hierarchical: DB =
+    require(!inMetaProgramming, "hierarchical DB construction is undefined in meta-programming")
+    // the run's merged state: the (ended) top-level context member list, which holds
+    // the injected globals and the top design block, and the run-wide merged refTable
+    val topMemberList = DesignContext.current.getImmutableMemberList
+    val rawRefTable = DesignContext.current.getImmutableRefTable
+    val (dupToOrigDesignMap, duplicateDesignRepMap) = designDedupMaps
+    val constrainedDcls = ResourceOwnershipContext.getConstrainedDcls()
+    // the whole-run final fix of a single member (mirrors `immutable`'s finalFixFunc,
+    // applied per snapshot member instead of over the flat list)
+    def fixedMember(m: DFMember): DFMember = m match
+      case design: DFDesignBlock =>
+        ResourceOwnershipContext.getConstrainedDomainOwner(
+          duplicateDesignRepMap.getOrElse(design, design)
+        )
+      case domainOwner: DFDomainOwner =>
+        ResourceOwnershipContext.getConstrainedDomainOwner(domainOwner)
+      case dcl: DFVal.Dcl => constrainedDcls.getOrElse(dcl, dcl)
+      case m              => m
+    // a DFDesignInst points at its canonical design's key (see `immutable`'s unifyInst)
+    def unifyInst(inst: DFDesignInst): DFDesignInst =
+      val target =
+        dupToOrigDesignMap.getOrElse(inst.designRef.asRef.get, inst.designRef.asRef.get)
+      inst.copy(designRef = StaticRef(target.ownerRef))
+    def isLive(d: DFDesignBlock): Boolean = !dupToOrigDesignMap.contains(d)
+    def snapshotOf(d: DFDesignBlock): List[DFMember] =
+      DesignContext.designMembers.getOrElse(d, Nil)
+    // ~~~ parent-to-children claims ~~~
+    // The canonical owner of a child's sub-DB is the design containing the FIRST
+    // DFDesignInst (in elaboration order) targeting the child. The scan visits members
+    // in exactly the flat elaboration order: a design's snapshot in order, recursing
+    // into live child designs at their block's position (duplicate children hold only
+    // their public snapshot, with no instances or child blocks, and are skipped).
+    val parentToChildren =
+      mutable.LinkedHashMap.empty[DFDesignBlock, mutable.ListBuffer[DFDesignBlock]]
+    val claimed = mutable.Set.empty[DFDesignBlock]
+    def scanClaims(d: DFDesignBlock): Unit =
+      snapshotOf(d).foreach {
+        case b: DFDesignBlock   => if (isLive(b)) scanClaims(b)
+        case inst: DFDesignInst =>
+          val target = inst.designRef.asRef.get
+          val child = dupToOrigDesignMap.getOrElse(target, target)
+          if (claimed.add(child))
+            parentToChildren.getOrElseUpdate(d, mutable.ListBuffer.empty) += child
+        case _ =>
+      }
+    // ~~~ globals and refs, from the mutable model directly ~~~
+    // Globals are injected into the top-level context on first use, so their raw
+    // elaboration order is their order there. The closure walks the RAW refTable and
+    // raw global objects; global-ctx cleanup applies at emission (as the flat path's
+    // final members pass does).
+    val allGlobalsOrderedRaw: List[DFVal.CanBeGlobal] = topMemberList.collect {
+      case g: DFVal.CanBeGlobal if g.isGlobal => g
+    }
+    def cleanedGlobals(globals: List[DFVal.CanBeGlobal]): List[DFMember] =
+      globals.map(_.copyWithoutGlobalCtx)
+    def globalsClosure(localMembers: Iterable[DFMember]): List[DFMember] =
+      val reachable = mutable.Set.empty[DFMember]
+      def pull(target: DFMember): Unit = target match
+        case g: DFVal.CanBeGlobal if g.isGlobal && !reachable.contains(g) =>
+          reachable += g
+          g.getRefs.foreach(r => rawRefTable.get(r).foreach(pull))
+        case _ =>
+      localMembers.foreach { m =>
+        m.getRefs.foreach(r => rawRefTable.get(r).foreach(pull))
+      }
+      cleanedGlobals(allGlobalsOrderedRaw.filter(reachable.contains))
+    // a ref target resolved against the raw refTable with the whole-run fixes applied
+    // (the flat path applies the same fixes over its refTable entries)
+    def resolveFixed(r: DFRefAny): Option[DFMember] =
+      rawRefTable.get(r).map {
+        case inst: DFDesignInst => unifyInst(inst)
+        case m                  => fixedMember(m)
+      }
+    // Every ref emitted by the DB's members, fix-resolved. The sub-DB's own design
+    // block behaves as a Top: its ownerRef resolves to DFMember.Empty (unless it
+    // already is an empty ref, i.e. the true top); the DFDesignInst in the parent is
+    // the sole remaining per-use-site marker. `DFDesignInst.designRef` is deliberately
+    // NOT collected: it is unified with the child's `subDBs` key and resolved
+    // structurally, not through the refTable.
+    def refsFor(dTop: DFDesignBlock, dbMembers: Iterable[DFMember]): Map[DFRefAny, DFMember] =
+      val result = mutable.Map.empty[DFRefAny, DFMember]
+      dbMembers.foreach { m =>
+        val ownerTarget =
+          if ((m eq dTop) && !m.ownerRef.isInstanceOf[DFRef.Empty])
+            if (rawRefTable.contains(m.ownerRef)) Some(DFMember.Empty) else None
+          else resolveFixed(m.ownerRef)
+        ownerTarget.foreach(t => result(m.ownerRef) = t)
+        m.getRefs.foreach(r => resolveFixed(r).foreach(t => result(r) = t))
+      }
+      result.toMap
+    val globalTags = GlobalTagContext.tags
+    // ~~~ sub-DB assembly, top-down in claim order ~~~
+    val builtSubDBs = mutable.LinkedHashMap.empty[StaticRef, DB]
+    def build(d: DFDesignBlock): Unit =
+      val dFinal = fixedMember(d).asInstanceOf[DFDesignBlock]
+      val locals = snapshotOf(d).flatMap {
+        // child designs live in their own sub-DBs; globals join through the closure
+        case _: DFDesignBlock                   => None
+        case g: DFVal.CanBeGlobal if g.isGlobal => None
+        case inst: DFDesignInst                 => Some(unifyInst(inst))
+        case m                                  =>
+          fixedMember(m) match
+            case cbg: DFVal.CanBeGlobal => Some(cbg.copyWithoutGlobalCtx)
+            case fixed                  => Some(fixed)
+      }
+      val closure = globalsClosure(dFinal :: locals)
+      val dbMembers = closure ::: dFinal :: locals
+      builtSubDBs(StaticRef(d.ownerRef)) =
+        DB(dbMembers, refsFor(dFinal, dbMembers), globalTags, Nil)
+      parentToChildren.getOrElse(d, Nil).foreach(build)
+    end build
+    val topOrig = topMemberList.collectFirst {
+      case d: DFDesignBlock => d
+    }.get
+    scanClaims(topOrig)
+    build(topOrig)
+    // orphan globals (reached by no sub-DB closure) anchor at the top design's sub-DB
+    val coveredGlobals = mutable.Set.empty[DFMember]
+    builtSubDBs.valuesIterator.foreach { sub =>
+      sub.members.foreach {
+        case g: DFVal.CanBeGlobal if g.isGlobal => coveredGlobals += g
+        case _                                  =>
+      }
+    }
+    val orphanGlobalsRaw = allGlobalsOrderedRaw.filterNot(g =>
+      coveredGlobals.contains(g.copyWithoutGlobalCtx)
+    )
+    if (orphanGlobalsRaw.nonEmpty)
+      val orphanGlobals = cleanedGlobals(orphanGlobalsRaw)
+      val topKey = StaticRef(topOrig.ownerRef)
+      val topSub = builtSubDBs(topKey)
+      builtSubDBs(topKey) = topSub.update(
+        members = orphanGlobals ::: topSub.members,
+        refTable = topSub.refTable ++ refsFor(topOrig, orphanGlobals)
+      )
+    DB(Nil, Map.empty, globalTags, Nil, ListMap.from(builtSubDBs))
+  end hierarchical
+
+  // VALIDATION PHASE ONLY: asserts that the by-construction assembly (`hierarchical`)
+  // equals the flat path (`immutable.oldToNew`) EXACTLY, piecewise for actionable
+  // failure messages. Wired into the test-suite bases (StageSpec, DesignSpec) to soak
+  // the equivalence across every elaborated design; removed when the flip makes
+  // `hierarchical` the only path.
+  def verifyHierarchicalConstruction(): Unit =
+    val flat = immutable.oldToNew
+    val byConstruction = hierarchical
+    def mismatch(msg: String): Nothing =
+      throw new AssertionError(s"Hierarchical-by-construction mismatch! $msg")
+    if (!byConstruction.equals(flat))
+      val bKeys = byConstruction.subDBs.keys.toList
+      val fKeys = flat.subDBs.keys.toList
+      if (!bKeys.equals(fKeys))
+        mismatch(s"subDB keys/order:\n  built: $bKeys\n  flat:  $fKeys")
+      byConstruction.subDBs.lazyZip(flat.subDBs).foreach { case ((_, b), (_, f)) =>
+        val name = f.top.dclName
+        b.members.lazyZip(f.members).zipWithIndex.foreach { case ((bm, fm), i) =>
+          if (!bm.equals(fm)) mismatch(s"member $i of `$name`:\n  built: $bm\n  flat:  $fm")
+        }
+        if (b.members.length != f.members.length)
+          mismatch(s"member count of `$name`: built ${b.members.length}, flat ${f.members.length}")
+        if (!b.refTable.equals(f.refTable)) mismatch(s"refTable of `$name`")
+      }
+      mismatch("root DBs differ")
+    end if
+  end verifyHierarchicalConstruction
 
   given getSet: MemberGetSet with
     val isMutable: Boolean = true
