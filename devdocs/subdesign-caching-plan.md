@@ -1,5 +1,41 @@
 # Sub-Design Caching and the Generalized Design Load Harness
 
+## RESEQUENCED ROADMAP (user decision, 2026-07-12; supersedes the NEXT list below)
+
+The caching mechanism is REMOVED for now and returns only after the DB substrate is
+restructured. The three steps:
+
+1. DONE: drop ALL elaboration caching (intra-run pure-def cache AND the sub-design cache
+   service tiers) and stay green. Deleted: `DesignLoadGate` (Key/Entry/intraRunCache/
+   externalShells/finalize), `DesignLoadResult`, `MutableDB.subDesignCache`,
+   `DesignContext.isDuplicate`/`duplicateOf` (cache-hit group joining),
+   `Design.finalizeCachedSubDesigns`. STASHED for step 3 (git stash "subdesign-cache
+   service layer (resurrect at step 3)"): `SubDesignDiskCache.scala` (trait + disk
+   service), `SubDesignCacheSpec.scala`, the `ElaborationOptions.CacheEnable` diff, and
+   the `DB.scala` diff (extractSubDesignDB/attachExternalSubDesigns/subDesignRetDFType).
+   KEPT: all purity/self-containment rigging (PureCheckPhase attribution, phantom
+   capture rigging, PhantomTag, local def-dcl printing, harness-created params/inputs),
+   and `designFromDef` keeps its full signature (`scalaArgs`/`ownerClass` inert) so the
+   plugin stays untouched. Every def call now elaborates live; the pre-existing
+   structural dedup unifies identical bodies, so printed output is unchanged (one test
+   updated: PureCheckSpec's @pure-override test now expects two distinct folded designs
+   instead of trusted-cache body sharing).
+2. Hierarchical DB by construction (no caching involved): at `endDesign` each
+   DesignContext finalizes into its own immutable SELF-CONTAINED sub-DB (own members via
+   the same materialization structural dedup already performs, child sub-DBs stashed at
+   their ends, globals closure) and LOCKS (post-end mutation asserts). First landed
+   alongside the flat model with an equality test (stashed sub-DBs == oldToNew's
+   sub-DBs) across the suite; then `getDB` assembles from the stashed sub-DBs, dclName
+   uniquification moves to assembly time, and the flat->hierarchical `oldToNew`
+   conversion retires. Known post-end mutator to relocate: dclName dedup renaming
+   (revises child design headers inside ended parents at `immutable` time).
+3. Reintroduce caching on the self-sustained substrate (pop the stash): the agreed
+   simplified design; a single per-run map `Key -> design` for intra-run unification
+   (which then replaces the structural dedup mechanism), store = `service.store(key,
+   subDB)` right at `endDesign` (sub-DBs now exist at design end), hit = the shell
+   context ADOPTS the cached forest as its sub-DB inline (no deferred attach/finalize
+   choreography), return DFType always read from the out port of the DB/design at hand.
+
 Status (2026-07-11, branch `pure-checks`):
 
 - Phase 1 (pure def cache fix: harness-created params, extended key, capture handling)
@@ -126,15 +162,151 @@ Status (2026-07-11, branch `pure-checks`):
     after `dropDesignDefs`. PureDesignDefSpec capture tests updated (captures cache-hit
     now; printed like source). Verified: StagesSpec 491/491, full test green except the
     known-ignorable ips VgaMonitor env failure and munit "0 total" anomaly lines.
+- Phase 2 `DesignLoadGate` extraction IMPLEMENTED (2026-07-12): `runFuncWithInputs` (and
+  the `PureDefEntry`/`pureDesignDefOutCache` machinery) moved out of `DesignContext` into
+  a sibling `MutableDB.DesignLoadGate` with named pieces: `Key(dclMeta, inputTypes,
+  scalaArgs, impureParamsKey)`, `Entry(design, ret)`, the `intraRunCache` map (the first
+  backing tier), `isPure(design)`, `keyOf(...): Option[Key]` (None = uncacheable), and
+  `loadDesignDef(func, inputs, params, scalaArgs, impureParamsKeyOpt)(paramEntriesOf)`.
+  Behavior-identical (full test matches the pre-refactor baseline); `designFromDef` is the
+  only client. The disk tier (Phase 3) joins behind the same gate; class designs (Phase 4)
+  route their instantiation through it. The `@hw.pure` contract documentation remains part
+  of the user-docs item below.
+- Phase 3 GROUNDWORK (2026-07-12): the plugin now passes the def's nearest enclosing
+  class (`classOf`, the future `factum.CodeRef` anchor) through `designFromDef` into
+  `DesignLoadGate.loadDesignDef(ownerClass)`; unused by the intra-run tier (dclMeta
+  already identifies the declaration within a run). All remaining Phase 3 work is
+  core/ir/lib-side (no more plugin rebuilds needed).
+- Phase 3 DESIGN RISKS discovered while mapping the attachment path (must be resolved by
+  the disk-tier implementation):
+  - REF-TOKEN COLLISION on attach: a cached bundle's sub-DB keys (`StaticRef` tokens) and
+    the `DFDesignInst.designRef` tokens inside its members come from the CACHED run's
+    RefGen counters and can collide with the fresh run's tokens once spliced into one
+    `subDBs` map. Attachment must FRESHEN the bundle's design-block ownerRef tokens (the
+    subDBs keys) and the matching `designRef`s inside bundle members. Per-sub-DB
+    refTables are self-contained, so only these cross-sub-DB tokens need rewriting;
+    `db.patch` per bundle sub-DB keeps refTable value-consistency for the replaced
+    `DFDesignInst`s (`designRef` itself is deliberately absent from refTables and from
+    `copyWithNewRefs`).
+  - DCLNAME DEDUP RENAMING: `MutableDB.immutable` renames same-dclName design groups
+    (`${designType}_NN`), so a cached bundle may embed a suffixed dclName that clashes
+    with (or diverges from) the fresh run's naming. Attachment must re-uniquify names
+    (the stage-level `UniqueDesigns` invariant) rather than trust cached names.
+  - EXTRACTION POINT: bundles must be extracted from the post-`oldToNew` hierarchical DB
+    (self-contained sub-DBs) right after elaboration (pre-stages), and the recorded
+    design -> key mapping must survive `immutable`'s duplicate unification (the shell
+    block of a disk hit has no live canonical to join; it needs a "duplicate with
+    external body" marking so its non-public members drop like today's duplicates).
+  - Return-type manifest: on a disk hit the harness needs the def's RETURN DFType (for
+    the out port and the Unit-return check) before any body exists; store it in the
+    bundle alongside the sub-DB forest (the rest of the public interface is already
+    harness-created from call-site information).
+- Phase 3 CORE MECHANISM IMPLEMENTED (2026-07-12), everything except the DFApp/lib disk
+  implementation:
+  - `ir.SubDesignBundle(retDFType, forest: List[(StaticRef, DB)])` derives ReadWriter
+    (sub-DBs serialize through the existing DB RW); `ir.SubDesignCache` trait with
+    `lookup/store(ownerClass, localKey)`; `DB.extractSubDesignForest(key)` (transitive,
+    top first) and `DB.attachExternalSubDesigns(bundles)(using RefGen)` which freshens
+    cross-sub-DB tokens (bundle top adopts the SHELL's token and the shell's fresh block
+    header wholesale, resolving dclName renaming; children get newly generated tokens;
+    `DFDesignInst.designRef`s remapped; per-sub-DB refTables need only the top ownerRef
+    key swap since designRef is absent from refTables), with an instMode/domainType/
+    dclMeta-position guard against key collisions.
+  - `DesignLoadResult` (Live(ret)/Cached(retDFType)): the harness only ever needs the
+    RETURN DFTYPE on any cached path (the user-facing return value is always the fresh
+    out port), so intra-run entries store retDFType and a disk hit needs no live object.
+  - Gate: resolution order intra-run -> disk -> live. A disk hit marks the shell context
+    duplicate WITHOUT `duplicateOf` (it becomes its own group's canonical with an
+    external body), registers the bundle for attachment, records a shell cache identity
+    (`externalShellIdOf`) consulted by `sameDesignAs` so different-body shells never
+    structurally unify (their in-run members are just the public interface), and seeds
+    the intra-run tier so same-run repeats join as regular duplicates. A live cacheable
+    run records a write-back entry; `Design.finalizeCachedSubDesigns` (used by BOTH
+    `getDB` and the top `onCreateEnd` check path, which otherwise checks a pre-attach DB
+    and reports dangling shell ports) attaches bundles and stores live ones, skipping
+    designs dropped by duplicate unification.
+  - `localKey` = SHA-256 over (upickle(dclMeta) | upickle(inputTypes) | scalaArgs
+    toStrings | impureParamsKey toStrings); unstable parts (identity toStrings,
+    ref-carrying dependent DFTypes) can only cause misses, never false hits, since the
+    service anchors by the owner class's code digest and dclMeta is in the digest.
+  - `ElaborationOptions.SubDesignCacheOption` (default None) injects the service;
+    NOTE for tests: option givens do NOT flow into a plain `new Top` (no @top), use the
+    `DFC.empty(summon[ElaborationOptions])` + `def gen(using DFC)` pattern.
+  - `StagesSpec.SubDesignCacheSpec`: a JSON-round-tripping map-backed service; asserts
+    live-store, fabricated hit prints identically, hit count, and that the attached DB
+    behaves through `dropDesignDefs`; plus a no-service regression test. Verified:
+    StagesSpec 493/493, full test green modulo known ignorables.
+- Phase 3 SIMPLIFIED + DISK SERVICE IMPLEMENTED (user corrections, 2026-07-12):
+  - `SubDesignBundle` DELETED: the cache artifact is a PLAIN hierarchical DB (an
+    empty-members root whose subDBs are the design's forest, `DB.extractSubDesignDB`),
+    serialized with the existing DB ReadWriter exactly like the top-design cache. The
+    return DFType is derived from the cached top's (non-phantom) out port
+    (`DB.subDesignRetDFType`; no out port = Unit return). `ir.SubDesignCache` now
+    traffics in `DB`.
+  - Service injection DELETED from the options surface: `ElaborationOptions.CacheEnable`
+    is a plain Boolean (default false), mirroring AppOptions. The premise that core must
+    stay factum-free was void: core depends on internals, which owns DiskCache and
+    factum, so core owns the whole disk service (`dfhdl.core.SubDesignDiskCache`) and
+    DFApp needs no special wiring.
+  - Disk location (user decision): entries live BESIDE the def's owner class build
+    output (`<scala target dir>/dfhdl-cache/`, via the class's code source), so `clean`
+    drops them with the classes and multi-module projects get per-module locality.
+    Top-level defs are covered via their synthetic `<file>$package` owner class. The
+    `factum.CodeRef` digest stays in the key regardless (incremental recompilation
+    rewrites classes without a clean). Jar-located owner classes (library-shipped defs)
+    skip the DISK tier only.
+  - In-memory store tier (user request): the service memoizes the DESERIALIZED DB
+    process-wide, keyed by the full content key (digest + dfhdlVersion + localKey), in
+    front of the disk: repeat elaborations in one JVM session skip file IO and JSON
+    parsing, a run's write-back serves later runs from memory, and jar-located defs
+    still cache in-process. NOTE: factum already provides byte-level layering
+    (`MemoryStore` + `AggregateStore(MemoryStore(), DiskStore(dir))`) — a candidate
+    upgrade for DFApp's TOP-level DiskCache, but the deserialized-DB memo above is the
+    bigger win for sub-designs, so the sub-design service keeps its own.
+  - Write-back is ONE-SHOT per elaboration (`storeLiveSubDesigns` clears its records):
+    the finalized DB is derived at both the top `onCreateEnd` check and every `getDB`.
+  - Gate/registry renames: `cachedSubDesignDBs`, `attachCachedSubDesigns`,
+    `storeLiveSubDesigns` (no "bundle" naming).
+  - `SubDesignCacheSpec` (3 tests): fabricated-hit round trip via a JSON-round-tripping
+    map service (covers a phantom-capturing def AND a top-level def), the REAL disk
+    service end-to-end (stores beside test-classes, hits on re-elaboration; clears the
+    cache dir + in-memory store first for determinism), and a no-cache regression with
+    the dropped view asserted equal on live and cached paths. StagesSpec 494/494, full
+    test green modulo known ignorables.
+- Thread-safety + placement corrections (user, 2026-07-12):
+  - The `SubDesignCache` trait lives in CORE (`dfhdl.core`), not in `ir`: it is an
+    elaboration-runtime service, while the DB extract/attach helpers remain `ir.DB`
+    methods.
+  - No global service `var`: `SubDesignDiskCache` is a CLASS instantiated per
+    `MutableDB` (`MutableDB.subDesignCache`, the per-elaboration testing seam that
+    cannot race other elaborations), with the shared process-wide stores (deserialized
+    DB memStore + CodeRef/cache-dir memos) as thread-safe companion state
+    (ConcurrentHashMap; `clearInMemoryStore()` remains the test/diagnostic reset).
+  - Tests inject per-DFC: `DFC.empty(eo)` then `dfc.mutableDB.subDesignCache = fake`.
+- Gate bookkeeping consolidation (user challenge, 2026-07-12): the three parallel
+  registries (`cachedSubDesignDBs`, `externalShellIds`, `liveStores`) plus two finalize
+  methods plus two `has*` probes collapsed into ONE `externalShells` map (keyed by the
+  shell block's ownerRef `StaticRef`, values `ExternalShell.Attach(cachedDB, localKey)`
+  / `ExternalShell.StoreBack(service, ownerClass, localKey)`) with a single
+  `finalizeExternalShells(db)` method (attachments run on every DB derivation;
+  store-backs are one-shot via `filterInPlace`). What remains is irreducible: the
+  service is content-addressed and shared ACROSS elaborations, so it cannot know a
+  run's shell tokens; the per-run shell-to-action association must live on the
+  per-elaboration gate, and `Attach` entries keep the DB reference (no re-lookup at
+  finalize) because the service contract does not promise a later hit. Bonus: keying by
+  `StaticRef` instead of the block instance makes `externalShellIdOf` robust to block
+  revisions.
 - NEXT increments, in order:
-  1. Phase 2: extract the `DesignLoadGate` abstraction from `runFuncWithInputs`.
-  2. Phase 3: disk tier for pure def designs (factum CodeRef keys, sub-DB bundles).
-  3. Phase 4: class designs (instantiation-gate + body-extraction rigging); includes
+  1. Phase 3 polish: multi-variant coverage tests (two shells of the same def with
+     different keys in one run; disk hits coexisting with intra-run duplicates), and
+     optionally defaulting `ElaborationOptions.CacheEnable` from `AppOptions.cacheEnable`
+     in DFApp flows (flip the global default to true once proven).
+  2. Phase 4: class designs (instantiation-gate + body-extraction rigging); includes
      class-ctor-param attribution (currently a forced root at a class param accessor
      conservatively escalates to design-level impurity) and Scala-capture keying for
      class bodies.
-  4. Recovery tiers for impure sub-design poison (tracked-effect manifests first).
-  5. User documentation for the purity model (docs/), including the "unmarked effects are
+  3. Recovery tiers for impure sub-design poison (tracked-effect manifests first).
+  4. User documentation for the purity model (docs/), including the "unmarked effects are
      the user's responsibility" contract, the `@pure` overrides (with and without named
      impure params), and the static-dispatch approximation (the analysis never models
      subclass overrides).
@@ -299,7 +471,12 @@ parameter's data during elaboration, e.g. by recording forcing in `protGetConstD
 the `.toScalaXYZ` conversion ops) while a pure body is running, and raise a proper
 error/warning. Until then we assume pure designs honor the contract.
 
-### Phase 2: extract the load-gate abstraction
+### Phase 2: extract the load-gate abstraction — IMPLEMENTED
+
+Implementation notes (2026-07-12): landed as `MutableDB.DesignLoadGate` (sibling of
+`DesignContext`) with `Key`/`Entry`/`intraRunCache`/`isPure`/`keyOf`/`loadDesignDef`;
+`runFuncWithInputs` deleted; `designFromDef` is the only client. Verified as a
+no-behavior-change refactor by the full test suite.
 
 Refactor without behavior change:
 

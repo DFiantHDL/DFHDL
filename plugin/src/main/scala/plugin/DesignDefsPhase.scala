@@ -166,6 +166,10 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
             else phantomReplacer.transform(anonDef.rhs)
           // updated body after replacing parameter references
           val updatedBody = replaceArgs(bodyAfterPhantoms, inputMap.toMap)
+          // the def's nearest enclosing class anchors the future disk-tier code-identity
+          // digest (`factum.CodeRef`): the def's body compiles into this class's class
+          // file and TASTy, while the runtime lambda class itself is unresolvable
+          val ownerClass = clsOf(sym.ownersIterator.find(_.isClass).get.typeRef)
           // calling the runtime method that constructs the design from the definition
           ref(designFromDefSym)
             .appliedToType(anonDef.dfValTpeOpt.get.widen)
@@ -175,7 +179,8 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
               tree.genMeta, // meta represents the transformed tree
               scalaArgs,
               phantomArgs,
-              phantomConstArgs
+              phantomConstArgs,
+              ownerClass
             ))
             .appliedTo(updatedBody)
             .appliedTo(dfc)

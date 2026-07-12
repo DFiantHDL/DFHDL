@@ -19,7 +19,6 @@ import dfhdl.compiler.ir.{
   SourceFile,
   MemberView,
   DFTags,
-  annotation,
   DFDomainOwner,
   Meta
 }
@@ -45,11 +44,6 @@ class DesignContext:
   var defInputs = List.empty[DFValAny]
   var defParams = List.empty[DFValAny]
   val loopIterMap = mutable.Map.empty[Meta, DFValAny]
-  var isDuplicate = false
-  // on a pure cache hit, the canonical design whose body this context duplicates; `endDesign`
-  // must join the duplicate to the CANONICAL's group (a design def may now have several
-  // structurally-distinct groups, one per impure-params key)
-  var duplicateOf: Option[DFDesignBlock] = None
 
   def setOriginRefs(member: DFMember): Unit =
     member.getRefs.foreach { r => originRefTable += r -> member }
@@ -211,19 +205,12 @@ final class MutableDB():
             case _ => true
           }
         else false
-      // a pure-cache-hit context joins its CANONICAL design's group (several groups may
-      // exist per design type, one per impure-params key); a live-elaborated design joins
-      // the first group with structurally identical members
-      def belongsToGroup(group: List[DFDesignBlock]): Boolean =
-        current.duplicateOf match
-          case Some(canonical) => group.contains(canonical)
-          case None            => sameDesignAs(group.head)
       uniqueDesigns.get(designType) match
         // this design type already exists and has at least one group
         case Some(groupList) =>
           // searching for the first group of designs that has the same members
           val updatedGroupList = groupList.map { group =>
-            if (!isDuplicate && belongsToGroup(group))
+            if (!isDuplicate && sameDesignAs(group.head))
               isDuplicate = true
               // the head of each group will always be the first design discovered
               // from that group and it keeps all its elements and not marked as a duplicate.
@@ -241,10 +228,7 @@ final class MutableDB():
       // user code may still reference them (e.g., connecting to a port requires the Dcl
       // before a PortByNameSelect is created). These public members are later removed
       // during immutable DB creation (see `immutable`).
-      // If the current design context is already known to be a duplicate (as a result
-      // of a `hw.pure` annotation), then we can skip this extra step since the design
-      // context is already minimized to the named members.
-      if (isDuplicate && !current.isDuplicate)
+      if (isDuplicate)
         val publicMembers = currentMembers.filterPublicMembers
         designMembers += design -> publicMembers
         val transferredRefs =
@@ -264,70 +248,6 @@ final class MutableDB():
       current = stack.head
       stack = stack.drop(1)
     end endDesign
-    // The cached result of a pure design def elaboration. With the capture rigging
-    // (phantom parameters/ports and Scala-capture keying, see `DesignDefsPhase`), the
-    // design's public interface is entirely harness-created, on hit and miss alike, so a
-    // hit needs nothing beyond the fresh parameter collection. If running a body still
-    // AUTO-creates design parameters (a capture path the rigging cannot see, resolved at
-    // runtime through `cloneUnreachable`), that call is simply never cached: a hit could
-    // not re-create such parameters since the body is skipped (running live is always
-    // correct; structural dedup unifies identical bodies afterwards).
-    final case class PureDefEntry(
-        design: DFDesignBlock,
-        ret: DFValAny
-    )
-    val pureDesignDefOutCache =
-      mutable.Map.empty[(Meta, List[DFType], List[Any], List[Any]), PureDefEntry]
-    def runFuncWithInputs[V <: DFValAny](
-        func: => V,
-        inputs: List[DFValAny],
-        params: List[DFValAny],
-        scalaArgs: List[Any],
-        impureParamsKeyOpt: Option[List[Any]]
-    )(paramEntriesOf: => List[(String, DFVal)]): (Boolean, V, List[(String, DFVal)]) =
-      current.defInputs = inputs
-      current.defParams = params
-      val currentDesign = OwnershipContext.currentDesign
-      // pure by default: only an explicit or PureCheck-synthesized `@pure(false)` marking
-      // disables elaboration caching for this design def
-      val isPure = !currentDesign.dclMeta.annotations.exists {
-        case annotation.Pure(false, _) => true
-        case _                         => false
-      }
-      if (isPure && impureParamsKeyOpt.nonEmpty)
-        // The applied design parameter values are deliberately NOT part of the key: a pure
-        // body cannot depend on them (forcing a parameter's data to affect elaboration is
-        // impure by definition), so all applications share one cached body and differ only
-        // in their instance parameter bindings, which the design-def harness constructs
-        // afresh on hit and miss alike. Two exceptions ARE part of the key: plain Scala
-        // arguments (`scalaArgs`), which may legitimately shape the elaborated structure,
-        // and the applied type+data of params marked data-impure by the PureCheck phase
-        // (`impureParamsKeyOpt`, empty when a marked param's applied data is unknown, which
-        // makes the call uncacheable and runs it live).
-        val key =
-          (currentDesign.dclMeta, inputs.map(_.dfType.asIR), scalaArgs, impureParamsKeyOpt.get)
-        pureDesignDefOutCache.get(key) match
-          case Some(entry) =>
-            current.isDuplicate = true
-            current.duplicateOf = Some(entry.design)
-            (true, entry.ret.asInstanceOf[V], paramEntriesOf)
-          case None =>
-            val preFuncMembers = current.members.length
-            val ret = func
-            val paramEntries = paramEntriesOf
-            // design parameters auto-created by the body itself (see the `PureDefEntry`
-            // note) make this call uncacheable
-            val bodyCreatedParams = current.members.view.drop(preFuncMembers).exists {
-              case MemberEntry(irValue = _: DFVal.DesignParam) => true
-              case _                                           => false
-            }
-            if (!bodyCreatedParams)
-              pureDesignDefOutCache += key -> PureDefEntry(currentDesign, ret)
-            (false, ret, paramEntries)
-        end match
-      else (false, func, paramEntriesOf)
-      end if
-    end runFuncWithInputs
     def getDefInput(idx: Int): DFValAny =
       current.defInputs(idx)
     def getDefParam(idx: Int): DFValAny =

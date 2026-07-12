@@ -142,7 +142,8 @@ object r__For_Plugin:
       dclMeta: ir.Meta,
       scalaArgs: List[Any],
       phantomArgs: List[(DFValAny, ir.Meta)],
-      phantomConstArgs: List[(DFValAny, ir.Meta)]
+      phantomConstArgs: List[(DFValAny, ir.Meta)],
+      ownerClass: Class[?]
   )(
       func: => V
   )(using DFC): V = trydf:
@@ -168,10 +169,10 @@ object r__For_Plugin:
         dfc.setMeta(phantomMeta(arg, fallbackMeta)).tag(ir.PhantomTag)
       )
     }
-    // The design parameters are created by this harness rather than by the body, so a pure
-    // cache hit, which skips the body, still creates fresh parameters bound to this call's
-    // applied values (the body fetches them via `designFromDefGetParam`). Phantom
-    // parameters (captured constants) are appended after the explicit ones and tagged.
+    // The design parameters are created by this harness rather than by the body, keeping
+    // the design's public interface harness-owned and bound fresh to this call's applied
+    // values (the body fetches them via `designFromDefGetParam`). Phantom parameters
+    // (captured constants) are appended after the explicit ones and tagged.
     val params = constArgs.map { (_, arg, argMeta) =>
       genContainerParam[DFValAny](arg, None, argMeta)
     } ++ phantomConstArgs.map { (arg, fallbackMeta) =>
@@ -182,33 +183,12 @@ object r__For_Plugin:
     // all the design's (name, applied value) parameter entries, explicit and phantom
     val namedConstArgs = constArgs.map((name, arg, _) => (name, arg)) ++
       phantomConstArgs.map((arg, fallbackMeta) => (phantomMeta(arg, fallbackMeta).name, arg))
-    // Params named data-impure by the design def's `pure` annotation (synthesized by the
-    // PureCheck plugin phase or declared by the user) contribute their applied type+data to
-    // the elaboration cache key. Phantom parameters fit the same scheme: PureCheck records
-    // their predicted names on the annotation like any explicit parameter's. Unknown applied
-    // data (no snapshot, e.g. unattainable during this elaboration) yields None, which makes
-    // this call uncacheable (runs live; structural dedup still unifies identical bodies).
-    val impureParamsKeyOpt: Option[List[Any]] =
-      val impureParamNames = dclMeta.annotations.collectFirst {
-        case ir.annotation.Pure(true, names) if names.nonEmpty => names.toSet
-      }.getOrElse(Set.empty)
-      if (impureParamNames.isEmpty) Some(Nil)
-      else
-        // `"*"` (e.g. from a user-written `@pure(true, "*")`) marks ALL params data-impure
-        val allImpure = impureParamNames.contains("*")
-        val keyPartOpts = params.zip(namedConstArgs).collect {
-          case (param, (name, _)) if allImpure || impureParamNames.contains(name) =>
-            param.asIR match
-              case dp: ir.DFVal.DesignParam => dp.appliedData.map(data => (dp.dfType, data))
-              case _                        => None
-        }
-        if (keyPartOpts.forall(_.isDefined)) Some(keyPartOpts.map(_.get)) else None
-    end impureParamsKeyOpt
-    val (isDuplicate, ret, paramEntries) =
-      dfc.mutableDB.DesignContext.runFuncWithInputs(
-        func, inputs, params, scalaArgs, impureParamsKeyOpt
-      ):
-        Design.Inst.collectParamEntries(clsAppliedArgs(namedConstArgs))
+    // the body fetches inputs and parameters through `designFromDefGetInput/Param`
+    val ctx = dfc.mutableDB.DesignContext.current
+    ctx.defInputs = inputs
+    ctx.defParams = params
+    val ret = func
+    val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(namedConstArgs))
     def exitAndConnectInputs() =
       val endedDesign = designBlock.asIR
       dfc.exitOwner()
@@ -221,18 +201,14 @@ object r__For_Plugin:
         val connDFC = if (isPhantom) dfc.anonymize.tag(ir.PhantomTag) else dfc.anonymize
         input.connect(arg)(using connDFC)
       }
-    def genOutPort = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setName("o"))
-    if (ret.dfType.asIR == ir.DFUnit)
+    val retDFTypeIR = ret.dfType.asIR
+    if (retDFTypeIR == ir.DFUnit)
       exitAndConnectInputs()
       DFUnitVal().asInstanceOf[V]
-    else if (isDuplicate)
-      val output = genOutPort
-      exitAndConnectInputs()
-      output.asInstanceOf[V]
     else
       val retMeta = ret.asIR.meta
       val retIdent = DFVal.Alias.AsIs.ident(ret)(using dfc.setMeta(retMeta).anonymize)
-      val output = genOutPort
+      val output = DFVal.Dcl(retDFTypeIR.asFE[DFTypeAny], Modifier.OUT)(using dfc.setName("o"))
       output.connect(retIdent)(using dfc.setMeta(retMeta.anonymize))
       exitAndConnectInputs()
       output.asInstanceOf[V]
