@@ -5,8 +5,9 @@ import dfhdl.*
 
 /** Tests for the `PureCheck` plugin phase: elaboration is pure by default, and the phase
   * transitively synthesizes `@hw.annotation.pure(false)` (impure marking) for detectably impure
-  * code, which disables elaboration caching (impure bodies always re-elaborate and only unify
-  * through structural dedup).
+  * code, which disables elaboration loading through the design load gate (impure bodies always
+  * re-elaborate and NEVER unify: designs unify only through the gate's key, and keyless designs
+  * emit one dclName-enumerated design per instantiation).
   */
 class PureCheckSpec extends StageSpec:
   test("toScalaXYZ forcing rooted at a design param marks the param, not the design") {
@@ -265,19 +266,27 @@ class PureCheckSpec extends StageSpec:
       o := test(data)
       o := test(data)
     end BlacklistDesign
+    // an impure def is unloadable through the design load gate (keyless), so each call
+    // elaborates its own design even though the bodies happen to be identical (keyless
+    // designs never unify; the dclName enumerates)
     assertCodeString(
       new BlacklistDesign,
       """|@hw.annotation.pure(false)
-         |def test(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+         |def test_0(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
          |  arg + d"32'1"
-         |end test
+         |end test_0
+         |
+         |@hw.annotation.pure(false)
+         |def test_1(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+         |  arg + d"32'1"
+         |end test_1
          |
          |@hw.annotation.pure(false)
          |class BlacklistDesign extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
-         |  o := test(data)
-         |  o := test(data)
+         |  o := test_0(data)
+         |  o := test_1(data)
          |end BlacklistDesign
          |""".stripMargin
     )
@@ -321,29 +330,23 @@ class PureCheckSpec extends StageSpec:
       o := test(1)(data)
       o := test(10)(data)
     end PureOverrideDesign
-    // The override marks the def as trusted-cacheable despite the forced parameter data.
-    // With elaboration caching momentarily removed (to be reintroduced over the
-    // hierarchical-by-construction DB), both calls elaborate live, so each folds its own
-    // applied data and yields a distinct design. Once caching returns, the second call
-    // will share the first call's body (folded d"32'1"), per the documented contract that
-    // overriding the detection makes correctness the user's responsibility.
+    // The override makes the def loadable through the gate despite the forced parameter
+    // data: the second call HITS the intra-run load and shares the first call's body
+    // (folded d"32'1"), while its instance still applies its own parameter value. This
+    // mismatch is exactly the documented contract: overriding the detection makes
+    // correctness the user's responsibility.
     assertCodeString(
       new PureOverrideDesign,
       """|@hw.annotation.pure
-         |def test_0(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+         |def test(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
          |  arg + d"32'1"
-         |end test_0
-         |
-         |@hw.annotation.pure
-         |def test_1(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
-         |  arg + d"32'10"
-         |end test_1
+         |end test
          |
          |class PureOverrideDesign extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
-         |  o := test_0(const = d"8'1")(data)
-         |  o := test_1(const = d"8'10")(data)
+         |  o := test(const = d"8'1")(data)
+         |  o := test(const = d"8'10")(data)
          |end PureOverrideDesign
          |""".stripMargin
     )

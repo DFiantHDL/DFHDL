@@ -255,6 +255,34 @@ abstract class CommonPhase extends PluginPhase:
       // captured; the def's own parameters and body locals are not captures
       if (root.isClass) true
       else !root.isStatic && !root.ownersIterator.exists(o => o == defSym || o == anonDefSym)
+    discoverCaptures(List(body), rootOk)
+
+  // ~~~ class-template capture discovery (shared by the PureCheck and MetaContextPlacer
+  // phases) ~~~
+  // A design class's template may reference values from outside the class ("captures").
+  // Class designs get no phantom rigging: captured DFHDL constants materialize as
+  // auto-created design parameters at runtime (`cloneUnreachable`), and captured plain
+  // Scala values join the design load key through the `__clsScalaArgs` chain, closing
+  // the per-instance-Scala-data soundness hole for classes (e.g. a local class whose
+  // body reads an enclosing loop's variable).
+  protected def discoverClsCaptures(clsSym: ClassSymbol, tmpl: Template)(using
+      Context
+  ): DesignDefCaptures =
+    def rootOk(path: List[Symbol]): Boolean =
+      val root = path.last
+      if (root.isClass)
+        // `this`-rooted: only an OUTER instance's members are captures; the class's own
+        // members and members of classes nested WITHIN it (which the traversal also
+        // reaches) are not
+        root != clsSym && clsSym.isContainedIn(root)
+      else
+        !root.isStatic &&
+        !root.ownersIterator.exists(o => o == clsSym || o == clsSym.primaryConstructor)
+    discoverCaptures(tmpl.parents ++ tmpl.body, rootOk)
+
+  private def discoverCaptures(bodies: List[Tree], rootOk: List[Symbol] => Boolean)(using
+      Context
+  ): DesignDefCaptures =
     // capture kinds: 0 = not a capture, 1 = DFHDL constant, 2 = DFHDL value, 3 = plain Scala
     def captureKindOf(t: Tree): Int =
       // NOTE: the type must be widened before the DFHDL-value test, since a member with an
@@ -278,11 +306,11 @@ abstract class CommonPhase extends PluginPhase:
             case 0    => traverseChildren(t)
             case kind => captured.getOrElseUpdate(stablePathKey(t).get, (t, kind))
         case _ => traverseChildren(t)
-    captureFinder.traverse(body)
+    bodies.foreach(captureFinder.traverse)
     def ofKind(kind: Int): List[(List[Symbol], Tree)] =
       captured.view.collect { case (path, (t, `kind`)) => (path, t) }.toList
     DesignDefCaptures(ofKind(1), ofKind(2), ofKind(3))
-  end discoverDesignDefCaptures
+  end discoverCaptures
 
   extension (sym: Symbol)
     def ignoreMetaContext(using Context): Boolean =

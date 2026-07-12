@@ -48,9 +48,20 @@ trait Design extends Container, HasClsMeta, HasClsArgs:
       handleResourceConstraints()
       dfc.mutableDB.ResourceOwnershipContext.emptyTopResourceOwners()
     val endedDesign = containedOwner.asIR
+    // Route this class design through the design load gate: designs unify ONLY through
+    // the gate's key (the structural dedup is retired). The key is computed at the
+    // design's end (its body ran live), BEFORE exiting the owner so the design context
+    // can be marked as its canonical's duplicate; on a miss the ended design is
+    // recorded as the key's canonical after the exit.
+    val gate = dfc.mutableDB.DesignLoadGate
+    val keyOpt = if (endedDesign.isTop) None else DesignLoadKey.designClsKeyWith(__clsScalaArgs)
+    val joinedCanonical = keyOpt.exists(gate.joinCanonicalOf)
     dfc.exitOwner()
     Design.Inst(endedDesign, paramEntries)
+    if (!joinedCanonical)
+      keyOpt.foreach(gate.completed(_, endedDesign, getClass, cacheEnable = false))
     dfc.enterLate()
+  end onCreateStartLate
   private[dfhdl] def skipChecks: Boolean = false
 
   def customTopChecks(): Unit = {}

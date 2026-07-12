@@ -53,12 +53,18 @@ extension (lhs: Byte <> CONST)
   // polynomials modulo an irreducible polynomial of degree 8. A polynomial is irreducible if its only
   // divisors are one and itself. For the AES algorithm, this irreducible polynomial is
   // m(x) = x^8 + x^4 + x^3 + x + 1, or {01}{1b} in hexadecimal notation.
+  // The elaborated structure folds over `lhs`'s bits, so `lhs` is declared data-impure:
+  // its applied data joins the design load key (each distinct multiplicand constant gets
+  // its own design). The declaration is explicit because the automatic attribution
+  // cannot trace the forcing through the foldLeft lambda's pattern-bound index.
   @targetName("mulByte")
+  @hw.annotation.pure(true, "lhs")
   def *(rhs: AESByte <> VAL): AESByte <> DFRET =
     val a = LazyList.iterate(rhs)(_.xtime)
     (0 until 8).foldLeft[AESByte <> VAL](all(0).as(AESByte)):
       case (p, i) if lhs.bits(i).toScalaBoolean => p + a(i)
       case (p, _)                               => p
+end extension
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Word

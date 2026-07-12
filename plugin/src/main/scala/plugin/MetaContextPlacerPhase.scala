@@ -50,6 +50,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDeno
   var dfSpecTpe: Type = uninitialized
   var hasClsMetaTpe: TypeRef = uninitialized
   var hasClsArgsTpe: TypeRef = uninitialized
+  var designTpe: TypeRef = uninitialized
   var metaTpe: TypeRef = uninitialized
   var interfaceTpe: TypeRef = uninitialized
   var topAnnotSym: ClassSymbol = uninitialized
@@ -175,6 +176,37 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDeno
   end clsAppliedArgsOverrideDef
 
   // Build the
+  //   override protected def __clsScalaArgs: List[Any] =
+  //     List[Any](<plain Scala ctor params>, <plain Scala template captures>) ::: super.__clsScalaArgs
+  // injected into a design class that has plain Scala constructor parameters or plain
+  // Scala template captures. These values may legitimately shape the elaborated
+  // structure, so they join the design load key (the class-design counterpart of a
+  // design def's `scalaArgs`). Each class in the inheritance chain prepends its own
+  // contribution (like `__clsMeta`), so base-class captures are covered as well;
+  // base-class constructor arguments need no entry of their own since they derive from
+  // the leaf's (keyed) arguments and captures through code the key's `dclMeta` already
+  // identifies.
+  private def clsScalaArgsOverrideDef(
+      tree: TypeDef,
+      clsSym: ClassSymbol,
+      ownArgs: List[Tree]
+  )(using Context): DefDef =
+    val superSym = clsSym.requiredMethod("__clsScalaArgs".toTermName)
+    val sym = newSymbol(
+      clsSym,
+      "__clsScalaArgs".toTermName,
+      (superSym.flags & (Protected | Method)) | Override | Touched,
+      superSym.info,
+      coord = tree.span
+    ).enteredAfter(this)
+    val ownList = mkList(ownArgs, Some(defn.AnyType))
+    val superScalaArgs = Super(This(clsSym), StdNames.tpnme.EMPTY).select(superSym)
+    val chain =
+      superScalaArgs.select(":::".toTermName).appliedToType(defn.AnyType).appliedTo(ownList)
+    DefDef(sym, chain)
+  end clsScalaArgsOverrideDef
+
+  // Build the
   //   override protected def __clsMeta: List[ir.Meta] =
   //     r__For_Plugin.metaGen(...) :: super.__clsMeta
   // injected into a DFHDL class. Each class in the inheritance chain prepends
@@ -254,9 +286,21 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDeno
             if (constParams.nonEmpty)
               Some(clsAppliedArgsOverrideDef(tree, clsSym, constParams))
             else None
+          // design classes key their plain Scala constructor parameters and template
+          // captures through `__clsScalaArgs` (consumed by the design load gate)
+          val clsScalaArgsDefOpt =
+            if (clsTpe <:< designTpe)
+              val scalaParams = paramBody.collect {
+                case v: ValDef if v.dfValTpeOpt.isEmpty && !v.tpt.tpe.isMetaContext => v
+              }
+              val scalaCaptures = discoverClsCaptures(clsSym, template).scalaCaptures
+              val ownArgs = scalaParams.map(v => ref(v.symbol)) ++ scalaCaptures.map(_._2)
+              if (ownArgs.nonEmpty) Some(clsScalaArgsOverrideDef(tree, clsSym, ownArgs))
+              else None
+            else None
           val newTemplate =
             cpy.Template(template)(body =
-              paramBody ++ List(clsMetaDef) ++ clsAppliedArgsDefOpt ++
+              paramBody ++ List(clsMetaDef) ++ clsAppliedArgsDefOpt ++ clsScalaArgsDefOpt ++
                 containerParamGenValDefs ++ updatedBody
             )
           cpy.TypeDef(tree)(rhs = newTemplate)
@@ -426,6 +470,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDeno
     dfSpecTpe = requiredClassRef("dfhdl.DFSpec")
     hasClsMetaTpe = requiredClassRef("dfhdl.core.HasClsMeta")
     hasClsArgsTpe = requiredClassRef("dfhdl.core.HasClsArgs")
+    designTpe = requiredClassRef("dfhdl.core.Design")
     metaTpe = requiredClassRef("dfhdl.compiler.ir.Meta")
     interfaceTpe = requiredClassRef("dfhdl.core.Interface")
     topAnnotSym = requiredClass("dfhdl.top")

@@ -14,15 +14,17 @@ import dfhdl.compiler.ir.{
   DFTag,
   DFVal,
   DFType,
+  DFUnit,
   DomainBlock,
   MemberGetSet,
   SourceFile,
   MemberView,
   DFTags,
   DFDomainOwner,
-  Meta
+  Meta,
+  PhantomTag,
+  RefGen
 }
-import dfhdl.compiler.analysis.filterPublicMembers
 
 import scala.reflect.{ClassTag, classTag}
 import collection.mutable
@@ -44,6 +46,13 @@ class DesignContext:
   var defInputs = List.empty[DFValAny]
   var defParams = List.empty[DFValAny]
   val loopIterMap = mutable.Map.empty[Meta, DFValAny]
+  // on a design-load hit (`DesignLoadGate`), the canonical design whose body this context
+  // duplicates; `endDesign` joins the duplicate to the CANONICAL's group (a design may
+  // have several structurally-distinct groups, one per key)
+  private var _duplicateOf: Option[DFDesignBlock] = None
+  def duplicateOf: Option[DFDesignBlock] = _duplicateOf
+  // this context duplicates `canonical` and joins its group at `endDesign`
+  def markDuplicateOf(canonical: DFDesignBlock): Unit = _duplicateOf = Some(canonical)
 
   def setOriginRefs(member: DFMember): Unit =
     member.getRefs.foreach { r => originRefTable += r -> member }
@@ -180,6 +189,9 @@ final class MutableDB():
     var stack = List.empty[DesignContext]
     val designMembers = mutable.Map.empty[DFDesignBlock, List[DFMember]]
     val uniqueDesigns = mutable.Map.empty[String, List[List[DFDesignBlock]]]
+    // memoized self-contained forest per design: a design's subtree is final once it has
+    // ended, so its forest is stable and the same instance serves every later lookup/store
+    private val forestMemo = mutable.Map.empty[DFDesignBlock, DB]
 
     def startDesign(design: DFDesignBlock): Unit =
       stack = current :: stack
@@ -188,66 +200,116 @@ final class MutableDB():
       val currentMembers = current.getImmutableMemberList.drop(1)
       val currentRefTable = current.getImmutableRefTable
       val designType = design.dclName
-      var isDuplicate = false
-      // the group head a (previously ended) child design belongs to, by identity
-      def groupHeadOf(d: DFDesignBlock): Option[DFDesignBlock] =
-        uniqueDesigns.get(d.dclName).flatMap(_.find(_.exists(_ eq d))).map(_.head)
-      def sameDesignAs(groupDesign: DFDesignBlock): Boolean =
-        if (design.dclMeta == groupDesign.dclMeta)
-          val otherMembers = designMembers(groupDesign)
-          currentMembers =~ otherMembers &&
-          // a `=~` member comparison sees only the child design HEADERS (same dclMeta),
-          // not their bodies, which may have diverged (e.g. impure-param data folding),
-          // so corresponding child designs must also belong to the same body group
-          currentMembers.lazyZip(otherMembers).forall {
-            case (a: DFDesignBlock, b: DFDesignBlock) =>
-              (a eq b) || groupHeadOf(a).exists(ah => groupHeadOf(b).exists(_ eq ah))
-            case _ => true
-          }
-        else false
-      uniqueDesigns.get(designType) match
-        // this design type already exists and has at least one group
-        case Some(groupList) =>
-          // searching for the first group of designs that has the same members
-          val updatedGroupList = groupList.map { group =>
-            if (!isDuplicate && sameDesignAs(group.head))
-              isDuplicate = true
-              // the head of each group will always be the first design discovered
-              // from that group and it keeps all its elements and not marked as a duplicate.
-              group.head :: design :: group.drop(1)
+      // ~~~ design unification ~~~
+      // Designs unify ONLY through the design load gate's key (there is no structural
+      // body comparison): a gate hit recorded the canonical design this context
+      // duplicates (`duplicateOf`), so the ended design joins the canonical's group
+      // (the group head is always the canonical); any other design, including every
+      // KEYLESS one (impure or otherwise unloadable), starts a group of its own.
+      // Same-dclName groups only iterate the emitted dclName (`designDedupMaps`), so a
+      // keyless design instantiated N times simply emits N enumerated designs.
+      current.duplicateOf match
+        case Some(canonical) =>
+          val groupList = uniqueDesigns(designType)
+          uniqueDesigns += designType -> groupList.map { group =>
+            if (group.head == canonical) group.head :: design :: group.drop(1)
             else group
           }
-          if (isDuplicate) uniqueDesigns += designType -> updatedGroupList
-          // a new group was discovered so we add it to the group list
-          else uniqueDesigns += designType -> (List(design) :: groupList)
-        // first time encountering this design type, so add the first group
-        case None => uniqueDesigns += designType -> List(List(design))
-      end match
-      // If this design is a duplicate, we retain only the public members (ports, design
-      // parameters, domain blocks, and their dependencies) during elaboration, because
-      // user code may still reference them (e.g., connecting to a port requires the Dcl
-      // before a PortByNameSelect is created). These public members are later removed
-      // during immutable DB creation (see `immutable`).
-      if (isDuplicate)
-        val publicMembers = currentMembers.filterPublicMembers
-        designMembers += design -> publicMembers
-        val transferredRefs =
-          // getting the design references to parameters
-          design.getRefs.map(r => r -> currentRefTable(r)) ++
-            publicMembers.view.flatMap(m =>
-              (m.ownerRef -> currentRefTable(m.ownerRef)) ::
-                m.getRefs.map(r => r -> currentRefTable(r))
-            )
-        stack.head.refTable ++= transferredRefs
-      else
-        designMembers += design -> currentMembers
-        stack.head.refTable ++= currentRefTable
-      end if
+        case None =>
+          uniqueDesigns.updateWith(designType) {
+            case Some(groupList) => Some(List(design) :: groupList)
+            case None            => Some(List(List(design)))
+          }
+      // A duplicate's members are NOT minimized here: the final assembly drops duplicate
+      // designs wholesale (they are never `isLive`, their instances unify to the
+      // canonical), so a duplicate's retained snapshot is simply never read.
+      designMembers += design -> currentMembers
+      stack.head.refTable ++= currentRefTable
 
       stack.head.addMember(design)
       current = stack.head
       stack = stack.drop(1)
     end endDesign
+    // ~~~ the cached artifact: a design's self-contained forest at its end ~~~
+    // Built (from the design-end snapshots this context owns) right after the design ends
+    // (all descendants ended, snapshots final), BEFORE any whole-run fixes: natural
+    // dclNames (the loading run resolves naming through the adopted shell's header), no
+    // resource constraints (a cacheable def is device-independent). Content is
+    // canonicalized: only canonical snapshots are walked and instances are unified to
+    // their canonical, which may live OUTSIDE this design's subtree; the canonical's full
+    // definition is then embedded, keeping the artifact self-contained. Refs resolve
+    // through the mutable run state (the design's refTables merged into the enclosing
+    // contexts); globals join each sub-DB through the same closure the final assembly
+    // computes.
+    def buildDesignForestDB(design: DFDesignBlock): DB =
+      forestMemo.getOrElseUpdate(design, buildForest(design))
+    private def buildForest(design: DFDesignBlock): DB =
+      val (dupToOrigDesignMap, _) = designDedupMaps
+      def canonicalDsn(d: DFDesignBlock): DFDesignBlock = dupToOrigDesignMap.getOrElse(d, d)
+      def resolve(r: DFRefAny): Option[DFMember] =
+        self.getMemberOption(r.asInstanceOf[DFRef[DFMember]])
+      val allGlobalsOrderedRaw: List[DFVal.CanBeGlobal] =
+        global.getImmutableMemberList.collect {
+          case g: DFVal.CanBeGlobal if g.isGlobal => g
+        }
+      def globalsClosure(localMembers: Iterable[DFMember]): List[DFMember] =
+        val reachable = mutable.Set.empty[DFMember]
+        def pull(target: DFMember): Unit = target match
+          case g: DFVal.CanBeGlobal if g.isGlobal && !reachable.contains(g) =>
+            reachable += g
+            g.getRefs.foreach(r => resolve(r).foreach(pull))
+          case _ =>
+        localMembers.foreach { m => m.getRefs.foreach(r => resolve(r).foreach(pull)) }
+        allGlobalsOrderedRaw.filter(reachable.contains).map(_.copyWithoutGlobalCtx)
+      // a DFDesignInst points at its canonical design's key (the child's `subDBs` key).
+      // ALWAYS rewritten, even when the target already IS the canonical: the sub-DB key
+      // form is what resolves structurally (`designRef` is deliberately absent from the
+      // refTable), so leaving an instance's original parent-side ref in place would leave
+      // it dangling in the emitted forest.
+      def unifyInst(inst: DFDesignInst): DFDesignInst =
+        val target = canonicalDsn(inst.designRef.asRef.get)
+        inst.copy(designRef = StaticRef(target.ownerRef))
+      def refsFor(dTop: DFDesignBlock, dbMembers: Iterable[DFMember]): Map[DFRefAny, DFMember] =
+        val result = mutable.Map.empty[DFRefAny, DFMember]
+        dbMembers.foreach { m =>
+          val ownerTarget =
+            if ((m eq dTop) && !m.ownerRef.isInstanceOf[DFRef.Empty])
+              if (resolve(m.ownerRef).nonEmpty) Some(DFMember.Empty) else None
+            else resolve(m.ownerRef)
+          ownerTarget.foreach(t => result(m.ownerRef) = t)
+          m.getRefs.foreach(r => resolve(r).foreach(t => result(r) = t))
+        }
+        result.toMap
+      val built = mutable.LinkedHashMap.empty[StaticRef, DB]
+      def build(c: DFDesignBlock): Unit = // c is always a canonical design
+        val key = StaticRef(c.ownerRef)
+        if (!built.contains(key))
+          val snapshot = designMembers.getOrElse(c, Nil)
+          val locals = snapshot.flatMap {
+            case _: DFDesignBlock                   => None
+            case g: DFVal.CanBeGlobal if g.isGlobal => None
+            case inst: DFDesignInst                 => Some(unifyInst(inst))
+            case cbg: DFVal.CanBeGlobal             => Some(cbg.copyWithoutGlobalCtx)
+            case m                                  => Some(m)
+          }
+          // NOTE: the design block's transient elaboration-time instance cache is NOT
+          // cleared here; the design is still live in this run (the cache is not
+          // serialized into the artifact anyway)
+          val closure = globalsClosure(c :: locals)
+          val dbMembers = closure ::: c :: locals
+          built(key) = DB(dbMembers, refsFor(c, dbMembers), GlobalTagContext.tags, Nil)
+          // children: the canonicals of every instantiated design, in instance order
+          // (resolved from the RAW instances; a unified designRef resolves only
+          // structurally)
+          snapshot.foreach {
+            case inst: DFDesignInst => build(canonicalDsn(inst.designRef.asRef.get))
+            case _                  =>
+          }
+        end if
+      end build
+      build(canonicalDsn(design))
+      DB(Nil, Map.empty, GlobalTagContext.tags, Nil, ListMap.from(built))
+    end buildForest
     def getDefInput(idx: Int): DFValAny =
       current.defInputs(idx)
     def getDefParam(idx: Int): DFValAny =
@@ -271,6 +333,110 @@ final class MutableDB():
     def getReachableDFType(dfType: DFType, cf: => DFType): DFType =
       current.getReachableDFType(dfType, cf)
   end DesignContext
+
+  // ~~~ the design load gate ~~~
+  // Decides, per design-def instantiation, whether to run the elaboration body live or
+  // skip it and reuse an already-loaded elaboration of the same key. The invariant that
+  // makes skipping sound: the design's public interface (its design parameters, bound
+  // fresh to this call's applied values, and its ports) is created by the HARNESS
+  // (`designFromDef`) outside the body, on hit and miss alike; the body is a skippable
+  // thunk. Class designs route through the gate as well, keyed at their END (their
+  // body always runs live for now; the key unifies identical instantiations without
+  // any structural comparison). Body-skipping and service caching for classes are the
+  // next increment. Designs the gate CANNOT key (impure or otherwise unloadable) NEVER
+  // unify: each instantiation emits its own (dclName-enumerated) design. The key
+  // information differentiates designs even when caching is disabled.
+  object DesignLoadGate:
+    // Code identity within a run is the FULL dclMeta plus the codeString-normalized input
+    // DFTypes and impure applied data, and the plain Scala arguments by their own value
+    // equality (see `DesignLoadKey`, which builds keys off the ambient elaboration
+    // context). The applied design parameter values are deliberately NOT part of the key:
+    // a pure body cannot depend on them (forcing a parameter's data to affect elaboration
+    // is impure by definition), so all applications share one loaded body and differ only
+    // in their instance parameter bindings, which the harness constructs afresh on hit and
+    // miss alike.
+    // this run's canonical design per key: intra-run repeats join it as duplicates
+    private val canonicalOf = mutable.Map.empty[DesignLoadKey, DFDesignBlock]
+    // The sub-design cache service consulted when `ElaborationOptions.CacheEnable` is set.
+    // Per-elaboration (each gate owns its instance, so swapping it, the testing seam,
+    // cannot race other elaborations); the default disk service shares its underlying
+    // stores process-wide through thread-safe companion state.
+    var subDesignCache: SubDesignCache = new SubDesignDiskCache
+    // Joins the current (ending) class design to this key's canonical design when one
+    // exists: the ended context is marked as its duplicate and `endDesign` joins the
+    // canonical's group (the design's own members are then reduced to its public
+    // interface and dropped at final assembly). Returns false on a miss (the caller
+    // records the design as the key's canonical through `completed`).
+    def joinCanonicalOf(key: DesignLoadKey): Boolean =
+      canonicalOf.get(key) match
+        case Some(canonical) =>
+          DesignContext.current.markDuplicateOf(canonical)
+          true
+        case None => false
+    // ~~~ the sub-design cache service tier ~~~
+    // Externally-loaded (adopted) designs of this run, keyed by the shell block's
+    // ownerRef token: the token-freshened cached forest that the final assembly
+    // (`hierarchical`) emits as the shell's content.
+    private val adopted =
+      mutable.LinkedHashMap.empty[StaticRef, List[(StaticRef, DB)]]
+    def adoptedForestOf(design: DFDesignBlock): Option[List[(StaticRef, DB)]] =
+      adopted.get(StaticRef(design.ownerRef))
+    // Looks this key up in the run's loads and then, when enabled, in the sub-design
+    // cache service. On a hit the body is skipped and the loaded design's self-contained
+    // DB is returned; the caller reads whatever it needs from it (e.g. its return DFType
+    // via `subDesignRetDFType`, to create the fresh output port). An intra-run hit marks
+    // the current (shell) context as a duplicate of the key's canonical design and returns
+    // the canonical's forest DB; a service hit makes this shell the canonical of its group
+    // with an EXTERNAL body (the adopted forest), seeds the intra-run tier so same-run
+    // repeats unify with it, and returns the cached DB.
+    def lookup(key: DesignLoadKey, ownerClass: Class[?], cacheEnable: Boolean)(using
+        RefGen
+    )
+        : Option[DB] =
+      val ctx = DesignContext.current
+      canonicalOf.get(key) match
+        case Some(canonical) =>
+          ctx.markDuplicateOf(canonical)
+          Some(DesignContext.buildDesignForestDB(canonical))
+        case None if cacheEnable =>
+          val currentDesign = OwnershipContext.currentDesign
+          subDesignCache.lookup(ownerClass, key.localKey) match
+            // guard against key collisions and stale entries: the cached top must
+            // declare the same design (name-insensitive: dclName dedup-renaming may
+            // differ between the storing and loading runs); a mismatch is a miss
+            case Some(cachedDB)
+                if cachedDB.subDBs.headOption.exists { (_, sub) =>
+                  val cTop = sub.top
+                  cTop.instMode == currentDesign.instMode &&
+                  cTop.domainType == currentDesign.domainType &&
+                  cTop.dclMeta.position == currentDesign.dclMeta.position
+                } =>
+              val forest =
+                cachedDB.freshenSubDesignForest(StaticRef(currentDesign.ownerRef))
+              adopted += StaticRef(currentDesign.ownerRef) -> forest
+              canonicalOf += key -> currentDesign
+              Some(cachedDB)
+            case _ => None
+          end match
+        case None => None
+      end match
+    end lookup
+    // Records an ended clean live run as this key's canonical and, when enabled,
+    // stores its self-contained forest in the sub-design cache service. A body that
+    // AUTO-created design parameters (a capture path the rigging cannot see, resolved
+    // at runtime through `cloneUnreachable`) must not be recorded: a hit could not
+    // re-create such parameters since the body is skipped (running live is always
+    // correct; structural dedup unifies identical bodies afterwards).
+    def completed(
+        key: DesignLoadKey,
+        design: DFDesignBlock,
+        ownerClass: Class[?],
+        cacheEnable: Boolean
+    ): Unit =
+      canonicalOf.getOrElseUpdate(key, design)
+      if (cacheEnable)
+        subDesignCache.store(ownerClass, key.localKey, DesignContext.buildDesignForestDB(design))
+  end DesignLoadGate
 
   val injectedCtx = mutable.Set.empty[DesignContext]
   def injectGlobals(sourceCtx: DesignContext): Unit =
@@ -648,23 +814,26 @@ final class MutableDB():
   }
 
   // ~~~ hierarchical DB by construction ~~~
-  // Assembles the final hierarchical DB DIRECTLY from the mutable model: the per-design
-  // member snapshots that `endDesign` finalized (`DesignContext.designMembers`), the
-  // merged run refTable, and the global context. The whole-run final fixes (dclName
-  // uniquification, duplicate dropping, instance unification, resource constraints)
-  // apply per member and per ref target at assembly time. This BACKS `immutable` (the
-  // flat form and its `DB.oldToNew` re-partition round trip no longer exist) and is the
-  // substrate for caching a design at its end: a design's end-of-elaboration snapshot
-  // IS its final sub-DB content, modulo those fixes.
+  // The final hierarchical DB is the top design's self-contained NATURAL forest (built and
+  // memoized by `buildDesignForestDB`) with the whole-run final fixes applied ON TOP.
+  // Those fixes (dclName enumeration, resource constraints) are structure-preserving, so
+  // the natural forest already carries the exact sub-DB set, order, instance unification,
+  // and globals closures; this pass only rewrites each member and re-resolves each ref
+  // (`fixedMember`/`resolveFixed`), swaps each service-cached shell for its adopted forest,
+  // and anchors orphan globals at the top. BACKS `immutable` (the flat form and its
+  // `DB.oldToNew` re-partition round trip no longer exist).
   private def hierarchical: DB =
     require(!inMetaProgramming, "hierarchical DB construction is undefined in meta-programming")
     // the run's merged state: the (ended) top-level context member list, which holds
     // the injected globals and the top design block, and the run-wide merged refTable
     val topMemberList = DesignContext.current.getImmutableMemberList
     val rawRefTable = DesignContext.current.getImmutableRefTable
+    val topDesign = topMemberList.collectFirst { case d: DFDesignBlock => d }.get
+    val natural = DesignContext.buildDesignForestDB(topDesign)
     val (dupToOrigDesignMap, duplicateDesignRepMap) = designDedupMaps
     val constrainedDcls = ResourceOwnershipContext.getConstrainedDcls()
-    // the whole-run final fix of a single member, applied per snapshot member
+    val globalTags = GlobalTagContext.tags
+    // the whole-run final fix of a single member
     def fixedMember(m: DFMember): DFMember = m match
       case design: DFDesignBlock =>
         ResourceOwnershipContext.getConstrainedDomainOwner(
@@ -674,67 +843,20 @@ final class MutableDB():
         ResourceOwnershipContext.getConstrainedDomainOwner(domainOwner)
       case dcl: DFVal.Dcl => constrainedDcls.getOrElse(dcl, dcl)
       case m              => m
-    // a DFDesignInst points at its canonical design's key (the child's `subDBs` key)
     def unifyInst(inst: DFDesignInst): DFDesignInst =
       val target =
         dupToOrigDesignMap.getOrElse(inst.designRef.asRef.get, inst.designRef.asRef.get)
       inst.copy(designRef = StaticRef(target.ownerRef))
-    def isLive(d: DFDesignBlock): Boolean = !dupToOrigDesignMap.contains(d)
-    def snapshotOf(d: DFDesignBlock): List[DFMember] =
-      DesignContext.designMembers.getOrElse(d, Nil)
-    // ~~~ parent-to-children claims ~~~
-    // The canonical owner of a child's sub-DB is the design containing the FIRST
-    // DFDesignInst (in elaboration order) targeting the child. The scan visits members
-    // in exactly the flat elaboration order: a design's snapshot in order, recursing
-    // into live child designs at their block's position (duplicate children hold only
-    // their public snapshot, with no instances or child blocks, and are skipped).
-    val parentToChildren =
-      mutable.LinkedHashMap.empty[DFDesignBlock, mutable.ListBuffer[DFDesignBlock]]
-    val claimed = mutable.Set.empty[DFDesignBlock]
-    def scanClaims(d: DFDesignBlock): Unit =
-      snapshotOf(d).foreach {
-        case b: DFDesignBlock   => if (isLive(b)) scanClaims(b)
-        case inst: DFDesignInst =>
-          val target = inst.designRef.asRef.get
-          val child = dupToOrigDesignMap.getOrElse(target, target)
-          if (claimed.add(child))
-            parentToChildren.getOrElseUpdate(d, mutable.ListBuffer.empty) += child
-        case _ =>
-      }
-    // ~~~ globals and refs, from the mutable model directly ~~~
-    // Globals are injected into the top-level context on first use, so their raw
-    // elaboration order is their order there. The closure walks the RAW refTable and
-    // raw global objects; global-ctx cleanup applies at emission (as the flat path's
-    // final members pass does).
-    val allGlobalsOrderedRaw: List[DFVal.CanBeGlobal] = topMemberList.collect {
-      case g: DFVal.CanBeGlobal if g.isGlobal => g
-    }
-    def cleanedGlobals(globals: List[DFVal.CanBeGlobal]): List[DFMember] =
-      globals.map(_.copyWithoutGlobalCtx)
-    def globalsClosure(localMembers: Iterable[DFMember]): List[DFMember] =
-      val reachable = mutable.Set.empty[DFMember]
-      def pull(target: DFMember): Unit = target match
-        case g: DFVal.CanBeGlobal if g.isGlobal && !reachable.contains(g) =>
-          reachable += g
-          g.getRefs.foreach(r => rawRefTable.get(r).foreach(pull))
-        case _ =>
-      localMembers.foreach { m =>
-        m.getRefs.foreach(r => rawRefTable.get(r).foreach(pull))
-      }
-      cleanedGlobals(allGlobalsOrderedRaw.filter(reachable.contains))
     // a ref target resolved against the raw refTable with the whole-run fixes applied
-    // (the flat path applies the same fixes over its refTable entries)
     def resolveFixed(r: DFRefAny): Option[DFMember] =
       rawRefTable.get(r).map {
         case inst: DFDesignInst => unifyInst(inst)
         case m                  => fixedMember(m)
       }
-    // Every ref emitted by the DB's members, fix-resolved. The sub-DB's own design
-    // block behaves as a Top: its ownerRef resolves to DFMember.Empty (unless it
-    // already is an empty ref, i.e. the true top); the DFDesignInst in the parent is
-    // the sole remaining per-use-site marker. `DFDesignInst.designRef` is deliberately
-    // NOT collected: it is unified with the child's `subDBs` key and resolved
-    // structurally, not through the refTable.
+    // Every ref emitted by the DB's members, fix-resolved. The sub-DB's own design block
+    // behaves as a Top: its ownerRef resolves to DFMember.Empty (unless it already is an
+    // empty ref, i.e. the true top). `DFDesignInst.designRef` is deliberately NOT
+    // collected: it is unified with the child's `subDBs` key and resolved structurally.
     def refsFor(dTop: DFDesignBlock, dbMembers: Iterable[DFMember]): Map[DFRefAny, DFMember] =
       val result = mutable.Map.empty[DFRefAny, DFMember]
       dbMembers.foreach { m =>
@@ -746,35 +868,51 @@ final class MutableDB():
         m.getRefs.foreach(r => resolveFixed(r).foreach(t => result(r) = t))
       }
       result.toMap
-    val globalTags = GlobalTagContext.tags
-    // ~~~ sub-DB assembly, top-down in claim order ~~~
-    val builtSubDBs = mutable.LinkedHashMap.empty[StaticRef, DB]
-    def build(d: DFDesignBlock): Unit =
-      val dFinal = fixedMember(d).asInstanceOf[DFDesignBlock]
-      // the immutable DB must not carry stale elaboration-time instance caches
+    // fix one natural sub-DB: rename/constrain every member (the sub-DB's own top design
+    // also drops its stale elaboration-time instance cache) and re-resolve every ref (a
+    // constraint may add refs the natural pass never saw, so refs are re-derived here)
+    def fixSubDB(sub: DB): DB =
+      val naturalTop = sub.top
+      val dFinal = fixedMember(naturalTop).asInstanceOf[DFDesignBlock]
       dFinal.clearDesignInstCache()
-      val locals = snapshotOf(d).flatMap {
-        // child designs live in their own sub-DBs; globals join through the closure
-        case _: DFDesignBlock                   => None
-        case g: DFVal.CanBeGlobal if g.isGlobal => None
-        case inst: DFDesignInst                 => Some(unifyInst(inst))
-        case m                                  =>
-          fixedMember(m) match
-            case cbg: DFVal.CanBeGlobal => Some(cbg.copyWithoutGlobalCtx)
-            case fixed                  => Some(fixed)
+      val fixedMembers = sub.members.map {
+        case d: DFDesignBlock if d eq naturalTop => dFinal
+        case m                                   => fixedMember(m)
       }
-      val closure = globalsClosure(dFinal :: locals)
-      val dbMembers = closure ::: dFinal :: locals
-      builtSubDBs(StaticRef(d.ownerRef)) =
-        DB(dbMembers, refsFor(dFinal, dbMembers), globalTags, Nil)
-      parentToChildren.getOrElse(d, Nil).foreach(build)
-    end build
-    val topOrig = topMemberList.collectFirst {
-      case d: DFDesignBlock => d
-    }.get
-    scanClaims(topOrig)
-    build(topOrig)
+      DB(fixedMembers, refsFor(dFinal, fixedMembers), globalTags, Nil)
+    // ~~~ apply the fixes over the natural forest, sub-DB by sub-DB (in forest order) ~~~
+    val builtSubDBs = mutable.LinkedHashMap.empty[StaticRef, DB]
+    natural.subDBs.foreach { (key, sub) =>
+      DesignLoadGate.adoptedForestOf(sub.top) match
+        // a service-cached shell: its natural (public-only) sub-DB is discarded and the
+        // adopted (token-freshened) forest takes its place, the placeholder top header
+        // replaced by the shell's final (renamed/constrained) block; every sub-DB takes
+        // this run's globalTags. The adopted children follow right after the shell.
+        case Some(forest) =>
+          val dFinal = fixedMember(sub.top).asInstanceOf[DFDesignBlock]
+          dFinal.clearDesignInstCache()
+          forest match
+            case (topKey, topSub) :: children =>
+              val cachedTop = topSub.top
+              // header replacement by EQUALITY, not identity: a JSON round trip through
+              // the service deserializes equal-but-distinct member instances into the
+              // members list and the refTable targets
+              val newMembers =
+                topSub.members.map(m => if (m == (cachedTop: DFMember)) dFinal else m)
+              val newRefTable = topSub.refTable.map { (r, t) =>
+                val newR = if (r == cachedTop.ownerRef) dFinal.ownerRef else r
+                newR -> (if (t == (cachedTop: DFMember)) (dFinal: DFMember) else t)
+              }
+              builtSubDBs(topKey) = DB(newMembers, newRefTable, globalTags, Nil)
+              children.foreach { (k, s) => builtSubDBs(k) = s.update(globalTags = globalTags) }
+            case Nil =>
+          end match
+        case None => builtSubDBs(key) = fixSubDB(sub)
+    }
     // orphan globals (reached by no sub-DB closure) anchor at the top design's sub-DB
+    val allGlobalsOrderedRaw: List[DFVal.CanBeGlobal] = topMemberList.collect {
+      case g: DFVal.CanBeGlobal if g.isGlobal => g
+    }
     val coveredGlobals = mutable.Set.empty[DFMember]
     builtSubDBs.valuesIterator.foreach { sub =>
       sub.members.foreach {
@@ -786,12 +924,12 @@ final class MutableDB():
       coveredGlobals.contains(g.copyWithoutGlobalCtx)
     )
     if (orphanGlobalsRaw.nonEmpty)
-      val orphanGlobals = cleanedGlobals(orphanGlobalsRaw)
-      val topKey = StaticRef(topOrig.ownerRef)
+      val orphanGlobals = orphanGlobalsRaw.map(_.copyWithoutGlobalCtx)
+      val topKey = StaticRef(topDesign.ownerRef)
       val topSub = builtSubDBs(topKey)
       builtSubDBs(topKey) = topSub.update(
         members = orphanGlobals ::: topSub.members,
-        refTable = topSub.refTable ++ refsFor(topOrig, orphanGlobals)
+        refTable = topSub.refTable ++ refsFor(topDesign, orphanGlobals)
       )
     DB(Nil, Map.empty, globalTags, Nil, ListMap.from(builtSubDBs))
   end hierarchical

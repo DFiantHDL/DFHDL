@@ -140,8 +140,26 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
             case _ => Set.empty
         case None => Set.empty
     )
+
+  // a class parameter accessor and its constructor parameter are the same logical
+  // parameter; the constructor parameter symbol is the canonical representative
+  // (instantiation-site attribution and annotation-name synthesis meet it there)
+  private def normalizedParam(s: Symbol)(using Context): Symbol =
+    if (s.is(ParamAccessor))
+      s.owner.primaryConstructor.paramSymss.flatten
+        .find(p => p.isTerm && p.name == s.name).getOrElse(s)
+    else s
+
+  // markings and roots of a parameter's logical owner: a constructor parameter belongs
+  // to its class
+  private def paramOwnerOf(p: Symbol)(using Context): Symbol =
+    if (p.owner.isConstructor) p.owner.owner else p.owner
   private def isMarkedParam(owner: Symbol, p: Symbol)(using Context): Boolean =
-    val names = markedImpureParams(owner)
+    // a class records its data-impure constructor parameters on the CLASS annotation
+    // (which is what reaches the runtime through the design meta), so a constructor
+    // callee consults its class
+    val annotOwner = if (owner.isConstructor) owner.owner else owner
+    val names = markedImpureParams(annotOwner)
     names.contains("*") || names.contains(p.name.toString)
 
   // classification codes: 0 = none, 1 = trusted, 2 = blacklisted
@@ -254,6 +272,28 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
     // the common base of all DFHDL containers (designs/interfaces/domains); the inherited
     // purity walk of a design class stops here (exclusive)
     val containerCls = getClassIfDefined("dfhdl.core.Container")
+    // design classes route their instantiation through the design load gate, which keys
+    // their `<> CONST` parameters (applied data, once marked), plain Scala constructor
+    // parameters and template captures (`__clsScalaArgs`), and captured-constant
+    // auto-parameters, so forcing rooted at any of those is attributable rather than a
+    // design-level escalation (mirroring design defs)
+    val designCls = getClassIfDefined("dfhdl.core.Design")
+    def isDesignCls(sym: Symbol): Boolean =
+      designCls.exists && sym.isClass && !sym.isAnonymousClass &&
+        sym.typeRef.derivesFrom(designCls.asClass)
+    // the class-template captured constants that materialize as auto-created design
+    // parameters at runtime (`cloneUnreachable`), keyed by the capture's stable access
+    // path (the class-design counterpart of a design def's phantom constants)
+    val clsConstCaptureMap = mutable.Map.empty[Symbol, Map[List[Symbol], String]]
+    def clsConstCapturesOf(clsSym: Symbol): Map[List[Symbol], String] =
+      clsConstCaptureMap.getOrElseUpdate(
+        clsSym,
+        roots.get(clsSym) match
+          case Some((tmpl: Template, true)) =>
+            discoverClsCaptures(clsSym.asClass, tmpl)
+              .phantomConsts.map((path, _) => path -> captureName(path)).toMap
+          case _ => Map.empty
+      )
 
     // every immutable value definition of this run, for attribution tracing: a forced
     // value rooted at a val resolves to that val's definition, wherever it is defined
@@ -329,6 +369,10 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
                   case _                      => true
                 }
               else List(tree)
+            // the nearest enclosing design def or design class of the analyzed root:
+            // the design whose load key covers data landing in the analyzed body
+            lazy val nearestDesignBoundary = rootSym.ownersIterator
+              .find(o => designDefRoots.contains(o) || (isDesignCls(o) && roots.contains(o)))
             // ~~~ constant-data forcing attribution ~~~
             // resolves a forced expression to its dataflow roots; see the phase doc
             def attributeSym(s: Symbol, visited: Set[Symbol]): ForcedRes =
@@ -339,6 +383,27 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
               else if (classify(s) == 1 || isDfhdlRootPkgMember(s) || pureMarking(s).contains(true))
                 ForcedRes.Pure
               else if (pureMarking(s).contains(false)) ForcedRes.Escalate
+              else if (s.is(ParamAccessor) || (s.is(Param) && s.isTerm && s.owner.isConstructor))
+                // a design class's constructor parameter, referenced through its
+                // in-template parameter accessor or the constructor parameter symbol
+                // itself: `<> CONST` parameters get keyed by applied type+data once
+                // marked (recorded on the CLASS annotation, like a design def's), and
+                // plain Scala parameters are keyed by value (`__clsScalaArgs`), so both
+                // are attributable. This resolution is only sound when the forced data
+                // LANDS in the class's own body (the class key covers it): inside a
+                // nested design def the def's OWN key must cover the data instead, so
+                // the parameter escalates and the def-boundary capture path records a
+                // phantom parameter name when applicable. Non-design class parameters
+                // stay design-level (escalate).
+                val cls = if (s.is(ParamAccessor)) s.owner else s.owner.owner
+                if (
+                  isDesignCls(cls) && rootSym.isContainedIn(cls) &&
+                  nearestDesignBoundary.contains(cls)
+                )
+                  if (pureMarking(cls).isDefined) ForcedRes.Pure
+                  else if (s.info.isDFConst) ForcedRes.Marks(Set(normalizedParam(s)))
+                  else ForcedRes.Pure
+                else ForcedRes.Escalate
               else if (s.is(Param) && s.isTerm)
                 val m = s.owner
                 if (!m.is(Method) || !rootSym.isContainedIn(m)) ForcedRes.Escalate
@@ -382,11 +447,17 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
             // code-determined captures stay pure and do not fatten the key.
             def phantomCaptureRes(t: Tree, res: ForcedRes): ForcedRes = res match
               case ForcedRes.Escalate =>
-                rootSym.ownersIterator.find(designDefRoots.contains) match
-                  case Some(defSym) =>
-                    stablePathKey(t).flatMap(phantomConstsOf(defSym).get) match
+                // the nearest enclosing design def or design class governs: a captured
+                // constant materializes as the def's phantom parameter or the class's
+                // auto-created parameter, keyed by applied data under the recorded name
+                nearestDesignBoundary match
+                  case Some(owner) =>
+                    val captureMap =
+                      if (designDefRoots.contains(owner)) phantomConstsOf(owner)
+                      else clsConstCapturesOf(owner)
+                    stablePathKey(t).flatMap(captureMap.get) match
                       case Some(name) =>
-                        markPhantomForced(defSym, Set(name))
+                        markPhantomForced(owner, Set(name))
                         ForcedRes.Pure
                       case None => res
                   case None => res
@@ -476,9 +547,11 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
             // marking escalates now, a future one escalates through the recorded edge
             def unappliedParam(p: Symbol): Unit =
               if (paramForced.contains(p) || isMarkedParam(p.owner, p)) impure = true
-              else if (roots.contains(p.owner) && pureMarking(p.owner).isEmpty)
-                paramEdges.getOrElseUpdate(p, mutable.ListBuffer.empty) +=
-                  ((rootSym, () => ForcedRes.Escalate))
+              else
+                val pOwner = paramOwnerOf(p)
+                if (roots.contains(pOwner) && pureMarking(pOwner).isEmpty)
+                  paramEdges.getOrElseUpdate(p, mutable.ListBuffer.empty) +=
+                    ((rootSym, () => ForcedRes.Escalate))
             def visitUnappliedRef(sym: Symbol): Unit =
               visitRef(sym)
               if (!impure && sym.exists && sym.is(Method))
@@ -494,7 +567,11 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
             // callee onto this call's applied arguments
             def handleAppliedParams(callee: Symbol, argss: List[List[Tree]]): Unit =
               if (callee.exists && callee.is(Method) && dfhdlParams(callee).nonEmpty)
-                val recordable = roots.contains(callee) && pureMarking(callee).isEmpty
+                // a constructor callee resolves to its class for roots/markings (a
+                // design class instantiation attributes its applied `<> CONST`
+                // arguments exactly like a design def call)
+                val calleeRoot = if (callee.isConstructor) callee.owner else callee
+                val recordable = roots.contains(calleeRoot) && pureMarking(calleeRoot).isEmpty
                 val termParamss =
                   callee.paramSymss.filter(ps => ps.isEmpty || ps.head.isTerm)
                 termParamss.zipAll(argss, Nil, Nil).foreach { (ps, args) =>
@@ -603,11 +680,15 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
     // at the declaration, and phantom params (with no source symbol) fit the same scheme
     // through their predicted capture names. A design-level-impure owner never caches, so
     // its param markings would only be noise.
-    val paramForcedByOwner = paramForced.groupBy(_.owner)
+    val paramForcedByOwner = paramForced.groupBy(paramOwnerOf)
     (paramForcedByOwner.keySet ++ phantomForced.keySet).foreach { owner =>
       if (pureMarking(owner).isEmpty && !verdictImpure.contains(owner))
         val ps = paramForcedByOwner.getOrElse(owner, mutable.Set.empty[Symbol])
-        val names = owner.paramSymss.flatten.collect {
+        // a class's parameters live on its primary constructor
+        val ownerParams =
+          if (owner.isClass) owner.asClass.primaryConstructor.paramSymss.flatten
+          else owner.paramSymss.flatten
+        val names = ownerParams.collect {
           case p if ps.contains(p) => p.name.toString
         } ++ phantomForced.get(owner).fold(Nil)(_.toList)
         owner.addAnnotation(Annotation(pureAnnotTree(true, names, owner)))

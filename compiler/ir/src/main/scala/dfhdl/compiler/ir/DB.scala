@@ -1846,6 +1846,62 @@ final case class DB private (
       )
   end oldToNew
 
+  // ~~~ sub-design cache support ~~~
+
+  // The return DFType of a cached design-def DB: its top design's (non-phantom) output
+  // port type, or DFUnit when the def has a Unit return (no output port). The design-def
+  // harness needs this on a cache hit, before any body exists.
+  def subDesignRetDFType: DFType =
+    topDB.members.collectFirst {
+      case dcl: DFVal.Dcl if dcl.isPortOut && !dcl.hasTagOf[PhantomTag] => dcl.dfType
+    }.getOrElse(DFUnit)
+
+  // Freshens this cached sub-design DB for adoption into a loading run, returning the
+  // rewritten forest. Because the cached cross-sub-DB tokens (subDBs keys, top blocks'
+  // ownerRefs, `DFDesignInst.designRef`s) originate from the run that stored it, they
+  // are rewritten here: the cached top adopts the given shell token (the loading run's
+  // design block ownerRef) and every child design gets a newly generated token.
+  // Per-sub-DB refTables are self-contained, so no other tokens need rewriting. The
+  // cached top's block HEADER stays in place as a placeholder: the loading run's final
+  // assembly replaces it with the shell's final (dclName-uniquified) block, which also
+  // resolves any naming divergence between the storing and loading runs; the parent
+  // side is untouched (its port selections resolve by NAME into the adopted sub-DB,
+  // and its instance's `designRef` is exactly the shell token the cached top now sits
+  // under).
+  def freshenSubDesignForest(shellKey: StaticRef)(using RefGen): List[(StaticRef, DB)] =
+    val (cachedTopKey, _) = subDBs.head
+    val tokenMap: Map[StaticRef, StaticRef] =
+      subDBs.view.map { (key, _) =>
+        val newKey =
+          if (key == cachedTopKey) shellKey
+          else StaticRef(summon[RefGen].genOneWay[DFDesignBlock].asInstanceOf[DFOwner.Ref])
+        key -> newKey
+      }.toMap
+    subDBs.toList.map { (key, sub) =>
+      val oldBlock = sub.top
+      // a token-freshened block copy for children; the top keeps its placeholder header
+      val newBlock =
+        if (key == cachedTopKey) oldBlock
+        else
+          oldBlock.copy(ownerRef =
+            tokenMap(StaticRef(oldBlock.ownerRef)).asRef.asInstanceOf[DFOwner.Ref]
+          )
+      val memberRepl: Map[DFMember, DFMember] =
+        sub.members.view.collect {
+          case d: DFDesignBlock if (d eq oldBlock) && !(newBlock eq oldBlock) =>
+            (d: DFMember) -> newBlock
+          case inst: DFDesignInst if tokenMap.contains(inst.designRef) =>
+            (inst: DFMember) -> inst.copy(designRef = tokenMap(inst.designRef))
+        }.toMap
+      val newMembers = sub.members.map(m => memberRepl.getOrElse(m, m))
+      val newRefTable = sub.refTable.map { (r, t) =>
+        val newR = if (r == oldBlock.ownerRef) newBlock.ownerRef else r
+        newR -> memberRepl.getOrElse(t, t)
+      }
+      tokenMap(key) -> DB(newMembers, newRefTable, sub.globalTags, Nil)
+    }
+  end freshenSubDesignForest
+
   // Collapses a new-style (option-a) DB back into a flat old-style DB.
   // Non-DFDesignBlock members dedup by OBJECT identity (globals are shared by
   // identity across every DB that references them in Phase 1 / early Phase 2).

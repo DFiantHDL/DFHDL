@@ -13,7 +13,8 @@ final case class ElaborationOptions(
     trapErrors: TrapErrors,
     defaultClkCfg: DefaultClkCfg,
     defaultRstCfg: DefaultRstCfg,
-    printDFHDLCode: PrintDFHDLCode
+    printDFHDLCode: PrintDFHDLCode,
+    cacheEnable: CacheEnable
 ):
   private[dfhdl] val defaultRTDomainCfgTag: DefaultRTDomainCfgTag =
     DefaultRTDomainCfgTag(defaultClkCfg.asIR, defaultRstCfg.asIR)
@@ -29,11 +30,13 @@ object ElaborationOptions:
         trapErrors: TrapErrors,
         defaultClkCfg: DefaultClkCfg,
         defaultRstCfg: DefaultRstCfg,
-        printDFHDLCode: PrintDFHDLCode
+        printDFHDLCode: PrintDFHDLCode,
+        cacheEnable: CacheEnable
     ): Defaults[Any] = ElaborationOptions(
       logLevel = logLevel(wvlet.log.LogLevel), onError = onError(dfhdl.options.OnError),
       Werror = Werror, trapErrors = trapErrors,
-      defaultClkCfg = defaultClkCfg, defaultRstCfg = defaultRstCfg, printDFHDLCode = printDFHDLCode
+      defaultClkCfg = defaultClkCfg, defaultRstCfg = defaultRstCfg,
+      printDFHDLCode = printDFHDLCode, cacheEnable = cacheEnable
     )
   end Defaults
   given defaults(using defaults: Defaults[Design]): ElaborationOptions = defaults
@@ -171,5 +174,14 @@ object ElaborationOptions:
   object PrintDFHDLCode:
     given PrintDFHDLCode = false
     given Conversion[Boolean, PrintDFHDLCode] = identity
+
+  // Enables the elaboration sub-design cache: a pure design def skips its body
+  // elaboration on a disk cache hit and the cached sub-design DB is spliced into the
+  // final DB. Cache entries live beside the def's owner class build output (see
+  // `dfhdl.core.SubDesignDiskCache`). Off by default.
+  into opaque type CacheEnable <: Boolean = Boolean
+  object CacheEnable:
+    given CacheEnable = false
+    given Conversion[Boolean, CacheEnable] = identity
 
 end ElaborationOptions

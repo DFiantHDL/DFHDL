@@ -1,5 +1,83 @@
 # Sub-Design Caching and the Generalized Design Load Harness
 
+## OPEN ISSUES AND REMAINING WORK (2026-07-12, AUTHORITATIVE; supersedes every
+## scattered NEXT/REMAINING list below)
+
+State: steps 1-3 committed or ready (def designs fully cached: intra-run + disk
+service); step 4 (class designs keyed through the gate, key-based unification primary,
+structural `=~` scoped to a keyless fallback) implemented and green, uncommitted.
+
+OPEN ISSUES (correctness/design gaps, largest first):
+
+1. CONSERVATIVE IMPURITY ESCALATION ON BODY-LOCALS (the `mulByte` case, pre-existing):
+   forcing whose dataflow passes through a value the analysis cannot trace to a
+   param/capture/static (a lambda parameter, a pattern binding, an anonfun-computed
+   local) escalates to design-level `pure(false)` instead of a param marking. Since
+   anonymous functions cannot carry param markings (their application sites are
+   unknowable), any forced expression mixing a keyable root WITH such a local kills the
+   whole def. Consequence: such designs are keyless, never unify (one enumerated
+   design per instantiation), and can never disk-cache. The escape hatch is a
+   user-written `@pure(true, <names>)` declaring the data-impure params explicitly:
+   APPLIED to AES's `mulByte` (`@pure(true, "lhs")`, the canonical example; user
+   decision 2026-07-12). Automatic-attribution fix directions, in increasing power:
+   (a) pattern-bind tracing: attribute a `Case` binding through its match selector;
+   (b) trusted-HOF data-flow: for scala-collection combinators (foldLeft/map/...) over
+       code-determined collections (literal ranges), treat the lambda's element/acc
+       params as code-determined.
+2. RESOLVED BY USER DECISION (2026-07-12): NO runtime structural deduplication AT ALL.
+   Designs unify ONLY through the design load gate's key (the key information
+   differentiates designs even when caching is disabled); keyless (impure/unloadable)
+   designs emit one dclName-enumerated design per instantiation, and only the dclName
+   RENAMING iterates over same-name groups. The `=~` fallback briefly added after the
+   AES explosion (14 -> 595 sub-designs when mulByte was keyless) is DELETED; the AES
+   fix is the explicit `@pure(true, "lhs")` marking on `mulByte` (issue 1). The cost:
+   an unannotated impure design instantiated N times emits N identical designs; the
+   remedy is declaring purity/impure-params, not structural comparison.
+3. ADOPTED-CHILD DCLNAME CLASHES (service tier): an adopted (disk-loaded) forest's
+   CHILD designs keep their stored dclNames; a native same-name design in the loading
+   run is not uniquified against them. Fix: seed `uniqueDesigns` with adopted children
+   or re-uniquify at assembly.
+4. KEY OVER-APPROXIMATION (accepted, document): two pure instantiations whose keys
+   differ but whose bodies happen to be identical (e.g. a Scala arg that does not shape
+   structure) now emit two designs where `=~` previously unified them.
+5. RESIDUAL KEYING HOLES (accepted, document): (a) abstract Scala vals overridden by
+   anonymous subclasses are keyed only when declared in the leading paramBody section;
+   (b) an INTERFACE template's Scala captures do not reach the instantiating design's
+   key; (c) a forced-only class capture (never materialized as an auto-param) makes the
+   class unloadable (strict name resolution: safe, conservative).
+6. DEF SERVICE-HIT RETURN TYPES REFERENCING GLOBALS (untested gap): a cached
+   `subDesignRetDFType` carrying refs to the cached run's globals would embed
+   unresolvable tokens in the fresh out port.
+7. PRE-EXISTING PLUGIN LIMITS (surfaced by ClassDesignKeySpec work, independent of the
+   gate): instantiating a design inside a design-level `for` comprehension crashes the
+   loop transform (ExplicitOuter path assertion); `Range.foreach` at design level is
+   DFRange-reserved. Both deserve proper compiler errors (or support).
+8. PRE-EXISTING WART: in-place compound forced expressions (`(a + b).toScalaInt`
+   unnamed) leave a dangling anonymous member that fails the sanity check; fold into
+   the forcing errors/warnings work.
+
+REMAINING WORK, in order:
+
+1. Commit step 4 (class keying + keyless fallback + PureCheck class attribution + key
+   normalization + ClassDesignKeySpec).
+2. Increment 2 - CLASS BODY-SKIP + SERVICE CACHING (design recorded in step 4 notes
+   below): call-site gate decision fed by the plugin from `transformApply`'s lifted
+   ctor args (mid-constructor keying is impossible: leaf fields are uninitialized
+   during a base template's run, so instance methods are unusable on a hit);
+   plugin-guarded template statements (DFVal port/const val decls always run,
+   re-creating the public interface against fresh params; container-typed vals or
+   unsafe port dependencies make a class non-skippable; capture-carrying classes never
+   skip); service adoption at design end as today; the store side already works
+   (`completed`/`buildDesignForestDB` are design-agnostic).
+3. Cache rollout: default `ElaborationOptions.CacheEnable` from `AppOptions.cacheEnable`
+   in DFApp flows; enable the service tier for classes; flip the global default once
+   proven.
+4. PureCheck attribution strengthening (issue 1) -> retire the structural fallback.
+5. Recovery tiers for impure sub-design poison (tracked-effect manifests).
+6. User documentation: the purity model, `@pure` overrides (with and without named
+   impure params), the unmarked-effects contract, the static-dispatch approximation,
+   and the key over-approximation semantics.
+
 ## RESEQUENCED ROADMAP (user decision, 2026-07-12; supersedes the NEXT list below)
 
 The caching mechanism is REMOVED for now and returns only after the DB substrate is
@@ -91,6 +169,110 @@ restructured. The three steps:
    subDB)` right at `endDesign` (sub-DBs now exist at design end), hit = the shell
    context ADOPTS the cached forest as its sub-DB inline (no deferred attach/finalize
    choreography), return DFType always read from the out port of the DB/design at hand.
+   - STEP 3 IMPLEMENTED (2026-07-12, uncommitted). The gate (`MutableDB.DesignLoadGate`)
+     is now: `Key(dclMeta, inputTypes, scalaArgs, impureParamsKey)`; `canonicalOf:
+     Map[Key, DFDesignBlock]` (the ONLY intra-run state: no Entry, no DesignLoadResult;
+     retDFType read from the canonical's snapshot out port, or from the cached DB's out
+     port via `subDesignRetDFType`); `designFromDef` orchestrates directly (keyOpt ->
+     lookup -> skip or run -> completed). Intra-run hit = ctx.duplicateOf joining (the
+     restored group-join mechanics). Service hit = shell ctx.isDuplicate
+     (self-canonical), forest token-freshened AT HIT TIME (`DB.freshenSubDesignForest`,
+     using dfc.refGen; top adopts the shell token, children get genOneWay tokens,
+     designRefs remapped; top HEADER stays a placeholder), recorded in `adopted`
+     (StaticRef-keyed; localKey doubles as the =~-dedup guard identity via
+     `adoptionIdOf`), and seeds `canonicalOf`. FINAL ASSEMBLY (`hierarchical.build`)
+     dispatches: adopted forest emitted as the shell's content with the placeholder
+     header replaced BY EQUALITY (JSON round trips deserialize equal-but-distinct
+     instances; `eq` misses them) by the shell's final dclName-uniquified block +
+     loading-run globalTags; native designs build from snapshots as before.
+     STORE AT END: `completed` (clean live runs only; body-created DesignParams are
+     unloadable) builds the artifact via `buildDesignForestDB`: the design's
+     self-contained forest from end-of-design snapshots, NATURAL names, no whole-run
+     fixes; content canonicalized (a duplicate's body is embedded from its canonical's
+     snapshot, even one OUTSIDE the subtree, keeping self-containment); insts unified;
+     refs resolved through the mutable run state (`getMemberOption` walks the context
+     stack); globals closure from the GLOBAL context list; children discovered from RAW
+     insts (a unified designRef resolves only structurally). PITFALL: do NOT
+     clearDesignInstCache on live blocks in the artifact builder (the design is still
+     live in the run; PBNS resolution needs the cache; the transient cache is not
+     serialized anyway). SubDesignCacheSpec 3/3 (map service round trip, real disk
+     service, no-cache regression), StagesSpec 494/494, FULL TEST GREEN (modulo the
+     known-ignorable local ips VgaMonitorSimSpec environment failure).
+   - REMAINING (later increments): dclName-clash proofing for adopted child designs vs
+     native same-name designs (seed uniqueDesigns with adopted children or re-uniquify
+     at assembly); recovery tiers; user docs.
+4. CLASS DESIGNS THROUGH THE GATE + KEY-BASED UNIFICATION PRIMARY (2026-07-12,
+   uncommitted): class designs are keyed at their END (body always runs live for now)
+   in `Design.onCreateStartLate`: `gate.designClsKeyOf(__clsScalaArgs)` (dclMeta = leaf
+   class meta; no inputTypes; plain Scala ctor params + template captures via the
+   plugin-injected `__clsScalaArgs` chain, chained like `__clsMeta` so base-class
+   captures are covered; impure params matched BY NAME against the class `pure`
+   annotation over the design's DesignParam members, STRICT: an unresolved name or
+   unknown applied data = keyless) -> `joinCanonicalOf` (sets ctx.duplicateOf) or
+   `completed` after exit (cacheEnable=false for classes for now: intra-run tier only).
+   A vendor IP blackbox keys ALL its params' applied data (it bakes values into the
+   emitted IP instance; mirrors the old defaultValRef=applied `=~` discrimination).
+   - KEY NORMALIZATION (`normalizedKeyPart`; user decision 2026-07-12): a DFType in
+     any key part (def inputTypes, scala args like `new IDGen(SInt(w))`, impure-param
+     dfTypes) keys by its DEFAULT-printer `codeString`: unique, repetitive across
+     constructions AND across runs (so it serves the service's cross-run localKey
+     as-is; raw equality would wrongly split on per-construction TypeRef tokens).
+     Printing needs every type reference to resolve with a member ORIGIN; an ad-hoc
+     type built at the instantiation site (never landing in a member) has none and
+     falls back to (token-erased copyWithNewRefs(RefGen.initial) copy, resolved
+     ref-target members): sound intra-run, miss-only cross-run. Containers decompose
+     recursively ONLY when they hold a DFType (tuples of DFTypes); every other value
+     keeps its OWN equality. PITFALL that forced this rule: decomposing foreign values
+     Product-wise destroys custom equality semantics - a BitVector inside applied
+     constant data holds rope-internal Array[Byte] fields that compare BY REFERENCE,
+     which silently keyed every `h"02"` application uniquely (AES: 64 mulByte designs
+     out of 3 logical ones). localKeyOf toStrings inputTypes (normalized strings/pairs,
+     not writable DFTypes).
+   - PURECHECK CLASS ATTRIBUTION: forcing rooted at a design class's `<> CONST` ctor
+     param (via param accessor or ctor param symbol) marks the param on the CLASS
+     annotation (`pure(true, name)`) instead of design-level escalation; plain Scala
+     ctor params are Pure roots (keyed by value). SOUND ONLY when the analyzed root's
+     nearest design boundary IS that class (`nearestDesignBoundary`): inside a nested
+     design def the def's own key must cover the data, so the param escalates there
+     and the def-boundary capture path records a phantom name instead. Class-template
+     captured constants attribute like def phantom captures (recorded name = the
+     auto-created cloneUnreachable param's name; `discoverClsCaptures` shared by
+     PureCheck and MetaContextPlacer). Ctor params normalize accessor->ctor-param
+     symbol; ctor callees resolve to their class for markings/roots/synthesis.
+   - CRITICAL FINDING + FINAL RESOLUTION: AES's `mulByte` (and transitively
+     mixColumns/cipher/Cipher) is design-level Pure(false) EVEN AT HEAD (forcing traced
+     through a foldLeft case-lambda pattern binding escalates: pre-existing
+     conservatism), yet HEAD produced 14 sub-designs because the =~ dedup silently
+     unified the identical impure bodies. Key-based-only unification exploded AES to
+     595 sub-designs (576 mulByte copies) and broke tool compilation. An interim
+     `DesignContext.keyed` + keyless structural fallback was added, then DELETED by
+     user decision (2026-07-12): NO structural dedup at all - designs unify only by
+     key, keyless designs enumerate, and `mulByte` carries an explicit
+     `@pure(true, "lhs")` (so its applied multiplicand data keys it: 3 designs).
+     `endDesign` is now trivially key-driven (duplicateOf join or new group); the
+     adoptionIdOf/sameExternalIdAs guard is retired (adopted shells are keyed by
+     definition).
+   - `StagesSpec.ClassDesignKeySpec` (4 tests): param-parametric unification, Scala
+     ctor arg keying (split/unify), template capture keying (local class in a
+     List-foreach lambda capturing the loop value), class-param forcing
+     (pure(impureParams="amount") on the class, folded-data splits + repeat unify).
+   - PRE-EXISTING LIMITATIONS surfaced (unrelated to the gate): instantiating a design
+     class inside a design-level `for` comprehension crashes the plugin loop transform
+     (ExplicitOuter "failure to construct path"); a Range `foreach` at design level
+     resolves to DFRange.foreach (plugin-reserved). ClassDesignKeySpec uses
+     `List(...).foreach`.
+   - NEXT (increment 2): class body-SKIP + service caching. Design sketch: the gate
+     decision must happen at the INSTANTIATION SITE (plugin transformApply already
+     lifts ctor args to locals) because a mid-constructor decision cannot compute the
+     leaf key from a base template (leaf fields uninitialized during super ctor). The
+     call-site key uses dclMeta + ctor-derived parts only; classes with template
+     captures never body-skip (start-key/end-key mismatch is conservative-safe). On a
+     hit the decision is PUSHED onto the gate before construction; every template
+     statement is guarded by the plugin (DFVal-typed port/const val decls always run,
+     re-creating the public interface against fresh params; other statements skip;
+     classes with container-typed vals or unsafe port dependencies are not skippable);
+     service adoption happens at design end like today. Store-side for classes is
+     nearly free (`completed` + buildDesignForestDB already work for any design).
 
 Status (2026-07-11, branch `pure-checks`):
 

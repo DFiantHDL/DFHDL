@@ -183,13 +183,44 @@ object r__For_Plugin:
     // all the design's (name, applied value) parameter entries, explicit and phantom
     val namedConstArgs = constArgs.map((name, arg, _) => (name, arg)) ++
       phantomConstArgs.map((arg, fallbackMeta) => (phantomMeta(arg, fallbackMeta).name, arg))
+    // Params named data-impure by the design def's `pure` annotation (synthesized by the
+    // PureCheck plugin phase or declared by the user) contribute their applied type+data
+    // to the design load key. Phantom parameters fit the same scheme: PureCheck records
+    // their predicted names on the annotation like any explicit parameter's. Unknown
+    // applied data (no snapshot, e.g. unattainable during this elaboration) yields None,
+    // which makes this call unloadable (runs live; structural dedup still unifies
+    // identical bodies).
+    val impureParamsKeyOpt: Option[List[(ir.DFType, Any)]] =
+      val impureParamNames = dclMeta.annotations.collectFirst {
+        case ir.annotation.Pure(true, names) if names.nonEmpty => names.toSet
+      }.getOrElse(Set.empty)
+      if (impureParamNames.isEmpty) Some(Nil)
+      else
+        // `"*"` (e.g. from a user-written `@pure(true, "*")`) marks ALL params data-impure
+        val allImpure = impureParamNames.contains("*")
+        val keyPartOpts = params.zip(namedConstArgs).collect {
+          case (param, (name, _)) if allImpure || impureParamNames.contains(name) =>
+            param.asIR match
+              case dp: ir.DFVal.DesignParam => dp.appliedData.map(data => (dp.dfType, data))
+              case _                        => None
+        }
+        if (keyPartOpts.forall(_.isDefined)) Some(keyPartOpts.map(_.get)) else None
+    end impureParamsKeyOpt
     // the body fetches inputs and parameters through `designFromDefGetInput/Param`
     val ctx = dfc.mutableDB.DesignContext.current
     ctx.defInputs = inputs
     ctx.defParams = params
-    val ret = func
-    val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(namedConstArgs))
-    def exitAndConnectInputs() =
+    val gate = dfc.mutableDB.DesignLoadGate
+    val cacheEnable: Boolean = dfc.elaborationOptions.cacheEnable
+    val keyOpt = DesignLoadKey.designDefKeyWith(inputs, scalaArgs, impureParamsKeyOpt)
+    // on a design-load hit (intra-run or the sub-design cache service) the body is
+    // skipped: the shell context holds only the harness-created public interface, and the
+    // loaded design's DB provides the return DFType for the fresh output port
+    val skipRetDFType =
+      keyOpt
+        .flatMap(gate.lookup(_, ownerClass, cacheEnable)(using dfc.refGen))
+        .map(_.subDesignRetDFType)
+    def exitAndConnectInputs(paramEntries: List[(String, ir.DFVal)]): ir.DFDesignBlock =
       val endedDesign = designBlock.asIR
       dfc.exitOwner()
       Design.Inst(endedDesign, paramEntries)
@@ -201,18 +232,47 @@ object r__For_Plugin:
         val connDFC = if (isPhantom) dfc.anonymize.tag(ir.PhantomTag) else dfc.anonymize
         input.connect(arg)(using connDFC)
       }
-    val retDFTypeIR = ret.dfType.asIR
-    if (retDFTypeIR == ir.DFUnit)
-      exitAndConnectInputs()
-      DFUnitVal().asInstanceOf[V]
-    else
-      val retMeta = ret.asIR.meta
-      val retIdent = DFVal.Alias.AsIs.ident(ret)(using dfc.setMeta(retMeta).anonymize)
-      val output = DFVal.Dcl(retDFTypeIR.asFE[DFTypeAny], Modifier.OUT)(using dfc.setName("o"))
-      output.connect(retIdent)(using dfc.setMeta(retMeta.anonymize))
-      exitAndConnectInputs()
-      output.asInstanceOf[V]
-    end if
+      endedDesign
+    def genOutPort(retDFTypeIR: ir.DFType) =
+      DFVal.Dcl(retDFTypeIR.asFE[DFTypeAny], Modifier.OUT)(using dfc.setName("o"))
+    skipRetDFType match
+      // the body was skipped: the fresh out port is the returned value (the connection
+      // to the body's return value lives in the canonical body)
+      case Some(retDFTypeIR) =>
+        val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(namedConstArgs))
+        if (retDFTypeIR == ir.DFUnit)
+          exitAndConnectInputs(paramEntries)
+          DFUnitVal().asInstanceOf[V]
+        else
+          val output = genOutPort(retDFTypeIR)
+          exitAndConnectInputs(paramEntries)
+          output.asInstanceOf[V]
+      case None =>
+        val preFuncMembers = dfc.mutableDB.DesignContext.getMembersNum
+        val ret = func
+        // design parameters auto-created by the body itself (see `completed`) make this
+        // call unloadable; detected before exiting the design context
+        val bodyCreatedParams = dfc.mutableDB.DesignContext
+          .getMembers(preFuncMembers, dfc.mutableDB.DesignContext.getMembersNum)
+          .exists {
+            case _: ir.DFVal.DesignParam => true
+            case _                       => false
+          }
+        val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(namedConstArgs))
+        val retDFTypeIR = ret.dfType.asIR
+        val (endedDesign, retVal) =
+          if (retDFTypeIR == ir.DFUnit)
+            (exitAndConnectInputs(paramEntries), DFUnitVal().asInstanceOf[V])
+          else
+            val retMeta = ret.asIR.meta
+            val retIdent = DFVal.Alias.AsIs.ident(ret)(using dfc.setMeta(retMeta).anonymize)
+            val output = genOutPort(retDFTypeIR)
+            output.connect(retIdent)(using dfc.setMeta(retMeta.anonymize))
+            (exitAndConnectInputs(paramEntries), output.asInstanceOf[V])
+        if (!bodyCreatedParams)
+          keyOpt.foreach(gate.completed(_, endedDesign, ownerClass, cacheEnable))
+        retVal
+    end match
   end designFromDef
   def identVal[V <: DFValAny](value: V)(using DFC): V =
     DFVal.Alias.AsIs.ident(value).asInstanceOf[V]

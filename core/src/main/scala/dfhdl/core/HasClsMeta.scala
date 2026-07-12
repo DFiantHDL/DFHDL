@@ -28,4 +28,11 @@ trait HasClsArgs:
   // `Design.Inst.collectParamEntries`). Used to construct the design instance's `paramMap`
   // at design end.
   protected def __clsAppliedArgs: List[(String, ir.DFVal)] = Nil
+  // The plain Scala constructor parameter values and plain Scala template captures of a
+  // DESIGN class, injected by the compiler plugin per class in the inheritance chain
+  // (chained like `__clsMeta`, own contribution first):
+  //   override def __clsScalaArgs = List[Any](<params>, <captures>) ::: super.__clsScalaArgs
+  // These values may legitimately shape the elaborated structure, so they join the
+  // design load key (the class-design counterpart of a design def's `scalaArgs`).
+  protected def __clsScalaArgs: List[Any] = Nil
 end HasClsArgs

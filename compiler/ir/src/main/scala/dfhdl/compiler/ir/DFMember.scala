@@ -1735,6 +1735,14 @@ object DFDesignBlock:
       case InstMode.BlackBox(src: InstMode.BlackBox.Source.ForeignIP) => Some(src)
       case _                                                          => None
     def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
+    // pure by default: only an explicit or PureCheck-synthesized `@pure(false)` marking
+    // makes the design's elaboration impure (its results must not be cached, and it never
+    // unifies through the design load gate)
+    def isPure: Boolean =
+      !dsn.dclMeta.annotations.exists {
+        case annotation.Pure(false, _) => true
+        case _                         => false
+      }
     def getCommonDesignWith(dsn2: DFDesignBlock)(using MemberGetSet): DFDesignBlock =
       def getOwnerDesignChain(dsn: DFDesignBlock): List[Set[DFDesignBlock]] =
         var chain = List(Set(dsn))
