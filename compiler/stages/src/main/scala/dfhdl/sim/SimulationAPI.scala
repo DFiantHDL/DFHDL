@@ -97,26 +97,24 @@ final class Simulation[D <: Design] private[sim] (
     rec(t)
   end concretize
 
-  // flat immutable DB used only by the bridge to enumerate sibling instances
-  private lazy val flatDB = dsn.dfc.getSet.designDB
-  private lazy val flatInsts = flatDB.members.collect { case i: ir.DFDesignInst => i }
+  // the hierarchical immutable DB, used only by the bridge to enumerate sibling instances
+  private lazy val hierDB = dsn.dfc.getSet.designDB
 
   // Repeated instance names (e.g. `List.fill(n)(SubDesign())`) get indexed path segments
-  // (adder_0, adder_1, ...) — matching the lowering's naming. The cached (elaboration-time)
-  // DFDesignInst maps to its immutable-DB copy by `ownerRef` (preserved through unifyInst);
-  // the rank among same-named same-parent instances in member order gives the index.
+  // (adder_0, adder_1, ...) matching the lowering's naming. The cached (elaboration-time)
+  // DFDesignInst maps to its immutable-DB copy by `ownerRef` (preserved through inst
+  // unification); the rank among same-named instances of the same parent sub-DB in member
+  // order gives the index (all instances within one sub-DB share the parent design).
   private def instSegment(d: ir.DFDesignBlock)(using MemberGetSet): String =
     val cached = d.getCachedDesignInst
     val name = cached.getName
-    val flatGS = flatDB.getSet
-    flatInsts.find(_.ownerRef == cached.ownerRef) match
-      case Some(myCopy) =>
-        val parent = myCopy.getOwnerDesign(using flatGS)
-        val siblings = flatInsts.filter { i =>
-          (i.getName(using flatGS) == name) && (i.getOwnerDesign(using flatGS) eq parent)
-        }
+    hierDB.subDBs.values.view.flatMap { sub =>
+      val insts = sub.members.collect { case i: ir.DFDesignInst => i }
+      insts.find(_.ownerRef == cached.ownerRef).map { myCopy =>
+        val siblings = insts.filter(_.getName(using sub.getSet) == name)
         if siblings.sizeIs > 1 then s"${name}_${siblings.indexOf(myCopy)}" else name
-      case None => name
+      }
+    }.headOption.getOrElse(name)
 end Simulation
 
 /** Why a simulation run is paused. A paused run holds its full context and can be continued. */

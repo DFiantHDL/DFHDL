@@ -29,6 +29,62 @@ restructured. The three steps:
    uniquification moves to assembly time, and the flat->hierarchical `oldToNew`
    conversion retires. Known post-end mutator to relocate: dclName dedup renaming
    (revises child design headers inside ended parents at `immutable` time).
+   - STEP 2 VALIDATION LANDED (2026-07-12): the mutable model is ALREADY
+     semi-hierarchical: `endDesign` freezes each design's member list into
+     `DesignContext.designMembers` (post-end member mutation through the normal context
+     path throws, since the ended context's tables are discarded), and the flat
+     `immutable` merely flattens that per-design structure for `oldToNew` to
+     re-partition. `MutableDB.hierarchical` now assembles the root DB DIRECTLY from the
+     `designMembers` snapshots: per-design locals (child blocks and globals excluded),
+     parent-to-children claims from a snapshot-order scan (identical to the flat
+     first-inst order), whole-run fixes applied per member (`designDedupMaps` extracted
+     and shared with `immutable`: dclName renaming + duplicate canonicalization;
+     constrained domain owners/dcls; inst unification; global-ctx cleanup), and the
+     `oldToNew`-mirrored globals closure + refsFor + orphan-global anchoring over the
+     fixed refTable (sourced from the memoized `immutable` during validation).
+     `MutableDB.verifyHierarchicalConstruction()` compares against `immutable.oldToNew`
+     piecewise and is SOAKED SUITE-WIDE: wired into `StageSpec.assertCodeString(dsn,*)`
+     and lib `DesignSpec.assertCodeString` (removed at flip time).
+     HierarchicalConstructionSpec adds targeted cases (dedup + renamed groups, design
+     defs with phantoms/globals, nested grandchild claims, design insts inside RT
+     domains). StagesSpec 495/495 green with the soak active.
+   - HARD CONSTRAINT (user, 2026-07-12): `hierarchical` MUST NOT source ANYTHING from
+     the flat `immutable` DB. Corrected: it now derives everything from the mutable
+     model directly: the merged run refTable (`DesignContext.current`'s refTable, with
+     the whole-run fixes applied PER REF TARGET at resolution: inst unification,
+     dclName-renamed/constrained owners, constrained dcls, sub-DB-top ownerRef ->
+     Empty), and the globals order from the top-level context list (globals are only
+     ever injected there; global-ctx cleanup applies at emission). The flat refTable's
+     sweeps (unused TypeRefs, redundant dup refs, orphan OneWay.Gen) need no
+     counterpart: `refsFor` only collects refs EMITTED by live members, so swept
+     entries are never queried. The flat path remains as the soak REFERENCE ONLY.
+   - END STATE (user, 2026-07-12): `immutable` ITSELF becomes the hierarchical DB (the
+     by-construction assembly), retiring the flat form entirely.
+   - FLIP LANDED (2026-07-12): `immutable` = meta-programming flat context view (the
+     patch system consumes a meta-design's DB as a flat member container, unchanged) OR
+     the hierarchical assembly (now `private def hierarchical`, with the
+     `clearDesignInstCache` side effect relocated into its `build`). The flat
+     build (`getFlattenedMemberList` + the fix passes over the flat list) and
+     `verifyHierarchicalConstruction` + the test-base soak hooks are DELETED. `getDB` =
+     `immutable` directly; the top-end check is `designDB.check`; `latchesCheck` takes
+     the root as-is. All other `oldToNew` call sites are naturally identity on a root
+     DB (kept where they defend old-style deserialized DBs). `getDBOld` semantics
+     unchanged (its callers are meta contexts). One genuine flat consumer rewritten:
+     `SimulationAPI.instSegment` now enumerates sibling instances per sub-DB (within a
+     sub-DB all instances share the parent design, so the same-parent check is
+     implied). HierarchicalConstructionSpec repurposed: asserts `getDB.isRoot` +
+     `sanityCheck` over the representative shapes. Commits: `3a7ebb264` = the
+     validation-phase assembly (MutableDB only); flip uncommitted pending green +
+     review.
+   - MID-RUN `designDB` SEMANTICS (found by CoreSpec DFSpec failures): the hierarchical
+     DB only exists by construction once the design tree is COMPLETE (all contexts
+     ended: `DesignContext.stack.isEmpty`). DURING elaboration (open contexts, e.g. the
+     DFSpec test base that enters an owner and prints mid-run, and mid-run error
+     printing), `immutable` serves the current subtree's FLAT snapshot
+     (`currentContextDB(flatten = true)`: current context member list with ended child
+     designs expanded through their snapshots + context refTable + cleanup, NO
+     whole-run fixes); meta-programming serves the same view unflattened. Only a
+     complete tree yields the hierarchical root.
 3. Reintroduce caching on the self-sustained substrate (pop the stash): the agreed
    simplified design; a single per-run map `Key -> design` for intra-run unification
    (which then replaces the structural dedup mechanism), store = `service.store(key,

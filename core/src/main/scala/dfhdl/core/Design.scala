@@ -142,7 +142,7 @@ trait Design extends Container, HasClsMeta, HasClsArgs:
         try
           import Design.latchesCheck
           val designDB = dfc.mutableDB.immutable
-          designDB.oldToNew.check // various checks post initial elaboration
+          designDB.check // various checks post initial elaboration
           designDB.latchesCheck()
           customTopChecks() // custom user/library checks
         catch
@@ -230,15 +230,13 @@ object Design:
     end apply
   end Inst
   extension [D <: Design](dsn: D)
-    // The compiled design DB is hierarchical (root + per-design sub-DBs): the
-    // stage pipeline runs natively on this form. `oldToNew` is applied ONCE here
-    // at the source so the staged DB is hierarchical end-to-end (no per-stage
-    // round-trips).
-    def getDB: ir.DB = dsn.dfc.mutableDB.immutable.oldToNew
-    // The raw FLAT immutable DB (the pre-`oldToNew` form). Needed where a design's
-    // members are consumed as a flat container without the hierarchy — e.g. a
-    // meta-design in the patch system, whose DB is just the freshly-created
-    // members to inject (root would have empty `members`).
+    // The compiled design DB is hierarchical BY CONSTRUCTION (root + per-design
+    // sub-DBs, see `MutableDB.hierarchical`): the stage pipeline runs natively on
+    // this form.
+    def getDB: ir.DB = dsn.dfc.mutableDB.immutable
+    // A meta-design's immutable DB: a FLAT container of the freshly-created members
+    // to inject through the patch system, with no design hierarchy (this is the
+    // meta-programming form of `immutable`; a root DB would have empty `members`).
     def getDBOld: ir.DB = dsn.dfc.mutableDB.immutable
     infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
       import dfc.getSet
@@ -258,10 +256,9 @@ object Design:
 
   extension (designDB: ir.DB)
     def latchesCheck(): Unit =
-      val newDB = designDB.oldToNew
-      // Under B-pure, root has empty members and a non-functional getSet —
-      // only iterate the sub-DBs (which already cover every design).
-      val allDBs = newDB.subDBs.values.toList
+      // the root has empty members and a non-functional getSet, so only iterate
+      // the sub-DBs (which already cover every design)
+      val allDBs = designDB.subDBs.values.toList
       val danglingVars = allDBs.view.flatMap { db =>
         given ir.MemberGetSet = db.getSet
         db.getImplicitStateVarsRT.view
