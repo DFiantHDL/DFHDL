@@ -264,17 +264,17 @@ final class MutableDB():
       current = stack.head
       stack = stack.drop(1)
     end endDesign
-    // The cached result of a pure design def elaboration. `autoParamEntries` are the design
-    // parameters AUTO-created by running the body (captured non-global outer values, see
-    // `cloneUnreachable`), which a cache hit cannot re-create since the body is skipped.
-    // When any captured value is non-global, the entry is not hittable: the capture may bind
-    // to a different scope at another call site, so the body must re-elaborate (structural
-    // dedup still unifies identical bodies afterwards).
+    // The cached result of a pure design def elaboration. With the capture rigging
+    // (phantom parameters/ports and Scala-capture keying, see `DesignDefsPhase`), the
+    // design's public interface is entirely harness-created, on hit and miss alike, so a
+    // hit needs nothing beyond the fresh parameter collection. If running a body still
+    // AUTO-creates design parameters (a capture path the rigging cannot see, resolved at
+    // runtime through `cloneUnreachable`), that call is simply never cached: a hit could
+    // not re-create such parameters since the body is skipped (running live is always
+    // correct; structural dedup unifies identical bodies afterwards).
     final case class PureDefEntry(
         design: DFDesignBlock,
-        ret: DFValAny,
-        autoParamEntries: List[(String, DFVal)],
-        hittable: Boolean
+        ret: DFValAny
     )
     val pureDesignDefOutCache =
       mutable.Map.empty[(Meta, List[DFType], List[Any], List[Any]), PureDefEntry]
@@ -307,25 +307,22 @@ final class MutableDB():
         val key =
           (currentDesign.dclMeta, inputs.map(_.dfType.asIR), scalaArgs, impureParamsKeyOpt.get)
         pureDesignDefOutCache.get(key) match
-          case Some(entry) if entry.hittable =>
+          case Some(entry) =>
             current.isDuplicate = true
             current.duplicateOf = Some(entry.design)
-            // only the explicit (harness-created) parameters exist in this context, so the
-            // auto-created ones are appended from the cached entry (all global, hence valid
-            // at any call site)
-            (true, entry.ret.asInstanceOf[V], paramEntriesOf ++ entry.autoParamEntries)
-          case cachedOpt =>
+            (true, entry.ret.asInstanceOf[V], paramEntriesOf)
+          case None =>
+            val preFuncMembers = current.members.length
             val ret = func
             val paramEntries = paramEntriesOf
-            if (cachedOpt.isEmpty)
-              val explicitNames = params.view.map(_.asIR.meta.name).toSet
-              val autoParamEntries = paramEntries.filterNot((name, _) => explicitNames(name))
-              pureDesignDefOutCache += key -> PureDefEntry(
-                currentDesign,
-                ret,
-                autoParamEntries,
-                autoParamEntries.forall(_._2.isGlobal)
-              )
+            // design parameters auto-created by the body itself (see the `PureDefEntry`
+            // note) make this call uncacheable
+            val bodyCreatedParams = current.members.view.drop(preFuncMembers).exists {
+              case MemberEntry(irValue = _: DFVal.DesignParam) => true
+              case _                                           => false
+            }
+            if (!bodyCreatedParams)
+              pureDesignDefOutCache += key -> PureDefEntry(currentDesign, ret)
             (false, ret, paramEntries)
         end match
       else (false, func, paramEntriesOf)

@@ -784,24 +784,43 @@ final case class DB private (
     }
   end pbnsToPort
 
-  // The names of `design`'s phantom-tagged design parameters (see PhantomTag),
-  // resolvable from the design's instantiation site: on a flat DB the design's
-  // body members are directly in this DB's ownerMemberTable, while under a
-  // hierarchical root the instantiation scope holds only the design's header,
-  // so we navigate DOWN to the design's own sub-DB. Used by the DFHDL printer
-  // to drop phantom parameter applications at a design-def instantiation site
-  // (only the def view form hides phantoms).
+  // Resolve `design`'s own body members from its instantiation site: on a flat DB the
+  // design's body members are directly in this DB's ownerMemberTable, while under a
+  // hierarchical root the instantiation scope holds only the design's header, so we
+  // navigate DOWN to the design's own sub-DB. The collector runs under the resolved
+  // DB's getSet.
+  private def fromDesignMembers[T](design: DFDesignBlock)(
+      collect: List[DFMember] => MemberGetSet ?=> T
+  ): T =
+    def run(sub: DB): T = sub.atGetSet(collect(sub.ownerMemberTable.getOrElse(design, Nil)))
+    if (rootDB.isRoot)
+      rootDB.subDBs.get(design.ownerRef) match
+        case Some(sub) => run(sub)
+        case None      => atGetSet(collect(Nil))
+    else run(this)
+
+  // The names of `design`'s phantom-tagged design parameters (see PhantomTag). Used by
+  // the DFHDL printer to drop phantom parameter applications at a design-def
+  // instantiation site (only the def view form hides phantoms).
   def phantomParamNamesOf(design: DFDesignBlock): Set[String] =
-    def collectNames(sub: DB, members: List[DFMember]): Set[String] = sub.atGetSet {
+    fromDesignMembers(design) { members =>
       members.view.collect {
         case param: DFVal.DesignParam if param.hasTagOf[PhantomTag] => param.getName
       }.toSet
     }
-    if (rootDB.isRoot)
-      rootDB.subDBs.get(design.ownerRef) match
-        case Some(sub) => collectNames(sub, sub.ownerMemberTable.getOrElse(design, Nil))
-        case None      => Set.empty
-    else collectNames(this, ownerMemberTable.getOrElse(design, Nil))
+
+  // Whether `design` has any phantom-tagged ports or parameters (see PhantomTag). A
+  // design def with phantoms references its host's values by name, so the DFHDL printer
+  // prints its declaration locally in the host design's body (just before the def's
+  // first instance) instead of at file level.
+  def designHasPhantoms(design: DFDesignBlock): Boolean =
+    fromDesignMembers(design) { members =>
+      members.exists {
+        case dcl: DFVal.Dcl           => dcl.hasTagOf[PhantomTag]
+        case param: DFVal.DesignParam => param.hasTagOf[PhantomTag]
+        case _                        => false
+      }
+    }
 
   // The domain that encloses `design`'s instantiation: navigate UP to `design`'s
   // parent sub-DB and read the owning domain of `design`'s inst there. Returns

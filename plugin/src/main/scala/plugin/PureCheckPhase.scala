@@ -44,6 +44,9 @@ import annotation.tailrec
   * of a marked parameter re-attributes its applied argument at the call site:
   *   - rooted at a design def's `<> CONST` parameter: the def gets `pure(true, <param name>)` and
   *     stays pure; the runtime elaboration cache keys the named parameters' applied type and data
+  *   - rooted at a captured constant of the design def (an out-of-scope value that the DesignDefs
+  *     rigging turns into a phantom design parameter): the def gets `pure(true, <phantom name>)`
+  *     and the phantom's applied data is keyed exactly like an explicit parameter's
   *   - rooted at a `<> VAL` input or a plain Scala argument of a design def: fully pure, since the
   *     cache key already covers input types and Scala argument values (forcing a non-constant's
   *     data is impossible, so a `<> VAL` root implies a type-derived constant, e.g. its width)
@@ -220,12 +223,31 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
     // analyzable definitions of this run, in discovery order
     val roots = mutable.LinkedHashMap.empty[Symbol, (Tree, Boolean)] // sym -> (tree, isClass)
     // defs that `DesignDefs` will transform into design-def harnesses (same conditions):
-    // their `<> CONST` params are keyable design parameters
-    val designDefRoots = mutable.Set.empty[Symbol]
+    // their `<> CONST` params are keyable design parameters. Maps each def to its context
+    // lambda (anon def), whose rhs is the actual design body used for capture discovery.
+    val designDefRoots = mutable.Map.empty[Symbol, DefDef]
     val verdictImpure = mutable.Set.empty[Symbol]
     val rdeps = mutable.Map.empty[Symbol, mutable.Set[Symbol]]
     // parameters whose applied data is forced into elaboration (data-impure params)
     val paramForced = mutable.Set.empty[Symbol]
+    // phantom parameter NAMES (design-def captures) whose applied data is forced into
+    // elaboration, per design def; insertion-ordered for deterministic annotations
+    val phantomForced = mutable.Map.empty[Symbol, mutable.LinkedHashSet[String]]
+    // the design-def's captured constants that the DesignDefs rigging will turn into
+    // phantom design parameters, keyed by the capture's stable access path
+    val phantomConstCaptures = mutable.Map.empty[Symbol, Map[List[Symbol], String]]
+    def phantomConstsOf(defSym: Symbol): Map[List[Symbol], String] =
+      phantomConstCaptures.getOrElseUpdate(
+        defSym,
+        designDefRoots.get(defSym) match
+          case Some(anonDef) =>
+            discoverDesignDefCaptures(defSym, anonDef.symbol, anonDef.rhs)
+              .phantomConsts.map((path, _) => path -> captureName(path)).toMap
+          case None => Map.empty
+      )
+    def markPhantomForced(owner: Symbol, names: Set[String]): Unit =
+      if (names.nonEmpty)
+        phantomForced.getOrElseUpdate(owner, mutable.LinkedHashSet.empty) ++= names
     // pending applications of a possibly-forced parameter: when the param gets marked, each
     // recorded application re-attributes its argument in the caller's context
     val paramEdges = mutable.Map.empty[Symbol, mutable.ListBuffer[(Symbol, () => ForcedRes)]]
@@ -254,7 +276,7 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
                       case vd: ValDef => vd.dfValTpeOpt.nonEmpty && !vd.tpt.tpe.isDFConst
                       case _          => false
                     } =>
-                designDefRoots += dd.symbol
+                designDefRoots += dd.symbol -> anonDef
               case _ =>
           case td @ TypeDef(_, tmpl: Template) if td.symbol.exists =>
             roots += td.symbol -> (tmpl, true)
@@ -349,6 +371,26 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
               else if (s.is(Module) || s.isStatic) ForcedRes.Pure // code-determined
               else ForcedRes.Escalate
             end attributeSym
+            // a capture of the enclosing design def that becomes a phantom design
+            // parameter (see the DesignDefs rigging): an otherwise-unattributable forcing
+            // rooted at it is recorded by the phantom's predicted name on that design def
+            // and keyed by the phantom's applied data, exactly like an explicit data-impure
+            // parameter. The recording happens here directly (and the verdict turns Pure)
+            // because attribution may run under any root NESTED in the design def, most
+            // commonly the def's own context lambda, whose rhs is the actual design body.
+            // Attribution that already resolved (Pure or explicit-param Marks) is kept, so
+            // code-determined captures stay pure and do not fatten the key.
+            def phantomCaptureRes(t: Tree, res: ForcedRes): ForcedRes = res match
+              case ForcedRes.Escalate =>
+                rootSym.ownersIterator.find(designDefRoots.contains) match
+                  case Some(defSym) =>
+                    stablePathKey(t).flatMap(phantomConstsOf(defSym).get) match
+                      case Some(name) =>
+                        markPhantomForced(defSym, Set(name))
+                        ForcedRes.Pure
+                      case None => res
+                  case None => res
+              case _ => res
             def attributeTree(t: Tree, visited: Set[Symbol]): ForcedRes =
               t match
                 case _ if t.isEmpty     => ForcedRes.Pure
@@ -390,7 +432,7 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
                     case ForcedRes.Escalate => ForcedRes.Escalate
                     case symRes             => combineRes(symRes, attributeTree(fun, visited))
                 case Select(qual, _) =>
-                  attributeSym(t.symbol, visited) match
+                  val res = attributeSym(t.symbol, visited) match
                     case ForcedRes.Escalate => ForcedRes.Escalate
                     case symRes             =>
                       qual match
@@ -398,7 +440,8 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
                         // (e.g. `this.dfc`) is not data
                         case _: This | _: Super => symRes
                         case _                  => combineRes(symRes, attributeTree(qual, visited))
-                case _: Ident => attributeSym(t.symbol, visited)
+                  phantomCaptureRes(t, res)
+                case _: Ident => phantomCaptureRes(t, attributeSym(t.symbol, visited))
                 case _        => ForcedRes.Escalate // unknown shape: unattributable
             end attributeTree
 
@@ -557,13 +600,16 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
     }
     // forced params of a design-level-pure owner are recorded BY NAME on the owner itself
     // (`pure(true, names*)`): the runtime keys their applied type+data, the marking prints
-    // at the declaration, and phantom params (with no source symbol) fit the same scheme.
-    // A design-level-impure owner never caches, so its param markings would only be noise.
-    paramForced.groupBy(_.owner).foreach { (owner, ps) =>
+    // at the declaration, and phantom params (with no source symbol) fit the same scheme
+    // through their predicted capture names. A design-level-impure owner never caches, so
+    // its param markings would only be noise.
+    val paramForcedByOwner = paramForced.groupBy(_.owner)
+    (paramForcedByOwner.keySet ++ phantomForced.keySet).foreach { owner =>
       if (pureMarking(owner).isEmpty && !verdictImpure.contains(owner))
+        val ps = paramForcedByOwner.getOrElse(owner, mutable.Set.empty[Symbol])
         val names = owner.paramSymss.flatten.collect {
           case p if ps.contains(p) => p.name.toString
-        }
+        } ++ phantomForced.get(owner).fold(Nil)(_.toList)
         owner.addAnnotation(Annotation(pureAnnotTree(true, names, owner)))
     }
   end analyze

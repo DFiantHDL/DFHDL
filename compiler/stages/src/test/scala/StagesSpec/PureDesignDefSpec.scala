@@ -87,24 +87,24 @@ class PureDesignDefSpec extends StageSpec:
     )
   }
 
-  // A def capturing a design-local (non-global) value gets an AUTO-created design parameter
-  // (see `cloneUnreachable`). Such a parameter only comes into existence by running the body,
-  // so a pure cache hit cannot bind it; the sound behavior is to treat the call as a miss and
-  // re-elaborate (structural dedup still unifies the identical bodies afterwards).
-  val expectedCaptureCodeString =
-    """|def test(localConst: UInt[32] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
-       |  arg + localConst
-       |end test
-       |
-       |class CaptureDesignDef extends DFDesign:
-       |  val data = UInt(32) <> IN
-       |  val o = UInt(32) <> OUT
-       |  val localConst: UInt[32] <> CONST = d"32'42"
-       |  o := test(localConst = localConst)(data)
-       |  val x = test(localConst = localConst)(data + d"32'1")
-       |  o := x
-       |end CaptureDesignDef
-       |""".stripMargin
+  // A def capturing a design-local (non-global) value gets a PHANTOM design parameter,
+  // created by the harness (outside the body) and bound fresh at every call, so a pure
+  // cache hit binds it like any explicit parameter. Phantoms are hidden in the design-def
+  // view form, and the def declaration prints locally in the host design's body (just
+  // before its first instance), so the printout matches the user-written source.
+  def expectedCaptureCodeString(defAnnot: String) =
+    s"""|class CaptureDesignDef extends DFDesign:
+        |  val data = UInt(32) <> IN
+        |  val o = UInt(32) <> OUT
+        |  val localConst: UInt[32] <> CONST = d"32'42"
+        |$defAnnot  def test(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+        |    arg + localConst
+        |  end test
+        |  o := test(data)
+        |  val x = test(data + d"32'1")
+        |  o := x
+        |end CaptureDesignDef
+        |""".stripMargin
 
   test("baseline: non-pure design def with a captured design-local value") {
     class CaptureDesignDef extends DFDesign:
@@ -118,7 +118,7 @@ class PureDesignDefSpec extends StageSpec:
       val x = test(data + 1)
       o := x
     end CaptureDesignDef
-    assertCodeString(new CaptureDesignDef, expectedCaptureCodeString)
+    assertCodeString(new CaptureDesignDef, expectedCaptureCodeString(""))
   }
 
   test("pure design def with a captured design-local value") {
@@ -134,6 +134,6 @@ class PureDesignDefSpec extends StageSpec:
       val x = test(data + 1)
       o := x
     end CaptureDesignDef
-    assertCodeString(new CaptureDesignDef, s"@hw.annotation.pure\n$expectedCaptureCodeString")
+    assertCodeString(new CaptureDesignDef, expectedCaptureCodeString("  @hw.annotation.pure\n"))
   }
 end PureDesignDefSpec

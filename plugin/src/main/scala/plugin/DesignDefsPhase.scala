@@ -65,8 +65,37 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
         debug("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         debug(tree.show)
         val dfc = ContextArg.at(anonDef).get
+        // out-of-scope value references become explicit: DFHDL constants as phantom design
+        // parameters, DFHDL values as phantom input ports (both tagged so the design-def
+        // view form hides them), and plain Scala values as cache key extensions. All are
+        // evaluated in the def's rhs scope at every call, so a pure cache hit (which skips
+        // the body) still binds this call's captured values.
+        val captures = discoverDesignDefCaptures(sym, anonDef.symbol, anonDef.rhs)
+        // the runtime names phantoms after the captured values, so a name clash would
+        // misbind the design's parameter map
+        locally:
+          val explicitNames = (dfValArgs.view ++ dfConstValArgs.view).map(_.name.toString).toSet
+          val seen = mutable.Set.empty[String]
+          (captures.phantomConsts.view ++ captures.phantomVals.view).foreach { (path, t) =>
+            val name = captureName(path)
+            if (explicitNames.contains(name) || !seen.add(name))
+              report.error(
+                s"""Ambiguous captured value name `$name` in a DFHDL method.
+                   |Every captured external value must have a name distinct from the method's arguments and from other captured values.""".stripMargin,
+                t.srcPos
+              )
+          }
 
         val updatedAnonRHS: Tree =
+          // the plugin-side fallback meta of a captured value: its (leaf) name and
+          // DECLARATION position (a reference position may originate from inlined library
+          // code). The runtime prefers the applied value's own meta and uses this fallback
+          // only for anonymous applied values.
+          def genCapturedMeta(path: List[Symbol], t: Tree): Tree =
+            ref(metaGenSym).appliedToArgs(
+              mkOptionString(Some(captureName(path))) :: t.symbol.srcPos.positionTree ::
+                mkOptionString(None) :: mkList(Nil) :: Nil
+            )
           // list of tuples of the old arguments and their meta data
           val args = mkList(dfValArgs.map(a => mkTuple(List(a.ident, a.genMeta))))
           // list of (name, applied value, meta) tuples of the `<> CONST` arguments — the
@@ -76,9 +105,20 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
           val constArgs = mkList(dfConstValArgs.map(v =>
             mkTuple(List(Literal(Constant(v.name.toString.nameCheck(v))), v.ident, v.genMeta))
           ))
-          // list of the plain Scala (non-DFHDL) argument values. A pure body may legitimately
-          // depend on them, so they are part of the pure cache key.
-          val scalaArgs = mkList(scalaValArgs.map(_.ident), Some(defn.AnyType))
+          // list of the plain Scala (non-DFHDL) argument values and captured Scala values.
+          // A pure body may legitimately depend on them, so they are part of the pure
+          // cache key.
+          val scalaArgs = mkList(
+            scalaValArgs.map(_.ident) ++ captures.scalaCaptures.map(_._2),
+            Some(defn.AnyType)
+          )
+          // (value, fallback meta) tuples of the phantom captures
+          val phantomArgs = mkList(
+            captures.phantomVals.map((path, t) => mkTuple(List(t, genCapturedMeta(path, t))))
+          )
+          val phantomConstArgs = mkList(
+            captures.phantomConsts.map((path, t) => mkTuple(List(t, genCapturedMeta(path, t))))
+          )
           // input map to replace old arg references with new input references
           val inputMap = mutable.Map.empty[Symbol, Tree]
           dfValArgs.view.zipWithIndex.foreach((a, i) =>
@@ -97,8 +137,35 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
                 .appliedTo(Literal(Constant(i)))
                 .appliedTo(dfc)
           )
+          // phantom capture rewiring (path-keyed, since captures are keyed by their full
+          // stable access path): captured values become inputs appended after the explicit
+          // arguments and captured constants become design parameters appended after the
+          // explicit const parameters, sharing the harness accessors' index spaces
+          val phantomReplaceMap = mutable.Map.empty[List[Symbol], Tree]
+          captures.phantomVals.view.zipWithIndex.foreach { case ((path, t), i) =>
+            phantomReplaceMap += path -> ref(designFromDefGetInputSym)
+              .appliedToType(t.tpe.widen.dfValTpeOpt.get)
+              .appliedTo(Literal(Constant(dfValArgs.length + i)))
+              .appliedTo(dfc)
+          }
+          captures.phantomConsts.view.zipWithIndex.foreach { case ((path, t), i) =>
+            phantomReplaceMap += path -> ref(designFromDefGetParamSym)
+              .appliedToType(t.tpe.widen.dfValTpeOpt.get)
+              .appliedTo(Literal(Constant(dfConstValArgs.length + i)))
+              .appliedTo(dfc)
+          }
+          object phantomReplacer extends TreeMap:
+            override def transform(t: Tree)(using Context): Tree = t match
+              case _: (Ident | Select) =>
+                stablePathKey(t).flatMap(phantomReplaceMap.get) match
+                  case Some(replacement) => replacement
+                  case None              => super.transform(t)
+              case _ => super.transform(t)
+          val bodyAfterPhantoms =
+            if (phantomReplaceMap.isEmpty) anonDef.rhs
+            else phantomReplacer.transform(anonDef.rhs)
           // updated body after replacing parameter references
-          val updatedBody = replaceArgs(anonDef.rhs, inputMap.toMap)
+          val updatedBody = replaceArgs(bodyAfterPhantoms, inputMap.toMap)
           // calling the runtime method that constructs the design from the definition
           ref(designFromDefSym)
             .appliedToType(anonDef.dfValTpeOpt.get.widen)
@@ -106,7 +173,9 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
               args,
               constArgs,
               tree.genMeta, // meta represents the transformed tree
-              scalaArgs
+              scalaArgs,
+              phantomArgs,
+              phantomConstArgs
             ))
             .appliedTo(updatedBody)
             .appliedTo(dfc)

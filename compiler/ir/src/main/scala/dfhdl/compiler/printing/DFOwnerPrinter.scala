@@ -31,57 +31,75 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     (member match
       case net: DFNet => isDefPhantomPBNS(net.lhsRef.get) || isDefPhantomPBNS(net.rhsRef.get)
       case _          => false)
+  // A design-def declaration that references its host's values through phantoms cannot
+  // print at file level: it prints locally in the host design's body, just before the
+  // def's first instance (see `csDFMembers`). Only the DFHDL printer overrides this.
+  protected def printDesignDefDclInline(design: DFDesignBlock): Boolean = false
   final def csDFOwnerBody(owner: DFOwner): String =
     csDFMembers(owner.members(MemberView.Folded))
   final def csDFMembers(members: List[DFMember]): String =
+    // selecting viewable members:
+    def isViewable(member: DFMember): Boolean = member match
+      // excluding phantom members and their wiring
+      case m if isHiddenPhantom(m) => false
+      // excluding binds
+      case Bind(_) => false
+      // excluding design params
+      case _: DFVal.DesignParam => false
+      // an ident placeholder (can be anonymous)
+      case Ident(_) => true
+      // excluding iterator declarations
+      case IteratorDcl() => false
+      // an anonymous def-design inst may not be referenced later, so we
+      // need to check if it has an output port that is referenced later
+      case inst: DFDesignInst
+          if inst.getDesignBlock.instMode == InstMode.Def && inst.isAnonymous =>
+        // no output port means a Unit return that cannot be referenced,
+        // so we need to print it now
+        getSet.designDB.designInstPBNS(inst).view.reverse.collectFirst {
+          // no dependencies means the output is not read (referenced later),
+          // so we need to print now
+          case pbns if pbns.isOut => pbns.getReadDeps.isEmpty
+        }.getOrElse(true)
+      // DFDesignBlock no longer participates in owner-body rendering — its
+      // instantiation syntax is emitted via the DFDesignInst companion.
+      case _: DFDesignBlock => false
+      // named members
+      case m: DFMember.Named if !m.isAnonymous => true
+      // excluding late (via) connections
+      case net: DFNet if net.isViaConnection => false
+      // excluding nets that are inputs to a design definition
+      case DFNet.Connection(toVal = PortOfDesignDef(Modifier.IN, _)) => false
+      // include the rest of statements: nets, gotos, etc.
+      case _: Statement => true
+      // including only conditional statements (no type) headers
+      case ch: DFConditional.Header => ch.dfType =~ DFUnit
+      // process blocks
+      case pb: ProcessBlock => true
+      // fork and local blocks
+      case _: ForkBlock  => true
+      case _: LocalBlock => true
+      // loops
+      case _: DFLoop.Block => true
+      // the rest are not directly viewable
+      case _ => false
+    val inlinedDefDcls = scala.collection.mutable.Set.empty[DFDesignBlock]
     members.view
-      // selecting viewable members:
-      .filter {
-        // excluding phantom members and their wiring
-        case m if isHiddenPhantom(m) => false
-        // excluding binds
-        case Bind(_) => false
-        // excluding design params
-        case _: DFVal.DesignParam => false
-        // an ident placeholder (can be anonymous)
-        case Ident(_) => true
-        // excluding iterator declarations
-        case IteratorDcl() => false
-        // an anonymous def-design inst may not be referenced later, so we
-        // need to check if it has an output port that is referenced later
-        case inst: DFDesignInst
-            if inst.getDesignBlock.instMode == InstMode.Def && inst.isAnonymous =>
-          // no output port means a Unit return that cannot be referenced,
-          // so we need to print it now
-          getSet.designDB.designInstPBNS(inst).view.reverse.collectFirst {
-            // no dependencies means the output is not read (referenced later),
-            // so we need to print now
-            case pbns if pbns.isOut => pbns.getReadDeps.isEmpty
-          }.getOrElse(true)
-        // DFDesignBlock no longer participates in owner-body rendering — its
-        // instantiation syntax is emitted via the DFDesignInst companion.
-        case _: DFDesignBlock => false
-        // named members
-        case m: DFMember.Named if !m.isAnonymous => true
-        // excluding late (via) connections
-        case net: DFNet if net.isViaConnection => false
-        // excluding nets that are inputs to a design definition
-        case DFNet.Connection(toVal = PortOfDesignDef(Modifier.IN, _)) => false
-        // include the rest of statements: nets, gotos, etc.
-        case _: Statement => true
-        // including only conditional statements (no type) headers
-        case ch: DFConditional.Header => ch.dfType =~ DFUnit
-        // process blocks
-        case pb: ProcessBlock => true
-        // fork and local blocks
-        case _: ForkBlock  => true
-        case _: LocalBlock => true
-        // loops
-        case _: DFLoop.Block => true
-        // the rest are not directly viewable
-        case _ => false
+      .flatMap { m =>
+        // a design def whose declaration prints locally (see `printDesignDefDclInline`)
+        // is emitted just before its first instance in this body. The instance member
+        // always precedes the statement that consumes the def's output, so anchoring on
+        // it also covers instances that themselves print inline in a later statement.
+        val inlineDclOpt = m match
+          case inst: DFDesignInst =>
+            val design = inst.getDesignBlock
+            if (printDesignDefDclInline(design) && inlinedDefDcls.add(design))
+              Some(printerForDesign(design).csDFDesignDefDcl(design).stripLineEnd)
+            else None
+          case _ => None
+        val csOpt = if (isViewable(m)) Some(m.codeString) else None
+        inlineDclOpt ++ csOpt
       }
-      .map(_.codeString)
       .filter(_.nonEmpty)
       .mkString("\n")
   end csDFMembers
@@ -210,6 +228,8 @@ end AbstractOwnerPrinter
 protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter = DFPrinter
   override protected def hidePhantoms: Boolean = true
+  override protected def printDesignDefDclInline(design: DFDesignBlock): Boolean =
+    design.instMode == InstMode.Def && getSet.designDB.designHasPhantoms(design)
   def csDFDesignDefDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
     // if no output net, then this def has a Unit return

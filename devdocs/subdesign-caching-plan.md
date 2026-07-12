@@ -75,19 +75,66 @@ Status (2026-07-11, branch `pure-checks`):
   takes its "captured" host locals as same-named args/params; one test asserts the hidden
   def view, another asserts full visibility after `dropDesignDefs`. Replace with
   end-to-end tests once real phantom creation lands.
+- PHANTOM CAPTURE RIGGING IMPLEMENTED (2026-07-12), the former NEXT item 1:
+  - Shared capture discovery (`CommonPhase.discoverDesignDefCaptures`, used by BOTH
+    PureCheck and DesignDefs): free stable references (Ident/Select paths, keyed by the
+    FULL symbol path — the same member through different instance paths must not unify) in
+    a design def's body that are not static, not the def's own params/locals, and not
+    MetaContext. Classified: DFHDL constant -> phantom design parameter; DFHDL
+    non-constant value -> phantom input port; anything else -> plain Scala capture.
+  - `DesignDefsPhase`: phantom const/val captures are passed to `designFromDef` as
+    `(value, fallback meta)` tuples evaluated in the def's rhs scope per call; body
+    occurrences are path-key-replaced by `designFromDefGetParam`/`designFromDefGetInput`
+    accessors sharing the explicit args' index spaces (phantoms appended after explicit).
+    Scala captures append to `scalaArgs` (closes the per-instance-Scala-data soundness
+    hole for defs). Phantom leaf-name clashes (with explicit args or each other) are a
+    compiler error.
+  - Runtime harness (`designFromDef`): creates phantom IN Dcls and phantom DesignParams
+    on hit and miss alike, tagged `PhantomTag` through the DFC (`dfc.tag(ir.PhantomTag)`),
+    NAMED after the captured value's own meta (exactly like `cloneUnreachable`
+    auto-params; the plugin meta with leaf name + declaration position is only the
+    fallback for anonymous applied values). Phantom input call-site connections carry the
+    tag so the created PBNS (and net) are tagged. Phantom const entries join
+    `collectParamEntries` matching and the impure-params key matching by name.
+  - `runFuncWithInputs`: unhittable-entry machinery RETIRED. `PureDefEntry(design, ret)`
+    only; a hit collects fresh param entries (the whole interface is harness-created). If
+    a body run still auto-creates DesignParams (a capture path the rigging cannot see,
+    via `cloneUnreachable` — which REMAINS), that call is simply never cached (checked by
+    a members-length snapshot around `func`).
+  - PureCheck: forcing rooted at a captured constant of a design def attributes to the
+    phantom's predicted name, recorded on the def (`pure(true, <name>)`) and keyed at the
+    runtime gate like an explicit data-impure param. CRITICAL DETAIL: attribution runs
+    under whatever root is being scanned — for a design-def body that is the def's own
+    CONTEXT LAMBDA root (`$anonfun`), not the def root — so `phantomCaptureRes` resolves
+    the nearest enclosing design-def root via `rootSym.ownersIterator` and records the
+    name DIRECTLY on that def (returning Pure); guarding on `rootSym` membership silently
+    never fires. The per-instance PureCheckSpec test flipped from design-level impurity
+    to `pure(true, "localConst")` with a pure design.
+  - Printing (user decision, 2026-07-12): a design def WITH phantoms must not print its
+    declaration at file level (its body references host values by name); it prints
+    LOCALLY in the host design's body, just before the def's first instance.
+    `DB.designHasPhantoms` (hierarchical-aware, shares `fromDesignMembers` navigation
+    with `phantomParamNamesOf`), `printDesignDefDclInline` hook (AbstractOwnerPrinter,
+    overridden only by the DFHDL printer), `designPrinters` filters such defs out of
+    file-level emission, and `csDFMembers` injects the dcl (via `printerForDesign`)
+    before the first `DFDesignInst` of that design — the inst member always precedes the
+    statement consuming the def's output, so the anchor also covers inline-printed
+    instances.
+  - Tests: PhantomTagSpec is now END-TO-END (throwaway test-stage deleted): a def within
+    a host design capturing a host port + host constant; asserts the def view prints
+    exactly like the source (local def dcl, hidden phantoms) and full phantom visibility
+    after `dropDesignDefs`. PureDesignDefSpec capture tests updated (captures cache-hit
+    now; printed like source). Verified: StagesSpec 491/491, full test green except the
+    known-ignorable ips VgaMonitor env failure and munit "0 total" anomaly lines.
 - NEXT increments, in order:
-  1. Shared capture-discovery helper + phantom params/ports + Scala-capture `scalaArgs`
-     extension in DesignDefs (retires unhittable entries for def designs; flips the
-     per-instance PureCheckSpec test from design-level impurity to a keyed phantom param;
-     the `cloneUnreachable` path REMAINS, see the 2026-07-12 correction above).
-  2. Phase 2: extract the `DesignLoadGate` abstraction from `runFuncWithInputs`.
-  3. Phase 3: disk tier for pure def designs (factum CodeRef keys, sub-DB bundles).
-  4. Phase 4: class designs (instantiation-gate + body-extraction rigging); includes
+  1. Phase 2: extract the `DesignLoadGate` abstraction from `runFuncWithInputs`.
+  2. Phase 3: disk tier for pure def designs (factum CodeRef keys, sub-DB bundles).
+  3. Phase 4: class designs (instantiation-gate + body-extraction rigging); includes
      class-ctor-param attribution (currently a forced root at a class param accessor
      conservatively escalates to design-level impurity) and Scala-capture keying for
      class bodies.
-  5. Recovery tiers for impure sub-design poison (tracked-effect manifests first).
-  6. User documentation for the purity model (docs/), including the "unmarked effects are
+  4. Recovery tiers for impure sub-design poison (tracked-effect manifests first).
+  5. User documentation for the purity model (docs/), including the "unmarked effects are
      the user's responsibility" contract, the `@pure` overrides (with and without named
      impure params), and the static-dispatch approximation (the analysis never models
      subclass overrides).

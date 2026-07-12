@@ -230,24 +230,27 @@ trait Printer
   // getSet throws on ref resolution).
   protected final def designPrinters: List[(DFDesignBlock, TPrinter)] =
     val designDB = getSet.designDB
-    if (designDB.isRoot)
-      // Flat `designMemberList` prints designs in post-order DFS of the design
-      // tree (children in instantiation order, then the parent); the `subDBs`
-      // ListMap is pre-order (parent first). Reorder to post-order so the
-      // hierarchical output matches the flat output design-for-design.
-      val childrenOf = mutable.LinkedHashMap.empty[DFOwner.Ref, mutable.ListBuffer[DB]]
-      designDB.subDBs.values.foreach { sub =>
-        sub.parentSubDBOpt.foreach { parent =>
-          childrenOf.getOrElseUpdate(parent.top.ownerRef, mutable.ListBuffer.empty) += sub
+    val printers =
+      if (designDB.isRoot)
+        // Flat `designMemberList` prints designs in post-order DFS of the design
+        // tree (children in instantiation order, then the parent); the `subDBs`
+        // ListMap is pre-order (parent first). Reorder to post-order so the
+        // hierarchical output matches the flat output design-for-design.
+        val childrenOf = mutable.LinkedHashMap.empty[DFOwner.Ref, mutable.ListBuffer[DB]]
+        designDB.subDBs.values.foreach { sub =>
+          sub.parentSubDBOpt.foreach { parent =>
+            childrenOf.getOrElseUpdate(parent.top.ownerRef, mutable.ListBuffer.empty) += sub
+          }
         }
-      }
-      def postOrder(sub: DB): List[DB] =
-        childrenOf.getOrElse(sub.top.ownerRef, mutable.ListBuffer.empty).toList
-          .flatMap(postOrder) :+ sub
-      postOrder(designDB.topDB).map(sub => sub.top -> withGetSet(sub.getSet))
-    else
-      designDB.designMemberList.collect { case (block: DFDesignBlock, _) => block -> printer }
-    end if
+        def postOrder(sub: DB): List[DB] =
+          childrenOf.getOrElse(sub.top.ownerRef, mutable.ListBuffer.empty).toList
+            .flatMap(postOrder) :+ sub
+        postOrder(designDB.topDB).map(sub => sub.top -> withGetSet(sub.getSet))
+      else
+        designDB.designMemberList.collect { case (block: DFDesignBlock, _) => block -> printer }
+    // design defs with phantoms print their declaration locally in the host design's
+    // body (see `printDesignDefDclInline`), not as a file-level declaration
+    printers.filterNot((block, _) => printDesignDefDclInline(block))
   end designPrinters
 
   final def csDB: String =

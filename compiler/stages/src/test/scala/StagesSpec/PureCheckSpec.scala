@@ -107,7 +107,7 @@ class PureCheckSpec extends StageSpec:
     )
   }
 
-  test("toScalaXYZ forcing rooted at per-instance data keeps design-level impurity") {
+  test("toScalaXYZ forcing rooted at per-instance data keys the phantom capture param") {
     class CaptureDesign(offset: Int) extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
@@ -118,22 +118,22 @@ class PureCheckSpec extends StageSpec:
       o := test(data)
     end CaptureDesign
     // The forced data traces through the captured `localConst` to the Scala constructor
-    // argument `offset`, per-instance data that is not part of any cache key (forcing
-    // bypasses member referencing, so no auto-param is created either), so the attribution
-    // falls back to design-level impurity. Note: a capture whose definition is fully
-    // code-determined (e.g. initialized by a literal) traces as PURE instead.
+    // argument `offset` (per-instance data). The capture becomes a PHANTOM design parameter
+    // of `test` (created by the DesignDefs rigging, hidden in the def view form), so the
+    // forcing attributes to that phantom's name and its applied data joins the cache key,
+    // exactly like an explicit data-impure parameter; the def and the design stay pure.
+    // Note: a capture whose definition is fully code-determined (e.g. initialized by a
+    // literal) traces as PURE instead and is not keyed.
     assertCodeString(
       new CaptureDesign(1),
-      """|@hw.annotation.pure(false)
-         |def test(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
-         |  arg + d"32'6"
-         |end test
-         |
-         |@hw.annotation.pure(false)
-         |class CaptureDesign extends DFDesign:
+      """|class CaptureDesign extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  val localConst: UInt[8] <> CONST = d"8'6"
+         |  @hw.annotation.pure(impureParams = "localConst")
+         |  def test(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+         |    arg + d"32'6"
+         |  end test
          |  o := test(data)
          |end CaptureDesign
          |""".stripMargin

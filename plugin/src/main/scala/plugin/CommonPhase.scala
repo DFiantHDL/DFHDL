@@ -212,6 +212,78 @@ abstract class CommonPhase extends PluginPhase:
       val flags: FlagSet = if (ctx.owner.isConstructor) Private else EmptyFlags
       SyntheticValDef(uniqueName, paramGen, flags)
 
+  // ~~~ design-def capture discovery (shared by the PureCheck and DesignDefs phases) ~~~
+  // A design def may reference values from outside its own scope ("captures"). The
+  // DesignDefs rigging makes the generated design self-contained by materializing the
+  // captures explicitly, evaluated in the def's rhs scope at every call:
+  //   - captured DFHDL constants become PHANTOM design parameters
+  //   - captured non-constant DFHDL values become PHANTOM input ports
+  //   - captured plain Scala values join the elaboration cache key (`scalaArgs`)
+  // Phantom members are tagged (`ir.PhantomTag`) so the DFHDL printer hides them in the
+  // design-def view form. PureCheck shares this discovery so it can attribute
+  // constant-data forcing to the phantom parameter NAMES (recorded on the def's
+  // `pure(true, impureParams*)` annotation) before the parameters exist.
+  //
+  // Captures are keyed by their full stable access path: the same member symbol reached
+  // through different instance paths must not unify.
+  final protected case class DesignDefCaptures(
+      phantomConsts: List[(List[Symbol], Tree)],
+      phantomVals: List[(List[Symbol], Tree)],
+      scalaCaptures: List[(List[Symbol], Tree)]
+  )
+  // the symbol path of a stable reference, leaf first
+  protected def stablePathKey(t: Tree)(using Context): Option[List[Symbol]] = t match
+    case id: Ident if id.symbol.exists && id.symbol.isTerm               => Some(List(id.symbol))
+    case th: This                                                        => Some(List(th.symbol))
+    case sel @ Select(qual, _) if sel.symbol.exists && sel.symbol.isTerm =>
+      stablePathKey(qual).map(sel.symbol :: _)
+    case _ => None
+  // deterministic phantom naming: after the captured value itself. The runtime harness
+  // names the phantom member from the applied value's own meta (exactly like
+  // `cloneUnreachable` auto-parameters); this static leaf name is the compile-time
+  // prediction of that name, used by PureCheck for impure-param recording and passed as
+  // the runtime fallback for anonymous applied values.
+  protected def captureName(path: List[Symbol])(using Context): String =
+    path.head.getFinalName()
+  protected def discoverDesignDefCaptures(defSym: Symbol, anonDefSym: Symbol, body: Tree)(using
+      Context
+  ): DesignDefCaptures =
+    def rootOk(path: List[Symbol]): Boolean =
+      val root = path.last
+      // rooted at `this` of an enclosing container: an instance member is capturable;
+      // static (global) values are reachable/code-determined everywhere and never
+      // captured; the def's own parameters and body locals are not captures
+      if (root.isClass) true
+      else !root.isStatic && !root.ownersIterator.exists(o => o == defSym || o == anonDefSym)
+    // capture kinds: 0 = not a capture, 1 = DFHDL constant, 2 = DFHDL value, 3 = plain Scala
+    def captureKindOf(t: Tree): Int =
+      // NOTE: the type must be widened before the DFHDL-value test, since a member with an
+      // explicit `<> ...` type annotation carries the unreduced match-type alias on its
+      // TermRef (unlike inferred-type members)
+      if (!t.tpe.isStable || !t.symbol.exists || t.symbol.isStatic) 0
+      else
+        stablePathKey(t) match
+          case Some(path) if rootOk(path) =>
+            val widened = t.tpe.widen
+            if (widened.dfValTpeOpt.nonEmpty)
+              if (t.tpe.isDFConst) 1 else 2
+            else if (widened.isMetaContext) 0
+            else 3
+          case _ => 0
+    val captured = collection.mutable.LinkedHashMap.empty[List[Symbol], (Tree, Int)]
+    object captureFinder extends TreeTraverser:
+      def traverse(t: Tree)(using Context): Unit = t match
+        case _: (Ident | Select) =>
+          captureKindOf(t) match
+            case 0    => traverseChildren(t)
+            case kind => captured.getOrElseUpdate(stablePathKey(t).get, (t, kind))
+        case _ => traverseChildren(t)
+    captureFinder.traverse(body)
+    def ofKind(kind: Int): List[(List[Symbol], Tree)] =
+      captured.view.collect { case (path, (t, `kind`)) => (path, t) }.toList
+    DesignDefCaptures(ofKind(1), ofKind(2), ofKind(3))
+  end discoverDesignDefCaptures
+
   extension (sym: Symbol)
     def ignoreMetaContext(using Context): Boolean =
       sym.hasAnnotation(metaContextIgnoreAnnotSym)

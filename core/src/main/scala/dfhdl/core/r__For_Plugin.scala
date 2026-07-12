@@ -140,7 +140,9 @@ object r__For_Plugin:
       args: List[(DFValAny, ir.Meta)],
       constArgs: List[(String, DFValAny, ir.Meta)],
       dclMeta: ir.Meta,
-      scalaArgs: List[Any]
+      scalaArgs: List[Any],
+      phantomArgs: List[(DFValAny, ir.Meta)],
+      phantomConstArgs: List[(DFValAny, ir.Meta)]
   )(
       func: => V
   )(using DFC): V = trydf:
@@ -150,20 +152,42 @@ object r__For_Plugin:
         instMode = ir.DFDesignBlock.InstMode.Def
       )(using dfc.setMeta(dclMeta))
     dfc.enterOwner(designBlock)
+    // deterministic phantom naming: after the captured value itself (its own meta, exactly
+    // like `cloneUnreachable` auto-parameters), falling back to the plugin-provided meta
+    // (leaf name + declaration position) for anonymous applied values
+    def phantomMeta(arg: DFValAny, fallback: ir.Meta): ir.Meta =
+      if (arg.asIR.meta.isAnonymous) fallback else arg.asIR.meta
+    // Phantom input ports materialize the def body's captured non-constant DFHDL values,
+    // making the generated design self-contained. They are appended after the explicit
+    // inputs (the body fetches both through the same `designFromDefGetInput` index space)
+    // and tagged so the design-def view form hides them.
     val inputs = args.map { (arg, argMeta) =>
       DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
+    } ++ phantomArgs.map { (arg, fallbackMeta) =>
+      DFVal.Dcl(arg.dfType, Modifier.IN)(using
+        dfc.setMeta(phantomMeta(arg, fallbackMeta)).tag(ir.PhantomTag)
+      )
     }
     // The design parameters are created by this harness rather than by the body, so a pure
     // cache hit, which skips the body, still creates fresh parameters bound to this call's
-    // applied values (the body fetches them via `designFromDefGetParam`).
+    // applied values (the body fetches them via `designFromDefGetParam`). Phantom
+    // parameters (captured constants) are appended after the explicit ones and tagged.
     val params = constArgs.map { (_, arg, argMeta) =>
       genContainerParam[DFValAny](arg, None, argMeta)
+    } ++ phantomConstArgs.map { (arg, fallbackMeta) =>
+      genContainerParam[DFValAny](arg, None, phantomMeta(arg, fallbackMeta))(using
+        dfc.tag(ir.PhantomTag)
+      )
     }
+    // all the design's (name, applied value) parameter entries, explicit and phantom
+    val namedConstArgs = constArgs.map((name, arg, _) => (name, arg)) ++
+      phantomConstArgs.map((arg, fallbackMeta) => (phantomMeta(arg, fallbackMeta).name, arg))
     // Params named data-impure by the design def's `pure` annotation (synthesized by the
     // PureCheck plugin phase or declared by the user) contribute their applied type+data to
-    // the elaboration cache key. Unknown applied data (no snapshot, e.g. unattainable during
-    // this elaboration) yields None, which makes this call uncacheable (runs live; structural
-    // dedup still unifies identical bodies).
+    // the elaboration cache key. Phantom parameters fit the same scheme: PureCheck records
+    // their predicted names on the annotation like any explicit parameter's. Unknown applied
+    // data (no snapshot, e.g. unattainable during this elaboration) yields None, which makes
+    // this call uncacheable (runs live; structural dedup still unifies identical bodies).
     val impureParamsKeyOpt: Option[List[Any]] =
       val impureParamNames = dclMeta.annotations.collectFirst {
         case ir.annotation.Pure(true, names) if names.nonEmpty => names.toSet
@@ -172,8 +196,8 @@ object r__For_Plugin:
       else
         // `"*"` (e.g. from a user-written `@pure(true, "*")`) marks ALL params data-impure
         val allImpure = impureParamNames.contains("*")
-        val keyPartOpts = params.zip(constArgs).collect {
-          case (param, (name, _, _)) if allImpure || impureParamNames.contains(name) =>
+        val keyPartOpts = params.zip(namedConstArgs).collect {
+          case (param, (name, _)) if allImpure || impureParamNames.contains(name) =>
             param.asIR match
               case dp: ir.DFVal.DesignParam => dp.appliedData.map(data => (dp.dfType, data))
               case _                        => None
@@ -184,15 +208,18 @@ object r__For_Plugin:
       dfc.mutableDB.DesignContext.runFuncWithInputs(
         func, inputs, params, scalaArgs, impureParamsKeyOpt
       ):
-        Design.Inst.collectParamEntries(
-          clsAppliedArgs(constArgs.map((name, arg, _) => (name, arg)))
-        )
+        Design.Inst.collectParamEntries(clsAppliedArgs(namedConstArgs))
     def exitAndConnectInputs() =
       val endedDesign = designBlock.asIR
       dfc.exitOwner()
       Design.Inst(endedDesign, paramEntries)
-      inputs.lazyZip(args).foreach { case (input, (arg, _)) =>
-        input.connect(arg)(using dfc.anonymize)
+      val allArgs = args.map(_._1) ++ phantomArgs.map(_._1)
+      val phantomFlags = List.fill(args.length)(false) ++ List.fill(phantomArgs.length)(true)
+      inputs.lazyZip(allArgs).lazyZip(phantomFlags).foreach { (input, arg, isPhantom) =>
+        // a phantom input's call-site wiring is tagged through its port selection, which
+        // the design-def view form uses to hide the connection
+        val connDFC = if (isPhantom) dfc.anonymize.tag(ir.PhantomTag) else dfc.anonymize
+        input.connect(arg)(using connDFC)
       }
     def genOutPort = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setName("o"))
     if (ret.dfType.asIR == ir.DFUnit)
