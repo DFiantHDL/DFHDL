@@ -186,7 +186,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       // captured value as the HOST names it, not as the phantom is named — see
       // `AbstractPrinter.phantomActualOf`
       case named: DFVal
-          if named.hasTagOf[PhantomTag] &&
+          if named.isPhantom &&
             printer.phantomActualOf(named.getName).nonEmpty =>
         printer.phantomActualOf(named.getName).get
       case pbns: DFVal.PortByNameSelect =>

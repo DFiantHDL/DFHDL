@@ -217,7 +217,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val inputs = designMembers.collect {
       // phantom ports materialize captured outer references — hidden from the signature
       // (their body references print the captured value's name, resolved at module scope)
-      case p @ DclIn() if !p.hasTagOf[PhantomTag] => p
+      case p @ DclIn() if !p.isPhantom => p
     }
     def csInput(p: DFVal.Dcl): String =
       s"input ${csFuncType(p.dfType)}${p.getName}"
@@ -281,7 +281,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     // a procedural method call (no return output port) is a statement
     val isProcedural = !instPBNS.exists(_.isOut)
     val args = instPBNS.view.collect {
-      case pbns if pbns.isIn && !pbns.hasTagOf[PhantomTag] =>
+      case pbns if pbns.isIn && !pbns.isPhantom =>
         val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionsTo.head.runtimeChecked
         printer.csDFValRef(from, inst.getOwner)
     }.mkString(", ")

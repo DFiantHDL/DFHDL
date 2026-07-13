@@ -61,10 +61,10 @@ protected trait AbstractPrinter:
     // (capturing `sub.o` into a def whose return port is also `o` yields `o_0`), and the
     // BODY prints the uniquified name.
     val phantomPorts = defMembers.collect {
-      case dcl @ DclIn() if dcl.hasTagOf[PhantomTag] => dcl
+      case dcl @ DclIn() if dcl.isPhantom => dcl
     }
     val phantomPBNS = designDB.designInstPBNS.getOrElse(inst, Nil).filter { pbns =>
-      pbns.isIn && pbns.hasTagOf[PhantomTag]
+      pbns.isIn && pbns.isPhantom
     }
     val portActuals =
       if (phantomPorts.length != phantomPBNS.length) Map.empty[String, String]
@@ -76,7 +76,7 @@ protected trait AbstractPrinter:
     // a phantom design parameter's actual is this call site's applied value. Parameters are
     // matched by name (the paramMap key IS the parameter's name, kept in sync by the harness).
     val phantomParams = defMembers.collect {
-      case param: DFVal.DesignParam if param.hasTagOf[PhantomTag] => param
+      case param: DFVal.DesignParam if param.isPhantom => param
     }
     val paramActuals = phantomParams.view.flatMap { param =>
       inst.paramMap.get(param.meta.name).map { ref =>

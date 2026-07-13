@@ -229,7 +229,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     // a function reading anything beyond its parameters (phantom-captured outer
     // references) must be declared impure
     val hasPhantoms = designMembers.exists {
-      case p @ DclIn() => p.hasTagOf[PhantomTag]
+      case p @ DclIn() => p.isPhantom
       case _           => false
     }
     val impure = if (hasPhantoms) "impure " else ""
@@ -239,7 +239,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val retTypeCS = retValOpt.map(rv => printer.csDFType(rv.dfType).takeWhile(_ != '('))
     val params = designMembers.collect {
       // phantom ports materialize captured outer references — hidden from the signature
-      case p @ DclIn() if !p.hasTagOf[PhantomTag] =>
+      case p @ DclIn() if !p.isPhantom =>
         s"${p.getName} : ${printer.csDFType(p.dfType)}"
     }.mkString("; ")
     // parameterless VHDL subprograms are declared (and called) without parentheses
@@ -285,7 +285,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       }
     )
     val args = instPBNS.view.collect {
-      case pbns if pbns.isIn && !pbns.hasTagOf[PhantomTag] =>
+      case pbns if pbns.isIn && !pbns.isPhantom =>
         val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionsTo.head.runtimeChecked
         printer.csDFValRef(from, inst.getOwner)
     }.mkString(", ")

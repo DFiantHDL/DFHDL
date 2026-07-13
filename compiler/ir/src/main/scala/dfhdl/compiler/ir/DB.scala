@@ -805,7 +805,7 @@ final case class DB private (
   def phantomParamNamesOf(design: DFDesignBlock): Set[String] =
     fromDesignMembers(design) { members =>
       members.view.collect {
-        case param: DFVal.DesignParam if param.hasTagOf[PhantomTag] => param.getName
+        case param: DFVal.DesignParam if param.isPhantom => param.getName
       }.toSet
     }
 
@@ -816,9 +816,8 @@ final case class DB private (
   def designHasPhantoms(design: DFDesignBlock): Boolean =
     fromDesignMembers(design) { members =>
       members.exists {
-        case dcl: DFVal.Dcl           => dcl.hasTagOf[PhantomTag]
-        case param: DFVal.DesignParam => param.hasTagOf[PhantomTag]
-        case _                        => false
+        case dfVal @ (_: DFVal.Dcl | _: DFVal.DesignParam) => dfVal.isPhantom
+        case _                                             => false
       }
     }
 
@@ -1974,7 +1973,7 @@ final case class DB private (
   // harness needs this on a cache hit, before any body exists.
   def subDesignRetDFType: DFType =
     topDB.members.collectFirst {
-      case dcl: DFVal.Dcl if dcl.isPortOut && !dcl.hasTagOf[PhantomTag] => dcl.dfType
+      case dcl: DFVal.Dcl if dcl.isPortOut && !dcl.isPhantom => dcl.dfType
     }.getOrElse(DFUnit)
 
   // Collapses a new-style (option-a) DB back into a flat old-style DB.

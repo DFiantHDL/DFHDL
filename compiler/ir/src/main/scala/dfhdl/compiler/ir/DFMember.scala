@@ -304,6 +304,10 @@ object DFVal:
   end Modifier
 
   extension (dfVal: DFVal)
+    // a compiler-synthesized member that materializes a value a design def captured from
+    // outside its own scope: a port (non-constant capture), a design parameter (constant
+    // capture), or the by-name port selection wiring them at the call site. See `PhantomTag`.
+    def isPhantom: Boolean = dfVal.hasTagOf[PhantomTag]
     def isPort: Boolean = dfVal match
       case dcl: DFVal.Dcl => dcl.modifier.isPort
       case _              => false

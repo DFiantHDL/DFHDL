@@ -24,7 +24,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     // instances, so this effectively covers phantom output captures)
     def isDefPhantomPBNS(endpoint: DFMember): Boolean = endpoint match
       case pbns: DFVal.PortByNameSelect =>
-        pbns.hasTagOf[PhantomTag] &&
+        pbns.isPhantom &&
         pbns.getDesignInst.getDesignBlock.instMode == InstMode.Def
       case _ => false
     hidePhantoms &&
@@ -241,7 +241,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     var retValOpt: Option[DFVal] = None
     val outNetOpt = designMembers.view.reverse.collectFirst {
       case outNet @ DFNet.Connection(port @ DclOut(), rv: DFVal, _)
-          if !port.hasTagOf[PhantomTag] =>
+          if !port.isPhantom =>
         retValOpt = Some(rv)
         outNet
     }
@@ -255,7 +255,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val defArgList = designMembers.collect {
       // phantom ports materialize captured outer references — hidden from the signature
-      case port @ DclIn() if !port.hasTagOf[PhantomTag] =>
+      case port @ DclIn() if !port.isPhantom =>
         s"${port.getName}${printer.csDFValType(port.dfType)}"
     }
     val defArgsCS =
@@ -263,7 +263,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       else defArgList.mkString("\n", ",\n", "\n").hindent(2)
     val designParamList = design.members(MemberView.Folded).collect {
       // phantom parameters materialize captured outer constants — hidden from the signature
-      case param: DesignParam if !param.hasTagOf[PhantomTag] =>
+      case param: DesignParam if !param.isPhantom =>
         s"${param.getName}${printer.csDFValConstType(param.dfType)}"
     }
     val designParamCS =
@@ -307,7 +307,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     // phantom port-by-name selects materialize captured outer references — hidden from
     // the call arguments (their body references print the captured value's name directly)
     val ports = instPBNS.view.collect {
-      case pbns if pbns.isIn && !pbns.hasTagOf[PhantomTag] =>
+      case pbns if pbns.isIn && !pbns.isPhantom =>
         // the positional def-instance form expects a single producer per input port;
         // a piecewise-connected input port (multiple partial nets) cannot be rendered
         // here, so we fall back to the first connection's producer.
