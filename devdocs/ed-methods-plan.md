@@ -23,23 +23,43 @@ today; undecided questions block their features; pending work is decided and jus
 
 ### Correctness gaps (can produce wrong/invalid HDL today)
 
-1. **Differing applied `<> CONST` args across call sites** (demo-verified 2026-07-11 with
-   `def addK(l: UInt[8] <> VAL, k: UInt[8] <> CONST): UInt[8] <> EDRET = l + k` called as
-   `addK(a, 5)` and `addK(a, 7)`). THREE distinct symptoms:
-   (a) both HDL backends print ONE body whose param reference DANGLES — `addK = l + k;` /
-   `return l + k;` with no `k` declared anywhere (function printers exclude `DesignParam`
-   from local decls, and there is no module-scope binding) → invalid HDL, fails at tool
-   compile;
-   (b) both calls print identically (`addK(a)`) — HDL function calls have no per-call
-   elaboration parameters, so the differing applied values have nowhere to go;
-   (c) **FIXED (2026-07-14, pure-checks merge)**: the "params ride the call" mechanism is
-   implemented — the harness creates the `DesignParam`s from the call-site `constArgs`
-   OUTSIDE the body, the body fetches them via `designFromDefGetParam`, and the inst
-   paramMap is built from the call-site spec list, so a gate hit binds fresh parameters to
-   this call's applied values (see `elaboration-caching.md`, "The two design forms").
-   Fix for the still-open (a)/(b): monomorphization (mangled per-value copies, the S5
-   plan) or, as a stopgap, an elaboration/stage check that rejects differing applied
-   values per owning design.
+1. **Explicit `<> CONST` args on ED methods: REJECTED BY THE PLUGIN (2026-07-14).**
+   `DesignDefsPhase` now errors on any `<> CONST` argument of an ED method ("Constant
+   arguments are not supported for ED methods."). Captured outer constants are unaffected:
+   they become phantom parameters, which print correctly at the enclosing design's scope
+   (verified: `localparam logic [7:0] k = 8'd5;` in the module, body references `k`).
+
+   Why (investigation, 2026-07-14): a `<> CONST` param produced INVALID HDL in every case,
+   not just when call sites applied different values — with a single call site and a single
+   value, both backends printed one body with a DANGLING `k` (the subprogram printers drop
+   ALL `DesignParam`s from local decls, and unlike a captured constant there is no
+   enclosing-scope binding to name). Symptom (c) of the old item 1 (the DFHDL re-emitter
+   losing the second call's applied value under a pure-cache hit) is FIXED by the
+   pure-checks merge: applied params now ride the call (`designFromDefGetParam`), and the
+   DFHDL view roundtrips correctly (`addK(k = d"8'5")(a)` / `addK(k = d"8'7")(a)`).
+
+   What a future implementation must do (tool-verified 2026-07-14, GHDL/NVC/Verilator):
+   * VHDL needs NO monomorphization. A subprogram formal defaults to class `constant`, and
+     subprogram locals elaborate per call, so a constant formal can even SIZE a local
+     (`variable tmp : unsigned(w - 1 downto 0);` analyzes clean on GHDL and NVC). Lower each
+     `<> CONST` param to a trailing constant-class formal; pass the applied value per call.
+     Caveat: a constant formal is not LOCALLY STATIC, so it cannot be a case choice.
+   * SystemVerilog has no subprogram parameters and no generic subprograms. An argument
+     works as a plain VALUE (verified clean under Verilator), but is not a constant
+     expression: `logic [w-1:0] tmp;` fails with "Expecting expression to be constant, but
+     variable isn't const: 'w'". A `localparam` inside a function body is legal but cannot
+     be fed from an argument.
+   * So the tiered lowering (home: `PrepEDDefs`, which is dialect-aware through
+     `CompilerOptions`): classify each non-phantom `DesignParam` as VALUE-ONLY or
+     TYPE-SHAPING (does any DFType in the method design reference it?); lower value-only
+     params to subprogram formals in BOTH backends; lower type-shaping params to formals in
+     VHDL; MONOMORPHIZE type-shaping params for Verilog (one copy per applied-value group,
+     param emitted as a `localparam` inside each copy). In every path the printers must stop
+     dropping `DesignParam` from subprogram local decls (the one line causing the dangling
+     reference). Monomorphization by GROUPING is cheap: making ED method params part of the
+     design load key (as `impureParams = "*"` does) already yields correctly-wired per-value
+     designs with `UniqueDesigns` renaming them (`addK_0`/`addK_1`) — but doing it at
+     ELABORATION also splits the DFHDL view, so prefer the backend stage.
 2. **Per-module phantom-actual grouping is not implemented** (planned in 1C `PrepEDDefs`, see
    §S8 "Per-module phantom-actual grouping"): one printed body serves every call of the method
    in a module, so two calls binding the SAME method to DIFFERENT phantom actuals (possible

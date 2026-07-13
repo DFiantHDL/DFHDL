@@ -55,6 +55,9 @@ class EDMethodSpec extends DFSpec:
   //     "An ED method must declare an explicit parameter block. Use an empty `()`
   //      parameter block if the method has no arguments."
   //   * direct recursion: "Recursion is not allowed for ED methods."
+  //   * explicit `<> CONST` argument: "Constant arguments are not supported for ED
+  //     methods. ..." (an HDL subprogram takes no constant parameter; captured outer
+  //     constants are supported instead, as phantom parameters)
 
   test("procedural ED method (task) elaboration"):
     class FooProc extends EDDesign:

@@ -104,6 +104,21 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
           recursionFinder.traverse(anonDef.rhs)
           if (hasRecursion)
             edError("Recursion is not allowed for ED methods.")
+          // An ED method prints as an HDL subprogram, which has no per-call elaboration
+          // parameter mechanism: one printed body serves all its calls, so an explicit
+          // `<> CONST` argument has nowhere to go (a Verilog function cannot take a
+          // constant formal at all, and differing applied values across call sites cannot
+          // share one body). Captured outer constants remain supported: they materialize
+          // as phantom parameters that print at the enclosing design's scope.
+          dfConstValArgs.foreach { v =>
+            report.error(
+              s"""Constant arguments are not supported for ED methods.
+                 |The `${v.name}` argument is a `<> CONST` value, which an HDL subprogram cannot take as a parameter.
+                 |Use a `<> VAL` argument instead, or reference a constant declared outside the method.""".stripMargin,
+              v.srcPos
+            )
+            hasEDErrors = true
+          }
         end if
         if (hasEDErrors) tree
         else
