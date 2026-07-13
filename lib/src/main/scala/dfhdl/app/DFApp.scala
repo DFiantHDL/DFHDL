@@ -9,7 +9,7 @@ import org.rogach.scallop.*
 import dfhdl.internals.{sbtShellIsRunning, sbtnIsRunning, ToolInterruptedException}
 import scala.util.chaining.scalaUtilChainingOps
 import dfhdl.compiler.stages.{StagedDesign, CompiledDesign}
-import dfhdl.internals.DiskCache
+import dfhdl.internals.{DiskCache, CodeDigest}
 import dfhdl.compiler.ir.SourceFile
 import java.nio.file.Paths
 import dfhdl.internals.scastieIsRunning
@@ -26,18 +26,24 @@ class DFApp:
   private var designName: String = ""
   private var topScalaPath: String = ""
   // The class of the design's generated entry point, supplied by the plugin via
-  // `setInitials`. It anchors `designCodeRef` at the user's compiled output (for
+  // `setInitials`. It anchors `designCodeDigest` at the user's compiled output (for
   // cache invalidation). Falls back to `this.getClass` for the manual path
   // (`ManualDFApp`), whose anonymous subclass already lives in the user's output.
   private var topClassOpt: Option[Class[?]] = None
-  // Content digest of the design's code: the entry-point class plus every class it
-  // transitively references (per-class in directory classpath entries, whole-jar for
-  // jar entries). Elaboration is cached against this, so rebuilds that change no
-  // relevant code keep the cache warm, while a body change anywhere in the design's
-  // dependency closure invalidates it - even when the top class itself was not
-  // recompiled.
-  private lazy val designCodeRef: factum.CodeRef =
-    factum.CodeRef(topClassOpt.getOrElse(this.getClass))
+  // Content digest of the design's code: the entry-point class, every class it transitively
+  // reaches, the DFHDL version, and the plugin that compiled it. Elaboration is cached against
+  // it, so rebuilds that change no relevant code keep the cache warm, while a body change
+  // anywhere in the design's dependency closure invalidates it - even when the top class itself
+  // was not recompiled.
+  //
+  // It is composed from the records the compiler plugin writes beside each class it compiles
+  // (`CodeDigest`), so it costs a handful of file reads. `factum.CodeRef` answers the same
+  // question by walking the whole reference closure at RUNTIME, hashing thousands of class files
+  // to do it; it stays as the fallback for an entry point the plugin never saw (no record), which
+  // is correct, merely slow, and not a path a DFHDL design takes.
+  private lazy val designCodeDigest: String =
+    val topClass = topClassOpt.getOrElse(this.getClass)
+    CodeDigest.of(topClass, dfhdlVersion).getOrElse(factum.CodeRef(topClass).digest.asString)
 
   // this context is just for enabling `getConstData` to work.
   // the internal global context inside `value` will be actually at play here.
@@ -113,7 +119,7 @@ class DFApp:
 
   object diskCache extends DiskCache(compilerOptions.cachePath(designName))
   object elaborate extends diskCache.Step[core.Design, StagedDesign](dsn)(
-        designCodeRef,
+        designCodeDigest,
         dfhdlVersion,
         elaborationOptions.defaultRTDomainCfgTag,
         designArgs
