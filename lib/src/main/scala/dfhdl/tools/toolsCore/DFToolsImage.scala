@@ -184,20 +184,45 @@ object DFToolsImage:
       """"$@" & child=$!; wait "$child"; exit $?""" +
       "\n"
 
-  // Absolute path of the wrapper script inside the backend VM. We cannot pass the script inline as a
-  // `bash -c <script>` argument: across `wsl.exe` it is re-quoted three times (ProcessBuilder ->
-  // wsl.exe -> bash) and its `$(...)`/quotes get corrupted. Instead we install it once by piping the
-  // content through stdin to `tee` (so it never appears on a command line), then invoke it by path
-  // with only simple tokens. Memoized: written once per JVM.
-  private lazy val wrapperPath: String =
-    val path = "/tmp/dfhdl-signal-wrapper.sh"
-    val tmp = os.temp(prefix = "dfhdl-signal-wrapper", suffix = ".sh")
-    os.write.over(tmp, signalWrapper)
-    try
-      os.proc(Apptainer.backend.wrapApptainer("tee", Seq(path)))
-        .call(stdin = tmp, stdout = os.Pipe, stderr = os.Pipe)
-    finally os.remove.all(tmp)
-    path
+  // Absolute path of the wrapper script inside the backend VM.
+  private val wrapperVMPath = "/tmp/dfhdl-signal-wrapper.sh"
+  private val wrapperLock = new Object
+
+  /** Ensure the signal wrapper is present inside the backend VM, and return its in-VM path.
+    *
+    * We cannot pass the script inline as a `bash -c <script>` argument: across `wsl.exe` it is
+    * re-quoted three times (ProcessBuilder -> wsl.exe -> bash) and its `$(...)`/quotes get
+    * corrupted. Instead we install it by piping the content through stdin to `tee` (so it never
+    * appears on a command line), then invoke it by path with only simple tokens.
+    *
+    * Presence is re-checked on every call rather than memoized per JVM: the backend VM is torn down
+    * whenever it goes idle (WSL2 shuts down ~60s after its last process exits) and systemd's
+    * tmpfiles cleaner wipes `/tmp` on each boot, so an "installed once" flag goes stale mid-session
+    * in a long-lived JVM (the sbt server), and the next dftools command dies with `bash:
+    * /tmp/dfhdl-signal-wrapper.sh: No such file` (exit 127). The check is one cheap `test -f`,
+    * negligible next to the apptainer run it wraps.
+    *
+    * Thread-safe: concurrent tool invocations serialize here, and the script is published by an
+    * atomic rename from a private temp name. Writing the final path in place would truncate it
+    * under a wrapper that a concurrent exec is still running (bash reads a script file lazily, so
+    * it would read garbage); a rename swaps the directory entry and leaves that inode intact.
+    */
+  private def wrapperPath(): String = wrapperLock.synchronized {
+    val installed =
+      os.proc(Apptainer.backend.wrapApptainer("test", Seq("-f", wrapperVMPath)))
+        .call(stdout = os.Pipe, stderr = os.Pipe, check = false).exitCode == 0
+    if (!installed)
+      val stagedVMPath = s"$wrapperVMPath.${ProcessHandle.current().pid()}.tmp"
+      val tmp = os.temp(prefix = "dfhdl-signal-wrapper", suffix = ".sh")
+      os.write.over(tmp, signalWrapper)
+      try
+        os.proc(Apptainer.backend.wrapApptainer("tee", Seq(stagedVMPath)))
+          .call(stdin = tmp, stdout = os.Pipe, stderr = os.Pipe)
+        os.proc(Apptainer.backend.wrapApptainer("mv", Seq("-f", stagedVMPath, wrapperVMPath)))
+          .call(stdout = os.Pipe, stderr = os.Pipe)
+      finally os.remove.all(tmp)
+    wrapperVMPath
+  }
 
   /** Build the host argv for `apptainer exec [opts] <image> <containerCmd...>`, optionally
     * forwarding X11 (for GUI tools such as the waveform viewer) and a set of environment variables.
@@ -238,7 +263,7 @@ object DFToolsImage:
       val jvmPid = ProcessHandle.current().pid().toString
       Apptainer.backend.wrapApptainer(
         "bash",
-        wrapperPath +: jvmPid +: Apptainer.apptainerPath +: cmd.args
+        wrapperPath() +: jvmPid +: Apptainer.apptainerPath +: cmd.args
       )
     else
       Apptainer.backend.wrapApptainer(Apptainer.apptainerPath, cmd.args)
