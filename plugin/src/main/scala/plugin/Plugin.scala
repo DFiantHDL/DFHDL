@@ -20,5 +20,7 @@ class Plugin extends StandardPlugin:
       MetaContextDelegatePhase(setting) ::
       MetaContextGenPhase(setting) ::
       OnCreateEventsPhase(setting) ::
+      DesignClsSkipPhase(setting) ::
       Nil
+  end initialize
 end Plugin

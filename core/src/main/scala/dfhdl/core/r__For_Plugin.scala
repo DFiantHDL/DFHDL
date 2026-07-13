@@ -129,6 +129,17 @@ object r__For_Plugin:
         DFVal.DesignParam(appliedVal, defaultVal)(using dfc.setMeta(paramMeta)).asIR
       ).asValAny.asInstanceOf[V]
 
+  // A design class's applied parameter, lifted OUT of the class body by the plugin
+  // (`DesignClsSkipPhase`): the harness (`Design.__clsBodyGate`) creates the design's parameter
+  // members from these before the body runs, exactly as `designFromDef` does for a design def, and
+  // the body's parameter declarations fetch them back (`Design.__clsGetParam`). The design's public
+  // interface is thus in place before the body-skip gate decides, and a skipped body creates
+  // nothing the instantiation site needs.
+  final case class ClsParam(applied: DFValAny, default: Option[DFValAny], meta: ir.Meta)
+  @metaContextIgnore
+  def clsParam(applied: DFValAny, default: Option[DFValAny], meta: ir.Meta): ClsParam =
+    ClsParam(applied, default, meta)
+
   @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =
     dfc.mutableDB.DesignContext.getDefInput(idx).asInstanceOf[V]

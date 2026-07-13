@@ -57,6 +57,37 @@ class DesignContext:
   // this context duplicates `canonical` and joins its group at `endDesign`
   def markDuplicateOf(canonical: StaticRef): Unit = _duplicateOf = Some(canonical)
 
+  // ~~~ the class-design body-skip gate (see `Design.__clsBodyGate`) ~~~
+  // A design class's body is guarded by the compiler plugin: the gate runs at the body's head and,
+  // on a design-load hit, the guarded statements do not run. What the shell context then holds is
+  // exactly the design's public interface: its parameters (which the gate itself creates) and its
+  // port, constant and interface declarations (which the plugin leaves unguarded), just as a design
+  // def's interface is created by its harness rather than by its body.
+
+  // the design's parameters, created by the harness (the gate) and NOT by the class body: keyed
+  // by the declaring class and the parameter's index in it, since a base class in the chain
+  // contributes its own (see `Design.__clsGetParam`)
+  val clsParams = mutable.Map.empty[(Class[?], Int), DFValAny]
+  // a class in the chain has run its body statements live into this design, so no gate below it
+  // may skip (the design would hold half a body)
+  var clsBodyRanLive: Boolean = false
+  // the key the gate computed at the body's head; None when the class has no gate (the
+  // plugin found it unskippable) or the gate stood down (a base class's body, a top design
+  // or a keyless design)
+  var clsLoadKey: Option[DesignLoadKey] = None
+  // the design's declaring class, as the gate resolved it (the cache anchor of both the
+  // gate's lookup and the design's store)
+  var clsDclClass: Option[Class[?]] = None
+  // the number of design parameters the gate saw; a body that creates parameters of its
+  // own (an auto-created capture parameter, `cloneUnreachable`) invalidates the gate's key
+  var clsGateParamNum: Int = 0
+  // the gate's decision: this design's body was skipped
+  var clsSkipBody: Boolean = false
+  def designParamNum: Int = members.view.count {
+    case MemberEntry(irValue = _: DFVal.DesignParam, ignore = false) => true
+    case _                                                           => false
+  }
+
   def setOriginRefs(member: DFMember): Unit =
     member.getRefs.foreach { r => originRefTable += r -> member }
 

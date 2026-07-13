@@ -175,13 +175,21 @@ object ElaborationOptions:
     given PrintDFHDLCode = false
     given Conversion[Boolean, PrintDFHDLCode] = identity
 
-  // Enables the elaboration sub-design cache: a pure design def skips its body
-  // elaboration on a disk cache hit and the cached sub-design DB is spliced into the
-  // final DB. Cache entries live beside the def's owner class build output (see
-  // `dfhdl.core.SubDesignDiskCache`). On by default.
+  // Enables the CROSS-RUN tier of the elaboration design load gate: a pure design (a def, or a
+  // class the plugin could guard) skips its body elaboration on a sub-design cache hit and adopts
+  // the cached design instead. Entries live beside the design's declaring class build output (see
+  // `dfhdl.core.SubDesignDiskCache`), keyed by the declaring class's code digest, so an entry
+  // survives exactly as long as the code behind it is unchanged.
+  //
+  // OFF by default: every design class is its own cache anchor, and keying one costs a
+  // `factum.CodeRef` digest of that class's whole code closure — far more, for a small design, than
+  // elaborating it. The tier only pays for itself where elaboration is genuinely expensive.
+  //
+  // The gate's INTRA-RUN tier is not an option and is always on: a design instantiated twice in one
+  // elaboration reuses the first instantiation's design and never runs its body again.
   into opaque type CacheEnable <: Boolean = Boolean
   object CacheEnable:
-    given CacheEnable = true
+    given CacheEnable = false
     given Conversion[Boolean, CacheEnable] = identity
 
 end ElaborationOptions

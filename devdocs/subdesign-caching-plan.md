@@ -1,5 +1,78 @@
 # Sub-Design Caching and the Generalized Design Load Harness
 
+## INCREMENT 2 LANDED (2026-07-13): CLASS-DESIGN BODY SKIP + SERVICE CACHING
+
+Class designs now go through the gate the same way design defs do, body skip included.
+
+- `DesignClsSkipPhase` (plugin, LAST phase: `runsAfter` OnCreateEvents AND MetaContextDelegate,
+  since a meta-context pass reads a val's rhs to name the value it creates and would not look
+  through a guard). Per named, non-abstract design class it:
+  - LIFTS the applied design parameters out of the body: the `genContainerParam` val defs
+    `MetaContextPlacer` generates become `__clsGetParam(cls, idx)` fetches, and their (applied,
+    default, meta) arguments are passed to the gate call, which creates the parameter members
+    itself. This is the plan's target invariant (the harness owns the public interface, the body is
+    a skippable thunk) and it is REQUIRED: parameter creation plants members of its own, so a gate
+    that merely observed the body's parameters could not tell its context apart from one where a
+    base class's body had already run.
+  - guards every body statement with the gate's decision (`if (__clsSkipBody)`), EXCEPT the
+    public-interface declarations, which always run: port and constant declarations, interface
+    vals, and plain Scala vals (widths and the like). A val's guarded rhs becomes its type's zero.
+  - refuses to guard a class that captures a DFHDL value from an enclosing design (such a capture
+    materializes an auto-created parameter INSIDE the body, `cloneUnreachable`, which a skipped body
+    would not create) or whose interface declarations read a guarded val.
+- `Design.__clsBodyGate(bodyClass, params, skippable, hasBody)` (core): creates the parameters, then
+  decides. It stands down for a top design, for a BASE class's body (`Design.dclClassOf` resolves
+  the leaf declaring class through the plugin's anonymous instantiation wrapper), and once any class
+  in the chain has run its body live (`clsBodyRanLive`), so a design never ends up holding half a
+  body. The key is the same `DesignLoadKey.designClsKeyWith` used at design end, computed once and
+  reused there (`DesignContext.clsLoadKey`).
+- A body that creates design parameters of its own (a capture the static analysis missed) is
+  detected at design end (`clsGateParamNum`) and makes the design unstorable, so no later run's gate
+  can skip a body that has parameters to create.
+- INTRA-RUN skip is now the default behavior for every design class and needs no cache service: two
+  instantiations of the same key elaborate ONE body. This is the bulk of the win.
+- `StagesSpec.ClassDesignCacheSpec`: forest adoption through a class hierarchy, one-body-per-key
+  intra-run, and per-instance applied values on a cached parametrized class. Bodies are counted
+  through a Java atomic: a Scala `var` write the purity analysis can see (even a few calls deep)
+  makes the design impure and unkeyable.
+- `CacheEnable` STAYS OFF BY DEFAULT (the intra-run tier is unconditional and free). The blocker is
+  the CACHE KEY, not the cache: keying an entry needs the declaring class's code digest, and
+  `factum.CodeRef` walks that class's whole code closure. Every design class is its own anchor, so
+  the suite pays it per class. MEASURED on StagesSpec (503 tests): 7s with the tier off, ~107s with
+  it on.
+- FACTUM WAS MADE MUCH CHEAPER (kept — it is strictly better — but NOT enough to default the tier
+  on). Three memos, all correctness-preserving, since the digest still composes at traversal time
+  from CURRENT file stamps (so an upstream class rebuilt without its dependents — zinc's normal
+  behavior — still invalidates the dependents' entries):
+  - per-file content digest + reference list, keyed by file identity (path, size, mtime): a file's
+    bytes are read and hashed ONCE per process, a rebuilt file is re-read. This alone barely helped
+    (1.5s -> 1.4s per class): the bytes were never the bottleneck.
+  - per-class-loader resource LOCATION memo: the real cost was thousands of `loader.getResource`
+    classpath scans per traversal (1.4s -> 210ms per class).
+  - `Config.epoch` (opt-in token): a window in which the caller guarantees no recompilation, so a
+    class is stamped once per window instead of once per `CodeRef`. `SubDesignDiskCache` is created
+    per elaboration and passes ITSELF as the epoch.
+  Net: StagesSpec with the tier on went 107s -> 26s. STILL 4x the 7s baseline, and rejected as a
+  default (user, 2026-07-13): ~200ms per elaboration + ~2.6s cold is fine for a DFApp run and
+  unacceptable for a suite of hundreds of tiny elaborations. `CodeRef` was built for DFApp's
+  one-digest-per-process use and does not survive being called per design class.
+  STATUS: the factum memos are IMPLEMENTED AND TESTED but NOT RELEASED, and `build.sbt` stays on
+  factum `0.2.0`. They are parked in the factum working tree (`CodeRef.scala`, `CodeRefSpec.scala`)
+  until a release is cut; nothing here depends on them, since the tier is off by default.
+- NEXT (the only path to defaulting the tier on): COMPILE-TIME RIGGING of the code digest. The
+  plugin emits, per class, a small record `{own: <hash of this class's own code>, deps: [class
+  names]}` beside the class file; the runtime composes a design's digest by folding `own` hashes
+  over the transitive `deps`, reading only records. Composition MUST stay at runtime — emitting a
+  COMPOSED digest at compile time reintroduces the zinc hole (a helper's body changes, zinc does not
+  recompile its dependents, their composed digests stay stale). Wins beyond speed: the plugin reads
+  typed trees, so `deps` is what the design BODY actually reaches (not every class the bytecode
+  mentions) and everything outside plugin-compiled code folds coarsely, collapsing the closure from
+  ~15k classes to the user's own handful; and `own` can be a position-insensitive structural hash,
+  so reformatting a file stops invalidating every cached sub-design. Risks: `own` must be
+  byte-reproducible across machines/JVMs (needs a compile-twice determinism test), non-plugin code
+  needs the existing coarse fallback, and reflection/dynamic dispatch stay blind spots exactly as
+  today.
+
 ## OPEN ISSUES AND REMAINING WORK (2026-07-12, AUTHORITATIVE; supersedes every
 ## scattered NEXT/REMAINING list below)
 

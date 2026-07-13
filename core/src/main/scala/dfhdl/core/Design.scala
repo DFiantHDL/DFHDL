@@ -39,6 +39,61 @@ trait Design extends Container, HasClsMeta, HasClsArgs:
       case None       => dfc.anonymize
     Design.Block(__domainType, instMode)(using blockDFC)
   end initOwner
+  // ~~~ the class-design body-skip gate (compiler-plugin rigging) ~~~
+  // Called at the head of a design class's body, after the design parameters (which the key
+  // needs) and before any body statement, from the guard the plugin injects into every
+  // skippable design class. It decides through the design load gate whether this
+  // instantiation reuses an already-loaded elaboration of the same key (this run's
+  // canonical, or a sub-design cache entry adopted here), in which case the plugin-guarded
+  // body statements do not run and `__clsSkipBody` reports the decision to each of them.
+  // What still runs on a skip is the class's public interface (its port, constant and
+  // interface declarations, which the plugin leaves unguarded), so the instantiation site
+  // binds the same ports and applied parameters it would have bound live; the shell design
+  // itself is a duplicate of the loaded design and drops out of the final assembly.
+  final protected def __clsBodyGate(
+      bodyClass: Class[?],
+      params: List[r__For_Plugin.ClsParam],
+      skippable: Boolean,
+      hasBody: Boolean
+  ): Unit =
+    import dfc.getSet
+    val ctx = dfc.mutableDB.DesignContext.current
+    // The design's parameters, created HERE and not by the body: the plugin lifts the class's
+    // applied `<> CONST` parameters out of the body and into this call, and the body's parameter
+    // declarations fetch them back (`__clsGetParam`). The design's public interface is therefore
+    // complete before the gate decides, on a skip as on a live run.
+    params.zipWithIndex.foreach { (param, idx) =>
+      ctx.clsParams((bodyClass, idx)) =
+        r__For_Plugin.genContainerParam[DFValAny](param.applied, param.default, param.meta)
+    }
+    val design = dfc.mutableDB.OwnershipContext.currentDesign
+    // The gate only ever loads a design in place of its own (leaf) declaring class's body. A base
+    // design class's body runs as part of every instantiation of a class extending it, where the
+    // gate must stand down: the leaf's constructor arguments and captures (which the key needs)
+    // are not yet initialized during a base template's run, and the leaf's own body has not run
+    // yet, so nothing keyed there would describe the design.
+    val isDclBody = Design.dclClassOf(this) eq bodyClass
+    // ...and once a base class's body HAS run live into this design, no later gate in the chain
+    // may skip either: the design would end up holding half a body.
+    if (skippable && isDclBody && !design.isTop && !ctx.clsBodyRanLive)
+      val keyOpt = DesignLoadKey.designClsKeyWith(__clsScalaArgs)
+      ctx.clsLoadKey = keyOpt
+      ctx.clsDclClass = Some(bodyClass)
+      ctx.clsGateParamNum = ctx.designParamNum
+      ctx.clsSkipBody = keyOpt.exists(key =>
+        dfc.mutableDB.DesignLoadGate
+          .lookup(key, bodyClass, dfc.elaborationOptions.cacheEnable)(using dfc.refGen)
+          .isDefined
+      )
+    if (hasBody && !ctx.clsSkipBody) ctx.clsBodyRanLive = true
+  end __clsBodyGate
+  // the gate's decision, read by every plugin-guarded body statement
+  final protected def __clsSkipBody: Boolean =
+    dfc.mutableDB.DesignContext.current.clsSkipBody
+  // a harness-created design parameter, fetched by the body declaration the plugin rewired
+  final protected def __clsGetParam[V <: DFValAny](bodyClass: Class[?], idx: Int): V =
+    dfc.mutableDB.DesignContext.current.clsParams((bodyClass, idx)).asInstanceOf[V]
+
   private var hasStartedLate: Boolean = false
   final override def onCreateStartLate: Unit =
     hasStartedLate = true
@@ -49,17 +104,34 @@ trait Design extends Container, HasClsMeta, HasClsArgs:
       dfc.mutableDB.ResourceOwnershipContext.emptyTopResourceOwners()
     val endedDesign = containedOwner.asIR
     // Route this class design through the design load gate: designs unify ONLY through
-    // the gate's key (the structural dedup is retired). The key is computed at the
-    // design's end (its body ran live), BEFORE exiting the owner so the design context
-    // can be marked as its canonical's duplicate; on a miss the ended design is
-    // recorded as the key's canonical after the exit.
+    // the gate's key (the structural dedup is retired). The key is the one the body-skip
+    // gate already computed, or, for a class the plugin could not guard, one computed here
+    // at the design's end (its body ran live). Either way it is taken BEFORE exiting the
+    // owner so the design context can be marked as its canonical's duplicate; on a miss the
+    // ended design is recorded as the key's canonical after the exit.
     val gate = dfc.mutableDB.DesignLoadGate
-    val keyOpt = if (endedDesign.isTop) None else DesignLoadKey.designClsKeyWith(__clsScalaArgs)
+    val ctx = dfc.mutableDB.DesignContext.current
+    // Design parameters the body created on its own (an auto-created capture parameter,
+    // `cloneUnreachable`) can join the key's impure-parameter data, which the gate cannot
+    // see before the body runs: such a design re-keys here and is never stored, so no later
+    // run's gate can skip a body that has parameters to create.
+    val bodyParams = ctx.clsLoadKey.nonEmpty && ctx.designParamNum != ctx.clsGateParamNum
+    val keyOpt =
+      if (endedDesign.isTop) None
+      else if (ctx.clsLoadKey.nonEmpty && !bodyParams) ctx.clsLoadKey
+      else DesignLoadKey.designClsKeyWith(__clsScalaArgs)
     val joinedCanonical = keyOpt.exists(gate.joinCanonicalOf)
     dfc.exitOwner()
     Design.Inst(endedDesign, paramEntries)
     if (!joinedCanonical)
-      keyOpt.foreach(gate.completed(_, endedDesign, getClass, cacheEnable = false))
+      keyOpt.foreach(
+        gate.completed(
+          _,
+          endedDesign,
+          ctx.clsDclClass.getOrElse(Design.dclClassOf(this)),
+          cacheEnable = dfc.elaborationOptions.cacheEnable && !bodyParams
+        )
+      )
     dfc.enterLate()
   end onCreateStartLate
   private[dfhdl] def skipChecks: Boolean = false
@@ -166,6 +238,17 @@ end Design
 
 object Design:
   import ir.DFDesignBlock.InstMode
+  // The class DECLARING a design: the plugin wraps a regular instantiation in an anonymous
+  // subclass (carrying only the `__dfc` override), and a user-written anonymous subclass
+  // (`new MyDesign { ... }`) contributes no design body either (its statements run late,
+  // outside the design), so an anonymous leaf is never the declaring class. This is the
+  // design's code identity for the sub-design cache (`SubDesignRef`), the counterpart of a
+  // design def's nearest enclosing class.
+  private[core] def dclClassOf(dsn: Design): Class[?] =
+    var cls: Class[?] = dsn.getClass
+    while (cls.getSuperclass != null && (cls.isAnonymousClass || cls.getSimpleName.isEmpty))
+      cls = cls.getSuperclass
+    cls
   type Block = DFOwner[ir.DFDesignBlock]
   object Block:
     def apply(domain: ir.DomainType, instMode: InstMode)(using DFC): Block =
