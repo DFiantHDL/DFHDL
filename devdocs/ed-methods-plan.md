@@ -60,12 +60,47 @@ today; undecided questions block their features; pending work is decided and jus
      design load key (as `impureParams = "*"` does) already yields correctly-wired per-value
      designs with `UniqueDesigns` renaming them (`addK_0`/`addK_1`) — but doing it at
      ELABORATION also splits the DFHDL view, so prefer the backend stage.
-2. **Per-module phantom-actual grouping is not implemented** (planned in 1C `PrepEDDefs`, see
-   §S8 "Per-module phantom-actual grouping"): one printed body serves every call of the method
-   in a module, so two calls binding the SAME method to DIFFERENT phantom actuals (possible
-   when the def lives on a shared trait/object rather than the design class) print a body
-   referencing only one binding. Fix: group instances by (structure, phantom binding), print
-   one uniquified copy per group — or reject the case.
+2. **Phantom body references assume the captured value is nameable at the owner's scope**
+   (demo-verified 2026-07-14; supersedes the old "per-module phantom-actual grouping" framing,
+   whose stated trigger turned out to be a NON-issue — see below).
+
+   The printers hide a phantom port and its call-site wiring, and print the body's reference to
+   it as the PHANTOM PORT'S OWN NAME, which is the captured path's LEAF name
+   (`captureName = path.head`). That silently assumes the leaf name denotes the captured value
+   at the owning design's scope. It does when the capture is a direct member of the owner (a
+   port, var, or constant), which is every case in the current tests. It BREAKS for a
+   multi-step capture path, because the actual has a different name at module scope:
+
+   ```scala
+   class FooSub extends EDDesign:
+     val sub = Inner()                                    // Inner has an `o` OUT port
+     def addSub(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + sub.o   // capture path: sub.o
+     y <> addSub(a)
+   ```
+   emits (SystemVerilog):
+   ```systemverilog
+   logic [7:0] sub_o;                                     // the actual, at module scope
+   function automatic logic [7:0] addSub(input logic [7:0] l);
+   begin
+     addSub = l + o_0;                                    // `o_0` is declared NOWHERE
+   end
+   endfunction
+   ```
+   The phantom is named after the leaf (`o`, uniquified to `o_0`) while the value lives in
+   `sub_o` → dangling identifier → invalid HDL (LOUD: fails at tool compile, not silent).
+
+   NON-issue (verified): an ED method declared on a SHARED TRAIT and mixed into two designs is
+   fine. The gate unifies it into ONE method design across both owners, but each owner prints
+   its own copy of the subprogram and the body's `b` resolves to that module's own `b` member.
+   Name-based resolution is exactly what makes it work.
+
+   Fix: print a phantom body reference as the ACTUAL's code string in the owning design's
+   scope, not the phantom's own name. The printers already do this for explicit args
+   (`pbns.getConnectionsTo.head` → `csDFValRef(from, inst.getOwner)`); phantoms should resolve
+   the same way, through the inst being printed IN THAT OWNER (which also keeps the shared-trait
+   case correct by construction rather than by luck). Grouping only becomes necessary if one
+   module ever holds two calls of the same method bound to different actuals — not currently
+   reachable, since a def's capture paths are fixed at its declaration.
 3. **v95/v2001 dialect gates are missing** (planned in 1C, not implemented): struct/opaque and
    unpacked-array args and non-integral returns print unchecked under legacy dialects (the S6
    limits). Fix: verify/flatten in `PrepEDDefs` or `printer.unsupported`.
