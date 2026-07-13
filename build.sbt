@@ -479,13 +479,17 @@ lazy val pluginOptionsSettings = Seq(
         classes.map(f => f.getName + sbt.io.Hash.toHex(sbt.io.Hash(f))).mkString
       )
     )
-    val stableJar = (plugin / crossTarget).value / s"$projectName-plugin.jar"
-    val keyFile = (plugin / crossTarget).value / s"$projectName-plugin.jar.key"
-    // rewritten only when the plugin itself changed: an unconditional copy would rewrite the jar on
-    // every build and, on Windows, can hit AccessDenied while a compile still holds it open
-    if (!stableJar.exists || !keyFile.exists || IO.read(keyFile) != key) {
+    // The jar is named after the key, so a given plugin always has the same path (stable across
+    // sessions) and a changed plugin gets a NEW one. It is never overwritten in place: on Windows
+    // the compiler holds the plugin jar open, and replacing it under a running sbt server fails
+    // with AccessDenied.
+    val stableJar = (plugin / crossTarget).value / s"$projectName-plugin-$key.jar"
+    if (!stableJar.exists) {
       IO.copyFile(jar, stableJar)
-      IO.write(keyFile, key)
+      // best-effort sweep of the jars of previous plugin builds (a locked one simply stays)
+      (plugin / crossTarget).value.listFiles
+        .filter(f => f.getName.startsWith(s"$projectName-plugin-") && f != stableJar)
+        .foreach(f => try IO.delete(f) catch { case _: Throwable => () })
     }
     Seq(
       s"-Xplugin:${stableJar.getAbsolutePath}",
