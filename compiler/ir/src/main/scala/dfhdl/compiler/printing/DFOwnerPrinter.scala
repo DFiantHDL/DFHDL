@@ -55,8 +55,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       case inst: DFDesignInst
           if inst.getDesignBlock.instMode == InstMode.Def && inst.isAnonymous =>
         // no output port means a Unit return that cannot be referenced,
-        // so we need to print it now
-        getSet.designDB.designInstPBNS(inst).view.reverse.collectFirst {
+        // so we need to print it now (an argument-less Unit call has no PBNS at all)
+        getSet.designDB.designInstPBNS.getOrElse(inst, Nil).view.reverse.collectFirst {
           // no dependencies means the output is not read (referenced later),
           // so we need to print now
           case pbns if pbns.isOut => pbns.getReadDeps.isEmpty
@@ -228,8 +228,11 @@ end AbstractOwnerPrinter
 protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter = DFPrinter
   override protected def hidePhantoms: Boolean = true
+  // ED methods are excluded: they always print at the top of their owning design's
+  // body (see `csDFDesignBlockDclImpl`), phantoms or not
   override protected def printDesignDefDclInline(design: DFDesignBlock): Boolean =
-    design.instMode == InstMode.Def && getSet.designDB.designHasPhantoms(design)
+    design.instMode == InstMode.Def && !design.isEDMethod &&
+      getSet.designDB.designHasPhantoms(design)
   def csDFDesignDefDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
     // if no output net, then this def has a Unit return
@@ -249,6 +252,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val localDcls = printer.csLocalTypeDcls(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val defArgList = designMembers.collect {
+      // phantom ports materialize captured outer references — hidden from the signature
       case port @ DclIn() if !port.hasTagOf[PhantomTag] =>
         s"${port.getName}${printer.csDFValType(port.dfType)}"
     }
@@ -256,6 +260,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       if (defArgList.length <= 2) defArgList.mkString(", ")
       else defArgList.mkString("\n", ",\n", "\n").hindent(2)
     val designParamList = design.members(MemberView.Folded).collect {
+      // phantom parameters materialize captured outer constants — hidden from the signature
       case param: DesignParam if !param.hasTagOf[PhantomTag] =>
         s"${param.getName}${printer.csDFValConstType(param.dfType)}"
     }
@@ -264,7 +269,12 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
       else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
     val retDFType = retValOpt.map(_.dfType).getOrElse(DFUnit)
-    val retTypeCS = s": ${printer.csDFType(retDFType, typeCS = true)} <> DFRET"
+    // ED methods (HDL subprograms) are declared with `<> EDRET`; DF (and RT, which
+    // currently elaborates as DF) design defs with `<> DFRET`
+    val retModCS = design.domainType match
+      case DomainType.ED => "EDRET"
+      case _             => "DFRET"
+    val retTypeCS = s": ${printer.csDFType(retDFType, typeCS = true)} <> $retModCS"
     val dcl =
       s"def ${design.dclName}$designParamCS($defArgsCS)$retTypeCS =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     s"${printer.csAnnotations(design.dclMeta.annotations)}$dcl\n"
@@ -292,6 +302,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
         case pbns: DFVal.PortByNameSelect if pbns.getDesignInst == inst => pbns
       }
     )
+    // phantom port-by-name selects materialize captured outer references — hidden from
+    // the call arguments (their body references print the captured value's name directly)
     val ports = instPBNS.view.collect {
       case pbns if pbns.isIn && !pbns.hasTagOf[PhantomTag] =>
         // the positional def-instance form expects a single producer per input port;
@@ -325,7 +337,14 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   private def csDFDesignBlockDclImpl(design: DFDesignBlock): String =
     import design.instMode
     val localDcls = printer.csLocalTypeDcls(design)
-    val body = csDFOwnerBody(design)
+    // ED methods are locally scoped — their def declarations print at the top of the
+    // owning design class body (Scala class-body forward references from method bodies
+    // to later-declared members are legal, so top placement is always safe)
+    val edMethodDcls = printer.edMethodPrinters(design)
+      .map((block, p) => s"${p.csDocString(block.dclMeta)}${p.csDFDesignDefDcl(block)}")
+      .mkString("\n")
+    val body0 = csDFOwnerBody(design)
+    val body = if (edMethodDcls.isEmpty) body0 else s"$edMethodDcls\n$body0"
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val dsnCls = design.domainType match
       case DomainType.DF => "DFDesign"

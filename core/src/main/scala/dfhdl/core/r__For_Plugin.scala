@@ -157,10 +157,41 @@ object r__For_Plugin:
       ownerClass: Class[?]
   )(
       func: => V
+  )(using DFC): V =
+    designFromDefImpl(ir.DomainType.DF, args, constArgs, dclMeta, scalaArgs, phantomArgs,
+      phantomConstArgs, ownerClass)(func)
+  // ED methods (HDL functions/tasks/procedures — see the ed-methods plan): same
+  // construction, caching, and purity treatment as DF design defs, but under the ED
+  // domain (the design prints as an HDL subprogram rather than a module).
+  @metaContextForward(2)
+  def designFromDefED[V <: DFValAny](
+      args: List[(DFValAny, ir.Meta)],
+      constArgs: List[(String, DFValAny, ir.Meta)],
+      dclMeta: ir.Meta,
+      scalaArgs: List[Any],
+      phantomArgs: List[(DFValAny, ir.Meta)],
+      phantomConstArgs: List[(DFValAny, ir.Meta)],
+      ownerClass: Class[?]
+  )(
+      func: => V
+  )(using DFC): V =
+    designFromDefImpl(ir.DomainType.ED, args, constArgs, dclMeta, scalaArgs, phantomArgs,
+      phantomConstArgs, ownerClass)(func)
+  private def designFromDefImpl[V <: DFValAny](
+      domain: ir.DomainType,
+      args: List[(DFValAny, ir.Meta)],
+      constArgs: List[(String, DFValAny, ir.Meta)],
+      dclMeta: ir.Meta,
+      scalaArgs: List[Any],
+      phantomArgs: List[(DFValAny, ir.Meta)],
+      phantomConstArgs: List[(DFValAny, ir.Meta)],
+      ownerClass: Class[?]
+  )(
+      func: => V
   )(using DFC): V = trydf:
     val designBlock =
       Design.Block.apply(
-        domain = ir.DomainType.DF,
+        domain = domain,
         instMode = ir.DFDesignBlock.InstMode.Def
       )(using dfc.setMeta(dclMeta))
     dfc.enterOwner(designBlock)
@@ -284,7 +315,7 @@ object r__For_Plugin:
           keyOpt.foreach(gate.completed(_, endedDesign, ownerClass, cacheEnable))
         retVal
     end match
-  end designFromDef
+  end designFromDefImpl
   def identVal[V <: DFValAny](value: V)(using DFC): V =
     DFVal.Alias.AsIs.ident(value).asInstanceOf[V]
   object defaults:

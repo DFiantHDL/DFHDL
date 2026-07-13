@@ -22,6 +22,7 @@ case object BackendPrepStage
       ConnectUnused,
       VHDLProcToVerilog,
       ExplicitNamedVars,
+      PrepEDDefs,
       ExplicitCondExprAssign,
       DropLocalDcls,
       DropOutportRead,

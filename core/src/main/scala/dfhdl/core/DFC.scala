@@ -128,7 +128,18 @@ object DFC:
     DFC(None, Position.unknown, None, elaborationOptionsContr = () => eo)
   def emptyNoEO: DFC = DFC(None, Position.unknown, None)
   sealed trait Scope
-  object Scope:
+  // Low-priority scope givens. `Function` must be summonable at any ED method call site
+  // (an ED function is callable from design scope, processes, initial blocks, and other
+  // method bodies alike), so it gets an ambient given here. It is defined in a base trait
+  // of `object Scope` so that givens declared directly in `object Scope` (e.g. `Global`)
+  // always win a generic `Scope` summon, keeping e.g. the global port/var declaration
+  // guard intact. IMPORTANT: because this given is ambient, `Scope.Function` must never
+  // be used in a positive given-summon guard (`AssertGiven[DFC.Scope.Function | ...]`) or
+  // a `NotGiven` guard — only as a context-function parameter (which lexically shadows
+  // this given inside ED function bodies) and in `A <:<` declaration-site checks.
+  sealed trait ScopeLP:
+    given Scope.Function = Scope.Function
+  object Scope extends ScopeLP:
     sealed trait Global extends Scope
     object Global extends Global
     given Global = Global
@@ -146,6 +157,24 @@ object DFC:
     object Initial extends Initial
     sealed trait Interface extends Local
     object Interface extends Interface
+    // ED method body scopes (see ed-methods plan). `Function` deliberately does NOT extend
+    // `Local` — an ambient `Local` given would break the "declarations cannot be global"
+    // guard. `Procedural` extends `Local` (its given is conditional, not ambient, so no
+    // poison) but NOT `Process` — step blocks must stay unavailable in procedural bodies.
+    @implicitNotFound(
+      "An ED function method can only be invoked inside an event-driven (ED) domain."
+    )
+    sealed trait Function extends Scope
+    object Function extends Function
+    @implicitNotFound(
+      "A procedural ED method (`Unit <> EDRET`) can only be invoked inside a process or another procedural ED method body"
+    )
+    sealed trait Procedural extends Local
+    object Procedural extends Procedural
+    // procedural ED methods (tasks/procedures) are callable wherever a process scope is
+    // available — inside processes, and inside other procedural bodies (via the context
+    // function parameter itself)
+    given (using Process): Procedural = Procedural
   end Scope
 end DFC
 

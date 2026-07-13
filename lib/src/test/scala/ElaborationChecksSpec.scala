@@ -705,4 +705,48 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |Message:   A `match` selector inside an `initial` block under a register-transfer (RT) domain must be a constant.""".stripMargin
     )
+  test("ED method content errors (scope laundering backstop)"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        // helper defs launder scope evidence past the type-level guards — the
+        // elaboration check must still reject the resulting ED function content
+        def helperWait(using DFC): Unit = wait
+        def helperProcess(using DFC): Unit =
+          process(all) {}
+        def bad(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+          helperWait
+          helperProcess
+          l
+        y <> bad(a)
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL ED method error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:719:11 - 719:21
+          |Hierarchy: bad
+          |Message:   Wait statements are not allowed inside an ED function.
+          |DFiant HDL ED method error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:720:11 - 720:24
+          |Hierarchy: bad
+          |Message:   Process blocks are not allowed inside an ED method.""".stripMargin
+    )
+  test("waiting ED method call-site errors"):
+    object TestWait:
+      @top(false) class Top extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        def pause(): Unit <> EDRET = wait(1.ns)
+        process(all):
+          y :== a
+          pause()
+    import TestWait.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL ED method error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:743:11 - 743:18
+          |Hierarchy: Top
+          |Message:   A wait-containing ED method can only be called inside a process without a sensitivity list (`process.forever`) or an `initial` block.""".stripMargin
+    )
 end ElaborationChecksSpec

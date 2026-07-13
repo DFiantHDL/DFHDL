@@ -1257,6 +1257,71 @@ final case class DB private (
       throw new IllegalArgumentException(errors.mkString("\n"))
   end waitCheck
 
+  // ED procedural method call-site checks (see the ed-methods plan), run once on the root.
+  // A method that (transitively) contains a wait statement suspends its calling process,
+  // which is only legal for processes without a sensitivity list (`process.forever`) or
+  // `initial` blocks — VHDL hard-errors on a wait inside a procedure called from a process
+  // with a sensitivity list, and the equivalent Verilog is semantically broken.
+  // Nested calls (a waiting method called from another method body) are covered by the
+  // outermost call site.
+  def edMethodCallSiteCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    // memoized transitive wait detection per method design (keyed by its hierarchy key)
+    val waitingCache = collection.mutable.Map.empty[DFOwner.Ref, Boolean]
+    def methodSubDBOpt(inst: DFDesignInst): Option[DB] = subDBs.get(inst.designRef)
+    def isWaiting(methodDB: DB): Boolean =
+      val key = methodDB.top.ownerRef
+      waitingCache.get(key) match
+        case Some(cached) => cached
+        case None         =>
+          val waiting = methodDB.members.exists {
+            case _: Wait            => true
+            case inst: DFDesignInst =>
+              methodSubDBOpt(inst).exists(sub => sub.top.isEDMethod && isWaiting(sub))
+            case _ => false
+          }
+          waitingCache(key) = waiting
+          waiting
+    subDBs.view.values.foreach { sub =>
+      // a call inside another method body is checked at its outermost call site
+      if (!sub.top.isEDMethod)
+        sub.atGetSet {
+          sub.members.foreach {
+            case inst: DFDesignInst =>
+              methodSubDBOpt(inst) match
+                case Some(methodDB) if methodDB.top.isEDMethod && isWaiting(methodDB) =>
+                  def callError(msg: String): Unit =
+                    errors += s"""|DFiant HDL ED method error!
+                                  |Position:  ${inst.meta.position}
+                                  |Hierarchy: ${fullNameViaInst(inst.getOwnerDesign, sub)}
+                                  |Message:   $msg""".stripMargin
+                  @tailrec def owningProcess(m: DFMember): Option[ProcessBlock] =
+                    m.getOwner match
+                      case pb: ProcessBlock => Some(pb)
+                      case _: DFDesignBlock => None
+                      case o                => owningProcess(o)
+                  owningProcess(inst) match
+                    case Some(pb) =>
+                      pb.sensitivity match
+                        case ProcessBlock.Sensitivity.List(Nil) |
+                            ProcessBlock.Sensitivity.Initial => // ok — suspension-capable
+                        case _ =>
+                          callError(
+                            "A wait-containing ED method can only be called inside a process without a sensitivity list (`process.forever`) or an `initial` block."
+                          )
+                    case None =>
+                      callError(
+                        "A wait-containing ED method can only be called inside a process without a sensitivity list (`process.forever`) or an `initial` block."
+                      )
+                case _ => // not a waiting ED method call
+            case _ =>
+          }
+        }
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end edMethodCallSiteCheck
+
   // `initial` block content and conflict checks, run per design (initial blocks may
   // only reference values of their own design, so no cross-design pass is needed):
   //   * Both domains: only blocking assignments — no non-blocking assignments,
@@ -1360,6 +1425,60 @@ final case class DB private (
     if (errors.nonEmpty)
       throw new IllegalArgumentException(errors.mkString("\n"))
   end initialCheck
+
+  // ED method (HDL subprogram) content checks (see the ed-methods plan). An ED method is a
+  // design block with `instMode = Def` under the ED domain: a FUNCTION when it returns a
+  // value (has a return output port) and a PROCEDURAL method (Verilog task / VHDL
+  // procedure) when it returns Unit. Content rules:
+  //   * functions: no waits, no non-blocking assignments
+  //   * procedural methods: waits allowed; non-blocking assignments still rejected
+  //     (writes to outer state are not yet supported — see the plan's deferred items)
+  //   * both: no step transitions, no processes/steps/forks/domains, no design instances
+  //     other than calls to other ED methods
+  // These rules are enforced here (and not only at the type level) because scope evidence
+  // can be laundered through helper `def`s — same rationale as `initialCheck`.
+  def edMethodCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    def memberError(member: DFMember, msg: String): Unit =
+      errors += s"""|DFiant HDL ED method error!
+                    |Position:  ${member.meta.position}
+                    |Hierarchy: ${member.getOwnerDesign.getFullName}
+                    |Message:   $msg""".stripMargin
+    val edDefs = members.collect { case design: DFDesignBlock if design.isEDMethod => design }
+    edDefs.foreach { design =>
+      val designMembers = getMembersOf(design, MemberView.Flattened)
+      // a function has a return output port; a procedural method does not
+      val isProcedural = !designMembers.exists {
+        case dcl: DFVal.Dcl if dcl.modifier.dir == DFVal.Modifier.OUT => true
+        case _                                                        => false
+      }
+      designMembers.foreach {
+        case wait: Wait if !isProcedural =>
+          memberError(wait, "Wait statements are not allowed inside an ED function.")
+        case net @ DFNet.NBAssignment(_, _) =>
+          memberError(
+            net,
+            if (isProcedural)
+              "Non-blocking assignments `:==` are not allowed inside an ED method (writes to outer state are not yet supported)."
+            else "Non-blocking assignments `:==` are not allowed inside an ED function."
+          )
+        case goto: Goto =>
+          memberError(goto, "Step transitions are not allowed inside an ED method.")
+        case pb: ProcessBlock =>
+          memberError(pb, "Process blocks are not allowed inside an ED method.")
+        case owner @ (_: StepBlock | _: ForkBlock | _: DomainBlock) =>
+          memberError(owner, "This construct is not allowed inside an ED method.")
+        case inner: DFDesignBlock if !inner.isEDMethod =>
+          memberError(
+            inner,
+            "Design instances are not allowed inside an ED method. Only calls to other ED methods are."
+          )
+        case _ => // ok
+      }
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end edMethodCheck
 
   // Circular-derived-domain check, run on the root DB. DFS over
   // `dependentRTDomainOwners`; the cycle error names each
@@ -1625,6 +1744,7 @@ final case class DB private (
     connectionTable // causes connectivity checks
     directRefCheck()
     initialCheck()
+    edMethodCheck()
 
   // Whole-tree checks, run once on the root: the cross-design connectivity /
   // RT-domain / device-top checks, via the `*` clones that navigate the
@@ -1635,6 +1755,7 @@ final case class DB private (
     circularDerivedDomainsCheck()
     domainClkRateCheck()
     waitCheck()
+    edMethodCallSiteCheck()
     portLocationCheck()
     portResourceDirCheck()
 

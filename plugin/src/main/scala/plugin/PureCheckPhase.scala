@@ -300,6 +300,18 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
     // (local, sibling class member, global)
     val valRhs = mutable.Map.empty[Symbol, Tree]
 
+    // ED methods (HDL functions/tasks) are design defs regardless of their DFHDL-value
+    // parameter count; they are detected by the scope evidence parameter the `<> EDRET`
+    // match type injects into the context lambda (mirroring the DesignDefs guard)
+    val scopeFunctionCls = getClassIfDefined("dfhdl.core.DFC.Scope.Function")
+    val scopeProceduralCls = getClassIfDefined("dfhdl.core.DFC.Scope.Procedural")
+    def isEDAnonDef(anonDef: DefDef): Boolean =
+      anonDef.paramss.flatten.exists {
+        case vd: ValDef =>
+          (scopeFunctionCls.exists && vd.tpe <:< scopeFunctionCls.typeRef) ||
+          (scopeProceduralCls.exists && vd.tpe <:< scopeProceduralCls.typeRef)
+        case _ => false
+      }
     object rootCollector extends TreeTraverser:
       def traverse(tree: Tree)(using Context): Unit =
         tree match
@@ -312,10 +324,10 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
             dd.rhs match
               case Block(List(anonDef: DefDef), _: Closure)
                   if !dd.isInline && !dd.symbol.is(Exported) && anonDef.dfValTpeOpt.nonEmpty &&
-                    dd.paramss.view.flatten.exists {
+                    (dd.paramss.view.flatten.exists {
                       case vd: ValDef => vd.dfValTpeOpt.nonEmpty && !vd.tpt.tpe.isDFConst
                       case _          => false
-                    } =>
+                    } || isEDAnonDef(anonDef)) =>
                 designDefRoots += dd.symbol -> anonDef
               case _ =>
           case td @ TypeDef(_, tmpl: Template) if td.symbol.exists =>

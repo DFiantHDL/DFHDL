@@ -159,10 +159,16 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
           if inst.getDesignBlock.isBlackBox && !inst.getDesignBlock.isForeignIPBlackbox =>
         inst.getDesignBlock
     }.map(bb => printerForDesign(bb).csEntityDcl(bb, asComponent = true)).mkString("\n")
+    // ED methods (HDL functions) are locally scoped — declared in this design's
+    // architecture declarative part
+    val edMethodDcls = printer.edMethodPrinters(design)
+      .map((block, p) => s"${p.csDocString(block.dclMeta)}${p.csDFDesignDefDcl(block)}")
+      .mkString("\n\n")
     val declarations =
       sn"""|$constIntDcls
            |$namedTypeConvFuncsDcl
            |$dfValDcls
+           |$edMethodDcls
            |$components"""
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl => false
@@ -208,8 +214,89 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val instCS = s"${inst.getName} : $header${designParamCS}"
     if (body.isEmpty) s"$instCS;" else s"$instCS port map (\n${body.hindent}\n);"
   end csDFDesignBlockInst
-  def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
-  def csDFDesignDefInst(inst: DFDesignInst): String = printer.unsupported
+  // ED methods (HDL functions) print inside their owning design's architecture
+  // declarative part
+  def csDFDesignDefDcl(design: DFDesignBlock): String =
+    val designMembers = design.members(MemberView.Folded)
+    // the return value: the (single, full) connection to the output port
+    var retValOpt: Option[DFVal] = None
+    val outNetOpt = designMembers.view.reverse.collectFirst {
+      case outNet @ DFNet.Connection(DclOut(), rv: DFVal, _) =>
+        retValOpt = Some(rv)
+        outNet
+    }
+    val funcName = design.dclName
+    // a function reading anything beyond its parameters (phantom-captured outer
+    // references) must be declared impure
+    val hasPhantoms = designMembers.exists {
+      case p @ DclIn() => p.hasTagOf[PhantomTag]
+      case _           => false
+    }
+    val impure = if (hasPhantoms) "impure " else ""
+    // a procedural method (Unit return — no return output port) prints as a procedure
+    val isProcedural = retValOpt.isEmpty
+    // VHDL function return takes a type MARK (no constraint)
+    val retTypeCS = retValOpt.map(rv => printer.csDFType(rv.dfType).takeWhile(_ != '('))
+    val params = designMembers.collect {
+      // phantom ports materialize captured outer references — hidden from the signature
+      case p @ DclIn() if !p.hasTagOf[PhantomTag] =>
+        s"${p.getName} : ${printer.csDFType(p.dfType)}"
+    }.mkString("; ")
+    // parameterless VHDL subprograms are declared (and called) without parentheses
+    val paramsCS = params.emptyOr(p => s"($p)")
+    val localDcls = designMembers.view.flatMap {
+      // phantom design parameters (captured outer constants) print nowhere — their body
+      // references resolve to the captured constant's name at architecture scope
+      case _: DesignParam              => None
+      case dcl: DFVal.Dcl if dcl.isVar => Some(printer.csDFMember(dcl))
+      case c @ DclConst()              => Some(printer.csDFMember(c))
+      case _                           => None
+    }.mkString("\n")
+    val statements = csDFMembers(designMembers.filter {
+      case _: DFVal.Dcl                          => false
+      case DclConst()                            => false
+      case net: DFNet if outNetOpt.contains(net) => false
+      // the return value ident placeholder is rendered by the return statement below
+      case m: DFVal if retValOpt.contains(m) => false
+      case _                                 => true
+    })
+    val retStatement =
+      retValOpt.map(rv => s"return ${printer.csDFValRef(rv, design)};").getOrElse("")
+    val body =
+      sn"""|$statements
+           |$retStatement"""
+    // procedures take no purity keyword; a phantom-reading procedure is simply legal VHDL
+    val headerCS =
+      if (isProcedural) s"procedure $funcName$paramsCS is"
+      else s"${impure}function $funcName$paramsCS return ${retTypeCS.get} is"
+    val endCS = if (isProcedural) "end procedure;" else "end function;"
+    sn"""|$headerCS
+         |${localDcls.hindent}
+         |begin
+         |${body.hindent}
+         |$endCS"""
+  end csDFDesignDefDcl
+  def csDFDesignDefInst(inst: DFDesignInst): String =
+    val design = inst.getDesignBlock
+    val instPBNS = getSet.designDB.designInstPBNS.getOrElse(
+      inst,
+      getSet.designDB.members.collect {
+        case pbns: DFVal.PortByNameSelect if pbns.getDesignInst == inst => pbns
+      }
+    )
+    val args = instPBNS.view.collect {
+      case pbns if pbns.isIn && !pbns.hasTagOf[PhantomTag] =>
+        val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionsTo.head.runtimeChecked
+        printer.csDFValRef(from, inst.getOwner)
+    }.mkString(", ")
+    // a procedural method call (no return output port) is a statement;
+    // parameterless VHDL subprogram calls have no parentheses
+    val isProcedural = !instPBNS.exists(_.isOut)
+    val callCS =
+      if (args.isEmpty) design.dclName
+      else s"${design.dclName}($args)"
+    if (isProcedural) s"$callCS;" else callCS
+  end csDFDesignDefInst
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
   override def csDFIfGuard(ifBlock: DFConditional.DFIfElseBlock): String =

@@ -249,9 +249,33 @@ trait Printer
       else
         designDB.designMemberList.collect { case (block: DFDesignBlock, _) => block -> printer }
     // design defs with phantoms print their declaration locally in the host design's
-    // body (see `printDesignDefDclInline`), not as a file-level declaration
-    printers.filterNot((block, _) => printDesignDefDclInline(block))
+    // body (see `printDesignDefDclInline`), and ED methods are locally scoped — they
+    // print inside their owning design (see `edMethodPrinters`); neither prints as a
+    // file-level declaration
+    printers.filterNot((block, _) => printDesignDefDclInline(block) || block.isEDMethod)
   end designPrinters
+
+  // The (ED method design, printer-bound-to-its-getSet) pairs locally declared by `design`.
+  // ED methods print inside their owning design's declaration; they are discovered through
+  // the owner's DFDesignInst members (including calls made inside process blocks), distinct
+  // by design block, in first-call order.
+  final def edMethodPrinters(design: DFDesignBlock): List[(DFDesignBlock, TPrinter)] =
+    val designDB = getSet.designDB
+    val seen = mutable.LinkedHashMap.empty[DFDesignBlock, TPrinter]
+    design.members(MemberView.Flattened).foreach {
+      case inst: DFDesignInst =>
+        val block = inst.getDesignBlock
+        if (block.isEDMethod && !seen.contains(block))
+          val root = designDB.rootDB
+          val boundPrinter =
+            if (root.isRoot)
+              root.subDBs.get(inst.designRef).map(sub => withGetSet(sub.getSet)).getOrElse(printer)
+            else printer
+          seen(block) = boundPrinter
+      case _ =>
+    }
+    seen.toList
+  end edMethodPrinters
 
   final def csDB: String =
     // a foreign IP renders as an `import <clsName>` of its pre-existing external class; multiple

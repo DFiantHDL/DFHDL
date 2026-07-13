@@ -1743,6 +1743,14 @@ object DFDesignBlock:
         case annotation.Pure(false, _) => true
         case _                         => false
       }
+
+    /** An ED method (HDL function/task — see the ed-methods plan): a design def under the ED
+      * domain. ED methods are locally scoped — printed inside their owning design (as HDL
+      * subprograms) rather than as standalone design files, and their name-uniqueness scope is the
+      * owning design.
+      */
+    def isEDMethod: Boolean =
+      dsn.instMode == DFDesignBlock.InstMode.Def && dsn.domainType == DomainType.ED
     def getCommonDesignWith(dsn2: DFDesignBlock)(using MemberGetSet): DFDesignBlock =
       def getOwnerDesignChain(dsn: DFDesignBlock): List[Set[DFDesignBlock]] =
         var chain = List(Set(dsn))
