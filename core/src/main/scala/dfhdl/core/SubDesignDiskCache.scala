@@ -4,19 +4,17 @@ import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.util.concurrent.ConcurrentHashMap
 import scala.util.control.NonFatal
 
-/** The sub-design cache service behind the elaboration design load gate. The cached artifact is a
-  * plain hierarchical DB (an empty-members root whose `subDBs` hold the design's own sub-DB plus,
-  * transitively, its child designs' sub-DBs, top first), serialized exactly like the top-design DB
-  * cache: see `ir.DB.extractSubDesignDB` for extraction and `ir.DB.attachExternalSubDesigns` for
-  * splicing into a loading run. The gate computes `localKey` (a digest of the intra-run cache key
-  * parts: dclMeta, input DFTypes, Scala args, and the data-impure parameters' applied data) and
-  * provides the def's owner class; the implementation completes the cross-run code identity (the
-  * owner class's `factum.CodeRef` digest and the DFHDL version) and performs plain
-  * content-addressed get/put.
+/** The sub-design cache service behind the elaboration design load gate. The cached artifact is an
+  * `ir.SubDesignEntry`: ONE design's own sub-DB plus its child designs BY CACHE KEY (the loading
+  * run resolves each child through the gate, like a live instantiation). The gate computes
+  * `localKey` (a digest of the intra-run cache key parts: dclMeta, input DFTypes, Scala args, and
+  * the data-impure parameters' applied data) and provides the def's owner class; the implementation
+  * completes the cross-run code identity (the owner class's `factum.CodeRef` digest and the DFHDL
+  * version) and performs plain content-addressed get/put.
   */
 trait SubDesignCache:
-  def lookup(ownerClass: Class[?], localKey: String): Option[ir.DB]
-  def store(ownerClass: Class[?], localKey: String, cachedDB: ir.DB): Unit
+  def lookup(ownerClass: Class[?], localKey: String): Option[ir.SubDesignEntry]
+  def store(ownerClass: Class[?], localKey: String, entry: ir.SubDesignEntry): Unit
 
 /** The default disk-backed sub-design cache service (see `SubDesignCache`), enabled through
   * `ElaborationOptions.CacheEnable`. Each `MutableDB` (one per elaboration) instantiates its own
@@ -34,29 +32,35 @@ trait SubDesignCache:
   */
 final class SubDesignDiskCache extends SubDesignCache:
   import SubDesignDiskCache.*
-  def lookup(ownerClass: Class[?], localKey: String): Option[ir.DB] =
+  def lookup(ownerClass: Class[?], localKey: String): Option[ir.SubDesignEntry] =
     fullKeyOf(ownerClass, localKey).flatMap { fullKey =>
       Option(memStore.get(fullKey)).orElse {
         entryFileOf(ownerClass, fullKey).filter(Files.exists(_)).flatMap { file =>
-          // a corrupt or unreadable entry is just a miss
-          try
-            val db = ir.DB.fromJsonString(Files.readString(file))
-            memStore.put(fullKey, db)
-            Some(db)
+          try Some(Files.readString(file))
           catch case NonFatal(_) => None
         }
+      }.flatMap { json =>
+        // deserialized per hit, so every elaboration adopts its OWN member objects (IR
+        // members carry per-run mutable caches; sharing them across runs is unsafe)
+        try
+          val entry = ir.SubDesignEntry.fromJsonString(json)
+          memStore.put(fullKey, json)
+          Some(entry)
+        // a corrupt entry is just a miss (and never enters the memory store)
+        catch case NonFatal(_) => None
       }
     }
-  def store(ownerClass: Class[?], localKey: String, cachedDB: ir.DB): Unit =
+  def store(ownerClass: Class[?], localKey: String, entry: ir.SubDesignEntry): Unit =
     fullKeyOf(ownerClass, localKey).foreach { fullKey =>
-      memStore.put(fullKey, cachedDB)
+      val json = entry.toJsonString
+      memStore.put(fullKey, json)
       entryFileOf(ownerClass, fullKey).foreach { file =>
         try
           Files.createDirectories(file.getParent)
           // temp-file + atomic move keeps concurrent writers (parallel test forks)
           // consistent; both write the same content for the same key anyway
           val tmp = Files.createTempFile(file.getParent, file.getFileName.toString, ".tmp")
-          Files.writeString(tmp, cachedDB.toJsonString)
+          Files.writeString(tmp, json)
           try Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE)
           catch
             case NonFatal(_) =>
@@ -73,13 +77,14 @@ object SubDesignDiskCache:
   private val codeDigestMemo = new ConcurrentHashMap[Class[?], Option[String]]
   private val cacheDirMemo = new ConcurrentHashMap[Class[?], Option[Path]]
   // The process-wide in-memory tier in front of the disk (factum's MemoryStore/
-  // AggregateStore layer bytes, but the expensive part here is the JSON parse, so this
-  // memoizes the DESERIALIZED DB, keyed by the full content key): repeated elaborations
-  // in one JVM session (e.g. an sbt server) skip both the file read and the parsing, a
+  // AggregateStore layer), holding the serialized entry keyed by the full content key:
+  // repeated elaborations in one JVM session (e.g. an sbt server) skip the file read, a
   // run's write-back serves later runs from memory, and defs with no writable disk
-  // location (jar-shipped) still cache in-process. Cached DBs are immutable and
-  // attachment freshens tokens per run, so sharing the instances is safe.
-  private val memStore = new ConcurrentHashMap[String, ir.DB]
+  // location (jar-shipped) still cache in-process. It memoizes the JSON and NOT the
+  // deserialized DB: IR members carry per-run mutable caches (`HasRefCompare`'s compare
+  // memo, a design block's elaboration-time instance cache), so two elaborations must
+  // never adopt the same member objects.
+  private val memStore = new ConcurrentHashMap[String, String]
   // testing/diagnostic: drops the process-wide in-memory store (disk entries remain)
   def clearInMemoryStore(): Unit = memStore.clear()
 

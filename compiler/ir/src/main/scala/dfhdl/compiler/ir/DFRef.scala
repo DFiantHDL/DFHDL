@@ -21,6 +21,7 @@ object DFRef:
     val grpId: (Int, Int) = (0, 0)
     val id: Int = 0
     override def get(using getSet: MemberGetSet): DFMember.Empty = DFMember.Empty
+    override def copyAsNewRef(using RefGen): this.type = this
   sealed trait OneWay[+M <: DFMember] extends DFRef[M]:
     def copyAsNewRef(using refGen: RefGen): this.type =
       refGen.genOneWay[M].asInstanceOf[this.type]

@@ -178,10 +178,10 @@ object ElaborationOptions:
   // Enables the elaboration sub-design cache: a pure design def skips its body
   // elaboration on a disk cache hit and the cached sub-design DB is spliced into the
   // final DB. Cache entries live beside the def's owner class build output (see
-  // `dfhdl.core.SubDesignDiskCache`). Off by default.
+  // `dfhdl.core.SubDesignDiskCache`). On by default.
   into opaque type CacheEnable <: Boolean = Boolean
   object CacheEnable:
-    given CacheEnable = false
+    given CacheEnable = true
     given Conversion[Boolean, CacheEnable] = identity
 
 end ElaborationOptions

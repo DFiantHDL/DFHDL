@@ -1848,59 +1848,13 @@ final case class DB private (
 
   // ~~~ sub-design cache support ~~~
 
-  // The return DFType of a cached design-def DB: its top design's (non-phantom) output
+  // The return DFType of a loaded design-def sub-DB: its design's (non-phantom) output
   // port type, or DFUnit when the def has a Unit return (no output port). The design-def
   // harness needs this on a cache hit, before any body exists.
   def subDesignRetDFType: DFType =
     topDB.members.collectFirst {
       case dcl: DFVal.Dcl if dcl.isPortOut && !dcl.hasTagOf[PhantomTag] => dcl.dfType
     }.getOrElse(DFUnit)
-
-  // Freshens this cached sub-design DB for adoption into a loading run, returning the
-  // rewritten forest. Because the cached cross-sub-DB tokens (subDBs keys, top blocks'
-  // ownerRefs, `DFDesignInst.designRef`s) originate from the run that stored it, they
-  // are rewritten here: the cached top adopts the given shell token (the loading run's
-  // design block ownerRef) and every child design gets a newly generated token.
-  // Per-sub-DB refTables are self-contained, so no other tokens need rewriting. The
-  // cached top's block HEADER stays in place as a placeholder: the loading run's final
-  // assembly replaces it with the shell's final (dclName-uniquified) block, which also
-  // resolves any naming divergence between the storing and loading runs; the parent
-  // side is untouched (its port selections resolve by NAME into the adopted sub-DB,
-  // and its instance's `designRef` is exactly the shell token the cached top now sits
-  // under).
-  def freshenSubDesignForest(shellKey: StaticRef)(using RefGen): List[(StaticRef, DB)] =
-    val (cachedTopKey, _) = subDBs.head
-    val tokenMap: Map[StaticRef, StaticRef] =
-      subDBs.view.map { (key, _) =>
-        val newKey =
-          if (key == cachedTopKey) shellKey
-          else StaticRef(summon[RefGen].genOneWay[DFDesignBlock].asInstanceOf[DFOwner.Ref])
-        key -> newKey
-      }.toMap
-    subDBs.toList.map { (key, sub) =>
-      val oldBlock = sub.top
-      // a token-freshened block copy for children; the top keeps its placeholder header
-      val newBlock =
-        if (key == cachedTopKey) oldBlock
-        else
-          oldBlock.copy(ownerRef =
-            tokenMap(StaticRef(oldBlock.ownerRef)).asRef.asInstanceOf[DFOwner.Ref]
-          )
-      val memberRepl: Map[DFMember, DFMember] =
-        sub.members.view.collect {
-          case d: DFDesignBlock if (d eq oldBlock) && !(newBlock eq oldBlock) =>
-            (d: DFMember) -> newBlock
-          case inst: DFDesignInst if tokenMap.contains(inst.designRef) =>
-            (inst: DFMember) -> inst.copy(designRef = tokenMap(inst.designRef))
-        }.toMap
-      val newMembers = sub.members.map(m => memberRepl.getOrElse(m, m))
-      val newRefTable = sub.refTable.map { (r, t) =>
-        val newR = if (r == oldBlock.ownerRef) newBlock.ownerRef else r
-        newR -> memberRepl.getOrElse(t, t)
-      }
-      tokenMap(key) -> DB(newMembers, newRefTable, sub.globalTags, Nil)
-    }
-  end freshenSubDesignForest
 
   // Collapses a new-style (option-a) DB back into a flat old-style DB.
   // Non-DFDesignBlock members dedup by OBJECT identity (globals are shared by
@@ -1914,9 +1868,103 @@ final case class DB private (
   // pointing at it (mirroring the original elaboration order, in which the
   // nested block is added during the first instance's elaboration and so
   // appears just before that inst in the flat DB).
+  // The refs a sub-DB emits from its OWN members: the local tokens, which the sub-DB's refTable
+  // resolves. Globals are excluded (they are shared BY IDENTITY across every sub-DB that reaches
+  // them, tokens included, and are meant to collide), and so are the structural keys, which are
+  // deliberately shared across a sub-DB boundary: a design block's `ownerRef` IS its `subDBs` key
+  // and the target of the instantiating `DFDesignInst.designRef`.
+  private def localRefsOf(db: DB): Iterator[(DFRefAny, Option[DFMember])] =
+    // a member's own sub-DB resolves it: `isGlobal` reads the member's ownerRef, and the root DB
+    // (which has no members of its own) has no `getSet` to read it with
+    given MemberGetSet = db.getSet
+    db.members.iterator.flatMap {
+      case g: DFVal.CanBeGlobal if g.isGlobal => Nil
+      case d: DFDesignBlock                   => d.getRefs
+      case m                                  => m.getAllRefs
+    }.map(ref => ref -> db.refTable.get(ref))
+
+  /** This (self-contained) sub-DB with its local ref tokens re-minted. Everything a token has to
+    * survive is preserved: globals keep their identity (and their own refs), the design block keeps
+    * its `ownerRef` (its `subDBs` key) and every instance keeps its `designRef` (a `subDBs` key
+    * too) — only the tokens that resolve WITHIN this sub-DB are replaced.
+    *
+    * Needed because a design adopted from the sub-design cache keeps the tokens the STORING run
+    * minted (see `SubDesignEntry.cloneForAdoption`): sound while every refTable stays per-sub-DB,
+    * but `newToOld` merges them all into one, where two sub-DBs holding the same token for
+    * different members would silently resolve to the wrong one.
+    */
+  def freshenLocalRefs(using RefGen): DB =
+    // this sub-DB resolves its own members (`isGlobal` reads a member's ownerRef)
+    given MemberGetSet = getSet
+    val memberMap = mutable.Map.empty[DFMember, DFMember]
+    // The refTable is rebuilt member by member (every ref the new members emit, and only those),
+    // NOT by mapping the old table through an old-ref -> new-ref map: members can SHARE a ref token
+    // (they share the DFType object that emits it) and each fresh copy mints its own token for it,
+    // so a single map would keep the last one only and leave every other copy's ref unbound.
+    val newRefTable = mutable.Map.empty[DFRefAny, DFMember]
+    val oldTop = top
+    members.foreach {
+      case g: DFVal.CanBeGlobal if g.isGlobal =>
+        memberMap(g) = g
+        g.getAllRefs.foreach(r => refTable.get(r).foreach(t => newRefTable(r) = t))
+      case m =>
+        val fresh = m match
+          // the structural keys stay: they are what the hierarchy is threaded on
+          case d: DFDesignBlock if d eq oldTop => d.copyWithNewRefs.copy(ownerRef = d.ownerRef)
+          case m                               => m.copyWithNewRefs
+        memberMap(m) = fresh
+        // pairwise (oldRef -> newRef) through the symmetric `getAllRefs` enumeration (which
+        // `copyWithNewRefs` freshens in that same order), each fresh ref taking over the old
+        // ref's binding
+        m.getAllRefs.lazyZip(fresh.getAllRefs).foreach { (o, n) =>
+          refTable.get(o).foreach(target => newRefTable(n) = target)
+        }
+    }
+    DB(
+      members.map(memberMap),
+      newRefTable.view.mapValues(t => memberMap.getOrElse(t, t)).toMap,
+      globalTags,
+      srcFiles
+    )
+  end freshenLocalRefs
+
+  // The sub-DBs with every token COLLISION resolved: a token bound to one member here and to a
+  // different one there. Only a design adopted from the sub-design cache can do that (its tokens
+  // were minted by the storing run's `RefGen`, so they overlap this run's); such a sub-DB has its
+  // local refs re-minted. In a run whose tokens all come from one `RefGen` — any run with no cache
+  // hit — nothing collides and nothing is copied.
+  //
+  // Sharing a token is NOT a collision: two sub-DBs legitimately emit the same ref for the same
+  // target, because they share the DFType object that emits it (a port type reaching a global
+  // parameter, say). That is the merge this flat view is built to perform.
+  private def collisionFreeSubDBs: ListMap[StaticRef, DB] =
+    val seen = mutable.Map.empty[DFRefAny, Option[DFMember]]
+    var refGen: Option[RefGen] = None
+    def collides(db: DB): Boolean =
+      localRefsOf(db).exists((ref, target) => seen.get(ref).exists(_ != target))
+    def remember(db: DB): Unit =
+      localRefsOf(db).foreach((ref, target) => seen.getOrElseUpdate(ref, target))
+    ListMap.from(subDBs.map { (key, sub) =>
+      if (collides(sub))
+        given RefGen = refGen.getOrElse {
+          // seeded past the highest id in the whole DB, so a minted token collides with nothing
+          val gen = RefGen.fromGetSet(using this.getSet)
+          refGen = Some(gen)
+          gen
+        }
+        val freshened = sub.freshenLocalRefs
+        remember(freshened)
+        key -> freshened
+      else
+        remember(sub)
+        key -> sub
+    })
+  end collisionFreeSubDBs
+
   lazy val newToOld: DB =
     if (subDBs.isEmpty) this
     else
+      val subDBs = collisionFreeSubDBs
       // Under B-pure, root has empty `members` and empty `refTable`; all design
       // content lives in sub-DBs. `allDBs` only needs the sub-DBs.
       val allDBs: List[DB] = subDBs.values.toList
