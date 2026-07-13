@@ -2064,6 +2064,73 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("ED method phantom capture through a path") {
+    class PathInner extends EDDesign:
+      val i = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      o <> i + 1
+    end PathInner
+    class EDPath extends EDDesign:
+      val a   = UInt(8) <> IN
+      val y   = UInt(8) <> OUT
+      val sub = PathInner()
+      sub.i <> a
+      // the phantom port's own name is the path's LEAF (uniquified against the def's
+      // return port), which names nothing in the architecture — the body must print the
+      // ACTUAL wired at the call site
+      def addSub(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + sub.o
+      y <> addSub(a)
+    end EDPath
+    val top = (new EDPath).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity PathInner is
+         |port (
+         |  i : in unsigned(7 downto 0);
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end PathInner;
+         |
+         |architecture PathInner_arch of PathInner is
+         |begin
+         |  o <= i + 8d"1";
+         |end PathInner_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDPath is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end EDPath;
+         |
+         |architecture EDPath_arch of EDPath is
+         |  signal sub_i : unsigned(7 downto 0);
+         |  signal sub_o : unsigned(7 downto 0);
+         |  impure function addSub(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return l + sub_o;
+         |  end function;
+         |begin
+         |  sub : entity work.PathInner(PathInner_arch) port map (
+         |    i => sub_i,
+         |    o => sub_o
+         |  );
+         |  sub_i <= a;
+         |  y <= addSub(a);
+         |end EDPath_arch;
+         |""".stripMargin
+    )
+  }
   test("ED method (function) under v93") {
     given options.CompilerOptions.Backend = _.vhdl.v93
     class EDFuncOld extends EDDesign:

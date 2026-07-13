@@ -94,13 +94,43 @@ today; undecided questions block their features; pending work is decided and jus
    its own copy of the subprogram and the body's `b` resolves to that module's own `b` member.
    Name-based resolution is exactly what makes it work.
 
-   Fix: print a phantom body reference as the ACTUAL's code string in the owning design's
-   scope, not the phantom's own name. The printers already do this for explicit args
-   (`pbns.getConnectionsTo.head` → `csDFValRef(from, inst.getOwner)`); phantoms should resolve
-   the same way, through the inst being printed IN THAT OWNER (which also keeps the shared-trait
-   case correct by construction rather than by luck). Grouping only becomes necessary if one
-   module ever holds two calls of the same method bound to different actuals — not currently
-   reachable, since a def's capture paths are fixed at its declaration.
+   **FIXED (2026-07-14).** A phantom body reference now prints the ACTUAL's code string in the
+   owning design's scope, instead of the phantom's own name. `AbstractPrinter.defPrinterAt`
+   builds, at the call site (where the host's getSet resolves the actual), a substitution map
+   from each phantom member's name INSIDE the def to `csDFValRef(actual, inst.getOwner)`, and
+   hands it to the printer that renders the def body; `csDFValRef` consults it for any
+   `PhantomTag` member. Both places that render a def body go through it (the ED-method
+   declarations of `edMethodPrinters`, and the inline declaration of a phantom-carrying DF
+   design def in `csDFMembers`), so all three printers (DFHDL, Verilog, VHDL) are covered.
+   This also makes the shared-trait case correct by construction rather than by luck.
+
+   Implementation notes: phantom PORTS are paired with their call-site connections BY ORDER,
+   not by name — the PBNS records the port's name as of the connection, while the def's port
+   may be uniquified afterwards (the `sub.o` capture becomes `o_0` once it collides with the
+   def's `o` return port), so `pbns.portNamePath` is stale. The harness appends phantom ports
+   and connects them in the same order, which is what the pairing relies on. Phantom PARAMS are
+   matched by name (the `paramMap` key IS the parameter's name).
+
+   Grouping (the old framing) is only needed if one module ever holds two calls of the same
+   method bound to different actuals — not currently reachable, since a def's capture paths are
+   fixed at its declaration.
+2b. **Nested ED method calls (a method calling another method) are broken** (found 2026-07-14
+   while probing item 2; two separate defects, both PRE-EXISTING and independent of the phantom
+   printing fix):
+   * **Declaration discovery**: `Printer.edMethodPrinters(design)` scans only the OWNER's own
+     members, so a call made inside another METHOD's body is never discovered and the callee is
+     never declared. `def inner(l) = l + 1; def outer(l) = inner(l) + 1; y <> outer(a)` emits a
+     module declaring only `outer`, whose body calls an undeclared `inner` → invalid HDL (loud).
+     Fix: discover method insts transitively (recurse into each discovered method design's own
+     sub-DB) and emit callees BEFORE callers (VHDL requires declaration before use).
+   * **Elaboration crash**: if the INNER method captures anything (a phantom), elaborating a
+     nested call throws `NoSuchElementException: None.get` at
+     `DFDesignBlock.getCachedDesignInst` (via `r__For_Plugin.exitAndConnectInputs` ->
+     `connect` -> `refTW`): the phantom's call-site connection is made in the OUTER method's
+     design scope, where the referenced host value has no design inst to route through.
+   Note this contradicts the Phase 2 note claiming nested method calls work: the tested cases
+   call several methods from a PROCESS, not from another method's body.
+
 3. **v95/v2001 dialect gates are missing** (planned in 1C, not implemented): struct/opaque and
    unpacked-array args and non-integral returns print unchecked under legacy dialects (the S6
    limits). Fix: verify/flatten in `PrepEDDefs` or `printer.unsupported`.

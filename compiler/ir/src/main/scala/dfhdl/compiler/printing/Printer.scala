@@ -32,6 +32,60 @@ protected trait AbstractPrinter:
     getSet.designDB.rootDB.subDBs.get(design.ownerRef) match
       case Some(sub) => withGetSet(sub.getSet)
       case None      => printer
+  // The code string of each PHANTOM member (port or parameter) of the design def this
+  // printer renders, keyed by the phantom's name INSIDE the def, and resolved at the def's
+  // call site in the OWNING design's scope. A phantom materializes a value the def body
+  // captured from its host, and the printed body must name that value as the host names it:
+  // the phantom's own name is the captured path's LEAF (`sub.o` -> `o`), which denotes
+  // nothing at the host's scope. Empty for every printer that is not rendering a def body.
+  private var phantomActualsCS: Map[String, String] = Map.empty
+  final def phantomActualOf(name: String): Option[String] = phantomActualsCS.get(name)
+  protected def setPhantomActuals(actuals: Map[String, String]): Unit =
+    phantomActualsCS = actuals
+  // A printer for the design def instantiated by `inst`, bound to the def's own getSet and
+  // carrying the code strings of its phantom actuals as resolved HERE, at the call site, in
+  // this printer's (the host design's) scope — so the rendered body names the captured values
+  // as the host names them. `inst` must be a member of the design this printer renders.
+  final protected def defPrinterAt(inst: DFDesignInst): TPrinter =
+    val designDB = getSet.designDB
+    val root = designDB.rootDB
+    val defSubOpt = if (root.isRoot) root.subDBs.get(inst.designRef) else None
+    val defPrinter = defSubOpt.map(sub => withGetSet(sub.getSet)).getOrElse(printer)
+    val defGetSet = defSubOpt.map(_.getSet).getOrElse(getSet)
+    val defMembers =
+      defSubOpt.map(_.members).getOrElse(inst.getDesignBlock.members(MemberView.Folded))
+    // A phantom input port is paired with its call-site connection BY ORDER: the harness
+    // (`r__For_Plugin.designFromDef`) appends the phantom ports after the explicit ones and
+    // connects them in that same order. Matching by name would not work — the PBNS records
+    // the port's name as of the connection, while the def's port may be uniquified afterwards
+    // (capturing `sub.o` into a def whose return port is also `o` yields `o_0`), and the
+    // BODY prints the uniquified name.
+    val phantomPorts = defMembers.collect {
+      case dcl @ DclIn() if dcl.hasTagOf[PhantomTag] => dcl
+    }
+    val phantomPBNS = designDB.designInstPBNS.getOrElse(inst, Nil).filter { pbns =>
+      pbns.isIn && pbns.hasTagOf[PhantomTag]
+    }
+    val portActuals =
+      if (phantomPorts.length != phantomPBNS.length) Map.empty[String, String]
+      else
+        phantomPorts.lazyZip(phantomPBNS).map { (port, pbns) =>
+          val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionsTo.head.runtimeChecked
+          port.getName(using defGetSet) -> printer.csDFValRef(from, inst.getOwner)
+        }.toMap
+    // a phantom design parameter's actual is this call site's applied value. Parameters are
+    // matched by name (the paramMap key IS the parameter's name, kept in sync by the harness).
+    val phantomParams = defMembers.collect {
+      case param: DFVal.DesignParam if param.hasTagOf[PhantomTag] => param
+    }
+    val paramActuals = phantomParams.view.flatMap { param =>
+      inst.paramMap.get(param.meta.name).map { ref =>
+        param.getName(using defGetSet) -> printer.csDFValRef(ref.get, inst.getOwner)
+      }
+    }.toMap
+    defPrinter.setPhantomActuals(portActuals ++ paramActuals)
+    defPrinter
+  end defPrinterAt
 end AbstractPrinter
 
 trait Printer
@@ -260,18 +314,12 @@ trait Printer
   // the owner's DFDesignInst members (including calls made inside process blocks), distinct
   // by design block, in first-call order.
   final def edMethodPrinters(design: DFDesignBlock): List[(DFDesignBlock, TPrinter)] =
-    val designDB = getSet.designDB
     val seen = mutable.LinkedHashMap.empty[DFDesignBlock, TPrinter]
     design.members(MemberView.Flattened).foreach {
       case inst: DFDesignInst =>
         val block = inst.getDesignBlock
         if (block.isEDMethod && !seen.contains(block))
-          val root = designDB.rootDB
-          val boundPrinter =
-            if (root.isRoot)
-              root.subDBs.get(inst.designRef).map(sub => withGetSet(sub.getSet)).getOrElse(printer)
-            else printer
-          seen(block) = boundPrinter
+          seen(block) = defPrinterAt(inst)
       case _ =>
     }
     seen.toList

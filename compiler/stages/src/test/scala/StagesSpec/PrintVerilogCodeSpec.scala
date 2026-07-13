@@ -2201,6 +2201,62 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("ED method phantom capture through a path") {
+    class PathInner extends EDDesign:
+      val i = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      o <> i + 1
+    end PathInner
+    class EDPath extends EDDesign:
+      val a   = UInt(8) <> IN
+      val y   = UInt(8) <> OUT
+      val sub = PathInner()
+      sub.i <> a
+      // the phantom port's own name is the path's LEAF (uniquified against the def's
+      // return port), which names nothing at module scope — the body must print the
+      // ACTUAL wired at the call site
+      def addSub(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + sub.o
+      y <> addSub(a)
+    end EDPath
+    val top = (new EDPath).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module PathInner(
+         |  input  wire logic [7:0] i,
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = i + 8'd1;
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDPath(
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] sub_i;
+         |  logic [7:0] sub_o;
+         |  function automatic logic [7:0] addSub(input logic [7:0] l);
+         |  begin
+         |    addSub = l + sub_o;
+         |  end
+         |  endfunction
+         |  PathInner sub(
+         |    .i /*<--*/ (sub_i),
+         |    .o /*-->*/ (sub_o)
+         |  );
+         |  assign sub_i = a;
+         |  assign y = addSub(a);
+         |endmodule
+         |""".stripMargin
+    )
+  }
   test("ED method (function) under v95") {
     given options.CompilerOptions.Backend = _.verilog.v95
     class EDFuncOld extends EDDesign:

@@ -497,6 +497,10 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertCodeString(
       id,
       """|class EDMethodTop extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val b = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  val z = UInt(8) <> OUT
          |  def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
          |    val tmp = UInt(8) <> VAR
          |    tmp := l + r
@@ -507,10 +511,6 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    d"8'0"
          |  end zero
          |
-         |  val a = UInt(8) <> IN
-         |  val b = UInt(8) <> IN
-         |  val y = UInt(8) <> OUT
-         |  val z = UInt(8) <> OUT
          |  y <> add(a, b)
          |  process(all):
          |    z := add(a, b) + zero()
@@ -534,16 +534,56 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertCodeString(
       id,
       """|class FooCap extends EDDesign:
-         |  def addBK(l: UInt[8] <> VAL): UInt[8] <> EDRET =
-         |    l + b + k
-         |  end addBK
-         |
          |  val a = UInt(8) <> IN
          |  val b = UInt(8) <> IN
          |  val y = UInt(8) <> OUT
          |  val k: UInt[8] <> CONST = d"8'5"
+         |  def addBK(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    l + b + k
+         |  end addBK
+         |
          |  y <> addBK(a)
          |end FooCap
+         |""".stripMargin
+    )
+  }
+  test("ED method phantom capture through a path") {
+    class Inner extends EDDesign:
+      val i = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      o <> i + 1
+    end Inner
+    class FooPath extends EDDesign:
+      val a   = UInt(8) <> IN
+      val y   = UInt(8) <> OUT
+      val sub = Inner()
+      sub.i <> a
+      // the capture is a multi-step path, so the phantom port's own name (the path's
+      // leaf, uniquified here against the def's return port) is NOT how the host names
+      // the value: the body must print the ACTUAL, `sub.o`
+      def addSub(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + sub.o
+      y <> addSub(a)
+    end FooPath
+    val id = (new FooPath)
+    assertCodeString(
+      id,
+      """|class Inner extends EDDesign:
+         |  val i = UInt(8) <> IN
+         |  val o = UInt(8) <> OUT
+         |  o <> (i + d"8'1")
+         |end Inner
+         |
+         |class FooPath extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  val sub = Inner()
+         |  def addSub(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    l + sub.o
+         |  end addSub
+         |
+         |  sub.i <> a
+         |  y <> addSub(a)
+         |end FooPath
          |""".stripMargin
     )
   }
@@ -559,11 +599,11 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertCodeString(
       id,
       """|class EDTaskTop extends EDDesign:
+         |  val a = UInt(8) <> IN
          |  def pause(): Unit <> EDRET =
          |    1.ns.wait
          |  end pause
          |
-         |  val a = UInt(8) <> IN
          |  process:
          |    pause()
          |end EDTaskTop

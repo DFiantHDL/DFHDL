@@ -22,14 +22,14 @@ class PrepEDDefsSpec extends StageSpec:
     assertCodeString(
       result,
       """|class Top extends EDDesign:
-         |  def add1(l: UInt[8] <> VAL): UInt[8] <> EDRET =
-         |    l + d"8'1"
-         |  end add1
-         |
          |  val a = UInt(8) <> IN
          |  val y = UInt(8) <> OUT
          |  val z = UInt(8) <> OUT
          |  val x = UInt(8) <> VAR
+         |  def add1(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    l + d"8'1"
+         |  end add1
+         |
          |  x <> add1(a)
          |  y <> x
          |  process(all):

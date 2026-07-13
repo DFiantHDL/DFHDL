@@ -182,6 +182,13 @@ trait AbstractValPrinter extends AbstractPrinter:
       case PortOfDesignDef(Modifier.OUT, design) =>
         if (design.isAnonymous) printer.csDFDesignDefInst(design)
         else design.getName
+      // a def body's reference to a phantom (a value captured from its host) names the
+      // captured value as the HOST names it, not as the phantom is named — see
+      // `AbstractPrinter.phantomActualOf`
+      case named: DFVal
+          if named.hasTagOf[PhantomTag] &&
+            printer.phantomActualOf(named.getName).nonEmpty =>
+        printer.phantomActualOf(named.getName).get
       case pbns: DFVal.PortByNameSelect =>
         val designInst = pbns.designInstRef.get
         s"${designInst.getRelativeName(fromOwner)}.${pbns.portNamePath}"

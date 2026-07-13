@@ -94,7 +94,9 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
           case inst: DFDesignInst =>
             val design = inst.getDesignBlock
             if (printDesignDefDclInline(design) && inlinedDefDcls.add(design))
-              Some(printerForDesign(design).csDFDesignDefDcl(design).stripLineEnd)
+              // rendered through a printer carrying this call site's phantom actuals, so
+              // the body names the captured values as THIS design names them
+              Some(defPrinterAt(inst).csDFDesignDefDcl(design).stripLineEnd)
             else None
           case _ => None
         val csOpt = if (isViewable(m)) Some(m.codeString) else None
@@ -337,14 +339,26 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   private def csDFDesignBlockDclImpl(design: DFDesignBlock): String =
     import design.instMode
     val localDcls = printer.csLocalTypeDcls(design)
-    // ED methods are locally scoped — their def declarations print at the top of the
-    // owning design class body (Scala class-body forward references from method bodies
-    // to later-declared members are legal, so top placement is always safe)
+    // ED methods are locally scoped — their def declarations print after the design's own
+    // declarations and before its statements, mirroring the HDL backends (where subprograms
+    // live in the declarative region, after the signal/variable declarations). A method body
+    // may reference any of those declarations by name.
     val edMethodDcls = printer.edMethodPrinters(design)
       .map((block, p) => s"${p.csDocString(block.dclMeta)}${p.csDFDesignDefDcl(block)}")
       .mkString("\n")
-    val body0 = csDFOwnerBody(design)
-    val body = if (edMethodDcls.isEmpty) body0 else s"$edMethodDcls\n$body0"
+    val body =
+      if (edMethodDcls.isEmpty) csDFOwnerBody(design)
+      else
+        val designMembers = design.members(MemberView.Folded)
+        // a declaration prints as a `val` (ports, vars, constants, sub-design instances);
+        // everything else is a statement
+        def isDcl(member: DFMember): Boolean = member match
+          case _: DFVal.Dcl | DclConst() | (_: DFVal.DesignParam) => true
+          case inst: DFDesignInst => inst.getDesignBlock.instMode != InstMode.Def
+          case _                  => false
+        val (dcls, stmts) = designMembers.splitAt(designMembers.lastIndexWhere(isDcl) + 1)
+        List(csDFMembers(dcls), edMethodDcls, csDFMembers(stmts))
+          .filter(_.nonEmpty).mkString("\n")
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val dsnCls = design.domainType match
       case DomainType.DF => "DFDesign"
