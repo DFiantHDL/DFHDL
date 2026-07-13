@@ -454,26 +454,54 @@ lazy val compilerOptions = Seq(
   "-Wconf:msg=bad option '-Jdummy:s"
 )
 
-lazy val pluginUseSettings = Seq(
-  Compile / scalacOptions ++= {
+// The scalac options that apply the compiler plugin, held STABLE across sbt sessions.
+//
+// Both of them used to churn once a session, which made every plugin-using project recompile from
+// scratch on the first build after an sbt restart: dynver stamps a dirty working tree with the
+// current time, so the packaged jar is renamed (a new `-Xplugin` path) and repackaged (a new
+// `lastModified` for `-Jdummy`). Any change to scalacOptions invalidates zinc's analysis, so the
+// version timestamp alone was worth a full rebuild per session.
+//
+// Instead the jar is copied to a fixed name, and the cache-busting key is a hash of the plugin's
+// CLASS FILES. The jar's own bytes are no good as a key: its manifest carries the build version and
+// its entries carry build timestamps, so it churns exactly like its name does. A real plugin change
+// does change the class files, so it still changes the key and still recompiles everything the
+// plugin compiles, which is the whole point of the `-Jdummy` trick.
+lazy val pluginOptions = taskKey[Seq[String]]("scalac options that apply the DFHDL compiler plugin")
+
+lazy val pluginOptionsSettings = Seq(
+  pluginOptions := {
     val jar = (plugin / Compile / packageBin).value
+    val classDir = (plugin / Compile / classDirectory).value
+    val classes = (classDir ** "*.class").get().sortBy(_.getAbsolutePath)
+    val key = sbt.io.Hash.toHex(
+      sbt.io.Hash(
+        classes.map(f => f.getName + sbt.io.Hash.toHex(sbt.io.Hash(f))).mkString
+      )
+    )
+    val stableJar = (plugin / crossTarget).value / s"$projectName-plugin.jar"
+    val keyFile = (plugin / crossTarget).value / s"$projectName-plugin.jar.key"
+    // rewritten only when the plugin itself changed: an unconditional copy would rewrite the jar on
+    // every build and, on Windows, can hit AccessDenied while a compile still holds it open
+    if (!stableJar.exists || !keyFile.exists || IO.read(keyFile) != key) {
+      IO.copyFile(jar, stableJar)
+      IO.write(keyFile, key)
+    }
     Seq(
-      s"-Xplugin:${jar.getAbsolutePath}",
-      s"-Jdummy=${jar.lastModified}"
+      s"-Xplugin:${stableJar.getAbsolutePath}",
+      s"-Jdummy=$key"
     )
   }
 )
 
-lazy val pluginTestUseSettings = Seq(
-  Test / scalacOptions ++= {
-    val jar = (plugin / Compile / packageBin).value
-    Seq(
-      s"-Xplugin:${jar.getAbsolutePath}",
-      s"-Jdummy=${jar.lastModified}",
-      // "-Yprofile-enabled",
-      // "-Yprofile-trace:compiler.trace"
-    )
-  }
+lazy val pluginUseSettings = pluginOptionsSettings ++ Seq(
+  Compile / scalacOptions ++= pluginOptions.value
+)
+
+lazy val pluginTestUseSettings = pluginOptionsSettings ++ Seq(
+  Test / scalacOptions ++= pluginOptions.value
+  // "-Yprofile-enabled",
+  // "-Yprofile-trace:compiler.trace"
 )
 
 lazy val commonSettings = Seq(
