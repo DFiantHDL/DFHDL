@@ -2257,6 +2257,43 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("nested ED method calls") {
+    class EDNest extends EDDesign:
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + 1
+      // `inner` is called ONLY from `outer`'s body; it must still be declared, and BEFORE
+      // its caller (an HDL subprogram must be declared before it is used)
+      def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET = inner(l) + 2
+      y <> outer(a)
+    end EDNest
+    val top = (new EDNest).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDNest(
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  function automatic logic [7:0] inner(input logic [7:0] l);
+         |  begin
+         |    inner = l + 8'd1;
+         |  end
+         |  endfunction
+         |
+         |  function automatic logic [7:0] outer(input logic [7:0] l);
+         |  begin
+         |    outer = inner(l) + 8'd2;
+         |  end
+         |  endfunction
+         |  assign y = outer(a);
+         |endmodule
+         |""".stripMargin
+    )
+  }
   test("ED method (function) under v95") {
     given options.CompilerOptions.Backend = _.verilog.v95
     class EDFuncOld extends EDDesign:

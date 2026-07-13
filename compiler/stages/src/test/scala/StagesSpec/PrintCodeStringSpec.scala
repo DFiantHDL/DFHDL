@@ -587,6 +587,34 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("nested ED method calls") {
+    class NestTop extends EDDesign:
+      val a                                          = UInt(8) <> IN
+      val y                                          = UInt(8) <> OUT
+      def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + 1
+      // `inner` is called ONLY from another method's body — it must still be declared
+      def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET = inner(l) + 2
+      y <> outer(a)
+    end NestTop
+    val id = (new NestTop)
+    assertCodeString(
+      id,
+      """|class NestTop extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    l + d"8'1"
+         |  end inner
+         |
+         |  def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    inner(l) + d"8'2"
+         |  end outer
+         |
+         |  y <> outer(a)
+         |end NestTop
+         |""".stripMargin
+    )
+  }
   test("ED method (procedural task) printing") {
     class EDTaskTop extends EDDesign:
       val a                      = UInt(8) <> IN

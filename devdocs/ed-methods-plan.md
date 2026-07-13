@@ -114,22 +114,25 @@ today; undecided questions block their features; pending work is decided and jus
    Grouping (the old framing) is only needed if one module ever holds two calls of the same
    method bound to different actuals — not currently reachable, since a def's capture paths are
    fixed at its declaration.
-2b. **Nested ED method calls (a method calling another method) are broken** (found 2026-07-14
-   while probing item 2; two separate defects, both PRE-EXISTING and independent of the phantom
-   printing fix):
-   * **Declaration discovery**: `Printer.edMethodPrinters(design)` scans only the OWNER's own
-     members, so a call made inside another METHOD's body is never discovered and the callee is
-     never declared. `def inner(l) = l + 1; def outer(l) = inner(l) + 1; y <> outer(a)` emits a
-     module declaring only `outer`, whose body calls an undeclared `inner` → invalid HDL (loud).
-     Fix: discover method insts transitively (recurse into each discovered method design's own
-     sub-DB) and emit callees BEFORE callers (VHDL requires declaration before use).
-   * **Elaboration crash**: if the INNER method captures anything (a phantom), elaborating a
-     nested call throws `NoSuchElementException: None.get` at
+2b. **Nested ED method calls (a method calling another method)**: two separate PRE-EXISTING
+   defects, found 2026-07-14 while probing item 2. This contradicts the Phase 2 note claiming
+   nested calls work: the tested cases call several methods from a PROCESS, never from another
+   method's body.
+   * **Declaration discovery — FIXED (2026-07-14).** `Printer.edMethodPrinters(design)` scanned
+     only the OWNER's own members, so a call made inside another METHOD's body was never
+     discovered and the callee never declared: `def inner(l) = l + 1; def outer(l) = inner(l) +
+     1; y <> outer(a)` emitted a module declaring only `outer`, whose body called an undeclared
+     `inner` (invalid HDL, loud). Discovery now recurses through the method bodies themselves,
+     and the result is POST-ORDER (a method follows the methods it calls), since an HDL
+     subprogram must be declared before it is used. Each method binds to its FIRST call site's
+     printer, which is what resolves its phantom actuals (item 2). Emitted HDL verified to
+     analyze on Verilator, GHDL and NVC.
+   * **Elaboration crash — STILL OPEN.** If the INNER method captures anything (a phantom),
+     elaborating a nested call throws `NoSuchElementException: None.get` at
      `DFDesignBlock.getCachedDesignInst` (via `r__For_Plugin.exitAndConnectInputs` ->
      `connect` -> `refTW`): the phantom's call-site connection is made in the OUTER method's
-     design scope, where the referenced host value has no design inst to route through.
-   Note this contradicts the Phase 2 note claiming nested method calls work: the tested cases
-   call several methods from a PROCESS, not from another method's body.
+     design scope, where the referenced host value has no design inst to route through. Until
+     this is fixed, a nested call is only usable when the callee captures nothing.
 
 3. **v95/v2001 dialect gates are missing** (planned in 1C, not implemented): struct/opaque and
    unpacked-array args and non-integral returns print unchecked under legacy dialects (the S6

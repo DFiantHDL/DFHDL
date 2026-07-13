@@ -46,7 +46,7 @@ protected trait AbstractPrinter:
   // carrying the code strings of its phantom actuals as resolved HERE, at the call site, in
   // this printer's (the host design's) scope — so the rendered body names the captured values
   // as the host names them. `inst` must be a member of the design this printer renders.
-  final protected def defPrinterAt(inst: DFDesignInst): TPrinter =
+  final private[printing] def defPrinterAt(inst: DFDesignInst): TPrinter =
     val designDB = getSet.designDB
     val root = designDB.rootDB
     val defSubOpt = if (root.isRoot) root.subDBs.get(inst.designRef) else None
@@ -311,18 +311,34 @@ trait Printer
 
   // The (ED method design, printer-bound-to-its-getSet) pairs locally declared by `design`.
   // ED methods print inside their owning design's declaration; they are discovered through
-  // the owner's DFDesignInst members (including calls made inside process blocks), distinct
-  // by design block, in first-call order.
+  // the DFDesignInst members of `design` (including calls made inside process blocks) AND,
+  // transitively, of the method bodies themselves — a method called only from another
+  // method's body is declared in the host design just the same, and would otherwise never
+  // be emitted at all.
+  //
+  // The order is post-order (a method follows the methods it calls), because an HDL
+  // subprogram must be declared before it is used. Each method is bound to its FIRST call
+  // site's printer, which resolves its phantom actuals in that call site's scope.
   final def edMethodPrinters(design: DFDesignBlock): List[(DFDesignBlock, TPrinter)] =
-    val seen = mutable.LinkedHashMap.empty[DFDesignBlock, TPrinter]
-    design.members(MemberView.Flattened).foreach {
-      case inst: DFDesignInst =>
-        val block = inst.getDesignBlock
-        if (block.isEDMethod && !seen.contains(block))
-          seen(block) = defPrinterAt(inst)
-      case _ =>
-    }
-    seen.toList
+    val ordered = mutable.ListBuffer.empty[(DFDesignBlock, TPrinter)]
+    val visited = mutable.Set.empty[DFDesignBlock]
+    def visit(hostPrinter: TPrinter, host: DFDesignBlock): Unit =
+      host.members(MemberView.Flattened)(using hostPrinter.getSet).foreach {
+        case inst: DFDesignInst =>
+          val block = inst.getDesignBlock(using hostPrinter.getSet)
+          // `visited` is marked before recursing, so a (plugin-rejected) recursive method
+          // cannot loop here
+          if (block.isEDMethod && visited.add(block))
+            // every concrete printer is its own TPrinter (`given printer: TPrinter = this`),
+            // so `hostPrinter.TPrinter` IS this printer's TPrinter — a fact the path-dependent
+            // type cannot express
+            val methodPrinter = hostPrinter.defPrinterAt(inst).asInstanceOf[TPrinter]
+            visit(methodPrinter, block)
+            ordered += block -> methodPrinter
+        case _ =>
+      }
+    visit(printer, design)
+    ordered.toList
   end edMethodPrinters
 
   final def csDB: String =
