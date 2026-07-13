@@ -20,11 +20,16 @@ import scala.util.control.NonFatal
   * HERE, at runtime, and not at compile time: a helper's rebuild does not force its dependents to
   * recompile (zinc keeps their class files), so only a fold over the CURRENT records sees it.
   *
-  * The closure stops at two boundaries, which is what keeps it cheap. DFHDL itself is digested as
-  * the library VERSION and never scanned: that is what the library is to every user (a released
-  * jar), and a DFHDL development build gets the same treatment deliberately, so the boundary is one
-  * rule instead of two. And a JAR is digested as that jar, a versioned artifact whose code cannot
-  * reach the build output anyway.
+  * The closure stops at two boundaries, which is what keeps it cheap. A JAR is digested as that
+  * jar, a versioned artifact whose code cannot reach the build output anyway. And DFHDL's own
+  * modules are digested as the library VERSION and never scanned: that is what the library is to
+  * every user (a released jar), and a DFHDL development build gets the same treatment deliberately.
+  *
+  * A RECORD OUTRANKS THE LIBRARY BOUNDARY, and it must: the `dfhdl` package namespace is shared
+  * with USER code (a design in `dfhdl.AES` is no more library code than one in `com.acme`), so a
+  * package name cannot say what is library and what is under development. Having been compiled by
+  * the plugin can, and does: the library's own modules carry no records, while everything the user
+  * writes does.
   *
   * The one jar that is NOT such an artifact is the one holding the design itself. Under sbt a
   * `runMain` runs off a jar repackaged from the build output, under a fresh `bg-jobs/job-N/` path,
@@ -137,19 +142,27 @@ object CodeDigest:
     identityMemo.computeIfAbsent(
       s"$name@${scope.devJar.getOrElse("")}",
       _ =>
-        // THE LIBRARY BOUNDARY: DFHDL is digested as its version and never scanned, exactly as the
-        // released jar a real user depends on would be
-        if (name.startsWith(libraryPackagePrefix)) Opaque(s"dfhdl@${scope.libraryVersion}")
-        else
-          jarOf(name, scope.loader) match
-            // A DEPENDENCY JAR: a versioned artifact, digested whole. Its code cannot reach the
-            // build output, so nothing inside it is worth scanning.
-            case Some(jar) if !scope.devJar.contains(jar) =>
-              Opaque(locationMemo.computeIfAbsent(jar, _ => stampOf(Paths.get(URI(jar)))))
-            // the build output: this run's development jar, or a plain class directory. Code under
-            // development, so its record (what it is and what it reaches) is what counts.
-            case _ =>
-              recordOf(name, scope.loader).getOrElse(classFileStamp(name, scope.loader))
+        jarOf(name, scope.loader) match
+          // A DEPENDENCY JAR: a versioned artifact, digested whole. Its code cannot reach the
+          // build output, so nothing inside it is worth scanning.
+          case Some(jar) if !scope.devJar.contains(jar) =>
+            Opaque(locationMemo.computeIfAbsent(jar, _ => stampOf(Paths.get(URI(jar)))))
+          // the build output: this run's development jar, or a plain class directory
+          case _ =>
+            recordOf(name, scope.loader) match
+              // A RECORD WINS over the library boundary below, and it must: the DFHDL package
+              // namespace is shared with USER code (a design in `dfhdl.AES` is no more library
+              // than one in `com.acme`), so a package name cannot say what is library and what is
+              // the code under development. Having been compiled by the plugin can, and does.
+              case Some(record) => record
+              // THE LIBRARY BOUNDARY: DFHDL's own modules carry no records (they are not
+              // plugin-compiled), and they fold to the library version rather than being scanned,
+              // exactly as the released jar a real user depends on would.
+              case None if name.startsWith(libraryPackagePrefix) =>
+                Opaque(s"dfhdl@${scope.libraryVersion}")
+              // compiled without the plugin: its class file stands for it, and it names no
+              // dependencies of its own
+              case None => classFileStamp(name, scope.loader)
     )
 
   /** The class's own build output, for a class the plugin never compiled: its class file's stamp
