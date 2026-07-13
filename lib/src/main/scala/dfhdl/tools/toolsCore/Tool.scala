@@ -623,6 +623,9 @@ trait Linter extends Tool:
       cd: CompiledDesign
   )(using CompilerOptions, ToolOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
+    // linting builds the same cache-unmanaged intermediates as simulating (e.g. GHDL analyzes into
+    // its `work-obj*.cf` library), so a lint-only flow must drop the other toolchain's leftovers too
+    purgeStaleToolArtifactsOnSwitch()
     exec(lintCmdFlags, lintPrepare(), lintLogger)
     cd
   protected def lintPrepare()(using CompilerOptions, ToolOptions, MemberGetSet): Unit = {}
