@@ -9,8 +9,8 @@ import scala.util.control.NonFatal
   * run resolves each child through the gate, like a live instantiation). The gate computes
   * `localKey` (a digest of the intra-run cache key parts: dclMeta, input DFTypes, Scala args, and
   * the data-impure parameters' applied data) and provides the def's owner class; the implementation
-  * completes the cross-run code identity (the owner class's `factum.CodeRef` digest and the DFHDL
-  * version) and performs plain content-addressed get/put.
+  * completes the cross-run code identity (the owner class's code digest and the DFHDL version) and
+  * performs plain content-addressed get/put.
   */
 trait SubDesignCache:
   def lookup(ownerClass: Class[?], localKey: String): Option[ir.SubDesignEntry]
@@ -23,12 +23,12 @@ trait SubDesignCache:
   *
   * Entries live BESIDE the def's owner class build output (`<scala target dir>/dfhdl-cache/`), so a
   * build `clean` drops them together with the classes; content invalidation is carried by the key
-  * itself: the owner class's `factum.CodeRef` digest (which also covers incremental recompilation,
-  * where class files change without a clean), the DFHDL version, and the gate-computed `localKey`.
-  * Top-level design defs are covered like any other: Scala places them in the synthetic
-  * `<file>$package` class, whose class file lives in the same build output. Owner classes with no
-  * writable directory code source (e.g. defs shipped inside library jars) skip the disk tier
-  * (miss-safe; the in-memory store and the intra-run tier still cover them).
+  * itself: the owner class's code digest (`dfhdl.internals.CodeDigest`, which also covers
+  * incremental recompilation, where class files change without a clean), the DFHDL version, and the
+  * gate-computed `localKey`. Top-level design defs are covered like any other: Scala places them in
+  * the synthetic `<file>$package` class, whose class file lives in the same build output. Owner
+  * classes with no writable directory code source (e.g. defs shipped inside library jars) skip the
+  * disk tier (miss-safe; the in-memory store and the intra-run tier still cover them).
   */
 final class SubDesignDiskCache extends SubDesignCache:
   import SubDesignDiskCache.*
@@ -92,7 +92,7 @@ object SubDesignDiskCache:
     codeDigestMemo.computeIfAbsent(
       cls,
       cls =>
-        try Some(factum.CodeRef(cls).digest.asString)
+        try dfhdl.internals.CodeDigest.of(cls, dfhdl.dfhdlVersion)
         catch case NonFatal(_) => None
     )
   private def cacheDirOf(cls: Class[?]): Option[Path] =
@@ -107,10 +107,11 @@ object SubDesignDiskCache:
           else None
         catch case NonFatal(_) => None
     )
-  // the full content key: owner class code digest + DFHDL version + the gate's
-  // localKey (None when the code digest is unattainable, making the call disk-less)
+  // the full content key: the owner class's code digest (which folds in the DFHDL version, the
+  // library being the boundary of the digest's scan) and the gate's localKey (None when the code
+  // digest is unattainable, making the call disk-less)
   private def fullKeyOf(cls: Class[?], localKey: String): Option[String] =
-    codeDigestOf(cls).map(digest => s"$digest|${dfhdl.dfhdlVersion}|$localKey")
+    codeDigestOf(cls).map(digest => s"$digest|$localKey")
   private def entryFileOf(cls: Class[?], fullKey: String): Option[Path] =
     cacheDirOf(cls).map { dir =>
       val hex = java.security.MessageDigest.getInstance("SHA-256")

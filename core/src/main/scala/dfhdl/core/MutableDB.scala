@@ -502,6 +502,15 @@ final class MutableDB():
     // cloned onto freshly minted tokens with the instances retargeted at the resolved
     // children. The cloned design block IS the run's design for this entry, and it joins the
     // dclName enumeration like any live one.
+    //
+    // The entry's own ref tokens are RE-MINTED from this run's generator (`freshenLocalRefs`),
+    // because a stored token means nothing here: the storing run minted it from ITS generator,
+    // whose ids and group ids restart per run, so a cached design carries tokens that this run
+    // will mint again for its own members. That is not a remote possibility but the norm, since
+    // the two runs elaborate the same code: the very token this entry uses for a port's owner is
+    // the one the run mints for the adopted design's structural key, and the two bindings then
+    // collapse onto one key. Re-minting puts the entry in this run's namespace once, at load,
+    // rather than leaving every later consumer to cope with an alias.
     private def adopt(entry: SubDesignEntry, ref: SubDesignRef, loader: ClassLoader)(using
         refGen: RefGen
     ): Option[StaticRef] =

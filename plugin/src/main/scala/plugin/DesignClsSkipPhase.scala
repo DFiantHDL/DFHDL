@@ -53,6 +53,7 @@ class DesignClsSkipPhase(setting: Setting) extends CommonPhase:
 
   var designTpe: TypeRef = uninitialized
   var interfaceTpe: TypeRef = uninitialized
+  var domainTpe: TypeRef = uninitialized
   var portModTpe: TypeRef = uninitialized
   var dfhdlPkgCls: Symbol = uninitialized
   var clsParamSym: TermSymbol = uninitialized
@@ -94,7 +95,13 @@ class DesignClsSkipPhase(setting: Setting) extends CommonPhase:
     case _: TypeDef | _: DefDef => true
     case vd: ValDef             =>
       val tpe = vd.tpt.tpe
+      // A DOMAIN is public surface just like an interface: an instantiation site reaches into it
+      // (`child.dmn.o <> ...`), so a skipped body must still leave a domain there rather than a
+      // null field. Its own body is its own template and stays live; the class simply loses the
+      // saving for what the domain holds (and stops being skippable at all if an interface
+      // declaration turns out to depend on a guarded value, which the skippability check catches).
       vd.rhs.isEmpty || isPortTpe(tpe) || tpe.isDFConst || tpe <:< interfaceTpe ||
+      tpe <:< domainTpe ||
       // a plain Scala value (e.g. a port width computed from the parameters): it plants no
       // member of its own and the interface declarations may well depend on it. A Unit value
       // is not one of those: it is a statement in disguise.
@@ -245,6 +252,7 @@ class DesignClsSkipPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     designTpe = requiredClassRef("dfhdl.core.Design")
     interfaceTpe = requiredClassRef("dfhdl.core.Interface")
+    domainTpe = requiredClassRef("dfhdl.core.Domain")
     portModTpe = requiredClassRef("dfhdl.core.Modifier.Port")
     dfhdlPkgCls = requiredPackage("dfhdl").moduleClass
     clsParamSym = requiredMethod("dfhdl.core.r__For_Plugin.clsParam")

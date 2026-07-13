@@ -1,5 +1,58 @@
 # Sub-Design Caching and the Generalized Design Load Harness
 
+## INCREMENT 3 LANDED (2026-07-13): COMPILE-TIME CODE DIGEST, AND THE TIER IS ON BY DEFAULT
+
+`ElaborationOptions.CacheEnable` now defaults to TRUE. Keying an entry was the blocker (a
+`factum.CodeRef` digest walked the declaring class's whole code closure at runtime: 7s -> 107s on
+StagesSpec, 26s even with factum memoized). The compiler now records what the digest needs, and a
+run only folds those records: StagesSpec is back to 5s, the tier-off baseline, with the cross-run
+tier ON.
+
+- `CodeDigestPhase` (plugin, right after `PureCheck`, before the DFHDL rewrites) writes, beside each
+  top-level class it compiles, a `<pkg>/<Cls>.dfdigest` record: `own` (a hash of the class's TYPED
+  TREE, so it is position-insensitive and free of the absolute paths the meta-context phases plant
+  later) and `dep` lines (the top-level classes the code actually REACHES; typed trees, so not every
+  class the bytecode mentions). Synthetic top-level classes are included deliberately: a file's
+  top-level design defs live in `<file>$package$`, which is the anchor of their entries.
+- `dfhdl.internals.CodeDigest` (runtime) composes a design's digest by folding those records over
+  the transitive closure. COMPOSITION STAYS AT RUNTIME: a compile-time composed digest would go
+  stale exactly where zinc does not recompile (a helper changes, its dependents keep their class
+  files, their composed digests keep describing the old helper).
+- THE PLUGIN IS PART OF THE KEY (`pluginStamp`, folded into every `own`). The plugin is what a
+  design's code MEANS, and it is invisible to the class closure: a plugin change need not recompile
+  a single DFHDL runtime class. Without this an entry produced by an older plugin stays "valid" and
+  is adopted (this actually happened: the domain fix below was masked for hours by poisoned entries
+  that no key retired). Stamped BY CONTENT (the jar's class entries, not its path/mtime): this build
+  republishes the plugin jar under a fresh timestamped name every sbt session.
+- TWO BOUNDARIES keep the closure small. A jar folds to its own identity (jar code cannot reach
+  build output). And DFHDL folds to its VERSION and is never scanned: that is what the library is to
+  every real user (a released jar), and a development build now gets the same treatment, so editing
+  DFHDL's own modules invalidates entries through the version rather than through a class-file walk.
+- The DFHDL VERSION is no longer a separate key component; it IS the library's identity inside the
+  digest.
+
+TWO REAL BUGS the tier's first genuine cross-run hits exposed (both were invisible while the tier
+was off, and both are now covered by tests):
+
+1. ADOPTION KEPT THE STORING RUN'S TOKENS (the `No owner found` / StackOverflow failures).
+   `cloneForAdoption` re-anchored the design block on a token minted by the LOADING run while the
+   entry still held the STORING run's tokens. Ref generators restart per run and both runs elaborate
+   the same code, so the minted token routinely EQUALS one the entry already uses internally: the two
+   bindings (the block's owner, which resolves to nothing, and a port's owner, which resolves to the
+   design) collapse onto one map key and the port loses its owner. Re-minting and re-anchoring are
+   now ONE pass, so no stored token ever shares the table with a minted one. This replaces the
+   flat-view collision machinery (`freshenLocalRefs` / `collisionFreeSubDBs`), which papered over the
+   corruption downstream and is deleted: sub-DBs are self-contained, and the flat view merges them
+   with no collisions to resolve.
+2. DOMAIN VALS WERE GUARDED BY THE CLASS BODY-SKIP. A domain is public surface just like an
+   interface (`child.dmn.o <> ...`), so a skipped body left a null field. Domains are now unguarded
+   interface statements. (Latent since the class rigging landed; only a cache hit on a design's FIRST
+   instantiation could expose it.)
+
+Cross-run adoption is now exercised end to end: the whole suite passes twice in a row, the second
+pass adopting every entry the first stored (core 89, compiler_stages 561, lib 167, platforms 1;
+ips's GHDL-127 vga case is a known local env failure).
+
 ## INCREMENT 2 LANDED (2026-07-13): CLASS-DESIGN BODY SKIP + SERVICE CACHING
 
 Class designs now go through the gate the same way design defs do, body skip included.

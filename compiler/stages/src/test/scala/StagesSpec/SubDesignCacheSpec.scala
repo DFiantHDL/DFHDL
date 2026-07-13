@@ -154,8 +154,13 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
       classOf[SubDesignCacheSpec].getProtectionDomain.getCodeSource.getLocation.toURI
     )
     val cacheDir = classesDir.resolveSibling("dfhdl-cache")
+    // every other spec in this JVM elaborates with the cache tier on and stores into this same
+    // folder, concurrently: an entry (or a store's temp file) that vanishes mid-wipe is expected
     if (java.nio.file.Files.exists(cacheDir))
-      java.nio.file.Files.list(cacheDir).forEach(java.nio.file.Files.delete(_))
+      java.nio.file.Files.list(cacheDir).forEach { entry =>
+        try java.nio.file.Files.deleteIfExists(entry)
+        catch case scala.util.control.NonFatal(_) => ()
+      }
     // the disk service keeps a process-wide in-memory store; drop it so the first
     // elaboration deterministically misses even in a long-lived sbt session
     SubDesignDiskCache.clearInMemoryStore()
@@ -252,11 +257,10 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
   // ACROSS runs it is the opposite: a fresh JVM restarts that counter, so a run adopting an entry
   // stored by an earlier run mints in the SAME namespace, from id 1 — colliding by construction.
   //
-  // That is sound while every refTable stays per-sub-DB (a token only ever resolves within the
-  // sub-DB that emits it). The legacy flat view is the one place that merges them all into a single
-  // table, and it re-mints a sub-DB whose tokens collide with one already merged
-  // (`DB.freshenLocalRefs`). Since the collision itself is not reproducible in-process, the
-  // freshening is tested directly here, and the adopted flat view is tested for soundness.
+  // So an entry is re-minted into the loading run's namespace as it is adopted
+  // (`SubDesignEntry.cloneForAdoption`), and no stored token outlives the load. The collision is
+  // not reproducible in-process, so it is handed to the adoption deliberately below, and the flat
+  // view of a design adopting several entries is tested for soundness.
   def genOnlyA(using DFC): dfhdl.core.Design =
     class OnlyA extends DFDesign:
       val data = UInt(8) <> IN
@@ -296,25 +300,34 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertNoDiff(cachedCS, liveCS)
   }
 
-  test("freshenLocalRefs re-mints a sub-DB's local tokens and nothing else") {
+  test("an adopted entry keeps no stored token, even when the run mints one of them") {
     val root = genBothHost(using liveDFC).getDB
     // a def's sub-DB: self-contained, with globals and structural keys reaching out of it
-    val (key, sub) = root.subDBs.toList.last
-    val freshened =
-      given ir.RefGen = ir.RefGen.fromGetSet(using root.getSet)
-      sub.freshenLocalRefs
-    // the design keeps its identity (its `subDBs` key) and the sub-DB still resolves and prints
-    assertEquals(ir.StaticRef(freshened.top.ownerRef), key)
-    freshened.check
+    val (_, sub) = root.subDBs.toList.last
+    val entry = ir.SubDesignEntry(sub, Nil)
+    given ir.RefGen = ir.RefGen.fromGetSet(using root.getSet)
+    // THE CROSS-RUN CASE, reproduced in-process. A loading run mints its tokens from a generator
+    // that restarts per run, so the token it mints for the adopted design's structural key can be
+    // one the entry already uses internally -- and since both runs elaborate the same code, it
+    // routinely IS. Here that worst case is handed over deliberately: the design block is anchored
+    // on the very token a stored port uses for its owner.
+    val storedPortOwnerRef = sub.members.collectFirst { case dcl: ir.DFVal.Dcl => dcl.ownerRef }.get
+    val adopted = entry.cloneForAdoption(storedPortOwnerRef, Map.empty)
+    // the design is anchored where the run asked, and every ref in it still resolves: nothing
+    // collapsed onto the shared key (a port's owner, in particular, is still the design)
+    assertEquals(ir.StaticRef(adopted.top.ownerRef), ir.StaticRef(storedPortOwnerRef))
+    adopted.check
+    val adoptedDcl = adopted.members.collectFirst { case dcl: ir.DFVal.Dcl => dcl }.get
+    assertEquals(adoptedDcl.getOwner(using adopted.getSet), adopted.top: ir.DFMember)
+    // ...and it elaborates to the same design
     val subCS =
       import sub.getSet
       DefaultPrinter.csDB
-    val freshenedCS =
-      import freshened.getSet
+    val adoptedCS =
+      import adopted.getSet
       DefaultPrinter.csDB
-    assertNoDiff(freshenedCS, subCS)
-    // ...but every token a local member emits is a new one, so it can no longer collide with
-    // whatever another sub-DB in the same merged table holds
+    assertNoDiff(adoptedCS, subCS)
+    // no token the entry emitted survives into the loading run's namespace
     def localRefs(db: ir.DB): Set[ir.DFRefAny] =
       given ir.MemberGetSet = db.getSet
       db.members.view.collect {
@@ -322,7 +335,7 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
         case d: ir.DFDesignBlock                   => d.getRefs.toSet
         case m                                     => m.getAllRefs.toSet
       }.flatten.toSet
-    assertEquals(localRefs(sub).intersect(localRefs(freshened)), Set.empty[ir.DFRefAny])
+    assertEquals(localRefs(sub).intersect(localRefs(adopted)), Set.empty[ir.DFRefAny])
   }
 
   test("without cacheEnable the elaboration is unaffected") {
