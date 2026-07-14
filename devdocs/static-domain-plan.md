@@ -230,58 +230,40 @@ Two things come for free from reusing `Scope.Function`:
   site must summon `DomainType.ED`; inside a static body the domain given is `Static`, so the call
   does not compile, with the existing `implicitNotFound` message. No plugin check needed.
 
-### 5.5 The declaration guard: a top-level static function cannot declare a variable
+### 5.5 The declaration guard: RESOLVED by the scope lattice
 
-This is the second high-risk item.
+This was the second high-risk item: a **top-level** static function has no enclosing container, and
+the old declaration guard summoned `Scope.Local`, which is not summonable there, so `Bits(8) <> VAR`
+in its body would have been rejected as a global declaration. That collided with two locked items at
+once, variables in static function bodies (decision 7) and global-only static functions (§9).
 
-**If the scope-lattice refactor lands ([scope-lattice-plan.md](scope-lattice-plan.md)), this section
-is moot**: `Function` moves under `Local`, the ambient `Scope.Function` given goes away, and a
-top-level static function body gets a genuine local scope in which declarations are simply legal. That
-is the preferred outcome, and it hinges on the `PreTyperPhase` question in that plan's §5. What
-follows is the fallback if it does not.
+**The scope lattice ([scoping.md](scoping.md)) has since landed and dissolves this.** No work is
+needed here. The declaration guard now takes the INNERMOST scope as a type parameter and subtype-tests
+it, and `Scope.Function` has the `HasVars` capability:
 
-[Modifier.scala:60] guards declarations with
-`AssertGiven[DFC.Scope.Local, "Port/Variable declarations cannot be global"]`. `Scope.Local` is
-summonable only inside a container body (`Design`, `Domain`, `Process`, `Initial`, `Interface`,
-`Procedural`). An ED function body can declare variables purely because it is lexically nested inside
-an ED design, whose `Scope.Design` given is still in scope.
-
-A **top-level** static function has no enclosing container, so `Scope.Local` is not summonable and
-`Bits(8) <> VAR` in its body is rejected as a global declaration. That collides with two locked
-items at once: variables in static function bodies (decision 7), and global-only static functions
-(§9), which is what makes them usable in generic maps.
-
-It cannot be fixed by giving the body a `Local` scope evidence. Any evidence that `CONSTRET` requires
-as a context parameter must be summonable at **every** call site, including the global scope, so it
-needs an ambient given, and an ambient `Local` given would legalize declarations at global scope.
-That is exactly the poison the comment at [DFC.scala:131-139] already warns about. No scope type can
-rescue this, which is why the domain has to.
-
-**Fix**: widen the guard rather than the scope, to
-
-```
-Scope.Local   OR   (bare `Scope` summon is Function   AND   domain is Static)
+```scala
+protected type DclScope[S <: DFC.Scope] = AssertGiven[
+  S <:< DFC.Scope.HasVars | DFC.Scope.HasPorts,
+  "Port/Variable declarations cannot be global"
+]
 ```
 
-which discriminates all four sites correctly:
+which discriminates every site correctly, with no reference to the domain at all:
 
-| Site | bare `Scope` | domain | declarations |
-|---|---|---|---|
-| true global scope | `Global` | `Static` | rejected, unchanged |
-| top-level static function body | `Function` | `Static` | allowed (new) |
-| ED function body | `Function` | `ED` | rejected, unchanged |
-| static function inside a design | `Function` | `Static` | allowed, already via `Scope.Local` |
+| Site | innermost `Scope` | declarations |
+|---|---|---|
+| true global scope | `Global` | rejected (no `HasVars`) |
+| a plain Scala helper carrying only a `DFC` | `Global` | rejected (the ambient `Function` given loses to `Global`) |
+| top-level static function body | `Function` | **allowed** |
+| ED function body | `Function` | allowed (already relied on: ED methods declare local variables) |
+| static function inside a design | `Function` | allowed |
 
-This leans on an invariant that [DFC.scala:131-139] states but that nothing currently tests: a given
-declared directly in `object Scope` (`Global`) beats the `ScopeLP` ambient (`Function`) for a bare
-`Scope` summon, while a context-function parameter, being lexically nested, beats both inside the
-body. The plan now depends on it, so it needs an explicit test rather than a trusting comment.
-
-Implementation shape follows the existing `REG`/`SHARED` pattern
-(`inline def REG(using dt: DomainType)(using RTDomainOnly[dt.type])` at [Modifier.scala:28,32]):
-summon `s: DFC.Scope` and `dt: DomainType`, then assert on `s.type` and `dt.type`. Unions of a given
-summon and subtype tests in one `AssertGiven` are already idiomatic (see ``InsideProcess:=`` at
-[DFVal.scala:1711-1716]).
+This rests on the given-priority invariant that `Global` (declared directly in `object Scope`) beats
+the ambient `Function` (declared in the `ScopeLP` base trait) for a bare `Scope` summon, while a
+context-function parameter, being lexically nested, beats both inside the body. That invariant is no
+longer a trusting comment: it is pinned by the paired tests in
+[GlobalsSpec](../core/src/test/scala/CoreSpec/GlobalsSpec.scala) (a `DFC`-carrying helper in no DFHDL
+scope cannot declare) and [ScopeChecksSpec](../core/src/test/scala/CoreSpec/ScopeChecksSpec.scala).
 
 ### 5.6 `designFromDefImpl`
 
@@ -472,11 +454,11 @@ DFHDL-level effect. Those are covered separately, and decision 8 is the conjunct
 | randomness, IO, time, outer `var`, impure callee | `PureCheck`, now fatal (§6.5) |
 | reading a captured DFHDL signal (a non-constant) | the captured-non-constants check (§6.4) |
 | writing anything outside the body | no ports beyond the return (§5.6a) |
-| assertions, printing | `Scope.Function` grants no `TextOut` |
+| assertions, printing | `Scope.Function` grants no `HasTextOut` (already enforced) |
 
-`TextOut` staying off `Scope.Function` is therefore load-bearing, not incidental
-([scope-lattice-plan.md](scope-lattice-plan.md) §2: `Function = Sequence + calling functions`), and
-must not be relaxed later for convenience.
+`HasTextOut` staying off `Scope.Function` is therefore load-bearing, not incidental
+([scoping.md](scoping.md) §1), and must not be relaxed later for convenience. This half of purity is
+already enforced at compile time by the landed scope lattice.
 
 **What purity then buys.** Two things the plan already needed:
 
@@ -539,29 +521,28 @@ problem it replaces (no `Concurrent` capability to invent, no block to conjure),
 and it should be settled together with the global-only question above: **if static functions are
 global-only, this is the only place a def-design block ever lives, which is the simplest world.**
 
-## 9a. Relationship to the scope-lattice refactor
+## 9a. What the scope lattice already did for this plan
 
-[scope-lattice-plan.md](scope-lattice-plan.md) restructures `DFC.Scope` into a capability lattice. It
-is not a prerequisite, but it interacts with this plan in three places:
+The scope-lattice refactor has **landed** (see [scoping.md](scoping.md)). `DFC.Scope` is now a lattice
+of fine-grained capabilities, and three items this plan worried about are settled:
 
-- it dissolves §5.5 (see above), which is the better outcome;
-- it changes `CapturePhase.isEDAnonDef` from a scope test to a **domain** test, which §6.1 here already
-  requires, so the two agree;
-- it moves the `while` rule from a domain guard onto the `Sequence` capability, which supersedes the
-  "widen `while` to `RT | Static`" item in §5.2 here.
+- **§5.5 is dissolved.** A top-level static function body can declare variables, because the
+  declaration guard subtype-tests the innermost scope and `Scope.Function` has `HasVars`. No widened
+  guard, and no domain involvement.
+- **The plugin does NOT inject the body's scope given pre-typer.** That was proposed and rejected.
+  `CONSTRET` keeps its `Scope.Function` context parameter, exactly as `EDRET` does, and the ambient
+  `Scope.Function` given stays. It costs nothing, because the capabilities are fine-grained: the
+  ambient given only reaches `HasVars`/`HasAssign`/`HasLoops`, and those are the guards that take the
+  innermost scope as a type parameter.
+- **`Scope.Function` has no `HasTextOut`,** so text output inside a function body is already a compile
+  error. That is decision 8's purity, enforced by the scope rather than by a new check.
 
-If the lattice lands first, drop §5.5 and the `while` item from this plan. If this plan lands first,
-both stay, and the lattice removes them later.
+What this plan still owes, unchanged: `CapturePhase.isEDAnonDef` must move from a scope test to a
+**domain** test (§6.1), since a static def and an ED method both carry a `Scope.Function` parameter and
+only the domain evidence separates them.
 
-**How the lattice dissolves §5.5** (decided 2026-07-14, [scope-lattice-plan.md] §5): *not* by having
-the plugin inject the body's scope given pre-typer. That was proposed and **rejected**; `CONSTRET`
-keeps its `Scope.Function` context parameter. It turns out no injection is needed. `given Scope.Function`
-sits in `ScopeLP`, a base trait of `object Scope`, while `given Global` sits directly in `object Scope`
-and therefore wins a bare `Scope` summon at global scope; inside a function body the `CONSTRET` context
-parameter is a *lexical* given and wins there. So once the declaration guard subtype-tests the
-**innermost summoned scope** rather than summoning the `Local` capability, `Function extends Local` is
-safe: global scope summons `Global` (rejected), a top-level static function body summons `Function`
-(accepted). §5.5's widened guard is only the interim form needed if this plan lands first.
+The `while` item in §5.2 also stands: `while` is still gated on `DomainType.RT`, not on the `HasLoops`
+capability (see [scoping.md](scoping.md) §7), so widening it to admit `Static` is still this plan's job.
 
 ## 10. Deferred
 
@@ -655,7 +636,7 @@ Steps 1 and 2 are independently mergeable and de-risk the rest.
 [PureCheckPhase.scala:306-317]: ../plugin/src/main/scala/plugin/PureCheckPhase.scala
 [PureCheckPhase.scala:445-470]: ../plugin/src/main/scala/plugin/PureCheckPhase.scala
 [PureCheckSpec]: ../compiler/stages/src/test/scala/StagesSpec/PureCheckSpec.scala
-[scope-lattice-plan.md]: scope-lattice-plan.md
+[scoping.md]: scoping.md
 [DesignDefsPhase.scala:95-104]: ../plugin/src/main/scala/plugin/DesignDefsPhase.scala
 [DesignDefsPhase.scala:105-110]: ../plugin/src/main/scala/plugin/DesignDefsPhase.scala
 [DesignDefsPhase.scala:111-119]: ../plugin/src/main/scala/plugin/DesignDefsPhase.scala

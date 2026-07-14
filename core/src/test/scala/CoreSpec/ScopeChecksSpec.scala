@@ -2,7 +2,7 @@ package CoreSpec
 import dfhdl.*
 import munit.*
 
-// Compile-time coverage for the `DFC.Scope` capability lattice (see devdocs/scope-lattice-plan.md).
+// Compile-time coverage for the `DFC.Scope` capability lattice (see devdocs/scoping.md).
 //
 // Each scope is a PLACE that mixes capability building blocks (`HasVars`, `HasWait`, `HasTextOut`,
 // ...), and every construct is guarded by summoning exactly the block it needs. These tests pin the

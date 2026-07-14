@@ -127,43 +127,61 @@ object DFC:
   def empty(eo: ElaborationOptions): DFC =
     DFC(None, Position.unknown, None, elaborationOptionsContr = () => eo)
   def emptyNoEO: DFC = DFC(None, Position.unknown, None)
-  /** The scope capability lattice (see devdocs/scope-lattice-plan.md).
+  /** The scope capability lattice. See devdocs/scoping.md for the full picture, including how to
+    * add a construct and the three ways a guard can go wrong.
     *
     * Two kinds of trait, and the distinction is a HARD RULE:
-    *   - CAPABILITIES are mixins. They grant constructs. They NEVER have a given.
-    *   - PLACES are where the user's code actually is. They mix capabilities together, and they are
-    *     the only traits with a given.
+    *   - CAPABILITIES (`HasVars`, `HasWait`, ...) are mixins. They grant constructs. They NEVER
+    *     have a given.
+    *   - PLACES (`Design`, `Process`, ...) are where the user's code actually is. They mix
+    *     capabilities together, and they are the only traits with a given.
     *
     * The base `Scope` itself carries the constant capabilities (`<> CONST` declarations, and
     * arithmetic/logic/conversion on constants), so those are legal everywhere, `Global` included.
     *
-    * ~~~ THE RULE THAT MAKES THIS SOUND ~~~
+    * ~~~ WHAT A GUARD MAY AND MAY NOT ASK ~~~
     *
-    * A guard must SUMMON THE INNERMOST BARE `Scope` AND SUBTYPE-TEST IT. It must NEVER summon a
-    * capability (`AssertGiven[Scope.Local]`) nor put a scope under a bare `NotGiven`
-    * (`NotGiven[Scope.Process]`). Both of those search for ANY given in scope that satisfies them,
-    * which finds an ENCLOSING scope's given rather than the innermost one: inside a process,
-    * summoning `Concurrent` would find the enclosing design's given and legalize `<>` connections
-    * and port declarations there. And because `Function`'s given is AMBIENT (see `ScopeLP` below)
-    * and `Function` is a `Local`, a summon of `Local` would succeed even at global scope, undoing
-    * the "declarations cannot be global" guard entirely.
+    * An implicit summon finds ANY given in scope that satisfies it, not the innermost one. So a
+    * plain `AssertGiven[Scope.SomeCapability]` reaches an ENCLOSING scope's given. Two consequences,
+    * and every guard here is written for one of them:
     *
-    * The correct form pins the innermost scope first, then tests it. Both of these are safe, since
-    * `s` is already the innermost:
+    *   1. Summoning a capability is correct only when NO enclosing scope has it. `HasWait` works
+    *      this way (nothing outside a process or procedural body has it), and so does `HasFork`
+    *      (reaching the enclosing process is exactly what a fork-join wants).
+    *
+    *   2. A NESTING PROHIBITION must be negative: `NotGiven[Scope.Process]`. A positive
+    *      `AssertGiven[Scope.HasProcesses]` would reach the enclosing design's given and happily
+    *      nest a process inside a process. The negative form works because these places' givens are
+    *      context-function parameters, never ambient.
+    *
+    * `Scope.Function`'s given IS ambient (see `ScopeLP` below), so it is eligible for a summon of
+    * ANY of its supertypes, from anywhere, global scope included. It must therefore never appear
+    * under a `NotGiven`, and any capability it has (`HasVars`, `HasAssign`, `HasLoops`) cannot be
+    * guarded by a plain summon. Where the INNERMOST scope really must be tested, take it as a type
+    * parameter and subtype-test it, as `Modifier.DclScope` does:
     * {{{
-    *   inline def foo(using s: DFC.Scope)(using AssertGiven[s.type <:< DFC.Scope.Concurrent, "..."])
-    *   inline def bar(using s: DFC.Scope)(using AssertGiven[util.NotGiven[s.type <:< DFC.Scope.Process], "..."])
+    *   given foo[SC <: DFC.Scope](using ck: SC, check: AssertGiven[SC <:< DFC.Scope.HasVars, "..."])
     * }}}
-    * A bare `Scope` summon resolves to the innermost because Scala prefers a more deeply nested
-    * given: a process body's context parameter beats its design's `given TScope`, which in turn
-    * beats the implicit-scope givens below.
+    * or route through an intermediate given that summons the scope internally, as
+    * `TextOut.InTextOutScope` does (the only form available inside an `inline` body, where the
+    * innermost scope's type cannot be named).
+    *
+    * A bare `Scope` summon resolves to the INNERMOST scope, because Scala prefers a more deeply
+    * nested given: a process body's context parameter beats its design's `given TScope`, which in
+    * turn beats the implicit-scope givens below.
+    *
+    * ~~~ SCALA vs DFHDL ~~~
+    *
+    * A scope is NOT how DFHDL code is told apart from plain Scala (the ambient `Function` given
+    * would make any such test true everywhere). `DFC` is: it is the one context genuinely absent
+    * outside a DFHDL body. `TextOut` and `DFRange` dispatch on `case given DFC`.
     */
   sealed trait Scope
   // Low-priority scope givens. `Function` must be summonable at any ED method call site (an ED
   // function is callable from design scope, processes, initial blocks, and other method bodies
   // alike), so it gets an ambient given here. It is defined in a base trait of `object Scope` so
   // that givens declared directly in `object Scope` (e.g. `Global`) always win a generic `Scope`
-  // summon: that is what keeps a top-level `<> VAR` rejected even though `Function` is a `Local`.
+  // summon: that is what keeps a top-level `<> VAR` rejected even though `Function` has `HasVars`.
   sealed trait ScopeLP:
     given Scope.Function = Scope.Function
   object Scope extends ScopeLP:
@@ -207,13 +225,12 @@ object DFC:
     sealed trait HasLocalBlocks extends Scope
 
     // ~~~ BUNDLES: named groupings of the blocks above. Still capabilities, still never given. ~~~
-    /** The classic "some local DFHDL scope" bundle: variables and blocking assignment.
+    /** A local (non-structural) DFHDL body: variables, blocking assignment, local blocks.
       *
-      * `Function` deliberately does NOT extend this. It picks up `HasVars`/`HasAssign`/`HasLoops`
-      * DIRECTLY instead, so that its ambient given is not eligible for a `Local` summon. That is
-      * what lets `TextOut` and `DFRange` keep asking `case given DFC.Scope.Local` (the broad
-      * "is this DFHDL code, or plain Scala?" question) without the ambient given making it true
-      * everywhere.
+      * `Function` deliberately does NOT extend this, and picks up `HasVars`/`HasAssign`/`HasLoops`
+      * DIRECTLY instead. Since its given is ambient, being a `Local` would make `Local` summonable
+      * from anywhere, including plain Scala at global scope, defeating every guard phrased over the
+      * bundle. Keeping the bundles free of `Function` is what keeps them summonable at all.
       */
     sealed trait Local extends HasVars, HasAssign, HasLocalBlocks
     /** Ports and views: a design, a domain, or an interface. */
@@ -225,11 +242,10 @@ object DFC:
     /** A sequential body that can also block on time. */
     sealed trait TimedSequence extends Sequence, HasWait
 
-    // ~~~ places: the only traits with givens ~~~
+    // ~~~ PLACES: the only traits with givens ~~~
     /** The ambient default. Adds nothing beyond the base `Scope`: it is purely the "no enclosing
       * container" marker, so only the constant capabilities are available.
       */
-    /** The ambient default. Adds nothing: only the base `Scope` constant capabilities. */
     sealed trait Global extends Scope
     object Global extends Global
     given Global = Global
@@ -256,14 +272,8 @@ object DFC:
       private[core] val stepCache = mutable.Map.empty[String, ir.StepBlock]
     object Process extends Process
     /** An `initial` block body. A `Sequence`, NOT a `TimedSequence`: no `wait` statements and no
-      * task calls. This agrees with the existing elaboration check in `DB.initialCheck`, which
-      * already rejects every `Wait` inside an `initial` block.
-      *
-      * NOTE: `wait` does not yet carry a `HasWait` guard, so the rejection is still only an
-      * elaboration error, not a compile error. Adding that guard is blocked on the RT question
-      * (devdocs/scope-lattice-plan.md §6): an RT DESIGN body is a `Concurrent`, which has no
-      * `HasWait`, yet `wait(1.cy)` is legitimate there for FSM steps. Guarding `wait` on `HasWait`
-      * today would break every RT design.
+      * task calls. `DB.initialCheck` keeps the same rejection at elaboration, as the backstop for
+      * a `wait` laundered in through a helper `def`.
       */
     sealed trait Initial extends Sequence, HasTextOut
     object Initial extends Initial
@@ -271,13 +281,13 @@ object DFC:
       *
       * It mixes the capability BLOCKS it needs directly rather than inheriting the `Local` or
       * `Sequence` bundles, and this is the load-bearing detail of the whole lattice. `Function`'s
-      * given is AMBIENT (`ScopeLP` above), so it is eligible for any summon of one of its
-      * supertypes, ANYWHERE, global scope included. Keeping it out of `Local` therefore keeps
-      * `case given DFC.Scope.Local` honest: in plain Scala code the summon finds nothing and the
-      * DFHDL constructs correctly fall back to their Scala counterparts.
+      * given is AMBIENT (`ScopeLP` above), so it is eligible for a summon of ANY of its supertypes
+      * from anywhere. Every bundle it stayed out of therefore remains safe to summon; every
+      * capability it does have (`HasVars`, `HasAssign`, `HasLoops`) must be guarded by an
+      * innermost-scope test instead of a plain summon.
       *
-      * It has no `HasTextOut` (a function is pure), no `HasConnect`, no `HasPorts`, no
-      * `HasProcesses`, and no `HasWait`.
+      * It has no `HasTextOut` (a function is pure by definition, see devdocs/scoping.md), no
+      * `HasConnect`, no `HasPorts`, no `HasProcesses`, and no `HasWait`.
       */
     @implicitNotFound(
       "An ED function method can only be invoked inside an event-driven (ED) domain."
