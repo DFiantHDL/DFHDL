@@ -485,9 +485,27 @@ lazy val pluginOptionsSettings = Seq(
     // with AccessDenied.
     val stableJar = (plugin / crossTarget).value / s"$projectName-plugin-$key.jar"
     if (!stableJar.exists) {
-      IO.copyFile(jar, stableJar)
+      // This task is evaluated once per plugin-using project, and those evaluations run in
+      // PARALLEL: after a plugin change they all find the new key's jar missing and all write it,
+      // at once, to the same path. That is what used to fail with AccessDenied on the first build
+      // after a plugin change — one project was writing (or the compiler was already reading) the
+      // very file another was overwriting.
+      //
+      // So publish it: each project copies to a private temp beside it and RENAMES it into place,
+      // and the rename never replaces. The first project to finish wins, the rest find the name
+      // taken and drop their copy, and no one ever writes a byte to a path another process may
+      // hold open. (The temp is hidden from the sweep below by its leading dot, and sits in the
+      // same directory as the jar so the rename stays within one volume.)
+      val pluginDir = (plugin / crossTarget).value
+      val tmp = pluginDir / s".$projectName-plugin-$key-${java.util.UUID.randomUUID}.jar"
+      try {
+        IO.copyFile(jar, tmp)
+        if (!stableJar.exists)
+          try java.nio.file.Files.move(tmp.toPath, stableJar.toPath)
+          catch { case _: java.io.IOException if stableJar.exists => () } // lost the race: fine
+      } finally IO.delete(tmp)
       // best-effort sweep of the jars of previous plugin builds (a locked one simply stays)
-      (plugin / crossTarget).value.listFiles
+      pluginDir.listFiles
         .filter(f => f.getName.startsWith(s"$projectName-plugin-") && f != stableJar)
         .foreach(f => try IO.delete(f) catch { case _: Throwable => () })
     }
