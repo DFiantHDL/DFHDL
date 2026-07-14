@@ -49,3 +49,50 @@ Clean-tests-then-compile (72 sources only):
 **Baseline ≈ 260 s (~4.3 min)** to compile the 72 compiler_stages test sources.
 
 This is the number to beat.
+
+## Phase breakdown with `-Yprofile-enabled` (258 s run)
+
+Enabled `Test / scalacOptions += "-Yprofile-enabled"` in `pluginTestUseSettings`.
+Profiler overhead is negligible (258 s vs 256-271 s baseline). Per-phase `run ns`
+aggregated across all 72 files:
+
+| Phase | Time (s) | % of total | Notes |
+|-------|---------:|-----------:|-------|
+| **typer** | **166.6** | **65%** | transparent-inline expansion + macros (exactOp/Check) + given search + inference |
+| **inlining** | **41.7** | **16%** | expansion of regular (non-transparent) `inline def`s |
+| **CodeDigest** | **15.6** | **6.0%** | DFHDL plugin phase (ours) |
+| posttyper | 4.5 | 1.8% | already fixed by prior `FlattenInlinedPhase.minimizeCall` work |
+| genBCode | 2.4 | | |
+| MegaPhase{crossVersionChecks..} | 2.5 | | |
+| erasure | 2.2 | | |
+| OnCreateEvents | 1.8 | | DFHDL plugin |
+| MetaContextGen | 1.6 | | DFHDL plugin |
+| CodeDigest+other DFHDL plugin phases | ~10 total | | LoopFSM, CustomControl, DesignDefs, etc. each <1.1s |
+| PureCheck | 1.5 | | DFHDL plugin |
+| ~15 other standard phases | <1 each | | |
+
+**Key takeaway: the bottleneck has shifted.** The `/compile-perf` skill notes
+(written earlier) say posttyper was the 20-70 s bottleneck and typer was
+"1-2 s". After the `FlattenInlinedPhase.minimizeCall` fix, **posttyper is down to
+4.5 s** and the cost has moved into:
+
+1. **typer (166.6 s, 65%)** - the dominant cost. This is transparent-inline
+   expansion, macro execution (`exactOp*`, `Check*`), given/implicit search, and
+   dependent-type inference. Inherent to how DFHDL encodes types; hard to strip
+   with a plugin because it happens *during* typing, before any plugin phase runs.
+2. **inlining (41.7 s, 16%)** - expansion of the remaining non-transparent
+   `inline def`s (the actual runtime ops). Runs *after* posttyper.
+3. **CodeDigest (15.6 s, 6%)** - one of our own plugin phases; worth auditing
+   since we fully control it.
+
+### Implication for the "strip post-typer type trees" hypothesis
+
+The user's hypothesis (strip huge dependent-type trees after typer via a plugin)
+can only affect phases that run *after* typer: `inlining` (41.7 s), the DFHDL
+plugin phases, `posttyper` (4.5 s), pickling, erasure. It **cannot** reduce the
+166 s spent in typer, because those type trees are *built and consumed* during
+typer itself. So the realistic ceiling for that specific idea is the ~55 s of
+post-typer work, and only the fraction of it that is actually type-tree-size
+bound. The elephant (typer, 166 s) needs a different lever (macro/inline
+architecture, given-search caching, or an upstream compiler fix).
+
