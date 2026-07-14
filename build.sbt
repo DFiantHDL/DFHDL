@@ -521,8 +521,8 @@ lazy val pluginUseSettings = pluginOptionsSettings ++ Seq(
 )
 
 lazy val pluginTestUseSettings = pluginOptionsSettings ++ Seq(
-  Test / scalacOptions ++= pluginOptions.value,
-  Test / scalacOptions += "-Yprofile-enabled"
+  Test / scalacOptions ++= pluginOptions.value
+  // "-Yprofile-enabled",
   // "-Yprofile-trace:compiler.trace"
 )
 

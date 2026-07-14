@@ -164,4 +164,76 @@ real time - but concentrated in (a) the inliner re-typing bodies and (b) our own
 before `inlining` is unsafe: the inliner needs those types to substitute and
 re-type correctly.
 
+## Experiment 1 (SHIPPED): stop pretty-printing types in CodeDigest
+
+**Hypothesis under test:** the huge post-typer inferred types are expensive
+specifically because `CodeDigestPhase.transformTypeDef` hashed
+`sha256(pluginStamp + "\n" + tree.show)`, and `tree.show` renders the whole
+typed tree - *including every inferred dependent type* - to a string, once per
+top-level class.
+
+**Change** (`plugin/src/main/scala/plugin/CodeDigestPhase.scala`): replaced the
+`tree.show` hash with a single `TreeTraverser` that folds the tree's code
+identity straight into the SHA-256 digest - node kind + referenced symbol
+full-names + literal constants + the identity-bearing parts of each carried
+type (named-type symbols, constants, refinement names, and each type part's
+structural kind so `A & B` / `A | B` / `(A, B)` cannot collide). No giant type
+strings are ever materialized. It stays position-insensitive (no spans read)
+and source-path-free, exactly as the rendering was.
+
+**Result (compiler_stages test compile, 10 G heap, `-Yprofile-enabled`):**
+
+| phase | before | after |
+|-------|-------:|------:|
+| CodeDigest | 16.8 s | **2.6 s** |
+| typer | 166.6 s | 162 s (noise) |
+| inlining | 41.7 s | 39.4 s (noise) |
+| **total wall** | **258 s** | **~236 s** |
+
+**~14 s off CodeDigest, ~9% off the whole compile**, from a self-contained
+change to our own plugin. This directly confirms the user's intuition:
+pretty-printing the giant inferred types was pure, avoidable cost.
+
+**Verification done here:** `compiler_stages/Test/compile` clean; all runnable
+suites green - `StagesSpec.*` 526/526 (incl. `ClassDesignCacheSpec`,
+`ClassDesignKeySpec`, `SubDesignCacheSpec`), `CoreSpec.*` 104/104.
+
+**Verification still owed (maintainer):** the `.dfdigest` `own` hash is the
+cross-build *code identity* that keys the elaboration disk cache. The suites
+above exercise the design-load gate and sub-design cache, but true cross-build
+staleness soundness (change a helper body -> dependents' composed digests must
+change) is what `testApps` and multi-run cache scenarios cover, and those need
+the external toolchain / `dftools` download that is blocked in this sandbox.
+The new hash captures at least as much identifying information as the old
+rendering, but please run `testApps` before relying on it in production caching.
+
+## Where the real time is, and what is worth trying next
+
+The 166 s in **typer** is the prize, and no post-typer plugin can touch it.
+Ranked by expected value:
+
+1. **Transparent-inline givens expanded during typer.** `AssertGiven` (7699
+   expansions, 13 s) and `Check` (5340, 22 s) are `transparent inline given`s
+   whose macros run inside the hot, deeply-nested implicit-search path. If any
+   of them do not actually need type narrowing (their declared result type is
+   fixed, e.g. `AssertGiven[G, M]`), dropping `transparent` defers expansion to
+   the flat `inlining` phase. CAUTION: `ControlledMacroError` +
+   `DualSummonTrapError` suggest some of these errors are *trapped during
+   summon*, which would make their `transparent`-ness load-bearing - each given
+   must be checked individually. Not attempted here to stay within the safe,
+   verifiable envelope.
+2. **`Aux`-member implicit search** (14336 searches, 19 s). The classic slow
+   HK/`Aux` pattern. Restructuring `ExactOp*Aux` to avoid the `Aux`-member
+   summon, or caching, could help - but it is an architectural change to
+   `Exact.scala`.
+3. **`inlining` phase, 28.5 s of inliner machinery** re-typing inline-def
+   bodies. A safe reduction would come from fewer / smaller non-transparent
+   inline bodies on the hot ops (`fromValue`, `conv`, `assertCodeString`).
+4. **Upstream Scala 3 change.** The implicit-search and transparent-inline
+   expansion costs are partly compiler-side. A minimal reproducer (a chain of
+   `Aux`-summoning transparent-inline givens) could motivate an upstream
+   improvement, mirroring the earlier PostTyper `minimizeCall` finding. The
+   scala3 fork is available for prototyping if pursued.
+
+
 
