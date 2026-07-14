@@ -212,16 +212,11 @@ rendering, but please run `testApps` before relying on it in production caching.
 The 166 s in **typer** is the prize, and no post-typer plugin can touch it.
 Ranked by expected value:
 
-1. **Transparent-inline givens expanded during typer.** `AssertGiven` (7699
-   expansions, 13 s) and `Check` (5340, 22 s) are `transparent inline given`s
-   whose macros run inside the hot, deeply-nested implicit-search path. If any
-   of them do not actually need type narrowing (their declared result type is
-   fixed, e.g. `AssertGiven[G, M]`), dropping `transparent` defers expansion to
-   the flat `inlining` phase. CAUTION: `ControlledMacroError` +
-   `DualSummonTrapError` suggest some of these errors are *trapped during
-   summon*, which would make their `transparent`-ness load-bearing - each given
-   must be checked individually. Not attempted here to stay within the safe,
-   verifiable envelope.
+1. ~~**Transparent-inline givens expanded during typer.**~~ **RULED OUT by the
+   maintainer (2026-07): dropping `transparent` will not work.** These givens
+   rely on transparent expansion during typing (result-type narrowing and/or
+   the `ControlledMacroError`/`DualSummonTrapError` summon-time trap), so the
+   modifier is load-bearing. Do not revisit.
 2. **`Aux`-member implicit search** (14336 searches, 19 s). The classic slow
    HK/`Aux` pattern. Restructuring `ExactOp*Aux` to avoid the `Aux`-member
    summon, or caching, could help - but it is an architectural change to
