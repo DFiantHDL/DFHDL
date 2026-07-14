@@ -22,7 +22,7 @@ import scala.compiletime.uninitialized
 import collection.mutable
 import annotation.tailrec
 
-class DesignDefsPhase(setting: Setting) extends CommonPhase:
+class DesignDefsPhase(setting: Setting) extends CapturePhase:
   import tpd._
 
   val phaseName = "DesignDefs"
@@ -35,8 +35,6 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
   var designFromDefEDSym: Symbol = uninitialized
   var designFromDefGetInputSym: Symbol = uninitialized
   var designFromDefGetParamSym: Symbol = uninitialized
-  var scopeFunctionSym: Symbol = uninitialized
-  var scopeProceduralSym: Symbol = uninitialized
 
   // DFHDL design construction from definitions transformation.
   // Such transformation rely on code like `def foo(arg: Bit <> VAL): Bit <> VAL`
@@ -57,8 +55,8 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
     // functions (non-Unit return) and `Scope.Procedural` for procedural methods (Unit).
     def edScopeKindOf(anonDef: DefDef): Option[Boolean] =
       anonDef.paramss.flatten.collectFirst {
-        case vd: ValDef if vd.tpe <:< scopeFunctionSym.typeRef   => true
-        case vd: ValDef if vd.tpe <:< scopeProceduralSym.typeRef => false
+        case vd: ValDef if vd.tpe <:< scopeFunctionCls.typeRef   => true
+        case vd: ValDef if vd.tpe <:< scopeProceduralCls.typeRef => false
       }
     tree.rhs match
       case Block(List(anonDef: DefDef), closure: Closure)
@@ -279,12 +277,12 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
     ctx
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
+    super.prepareForUnit(tree)
     designFromDefSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDef")
     designFromDefEDSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefED")
     designFromDefGetInputSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefGetInput")
     designFromDefGetParamSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefGetParam")
-    scopeFunctionSym = requiredClass("dfhdl.core.DFC.Scope.Function")
-    scopeProceduralSym = requiredClass("dfhdl.core.DFC.Scope.Procedural")
-    super.prepareForUnit(tree)
+    // the unit's design defs, registered before any of it is transformed (see `collectDesignDefs`)
+    collectDesignDefs(tree)
     ctx
 end DesignDefsPhase

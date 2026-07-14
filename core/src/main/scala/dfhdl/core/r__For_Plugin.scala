@@ -189,6 +189,16 @@ object r__For_Plugin:
   )(
       func: => V
   )(using DFC): V = trydf:
+    // A phantom actual is evaluated at the CALL SITE, and it names a value of the design that
+    // DECLARED the def — which, for a def called from another def's body, is not the design we
+    // are in: the calling def's own design sits between the two, and a value cannot be
+    // referenced across it. The plugin propagates such a capture to the calling def as well
+    // (see `CapturePhase.discoverCaptures`), so the value does have a stand-in here: that def's
+    // own phantom member for it, which is what this call binds to. Read before this def's
+    // design context opens, while the calling design's context is still the current one.
+    val callerPhantoms = dfc.mutableDB.DesignContext.getDefPhantoms
+    def localize(captured: DFValAny): DFValAny =
+      callerPhantoms.getOrElse(captured.asIR, captured)
     val designBlock =
       Design.Block.apply(
         domain = domain,
@@ -218,13 +228,22 @@ object r__For_Plugin:
     val params = constArgs.map { (_, arg, argMeta) =>
       genContainerParam[DFValAny](arg, None, argMeta)
     } ++ phantomConstArgs.map { (arg, fallbackMeta) =>
-      genContainerParam[DFValAny](arg, None, phantomMeta(arg, fallbackMeta))(using
+      genContainerParam[DFValAny](localize(arg), None, phantomMeta(arg, fallbackMeta))(using
         dfc.tag(ir.PhantomTag)
       )
     }
     // all the design's (name, applied value) parameter entries, explicit and phantom
     val namedConstArgs = constArgs.map((name, arg, _) => (name, arg)) ++
-      phantomConstArgs.map((arg, fallbackMeta) => (phantomMeta(arg, fallbackMeta).name, arg))
+      phantomConstArgs.map((arg, fallbackMeta) =>
+        (phantomMeta(arg, fallbackMeta).name, localize(arg))
+      )
+    // this design's phantoms, by the captured value each materializes: a nested call in the
+    // body that captures the same value binds to the phantom rather than to the value itself
+    // (`localize`)
+    dfc.mutableDB.DesignContext.addDefPhantoms(
+      phantomArgs.view.map(_._1.asIR).zip(inputs.drop(args.length)) ++
+        phantomConstArgs.view.map(_._1.asIR).zip(params.drop(constArgs.length))
+    )
     // Params named data-impure by the design def's `pure` annotation (synthesized by the
     // PureCheck plugin phase or declared by the user) contribute their applied type+data
     // to the design load key. Phantom parameters fit the same scheme: PureCheck records
@@ -266,7 +285,7 @@ object r__For_Plugin:
       val endedDesign = designBlock.asIR
       dfc.exitOwner()
       Design.Inst(endedDesign, paramEntries)
-      val allArgs = args.map(_._1) ++ phantomArgs.map(_._1)
+      val allArgs = args.map(_._1) ++ phantomArgs.map((arg, _) => localize(arg))
       val phantomFlags = List.fill(args.length)(false) ++ List.fill(phantomArgs.length)(true)
       inputs.lazyZip(allArgs).lazyZip(phantomFlags).foreach { (input, arg, isPhantom) =>
         // a phantom input's call-site wiring is tagged through its port selection, which
@@ -275,6 +294,7 @@ object r__For_Plugin:
         input.connect(arg)(using connDFC)
       }
       endedDesign
+    end exitAndConnectInputs
     def genOutPort(retDFTypeIR: ir.DFType) =
       DFVal.Dcl(retDFTypeIR.asFE[DFTypeAny], Modifier.OUT)(using dfc.setName("o"))
     skipRetDFType match
@@ -292,8 +312,9 @@ object r__For_Plugin:
       case None =>
         val preFuncMembers = dfc.mutableDB.DesignContext.getMembersNum
         val ret = func
-        // design parameters auto-created by the body itself (see `completed`) make this
-        // call unloadable; detected before exiting the design context
+        // design parameters auto-created by the body itself (see `completed`) make this call
+        // unloadable: a skipped body would create none. Detected before exiting the design
+        // context.
         val bodyCreatedParams = dfc.mutableDB.DesignContext
           .getMembers(preFuncMembers, dfc.mutableDB.DesignContext.getMembersNum)
           .exists {

@@ -39,7 +39,7 @@ import scala.compiletime.uninitialized
   * other phase should reinterpret (`CustomControl` in particular turns DFHDL-conditioned `if`s into
   * DFHDL conditionals), and the statements it guards are the fully transformed ones.
   */
-class DesignClsSkipPhase(setting: Setting) extends CommonPhase:
+class DesignClsSkipPhase(setting: Setting) extends CapturePhase:
   import tpd.*
 
   val phaseName = "DesignClsSkip"

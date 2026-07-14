@@ -30,7 +30,7 @@ import dotty.tools.dotc.ast.Trees.Alternative
   additional override to an existing anonymous DFHDL class instance.
   Additionally, it transforms basic val x = y to val x = dfhdl.core.r__For_Plugin.identVal(y) if y is a DFVal
  */
-class MetaContextPlacerPhase(setting: Setting) extends CommonPhase, IdentityDenotTransformer:
+class MetaContextPlacerPhase(setting: Setting) extends CapturePhase, IdentityDenotTransformer:
   import tpd._
 
   val phaseName = "MetaContextPlacer"

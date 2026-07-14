@@ -71,7 +71,7 @@ import annotation.tailrec
   * `__clsMeta`) and thereby also before `pickler` (which persists the synthesized annotations to
   * TASTy for dependent compilations).
   */
-class PureCheckPhase(setting: Setting) extends CommonPhase:
+class PureCheckPhase(setting: Setting) extends CapturePhase:
   import tpd.*
 
   val phaseName = "PureCheck"
@@ -216,6 +216,13 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
       case TypeApply(fun, ts) => decomposeCall(fun, argss, ts ::: targs)
       case _                  => (t, argss, targs)
 
+  override def prepareForUnit(tree: Tree)(using Context): Context =
+    super.prepareForUnit(tree)
+    // the unit's design defs, for the capture discovery `analyze` runs once the whole run's
+    // units have been walked (see `collectDesignDefs`)
+    collectDesignDefs(tree)
+    ctx
+
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
     val res = super.runOn(units)
     pureAnnotSym = getClassIfDefined("dfhdl.hw.annotation.pure")
@@ -240,10 +247,6 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
   private def analyze(units: List[CompilationUnit])(using Context): Unit =
     // analyzable definitions of this run, in discovery order
     val roots = mutable.LinkedHashMap.empty[Symbol, (Tree, Boolean)] // sym -> (tree, isClass)
-    // defs that `DesignDefs` will transform into design-def harnesses (same conditions):
-    // their `<> CONST` params are keyable design parameters. Maps each def to its context
-    // lambda (anon def), whose rhs is the actual design body used for capture discovery.
-    val designDefRoots = mutable.Map.empty[Symbol, DefDef]
     val verdictImpure = mutable.Set.empty[Symbol]
     val rdeps = mutable.Map.empty[Symbol, mutable.Set[Symbol]]
     // parameters whose applied data is forced into elaboration (data-impure params)
@@ -257,7 +260,7 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
     def phantomConstsOf(defSym: Symbol): Map[List[Symbol], String] =
       phantomConstCaptures.getOrElseUpdate(
         defSym,
-        designDefRoots.get(defSym) match
+        designDefAnon(defSym) match
           case Some(anonDef) =>
             discoverDesignDefCaptures(defSym, anonDef.symbol, anonDef.rhs)
               .phantomConsts.map((path, _) => path -> captureName(path)).toMap
@@ -321,15 +324,6 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
         tree match
           case dd: DefDef if dd.symbol.exists && !dd.symbol.isConstructor && !dd.rhs.isEmpty =>
             roots += dd.symbol -> (dd.rhs, false)
-            dd.rhs match
-              case Block(List(anonDef: DefDef), _: Closure)
-                  if !dd.isInline && !dd.symbol.is(Exported) && anonDef.dfValTpeOpt.nonEmpty &&
-                    (dd.paramss.view.flatten.exists {
-                      case vd: ValDef => vd.dfValTpeOpt.nonEmpty && !vd.tpt.tpe.isDFConst
-                      case _          => false
-                    } || isEDAnonDef(anonDef)) =>
-                designDefRoots += dd.symbol -> anonDef
-              case _ =>
           case td @ TypeDef(_, tmpl: Template) if td.symbol.exists =>
             roots += td.symbol -> (tmpl, true)
           case vd: ValDef
@@ -384,7 +378,7 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
             // the nearest enclosing design def or design class of the analyzed root:
             // the design whose load key covers data landing in the analyzed body
             lazy val nearestDesignBoundary = rootSym.ownersIterator
-              .find(o => designDefRoots.contains(o) || (isDesignCls(o) && roots.contains(o)))
+              .find(o => isDesignDef(o) || (isDesignCls(o) && roots.contains(o)))
             // ~~~ constant-data forcing attribution ~~~
             // resolves a forced expression to its dataflow roots; see the phase doc
             def attributeSym(s: Symbol, visited: Set[Symbol]): ForcedRes =
@@ -422,7 +416,7 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
                 // the def's explicit marking governs: `@pure` trusts, `@pure(false)` never
                 // caches, so param attribution is moot either way
                 else if (pureMarking(m).isDefined) ForcedRes.Pure
-                else if (designDefRoots.contains(m))
+                else if (isDesignDef(m))
                   // `<> CONST` params get keyed by applied type+data once marked; `<> VAL`
                   // inputs are keyed by their DFTypes (forcing can only derive type-level
                   // constants from them) and plain Scala args are keyed by value
@@ -465,7 +459,7 @@ class PureCheckPhase(setting: Setting) extends CommonPhase:
                 nearestDesignBoundary match
                   case Some(owner) =>
                     val captureMap =
-                      if (designDefRoots.contains(owner)) phantomConstsOf(owner)
+                      if (isDesignDef(owner)) phantomConstsOf(owner)
                       else clsConstCapturesOf(owner)
                     stablePathKey(t).flatMap(captureMap.get) match
                       case Some(name) =>

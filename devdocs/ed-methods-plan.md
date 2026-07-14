@@ -127,12 +127,39 @@ today; undecided questions block their features; pending work is decided and jus
      subprogram must be declared before it is used. Each method binds to its FIRST call site's
      printer, which is what resolves its phantom actuals (item 2). Emitted HDL verified to
      analyze on Verilator, GHDL and NVC.
-   * **Elaboration crash — STILL OPEN.** If the INNER method captures anything (a phantom),
-     elaborating a nested call throws `NoSuchElementException: None.get` at
-     `DFDesignBlock.getCachedDesignInst` (via `r__For_Plugin.exitAndConnectInputs` ->
-     `connect` -> `refTW`): the phantom's call-site connection is made in the OUTER method's
-     design scope, where the referenced host value has no design inst to route through. Until
-     this is fixed, a nested call is only usable when the callee captures nothing.
+   * **Elaboration crash — FIXED (2026-07-14).** If the INNER method captured anything, a nested
+     call threw `NoSuchElementException: None.get` at `DFDesignBlock.getCachedDesignInst`. NOT
+     ED-specific: plain DF design defs crashed identically, so this was a general defect of the
+     design-def capture rigging.
+
+     A phantom actual is evaluated at the CALL SITE, but it names a value of the design that
+     DECLARED the def. When the caller is another def, that design is not the one we are in —
+     the calling def's own design sits between them — so the value is unreachable, and the
+     cross-design port rule tried to route it through the declaring design's instance, which
+     does not exist while that design is still elaborating.
+
+     The capture set was simply incomplete. A call to a design def does not run the callee's
+     body in the caller's scope, but it DOES evaluate the callee's captures there, so a capture
+     the caller cannot reach either is a capture OF THE CALLER as well. Capture discovery
+     (`CapturePhase.discoverCaptures`) is therefore now TRANSITIVE: a call to another design def
+     contributes the callee's captures, filtered by the caller's own out-of-scope test (what the
+     caller can reach, it keeps referencing directly). Every def between the captured value's
+     design and the call site thus materializes the capture as its own phantom, created by its
+     HARNESS, at design entry, exactly like any other capture — no new construction order, no
+     ownership-stack tricks, and the def stays loadable (the phantoms are part of its public
+     interface, not something its body creates).
+
+     At runtime the call binds to it: `designFromDefImpl` reads the phantom members of the
+     design it is called from (`DesignContext.defPhantoms`, keyed by the captured value each one
+     materializes) and `localize`s its own phantom actuals through that map. Values and
+     constants alike (a constant capture propagates to a phantom parameter). The printers'
+     phantom substitution composes over this for free: the inner call's actual is the caller's
+     phantom, which the caller's own printer substitutes again, so the body ends up naming the
+     value exactly as the host does. Emitted HDL verified on Verilator, GHDL and NVC.
+
+     Limitation: propagation needs the callee's TREE, so it covers the defs of the unit being
+     compiled (registered by a pre-pass, since a def may be called by a def declared before it).
+     A nested call into a def compiled earlier (another unit or run) does not propagate.
 
 3. **v95/v2001 dialect gates are missing** (planned in 1C, not implemented): struct/opaque and
    unpacked-array args and non-integral returns print unchecked under legacy dialects (the S6

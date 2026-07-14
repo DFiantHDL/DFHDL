@@ -48,6 +48,13 @@ class DesignContext:
   val unreachableDFTypes = mutable.Map.empty[DFType, DFType]
   var defInputs = List.empty[DFValAny]
   var defParams = List.empty[DFValAny]
+  // A design DEF's phantom members (its harness-created ports and parameters materializing the
+  // values its body captures), keyed by the captured value each one materializes. A nested def
+  // call in this body captures a value of an ENCLOSING design, which the call site cannot
+  // reference (this def's own design sits between the two); the plugin propagates that capture
+  // to this def as well, so the value the call binds to here is this design's own phantom
+  // member for it (see `r__For_Plugin.designFromDefImpl`).
+  val defPhantoms = mutable.Map.empty[DFVal, DFValAny]
   val loopIterMap = mutable.Map.empty[Meta, DFValAny]
   // on a design-load hit (`DesignLoadGate`), the canonical design whose body this context
   // duplicates; `endDesign` joins the duplicate to the CANONICAL's group (a design may
@@ -416,6 +423,10 @@ final class MutableDB():
       current.getReachableNamedValue(dfVal, cf)
     def getReachableDFType(dfType: DFType, cf: => DFType): DFType =
       current.getReachableDFType(dfType, cf)
+    // see `DesignContext.defPhantoms`
+    def addDefPhantoms(phantoms: IterableOnce[(DFVal, DFValAny)]): Unit =
+      current.defPhantoms ++= phantoms
+    def getDefPhantoms: Map[DFVal, DFValAny] = current.defPhantoms.toMap
   end DesignContext
 
   // ~~~ the design load gate ~~~
