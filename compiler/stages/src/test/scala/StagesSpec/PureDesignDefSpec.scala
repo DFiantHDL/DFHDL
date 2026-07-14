@@ -136,4 +136,71 @@ class PureDesignDefSpec extends StageSpec:
     end CaptureDesignDef
     assertCodeString(new CaptureDesignDef, expectedCaptureCodeString("  @hw.annotation.pure\n"))
   }
+
+  test("design def capturing a value, called from another design def") {
+    // `inner` captures `b`, a value of the DESIGN, but is called from `outer`'s body — a scope
+    // that cannot reference `b` at all (outer's own design sits between them). The capture is
+    // propagated inward through a phantom port of `outer`.
+    class NestedCapture extends DFDesign:
+      val b                                          = UInt(8) <> IN
+      val a                                          = UInt(8) <> IN
+      val y                                          = UInt(8) <> OUT
+      def inner(l: UInt[8] <> VAL): UInt[8] <> DFRET = l + b
+      def outer(l: UInt[8] <> VAL): UInt[8] <> DFRET = inner(l) + 1
+      y := outer(a)
+    end NestedCapture
+    assertCodeString(
+      new NestedCapture,
+      // both defs carry phantoms, so each prints locally, just before its first call: `outer`
+      // in the class body, and `inner` inside `outer`'s body (where it is first called)
+      """|class NestedCapture extends DFDesign:
+         |  val b = UInt(8) <> IN
+         |  val a = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  def outer(l: UInt[8] <> VAL): UInt[8] <> DFRET =
+         |    def inner(l: UInt[8] <> VAL): UInt[8] <> DFRET =
+         |      l + b
+         |    end inner
+         |    inner(l) + d"8'1"
+         |  end outer
+         |  y := outer(a)
+         |end NestedCapture
+         |""".stripMargin
+    )
+  }
+  test("design def captures propagated through two nested calls") {
+    // `l1`'s captures are evaluated wherever `l1` is CALLED, so every def between the capture's
+    // design and the call gets the capture too (a value as a phantom port, a constant as a
+    // phantom parameter), each one binding to the next one out
+    class DeepCapture extends DFDesign:
+      val b                                       = UInt(8) <> IN
+      val a                                       = UInt(8) <> IN
+      val y                                       = UInt(8) <> OUT
+      val c: UInt[8] <> CONST                     = 3
+      def l1(l: UInt[8] <> VAL): UInt[8] <> DFRET = l + b + c
+      def l2(l: UInt[8] <> VAL): UInt[8] <> DFRET = l1(l) + 1
+      def l3(l: UInt[8] <> VAL): UInt[8] <> DFRET = l2(l) + 1
+      y := l3(a)
+    end DeepCapture
+    assertCodeString(
+      new DeepCapture,
+      """|class DeepCapture extends DFDesign:
+         |  val b = UInt(8) <> IN
+         |  val a = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  val c: UInt[8] <> CONST = d"8'3"
+         |  def l3(l: UInt[8] <> VAL): UInt[8] <> DFRET =
+         |    def l2(l: UInt[8] <> VAL): UInt[8] <> DFRET =
+         |      def l1(l: UInt[8] <> VAL): UInt[8] <> DFRET =
+         |        l + b + c
+         |      end l1
+         |      l1(l) + d"8'1"
+         |    end l2
+         |    l2(l) + d"8'1"
+         |  end l3
+         |  y := l3(a)
+         |end DeepCapture
+         |""".stripMargin
+    )
+  }
 end PureDesignDefSpec

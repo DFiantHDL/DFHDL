@@ -2294,6 +2294,45 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("nested ED method call with a capture") {
+    class EDNestCap extends EDDesign:
+      val b = UInt(8) <> IN
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      // `inner` captures `b`, and is called from `outer`'s body — a scope that cannot see
+      // `b` at all. The capture is propagated inward through a phantom port of `outer`.
+      def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b
+      def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET = inner(l) + 1
+      y <> outer(a)
+    end EDNestCap
+    val top = (new EDNestCap).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDNestCap(
+         |  input  wire logic [7:0] b,
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  function automatic logic [7:0] inner(input logic [7:0] l);
+         |  begin
+         |    inner = l + b;
+         |  end
+         |  endfunction
+         |
+         |  function automatic logic [7:0] outer(input logic [7:0] l);
+         |  begin
+         |    outer = inner(l) + 8'd1;
+         |  end
+         |  endfunction
+         |  assign y = outer(a);
+         |endmodule
+         |""".stripMargin
+    )
+  }
   test("ED method (function) under v95") {
     given options.CompilerOptions.Backend = _.verilog.v95
     class EDFuncOld extends EDDesign:

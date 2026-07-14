@@ -2172,6 +2172,49 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("nested ED method call with a capture") {
+    class EDNestCap extends EDDesign:
+      val b = UInt(8) <> IN
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      // `inner` captures `b`, and is called from `outer`'s body — a scope that cannot see
+      // `b` at all. The capture is propagated inward through a phantom port of `outer`.
+      def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b
+      def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET = inner(l) + 1
+      y <> outer(a)
+    end EDNestCap
+    val top = (new EDNestCap).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDNestCap is
+         |port (
+         |  b : in unsigned(7 downto 0);
+         |  a : in unsigned(7 downto 0);
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end EDNestCap;
+         |
+         |architecture EDNestCap_arch of EDNestCap is
+         |  impure function inner(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return l + b;
+         |  end function;
+         |
+         |  impure function outer(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return inner(l) + 8d"1";
+         |  end function;
+         |begin
+         |  y <= outer(a);
+         |end EDNestCap_arch;
+         |""".stripMargin
+    )
+  }
   test("ED method (function) under v93") {
     given options.CompilerOptions.Backend = _.vhdl.v93
     class EDFuncOld extends EDDesign:
