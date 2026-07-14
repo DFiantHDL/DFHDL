@@ -629,6 +629,11 @@ class ElaborationChecksSpec extends DesignSpec:
           |Message:   Found multiple connections write to the same variable/port `AssignConn.y`.
           |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:618:9 - 618:25""".stripMargin
     )
+  // `wait` inside an `initial` block used to be caught here, at elaboration. The scope lattice
+  // rejects it at COMPILE time now (`Initial` is a `Sequence`, deliberately not a `TimedSequence`,
+  // so it has no `HasWait`), so it cannot appear in this design at all. The compile-time rejection
+  // is covered in `ScopeChecksSpec`; `DB.initialCheck` keeps its elaboration check as the backstop
+  // for evidence laundered through a helper `def`.
   test("initial block content errors under RT domain"):
     object Test:
       @top(false) class Top extends RTDesign:
@@ -637,23 +642,18 @@ class ElaborationChecksSpec extends DesignSpec:
         initial:
           y.din := x
           println("bad")
-          wait
         y.din := x
     import Test.*
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL initial block error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:638:11 - 638:21
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:643:11 - 643:21
           |Hierarchy: Top
           |Message:   An `initial` block under a register-transfer (RT) domain may only assign constant values.
           |DFiant HDL initial block error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:639:11 - 639:25
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:644:11 - 644:25
           |Hierarchy: Top
-          |Message:   Text output statements are not allowed inside an `initial` block under a register-transfer (RT) domain.
-          |DFiant HDL initial block error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:640:11 - 640:15
-          |Hierarchy: Top
-          |Message:   Wait statements are not allowed inside an `initial` block.""".stripMargin
+          |Message:   Text output statements are not allowed inside an `initial` block under a register-transfer (RT) domain.""".stripMargin
     )
 
   test("initial block conflict errors"):
@@ -705,18 +705,23 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |Message:   A `match` selector inside an `initial` block under a register-transfer (RT) domain must be a constant.""".stripMargin
     )
+  // A helper `def` launders scope evidence past the type-level guards: its body is typed in the
+  // DESIGN's scope, so a construct the design body allows can be smuggled into an ED function
+  // through a call. The elaboration check must still reject the resulting content.
+  //
+  // `wait` can no longer be laundered this way: it now needs the `HasWait` capability, which a
+  // design body does not have, so `def helperWait(using DFC): Unit = wait` is a COMPILE error
+  // (covered in `CoreSpec.ScopeChecksSpec`). `process` still launders, since a design body is
+  // exactly where a process is legal. `DB.edMethodCheck` keeps its `Wait` case as the backstop for
+  // any other path that reaches it.
   test("ED method content errors (scope laundering backstop)"):
     object Test:
       @top(false) class Top extends EDDesign:
         val a = UInt(8) <> IN
         val y = UInt(8) <> OUT
-        // helper defs launder scope evidence past the type-level guards — the
-        // elaboration check must still reject the resulting ED function content
-        def helperWait(using DFC): Unit = wait
         def helperProcess(using DFC): Unit =
           process(all) {}
         def bad(l: UInt[8] <> VAL): UInt[8] <> EDRET =
-          helperWait
           helperProcess
           l
         y <> bad(a)
@@ -724,11 +729,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL ED method error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:719:11 - 719:21
-          |Hierarchy: bad
-          |Message:   Wait statements are not allowed inside an ED function.
-          |DFiant HDL ED method error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:720:11 - 720:24
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:725:11 - 725:24
           |Hierarchy: bad
           |Message:   Process blocks are not allowed inside an ED method.""".stripMargin
     )
@@ -745,7 +746,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL ED method error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:743:11 - 743:18
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:744:11 - 744:18
           |Hierarchy: Top
           |Message:   A wait-containing ED method can only be called inside a process without a sensitivity list (`process.forever`) or an `initial` block.""".stripMargin
     )

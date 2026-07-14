@@ -15,6 +15,13 @@ import munit.diff.{DiffOptions, Printer}
 abstract class SimSpec extends munit.FunSuite, NoTopAnnotIsRequired:
   val dfc: DFCG = DFCG()
   given DFCG = dfc
+  // A sim spec is a purely Scala front-end for DFHDL simulations, so it follows SCALA semantics,
+  // not DFHDL's. But it introduces a `DFCG` (above) for constant arithmetic on peeked values, and
+  // `DFC` is exactly what distinguishes DFHDL code from plain Scala: without these flags, a `for`
+  // range, a `println` or an `assert` written in a sim spec would resolve to its DFHDL form (an
+  // elaborated `DFRange` / text-out member) rather than the Scala one. Declared as members so
+  // every sim spec inherits them.
+  export dfhdl.hw.flag.{scalaRanges, scalaPrints, scalaAsserts}
   override val printer = new Printer:
     def print(value: Any, out: StringBuilder, indent: Int): Boolean =
       value match

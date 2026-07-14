@@ -42,6 +42,22 @@ object Process:
       util.NotGiven[A <:< DomainType.DF],
       "A process is not supported under dataflow (DF) domains."
     ]
+    protected type InitialNotDFDomain[A] = AssertGiven[
+      util.NotGiven[A <:< DomainType.DF],
+      "An `initial` block is not supported under dataflow (DF) domains."
+    ]
+    // NESTING PROHIBITIONS MUST STAY NEGATIVE (`NotGiven`), not positive capability summons.
+    //
+    // A positive `AssertGiven[DFC.Scope.HasProcesses]` does NOT work here, and it fails silently:
+    // an implicit summon finds ANY given in scope satisfying it, so from inside a process body it
+    // reaches the ENCLOSING design's given (a `Concurrent`, which has `HasProcesses`) and happily
+    // legalizes a nested process. Positive capability summons are only sound for a capability that
+    // no enclosing scope has (see `Wait.InWaitScope`: nothing outside a process/procedural body
+    // has `HasWait`).
+    //
+    // The negative form works because these scopes' givens are context-function parameters, never
+    // ambient: inside a process, `NotGiven[Scope.Process]` is false; outside, true. (`Function` is
+    // the one scope whose given IS ambient, so it must never appear under a `NotGiven`.)
     protected type NoNestingProcess = AssertGiven[
       util.NotGiven[DFC.Scope.Process],
       "A process cannot be nested inside another process."
@@ -49,10 +65,6 @@ object Process:
     protected type NoNestingInitial = AssertGiven[
       util.NotGiven[DFC.Scope.Initial],
       "A process or an `initial` block cannot be nested inside an `initial` block."
-    ]
-    protected type InitialNotDFDomain[A] = AssertGiven[
-      util.NotGiven[A <:< DomainType.DF],
-      "An `initial` block is not supported under dataflow (DF) domains."
     ]
     protected type InitialNotInsideProcess = AssertGiven[
       util.NotGiven[DFC.Scope.Process],

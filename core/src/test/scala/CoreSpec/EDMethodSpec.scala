@@ -75,13 +75,7 @@ class EDMethodSpec extends DFSpec:
 
   test("procedural ED method call is rejected outside a process"):
     assertCompileError(
-      """|A procedural ED method (`Unit <> EDRET`) can only be invoked inside a process or another procedural ED method body.
-         |I found:
-         |
-         |    dfhdl.core.DFC.Scope.given_Procedural(
-         |      /* missing */summon[dfhdl.core.DFC.Scope.Process])
-         |
-         |But no implicit values were found that match type dfhdl.core.DFC.Scope.Process.""".stripMargin
+      "A procedural ED method (`Unit <> EDRET`) can only be invoked inside a process or another procedural ED method body"
     )(
       """
       class Foo extends EDDesign:

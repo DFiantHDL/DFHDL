@@ -28,8 +28,11 @@ object Fork:
       util.NotGiven[A <:< DomainType.DF],
       "Fork-join is not supported under dataflow (DF) domains."
     ]
+    // positive summon: `HasFork` exists only on `Process`, and a fork-join IS allowed to sit
+    // inside an enclosing process (that is the point), so reaching the enclosing given is correct
+    // here rather than a leak
     protected type InProcess = AssertGiven[
-      DFC.Scope.Process,
+      DFC.Scope.HasFork,
       "Fork-join must be placed inside a process."
     ]
     private def forkBlock(join: ir.ForkBlock.Join)(block: DFC.Scope.Process ?=> Unit)(using

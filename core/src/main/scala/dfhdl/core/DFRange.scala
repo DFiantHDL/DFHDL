@@ -54,7 +54,7 @@ object DFRange:
       transparent inline def until(end: Int): Range | DFRange[CONST] =
         compiletime.summonFrom {
           case given ScalaRangesFlag => untilOrig(end)
-          case given DFC.Scope.Local => untilDF(end)(using compiletime.summonInline[DFC])
+          case given DFC => untilDF(end)(using compiletime.summonInline[DFC])
           case _                     => untilOrig(end)
         }
       def until[P](end: DFValTP[DFInt32, P])(using DFC): DFRange[P] =
@@ -70,7 +70,7 @@ object DFRange:
       transparent inline def to(end: Int): Range | DFRange[CONST] =
         compiletime.summonFrom {
           case given ScalaRangesFlag => toOrig(end)
-          case given DFC.Scope.Local => toDF(end)(using compiletime.summonInline[DFC])
+          case given DFC => toDF(end)(using compiletime.summonInline[DFC])
           case _                     => toOrig(end)
         }
       def to[P](end: DFValTP[DFInt32, P])(using DFC): DFRange[P] =

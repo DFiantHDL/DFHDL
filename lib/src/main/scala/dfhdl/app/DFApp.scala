@@ -13,6 +13,10 @@ import dfhdl.internals.{DiskCache, CodeDigest}
 import dfhdl.compiler.ir.SourceFile
 import java.nio.file.Paths
 import dfhdl.internals.scastieIsRunning
+// `DFApp` is an application driver: every `println` here is console output, not hardware text
+// output. It declares a `given dfc: DFCG` (below), and `DFCG <: DFC`, so without this the DFHDL
+// `println` would be selected and then rejected for lacking a text-output scope.
+import dfhdl.hw.flag.scalaPrints
 
 // `DFApp` is the application engine behind every generated top-level entry
 // point. It deliberately has NO `main`: the compiler plugin injects a `main`

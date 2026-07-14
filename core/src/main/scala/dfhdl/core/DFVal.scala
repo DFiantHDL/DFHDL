@@ -1708,14 +1708,24 @@ object DFVarOps:
     A <:< DomainType.ED,
     "Non-blocking assignments `:==` are allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=` or the logic domain to ED."
   ]
+  // NOTE on the two roles played by these type parameters, which are easy to conflate:
+  //   - a BARE capability leaf (`DFC.Scope.HasAssign`) summons the capability, asking "where am I
+  //     now?";
+  //   - an `A <:< ...` leaf asks "where was this value DECLARED?". `A` is the declaration-site
+  //     modifier, which carries the scope and domain it was declared in (see
+  //     `evPortVarConstructor`, whose result modifier is `A & SC & DT`).
+  //
+  // `:=` needs a scope that grants blocking assignment: a process, an `initial` block, a
+  // procedural body, or a function body. That single capability summon replaces the former
+  // six-way union of places. The remaining alternatives are unchanged: a non-ED-declared value,
+  // or an RT domain (where `:=` is the ordinary assignment form).
   protected type `InsideProcess:=`[D, A] = AssertGiven[
-    DFC.Scope.Process | DFC.Scope.Initial | DFC.Scope.Procedural |
-      util.NotGiven[A <:< DomainType.ED] |
-      D <:< DomainType.RT | A <:< DFC.Scope.Function,
+    DFC.Scope.HasAssign | util.NotGiven[A <:< DomainType.ED] | D <:< DomainType.RT,
     "Blocking assignments `:=` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
-  protected type `InsideProcess:==`[D, A] = AssertGiven[
-    DFC.Scope.Process | util.NotGiven[A <:< DomainType.ED],
+  // `:==` is granted by `HasNBAssign`, which only `Process` has.
+  protected type `InsideProcess:==`[A] = AssertGiven[
+    DFC.Scope.HasNBAssign | util.NotGiven[A <:< DomainType.ED],
     "Non-blocking assignments `:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
   protected type RTDomainOnly[A] = AssertGiven[
@@ -1754,7 +1764,7 @@ object DFVarOps:
         edDomainOnly: EDDomainOnly[dt.type],
 //        notLocalVar: NotLocalVar[A],
         notInInitial: `NotInInitial:==`,
-        insideProcess: `InsideProcess:==`[dt.type, A]
+        insideProcess: `InsideProcess:==`[A]
     ): Unit = trydf {
       dfVar.nbassign(rhs(dfVar.dfType))
     }

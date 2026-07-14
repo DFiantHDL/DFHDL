@@ -45,6 +45,13 @@ object Modifier:
   type CONST = Modifier[Any, Any, Any, dfhdl.core.CONST]
   extension (modifier: ModifierAny) def asIR: IRModifier = modifier.value
 
+  // A declaration needs a scope that can declare something: `HasVars` (a design, a domain, a
+  // process, an `initial` block, or a method body) or `HasPorts` (those, plus an interface).
+  // Neither is granted by `Scope.Global`, so a top-level declaration is still rejected.
+  protected type DclScope[S <: DFC.Scope] = AssertGiven[
+    S <:< DFC.Scope.HasVars | DFC.Scope.HasPorts,
+    "Port/Variable declarations cannot be global"
+  ]
   given evPortVarConstructor[
       T <: DFType.Supported,
       OT <: DFTypeAny,
@@ -57,9 +64,9 @@ object Modifier:
       M <: Modifier[A, C, I, P]
   ](using
       tc: DFType.TC.Aux[T, OT],
-      checkLocal: AssertGiven[DFC.Scope.Local, "Port/Variable declarations cannot be global"],
       ck: SC,
-      dt: DT
+      dt: DT,
+      checkScope: DclScope[SC]
   ): ExactOp2Aux["<>", DFC, Any, T, M, DFVal[
     OT,
     Modifier[A & SC & DT, C, I, P]
