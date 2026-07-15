@@ -282,4 +282,4 @@ object BitNumWrapper:
   given [T <: Int & Singleton](using T <:< BitNum): Conversion[T, BitNumWrapper] =
     x => BitNumWrapper(x.asInstanceOf[BitNum])
   given CanEqual[BitNumWrapper, BitNum] = CanEqual.derived
-  implicit def toBitNum(wrapper: BitNumWrapper): BitNum = wrapper.value
+  implicit def toBitNum(wrapper: BitNumWrapper): BitNum = wrapper.value.asInstanceOf[BitNum]
