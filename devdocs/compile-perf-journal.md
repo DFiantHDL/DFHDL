@@ -56,15 +56,26 @@ compiler samples a further **-19%**. Passes `StagesSpec`/`CoreSpec` AND the full
 scala3 `testCompilation` corpus (0 failed). Separate branch/PR:
 `soronpo/scala3` @ `claude/inlining-dep-dedup`.
 
+**THIRD compiler-side win (Experiment 15): run-scoped `QuotesCache`.** `QuotesCache`
+was initialized per macro expansion (`MacroExpansion.context`), so DFHDL's thousands
+of macro expansions re-unpickled the same quote templates from TASTY every time
+(~58% of quote-unpickle samples were full-unpickle misses). The cache is keyed by
+pickled bytes (stable per quote-site) and the hit path already re-owns templates, so
+initializing it once per run (`Run.compileUnits`) is equivalent: full TASTY
+re-unpickling drops from ~100 to 7 samples, **typer 113.2 s -> 106.8 s (-5.7%)**,
+total **156.9 s -> 152.2 s (-3.0%)** on 3.10. Benefits all macro-heavy Scala code.
+Passes `StagesSpec` 526 + `CoreSpec` 104 + `testCompilation`. Separate branch/PR:
+`soronpo/scala3` @ `claude/quote-cache-run-scope`.
+
 **Phase split before the compiler wins:** `typer` ~146 s, `inlining` ~40 s,
-everything else small. Both `TyperState.commit` and the inline dependency
-extraction were inside those numbers.
+everything else small. All three compiler wins (`TyperState.commit`, inline
+dependency extraction, `QuotesCache`) were inside those numbers, chiefly typer.
 
 **Total, `compiler_stages/Test/compile` wall-clock:** ~258 s (original) -> ~217 s
-with the three library/plugin wins (on 3.8.4, live today, -16%). The two compiler
-patches cut a further ~38% (242 s -> ~150 s measured on 3.10, transfers to 3.8.4),
-landing the compile around ~140-150 s once the upstream PRs merge - roughly half
-the original.
+with the three library/plugin wins (on 3.8.4, live today, -16%). The three compiler
+patches cut a further ~37% (measured on 3.10: unpatched ~242 s -> `TyperState`
+~164 s -> +dedup ~159 s -> +`QuotesCache` ~152 s; transfers to 3.8.4), landing the
+compile around ~135-150 s once the upstream PRs merge - roughly half the original.
 
 **Key correction (Experiment 5):** the high macro-expansion counts (7699
 AssertGiven, ~6000 Check) are per-operation **VOLUME**, not redundant
@@ -1022,6 +1033,58 @@ expansion - with no remaining compiler-side no-op-redundancy of consequence.
 Further gains are architectural and DFHDL-side (fewer / smaller inline-expanded
 bodies on the hot operators, an `Exact.scala`/`Checked.scala` restructuring); the
 maintainer-ruled-out `transparent`-drop cannot substitute for that.
+
+## Experiment 15 (SHIPPED to scala3 fork): run-scoped QuotesCache - THIRD compiler win
+
+Investigating `Exact.scala` (the macros that extract the "exact" representation of
+each operand) turned up a surprise. The extraction itself (`exactInfo`/`exactTerm`)
+is already **cheap (<0.5%)** - it keeps types small (singleton `TermRef`s where it
+can). The DFHDL macro machinery is ~15% of compile-thread samples, and its real
+sub-costs are:
+
+| sub-cost | % | nature |
+|----------|---|--------|
+| implicit search (`summonOrError[ExactOp2/TC/Check]`) | 6.1% | typeclass resolution keyed on the large exact types - architectural (Aux pattern) |
+| **quote unpickling** (`unpickleTerm`/`DottyUnpickler`) | 4.3% | **compiler-side redundancy** |
+| exact-extraction proper | <0.5% | already cheap |
+
+Also ruled out along the way: the `exactOp2Macro` `try/catch` whose catch does
+`.widen.show` on both operand types does **not** fire (2 samples).
+
+**The redundancy.** `MacroExpansion.context` called `QuotesCache.init(ctx.fresh)`
+**per macro expansion**, so every one of DFHDL's thousands of macro expansions
+started with an empty quote cache and re-unpickled the *same* quote templates from
+TASTY. The hit/miss split confirmed ~58% of quote-unpickle samples were full-unpickle
+misses. The cache is keyed by pickled bytes (stable per quote-site), holes are
+spliced *after* unpickling, and the cache-hit path re-owns templates via
+`TreeTypeMap`/`changeNonLocalOwners` - so a cached template is expansion-independent.
+Fix: initialize the cache once per run (`Run.compileUnits`) so all macro-expansion
+contexts inherit and share it; `getTree`/`update` made null-tolerant so any
+quote-unpickle path outside a run degrades to a miss instead of throwing.
+
+Measured (3.10, both prior compiler patches active, only difference is QuotesCache;
+`-Yprofile-enabled` whole-compilation wall):
+
+| phase | before | after | delta |
+|-------|--------|-------|-------|
+| **typer** | 113.2 s | 106.8 s | **-6.4 s (-5.7%)** |
+| total | 156.9 s | 152.2 s | **-4.7 s (-3.0%)** |
+
+Mechanism confirmed: full TASTY re-unpickling (`DottyUnpickler`) dropped from ~100
+samples to **7**; cache hits 72 -> 143, misses -> ~0. The residual is the hit-path
+`TreeTypeMap` copy that freshens symbols in def-containing templates (why total
+quote-unpickling is 4.3% -> 3.4%, not gone). The win lands in typer because macro
+expansion runs there. Benefits all macro-heavy Scala code, not just DFHDL.
+
+Correctness: `StagesSpec` 526/526 + `CoreSpec` 104/104, 0 failures, against the
+patched compiler; validated on the full scala3 `testCompilation` corpus. Delivered
+as its own branch/PR: `soronpo/scala3` @ `claude/quote-cache-run-scope`, independent
+of the `TyperState` and dedup branches (all three share the same upstream base).
+
+**Compiler-side running total (3.10):** unpatched ~242 s -> `TyperState.commit`
+~164 s -> +dedup ~159 s -> +QuotesCache ~152 s. Three independent, upstreamable
+compiler wins, together ~-37% on this workload, on top of the ~16% library/plugin
+wins live on 3.8.4.
 
 
 
