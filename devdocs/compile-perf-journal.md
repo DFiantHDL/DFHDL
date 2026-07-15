@@ -927,5 +927,75 @@ what remains, ranked by expected value:
    slow HK/`Aux` pattern. Restructuring `ExactOp*Aux` to avoid the `Aux`-member
    summon is a DFHDL-side (Exact.scala) architectural change.
 
+## Experiment 14 (2026-07): fresh baseline with both compiler wins + `scratchSeen` adaptive-clear (WASH, reverted)
+
+Re-established the full profiling environment on 3.10: both compiler patches
+applied together (cherry-picked `TyperState.commit` onto the `inlining-dep-dedup`
+branch), the inkuire local build workaround, and the DFHDL 3.10 `BitNumWrapper`
+`AnyVal`-drop. Fresh isolated `compiler_stages/Test/compile` (test sources only,
+deps cached, `-Yprofile-enabled`): **159 s**, 6914 compile-thread JFR samples.
+Both shipped wins confirmed still live: `TyperState.commit` **39% -> 1.0%**, zinc
+dep-extract **23% -> 6.1%**.
+
+**The post-wins profile is flat** (inclusive per-sample attribution, categories
+overlap because the inliner re-types bodies that drive the rest):
+
+| subsystem            |   % |
+|----------------------|-----|
+| application-typing   | 39% |
+| inliner (transparent-inline expansion) | 35% |
+| implicit-search      | 29% |
+| type-map / substitution | 28% |
+| TypeComparer (subtyping) | 23% |
+| denotations          | 20% |
+| constraint solving   | 15% |
+| uniques / hash-consing | 9% |
+| zinc dep-extract     |  6% |
+
+Top *leaf* is `TypeMap.mapOver` (6.3%), entirely `Substituters.substSym`/
+`substParams` under `TreeTypeMap.transform` from the **Inliner** - one-time
+substitution of DFHDL's enormous inferred types into each expanded inline body.
+Legitimate, non-redundant.
+
+**Attempted next fix (the `Arrays.fill` residue, ~1.7%).** The sbt dependency
+collector reuses one `scratchSeen` `EqHashSet` across every type-dependency
+traversal and clears it with `clear(resetToInitial = false)`, i.e. `Arrays.fill`
+over the backing array. A single giant-DFHDL-type traversal grows that array huge
+and it is never shrunk, so every later small traversal pays a full fill of the
+retained huge array. Added an adaptive `clearReusing()` to `GenericHashSet` that
+drops the table back to initial capacity when the just-finished round left it
+sparse (reads `used` before zeroing it), otherwise keeps the fast in-place fill;
+pointed `ExtractDependencies.scratchSeen` at it.
+
+Measured end-to-end (rebuilt+republished the bootstrapped compiler, clean DFHDL
+rebuild, isolated JFR recompile):
+
+| metric (compile thread) | before | after |
+|-------------------------|--------|-------|
+| `Arrays.fill` (leaf)    | 117    | **22** (-81%) |
+| `GenericHashSet.clear` (any) | 115 | **16** |
+| dep-extract cluster (any) | 362  | 357 (flat) |
+| total compile samples   | 6914   | 6884 (**-0.4%**) |
+| wall time               | 159 s  | 162 s (noise) |
+
+The mechanism works (the fill leaf is gone) but it is a **wash on total CPU**: the
+fill saving (~95 samples) reappears (~65) as the reallocation/regrow the shrink
+introduces, netting -0.4% (noise). It is inherent - every dependency record builds
+a fresh traverser and pays exactly one clear regardless; adaptive only makes a
+small-clear-after-big cheaper, and the next big record regrows and eats it back.
+A `collection.Vector` cannot help here: `scratchSeen` is a set needing O(1)
+identity membership (a hash table's slot array), not a `Seq`; Vector gives O(n)
+membership and would make the giant-type traversals O(n^2). **Reverted** - not
+shippable as a perf win (valid micro-fix + memory-hygiene only). The fork stays at
+the two validated wins.
+
+**Conclusion after Experiment 14:** the two big levers were both no-op redundancy
+(39%, 19%) and are banked. What remains is genuine typing work - substitution /
+subtyping / implicit search over DFHDL's large inferred types, mostly inside inline
+expansion - with no remaining compiler-side no-op-redundancy of consequence.
+Further gains are architectural and DFHDL-side (fewer / smaller inline-expanded
+bodies on the hot operators, an `Exact.scala`/`Checked.scala` restructuring); the
+maintainer-ruled-out `transparent`-drop cannot substitute for that.
+
 
 
