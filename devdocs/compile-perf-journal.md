@@ -4,6 +4,37 @@
 > test sources, which exercise the DFHDL compiler plugin and compile-time
 > checks the hardest. Append-only; newest section at the bottom.
 
+## TL;DR (start here)
+
+**Baseline:** ~258 s to compile the 72 `compiler_stages` test sources (10 GB heap).
+
+**Shipped and verified (~9% faster):** `CodeDigestPhase` hashed `tree.show` on
+every top-level class, which renders the giant inferred DFHDL types to text
+(~17 s of the compile). Replaced with a structural digest folded in one
+traversal -> CodeDigest **16.8 s -> 2.6 s**, whole compile **~258 s -> ~236 s**.
+`StagesSpec` 526/526 and `CoreSpec` 104/104 pass. **Owed:** run `testApps` to
+confirm the `.dfdigest` cross-build cache identity is still sound (couldn't run
+it here - needs the external toolchain).
+
+**Where the rest of the time is:** `typer` 65% (~162 s), `inlining` 16% (~40 s).
+`typer` is dominated by **transparent-inline re-expansion**: chained ops
+(`a+a+...`) re-run each inner op's `Check`/`AssertGiven` macros once per
+enclosing level, and `DualSummonTrapError` (behind `==`/`<>`) doubles it. That is
+why ~13 k check/assert macro expansions come from far fewer written checks.
+
+**Dead ends (measured, don't repeat):** `summonFrom` AssertGiven (breaks the
+trap); non-transparent AssertGiven/Check (moves cost typer->inlining, net
+SLOWER); output-tree seal in `exactOp2` (no effect); the `exactOp2` try/catch
+workaround (fires 0 times in these tests); short-circuiting `DualSummonTrapError`
+(its second arm is the runtime connect fallback - load-bearing).
+
+**Only remaining big lever = compiler-side:** memoize transparent-inline / macro
+expansion so an identical nested application is not re-expanded per enclosing
+level. Not attempted here: DFHDL is pinned to Scala 3.8.4 (fork HEAD is a newer
+nightly), and a compiler change can't be soundly verified with only
+`Test/compile`+`CoreSpec`+`StagesSpec`. Left for a maintainer session with the
+full toolchain. Details + exact mechanism in "Experiment 3/4" below.
+
 ## Environment
 
 - Host: remote Claude Code container, 4 vCPU, 15 GB RAM, JDK 17.0.19.
