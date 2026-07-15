@@ -207,6 +207,64 @@ the external toolchain / `dftools` download that is blocked in this sandbox.
 The new hash captures at least as much identifying information as the old
 rendering, but please run `testApps` before relying on it in production caching.
 
+## Experiment 2 (REVERTED): `summonFrom`-based AssertGiven
+
+**Hypothesis under test (maintainer suggestion):** `AssertGiven` is one of the
+hottest typer expansions (7699 expansions, 13.2 s total, 7.2 s self). It is a
+`transparent inline given` backed by a quotes macro. Replacing the macro with
+`compiletime.summonFrom` would resolve it as a compiler intrinsic during typing
+and skip the per-expansion quotes/reflection overhead.
+
+**Semantics probe (cheap, via `corePlayground`).** Before touching `internals`,
+a standalone probe confirmed `summonFrom { case _: G => ... ; case _ => error }`
+reproduces AssertGiven's meaning for every real usage shape:
+
+- single type `G`: matches when a given for `G` exists;
+- union `G = A | B | ...`: matches when ANY arm's given exists - implicit search
+  for a union already accepts a given conforming to any arm (`A <: A | B`), and
+  this held for `=:=`, `<:<` and `util.NotGiven` arms (the arms are checked
+  separately, just as the macro's `recur` does);
+- no arm holds: fails at the summon site with the exact `M` message.
+
+So in isolation the replacement is behavior-equivalent.
+
+**Why it was REVERTED.** Under the full build it breaks `==` (and by the same
+mechanism `<>`):
+
+```
+PrintCodeStringSpec.scala:840  if (cnt == HALF_PERIOD - 1)
+    Cannot implicitly convert to DFHDL Int type.
+```
+
+`==` lowers to `specialCompare`, which summons
+`DualSummonTrapError[Compare[...], Compare[...]]`. The trap **activates
+`ControlledMacroError`**, runs `Implicits.search` on each arm, and reads back
+`getLastMacroAbortError`. `AssertGiven` is summoned *inside* that trapped
+search, and its behaviour must be **context-sensitive**:
+
+- **not trapped** (normal use): return `compiletime.error(M)` - the given
+  materializes carrying a deferred error, so the user sees the custom `M`
+  message at the use site;
+- **trapped**: `errorAndAbort` - *fail the implicit search* so the trap detects
+  it (as a `PriorityError` carrying `M`) and can fall back to the other arm.
+
+`ControlledMacroError.report` chooses between these by inspecting whether error
+control is active. `summonFrom` cannot: a `summonFrom` given ALWAYS
+materializes, so inside the trap it looked like a spurious success, the trap
+picked a wrong arm, and the comparison failed to resolve. A `using G` variant
+(fail the search unconditionally) fixes the trap case but throws away the custom
+`M` message everywhere, which is the whole point of `AssertGiven`. Only a
+context-sensitive macro can satisfy both, so the macro stays.
+
+Conclusion: like dropping `transparent`, this lever is blocked by the
+`DualSummonTrapError` trap that `AssertGiven` participates in. Recorded in the
+`AssertGiven` source as a "do not retry" note. (A theoretical partial win
+remains - a fast `summonFrom` variant for the AssertGiven usages that are
+*provably never* reached inside a trap, e.g. the scope/domain/init checks on
+user-facing methods, keeping the macro only on the `Compare`/`TC_Connect`
+closure - but classifying usages by trap-reachability is fragile and was not
+pursued.)
+
 ## Where the real time is, and what is worth trying next
 
 The 166 s in **typer** is the prize, and no post-typer plugin can touch it.

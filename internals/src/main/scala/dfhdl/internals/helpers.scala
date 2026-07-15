@@ -256,6 +256,19 @@ end CaseClass
 
 trait AssertGiven[G, M <: String]
 object AssertGiven:
+  // NOTE: this MUST stay a `ControlledMacroError`-based macro; a `summonFrom`
+  // (or `using G`) reimplementation was tried and reverted. `AssertGiven` is
+  // summoned INSIDE `DualSummonTrapError`-trapped searches (e.g. the `Compare`
+  // typeclass behind `==`, and `TC_Connect` behind `<>`). The trap activates
+  // error control and reads back `getLastMacroAbortError`, so on failure this
+  // macro must `errorAndAbort` (fail the search, trappable) when trapped, yet
+  // return `compiletime.error(M)` (materialize a deferred error carrying the
+  // custom message) when NOT trapped. That context-sensitivity is exactly what
+  // `ControlledMacroError.report` provides and what `summonFrom` cannot: a
+  // `summonFrom` given always materializes, so the trap saw a spurious success
+  // and comparison/connection resolution broke (`Cannot implicitly convert to
+  // DFHDL Int type` on `cnt == HALF_PERIOD - 1`). See
+  // devdocs/compile-perf-journal.md, "Experiment 2".
   transparent inline given [G, M <: String]: AssertGiven[G, M] =
     ${ macroImpl[G, M] }
   object Success extends AssertGiven[Any, String]
