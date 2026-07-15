@@ -289,6 +289,88 @@ between phases; it is intrinsic to running the check at all. The only real wins
 would reduce how OFTEN it runs (fewer expansions) or make each check cheaper
 without a macro - and the trap forbids the non-macro route.
 
+## Experiment 3: WHY are there so many AssertGiven / Check expansions?
+
+7699 AssertGiven and ~5980 Check expansions is far more than the number of
+checks written in the 72 test files. To find out why, `AssertGiven.macroImpl`,
+`Check1.checkMacro` and `Check2.checkMacro` were instrumented to print, on every
+invocation, the macro-expansion source position **and** the type actually being
+checked (`System.err.println`, reverted after). Then a minimal design was
+compiled via `corePlayground` (recompiles only `Playground.scala`, ~1 s).
+
+### Finding 1: many DISTINCT checks per operation (not re-runs)
+
+For a single `y := a + a`:
+
+```
+[TRACE-AG] line5 G=DFC.Scope.HasAssign | NotGiven[...]        (assignment scope)
+[TRACE-AG] line5 G=scala.<:<[Modifier.PortOUT & ...]          (port direction)
+[TRACE-AG] line5 G=scala.=:=[DFXInt.Val.Candidate...]         (operand kind)
+[TRACE-AG] line5 G=NotGiven[<:<[Modifier.PortO...]]           (modifier)
+[TRACE-CK2] line5 cond=[BaS.. WcS..]   [BaW.. WcW..]   [LS.. RS..]   [LW.. RW..]
+```
+
+The 4 AssertGivens and 4 Check2s are all **different** checks, each firing
+**once**. So a large part of the count is simply that every DFHDL operation
+carries a fixed handful of independent type-level checks (domain/scope/port +
+several width/sign conditions). That part is not waste, it is the checks the
+language performs.
+
+### Finding 2: chained operations RE-EXPAND inner checks (the waste)
+
+Compiling `y := a + a + ... (N additions)` and counting the same check's repeats:
+
+| N additions | total Check2 expansions | max repeats of one check |
+|------------:|------------------------:|-------------------------:|
+| 2 | 6 | 2 |
+| 4 | 10 | 4 |
+| 6 | 14 | 6 |
+
+- AssertGiven on the `:=` stays at 4 total for ANY N: top-level checks fire once.
+- But an inner width check re-expands **once per enclosing operation** (max
+  repeats == N). Total Check2 grows ~`2N + 2`.
+
+**Mechanism.** `+` (and every op) is `transparent inline` with an `inline lhs`.
+`Check1.apply` is `inline def apply(arg) = compiletime.summonInline[Check[..]]`,
+so the expanded body of `(a + a)` still CONTAINS an unresolved
+`summonInline[Check[..]]`. When `(a + a)` is spliced in as the `inline lhs` of
+the next `+` and that outer transparent-inline is expanded/re-typed, the inner
+`summonInline` is resolved AGAIN, re-running `checkMacro`. Every extra level of
+nesting re-resolves the checks beneath it. The growth here is linear per check
+(the total stays ~`2N+2`, not `N^2` - the post-typer `N^2` blowup was already
+killed by `FlattenInlinedPhase`), but it is still a 2x-plus multiplier over the
+minimum, applied to every chained expression in the suite. Combined with
+`DualSummonTrapError` searching BOTH arms (another 2x for everything reached
+through `==`/`<>`), this is what turns a few hundred written checks into
+thousands of expansions.
+
+### What would actually reduce it
+
+The cost is re-resolution of `summonInline[Check[..]]` (and the trap's
+double search) that sit INSIDE transparent-inline bodies which get
+re-expanded. Levers, in order of leverage vs. risk:
+
+1. **Compiler-side memoization of transparent-inline / macro expansion**
+   (the "trace the compiler" outcome). The compiler re-expands an identical
+   transparent-inline application (same symbol + same type args + same
+   argument trees) every time it re-appears as an inline argument, instead of
+   caching the first expansion. Memoizing by (symbol, targs, arg-tree identity)
+   during typer would collapse the per-level re-runs to one. This is the
+   highest-leverage fix and matches the earlier PostTyper `minimizeCall`
+   pattern (a compiler doing discardable repeated work). It needs prototyping in
+   the scala3 fork and careful correctness review (macros may be effectful; a
+   memo must key on everything the expansion depends on).
+2. **Resolve the check once, at its own level.** If `Check1.apply` did not leave
+   a `summonInline[Check[..]]` in the expanded body but instead forced the check
+   to a already-resolved no-op (`CheckOK`) that carries no further summon, the
+   outer re-expansions would have nothing to re-resolve. This is a DFHDL-side
+   restructure of `Check1`/`Check2` and needs the maintainer (it interacts with
+   the runtime-fallback `CheckNUB` path).
+3. **Halve the trap cost.** `DualSummonTrapError` searches both arms even when
+   the first already succeeded; the inner checks re-run for the second arm.
+   Short-circuiting when the first arm fully succeeds (where the two-directional
+   fallback is not needed) would remove a 2x on the `==`/`<>` closure.
+
 ## Where the real time is, and what is worth trying next
 
 The 166 s in **typer** is the prize, and no post-typer plugin can touch it.
