@@ -265,6 +265,30 @@ user-facing methods, keeping the macro only on the `Compare`/`TC_Connect`
 closure - but classifying usages by trap-reachability is fragile and was not
 pursued.)
 
+### Experiment 2b (measurement only): flip `transparent` off, keep the macro
+
+To answer "is it even faster if we ignore the failures?", the given was changed
+from `transparent inline given` to plain `inline given` (macro unchanged),
+profiler on, full clean rebuild. It still breaks the same 3 `==` sites (the trap
+again), but the phase profile is the point:
+
+| phase | `transparent` (baseline) | plain `inline` |
+|-------|-------------------------:|---------------:|
+| typer | 162 s | **155 s** (-7 s) |
+| inlining | 39 s | **63.5 s** (+24.5 s) |
+
+**It is NOT faster - it is slower.** Making the given non-transparent only
+*moves* the 7699 macro expansions out of typer and into the `inlining` phase,
+where they cost ~3x more (and the +24.5 s is understated: the 3 failing units
+error out in typer and never reach inlining, so inlining did more work on fewer
+files). Net regression of ~17 s across the two phases, on top of the broken
+trap. Reverted.
+
+Takeaway: the AssertGiven expansion cost is not removable by relocating it
+between phases; it is intrinsic to running the check at all. The only real wins
+would reduce how OFTEN it runs (fewer expansions) or make each check cheaper
+without a macro - and the trap forbids the non-macro route.
+
 ## Where the real time is, and what is worth trying next
 
 The 166 s in **typer** is the prize, and no post-typer plugin can touch it.
