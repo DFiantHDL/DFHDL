@@ -371,6 +371,50 @@ re-expanded. Levers, in order of leverage vs. risk:
    Short-circuiting when the first arm fully succeeds (where the two-directional
    fallback is not needed) would remove a 2x on the `==`/`<>` closure.
 
+## Experiment 4 (REVERTED): seal the operand result behind a val
+
+The Exact mechanism was the prime suspect for the re-expansion: `exactOp2Macro`
+calls `flattenInlined`, which HOISTS the operand's inner bindings (its resolved
+checks) into one flat `Block`, so an enclosing op re-processes them. Since
+`ExactInfo.exactTpe` derives the exact type from `term.tpe` (widened), not from
+the expanded tree, the plan was: bind the whole op result behind a `val` typed
+at its precise exact type and return a reference to it, so an enclosing op reads
+the exact type off the val ref instead of re-descending into the checks.
+
+Implemented in `exactOp2Macro.buildFlattened`:
+`ValDef.let(spliceOwner, fullResult)(ref => ref)`.
+
+**Result: no change.** The `checkMacro` re-run count on `y := a + a + ... (N)`
+stayed exactly `2N + 2` (N=2 -> 6, N=4 -> 10, N=6 -> 14), identical to baseline.
+
+**Interpretation.** Sealing the macro's OUTPUT tree does not reduce the
+re-expansion, so the repetition is NOT the enclosing op re-descending into the
+operand's output and re-resolving its checks. It happens one level lower: the
+COMPILER re-expands the nested `transparent inline` operator calls themselves
+(and/or re-runs the `ExactOp2` summon), independent of what tree each expansion
+returns. No restructuring of the macro output can change how many times the
+compiler expands `a + a`. Reverted.
+
+This narrows the fix to two places, neither of which is the macro's output tree:
+
+- **Compiler-side memoization of transparent-inline expansion / macro results**
+  keyed by (symbol, type args, argument-tree identity). This is the direct fix
+  for "the compiler re-expands the same nested transparent inline N times" and
+  remains the highest-leverage lever. Prototype in the scala3 fork.
+- **Fewer nested transparent-inline levels** in the operator encoding (an
+  architectural change to how `exactOp*` chains compose) so there is less to
+  re-expand. Maintainer-side; interacts with the exact-type threading that the
+  `inline` operands exist to provide.
+
+Note also the two constant-factor multipliers found along the way, each cheaper
+to attack than the compiler change:
+- the `try/catch` "Scala compiler bug" workaround in `exactOp2Macro` re-runs the
+  ENTIRE `ExactOp2` summon (and thus its checks) whenever the first summon
+  throws - worth measuring how often it fires;
+- `DualSummonTrapError` searches both arms, re-running the inner checks for the
+  second arm on every `==`/`<>` (a 2x on that closure), removable by
+  short-circuiting when the first arm fully succeeds.
+
 ## Where the real time is, and what is worth trying next
 
 The 166 s in **typer** is the prize, and no post-typer plugin can touch it.
