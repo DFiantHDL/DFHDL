@@ -1088,3 +1088,111 @@ wins live on 3.8.4.
 
 
 
+
+## Experiment 16 (2026-07-15): re-established baseline on the freshly-built three-win compiler + fresh JFR
+
+Rebuilt the patched compiler from scratch on a clean container and re-measured, to
+give the next round of hotspot work a current, reproducible starting point.
+
+**Setup.** `soronpo/scala3` @ `performance` = base `84331594` (publishes
+`3.10.0-RC1-bin-SNAPSHOT`) + the three shipped compiler wins cherry-picked
+(`TyperState.commit` no-op-merge skip, inline dep-extract dedup, run-scoped
+`QuotesCache`), plus a 4th fork-local commit that vendors `inkuire.js` and makes
+`DocumentationWebsite.scala` offline-friendly (the release-asset fetch 403s in the
+sandbox). `sbt scala3-bootstrapped/publishLocal` publishes the full toolchain
+(the 6-artifact subset is NOT enough: the compiler's transitive graph needs
+`scaladoc_3`, `scala3-directives-parser_3`, `scala3-tasty-inspector_3`, etc., or
+`internals/update` fails to resolve). DFHDL @ `performance` on
+`3.10.0-RC1-bin-SNAPSHOT`, `-Yprofile-enabled`, 10 G heap. One DFHDL migration fix
+was needed: the committed #26550 workaround changed `BitNumWrapper.value` to `Int`,
+so `toBitNum` now needs an `asInstanceOf[BitNum]` cast that 3.8.4 did not require
+(3.9-RC1+/3.10 reject the widening).
+
+**Baseline (compiler_stages test-only compile, 72 sources, deps cached).**
+
+| iter | sbt elapsed |
+|------|-------------|
+| 1    | 156 s |
+| 2    | 154 s |
+| 3    | 153 s |
+
+**Baseline ~= 154 s**, dead-on the Experiment-15 projection (~152 s with all three
+compiler wins). Per-phase (`-Yprofile-enabled`, run ns):
+
+| phase | time | % of 154 s |
+|-------|-----:|-----------:|
+| **typer** | **~104.6 s** | **~68%** |
+| inlining | ~9.9 s | 6% |
+| posttyper | ~5.4 s | 3.5% |
+| CodeDigest (ours) | ~2.9 s | 1.9% |
+
+**Fresh JFR (`settings=profile`, 8296 compile-thread samples).** The three shipped
+wins are confirmed still live:
+- `SimpleIdentityMap$MapMore.apply` (the `TyperState.commit` hotspot) is **1.2%**,
+  down from the pre-fix **39%**.
+- quote unpickle / macro path is **3.9%** (QuotesCache holding).
+- zinc dep-extract is single-digit (dedup holding).
+
+**Top leaf frames (self-time proxy, compile thread):**
+
+| samples | % | leaf |
+|--------:|---:|------|
+| 503 | 6.1% | `Types$TypeMap.mapOver` |
+| 233 | 2.8% | `java.util.Objects.equals` (113 of them via `SourceFile.equals` in `MegaPhase.transformTree`) |
+| 156 | 1.9% | `TypeApplications.typeParams$extension` |
+| 154 | 1.9% | `OrderingConstraint.entry` |
+| 152 | 1.8% | `SymDenotation.isStaticOwner`/`isStatic` (uncached owner-chain walk) |
+| 151 | 1.8% | `Decorators.eqElements` (141 via `AppliedUniques.enterIfNew` = AppliedType hash-consing collisions) |
+| 139 | 1.7% | `Symbol.computeDenot` |
+| 107 | 1.3% | `Arrays.fill` (the `scratchSeen` residue, Exp 14 wash) |
+| 102 | 1.2% | `SimpleIdentityMap$MapMore.apply` (was 39% pre-fix) |
+
+**Inclusive subsystem attribution (method anywhere in stack, once per sample; the
+categories overlap because the inliner re-types bodies that drive the rest):**
+
+| subsystem | % |
+|-----------|---|
+| inliner (inline expansion) | 30.5% |
+| TypeMap traversal | 29.6% |
+| implicit search | 28.2% |
+| substitution (subst / TreeTypeMap) | 27.7% |
+| subtyping (TypeComparer) | 23.1% |
+| MegaPhase transforms | 13.9% |
+| zinc dep-extract | 9.4% |
+| uniques / hash-consing | 7.9% |
+| constraint solving | 7.6% |
+| denot completion | 5.6% |
+| quote unpickle / macro | 3.9% |
+
+The top single driver of `TypeMap.mapOver` is `TreeTypeMap` inside the **Inliner**
+(36.5% of mapOver samples): one-time substitution of DFHDL's enormous inferred
+types into each expanded inline body. Type args differ per call site, so it is not
+cacheable across sites, and Experiment 14 already classified it as legitimate,
+non-redundant work.
+
+**Conclusion (extends Exp 14/15).** The profile is flat and genuine. The two big
+no-op-redundancy levers (39%, 23%) plus the quote-cache win are banked; nothing of
+that magnitude remains on the compiler side. What is left is real typing work
+(inline-body substitution, implicit/given search, subtyping over DFHDL's large
+inferred types), spread thin.
+
+**Candidate next levers, ranked:**
+1. **DFHDL implicit search (~28% inclusive)** - the `ExactOp2`/`TC`/`Check` `Aux`
+   summons over the large exact types. The biggest remaining lever, but DFHDL-side
+   and architectural (restructuring `Exact.scala`/`Checked.scala`); the check
+   VOLUME is inherent per-op (Exp 5), so a win here means fewer/cheaper summons per
+   op, not de-duplication. High risk under local-only verification.
+2. **`SymDenotation.isStatic` owner-chain walk (1.8%)** - uncached; hot via
+   `TermLambda.applyPrefix` and dep-extract's `stopBecauseStaticOrLocal` because
+   DFHDL prefixes point into deeply-nested module objects. Staticness is invariant
+   within a run for the flags it reads (`ModuleClass`/`PackageClass`/`JavaStatic`),
+   so a per-denotation memo is possible but phase-flag-sensitive; a compiler change
+   for ~1.8%.
+3. **AppliedType hash-consing collisions (1.7%)** - `eqElements` under
+   `AppliedUniques.enterIfNew`; interning is load-bearing, hard to change safely.
+4. **`SourceFile.equals` in `MegaPhase` (~1.4%)** - already has an `eq` fast path;
+   the cost is the fall-through `file == that.file` over inlined trees carrying
+   library sources. Inherent to MegaPhase source tracking.
+
+No single compiler-side change here is both large and low-risk; the remaining big
+lever is the DFHDL-architectural implicit-search reduction.
