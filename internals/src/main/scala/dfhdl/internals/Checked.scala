@@ -211,7 +211,14 @@ object Check1:
   // this given is more specific than the general one below and is preferred when
   // the condition holds statically (the common case for width/sign checks on
   // matching operands), avoiding a `checkMacro` splice per such check.
-  inline given ok[
+  //
+  // Intentionally a plain (non-inline) given: it takes no inline params, and being
+  // `inline` only forced the compiler to inline-expand `CheckOK.asInstanceOf[...]`
+  // (with its full Check type argument) at every one of the thousands of static
+  // check sites during the `inlining` phase. A plain given leaves a single `ok[...]`
+  // reference instead, cutting the `inlining` phase by ~12% on the compiler_stages
+  // test compile with no change to what is checked.
+  given ok[
       Wide,
       T <: Wide,
       Cond[T <: Wide] <: Boolean,
@@ -361,8 +368,10 @@ object Check2:
 
   // Fast path (see Check1.ok): a statically satisfied check has `CondValue = true`
   // and is exactly `CheckOK`, so it is preferred over the general given below and
-  // skips the `checkMacro` splice for the common statically-holding case.
-  inline given ok[
+  // skips the `checkMacro` splice for the common statically-holding case. Plain
+  // (non-inline) on purpose, for the same reason as Check1.ok: inlining it only
+  // re-expanded `CheckOK.asInstanceOf[...]` per site during the `inlining` phase.
+  given ok[
       Wide1,
       Wide2,
       T1 <: Wide1,
