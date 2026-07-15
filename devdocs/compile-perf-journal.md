@@ -45,8 +45,26 @@ upstreamable. The fix is identical in 3.8.4 and 3.10 (same code, same 39% hotspo
 so it transfers; validated on 3.10 because that fork was already built (see
 Experiment 12 for the `BitNumWrapper` genBCode workaround that unblocked it).
 
-**Phase split before the compiler win:** `typer` ~146 s, `inlining` ~40 s,
-everything else small. `TyperState.commit` was inside that typer number.
+**SECOND compiler-side win (Experiment 13): redundant inline dependency
+extraction.** With `TyperState.commit` fixed, the next JFR showed zinc dependency
+extraction at **23% of samples**, 16.7% of it in the `Inlining` phase. `Inlining`
+runs `inlineFinder` on EVERY transformed node, so each `Inlined` subtree's (huge)
+types are re-traversed for dependency recording once per non-`Inlined` ancestor -
+O(depth) redundant. Dependency recording is idempotent, so collecting each
+`Inlined` once by identity is equivalent: dep-extract **23% -> 5.6%**, total
+compiler samples a further **-19%**. Passes `StagesSpec`/`CoreSpec` AND the full
+scala3 `testCompilation` corpus (0 failed). Separate branch/PR:
+`soronpo/scala3` @ `claude/inlining-dep-dedup`.
+
+**Phase split before the compiler wins:** `typer` ~146 s, `inlining` ~40 s,
+everything else small. Both `TyperState.commit` and the inline dependency
+extraction were inside those numbers.
+
+**Total, `compiler_stages/Test/compile` wall-clock:** ~258 s (original) -> ~217 s
+with the three library/plugin wins (on 3.8.4, live today, -16%). The two compiler
+patches cut a further ~38% (242 s -> ~150 s measured on 3.10, transfers to 3.8.4),
+landing the compile around ~140-150 s once the upstream PRs merge - roughly half
+the original.
 
 **Key correction (Experiment 5):** the high macro-expansion counts (7699
 AssertGiven, ~6000 Check) are per-operation **VOLUME**, not redundant
@@ -818,6 +836,62 @@ Reproduce: in scala3 fork edit `TyperState.commit`, `SKIP_INKUIRE_FETCH=1 sbt
 scala3-compiler-bootstrapped/publishLocal`; in DFHDL set `compilerVersion =
 "3.10.0-RC1-bin-SNAPSHOT"`, drop the `BitNumWrapper` `AnyVal`, `sbtn shutdown` +
 `clean`, then compile.
+
+## Experiment 13 (SHIPPED to scala3 fork): redundant inline dependency extraction
+
+After Experiment 12 removed the `TyperState.commit` hotspot, re-profiling (JFR on
+the sbt server, same method) showed the next dominant cluster is the sbt/zinc
+**dependency extraction**, grouped by subsystem:
+
+| subsystem            | % of post-`commit`-fix samples |
+|----------------------|--------------------------------|
+| zinc dep-extract     | **23%** (16.7% via the `Inlining` phase) |
+| constraint/subtyping | 16% |
+| application-typing   | 13% |
+| inliner              | 11% |
+| type-substitution    | 10% |
+| implicit-search      | 6%  |
+
+The `Inlining` phase records incremental-compilation dependencies from inlined code
+by running `inlineFinder` on the result of EVERY `transform` call (`Inlining.scala`,
+`inlineFinder.traverse(result)` at the end of `transform`). `inlineFinder` hands each
+`Inlined` node to `collector`, which traverses that node's inlined types (huge, for
+DFHDL). Because `transform` runs per node and re-runs `inlineFinder` over the whole
+result each time, an `Inlined` subtree is re-collected once per non-`Inlined`
+ancestor on the path up to it - O(depth) redundant traversals of the same types.
+The leaves confirm it: `Arrays.fill` (5.6%, from `scratchSeen.clear` in
+`AbstractExtractDependenciesCollector`) and `EqHashSet.add` (2.7%).
+
+Dependency recording is idempotent (it feeds name/dependency sets), so collecting
+each `Inlined` exactly once is equivalent. Fix: an identity set of already-collected
+`Inlined` nodes guards the `collector` call.
+```scala
+private val collectedInlined = util.EqHashSet[Tree]()
+...
+case tree: Inlined =>
+  if collectedInlined.add(tree) then collector.traverse(tree)
+```
+
+Measured (patched vs `TyperState`-only compiler, same DFHDL sources):
+
+| metric                           | TyperState-only | + dedup | delta      |
+|----------------------------------|-----------------|---------|------------|
+| zinc dep-extract (% samples)     | 23.2%           | 5.6%    | gone       |
+| `Arrays.fill` (% samples)        | 5.6%            | 2.0%    | -          |
+| total compiler samples           | 8761            | 7064    | **-19%**   |
+
+Correctness: safe by construction - a distinct `Inlined` is never skipped, only
+re-collection of the same node is, so no dependency is ever lost. Verified with
+`StagesSpec` 526/526 + `CoreSpec` 104/104 AND the full scala3 `testCompilation`
+regression corpus (exit 0, 0 failed, ~26 min). Delivered as its own commit/branch
+(`soronpo/scala3` @ `claude/inlining-dep-dedup`), independent of the `TyperState` PR.
+
+What's left after this (from the same profile): constraint/subtyping (16%),
+application-typing (13%), type-substitution (10%) - these are genuine typing work
+(`TypeMap.mapOver`/`Substituters`, `OrderingConstraint`), not obvious no-op
+redundancy, so they are harder than the two wins above. The `Arrays.fill` residue
+(scratchSeen growing huge then clearing for small traversals) is a possible small
+follow-up (cap the retained capacity / reset-to-initial), lower value.
 
 ## Where the real time is, and what is worth trying next
 
