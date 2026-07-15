@@ -35,6 +35,43 @@ nightly), and a compiler change can't be soundly verified with only
 `Test/compile`+`CoreSpec`+`StagesSpec`. Left for a maintainer session with the
 full toolchain. Details + exact mechanism in "Experiment 3/4" below.
 
+## In progress: try the latest compiler (Scala 3.10) - maintainer greenlit the bump
+
+Rationale: the fork HEAD carries recent inlining work ("Enhance constant-folding
+during inlining"), so bumping DFHDL off 3.8.4 might itself cut compile time,
+independent of any custom patch. Also a prerequisite for prototyping compiler
+-side expansion memoization.
+
+State as of this entry:
+- The scala3 fork (`soronpo/scala3` @ `claude/dfhdl-compiler-perf-wbtdaf`)
+  builds and `publishLocal`s as **`3.10.0-RC1-bin-SNAPSHOT`**. One build blocker
+  was fixed and pushed to the fork: the scaladoc step downloads `inkuire.js` from
+  GitHub, which 403s offline and stalls `publishLocal`; it is now gated behind
+  `SKIP_INKUIRE_FETCH=1` (commit on the fork branch). Publish command that works:
+  ```
+  cd scala3 && SKIP_INKUIRE_FETCH=1 sbt \
+    scala3-interfaces/publishLocal tasty-core-bootstrapped/publishLocal \
+    scala-library-bootstrapped/publishLocal scala3-library-bootstrapped/publishLocal \
+    scala3-sbt-bridge-bootstrapped/publishLocal scala3-compiler-bootstrapped/publishLocal
+  ```
+  (Do NOT use `set every .../packageDoc/publishArtifact := false` - it cascades
+  and drops the main jars, publishing only ivy.xml.)
+- Next: bump DFHDL `compilerVersion` to `3.10.0-RC1-bin-SNAPSHOT` and compile
+  `internals -> plugin -> compiler_ir -> core -> compiler_stages`. The plugin
+  (~6 k lines on `dotty.tools.dotc` internals) is the migration risk across two
+  major versions; expect API breakage to fix. Kept UNCOMMITTED / off `performance`
+  until it compiles and `CoreSpec`/`StagesSpec` pass, so the branch stays green on
+  the shipped CodeDigest win.
+
+Caveat on expected payoff: the re-expansion thesis behind a memoization patch is
+weaker than first stated. `AssertGiven` expansions stay CONSTANT with chain
+length (4 per assignment regardless of RHS size), so a large part of the ~13 k
+check/assert expansions is per-operation VOLUME, not redundant re-expansion. The
+`Cond`-lambda-signature trace cannot distinguish "same check re-expanded" from
+"N distinct checks sharing a lambda signature"; a decisive test must print the
+APPLIED operand types. So the primary hope from 3.10 is the compiler's own
+inlining improvements, not a custom memoization.
+
 ## Environment
 
 - Host: remote Claude Code container, 4 vCPU, 15 GB RAM, JDK 17.0.19.
