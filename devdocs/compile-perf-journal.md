@@ -27,7 +27,26 @@ heap; the default 1 GB OOMs - see Environment).
    unchanged. `CheckNUB.ok` stays inline (it has inline params).
 All verified with `StagesSpec` 526/526 + `CoreSpec` 104/104.
 
-**Phase split now:** `typer` ~146 s, `inlining` ~40 s, everything else small.
+**BIG compiler-side win (Experiment 12): `TyperState.commit` O(n^2) no-op merge.**
+A JFR profile of the compile showed **~39% of ALL compiler execution samples** in
+one leaf: `SimpleIdentityMap.apply`, under `TyperState.nestingLevel` <-
+`TyperState.commit` <- `tryEither`. `commit` merges type-variable nesting levels
+by iterating `upLevels` and doing a linear-scan lookup+update per binding = O(n^2)
+in level-lowered type vars; DFHDL forks/commits huge numbers of typer states (inline
+re-typing, implicit search) each carrying many such vars. But a forked state shares
+`upLevels` by reference, so when the speculative typing lowered no level the whole
+merge is a **no-op** - which is the common case. A one-line reference-equality guard
+(`if upLevels ne targetState.upLevels`) skips it. Measured on the patched compiler:
+the hotspot drops **39% -> 1.5%**, total compiler samples **-44%**, and the
+`compiler_stages` test compile **242 s -> 164 s (-32%)**, `StagesSpec` 526/526 +
+`CoreSpec` 104/104 still passing. Patch is on the scala3 fork
+(`soronpo/scala3` @ `claude/dfhdl-compiler-perf-wbtdaf`), one commit,
+upstreamable. The fix is identical in 3.8.4 and 3.10 (same code, same 39% hotspot),
+so it transfers; validated on 3.10 because that fork was already built (see
+Experiment 12 for the `BitNumWrapper` genBCode workaround that unblocked it).
+
+**Phase split before the compiler win:** `typer` ~146 s, `inlining` ~40 s,
+everything else small. `TyperState.commit` was inside that typer number.
 
 **Key correction (Experiment 5):** the high macro-expansion counts (7699
 AssertGiven, ~6000 Check) are per-operation **VOLUME**, not redundant
@@ -734,10 +753,77 @@ params and no transparent narrowing. `ok` was safe only because its result is a
 leaf singleton (`CheckOK`) that carries no position and that no plugin phase
 inspects. Any inline def that produces or wraps a `DFVal` is off-limits. Reverted.
 
+## Experiment 12 (SHIPPED to scala3 fork): `TyperState.commit` O(n^2) merge
+
+The biggest single win found so far, and the first on the compiler side. Method:
+attach JFR (`jcmd <sbt-pid> JFR.start settings=profile`) to the sbt server during
+`compiler_stages/Test/compile`, dump, and aggregate execution-sample leaf frames.
+
+Result: **~39% of all compiler execution samples** sit in one leaf,
+`dotty.tools.dotc.util.SimpleIdentityMap$MapMore.apply`. Walking the stacks up:
+```
+SimpleIdentityMap.apply   (linear scan of a persistent identity map)
+  <- TyperState.nestingLevel(tv)
+  <- TyperState.commit  (the `upLevels.foreachBinding` loop)
+  <- Typer.tryEither
+  <- Inliner$InlineTyper.typedApply / Applications.typedApply / Implicits.inferImplicitArg
+```
+
+`TyperState.commit` merges the committing state's type-variable nesting levels into
+the target state:
+```scala
+upLevels.foreachBinding { (tv, level) =>
+  if level < targetState.nestingLevel(tv) then   // linear-scan lookup, O(|target.upLevels|)
+    targetState.setNestingLevel(tv, level)        // linear-scan + array copy, O(|target.upLevels|)
+}
+```
+`upLevels` is a `SimpleIdentityMap[TypeVar, Integer]` whose `MapMore.apply` is a
+linear array scan, so the loop is O(n^2) in the number of level-lowered type vars.
+DFHDL carries MANY of them (deeply nested inline scopes) and forks/commits enormous
+numbers of typer states (every `tryEither` for overload resolution, implicit search
+and inline re-typing), so this O(n^2) merge dominates.
+
+Key observation: `fresh` copies `upLevels` BY REFERENCE (`ts.upLevels = upLevels`),
+so a forked state that lowered no nesting level commits back with
+`upLevels eq targetState.upLevels`. Then every binding already holds the target's
+level (`level < nestingLevel(tv)` is always false) and the entire loop is a no-op -
+yet it still runs the full O(n^2) rescan. That is the 39%. Fix (one line):
+```scala
+if upLevels ne targetState.upLevels then
+  upLevels.foreachBinding { ... }
+```
+
+Measured (patched vs unpatched compiler, same DFHDL sources, full test compile):
+
+| metric                              | baseline | patched | delta        |
+|-------------------------------------|----------|---------|--------------|
+| `SimpleIdentityMap.apply` samples   | 39.2%    | 1.5%    | gone         |
+| total compiler execution samples    | 15428    | 8598    | **-44%**     |
+| `compiler_stages/Test/compile` wall | 242 s    | 164 s   | **-78 s (-32%)** |
+
+`StagesSpec` 526/526 + `CoreSpec` 104/104 pass on the patched compiler - the skipped
+work is a proven no-op, so output is identical.
+
+How it was validated (and why on 3.10): building a patched 3.8.4 from scratch is
+expensive, but the fork was already built/published as `3.10.0-RC1-bin-SNAPSHOT`
+(Experiment 6). DFHDL's `core` had been blocked on 3.9/3.10 by a genBCode
+`Integer`-vs-`int` assertion; the maintainer's workaround is to **drop `extends
+AnyVal` from `BitNumWrapper`** (`core/.../DFBoolOrBit.scala`), after which `core`
+compiles on 3.10. With that, DFHDL builds on the fork, and the patch (byte-identical
+between 3.8.4 and 3.10, hitting the same 39% hotspot on both) was validated there.
+The patch is one commit on `soronpo/scala3` @ `claude/dfhdl-compiler-perf-wbtdaf`,
+suitable for an upstream PR; DFHDL adopts it for real once it lands in a release.
+
+Reproduce: in scala3 fork edit `TyperState.commit`, `SKIP_INKUIRE_FETCH=1 sbt
+scala3-compiler-bootstrapped/publishLocal`; in DFHDL set `compilerVersion =
+"3.10.0-RC1-bin-SNAPSHOT"`, drop the `BitNumWrapper` `AnyVal`, `sbtn shutdown` +
+`clean`, then compile.
+
 ## Where the real time is, and what is worth trying next
 
-The 166 s in **typer** is the prize, and no post-typer plugin can touch it.
-Ranked by expected value:
+**typer** is the prize, and no post-typer plugin can touch it. The single biggest
+lever turned out to be compiler-side (Experiment 12, `TyperState.commit`, -32%);
+what remains, ranked by expected value:
 
 1. ~~**Transparent-inline givens expanded during typer.**~~ **RULED OUT by the
    maintainer (2026-07): dropping `transparent` will not work.** These givens
@@ -755,11 +841,17 @@ Ranked by expected value:
    the trivial-looking `as*` casts need `inline` for meta-context positions.
    Further reduction now means genuinely smaller inline bodies on the hot ops
    (an architectural change), not just dropping the `inline` modifier.
-4. **Upstream Scala 3 change.** The implicit-search and transparent-inline
-   expansion costs are partly compiler-side. A minimal reproducer (a chain of
-   `Aux`-summoning transparent-inline givens) could motivate an upstream
-   improvement, mirroring the earlier PostTyper `minimizeCall` finding. The
-   scala3 fork is available for prototyping if pursued.
+4. **More compiler-side wins (Experiment 12 opened this door).** JFR on the sbt
+   server is the tool: `jcmd <pid> JFR.start settings=profile`, compile, dump,
+   aggregate leaf frames. After the `TyperState.commit` fix the next leaves are
+   `TypeMap.mapOver` (~5%), `Arrays.fill`/`SimpleIdentityMap.updated` (the
+   persistent-map copies feeding constraint solving), and `EqHashSet.add`. These
+   are the constraint solver / implicit search doing genuine work, so they are
+   harder than the no-op `commit` merge, but worth another profiling pass. The
+   `TyperState.commit` patch itself should go upstream (one commit on the fork).
+5. **`Aux`-member implicit search** (from the earlier trace, ~19 s). The classic
+   slow HK/`Aux` pattern. Restructuring `ExactOp*Aux` to avoid the `Aux`-member
+   summon is a DFHDL-side (Exact.scala) architectural change.
 
 
 
