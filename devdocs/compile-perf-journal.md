@@ -549,6 +549,45 @@ notes for anyone repeating this in the sandbox:
   newer inlining helps, so we stay on 3.8.4 (where a fix should transfer forward
   anyway).
 
+## Experiment 7 (SHIPPED): statically-true fast path for `Check`
+
+Since the cost is per-operation check VOLUME (Experiment 5), the lever is making
+each check cheaper. `Check1`/`Check2` had a single `transparent inline given`
+that always ran `checkMacro`, even when the condition holds statically (the
+common case: matching widths/signs). `checkMacro`'s statically-true branch just
+returns `CheckOK`, but the macro splice runs regardless.
+
+Added a higher-priority fast-path given (mirroring the existing `CheckNUB.ok`)
+with `CondValue` fixed to `true`:
+
+```scala
+inline given ok[Wide, T <: Wide, Cond[..], Msg[..], MsgValue <: String, Warn <: Boolean]
+    : Check[Wide, T, Cond, Msg, true, MsgValue, Warn] =
+  CheckOK.asInstanceOf[Check[Wide, T, Cond, Msg, true, MsgValue, Warn]]
+// general macro given renamed `fromMacro`, unchanged
+```
+
+Because `CondValue` is fixed to `true`, this given is more specific than the
+general `fromMacro` and is preferred when the condition is statically satisfied,
+so those checks skip the `checkMacro` splice entirely. When `CondValue` is
+`false` or abstract, `ok` does not match and `fromMacro` runs exactly as before
+(compile error / runtime check preserved). No trait-priority gymnastics were
+needed - the compiler picks `ok` by specificity with zero ambiguity.
+
+**Result (compiler_stages test compile, `-Yprofile-enabled`):**
+
+| phase | before | after |
+|-------|-------:|------:|
+| typer | 162 s | **146 s** (-16 s) |
+| inlining | 40 s | 44 s (+4 s; the `ok` bodies expand there) |
+| **net** | | **~-12 s** |
+
+Verified: `StagesSpec` 526/526, `CoreSpec` 104/104 (twice). Safe by
+construction - it only shortcuts the provably-satisfied case, which was already a
+`CheckOK` no-op. This is transferable to future compiler versions (it is pure
+DFHDL library code). Combined with the CodeDigest fix, the whole compile is now
+~258 s -> ~222 s.
+
 ## Where the real time is, and what is worth trying next
 
 The 166 s in **typer** is the prize, and no post-typer plugin can touch it.
