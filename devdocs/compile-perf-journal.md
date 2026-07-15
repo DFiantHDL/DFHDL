@@ -707,6 +707,33 @@ is a static singleton whose class can be shared across concurrent compiler runs
 on the same classpath. A plain `HashMap` under concurrent structural mutation can
 corrupt or throw (a compiler crash); `TrieMap` is safe. No upside, real downside.
 
+## Experiment 11 (REVERTED): generalizing the non-inline rule to the `as*` casts
+
+Following Experiment 9's rule ("an inline def with no inline params and no
+transparent narrowing is pure inlining-phase cost"), audited the other hot inline
+expansions the trace named inside `inlining`:
+- `fromValue`, `conv` (Exact.scala, DFVal.scala): `transparent inline` with an
+  `inline value` param - fully load-bearing, NOT candidates.
+- `generate`: not a library inline def (test/elaboration side).
+- the `as*` cast family (`asValOf`/`asValTP`/`asConstOf`/... on `DFValAny`):
+  plain `inline def`, no inline params, body is a bare `asInstanceOf` with an
+  explicit return type. Looked exactly like `ok`. Tried making the pure-cast
+  block non-inline.
+
+Result: **core + compiler_stages compiled, but StagesSpec FAILED** -
+`DropLocalDclsSpec` codegen diffs and `GlobalizePortVectorParamsSpec` threw
+`NoSuchElementException: key not found: Const(... DFVal.scala:175 ...)`. The key
+is the giveaway: with the cast inlined, the meta-context source position planted
+during elaboration is the USER call site; as a plain method it collapses to the
+cast's definition site inside `DFVal.scala`. The DFHDL plugin's position/naming
+tracking (MetaContextPlacer/Gen) depends on these casts being inlined.
+
+Takeaway (sharpens Experiment 9's rule): `inline` on a value-path def can be
+load-bearing for **meta-context position propagation** even when it has no inline
+params and no transparent narrowing. `ok` was safe only because its result is a
+leaf singleton (`CheckOK`) that carries no position and that no plugin phase
+inspects. Any inline def that produces or wraps a `DFVal` is off-limits. Reverted.
+
 ## Where the real time is, and what is worth trying next
 
 The 166 s in **typer** is the prize, and no post-typer plugin can touch it.
@@ -722,11 +749,12 @@ Ranked by expected value:
    summon, or caching, could help - but it is an architectural change to
    `Exact.scala`.
 3. **`inlining` phase, 28.5 s of inliner machinery** re-typing inline-def
-   bodies. A safe reduction would come from fewer / smaller non-transparent
-   inline bodies on the hot ops (`fromValue`, `conv`, `assertCodeString`).
-   Experiment 9 took the first bite here (the `ok` givens did not need `inline`
-   at all, -5.3 s); auditing `fromValue`/`conv`/`generate` for the same
-   "no inline params, no transparent narrowing needed" property is the next step.
+   bodies. Experiment 9 took the one clean bite here (the `ok` givens did not
+   need `inline` at all, -5.3 s). The follow-up audit (Experiment 11) found no
+   more free wins: `fromValue`/`conv` need `transparent` + inline params, and
+   the trivial-looking `as*` casts need `inline` for meta-context positions.
+   Further reduction now means genuinely smaller inline bodies on the hot ops
+   (an architectural change), not just dropping the `inline` modifier.
 4. **Upstream Scala 3 change.** The implicit-search and transparent-inline
    expansion costs are partly compiler-side. A minimal reproducer (a chain of
    `Aux`-summoning transparent-inline givens) could motivate an upstream
