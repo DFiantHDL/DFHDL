@@ -9,7 +9,7 @@
 **Baseline:** ~258 s to compile the 72 `compiler_stages` test sources (10 GB
 heap; the default 1 GB OOMs - see Environment).
 
-**Two shipped, verified wins - together ~258 s -> ~222 s (~14%), all on 3.8.4:**
+**Three shipped, verified wins - together ~258 s -> ~217 s (~16%), all on 3.8.4:**
 1. **CodeDigest** (Experiment 1): `CodeDigestPhase` hashed `tree.show` on every
    top-level class, rendering the giant inferred types to text (~17 s). Replaced
    with a structural digest folded in one traversal -> CodeDigest **16.8 s ->
@@ -18,9 +18,16 @@ heap; the default 1 GB OOMs - see Environment).
 2. **`Check` fast path** (Experiment 7): a statically-true `ok` given returns
    `CheckOK` without running `checkMacro` -> **typer 162 s -> 146 s (-16 s)**.
    Works because the macro's true-branch was a genuine no-op.
-Both verified with `StagesSpec` 526/526 + `CoreSpec` 104/104.
+3. **`Check ok` made non-inline** (Experiment 9): the fast-path `ok` givens on
+   `Check1`/`Check2` were `inline given` but take no inline params, so `inline`
+   only forced inline-expansion of `CheckOK.asInstanceOf[Check[...]]` (with its
+   full Check type arg) at every static check site during the `inlining` phase
+   (2043 expansions in the trace). Plain givens leave one `ok[...]` ref instead
+   -> **inlining 45.0 s -> 39.6 s (-5.3 s, -12%; -185 MB allocated)**, typer
+   unchanged. `CheckNUB.ok` stays inline (it has inline params).
+All verified with `StagesSpec` 526/526 + `CoreSpec` 104/104.
 
-**Phase split now:** `typer` ~146 s, `inlining` ~44 s, everything else small.
+**Phase split now:** `typer` ~146 s, `inlining` ~40 s, everything else small.
 
 **Key correction (Experiment 5):** the high macro-expansion counts (7699
 AssertGiven, ~6000 Check) are per-operation **VOLUME**, not redundant
@@ -35,7 +42,10 @@ output-tree seal in `exactOp2` (no effect); `exactOp2` try/catch workaround
 (fires 0x here); short-circuiting `DualSummonTrapError` (second arm is the
 runtime connect fallback); **`ORGIVEN` + fast-path AssertGiven (Experiment 8):
 correct but ~2 s WORSE - the assert's summon work is irreducible and the
-`NotGiven` guard needed to prefer the fast path costs a second summon.**
+`NotGiven` guard needed to prefer the fast path costs a second summon**;
+**`ControlledMacroError` TrieMap -> plain `mutable.Map` (Experiment 10): typer
+UNCHANGED (within noise) - the map ops are not a hot fraction of typer, and
+`TrieMap` is load-bearing for sbt's parallel in-JVM compilation, so reverted.**
 
 **Newer compilers (Experiment 6):** DFHDL `internals`/`plugin`/`compiler_ir`
 compile clean on Scala 3.10.0-RC1 (plugin is forward-compatible), but `core`
@@ -636,6 +646,67 @@ Takeaway: the `Check` fast path was a real win only because its common case was
 provably a no-op; the `AssertGiven` check is irreducible summon work, so the same
 structural trick regresses. Left reverted.
 
+## Experiment 9 (SHIPPED): `Check ok` fast-path made non-inline
+
+Hypothesis (from profiling the `inlining` phase, not just typer): the huge
+`Check` type trees and inline residue that flow past typer make `inlining`
+(~44 s) slower than it needs to be. Method: `-Yprofile-trace` on the full
+`compiler_stages` test compile, then aggregate self-time of events occurring
+INSIDE the `inlining` phase span.
+
+What the trace showed about `inlining` (40.9 s total):
+- **28.5 s** generic inliner traversal / re-typing of inline-def bodies (the
+  file-level self-time). This is node-count bound; prior experiments showed type
+  complexity alone does not move it.
+- **12.4 s** named inline expansions. Of these only **1.7 s** is Check-related,
+  essentially all of it the **`ok` given inlined 2043x (1.6 s)**.
+
+So Check-type erasure per se was not the lever (Check is a small slice of
+inlining, and typer - where the checks are actually resolved - is upstream and
+untouched by any post-typer rewrite). But the trace pinpointed a concrete,
+free win: the fast-path `ok` givens (Experiment 7) were declared `inline given`
+yet take **no inline params**. `inline` bought nothing at the type level
+(specificity alone makes them the preferred given) and only forced the compiler
+to inline-expand `CheckOK.asInstanceOf[Check[bigtype]]` at each of the thousands
+of static check sites during `inlining`. Making them plain `given`s leaves a
+single `ok[...]` reference.
+
+Measured on `compiler_stages/Test/compile` (same JVM, clean rebuild each side):
+
+| phase    | `inline given ok` | plain `given ok` | delta        |
+|----------|-------------------|------------------|--------------|
+| typer    | 148.7 s           | 145.6 s          | ~noise       |
+| inlining | **44.95 s**       | **39.6 s**       | **-5.3 s**   |
+| inlining allocated | 1.59 GB | 1.41 GB         | -185 MB      |
+
+`StagesSpec` 526/526 + `CoreSpec` 104/104 pass (error/warn paths are unaffected -
+those resolve via `fromMacro`, unchanged). `CheckNUB.ok` keeps `inline` because
+it genuinely has inline params. Shipped.
+
+Generalizable takeaway: an `inline given`/`inline def` with no inline params and
+no need for transparent result narrowing is pure inlining-phase cost. Auditing
+the other hot inline defs the trace named (`fromValue`, `conv`, `generate`) for
+the same property is the natural follow-up (they may legitimately need `inline`,
+but it is worth checking one by one).
+
+## Experiment 10 (REVERTED): `ControlledMacroError` TrieMap -> plain Map
+
+Hypothesis (maintainer): the two `collection.concurrent.TrieMap`s that back the
+error-control trap were made concurrent on the assumption that different compiler
+threads share the macro context; if they do not, a plain `mutable.Map` would be
+cheaper. Changed both to `collection.mutable.Map`, clean rebuild, measured.
+
+Result: **typer 148.9 s vs 145.6-148.7 s across the other runs - unchanged
+within noise.** The map operations (a handful per error-controlled given search)
+are not a hot fraction of typer; macro tree-building dominates. `StagesSpec`
+526/526 still pass (the mechanism works single-threaded).
+
+Reverted, because the change is perf-neutral AND `TrieMap` is load-bearing:
+sbt runs compile tasks in parallel within one JVM, and `ControlledMacroError`
+is a static singleton whose class can be shared across concurrent compiler runs
+on the same classpath. A plain `HashMap` under concurrent structural mutation can
+corrupt or throw (a compiler crash); `TrieMap` is safe. No upside, real downside.
+
 ## Where the real time is, and what is worth trying next
 
 The 166 s in **typer** is the prize, and no post-typer plugin can touch it.
@@ -653,6 +724,9 @@ Ranked by expected value:
 3. **`inlining` phase, 28.5 s of inliner machinery** re-typing inline-def
    bodies. A safe reduction would come from fewer / smaller non-transparent
    inline bodies on the hot ops (`fromValue`, `conv`, `assertCodeString`).
+   Experiment 9 took the first bite here (the `ok` givens did not need `inline`
+   at all, -5.3 s); auditing `fromValue`/`conv`/`generate` for the same
+   "no inline params, no transparent narrowing needed" property is the next step.
 4. **Upstream Scala 3 change.** The implicit-search and transparent-inline
    expansion costs are partly compiler-side. A minimal reproducer (a chain of
    `Aux`-summoning transparent-inline givens) could motivate an upstream
