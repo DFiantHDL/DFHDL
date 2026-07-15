@@ -1196,3 +1196,62 @@ inferred types), spread thin.
 
 No single compiler-side change here is both large and low-risk; the remaining big
 lever is the DFHDL-architectural implicit-search reduction.
+
+## Experiment 17 (2026-07-15): the Aux / implicit-search lever is inherent, not redundant
+
+Followed up on Experiment 16's ranking by taking the top remaining lever head-on:
+the ~28% (inclusive) spent in implicit search for the `ExactOp2`/`TC`/`Check`
+`Aux` summons. The question: is any of it redundant (removable safely) or is it
+all load-bearing type computation?
+
+**Read the hottest given directly** (`DFDecimal.scala` DFXInt arithmetic
+`ExactOp2`, the `+`/`-`/... path). Its `using` clause is large, and every member
+is load-bearing:
+- `icL`/`icR` (`Candidate.Aux[..]`) - resolve each operand to its DF value type;
+- `resultSign`/`resultWidth`/`resultNative` (`Id[ITE[...]]`) - compute the result
+  sign/width/native-ness from the operands (this IS the language's width/sign
+  inference);
+- `ubLW`/`ubRW` (`UBound.Aux`) - bound the widths;
+- `checkWS`/`checkWW` (`` `BaS >= WcS`.Check `` / `` `BaW >= WcW`.Check ``) - the
+  compile-time width/sign safety checks.
+
+None of these is redundant: each either computes a component of the result type or
+enforces a check the language guarantees. Removing or merging any of them changes
+the inferred type or the checking behavior. This is the concrete, code-level
+confirmation of Experiment 5's conclusion ("check VOLUME is inherent per operation,
+not redundant re-expansion") - now shown for the *whole* summon, not just the
+`Check`s.
+
+**Confirmed there is no concentrated compiler-side redundancy behind it** (fresh
+JFR, 8297 compile-thread samples):
+- match-type reduction (the `ITE`/`UBound` type-level computation): **only 2.0%**.
+  So a compiler-side match-type-reduction cache would not move the needle here, and
+  is not worth its soundness risk.
+- type application (`appliedTo`/`typeParams`, i.e. building `DFValTP[...]`,
+  `DFXInt[...]`): 13.2% - inherent to constructing the large result types.
+- dealias/normalize: 5.1%.
+
+The implicit-search cost is therefore genuine, non-redundant, spread-thin work:
+per-operation resolution of the operand value types, computation of the result
+sign/width, and the width/sign checks, over DFHDL's large inferred types. There is
+no no-op-redundancy pocket of the kind the three shipped compiler wins exploited.
+
+**What this rules out and what remains.** A safe, correctness-preserving,
+locally-verifiable speed fix in `Exact.scala`/`Checked.scala` is NOT available:
+the summons are the language's compile-time semantics. The only directions left are
+genuinely semantic / maintainer-side, each changing behavior and needing full
+`testApps` validation (out of reach in this sandbox):
+- collapse the per-op `checkWS` + `checkWW` into a single `Check` (halves the
+  arithmetic Check summons, but merges two distinct error messages);
+- reduce the number of nested `Candidate.Aux`/`TC` summons per op by restructuring
+  how operand value types are resolved (large refactor across ~35 `ExactOp2`
+  givens, high regression surface);
+- fewer/cheaper type-level width computations (changes inference).
+
+**Conclusion.** After the three compiler wins and the shipped library wins, the
+`compiler_stages` test compile (~154 s, typer 68%) is at a genuine floor for
+low-risk work: the dominant remaining cost is DFHDL's own inherent compile-time
+type inference and checking, which cannot be reduced without changing what the
+language computes. Further gains require a deliberate, maintainer-owned semantic
+redesign (fewer/cheaper checks per operation) validated against the full app
+suite, not a mechanical optimization.
