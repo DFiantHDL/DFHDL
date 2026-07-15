@@ -8,7 +8,7 @@ commands += DFHDLCommands.docExamplesRefUpdate
 val projectName = "dfhdl"
 
 // VERSIONS — all version literals live here.
-val compilerVersion = "3.8.4"
+val compilerVersion = "3.10.0-RC1-bin-SNAPSHOT"
 // The DFTools binary toolchain release this DFHDL build targets (versioned independently of
 // DFHDL). Surfaced to the library via lib's generated `dftools.properties` and read by
 // DFToolsImage. Bump when adopting a new DFTools release.
@@ -521,8 +521,8 @@ lazy val pluginUseSettings = pluginOptionsSettings ++ Seq(
 )
 
 lazy val pluginTestUseSettings = pluginOptionsSettings ++ Seq(
-  Test / scalacOptions ++= pluginOptions.value
-  // "-Yprofile-enabled",
+  Test / scalacOptions ++= pluginOptions.value,
+  Test / scalacOptions += "-Yprofile-enabled"
   // "-Yprofile-trace:compiler.trace"
 )
 
