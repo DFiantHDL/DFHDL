@@ -483,6 +483,72 @@ to attack than the compiler change:
   second arm on every `==`/`<>` (a 2x on that closure), removable by
   short-circuiting when the first arm fully succeeds.
 
+## CORRECTION (Experiment 5): it is check VOLUME, not re-expansion
+
+Experiments 3-4 suggested chained ops re-expand inner checks. A sharper
+measurement refutes the *redundant* part of that. `Check2.checkMacro` was
+instrumented to print the APPLIED operand types (`T1`, `T2`, `CondValue`) - not
+the `Cond` lambda signature, which is identical across all arithmetic checks and
+was the source of the earlier ambiguity. Compiling `y := a + a + ... (N)`:
+
+| check (by applied types) | N=1 | N=2 | N=3 |
+|--------------------------|----:|----:|----:|
+| `T1=true T2=true` (sign) | 2 | 3 | 4  (= N+1) |
+| `T1=UBound...` (width)   | 1 | 2 | 3  (= N)   |
+| `T1=32 T2=16` (assign)   | 1 | 1 | 1          |
+| **total**                | 4 | 6 | 8  (= 2N+2)|
+
+The total is **linear** in N. If inner checks truly re-expanded once per
+enclosing level (the Experiment-3/4 hypothesis), the innermost check would fire
+N times, the next N-1, etc. - a **quadratic** total. It is linear, so each `+`
+contributes exactly one sign + one width check and the `:=` adds its two. **The
+high macro-expansion counts (7699 AssertGiven, ~6000 Check across the suite) are
+inherent per-operation VOLUME, not redundant re-expansion.**
+
+Consequences:
+- The compiler-side "memoize identical transparent-inline expansions" idea does
+  NOT apply: there are no identical re-expansions to collapse. This retroactively
+  explains why the Experiment-4 output-seal changed nothing.
+- Reducing typer time requires FEWER or CHEAPER checks/resolutions per operation
+  (architectural), not de-duplication. Candidates (all maintainer-side, higher
+  risk): combine the per-op sign+width `Check`s into one; reduce the `Aux`-member
+  implicit search (14336 searches / 19 s); or halve the `DualSummonTrapError`
+  double-arm search that doubles every `==`/`<>` (the dominant `<>` closure is
+  144 s of the run) - but its second arm feeds the runtime connect fallback, so
+  it is not safe to drop blindly.
+
+## Experiment 6 (build spike): DFHDL on newer compilers (3.9 / 3.10)
+
+The maintainer OK'd bumping off 3.8.4. Built the `soronpo/scala3` fork
+(`3.10.0-RC1`) locally: `publishLocal` of the compiler chain. Two build-tooling
+notes for anyone repeating this in the sandbox:
+- The scaladoc step downloads `inkuire.js` from a GitHub *release* (403 through
+  the proxy). `raw.githubusercontent.com` is reachable but the asset is not a
+  repo file. Patched `project/DocumentationWebsite.scala` to skip the fetch under
+  `SKIP_INKUIRE_FETCH=1` (committed on the fork branch); the empty stub only
+  disables doc *search*, the bin jars publish fine.
+- The compiler chain needs `scala3-interfaces`, `tasty-core`, `scala-library`,
+  `scala3-library`, `scala3-sbt-bridge`, `scala3-compiler`, plus transitively
+  `scala3-directives-parser`, `scaladoc`, `scala3-tasty-inspector`. Easiest is
+  `SKIP_INKUIRE_FETCH=1 sbt scala3-bootstrapped/publishLocal`. Do NOT compile
+  DFHDL while that publish runs - the compiler jar is rewritten mid-flight and
+  DFHDL's compile dies with a spurious `NoClassDefFoundError`.
+
+**Migration result (uncommitted, DFHDL kept on 3.8.4):**
+- `internals` (macros/quotes), `plugin` (6 k lines on `dotty.tools.dotc`
+  internals), and `compiler_ir` all compile CLEAN on 3.10.0-RC1. **The DFHDL
+  plugin is forward-compatible** with the newer compiler - a useful, non-obvious
+  result.
+- `core` does NOT compile: the JVM backend crashes with
+  `AssertionError: Cannot emit primitive conversion from Integer to I`
+  (3.10.0-RC1) / `Cannot compute maxType: Integer, I` (3.9.0-RC1). Same
+  `Integer`-vs-`int` backend assertion on BOTH newer versions - a genBCode
+  incompatibility with some boxed-`Integer`-where-`int` pattern in `core` that
+  3.8.4 tolerated. No source position (backend crash); pinpointing needs a
+  bisect the maintainer is best placed to do. This blocks measuring whether the
+  newer inlining helps, so we stay on 3.8.4 (where a fix should transfer forward
+  anyway).
+
 ## Where the real time is, and what is worth trying next
 
 The 166 s in **typer** is the prize, and no post-typer plugin can touch it.
