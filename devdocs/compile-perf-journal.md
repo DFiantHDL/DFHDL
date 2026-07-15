@@ -957,6 +957,32 @@ Top *leaf* is `TypeMap.mapOver` (6.3%), entirely `Substituters.substSym`/
 substitution of DFHDL's enormous inferred types into each expanded inline body.
 Legitimate, non-redundant.
 
+**Authoritative per-phase wall-clock** (same run, from the compiler's own
+`-Yprofile-enabled`; JFR bottom-frame attribution is unreliable here because
+`settings=profile` truncates stacks at 64 frames and the deep typer/inlining
+phase-driver frames get cut). Whole compilation, **156.9 s total**:
+
+| phase group                     |   wall |   % | notes |
+|---------------------------------|-------:|----:|-------|
+| **typer**                       | 113.2 s | 72% | 12.4 GB allocated - the GC driver too |
+| DFHDL plugin phases (all 13)    |  13.6 s |  9% | breakdown below |
+| other standard phases           |  10.8 s |  7% | genBCode 2.9, erasure 2.3, pickler 1.7, sbt-deps 0.9, sbt-api 0.8, splicing/pickleQuotes 0.6 ea, parser 0.4 |
+| inlining                        |   8.2 s |  5% | non-transparent `inline def` expansion + dep extraction |
+| MegaPhase transforms (~60)      |   7.0 s |  4% | crossVersionChecks/refchecks/betaReduce cluster biggest at 2.4 s |
+| posttyper                       |   4.2 s |  3% | (was 20-70 s before the `minimizeCall` fix) |
+
+DFHDL plugin phases individually: CodeDigest 2.2 (was ~17 s before Exp 1 - win
+holding), PureCheck 1.6, OnCreateEvents 1.3, MetaContextGen 1.3, MetaContextPlacer
+1.2, LoopFSM 1.1, FlattenInlined 0.9, TopAnnot 0.8, DesignClsSkip 0.8, DesignDefs
+0.7, CustomControl 0.7, MetaContextDelegate 0.6, PreTyper 0.5.
+
+**typer is 72% and everything else is small.** The two compiler wins already landed
+*inside* typer (and the inlining / sbt-deps slivers); no non-typer phase is a
+meaningful lever (biggest is inlining at 8.2 s, no plugin phase exceeds CodeDigest's
+2.2 s). What is left in typer is genuine work: transparent-inline re-expansion,
+implicit search for the `ExactOp`/`Check` givens, and substitution/subtyping over
+DFHDL's large inferred types.
+
 **Attempted next fix (the `Arrays.fill` residue, ~1.7%).** The sbt dependency
 collector reuses one `scratchSeen` `EqHashSet` across every type-dependency
 traversal and clears it with `clear(resetToInitial = false)`, i.e. `Arrays.fill`
