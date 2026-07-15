@@ -11,10 +11,20 @@ Highlights that supersede parts of this older guide:
   compile (the heaviest workload) the phase split is now roughly:
   **typer 65% (~162 s), inlining 16% (~40 s), CodeDigest ~2.6 s, everything
   else small.** `posttyper` is no longer the problem; **typer is.**
-- **Shipped win:** `CodeDigestPhase` used to hash `tree.show` (which renders the
-  giant inferred types to text) on every top-level class - ~17 s. It now folds
-  a structural digest via one traversal (~2.6 s). ~9% off the whole compile.
-  Verify cross-build cache soundness with `testApps` before trusting it further.
+- **Shipped win 1:** `CodeDigestPhase` used to hash `tree.show` (which renders
+  the giant inferred types to text) on every top-level class - ~17 s. It now
+  folds a structural digest via one traversal (~2.6 s). ~9% off the whole
+  compile. Verify cross-build cache soundness with `testApps` before trusting it.
+- **Shipped win 2:** `Check1`/`Check2` now have a statically-true fast-path given
+  (`ok`, `CondValue` fixed to `true`, mirroring `CheckNUB.ok`) that returns
+  `CheckOK` without running `checkMacro`. Most width/sign checks hold statically,
+  so this skips their macro splice: **typer 162 s -> 146 s (-16 s)**. Pure
+  library code, transfers to future compiler versions. Together with win 1 the
+  compile is ~258 s -> ~222 s.
+- **Key correction:** the high check-expansion counts are per-operation VOLUME,
+  NOT redundant re-expansion (`a+a+...(N)` -> `2N+2` checks, LINEAR). So there is
+  nothing to "memoize"; the lever is fewer/cheaper checks per op (win 2 is the
+  cheaper-check direction).
 - **typer's cost is transparent-inline RE-EXPANSION.** A single `y := a+a` fires
   ~4 distinct `Check` and ~4 distinct `AssertGiven` macros (all legitimate). But
   in a chain `a + a + ... (N)`, an inner width check re-expands once per
