@@ -66,10 +66,57 @@ class CodeDigestPhase(setting: Setting) extends CommonPhase:
   // the toolchain, not by the build output, and they dominate any reference closure
   private val untrackedPrefixes = List("java.", "javax.", "jdk.", "sun.", "scala.")
 
-  private def sha256(str: String): String =
-    MessageDigest.getInstance("SHA-256")
-      .digest(str.getBytes(StandardCharsets.UTF_8))
-      .map("%02x".format(_)).mkString
+  /** The `own` code-identity hash of a top-level class's typed tree.
+    *
+    * This used to be `sha256(pluginStamp + "\n" + tree.show)`. `tree.show`
+    * pretty-prints the ENTIRE typed tree to a string, which for DFHDL code means
+    * materializing the giant inferred dependent types (`ExactOp2Aux[...]#Out`,
+    * Check condition types, etc.) as text on every top-level class. Profiling
+    * showed this single call dominated the CodeDigest phase (~17 s of a ~260 s
+    * compile of the compiler_stages tests).
+    *
+    * Instead we fold the tree's code identity directly into the digest by
+    * traversing it once: node kind + referenced symbol full-names + literal
+    * constants + the identity-bearing parts of each carried type (named-type
+    * symbols, constants, refinement names). This captures the same
+    * meaning-affecting information as the source rendering while never building
+    * the multi-kilobyte type strings. It is position-insensitive (no spans are
+    * read) and source-path-free, exactly as the old rendering was.
+    */
+  private def ownHash(td: TypeDef)(using Context): String =
+    val digest = MessageDigest.getInstance("SHA-256")
+    val sep = Array[Byte](0)
+    def upd(s: String): Unit =
+      digest.update(s.getBytes(StandardCharsets.UTF_8)); digest.update(sep)
+    upd(pluginStamp)
+    def hashType(tpe: Type): Unit =
+      tpe.foreachPart { part =>
+        // every part folds its structural kind, so `A & B`, `A | B` and `(A, B)`
+        // (which share the same leaf symbols) can never collide
+        upd(part.getClass.getSimpleName)
+        part match
+          case tp: NamedType    => upd(tp.symbol.fullName.mangledString)
+          case tp: ConstantType => upd(tp.value.toString)
+          case tp: RefinedType  => upd(tp.refinedName.mangledString)
+          case _                => // structural parts are still recursed into by foreachPart
+      }
+    val traverser = new TreeTraverser:
+      def traverse(tree: Tree)(using Context): Unit =
+        tree match
+          case tt: TypeTree => upd("T"); hashType(tt.tpe)
+          case lit: Literal => upd("L"); upd(lit.const.value.toString)
+          case _ =>
+            upd(tree.getClass.getSimpleName)
+            val sym = tree.symbol
+            if (sym.exists) upd(sym.fullName.mangledString)
+        traverseChildren(tree)
+    try traverser.traverse(td)
+    // an un-walkable (cyclic/erroneous) tree still yields a stable-per-build
+    // hash of whatever was folded before the failure; correctness of caching is
+    // unaffected because such a class simply gets a conservative identity
+    catch case NonFatal(_) => ()
+    digest.digest().map("%02x".format(_)).mkString
+  end ownHash
 
   /** The identity of the PLUGIN itself, folded into every `own` hash it writes.
     *
@@ -169,7 +216,7 @@ class CodeDigestPhase(setting: Setting) extends CommonPhase:
         outputDirOf.foreach { outDir =>
           try
             val record =
-              (s"$formatHeader" :: s"own ${sha256(s"$pluginStamp\n${tree.show}")}" ::
+              (s"$formatHeader" :: s"own ${ownHash(tree)}" ::
                 depsOf(tree, name).map(dep => s"dep $dep")).mkString("", "\n", "\n")
             val file = outDir.resolve(name.replace('.', '/') + recordExt)
             Files.createDirectories(file.getParent)

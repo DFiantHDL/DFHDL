@@ -1,5 +1,66 @@
 # DFHDL Compile Time Performance Guide
 
+## CURRENT STATE (updated 2026-07) - read `devdocs/compile-perf-journal.md`
+
+The detailed, dated experiment log now lives in
+[`devdocs/compile-perf-journal.md`](../../devdocs/compile-perf-journal.md).
+Highlights that supersede parts of this older guide:
+
+- **The bottleneck moved.** The `FlattenInlinedPhase.minimizeCall` fix already
+  cut `posttyper` from 20-70 s down to ~4.5 s. On the `compiler_stages` test
+  compile (the heaviest workload) the phase split is now roughly:
+  **typer 65% (~162 s), inlining 16% (~40 s), CodeDigest ~2.6 s, everything
+  else small.** `posttyper` is no longer the problem; **typer is.**
+- **Shipped win 1:** `CodeDigestPhase` used to hash `tree.show` (which renders
+  the giant inferred types to text) on every top-level class - ~17 s. It now
+  folds a structural digest via one traversal (~2.6 s). ~9% off the whole
+  compile. Verify cross-build cache soundness with `testApps` before trusting it.
+- **Shipped win 2:** `Check1`/`Check2` now have a statically-true fast-path given
+  (`ok`, `CondValue` fixed to `true`, mirroring `CheckNUB.ok`) that returns
+  `CheckOK` without running `checkMacro`. Most width/sign checks hold statically,
+  so this skips their macro splice: **typer 162 s -> 146 s (-16 s)**. Pure
+  library code, transfers to future compiler versions. Together with win 1 the
+  compile is ~258 s -> ~222 s.
+- **Key correction:** the high check-expansion counts are per-operation VOLUME,
+  NOT redundant re-expansion (`a+a+...(N)` -> `2N+2` checks, LINEAR). So there is
+  nothing to "memoize"; the lever is fewer/cheaper checks per op (win 2 is the
+  cheaper-check direction).
+- **typer's cost is transparent-inline RE-EXPANSION.** A single `y := a+a` fires
+  ~4 distinct `Check` and ~4 distinct `AssertGiven` macros (all legitimate). But
+  in a chain `a + a + ... (N)`, an inner width check re-expands once per
+  enclosing op (`transparent inline` operators take `inline` operands, so the
+  operand's expansion re-runs when it becomes the next op's `inline lhs`).
+  `DualSummonTrapError` (behind `==`/`<>`) doubles it again by searching both
+  arms. That is why the trace shows 7699 `AssertGiven` / ~6000 `Check`
+  expansions from far fewer written checks.
+- **Ruled out (do not retry - see journal for why):** replacing `AssertGiven`
+  with `summonFrom` (breaks the `DualSummonTrapError` trap); dropping
+  `transparent` from `AssertGiven` or `Check` (just moves the macro work from
+  typer to `inlining`, net SLOWER: typer -7/-32 s but inlining +24/+42 s);
+  sealing the `exactOp2` result behind a val (no change - the re-expansion is
+  the compiler re-expanding the transparent inline, not the macro output tree).
+- **The remaining big lever is compiler-side:** memoize transparent-inline /
+  macro expansion by (symbol, type args, argument-tree identity) so an identical
+  nested transparent-inline application is not re-expanded once per enclosing
+  level. Prototype in the scala3 fork. NOTE: DFHDL is pinned to Scala 3.8.4, so
+  a fork build must be based on the 3.8.4 tag (not the fork's newer nightly HEAD)
+  to test against DFHDL.
+
+### Useful environment note
+
+Default sbt heap (1 GB) OOMs / GC-thrashes this workload. Use a local `.jvmopts`
+(not committed): `-Xmx10G`, `-Xss8M`, `-XX:+UseG1GC`,
+`-XX:ReservedCodeCacheSize=1G`. After touching `internals/` macros, `clean`
+(zinc misses macro changes); if the incremental build acts stale, `sbtn
+shutdown` then `clean`.
+
+### Diagnosing macro re-expansion
+
+To see how often a macro re-runs per source site: add
+`System.err.println(s"[TAG] ${Position.ofMacroExpansion.sourceFile.name}:${Position.ofMacroExpansion.startLine+1}")`
+(optionally + the checked type) at the top of the macro impl, rebuild, and
+compile a tiny design via `corePlayground`; `grep | sort | uniq -c` the tags.
+
 ## Quick Setup for Debugging Compile Times
 
 ```bash
