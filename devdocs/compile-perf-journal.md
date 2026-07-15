@@ -6,43 +6,55 @@
 
 ## TL;DR (start here)
 
-**Baseline:** ~258 s to compile the 72 `compiler_stages` test sources (10 GB heap).
+**Baseline:** ~258 s to compile the 72 `compiler_stages` test sources (10 GB
+heap; the default 1 GB OOMs - see Environment).
 
-**Shipped and verified (~9% faster):** `CodeDigestPhase` hashed `tree.show` on
-every top-level class, which renders the giant inferred DFHDL types to text
-(~17 s of the compile). Replaced with a structural digest folded in one
-traversal -> CodeDigest **16.8 s -> 2.6 s**, whole compile **~258 s -> ~236 s**.
-`StagesSpec` 526/526 and `CoreSpec` 104/104 pass. **Owed:** run `testApps` to
-confirm the `.dfdigest` cross-build cache identity is still sound (couldn't run
-it here - needs the external toolchain).
+**Two shipped, verified wins - together ~258 s -> ~222 s (~14%), all on 3.8.4:**
+1. **CodeDigest** (Experiment 1): `CodeDigestPhase` hashed `tree.show` on every
+   top-level class, rendering the giant inferred types to text (~17 s). Replaced
+   with a structural digest folded in one traversal -> CodeDigest **16.8 s ->
+   2.6 s**. **Owed:** run `testApps` to confirm cross-build `.dfdigest` cache
+   soundness (needs the external toolchain, not runnable here).
+2. **`Check` fast path** (Experiment 7): a statically-true `ok` given returns
+   `CheckOK` without running `checkMacro` -> **typer 162 s -> 146 s (-16 s)**.
+   Works because the macro's true-branch was a genuine no-op.
+Both verified with `StagesSpec` 526/526 + `CoreSpec` 104/104.
 
-**Where the rest of the time is:** `typer` 65% (~162 s), `inlining` 16% (~40 s).
-`typer` is dominated by **transparent-inline re-expansion**: chained ops
-(`a+a+...`) re-run each inner op's `Check`/`AssertGiven` macros once per
-enclosing level, and `DualSummonTrapError` (behind `==`/`<>`) doubles it. That is
-why ~13 k check/assert macro expansions come from far fewer written checks.
+**Phase split now:** `typer` ~146 s, `inlining` ~44 s, everything else small.
 
-**Dead ends (measured, don't repeat):** `summonFrom` AssertGiven (breaks the
-trap); non-transparent AssertGiven/Check (moves cost typer->inlining, net
-SLOWER); output-tree seal in `exactOp2` (no effect); the `exactOp2` try/catch
-workaround (fires 0 times in these tests); short-circuiting `DualSummonTrapError`
-(its second arm is the runtime connect fallback - load-bearing).
+**Key correction (Experiment 5):** the high macro-expansion counts (7699
+AssertGiven, ~6000 Check) are per-operation **VOLUME**, not redundant
+re-expansion (`a+a+...(N)` -> `2N+2` checks, LINEAR not quadratic). So there is
+nothing to "memoize"; the only lever is fewer/cheaper checks per op. The
+`Check` fast path (win 2) is the cheaper-check direction and is why it worked.
 
-**Only remaining big lever = compiler-side:** memoize transparent-inline / macro
-expansion so an identical nested application is not re-expanded per enclosing
-level. Not attempted here: DFHDL is pinned to Scala 3.8.4 (fork HEAD is a newer
-nightly), and a compiler change can't be soundly verified with only
-`Test/compile`+`CoreSpec`+`StagesSpec`. Left for a maintainer session with the
-full toolchain. Details + exact mechanism in "Experiment 3/4" below.
+**Dead ends (measured, don't repeat):** `summonFrom` AssertGiven and a
+`compiletime.error` fallback (both break the `DualSummonTrapError` trap);
+non-transparent AssertGiven/Check (moves cost typer->inlining, net SLOWER);
+output-tree seal in `exactOp2` (no effect); `exactOp2` try/catch workaround
+(fires 0x here); short-circuiting `DualSummonTrapError` (second arm is the
+runtime connect fallback); **`ORGIVEN` + fast-path AssertGiven (Experiment 8):
+correct but ~2 s WORSE - the assert's summon work is irreducible and the
+`NotGiven` guard needed to prefer the fast path costs a second summon.**
 
-## In progress: try the latest compiler (Scala 3.10) - maintainer greenlit the bump
+**Newer compilers (Experiment 6):** DFHDL `internals`/`plugin`/`compiler_ir`
+compile clean on Scala 3.10.0-RC1 (plugin is forward-compatible), but `core`
+hits a genBCode `Integer`-vs-`int` backend assertion on BOTH 3.9.0-RC1 and
+3.10.0-RC1 - a real incompatibility to bisect. So DFHDL stays on 3.8.4; the wins
+above are pure library/plugin code and transfer forward.
+
+## Build reference: trying the latest compiler (Scala 3.10) - CONCLUDED
+
+Outcome is summarized in the TL;DR and Experiment 6 (plugin forward-compatible;
+`core` blocked by a genBCode `Integer`-vs-`int` regression on 3.9/3.10). The
+build mechanics below are kept for anyone repeating the bump.
 
 Rationale: the fork HEAD carries recent inlining work ("Enhance constant-folding
 during inlining"), so bumping DFHDL off 3.8.4 might itself cut compile time,
 independent of any custom patch. Also a prerequisite for prototyping compiler
 -side expansion memoization.
 
-State as of this entry:
+Build notes:
 - The scala3 fork (`soronpo/scala3` @ `claude/dfhdl-compiler-perf-wbtdaf`)
   builds and `publishLocal`s as **`3.10.0-RC1-bin-SNAPSHOT`**. One build blocker
   was fixed and pushed to the fork: the scaladoc step downloads `inkuire.js` from
@@ -587,6 +599,42 @@ construction - it only shortcuts the provably-satisfied case, which was already 
 `CheckOK` no-op. This is transferable to future compiler versions (it is pure
 DFHDL library code). Combined with the CodeDigest fix, the whole compile is now
 ~258 s -> ~222 s.
+
+## Experiment 8 (REVERTED): fast-path `AssertGiven` via `ORGIVEN`
+
+Same idea as Experiment 7, applied to the other hot given (`AssertGiven`, 7699
+expansions). Introduced `infix trait ORGIVEN[L, R]` (summonable iff a given for
+`L` OR `R` is, decided by two givens `fromL`/`fromR`) to replace the bare `A | B`
+inside `AssertGiven` applications, then split `AssertGiven` into a fast-path
+given `ok[G, M](using G): AssertGiven[G, M] = Success` plus a fallback for the
+failure case. Migrated all 7 `|` unions in `AssertGiven` usages to `ORGIVEN`.
+
+**It works but does NOT help - reverted.** typer **148 s vs the 146 s
+Experiment-7 baseline** (~2 s WORSE); `StagesSpec` 526/526, `CoreSpec` 104/104.
+
+Why it cannot win:
+- The `AssertGiven` macro's real cost is the `summon[G]` that decides whether the
+  assertion holds. The `ok` fast path pays exactly that same summon (`using G`),
+  so bypassing the macro splice saves almost nothing. Unlike `Check` (Experiment
+  7), where the statically-true branch was a genuine no-op, here there is no
+  skippable work.
+- The fallback CANNOT be a plain `compiletime.error` given (the maintainer's
+  first suggestion): that materializes on failure, so inside a
+  `DualSummonTrapError` search the trap sees a spurious success and `==`/`<>`
+  break (identical failure to Experiment 2). The fallback must stay a
+  `ControlledMacroError` macro.
+- To make `ok` reliably beat the macro fallback, they must be mutually exclusive
+  via `using NotGiven[G]` on the fallback (Scala's specificity otherwise prefers
+  the macro; without the guard the macro is picked for HOLDING assertions and
+  falsely reports the error - 322 errors). But `NotGiven[G]` internally re-checks
+  `G`, so every assertion now does TWO summons instead of the macro's one - which
+  is the +2 s. A low-priority trait for the fallback (no `NotGiven`) is not an
+  option: a macro given in a trait fails with "inline accessor not statically
+  accessible".
+
+Takeaway: the `Check` fast path was a real win only because its common case was
+provably a no-op; the `AssertGiven` check is irreducible summon work, so the same
+structural trick regresses. Left reverted.
 
 ## Where the real time is, and what is worth trying next
 
