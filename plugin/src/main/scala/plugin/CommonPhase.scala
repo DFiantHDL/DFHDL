@@ -9,7 +9,8 @@ import Flags.*
 import SymDenotations.*
 import Decorators.*
 import ast.Trees.*
-import ast.{tpd, untpd, TreeTypeMap}
+import ast.{tpd, untpd, TreeTypeMap, TreeMapWithImplicits}
+import inlines.Inlines
 import StdNames.nme
 import Names.*
 import Types.*
@@ -65,7 +66,31 @@ abstract class CommonPhase extends PluginPhase:
       .appliedToTypes(trees.map(_.tpe.widen))
       .appliedToArgs(trees)
 
-  private val dropProxiesTreeMap = new TreeMap:
+  // Expands the `inline` calls in `tree`, the way the compiler's `Inlining` phase would have.
+  //
+  // Only annotation trees need this. `Inlining` never visits a symbol's annotations
+  // (see https://github.com/scala/scala3/issues/23650), so an `inline` call in an annotation
+  // argument reaches us unexpanded. That is harmless while it stays an annotation, but we lift
+  // annotation trees into runtime terms, and `Erasure` rejects a term that still references an
+  // `inline` method ("... is declared as `inline`, but was not inlined"). Since Scala 3.10
+  // `Predef.->` is an extension `inline def` rather than the old `@inline` `ArrowAssoc` member, so
+  // even a plain `@ann("a" -> "b")` trips this.
+  protected def inlineCalls(tree: Tree)(using Context): Tree =
+    // `Inlines.needsInlining` only holds under the inlining phase's context, and this phase runs
+    // after it, so step the context back to it.
+    atPhase(Phases.inliningPhase)(inliningTreeMap.transform(tree))
+
+  // mirrors `Inlining.InliningTreeMap`, minus the parts that only matter for whole compilation
+  // units (macro annotation expansion, sbt dependency recording, tracked member defs)
+  private val inliningTreeMap = new TreeMapWithImplicits:
+    override def transform(tree: Tree)(using Context): Tree =
+      if (tree.isType) tree
+      else if (Inlines.needsInlining(tree))
+        val tree1 = super.transform(tree)
+        if (tree1.tpe.isError) tree1 else Inlines.inlineCall(tree1)
+      else super.transform(tree)
+
+  private val dropProxiesTreeMap = new TreeMapWithImplicits:
     override def transform(tree: tpd.Tree)(using Context): tpd.Tree =
       def dropProxies(expr: Tree, proxies: List[Tree], otherStats: List[Tree]): Tree =
         val proxyMap = proxies.collect {
