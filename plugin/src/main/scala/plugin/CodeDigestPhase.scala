@@ -43,9 +43,10 @@ import scala.util.control.NonFatal
   * so their composed digests would still describe the old helper. Folding at runtime reads each
   * class's CURRENT `own`, so a rebuilt helper invalidates every design that reaches it.
   *
-  * The record is written from the typed tree BEFORE the DFHDL phases rewrite it (this phase sits
-  * right after `PureCheck`), so `own` is a hash of the user's own code, position-insensitive and
-  * free of the absolute source paths the meta-context phases plant later.
+  * `own` hashes the compilation unit's SOURCE TEXT (see `ownHash` for why typed trees are not
+  * trusted for this). The `dep`s are read from the typed tree BEFORE the DFHDL phases rewrite it
+  * (this phase sits right after `PureCheck`), so they name what the user's own code reaches, with
+  * none of the machinery the meta-context phases plant later.
   */
 class CodeDigestPhase(setting: Setting) extends CommonPhase:
   import tpd.*
@@ -66,10 +67,42 @@ class CodeDigestPhase(setting: Setting) extends CommonPhase:
   // the toolchain, not by the build output, and they dominate any reference closure
   private val untrackedPrefixes = List("java.", "javax.", "jdk.", "sun.", "scala.")
 
-  private def sha256(str: String): String =
-    MessageDigest.getInstance("SHA-256")
-      .digest(str.getBytes(StandardCharsets.UTF_8))
-      .map("%02x".format(_)).mkString
+  /** The `own` code-identity hash of a top-level class: a hash of the SOURCE TEXT of the
+    * compilation unit that declares it, plus the plugin's own identity.
+    *
+    * This is deliberately NOT a hash of the typed tree. Two tree-based schemes were tried and both
+    * fail toward FALSE CACHE HITS, the one direction a cache key must never fail toward:
+    *   - `sha256(pluginStamp + tree.show)`: pretty-printing materializes the giant inferred
+    *     dependent types as text on every top-level class (~17 s of a ~260 s compile of the
+    *     compiler_stages tests), and it trusts a human-facing printer to render every
+    *     meaning-bearing detail, which nothing guarantees.
+    *   - a structural traversal (node kinds + symbol names + constants + type parts): an ALLOWLIST
+    *     of meaning-bearing information, where every omission is a silent false hit. It missed
+    *     symbol ANNOTATIONS, which live on the symbol and not in the tree, so `traverseChildren`
+    *     never reaches them; adding or removing `@deviceProperties(...)` on a design reused the
+    *     stale elaboration. Flags, constant type tags, `AnnotatedType` arguments and whatever a
+    *     future compiler adds are all the same kind of hole.
+    *
+    * The source text needs no such trust. A class's meaning is a function of its own source, of the
+    * code it reaches, and of the toolchain: the reachable code is the `dep` closure (whose CURRENT
+    * `own` hashes the runtime folds), and the toolchain is the plugin stamp (a compiler bump
+    * rebuilds the plugin jar too). With all three covered, hashing the text can only fail toward
+    * false MISSES: a comment or formatting edit retires the file's designs and costs one
+    * re-elaboration, never a stale reuse. It also needs no tree walk at all (cheaper than any
+    * structural scheme) and carries no absolute paths (content only, so a moved project keeps its
+    * cache); classes sharing a file share an `own`, which the per-name runtime fold is built for.
+    */
+  private def ownHash(using Context): Option[String] =
+    val source = ctx.compilationUnit.source
+    // a unit with no real source behind it (virtual/synthetic) has no text to stand for its code:
+    // no record is written, and the design is simply not disk-cacheable, the safe direction
+    if (source.exists)
+      val digest = MessageDigest.getInstance("SHA-256")
+      digest.update(pluginStamp.getBytes(StandardCharsets.UTF_8))
+      digest.update(0.toByte)
+      digest.update(String(source.content()).getBytes(StandardCharsets.UTF_8))
+      Some(digest.digest().map("%02x".format(_)).mkString)
+    else None
 
   /** The identity of the PLUGIN itself, folded into every `own` hash it writes.
     *
@@ -135,17 +168,35 @@ class CodeDigestPhase(setting: Setting) extends CommonPhase:
         if (top.exists && !top.is(Package))
           val name = binaryNameOf(top)
           if (name != self && isTracked(name)) deps += name
+    // `deps` is a set, so a type contributes the same names however often it
+    // recurs; walking each interned type once (by identity) is equivalent and
+    // skips re-walking DFHDL's large repeated types.
+    val walkedTypes = new java.util.IdentityHashMap[Type, Type]()
     def addType(tpe: Type): Unit =
-      tpe.foreachPart {
-        case tp: NamedType => addSym(tp.symbol)
-        case _             => // structural parts carry no class identity of their own
-      }
+      if (walkedTypes.put(tpe, tpe) eq null)
+        tpe.foreachPart {
+          case tp: NamedType => addSym(tp.symbol)
+          case _             => // structural parts carry no class identity of their own
+        }
     val traverser = new TreeTraverser:
       def traverse(tree: Tree)(using Context): Unit =
         tree match
           case tt: TypeTree => addType(tt.tpe)
           case _            => addSym(tree.symbol)
+        tree match
+          // annotations live on the SYMBOL, not as children of the definition tree, so the child
+          // traversal alone never sees them; they are code the class reaches (the runtime reads
+          // them during elaboration), so the annotation class and whatever its arguments refer to
+          // belong in the closure. Only NAMES are taken from them, so a synthetic annotation
+          // carrying a source path could never leak it here. `BodyAnnot` is skipped: it wraps an
+          // inline def's rhs, which is already traversed as part of the tree.
+          case md: MemberDef if md.symbol.exists =>
+            md.symbol.annotations.foreach { ann =>
+              if (ann.symbol ne defn.BodyAnnot) traverse(ann.tree)
+            }
+          case _ => ()
         traverseChildren(tree)
+      end traverse
     try traverser.traverse(td)
     // a type that cannot be walked (cyclic/erroneous) costs precision, not correctness: the
     // classes it would have named stay out of the closure
@@ -166,17 +217,20 @@ class CodeDigestPhase(setting: Setting) extends CommonPhase:
     if (isTopLevelClass(sym))
       val name = binaryNameOf(sym)
       if (isTracked(name))
-        outputDirOf.foreach { outDir =>
+        for
+          own <- ownHash
+          outDir <- outputDirOf
+        do
           try
             val record =
-              (s"$formatHeader" :: s"own ${sha256(s"$pluginStamp\n${tree.show}")}" ::
+              (s"$formatHeader" :: s"own $own" ::
                 depsOf(tree, name).map(dep => s"dep $dep")).mkString("", "\n", "\n")
             val file = outDir.resolve(name.replace('.', '/') + recordExt)
             Files.createDirectories(file.getParent)
             Files.write(file, record.getBytes(StandardCharsets.UTF_8))
           // a record that cannot be written is a design that cannot be disk-cached, not an error
           catch case NonFatal(_) => ()
-        }
+    end if
     tree
   end transformTypeDef
 end CodeDigestPhase

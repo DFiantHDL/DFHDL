@@ -13,8 +13,11 @@ heap; the default 1 GB OOMs - see Environment).
 1. **CodeDigest** (Experiment 1): `CodeDigestPhase` hashed `tree.show` on every
    top-level class, rendering the giant inferred types to text (~17 s). Replaced
    with a structural digest folded in one traversal -> CodeDigest **16.8 s ->
-   2.6 s**. **Owed:** run `testApps` to confirm cross-build `.dfdigest` cache
-   soundness (needs the external toolchain, not runnable here).
+   2.6 s**. **CORRECTED (Experiment 21): the structural digest missed symbol
+   ANNOTATIONS and produced false cache HITS; `own` is now a source-content hash
+   (the perf win stands, and even improves ~30% further).** **Owed:** run
+   `testApps` to confirm cross-build `.dfdigest` cache soundness (needs the
+   external toolchain, not runnable here).
 2. **`Check` fast path** (Experiment 7): a statically-true `ok` given returns
    `CheckOK` without running `checkMacro` -> **typer 162 s -> 146 s (-16 s)**.
    Works because the macro's true-branch was a genuine no-op.
@@ -1388,3 +1391,75 @@ typing work, uniform across DFHDL workloads. The only recurring compiler-side
 micro-candidates (the `isStatic` owner-chain walk ~2-3%, `AppliedType` hash-consing
 ~8%) are the same modest, higher-risk items already noted; nothing in `lib`
 changes that assessment.
+
+## Experiment 21 (SHIPPED, 2026-07-16): structural own-hash gave FALSE CACHE HITS - `own` is now a source-content hash
+
+**Symptom (maintainer report).** `lib/Test/runMain Foo elaborate --print-elaborate`
+on a Playground `Foo` printed IDENTICAL output with and without
+`@hw.constraints.deviceProperties("hello" -> "world")` on the class: the
+annotation edit did not change the design's code digest, so the elaboration cache
+replayed the stale design. This is a correctness regression introduced by
+Experiment 1's structural digest (the `tree.show` hash it replaced did catch it).
+
+**Root cause: annotations live on the SYMBOL, not in the tree.** The structural
+digest folds the typed tree via a `TreeTraverser`, but a definition's annotations
+hang off `sym.annotations`; `traverseChildren` never reaches them. `tree.show`
+had rendered them only because printers consult denotations, not just trees.
+
+**The deeper problem, and why the fix is not "add annotations".** The structural
+walk is an ALLOWLIST of meaning-bearing information (node kinds + symbol names +
+constants + selected type parts), and every omission fails toward a false cache
+HIT - the one direction a cache key must never fail toward. Annotations were the
+observed hole; symbol flags, constant type tags (`1` vs `"1"` both fold as `1`),
+`AnnotatedType` argument trees, and whatever a future compiler adds are the same
+kind of silent hole. No enumeration of "what matters" can be trusted here.
+
+**Fix (`CodeDigestPhase`).** `own = sha256(pluginStamp + <source text of the
+compilation unit>)`. A class's meaning is a function of exactly three things the
+digest system now covers byte-for-byte: its own source (hashed here), the code it
+reaches (the `dep` closure, whose CURRENT `own` hashes the runtime folds), and
+the toolchain (the plugin stamp; a compiler bump rebuilds the plugin jar too).
+So the scheme can only fail toward false MISSES: a comment/formatting edit
+retires the file's designs and costs one re-elaboration, never a stale reuse.
+Deliberate trade-offs recorded: position-insensitivity is given up (comment edits
+invalidate), and classes sharing a file share an `own` (the per-name runtime fold
+already supports that). A middle ground - hashing the UNTYPED parse tree, which
+is comment-insensitive and does contain written annotations - was considered and
+rejected: it reintroduces trust in a human-facing rendering being injective.
+Additionally `depsOf` now traverses `sym.annotations` on every `MemberDef`
+(skipping `BodyAnnot`), so a user-defined annotation class and whatever its
+arguments reference join the dep closure; only NAMES are taken, so synthetic
+path-carrying annotations cannot leak paths into records.
+
+**Performance (asked for explicitly): it is a further win, not a cost.** A/B on
+the maintainer's Windows machine (patched 3.10 fork snapshot, 10 G heap,
+`-Yprofile-enabled`, `compiler_stages/Test/clean` + `compile` of the 72 test
+sources, two iterations per side):
+
+| side | CodeDigest | total wall |
+|------|-----------|-----------:|
+| structural hash (before) | 1.02 s / 1.08 s | 111 s / 113 s |
+| source-content hash (after) | **0.70 s / 0.75 s (~-30%)** | 103 s / 111 s (typer noise dominates; no wall claim) |
+
+The `own` tree walk (with its per-type memo) is deleted outright; one SHA-256
+over the unit's text replaces it, and `depsOf` is what remains of the phase.
+
+**Verification.**
+- Annotation-toggle matrix via `libPlayground` + `lib/Test/runMain Foo elaborate
+  --print-elaborate`: (A) fresh elaboration prints the annotation; (B) unchanged
+  rerun is a cache HIT ("Loading elaborated design from cache...", 30 s -> 1 s)
+  and prints it; (C) annotation removed -> fresh elaboration, annotation gone
+  (this exact case silently cache-hit before the fix); (D) annotation restored ->
+  source text is byte-identical to (A), cache HIT correctly restores the
+  annotated design.
+- `StagesSpec.ClassDesignCacheSpec` + `SubDesignCacheSpec` + `ClassDesignKeySpec`
+  14/14, `StagesSpec.*` 526/526, `core/test` 104/104, all 0 failed, on the new
+  plugin.
+- Still owed, as in Experiment 1: `testApps` for cross-build soundness with the
+  external toolchain.
+
+**Generalizable takeaway.** For cache keys, pick the representation whose failure
+direction is safe. A structural/allowlist hash of a rich IR silently under-hashes
+(false hits); hashing the INPUT bytes over-invalidates at worst (false misses),
+and composes soundly as long as everything else the meaning depends on (deps,
+toolchain) is keyed separately.
