@@ -1306,3 +1306,38 @@ order-independent set (dep names) can dedup by interned-type identity for free; 
 that folds an order-dependent stream (a digest) can still memoize by replaying the
 exact bytes, preserving the output. Both are safe because the compiler interns
 types, so identity captures the repeats.
+
+## Experiment 19 (REVERTED): caching DFVal.unapply's symbol lookups
+
+Following Exp 18 into the rest of the plugin. JFR put `PreTyperPhase`'s installed
+printer (`anon$7.toText`, set via `setPrinterFn` in `initContext`) at **1.05%** of
+compile-thread samples, the largest remaining plugin cost. It leaks past PreTyper:
+1.05% exceeds PreTyper's own 0.90% phase time, so the printer renders types
+compile-wide (into typer), and every render runs `DFVal.unapply(tp)`, which does
+`requiredClassRef("dfhdl.core.DFVal")` (+ `"dfhdl.VAL"`/`"dfhdl.DFRET"` in one arm)
+- string-keyed symbol-table lookups - per call.
+
+Tried caching those refs: reuse the already-cached `dfValSym.typeRef` and add
+`valModTpe`/`dfRetModTpe` fields set in `CommonPhase.prepareForUnit`, used in both
+`PreTyperPhase.DFVal.unapply` and the identical `CustomControlPhase` guard.
+
+**Two reasons it was reverted:**
+1. **It crashes.** `core/Test/compile` throws a `NullPointerException`. The printer
+   is installed in `initContext` and can invoke `DFVal.unapply` *before*
+   `prepareForUnit` initializes the cached vars, so `valModTpe`/`dfRetModTpe`/
+   `dfValSym` are still null. The original `requiredClassRef` was robust precisely
+   because it resolves on demand, independent of phase state. A null-guarded
+   fallback would fix it, but:
+2. **The win is ~0.15%, not 1.05%.** A before/after JFR (caching applied) showed
+   `requiredClassRef|staticRef` samples barely moved (0.15% -> 0.13%) and `toText`
+   only 1.01% -> 0.74%. The bulk of `toText` is `super.toText` (the actual type
+   rendering), which the caching cannot touch; `requiredClassRef` itself was never
+   more than ~0.15%. So the safe, robust version would buy ~0.15% for hacky
+   null-guard code. Not worth it.
+
+Takeaway: the printer's cost is the rendering it does compile-wide, not the symbol
+lookups inside `DFVal.unapply`. The only way to remove it is to not install the
+custom printer during the hot (non-error) path at all - a behavior change to
+user-facing error formatting, which is the maintainer's call, not a mechanical win.
+The same before/after JFR independently re-confirmed the Exp-18 CodeDigest win
+(1.20% -> 0.63%).
