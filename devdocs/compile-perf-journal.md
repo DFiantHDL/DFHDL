@@ -1255,3 +1255,54 @@ type inference and checking, which cannot be reduced without changing what the
 language computes. Further gains require a deliberate, maintainer-owned semantic
 redesign (fewer/cheaper checks per operation) validated against the full app
 suite, not a mechanical optimization.
+
+## Experiment 18 (SHIPPED, 2026-07-15): memoize per-type walks in CodeDigestPhase
+
+After Exp 17 closed the (inherent) typer-side lever, examined the DFHDL compiler
+plugin phases for a safe, fully-controlled win. JFR put the plugin at ~4% of
+compile-thread samples; `CodeDigest` is the largest single plugin phase, and its
+two traversers (`ownHash` and `depsOf`) were the deepest plugin frames.
+
+**The redundancy.** Both traversers walk a top-level class's whole typed tree and,
+for every `TypeTree`, call `tpe.foreachPart` over the *entire* carried type.
+DFHDL's large inferred types recur on many nodes (every subexpression of an 8-bit
+signal carries `DFValTP[DFSInt[8], ..]`), and the compiler interns types, so the
+same `Type` instance is re-walked many times per class.
+
+**Fix (both correct-by-construction, no behavior change):**
+- `ownHash`: an `IdentityHashMap[Type, Array[Byte]]` caches the exact byte
+  sequence a type contributes; on a repeat the cached bytes are replayed into the
+  same `MessageDigest`. The streamed bytes are identical to the direct `upd`s, so
+  the produced digest is **byte-identical** - no `.dfdigest` cache-format change,
+  no cross-build staleness impact.
+- `depsOf`: `deps` is a `TreeSet`, so a type contributes the same class names
+  however often it recurs; an identity `walkedTypes` guard walks each interned
+  type once. Result-identical (same idempotent-set argument as the Exp-13 inline
+  dep-dedup).
+
+**Result (attributable per-phase metric, `-Yprofile-enabled`):**
+
+| phase | before (Exp 16) | after |
+|-------|----------------:|------:|
+| **CodeDigest** | **2.97 s** | **~1.7 s** (1.88 -> 1.68 across the run, ~42% off) |
+
+**On the total wall-clock: not claimed.** This run measured 134/132/126 s vs the
+Exp-16 baseline's ~154 s, but that comparison is INVALID: the container restarted
+between the two, and `typer` (which this post-typer change cannot touch) itself
+swung 105 -> 88 s across the same iterations, i.e. the ~20 s total delta is
+JVM/JIT/container-state variance, not this change. The honest, attributable win is
+the ~1.3 s (~42%) off the CodeDigest phase, ~0.8% of the compile. It is banked
+because it is safe and free, not because it is large.
+
+**Verification:** `StagesSpec` 582/582 (incl. `ClassDesignCacheSpec`,
+`SubDesignCacheSpec`, `ClassDesignKeySpec` - the digest-cache soundness specs that
+would fail on any digest mismatch) and `CoreSpec` 104/104, all 0 failed, on the
+patched 3.10 compiler. (`CoreSpec.PluginSpec` prints a munit "1 failed, 1 ignored,
+0 total" line for its single ignored test; the sbt aggregate is Failed 0, Errors 0,
+and it is unchanged by this edit.)
+
+**Generalizable takeaway:** any per-class type traversal that folds an
+order-independent set (dep names) can dedup by interned-type identity for free; one
+that folds an order-dependent stream (a digest) can still memoize by replaying the
+exact bytes, preserving the output. Both are safe because the compiler interns
+types, so identity captures the repeats.

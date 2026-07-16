@@ -89,17 +89,32 @@ class CodeDigestPhase(setting: Setting) extends CommonPhase:
     def upd(s: String): Unit =
       digest.update(s.getBytes(StandardCharsets.UTF_8)); digest.update(sep)
     upd(pluginStamp)
+    // Memoize each interned Type's byte contribution. DFHDL's large inferred
+    // types recur on many TypeTree nodes; the compiler interns them, so an
+    // identity cache collapses the repeated `foreachPart` walks. The replayed
+    // bytes are exactly what the direct `upd`s produced, so the digest stays
+    // byte-identical (no cache-format change, no cross-build staleness impact).
+    val typeBytesCache = new java.util.IdentityHashMap[Type, Array[Byte]]()
     def hashType(tpe: Type): Unit =
-      tpe.foreachPart { part =>
-        // every part folds its structural kind, so `A & B`, `A | B` and `(A, B)`
-        // (which share the same leaf symbols) can never collide
-        upd(part.getClass.getSimpleName)
-        part match
-          case tp: NamedType    => upd(tp.symbol.fullName.mangledString)
-          case tp: ConstantType => upd(tp.value.toString)
-          case tp: RefinedType  => upd(tp.refinedName.mangledString)
-          case _                => // structural parts are still recursed into by foreachPart
-      }
+      val cached = typeBytesCache.get(tpe)
+      if (cached ne null) digest.update(cached)
+      else
+        val bos = new java.io.ByteArrayOutputStream()
+        def w(s: String): Unit =
+          val b = s.getBytes(StandardCharsets.UTF_8); bos.write(b, 0, b.length); bos.write(0)
+        tpe.foreachPart { part =>
+          // every part folds its structural kind, so `A & B`, `A | B` and `(A, B)`
+          // (which share the same leaf symbols) can never collide
+          w(part.getClass.getSimpleName)
+          part match
+            case tp: NamedType    => w(tp.symbol.fullName.mangledString)
+            case tp: ConstantType => w(tp.value.toString)
+            case tp: RefinedType  => w(tp.refinedName.mangledString)
+            case _                => // structural parts are still recursed into by foreachPart
+        }
+        val arr = bos.toByteArray
+        typeBytesCache.put(tpe, arr)
+        digest.update(arr)
     val traverser = new TreeTraverser:
       def traverse(tree: Tree)(using Context): Unit =
         tree match
@@ -182,11 +197,16 @@ class CodeDigestPhase(setting: Setting) extends CommonPhase:
         if (top.exists && !top.is(Package))
           val name = binaryNameOf(top)
           if (name != self && isTracked(name)) deps += name
+    // `deps` is a set, so a type contributes the same names however often it
+    // recurs; walking each interned type once (by identity) is equivalent and
+    // skips re-walking DFHDL's large repeated types.
+    val walkedTypes = new java.util.IdentityHashMap[Type, Type]()
     def addType(tpe: Type): Unit =
-      tpe.foreachPart {
-        case tp: NamedType => addSym(tp.symbol)
-        case _             => // structural parts carry no class identity of their own
-      }
+      if (walkedTypes.put(tpe, tpe) eq null)
+        tpe.foreachPart {
+          case tp: NamedType => addSym(tp.symbol)
+          case _             => // structural parts carry no class identity of their own
+        }
     val traverser = new TreeTraverser:
       def traverse(tree: Tree)(using Context): Unit =
         tree match
