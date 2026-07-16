@@ -306,32 +306,32 @@ trait Printer
       else
         designDB.designMemberList.collect { case (block: DFDesignBlock, _) => block -> printer }
     // design defs with phantoms print their declaration locally in the host design's
-    // body (see `printDesignDefDclInline`), and ED methods are locally scoped — they
-    // print inside their owning design (see `edMethodPrinters`); neither prints as a
+    // body (see `printDesignDefDclInline`), and HDL subprograms are locally scoped — they
+    // print inside their owning design (see `subprogramPrinters`); neither prints as a
     // file-level declaration
-    printers.filterNot((block, _) => printDesignDefDclInline(block) || block.isEDMethod)
+    printers.filterNot((block, _) => printDesignDefDclInline(block) || block.isHDLSubprogram)
   end designPrinters
 
-  // The (ED method design, printer-bound-to-its-getSet) pairs locally declared by `design`.
-  // ED methods print inside their owning design's declaration; they are discovered through
-  // the DFDesignInst members of `design` (including calls made inside process blocks) AND,
-  // transitively, of the method bodies themselves — a method called only from another
-  // method's body is declared in the host design just the same, and would otherwise never
+  // The (HDL subprogram design, printer-bound-to-its-getSet) pairs locally declared by `design`.
+  // ED methods and static functions print inside their owning design's declaration; they are
+  // discovered through the DFDesignInst members of `design` (including calls made inside process
+  // blocks) AND, transitively, of the subprogram bodies themselves — one called only from
+  // another's body is declared in the host design just the same, and would otherwise never
   // be emitted at all.
   //
-  // The order is post-order (a method follows the methods it calls), because an HDL
-  // subprogram must be declared before it is used. Each method is bound to its FIRST call
-  // site's printer, which resolves its phantom actuals in that call site's scope.
-  final def edMethodPrinters(design: DFDesignBlock): List[(DFDesignBlock, TPrinter)] =
+  // The order is post-order (a subprogram follows the subprograms it calls), because an HDL
+  // subprogram must be declared before it is used. Each is bound to its FIRST call site's
+  // printer, which resolves its phantom actuals in that call site's scope.
+  final def subprogramPrinters(design: DFDesignBlock): List[(DFDesignBlock, TPrinter)] =
     val ordered = mutable.ListBuffer.empty[(DFDesignBlock, TPrinter)]
     val visited = mutable.Set.empty[DFDesignBlock]
     def visit(hostPrinter: TPrinter, host: DFDesignBlock): Unit =
       host.members(MemberView.Flattened)(using hostPrinter.getSet).foreach {
         case inst: DFDesignInst =>
           val block = inst.getDesignBlock(using hostPrinter.getSet)
-          // `visited` is marked before recursing, so a (plugin-rejected) recursive method
+          // `visited` is marked before recursing, so a (plugin-rejected) recursive subprogram
           // cannot loop here
-          if (block.isEDMethod && visited.add(block))
+          if (block.isHDLSubprogram && visited.add(block))
             // every concrete printer is its own TPrinter (`given printer: TPrinter = this`),
             // so `hostPrinter.TPrinter` IS this printer's TPrinter — a fact the path-dependent
             // type cannot express
@@ -342,7 +342,7 @@ trait Printer
       }
     visit(printer, design)
     ordered.toList
-  end edMethodPrinters
+  end subprogramPrinters
 
   final def csDB: String =
     // a foreign IP renders as an `import <clsName>` of its pre-existing external class; multiple

@@ -28,6 +28,13 @@ case object ToED extends HierarchyStage:
     List(DropUnreferencedAnons, ToRT, DropRTProcess, NameRegAliases, ExplicitNamedVars,
       ExplicitCondExprAssign, SplitInitialBlocks, AddClkRst, SimpleOrderMembers)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
+  // Only a DYNAMIC domain lowers to ED. The test is POSITIVE on purpose: its former `!= ED`
+  // form also matched the STATIC domain, and a static function's def design must keep it. Static
+  // is not a timing model to lower, and the printers key on it (VHDL `pure function`, and formals
+  // taken from design parameters rather than from input ports, which it has none of).
+  private def lowersToED(domainType: DomainType): Boolean = domainType match
+    case DomainType.DF | DomainType.RT     => true
+    case DomainType.ED | DomainType.Static => false
   // ToED is per-design: every domain owner it transforms, and the clk/rst Dcls
   // it reads, live in the current sub-DB (the `subDB` helper).
   def transformSubDB(rootDB: DB)(using
@@ -416,7 +423,7 @@ case object ToED extends HierarchyStage:
               modifier = dcl.modifier.copy(special = Modifier.Ordinary)
             )
           dcl -> Patch.Replace(updatedDcl, Patch.Replace.Config.FullReplacement)
-        case domainOwner: DFDomainOwner if domainOwner.domainType != DomainType.ED =>
+        case domainOwner: DFDomainOwner if lowersToED(domainOwner.domainType) =>
           // changing the owner from RT domain to ED domain. Strip all timing annotations
           // from the owner's meta — by this point the clk/rst configuration is fully baked
           // into the generated Clk_<grp>/Rst_<grp> opaque types and ports, so the

@@ -33,8 +33,10 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
 
   var designFromDefSym: Symbol = uninitialized
   var designFromDefEDSym: Symbol = uninitialized
+  var designFromDefStaticSym: Symbol = uninitialized
   var designFromDefGetInputSym: Symbol = uninitialized
   var designFromDefGetParamSym: Symbol = uninitialized
+  var irDFUnitCls: Symbol = uninitialized
 
   // DFHDL design construction from definitions transformation.
   // Such transformation rely on code like `def foo(arg: Bit <> VAL): Bit <> VAL`
@@ -50,13 +52,23 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
     lazy val scalaValArgs = tree.paramss.view.flatten.collect {
       case vd: ValDef if vd.dfValTpeOpt.isEmpty && !vd.tpt.tpe.isMetaContext => vd
     }.toList
-    // ED methods (HDL functions/tasks) are detected by the scope evidence parameter that
-    // the `<> EDRET` match type injects into the context lambda: `Scope.Function` for
-    // functions (non-Unit return) and `Scope.Procedural` for procedural methods (Unit).
-    def edScopeKindOf(anonDef: DefDef): Option[Boolean] =
+    // HDL subprograms (ED methods and static functions) are detected by the scope evidence
+    // parameter that the `<> EDRET` / `<> CONSTRET` match types inject into the context lambda:
+    // `Scope.Function` for functions and `Scope.Procedural` for procedural ED methods (Unit).
+    def subprogramScopeKindOf(anonDef: DefDef): Option[Boolean] =
       anonDef.paramss.flatten.collectFirst {
         case vd: ValDef if vd.tpe <:< scopeFunctionCls.typeRef   => true
         case vd: ValDef if vd.tpe <:< scopeProceduralCls.typeRef => false
+      }
+    // a `Unit` return, which is what declares a PROCEDURAL method under `<> EDRET`. `<> CONSTRET`
+    // has no procedural form (static procedures are explicitly deferred), so this is an error there
+    def hasUnitRet(anonDef: DefDef): Boolean =
+      anonDef.dfValTpeOpt.map(_.widenDealias).exists {
+        case AppliedType(_, dfTypeTpe :: _) =>
+          dfTypeTpe.dealias match
+            case AppliedType(_, irTpe :: _) => irTpe.typeSymbol == irDFUnitCls
+            case _                          => false
+        case _ => false
       }
     tree.rhs match
       case Block(List(anonDef: DefDef), closure: Closure)
@@ -70,18 +82,25 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
               // have a context argument and
               // have at least one DFHDL parameter (ED methods may have none)
               anonDef.dfValTpeOpt.nonEmpty &&
-              (dfValArgs.nonEmpty || edScopeKindOf(anonDef).nonEmpty)
+              (dfValArgs.nonEmpty || subprogramScopeKindOf(anonDef).nonEmpty)
           ) =>
         debug("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         debug(tree.show)
-        val isED = edScopeKindOf(anonDef).nonEmpty
-        var hasEDErrors = false
-        def edError(msg: String): Unit =
+        // A static function carries `Scope.Function` exactly as an ED function does, so the scope
+        // evidence identifies a SUBPROGRAM and only the DOMAIN evidence says which kind it is.
+        val isSubprogram = subprogramScopeKindOf(anonDef).nonEmpty
+        val isStatic = isStaticAnonDef(anonDef)
+        val isEDMethod = isSubprogram && !isStatic
+        // "A static function ..." / "An ED method ..." and the plural, for the shared messages
+        val kindStr = if (isStatic) "a static function" else "an ED method"
+        val kindPluralStr = if (isStatic) "static functions" else "ED methods"
+        var hasSubprogramErrors = false
+        def subprogramError(msg: String): Unit =
           report.error(msg, tree.srcPos)
-          hasEDErrors = true
-        if (isED)
+          hasSubprogramErrors = true
+        if (isSubprogram)
           // an explicit (possibly empty `()`) term parameter block is required, so that
-          // ED method call sites always read as calls
+          // subprogram call sites always read as calls
           val hasTermParamBlock = tree.paramss.exists { clause =>
             clause.isEmpty || clause.headOption.exists {
               case vd: ValDef => !vd.symbol.is(Given)
@@ -89,11 +108,13 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
             }
           }
           if (!hasTermParamBlock)
-            edError(
-              "An ED method must declare an explicit parameter block. Use an empty `()` parameter block if the method has no arguments."
+            subprogramError(
+              s"${kindStr.capitalize} must declare an explicit parameter block. Use an empty `()` parameter block if the method has no arguments."
             )
-          // direct recursion cannot be modeled (an ED method is a self-contained design
-          // hierarchy that cannot contain itself)
+          // Direct recursion cannot be modeled: a design def is a self-contained design hierarchy
+          // that cannot contain itself. The reason is ELABORATION termination (the Scala body is
+          // re-run per call site), not purity, so this applies to static functions too even though
+          // a pure function may legally recurse in both Scala and VHDL.
           var hasRecursion = false
           object recursionFinder extends TreeTraverser:
             def traverse(t: Tree)(using Context): Unit = t match
@@ -101,24 +122,49 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
               case _                                      => traverseChildren(t)
           recursionFinder.traverse(anonDef.rhs)
           if (hasRecursion)
-            edError("Recursion is not allowed for ED methods.")
-          // An ED method prints as an HDL subprogram, which has no per-call elaboration
-          // parameter mechanism: one printed body serves all its calls, so an explicit
-          // `<> CONST` argument has nowhere to go (a Verilog function cannot take a
-          // constant formal at all, and differing applied values across call sites cannot
-          // share one body). Captured outer constants remain supported: they materialize
-          // as phantom parameters that print at the enclosing design's scope.
+            subprogramError(s"Recursion is not allowed for $kindPluralStr.")
+        end if
+        if (isEDMethod)
+          // An ED method's arguments are input PORTS, wired by a net at the call site, so their
+          // values are invisible to elaboration and every call site necessarily elaborates a
+          // structurally identical body. That is what lets one printed subprogram serve all calls,
+          // and it is exactly what a `<> CONST` argument would break: its value IS visible to
+          // elaboration, so two call sites could elaborate genuinely different bodies, and an ED
+          // method has no body-dedup step to fall back on. A static function accepts const
+          // arguments precisely because it does (see the static-domain plan §5.6a).
+          // Captured outer constants remain supported here: they materialize as phantom
+          // parameters that print at the enclosing design's scope.
           dfConstValArgs.foreach { v =>
             report.error(
               s"""Constant arguments are not supported for ED methods.
-                 |The `${v.name}` argument is a `<> CONST` value, which an HDL subprogram cannot take as a parameter.
-                 |Use a `<> VAL` argument instead, or reference a constant declared outside the method.""".stripMargin,
+                 |The `${v.name}` argument is a `<> CONST` value, which an ED method cannot take as a parameter.
+                 |Use a `<> VAL` argument instead, reference a constant declared outside the method, or declare a static function (`<> CONSTRET`).""".stripMargin,
               v.srcPos
             )
-            hasEDErrors = true
+            hasSubprogramErrors = true
           }
+        if (isStatic)
+          // The inverse of the ED rule: a static function is a region in which every value is
+          // constant, so a non-constant argument has no meaning in it. Its const args become
+          // design PARAMETERS rather than input ports, which is also what lets a static function
+          // be called from the global scope, where there is no block to own an input port's net.
+          dfValArgs.foreach { v =>
+            report.error(
+              s"""Non-constant arguments are not supported for static functions.
+                 |The `${v.name}` argument is a `<> VAL` value, but every value in a static function is constant.
+                 |Use a `<> CONST` argument instead.""".stripMargin,
+              v.srcPos
+            )
+            hasSubprogramErrors = true
+          }
+          // static procedures (a `Unit` return with `out` formals, as VHDL procedures allow) are
+          // explicitly deferred
+          if (hasUnitRet(anonDef))
+            subprogramError(
+              "A static function must return a value. A `Unit` return type (a procedure) is not supported with `<> CONSTRET`."
+            )
         end if
-        if (hasEDErrors) tree
+        if (hasSubprogramErrors) tree
         else
           val dfc = ContextArg.at(anonDef).get
           // out-of-scope value references become explicit: DFHDL constants as phantom design
@@ -127,6 +173,21 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
           // evaluated in the def's rhs scope at every call, so a pure cache hit (which skips
           // the body) still binds this call's captured values.
           val captures = discoverDesignDefCaptures(sym, anonDef.symbol, anonDef.rhs)
+          // A captured non-constant would become a phantom INPUT PORT, i.e. a non-constant input,
+          // which contradicts staticness outright. This is the DFHDL-level half of a static
+          // function's purity (`PureCheck` reasons about Scala-level effects and, since DFHDL's
+          // own core is on its trusted list, would never flag this one).
+          if (isStatic)
+            captures.phantomVals.foreach { (path, t) =>
+              report.error(
+                s"""Non-constant captured values are not supported for static functions.
+                   |The captured `${captureName(
+                    path
+                  )}` value is not a `<> CONST`, but every value in a static function is constant.
+                   |Capture a constant instead, or pass it in as a `<> CONST` argument.""".stripMargin,
+                t.srcPos
+              )
+            }
           // the runtime names phantoms after the captured values, so a name clash would
           // misbind the design's parameter map
           locally:
@@ -226,10 +287,15 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
             // digest (`factum.CodeRef`): the def's body compiles into this class's class
             // file and TASTy, while the runtime lambda class itself is unresolvable
             val ownerClass = clsOf(sym.ownersIterator.find(_.isClass).get.typeRef)
-            // calling the runtime method that constructs the design from the definition;
-            // ED methods construct under the ED domain via `designFromDefED` (same
-            // signature, caching, and purity treatment as `designFromDef`)
-            ref(if (isED) designFromDefEDSym else designFromDefSym)
+            // calling the runtime method that constructs the design from the definition. All three
+            // share a signature, caching, and purity treatment, and differ only in the domain the
+            // design block is constructed under: DF, ED (an HDL subprogram), or Static (an HDL
+            // subprogram whose formals are design parameters rather than input ports).
+            val designFromDefKindSym =
+              if (isStatic) designFromDefStaticSym
+              else if (isEDMethod) designFromDefEDSym
+              else designFromDefSym
+            ref(designFromDefKindSym)
               .appliedToType(anonDef.dfValTpeOpt.get.widen)
               .appliedToArgs(List(
                 args,
@@ -280,8 +346,10 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
     super.prepareForUnit(tree)
     designFromDefSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDef")
     designFromDefEDSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefED")
+    designFromDefStaticSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefStatic")
     designFromDefGetInputSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefGetInput")
     designFromDefGetParamSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefGetParam")
+    irDFUnitCls = requiredClass("dfhdl.compiler.ir.DFUnit")
     // the unit's design defs, registered before any of it is transformed (see `collectDesignDefs`)
     collectDesignDefs(tree)
     ctx

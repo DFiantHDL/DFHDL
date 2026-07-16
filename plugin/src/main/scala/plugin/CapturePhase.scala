@@ -43,27 +43,48 @@ trait CapturePhase extends CommonPhase:
   private var designDefAnonsRun: AnyRef | Null = null
   protected var scopeFunctionCls: Symbol = uninitialized
   protected var scopeProceduralCls: Symbol = uninitialized
+  protected var domainTypeStaticSym: Symbol = uninitialized
+  protected var domainTypeEDSym: Symbol = uninitialized
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     scopeFunctionCls = getClassIfDefined("dfhdl.core.DFC.Scope.Function")
     scopeProceduralCls = getClassIfDefined("dfhdl.core.DFC.Scope.Procedural")
+    // The domain evidence types are OPAQUE, so they are type aliases rather than classes and
+    // `getClassIfDefined` cannot reach them. Outside `object DomainType` the opacity holds, so
+    // `Static` and `ED` are distinct and mutually unrelated, which is what makes them a sound
+    // discriminator between a static function and an ED method (both carry `Scope.Function`).
+    domainTypeStaticSym = domainTypeSym("Static")
+    domainTypeEDSym = domainTypeSym("ED")
     // the trees of a new run carry new symbols
     if (designDefAnonsRun ne ctx.run)
       designDefAnonsRun = ctx.run
       designDefAnons.clear()
       designDefCaptures.clear()
     ctx
+  end prepareForUnit
 
-  // ED methods (HDL functions/tasks) are design defs regardless of their DFHDL-value parameter
-  // count; they are detected by the scope evidence parameter that the `<> EDRET` match type
-  // injects into the context lambda.
-  protected def isEDAnonDef(anonDef: DefDef)(using Context): Boolean =
+  private def domainTypeSym(name: String)(using Context): Symbol =
+    val domainTypeMod = getModuleIfDefined("dfhdl.core.DomainType")
+    if (domainTypeMod.exists) domainTypeMod.moduleClass.info.member(name.toTypeName).symbol
+    else NoSymbol
+
+  // ED methods and static functions (HDL subprograms) are design defs regardless of their
+  // DFHDL-value parameter count; they are detected by the scope evidence parameter that the
+  // `<> EDRET` / `<> CONSTRET` match types inject into the context lambda.
+  protected def isSubprogramAnonDef(anonDef: DefDef)(using Context): Boolean =
     anonDef.paramss.flatten.exists {
       case vd: ValDef =>
         (scopeFunctionCls.exists && vd.tpe <:< scopeFunctionCls.typeRef) ||
         (scopeProceduralCls.exists && vd.tpe <:< scopeProceduralCls.typeRef)
       case _ => false
+    }
+  // A static function (`<> CONSTRET`) carries `Scope.Function` exactly as an ED function does, so
+  // ONLY the domain evidence separates the two.
+  protected def isStaticAnonDef(anonDef: DefDef)(using Context): Boolean =
+    domainTypeStaticSym.exists && anonDef.paramss.flatten.exists {
+      case vd: ValDef => vd.tpt.tpe.typeSymbol == domainTypeStaticSym
+      case _          => false
     }
   // the context lambda of a def that `DesignDefs` transforms into a design (the conditions its
   // `transformDefDef` matches on), or None when the def is not one
@@ -74,7 +95,7 @@ trait CapturePhase extends CommonPhase:
             (dd.paramss.view.flatten.exists {
               case vd: ValDef => vd.dfValTpeOpt.nonEmpty && !vd.tpt.tpe.isDFConst
               case _          => false
-            } || isEDAnonDef(anonDef)) =>
+            } || isSubprogramAnonDef(anonDef)) =>
         Some(anonDef)
       case _ => None
   // Registers the design defs of a tree. The registration is a PRE-pass (over the whole unit,

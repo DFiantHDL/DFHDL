@@ -177,6 +177,29 @@ object r__For_Plugin:
   )(using DFC): V =
     designFromDefImpl(ir.DomainType.ED, args, constArgs, dclMeta, scalaArgs, phantomArgs,
       phantomConstArgs, ownerClass)(func)
+  // Static functions (`<> CONSTRET` — see the static-domain plan): same construction, caching,
+  // and purity treatment as the other design defs, but under the static domain.
+  //
+  // No routing change is needed here, and that is by construction rather than by luck: the plugin
+  // requires every DFHDL argument of a static function to be `<> CONST` and every capture to be a
+  // constant, so `args` and `phantomArgs` are always empty and the impl below creates NO input
+  // ports. The interface is design parameters (from `constArgs`/`phantomConstArgs`) plus the
+  // return port — which is what lets a static function be called from the global scope, where
+  // there is no block to own the net an input port would need.
+  @metaContextForward(2)
+  def designFromDefStatic[V <: DFValAny](
+      args: List[(DFValAny, ir.Meta)],
+      constArgs: List[(String, DFValAny, ir.Meta)],
+      dclMeta: ir.Meta,
+      scalaArgs: List[Any],
+      phantomArgs: List[(DFValAny, ir.Meta)],
+      phantomConstArgs: List[(DFValAny, ir.Meta)],
+      ownerClass: Class[?]
+  )(
+      func: => V
+  )(using DFC): V =
+    designFromDefImpl(ir.DomainType.Static, args, constArgs, dclMeta, scalaArgs, phantomArgs,
+      phantomConstArgs, ownerClass)(func)
   private def designFromDefImpl[V <: DFValAny](
       domain: ir.DomainType,
       args: List[(DFValAny, ir.Meta)],

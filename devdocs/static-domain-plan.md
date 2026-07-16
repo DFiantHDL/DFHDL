@@ -1,6 +1,99 @@
 # The Static Domain and Static Functions
 
-Status: plan, not yet implemented.
+## Status
+
+**Steps 1, 2, 3, 4 and 6 of §11 are implemented and the tree is green** (core 109, compiler_stages
+585, lib 169). A design-local static function elaborates, is callable from every domain, and prints
+correctly in all three backends:
+
+```scala
+class Top extends EDDesign:
+  val o = UInt(8) <> OUT
+  def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+  o <> twice(d"8'3")
+```
+```vhdl
+pure function twice(n : unsigned(7 downto 0)) return unsigned is
+begin
+  return n + n;
+end function;
+...
+o <= twice(8d"3");
+```
+```systemverilog
+function automatic logic [7:0] twice(input logic [7:0] n);
+  begin twice = n + n; end
+endfunction
+assign o = twice(8'd3);
+```
+
+Enforced: const-only arguments, no `Unit` return, no captured non-constants, no recursion, purity
+(the `PureCheck` verdict is now fatal for a static def), no text output or `wait` in the body (from
+the scope lattice), and, at elaboration, no processes/forks/steps/domains/design-instances and no
+ED-method calls inside a static body.
+
+**Scope decision (2026-07-15): static functions are LOCAL-ONLY for now** (§9's open question,
+resolved for this phase). A design-local static function is callable from its design's body. The
+global-scope call site (§9.1) and everything the global generic-map use case needs are deferred.
+
+**What WORKS and is tested:** a static function called in a VALUE position inside a design body,
+under any domain (`o <> twice(d"8'3")`), printing as a `pure function` (VHDL) / `function
+automatic` (SV) whose formals are its design parameters. Covered in `StaticFunctionSpec` (core) and
+the three printer specs.
+
+**Not yet implemented, in dependency order:**
+
+1. **The headline use case — a static call parameterizing a design or a type — does NOT work, and it
+   CRASHES rather than erroring cleanly.** `Inner(twice(n))` (feeding a static result into a
+   sub-design parameter) throws `IllegalArgumentException: Missing ref` during elaboration. The
+   cause is REACHABILITY, not const-ness: the call-site result is a `PortByNameSelect` reading the
+   static def-design's output port, and resolving it as a design-parameter actual walks refs into
+   the def-design's isolated context. **§4.4's const-data change is necessary but NOT sufficient**
+   — it was tried (a static-domain `Dcl` and a static-function output `PortByNameSelect` resolving
+   `UnknownConst`) and the crash was unchanged, because it fires upstream of const-data resolution.
+   This overlaps the deferred folding interpreter (§10) and, per §9, the generic-map form of this
+   use case wants global functions anyway. So it is deferred WITH the global work, not before it.
+   A clean elaboration error for the interim would be an improvement, but the detection point is
+   fragile (deep in ref resolution) and was left alone.
+2. **§4.4 static declarations resolving `ConstData`.** Independently still owed (a static function's
+   formals should read as constant so isConst is true), with the folding-stage audit the plan calls
+   for. On its own it does not unblock item 1.
+3. **§5.6a / §7 def-design body dedup.** Two call sites with different const args currently share
+   one printed body. This is a CORRECTNESS hole the moment a body branches on a param value, and it
+   must land before static functions are advertised.
+4. **§9 / §9.1 global (top-level) static functions.** Deferred by the scope decision above.
+5. **§11 step 8**: reference HDL updates and `testApps`.
+
+### Corrections the implementation forced on this plan
+
+- **§5.1 was wrong: the ambient `given DF` must STAY.** It is not the def BODY that needs it (the
+  context parameter supplies that) but the CALL SITE: `T <> DFRET` expands to
+  `(DFC, DomainType.DF) ?=> ...`, so applying a `<> DFRET` def requires summoning `DomainType.DF`
+  where it is called, and such defs are callable from any domain. Flipping the ambient outright
+  broke every `<> DFRET` call outside a DF domain. What actually changed is only the PRIORITY:
+  `given DF` moved to a low-priority `DomainTypeLP` base trait and `given Static` sits in
+  `object DomainType`, so a bare `DomainType` summon in no domain resolves to `Static` while a
+  `DomainType.DF` summon (one candidate) still finds `DF`. Same shape as `ScopeLP`.
+- **§5.2's negative-guard list is mostly stale, and it named the wrong hazard.** `.prev` is already
+  guarded by a POSITIVE `DFDomainOnly` and `.reg` by a positive `RTDomainOnly`, so both reject
+  `Static` for free. `Fork` and `Process` keep their `NotGiven[_ <:< DF]` guards: adding a `Dynamic`
+  conjunct there would be redundant, since `Scope.Function` grants no `HasFork` and the elaboration
+  backstop (below) rejects both anyway. The real negative-match hazard was in a STAGE:
+  `ToED` matched `domainType != DomainType.ED` and so lowered a static function's def design to ED,
+  destroying its identity before printing. It now tests positively for `DF | RT`.
+- **§5.2's `while` item does not exist.** `while` carries no domain guard at all; the RT gate at
+  `DFWhile.scala:50,59` is on `COMB_LOOP` / `FALL_THROUGH`, which are genuinely RT-only loop tags
+  and stay that way. Nothing to widen. (This also closes the matching gap in [scoping.md] §7.)
+- **§6.1 splits differently than described.** The SCOPE evidence still identifies a subprogram
+  (`isEDAnonDef` renamed `isSubprogramAnonDef`); the DOMAIN evidence (`isStaticAnonDef`) only picks
+  WHICH KIND it is. `PureCheckPhase`'s own copy of `isEDAnonDef` turned out to be dead code and was
+  deleted rather than duplicated.
+- **`edMethodCheck` is now `subprogramCheck`, and it is load-bearing in a new way.** It is the ONLY
+  enforcement for two static-body rules, both of which have no type-level twin: a `process` carries
+  no scope guard (a positive one would leak, see [scoping.md] §3), and an ED-method call site
+  summons `DomainType.ED` DIRECTLY, which reaches past a static body's `Static` given to the
+  enclosing design's. That last one is a genuine leak with no type-level fix, and §5.4's claim that
+  "a static function cannot call a non-static ED method, and it enforces itself" is therefore false.
 
 ## 1. Motivation
 

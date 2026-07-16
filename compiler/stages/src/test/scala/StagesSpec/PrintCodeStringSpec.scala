@@ -638,6 +638,28 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("static function (`<> CONSTRET`) def") {
+    class StaticFnTop extends EDDesign:
+      val o                                               = UInt(8) <> OUT
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      o <> twice(d"8'3")
+    end StaticFnTop
+    val id = (new StaticFnTop)
+    // A static function's arguments are its design PARAMETERS (it has no input ports at all),
+    // so its single term parameter list is the parameter list, and the call passes them by name.
+    assertCodeString(
+      id,
+      """|class StaticFnTop extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    n + n
+         |  end twice
+         |
+         |  o <> twice(n = d"8'3")
+         |end StaticFnTop
+         |""".stripMargin
+    )
+  }
   test("Design def with toScalaValue effects") {
     class DesignDefCont extends DFDesign:
       val data = UInt(32) <> IN

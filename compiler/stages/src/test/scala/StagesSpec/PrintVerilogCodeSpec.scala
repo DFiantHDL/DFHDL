@@ -2442,4 +2442,34 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("static function (`<> CONSTRET`)") {
+    class StaticFn extends EDDesign:
+      val o = UInt(8) <> OUT
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      o <> twice(d"8'3")
+    end StaticFn
+    val top = (new StaticFn).getCompiledCodeString
+    // a static function's formals are its design PARAMETERS (it has no input ports), and Verilog
+    // has no subprogram generics, so they print as ordinary input formals. NOTE that SystemVerilog's
+    // `static` is a variable LIFETIME, the opposite of `automatic`, and is unrelated to DFHDL's
+    // static DOMAIN: a static function correctly emits as an `automatic` function.
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module StaticFn(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  function automatic logic [7:0] twice(input logic [7:0] n);
+         |  begin
+         |    twice = n + n;
+         |  end
+         |  endfunction
+         |  assign o = twice(8'd3);
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

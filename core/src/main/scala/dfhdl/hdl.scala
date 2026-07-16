@@ -76,6 +76,7 @@ protected object hdl:
   type DFRET = core.DFRET
   type RTRET = core.RTRET
   type EDRET = core.EDRET
+  type CONSTRET = core.CONSTRET
   val OPEN = core.DFVal.OPEN
   val NOTHING = core.DFVal.NOTHING
   export core.DFVal.CLK_FREQ

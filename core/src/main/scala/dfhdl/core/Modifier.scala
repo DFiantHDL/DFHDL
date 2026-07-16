@@ -114,3 +114,4 @@ type NOTCONST = Any
 sealed trait DFRET
 sealed trait RTRET
 sealed trait EDRET
+sealed trait CONSTRET

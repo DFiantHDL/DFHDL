@@ -127,6 +127,7 @@ object DFC:
   def empty(eo: ElaborationOptions): DFC =
     DFC(None, Position.unknown, None, elaborationOptionsContr = () => eo)
   def emptyNoEO: DFC = DFC(None, Position.unknown, None)
+
   /** The scope capability lattice. See devdocs/scoping.md for the full picture, including how to
     * add a construct and the three ways a guard can go wrong.
     *
@@ -195,32 +196,45 @@ object DFC:
     // `Local` is what previously made `case given Scope.Local` match in plain Scala code.
     /** `<> VAR` declarations (which modifier variants are allowed is decided by the domain). */
     sealed trait HasVars extends Scope
+
     /** `:=` blocking assignment (further limited by the domain). */
     sealed trait HasAssign extends Scope
+
     /** `:==` non-blocking assignment. */
     sealed trait HasNBAssign extends Scope
+
     /** `<> IN/OUT/INOUT` port declarations, and interface/view instantiation. */
     sealed trait HasPorts extends Scope
+
     /** Domain declarations. Not on `HasPorts`: an interface declares ports but not domains. */
     sealed trait HasDomains extends Scope
+
     /** `<>` connections. */
     sealed trait HasConnect extends Scope
+
     /** `process` and `initial` declarations. */
     sealed trait HasProcesses extends Scope
+
     /** `.reg` / `.prev` / `.rising` / `.falling` (further limited by the domain). */
     sealed trait HasHistory extends Scope
+
     /** `for` and `while` loops. */
     sealed trait HasLoops extends Scope
+
     /** `wait` statements, and calls to procedural ED methods (tasks). */
     sealed trait HasWait extends Scope
+
     /** Assertions and text printing. NOT granted by `Function`: a function is pure by definition
       * (see devdocs/static-domain-plan.md §8.1), so this exclusion is load-bearing.
       */
     sealed trait HasTextOut extends Scope
+
     /** RT step blocks. */
     sealed trait HasSteps extends Scope
+
     /** Fork-join blocks. */
     sealed trait HasFork extends Scope
+
     /** `locally` local blocks. */
     sealed trait HasLocalBlocks extends Scope
 
@@ -233,12 +247,16 @@ object DFC:
       * bundle. Keeping the bundles free of `Function` is what keeps them summonable at all.
       */
     sealed trait Local extends HasVars, HasAssign, HasLocalBlocks
+
     /** Ports and views: a design, a domain, or an interface. */
     sealed trait PublicDcl extends HasPorts
+
     /** A concurrent (structural) body: connections, process/initial declarations, history ops. */
     sealed trait Concurrent extends Local, HasConnect, HasProcesses, HasHistory
+
     /** A sequential body: loops on top of the local capabilities. */
     sealed trait Sequence extends Local, HasLoops
+
     /** A sequential body that can also block on time. */
     sealed trait TimedSequence extends Sequence, HasWait
 
@@ -253,15 +271,18 @@ object DFC:
     object Design extends Design
     sealed trait Domain extends PublicDcl, Concurrent, HasDomains, HasTextOut
     object Domain extends Domain
+
     /** Purely structural: ports and views, no variables, no initialization, no domains. */
     sealed trait Interface extends PublicDcl
     object Interface extends Interface
+
     /** A procedural ED method body (Verilog task / VHDL procedure). */
     @implicitNotFound(
       "A procedural ED method (`Unit <> EDRET`) can only be invoked inside a process or another procedural ED method body"
     )
     sealed trait Procedural extends TimedSequence, HasTextOut
     object Procedural extends Procedural
+
     /** A process body. Everything a procedural body can do, plus `:==`, step blocks and fork-join.
       * Since `Process` IS a `Procedural`, a task is callable here by plain subtyping, with no extra
       * given needed.
@@ -271,12 +292,14 @@ object DFC:
       // (the plugin will make sure that the name is unique)
       private[core] val stepCache = mutable.Map.empty[String, ir.StepBlock]
     object Process extends Process
+
     /** An `initial` block body. A `Sequence`, NOT a `TimedSequence`: no `wait` statements and no
-      * task calls. `DB.initialCheck` keeps the same rejection at elaboration, as the backstop for
-      * a `wait` laundered in through a helper `def`.
+      * task calls. `DB.initialCheck` keeps the same rejection at elaboration, as the backstop for a
+      * `wait` laundered in through a helper `def`.
       */
     sealed trait Initial extends Sequence, HasTextOut
     object Initial extends Initial
+
     /** An ED (or, later, static) function method body.
       *
       * It mixes the capability BLOCKS it needs directly rather than inheriting the `Local` or

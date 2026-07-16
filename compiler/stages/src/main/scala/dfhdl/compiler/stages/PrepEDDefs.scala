@@ -36,7 +36,7 @@ case object PrepEDDefs extends HierarchyStage:
 
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patches = subDB.members.view.flatMap {
-      case inst: DFDesignInst if !inst.isAnonymous && inst.getDesignBlock.isEDMethod =>
+      case inst: DFDesignInst if !inst.isAnonymous && inst.getDesignBlock.isHDLSubprogram =>
         // every READ of the named call result has its own out port-by-name select member
         subDB.designInstPBNS.getOrElse(inst, Nil).filter(_.isOut) match
           case mainPbns :: restPbns =>

@@ -138,6 +138,12 @@ object DFMember:
     def isInEDDomain(using MemberGetSet): Boolean = member.getDomainType match
       case DomainType.ED => true
       case _             => false
+    def isInStaticDomain(using MemberGetSet): Boolean = member.getDomainType match
+      case DomainType.Static => true
+      case _                 => false
+    def isInDynamicDomain(using MemberGetSet): Boolean = member.getDomainType match
+      case _: DomainType.Dynamic => true
+      case _                     => false
     def isInProcess(using MemberGetSet): Boolean = member.isOwnedCond(cond = {
       case _: ProcessBlock  => Some(true)
       case _: DFDomainOwner => Some(false)
@@ -1755,6 +1761,16 @@ object DFDesignBlock:
       */
     def isEDMethod: Boolean =
       dsn.instMode == DFDesignBlock.InstMode.Def && dsn.domainType == DomainType.ED
+
+    /** A static function (`T <> CONSTRET` — see the static-domain plan): a design def under the
+      * static domain. Its arguments are design parameters rather than input ports, and it is
+      * callable from any domain and from the global scope.
+      */
+    def isStaticFunction: Boolean =
+      dsn.instMode == DFDesignBlock.InstMode.Def && dsn.domainType == DomainType.Static
+
+    /** Prints as an HDL subprogram (function/task/procedure) rather than as a design instance. */
+    def isHDLSubprogram: Boolean = dsn.isEDMethod || dsn.isStaticFunction
     def getCommonDesignWith(dsn2: DFDesignBlock)(using MemberGetSet): DFDesignBlock =
       def getOwnerDesignChain(dsn: DFDesignBlock): List[Set[DFDesignBlock]] =
         var chain = List(Set(dsn))

@@ -98,12 +98,26 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
 end extension
 
 infix type <>[T <: DFType.Supported, M] = M match
-  case DFRET => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
-  case RTRET => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
-  case EDRET => EDRETOf[T]
-  case VAL   => DFValOf[DFType.Of[T]]
-  case CONST => DFConstOf[DFType.Of[T]]
+  case DFRET    => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
+  case RTRET    => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
+  case EDRET    => EDRETOf[T]
+  case CONSTRET => (DFC, DomainType.Static, DFC.Scope.Function) ?=> DFValOf[DFType.Of[T]]
+  case VAL      => DFValOf[DFType.Of[T]]
+  case CONST    => DFConstOf[DFType.Of[T]]
 
+// A static function (`T <> CONSTRET` — see devdocs/static-domain-plan.md) shares the ED
+// FUNCTION's scope (`Scope.Function`) and differs from it only in the domain evidence, which
+// is what discriminates the two everywhere it matters (plugin, printers, type-level guards).
+//
+// Neither context parameter is optional:
+//   - `DomainType.Static` SHADOWS the enclosing design's domain given, which would otherwise
+//     stay in scope inside the body (a def body is a lambda lexically nested in its design) and
+//     bring `.reg`, `REG` variables, and the rest back to life. It is also what makes a static
+//     function callable from ANY domain and from the global scope: `Static` is the ambient
+//     given, unlike an ED method's `DomainType.ED`.
+//   - `Scope.Function` is what the plugin's design-def predicate keys on, so a `CONSTRET` def
+//     gets capture discovery and phantom rigging for free.
+//
 // ED methods are modeled as HDL subprograms: a `Unit` return type declares a procedural
 // method (Verilog task / VHDL procedure — body+call sites under `Scope.Procedural`),
 // any other return type declares a function (body under `Scope.Function`, callable

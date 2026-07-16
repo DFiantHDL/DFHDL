@@ -303,18 +303,16 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
     // (local, sibling class member, global)
     val valRhs = mutable.Map.empty[Symbol, Tree]
 
-    // ED methods (HDL functions/tasks) are design defs regardless of their DFHDL-value
-    // parameter count; they are detected by the scope evidence parameter the `<> EDRET`
-    // match type injects into the context lambda (mirroring the DesignDefs guard)
-    val scopeFunctionCls = getClassIfDefined("dfhdl.core.DFC.Scope.Function")
-    val scopeProceduralCls = getClassIfDefined("dfhdl.core.DFC.Scope.Procedural")
-    def isEDAnonDef(anonDef: DefDef): Boolean =
-      anonDef.paramss.flatten.exists {
-        case vd: ValDef =>
-          (scopeFunctionCls.exists && vd.tpe <:< scopeFunctionCls.typeRef) ||
-          (scopeProceduralCls.exists && vd.tpe <:< scopeProceduralCls.typeRef)
-        case _ => false
-      }
+    // A static function (`<> CONSTRET`) is PURE BY DEFINITION, so for it this phase's verdict is
+    // fatal rather than advisory: an impure static def is an error, not a cache opt-out.
+    def isStaticDef(sym: Symbol): Boolean = designDefAnon(sym).exists(isStaticAnonDef)
+    def staticImpureError(sym: Symbol): Unit =
+      report.error(
+        """|A static function (`<> CONSTRET`) must be pure, and this one's elaboration depends on an effect.
+           |Effects are randomness, IO, time, system state, a `var` declared outside the function, or a call to an impure definition.
+           |Note that CAPTURED CONSTANTS are pure: they become phantom design parameters and only enter the elaboration cache key.""".stripMargin,
+        sym.srcPos
+      )
     object rootCollector extends TreeTraverser:
       def traverse(tree: Tree)(using Context): Unit =
         tree match
@@ -678,7 +676,13 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
         )
       ).withSpan(sym.span)
     verdictImpure.foreach { sym =>
-      if (pureMarking(sym).isEmpty)
+      // For a static function the verdict is FATAL rather than advisory. `verdictImpure` covers
+      // all three ways to earn it: a detected effect, an explicit `@pure(false)` (which `scanRoot`
+      // routes through `markImpure`), and transitive impurity through a called definition.
+      // `@pure`/`@pure(true)` stays the trust override: such defs are never analyzed and never
+      // become rdep targets, so they never reach here.
+      if (isStaticDef(sym)) staticImpureError(sym)
+      else if (pureMarking(sym).isEmpty)
         sym.addAnnotation(Annotation(pureAnnotTree(false, Nil, sym)))
     }
     // forced params of a design-level-pure owner are recorded BY NAME on the owner itself

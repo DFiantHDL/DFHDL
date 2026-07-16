@@ -82,10 +82,10 @@ case object DropProcessAll extends HierarchyStage:
                 // but refer to vias outside of it. we also need to account that different PBNS are
                 // considered to be different values, so we use `addedCPs` to only add one port-by-name per connect point.
                 .view.filter {
-                  // ED method call ports are not signals — the call's actual reads are
+                  // HDL subprogram call ports are not signals — the call's actual reads are
                   // collected through the call's input connections instead
                   case pbns: DFVal.PortByNameSelect
-                      if pbns.getDesignInst.getDesignBlock.isEDMethod =>
+                      if pbns.getDesignInst.getDesignBlock.isHDLSubprogram =>
                     false
                   case pbns: DFVal.PortByNameSelect =>
                     val cp = ConnectPoint.Via(pbns)

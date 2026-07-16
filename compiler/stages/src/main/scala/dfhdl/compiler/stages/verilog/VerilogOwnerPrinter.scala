@@ -99,7 +99,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
         .mkString("\n")
     // ED methods (HDL functions) are locally scoped — declared in this module's
     // declaration region
-    val edMethodDcls = printer.edMethodPrinters(design)
+    val edMethodDcls = printer.subprogramPrinters(design)
       .map((block, p) =>
         sn"""|${p.csDocString(block.dclMeta)}
              |${p.csDFDesignDefDcl(block)}"""
@@ -211,18 +211,21 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       case VerilogDialect.v95 => false
       case _                  => true
     // HDL subprograms are static by default — `automatic` gives the expected
-    // fresh-per-call semantics (unavailable in v95, where functions cannot wait anyway)
+    // fresh-per-call semantics (unavailable in v95, where functions cannot wait anyway).
+    //
+    // NOTE the naming collision, before someone "fixes" it: SystemVerilog's `static` is a
+    // variable LIFETIME and is the opposite of `automatic`, and has nothing to do with DFHDL's
+    // static DOMAIN. A static function therefore emits as an `automatic` function.
     val automatic = if (ansiHeader) "automatic " else ""
     def csFuncType(dfType: DFType): String =
       val csType = printer.csDFType(dfType).emptyOr(_ + " ")
       if (printer.supportLogicType) csType else csType.replace("logic ", "")
     val retTypeCS = retValOpt.map(rv => csFuncType(rv.dfType)).getOrElse("")
-    val inputs = designMembers.collect {
-      // phantom ports materialize captured outer references — hidden from the signature
-      // (their body references print the captured value's name, resolved at module scope)
-      case p @ DclIn() if !p.isPhantom => p
-    }
-    def csInput(p: DFVal.Dcl): String =
+    // a subprogram's formals: design parameters and/or input ports, in one list (see
+    // `defFormals`). Verilog has no subprogram generics, so a static function's parameters
+    // print as ordinary input formals.
+    val inputs = defFormals(design)
+    def csInput(p: DFVal): String =
       s"input ${csFuncType(p.dfType)}${p.getName}"
     // a procedural method (Unit return — no return output port) prints as a task
     val isProcedural = retValOpt.isEmpty
@@ -283,11 +286,9 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     )
     // a procedural method call (no return output port) is a statement
     val isProcedural = !instPBNS.exists(_.isOut)
-    val args = instPBNS.view.collect {
-      case pbns if pbns.isIn && !pbns.isPhantom =>
-        val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionsTo.head.runtimeChecked
-        printer.csDFValRef(from, inst.getOwner)
-    }.mkString(", ")
+    // the actuals positionally match `defFormals`: a static function's are its applied design
+    // parameters, an ED method's are its input-port connections
+    val args = defActuals(inst).map(printer.csDFValRef(_, inst.getOwner)).mkString(", ")
     if (isProcedural)
       // a parameterless task call has no parentheses
       if (args.isEmpty) s"${moduleName(design)};"

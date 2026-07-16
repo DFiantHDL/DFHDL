@@ -10,17 +10,17 @@ case object UniqueDesigns extends GlobalStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
 
-  // ED methods are locally scoped (printed inside their owning design as HDL subprograms),
-  // so their name-uniqueness scope is the owning design rather than the whole design tree —
-  // same-named methods in different designs must not trigger collision renaming.
-  // Design-block ownership in a flat DB is structural (not in the refTable), so the
+  // HDL subprograms (ED methods and static functions) are locally scoped (printed inside their
+  // owning design), so their name-uniqueness scope is the owning design rather than the whole
+  // design tree — same-named subprograms in different designs must not trigger collision
+  // renaming. Design-block ownership in a flat DB is structural (not in the refTable), so the
   // owner is derived from the design member lists.
   private def scopedDclNameKey(
       design: DFDesignBlock,
       ownerByDesign: Map[DFDesignBlock, DFDesignBlock]
   ): String =
     ownerByDesign.get(design) match
-      case Some(owner) if design.isEDMethod =>
+      case Some(owner) if design.isHDLSubprogram =>
         s"${owner.dclName.toLowerCase()}::${design.dclName.toLowerCase()}"
       case _ => design.dclName.toLowerCase()
 

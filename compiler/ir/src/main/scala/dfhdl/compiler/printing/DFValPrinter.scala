@@ -393,7 +393,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
         dfVal.getOwnerDomain.domainType match
           case DomainType.DF => ".prev"
           case DomainType.RT => ".reg"
-          case DomainType.ED => ??? // impossible!
+          // impossible: history has no meaning where time does not advance. `.prev` is guarded by
+          // a positive `DFDomainOnly` and `.reg` by a positive `RTDomainOnly`, so neither the ED
+          // nor the static domain can produce one.
+          case DomainType.ED | DomainType.Static => ???
       case Alias.History.Op.Pipe => ".pipe"
     val appliedStr =
       dfVal.initRefOption match

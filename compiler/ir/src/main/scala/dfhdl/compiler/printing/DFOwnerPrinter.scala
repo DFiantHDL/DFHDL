@@ -35,6 +35,46 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   // print at file level: it prints locally in the host design's body, just before the
   // def's first instance (see `csDFMembers`). Only the DFHDL printer overrides this.
   protected def printDesignDefDclInline(design: DFDesignBlock): Boolean = false
+
+  // ~~~ HDL subprogram formals and actuals ~~~
+  // A VHDL or Verilog subprogram has no generics, so a def design's non-phantom design
+  // PARAMETERS and its non-phantom input PORTS print in ONE formal list, and the backend
+  // printers need not care which kind supplies it: an ED method's formals are its ports (its
+  // const arguments are rejected outright), and a static function's are its parameters (it has
+  // no input ports at all, which is what lets it be called from the global scope, where there
+  // is no block to own the net an input port would need).
+  //
+  // Phantoms are hidden from the signature: a phantom's body references print the captured
+  // value's name, resolved at the host design's scope.
+  final protected def defFormals(design: DFDesignBlock): List[DFVal] =
+    design.members(MemberView.Folded).collect {
+      case param: DFVal.DesignParam if !param.isPhantom => param
+      case port @ DclIn() if !port.isPhantom            => port
+    }
+  // The call site's actual arguments, positionally matching `defFormals`: the non-phantom
+  // parameter applications, then the non-phantom input-port connections.
+  final protected def defActuals(inst: DFDesignInst): List[DFVal] =
+    val design = inst.getDesignBlock
+    val phantomNames = getSet.designDB.phantomParamNamesOf(design)
+    val paramActuals = inst.paramMap.view.collect {
+      case (name, ref) if !phantomNames(name) => ref.get
+    }.toList
+    val instPBNS = getSet.designDB.designInstPBNS.getOrElse(
+      inst,
+      getSet.designDB.members.collect {
+        case pbns: DFVal.PortByNameSelect if pbns.getDesignInst == inst => pbns
+      }
+    )
+    val portActuals = instPBNS.view.collect {
+      case pbns if pbns.isIn && !pbns.isPhantom =>
+        // the positional def-instance form expects a single producer per input port; a
+        // piecewise-connected input port (multiple partial nets) cannot be rendered here, so
+        // we fall back to the first connection's producer.
+        val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionsTo.head.runtimeChecked
+        from
+    }.toList
+    paramActuals ++ portActuals
+  end defActuals
   final def csDFOwnerBody(owner: DFOwner): String =
     csDFMembers(owner.members(MemberView.Folded))
   final def csDFMembers(members: List[DFMember]): String =
@@ -230,10 +270,10 @@ end AbstractOwnerPrinter
 protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter = DFPrinter
   override protected def hidePhantoms: Boolean = true
-  // ED methods are excluded: they always print at the top of their owning design's
-  // body (see `csDFDesignBlockDclImpl`), phantoms or not
+  // HDL subprograms (ED methods and static functions) are excluded: they always print at the
+  // top of their owning design's body (see `csDFDesignBlockDclImpl`), phantoms or not
   override protected def printDesignDefDclInline(design: DFDesignBlock): Boolean =
-    design.instMode == InstMode.Def && !design.isEDMethod &&
+    design.instMode == InstMode.Def && !design.isHDLSubprogram &&
       getSet.designDB.designHasPhantoms(design)
   def csDFDesignDefDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
@@ -271,14 +311,21 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
       else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
     val retDFType = retValOpt.map(_.dfType).getOrElse(DFUnit)
-    // ED methods (HDL subprograms) are declared with `<> EDRET`; DF (and RT, which
-    // currently elaborates as DF) design defs with `<> DFRET`
+    // ED methods are declared with `<> EDRET` and static functions with `<> CONSTRET`; DF (and
+    // RT, which currently elaborates as DF) design defs with `<> DFRET`
     val retModCS = design.domainType match
-      case DomainType.ED => "EDRET"
-      case _             => "DFRET"
+      case DomainType.ED     => "EDRET"
+      case DomainType.Static => "CONSTRET"
+      case _                 => "DFRET"
     val retTypeCS = s": ${printer.csDFType(retDFType, typeCS = true)} <> $retModCS"
+    // A static function's arguments ARE its design parameters (it has no input ports), so its
+    // single term parameter list is the parameter list, and it round-trips as the user wrote it.
+    // Every other def design keeps parameters and inputs in separate lists.
+    val formalsCS =
+      if (design.isStaticFunction) if (designParamList.isEmpty) "()" else designParamCS
+      else s"$designParamCS($defArgsCS)"
     val dcl =
-      s"def ${design.dclName}$designParamCS($defArgsCS)$retTypeCS =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
+      s"def ${design.dclName}$formalsCS$retTypeCS =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     sn"""|${printer.csAnnotations(design.dclMeta.annotations)}
          |$dcl\n"""
   end csDFDesignDefDcl
@@ -320,7 +367,12 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       if (designParamList.length == 0) ""
       else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
       else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
-    val dcl = s"${design.dclName}$designParamCS($ports)"
+    // a static function call passes its arguments as design parameters, in the one argument
+    // list the user wrote (mirroring `csDFDesignDefDcl`)
+    val dcl =
+      if (design.isStaticFunction)
+        s"${design.dclName}${if (designParamList.isEmpty) "()" else designParamCS}"
+      else s"${design.dclName}$designParamCS($ports)"
     if (inst.isAnonymous) dcl
     else s"val ${inst.getName} = $dcl"
   end csDFDesignDefInst
@@ -340,11 +392,11 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   private def csDFDesignBlockDclImpl(design: DFDesignBlock): String =
     import design.instMode
     val localDcls = printer.csLocalTypeDcls(design)
-    // ED methods are locally scoped — their def declarations print after the design's own
+    // HDL subprograms are locally scoped — their def declarations print after the design's own
     // declarations and before its statements, mirroring the HDL backends (where subprograms
-    // live in the declarative region, after the signal/variable declarations). A method body
+    // live in the declarative region, after the signal/variable declarations). A subprogram body
     // may reference any of those declarations by name.
-    val edMethodDcls = printer.edMethodPrinters(design)
+    val edMethodDcls = printer.subprogramPrinters(design)
       .map((block, p) => s"${p.csDocString(block.dclMeta)}${p.csDFDesignDefDcl(block)}")
       .mkString("\n")
     val body =
@@ -547,6 +599,9 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case DomainType.DF => "DFDomain"
       case DomainType.RT => "RTDomain"
       case DomainType.ED => "EDDomain"
+      // impossible: there is no user-facing `StaticDomain` block. The static domain's only owners
+      // are the global scope and a static function's def design, neither of which is a DomainBlock.
+      case DomainType.Static => ???
     sn"""|${named}new $domainStr:
          |${body.hindent}
          |$endName"""

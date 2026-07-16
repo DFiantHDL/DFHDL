@@ -2308,4 +2308,39 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("static function (`<> CONSTRET`)") {
+    class StaticFn extends EDDesign:
+      val o                                               = UInt(8) <> OUT
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      o <> twice(d"8'3")
+    end StaticFn
+    val top = (new StaticFn).getCompiledCodeString
+    // A static function's formals are its design PARAMETERS (it has no input ports), and a VHDL
+    // subprogram has no generics, so they print in the ordinary formal list, where the default
+    // class is `constant` — exactly what they are. It is emitted `pure`: a static function is pure
+    // by definition, and its captures are constants (enforced by the plugin), never signals.
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity StaticFn is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end StaticFn;
+         |
+         |architecture StaticFn_arch of StaticFn is
+         |  pure function twice(n : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return n + n;
+         |  end function;
+         |begin
+         |  o <= twice(8d"3");
+         |end StaticFn_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec
