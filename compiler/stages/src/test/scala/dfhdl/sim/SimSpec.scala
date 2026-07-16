@@ -1,6 +1,6 @@
 package dfhdl.sim
 import dfhdl.toScalaBoolean
-import dfhdl.core.{DFConstOf, DFTypeAny, DFVal, DFCG, CONST, dfType, DFValAny, DFBool}
+import dfhdl.core.{DFConstOf, DFTypeAny, DFVal, DFCG, CONST, dfType, DFValAny, DFBool, DomainType}
 import dfhdl.internals.*
 import dfhdl.compiler.ir
 import ir.DFVal.Func.Op as FuncOp
@@ -15,6 +15,7 @@ import munit.diff.{DiffOptions, Printer}
 abstract class SimSpec extends munit.FunSuite, NoTopAnnotIsRequired:
   val dfc: DFCG = DFCG()
   given DFCG = dfc
+  given DomainType.Static = DomainType.Static
   // A sim spec is a purely Scala front-end for DFHDL simulations, so it follows SCALA semantics,
   // not DFHDL's. But it introduces a `DFCG` (above) for constant arithmetic on peeked values, and
   // `DFC` is exactly what distinguishes DFHDL code from plain Scala: without these flags, a `for`
