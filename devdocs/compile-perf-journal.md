@@ -1341,3 +1341,50 @@ custom printer during the hot (non-error) path at all - a behavior change to
 user-facing error formatting, which is the maintainer's call, not a mechanical win.
 The same before/after JFR independently re-confirmed the Exp-18 CodeDigest win
 (1.20% -> 0.63%).
+
+## Experiment 20 (2026-07-16): profiling lib/compile and lib/Test/compile - same hotspots
+
+Checked whether a different workload (the standard library's real designs:
+arithmetic, AES, RISCV, memory, ALU) stresses different hotspots than the
+`compiler_stages` tests. JFR on the patched 3.10 compiler, separate recordings for
+`lib/compile` (library API, ~8 s, 315 samples) and `lib/Test/compile` (the heavy
+designs, ~23 s, 1014 samples).
+
+Build note: `lib`'s `managedResources` downloads `dftools.lock.json` from a GitHub
+release, which 403s in the sandbox (same block as inkuire). For compile-only
+profiling the lockfile content is never read (it is a runtime resource parsed by
+`DFToolsImage`), so a `build.sbt` offline fallback that writes a `{}` stub on
+download failure unblocks it. That fallback is a LOCAL profiling aid only and must
+NOT be committed: the hard `sys.error` is intentional fail-fast for real builds.
+
+**`lib/Test/compile` inclusive attribution (926 compile-thread samples):**
+
+| subsystem | lib_test | compiler_stages (Exp 16) |
+|-----------|---------:|-------------------------:|
+| inliner | 33.3% | 30.5% |
+| implicit search | 30.7% | 28.2% |
+| substitution | 24.2% | 27.7% |
+| TypeMap | 21.3% | 29.6% |
+| subtyping | 20.2% | 23.1% |
+| uniques / hash-consing | 8.6% | 7.9% |
+| zinc dep-extract | 5.5% | 9.4% |
+| quote / macro | 5.2% | 3.9% |
+| DFHDL plugin | 4.3% | ~4% |
+| isStatic walk | 2.9% | ~1.8% |
+
+The distributions are essentially the same. Top leaves match too (`TypeMap.mapOver`,
+`isStaticOwner`, `AppliedUniques.linkedListLoop`, `computeDenot`,
+`typeParams$extension`). `lib/compile` (library API, not design elaboration) skews
+a little more toward denotation completion (`completeFrom`/`ensureCompleted`/
+`computeDenot`/`computeSymbol`) because it loads/forces many library symbols, but it
+is small.
+
+**Conclusion:** there is no new, workload-specific hotspot in `lib`. The cost is the
+same inherent DFHDL type machinery (transparent-inline expansion, implicit/given
+search, substitution and subtyping over the large inferred types) that dominates
+`compiler_stages`. This confirms the Exp-16/17 conclusion generalizes: after the
+three compiler wins and the shipped library/plugin wins, what remains is genuine
+typing work, uniform across DFHDL workloads. The only recurring compiler-side
+micro-candidates (the `isStatic` owner-chain walk ~2-3%, `AppliedType` hash-consing
+~8%) are the same modest, higher-risk items already noted; nothing in `lib`
+changes that assessment.
