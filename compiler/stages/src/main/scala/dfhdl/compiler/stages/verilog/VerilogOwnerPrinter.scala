@@ -100,7 +100,10 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     // ED methods (HDL functions) are locally scoped — declared in this module's
     // declaration region
     val edMethodDcls = printer.edMethodPrinters(design)
-      .map((block, p) => s"${p.csDocString(block.dclMeta)}${p.csDFDesignDefDcl(block)}")
+      .map((block, p) =>
+        sn"""|${p.csDocString(block.dclMeta)}
+             |${p.csDFDesignDefDcl(block)}"""
+      )
       .mkString("\n\n")
     val declarations =
       sn"""|$constIntDcls

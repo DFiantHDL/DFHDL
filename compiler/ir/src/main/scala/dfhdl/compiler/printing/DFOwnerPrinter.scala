@@ -279,7 +279,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val retTypeCS = s": ${printer.csDFType(retDFType, typeCS = true)} <> $retModCS"
     val dcl =
       s"def ${design.dclName}$designParamCS($defArgsCS)$retTypeCS =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
-    s"${printer.csAnnotations(design.dclMeta.annotations)}$dcl\n"
+    sn"""|${printer.csAnnotations(design.dclMeta.annotations)}
+         |$dcl\n"""
   end csDFDesignDefDcl
   private def csDesignParamList(paramMap: ListMap[String, DFVal.Ref]): List[String] =
     paramMap.view.map { (name, ref) =>
@@ -410,7 +411,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val dclWithBody =
       if (bodyWithDcls.isEmpty || designIsExternalIPBlackbox) dcl
       else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
-    s"${printer.csAnnotations(design.meta.annotations)}$dclWithBody\n"
+    sn"""|${printer.csAnnotations(design.meta.annotations)}
+         |$dclWithBody\n"""
   end csDFDesignBlockDclImpl
   def csDFDesignBlockInst(inst: DFDesignInst): String =
     val design = inst.getDesignBlock
@@ -424,8 +426,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val instCS =
       if (body.isEmpty) s"${design.dclName}$designParamCS"
       else s"new ${design.dclName}$designParamCS:\n${body.hindent}"
-    val csVal = sn"""|${printer.csAnnotations(inst.meta.annotations)}
-                     |val ${inst.getName} = ${instCS}"""
+    val csVal = s"val ${inst.getName} = ${instCS}"
     if (body.isEmpty) csVal else s"$csVal\nend ${inst.getName}"
   end csDFDesignBlockInst
   def csBlockBegin: String = ""

@@ -157,7 +157,7 @@ trait Printer
   def csCommentEOL(comment: String): String
   def csDocString(doc: String): String
   final def csDocString(meta: Meta): String =
-    meta.docOpt.map(printer.csDocString).map(x => s"$x\n").getOrElse("")
+    meta.docOpt.map(printer.csDocString).mkString("\n")
   def csAnnotations(annotations: List[annotation.HWAnnotation]): String
   final def csDFMember(member: DFMember): String =
     val cs = member match
@@ -184,7 +184,9 @@ trait Printer
       // still produced by `csFile` via `csDFDesignBlockDcl`.
       case _: DFDesignBlock => ""
       case _                => ???
-    s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta.annotations)}$cs"
+    sn"""|${printer.csDocString(member.meta)}
+         |${printer.csAnnotations(member.meta.annotations)}
+         |$cs"""
   end csDFMember
   def designFileName(designName: String): String
   def globalFileName: String
@@ -220,7 +222,8 @@ trait Printer
     // a foreign IP renders as a bare `import` of its external class, so its doc comment (carried on
     // the IP class) must not be emitted ahead of the import
     val docString = if (design.isExternalIPBlackbox) "" else csDocString(design.dclMeta)
-    s"$docString$designDcl"
+    sn"""|$docString
+         |$designDcl"""
   def dfhdlDefsFileName: String
   def dfhdlSourceContents: String
   val hdlFolderName: String = "hdl"
@@ -513,7 +516,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/**", "\n  *", "*/")
   def csAnnotations(annotations: List[annotation.HWAnnotation]): String =
     if (annotations.isEmpty) ""
-    else annotations.view.map(_.codeString).mkString("", "\n", "\n")
+    else annotations.view.map(_.codeString).mkString("\n")
   // def csTimer(timer: Timer): String =
   //   val timerBody = timer match
   //     case p: Timer.Periodic =>

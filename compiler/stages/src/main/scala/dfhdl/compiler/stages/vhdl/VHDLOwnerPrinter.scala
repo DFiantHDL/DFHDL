@@ -162,7 +162,10 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     // ED methods (HDL functions) are locally scoped — declared in this design's
     // architecture declarative part
     val edMethodDcls = printer.edMethodPrinters(design)
-      .map((block, p) => s"${p.csDocString(block.dclMeta)}${p.csDFDesignDefDcl(block)}")
+      .map((block, p) =>
+        sn"""|${p.csDocString(block.dclMeta)}
+             |${p.csDFDesignDefDcl(block)}"""
+      )
       .mkString("\n\n")
     val declarations =
       sn"""|$constIntDcls

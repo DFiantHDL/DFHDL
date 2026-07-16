@@ -709,6 +709,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("Domains") {
+    @hw.constraints.timing.reset()
     class IDWithDomains extends DFDesign:
       val y    = SInt(16) <> OUT
       val fast = new RTDomain:
@@ -727,7 +728,8 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val id = (new IDWithDomains)
     assertCodeString(
       id,
-      """|class IDWithDomains extends DFDesign:
+      """|@timing.reset()
+         |class IDWithDomains extends DFDesign:
          |  val y = SInt(16) <> OUT
          |  val fast = new RTDomain:
          |    val pr = SInt(16) <> VAR init sd"16'0"
