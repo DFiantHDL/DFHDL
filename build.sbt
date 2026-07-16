@@ -116,7 +116,7 @@ lazy val core = project
     name := s"$projectName-core",
     settings,
     implicitConversionSettings,
-    pluginTestUseSettings,
+    pluginErrorTestSettings,
     libraryDependencies ++= commonDependencies,
     Compile / resourceGenerators += Def.task {
       val file = (Compile / resourceManaged).value / "version.properties"
@@ -131,7 +131,9 @@ lazy val core = project
   )
   .dependsOn(
     plugin,
-    internals,
+    // test->test lets core's tests see internals' test-only PluginErrCheck marker
+    // (see devdocs/plugin-error-testing.md)
+    internals % "test->test;compile->compile",
     compiler_ir
   )
 
@@ -524,6 +526,12 @@ lazy val pluginTestUseSettings = pluginOptionsSettings ++ Seq(
   Test / scalacOptions ++= pluginOptions.value
   // "-Yprofile-enabled",
   // "-Yprofile-trace:compiler.trace"
+)
+
+lazy val pluginErrorTestSettings = pluginOptionsSettings ++ Seq(
+  // the `testing` plugin option enables the PluginErrCheck interceptor phase, which exists
+  // only for DFHDL's own test compilations (see devdocs/plugin-error-testing.md)
+  Test / scalacOptions ++= pluginOptions.value :+ "-P:dfhdl.plugin:testing"
 )
 
 lazy val commonSettings = Seq(

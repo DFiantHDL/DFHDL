@@ -440,6 +440,12 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
     end unapply
   end DFVal
 
+  // Applies this phase's parse-tree rewrites to a standalone parsed tree, so nested snippet
+  // compilations (PluginTestPhase) get the same parse-level fidelity as regular units. The
+  // auto-@top rewrite is deliberately skipped: it never applies inside block snippets.
+  def rewriteParsed(tree: Tree)(using Context): Tree =
+    `fixXand<>Precedence`.transform(`fix<>andOpPrecedence`.transform(tree))
+
   // not used, but can be potentially useful for modified the reported compiler errors
   override def initContext(ctx: FreshContext): Unit =
     import dotty.tools.dotc.printing.*
@@ -473,8 +479,7 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
     val topAvailable = getClassIfDefined("dfhdl.top").exists
     parsed.foreach { cu =>
       debugFlag = cu.source.file.path.contains("Playground.scala")
-      cu.untpdTree = `fix<>andOpPrecedence`.transform(cu.untpdTree)
-      cu.untpdTree = `fixXand<>Precedence`.transform(cu.untpdTree)
+      cu.untpdTree = rewriteParsed(cu.untpdTree)
       if (topAvailable)
         cu.untpdTree = `autoTopAnnot`.transform(cu.untpdTree)
     }
