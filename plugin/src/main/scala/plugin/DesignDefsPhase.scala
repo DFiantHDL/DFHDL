@@ -37,6 +37,9 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
   var designFromDefGetInputSym: Symbol = uninitialized
   var designFromDefGetParamSym: Symbol = uninitialized
   var irDFUnitCls: Symbol = uninitialized
+  var scopeProcessCls: Symbol = uninitialized
+  var designCls: Symbol = uninitialized
+  var domainContainerCls: Symbol = uninitialized
 
   // DFHDL design construction from definitions transformation.
   // Such transformation rely on code like `def foo(arg: Bit <> VAL): Bit <> VAL`
@@ -164,6 +167,15 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
               "A static function must return a value. A `Unit` return type (a procedure) is not supported with `<> CONSTRET`."
             )
         end if
+        // Compile-time enforcement of the subprogram BODY content rules. The SanityCheck
+        // stage's `subprogramCheck` remains the debug-mode backstop for constructs smuggled
+        // in through helper defs, whose bodies this syntactic check cannot see.
+        if (isSubprogram)
+          checkSubprogramContent(anonDef, isStatic, isEDMethod && hasUnitRet(anonDef)) {
+            (msg, pos) =>
+              report.error(msg, pos)
+              hasSubprogramErrors = true
+          }
         if (hasSubprogramErrors) tree
         else
           val dfc = ContextArg.at(anonDef).get
@@ -342,6 +354,94 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
       )
     ctx
 
+  // The subprogram body content rules: a subprogram (an ED method or a static function) body
+  // may not construct design content that has no HDL-subprogram form. Mirrors the rule set of
+  // the SanityCheck stage's `subprogramCheck` backstop, but reports at compile time on the
+  // offending expression. The check is syntactic over the def's own body: constructs reached
+  // through helper defs are invisible here and are left to the backstop.
+  private def checkSubprogramContent(
+      anonDef: DefDef,
+      isStatic: Boolean,
+      isProcedural: Boolean
+  )(err: (String, util.SrcPos) => Unit)(using Context): Unit =
+    val kindNoun = if (isStatic) "a static function" else "an ED method"
+    def designInstanceError(pos: util.SrcPos): Unit =
+      if (isStatic)
+        err(
+          "Design instances are not allowed inside a static function. Only calls to other static functions are.",
+          pos
+        )
+      else
+        err(
+          "Design instances are not allowed inside an ED method. Only calls to other ED methods and to static functions are.",
+          pos
+        )
+    object checker extends TreeTraverser:
+      def traverse(t: Tree)(using Context): Unit =
+        t match
+          // nested design defs (including nested subprograms) are checked independently by
+          // their own `transformDefDef` pass
+          case dd: DefDef if designDefAnonOf(dd).nonEmpty => // skip
+          case nt: New                                    =>
+            if (designCls.exists && nt.tpt.tpe.derivesFrom(designCls))
+              designInstanceError(nt.srcPos)
+            else if (domainContainerCls.exists && nt.tpt.tpe.derivesFrom(domainContainerCls))
+              err(s"This construct is not allowed inside $kindNoun.", nt.srcPos)
+          case ap @ Apply(fun, args) =>
+            val funSym = fun.symbol
+            // process/fork bodies are `DFC.Scope.Process ?=> Unit` context lambdas, so an
+            // argument of that type identifies the construct regardless of its export path
+            val opensProcessScope = scopeProcessCls.exists && args.exists { a =>
+              a.tpe.dealias match
+                case ContextFunctionType(ctxParams, _) =>
+                  ctxParams.exists(_ <:< scopeProcessCls.typeRef)
+                case _ => false
+            }
+            if (opensProcessScope)
+              val ownerName = funSym.maybeOwner.name.toString
+              if (ownerName == "process$" || ownerName == "process")
+                err(s"Process blocks are not allowed inside $kindNoun.", ap.srcPos)
+              else err(s"This construct is not allowed inside $kindNoun.", ap.srcPos)
+            else if (funSym.name.toString == ":==")
+              val msg =
+                if (isStatic)
+                  "Non-blocking assignments `:==` are not allowed inside a static function."
+                else if (isProcedural)
+                  "Non-blocking assignments `:==` are not allowed inside an ED method (writes to outer state are not yet supported)."
+                else "Non-blocking assignments `:==` are not allowed inside an ED function."
+              err(msg, ap.srcPos)
+            else
+              // the evidence arguments a call applies identify the callee kind: subprograms
+              // take scope evidence (`Scope.Function`/`Scope.Procedural`) and their domain
+              // evidence separates ED methods (`DomainType.ED`) from static functions; DF
+              // design defs take `DomainType.DF`
+              def hasArgOf(cls: Symbol): Boolean =
+                cls.exists && args.exists(_.tpe <:< cls.typeRef)
+              def hasDomainArg(domainSym: Symbol): Boolean =
+                // a summoned evidence argument's type is a TermRef of the given; widen it to
+                // reach the (opaque) domain evidence type itself
+                domainSym.exists &&
+                  args.exists(_.tpe.widenTermRefExpr.dealias.typeSymbol == domainSym)
+              val isSubprogramCall = hasArgOf(scopeFunctionCls) || hasArgOf(scopeProceduralCls)
+              if (isStatic && isSubprogramCall && hasDomainArg(domainTypeEDSym))
+                err(
+                  "ED method calls are not allowed inside a static function. A static function is callable from any domain, so it may only call other static functions.",
+                  ap.srcPos
+                )
+              else if (
+                !isSubprogramCall &&
+                ((hasDomainArg(domainTypeDFSym) && ap.tpe.dfValTpeOpt.nonEmpty) ||
+                  (isDesignDef(funSym) && !designDefAnon(funSym).exists(isSubprogramAnonDef)))
+              )
+                designInstanceError(ap.srcPos)
+            end if
+            traverseChildren(t)
+          case _ => traverseChildren(t)
+      end traverse
+    end checker
+    checker.traverse(anonDef.rhs)
+  end checkSubprogramContent
+
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     designFromDefSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDef")
@@ -350,6 +450,9 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
     designFromDefGetInputSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefGetInput")
     designFromDefGetParamSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefGetParam")
     irDFUnitCls = requiredClass("dfhdl.compiler.ir.DFUnit")
+    scopeProcessCls = getClassIfDefined("dfhdl.core.DFC.Scope.Process")
+    designCls = getClassIfDefined("dfhdl.core.Design")
+    domainContainerCls = getClassIfDefined("dfhdl.core.DomainContainer")
     // the unit's design defs, registered before any of it is transformed (see `collectDesignDefs`)
     collectDesignDefs(tree)
     ctx

@@ -325,6 +325,97 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     require(!hasViolations, "Failed member order check!")
   end orderCheck
 
+  // HDL subprogram content checks: an ED method (see the ed-methods plan) or a static function
+  // (see the static-domain plan). Both are design blocks with `instMode = Def`, and only the
+  // domain separates them. An ED method is a FUNCTION when it returns a value (has a return
+  // output port) and a PROCEDURAL method (Verilog task / VHDL procedure) when it returns Unit.
+  // Content rules:
+  //   * ED functions: no waits, no non-blocking assignments
+  //   * ED procedural methods: waits allowed; non-blocking assignments still rejected
+  //     (writes to outer state are not yet supported, see the ed-methods plan's deferred items)
+  //   * static functions: no waits (time does not advance in the static domain), no non-blocking
+  //     assignments, and no calls to ED methods (a static function is callable from any domain,
+  //     so it may not depend on one)
+  //   * all: no step transitions, no processes/steps/forks/domains, no design instances other
+  //     than calls to other subprograms
+  //
+  // PRIMARY enforcement is the compile-time body content check in the plugin's
+  // `DesignDefsPhase.checkSubprogramContent`, which rejects these constructs on the offending
+  // expression (several have no type-level twin: a `process` carries no scope guard, since a
+  // positive one would leak, see devdocs/scoping.md §3, and an ED-method call site summons
+  // `DomainType.ED` directly, which reaches past a static body's `Static` given to the enclosing
+  // design's). This IR-level check is deliberately NOT part of the elaboration `DB.check` path;
+  // it runs here (debug mode) as the backstop for scope evidence laundered through helper
+  // `def`s, whose bodies the plugin's syntactic check cannot see.
+  private def subprogramCheck()(using MemberGetSet): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    def memberError(member: DFMember, kindStr: String, msg: String): Unit =
+      errors += s"""|DFiant HDL $kindStr error!
+                    |Position:  ${member.meta.position}
+                    |Hierarchy: ${member.getOwnerDesign.getFullName}
+                    |Message:   $msg""".stripMargin
+    val designDB = getSet.designDB
+    val subprograms =
+      designDB.members.collect { case design: DFDesignBlock if design.isHDLSubprogram => design }
+    subprograms.foreach { design =>
+      val isStatic = design.isStaticFunction
+      val designMembers = designDB.getMembersOf(design, MemberView.Flattened)
+      // an ED function has a return output port; an ED procedural method does not. A static
+      // function always returns a value (a `Unit` return is rejected by the plugin).
+      val isProcedural = !isStatic && !designMembers.exists {
+        case dcl: DFVal.Dcl if dcl.modifier.dir == DFVal.Modifier.OUT => true
+        case _                                                        => false
+      }
+      val kindStr = if (isStatic) "static function" else "ED method"
+      // The rules below that bind BOTH ED kinds name the kind ("an ED method"); only those that
+      // bind functions alone say "an ED function".
+      val kindNoun = if (isStatic) "a static function" else "an ED method"
+      def err(member: DFMember, msg: String): Unit = memberError(member, kindStr, msg)
+      designMembers.foreach {
+        case wait: Wait if !isProcedural =>
+          err(
+            wait,
+            if (isStatic)
+              "Wait statements are not allowed inside a static function (time does not advance in the static domain)."
+            else "Wait statements are not allowed inside an ED function."
+          )
+        case net @ DFNet.NBAssignment(_, _) =>
+          err(
+            net,
+            if (isStatic)
+              "Non-blocking assignments `:==` are not allowed inside a static function."
+            else if (isProcedural)
+              "Non-blocking assignments `:==` are not allowed inside an ED method (writes to outer state are not yet supported)."
+            else "Non-blocking assignments `:==` are not allowed inside an ED function."
+          )
+        case goto: Goto =>
+          err(goto, s"Step transitions are not allowed inside $kindNoun.")
+        case pb: ProcessBlock =>
+          err(pb, s"Process blocks are not allowed inside $kindNoun.")
+        case owner @ (_: StepBlock | _: ForkBlock | _: DomainBlock) =>
+          err(owner, s"This construct is not allowed inside $kindNoun.")
+        // a static function may call other static functions, but NOT ED methods: it is callable
+        // from any domain, so it may not depend on being in one
+        case inner: DFDesignBlock if isStatic && !inner.isStaticFunction =>
+          err(
+            inner,
+            if (inner.isEDMethod)
+              "ED method calls are not allowed inside a static function. A static function is callable from any domain, so it may only call other static functions."
+            else
+              "Design instances are not allowed inside a static function. Only calls to other static functions are."
+          )
+        case inner: DFDesignBlock if !isStatic && !inner.isHDLSubprogram =>
+          err(
+            inner,
+            "Design instances are not allowed inside an ED method. Only calls to other ED methods and to static functions are."
+          )
+        case _ => // ok
+      }
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end subprogramCheck
+
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     // Build the hierarchical DB once (oldToNew is O(members) and SanityCheck
     // runs after every stage). Run the per-design structural checks under each
@@ -337,6 +428,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
         memberExistenceCheck()
         ownershipCheck(subDB.top, subDB.membersNoGlobals.drop(1))
         // orderCheck()
+        subprogramCheck()
       }
     }
     hierDB.check

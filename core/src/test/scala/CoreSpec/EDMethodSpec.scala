@@ -48,16 +48,146 @@ class EDMethodSpec extends DFSpec:
     val errs = dfc.getErrors
     assert(errs.isEmpty, errs.mkString("\n"))
 
-  // NOTE: plugin-reported errors cannot be asserted via `assertCompileError` (it runs
-  // `typeCheckErrors`, which stops at the typer — plugin phases never run). The following
-  // DesignDefsPhase errors were verified manually (see the ed-methods plan):
-  //   * missing explicit parameter block:
-  //     "An ED method must declare an explicit parameter block. Use an empty `()`
-  //      parameter block if the method has no arguments."
-  //   * direct recursion: "Recursion is not allowed for ED methods."
-  //   * explicit `<> CONST` argument: "Constant arguments are not supported for ED
-  //     methods. ..." (an HDL subprogram takes no constant parameter; captured outer
-  //     constants are supported instead, as phantom parameters)
+  test("valid ED method snippet reports no plugin errors"):
+    assertPluginError("No error found")(
+      """
+      class Ok extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET = l + r
+        y <> add(a, a)
+      """
+    )
+
+  test("ED method without an explicit parameter block"):
+    assertPluginError(
+      "An ED method must declare an explicit parameter block. Use an empty `()` parameter block if the method has no arguments."
+    )(
+      """
+      class Foo extends EDDesign:
+        val y = UInt(8) <> OUT
+        def zero: UInt[8] <> EDRET = d"8'0"
+        y <> zero
+      """
+    )
+
+  test("ED method direct recursion"):
+    assertPluginError(
+      "Recursion is not allowed for ED methods."
+    )(
+      """
+      class Foo extends EDDesign:
+        val y = UInt(8) <> OUT
+        def rec(): UInt[8] <> EDRET = rec()
+        y <> rec()
+      """
+    )
+
+  test("ED method with a constant argument"):
+    assertPluginError(
+      """|Constant arguments are not supported for ED methods.
+         |The `c` argument is a `<> CONST` value, which an ED method cannot take as a parameter.
+         |Use a `<> VAL` argument instead, reference a constant declared outside the method, or declare a static function (`<> CONSTRET`).""".stripMargin
+    )(
+      """
+      class Foo extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        def bad(l: UInt[8] <> VAL, c: UInt[8] <> CONST): UInt[8] <> EDRET = l + c
+        y <> bad(a, d"8'1")
+      """
+    )
+
+  test("process block inside an ED method body"):
+    assertPluginError(
+      "Process blocks are not allowed inside an ED method."
+    )(
+      """
+      class Foo extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        def f(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+          process(all) {}
+          l
+        y <> f(a)
+      """
+    )
+
+  test("design instance inside an ED method body"):
+    assertPluginError(
+      "Design instances are not allowed inside an ED method. Only calls to other ED methods and to static functions are."
+    )(
+      """
+      class Inner extends EDDesign:
+        val x = UInt(8) <> IN
+      class Foo extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        def f(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+          val i = Inner()
+          l
+        y <> f(a)
+      """
+    )
+
+  test("DF design def call inside an ED method body"):
+    assertPluginError(
+      "Design instances are not allowed inside an ED method. Only calls to other ED methods and to static functions are."
+    )(
+      """
+      class Foo extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        def df(l: UInt[8] <> VAL): UInt[8] <> DFRET = l + 1
+        def f(l: UInt[8] <> VAL): UInt[8] <> EDRET = df(l)
+        y <> f(a)
+      """
+    )
+
+  test("non-blocking assignment inside an ED function body"):
+    assertPluginError(
+      "Non-blocking assignments `:==` are not allowed inside an ED function."
+    )(
+      """
+      class Foo extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        def f(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+          val v = UInt(8) <> VAR
+          v :== l
+          v
+        y <> f(a)
+      """
+    )
+
+  test("domain block inside an ED method body"):
+    assertPluginError(
+      "This construct is not allowed inside an ED method."
+    )(
+      """
+      class Foo extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        def f(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+          val d = new RTDomain {}
+          l
+        y <> f(a)
+      """
+    )
+
+  test("ambiguous captured value name"):
+    assertPluginError(
+      """|Ambiguous captured value name `a` in a DFHDL method.
+         |Every captured external value must have a name distinct from the method's arguments and from other captured values.""".stripMargin
+    )(
+      """
+      class Foo extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        def f(a: UInt[8] <> VAL): UInt[8] <> EDRET = a + this.a
+        y <> f(a)
+      """
+    )
 
   test("procedural ED method (task) elaboration"):
     class FooProc extends EDDesign:

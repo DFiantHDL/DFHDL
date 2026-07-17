@@ -102,6 +102,12 @@ test("ED method direct recursion"):
   typer where the call-site scope is live), and it is why `assertPluginError` complements
   `assertCompileError` rather than replacing it: use the intrinsic-based helper for
   typer-level errors (scope-aware, cheaper), this one only for plugin diagnostics.
+- **...but the enclosing CLASS'S members do leak in**, through the dummy owner's owner chain
+  (as in the intrinsic). Two observed consequences: a spec member can make a snippet
+  ambiguous (PluginSpec defines a `<>` extension, so snippets using `<>` fail there; its
+  plugin-error tests live in other specs), and an owner-chain base can change plugin behavior
+  (the spec's `NoTopAnnotIsRequired` suppresses the missing-`@top` instantiation error, which
+  is therefore untestable this way).
 - **Snippets must be statically known strings**: a `"""..."""` literal, no `stripMargin` (a
   runtime call). Uniform extra indentation is harmless to the block parse, so indent the
   snippet naturally. The expected-error argument is compared at runtime and may use
@@ -116,9 +122,10 @@ test("ED method direct recursion"):
 The interceptor phase is appended by `Plugin.initialize` only when the `testing` plugin option
 is present. Only `pluginErrorTestSettings` passes `-P:dfhdl.plugin:testing`, and only `core`
 uses it (`compiler_stages` keeps the plain `pluginTestUseSettings`, so the phase does not
-exist in its pipeline at all). Production compilation and any downstream user of the published
-plugin never pass the option, so the phase is never instantiated: zero pipeline presence, zero
-per-node dispatch cost. The dormant class in the plugin jar is the entire footprint.
+exist in its pipeline at all; lib deliberately does not enable it either). Production
+compilation and any downstream user of the published plugin never pass the option, so the
+phase is never instantiated: zero pipeline presence, zero per-node dispatch cost. The dormant
+class in the plugin jar is the entire footprint.
 
 The marker is test-only source reached through core's `test->test` dependency on internals; it
 is never published, so downstream code cannot even reference it. If a stage-side plugin-error
@@ -138,3 +145,26 @@ mapping. Metals/BSP export `Test / scalacOptions`, so the gating applies in the 
   Fine for diagnostics; a known fidelity gap for tree shapes.
 - Collected messages are raw: the fresh typer state bypasses the `CustomReporter` that
   `PreTyperPhase.initContext` installs for the real run, exactly as `typeCheckErrors` does.
+
+## Coverage
+
+Every plugin `report.error` site is covered by an `assertPluginError` test in the core spec
+that matches its subject (EDMethodSpec, StaticFunctionSpec, DFMatchSpec, DFTypeSpec,
+DFDecimalSpec, DFBoolOrBitSpec, RTProcessSpec), EXCEPT the following, which are deliberately
+untested:
+
+- **TopAnnotPhase errors and the missing-`@top` instantiation error**: exercising them needs
+  `@top` (a lib class) on the classpath, and lib deliberately does not enable the interceptor
+  (`@top` is not really exposed to the user by default). Additionally, the `@top`
+  default-value and companion-`main` errors need a package/object-level `@top`, which a block
+  snippet cannot host, and the instantiation error is suppressed by the spec's
+  `NoTopAnnotIsRequired` through the owner chain.
+- **Re-reported exceptions**: the CustomControlPhase sites that resurface a core
+  `IllegalArgumentException` message (no fixed text to assert).
+- **Internal errors**: the missing-implicit-context error (MetaContextGen), the
+  missing-companion error (TopAnnot), the unknown-pattern catch-all (CustomControl), and
+  `pluginCheckErrors`' own non-constant-argument error (self-referential).
+- **Interface-based errors** (anonymous-instance, protected-ports): `dfhdl.core.Interface`
+  is reserved for the official interface work and is not used in tests.
+- **No known trigger**: the `.toScalaTuple` hint (shadowed by the tuple-arity path) and the
+  non-constant string-interpolation bind width (needs a non-literal width type).

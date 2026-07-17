@@ -183,7 +183,18 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
               freshPluginPhases.flatMap { fresh =>
                 installed.get(fresh.phaseName).map { real =>
                   val mp = MegaPhaseWithCustomPhaseId(Array(fresh), real.id, real.id)
-                  (real.id, (t: Tree) => atPhase(mp.end + 1)(mp.transformUnit(t)))
+                  val run: Tree => Tree = fresh match
+                    // PureCheck does its whole-run analysis (and its static-impurity error
+                    // reporting) in `runOn`, which `transformUnit` never reaches
+                    case pureCheck: PureCheckPhase =>
+                      (t: Tree) =>
+                        atPhase(mp.end + 1) {
+                          val res = mp.transformUnit(t)
+                          pureCheck.analyzeNested(compilationUnits(untpdTree, res))
+                          res
+                        }
+                    case _ => (t: Tree) => atPhase(mp.end + 1)(mp.transformUnit(t))
+                  (real.id, run)
                 }
               }
             var transformTree = tpdTree

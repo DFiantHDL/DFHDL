@@ -1122,4 +1122,15 @@ class DFDecimalSpec extends DFSpec:
     assertRuntimeErrorLog(errMsg, 43, 65)(cnt := cnt + arg + cnt)
     assertRuntimeErrorLog(errMsg, 69, 78) { val x: Bits[8] <> VAL = cnt + arg }
   }
+
+  test("Scala Int at the LHS of a comparison with a DFHDL value"):
+    assertPluginError(
+      "Unsupported Scala primitive at the LHS of `==` with a DFHDL value.\nConsider switching positions of the arguments."
+    )(
+      """
+      class Foo extends DFDesign:
+        val x = UInt(8) <> VAR
+        val b = 5 == x
+      """
+    )
 end DFDecimalSpec

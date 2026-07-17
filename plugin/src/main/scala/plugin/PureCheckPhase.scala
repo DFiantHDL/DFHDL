@@ -230,6 +230,14 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
       analyze(res)
     res
 
+  // Nested-compilation entry point (see PluginTestPhase): the analysis normally runs in `runOn`
+  // once the whole run's units are walked, but the nested snippet pipeline drives phases through
+  // `MegaPhase.transformUnit`, which never invokes `runOn`.
+  def analyzeNested(units: List[CompilationUnit])(using Context): Unit =
+    pureAnnotSym = getClassIfDefined("dfhdl.hw.annotation.pure")
+    if (pureAnnotSym.exists)
+      analyze(units)
+
   // the attribution verdict for a forced (or forced-param-applied) expression
   private enum ForcedRes derives CanEqual:
     case Pure // the forced data is covered by the elaboration cache key (or code-determined)

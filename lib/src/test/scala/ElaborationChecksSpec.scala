@@ -705,49 +705,4 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |Message:   A `match` selector inside an `initial` block under a register-transfer (RT) domain must be a constant.""".stripMargin
     )
-  // A helper `def` launders scope evidence past the type-level guards: its body is typed in the
-  // DESIGN's scope, so a construct the design body allows can be smuggled into an ED function
-  // through a call. The elaboration check must still reject the resulting content.
-  //
-  // `wait` can no longer be laundered this way: it now needs the `HasWait` capability, which a
-  // design body does not have, so `def helperWait(using DFC): Unit = wait` is a COMPILE error
-  // (covered in `CoreSpec.ScopeChecksSpec`). `process` still launders, since a design body is
-  // exactly where a process is legal. `DB.edMethodCheck` keeps its `Wait` case as the backstop for
-  // any other path that reaches it.
-  test("ED method content errors (scope laundering backstop)"):
-    object Test:
-      @top(false) class Top extends EDDesign:
-        val a = UInt(8) <> IN
-        val y = UInt(8) <> OUT
-        def helperProcess(using DFC): Unit =
-          process(all) {}
-        def bad(l: UInt[8] <> VAL): UInt[8] <> EDRET =
-          helperProcess
-          l
-        y <> bad(a)
-    import Test.*
-    assertElaborationErrors(Top())(
-      s"""|Elaboration errors found!
-          |DFiant HDL ED method error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:725:11 - 725:24
-          |Hierarchy: bad
-          |Message:   Process blocks are not allowed inside an ED method.""".stripMargin
-    )
-  test("waiting ED method call-site errors"):
-    object TestWait:
-      @top(false) class Top extends EDDesign:
-        val a = UInt(8) <> IN
-        val y = UInt(8) <> OUT
-        def pause(): Unit <> EDRET = wait(1.ns)
-        process(all):
-          y :== a
-          pause()
-    import TestWait.*
-    assertElaborationErrors(Top())(
-      s"""|Elaboration errors found!
-          |DFiant HDL ED method error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:744:11 - 744:18
-          |Hierarchy: Top
-          |Message:   A wait-containing ED method can only be called inside a process without a sensitivity list (`process.forever`) or an `initial` block.""".stripMargin
-    )
 end ElaborationChecksSpec

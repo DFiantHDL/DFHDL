@@ -45,6 +45,7 @@ trait CapturePhase extends CommonPhase:
   protected var scopeProceduralCls: Symbol = uninitialized
   protected var domainTypeStaticSym: Symbol = uninitialized
   protected var domainTypeEDSym: Symbol = uninitialized
+  protected var domainTypeDFSym: Symbol = uninitialized
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
@@ -56,6 +57,7 @@ trait CapturePhase extends CommonPhase:
     // discriminator between a static function and an ED method (both carry `Scope.Function`).
     domainTypeStaticSym = domainTypeSym("Static")
     domainTypeEDSym = domainTypeSym("ED")
+    domainTypeDFSym = domainTypeSym("DF")
     // the trees of a new run carry new symbols
     if (designDefAnonsRun ne ctx.run)
       designDefAnonsRun = ctx.run

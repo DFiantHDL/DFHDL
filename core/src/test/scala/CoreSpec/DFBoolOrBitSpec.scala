@@ -125,4 +125,27 @@ class DFBoolOrBitSpec extends DFSpec:
       val t7 = bl.sel(d"4'12", c2)
     }
   }
+
+  test("Scala Boolean at the LHS of a logical op with a DFHDL value"):
+    assertPluginError(
+      "Unsupported Scala Boolean primitive at the LHS of `&&` with a DFHDL value.\nConsider switching positions of the arguments."
+    )(
+      """
+      class Foo extends DFDesign:
+        val d = Boolean <> VAR
+        val sb: Boolean = true
+        val r = sb && d
+      """
+    )
+
+  test("unexpected DFHDL boolean to Scala boolean conversion"):
+    assertPluginError(
+      "Found unexpected DFHDL boolean to Scala boolean conversion."
+    )(
+      """
+      class Foo extends DFDesign:
+        val d = Boolean <> VAR
+        val sb: Boolean = d
+      """
+    )
 end DFBoolOrBitSpec
