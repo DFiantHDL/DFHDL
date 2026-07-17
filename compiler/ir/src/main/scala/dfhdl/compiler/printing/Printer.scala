@@ -86,6 +86,33 @@ protected trait AbstractPrinter:
     defPrinter.setPhantomActuals(portActuals ++ paramActuals)
     defPrinter
   end defPrinterAt
+  // A printer for the subprogram called by `call`, bound to the def's own getSet and
+  // carrying the code strings of its phantom actuals as resolved HERE, at the call site,
+  // in this printer's (the host design's) scope. The call's args bind the formals
+  // POSITIONALLY in formal member order, so a phantom formal's actual is simply the arg
+  // at the phantom formal's index.
+  final private[printing] def defPrinterAt(call: DFVal.Func, designKey: StaticRef): TPrinter =
+    val designDB = getSet.designDB
+    val root = designDB.rootDB
+    val defSubOpt = if (root.isRoot) root.subDBs.get(designKey) else None
+    val defPrinter = defSubOpt.map(sub => withGetSet(sub.getSet)).getOrElse(printer)
+    val defGetSet = defSubOpt.map(_.getSet).getOrElse(getSet)
+    val defMembers =
+      defSubOpt.map(_.members).getOrElse(designKey.getDesignBlock.members(MemberView.Folded))
+    val formals = defMembers.collect {
+      case dcl: DFVal.Dcl if dcl.isPortIn => dcl
+    }
+    val actuals = call.args.map(_.get)
+    val phantomActuals =
+      if (formals.length != actuals.length) Map.empty[String, String]
+      else
+        formals.zip(actuals).collect {
+          case (formal, actual) if formal.isPhantom =>
+            formal.getName(using defGetSet) -> printer.csDFValRef(actual, call.getOwner)
+        }.toMap
+    defPrinter.setPhantomActuals(phantomActuals)
+    defPrinter
+  end defPrinterAt
 end AbstractPrinter
 
 trait Printer
@@ -327,15 +354,15 @@ trait Printer
     val visited = mutable.Set.empty[DFDesignBlock]
     def visit(hostPrinter: TPrinter, host: DFDesignBlock): Unit =
       host.members(MemberView.Flattened)(using hostPrinter.getSet).foreach {
-        case inst: DFDesignInst =>
-          val block = inst.getDesignBlock(using hostPrinter.getSet)
+        case DFVal.Func.Call(call, designKey) =>
+          val block = designKey.getDesignBlock(using hostPrinter.getSet)
           // `visited` is marked before recursing, so a (plugin-rejected) recursive subprogram
           // cannot loop here
           if (block.isHDLSubprogram && visited.add(block))
             // every concrete printer is its own TPrinter (`given printer: TPrinter = this`),
             // so `hostPrinter.TPrinter` IS this printer's TPrinter — a fact the path-dependent
             // type cannot express
-            val methodPrinter = hostPrinter.defPrinterAt(inst).asInstanceOf[TPrinter]
+            val methodPrinter = hostPrinter.defPrinterAt(call, designKey).asInstanceOf[TPrinter]
             visit(methodPrinter, block)
             ordered += block -> methodPrinter
         case _ =>

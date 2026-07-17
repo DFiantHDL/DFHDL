@@ -11,6 +11,20 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   val supportLogicType: Boolean = printer.dialect match
     case VerilogDialect.v2001 | VerilogDialect.v95 => false
     case _                                         => true
+  def csSubprogramCall(call: Func, designKey: StaticRef): String =
+    val design = designKey.getDesignBlock
+    val args = csSubprogramCallArgs(call, design).mkString(", ")
+    // a procedural (Unit-return) call is a task call statement
+    if (call.dfType == DFUnit)
+      // a parameterless task call has no parentheses
+      if (args.isEmpty) s"${printer.moduleName(design)};"
+      else s"${printer.moduleName(design)}($args);"
+    else
+      // the v95/v2001 minimum-one-input rule: an argument-less function call passes a
+      // literal `0` to the declared dummy input
+      val argList = if (args.isEmpty && !printer.dummyLessFunctionSupport) "0" else args
+      s"${printer.moduleName(design)}($argList)"
+  end csSubprogramCall
   val supportGlobalParameters: Boolean =
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false

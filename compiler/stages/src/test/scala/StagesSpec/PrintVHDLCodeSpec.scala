@@ -2343,4 +2343,43 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("nested static function calls") {
+    class NestStatic extends EDDesign:
+      val o                                               = UInt(8) <> OUT
+      def twice(k: UInt[8] <> CONST): UInt[8] <> CONSTRET = k + k
+      // the inner call is consumed as the outer call's argument; it must not also emit a
+      // standalone `twice(n)` statement
+      def quad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = twice(twice(n))
+      o <> quad(d"8'3")
+    end NestStatic
+    val top = (new NestStatic).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity NestStatic is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end NestStatic;
+         |
+         |architecture NestStatic_arch of NestStatic is
+         |  pure function twice(k : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return k + k;
+         |  end function;
+         |
+         |  pure function quad(n : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return twice(twice(n));
+         |  end function;
+         |begin
+         |  o <= quad(8d"3");
+         |end NestStatic_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

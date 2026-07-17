@@ -120,6 +120,55 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertEquals(cache.hits, 4)
   }
 
+  // Subprogram (ED method / static function) calls are `Func`/`Op.Def` expressions rather
+  // than design instances, and a static function calling another (quad -> twice) makes the
+  // cached `quad` entry carry a call whose design key must be re-anchored at adoption
+  // (`SubDesignEntry.cloneForAdoption`).
+  test("sub-design cache round trip: subprogram calls (ED method + static functions)") {
+    def genEDHost(using DFC): dfhdl.core.Design =
+      class EDHost extends EDDesign:
+        val a = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        val s = UInt(8) <> OUT
+        def add1(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + 1
+        def twice(k: UInt[8] <> CONST): UInt[8] <> CONSTRET = k + k
+        def quad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = twice(twice(n))
+        o <> add1(a)
+        s <> quad(d"8'3")
+      end EDHost
+      new EDHost
+    val expected =
+      """|class EDHost extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val o = UInt(8) <> OUT
+         |  val s = UInt(8) <> OUT
+         |  def add1(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    l + d"8'1"
+         |  end add1
+         |
+         |  def twice(k: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    k + k
+         |  end twice
+         |
+         |  def quad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    twice(twice(n))
+         |  end quad
+         |
+         |  o <> add1(a)
+         |  s <> quad(d"8'3")
+         |end EDHost
+         |""".stripMargin
+    val cache = new MapSubDesignCache
+    // first elaboration runs live and stores `add1`, `twice`, and `quad`
+    assertCodeString(genHostOf(genEDHost, cache), expected)
+    assertEquals(cache.hits, 0)
+    assertEquals(cache.entries.size, 3)
+    // second elaboration: `add1` and `quad` hit at their call sites; `twice` (called only
+    // inside `quad`'s cached body) hits through `quad`'s child adoption
+    assertCodeString(genHostOf(genEDHost, cache), expected)
+    assertEquals(cache.hits, 3)
+  }
+
   val expectedDroppedCodeString =
     """|class calc(val w: UInt[8] <> CONST) extends DFDesign:
        |  val arg = UInt(8) <> IN

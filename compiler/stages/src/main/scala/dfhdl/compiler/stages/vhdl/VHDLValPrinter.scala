@@ -7,6 +7,16 @@ import DFVal.*
 
 protected trait VHDLValPrinter extends AbstractValPrinter:
   type TPrinter <: VHDLPrinter
+  def csSubprogramCall(call: Func, designKey: StaticRef): String =
+    val design = designKey.getDesignBlock
+    val args = csSubprogramCallArgs(call, design).mkString(", ")
+    // parameterless VHDL subprogram calls have no parentheses
+    val callCS =
+      if (args.isEmpty) design.dclName
+      else s"${design.dclName}($args)"
+    // a procedural (Unit-return) call is a procedure call statement
+    if (call.dfType == DFUnit) s"$callCS;" else callCS
+  end csSubprogramCall
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
     s"constant ${dfVal.getName} : ${printer.csDFType(dfVal.dfType)} := ${csDFValExpr(dfVal)};"

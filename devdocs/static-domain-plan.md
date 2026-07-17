@@ -41,39 +41,71 @@ under any domain (`o <> twice(d"8'3")`), printing as a `pure function` (VHDL) / 
 automatic` (SV) whose formals are its design parameters. Covered in `StaticFunctionSpec` (core) and
 the three printer specs.
 
-**Not yet implemented, in dependency order:**
+**Also working and tested (2026-07-17): NESTED static CALLS.** A static function calling another,
+with the inner result consumed as the outer call's argument, `def quad(n) = twice(twice(n))`, prints
+cleanly (`quad = twice(twice(n))` / `return twice(twice(n))`). Two things landed for it:
 
-1. **The headline use case — a static call parameterizing a design or a type — does NOT work, and it
-   CRASHES rather than erroring cleanly.** `Inner(twice(n))` (feeding a static result into a
-   sub-design parameter) throws `IllegalArgumentException: Missing ref` during elaboration. The
-   cause is REACHABILITY, not const-ness: the call-site result is a `PortByNameSelect` reading the
-   static def-design's output port, and resolving it as a design-parameter actual walks refs into
-   the def-design's isolated context. **§4.4's const-data change is necessary but NOT sufficient**
-   — it was tried (a static-domain `Dcl` and a static-function output `PortByNameSelect` resolving
-   `UnknownConst`) and the crash was unchanged, because it fires upstream of const-data resolution.
-   This overlaps the deferred folding interpreter (§10) and, per §9, the generic-map form of this
-   use case wants global functions anyway. So it is deferred WITH the global work, not before it.
-   A clean elaboration error for the interim would be an improvement, but the detection point is
-   fragile (deep in ref resolution) and was left alone.
-2. **§4.4 static declarations resolving `ConstData`.** Independently still owed (a static function's
-   formals should read as constant so isConst is true), with the folding-stage audit the plan calls
-   for. On its own it does not unblock item 1.
-3. **§5.6a / §7 def-design body dedup.** Two call sites with different const args currently share
-   one printed body. This is a CORRECTNESS hole the moment a body branches on a param value, and it
-   must land before static functions are advertised.
-4. **§9 / §9.1 global (top-level) static functions.** Deferred by the scope decision above.
-5. **§11 step 8**: reference HDL updates and `testApps`.
+- **§4.4 const-data (per the user's directive).** A `Dcl` whose owning design block is a static
+  function resolves `UnknownConst` (under §13 this rule is the enabler for ports-as-formals; the
+  `PortByNameSelect` half was deleted with the PBNS call model). GOTCHA that broke every RT-loop
+  stage on the first cut AND on a 2026-07-18 retry: `getConstData` is called in contexts where a
+  value's owner chain is transiently out of scope, so the rule must NOT force `getOwnerDesign`;
+  the guarded owner walk (`ownerRef.getOption`, falling back to `NotConst`, which the mutable
+  path does not cache) is inlined in `Dcl.protGetConstData` — no general-purpose
+  `getOwnerDesignOption` helper.
+- **A printer bug this exposed.** `getReadDeps` only follows nets, so a static call result consumed
+  as another call's argument (a `paramMap` reference, not a net) read as "not used", and the inner
+  call ALSO printed as a stray standalone statement. Fixed narrowly in `DFOwnerPrinter.isViewable`
+  by also checking for a `DFDesignInst` origin reference. (Before static functions a `paramMap` only
+  ever referenced constants, never an anonymous call result, so this never arose.)
+
+**§13 MODEL REVISION IMPLEMENTED (2026-07-18), tree green** (core 157, compiler_stages 590, lib
+167, reference HDL byte-identical). Subprogram applications (static functions, ED functions AND ED
+procedures) are now `DFVal.Func` with `Op.Def(staticRef)` instead of `DFDesignInst` +
+`PortByNameSelect`, and const def arguments are regular input ports. DF/RT design defs keep
+`DFDesignInst`. §13 carries the implementation deltas (§13.9); the two nested-call workarounds
+described above were deleted (the `PortByNameSelect` const-data case and the `isViewable` fix);
+the `Dcl` const-data rule stays and is what makes ports-as-formals const-typed.
+
+**What the revision RESOLVED beyond its own goal:**
+
+1. **`Inner(twice(n))` (a static call parameterizing a sub-design) WORKS, by construction.** The
+   old model crashed in `ViaConnection` (cross-context `PortByNameSelect` resolution through the
+   sub-design's port type); the call is now an in-context `Func`, and the emitted HDL is exactly
+   the parametric generic-map form the headline use case wanted:
+   `Inner #(.k(twice(8'd3)))` with `twice` an SV module-scope function. Positive test in
+   [PrintVerilogCodeSpec] ("static function call parameterizing a sub-design"). NOTE: the
+   function must be visible at the instantiation site, which module scope satisfies for a
+   same-design call; the cross-file generic-map form still wants §9 globals.
+2. **The §5.6a / §7 body-dedup CORRECTNESS HOLE is closed by construction, and the dedup stage is
+   NOT NEEDED.** A formal port carries no applied-data snapshot (`DesignParam.appliedData` is
+   gone for subprograms), so a static function body CANNOT observe an argument's applied value at
+   elaboration: forcing it (`n.toScalaInt`, a Scala-level branch on `n`) fails at elaboration
+   with an unknown-constant error rather than silently specializing the body. Bodies therefore
+   never diverge per call site, and one printed body per load key is sound, exactly like the ED
+   rule always was. (Bodies still specialize on Scala TYPE arguments, which enter the load key
+   via `scalaArgs`.)
+
+**Still pending:**
+
+1. **§9 / §9.1 global (top-level) static functions.** Deferred by the scope decision above; §13
+   reduced the open problem to homing the def-design BLOCK (the call representation is solved).
+2. **§11 step 8**: `testApps` (reference HDL needed no update: output is unchanged).
 
 ### Corrections the implementation forced on this plan
 
-- **§5.1 was wrong: the ambient `given DF` must STAY.** It is not the def BODY that needs it (the
-  context parameter supplies that) but the CALL SITE: `T <> DFRET` expands to
-  `(DFC, DomainType.DF) ?=> ...`, so applying a `<> DFRET` def requires summoning `DomainType.DF`
-  where it is called, and such defs are callable from any domain. Flipping the ambient outright
-  broke every `<> DFRET` call outside a DF domain. What actually changed is only the PRIORITY:
-  `given DF` moved to a low-priority `DomainTypeLP` base trait and `given Static` sits in
-  `object DomainType`, so a bare `DomainType` summon in no domain resolves to `Static` while a
-  `DomainType.DF` summon (one candidate) still finds `DF`. Same shape as `ScopeLP`.
+- **§5.1 is right that `Static` becomes the ambient given, but it misses WHY that is not free.** It
+  argues the flip is safe because `<> DFRET` injects `DomainType.DF` explicitly. That is the def's
+  BODY. The problem is the CALL SITE: `T <> DFRET` expands to `(DFC, DomainType.DF) ?=> ...`, so
+  applying such a def requires summoning `DomainType.DF` where it is CALLED, and a dataflow design
+  is instantiable inside any of the three levels. Simply dropping the ambient `DF` broke every
+  `<> DFRET` call from an RT or ED body.
+  **The resolution is `given fromRT(using RT): DF` and `given fromED(using ED): DF`**: `DF` is
+  reachable in any DYNAMIC domain, without being ambient. That is better than a low-priority
+  ambient `DF` (the first thing tried), because it also says the right thing about where a `<> DFRET`
+  def may NOT be called: global scope and a static function body, where there is no design to
+  instantiate into. The resulting rule is a clean ladder: `CONSTRET` callable everywhere (ambient
+  `Static`), `DFRET` in any dynamic domain, `RTRET`/`EDRET` only in their own (lexical only).
 - **§5.2's negative-guard list is mostly stale, and it named the wrong hazard.** `.prev` is already
   guarded by a POSITIVE `DFDomainOnly` and `.reg` by a positive `RTDomainOnly`, so both reject
   `Static` for free. `Fork` and `Process` keep their `NotGiven[_ <:< DF]` guards: adding a `Dynamic`
@@ -88,12 +120,17 @@ the three printer specs.
   (`isEDAnonDef` renamed `isSubprogramAnonDef`); the DOMAIN evidence (`isStaticAnonDef`) only picks
   WHICH KIND it is. `PureCheckPhase`'s own copy of `isEDAnonDef` turned out to be dead code and was
   deleted rather than duplicated.
-- **`edMethodCheck` is now `subprogramCheck`, and it is load-bearing in a new way.** It is the ONLY
-  enforcement for two static-body rules, both of which have no type-level twin: a `process` carries
-  no scope guard (a positive one would leak, see [scoping.md] §3), and an ED-method call site
-  summons `DomainType.ED` DIRECTLY, which reaches past a static body's `Static` given to the
-  enclosing design's. That last one is a genuine leak with no type-level fix, and §5.4's claim that
-  "a static function cannot call a non-static ED method, and it enforces itself" is therefore false.
+- **`edMethodCheck` is now `subprogramCheck`, and (UPDATED 2026-07-17) it is a SanityCheck-stage
+  backstop rather than an elaboration check.** Two static-body rules have no type-level twin: a
+  `process` carries no scope guard (a positive one would leak, see [scoping.md] §3), and an
+  ED-method call site summons `DomainType.ED` DIRECTLY, which reaches past a static body's
+  `Static` given to the enclosing design's (so §5.4's claim that "a static function cannot call a
+  non-static ED method, and it enforces itself" is false). PRIMARY enforcement for both is now the
+  plugin's compile-time body content check (`DesignDefsPhase.checkSubprogramContent`: processes via
+  their `Scope.Process ?=> Unit` block argument, ED calls via the evidence arguments the call
+  applies). `subprogramCheck` no longer runs at elaboration; it runs in the SanityCheck stage
+  (debug mode) as the backstop for constructs laundered through helper defs, which a syntactic
+  check cannot see.
 
 ## 1. Motivation
 
@@ -139,7 +176,9 @@ analysis/elaboration time", so the word reads correctly to HDL users on first co
 1. **IR**: `DomainType` becomes a lattice, `Static` and `Dynamic.{DF, RT, ED}`.
 2. **Core**: `DomainType` gains `Static` *and* a `Dynamic` supertype (see 5.1: the `Dynamic` layer
    is required, not cosmetic). `Static` becomes the ambient default given, replacing the current
-   ambient `given DF`.
+   ambient `given DF`, which is demoted to `fromRT` / `fromED` givens that keep `DF` reachable in
+   any dynamic domain (see 5.1's correction: the ambient `DF` existed for the `<> DFRET` CALL SITE,
+   not the body, so it could not simply be deleted).
 3. **Scope**: no new scope type. A static function body is a `DFC.Scope.Function` body, exactly like
    an ED function. The *function-region* restrictions come from the scope; the *static-region*
    restrictions come from the domain. `DomainType.Static` is what discriminates the two.
@@ -153,11 +192,18 @@ analysis/elaboration time", so the word reads correctly to HDL users on first co
    remain **phantom design parameters**, as they are for ED methods today, so *every* constant input
    to a static function is a design parameter and the phantom/explicit split is only about
    visibility in the printed signature. Captured non-constants are rejected.
+   > **SUPERSEDED BY §13 (2026-07-17).** Const arguments (and const phantom captures) revert to
+   > regular **static IN ports**, because the application becomes `Func(Op.Def)` whose args are
+   > plain refs, which removes the net a global call site could not own — the entire reason params
+   > were chosen. The all-const enforcement, the phantom mechanism, and the rejection of captured
+   > non-constants all stand unchanged.
 5a. **Printing**: for a def design, non-phantom **design parameters and input ports print
    identically, as subprogram formals**, in one formal list. A def design never prints generics (a
    VHDL or Verilog subprogram has no generics). So a static function prints as a subprogram whose
    formals are its params, and an ED method as one whose formals are its ports; the two paths differ
    only in which member kind supplies the list. See §5.6a for the body-sharing rule this requires.
+   > **SUPERSEDED BY §13.** With arguments as ports again, every subprogram's formal list is its
+   > non-phantom IN ports — one path, no params-as-formals machinery. The printed HDL is identical.
 6. **Static ports**: inside a static function's def design, ports and variables carry constant
    data, known or unknown. This is what makes the return value constant at the call site.
 7. **Body scope**: arithmetic and logic operations, `if`/`match`, `for`/`while` loops, `<> VAR`
@@ -253,15 +299,22 @@ only ambient given (contrary to earlier belief that there was none). Add:
 ```scala
 opaque type Dynamic <: DomainType = DomainType
 opaque type DF <: Dynamic = Dynamic   // and RT, ED
+given fromRT(using RT): DF = DF       // IMPLEMENTED: see the correction below
+given fromED(using ED): DF = DF
 opaque type Static <: DomainType = DomainType
-given Static = ir.DomainType.Static   // replaces `given DF`
+given Static = ir.DomainType.Static   // replaces `given DF` as the ambient
 ```
 
-Flipping the ambient given from `DF` to `Static` is safe on the `DFRET` side, because `DFRET` already
-injects `DomainType.DF` explicitly ([DFVal.scala:101]) rather than leaning on the ambient. Design
-bodies get their domain given from `DomainContainer` ([Design.scala:371-375],
-[Container.scala:29]), which is lexical and therefore wins over the companion-scope ambient. The
-ambient's only real consumer is the global scope, which is exactly where `Static` is wanted.
+> **CORRECTED BY THE IMPLEMENTATION.** The paragraph that stood here claimed the flip is "safe on
+> the `DFRET` side, because `DFRET` already injects `DomainType.DF` explicitly". That is the def's
+> BODY, and it is beside the point: the `(DFC, DomainType.DF) ?=>` context parameter must be
+> summoned at every CALL SITE, and a dataflow design is instantiable inside any of the three levels.
+> Dropping the ambient `DF` outright broke every `<> DFRET` call from an RT or ED body. The fix is
+> the two `fromRT` / `fromED` givens above, which make `DF` reachable in any dynamic domain without
+> making it ambient. See the Status section's corrections.
+
+Design bodies get their domain given from `DomainContainer` ([Design.scala:371-375],
+[Container.scala:29]), which is lexical and therefore wins over the companion-scope ambient.
 
 ### 5.2 The negative guards, which will silently break
 
@@ -360,6 +413,11 @@ scope cannot declare) and [ScopeChecksSpec](../core/src/test/scala/CoreSpec/Scop
 
 ### 5.6 `designFromDefImpl`
 
+> **SUPERSEDED BY §13.** The routing below (const args to `genContainerParam`, nothing to
+> `inputs`) is the params model. Under §13, const args and const phantom captures become static IN
+> ports and the application emits a `Func(Op.Def)` instead of a `DFDesignInst`. Kept for the
+> record of what is currently implemented.
+
 [r__For_Plugin.scala:152-179] has `designFromDFDef` (domain `DF`) and `designFromEDDef` (domain `ED`).
 Add `designFromStaticDef` (domain `Static`).
 
@@ -369,6 +427,12 @@ alongside the captured constants (`phantomConstArgs`), and **nothing** is routed
 its interface is design parameters plus the return port.
 
 ### 5.6a Why params, not ports: the global call site, and the body-sharing rule it costs
+
+> **RATIONALE SUPERSEDED BY §13; THE DEDUP RULE SURVIVES.** The net argument below dissolved:
+> `Func(Op.Def)` args are plain refs, so ports work at global scope too (§13.1). But the second
+> half of this section — one printed body serves all call sites only until a body branches on an
+> applied value, hence the structural dedup — is a property of const-ness, not of the params-vs-
+> ports choice, and remains mandatory verbatim (§13.7).
 
 A def design's **input ports are wired by a net at the call site**. The DFHDL printer recovers an
 arg's value by reading the connection back out ([DFOwnerPrinter.scala:314]), and the HDL backends do
@@ -503,7 +567,7 @@ Rejected, and by what mechanism:
 
 | Construct | Mechanism |
 |---|---|
-| ports, signals | declaration guard (§5.5). A static function's def design has **no input ports at all**: its interface is design parameters plus the return port (§5.6a) |
+| ports, signals | declaration guard (§5.5). USER-declared ports remain rejected under §13 too (`Scope.Function` has `HasVars`, not `HasPorts`); the harness-created formal ports of §13 are not user-reachable declarations |
 | `REG`, `SHARED` variables | existing positive guards ([Modifier.scala:28,32]) |
 | `.prev` / `.reg` | needs the §5.2 fix; otherwise silently allowed |
 | processes, `wait`, events | positive `A <:< DomainType.ED` guards |
@@ -614,6 +678,12 @@ problem it replaces (no `Concurrent` capability to invent, no block to conjure),
 and it should be settled together with the global-only question above: **if static functions are
 global-only, this is the only place a def-design block ever lives, which is the simplest world.**
 
+> **REDUCED BY §13.** There is no longer an INSTANCE to home: a global call site is a `Func`, and
+> `Func` already extends `CanBeGlobal` ([DFMember.scala:751]), so the call representation is
+> solved. What remains of this section is only the def-design BLOCK's home for a global-only
+> function (the `DB.designMemberList` threading, the `SanityCheck` allowance, and the
+> globals-package emission), which stands as written.
+
 ## 9a. What the scope lattice already did for this plan
 
 The scope-lattice refactor has **landed** (see [scoping.md](scoping.md)). `DFC.Scope` is now a lattice
@@ -699,10 +769,205 @@ Steps 1 and 2 are independently mergeable and de-risk the rest.
   design parameter, checking that the generated HDL stays parametric rather than folded.
 - `testApps`: the existing simulation matrix, to confirm the emitted subprograms actually elaborate
   in ghdl/nvc/verilator/iverilog.
+- **§13 model revision**: the printed HDL is IDENTICAL before and after the migration (it is a
+  modeling change, not an output change), so the entire existing printer/ref suite is the
+  regression harness; any reference diff during §13.8 is a bug. Plus one new positive:
+  `Inner(twice(n))` (Status item 2) elaborates and prints, since §13 fixes it by construction.
+
+## 13. Model revision (2026-07-17): `Func(Op.Def)` applications, formals as static ports
+
+**Decision.** Subprogram applications stop being `DFDesignInst` + `PortByNameSelect` and become a
+first-class expression: `DFVal.Func` gains `Op.Def(staticRef: StaticRef)` — the same `StaticRef`
+that `DFDesignInst.designRef` uses — whose `args` are the actuals and whose `dfType` is the def's
+return type. A procedural (Unit-return) def gets `dfType = DFUnit`, which is exactly how a
+Unit-return def's applied-value type already resolves ([DB.scala:1917-1922]) and how `if`/`match`
+STATEMENTS are modeled: a unit-typed member in statement position. In the same move, const def
+arguments REVERT from design parameters to regular **static IN ports** (decision 5 superseded).
+
+**Scope.** ALL subprogram applications migrate: static functions, ED functions, and ED procedures
+(as `DFUnit`-typed `Func` statements). DF/RT design defs KEEP `DFDesignInst`: their terminal form
+is a real design instance, and their params stay params, which is what makes the generated modules
+generic. The criterion is the terminal HDL form, not the domain: prints-as-subprogram → `Func`;
+becomes-an-instance → `DFDesignInst`. This spans the [ed-methods-plan.md] as well — read its OPEN
+ISSUES (PrepEDDefs, phantom-OUT lowering, §S2 explicit `IN`/`OUT` args) against this section.
+
+### 13.1 Why the params rationale dissolves
+
+§5.6a chose params because an input port is wired by a NET at the call site, and a global call
+site has no block to own one. `Func.args` are plain refs — no nets at all — and `Func` already
+extends `CanBeGlobal` ([DFMember.scala:751]). So `Op.Def` + ports buys the global callability that
+params were buying, without the paramMap machinery, and matches the semantic reality: HDL
+subprogram formals are inherently call-time values, so the design-parameter treatment was
+over-machinery for them.
+
+### 13.2 What it fixes by construction, not by patching
+
+- **The `Inner(twice(n))` crash class** (Status item 2). The whole failure was cross-context
+  resolution through `PortByNameSelect` (`IntParamRef.=~` → PBNS `=~` → `getDesignBlock`). A call
+  result that is a plain `Func` has in-context refs only; a design param or a type referencing it
+  never leaves scope.
+- **Both nested-call workarounds become deletable**: the `PortByNameSelect.protGetConstData`
+  static case (no PBNS exists for a subprogram call anymore) and the `DFOwnerPrinter.isViewable`
+  origin-members check (args are ordinary refs, so `getReadDeps` just works). The `Dcl`
+  `UnknownConst` rule (§4.4) STAYS and becomes the enabler: it is what keeps body reads of formal
+  PORTS const-typed.
+- **§9 globals mostly unblocked**: the call representation is solved (`CanBeGlobal`); what remains
+  is only where the def-design BLOCK lives for a global-only function (§9.1, reduced).
+- **§10 folding gets its seam**: `Func.protGetConstData` already folds known-const args; the
+  `Op.Def` case returns `UnknownConst(this)` now and becomes "interpret the body" later, in
+  exactly one place. The case requires the CALLEE to be a static function (an ED method call is
+  never a constant, no matter its args, e.g. a zero-arg task call), with the key resolution
+  guarded like the `Dcl` rule (unresolvable during meta-programming means NotConst).
+- **`PrepEDDefs` Rule 1 collapses**: a named `Func` is a named expression on `ExplicitNamedVars`'s
+  standard path; the Phase-2 procedural-call path becomes trivial statement printing.
+- **`PortByNameSelect` returns to its single original purpose**: port reads on real design
+  instances.
+
+### 13.3 `Op.Def` ref mechanics: four `DFDesignInst` precedents to mirror
+
+Each is a subtle-bug source if missed:
+
+1. The `staticRef` is EXCLUDED from `getRefs`/refTable enumeration, like `designRef`
+   ([DFMember.scala:1874-1878]).
+2. It is NOT freshened in `copyWithNewRefs`, and it is rebound during design-subtree cloning
+   exactly like the `childTokens` rebinding at [SubDesignEntry.scala:72].
+3. `Func.prot_=~` compares `op == op`, and token identity on a `StaticRef` is wrong across
+   elaborations (dedup, load gate). Special-case `Op.Def` to compare the RESOLVED design blocks
+   (`getDesignBlock =~`), as `DFDesignInst.prot_=~` does. `TextOut.Op` is the precedent for a
+   ref-carrying op (`HasRefCompare`, [DFMember.scala:2051]).
+4. Resolution shares `DFDesignInst.getDesignBlock`'s structural path (mutable refTable / `subDBs`
+   key / flat `designBlockByKey`). Extract it into a helper on `StaticRef`, since two members now
+   resolve the same way.
+
+Plus one audit: def blocks become declarations that may have NO `DFDesignInst` referencing them.
+Everything that discovers or keeps sub-designs alive via instances must also count `Op.Def`
+referencers: sub-DB construction (keyed on `StaticRef`, [DB.scala:1910]),
+`designBlockOwnershipMap`, `DropUnreferenced`, `UniqueDesigns`, and the elaboration-cache gate.
+
+### 13.4 Phantoms: trailing hidden args, and an improvement for free
+
+Phantom actuals (captures) become TRAILING `Func.args`, bound through the same `localize()` relay
+for def-calling-def ([r__For_Plugin.scala:222-224]). The printer needs no encoding on the `Func`:
+the visible/hidden split is derived from the def block's formal list via the `staticRef`
+(`PhantomTag` on the formal `Dcl`s), exactly like today's view-form hiding — the application never
+prints phantom actuals. Improvement for free: a call site's `getReadDeps` now correctly includes
+captured signals as plain arg refs (today that correctness depends on nets, and was the paramMap
+blind spot for consts), so process sensitivity over capture-reading calls gets MORE robust.
+
+### 13.5 Static-port marking: `owner.isStaticFunction` suffices, one residual
+
+Explicit `<> CONST` args on ED methods are plugin-rejected ([ed-methods-plan.md] locked item 1,
+2026-07-14), so const/non-const args never mix: explicit static-port formals exist only in static
+defs, where the §4.4 owner predicate holds. The one residual: ED defs DO have phantom CONST
+captures (`ISCONST` captures, today phantom `DesignParam`s), which under this model become phantom
+static ports whose owner is an ED def, resolving `NotConst`. The only case where that can surface
+at the IR level is a static call nested in an ED body taking the captured const as an argument
+(its `Func.protGetConstData` maps over args). DEFERRED until it demonstrably bites; the fix is
+local, since the harness knows at creation which phantoms come from const captures and can mark
+them.
+
+### 13.6 Procedures: direction-aware args, the one new requirement
+
+`Func.args` carry no direction. Once a call has write-through formals — phantom-OUT capture now,
+explicit `<> IN`/`<> OUT` args later (drafted, unimplemented: [ed-methods-plan.md] §S2) —
+read/write analyses MUST classify args by zipping them with the def block's formal directions
+through the `staticRef`: one centralized "args with dirs" analysis helper, consulted by
+`getReadDeps`, driver/multi-driver checks (including §S2's phantom-OUT-from-two-processes check),
+sensitivity, and `SanityCheck`. Today `DFDesignInst` + nets gives drivers-analysis this for free;
+under `Func` it is one deterministic, structurally resolvable helper that simply must not be
+forgotten, or an OUT actual silently reads as a READ.
+
+### 13.7 What this revision does NOT change
+
+- **§5.6a/§7 body dedup stays mandatory.** Divergence is a property of const-ness (a body that
+  branches on an applied value), not of the IR category the argument uses. Ports change nothing.
+- **The load-gate key moves, it does not disappear.** The impure-params key currently reads
+  `DesignParam.appliedData` ([r__For_Plugin.scala:277-292]); with ports there are no
+  `DesignParam`s in a def design, but the harness still holds the applied actuals at the call and
+  computes the key from them directly.
+- **All plugin enforcement stands**: all-const args, no `Unit` `CONSTRET`, no captured
+  non-constants, purity-as-error, recursion rejection, and the body content checks.
+- **DF/RT defs and real design instances are untouched**; `DFDesignInst` remains their model.
+- **The printed HDL is unchanged.** Formals were already printed as one list (decision 5a); they
+  now simply come from ports uniformly. Any reference diff during the migration is a bug.
+
+### 13.8 Migration order
+
+1. IR: `Op.Def(staticRef)` with the §13.3 mechanics (shared `StaticRef` resolution helper, `=~`
+   special case, refs exclusion, clone rebinding); `Func.protGetConstData` gains the `Op.Def` case
+   returning `UnknownConst(this)`.
+2. Core: rework `designFromDefImpl` for subprogram defs — const args and const phantom captures
+   become static IN ports, the application emits `Func(Op.Def)` with explicit-then-phantom args,
+   no `DFDesignInst` and no `PortByNameSelect`; the load-key computation moves off
+   `DesignParam.appliedData` (§13.7).
+3. Stages/analyses: the blocks-without-insts audit (§13.3) and the args-with-dirs helper (§13.6);
+   retire `PrepEDDefs` Rule 1 in favor of `ExplicitNamedVars`.
+4. Printers: subprogram formal list = non-phantom IN ports (uniform for static and ED); call sites
+   print from `Func.args` (visible prefix only); procedural calls print as statements.
+5. Delete the superseded workarounds: the `PortByNameSelect.protGetConstData` static case and the
+   `DFOwnerPrinter.isViewable` origin-members check.
+6. Full verification ladder with UNCHANGED reference HDL, plus the new `Inner(twice(n))` positive
+   (§12).
+
+### 13.9 How the implementation deviated (2026-07-18)
+
+The revision is IMPLEMENTED; these are the deltas against the sections above:
+
+- **No key machinery at all (user's correction).** §13.3's "four precedents to mirror" mostly
+  dissolved: the call's `staticRef` is minted pointing at the CANONICAL def design AT THE CALL
+  SITE (`duplicateOf` is already recorded by the gate when the call is created), in the
+  `ownerRef`-key form. It is a stable identity token: never unified, never freshened, compared
+  with plain `==`, and `Func.prot_=~` needs NO `Op.Def` specialization. What §13.3 kept:
+  - `MemberGetSet` gained `getDesignBlockByKey` (TOTAL structural key resolution: the mutable
+    run's design registry / the root's `subDBs` / a flat DB's `designBlockByKey`), because a
+    unified `ownerRef`-form key must never resolve through the refTable, where the same token
+    maps to the design's OWNER. A design block is always accessible from a key; the only
+    fallback is the refTable path for a pre-unification `DFDesignInst.designRef` (a distinct
+    parent-side ref, e.g. test utilities printing live members mid-elaboration).
+    `StaticRef.getDesignBlock` is the shared resolution both `DFDesignInst.designRef` and
+    `Op.Def` use.
+  - The key IS rewritten in exactly three places, all ordinary member rewrites: `UniqueDesigns`
+    (duplicate design retarget), `ReduplicateDesign` (clone re-anchoring), and
+    `SubDesignEntry.cloneForAdoption` (the serialization boundary, keyed by `childTokens` like
+    an instance's `designRef`). The adoption path is covered by a dedicated round-trip test in
+    [SubDesignCacheSpec] (a cached `quad` whose body calls `twice`).
+- **Traversal sites that now count `Func.Call`:** `childDesignsOf` (the forest walk and the
+  cache-entry children), `designBlockOwnershipMap` / `designBlockDomainOwnershipMap`,
+  `usesClkRst`, `edMethodCallSiteCheck` (waiting-method call sites), `oldToNew` parent recovery,
+  `newToOld` / `canonicalForm` first-reference block emission, `subprogramPrinters` discovery,
+  and `ReduplicateDesign`'s DFS.
+- **Unit-call statements needed two exemptions**, not just the printer's: `DropUnreferencedAnons`
+  and `SanityCheck.refCheck` both treat an anonymous `DFUnit`-typed `Op.Def` call as a statement
+  (referenced by nothing by design).
+- **`PrepEDDefs` is deleted, not just retired**: a named call is a named `Func`, and
+  `ExplicitNamedVars` already converts named expressions to variables on its standard path,
+  producing byte-identical output (its spec absorbed the PrepEDDefs test).
+- **The DFHDL code-string call form changed from named to positional**: `twice(d"8'3")` instead
+  of `twice(n = d"8'3")`, uniform with ED method calls (the formal list is ports, bound
+  positionally). The HDL backends are byte-identical.
+- **`defPrinterAt` gained a `Func` overload** where phantom actual pairing is purely positional
+  (the arg at the phantom formal's index), replacing the PBNS/paramMap pairing.
+- **Call printing is per-backend** (`csSubprogramCall`): DFHDL always parenthesizes; VHDL prints
+  parameterless calls bare and procedural calls with `;`; Verilog keeps the task/parenless and
+  v95/v2001 dummy-`0` rules. All three take the leading `visibleFormalCountOf(design)` args.
+- **Static formals are data-invisible** (see the Status section): `Dcl.protGetConstData` resolves
+  `UnknownConst` with no applied-data path, which closes the §5.6a divergence hole by
+  construction and makes the §7 dedup stage unnecessary. A static body that forces an argument's
+  data is an elaboration error.
+
 
 [DomainType.scala]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/DomainType.scala
 [DFMember.scala:418]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/DFMember.scala
+[DFMember.scala:751]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/DFMember.scala
+[DFMember.scala:1874-1878]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/DFMember.scala
+[DFMember.scala:2051]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/DFMember.scala
 [DB.scala:336-344]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/DB.scala
+[DB.scala:1910]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/DB.scala
+[DB.scala:1917-1922]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/DB.scala
+[SubDesignEntry.scala:72]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/SubDesignEntry.scala
+[r__For_Plugin.scala:222-224]: ../core/src/main/scala/dfhdl/core/r__For_Plugin.scala
+[r__For_Plugin.scala:277-292]: ../core/src/main/scala/dfhdl/core/r__For_Plugin.scala
+[ed-methods-plan.md]: ed-methods-plan.md
 [DFMember.scala:132-140]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/DFMember.scala
 [DFMember.scala:507-562]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/DFMember.scala
 [DFMember.scala:1756]: ../compiler/ir/src/main/scala/dfhdl/compiler/ir/DFMember.scala
@@ -745,3 +1010,5 @@ Steps 1 and 2 are independently mergeable and de-risk the rest.
 [DFValPrinter.scala:393-396]: ../compiler/ir/src/main/scala/dfhdl/compiler/printing/DFValPrinter.scala
 [VHDLOwnerPrinter.scala:54-56]: ../compiler/stages/src/main/scala/dfhdl/compiler/stages/vhdl/VHDLOwnerPrinter.scala
 [VHDLOwnerPrinter.scala:200-205]: ../compiler/stages/src/main/scala/dfhdl/compiler/stages/vhdl/VHDLOwnerPrinter.scala
+[PrintVerilogCodeSpec]: ../compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala
+[SubDesignCacheSpec]: ../compiler/stages/src/test/scala/StagesSpec/SubDesignCacheSpec.scala

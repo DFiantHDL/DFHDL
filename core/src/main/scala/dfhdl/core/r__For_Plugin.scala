@@ -180,12 +180,10 @@ object r__For_Plugin:
   // Static functions (`<> CONSTRET` — see the static-domain plan): same construction, caching,
   // and purity treatment as the other design defs, but under the static domain.
   //
-  // No routing change is needed here, and that is by construction rather than by luck: the plugin
-  // requires every DFHDL argument of a static function to be `<> CONST` and every capture to be a
-  // constant, so `args` and `phantomArgs` are always empty and the impl below creates NO input
-  // ports. The interface is design parameters (from `constArgs`/`phantomConstArgs`) plus the
-  // return port — which is what lets a static function be called from the global scope, where
-  // there is no block to own the net an input port would need.
+  // The plugin requires every DFHDL argument of a static function to be `<> CONST` and every
+  // capture to be a constant, so `args` and `phantomArgs` are always empty and the formals are
+  // exactly the const-arg/const-capture input ports the subprogram path of the impl below
+  // creates (plus the return port).
   @metaContextForward(2)
   def designFromDefStatic[V <: DFValAny](
       args: List[(DFValAny, ir.Meta)],
@@ -222,6 +220,15 @@ object r__For_Plugin:
     val callerPhantoms = dfc.mutableDB.DesignContext.getDefPhantoms
     def localize(captured: DFValAny): DFValAny =
       callerPhantoms.getOrElse(captured.asIR, captured)
+    // A subprogram def (an ED method or a static function) prints as an HDL subprogram and
+    // keeps NO design instance: its application is a first-class call expression (`Func`
+    // with `Op.Def`) whose args are the actuals, and ALL its DFHDL inputs (const args and
+    // const captures included) are input ports, the subprogram's formals. DF/RT design
+    // defs keep the design-instance model (their terminal form is a real design instance)
+    // with const args as design parameters (the generated module's generics).
+    val isSubprogram = domain match
+      case ir.DomainType.ED | ir.DomainType.Static => true
+      case _                                       => false
     val designBlock =
       Design.Block.apply(
         domain = domain,
@@ -244,17 +251,30 @@ object r__For_Plugin:
         dfc.setMeta(phantomMeta(arg, fallbackMeta)).tag(ir.PhantomTag)
       )
     }
-    // The design parameters are created by this harness rather than by the body, keeping
-    // the design's public interface harness-owned and bound fresh to this call's applied
-    // values (the body fetches them via `designFromDefGetParam`). Phantom parameters
-    // (captured constants) are appended after the explicit ones and tagged.
-    val params = constArgs.map { (_, arg, argMeta) =>
-      genContainerParam[DFValAny](arg, None, argMeta)
-    } ++ phantomConstArgs.map { (arg, fallbackMeta) =>
-      genContainerParam[DFValAny](localize(arg), None, phantomMeta(arg, fallbackMeta))(using
-        dfc.tag(ir.PhantomTag)
-      )
-    }
+    // The const-argument formals are created by this harness rather than by the body,
+    // keeping the design's public interface harness-owned (the body fetches them via
+    // `designFromDefGetParam`). Phantoms (captured constants) are appended after the
+    // explicit ones and tagged. For a SUBPROGRAM def they are input ports exactly like the
+    // value args above (an HDL subprogram formal is inherently a call-time value, and the
+    // call's `Func` args bind them positionally); for a DF/RT design def they are design
+    // parameters (the generated module's generics).
+    val params =
+      if (isSubprogram)
+        constArgs.map { (_, arg, argMeta) =>
+          DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
+        } ++ phantomConstArgs.map { (arg, fallbackMeta) =>
+          DFVal.Dcl(arg.dfType, Modifier.IN)(using
+            dfc.setMeta(phantomMeta(arg, fallbackMeta)).tag(ir.PhantomTag)
+          )
+        }
+      else
+        constArgs.map { (_, arg, argMeta) =>
+          genContainerParam[DFValAny](arg, None, argMeta)
+        } ++ phantomConstArgs.map { (arg, fallbackMeta) =>
+          genContainerParam[DFValAny](localize(arg), None, phantomMeta(arg, fallbackMeta))(using
+            dfc.tag(ir.PhantomTag)
+          )
+        }
     // all the design's (name, applied value) parameter entries, explicit and phantom
     val namedConstArgs = constArgs.map((name, arg, _) => (name, arg)) ++
       phantomConstArgs.map((arg, fallbackMeta) =>
@@ -283,12 +303,17 @@ object r__For_Plugin:
         // `"*"` (e.g. from a user-written `@pure(true, "*")`) marks ALL params data-impure
         val allImpure = impureParamNames.contains("*")
         val keyPartOpts = params.zip(namedConstArgs).collect {
-          case (param, (name, _)) if allImpure || impureParamNames.contains(name) =>
+          case (param, (name, arg)) if allImpure || impureParamNames.contains(name) =>
             param.asIR match
               case dp: ir.DFVal.DesignParam => dp.appliedData.map(data => (dp.dfType, data))
-              case _                        => None
+              // a subprogram formal is a port and carries no applied snapshot; the applied
+              // data comes from the actual the harness holds at the call site
+              case _ =>
+                import dfc.getSet
+                arg.asIR.getConstDataThroughParams[ir.Data].map(data => (arg.dfType.asIR, data))
         }
         if (keyPartOpts.forall(_.isDefined)) Some(keyPartOpts.map(_.get)) else None
+      end if
     end impureParamsKeyOpt
     // the body fetches inputs and parameters through `designFromDefGetInput/Param`
     val ctx = dfc.mutableDB.DesignContext.current
@@ -318,20 +343,43 @@ object r__For_Plugin:
       }
       endedDesign
     end exitAndConnectInputs
+    // The subprogram application: exit the def design and create the call expression in the
+    // parent context, a `Func` with `Op.Def` carrying the design's hierarchy key and the
+    // actuals as args in the FORMAL MEMBER ORDER (value args, phantom value captures, const
+    // args, phantom const captures). The key points at the CANONICAL design from the start:
+    // on a gate hit this shell design duplicates a recorded canonical (and the shell,
+    // referenced by nothing, drops out of the final assembly); otherwise the ended design
+    // is its own canonical. No design instance, no port selections, no nets.
+    def exitAndMakeCall(retDFTypeIR: ir.DFType): V =
+      val designKey = dfc.mutableDB.DesignContext.current.duplicateOf
+        .getOrElse(ir.StaticRef(designBlock.asIR.ownerRef))
+      dfc.exitOwner()
+      val actuals =
+        args.map(_._1) ++ phantomArgs.map((arg, _) => localize(arg)) ++
+          constArgs.map(_._2) ++ phantomConstArgs.map((arg, _) => localize(arg))
+      DFVal.Func[DFTypeAny, Any](
+        retDFTypeIR.asFE[DFTypeAny],
+        ir.DFVal.Func.Op.Def(designKey),
+        actuals.map(_.asIR)
+      ).asInstanceOf[V]
+    end exitAndMakeCall
     def genOutPort(retDFTypeIR: ir.DFType) =
       DFVal.Dcl(retDFTypeIR.asFE[DFTypeAny], Modifier.OUT)(using dfc.setName("o"))
     skipRetDFType match
-      // the body was skipped: the fresh out port is the returned value (the connection
-      // to the body's return value lives in the canonical body)
+      // the body was skipped: for a subprogram the call itself is the returned value; for a
+      // design inst a fresh out port is the returned value (the connection to the body's
+      // return value lives in the canonical body)
       case Some(retDFTypeIR) =>
-        val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(namedConstArgs))
-        if (retDFTypeIR == ir.DFUnit)
-          exitAndConnectInputs(paramEntries)
-          DFUnitVal().asInstanceOf[V]
+        if (isSubprogram) exitAndMakeCall(retDFTypeIR)
         else
-          val output = genOutPort(retDFTypeIR)
-          exitAndConnectInputs(paramEntries)
-          output.asInstanceOf[V]
+          val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(namedConstArgs))
+          if (retDFTypeIR == ir.DFUnit)
+            exitAndConnectInputs(paramEntries)
+            DFUnitVal().asInstanceOf[V]
+          else
+            val output = genOutPort(retDFTypeIR)
+            exitAndConnectInputs(paramEntries)
+            output.asInstanceOf[V]
       case None =>
         val preFuncMembers = dfc.mutableDB.DesignContext.getMembersNum
         val ret = func
@@ -344,20 +392,34 @@ object r__For_Plugin:
             case _: ir.DFVal.DesignParam => true
             case _                       => false
           }
-        val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(namedConstArgs))
         val retDFTypeIR = ret.dfType.asIR
-        val (endedDesign, retVal) =
-          if (retDFTypeIR == ir.DFUnit)
-            (exitAndConnectInputs(paramEntries), DFUnitVal().asInstanceOf[V])
-          else
+        if (isSubprogram)
+          // the return statement: the body's result connects to the single out port
+          if (retDFTypeIR != ir.DFUnit)
             val retMeta = ret.asIR.meta
             val retIdent = DFVal.Alias.AsIs.ident(ret)(using dfc.setMeta(retMeta).anonymize)
             val output = genOutPort(retDFTypeIR)
             output.connect(retIdent)(using dfc.setMeta(retMeta.anonymize))
-            (exitAndConnectInputs(paramEntries), output.asInstanceOf[V])
-        if (!bodyCreatedParams)
-          keyOpt.foreach(gate.completed(_, endedDesign, ownerClass, cacheEnable))
-        retVal
+          val endedDesign = designBlock.asIR
+          val retVal = exitAndMakeCall(retDFTypeIR)
+          if (!bodyCreatedParams)
+            keyOpt.foreach(gate.completed(_, endedDesign, ownerClass, cacheEnable))
+          retVal
+        else
+          val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(namedConstArgs))
+          val (endedDesign, retVal) =
+            if (retDFTypeIR == ir.DFUnit)
+              (exitAndConnectInputs(paramEntries), DFUnitVal().asInstanceOf[V])
+            else
+              val retMeta = ret.asIR.meta
+              val retIdent = DFVal.Alias.AsIs.ident(ret)(using dfc.setMeta(retMeta).anonymize)
+              val output = genOutPort(retDFTypeIR)
+              output.connect(retIdent)(using dfc.setMeta(retMeta.anonymize))
+              (exitAndConnectInputs(paramEntries), output.asInstanceOf[V])
+          if (!bodyCreatedParams)
+            keyOpt.foreach(gate.completed(_, endedDesign, ownerClass, cacheEnable))
+          retVal
+        end if
     end match
   end designFromDefImpl
   def identVal[V <: DFValAny](value: V)(using DFC): V =

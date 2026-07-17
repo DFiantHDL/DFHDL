@@ -2,6 +2,16 @@
 
 > Status: **Phases 1A+1B+1C + Phase 2 (procedural core) IMPLEMENTED**
 
+> **MODEL REVISION IMPLEMENTED (2026-07-18) — see the static-domain plan §13/§13.9**
+> ([static-domain-plan.md](static-domain-plan.md)). ED method applications (functions AND
+> procedures, the latter as `DFUnit`-typed statements) are now `DFVal.Func` with
+> `Op.Def(staticRef)` instead of `DFDesignInst` + `PortByNameSelect`; phantom actuals are
+> trailing hidden `Func` args, paired with the phantom formals positionally. Printed HDL is
+> byte-identical. Read the open issues below against it: PrepEDDefs was DELETED (Rule 1 is
+> `ExplicitNamedVars`' standard path; its spec absorbed the test), and phantom-OUT / explicit
+> `<> IN`/`<> OUT` args (§S2) will require the direction-aware args helper of §13.6 rather than
+> net-based modeling.
+
 ## OPEN ISSUES — the single authoritative list (2026-07-11, updated 2026-07-14)
 
 Everything open/undecided/unresolved lives HERE. Scattered "deferred" notes elsewhere in this
@@ -388,10 +398,10 @@ infix type <>[T <: DFType.Supported, M] = M match
   would break the "declarations cannot be global" guard). Consequence: `print/assert` inside
   a *top-level* ED function def fall back to Scala's Predef (exactly like top-level DF design
   defs today); inside design-class defs they work via the class's `Scope.Design` given.
-- **Plugin-reported errors are untestable via `assertCompileError`** (`typeCheckErrors` stops
-  at the typer; plugin phases never run). The three DesignDefsPhase errors (missing `()`
-  block, recursion, procedural-unsupported) were verified manually via a scratch compile.
-  Also, a `Unit <> EDRET` def whose body uses `:=` hits the typer error first (`:=` not
+- **RESOLVED (2026-07-16): plugin-reported errors are now testable via `assertPluginError`**
+  (see devdocs/plugin-error-testing.md; `assertCompileError`/`typeCheckErrors` still
+  stops at the typer). The DesignDefsPhase errors are covered in `CoreSpec/PluginErrorSpec`.
+  Still true: a `Unit <> EDRET` def whose body uses `:=` hits the typer error first (`:=` not
   allowed under `Scope.Procedural` yet), so the plugin's procedural error only surfaces for
   bodies that type-check.
 - **Const captures ARE plugin-lifted into explicit phantom `DesignParam`s (user-corrected,

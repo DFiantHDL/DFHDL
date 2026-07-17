@@ -70,6 +70,11 @@ final case class SubDesignEntry(
             d.copyWithNewRefs.copy(ownerRef = topToken)
           case inst: DFDesignInst =>
             inst.copyWithNewRefs.copy(designRef = StaticRef(childTokens(inst.designRef)))
+          // a subprogram call is re-anchored exactly like an instance: its key (which the
+          // pairwise ref freshening below never touches) is retargeted to the design this
+          // run resolved for the called child
+          case DFVal.Func.Call(func, storedKey) =>
+            func.copyWithNewRefs.copy(op = DFVal.Func.Op.Def(StaticRef(childTokens(storedKey))))
           case m => m.copyWithNewRefs
         memberMap(m) = fresh
         // pairwise (oldRef -> newRef) through the symmetric `getAllRefs` enumeration (which

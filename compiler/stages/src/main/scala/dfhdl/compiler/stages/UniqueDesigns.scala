@@ -104,6 +104,7 @@ case object UniqueDesigns extends GlobalStage:
           if (dupKeys.contains(key.asRef)) None
           else
             val instReplace = collection.mutable.Map.empty[DFDesignInst, DFDesignInst]
+            val callReplace = collection.mutable.Map.empty[DFVal.Func, DFVal.Func]
             val newMembers = sub.members.map {
               // rename the sub-DB's top if it is a renamed canonical design
               case d: DFDesignBlock if canonicalReplace.contains(d) => canonicalReplace(d)
@@ -115,16 +116,24 @@ case object UniqueDesigns extends GlobalStage:
                 )
                 instReplace(inst) = newInst
                 newInst
+              // retarget a subprogram call that targeted a duplicate onto the canonical key
+              case DFVal.Func.Call(call, key) if dupKeyToCanonicalKey.contains(key.asRef) =>
+                val newCall = call.copy(op =
+                  DFVal.Func.Op.Def(StaticRef(dupKeyToCanonicalKey(key.asRef)))
+                )
+                callReplace(call) = newCall
+                newCall
               case m => m
             }
             // keep refTable values consistent: point any ref that targeted a
-            // retargeted inst at its replacement, a renamed canonical at its renamed
+            // retargeted inst/call at its replacement, a renamed canonical at its renamed
             // block (so members resolve their owner to the renamed design), and any
             // remaining duplicate design block at its canonical (renamed if so).
             // `designRef` itself no longer lives in refTable.
             val newRefTable =
               sub.refTable.view.mapValues {
                 case inst: DFDesignInst if instReplace.contains(inst) => instReplace(inst)
+                case func: DFVal.Func if callReplace.contains(func)   => callReplace(func)
                 case d: DFDesignBlock if canonicalReplace.contains(d) => canonicalReplace(d)
                 case d: DFDesignBlock if dupToCanonical.contains(d)   =>
                   val canon = dupToCanonical(d)

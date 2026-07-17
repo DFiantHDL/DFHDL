@@ -250,7 +250,12 @@ final class MutableDB():
     // sub-DB is stable and the same instance serves every later lookup/store/assembly
     private val subDBMemo = mutable.Map.empty[StaticRef, DB]
 
-    def designAt(design: StaticRef): DFDesignBlock = designOf(design)
+    def designAt(design: StaticRef): DFDesignBlock = designOf.get(design) match
+      case Some(d) => d
+      // a pre-unification `DFDesignInst.designRef` is a distinct parent-side ref (not a
+      // design's `ownerRef` identity key), resolved through the live refTable instead of
+      // the registry (e.g. test utilities printing live members mid-elaboration)
+      case None => self.getMember(design.asRef)
     // the canonical design of a design: itself, unless it duplicates one
     def canonicalOf(design: StaticRef): StaticRef = canonicalOfDuplicate.getOrElse(design, design)
 
@@ -306,12 +311,16 @@ final class MutableDB():
       current = stack.head
       stack = stack.drop(1)
     end endDesign
-    // the canonical designs this design instantiates, in instance order. Read from the RAW
-    // snapshot instances, whose `designRef` still resolves through the refTable (only the
-    // emitted form of an instance carries the design's `refId` directly, see `unifyInst`).
+    // the canonical designs this design instantiates or calls, in instance order. An
+    // instance's RAW snapshot `designRef` still resolves through the refTable (only the
+    // emitted form of an instance carries the design's `refId` directly, see `unifyInst`);
+    // a subprogram call's key already IS the canonical design's identity (minted so at the
+    // call site, never rewritten).
     def childDesignsOf(design: StaticRef): List[StaticRef] =
-      designMembers.getOrElse(design, Nil).collect { case inst: DFDesignInst =>
-        canonicalOf(self.getMember(inst.designRef.asRef).refId)
+      designMembers.getOrElse(design, Nil).collect {
+        case inst: DFDesignInst =>
+          canonicalOf(self.getMember(inst.designRef.asRef).refId)
+        case DFVal.Func.Call(_, designKey) => designKey
       }.distinct
 
     // ~~~ a design's OWN sub-DB ~~~
@@ -1110,6 +1119,8 @@ final class MutableDB():
     def remove[M <: DFMember](member: M): M = ignoreMember(member)
     def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit = GlobalTagContext.set(tag)
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = GlobalTagContext.get[CT]
+    def getDesignBlockByKey(key: StaticRef): DFDesignBlock =
+      DesignContext.designAt(key)
   end getSet
 
 end MutableDB

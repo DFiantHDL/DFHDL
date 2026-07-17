@@ -65,6 +65,12 @@ final case class DB private (
       "Cannot set global tag on immutable DB"
     )
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = globalTags.getTagOf[CT]
+    def getDesignBlockByKey(key: StaticRef): DFDesignBlock =
+      val root = rootDB
+      val resolved =
+        if (root.isRoot) root.subDBs.get(key).map(_.top)
+        else root.designBlockByKey.get(key.asRef)
+      resolved.getOrElse(apply(key.asRef))
   end getSet
   def atGetSet[T](block: MemberGetSet ?=> T): T = block(using getSet)
 
@@ -363,15 +369,21 @@ final case class DB private (
       members.view.collect { case inst: DFDesignInst => inst }
         .groupBy(_.getDesignBlock).view.mapValues(_.toList).toMap + (top -> Nil)
 
-  // design block to its owner design blocks map (multiple owners in case of multiple instantiations).
+  // design block to its owner design blocks map (multiple owners in case of multiple
+  // instantiations). A subprogram (def design) is owned through its CALLS (`Func` with
+  // `Op.Def`), since it has no design instance.
   lazy val designBlockOwnershipMap: Map[DFDesignBlock, Set[DFDesignBlock]] =
     if (isOldStyleFlatDB)
-      designBlockInstMap.view.mapValues(_.view.map(_.getOwnerDesign).toSet).toMap
+      members.view.collect {
+        case inst: DFDesignInst         => inst.getDesignBlock -> inst.getOwnerDesign
+        case DFVal.Func.Call(call, key) => key.getDesignBlock -> call.getOwnerDesign
+      }.toList.groupBy(_._1).view.mapValues(_.view.map(_._2).toSet).toMap + (top -> Set.empty)
     else if (isRoot)
       subDBs.view.values.flatMap { subDB =>
         subDB.atGetSet {
           subDB.membersNoGlobals.view.collect {
-            case inst: DFDesignInst => inst.getDesignBlock -> subDB.top
+            case inst: DFDesignInst      => inst.getDesignBlock -> subDB.top
+            case DFVal.Func.Call(_, key) => key.getDesignBlock -> subDB.top
           }
         }
       }.groupBy(_._1).view.mapValues(_.map(_._2).toSet).toMap + (top -> Set.empty)
@@ -386,12 +398,16 @@ final case class DB private (
 
   lazy val designBlockDomainOwnershipMap: Map[DFDesignBlock, Set[DFDomainOwner]] =
     if (isOldStyleFlatDB)
-      designBlockInstMap.view.mapValues(_.view.map(_.getOwnerDomain).toSet).toMap
+      members.view.collect {
+        case inst: DFDesignInst         => inst.getDesignBlock -> inst.getOwnerDomain
+        case DFVal.Func.Call(call, key) => key.getDesignBlock -> call.getOwnerDomain
+      }.toList.groupBy(_._1).view.mapValues(_.view.map(_._2).toSet).toMap + (top -> Set.empty)
     else if (isRoot)
       subDBs.view.values.flatMap { subDB =>
         subDB.atGetSet {
           subDB.membersNoGlobals.view.collect {
-            case inst: DFDesignInst => inst.getDesignBlock -> inst.getOwnerDomain
+            case inst: DFDesignInst         => inst.getDesignBlock -> inst.getOwnerDomain
+            case DFVal.Func.Call(call, key) => key.getDesignBlock -> call.getOwnerDomain
           }
         }
       }.groupBy(_._1).view.mapValues(_.map(_._2).toSet).toMap + (top -> Set.empty)
@@ -1092,6 +1108,7 @@ final case class DB private (
             case dcl: DFVal.Dcl                      => dcl.isReg || dcl.isClkDcl
             case reg: DFVal.Alias.History            => true
             case inst: DFDesignInst                  => usesClkRst(inst.getDesignBlock).usesClk
+            case DFVal.Func.Call(_, key)             => usesClkRst(key.getDesignBlock).usesClk
             case _                                   => false
           }
         } || reversedDependents.getOrElse(owner, Set()).exists(d => usesClkRst(d).usesClk) ||
@@ -1106,6 +1123,7 @@ final case class DB private (
               (dcl.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
             case reg: DFVal.Alias.History => reg.hasNonBubbleInit
             case inst: DFDesignInst       => usesClkRst(inst.getDesignBlock).usesRst
+            case DFVal.Func.Call(_, key)  => usesClkRst(key.getDesignBlock).usesRst
             case _                        => false
           }
         } || reversedDependents.getOrElse(owner, Set()).exists(d => usesClkRst(d).usesRst) ||
@@ -1267,16 +1285,16 @@ final case class DB private (
     val errors = collection.mutable.ArrayBuffer[String]()
     // memoized transitive wait detection per method design (keyed by its hierarchy key)
     val waitingCache = collection.mutable.Map.empty[DFOwner.Ref, Boolean]
-    def methodSubDBOpt(inst: DFDesignInst): Option[DB] = subDBs.get(inst.designRef)
+    def methodSubDBOpt(designKey: StaticRef): Option[DB] = subDBs.get(designKey)
     def isWaiting(methodDB: DB): Boolean =
       val key = methodDB.top.ownerRef
       waitingCache.get(key) match
         case Some(cached) => cached
         case None         =>
           val waiting = methodDB.members.exists {
-            case _: Wait            => true
-            case inst: DFDesignInst =>
-              methodSubDBOpt(inst).exists(sub => sub.top.isEDMethod && isWaiting(sub))
+            case _: Wait                  => true
+            case DFVal.Func.Call(_, dKey) =>
+              methodSubDBOpt(dKey).exists(sub => sub.top.isEDMethod && isWaiting(sub))
             case _ => false
           }
           waitingCache(key) = waiting
@@ -1286,20 +1304,20 @@ final case class DB private (
       if (!sub.top.isEDMethod)
         sub.atGetSet {
           sub.members.foreach {
-            case inst: DFDesignInst =>
-              methodSubDBOpt(inst) match
+            case DFVal.Func.Call(call, dKey) =>
+              methodSubDBOpt(dKey) match
                 case Some(methodDB) if methodDB.top.isEDMethod && isWaiting(methodDB) =>
                   def callError(msg: String): Unit =
                     errors += s"""|DFiant HDL ED method error!
-                                  |Position:  ${inst.meta.position}
-                                  |Hierarchy: ${fullNameViaInst(inst.getOwnerDesign, sub)}
+                                  |Position:  ${call.meta.position}
+                                  |Hierarchy: ${fullNameViaInst(call.getOwnerDesign, sub)}
                                   |Message:   $msg""".stripMargin
                   @tailrec def owningProcess(m: DFMember): Option[ProcessBlock] =
                     m.getOwner match
                       case pb: ProcessBlock => Some(pb)
                       case _: DFDesignBlock => None
                       case o                => owningProcess(o)
-                  owningProcess(inst) match
+                  owningProcess(call) match
                     case Some(pb) =>
                       pb.sensitivity match
                         case ProcessBlock.Sensitivity.List(Nil) |
@@ -1789,6 +1807,8 @@ final case class DB private (
       members.foreach {
         case inst: DFDesignInst =>
           designBlockParent.getOrElseUpdate(inst.getDesignBlock, inst.getOwnerDesign)
+        case DFVal.Func.Call(call, key) =>
+          designBlockParent.getOrElseUpdate(key.getDesignBlock, call.getOwnerDesign)
         case _ =>
       }
       members.foreach {
@@ -1955,6 +1975,9 @@ final case class DB private (
       // own refTable because the root DB's refTable does not necessarily cover
       // refs that originate in sub-DB members.
       val instToDesign = mutable.Map.empty[DFDesignInst, DFDesignBlock]
+      // subprogram call -> canonical target DFDesignBlock (keyed at the member level,
+      // matching `emit`'s scrutinee)
+      val callToDesign = mutable.Map.empty[DFMember, DFDesignBlock]
       allDBs.foreach { db =>
         db.members.foreach {
           case inst: DFDesignInst =>
@@ -1964,6 +1987,9 @@ final case class DB private (
             // unified form and the pre-unification distinct form.
             instToDesign(inst) =
               canonicalize(inst.getDesignBlock(using db.getSet)).asInstanceOf[DFDesignBlock]
+          case DFVal.Func.Call(call, key) =>
+            callToDesign(call) =
+              canonicalize(key.getDesignBlock(using db.getSet)).asInstanceOf[DFDesignBlock]
           case _ =>
         }
       }
@@ -1978,6 +2004,18 @@ final case class DB private (
               // inst, on the first inst that references it. Subsequent insts
               // for the same block just emit themselves.
               instToDesign.get(inst).foreach { targetBlock =>
+                if (!seen.contains(targetBlock))
+                  seen += targetBlock
+                  flat += targetBlock
+                  subDBs.get(targetBlock.ownerRef).foreach(sub => emit(sub.members))
+              }
+              if (!seen.contains(c))
+                seen += c
+                flat += c
+            // a subprogram call triggers the same first-reference emission of its
+            // target def design's body
+            case call if callToDesign.contains(call) =>
+              callToDesign.get(call).foreach { targetBlock =>
                 if (!seen.contains(targetBlock))
                   seen += targetBlock
                   flat += targetBlock
@@ -2143,8 +2181,15 @@ final case class DB private (
             emittedDesigns += target
             emitDesign(target)
           out += inst
+        case DFVal.Func.Call(call, key) =>
+          val target = key.getDesignBlock
+          if (!emittedDesigns.contains(target))
+            emittedDesigns += target
+            emitDesign(target)
+          out += call
         case m => out += m
       }
+    end emitDesign
     emittedDesigns += topD
     emitDesign(topD)
     val newMembers = globals.toList ++ out.toList
@@ -2239,6 +2284,13 @@ enum MemberView derives CanEqual:
 trait MemberGetSet:
   val isMutable: Boolean
   def designDB: DB
+  // Structural resolution of a design-block hierarchy key (`StaticRef`). A unified key is
+  // a design's `ownerRef` token, so it must NOT be resolved through the refTable (where
+  // that token maps to the design's owner); each context resolves it against its own
+  // design registry, falling back to the refTable only for the pre-unification
+  // `DFDesignInst.designRef` form (a distinct parent-side entry). A design block is
+  // always accessible from a key; failure to resolve is a bug.
+  def getDesignBlockByKey(key: StaticRef): DFDesignBlock
   def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0
   def getOption[M <: DFMember, M0 <: M](ref: DFRef[M]): Option[M0]
   def getOrigin(ref: DFRef.TwoWayAny): DFMember

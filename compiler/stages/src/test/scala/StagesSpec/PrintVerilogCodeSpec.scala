@@ -2472,4 +2472,85 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("nested static function calls") {
+    class NestStatic extends EDDesign:
+      val o = UInt(8) <> OUT
+      def twice(k: UInt[8] <> CONST): UInt[8] <> CONSTRET = k + k
+      // the inner call is consumed as the outer call's argument; it must not also emit a
+      // standalone `twice(n)` statement
+      def quad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = twice(twice(n))
+      o <> quad(d"8'3")
+    end NestStatic
+    val top = (new NestStatic).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module NestStatic(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  function automatic logic [7:0] twice(input logic [7:0] k);
+         |  begin
+         |    twice = k + k;
+         |  end
+         |  endfunction
+         |
+         |  function automatic logic [7:0] quad(input logic [7:0] n);
+         |  begin
+         |    quad = twice(twice(n));
+         |  end
+         |  endfunction
+         |  assign o = quad(8'd3);
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static function call parameterizing a sub-design") {
+    class Inner(val k: UInt[8] <> CONST = d"8'0") extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> k
+    class StaticParamTop extends EDDesign:
+      val o = UInt(8) <> OUT
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      val inner = new Inner(twice(d"8'3"))
+      o <> inner.o
+    end StaticParamTop
+    val top = (new StaticParamTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Inner#(parameter logic [7:0] k = 8'd0)(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = k;
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module StaticParamTop(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] inner_o;
+         |  function automatic logic [7:0] twice(input logic [7:0] n);
+         |  begin
+         |    twice = n + n;
+         |  end
+         |  endfunction
+         |  Inner #(
+         |    .k (twice(8'd3))
+         |  ) inner(
+         |    .o /*-->*/ (inner_o)
+         |  );
+         |  assign o = inner_o;
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

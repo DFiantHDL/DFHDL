@@ -121,7 +121,10 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
               dfVal match
                 case ch: DFConditional.Header if ch.dfType == DFUnit =>
                 case Ident(_)                                        =>
-                case _                                               =>
+                // a procedural (Unit-return) subprogram call is a statement: referenced by
+                // nothing by design
+                case DFVal.Func.Call(call, _) if call.dfType == DFUnit =>
+                case _                                                 =>
                   reportViolation(
                     s"""|An anonymous value has no references.
                         |Referenced value: $dfVal""".stripMargin
@@ -396,18 +399,18 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
           err(owner, s"This construct is not allowed inside $kindNoun.")
         // a static function may call other static functions, but NOT ED methods: it is callable
         // from any domain, so it may not depend on being in one
-        case inner: DFDesignBlock if isStatic && !inner.isStaticFunction =>
+        case DFVal.Func.Call(call, key) if isStatic && !key.getDesignBlock.isStaticFunction =>
           err(
-            inner,
-            if (inner.isEDMethod)
-              "ED method calls are not allowed inside a static function. A static function is callable from any domain, so it may only call other static functions."
-            else
-              "Design instances are not allowed inside a static function. Only calls to other static functions are."
+            call,
+            "ED method calls are not allowed inside a static function. A static function is callable from any domain, so it may only call other static functions."
           )
-        case inner: DFDesignBlock if !isStatic && !inner.isHDLSubprogram =>
+        case inst: DFDesignInst =>
           err(
-            inner,
-            "Design instances are not allowed inside an ED method. Only calls to other ED methods and to static functions are."
+            inst,
+            if (isStatic)
+              "Design instances are not allowed inside a static function. Only calls to other static functions are."
+            else
+              "Design instances are not allowed inside an ED method. Only calls to other ED methods and to static functions are."
           )
         case _ => // ok
       }

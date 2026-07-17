@@ -37,12 +37,10 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   protected def printDesignDefDclInline(design: DFDesignBlock): Boolean = false
 
   // ~~~ HDL subprogram formals and actuals ~~~
-  // A VHDL or Verilog subprogram has no generics, so a def design's non-phantom design
-  // PARAMETERS and its non-phantom input PORTS print in ONE formal list, and the backend
-  // printers need not care which kind supplies it: an ED method's formals are its ports (its
-  // const arguments are rejected outright), and a static function's are its parameters (it has
-  // no input ports at all, which is what lets it be called from the global scope, where there
-  // is no block to own the net an input port would need).
+  // A subprogram's formals are its non-phantom input PORTS: an ED method's value args and a
+  // static function's const args alike (const args revert to ports under the `Func`/`Op.Def`
+  // call model; the `DesignParam` case below only serves DF/RT design defs, which are not
+  // subprograms).
   //
   // Phantoms are hidden from the signature: a phantom's body references print the captured
   // value's name, resolved at the host design's scope.
@@ -101,6 +99,9 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
           // so we need to print now
           case pbns if pbns.isOut => pbns.getReadDeps.isEmpty
         }.getOrElse(true)
+      // a procedural (Unit-return) subprogram call is a statement; a value-returning call
+      // prints inline where it is consumed (or as a named `val` via the Named case below)
+      case DFVal.Func.Call(call, _) if call.dfType =~ DFUnit => true
       // DFDesignBlock no longer participates in owner-body rendering — its
       // instantiation syntax is emitted via the DFDesignInst companion.
       case _: DFDesignBlock => false
@@ -294,9 +295,14 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val localDcls = printer.csLocalTypeDcls(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val defArgList = designMembers.collect {
-      // phantom ports materialize captured outer references — hidden from the signature
+      // phantom ports materialize captured outer references, hidden from the signature.
+      // A static function's formals are const-typed (`<> CONST`), which the domain
+      // determines (const and non-const formals never mix in a def declaration).
       case port @ DclIn() if !port.isPhantom =>
-        s"${port.getName}${printer.csDFValType(port.dfType)}"
+        val csType =
+          if (design.isStaticFunction) printer.csDFValConstType(port.dfType)
+          else printer.csDFValType(port.dfType)
+        s"${port.getName}$csType"
     }
     val defArgsCS =
       if (defArgList.length <= 2) defArgList.mkString(", ")
@@ -318,12 +324,10 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case DomainType.Static => "CONSTRET"
       case _                 => "DFRET"
     val retTypeCS = s": ${printer.csDFType(retDFType, typeCS = true)} <> $retModCS"
-    // A static function's arguments ARE its design parameters (it has no input ports), so its
-    // single term parameter list is the parameter list, and it round-trips as the user wrote it.
-    // Every other def design keeps parameters and inputs in separate lists.
-    val formalsCS =
-      if (design.isStaticFunction) if (designParamList.isEmpty) "()" else designParamCS
-      else s"$designParamCS($defArgsCS)"
+    // A subprogram's formals are all input ports (a static function's const args included),
+    // so its param list is empty; a DF/RT design def keeps parameters and inputs in
+    // separate lists.
+    val formalsCS = s"$designParamCS($defArgsCS)"
     val dcl =
       s"def ${design.dclName}$formalsCS$retTypeCS =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     sn"""|${printer.csAnnotations(design.dclMeta.annotations)}
@@ -367,12 +371,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       if (designParamList.length == 0) ""
       else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
       else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
-    // a static function call passes its arguments as design parameters, in the one argument
-    // list the user wrote (mirroring `csDFDesignDefDcl`)
-    val dcl =
-      if (design.isStaticFunction)
-        s"${design.dclName}${if (designParamList.isEmpty) "()" else designParamCS}"
-      else s"${design.dclName}$designParamCS($ports)"
+    val dcl = s"${design.dclName}$designParamCS($ports)"
     if (inst.isAnonymous) dcl
     else s"val ${inst.getName} = $dcl"
   end csDFDesignDefInst

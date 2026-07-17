@@ -682,7 +682,23 @@ object DFVal:
   ) extends DFVal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
-      ConstData.NotConst
+      // A declaration inside a static function's def design (its formals, the return output
+      // port, and local static variables) is a constant of unknown value: the static domain is
+      // timeless, so every value in it is constant. Folding it to a KnownConst would mean
+      // interpreting the static body, which is deliberately deferred.
+      //
+      // The owner walk must NOT be forced (`getOwnerDesign` here crashes the RT-loop stages):
+      // `getConstData` also runs on a value whose owner chain is transiently out of scope
+      // during meta-programming, where an unreachable owner simply means NotConst (which the
+      // mutable path does not cache, so a later reachable query recomputes correctly).
+      @tailrec def ownerDesignIsStaticFunction(m: DFMember): Boolean =
+        m.ownerRef.getOption match
+          case Some(d: DFDesignBlock) => d.isStaticFunction
+          case Some(b: DFBlock)       => ownerDesignIsStaticFunction(b)
+          case _                      => false
+      if (ownerDesignIsStaticFunction(this)) ConstData.UnknownConst(this)
+      else ConstData.NotConst
+    end protGetConstData
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
         this.dfType =~ that.dfType && this.modifier == that.modifier &&
@@ -734,14 +750,29 @@ object DFVal:
       val args = this.args.map(_.get)
       val argConstData = args.map(_.getConstData[Any])
       if (argConstData.exists(_ == ConstData.NotConst)) ConstData.NotConst
-      else if (argConstData.view.exists(_.isInstanceOf[ConstData.UnknownConst[?]]))
-        ConstData.UnknownConst(this)
       else
-        val argData = argConstData.collect { case ConstData.KnownConst(d) => d }
-        val argTypes = args.map(_.dfType)
-        ConstData.KnownConst(calcFuncData(dfType, op, argTypes, argData))
+        op match
+          // A STATIC FUNCTION call with constant args (guarded above) is a constant of
+          // UNKNOWN value (folding it means interpreting the def body, which is
+          // deliberately not done); an ED method call is never a constant, no matter its
+          // args (e.g. a zero-arg task call). Points at ITSELF so resolving it stays
+          // within this call's own (reachable) context.
+          case Func.Op.Def(staticRef) =>
+            if (staticRef.getDesignBlock.isStaticFunction) ConstData.UnknownConst(this)
+            else ConstData.NotConst
+          case _ =>
+            if (argConstData.view.exists(_.isInstanceOf[ConstData.UnknownConst[?]]))
+              ConstData.UnknownConst(this)
+            else
+              val argData = argConstData.collect { case ConstData.KnownConst(d) => d }
+              val argTypes = args.map(_.dfType)
+              ConstData.KnownConst(calcFuncData(dfType, op, argTypes, argData))
+    end protGetConstData
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Func =>
+        // `Op.Def` needs no specialization here: its `staticRef` is a STABLE identity key
+        // (minted once, pointing at the canonical def design, never replaced), so the
+        // plain `==` op comparison is exactly right.
         this.dfType =~ that.dfType && this.op == that.op && this.args =~ that.args &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
@@ -767,8 +798,28 @@ object DFVal:
       case clog2, max, min, abs, sel
       // special-case of initFile construct for vectors of bits
       case InitFile(format: InitFileFormat, path: String)
+      // A subprogram (def-design) application: a call of a static function or an ED
+      // method, with `args` as the actuals (explicit args first, then hidden phantom
+      // actuals; the split is derived from the def block's formal list, `PhantomTag`).
+      // A procedural (Unit-return) call is a `DFUnit`-typed Func in statement position.
+      // `staticRef` is the same design-block hierarchy key as `DFDesignInst.designRef`,
+      // minted at the call site pointing at the CANONICAL def design (the design load
+      // gate already knows the canonical when the call is created). It is a STABLE
+      // identity token: never replaced, never freshened (`copyWithNewRefs` leaves it),
+      // deliberately NOT part of `getRefs`/refTable enumeration, and compared with plain
+      // `==`.
+      case Def(staticRef: StaticRef)
+    end Op
     object Op:
       val associativeSet = Set(Op.+, Op.-, Op.`*`, Op.&, Op.|, Op.^, Op.++, Op.max, Op.min)
+    // Extracts a subprogram call (a `Func` whose op carries a design-block key) as the
+    // (typed call, key) pair. Matches at the member level so it composes with the many
+    // `DFMember`-typed matches across stages.
+    object Call:
+      def unapply(member: DFMember): Option[(Func, StaticRef)] = member match
+        case func @ Func(op = Op.Def(staticRef)) => Some((func, staticRef))
+        case _                                   => None
+  end Func
 
   final case class PortByNameSelect(
       dfType: DFType,
@@ -1810,21 +1861,10 @@ final case class DFDesignInst(
     meta: Meta,
     tags: DFTags
 ) extends DFMember.Named derives ReadWriter:
-  // Resolve the instantiated child design block. `designRef` is unified with the
-  // child block's `ownerRef` (the hierarchy key) and is deliberately NOT present
-  // in the parent's refTable, so resolution goes structurally:
-  //   - mutable (elaboration): the ref still resolves via the live refTable.
-  //   - hierarchical root: the ref is the `subDBs` key → the child sub-DB's top.
-  //   - flat (round-trip) DB: the ref is the `designBlockByKey` map key.
-  // Each non-mutable path falls back to `designRef.get` for the pre-unification
-  // form (where `designRef` is still a distinct parent-side refTable entry).
-  def getDesignBlock(using getSet: MemberGetSet): DFDesignBlock =
-    if (getSet.isMutable) designRef.asRef.get
-    else
-      val root = getSet.designDB.rootDB
-      if (root.isRoot)
-        root.subDBs.get(designRef).map(_.top).getOrElse(designRef.asRef.get)
-      else root.designBlockByKey.getOrElse(designRef.asRef, designRef.asRef.get)
+  // Resolve the instantiated child design block through the shared structural key
+  // resolution (see `StaticRef.getDesignBlock`: `designRef` is unified with the child
+  // block's `ownerRef` and is deliberately NOT present in the parent's refTable).
+  def getDesignBlock(using MemberGetSet): DFDesignBlock = designRef.getDesignBlock
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignInst =>
       // `designRef` is unified with the child block's `ownerRef` (the sub-DB key)

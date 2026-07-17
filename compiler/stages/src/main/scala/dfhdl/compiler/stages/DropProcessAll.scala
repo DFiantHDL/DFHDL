@@ -42,8 +42,9 @@ case object DropProcessAll extends HierarchyStage:
       case _ => true // verilog v95 (the only verilog dialect passing runCondition)
     def hasPhantomCall(pb: ProcessBlock): Boolean =
       pb.members(MemberView.Flattened).exists {
-        case net: DFNet => net.hasTagOf[PhantomTag]
-        case _          => false
+        case DFVal.Func.Call(_, key) =>
+          getSet.designDB.designHasPhantoms(key.getDesignBlock)
+        case _ => false
       }
     val patchList: List[(DFMember, Patch)] =
       subDB.members
@@ -61,13 +62,11 @@ case object DropProcessAll extends HierarchyStage:
               val members = subDB.blockMemberTable(block)
               members.view.flatMap {
                 case DFNet.Assignment(_, fromVal) => Some(fromVal)
-                // ED method (function) call arguments — explicit and phantom-captured
-                // alike — are read through the call's input connections
-                case DFNet.Connection(
-                      toVal = PortOfDesignDef(DFVal.Modifier.IN, _),
-                      fromVal = fromVal
-                    ) =>
-                  Some(fromVal)
+                // a procedural (Unit-return) subprogram call statement reads its args
+                // (explicit and phantom-captured alike); value-returning calls are reached
+                // through the assignments that consume them
+                case DFVal.Func.Call(call, _) if call.dfType == DFUnit =>
+                  call.args.view.map(_.get)
                 case mh: DFMatchHeader       => Some(mh.selectorRef.get)
                 case cb: DFConditional.Block => getBlockDependents(cb) ++ cb.getGuardOption
                 case _                       => None

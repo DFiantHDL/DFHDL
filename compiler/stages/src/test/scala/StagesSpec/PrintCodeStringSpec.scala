@@ -645,8 +645,8 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       o <> twice(d"8'3")
     end StaticFnTop
     val id = (new StaticFnTop)
-    // A static function's arguments are its design PARAMETERS (it has no input ports at all),
-    // so its single term parameter list is the parameter list, and the call passes them by name.
+    // A static function's const arguments are its input ports (the subprogram formals), and
+    // the call (`Func` with `Op.Def`) binds them positionally, exactly like an ED method call.
     assertCodeString(
       id,
       """|class StaticFnTop extends EDDesign:
@@ -655,8 +655,35 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    n + n
          |  end twice
          |
-         |  o <> twice(n = d"8'3")
+         |  o <> twice(d"8'3")
          |end StaticFnTop
+         |""".stripMargin
+    )
+  }
+  test("nested static function calls") {
+    class NestStaticTop extends EDDesign:
+      val o                                               = UInt(8) <> OUT
+      def twice(k: UInt[8] <> CONST): UInt[8] <> CONSTRET = k + k
+      // the inner `twice(n)` result is consumed as the outer call's argument, so it must NOT
+      // also print as a standalone `twice(n)` statement
+      def quad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = twice(twice(n))
+      o <> quad(d"8'3")
+    end NestStaticTop
+    val id = (new NestStaticTop)
+    assertCodeString(
+      id,
+      """|class NestStaticTop extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  def twice(k: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    k + k
+         |  end twice
+         |
+         |  def quad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    twice(twice(n))
+         |  end quad
+         |
+         |  o <> quad(d"8'3")
+         |end NestStaticTop
          |""".stripMargin
     )
   }

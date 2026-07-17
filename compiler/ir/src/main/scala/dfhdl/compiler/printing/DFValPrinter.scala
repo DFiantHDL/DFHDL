@@ -163,13 +163,31 @@ trait AbstractValPrinter extends AbstractPrinter:
     case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
     case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
     case dv: Alias.SelectField => csDFValAliasSelectField(dv)
+  // The number of the subprogram's VISIBLE formals (non-phantom input ports). Resolved from
+  // the def's own sub-DB under a hierarchical root (the call site's scope holds only the
+  // design header), or directly on a flat DB.
+  private def visibleFormalCountOf(design: DFDesignBlock): Int =
+    def count(members: List[DFMember])(using MemberGetSet): Int = members.count {
+      case dcl: DFVal.Dcl => dcl.isPortIn && !dcl.isPhantom
+      case _              => false
+    }
+    getSet.designDB.rootDB.subDBs.get(design.ownerRef) match
+      case Some(sub) => sub.atGetSet(count(sub.ownerMemberTable.getOrElse(design, Nil)))
+      case None      => count(design.members(MemberView.Folded))
+  // A subprogram call's visible argument code strings: the leading args bind the visible
+  // (non-phantom) formals positionally, and the trailing phantom actuals stay hidden (the
+  // printed body references the captured values directly, see `phantomActualOf`).
+  final protected def csSubprogramCallArgs(call: Func, design: DFDesignBlock): List[String] =
+    call.args.take(visibleFormalCountOf(design)).map(_.refCodeString)
+  def csSubprogramCall(call: Func, designKey: StaticRef): String
   final def csDFValExpr(dfValExpr: DFVal.CanBeExpr, typeCS: Boolean = false): String =
     dfValExpr match
-      case dv: Const                => csDFValConstExpr(dv)
-      case dv: Func                 => csDFValFuncExpr(dv, typeCS)
-      case dv: Alias                => csDFValAliasExpr(dv)
-      case dv: DFVal.DesignParam    => dv.appliedValRefOpt.get.refCodeString
-      case dv: DFConditional.Header => printer.csDFConditional(dv)
+      case dv: Const                   => csDFValConstExpr(dv)
+      case DFVal.Func.Call(call, dKey) => csSubprogramCall(call, dKey)
+      case dv: Func                    => csDFValFuncExpr(dv, typeCS)
+      case dv: Alias                   => csDFValAliasExpr(dv)
+      case dv: DFVal.DesignParam       => dv.appliedValRefOpt.get.refCodeString
+      case dv: DFConditional.Header    => printer.csDFConditional(dv)
       // case dv: Timer.IsActive       => csTimerIsActive(dv)
       case dv: Special =>
         dv.kind match
@@ -198,6 +216,9 @@ end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:
   type TPrinter <: DFPrinter
+  def csSubprogramCall(call: Func, designKey: StaticRef): String =
+    val design = designKey.getDesignBlock
+    s"${design.dclName}(${csSubprogramCallArgs(call, design).mkString(", ")})"
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String =
     s"(${csExp.applyBrackets()}: ${printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
