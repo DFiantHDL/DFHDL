@@ -9,7 +9,7 @@ import dfhdl.options.CompilerOptions
 import scala.collection.mutable
 import scala.collection.immutable.ListMap
 
-case object DropDesignDefs extends GlobalStage:
+case object DropDFMethods extends GlobalStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls, DropUnreferencedAnons)
   def transformGlobal(designDB: DB)(using
@@ -108,10 +108,10 @@ case object DropDesignDefs extends GlobalStage:
       )
       designDB.update(subDBs = newSubDBs)
   end transformGlobal
-end DropDesignDefs
+end DropDFMethods
 
 //turns design definitions into normal designs, and set their instance names
 //if non exist
 extension [T: HasDB](t: T)
-  def dropDesignDefs(using CompilerOptions): DB =
-    StageRunner.run(DropDesignDefs)(t.db)
+  def dropDFMethods(using CompilerOptions): DB =
+    StageRunner.run(DropDFMethods)(t.db)

@@ -62,7 +62,7 @@ case object DropProcessAll extends HierarchyStage:
               val members = subDB.blockMemberTable(block)
               members.view.flatMap {
                 case DFNet.Assignment(_, fromVal) => Some(fromVal)
-                // a procedural (Unit-return) subprogram call statement reads its args
+                // a procedural (Unit-return) method call statement reads its args
                 // (explicit and phantom-captured alike); value-returning calls are reached
                 // through the assignments that consume them
                 case DFVal.Func.Call(call, _) if call.dfType == DFUnit =>
@@ -81,10 +81,10 @@ case object DropProcessAll extends HierarchyStage:
                 // but refer to vias outside of it. we also need to account that different PBNS are
                 // considered to be different values, so we use `addedCPs` to only add one port-by-name per connect point.
                 .view.filter {
-                  // HDL subprogram call ports are not signals — the call's actual reads are
+                  // HDL method call ports are not signals — the call's actual reads are
                   // collected through the call's input connections instead
                   case pbns: DFVal.PortByNameSelect
-                      if pbns.getDesignInst.getDesignBlock.isHDLSubprogram =>
+                      if pbns.getDesignInst.getDesignBlock.isHDLMethod =>
                     false
                   case pbns: DFVal.PortByNameSelect =>
                     val cp = ConnectPoint.Via(pbns)

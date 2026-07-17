@@ -13,34 +13,34 @@ import Types.*
 import scala.language.implicitConversions
 import scala.compiletime.uninitialized
 
-/** Capture discovery: which values a design def (or a design class template) references from
-  * OUTSIDE its own scope.
+/** Capture discovery: which values a method (or a design class template) references from OUTSIDE
+  * its own scope.
   *
-  * The DesignDefs rigging makes the generated design self-contained by materializing a def's
-  * captures explicitly, evaluated in the def's rhs scope at every call:
+  * The Methods rigging makes the generated design self-contained by materializing a def's captures
+  * explicitly, evaluated in the def's rhs scope at every call:
   *   - captured DFHDL constants become PHANTOM design parameters
   *   - captured non-constant DFHDL values become PHANTOM input ports
   *   - captured plain Scala values join the elaboration cache key (`scalaArgs`)
   *
-  * Phantom members are tagged (`ir.PhantomTag`) so the DFHDL printer hides them in the design-def
-  * view form.
+  * Phantom members are tagged (`ir.PhantomTag`) so the DFHDL printer hides them in the method view
+  * form.
   *
   * Discovery lives here, apart from the phases that act on it, because it is a CONTRACT between
-  * them rather than any one phase's business: DesignDefs creates the phantom members, while
-  * PureCheck must predict the very same set (down to the phantom parameter NAMES, recorded on the
-  * def's `pure(true, impureParams*)` annotation) before those members exist. A set that differed
-  * between the two would silently drop a captured constant out of the design load key.
+  * them rather than any one phase's business: Methods creates the phantom members, while PureCheck
+  * must predict the very same set (down to the phantom parameter NAMES, recorded on the def's
+  * `pure(true, impureParams*)` annotation) before those members exist. A set that differed between
+  * the two would silently drop a captured constant out of the design load key.
   */
 trait CapturePhase extends CommonPhase:
   import tpd.*
 
-  // ~~~ the design defs of the run ~~~
-  // The defs that `DesignDefs` turns into design-def harnesses, by symbol, each mapped to its
+  // ~~~ the methods of the run ~~~
+  // The defs that `Methods` turns into method harnesses, by symbol, each mapped to its
   // context lambda (the anon def whose rhs is the actual design body). The capture discovery
-  // needs them: a call to a design def does not run its body in the caller's scope, but it DOES
-  // evaluate the callee's captures there (see `capturesOfDesignDef`).
-  private val designDefAnons = collection.mutable.Map.empty[Symbol, DefDef]
-  private var designDefAnonsRun: AnyRef | Null = null
+  // needs them: a call to a method does not run its body in the caller's scope, but it DOES
+  // evaluate the callee's captures there (see `capturesOfMethod`).
+  private val methodDesignAnons = collection.mutable.Map.empty[Symbol, DefDef]
+  private var methodDesignAnonsRun: AnyRef | Null = null
   protected var scopeFunctionCls: Symbol = uninitialized
   protected var scopeProceduralCls: Symbol = uninitialized
   protected var domainTypeStaticSym: Symbol = uninitialized
@@ -59,10 +59,10 @@ trait CapturePhase extends CommonPhase:
     domainTypeEDSym = domainTypeSym("ED")
     domainTypeDFSym = domainTypeSym("DF")
     // the trees of a new run carry new symbols
-    if (designDefAnonsRun ne ctx.run)
-      designDefAnonsRun = ctx.run
-      designDefAnons.clear()
-      designDefCaptures.clear()
+    if (methodDesignAnonsRun ne ctx.run)
+      methodDesignAnonsRun = ctx.run
+      methodDesignAnons.clear()
+      methodCaptures.clear()
     ctx
   end prepareForUnit
 
@@ -71,10 +71,10 @@ trait CapturePhase extends CommonPhase:
     if (domainTypeMod.exists) domainTypeMod.moduleClass.info.member(name.toTypeName).symbol
     else NoSymbol
 
-  // ED methods and static functions (HDL subprograms) are design defs regardless of their
+  // ED methods and static functions (HDL methods) are methods regardless of their
   // DFHDL-value parameter count; they are detected by the scope evidence parameter that the
   // `<> EDRET` / `<> CONSTRET` match types inject into the context lambda.
-  protected def isSubprogramAnonDef(anonDef: DefDef)(using Context): Boolean =
+  protected def isHDLMethodAnonDef(anonDef: DefDef)(using Context): Boolean =
     anonDef.paramss.flatten.exists {
       case vd: ValDef =>
         (scopeFunctionCls.exists && vd.tpe <:< scopeFunctionCls.typeRef) ||
@@ -88,49 +88,49 @@ trait CapturePhase extends CommonPhase:
       case vd: ValDef => vd.tpt.tpe.typeSymbol == domainTypeStaticSym
       case _          => false
     }
-  // the context lambda of a def that `DesignDefs` transforms into a design (the conditions its
+  // the context lambda of a def that `Methods` transforms into a design (the conditions its
   // `transformDefDef` matches on), or None when the def is not one
-  protected def designDefAnonOf(dd: DefDef)(using Context): Option[DefDef] =
+  protected def methodDesignAnonOf(dd: DefDef)(using Context): Option[DefDef] =
     dd.rhs match
       case Block(List(anonDef: DefDef), _: Closure)
           if !dd.isInline && !dd.symbol.is(Exported) && anonDef.dfValTpeOpt.nonEmpty &&
             (dd.paramss.view.flatten.exists {
               case vd: ValDef => vd.dfValTpeOpt.nonEmpty && !vd.tpt.tpe.isDFConst
               case _          => false
-            } || isSubprogramAnonDef(anonDef)) =>
+            } || isHDLMethodAnonDef(anonDef)) =>
         Some(anonDef)
       case _ => None
-  // Registers the design defs of a tree. The registration is a PRE-pass (over the whole unit,
+  // Registers the methods of a tree. The registration is a PRE-pass (over the whole unit,
   // before any of it is transformed) rather than a per-def hook: a call contributes the callee's
   // captures to the CALLER, and a def may well be called by a def declared before it, which a
   // hook walking the tree in order would not have registered yet.
-  protected def collectDesignDefs(tree: Tree)(using Context): Unit =
+  protected def collectDFHDLMethods(tree: Tree)(using Context): Unit =
     object collector extends TreeTraverser:
       def traverse(t: Tree)(using Context): Unit =
         t match
           case dd: DefDef if dd.symbol.exists && !dd.symbol.isConstructor =>
-            designDefAnonOf(dd).foreach(anonDef =>
-              designDefAnons.getOrElseUpdate(dd.symbol, anonDef)
+            methodDesignAnonOf(dd).foreach(anonDef =>
+              methodDesignAnons.getOrElseUpdate(dd.symbol, anonDef)
             )
           case _ =>
         traverseChildren(t)
     collector.traverse(tree)
-  // the design defs of the run, as registered by `collectDesignDefs`
-  protected def isDesignDef(sym: Symbol): Boolean = designDefAnons.contains(sym)
-  protected def designDefAnon(sym: Symbol): Option[DefDef] = designDefAnons.get(sym)
+  // the methods of the run, as registered by `collectDFHDLMethods`
+  protected def isDFHDLMethod(sym: Symbol): Boolean = methodDesignAnons.contains(sym)
+  protected def methodDesignAnon(sym: Symbol): Option[DefDef] = methodDesignAnons.get(sym)
 
-  // ~~~ design-def capture discovery ~~~
+  // ~~~ method capture discovery ~~~
   // Captures are keyed by their full stable access path: the same member symbol reached
   // through different instance paths must not unify.
-  final protected case class DesignDefCaptures(
+  final protected case class MethodCaptures(
       phantomConsts: List[(List[Symbol], Tree)],
       phantomVals: List[(List[Symbol], Tree)],
       scalaCaptures: List[(List[Symbol], Tree)]
   )
   // a capture: its stable access path, a reference tree for it, and its kind
   private type Capture = (List[Symbol], Tree, Int)
-  // the (transitive) captures of a design def, memoized by symbol
-  private val designDefCaptures = collection.mutable.Map.empty[Symbol, List[Capture]]
+  // the (transitive) captures of a method, memoized by symbol
+  private val methodCaptures = collection.mutable.Map.empty[Symbol, List[Capture]]
   // the symbol path of a stable reference, leaf first
   protected def stablePathKey(t: Tree)(using Context): Option[List[Symbol]] = t match
     case id: Ident if id.symbol.exists && id.symbol.isTerm               => Some(List(id.symbol))
@@ -148,40 +148,40 @@ trait CapturePhase extends CommonPhase:
   // rooted at `this` of an enclosing container: an instance member is capturable; static
   // (global) values are reachable/code-determined everywhere and never captured; the def's own
   // parameters and body locals are not captures
-  private def designDefRootOk(defSym: Symbol, anonDefSym: Symbol)(path: List[Symbol])(using
+  private def methodRootOk(defSym: Symbol, anonDefSym: Symbol)(path: List[Symbol])(using
       Context
   ): Boolean =
     val root = path.last
     if (root.isClass) true
     else !root.isStatic && !root.ownersIterator.exists(o => o == defSym || o == anonDefSym)
-  protected def discoverDesignDefCaptures(defSym: Symbol, anonDefSym: Symbol, body: Tree)(using
+  protected def discoverMethodCaptures(defSym: Symbol, anonDefSym: Symbol, body: Tree)(using
       Context
-  ): DesignDefCaptures =
-    asDesignDefCaptures(
+  ): MethodCaptures =
+    asMethodCaptures(
       discoverCaptures(
         List(body),
-        designDefRootOk(defSym, anonDefSym),
+        methodRootOk(defSym, anonDefSym),
         transitive = true,
         visiting = Set(defSym)
       )
     )
-  // The captures a design def lifts, transitively over the design defs IT calls, memoized by
-  // symbol. `visiting` breaks a call cycle (a recursive design def cannot elaborate anyway).
-  private def capturesOfDesignDef(defSym: Symbol, visiting: Set[Symbol])(using
+  // The captures a method lifts, transitively over the methods IT calls, memoized by
+  // symbol. `visiting` breaks a call cycle (a recursive method cannot elaborate anyway).
+  private def capturesOfMethod(defSym: Symbol, visiting: Set[Symbol])(using
       Context
   ): List[Capture] =
-    designDefCaptures.get(defSym) match
+    methodCaptures.get(defSym) match
       case Some(captures) => captures
       case None           =>
-        designDefAnons.get(defSym) match
+        methodDesignAnons.get(defSym) match
           case Some(anonDef) =>
             val captures = discoverCaptures(
               List(anonDef.rhs),
-              designDefRootOk(defSym, anonDef.symbol),
+              methodRootOk(defSym, anonDef.symbol),
               transitive = true,
               visiting = visiting + defSym
             )
-            designDefCaptures += defSym -> captures
+            methodCaptures += defSym -> captures
             captures
           // a def declared outside this run cannot be looked into: its captures stay its own
           case None => Nil
@@ -196,7 +196,7 @@ trait CapturePhase extends CommonPhase:
   // body reads an enclosing loop's variable).
   protected def discoverClsCaptures(clsSym: ClassSymbol, tmpl: Template)(using
       Context
-  ): DesignDefCaptures =
+  ): MethodCaptures =
     def rootOk(path: List[Symbol]): Boolean =
       val root = path.last
       if (root.isClass)
@@ -207,17 +207,17 @@ trait CapturePhase extends CommonPhase:
       else
         !root.isStatic &&
         !root.ownersIterator.exists(o => o == clsSym || o == clsSym.primaryConstructor)
-    // a class template calls a design def from the design itself, where the def's captures are
+    // a class template calls a method from the design itself, where the def's captures are
     // by construction reachable, so no transitive capture propagation is needed here
-    asDesignDefCaptures(
+    asMethodCaptures(
       discoverCaptures(tmpl.parents ++ tmpl.body, rootOk, transitive = false, visiting = Set.empty)
     )
   end discoverClsCaptures
 
-  private def asDesignDefCaptures(captures: List[Capture]): DesignDefCaptures =
+  private def asMethodCaptures(captures: List[Capture]): MethodCaptures =
     def ofKind(kind: Int): List[(List[Symbol], Tree)] =
       captures.collect { case (path, t, `kind`) => (path, t) }
-    DesignDefCaptures(ofKind(1), ofKind(2), ofKind(3))
+    MethodCaptures(ofKind(1), ofKind(2), ofKind(3))
 
   private def discoverCaptures(
       bodies: List[Tree],
@@ -243,7 +243,7 @@ trait CapturePhase extends CommonPhase:
     val captured = collection.mutable.LinkedHashMap.empty[List[Symbol], (Tree, Int)]
     object captureFinder extends TreeTraverser:
       def traverse(t: Tree)(using Context): Unit = t match
-        // A call to another design def. Its body does not run here, but its captures ARE
+        // A call to another method. Its body does not run here, but its captures ARE
         // evaluated here, at the call, in this scope. So a capture of the callee that this
         // scope cannot reach either (the callee's design is nested in this one, and the value
         // belongs to a design further out) is a capture of THIS def as well, and materializing
@@ -251,8 +251,8 @@ trait CapturePhase extends CommonPhase:
         // `localize` in the `designFromDef` harness). Captures the caller CAN reach are
         // filtered out by its own `rootOk`, exactly as if it had referenced them itself.
         case _: (Ident | Select)
-            if transitive && !visiting.contains(t.symbol) && designDefAnons.contains(t.symbol) =>
-          capturesOfDesignDef(t.symbol, visiting).foreach { (path, capture, kind) =>
+            if transitive && !visiting.contains(t.symbol) && methodDesignAnons.contains(t.symbol) =>
+          capturesOfMethod(t.symbol, visiting).foreach { (path, capture, kind) =>
             if (rootOk(path)) captured.getOrElseUpdate(path, (capture, kind))
           }
           traverseChildren(t)

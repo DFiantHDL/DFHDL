@@ -23,7 +23,7 @@ class PureCheckSpec extends StageSpec:
     end ToScalaDesign
     // The forced data derives from the design param `const`, so only that PARAM is marked
     // data-impure, recorded by name on the def's own annotation (`pure(true, "const")`,
-    // printed at the declaration), and the design def stays pure and cacheable: the cache
+    // printed at the declaration), and the method stays pure and cacheable: the cache
     // key gains the impure param's applied data. Different applied values elaborate separate
     // bodies (test_0/test_1 with their folded constants), while a repeated value hits the
     // cache (the third call reuses test_0).
@@ -120,7 +120,7 @@ class PureCheckSpec extends StageSpec:
     end CaptureDesign
     // The forced data traces through the captured `localConst` to the Scala constructor
     // argument `offset` (per-instance data). The capture becomes a PHANTOM design parameter
-    // of `test` (created by the DesignDefs rigging, hidden in the def view form), so the
+    // of `test` (created by the Methods rigging, hidden in the def view form), so the
     // forcing attributes to that phantom's name and its applied data joins the cache key,
     // exactly like an explicit data-impure parameter; the def and the design stay pure.
     // Note: a capture whose definition is fully code-determined (e.g. initialized by a
@@ -170,7 +170,7 @@ class PureCheckSpec extends StageSpec:
     )
   }
 
-  test("param forcing propagates through nested design def application") {
+  test("param forcing propagates through nested method application") {
     class NestedDesign extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT

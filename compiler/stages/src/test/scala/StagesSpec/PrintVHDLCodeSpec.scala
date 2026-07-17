@@ -2316,7 +2316,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     end StaticFn
     val top = (new StaticFn).getCompiledCodeString
     // A static function's formals are its design PARAMETERS (it has no input ports), and a VHDL
-    // subprogram has no generics, so they print in the ordinary formal list, where the default
+    // method has no generics, so they print in the ordinary formal list, where the default
     // class is `constant` — exactly what they are. It is emitted `pure`: a static function is pure
     // by definition, and its captures are constants (enforced by the plugin), never signals.
     assertNoDiff(

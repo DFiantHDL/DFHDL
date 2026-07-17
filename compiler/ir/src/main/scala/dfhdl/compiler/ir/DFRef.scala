@@ -122,7 +122,7 @@ object StaticRef:
     // (`getDesignBlockByKey`: the mutable run's design map, the root's `subDBs`, or a
     // flat DB's `designBlockByKey`) and never through the refTable, where the same token
     // maps to the design's OWNER. Shared by every member kind that carries a design-block
-    // key: `DFDesignInst.designRef` and a subprogram call's `DFVal.Func.Op.Def`.
+    // key: `DFDesignInst.designRef` and a method call's `DFVal.Func.Op.Def`.
     def getDesignBlock(using getSet: MemberGetSet): DFDesignBlock =
       getSet.getDesignBlockByKey(ref)
 end StaticRef

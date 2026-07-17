@@ -181,7 +181,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CapturePhase, IdentityDen
   // injected into a design class that has plain Scala constructor parameters or plain
   // Scala template captures. These values may legitimately shape the elaborated
   // structure, so they join the design load key (the class-design counterpart of a
-  // design def's `scalaArgs`). Each class in the inheritance chain prepends its own
+  // method's `scalaArgs`). Each class in the inheritance chain prepends its own
   // contribution (like `__clsMeta`), so base-class captures are covered as well;
   // base-class constructor arguments need no entry of their own since they derive from
   // the leaf's (keyed) arguments and captures through code the key's `dclMeta` already

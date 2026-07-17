@@ -8,13 +8,13 @@ import dfhdl.internals.*
 import scala.collection.mutable
 
 case object ViaConnection extends HierarchyStage:
-  def dependencies: List[Stage] = List(DropDesignDefs, ExplicitNamedVars, SimpleOrderMembers)
+  def dependencies: List[Stage] = List(DropDFMethods, ExplicitNamedVars, SimpleOrderMembers)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patchList: List[(DFMember, Patch)] = subDB.members.flatMap {
-      // HDL subprogram (ED method / static function) instances are printed as inline subprogram
+      // HDL method (ED method / static function) instances are printed as inline method
       // calls — their port connections must NOT be rewired through via variables
-      case ib: DFDesignInst if !ib.getDesignBlock.isHDLSubprogram =>
+      case ib: DFDesignInst if !ib.getDesignBlock.isHDLMethod =>
         val nets = mutable.ListBuffer.empty[DFNet]
         val pbnsSkip = mutable.Set.empty[DFVal.PortByNameSelect]
         val pbnsGrps =

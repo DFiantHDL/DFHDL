@@ -11,15 +11,15 @@ import scala.collection.immutable.ListMap
 
 trait AbstractOwnerPrinter extends AbstractPrinter:
   // Phantom members are compiler-synthesized ports/parameters (and their by-name
-  // selection and wiring artifacts) that make design defs self-contained when they
+  // selection and wiring artifacts) that make methods self-contained when they
   // use values from outside their own scope. The DFHDL printer hides them in the
-  // design-def VIEW form only, so the printed def matches the user-written source
+  // method VIEW form only, so the printed def matches the user-written source
   // (its body references the captured host values by name). Once a def is dropped
   // to a regular design block, phantoms print like any other port/parameter, and
   // the backend printers always keep them.
   protected def hidePhantoms: Boolean = false
   final protected def isHiddenPhantom(member: DFMember): Boolean =
-    // call-site wiring nets of a design-def instance are hidden through their
+    // call-site wiring nets of a method instance are hidden through their
     // phantom port selection endpoint (input wiring is already excluded for def
     // instances, so this effectively covers phantom output captures)
     def isDefPhantomPBNS(endpoint: DFMember): Boolean = endpoint match
@@ -31,25 +31,25 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     (member match
       case net: DFNet => isDefPhantomPBNS(net.lhsRef.get) || isDefPhantomPBNS(net.rhsRef.get)
       case _          => false)
-  // A design-def declaration that references its host's values through phantoms cannot
+  // A method declaration that references its host's values through phantoms cannot
   // print at file level: it prints locally in the host design's body, just before the
   // def's first instance (see `csDFMembers`). Only the DFHDL printer overrides this.
-  protected def printDesignDefDclInline(design: DFDesignBlock): Boolean = false
+  protected def printMethodDclInline(design: DFDesignBlock): Boolean = false
 
-  // ~~~ HDL subprogram formals and actuals ~~~
-  // A subprogram's formals are its non-phantom input PORTS: an ED method's value args and a
+  // ~~~ HDL method formals and actuals ~~~
+  // A method's formals are its non-phantom input PORTS: an ED method's value args and a
   // static function's const args alike (const args revert to ports under the `Func`/`Op.Def`
-  // call model; the `DesignParam` case below only serves DF/RT design defs, which are not
-  // subprograms).
+  // call model; the `DesignParam` case below only serves DF/RT methods, which are not
+  // methods).
   //
   // Phantoms are hidden from the signature: a phantom's body references print the captured
   // value's name, resolved at the host design's scope.
-  final protected def defFormals(design: DFDesignBlock): List[DFVal] =
+  final protected def methodFormals(design: DFDesignBlock): List[DFVal] =
     design.members(MemberView.Folded).collect {
       case param: DFVal.DesignParam if !param.isPhantom => param
       case port @ DclIn() if !port.isPhantom            => port
     }
-  // The call site's actual arguments, positionally matching `defFormals`: the non-phantom
+  // The call site's actual arguments, positionally matching `methodFormals`: the non-phantom
   // parameter applications, then the non-phantom input-port connections.
   final protected def defActuals(inst: DFDesignInst): List[DFVal] =
     val design = inst.getDesignBlock
@@ -99,7 +99,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
           // so we need to print now
           case pbns if pbns.isOut => pbns.getReadDeps.isEmpty
         }.getOrElse(true)
-      // a procedural (Unit-return) subprogram call is a statement; a value-returning call
+      // a procedural (Unit-return) method call is a statement; a value-returning call
       // prints inline where it is consumed (or as a named `val` via the Named case below)
       case DFVal.Func.Call(call, _) if call.dfType =~ DFUnit => true
       // DFDesignBlock no longer participates in owner-body rendering — its
@@ -110,7 +110,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       // excluding late (via) connections
       case net: DFNet if net.isViaConnection => false
       // excluding nets that are inputs to a design definition
-      case DFNet.Connection(toVal = PortOfDesignDef(Modifier.IN, _)) => false
+      case DFNet.Connection(toVal = PortOfMethodDesign(Modifier.IN, _)) => false
       // include the rest of statements: nets, gotos, etc.
       case _: Statement => true
       // including only conditional statements (no type) headers
@@ -127,17 +127,17 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     val inlinedDefDcls = scala.collection.mutable.Set.empty[DFDesignBlock]
     members.view
       .flatMap { m =>
-        // a design def whose declaration prints locally (see `printDesignDefDclInline`)
+        // a method whose declaration prints locally (see `printMethodDclInline`)
         // is emitted just before its first instance in this body. The instance member
         // always precedes the statement that consumes the def's output, so anchoring on
         // it also covers instances that themselves print inline in a later statement.
         val inlineDclOpt = m match
           case inst: DFDesignInst =>
             val design = inst.getDesignBlock
-            if (printDesignDefDclInline(design) && inlinedDefDcls.add(design))
+            if (printMethodDclInline(design) && inlinedDefDcls.add(design))
               // rendered through a printer carrying this call site's phantom actuals, so
               // the body names the captured values as THIS design names them
-              Some(defPrinterAt(inst).csDFDesignDefDcl(design).stripLineEnd)
+              Some(methodPrinterAt(inst).csMethodDcl(design).stripLineEnd)
             else None
           case _ => None
         val csOpt = if (isViewable(m)) Some(m.codeString) else None
@@ -170,8 +170,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   end csDFDesignLateBody
   def csDFDesignBlockDcl(design: DFDesignBlock): String
   def csDFDesignBlockInst(inst: DFDesignInst): String
-  def csDFDesignDefDcl(design: DFDesignBlock): String
-  def csDFDesignDefInst(inst: DFDesignInst): String
+  def csMethodDcl(design: DFDesignBlock): String
+  def csMethodInst(inst: DFDesignInst): String
   def csBlockBegin: String
   def csBlockEnd: String
   def csDFIfGuard(ifBlock: DFConditional.DFIfElseBlock): String = ifBlock.guardRef.refCodeString
@@ -271,12 +271,12 @@ end AbstractOwnerPrinter
 protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter = DFPrinter
   override protected def hidePhantoms: Boolean = true
-  // HDL subprograms (ED methods and static functions) are excluded: they always print at the
+  // HDL methods (ED methods and static functions) are excluded: they always print at the
   // top of their owning design's body (see `csDFDesignBlockDclImpl`), phantoms or not
-  override protected def printDesignDefDclInline(design: DFDesignBlock): Boolean =
-    design.instMode == InstMode.Def && !design.isHDLSubprogram &&
+  override protected def printMethodDclInline(design: DFDesignBlock): Boolean =
+    design.instMode == InstMode.Def && !design.isHDLMethod &&
       getSet.designDB.designHasPhantoms(design)
-  def csDFDesignDefDcl(design: DFDesignBlock): String =
+  def csMethodDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
     // if no output net, then this def has a Unit return
     var retValOpt: Option[DFVal] = None
@@ -304,7 +304,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
           else printer.csDFValType(port.dfType)
         s"${port.getName}$csType"
     }
-    val defArgsCS =
+    val methodArgsCS =
       if (defArgList.length <= 2) defArgList.mkString(", ")
       else defArgList.mkString("\n", ",\n", "\n").hindent(2)
     val designParamList = design.members(MemberView.Folded).collect {
@@ -318,32 +318,32 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
     val retDFType = retValOpt.map(_.dfType).getOrElse(DFUnit)
     // ED methods are declared with `<> EDRET` and static functions with `<> CONSTRET`; DF (and
-    // RT, which currently elaborates as DF) design defs with `<> DFRET`
+    // RT, which currently elaborates as DF) methods with `<> DFRET`
     val retModCS = design.domainType match
       case DomainType.ED     => "EDRET"
       case DomainType.Static => "CONSTRET"
       case _                 => "DFRET"
     val retTypeCS = s": ${printer.csDFType(retDFType, typeCS = true)} <> $retModCS"
-    // A subprogram's formals are all input ports (a static function's const args included),
-    // so its param list is empty; a DF/RT design def keeps parameters and inputs in
+    // A method's formals are all input ports (a static function's const args included),
+    // so its param list is empty; a DF/RT method keeps parameters and inputs in
     // separate lists.
-    val formalsCS = s"$designParamCS($defArgsCS)"
+    val formalsCS = s"$designParamCS($methodArgsCS)"
     val dcl =
       s"def ${design.dclName}$formalsCS$retTypeCS =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     sn"""|${printer.csAnnotations(design.dclMeta.annotations)}
          |$dcl\n"""
-  end csDFDesignDefDcl
+  end csMethodDcl
   private def csDesignParamList(paramMap: ListMap[String, DFVal.Ref]): List[String] =
     paramMap.view.map { (name, ref) =>
       s"${name} = ${ref.refCodeString}"
     }.toList
-  // drops phantom parameter applications at a design-def instantiation site by
+  // drops phantom parameter applications at a method instantiation site by
   // matching the def design's phantom-tagged parameters by name
   private def nonPhantomParamMap(inst: DFDesignInst): ListMap[String, DFVal.Ref] =
     val phantomNames = getSet.designDB.phantomParamNamesOf(inst.getDesignBlock)
     if (phantomNames.isEmpty) inst.paramMap
     else inst.paramMap.filter((name, _) => !phantomNames(name))
-  def csDFDesignDefInst(inst: DFDesignInst): String =
+  def csMethodInst(inst: DFDesignInst): String =
     val design = inst.getDesignBlock
     // `designInstPBNS` is keyed by the unified immutable insts. Elaboration-time
     // printing (e.g. test helpers that print live mutable members) holds insts
@@ -374,7 +374,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val dcl = s"${design.dclName}$designParamCS($ports)"
     if (inst.isAnonymous) dcl
     else s"val ${inst.getName} = $dcl"
-  end csDFDesignDefInst
+  end csMethodInst
   def csDFDesignBlockParamInst(paramMap: ListMap[String, DFVal.Ref]): String =
     val designParamList = csDesignParamList(paramMap)
     if (designParamList.length <= 1) designParamList.mkString("(", ", ", ")")
@@ -391,12 +391,12 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   private def csDFDesignBlockDclImpl(design: DFDesignBlock): String =
     import design.instMode
     val localDcls = printer.csLocalTypeDcls(design)
-    // HDL subprograms are locally scoped — their def declarations print after the design's own
-    // declarations and before its statements, mirroring the HDL backends (where subprograms
-    // live in the declarative region, after the signal/variable declarations). A subprogram body
+    // HDL methods are locally scoped — their def declarations print after the design's own
+    // declarations and before its statements, mirroring the HDL backends (where methods
+    // live in the declarative region, after the signal/variable declarations). A method body
     // may reference any of those declarations by name.
-    val edMethodDcls = printer.subprogramPrinters(design)
-      .map((block, p) => s"${p.csDocString(block.dclMeta)}${p.csDFDesignDefDcl(block)}")
+    val edMethodDcls = printer.methodPrinters(design)
+      .map((block, p) => s"${p.csDocString(block.dclMeta)}${p.csMethodDcl(block)}")
       .mkString("\n")
     val body =
       if (edMethodDcls.isEmpty) csDFOwnerBody(design)

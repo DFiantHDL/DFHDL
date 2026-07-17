@@ -127,8 +127,8 @@ Each DFHDL value is simply a Scala object that has two critical fields:
     * [Port: `IN`/`OUT[.REG]`/`INOUT`][Dcl]
     * [Constant: `CONST`][DFConst]
     * [Struct Field: `VAL`][DFStruct]
-    * [Method Param: `VAL`][DesignDef]
-    * [Method Return: `DFRET`/`RTRET`/`EDRET`][DesignDef]
+    * [Method Param: `VAL`][Methods]
+    * [Method Return: `DFRET`/`RTRET`/`EDRET`][Methods]
 
     Although this mechanism can be quite complex under the hood, the explicit modifiers available to the user are straightforward.
     
@@ -564,12 +564,12 @@ class Counter(val width: Int <> CONST = 8) extends RTDesign:
 
 `VAL` values cannot be assigned or connected; they are inputs to the computation.
 
-### Design Defs and `DFRET`
+### Methods and `DFRET`
 
-Design defs are functional helpers. Arguments use `<> VAL`, return types use `<> DFRET` (or `RTRET`/`EDRET` for domain-specific defs):
+Methods are functional helpers. Arguments use `<> VAL`, return types use `<> DFRET` (or `RTRET`/`EDRET` for domain-specific methods):
 
 ```scala
-// DF domain design def
+// DF domain method
 def double(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
 
 // Opaque type extension method

@@ -130,7 +130,7 @@ class EDMethodSpec extends DFSpec:
       """
     )
 
-  test("DF design def call inside an ED method body"):
+  test("DF method call inside an ED method body"):
     assertPluginError(
       "Design instances are not allowed inside an ED method. Only calls to other ED methods and to static functions are."
     )(

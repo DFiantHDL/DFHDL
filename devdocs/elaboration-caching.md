@@ -89,14 +89,14 @@ that digest.
 
 ### The two design forms
 
-**Design defs.** The plugin's `DesignDefsPhase` wraps the body in `r__For_Plugin.designFromDef`. The
+**Methods.** The plugin's `MethodsPhase` wraps the body in `r__For_Plugin.designFromDef`. The
 harness owns the design's whole public interface: it creates the input ports and the design parameters
 (bound to this call's applied values) OUTSIDE the body, and the body fetches them by index
 (`designFromDefGetInput` / `designFromDefGetParam`). The body is therefore a skippable thunk, and a
 hit needs nothing from it except the return DFType, which is read off the loaded design's out port.
 Values the def body captures from its enclosing design become PHANTOM ports and parameters (constant
 captures become parameters, non-constant ones become input ports), which is what makes a def's design
-self-contained and cacheable at all. They are tagged `PhantomTag` and hidden in the design-def
+self-contained and cacheable at all. They are tagged `PhantomTag` and hidden in the method
 printed view, so the def still reads like its source.
 
 **Design classes.** A class declares its own ports in its body, so the interface cannot be lifted out
@@ -167,7 +167,7 @@ final assembly emits its cloned sub-DB as the design's content.
 Entries live BESIDE the declaring class's build output, in `<scala target dir>/dfhdl-cache/`, as
 `<sha256 of the full key>.dfdb.json` (the entry serialized through the existing DB `ReadWriter`).
 Locating them there means a build `clean` drops the cache along with the classes, and a multi-module
-project gets per-module locality. Top-level design defs are covered like anything else: Scala places
+project gets per-module locality. Top-level methods are covered like anything else: Scala places
 them in the synthetic `<file>$package` class, whose class file sits in the same output. A declaring
 class with no directory code source (a def shipped inside a library jar) skips the DISK tier only.
 
@@ -207,7 +207,7 @@ dep some.pkg.Helper$
 `own` hashes the TYPED TREE, so it is insensitive to formatting and free of the absolute source paths
 the meta-context phases plant later. `dep` lists the top-level classes the code actually REACHES
 (typed trees, so not every class the bytecode happens to mention). Synthetic top-level classes are
-recorded deliberately: a file's top-level design defs live in `<file>$package$`, which anchors their
+recorded deliberately: a file's top-level methods live in `<file>$package$`, which anchors their
 entries.
 
 **Runtime.** `dfhdl.internals.CodeDigest.of` composes a class's digest by folding those records over

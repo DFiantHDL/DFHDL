@@ -2263,7 +2263,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       val y = UInt(8) <> OUT
       def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + 1
       // `inner` is called ONLY from `outer`'s body; it must still be declared, and BEFORE
-      // its caller (an HDL subprogram must be declared before it is used)
+      // its caller (an HDL method must be declared before it is used)
       def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET = inner(l) + 2
       y <> outer(a)
     end EDNest
@@ -2450,7 +2450,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     end StaticFn
     val top = (new StaticFn).getCompiledCodeString
     // a static function's formals are its design PARAMETERS (it has no input ports), and Verilog
-    // has no subprogram generics, so they print as ordinary input formals. NOTE that SystemVerilog's
+    // has no method generics, so they print as ordinary input formals. NOTE that SystemVerilog's
     // `static` is a variable LIFETIME, the opposite of `automatic`, and is unrelated to DFHDL's
     // static DOMAIN: a static function correctly emits as an `automatic` function.
     assertNoDiff(

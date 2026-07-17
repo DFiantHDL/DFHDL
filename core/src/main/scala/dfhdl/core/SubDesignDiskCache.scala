@@ -25,10 +25,10 @@ trait SubDesignCache:
   * build `clean` drops them together with the classes; content invalidation is carried by the key
   * itself: the owner class's code digest (`dfhdl.internals.CodeDigest`, which also covers
   * incremental recompilation, where class files change without a clean), the DFHDL version, and the
-  * gate-computed `localKey`. Top-level design defs are covered like any other: Scala places them in
-  * the synthetic `<file>$package` class, whose class file lives in the same build output. Owner
-  * classes with no writable directory code source (e.g. defs shipped inside library jars) skip the
-  * disk tier (miss-safe; the in-memory store and the intra-run tier still cover them).
+  * gate-computed `localKey`. Top-level methods are covered like any other: Scala places them in the
+  * synthetic `<file>$package` class, whose class file lives in the same build output. Owner classes
+  * with no writable directory code source (e.g. defs shipped inside library jars) skip the disk
+  * tier (miss-safe; the in-memory store and the intra-run tier still cover them).
   */
 final class SubDesignDiskCache extends SubDesignCache:
   import SubDesignDiskCache.*

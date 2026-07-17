@@ -370,7 +370,7 @@ final case class DB private (
         .groupBy(_.getDesignBlock).view.mapValues(_.toList).toMap + (top -> Nil)
 
   // design block to its owner design blocks map (multiple owners in case of multiple
-  // instantiations). A subprogram (def design) is owned through its CALLS (`Func` with
+  // instantiations). A method (def design) is owned through its CALLS (`Func` with
   // `Op.Def`), since it has no design instance.
   lazy val designBlockOwnershipMap: Map[DFDesignBlock, Set[DFDesignBlock]] =
     if (isOldStyleFlatDB)
@@ -816,7 +816,7 @@ final case class DB private (
     else run(this)
 
   // The names of `design`'s phantom-tagged design parameters (see PhantomTag). Used by
-  // the DFHDL printer to drop phantom parameter applications at a design-def
+  // the DFHDL printer to drop phantom parameter applications at a method
   // instantiation site (only the def view form hides phantoms).
   def phantomParamNamesOf(design: DFDesignBlock): Set[String] =
     fromDesignMembers(design) { members =>
@@ -826,7 +826,7 @@ final case class DB private (
     }
 
   // Whether `design` has any phantom-tagged ports or parameters (see PhantomTag). A
-  // design def with phantoms references its host's values by name, so the DFHDL printer
+  // method with phantoms references its host's values by name, so the DFHDL printer
   // prints its declaration locally in the host design's body (just before the def's
   // first instance) instead of at file level.
   def designHasPhantoms(design: DFDesignBlock): Boolean =
@@ -1933,8 +1933,8 @@ final case class DB private (
 
   // ~~~ sub-design cache support ~~~
 
-  // The return DFType of a loaded design-def sub-DB: its design's (non-phantom) output
-  // port type, or DFUnit when the def has a Unit return (no output port). The design-def
+  // The return DFType of a loaded method sub-DB: its design's (non-phantom) output
+  // port type, or DFUnit when the def has a Unit return (no output port). The method
   // harness needs this on a cache hit, before any body exists.
   def subDesignRetDFType: DFType =
     topDB.members.collectFirst {
@@ -1975,7 +1975,7 @@ final case class DB private (
       // own refTable because the root DB's refTable does not necessarily cover
       // refs that originate in sub-DB members.
       val instToDesign = mutable.Map.empty[DFDesignInst, DFDesignBlock]
-      // subprogram call -> canonical target DFDesignBlock (keyed at the member level,
+      // method call -> canonical target DFDesignBlock (keyed at the member level,
       // matching `emit`'s scrutinee)
       val callToDesign = mutable.Map.empty[DFMember, DFDesignBlock]
       allDBs.foreach { db =>
@@ -2012,7 +2012,7 @@ final case class DB private (
               if (!seen.contains(c))
                 seen += c
                 flat += c
-            // a subprogram call triggers the same first-reference emission of its
+            // a method call triggers the same first-reference emission of its
             // target def design's body
             case call if callToDesign.contains(call) =>
               callToDesign.get(call).foreach { targetBlock =>

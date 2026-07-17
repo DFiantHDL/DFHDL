@@ -1017,27 +1017,27 @@ given options.CompilerOptions.PrintDFHDLCode = true
 ///
 
 ### Functional Composition
-Functional composition is a method-call based mechanism primarily used for dataflow designs with a single output. It's particularly useful for arithmetic and logic operations. The DFHDL compiler automatically transforms functional composition into direct design composition.
+Functional composition is an alternative way to express a design: instead of declaring a design class, you declare a method (a Scala `def`). It is a method-call based mechanism primarily used for dataflow designs with a single output, and is particularly useful for arithmetic and logic operations. The DFHDL compiler automatically transforms functional composition into direct design composition: each method becomes a design of its own, taking the method's name as its design name during compilation, and every call to the method becomes an instance of that design.
 
 #### Syntax
-The syntax for functional composition follows standard Scala method declaration and invocation to declare and invoke *design definitions* (aka design methods or design functions):
+The syntax for functional composition follows standard Scala method declaration and invocation to declare and invoke *methods* (functions when they return a value):
 
 ```scala linenums="0" title="Functional composition syntax"
-//declare a design definition
-def _designName_(
+//declare a method
+def _methodName_(
     _param1_: _type1_ <> VAL,
     _param2_: _type2_ <> VAL,
     ...,
     _paramN_: _typeN_ <> VAL
 ): _returnType_ <> DFRET = _expression_
 
-//invoke the design definition
-_designName_(_param1_, _param2_, ..., _paramN_)
+//invoke the method
+_methodName_(_param1_, _param2_, ..., _paramN_)
 ```
 
 Where:
 
-* `_designName_` - The name of the design definition
+* `_methodName_` - The name of the method, which becomes the design name during compilation
 * `_paramN_` - Input parameters that act as design ports
 * `_typeN_` - DFHDL types for the parameters
 * `_returnType_` - DFHDL type for the output port

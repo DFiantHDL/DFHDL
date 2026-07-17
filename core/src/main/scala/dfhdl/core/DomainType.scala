@@ -37,7 +37,7 @@ import scala.annotation.implicitNotFound
   *     already rejects the construct in a static body. This is the type-level twin of an IR
   *     `case _ =>` fall-through swallowing `Static`. (The `Fork` and `Process` guards are of this
   *     form and are left alone on purpose: `Scope.Function` grants them no capability, and
-  *     `DB.subprogramCheck` rejects them at elaboration regardless.)
+  *     `DB.hdlMethodCheck` rejects them at elaboration regardless.)
   */
 opaque type DomainType <: ir.DomainType = ir.DomainType
 

@@ -210,7 +210,7 @@ class CodeDigestPhase(setting: Setting) extends CommonPhase:
     Option(ctx.settings.outputDir.value.jpath)
 
   // synthetic top-level classes are NOT skipped: a file's top-level definitions live in exactly
-  // one of them (the `<file>$package` object), and a design def declared there anchors its cache
+  // one of them (the `<file>$package` object), and a method declared there anchors its cache
   // entries on it
   override def transformTypeDef(tree: TypeDef)(using Context): Tree =
     val sym = tree.symbol

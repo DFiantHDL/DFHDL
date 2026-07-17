@@ -22,8 +22,8 @@ import scala.compiletime.uninitialized
 import collection.mutable
 import annotation.tailrec
 
-/** Purity analysis. DFHDL elaboration is PURE BY DEFAULT: a design's (or design def's) elaboration
-  * is assumed to be a function of its code, applied parameters, input types, and plain Scala
+/** Purity analysis. DFHDL elaboration is PURE BY DEFAULT: a design's (or method's) elaboration is
+  * assumed to be a function of its code, applied parameters, input types, and plain Scala
   * arguments, which allows elaboration caching. This phase transitively synthesizes
   * `@hw.annotation.pure(false)` (impure marking) on defs, classes, and vals whose bodies detectably
   * depend on effects:
@@ -42,18 +42,17 @@ import annotation.tailrec
   * the declaration, covers phantom parameters that have no source symbol, and makes the
   * `toScalaXYZ` family simply the BASE CASE of the marked-parameter propagation: every application
   * of a marked parameter re-attributes its applied argument at the call site:
-  *   - rooted at a design def's `<> CONST` parameter: the def gets `pure(true, <param name>)` and
-  *     stays pure; the runtime elaboration cache keys the named parameters' applied type and data
-  *   - rooted at a captured constant of the design def (an out-of-scope value that the DesignDefs
-  *     rigging turns into a phantom design parameter): the def gets `pure(true, <phantom name>)`
-  *     and the phantom's applied data is keyed exactly like an explicit parameter's
-  *   - rooted at a `<> VAL` input or a plain Scala argument of a design def: fully pure, since the
+  *   - rooted at a method's `<> CONST` parameter: the def gets `pure(true, <param name>)` and stays
+  *     pure; the runtime elaboration cache keys the named parameters' applied type and data
+  *   - rooted at a captured constant of the method (an out-of-scope value that the Methods rigging
+  *     turns into a phantom design parameter): the def gets `pure(true, <phantom name>)` and the
+  *     phantom's applied data is keyed exactly like an explicit parameter's
+  *   - rooted at a `<> VAL` input or a plain Scala argument of a method: fully pure, since the
   *     cache key already covers input types and Scala argument values (forcing a non-constant's
   *     data is impossible, so a `<> VAL` root implies a type-derived constant, e.g. its width)
-  *   - rooted at a parameter of any other (non-design-def) method compiled in this run: that
-  *     parameter is recorded the same way, and every application of it re-attributes the applied
-  *     argument at the call site, so the forcing propagates to its true root across helper and
-  *     inline methods
+  *   - rooted at a parameter of any other (non-method) method compiled in this run: that parameter
+  *     is recorded the same way, and every application of it re-attributes the applied argument at
+  *     the call site, so the forcing propagates to its true root across helper and inline methods
   *   - rooted at a code-determined static (a global constant, an object member): fully pure
   *   - anything else (per-instance data, mutable state, opaque flows): falls back to design-level
   *     impurity, exactly as if the forcer itself were referenced impurely
@@ -218,9 +217,9 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
-    // the unit's design defs, for the capture discovery `analyze` runs once the whole run's
-    // units have been walked (see `collectDesignDefs`)
-    collectDesignDefs(tree)
+    // the unit's methods, for the capture discovery `analyze` runs once the whole run's
+    // units have been walked (see `collectDFHDLMethods`)
+    collectDFHDLMethods(tree)
     ctx
 
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
@@ -259,18 +258,18 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
     val rdeps = mutable.Map.empty[Symbol, mutable.Set[Symbol]]
     // parameters whose applied data is forced into elaboration (data-impure params)
     val paramForced = mutable.Set.empty[Symbol]
-    // phantom parameter NAMES (design-def captures) whose applied data is forced into
-    // elaboration, per design def; insertion-ordered for deterministic annotations
+    // phantom parameter NAMES (method captures) whose applied data is forced into
+    // elaboration, per method; insertion-ordered for deterministic annotations
     val phantomForced = mutable.Map.empty[Symbol, mutable.LinkedHashSet[String]]
-    // the design-def's captured constants that the DesignDefs rigging will turn into
+    // the method's captured constants that the Methods rigging will turn into
     // phantom design parameters, keyed by the capture's stable access path
     val phantomConstCaptures = mutable.Map.empty[Symbol, Map[List[Symbol], String]]
     def phantomConstsOf(defSym: Symbol): Map[List[Symbol], String] =
       phantomConstCaptures.getOrElseUpdate(
         defSym,
-        designDefAnon(defSym) match
+        methodDesignAnon(defSym) match
           case Some(anonDef) =>
-            discoverDesignDefCaptures(defSym, anonDef.symbol, anonDef.rhs)
+            discoverMethodCaptures(defSym, anonDef.symbol, anonDef.rhs)
               .phantomConsts.map((path, _) => path -> captureName(path)).toMap
           case None => Map.empty
       )
@@ -287,14 +286,14 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
     // their `<> CONST` parameters (applied data, once marked), plain Scala constructor
     // parameters and template captures (`__clsScalaArgs`), and captured-constant
     // auto-parameters, so forcing rooted at any of those is attributable rather than a
-    // design-level escalation (mirroring design defs)
+    // design-level escalation (mirroring methods)
     val designCls = getClassIfDefined("dfhdl.core.Design")
     def isDesignCls(sym: Symbol): Boolean =
       designCls.exists && sym.isClass && !sym.isAnonymousClass &&
         sym.typeRef.derivesFrom(designCls.asClass)
     // the class-template captured constants that materialize as auto-created design
     // parameters at runtime (`cloneUnreachable`), keyed by the capture's stable access
-    // path (the class-design counterpart of a design def's phantom constants)
+    // path (the class-design counterpart of a method's phantom constants)
     val clsConstCaptureMap = mutable.Map.empty[Symbol, Map[List[Symbol], String]]
     def clsConstCapturesOf(clsSym: Symbol): Map[List[Symbol], String] =
       clsConstCaptureMap.getOrElseUpdate(
@@ -313,7 +312,7 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
 
     // A static function (`<> CONSTRET`) is PURE BY DEFINITION, so for it this phase's verdict is
     // fatal rather than advisory: an impure static def is an error, not a cache opt-out.
-    def isStaticDef(sym: Symbol): Boolean = designDefAnon(sym).exists(isStaticAnonDef)
+    def isStaticDef(sym: Symbol): Boolean = methodDesignAnon(sym).exists(isStaticAnonDef)
     def staticImpureError(sym: Symbol): Unit =
       report.error(
         """|A static function (`<> CONSTRET`) must be pure, and this one's elaboration depends on an effect.
@@ -381,10 +380,10 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
                   case _                      => true
                 }
               else List(tree)
-            // the nearest enclosing design def or design class of the analyzed root:
+            // the nearest enclosing method or design class of the analyzed root:
             // the design whose load key covers data landing in the analyzed body
             lazy val nearestDesignBoundary = rootSym.ownersIterator
-              .find(o => isDesignDef(o) || (isDesignCls(o) && roots.contains(o)))
+              .find(o => isDFHDLMethod(o) || (isDesignCls(o) && roots.contains(o)))
             // ~~~ constant-data forcing attribution ~~~
             // resolves a forced expression to its dataflow roots; see the phase doc
             def attributeSym(s: Symbol, visited: Set[Symbol]): ForcedRes =
@@ -399,11 +398,11 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
                 // a design class's constructor parameter, referenced through its
                 // in-template parameter accessor or the constructor parameter symbol
                 // itself: `<> CONST` parameters get keyed by applied type+data once
-                // marked (recorded on the CLASS annotation, like a design def's), and
+                // marked (recorded on the CLASS annotation, like a method's), and
                 // plain Scala parameters are keyed by value (`__clsScalaArgs`), so both
                 // are attributable. This resolution is only sound when the forced data
                 // LANDS in the class's own body (the class key covers it): inside a
-                // nested design def the def's OWN key must cover the data instead, so
+                // nested method the def's OWN key must cover the data instead, so
                 // the parameter escalates and the def-boundary capture path records a
                 // phantom parameter name when applicable. Non-design class parameters
                 // stay design-level (escalate).
@@ -422,7 +421,7 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
                 // the def's explicit marking governs: `@pure` trusts, `@pure(false)` never
                 // caches, so param attribution is moot either way
                 else if (pureMarking(m).isDefined) ForcedRes.Pure
-                else if (isDesignDef(m))
+                else if (isDFHDLMethod(m))
                   // `<> CONST` params get keyed by applied type+data once marked; `<> VAL`
                   // inputs are keyed by their DFTypes (forcing can only derive type-level
                   // constants from them) and plain Scala args are keyed by value
@@ -448,24 +447,24 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
               else if (s.is(Module) || s.isStatic) ForcedRes.Pure // code-determined
               else ForcedRes.Escalate
             end attributeSym
-            // a capture of the enclosing design def that becomes a phantom design
-            // parameter (see the DesignDefs rigging): an otherwise-unattributable forcing
-            // rooted at it is recorded by the phantom's predicted name on that design def
+            // a capture of the enclosing method that becomes a phantom design
+            // parameter (see the Methods rigging): an otherwise-unattributable forcing
+            // rooted at it is recorded by the phantom's predicted name on that method
             // and keyed by the phantom's applied data, exactly like an explicit data-impure
             // parameter. The recording happens here directly (and the verdict turns Pure)
-            // because attribution may run under any root NESTED in the design def, most
+            // because attribution may run under any root NESTED in the method, most
             // commonly the def's own context lambda, whose rhs is the actual design body.
             // Attribution that already resolved (Pure or explicit-param Marks) is kept, so
             // code-determined captures stay pure and do not fatten the key.
             def phantomCaptureRes(t: Tree, res: ForcedRes): ForcedRes = res match
               case ForcedRes.Escalate =>
-                // the nearest enclosing design def or design class governs: a captured
+                // the nearest enclosing method or design class governs: a captured
                 // constant materializes as the def's phantom parameter or the class's
                 // auto-created parameter, keyed by applied data under the recorded name
                 nearestDesignBoundary match
                   case Some(owner) =>
                     val captureMap =
-                      if (isDesignDef(owner)) phantomConstsOf(owner)
+                      if (isDFHDLMethod(owner)) phantomConstsOf(owner)
                       else clsConstCapturesOf(owner)
                     stablePathKey(t).flatMap(captureMap.get) match
                       case Some(name) =>
@@ -581,7 +580,7 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
               if (callee.exists && callee.is(Method) && dfhdlParams(callee).nonEmpty)
                 // a constructor callee resolves to its class for roots/markings (a
                 // design class instantiation attributes its applied `<> CONST`
-                // arguments exactly like a design def call)
+                // arguments exactly like a method call)
                 val calleeRoot = if (callee.isConstructor) callee.owner else callee
                 val recordable = roots.contains(calleeRoot) && pureMarking(calleeRoot).isEmpty
                 val termParamss =

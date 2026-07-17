@@ -159,12 +159,12 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
           if inst.getDesignBlock.isBlackBox && !inst.getDesignBlock.isForeignIPBlackbox =>
         inst.getDesignBlock
     }.map(bb => printerForDesign(bb).csEntityDcl(bb, asComponent = true)).mkString("\n")
-    // HDL subprograms (ED methods and static functions) are locally scoped — declared in this
+    // HDL methods (ED methods and static functions) are locally scoped — declared in this
     // design's architecture declarative part
-    val edMethodDcls = printer.subprogramPrinters(design)
+    val edMethodDcls = printer.methodPrinters(design)
       .map((block, p) =>
         sn"""|${p.csDocString(block.dclMeta)}
-             |${p.csDFDesignDefDcl(block)}"""
+             |${p.csMethodDcl(block)}"""
       )
       .mkString("\n\n")
     val declarations =
@@ -219,7 +219,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   end csDFDesignBlockInst
   // ED methods (HDL functions) print inside their owning design's architecture
   // declarative part
-  def csDFDesignDefDcl(design: DFDesignBlock): String =
+  def csMethodDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
     // the return value: the (single, full) connection to the output port
     var retValOpt: Option[DFVal] = None
@@ -232,7 +232,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     // A function reading a SIGNAL beyond its parameters (a phantom-captured outer value, which
     // is always an input port) must be declared impure. A phantom-captured CONSTANT does not
     // make it impure: VHDL's `pure` only forbids referencing signals and shared variables
-    // declared outside the subprogram, and a static function has none of those by construction
+    // declared outside the method, and a static function has none of those by construction
     // (its captures are constants, enforced by the plugin), so it is always emitted `pure`.
     val hasPhantomSignals = designMembers.exists {
       case p @ DclIn() => p.isPhantom
@@ -246,13 +246,13 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val isProcedural = retValOpt.isEmpty
     // VHDL function return takes a type MARK (no constraint)
     val retTypeCS = retValOpt.map(rv => printer.csDFType(rv.dfType).takeWhile(_ != '('))
-    // a subprogram's formals: design parameters and/or input ports, in one list (see
-    // `defFormals`). A VHDL function formal defaults to class `constant`, mode `in`, which is
+    // a method's formals: design parameters and/or input ports, in one list (see
+    // `methodFormals`). A VHDL function formal defaults to class `constant`, mode `in`, which is
     // what both kinds want.
-    val params = defFormals(design).map { p =>
+    val params = methodFormals(design).map { p =>
       s"${p.getName} : ${printer.csDFType(p.dfType)}"
     }.mkString("; ")
-    // parameterless VHDL subprograms are declared (and called) without parentheses
+    // parameterless VHDL methods are declared (and called) without parentheses
     val paramsCS = params.emptyOr(p => s"($p)")
     val localDcls = designMembers.view.flatMap {
       // phantom design parameters (captured outer constants) print nowhere — their body
@@ -285,8 +285,8 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
          |begin
          |${body.hindent}
          |$endCS"""
-  end csDFDesignDefDcl
-  def csDFDesignDefInst(inst: DFDesignInst): String =
+  end csMethodDcl
+  def csMethodInst(inst: DFDesignInst): String =
     val design = inst.getDesignBlock
     val instPBNS = getSet.designDB.designInstPBNS.getOrElse(
       inst,
@@ -294,17 +294,17 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         case pbns: DFVal.PortByNameSelect if pbns.getDesignInst == inst => pbns
       }
     )
-    // the actuals positionally match `defFormals`: a static function's are its applied design
+    // the actuals positionally match `methodFormals`: a static function's are its applied design
     // parameters, an ED method's are its input-port connections
     val args = defActuals(inst).map(printer.csDFValRef(_, inst.getOwner)).mkString(", ")
     // a procedural method call (no return output port) is a statement;
-    // parameterless VHDL subprogram calls have no parentheses
+    // parameterless VHDL method calls have no parentheses
     val isProcedural = !instPBNS.exists(_.isOut)
     val callCS =
       if (args.isEmpty) design.dclName
       else s"${design.dclName}($args)"
     if (isProcedural) s"$callCS;" else callCS
-  end csDFDesignDefInst
+  end csMethodInst
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
   override def csDFIfGuard(ifBlock: DFConditional.DFIfElseBlock): String =

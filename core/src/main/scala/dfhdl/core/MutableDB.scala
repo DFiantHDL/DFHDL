@@ -314,7 +314,7 @@ final class MutableDB():
     // the canonical designs this design instantiates or calls, in instance order. An
     // instance's RAW snapshot `designRef` still resolves through the refTable (only the
     // emitted form of an instance carries the design's `refId` directly, see `unifyInst`);
-    // a subprogram call's key already IS the canonical design's identity (minted so at the
+    // a method call's key already IS the canonical design's identity (minted so at the
     // call site, never rewritten).
     def childDesignsOf(design: StaticRef): List[StaticRef] =
       designMembers.getOrElse(design, Nil).collect {
@@ -439,7 +439,7 @@ final class MutableDB():
   end DesignContext
 
   // ~~~ the design load gate ~~~
-  // Decides, per design-def instantiation, whether to run the elaboration body live or
+  // Decides, per method instantiation, whether to run the elaboration body live or
   // skip it and reuse an already-loaded elaboration of the same key. The invariant that
   // makes skipping sound: the design's public interface (its design parameters, bound
   // fresh to this call's applied values, and its ports) is created by the HARNESS

@@ -166,7 +166,7 @@ object DclOut:
     case Modifier.OUT => true
     case _            => false
 
-object PortOfDesignDef:
+object PortOfMethodDesign:
   def unapply(pbns: DFVal.PortByNameSelect)(using
       getSet: MemberGetSet
   ): Option[(Modifier.IN.type | Modifier.OUT.type, DFDesignInst)] =

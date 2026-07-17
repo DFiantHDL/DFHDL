@@ -4,8 +4,8 @@ How munit specs assert on diagnostics that only the DFHDL compiler-plugin phases
 
 `assertCompileError` is built on `compiletime.testing.typeCheckErrors`, which compiles its
 snippet through the typer plus a small fixed set of reconstructed standard transforms. DFHDL's
-plugin phases never run on that snippet, so every `report.error` they emit (the DesignDefs
-subprogram rules, for example) is invisible to it. The intrinsics cannot be extended from a
+plugin phases never run on that snippet, so every `report.error` they emit (the Methods
+phase's HDL-method rules, for example) is invisible to it. The intrinsics cannot be extended from a
 plugin either: the Inliner consumes `typeCheckErrors` calls during typer, before any plugin
 phase sees the tree.
 
@@ -67,7 +67,7 @@ reported error, the same convention as `assertCompileError`.
    - FRESH instances of the plugin's typed phases: all of them except `PreTyper` (already
      applied, untyped), `CodeDigest` (elaboration-caching bookkeeping, no diagnostics), and
      the interceptor itself (no recursion). Fresh instances are mandatory because the phases
-     keep per-unit mutable state (`prepareForUnit` symbol caches, `collectDesignDefs`); the
+     keep per-unit mutable state (`prepareForUnit` symbol caches, `collectDFHDLMethods`); the
      prepare chain runs via `MegaPhase.transformUnit`. Each instance is wrapped in a
      single-phase `MegaPhase` pinned to its installed counterpart's phase id so denotation
      lookups match the real pipeline. The installed ids come from walking the public

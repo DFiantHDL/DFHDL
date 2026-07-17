@@ -39,8 +39,8 @@ object annotation:
       val asIR: ir.annotation.Unused = ir.annotation.Unused.Prune
   end unused
 
-  /** Purity marking. Designs and design defs are PURE BY DEFAULT: their elaboration is assumed to
-    * be a function of their code, applied parameters, input types, and plain Scala arguments, which
+  /** Purity marking. Designs and methods are PURE BY DEFAULT: their elaboration is assumed to be a
+    * function of their code, applied parameters, input types, and plain Scala arguments, which
     * enables caching (skipping redundant elaboration).
     *   - `@pure(false)` marks elaboration as impure, so its results are never cached. The
     *     compiler's `PureCheck` phase synthesizes this transitively for detectably impure code

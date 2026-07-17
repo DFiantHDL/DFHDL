@@ -18,7 +18,7 @@ class Plugin extends StandardPlugin:
         FlattenInlinedPhase(setting) ::
         LoopFSMPhase(setting) ::
         CustomControlPhase(setting) ::
-        DesignDefsPhase(setting) ::
+        MethodsPhase(setting) ::
         MetaContextDelegatePhase(setting) ::
         MetaContextGenPhase(setting) ::
         OnCreateEventsPhase(setting) ::

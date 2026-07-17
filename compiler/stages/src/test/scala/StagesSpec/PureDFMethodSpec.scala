@@ -3,26 +3,26 @@ package StagesSpec
 import dfhdl.*
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class PureDesignDefSpec extends StageSpec:
+class PureDFMethodSpec extends StageSpec:
   // `@hw.annotation.pure` is a performance hint (skip re-running the body), never a semantics
-  // change: a pure design def must elaborate to the exact same code as its non-pure twin,
+  // change: a pure method must elaborate to the exact same code as its non-pure twin,
   // including the per-call applied design parameters.
   val expectedTwoCallsCodeString =
     """|def test(constArg: UInt[32] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
        |  (arg + arg) - constArg
        |end test
        |
-       |class IDWithDesignDef extends DFDesign:
+       |class IDWithMethod extends DFDesign:
        |  val data = UInt(32) <> IN
        |  val o = UInt(32) <> OUT
        |  o := test(constArg = d"32'7")(data + d"32'1")
        |  val x = test(constArg = d"32'10")(data)
        |  o := x
-       |end IDWithDesignDef
+       |end IDWithMethod
        |""".stripMargin
 
-  test("baseline: non-pure design def applies per-call const params") {
-    class IDWithDesignDef extends DFDesign:
+  test("baseline: non-pure method applies per-call const params") {
+    class IDWithMethod extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -31,12 +31,12 @@ class PureDesignDefSpec extends StageSpec:
       o := test(7)(data + 1)
       val x = test(10)(data)
       o := x
-    end IDWithDesignDef
-    assertCodeString(new IDWithDesignDef, expectedTwoCallsCodeString)
+    end IDWithMethod
+    assertCodeString(new IDWithMethod, expectedTwoCallsCodeString)
   }
 
-  test("pure design def applies per-call const params") {
-    class IDWithDesignDef extends DFDesign:
+  test("pure method applies per-call const params") {
+    class IDWithMethod extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -46,12 +46,12 @@ class PureDesignDefSpec extends StageSpec:
       o := test(7)(data + 1)
       val x = test(10)(data)
       o := x
-    end IDWithDesignDef
-    assertCodeString(new IDWithDesignDef, s"@hw.annotation.pure\n$expectedTwoCallsCodeString")
+    end IDWithMethod
+    assertCodeString(new IDWithMethod, s"@hw.annotation.pure\n$expectedTwoCallsCodeString")
   }
 
-  test("pure design def scala args are part of the cache key") {
-    class ScalaArgDesignDef extends DFDesign:
+  test("pure method scala args are part of the cache key") {
+    class ScalaArgDFMethod extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -63,9 +63,9 @@ class PureDesignDefSpec extends StageSpec:
       o := test(data, 1)
       o := test(data, 10)
       o := test(data, 10)
-    end ScalaArgDesignDef
+    end ScalaArgDFMethod
     assertCodeString(
-      new ScalaArgDesignDef,
+      new ScalaArgDFMethod,
       """|@hw.annotation.pure
          |def test_0(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
          |  arg - d"32'1"
@@ -76,24 +76,24 @@ class PureDesignDefSpec extends StageSpec:
          |  arg + d"32'1"
          |end test_1
          |
-         |class ScalaArgDesignDef extends DFDesign:
+         |class ScalaArgDFMethod extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  o := test_0(data)
          |  o := test_1(data)
          |  o := test_1(data)
-         |end ScalaArgDesignDef
+         |end ScalaArgDFMethod
          |""".stripMargin
     )
   }
 
   // A def capturing a design-local (non-global) value gets a PHANTOM design parameter,
   // created by the harness (outside the body) and bound fresh at every call, so a pure
-  // cache hit binds it like any explicit parameter. Phantoms are hidden in the design-def
+  // cache hit binds it like any explicit parameter. Phantoms are hidden in the method
   // view form, and the def declaration prints locally in the host design's body (just
   // before its first instance), so the printout matches the user-written source.
   def expectedCaptureCodeString(defAnnot: String) =
-    s"""|class CaptureDesignDef extends DFDesign:
+    s"""|class CaptureDFMethod extends DFDesign:
         |  val data = UInt(32) <> IN
         |  val o = UInt(32) <> OUT
         |  val localConst: UInt[32] <> CONST = d"32'42"
@@ -103,11 +103,11 @@ class PureDesignDefSpec extends StageSpec:
         |  o := test(data)
         |  val x = test(data + d"32'1")
         |  o := x
-        |end CaptureDesignDef
+        |end CaptureDFMethod
         |""".stripMargin
 
-  test("baseline: non-pure design def with a captured design-local value") {
-    class CaptureDesignDef extends DFDesign:
+  test("baseline: non-pure method with a captured design-local value") {
+    class CaptureDFMethod extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -117,12 +117,12 @@ class PureDesignDefSpec extends StageSpec:
       o := test(data)
       val x = test(data + 1)
       o := x
-    end CaptureDesignDef
-    assertCodeString(new CaptureDesignDef, expectedCaptureCodeString(""))
+    end CaptureDFMethod
+    assertCodeString(new CaptureDFMethod, expectedCaptureCodeString(""))
   }
 
-  test("pure design def with a captured design-local value") {
-    class CaptureDesignDef extends DFDesign:
+  test("pure method with a captured design-local value") {
+    class CaptureDFMethod extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -133,11 +133,11 @@ class PureDesignDefSpec extends StageSpec:
       o := test(data)
       val x = test(data + 1)
       o := x
-    end CaptureDesignDef
-    assertCodeString(new CaptureDesignDef, expectedCaptureCodeString("  @hw.annotation.pure\n"))
+    end CaptureDFMethod
+    assertCodeString(new CaptureDFMethod, expectedCaptureCodeString("  @hw.annotation.pure\n"))
   }
 
-  test("design def capturing a value, called from another design def") {
+  test("method capturing a value, called from another method") {
     // `inner` captures `b`, a value of the DESIGN, but is called from `outer`'s body — a scope
     // that cannot reference `b` at all (outer's own design sits between them). The capture is
     // propagated inward through a phantom port of `outer`.
@@ -168,7 +168,7 @@ class PureDesignDefSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("design def captures propagated through two nested calls") {
+  test("method captures propagated through two nested calls") {
     // `l1`'s captures are evaluated wherever `l1` is CALLED, so every def between the capture's
     // design and the call gets the capture too (a value as a phantom port, a constant as a
     // phantom parameter), each one binding to the next one out
@@ -203,4 +203,4 @@ class PureDesignDefSpec extends StageSpec:
          |""".stripMargin
     )
   }
-end PureDesignDefSpec
+end PureDFMethodSpec

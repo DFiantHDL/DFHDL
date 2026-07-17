@@ -32,7 +32,7 @@ protected trait AbstractPrinter:
     getSet.designDB.rootDB.subDBs.get(design.ownerRef) match
       case Some(sub) => withGetSet(sub.getSet)
       case None      => printer
-  // The code string of each PHANTOM member (port or parameter) of the design def this
+  // The code string of each PHANTOM member (port or parameter) of the method this
   // printer renders, keyed by the phantom's name INSIDE the def, and resolved at the def's
   // call site in the OWNING design's scope. A phantom materializes a value the def body
   // captured from its host, and the printed body must name that value as the host names it:
@@ -42,11 +42,11 @@ protected trait AbstractPrinter:
   final def phantomActualOf(name: String): Option[String] = phantomActualsCS.get(name)
   protected def setPhantomActuals(actuals: Map[String, String]): Unit =
     phantomActualsCS = actuals
-  // A printer for the design def instantiated by `inst`, bound to the def's own getSet and
+  // A printer for the method instantiated by `inst`, bound to the def's own getSet and
   // carrying the code strings of its phantom actuals as resolved HERE, at the call site, in
   // this printer's (the host design's) scope — so the rendered body names the captured values
   // as the host names them. `inst` must be a member of the design this printer renders.
-  final private[printing] def defPrinterAt(inst: DFDesignInst): TPrinter =
+  final private[printing] def methodPrinterAt(inst: DFDesignInst): TPrinter =
     val designDB = getSet.designDB
     val root = designDB.rootDB
     val defSubOpt = if (root.isRoot) root.subDBs.get(inst.designRef) else None
@@ -85,13 +85,13 @@ protected trait AbstractPrinter:
     }.toMap
     defPrinter.setPhantomActuals(portActuals ++ paramActuals)
     defPrinter
-  end defPrinterAt
-  // A printer for the subprogram called by `call`, bound to the def's own getSet and
+  end methodPrinterAt
+  // A printer for the method called by `call`, bound to the def's own getSet and
   // carrying the code strings of its phantom actuals as resolved HERE, at the call site,
   // in this printer's (the host design's) scope. The call's args bind the formals
   // POSITIONALLY in formal member order, so a phantom formal's actual is simply the arg
   // at the phantom formal's index.
-  final private[printing] def defPrinterAt(call: DFVal.Func, designKey: StaticRef): TPrinter =
+  final private[printing] def methodPrinterAt(call: DFVal.Func, designKey: StaticRef): TPrinter =
     val designDB = getSet.designDB
     val root = designDB.rootDB
     val defSubOpt = if (root.isRoot) root.subDBs.get(designKey) else None
@@ -112,7 +112,7 @@ protected trait AbstractPrinter:
         }.toMap
     defPrinter.setPhantomActuals(phantomActuals)
     defPrinter
-  end defPrinterAt
+  end methodPrinterAt
 end AbstractPrinter
 
 trait Printer
@@ -193,7 +193,7 @@ trait Printer
       case net: DFNet                                  => csDFNet(net)
       case inst: DFDesignInst                          =>
         inst.getDesignBlock.instMode match
-          case InstMode.Def => csDFDesignDefInst(inst)
+          case InstMode.Def => csMethodInst(inst)
           case _            => csDFDesignBlockInst(inst)
       case pb: ProcessBlock                => csProcessBlock(pb)
       case fb: ForkBlock                   => csForkBlock(fb)
@@ -244,7 +244,7 @@ trait Printer
   final def csFile(design: DFDesignBlock): String =
     currentDesign = Some(design)
     val designDcl = design.instMode match
-      case InstMode.Def => csDFDesignDefDcl(design)
+      case InstMode.Def => csMethodDcl(design)
       case _            => csDFDesignBlockDcl(design)
     // a foreign IP renders as a bare `import` of its external class, so its doc comment (carried on
     // the IP class) must not be emitted ahead of the import
@@ -332,44 +332,44 @@ trait Printer
         postOrder(designDB.topDB).map(sub => sub.top -> withGetSet(sub.getSet))
       else
         designDB.designMemberList.collect { case (block: DFDesignBlock, _) => block -> printer }
-    // design defs with phantoms print their declaration locally in the host design's
-    // body (see `printDesignDefDclInline`), and HDL subprograms are locally scoped — they
-    // print inside their owning design (see `subprogramPrinters`); neither prints as a
+    // methods with phantoms print their declaration locally in the host design's
+    // body (see `printMethodDclInline`), and HDL methods are locally scoped — they
+    // print inside their owning design (see `methodPrinters`); neither prints as a
     // file-level declaration
-    printers.filterNot((block, _) => printDesignDefDclInline(block) || block.isHDLSubprogram)
+    printers.filterNot((block, _) => printMethodDclInline(block) || block.isHDLMethod)
   end designPrinters
 
-  // The (HDL subprogram design, printer-bound-to-its-getSet) pairs locally declared by `design`.
+  // The (HDL method design, printer-bound-to-its-getSet) pairs locally declared by `design`.
   // ED methods and static functions print inside their owning design's declaration; they are
   // discovered through the DFDesignInst members of `design` (including calls made inside process
-  // blocks) AND, transitively, of the subprogram bodies themselves — one called only from
+  // blocks) AND, transitively, of the method bodies themselves — one called only from
   // another's body is declared in the host design just the same, and would otherwise never
   // be emitted at all.
   //
-  // The order is post-order (a subprogram follows the subprograms it calls), because an HDL
-  // subprogram must be declared before it is used. Each is bound to its FIRST call site's
+  // The order is post-order (a method follows the methods it calls), because an HDL
+  // method must be declared before it is used. Each is bound to its FIRST call site's
   // printer, which resolves its phantom actuals in that call site's scope.
-  final def subprogramPrinters(design: DFDesignBlock): List[(DFDesignBlock, TPrinter)] =
+  final def methodPrinters(design: DFDesignBlock): List[(DFDesignBlock, TPrinter)] =
     val ordered = mutable.ListBuffer.empty[(DFDesignBlock, TPrinter)]
     val visited = mutable.Set.empty[DFDesignBlock]
     def visit(hostPrinter: TPrinter, host: DFDesignBlock): Unit =
       host.members(MemberView.Flattened)(using hostPrinter.getSet).foreach {
         case DFVal.Func.Call(call, designKey) =>
           val block = designKey.getDesignBlock(using hostPrinter.getSet)
-          // `visited` is marked before recursing, so a (plugin-rejected) recursive subprogram
+          // `visited` is marked before recursing, so a (plugin-rejected) recursive method
           // cannot loop here
-          if (block.isHDLSubprogram && visited.add(block))
+          if (block.isHDLMethod && visited.add(block))
             // every concrete printer is its own TPrinter (`given printer: TPrinter = this`),
             // so `hostPrinter.TPrinter` IS this printer's TPrinter — a fact the path-dependent
             // type cannot express
-            val methodPrinter = hostPrinter.defPrinterAt(call, designKey).asInstanceOf[TPrinter]
+            val methodPrinter = hostPrinter.methodPrinterAt(call, designKey).asInstanceOf[TPrinter]
             visit(methodPrinter, block)
             ordered += block -> methodPrinter
         case _ =>
       }
     visit(printer, design)
     ordered.toList
-  end subprogramPrinters
+  end methodPrinters
 
   final def csDB: String =
     // a foreign IP renders as an `import <clsName>` of its pre-existing external class; multiple

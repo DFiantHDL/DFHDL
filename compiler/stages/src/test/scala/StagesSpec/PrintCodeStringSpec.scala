@@ -401,8 +401,8 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
-  test("Design def") {
-    class IDWithDesignDef extends DFDesign:
+  test("DF function") {
+    class IDWithMethod extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -418,8 +418,8 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       o := test(7)(data + 1)
       val x = test(10)(data)
       o := x
-    end IDWithDesignDef
-    val id = (new IDWithDesignDef)
+    end IDWithMethod
+    val id = (new IDWithMethod)
     assertCodeString(
       id,
       """|def test2(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
@@ -434,19 +434,19 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  test2(arg + arg) - constArg
          |end test
          |
-         |class IDWithDesignDef extends DFDesign:
+         |class IDWithMethod extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  test(constArg = d"32'5")(data - d"32'1")
          |  o := test(constArg = d"32'7")(data + d"32'1")
          |  val x = test(constArg = d"32'10")(data)
          |  o := x
-         |end IDWithDesignDef
+         |end IDWithMethod
          |""".stripMargin
     )
   }
-  test("Design def Unit return") {
-    class UnitDesignDef extends DFDesign:
+  test("DF procedure (Unit return)") {
+    class UnitDFMethod extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -456,7 +456,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
         test2(arg)
       test(data)
       o := data
-    val id = (new UnitDesignDef)
+    val id = (new UnitDFMethod)
     assertCodeString(
       id,
       """|def test2(arg: UInt[32] <> VAL): Unit <> DFRET =
@@ -467,16 +467,16 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  test2(arg)
          |end test
          |
-         |class UnitDesignDef extends DFDesign:
+         |class UnitDFMethod extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  test(data)
          |  o := data
-         |end UnitDesignDef
+         |end UnitDFMethod
          |""".stripMargin
     )
   }
-  test("ED method (function) def") {
+  test("ED function") {
     class EDMethodTop extends EDDesign:
       val a                                                           = UInt(8) <> IN
       val b                                                           = UInt(8) <> IN
@@ -493,7 +493,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     end EDMethodTop
     val id = (new EDMethodTop)
     // ED methods print inside the owning design class body (locally scoped),
-    // unlike DF design defs which print as standalone defs
+    // unlike DF methods which print as standalone defs
     assertCodeString(
       id,
       """|class EDMethodTop extends EDDesign:
@@ -645,7 +645,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       o <> twice(d"8'3")
     end StaticFnTop
     val id = (new StaticFnTop)
-    // A static function's const arguments are its input ports (the subprogram formals), and
+    // A static function's const arguments are its input ports (the method formals), and
     // the call (`Func` with `Op.Def`) binds them positionally, exactly like an ED method call.
     assertCodeString(
       id,
@@ -687,8 +687,8 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
-  test("Design def with toScalaValue effects") {
-    class DesignDefCont extends DFDesign:
+  test("DF function with toScalaValue effects") {
+    class MethodCont extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -696,7 +696,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
         arg + const.toScalaInt
       o := test(1)(data)
       o := test(10)(data)
-    val id = (new DesignDefCont)
+    val id = (new MethodCont)
     assertCodeString(
       id,
       """|@hw.annotation.pure(impureParams = "const")
@@ -709,12 +709,12 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  arg + d"32'10"
          |end test_1
          |
-         |class DesignDefCont extends DFDesign:
+         |class MethodCont extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  o := test_0(const = d"8'1")(data)
          |  o := test_1(const = d"8'10")(data)
-         |end DesignDefCont
+         |end MethodCont
          |""".stripMargin
     )
   }
@@ -2214,7 +2214,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
-  test("assigned design def name regression") {
+  test("assigned method name regression") {
     def bar(lhs: Bits[8] <> VAL): Bits[8] <> DFRET = lhs ^ h"1b"
     class Foo extends DFDesign:
       val x = Bits(8) <> IN

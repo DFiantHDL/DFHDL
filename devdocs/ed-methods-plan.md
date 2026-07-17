@@ -18,14 +18,14 @@ Everything open/undecided/unresolved lives HERE. Scattered "deferred" notes else
 document point to this section. Categories: correctness gaps can produce wrong or invalid HDL
 today; undecided questions block their features; pending work is decided and just not done.
 
-> **2026-07-14 merge into `pure-checks`.** ED methods now ride the general design-def
+> **2026-07-14 merge into `pure-checks`.** ED methods now ride the general method
 > machinery of the elaboration-caching branch (see `devdocs/elaboration-caching.md`): the
 > design load gate (intra-run + cross-run service), pure-by-default with the `PureCheck`
 > plugin analysis, harness-owned parameters ("params ride the call", implemented as
-> `designFromDefGetParam`), generalized phantom capture for ALL design defs (values,
+> `designFromDefGetParam`), generalized phantom capture for ALL methods (values,
 > constants, and plain-Scala captures keyed via `scalaArgs`), and the compile-time code
 > digest. `designFromDefED` shares the `designFromDef` harness verbatim (one `domain`
-> argument apart), so every caching/purity property of DF design defs holds for ED methods.
+> argument apart), so every caching/purity property of DF methods holds for ED methods.
 > Consequences for the list below: item 1(c) and the first half of item 5 are FIXED; the
 > `toScalaXYZ` half of item 5 is handled by PureCheck data-impurity attribution
 > (`impureParams` keying), with the residual approximations documented in
@@ -34,14 +34,14 @@ today; undecided questions block their features; pending work is decided and jus
 ### Correctness gaps (can produce wrong/invalid HDL today)
 
 1. **Explicit `<> CONST` args on ED methods: REJECTED BY THE PLUGIN (2026-07-14).**
-   `DesignDefsPhase` now errors on any `<> CONST` argument of an ED method ("Constant
+   `MethodsPhase` now errors on any `<> CONST` argument of an ED method ("Constant
    arguments are not supported for ED methods."). Captured outer constants are unaffected:
    they become phantom parameters, which print correctly at the enclosing design's scope
    (verified: `localparam logic [7:0] k = 8'd5;` in the module, body references `k`).
 
    Why (investigation, 2026-07-14): a `<> CONST` param produced INVALID HDL in every case,
    not just when call sites applied different values — with a single call site and a single
-   value, both backends printed one body with a DANGLING `k` (the subprogram printers drop
+   value, both backends printed one body with a DANGLING `k` (the method printers drop
    ALL `DesignParam`s from local decls, and unlike a captured constant there is no
    enclosing-scope binding to name). Symptom (c) of the old item 1 (the DFHDL re-emitter
    losing the second call's applied value under a pure-cache hit) is FIXED by the
@@ -49,12 +49,12 @@ today; undecided questions block their features; pending work is decided and jus
    DFHDL view roundtrips correctly (`addK(k = d"8'5")(a)` / `addK(k = d"8'7")(a)`).
 
    What a future implementation must do (tool-verified 2026-07-14, GHDL/NVC/Verilator):
-   * VHDL needs NO monomorphization. A subprogram formal defaults to class `constant`, and
-     subprogram locals elaborate per call, so a constant formal can even SIZE a local
+   * VHDL needs NO monomorphization. A method formal defaults to class `constant`, and
+     method locals elaborate per call, so a constant formal can even SIZE a local
      (`variable tmp : unsigned(w - 1 downto 0);` analyzes clean on GHDL and NVC). Lower each
      `<> CONST` param to a trailing constant-class formal; pass the applied value per call.
      Caveat: a constant formal is not LOCALLY STATIC, so it cannot be a case choice.
-   * SystemVerilog has no subprogram parameters and no generic subprograms. An argument
+   * SystemVerilog has no method parameters and no generic methods. An argument
      works as a plain VALUE (verified clean under Verilator), but is not a constant
      expression: `logic [w-1:0] tmp;` fails with "Expecting expression to be constant, but
      variable isn't const: 'w'". A `localparam` inside a function body is legal but cannot
@@ -62,10 +62,10 @@ today; undecided questions block their features; pending work is decided and jus
    * So the tiered lowering (home: `PrepEDDefs`, which is dialect-aware through
      `CompilerOptions`): classify each non-phantom `DesignParam` as VALUE-ONLY or
      TYPE-SHAPING (does any DFType in the method design reference it?); lower value-only
-     params to subprogram formals in BOTH backends; lower type-shaping params to formals in
+     params to method formals in BOTH backends; lower type-shaping params to formals in
      VHDL; MONOMORPHIZE type-shaping params for Verilog (one copy per applied-value group,
      param emitted as a `localparam` inside each copy). In every path the printers must stop
-     dropping `DesignParam` from subprogram local decls (the one line causing the dangling
+     dropping `DesignParam` from method local decls (the one line causing the dangling
      reference). Monomorphization by GROUPING is cheap: making ED method params part of the
      design load key (as `impureParams = "*"` does) already yields correctly-wired per-value
      designs with `UniqueDesigns` renaming them (`addK_0`/`addK_1`) — but doing it at
@@ -101,17 +101,17 @@ today; undecided questions block their features; pending work is decided and jus
 
    NON-issue (verified): an ED method declared on a SHARED TRAIT and mixed into two designs is
    fine. The gate unifies it into ONE method design across both owners, but each owner prints
-   its own copy of the subprogram and the body's `b` resolves to that module's own `b` member.
+   its own copy of the method and the body's `b` resolves to that module's own `b` member.
    Name-based resolution is exactly what makes it work.
 
    **FIXED (2026-07-14).** A phantom body reference now prints the ACTUAL's code string in the
-   owning design's scope, instead of the phantom's own name. `AbstractPrinter.defPrinterAt`
+   owning design's scope, instead of the phantom's own name. `AbstractPrinter.methodPrinterAt`
    builds, at the call site (where the host's getSet resolves the actual), a substitution map
    from each phantom member's name INSIDE the def to `csDFValRef(actual, inst.getOwner)`, and
    hands it to the printer that renders the def body; `csDFValRef` consults it for any
    `PhantomTag` member. Both places that render a def body go through it (the ED-method
    declarations of `edMethodPrinters`, and the inline declaration of a phantom-carrying DF
-   design def in `csDFMembers`), so all three printers (DFHDL, Verilog, VHDL) are covered.
+   method in `csDFMembers`), so all three printers (DFHDL, Verilog, VHDL) are covered.
    This also makes the shared-trait case correct by construction rather than by luck.
 
    Implementation notes: phantom PORTS are paired with their call-site connections BY ORDER,
@@ -134,13 +134,13 @@ today; undecided questions block their features; pending work is decided and jus
      1; y <> outer(a)` emitted a module declaring only `outer`, whose body called an undeclared
      `inner` (invalid HDL, loud). Discovery now recurses through the method bodies themselves,
      and the result is POST-ORDER (a method follows the methods it calls), since an HDL
-     subprogram must be declared before it is used. Each method binds to its FIRST call site's
+     method must be declared before it is used. Each method binds to its FIRST call site's
      printer, which is what resolves its phantom actuals (item 2). Emitted HDL verified to
      analyze on Verilator, GHDL and NVC.
    * **Elaboration crash — FIXED (2026-07-14).** If the INNER method captured anything, a nested
      call threw `NoSuchElementException: None.get` at `DFDesignBlock.getCachedDesignInst`. NOT
-     ED-specific: plain DF design defs crashed identically, so this was a general defect of the
-     design-def capture rigging.
+     ED-specific: plain DF methods crashed identically, so this was a general defect of the
+     method capture rigging.
 
      A phantom actual is evaluated at the CALL SITE, but it names a value of the design that
      DECLARED the def. When the caller is another def, that design is not the one we are in —
@@ -148,10 +148,10 @@ today; undecided questions block their features; pending work is decided and jus
      cross-design port rule tried to route it through the declaring design's instance, which
      does not exist while that design is still elaborating.
 
-     The capture set was simply incomplete. A call to a design def does not run the callee's
+     The capture set was simply incomplete. A call to a method does not run the callee's
      body in the caller's scope, but it DOES evaluate the callee's captures there, so a capture
      the caller cannot reach either is a capture OF THE CALLER as well. Capture discovery
-     (`CapturePhase.discoverCaptures`) is therefore now TRANSITIVE: a call to another design def
+     (`CapturePhase.discoverCaptures`) is therefore now TRANSITIVE: a call to another method
      contributes the callee's captures, filtered by the caller's own out-of-scope test (what the
      caller can reach, it keeps referencing directly). Every def between the captured value's
      design and the call site thus materializes the capture as its own phantom, created by its
@@ -276,13 +276,13 @@ discovered during 1C, tracked independently of this feature.
 > **[1C FINDINGS]** section.
 >
 > **[1C FINDINGS]** (backend phase):
-> - `DropDesignDefs` was ALREADY DF-only (its match is `domainType = DF, instMode = Def`) —
+> - `DropDFMethods` was ALREADY DF-only (its match is `domainType = DF, instMode = Def`) —
 >   no change needed; ED defs flow through the prep pipeline untouched.
-> - **Call inlining came almost free**: the shared printing machinery predates DropDesignDefs
->   and still handles def designs — `csDFValRef`'s `PortOfDesignDef(OUT, inst)` case inlines
->   anonymous call results via `csDFDesignDefInst`, and `csDFMembers` already filters def
+> - **Call inlining came almost free**: the shared printing machinery predates DropDFMethods
+>   and still handles def designs — `csDFValRef`'s `PortOfMethodDesign(OUT, inst)` case inlines
+>   anonymous call results via `csMethodInst`, and `csDFMembers` already filters def
 >   input-connect nets and read-output anonymous insts. The HDL work reduced to implementing
->   `csDFDesignDefDcl`/`csDFDesignDefInst` per printer + module/architecture decl injection.
+>   `csMethodDcl`/`csMethodInst` per printer + module/architecture decl injection.
 > - **Phantom connects/PBNS carry `PhantomTag`** (tagged DFC at `designFromDefED` connect
 >   time): phantom detection is local everywhere (printers, DropProcessAll) — no cross-sub-DB
 >   member resolution needed.
@@ -294,7 +294,7 @@ discovered during 1C, tracked independently of this feature.
 > - **`ViaConnection` skips ED-method insts** (calls must not be rewired through vias).
 > - **`DropProcessAll` fixes**: (a) its dependency walk only collected `Assignment` nets —
 >   ED call arguments (explicit AND phantom) are read through input `Connection` nets, now
->   collected via `PortOfDesignDef(IN, _)`; (b) ED call PBNS are excluded from the computed
+>   collected via `PortOfMethodDesign(IN, _)`; (b) ED call PBNS are excluded from the computed
 >   list (a call expression is not a signal); (c) under VHDL-2008/2019 `process(all)` misses
 >   impure-function hidden reads, so phantom-carrying processes (detected via tagged nets)
 >   are force-converted to explicit lists — v93/v95 processes get captures in their lists
@@ -313,7 +313,7 @@ discovered during 1C, tracked independently of this feature.
 >   prints invalid `z := ...` — a PRE-EXISTING gap independent of ED methods (VHDL-targeted
 >   user code uses `:==`); ED tests follow that idiom.
 > - `Printer.getCurrentDesign` is mutated by `csFile` — locally-placed def decls are printed
->   via `csDFDesignDefDcl` directly (never nest `csFile` during a design's own rendering).
+>   via `csMethodDcl` directly (never nest `csFile` during a design's own rendering).
 > - Deferred items from this phase are consolidated in **OPEN ISSUES** above (items 1, 3, 9).
 >   Note (accepted behavior, not a gap): multi-read ANONYMOUS calls print the call per read
 >   site — pure, so semantically sound.
@@ -333,13 +333,13 @@ discovered during 1C, tracked independently of this feature.
 > 4. ED methods are **`@hw.pure` by default** (meta-programming is not expected in these
 >    compatibility-oriented bodies; saves redundant elaboration).
 > 5. Outer-scope access is modeled via **phantom members** (`PhantomTag`): the **compiler
->    plugin** captures them — `DesignDefsPhase` statically lifts free DFHDL-typed references
+>    plugin** captures them — `MethodsPhase` statically lifts free DFHDL-typed references
 >    in the body into extra phantom arguments of the `designFromDef` call, which constructs
 >    tagged `DesignParam`/`Dcl` members and connects them; printers hide them. The method
 >    subDB is self-contained from the moment it elaborates, and `@hw.pure` memoization works
 >    unchanged (phantoms are ordinary inputs — see §S8).
 > 6. Argument modifiers: **functions take `<> VAL`** (+ `<> CONST`) — the same surface as
->    DF/RT design defs; **`<> IN`/`<> OUT` are procedural-only** (Phase 2), where `<> VAL` =
+>    DF/RT methods; **`<> IN`/`<> OUT` are procedural-only** (Phase 2), where `<> VAL` =
 >    copied value (VHDL constant/variable class), `<> IN` = live signal-class formal
 >    (waitable, `.rising`/`.falling`), `<> OUT` = signal-class output. Functions remain
 >    input-only in any case (portable intersection of all backends).
@@ -348,9 +348,9 @@ discovered during 1C, tracked independently of this feature.
 
 Verilog/SystemVerilog functions and tasks, and VHDL functions and procedures, are the natural
 target for reusable sequential-code helpers (printing/reporting, stimulus, waits, small
-combinational computations usable in expressions). DFHDL design defs (`<> DFRET`) already model
+combinational computations usable in expressions). DFHDL methods (`<> DFRET`) already model
 the DF equivalent as `InstMode.Def` design blocks; this effort extends the same modeling to the
-ED domain with `T <> EDRET`, printed as real HDL subprograms rather than module instances.
+ED domain with `T <> EDRET`, printed as real HDL methods rather than module instances.
 
 ## Frontend design
 
@@ -400,7 +400,7 @@ infix type <>[T <: DFType.Supported, M] = M match
   defs today); inside design-class defs they work via the class's `Scope.Design` given.
 - **RESOLVED (2026-07-16): plugin-reported errors are now testable via `assertPluginError`**
   (see devdocs/plugin-error-testing.md; `assertCompileError`/`typeCheckErrors` still
-  stops at the typer). The DesignDefsPhase errors are covered in `CoreSpec/PluginErrorSpec`.
+  stops at the typer). The MethodsPhase errors are covered in `CoreSpec/PluginErrorSpec`.
   Still true: a `Unit <> EDRET` def whose body uses `:=` hits the typer error first (`:=` not
   allowed under `Scope.Procedural` yet), so the plugin's procedural error only surfaces for
   bodies that type-check.
@@ -431,7 +431,7 @@ infix type <>[T <: DFType.Supported, M] = M match
   (enclosing container member) captured; statics (globals) never captured (reachable
   everywhere); the def's own params/body-locals excluded by owner-chain test.
 
-**Plugin** (`plugin/src/main/scala/plugin/DesignDefsPhase.scala`):
+**Plugin** (`plugin/src/main/scala/plugin/MethodsPhase.scala`):
 
 - Extend the trigger beyond the current DF path: recognize the ED context-lambda shapes above.
   Note the current trigger requires `dfValArgs.nonEmpty` **and** a DFHDL-value return — both
@@ -551,7 +551,7 @@ naming distinct.
 
 ### S4 — Lifetime: always emit `automatic`
 
-Verilog subprograms are **static by default** (concurrent calls share one set of arg/local
+Verilog methods are **static by default** (concurrent calls share one set of arg/local
 storage; recursion broken). Printers emit `automatic` unconditionally (available v2001+).
 `v95` has no `automatic`: harmless for functions (no waits ⇒ calls complete atomically within
 a timestep in practice), but Phase 2 must forbid (or document) reentrancy of waiting tasks in
@@ -560,13 +560,13 @@ only portable choice (VHDL variables and SV automatic locals both behave this wa
 
 ### S5 — Genericity and emission placement: monomorphize for Verilog
 
-- Verilog/SV have **no parameterized subprograms** (outside classes). Width-generic methods
+- Verilog/SV have **no parameterized methods** (outside classes). Width-generic methods
   are either monomorphized (one printed function per distinct param combination, mangled
   names) or emitted **inside each calling module**, where phantom `DesignParam`s resolve to
   that module's parameters — the latter falls out of the phantom design and is Verilog's
   native idiom. Package-level sharing only for phantom-free, fixed-width methods (later).
 - VHDL: unconstrained array parameters (since '93) cover width-genericity without
-  monomorphization; VHDL-2008 generic subprograms exist but tool support is patchy (GHDL
+  monomorphization; VHDL-2008 generic methods exist but tool support is patchy (GHDL
   gaps) — unconstrained params are the safer lowering. Phase 1 monomorphizes for both
   backends (widths baked per instantiation); unconstrained-param sharing is a later
   optimization.
@@ -630,11 +630,11 @@ ever needed).
   - **Helper-def hole**: a plain Scala helper `def` (declared outside the ED method,
     `using DFC`) called in the body can reference outer members from *its* AST — invisible to
     the plugin's lexical scan of the ED def body. Such refs surface at elaboration as
-    cross-boundary refs → **elaboration error** (same as DF design defs today; message should
+    cross-boundary refs → **elaboration error** (same as DF methods today; message should
     say "reference it directly in the ED method body or pass it as an argument").
   - **Plain-Scala captures** (`Int`, `Boolean` fields that are not `<> CONST`) remain silent
     closure captures — under default purity, two instances differing only in such a field
-    would wrongly share one memoized body. Pre-existing DF-design-def hazard, now
+    would wrongly share one memoized body. Pre-existing DF-method hazard, now
     default-on: document prominently; a plugin warning on non-DFHDL free refs of
     non-singleton types is a possible future hardening.
   - **Static over-capture**: a lexical ref in a meta-dead branch (Scala-level `if` on an
@@ -647,13 +647,13 @@ ever needed).
   writes to phantoms/outer state, no procedural-method instances. Multi-driver check when a
   phantom-OUT signal is written by a method called from two processes (each call materializes
   a driver in its caller) — Phase 2.
-- **`DropDesignDefs`** (`compiler/stages/.../DropDesignDefs.scala`) currently erases *every*
+- **`DropDFMethods`** (`compiler/stages/.../DropDFMethods.scala`) currently erases *every*
   `InstMode.Def` design into a `Normal` design + instances. It must be restricted to
   `domainType == DF` defs; ED defs flow through to the backends on a new printing path
-  (backends today never print user subprograms — only internal helper functions).
+  (backends today never print user methods — only internal helper functions).
 - **Call-site printing**: an ED function call elaborates as design-inst + input connects +
   output-port read; HDL needs a call *expression*. The DFHDL re-emitter already renders def
-  instances as calls (`csDFDesignDefInst`, `compiler/ir/.../printing/DFOwnerPrinter.scala`)
+  instances as calls (`csMethodInst`, `compiler/ir/.../printing/DFOwnerPrinter.scala`)
   — mirror that mechanism in the Verilog/VHDL printers: inline `f_name(actual1, ...)` at the
   (single) output-port reference; suppress the inst and connects.
 - **Per-module phantom-actual grouping**: hiding a phantom means the printed body references
@@ -668,7 +668,7 @@ Survey sources: Accellera on `always_comb` vs `@*` function sensitivity
 (<https://www.sigasi.com/tech/wildcard_sensitivity/>), VHDL signal-parameter driver rules
 (<https://peterfab.com/ref/vhdl/vhdl_renerta/mobile/source/vhd00063.htm>), Doulos VHDL-2008
 enhancements (<https://www.doulos.com/knowhow/vhdl/vhdl-2008-major-enhancements/>), GHDL
-generic-subprogram support gaps (<https://github.com/ghdl/ghdl/issues/2383>).
+generic-method support gaps (<https://github.com/ghdl/ghdl/issues/2383>).
 
 ## DFHDL semantics (chosen rules)
 
@@ -707,17 +707,17 @@ generic-subprogram support gaps (<https://github.com/ghdl/ghdl/issues/2383>).
 - `<> EDRET` match-type nesting per the frontend design above. `Unit <> EDRET` compiles but
   the plugin errors "procedural ED methods are not yet supported" (keeps the surface honest
   until Phase 2).
-- `DesignDefsPhase`: ED trigger recognition (widened for zero-DFHDL-arg defs); error on a
+- `MethodsPhase`: ED trigger recognition (widened for zero-DFHDL-arg defs); error on a
   missing term parameter block (parameterless `def f: T <> EDRET` — empty `()` is required,
   decision 1); direct recursion error; default-`Pure` annotation injection for ED defs.
 - `designFromDef` ED variant (`domain = ED`, `instMode = Def`); `isDefFunction` analysis
-  helper (e.g. in `ProcessBlockAnalysis.scala` or a new `DesignDefAnalysis`).
+  helper (e.g. in `ProcessBlockAnalysis.scala` or a new `MethodAnalysis`).
 - Elaboration checks (new `edMethodCheck()` in `DB.scala` `subDBCheck`, `initialCheck` as the
   template): function-subDB content rules from the semantics section (waits, `:==`,
   processes, sub-designs, outer writes, procedural members). Recursion backstop: a def design
   transitively containing an instance of its own structure is unreachable if the plugin check
   holds — document, don't detect.
-- DFHDL re-emitter: `csDFDesignDefDcl`/`csDFDesignDefInst` extended for ED defs (`<> EDRET`
+- DFHDL re-emitter: `csMethodDcl`/`csMethodInst` extended for ED defs (`<> EDRET`
   modifier rendering).
 - Tests: `core/CoreSpec` compile-guard errors (missing-`()`-param-block, recursion,
   wait-in-function, `:==`-in-function, procedural-not-supported, calling from non-ED domain)
@@ -728,7 +728,7 @@ generic-subprogram support gaps (<https://github.com/ghdl/ghdl/issues/2383>).
 ### 1B — Phantom IN capture (plugin-side)
 
 - `PhantomTag` in `DFTags.scala` (IR format bump ⇒ DiskCache invalidation via version tag).
-- **`DesignDefsPhase` capture lift** (the frontend-design section has the mechanics): free
+- **`MethodsPhase` capture lift** (the frontend-design section has the mechanics): free
   DFHDL-typed stable references → extra phantom arg lists on the `designFromDef` call;
   body refs rewritten via the existing `inputMap` mechanism; const-typed captures → phantom
   `DesignParam` entries. No call-site transformation; cross-unit safe by construction.
@@ -747,7 +747,7 @@ generic-subprogram support gaps (<https://github.com/ghdl/ghdl/issues/2383>).
 
 ### 1C — Backends
 
-- `DropDesignDefs`: restrict to `domainType == DF` (one-line predicate + spec).
+- `DropDFMethods`: restrict to `domainType == DF` (one-line predicate + spec).
 - New backend-prep stage (use `/new-stage`; working name `PrepEDDefs`): monomorphization
   grouping — per printing module/architecture, group ED-def instances by (design structure,
   phantom-actual binding, applied param values); assign mangled unique names; **prune
@@ -800,7 +800,7 @@ generic-subprogram support gaps (<https://github.com/ghdl/ghdl/issues/2383>).
 |---|---|---|
 | 1A | Scopes, `EDRET` match type, plugin ED path, `designFromDef` ED, elaboration checks, DFHDL printer | core compile-guard tests + PrintCodeString + elab checks |
 | 1B | `PhantomTag`, plugin capture lift, `designFromDef` phantom lists, elaboration backstops | capture specs + pure-cache-hit-across-instances regression |
-| 1C | `DropDesignDefs` restriction, `PrepEDDefs`, Verilog/VHDL function printing, sensitivity fix | stage spec + printer specs (sv2009/v95/v93/v2008) + ref update |
+| 1C | `DropDFMethods` restriction, `PrepEDDefs`, Verilog/VHDL function printing, sensitivity fix | stage spec + printer specs (sv2009/v95/v93/v2008) + ref update |
 | 1D | sim validation + docs/skill updates | testApps case |
 | 2 | procedural methods (tasks/procedures) | — |
 | 3+ | sharing/genericity/companions | — |

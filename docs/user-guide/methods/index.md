@@ -1,1 +1,1 @@
-# Functions / Methods {#DesignDef}
+# Methods {#Methods}

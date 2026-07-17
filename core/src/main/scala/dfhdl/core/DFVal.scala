@@ -115,10 +115,10 @@ infix type <>[T <: DFType.Supported, M] = M match
 //     bring `.reg`, `REG` variables, and the rest back to life. It is also what makes a static
 //     function callable from ANY domain and from the global scope: `Static` is the ambient
 //     given, unlike an ED method's `DomainType.ED`.
-//   - `Scope.Function` is what the plugin's design-def predicate keys on, so a `CONSTRET` def
+//   - `Scope.Function` is what the plugin's method predicate keys on, so a `CONSTRET` def
 //     gets capture discovery and phantom rigging for free.
 //
-// ED methods are modeled as HDL subprograms: a `Unit` return type declares a procedural
+// ED methods are modeled as HDL methods: a `Unit` return type declares a procedural
 // method (Verilog task / VHDL procedure — body+call sites under `Scope.Procedural`),
 // any other return type declares a function (body under `Scope.Function`, callable
 // anywhere in the ED domain via the ambient low-priority `Scope.Function` given).

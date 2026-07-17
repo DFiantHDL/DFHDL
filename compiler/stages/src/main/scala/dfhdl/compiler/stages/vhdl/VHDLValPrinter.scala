@@ -7,16 +7,16 @@ import DFVal.*
 
 protected trait VHDLValPrinter extends AbstractValPrinter:
   type TPrinter <: VHDLPrinter
-  def csSubprogramCall(call: Func, designKey: StaticRef): String =
+  def csMethodCall(call: Func, designKey: StaticRef): String =
     val design = designKey.getDesignBlock
-    val args = csSubprogramCallArgs(call, design).mkString(", ")
-    // parameterless VHDL subprogram calls have no parentheses
+    val args = csMethodCallArgs(call, design).mkString(", ")
+    // parameterless VHDL method calls have no parentheses
     val callCS =
       if (args.isEmpty) design.dclName
       else s"${design.dclName}($args)"
     // a procedural (Unit-return) call is a procedure call statement
     if (call.dfType == DFUnit) s"$callCS;" else callCS
-  end csSubprogramCall
+  end csMethodCall
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
     s"constant ${dfVal.getName} : ${printer.csDFType(dfVal.dfType)} := ${csDFValExpr(dfVal)};"
@@ -25,9 +25,9 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     if (dfVal.isPort) s"${dfVal.getName} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr"
     else
       val sigOrVar = dfVal.getOwnerNamed match
-        // HDL subprogram (ED method / static function) locals are subprogram variables
-        case dsn: DFDesignBlock if dsn.isHDLSubprogram => "variable"
-        case dsn: DFDesignBlock                        =>
+        // HDL method (ED method / static function) locals are method variables
+        case dsn: DFDesignBlock if dsn.isHDLMethod => "variable"
+        case dsn: DFDesignBlock                    =>
           if (dfVal.modifier.isShared) "shared variable"
           else "signal"
         case _ => "variable"

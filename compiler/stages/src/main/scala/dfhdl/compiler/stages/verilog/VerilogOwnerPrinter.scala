@@ -99,10 +99,10 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
         .mkString("\n")
     // ED methods (HDL functions) are locally scoped — declared in this module's
     // declaration region
-    val edMethodDcls = printer.subprogramPrinters(design)
+    val edMethodDcls = printer.methodPrinters(design)
       .map((block, p) =>
         sn"""|${p.csDocString(block.dclMeta)}
-             |${p.csDFDesignDefDcl(block)}"""
+             |${p.csMethodDcl(block)}"""
       )
       .mkString("\n\n")
     val declarations =
@@ -197,7 +197,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
   // ED methods (HDL functions) print inside their owning module's declaration region
-  def csDFDesignDefDcl(design: DFDesignBlock): String =
+  def csMethodDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
     // the return value: the (single, full) connection to the output port
     var retValOpt: Option[DFVal] = None
@@ -210,7 +210,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val ansiHeader = printer.dialect match
       case VerilogDialect.v95 => false
       case _                  => true
-    // HDL subprograms are static by default — `automatic` gives the expected
+    // HDL methods are static by default — `automatic` gives the expected
     // fresh-per-call semantics (unavailable in v95, where functions cannot wait anyway).
     //
     // NOTE the naming collision, before someone "fixes" it: SystemVerilog's `static` is a
@@ -221,15 +221,15 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       val csType = printer.csDFType(dfType).emptyOr(_ + " ")
       if (printer.supportLogicType) csType else csType.replace("logic ", "")
     val retTypeCS = retValOpt.map(rv => csFuncType(rv.dfType)).getOrElse("")
-    // a subprogram's formals: design parameters and/or input ports, in one list (see
-    // `defFormals`). Verilog has no subprogram generics, so a static function's parameters
+    // a method's formals: design parameters and/or input ports, in one list (see
+    // `methodFormals`). Verilog has no method generics, so a static function's parameters
     // print as ordinary input formals.
-    val inputs = defFormals(design)
+    val inputs = methodFormals(design)
     def csInput(p: DFVal): String =
       s"input ${csFuncType(p.dfType)}${p.getName}"
     // a procedural method (Unit return — no return output port) prints as a task
     val isProcedural = retValOpt.isEmpty
-    val subprogram = if (isProcedural) "task" else "function"
+    val method = if (isProcedural) "task" else "function"
     // the v95/v2001 minimum-one-input rule applies to functions only; tasks may have no
     // arguments in all dialects
     val needsDummy = !isProcedural && inputs.isEmpty && !dummyLessFunctionSupport
@@ -240,12 +240,12 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
           else inputs.map(csInput).mkString(", ")
         // a parameterless task is declared without parentheses (portable across dialects)
         if (isProcedural && inputs.isEmpty) s"task automatic $funcName;"
-        else s"$subprogram $automatic$retTypeCS$funcName($inputList);"
+        else s"$method $automatic$retTypeCS$funcName($inputList);"
       else
         val inputDcls =
           (if (needsDummy) List("input __dummy__;") else inputs.map(csInput(_) + ";"))
             .mkString("\n")
-        val headerLine = s"$subprogram $retTypeCS$funcName;"
+        val headerLine = s"$method $retTypeCS$funcName;"
         if (inputDcls.isEmpty) headerLine
         else s"$headerLine\n${inputDcls.hindent}"
     val localDcls = designMembers.view.flatMap {
@@ -274,9 +274,9 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
          |begin
          |${body.hindent}
          |end
-         |end$subprogram"""
-  end csDFDesignDefDcl
-  def csDFDesignDefInst(inst: DFDesignInst): String =
+         |end$method"""
+  end csMethodDcl
+  def csMethodInst(inst: DFDesignInst): String =
     val design = inst.getDesignBlock
     val instPBNS = getSet.designDB.designInstPBNS.getOrElse(
       inst,
@@ -286,7 +286,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     )
     // a procedural method call (no return output port) is a statement
     val isProcedural = !instPBNS.exists(_.isOut)
-    // the actuals positionally match `defFormals`: a static function's are its applied design
+    // the actuals positionally match `methodFormals`: a static function's are its applied design
     // parameters, an ED method's are its input-port connections
     val args = defActuals(inst).map(printer.csDFValRef(_, inst.getOwner)).mkString(", ")
     if (isProcedural)
@@ -296,7 +296,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     else
       val argList = if (args.isEmpty && !dummyLessFunctionSupport) "0" else args
       s"${moduleName(design)}($argList)"
-  end csDFDesignDefInst
+  end csMethodInst
   def csBlockBegin: String = "begin"
   def csBlockEnd: String = "end"
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"

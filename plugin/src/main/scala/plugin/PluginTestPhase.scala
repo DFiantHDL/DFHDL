@@ -104,7 +104,7 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
     MetaContextPlacerPhase(setting),
     LoopFSMPhase(setting),
     CustomControlPhase(setting),
-    DesignDefsPhase(setting),
+    MethodsPhase(setting),
     MetaContextGenPhase(setting),
     MetaContextDelegatePhase(setting),
     OnCreateEventsPhase(setting),

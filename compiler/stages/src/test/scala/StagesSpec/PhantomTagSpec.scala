@@ -1,19 +1,19 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.dropDesignDefs
+import dfhdl.compiler.stages.dropDFMethods
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-/** Tests for phantom ports and parameters: a design def referencing values from outside its own
-  * scope gets compiler-created (PhantomTag-tagged) members that make the generated design
-  * self-contained: captured DFHDL constants become phantom design parameters and captured
-  * non-constant DFHDL values become phantom input ports, all named after the captured values. The
-  * DFHDL printer hides phantoms in the design-def VIEW form only, so the printed def matches the
-  * user-written source; once the def is dropped to a regular design (`dropDesignDefs`), phantoms
-  * print like any other port/parameter.
+/** Tests for phantom ports and parameters: a method referencing values from outside its own scope
+  * gets compiler-created (PhantomTag-tagged) members that make the generated design self-contained:
+  * captured DFHDL constants become phantom design parameters and captured non-constant DFHDL values
+  * become phantom input ports, all named after the captured values. The DFHDL printer hides
+  * phantoms in the method VIEW form only, so the printed def matches the user-written source; once
+  * the def is dropped to a regular design (`dropDFMethods`), phantoms print like any other
+  * port/parameter.
   */
 class PhantomTagSpec extends StageSpec(stageCreatesUnrefAnons = true):
-  // a design def within a host design, capturing the host's local values: the port `phIn`
+  // a method within a host design, capturing the host's local values: the port `phIn`
   // (a phantom input port) and the constant `phW` (a phantom design parameter)
   class Host extends DFDesign:
     val data                                        = UInt(8) <> IN
@@ -25,7 +25,7 @@ class PhantomTagSpec extends StageSpec(stageCreatesUnrefAnons = true):
     o := calc(data)
   end Host
 
-  test("Phantom ports and parameters are hidden in the design-def view form") {
+  test("Phantom ports and parameters are hidden in the method view form") {
     val id = new Host
     // the def declaration prints locally in the host design's body (just before its
     // first instance), since its body references the host's values by name
@@ -44,8 +44,8 @@ class PhantomTagSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
-  test("Phantom ports and parameters are visible once the design def is dropped") {
-    val id = (new Host).dropDesignDefs
+  test("Phantom ports and parameters are visible once the method is dropped") {
+    val id = (new Host).dropDFMethods
     assertCodeString(
       id,
       """|class calc(val phW: UInt[8] <> CONST) extends DFDesign:

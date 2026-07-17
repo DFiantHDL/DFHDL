@@ -60,7 +60,7 @@ Located in `plugin/src/main/scala/plugin/`:
 3. `MetaContextPlacerPhase` — places meta-context markers
 4. `LoopFSMPhase` — loop-to-FSM transformations
 5. `CustomControlPhase` — custom control flow
-6. `DesignDefsPhase` — design definition processing
+6. `MethodsPhase` — DFHDL method (`def`) processing
 7. `MetaContextDelegatePhase` — meta-context delegation
 8. `MetaContextGenPhase` — meta-context code generation
 9. `OnCreateEventsPhase` — on-create event handling

@@ -1,12 +1,12 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.dropDesignDefs
+import dfhdl.compiler.stages.dropDFMethods
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class DropDesignDefsSpec extends StageSpec(stageCreatesUnrefAnons = true):
-  test("Design def") {
-    class IDWithDesignDef extends DFDesign:
+class DropDFMethodsSpec extends StageSpec(stageCreatesUnrefAnons = true):
+  test("DF function") {
+    class IDWithMethod extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -20,7 +20,7 @@ class DropDesignDefsSpec extends StageSpec(stageCreatesUnrefAnons = true):
       o := test(data + 1)
       val x = test(data)
       o := x
-    val id = (new IDWithDesignDef).dropDesignDefs
+    val id = (new IDWithMethod).dropDFMethods
     assertCodeString(
       id,
       """|/** This is my test
@@ -35,7 +35,7 @@ class DropDesignDefsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  o <> (arg + arg)
          |end test
          |
-         |class IDWithDesignDef extends DFDesign:
+         |class IDWithMethod extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  val o_part_test_inst = test()
@@ -44,12 +44,12 @@ class DropDesignDefsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val x = test()
          |  x.arg <> data
          |  o := x.o
-         |end IDWithDesignDef
+         |end IDWithMethod
          |""".stripMargin
     )
   }
-  test("Design def no return") {
-    class IDWithDesignDef extends DFDesign:
+  test("DF procedure") {
+    class IDWithMethod extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -57,24 +57,24 @@ class DropDesignDefsSpec extends StageSpec(stageCreatesUnrefAnons = true):
         arg + arg
       test(data + 1)
       o := data
-    val id = (new IDWithDesignDef).dropDesignDefs
+    val id = (new IDWithMethod).dropDFMethods
     assertCodeString(
       id,
       """|class test extends DFDesign:
          |  val arg = UInt(32) <> IN
          |end test
          |
-         |class IDWithDesignDef extends DFDesign:
+         |class IDWithMethod extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  val test_inst = test()
          |  test_inst.arg <> (data + d"32'1")
          |  o := data
-         |end IDWithDesignDef
+         |end IDWithMethod
          |""".stripMargin
     )
   }
-  test("Nested design def") {
+  test("Nested method") {
     def sbox(lhs: Bits[8] <> VAL): Bits[8] <> DFRET = lhs
 
     def subWord(lhs: Bits[8] X 2 <> VAL): Bits[8] X 2 <> DFRET =
@@ -86,7 +86,7 @@ class DropDesignDefsSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val o   = Bits(8) X 2 <> OUT
       o := subWord(key)
 
-    val top = (new Foo).dropDesignDefs
+    val top = (new Foo).dropDFMethods
     assertCodeString(
       top,
       """|class sbox extends DFDesign:
@@ -114,4 +114,4 @@ class DropDesignDefsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
-end DropDesignDefsSpec
+end DropDFMethodsSpec

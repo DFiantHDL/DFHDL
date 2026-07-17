@@ -121,7 +121,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
               dfVal match
                 case ch: DFConditional.Header if ch.dfType == DFUnit =>
                 case Ident(_)                                        =>
-                // a procedural (Unit-return) subprogram call is a statement: referenced by
+                // a procedural (Unit-return) method call is a statement: referenced by
                 // nothing by design
                 case DFVal.Func.Call(call, _) if call.dfType == DFUnit =>
                 case _                                                 =>
@@ -328,7 +328,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     require(!hasViolations, "Failed member order check!")
   end orderCheck
 
-  // HDL subprogram content checks: an ED method (see the ed-methods plan) or a static function
+  // HDL method content checks: an ED method (see the ed-methods plan) or a static function
   // (see the static-domain plan). Both are design blocks with `instMode = Def`, and only the
   // domain separates them. An ED method is a FUNCTION when it returns a value (has a return
   // output port) and a PROCEDURAL method (Verilog task / VHDL procedure) when it returns Unit.
@@ -340,17 +340,17 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
   //     assignments, and no calls to ED methods (a static function is callable from any domain,
   //     so it may not depend on one)
   //   * all: no step transitions, no processes/steps/forks/domains, no design instances other
-  //     than calls to other subprograms
+  //     than calls to other methods
   //
   // PRIMARY enforcement is the compile-time body content check in the plugin's
-  // `DesignDefsPhase.checkSubprogramContent`, which rejects these constructs on the offending
+  // `MethodsPhase.checkHDLMethodContent`, which rejects these constructs on the offending
   // expression (several have no type-level twin: a `process` carries no scope guard, since a
   // positive one would leak, see devdocs/scoping.md §3, and an ED-method call site summons
   // `DomainType.ED` directly, which reaches past a static body's `Static` given to the enclosing
   // design's). This IR-level check is deliberately NOT part of the elaboration `DB.check` path;
   // it runs here (debug mode) as the backstop for scope evidence laundered through helper
   // `def`s, whose bodies the plugin's syntactic check cannot see.
-  private def subprogramCheck()(using MemberGetSet): Unit =
+  private def hdlMethodCheck()(using MemberGetSet): Unit =
     val errors = collection.mutable.ArrayBuffer[String]()
     def memberError(member: DFMember, kindStr: String, msg: String): Unit =
       errors += s"""|DFiant HDL $kindStr error!
@@ -358,9 +358,9 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
                     |Hierarchy: ${member.getOwnerDesign.getFullName}
                     |Message:   $msg""".stripMargin
     val designDB = getSet.designDB
-    val subprograms =
-      designDB.members.collect { case design: DFDesignBlock if design.isHDLSubprogram => design }
-    subprograms.foreach { design =>
+    val methods =
+      designDB.members.collect { case design: DFDesignBlock if design.isHDLMethod => design }
+    methods.foreach { design =>
       val isStatic = design.isStaticFunction
       val designMembers = designDB.getMembersOf(design, MemberView.Flattened)
       // an ED function has a return output port; an ED procedural method does not. A static
@@ -417,7 +417,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     }
     if (errors.nonEmpty)
       throw new IllegalArgumentException(errors.mkString("\n"))
-  end subprogramCheck
+  end hdlMethodCheck
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     // Build the hierarchical DB once (oldToNew is O(members) and SanityCheck
@@ -431,7 +431,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
         memberExistenceCheck()
         ownershipCheck(subDB.top, subDB.membersNoGlobals.drop(1))
         // orderCheck()
-        subprogramCheck()
+        hdlMethodCheck()
       }
     }
     hierDB.check

@@ -26,9 +26,9 @@ case object ImplicitlyFromIntTag extends DFTag
 type ImplicitlyFromIntTag = ImplicitlyFromIntTag.type
 case class DFHDLVersionTag(version: String) extends DFTag
 // Marks compiler-synthesized phantom members: ports/parameters (and their by-name
-// selection and wiring artifacts) created to make design defs self-contained when
+// selection and wiring artifacts) created to make methods self-contained when
 // they use values from outside their own scope. The DFHDL printer hides
-// phantom-tagged members in the design-def VIEW form only, so the printed def
+// phantom-tagged members in the method VIEW form only, so the printed def
 // matches the user-written source (its body references the captured host values
 // by name). Once a def is dropped to a regular design block, phantoms print like
 // any other port/parameter, and the backend printers always keep them.

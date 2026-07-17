@@ -2,12 +2,12 @@ package StagesSpec
 
 import dfhdl.*
 import dfhdl.compiler.ir
-import dfhdl.compiler.stages.dropDesignDefs
+import dfhdl.compiler.stages.dropDFMethods
 import dfhdl.compiler.printing.DefaultPrinter
 import dfhdl.core.{DFC, SubDesignCache, SubDesignDiskCache}
 // scalfmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-// a TOP-LEVEL design def: its owner class is the synthetic `<file>$package` class, so
+// a TOP-LEVEL method: its owner class is the synthetic `<file>$package` class, so
 // the disk cache entry lives beside this file's build output like any other class
 def topCalc(arg: UInt[8] <> VAL): UInt[8] <> DFRET =
   arg + 1
@@ -17,7 +17,7 @@ def topCalcA(arg: UInt[8] <> VAL): UInt[8] <> DFRET = (arg + 2) * 3
 def topCalcB(arg: UInt[8] <> VAL): UInt[8] <> DFRET = (arg - 4) * 5
 
 /** Tests for the sub-design cache tier of the elaboration design load gate
-  * (`ElaborationOptions.CacheEnable`): a pure design def whose cached DB is found by the
+  * (`ElaborationOptions.CacheEnable`): a pure method whose cached DB is found by the
   * `SubDesignDiskCache` service skips its body elaboration entirely; the harness still creates the
   * public interface (ports and parameters, bound fresh to the call's applied values) and the cached
   * hierarchical DB is attached to the final DB. A fabricated hit must elaborate to the exact same
@@ -116,15 +116,15 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertCodeString(genHostCached(cache), expectedCodeString)
     assertEquals(cache.hits, 2)
     // the attached DB behaves through compiler stages like a live one
-    assertCodeString(genHostCached(cache).dropDesignDefs, expectedDroppedCodeString)
+    assertCodeString(genHostCached(cache).dropDFMethods, expectedDroppedCodeString)
     assertEquals(cache.hits, 4)
   }
 
-  // Subprogram (ED method / static function) calls are `Func`/`Op.Def` expressions rather
+  // Method (ED method / static function) calls are `Func`/`Op.Def` expressions rather
   // than design instances, and a static function calling another (quad -> twice) makes the
   // cached `quad` entry carry a call whose design key must be re-anchored at adoption
   // (`SubDesignEntry.cloneForAdoption`).
-  test("sub-design cache round trip: subprogram calls (ED method + static functions)") {
+  test("sub-design cache round trip: method calls (ED method + static functions)") {
     def genEDHost(using DFC): dfhdl.core.Design =
       class EDHost extends EDDesign:
         val a = UInt(8) <> IN
@@ -224,7 +224,7 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertEquals(cache.hits, 2)
   }
 
-  // a design def whose own body instantiates design defs: a cached hit on `outer` must
+  // a method whose own body instantiates methods: a cached hit on `outer` must
   // adopt the whole forest (`outer` and its `inner` children) with all connections intact
   def genNestHost(using DFC): dfhdl.core.Design =
     class NestHost extends DFDesign:
@@ -257,7 +257,7 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
        |end NestHost
        |""".stripMargin
 
-  test("a cached def that instantiates design defs adopts its whole forest") {
+  test("a cached def that instantiates methods adopts its whole forest") {
     val cache = new MapSubDesignCache
     assertCodeString(genNestHost(using liveDFC), expectedNestCodeString)
     val dfc1 = cachedDFC
@@ -390,6 +390,6 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("without cacheEnable the elaboration is unaffected") {
     assertCodeString(genHost(using liveDFC), expectedCodeString)
     // the live dropped view matches the cached one asserted above
-    assertCodeString(genHost(using liveDFC).dropDesignDefs, expectedDroppedCodeString)
+    assertCodeString(genHost(using liveDFC).dropDFMethods, expectedDroppedCodeString)
   }
 end SubDesignCacheSpec

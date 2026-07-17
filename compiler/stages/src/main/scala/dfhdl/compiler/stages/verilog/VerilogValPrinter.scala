@@ -11,9 +11,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   val supportLogicType: Boolean = printer.dialect match
     case VerilogDialect.v2001 | VerilogDialect.v95 => false
     case _                                         => true
-  def csSubprogramCall(call: Func, designKey: StaticRef): String =
+  def csMethodCall(call: Func, designKey: StaticRef): String =
     val design = designKey.getDesignBlock
-    val args = csSubprogramCallArgs(call, design).mkString(", ")
+    val args = csMethodCallArgs(call, design).mkString(", ")
     // a procedural (Unit-return) call is a task call statement
     if (call.dfType == DFUnit)
       // a parameterless task call has no parentheses
@@ -24,7 +24,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       // literal `0` to the declared dummy input
       val argList = if (args.isEmpty && !printer.dummyLessFunctionSupport) "0" else args
       s"${printer.moduleName(design)}($argList)"
-  end csSubprogramCall
+  end csMethodCall
   val supportGlobalParameters: Boolean =
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false

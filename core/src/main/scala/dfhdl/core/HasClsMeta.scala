@@ -33,6 +33,6 @@ trait HasClsArgs:
   // (chained like `__clsMeta`, own contribution first):
   //   override def __clsScalaArgs = List[Any](<params>, <captures>) ::: super.__clsScalaArgs
   // These values may legitimately shape the elaborated structure, so they join the
-  // design load key (the class-design counterpart of a design def's `scalaArgs`).
+  // design load key (the class-design counterpart of a method's `scalaArgs`).
   protected def __clsScalaArgs: List[Any] = Nil
 end HasClsArgs

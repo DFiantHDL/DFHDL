@@ -5,7 +5,7 @@ import dfhdl.lib.algebra.*
 
 import scala.annotation.targetName
 import scala.collection.mutable.ArrayBuffer
-// Every range in this file is an ELABORATION-time Scala range: the design defs below fold and
+// Every range in this file is an ELABORATION-time Scala range: the methods below fold and
 // iterate over them to unroll combinational logic (`foldLeft`, `ArrayBuffer` indexing), and AES is
 // a dataflow design with no hardware loops. These defs carry a `DFC` but sit in no DFHDL scope, so
 // without this flag their ranges would resolve to hardware `DFRange`s.

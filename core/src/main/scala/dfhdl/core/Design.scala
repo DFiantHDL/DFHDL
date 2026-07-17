@@ -243,7 +243,7 @@ object Design:
   // (`new MyDesign { ... }`) contributes no design body either (its statements run late,
   // outside the design), so an anonymous leaf is never the declaring class. This is the
   // design's code identity for the sub-design cache (`SubDesignRef`), the counterpart of a
-  // design def's nearest enclosing class.
+  // method's nearest enclosing class.
   private[core] def dclClassOf(dsn: Design): Class[?] =
     var cls: Class[?] = dsn.getClass
     while (cls.getSuperclass != null && (cls.isAnonymousClass || cls.getSimpleName.isEmpty))

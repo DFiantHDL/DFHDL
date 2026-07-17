@@ -17,7 +17,7 @@ import scala.compiletime.uninitialized
 
 /** ~~~ the class-design body-skip rigging ~~~
   *
-  * A design def's body is a thunk the design load gate can simply not call, its public interface
+  * A method's body is a thunk the design load gate can simply not call, its public interface
   * being created by the harness (`r__For_Plugin.designFromDef`) outside it. A design class's body
   * IS its constructor, and it declares the class's public interface itself, so this phase gives it
   * the same shape: the interface declarations (ports, constants, interfaces) stay unguarded, every

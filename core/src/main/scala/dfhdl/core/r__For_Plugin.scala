@@ -131,7 +131,7 @@ object r__For_Plugin:
 
   // A design class's applied parameter, lifted OUT of the class body by the plugin
   // (`DesignClsSkipPhase`): the harness (`Design.__clsBodyGate`) creates the design's parameter
-  // members from these before the body runs, exactly as `designFromDef` does for a design def, and
+  // members from these before the body runs, exactly as `designFromDef` does for a method, and
   // the body's parameter declarations fetch them back (`Design.__clsGetParam`). The design's public
   // interface is thus in place before the body-skip gate decides, and a skipped body creates
   // nothing the instantiation site needs.
@@ -161,8 +161,8 @@ object r__For_Plugin:
     designFromDefImpl(ir.DomainType.DF, args, constArgs, dclMeta, scalaArgs, phantomArgs,
       phantomConstArgs, ownerClass)(func)
   // ED methods (HDL functions/tasks/procedures — see the ed-methods plan): same
-  // construction, caching, and purity treatment as DF design defs, but under the ED
-  // domain (the design prints as an HDL subprogram rather than a module).
+  // construction, caching, and purity treatment as DF methods, but under the ED
+  // domain (the design prints as an HDL method rather than a module).
   @metaContextForward(2)
   def designFromDefED[V <: DFValAny](
       args: List[(DFValAny, ir.Meta)],
@@ -178,11 +178,11 @@ object r__For_Plugin:
     designFromDefImpl(ir.DomainType.ED, args, constArgs, dclMeta, scalaArgs, phantomArgs,
       phantomConstArgs, ownerClass)(func)
   // Static functions (`<> CONSTRET` — see the static-domain plan): same construction, caching,
-  // and purity treatment as the other design defs, but under the static domain.
+  // and purity treatment as the other methods, but under the static domain.
   //
   // The plugin requires every DFHDL argument of a static function to be `<> CONST` and every
   // capture to be a constant, so `args` and `phantomArgs` are always empty and the formals are
-  // exactly the const-arg/const-capture input ports the subprogram path of the impl below
+  // exactly the const-arg/const-capture input ports the method path of the impl below
   // creates (plus the return port).
   @metaContextForward(2)
   def designFromDefStatic[V <: DFValAny](
@@ -220,13 +220,13 @@ object r__For_Plugin:
     val callerPhantoms = dfc.mutableDB.DesignContext.getDefPhantoms
     def localize(captured: DFValAny): DFValAny =
       callerPhantoms.getOrElse(captured.asIR, captured)
-    // A subprogram def (an ED method or a static function) prints as an HDL subprogram and
+    // A method def (an ED method or a static function) prints as an HDL method and
     // keeps NO design instance: its application is a first-class call expression (`Func`
     // with `Op.Def`) whose args are the actuals, and ALL its DFHDL inputs (const args and
-    // const captures included) are input ports, the subprogram's formals. DF/RT design
+    // const captures included) are input ports, the method's formals. DF/RT design
     // defs keep the design-instance model (their terminal form is a real design instance)
     // with const args as design parameters (the generated module's generics).
-    val isSubprogram = domain match
+    val isHDLMethod = domain match
       case ir.DomainType.ED | ir.DomainType.Static => true
       case _                                       => false
     val designBlock =
@@ -243,7 +243,7 @@ object r__For_Plugin:
     // Phantom input ports materialize the def body's captured non-constant DFHDL values,
     // making the generated design self-contained. They are appended after the explicit
     // inputs (the body fetches both through the same `designFromDefGetInput` index space)
-    // and tagged so the design-def view form hides them.
+    // and tagged so the method view form hides them.
     val inputs = args.map { (arg, argMeta) =>
       DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
     } ++ phantomArgs.map { (arg, fallbackMeta) =>
@@ -254,12 +254,12 @@ object r__For_Plugin:
     // The const-argument formals are created by this harness rather than by the body,
     // keeping the design's public interface harness-owned (the body fetches them via
     // `designFromDefGetParam`). Phantoms (captured constants) are appended after the
-    // explicit ones and tagged. For a SUBPROGRAM def they are input ports exactly like the
-    // value args above (an HDL subprogram formal is inherently a call-time value, and the
-    // call's `Func` args bind them positionally); for a DF/RT design def they are design
+    // explicit ones and tagged. For an HDL method they are input ports exactly like the
+    // value args above (an HDL method formal is inherently a call-time value, and the
+    // call's `Func` args bind them positionally); for a DF/RT method they are design
     // parameters (the generated module's generics).
     val params =
-      if (isSubprogram)
+      if (isHDLMethod)
         constArgs.map { (_, arg, argMeta) =>
           DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
         } ++ phantomConstArgs.map { (arg, fallbackMeta) =>
@@ -287,7 +287,7 @@ object r__For_Plugin:
       phantomArgs.view.map(_._1.asIR).zip(inputs.drop(args.length)) ++
         phantomConstArgs.view.map(_._1.asIR).zip(params.drop(constArgs.length))
     )
-    // Params named data-impure by the design def's `pure` annotation (synthesized by the
+    // Params named data-impure by the method's `pure` annotation (synthesized by the
     // PureCheck plugin phase or declared by the user) contribute their applied type+data
     // to the design load key. Phantom parameters fit the same scheme: PureCheck records
     // their predicted names on the annotation like any explicit parameter's. Unknown
@@ -306,7 +306,7 @@ object r__For_Plugin:
           case (param, (name, arg)) if allImpure || impureParamNames.contains(name) =>
             param.asIR match
               case dp: ir.DFVal.DesignParam => dp.appliedData.map(data => (dp.dfType, data))
-              // a subprogram formal is a port and carries no applied snapshot; the applied
+              // a method formal is a port and carries no applied snapshot; the applied
               // data comes from the actual the harness holds at the call site
               case _ =>
                 import dfc.getSet
@@ -321,7 +321,7 @@ object r__For_Plugin:
     ctx.defParams = params
     val gate = dfc.mutableDB.DesignLoadGate
     val cacheEnable: Boolean = dfc.elaborationOptions.cacheEnable
-    val keyOpt = DesignLoadKey.designDefKeyWith(inputs, scalaArgs, impureParamsKeyOpt)
+    val keyOpt = DesignLoadKey.methodDesignKeyWith(inputs, scalaArgs, impureParamsKeyOpt)
     // on a design-load hit (intra-run or the sub-design cache service) the body is
     // skipped: the shell context holds only the harness-created public interface, and the
     // loaded design's DB provides the return DFType for the fresh output port
@@ -337,13 +337,13 @@ object r__For_Plugin:
       val phantomFlags = List.fill(args.length)(false) ++ List.fill(phantomArgs.length)(true)
       inputs.lazyZip(allArgs).lazyZip(phantomFlags).foreach { (input, arg, isPhantom) =>
         // a phantom input's call-site wiring is tagged through its port selection, which
-        // the design-def view form uses to hide the connection
+        // the method view form uses to hide the connection
         val connDFC = if (isPhantom) dfc.anonymize.tag(ir.PhantomTag) else dfc.anonymize
         input.connect(arg)(using connDFC)
       }
       endedDesign
     end exitAndConnectInputs
-    // The subprogram application: exit the def design and create the call expression in the
+    // The method application: exit the def design and create the call expression in the
     // parent context, a `Func` with `Op.Def` carrying the design's hierarchy key and the
     // actuals as args in the FORMAL MEMBER ORDER (value args, phantom value captures, const
     // args, phantom const captures). The key points at the CANONICAL design from the start:
@@ -366,11 +366,11 @@ object r__For_Plugin:
     def genOutPort(retDFTypeIR: ir.DFType) =
       DFVal.Dcl(retDFTypeIR.asFE[DFTypeAny], Modifier.OUT)(using dfc.setName("o"))
     skipRetDFType match
-      // the body was skipped: for a subprogram the call itself is the returned value; for a
+      // the body was skipped: for a method the call itself is the returned value; for a
       // design inst a fresh out port is the returned value (the connection to the body's
       // return value lives in the canonical body)
       case Some(retDFTypeIR) =>
-        if (isSubprogram) exitAndMakeCall(retDFTypeIR)
+        if (isHDLMethod) exitAndMakeCall(retDFTypeIR)
         else
           val paramEntries = Design.Inst.collectParamEntries(clsAppliedArgs(namedConstArgs))
           if (retDFTypeIR == ir.DFUnit)
@@ -393,7 +393,7 @@ object r__For_Plugin:
             case _                       => false
           }
         val retDFTypeIR = ret.dfType.asIR
-        if (isSubprogram)
+        if (isHDLMethod)
           // the return statement: the body's result connects to the single out port
           if (retDFTypeIR != ir.DFUnit)
             val retMeta = ret.asIR.meta

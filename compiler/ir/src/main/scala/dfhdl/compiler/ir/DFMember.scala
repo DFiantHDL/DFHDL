@@ -310,7 +310,7 @@ object DFVal:
   end Modifier
 
   extension (dfVal: DFVal)
-    // a compiler-synthesized member that materializes a value a design def captured from
+    // a compiler-synthesized member that materializes a value a method captured from
     // outside its own scope: a port (non-constant capture), a design parameter (constant
     // capture), or the by-name port selection wiring them at the call site. See `PhantomTag`.
     def isPhantom: Boolean = dfVal.hasTagOf[PhantomTag]
@@ -798,7 +798,7 @@ object DFVal:
       case clog2, max, min, abs, sel
       // special-case of initFile construct for vectors of bits
       case InitFile(format: InitFileFormat, path: String)
-      // A subprogram (def-design) application: a call of a static function or an ED
+      // A method (def-design) application: a call of a static function or an ED
       // method, with `args` as the actuals (explicit args first, then hidden phantom
       // actuals; the split is derived from the def block's formal list, `PhantomTag`).
       // A procedural (Unit-return) call is a `DFUnit`-typed Func in statement position.
@@ -812,7 +812,7 @@ object DFVal:
     end Op
     object Op:
       val associativeSet = Set(Op.+, Op.-, Op.`*`, Op.&, Op.|, Op.^, Op.++, Op.max, Op.min)
-    // Extracts a subprogram call (a `Func` whose op carries a design-block key) as the
+    // Extracts a method call (a `Func` whose op carries a design-block key) as the
     // (typed call, key) pair. Matches at the member level so it composes with the many
     // `DFMember`-typed matches across stages.
     object Call:
@@ -1805,23 +1805,22 @@ object DFDesignBlock:
         case _                         => false
       }
 
-    /** An ED method (HDL function/task — see the ed-methods plan): a design def under the ED
-      * domain. ED methods are locally scoped — printed inside their owning design (as HDL
-      * subprograms) rather than as standalone design files, and their name-uniqueness scope is the
-      * owning design.
+    /** An ED method (HDL function/task — see the ed-methods plan): a method under the ED domain. ED
+      * methods are locally scoped — printed inside their owning design (as HDL methods) rather than
+      * as standalone design files, and their name-uniqueness scope is the owning design.
       */
     def isEDMethod: Boolean =
       dsn.instMode == DFDesignBlock.InstMode.Def && dsn.domainType == DomainType.ED
 
-    /** A static function (`T <> CONSTRET` — see the static-domain plan): a design def under the
-      * static domain. Its arguments are design parameters rather than input ports, and it is
-      * callable from any domain and from the global scope.
+    /** A static function (`T <> CONSTRET` — see the static-domain plan): a method under the static
+      * domain. Its arguments are design parameters rather than input ports, and it is callable from
+      * any domain and from the global scope.
       */
     def isStaticFunction: Boolean =
       dsn.instMode == DFDesignBlock.InstMode.Def && dsn.domainType == DomainType.Static
 
-    /** Prints as an HDL subprogram (function/task/procedure) rather than as a design instance. */
-    def isHDLSubprogram: Boolean = dsn.isEDMethod || dsn.isStaticFunction
+    /** Prints as an HDL method (function/task/procedure) rather than as a design instance. */
+    def isHDLMethod: Boolean = dsn.isEDMethod || dsn.isStaticFunction
     def getCommonDesignWith(dsn2: DFDesignBlock)(using MemberGetSet): DFDesignBlock =
       def getOwnerDesignChain(dsn: DFDesignBlock): List[Set[DFDesignBlock]] =
         var chain = List(Set(dsn))

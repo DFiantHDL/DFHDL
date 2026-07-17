@@ -140,7 +140,7 @@ abstract class ReduplicateDesign extends GlobalStage:
               // `designRef` IS the target design's sub-DB key under unification,
               // so it can be used directly (these merged sub-DBs are not yet wired
               // into a root, so structural `getDesignBlock` is not available here).
-              // A subprogram call's key is that same kind of key.
+              // A method call's key is that same kind of key.
               case inst: DFDesignInst       => emit(inst.designRef)
               case DFVal.Func.Call(_, dKey) => emit(dKey)
               case _                        =>
@@ -202,7 +202,7 @@ abstract class ReduplicateDesign extends GlobalStage:
     // Under unification a cloned inst's `designRef` must equal its cloned target
     // block's `ownerRef` (the `subDBs` key). `copyWithNewRefs` does not freshen
     // `designRef`, so set it explicitly to the cloned child block's fresh ownerRef.
-    // A cloned subprogram call's key gets the exact same re-anchoring.
+    // A cloned method call's key gets the exact same re-anchoring.
     origSubDB.members.foreach {
       case inst: DFDesignInst =>
         val clonedInst = acc.memberMap(inst).asInstanceOf[DFDesignInst]

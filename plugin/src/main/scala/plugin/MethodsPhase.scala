@@ -22,10 +22,10 @@ import scala.compiletime.uninitialized
 import collection.mutable
 import annotation.tailrec
 
-class DesignDefsPhase(setting: Setting) extends CapturePhase:
+class MethodsPhase(setting: Setting) extends CapturePhase:
   import tpd._
 
-  val phaseName = "DesignDefs"
+  val phaseName = "Methods"
   // override val debugFilter: String => Boolean = _.contains("Playground.scala")
 
   override val runsAfter = Set(transform.Pickler.name)
@@ -55,10 +55,10 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
     lazy val scalaValArgs = tree.paramss.view.flatten.collect {
       case vd: ValDef if vd.dfValTpeOpt.isEmpty && !vd.tpt.tpe.isMetaContext => vd
     }.toList
-    // HDL subprograms (ED methods and static functions) are detected by the scope evidence
+    // HDL methods (ED methods and static functions) are detected by the scope evidence
     // parameter that the `<> EDRET` / `<> CONSTRET` match types inject into the context lambda:
     // `Scope.Function` for functions and `Scope.Procedural` for procedural ED methods (Unit).
-    def subprogramScopeKindOf(anonDef: DefDef): Option[Boolean] =
+    def hdlMethodScopeKindOf(anonDef: DefDef): Option[Boolean] =
       anonDef.paramss.flatten.collectFirst {
         case vd: ValDef if vd.tpe <:< scopeFunctionCls.typeRef   => true
         case vd: ValDef if vd.tpe <:< scopeProceduralCls.typeRef => false
@@ -85,25 +85,25 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
               // have a context argument and
               // have at least one DFHDL parameter (ED methods may have none)
               anonDef.dfValTpeOpt.nonEmpty &&
-              (dfValArgs.nonEmpty || subprogramScopeKindOf(anonDef).nonEmpty)
+              (dfValArgs.nonEmpty || hdlMethodScopeKindOf(anonDef).nonEmpty)
           ) =>
         debug("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         debug(tree.show)
         // A static function carries `Scope.Function` exactly as an ED function does, so the scope
-        // evidence identifies a SUBPROGRAM and only the DOMAIN evidence says which kind it is.
-        val isSubprogram = subprogramScopeKindOf(anonDef).nonEmpty
+        // evidence identifies an HDL method and only the DOMAIN evidence says which kind it is.
+        val isHDLMethod = hdlMethodScopeKindOf(anonDef).nonEmpty
         val isStatic = isStaticAnonDef(anonDef)
-        val isEDMethod = isSubprogram && !isStatic
+        val isEDMethod = isHDLMethod && !isStatic
         // "A static function ..." / "An ED method ..." and the plural, for the shared messages
         val kindStr = if (isStatic) "a static function" else "an ED method"
         val kindPluralStr = if (isStatic) "static functions" else "ED methods"
-        var hasSubprogramErrors = false
-        def subprogramError(msg: String): Unit =
+        var hasHDLMethodErrors = false
+        def hdlMethodError(msg: String): Unit =
           report.error(msg, tree.srcPos)
-          hasSubprogramErrors = true
-        if (isSubprogram)
+          hasHDLMethodErrors = true
+        if (isHDLMethod)
           // an explicit (possibly empty `()`) term parameter block is required, so that
-          // subprogram call sites always read as calls
+          // method call sites always read as calls
           val hasTermParamBlock = tree.paramss.exists { clause =>
             clause.isEmpty || clause.headOption.exists {
               case vd: ValDef => !vd.symbol.is(Given)
@@ -111,10 +111,10 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
             }
           }
           if (!hasTermParamBlock)
-            subprogramError(
+            hdlMethodError(
               s"${kindStr.capitalize} must declare an explicit parameter block. Use an empty `()` parameter block if the method has no arguments."
             )
-          // Direct recursion cannot be modeled: a design def is a self-contained design hierarchy
+          // Direct recursion cannot be modeled: a method is a self-contained design hierarchy
           // that cannot contain itself. The reason is ELABORATION termination (the Scala body is
           // re-run per call site), not purity, so this applies to static functions too even though
           // a pure function may legally recurse in both Scala and VHDL.
@@ -125,12 +125,12 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
               case _                                      => traverseChildren(t)
           recursionFinder.traverse(anonDef.rhs)
           if (hasRecursion)
-            subprogramError(s"Recursion is not allowed for $kindPluralStr.")
+            hdlMethodError(s"Recursion is not allowed for $kindPluralStr.")
         end if
         if (isEDMethod)
           // An ED method's arguments are input PORTS, wired by a net at the call site, so their
           // values are invisible to elaboration and every call site necessarily elaborates a
-          // structurally identical body. That is what lets one printed subprogram serve all calls,
+          // structurally identical body. That is what lets one printed method serve all calls,
           // and it is exactly what a `<> CONST` argument would break: its value IS visible to
           // elaboration, so two call sites could elaborate genuinely different bodies, and an ED
           // method has no body-dedup step to fall back on. A static function accepts const
@@ -144,7 +144,7 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
                  |Use a `<> VAL` argument instead, reference a constant declared outside the method, or declare a static function (`<> CONSTRET`).""".stripMargin,
               v.srcPos
             )
-            hasSubprogramErrors = true
+            hasHDLMethodErrors = true
           }
         if (isStatic)
           // The inverse of the ED rule: a static function is a region in which every value is
@@ -158,33 +158,33 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
                  |Use a `<> CONST` argument instead.""".stripMargin,
               v.srcPos
             )
-            hasSubprogramErrors = true
+            hasHDLMethodErrors = true
           }
           // static procedures (a `Unit` return with `out` formals, as VHDL procedures allow) are
           // explicitly deferred
           if (hasUnitRet(anonDef))
-            subprogramError(
+            hdlMethodError(
               "A static function must return a value. A `Unit` return type (a procedure) is not supported with `<> CONSTRET`."
             )
         end if
-        // Compile-time enforcement of the subprogram BODY content rules. The SanityCheck
-        // stage's `subprogramCheck` remains the debug-mode backstop for constructs smuggled
+        // Compile-time enforcement of the method BODY content rules. The SanityCheck
+        // stage's `hdlMethodCheck` remains the debug-mode backstop for constructs smuggled
         // in through helper defs, whose bodies this syntactic check cannot see.
-        if (isSubprogram)
-          checkSubprogramContent(anonDef, isStatic, isEDMethod && hasUnitRet(anonDef)) {
+        if (isHDLMethod)
+          checkHDLMethodContent(anonDef, isStatic, isEDMethod && hasUnitRet(anonDef)) {
             (msg, pos) =>
               report.error(msg, pos)
-              hasSubprogramErrors = true
+              hasHDLMethodErrors = true
           }
-        if (hasSubprogramErrors) tree
+        if (hasHDLMethodErrors) tree
         else
           val dfc = ContextArg.at(anonDef).get
           // out-of-scope value references become explicit: DFHDL constants as phantom design
-          // parameters, DFHDL values as phantom input ports (both tagged so the design-def
+          // parameters, DFHDL values as phantom input ports (both tagged so the method
           // view form hides them), and plain Scala values as cache key extensions. All are
           // evaluated in the def's rhs scope at every call, so a pure cache hit (which skips
           // the body) still binds this call's captured values.
-          val captures = discoverDesignDefCaptures(sym, anonDef.symbol, anonDef.rhs)
+          val captures = discoverMethodCaptures(sym, anonDef.symbol, anonDef.rhs)
           // A captured non-constant would become a phantom INPUT PORT, i.e. a non-constant input,
           // which contradicts staticness outright. This is the DFHDL-level half of a static
           // function's purity (`PureCheck` reasons about Scala-level effects and, since DFHDL's
@@ -301,8 +301,8 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
             val ownerClass = clsOf(sym.ownersIterator.find(_.isClass).get.typeRef)
             // calling the runtime method that constructs the design from the definition. All three
             // share a signature, caching, and purity treatment, and differ only in the domain the
-            // design block is constructed under: DF, ED (an HDL subprogram), or Static (an HDL
-            // subprogram whose formals are design parameters rather than input ports).
+            // design block is constructed under: DF, ED (an HDL method), or Static (an HDL
+            // method whose formals are design parameters rather than input ports).
             val designFromDefKindSym =
               if (isStatic) designFromDefStaticSym
               else if (isEDMethod) designFromDefEDSym
@@ -354,12 +354,12 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
       )
     ctx
 
-  // The subprogram body content rules: a subprogram (an ED method or a static function) body
-  // may not construct design content that has no HDL-subprogram form. Mirrors the rule set of
-  // the SanityCheck stage's `subprogramCheck` backstop, but reports at compile time on the
+  // The method body content rules: a method (an ED method or a static function) body
+  // may not construct design content that has no HDL-method form. Mirrors the rule set of
+  // the SanityCheck stage's `hdlMethodCheck` backstop, but reports at compile time on the
   // offending expression. The check is syntactic over the def's own body: constructs reached
   // through helper defs are invisible here and are left to the backstop.
-  private def checkSubprogramContent(
+  private def checkHDLMethodContent(
       anonDef: DefDef,
       isStatic: Boolean,
       isProcedural: Boolean
@@ -379,10 +379,10 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
     object checker extends TreeTraverser:
       def traverse(t: Tree)(using Context): Unit =
         t match
-          // nested design defs (including nested subprograms) are checked independently by
+          // nested methods (including nested methods) are checked independently by
           // their own `transformDefDef` pass
-          case dd: DefDef if designDefAnonOf(dd).nonEmpty => // skip
-          case nt: New                                    =>
+          case dd: DefDef if methodDesignAnonOf(dd).nonEmpty => // skip
+          case nt: New                                       =>
             if (designCls.exists && nt.tpt.tpe.derivesFrom(designCls))
               designInstanceError(nt.srcPos)
             else if (domainContainerCls.exists && nt.tpt.tpe.derivesFrom(domainContainerCls))
@@ -411,10 +411,10 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
                 else "Non-blocking assignments `:==` are not allowed inside an ED function."
               err(msg, ap.srcPos)
             else
-              // the evidence arguments a call applies identify the callee kind: subprograms
+              // the evidence arguments a call applies identify the callee kind: methods
               // take scope evidence (`Scope.Function`/`Scope.Procedural`) and their domain
               // evidence separates ED methods (`DomainType.ED`) from static functions; DF
-              // design defs take `DomainType.DF`
+              // methods take `DomainType.DF`
               def hasArgOf(cls: Symbol): Boolean =
                 cls.exists && args.exists(_.tpe <:< cls.typeRef)
               def hasDomainArg(domainSym: Symbol): Boolean =
@@ -422,16 +422,16 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
                 // reach the (opaque) domain evidence type itself
                 domainSym.exists &&
                   args.exists(_.tpe.widenTermRefExpr.dealias.typeSymbol == domainSym)
-              val isSubprogramCall = hasArgOf(scopeFunctionCls) || hasArgOf(scopeProceduralCls)
-              if (isStatic && isSubprogramCall && hasDomainArg(domainTypeEDSym))
+              val isHDLMethodCall = hasArgOf(scopeFunctionCls) || hasArgOf(scopeProceduralCls)
+              if (isStatic && isHDLMethodCall && hasDomainArg(domainTypeEDSym))
                 err(
                   "ED method calls are not allowed inside a static function. A static function is callable from any domain, so it may only call other static functions.",
                   ap.srcPos
                 )
               else if (
-                !isSubprogramCall &&
+                !isHDLMethodCall &&
                 ((hasDomainArg(domainTypeDFSym) && ap.tpe.dfValTpeOpt.nonEmpty) ||
-                  (isDesignDef(funSym) && !designDefAnon(funSym).exists(isSubprogramAnonDef)))
+                  (isDFHDLMethod(funSym) && !methodDesignAnon(funSym).exists(isHDLMethodAnonDef)))
               )
                 designInstanceError(ap.srcPos)
             end if
@@ -440,7 +440,7 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
       end traverse
     end checker
     checker.traverse(anonDef.rhs)
-  end checkSubprogramContent
+  end checkHDLMethodContent
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
@@ -453,7 +453,7 @@ class DesignDefsPhase(setting: Setting) extends CapturePhase:
     scopeProcessCls = getClassIfDefined("dfhdl.core.DFC.Scope.Process")
     designCls = getClassIfDefined("dfhdl.core.Design")
     domainContainerCls = getClassIfDefined("dfhdl.core.DomainContainer")
-    // the unit's design defs, registered before any of it is transformed (see `collectDesignDefs`)
-    collectDesignDefs(tree)
+    // the unit's methods, registered before any of it is transformed (see `collectDFHDLMethods`)
+    collectDFHDLMethods(tree)
     ctx
-end DesignDefsPhase
+end MethodsPhase

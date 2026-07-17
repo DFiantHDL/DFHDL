@@ -3,7 +3,7 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import dfhdl.compiler.printing.DefaultPrinter
 
-/** The design-load gate's key: the identity that decides whether two design-def or design-class
+/** The design-load gate's key: the identity that decides whether two method or design-class
   * instantiations are the same load. Every IR-bearing part is reduced to a stable default-printer
   * `codeString` (see `dfTypeKey`/`dataKey`), so the key is plain data comparable by value, and the
   * same strings serve the cross-run service `localKey` unchanged. Plain Scala arguments key by
@@ -63,11 +63,11 @@ object DesignLoadKey:
     case fe: dfhdl.core.DFType[?, ?] => dfTypeKey(fe.asIR)
     case _                           => arg
 
-  /** The key of the CURRENT design-def instantiation, or None when the call is uncacheable (the
-    * design is impure, or a data-impure parameter's applied data is unknown during this
-    * elaboration, signaled by an empty `impureParamsKeyOpt`).
+  /** The key of the CURRENT method instantiation, or None when the call is uncacheable (the design
+    * is impure, or a data-impure parameter's applied data is unknown during this elaboration,
+    * signaled by an empty `impureParamsKeyOpt`).
     */
-  def designDefKeyWith(
+  def methodDesignKeyWith(
       inputs: List[DFValAny],
       scalaArgs: List[Any],
       impureParamsKeyOpt: Option[List[(ir.DFType, Any)]]
@@ -83,7 +83,7 @@ object DesignLoadKey:
         )
       )
     else None
-  end designDefKeyWith
+  end methodDesignKeyWith
 
   /** The key of the CURRENT class-design instantiation, computed at the design's END (a class body
     * always runs live for now; the key unifies identical designs), or None when the design is

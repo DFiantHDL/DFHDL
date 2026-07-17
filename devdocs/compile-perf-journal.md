@@ -208,7 +208,7 @@ aggregated across all 72 files:
 | erasure | 2.2 | | |
 | OnCreateEvents | 1.8 | | DFHDL plugin |
 | MetaContextGen | 1.6 | | DFHDL plugin |
-| CodeDigest+other DFHDL plugin phases | ~10 total | | LoopFSM, CustomControl, DesignDefs, etc. each <1.1s |
+| CodeDigest+other DFHDL plugin phases | ~10 total | | LoopFSM, CustomControl, Methods, etc. each <1.1s |
 | PureCheck | 1.5 | | DFHDL plugin |
 | ~15 other standard phases | <1 each | | |
 
@@ -987,7 +987,7 @@ phase-driver frames get cut). Whole compilation, **156.9 s total**:
 
 DFHDL plugin phases individually: CodeDigest 2.2 (was ~17 s before Exp 1 - win
 holding), PureCheck 1.6, OnCreateEvents 1.3, MetaContextGen 1.3, MetaContextPlacer
-1.2, LoopFSM 1.1, FlattenInlined 0.9, TopAnnot 0.8, DesignClsSkip 0.8, DesignDefs
+1.2, LoopFSM 1.1, FlattenInlined 0.9, TopAnnot 0.8, DesignClsSkip 0.8, Methods
 0.7, CustomControl 0.7, MetaContextDelegate 0.6, PreTyper 0.5.
 
 **typer is 72% and everything else is small.** The two compiler wins already landed
