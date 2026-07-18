@@ -491,7 +491,7 @@ object AnnotatedWith:
       // alive so the annotation's downstream implicits (option defaults, etc.) can
       // still resolve at the broadest bound — callers that depend on a specific Out
       // will surface the mismatch later.
-      case None      => '{ annotWith[T, UB, UB] }
+      case None => '{ annotWith[T, UB, UB] }
   end annotWithMacro
 end AnnotatedWith
 

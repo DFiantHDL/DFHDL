@@ -16,12 +16,12 @@ private object SimplifyFunc:
         // TODO: maybe drop this limitation, if we can make DropStructsVecs work in
         // global context.
         case _ if dfc.ownerOption.isEmpty => None
-        case NegateDecimalConst(v)   => Some(v)
-        case IdentityOps(v)          => Some(v)
-        case SelfCancelling(v)       => Some(v)
-        case MaxMinWithOffset(v)     => Some(v)
-        case AdditiveCancellation(v) => Some(v)
-        case _                       => None
+        case NegateDecimalConst(v)        => Some(v)
+        case IdentityOps(v)               => Some(v)
+        case SelfCancelling(v)            => Some(v)
+        case MaxMinWithOffset(v)          => Some(v)
+        case AdditiveCancellation(v)      => Some(v)
+        case _                            => None
 
   // Checks if an intermediate Func can be merged into the current one.
   // + and * are only merged when the intermediate has the same dfType (non-carry).
@@ -180,6 +180,7 @@ private object SimplifyFunc:
           getSet.remove(absorbable)
           Some(func)
         case _ => None
+      end match
     end unapply
   end MergeAssocFunc
 
@@ -203,6 +204,7 @@ private object SimplifyFunc:
             )
           )
         case _ => None
+      end match
     end unapply
   end NegateDecimalConst
 
@@ -230,6 +232,7 @@ private object SimplifyFunc:
             dfc.mutableDB.setMember(c, _.copy(meta = dfc.getMeta))
           )
         case _ => None
+      end match
     end unapply
   end IdentityOps
 
@@ -277,7 +280,7 @@ private object SimplifyFunc:
           offsetFromBase(b, a) match
             case Some(c) if c > 0 => Some(pick(b, a))
             case Some(c) if c < 0 => Some(pick(a, b))
-            case _ =>
+            case _                =>
               // a = b + c
               offsetFromBase(a, b) match
                 case Some(c) if c > 0 => Some(pick(a, b))
@@ -327,6 +330,7 @@ private object SimplifyFunc:
               val remaining = indexed.collect { case (term, k) if k != i && k != j => term }
               rebuildChain(remaining)
             }
+          end if
         case _ => None
       end match
     end unapply

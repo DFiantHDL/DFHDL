@@ -213,7 +213,10 @@ trait Tool:
     // killing only the direct child (`gw_sh`, `vsim` -> `vsimk`, ...) leaves the real workers
     // running, hence the descendants walk. Best-effort and idempotent: safe to call repeatedly.
     def destroyToolTree(): Unit =
-      try process.wrapped.toHandle.descendants().forEach(p => { p.destroyForcibly(); () })
+      try
+        process.wrapped.toHandle.descendants().forEach(p =>
+          p.destroyForcibly(); ()
+        )
       catch case _: Throwable => ()
       process.wrapped.destroyForcibly()
 

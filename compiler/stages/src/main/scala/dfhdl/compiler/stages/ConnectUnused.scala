@@ -28,17 +28,18 @@ case object ConnectUnused extends HierarchyStage:
       case designInst: DFDesignInst =>
         val design = designInst.getDesignBlock
         val subDB = rootDB.subDBs(design.ownerRef)
-        val unusedPorts = subDB.atGetSet { // getSet must be the outer flat-DB getSet for ref resolution to work
-          subDB.members.view
-            .collect {
-              case port: DFVal.Dcl if port.isPort => port
-            }.filter {
-              _.meta.annotations.exists {
-                case _: annotation.Unused => true
-                case _                    => false
-              }
-            }.toList
-        }
+        val unusedPorts =
+          subDB.atGetSet { // getSet must be the outer flat-DB getSet for ref resolution to work
+            subDB.members.view
+              .collect {
+                case port: DFVal.Dcl if port.isPort => port
+              }.filter {
+                _.meta.annotations.exists {
+                  case _: annotation.Unused => true
+                  case _                    => false
+                }
+              }.toList
+          }
         if (unusedPorts.nonEmpty)
           val dsn = new MetaDesign(designInst, Patch.Add.Config.After):
             for (unusedPort <- unusedPorts) do
@@ -46,7 +47,7 @@ case object ConnectUnused extends HierarchyStage:
                 unusedPort.dfType,
                 unusedPort.modifier.dir,
                 designInst,
-                subDB.atGetSet{unusedPort.getRelativeName(design)}
+                subDB.atGetSet { unusedPort.getRelativeName(design) }
               ).asDclAny
               pbns <> OPEN
           Some(dsn.patch)

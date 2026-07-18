@@ -366,4 +366,5 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
     defaultsSIntSym = requiredMethod("dfhdl.core.r__For_Plugin.defaults.sint")
     emptyNoEODFCSym = requiredMethod("dfhdl.core.DFC.emptyNoEO")
     ctx
+  end prepareForUnit
 end TopAnnotPhase
