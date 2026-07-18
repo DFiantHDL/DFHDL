@@ -2538,7 +2538,6 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  n + n
          |end globalTwice
          |
-         |
          |class GA extends EDDesign:
          |  val o = UInt(8) <> OUT
          |  o <> globalTwice(d"8'3")
@@ -2572,7 +2571,6 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       """|def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
          |  n + n
          |end globalTwice
-         |
          |
          |class UsesGW extends EDDesign:
          |  val o = UInt(8) <> OUT

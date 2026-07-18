@@ -237,7 +237,10 @@ trait Printer
   // globals file (where they are additionally wrapped — a VHDL package body, a Verilog
   // defs header). Empty for a design with no global methods.
   def csGlobalMethodDcls: String =
-    globalMethodPrinters.map((block, p) => p.csMethodDcl(block)).mkString("\n\n")
+    // `csMethodDcl` ends with a trailing newline (needed when it stands alone as a file),
+    // so strip it here before joining — otherwise it doubles up with the blank line that
+    // separates the globals block from the rest.
+    globalMethodPrinters.map((block, p) => p.csMethodDcl(block).stripTrailing).mkString("\n\n")
   def alignCode(cs: String): String
   def colorCode(cs: String): String
   import io.AnsiColor._
