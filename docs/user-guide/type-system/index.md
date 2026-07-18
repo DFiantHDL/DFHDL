@@ -557,7 +557,7 @@ class Counter(val width: Int <> CONST = 8) extends RTDesign:
   ```scala
   case class Point(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends Struct
   ```
-- **Method/design-def parameters:**
+- **Method parameters:**
   ```scala
   def increment(x: UInt[8] <> VAL): UInt[8] <> DFRET = x + 1
   ```

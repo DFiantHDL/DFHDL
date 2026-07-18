@@ -2382,4 +2382,64 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("static function call parameterizing a sub-design") {
+    class Inner(val k: UInt[8] <> CONST = d"8'0") extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> k
+    class StaticParamTop extends EDDesign:
+      val o                                               = UInt(8) <> OUT
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      val inner                                           = new Inner(twice(d"8'3"))
+      o <> inner.o
+    end StaticParamTop
+    val top = (new StaticParamTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Inner is
+         |generic (
+         |  k : unsigned(7 downto 0) := 8d"0"
+         |);
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end Inner;
+         |
+         |architecture Inner_arch of Inner is
+         |begin
+         |  o <= k;
+         |end Inner_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity StaticParamTop is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end StaticParamTop;
+         |
+         |architecture StaticParamTop_arch of StaticParamTop is
+         |  signal inner_o : unsigned(7 downto 0);
+         |  pure function twice(n : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return n + n;
+         |  end function;
+         |begin
+         |  inner : entity work.Inner(Inner_arch) generic map (
+         |    k => twice(8d"3")
+         |  ) port map (
+         |    o => inner_o
+         |  );
+         |  o <= inner_o;
+         |end StaticParamTop_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

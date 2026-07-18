@@ -76,7 +76,7 @@ nav:
     - Type System: user-guide/type-system/index.md
     - Connectivity: user-guide/connectivity/index.md
   #   - State/Registers/Memory: user-guide/state/index.md
-  #   - Functions/Methods: user-guide/methods/index.md
+    - Methods: user-guide/methods/index.md
     - Conditionals: user-guide/conditionals/index.md
     - Processes: user-guide/processes/index.md
     - Domain Abstractions: user-guide/design-domains/index.md

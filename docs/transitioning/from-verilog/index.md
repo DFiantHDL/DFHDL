@@ -484,6 +484,110 @@ end match
 Integer literal pattern matching works with `UInt` and `SInt` selectors. Guard conditions (`case _ if sel == N`) also work but are less idiomatic. See [Match Expressions][match-expressions] for full details.
 ///
 
+## Functions and Tasks
+
+Verilog `function`s and `task`s map to DFHDL [methods][Methods]: Scala `def`s declared inside the design. A value-returning method is a function (`<> EDRET`); a `Unit`-returning method is a procedure, which emits as a Verilog `task`. The method's Scala name becomes the generated subprogram name. See the [Methods][Methods] page for the full reference, including static (`<> CONSTRET`) functions and VHDL output.
+
+/// admonition | Function
+    type: verilog
+Arguments are marked `<> VAL`; the return type is `<> EDRET`. The method is called in an assignment or inside a process, exactly like a Verilog function.
+
+<div class="grid" markdown>
+
+```sv linenums="0" title="Verilog"
+function automatic [7:0] add(
+  input [7:0] l, input [7:0] r
+);
+  add = l + r;
+endfunction
+
+assign y = add(a, b);
+```
+
+```scala linenums="0" title="DFHDL"
+def add(
+  l: UInt[8] <> VAL, r: UInt[8] <> VAL
+): UInt[8] <> EDRET =
+  l + r
+end add //optional
+
+y <> add(a, b)
+```
+
+</div>
+
+A function that reads module-level signals or parameters directly maps naturally: reference the outer port/constant in the body and it is captured automatically, with no extra argument at the call site.
+
+<div class="grid" markdown>
+
+```sv linenums="0" title="Verilog"
+localparam [7:0] k = 8'd5;
+function automatic [7:0] addBK(input [7:0] l);
+  addBK = l + b + k;   // b, k read directly
+endfunction
+```
+
+```scala linenums="0" title="DFHDL"
+val k: UInt[8] <> CONST = 5
+def addBK(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+  l + b + k   // b, k captured automatically
+end addBK //optional
+```
+
+</div>
+///
+
+/// admonition | Task
+    type: verilog
+A `Unit`-returning method is a procedure and emits as a Verilog `task`. It is called from statement position inside a `process`.
+
+<div class="grid" markdown>
+
+```sv linenums="0" title="Verilog"
+task automatic show(input [7:0] l);
+  $display("value is %0d", l);
+  #1;
+endtask
+
+always begin
+  show(a);
+end
+```
+
+```scala linenums="0" title="DFHDL"
+def show(l: UInt[8] <> VAL): Unit <> EDRET =
+  report(s"value is $l")
+  wait(1.ns)
+end show //optional
+
+process:
+  show(a)
+```
+
+</div>
+///
+
+/// admonition | Pure constant helpers
+    type: verilog
+A side-effect-free helper whose arguments are all constants can be a **static function** (`<> CONSTRET`). It emits as a Verilog `function automatic` and, unlike an ordinary ED function, may also be evaluated to compute a design parameter.
+
+<div class="grid" markdown>
+
+```sv linenums="0" title="Verilog"
+function automatic [7:0] twice(input [7:0] n);
+  twice = n + n;
+endfunction
+```
+
+```scala linenums="0" title="DFHDL"
+def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+  n + n
+end twice //optional
+```
+
+</div>
+///
+
 ## Operations
 
 /// admonition | Shift Operators

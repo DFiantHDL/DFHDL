@@ -1019,6 +1019,11 @@ given options.CompilerOptions.PrintDFHDLCode = true
 ### Functional Composition
 Functional composition is an alternative way to express a design: instead of declaring a design class, you declare a method (a Scala `def`). It is a method-call based mechanism primarily used for dataflow designs with a single output, and is particularly useful for arithmetic and logic operations. The DFHDL compiler automatically transforms functional composition into direct design composition: each method becomes a design of its own, taking the method's name as its design name during compilation, and every call to the method becomes an instance of that design.
 
+/// admonition | Methods and method designs
+    type: info
+Functional composition is the dataflow (DF) case of DFHDL [methods][Methods], where a method's return type is `<> DFRET`. Such a method elaborates into a **method design**: an ordinary design that is instantiated at each call site, which is what the rest of this section shows. This is distinct from ED methods and static functions, which do **not** become designs; they compile to HDL functions, tasks, and procedures called in place. See the [Methods][Methods] page for the full picture across all domains.
+///
+
 #### Syntax
 The syntax for functional composition follows standard Scala method declaration and invocation to declare and invoke *methods* (functions when they return a value):
 
