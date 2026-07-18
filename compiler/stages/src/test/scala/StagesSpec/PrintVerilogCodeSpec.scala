@@ -2553,4 +2553,105 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // A method used by more than one design (or from global scope) is emitted ONCE in the shared
+  // globals area (a Verilog defs header, at $unit scope under SV) instead of inlined in each
+  // design. The method is declared in a GLOBAL position at the top of the test, above the designs.
+  test("static function shared by two designs is emitted once in the defs header") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    class GA extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'3")
+    class GB extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'4")
+    class GTop extends EDDesign:
+      val o1 = UInt(8) <> OUT
+      val o2 = UInt(8) <> OUT
+      val a  = new GA
+      val b  = new GB
+      o1 <> a.o
+      o2 <> b.o
+    end GTop
+    val top = (new GTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|function automatic logic [7:0] globalTwice(input logic [7:0] n);
+         |begin
+         |  globalTwice = n + n;
+         |end
+         |endfunction
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "GTop_defs.svh"
+         |
+         |module GA(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = globalTwice(8'd3);
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "GTop_defs.svh"
+         |
+         |module GB(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = globalTwice(8'd4);
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "GTop_defs.svh"
+         |
+         |module GTop(
+         |  output logic [7:0] o1,
+         |  output logic [7:0] o2
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] a_o;
+         |  logic [7:0] b_o;
+         |  GA a(
+         |    .o /*-->*/ (a_o)
+         |  );
+         |  GB b(
+         |    .o /*-->*/ (b_o)
+         |  );
+         |  assign o1 = a_o;
+         |  assign o2 = b_o;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static function called at global scope") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    val gW:                               UInt[8] <> CONST    = globalTwice(d"8'5")
+    class UsesGW extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new UsesGW).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|function automatic logic [7:0] globalTwice(input logic [7:0] n);
+         |begin
+         |  globalTwice = n + n;
+         |end
+         |endfunction
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "globalTwice_defs.svh"
+         |
+         |module UsesGW(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = globalTwice(8'd5);
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

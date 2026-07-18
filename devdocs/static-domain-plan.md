@@ -86,11 +86,72 @@ the `Dcl` const-data rule stays and is what makes ports-as-formals const-typed.
    rule always was. (Bodies still specialize on Scala TYPE arguments, which enter the load key
    via `scalaArgs`.)
 
+**§9 SHARED-EMISSION FOR CROSS-DESIGN METHODS IMPLEMENTED (2026-07-18), tree green** (StagesSpec
+539, core 157, lib 167). This is the usage-based half of §9, decided with the user: a method (ED
+method OR static function) used by MORE THAN ONE design is emitted ONCE in the shared globals area
+instead of inlined in each design, exactly like a named type or a global constant. No IR change and
+no forest change — it is a PLACEMENT decision computed purely from existing IR:
+
+- **`DB.hdlMethodDesignUsers`** maps each HDL-method block to the set of NON-method designs that
+  reach it (built on `designBlockOwnershipMap`, resolving method→method calls transitively).
+  **`DB.globalHDLMethods`** = the blocks used by >1 design AND package-eligible (no phantom inputs:
+  globals are never captured, so a phantom always denotes a design-local capture that a package
+  cannot reach).
+- **Unification is free**: a pure method (static functions always; ED methods with only-const
+  captures) already unifies across call sites through the design-load gate (`DesignLoadKey` is
+  `dclMeta + inputTypes + scalaArgs + impureData`, ownerClass-independent), so the "same method,
+  different staticRef" hazard never arises. Forcing global methods pure/const-phantom-only is what
+  guarantees the key exists (`methodDesignKeyWith` returns None for impure) and that the body is
+  package-safe.
+- **Printer**: `methodPrinters(design)` skips `globalHDLMethods`; a new `globalMethodPrinters` +
+  `csGlobalMethodDcls` emit them once, post-order. VHDL wraps them in the `<top>_pkg` package
+  (`csMethodProto` in the spec, `csMethodDcl` body in the package body); Verilog rides the existing
+  `super.csGlobalFileContent` path (SV: `$unit` scope in the defs header; v95/v2001: the module-defs
+  include). DFHDL re-emits them as top-level `def`s.
+- Tests in [PrintVHDLCodeSpec] (static + ED), [PrintVerilogCodeSpec] (static, sv2005),
+  [PrintCodeStringSpec] (static). Existing lib refs unchanged (no lib example shares a method).
+
+**§9.1 GLOBAL-SCOPE CALLS (facet ii) IMPLEMENTED (2026-07-18), tree green** (StagesSpec 542, core
+green, all three printers cover it). A static function called AT global scope (`val W: ... <> CONST
+= clog2(N)`) elaborates, homes, and prints. What it took:
+
+- **Frontend (minimal): `CONSTRET` demands `DFCG`, not `DFC`.** That is the ONLY frontend change
+  needed. `DFCG` is summonable at global scope (the inline given) and, via `given DFCG(using DFC)`,
+  inside any design too, so the call compiles everywhere; a bare `DFC` stays unsummonable at global
+  scope, so `<> VAR`/design ops there are still rejected. `<>`, `:=`, and `evPortVarConstructor`
+  were tried on `DFCG` (for a nicer "cannot be global" scope-guard message on true-global
+  declarations) but REVERTED to `DFC`: `<> DFCG` triggers a dotty `LambdaLift` "could not find
+  proxy for val …: DFC" on the multi-`val` pattern (`val a, b, c = Bit <> IN`, e.g. FullAdderN) —
+  a compiler-plugin/proxy interaction to chase separately. With `<>` on `DFC`, a static function
+  BODY still works at global scope because its `DFCG` context parameter IS a `DFC`. Blocker A
+  (top-level static var body scoping) is the `DclScope[ck.type]` singleton-scope fix.
+- **Homing (the §9.1 work), done WITHOUT a forest rebuild.** The call's def block is built in a
+  detached global `DFCG` mutableDB; its BODY lives in the def's own design context, so it does NOT
+  ride the global MEMBER injection. So `endDesign` (when the def's parent context IS the global
+  one) builds the def's self-contained sub-DB and carries it on the global `DesignContext`
+  (`globalDefSubDBs`); `DesignContext.inject` merges those alongside members/refTable; and
+  `hierarchical` appends them to the forest like adopted sub-DBs (self-contained, so only the block
+  is renamed). No `buildDesignForestDB` seeding, no member reconstruction.
+- **The `Op.Def`-on-a-global-`Func` audit** turned out to be ONE site once homing was right:
+  `DB.designBlockOwnershipMap`/`designBlockDomainOwnershipMap` (flat branch) called
+  `call.getOwnerDesign` on the ownerless global `Func` — now skipped for `call.isGlobal` (a
+  global-scope-called method is recognized separately by `globalCallMethods`). `hierarchical`'s
+  top-design pick skips `Def` blocks (a global def block is injected as a global member ahead of
+  the real top).
+- **Never cached.** A global-scope call runs in a `DFCG` (`emptyNoEO`) that uses DEFAULT elaboration
+  options, so it never received `cacheEnable`; and the cross-run adopt path does not model the
+  loaded global sub-DB (a cache hit re-keyed the def and broke `newToOld`, non-deterministically
+  across an sbt-server session via the process-wide `memStore`). Fix: `designFromDefImpl` detects
+  the global-scope call (`dfc.ownerOption.isEmpty` before `enterOwner`) and forces
+  `cacheEnable=false` for it. Re-elaboration per call is cheap and the printed HDL is unchanged.
+
 **Still pending:**
 
-1. **§9 / §9.1 global (top-level) static functions.** Deferred by the scope decision above; §13
-   reduced the open problem to homing the def-design BLOCK (the call representation is solved).
-2. **§11 step 8**: `testApps` (reference HDL needed no update: output is unchanged).
+1. **`<>`/`:=` on `DFCG`** (nicer scope-guard message on true-global declarations) blocked by the
+   dotty `LambdaLift` proxy issue above.
+2. **Cross-run caching of global-scope calls** (currently disabled) would need the adopt path to
+   model the loaded global sub-DB.
+3. **§11 step 8**: `testApps` (reference HDL needed no update: output is unchanged).
 
 ### Corrections the implementation forced on this plan
 

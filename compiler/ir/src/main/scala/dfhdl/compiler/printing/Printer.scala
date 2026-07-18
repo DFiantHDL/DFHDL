@@ -223,12 +223,21 @@ trait Printer
       if (designDB.isRoot)
         designDB.subDBs.view.values.exists(_.membersGlobals.exists(!_.isAnonymous))
       else designDB.membersGlobals.exists(!_.isAnonymous)
-    anyNamedGlobal || csGlobalTypeDcls.nonEmpty
+    anyNamedGlobal || csGlobalTypeDcls.nonEmpty ||
+    designDB.rootDB.globalHDLMethods.nonEmpty
   lazy val hasGlobalContent: Boolean = hasGlobalContentCheck
   def csGlobalFileContent: String =
     sn"""|$csGlobalConstIntDcls
          |$csGlobalTypeDcls
-         |$csGlobalConstNonIntDcls"""
+         |$csGlobalConstNonIntDcls
+         |$csGlobalMethodDcls"""
+  // The global HDL methods (ED methods / static functions used across designs or from
+  // global scope) rendered as method DEFINITIONS, in post-order (a method after the
+  // methods it calls). Shared by the single-string DB view (`csDB`) and the backends'
+  // globals file (where they are additionally wrapped — a VHDL package body, a Verilog
+  // defs header). Empty for a design with no global methods.
+  def csGlobalMethodDcls: String =
+    globalMethodPrinters.map((block, p) => p.csMethodDcl(block)).mkString("\n\n")
   def alignCode(cs: String): String
   def colorCode(cs: String): String
   import io.AnsiColor._
@@ -350,6 +359,11 @@ trait Printer
   // method must be declared before it is used. Each is bound to its FIRST call site's
   // printer, which resolves its phantom actuals in that call site's scope.
   final def methodPrinters(design: DFDesignBlock): List[(DFDesignBlock, TPrinter)] =
+    // methods emitted once in the shared globals area (used by more than one design, or
+    // from global scope) are excluded here — the using design references them by call,
+    // and they are declared globally rather than inside each design (see
+    // `globalMethodPrinters` and the backends' globals-file emission)
+    val globals = getSet.designDB.rootDB.globalHDLMethods
     val ordered = mutable.ListBuffer.empty[(DFDesignBlock, TPrinter)]
     val visited = mutable.Set.empty[DFDesignBlock]
     def visit(hostPrinter: TPrinter, host: DFDesignBlock): Unit =
@@ -358,7 +372,7 @@ trait Printer
           val block = designKey.getDesignBlock(using hostPrinter.getSet)
           // `visited` is marked before recursing, so a (plugin-rejected) recursive method
           // cannot loop here
-          if (block.isHDLMethod && visited.add(block))
+          if (block.isHDLMethod && !globals.contains(block) && visited.add(block))
             // every concrete printer is its own TPrinter (`given printer: TPrinter = this`),
             // so `hostPrinter.TPrinter` IS this printer's TPrinter — a fact the path-dependent
             // type cannot express
@@ -370,6 +384,37 @@ trait Printer
     visit(printer, design)
     ordered.toList
   end methodPrinters
+
+  // The (global HDL method design, printer-bound-to-its-getSet) pairs to emit ONCE in the
+  // shared globals area (a VHDL package / a Verilog defs header). A global method is used
+  // by more than one design (or from global scope) and captures nothing design-local (no
+  // phantoms), so it needs no call-site phantom substitution. Ordered post-order (a method
+  // follows the methods it calls) since an HDL method must be declared before it is used.
+  final def globalMethodPrinters: List[(DFDesignBlock, TPrinter)] =
+    val root = getSet.designDB.rootDB
+    val globals = root.globalHDLMethods
+    val ordered = mutable.ListBuffer.empty[(DFDesignBlock, TPrinter)]
+    val visited = mutable.Set.empty[DFDesignBlock]
+    def blockPrinterAndMembers(block: DFDesignBlock): (TPrinter, List[DFMember], MemberGetSet) =
+      root.subDBs.get(block.ownerRef) match
+        case Some(sub) => (withGetSet(sub.getSet), sub.members, sub.getSet)
+        case None      => (printer, block.members(MemberView.Folded), getSet)
+    def visit(block: DFDesignBlock): Unit =
+      if (globals.contains(block) && visited.add(block))
+        val (p, members, defGetSet) = blockPrinterAndMembers(block)
+        // recurse into callees first (post-order)
+        members.foreach {
+          case DFVal.Func.Call(_, key) => visit(key.getDesignBlock(using defGetSet))
+          case _                       =>
+        }
+        ordered += block -> p
+    // deterministic outer order: the sub-DB (elaboration) order of the global methods
+    val orderedGlobals =
+      if (root.isRoot) root.subDBs.view.values.map(_.top).filter(globals.contains)
+      else globals.view
+    orderedGlobals.foreach(visit)
+    ordered.toList
+  end globalMethodPrinters
 
   final def csDB: String =
     // a foreign IP renders as an `import <clsName>` of its pre-existing external class; multiple
@@ -388,7 +433,8 @@ trait Printer
     val globals = formatCode(
       sn"""|$csGlobalConstIntDcls
            |$csGlobalTypeDcls
-           |$csGlobalConstNonIntDcls"""
+           |$csGlobalConstNonIntDcls
+           |$csGlobalMethodDcls"""
     )
     sn"""|$globals
          |

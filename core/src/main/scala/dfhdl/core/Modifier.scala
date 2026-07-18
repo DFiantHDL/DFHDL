@@ -65,8 +65,9 @@ object Modifier:
   ](using
       tc: DFType.TC.Aux[T, OT],
       ck: SC,
-      dt: DT,
-      checkScope: DclScope[SC]
+      dt: DT
+  )(using
+      checkScope: DclScope[ck.type]
   ): ExactOp2Aux["<>", DFC, Any, T, M, DFVal[
     OT,
     Modifier[A & SC & DT, C, I, P]

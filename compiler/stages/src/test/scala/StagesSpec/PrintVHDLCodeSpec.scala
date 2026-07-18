@@ -2442,4 +2442,230 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // A method used by more than one design (or from global scope) is emitted ONCE in the shared
+  // globals area (a VHDL package) instead of inlined in each design. The method is declared in a
+  // GLOBAL position at the top of the test (StageSpec has no ambient DFC), above the designs.
+  test("static function shared by two designs is emitted once in the package") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    class GA extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'3")
+    class GB extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'4")
+    class GTop extends EDDesign:
+      val o1 = UInt(8) <> OUT
+      val o2 = UInt(8) <> OUT
+      val a  = new GA
+      val b  = new GB
+      o1 <> a.o
+      o2 <> b.o
+    end GTop
+    val top = (new GTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|pure function globalTwice(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n;
+         |end function;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GA is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end GA;
+         |
+         |architecture GA_arch of GA is
+         |begin
+         |  o <= globalTwice(8d"3");
+         |end GA_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GB is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end GB;
+         |
+         |architecture GB_arch of GB is
+         |begin
+         |  o <= globalTwice(8d"4");
+         |end GB_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GTop is
+         |port (
+         |  o1 : out unsigned(7 downto 0);
+         |  o2 : out unsigned(7 downto 0)
+         |);
+         |end GTop;
+         |
+         |architecture GTop_arch of GTop is
+         |  signal a_o : unsigned(7 downto 0);
+         |  signal b_o : unsigned(7 downto 0);
+         |begin
+         |  a : entity work.GA(GA_arch) port map (
+         |    o => a_o
+         |  );
+         |  b : entity work.GB(GB_arch) port map (
+         |    o => b_o
+         |  );
+         |  o1 <= a_o;
+         |  o2 <= b_o;
+         |end GTop_arch;
+         |""".stripMargin
+    )
+  }
+  test("ED method shared by two designs is emitted once in the package") {
+    def globalAdd(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET = l + r
+    class GA extends EDDesign:
+      val x = UInt(8) <> IN
+      val y = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      o <> globalAdd(x, y)
+    class GB extends EDDesign:
+      val x = UInt(8) <> IN
+      val y = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      o <> globalAdd(x, y)
+    class GTop extends EDDesign:
+      val o1 = UInt(8) <> OUT
+      val o2 = UInt(8) <> OUT
+      val a  = new GA:
+        this.x <> d"8'1"; this.y <> d"8'2"
+      val b = new GB:
+        this.x <> d"8'3"; this.y <> d"8'4"
+      o1 <> a.o
+      o2 <> b.o
+    end GTop
+    val top = (new GTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|function globalAdd(l : unsigned(7 downto 0); r : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return l + r;
+         |end function;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GA is
+         |port (
+         |  x : in unsigned(7 downto 0);
+         |  y : in unsigned(7 downto 0);
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end GA;
+         |
+         |architecture GA_arch of GA is
+         |begin
+         |  o <= globalAdd(x, y);
+         |end GA_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GB is
+         |port (
+         |  x : in unsigned(7 downto 0);
+         |  y : in unsigned(7 downto 0);
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end GB;
+         |
+         |architecture GB_arch of GB is
+         |begin
+         |  o <= globalAdd(x, y);
+         |end GB_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GTop is
+         |port (
+         |  o1 : out unsigned(7 downto 0);
+         |  o2 : out unsigned(7 downto 0)
+         |);
+         |end GTop;
+         |
+         |architecture GTop_arch of GTop is
+         |  signal a_o : unsigned(7 downto 0);
+         |  signal b_o : unsigned(7 downto 0);
+         |begin
+         |  a : entity work.GA(GA_arch) port map (
+         |    o => a_o,
+         |    x => 8d"1",
+         |    y => 8d"2"
+         |  );
+         |  b : entity work.GB(GB_arch) port map (
+         |    o => b_o,
+         |    x => 8d"3",
+         |    y => 8d"4"
+         |  );
+         |  o1 <= a_o;
+         |  o2 <= b_o;
+         |end GTop_arch;
+         |""".stripMargin
+    )
+  }
+  // A static function CALLED at global scope (computing a global constant) is emitted in the
+  // package too, and the design references the call.
+  test("static function called at global scope") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    val gW: UInt[8] <> CONST                                  = globalTwice(d"8'5")
+    class UsesGW extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new UsesGW).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|pure function globalTwice(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n;
+         |end function;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.globalTwice_pkg.all;
+         |
+         |entity UsesGW is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end UsesGW;
+         |
+         |architecture UsesGW_arch of UsesGW is
+         |begin
+         |  o <= globalTwice(8d"5");
+         |end UsesGW_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

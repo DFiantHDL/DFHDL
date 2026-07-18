@@ -286,6 +286,32 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
          |${body.hindent}
          |$endCS"""
   end csMethodDcl
+  // The package-spec prototype of a GLOBAL method: a global method is declared in the
+  // package spec (this) and defined in the package body (csMethodDcl). Mirrors
+  // csMethodDcl's header, terminated with `;`.
+  def csMethodProto(design: DFDesignBlock): String =
+    val designMembers = design.members(MemberView.Folded)
+    val retValOpt = designMembers.view.reverse.collectFirst {
+      case DFNet.Connection(DclOut(), rv: DFVal, _) => rv
+    }
+    val funcName = design.dclName
+    val hasPhantomSignals = designMembers.exists {
+      case p @ DclIn() => p.isPhantom
+      case _           => false
+    }
+    val purity =
+      if (design.isStaticFunction) "pure "
+      else if (hasPhantomSignals) "impure "
+      else ""
+    val isProcedural = retValOpt.isEmpty
+    val retTypeCS = retValOpt.map(rv => printer.csDFType(rv.dfType).takeWhile(_ != '('))
+    val params = methodFormals(design).map { p =>
+      s"${p.getName} : ${printer.csDFType(p.dfType)}"
+    }.mkString("; ")
+    val paramsCS = params.emptyOr(p => s"($p)")
+    if (isProcedural) s"procedure $funcName$paramsCS;"
+    else s"${purity}function $funcName$paramsCS return ${retTypeCS.get};"
+  end csMethodProto
   def csMethodInst(inst: DFDesignInst): String =
     val design = inst.getDesignBlock
     val instPBNS = getSet.designDB.designInstPBNS.getOrElse(

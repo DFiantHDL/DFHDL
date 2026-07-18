@@ -213,6 +213,13 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       val usesMathReal = getSet.designDB.membersGlobals.exists {
         _.dfType.decompose { case dt: DFDouble => dt }.nonEmpty
       }
+      // Global HDL methods (ED methods / static functions used across designs or from
+      // global scope) are declared in the package spec (prototype) and defined in the
+      // package body, so any design can call them. They are self-contained (no design-local
+      // captures), so no call-site substitution is needed.
+      val globalMethodProtos =
+        printer.globalMethodPrinters.map((block, p) => p.csMethodProto(block)).mkString("\n")
+      val globalMethodBodies = csGlobalMethodDcls
       sn"""|library ieee;
           |use ieee.std_logic_1164.all;
           |use ieee.numeric_std.all;
@@ -223,11 +230,13 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
           |${csGlobalConstIntDcls}
           |${namedTypeConvFuncsDcl}
           |${csGlobalConstNonIntDcls}
+          |${globalMethodProtos}
           |end package ${printer.packageName};
           |
           |package body ${printer.packageName} is
           |${namedTypeConvFuncsBody}
           |${vectorTypeDclsBody}
+          |${globalMethodBodies}
           |end package body ${printer.packageName};
           |"""
     else ""

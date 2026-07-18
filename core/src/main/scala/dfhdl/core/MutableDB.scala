@@ -55,6 +55,10 @@ class DesignContext:
   // to this def as well, so the value the call binds to here is this design's own phantom
   // member for it (see `r__For_Plugin.designFromDefImpl`).
   val defPhantoms = mutable.Map.empty[DFVal, DFValAny]
+  // the pre-built, self-contained sub-DBs of static functions called at GLOBAL scope while this
+  // (global) context was active. A referencing run loads them (`MutableDB.injectGlobals`): the
+  // def block is a global member, but its private body is not, so the built sub-DB carries it.
+  val globalDefSubDBs = mutable.LinkedHashMap.empty[StaticRef, DB]
   val loopIterMap = mutable.Map.empty[Meta, DFValAny]
   // on a design-load hit (`DesignLoadGate`), the canonical design whose body this context
   // duplicates; `endDesign` joins the duplicate to the CANONICAL's group (a design may
@@ -197,6 +201,10 @@ class DesignContext:
     }
     refTable ++= sourceCtx.refTable
     originRefTable ++= sourceCtx.originRefTable
+    // a static function called at GLOBAL scope carries its pre-built, self-contained sub-DB
+    // here (its def block is a global member, but its private body is not part of the global
+    // members). Merging them with the rest of the context makes them ride every injection.
+    globalDefSubDBs ++= sourceCtx.globalDefSubDBs
   end inject
 
   def getImmutableMemberList: List[DFMember] =
@@ -249,7 +257,6 @@ final class MutableDB():
     // memoized sub-DB per design: a design's members are final once it has ended, so its
     // sub-DB is stable and the same instance serves every later lookup/store/assembly
     private val subDBMemo = mutable.Map.empty[StaticRef, DB]
-
     def designAt(design: StaticRef): DFDesignBlock = designOf.get(design) match
       case Some(d) => d
       // a pre-unification `DFDesignInst.designRef` is a distinct parent-side ref (not a
@@ -306,7 +313,12 @@ final class MutableDB():
       // canonical), so a duplicate's retained snapshot is simply never read.
       designMembers += design.refId -> currentMembers
       stack.head.refTable ++= currentRefTable
-
+      // a static function called at GLOBAL scope (its parent context IS the global one): carry
+      // its pre-built, self-contained sub-DB on the global context, so a run referencing the
+      // resulting global value can LOAD it. Its body is private to this def's context and does
+      // not ride the global member injection, so the built sub-DB is how the body travels.
+      if ((stack.head eq global) && design.instMode == DFDesignBlock.InstMode.Def)
+        global.globalDefSubDBs += design.refId -> buildDesignSubDB(design.refId)
       stack.head.addMember(design)
       current = stack.head
       stack = stack.drop(1)
@@ -997,7 +1009,11 @@ final class MutableDB():
     // the injected globals and the top design block, and the run-wide merged refTable
     val topMemberList = DesignContext.current.getImmutableMemberList
     val rawRefTable = DesignContext.current.getImmutableRefTable
-    val topDesign = topMemberList.collectFirst { case d: DFDesignBlock => d }.get
+    // a def-design block (a static function called at global scope) may be injected into the
+    // top-level context ahead of the real top design, so skip Def blocks when finding the top
+    val topDesign = topMemberList.collectFirst {
+      case d: DFDesignBlock if d.instMode != DFDesignBlock.InstMode.Def => d
+    }.get
     val natural = DesignContext.buildDesignForestDB(topDesign.refId)
     val dclNames = dclNameEnumeration
     val constrainedDcls = ResourceOwnershipContext.getConstrainedDcls()
@@ -1080,6 +1096,13 @@ final class MutableDB():
     val builtSubDBs = mutable.LinkedHashMap.empty[StaticRef, DB]
     natural.subDBs.foreach { (key, sub) =>
       builtSubDBs(key) = if (DesignLoadGate.isAdopted(key)) fixAdoptedSubDB(sub) else fixSubDB(sub)
+    }
+    // append the global-scope def sub-DBs that arrived through global injection (static
+    // functions called at global scope): they are forest roots — referenced by a global `Func`,
+    // not by any design in the natural forest — and self-contained, so they are fixed like
+    // adopted designs (only the block itself renamed; refs already resolve within the sub-DB)
+    DesignContext.global.globalDefSubDBs.foreach { (key, sub) =>
+      if (!builtSubDBs.contains(key)) builtSubDBs(key) = fixAdoptedSubDB(sub)
     }
     // orphan globals (reached by no sub-DB closure) anchor at the top design's sub-DB
     val allGlobalsOrderedRaw: List[DFVal.CanBeGlobal] = topMemberList.collect {

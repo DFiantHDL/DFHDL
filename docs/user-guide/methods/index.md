@@ -307,6 +307,31 @@ The call `twice(d"8'3")` becomes the generic binding `k => twice(8d"3")` on the 
 ///
 ///
 
+## Global methods
+
+An ED method or static function is normally emitted *inside* the design that uses it (a VHDL function in the architecture, a Verilog function in the module). When the **same** method is used by **more than one design**, or is called from **global scope**, DFHDL emits it **once** in the shared globals area instead of duplicating it in each design, the same way a named type or a global constant is shared. This happens automatically; there is no separate keyword.
+
+- **VHDL**: the method is declared in a package (a prototype in the package declaration and its body in the package body), and each using architecture pulls it in with `use work.<pkg>.all;`.
+- **Verilog / SystemVerilog**: the method is written once in the generated defs header (`.svh` / `.vh`) and included by each using module.
+
+A method qualifies for this shared emission only when it captures nothing from a single design: its body must reference only its own arguments, global constants, and other global methods. A method that captures a design-local signal or constant stays inside each using design, since a shared package has no access to a single design's members.
+
+/// admonition | Declaring a method at the top level
+    type: info
+The most direct way to share a method across designs is to declare it at the top level (outside any design), just like a global constant. It is then available to every design, and it is emitted once in the globals area as soon as two or more designs call it. A top-level method used by only one design is still emitted locally inside that design.
+///
+
+### Static functions at global scope
+
+Because a static function is constant-valued, it can also be **called at global scope** to compute a global constant or a design parameter's default, keeping the generated HDL parametric rather than folding to a literal:
+
+```scala
+def clog2(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = /* ... */
+val ADDR_W: UInt[8] <> CONST = clog2(d"8'200")
+```
+
+`clog2` is emitted once in the globals area, and the global constant is emitted there as its call, `clog2(...)`. A static function called this way is never elaboration-cached (it is re-elaborated per call), which does not affect the generated HDL. (ED methods have no global-scope form: an ED method can only be called inside an event-driven domain.)
+
 ## What a method body may contain
 
 Because ED methods and static functions become HDL subprograms rather than designs, their bodies are restricted to what a subprogram can express. A method body may **not** contain a design instance, a `process`, a domain block, or a recursive call to itself. Static functions are further restricted to be pure: they may not perform text output or `wait`, take non-constant arguments, capture non-constant values, return `Unit`, or call an ED method. These rules are checked at compile time, and a violation is reported as an error.

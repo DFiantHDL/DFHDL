@@ -2512,4 +2512,73 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // A method used by more than one design (or from global scope) re-emits as a top-level `def`
+  // (outside the designs) rather than inlined in each. The method is declared in a GLOBAL position
+  // at the top of the test, above the designs.
+  test("static function shared by two designs re-emits as a top-level def") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    class GA extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'3")
+    class GB extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'4")
+    class GTop extends EDDesign:
+      val o1 = UInt(8) <> OUT
+      val o2 = UInt(8) <> OUT
+      val a  = new GA
+      val b  = new GB
+      o1 <> a.o
+      o2 <> b.o
+    end GTop
+    val top = (new GTop).getCodeString
+    assertNoDiff(
+      top,
+      """|def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + n
+         |end globalTwice
+         |
+         |
+         |class GA extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> globalTwice(d"8'3")
+         |end GA
+         |
+         |class GB extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> globalTwice(d"8'4")
+         |end GB
+         |
+         |class GTop extends EDDesign:
+         |  val o1 = UInt(8) <> OUT
+         |  val o2 = UInt(8) <> OUT
+         |  val a = GA()
+         |  val b = GB()
+         |  o1 <> a.o
+         |  o2 <> b.o
+         |end GTop
+         |""".stripMargin
+    )
+  }
+  test("static function called at global scope re-emits the call inline") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    val gW: UInt[8] <> CONST                                  = globalTwice(d"8'5")
+    class UsesGW extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new UsesGW).getCodeString
+    assertNoDiff(
+      top,
+      """|def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + n
+         |end globalTwice
+         |
+         |
+         |class UsesGW extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> globalTwice(d"8'5")
+         |end UsesGW
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

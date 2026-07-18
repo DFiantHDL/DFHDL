@@ -229,6 +229,11 @@ object r__For_Plugin:
     val isHDLMethod = domain match
       case ir.DomainType.ED | ir.DomainType.Static => true
       case _                                       => false
+    // A call at GLOBAL scope (a static function computing a global value): its def block is
+    // built in a detached global context and carried into referencing runs as a self-contained
+    // sub-DB (see `MutableDB.globalDefSubDBs`), which the cross-run design-load cache does not
+    // model, so such a call is never cached. Detected BEFORE the def's own context opens.
+    val atGlobalScope = dfc.ownerOption.isEmpty
     val designBlock =
       Design.Block.apply(
         domain = domain,
@@ -320,7 +325,7 @@ object r__For_Plugin:
     ctx.defInputs = inputs
     ctx.defParams = params
     val gate = dfc.mutableDB.DesignLoadGate
-    val cacheEnable: Boolean = dfc.elaborationOptions.cacheEnable
+    val cacheEnable: Boolean = dfc.elaborationOptions.cacheEnable && !atGlobalScope
     val keyOpt = DesignLoadKey.methodDesignKeyWith(inputs, scalaArgs, impureParamsKeyOpt)
     // on a design-load hit (intra-run or the sub-design cache service) the body is
     // skipped: the shell context holds only the harness-created public interface, and the
