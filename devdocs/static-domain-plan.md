@@ -145,6 +145,39 @@ green, all three printers cover it). A static function called AT global scope (`
   the global-scope call (`dfc.ownerOption.isEmpty` before `enterOwner`) and forces
   `cacheEnable=false` for it. Re-elaboration per call is cheap and the printed HDL is unchanged.
 
+**VHDL PORT-DECLARATION GLOBALIZATION IMPLEMENTED (2026-07-19), tree green** (StagesSpec 605,
+core static/ED specs 35, lib docExamples 78). A static function READ BY A PORT DECLARATION (its
+init or its parametric width) must be visible at the VHDL entity level: the entity's port clause
+is elaborated before the architecture, so a function used to initialize or size a port cannot be
+declared locally in the architecture. It now emits in the shared `<top>_pkg` package even when a
+single design uses it. Two parts landed:
+
+- **Refactor (pure, tree green first).** `globalHDLMethods` and its helpers (`hdlMethodDesignUsers`,
+  `methodBodyMembers`, `methodIsGlobalEligible`, `globalCallMethods`) moved OUT of `DB` and INTO
+  `AbstractPrinter` as an overridable `def globalHDLMethods`. The three call sites
+  (`hasGlobalContentCheck`, `methodPrinters`, `globalMethodPrinters`) now call the printer method;
+  the `DB` versions are deleted. `methodBodyMembers`/`methodIsGlobalEligible` are `protected` so the
+  VHDL override reuses the eligibility filter. These read the design members directly off the
+  printer's flat `getSet.designDB` (the compiler pipeline always feeds the printer a flat DB, per
+  `HierarchicalPrintSpec`'s own note — no sub-DB routing). Printer output is byte-identical (the
+  decision is unchanged, only relocated).
+- **VHDL rule (the backend-specific addition).** `VHDLPrinter` overrides `globalHDLMethods` to ADD
+  the static functions reachable from any design's port declarations: `portDeclStaticFunctions`
+  walks the value/type graph out of each port's `dfType.getRefs ++ initRefList` (so a width via an
+  `IntParamRef` and an init directly are both covered), collecting `Func.Call` targets that are
+  static functions; `methodCallClosure` then expands to their transitive method callees (a package
+  function must not call an architecture-local one); the result is filtered by `methodIsGlobalEligible`.
+  Verilog/DFHDL do NOT override, and correctly keep such a function LOCAL — Verilog lowers a port
+  init to an `initial` block inside the module body, where the module-scoped function is already
+  visible. Tests: [PrintVHDLCodeSpec] "static function read by a port declaration is emitted in the
+  package" and [PrintVerilogCodeSpec] "static function read by a port declaration stays module-local".
+
+  KNOWN LIMITATION found while probing: a parametric width whose value comes from a static function
+  called in a GENERIC DEFAULT (`class Inner(val w: Int <> CONST = dbl(4))`) crashes at ELABORATION
+  (a `Func.protGetConstData` → `staticRef.getDesignBlock` cast on an `Empty` block during width
+  resolution), before printing. That is a separate elaboration-ordering bug, not addressed here;
+  the printer rule already covers the width case via `dfType.getRefs` for when it is representable.
+
 **Still pending:**
 
 1. **`<>`/`:=` on `DFCG`** (nicer scope-guard message on true-global declarations) blocked by the
@@ -152,23 +185,10 @@ green, all three printers cover it). A static function called AT global scope (`
 2. **Cross-run caching of global-scope calls** (currently disabled) would need the adopt path to
    model the loaded global sub-DB.
 3. **§11 step 8**: `testApps` (reference HDL needed no update: output is unchanged).
-4. **VHDL: a static function READ BY A PORT DECLARATION must be global.** A VHDL port declaration
-   lives in the entity, which is elaborated before the architecture, so a static function used to
-   size or initialize a port (a width parameter, an init value) must be visible at the entity
-   level, i.e. declared in the `<top>_pkg` package, not the architecture. Today `globalHDLMethods`
-   globalizes a method only when it is used by >1 design or called from global scope; a
-   single-design static function read only by a port declaration is emitted LOCALLY (architecture)
-   and so is invisible to the entity's port list, producing invalid VHDL.
-
-   This makes the "is this method global?" decision BACKEND-SPECIFIC (VHDL adds the
-   port-declaration rule; DFHDL/Verilog do not care), so the decision should move OUT of the IR
-   and INTO the printer. Concretely: relocate `globalHDLMethods` and its helpers
-   (`hdlMethodDesignUsers`, `methodBodyMembers`, `methodIsGlobalEligible`, `globalCallMethods`)
-   from `DB` to `AbstractPrinter` as an overridable `def globalHDLMethods` (computed off
-   `getSet.designDB.rootDB`), update the three printer call sites (`hasGlobalContentCheck`,
-   `methodPrinters`, `globalMethodPrinters`) to call it, and delete the `DB` versions. Then the
-   VHDL printer overrides it to ADD static functions reachable from a port `Dcl`'s dfType/init
-   refs. (Move first as a pure refactor with the tree green, then add the VHDL rule.)
+4. **Static function in a GENERIC DEFAULT crashes at elaboration** (the KNOWN LIMITATION above):
+   `staticRef.getDesignBlock` resolves an `Empty` block when a generic default's static call has
+   its const-data forced during port-width resolution. A def-block registration/ordering fix in the
+   elaboration path, independent of the printer globalization rule.
 
 ### Corrections the implementation forced on this plan
 

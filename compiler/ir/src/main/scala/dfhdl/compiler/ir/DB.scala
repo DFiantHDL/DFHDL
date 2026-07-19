@@ -378,7 +378,8 @@ final case class DB private (
       members.view.collect {
         case inst: DFDesignInst => inst.getDesignBlock -> inst.getOwnerDesign
         // a call at GLOBAL scope (a static function computing a global value) has no owning
-        // design; it is a global method, recognized separately (`globalCallMethods`)
+        // design; it is a global method, recognized separately by the printer's global-method
+        // emission
         case DFVal.Func.Call(call, key) if !call.isGlobal =>
           key.getDesignBlock -> call.getOwnerDesign
       }.toList.groupBy(_._1).view.mapValues(_.view.map(_._2).toSet).toMap + (top -> Set.empty)
@@ -417,64 +418,6 @@ final case class DB private (
         }
       }.groupBy(_._1).view.mapValues(_.map(_._2).toSet).toMap + (top -> Set.empty)
     else rootDB.designBlockDomainOwnershipMap
-
-  // HDL-method blocks (ED methods / static functions) mapped to the set of NON-method
-  // designs that use them. A method call is owned by the design (or method) whose body
-  // makes the call (see `designBlockOwnershipMap`); a method-to-method call is resolved
-  // transitively, so the resulting users are always real designs. A method reached from
-  // more than one design (or, once global-scope calls exist, from global scope) is
-  // emitted once in the shared globals area rather than inlined in each using design.
-  lazy val hdlMethodDesignUsers: Map[DFDesignBlock, Set[DFDesignBlock]] =
-    if (isRoot || isOldStyleFlatDB)
-      val ownership = designBlockOwnershipMap
-      def realUsersOf(block: DFDesignBlock, seen: Set[DFDesignBlock]): Set[DFDesignBlock] =
-        ownership.getOrElse(block, Set.empty).flatMap { owner =>
-          if (!owner.isHDLMethod) Set(owner)
-          else if (seen(owner)) Set.empty[DFDesignBlock]
-          else realUsersOf(owner, seen + owner)
-        }
-      ownership.keysIterator.filter(_.isHDLMethod)
-        .map(m => m -> realUsersOf(m, Set(m))).toMap
-    else rootDB.hdlMethodDesignUsers
-
-  // The body members of an HDL-method block: its own sub-DB on a root, or the members
-  // it owns on a flat DB.
-  private def methodBodyMembers(m: DFDesignBlock): List[DFMember] =
-    if (isRoot) subDBs.get(m.ownerRef).map(_.membersNoGlobals).getOrElse(Nil)
-    else designMemberTable.getOrElse(m, Nil)
-
-  // An HDL method is emittable in a shared package/header only if its body references no
-  // value captured from a single design. Captures materialize as PHANTOM input ports
-  // (globals are never captured — they are reachable everywhere and referenced directly),
-  // so a method with any phantom input is inherently design-local and stays inlined there.
-  private def methodIsGlobalEligible(m: DFDesignBlock): Boolean =
-    !methodBodyMembers(m).exists {
-      case dcl: DFVal.Dcl => dcl.isPortIn && dcl.isPhantom
-      case _              => false
-    }
-
-  // HDL-method blocks referenced by a GLOBAL `Func` call (a static function called at global
-  // scope, e.g. to compute a global constant). Such a method has no design user, but must still
-  // be emitted once in the shared globals area alongside the global value it computes.
-  private def globalCallMethods: Set[DFDesignBlock] =
-    val subs = if (isRoot) subDBs.view.values else Iterable(self)
-    subs.flatMap { sub =>
-      sub.atGetSet {
-        sub.membersGlobals.view.collect { case DFVal.Func.Call(_, key) =>
-          key.getDesignBlock(using sub.getSet)
-        }
-      }
-    }.filter(_.isHDLMethod).toSet
-
-  // HDL-method blocks emitted once in the shared globals area: used by more than one
-  // design, or called from global scope; and package-eligible.
-  lazy val globalHDLMethods: Set[DFDesignBlock] =
-    if (isRoot || isOldStyleFlatDB)
-      val byUsage = hdlMethodDesignUsers.iterator.collect {
-        case (m, users) if users.sizeIs > 1 => m
-      }
-      (byUsage.toSet ++ globalCallMethods).filter(methodIsGlobalEligible)
-    else rootDB.globalHDLMethods
 
   lazy val designInstPBNS: Map[DFDesignInst, List[DFVal.PortByNameSelect]] =
     members.collect { case pbns: DFVal.PortByNameSelect => pbns }.groupBy(_.getDesignInst)

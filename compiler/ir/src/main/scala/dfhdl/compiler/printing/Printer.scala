@@ -217,6 +217,62 @@ trait Printer
   end csDFMember
   def designFileName(designName: String): String
   def globalFileName: String
+
+  // ── HDL-method global-emission decision ─────────────────────────────────────
+  // Which HDL-method blocks (ED methods / static functions) are emitted ONCE in the shared
+  // globals area (a VHDL package / a Verilog defs header) instead of inlined in each using
+  // design. This is a PLACEMENT decision computed purely from the IR, and it is
+  // BACKEND-SPECIFIC (VHDL additionally globalizes a static function read by a port
+  // declaration, since the entity is elaborated before the architecture), so it lives in the
+  // printer as an overridable `def` rather than in the IR. The compiler pipeline feeds the
+  // printer a flat DB, so these read the design members directly (no sub-DB routing).
+
+  // HDL-method blocks mapped to the set of NON-method designs that use them. A method call is
+  // owned by the design (or method) whose body makes the call (`designBlockOwnershipMap`); a
+  // method-to-method call is resolved transitively, so the resulting users are always real
+  // designs.
+  private def hdlMethodDesignUsers: Map[DFDesignBlock, Set[DFDesignBlock]] =
+    val ownership = getSet.designDB.designBlockOwnershipMap
+    def realUsersOf(block: DFDesignBlock, seen: Set[DFDesignBlock]): Set[DFDesignBlock] =
+      ownership.getOrElse(block, Set.empty).flatMap { owner =>
+        if (!owner.isHDLMethod) Set(owner)
+        else if (seen(owner)) Set.empty[DFDesignBlock]
+        else realUsersOf(owner, seen + owner)
+      }
+    ownership.keysIterator.filter(_.isHDLMethod)
+      .map(m => m -> realUsersOf(m, Set(m))).toMap
+
+  // The body members of an HDL-method block: the members it owns.
+  protected final def methodBodyMembers(m: DFDesignBlock): List[DFMember] =
+    getSet.designDB.designMemberTable.getOrElse(m, Nil)
+
+  // An HDL method is emittable in a shared package/header only if its body references no value
+  // captured from a single design. Captures materialize as PHANTOM input ports (globals are
+  // never captured — they are reachable everywhere and referenced directly), so a method with
+  // any phantom input is inherently design-local and stays inlined there.
+  protected final def methodIsGlobalEligible(m: DFDesignBlock): Boolean =
+    !methodBodyMembers(m).exists {
+      case dcl: DFVal.Dcl => dcl.isPortIn && dcl.isPhantom
+      case _              => false
+    }
+
+  // HDL-method blocks referenced by a GLOBAL `Func` call (a static function called at global
+  // scope, e.g. to compute a global constant). Such a method has no design user, but must still
+  // be emitted once in the shared globals area alongside the global value it computes.
+  private def globalCallMethods: Set[DFDesignBlock] =
+    getSet.designDB.membersGlobals.view.collect {
+      case DFVal.Func.Call(_, key) => key.getDesignBlock
+    }.filter(_.isHDLMethod).toSet
+
+  // HDL-method blocks emitted once in the shared globals area: used by more than one design, or
+  // called from global scope; and package-eligible. Overridable per backend (VHDL adds static
+  // functions read by a port declaration).
+  def globalHDLMethods: Set[DFDesignBlock] =
+    val byUsage = hdlMethodDesignUsers.iterator.collect {
+      case (m, users) if users.sizeIs > 1 => m
+    }
+    (byUsage.toSet ++ globalCallMethods).filter(methodIsGlobalEligible)
+
   protected def hasGlobalContentCheck: Boolean =
     val designDB = getSet.designDB
     val anyNamedGlobal =
@@ -224,7 +280,7 @@ trait Printer
         designDB.subDBs.view.values.exists(_.membersGlobals.exists(!_.isAnonymous))
       else designDB.membersGlobals.exists(!_.isAnonymous)
     anyNamedGlobal || csGlobalTypeDcls.nonEmpty ||
-    designDB.rootDB.globalHDLMethods.nonEmpty
+    globalHDLMethods.nonEmpty
   lazy val hasGlobalContent: Boolean = hasGlobalContentCheck
   def csGlobalFileContent: String =
     sn"""|$csGlobalConstIntDcls
@@ -366,7 +422,7 @@ trait Printer
     // from global scope) are excluded here — the using design references them by call,
     // and they are declared globally rather than inside each design (see
     // `globalMethodPrinters` and the backends' globals-file emission)
-    val globals = getSet.designDB.rootDB.globalHDLMethods
+    val globals = globalHDLMethods
     val ordered = mutable.ListBuffer.empty[(DFDesignBlock, TPrinter)]
     val visited = mutable.Set.empty[DFDesignBlock]
     def visit(hostPrinter: TPrinter, host: DFDesignBlock): Unit =
@@ -395,7 +451,7 @@ trait Printer
   // follows the methods it calls) since an HDL method must be declared before it is used.
   final def globalMethodPrinters: List[(DFDesignBlock, TPrinter)] =
     val root = getSet.designDB.rootDB
-    val globals = root.globalHDLMethods
+    val globals = globalHDLMethods
     val ordered = mutable.ListBuffer.empty[(DFDesignBlock, TPrinter)]
     val visited = mutable.Set.empty[DFDesignBlock]
     def blockPrinterAndMembers(block: DFDesignBlock): (TPrinter, List[DFMember], MemberGetSet) =

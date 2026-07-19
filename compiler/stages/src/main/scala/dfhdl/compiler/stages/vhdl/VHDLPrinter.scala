@@ -166,6 +166,55 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   def dfhdlDefsFileName: String = s"dfhdl_pkg.vhd"
   def dfhdlSourceContents: String =
     scala.io.Source.fromResource(dfhdlDefsFileName).getLines().mkString("\n")
+  // A static function READ BY A PORT DECLARATION (its width or its init) must be visible at the
+  // entity level: a port declaration lives in the entity, which is elaborated before the
+  // architecture, so a function used to size or initialize a port cannot be declared locally in
+  // the architecture — it must live in the shared package. Such a function is globalized here
+  // even when a single design uses it, on top of the usage-based globals of `super`.
+  override def globalHDLMethods: Set[DFDesignBlock] =
+    super.globalHDLMethods ++
+      methodCallClosure(portDeclStaticFunctions).filter(methodIsGlobalEligible)
+
+  // Static-function blocks reachable from any port declaration, by following the value/type
+  // graph out of each port's dfType (a parametric width) and init refs: a width may reference a
+  // constant or generic whose value is a static-function call, and an init may be one directly,
+  // so the walk follows refs transitively until it reaches the calls. A static function's own
+  // formal/return ports are NOT entity ports, so method-owned ports are skipped.
+  private def portDeclStaticFunctions: Set[DFDesignBlock] =
+    val ports = getSet.designDB.members.collect {
+      case p: DFVal.Dcl if p.isPort && !p.getOwnerDesign.isHDLMethod => p
+    }
+    val found = mutable.Set.empty[DFDesignBlock]
+    val visited = mutable.Set.empty[DFMember]
+    def visit(m: DFMember): Unit =
+      if (visited.add(m))
+        m match
+          case DFVal.Func.Call(_, key) =>
+            val block = key.getDesignBlock
+            if (block.isStaticFunction) found += block
+          case _ =>
+        m.getRefs.foreach(r => visit(r.get))
+    ports.foreach(p => (p.dfType.getRefs ++ p.initRefList).foreach(r => visit(r.get)))
+    found.toSet
+  end portDeclStaticFunctions
+
+  // Expand a set of HDL-method blocks to include everything they transitively call: a package
+  // function must not reference an architecture-local one, so once a function is globalized its
+  // callees are too. Mirrors the transitive resolution in `hdlMethodDesignUsers`.
+  private def methodCallClosure(seeds: Set[DFDesignBlock]): Set[DFDesignBlock] =
+    val result = mutable.Set.empty[DFDesignBlock]
+    def visit(m: DFDesignBlock): Unit =
+      if (result.add(m))
+        getSet.designDB.designMemberTable.getOrElse(m, Nil).foreach {
+          case DFVal.Func.Call(_, key) =>
+            val callee = key.getDesignBlock
+            if (callee.isHDLMethod) visit(callee)
+          case _ =>
+        }
+    seeds.foreach(visit)
+    result.toSet
+  end methodCallClosure
+
   override protected def hasGlobalContentCheck: Boolean =
     super.hasGlobalContentCheck || printer.globalVectorTypes.nonEmpty
   override def csGlobalFileContent: String =

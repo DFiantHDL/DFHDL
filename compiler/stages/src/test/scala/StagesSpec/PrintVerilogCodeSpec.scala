@@ -2506,6 +2506,39 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // Counterpart to VHDL's "static function read by a port declaration is emitted in the package":
+  // Verilog has no entity/architecture split, so a port init lowers to an `initial` block inside
+  // the module body, where the module-scoped function is already visible. The function therefore
+  // stays module-local and is NOT globalized (the VHDL globalization rule is backend-specific).
+  test("static function read by a port declaration stays module-local") {
+    class PortInitStatic extends EDDesign:
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      val o = UInt(8) <> OUT init twice(d"8'3")
+      o <> d"8'0"
+    end PortInitStatic
+    val top = (new PortInitStatic).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module PortInitStatic(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  initial begin : o_init
+         |    o = twice(8'd3);
+         |  end
+         |  function automatic logic [7:0] twice(input logic [7:0] n);
+         |  begin
+         |    twice = n + n;
+         |  end
+         |  endfunction
+         |  assign o = 8'd0;
+         |endmodule
+         |""".stripMargin
+    )
+  }
   test("static function (`<> CONSTRET`)") {
     class StaticFn extends EDDesign:
       val o = UInt(8) <> OUT

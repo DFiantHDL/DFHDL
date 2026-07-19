@@ -2442,6 +2442,44 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // A static function READ BY A PORT DECLARATION (here the init of an output port) must be
+  // visible at the entity level in VHDL: the entity's port clause is elaborated before the
+  // architecture, so the function cannot live locally in the architecture. It is therefore
+  // emitted in the shared package even though a single design uses it (unlike the design-local
+  // `<> CONSTRET` test above, where the call is in a statement, not a port declaration).
+  test("static function read by a port declaration is emitted in the package") {
+    class PortInitStatic extends EDDesign:
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      val o                                               = UInt(8) <> OUT init twice(d"8'3")
+      o <> d"8'0"
+    end PortInitStatic
+    val top = (new PortInitStatic).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|pure function twice(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n;
+         |end function;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.PortInitStatic_pkg.all;
+         |
+         |entity PortInitStatic is
+         |port (
+         |  o : out unsigned(7 downto 0) := twice(8d"3")
+         |);
+         |end PortInitStatic;
+         |
+         |architecture PortInitStatic_arch of PortInitStatic is
+         |begin
+         |  o <= 8d"0";
+         |end PortInitStatic_arch;
+         |""".stripMargin
+    )
+  }
   // A method used by more than one design (or from global scope) is emitted ONCE in the shared
   // globals area (a VHDL package) instead of inlined in each design. The method is declared in a
   // GLOBAL position at the top of the test (StageSpec has no ambient DFC), above the designs.
