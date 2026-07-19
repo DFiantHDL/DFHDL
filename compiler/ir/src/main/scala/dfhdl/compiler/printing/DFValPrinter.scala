@@ -163,14 +163,19 @@ trait AbstractValPrinter extends AbstractPrinter:
     case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
     case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
     case dv: Alias.SelectField => csDFValAliasSelectField(dv)
-  // The number of the method's VISIBLE formals (non-phantom input ports). Resolved from
-  // the def's own sub-DB under a hierarchical root (the call site's scope holds only the
-  // design header), or directly on a flat DB.
+  // The number of the method's VISIBLE formals: non-phantom input ports plus non-phantom
+  // `<> OUT` argument ports (a procedure's outputs), but NOT a function's return output port.
+  // Resolved from the def's own sub-DB under a hierarchical root (the call site's scope holds
+  // only the design header), or directly on a flat DB.
   private def visibleFormalCountOf(design: DFDesignBlock): Int =
-    def count(members: List[DFMember])(using MemberGetSet): Int = members.count {
-      case dcl: DFVal.Dcl => dcl.isPortIn && !dcl.isPhantom
-      case _              => false
-    }
+    def count(members: List[DFMember])(using MemberGetSet): Int =
+      val returnPort = design.methodReturnPort
+      members.count {
+        case dcl: DFVal.Dcl =>
+          !dcl.isPhantom &&
+            (dcl.isPortIn || (dcl.isPortOut && !returnPort.contains(dcl)))
+        case _ => false
+      }
     getSet.designDB.rootDB.subDBs.get(design.ownerRef) match
       case Some(sub) => sub.atGetSet(count(sub.ownerMemberTable.getOrElse(design, Nil)))
       case None      => count(design.members(MemberView.Folded))

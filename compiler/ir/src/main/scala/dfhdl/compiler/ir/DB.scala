@@ -6,6 +6,7 @@ import scala.collection.mutable
 import scala.collection.immutable.{ListMap, ListSet, BitSet}
 import dfhdl.internals.*
 import dfhdl.compiler.printing.{Printer, DefaultPrinter}
+import dfhdl.compiler.analysis.*
 import DFDesignBlock.InstMode
 import upickle.default.*
 
@@ -724,6 +725,31 @@ final case class DB private (
       }.foldLeft(Map.empty[DFVal.Dcl, Coverage]) { case (acc, (dcl, slice, widthOpt)) =>
         acc.updated(dcl, acc.getOrElse(dcl, Coverage.empty).assign(slice, widthOpt))
       }
+    // A procedural call's `<> OUT` argument actual is written by the call, exactly like a
+    // connection to it, so it counts toward the actual's connectivity coverage. The direction
+    // lives in the called def's formal port: the actuals resolve in the CALLER's sub-DB, the
+    // formal directions in the DEF's own sub-DB (elaboration runs over root+subDBs, so the def's
+    // members are not in the caller's table). Formal ports are in declaration order, aligned with
+    // the call's args; a trailing return output port (a function's result) has no actual and is
+    // dropped by the zip.
+    val outArgActualPoints: Set[ConnectPoint] =
+      subDBs.view.values.flatMap { sub =>
+        sub.atGetSet {
+          sub.members.view.collect { case DFVal.Func.Call(call, staticRef) =>
+            val formalDirs = domainOwnerToSubDB(staticRef.getDesignBlock).atGetSet {
+              designMemberTable(staticRef.getDesignBlock).collect {
+                case dcl: DFVal.Dcl if dcl.modifier.isPort => dcl.modifier.dir
+              }
+            }
+            call.args.view.map(_.get).zip(formalDirs).collect {
+              case (actual, DFVal.Modifier.OUT | DFVal.Modifier.INOUT) => actual
+            }.toList
+          }.flatten.collect {
+            case dcl: DFVal.Dcl               => ConnectPoint.Direct(dcl)
+            case pbns: DFVal.PortByNameSelect => ConnectPoint.Via(pbns)
+          }.toList
+        }
+      }.toSet
     val alreadyConnectedPoints: Set[ConnectPoint] =
       subDBs.view.values.flatMap { sub =>
         sub.atGetSet {
@@ -732,7 +758,7 @@ final case class DB private (
             case pbns: DFVal.PortByNameSelect => ConnectPoint.Via(pbns)
           }.toList
         }
-      }.toSet ++ magnetConnectionMap.keySet
+      }.toSet ++ magnetConnectionMap.keySet ++ outArgActualPoints
     // input ports: checked from the parent sub-DB that owns the instance
     val danglingInputs = subDBs.view.values.flatMap { parentSub =>
       parentSub.atGetSet {

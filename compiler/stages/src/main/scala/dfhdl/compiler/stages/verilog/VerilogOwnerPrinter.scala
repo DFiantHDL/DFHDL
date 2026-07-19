@@ -196,6 +196,12 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
+  // `ref` task/function arguments (needed for a live `<> OUT.NB` output) exist only in
+  // SystemVerilog; plain Verilog (v95/v2001) has no way to express a live output argument
+  val refArgSupport: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
   // ED methods (HDL functions) print inside their owning module's declaration region
   def csMethodDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
@@ -225,8 +231,21 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     // `methodFormals`). Verilog has no method generics, so a static function's parameters
     // print as ordinary input formals.
     val inputs = methodFormals(design)
+    // a copy-out `<> OUT` argument prints as a task `output` (copied back on return); a
+    // non-blocking `<> OUT.NB` needs a LIVE output, which a Verilog task `output` cannot give
+    // (its copy-out happens at return, before a scheduled non-blocking update), so it lowers to
+    // a SystemVerilog `ref` argument. Plain Verilog has no `ref`, so it is unsupported there.
     def csInput(p: DFVal): String =
-      s"input ${csFuncType(p.dfType)}${p.getName}"
+      val dirCS =
+        if (p.isNonBlockingArg)
+          if (refArgSupport) "ref"
+          else
+            throw new IllegalArgumentException(
+              s"A non-blocking output argument (`<> OUT.NB`) of `${design.dclName}` requires a SystemVerilog `ref` argument, which plain Verilog (v95/v2001) does not support. Use a SystemVerilog dialect, or change the argument to a copy-out `<> OUT`."
+            )
+        else if (p.isPortOut) "output"
+        else "input"
+      s"$dirCS ${csFuncType(p.dfType)}${p.getName}"
     // a procedural method (Unit return — no return output port) prints as a task
     val isProcedural = retValOpt.isEmpty
     val method = if (isProcedural) "task" else "function"

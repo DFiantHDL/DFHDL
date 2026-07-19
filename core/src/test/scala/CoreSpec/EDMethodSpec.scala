@@ -192,16 +192,52 @@ class EDMethodSpec extends DFSpec:
   test("procedural ED method (task) elaboration"):
     class FooProc extends EDDesign:
       val a = UInt(8) <> IN
-      def show(l: UInt[8] <> VAL): Unit <> EDRET =
+      def show(l: UInt[8] <> IN): Unit <> EDRET =
         val tmp = UInt(8) <> VAR
         tmp := l
         report(s"value is $tmp")
         wait(1.ns)
-      process.forever:
+      process:
         show(a)
     val top = FooProc()
     val errs = dfc.getErrors
     assert(errs.isEmpty, errs.mkString("\n"))
+
+  test("procedural ED method with an OUT argument elaboration"):
+    class FooOut extends EDDesign:
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT): Unit <> EDRET =
+        o := l + 1
+      process:
+        addOne(a, y)
+    val top = FooOut()
+    val errs = dfc.getErrors
+    assert(errs.isEmpty, errs.mkString("\n"))
+
+  test("procedural ED method with a non-blocking OUT.NB argument elaboration"):
+    class FooOutNB extends EDDesign:
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT.NB): Unit <> EDRET =
+        o :== l + 1
+      process:
+        addOne(a, y)
+    val top = FooOutNB()
+    val errs = dfc.getErrors
+    assert(errs.isEmpty, errs.mkString("\n"))
+
+  test("non-blocking `:==` to a copy-out OUT argument is rejected"):
+    assertPluginError(
+      "Non-blocking assignments `:==` are not allowed inside an ED method, except to an `<> OUT.NB` output argument."
+    )(
+      """
+      class Foo extends EDDesign:
+        val y = UInt(8) <> OUT
+        def store(o: UInt[8] <> OUT): Unit <> EDRET =
+          o :== d"8'0"
+      """
+    )
 
   test("procedural ED method call is rejected outside a process"):
     assertCompileError(
@@ -210,7 +246,7 @@ class EDMethodSpec extends DFSpec:
       """
       class Foo extends EDDesign:
         val a = UInt(8) <> IN
-        def show(l: UInt[8] <> VAL): Unit <> EDRET =
+        def show(l: UInt[8] <> IN): Unit <> EDRET =
           report("hello")
         show(a)
       """
@@ -243,4 +279,47 @@ class EDMethodSpec extends DFSpec:
         y := add(a, a)
       """
     )
+
+  test("valid procedure with an IN argument reports no plugin errors"):
+    assertPluginError("No error found")(
+      """
+      class Ok extends EDDesign:
+        val a = UInt(8) <> IN
+        def show(l: UInt[8] <> IN): Unit <> EDRET =
+          report(s"value is $l")
+        process:
+          show(a)
+      """
+    )
+
+  test("procedure argument must be IN or OUT, not VAL"):
+    assertPluginError(
+      """|A procedural ED method's arguments must be `<> IN` or `<> OUT`.
+         |The `l` argument is a `<> VAL`, which is only valid for a function (a non-`Unit` return).
+         |Use `<> IN` for an input the call reads, or `<> OUT` for an output the call writes.""".stripMargin
+    )(
+      """
+      class Foo extends EDDesign:
+        val a = UInt(8) <> IN
+        def show(l: UInt[8] <> VAL): Unit <> EDRET =
+          report(s"value is $l")
+        process:
+          show(a)
+      """
+    )
+
+  test("ED function argument must be VAL, not a directional port"):
+    assertPluginError(
+      """|An ED function's arguments must be `<> VAL`.
+         |The `l` argument is a directional port (`<> IN`/`<> OUT`), which is only valid for a procedure (a `Unit` return).""".stripMargin
+    )(
+      """
+      class Foo extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        def add(l: UInt[8] <> IN): UInt[8] <> EDRET = l + 1
+        y <> add(a)
+      """
+    )
+
 end EDMethodSpec

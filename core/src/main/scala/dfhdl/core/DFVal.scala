@@ -103,7 +103,14 @@ infix type <>[T <: DFType.Supported, M] = M match
   case EDRET    => EDRETOf[T]
   case CONSTRET => (DFCG, DomainType.Static, DFC.Scope.Function) ?=> DFValOf[DFType.Of[T]]
   case VAL      => DFValOf[DFType.Of[T]]
-  case CONST    => DFConstOf[DFType.Of[T]]
+  // A procedural ED method's directional arguments. The argument type stays GENERIC so ordinary
+  // actuals conform at the call site (any readable value for an input, any assignable variable
+  // for an output), and the direction is carried by a type ANNOTATION the plugin reads: `IN` is a
+  // readable value, `OUT` a copy-out assignable output, and `OUT.NB` a non-blocking (live) output.
+  case IN              => DFValOf[DFType.Of[T]] @IN
+  case OUT             => DFVarOf[DFType.Of[T]] @OUT
+  case Modifier.OUT.NB => DFVarOf[DFType.Of[T]] @Modifier.OUT.NB
+  case CONST           => DFConstOf[DFType.Of[T]]
 
 // A static function (`T <> CONSTRET` — see devdocs/static-domain-plan.md) shares the ED
 // FUNCTION's scope (`Scope.Function`) and differs from it only in the domain evidence, which

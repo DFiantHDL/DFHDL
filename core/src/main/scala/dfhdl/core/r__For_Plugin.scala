@@ -148,7 +148,7 @@ object r__For_Plugin:
     dfc.mutableDB.DesignContext.getDefParam(idx).asInstanceOf[V]
   @metaContextForward(2)
   def designFromDef[V <: DFValAny](
-      args: List[(DFValAny, ir.Meta)],
+      args: List[(DFValAny, ir.Meta, Boolean, Boolean)],
       constArgs: List[(String, DFValAny, ir.Meta)],
       dclMeta: ir.Meta,
       scalaArgs: List[Any],
@@ -165,7 +165,7 @@ object r__For_Plugin:
   // domain (the design prints as an HDL method rather than a module).
   @metaContextForward(2)
   def designFromDefED[V <: DFValAny](
-      args: List[(DFValAny, ir.Meta)],
+      args: List[(DFValAny, ir.Meta, Boolean, Boolean)],
       constArgs: List[(String, DFValAny, ir.Meta)],
       dclMeta: ir.Meta,
       scalaArgs: List[Any],
@@ -186,7 +186,7 @@ object r__For_Plugin:
   // creates (plus the return port).
   @metaContextForward(2)
   def designFromDefStatic[V <: DFValAny](
-      args: List[(DFValAny, ir.Meta)],
+      args: List[(DFValAny, ir.Meta, Boolean, Boolean)],
       constArgs: List[(String, DFValAny, ir.Meta)],
       dclMeta: ir.Meta,
       scalaArgs: List[Any],
@@ -200,7 +200,7 @@ object r__For_Plugin:
       phantomConstArgs, ownerClass)(func)
   private def designFromDefImpl[V <: DFValAny](
       domain: ir.DomainType,
-      args: List[(DFValAny, ir.Meta)],
+      args: List[(DFValAny, ir.Meta, Boolean, Boolean)],
       constArgs: List[(String, DFValAny, ir.Meta)],
       dclMeta: ir.Meta,
       scalaArgs: List[Any],
@@ -249,8 +249,16 @@ object r__For_Plugin:
     // making the generated design self-contained. They are appended after the explicit
     // inputs (the body fetches both through the same `designFromDefGetInput` index space)
     // and tagged so the method view form hides them.
-    val inputs = args.map { (arg, argMeta) =>
-      DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
+    // A procedure's `<> OUT` argument becomes an assignable OUTPUT port the body drives and the
+    // call writes back to its actual; every other value arg (and all phantom captures) is an
+    // input port. Formal order is preserved, so the body's `designFromDefGetInput` index space
+    // and the call-site actuals line up positionally regardless of the IN/OUT mix.
+    val inputs = args.map { (arg, argMeta, isOut, isNB) =>
+      // a non-blocking `<> OUT.NB` output is a signal-class output port (`Modifier.OUT.pNB`), so
+      // the printers emit its live form; a plain `<> OUT` is variable-class copy-out
+      val modifier =
+        if (isNB) Modifier.OUT.pNB else if (isOut) Modifier.OUT else Modifier.IN
+      DFVal.Dcl(arg.dfType, modifier)(using dfc.setMeta(argMeta))
     } ++ phantomArgs.map { (arg, fallbackMeta) =>
       DFVal.Dcl(arg.dfType, Modifier.IN)(using
         dfc.setMeta(phantomMeta(arg, fallbackMeta)).tag(ir.PhantomTag)

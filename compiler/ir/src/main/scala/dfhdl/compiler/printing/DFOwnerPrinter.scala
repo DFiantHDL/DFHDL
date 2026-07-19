@@ -45,9 +45,12 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   // Phantoms are hidden from the signature: a phantom's body references print the captured
   // value's name, resolved at the host design's scope.
   final protected def methodFormals(design: DFDesignBlock): List[DFVal] =
+    val returnPort = design.methodReturnPort
     design.members(MemberView.Folded).collect {
       case param: DFVal.DesignParam if !param.isPhantom => param
       case port @ DclIn() if !port.isPhantom            => port
+      // an `<> OUT` argument port (a procedure's output); the function return port is excluded
+      case port @ DclOut() if !port.isPhantom && !returnPort.contains(port) => port
     }
   // The call site's actual arguments, positionally matching `methodFormals`: the non-phantom
   // parameter applications, then the non-phantom input-port connections.
@@ -294,6 +297,10 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFMembers(defMembers)
     val localDcls = printer.csLocalTypeDcls(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
+    // a procedural ED method: a `Unit` return (no return connection) under the ED domain. Its
+    // input arguments render as `<> IN` (directional ports), unlike a function's `<> VAL` values.
+    val isProcedure = design.domainType == DomainType.ED && retValOpt.isEmpty
+    val returnPort = design.methodReturnPort
     val defArgList = designMembers.collect {
       // phantom ports materialize captured outer references, hidden from the signature.
       // A static function's formals are const-typed (`<> CONST`), which the domain
@@ -301,8 +308,14 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case port @ DclIn() if !port.isPhantom =>
         val csType =
           if (design.isStaticFunction) printer.csDFValConstType(port.dfType)
+          else if (isProcedure) printer.csDFValPortType(port.dfType, "IN")
           else printer.csDFValType(port.dfType)
         s"${port.getName}$csType"
+      // a procedure's `<> OUT` argument port (the function return port is excluded); a
+      // non-blocking output prints as `<> OUT.NB`
+      case port @ DclOut() if !port.isPhantom && !returnPort.contains(port) =>
+        val dirCS = if (port.isNonBlockingArg) "OUT.NB" else "OUT"
+        s"${port.getName}${printer.csDFValPortType(port.dfType, dirCS)}"
     }
     val methodArgsCS =
       if (defArgList.length <= 2) defArgList.mkString(", ")

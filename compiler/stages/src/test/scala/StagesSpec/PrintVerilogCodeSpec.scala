@@ -2399,15 +2399,79 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("ED procedure with an OUT argument") {
+    class EDProcOut extends EDDesign:
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT): Unit <> EDRET =
+        o := l + 1
+      process:
+        addOne(a, y)
+    end EDProcOut
+    val top = (new EDProcOut).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDProcOut(
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  task automatic addOne(input logic [7:0] l, output logic [7:0] o);
+         |  begin
+         |    o = l + 8'd1;
+         |  end
+         |  endtask
+         |  always
+         |  begin
+         |    addOne(a, y);
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("ED procedure with a non-blocking OUT.NB argument") {
+    class EDProcOutNB extends EDDesign:
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT.NB): Unit <> EDRET =
+        o :== l + 1
+      process:
+        addOne(a, y)
+    end EDProcOutNB
+    val top = (new EDProcOutNB).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDProcOutNB(
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  task automatic addOne(input logic [7:0] l, ref logic [7:0] o);
+         |  begin
+         |    o <= l + 8'd1;
+         |  end
+         |  endtask
+         |  always
+         |  begin
+         |    addOne(a, y);
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
   test("ED method (procedural task)") {
     class EDTask extends EDDesign:
       val a = UInt(8) <> IN
-      def show(l: UInt[8] <> VAL): Unit <> EDRET =
+      def show(l: UInt[8] <> IN): Unit <> EDRET =
         report(s"value is $l")
         wait(1.ns)
       def pause(): Unit <> EDRET =
         wait(2.ns)
-      process.forever:
+      process:
         show(a)
         pause()
     end EDTask

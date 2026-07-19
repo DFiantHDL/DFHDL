@@ -171,6 +171,9 @@ abstract class CommonPhase extends PluginPhase:
   var inlineAnnotSym: Symbol = uninitialized
   var dfValSym: Symbol = uninitialized
   var constModTpe: Type = uninitialized
+  var inArgAnnotSym: Symbol = uninitialized
+  var outArgAnnotSym: Symbol = uninitialized
+  var outNBArgAnnotSym: Symbol = uninitialized
   var genContainerParamSym: TermSymbol = uninitialized
   private var bTpe: Type = uninitialized
 
@@ -208,6 +211,26 @@ abstract class CommonPhase extends PluginPhase:
             case _ => false
         case _ =>
           false
+    // The direction/non-blocking annotations an HDL-method argument type carries: `T <> IN` is
+    // `DFValOf[...] @IN`, `T <> OUT` is `DFVarOf[...] @OUT`, `T <> OUT.NB` is `DFVarOf[...] @OUT.NB`.
+    // The `<>` match keeps the argument type GENERIC (a readable value for inputs, an assignable
+    // variable for outputs) and marks the direction with a type ANNOTATION, which survives
+    // match-type reduction as an `AnnotatedType` (a type-parameter marker would not), so the
+    // annotation is the reliable place to read directionality.
+    private def argDirAnnots: List[Symbol] =
+      // `dealiasKeepAnnots`, not `dealias`: plain `dealias` strips annotations while reducing the
+      // `<>` match type, which would discard the very markers we are after.
+      def loop(t: Type, acc: List[Symbol]): List[Symbol] = t.dealiasKeepAnnots match
+        case AnnotatedType(parent, annot) => loop(parent, annot.symbol :: acc)
+        case _                            => acc
+      loop(tpe, Nil)
+    // an input argument (`T <> IN`)
+    def isDFPortIN: Boolean = argDirAnnots.contains(inArgAnnotSym)
+    // an output argument (`T <> OUT` copy-out, or `T <> OUT.NB` non-blocking)
+    def isDFPortOUT: Boolean =
+      argDirAnnots.exists(s => s == outArgAnnotSym || s == outNBArgAnnotSym)
+    // a NON-BLOCKING output argument (`T <> OUT.NB`)
+    def isDFPortOUTNB: Boolean = argDirAnnots.contains(outNBArgAnnotSym)
   end extension
 
   extension (tree: ValOrDefDef)(using Context)
@@ -482,6 +505,9 @@ abstract class CommonPhase extends PluginPhase:
     hasDFCTpe = requiredClassRef("dfhdl.core.HasDFC")
     inlineAnnotSym = requiredClass("scala.inline")
     constModTpe = requiredClassRef("dfhdl.core.ISCONST").appliedTo(ConstantType(Constant(true)))
+    inArgAnnotSym = requiredClass("dfhdl.core.IN")
+    outArgAnnotSym = requiredClass("dfhdl.core.OUT")
+    outNBArgAnnotSym = requiredClass("dfhdl.core.Modifier.OUT.NB")
     contextFunctionSym = defn.FunctionSymbol(1, isContextual = true)
     genContainerParamSym = requiredMethod("dfhdl.core.r__For_Plugin.genContainerParam")
     bTpe = requiredClassRef("dfhdl.hdl.B")

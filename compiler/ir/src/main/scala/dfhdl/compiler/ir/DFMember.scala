@@ -285,6 +285,8 @@ object DFVal:
     extension (mod: Modifier)
       def isReg: Boolean = mod.special == REG
       def isShared: Boolean = mod.special == SHARED
+      // a non-blocking output-argument port, from `<> OUT.NB`
+      def isNB: Boolean = mod.special == NB
       def isPort: Boolean = mod.dir match
         case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
         case _                                           => false
@@ -305,8 +307,8 @@ object DFVal:
       case VIEW(site: ViewSite)
     export Dir.{VAR, IN, OUT, INOUT}
     enum Special derives CanEqual, ReadWriter:
-      case Ordinary, REG, SHARED
-    export Special.{Ordinary, REG, SHARED}
+      case Ordinary, REG, SHARED, NB
+    export Special.{Ordinary, REG, SHARED, NB}
   end Modifier
 
   extension (dfVal: DFVal)
@@ -314,6 +316,10 @@ object DFVal:
     // outside its own scope: a port (non-constant capture), a design parameter (constant
     // capture), or the by-name port selection wiring them at the call site. See `PhantomTag`.
     def isPhantom: Boolean = dfVal.hasTagOf[PhantomTag]
+    // a non-blocking (live / signal-class) `<> OUT.NB` output-argument port
+    def isNonBlockingArg: Boolean = dfVal match
+      case dcl: DFVal.Dcl => dcl.modifier.isNB
+      case _              => false
     def isPort: Boolean = dfVal match
       case dcl: DFVal.Dcl => dcl.modifier.isPort
       case _              => false

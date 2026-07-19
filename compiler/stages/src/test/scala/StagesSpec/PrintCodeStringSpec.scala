@@ -638,6 +638,81 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("ED procedure with an IN argument prints `<> IN`") {
+    class EDProcIn extends EDDesign:
+      val a                                     = UInt(8) <> IN
+      def show(l: UInt[8] <> IN): Unit <> EDRET =
+        val tmp = UInt(8) <> VAR
+        tmp := l
+      process:
+        show(a)
+    end EDProcIn
+    val id = (new EDProcIn)
+    assertCodeString(
+      id,
+      """|class EDProcIn extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  def show(l: UInt[8] <> IN): Unit <> EDRET =
+         |    val tmp = UInt(8) <> VAR
+         |    tmp := l
+         |  end show
+         |
+         |  process:
+         |    show(a)
+         |end EDProcIn
+         |""".stripMargin
+    )
+  }
+  test("ED procedure with an OUT argument prints `<> OUT`") {
+    class EDProcOut extends EDDesign:
+      val a                                                          = UInt(8) <> IN
+      val y                                                          = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT): Unit <> EDRET =
+        o := l + 1
+      process:
+        addOne(a, y)
+    end EDProcOut
+    val id = (new EDProcOut)
+    assertCodeString(
+      id,
+      """|class EDProcOut extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT): Unit <> EDRET =
+         |    o := l + d"8'1"
+         |  end addOne
+         |
+         |  process:
+         |    addOne(a, y)
+         |end EDProcOut
+         |""".stripMargin
+    )
+  }
+  test("ED procedure with a non-blocking OUT.NB argument prints `<> OUT.NB`") {
+    class EDProcOutNB extends EDDesign:
+      val a                                                             = UInt(8) <> IN
+      val y                                                             = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT.NB): Unit <> EDRET =
+        o :== l + 1
+      process:
+        addOne(a, y)
+    end EDProcOutNB
+    val id = (new EDProcOutNB)
+    assertCodeString(
+      id,
+      """|class EDProcOutNB extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT.NB): Unit <> EDRET =
+         |    o :== l + d"8'1"
+         |  end addOne
+         |
+         |  process:
+         |    addOne(a, y)
+         |end EDProcOutNB
+         |""".stripMargin
+    )
+  }
   test("static function (`<> CONSTRET`) def") {
     class StaticFnTop extends EDDesign:
       val o                                               = UInt(8) <> OUT

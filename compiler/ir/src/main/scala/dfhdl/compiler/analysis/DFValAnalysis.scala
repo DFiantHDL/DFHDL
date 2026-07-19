@@ -12,6 +12,17 @@ import scala.util.boundary, boundary.break
 import scala.annotation.targetName
 import scala.collection.immutable.ListMap
 
+extension (design: DFDesignBlock)
+  // A function's RETURN output port: the OUT port driven by a CONNECTION in the def body (the
+  // result wiring), as opposed to an `<> OUT` ARGUMENT port, which the body drives by
+  // ASSIGNMENT. A procedure (`Unit` return) has none. Used to keep the return port out of the
+  // method's printed formal/actual lists.
+  def methodReturnPort(using MemberGetSet): Option[DFVal.Dcl] =
+    design.members(MemberView.Folded).collectFirst {
+      case DFNet.Connection(toVal = p: DFVal.Dcl) if p.isPortOut && !p.isPhantom => p
+    }
+end extension
+
 object IteratorDcl:
   def unapply(dcl: DFVal.Dcl)(using MemberGetSet): Boolean =
     dcl.hasTagOf[IteratorTag]

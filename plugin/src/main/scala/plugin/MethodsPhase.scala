@@ -94,6 +94,13 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
         val isHDLMethod = hdlMethodScopeKindOf(anonDef).nonEmpty
         val isStatic = isStaticAnonDef(anonDef)
         val isEDMethod = isHDLMethod && !isStatic
+        // a procedural ED method (Verilog task / VHDL procedure) has a `Unit` return
+        val isProcedure = isEDMethod && hasUnitRet(anonDef)
+        // directional arguments of a procedure: an `IN` reads as an input port, an `OUT` is an
+        // assignable output port. `dfInArgs` also holds a FUNCTION's `<> VAL` value args (which
+        // are input ports too); `dfOutArgs` is procedure-only.
+        lazy val dfInArgs = dfValArgs.filterNot(_.tpt.tpe.isDFPortOUT)
+        lazy val dfOutArgs = dfValArgs.filter(_.tpt.tpe.isDFPortOUT)
         // "A static function ..." / "An ED method ..." and the plural, for the shared messages
         val kindStr = if (isStatic) "a static function" else "an ED method"
         val kindPluralStr = if (isStatic) "static functions" else "ED methods"
@@ -137,15 +144,43 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
           // arguments precisely because it does (see the static-domain plan §5.6a).
           // Captured outer constants remain supported here: they materialize as phantom
           // parameters that print at the enclosing design's scope.
+          val nonConstSuggestion =
+            if (isProcedure) "a `<> IN` argument instead"
+            else "a `<> VAL` argument instead"
           dfConstValArgs.foreach { v =>
             report.error(
               s"""Constant arguments are not supported for ED methods.
                  |The `${v.name}` argument is a `<> CONST` value, which an ED method cannot take as a parameter.
-                 |Use a `<> VAL` argument instead, reference a constant declared outside the method, or declare a static function (`<> CONSTRET`).""".stripMargin,
+                 |Use $nonConstSuggestion, reference a constant declared outside the method, or declare a static function (`<> CONSTRET`).""".stripMargin,
               v.srcPos
             )
             hasHDLMethodErrors = true
           }
+          // Argument direction rules: a PROCEDURE's arguments are directional ports (`<> IN` /
+          // `<> OUT`), never a plain `<> VAL`; a FUNCTION's arguments are read values (`<> VAL`),
+          // never directional ports (a function has no output arguments, and its inputs are
+          // values, not live ports).
+          if (isProcedure)
+            dfValArgs.foreach { v =>
+              if (!v.tpt.tpe.isDFPortIN && !v.tpt.tpe.isDFPortOUT)
+                report.error(
+                  s"""A procedural ED method's arguments must be `<> IN` or `<> OUT`.
+                     |The `${v.name}` argument is a `<> VAL`, which is only valid for a function (a non-`Unit` return).
+                     |Use `<> IN` for an input the call reads, or `<> OUT` for an output the call writes.""".stripMargin,
+                  v.srcPos
+                )
+                hasHDLMethodErrors = true
+            }
+          else
+            dfValArgs.foreach { v =>
+              if (v.tpt.tpe.isDFPortIN || v.tpt.tpe.isDFPortOUT)
+                report.error(
+                  s"""An ED function's arguments must be `<> VAL`.
+                     |The `${v.name}` argument is a directional port (`<> IN`/`<> OUT`), which is only valid for a procedure (a `Unit` return).""".stripMargin,
+                  v.srcPos
+                )
+                hasHDLMethodErrors = true
+            }
         if (isStatic)
           // The inverse of the ED rule: a static function is a region in which every value is
           // constant, so a non-constant argument has no meaning in it. Its const args become
@@ -171,7 +206,12 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
         // stage's `hdlMethodCheck` remains the debug-mode backstop for constructs smuggled
         // in through helper defs, whose bodies this syntactic check cannot see.
         if (isHDLMethod)
-          checkHDLMethodContent(anonDef, isStatic, isEDMethod && hasUnitRet(anonDef)) {
+          // a procedure may non-blocking-assign (`:==`) to its own `<> OUT.NB` output arguments;
+          // those parameter symbols are exempt from the "no `:==` in an ED method" body rule
+          val nbArgSyms = dfValArgs.view.filter(_.tpt.tpe.isDFPortOUTNB).map(_.symbol).toSet
+          checkHDLMethodContent(
+            anonDef, isStatic, isEDMethod && hasUnitRet(anonDef), nbArgSyms
+          ) {
             (msg, pos) =>
               report.error(msg, pos)
               hasHDLMethodErrors = true
@@ -225,8 +265,18 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
                 mkOptionString(Some(captureName(path))) :: t.symbol.srcPos.positionTree ::
                   mkOptionString(None) :: mkList(Nil) :: Nil
               )
-            // list of tuples of the old arguments and their meta data
-            val args = mkList(dfValArgs.map(a => mkTuple(List(a.ident, a.genMeta))))
+            // list of (value, meta, isOutput, isNonBlocking) tuples of the value arguments. The
+            // `isOutput` flag lets the harness build a direction-correct formal port (an `<> OUT`
+            // argument is an assignable output port the call writes; everything else is an input);
+            // `isNonBlocking` marks an `<> OUT.NB` (live/signal-class) output.
+            val args = mkList(dfValArgs.map(a =>
+              mkTuple(List(
+                a.ident,
+                a.genMeta,
+                Literal(Constant(a.tpt.tpe.isDFPortOUT)),
+                Literal(Constant(a.tpt.tpe.isDFPortOUTNB))
+              ))
+            ))
             // list of (name, applied value, meta) tuples of the `<> CONST` arguments — the
             // design parameters as applied at the call site. The harness (`designFromDef`)
             // creates the design parameters from these, outside the body, so a pure cache hit
@@ -362,7 +412,8 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
   private def checkHDLMethodContent(
       anonDef: DefDef,
       isStatic: Boolean,
-      isProcedural: Boolean
+      isProcedural: Boolean,
+      nbArgSyms: Set[Symbol]
   )(err: (String, util.SrcPos) => Unit)(using Context): Unit =
     val kindNoun = if (isStatic) "a static function" else "an ED method"
     def designInstanceError(pos: util.SrcPos): Unit =
@@ -403,13 +454,23 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
                 err(s"Process blocks are not allowed inside $kindNoun.", ap.srcPos)
               else err(s"This construct is not allowed inside $kindNoun.", ap.srcPos)
             else if (funSym.name.toString == ":==")
-              val msg =
-                if (isStatic)
-                  "Non-blocking assignments `:==` are not allowed inside a static function."
-                else if (isProcedural)
-                  "Non-blocking assignments `:==` are not allowed inside an ED method (writes to outer state are not yet supported)."
-                else "Non-blocking assignments `:==` are not allowed inside an ED function."
-              err(msg, ap.srcPos)
+              // a `:==` whose target is one of the method's own `<> OUT.NB` output arguments is
+              // the intended non-blocking drive of a live output; permit it. The receiver (LHS)
+              // sits several `Apply`/`TypeApply` layers down the curried `:==` spine (extension
+              // receiver, then rhs, then `using DFC`), so gather every argument along the spine.
+              def spineArgs(t: Tree): List[Tree] = t match
+                case Apply(fun, as)  => as ++ spineArgs(fun)
+                case TypeApply(fun, _) => spineArgs(fun)
+                case _                 => Nil
+              val targetsNBArg = spineArgs(ap).exists(a => nbArgSyms.contains(a.symbol))
+              if (!targetsNBArg)
+                val msg =
+                  if (isStatic)
+                    "Non-blocking assignments `:==` are not allowed inside a static function."
+                  else if (isProcedural)
+                    "Non-blocking assignments `:==` are not allowed inside an ED method, except to an `<> OUT.NB` output argument."
+                  else "Non-blocking assignments `:==` are not allowed inside an ED function."
+                err(msg, ap.srcPos)
             else
               // the evidence arguments a call applies identify the callee kind: methods
               // take scope evidence (`Scope.Function`/`Scope.Procedural`) and their domain

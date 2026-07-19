@@ -251,7 +251,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
     "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while",
     "assert", "write", "display", "info", "warning", "error", "fatal", "finish", "localparam",
-    "unique"
+    "unique", "task", "automatic", "endtask", "ref"
   )
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] = Set(

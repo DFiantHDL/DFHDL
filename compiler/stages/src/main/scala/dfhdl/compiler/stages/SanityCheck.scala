@@ -363,12 +363,11 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     methods.foreach { design =>
       val isStatic = design.isStaticFunction
       val designMembers = designDB.getMembersOf(design, MemberView.Flattened)
-      // an ED function has a return output port; an ED procedural method does not. A static
+      // an ED function has a RETURN output port (an output driven by a connection); an ED
+      // procedural method does not. `<> OUT` argument ports are also outputs but are driven by
+      // assignment, so the return port (not any output) is what distinguishes the two. A static
       // function always returns a value (a `Unit` return is rejected by the plugin).
-      val isProcedural = !isStatic && !designMembers.exists {
-        case dcl: DFVal.Dcl if dcl.modifier.dir == DFVal.Modifier.OUT => true
-        case _                                                        => false
-      }
+      val isProcedural = !isStatic && design.methodReturnPort.isEmpty
       val kindStr = if (isStatic) "static function" else "ED method"
       // The rules below that bind BOTH ED kinds name the kind ("an ED method"); only those that
       // bind functions alone say "an ED function".
@@ -382,13 +381,17 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
               "Wait statements are not allowed inside a static function (time does not advance in the static domain)."
             else "Wait statements are not allowed inside an ED function."
           )
-        case net @ DFNet.NBAssignment(_, _) =>
+        // a `:==` to the method's own `<> OUT.NB` output argument is the intended non-blocking
+        // drive of a live output; every other non-blocking assignment is rejected
+        case net @ DFNet.NBAssignment(toVal, _)
+            if !(toVal.isNonBlockingArg ||
+              toVal.departialDcl.exists(_._1.isNonBlockingArg)) =>
           err(
             net,
             if (isStatic)
               "Non-blocking assignments `:==` are not allowed inside a static function."
             else if (isProcedural)
-              "Non-blocking assignments `:==` are not allowed inside an ED method (writes to outer state are not yet supported)."
+              "Non-blocking assignments `:==` are not allowed inside an ED method, except to an `<> OUT.NB` output argument."
             else "Non-blocking assignments `:==` are not allowed inside an ED function."
           )
         case goto: Goto =>

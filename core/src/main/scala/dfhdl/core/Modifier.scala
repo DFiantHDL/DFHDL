@@ -12,12 +12,14 @@ object Modifier:
   sealed trait Assignable
   sealed trait AssignableREG
   sealed trait AssignableSHARED extends Assignable
+  sealed trait AssignableNB extends Assignable
   sealed trait Connectable
   sealed trait Initializable
   sealed trait Initialized
   sealed trait Port
   sealed trait PortIN extends Port
   sealed trait PortOUT extends Port, Assignable
+  sealed trait PortOUT_NB extends PortOUT, AssignableNB
   sealed trait PortINOUT extends PortIN, PortOUT
   type Mutable = Modifier[Assignable, Any, Any, dfhdl.core.NOTCONST]
   type Dcl = Modifier[Assignable, Connectable, Initializable, dfhdl.core.NOTCONST]
@@ -41,6 +43,12 @@ object Modifier:
   object OUT extends DclPort[PortOUT](IRModifier(IRModifier.OUT, IRModifier.Ordinary)):
     protected object pREG extends DclREG[PortOUT](IRModifier(IRModifier.OUT, IRModifier.REG))
     inline def REG(using dt: DomainType)(using RTDomainOnly[dt.type]) = pREG
+    // type-level marker for a non-blocking output argument, written `T <> OUT.NB` in a method
+    // signature (the `<>` match type maps it to an `PortOUT_NB` value)
+    sealed class NB extends scala.annotation.StaticAnnotation
+    // the modifier the harness uses to build an `<> OUT.NB` formal port: a signal-class output
+    private[core] object pNB
+        extends DclPort[PortOUT_NB](IRModifier(IRModifier.OUT, IRModifier.NB))
   object INOUT extends DclPort[PortINOUT](IRModifier(IRModifier.INOUT, IRModifier.Ordinary))
   type CONST = Modifier[Any, Any, Any, dfhdl.core.CONST]
   extension (modifier: ModifierAny) def asIR: IRModifier = modifier.value
@@ -109,6 +117,13 @@ object Modifier:
 end Modifier
 
 sealed trait VAL
+// Type-level direction markers for HDL-method arguments (`T <> IN` / `T <> OUT`), distinct
+// from the same-named value modifiers `Modifier.IN` / `Modifier.OUT` used to declare ports:
+// term-vs-type context disambiguates the two. A procedural ED method takes its arguments as
+// directional ports (an input the call reads, an output the call writes), so these appear only
+// in a procedure's parameter list.
+sealed class IN extends scala.annotation.StaticAnnotation
+sealed class OUT extends scala.annotation.StaticAnnotation
 sealed trait ISCONST[T <: Boolean]
 type CONST = ISCONST[true]
 type NOTCONST = Any

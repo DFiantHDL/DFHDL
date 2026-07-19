@@ -2263,13 +2263,13 @@ class PrintVHDLCodeSpec extends StageSpec:
   }
   test("ED method (procedural procedure)") {
     class EDTask extends EDDesign:
-      val a                                      = UInt(8) <> IN
-      def show(l: UInt[8] <> VAL): Unit <> EDRET =
+      val a                                     = UInt(8) <> IN
+      def show(l: UInt[8] <> IN): Unit <> EDRET =
         report(s"value is $l")
         wait(1.ns)
       def pause(): Unit <> EDRET =
         wait(2.ns)
-      process.forever:
+      process:
         show(a)
         pause()
     end EDTask

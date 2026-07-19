@@ -187,4 +187,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     s": ${printer.csDFType(dfType, typeCS = true)} <> VAL"
   def csDFValConstType(dfType: DFType): String =
     s": ${printer.csDFType(dfType, typeCS = true)} <> CONST"
+  // a procedure argument's directional type (`<> IN` / `<> OUT`)
+  def csDFValPortType(dfType: DFType, dirCS: String): String =
+    s": ${printer.csDFType(dfType, typeCS = true)} <> $dirCS"
 end DFTypePrinter

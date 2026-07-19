@@ -112,7 +112,7 @@ class RTProcessSpec extends NoDFCSpec:
       """
       class Foo extends EDDesign:
         val y = Bit <> OUT
-        process.forever:
+        process:
           y := 1
           this.wait(100)
       """

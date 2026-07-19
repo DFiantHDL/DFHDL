@@ -71,6 +71,8 @@ protected object hdl:
   val OUT = core.Modifier.OUT
   val INOUT = core.Modifier.INOUT
   val VAR = core.Modifier.VAR
+  type IN = core.IN
+  type OUT = core.OUT
   type VAL = core.VAL
   type CONST = core.CONST
   type DFRET = core.DFRET

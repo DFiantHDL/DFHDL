@@ -156,7 +156,7 @@ class StaticFunctionSpec extends DFSpec:
       class Foo extends EDDesign:
         val y = UInt(8) <> OUT
         def sf(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
-          process.forever {}
+          process {}
           n + n
         y <> sf(d"8'1")
       """

@@ -555,7 +555,7 @@ end
 ```
 
 ```scala linenums="0" title="DFHDL"
-def show(l: UInt[8] <> VAL): Unit <> EDRET =
+def show(l: UInt[8] <> IN): Unit <> EDRET =
   report(s"value is $l")
   wait(1.ns)
 end show //optional
