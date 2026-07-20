@@ -2634,6 +2634,54 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("static function reading a global constant stays package-eligible") {
+    val gK: UInt[8] <> CONST                           = d"8'5"
+    def addK(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + gK
+    val gW: UInt[8] <> CONST                           = addK(d"8'3")
+    class ReadsGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new ReadsGlobal).getCodeString
+    assertNoDiff(
+      top,
+      """|val gK: UInt[8] <> CONST = d"8'5"
+         |def addK(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + gK
+         |end addK
+         |val gW: UInt[8] <> CONST = addK(d"8'3")
+         |
+         |class ReadsGlobal extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> gW
+         |end ReadsGlobal
+         |""".stripMargin
+    )
+  }
+  test("static function nested inside a global-scope call is emitted too") {
+    def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    def gQuad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET  = gTwice(gTwice(n))
+    val gC: UInt[8] <> CONST                             = gQuad(d"8'3")
+    class NestedGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gC
+    val top = (new NestedGlobal).getCodeString
+    assertNoDiff(
+      top,
+      """|def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + n
+         |end gTwice
+         |def gQuad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  gTwice(gTwice(n))
+         |end gQuad
+         |val gC: UInt[8] <> CONST = gQuad(d"8'3")
+         |
+         |class NestedGlobal extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> gC
+         |end NestedGlobal
+         |""".stripMargin
+    )
+  }
   test("global constants and static functions interleave by dependency") {
     val gA: UInt[8] <> CONST                              = d"8'1"
     def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET  = n + n

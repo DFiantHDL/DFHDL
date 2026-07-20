@@ -317,8 +317,17 @@ final class MutableDB():
       // its pre-built, self-contained sub-DB on the global context, so a run referencing the
       // resulting global value can LOAD it. Its body is private to this def's context and does
       // not ride the global member injection, so the built sub-DB is how the body travels.
+      // The def's body may itself CALL another def, whose sub-DB must travel too: only this
+      // outermost def rides the global injection, so a nested one would reach the referencing
+      // run with no slot of its own and its hierarchy key would resolve against nothing. The
+      // descent happens HERE, where this context still holds `designMembers`/`designOf` for
+      // the whole nest; the referencing run receives only `globalDefSubDBs`.
       if ((stack.head eq global) && design.instMode == DFDesignBlock.InstMode.Def)
-        global.globalDefSubDBs += design.refId -> buildDesignSubDB(design.refId)
+        def carry(key: StaticRef): Unit =
+          if (!global.globalDefSubDBs.contains(key))
+            global.globalDefSubDBs += key -> buildDesignSubDB(key)
+            childDesignsOf(key).foreach(carry)
+        carry(design.refId)
       stack.head.addMember(design)
       current = stack.head
       stack = stack.drop(1)

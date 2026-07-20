@@ -2723,6 +2723,72 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("static function nested inside a global-scope call is emitted too") {
+    def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    def gQuad(n:  UInt[8] <> CONST): UInt[8] <> CONSTRET = gTwice(gTwice(n))
+    val gC:                          UInt[8] <> CONST    = gQuad(d"8'3")
+    class NestedGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gC
+    val top = (new NestedGlobal).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|function automatic logic [7:0] gTwice(input logic [7:0] n);
+         |begin
+         |  gTwice = n + n;
+         |end
+         |endfunction
+         |function automatic logic [7:0] gQuad(input logic [7:0] n);
+         |begin
+         |  gQuad = gTwice(gTwice(n));
+         |end
+         |endfunction
+         |parameter logic [7:0] gC = gQuad(8'd3);
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "NestedGlobal_defs.svh"
+         |
+         |module NestedGlobal(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = gC;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static function reading a global constant stays package-eligible") {
+    val gK:                        UInt[8] <> CONST    = d"8'5"
+    def addK(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + gK
+    val gW:                        UInt[8] <> CONST    = addK(d"8'3")
+    class ReadsGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new ReadsGlobal).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|parameter logic [7:0] gK = 8'd5;
+         |function automatic logic [7:0] addK(input logic [7:0] n);
+         |begin
+         |  addK = n + gK;
+         |end
+         |endfunction
+         |parameter logic [7:0] gW = addK(8'd3);
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "ReadsGlobal_defs.svh"
+         |
+         |module ReadsGlobal(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = gW;
+         |endmodule
+         |""".stripMargin
+    )
+  }
   test("global constants and static functions interleave by dependency") {
     val gA:                           UInt[8] <> CONST    = d"8'1"
     def gTwice(n:  UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n

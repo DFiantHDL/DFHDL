@@ -2709,6 +2709,81 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("static function reading a global constant stays package-eligible") {
+    val gK: UInt[8] <> CONST                           = d"8'5"
+    def addK(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + gK
+    val gW: UInt[8] <> CONST                           = addK(d"8'3")
+    class ReadsGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new ReadsGlobal).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|constant gK : unsigned(7 downto 0) := 8d"5";
+         |pure function addK(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + gK;
+         |end function;
+         |constant gW : unsigned(7 downto 0) := addK(8d"3");
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.ReadsGlobal_pkg.all;
+         |
+         |entity ReadsGlobal is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end ReadsGlobal;
+         |
+         |architecture ReadsGlobal_arch of ReadsGlobal is
+         |begin
+         |  o <= gW;
+         |end ReadsGlobal_arch;
+         |""".stripMargin
+    )
+  }
+  test("static function nested inside a global-scope call is emitted too") {
+    def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    def gQuad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET  = gTwice(gTwice(n))
+    val gC: UInt[8] <> CONST                             = gQuad(d"8'3")
+    class NestedGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gC
+    val top = (new NestedGlobal).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|pure function gTwice(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n;
+         |end function;
+         |pure function gQuad(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return gTwice(gTwice(n));
+         |end function;
+         |constant gC : unsigned(7 downto 0) := gQuad(8d"3");
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.NestedGlobal_pkg.all;
+         |
+         |entity NestedGlobal is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end NestedGlobal;
+         |
+         |architecture NestedGlobal_arch of NestedGlobal is
+         |begin
+         |  o <= gC;
+         |end NestedGlobal_arch;
+         |""".stripMargin
+    )
+  }
   test("global constants and static functions interleave by dependency") {
     val gA: UInt[8] <> CONST                              = d"8'1"
     def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET  = n + n

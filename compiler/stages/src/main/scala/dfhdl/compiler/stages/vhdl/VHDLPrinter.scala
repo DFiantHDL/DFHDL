@@ -198,23 +198,6 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
     found.toSet
   end portDeclStaticFunctions
 
-  // Expand a set of HDL-method blocks to include everything they transitively call: a package
-  // function must not reference an architecture-local one, so once a function is globalized its
-  // callees are too. Mirrors the transitive resolution in `hdlMethodDesignUsers`.
-  private def methodCallClosure(seeds: Set[DFDesignBlock]): Set[DFDesignBlock] =
-    val result = mutable.Set.empty[DFDesignBlock]
-    def visit(m: DFDesignBlock): Unit =
-      if (result.add(m))
-        getSet.designDB.designMemberTable.getOrElse(m, Nil).foreach {
-          case DFVal.Func.Call(_, key) =>
-            val callee = key.getDesignBlock
-            if (callee.isHDLMethod) visit(callee)
-          case _ =>
-        }
-    seeds.foreach(visit)
-    result.toSet
-  end methodCallClosure
-
   override protected def hasGlobalContentCheck: Boolean =
     super.hasGlobalContentCheck || printer.globalVectorTypes.nonEmpty
   override def csGlobalFileContent: String =

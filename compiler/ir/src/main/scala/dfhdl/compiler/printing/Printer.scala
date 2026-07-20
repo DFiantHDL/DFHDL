@@ -257,11 +257,29 @@ trait Printer
   // captured from a single design. Captures materialize as PHANTOM input ports (globals are
   // never captured — they are reachable everywhere and referenced directly), so a method with
   // any phantom input is inherently design-local and stays inlined there.
-  protected final def methodIsGlobalEligible(m: DFDesignBlock): Boolean =
-    !methodBodyMembers(m).exists {
-      case dcl: DFVal.Dcl => dcl.isPortIn && dcl.isPhantom
-      case _              => false
+  // every call of `m`, global-scope calls included (`members` covers the globals)
+  private def callSitesOf(m: DFDesignBlock): List[DFVal.Func] =
+    getSet.designDB.members.collect {
+      case DFVal.Func.Call(call, key) if key.getDesignBlock == m => call
     }
+  protected final def methodIsGlobalEligible(m: DFDesignBlock): Boolean =
+    val formals = methodBodyMembers(m).collect {
+      case dcl: DFVal.Dcl if dcl.isPortIn => dcl
+    }
+    val phantomIdxs = formals.view.zipWithIndex.collect { case (f, i) if f.isPhantom => i }.toList
+    // A capture materializes as a PHANTOM input port, whose actual is bound POSITIONALLY at
+    // each call site. A GLOBAL actual is reachable from the shared package/header, so it keeps
+    // the method eligible; a design-local one pins the method to its design. An actual that
+    // cannot be lined up with the formals is treated as design-local (the conservative answer).
+    phantomIdxs.isEmpty || callSitesOf(m).forall { call =>
+      val actuals = call.args.map(_.get)
+      actuals.length == formals.length && phantomIdxs.forall { i =>
+        actuals(i) match
+          case dfVal: DFVal.CanBeGlobal => dfVal.isGlobal
+          case _                        => false
+      }
+    }
+  end methodIsGlobalEligible
 
   // HDL-method blocks referenced by a GLOBAL `Func` call (a static function called at global
   // scope, e.g. to compute a global constant). Such a method has no design user, but must still
@@ -278,7 +296,24 @@ trait Printer
     val byUsage = hdlMethodDesignUsers.iterator.collect {
       case (m, users) if users.sizeIs > 1 => m
     }
-    (byUsage.toSet ++ globalCallMethods).filter(methodIsGlobalEligible)
+    methodCallClosure(byUsage.toSet ++ globalCallMethods).filter(methodIsGlobalEligible)
+
+  // Expand a set of HDL-method blocks to include everything they transitively call: an emitted
+  // method's body calls them, and a shared package/header function cannot call one that is
+  // declared inside a single design (or, for a method reached only from global scope, not
+  // declared at all).
+  protected final def methodCallClosure(seeds: Set[DFDesignBlock]): Set[DFDesignBlock] =
+    val result = mutable.Set.empty[DFDesignBlock]
+    def visit(m: DFDesignBlock): Unit =
+      if (result.add(m))
+        methodBodyMembers(m).foreach {
+          case DFVal.Func.Call(_, key) =>
+            val callee = key.getDesignBlock
+            if (callee.isHDLMethod) visit(callee)
+          case _ =>
+        }
+    seeds.foreach(visit)
+    result.toSet
 
   protected def hasGlobalContentCheck: Boolean =
     val designDB = getSet.designDB
