@@ -51,7 +51,7 @@ traits with a given**.
 | `Procedural` | `TimedSequence`, `HasTextOut` | a task body (Verilog task / VHDL procedure) |
 | `Process` | `Procedural` + `HasNBAssign`, `HasSteps`, `HasFork` | |
 | `Initial` | `Sequence`, `HasTextOut` | a `Sequence`, NOT a `TimedSequence`: no `wait`, no task calls |
-| `Function` | `HasVars`, `HasAssign`, `HasLoops` | an ED (later: static) function body |
+| `Function` | `HasVars`, `HasAssign`, `HasLoops` | an ED function or static function body |
 
 The base `Scope` carries the constant capabilities (`<> CONST` declarations, arithmetic and logic on
 constants), so those are legal everywhere, `Global` included.
@@ -61,7 +61,7 @@ Two consequences worth stating outright:
 - **`Process` IS a `Procedural`.** A task call is licensed by plain subtyping, with no conditional
   given. Everything a task body can do, a process body can do.
 - **`Function` has no `HasTextOut`.** A function is pure by definition (see
-  [static-domain-plan.md](static-domain-plan.md) §8.1), so this exclusion is load-bearing, not
+  [methods.md](methods.md) §7), so this exclusion is load-bearing, not
   incidental. It also has no `HasConnect`, `HasPorts`, `HasProcesses` or `HasWait`.
 
 ## 2. How a scope reaches a guard

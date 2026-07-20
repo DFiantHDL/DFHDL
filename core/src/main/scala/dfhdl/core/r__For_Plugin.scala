@@ -160,7 +160,7 @@ object r__For_Plugin:
   )(using DFC): V =
     designFromDefImpl(ir.DomainType.DF, args, constArgs, dclMeta, scalaArgs, phantomArgs,
       phantomConstArgs, ownerClass)(func)
-  // ED methods (HDL functions/tasks/procedures — see the ed-methods plan): same
+  // ED methods (HDL functions/tasks/procedures — see devdocs/methods.md): same
   // construction, caching, and purity treatment as DF methods, but under the ED
   // domain (the design prints as an HDL method rather than a module).
   @metaContextForward(2)
@@ -177,7 +177,7 @@ object r__For_Plugin:
   )(using DFC): V =
     designFromDefImpl(ir.DomainType.ED, args, constArgs, dclMeta, scalaArgs, phantomArgs,
       phantomConstArgs, ownerClass)(func)
-  // Static functions (`<> CONSTRET` — see the static-domain plan): same construction, caching,
+  // Static functions (`<> CONSTRET` — see devdocs/methods.md): same construction, caching,
   // and purity treatment as the other methods, but under the static domain.
   //
   // The plugin requires every DFHDL argument of a static function to be `<> CONST` and every

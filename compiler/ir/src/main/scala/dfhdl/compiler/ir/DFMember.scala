@@ -1810,15 +1810,15 @@ object DFDesignBlock:
         case _                         => false
       }
 
-    /** An ED method (HDL function/task — see the ed-methods plan): a method under the ED domain. ED
+    /** An ED method (HDL function/task — see devdocs/methods.md): a method under the ED domain. ED
       * methods are locally scoped — printed inside their owning design (as HDL methods) rather than
       * as standalone design files, and their name-uniqueness scope is the owning design.
       */
     def isEDMethod: Boolean =
       dsn.instMode == DFDesignBlock.InstMode.Def && dsn.domainType == DomainType.ED
 
-    /** A static function (`T <> CONSTRET` — see the static-domain plan): a method under the static
-      * domain. Its arguments are design parameters rather than input ports, and it is callable from
+    /** A static function (`T <> CONSTRET` — see devdocs/methods.md): a method under the static
+      * domain. Its arguments are static input ports carrying constant data, and it is callable from
       * any domain and from the global scope.
       */
     def isStaticFunction: Boolean =

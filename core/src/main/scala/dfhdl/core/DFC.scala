@@ -225,7 +225,7 @@ object DFC:
     sealed trait HasWait extends Scope
 
     /** Assertions and text printing. NOT granted by `Function`: a function is pure by definition
-      * (see devdocs/static-domain-plan.md §8.1), so this exclusion is load-bearing.
+      * (see devdocs/methods.md), so this exclusion is load-bearing.
       */
     sealed trait HasTextOut extends Scope
 

@@ -2,7 +2,7 @@ package CoreSpec
 import dfhdl.*
 import munit.*
 
-// Static functions (`T <> CONSTRET`) — see devdocs/static-domain-plan.md.
+// Static functions (`T <> CONSTRET`) — see devdocs/methods.md.
 class StaticFunctionSpec extends DFSpec:
   test("static function elaboration"):
     class FooTwice extends RTDesign:

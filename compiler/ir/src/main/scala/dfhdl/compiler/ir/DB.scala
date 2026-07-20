@@ -1301,7 +1301,7 @@ final case class DB private (
       throw new IllegalArgumentException(errors.mkString("\n"))
   end waitCheck
 
-  // ED procedural method call-site checks (see the ed-methods plan), run once on the root.
+  // ED procedural method call-site checks (see devdocs/methods.md), run once on the root.
   // A method that (transitively) contains a wait statement suspends its calling process,
   // which is only legal for processes without a sensitivity list (`process.forever`) or
   // `initial` blocks — VHDL hard-errors on a wait inside a procedure called from a process

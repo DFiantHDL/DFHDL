@@ -328,14 +328,14 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends HierarchyStage:
     require(!hasViolations, "Failed member order check!")
   end orderCheck
 
-  // HDL method content checks: an ED method (see the ed-methods plan) or a static function
-  // (see the static-domain plan). Both are design blocks with `instMode = Def`, and only the
+  // HDL method content checks: an ED method (see devdocs/methods.md) or a static function
+  // (see devdocs/methods.md). Both are design blocks with `instMode = Def`, and only the
   // domain separates them. An ED method is a FUNCTION when it returns a value (has a return
   // output port) and a PROCEDURAL method (Verilog task / VHDL procedure) when it returns Unit.
   // Content rules:
   //   * ED functions: no waits, no non-blocking assignments
   //   * ED procedural methods: waits allowed; non-blocking assignments still rejected
-  //     (writes to outer state are not yet supported, see the ed-methods plan's deferred items)
+  //     (writes to outer state are not yet supported, see devdocs/methods.md)
   //   * static functions: no waits (time does not advance in the static domain), no non-blocking
   //     assignments, and no calls to ED methods (a static function is callable from any domain,
   //     so it may not depend on one)

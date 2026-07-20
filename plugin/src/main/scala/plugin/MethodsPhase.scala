@@ -141,7 +141,7 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
           // and it is exactly what a `<> CONST` argument would break: its value IS visible to
           // elaboration, so two call sites could elaborate genuinely different bodies, and an ED
           // method has no body-dedup step to fall back on. A static function accepts const
-          // arguments precisely because it does (see the static-domain plan §5.6a).
+          // arguments precisely because it does (see devdocs/methods.md).
           // Captured outer constants remain supported here: they materialize as phantom
           // parameters that print at the enclosing design's scope.
           val nonConstSuggestion =

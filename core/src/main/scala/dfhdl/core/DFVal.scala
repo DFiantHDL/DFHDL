@@ -112,7 +112,7 @@ infix type <>[T <: DFType.Supported, M] = M match
   case Modifier.OUT.NB => DFVarOf[DFType.Of[T]] @Modifier.OUT.NB
   case CONST           => DFConstOf[DFType.Of[T]]
 
-// A static function (`T <> CONSTRET` — see devdocs/static-domain-plan.md) shares the ED
+// A static function (`T <> CONSTRET` — see devdocs/methods.md) shares the ED
 // FUNCTION's scope (`Scope.Function`) and differs from it only in the domain evidence, which
 // is what discriminates the two everywhere it matters (plugin, printers, type-level guards).
 //
