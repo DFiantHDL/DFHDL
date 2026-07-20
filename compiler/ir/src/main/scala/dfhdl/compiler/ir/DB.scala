@@ -2026,6 +2026,15 @@ final case class DB private (
       }
       val flat = mutable.ListBuffer.empty[DFMember]
       val seen = mutable.Set.empty[DFMember]
+      // The real top design, and whether it is still waiting to be emitted. A global-scope
+      // call (a static function computing a global value) precedes the top design in the
+      // member list, and emitting it pulls its target def block in with it; see the deferral
+      // in the call case below.
+      val realTopBlock: Option[DFMember] = topDB.members.collectFirst {
+        case d: DFDesignBlock if d.instMode != DFDesignBlock.InstMode.Def => canonicalize(d)
+      }
+      def topPending: Boolean = realTopBlock.exists(rt => !seen.contains(rt))
+      val deferredDefs = mutable.ListBuffer.empty[DFDesignBlock]
       def emit(ms: List[DFMember]): Unit =
         ms.foreach { m =>
           val c = canonicalize(m)
@@ -2048,9 +2057,18 @@ final case class DB private (
             case call if callToDesign.contains(call) =>
               callToDesign.get(call).foreach { targetBlock =>
                 if (!seen.contains(targetBlock))
-                  seen += targetBlock
-                  flat += targetBlock
-                  subDBs.get(targetBlock.ownerRef).foreach(sub => emit(sub.members))
+                  // A GLOBAL-scope call sits before the top design in the member list, so
+                  // emitting its target def block here would place that block AHEAD of the
+                  // top. The flat form's `top` is the first non-global member, and a design
+                  // block is NOT filtered out as a global (only `DFVal.CanBeGlobal` is), so
+                  // the def block would masquerade as the top design, taking over the top
+                  // name, the emitted defs-header name and the output folder. Defer it until
+                  // the top design is out; being ownerless it is valid anywhere in the list.
+                  if (topPending) deferredDefs += targetBlock
+                  else
+                    seen += targetBlock
+                    flat += targetBlock
+                    subDBs.get(targetBlock.ownerRef).foreach(sub => emit(sub.members))
               }
               if (!seen.contains(c))
                 seen += c
@@ -2070,6 +2088,14 @@ final case class DB private (
       // re-entry from looping when topDsn (a member of topDB.members) triggers
       // a recursive `emit(topDB.members)` on its own sub-DB.
       emit(topDB.members)
+      // the def blocks held back while the top design was still pending (see the call case in
+      // `emit`), emitted now that the top is in place
+      deferredDefs.toList.foreach { targetBlock =>
+        if (!seen.contains(targetBlock))
+          seen += targetBlock
+          flat += targetBlock
+          subDBs.get(targetBlock.ownerRef).foreach(sub => emit(sub.members))
+      }
       // Merge refTables from root + every sub-DB. A shared ref key can live in
       // multiple sub-DB refTables (e.g. a nested DFDesignBlock's ownerRef appears
       // in both parent's refTable — where it points to the parent's own members —
@@ -2109,8 +2135,7 @@ final case class DB private (
   // full rebuild. A stage that mints globals shared across sub-DBs (e.g.
   // GlobalizePortVectorParams creates the globalized port-vector params in the
   // top's MetaDesign, and the vec-type `FullReplacement`s purge their `TypeRef`
-  // bindings) leaves exactly these gaps; this restores them far more cheaply
-  // than `newToOld.oldToNew`. Only meaningful on a root DB; returns `this`
+  // bindings) leaves exactly these gaps; Only meaningful on a root DB; returns `this`
   // unchanged (by reference) when nothing is missing. Sub-DBs needing no repair
   // are likewise carried over by reference.
   def repairGlobalClosures: DB =

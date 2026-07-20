@@ -2499,7 +2499,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
          |use work.dfhdl_pkg.all;
-         |use work.widthOf_pkg.all;
+         |use work.SizedPort_pkg.all;
          |
          |entity SizedPort is
          |generic (
@@ -2709,8 +2709,6 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  // A static function CALLED at global scope (computing a global constant) is emitted in the
-  // package too, and the design references the call.
   test("static function called at global scope") {
     def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
     val gW: UInt[8] <> CONST                                  = globalTwice(d"8'5")
@@ -2720,7 +2718,8 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new UsesGW).getCompiledCodeString
     assertNoDiff(
       top,
-      """|pure function globalTwice(n : unsigned(7 downto 0)) return unsigned is
+      """|constant gW : unsigned(7 downto 0) := globalTwice(8d"5");
+         |pure function globalTwice(n : unsigned(7 downto 0)) return unsigned is
          |begin
          |  return n + n;
          |end function;
@@ -2729,7 +2728,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
          |use work.dfhdl_pkg.all;
-         |use work.globalTwice_pkg.all;
+         |use work.UsesGW_pkg.all;
          |
          |entity UsesGW is
          |port (
@@ -2739,7 +2738,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |architecture UsesGW_arch of UsesGW is
          |begin
-         |  o <= globalTwice(8d"5");
+         |  o <= gW;
          |end UsesGW_arch;
          |""".stripMargin
     )

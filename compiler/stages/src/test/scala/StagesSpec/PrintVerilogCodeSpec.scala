@@ -2732,7 +2732,8 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new UsesGW).getCompiledCodeString
     assertNoDiff(
       top,
-      """|function automatic logic [7:0] globalTwice(input logic [7:0] n);
+      """|parameter logic [7:0] gW = globalTwice(8'd5);
+         |function automatic logic [7:0] globalTwice(input logic [7:0] n);
          |begin
          |  globalTwice = n + n;
          |end
@@ -2740,13 +2741,13 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "globalTwice_defs.svh"
+         |`include "UsesGW_defs.svh"
          |
          |module UsesGW(
          |  output logic [7:0] o
          |);
          |  `include "dfhdl_defs.svh"
-         |  assign o = globalTwice(8'd5);
+         |  assign o = gW;
          |endmodule
          |""".stripMargin
     )

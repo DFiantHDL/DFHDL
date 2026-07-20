@@ -2634,7 +2634,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
-  test("static function called at global scope re-emits the call inline") {
+  test("static function called at global scope emits a named global constant") {
     def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
     val gW: UInt[8] <> CONST                                  = globalTwice(d"8'5")
     class UsesGW extends EDDesign:
@@ -2643,13 +2643,14 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val top = (new UsesGW).getCodeString
     assertNoDiff(
       top,
-      """|def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+      """|val gW: UInt[8] <> CONST = globalTwice(d"8'5")
+         |def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
          |  n + n
          |end globalTwice
          |
          |class UsesGW extends EDDesign:
          |  val o = UInt(8) <> OUT
-         |  o <> globalTwice(d"8'5")
+         |  o <> gW
          |end UsesGW
          |""".stripMargin
     )
