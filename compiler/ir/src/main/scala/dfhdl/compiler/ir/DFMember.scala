@@ -1112,7 +1112,9 @@ object DFVal:
         val relVal = relValRef.get
         relVal.getConstData[Any] match
           case ConstData.KnownConst(relValData) =>
-            val idx = relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(fieldName)
+            // a struct's `Data` is a per-field `List`, so it is indexed by FIELD POSITION.
+            // `fieldRelBitLow` (a bit offset) is what the bit-slice paths use, e.g. `departial`.
+            val idx = relVal.dfType.asInstanceOf[DFStruct].fieldIndex(fieldName)
             ConstData.KnownConst(relValData.asInstanceOf[List[?]](idx))
           case other => other
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
