@@ -101,7 +101,7 @@ infix type <>[T <: DFType.Supported, M] = M match
   case DFRET    => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
   case RTRET    => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
   case EDRET    => EDRETOf[T]
-  case CONSTRET => (DFCG, DomainType.Static, DFC.Scope.Function) ?=> DFValOf[DFType.Of[T]]
+  case CONSTRET => (DFCG, DomainType.Static, DFC.Scope.Function) ?=> DFConstOf[DFType.Of[T]]
   case VAL      => DFValOf[DFType.Of[T]]
   // A procedural ED method's directional arguments. The argument type stays GENERIC so ordinary
   // actuals conform at the call site (any readable value for an input, any assignable variable
