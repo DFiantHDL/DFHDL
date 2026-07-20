@@ -1034,8 +1034,7 @@ final case class DB private (
   // converted to the hierarchy first (`oldToNew`) — this is the entry point the
   // CLK_FREQ const-folder (DFMember.Special) hits on a flat stage DB.
   lazy val resolvedClkRstMap: Map[DFDomainOwner, ClkRstTiming] =
-    if (isOldStyleFlatDB) oldToNew.resolvedClkRstMap
-    else if (!isRoot) rootDB.resolvedClkRstMap
+    if (!isRoot) rootDB.resolvedClkRstMap
     else
       val reversedDependents: Map[DFDomainOwner, Set[DFDomainOwner]] =
         dependentRTDomainOwners.invert
