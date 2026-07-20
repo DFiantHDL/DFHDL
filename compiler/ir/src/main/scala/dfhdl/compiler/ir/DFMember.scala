@@ -758,14 +758,11 @@ object DFVal:
       if (argConstData.exists(_ == ConstData.NotConst)) ConstData.NotConst
       else
         op match
-          // A STATIC FUNCTION call with constant args (guarded above) is a constant of
-          // UNKNOWN value (folding it means interpreting the def body, which is
-          // deliberately not done); an ED method call is never a constant, no matter its
-          // args (e.g. a zero-arg task call). Points at ITSELF so resolving it stays
-          // within this call's own (reachable) context.
           case Func.Op.Def(staticRef) =>
-            if (staticRef.getDesignBlock.isStaticFunction) ConstData.UnknownConst(this)
-            else ConstData.NotConst
+            // task (we should be hitting this because we cannot depend on a task return value)
+            if dfType == DFUnit then ConstData.NotConst
+            // static function always returns a constant. currently we don't evaluate it during elaboration.
+            else ConstData.UnknownConst(this)
           case _ =>
             if (argConstData.view.exists(_.isInstanceOf[ConstData.UnknownConst[?]]))
               ConstData.UnknownConst(this)

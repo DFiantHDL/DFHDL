@@ -2480,6 +2480,44 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("static function determining a port width is emitted in the package") {
+    def widthOf(n: Int <> CONST): Int <> CONSTRET = n + n
+    class SizedPort(val W: Int <> CONST = widthOf(4)) extends EDDesign:
+      val i = Bits(W) <> IN
+      val o = Bits(W) <> OUT
+      o <> i
+    end SizedPort
+    val top = (new SizedPort).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|pure function widthOf(n : integer) return integer is
+         |begin
+         |  return n + n;
+         |end function;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.widthOf_pkg.all;
+         |
+         |entity SizedPort is
+         |generic (
+         |  W : integer := widthOf(4)
+         |);
+         |port (
+         |  i : in std_logic_vector(W - 1 downto 0);
+         |  o : out std_logic_vector(W - 1 downto 0)
+         |);
+         |end SizedPort;
+         |
+         |architecture SizedPort_arch of SizedPort is
+         |begin
+         |  o <= i;
+         |end SizedPort_arch;
+         |""".stripMargin
+    )
+  }
   // A method used by more than one design (or from global scope) is emitted ONCE in the shared
   // globals area (a VHDL package) instead of inlined in each design. The method is declared in a
   // GLOBAL position at the top of the test (StageSpec has no ambient DFC), above the designs.
