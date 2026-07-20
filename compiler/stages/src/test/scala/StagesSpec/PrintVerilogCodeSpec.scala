@@ -1101,7 +1101,6 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module Foo#(parameter string param = "Hello\n..\"World\"!");
          |  `include "dfhdl_defs.svh"
-         |  localparam int param3 = 42;
          |  typedef enum logic [1:0] {
          |    MyEnum_A = 0,
          |    MyEnum_B = 1,
@@ -1109,6 +1108,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  } t_enum_MyEnum;
          |  localparam string bar = {param, "!"};
          |  localparam string param2 = {2{param}};
+         |  localparam int param3 = 42;
          |  localparam logic [4:0] param4 = 5'd22;
          |  localparam logic [23:0] param5 = 24'habc123;
          |  localparam logic [5:0] param6 = 6'h2a;
@@ -1158,7 +1158,6 @@ class PrintVerilogCodeSpec extends StageSpec:
          |module Foo;
          |  `include "dfhdl_defs.vh"
          |  parameter param = "Hello\n..\"World\"!";
-         |  parameter integer param3 = 42;
          |  `define MyEnum_A 0
          |  `define MyEnum_B 1
          |  `define MyEnum_C 2
@@ -1175,6 +1174,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  endfunction
          |  parameter bar = {param, "!"};
          |  parameter param2 = {2{param}};
+         |  parameter integer param3 = 42;
          |  parameter [4:0] param4 = 5'd22;
          |  parameter [23:0] param5 = 24'habc123;
          |  parameter [5:0] param6 = 6'h2a;
@@ -2634,12 +2634,12 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [7:0] o
          |);
          |  `include "dfhdl_defs.svh"
-         |  logic [7:0] inner_o;
          |  function automatic logic [7:0] twice(input logic [7:0] n);
          |  begin
          |    twice = n + n;
          |  end
          |  endfunction
+         |  logic [7:0] inner_o;
          |  Inner #(
          |    .k (twice(8'd3))
          |  ) inner(

@@ -1179,12 +1179,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo;
          |
          |architecture Foo_arch of Foo is
-         |  constant param3 : integer := 42;
          |  type t_enum_MyEnum is (
          |    MyEnum_A, MyEnum_B, MyEnum_C
          |  );
          |  constant bar : string := param & "!";
          |  constant param2 : string := param & param;
+         |  constant param3 : integer := 42;
          |  constant param4 : unsigned(4 downto 0) := 5d"22";
          |  constant param5 : std_logic_vector(23 downto 0) := x"abc123";
          |  constant param6 : std_logic_vector(5 downto 0) := 6x"2a";
@@ -1240,12 +1240,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo;
          |
          |architecture Foo_arch of Foo is
-         |  constant param3 : integer := 42;
          |  type t_enum_MyEnum is (
          |    MyEnum_A, MyEnum_B, MyEnum_C
          |  );
          |  constant bar : string := param & "!";
          |  constant param2 : string := param & param;
+         |  constant param3 : integer := 42;
          |  constant param4 : unsigned(4 downto 0) := to_unsigned(22, 5);
          |  constant param5 : std_logic_vector(23 downto 0) := x"abc123";
          |  constant param6 : std_logic_vector(5 downto 0) := "101010";
@@ -2261,6 +2261,86 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("ED procedure with an OUT argument") {
+    class EDProcOut extends EDDesign:
+      val a                                                          = UInt(8) <> IN
+      val y                                                          = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT): Unit <> EDRET =
+        o := l + 1
+      process.forever:
+        addOne(a, y)
+    end EDProcOut
+    val top = (new EDProcOut).getCompiledCodeString
+    // A copy-out `<> OUT` argument prints as a mode-`out` procedure formal (default object
+    // class `variable`), written with `:=` in the body and copied back to its actual on return.
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDProcOut is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end EDProcOut;
+         |
+         |architecture EDProcOut_arch of EDProcOut is
+         |  procedure addOne(l : unsigned(7 downto 0); o : out unsigned(7 downto 0)) is
+         |  begin
+         |    o := l + 8d"1";
+         |  end procedure;
+         |begin
+         |  process
+         |  begin
+         |    addOne(a, y);
+         |  end process;
+         |end EDProcOut_arch;
+         |""".stripMargin
+    )
+  }
+  test("ED procedure with a non-blocking OUT.NB argument") {
+    class EDProcOutNB extends EDDesign:
+      val a                                                             = UInt(8) <> IN
+      val y                                                             = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT.NB): Unit <> EDRET =
+        o :== l + 1
+      process.forever:
+        addOne(a, y)
+    end EDProcOutNB
+    val top = (new EDProcOutNB).getCompiledCodeString
+    // A non-blocking `<> OUT.NB` argument prints as a `signal`-class procedure formal (a live
+    // driver), written with a signal assignment `<=` in the body.
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDProcOutNB is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end EDProcOutNB;
+         |
+         |architecture EDProcOutNB_arch of EDProcOutNB is
+         |  procedure addOne(l : unsigned(7 downto 0); signal o : out unsigned(7 downto 0)) is
+         |  begin
+         |    o <= l + 8d"1";
+         |  end procedure;
+         |begin
+         |  process
+         |  begin
+         |    addOne(a, y);
+         |  end process;
+         |end EDProcOutNB_arch;
+         |""".stripMargin
+    )
+  }
   test("ED method (procedural procedure)") {
     class EDTask extends EDDesign:
       val a                                     = UInt(8) <> IN
@@ -2426,11 +2506,11 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end StaticParamTop;
          |
          |architecture StaticParamTop_arch of StaticParamTop is
-         |  signal inner_o : unsigned(7 downto 0);
          |  pure function twice(n : unsigned(7 downto 0)) return unsigned is
          |  begin
          |    return n + n;
          |  end function;
+         |  signal inner_o : unsigned(7 downto 0);
          |begin
          |  inner : entity work.Inner(Inner_arch) generic map (
          |    k => twice(8d"3")

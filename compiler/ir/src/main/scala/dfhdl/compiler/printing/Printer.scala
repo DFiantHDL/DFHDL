@@ -18,6 +18,16 @@ enum GlobalDecl derives CanEqual:
   case Const(member: DFMember)
   case Method(block: DFDesignBlock)
 
+// A per-design local declaration whose emission position is dependency-driven: a constant, a
+// static function, a signal/variable, or an ED method (see `Printer.localDeclsOrdered`). The local
+// TYPE declarations and the constants they reference as widths are not part of this: they are
+// emitted in a leading block ahead of these (a type must be declared before it is used).
+enum LocalDecl derives CanEqual:
+  case Const(member: DFVal)
+  case StaticMethod(block: DFDesignBlock)
+  case Signal(member: DFVal.Dcl)
+  case EDMethod(block: DFDesignBlock)
+
 protected trait AbstractPrinter:
   type TPrinter <: Printer
   given printer: TPrinter
@@ -379,6 +389,137 @@ trait Printer
       .foreach(place)
     ordered.toList
   end globalDeclsOrdered
+
+  // The local constants a type declaration REFERENCES (a vector/array width or dimension). The
+  // local TYPE declarations are emitted in a leading block, so these width constants precede them
+  // and are excluded from the value/method ordering below (a width is an integer, so a width
+  // constant is Int32 — but not every Int32 constant is a width constant, which is why the split
+  // is on actual type references, not on the constant's type). The set is closed over the value
+  // references of the width constants (a width may be `base + 1`), so a width constant's own
+  // constant dependencies lead too.
+  final def typeReferencedConsts(design: DFDesignBlock): List[DFVal] =
+    val designMembers = design.members(MemberView.Folded)
+    val localConsts: Map[DFMember, DFVal] = designMembers.view.collect {
+      case c @ DclConst() if !c.isInstanceOf[DFVal.DesignParam] => (c: DFMember) -> (c: DFVal)
+    }.toMap
+    // the members named by a local declaration's TYPE (its `dfType` refs are the width/dimension
+    // refs). A width is often an EXPRESSION rather than a bare constant (`clog2(HALF_PERIOD) - 1`),
+    // so from each seed we transitively collect the LOCAL constants it uses; a ref to a design
+    // parameter or a global constant collects nothing (they are declared elsewhere already).
+    val seeds: List[DFMember] = designMembers.view.flatMap {
+      case c @ DclConst()          => c.dfType.getRefs
+      case v: DFVal.Dcl if v.isVar => v.dfType.getRefs
+      case _                       => Nil
+    }.map(_.get).toList
+    val included = mutable.Set.empty[DFMember]
+    val visited = mutable.Set.empty[DFMember]
+    def visit(m: DFMember): Unit =
+      if (visited.add(m))
+        if (localConsts.contains(m)) included += m
+        m.getRefs.foreach(r => visit(r.get))
+    seeds.foreach(visit)
+    designMembers.view.collect { case c @ DclConst() if included.contains(c) => c }.toList
+  end typeReferencedConsts
+
+  // The constants, static functions, signals/variables, and ED methods locally declared by
+  // `design`, in a stable topological order (the same machinery as `globalDeclsOrdered`). These
+  // four kinds reference each other in BOTH directions, so a fixed positional split is wrong in at
+  // least one direction: a constant's value may CALL a static function, whose body READS constants;
+  // a signal's default may CALL a static function; and an ED method READS signals. Declaration
+  // order is preserved among independent declarations (the seed order groups the kinds as
+  // constant, static function, signal, ED method, so an independent set prints in that layout).
+  //
+  // `methodBlocks` are the design's locally declared HDL methods (from `methodPrinters`, already in
+  // post-order). The local TYPE declarations and the constants they reference (`typeReferencedConsts`)
+  // are emitted ahead of these by the caller, so those width constants are excluded here; a type's
+  // width reference is likewise dropped from the dependency walk (`TypeRef`), since it is satisfied
+  // by that leading block. A residual case a leading block cannot express: a width constant whose
+  // value CALLS a static function would forward-reference it; such width computations are folded or
+  // globalized today, so they do not reach here.
+  final def localDeclsOrdered(
+      design: DFDesignBlock,
+      methodBlocks: List[DFDesignBlock]
+  ): List[LocalDecl] =
+    val designMembers = design.members(MemberView.Folded)
+    val typeConsts: Set[DFVal] = typeReferencedConsts(design).toSet
+    val consts: List[DFVal] = designMembers.view.flatMap {
+      case _: DFVal.DesignParam                      => None
+      case c @ DclConst() if !typeConsts.contains(c) => Some(c)
+      case _                                         => None
+    }.toList
+    val signals: List[DFVal.Dcl] = designMembers.view.flatMap {
+      case IteratorDcl()           => None
+      case DclConst()              => None
+      case p: DFVal.Dcl if p.isVar => Some(p)
+      case _                       => None
+    }.toList
+    val staticBlocks = methodBlocks.filter(_.isStaticFunction)
+    val edBlocks = methodBlocks.filterNot(_.isStaticFunction)
+    val methodNodeOf: Map[DFDesignBlock, LocalDecl] =
+      (staticBlocks.view.map(b => b -> LocalDecl.StaticMethod(b)) ++
+        edBlocks.view.map(b => b -> LocalDecl.EDMethod(b))).toMap
+    val constNodeOf: Map[DFMember, LocalDecl] =
+      consts.view.map(c => (c: DFMember) -> LocalDecl.Const(c)).toMap
+    val signalNodeOf: Map[DFMember, LocalDecl] =
+      signals.view.map(s => (s: DFMember) -> LocalDecl.Signal(s)).toMap
+    // the local declarations transitively referenced from `seeds`, excluding `self`. Resolved
+    // under the ambient (flat-DB) getSet: locally every declaration shares one getSet. Type (width)
+    // references are ignored — the width constants lead, ahead of this ordering.
+    def depsFrom(seeds: List[DFMember], self: Option[DFMember]): List[LocalDecl] =
+      val found = mutable.LinkedHashSet.empty[LocalDecl]
+      val visited = mutable.Set.empty[DFMember]
+      def visit(m: DFMember): Unit =
+        if (visited.add(m))
+          m match
+            case DFVal.Func.Call(_, key) =>
+              methodNodeOf.get(key.getDesignBlock).foreach(found += _)
+            case _ =>
+          if (!self.contains(m))
+            constNodeOf.get(m).foreach(found += _)
+            signalNodeOf.get(m).foreach(found += _)
+          m.getRefs.foreach {
+            case _: DFRef.TypeRef =>
+            case r                => visit(r.get)
+          }
+      seeds.foreach(visit)
+      found.toList
+    end depsFrom
+    def depsOf(decl: LocalDecl): List[LocalDecl] = decl match
+      case LocalDecl.Const(c)        => depsFrom(List(c), Some(c))
+      case LocalDecl.Signal(s)       => depsFrom(List(s), Some(s))
+      case LocalDecl.StaticMethod(b) => depsFrom(methodBodyMembers(b), None).filterNot(_ == decl)
+      case LocalDecl.EDMethod(b)     => depsFrom(methodBodyMembers(b), None).filterNot(_ == decl)
+    val ordered = mutable.ListBuffer.empty[LocalDecl]
+    val done = mutable.Set.empty[LocalDecl]
+    val onPath = mutable.Set.empty[LocalDecl]
+    def place(decl: LocalDecl): Unit =
+      if (!done.contains(decl) && onPath.add(decl))
+        depsOf(decl).foreach(place)
+        onPath -= decl
+        done += decl
+        ordered += decl
+    (consts.map(LocalDecl.Const(_)) ++ staticBlocks.map(LocalDecl.StaticMethod(_)) ++
+      signals.map(LocalDecl.Signal(_)) ++ edBlocks.map(LocalDecl.EDMethod(_))).foreach(place)
+    ordered.toList
+  end localDeclsOrdered
+
+  // Join rendered local declarations from `localDeclsOrdered`, setting off two adjacent HDL-method
+  // declarations with a blank line (each method is a multi-line block; a bare newline would run one
+  // into the next). Every other adjacency uses a single newline; empty strings are skipped. The
+  // boolean of each item marks a method declaration.
+  final def joinLocalDecls(items: List[(Boolean, String)]): String =
+    val sb = new StringBuilder
+    var prevMethod = false
+    var first = true
+    items.foreach { (isMethod, cs) =>
+      if (cs.nonEmpty)
+        if (!first) sb.append(if (prevMethod && isMethod) "\n\n" else "\n")
+        sb.append(cs)
+        prevMethod = isMethod
+        first = false
+    }
+    sb.toString
+  end joinLocalDecls
 
   private lazy val globalMethodPrinterOf: Map[DFDesignBlock, TPrinter] =
     globalMethodPrinters.toMap

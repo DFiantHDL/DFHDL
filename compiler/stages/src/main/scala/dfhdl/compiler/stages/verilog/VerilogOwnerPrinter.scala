@@ -64,52 +64,67 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
                                           |${ports.hindent}
                                           |)""".stripMargin)
     val localTypeDcls = printer.csLocalTypeDcls(design)
+    // design parameters (non-ANSI dialects only) and the constants named by a local type
+    // declaration (a vector/array width); both must precede the local type declarations
+    val typeConsts = printer.typeReferencedConsts(design).toSet
     val constIntDcls =
       designMembers.view
         .flatMap {
           case p: DesignParam =>
             if (parameterizedModuleSupport) None
             else Some(p)
-          case c @ DclConst() =>
-            c.dfType match
-              case DFInt32 => Some(c)
-              case _       => None
-          case _ => None
+          case c @ DclConst() if typeConsts.contains(c) => Some(c)
+          case _                                        => None
         }
         .map(x => printer.csDFMember(x) + ";")
         .mkString("\n")
-    val dfValDcls =
+    // port-related declarations that are NOT part of the value/method ordering: output ports whose
+    // initial value needs an `initial` block (dialects without inline-init support), and — for
+    // non-ANSI dialects that declare port directions in the module body — the port direction
+    // declarations. Kept in member order.
+    val portDcls =
       designMembers.view
         .flatMap {
-          case IteratorDcl()                                                              => None
           case p @ DclOut() if !printer.supportOutputInlineInit && p.initRefList.nonEmpty =>
             Some(printer.csDFValDclInitialBlock(p))
-          case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport =>
-            p.dfType match
-              case _: DFVector if !printer.supportVectorInlineInit && p.initRefList.nonEmpty =>
-                List(printer.csDFMember(p) + ";", printer.csDFValDclInitialBlock(p))
-              case _ => List(printer.csDFMember(p) + ";")
-          case _: DesignParam => None
-          case c @ DclConst() =>
-            c.dfType match
-              case DFInt32 => None
-              case _       => Some(printer.csDFMember(c) + ";")
+          case p @ DclPort() if !parameterizedModuleSupport =>
+            Some(printer.csDFMember(p) + ";")
           case _ => None
         }
         .mkString("\n")
-    // ED methods (HDL functions) are locally scoped — declared in this module's
-    // declaration region
-    val edMethodDcls = printer.methodPrinters(design)
-      .map((block, p) =>
-        sn"""|${p.csDocString(block.dclMeta)}
-             |${p.csMethodDcl(block)}"""
-      )
-      .mkString("\n\n")
+    // one constant or signal declaration; a vector signal that cannot be inline-initialized
+    // additionally emits an `initial` block right after its declaration
+    def csDcl(m: DFVal): List[String] = m match
+      case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport =>
+        p.dfType match
+          case _: DFVector if !printer.supportVectorInlineInit && p.initRefList.nonEmpty =>
+            List(printer.csDFMember(p) + ";", printer.csDFValDclInitialBlock(p))
+          case _ => List(printer.csDFMember(p) + ";")
+      case c @ DclConst() => List(printer.csDFMember(c) + ";")
+      case _              => Nil
+    // constants, static functions, signals, and ED methods (all HDL methods are locally scoped,
+    // declared in this module's declaration region) in a single stable topological order (see
+    // `localDeclsOrdered`), shared with the VHDL backend. The width constants and local type
+    // declarations stay ahead of them.
+    val methodPrinters = printer.methodPrinters(design)
+    val methodPrinterOf = methodPrinters.toMap
+    def csMethodLocal(block: DFDesignBlock): String =
+      val p = methodPrinterOf(block)
+      sn"""|${p.csDocString(block.dclMeta)}
+           |${p.csMethodDcl(block)}""".stripTrailing
+    val orderedDcls = printer.joinLocalDecls(
+      printer.localDeclsOrdered(design, methodPrinters.map(_._1)).flatMap {
+        case LocalDecl.Const(c)        => csDcl(c).map((false, _))
+        case LocalDecl.Signal(s)       => csDcl(s).map((false, _))
+        case LocalDecl.StaticMethod(b) => List((true, csMethodLocal(b)))
+        case LocalDecl.EDMethod(b)     => List((true, csMethodLocal(b)))
+      }
+    )
     val declarations =
       sn"""|$constIntDcls
            |$localTypeDcls
-           |$dfValDcls
-           |$edMethodDcls"""
+           |$portDcls
+           |$orderedDcls"""
     val statements = csDFMembers(
       designMembers.filter {
         case _: DFVal.Dcl => false
