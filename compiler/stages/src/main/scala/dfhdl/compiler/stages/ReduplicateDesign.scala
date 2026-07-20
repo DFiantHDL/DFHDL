@@ -7,7 +7,7 @@ import scala.collection.immutable.ListMap
 import scala.collection.mutable
 
 // Re-duplicates a shared design sub-DB into per-instance copies, reversing the
-// natural sharing produced by elaboration / `oldToNew`. The criteria selects
+// natural sharing produced by elaboration. The criteria selects
 // which DFDesignInsts need their own private DFDesignBlock so that downstream
 // stages can transform them differently per instance.
 //
