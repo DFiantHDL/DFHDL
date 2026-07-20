@@ -145,12 +145,13 @@ green, all three printers cover it). A static function called AT global scope (`
   the global-scope call (`dfc.ownerOption.isEmpty` before `enterOwner`) and forces
   `cacheEnable=false` for it. Re-elaboration per call is cheap and the printed HDL is unchanged.
 
-**VHDL PORT-DECLARATION GLOBALIZATION IMPLEMENTED (2026-07-19), tree green** (StagesSpec 605,
-core static/ED specs 35, lib docExamples 78). A static function READ BY A PORT DECLARATION (its
+**VHDL PORT-DECLARATION GLOBALIZATION IMPLEMENTED (2026-07-19; the global-scope follow-ups below
+landed 2026-07-20), tree green** (StagesSpec 615, lib docExamples 78). A static function READ BY A
+PORT DECLARATION (its
 init or its parametric width) must be visible at the VHDL entity level: the entity's port clause
 is elaborated before the architecture, so a function used to initialize or size a port cannot be
 declared locally in the architecture. It now emits in the shared `<top>_pkg` package even when a
-single design uses it. Two parts landed:
+single design uses it. Three parts landed:
 
 - **Refactor (pure, tree green first).** `globalHDLMethods` and its helpers (`hdlMethodDesignUsers`,
   `methodBodyMembers`, `methodIsGlobalEligible`, `globalCallMethods`) moved OUT of `DB` and INTO
@@ -171,12 +172,64 @@ single design uses it. Two parts landed:
   init to an `initial` block inside the module body, where the module-scoped function is already
   visible. Tests: [PrintVHDLCodeSpec] "static function read by a port declaration is emitted in the
   package" and [PrintVerilogCodeSpec] "static function read by a port declaration stays module-local".
+- **The WIDTH case, and what actually unblocked it.** A static function returning an
+  `Int`/inferred-width result (`def widthOf(n: Int <> CONST): Int <> CONSTRET`) used to crash at
+  elaboration: `getActualSignedWidthOpt` forced `getConstData` at the call's `<> CONST` conversion,
+  and `Func.protGetConstData`'s `Op.Def` case resolved `staticRef.getDesignBlock` against a def
+  block that was still an unplanted forward reference. A guarded resolver
+  (`getDesignBlockByKeyOption`) was tried and REVERTED: the invariant that a design block is always
+  reachable from its key is the right one, and tolerating a violation hides the real defect. The
+  actual fix is `CONSTRET` returning a `DFConst` (see the commit of that name), which removes the
+  forced const-data resolution at the conversion entirely. Two limitations recorded here while the
+  crash stood are consequently GONE, both re-verified: `all(0)` on a parametric `Bits(W)` now emits
+  (`parameter int W = widthOf(4)` with `assign o = {W{1'b0}}`), and a global const whose value is a
+  static-function call is now NAMED and depended upon rather than inlined at each use.
+  [PrintVHDLCodeSpec] "static function determining a port width is emitted in the package" pins the
+  width case: a design generic `W` defaulting to `widthOf(4)`, ports `Bits(W)`, printing as
+  `generic (W : integer := widthOf(4))` with `std_logic_vector(W - 1 downto 0)` ports and `widthOf`
+  in the package. That exercises the port-declaration rule on a WIDTH (widthOf is reachable from the
+  port dfType, through `W` and its default, to the call), NOT a global-scope call.
 
-  KNOWN LIMITATION found while probing: a parametric width whose value comes from a static function
-  called in a GENERIC DEFAULT (`class Inner(val w: Int <> CONST = dbl(4))`) crashes at ELABORATION
-  (a `Func.protGetConstData` → `staticRef.getDesignBlock` cast on an `Empty` block during width
-  resolution), before printing. That is a separate elaboration-ordering bug, not addressed here;
-  the printer rule already covers the width case via `dfType.getRefs` for when it is representable.
+**GLOBAL DEF BLOCK MASQUERADING AS THE TOP DESIGN, FIXED (`newToOld`).** A global-scope call
+precedes the top design in the member list, and `emit`'s first-reference emission pulled the call's
+target def block in with it, leaving that block at the HEAD of the flat member list. `DB.top` is the
+first non-global member and `membersNoGlobals` filters only `DFVal.CanBeGlobal`, so a design block
+is not filtered out: the static function took over the top name, the emitted defs-header name and
+the output folder (a `twice_defs.svh` include and a `twice/` folder for a design whose real top is
+`Foo`). Such a target block is now deferred while the top is still pending and flushed once it is
+emitted; a def block is ownerless, so it stays valid anywhere in the list.
+
+**GLOBAL DECLARATIONS EMITTED IN DEPENDENCY ORDER.** Both HDLs require a name to be declared before
+use, and between a global constant and a global HDL method the dependency runs BOTH ways: a
+constant's value may CALL a method, while a method's body may READ a constant. A fixed
+constants-then-methods bucket order is therefore wrong in one direction. The emission is a stable
+topological sort over the actual references (`GlobalDecl` + `globalDeclsOrdered`): each declaration
+follows everything it references, independent declarations keep source order, and a reference cycle
+falls back to declaration order. Global TYPE declarations stay first and are not part of the sort.
+Applied in the base globals file (which Verilog uses), the single-string DB view, and the VHDL
+package spec, where methods contribute prototypes interleaved with the constants while their bodies
+stay in the package body. Constants are collected through the root-aware group helper, so each
+declaration's references resolve under its own getSet.
+
+**A GLOBAL METHOD'S CAPTURED GLOBALS AND NESTED CALLEES.** Two defects kept a static function out of
+the globals area, each producing HDL that calls a function nothing declares:
+
+- A method that READS a global constant was dropped. `methodIsGlobalEligible` rejected ANY phantom
+  input as a design-local capture, but a phantom materializing a GLOBAL is reachable from the
+  package/header and is package-safe. Eligibility now resolves each phantom's actual positionally at
+  every call site and accepts a global one (an actual that cannot be lined up with the formals is
+  treated as design-local, the conservative answer).
+- A def CALLED from inside a global-scope call was missing twice over. Only the OUTERMOST def rides
+  the global injection, so a nested one reached the referencing run with no `subDBs` slot and its key
+  resolved against nothing. The descent belongs in `endDesign`, where the (detached) elaborating
+  context still holds the whole nest; descending at assembly time cannot work, because the
+  referencing run receives only `globalDefSubDBs`. With the key resolving, the callee still went
+  unemitted, since `globalHDLMethods` omitted a global method's transitive callees; the method-call
+  closure that the VHDL port-declaration rule carried moved into the base and now applies to every
+  backend.
+
+All three scenarios are pinned in ALL three printers: interleaving by dependency, a method reading a
+global constant, and a nested global-scope callee.
 
 **Still pending:**
 
@@ -185,10 +238,12 @@ single design uses it. Two parts landed:
 2. **Cross-run caching of global-scope calls** (currently disabled) would need the adopt path to
    model the loaded global sub-DB.
 3. **§11 step 8**: `testApps` (reference HDL needed no update: output is unchanged).
-4. **Static function in a GENERIC DEFAULT crashes at elaboration** (the KNOWN LIMITATION above):
-   `staticRef.getDesignBlock` resolves an `Empty` block when a generic default's static call has
-   its const-data forced during port-width resolution. A def-block registration/ordering fix in the
-   elaboration path, independent of the printer globalization rule.
+
+Resolved since, and no longer pending: the parametric-width fill (`all(0)` on a `Bits(W)` sized by a
+static function) and the unnamed global constant computed by a static-function call, both of which
+fell out with `CONSTRET` returning a `DFConst`; and the global def block masquerading as the top
+design, the fixed-bucket globals order, and a global method's dropped captured globals and nested
+callees, all covered above.
 
 ### Corrections the implementation forced on this plan
 
