@@ -266,8 +266,14 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       // global scope) are declared in the package spec (prototype) and defined in the
       // package body, so any design can call them. They are self-contained (no design-local
       // captures), so no call-site substitution is needed.
-      val globalMethodProtos =
-        printer.globalMethodPrinters.map((block, p) => p.csMethodProto(block)).mkString("\n")
+      // the package spec holds the constants and the method PROTOTYPES, interleaved in
+      // dependency order (a constant may call a method, a method may read a constant); the
+      // bodies follow in the package body, where every spec name is already visible
+      val protoOf = printer.globalMethodPrinters.toMap
+      val globalSpecDcls = globalDeclsOrdered.map {
+        case GlobalDecl.Const(c)  => printer.csDFMembers(List(c))
+        case GlobalDecl.Method(b) => protoOf(b).csMethodProto(b)
+      }.filter(_.nonEmpty).mkString("\n")
       val globalMethodBodies = csGlobalMethodDcls
       sn"""|library ieee;
           |use ieee.std_logic_1164.all;
@@ -276,10 +282,8 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
           |use work.dfhdl_pkg.all;
           |
           |package ${printer.packageName} is
-          |${csGlobalConstIntDcls}
           |${namedTypeConvFuncsDcl}
-          |${csGlobalConstNonIntDcls}
-          |${globalMethodProtos}
+          |${globalSpecDcls}
           |end package ${printer.packageName};
           |
           |package body ${printer.packageName} is

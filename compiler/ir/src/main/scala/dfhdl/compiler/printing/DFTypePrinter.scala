@@ -33,6 +33,10 @@ trait AbstractTypePrinter extends AbstractPrinter:
         Option.when(fresh.nonEmpty)(withGetSet(sub.getSet) -> fresh)
       }.toList
     else List(printer -> designDB.membersGlobals)
+  // the global constants flattened out of their groups, each paired with the printer that
+  // renders it (and whose getSet resolves its references)
+  protected final def globalConstsWithPrinters: List[(TPrinter, DFMember)] =
+    globalConstGroups.flatMap((p, gs) => gs.map(p -> _))
   final def csGlobalConstIntDcls: String =
     globalConstGroups.iterator
       .map((p, gs) => p.csDFMembers(gs.filter(isInt32Val)))

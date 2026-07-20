@@ -2634,6 +2634,35 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("global constants and static functions interleave by dependency") {
+    val gA: UInt[8] <> CONST                              = d"8'1"
+    def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET  = n + n
+    val gB: UInt[8] <> CONST                              = gTwice(d"8'2")
+    def gTriple(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n + n
+    val gC: UInt[8] <> CONST                              = gTriple(d"8'3")
+    class UsesAll extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gA + gB + gC
+    val top = (new UsesAll).getCodeString
+    assertNoDiff(
+      top,
+      """|val gA: UInt[8] <> CONST = d"8'1"
+         |def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + n
+         |end gTwice
+         |val gB: UInt[8] <> CONST = gTwice(d"8'2")
+         |def gTriple(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + n + n
+         |end gTriple
+         |val gC: UInt[8] <> CONST = gTriple(d"8'3")
+         |
+         |class UsesAll extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> (gA + gB + gC)
+         |end UsesAll
+         |""".stripMargin
+    )
+  }
   test("static function called at global scope emits a named global constant") {
     def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
     val gW: UInt[8] <> CONST                                  = globalTwice(d"8'5")
@@ -2643,10 +2672,10 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val top = (new UsesGW).getCodeString
     assertNoDiff(
       top,
-      """|val gW: UInt[8] <> CONST = globalTwice(d"8'5")
-         |def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+      """|def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
          |  n + n
          |end globalTwice
+         |val gW: UInt[8] <> CONST = globalTwice(d"8'5")
          |
          |class UsesGW extends EDDesign:
          |  val o = UInt(8) <> OUT

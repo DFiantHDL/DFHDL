@@ -11,6 +11,13 @@ import DFDesignBlock.InstMode
 import DFVal.Func.Op as FuncOp
 import java.io.File.separatorChar
 
+// A global declaration whose emission position is dependency-driven: a global constant or a
+// global HDL method (see `AbstractPrinter.globalDeclsOrdered`). Global TYPE declarations are not
+// part of this, as they always come first.
+enum GlobalDecl derives CanEqual:
+  case Const(member: DFMember)
+  case Method(block: DFDesignBlock)
+
 protected trait AbstractPrinter:
   type TPrinter <: Printer
   given printer: TPrinter
@@ -282,11 +289,77 @@ trait Printer
     anyNamedGlobal || csGlobalTypeDcls.nonEmpty ||
     globalHDLMethods.nonEmpty
   lazy val hasGlobalContent: Boolean = hasGlobalContentCheck
+  // Global constants and global HDL methods in DEPENDENCY order. Both HDLs require a name to be
+  // declared before it is used, and the dependency between the two runs BOTH ways: a constant's
+  // value may CALL a method (a width computed by a static function), while a method's body may
+  // READ a global constant. A fixed constants-then-methods split is therefore wrong in one
+  // direction, so the order is a stable topological sort over the actual references, keeping
+  // declaration order among independent declarations. A reference cycle (representable only in
+  // VHDL, where a prototype and its body are split) falls back to declaration order.
+  protected final def globalDeclsOrdered: List[GlobalDecl] =
+    val constsWithPrinters = globalConstsWithPrinters
+    val globalConsts: List[DFMember] = constsWithPrinters.map(_._2)
+    val constDeclOf: Map[DFMember, GlobalDecl] =
+      globalConsts.view.map(c => c -> GlobalDecl.Const(c)).toMap
+    val methodBlocks: List[DFDesignBlock] = globalMethodPrinters.map(_._1)
+    val methodSet = methodBlocks.toSet
+    // the global declarations transitively referenced from `seeds`, excluding `self`. Resolved
+    // under `gs`, the getSet of the declaration being scanned (on a hierarchical root each
+    // global lives in its own sub-DB).
+    def depsFrom(
+        seeds: List[DFMember],
+        self: Option[DFMember],
+        gs: MemberGetSet
+    ): List[GlobalDecl] =
+      val found = mutable.LinkedHashSet.empty[GlobalDecl]
+      val visited = mutable.Set.empty[DFMember]
+      def visit(m: DFMember): Unit =
+        if (visited.add(m))
+          m match
+            case DFVal.Func.Call(_, key) =>
+              val block = key.getDesignBlock(using gs)
+              if (methodSet.contains(block)) found += GlobalDecl.Method(block)
+            case _ =>
+          if (!self.contains(m)) constDeclOf.get(m).foreach(found += _)
+          m.getRefs.foreach(r => visit(r.get(using gs)))
+      seeds.foreach(visit)
+      found.toList
+    end depsFrom
+    def depsOf(decl: GlobalDecl): List[GlobalDecl] = decl match
+      case GlobalDecl.Const(c) =>
+        depsFrom(List(c), Some(c), constPrinterOf.getOrElse(c, printer).getSet)
+      case GlobalDecl.Method(b) =>
+        depsFrom(methodBodyMembers(b), None, globalMethodPrinterOf(b).getSet)
+          .filterNot(_ == decl)
+    val ordered = mutable.ListBuffer.empty[GlobalDecl]
+    val done = mutable.Set.empty[GlobalDecl]
+    val onPath = mutable.Set.empty[GlobalDecl]
+    def place(decl: GlobalDecl): Unit =
+      if (!done.contains(decl) && onPath.add(decl))
+        depsOf(decl).foreach(place)
+        onPath -= decl
+        done += decl
+        ordered += decl
+    (globalConsts.map(GlobalDecl.Const(_)) ++ methodBlocks.map(GlobalDecl.Method(_)))
+      .foreach(place)
+    ordered.toList
+  end globalDeclsOrdered
+
+  private lazy val globalMethodPrinterOf: Map[DFDesignBlock, TPrinter] =
+    globalMethodPrinters.toMap
+  private lazy val constPrinterOf: Map[DFMember, TPrinter] =
+    globalConstsWithPrinters.view.map((p, c) => c -> p).toMap
+  // one global declaration rendered as a DEFINITION (a constant declaration, or a method with
+  // its body). VHDL renders the method half as a prototype in its package spec instead.
+  protected final def csGlobalDecl(decl: GlobalDecl): String = decl match
+    case GlobalDecl.Const(c)  => constPrinterOf.getOrElse(c, printer).csDFMembers(List(c))
+    case GlobalDecl.Method(b) => globalMethodPrinterOf(b).csMethodDcl(b).stripTrailing
+  protected final def csGlobalDecls: String =
+    globalDeclsOrdered.map(csGlobalDecl).filter(_.nonEmpty).mkString("\n")
+
   def csGlobalFileContent: String =
-    sn"""|$csGlobalConstIntDcls
-         |$csGlobalTypeDcls
-         |$csGlobalConstNonIntDcls
-         |$csGlobalMethodDcls"""
+    sn"""|$csGlobalTypeDcls
+         |$csGlobalDecls"""
   // The global HDL methods (ED methods / static functions used across designs or from
   // global scope) rendered as method DEFINITIONS, in post-order (a method after the
   // methods it calls). Shared by the single-string DB view (`csDB`) and the backends'
@@ -490,10 +563,8 @@ trait Printer
         formatCode(p.csFile(block))
     }
     val globals = formatCode(
-      sn"""|$csGlobalConstIntDcls
-           |$csGlobalTypeDcls
-           |$csGlobalConstNonIntDcls
-           |$csGlobalMethodDcls"""
+      sn"""|$csGlobalTypeDcls
+           |$csGlobalDecls"""
     )
     sn"""|$globals
          |

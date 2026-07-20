@@ -2723,6 +2723,45 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("global constants and static functions interleave by dependency") {
+    val gA:                           UInt[8] <> CONST    = d"8'1"
+    def gTwice(n:  UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    val gB:                           UInt[8] <> CONST    = gTwice(d"8'2")
+    def gTriple(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n + n
+    val gC:                           UInt[8] <> CONST    = gTriple(d"8'3")
+    class UsesAll extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gA + gB + gC
+    val top = (new UsesAll).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|parameter logic [7:0] gA = 8'd1;
+         |function automatic logic [7:0] gTwice(input logic [7:0] n);
+         |begin
+         |  gTwice = n + n;
+         |end
+         |endfunction
+         |parameter logic [7:0] gB = gTwice(8'd2);
+         |function automatic logic [7:0] gTriple(input logic [7:0] n);
+         |begin
+         |  gTriple = n + n + n;
+         |end
+         |endfunction
+         |parameter logic [7:0] gC = gTriple(8'd3);
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "UsesAll_defs.svh"
+         |
+         |module UsesAll(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = gA + gB + gC;
+         |endmodule
+         |""".stripMargin
+    )
+  }
   test("static function called at global scope") {
     def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
     val gW:                               UInt[8] <> CONST    = globalTwice(d"8'5")
@@ -2732,12 +2771,12 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new UsesGW).getCompiledCodeString
     assertNoDiff(
       top,
-      """|parameter logic [7:0] gW = globalTwice(8'd5);
-         |function automatic logic [7:0] globalTwice(input logic [7:0] n);
+      """|function automatic logic [7:0] globalTwice(input logic [7:0] n);
          |begin
          |  globalTwice = n + n;
          |end
          |endfunction
+         |parameter logic [7:0] gW = globalTwice(8'd5);
          |
          |`default_nettype none
          |`timescale 1ns/1ps

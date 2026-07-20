@@ -2709,6 +2709,49 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("global constants and static functions interleave by dependency") {
+    val gA: UInt[8] <> CONST                              = d"8'1"
+    def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET  = n + n
+    val gB: UInt[8] <> CONST                              = gTwice(d"8'2")
+    def gTriple(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n + n
+    val gC: UInt[8] <> CONST                              = gTriple(d"8'3")
+    class UsesAll extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gA + gB + gC
+    val top = (new UsesAll).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|constant gA : unsigned(7 downto 0) := 8d"1";
+         |pure function gTwice(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n;
+         |end function;
+         |constant gB : unsigned(7 downto 0) := gTwice(8d"2");
+         |pure function gTriple(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n + n;
+         |end function;
+         |constant gC : unsigned(7 downto 0) := gTriple(8d"3");
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.UsesAll_pkg.all;
+         |
+         |entity UsesAll is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end UsesAll;
+         |
+         |architecture UsesAll_arch of UsesAll is
+         |begin
+         |  o <= gA + gB + gC;
+         |end UsesAll_arch;
+         |""".stripMargin
+    )
+  }
   test("static function called at global scope") {
     def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
     val gW: UInt[8] <> CONST                                  = globalTwice(d"8'5")
@@ -2718,11 +2761,11 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new UsesGW).getCompiledCodeString
     assertNoDiff(
       top,
-      """|constant gW : unsigned(7 downto 0) := globalTwice(8d"5");
-         |pure function globalTwice(n : unsigned(7 downto 0)) return unsigned is
+      """|pure function globalTwice(n : unsigned(7 downto 0)) return unsigned is
          |begin
          |  return n + n;
          |end function;
+         |constant gW : unsigned(7 downto 0) := globalTwice(8d"5");
          |
          |library ieee;
          |use ieee.std_logic_1164.all;
