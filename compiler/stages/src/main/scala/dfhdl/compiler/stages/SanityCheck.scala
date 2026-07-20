@@ -9,7 +9,7 @@ import dfhdl.options.CompilerOptions
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
+case class SanityCheck(skipAnonRefCheck: Boolean) extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
   def refCheck()(using MemberGetSet): Unit =
@@ -422,24 +422,14 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       throw new IllegalArgumentException(errors.mkString("\n"))
   end hdlMethodCheck
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    // Build the hierarchical DB once (oldToNew is O(members) and SanityCheck
-    // runs after every stage). Run the per-design structural checks under each
-    // sub-DB's own getSet, then the design checks (per-sub-DB `subDBCheck` plus
-    // the cross-design root checks) once on the root via `check`.
-    val hierDB = designDB.oldToNew
-    hierDB.subDBs.view.values.foreach { subDB =>
-      subDB.atGetSet {
-        refCheck()
-        memberExistenceCheck()
-        ownershipCheck(subDB.top, subDB.membersNoGlobals.drop(1))
-        // orderCheck()
-        hdlMethodCheck()
-      }
-    }
-    hierDB.check
-    designDB
-  end transform
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    refCheck()
+    memberExistenceCheck()
+    ownershipCheck(subDB.top, subDB.membersNoGlobals.drop(1))
+    // orderCheck()
+    hdlMethodCheck()
+    subDB
+  end transformSubDB
 end SanityCheck
 
 extension [T: HasDB](t: T)

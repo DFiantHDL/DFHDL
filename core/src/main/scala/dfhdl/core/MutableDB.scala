@@ -1001,8 +1001,7 @@ final class MutableDB():
   // the natural forest already carries the exact sub-DB set, order, instance unification,
   // and globals closures; this pass only rewrites each member and re-resolves each ref
   // (`fixedMember`/`resolveFixed`), swaps each service-cached shell for its adopted forest,
-  // and anchors orphan globals at the top. BACKS `immutable` (the flat form and its
-  // `DB.oldToNew` re-partition round trip no longer exist).
+  // and anchors orphan globals at the top.
   private def hierarchical: DB =
     require(!inMetaProgramming, "hierarchical DB construction is undefined in meta-programming")
     // the run's merged state: the (ended) top-level context member list, which holds
