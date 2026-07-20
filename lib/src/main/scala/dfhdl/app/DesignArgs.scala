@@ -81,8 +81,15 @@ case class DesignArg(name: String, value: Any, desc: String)(using dfc: DFC):
   private def formatDFHDLLiteral(dfConst: DFValAny): String =
     import dfc.getSet
     given Printer = DefaultPrinter
-    val ir.DFVal.Const(dfType, data, _, _, _) = dfConst.asIR.runtimeChecked: @unchecked
-    summon[Printer].csConstData(dfType, data)
+    val dfConstIR = dfConst.asIR
+    dfConstIR.injectGlobalCtx()
+    val data = dfConstIR.getConstData[Any] match
+      case ir.ConstData.KnownConst(d) => d
+      case _                          =>
+        throw new IllegalArgumentException(
+          s"Design argument $name has a non-constant default value, which cannot be displayed."
+        )
+    summon[Printer].csConstData(dfConstIR.dfType, data)
 
   def updateScalaValue(updatedScalaValue: Any): DesignArg =
     // If the CLI-supplied value equals the current default, keep the existing
