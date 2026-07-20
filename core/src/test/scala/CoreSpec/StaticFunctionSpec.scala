@@ -23,7 +23,7 @@ class StaticFunctionSpec extends DFSpec:
         acc := n
         acc := acc + n
         acc := acc + n
-        acc
+        acc.asInstanceOf[UInt[8] <> CONST]
       o <> sum3(d"8'3")
     val top = FooSum3()
     val errs = dfc.getErrors
@@ -101,8 +101,7 @@ class StaticFunctionSpec extends DFSpec:
     )(
       """
       class Foo extends EDDesign:
-        def bad(n: UInt[8] <> CONST): Unit <> CONSTRET =
-          val tmp = n + n
+        def bad(n: UInt[8] <> CONST): Unit <> CONSTRET = ???
       """
     )
 
@@ -116,7 +115,9 @@ class StaticFunctionSpec extends DFSpec:
       class Foo extends EDDesign:
         val a = UInt(8) <> IN
         val y = UInt(8) <> OUT
-        def f(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + a
+        def f(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = 
+          val t = n + a
+          1
         y <> f(d"8'1")
       """
     )
