@@ -282,6 +282,33 @@ class NameRegAliasesSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("reg alias of a reg variable") {
+    class Foo extends RTDesign:
+      val r  = Bits(8) <> VAR.REG init h"00"
+      val r2 = Bits(8) <> VAR
+      val r3 = Bits(8) <> VAR
+      r2    := r.reg(1, init = h"11")
+      r3    := r2.reg(2, init = h"22")
+      r.din := r2 ^ r3
+    end Foo
+    val top = (new Foo).nameRegAliases
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val r = Bits(8) <> VAR.REG init h"00"
+         |  val r2 = Bits(8) <> VAR.REG init h"11"
+         |  val r3 = Bits(8) <> VAR
+         |  val r2_reg1 = Bits(8) <> VAR.REG init h"22"
+         |  val r2_reg2 = Bits(8) <> VAR.REG init h"22"
+         |  r2_reg1.din := r2
+         |  r2_reg2.din := r2_reg1
+         |  r2.din := r
+         |  r3 := r2_reg2
+         |  r.din := r2 ^ r3
+         |end Foo
+         |""".stripMargin
+    )
+  }
   // TODO: versioning is all wrong!
   // test("Reg alias inside conditionals with feedback") {
   //   class ID extends RTDesign:

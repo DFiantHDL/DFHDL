@@ -81,6 +81,10 @@ case object NameRegAliases extends HierarchyStage:
         // A reg alias is properly named when there is single assignment to a
         // DFHDL variable from a single-step reg alias.
         val properAliasesPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
+        // dcls that are replaced by REG dcls through the proper alias mechanism.
+        // reg aliases of such dcls must reference the replacing REG dcl directly,
+        // since the original dcl is removed.
+        val properAliasRegDcls = mutable.Map.empty[DFVal.Dcl, DFVal]
         val properAliases = members.view.collect {
           case DFNet.Assignment(
                 dcl: DFVal.Dcl,
@@ -97,6 +101,7 @@ case object NameRegAliases extends HierarchyStage:
               val regDcl = dcl.asValAny.dfType.<>(modifierFE).initForced(clonedInitList)(using
                 dfc.setMeta(dcl.meta)
               )
+            properAliasRegDcls += dcl -> dsn.regDcl.asIR
             properAliasesPatches += dsn.patch
             properAliasesPatches += regAlias -> Patch.Replace(
               relVal,
@@ -145,7 +150,9 @@ case object NameRegAliases extends HierarchyStage:
                 dfc.setMeta(alias.meta.setName(regName))
               )
             val regsIR = regs.map(_.asIR).toList
-            val relVal = alias.getNonRegAliasRelVal
+            val relVal = alias.getNonRegAliasRelVal match
+              case dcl: DFVal.Dcl => properAliasRegDcls.getOrElse(dcl, dcl)
+              case dfVal          => dfVal
             var initOptions = aliases.flatMap(a => List.fill(a.step)(a.initOption))
             def regDinPatch(posMember: DFMember, addCfg: Patch.Add.Config) =
               new MetaDesign(posMember, addCfg, domainType = RT):
