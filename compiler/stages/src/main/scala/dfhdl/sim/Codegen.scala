@@ -12,44 +12,68 @@ import scala.jdk.CollectionConverters.*
   *
   * This is the JDK-17-portable mockup of the planned bytecode backend (ClassFile API / ASM): the
   * shape of the emitted code is identical to what the bytecode generator would produce —
-  * combinational values in method locals, state reads/writes through the signal array, constants
-  * folded into the instruction stream, and bodies split into sub-methods (with cross-chunk values
-  * spilled to the signal array). HotSpot never JIT-compiles a method over `-XX:HugeMethodLimit`
-  * (8000 bytecodes) — one oversized method leaves the whole per-cycle path in the JVM bytecode
-  * interpreter and collapses large-netlist throughput — so op chunks are cut by an estimated
-  * bytecode cost with a wide safety margin, and the register commit is likewise split into slice
-  * methods. The commit is emitted in consumer-first topological order over the reg-to-reg next
-  * edges, so acyclic move chains (shift registers) are direct signal-to-signal copies; only
-  * dependency cycles stage a read through a scratch array, self-move holds are skipped, and
-  * comb/const next values always commit directly (comb slots are never written during the commit).
+  * combinational values in method locals, constants folded into the instruction stream, and bodies
+  * split into sub-methods.
+  *
+  * State is kernel-owned and width-typed: registers and cross-method (spilled) comb values live in
+  * fields typed `int` when the value is at most 32 bits wide and `long` otherwise. The int form is
+  * what makes large 32-bit-dominated designs fast — 32-bit adds wrap for free with no mask AND, and
+  * 32-bit rotate patterns compile to a single `ror` instruction — and measurements show it only
+  * pays with int-typed STORAGE: computing in int over a long-typed signal array loses more to the
+  * per-access truncate/widen boundary than the arithmetic saves. The shared signal array is
+  * therefore only made coherent at kernel entry (registers load — pokes land in the array) and exit
+  * (registers and spills store — peeks, scheduler wait bounds, and text-output arguments read the
+  * array after the call returns), which the bulk-run contract permits; the sync cost amortizes over
+  * the cycles of each call.
+  *
+  * HotSpot never JIT-compiles a method over `-XX:HugeMethodLimit` (8000 bytecodes) — one oversized
+  * method leaves the whole per-cycle path in the JVM bytecode interpreter and collapses
+  * large-netlist throughput — so op chunks are cut by an estimated bytecode cost with a wide safety
+  * margin, and the register commit is likewise split into slice methods. The commit is emitted in
+  * consumer-first topological order over the reg-to-reg next edges, so acyclic move chains (shift
+  * registers) are direct field-to-field copies; only dependency cycles stage a read through a
+  * scratch array, self-move holds are skipped, and comb/const next values always commit directly
+  * (comb values are never written during the commit).
   */
 object Codegen:
   private var counter = 0
 
   def compile(
       nl: Netlist,
-      maxOpsPerMethod: Int = 250,
+      maxOpsPerMethod: Int = 500,
       dumpSource: Boolean = false,
-      observed: Set[Int] = Set.empty
+      observed: Set[Int] = Set.empty,
+      watchNode: Int = -1
   ): SimKernel =
     val className = synchronized {
       counter += 1
       s"dfhdl.sim.gen.Kernel$counter"
     }
-    val source = generateJava(nl, className, maxOpsPerMethod, observed)
+    val source = generateJava(nl, className, maxOpsPerMethod, observed, watchNode)
     if dumpSource then println(source)
     val cls = compileJava(className, source)
     cls.getDeclaredConstructor().newInstance().asInstanceOf[SimKernel]
+  end compile
 
   private def generateJava(
       nl: Netlist,
       className: String,
       maxOpsPerMethod: Int,
-      observed: Set[Int]
+      observed: Set[Int],
+      watchNode: Int
   ): String =
     val comb = nl.combNodeIds
     def isCombNode(id: Int): Boolean =
       nl.opcodes(id) != Op.REG && nl.opcodes(id) != Op.CONST
+
+    // ---- width-typed emission --------------------------------------------------------------
+    def isIntN(id: Int): Boolean = nl.widths(id) <= 32
+    def jt(id: Int): String = if isIntN(id) then "int" else "long"
+    // ops with a dedicated int form; anything else falls back to long compute + an (int) cast
+    val intOps = Set(Op.ADD, Op.SUB, Op.MUL, Op.XOR, Op.AND, Op.OR, Op.NOT, Op.ROTR, Op.SHL,
+      Op.SHR, Op.MUX, Op.ROM, Op.RESIZE, Op.EQ, Op.NEQ, Op.ULT, Op.MOV)
+    def intMode(id: Int): Boolean =
+      isIntN(id) && intOps.contains(nl.opcodes(id)) && nl.nodeInputs(id).forall(isIntN)
 
     // ---- bytecode-cost model for method sizing ----------------------------------------------
     val regNextSpill = nl.regNextIds.iterator.filter(isCombNode).toSet
@@ -71,7 +95,10 @@ object Codegen:
         case Op.ROM                  => 8
         case _                       => 0
       val store = if observed.contains(id) || regNextSpill.contains(id) then 8 else 0
-      14 + nl.nodeInputs(id).map(rdCost).sum + extra + store
+      val cost = 14 + nl.nodeInputs(id).map(rdCost).sum + extra + store
+      // int-form ops over int-typed fields emit roughly two thirds of the long form's bytecode
+      // (no wide operands, no mask ANDs at width 32), so a chunk fits proportionally more
+      if intMode(id) then cost * 2 / 3 else cost
     end opCost
     // stay well under the 8000-bytecode JIT limit — the estimate is rough and cross-chunk
     // spill stores are only known after the boundaries are fixed; throughput is flat across
@@ -110,63 +137,102 @@ object Codegen:
       spill ++= regNextSpill
 
     def hexL(v: Long): String = "0x%XL".format(v)
-    // Read a node's value from within chunk `ci` (-1 = outside all chunks)
+    def hexI(v: Long): String = "0x%X".format(v & 0xffffffffL)
+    def isLocal(id: Int, ci: Int): Boolean = single || (ci >= 0 && chunkOf(id) == ci)
+    // Read a node's value as a long from within chunk `ci` (-1 = outside all chunks). State
+    // lives in width-typed fields; int values are always stored masked, so widening is unsigned.
     def rd(id: Int, ci: Int): String = nl.opcodes(id) match
       case Op.CONST => hexL(nl.initVals(id))
-      case Op.REG   => s"sig[$id]"
-      case _        => if single || (ci >= 0 && chunkOf(id) == ci) then s"v$id" else s"sig[$id]"
+      case Op.REG   => if isIntN(id) then s"Integer.toUnsignedLong(f$id)" else s"f$id"
+      case _        =>
+        val ref = if isLocal(id, ci) then s"v$id" else s"f$id"
+        if isIntN(id) then s"Integer.toUnsignedLong($ref)" else ref
+    // Read an int-typed node's value as an int (callers guarantee isIntN(id))
+    def rdI(id: Int, ci: Int): String = nl.opcodes(id) match
+      case Op.CONST => hexI(nl.initVals(id))
+      case Op.REG   => s"f$id"
+      case _        => if isLocal(id, ci) then s"v$id" else s"f$id"
 
     def emitOp(id: Int, ci: Int): String =
       val w = nl.widths(id)
-      val m = hexL(nl.maskOf(id))
       val a = nl.inA(id)
       val b = nl.inB(id)
       val c = nl.inC(id)
-      val expr = nl.opcodes(id) match
-        case Op.ADD    => s"(${rd(a, ci)} + ${rd(b, ci)}) & $m"
-        case Op.XOR    => s"${rd(a, ci)} ^ ${rd(b, ci)}"
-        case Op.AND    => s"${rd(a, ci)} & ${rd(b, ci)}"
-        case Op.OR     => s"${rd(a, ci)} | ${rd(b, ci)}"
-        case Op.NOT    => s"(~${rd(a, ci)}) & $m"
-        case Op.ROTR   => s"((${rd(a, ci)} >>> $b) | (${rd(a, ci)} << ${w - b})) & $m"
-        case Op.SHL    => s"(${rd(a, ci)} << $b) & $m"
-        case Op.SHR    => s"${rd(a, ci)} >>> $b"
-        case Op.MUX    => s"(${rd(a, ci)} != 0L ? ${rd(b, ci)} : ${rd(c, ci)})"
-        case Op.ROM    => s"ROM$b[(int) (${rd(a, ci)} & ${nl.romTables(b).length - 1}L)]"
-        case Op.RESIZE => s"${rd(a, ci)} & $m"
-        case Op.EQ     => s"(${rd(a, ci)} == ${rd(b, ci)} ? 1L : 0L)"
-        case Op.NEQ    => s"(${rd(a, ci)} != ${rd(b, ci)} ? 1L : 0L)"
-        case Op.MOV    => rd(a, ci)
-        case Op.SUB    => s"(${rd(a, ci)} - ${rd(b, ci)}) & $m"
-        case Op.SHLV   =>
-          s"(${rd(b, ci)} >= 64L ? 0L : (${rd(a, ci)} << ${rd(b, ci)}) & $m)"
-        case Op.SHRV =>
-          s"(${rd(b, ci)} >= 64L ? 0L : ${rd(a, ci)} >>> ${rd(b, ci)})"
-        case Op.SRAV =>
-          val s = 64 - w
-          s"((((${rd(a, ci)} << $s) >> $s) >> Math.min(${rd(b, ci)}, 63L)) & $m)"
-        case Op.ULT =>
-          s"(Long.compareUnsigned(${rd(a, ci)}, ${rd(b, ci)}) < 0 ? 1L : 0L)"
-        case Op.SLT =>
-          val s = 64 - nl.widths(a)
-          s"(((${rd(a, ci)} << $s) >> $s) < ((${rd(b, ci)} << $s) >> $s) ? 1L : 0L)"
-        case Op.MUL  => s"(${rd(a, ci)} * ${rd(b, ci)}) & $m"
-        case Op.UDIV =>
-          s"(${rd(b, ci)} == 0L ? 0L : Long.divideUnsigned(${rd(a, ci)}, ${rd(b, ci)}))"
-        case Op.SDIV =>
-          val s = 64 - w
-          s"(((${rd(b, ci)} << $s) >> $s) == 0L ? 0L : " +
-            s"(((${rd(a, ci)} << $s) >> $s) / ((${rd(b, ci)} << $s) >> $s)) & $m)"
-        case Op.UREM =>
-          s"(${rd(b, ci)} == 0L ? 0L : Long.remainderUnsigned(${rd(a, ci)}, ${rd(b, ci)}))"
-        case Op.SREM =>
-          val s = 64 - w
-          s"(((${rd(b, ci)} << $s) >> $s) == 0L ? 0L : " +
-            s"(((${rd(a, ci)} << $s) >> $s) % ((${rd(b, ci)} << $s) >> $s)) & $m)"
-        case Op.REV => s"Long.reverse(${rd(a, ci)}) >>> ${64 - w}"
-        case other  => throw new IllegalStateException(s"bad opcode $other")
-      val store = if spill.contains(id) then s" sig[$id] = v$id;" else ""
-      s"      long v$id = $expr;$store"
+      val expr =
+        if intMode(id) then
+          val mI = hexI(nl.maskOf(id))
+          def rd(x: Int): String = rdI(x, ci)
+          def mask(e: String): String = if w == 32 then e else s"($e) & $mI"
+          nl.opcodes(id) match
+            case Op.ADD  => mask(s"${rd(a)} + ${rd(b)}")
+            case Op.SUB  => mask(s"${rd(a)} - ${rd(b)}")
+            case Op.MUL  => mask(s"${rd(a)} * ${rd(b)}")
+            case Op.XOR  => s"${rd(a)} ^ ${rd(b)}"
+            case Op.AND  => s"${rd(a)} & ${rd(b)}"
+            case Op.OR   => s"${rd(a)} | ${rd(b)}"
+            case Op.NOT  => mask(s"~${rd(a)}")
+            case Op.ROTR =>
+              if w == 32 then s"Integer.rotateRight(${rd(a)}, $b)"
+              else s"((${rd(a)} >>> $b) | (${rd(a)} << ${w - b})) & $mI"
+            case Op.SHL    => mask(s"${rd(a)} << $b")
+            case Op.SHR    => s"${rd(a)} >>> $b"
+            case Op.MUX    => s"(${rd(a)} != 0 ? ${rd(b)} : ${rd(c)})"
+            case Op.ROM    => s"(int) ROM$b[${rd(a)} & ${nl.romTables(b).length - 1}]"
+            case Op.RESIZE => mask(rd(a))
+            case Op.EQ     => s"(${rd(a)} == ${rd(b)} ? 1 : 0)"
+            case Op.NEQ    => s"(${rd(a)} != ${rd(b)} ? 1 : 0)"
+            case Op.ULT    => s"(Integer.compareUnsigned(${rd(a)}, ${rd(b)}) < 0 ? 1 : 0)"
+            case Op.MOV    => rd(a)
+            case other     => throw new IllegalStateException(s"bad int-form opcode $other")
+          end match
+        else
+          val m = hexL(nl.maskOf(id))
+          val longExpr = nl.opcodes(id) match
+            case Op.ADD    => s"(${rd(a, ci)} + ${rd(b, ci)}) & $m"
+            case Op.XOR    => s"${rd(a, ci)} ^ ${rd(b, ci)}"
+            case Op.AND    => s"${rd(a, ci)} & ${rd(b, ci)}"
+            case Op.OR     => s"${rd(a, ci)} | ${rd(b, ci)}"
+            case Op.NOT    => s"(~${rd(a, ci)}) & $m"
+            case Op.ROTR   => s"((${rd(a, ci)} >>> $b) | (${rd(a, ci)} << ${w - b})) & $m"
+            case Op.SHL    => s"(${rd(a, ci)} << $b) & $m"
+            case Op.SHR    => s"${rd(a, ci)} >>> $b"
+            case Op.MUX    => s"(${rd(a, ci)} != 0L ? ${rd(b, ci)} : ${rd(c, ci)})"
+            case Op.ROM    => s"ROM$b[(int) (${rd(a, ci)} & ${nl.romTables(b).length - 1}L)]"
+            case Op.RESIZE => s"${rd(a, ci)} & $m"
+            case Op.EQ     => s"(${rd(a, ci)} == ${rd(b, ci)} ? 1L : 0L)"
+            case Op.NEQ    => s"(${rd(a, ci)} != ${rd(b, ci)} ? 1L : 0L)"
+            case Op.MOV    => rd(a, ci)
+            case Op.SUB    => s"(${rd(a, ci)} - ${rd(b, ci)}) & $m"
+            case Op.SHLV   =>
+              s"(${rd(b, ci)} >= 64L ? 0L : (${rd(a, ci)} << ${rd(b, ci)}) & $m)"
+            case Op.SHRV =>
+              s"(${rd(b, ci)} >= 64L ? 0L : ${rd(a, ci)} >>> ${rd(b, ci)})"
+            case Op.SRAV =>
+              val s = 64 - w
+              s"((((${rd(a, ci)} << $s) >> $s) >> Math.min(${rd(b, ci)}, 63L)) & $m)"
+            case Op.ULT =>
+              s"(Long.compareUnsigned(${rd(a, ci)}, ${rd(b, ci)}) < 0 ? 1L : 0L)"
+            case Op.SLT =>
+              val s = 64 - nl.widths(a)
+              s"(((${rd(a, ci)} << $s) >> $s) < ((${rd(b, ci)} << $s) >> $s) ? 1L : 0L)"
+            case Op.MUL  => s"(${rd(a, ci)} * ${rd(b, ci)}) & $m"
+            case Op.UDIV =>
+              s"(${rd(b, ci)} == 0L ? 0L : Long.divideUnsigned(${rd(a, ci)}, ${rd(b, ci)}))"
+            case Op.SDIV =>
+              val s = 64 - w
+              s"(((${rd(b, ci)} << $s) >> $s) == 0L ? 0L : " +
+                s"(((${rd(a, ci)} << $s) >> $s) / ((${rd(b, ci)} << $s) >> $s)) & $m)"
+            case Op.UREM =>
+              s"(${rd(b, ci)} == 0L ? 0L : Long.remainderUnsigned(${rd(a, ci)}, ${rd(b, ci)}))"
+            case Op.SREM =>
+              val s = 64 - w
+              s"(((${rd(b, ci)} << $s) >> $s) == 0L ? 0L : " +
+                s"(((${rd(a, ci)} << $s) >> $s) % ((${rd(b, ci)} << $s) >> $s)) & $m)"
+            case Op.REV => s"Long.reverse(${rd(a, ci)}) >>> ${64 - w}"
+            case other  => throw new IllegalStateException(s"bad opcode $other")
+          if isIntN(id) then s"(int) ($longExpr)" else longExpr
+      val store = if spill.contains(id) then s" f$id = v$id;" else ""
+      s"      ${jt(id)} v$id = $expr;$store"
     end emitOp
 
     // register commit ordering: profiling shows plain data movement dominating large designs, so
@@ -213,7 +279,21 @@ object Codegen:
     val gatherSlices = regIdx.filter(stagedSet).grouped(400).toVector
     val commitSlices = commitOrder.grouped(350).toVector
     val dirtySlices = commitOrder.grouped(150).toVector
-    val hasRegs = commitOrder.nonEmpty || hasStaged
+
+    // The commit target and its next value share a width by construction, so a register's
+    // next value is read in the register's own storage type
+    def rdNext(i: Int, ci: Int): String =
+      val n = nl.regNextIds(i)
+      if isIntN(nl.regIds(i)) then rdI(n, ci) else rd(n, ci)
+    def rdStaged(i: Int): String =
+      if isIntN(nl.regIds(i)) then s"(int) nxt[$i]" else s"nxt[$i]"
+
+    // Kernel-owned state: registers and spilled comb values live in width-typed fields; the
+    // shared signal array is only made coherent at kernel entry (load registers — pokes land
+    // there) and exit (store registers and spills — peeks, wait bounds, and text-output
+    // arguments read there). The sync cost is per bulk call, amortized over its cycles.
+    val syncInSlices = nl.regIds.toVector.grouped(400).toVector
+    val syncOutSlices = (nl.regIds.toVector ++ spill.toVector.sorted).grouped(400).toVector
 
     val simpleName = className.split('.').last
     val pkg = className.stripSuffix("." + simpleName)
@@ -222,43 +302,63 @@ object Codegen:
     sb ++= s"public final class $simpleName implements dfhdl.sim.SimKernel {\n"
     for (table, i) <- nl.romTables.zipWithIndex do
       sb ++= s"  private static final long[] ROM$i = { ${table.map(hexL).mkString(", ")} };\n"
+    for id <- (nl.regIds.toVector ++ spill.toVector).sorted do
+      sb ++= s"  private ${jt(id)} f$id;\n"
     if !single && hasStaged then
       sb ++= s"  private final long[] nxt = new long[${nl.regIds.length}];\n"
-    val nxtParam = if hasStaged then ", long[] nxt" else ""
-    val nxtArg = if hasStaged then ", nxt" else ""
+    val nxtParam = if hasStaged then "long[] nxt" else ""
+    val nxtArg = if hasStaged then "nxt" else ""
+
+    def emitSyncIn(indent: String): Unit =
+      for k <- syncInSlices.indices do sb ++= s"${indent}syncIn$k(sig);\n"
+    def emitSyncOut(indent: String): Unit =
+      for k <- syncOutSlices.indices do sb ++= s"${indent}syncOut$k(sig);\n"
 
     def emitCombCalls(indent: String): Unit =
       if single then
         for id <- comb do
           sb ++= emitOp(id, 0)
           sb += '\n'
-      else for ci <- chunks.indices do sb ++= s"${indent}chunk$ci(sig);\n"
+      else for ci <- chunks.indices do sb ++= s"${indent}chunk$ci();\n"
 
     def emitCommitCalls(indent: String): Unit =
-      for gi <- gatherSlices.indices do sb ++= s"${indent}gather$gi(sig, nxt);\n"
-      for ci <- commitSlices.indices do sb ++= s"${indent}commit$ci(sig$nxtArg);\n"
+      for gi <- gatherSlices.indices do sb ++= s"${indent}gather$gi(nxt);\n"
+      for ci <- commitSlices.indices do sb ++= s"${indent}commit$ci($nxtArg);\n"
+
+    def emitSingleCommit(indent: String): Unit =
+      // two-phase commit: read every next value before any register field is overwritten,
+      // otherwise register-to-register chains (shift registers) cascade within one cycle
+      for i <- regIdx do
+        if !selfMove(i) then sb ++= s"$indent${jt(nl.regIds(i))} nxt$i = ${rdNext(i, 0)};\n"
+      for (r, i) <- nl.regIds.zipWithIndex do
+        if !selfMove(i) then sb ++= s"${indent}f$r = nxt$i;\n"
+
+    // watched run: exit after any cycle whose settled watch value is nonzero; the watch node
+    // is fixed at generation time (the runtime argument is only cross-checked)
+    val watchCheck =
+      if watchNode < 0 then "false"
+      else if isIntN(watchNode) then s"${rdI(watchNode, -1)} != 0"
+      else s"${rd(watchNode, -1)} != 0L"
 
     def emitRunMethod(watch: Boolean): Unit =
       sb ++= (
         if watch then "\n  public long runWatch(long[] sig, long cycles, int watch) {\n"
         else "\n  public void run(long[] sig, long cycles) {\n"
       )
+      if watch then
+        sb ++= s"    if (watch != $watchNode) " +
+          "throw new IllegalArgumentException(\"unexpected watch node \" + watch);\n"
+      emitSyncIn("    ")
       if !single && hasStaged then sb ++= "    final long[] nxt = this.nxt;\n"
+      if watch then sb ++= "    long done = cycles;\n"
       sb ++= "    for (long cyc = 0L; cyc < cycles; cyc++) {\n"
       emitCombCalls("      ")
-      if single then
-        // two-phase commit: read every next value before any register slot is overwritten,
-        // otherwise register-to-register chains (shift registers) cascade within one cycle
-        for (n, i) <- nl.regNextIds.zipWithIndex do
-          if !selfMove(i) then sb ++= s"      long nxt$i = ${rd(n, 0)};\n"
-        for (r, i) <- nl.regIds.zipWithIndex do
-          if !selfMove(i) then sb ++= s"      sig[$r] = nxt$i;\n"
+      if single then emitSingleCommit("      ")
       else emitCommitCalls("      ")
-      // watched run: exit after any cycle whose settled watch value is nonzero (the watch node
-      // is spilled to the signal array via the observed set)
-      if watch then sb ++= "      if (sig[watch] != 0L) return cyc + 1L;\n"
+      if watch then sb ++= s"      if ($watchCheck) { done = cyc + 1L; break; }\n"
       sb ++= "    }\n"
-      if watch then sb ++= "    return cycles;\n"
+      emitSyncOut("    ")
+      if watch then sb ++= "    return done;\n"
       sb ++= "  }\n"
     end emitRunMethod
 
@@ -266,59 +366,74 @@ object Codegen:
     emitRunMethod(watch = true)
     // comb-only sweep (no register commit) for settle-on-peek
     sb ++= "\n  public void settle(long[] sig) {\n"
+    emitSyncIn("    ")
     emitCombCalls("    ")
+    emitSyncOut("    ")
     sb ++= "  }\n"
     // one tracked-commit cycle for the scheduler's quiescence probe
     sb ++= "\n  public boolean stepDirty(long[] sig) {\n"
+    emitSyncIn("    ")
     if single then
       emitCombCalls("    ")
       sb ++= "    boolean dirty = false;\n"
-      for (n, i) <- nl.regNextIds.zipWithIndex do
-        if !selfMove(i) then sb ++= s"    long nxt$i = ${rd(n, 0)};\n"
+      for i <- regIdx do
+        if !selfMove(i) then sb ++= s"    ${jt(nl.regIds(i))} nxt$i = ${rdNext(i, 0)};\n"
       for (r, i) <- nl.regIds.zipWithIndex do
         if !selfMove(i) then
-          if nl.regTracked(i) then sb ++= s"    if (sig[$r] != nxt$i) dirty = true;\n"
-          sb ++= s"    sig[$r] = nxt$i;\n"
-      sb ++= "    return dirty;\n  }\n"
+          if nl.regTracked(i) then sb ++= s"    if (f$r != nxt$i) dirty = true;\n"
+          sb ++= s"    f$r = nxt$i;\n"
     else
       if hasStaged then sb ++= "    final long[] nxt = this.nxt;\n"
       emitCombCalls("    ")
-      for gi <- gatherSlices.indices do sb ++= s"    gather$gi(sig, nxt);\n"
+      for gi <- gatherSlices.indices do sb ++= s"    gather$gi(nxt);\n"
       sb ++= "    boolean dirty = false;\n"
       for di <- dirtySlices.indices do
-        sb ++= s"    dirty = commitDirty$di(sig$nxtArg) | dirty;\n"
-      sb ++= "    return dirty;\n  }\n"
+        sb ++= s"    dirty = commitDirty$di($nxtArg) | dirty;\n"
     end if
+    emitSyncOut("    ")
+    sb ++= "    return dirty;\n  }\n"
     if !single then
       for (chunk, ci) <- chunks.zipWithIndex do
-        sb ++= s"\n  private static void chunk$ci(long[] sig) {\n"
+        sb ++= s"\n  private void chunk$ci() {\n"
         for id <- chunk do
           sb ++= emitOp(id, ci)
           sb += '\n'
         sb ++= "  }\n"
       for (slice, gi) <- gatherSlices.zipWithIndex do
-        sb ++= s"\n  private static void gather$gi(long[] sig, long[] nxt) {\n"
+        sb ++= s"\n  private void gather$gi(long[] nxt) {\n"
         for i <- slice do sb ++= s"    nxt[$i] = ${rd(nl.regNextIds(i), -1)};\n"
         sb ++= "  }\n"
       for (slice, ci) <- commitSlices.zipWithIndex do
-        sb ++= s"\n  private static void commit$ci(long[] sig$nxtParam) {\n"
+        sb ++= s"\n  private void commit$ci($nxtParam) {\n"
         for i <- slice do
-          val v = if stagedSet(i) then s"nxt[$i]" else rd(nl.regNextIds(i), -1)
-          sb ++= s"    sig[${nl.regIds(i)}] = $v;\n"
+          val v = if stagedSet(i) then rdStaged(i) else rdNext(i, -1)
+          sb ++= s"    f${nl.regIds(i)} = $v;\n"
         sb ++= "  }\n"
       for (slice, di) <- dirtySlices.zipWithIndex do
-        sb ++= s"\n  private static boolean commitDirty$di(long[] sig$nxtParam) {\n"
+        sb ++= s"\n  private boolean commitDirty$di($nxtParam) {\n"
         sb ++= "    boolean dirty = false;\n"
         for i <- slice do
           val r = nl.regIds(i)
-          val v = if stagedSet(i) then s"nxt[$i]" else rd(nl.regNextIds(i), -1)
+          val v = if stagedSet(i) then rdStaged(i) else rdNext(i, -1)
           if nl.regTracked(i) then
-            sb ++= s"    long x$i = $v;\n"
-            sb ++= s"    if (sig[$r] != x$i) dirty = true;\n"
-            sb ++= s"    sig[$r] = x$i;\n"
-          else sb ++= s"    sig[$r] = $v;\n"
+            sb ++= s"    ${jt(r)} x$i = $v;\n"
+            sb ++= s"    if (f$r != x$i) dirty = true;\n"
+            sb ++= s"    f$r = x$i;\n"
+          else sb ++= s"    f$r = $v;\n"
         sb ++= "    return dirty;\n  }\n"
     end if
+    for (slice, k) <- syncInSlices.zipWithIndex do
+      sb ++= s"\n  private void syncIn$k(long[] sig) {\n"
+      for r <- slice do
+        val v = if isIntN(r) then s"(int) sig[$r]" else s"sig[$r]"
+        sb ++= s"    f$r = $v;\n"
+      sb ++= "  }\n"
+    for (slice, k) <- syncOutSlices.zipWithIndex do
+      sb ++= s"\n  private void syncOut$k(long[] sig) {\n"
+      for id <- slice do
+        val v = if isIntN(id) then s"Integer.toUnsignedLong(f$id)" else s"f$id"
+        sb ++= s"    sig[$id] = $v;\n"
+      sb ++= "  }\n"
     sb ++= "}\n"
     sb.result()
   end generateJava

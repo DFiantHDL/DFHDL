@@ -73,7 +73,8 @@ object DFacsimile:
         Codegen.compile(
           builder.nl,
           observed =
-            builder.namedNodes.values.flatMap(_.lanes).toSet ++ schedObserved ++ actionObserved
+            builder.namedNodes.values.flatMap(_.lanes).toSet ++ schedObserved ++ actionObserved,
+          watchNode = builder.watchNode
         )
     new Sim(
       builder.nl,
