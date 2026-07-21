@@ -1174,10 +1174,11 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
           1.cy.wait
     end Foo
     val top = (new Foo).toED
-    // the payoff of the initial-block lowering: the iterator reset value comes from the
-    // generated initial block (planted into the reset branch), the first loop iteration
-    // dispatches immediately after reset (no bootstrap state), and the forever wrap-around
-    // re-initializes the iterator via the rotation clone at zero extra cycles
+    // the payoff of the initial-block lowering plus first-step fusion: the loop control step
+    // fuses into the wait's exit site (forwarded `(i + 1) < 4` guard) and the reset-site fold
+    // drops the bootstrap state, so reset provides the iterator and first output values
+    // directly (via the generated initial block planted into the reset branch) and every loop
+    // iteration costs exactly its one wait cycle, including the forever wrap-around
     assertCodeString(
       top,
       """|case class Clk_cfg() extends Clk
@@ -1185,8 +1186,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |
          |class Foo extends EDDesign:
          |  enum State(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
-         |    case S_0 extends State(d"1'0")
-         |    case S_0_0 extends State(d"1'1")
+         |    case S_0_0 extends State(d"1'0")
          |
          |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
          |  val clk = Clk_cfg <> IN
@@ -1197,21 +1197,21 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1)
+         |        y :== sd"16'${0}"
          |        i :== 0
-         |        state :== State.S_0
+         |        state :== State.S_0_0
          |      else
          |        state match
-         |          case State.S_0 =>
-         |            if (i < 4)
-         |              y :== sd"16'${i}"
+         |          case State.S_0_0 =>
+         |            i :== i + 1
+         |            if ((i + 1) < 4)
+         |              y :== sd"16'${(i + 1)}"
          |              state :== State.S_0_0
          |            else
          |              i :== 0
-         |              state :== State.S_0
+         |              y :== sd"16'${0}"
+         |              state :== State.S_0_0
          |            end if
-         |          case State.S_0_0 =>
-         |            i :== i + 1
-         |            state :== State.S_0
          |        end match
          |      end if
          |    end if

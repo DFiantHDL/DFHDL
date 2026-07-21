@@ -50,7 +50,11 @@ import scala.annotation.tailrec
   *
   * If the process's first step is fused, it is kept as a state solely for the reset entry (there
   * is no jump site to inline its dispatch into at reset); all real jump sites still inline it, so
-  * the bootstrap costs at most one cycle at process start and none per iteration.
+  * the bootstrap costs at most one cycle at process start and none per iteration. When the
+  * bootstrap's dispatch additionally const-folds under the values the prologue assigns (the
+  * reset/initial values), even that state is dropped: the folded assignments join the prologue
+  * (and thus the generated `initial` block) and the fold's target step becomes the FSM entry
+  * state, so the process starts with zero bootstrap cycles.
   */
 //format: on
 private[stages] object FirstStepFusion:
@@ -151,7 +155,17 @@ private[stages] object FirstStepFusion:
       }
 
   // Post-flattening validation: a fused body must be pure if-dispatch with no self-goto.
+  // Exception: the process's first step may self-goto — the forever-loop rotation wraps the
+  // process end back to it, planting the re-initializing prologue clone right before the wrap
+  // goto, so expansion resolves the re-entry by constant pruning on the re-initialized values
+  // (a genuinely dynamic re-entry still falls back via the expansion visit limit).
   private def validCandidate(s: StepBlock)(using MemberGetSet): Boolean =
+    lazy val isProcessFirstStep = s.getOwnerBlock match
+      case pb: ProcessBlock =>
+        pb.members(MemberView.Folded).collectFirst {
+          case sb: StepBlock if sb.isRegular => sb
+        }.contains(s)
+      case _ => false
     s.members(MemberView.Flattened).forall {
       case _: DFVal.Dcl            => false
       case h: DFConditional.Header => h.isInstanceOf[DFConditional.DFIfHeader]
@@ -163,16 +177,19 @@ private[stages] object FirstStepFusion:
       case _: DFRange => true
       case g: Goto    =>
         g.stepRef.get match
-          case target: StepBlock => target != s
+          case target: StepBlock => target != s || isProcessFirstStep
           case _                 => false // relative gotos must not remain at this point
       case _ => false
     }
+  end validCandidate
 
-  // Walks backward from a goto site to its owning step's boundary, collecting the value each
-  // register will hold in the next cycle (pending unconditional full assignments) and the
-  // declarations whose next-cycle value is not statically resolvable (conditional or partial
-  // pending assignments, and same-cycle non-register blocking assignments).
-  private def walkBack(site: Goto)(using
+  // Walks backward from an anchor member to its owning step's (or process's) boundary,
+  // collecting the value each register will hold in the next cycle (pending unconditional full
+  // assignments) and the declarations whose next-cycle value is not statically resolvable
+  // (conditional or partial pending assignments, and same-cycle non-register blocking
+  // assignments). Anchored at a goto site this yields the site's forwarding state; anchored at
+  // the process's first step it yields the prologue's reset-entry state.
+  private def walkBack(anchor: DFMember)(using
       MemberGetSet
   ): (Map[DFVal.Dcl, DFVal], Set[DFVal.Dcl]) =
     def assignedDclsOf(m: DFMember): Iterator[DFVal.Dcl] = m match
@@ -227,8 +244,170 @@ private[stages] object FirstStepFusion:
         case _ => (newRegs, newDirty) // process level — stop
       end match
     end walk
-    walk(site, Map(), Set())
+    walk(anchor, Map(), Set())
   end walkBack
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+  // Dispatch expansion machinery, shared by goto-site inlining and reset-site folding: value
+  // forwarding through pending register assignments, constant guard resolution, and statement
+  // cloning into the expansion's meta design.
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+
+  private abstract class DispatchExpansion(
+      anchor: DFMember,
+      addCfg: Patch.Add.Config
+  )(using MemberGetSet, RefGen)
+      extends MetaDesign(anchor, addCfg, dfhdl.core.DomainType.RT):
+    import dfhdl.core.{refTW, addMember}
+
+    // the constant data of a Bool/Bit guard, if statically known (handles both the raw and the
+    // Option-wrapped (bubble-capable) data representations)
+    def guardConstData(guard: ir.DFVal): Option[Boolean] =
+      // the guard may be a fresh clone known only to this meta design's mutable DB
+      given ir.MemberGetSet = dfc.getSet
+      guard.getConstDataThroughParams[Any] match
+        case Some(Some(b: Boolean)) => Some(b)
+        case Some(b: Boolean)       => Some(b)
+        case _                      => None
+
+    type Regs = Map[ir.DFVal.Dcl, ir.DFVal]
+    // per-execution-path forwarding state within one region (one conceptual cycle):
+    // `pendingRegs` — register assignments made in this region (committed at the next goto);
+    // `blocking` — non-register variable values (blocking semantics, same cycle only);
+    // `dirty` — declarations whose value is not statically resolvable on this path
+    case class PathState(
+        pendingRegs: Regs,
+        blocking: Regs,
+        dirty: Set[ir.DFVal.Dcl]
+    )
+
+    def emitGoto(target: ir.StepBlock): Unit =
+      ir.Goto(target.refTW[ir.Goto], dfc.ownerOrEmptyRef, dfc.getMeta.anonymize, dfc.tags)
+        .addMember
+
+    def treeDcls(v: ir.DFVal): Set[ir.DFVal.Dcl] = v match
+      case dcl: ir.DFVal.Dcl => Set(dcl)
+      case _                 =>
+        v.getRefs.view.map(_.get).foldLeft(Set.empty[ir.DFVal.Dcl]) {
+          case (acc, dep: ir.DFVal) => acc ++ treeDcls(dep)
+          case (acc, _)             => acc
+        }
+
+    def forbiddenRead(v: ir.DFVal, entryRegs: Regs, st: PathState): Boolean =
+      treeDcls(v).exists(d =>
+        entryRegs.contains(d) || st.blocking.contains(d) || st.dirty.contains(d)
+      )
+
+    // the forwarded value for a read: re-emit anonymous values here (fresh, single-referenced),
+    // reference declarations/named values directly
+    def emitForward(fwd: ir.DFVal, victim: ir.StepBlock): ir.DFVal =
+      if (fwd.isAnonymous)
+        try fwd.cloneAnonValueAndDepsHere
+        catch case _: IllegalArgumentException => throw new AbortFusion(victim)
+      else fwd
+
+    def substDcl(
+        dcl: ir.DFVal.Dcl,
+        entryRegs: Regs,
+        st: PathState,
+        victim: ir.StepBlock
+    ): ir.DFVal =
+      val fwdOpt = if (dcl.modifier.isReg) entryRegs.get(dcl) else st.blocking.get(dcl)
+      fwdOpt match
+        case Some(fwd)             => emitForward(fwd, victim)
+        case None if st.dirty(dcl) => throw new AbortFusion(victim)
+        case None                  => dcl
+
+    // clones an anonymous expression tree here and retargets its declaration reads through the
+    // forwarding state
+    def substValue(
+        v: ir.DFVal,
+        entryRegs: Regs,
+        st: PathState,
+        victim: ir.StepBlock
+    ): ir.DFVal =
+      // fresh clone refs are registered only in this meta design's mutable DB
+      given ir.MemberGetSet = dfc.getSet
+      def rewire(root: ir.DFVal): Unit =
+        root.getRefs.foreach { ref =>
+          ref.get match
+            case dcl: ir.DFVal.Dcl =>
+              val r = substDcl(dcl, entryRegs, st, victim)
+              if (r ne dcl)
+                dfc.mutableDB.newRefFor(ref.asInstanceOf[ir.DFRef[ir.DFVal]], r)
+            case dep: ir.DFVal if dep.isAnonymous => rewire(dep)
+            case dep: ir.DFVal                    =>
+              if (forbiddenRead(dep, entryRegs, st)) throw new AbortFusion(victim)
+            case _ =>
+        }
+      v match
+        case dcl: ir.DFVal.Dcl   => substDcl(dcl, entryRegs, st, victim)
+        case _ if !v.isAnonymous =>
+          if (forbiddenRead(v, entryRegs, st)) throw new AbortFusion(victim)
+          v
+        case _ =>
+          val cloned =
+            try v.cloneAnonValueAndDepsHere
+            catch case _: IllegalArgumentException => throw new AbortFusion(victim)
+          rewire(cloned)
+          cloned
+    end substValue
+
+    // clones a single statement member here with fresh registered refs, remapping value reads
+    // through the forwarding state (used for prints/asserts)
+    def plantSubstClone(
+        m: ir.DFMember,
+        entryRegs: Regs,
+        st: PathState,
+        victim: ir.StepBlock
+    ): Unit =
+      val cloned = m.copyWithNewRefs
+      dfc.mutableDB.addMember(cloned)
+      dfc.mutableDB.newRefFor(cloned.ownerRef, dfc.owner.asIR)
+      m.getRefs.lazyZip(cloned.getRefs).foreach { (ref, clonedRef) =>
+        val target: ir.DFMember = ref.get match
+          case v: ir.DFVal => substValue(v, entryRegs, st, victim)
+          case other       => other
+        dfc.mutableDB.newRefFor(clonedRef.asInstanceOf[ir.DFRef[ir.DFMember]], target)
+      }
+    end plantSubstClone
+
+    // clones a full-width left-hand-side access chain (a Dcl or full-width alias wrappers)
+    def cloneLhs(v: ir.DFVal, victim: ir.StepBlock): ir.DFVal = v match
+      case dcl: ir.DFVal.Dcl             => dcl
+      case alias: ir.DFVal.Alias.Partial =>
+        val rel = cloneLhs(alias.relValRef.get, victim)
+        val cloned = alias.copyWithNewRefs
+        dfc.mutableDB.addMember(cloned)
+        dfc.mutableDB.newRefFor(cloned.ownerRef, dfc.owner.asIR)
+        alias.getRefs.lazyZip(cloned.getRefs).foreach { (ref, clonedRef) =>
+          val target: ir.DFMember = if (ref.get == alias.relValRef.get) rel else ref.get
+          dfc.mutableDB.newRefFor(clonedRef.asInstanceOf[ir.DFRef[ir.DFMember]], target)
+        }
+        cloned
+      case _ => throw new AbortFusion(victim)
+
+    // clones an assignment net here, forwarding its right-hand-side reads through the path state
+    def emitAssign(
+        net: ir.DFNet,
+        entryRegs: Regs,
+        st: PathState,
+        victim: ir.StepBlock
+    ): (ir.DFVal.Dcl, ir.DFVal) =
+      val dcl = fullAssignDcl(net).getOrElse(throw new AbortFusion(victim))
+      val rhs = substValue(net.rhsRef.get, entryRegs, st, victim)
+      val lhs = cloneLhs(net.lhsRef.get, victim)
+      ir.DFNet(
+        lhs.refTW[ir.DFNet],
+        ir.DFNet.Op.Assignment,
+        rhs.refTW[ir.DFNet],
+        dfc.ownerOrEmptyRef,
+        net.meta,
+        net.tags
+      ).addMember
+      (dcl, rhs)
+    end emitAssign
+  end DispatchExpansion
 
   // Builds the site expansion: replaces the site goto with the (recursively expanded) dispatch of
   // its fused target, applying value forwarding and constant pruning.
@@ -238,139 +417,11 @@ private[stages] object FirstStepFusion:
   ): (DFMember, Patch) =
     val rootTarget = site.stepRef.get.asInstanceOf[StepBlock]
     val (initRegs, initDirty) = walkBack(site)
-    val dsn = new MetaDesign(
+    val dsn = new DispatchExpansion(
       site,
-      Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
-      dfhdl.core.DomainType.RT
+      Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)
     ):
-      import dfhdl.core.{DFIf, DFBool, DFUnit, DFOwnerAny, DFValAny, refTW, addMember}
-
-      // the constant data of a Bool/Bit guard, if statically known (handles both the raw and the
-      // Option-wrapped (bubble-capable) data representations)
-      def guardConstData(guard: ir.DFVal): Option[Boolean] =
-        // the guard may be a fresh clone known only to this meta design's mutable DB
-        given ir.MemberGetSet = dfc.getSet
-        guard.getConstDataThroughParams[Any] match
-          case Some(Some(b: Boolean)) => Some(b)
-          case Some(b: Boolean)       => Some(b)
-          case _                      => None
-
-      type Regs = Map[ir.DFVal.Dcl, ir.DFVal]
-      // per-execution-path forwarding state within one region (one conceptual cycle):
-      // `pendingRegs` — register assignments made in this region (committed at the next goto);
-      // `blocking` — non-register variable values (blocking semantics, same cycle only);
-      // `dirty` — declarations whose value is not statically resolvable on this path
-      case class PathState(
-          pendingRegs: Regs,
-          blocking: Regs,
-          dirty: Set[ir.DFVal.Dcl]
-      )
-
-      def emitGoto(target: ir.StepBlock): Unit =
-        ir.Goto(target.refTW[ir.Goto], dfc.ownerOrEmptyRef, dfc.getMeta.anonymize, dfc.tags)
-          .addMember
-
-      def treeDcls(v: ir.DFVal): Set[ir.DFVal.Dcl] = v match
-        case dcl: ir.DFVal.Dcl => Set(dcl)
-        case _                 =>
-          v.getRefs.view.map(_.get).foldLeft(Set.empty[ir.DFVal.Dcl]) {
-            case (acc, dep: ir.DFVal) => acc ++ treeDcls(dep)
-            case (acc, _)             => acc
-          }
-
-      def forbiddenRead(v: ir.DFVal, entryRegs: Regs, st: PathState): Boolean =
-        treeDcls(v).exists(d =>
-          entryRegs.contains(d) || st.blocking.contains(d) || st.dirty.contains(d)
-        )
-
-      // the forwarded value for a read: re-emit anonymous values here (fresh, single-referenced),
-      // reference declarations/named values directly
-      def emitForward(fwd: ir.DFVal, victim: ir.StepBlock): ir.DFVal =
-        if (fwd.isAnonymous)
-          try fwd.cloneAnonValueAndDepsHere
-          catch case _: IllegalArgumentException => throw new AbortFusion(victim)
-        else fwd
-
-      def substDcl(
-          dcl: ir.DFVal.Dcl,
-          entryRegs: Regs,
-          st: PathState,
-          victim: ir.StepBlock
-      ): ir.DFVal =
-        val fwdOpt = if (dcl.modifier.isReg) entryRegs.get(dcl) else st.blocking.get(dcl)
-        fwdOpt match
-          case Some(fwd)             => emitForward(fwd, victim)
-          case None if st.dirty(dcl) => throw new AbortFusion(victim)
-          case None                  => dcl
-
-      // clones an anonymous expression tree here and retargets its declaration reads through the
-      // forwarding state
-      def substValue(
-          v: ir.DFVal,
-          entryRegs: Regs,
-          st: PathState,
-          victim: ir.StepBlock
-      ): ir.DFVal =
-        // fresh clone refs are registered only in this meta design's mutable DB
-        given ir.MemberGetSet = dfc.getSet
-        def rewire(root: ir.DFVal): Unit =
-          root.getRefs.foreach { ref =>
-            ref.get match
-              case dcl: ir.DFVal.Dcl =>
-                val r = substDcl(dcl, entryRegs, st, victim)
-                if (r ne dcl)
-                  dfc.mutableDB.newRefFor(ref.asInstanceOf[ir.DFRef[ir.DFVal]], r)
-              case dep: ir.DFVal if dep.isAnonymous => rewire(dep)
-              case dep: ir.DFVal                    =>
-                if (forbiddenRead(dep, entryRegs, st)) throw new AbortFusion(victim)
-              case _ =>
-          }
-        v match
-          case dcl: ir.DFVal.Dcl   => substDcl(dcl, entryRegs, st, victim)
-          case _ if !v.isAnonymous =>
-            if (forbiddenRead(v, entryRegs, st)) throw new AbortFusion(victim)
-            v
-          case _ =>
-            val cloned =
-              try v.cloneAnonValueAndDepsHere
-              catch case _: IllegalArgumentException => throw new AbortFusion(victim)
-            rewire(cloned)
-            cloned
-      end substValue
-
-      // clones a single statement member here with fresh registered refs, remapping value reads
-      // through the forwarding state (used for prints/asserts)
-      def plantSubstClone(
-          m: ir.DFMember,
-          entryRegs: Regs,
-          st: PathState,
-          victim: ir.StepBlock
-      ): Unit =
-        val cloned = m.copyWithNewRefs
-        dfc.mutableDB.addMember(cloned)
-        dfc.mutableDB.newRefFor(cloned.ownerRef, dfc.owner.asIR)
-        m.getRefs.lazyZip(cloned.getRefs).foreach { (ref, clonedRef) =>
-          val target: ir.DFMember = ref.get match
-            case v: ir.DFVal => substValue(v, entryRegs, st, victim)
-            case other       => other
-          dfc.mutableDB.newRefFor(clonedRef.asInstanceOf[ir.DFRef[ir.DFMember]], target)
-        }
-      end plantSubstClone
-
-      // clones a full-width left-hand-side access chain (a Dcl or full-width alias wrappers)
-      def cloneLhs(v: ir.DFVal, victim: ir.StepBlock): ir.DFVal = v match
-        case dcl: ir.DFVal.Dcl             => dcl
-        case alias: ir.DFVal.Alias.Partial =>
-          val rel = cloneLhs(alias.relValRef.get, victim)
-          val cloned = alias.copyWithNewRefs
-          dfc.mutableDB.addMember(cloned)
-          dfc.mutableDB.newRefFor(cloned.ownerRef, dfc.owner.asIR)
-          alias.getRefs.lazyZip(cloned.getRefs).foreach { (ref, clonedRef) =>
-            val target: ir.DFMember = if (ref.get == alias.relValRef.get) rel else ref.get
-            dfc.mutableDB.newRefFor(clonedRef.asInstanceOf[ir.DFRef[ir.DFMember]], target)
-          }
-          cloned
-        case _ => throw new AbortFusion(victim)
+      import dfhdl.core.{DFIf, DFBool, DFUnit, DFOwnerAny, DFValAny}
 
       def expandGoto(
           target: ir.StepBlock,
@@ -412,17 +463,7 @@ private[stages] object FirstStepFusion:
               case _: ir.DFConditional.Header => throw new AbortFusion(victim) // match dispatch
               case _: ir.DFConditional.Block  => throw new AbortFusion(victim) // out-of-chain
               case net: ir.DFNet              =>
-                val dcl = fullAssignDcl(net).getOrElse(throw new AbortFusion(victim))
-                val rhs = substValue(net.rhsRef.get, entryRegs, st, victim)
-                val lhs = cloneLhs(net.lhsRef.get, victim)
-                ir.DFNet(
-                  lhs.refTW[ir.DFNet],
-                  ir.DFNet.Op.Assignment,
-                  rhs.refTW[ir.DFNet],
-                  dfc.ownerOrEmptyRef,
-                  net.meta,
-                  net.tags
-                ).addMember
+                val (dcl, rhs) = emitAssign(net, entryRegs, st, victim)
                 val newSt =
                   if (dcl.modifier.isReg)
                     st.copy(pendingRegs = st.pendingRegs.updated(dcl, rhs))
@@ -551,72 +592,172 @@ private[stages] object FirstStepFusion:
           }
           val sitePatches = sites.map(expandSite(_, fusedSet))
           val removedSteps = pbFused.filterNot(bootstrapOpt.contains)
-          val subtrees = removedSteps.map(s => s -> s.members(MemberView.Flattened))
-          // everything that vanishes with the fusion: the removed steps' subtrees plus the
-          // replaced site gotos
-          val removedSet: Set[DFMember] =
-            subtrees.flatMap((s, subtree) => s :: subtree).toSet ++ sites
-          // a member of a removed subtree that is still referenced from a survivor must be
-          // relocated, not removed — DropRTWaits parks a nested step's dispatch guard in the
-          // *parent* step's branch, so a surviving wait step may reference values owned by the
-          // fused control step being removed. Relocate each such value to the top of the first
-          // surviving step that references it (preserving relative order via patch concatenation).
-          val exemptTargets: Map[DFMember, StepBlock] =
-            val subtreeSet = subtrees.flatMap(_._2).toSet
-            val builder = scala.collection.mutable.Map.empty[DFMember, StepBlock]
-            getSet.designDB.members.foreach { m =>
-              if (!removedSet.contains(m))
-                m.getRefs.foreach { ref =>
-                  val target = ref.get
-                  if (subtreeSet.contains(target) && !builder.contains(target))
-                    builder += target -> m.getThisOrOwnerStepBlock
-                }
-            }
-            // transitive closure: an exempt member's own dependencies within the subtrees are
-            // referenced by a survivor-to-be and must be relocated along with it
-            var worklist = builder.keys.toList
-            while (worklist.nonEmpty)
-              val e = worklist.head
-              worklist = worklist.tail
-              val target = builder(e)
-              e.getRefs.foreach { ref =>
-                val dep = ref.get
-                if (subtreeSet.contains(dep) && !builder.contains(dep))
-                  builder += dep -> target
-                  worklist = dep :: worklist
-              }
-            builder.toMap
-          end exemptTargets
-          val movePatches = subtrees.flatMap { (s, subtree) =>
-            subtree.collect {
-              case v: DFVal if exemptTargets.contains(v) =>
-                exemptTargets(v) -> Patch.Move(List(v), v.getOwner, Patch.Move.Config.InsideFirst)
-            }
-          }
-          // a non-value subtree member referenced from a survivor would be structural breakage
-          if (
-            subtrees.exists(_._2.exists(m => exemptTargets.contains(m) && !m.isInstanceOf[DFVal]))
-          )
-            throw new AbortFusion(removedSteps.head)
-          val removePatches = subtrees.flatMap { (s, subtree) =>
-            (s :: subtree.filterNot(exemptTargets.contains)).map(_ -> Patch.Remove())
-          }
-          sitePatches ++ movePatches ++ removePatches
+          sitePatches ++ subtreeRemovalPatches(removedSteps, sites.toSet)
         end if
       case _ => Nil
     }
   end collectFusionPatches
+
+  // Removes the given steps with their whole subtrees. A member of a removed subtree that is
+  // still referenced from a survivor must be relocated, not removed — DropRTWaits parks a nested
+  // step's dispatch guard in the *parent* step's branch, so a surviving wait step may reference
+  // values owned by the fused control step being removed. Relocate each such value to the top of
+  // the first surviving step that references it (preserving relative order via patch
+  // concatenation). `alsoRemoved` lists additional members that vanish in the same patch (e.g.
+  // the replaced site gotos), so references from them do not count as survivor references.
+  private def subtreeRemovalPatches(
+      removedSteps: List[StepBlock],
+      alsoRemoved: Set[DFMember]
+  )(using MemberGetSet): List[(DFMember, Patch)] =
+    val subtrees = removedSteps.map(s => s -> s.members(MemberView.Flattened))
+    val removedSet: Set[DFMember] =
+      subtrees.flatMap((s, subtree) => s :: subtree).toSet ++ alsoRemoved
+    val exemptTargets: Map[DFMember, StepBlock] =
+      val subtreeSet = subtrees.flatMap(_._2).toSet
+      val builder = scala.collection.mutable.Map.empty[DFMember, StepBlock]
+      getSet.designDB.members.foreach { m =>
+        if (!removedSet.contains(m))
+          m.getRefs.foreach { ref =>
+            val target = ref.get
+            if (subtreeSet.contains(target) && !builder.contains(target))
+              builder += target -> m.getThisOrOwnerStepBlock
+          }
+      }
+      // transitive closure: an exempt member's own dependencies within the subtrees are
+      // referenced by a survivor-to-be and must be relocated along with it
+      var worklist = builder.keys.toList
+      while (worklist.nonEmpty)
+        val e = worklist.head
+        worklist = worklist.tail
+        val target = builder(e)
+        e.getRefs.foreach { ref =>
+          val dep = ref.get
+          if (subtreeSet.contains(dep) && !builder.contains(dep))
+            builder += dep -> target
+            worklist = dep :: worklist
+        }
+      builder.toMap
+    end exemptTargets
+    val movePatches = subtrees.flatMap { (s, subtree) =>
+      subtree.collect {
+        case v: DFVal if exemptTargets.contains(v) =>
+          exemptTargets(v) -> Patch.Move(List(v), v.getOwner, Patch.Move.Config.InsideFirst)
+      }
+    }
+    // a non-value subtree member referenced from a survivor would be structural breakage
+    if (subtrees.exists(_._2.exists(m => exemptTargets.contains(m) && !m.isInstanceOf[DFVal])))
+      throw new AbortFusion(removedSteps.head)
+    val removePatches = subtrees.flatMap { (s, subtree) =>
+      (s :: subtree.filterNot(exemptTargets.contains)).map(_ -> Patch.Remove())
+    }
+    movePatches ++ removePatches
+  end subtreeRemovalPatches
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+  // Reset-site folding: after every jump site is inlined, a fused first step survives only as the
+  // one-time reset bootstrap state. When its dispatch fully const-folds under the values the
+  // prologue assigns (the reset/initial values), even that state is dropped: the folded dispatch
+  // assignments are appended to the prologue (and thus lower into the generated `initial` block)
+  // and the fold's target step becomes the FSM entry state, so the process starts with zero
+  // bootstrap cycles.
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+
+  private def collectResetSitePatches(
+      pb: ProcessBlock,
+      bootstrap: StepBlock
+  )(using MemberGetSet, RefGen): List[(DFMember, Patch)] =
+    // the bootstrap must be unreachable except through reset (every jump site was inlined)
+    val targeted = pb.members(MemberView.Flattened).exists {
+      case g: Goto => g.stepRef.get == bootstrap
+      case _       => false
+    }
+    if (targeted) throw new AbortFusion(bootstrap)
+    // the prologue's pending register assignments are the values reset/initial will provide
+    val (entryRegs, entryDirty) = walkBack(bootstrap)
+    val dsn = new DispatchExpansion(bootstrap, Patch.Add.Config.Before):
+      // single-path fold: every guard must resolve statically, and every emitted statement must
+      // remain initial-convertible (a full-width constant assignment to a register) so the
+      // extended prologue still lowers into the generated `initial` block
+      @tailrec def foldRegion(members: List[ir.DFMember], st: PathState): ir.StepBlock =
+        members match
+          case Nil       => throw new AbortFusion(bootstrap)
+          case m :: rest =>
+            m match
+              case h: ir.DFConditional.DFIfHeader =>
+                val (chain, afterChain) = gatherChain(h, rest)
+                @tailrec def select(chain: List[ir.DFConditional.Block]): List[ir.DFMember] =
+                  chain match
+                    case Nil => Nil // all guards statically false: continue past the chain
+                    case cb :: restChain =>
+                      cb.guardRef.get match
+                        case _: ir.DFMember.Empty.type => cb.members(MemberView.Folded)
+                        case guard: ir.DFVal           =>
+                          guardConstData(substValue(guard, entryRegs, st, bootstrap)) match
+                            case Some(true)  => cb.members(MemberView.Folded)
+                            case Some(false) => select(restChain)
+                            case None        => throw new AbortFusion(bootstrap)
+                        case _ => throw new AbortFusion(bootstrap)
+                foldRegion(select(chain) ::: afterChain, st)
+              case net: ir.DFNet =>
+                val (dcl, rhs) = emitAssign(net, entryRegs, st, bootstrap)
+                given ir.MemberGetSet = dfc.getSet
+                if (!dcl.modifier.isReg || !rhs.isConst) throw new AbortFusion(bootstrap)
+                // register assignments are not readable on the fold path (non-blocking
+                // semantics): reads keep resolving through the reset-entry values
+                foldRegion(rest, st)
+              case g: ir.Goto =>
+                g.stepRef.get match
+                  case target: ir.StepBlock if target != bootstrap => target
+                  case _ => throw new AbortFusion(bootstrap)
+              case _: ir.DFVal   => foldRegion(rest, st)
+              case _: ir.DFRange => foldRegion(rest, st)
+              // text output and anything else cannot move into an RT `initial` block
+              case _ => throw new AbortFusion(bootstrap)
+      end foldRegion
+      val terminal = foldRegion(
+        bootstrap.members(MemberView.Folded),
+        PathState(Map(), Map(), entryDirty)
+      )
+    // DropRTProcess initializes the state register to the process's first remaining step, so
+    // the fold target must be exactly that step
+    val nextFirstStep = pb.members(MemberView.Folded).collectFirst {
+      case sb: StepBlock if sb.isRegular && sb != bootstrap => sb
+    }
+    if (!nextFirstStep.contains(dsn.terminal)) throw new AbortFusion(bootstrap)
+    dsn.patch :: subtreeRemovalPatches(List(bootstrap), Set())
+  end collectResetSitePatches
+
+  // Drops reset bootstrap states whose dispatch const-folds at the reset entry. A fold that
+  // cannot complete leaves the bootstrap state as a real (one-cycle) FSM state.
+  private def fuseResetSites(db: DB, fusedSet: Set[StepBlock]): DB =
+    if (fusedSet.isEmpty) db
+    else
+      given MemberGetSet = db.getSet
+      given RefGen = RefGen.fromGetSet
+      val patchList = db.members.flatMap {
+        case pb: ProcessBlock if pb.isInRTDomain =>
+          pb.members(MemberView.Folded).collectFirst {
+            case sb: StepBlock if sb.isRegular => sb
+          }.filter(fusedSet.contains).toList.flatMap { bootstrap =>
+            try collectResetSitePatches(pb, bootstrap)
+            catch case _: AbortFusion => Nil
+          }
+        case _ => Nil
+      }
+      if (patchList.isEmpty) db
+      else sweepUnreferenced(db.patch(patchList))
+  end fuseResetSites
 
   /** Fuses the given candidate steps (computed on the nested form) into their jump sites on the
     * flat DB. A candidate whose dispatch cannot be soundly inlined silently falls back to remaining
     * a real FSM state.
     */
   def fuse(flatDB: DB, candidates: List[StepBlock]): DB =
-    @tailrec def loop(db: DB, remaining: List[StepBlock]): DB =
+    @tailrec def loop(db: DB, remaining: List[StepBlock]): (DB, List[StepBlock]) =
       given MemberGetSet = db.getSet
       given RefGen = RefGen.fromGetSet
       val valid = remaining.filter(validCandidate)
-      if (valid.isEmpty) db
+      if (valid.isEmpty) (db, Nil)
       else
         var victimOpt: Option[StepBlock] = None
         val patchedOpt =
@@ -626,9 +767,10 @@ private[stages] object FirstStepFusion:
               victimOpt = Some(abort.victim)
               None
         patchedOpt match
-          case Some(patched) => sweepUnreferenced(patched)
+          case Some(patched) => (sweepUnreferenced(patched), valid)
           case None          => loop(db, valid.filterNot(_ == victimOpt.get))
     end loop
-    loop(flatDB, candidates)
+    val (fusedDB, fused) = loop(flatDB, candidates)
+    fuseResetSites(fusedDB, fused.toSet)
   end fuse
 end FirstStepFusion

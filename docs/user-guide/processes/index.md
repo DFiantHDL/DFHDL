@@ -206,6 +206,7 @@ Similarly, Rule 4 falls back to a synthetic bootstrap state (one cycle consumed 
 
 - The prologue (or the first step's `onEntry`) is not initial-convertible: it contains non-constant right-hand sides, assignments to wires/ports (non-registered), prints, `while` loops, or conditionals with non-constant guards/selectors.
 - A variable assigned by the prologue is also assigned by trailing statements of the process body (statements executed in the wrap-around exit cycle): the wrap-around re-initialization would shadow that trailing assignment in the same cycle, so the bootstrap state is kept instead.
+- The process's first time-consuming construct is guarded by a condition that is not constant at initialization (for example, a first loop bounded by a dynamic `n`): the entry state cannot be selected at reset, so the entry dispatch occupies a one-time bootstrap state (one cycle at process start only; loop iterations are unaffected).
 
 These cases are deterministic: a given shape either always fuses or always keeps its control/bootstrap cycle.
 ///

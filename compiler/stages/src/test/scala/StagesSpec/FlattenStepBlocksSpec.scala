@@ -102,9 +102,6 @@ class FlattenStepBlocksSpec extends StageSpec():
       top,
       """|class Foo extends RTDesign:
          |  process:
-         |    def MyStep: Step =
-         |      MyStep_0
-         |    end MyStep
          |    def MyStep_0: Step =
          |      MyStep_0
          |    end MyStep_0
@@ -178,10 +175,7 @@ class FlattenStepBlocksSpec extends StageSpec():
          |  val a = Int <> OUT.REG
          |  val b = Int <> OUT.REG
          |  process:
-         |    def S_0: Step =
-         |      a.din := 1
-         |      S_0_0
-         |    end S_0
+         |    a.din := 1
          |    def S_0_0: Step =
          |      b.din := 2
          |      S_0_1
@@ -227,10 +221,7 @@ class FlattenStepBlocksSpec extends StageSpec():
          |  val b = Int <> OUT.REG
          |  val c = Int <> OUT.REG
          |  process:
-         |    def S_0: Step =
-         |      a.din := 1
-         |      S_0_0_0
-         |    end S_0
+         |    a.din := 1
          |    def S_0_0_0: Step =
          |      b.din := 2
          |      c.din := 3
@@ -508,9 +499,6 @@ class FlattenStepBlocksSpec extends StageSpec():
          |  val c = Int <> OUT.REG
          |  val i = Bit <> IN
          |  process:
-         |    def S_0: Step =
-         |      S_0_0
-         |    end S_0
          |    def S_0_0: Step =
          |      if (i) a.din := 1
          |      else a.din := 0
@@ -598,9 +586,6 @@ class FlattenStepBlocksSpec extends StageSpec():
       top,
       """|class Foo extends RTDesign:
          |  process:
-         |    def S1: Step =
-         |      S1_S2_S3
-         |    end S1
          |    def S1_S2_S3: Step =
          |      finish()
          |      S1_S2_S3
@@ -893,6 +878,51 @@ class FlattenStepBlocksSpec extends StageSpec():
          |      end for
          |      S0
          |    end S1
+         |end Foo""".stripMargin
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(top, expected)
+    assertCodeString(top.flattenStepBlocks, expected)
+  }
+
+  test("fusion: first-step loop control with wrap-around self-goto fuses and folds at reset") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG init 0
+      process:
+        for (i <- 0 until 4)
+          3.cy.wait
+        x.din := 1
+    end Foo
+    // the loop control step is the process's first flat step, so the forever-loop rotation
+    // plants the wrap-around self-goto (with the re-initializing `i := 0` clone) inside its
+    // exit branch. The control step still fuses: the loop-back site forwards the incremented
+    // iterator into the guard, the wrap re-entry const-folds through the re-initialization,
+    // and the reset-site fold then drops the bootstrap state entirely, extending the prologue
+    // with the folded wait-counter clear
+    val expected =
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG init 0
+         |  val i = Int <> VAR.REG
+         |  val waitCnt = UInt(2) <> VAR.REG
+         |  process:
+         |    i.din := 0
+         |    waitCnt.din := d"2'0"
+         |    def S_0_0: Step =
+         |      if (waitCnt != d"2'2")
+         |        waitCnt.din := waitCnt + d"2'1"
+         |        S_0_0
+         |      else
+         |        i.din := i + 1
+         |        if ((i + 1) < 4)
+         |          waitCnt.din := d"2'0"
+         |          S_0_0
+         |        else
+         |          x.din := 1
+         |          i.din := 0
+         |          waitCnt.din := d"2'0"
+         |          S_0_0
+         |        end if
+         |      end if
+         |    end S_0_0
          |end Foo""".stripMargin
     val top = (new Foo).flattenStepBlocks
     assertCodeString(top, expected)

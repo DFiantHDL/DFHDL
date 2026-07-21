@@ -488,4 +488,51 @@ class DropRTProcessSpec extends StageSpec():
          |end Foo""".stripMargin
     )
   }
+  test("waiting loop lowers to a single-state FSM with no bootstrap cycle") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG init 0
+      process:
+        for (i <- 0 until 4)
+          3.cy.wait
+        x.din := 1
+    end Foo
+    val top = (new Foo).dropRTProcess
+    // the loop control step fuses into the wait's exit sites (forwarded `(i + 1) < 4`
+    // guard) and the reset-site fold drops the bootstrap state: the generated initial
+    // block provides the iterator and wait-counter values, so the FSM resets directly
+    // into the (single) wait state and the whole loop costs exactly 4 x 3 cycles
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  enum State(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
+         |    case S_0_0 extends State(d"1'0")
+         |
+         |  val x = Bit <> OUT.REG init 0
+         |  val i = Int <> VAR.REG
+         |  val waitCnt = UInt(2) <> VAR.REG
+         |  initial:
+         |    i.din := 0
+         |    waitCnt.din := d"2'0"
+         |  val state = State <> VAR.REG init State.S_0_0
+         |  state match
+         |    case State.S_0_0 =>
+         |      if (waitCnt != d"2'2")
+         |        waitCnt.din := waitCnt + d"2'1"
+         |        state.din := State.S_0_0
+         |      else
+         |        i.din := i + 1
+         |        if ((i + 1) < 4)
+         |          waitCnt.din := d"2'0"
+         |          state.din := State.S_0_0
+         |        else
+         |          x.din := 1
+         |          i.din := 0
+         |          waitCnt.din := d"2'0"
+         |          state.din := State.S_0_0
+         |        end if
+         |      end if
+         |  end match
+         |end Foo""".stripMargin
+    )
+  }
 end DropRTProcessSpec

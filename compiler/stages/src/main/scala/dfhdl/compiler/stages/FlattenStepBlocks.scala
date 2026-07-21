@@ -194,7 +194,9 @@ import scala.annotation.tailrec
   *    A step is kept as a real state (consuming its entry cycle, as before) when its dispatch
   *    cannot be soundly inlined — see [[FirstStepFusion]] for the exact fallback conditions —
   *    and when it is the process's first step, in which case it remains solely as the one-time
-  *    reset bootstrap state.
+  *    reset bootstrap state. Even that state is dropped when its dispatch const-folds under the
+  *    prologue's reset/initial values: the folded assignments join the prologue and the fold's
+  *    target step becomes the FSM entry state (see [[FirstStepFusion]], reset-site folding).
   *
   * == Implementation Phases ==
   *

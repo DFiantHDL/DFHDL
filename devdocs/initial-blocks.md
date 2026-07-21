@@ -256,7 +256,21 @@ Division of labor, each stage remaining a fix-point (`f(f(x)) == f(x)`):
   test). Explicit and `FirstStep` gotos never trigger the copy, matching the
   runs-exactly-twice definition. Fusion bonus: at a fused first step the rotated
   `i.din := 0` becomes a pending assignment for `FirstStepFusion`'s value forwarding, so the
-  loop-restart guard folds statically and the forever restart costs zero cycles.
+  loop-restart guard folds statically and the forever restart costs zero cycles. The wrap
+  goto the rotation plants inside the FIRST step's own exit branch is a self-goto; the
+  fusion validation explicitly allows it for the process's first step only (expansion
+  resolves the re-entry by constant pruning on the re-initialized values, and a genuinely
+  dynamic re-entry still falls back via the expansion visit limit).
+- **`FirstStepFusion` (reset-site fold)**: after every jump site is inlined, a fused first
+  step survives only as the one-time reset bootstrap state. When its dispatch const-folds
+  under the prologue's pending values (single path: every guard resolves statically, every
+  emitted statement is a const-RHS full REG assignment, the fold ends at a goto to the
+  member-order-next step, and nothing still jumps to the bootstrap), the folded assignments
+  are appended to the prologue (so `DropRTProcess` lowers them into the generated `initial`
+  block) and the bootstrap state is removed. The FSM then resets directly into the fold's
+  target state: a waiting loop costs exactly its wait cycles with zero bootstrap cycles, so
+  `wait(100.us)`, `for(...) wait(...)`, and nested-loop equivalents finish at identical
+  simulation times.
 - **`DropRTProcess`**: clones the prologue's statement closures (via
   `initialConvertibleMoveList`) into a generated `initial` block before the process and
   REMOVES the originals (they must not survive the process unwrap as every-cycle logic);
@@ -277,10 +291,11 @@ loop-back with one FSM state and no wasted cycle.
 
 Tests: `DropRTWaitsSpec` (incl. the comb-for convertible prologue and the textout/comb-while
 bootstrap fallbacks), `FlattenStepBlocksSpec` (rotation and its fix-point, incl. the
-loop rotation clone), `DropRTProcessSpec` (incl. the comb-loop and const-guard
-conditional initial-block generation), and the `ToEDSpec` end-to-end for-loop payoff (reset
-init in the reset branch, no bootstrap state, wrap re-init at the loop-exit site, zero extra
-cycles).
+loop rotation clone and the first-step wrap self-goto fusion + reset-site fold with its
+fix-point), `DropRTProcessSpec` (incl. the comb-loop and const-guard conditional
+initial-block generation and the single-state waiting-loop FSM), and the `ToEDSpec`
+end-to-end for-loop payoff (reset provides the iterator and first output values, single
+fused state, wrap re-init at the loop-exit site, one cycle per iteration).
 
 ## 7. Printing
 
@@ -313,12 +328,11 @@ cycles).
 
 ### Pending work
 
-1. **Reset-site fusion** ("Phase F"). A loop-first FSM still pays its bootstrap state when
-   the first step's dispatch cannot fuse. Teach `FirstStepFusion` a reset virtual site:
-   evaluate the first step's dispatch with the initial values as the pending assignments and
-   set the FSM's `stateInit` to the statically resolved target. Also consider fusing steps
-   whose only non-regular child is an initial-convertible `onEntry` (today
-   `hasNonRegularChild` disqualifies them).
+1. **Fusing steps with an initial-convertible `onEntry`.** Reset-site fusion ("Phase F") is
+   IMPLEMENTED (see §6: `FirstStepFusion` reset-site fold), so a fused loop-first FSM pays
+   zero bootstrap cycles. What remains from the original item: consider fusing steps whose
+   only non-regular child is an initial-convertible `onEntry` (today `hasNonRegularChild`
+   disqualifies them).
 2. **Init-function form for design-local parameterized types.** `DropInitialBlocks` gates
    out a block whose declaration type or captured constants reference design-local values
    (e.g. `SInt(W) X D <> VAR` with `W` a design parameter). Under ED it falls back to the
@@ -328,10 +342,12 @@ cycles).
    referencing the phantom formals).
 3. **Simulation validation.** No `testApps` case exercises any lowering path: Verilog
    `initial`, VHDL decl-init, the generated init function, the one-shot process, or the
-   reset-branch planting. The cycle-semantics claims (the wait-equivalence rules, the
-   zero-cost for-loop start, prologue re-init across a mid-run reset at the wrap-around)
-   also have no simulation coverage; DFacsimile cannot host it yet (no process-block
-   support), so an external-simulator `testApps` case is the practical path.
+   reset-branch planting. The wait-equivalence rules were verified MANUALLY (2026-07-21,
+   questa): `wait(100.us)`, `for(10) wait(10.us)`, and `for(10) for(10) wait(1.us)` all
+   finish at the identical simulation time, but no automated simulation coverage exists
+   (prologue re-init across a mid-run reset at the wrap-around remains unverified);
+   DFacsimile cannot host it yet (no process-block support), so an external-simulator
+   `testApps` case is the practical path.
 
 ### Unverified corners
 
