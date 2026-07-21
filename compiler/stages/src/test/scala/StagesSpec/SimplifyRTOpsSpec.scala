@@ -369,4 +369,28 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("empty for-loop body") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG init 0
+      process:
+        1.cy.wait
+        for (i <- 0 until 3) {}
+        x.din := !x
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG init 0
+         |  process:
+         |    1.cy.wait
+         |    val i = Int <> VAR.REG
+         |    i.din := 0
+         |    while (i < 3)
+         |      i.din := i + 1
+         |    end while
+         |    x.din := !x
+         |end Foo""".stripMargin
+    )
+  }
 end SimplifyRTOpsSpec

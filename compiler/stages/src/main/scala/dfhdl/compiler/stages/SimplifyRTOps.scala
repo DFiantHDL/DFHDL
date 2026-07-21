@@ -296,6 +296,13 @@ case object SimplifyRTOps extends HierarchyStage:
             case (DFRange.Op.To, _)              => newIterDcl >= endVal
           val whileBlock = dfhdl.core.DFWhile.Block(guard)(using dfc.setMeta(forBlock.meta))
           dfc.enterOwner(whileBlock)
+          // An empty for-loop body still requires the iterator increment inside the while loop,
+          // and with no last body member to anchor an After patch on (see M2 below), the
+          // increment is created directly inside the while block. The while block is then no
+          // longer the last M1 member, so the patch selects it by index (see m1Patch below).
+          if (forBodyMembers.isEmpty)
+            val stepConst = dfhdl.core.DFVal.Const(dfhdl.core.DFInt32, Some(stepBigInt))
+            newIterDcl.din := newIterDcl + stepConst
           dfc.exitOwner()
         val newIterDclIR = m1.newIterDcl.asIR
         val iterDclPatch =
@@ -313,7 +320,18 @@ case object SimplifyRTOps extends HierarchyStage:
             val stepConst = dfhdl.core.DFVal.Const(dfhdl.core.DFInt32, Some(stepBigInt))
             m1.newIterDcl.din := m1.newIterDcl + stepConst
           List(m1.patch, iterDclPatch, m2.patch)
-        else List(m1.patch, iterDclPatch)
+        else
+          // The increment members trail the while block inside M1, so the replacement member
+          // (the while block that takes the for block's list position and references) is
+          // selected by its index instead of ReplaceWithLast.
+          val m1Patch = forBlock -> Patch.Add(
+            m1,
+            Patch.Add.Config.ReplaceWithMemberN(
+              m1.getDBOld.members.indexOf(m1.whileBlock.asIR) - 1,
+              Patch.Replace.Config.ChangeRefAndRemove
+            )
+          )
+          List(m1Patch, iterDclPatch)
         end if
 
       case _ => None

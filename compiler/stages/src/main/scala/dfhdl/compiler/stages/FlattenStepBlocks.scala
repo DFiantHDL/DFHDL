@@ -323,6 +323,15 @@ case object FlattenStepBlocks extends HierarchyStage:
       case _                             => Nil
     }
 
+  // A relocated statement together with all its descendants when it is an owner (e.g. a
+  // trailing conditional block): a Move patch repositions only the members it lists, so an
+  // owner moved without its descendants leaves them behind in the flat member list and
+  // breaks its pre-order ownership invariant.
+  private def stmtMoveClosure(stmt: DFMember)(using MemberGetSet): List[DFMember] =
+    stmt match
+      case owner: DFOwner => owner :: owner.members(MemberView.Flattened)
+      case _              => List(stmt)
+
   private def findConsumedGoto(s: StepBlock)(using MemberGetSet): (DFConditional.Block, Goto) =
     val cb = s.getOwner.asInstanceOf[DFConditional.Block]
     val cbMembers = cb.members(MemberView.Folded)
@@ -435,7 +444,7 @@ case object FlattenStepBlocks extends HierarchyStage:
       val targetStep = deepestLastChild(s)
       findNextStepGoto(targetStep).toList.flatMap { nextStepGoto =>
         interStepStmts.map { stmt =>
-          nextStepGoto -> Patch.Move(List(stmt), stmt.getOwner, Patch.Move.Config.Before)
+          nextStepGoto -> Patch.Move(stmtMoveClosure(stmt), stmt.getOwner, Patch.Move.Config.Before)
         }
       }
     }
@@ -464,7 +473,8 @@ case object FlattenStepBlocks extends HierarchyStage:
             val targetStep = deepestLastChild(step)
             findNextStepGoto(targetStep).toList.flatMap { nextStepGoto =>
               stmtsToMove.map { stmt =>
-                nextStepGoto -> Patch.Move(List(stmt), stmt.getOwner, Patch.Move.Config.Before)
+                nextStepGoto ->
+                  Patch.Move(stmtMoveClosure(stmt), stmt.getOwner, Patch.Move.Config.Before)
               }
             }
         }

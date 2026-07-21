@@ -928,4 +928,42 @@ class FlattenStepBlocksSpec extends StageSpec():
     assertCodeString(top, expected)
     assertCodeString(top.flattenStepBlocks, expected)
   }
+
+  test("trailing nested conditional") {
+    class Foo extends RTDesign:
+      val sel = Bit     <> IN
+      val acc = UInt(8) <> OUT.REG init d"8'0"
+      process:
+        def S_0: Step =
+          if (acc < d"8'10")
+            def S_0_0: Step =
+              NextStep
+            end S_0_0
+            if (sel) acc.din := acc + d"8'3"
+            ThisStep
+          else NextStep
+          end if
+        end S_0
+    end Foo
+    // the trailing conditional (a partial assignment under `sel`) relocates into S_0_0 as a
+    // whole-block closure, and its conditional assignment to `acc` blocks fusing S_0's
+    // dispatch (which reads `acc`) at S_0_0's exit site, so both steps remain real states
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val sel = Bit <> IN
+         |  val acc = UInt(8) <> OUT.REG init d"8'0"
+         |  process:
+         |    def S_0: Step =
+         |      if (acc < d"8'10") S_0_0
+         |      else S_0
+         |    end S_0
+         |    def S_0_0: Step =
+         |      if (sel) acc.din := acc + d"8'3"
+         |      S_0
+         |    end S_0_0
+         |end Foo""".stripMargin
+    )
+  }
 end FlattenStepBlocksSpec
