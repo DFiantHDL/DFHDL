@@ -64,7 +64,8 @@ Analysis helpers
 | `member.isInInitialBlock` | ownership walk up to the nearest process |
 | `pb.hasResolvedRstCfg` | resolved `@timing.reset` presence, walking the `@timing.related` chain (decides reset-branch vs decl-init lowering) |
 | `assignedDcls(members)` | the dcls a block assigns, in first-assignment order (the grouping key for splitting/conversion) |
-| `isInitialConvertible(members)` | whether an RT process prologue can lower into a generated initial block (§6) |
+| `isInitialConvertible(members)` | whether an RT process prologue (given as its full flattened content) can lower into a generated initial block (§6) |
+| `initialConvertibleMoveList(prologue)` | the exact statement-closure subset of the prologue that moves into the generated block; shared by `FlattenStepBlocks` (rotation clone) and `DropRTProcess` (§6) |
 
 Interactions with existing analyses:
 
@@ -222,13 +223,24 @@ step-less process has no prologue: its body stays every-cycle logic.
 
 Division of labor, each stage remaining a fix-point (`f(f(x)) == f(x)`):
 
-- **`isInitialConvertible(members)`**: every member is an anonymous value dependency or a
-  blocking const-RHS assignment to a REG (the `.din` form). Process-local Dcls and DFRange
+- **`isInitialConvertible(members)`**: every member is an anonymous value dependency, a
+  blocking const-RHS assignment to a REG (the `.din` form), a
+  combinational (`COMB_LOOP`) for loop with constant range bounds, or a conditional with
+  constant guards/selectors. Text output and while loops are NOT convertible (prints are
+  rejected in RT `initial` blocks; a non-constant while guard breaks the const model), so a
+  printing or comb-while prologue keeps the bootstrap step. The vetting runs on
+  the region's FULL FLATTENED content, so owner contents are vetted individually and a
+  step/wait hiding inside a conditional fails the check. Process-local Dcls and DFRange
   members are NEUTRAL: `SimplifyRTOps` leaves the iterator REG dcl, range bookkeeping, and
   the while-guard func in the prologue region; they must not block conversion and are never
-  moved (only assignment-net closures, `net :: net.collectRelMembers`, are lowered).
+  moved. The moved subset is computed by **`initialConvertibleMoveList(prologue)`**: the
+  statement closures (nets, comb for loops with iterator/range bookkeeping,
+  const-guard conditional chains, each with contents and anonymous deps); it is the single
+  source of truth for BOTH the rotation clone and the initial-block generation.
 - **`DropRTWaits` (conditional Rule 6)**: the synthetic bootstrap `S_0` is skipped when the
-  prologue and the first step's `onEntry` are initial-convertible. A process starting with a
+  prologue and the first step's `onEntry` are initial-convertible. The folded prologue and
+  trailing regions are EXPANDED (owner + flattened members) before vetting, matching the
+  flattened contract above. A process starting with a
   step whose `onEntry` is NOT convertible gets a bootstrap `S_0` (deliberate behavior
   change: `onEntry` fires on reset entry instead of being silently lost). The
   **trailing-share gate** refuses conversion when a trailing statement (relocated by
@@ -245,22 +257,30 @@ Division of labor, each stage remaining a fix-point (`f(f(x)) == f(x)`):
   runs-exactly-twice definition. Fusion bonus: at a fused first step the rotated
   `i.din := 0` becomes a pending assignment for `FirstStepFusion`'s value forwarding, so the
   loop-restart guard folds statically and the forever restart costs zero cycles.
-- **`DropRTProcess`**: clones the prologue's assignment-net closures into a generated
-  `initial` block before the process and REMOVES the originals (they must not survive the
-  process unwrap as every-cycle logic); clones the first step's convertible `onEntry` in as
-  well (the original stays for the regular transition-site inlining); strips assigned dcls'
-  existing decl inits together with their orphaned anonymous init trees ("initial wins",
-  required by the every-stage `initialCheck`, §3). Only fall-through cascades past the last
-  step still plant the prologue here (position-based).
+- **`DropRTProcess`**: clones the prologue's statement closures (via
+  `initialConvertibleMoveList`) into a generated `initial` block before the process and
+  REMOVES the originals (they must not survive the process unwrap as every-cycle logic);
+  clones the first step's convertible `onEntry` in as well (the original stays for the
+  regular transition-site inlining); strips assigned dcls' existing decl inits together
+  with their orphaned anonymous init trees ("initial wins", required by the every-stage
+  `initialCheck`, §3). `COMB_LOOP` tags are stripped on the initial-block clones (the
+  content runs once; the marker is process-only), via `plantClonedMembers`' transform
+  parameter, since a pre-mapped owner copy would break the clone map's ownership matching
+  and `mutableDB.setMember` is a no-op in meta-programming mode. The in-process rotation
+  and fall-through clones keep the tag. Only fall-through cascades past the last step
+  still plant the prologue here (position-based).
 
 Edge cases: a last step ending in an explicit goto or endless wait has no wrap path, so no
 rotation clone is placed and the prologue runs only at initialization; a single-step process
 wraps via its self `NextStep`, so rotation applies and the prologue runs at init and every
 loop-back with one FSM state and no wasted cycle.
 
-Tests: `DropRTWaitsSpec`, `FlattenStepBlocksSpec` (rotation and its fix-point),
-`DropRTProcessSpec`, and the `ToEDSpec` end-to-end for-loop payoff (reset init in the reset
-branch, no bootstrap state, wrap re-init at the loop-exit site, zero extra cycles).
+Tests: `DropRTWaitsSpec` (incl. the comb-for convertible prologue and the textout/comb-while
+bootstrap fallbacks), `FlattenStepBlocksSpec` (rotation and its fix-point, incl. the
+loop rotation clone), `DropRTProcessSpec` (incl. the comb-loop and const-guard
+conditional initial-block generation), and the `ToEDSpec` end-to-end for-loop payoff (reset
+init in the reset branch, no bootstrap state, wrap re-init at the loop-exit site, zero extra
+cycles).
 
 ## 7. Printing
 

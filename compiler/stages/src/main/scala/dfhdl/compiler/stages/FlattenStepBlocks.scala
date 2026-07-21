@@ -234,10 +234,11 @@ case object FlattenStepBlocks extends HierarchyStage:
     // Forever-loop rotation: `forever { P; S1..Sn }` == `initial P; loop { S1..Sn; P }`.
     // The prologue P (the leading statements before the first step, which DropRTWaits left
     // in place only when initial-convertible) is cloned just before each wrap-around
-    // `NextStep` goto, so it re-executes at the loop restart. Only the assignment-net
-    // closures are cloned; other leading members (declarations, ranges, values consumed by
-    // the steps) stay in place and keep serving their users. `DropRTProcess` subsequently
-    // lowers the prologue originals into a generated `initial` block.
+    // `NextStep` goto, so it re-executes at the loop restart. Only the statement closures
+    // (assignment nets, text output, combinational for loops) are cloned; other leading
+    // members (declarations, ranges, values consumed by the steps) stay in place and keep
+    // serving their users. `DropRTProcess` subsequently lowers the prologue originals into
+    // a generated `initial` block, using the same move-list computation.
     val rotationPatchList = wrapGotoLists.flatten.flatMap { g =>
       val pb = g.getOwnerProcessBlock
       val firstStepOpt = pb.members(MemberView.Folded).collectFirst {
@@ -245,10 +246,7 @@ case object FlattenStepBlocks extends HierarchyStage:
       }
       firstStepOpt.toList.flatMap { firstStep =>
         val prologue = pb.members(MemberView.Flattened).takeWhile(_ != firstStep)
-        val closure = prologue.view.collect { case net: DFNet =>
-          net :: net.collectRelMembers
-        }.flatten.toSet
-        val moveList = prologue.filter(closure)
+        val moveList = initialConvertibleMoveList(prologue)
         if (moveList.isEmpty) Nil
         else
           val dsn = new MetaDesign(g, Patch.Add.Config.Before):

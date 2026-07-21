@@ -216,13 +216,18 @@ case object DropRTProcess extends HierarchyStage:
             firstStepOnEntry.map(_.members(MemberView.Flattened)).getOrElse(Nil)
           def hasNets(members: List[DFMember]): Boolean =
             members.exists { case _: DFNet => true; case _ => false }
-          // only the prologue's assignment nets and their anonymous value dependencies move
-          // into the initial block; other leading members (declarations, ranges, values
-          // consumed by the steps) stay in place
-          val prologueClosure = prologue.view.collect { case net: DFNet =>
-            net :: net.collectRelMembers
-          }.flatten.toSet
-          val prologueMoveList = prologue.filter(prologueClosure)
+          // the prologue's effectful statements (assignment nets, combinational for loops,
+          // constant-guarded conditionals) and their anonymous value dependencies move into
+          // the initial block; other leading members (declarations, ranges, values consumed
+          // by the steps) stay in place
+          val prologueMoveList = initialConvertibleMoveList(prologue)
+          // COMB_LOOP tags are stripped on the initial-block clones: inside an `initial`
+          // block the combinational distinction is meaningless (the content runs once) and
+          // the printed form must not carry the process-only marker
+          val stripCombTag: DFMember => DFMember =
+            case fb: DFLoop.DFForBlock if fb.isCombinational =>
+              fb.copy(tags = fb.tags.removeTagOf[CombinationalTag])
+            case m => m
           val generateInitial = (hasNets(prologue) || hasNets(onEntryMembers)) &&
             isInitialConvertible(prologue) && isInitialConvertible(onEntryMembers)
           val initialPatches =
@@ -241,9 +246,9 @@ case object DropRTProcess extends HierarchyStage:
                 // redirects every ref recorded as pointing to the process -- including a
                 // re-owned member's ownerRef -- to the process's owner; fresh clone refs are
                 // not in that record, so they are unaffected. The originals are removed below.
-                plantClonedMembers(pb, prologueMoveList)
+                plantClonedMembers(pb, prologueMoveList, stripCombTag)
                 firstStepOnEntry.foreach { onEntry =>
-                  plantClonedMembers(onEntry, onEntryMembers)
+                  plantClonedMembers(onEntry, onEntryMembers, stripCombTag)
                 }
                 dfc.exitOwner()
               // "initial wins": strip an existing decl init off any REG the generated initial

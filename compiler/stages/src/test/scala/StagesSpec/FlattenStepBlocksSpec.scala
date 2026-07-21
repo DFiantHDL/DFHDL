@@ -859,4 +859,43 @@ class FlattenStepBlocksSpec extends StageSpec():
     assertCodeString(top, expected)
     assertCodeString(top.flattenStepBlocks, expected)
   }
+  test("forever-loop rotation clones a combinational loop prologue before the wrap-around") {
+    class Foo extends RTDesign:
+      val vec = Bits(8) X 4 <> OUT.REG
+      process:
+        for (i <- 0 until 4)
+          COMB_LOOP
+          vec(i).din := all(0)
+        def S0: Step =
+          NextStep
+        def S1: Step =
+          NextStep
+    end Foo
+    // the rotation clone carries the whole prologue statement closure (the combinational
+    // for loop with its iterator/range bookkeeping), matching what DropRTProcess
+    // subsequently lowers into the generated `initial` block; inside the process the
+    // clone keeps its COMB_LOOP marker
+    val expected =
+      """|class Foo extends RTDesign:
+         |  val vec = Bits(8) X 4 <> OUT.REG
+         |  process:
+         |    for (i <- 0 until 4)
+         |      COMB_LOOP
+         |      vec(i).din := h"00"
+         |    end for
+         |    def S0: Step =
+         |      S1
+         |    end S0
+         |    def S1: Step =
+         |      for (i <- 0 until 4)
+         |        COMB_LOOP
+         |        vec(i).din := h"00"
+         |      end for
+         |      S0
+         |    end S1
+         |end Foo""".stripMargin
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(top, expected)
+    assertCodeString(top.flattenStepBlocks, expected)
+  }
 end FlattenStepBlocksSpec

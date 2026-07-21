@@ -64,13 +64,18 @@ import scala.collection.mutable
  *     where N is the step number.
  *  5. While loops with nested waits: waits inside while loops become step definitions with nested naming
  *     (S_0_0, S_0_1, etc.), and the while loop itself becomes a step definition (S_0)
- *  6. If the process does not start with a step, a wait statement or while loop, we add an empty step definition for the first 
+ *  6. If the process does not start with a step, a wait statement or while loop, we add an empty step definition for the first
  *     step (with a NextStep return value) before the first member. Internally, there could be anonymous value
  *     members before the step/while/wait members, but these are ignored for the check of what the first member is.
- *     For example:
+ *     The bootstrap step is SKIPPED when the prologue (the leading members before the first step-generating
+ *     member: constant-RHS REG assignments, combinational for loops with constant bounds, constant-guarded
+ *     conditionals) and the first step's `onEntry`
+ *     (if any) are initial-convertible; `DropRTProcess` then lowers them into a generated `initial` block, so no
+ *     bootstrap cycle is consumed. For example, a non-convertible prologue (non-constant RHS):
  *     ```scala
  *     process:
- *       x.din := 0
+ *       x.din := y
+ *       1.cy.wait
  *     end process
  *     ```
  *     will be transformed to:
@@ -79,7 +84,10 @@ import scala.collection.mutable
  *       def S_0: Step =
  *         NextStep
  *       end S_0
- *       x.din := 0
+ *       x.din := y
+ *       def S_1: Step =
+ *         NextStep
+ *       end S_1
  *     end process
  *     ```
  *  7. The user can define explicit naming by setting a value name for a wait statement or a while block,
@@ -208,19 +216,27 @@ case object DropRTWaits extends HierarchyStage:
 
         // Rule 6: If process does not start with step, wait, or while, add empty S_0 before
         // first member — unless the prologue (the leading members before the first
-        // step-generating member) and the first step's `onEntry` (if any) are
+        // step-generating member: const assignments, combinational for loops with constant
+        // bounds, constant-guarded conditionals) and the first step's `onEntry` (if any) are
         // initial-convertible, in which case `DropRTProcess` lowers them into a generated
         // `initial` block and no bootstrap step (and its extra cycle) is needed.
         // Conversely, a process *starting* with a step whose `onEntry` is NOT convertible
         // gets a bootstrap step so the `onEntry` fires on the S_0 -> first-step transition
         // at reset entry (previously it was silently lost).
         val foldedMembers = pb.members(MemberView.Folded)
-        val prologue = foldedMembers.takeWhile {
+        // the convertibility vetting runs on the region's full flattened content, so owners
+        // in the folded region are expanded; a step generator hiding inside a conditional
+        // surfaces in the expansion and correctly fails the vetting (bootstrap kept)
+        def expandOwners(list: List[DFMember]): List[DFMember] = list.flatMap {
+          case owner: DFOwner => owner :: owner.members(MemberView.Flattened)
+          case m              => List(m)
+        }
+        val prologue = expandOwners(foldedMembers.takeWhile {
           case _: Wait                 => false
           case wb: DFLoop.DFWhileBlock => wb.isCombinational
           case _: StepBlock            => false
           case _                       => true
-        }
+        })
         // the first step's onEntry body (only a user-written StepBlock can carry one)
         val firstStepOnEntryMembers: List[DFMember] =
           foldedMembers.collectFirst { case sb: StepBlock if sb.isRegular => sb }
@@ -253,14 +269,14 @@ case object DropRTWaits extends HierarchyStage:
             toVal.departialDcl.map(_._1)
           }.flatten.toSet
         val trailing =
-          if (startsWithStepGenerator || prologue.sizeIs == foldedMembers.size) Nil
+          if (startsWithStepGenerator || prologue.sizeIs >= pbMembers.size) Nil
           else
-            foldedMembers.reverse.takeWhile {
+            expandOwners(foldedMembers.reverse.takeWhile {
               case _: Wait                 => false
               case wb: DFLoop.DFWhileBlock => wb.isCombinational
               case _: StepBlock            => false
               case _                       => true
-            }
+            })
         val trailingSharesPrologueDcl =
           val prologueDcls = assignedDclsOf(prologue)
           prologueDcls.nonEmpty && assignedDclsOf(trailing).exists(prologueDcls.contains)

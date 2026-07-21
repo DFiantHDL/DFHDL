@@ -507,6 +507,93 @@ class DropRTWaitsSpec extends StageSpec():
          |end Foo""".stripMargin
     )
   }
+  test("convertible combinational loop prologue skips the bootstrap step") {
+    class Foo extends RTDesign:
+      val vec = Bits(8) X 4 <> OUT.REG
+      process:
+        for (i <- 0 until 4)
+          COMB_LOOP
+          vec(i).din := all(0)
+        1.cy.wait
+    end Foo
+    val top = (new Foo).dropRTWaits
+    // a constant-bounded combinational for loop prologue is initial-convertible, so no
+    // bootstrap step (S_0) is inserted; DropRTProcess lowers it into a generated
+    // `initial` block
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val vec = Bits(8) X 4 <> OUT.REG
+         |  process:
+         |    for (i <- 0 until 4)
+         |      COMB_LOOP
+         |      vec(i).din := h"00"
+         |    end for
+         |    def S_0: Step =
+         |      NextStep
+         |    end S_0
+         |end Foo""".stripMargin
+    )
+  }
+  test("text output prologue keeps the bootstrap step") {
+    class Foo extends RTDesign:
+      val y = Bit <> OUT.REG
+      process:
+        println("simulation started")
+        1.cy.wait
+        y.din := 1
+    end Foo
+    val top = (new Foo).dropRTWaits
+    // text output cannot lower into an RT `initial` block, so the prologue is not
+    // initial-convertible and the bootstrap step remains
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val y = Bit <> OUT.REG
+         |  process:
+         |    def S_0: Step =
+         |      NextStep
+         |    end S_0
+         |    println(s"simulation started")
+         |    def S_1: Step =
+         |      NextStep
+         |    end S_1
+         |    y.din := 1
+         |end Foo""".stripMargin
+    )
+  }
+  test("combinational while loop prologue keeps the bootstrap step") {
+    class Foo extends RTDesign:
+      val x = Bit <> IN
+      val y = Bit <> OUT.REG
+      process:
+        while (x)
+          COMB_LOOP
+          y.din := 0
+        1.cy.wait
+    end Foo
+    val top = (new Foo).dropRTWaits
+    // a while loop cannot lower into an RT `initial` block (non-constant guard), so the
+    // prologue is not initial-convertible and the bootstrap step remains
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT.REG
+         |  process:
+         |    def S_0: Step =
+         |      NextStep
+         |    end S_0
+         |    while (x)
+         |      COMB_LOOP
+         |      y.din := 0
+         |    end while
+         |    def S_1: Step =
+         |      NextStep
+         |    end S_1
+         |end Foo""".stripMargin
+    )
+  }
   test("basic named steps with nested steps") {
     class Foo extends RTDesign:
       val x = Bit <> OUT.REG init 0

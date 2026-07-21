@@ -54,11 +54,17 @@ extension (member: DFMember)(using MemberGetSet)
     case _                => None
   })
 
-/** True when the given members (an RT process prologue or a first-step `onEntry` body) can be
-  * lowered into a generated `initial` block: every member is either an anonymous value dependency
-  * or a blocking assignment with a constant RHS targeting a REG declaration (the `.din` form).
-  * Vacuously true for an empty list (nothing to convert). Used by `DropRTWaits` to decide whether
-  * the synthetic bootstrap step (Rule 6) is needed, and by `DropRTProcess` to gate the
+/** True when the given members (an RT process prologue or a first-step `onEntry` body, given as the
+  * region's full flattened content) can be lowered into a generated `initial` block: every member
+  * is one of
+  *   - a blocking assignment with a constant RHS targeting a REG declaration (the `.din` form),
+  *   - a combinational (`COMB_LOOP`) for loop with constant range bounds,
+  *   - a conditional with constant guards/selectors,
+  *   - an anonymous value dependency
+  * (owner contents are vetted individually, as they are part of the flattened region). Text output
+  * is NOT convertible (RT `initial` blocks reject it), so a printing prologue keeps the bootstrap
+  * step. Vacuously true for an empty list (nothing to convert). Used by `DropRTWaits` to decide
+  * whether the synthetic bootstrap step (Rule 6) is needed, and by `DropRTProcess` to gate the
   * initial-block generation.
   */
 def isInitialConvertible(members: List[DFMember])(using MemberGetSet): Boolean =
@@ -66,10 +72,66 @@ def isInitialConvertible(members: List[DFMember])(using MemberGetSet): Boolean =
     case DFNet.BAssignment(toVal, fromVal) =>
       fromVal.isConst && toVal.departialDcl.exists((dcl, _) => dcl.isReg)
     // process-local declarations (e.g. SimplifyRTOps' iterator REG) and range bookkeeping
-    // are neutral — only the assignment-net closures are lowered into the initial block;
+    // are neutral: only the statement closures are lowered into the initial block;
     // the rest stays in place (dcls are hoisted by DropLocalDcls, anons serve their users)
-    case _: DFVal.Dcl                      => true
-    case _: DFRange                        => true
+    case _: DFVal.Dcl          => true
+    case _: DFRange            => true
+    case fb: DFLoop.DFForBlock =>
+      fb.isCombinational && {
+        val range = fb.rangeRef.get
+        Iterator(range.startRef, range.endRef, range.stepRef).forall(_.get.isConst)
+      }
+    case mh: DFConditional.DFMatchHeader => mh.selectorRef.get.isConst
+    case cb: DFConditional.Block         =>
+      cb.guardRef.get match
+        case guard: DFVal => guard.isConst
+        case _            => true // no guard (else branch / catch-all case)
     case dfVal: DFVal if dfVal.isAnonymous => true
     case _                                 => false
   }
+
+/** The subset of the given RT process prologue (flattened, in order) that lowers into a generated
+  * `initial` block: the effectful statements (assignment nets, combinational for loops with their
+  * iterator/range bookkeeping, and constant-guarded conditional chains, each with their full
+  * contents) along with their in-prologue anonymous value dependencies. Declarations, leftover
+  * range bookkeeping, and anonymous values consumed by the process steps stay in place. Used by
+  * `FlattenStepBlocks` (the forever wrap-around rotation clone) and by `DropRTProcess` (the
+  * initial-block generation and the originals' removal), which must agree on the exact member set.
+  */
+def initialConvertibleMoveList(prologue: List[DFMember])(using MemberGetSet): List[DFMember] =
+  val closure = scala.collection.mutable.Set.empty[DFMember]
+  // anonymous value dependency closure (named/global values stay in place and remain
+  // referenced from the moved clones)
+  def addValDeps(dfVal: DFVal): Unit = closure ++= dfVal.collectRelMembers(false)
+  def addStatement(m: DFMember): Unit = m match
+    case net: DFNet            => closure ++= net :: net.collectRelMembers
+    case fb: DFLoop.DFForBlock =>
+      val range = fb.rangeRef.get
+      closure += fb
+      closure += fb.iteratorRef.get
+      closure += range
+      Iterator(range.startRef, range.endRef, range.stepRef).foreach(ref => addValDeps(ref.get))
+      fb.members(MemberView.Folded).foreach(addStatement)
+    case cb: DFConditional.Block =>
+      closure += cb
+      // the chain header (with its selector dependencies) plus the guard and pattern value
+      // dependencies; a previous chain block is added on its own iteration turn
+      cb.getRefs.foreach { ref =>
+        ref.get match
+          case mh: DFConditional.DFMatchHeader =>
+            closure += mh
+            addValDeps(mh.selectorRef.get)
+          case header: DFConditional.Header => closure += header
+          case dfVal: DFVal                 => addValDeps(dfVal)
+          case _                            =>
+      }
+      cb.members(MemberView.Folded).foreach(addStatement)
+    case _ => // dcls, ranges, and anons serving step members stay in place
+  end addStatement
+  prologue.foreach {
+    // already collected as part of an enclosing owner
+    case m if closure.contains(m) => ()
+    case m                        => addStatement(m)
+  }
+  prologue.filter(closure)
+end initialConvertibleMoveList

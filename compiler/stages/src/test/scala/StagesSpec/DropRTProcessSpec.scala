@@ -363,6 +363,90 @@ class DropRTProcessSpec extends StageSpec():
          |end Foo""".stripMargin
     )
   }
+  test("prologue combinational loop moves into the generated initial block") {
+    class Foo extends RTDesign:
+      val x = Bit <> IN
+      val vec = Bits(8) X 4 <> VAR.REG
+      process:
+        for (i <- 0 until 4)
+          COMB_LOOP
+          vec(i).din := all(0)
+        def S0: Step =
+          if (x) S1 else S0
+        def S1: Step =
+          if (x) S0 else S1
+    end Foo
+    val top = (new Foo).dropRTProcess
+    // the combinational for loop prologue moves into the generated initial block; the
+    // COMB_LOOP marker is dropped there (the content runs once) and no bootstrap step is
+    // added. Both steps exit via explicit gotos (no wrap-around NextStep), so the
+    // prologue runs only at initialization
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  enum State(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
+         |    case S0 extends State(d"1'0")
+         |    case S1 extends State(d"1'1")
+         |
+         |  val x = Bit <> IN
+         |  val vec = Bits(8) X 4 <> VAR.REG
+         |  initial:
+         |    for (i <- 0 until 4)
+         |      vec(i).din := h"00"
+         |    end for
+         |  val state = State <> VAR.REG init State.S0
+         |  state match
+         |    case State.S0 =>
+         |      if (x) state.din := State.S1
+         |      else state.din := State.S0
+         |    case State.S1 =>
+         |      if (x) state.din := State.S0
+         |      else state.din := State.S1
+         |  end match
+         |end Foo""".stripMargin
+    )
+  }
+  test("constant-guarded conditional prologue moves into the generated initial block") {
+    class Foo extends RTDesign:
+      val EN: Boolean <> CONST = true
+      val x = Bit <> IN
+      val y = Bit <> OUT.REG
+      process:
+        if (EN) y.din := 0
+        else y.din := 1
+        def S0: Step =
+          if (x) S1 else S0
+        def S1: Step =
+          if (x) S0 else S1
+    end Foo
+    val top = (new Foo).dropRTProcess
+    // a conditional chain with constant guards is initial-convertible, so the whole chain
+    // moves into the generated initial block and no bootstrap step is added
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  enum State(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
+         |    case S0 extends State(d"1'0")
+         |    case S1 extends State(d"1'1")
+         |
+         |  val EN: Boolean <> CONST = true
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT.REG
+         |  initial:
+         |    if (EN) y.din := 0
+         |    else y.din := 1
+         |  val state = State <> VAR.REG init State.S0
+         |  state match
+         |    case State.S0 =>
+         |      if (x) state.din := State.S1
+         |      else state.din := State.S0
+         |    case State.S1 =>
+         |      if (x) state.din := State.S0
+         |      else state.din := State.S1
+         |  end match
+         |end Foo""".stripMargin
+    )
+  }
   test("first-step onEntry is cloned into the generated initial block") {
     class Foo extends RTDesign:
       val x = Bit <> IN

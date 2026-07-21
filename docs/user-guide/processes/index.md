@@ -184,7 +184,7 @@ process:
 ```
 
 **Rule 4: initialization is free.**
-When the prologue is *initial-convertible*, meaning it consists only of blocking assignments of **constant** values (through `.din` for registers), possibly inside `for` loops or conditionals with constant guards, both situations above consume **zero cycles**. The compiler lowers the prologue into a generated [`initial` block](#initial-blocks) (absorbed into the register reset branch, or into declaration initials when there is no reset), and re-executes a copy of it combinationally in the wrap-around transition cycle. The FSM therefore starts directly in its first state after reset. This is why a process beginning with a `for` loop pays no cycle for the iterator initialization, neither at reset nor on any wrap-around:
+When the prologue is *initial-convertible*, meaning it consists only of blocking assignments of **constant** values (through `.din` for registers), possibly inside combinational (`COMB_LOOP`) `for` loops with constant bounds or conditionals with constant guards, both situations above consume **zero cycles**. The compiler lowers the prologue into a generated [`initial` block](#initial-blocks) (absorbed into the register reset branch, or into declaration initials when there is no reset), and re-executes a copy of it combinationally in the wrap-around transition cycle. The FSM therefore starts directly in its first state after reset. This is why a process beginning with a `for` loop pays no cycle for the iterator initialization, neither at reset nor on any wrap-around:
 
 ```scala
 process:
@@ -204,7 +204,7 @@ Fusion falls back to the previous behavior of one extra control cycle (per loop 
 
 Similarly, Rule 4 falls back to a synthetic bootstrap state (one cycle consumed at process start) when the prologue cannot be lowered into an `initial` block:
 
-- The prologue (or the first step's `onEntry`) is not initial-convertible: it contains non-constant right-hand sides, assignments to wires/ports (non-registered), or prints.
+- The prologue (or the first step's `onEntry`) is not initial-convertible: it contains non-constant right-hand sides, assignments to wires/ports (non-registered), prints, `while` loops, or conditionals with non-constant guards/selectors.
 - A variable assigned by the prologue is also assigned by trailing statements of the process body (statements executed in the wrap-around exit cycle): the wrap-around re-initialization would shadow that trailing assignment in the same cycle, so the bootstrap state is kept instead.
 
 These cases are deterministic: a given shape either always fuses or always keeps its control/bootstrap cycle.
@@ -467,7 +467,7 @@ Register targets are assigned through `.din` inside `initial`, exactly as everyw
 - Blocking assignments (`:=`, or `.din :=` for registers) whose right-hand side is **constant**.
 - `for` loops (the loop iterator may index the assignment target, as in the `vec` example above).
 - `if` / `match` conditionals whose guards and selectors are all constant (an iterator-dependent guard is *not* constant).
-- No waits, no prints, no non-blocking `:==`.
+- No waits, no prints, no `while` loops, no non-blocking `:==`.
 
 **ED domain**: additionally allows non-constant expressions, non-constant conditionals, `while` loops, local variables, and text output (`println`, `report`, `assert`). Waits and `:==` remain disallowed.
 
@@ -484,7 +484,7 @@ Checked at elaboration:
 - **VHDL**: the block is split per variable. A single constant assignment becomes a declaration default (`signal v : ... := ...`); multi-statement constant initialization (loops, constant-guarded conditionals) becomes a declaration default computed by a generated [static function][methods] (`pure function v_init return t is ... signal v : t := v_init;`); any remaining content (e.g. simulation-only prints) becomes a one-shot `process ... wait; end process`.
 - **RT with a reset**: the content is merged into the register reset branch, as described above.
 
-The compiler also *generates* `initial` blocks on its own: an RT process prologue made of constant assignments is lowered into one, which is what makes process-start initialization free (see [Cycle semantics](#cycle-semantics)).
+The compiler also *generates* `initial` blocks on its own: an RT process prologue made of constant assignments, combinational loops, and constant-guarded conditionals is lowered into one, which is what makes process-start initialization free (see [Cycle semantics](#cycle-semantics)).
 
 ## Assignments inside processes
 
@@ -570,7 +570,7 @@ See [Design Domains][design-domains] for the overall flow from DF → RT → ED 
 
 - **RT**: Use **`process:`** in **RTDesign** / **RTDomain** for a clock-bound FSM with **`def Name: Step = ...`**, **`NextStep`** / **`ThisStep`** / **`FirstStep`**, and optional **`onEntry`** / **`onExit`**, waits, and loops.
 - **RT cycle semantics**: waits and steps consume exactly their own cycles; each loop iteration consumes at least one cycle, and loop control adds nothing beyond the body's cycles; nested first steps fuse into one state; a flat wait, a loop of waits, and nested loops of waits with the same total time consume identical cycle counts.
-- **Process prologue**: statements before the first step (plus the first step's `onEntry`) run at initialization and at each forever wrap-around, costing zero cycles when they are constant assignments (lowered into a generated `initial` block).
+- **Process prologue**: statements before the first step (plus the first step's `onEntry`) run at initialization and at each forever wrap-around, costing zero cycles when they are constant assignments, combinational loops, or constant-guarded conditionals (lowered into a generated `initial` block).
 - **`initial` blocks**: once-only initialization in RT (constants only; re-applied on reset) and ED (power-on; may include simulation output). A variable is initialized by declaration `init` or by one `initial` block, never both.
 - A bare **`wait`** halts a process forever (terminal FSM state in RT; `wait;` / `wait(0);` in ED output).
 - **ED**: Use **`process(sig1, sig2, ...)`** or **`process(all)`** in **EDDesign** / **EDDomain** to define when a block runs; **`process(all)`** for combinational logic; **`process(clk)`** (and optionally **`process(clk, rst)`**) with **`clk.rising`** / **`clk.falling`** for sequential logic.

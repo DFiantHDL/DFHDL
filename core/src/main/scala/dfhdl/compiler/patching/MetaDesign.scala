@@ -87,11 +87,15 @@ abstract class MetaDesign[+D <: DomainType](
         else owner
       dfc.mutableDB.plantMember(updatedOwner, m, _ => cond)
     }
+  // `transform` is applied to each member just before cloning (e.g. tag changes); it must
+  // NOT change the member's references, as the clone's refs are zipped against the
+  // original's for remapping
   final def plantClonedMembers(
       baseOwner: ir.DFOwner,
-      members: List[ir.DFMember]
+      members: List[ir.DFMember],
+      transform: ir.DFMember => ir.DFMember = identity
   ): Map[ir.DFMember, ir.DFMember] =
-    val clonedMemberMap = members.map { m => m -> m.copyWithNewRefs }.toMap
+    val clonedMemberMap = members.map { m => m -> transform(m).copyWithNewRefs }.toMap
     members.foreach { m =>
       val cloned = clonedMemberMap(m)
       dfc.mutableDB.addMember(cloned)
