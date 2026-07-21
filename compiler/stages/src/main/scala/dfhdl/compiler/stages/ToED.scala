@@ -133,6 +133,7 @@ case object ToED extends HierarchyStage:
               case IteratorDcl()                                      => true
               case _: DFVal.Dcl                                       => false
               case _: DFVal.DesignParam                               => false
+              case DclConst()                                         => false
               case _: DFOwnerNamed                                    => false
               case dfVal: DFVal if dfVal.isReferencedByAnyDclOrDesign => false
               case _                                                  => true

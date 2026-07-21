@@ -1219,4 +1219,35 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("local param is not dragged within a sync process") {
+    class Foo extends RTDesign:
+      val F: Boolean <> CONST = false
+      val o                   = Bit <> OUT.REG init 0
+      if (F) o.din := 1
+      else o.din   := 0
+    end Foo
+    val top = (new Foo).toED
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |
+         |class Foo extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val F: Boolean <> CONST = false
+         |  val o = Bit <> OUT
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) o :== 0
+         |      else
+         |        if (F) o :== 1
+         |        else o :== 0
+         |      end if
+         |    end if
+         |end Foo
+         |""".stripMargin
+    )
+  }
 end ToEDSpec
