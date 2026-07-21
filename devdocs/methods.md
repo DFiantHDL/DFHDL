@@ -132,7 +132,10 @@ Inside the method design:
   ([DFValAnalysis.scala](../compiler/ir/src/main/scala/dfhdl/compiler/analysis/DFValAnalysis.scala))
   recognizes, and it is how function-versus-procedure is derived structurally: a procedure has no
   return port. An `<> OUT` argument port is also an output, but it is driven by ASSIGNMENT, so the
-  return port is what distinguishes the two.
+  return port is what distinguishes the two. On a cache hit the body never runs, so `DB.subDesignRetDFType`
+  reconstructs the return type from the loaded sub-DB by the SAME rule (the connection-driven OUT port,
+  DFUnit when there is none); reading it as merely the first output-class port would misread an OUT
+  argument as the return of a Unit procedure and drop the call.
 - **Locals** are ordinary `Dcl` VAR members with their assignment nets, interleaved in body order.
 
 Every instantiation rides the **design load gate**, so a method unifies across call sites when its

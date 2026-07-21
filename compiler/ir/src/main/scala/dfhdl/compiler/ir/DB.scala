@@ -1781,12 +1781,16 @@ final case class DB private (
 
   // ~~~ sub-design cache support ~~~
 
-  // The return DFType of a loaded method sub-DB: its design's (non-phantom) output
-  // port type, or DFUnit when the def has a Unit return (no output port). The method
-  // harness needs this on a cache hit, before any body exists.
+  // The return DFType of a loaded method sub-DB: the type of its RETURN output port, or
+  // DFUnit when the def has a Unit return (no return port). The method harness needs this
+  // on a cache hit, before any body exists. The return port is the OUT port driven by a
+  // CONNECTION (the result wiring, mirroring `methodReturnPort`), NOT just any output-class
+  // port: an ED procedure's `<> OUT`/`<> OUT.NB` ARGUMENT is an output-class port too, but the
+  // body drives it by ASSIGNMENT, so it must not be mistaken for the return of a Unit procedure.
   def subDesignRetDFType: DFType =
+    import topDB.getSet
     topDB.members.collectFirst {
-      case dcl: DFVal.Dcl if dcl.isPortOut && !dcl.isPhantom => dcl.dfType
+      case DFNet.Connection(toVal = p: DFVal.Dcl) if p.isPortOut && !p.isPhantom => p.dfType
     }.getOrElse(DFUnit)
 
   // Collapses a new-style (option-a) DB back into a flat old-style DB.

@@ -169,6 +169,44 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertEquals(cache.hits, 3)
   }
 
+  // An ED procedure with an `<> OUT`/`<> OUT.NB` argument: its call binds the actual output to
+  // an assignable output-class formal, so the cached body plus its call must round-trip exactly
+  // like the plain-input `add1` case above.
+  def genEDProcOutHost(using DFC): dfhdl.core.Design =
+    class EDProcOutHost extends EDDesign:
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      val z = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT): Unit <> EDRET =
+        o := l + 1
+      def addTwo(l: UInt[8] <> IN, o: UInt[8] <> OUT.NB): Unit <> EDRET =
+        o :== l + 2
+      process:
+        addOne(a, y)
+        addTwo(a, z)
+    end EDProcOutHost
+    new EDProcOutHost
+  end genEDProcOutHost
+
+  test("sub-design cache round trip: ED procedure with an OUT/OUT.NB argument") {
+    val liveDB = genEDProcOutHost(using liveDFC).getDB
+    val liveCS =
+      import liveDB.getSet
+      DefaultPrinter.csDB
+    val cache = new MapSubDesignCache
+    // first elaboration runs live and stores `addOne` and `addTwo`
+    genHostOf(genEDProcOutHost, cache)
+    assertEquals(cache.entries.size, 2)
+    // second elaboration hits the cache: the procedure bodies are skipped and their calls,
+    // with the OUT actuals still bound, must reproduce the exact same code
+    val cachedDB = genHostOf(genEDProcOutHost, cache).getDB
+    val cachedCS =
+      import cachedDB.getSet
+      DefaultPrinter.csDB
+    assertEquals(cache.hits, 2)
+    assertNoDiff(cachedCS, liveCS)
+  }
+
   // A static function invoked at GLOBAL scope (outside any design, to compute a global constant the
   // design then reads) is a detached global sub-DB that the cross-run cache does not model, so it
   // must be EXCLUDED from caching (`atGlobalScope`). The exclusion has to cover a NESTED global call
