@@ -18,9 +18,10 @@ import scala.jdk.CollectionConverters.*
   * (8000 bytecodes) — one oversized method leaves the whole per-cycle path in the JVM bytecode
   * interpreter and collapses large-netlist throughput — so op chunks are cut by an estimated
   * bytecode cost with a wide safety margin, and the register commit is likewise split into slice
-  * methods: next values that are themselves registers stage through a scratch array (two-phase
-  * commit across method boundaries), while comb/const next values commit directly (comb slots are
-  * never written during the commit).
+  * methods. The commit is emitted in consumer-first topological order over the reg-to-reg next
+  * edges, so acyclic move chains (shift registers) are direct signal-to-signal copies; only
+  * dependency cycles stage a read through a scratch array, self-move holds are skipped, and
+  * comb/const next values always commit directly (comb slots are never written during the commit).
   */
 object Codegen:
   private var counter = 0
@@ -92,8 +93,10 @@ object Codegen:
       if curCount > 0 then out += cur.result()
       out.result()
     // single-method mode (the small-design fast path): ops and commit all inline in the run loop
+    val nSelfMoves = nl.regNextIds.iterator.zipWithIndex.count((n, i) => n == nl.regIds(i))
     val single =
-      chunks.sizeIs <= 1 && comb.iterator.map(opCost).sum + nl.regIds.length * 22 <= methodBudget
+      chunks.sizeIs <= 1 &&
+        comb.iterator.map(opCost).sum + (nl.regIds.length - nSelfMoves) * 22 <= methodBudget
     val chunkOf: Map[Int, Int] =
       if single then Map.empty
       else (for (c, ci) <- chunks.zipWithIndex; id <- c yield id -> ci).toMap
@@ -166,15 +169,51 @@ object Codegen:
       s"      long v$id = $expr;$store"
     end emitOp
 
-    // register commit slicing (chunked mode): a register whose next value is another register
-    // stages through the `nxt` scratch array (its source slot is overwritten during the commit);
-    // a comb/const next commits directly
+    // register commit ordering: profiling shows plain data movement dominating large designs, so
+    // the commit avoids staging wherever possible. A self-move (an unassigned hold) is skipped
+    // entirely. A register that reads another register commits BEFORE its source is overwritten
+    // (consumer-first topological order over the reg-to-reg next edges), so acyclic move chains
+    // (shift registers) are direct signal-to-signal copies; only an edge on a dependency cycle
+    // (e.g. a register swap) is broken by staging its consumer's read through the `nxt` scratch
+    // array, gathered before any commit write. Comb/const next values are always direct (comb
+    // slots are never written during the commit).
     val regIdx = nl.regIds.indices.toVector
-    val stagedSet = regIdx.filter(i => nl.opcodes(nl.regNextIds(i)) == Op.REG).toSet
+    val selfMove = regIdx.filter(i => nl.regNextIds(i) == nl.regIds(i)).toSet
+    val regIndexOfNode = nl.regIds.zipWithIndex.toMap
+    // the single successor edge: consumer i reads register srcOf(i) (self-moves excluded on both
+    // sides — a skipped register is never written, so reading it needs no ordering)
+    val srcOf: Map[Int, Int] =
+      regIdx.iterator.filterNot(selfMove).flatMap { i =>
+        regIndexOfNode.get(nl.regNextIds(i)).filterNot(selfMove).map(i -> _)
+      }.toMap
+    val stagedSet = mutable.Set.empty[Int]
+    val commitOrder =
+      val color = Array.ofDim[Int](nl.regIds.length) // 0 white, 1 gray, 2 black
+      val post = mutable.ArrayBuffer.empty[Int]
+      for start <- regIdx do
+        if !selfMove(start) && color(start) == 0 then
+          var chain = List.empty[Int] // head = deepest visited
+          var cur = start
+          var walking = true
+          while walking do
+            color(cur) = 1
+            chain ::= cur
+            srcOf.get(cur) match
+              case Some(s) if color(s) == 0 => cur = s
+              case Some(s) if color(s) == 1 =>
+                stagedSet += cur // gray source closes a cycle: this consumer reads through nxt
+                walking = false
+              case _ => walking = false // no edge, or an already-ordered (black) source
+          for i <- chain do color(i) = 2
+          post ++= chain // per-tree postorder (deepest first)
+      end for
+      post.reverseIterator.toVector // reverse postorder: every consumer before its source
+    end commitOrder
+    val hasStaged = stagedSet.nonEmpty
     val gatherSlices = regIdx.filter(stagedSet).grouped(400).toVector
-    val commitSlices = regIdx.grouped(350).toVector
-    val dirtySlices = regIdx.grouped(150).toVector
-    val hasRegs = regIdx.nonEmpty
+    val commitSlices = commitOrder.grouped(350).toVector
+    val dirtySlices = commitOrder.grouped(150).toVector
+    val hasRegs = commitOrder.nonEmpty || hasStaged
 
     val simpleName = className.split('.').last
     val pkg = className.stripSuffix("." + simpleName)
@@ -183,8 +222,10 @@ object Codegen:
     sb ++= s"public final class $simpleName implements dfhdl.sim.SimKernel {\n"
     for (table, i) <- nl.romTables.zipWithIndex do
       sb ++= s"  private static final long[] ROM$i = { ${table.map(hexL).mkString(", ")} };\n"
-    if !single && hasRegs then
+    if !single && hasStaged then
       sb ++= s"  private final long[] nxt = new long[${nl.regIds.length}];\n"
+    val nxtParam = if hasStaged then ", long[] nxt" else ""
+    val nxtArg = if hasStaged then ", nxt" else ""
 
     def emitCombCalls(indent: String): Unit =
       if single then
@@ -195,23 +236,23 @@ object Codegen:
 
     def emitCommitCalls(indent: String): Unit =
       for gi <- gatherSlices.indices do sb ++= s"${indent}gather$gi(sig, nxt);\n"
-      for ci <- commitSlices.indices do sb ++= s"${indent}commit$ci(sig, nxt);\n"
+      for ci <- commitSlices.indices do sb ++= s"${indent}commit$ci(sig$nxtArg);\n"
 
     def emitRunMethod(watch: Boolean): Unit =
       sb ++= (
         if watch then "\n  public long runWatch(long[] sig, long cycles, int watch) {\n"
         else "\n  public void run(long[] sig, long cycles) {\n"
       )
-      if !single && hasRegs then sb ++= "    final long[] nxt = this.nxt;\n"
+      if !single && hasStaged then sb ++= "    final long[] nxt = this.nxt;\n"
       sb ++= "    for (long cyc = 0L; cyc < cycles; cyc++) {\n"
       emitCombCalls("      ")
       if single then
         // two-phase commit: read every next value before any register slot is overwritten,
         // otherwise register-to-register chains (shift registers) cascade within one cycle
         for (n, i) <- nl.regNextIds.zipWithIndex do
-          sb ++= s"      long nxt$i = ${rd(n, 0)};\n"
+          if !selfMove(i) then sb ++= s"      long nxt$i = ${rd(n, 0)};\n"
         for (r, i) <- nl.regIds.zipWithIndex do
-          sb ++= s"      sig[$r] = nxt$i;\n"
+          if !selfMove(i) then sb ++= s"      sig[$r] = nxt$i;\n"
       else emitCommitCalls("      ")
       // watched run: exit after any cycle whose settled watch value is nonzero (the watch node
       // is spilled to the signal array via the observed set)
@@ -233,18 +274,19 @@ object Codegen:
       emitCombCalls("    ")
       sb ++= "    boolean dirty = false;\n"
       for (n, i) <- nl.regNextIds.zipWithIndex do
-        sb ++= s"    long nxt$i = ${rd(n, 0)};\n"
+        if !selfMove(i) then sb ++= s"    long nxt$i = ${rd(n, 0)};\n"
       for (r, i) <- nl.regIds.zipWithIndex do
-        if nl.regTracked(i) then sb ++= s"    if (sig[$r] != nxt$i) dirty = true;\n"
-        sb ++= s"    sig[$r] = nxt$i;\n"
+        if !selfMove(i) then
+          if nl.regTracked(i) then sb ++= s"    if (sig[$r] != nxt$i) dirty = true;\n"
+          sb ++= s"    sig[$r] = nxt$i;\n"
       sb ++= "    return dirty;\n  }\n"
     else
-      if hasRegs then sb ++= "    final long[] nxt = this.nxt;\n"
+      if hasStaged then sb ++= "    final long[] nxt = this.nxt;\n"
       emitCombCalls("    ")
       for gi <- gatherSlices.indices do sb ++= s"    gather$gi(sig, nxt);\n"
       sb ++= "    boolean dirty = false;\n"
       for di <- dirtySlices.indices do
-        sb ++= s"    dirty = commitDirty$di(sig, nxt) | dirty;\n"
+        sb ++= s"    dirty = commitDirty$di(sig$nxtArg) | dirty;\n"
       sb ++= "    return dirty;\n  }\n"
     end if
     if !single then
@@ -259,13 +301,13 @@ object Codegen:
         for i <- slice do sb ++= s"    nxt[$i] = ${rd(nl.regNextIds(i), -1)};\n"
         sb ++= "  }\n"
       for (slice, ci) <- commitSlices.zipWithIndex do
-        sb ++= s"\n  private static void commit$ci(long[] sig, long[] nxt) {\n"
+        sb ++= s"\n  private static void commit$ci(long[] sig$nxtParam) {\n"
         for i <- slice do
           val v = if stagedSet(i) then s"nxt[$i]" else rd(nl.regNextIds(i), -1)
           sb ++= s"    sig[${nl.regIds(i)}] = $v;\n"
         sb ++= "  }\n"
       for (slice, di) <- dirtySlices.zipWithIndex do
-        sb ++= s"\n  private static boolean commitDirty$di(long[] sig, long[] nxt) {\n"
+        sb ++= s"\n  private static boolean commitDirty$di(long[] sig$nxtParam) {\n"
         sb ++= "    boolean dirty = false;\n"
         for i <- slice do
           val r = nl.regIds(i)
