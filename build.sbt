@@ -447,6 +447,9 @@ lazy val compilerOptions = Seq(
   "-preview",
   "-language:strictEquality",
   "-deprecation",
+  // published artifacts stay runnable on JDK 17 regardless of the JDK that builds them:
+  // restricts JDK API usage to the 17 signatures and emits 17-compatible class files
+  "-java-output-version:17",
   //TODO: remove when fixed scalac issues:
   //https://github.com/lampepfl/dotty/issues/19299
   "-Wconf:msg=or backticked identifier `equals`:s",
