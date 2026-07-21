@@ -2008,6 +2008,53 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("initial block lowered to an init function") {
+    class InitFn extends EDDesign:
+      val x   = SInt(16)     <> IN
+      val y   = SInt(16)     <> OUT
+      val vec = SInt(16) X 4 <> VAR
+      initial:
+        for (i <- 0 until 4)
+          vec(i) := 0
+      process(all):
+        y :== x + vec(0)
+    end InitFn
+    val top = (new InitFn).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.InitFn_pkg.all;
+         |
+         |entity InitFn is
+         |port (
+         |  x : in signed(15 downto 0);
+         |  y : out signed(15 downto 0)
+         |);
+         |end InitFn;
+         |
+         |architecture InitFn_arch of InitFn is
+         |  pure function vec_init return t_arrX1_signed is
+         |    variable vec : t_arrX1_signed(0 to 3)(15 downto 0);
+         |    variable i : integer;
+         |  begin
+         |    for i in 0 to 4-1 loop
+         |      vec(i) := 16d"0";
+         |    end loop;
+         |    return vec;
+         |  end function;
+         |  signal vec : t_arrX1_signed(0 to 3)(15 downto 0) := vec_init;
+         |begin
+         |  process (all)
+         |  begin
+         |    y <= x + vec(0);
+         |  end process;
+         |end InitFn_arch;
+         |""".stripMargin
+    )
+  }
   test("ED method (function)") {
     class EDFunc extends EDDesign:
       val a                                                           = UInt(8) <> IN

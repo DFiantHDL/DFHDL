@@ -241,6 +241,8 @@ A static function always emits as a VHDL `pure function` (and a Verilog `functio
 ///
 ///
 
+The compiler also generates static functions on its own: under the VHDL backend, a multi-statement [`initial` block][initial-blocks] (e.g. a loop initializing a vector) is lowered into a generated static function whose call becomes the declaration's default value, since VHDL has no `initial` construct.
+
 Because a static function is constant-valued, its result can feed a design parameter. Calling `twice` to parameterize a sub-design compiles to an ordinary parameter binding at the instantiation site:
 
 /// admonition | A static function computing a sub-design parameter

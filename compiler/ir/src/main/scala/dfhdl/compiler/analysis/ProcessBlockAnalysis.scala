@@ -3,6 +3,7 @@ package analysis
 import dfhdl.internals.*
 import ir.*
 import ir.ProcessBlock.Sensitivity
+import scala.annotation.tailrec
 
 extension (pb: ProcessBlock)
   def isInitial: Boolean =
@@ -16,6 +17,35 @@ extension (pb: ProcessBlock)(using MemberGetSet)
       case Sensitivity.All        => false
       case Sensitivity.Initial    => false
       case Sensitivity.List(refs) => true // TODO: fix this
+  // The resolved reset presence of the block's domain: walk the `@timing.related` chain to
+  // the timing owner and look for the resolved `@timing.reset` annotation (written by
+  // `ExplicitClkRstCfg`). Used by the initial-block lowering stages to decide between the
+  // `ToED` reset-branch path and declaration-init forms.
+  def hasResolvedRstCfg: Boolean =
+    @tailrec def resolveTimingOwner(owner: DFDomainOwner): DFDomainOwner =
+      val relatedTarget = owner.meta.annotations.collectFirst {
+        case rel: constraints.Timing.Related => rel.ref.get
+      }
+      relatedTarget match
+        case Some(target) => resolveTimingOwner(target)
+        case None         => owner
+    resolveTimingOwner(pb.getOwnerDomain).meta.annotations.exists {
+      case _: constraints.Timing.Reset => true
+      case _                           => false
+    }
+  end hasResolvedRstCfg
+end extension
+
+// The declarations assigned by the given block members, ordered by first assignment.
+// Used by the initial-block lowering stages to group/convert per-declaration content.
+def assignedDcls(blockMembers: List[DFMember])(using MemberGetSet): List[DFVal.Dcl] =
+  val assigned = scala.collection.mutable.LinkedHashSet.empty[DFVal.Dcl]
+  blockMembers.foreach {
+    case DFNet.BAssignment(toVal, _) =>
+      toVal.departialDcl.foreach { (dcl, _) => assigned += dcl }
+    case _ =>
+  }
+  assigned.toList
 
 extension (member: DFMember)(using MemberGetSet)
   def isInInitialBlock: Boolean = member.isOwnedCond(cond = {

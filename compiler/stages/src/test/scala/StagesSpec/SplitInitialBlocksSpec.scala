@@ -86,7 +86,7 @@ class SplitInitialBlocksSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
-  test("VHDL: assignments become inits and sim content becomes an endless-wait process") {
+  test("VHDL: assignments become inits and sim content stays initial") {
     given options.CompilerOptions.Backend = _.vhdl
     class Top extends EDDesign:
       val x = SInt(16) <> IN
@@ -99,15 +99,15 @@ class SplitInitialBlocksSpec extends StageSpec(stageCreatesUnrefAnons = true):
         y :== x + v
     end Top
     val top = (new Top).splitInitialBlocks
+    // the residual simulation-only block is left initial for `DropInitialBlocks` to lower
     assertCodeString(
       top,
       """|class Top extends EDDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val v = SInt(16) <> VAR init sd"16'0"
-         |  process:
+         |  initial:
          |    println(s"hello")
-         |    wait
          |  process(all):
          |    y :== x + v
          |end Top
@@ -115,7 +115,7 @@ class SplitInitialBlocksSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
-  test("VHDL: a cross-reading initial block becomes an endless-wait process as a whole") {
+  test("VHDL: a cross-reading initial block is left whole") {
     given options.CompilerOptions.Backend = _.vhdl
     class Top extends EDDesign:
       val v = SInt(16) <> VAR
@@ -125,15 +125,15 @@ class SplitInitialBlocksSpec extends StageSpec(stageCreatesUnrefAnons = true):
         w := v + 1
     end Top
     val top = (new Top).splitInitialBlocks
+    // splitting would lose the intra-block order; `DropInitialBlocks` lowers it whole
     assertCodeString(
       top,
       """|class Top extends EDDesign:
          |  val v = SInt(16) <> VAR
          |  val w = SInt(16) <> OUT
-         |  process:
+         |  initial:
          |    v := sd"16'0"
          |    w := v + sd"16'1"
-         |    wait
          |end Top
          |""".stripMargin
     )

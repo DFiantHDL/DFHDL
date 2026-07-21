@@ -1173,6 +1173,47 @@ turns out not to be soundly inlinable, drops the offending step from its candida
 rebuilds all patches from scratch in a `@tailrec` restart loop — the set shrinks each restart,
 guaranteeing termination). Just never apply a partially-built design's `.patch`.
 
+### Pattern 14 — A stage that CREATES a method def design (sub-DB forest surgery)
+
+A stage can synthesize a whole HDL-method design (a `DFDesignBlock` with
+`InstMode.Def`, e.g. a static function) and call it via `Func`/`Op.Def`. See
+`DropInitialBlocks` Rule 1 (init-function conversion) for the full working recipe. The
+non-obvious parts:
+
+1. **Never `dfc.enterOwner`/`applyBlock` a design block inside a MetaDesign.**
+   `OwnershipContext.exit()` on a `DFDesignBlock` calls `DesignContext.endDesign`, which
+   assumes elaboration bookkeeping that meta-programming never set up. Instead, create the
+   block raw (`ir.DFDesignBlock(...)` + `addMember`) and place every body member under it
+   explicitly: `addMember(m)` then `newRefFor(m.ownerRef, defBlockIR)` (mirror
+   `plantClonedMembers`'s mechanics with the def block as the owner fallback).
+2. **Do NOT use `refTW` to reference a port of the new def design from the meta context** —
+   `refTW` on a `DclPort()` whose owner design differs from the current owner mints a
+   `PortByNameSelect` (and crashes on the design-inst cache in stages). Mint refs raw:
+   `dfc.mutableDB.newRefFor(dfc.refGen.genTwoWay[M, O], member)`.
+3. **Do not reuse an existing member's `dfType` instance in new members** — refs are
+   identity objects; clone with `dfType.copyWithNewRefs` and bind each fresh type ref via
+   `newRefFor` to the original target (lazyZip old/new `getRefs`).
+4. **Self-containment**: a def-design member must not reference design-local values of the
+   host (the `directRefCheck` rejects cross-design refs). Captured design-local constants
+   become `PhantomTag`-tagged IN-port formals (redirect body refs to them; pass the
+   captured values as the call's args, in formal member order). Globals are fine (shared by
+   identity).
+5. **The hierarchical model forbids a nested design block in the parent's member list.**
+   After `subDB.patch`, extract the def block + its content (track them BY IDENTITY from
+   the MetaDesign; do not use `isInsideOwner`, which detours through `designBlockInstMap`)
+   into a NEW sub-DB: members = globals closure ::: defBlock :: locals, refTable = refs the
+   members emit (mirror `oldToNew`'s `refsFor`), PLUS `defBlock.ownerRef -> DFMember.Empty`
+   (SanityCheck's `refCheck` resolves `isTop` via `ownerRef.get`; the same ref object
+   doubles as the sub-DB's `StaticRef` key). Rebuild the parent's refTable the same way
+   (minus the def members). Such a stage must manage `designDB.update(subDBs = ...)` itself
+   (mirror `HierarchyStage.transform`) since `HierarchyStage` cannot add sub-DB entries.
+6. **Method shape expected by printers**: phantom formals first, then body, then an
+   `IdentTag`-tagged ident of the return value connected to a non-phantom OUT port named
+   `o` as the LAST members. `newToOld` emits the def body just before its first call, and
+   the VHDL printer declares static functions between the constants and the
+   signal/variable declarations (a signal's default may call one; a static function never
+   reads signals).
+
 ---
 
 ## API Notes

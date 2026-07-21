@@ -481,7 +481,7 @@ Checked at elaboration:
 ### Compilation
 
 - **Verilog**: an `initial begin ... end` block (all dialects).
-- **VHDL**: the block is split per variable; constant initialization becomes a declaration default (`signal v : ... := ...`), and any remaining content (e.g. simulation-only prints) becomes a one-shot `process ... wait; end process`.
+- **VHDL**: the block is split per variable. A single constant assignment becomes a declaration default (`signal v : ... := ...`); multi-statement constant initialization (loops, constant-guarded conditionals) becomes a declaration default computed by a generated [static function][methods] (`pure function v_init return t is ... signal v : t := v_init;`); any remaining content (e.g. simulation-only prints) becomes a one-shot `process ... wait; end process`.
 - **RT with a reset**: the content is merged into the register reset branch, as described above.
 
 The compiler also *generates* `initial` blocks on its own: an RT process prologue made of constant assignments is lowered into one, which is what makes process-start initialization free (see [Cycle semantics](#cycle-semantics)).
@@ -579,3 +579,4 @@ See [Design Domains][design-domains] for the overall flow from DF → RT → ED 
 
 [design-domains]: ../design-domains/index.md
 [loops]: ../loops/index.md
+[methods]: ../methods/index.md#static-functions

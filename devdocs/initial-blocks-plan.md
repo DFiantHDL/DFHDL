@@ -1,9 +1,18 @@
 # `initial` Blocks Plan
 
-> Status: **ALL PHASES (0, A, B, C, D, E) IMPLEMENTED.** Remaining follow-ups: Phase F
-> (reset-site fusion), the VHDL init-function form for RT-without-reset non-convertible
-> blocks, and an end-to-end simulation test (cycle counts + mid-run reset across the
-> wrap-around) once the sim environment allows.
+> Status: **ALL PHASES (0, A, B, C, D, E) IMPLEMENTED.** The VHDL init-function form is
+> also implemented (2026-07-19), factored as a stage pair (user-directed split):
+> `SplitInitialBlocks` keeps only the backend-agnostic normalization (Rule 1 per-variable
+> split + Rule 2 decl-init) and stays a `HierarchyStage`; the new VHDL-only
+> `DropInitialBlocks` (`runCondition = backend.isVHDL`) lowers every remaining initial
+> block, either into a GENERATED STATIC FUNCTION (`Func`/`Op.Def` call as the declaration
+> `init`; this closed the RT-without-reset gap AND converts self-reading single-declaration
+> blocks, since the function's local variable preserves in-block order) or into the
+> one-shot endless-wait process. See both stage scaladocs. Remaining follow-ups: Phase F
+> (reset-site fusion), an end-to-end simulation test (cycle counts + mid-run reset across
+> the wrap-around) once the sim environment allows, and init-function coverage for
+> types/values parameterized by design-local values (currently gated out; falls back to
+> one-shot / untouched).
 > Decisions locked: loop-rotation mechanism (not goto tagging); synthetic `S_0` fallback for
 > non-convertible first-step `onEntry` (accepted behavior change); RT initial assignments are
 > const-RHS only; both RT and ED initial blocks are semantically once-only.
@@ -149,14 +158,33 @@ initialization inside `initial` needs no special IR/printer/frontend handling at
   and a Dcl copy with `initRefList = List(clonedInit.refTW[ir.DFVal.Dcl])` replaces it via
   `MetaDesign(dcl, ReplaceWithLast(FullReplacement))`. After this, most RT initial content
   needs zero new ToED logic — the existing init/reset machinery takes over.
-- **Rule 3 (VHDL one-shot process, user-revised in Phase D)**: under VHDL, *any* ED-domain
-  initial block remaining after Rules 1/2 (sim-only content, cross-reading blocks,
-  non-convertible assignment blocks) becomes a `process` (empty sensitivity list) + endless
-  `wait` appended `InsideLast` (two patch phases: sensitivity replace, then wait insertion —
-  both keyed on the block otherwise), preserving the block's sequential time-zero execution.
-  The VHDL printer emits the classic one-shot `process ... wait; end process;` form.
-  RT-domain blocks are left for ToED's reset-branch planting; an RT-without-reset
-  non-convertible block under VHDL remains a documented gap (VHDL printer `unsupported`).
+- **`DropInitialBlocks` (new VHDL-only stage, IMPLEMENTED 2026-07-19, user-directed
+  factoring)**: `SplitInitialBlocks` keeps only Rules 1-2 above (backend-agnostic, still a
+  `HierarchyStage`; under VHDL it re-emits non-convertible groups as per-variable initial
+  blocks and leaves cross-reading blocks whole). `DropInitialBlocks`
+  (`runCondition = backend.isVHDL`, depends on `SplitInitialBlocks`; `ToED` lists BOTH,
+  since a `runCondition`-skipped stage does not pull in its own dependencies) lowers every
+  remaining initial block, excluding RT-with-reset (ToED's reset-branch path):
+  - **Init-function conversion**: a single-declaration block computable from constants
+    alone becomes a GENERATED STATIC FUNCTION: a `Def` design in the Static domain built
+    raw inside a MetaDesign (phantom formals for captured design-local constants, a local
+    return variable the cloned body assigns, an IdentTag'd ident connected to an `o`
+    output port), with the declaration's `init` set to the anonymous `Func`/`Op.Def` call.
+    The def design is then EXTRACTED into its own sub-DB (the stage manages the sub-DB map
+    itself instead of extending HierarchyStage; the mechanics are new-stage skill Pattern
+    14); VHDL prints the classic `pure function v_init ... signal v : t := v_init;` idiom
+    (the VHDL printer's declarative region now orders constants, then static functions,
+    then signal/variable dcls, then ED methods). This closed the RT-without-reset gap.
+    Reads of the initialized declaration redirect to the local variable, so SELF-READING
+    single-declaration blocks (`v := 0; v := v + 1`) convert too (the split's cross-read
+    gate does not apply to the function form, which preserves in-block order).
+  - **One-shot process conversion (formerly Rule 3, moved here)**: any ED-domain block the
+    init-function conversion cannot take (sim-only content, non-constant reads,
+    cross-reading multi-declaration blocks) becomes a `process` (empty sensitivity list) +
+    endless `wait` appended `InsideLast`, printed as the classic one-shot
+    `process ... wait; end process;` form.
+  - Residual gate-outs (untouched, VHDL printer rejects): an RT-without-reset block whose
+    types or referenced constants are parameterized by design-local values.
 - Determinism: iterate `subDB.members`; idempotency: a block already assigning exactly one
   variable doesn't re-match the split predicate; post-Rule-3 blocks are no longer initial.
 - **Latch-check interaction (Phase C finding)**: `StateAnalysis.getImplicitStateVars` (the

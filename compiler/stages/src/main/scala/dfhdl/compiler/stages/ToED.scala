@@ -25,8 +25,11 @@ import scala.collection.mutable
   */
 case object ToED extends HierarchyStage:
   def dependencies: List[Stage] =
-    List(DropUnreferencedAnons, ToRT, DropRTProcess, NameRegAliases, ExplicitNamedVars,
-      ExplicitCondExprAssign, SplitInitialBlocks, AddClkRst, SimpleOrderMembers)
+    List(
+      DropUnreferencedAnons, ToRT, DropRTProcess, NameRegAliases, ExplicitNamedVars,
+      ExplicitCondExprAssign, SplitInitialBlocks, DropInitialBlocks, AddClkRst,
+      SimpleOrderMembers
+    )
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   // Only a DYNAMIC domain lowers to ED. The test is POSITIVE on purpose: its former `!= ED`
   // form also matched the STATIC domain, and a static function's def design must keep it. Static
