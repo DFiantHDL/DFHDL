@@ -14,3 +14,12 @@ trait SimKernel:
     * primitive: observers always read combinationally settled state.
     */
   def settle(sig: Array[Long]): Unit
+
+  /** Advance exactly one cycle with change tracking: returns true when any *tracked* register
+    * commit changed its value. A clean (false) cycle proves the design is at a state fixpoint
+    * except for untracked time-keeping cells (wait counters), which is the scheduler's license to
+    * skip ahead on the event timeline instead of evaluating every cycle. The bulk [[run]] path
+    * carries no tracking overhead.
+    */
+  def stepDirty(sig: Array[Long]): Boolean
+end SimKernel

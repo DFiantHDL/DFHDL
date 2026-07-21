@@ -147,6 +147,21 @@ object Codegen:
         sb += '\n'
     else for ci <- chunks.indices do sb ++= s"    chunk$ci(sig);\n"
     sb ++= "  }\n"
+    // one tracked-commit cycle for the scheduler's quiescence probe
+    sb ++= "\n  public boolean stepDirty(long[] sig) {\n"
+    val probeCi = if single then 0 else -1
+    if single then
+      for id <- comb do
+        sb ++= emitOp(id, 0)
+        sb += '\n'
+    else for ci <- chunks.indices do sb ++= s"    chunk$ci(sig);\n"
+    sb ++= "    boolean dirty = false;\n"
+    for (n, i) <- nl.regNextIds.zipWithIndex do
+      sb ++= s"    long nxt$i = ${rd(n, probeCi)};\n"
+    for ((r, i) <- nl.regIds.zipWithIndex) do
+      if nl.regTracked(i) then sb ++= s"    if (sig[$r] != nxt$i) dirty = true;\n"
+      sb ++= s"    sig[$r] = nxt$i;\n"
+    sb ++= "    return dirty;\n  }\n"
     if !single then
       for (chunk, ci) <- chunks.zipWithIndex do
         sb ++= s"\n  private static void chunk$ci(long[] sig) {\n"

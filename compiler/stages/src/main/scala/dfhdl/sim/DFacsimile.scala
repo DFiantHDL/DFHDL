@@ -1,6 +1,7 @@
 package dfhdl.sim
 
 import dfhdl.compiler.ir.*
+import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 import scala.collection.mutable
 
@@ -40,16 +41,37 @@ enum SimTier derives CanEqual:
   * instance).
   */
 object DFacsimile:
-  def simulate(db: DB, tier: SimTier = SimTier.Interpreter): Sim =
+  /** Internal raw entry: lowers a DB and returns the raw kernel access ([[Sim]]). Not public API —
+    * the typed [[Simulation]] surface (`dsn.simulation { dut => ... }`) is the sole public
+    * simulation interface; this stays reachable only for the engine itself and its in-package
+    * harnesses (e.g. staged-oracle lockstep over stage-lowered DBs, which have no frontend object).
+    */
+  private[sim] def simulate(db: DB, tier: SimTier = SimTier.Interpreter): Sim =
     val builder = new Builder(db)
     builder.build()
     val kernel = tier match
       case SimTier.Interpreter => Interpreter.compile(builder.nl)
       case SimTier.Codegen     =>
-        // named values are peekable — force their lanes into the signal array
-        Codegen.compile(builder.nl, observed = builder.namedNodes.values.flatMap(_.lanes).toSet)
-    new Sim(builder.nl, kernel, builder.namedNodes.toMap)
+        // named values are peekable — force their lanes into the signal array; the scheduler
+        // reads wait bounds after a probe, so they must be materialized too
+        val schedObserved = builder.procMetas.iterator.flatMap(_.timers.values.map(_.boundNode))
+        Codegen.compile(
+          builder.nl,
+          observed = builder.namedNodes.values.flatMap(_.lanes).toSet ++ schedObserved
+        )
+    new Sim(builder.nl, kernel, builder.namedNodes.toMap, builder.procMetas.toVector)
 end DFacsimile
+
+/** Scheduler metadata for one cycle-wait park of a lowered RT process: the wait's up-counter cell
+  * and its live bound node (`cycles - 1`, re-evaluated per cycle like the equivalent FSM counter
+  * would). The parked remaining cycle count is `(bound - counter) mod 2^width`.
+  */
+private[sim] final case class WaitTimerMeta(counterReg: Int, boundNode: Int, mask: Long)
+
+/** Scheduler metadata for one lowered RT process: its FSM state cell and its cycle-wait timers
+  * keyed by the state value that parks on them.
+  */
+private[sim] final case class ProcMeta(segReg: Int, timers: Map[Long, WaitTimerMeta])
 
 /** A running simulation instance: one state/signal array + a kernel over it. Values are addressed
   * by name; hierarchy paths use instance names (e.g. "alu0.res"). Values of any width move across
@@ -59,14 +81,61 @@ end DFacsimile
 final class Sim private[sim] (
     val nl: Netlist,
     kernel: SimKernel,
-    nameToWV: Map[String, WV]
+    nameToWV: Map[String, WV],
+    procMetas: Vector[ProcMeta]
 ):
   private val sig = nl.initialSig
   // settle-on-peek: peeks always observe combinationally settled state (Amaranth's rule)
   private var needsSettle = true
+
+  /** Cycles the scheduler skipped (not evaluated by a kernel) — observability for skip tests. */
+  private var skippedVar = 0L
+  def skippedCycles: Long = skippedVar
+
   def step(cycles: Long = 1L): Unit =
-    kernel.run(sig, cycles)
+    if procMetas.isEmpty then kernel.run(sig, cycles)
+    else stepScheduled(cycles)
     needsSettle = true // post-commit register values invalidate the comb sweep
+
+  /** The event-timeline scheduler (single-clock degenerate hyperperiod): probe a cycle with change
+    * tracking; a clean probe proves the design is at a state fixpoint except wait counters, so the
+    * timeline jumps to the nearest cycle-wait expiry (or the budget end when only condition/endless
+    * waits remain) by bulk-advancing the counters. A dirty probe backs off into untracked bulk
+    * chunks with exponential growth, so active designs run at full kernel speed.
+    */
+  private def stepScheduled(cycles: Long): Unit =
+    var remaining = cycles
+    var chunk = 1L
+    while remaining > 0 do
+      if kernel.stepDirty(sig) then
+        remaining -= 1
+        val c = math.min(chunk, remaining)
+        if c > 0 then kernel.run(sig, c)
+        remaining -= c
+        chunk = math.min(chunk * 2, 65536L)
+      else
+        remaining -= 1
+        if remaining > 0 then
+          // fixpoint except timers: how far until the nearest active cycle-wait expires?
+          var horizon = Long.MaxValue
+          for pm <- procMetas do
+            pm.timers.get(sig(pm.segReg)) match
+              case Some(t) =>
+                val rem = (sig(t.boundNode) - sig(t.counterReg)) & t.mask
+                if rem < horizon then horizon = rem
+              case None => // parked without a timer (condition/endless wait or a held FSM state)
+          val delta = math.min(horizon, remaining)
+          if delta > 0 then
+            for pm <- procMetas do
+              pm.timers.get(sig(pm.segReg)) match
+                case Some(t) => sig(t.counterReg) = (sig(t.counterReg) + delta) & t.mask
+                case None    =>
+            remaining -= delta
+            skippedVar += delta
+          chunk = 1L
+        end if
+    end while
+  end stepScheduled
   def settle(): Unit =
     kernel.settle(sig)
     needsSettle = false
@@ -104,12 +173,16 @@ final class Sim private[sim] (
     needsSettle = true
   def widthOf(name: String): Int = wvOf(name).width
   def names: Set[String] = nameToWV.keySet
+  private[sim] def debugSig(node: Int): Long =
+    if needsSettle then settle()
+    sig(node)
 end Sim
 
 private final class Builder(rawDB: DB):
   private[sim] val nl = new Netlist
   private val wide = new WideOps(nl)
   private[sim] val namedNodes = mutable.Map.empty[String, WV]
+  private[sim] val procMetas = mutable.ArrayBuffer.empty[ProcMeta]
   // the new-style root DB is only a hierarchy container; content lives in per-design sub-DBs
   private val topScopeDB: DB = if rawDB.isRoot then rawDB.topDB else rawDB
 
@@ -157,6 +230,65 @@ private final class Builder(rawDB: DB):
     private var condDepth = 0
     // write-only views: net sinks and the alias chains under them (never built as reads)
     private val writeViews = mutable.Set.empty[DFVal]
+    // context-sensitive value bindings during RT process lowering: process-owned values compile
+    // per transition context (e.g. a loop guard reads forwarded values at a loop-back edge but
+    // committed values inside a control state), so their nodes must not enter the global cache
+    private var procOverlay: mutable.Map[DFVal, WV] = null
+    // time-zero state overrides computed in the pre-pass from initial blocks and Rule-4-converted
+    // process prologues ("initial wins" over a declaration init)
+    private val initOverride = mutable.Map.empty[DFVal.Dcl, BitVector]
+
+    /** Value-forwarding state of one process transition context (a site program). Mirrors the FSM
+      * fusion's per-goto crossing model: register writes are pending until a conceptual cycle
+      * boundary (a dispatch entry) promotes them into the read view; wire writes are blocking
+      * within the region and unreadable across a boundary.
+      */
+    private final class TransCtx(val condBase: Int):
+      var fwdRegs = Map.empty[DFVal.Dcl, WV]
+      var fwdUnclean = Set.empty[DFVal.Dcl]
+      var wireBarrier = Set.empty[DFVal.Dcl]
+      var regsSinceCross = Set.empty[DFVal.Dcl]
+      var uncleanSinceCross = Set.empty[DFVal.Dcl]
+      var wiresSinceCross = Set.empty[DFVal.Dcl]
+      def snapshot(): TransSnap =
+        TransSnap(fwdRegs, fwdUnclean, wireBarrier, regsSinceCross, uncleanSinceCross,
+          wiresSinceCross)
+      def restore(s: TransSnap): Unit =
+        fwdRegs = s.fwdRegs; fwdUnclean = s.fwdUnclean; wireBarrier = s.wireBarrier
+        regsSinceCross = s.regsSinceCross; uncleanSinceCross = s.uncleanSinceCross
+        wiresSinceCross = s.wiresSinceCross
+    end TransCtx
+    private final case class TransSnap(
+        fwdRegs: Map[DFVal.Dcl, WV],
+        fwdUnclean: Set[DFVal.Dcl],
+        wireBarrier: Set[DFVal.Dcl],
+        regsSinceCross: Set[DFVal.Dcl],
+        uncleanSinceCross: Set[DFVal.Dcl],
+        wiresSinceCross: Set[DFVal.Dcl]
+    )
+    private var transCtx: TransCtx = null
+
+    /** Records an assignment for the transition context's forwarding model. */
+    private def recordWrite(dcl: DFVal.Dcl, full: Boolean): Unit =
+      val t = transCtx
+      if t ne null then
+        if regNodeOf.contains(dcl) then
+          t.regsSinceCross += dcl
+          if !full || condDepth > t.condBase then t.uncleanSinceCross += dcl
+          else t.uncleanSinceCross -= dcl // a later clean full write supersedes
+        else t.wiresSinceCross += dcl
+
+    /** Crosses a conceptual cycle boundary: pending register writes become the read view. */
+    private def crossBoundary(): Unit =
+      val t = transCtx
+      if t ne null then
+        for dcl <- t.regsSinceCross do t.fwdRegs = t.fwdRegs.updated(dcl, env(dcl))
+        t.fwdUnclean = t.fwdUnclean -- (t.regsSinceCross -- t.uncleanSinceCross)
+          ++ t.uncleanSinceCross
+        t.wireBarrier ++= t.wiresSinceCross
+        t.regsSinceCross = Set.empty
+        t.uncleanSinceCross = Set.empty
+        t.wiresSinceCross = Set.empty
 
     def elaborate(): Unit =
       // pre-pass: net sink direction (connections are continuous — order-free via MOV patching)
@@ -181,14 +313,25 @@ private final class Builder(rawDB: DB):
             case _: DFVal.Dcl => () // the target itself stays readable
             case _            => writeViews += v
       }
+      // pre-pass: time-zero state overrides — initial blocks and Rule-4-convertible process
+      // prologues fold statically into register init values ("initial wins" over decl init)
+      designMembers.foreach {
+        case p: ProcessBlock if p.isInitial =>
+          if !p.isInRTDomain then unsupported("an initial block outside the RT domain", p)
+          foldInitialStatic(childrenOf.getOrElse(p, Vector.empty).toList, p)
+        case p: ProcessBlock if p.isInRTDomain && processHasTime(p) => prepassProcess(p)
+        case _                                                      => ()
+      }
       // pre-pass: state cells — registers, and IN ports (pokeable hold cells at top,
       // MOV placeholders patched by the parent's connections otherwise)
       designMembers.foreach {
         case dcl: DFVal.Dcl if dcl.modifier.isReg =>
           val w = widthOf(dcl)
-          val init = dcl.initRefList.headOption match
-            case Some(initRef) => regInitBits(initRef.get, w)
-            case None          => BitVector.low(w)
+          val init = initOverride.get(dcl).getOrElse {
+            dcl.initRefList.headOption match
+              case Some(initRef) => regInitBits(initRef.get, w)
+              case None          => BitVector.low(w)
+          }
           regNodeOf(dcl) = wide.reg(w, init)
         case dcl: DFVal.Dcl =>
           dcl.modifier.dir match
@@ -205,7 +348,9 @@ private final class Builder(rawDB: DB):
       finalizeScope()
     end elaborate
 
-    private def processMembers(ms: Iterable[DFMember]): Unit = ms.foreach {
+    private def processMembers(ms: Iterable[DFMember]): Unit = ms.foreach(processMember)
+
+    private def processMember(m: DFMember): Unit = m match
       case _: DFVal.Dcl            => () // declarations: state in pre-pass, wires at their net
       case p: DFVal.DesignParam    => bindParam(p)
       case _: DFConditional.Block  => () // processed by its header's chain
@@ -213,48 +358,105 @@ private final class Builder(rawDB: DB):
       case v: DFVal if writeViews.contains(v) => () // write-only view of a sink
       case v: DFVal if isConstVector(v)       => () // ROM data, materialized at its use site
       case v: DFVal                           =>
-        tryFoldConst(v) match
-          case Some(wv) => bindVal(v, wv)
-          case None     =>
-            v match
-              case pbns: DFVal.PortByNameSelect => bindVal(pbns, pbnsReadWV(pbns))
-              case f: DFVal.Func                => bindVal(f, buildFunc(f))
-              case a: DFVal.Alias.AsIs          =>
-                val rel = a.relValRef.get
-                bindVal(a, wide.resize(readWV(rel), widthOf(a), isSignedType(rel.dfType)))
-              case a: DFVal.Alias.ApplyIdx     => bindVal(a, buildApplyIdx(a))
-              case a: DFVal.Alias.ApplyRange   => bindVal(a, buildApplyRange(a))
-              case sf: DFVal.Alias.SelectField => bindVal(sf, buildSelectField(sf))
-              case h: DFVal.Alias.History      => bindVal(h, buildHistory(h))
-              case c: DFVal.Const              =>
-                // reached only for bubble (don't-care) constants (`?`) — simulate as 0 (2-state)
-                bindVal(c, wide.const(widthOf(c), lenientDataToBits(c.dfType, c.data, c)))
-              case m => unsupported("value kind", m)
+        // may already be bound by a lazy forward-reference read
+        val bound = nodeOf.contains(v) || ((procOverlay ne null) && procOverlay.contains(v))
+        if !bound then bindVal(v, buildValWV(v))
       case net: DFNet         => buildNet(net)
       case inst: DFDesignInst => elaborateChild(inst)
-      case m                  => unsupported("member kind", m)
-    }
+      case _: DFRange         => () // loop-range bookkeeping — read at its loop
+      case lb: LocalBlock     => processMembers(childrenOf.getOrElse(lb, Vector.empty))
+      case fb: DFLoop.DFForBlock if fb.isCombinational => unrollCombFor(fb)
+      case pb: ProcessBlock                            =>
+        if pb.isInitial then () // folded into time-zero state in the pre-pass
+        else if pb.isInRTDomain then buildProcess(pb)
+        else unsupported("a process outside the RT domain", pb)
+      case m => unsupported("member kind", m)
+    end processMember
+
+    /** Combinational (`COMB_LOOP`) for loop: unrolled at build time over its constant range, the
+      * iterator bound to a constant per pass.
+      */
+    private def unrollCombFor(fb: DFLoop.DFForBlock): Unit =
+      val iter = fb.iteratorRef.get
+      val body = childrenOf.getOrElse(fb, Vector.empty)
+      for i <- combForRange(fb) do
+        env(iter) = wide.const(widthOf(iter), BitVector.fromLong(i, widthOf(iter)))
+        processMembers(body)
+      env.remove(iter)
+
+    private def combForRange(fb: DFLoop.DFForBlock): Seq[Long] =
+      val range = fb.rangeRef.get
+      def cint(v: DFVal): Long =
+        constOpt[Option[BigInt]](v) match
+          case Some(Some(i)) => i.toLong
+          case _             => unsupported("non-constant combinational loop bound", fb)
+      val start = cint(range.startRef.get)
+      val end = cint(range.endRef.get)
+      val step = cint(range.stepRef.get)
+      if step == 0 then unsupported("zero loop step", fb)
+      val untilEnd = range.op match
+        case DFRange.Op.Until => end
+        case DFRange.Op.To    => if step > 0 then end + 1 else end - 1
+      start.until(untilEnd, step)
+
+    /** Computes a value's lowering (without binding it). */
+    private def buildValWV(v: DFVal): WV =
+      tryFoldConst(v).getOrElse {
+        v match
+          case pbns: DFVal.PortByNameSelect => pbnsReadWV(pbns)
+          case f: DFVal.Func                => buildFunc(f)
+          case a: DFVal.Alias.AsIs          =>
+            val rel = a.relValRef.get
+            wide.resize(readWV(rel), widthOf(a), isSignedType(rel.dfType))
+          case a: DFVal.Alias.ApplyIdx     => buildApplyIdx(a)
+          case a: DFVal.Alias.ApplyRange   => buildApplyRange(a)
+          case sf: DFVal.Alias.SelectField => buildSelectField(sf)
+          case h: DFVal.Alias.History      => buildHistory(h)
+          case c: DFVal.Const              =>
+            // reached only for bubble (don't-care) constants (`?`) — simulate as 0 (2-state)
+            wide.const(widthOf(c), lenientDataToBits(c.dfType, c.data, c))
+          case m => unsupported("value kind", m)
+      }
 
     private def bindVal(v: DFVal, wv: WV): Unit =
-      nodeOf(v) = wv
+      val po = procOverlay
+      if po ne null then po(v) = wv
+      else nodeOf(v) = wv
       if !v.isAnonymous then namedNodes(prefix + v.getName) = wv
 
     // ---- reads ----------------------------------------------------------------------------
 
     private def readWV(v: DFVal): WV = v match
       case dcl: DFVal.Dcl =>
-        regNodeOf.get(dcl).orElse(env.get(dcl)).orElse(inPortMov.get(dcl))
-          .getOrElse(unsupported("reading a value before it is driven", dcl))
+        val t = transCtx
+        if (t ne null) && regNodeOf.contains(dcl) then
+          // register reads inside a process transition context: committed state, except values
+          // promoted across a conceptual cycle boundary (fusion's value forwarding — e.g. a
+          // loop-back guard evaluating `(i + 1) < N` after the pending `i.din := i + 1`)
+          if t.fwdUnclean.contains(dcl) then
+            unsupported(
+              "a forwarded read of a register with a conditional or partial pending assignment",
+              dcl
+            )
+          t.fwdRegs.getOrElse(dcl, regNodeOf(dcl))
+        else if (t ne null) && t.wireBarrier.contains(dcl) then
+          unsupported("a wire read across a process transition boundary", dcl)
+        else
+          regNodeOf.get(dcl).orElse(env.get(dcl)).orElse(inPortMov.get(dcl))
+            .getOrElse(unsupported("reading a value before it is driven", dcl))
+        end if
       case v =>
-        nodeOf.get(v) match
+        val po = procOverlay
+        val overlayHit = if po ne null then po.get(v) else None
+        overlayHit.orElse(nodeOf.get(v)) match
           case Some(wv) => wv
           case None     =>
-            // whole-value reads of constants that were skipped in the walk (e.g. ROM vectors)
-            tryFoldConst(v) match
-              case Some(wv) =>
-                nodeOf(v) = wv
-                wv
-              case None => unsupported("reading a value before it is built", v)
+            // lazy compilation: in-process values compile per transition context; design-level
+            // reads cover forward references (e.g. chain guards interleaved between blocks in
+            // stage-produced IR) and constants skipped in the walk (ROM vectors)
+            val wv = buildValWV(v)
+            bindVal(v, wv)
+            wv
 
     /** Const resolution for simulation: the NoCache policy recomputes through design params, immune
       * to previously-cached symbolic (Always-policy) results.
@@ -370,7 +572,19 @@ private final class Builder(rawDB: DB):
             wide.mux(wide.ltNode(a, wide.zero(resW), signed = true), wide.neg(a), a)
           else a
         case FO.sel => wide.mux(rd(args.head).lanes(0), rd(args(1)), rd(args(2)))
-        case FO.<<  =>
+        // edge detection over a 1-cycle sampling register; the init biases match the RT lowering
+        // (no spurious edge at time zero: rising samples 1, falling samples 0)
+        case FO.rising =>
+          val a = rd(args.head)
+          val prev = wide.reg(1, BitVector.high(1))
+          wide.setNext(prev, a)
+          WV(Vector(nl.and(nl.not(prev.lanes(0)), a.lanes(0))), 1)
+        case FO.falling =>
+          val a = rd(args.head)
+          val prev = wide.reg(1, BitVector.low(1))
+          wide.setNext(prev, a)
+          WV(Vector(nl.and(prev.lanes(0), nl.not(a.lanes(0)))), 1)
+        case FO.<< =>
           val a = rdAt(args.head, resW)
           constAmountOpt match
             case Some(amt) => wide.shlConst(a, amt)
@@ -478,37 +692,78 @@ private final class Builder(rawDB: DB):
 
     // ---- conditionals ---------------------------------------------------------------------
 
-    private def processConditionalChain(header: DFConditional.Header): Unit =
+    /** A conditional-chain block's activation condition (pattern and/or guard) as a 1-bit node;
+      * None = always taken (an else branch / unguarded catch-all case).
+      */
+    private def blockCondNode(block: DFConditional.Block, selectorWV: Option[WV]): Option[Int] =
       import DFConditional.DFCaseBlock.Pattern
+      def patternCond(p: Pattern): Int = p match
+        case Pattern.Singleton(ref)    => wide.eqNode(selectorWV.get, readWV(ref.get))
+        case Pattern.Alternative(list) => list.map(patternCond).reduce(nl.or)
+        case p                         => unsupported(s"match pattern $p", block)
+      val guardCond = block.guardRef.get match
+        case g: DFVal => Some(readWV(g).lanes(0))
+        case _        => None
+      block match
+        case cb: DFConditional.DFCaseBlock =>
+          val patCond = cb.pattern match
+            case Pattern.CatchAll => None
+            case p                => Some(patternCond(p))
+          (patCond, guardCond) match
+            case (Some(p), Some(g)) => Some(nl.and(p, g))
+            case (p, g)             => p.orElse(g)
+        case _ => guardCond
+    end blockCondNode
+
+    /** Sequential-assignment merge of per-branch results over one key space, with mux trees built
+      * right (else/default) to left. `holdOf` supplies the committed fallback of a state cell
+      * (registers hold when unassigned); wires fall back to their pre-chain value or poison.
+      */
+    private def mergeKeyed[K](
+        base: Map[K, WV],
+        condBranches: List[(Int, Map[K, WV])],
+        elseOpt: Option[Map[K, WV]],
+        holdOf: K => Option[WV]
+    )(sink: (K, Option[WV]) => Unit): Unit =
+      val allResults = condBranches.map(_._2) ++ elseOpt
+      val assignedKeys = allResults.iterator.flatMap(_.keys).toSet
+        .filter(k => allResults.exists(m => m.get(k) != base.get(k)))
+      for k <- assignedKeys do
+        val default: Option[WV] = holdOf(k) match
+          case Some(hold) => Some(base.getOrElse(k, hold))
+          case None       => base.get(k)
+        val start: Option[WV] = elseOpt match
+          case Some(e) => e.get(k).orElse(default)
+          case None    => default
+        val merged = condBranches.foldRight(start) { case ((cond, m), acc) =>
+          (m.get(k).orElse(default), acc) match
+            case (Some(t), Some(f)) => Some(wide.mux(cond, t, f))
+            case _                  => None
+        }
+        sink(k, merged)
+    end mergeKeyed
+
+    private def envHoldOf(dcl: DFVal.Dcl): Option[WV] = regNodeOf.get(dcl)
+
+    private def processConditionalChain(header: DFConditional.Header): Unit =
       val blocks = db.conditionalChainTable.getOrElse(header, Nil)
       if blocks.isEmpty then unsupported("conditional header without blocks", header)
       val selectorWV = header match
         case mh: DFConditional.DFMatchHeader => Some(readWV(mh.selectorRef.get))
         case _                               => None
-      def patternCond(p: Pattern): Int = p match
-        case Pattern.Singleton(ref)    => wide.eqNode(selectorWV.get, readWV(ref.get))
-        case Pattern.Alternative(list) => list.map(patternCond).reduce(nl.or)
-        case p                         => unsupported(s"match pattern $p", header)
       val isExpr = header.dfType match
         case DFUnit => false
         case _      => true
 
       val baseEnv = env.toMap
+      val po = procOverlay
+      val baseOverlay = if po ne null then po.toMap else Map.empty[DFVal, WV]
       case class Branch(condOpt: Option[Int], resultEnv: Map[DFVal.Dcl, WV], yieldOpt: Option[WV])
       val branches = blocks.map { block =>
         env.clear(); env ++= baseEnv
-        val guardCond = block.guardRef.get match
-          case g: DFVal => Some(readWV(g).lanes(0))
-          case _        => None
-        val condOpt = block match
-          case cb: DFConditional.DFCaseBlock =>
-            val patCond = cb.pattern match
-              case Pattern.CatchAll => None
-              case p                => Some(patternCond(p))
-            (patCond, guardCond) match
-              case (Some(p), Some(g)) => Some(nl.and(p, g))
-              case (p, g)             => p.orElse(g)
-          case _ => guardCond
+        if po ne null then
+          po.clear(); po ++= baseOverlay
+        val condOpt = blockCondNode(block, selectorWV)
         val blockMembers = childrenOf.getOrElse(block, Vector.empty)
         condDepth += 1
         processMembers(blockMembers)
@@ -526,26 +781,15 @@ private final class Builder(rawDB: DB):
       val hasElse = branches.last.condOpt.isEmpty
       val (condBranches, elseBranch) =
         if hasElse then (branches.init, Some(branches.last)) else (branches, None)
-      // merge assigned values with mux trees, right (else/default) to left
-      val assignedKeys = branches.iterator.flatMap(_.resultEnv.keys).toSet
-        .filter(dcl => branches.exists(b => b.resultEnv.get(dcl) != baseEnv.get(dcl)))
-      for dcl <- assignedKeys do
-        // registers hold their value when unassigned; wires fall back to their prior value
-        val default: Option[WV] =
-          if regNodeOf.contains(dcl) then Some(baseEnv.getOrElse(dcl, regNodeOf(dcl)))
-          else baseEnv.get(dcl)
-        val start: Option[WV] = elseBranch match
-          case Some(b) => b.resultEnv.get(dcl).orElse(default)
-          case None    => default
-        val merged = condBranches.foldRight(start) { (b, acc) =>
-          (b.resultEnv.get(dcl).orElse(default), acc) match
-            case (Some(t), Some(f)) => Some(wide.mux(b.condOpt.get, t, f))
-            case _                  => None
-        }
-        merged match
-          case Some(n) => env(dcl) = n
-          case None    => env.remove(dcl) // partially driven wire: poison until re-driven
-      end for
+      mergeKeyed(
+        baseEnv,
+        condBranches.map(b => (b.condOpt.get, b.resultEnv)),
+        elseBranch.map(_.resultEnv),
+        envHoldOf
+      ) {
+        case (dcl, Some(n)) => env(dcl) = n
+        case (dcl, None)    => env.remove(dcl) // partially driven wire: poison until re-driven
+      }
       // expression form: merge the block yields into the header's value
       if isExpr then
         if !hasElse then unsupported("expression conditional without a default branch", header)
@@ -563,7 +807,9 @@ private final class Builder(rawDB: DB):
     private def buildNet(net: DFNet): Unit = net.op match
       case DFNet.Op.Assignment =>
         net.lhsRef.get match
-          case dcl: DFVal.Dcl     => env(dcl) = readWV(net.rhsRef.get)
+          case dcl: DFVal.Dcl =>
+            env(dcl) = readWV(net.rhsRef.get)
+            recordWrite(dcl, full = true)
           case alias: DFVal.Alias => assignPartial(alias, readWV(net.rhsRef.get), net)
           case other              => unsupported("assignment target", net)
       case DFNet.Op.Connection | DFNet.Op.ViaConnection =>
@@ -579,6 +825,7 @@ private final class Builder(rawDB: DB):
       val (dcl, staticLo, dynOffOpt) = assignTarget(alias, net)
       val base = env.get(dcl).orElse(regNodeOf.get(dcl))
         .getOrElse(unsupported("partial assignment to an undriven value", net))
+      recordWrite(dcl, full = false)
       env(dcl) = dynOffOpt match
         case None      => wide.insert(base, part, staticLo)
         case Some(dyn) =>
@@ -700,6 +947,984 @@ private final class Builder(rawDB: DB):
       val dcl = portByName(path, where)
       val movWV = inPortMov.getOrElse(dcl, unsupported("connection to a non-input port", dcl))
       wide.patchMov(movWV, srcWV)
+
+    // ==================== RT processes (FSM simulation) ====================================
+
+    /** A process-internal state cell (FSM state / wait counter): merged and committed like a
+      * register but not backed by an IR declaration.
+      */
+    private final class PCell(val regWV: WV)
+
+    private val procBootNeeded = mutable.Map.empty[ProcessBlock, Boolean]
+
+    private def flattenedOf(o: DFOwner): Iterator[DFMember] =
+      childrenOf.getOrElse(o, Vector.empty).iterator.flatMap {
+        case owner: DFOwner => Iterator.single[DFMember](owner) ++ flattenedOf(owner)
+        case m              => Iterator.single(m)
+      }
+
+    /** A construct that consumes cycles (a park, or a region guaranteed to contain parks). */
+    private def isTimeConstructM(m: DFMember): Boolean = m match
+      case _: Wait          => true
+      case _: StepBlock     => true
+      case lb: DFLoop.Block => !lb.isCombinational
+      case _                => false
+
+    private def processHasTime(pb: ProcessBlock): Boolean =
+      flattenedOf(pb).exists(isTimeConstructM)
+
+    private enum WaitKind derives CanEqual:
+      case Cycles1
+      case CyclesN(nVal: DFVal) // cycle count sampled live, like the equivalent FSM counter
+      case CyclesLit(n: Long) // timed wait, converted through the domain clock rate
+      case CondW(trigger: DFVal) // resume when the trigger is true (sampled once per cycle)
+      case Endless
+
+    private def waitKindOf(wt: Wait): WaitKind =
+      val trigger = wt.triggerRef.get
+      if wt.isEndless then WaitKind.Endless
+      else
+        trigger.dfType match
+          case DFBool | DFBit => WaitKind.CondW(trigger)
+          case DFTime         =>
+            val clkRate = rawDB.resolvedClkRstMap
+              .get(wt.getOwnerDomain)
+              .flatMap(_._1)
+              .flatMap(_.rate.toOption)
+              .getOrElse(unsupported("a timed wait without a resolved clock rate", wt))
+            val waitTime = constOpt[TimeNumber](trigger)
+              .getOrElse(unsupported("a non-constant timed wait", wt))
+            val n = (waitTime / clkRate.to_ps).value.toLong
+            if n <= 0 then unsupported("a non-positive timed wait", wt)
+            else if n == 1 then WaitKind.Cycles1
+            else WaitKind.CyclesLit(n)
+          case _: DFDecimal =>
+            constOpt[Option[BigInt]](trigger) match
+              case Some(Some(n)) if n == 1 => WaitKind.Cycles1
+              case _                       => WaitKind.CyclesN(trigger)
+          case t => unsupported(s"wait trigger type $t", wt)
+      end if
+    end waitKindOf
+
+    /** Statically evaluates initial-convertible content (initial blocks and Rule-4-converted
+      * process prologues) into time-zero packed-bits state per REG declaration.
+      */
+    private def foldInitialStatic(topMembers: List[DFMember], where: Any): Unit =
+      val iterBind = mutable.Map.empty[DFVal.Dcl, BigInt]
+      def constBitsOf(v: DFVal): BitVector =
+        constOpt[Any](v) match
+          case Some(d) => lenientDataToBits(v.dfType, d, where)
+          case None    => unsupported("a non-constant value in initial content", v)
+      def constIdxOf(v: DFVal): Int = v match
+        case dcl: DFVal.Dcl if iterBind.contains(dcl) => iterBind(dcl).toInt
+        case a: DFVal.Alias.AsIs                      => constIdxOf(a.relValRef.get)
+        case _                                        =>
+          constOpt[Option[BigInt]](v) match
+            case Some(Some(i)) => i.toInt
+            case _             => unsupported("a non-constant index in initial content", v)
+      def lhsTarget(v: DFVal): (DFVal.Dcl, Int) = v match
+        case dcl: DFVal.Dcl             => (dcl, 0)
+        case ar: DFVal.Alias.ApplyRange =>
+          val (dcl, lo0) = lhsTarget(ar.relValRef.get)
+          val lo = ar.idxLowRef.getIntOpt.getOrElse(unsupported("a non-constant range", ar))
+          (dcl, lo0 + lo)
+        case ai: DFVal.Alias.ApplyIdx =>
+          val rel = ai.relValRef.get
+          val (dcl, lo0) = lhsTarget(rel)
+          rel.dfType match
+            case vt: DFVector =>
+              val cellW = widthOfType(vt.cellType, ai)
+              val len = widthOfType(vt, ai) / cellW
+              (dcl, lo0 + (len - 1 - constIdxOf(ai.relIdx.get)) * cellW)
+            case _: DFBits => (dcl, lo0 + constIdxOf(ai.relIdx.get))
+            case t         => unsupported(s"initial assignment through indexing into $t", ai)
+        case sf: DFVal.Alias.SelectField =>
+          val rel = sf.relValRef.get
+          val (dcl, lo0) = lhsTarget(rel)
+          rel.dfType match
+            case st: DFStruct => (dcl, lo0 + st.fieldRelBitLow(sf.fieldName))
+            case t => unsupported(s"initial assignment through field selection on $t", sf)
+        case other => unsupported("initial assignment target", other)
+      def baseBitsOf(dcl: DFVal.Dcl): BitVector =
+        initOverride.getOrElse(
+          dcl, {
+            val w = widthOf(dcl)
+            dcl.initRefList.headOption match
+              case Some(r) => regInitBits(r.get, w)
+              case None    => BitVector.low(w)
+          }
+        )
+      def splice(base: BitVector, part: BitVector, lo: Int): BitVector =
+        val hiW = base.width - lo - part.width
+        val parts = List.newBuilder[BitVector]
+        if hiW > 0 then parts += base.bitsWL(hiW, lo + part.width)
+        parts += part
+        if lo > 0 then parts += base.bitsWL(lo, 0)
+        parts.result().reduce(_ ++ _)
+      def foldStmts(ms: List[DFMember]): Unit =
+        var skip = Set.empty[DFMember]
+        ms.foreach {
+          case m if skip.contains(m)                       => ()
+          case net: DFNet if net.op == DFNet.Op.Assignment =>
+            val lhsVal = net.lhsRef.get
+            val (dcl, lo) = lhsTarget(lhsVal)
+            if !dcl.modifier.isReg then
+              unsupported("initial content assigning a non-register (lands with M3)", net)
+            val rhs = net.rhsRef.get
+            val part = resizeBits(constBitsOf(rhs), widthOf(lhsVal), isSignedType(rhs.dfType))
+            initOverride(dcl) = splice(baseBitsOf(dcl), part, lo)
+          case h: DFConditional.Header =>
+            import DFConditional.DFCaseBlock.Pattern
+            val blocks = db.conditionalChainTable.getOrElse(h, Nil)
+            skip ++= blocks
+            val selBits = h match
+              case mh: DFConditional.DFMatchHeader => Some(constBitsOf(mh.selectorRef.get))
+              case _                               => None
+            def patternHit(p: Pattern): Boolean = p match
+              case Pattern.Singleton(ref)    => constBitsOf(ref.get).equals(selBits.get)
+              case Pattern.Alternative(list) => list.exists(patternHit)
+              case p                         => unsupported(s"initial match pattern $p", h)
+            val taken = blocks.find { b =>
+              val guardOk = b.guardRef.get match
+                case g: DFVal => constBitsOf(g).bit(0)
+                case _        => true
+              val patOk = b match
+                case cb: DFConditional.DFCaseBlock =>
+                  cb.pattern match
+                    case Pattern.CatchAll => true
+                    case p                => patternHit(p)
+                case _ => true
+              guardOk && patOk
+            }
+            taken.foreach(b => foldStmts(childrenOf.getOrElse(b, Vector.empty).toList))
+          case _: DFConditional.Block => () // handled at its header
+          case fb: DFLoop.DFForBlock  =>
+            val iter = fb.iteratorRef.get
+            val body = childrenOf.getOrElse(fb, Vector.empty).toList
+            for i <- combForRange(fb) do
+              iterBind(iter) = BigInt(i)
+              foldStmts(body)
+            iterBind.remove(iter)
+          case t: TextOut => unsupported("text output in initial content (lands with M2)", t)
+          case _: DFVal   => () // anonymous dependencies / iterator declarations
+          case _: DFRange => ()
+          case m          => unsupported("initial content member", m)
+        }
+      end foldStmts
+      foldStmts(topMembers)
+    end foldInitialStatic
+
+    /** Pre-pass per RT process with time constructs: M1 validation, the Rule-4 gate (mirroring
+      * `DropRTWaits` Rule 6: bootstrap skipped when the prologue is initial-convertible and no
+      * trailing statement shares a prologue-assigned declaration), and the static fold of the
+      * converted prologue into time-zero state.
+      */
+    private def prepassProcess(pb: ProcessBlock): Unit =
+      flattenedOf(pb).foreach {
+        case t: TextOut   => unsupported("text output in processes (lands with M2)", t)
+        case f: ForkBlock => unsupported("fork/join in processes", f)
+        case sb: StepBlock if !sb.isRegular =>
+          unsupported("onEntry/onExit/fallThrough step blocks (land with M3)", sb)
+        case lb: DFLoop.Block if !lb.isCombinational && lb.isFallThrough =>
+          unsupported("FALL_THROUGH loops (land with M3)", lb)
+        case w: Wait => waitKindOf(w) // validates the trigger form
+        case _       => ()
+      }
+      if !processHasTime(pb) then () // every-cycle combinational body — nothing to plan
+      else
+        val top = childrenOf.getOrElse(pb, Vector.empty).toList
+        def expandOwners(list: List[DFMember]): List[DFMember] = list.flatMap {
+          case owner: DFOwner => owner :: flattenedOf(owner).toList
+          case m              => List(m)
+        }
+        val prologueTop = top.takeWhile(m => !isTimeConstructM(m))
+        val prologue = expandOwners(prologueTop)
+        val startsWithGen = top.dropWhile {
+          case v: DFVal => v.isAnonymous
+          case _        => false
+        }.headOption.exists(isTimeConstructM)
+        val trailingTop =
+          if startsWithGen || prologueTop.sizeIs >= top.size then Nil
+          else top.reverse.takeWhile(m => !isTimeConstructM(m)).reverse
+        val trailing = expandOwners(trailingTop)
+        val prologueDcls = assignedDcls(prologue).toSet
+        val shares = prologueDcls.nonEmpty && assignedDcls(trailing).exists(prologueDcls.contains)
+        val needsBoot =
+          if startsWithGen then false // M1 rejects onEntry, so a leading step never needs a boot
+          else !(isInitialConvertible(prologue) && !shares)
+        procBootNeeded(pb) = needsBoot
+        if !needsBoot then
+          foldInitialStatic(prologueTop, pb)
+          // a process-leading for loop's iterator initialization is prologue content in the FSM
+          // lowering, so it lands in the generated initial state: the iterator holds its start
+          // value at time zero (whether the loop control fuses or keeps the reset-entry state)
+          top.find(isTimeConstructM) match
+            case Some(fb: DFLoop.DFForBlock) =>
+              val iter = fb.iteratorRef.get
+              val start = constOpt[Option[BigInt]](fb.rangeRef.get.startRef.get).flatten
+                .getOrElse(unsupported("a non-constant start of a process-leading for loop", fb))
+              initOverride(iter) = BitVector.fromLong(start.toLong, widthOf(iter))
+            case _ => ()
+      end if
+    end prepassProcess
+
+    private def buildProcess(pb: ProcessBlock): Unit =
+      if !processHasTime(pb) then
+        // a process without steps/waits/loops is purely combinational, every-cycle logic
+        processMembers(childrenOf.getOrElse(pb, Vector.empty))
+      else new ProcLowering(pb).run()
+
+    /** Lowers one clock-bound RT process into FSM sites over an implicit state cell, directly from
+      * the elaborated IR, following the documented cycle semantics with the same fusion/fallback
+      * decisions as the FSM lowering stages:
+      *   - waits and pure-dispatch steps park; loops with control-free bodies park per iteration
+      *   - control flow fuses into transition cycles, with value forwarding across conceptual cycle
+      *     boundaries (a loop-back guard evaluates on next-cycle register values); the
+      *     process-leading construct fuses at the forever wrap-around too (the re-executed prologue
+      *     re-initializes the values its dispatch guards read)
+      *   - a fused process-leading construct keeps a state for the reset entry only; when its
+      *     dispatch const-folds under the prologue values, the folded assignments join the
+      *     time-zero state and the FSM resets directly into the fold's target park (the reset-site
+      *     fold — zero bootstrap cycles)
+      *   - fallback control states: match dispatch, guards reading conditionally/partially assigned
+      *     state or history aliases, and dispatch cycles that do not fold (e.g. dynamic-nest or
+      *     dynamic wrap-around re-entry), detected with the same visit-capped expansion and
+      *     first-victim-restart discipline as `FirstStepFusion`
+      */
+    private final class ProcLowering(pb: ProcessBlock):
+      private val top: List[DFMember] = childrenOf.getOrElse(pb, Vector.empty).toList
+      private val needsBoot = procBootNeeded(pb)
+
+      private enum PCont:
+        case SeqC(rest: List[DFMember], outer: PCont)
+        case LoopBack(loop: DFLoop.Block, outer: PCont)
+        case Wrap
+
+      // ---- classification -----------------------------------------------------------------
+      private def bodyOf(o: DFOwner): List[DFMember] = childrenOf.getOrElse(o, Vector.empty).toList
+      private def hasTimeIn(o: DFOwner): Boolean = flattenedOf(o).exists(isTimeConstructM)
+      private def hasControlIn(o: DFOwner): Boolean = flattenedOf(o).exists {
+        case m if isTimeConstructM(m) => true
+        case _: Goto                  => true
+        case _                        => false
+      }
+      private def isParkLoop(lb: DFLoop.Block): Boolean = !hasControlIn(lb)
+      private def isParkStep(sb: StepBlock): Boolean = !hasTimeIn(sb)
+      private def chainBlocksOf(h: DFConditional.Header): List[DFConditional.Block] =
+        db.conditionalChainTable.getOrElse(h, Nil)
+      private def chainHasControl(h: DFConditional.Header): Boolean =
+        chainBlocksOf(h).exists(hasControlIn)
+      private def isFusable(m: DFMember): Boolean = m match
+        case lb: DFLoop.Block if !lb.isCombinational => !isParkLoop(lb)
+        case sb: StepBlock                           => !isParkStep(sb)
+        case _                                       => false
+
+      private def enclosingStep(m: DFMember): StepBlock =
+        var o: DFBlock = m.getOwnerBlock
+        while !o.isInstanceOf[StepBlock] do
+          o match
+            case _: ProcessBlock => unsupported("a relative goto outside a step", m)
+            case _               => o = o.getOwnerBlock
+        o.asInstanceOf[StepBlock]
+      private lazy val firstRegularStep: StepBlock =
+        flattenedOf(pb).collectFirst { case sb: StepBlock => sb }
+          .getOrElse(unsupported("FirstStep without any step", pb))
+
+      // ---- structure scan: parks/controls in order, with their exit continuations -----------
+      private val stepExitConts = mutable.Map.empty[StepBlock, PCont]
+      private def parkPositions(): List[(DFMember, PCont)] =
+        stepExitConts.clear()
+        val acc = List.newBuilder[(DFMember, PCont)]
+        def scan(items: List[DFMember], cont: PCont): Unit = items match
+          case Nil       => ()
+          case m :: rest =>
+            val myCont = PCont.SeqC(rest, cont)
+            m match
+              case wt: Wait =>
+                acc += ((wt, myCont))
+                scan(rest, cont)
+              case lb: DFLoop.Block if !lb.isCombinational =>
+                if isParkLoop(lb) || fallback.contains(lb) then acc += ((lb, myCont))
+                scan(bodyOf(lb), PCont.LoopBack(lb, myCont))
+                scan(rest, cont)
+              case sb: StepBlock =>
+                stepExitConts(sb) = myCont
+                if isParkStep(sb) || fallback.contains(sb) then acc += ((sb, myCont))
+                scan(bodyOf(sb), myCont)
+                scan(rest, cont)
+              case h: DFConditional.Header if chainHasControl(h) =>
+                val blocks = chainBlocksOf(h)
+                val blockSet = blocks.toSet[DFMember]
+                val after = rest.filterNot(blockSet)
+                for b <- blocks do scan(bodyOf(b), PCont.SeqC(after, cont))
+                scan(after, cont)
+              case _ => scan(rest, cont)
+            end match
+        scan(top, PCont.Wrap)
+        acc.result()
+      end parkPositions
+
+      // ---- fallback fixpoint (which fusable regions keep a control state) -------------------
+      private val fallback = mutable.Set.empty[DFOwner]
+      private final class AbortWalk(val victim: DFOwner) extends Exception
+      private lazy val firstConstructOpt: Option[DFMember] = top.find(isTimeConstructM)
+      // reset-site fold probing (see `run`): a dynamic dispatch decision during the reset
+      // program's emission disqualifies the fold, mirroring the stage's static-guard gate
+      private var foldProbing = false
+      private var foldViolation = false
+
+      private def valTreeReads(v: DFVal): (Set[DFVal.Dcl], Boolean) =
+        var dcls = Set.empty[DFVal.Dcl]
+        var hist = false
+        def walk(x: DFVal): Unit = x match
+          case dcl: DFVal.Dcl         => dcls += dcl
+          case h: DFVal.Alias.History => hist = true
+          case _                      =>
+            x.getRefs.foreach { r =>
+              r.get match
+                case dep: DFVal => walk(dep)
+                case _          => ()
+            }
+        walk(v)
+        (dcls, hist)
+
+      private def loopGuardReads(lb: DFLoop.Block): (Set[DFVal.Dcl], Boolean) = lb match
+        case fb: DFLoop.DFForBlock =>
+          val range = fb.rangeRef.get
+          val (d1, h1) = valTreeReads(range.endRef.get)
+          val (d2, h2) = valTreeReads(range.stepRef.get)
+          (d1 ++ d2, h1 || h2)
+        case wb: DFLoop.DFWhileBlock => valTreeReads(wb.guardRef.get)
+
+      private def loopTailRegion(lb: DFLoop.Block): List[DFMember] =
+        bodyOf(lb).reverse.takeWhile(m => !isTimeConstructM(m)).reverse.flatMap {
+          case o: DFOwner => o :: flattenedOf(o).toList
+          case m          => List(m)
+        }
+
+      private def dirtyAssigned(ms: List[DFMember]): Set[DFVal.Dcl] =
+        ms.flatMap {
+          case net: DFNet if net.op == DFNet.Op.Assignment =>
+            net.lhsRef.get match
+              case dcl: DFVal.Dcl =>
+                net.getOwnerBlock match
+                  case _: DFConditional.Block => Some(dcl) // conditionally assigned
+                  case _                      => None
+              case alias: DFVal.Alias => alias.departialDcl.map(_._1) // partially assigned
+              case _                  => None
+          case _ => None
+        }.toSet
+
+      private def constBoolOf(v: DFVal): Option[Boolean] =
+        constOpt[Any](v).flatMap(dataToBitsOpt(v.dfType, _)).map(_.bit(0))
+
+      private def staticTakenOf(b: DFConditional.Block): Option[Boolean] = b match
+        case cb: DFConditional.DFCaseBlock =>
+          cb.pattern match
+            case DFConditional.DFCaseBlock.Pattern.CatchAll =>
+              cb.guardRef.get match
+                case g: DFVal => constBoolOf(g)
+                case _        => Some(true)
+            case _ => None
+        case _ =>
+          b.guardRef.get match
+            case g: DFVal => constBoolOf(g)
+            case _        => Some(true)
+
+      private def staticEntryGuard(lb: DFLoop.Block): Option[Boolean] = lb match
+        case fb: DFLoop.DFForBlock =>
+          val r = fb.rangeRef.get
+          for
+            start <- constOpt[Option[BigInt]](r.startRef.get).flatten
+            end <- constOpt[Option[BigInt]](r.endRef.get).flatten
+            step <- constOpt[Option[BigInt]](r.stepRef.get).flatten
+          yield (r.op, step.signum >= 0) match
+            case (DFRange.Op.Until, true)  => start < end
+            case (DFRange.Op.To, true)     => start <= end
+            case (DFRange.Op.Until, false) => start > end
+            case (DFRange.Op.To, false)    => start >= end
+        case wb: DFLoop.DFWhileBlock => constBoolOf(wb.guardRef.get)
+
+      private def computeFallbacks(): Unit =
+        // The process-leading construct is fused like any other candidate: the wrap-around
+        // re-entry (its self-goto in the FSM lowering) resolves by constant pruning on the
+        // re-executed prologue's values, and a genuinely dynamic re-entry falls back through
+        // the visit-capped walks below (Rule C), keeping a control state.
+        parkPositions() // populates stepExitConts for the walks below
+        // Rule B: syntactic fusion blockers
+        flattenedOf(pb).foreach {
+          // a match chain carrying control cannot be inlined — its nearest fusable region
+          // keeps a control state (at a park's own dispatch it is fine)
+          case h: DFConditional.DFMatchHeader if chainHasControl(h) =>
+            var o: DFBlock = h.getOwnerBlock
+            var done = false
+            while !done do
+              o match
+                case lb: DFLoop.Block if isFusable(lb) =>
+                  fallback += lb; done = true
+                case sb: StepBlock if isFusable(sb) =>
+                  fallback += sb; done = true
+                case _: ProcessBlock | _: StepBlock | _: DFLoop.Block => done = true
+                case _                                                => o = o.getOwnerBlock
+          case _ => ()
+        }
+        // forwarded loop-back guards that cannot be soundly evaluated at the boundary
+        flattenedOf(pb).foreach {
+          case lb: DFLoop.Block
+              if !lb.isCombinational && isFusable(lb) && !fallback.contains(lb) =>
+            val (guardDcls, hasHistory) = loopGuardReads(lb)
+            if hasHistory then fallback += lb
+            else
+              val tail = loopTailRegion(lb)
+              val tailAssigned = assignedDcls(tail).toSet
+              if dirtyAssigned(tail).exists(guardDcls.contains) then fallback += lb
+              else if guardDcls.exists(d => !d.modifier.isReg && tailAssigned.contains(d)) then
+                fallback += lb
+          case _ => ()
+        }
+        // Rule C: dispatch cycles that cannot fold, with the stage's visit-capped expansion and
+        // first-victim-restart discipline
+        var changed = true
+        var iterGuard = 0
+        while changed && iterGuard < 1000 do
+          iterGuard += 1
+          changed = ruleCPass()
+      end computeFallbacks
+
+      private def ruleCPass(): Boolean =
+        try
+          val positions = parkPositions()
+          if needsBoot then walkSeq(top, PCont.Wrap, Map.empty)
+          for (m, cont) <- positions do
+            m match
+              case wt: Wait =>
+                waitKindOf(wt) match
+                  case WaitKind.Endless => ()
+                  case _                => walkCont(cont, Map.empty)
+              case lb: DFLoop.Block =>
+                if isParkLoop(lb) then walkCont(cont, Map.empty)
+                else // control state: dispatches into its body and its exit
+                  walkSeq(bodyOf(lb), PCont.LoopBack(lb, cont), Map.empty)
+                  walkCont(cont, Map.empty)
+              case sb: StepBlock => walkSeq(bodyOf(sb), stepExitConts(sb), Map.empty)
+              case _             => ()
+          false
+        catch
+          case a: AbortWalk =>
+            fallback += a.victim
+            true
+
+      private def walkSeq(items: List[DFMember], cont: PCont, visits: Map[DFOwner, Int]): Unit =
+        items match
+          case Nil       => walkCont(cont, visits)
+          case m :: rest =>
+            val myCont = PCont.SeqC(rest, cont)
+            m match
+              case _: Wait                                 => () // parked — terminal
+              case lb: DFLoop.Block if !lb.isCombinational =>
+                if isParkLoop(lb) || fallback.contains(lb) then () // parked
+                else walkLoopEntry(lb, myCont, visits)
+              case sb: StepBlock                                 => walkStepEntry(sb, visits)
+              case h: DFConditional.Header if chainHasControl(h) =>
+                val blocks = chainBlocksOf(h)
+                val blockSet = blocks.toSet[DFMember]
+                val after = rest.filterNot(blockSet)
+                var terminal = false
+                for b <- blocks if !terminal do
+                  staticTakenOf(b) match
+                    case Some(true) =>
+                      walkSeq(bodyOf(b) ::: after, cont, visits)
+                      terminal = true
+                    case Some(false) => ()
+                    case None        => walkSeq(bodyOf(b) ::: after, cont, visits)
+                if !terminal then walkSeq(after, cont, visits)
+              case g: Goto => walkGoto(g, visits)
+              case _       => walkSeq(rest, cont, visits)
+            end match
+
+      private def walkCont(cont: PCont, visits: Map[DFOwner, Int]): Unit = cont match
+        case PCont.SeqC(rest, outer)   => walkSeq(rest, outer, visits)
+        case PCont.LoopBack(lb, outer) =>
+          if fallback.contains(lb) then () // parked at the control state
+          else
+            val c = visits.getOrElse(lb, 0)
+            if c >= 2 then throw new AbortWalk(lb)
+            val v2 = visits.updated(lb, c + 1)
+            walkSeq(bodyOf(lb), PCont.LoopBack(lb, outer), v2) // stay
+            walkCont(outer, v2) // exit
+        case PCont.Wrap =>
+          if needsBoot then () // parked at the boot state
+          else walkSeq(top, PCont.Wrap, visits)
+
+      private def walkLoopEntry(lb: DFLoop.Block, exitCont: PCont, visits: Map[DFOwner, Int])
+          : Unit =
+        val c = visits.getOrElse(lb, 0)
+        if c >= 2 then throw new AbortWalk(lb)
+        val v2 = visits.updated(lb, c + 1)
+        staticEntryGuard(lb) match
+          case Some(true)  => walkSeq(bodyOf(lb), PCont.LoopBack(lb, exitCont), v2)
+          case Some(false) => walkCont(exitCont, v2)
+          case None        =>
+            walkSeq(bodyOf(lb), PCont.LoopBack(lb, exitCont), v2)
+            walkCont(exitCont, v2)
+
+      private def walkStepEntry(sb: StepBlock, visits: Map[DFOwner, Int]): Unit =
+        if isParkStep(sb) || fallback.contains(sb) then () // parked
+        else
+          val c = visits.getOrElse(sb, 0)
+          if c >= 2 then throw new AbortWalk(sb)
+          walkSeq(bodyOf(sb), stepExitConts(sb), visits.updated(sb, c + 1))
+
+      private def walkGoto(g: Goto, visits: Map[DFOwner, Int]): Unit =
+        g.stepRef.get match
+          case sb: StepBlock  => walkStepEntry(sb, visits)
+          case Goto.ThisStep  => walkStepEntry(enclosingStep(g), visits)
+          case Goto.NextStep  => walkCont(stepExitConts(enclosingStep(g)), visits)
+          case Goto.FirstStep => walkStepEntry(firstRegularStep, visits)
+
+      // ---- sites & cells --------------------------------------------------------------------
+      private val sitePrograms = mutable.ArrayBuffer.empty[() => Unit]
+      private val siteOf = mutable.Map.empty[DFMember, Int]
+      private var bootSite = -1
+      private val allCells = mutable.ArrayBuffer.empty[PCell]
+      private val waitCells = mutable.Map.empty[Wait, PCell]
+      private val cellEnv = mutable.Map.empty[PCell, WV]
+      private var segCellVar: PCell = null
+      private var segW = 0
+      private val timers = mutable.Map.empty[Long, WaitTimerMeta]
+
+      private def addSite(program: () => Unit): Int =
+        sitePrograms += program
+        sitePrograms.length - 1
+
+      private def newCell(w: Int, init: BitVector, tracked: Boolean): PCell =
+        val wv = wide.reg(w, init)
+        if !tracked then wv.lanes.foreach(nl.markUntracked)
+        val c = new PCell(wv)
+        allCells += c
+        c
+
+      private def clog2(n: Int): Int =
+        if n <= 1 then 1 else 32 - Integer.numberOfLeadingZeros(n - 1)
+
+      private def jump(k: Int): Unit =
+        cellEnv(segCellVar) = WV(Vector(nl.const(segW, k.toLong)), segW)
+
+      private def sinkEnv(dcl: DFVal.Dcl, wvOpt: Option[WV]): Unit = wvOpt match
+        case Some(wv) => env(dcl) = wv
+        case None     => env.remove(dcl)
+      private def sinkCell(c: PCell, wvOpt: Option[WV]): Unit = wvOpt match
+        case Some(wv) => cellEnv(c) = wv
+        case None     => cellEnv.remove(c)
+      private def cellHold(c: PCell): Option[WV] = Some(c.regWV)
+
+      // ---- emission -------------------------------------------------------------------------
+
+      /** Recompiles a value fresh in the current transition context (dropping its anonymous
+        * dependency tree from the context cache), so guards re-evaluate against the current
+        * forwarding state at every boundary they are inlined into.
+        */
+      private def freshWV(v: DFVal): WV =
+        val po = procOverlay
+        if po ne null then
+          v.collectRelMembers(true).foreach {
+            case x: DFVal if x.isAnonymous => po.remove(x)
+            case _                         => ()
+          }
+        readWV(v)
+      private def compileGuardFresh(v: DFVal): Int = freshWV(v).lanes(0)
+
+      private def emitPayload(items: List[DFMember]): Unit = items.foreach {
+        case _: DFVal => () // values compile lazily on read, per context
+        case m        => processMember(m)
+      }
+
+      private def emitBranch2(cond: Int, thenFn: () => Unit, elseFn: () => Unit): Unit =
+        if nl.isConst(cond) then (if nl.constValOf(cond) != 0L then thenFn() else elseFn())
+        else
+          if foldProbing then foldViolation = true
+          val baseEnv = env.toMap
+          val baseCells = cellEnv.toMap
+          val po = procOverlay
+          val baseOverlay = po.toMap
+          val t = transCtx
+          val snap = t.snapshot()
+          def restoreBase(): Unit =
+            env.clear(); env ++= baseEnv
+            cellEnv.clear(); cellEnv ++= baseCells
+            po.clear(); po ++= baseOverlay
+            t.restore(snap)
+          // dispatch branches are execution paths, not payload conditionals: a full register
+          // write on the taken path stays forwardable (the stage's per-path expansion state)
+          thenFn()
+          val tEnv = env.toMap
+          val tCells = cellEnv.toMap
+          restoreBase()
+          elseFn()
+          val eEnv = env.toMap
+          val eCells = cellEnv.toMap
+          restoreBase()
+          mergeKeyed(baseEnv, List((cond, tEnv)), Some(eEnv), envHoldOf)(sinkEnv)
+          mergeKeyed(baseCells, List((cond, tCells)), Some(eCells), cellHold)(sinkCell)
+      end emitBranch2
+
+      private def emitDispatchChain(
+          h: DFConditional.Header,
+          rest: List[DFMember],
+          cont: PCont
+      ): Unit =
+        val blocks = chainBlocksOf(h)
+        val blockSet = blocks.toSet[DFMember]
+        val after = rest.filterNot(blockSet)
+        val selectorWV = h match
+          case mh: DFConditional.DFMatchHeader =>
+            // the stage's reset-site fold never folds a match dispatch (if-chains only)
+            if foldProbing then foldViolation = true
+            Some(freshWV(mh.selectorRef.get))
+          case _ => None
+        val baseEnv = env.toMap
+        val baseCells = cellEnv.toMap
+        val po = procOverlay
+        val baseOverlay = po.toMap
+        val t = transCtx
+        val snap = t.snapshot()
+        def restoreBase(): Unit =
+          env.clear(); env ++= baseEnv
+          cellEnv.clear(); cellEnv ++= baseCells
+          po.clear(); po ++= baseOverlay
+          t.restore(snap)
+        var condBranches = List.empty[(Int, Map[DFVal.Dcl, WV], Map[PCell, WV])]
+        var elseResult = Option.empty[(Map[DFVal.Dcl, WV], Map[PCell, WV])]
+        var done = false
+        for b <- blocks if !done do
+          restoreBase()
+          blockCondNode(b, selectorWV) match
+            case Some(c) if nl.isConst(c) =>
+              if nl.constValOf(c) != 0L then
+                // statically taken — the rest of the chain is unreachable
+                restoreBase()
+                emitFrom(bodyOf(b) ::: after, cont)
+                elseResult = Some((env.toMap, cellEnv.toMap))
+                done = true
+            case Some(c) =>
+              if foldProbing then foldViolation = true
+              emitFrom(bodyOf(b) ::: after, cont)
+              condBranches :+= ((c, env.toMap, cellEnv.toMap))
+            case None => // else branch / unguarded catch-all — terminal
+              emitFrom(bodyOf(b) ::: after, cont)
+              elseResult = Some((env.toMap, cellEnv.toMap))
+              done = true
+          end match
+        end for
+        if !done && elseResult.isEmpty then
+          // no else: the fall-through path continues past the chain
+          restoreBase()
+          emitFrom(after, cont)
+          elseResult = Some((env.toMap, cellEnv.toMap))
+        restoreBase()
+        mergeKeyed(
+          baseEnv,
+          condBranches.map(t3 => (t3._1, t3._2)),
+          elseResult.map(_._1),
+          envHoldOf
+        )(
+          sinkEnv
+        )
+        mergeKeyed(
+          baseCells,
+          condBranches.map(t3 => (t3._1, t3._3)),
+          elseResult.map(_._2),
+          cellHold
+        )(sinkCell)
+      end emitDispatchChain
+
+      private def emitForIncrement(fb: DFLoop.DFForBlock): Unit =
+        val iter = fb.iteratorRef.get
+        val w = widthOf(iter)
+        val cur = readWV(iter)
+        val stepV = constOpt[Option[BigInt]](fb.rangeRef.get.stepRef.get).flatten
+          .getOrElse(unsupported("a non-constant loop step", fb))
+        env(iter) = WV(Vector(nl.add(cur.lanes(0), nl.const(w, stepV.toLong))), w)
+        recordWrite(iter, full = true)
+
+      private def compileForGuard(fb: DFLoop.DFForBlock): Int =
+        val range = fb.rangeRef.get
+        val iterWV = readWV(fb.iteratorRef.get)
+        val endWV0 = freshWV(range.endRef.get)
+        val w = math.max(iterWV.width, endWV0.width)
+        val a = wide.resize(iterWV, w, signed = true)
+        val b = wide.resize(endWV0, w, signed = isSignedType(range.endRef.get.dfType))
+        val stepSign = constOpt[Option[BigInt]](range.stepRef.get).flatten
+          .map(_.signum).getOrElse(1)
+        (range.op, stepSign >= 0) match
+          case (DFRange.Op.Until, true)  => wide.ltNode(a, b, signed = true)
+          case (DFRange.Op.To, true)     => nl.not(wide.ltNode(b, a, signed = true))
+          case (DFRange.Op.Until, false) => wide.ltNode(b, a, signed = true)
+          case (DFRange.Op.To, false)    => nl.not(wide.ltNode(a, b, signed = true))
+
+      private def loopGuardNode(lb: DFLoop.Block): Int = lb match
+        case fb: DFLoop.DFForBlock   => compileForGuard(fb)
+        case wb: DFLoop.DFWhileBlock => compileGuardFresh(wb.guardRef.get)
+
+      private def enterWait(wt: Wait): Unit =
+        waitCells.get(wt).foreach { cell =>
+          cellEnv(cell) = wide.zero(cell.regWV.width) // counter reset on entry
+        }
+        jump(siteOf(wt))
+
+      private def enterLoop(lb: DFLoop.Block, exitCont: PCont): Unit =
+        lb match
+          case fb: DFLoop.DFForBlock =>
+            // iterator initialization on the entry edge
+            val iter = fb.iteratorRef.get
+            val startWV = freshWV(fb.rangeRef.get.startRef.get)
+            env(iter) = wide.resize(startWV, widthOf(iter), signed = true)
+            recordWrite(iter, full = true)
+          case _ => ()
+        siteOf.get(lb) match
+          case Some(k) => jump(k) // an iteration park or a control state
+          case None    => // fused: the entry guard evaluates combinationally on this edge
+            crossBoundary()
+            emitBranch2(
+              loopGuardNode(lb),
+              () => emitFrom(bodyOf(lb), PCont.LoopBack(lb, exitCont)),
+              () => emitCont(exitCont)
+            )
+      end enterLoop
+
+      private def enterStep(sb: StepBlock): Unit =
+        siteOf.get(sb) match
+          case Some(k) => jump(k)
+          case None    => // fused entry: the step's leading payload joins this transition cycle
+            crossBoundary()
+            emitFrom(bodyOf(sb), stepExitConts(sb))
+
+      private def emitGoto(g: Goto): Unit =
+        g.stepRef.get match
+          case sb: StepBlock  => enterStep(sb)
+          case Goto.ThisStep  => enterStep(enclosingStep(g))
+          case Goto.NextStep  => emitCont(stepExitConts(enclosingStep(g)))
+          case Goto.FirstStep => enterStep(firstRegularStep)
+
+      private def emitFrom(items: List[DFMember], cont: PCont): Unit = items match
+        case Nil       => emitCont(cont)
+        case m :: rest =>
+          m match
+            case wt: Wait                                => enterWait(wt)
+            case lb: DFLoop.Block if !lb.isCombinational =>
+              enterLoop(lb, PCont.SeqC(rest, cont))
+            case sb: StepBlock                                 => enterStep(sb)
+            case g: Goto                                       => emitGoto(g)
+            case h: DFConditional.Header if chainHasControl(h) =>
+              emitDispatchChain(h, rest, cont)
+            case h: DFConditional.Header => // payload chain (headers are values — check first)
+              processMember(h)
+              emitFrom(rest, cont)
+            case _: DFConditional.Block => emitFrom(rest, cont) // handled at its header
+            case _: DFVal               => emitFrom(rest, cont) // lazily compiled on read
+            case other                  =>
+              processMember(other)
+              emitFrom(rest, cont)
+
+      private def emitCont(cont: PCont): Unit = cont match
+        case PCont.SeqC(rest, outer)   => emitFrom(rest, outer)
+        case PCont.LoopBack(lb, outer) =>
+          lb match
+            case fb: DFLoop.DFForBlock => emitForIncrement(fb)
+            case _                     => ()
+          siteOf.get(lb) match
+            case Some(k) => jump(k) // the control state re-evaluates the guard next cycle
+            case None    => // fused loop-back: forwarded guard in this transition cycle
+              crossBoundary()
+              emitBranch2(
+                loopGuardNode(lb),
+                () => emitFrom(bodyOf(lb), cont),
+                () => emitCont(outer)
+              )
+        case PCont.Wrap =>
+          // forever wrap-around: re-execute the prologue payload and re-enter the process
+          if needsBoot then jump(bootSite)
+          else emitFrom(top, PCont.Wrap)
+
+      // ---- site programs ----------------------------------------------------------------------
+
+      private def emitWait(wt: Wait, cont: PCont): Unit =
+        waitKindOf(wt) match
+          case WaitKind.Cycles1       => emitCont(cont) // parks exactly one cycle
+          case WaitKind.CyclesN(nVal) =>
+            val cell = waitCells(wt)
+            val w = cell.regWV.width
+            val cnt = cell.regWV.lanes(0)
+            val nNode = freshWV(nVal).lanes(0)
+            val bound = nl.sub(nNode, nl.const(w, 1L))
+            timers(siteOf(wt).toLong) = WaitTimerMeta(cnt, bound, SimOps.maskFor(w))
+            emitBranch2(
+              nl.neq(cnt, bound),
+              () => cellEnv(cell) = WV(Vector(nl.add(cnt, nl.const(w, 1L))), w),
+              () => emitCont(cont)
+            )
+          case WaitKind.CyclesLit(n) =>
+            val cell = waitCells(wt)
+            val w = cell.regWV.width
+            val cnt = cell.regWV.lanes(0)
+            val bound = nl.const(w, n - 1)
+            timers(siteOf(wt).toLong) = WaitTimerMeta(cnt, bound, SimOps.maskFor(w))
+            emitBranch2(
+              nl.neq(cnt, bound),
+              () => cellEnv(cell) = WV(Vector(nl.add(cnt, nl.const(w, 1L))), w),
+              () => emitCont(cont)
+            )
+          case WaitKind.CondW(trigger) =>
+            emitBranch2(compileGuardFresh(trigger), () => emitCont(cont), () => ())
+          case WaitKind.Endless => () // parked forever (the state cell holds by default)
+
+      private def emitParkLoop(lb: DFLoop.Block, exitCont: PCont): Unit = lb match
+        case fb: DFLoop.DFForBlock =>
+          emitBranch2(
+            compileForGuard(fb),
+            () =>
+              emitPayload(bodyOf(fb))
+              emitForIncrement(fb) // stays parked (the state cell holds by default)
+            ,
+            () => emitCont(exitCont)
+          )
+        case wb: DFLoop.DFWhileBlock =>
+          emitBranch2(
+            compileGuardFresh(wb.guardRef.get),
+            () => emitPayload(bodyOf(wb)),
+            () => emitCont(exitCont)
+          )
+
+      private def emitCtrlLoop(lb: DFLoop.Block, exitCont: PCont): Unit =
+        lb match
+          case fb: DFLoop.DFForBlock =>
+            emitBranch2(
+              compileForGuard(fb),
+              () => emitFrom(bodyOf(fb), PCont.LoopBack(fb, exitCont)),
+              () => emitCont(exitCont)
+            )
+          case wb: DFLoop.DFWhileBlock =>
+            emitBranch2(
+              compileGuardFresh(wb.guardRef.get),
+              () => emitFrom(bodyOf(wb), PCont.LoopBack(wb, exitCont)),
+              () => emitCont(exitCont)
+            )
+
+      private def emitStepPark(sb: StepBlock): Unit =
+        emitFrom(bodyOf(sb), stepExitConts(sb))
+
+      // ---- top-level --------------------------------------------------------------------------
+
+      def run(): Unit =
+        // sequential-loop iterators become state cells (registers keyed by their declaration)
+        flattenedOf(pb).foreach {
+          case fb: DFLoop.DFForBlock if !fb.isCombinational =>
+            val iter = fb.iteratorRef.get
+            val w = widthOf(iter)
+            regNodeOf(iter) = wide.reg(w, initOverride.getOrElse(iter, BitVector.low(w)))
+          case _ => ()
+        }
+        computeFallbacks()
+        // site allocation (the boot state first, matching the synthetic S_0 of the FSM lowering)
+        if needsBoot then bootSite = addSite(() => emitFrom(top, PCont.Wrap))
+        // a fused process-leading construct still needs a state for the reset entry (there is no
+        // jump site to inline its dispatch into at reset). It is allocated up front and its
+        // program probed during emission: when the dispatch const-folds under the prologue values
+        // (the reset-site fold), the folded assignments become time-zero state, the FSM resets
+        // directly into the fold's target park, and this site stays allocated but unreachable
+        val firstFused = !needsBoot && firstConstructOpt.exists {
+          case o: DFOwner => isFusable(o) && !fallback.contains(o)
+          case _          => false
+        }
+        val resetSite = if firstFused then addSite(() => emitFrom(top, PCont.Wrap)) else -1
+        val positions = parkPositions()
+        for (m, cont) <- positions do
+          m match
+            case wt: Wait =>
+              waitKindOf(wt) match
+                case WaitKind.CyclesN(nVal) =>
+                  val w = widthOf(nVal)
+                  if w > 64 then unsupported("a cycle count wider than 64 bits", wt)
+                  waitCells(wt) = newCell(w, BitVector.low(w), tracked = false)
+                case WaitKind.CyclesLit(n) =>
+                  val w = math.max(1, 64 - java.lang.Long.numberOfLeadingZeros(n - 1))
+                  waitCells(wt) = newCell(w, BitVector.low(w), tracked = false)
+                case _ => ()
+              siteOf(wt) = addSite(() => emitWait(wt, cont))
+            case lb: DFLoop.Block =>
+              if isParkLoop(lb) then siteOf(lb) = addSite(() => emitParkLoop(lb, cont))
+              else siteOf(lb) = addSite(() => emitCtrlLoop(lb, cont))
+            case sb: StepBlock => siteOf(sb) = addSite(() => emitStepPark(sb))
+            case m             => unsupported("park construct", m)
+        end for
+        segW = clog2(sitePrograms.length)
+        segCellVar = newCell(segW, BitVector.low(segW), tracked = true)
+        // per-site program emission, each in a fresh transition context
+        val envAtStart = env.toMap
+        val progEnvs = mutable.ArrayBuffer.empty[Map[DFVal.Dcl, WV]]
+        val progCells = mutable.ArrayBuffer.empty[Map[PCell, WV]]
+        for k <- sitePrograms.indices do
+          env.clear(); env ++= envAtStart
+          cellEnv.clear()
+          procOverlay = mutable.Map.empty
+          transCtx = new TransCtx(condDepth)
+          foldProbing = firstFused && k == resetSite
+          if foldProbing then foldViolation = false
+          sitePrograms(k)()
+          foldProbing = false
+          progEnvs += env.toMap
+          progCells += cellEnv.toMap
+        procOverlay = null
+        transCtx = null
+        env.clear(); env ++= envAtStart
+        cellEnv.clear()
+        // the reset-site fold, with the stage's gates: no dynamic dispatch decision, a single
+        // constant jump landing exactly on the first park in member order, and only constant
+        // full-register values assigned along the way. Any miss keeps the reset state as a real
+        // (one-cycle) bootstrap.
+        val foldedEntry: Option[Int] =
+          if !firstFused || foldViolation then None
+          else
+            val fEnv = progEnvs(resetSite)
+            val fCells = progCells(resetSite)
+            val changed = fEnv.filter((dcl, wv) => !envAtStart.get(dcl).contains(wv))
+            val jumpConst = fCells.get(segCellVar)
+              .filter(_.lanes.forall(nl.isConst))
+              .map(wv => nl.constValOf(wv.lanes(0)).toInt)
+            val firstParkSite = positions.headOption.map((m, _) => siteOf(m))
+            val assignsOk = changed.forall { (dcl, wv) =>
+              regNodeOf.contains(dcl) && wv.lanes.forall(nl.isConst)
+            }
+            val cellsOk = fCells.forall { (c, wv) =>
+              (c eq segCellVar) || wv.lanes.forall(nl.isConst)
+            }
+            if jumpConst.exists(firstParkSite.contains) && assignsOk && cellsOk then
+              for (dcl, wv) <- changed do wide.setRegInit(regNodeOf(dcl), wide.constBits(wv))
+              jumpConst
+            else None
+        val entryIdx =
+          if needsBoot then bootSite
+          else
+            foldedEntry.getOrElse {
+              if firstFused then resetSite // the kept one-time reset bootstrap state
+              else
+                val fc = top.find(isTimeConstructM).getOrElse(unsupported("process entry", pb))
+                siteOf.getOrElse(fc, unsupported("an unresolvable process entry site", fc))
+            }
+        nl.setRegInit(segCellVar.regWV.lanes(0), entryIdx.toLong)
+        // merge all site results keyed by the state value
+        val segNode = segCellVar.regWV.lanes(0)
+        val siteConds =
+          sitePrograms.indices.toList.map(k => nl.eq(segNode, nl.const(segW, k.toLong)))
+        mergeKeyed(envAtStart, siteConds.zip(progEnvs), None, envHoldOf)(sinkEnv)
+        val mergedCells = mutable.Map.empty[PCell, WV]
+        mergeKeyed(Map.empty[PCell, WV], siteConds.zip(progCells), None, cellHold) { (c, wvOpt) =>
+          wvOpt.foreach(mergedCells(c) = _)
+        }
+        for c <- allCells do wide.setNext(c.regWV, mergedCells.getOrElse(c, c.regWV))
+        procMetas += ProcMeta(segNode, timers.toMap)
+      end run
+    end ProcLowering
 
     // ---- finalize ------------------------------------------------------------------------
 

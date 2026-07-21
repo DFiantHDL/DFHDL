@@ -46,6 +46,18 @@ private[sim] final class WideOps(val nl: Netlist):
     require(r.width == n.width, "width mismatch on register next")
     r.lanes.lazyZip(n.lanes).foreach(nl.setNext)
 
+  def setRegInit(r: WV, init: BitVector): Unit =
+    require(init.width == r.width, "register init/width mismatch")
+    laneWidths(r.width).zipWithIndex.foreach { (lw, i) =>
+      nl.setRegInit(r.lanes(i), laneLong(init, i, lw))
+    }
+
+  /** The packed bits of an all-constant value. */
+  def constBits(v: WV): BitVector =
+    laneWidths(v.width).zipWithIndex.map { (lw, i) =>
+      BitVector.fromLong(nl.constValOf(v.lanes(i)), lw)
+    }.reverse.reduce(_ ++ _)
+
   def mov(width: Int): WV = WV(laneWidths(width).map(nl.mov), width)
 
   def patchMov(dst: WV, src: WV): Unit =

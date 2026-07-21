@@ -65,11 +65,21 @@ final class Netlist:
   private[sim] val romTables = mutable.ArrayBuffer.empty[Array[Long]]
   private[sim] val regIds = mutable.ArrayBuffer.empty[Int]
   private[sim] val regNextIds = mutable.ArrayBuffer.empty[Int]
+  // change tracking classification: untracked registers (e.g. wait counters) are excluded from
+  // the kernels' `stepDirty` dirtiness report, so pure time-keeping does not defeat the
+  // scheduler's quiescence detection
+  private[sim] val regTracked = mutable.ArrayBuffer.empty[Boolean]
+  private val constCache = mutable.HashMap.empty[(Int, Long), Int]
 
   def nodeCount: Int = opcodes.length
   def widthOf(id: Int): Int = widths(id)
   def maskOf(id: Int): Long = maskFor(widths(id))
-  private def maskFor(w: Int): Long = if w == 64 then -1L else (1L << w) - 1
+  private def maskFor(w: Int): Long = SimOps.maskFor(w)
+
+  def isConst(id: Int): Boolean = opcodes(id) == Op.CONST
+  def constValOf(id: Int): Long =
+    require(isConst(id), s"node $id is not a constant")
+    initVals(id)
 
   private def newNode(op: Int, w: Int, a: Int = -1, b: Int = -1, c: Int = -1, init: Long = 0L)
       : Int =
@@ -77,13 +87,50 @@ final class Netlist:
     opcodes += op; inA += a; inB += b; inC += c; widths += w; initVals += init
     opcodes.length - 1
 
-  def const(w: Int, v: Long): Int = newNode(Op.CONST, w, init = v & maskFor(w))
+  /** Evaluatable node (all node inputs constant) fold at build time through the same [[SimOps]]
+    * semantics the interpreter kernel implements; MOV (patched later) and ROM (via [[rom]]) are
+    * handled at their creation sites. Constant folding is what lets process-control guards prune
+    * statically (e.g. a loop re-entry guard over a just-reset iterator).
+    */
+  private def evalNode(op: Int, w: Int, a: Int = -1, b: Int = -1, c: Int = -1): Int =
+    inline def cv(id: Int): Long = initVals(id)
+    val foldable = op match
+      case Op.MOV => false
+      case _      =>
+        if op >= Op.binaryFirst then
+          if op <= Op.binaryLast then isConst(a) && isConst(b)
+          else isConst(a) && isConst(b) && isConst(c) // MUX (sel-const pruning is done in `mux`)
+        else isConst(a) // unary; the immediate rides in `b`
+    if foldable then
+      val bArg = if op >= Op.binaryFirst then cv(b) else b.toLong
+      val cArg = if op == Op.MUX then cv(c) else -1L
+      const(w, SimOps.eval(op, w, widths(a), cv(a), bArg, cArg))
+    else newNode(op, w, a, b, c)
+  end evalNode
+
+  def const(w: Int, v: Long): Int =
+    val key = (w, v & maskFor(w))
+    constCache.getOrElseUpdate(key, newNode(Op.CONST, w, init = key._2))
 
   def reg(w: Int, init: Long): Int =
     val id = newNode(Op.REG, w, init = init & maskFor(w))
     regIds += id
     regNextIds += -1
+    regTracked += true
     id
+
+  /** Overrides a register's time-zero value after creation (a post-hoc fold, e.g. the FSM
+    * reset-site fold appending dispatch constants to the initial state).
+    */
+  def setRegInit(regId: Int, init: Long): Unit =
+    require(opcodes(regId) == Op.REG, s"node $regId is not a register")
+    initVals(regId) = init & maskFor(widths(regId))
+
+  /** Exclude a register from `stepDirty` change tracking (scheduler-owned time-keeping cells). */
+  def markUntracked(regId: Int): Unit =
+    val idx = regIds.indexOf(regId)
+    require(idx >= 0, s"node $regId is not a register")
+    regTracked(idx) = false
 
   def setNext(regId: Int, nextId: Int): Unit =
     val idx = regIds.indexOf(regId)
@@ -94,7 +141,7 @@ final class Netlist:
 
   private def bin(op: Int, a: Int, b: Int): Int =
     require(widths(a) == widths(b), "width mismatch on binary op")
-    newNode(op, widths(a), a, b)
+    evalNode(op, widths(a), a, b)
 
   def add(a: Int, b: Int): Int = bin(Op.ADD, a, b)
   def sub(a: Int, b: Int): Int = bin(Op.SUB, a, b)
@@ -106,48 +153,50 @@ final class Netlist:
   def sdiv(a: Int, b: Int): Int = bin(Op.SDIV, a, b)
   def urem(a: Int, b: Int): Int = bin(Op.UREM, a, b)
   def srem(a: Int, b: Int): Int = bin(Op.SREM, a, b)
-  def not(a: Int): Int = newNode(Op.NOT, widths(a), a)
+  def not(a: Int): Int = evalNode(Op.NOT, widths(a), a)
 
   /** Bit reversal of `a` within width `w` (>= the width of `a`; bits above `a`'s width read 0). */
   def rev(a: Int, w: Int): Int =
     require(w >= widths(a), "reversal width below the operand width")
-    newNode(Op.REV, w, a)
+    evalNode(Op.REV, w, a)
 
   def rotr(a: Int, n: Int): Int =
     require(n > 0 && n < widths(a), "rotate amount out of range")
-    newNode(Op.ROTR, widths(a), a, n)
+    evalNode(Op.ROTR, widths(a), a, n)
 
   def shl(a: Int, n: Int): Int =
     require(n >= 0 && n < widths(a), "shift amount out of range")
-    newNode(Op.SHL, widths(a), a, n)
+    evalNode(Op.SHL, widths(a), a, n)
 
   def shr(a: Int, n: Int): Int =
     require(n >= 0 && n < widths(a), "shift amount out of range")
-    newNode(Op.SHR, widths(a), a, n)
+    evalNode(Op.SHR, widths(a), a, n)
 
   def mux(sel: Int, t: Int, f: Int): Int =
     require(widths(t) == widths(f), "width mismatch on mux branches")
-    newNode(Op.MUX, widths(t), sel, t, f)
+    // a constant selector prunes to the chosen input (which need not be constant itself)
+    if isConst(sel) then (if initVals(sel) != 0L then t else f)
+    else evalNode(Op.MUX, widths(t), sel, t, f)
 
   def eq(a: Int, b: Int): Int =
     require(widths(a) == widths(b), "width mismatch on comparison")
-    newNode(Op.EQ, 1, a, b)
+    evalNode(Op.EQ, 1, a, b)
 
   def neq(a: Int, b: Int): Int =
     require(widths(a) == widths(b), "width mismatch on comparison")
-    newNode(Op.NEQ, 1, a, b)
+    evalNode(Op.NEQ, 1, a, b)
 
   def ult(a: Int, b: Int): Int =
     require(widths(a) == widths(b), "width mismatch on comparison")
-    newNode(Op.ULT, 1, a, b)
+    evalNode(Op.ULT, 1, a, b)
 
   def slt(a: Int, b: Int): Int =
     require(widths(a) == widths(b), "width mismatch on comparison")
-    newNode(Op.SLT, 1, a, b)
+    evalNode(Op.SLT, 1, a, b)
 
-  def shlv(a: Int, amount: Int): Int = newNode(Op.SHLV, widths(a), a, amount)
-  def shrv(a: Int, amount: Int): Int = newNode(Op.SHRV, widths(a), a, amount)
-  def srav(a: Int, amount: Int): Int = newNode(Op.SRAV, widths(a), a, amount)
+  def shlv(a: Int, amount: Int): Int = evalNode(Op.SHLV, widths(a), a, amount)
+  def shrv(a: Int, amount: Int): Int = evalNode(Op.SHRV, widths(a), a, amount)
+  def srav(a: Int, amount: Int): Int = evalNode(Op.SRAV, widths(a), a, amount)
 
   /** Placeholder for a value not yet known (forward reference); patch with [[patchMov]]. */
   def mov(w: Int): Int = newNode(Op.MOV, w)
@@ -158,7 +207,7 @@ final class Netlist:
     inA(movId) = srcId
 
   def resize(a: Int, w: Int): Int =
-    if w == widths(a) then a else newNode(Op.RESIZE, w, a)
+    if w == widths(a) then a else evalNode(Op.RESIZE, w, a)
 
   def rom(table: Array[Long], w: Int, addr: Int): Int =
     // pow2 table size so the address can be masked instead of bounds-checked
@@ -166,8 +215,11 @@ final class Netlist:
       table.nonEmpty && (table.length & (table.length - 1)) == 0,
       "ROM table length must be a power of 2"
     )
-    romTables += table.map(_ & maskFor(w))
-    newNode(Op.ROM, w, addr, romTables.length - 1)
+    val masked = table.map(_ & maskFor(w))
+    if isConst(addr) then const(w, masked((initVals(addr) & (masked.length - 1)).toInt))
+    else
+      romTables += masked
+      newNode(Op.ROM, w, addr, romTables.length - 1)
 
   /** Signal array with constants and register reset values pre-loaded. */
   def initialSig: Array[Long] =

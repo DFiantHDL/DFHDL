@@ -22,11 +22,16 @@ final class Simulation[D <: Design] private[sim] (
     dsn: D,
     block: Option[DFCG ?=> SimCtx ?=> D => Unit],
     tier: SimTier,
-    seed: Long
+    seed: Long,
+    // internal: an extra lowering applied to the design's elaborated DB before simulation (the
+    // staged-oracle harnesses run compiler stages here). The typed surface is unaffected —
+    // member-path and type resolution still go through the design's frontend objects, whose
+    // names the stages keep.
+    dbTransform: ir.DB => ir.DB = identity
 ):
-  def withTier(tier: SimTier): Simulation[D] = new Simulation(dsn, block, tier, seed)
+  def withTier(tier: SimTier): Simulation[D] = new Simulation(dsn, block, tier, seed, dbTransform)
   // seed is carried for API completeness; randomization support lands later
-  def withSeed(seed: Long): Simulation[D] = new Simulation(dsn, block, tier, seed)
+  def withSeed(seed: Long): Simulation[D] = new Simulation(dsn, block, tier, seed, dbTransform)
 
   private def newRun[R <: SimulationRun[D]](
       mk: (
@@ -38,7 +43,7 @@ final class Simulation[D <: Design] private[sim] (
       ) => R,
       limit: Long
   ): R =
-    val raw = DFacsimile.simulate(dsn.getDB, tier)
+    val raw = DFacsimile.simulate(dbTransform(dsn.getDB), tier)
     val r = mk(dsn, raw, memberPath, concretize, block)
     r.start(limit)
     r

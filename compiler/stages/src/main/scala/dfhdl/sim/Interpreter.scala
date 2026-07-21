@@ -25,8 +25,9 @@ object Interpreter:
     val roms = nl.romTables.toArray
     val regOut = nl.regIds.toArray
     val regNext = nl.regNextIds.toArray
+    val regTracked = nl.regTracked.toArray
     require(regNext.forall(_ >= 0), "register without a next value")
-    new Kernel(code, masks, nodeWidths, roms, regOut, regNext)
+    new Kernel(code, masks, nodeWidths, roms, regOut, regNext, regTracked)
   end compile
 
   private final class Kernel(
@@ -35,7 +36,8 @@ object Interpreter:
       nodeWidths: Array[Int],
       roms: Array[Array[Long]],
       regOut: Array[Int],
-      regNext: Array[Int]
+      regNext: Array[Int],
+      regTracked: Array[Boolean]
   ) extends SimKernel:
     // commit is two-phase: read all next values before any register slot is overwritten,
     // otherwise register-to-register chains (shift registers) cascade within one cycle
@@ -58,6 +60,25 @@ object Interpreter:
         cyc += 1
       end while
     end run
+
+    def stepDirty(sig: Array[Long]): Boolean =
+      settle(sig)
+      val regOut = this.regOut
+      val regNext = this.regNext
+      val regCount = regOut.length
+      var r = 0
+      while r < regCount do
+        commitTmp(r) = sig(regNext(r))
+        r += 1
+      var dirty = false
+      r = 0
+      while r < regCount do
+        val out = regOut(r)
+        if regTracked(r) && sig(out) != commitTmp(r) then dirty = true
+        sig(out) = commitTmp(r)
+        r += 1
+      dirty
+    end stepDirty
 
     def settle(sig: Array[Long]): Unit =
       val code = this.code
