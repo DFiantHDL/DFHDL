@@ -72,6 +72,8 @@ object DFacsimile:
         } ++ Option.when(builder.watchNode >= 0)(builder.watchNode)
         Codegen.compile(
           builder.nl,
+          // debug aid: -Ddfhdl.sim.codegen.dumpSource=true prints the generated kernel Java
+          dumpSource = java.lang.Boolean.getBoolean("dfhdl.sim.codegen.dumpSource"),
           observed =
             builder.namedNodes.values.flatMap(_.lanes).toSet ++ schedObserved ++ actionObserved,
           watchNode = builder.watchNode

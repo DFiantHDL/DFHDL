@@ -34,9 +34,34 @@ import scala.jdk.CollectionConverters.*
   * registers) are direct field-to-field copies; only dependency cycles stage a read through a
   * scratch array, self-move holds are skipped, and comb/const next values always commit directly
   * (comb values are never written during the commit).
+  *
+  * Move chains of eight or more int-typed moves (shift registers, delay pipelines) commit as
+  * overlapping 8-lane vector moves over a shared chain array instead of scalar field-to-field
+  * copies, which profiling shows are a large share of big-design cycle time: every lane loads
+  * before any lane stores, the same read-before-overwrite guarantee the consumer-first order gives
+  * the scalar form. Chain registers live in the array full-time (compute reads them by constant
+  * index); all other state stays in fields, which measure faster for compute. This engages only
+  * when the host JVM resolves the incubator vector module (start the JVM with
+  * `--add-modules jdk.incubator.vector`); otherwise the commit silently stays scalar.
   */
 object Codegen:
   private var counter = 0
+
+  /** Lane count of the host JVM's preferred int vector species; 0 when the incubator vector module
+    * is not resolvable (it must be added explicitly at JVM start with
+    * `--add-modules jdk.incubator.vector`). Probed reflectively so this project never compiles
+    * against the incubator API.
+    */
+  private lazy val intVectorLanes: Int =
+    try
+      val species =
+        Class.forName("jdk.incubator.vector.IntVector").getField("SPECIES_PREFERRED").get(null)
+      Class.forName("jdk.incubator.vector.VectorSpecies").getMethod("length")
+        .invoke(species).asInstanceOf[Int]
+    catch case _: Throwable => 0
+
+  private def vectorCommitAvailable: Boolean =
+    intVectorLanes >= 8 && !java.lang.Boolean.getBoolean("dfhdl.sim.codegen.noVector")
 
   def compile(
       nl: Netlist,
@@ -51,7 +76,7 @@ object Codegen:
     }
     val source = generateJava(nl, className, maxOpsPerMethod, observed, watchNode)
     if dumpSource then println(source)
-    val cls = compileJava(className, source)
+    val cls = compileJava(className, source, source.contains("jdk.incubator.vector"))
     cls.getDeclaredConstructor().newInstance().asInstanceOf[SimKernel]
   end compile
 
@@ -136,21 +161,134 @@ object Codegen:
         if isCombNode(in) && chunkOf(in) != chunkOf(id) then spill += in
       spill ++= regNextSpill
 
+    // register commit ordering: profiling shows plain data movement dominating large designs, so
+    // the commit avoids staging wherever possible. A self-move (an unassigned hold) is skipped
+    // entirely. A register that reads another register commits BEFORE its source is overwritten
+    // (consumer-first topological order over the reg-to-reg next edges), so acyclic move chains
+    // (shift registers) are direct signal-to-signal copies; only an edge on a dependency cycle
+    // (e.g. a register swap) is broken by staging its consumer's read through the `nxt` scratch
+    // array, gathered before any commit write. Comb/const next values are always direct (comb
+    // slots are never written during the commit).
+    val regIdx = nl.regIds.indices.toVector
+    val selfMove = regIdx.filter(i => nl.regNextIds(i) == nl.regIds(i)).toSet
+    val regIndexOfNode = nl.regIds.zipWithIndex.toMap
+    // the single successor edge: consumer i reads register srcOf(i) (self-moves excluded on both
+    // sides — a skipped register is never written, so reading it needs no ordering)
+    val srcOf: Map[Int, Int] =
+      regIdx.iterator.filterNot(selfMove).flatMap { i =>
+        regIndexOfNode.get(nl.regNextIds(i)).filterNot(selfMove).map(i -> _)
+      }.toMap
+    val stagedSet = mutable.Set.empty[Int]
+    val commitOrder =
+      val color = Array.ofDim[Int](nl.regIds.length) // 0 white, 1 gray, 2 black
+      val post = mutable.ArrayBuffer.empty[Int]
+      for start <- regIdx do
+        if !selfMove(start) && color(start) == 0 then
+          var chain = List.empty[Int] // head = deepest visited
+          var cur = start
+          var walking = true
+          while walking do
+            color(cur) = 1
+            chain ::= cur
+            srcOf.get(cur) match
+              case Some(s) if color(s) == 0 => cur = s
+              case Some(s) if color(s) == 1 =>
+                stagedSet += cur // gray source closes a cycle: this consumer reads through nxt
+                walking = false
+              case _ => walking = false // no edge, or an already-ordered (black) source
+          for i <- chain do color(i) = 2
+          post ++= chain // per-tree postorder (deepest first)
+      end for
+      post.reverseIterator.toVector // reverse postorder: every consumer before its source
+    end commitOrder
+    val hasStaged = stagedSet.nonEmpty
+    val gatherSlices = regIdx.filter(stagedSet).grouped(400).toVector
+
+    // Move chains of at least 8 int-typed moves keep their registers in the shared CHI array
+    // (slots assigned along the chain, so every move is slot k <- slot k+1) and commit as a few
+    // overlapping 8-lane vector moves, loads all issued before stores. Hoisting a member's write
+    // up to the chain head's commit position is safe: any external consumer of a chain register
+    // commits before the head (consumer-first order puts every consumer before its source's
+    // write, and chains emit contiguously). Cycle-staged links and non-int registers never join
+    // a chain; a design is only vectorized when the host JVM resolves jdk.incubator.vector.
+    val vecPaths: Vector[Vector[Int]] = // consumer-first register indices per chain
+      if single || !vectorCommitAvailable then Vector.empty
+      else
+        val claimed = mutable.Set.empty[Int]
+        val srcsInUse = srcOf.values.toSet
+        val out = Vector.newBuilder[Vector[Int]]
+        for head <- regIdx do
+          if srcOf.contains(head) && !srcsInUse(head) && !claimed(head)
+            && isIntN(nl.regIds(head))
+          then
+            val buf = Vector.newBuilder[Int]
+            var cur = head
+            var walking = true
+            while walking do
+              buf += cur
+              claimed += cur
+              val next = srcOf.get(cur)
+                .filter(s => !stagedSet(cur) && !claimed(s) && isIntN(nl.regIds(s)))
+              next match
+                case Some(s) => cur = s
+                case None    => walking = false
+            val p = buf.result()
+            if p.length - 1 >= 8 then out += p
+        end for
+        out.result()
+    val chiSlot: Map[Int, Int] = // register NODE id -> shared chain-array slot
+      val m = Map.newBuilder[Int, Int]
+      var base = 0
+      for p <- vecPaths do
+        for (i, k) <- p.zipWithIndex do m += nl.regIds(i) -> (base + k)
+        base += p.length
+      m.result()
+    val chiSize = vecPaths.map(_.length).sum
+    val vecStart: Map[Int, Vector[Int]] = vecPaths.iterator.map(p => p.head -> p).toMap
+    // members whose move a vector block emits (all but the last member, whose own next value
+    // commits separately at its own position)
+    val vecOwned: Set[Int] = vecPaths.iterator.flatMap(_.dropRight(1)).toSet
+
+    // commit slices: a vectorized chain is one atomic item anchored at its head's position
+    val commitSlices: Vector[Vector[Int]] =
+      val out = Vector.newBuilder[Vector[Int]]
+      val cur = Vector.newBuilder[Int]
+      var w = 0
+      def flush(): Unit =
+        if w > 0 then
+          out += cur.result(); cur.clear(); w = 0
+      for i <- commitOrder do
+        if !vecOwned(i) || vecStart.contains(i) then
+          val cost = vecStart.get(i).map(p => p.length / 4 + 2).getOrElse(1)
+          if w > 0 && w + cost > 350 then flush()
+          cur += i
+          w += cost
+      flush()
+      out.result()
+    end commitSlices
+    val dirtySlices = commitOrder.grouped(150).toVector
+
     def hexL(v: Long): String = "0x%XL".format(v)
     def hexI(v: Long): String = "0x%X".format(v & 0xffffffffL)
     def isLocal(id: Int, ci: Int): Boolean = single || (ci >= 0 && chunkOf(id) == ci)
+    // an int register's storage reference: chain-array slot or its own field
+    def regRefI(id: Int): String = chiSlot.get(id) match
+      case Some(s) => s"CHI[$s]"
+      case None    => s"f$id"
+    // a register's commit/sync write target in its own storage type
+    def regLhs(id: Int): String = if isIntN(id) then regRefI(id) else s"f$id"
     // Read a node's value as a long from within chunk `ci` (-1 = outside all chunks). State
     // lives in width-typed fields; int values are always stored masked, so widening is unsigned.
     def rd(id: Int, ci: Int): String = nl.opcodes(id) match
       case Op.CONST => hexL(nl.initVals(id))
-      case Op.REG   => if isIntN(id) then s"Integer.toUnsignedLong(f$id)" else s"f$id"
+      case Op.REG   => if isIntN(id) then s"Integer.toUnsignedLong(${regRefI(id)})" else s"f$id"
       case _        =>
         val ref = if isLocal(id, ci) then s"v$id" else s"f$id"
         if isIntN(id) then s"Integer.toUnsignedLong($ref)" else ref
     // Read an int-typed node's value as an int (callers guarantee isIntN(id))
     def rdI(id: Int, ci: Int): String = nl.opcodes(id) match
       case Op.CONST => hexI(nl.initVals(id))
-      case Op.REG   => s"f$id"
+      case Op.REG   => regRefI(id)
       case _        => if isLocal(id, ci) then s"v$id" else s"f$id"
 
     def emitOp(id: Int, ci: Int): String =
@@ -235,51 +373,6 @@ object Codegen:
       s"      ${jt(id)} v$id = $expr;$store"
     end emitOp
 
-    // register commit ordering: profiling shows plain data movement dominating large designs, so
-    // the commit avoids staging wherever possible. A self-move (an unassigned hold) is skipped
-    // entirely. A register that reads another register commits BEFORE its source is overwritten
-    // (consumer-first topological order over the reg-to-reg next edges), so acyclic move chains
-    // (shift registers) are direct signal-to-signal copies; only an edge on a dependency cycle
-    // (e.g. a register swap) is broken by staging its consumer's read through the `nxt` scratch
-    // array, gathered before any commit write. Comb/const next values are always direct (comb
-    // slots are never written during the commit).
-    val regIdx = nl.regIds.indices.toVector
-    val selfMove = regIdx.filter(i => nl.regNextIds(i) == nl.regIds(i)).toSet
-    val regIndexOfNode = nl.regIds.zipWithIndex.toMap
-    // the single successor edge: consumer i reads register srcOf(i) (self-moves excluded on both
-    // sides — a skipped register is never written, so reading it needs no ordering)
-    val srcOf: Map[Int, Int] =
-      regIdx.iterator.filterNot(selfMove).flatMap { i =>
-        regIndexOfNode.get(nl.regNextIds(i)).filterNot(selfMove).map(i -> _)
-      }.toMap
-    val stagedSet = mutable.Set.empty[Int]
-    val commitOrder =
-      val color = Array.ofDim[Int](nl.regIds.length) // 0 white, 1 gray, 2 black
-      val post = mutable.ArrayBuffer.empty[Int]
-      for start <- regIdx do
-        if !selfMove(start) && color(start) == 0 then
-          var chain = List.empty[Int] // head = deepest visited
-          var cur = start
-          var walking = true
-          while walking do
-            color(cur) = 1
-            chain ::= cur
-            srcOf.get(cur) match
-              case Some(s) if color(s) == 0 => cur = s
-              case Some(s) if color(s) == 1 =>
-                stagedSet += cur // gray source closes a cycle: this consumer reads through nxt
-                walking = false
-              case _ => walking = false // no edge, or an already-ordered (black) source
-          for i <- chain do color(i) = 2
-          post ++= chain // per-tree postorder (deepest first)
-      end for
-      post.reverseIterator.toVector // reverse postorder: every consumer before its source
-    end commitOrder
-    val hasStaged = stagedSet.nonEmpty
-    val gatherSlices = regIdx.filter(stagedSet).grouped(400).toVector
-    val commitSlices = commitOrder.grouped(350).toVector
-    val dirtySlices = commitOrder.grouped(150).toVector
-
     // The commit target and its next value share a width by construction, so a register's
     // next value is read in the register's own storage type
     def rdNext(i: Int, ci: Int): String =
@@ -302,7 +395,13 @@ object Codegen:
     sb ++= s"public final class $simpleName implements dfhdl.sim.SimKernel {\n"
     for (table, i) <- nl.romTables.zipWithIndex do
       sb ++= s"  private static final long[] ROM$i = { ${table.map(hexL).mkString(", ")} };\n"
-    for id <- (nl.regIds.toVector ++ spill.toVector).sorted do
+    if chiSize > 0 then
+      // static state is per-kernel-safe: every compile() call generates a distinct class in its
+      // own class loader, so one kernel instance never shares CHI with another
+      sb ++= s"  private static final int[] CHI = new int[$chiSize];\n"
+      sb ++= "  private static final jdk.incubator.vector.VectorSpecies<Integer> VS =\n" +
+        "      jdk.incubator.vector.IntVector.SPECIES_256;\n"
+    for id <- (nl.regIds.toVector ++ spill.toVector).sorted if !chiSlot.contains(id) do
       sb ++= s"  private ${jt(id)} f$id;\n"
     if !single && hasStaged then
       sb ++= s"  private final long[] nxt = new long[${nl.regIds.length}];\n"
@@ -313,6 +412,19 @@ object Codegen:
       for k <- syncInSlices.indices do sb ++= s"${indent}syncIn$k(sig);\n"
     def emitSyncOut(indent: String): Unit =
       for k <- syncOutSlices.indices do sb ++= s"${indent}syncOut$k(sig);\n"
+
+    // one chain's commit: overlapping 8-lane moves, every load issued before any store
+    def emitVecChain(path: Vector[Int]): Unit =
+      val base = chiSlot(nl.regIds(path.head))
+      val moves = path.length - 1
+      val starts =
+        val s = (0 to moves - 8 by 8).toVector
+        if s.last == moves - 8 then s else s :+ (moves - 8)
+      for (st, t) <- starts.zipWithIndex do
+        sb ++= s"    var c${base}_$t = " +
+          s"jdk.incubator.vector.IntVector.fromArray(VS, CHI, ${base + 1 + st});\n"
+      for (st, t) <- starts.zipWithIndex do
+        sb ++= s"    c${base}_$t.intoArray(CHI, ${base + st});\n"
 
     def emitCombCalls(indent: String): Unit =
       if single then
@@ -406,8 +518,11 @@ object Codegen:
       for (slice, ci) <- commitSlices.zipWithIndex do
         sb ++= s"\n  private void commit$ci($nxtParam) {\n"
         for i <- slice do
-          val v = if stagedSet(i) then rdStaged(i) else rdNext(i, -1)
-          sb ++= s"    f${nl.regIds(i)} = $v;\n"
+          vecStart.get(i) match
+            case Some(path) => emitVecChain(path)
+            case None       =>
+              val v = if stagedSet(i) then rdStaged(i) else rdNext(i, -1)
+              sb ++= s"    ${regLhs(nl.regIds(i))} = $v;\n"
         sb ++= "  }\n"
       for (slice, di) <- dirtySlices.zipWithIndex do
         sb ++= s"\n  private boolean commitDirty$di($nxtParam) {\n"
@@ -417,28 +532,28 @@ object Codegen:
           val v = if stagedSet(i) then rdStaged(i) else rdNext(i, -1)
           if nl.regTracked(i) then
             sb ++= s"    ${jt(r)} x$i = $v;\n"
-            sb ++= s"    if (f$r != x$i) dirty = true;\n"
-            sb ++= s"    f$r = x$i;\n"
-          else sb ++= s"    f$r = $v;\n"
+            sb ++= s"    if (${regLhs(r)} != x$i) dirty = true;\n"
+            sb ++= s"    ${regLhs(r)} = x$i;\n"
+          else sb ++= s"    ${regLhs(r)} = $v;\n"
         sb ++= "    return dirty;\n  }\n"
     end if
     for (slice, k) <- syncInSlices.zipWithIndex do
       sb ++= s"\n  private void syncIn$k(long[] sig) {\n"
       for r <- slice do
         val v = if isIntN(r) then s"(int) sig[$r]" else s"sig[$r]"
-        sb ++= s"    f$r = $v;\n"
+        sb ++= s"    ${regLhs(r)} = $v;\n"
       sb ++= "  }\n"
     for (slice, k) <- syncOutSlices.zipWithIndex do
       sb ++= s"\n  private void syncOut$k(long[] sig) {\n"
       for id <- slice do
-        val v = if isIntN(id) then s"Integer.toUnsignedLong(f$id)" else s"f$id"
+        val v = if isIntN(id) then s"Integer.toUnsignedLong(${regRefI(id)})" else s"f$id"
         sb ++= s"    sig[$id] = $v;\n"
       sb ++= "  }\n"
     sb ++= "}\n"
     sb.result()
   end generateJava
 
-  private def compileJava(className: String, source: String): Class[?] =
+  private def compileJava(className: String, source: String, useVector: Boolean): Class[?] =
     val compiler = ToolProvider.getSystemJavaCompiler
     require(compiler ne null, "JDK javac not available (running on a JRE?)")
     val diags = new DiagnosticCollector[JavaFileObject]
@@ -467,12 +582,16 @@ object Codegen:
     val selfCp = java.nio.file.Paths
       .get(classOf[SimKernel].getProtectionDomain.getCodeSource.getLocation.toURI).toString
     val cp = selfCp + java.io.File.pathSeparator + System.getProperty("java.class.path")
+    val opts =
+      if useVector then
+        java.util.List.of("-classpath", cp, "--add-modules", "jdk.incubator.vector")
+      else java.util.List.of("-classpath", cp)
     val task =
       compiler.getTask(
         null,
         fm,
         diags,
-        java.util.List.of("-classpath", cp),
+        opts,
         null,
         java.util.List.of(srcObj)
       )

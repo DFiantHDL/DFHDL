@@ -2,3 +2,4 @@
 -Xss8M
 -XX:+UseG1GC
 -XX:ReservedCodeCacheSize=1G
+--add-modules=jdk.incubator.vector
