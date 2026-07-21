@@ -686,7 +686,11 @@ private final class Builder(rawDB: DB):
       val po = procOverlay
       if po ne null then po(v) = wv
       else nodeOf(v) = wv
-      if !v.isAnonymous then namedNodes(prefix + v.getName) = wv
+      // register only cost-free names, i.e. values whose lanes are state/const (already resident
+      // in the signal array — e.g. a named `.reg` history alias or a named constant); a named
+      // comb expression is not peekable, matching the ports-and-registers observability surface
+      if !v.isAnonymous && wv.lanes.forall(n => nl.opcodes(n) == Op.REG || nl.isConst(n)) then
+        namedNodes(prefix + v.getName) = wv
 
     // ---- reads ----------------------------------------------------------------------------
 
@@ -2359,9 +2363,13 @@ private final class Builder(rawDB: DB):
         env(dcl) = wide.assemble(sorted.toSeq.map((_, lo, wv) => wv -> lo), w)
       // registers commit their pending value; unassigned registers (incl. top IN hold cells) hold
       for (dcl, regWV) <- regNodeOf do wide.setNext(regWV, env.getOrElse(dcl, regWV))
-      // names for state cells and driven wires
+      // names for peek/poke: ports and registered declarations only — registering a named comb
+      // wire would force a per-cycle signal-array store in the codegen tier just to keep it
+      // peekable, so combinational VAR wires stay unobserved (like any named comb expression)
       designMembers.foreach {
-        case dcl: DFVal.Dcl if !dcl.isAnonymous =>
+        case dcl: DFVal.Dcl
+            if !dcl.isAnonymous &&
+              (dcl.modifier.isReg || dcl.modifier.dir != DFVal.Modifier.Dir.VAR) =>
           regNodeOf.get(dcl).orElse(env.get(dcl)).orElse(inPortMov.get(dcl)).foreach { wv =>
             namedNodes(prefix + dcl.getName) = wv
           }
