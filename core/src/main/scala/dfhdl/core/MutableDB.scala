@@ -698,6 +698,18 @@ final class MutableDB():
         case _ =>
     def containerizedOwnerOfRef(ref: DFRefAny): DFDomainOwner = refContainerizedOwnerMap(ref)
     def ownerOption: Option[DFOwner] = stack.headOption
+    // True when no real (non-method) design encloses the current scope: only method (`Def`) design
+    // blocks, or nothing, stand between here and the global scope. A def elaborated here computes a
+    // global value and is carried as a detached global sub-DB (see `hierarchical`), which the
+    // cross-run design-load cache does not model, so such a def is never cached (see
+    // `r__For_Plugin.designFromDefImpl`). This generalizes an `ownerOption.isEmpty` check to a
+    // static function called from ANOTHER global-scope static function's body, where the immediate
+    // owner is that def rather than nothing.
+    def atGlobalScope: Boolean =
+      stack.forall {
+        case d: DFDesignBlock => d.instMode == DFDesignBlock.InstMode.Def
+        case _                => true
+      }
   end OwnershipContext
 
   object ResourceOwnershipContext:

@@ -169,6 +169,42 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
     assertEquals(cache.hits, 3)
   }
 
+  // A static function invoked at GLOBAL scope (outside any design, to compute a global constant the
+  // design then reads) is a detached global sub-DB that the cross-run cache does not model, so it
+  // must be EXCLUDED from caching (`atGlobalScope`). The exclusion has to cover a NESTED global call
+  // too (`gQuad -> gTwice`): `gTwice`'s immediate owner is `gQuad` (another global def), not the
+  // empty global scope. Were it cached, adoption would rebind the top's Empty owner to an unbound
+  // token, leaving a stub sub-DB (no body, empty refTable) that miscompiles and crashes the latches
+  // check.
+  def genGlobalStaticHost(using DFC): dfhdl.core.Design =
+    def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    def gQuad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = gTwice(gTwice(n))
+    val gC: UInt[8] <> CONST = gQuad(d"8'3")
+    class GlobalStaticHost extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gC
+    new GlobalStaticHost
+  end genGlobalStaticHost
+
+  test("global-scope static functions are excluded from the sub-design cache") {
+    val liveDB = genGlobalStaticHost(using liveDFC).getDB
+    val liveCS =
+      import liveDB.getSet
+      DefaultPrinter.csDB
+    val cache = new MapSubDesignCache
+    // the design elaborates under a cache-enabled service, but the global static functions (the
+    // outer `gQuad` and the nested `gTwice`) are detached globals, so none is stored
+    genHostOf(genGlobalStaticHost, cache)
+    assertEquals(cache.entries.size, 0)
+    // a second elaboration therefore adopts nothing, re-elaborates live, and matches
+    val cachedDB = genHostOf(genGlobalStaticHost, cache).getDB
+    val cachedCS =
+      import cachedDB.getSet
+      DefaultPrinter.csDB
+    assertEquals(cache.hits, 0)
+    assertNoDiff(cachedCS, liveCS)
+  }
+
   val expectedDroppedCodeString =
     """|class calc(val w: UInt[8] <> CONST) extends DFDesign:
        |  val arg = UInt(8) <> IN

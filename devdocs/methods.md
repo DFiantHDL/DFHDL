@@ -337,6 +337,17 @@ over the actual references: each declaration follows everything it references, i
 declarations keep source order, and a reference cycle falls back to declaration order. Global TYPE
 declarations stay first and are not part of the sort.
 
+**Local declarations use the same sort.** A design's own constants, static functions, signals, and
+ED methods have the same both-way dependencies (a constant may call a static function; a signal's
+default may call one; an ED method reads signals), so both backends emit them with one stable
+topological sort (`Printer.localDeclsOrdered`) rather than a fixed const/static-function/signal/ED-method
+split. The seed order groups the kinds, so independent declarations still print in that layout. The
+local TYPE declarations and the constants a type uses as a width (`typeReferencedConsts`, found by
+following width EXPRESSIONS like `clog2(N)` transitively, not just bare-constant widths) lead ahead
+of the sort; a `TypeRef` is dropped from the dependency walk since that leading block already
+satisfies it. Verilog keeps its non-ANSI port-direction declarations and output `initial` blocks in
+a separate port block, outside this ordering.
+
 ### Sensitivity lists
 
 `always_comb` is sensitive to signals read inside a called function's body; `always @*` is sensitive

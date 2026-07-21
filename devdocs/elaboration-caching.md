@@ -99,6 +99,17 @@ captures become parameters, non-constant ones become input ports), which is what
 self-contained and cacheable at all. They are tagged `PhantomTag` and hidden in the method
 printed view, so the def still reads like its source.
 
+**A global-scope method is not cached.** A static function called at GLOBAL scope (outside any design,
+to compute a global constant) is pure like any other, but its assembly is different: its def BLOCK is
+a global member while its body travels separately, and the whole nest of such defs is built into
+`globalDefSubDBs` at once when the OUTERMOST one ends (`OwnershipContext`'s carry descent): a forest
+root injected into referencing runs, not a hierarchy child resolved by key. The cross-run cache models
+the child-by-key path, not this one, so `designFromDefImpl` sets `cacheEnable` false whenever
+`OwnershipContext.atGlobalScope` holds. That check walks the WHOLE owner chain (is every enclosing
+design block a `Def`?), because a nested global call's immediate owner is another global def, not the
+empty scope; a shallower `ownerOption.isEmpty` misses it, caches it, and then adopts a bodyless stub
+sub-DB. See the improvement note on making global-scope methods cacheable.
+
 **Design classes.** A class declares its own ports in its body, so the interface cannot be lifted out
 wholesale, and the decision cannot wait for the body to finish either. `DesignClsSkipPhase` (the
 plugin's LAST phase) rewrites every skippable design class so that:
@@ -330,3 +341,11 @@ nothing.
     impure parameters, the "unmarked effects are the user's responsibility" contract, the
     static-dispatch approximation (the analysis never models subclass overrides), and the key
     over-approximation semantics.
+11. **Caching global-scope methods.** They are excluded today (see "A global-scope method is not
+    cached"). This is not fundamental: a global static function is pure and its assembled sub-DB is
+    self-contained. The tractable path: recognize a global-def entry at adoption and route it into
+    `globalDefSubDBs` (not the child hierarchy), unify its def block, its returned global constant,
+    and the globals it reads with the loading run's globals BY VALUE (globals already unify that way
+    across sub-DBs, which also closes gap 2 for the global case), and store the carried sub-DB rather
+    than the premature per-def state. The payoff is small (global static functions compute constants,
+    so they are few and cheap to re-elaborate), which is why exclusion is the current choice.

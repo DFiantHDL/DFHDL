@@ -232,8 +232,11 @@ object r__For_Plugin:
     // A call at GLOBAL scope (a static function computing a global value): its def block is
     // built in a detached global context and carried into referencing runs as a self-contained
     // sub-DB (see `MutableDB.globalDefSubDBs`), which the cross-run design-load cache does not
-    // model, so such a call is never cached. Detected BEFORE the def's own context opens.
-    val atGlobalScope = dfc.ownerOption.isEmpty
+    // model, so such a call is never cached. This includes a static function called from ANOTHER
+    // global-scope static function's body (its immediate owner is that def, not nothing), so it is
+    // the whole enclosing chain, not just the immediate owner, that must be free of a real design.
+    // Detected BEFORE the def's own context opens.
+    val atGlobalScope = dfc.mutableDB.OwnershipContext.atGlobalScope
     val designBlock =
       Design.Block.apply(
         domain = domain,
