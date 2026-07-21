@@ -68,4 +68,23 @@ class CondHierSpec extends SimSpec:
         assertEquals(dut.out.peek, expected, s"out (op=$op a=$a b=$b c=$c)")
       end for
     }.withTier(tier).run()
+
+  bothTiers("per-instance CONST params in reg inits and const folds"): tier =>
+    val run = (new SeededPair).simulation.withTier(tier).run()
+    // time zero: r = 0f ^ seed per instance
+    run.inspect { dut =>
+      assertEquals(dut.o0.peek, h"0f", "o0 at time zero")
+      assertEquals(dut.o1.peek, h"ff", "o1 at time zero")
+    }
+    // each cycle adds bias = seed ^ a5 per instance
+    run.continue(1)
+    run.inspect { dut =>
+      assertEquals(dut.o0.peek, h"b4", "o0 after 1 cycle") // 0f + a5
+      assertEquals(dut.o1.peek, h"54", "o1 after 1 cycle") // ff + 55 (mod 256)
+    }
+    run.continue(1)
+    run.inspect { dut =>
+      assertEquals(dut.o0.peek, h"59", "o0 after 2 cycles") // b4 + a5
+      assertEquals(dut.o1.peek, h"a9", "o1 after 2 cycles") // 54 + 55
+    }
 end CondHierSpec

@@ -659,22 +659,28 @@ private final class Builder(rawDB: DB):
 
     /** Computes a value's lowering (without binding it). */
     private def buildValWV(v: DFVal): WV =
-      tryFoldConst(v).getOrElse {
-        v match
-          case pbns: DFVal.PortByNameSelect => pbnsReadWV(pbns)
-          case f: DFVal.Func                => buildFunc(f)
-          case a: DFVal.Alias.AsIs          =>
-            val rel = a.relValRef.get
-            wide.resize(readWV(rel), widthOf(a), isSignedType(rel.dfType))
-          case a: DFVal.Alias.ApplyIdx     => buildApplyIdx(a)
-          case a: DFVal.Alias.ApplyRange   => buildApplyRange(a)
-          case sf: DFVal.Alias.SelectField => buildSelectField(sf)
-          case h: DFVal.Alias.History      => buildHistory(h)
-          case c: DFVal.Const              =>
-            // reached only for bubble (don't-care) constants (`?`) — simulate as 0 (2-state)
-            wide.const(widthOf(c), lenientDataToBits(c.dfType, c.data, c))
-          case m => unsupported("value kind", m)
-      }
+      tryFoldConst(v).getOrElse(buildValWVCore(v))
+
+    /** The netlist build of a value, bypassing the whole-value constant fold. The per-instance
+      * const path enters here directly: it folds THROUGH the netlist build (where design params are
+      * bound to their per-instance values) instead of through the IR const resolution.
+      */
+    private def buildValWVCore(v: DFVal): WV =
+      v match
+        case pbns: DFVal.PortByNameSelect => pbnsReadWV(pbns)
+        case f: DFVal.Func                => buildFunc(f)
+        case a: DFVal.Alias.AsIs          =>
+          val rel = a.relValRef.get
+          wide.resize(readWV(rel), widthOf(a), isSignedType(rel.dfType))
+        case a: DFVal.Alias.ApplyIdx     => buildApplyIdx(a)
+        case a: DFVal.Alias.ApplyRange   => buildApplyRange(a)
+        case sf: DFVal.Alias.SelectField => buildSelectField(sf)
+        case h: DFVal.Alias.History      => buildHistory(h)
+        case c: DFVal.Const              =>
+          // reached for bubble (don't-care) constants (`?`, simulated as 0, 2-state) and by the
+          // per-instance const path (whole-value folds are bypassed there)
+          wide.const(widthOf(c), lenientDataToBits(c.dfType, c.data, c))
+        case m => unsupported("value kind", m)
 
     private def bindVal(v: DFVal, wv: WV): Unit =
       val po = procOverlay
@@ -718,9 +724,65 @@ private final class Builder(rawDB: DB):
 
     /** Const resolution for simulation: the NoCache policy recomputes through design params, immune
       * to previously-cached symbolic (Always-policy) results.
+      *
+      * In a child scope the IR-level resolution of anything that transitively reads a design param
+      * is instance-ambiguous: the shared sub-DB bakes the FIRST elaboration's applied snapshot into
+      * the param member, and ref-based resolution otherwise goes through an arbitrary instance's
+      * `paramMap`. Such values are recomputed per instance here: a bare param through THIS
+      * instance's `paramMap` (in the parent scope), and an expression over params through the
+      * netlist build, whose build-time const folding sees the per-instance param bindings.
       */
     private def constOpt[T](v: DFVal): Option[T] =
-      v.getConstData[T](using summon[MemberGetSet], ConstData.CachePolicy.NoCache).toOption
+      def raw =
+        v.getConstData[T](using summon[MemberGetSet], ConstData.CachePolicy.NoCache).toOption
+      v match
+        case p: DFVal.DesignParam if !isTop =>
+          perInstanceParamData(p).asInstanceOf[Option[T]].orElse(raw)
+        case _ =>
+          val rawData = raw
+          if isTop || rawData.isEmpty || !paramDependent(v) then rawData
+          else perInstanceConstData(v).asInstanceOf[Option[T]].orElse(rawData)
+
+    /** This instance's applied value of a design param, resolved in the parent scope's context. */
+    private def perInstanceParamData(p: DFVal.DesignParam): Option[Any] =
+      parentCtx.flatMap((parentScope, inst) => parentScope.paramDataOf(inst, p.getName))
+
+    // whether a value transitively references a design param through its refs; the walk stops at
+    // Dcls (runtime state is never constant) and at params (their default ref is irrelevant)
+    private val paramDepMemo = mutable.Map.empty[DFVal, Boolean]
+    private def paramDependent(v: DFVal): Boolean =
+      paramDepMemo.get(v) match
+        case Some(b) => b
+        case None    =>
+          val b = v match
+            case _: DFVal.DesignParam => true
+            case _: DFVal.Dcl         => false
+            case _                    =>
+              v.getRefs.exists { r =>
+                r.get match
+                  case dv: DFVal => paramDependent(dv)
+                  case _         => false
+              }
+          paramDepMemo(v) = b
+          b
+
+    /** Per-instance recomputation of a param-dependent constant: build through the netlist (design
+      * params bind to their per-instance values there, and constant inputs fold at build time) and
+      * read the folded constant lanes back as data. `None` when the type is not packed-bits
+      * representable or the build does not fold to a constant — the caller then falls back to the
+      * (instance-ambiguous) IR resolution.
+      */
+    private def perInstanceConstData(v: DFVal): Option[Any] =
+      val packed = v.dfType match
+        case _: DFBits | _: DFDecimal | DFBool | DFBit | _: DFEnum | _: DFStruct | _: DFVector |
+            _: DFOpaque => true
+        case _ => false
+      if !packed then None
+      else
+        val wv = buildValWVCore(v)
+        Option.when(wv.lanes.forall(nl.isConst))(
+          v.dfType.bitsDataToData((wide.constBits(wv), BitVector.low(wv.width)))
+        )
 
     private def constDataOf(v: DFVal): Any =
       constOpt[Any](v).getOrElse(unsupported("non-constant data here", v))

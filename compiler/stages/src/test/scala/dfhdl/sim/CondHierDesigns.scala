@@ -23,6 +23,26 @@ class MiniAlu extends RTDesign:
     case 2 => res := a & b
     case _ => res := a | b
 
+/** A sub-design whose register init and a named constant both fold a per-instance CONST param:
+  * regression for shared-sub-DB param resolution (all instances used to get the first elaboration's
+  * baked value in constant folds).
+  */
+class SeededCounter(val seed: Bits[8] <> CONST) extends RTDesign:
+  val out = Bits(8) <> OUT
+  val bias: Bits[8] <> CONST = seed ^ h"a5"
+  val r = Bits(8) <> VAR.REG init (h"0f" ^ seed)
+  r.din := (r.uint + bias.uint).bits
+  out := r
+
+/** Two [[SeededCounter]] instances with different seeds over one shared sub-DB. */
+class SeededPair extends RTDesign:
+  val o0 = Bits(8) <> OUT
+  val o1 = Bits(8) <> OUT
+  val u0 = new SeededCounter(h"00")
+  val u1 = new SeededCounter(h"f0")
+  o0 := u0.out
+  o1 := u1.out
+
 /** Hierarchy test design: two MiniAlu instances chained through ports. */
 class AluPair extends RTDesign:
   val op = UInt(2) <> IN
