@@ -18,31 +18,54 @@ import dfhdl.compiler.stages.dropRTProcess
   */
 class RTProcessSimSpec extends SimSpec:
 
-  /** Runs a design and its stage-lowered FSM oracle in lockstep, comparing the watched members
-    * every cycle under the same pokes. `watch` entries are member selectors (the failure clue names
-    * come from the members themselves); `pokes` runs on both duts through the typed surface.
+  /** Runs a design and its stage-lowered FSM oracle in lockstep, comparing the watched members, the
+    * accumulated text output, and the run status every cycle under the same pokes. `watch` entries
+    * are member selectors (the failure clue names come from the members themselves); `pokes` runs
+    * on both duts through the typed surface. A terminal status (e.g. a `finish` statement) must
+    * land on the same cycle on both sides and ends the lockstep.
     */
   private def lockstep[D <: dfhdl.core.Design](
       mkDsn: => D,
       tier: SimTier,
       cycles: Int,
-      watch: List[D => dfhdl.core.DFValAny],
+      watch: List[D => dfhdl.core.DFValAny] = Nil,
       pokes: Int => DFCG ?=> SimCtx ?=> D => Unit = _ => _ => ()
   ): Unit =
-    val raw = mkDsn.simulation.withTier(tier).run()
+    val rawRun = mkDsn.simulation.withTier(tier).run()
     val oracle = new Simulation(mkDsn, None, tier, 0L, dbTransform = _.dropRTProcess).run()
-    for t <- 0 until cycles do
-      raw.inspect { dut => pokes(t)(dut) }
+    val rawText = new StringBuilder
+    val oracleText = new StringBuilder
+    rawRun.raw.textSink = s =>
+      rawText ++= s; ()
+    oracle.raw.textSink = s =>
+      oracleText ++= s; ()
+    var t = 0
+    var done = false
+    while t < cycles && !done do
+      rawRun.inspect { dut => pokes(t)(dut) }
       oracle.inspect { dut => pokes(t)(dut) }
       for sel <- watch do
-        val expected = raw.inspect { dut => sel(dut).peek }
+        val expected = rawRun.inspect { dut => sel(dut).peek }
         oracle.inspect { dut =>
           val member = sel(dut)
           val name = simCtx.memberPath(member.asIR)
           assertEquals(member.peek, expected, s"'$name' at cycle $t (raw vs staged oracle)")
         }
-      raw.continue(1)
-      oracle.continue(1)
+      val rawStatus = rawRun.continue(1)
+      val oracleStatus = oracle.continue(1)
+      assertEquals(
+        oracleText.result(),
+        rawText.result(),
+        s"text output through cycle $t (staged oracle vs raw)"
+      )
+      assertEquals(oracleStatus, rawStatus, s"run status at cycle $t (staged oracle vs raw)")
+      rawStatus match
+        case RunStatus.Finished(_) =>
+          assertEquals(oracle.cycles, rawRun.cycles, "finish cycle (staged oracle vs raw)")
+          done = true
+        case _ => ()
+      t += 1
+    end while
   end lockstep
 
   // ---- direct cycle-trace semantics (typed frontend) ----------------------------------------
@@ -259,6 +282,109 @@ class RTProcessSimSpec extends SimSpec:
       assertEquals(dut.acc.peek, 0, "acc after the loop exit")
     }.withTier(tier).run()
 
+  // ---- text output (M2): prints, reports, assertions, finish, starvation --------------------
+
+  bothTiers("process prints fire on their transition cycles with typed rendering"): tier =>
+    val run = (new PrintFlowProc).simulation.withTier(tier).run()
+    val out = new StringBuilder
+    run.raw.textSink = s =>
+      out ++= s; ()
+    // period 6: println on the lead wait's expiry cycle, report on the single-cycle wait
+    val expectedAt = Map(
+      2 -> "tick x=1 b=abc f=false st=Idle\n",
+      3 -> "INFO: mid x=8 [PrintFlowProc @ cycle 3]\n",
+      8 -> "tick x=1 b=abc f=true st=Busy\n",
+      9 -> "INFO: mid x=8 [PrintFlowProc @ cycle 9]\n"
+    )
+    for t <- 1 to 12 do
+      out.clear()
+      run.continue(1)
+      assertEquals(out.result(), expectedAt.getOrElse(t, ""), s"output of cycle $t")
+
+  bothTiers("debug prints the design path, position, and name = value lines"): tier =>
+    val run = (new DebugProc).simulation.withTier(tier).run()
+    val out = new StringBuilder
+    run.raw.textSink = s =>
+      out ++= s; ()
+    run.continue(2)
+    val text = out.result()
+    assert(text.startsWith("Debug at DebugProc\n"), text)
+    assert(text.contains("RTProcessDesigns.scala"), text)
+    assert(text.endsWith("a = 3\n"), text)
+    out.clear()
+    run.continue(2)
+    assert(out.result().endsWith("a = 4\n"), out.result())
+
+  bothTiers("finish() ends the run on its fused transition cycle"): tier =>
+    // block-less: the continue that hits the finish reports the terminal status
+    val run = (new FinishProc).simulation.withTier(tier).run()
+    assertEquals(run.continue(10), RunStatus.Finished(FinishedReason.Finish))
+    assertEquals(run.cycles, 3L)
+    // host-block: the block unwinds mid-`step` and the run reports the same terminal status
+    val blockRun = (new FinishProc).simulation { dut => simCtx.step(100) }.withTier(tier).run()
+    assertEquals(blockRun.getRunStatus, RunStatus.Finished(FinishedReason.Finish))
+    assertEquals(blockRun.cycles, 3L)
+
+  bothTiers("assertion severity policy: continue (default), pause, finish, and fatal"): tier =>
+    // default policy: errors print and count, the run keeps going (HDL simulator behavior)
+    val cont = (new CountAssertProc()).simulation.withTier(tier).run()
+    val out = new StringBuilder
+    cont.raw.textSink = s =>
+      out ++= s; ()
+    assertEquals(cont.continue(9), RunStatus.Paused(PausedReason.Limit))
+    assertEquals(
+      out.result(),
+      "ERROR: cnt reached 3 [CountAssertProc @ cycle 6]\n" +
+        "ERROR: cnt reached 4 [CountAssertProc @ cycle 8]\n"
+    )
+    assertEquals(cont.raw.errorCount, 2L)
+    // pause-on-error: the run pauses at each failing cycle and resumes on continue
+    val pausing = (new CountAssertProc()).simulation.withTier(tier)
+      .withSeverityPolicy(error = SeverityAction.Pause).run()
+    pausing.raw.textSink = _ => ()
+    assertEquals(pausing.continue(20), RunStatus.Paused(PausedReason.Error))
+    assertEquals(pausing.cycles, 6L)
+    assertEquals(pausing.continue(20), RunStatus.Paused(PausedReason.Error))
+    assertEquals(pausing.cycles, 8L)
+    // finish-on-error: terminal
+    val finishing = (new CountAssertProc()).simulation.withTier(tier)
+      .withSeverityPolicy(error = SeverityAction.Finish).run()
+    finishing.raw.textSink = _ => ()
+    assertEquals(finishing.continue(20), RunStatus.Finished(FinishedReason.Error))
+    assertEquals(finishing.cycles, 6L)
+    // fatal always finishes, policy-independent
+    val fatal = (new CountAssertProc(Severity.Fatal)).simulation.withTier(tier).run()
+    fatal.raw.textSink = _ => ()
+    assertEquals(fatal.continue(20), RunStatus.Finished(FinishedReason.Fatal))
+    assertEquals(fatal.cycles, 6L)
+
+  bothTiers("a concurrent (design-body) assertion is checked every cycle"): tier =>
+    val run = (new BodyAssertDesign).simulation.withTier(tier)
+      .withSeverityPolicy(warning = SeverityAction.Pause).run()
+    val out = new StringBuilder
+    run.raw.textSink = s =>
+      out ++= s; ()
+    assertEquals(run.continue(20), RunStatus.Paused(PausedReason.Warning))
+    assertEquals(run.cycles, 6L)
+    assertEquals(out.result(), "WARNING: cnt reached 5 [BodyAssertDesign @ cycle 6]\n")
+    // the pause sits on the committed cycle boundary: the fire read cnt = 5, the commit made 6
+    run.inspect { dut => assertEquals(dut.cnt.peek, 6) }
+    // the condition keeps failing, so the very next cycle pauses again
+    assertEquals(run.continue(20), RunStatus.Paused(PausedReason.Warning))
+    assertEquals(run.cycles, 7L)
+
+  bothTiers("event starvation finishes a block-less run of a closed design"): tier =>
+    // RunOnceProc halts at an endless wait with no pokeable inputs: nothing can ever happen
+    val run = (new RunOnceProc).simulation.withTier(tier).run()
+    assertEquals(run.continue(100), RunStatus.Finished(FinishedReason.MainDone))
+    assertEquals(run.cycles, 100L)
+    run.inspect { dut => assertEquals(dut.out.peek, 42) }
+    // an open design (pokeable inputs) never starves — the budget just runs out
+    val open = (new CondWaitProc).simulation.withTier(tier).run()
+    open.inspect { dut => dut.go.poke(0) }
+    assertEquals(open.continue(100), RunStatus.Paused(PausedReason.Limit))
+    assertEquals(open.cycles, 100L)
+
   // ---- staged-oracle lockstep (fusion/fallback fidelity vs the FSM lowering stages) ----------
 
   bothTiers("oracle: toggle"): tier =>
@@ -393,4 +519,15 @@ class RTProcessSimSpec extends SimSpec:
       30,
       watch = List(_.a, _.b, _.both)
     )
+
+  bothTiers("oracle: prints, reports, and debug fire on identical cycles with identical text"):
+    tier =>
+      lockstep(new PrintFlowProc, tier, 30, watch = List(_.x))
+      lockstep(new DebugProc, tier, 20, watch = List(_.a))
+
+  bothTiers("oracle: finish() ends both runs on the same cycle"): tier =>
+    lockstep(new FinishProc, tier, 10)
+
+  bothTiers("oracle: failing assertions report on identical cycles"): tier =>
+    lockstep(new CountAssertProc(), tier, 12, watch = List(_.cnt))
 end RTProcessSimSpec

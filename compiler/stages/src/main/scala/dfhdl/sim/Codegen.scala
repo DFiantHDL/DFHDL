@@ -139,6 +139,21 @@ object Codegen:
     for (r, i) <- nl.regIds.zipWithIndex do
       sb ++= s"      sig[$r] = nxt$i;\n"
     sb ++= "    }\n  }\n"
+    // watched run: same loop, exiting after any cycle whose settled watch value is nonzero
+    // (the watch node is spilled to the signal array via the observed set)
+    sb ++= "\n  public long runWatch(long[] sig, long cycles, int watch) {\n"
+    sb ++= "    for (long cyc = 0L; cyc < cycles; cyc++) {\n"
+    if single then
+      for id <- comb do
+        sb ++= emitOp(id, 0)
+        sb += '\n'
+    else for ci <- chunks.indices do sb ++= s"      chunk$ci(sig);\n"
+    for (n, i) <- nl.regNextIds.zipWithIndex do
+      sb ++= s"      long nxt$i = ${rd(n, commitCi)};\n"
+    for (r, i) <- nl.regIds.zipWithIndex do
+      sb ++= s"      sig[$r] = nxt$i;\n"
+    sb ++= "      if (sig[watch] != 0L) return cyc + 1L;\n"
+    sb ++= "    }\n    return cycles;\n  }\n"
     // comb-only sweep (no register commit) for settle-on-peek
     sb ++= "\n  public void settle(long[] sig) {\n"
     if single then

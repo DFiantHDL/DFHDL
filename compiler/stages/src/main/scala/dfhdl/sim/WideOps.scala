@@ -58,6 +58,13 @@ private[sim] final class WideOps(val nl: Netlist):
       BitVector.fromLong(nl.constValOf(v.lanes(i)), lw)
     }.reverse.reduce(_ ++ _)
 
+  /** Per-lane [[Netlist.snap]]: a combinational snapshot of a value for post-commit observers
+    * (text-output actions read the fired cycle's settled values after registers have committed).
+    */
+  def snap(v: WV): WV =
+    val lanes = v.lanes.map(nl.snap)
+    if lanes == v.lanes then v else WV(lanes, v.width)
+
   def mov(width: Int): WV = WV(laneWidths(width).map(nl.mov), width)
 
   def patchMov(dst: WV, src: WV): Unit =

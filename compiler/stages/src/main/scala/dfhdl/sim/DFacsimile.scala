@@ -34,10 +34,18 @@ enum SimTier derives CanEqual:
   *     port connections through PortByNameSelect, including partial (bit/range) sinks
   *   - top-level IN ports become pokeable hold-state cells; init applies at time zero (no reset
   *     modeling); design params resolve per instance when constant
+  *   - RT processes with steps/waits/loops, lowered to FSM sites directly from the IR (the
+  *     ProcLowering walk) with the documented cycle semantics
+  *   - text output (`print`/`println`/`debug`/`report`/`assert`/`finish`) in design bodies and
+  *     processes: statements fire per committed cycle under their full path condition with the
+  *     cycle's settled values; report/assert severities feed the run's severity policy, `Fatal` and
+  *     `finish` end the run. A design-body (combinational-context) statement whose condition stays
+  *     true fires on every such cycle — the clocked reading of what an event-driven simulator would
+  *     report per activation.
   *
-  * Known minimum limitations: processes/domains, `**`/`clog2` on non-constants,
-  * multiplication/division with results wider than 64 bits, bubble (`?`) values simulate as 0
-  * (2-state), and per-instance param-dependent *widths* (widths resolve via the sub-DB's canonical
+  * Known minimum limitations: `**`/`clog2` on non-constants, multiplication/division with results
+  * wider than 64 bits, bubble (`?`) values simulate as 0 (2-state), non-constant string message
+  * arguments, and per-instance param-dependent *widths* (widths resolve via the sub-DB's canonical
   * instance).
   */
 object DFacsimile:
@@ -53,13 +61,30 @@ object DFacsimile:
       case SimTier.Interpreter => Interpreter.compile(builder.nl)
       case SimTier.Codegen     =>
         // named values are peekable — force their lanes into the signal array; the scheduler
-        // reads wait bounds after a probe, so they must be materialized too
+        // reads wait bounds after a probe, so they must be materialized too; text-output actions
+        // read their guards and message values from the signal array after the fired cycle
         val schedObserved = builder.procMetas.iterator.flatMap(_.timers.values.map(_.boundNode))
+        val actionObserved = builder.actions.iterator.flatMap { a =>
+          Iterator.single(a.guard) ++ a.segs.iterator.flatMap {
+            case ActSeg.Arg(wv, _) => wv.lanes
+            case _                 => Nil
+          }
+        } ++ Option.when(builder.watchNode >= 0)(builder.watchNode)
         Codegen.compile(
           builder.nl,
-          observed = builder.namedNodes.values.flatMap(_.lanes).toSet ++ schedObserved
+          observed =
+            builder.namedNodes.values.flatMap(_.lanes).toSet ++ schedObserved ++ actionObserved
         )
-    new Sim(builder.nl, kernel, builder.namedNodes.toMap, builder.procMetas.toVector)
+    new Sim(
+      builder.nl,
+      kernel,
+      builder.namedNodes.toMap,
+      builder.procMetas.toVector,
+      builder.actions.toVector,
+      builder.watchNode,
+      builder.topHasInputs
+    )
+  end simulate
 end DFacsimile
 
 /** Scheduler metadata for one cycle-wait park of a lowered RT process: the wait's up-counter cell
@@ -73,6 +98,54 @@ private[sim] final case class WaitTimerMeta(counterReg: Int, boundNode: Int, mas
   */
 private[sim] final case class ProcMeta(segReg: Int, timers: Map[Long, WaitTimerMeta])
 
+/** Why [[Sim.step]] stopped before exhausting its cycle budget. `Finish`, `Fatal`, and `SevFinish`
+  * are terminal (further stepping consumes nothing); `SevPause` clears on the next step.
+  */
+private[sim] enum SimStop derives CanEqual:
+  /** a `finish` statement executed */
+  case Finish
+
+  /** a fatal report/assertion fired (always terminal, like `$fatal` / VHDL `failure`) */
+  case Fatal
+
+  /** a warning/error report/assertion fired under a severity policy configured to pause */
+  case SevPause(severity: TextOut.Severity)
+
+  /** a warning/error report/assertion fired under a severity policy configured to finish */
+  case SevFinish(severity: TextOut.Severity)
+
+/** One piece of a text-output action's message: a literal, or a value rendered from the fired
+  * cycle's settled signals.
+  */
+private[sim] enum ActSeg:
+  case Lit(text: String)
+  case Arg(wv: WV, render: BitVector => String)
+
+/** What a fired text-output action does beyond emitting its message. */
+private[sim] enum ActKind derives CanEqual:
+  /** plain output: `print`/`println`/`debug` */
+  case Output
+
+  /** a `report` statement or a failed assertion: severity prefix + run context, then the severity
+    * policy (`Fatal` always finishes)
+    */
+  case Report(severity: TextOut.Severity)
+
+  /** a `finish` statement */
+  case Finish
+
+/** A lowered text-output statement: fires on every committed cycle whose settled `guard` value is
+  * nonzero (the full path condition — FSM site dispatch, branch guards, and a failing assertion
+  * condition — folded into one 1-bit node). Message values read the fired cycle's settled sweep
+  * (register operands are MOV-snapshot). `where` is the instance path for report/assert context.
+  */
+private[sim] final case class SimAction(
+    guard: Int,
+    kind: ActKind,
+    segs: Vector[ActSeg],
+    where: String
+)
+
 /** A running simulation instance: one state/signal array + a kernel over it. Values are addressed
   * by name; hierarchy paths use instance names (e.g. "alu0.res"). Values of any width move across
   * this boundary as packed [[BitVector]]s; the `Long` variants are a convenience for values up to
@@ -82,7 +155,10 @@ final class Sim private[sim] (
     val nl: Netlist,
     kernel: SimKernel,
     nameToWV: Map[String, WV],
-    procMetas: Vector[ProcMeta]
+    procMetas: Vector[ProcMeta],
+    actions: Vector[SimAction] = Vector.empty,
+    watchNode: Int = -1,
+    hasTopInputs: Boolean = false
 ):
   private val sig = nl.initialSig
   // settle-on-peek: peeks always observe combinationally settled state (Amaranth's rule)
@@ -92,30 +168,169 @@ final class Sim private[sim] (
   private var skippedVar = 0L
   def skippedCycles: Long = skippedVar
 
-  def step(cycles: Long = 1L): Unit =
-    if procMetas.isEmpty then kernel.run(sig, cycles)
-    else stepScheduled(cycles)
-    needsSettle = true // post-commit register values invalidate the comb sweep
+  // total committed cycles — the sim time stamped on report/assert messages
+  private var cyclesVar = 0L
+  private[sim] def totalCycles: Long = cyclesVar
+
+  // text-output run state: the output sink, the warning/error severity policy (set by the typed
+  // Simulation layer), fired-severity counters, and the stop cause of the last step
+  private[sim] var textSink: String => Unit = Console.out.print(_)
+  private[sim] var severityPolicy: SeverityPolicy = SeverityPolicy()
+  private var warningsVar = 0L
+  private var errorsVar = 0L
+  private[sim] def warningCount: Long = warningsVar
+  private[sim] def errorCount: Long = errorsVar
+  private var stopVar: Option[SimStop] = None
+  private[sim] def stopCause: Option[SimStop] = stopVar
+
+  /** Event starvation: a closed design (no pokeable top inputs) proved to be at a state fixpoint
+    * with no pending cycle-wait timers and no active output — nothing can ever happen again.
+    */
+  private var starvedVar = false
+  private[sim] def starved: Boolean = starvedVar
+
+  /** Advance up to `cycles` clock cycles, returning the count actually consumed. Text-output
+    * actions fire per committed cycle; a `finish`, a fatal, or a severity-policy stop cuts the
+    * budget short (see [[stopCause]]). A terminal stop makes further stepping consume nothing.
+    */
+  def step(cycles: Long = 1L): Long =
+    stopVar match
+      case Some(SimStop.SevPause(_)) => stopVar = None // a severity pause is per-fire
+      case _                         => ()
+    if stopVar.nonEmpty || cycles <= 0 then 0L
+    else
+      val consumed =
+        if procMetas.nonEmpty then stepScheduled(cycles)
+        else if actions.nonEmpty then stepWatched(cycles)
+        else
+          kernel.run(sig, cycles)
+          cyclesVar += cycles
+          cycles
+      needsSettle = true // post-commit register values invalidate the comb sweep
+      consumed
+  end step
+
+  /** Renders an action's message from the fired cycle's settled signal values. */
+  private def actText(a: SimAction): String =
+    val sb = new StringBuilder
+    for seg <- a.segs do
+      seg match
+        case ActSeg.Lit(text)       => sb ++= text
+        case ActSeg.Arg(wv, render) =>
+          val bits = wv.lanes.zipWithIndex.reverse.map { (n, i) =>
+            BitVector.fromLong(sig(n), math.min(64, wv.width - 64 * i))
+          }.reduce(_ ++ _)
+          sb ++= render(bits)
+    sb.result()
+
+  /** Executes the fired actions of the just-committed cycle in program order, reading the cycle's
+    * settled values (combinational slots and register MOV snapshots survive the commit). A finish
+    * or fatal stops the remaining actions of the cycle; a severity pause lets them complete first.
+    * Returns true when stepping must stop.
+    */
+  private def fireActions(): Boolean =
+    var pausePend: Option[TextOut.Severity] = None
+    var terminal = false
+    var i = 0
+    while i < actions.length && !terminal do
+      val a = actions(i)
+      if sig(a.guard) != 0L then
+        a.kind match
+          case ActKind.Output           => textSink(actText(a))
+          case ActKind.Report(severity) =>
+            textSink(
+              s"${severity.toString.toUpperCase}: ${actText(a)} [${a.where} @ cycle $cyclesVar]\n"
+            )
+            severity match
+              case TextOut.Severity.Info    => ()
+              case TextOut.Severity.Warning =>
+                warningsVar += 1
+                severityPolicy.warning match
+                  case SeverityAction.Continue => ()
+                  case SeverityAction.Pause    =>
+                    if pausePend.isEmpty then pausePend = Some(severity)
+                  case SeverityAction.Finish =>
+                    stopVar = Some(SimStop.SevFinish(severity))
+                    terminal = true
+              case TextOut.Severity.Error =>
+                errorsVar += 1
+                severityPolicy.error match
+                  case SeverityAction.Continue => ()
+                  case SeverityAction.Pause    =>
+                    if pausePend.isEmpty then pausePend = Some(severity)
+                  case SeverityAction.Finish =>
+                    stopVar = Some(SimStop.SevFinish(severity))
+                    terminal = true
+              case TextOut.Severity.Fatal =>
+                stopVar = Some(SimStop.Fatal)
+                terminal = true
+            end match
+          case ActKind.Finish =>
+            stopVar = Some(SimStop.Finish)
+            terminal = true
+      end if
+      i += 1
+    end while
+    if !terminal then pausePend.foreach(sev => stopVar = Some(SimStop.SevPause(sev)))
+    stopVar.nonEmpty
+  end fireActions
+
+  /** Per-cycle watched stepping for process-less designs with text output: the kernel bulk-runs
+    * between fires, exiting after any cycle whose aggregated watch value is nonzero.
+    */
+  private def stepWatched(cycles: Long): Long =
+    var remaining = cycles
+    var consumed = 0L
+    var stop = false
+    while remaining > 0 && !stop do
+      val ran = kernel.runWatch(sig, remaining, watchNode)
+      consumed += ran
+      cyclesVar += ran
+      remaining -= ran
+      if sig(watchNode) != 0L then stop = fireActions()
+    consumed
 
   /** The event-timeline scheduler (single-clock degenerate hyperperiod): probe a cycle with change
     * tracking; a clean probe proves the design is at a state fixpoint except wait counters, so the
     * timeline jumps to the nearest cycle-wait expiry (or the budget end when only condition/endless
     * waits remain) by bulk-advancing the counters. A dirty probe backs off into untracked bulk
-    * chunks with exponential growth, so active designs run at full kernel speed.
+    * chunks with exponential growth, so active designs run at full kernel speed. Text-output
+    * actions fire per evaluated cycle (the watch aggregate keeps bulk runs cheap); an action active
+    * at a fixpoint (e.g. a print inside a condition-wait park) blocks skipping — every one of its
+    * cycles must be evaluated and emitted. A clean probe with no pending timers, no active output,
+    * and no pokeable inputs is event starvation: the remaining budget is consumed as skipped time
+    * and the run is flagged [[starved]].
     */
-  private def stepScheduled(cycles: Long): Unit =
+  private def stepScheduled(cycles: Long): Long =
+    val hasWatch = watchNode >= 0
     var remaining = cycles
     var chunk = 1L
-    while remaining > 0 do
-      if kernel.stepDirty(sig) then
-        remaining -= 1
-        val c = math.min(chunk, remaining)
-        if c > 0 then kernel.run(sig, c)
-        remaining -= c
-        chunk = math.min(chunk * 2, 65536L)
-      else
-        remaining -= 1
-        if remaining > 0 then
+    var consumed = 0L
+    var stop = false
+    while remaining > 0 && !stop do
+      val dirty = kernel.stepDirty(sig)
+      consumed += 1
+      cyclesVar += 1
+      remaining -= 1
+      val fired = hasWatch && sig(watchNode) != 0L
+      if fired then stop = fireActions()
+      if !stop then
+        if dirty then
+          var c = math.min(chunk, remaining)
+          while c > 0 && !stop do
+            val ran =
+              if hasWatch then kernel.runWatch(sig, c, watchNode)
+              else
+                kernel.run(sig, c)
+                c
+            consumed += ran
+            cyclesVar += ran
+            remaining -= ran
+            c -= ran
+            if hasWatch && sig(watchNode) != 0L then stop = fireActions()
+          chunk = math.min(chunk * 2, 65536L)
+        else if fired then chunk = 1L // active output at a fixpoint: no skipping, re-probe
+        else if remaining > 0 then
           // fixpoint except timers: how far until the nearest active cycle-wait expires?
           var horizon = Long.MaxValue
           for pm <- procMetas do
@@ -124,17 +339,22 @@ final class Sim private[sim] (
                 val rem = (sig(t.boundNode) - sig(t.counterReg)) & t.mask
                 if rem < horizon then horizon = rem
               case None => // parked without a timer (condition/endless wait or a held FSM state)
+          if horizon == Long.MaxValue && !hasTopInputs then starvedVar = true
           val delta = math.min(horizon, remaining)
           if delta > 0 then
             for pm <- procMetas do
               pm.timers.get(sig(pm.segReg)) match
                 case Some(t) => sig(t.counterReg) = (sig(t.counterReg) + delta) & t.mask
                 case None    =>
+            consumed += delta
+            cyclesVar += delta
             remaining -= delta
             skippedVar += delta
           chunk = 1L
         end if
+      end if
     end while
+    consumed
   end stepScheduled
   def settle(): Unit =
     kernel.settle(sig)
@@ -183,6 +403,11 @@ private final class Builder(rawDB: DB):
   private val wide = new WideOps(nl)
   private[sim] val namedNodes = mutable.Map.empty[String, WV]
   private[sim] val procMetas = mutable.ArrayBuffer.empty[ProcMeta]
+  // text-output actions in program (elaboration walk) order, and the OR-aggregate of their
+  // guards the kernels watch per cycle; pokeable top inputs rule out event starvation
+  private[sim] val actions = mutable.ArrayBuffer.empty[SimAction]
+  private[sim] var watchNode: Int = -1
+  private[sim] var topHasInputs = false
   // the new-style root DB is only a hierarchy container; content lives in per-design sub-DBs
   private val topScopeDB: DB = if rawDB.isRoot then rawDB.topDB else rawDB
 
@@ -193,6 +418,14 @@ private final class Builder(rawDB: DB):
 
   def build(): Unit =
     new Scope(topScopeDB, "", None).elaborate()
+    if actions.nonEmpty then
+      watchNode = actions.map(_.guard).reduce { (a, b) =>
+        // a constant-true guard (e.g. an unconditional every-cycle print) makes the whole
+        // watch constant; constant-false guards never register
+        if nl.isConst(a) then (if nl.constValOf(a) != 0L then a else b)
+        else if nl.isConst(b) then (if nl.constValOf(b) != 0L then b else a)
+        else nl.or(a, b)
+      }
 
   /** One design *instance*: a sub-DB elaborated with per-instance state (sub-DBs are shared across
     * instances of the same design).
@@ -228,6 +461,28 @@ private final class Builder(rawDB: DB):
     private val netSinkOf = mutable.Map.empty[DFNet, DFVal]
     // nonzero while walking conditional-branch members (position-sensitive constructs care)
     private var condDepth = 0
+    // the walk's path condition as (1-bit node, negated?) frames whose conjunction gates
+    // text-output actions: branch walks push their guard, process site programs push their
+    // dispatch condition. Kept as frames (not a node) so designs without text output pay nothing.
+    private var pathConds: List[(Int, Boolean)] = Nil
+    // reset-site fold probing (see `ProcLowering.run`): a dynamic dispatch decision or an emitted
+    // text-output statement during the reset program's emission disqualifies the fold, mirroring
+    // the stage's gates (static guards, constant full-register assignments only)
+    private var foldProbing = false
+    private var foldViolation = false
+
+    private def andCond(a: Int, b: Int): Int =
+      if nl.isConst(a) then (if nl.constValOf(a) != 0L then b else a)
+      else if nl.isConst(b) then (if nl.constValOf(b) != 0L then a else b)
+      else nl.and(a, b)
+
+    /** The current path condition as a single 1-bit node: the conjunction of the tracked frames,
+      * with an optional extra frame (an assertion's failing condition).
+      */
+    private def pathGuardNode(extra: Option[(Int, Boolean)]): Int =
+      (extra.toList ::: pathConds).foldLeft(nl.const(1, 1L)) { case (acc, (n, neg)) =>
+        andCond(acc, if neg then nl.not(n) else n)
+      }
     // write-only views: net sinks and the alias chains under them (never built as reads)
     private val writeViews = mutable.Set.empty[DFVal]
     // context-sensitive value bindings during RT process lowering: process-owned values compile
@@ -336,7 +591,9 @@ private final class Builder(rawDB: DB):
         case dcl: DFVal.Dcl =>
           dcl.modifier.dir match
             case DFVal.Modifier.Dir.IN =>
-              if isTop then regNodeOf(dcl) = wide.reg(widthOf(dcl), BitVector.low(widthOf(dcl)))
+              if isTop then
+                regNodeOf(dcl) = wide.reg(widthOf(dcl), BitVector.low(widthOf(dcl)))
+                topHasInputs = true
               else inPortMov(dcl) = wide.mov(widthOf(dcl))
             case _ => // wires/OUT ports bind at their driving net
         case _ =>
@@ -362,6 +619,7 @@ private final class Builder(rawDB: DB):
         val bound = nodeOf.contains(v) || ((procOverlay ne null) && procOverlay.contains(v))
         if !bound then bindVal(v, buildValWV(v))
       case net: DFNet         => buildNet(net)
+      case t: TextOut         => buildTextOut(t)
       case inst: DFDesignInst => elaborateChild(inst)
       case _: DFRange         => () // loop-range bookkeeping — read at its loop
       case lb: LocalBlock     => processMembers(childrenOf.getOrElse(lb, Vector.empty))
@@ -758,6 +1016,8 @@ private final class Builder(rawDB: DB):
       val baseEnv = env.toMap
       val po = procOverlay
       val baseOverlay = if po ne null then po.toMap else Map.empty[DFVal, WV]
+      val basePath = pathConds
+      var negs = List.empty[(Int, Boolean)] // not-taken frames of the branches walked so far
       case class Branch(condOpt: Option[Int], resultEnv: Map[DFVal.Dcl, WV], yieldOpt: Option[WV])
       val branches = blocks.map { block =>
         env.clear(); env ++= baseEnv
@@ -765,9 +1025,12 @@ private final class Builder(rawDB: DB):
           po.clear(); po ++= baseOverlay
         val condOpt = blockCondNode(block, selectorWV)
         val blockMembers = childrenOf.getOrElse(block, Vector.empty)
+        pathConds = condOpt.map((_, false)).toList ::: negs ::: basePath
+        condOpt.foreach(c => negs ::= (c, true))
         condDepth += 1
         processMembers(blockMembers)
         condDepth -= 1
+        pathConds = basePath
         val yieldOpt =
           if isExpr then
             blockMembers.lastOption match
@@ -801,6 +1064,84 @@ private final class Builder(rawDB: DB):
         }
         bindVal(header, merged.getOrElse(unsupported("unmergeable conditional expression", header)))
     end processConditionalChain
+
+    // ---- text output ------------------------------------------------------------------------
+
+    /** Registers a text-output statement as a simulation action: it fires on every committed cycle
+      * whose path condition holds — the enclosing branch guards, and in a process the FSM site
+      * dispatch, so a print between two waits fires exactly on the transition cycle, per the
+      * documented cycle semantics (statements fuse into the transition they belong to). Message
+      * arguments compile as reads in the current context and render from the fired cycle's settled
+      * values.
+      */
+    private def buildTextOut(t: TextOut): Unit =
+      val extra = t.op match
+        case TextOut.Op.Assert(assertionRef, _) =>
+          Some((readWV(assertionRef.get).lanes(0), true)) // fires when the assertion is false
+        case _ => None
+      val guard = pathGuardNode(extra)
+      if nl.isConst(guard) && nl.constValOf(guard) == 0L then () // statically dead path
+      else
+        // the stage's reset-site fold emits constant register assignments only — an emitted
+        // text output keeps the reset state as a real bootstrap
+        if foldProbing then foldViolation = true
+        lazy val msgSegs: Vector[ActSeg] =
+          t.msgParts.coalesce(t.msgArgs.map(_.get)).iterator.map {
+            case s: String => ActSeg.Lit(s)
+            case v: DFVal  => argSeg(v)
+          }.toVector
+        val where = if prefix.isEmpty then design.getName else prefix.dropRight(1)
+        val (kind, segs) = t.op match
+          case TextOut.Op.Print   => (ActKind.Output, msgSegs)
+          case TextOut.Op.Println => (ActKind.Output, msgSegs :+ ActSeg.Lit("\n"))
+          case TextOut.Op.Debug   =>
+            import t.meta.position as pos
+            val header = s"Debug at $prefix${t.getOwnerDomain.getFullName}\n" +
+              s"${pos.fileUnixPath}:${pos.lineStart}:${pos.columnStart}\n"
+            val argSegs = t.msgArgs.map(_.get).flatMap { v =>
+              val nm = if v.isAnonymous then "?" else v.getName
+              Vector(ActSeg.Lit(s"$nm = "), argSeg(v), ActSeg.Lit("\n"))
+            }
+            (ActKind.Output, ActSeg.Lit(header) +: argSegs.toVector)
+          case TextOut.Op.Finish              => (ActKind.Finish, Vector.empty[ActSeg])
+          case TextOut.Op.Report(severity)    => (ActKind.Report(severity), msgSegs)
+          case TextOut.Op.Assert(_, severity) =>
+            val body = if msgSegs.isEmpty then Vector(ActSeg.Lit("assertion failed")) else msgSegs
+            (ActKind.Report(severity), body)
+        actions += SimAction(nl.snap(guard), kind, segs, where)
+      end if
+    end buildTextOut
+
+    /** One message-argument segment: constants (strings included) render at build time; runtime
+      * values compile as reads in the current context (register operands MOV-snapshot for the
+      * post-commit fire) and render per fire, following the backends' display conventions — decimal
+      * for integers, `true`/`false` for booleans, `0`/`1` for bits, entry names for enums, and
+      * zero-padded hex for bits vectors (and, as a packed-bits fallback, composites).
+      */
+    private def argSeg(v: DFVal): ActSeg =
+      v.dfType match
+        case _: DFString =>
+          val s = constOpt[Option[String]](v).flatten
+            .getOrElse(unsupported("a non-constant string message argument", v))
+          ActSeg.Lit(s)
+        case t =>
+          val render = renderOf(t, widthOf(v))
+          val wv = readWV(v)
+          if wv.lanes.forall(nl.isConst) then ActSeg.Lit(render(wide.constBits(wv)))
+          else ActSeg.Arg(wide.snap(wv), render)
+
+    private def renderOf(t: DFType, w: Int): BitVector => String = t match
+      case DFBool    => bits => if bits.bit(0) then "true" else "false"
+      case DFBit     => bits => if bits.bit(0) then "1" else "0"
+      case e: DFEnum =>
+        bits =>
+          val value = bits.toBigInt(signed = false)
+          e.entries.collectFirst { case (name, ev) if ev.compare(value) == 0 => name }
+            .getOrElse(s"?($value)")
+      case d: DFDecimal => bits => bits.toBigInt(signed = d.signed).toString
+      case _            => // DFBits and packed composites: zero-padded hex, one digit per nibble
+        val digits = (w + 3) / 4
+        bits => ("%0" + digits + "x").format(bits.toBigInt(signed = false).bigInteger)
 
     // ---- nets & hierarchy -----------------------------------------------------------------
 
@@ -1105,7 +1446,9 @@ private final class Builder(rawDB: DB):
               iterBind(iter) = BigInt(i)
               foldStmts(body)
             iterBind.remove(iter)
-          case t: TextOut => unsupported("text output in initial content (lands with M2)", t)
+          // unreachable in valid IR: RT `initial` blocks reject text output at elaboration, and
+          // a printing prologue is not initial-convertible (it keeps the bootstrap state)
+          case t: TextOut => unsupported("text output in statically folded initial content", t)
           case _: DFVal   => () // anonymous dependencies / iterator declarations
           case _: DFRange => ()
           case m          => unsupported("initial content member", m)
@@ -1121,8 +1464,7 @@ private final class Builder(rawDB: DB):
       */
     private def prepassProcess(pb: ProcessBlock): Unit =
       flattenedOf(pb).foreach {
-        case t: TextOut   => unsupported("text output in processes (lands with M2)", t)
-        case f: ForkBlock => unsupported("fork/join in processes", f)
+        case f: ForkBlock                   => unsupported("fork/join in processes", f)
         case sb: StepBlock if !sb.isRegular =>
           unsupported("onEntry/onExit/fallThrough step blocks (land with M3)", sb)
         case lb: DFLoop.Block if !lb.isCombinational && lb.isFallThrough =>
@@ -1268,10 +1610,6 @@ private final class Builder(rawDB: DB):
       private val fallback = mutable.Set.empty[DFOwner]
       private final class AbortWalk(val victim: DFOwner) extends Exception
       private lazy val firstConstructOpt: Option[DFMember] = top.find(isTimeConstructM)
-      // reset-site fold probing (see `run`): a dynamic dispatch decision during the reset
-      // program's emission disqualifies the fold, mirroring the stage's static-guard gate
-      private var foldProbing = false
-      private var foldViolation = false
 
       private def valTreeReads(v: DFVal): (Set[DFVal.Dcl], Boolean) =
         var dcls = Set.empty[DFVal.Dcl]
@@ -1549,6 +1887,7 @@ private final class Builder(rawDB: DB):
           val baseOverlay = po.toMap
           val t = transCtx
           val snap = t.snapshot()
+          val basePath = pathConds
           def restoreBase(): Unit =
             env.clear(); env ++= baseEnv
             cellEnv.clear(); cellEnv ++= baseCells
@@ -1556,14 +1895,17 @@ private final class Builder(rawDB: DB):
             t.restore(snap)
           // dispatch branches are execution paths, not payload conditionals: a full register
           // write on the taken path stays forwardable (the stage's per-path expansion state)
+          pathConds = (cond, false) :: basePath
           thenFn()
           val tEnv = env.toMap
           val tCells = cellEnv.toMap
           restoreBase()
+          pathConds = (cond, true) :: basePath
           elseFn()
           val eEnv = env.toMap
           val eCells = cellEnv.toMap
           restoreBase()
+          pathConds = basePath
           mergeKeyed(baseEnv, List((cond, tEnv)), Some(eEnv), envHoldOf)(sinkEnv)
           mergeKeyed(baseCells, List((cond, tCells)), Some(eCells), cellHold)(sinkCell)
       end emitBranch2
@@ -1588,6 +1930,8 @@ private final class Builder(rawDB: DB):
         val baseOverlay = po.toMap
         val t = transCtx
         val snap = t.snapshot()
+        val basePath = pathConds
+        var negs = List.empty[(Int, Boolean)] // not-taken frames of the branches walked so far
         def restoreBase(): Unit =
           env.clear(); env ++= baseEnv
           cellEnv.clear(); cellEnv ++= baseCells
@@ -1603,14 +1947,18 @@ private final class Builder(rawDB: DB):
               if nl.constValOf(c) != 0L then
                 // statically taken — the rest of the chain is unreachable
                 restoreBase()
+                pathConds = negs ::: basePath
                 emitFrom(bodyOf(b) ::: after, cont)
                 elseResult = Some((env.toMap, cellEnv.toMap))
                 done = true
             case Some(c) =>
               if foldProbing then foldViolation = true
+              pathConds = (c, false) :: negs ::: basePath
               emitFrom(bodyOf(b) ::: after, cont)
+              negs ::= (c, true)
               condBranches :+= ((c, env.toMap, cellEnv.toMap))
             case None => // else branch / unguarded catch-all — terminal
+              pathConds = negs ::: basePath
               emitFrom(bodyOf(b) ::: after, cont)
               elseResult = Some((env.toMap, cellEnv.toMap))
               done = true
@@ -1619,9 +1967,11 @@ private final class Builder(rawDB: DB):
         if !done && elseResult.isEmpty then
           // no else: the fall-through path continues past the chain
           restoreBase()
+          pathConds = negs ::: basePath
           emitFrom(after, cont)
           elseResult = Some((env.toMap, cellEnv.toMap))
         restoreBase()
+        pathConds = basePath
         mergeKeyed(
           baseEnv,
           condBranches.map(t3 => (t3._1, t3._2)),
@@ -1859,8 +2209,14 @@ private final class Builder(rawDB: DB):
         end for
         segW = clog2(sitePrograms.length)
         segCellVar = newCell(segW, BitVector.low(segW), tracked = true)
+        val segNode = segCellVar.regWV.lanes(0)
+        // the per-site dispatch conditions: the base path frame of each program's text-output
+        // actions during emission, and the merge keys afterwards
+        val siteConds =
+          sitePrograms.indices.toList.map(k => nl.eq(segNode, nl.const(segW, k.toLong)))
         // per-site program emission, each in a fresh transition context
         val envAtStart = env.toMap
+        val basePath = pathConds
         val progEnvs = mutable.ArrayBuffer.empty[Map[DFVal.Dcl, WV]]
         val progCells = mutable.ArrayBuffer.empty[Map[PCell, WV]]
         for k <- sitePrograms.indices do
@@ -1868,6 +2224,7 @@ private final class Builder(rawDB: DB):
           cellEnv.clear()
           procOverlay = mutable.Map.empty
           transCtx = new TransCtx(condDepth)
+          pathConds = (siteConds(k), false) :: basePath
           foldProbing = firstFused && k == resetSite
           if foldProbing then foldViolation = false
           sitePrograms(k)()
@@ -1876,6 +2233,7 @@ private final class Builder(rawDB: DB):
           progCells += cellEnv.toMap
         procOverlay = null
         transCtx = null
+        pathConds = basePath
         env.clear(); env ++= envAtStart
         cellEnv.clear()
         // the reset-site fold, with the stage's gates: no dynamic dispatch decision, a single
@@ -1911,11 +2269,8 @@ private final class Builder(rawDB: DB):
                 val fc = top.find(isTimeConstructM).getOrElse(unsupported("process entry", pb))
                 siteOf.getOrElse(fc, unsupported("an unresolvable process entry site", fc))
             }
-        nl.setRegInit(segCellVar.regWV.lanes(0), entryIdx.toLong)
+        nl.setRegInit(segNode, entryIdx.toLong)
         // merge all site results keyed by the state value
-        val segNode = segCellVar.regWV.lanes(0)
-        val siteConds =
-          sitePrograms.indices.toList.map(k => nl.eq(segNode, nl.const(segW, k.toLong)))
         mergeKeyed(envAtStart, siteConds.zip(progEnvs), None, envHoldOf)(sinkEnv)
         val mergedCells = mutable.Map.empty[PCell, WV]
         mergeKeyed(Map.empty[PCell, WV], siteConds.zip(progCells), None, cellHold) { (c, wvOpt) =>

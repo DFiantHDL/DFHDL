@@ -267,3 +267,67 @@ class TwoProcs extends RTDesign:
     3.cy.wait
     b.din := !b
   both := a ^ b
+
+enum TxState extends Encoded:
+  case Idle, Busy
+
+/** Prints and reports at distinct FSM transition points: message arguments (decimal, hex bits,
+  * boolean, enum entry) render from the fired transition cycle's settled values. Period 6: wait(2) -
+  * println - wait(1) - report - wait(3) - wrap (the constant prologue folds).
+  */
+class PrintFlowProc extends RTDesign:
+  val x = UInt(8) <> OUT.REG init 0
+  val b = Bits(12) <> OUT.REG init h"abc"
+  val f = Boolean <> OUT.REG init false
+  val st = TxState <> OUT.REG init TxState.Idle
+  process:
+    x.din := 1
+    2.cy.wait
+    println(s"tick x=$x b=$b f=$f st=$st")
+    x.din := x + 7
+    f.din := true
+    st.din := TxState.Busy
+    1.cy.wait
+    report(s"mid x=$x")
+    3.cy.wait
+end PrintFlowProc
+
+/** A per-pass assertion that fails once the counter crosses its threshold (severity is a parameter
+  * for the policy tests): boot(1) + wait(1) per pass, checked on the wait cycle. The first failure
+  * fires at cycle 6 (cnt = 3) and every second cycle after.
+  */
+class CountAssertProc(severity: Severity = Severity.Error) extends RTDesign:
+  val cnt = UInt(8) <> OUT.REG init 0
+  process:
+    cnt.din := cnt + 1
+    1.cy.wait
+    assert(cnt < 3, s"cnt reached $cnt", severity)
+
+/** A concurrent (design-body) assertion: checked on every cycle under its own condition only,
+  * alongside body register logic.
+  */
+class BodyAssertDesign extends RTDesign:
+  val cnt = UInt(8) <> OUT.REG init 0
+  cnt.din := cnt + 1
+  assert(cnt < 5, s"cnt reached $cnt", Severity.Warning)
+
+/** Three constant-false `while` parks and then `finish()`, fused into the third park's exit path
+  * (the run ends during cycle 3, one cycle per skipped loop).
+  */
+class FinishProc extends RTDesign:
+  val F: Boolean <> CONST = false
+  process:
+    while (F) {}
+    while (F) {}
+    while (F) {}
+    finish()
+
+/** Debug output inside a process: the design path, the source position, and `name = value` lines.
+  * Period 2: wait(2) - debug - increment - wrap.
+  */
+class DebugProc extends RTDesign:
+  val a = UInt(8) <> OUT.REG init 3
+  process:
+    2.cy.wait
+    debug(a)
+    a.din := a + 1

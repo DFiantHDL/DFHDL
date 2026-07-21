@@ -61,6 +61,28 @@ object Interpreter:
       end while
     end run
 
+    def runWatch(sig: Array[Long], cycles: Long, watch: Int): Long =
+      val regOut = this.regOut
+      val regNext = this.regNext
+      val regCount = regOut.length
+      var cyc = 0L
+      var fired = false
+      while cyc < cycles && !fired do
+        settle(sig)
+        var r = 0
+        while r < regCount do
+          commitTmp(r) = sig(regNext(r))
+          r += 1
+        r = 0
+        while r < regCount do
+          sig(regOut(r)) = commitTmp(r)
+          r += 1
+        cyc += 1
+        if sig(watch) != 0L then fired = true
+      end while
+      cyc
+    end runWatch
+
     def stepDirty(sig: Array[Long]): Boolean =
       settle(sig)
       val regOut = this.regOut

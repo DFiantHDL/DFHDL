@@ -201,6 +201,13 @@ final class Netlist:
   /** Placeholder for a value not yet known (forward reference); patch with [[patchMov]]. */
   def mov(w: Int): Int = newNode(Op.MOV, w)
 
+  /** A combinational snapshot of a register read: text-output actions fire after their cycle
+    * commits, so register operands pass through a MOV whose swept value survives the commit.
+    * Non-register nodes are already sweep-computed and pass through unchanged.
+    */
+  def snap(a: Int): Int =
+    if opcodes(a) == Op.REG then newNode(Op.MOV, widths(a), a) else a
+
   def patchMov(movId: Int, srcId: Int): Unit =
     require(opcodes(movId) == Op.MOV && inA(movId) == -1, s"node $movId is not an unpatched MOV")
     require(widths(movId) == widths(srcId), "width mismatch on MOV patch")

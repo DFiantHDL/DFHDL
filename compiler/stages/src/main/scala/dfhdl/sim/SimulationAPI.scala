@@ -27,11 +27,23 @@ final class Simulation[D <: Design] private[sim] (
     // staged-oracle harnesses run compiler stages here). The typed surface is unaffected —
     // member-path and type resolution still go through the design's frontend objects, whose
     // names the stages keep.
-    dbTransform: ir.DB => ir.DB = identity
+    dbTransform: ir.DB => ir.DB = identity,
+    policy: SeverityPolicy = SeverityPolicy()
 ):
-  def withTier(tier: SimTier): Simulation[D] = new Simulation(dsn, block, tier, seed, dbTransform)
+  def withTier(tier: SimTier): Simulation[D] =
+    new Simulation(dsn, block, tier, seed, dbTransform, policy)
   // seed is carried for API completeness; randomization support lands later
-  def withSeed(seed: Long): Simulation[D] = new Simulation(dsn, block, tier, seed, dbTransform)
+  def withSeed(seed: Long): Simulation[D] =
+    new Simulation(dsn, block, tier, seed, dbTransform, policy)
+
+  /** Configure what a `Warning`/`Error` report or failed assertion does to the run (see
+    * [[SeverityAction]]). `Fatal` always finishes the run, like `$fatal` / VHDL `failure`.
+    */
+  def withSeverityPolicy(
+      warning: SeverityAction = policy.warning,
+      error: SeverityAction = policy.error
+  ): Simulation[D] =
+    new Simulation(dsn, block, tier, seed, dbTransform, SeverityPolicy(warning, error))
 
   private def newRun[R <: SimulationRun[D]](
       mk: (
@@ -44,9 +56,11 @@ final class Simulation[D <: Design] private[sim] (
       limit: Long
   ): R =
     val raw = DFacsimile.simulate(dbTransform(dsn.getDB), tier)
+    raw.severityPolicy = policy
     val r = mk(dsn, raw, memberPath, concretize, block)
     r.start(limit)
     r
+  end newRun
 
   /** Execute the simulation on the calling flow: fresh state per run; the host block runs as the
     * main process (on a managed worker thread, so a cycle-limit can pause it). Returns once the run
@@ -122,6 +136,20 @@ final class Simulation[D <: Design] private[sim] (
     }.headOption.getOrElse(name)
 end Simulation
 
+/** What the simulation does when a `Warning`/`Error` report or failed assertion fires: keep running
+  * (the default, matching HDL simulators — the message is emitted and counted), pause the run
+  * (resumable with `continue`, status `Paused(Warning | Error)`), or finish it (terminal, status
+  * `Finished(Warning | Error)`). `Info` always continues; `Fatal` always finishes.
+  */
+enum SeverityAction derives CanEqual:
+  case Continue, Pause, Finish
+
+/** The per-severity [[SeverityAction]] configuration of a [[Simulation]]. */
+private[sim] final case class SeverityPolicy(
+    warning: SeverityAction = SeverityAction.Continue,
+    error: SeverityAction = SeverityAction.Continue
+)
+
 /** Why a simulation run is paused. A paused run holds its full context and can be continued. */
 enum PausedReason derives CanEqual:
   /** an explicit external `pause()` request (background runs) */
@@ -130,27 +158,30 @@ enum PausedReason derives CanEqual:
   /** the granted cycle budget (the `run`/`continue` limit) was exhausted */
   case Limit
 
-  /** an assertion error occurred, configured to pause (lands with assertion support) */
+  /** an error report/assertion fired under a severity policy configured to pause */
   case Error
 
-  /** an assertion warning occurred, configured to pause (lands with assertion support) */
+  /** a warning report/assertion fired under a severity policy configured to pause */
   case Warning
 
 /** Why a simulation run finished. A finished run is terminal — it cannot be continued. */
 enum FinishedReason derives CanEqual:
-  /** the host block (and, later, all forked processes) ran to completion */
+  /** the host block (and, later, all forked processes) ran to completion — or, for a block-less run
+    * of a closed (port-less) design, event starvation: the design reached a state fixpoint with no
+    * pending waits and no output, so nothing can ever happen again
+    */
   case MainDone
 
-  /** a `finish` statement was reached (lands with assertion/process support) */
+  /** a `finish` statement was reached */
   case Finish
 
-  /** a fatal assertion fired (lands with assertion support) */
+  /** a fatal report/assertion fired */
   case Fatal
 
-  /** an assertion error occurred, configured to terminate (lands with assertion support) */
+  /** an error report/assertion fired under a severity policy configured to finish */
   case Error
 
-  /** an assertion warning occurred, configured to terminate (lands with assertion support) */
+  /** a warning report/assertion fired under a severity policy configured to finish */
   case Warning
 
   /** the host block died with an exception (rethrown by foreground `run`/`continue` and by
@@ -164,6 +195,12 @@ enum RunStatus derives CanEqual:
   case Running
   case Paused(reason: PausedReason)
   case Finished(reason: FinishedReason)
+
+/** Control-flow unwind of the host block when the simulation ends from within a `step` — a `finish`
+  * statement, a fatal report/assertion, or a severity policy configured to finish.
+  */
+private final class SimFinishedControl(val status: RunStatus)
+    extends scala.util.control.ControlThrowable
 
 /** The live context of one simulation execution: the state, the elapsed cycle count, and the
   * lifecycle status. This is the run-closure of locked decision 9 in object form — everything a
@@ -226,11 +263,7 @@ class SimulationRun[D <: Design] private[sim] (
     if !hasWorker then // block-less: imperative driving on the calling flow
       if limit == Long.MaxValue then
         throw new IllegalArgumentException("a block-less simulation run requires a finite limit")
-      raw.step(limit)
-      lock.synchronized {
-        cyclesVar += limit
-        statusVar = Paused(PausedReason.Limit)
-      }
+      blocklessAdvance(limit)
     else if continueSync then
       awaitNotRunning()
       rethrowHostError()
@@ -256,9 +289,39 @@ class SimulationRun[D <: Design] private[sim] (
     case Running => true
     case _       => false
 
+  private def isPausedLocked: Boolean = statusVar match
+    case Paused(_) => true
+    case _         => false
+
   private def isFinishedLocked: Boolean = statusVar match
     case Finished(_) => true
     case _           => false
+
+  private def stopStatus(stop: SimStop): RunStatus = stop match
+    case SimStop.Finish              => Finished(FinishedReason.Finish)
+    case SimStop.Fatal               => Finished(FinishedReason.Fatal)
+    case SimStop.SevFinish(severity) =>
+      Finished(severity match
+        case ir.TextOut.Severity.Warning => FinishedReason.Warning
+        case _                           => FinishedReason.Error)
+    case SimStop.SevPause(severity) =>
+      Paused(severity match
+        case ir.TextOut.Severity.Warning => PausedReason.Warning
+        case _                           => PausedReason.Error)
+
+  /** Block-less advance on the calling flow: consumes up to `limit` cycles and maps the raw
+    * engine's outcome to the run status — a text-output stop (finish/fatal/severity policy), event
+    * starvation of a closed design, or the exhausted budget.
+    */
+  private def blocklessAdvance(limit: Long): Unit =
+    val consumed = raw.step(limit)
+    lock.synchronized {
+      cyclesVar += consumed
+      statusVar = raw.stopCause match
+        case Some(stop)          => stopStatus(stop)
+        case None if raw.starved => Finished(FinishedReason.MainDone)
+        case None                => Paused(PausedReason.Limit)
+    }
 
   private def awaitNotRunning(): Unit =
     lock.synchronized { while isRunningLocked do lock.wait() }
@@ -281,12 +344,7 @@ class SimulationRun[D <: Design] private[sim] (
         awaitNotRunning()
         rethrowHostError()
     case None => // block-less: start paused; drive via continue(limit)/inspect
-      if limit != Long.MaxValue && limit > 0 then
-        raw.step(limit)
-        lock.synchronized {
-          cyclesVar += limit
-          statusVar = Paused(PausedReason.Limit)
-        }
+      if limit != Long.MaxValue && limit > 0 then blocklessAdvance(limit)
       else lock.synchronized { statusVar = Paused(PausedReason.Limit) }
 
   private def runBlock(block: DFCG ?=> SimCtx ?=> D => Unit): Unit =
@@ -294,7 +352,9 @@ class SimulationRun[D <: Design] private[sim] (
       try
         block(using DFCG())(using makeCtx())(dsn)
         (Finished(FinishedReason.MainDone), None)
-      catch case e: Throwable => (Finished(FinishedReason.HostError), Some(e))
+      catch
+        case e: SimFinishedControl => (e.status, None)
+        case e: Throwable          => (Finished(FinishedReason.HostError), Some(e))
     lock.synchronized {
       hostError = error
       statusVar = endStatus
@@ -322,12 +382,24 @@ class SimulationRun[D <: Design] private[sim] (
           lock.wait()
         math.min(sliceSize, math.min(remaining, budget))
       }
-      raw.step(slice)
+      val consumed = raw.step(slice)
       lock.synchronized {
-        cyclesVar += slice
-        if budget != Long.MaxValue then budget -= slice
+        cyclesVar += consumed
+        if budget != Long.MaxValue then budget -= consumed
       }
-      remaining -= slice
+      remaining -= consumed
+      raw.stopCause match
+        case Some(stop @ SimStop.SevPause(_)) =>
+          // a severity policy configured to pause: park here (mid-`step`) until continued
+          lock.synchronized {
+            statusVar = stopStatus(stop)
+            lock.notifyAll()
+            while isPausedLocked do lock.wait()
+          }
+        case Some(stop) =>
+          // finish, fatal, or a severity policy configured to finish: unwind the host block
+          throw new SimFinishedControl(stopStatus(stop))
+        case None => ()
     end while
   end blockStep
 

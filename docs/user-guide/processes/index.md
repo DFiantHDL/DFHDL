@@ -94,13 +94,13 @@ process:
   while (false) {}                 // one cycle to enter and skip each loop
   while (false) {}
   while (false) {}
-  finish()                         // finishes at cycle 4
+  finish()                         // fires within the third cycle (fused into the last skip)
 
 process:
   while (false) { FALL_THROUGH }   // each loop is skipped with zero cycles
   while (false) { FALL_THROUGH }
   while (false) { FALL_THROUGH }
-  finish()                         // finishes at cycle 1
+  finish()                         // fires within the first cycle
 ```
 
 **Rule 3: control flow fuses into the first time-consuming construct it reaches.**

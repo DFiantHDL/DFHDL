@@ -10,6 +10,14 @@ trait SimKernel:
   /** Advance the simulation by `cycles` clock cycles over the given signal/state array. */
   def run(sig: Array[Long], cycles: Long): Unit
 
+  /** Advance up to `cycles` clock cycles, stopping after any cycle whose settled `watch` value is
+    * nonzero (that cycle still commits — the caller observes the fired cycle's swept values, which
+    * survive the commit in the signal array). Returns the number of cycles consumed. This is the
+    * text-output hook: the watch node aggregates all action guards, so a bulk run costs a single
+    * signal read per cycle when nothing fires.
+    */
+  def runWatch(sig: Array[Long], cycles: Long, watch: Int): Long
+
   /** Evaluate the combinational sweep only, without committing registers — the settle-on-peek
     * primitive: observers always read combinationally settled state.
     */
