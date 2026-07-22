@@ -115,11 +115,15 @@ object Verilator extends VerilogLinter, VerilogSimulator:
         //  - Windows: the DLL is linked by full path and found at run time via PATH (DLL-name search),
         //    so the baked-in path is harmless (and `-l:` is a GNU-ld-ism).
         //  - macOS: Apple ld has no `-l:`, so keep the full-path form.
-        val linkLib =
-          if (isToolInWindows) s"../$dir/$lib"
-          else if (usesDFTools || osIsLinux) s"-L../$dir -l:$lib"
-          else s"../$dir/$lib"
-        s"""-LDFLAGS "$linkLib -Wl,-rpath,$dir""""
+        val linkTokens =
+          if (isToolInWindows) List(s"../$dir/$lib")
+          else if (usesDFTools || osIsLinux) List(s"-L../$dir", s"-l:$lib")
+          else List(s"../$dir/$lib")
+        // Each linker token gets its own `-LDFLAGS`. The constructed command is later tokenized on
+        // spaces, so a single `-LDFLAGS "a b c"` would be split apart and verilator would reject the
+        // inner tokens as unknown top-level options. Verilator concatenates repeated `-LDFLAGS` in
+        // order, so the linker still receives `-L.. -l:.. -Wl,-rpath,..` as one group.
+        (linkTokens :+ s"-Wl,-rpath,$dir").map(t => s"-LDFLAGS $t").mkString(" ")
       }*
     )
 
