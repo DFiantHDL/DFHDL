@@ -42,7 +42,7 @@ jobs:
           node-version: '22'
       - name: Install npm packages
         run: |
-          npm install elkjs @svgdotjs/svg.js svgdom
+          npm install elkjs @svgdotjs/svg.js svgdom@0.1.23
       - name: Build
         run: |
           python -m pip install --upgrade pip 

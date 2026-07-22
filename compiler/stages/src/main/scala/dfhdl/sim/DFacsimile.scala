@@ -1804,7 +1804,7 @@ private final class Builder(rawDB: DB):
       private val top: List[DFMember] = childrenOf.getOrElse(pb, Vector.empty).toList
       private val needsBoot = procBootNeeded(pb)
 
-      private enum PCont:
+      private enum PCont derives CanEqual:
         case SeqC(rest: List[DFMember], outer: PCont)
         case LoopBack(loop: DFLoop.Block, outer: PCont)
         case Wrap
