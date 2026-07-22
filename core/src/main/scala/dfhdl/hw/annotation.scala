@@ -251,12 +251,15 @@ object constraints:
         export Active.Low as low
         export Active.High as high
 
-    final case class related(domainContainer: RTDomainContainer)(using DFC) extends Constraint:
+    final case class related(domainContainer: RTDomainContainer, includeReset: Boolean = true)(using
+        DFC
+    ) extends Constraint:
       val asIR: ir.constraints.Timing.Related =
         ir.constraints.Timing.Related(
           domainContainer.containedOwner.asIR
             .asInstanceOf[ir.DomainBlock | ir.DFDesignBlock]
-            .refTW[ir.DomainBlock]
+            .refTW[ir.DomainBlock],
+          includeReset
         )
   end timing
 end constraints

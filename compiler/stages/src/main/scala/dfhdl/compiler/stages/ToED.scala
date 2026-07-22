@@ -100,10 +100,11 @@ case object ToED extends HierarchyStage:
               timingOwner.meta.annotations.collectFirst {
                 case c: constraints.Timing.Clock => c
               }
+            // The reset is resolved through the `@timing.related` chain honoring `includeReset`:
+            // a related link that excludes the reset yields None here, so no reset branch is
+            // generated and the registers keep their init values (see the second-pass patch).
             val rstAnnotOpt: Option[constraints.Timing.Reset] =
-              timingOwner.meta.annotations.collectFirst {
-                case r: constraints.Timing.Reset => r
-              }
+              domainOwner.resolvedRstAnnot
             // Note: a purely combinational RT owner has no clk/rst annotations after relaxation;
             // we still process it (the original ToED falls into the same branch via `Config(cfg)`
             // even when `clkCfg = None && rstCfg = None`) so single-assignment promotion to
@@ -411,14 +412,17 @@ case object ToED extends HierarchyStage:
           // if the domain has no reset, then the register init is preserved for the signal
           // as a startup reset value. The annotation channel encodes "no reset" as
           // an owner that has `@timing.clock` but no `@timing.reset` (the user-explicit
-          // no-reset opt-out implemented in `getResolvedClkRst`).
+          // no-reset opt-out implemented in `getResolvedClkRst`). A `@timing.related` link
+          // with `includeReset = false` is the other "no reset" source: the clock is still
+          // resolved through the chain, but `resolvedRstAnnot` severs the reset, so the init
+          // is likewise kept.
           val ownerDomain = dcl.getOwnerDomain
           val timingOwner = resolveTimingOwner(ownerDomain)
-          val annots = timingOwner.meta.annotations
           val hasClkAnnot =
-            annots.exists { case _: constraints.Timing.Clock => true; case _ => false }
-          val hasRstAnnot =
-            annots.exists { case _: constraints.Timing.Reset => true; case _ => false }
+            timingOwner.meta.annotations.exists {
+              case _: constraints.Timing.Clock => true; case _ => false
+            }
+          val hasRstAnnot = ownerDomain.resolvedRstAnnot.isDefined
           val updatedInitRefList =
             if (hasClkAnnot && !hasRstAnnot) dcl.initRefList else Nil
           val updatedDcl =

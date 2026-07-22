@@ -874,6 +874,39 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("Domain related with includeReset = false") {
+    @hw.constraints.timing.reset()
+    class IDWithDomains extends DFDesign:
+      val y    = SInt(16) <> OUT
+      val fast = new RTDomain:
+        val pr = SInt(16) <> VAR init 0
+        pr := pr.reg + 1
+      @hw.constraints.timing.related(fast, includeReset = false)
+      val related = new RTDomain:
+        val x = SInt(16) <> VAR.REG init 0
+        x.din := 1
+      y := fast.pr + related.x
+    end IDWithDomains
+    val id = (new IDWithDomains)
+    assertCodeString(
+      id,
+      """|@timing.reset()
+         |class IDWithDomains extends DFDesign:
+         |  val y = SInt(16) <> OUT
+         |  val fast = new RTDomain:
+         |    val pr = SInt(16) <> VAR init sd"16'0"
+         |    pr := pr.reg + sd"16'1"
+         |  end fast
+         |  @timing.related(fast, includeReset = false)
+         |  val related = new RTDomain:
+         |    val x = SInt(16) <> VAR.REG init sd"16'0"
+         |    x.din := sd"16'1"
+         |  end related
+         |  y := fast.pr + related.x
+         |end IDWithDomains
+         |""".stripMargin
+    )
+  }
   test("Basic hierarchy with domains") {
     class IDTop extends EDDesign:
       val x    = SInt(16) <> IN

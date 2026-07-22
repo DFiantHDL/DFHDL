@@ -657,6 +657,45 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("related domain with includeReset = false relies on init instead of reset") {
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class ID extends RTDesign:
+      self =>
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+      @hw.constraints.timing.related(self, includeReset = false)
+      val foo = new RTDomain:
+        val z = SInt(16) <> OUT.REG init 0
+        z.din := x
+      y.din := x
+    end ID
+    val id = (new ID).toED
+    assertCodeString(
+      id,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val foo = new EDDomain:
+         |    val z = SInt(16) <> OUT init sd"16'0"
+         |    process(clk):
+         |      if (clk.actual.rising) z :== x
+         |  end foo
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) y :== sd"16'0"
+         |      else y :== x
+         |    end if
+         |end ID
+         |""".stripMargin
+    )
+  }
   test("register file example") {
     class RegFile(
         val DATA_WIDTH: Int <> CONST = 32,

@@ -426,16 +426,24 @@ object constraints:
     object Reset:
       export RstCfg.{Mode, Active}
 
-    final case class Related(ref: Related.Ref) extends Constraint derives CanEqual, ReadWriter:
+    /** Marks this domain as timing-related to the domain referenced by `ref` (sharing its clock, so
+      * no clk/rst ports are added for it). `includeReset` controls whether the related domain also
+      * shares the target's reset: when `false`, the domain has no reset and its registers/memories
+      * rely on their initial values instead of being driven from a reset-initialization block.
+      */
+    final case class Related(ref: Related.Ref, includeReset: Boolean = true)
+        extends Constraint derives CanEqual, ReadWriter:
       protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean =
         that match
-          case Related(thatRef) => ref =~ thatRef
-          case _                => false
+          case Related(thatRef, thatIncludeReset) =>
+            ref =~ thatRef && includeReset == thatIncludeReset
+          case _ => false
       lazy val getRefs: List[DFRef.TwoWayAny] = List(ref)
       def copyWithNewRefs(using RefGen): this.type =
-        Related(ref.copyAsNewRef).asInstanceOf[this.type]
+        Related(ref.copyAsNewRef, includeReset).asInstanceOf[this.type]
       def codeString(using Printer): String =
-        s"""@timing.related(${ref.refCodeString})"""
+        val extraArgs = if (includeReset) "" else ", includeReset = false"
+        s"""@timing.related(${ref.refCodeString}$extraArgs)"""
     end Related
     object Related:
       type Ref = DFRef.TwoWay[DomainBlock | DFDesignBlock, DomainBlock]

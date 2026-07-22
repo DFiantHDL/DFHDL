@@ -11,29 +11,35 @@ extension (pb: ProcessBlock)
       case Sensitivity.Initial => true
       case _                   => false
 
+extension (domainOwner: DFDomainOwner)(using MemberGetSet)
+  // The resolved `@timing.reset` for this domain: walk the `@timing.related` chain (written by
+  // `ExplicitClkRstCfg`) to the timing owner and read its resolved `@timing.reset` annotation.
+  // A related link with `includeReset = false` severs the reset: the domain has no reset and
+  // its registers/memories rely on their initial values instead of a reset-initialization
+  // block. Note the clock relation is unaffected (resolved by a separate full-chain walk).
+  def resolvedRstAnnot: Option[constraints.Timing.Reset] =
+    @tailrec def resolve(owner: DFDomainOwner): Option[constraints.Timing.Reset] =
+      owner.meta.annotations.collectFirst {
+        case rel: constraints.Timing.Related => rel
+      } match
+        case Some(rel) if !rel.includeReset => None
+        case Some(rel)                      => resolve(rel.ref.get)
+        case None                           =>
+          owner.meta.annotations.collectFirst { case rst: constraints.Timing.Reset => rst }
+    resolve(domainOwner)
+  end resolvedRstAnnot
+end extension
+
 extension (pb: ProcessBlock)(using MemberGetSet)
   def isSequential: Boolean =
     pb.sensitivity match
       case Sensitivity.All        => false
       case Sensitivity.Initial    => false
       case Sensitivity.List(refs) => true // TODO: fix this
-  // The resolved reset presence of the block's domain: walk the `@timing.related` chain to
-  // the timing owner and look for the resolved `@timing.reset` annotation (written by
-  // `ExplicitClkRstCfg`). Used by the initial-block lowering stages to decide between the
-  // `ToED` reset-branch path and declaration-init forms.
+  // The resolved reset presence of the block's domain. Used by the initial-block lowering
+  // stages to decide between the `ToED` reset-branch path and declaration-init forms.
   def hasResolvedRstCfg: Boolean =
-    @tailrec def resolveTimingOwner(owner: DFDomainOwner): DFDomainOwner =
-      val relatedTarget = owner.meta.annotations.collectFirst {
-        case rel: constraints.Timing.Related => rel.ref.get
-      }
-      relatedTarget match
-        case Some(target) => resolveTimingOwner(target)
-        case None         => owner
-    resolveTimingOwner(pb.getOwnerDomain).meta.annotations.exists {
-      case _: constraints.Timing.Reset => true
-      case _                           => false
-    }
-  end hasResolvedRstCfg
+    pb.getOwnerDomain.resolvedRstAnnot.isDefined
 end extension
 
 // The declarations assigned by the given block members, ordered by first assignment.
