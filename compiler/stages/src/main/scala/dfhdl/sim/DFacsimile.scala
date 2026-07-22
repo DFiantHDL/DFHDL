@@ -873,8 +873,18 @@ private final class Builder(rawDB: DB):
         case Some(Some(v)) => Some(v.toInt)
         case _             => None
       val res = f.op match
-        case FO.+         => args.map(rdAt(_, resW)).reduce(wide.add)
-        case FO.-         => args.map(rdAt(_, resW)).reduce(wide.sub)
+        case FO.+ => args.map(rdAt(_, resW)).reduce(wide.add)
+        case FO.- => args.map(rdAt(_, resW)).reduce(wide.sub)
+        // single-arg |/&/^ are bit reductions (Bits/UInt -> Bit), not binary ops
+        case FO.| if args.sizeIs == 1 =>
+          bool(wide.neqNode(rd(args.head), wide.zero(widthOf(args.head))))
+        case FO.& if args.sizeIs == 1 =>
+          bool(wide.eqNode(rd(args.head), wide.ones(widthOf(args.head))))
+        case FO.^ if args.sizeIs == 1 =>
+          // parity: xor the (64-bit-normalized) lanes together, then fold down to bit 0
+          var x = rd(args.head).lanes.map(nl.resize(_, 64)).reduce(nl.xor)
+          for sh <- List(32, 16, 8, 4, 2, 1) do x = nl.xor(x, nl.shr(x, sh))
+          bool(nl.resize(x, 1))
         case FO.^         => args.map(rdAt(_, resW)).reduce(wide.xor)
         case FO.&         => args.map(rdAt(_, resW)).reduce(wide.and)
         case FO.|         => args.map(rdAt(_, resW)).reduce(wide.or)

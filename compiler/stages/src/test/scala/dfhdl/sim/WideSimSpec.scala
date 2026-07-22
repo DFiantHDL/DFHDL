@@ -105,4 +105,24 @@ class WideSimSpec extends SimSpec:
       assertEquals(dut.squot.peek, sxV / syV)
       assertEquals(dut.srem.peek, sxV % syV)
     }.withTier(tier).run()
+
+  bothTiers("bit reductions (single-arg |/&/^)"): tier =>
+    (new ReduceDut).simulation { dut =>
+      // narrow (single-lane): zeros, a single set bit above bit 0, all ones, mixed parity
+      for xV <- List(b"0000", b"0100", b"1111", b"1011") do
+        dut.x.poke(xV)
+        assertEquals(dut.xOr.peek, xV.|, s"or-reduce of $xV")
+        assertEquals(dut.xAnd.peek, xV.&, s"and-reduce of $xV")
+        assertEquals(dut.xXor.peek, xV.^, s"xor-reduce of $xV")
+      // wide (multi-lane): zeros, one bit in the top lane only, all ones, mixed lanes
+      val wZeros: Bits[100] <> CONST = all(0)
+      val wOnes: Bits[100] <> CONST = all(1)
+      val wTop: Bits[100] <> CONST = h"1000000000000000000000000"
+      val wMix: Bits[100] <> CONST = h"A5A5DEADBEEF0123456789ABC"
+      for wV <- List(wZeros, wTop, wOnes, wMix) do
+        dut.w.poke(wV)
+        assertEquals(dut.wOr.peek, wV.|, s"or-reduce of $wV")
+        assertEquals(dut.wAnd.peek, wV.&, s"and-reduce of $wV")
+        assertEquals(dut.wXor.peek, wV.^, s"xor-reduce of $wV")
+    }.withTier(tier).run()
 end WideSimSpec

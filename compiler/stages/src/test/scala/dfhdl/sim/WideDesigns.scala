@@ -88,3 +88,23 @@ class ArithMiscDut extends RTDesign:
   srem := sx % sy
   rep := x.bits.repeat(3)
 end ArithMiscDut
+
+/** Bit-reduction DUT: single-arg |/&/^ (or/and/parity reductions to a single Bit) on a narrow
+  * single-lane vector and a wide multi-lane vector.
+  */
+class ReduceDut extends RTDesign:
+  val x = Bits(4) <> IN
+  val w = Bits(100) <> IN
+  val xOr = Bit <> OUT
+  val xAnd = Bit <> OUT
+  val xXor = Bit <> OUT
+  val wOr = Bit <> OUT
+  val wAnd = Bit <> OUT
+  val wXor = Bit <> OUT
+  xOr := x.|
+  xAnd := x.&
+  xXor := x.^
+  wOr := w.|
+  wAnd := w.&
+  wXor := w.^
+end ReduceDut
