@@ -42,6 +42,12 @@ object Op:
   // memory read — async: `inA` is the address node, `inB` holds the memory id (an immediate). The
   // one node input is the address, so this op is handled outside the arity grouping below.
   inline val MEMRD = 28
+  // combinational scratch array (a cell-wise combinational vector), sweep-local. Ops are version-
+  // threaded so the scheduler orders writes before same-sweep reads. All handled outside the arity
+  // grouping below.
+  inline val ANEW = 29 // clear the array to zero; `inB` = array id. Yields the version-0 token.
+  inline val ALOAD = 30 // `arr[inA]`; `inB` = array id, `inC` = version (ordering input)
+  inline val ASTORE = 31 // `arr[inA] = inB`; `inC` = version. Yields a new version token.
   // arity-group boundaries
   inline val unaryFirst = MOV
   inline val unaryLast = ROM
@@ -78,6 +84,10 @@ final class Netlist:
   private[sim] val memInit = mutable.ArrayBuffer.empty[Array[Long]]
   private[sim] val memWordW = mutable.ArrayBuffer.empty[Int]
   private[sim] val memWrites = mutable.ArrayBuffer.empty[MemWrite]
+  // combinational scratch arrays (cell-wise combinational vectors): depth per array, and the array
+  // id of each ASTORE node (its writes have no room for the id in the three input slots)
+  private[sim] val combDepth = mutable.ArrayBuffer.empty[Int]
+  private[sim] val storeArrId = mutable.HashMap.empty[Int, Int]
   private[sim] val regIds = mutable.ArrayBuffer.empty[Int]
   private[sim] val regNextIds = mutable.ArrayBuffer.empty[Int]
   // change tracking classification: untracked registers (e.g. wait counters) are excluded from
@@ -268,6 +278,30 @@ final class Netlist:
     require(mid >= 0 && mid < memCount, s"no memory $mid")
     memWrites += MemWrite(mid, addr, data, we, pos, mask & maskFor(memWordW(mid)))
 
+  def combCount: Int = combDepth.length
+
+  /** A new sweep-local combinational scratch array of `depth` cells; returns its id. */
+  def newCombArray(depth: Int): Int =
+    combDepth += depth
+    combDepth.length - 1
+
+  /** Clear-and-version-zero node for a comb array (its evaluation zeroes the backing array). */
+  def combNew(arrId: Int): Int =
+    require(arrId >= 0 && arrId < combCount, s"no comb array $arrId")
+    newNode(Op.ANEW, 1, b = arrId)
+
+  /** `arr[addr]` read (`version` orders it after the writes it must observe). */
+  def combLoad(arrId: Int, cellW: Int, addr: Int, version: Int): Int =
+    require(arrId >= 0 && arrId < combCount, s"no comb array $arrId")
+    newNode(Op.ALOAD, cellW, a = addr, b = arrId, c = version)
+
+  /** `arr[addr] = data` write on top of `version`; yields the new version token. */
+  def combStore(arrId: Int, addr: Int, data: Int, version: Int): Int =
+    require(arrId >= 0 && arrId < combCount, s"no comb array $arrId")
+    val id = newNode(Op.ASTORE, 1, a = addr, b = data, c = version)
+    storeArrId(id) = arrId
+    id
+
   /** Signal array with constants and register reset values pre-loaded. */
   def initialSig: Array[Long] =
     val sig = new Array[Long](nodeCount)
@@ -305,6 +339,9 @@ final class Netlist:
   private[sim] def nodeInputs(id: Int): List[Int] =
     val op = opcodes(id)
     if op == Op.MEMRD then List(inA(id)) // address is the only node input (inB is the memory id)
+    else if op == Op.ANEW then Nil // array clear; inB is the array id (immediate)
+    else if op == Op.ALOAD then List(inA(id), inC(id)) // addr, version (inB is the array id)
+    else if op == Op.ASTORE then List(inA(id), inB(id), inC(id)) // addr, data, version
     else if op >= Op.binaryFirst then
       if op <= Op.binaryLast then List(inA(id), inB(id))
       else List(inA(id), inB(id), inC(id)) // MUX

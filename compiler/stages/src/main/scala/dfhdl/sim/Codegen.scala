@@ -91,6 +91,7 @@ object Codegen:
     def isCombNode(id: Int): Boolean =
       nl.opcodes(id) != Op.REG && nl.opcodes(id) != Op.CONST
     val memDepth = nl.memInit.iterator.map(_.length).toVector
+    val combDepth = nl.combDepth.toVector
 
     // ---- width-typed emission --------------------------------------------------------------
     def isIntN(id: Int): Boolean = nl.widths(id) <= 32
@@ -299,6 +300,15 @@ object Codegen:
       val a = nl.inA(id)
       val b = nl.inB(id)
       val c = nl.inC(id)
+      // comb-array clear/store carry a side effect plus a dummy version token (never read for its
+      // value — the version input only orders the sweep, so it is not emitted)
+      if nl.opcodes(id) == Op.ANEW then
+        s"      java.util.Arrays.fill(CARR$b, 0L); int v$id = 0;" // b = array id (immediate)
+      else if nl.opcodes(id) == Op.ASTORE then
+        s"      CARR${nl.storeArrId(id)}[(int) (${rd(a, ci)})] = ${rd(b, ci)}; int v$id = 0;"
+      else emitValueOp(id, ci, w, a, b, c)
+
+    def emitValueOp(id: Int, ci: Int, w: Int, a: Int, b: Int, c: Int): String =
       val expr =
         if intMode(id) then
           val mI = hexI(nl.maskOf(id))
@@ -372,11 +382,13 @@ object Codegen:
             case Op.REV   => s"Long.reverse(${rd(a, ci)}) >>> ${64 - w}"
             case Op.MEMRD => // async read: b is the memory id, a the address (out-of-range reads 0)
               s"(${rd(a, ci)} < ${memDepth(b)}L ? MEM$b[(int) ${rd(a, ci)}] : 0L)"
+            case Op.ALOAD => // comb-array read: b = array id (immediate), a = address
+              s"(${rd(a, ci)} < ${combDepth(b)}L ? CARR$b[(int) ${rd(a, ci)}] : 0L)"
             case other => throw new IllegalStateException(s"bad opcode $other")
           if isIntN(id) then s"(int) ($longExpr)" else longExpr
       val store = if spill.contains(id) then s" f$id = v$id;" else ""
       s"      ${jt(id)} v$id = $expr;$store"
-    end emitOp
+    end emitValueOp
 
     // The commit target and its next value share a width by construction, so a register's
     // next value is read in the register's own storage type
@@ -404,6 +416,9 @@ object Codegen:
     // (the reset image is not embedded as a class literal — that would overflow the constant pool)
     for mid <- 0 until nl.memCount do
       sb ++= s"  private final long[] MEM$mid = new long[${memDepth(mid)}];\n"
+    // sweep-local combinational scratch arrays: cleared each sweep by ANEW, never synced to sig
+    for aid <- 0 until nl.combCount do
+      sb ++= s"  private final long[] CARR$aid = new long[${combDepth(aid)}];\n"
     if chiSize > 0 then
       // static state is per-kernel-safe: every compile() call generates a distinct class in its
       // own class loader, so one kernel instance never shares CHI with another

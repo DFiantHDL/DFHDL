@@ -69,4 +69,20 @@ class CompositeSimSpec extends SimSpec:
       dut.raddr.poke(5)
       assertEquals(dut.rdata.peek, h"00000000") // untouched word stays at its zero init
     }.withTier(tier).run()
+
+  bothTiers("combinational cell-wise wire vector: dynamic write over a seed, dynamic read"): tier =>
+    (new CombVecDut).simulation { dut =>
+      dut.defv.poke(d"12'100")
+      dut.wdata.poke(d"12'4095")
+      dut.widx.poke(3)
+      for r <- 0 until 8 do
+        dut.ridx.poke(r)
+        assertEquals(dut.rdata.peek, if r == 3 then d"12'4095" else d"12'100", s"read cell $r")
+      // move the written cell: cell 3 falls back to the seed, cell 5 now holds wdata
+      dut.widx.poke(5)
+      dut.ridx.poke(3)
+      assertEquals(dut.rdata.peek, d"12'100")
+      dut.ridx.poke(5)
+      assertEquals(dut.rdata.peek, d"12'4095")
+    }.withTier(tier).run()
 end CompositeSimSpec

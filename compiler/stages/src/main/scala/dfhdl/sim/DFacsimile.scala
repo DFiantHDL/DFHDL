@@ -107,6 +107,15 @@ private[sim] final case class ProcMeta(segReg: Int, timers: Map[Long, WaitTimerM
   */
 private[sim] final case class MemHandle(mid: Int, depth: Int, cellW: Int)
 
+/** The simulator representation chosen for a `DFVector` Dcl from its access pattern + storage class:
+  * a persistent RAM (register, cell writes), a sweep-local combinational scratch array (wire), or
+  * the general packed-bits wide model. Const vectors lower to a ROM at their use site, not here.
+  */
+private[sim] enum VecRepr derives CanEqual:
+  case Ram(depth: Int, cellW: Int)
+  case CombArray(depth: Int, cellW: Int)
+  case Wide
+
 /** Why [[Sim.step]] stopped before exhausting its cycle budget. `Finish`, `Fatal`, and `SevFinish`
   * are terminal (further stepping consumes nothing); `SevPause` clears on the next step.
   */
@@ -465,6 +474,10 @@ private final class Builder(rawDB: DB):
     // memory Dcls (a `DFVector` register accessed only cell-wise): lowered to a memory node
     // (O(1) read/write) instead of a wide register + barrel-shift decomposition
     private val memOf = mutable.Map.empty[DFVal.Dcl, MemHandle]
+    // cell-wise combinational wire vectors: a sweep-local scratch array (arrId, depth, cellW), plus
+    // the current version node threaded through the body walk (writes advance it; reads use it)
+    private val combOf = mutable.Map.empty[DFVal.Dcl, MemHandle]
+    private val combVer = mutable.Map.empty[DFVal.Dcl, Int]
     // sequential current-value: wires = current driven value; REG dcls = pending din
     private val env = mutable.Map.empty[DFVal.Dcl, WV]
     private val partialDrivers = mutable.Map.empty[DFVal.Dcl, mutable.ArrayBuffer[(Int, Int, WV)]]
@@ -599,16 +612,16 @@ private final class Builder(rawDB: DB):
               case Some(initRef) => regInitBits(initRef.get, w)
               case None          => BitVector.low(w)
           }
-          memoryHandleOf(dcl) match
-            case Some(mh) =>
+          vecRepr(dcl) match
+            case VecRepr.Ram(depth, cellW) =>
               // cell i packs at bits [(depth-1-i)*cellW, +cellW) of the wide value (cell 0 at the
               // MSBs), so word i is that field of the init bits — LSB-aligned, matching MEMRD.
-              val cells = Array.tabulate(mh.depth)(i =>
-                init.bitsWL(mh.cellW, (mh.depth - 1 - i) * mh.cellW).toLong(signed = false)
+              val cells = Array.tabulate(depth)(i =>
+                init.bitsWL(cellW, (depth - 1 - i) * cellW).toLong(signed = false)
               )
-              val mid = nl.newMem(mh.depth, mh.cellW, cells)
-              memOf(dcl) = mh.copy(mid = mid)
-            case None => regNodeOf(dcl) = wide.reg(w, init)
+              val mid = nl.newMem(depth, cellW, cells)
+              memOf(dcl) = MemHandle(mid, depth, cellW)
+            case _ => regNodeOf(dcl) = wide.reg(w, init)
         case dcl: DFVal.Dcl =>
           dcl.modifier.dir match
             case DFVal.Modifier.Dir.IN =>
@@ -625,7 +638,15 @@ private final class Builder(rawDB: DB):
                     env(dcl) = wide.const(widthOf(dcl), BitVector.low(widthOf(dcl)))
                   case _ =>
                     inPortMov(dcl) = wide.mov(widthOf(dcl))
-            case _ => // wires/OUT ports bind at their driving net
+            case _ =>
+              vecRepr(dcl) match
+                case VecRepr.CombArray(depth, cellW) =>
+                  // a cell-wise combinational wire vector: a sweep-local scratch array. Its version
+                  // starts at ANEW (which clears the array each sweep) and threads through the walk.
+                  val aid = nl.newCombArray(depth)
+                  combOf(dcl) = MemHandle(aid, depth, cellW)
+                  combVer(dcl) = nl.combNew(aid)
+                case _ => () // wires/OUT ports bind at their driving net
         case _ =>
       }
       // globals closure of this sub-DB (constants incl. ROM data)
@@ -682,9 +703,15 @@ private final class Builder(rawDB: DB):
     private def unrollCombFor(fb: DFLoop.DFForBlock): Unit =
       val iter = fb.iteratorRef.get
       val body = childrenOf.getOrElse(fb, Vector.empty)
+      // values read inside the body depend on the iterator, so their cached lowering (e.g. the
+      // index of `v(i)`) must not leak across iterations — drop this iteration's cache entries so
+      // the next iteration rebuilds them against the new iterator binding
+      val cache = if procOverlay ne null then procOverlay else nodeOf
       for i <- combForRange(fb) do
         env(iter) = wide.const(widthOf(iter), BitVector.fromLong(i, widthOf(iter)))
+        val before = cache.keySet.toSet
         processMembers(body)
+        cache --= cache.keySet.diff(before).toVector
       env.remove(iter)
 
     private def combForRange(fb: DFLoop.DFForBlock): Seq[Long] =
@@ -994,6 +1021,9 @@ private final class Builder(rawDB: DB):
         case dcl: DFVal.Dcl if memOf.contains(dcl) => // async memory cell read
           val mh = memOf(dcl)
           WV(Vector(nl.memRead(mh.mid, memAddrNode(a.relIdx.get))), mh.cellW)
+        case dcl: DFVal.Dcl if combOf.contains(dcl) => // comb-array cell read at the current version
+          val ch = combOf(dcl)
+          WV(Vector(nl.combLoad(ch.mid, ch.cellW, memAddrNode(a.relIdx.get), combVer(dcl))), ch.cellW)
         case _ => buildApplyIdxNonMem(a, rel)
 
     private def buildApplyIdxNonMem(a: DFVal.Alias.ApplyIdx, rel: DFVal): WV =
@@ -1078,12 +1108,13 @@ private final class Builder(rawDB: DB):
 
     // ---- memories -------------------------------------------------------------------------
 
-    /** A `DFVector` register the design accesses only cell-wise (every referrer is an `ApplyIdx`
-      * into it) with a <= 64-bit cell — the RAM pattern, lowered to a memory node (O(1) read/write).
-      * A whole-vector read/write/connection, a wide cell, or a multi-dim vector stays a wide
-      * register (the general model), so no design regresses.
+    /** Choose the simulator representation of a `DFVector` Dcl from its access pattern and storage
+      * class. When every referrer is an `ApplyIdx` into it (cell-wise) and the cell is <= 64 bits,
+      * a register lowers to a persistent RAM (a memory node, O(1) read/write) and a combinational
+      * wire to a sweep-local scratch array. A whole-vector read/write/connection, a wide cell, or a
+      * multi-dim vector stays the wide packed-bits model, so no design regresses.
       */
-    private def memoryHandleOf(dcl: DFVal.Dcl): Option[MemHandle] =
+    private def vecRepr(dcl: DFVal.Dcl): VecRepr =
       dcl.dfType match
         case vt: DFVector if vt.cellDimParamRefs.sizeIs == 1 =>
           val cellW = widthOfType(vt.cellType, dcl)
@@ -1092,40 +1123,59 @@ private final class Builder(rawDB: DB):
             case ai: DFVal.Alias.ApplyIdx => ai.relValRef.get eq dcl
             case _                        => false
           }
-          if cellW <= 64 && depth >= 1 && cellWise then Some(MemHandle(-1, depth, cellW))
-          else None
-        case _ => None
+          if cellW <= 64 && depth >= 1 && cellWise then
+            if dcl.modifier.isReg then VecRepr.Ram(depth, cellW)
+            else if dcl.modifier.dir == DFVal.Modifier.Dir.VAR then VecRepr.CombArray(depth, cellW)
+            else VecRepr.Wide // an OUT-port vector stays wide
+          else VecRepr.Wide
+        case _ => VecRepr.Wide
 
     /** The cell index of a memory access as one address node (indices fit 32 bits). */
     private def memAddrNode(idx: DFVal): Int =
       wide.bitField(readWV(idx), 0, math.min(32, widthOf(idx)))
 
-    /** Resolve a write-view alias chain that targets a memory cell to its (handle, address node,
-      * static bit position within the cell). None if the write does not target a memory Dcl.
+    /** Resolve a write-view alias chain that targets a memory or comb-array cell to its (Dcl,
+      * address node, static bit position within the cell). None if the write does not target a
+      * memory/comb-array Dcl; the caller dispatches on which map holds the Dcl.
       */
-    private def memWriteTarget(v: DFVal, net: DFNet): Option[(MemHandle, Int, Int)] = v match
+    private def cellWriteTarget(v: DFVal, net: DFNet): Option[(DFVal.Dcl, Int, Int)] = v match
       case ai: DFVal.Alias.ApplyIdx =>
         ai.relValRef.get match
-          case dcl: DFVal.Dcl if memOf.contains(dcl) =>
-            Some((memOf(dcl), memAddrNode(ai.relIdx.get), 0)) // cell address; pos filled by callers
+          case dcl: DFVal.Dcl if memOf.contains(dcl) || combOf.contains(dcl) =>
+            Some((dcl, memAddrNode(ai.relIdx.get), 0)) // cell address; pos filled by callers
           case _ => // a bit index within a cell: recurse and add the static bit position
-            memWriteTarget(ai.relValRef.get, net).map { (mh, addr, lo0) =>
+            cellWriteTarget(ai.relValRef.get, net).map { (dcl, addr, lo0) =>
               val bit = constIdxOpt(ai.relIdx.get)
                 .getOrElse(unsupported("dynamic bit index in a memory write", net))
-              (mh, addr, lo0 + bit)
+              (dcl, addr, lo0 + bit)
             }
       case ar: DFVal.Alias.ApplyRange =>
-        memWriteTarget(ar.relValRef.get, net).map { (mh, addr, lo0) =>
+        cellWriteTarget(ar.relValRef.get, net).map { (dcl, addr, lo0) =>
           val lo = ar.idxLowRef.getIntOpt.getOrElse(unsupported("non-constant range", net))
-          (mh, addr, lo0 + lo)
+          (dcl, addr, lo0 + lo)
         }
       case sf: DFVal.Alias.SelectField =>
-        memWriteTarget(sf.relValRef.get, net).map { (mh, addr, lo0) =>
+        cellWriteTarget(sf.relValRef.get, net).map { (dcl, addr, lo0) =>
           sf.relValRef.get.dfType match
-            case st: DFStruct => (mh, addr, lo0 + st.fieldRelBitLow(sf.fieldName))
+            case st: DFStruct => (dcl, addr, lo0 + st.fieldRelBitLow(sf.fieldName))
             case t            => unsupported(s"field selection on a memory cell of $t", net)
         }
       case _ => None
+
+    /** A cell store on a combinational scratch array: read the current cell, insert `part` at `pos`
+      * gated by the current path condition (an unwritten cell holds its prior-in-sweep value), store
+      * it, and advance the array's version. The version threading orders the store before any later
+      * read; there is no env merge (like the RAM, a comb array is not a wide value).
+      */
+    private def combStoreCell(dcl: DFVal.Dcl, addr: Int, pos: Int, part: WV, net: DFNet): Unit =
+      val ch = combOf(dcl)
+      val ver = combVer(dcl)
+      val cur = WV(Vector(nl.combLoad(ch.mid, ch.cellW, addr, ver)), ch.cellW)
+      val inserted = if pos == 0 && part.width == ch.cellW then part else wide.insert(cur, part, pos)
+      val we = pathGuardNode(None)
+      val newCell =
+        if nl.isConst(we) && nl.constValOf(we) != 0L then inserted else wide.mux(we, inserted, cur)
+      combVer(dcl) = nl.combStore(ch.mid, addr, newCell.lanes(0), ver)
 
     // ---- conditionals ---------------------------------------------------------------------
 
@@ -1342,14 +1392,16 @@ private final class Builder(rawDB: DB):
       * included) into a whole-value update of the underlying declaration.
       */
     private def assignPartial(alias: DFVal.Alias, part: WV, net: DFNet): Unit =
-      memWriteTarget(alias, net) match
-        case Some((mh, addr, pos)) =>
+      cellWriteTarget(alias, net) match
+        case Some((dcl, addr, pos)) if memOf.contains(dcl) =>
           // a synchronous memory write port gated by the current path condition (byte enables and
           // branch guards fold into `we`); no env update — memory is a write-port state cell, not a
           // wide register merged through the conditional mux tree.
           val we = pathGuardNode(None)
           val fieldMask = (if part.width >= 64 then -1L else (1L << part.width) - 1L) << pos
-          nl.memWrite(mh.mid, addr, part.lanes(0), we, pos, fieldMask)
+          nl.memWrite(memOf(dcl).mid, addr, part.lanes(0), we, pos, fieldMask)
+        case Some((dcl, addr, pos)) => // comb-array cell store, folded onto the current version
+          combStoreCell(dcl, addr, pos, part, net)
         case None =>
           val (dcl, staticLo, dynOffOpt) = assignTarget(alias, net)
           val base = env.get(dcl).orElse(regNodeOf.get(dcl))

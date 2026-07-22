@@ -29,7 +29,12 @@ object Interpreter:
     require(regNext.forall(_ >= 0), "register without a next value")
     val memDepth = nl.memInit.iterator.map(_.length).toArray
     val memWrites = nl.memWrites.toArray
-    new Kernel(code, masks, nodeWidths, roms, regOut, regNext, regTracked, memDepth, memWrites)
+    val combDepth = nl.combDepth.toArray
+    // ASTORE array id by node id (its three input slots are all nodes, no room for the immediate)
+    val storeArrOf = Array.fill(nl.nodeCount)(-1)
+    nl.storeArrId.foreach((id, a) => storeArrOf(id) = a)
+    new Kernel(code, masks, nodeWidths, roms, regOut, regNext, regTracked, memDepth, memWrites,
+      combDepth, storeArrOf)
   end compile
 
   private final class Kernel(
@@ -41,8 +46,13 @@ object Interpreter:
       regNext: Array[Int],
       regTracked: Array[Boolean],
       memDepth: Array[Int],
-      memWrites: Array[MemWrite]
+      memWrites: Array[MemWrite],
+      combDepth: Array[Int],
+      storeArrOf: Array[Int]
   ) extends SimKernel:
+    // sweep-local combinational scratch arrays (cleared each sweep by ANEW; never committed)
+    private val combArr: Array[Array[Long]] =
+      Array.tabulate(combDepth.length)(k => new Array[Long](combDepth(k)))
     // commit is two-phase: read all next values before any register slot is overwritten,
     // otherwise register-to-register chains (shift registers) cascade within one cycle
     private val commitTmp = new Array[Long](regOut.length)
@@ -164,6 +174,8 @@ object Interpreter:
       val nodeWidths = this.nodeWidths
       val roms = this.roms
       val mem = this.mem
+      val combArr = this.combArr
+      val storeArrOf = this.storeArrOf
       val codeLen = code.length
       var i = 0
       while i < codeLen do
@@ -224,6 +236,18 @@ object Interpreter:
             val arr = mem(b)
             val idx = sig(a).toInt
             sig(dst) = if idx >= 0 && idx < arr.length then arr(idx) else 0L
+          case Op.ANEW => // clear the comb array (b = array id) at the start of its sweep
+            java.util.Arrays.fill(combArr(b), 0L)
+            sig(dst) = 0L
+          case Op.ALOAD => // arr[a]; b = array id, ordering via the version input
+            val arr = combArr(b)
+            val idx = sig(a).toInt
+            sig(dst) = if idx >= 0 && idx < arr.length then arr(idx) else 0L
+          case Op.ASTORE => // arr[a] = data(b); array id from the side table
+            val arr = combArr(storeArrOf(dst))
+            val idx = sig(a).toInt
+            if idx >= 0 && idx < arr.length then arr(idx) = sig(b)
+            sig(dst) = 0L
           case _ => throw new IllegalStateException(s"bad opcode ${code(i)}")
         end match
         i += 5

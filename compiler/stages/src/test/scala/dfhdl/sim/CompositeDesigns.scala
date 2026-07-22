@@ -82,3 +82,21 @@ class ByteMemDut extends RTDesign:
   if (wsel(3)) mem(waddr)(31, 24).din := wdata(31, 24)
   rdata := mem(raddr)
 end ByteMemDut
+
+/** Combinational cell-wise wire vector (a pure combinational select, no register): every cell is
+  * seeded, one cell is overwritten at a dynamic index, and one cell is read at a dynamic index.
+  * Exercises the sweep-local scratch-array representation (version-threaded stores/loads).
+  */
+class CombVecDut extends RTDesign:
+  val widx = UInt(3) <> IN
+  val wdata = UInt(12) <> IN
+  val ridx = UInt(3) <> IN
+  val defv = UInt(12) <> IN
+  val rdata = UInt(12) <> OUT
+  val v = UInt(12) X 8 <> VAR
+  for (i <- 0 until 8)
+    COMB_LOOP // seed all cells combinationally
+    v(i) := defv
+  v(widx) := wdata // overwrite one cell at a dynamic index
+  rdata := v(ridx) // read one cell at a dynamic index
+end CombVecDut
