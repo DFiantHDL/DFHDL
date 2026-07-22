@@ -119,6 +119,21 @@ class RelatedDomainsDesign extends RTDesign:
     val from_top_reg = UInt(8) <> VAR.REG init 0
 ```
 
+By default a related domain also shares the target's reset. Passing `includeReset = false`
+keeps the shared clock but drops the reset: the domain's registers and memories are not driven
+from a reset-initialization block and instead rely on their initial values (`init`) alone.
+
+```scala
+class NoResetRelatedDomain extends RTDesign:
+  base =>
+  val base_reg = UInt(8) <> VAR.REG init 0
+
+  // Shares base domain's clock, but not its reset
+  @timing.related(base, includeReset = false)
+  val relatedDomain = new RTDomain:
+    val related_reg = UInt(8) <> VAR.REG init 0  // relies on its init value, no reset
+```
+
 ### Register Types and Initialization
 
 #### Register Declarations vs Aliases
