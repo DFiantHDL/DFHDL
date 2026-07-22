@@ -39,12 +39,22 @@ object Op:
   inline val SRAV = 26 // arithmetic shift right by a dynamic (node) amount
   // ternary ops — node inputs in `inA`/`inB`/`inC`
   inline val MUX = 27
+  // memory read — async: `inA` is the address node, `inB` holds the memory id (an immediate). The
+  // one node input is the address, so this op is handled outside the arity grouping below.
+  inline val MEMRD = 28
   // arity-group boundaries
   inline val unaryFirst = MOV
   inline val unaryLast = ROM
   inline val binaryFirst = ADD
   inline val binaryLast = SRAV
 end Op
+
+/** One synchronous memory write port: `if (we) mem[addr] = (mem[addr] & ~mask) | ((data << pos) &
+  * mask)`. Ports for a memory are applied in registration order after the combinational sweep (so a
+  * byte-enable write is a set of ports over one word, last-write-wins per bit); reads observe the
+  * pre-commit contents (read-first, matching a non-blocking `<=` RAM).
+  */
+private[sim] final case class MemWrite(mid: Int, addr: Int, data: Int, we: Int, pos: Int, mask: Long)
 
 /** A tiny pre-scheduled netlist — the SimGraph precursor the DFacsimile lowering targets. Nodes are
   * identified by their index. Combinational evaluation order is computed by a topological schedule
@@ -63,6 +73,11 @@ final class Netlist:
   private[sim] val initVals =
     mutable.ArrayBuffer.empty[Long] // CONST value / REG reset value
   private[sim] val romTables = mutable.ArrayBuffer.empty[Array[Long]]
+  // memories: backing words (masked to the word width) and their ordered synchronous write ports.
+  // A memory read is an [[Op.MEMRD]] node (async, O(1)); reads and writes address it by memory id.
+  private[sim] val memInit = mutable.ArrayBuffer.empty[Array[Long]]
+  private[sim] val memWordW = mutable.ArrayBuffer.empty[Int]
+  private[sim] val memWrites = mutable.ArrayBuffer.empty[MemWrite]
   private[sim] val regIds = mutable.ArrayBuffer.empty[Int]
   private[sim] val regNextIds = mutable.ArrayBuffer.empty[Int]
   // change tracking classification: untracked registers (e.g. wait counters) are excluded from
@@ -228,6 +243,31 @@ final class Netlist:
       romTables += masked
       newNode(Op.ROM, w, addr, romTables.length - 1)
 
+  def memCount: Int = memInit.length
+
+  /** A new memory of `depth` words, each `wordW` (<= 64) bits, preloaded from `init` (one Long per
+    * word, LSB-aligned). Returns the memory id used by [[memRead]]/[[memWrite]].
+    */
+  def newMem(depth: Int, wordW: Int, init: Array[Long]): Int =
+    require(wordW >= 1 && wordW <= 64, s"unsupported memory word width $wordW")
+    require(init.length == depth, s"memory init length ${init.length} != depth $depth")
+    val m = maskFor(wordW)
+    memInit += Array.tabulate(depth)(i => init(i) & m)
+    memWordW += wordW
+    memInit.length - 1
+
+  /** Async read node: `mem[addr]` (out-of-range addresses read 0). */
+  def memRead(mid: Int, addr: Int): Int =
+    require(mid >= 0 && mid < memCount, s"no memory $mid")
+    newNode(Op.MEMRD, memWordW(mid), a = addr, b = mid)
+
+  /** Register a synchronous write port for `mem[addr]`: the `data` node's low `pos+`-shifted bits
+    * replace the `mask` bits of the word when `we` is nonzero.
+    */
+  def memWrite(mid: Int, addr: Int, data: Int, we: Int, pos: Int, mask: Long): Unit =
+    require(mid >= 0 && mid < memCount, s"no memory $mid")
+    memWrites += MemWrite(mid, addr, data, we, pos, mask & maskFor(memWordW(mid)))
+
   /** Signal array with constants and register reset values pre-loaded. */
   def initialSig: Array[Long] =
     val sig = new Array[Long](nodeCount)
@@ -264,7 +304,8 @@ final class Netlist:
     */
   private[sim] def nodeInputs(id: Int): List[Int] =
     val op = opcodes(id)
-    if op >= Op.binaryFirst then
+    if op == Op.MEMRD then List(inA(id)) // address is the only node input (inB is the memory id)
+    else if op >= Op.binaryFirst then
       if op <= Op.binaryLast then List(inA(id), inB(id))
       else List(inA(id), inB(id), inC(id)) // MUX
     else if op >= Op.unaryFirst then List(inA(id))

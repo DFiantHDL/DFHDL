@@ -78,6 +78,7 @@ object DFacsimile:
             builder.namedNodes.values.flatMap(_.lanes).toSet ++ schedObserved ++ actionObserved,
           watchNode = builder.watchNode
         )
+    if builder.nl.memCount > 0 then kernel.initMem(builder.nl.memInit.toArray)
     new Sim(
       builder.nl,
       kernel,
@@ -100,6 +101,11 @@ private[sim] final case class WaitTimerMeta(counterReg: Int, boundNode: Int, mas
   * keyed by the state value that parks on them.
   */
 private[sim] final case class ProcMeta(segReg: Int, timers: Map[Long, WaitTimerMeta])
+
+/** A `DFVector` register lowered to a memory node: its netlist memory id, word count, and word
+  * (cell) bit width. Cell `i` is word `i` (LSB-aligned), matching the wide model's cell packing.
+  */
+private[sim] final case class MemHandle(mid: Int, depth: Int, cellW: Int)
 
 /** Why [[Sim.step]] stopped before exhausting its cycle budget. `Finish`, `Fatal`, and `SevFinish`
   * are terminal (further stepping consumes nothing); `SevPause` clears on the next step.
@@ -456,6 +462,9 @@ private final class Builder(rawDB: DB):
     private val nodeOf = mutable.Map.empty[DFVal, WV]
     private val regNodeOf = mutable.Map.empty[DFVal.Dcl, WV]
     private val inPortMov = mutable.Map.empty[DFVal.Dcl, WV]
+    // memory Dcls (a `DFVector` register accessed only cell-wise): lowered to a memory node
+    // (O(1) read/write) instead of a wide register + barrel-shift decomposition
+    private val memOf = mutable.Map.empty[DFVal.Dcl, MemHandle]
     // sequential current-value: wires = current driven value; REG dcls = pending din
     private val env = mutable.Map.empty[DFVal.Dcl, WV]
     private val partialDrivers = mutable.Map.empty[DFVal.Dcl, mutable.ArrayBuffer[(Int, Int, WV)]]
@@ -590,7 +599,16 @@ private final class Builder(rawDB: DB):
               case Some(initRef) => regInitBits(initRef.get, w)
               case None          => BitVector.low(w)
           }
-          regNodeOf(dcl) = wide.reg(w, init)
+          memoryHandleOf(dcl) match
+            case Some(mh) =>
+              // cell i packs at bits [(depth-1-i)*cellW, +cellW) of the wide value (cell 0 at the
+              // MSBs), so word i is that field of the init bits — LSB-aligned, matching MEMRD.
+              val cells = Array.tabulate(mh.depth)(i =>
+                init.bitsWL(mh.cellW, (mh.depth - 1 - i) * mh.cellW).toLong(signed = false)
+              )
+              val mid = nl.newMem(mh.depth, mh.cellW, cells)
+              memOf(dcl) = mh.copy(mid = mid)
+            case None => regNodeOf(dcl) = wide.reg(w, init)
         case dcl: DFVal.Dcl =>
           dcl.modifier.dir match
             case DFVal.Modifier.Dir.IN =>
@@ -972,6 +990,13 @@ private final class Builder(rawDB: DB):
 
     private def buildApplyIdx(a: DFVal.Alias.ApplyIdx): WV =
       val rel = a.relValRef.get
+      rel match
+        case dcl: DFVal.Dcl if memOf.contains(dcl) => // async memory cell read
+          val mh = memOf(dcl)
+          WV(Vector(nl.memRead(mh.mid, memAddrNode(a.relIdx.get))), mh.cellW)
+        case _ => buildApplyIdxNonMem(a, rel)
+
+    private def buildApplyIdxNonMem(a: DFVal.Alias.ApplyIdx, rel: DFVal): WV =
       rel.dfType match
         case vt: DFVector =>
           val cellW = widthOfType(vt.cellType, a)
@@ -995,7 +1020,7 @@ private final class Builder(rawDB: DB):
             case None    => wide.dynExtract(readWV(rel), dynBitOffset(a.relIdx.get), 1)
         case t => unsupported(s"indexing into $t", a)
       end match
-    end buildApplyIdx
+    end buildApplyIdxNonMem
 
     private def buildApplyRange(a: DFVal.Alias.ApplyRange): WV =
       val rel = a.relValRef.get
@@ -1050,6 +1075,57 @@ private final class Builder(rawDB: DB):
       val idxNode = wide.bitField(readWV(idx), 0, 32)
       val rev = nl.sub(nl.const(32, (len - 1).toLong), idxNode)
       WV(Vector(nl.mul(rev, nl.const(32, cellW.toLong))), 32)
+
+    // ---- memories -------------------------------------------------------------------------
+
+    /** A `DFVector` register the design accesses only cell-wise (every referrer is an `ApplyIdx`
+      * into it) with a <= 64-bit cell — the RAM pattern, lowered to a memory node (O(1) read/write).
+      * A whole-vector read/write/connection, a wide cell, or a multi-dim vector stays a wide
+      * register (the general model), so no design regresses.
+      */
+    private def memoryHandleOf(dcl: DFVal.Dcl): Option[MemHandle] =
+      dcl.dfType match
+        case vt: DFVector if vt.cellDimParamRefs.sizeIs == 1 =>
+          val cellW = widthOfType(vt.cellType, dcl)
+          val depth = widthOf(dcl) / cellW
+          val cellWise = dcl.originMembers.forall {
+            case ai: DFVal.Alias.ApplyIdx => ai.relValRef.get eq dcl
+            case _                        => false
+          }
+          if cellW <= 64 && depth >= 1 && cellWise then Some(MemHandle(-1, depth, cellW))
+          else None
+        case _ => None
+
+    /** The cell index of a memory access as one address node (indices fit 32 bits). */
+    private def memAddrNode(idx: DFVal): Int =
+      wide.bitField(readWV(idx), 0, math.min(32, widthOf(idx)))
+
+    /** Resolve a write-view alias chain that targets a memory cell to its (handle, address node,
+      * static bit position within the cell). None if the write does not target a memory Dcl.
+      */
+    private def memWriteTarget(v: DFVal, net: DFNet): Option[(MemHandle, Int, Int)] = v match
+      case ai: DFVal.Alias.ApplyIdx =>
+        ai.relValRef.get match
+          case dcl: DFVal.Dcl if memOf.contains(dcl) =>
+            Some((memOf(dcl), memAddrNode(ai.relIdx.get), 0)) // cell address; pos filled by callers
+          case _ => // a bit index within a cell: recurse and add the static bit position
+            memWriteTarget(ai.relValRef.get, net).map { (mh, addr, lo0) =>
+              val bit = constIdxOpt(ai.relIdx.get)
+                .getOrElse(unsupported("dynamic bit index in a memory write", net))
+              (mh, addr, lo0 + bit)
+            }
+      case ar: DFVal.Alias.ApplyRange =>
+        memWriteTarget(ar.relValRef.get, net).map { (mh, addr, lo0) =>
+          val lo = ar.idxLowRef.getIntOpt.getOrElse(unsupported("non-constant range", net))
+          (mh, addr, lo0 + lo)
+        }
+      case sf: DFVal.Alias.SelectField =>
+        memWriteTarget(sf.relValRef.get, net).map { (mh, addr, lo0) =>
+          sf.relValRef.get.dfType match
+            case st: DFStruct => (mh, addr, lo0 + st.fieldRelBitLow(sf.fieldName))
+            case t            => unsupported(s"field selection on a memory cell of $t", net)
+        }
+      case _ => None
 
     // ---- conditionals ---------------------------------------------------------------------
 
@@ -1266,17 +1342,26 @@ private final class Builder(rawDB: DB):
       * included) into a whole-value update of the underlying declaration.
       */
     private def assignPartial(alias: DFVal.Alias, part: WV, net: DFNet): Unit =
-      val (dcl, staticLo, dynOffOpt) = assignTarget(alias, net)
-      val base = env.get(dcl).orElse(regNodeOf.get(dcl))
-        .getOrElse(unsupported("partial assignment to an undriven value", net))
-      recordWrite(dcl, full = false)
-      env(dcl) = dynOffOpt match
-        case None      => wide.insert(base, part, staticLo)
-        case Some(dyn) =>
-          val off =
-            if staticLo == 0 then dyn
-            else WV(Vector(nl.add(dyn.lanes(0), nl.const(32, staticLo.toLong))), 32)
-          wide.dynInsert(base, part, off)
+      memWriteTarget(alias, net) match
+        case Some((mh, addr, pos)) =>
+          // a synchronous memory write port gated by the current path condition (byte enables and
+          // branch guards fold into `we`); no env update — memory is a write-port state cell, not a
+          // wide register merged through the conditional mux tree.
+          val we = pathGuardNode(None)
+          val fieldMask = (if part.width >= 64 then -1L else (1L << part.width) - 1L) << pos
+          nl.memWrite(mh.mid, addr, part.lanes(0), we, pos, fieldMask)
+        case None =>
+          val (dcl, staticLo, dynOffOpt) = assignTarget(alias, net)
+          val base = env.get(dcl).orElse(regNodeOf.get(dcl))
+            .getOrElse(unsupported("partial assignment to an undriven value", net))
+          recordWrite(dcl, full = false)
+          env(dcl) = dynOffOpt match
+            case None      => wide.insert(base, part, staticLo)
+            case Some(dyn) =>
+              val off =
+                if staticLo == 0 then dyn
+                else WV(Vector(nl.add(dyn.lanes(0), nl.const(32, staticLo.toLong))), 32)
+              wide.dynInsert(base, part, off)
 
     /** Resolve a write-view alias chain to its declaration + bit offset (static part + optional
       * dynamic part).

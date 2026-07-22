@@ -64,3 +64,21 @@ class RegFileDut extends RTDesign:
   if (wren) regs(waddr).din := wdata
   rdata := regs(raddr)
 end RegFileDut
+
+/** Byte-enable RAM (the Servant firmware-RAM shape): 32-bit words with per-byte write enables
+  * (each a masked sub-cell write to the same dynamic address) plus a dynamic-index async read.
+  * Exercises the memory node's masked partial writes and read-first semantics on both tiers.
+  */
+class ByteMemDut extends RTDesign:
+  val waddr = UInt(3) <> IN
+  val wdata = Bits(32) <> IN
+  val wsel = Bits(4) <> IN
+  val raddr = UInt(3) <> IN
+  val rdata = Bits(32) <> OUT
+  val mem = Bits(32) X 8 <> VAR.REG
+  if (wsel(0)) mem(waddr)(7, 0).din := wdata(7, 0)
+  if (wsel(1)) mem(waddr)(15, 8).din := wdata(15, 8)
+  if (wsel(2)) mem(waddr)(23, 16).din := wdata(23, 16)
+  if (wsel(3)) mem(waddr)(31, 24).din := wdata(31, 24)
+  rdata := mem(raddr)
+end ByteMemDut

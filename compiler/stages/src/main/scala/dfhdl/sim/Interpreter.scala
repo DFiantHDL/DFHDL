@@ -27,7 +27,9 @@ object Interpreter:
     val regNext = nl.regNextIds.toArray
     val regTracked = nl.regTracked.toArray
     require(regNext.forall(_ >= 0), "register without a next value")
-    new Kernel(code, masks, nodeWidths, roms, regOut, regNext, regTracked)
+    val memDepth = nl.memInit.iterator.map(_.length).toArray
+    val memWrites = nl.memWrites.toArray
+    new Kernel(code, masks, nodeWidths, roms, regOut, regNext, regTracked, memDepth, memWrites)
   end compile
 
   private final class Kernel(
@@ -37,11 +39,62 @@ object Interpreter:
       roms: Array[Array[Long]],
       regOut: Array[Int],
       regNext: Array[Int],
-      regTracked: Array[Boolean]
+      regTracked: Array[Boolean],
+      memDepth: Array[Int],
+      memWrites: Array[MemWrite]
   ) extends SimKernel:
     // commit is two-phase: read all next values before any register slot is overwritten,
     // otherwise register-to-register chains (shift registers) cascade within one cycle
     private val commitTmp = new Array[Long](regOut.length)
+    // kernel-owned memory backing store: one long per word (masked at write). Reads (Op.MEMRD)
+    // observe the pre-commit contents; write ports apply after the sweep, like registers.
+    private val mem: Array[Array[Long]] = Array.tabulate(memDepth.length)(k => new Array[Long](memDepth(k)))
+    // memory-less designs skip the commit entirely: a final-false branch the JIT folds out, so the
+    // per-cycle path is identical to before the memory node existed (no added call or loop)
+    private val hasMem = memWrites.length > 0
+    override def initMem(mems: Array[Array[Long]]): Unit =
+      var k = 0
+      while k < mem.length do
+        System.arraycopy(mems(k), 0, mem(k), 0, mem(k).length)
+        k += 1
+
+    /** Apply the memory write ports of the just-swept cycle in registration order (last-write-wins
+      * per bit). Reads the settled comb values, so it runs in the commit phase alongside registers.
+      */
+    private def commitMem(sig: Array[Long]): Unit =
+      val mem = this.mem
+      val writes = this.memWrites
+      var k = 0
+      while k < writes.length do
+        val w = writes(k)
+        if sig(w.we) != 0L then
+          val arr = mem(w.mid)
+          val idx = sig(w.addr).toInt
+          if idx >= 0 && idx < arr.length then
+            arr(idx) = (arr(idx) & ~w.mask) | ((sig(w.data) << w.pos) & w.mask)
+        k += 1
+    end commitMem
+
+    /** As [[commitMem]], but reports whether any write actually changed a word (the scheduler's
+      * quiescence probe: a live memory write is design activity, not a fixpoint).
+      */
+    private def commitMemDirty(sig: Array[Long]): Boolean =
+      val mem = this.mem
+      val writes = this.memWrites
+      var dirty = false
+      var k = 0
+      while k < writes.length do
+        val w = writes(k)
+        if sig(w.we) != 0L then
+          val arr = mem(w.mid)
+          val idx = sig(w.addr).toInt
+          if idx >= 0 && idx < arr.length then
+            val nv = (arr(idx) & ~w.mask) | ((sig(w.data) << w.pos) & w.mask)
+            if nv != arr(idx) then dirty = true
+            arr(idx) = nv
+        k += 1
+      dirty
+    end commitMemDirty
     def run(sig: Array[Long], cycles: Long): Unit =
       val regOut = this.regOut
       val regNext = this.regNext
@@ -57,6 +110,7 @@ object Interpreter:
         while r < regCount do
           sig(regOut(r)) = commitTmp(r)
           r += 1
+        if hasMem then commitMem(sig)
         cyc += 1
       end while
     end run
@@ -77,6 +131,7 @@ object Interpreter:
         while r < regCount do
           sig(regOut(r)) = commitTmp(r)
           r += 1
+        if hasMem then commitMem(sig)
         cyc += 1
         if sig(watch) != 0L then fired = true
       end while
@@ -99,6 +154,7 @@ object Interpreter:
         if regTracked(r) && sig(out) != commitTmp(r) then dirty = true
         sig(out) = commitTmp(r)
         r += 1
+      if hasMem && commitMemDirty(sig) then dirty = true
       dirty
     end stepDirty
 
@@ -107,6 +163,7 @@ object Interpreter:
       val masks = this.masks
       val nodeWidths = this.nodeWidths
       val roms = this.roms
+      val mem = this.mem
       val codeLen = code.length
       var i = 0
       while i < codeLen do
@@ -162,8 +219,12 @@ object Interpreter:
             val s = 64 - nodeWidths(dst)
             val n = math.min(sig(b), 63L)
             sig(dst) = (((sig(a) << s) >> s) >> n) & masks(dst)
-          case Op.MUX => sig(dst) = if sig(a) != 0L then sig(b) else sig(code(i + 4))
-          case _      => throw new IllegalStateException(s"bad opcode ${code(i)}")
+          case Op.MUX   => sig(dst) = if sig(a) != 0L then sig(b) else sig(code(i + 4))
+          case Op.MEMRD => // async read: b is the memory id, a the address (out-of-range reads 0)
+            val arr = mem(b)
+            val idx = sig(a).toInt
+            sig(dst) = if idx >= 0 && idx < arr.length then arr(idx) else 0L
+          case _ => throw new IllegalStateException(s"bad opcode ${code(i)}")
         end match
         i += 5
       end while

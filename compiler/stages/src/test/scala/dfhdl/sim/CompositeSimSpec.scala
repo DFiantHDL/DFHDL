@@ -51,4 +51,22 @@ class CompositeSimSpec extends SimSpec:
       dut.raddr.poke(3)
       assertEquals(dut.rdata.peek, dataOf(3))
     }.withTier(tier).run()
+
+  bothTiers("byte-enable RAM: per-byte masked writes, dynamic read"): tier =>
+    (new ByteMemDut).simulation { dut =>
+      // full-word write at addr 2
+      dut.waddr.poke(2)
+      dut.wdata.poke(h"AABBCCDD")
+      dut.wsel.poke(h"F")
+      simCtx.step()
+      // partial write at addr 2: only bytes 0 and 2 enabled (bytes 1 and 3 keep AA/CC)
+      dut.wdata.poke(h"11223344")
+      dut.wsel.poke(h"5")
+      simCtx.step()
+      dut.wsel.poke(h"0") // stop writing
+      dut.raddr.poke(2)
+      assertEquals(dut.rdata.peek, h"AA22CC44") // byte3=AA byte2=22 byte1=CC byte0=44
+      dut.raddr.poke(5)
+      assertEquals(dut.rdata.peek, h"00000000") // untouched word stays at its zero init
+    }.withTier(tier).run()
 end CompositeSimSpec

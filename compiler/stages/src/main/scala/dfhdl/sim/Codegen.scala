@@ -90,6 +90,7 @@ object Codegen:
     val comb = nl.combNodeIds
     def isCombNode(id: Int): Boolean =
       nl.opcodes(id) != Op.REG && nl.opcodes(id) != Op.CONST
+    val memDepth = nl.memInit.iterator.map(_.length).toVector
 
     // ---- width-typed emission --------------------------------------------------------------
     def isIntN(id: Int): Boolean = nl.widths(id) <= 32
@@ -160,6 +161,8 @@ object Codegen:
       for id <- comb; in <- nl.nodeInputs(id) do
         if isCombNode(in) && chunkOf(in) != chunkOf(id) then spill += in
       spill ++= regNextSpill
+      // memory write-port operands are read at commit, outside the producing chunk method
+      spill ++= nl.memWrites.iterator.flatMap(w => Iterator(w.addr, w.data, w.we)).filter(isCombNode)
 
     // register commit ordering: profiling shows plain data movement dominating large designs, so
     // the commit avoids staging wherever possible. A self-move (an unassigned hold) is skipped
@@ -366,8 +369,10 @@ object Codegen:
               val s = 64 - w
               s"(((${rd(b, ci)} << $s) >> $s) == 0L ? 0L : " +
                 s"(((${rd(a, ci)} << $s) >> $s) % ((${rd(b, ci)} << $s) >> $s)) & $m)"
-            case Op.REV => s"Long.reverse(${rd(a, ci)}) >>> ${64 - w}"
-            case other  => throw new IllegalStateException(s"bad opcode $other")
+            case Op.REV   => s"Long.reverse(${rd(a, ci)}) >>> ${64 - w}"
+            case Op.MEMRD => // async read: b is the memory id, a the address (out-of-range reads 0)
+              s"(${rd(a, ci)} < ${memDepth(b)}L ? MEM$b[(int) ${rd(a, ci)}] : 0L)"
+            case other => throw new IllegalStateException(s"bad opcode $other")
           if isIntN(id) then s"(int) ($longExpr)" else longExpr
       val store = if spill.contains(id) then s" f$id = v$id;" else ""
       s"      ${jt(id)} v$id = $expr;$store"
@@ -395,6 +400,10 @@ object Codegen:
     sb ++= s"public final class $simpleName implements dfhdl.sim.SimKernel {\n"
     for (table, i) <- nl.romTables.zipWithIndex do
       sb ++= s"  private static final long[] ROM$i = { ${table.map(hexL).mkString(", ")} };\n"
+    // kernel-owned memory backing store: one long per word, filled by initMem after construction
+    // (the reset image is not embedded as a class literal — that would overflow the constant pool)
+    for mid <- 0 until nl.memCount do
+      sb ++= s"  private final long[] MEM$mid = new long[${memDepth(mid)}];\n"
     if chiSize > 0 then
       // static state is per-kernel-safe: every compile() call generates a distinct class in its
       // own class loader, so one kernel instance never shares CHI with another
@@ -445,6 +454,25 @@ object Codegen:
       for (r, i) <- nl.regIds.zipWithIndex do
         if !selfMove(i) then sb ++= s"${indent}f$r = nxt$i;\n"
 
+    // Apply the memory write ports of the just-swept cycle, gated by their `we`, in registration
+    // order (last-write-wins per bit). Operands read as settled comb values (locals in single mode,
+    // spilled fields in chunked mode). `dirty` accumulates into an in-scope `dirty` flag.
+    def emitMemWrites(indent: String, ci: Int, dirty: Boolean): Unit =
+      for w <- nl.memWrites do
+        val m = hexL(w.mask)
+        val shifted = if w.pos == 0 then s"(${rd(w.data, ci)})" else s"((${rd(w.data, ci)}) << ${w.pos})"
+        sb ++= s"${indent}if ((${rd(w.we, ci)}) != 0L) {\n"
+        sb ++= s"$indent  int a = (int) (${rd(w.addr, ci)});\n"
+        sb ++= s"$indent  if (a < ${memDepth(w.mid)}) {\n"
+        val nw = s"(MEM${w.mid}[a] & ~$m) | ($shifted & $m)"
+        if dirty then
+          sb ++= s"$indent    long nv = $nw;\n"
+          sb ++= s"$indent    if (MEM${w.mid}[a] != nv) dirty = true;\n"
+          sb ++= s"$indent    MEM${w.mid}[a] = nv;\n"
+        else sb ++= s"$indent    MEM${w.mid}[a] = $nw;\n"
+        sb ++= s"$indent  }\n$indent}\n"
+    end emitMemWrites
+
     // watched run: exit after any cycle whose settled watch value is nonzero; the watch node
     // is fixed at generation time (the runtime argument is only cross-checked)
     val watchCheck =
@@ -467,6 +495,7 @@ object Codegen:
       emitCombCalls("      ")
       if single then emitSingleCommit("      ")
       else emitCommitCalls("      ")
+      if nl.memWrites.nonEmpty then emitMemWrites("      ", if single then 0 else -1, dirty = false)
       if watch then sb ++= s"      if ($watchCheck) { done = cyc + 1L; break; }\n"
       sb ++= "    }\n"
       emitSyncOut("    ")
@@ -474,6 +503,11 @@ object Codegen:
       sb ++= "  }\n"
     end emitRunMethod
 
+    if nl.memCount > 0 then
+      sb ++= "\n  public void initMem(long[][] mems) {\n"
+      for mid <- 0 until nl.memCount do
+        sb ++= s"    System.arraycopy(mems[$mid], 0, MEM$mid, 0, ${memDepth(mid)});\n"
+      sb ++= "  }\n"
     emitRunMethod(watch = false)
     emitRunMethod(watch = true)
     // comb-only sweep (no register commit) for settle-on-peek
@@ -502,6 +536,7 @@ object Codegen:
       for di <- dirtySlices.indices do
         sb ++= s"    dirty = commitDirty$di($nxtArg) | dirty;\n"
     end if
+    if nl.memWrites.nonEmpty then emitMemWrites("    ", if single then 0 else -1, dirty = true)
     emitSyncOut("    ")
     sb ++= "    return dirty;\n  }\n"
     if !single then

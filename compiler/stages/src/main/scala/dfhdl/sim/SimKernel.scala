@@ -7,6 +7,12 @@ package dfhdl.sim
   * can be hot-swapped over the same state, and checkpoints are a plain copy.
   */
 trait SimKernel:
+  /** Install the reset image of each memory (indexed by memory id) into the kernel's backing store.
+    * Called once after construction; memory-less kernels ignore it. The kernel owns the working copy
+    * that writes mutate; `mems` is the reset image and is not retained.
+    */
+  def initMem(mems: Array[Array[Long]]): Unit = ()
+
   /** Advance the simulation by `cycles` clock cycles over the given signal/state array. */
   def run(sig: Array[Long], cycles: Long): Unit
 
