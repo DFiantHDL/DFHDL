@@ -21,14 +21,14 @@ val dftoolsVersion = "v1.1.1"
 // (per-frame P6 header carrying width/height); the viewer opts into it to auto-size frames. Since
 // v1.0.0 the backend is the TCP server (it binds+listens on VGA_MONITOR_STREAM) and a standard
 // viewer (ffplay/ffmpeg) connects to it — see `VgaMonitorSimHook`.
-val vgaMonitorVersion = "1.0.0"
+val vgaMonitorVersion = "1.0.1"
 // The interactive-sim release wrapped by the `dfhdl.ips.interactive.{interactive_ctrl,
 // interactive_flag}` foreign IPs. Single source of truth, surfaced to the IP code via the generated
 // `interactive.properties` resource (read by `dfhdl.ips.interactive.InteractiveSim.version`). Both
 // IPs share one bundle (one C++ singleton backend + one VHDL package), so the release lays its files
 // out exactly like vga-monitor-sim: HDL wrappers (identical across platforms) in the bundle root,
 // per-system binaries in `<platform>/`. All filenames unversioned (version only in archive/folder).
-val interactiveSimVersion = "0.4.0"
+val interactiveSimVersion = "0.4.1"
 // dependency versions
 val scodecVersion        = "1.2.5"
 val munitVersion         = "1.3.4"
@@ -36,7 +36,7 @@ val airframelogVersion   = "2026.1.7"
 val oslibVersion         = "0.11.8"
 val scallopVersion       = "6.0.0"
 val upickleVersion       = "4.4.3"
-val scalapptainerVersion = "0.5.2"
+val scalapptainerVersion = "0.5.3"
 val factumVersion        = "0.2.0"
 
 inThisBuild(
