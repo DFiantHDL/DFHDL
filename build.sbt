@@ -82,7 +82,8 @@ lazy val root = (project in file("."))
 	  compiler_stages,
     lib,
     platforms,
-    ips
+    ips,
+    benchmarks
   )
 
 lazy val internals = project
@@ -400,6 +401,30 @@ lazy val ips = project
     core % "test->test",
     lib
   )
+
+lazy val benchmarks = project
+  .settings(
+    name := s"$projectName-benchmarks",
+    settings,
+    // Never published: benchmark designs may be DFHDL ports of differently-licensed upstream
+    // works. The repo default is Apache 2.0; each ported work carries its origin license,
+    // documented per directory in the benchmarks repository.
+    licenses := List(
+      "Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt")
+    ),
+    publish / skip := true,
+    pluginUseSettings,
+    libraryDependencies ++= commonDependencies,
+    // every top-level work folder in the benchmarks repo is a source directory (each benchmark
+    // is self-contained: sources, harnesses, provenance/license), so adding a benchmark never
+    // touches this build
+    Compile / unmanagedSourceDirectories ++= {
+      val exclude = Set("target", "project")
+      (baseDirectory.value * DirectoryFilter).get
+        .filterNot(d => exclude(d.getName) || d.getName.startsWith("."))
+    }
+  )
+  .dependsOn(lib)
 
 // DEPENDENCIES
 
