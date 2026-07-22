@@ -597,7 +597,16 @@ private final class Builder(rawDB: DB):
               if isTop then
                 regNodeOf(dcl) = wide.reg(widthOf(dcl), BitVector.low(widthOf(dcl)))
                 topHasInputs = true
-              else inPortMov(dcl) = wide.mov(widthOf(dcl))
+              else
+                dcl.dfType match
+                  // an explicitly-declared Clk/Rst magnet input is not wired as a data port in the
+                  // sim: reset stays deasserted (register inits apply at time zero) and the clock
+                  // is modeled by the cycle stepping. Bind it to its deasserted (low) constant so
+                  // combinational reads such as `!i_rst.actual` resolve. (Assumes active-high reset.)
+                  case o: DFOpaque if o.isMagnet =>
+                    env(dcl) = wide.const(widthOf(dcl), BitVector.low(widthOf(dcl)))
+                  case _ =>
+                    inPortMov(dcl) = wide.mov(widthOf(dcl))
             case _ => // wires/OUT ports bind at their driving net
         case _ =>
       }
@@ -626,6 +635,12 @@ private final class Builder(rawDB: DB):
       case inst: DFDesignInst => elaborateChild(inst)
       case _: DFRange         => () // loop-range bookkeeping — read at its loop
       case lb: LocalBlock     => processMembers(childrenOf.getOrElse(lb, Vector.empty))
+      case dmn: DomainBlock if isRelatedRTDomain(dmn) =>
+        // an RT domain marked `@timing.related` (only) shares its target's clock and adds no new
+        // clk/rst ports, so its members live in the same timing domain and are walked inline (like
+        // a LocalBlock). Reset inclusion (`includeReset`) is irrelevant here: DFacsimile applies
+        // register inits at time zero and never asserts reset at runtime.
+        processMembers(childrenOf.getOrElse(dmn, Vector.empty))
       case fb: DFLoop.DFForBlock if fb.isCombinational => unrollCombFor(fb)
       case pb: ProcessBlock                            =>
         if pb.isInitial then () // folded into time-zero state in the pre-pass
@@ -633,6 +648,15 @@ private final class Builder(rawDB: DB):
         else unsupported("a process outside the RT domain", pb)
       case m => unsupported("member kind", m)
     end processMember
+
+    /** An RT domain marked `@timing.related` (and nothing else) shares its target's clock, adding no
+      * new clock: its members belong to the same timing domain and are walked inline. A domain that
+      * introduces its own clock (a genuinely separate clock domain) stays unsupported.
+      */
+    private def isRelatedRTDomain(dmn: DomainBlock): Boolean =
+      dmn.domainType == DomainType.RT &&
+        dmn.meta.annotations.exists(_.isInstanceOf[constraints.Timing.Related]) &&
+        !dmn.meta.annotations.exists(_.isInstanceOf[constraints.Timing.Clock])
 
     /** Combinational (`COMB_LOOP`) for loop: unrolled at build time over its constant range, the
       * iterator bound to a constant per pass.

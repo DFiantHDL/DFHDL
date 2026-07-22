@@ -95,32 +95,35 @@ automatically (the emitted parent shows `child_i_clk = wb_clk`). Beyond the per-
 preload) or `init all(all(0))`. Access: `mem[addr][7:0] <= d` → `if (we) mem(addr.uint)(7,0).din := d`;
 the index must be an exact-`clog2`-width `UInt`.
 
-**MEMORY + RESET GAP + FIX (important):** a `VAR.REG`/`OUT.REG` memory with `init`/`initFile` in a
-**reset domain** is swept into the synchronous reset - DFHDL emits `if (rst) mem <= '{0:.., 1:.., ...}`,
-reloading the *entire array* every reset cycle (huge fanout, wrong hardware). `init ?` avoids reset
-but drops the power-up value. The fix that keeps the module's reset (for the other flops) **and** the
-`initFile` power-up **and** a single clock port is to declare the memory as a **`VAR.SHARED` inside a
-nested `new EDDomain`**, with the read/write logic staying in the enclosing RT scope:
+**MEMORY + RESET (keep an `initFile` memory out of the reset):** a `VAR.REG`/`OUT.REG` memory with
+`init`/`initFile` in a **reset domain** is swept into the synchronous reset - DFHDL emits
+`if (rst) mem <= '{0:.., 1:.., ...}`, reloading the *entire array* every reset cycle (huge fanout,
+wrong hardware). `init ?` avoids reset but drops the power-up value. To keep the module's reset (for
+its other flops), the `initFile` power-up, **and** a single clock port, put the memory in a nested
+`RTDomain` that is `@timing.related(self, includeReset = false)` (shares the parent clock, no reset;
+see [Design Domains][design-domains]) plus `@hw.annotation.flattenMode.transparent`, with the
+read/write logic **inside** the domain:
 ```scala
-@hw.constraints.timing.clock(portName = "i_wb_clk")
-@hw.constraints.timing.reset(portName = "i_wb_rst")
 class servant_ram(...) extends RTDesign:
-  val o_wb_rdt = Bits(32) <> OUT.REG init all(0)   // RT reg: gets the reset
-  val o_wb_ack = Bit       <> OUT.REG init 0        // RT reg: gets the reset
-  val ram = new EDDomain:
-    val mem = Bits(32) X words <> VAR.SHARED initFile memfile.toScalaString  // excluded from reset
-  if (we && i_wb_sel(0)) ram.mem(addr)(7, 0) := i_wb_dat(7, 0)   // `:=` (shared var), clocked by RT scope
-  o_wb_rdt.din := ram.mem(addr)
+  self =>
+  val o_wb_rdt = Bits(32) <> OUT.REG init all(0)   // module-reset flop
+  val o_wb_ack = Bit       <> OUT.REG init 0        // module-reset flop
+  @hw.constraints.timing.related(self, includeReset = false)
+  @hw.annotation.flattenMode.transparent
+  val write = new RTDomain:
+    val mem = Bits(32) X words <> VAR.REG initFile memfile
+    if (we && i_wb_sel(0)) mem(i_wb_adr)(7, 0).din := i_wb_dat(7, 0)   // writes INSIDE the domain
+  o_wb_rdt.din := write.mem(i_wb_adr)               // read in the parent scope
 ```
-The memory emits as a power-up-initialized array outside the reset branch; only the RT registers
-reset. Note a `VAR.SHARED` write emits as **blocking `=`** (write-first / read-through) vs a
-non-blocking `<=` (read-first) - benign when a same-cycle read+write to one address never happens
-(e.g. a Wishbone RAM is read *or* write per access).
+The memory emits power-up-initialized and *outside* the reset, with non-blocking `<=` writes
+(read-first, matching a Verilog RAM); the reset block resets only the other flops.
 
-Attempts that do **not** work: an `RTDomain` around `mem` spawns a *duplicate* clock port and, if the
-drivers stay in the parent, domain-flattening pulls `mem` back into the parent reset; declaring a
-`Clk`/`Rst` or a `process(...)` *inside* the ED domain is rejected ("Clk/Rst declarations are not
-allowed in this domain"). Keep the ED domain to **just the `mem` declaration**.
+Pitfalls: leaving the write logic in the **parent** scope makes domain-flattening pull `mem` back
+into the parent reset; a bare `RTDomain` with its own `@timing.clock` spawns a *duplicate* clock
+port; a `VAR.SHARED` mem emits **blocking `=`** writes (write-first); an `EDDomain` (or a `Clk`/`Rst`
+/`process` *inside* one) is rejected by DFacsimile. DFacsimile builds a `@timing.related` RT domain
+inline and binds an explicit `Clk`/`Rst` port to its deasserted value (both added to
+`DFacsimile.scala` alongside this port).
 
 ## Parameters - beyond the guide
 
@@ -134,6 +137,10 @@ Follow [from-verilog][from-verilog] for `Int <> CONST`/`String <> CONST` (they e
 - **No `generate` for structural params yet.** Parameters that change structure (bus width `W`,
   optional sub-blocks) cannot be made generic; hardwire them to the target configuration and note it.
   Standalone `runMain <ClassName> compile` needs a **default** for every CONST param.
+- **DFacsimile rejects `String <> CONST`** (the minimum tier can't resolve a `DFString` const's
+  param-dependent width). For an elaboration-only string (e.g. an `initFile` path), use a plain Scala
+  `String` parameter, not `String <> CONST`, so it never enters the simulated IR. `Int <> CONST`
+  widths do resolve.
 
 ## Emitter gotchas not in the guide
 
