@@ -57,32 +57,54 @@ object DFacsimile:
   private[sim] def simulate(db: DB, tier: SimTier = SimTier.Interpreter): Sim =
     val builder = new Builder(db)
     builder.build()
+    val nl = builder.nl
+
+    // Copy propagation: a pure-alias MOV node (hierarchy port connection, wire rename) equals its
+    // source, so every consumer, register next, memory-write operand, and peek observer can read
+    // the source directly and the alias node drops out (the codegen tier then dead-code-eliminates
+    // it from every execution path). Post-commit observers are pinned: text-output action guards
+    // and message args are `snap`ped register samples that must keep the pre-commit value, and the
+    // scheduler reads wait bounds after a probe cycle — forwarding those to a register source would
+    // read the committed value instead. Pinned MOVs stay materialized; forwarding also stops at
+    // them so a chain through a pinned sample is preserved.
+    val schedObserved: Set[Int] =
+      builder.procMetas.iterator.flatMap(_.timers.values.map(_.boundNode)).toSet
+    val actionObserved: Set[Int] =
+      builder.actions.iterator.flatMap { a =>
+        Iterator.single(a.guard) ++ a.segs.iterator.flatMap {
+          case ActSeg.Arg(wv, _) => wv.lanes
+          case _                 => Nil
+        }
+      }.toSet
+    val pinned: Set[Int] =
+      schedObserved ++ actionObserved ++ Option.when(builder.watchNode >= 0)(builder.watchNode)
+    def resolve(id: Int): Int =
+      var cur = id
+      while nl.opcodes(cur) == Op.MOV && nl.inA(cur) >= 0 && !pinned(cur) do cur = nl.inA(cur)
+      cur
+    // named values are peekable — redirect each lane through the forwarded source so peek reads a
+    // materialized node and the alias need never be emitted
+    val namedNodes =
+      builder.namedNodes.iterator.map((n, wv) => n -> WV(wv.lanes.map(resolve), wv.width)).toMap
+
     val kernel = tier match
-      case SimTier.Interpreter => Interpreter.compile(builder.nl)
+      case SimTier.Interpreter => Interpreter.compile(nl)
       case SimTier.Codegen     =>
-        // named values are peekable — force their lanes into the signal array; the scheduler
-        // reads wait bounds after a probe, so they must be materialized too; text-output actions
-        // read their guards and message values from the signal array after the fired cycle
-        val schedObserved = builder.procMetas.iterator.flatMap(_.timers.values.map(_.boundNode))
-        val actionObserved = builder.actions.iterator.flatMap { a =>
-          Iterator.single(a.guard) ++ a.segs.iterator.flatMap {
-            case ActSeg.Arg(wv, _) => wv.lanes
-            case _                 => Nil
-          }
-        } ++ Option.when(builder.watchNode >= 0)(builder.watchNode)
         Codegen.compile(
-          builder.nl,
+          nl,
           // debug aid: -Ddfhdl.sim.codegen.dumpSource=true prints the generated kernel Java
           dumpSource = java.lang.Boolean.getBoolean("dfhdl.sim.codegen.dumpSource"),
-          observed =
-            builder.namedNodes.values.flatMap(_.lanes).toSet ++ schedObserved ++ actionObserved,
-          watchNode = builder.watchNode
+          // observed = peekable named lanes plus the pinned post-commit/scheduler nodes (the watch
+          // aggregate, action guards/args, wait bounds); all must be materialized in the signal array
+          observed = namedNodes.values.flatMap(_.lanes).toSet ++ pinned,
+          watchNode = builder.watchNode,
+          forwardMov = resolve
         )
-    if builder.nl.memCount > 0 then kernel.initMem(builder.nl.memInit.toArray)
+    if nl.memCount > 0 then kernel.initMem(nl.memInit.toArray)
     new Sim(
-      builder.nl,
+      nl,
       kernel,
-      builder.namedNodes.toMap,
+      namedNodes,
       builder.procMetas.toVector,
       builder.actions.toVector,
       builder.watchNode,
@@ -107,9 +129,10 @@ private[sim] final case class ProcMeta(segReg: Int, timers: Map[Long, WaitTimerM
   */
 private[sim] final case class MemHandle(mid: Int, depth: Int, cellW: Int)
 
-/** The simulator representation chosen for a `DFVector` Dcl from its access pattern + storage class:
-  * a persistent RAM (register, cell writes), a sweep-local combinational scratch array (wire), or
-  * the general packed-bits wide model. Const vectors lower to a ROM at their use site, not here.
+/** The simulator representation chosen for a `DFVector` Dcl from its access pattern + storage
+  * class: a persistent RAM (register, cell writes), a sweep-local combinational scratch array
+  * (wire), or the general packed-bits wide model. Const vectors lower to a ROM at their use site,
+  * not here.
   */
 private[sim] enum VecRepr derives CanEqual:
   case Ram(depth: Int, cellW: Int)
@@ -688,9 +711,9 @@ private final class Builder(rawDB: DB):
       case m => unsupported("member kind", m)
     end processMember
 
-    /** An RT domain marked `@timing.related` (and nothing else) shares its target's clock, adding no
-      * new clock: its members belong to the same timing domain and are walked inline. A domain that
-      * introduces its own clock (a genuinely separate clock domain) stays unsupported.
+    /** An RT domain marked `@timing.related` (and nothing else) shares its target's clock, adding
+      * no new clock: its members belong to the same timing domain and are walked inline. A domain
+      * that introduces its own clock (a genuinely separate clock domain) stays unsupported.
       */
     private def isRelatedRTDomain(dmn: DomainBlock): Boolean =
       dmn.domainType == DomainType.RT &&
@@ -1023,7 +1046,10 @@ private final class Builder(rawDB: DB):
           WV(Vector(nl.memRead(mh.mid, memAddrNode(a.relIdx.get))), mh.cellW)
         case dcl: DFVal.Dcl if combOf.contains(dcl) => // comb-array cell read at the current version
           val ch = combOf(dcl)
-          WV(Vector(nl.combLoad(ch.mid, ch.cellW, memAddrNode(a.relIdx.get), combVer(dcl))), ch.cellW)
+          WV(
+            Vector(nl.combLoad(ch.mid, ch.cellW, memAddrNode(a.relIdx.get), combVer(dcl))),
+            ch.cellW
+          )
         case _ => buildApplyIdxNonMem(a, rel)
 
     private def buildApplyIdxNonMem(a: DFVal.Alias.ApplyIdx, rel: DFVal): WV =
@@ -1163,15 +1189,16 @@ private final class Builder(rawDB: DB):
       case _ => None
 
     /** A cell store on a combinational scratch array: read the current cell, insert `part` at `pos`
-      * gated by the current path condition (an unwritten cell holds its prior-in-sweep value), store
-      * it, and advance the array's version. The version threading orders the store before any later
-      * read; there is no env merge (like the RAM, a comb array is not a wide value).
+      * gated by the current path condition (an unwritten cell holds its prior-in-sweep value),
+      * store it, and advance the array's version. The version threading orders the store before any
+      * later read; there is no env merge (like the RAM, a comb array is not a wide value).
       */
     private def combStoreCell(dcl: DFVal.Dcl, addr: Int, pos: Int, part: WV, net: DFNet): Unit =
       val ch = combOf(dcl)
       val ver = combVer(dcl)
       val cur = WV(Vector(nl.combLoad(ch.mid, ch.cellW, addr, ver)), ch.cellW)
-      val inserted = if pos == 0 && part.width == ch.cellW then part else wide.insert(cur, part, pos)
+      val inserted =
+        if pos == 0 && part.width == ch.cellW then part else wide.insert(cur, part, pos)
       val we = pathGuardNode(None)
       val newCell =
         if nl.isConst(we) && nl.constValOf(we) != 0L then inserted else wide.mux(we, inserted, cur)

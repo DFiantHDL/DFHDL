@@ -68,13 +68,14 @@ object Codegen:
       maxOpsPerMethod: Int = 500,
       dumpSource: Boolean = false,
       observed: Set[Int] = Set.empty,
-      watchNode: Int = -1
+      watchNode: Int = -1,
+      forwardMov: Int => Int = identity
   ): SimKernel =
     val className = synchronized {
       counter += 1
       s"dfhdl.sim.gen.Kernel$counter"
     }
-    val source = generateJava(nl, className, maxOpsPerMethod, observed, watchNode)
+    val source = generateJava(nl, className, maxOpsPerMethod, observed, watchNode, forwardMov)
     if dumpSource then println(source)
     val cls = compileJava(className, source, source.contains("jdk.incubator.vector"))
     cls.getDeclaredConstructor().newInstance().asInstanceOf[SimKernel]
@@ -85,13 +86,37 @@ object Codegen:
       className: String,
       maxOpsPerMethod: Int,
       observed: Set[Int],
-      watchNode: Int
+      watchNode: Int,
+      forwardMov: Int => Int
   ): String =
-    val comb = nl.combNodeIds
     def isCombNode(id: Int): Boolean =
       nl.opcodes(id) != Op.REG && nl.opcodes(id) != Op.CONST
     val memDepth = nl.memInit.iterator.map(_.length).toVector
     val combDepth = nl.combDepth.toVector
+
+    // Copy propagation + dead-code elimination. `forwardMov` resolves a node through pure-alias MOV
+    // nodes to the materialized source it equals; every input read below routes through it, so the
+    // alias nodes have no remaining consumers. The live set is what a bulk run must actually
+    // compute — the backward cone from register next-values, memory-write operands, the observed
+    // set (peek/scheduler/text-output), and the watch aggregate — so purely-aliased and otherwise
+    // unreachable comb nodes drop out of every emitted method.
+    def resolve(id: Int): Int = forwardMov(id)
+    def inputsF(id: Int): List[Int] = nl.nodeInputs(id).map(resolve)
+    val liveSet =
+      val live = new java.util.BitSet(nl.nodeCount)
+      val stack = mutable.Stack.empty[Int]
+      def root(id: Int): Unit = if isCombNode(id) then stack.push(id)
+      nl.regNextIds.foreach(n => root(resolve(n)))
+      nl.memWrites.foreach(w => List(w.addr, w.data, w.we).foreach(x => root(resolve(x))))
+      observed.foreach(x => root(resolve(x)))
+      if watchNode >= 0 then root(resolve(watchNode))
+      while stack.nonEmpty do
+        val id = stack.pop()
+        if isCombNode(id) && !live.get(id) then
+          live.set(id)
+          inputsF(id).foreach(root)
+      live
+    val comb = nl.combNodeIds.filter(liveSet.get)
 
     // ---- width-typed emission --------------------------------------------------------------
     def isIntN(id: Int): Boolean = nl.widths(id) <= 32
@@ -103,7 +128,7 @@ object Codegen:
       isIntN(id) && intOps.contains(nl.opcodes(id)) && nl.nodeInputs(id).forall(isIntN)
 
     // ---- bytecode-cost model for method sizing ----------------------------------------------
-    val regNextSpill = nl.regNextIds.iterator.filter(isCombNode).toSet
+    val regNextSpill = nl.regNextIds.iterator.map(resolve).filter(isCombNode).toSet
     def rdCost(id: Int): Int = nl.opcodes(id) match
       case Op.CONST => 3 // folded literal
       case Op.REG   => 7 // signal-array read
@@ -122,7 +147,7 @@ object Codegen:
         case Op.ROM                  => 8
         case _                       => 0
       val store = if observed.contains(id) || regNextSpill.contains(id) then 8 else 0
-      val cost = 14 + nl.nodeInputs(id).map(rdCost).sum + extra + store
+      val cost = 14 + inputsF(id).map(rdCost).sum + extra + store
       // int-form ops over int-typed fields emit roughly two thirds of the long form's bytecode
       // (no wide operands, no mask ANDs at width 32), so a chunk fits proportionally more
       if intMode(id) then cost * 2 / 3 else cost
@@ -147,7 +172,7 @@ object Codegen:
       if curCount > 0 then out += cur.result()
       out.result()
     // single-method mode (the small-design fast path): ops and commit all inline in the run loop
-    val nSelfMoves = nl.regNextIds.iterator.zipWithIndex.count((n, i) => n == nl.regIds(i))
+    val nSelfMoves = nl.regNextIds.iterator.zipWithIndex.count((n, i) => resolve(n) == nl.regIds(i))
     val single =
       chunks.sizeIs <= 1 &&
         comb.iterator.map(opCost).sum + (nl.regIds.length - nSelfMoves) * 22 <= methodBudget
@@ -159,11 +184,12 @@ object Codegen:
     val spill = mutable.Set.empty[Int]
     spill ++= observed.filter(isCombNode)
     if !single then
-      for id <- comb; in <- nl.nodeInputs(id) do
+      for id <- comb; in <- inputsF(id) do
         if isCombNode(in) && chunkOf(in) != chunkOf(id) then spill += in
       spill ++= regNextSpill
       // memory write-port operands are read at commit, outside the producing chunk method
-      spill ++= nl.memWrites.iterator.flatMap(w => Iterator(w.addr, w.data, w.we)).filter(isCombNode)
+      spill ++= nl.memWrites.iterator.flatMap(w => Iterator(w.addr, w.data, w.we))
+        .map(resolve).filter(isCombNode)
 
     // register commit ordering: profiling shows plain data movement dominating large designs, so
     // the commit avoids staging wherever possible. A self-move (an unassigned hold) is skipped
@@ -174,13 +200,15 @@ object Codegen:
     // array, gathered before any commit write. Comb/const next values are always direct (comb
     // slots are never written during the commit).
     val regIdx = nl.regIds.indices.toVector
-    val selfMove = regIdx.filter(i => nl.regNextIds(i) == nl.regIds(i)).toSet
+    val selfMove = regIdx.filter(i => resolve(nl.regNextIds(i)) == nl.regIds(i)).toSet
     val regIndexOfNode = nl.regIds.zipWithIndex.toMap
     // the single successor edge: consumer i reads register srcOf(i) (self-moves excluded on both
-    // sides — a skipped register is never written, so reading it needs no ordering)
+    // sides — a skipped register is never written, so reading it needs no ordering). Copy
+    // propagation resolves a register-to-register move that hops through an alias MOV, so those
+    // shift-register chains are still recognized as direct field-to-field moves.
     val srcOf: Map[Int, Int] =
       regIdx.iterator.filterNot(selfMove).flatMap { i =>
-        regIndexOfNode.get(nl.regNextIds(i)).filterNot(selfMove).map(i -> _)
+        regIndexOfNode.get(resolve(nl.regNextIds(i))).filterNot(selfMove).map(i -> _)
       }.toMap
     val stagedSet = mutable.Set.empty[Int]
     val commitOrder =
@@ -283,17 +311,22 @@ object Codegen:
     def regLhs(id: Int): String = if isIntN(id) then regRefI(id) else s"f$id"
     // Read a node's value as a long from within chunk `ci` (-1 = outside all chunks). State
     // lives in width-typed fields; int values are always stored masked, so widening is unsigned.
-    def rd(id: Int, ci: Int): String = nl.opcodes(id) match
-      case Op.CONST => hexL(nl.initVals(id))
-      case Op.REG   => if isIntN(id) then s"Integer.toUnsignedLong(${regRefI(id)})" else s"f$id"
-      case _        =>
-        val ref = if isLocal(id, ci) then s"v$id" else s"f$id"
-        if isIntN(id) then s"Integer.toUnsignedLong($ref)" else ref
-    // Read an int-typed node's value as an int (callers guarantee isIntN(id))
-    def rdI(id: Int, ci: Int): String = nl.opcodes(id) match
-      case Op.CONST => hexI(nl.initVals(id))
-      case Op.REG   => regRefI(id)
-      case _        => if isLocal(id, ci) then s"v$id" else s"f$id"
+    // The id resolves through forwarded alias MOVs to the source it equals (copy propagation).
+    def rd(id0: Int, ci: Int): String =
+      val id = resolve(id0)
+      nl.opcodes(id) match
+        case Op.CONST => hexL(nl.initVals(id))
+        case Op.REG   => if isIntN(id) then s"Integer.toUnsignedLong(${regRefI(id)})" else s"f$id"
+        case _        =>
+          val ref = if isLocal(id, ci) then s"v$id" else s"f$id"
+          if isIntN(id) then s"Integer.toUnsignedLong($ref)" else ref
+    // Read an int-typed node's value as an int (callers guarantee isIntN of the resolved id)
+    def rdI(id0: Int, ci: Int): String =
+      val id = resolve(id0)
+      nl.opcodes(id) match
+        case Op.CONST => hexI(nl.initVals(id))
+        case Op.REG   => regRefI(id)
+        case _        => if isLocal(id, ci) then s"v$id" else s"f$id"
 
     def emitOp(id: Int, ci: Int): String =
       val w = nl.widths(id)
@@ -475,7 +508,8 @@ object Codegen:
     def emitMemWrites(indent: String, ci: Int, dirty: Boolean): Unit =
       for w <- nl.memWrites do
         val m = hexL(w.mask)
-        val shifted = if w.pos == 0 then s"(${rd(w.data, ci)})" else s"((${rd(w.data, ci)}) << ${w.pos})"
+        val shifted =
+          if w.pos == 0 then s"(${rd(w.data, ci)})" else s"((${rd(w.data, ci)}) << ${w.pos})"
         sb ++= s"${indent}if ((${rd(w.we, ci)}) != 0L) {\n"
         sb ++= s"$indent  int a = (int) (${rd(w.addr, ci)});\n"
         sb ++= s"$indent  if (a < ${memDepth(w.mid)}) {\n"

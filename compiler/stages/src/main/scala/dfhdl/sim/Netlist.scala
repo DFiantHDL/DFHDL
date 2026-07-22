@@ -60,7 +60,14 @@ end Op
   * byte-enable write is a set of ports over one word, last-write-wins per bit); reads observe the
   * pre-commit contents (read-first, matching a non-blocking `<=` RAM).
   */
-private[sim] final case class MemWrite(mid: Int, addr: Int, data: Int, we: Int, pos: Int, mask: Long)
+private[sim] final case class MemWrite(
+    mid: Int,
+    addr: Int,
+    data: Int,
+    we: Int,
+    pos: Int,
+    mask: Long
+)
 
 /** A tiny pre-scheduled netlist — the SimGraph precursor the DFacsimile lowering targets. Nodes are
   * identified by their index. Combinational evaluation order is computed by a topological schedule
@@ -95,6 +102,13 @@ final class Netlist:
   // scheduler's quiescence detection
   private[sim] val regTracked = mutable.ArrayBuffer.empty[Boolean]
   private val constCache = mutable.HashMap.empty[(Int, Long), Int]
+  // value-numbering cache for pure combinational nodes: a node is a pure function of its opcode,
+  // width, and input slots, so an identical (op, w, a, b, c) request reuses the existing node
+  // instead of emitting a duplicate. Only the [[evalNode]] path (arithmetic/logic/shift/compare/
+  // mux/resize) is keyed here; side-effecting or order-sensitive nodes (MOV placeholders, ROM with
+  // its side table, memory reads, comb-array ops) never enter this cache. Bit-serial designs decode
+  // the same instruction bits at many sites, so this collapses a large fraction of the sweep.
+  private val opCache = mutable.HashMap.empty[(Int, Int, Int, Int, Int), Int]
 
   def nodeCount: Int = opcodes.length
   def widthOf(id: Int): Int = widths(id)
@@ -130,7 +144,7 @@ final class Netlist:
       val bArg = if op >= Op.binaryFirst then cv(b) else b.toLong
       val cArg = if op == Op.MUX then cv(c) else -1L
       const(w, SimOps.eval(op, w, widths(a), cv(a), bArg, cArg))
-    else newNode(op, w, a, b, c)
+    else opCache.getOrElseUpdate((op, w, a, b, c), newNode(op, w, a, b, c))
   end evalNode
 
   def const(w: Int, v: Long): Int =
