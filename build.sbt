@@ -31,7 +31,7 @@ val vgaMonitorVersion = "1.0.0"
 val interactiveSimVersion = "0.4.0"
 // dependency versions
 val scodecVersion        = "1.2.5"
-val munitVersion         = "1.3.3"
+val munitVersion         = "1.3.4"
 val airframelogVersion   = "2026.1.7"
 val oslibVersion         = "0.11.8"
 val scallopVersion       = "6.0.0"
