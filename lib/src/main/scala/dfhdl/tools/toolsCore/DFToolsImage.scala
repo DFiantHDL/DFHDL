@@ -152,10 +152,18 @@ object DFToolsImage:
           "(corrupt download removed; retry)"
       )
 
-  /** Whether the given image is resolvable (present locally / overridden / downloadable). */
+  /** Whether the given image is resolvable (present locally / overridden / downloadable). A resolve
+    * failure (no container runtime, blocked unprivileged user namespaces, a corrupt or absent asset)
+    * is reported before returning false, so it is distinguishable from an image that is simply not
+    * configured — otherwise the only downstream symptom is a misleading "could not be found in its
+    * DFTools image".
+    */
   def isAvailable(image: String): Boolean =
     try handle(image).exists
-    catch case _: Throwable => false
+    catch
+      case e: Throwable =>
+        println(s"[dftools] image '$image' unavailable: $e")
+        false
 
   /** Run a command inside the image and return its combined stdout+stderr (trimmed). Used for
     * version probes in `dftools` mode, where the tool lives in the image rather than on the host
