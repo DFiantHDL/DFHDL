@@ -128,11 +128,7 @@ object DFToolsImage:
           // the fresh bytes and report completion. Both messages are gated on the cache miss so the
           // common warm-cache path stays noise-free.
           println(s"[dftools] downloading image '$image' ($version)...")
-          // Pull by `name`, not an explicit `dest`: scalapptainer creates the images cache dir on the
-          // derived-name path (via cacheImagePath) but skips that mkdir when handed an explicit dest
-          // (fixed upstream in scalapptainer > 0.5.3), and apptainer's pull fails when the dir is
-          // missing. `name` lands the SIF at the same `<imagesDir>/<asset>` path.
-          val img = Apptainer.pull(assetUrl(asset), name = asset.stripSuffix(".sif"), interactive = true)
+          val img = Apptainer.pull(assetUrl(asset), dest = Some(dest), interactive = true)
           verifySha256(dest, sha) // verify only freshly pulled bytes, backend-side
           println(s"[dftools] image '$image' ready")
           img

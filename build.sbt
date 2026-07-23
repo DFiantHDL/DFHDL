@@ -28,7 +28,7 @@ val vgaMonitorVersion = "1.0.1"
 // IPs share one bundle (one C++ singleton backend + one VHDL package), so the release lays its files
 // out exactly like vga-monitor-sim: HDL wrappers (identical across platforms) in the bundle root,
 // per-system binaries in `<platform>/`. All filenames unversioned (version only in archive/folder).
-val interactiveSimVersion = "0.4.1"
+val interactiveSimVersion = "0.4.2"
 // dependency versions
 val scodecVersion        = "1.2.5"
 val munitVersion         = "1.3.4"
@@ -36,7 +36,7 @@ val airframelogVersion   = "2026.1.7"
 val oslibVersion         = "0.11.8"
 val scallopVersion       = "6.0.0"
 val upickleVersion       = "4.4.3"
-val scalapptainerVersion = "0.5.3"
+val scalapptainerVersion = "0.5.4"
 val factumVersion        = "0.2.0"
 
 inThisBuild(
