@@ -46,6 +46,11 @@ jobs:
           iverilog -V
           ghdl version
           nvc --version
+      # DFTools runs each EDA tool inside a rootless Apptainer image, whose engine needs an
+      # unprivileged user namespace. Ubuntu 24.04 blocks that via an AppArmor sysctl by default;
+      # clear it so Apptainer's rootless engine can start.
+      - name: Enable unprivileged user namespaces (Apptainer rootless engine)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Run tests
         run: sbt test
       - name: Run app tests
