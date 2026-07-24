@@ -371,7 +371,7 @@ class Foo(
 
 ```title="CLI help mode output, when running via sbt (truncated)"
 Design Name: Foo
-Usage: sbt runMain "top_Foo [design-args] <mode> [options]"
+Usage: sbt runMain "Foo [design-args] <mode> [options]"
  Design arguments:
       --pureIntArg  <Int>    (default = 5)
       --dfhdlIntArg  <Int>   (default = 7)
@@ -849,7 +849,7 @@ children = [
 
 /// details | Runnable example
     type: dfhdl
-```scastie main="top_LRShiftDirect"
+```scastie main="LRShiftDirect"
 --8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftDirect.scala:3"
 ```
 ///
@@ -1003,7 +1003,7 @@ Note how the compiler adds comments (`/*<--*/` and `/*-->*/`) to indicate the di
 The following runnable example is the same as the [`LRShiftDirect`][LRShiftDirect] example, except for the default compiler options, which we altered to print the compiled design in DFHDL code format rather than the backend code format.
 /// details | Runnable example
     type: dfhdl
-```scastie main="top_LRShiftDirect"
+```scastie main="LRShiftDirect"
 import dfhdl.*
 given options.CompilerOptions.Backend = _.verilog
 //disable the default backend code print (in scastie)
@@ -1017,27 +1017,32 @@ given options.CompilerOptions.PrintDFHDLCode = true
 ///
 
 ### Functional Composition
-Functional composition is a method-call based mechanism primarily used for dataflow designs with a single output. It's particularly useful for arithmetic and logic operations. The DFHDL compiler automatically transforms functional composition into direct design composition.
+Functional composition is an alternative way to express a design: instead of declaring a design class, you declare a method (a Scala `def`). It is a method-call based mechanism primarily used for dataflow designs with a single output, and is particularly useful for arithmetic and logic operations. The DFHDL compiler automatically transforms functional composition into direct design composition: each method becomes a design of its own, taking the method's name as its design name during compilation, and every call to the method becomes an instance of that design.
+
+/// admonition | Methods and method designs
+    type: info
+Functional composition is the dataflow (DF) case of DFHDL [methods][Methods], where a method's return type is `<> DFRET`. Such a method elaborates into a **method design**: an ordinary design that is instantiated at each call site, which is what the rest of this section shows. This is distinct from ED methods and static functions, which do **not** become designs; they compile to HDL functions, tasks, and procedures called in place. See the [Methods][Methods] page for the full picture across all domains.
+///
 
 #### Syntax
-The syntax for functional composition follows standard Scala method declaration and invocation to declare and invoke *design definitions* (aka design methods or design functions):
+The syntax for functional composition follows standard Scala method declaration and invocation to declare and invoke *methods* (functions when they return a value):
 
 ```scala linenums="0" title="Functional composition syntax"
-//declare a design definition
-def _designName_(
+//declare a method
+def _methodName_(
     _param1_: _type1_ <> VAL,
     _param2_: _type2_ <> VAL,
     ...,
     _paramN_: _typeN_ <> VAL
 ): _returnType_ <> DFRET = _expression_
 
-//invoke the design definition
-_designName_(_param1_, _param2_, ..., _paramN_)
+//invoke the method
+_methodName_(_param1_, _param2_, ..., _paramN_)
 ```
 
 Where:
 
-* `_designName_` - The name of the design definition
+* `_methodName_` - The name of the method, which becomes the design name during compilation
 * `_paramN_` - Input parameters that act as design ports
 * `_typeN_` - DFHDL types for the parameters
 * `_returnType_` - DFHDL type for the output port

@@ -84,10 +84,12 @@ class DropDomainsSpec extends StageSpec:
          |class IDTop extends EDDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val dmn1_clk = Clk_default <> IN
          |  val dmn1_rst = Rst_default <> IN
          |  val dmn1_id = ID()
          |  dmn1_id.x <> x
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |  val dmn2_clk = Clk_default <> IN
          |  val dmn2_rst = Rst_default <> IN
          |  val dmn2_dmn1_id_y_reg = SInt(16) <> VAR

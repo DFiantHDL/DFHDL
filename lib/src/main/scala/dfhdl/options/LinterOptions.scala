@@ -5,6 +5,7 @@ import LinterOptions.*
 final case class LinterOptions(
     onError: _OnError,
     Werror: WError,
+    location: _Location,
     verilogLinter: _VerilogLinter,
     vhdlLinter: _VHDLLinter
 ) extends ToolOptions
@@ -16,11 +17,13 @@ object LinterOptions:
     given (using
         onError: OnError,
         Werror: WError,
+        location: Location,
         verilogLinter: VerilogLinter,
         vhdlLinter: VHDLLinter
     ): Defaults[Any] = LinterOptions(
       onError = onError(dfhdl.options.OnError),
       Werror = Werror,
+      location = location(dfhdl.options.ToolOptions.Location),
       verilogLinter = verilogLinter(dfhdl.tools.linters.verilogLinters),
       vhdlLinter = vhdlLinter(dfhdl.tools.linters.vhdlLinters)
     )
@@ -38,6 +41,14 @@ object LinterOptions:
     given (using Werror: dfhdl.options.ToolOptions.WError): WError = Werror
     given [T](using conv: Conversion[T, dfhdl.options.ToolOptions.WError]): Conversion[T, WError] =
       t => conv(t).asInstanceOf[WError]
+
+  type Location = dfhdl.options.ToolOptions.Location.type => _Location
+  private[dfhdl] into opaque type _Location <: dfhdl.options.ToolOptions._Location =
+    dfhdl.options.ToolOptions._Location
+  object _Location:
+    given (using location: dfhdl.options.ToolOptions.Location): Location = location
+    given Conversion[dfhdl.options.ToolOptions._Location, _Location] = x =>
+      x.asInstanceOf[_Location]
 
   type VerilogLinter = dfhdl.tools.linters.verilogLinters.type => _VerilogLinter
   private[dfhdl] into opaque type _VerilogLinter <: dfhdl.tools.toolsCore.VerilogLinter =

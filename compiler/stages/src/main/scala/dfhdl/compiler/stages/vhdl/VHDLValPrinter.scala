@@ -7,6 +7,16 @@ import DFVal.*
 
 protected trait VHDLValPrinter extends AbstractValPrinter:
   type TPrinter <: VHDLPrinter
+  def csMethodCall(call: Func, designKey: StaticRef): String =
+    val design = designKey.getDesignBlock
+    val args = csMethodCallArgs(call, design).mkString(", ")
+    // parameterless VHDL method calls have no parentheses
+    val callCS =
+      if (args.isEmpty) design.dclName
+      else s"${design.dclName}($args)"
+    // a procedural (Unit-return) call is a procedure call statement
+    if (call.dfType == DFUnit) s"$callCS;" else callCS
+  end csMethodCall
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
     s"constant ${dfVal.getName} : ${printer.csDFType(dfVal.dfType)} := ${csDFValExpr(dfVal)};"
@@ -15,7 +25,9 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     if (dfVal.isPort) s"${dfVal.getName} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr"
     else
       val sigOrVar = dfVal.getOwnerNamed match
-        case dsn: DFDesignBlock =>
+        // HDL method (ED method / static function) locals are method variables
+        case dsn: DFDesignBlock if dsn.isHDLMethod => "variable"
+        case dsn: DFDesignBlock                    =>
           if (dfVal.modifier.isShared) "shared variable"
           else "signal"
         case _ => "variable"
@@ -227,6 +239,18 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         s"to_signed($relValStr, ${tWidthRef.refCodeString})"
       case (DFInt32, DFUInt(_) | DFSInt(_)) =>
         s"to_integer($relValStr)"
+      // fixed-point (target fraction != 0): `.signed`/`.unsigned` sign casts and
+      // `.resize(m, f)` reformats. The sign casts derive the target range from the source
+      // (magnitude +/- the sign bit), so they need no explicit format; `resize` takes the
+      // target magnitude and fraction to build the `(m-1 downto -f)` range.
+      case (DFSFix(_, _), DFUFix(_, _)) =>
+        s"to_sfix($relValStr)"
+      case (DFUFix(_, _), DFSFix(_, _)) =>
+        s"to_ufix($relValStr)"
+      case (DFUFix(tM, tF), DFUFix(_, _)) =>
+        s"resize($relValStr, ${tM.refCodeString}, $tF)"
+      case (DFSFix(tM, tF), DFSFix(_, _)) =>
+        s"resize($relValStr, ${tM.refCodeString}, $tF)"
       case _ => printer.unsupported
     end match
   end csDFValAliasAsIs

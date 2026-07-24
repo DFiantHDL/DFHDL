@@ -30,16 +30,17 @@ type DFTypeAny = DFType[ir.DFType, Args]
 
 object DFType:
   type Of[T <: Supported] <: DFTypeAny = T match
-    case DFTypeAny => T & DFTypeAny
-    case Int       => DFInt32
-    case Long      => DFSInt[64]
-    case Byte      => DFBits[8]
-    case Boolean   => DFBool
-    case Double    => DFDouble
-    case DFOpaqueA => DFOpaque[T]
-    case String    => DFString
-    case Product   => FromProduct[T]
-    case Unit      => DFUnit
+    case DFTypeAny     => T & DFTypeAny
+    case BitNumWrapper => DFBit
+    case Int           => DFInt32
+    case Long          => DFSInt[64]
+    case Byte          => DFBits[8]
+    case Boolean       => DFBool
+    case Double        => DFDouble
+    case DFOpaqueA     => DFOpaque[T]
+    case String        => DFString
+    case Product       => FromProduct[T]
+    case Unit          => DFUnit
 
   type FromProduct[T <: Product] <: DFTypeAny = T match
     case DFEncoding      => DFEnum[T]
@@ -99,8 +100,7 @@ object DFType:
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
   type Supported = DFTypeAny | FieldsOrTuple | DFEncoding | DFOpaqueA | Byte | Int | Long |
-    Boolean | Double | String | Object | Unit
-
+    Boolean | Double | String | Object | Unit | BitNumWrapper
   trait TC[T]:
     type Type <: DFTypeAny
     def apply(t: T)(using DFC): Type
@@ -261,10 +261,12 @@ object DFType:
     end ofNamedTupleMacro
   end TC
 
-  private def widthRef[W <: IntP](dfType: DFTypeW[W]): ir.IntParamRef =
+  // DFTypeW covers only integer decimals (DFUInt/DFSInt), where the magnitude ref is the
+  // total-width ref (and may be parametric)
+  private def widthRef[W <: IntP](dfType: DFTypeW[W])(using ir.MemberGetSet): ir.IntParamRef =
     dfType.asIR.runtimeChecked match
       case dt: ir.DFBits    => dt.widthParamRef
-      case dt: ir.DFDecimal => dt.widthParamRef
+      case dt: ir.DFDecimal => dt.magnitudeWidthParamRef
   extension [LW <: IntP](lhs: DFTypeW[LW])
     protected[core] def compareWidths[RW <: IntP](rhs: DFTypeW[RW])(
         func: (Int, Int) => Boolean
@@ -272,6 +274,7 @@ object DFType:
       import dfc.getSet
       widthRef(lhs).compare(widthRef(rhs))(func)
     protected[core] def widthCodeString(using dfc: DFC): String =
+      import dfc.getSet
       widthRef(lhs).refCodeString
 
 end DFType

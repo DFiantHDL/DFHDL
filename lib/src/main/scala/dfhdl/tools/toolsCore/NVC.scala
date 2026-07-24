@@ -35,6 +35,12 @@ object NVC extends VHDLLinter, VHDLSimulator:
       so: SimulatorOptions
   ): List[String] =
     val designWorkFiles = getSet.designDB.designMemberList.view.map(_._1)
+      // Foreign IP wrappers are external VHDL whose architecture name DFHDL does not control (the
+      // vga-monitor wrapper uses `rtl`, not the `<name>_arch` DFHDL emits for its own designs), so
+      // the predicted `WORK.<NAME>-<NAME>_ARCH` file never exists and `cacheFiles` would fail trying
+      // to cache it. They are not needed as cached intermediates anyway: NVC runs from the
+      // elaborated `.elab`, which already embeds the foreign design unit.
+      .filterNot(_.isForeignIPBlackbox)
       .map(_.dclName)
       .flatMap(name =>
         val nameUC = name.toUpperCase()
@@ -59,7 +65,7 @@ object NVC extends VHDLLinter, VHDLSimulator:
         )
       else Nil
     )
-    val versionDouble = this.installedVersion.get.split("\\.").take(2).mkString(".").toDouble
+    val versionDouble = getInstalledVersion.split("\\.").take(2).mkString(".").toDouble
     val topElabFile =
       if (versionDouble >= 1.20) ""
       else if (versionDouble >= 1.17) s"_WORK.${topNameUC}.elab.pack"
@@ -153,6 +159,12 @@ object NVC extends VHDLLinter, VHDLSimulator:
       MemberGetSet
   ): String = constructCommand(
     "-r",
+    // Foreign IP VHPIDIRECT integration: load each IP's VHPI shared library at run time.
+    constructCommand(
+      foreignSources.filter(_.vhpiLib.nonEmpty).map { f =>
+        s"--load ${foreignLibDir(f)}/${foreignSharedLibFile(f.vhpiLib)}"
+      }*
+    ),
     topName,
     "--ieee-warnings=off"
   )

@@ -125,39 +125,44 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       }
       .mkString("\n")
 
-    val constIntDcls =
-      designMembers.view
-        .flatMap {
-          case _: DesignParam => None
-          case c @ DclConst() =>
-            c.dfType match
-              case DFInt32 => Some(c)
-              case _       => None
-          case _ => None
-        }
-        .map(printer.csDFMember)
-        .mkString("\n")
-    val dfValDcls =
-      designMembers.view
-        .flatMap {
-          case _ @IteratorDcl()        => None
-          case p: DFVal.Dcl if p.isVar => Some(p)
-          case _: DesignParam          => None
-          case c @ DclConst()          =>
-            c.dfType match
-              case DFInt32 => None
-              case _       => Some(c)
-          case _ => None
-        }
-        .map(printer.csDFMember)
-        .mkString("\n")
+    // constants named by a local type declaration (a vector/array width); these precede the
+    // named-type declarations, which must be declared before the signals/constants that use them
+    val constWidthDcls =
+      printer.typeReferencedConsts(design).view.map(printer.csDFMember).mkString("\n")
+    // Foreign IPs supply their own HDL wrapper (compiled into the `work` library at simulate
+    // time), so they are instanced directly via `entity work.<name>(rtl)` and need no component
+    // declaration here. Other blackboxes (e.g. vendor IPs) still require a component declaration.
     val components = designMembers.view.collect {
-      case inst: DFDesignInst if inst.getDesignBlock.isBlackBox => inst.getDesignBlock
+      case inst: DFDesignInst
+          if inst.getDesignBlock.isBlackBox && !inst.getDesignBlock.isForeignIPBlackbox =>
+        inst.getDesignBlock
     }.map(bb => printerForDesign(bb).csEntityDcl(bb, asComponent = true)).mkString("\n")
+    // The constants, static functions, signals, and ED methods (all HDL methods are locally
+    // scoped, declared in this architecture declarative part) are emitted in a single stable
+    // topological order (see `localDeclsOrdered`), because they reference each other in both
+    // directions: a constant's value may CALL a static function, whose body READS constants; a
+    // signal's default value may CALL a static function (the initial block init-function form);
+    // and an ED method READS signals. The named-type declarations and their width constants
+    // (above) stay ahead of them. Each method is bound to its first call site's printer (phantom
+    // actuals resolved there).
+    val methodPrinters = printer.methodPrinters(design)
+    val methodPrinterOf = methodPrinters.toMap
+    def csMethodLocal(block: DFDesignBlock): String =
+      val p = methodPrinterOf(block)
+      sn"""|${p.csDocString(block.dclMeta)}
+           |${p.csMethodDcl(block)}""".stripTrailing
+    val orderedDcls = printer.joinLocalDecls(
+      printer.localDeclsOrdered(design, methodPrinters.map(_._1)).map {
+        case LocalDecl.Const(c)        => (false, printer.csDFMember(c))
+        case LocalDecl.Signal(s)       => (false, printer.csDFMember(s))
+        case LocalDecl.StaticMethod(b) => (true, csMethodLocal(b))
+        case LocalDecl.EDMethod(b)     => (true, csMethodLocal(b))
+      }
+    )
     val declarations =
-      sn"""|$constIntDcls
+      sn"""|$constWidthDcls
            |$namedTypeConvFuncsDcl
-           |$dfValDcls
+           |$orderedDcls
            |$components"""
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl => false
@@ -192,15 +197,137 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val designParamCS =
       if (designParamList.isEmpty || design.isVendorIPBlackbox) ""
       else " generic map (" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
-    // for blackboxes we use component declaration, so the header is just the entity name
     val header =
-      if (design.isBlackBox) entityName(design)
+      // Foreign IPs are compiled into the `work` library from their bundled wrapper, so they are
+      // instanced directly like regular designs. Their wrapper always uses the `rtl` architecture.
+      if (design.isForeignIPBlackbox) s"entity work.${entityName(design)}(rtl)"
+      // other blackboxes (e.g. vendor IPs) use a component declaration, so the header is just the
+      // entity name
+      else if (design.isBlackBox) entityName(design)
       else s"entity work.${entityName(design)}(${archName(design)})"
     val instCS = s"${inst.getName} : $header${designParamCS}"
     if (body.isEmpty) s"$instCS;" else s"$instCS port map (\n${body.hindent}\n);"
   end csDFDesignBlockInst
-  def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
-  def csDFDesignDefInst(inst: DFDesignInst): String = printer.unsupported
+  // ED methods (HDL functions) print inside their owning design's architecture
+  // declarative part
+  def csMethodDcl(design: DFDesignBlock): String =
+    val designMembers = design.members(MemberView.Folded)
+    // the return value: the (single, full) connection to the output port
+    var retValOpt: Option[DFVal] = None
+    val outNetOpt = designMembers.view.reverse.collectFirst {
+      case outNet @ DFNet.Connection(DclOut(), rv: DFVal, _) =>
+        retValOpt = Some(rv)
+        outNet
+    }
+    val funcName = design.dclName
+    // A function reading a SIGNAL beyond its parameters (a phantom-captured outer value, which
+    // is always an input port) must be declared impure. A phantom-captured CONSTANT does not
+    // make it impure: VHDL's `pure` only forbids referencing signals and shared variables
+    // declared outside the method, and a static function has none of those by construction
+    // (its captures are constants, enforced by the plugin), so it is always emitted `pure`.
+    val hasPhantomSignals = designMembers.exists {
+      case p @ DclIn() => p.isPhantom
+      case _           => false
+    }
+    val purity =
+      if (design.isStaticFunction) "pure "
+      else if (hasPhantomSignals) "impure "
+      else ""
+    // a procedural method (Unit return — no return output port) prints as a procedure
+    val isProcedural = retValOpt.isEmpty
+    // VHDL function return takes a type MARK (no constraint)
+    val retTypeCS = retValOpt.map(rv => printer.csDFType(rv.dfType).takeWhile(_ != '('))
+    // a method's formals: design parameters and/or input/output ports, in one list (see
+    // `methodFormals`). A VHDL formal defaults to mode `in`; an `<> OUT` argument prints mode
+    // `out`, whose default object class for a procedure is `variable` (copy-out on return),
+    // matching the body's `:=` writes. An `<> OUT.NB` output is a `signal`-class formal (a live
+    // driver, written `<=`), spelled with the explicit `signal` object class.
+    val params = methodFormals(design).map { p =>
+      val modeCS = if (p.isPortOut) "out " else ""
+      val classCS = if (p.isNonBlockingArg) "signal " else ""
+      s"$classCS${p.getName} : $modeCS${printer.csDFType(p.dfType)}"
+    }.mkString("; ")
+    // parameterless VHDL methods are declared (and called) without parentheses
+    val paramsCS = params.emptyOr(p => s"($p)")
+    val localDcls = designMembers.view.flatMap {
+      // phantom design parameters (captured outer constants) print nowhere — their body
+      // references resolve to the captured constant's name at architecture scope
+      case _: DesignParam              => None
+      case dcl: DFVal.Dcl if dcl.isVar => Some(printer.csDFMember(dcl))
+      case c @ DclConst()              => Some(printer.csDFMember(c))
+      case _                           => None
+    }.mkString("\n")
+    val statements = csDFMembers(designMembers.filter {
+      case _: DFVal.Dcl                          => false
+      case DclConst()                            => false
+      case net: DFNet if outNetOpt.contains(net) => false
+      // the return value ident placeholder is rendered by the return statement below
+      case m: DFVal if retValOpt.contains(m) => false
+      case _                                 => true
+    })
+    val retStatement =
+      retValOpt.map(rv => s"return ${printer.csDFValRef(rv, design)};").getOrElse("")
+    val body =
+      sn"""|$statements
+           |$retStatement"""
+    // procedures take no purity keyword; a phantom-reading procedure is simply legal VHDL
+    val headerCS =
+      if (isProcedural) s"procedure $funcName$paramsCS is"
+      else s"${purity}function $funcName$paramsCS return ${retTypeCS.get} is"
+    val endCS = if (isProcedural) "end procedure;" else "end function;"
+    sn"""|$headerCS
+         |${localDcls.hindent}
+         |begin
+         |${body.hindent}
+         |$endCS"""
+  end csMethodDcl
+  // The package-spec prototype of a GLOBAL method: a global method is declared in the
+  // package spec (this) and defined in the package body (csMethodDcl). Mirrors
+  // csMethodDcl's header, terminated with `;`.
+  def csMethodProto(design: DFDesignBlock): String =
+    val designMembers = design.members(MemberView.Folded)
+    val retValOpt = designMembers.view.reverse.collectFirst {
+      case DFNet.Connection(DclOut(), rv: DFVal, _) => rv
+    }
+    val funcName = design.dclName
+    val hasPhantomSignals = designMembers.exists {
+      case p @ DclIn() => p.isPhantom
+      case _           => false
+    }
+    val purity =
+      if (design.isStaticFunction) "pure "
+      else if (hasPhantomSignals) "impure "
+      else ""
+    val isProcedural = retValOpt.isEmpty
+    val retTypeCS = retValOpt.map(rv => printer.csDFType(rv.dfType).takeWhile(_ != '('))
+    val params = methodFormals(design).map { p =>
+      val modeCS = if (p.isPortOut) "out " else ""
+      val classCS = if (p.isNonBlockingArg) "signal " else ""
+      s"$classCS${p.getName} : $modeCS${printer.csDFType(p.dfType)}"
+    }.mkString("; ")
+    val paramsCS = params.emptyOr(p => s"($p)")
+    if (isProcedural) s"procedure $funcName$paramsCS;"
+    else s"${purity}function $funcName$paramsCS return ${retTypeCS.get};"
+  end csMethodProto
+  def csMethodInst(inst: DFDesignInst): String =
+    val design = inst.getDesignBlock
+    val instPBNS = getSet.designDB.designInstPBNS.getOrElse(
+      inst,
+      getSet.designDB.members.collect {
+        case pbns: DFVal.PortByNameSelect if pbns.getDesignInst == inst => pbns
+      }
+    )
+    // the actuals positionally match `methodFormals`: a static function's are its applied design
+    // parameters, an ED method's are its input-port connections
+    val args = defActuals(inst).map(printer.csDFValRef(_, inst.getOwner)).mkString(", ")
+    // a procedural method call (no return output port) is a statement;
+    // parameterless VHDL method calls have no parentheses
+    val isProcedural = !instPBNS.exists(_.isOut)
+    val callCS =
+      if (args.isEmpty) design.dclName
+      else s"${design.dclName}($args)"
+    if (isProcedural) s"$callCS;" else callCS
+  end csMethodInst
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
   override def csDFIfGuard(ifBlock: DFConditional.DFIfElseBlock): String =
@@ -238,6 +365,8 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.All        => " (all)"
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
+      // initial blocks never reach VHDL printing (DropInitialBlocks lowers them beforehand)
+      case Sensitivity.Initial => printer.unsupported
     sn"""|${named}process$senList
          |${csDcls.hindent}
          |begin

@@ -109,36 +109,29 @@ class PluginSpec extends DFSpec:
   }
   assertLastNames("wrappedTryName")
 
-  trait HasNamePosWithVars extends internals.HasClsMetaArgs:
-    private var _clsName: String = ""
-    private var _clsPosition: Position = Position.unknown
-    private var _clsDocOpt: Option[String] = None
-    private var _clsAnnotations: List[Annotation] = Nil
-
-    final protected def setClsNamePos(
-        name: String,
-        position: Position,
-        docOpt: Option[String],
-        annotations: List[Annotation]
-    ): Unit =
-      _clsName = name
-      _clsPosition = position
-      _clsDocOpt = docOpt
-      _clsAnnotations = annotations
-
-    final def clsName: String = _clsName
-    final def clsPosition: Position = _clsPosition
-    final def clsDocOpt: Option[String] = _clsDocOpt
-    final def clsAnnotations: List[Annotation] = _clsAnnotations
+  // reads the plugin-injected `__clsMeta` chain (leaf = head) to expose the
+  // class's name/position/doc/annotations
+  trait HasNamePosWithVars extends core.HasClsMeta:
+    final def clsName: String = __clsMeta.headOption.flatMap(_.nameOpt).getOrElse("")
+    final def clsPosition: Position =
+      __clsMeta.headOption.map(_.position).getOrElse(Position.unknown)
+    final def clsDocOpt: Option[String] = __clsMeta.headOption.flatMap(_.docOpt)
+    final def clsAnnotations: List[compiler.ir.annotation.HWAnnotation] =
+      __clsMeta.headOption.map(_.annotations).getOrElse(Nil)
   end HasNamePosWithVars
 
   /** This is doc */
   @nowarn
+  @hw.annotation.flattenMode.transparent()
   class GotName(x: Int, y: String, z: Int) extends HasNamePosWithVars
   val gotName = new GotName(1, "2", 3)
   assertEquals(gotName.clsName, "GotName")
   assertEquals(gotName.clsDocOpt, Some(" This is doc "))
-  assert(gotName.clsAnnotations.head.isInstanceOf[nowarn])
+  // only active HW annotations survive in the meta (`@nowarn` is filtered out)
+  assertEquals(
+    gotName.clsAnnotations,
+    List(compiler.ir.annotation.FlattenMode.Transparent)
+  )
   extension (bar: Bar)(using DFC) @inline def ++(that: Bar): Bar = new Plus(bar, that)
 
   extension (bar: Bar) @inline def +++(that: Bar)(using DFC): Bar = new Plus(bar, that)

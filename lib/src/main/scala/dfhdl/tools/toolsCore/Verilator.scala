@@ -50,10 +50,6 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       ToolOptions,
       MemberGetSet
   ): String =
-    val hasTiming = getSet.designDB.members.exists {
-      case _: Wait => true
-      case _       => false
-    }
     constructCommand(
       "--lint-only",
       "--assert",
@@ -62,6 +58,15 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       if (hasTiming) "--timing" else ""
     )
   end lintCmdPreLangFlags
+
+  // Verilator builds without delay support by default; enable `--timing` when the design uses delays
+  // (`Wait`) or when a foreign IP's HDL wrapper does (e.g. a self-paced control polling on a `#`
+  // timer). Other simulators handle delays natively, so this is Verilator-specific.
+  private def hasTiming(using getSet: MemberGetSet): Boolean =
+    getSet.designDB.members.exists {
+      case _: Wait => true
+      case _       => false
+    } || foreignNeedsTiming
 
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
@@ -82,7 +87,44 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       "--assert",
       "--quiet-stats",
       "--build-jobs 0",
-      s"--top-module ${topName}"
+      s"--top-module ${topName}",
+      if (hasTiming) "--timing" else "",
+      foreignDPIFlags
+    )
+
+  // Foreign IP DPI integration: link each foreign IP's DPI library into the verilated binary and
+  // embed its directory as an rpath so the built binary finds it at run time. The HDL wrapper itself
+  // is already compiled via the committed source files.
+  // Verilator runs the g++ link step inside `obj_dir/` (one level below the exec dir), so the lib
+  // dir is referenced from there with a leading `../`. The library is passed by full file name
+  // rather than `-l<name>`: that is portable across GNU and Apple ld and sidesteps the `lib` prefix
+  // that GNU `ld -l` requires but the Windows import lib (`<base>.a`) lacks. At run time the loader
+  // finds the shared object via the rpath plus the lib dir prepended to PATH/LD_LIBRARY_PATH (see
+  // `foreignRuntimeLibPathEnv`).
+  private def foreignDPIFlags(using CompilerOptions, SimulatorOptions, MemberGetSet): String =
+    constructCommand(
+      foreignSources.filter(_.dpiLib.nonEmpty).map { f =>
+        val dir = foreignLibDir(f)
+        val lib = foreignLinkLibFile(f.dpiLib)
+        // How the library is named to the linker decides the verilated binary's DT_NEEDED:
+        //  - Linux (incl. the dftools container): pass it slash-free via `-L../$dir -l:<lib>` so the
+        //    recorded DT_NEEDED is just `lib<base>.so`. A DT_NEEDED that CONTAINS a slash is resolved
+        //    by the loader as a literal path relative to the process cwd, bypassing the rpath AND
+        //    LD_LIBRARY_PATH; slash-free lets the rpath / (in dftools) the forwarded LD_LIBRARY_PATH —
+        //    both the relative lib dir, resolved against the exec-dir cwd — find it at run time.
+        //  - Windows: the DLL is linked by full path and found at run time via PATH (DLL-name search),
+        //    so the baked-in path is harmless (and `-l:` is a GNU-ld-ism).
+        //  - macOS: Apple ld has no `-l:`, so keep the full-path form.
+        val linkTokens =
+          if (isToolInWindows) List(s"../$dir/$lib")
+          else if (usesDFTools || osIsLinux) List(s"-L../$dir", s"-l:$lib")
+          else List(s"../$dir/$lib")
+        // Each linker token gets its own `-LDFLAGS`. The constructed command is later tokenized on
+        // spaces, so a single `-LDFLAGS "a b c"` would be split apart and verilator would reject the
+        // inner tokens as unknown top-level options. Verilator concatenates repeated `-LDFLAGS` in
+        // order, so the linker still receives `-L.. -l:.. -Wl,-rpath,..` as one group.
+        (linkTokens :+ s"-Wl,-rpath,$dir").map(t => s"-LDFLAGS $t").mkString(" ")
+      }*
     )
 
   override protected def simulateCmdPostLangFlags(using
@@ -100,7 +142,9 @@ object Verilator extends VerilogLinter, VerilogSimulator:
   ): CompiledDesign =
     addSourceFiles(
       cd,
-      List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
+      List(new VerilatorConfigPrinter(getInstalledVersion, isToolInWindows)(using
+        cd.stagedDB.getSet
+      ).getSourceFile)
     )
 
   override protected def lintLogger(using
@@ -115,12 +159,26 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       )
     )
 
+  // Verilator builds incrementally under `obj_dir`, and the dependency files (`*.d`) and objects it
+  // leaves there embed the absolute path of the verilator runtime include
+  // (`.../share/verilator/include/verilated.cpp`). That path differs between a local install and the
+  // DFTools image (and between verilator versions), so an `obj_dir` left over from a different
+  // toolchain makes the next `make` fail with `*** No rule to make target '.../verilated.cpp'` or
+  // `*** multiple target patterns`. The gen-file cache keeps each toolchain's final binary separate,
+  // but `obj_dir` intermediates aren't cache-managed, so they're purged on a toolchain switch.
+  override protected def staleToolArtifacts(using
+      MemberGetSet,
+      CompilerOptions,
+      ToolOptions
+  ): List[os.Path] = List(os.Path(execPath, os.pwd) / "obj_dir")
+
   override protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       SimulatorOptions
   ): CompiledDesign =
     val linted = lintPreprocess(cd)
     given MemberGetSet = linted.stagedDB.getSet
+    purgeStaleToolArtifactsOnSwitch()
     exec(simulateCmdFlags, (), simulateLogger, simRunExec)
     linted
 
@@ -135,6 +193,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     var totalCompilations = 0
     var cpps = 0
     var silence = false
+    var hintedCxx = false
     def setCppsFromFolder(): Unit =
       val objDirPath = s"${execPath}${separatorChar}obj_dir"
       val objDir = new java.io.File(objDirPath)
@@ -146,36 +205,56 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       Tool.ProcessLogger(
         lineIsWarning = (line: String) => false,
         lineIsSuppressed = (line: String) =>
-          val ret =
-            if (line.startsWith("make: Entering directory"))
-              setCppsFromFolder()
-              silence = true
-              true
-            else if (line.startsWith("g++"))
-              cpps += 1
-              true
-            else if (line.startsWith("make: Leaving directory"))
-              cpps = totalCompilations
-              silence = false
-              true
-            else if (line.endsWith("verilator_deplist.tmp")) true
-            else silence
-          // Print progress percentage
-          if (totalCompilations > 0)
-            val percentage = (cpps * 100) / totalCompilations
-            print(s"\rCompiling verilated C++ files: $percentage%")
-            if (cpps >= totalCompilations)
-              println() // Add a newline when complete
-              totalCompilations = 0
-              cpps = 0
-          ret
+          // The verilated C++ build runs `g++` from PATH. On Windows an MSYS2 `/usr/bin/g++` — which
+          // has no C++ header search path outside an MSYS2 login shell — ahead of a native MinGW g++
+          // fails here with a header-not-found error for a standard header like <cstdint> (most
+          // visibly on the `--timing` path, which recompiles the verilator runtime). The progress
+          // logger otherwise swallows it, so detect it, break out with an actionable hint (once), and
+          // let the underlying error through.
+          if (
+            !hintedCxx && line.contains("cstdint") &&
+            (line.contains("No such file") || line.contains("no include path"))
+          )
+            hintedCxx = true
+            println() // end the progress line
+            println(
+              "[verilator] the C++ compiler (g++) on PATH cannot find a standard C++ header " +
+                "(<cstdint>). This is usually an MSYS2 `/usr/bin/g++` (no header search path outside " +
+                "an MSYS2 shell) ahead of a native MinGW g++ on PATH; put a working MinGW g++ (e.g. " +
+                "C:\\msys64\\mingw64\\bin) before it on PATH and retry."
+            )
+            false // show the underlying compiler error too
+          else
+            val ret =
+              if (line.startsWith("make: Entering directory"))
+                setCppsFromFolder()
+                silence = true
+                true
+              else if (line.startsWith("g++"))
+                cpps += 1
+                true
+              else if (line.startsWith("make: Leaving directory"))
+                cpps = totalCompilations
+                silence = false
+                true
+              else if (line.endsWith("verilator_deplist.tmp")) true
+              else silence
+            // Print progress percentage
+            if (totalCompilations > 0)
+              val percentage = (cpps * 100) / totalCompilations
+              print(s"\rCompiling verilated C++ files: $percentage%")
+              if (cpps >= totalCompilations)
+                println() // Add a newline when complete
+                totalCompilations = 0
+                cpps = 0
+            ret
       )
     )
   end simulateLogger
 
-  def verilatedBinary(using MemberGetSet): String =
-    val bin = s"obj_dir${separatorChar}V${topName}"
-    if (osIsWindows) s"${bin}.exe" else bin
+  def verilatedBinary(using MemberGetSet, SimulatorOptions): String =
+    val bin = s"obj_dir${toolSeparatorChar}V${topName}"
+    if (isToolInWindows) s"${bin}.exe" else bin
 
   override protected[dfhdl] def producedFiles(using
       MemberGetSet,
@@ -202,7 +281,11 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       "+verilator+quiet",
       s"+verilator+error+limit+${Int.MaxValue}"
     )
-    exec(cmd = cmd, loggerOpt = logger, runExec = verilatedBinary)
+    // run the foreign-IP sim hooks (viewer/streamer) around the verilated binary and pass it their
+    // env (e.g. VGA_MONITOR_STREAM); otherwise a foreign IP's backend has no viewer to stream to.
+    withForeignSimHooks(foreignRuntimeLibPathEnv()) { env =>
+      exec(cmd = cmd, loggerOpt = logger, runExec = verilatedBinary, extraEnv = env)
+    }
     cd
   end simulate
 
@@ -210,9 +293,10 @@ end Verilator
 
 val VerilatorConfig = SourceType.Tool("Verilator", "Config")
 
-class VerilatorConfigPrinter(verilatorVersion: String)(using
+class VerilatorConfigPrinter(verilatorVersion: String, isToolInWindows: Boolean)(using
     getSet: MemberGetSet,
-    co: CompilerOptions
+    co: CompilerOptions,
+    so: SimulatorOptions
 ):
   val designDB: DB = getSet.designDB
   val verilatorVersionMajor: Int = verilatorVersion.split("\\.").head.toInt
@@ -239,7 +323,7 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
   ): String =
     val ruleArg = rule.emptyOr(" -rule " + _)
     val fileArg =
-      val sep = if (separatorChar == '\\') "\\\\" else separatorChar
+      val sep = if (osIsWindows && isToolInWindows) "\\\\" else "/"
       file.emptyOr(f => s""" -file "*$sep$f"""")
     val lineArg = lines.emptyOr(" -lines " + _)
     val matchWildArg = matchWild.emptyOr(m => s""" -match "$m"""")

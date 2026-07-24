@@ -6,7 +6,38 @@ commands += DFHDLCommands.docExamplesRefUpdate
 
 // format: off
 val projectName = "dfhdl"
+
+// VERSIONS — all version literals live here.
 val compilerVersion = "3.8.4"
+// The DFTools binary toolchain release this DFHDL build targets (versioned independently of
+// DFHDL). Surfaced to the library via lib's generated `dftools.properties` and read by
+// DFToolsImage. Bump when adopting a new DFTools release.
+val dftoolsVersion = "v1.1.1"
+// The vga-monitor-sim release wrapped by the `dfhdl.ips.video.vga.vga_monitor` foreign IP. This is
+// the single source of truth: it is surfaced to the IP code via the generated `vga-monitor.properties`
+// resource (read by `vga_monitor.version`), like core's version.properties. Since v0.3.0 the release names
+// all files unversioned (the version lives only in the archive/folder name), so the IP's per-FFI lib
+// base names are unversioned too. v0.4.0 adds the self-describing `VGA_MONITOR_FORMAT=ppm` stream
+// (per-frame P6 header carrying width/height); the viewer opts into it to auto-size frames. Since
+// v1.0.0 the backend is the TCP server (it binds+listens on VGA_MONITOR_STREAM) and a standard
+// viewer (ffplay/ffmpeg) connects to it — see `VgaMonitorSimHook`.
+val vgaMonitorVersion = "1.0.1"
+// The interactive-sim release wrapped by the `dfhdl.ips.interactive.{interactive_ctrl,
+// interactive_flag}` foreign IPs. Single source of truth, surfaced to the IP code via the generated
+// `interactive.properties` resource (read by `dfhdl.ips.interactive.InteractiveSim.version`). Both
+// IPs share one bundle (one C++ singleton backend + one VHDL package), so the release lays its files
+// out exactly like vga-monitor-sim: HDL wrappers (identical across platforms) in the bundle root,
+// per-system binaries in `<platform>/`. All filenames unversioned (version only in archive/folder).
+val interactiveSimVersion = "0.4.2"
+// dependency versions
+val scodecVersion        = "1.2.5"
+val munitVersion         = "1.3.4"
+val airframelogVersion   = "2026.1.7"
+val oslibVersion         = "0.11.8"
+val scallopVersion       = "6.0.0"
+val upickleVersion       = "4.4.3"
+val scalapptainerVersion = "0.5.4"
+val factumVersion        = "0.2.0"
 
 inThisBuild(
   List(
@@ -50,7 +81,9 @@ lazy val root = (project in file("."))
     core,
 	  compiler_stages,
     lib,
-    platforms
+    platforms,
+    ips,
+    benchmarks
   )
 
 lazy val internals = project
@@ -58,7 +91,8 @@ lazy val internals = project
     name := s"$projectName-internals",
     settings,
     implicitConversionSettings,
-    libraryDependencies ++= commonDependencies
+    libraryDependencies ++= commonDependencies,
+    libraryDependencies += dependencies.factum
   )
 
 lazy val plugin = project
@@ -83,18 +117,24 @@ lazy val core = project
     name := s"$projectName-core",
     settings,
     implicitConversionSettings,
-    pluginTestUseSettings,
+    pluginErrorTestSettings,
     libraryDependencies ++= commonDependencies,
     Compile / resourceGenerators += Def.task {
       val file = (Compile / resourceManaged).value / "version.properties"
       val contents = s"version=${version.value}"
-      IO.write(file, contents)
+      // Only (re)write when the content actually changes. An unconditional `IO.write` bumps the
+      // file mtime every build, forcing `copyResources` to re-copy it to `classes/` each run; on
+      // Windows that rename intermittently fails with AccessDenied if any reader still holds the
+      // file open. Preserving mtime when unchanged avoids the needless re-copy entirely.
+      if (!file.exists || IO.read(file) != contents) IO.write(file, contents)
       Seq(file)
     }.taskValue
   )
   .dependsOn(
     plugin,
-    internals,
+    // test->test lets core's tests see internals' test-only PluginErrCheck marker
+    // (see devdocs/plugin-error-testing.md)
+    internals % "test->test;compile->compile",
     compiler_ir
   )
 
@@ -117,11 +157,52 @@ lazy val lib = project
     name := projectName,
     settings,
     pluginUseSettings,
-    libraryDependencies ++= commonDependencies
+    libraryDependencies ++= commonDependencies,
+    libraryDependencies += dependencies.scalapptainer,
+    libraryDependencies += dependencies.upickle, // DFToolsImage parses the bundled dftools.lock.json
+    // The DFTools toolchain version is owned by `lib` (where `DFToolsImage` reads it) rather than
+    // shared with core's `version.properties`. Conditional write to avoid mtime churn (see core).
+    Compile / resourceGenerators += Def.task {
+      val file = (Compile / resourceManaged).value / "dftools.properties"
+      val contents = s"dftools.version=$dftoolsVersion"
+      if (!file.exists || IO.read(file) != contents) IO.write(file, contents)
+      Seq(file)
+    }.taskValue,
+    // Bundle the DFTools release lockfile (`dftools.lock.json` for `dftoolsVersion`) as a resource.
+    // It maps each image+arch to the sha256 of its sif and the immutable asset carrying those bytes;
+    // `DFToolsImage` reads it to know the full digest set offline and resolve/cache each image BY
+    // sha256 rather than by tag. Downloads are cached under target/ by version (vga-monitor pattern);
+    // conditional copy avoids mtime churn / the Windows AccessDenied re-copy issue.
+    Compile / resourceGenerators += Def.task {
+      val log    = streams.value.log
+      val ver    = dftoolsVersion
+      val file   = (Compile / resourceManaged).value / "dftools.lock.json"
+      val cached = target.value / "dftools-lock-cache" / s"$ver.json"
+      if (!cached.exists) {
+        IO.createDirectory(cached.getParentFile)
+        val url =
+          java.net.URI.create(
+            s"https://github.com/DFiantHDL/DFTools/releases/download/$ver/dftools.lock.json").toURL
+        log.info(s"[dftools] fetching lockfile for $ver")
+        val in = url.openStream()
+        try
+          java.nio.file.Files.copy(
+            in, cached.toPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        catch {
+          case scala.util.control.NonFatal(e) =>
+            IO.delete(cached) // don't leave a truncated/empty cache file behind
+            sys.error(s"[dftools] could not fetch dftools.lock.json for $ver from the DFTools " +
+              s"release (does the tag publish a lockfile?): ${e.getMessage}")
+        } finally in.close()
+      }
+      if (!file.exists || IO.read(file) != IO.read(cached)) IO.copyFile(cached, file)
+      Seq(file)
+    }.taskValue
   )
   .dependsOn(
     core % "test->test;compile->compile",
-    compiler_stages
+    // test->test so lib simulation specs can reuse the SimSpec base from dfhdl.sim tests
+    compiler_stages % "compile->compile;test->test"
   )
 
 lazy val platforms = project
@@ -140,23 +221,225 @@ lazy val platforms = project
     lib
   )
 
+lazy val ips = project
+  .settings(
+    name := s"$projectName-ips",
+    settings,
+    pluginUseSettings,
+    libraryDependencies ++= commonDependencies,
+    // Surface the wrapped vga-monitor-sim version to the IP code (read by
+    // `dfhdl.ips.video.vga.vga_monitor.version`), mirroring core's `version.properties` and lib's
+    // `dftools.properties`. Conditional write to avoid mtime churn (see core's note: an unconditional
+    // IO.write forces a re-copy each build, which intermittently fails with AccessDenied on Windows).
+    Compile / resourceGenerators += Def.task {
+      val file = (Compile / resourceManaged).value / "vga-monitor.properties"
+      val contents = s"vga-monitor.version=$vgaMonitorVersion"
+      if (!file.exists || IO.read(file) != contents) IO.write(file, contents)
+      Seq(file)
+    }.taskValue,
+    // Download the vga-monitor-sim release binaries + HDL wrappers and bundle them as resources of
+    // the `vga_monitor` foreign IP. The HDL wrappers (identical across platforms) live directly in
+    // the IP folder root; per-system binaries go under `<platform>/` (selected at simulate time, and
+    // kept in per-platform subfolders because v0.3.0's unversioned filenames collide across
+    // platforms — e.g. `libvga_monitor_dpi.so` in both linux-x86_64 and linux-arm64). Since v0.3.0
+    // the release names everything unversioned (the version is only in the archive/folder name), so
+    // files are copied as-is — HDL wrappers (`.sv`/`.v`/`.vhdl`) by extension, everything else (libs,
+    // import libs, `.vpi`, `.lib`/`.exp`, ...) as a per-system binary. Downloads are cached.
+    Compile / resourceGenerators += Def.task {
+      val log = streams.value.log
+      val ver = vgaMonitorVersion
+      val repo = "DFiantWorks/vga-monitor-sim"
+      val platforms = Seq(
+        "linux-x86_64", "linux-arm64", "macos-x86_64", "macos-arm64",
+        "windows-x86_64", "windows-x86_64-mingw"
+      )
+      // under a non-package root (`dfhdl-ips`) so the resource dir is not read as a Scala package
+      val baseRes = (Compile / resourceManaged).value / "dfhdl-ips" / "vga_monitor"
+      val cacheDir = target.value / "vga-monitor-cache"
+      IO.createDirectory(cacheDir)
+      def isHdl(n: String): Boolean =
+        n.endsWith(".sv") || n.endsWith(".v") || n.endsWith(".vhdl")
+      val generated = scala.collection.mutable.ListBuffer.empty[File]
+      var hdlCopied = false
+      platforms.foreach { plat =>
+        val asset = s"vga-monitor-$ver-$plat.tar.gz"
+        val tarball = cacheDir / asset
+        val srcDir = cacheDir / s"vga-monitor-$ver-$plat"
+        try {
+          if (!tarball.exists) {
+            val url =
+              java.net.URI.create(s"https://github.com/$repo/releases/download/v$ver/$asset").toURL
+            log.info(s"[vga_monitor] downloading $asset")
+            val in = url.openStream()
+            try {
+              java.nio.file.Files.copy(
+                in, tarball.toPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING
+              )
+            } finally {
+              in.close()
+            }
+          }
+          if (!srcDir.exists) {
+            val rc = scala.sys.process.Process(
+              Seq("tar", "-xzf", tarball.getAbsolutePath, "-C", cacheDir.getAbsolutePath)
+            ).!
+            if (rc != 0) sys.error(s"tar extraction failed for $asset (exit $rc)")
+          }
+          val platRes = baseRes / plat
+          IO.createDirectory(platRes)
+          srcDir.listFiles.filter(_.isFile).foreach { f =>
+            val n = f.getName
+            if (n != "LICENSE" && n != "VERSION") {
+              if (isHdl(n)) {
+                // HDL wrappers are identical across platforms; copy them once into the IP root.
+                if (!hdlCopied) {
+                  val dest = baseRes / n
+                  IO.copyFile(f, dest)
+                  generated += dest
+                }
+              } else {
+                val dest = platRes / n
+                IO.copyFile(f, dest)
+                generated += dest
+              }
+            }
+          }
+          hdlCopied = true
+        } catch {
+          case scala.util.control.NonFatal(e) =>
+            log.warn(s"[vga_monitor] skipping $plat: ${e.getMessage}")
+        }
+      }
+      if (!hdlCopied)
+        log.warn("[vga_monitor] no platform bundle could be fetched; IP resources are incomplete")
+      generated.toSeq
+    }.taskValue,
+    // Surface the wrapped interactive-sim version to the IP code (read by
+    // `dfhdl.ips.interactive.InteractiveSim.version`). Conditional write to avoid mtime churn.
+    Compile / resourceGenerators += Def.task {
+      val file = (Compile / resourceManaged).value / "interactive.properties"
+      val contents = s"interactive.version=$interactiveSimVersion"
+      if (!file.exists || IO.read(file) != contents) IO.write(file, contents)
+      Seq(file)
+    }.taskValue,
+    // Download the interactive-sim release binaries + HDL wrappers and bundle them as resources of the
+    // shared `interactive` foreign-IP bundle. Identical layout to vga-monitor: HDL wrappers (the same
+    // across platforms — `.sv`/`.v`/`.vhdl`, including the shared `interactive_pkg.vhdl` and its mcode
+    // variant) live in the bundle root; per-system binaries (libs, import libs, `.vpi`, `.lib`/`.exp`)
+    // go under `<platform>/`, selected at simulate time. Both `interactive_ctrl` and `interactive_flag`
+    // resolve to this one bundle (`dfhdl-ips/interactive`). Downloads are cached.
+    Compile / resourceGenerators += Def.task {
+      val log = streams.value.log
+      val ver = interactiveSimVersion
+      val repo = "DFiantWorks/interactive-sim"
+      val platforms = Seq(
+        "linux-x86_64", "linux-arm64", "macos-x86_64", "macos-arm64",
+        "windows-x86_64", "windows-x86_64-mingw"
+      )
+      val baseRes = (Compile / resourceManaged).value / "dfhdl-ips" / "interactive"
+      val cacheDir = target.value / "interactive-sim-cache"
+      IO.createDirectory(cacheDir)
+      def isHdl(n: String): Boolean =
+        n.endsWith(".sv") || n.endsWith(".v") || n.endsWith(".vhdl")
+      val generated = scala.collection.mutable.ListBuffer.empty[File]
+      var hdlCopied = false
+      platforms.foreach { plat =>
+        val asset = s"interactive-sim-$ver-$plat.tar.gz"
+        val tarball = cacheDir / asset
+        val srcDir = cacheDir / s"interactive-sim-$ver-$plat"
+        try {
+          if (!tarball.exists) {
+            val url =
+              java.net.URI.create(s"https://github.com/$repo/releases/download/v$ver/$asset").toURL
+            log.info(s"[interactive] downloading $asset")
+            val in = url.openStream()
+            try {
+              java.nio.file.Files.copy(
+                in, tarball.toPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING
+              )
+            } finally {
+              in.close()
+            }
+          }
+          if (!srcDir.exists) {
+            val rc = scala.sys.process.Process(
+              Seq("tar", "-xzf", tarball.getAbsolutePath, "-C", cacheDir.getAbsolutePath)
+            ).!
+            if (rc != 0) sys.error(s"tar extraction failed for $asset (exit $rc)")
+          }
+          val platRes = baseRes / plat
+          IO.createDirectory(platRes)
+          srcDir.listFiles.filter(_.isFile).foreach { f =>
+            val n = f.getName
+            if (n != "LICENSE" && n != "VERSION") {
+              if (isHdl(n)) {
+                // HDL wrappers (and the shared package) are identical across platforms; copy once.
+                if (!hdlCopied) {
+                  val dest = baseRes / n
+                  IO.copyFile(f, dest)
+                  generated += dest
+                }
+              } else {
+                val dest = platRes / n
+                IO.copyFile(f, dest)
+                generated += dest
+              }
+            }
+          }
+          hdlCopied = true
+        } catch {
+          case scala.util.control.NonFatal(e) =>
+            log.warn(s"[interactive] skipping $plat: ${e.getMessage}")
+        }
+      }
+      if (!hdlCopied)
+        log.warn("[interactive] no platform bundle could be fetched; IP resources are incomplete")
+      generated.toSeq
+    }.taskValue
+  )
+  .dependsOn(
+    core % "test->test",
+    lib
+  )
+
+lazy val benchmarks = project
+  .settings(
+    name := s"$projectName-benchmarks",
+    settings,
+    // Never published: benchmark designs may be DFHDL ports of differently-licensed upstream
+    // works. The repo default is Apache 2.0; each ported work carries its origin license,
+    // documented per directory in the benchmarks repository.
+    licenses := List(
+      "Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt")
+    ),
+    publish / skip := true,
+    pluginUseSettings,
+    libraryDependencies ++= commonDependencies,
+    // every top-level work folder in the benchmarks repo is a source directory (each benchmark
+    // is self-contained: sources, harnesses, provenance/license), so adding a benchmark never
+    // touches this build
+    Compile / unmanagedSourceDirectories ++= {
+      val exclude = Set("target", "project")
+      (baseDirectory.value * DirectoryFilter).get
+        .filterNot(d => exclude(d.getName) || d.getName.startsWith("."))
+    }
+  )
+  .dependsOn(lib)
+
 // DEPENDENCIES
 
 lazy val dependencies =
   new {
-    private val scodecV = "1.2.5"
-    private val munitV = "1.3.3"
-    private val airframelogV = "2026.1.6"
-    private val oslibV = "0.11.8"
-    private val scallopV = "6.0.0"
-    private val upickleV = "4.4.3"
-
-    val scodec = "org.scodec" %% "scodec-bits" % scodecV
-    val munit = "org.scalameta" %% "munit" % munitV % Test
-    val airframelog = "org.wvlet.airframe" %% "airframe-log" % airframelogV
-    val oslib = "com.lihaoyi" %% "os-lib" % oslibV
-    val scallop = "org.rogach" %% "scallop" % scallopV
-    val upickle = "com.lihaoyi" %% "upickle" % upickleV
+    val scodec = "org.scodec" %% "scodec-bits" % scodecVersion
+    val munit = "org.scalameta" %% "munit" % munitVersion % Test
+    val airframelog = "org.wvlet.airframe" %% "airframe-log" % airframelogVersion
+    val oslib = "com.lihaoyi" %% "os-lib" % oslibVersion
+    val scallop = "org.rogach" %% "scallop" % scallopVersion
+    val upickle = "com.lihaoyi" %% "upickle" % upickleVersion
+    // Scalapptainer: cross-platform Apptainer wrapper used to run the DFTools image
+    val scalapptainer = "io.github.dfiantworks" %% "scalapptainer" % scalapptainerVersion
+    // Factum: typed, persistent, content-addressed task-graph caching (DiskCache engine)
+    val factum = "io.github.dfiantworks" %% "factum-core" % factumVersion
   }
 
 lazy val commonDependencies = Seq(
@@ -189,6 +472,9 @@ lazy val compilerOptions = Seq(
   "-preview",
   "-language:strictEquality",
   "-deprecation",
+  // published artifacts stay runnable on JDK 17 regardless of the JDK that builds them:
+  // restricts JDK API usage to the 17 signatures and emits 17-compatible class files
+  "-java-output-version:17",
   //TODO: remove when fixed scalac issues:
   //https://github.com/lampepfl/dotty/issues/19299
   "-Wconf:msg=or backticked identifier `equals`:s",
@@ -198,26 +484,82 @@ lazy val compilerOptions = Seq(
   "-Wconf:msg=bad option '-Jdummy:s"
 )
 
-lazy val pluginUseSettings = Seq(
-  Compile / scalacOptions ++= {
+// The scalac options that apply the compiler plugin, held STABLE across sbt sessions.
+//
+// Both of them used to churn once a session, which made every plugin-using project recompile from
+// scratch on the first build after an sbt restart: dynver stamps a dirty working tree with the
+// current time, so the packaged jar is renamed (a new `-Xplugin` path) and repackaged (a new
+// `lastModified` for `-Jdummy`). Any change to scalacOptions invalidates zinc's analysis, so the
+// version timestamp alone was worth a full rebuild per session.
+//
+// Instead the jar is copied to a fixed name, and the cache-busting key is a hash of the plugin's
+// CLASS FILES. The jar's own bytes are no good as a key: its manifest carries the build version and
+// its entries carry build timestamps, so it churns exactly like its name does. A real plugin change
+// does change the class files, so it still changes the key and still recompiles everything the
+// plugin compiles, which is the whole point of the `-Jdummy` trick.
+lazy val pluginOptions = taskKey[Seq[String]]("scalac options that apply the DFHDL compiler plugin")
+
+lazy val pluginOptionsSettings = Seq(
+  pluginOptions := {
     val jar = (plugin / Compile / packageBin).value
+    val classDir = (plugin / Compile / classDirectory).value
+    val classes = (classDir ** "*.class").get().sortBy(_.getAbsolutePath)
+    val key = sbt.io.Hash.toHex(
+      sbt.io.Hash(
+        classes.map(f => f.getName + sbt.io.Hash.toHex(sbt.io.Hash(f))).mkString
+      )
+    )
+    // The jar is named after the key, so a given plugin always has the same path (stable across
+    // sessions) and a changed plugin gets a NEW one. It is never overwritten in place: on Windows
+    // the compiler holds the plugin jar open, and replacing it under a running sbt server fails
+    // with AccessDenied.
+    val stableJar = (plugin / crossTarget).value / s"$projectName-plugin-$key.jar"
+    if (!stableJar.exists) {
+      // This task is evaluated once per plugin-using project, and those evaluations run in
+      // PARALLEL: after a plugin change they all find the new key's jar missing and all write it,
+      // at once, to the same path. That is what used to fail with AccessDenied on the first build
+      // after a plugin change — one project was writing (or the compiler was already reading) the
+      // very file another was overwriting.
+      //
+      // So publish it: each project copies to a private temp beside it and RENAMES it into place,
+      // and the rename never replaces. The first project to finish wins, the rest find the name
+      // taken and drop their copy, and no one ever writes a byte to a path another process may
+      // hold open. (The temp is hidden from the sweep below by its leading dot, and sits in the
+      // same directory as the jar so the rename stays within one volume.)
+      val pluginDir = (plugin / crossTarget).value
+      val tmp = pluginDir / s".$projectName-plugin-$key-${java.util.UUID.randomUUID}.jar"
+      try {
+        IO.copyFile(jar, tmp)
+        if (!stableJar.exists)
+          try java.nio.file.Files.move(tmp.toPath, stableJar.toPath)
+          catch { case _: java.io.IOException if stableJar.exists => () } // lost the race: fine
+      } finally IO.delete(tmp)
+      // best-effort sweep of the jars of previous plugin builds (a locked one simply stays)
+      pluginDir.listFiles
+        .filter(f => f.getName.startsWith(s"$projectName-plugin-") && f != stableJar)
+        .foreach(f => try IO.delete(f) catch { case _: Throwable => () })
+    }
     Seq(
-      s"-Xplugin:${jar.getAbsolutePath}",
-      s"-Jdummy=${jar.lastModified}"
+      s"-Xplugin:${stableJar.getAbsolutePath}",
+      s"-Jdummy=$key"
     )
   }
 )
 
-lazy val pluginTestUseSettings = Seq(
-  Test / scalacOptions ++= {
-    val jar = (plugin / Compile / packageBin).value
-    Seq(
-      s"-Xplugin:${jar.getAbsolutePath}",
-      s"-Jdummy=${jar.lastModified}",
-      // "-Yprofile-enabled",
-      // "-Yprofile-trace:compiler.trace"
-    )
-  }
+lazy val pluginUseSettings = pluginOptionsSettings ++ Seq(
+  Compile / scalacOptions ++= pluginOptions.value
+)
+
+lazy val pluginTestUseSettings = pluginOptionsSettings ++ Seq(
+  Test / scalacOptions ++= pluginOptions.value
+  // "-Yprofile-enabled",
+  // "-Yprofile-trace:compiler.trace"
+)
+
+lazy val pluginErrorTestSettings = pluginOptionsSettings ++ Seq(
+  // the `testing` plugin option enables the PluginErrCheck interceptor phase, which exists
+  // only for DFHDL's own test compilations (see devdocs/plugin-error-testing.md)
+  Test / scalacOptions ++= pluginOptions.value :+ "-P:dfhdl.plugin:testing"
 )
 
 lazy val commonSettings = Seq(

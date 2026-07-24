@@ -5,6 +5,11 @@ import dfhdl.lib.algebra.*
 
 import scala.annotation.targetName
 import scala.collection.mutable.ArrayBuffer
+// Every range in this file is an ELABORATION-time Scala range: the methods below fold and
+// iterate over them to unroll combinational logic (`foldLeft`, `ArrayBuffer` indexing), and AES is
+// a dataflow design with no hardware loops. These defs carry a `DFC` but sit in no DFHDL scope, so
+// without this flag their ranges would resolve to hardware `DFRange`s.
+import dfhdl.hw.flag.scalaRanges
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Byte
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,12 +58,18 @@ extension (lhs: Byte <> CONST)
   // polynomials modulo an irreducible polynomial of degree 8. A polynomial is irreducible if its only
   // divisors are one and itself. For the AES algorithm, this irreducible polynomial is
   // m(x) = x^8 + x^4 + x^3 + x + 1, or {01}{1b} in hexadecimal notation.
+  // The elaborated structure folds over `lhs`'s bits, so `lhs` is declared data-impure:
+  // its applied data joins the design load key (each distinct multiplicand constant gets
+  // its own design). The declaration is explicit because the automatic attribution
+  // cannot trace the forcing through the foldLeft lambda's pattern-bound index.
   @targetName("mulByte")
+  @hw.annotation.pure(true, "lhs")
   def *(rhs: AESByte <> VAL): AESByte <> DFRET =
     val a = LazyList.iterate(rhs)(_.xtime)
     (0 until 8).foldLeft[AESByte <> VAL](all(0).as(AESByte)):
       case (p, i) if lhs.bits(i).toScalaBoolean => p + a(i)
       case (p, _)                               => p
+end extension
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Word

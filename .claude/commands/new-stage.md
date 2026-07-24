@@ -49,6 +49,13 @@ This is a **design guideline**, not something that needs to be formally proved. 
 **How to achieve idempotency in practice:**
 - **Match on the source form only.** Pattern-match on the exact IR shape that the stage is responsible for transforming. The transformed shape should not match the same pattern, so a second run produces an empty patch list.
 - **Structural self-consistency.** After `f(x)` is applied, the resulting DB should contain no members that satisfy the stage's match predicates.
+- **Injected members must consume their trigger.** A stage may inject/clone members for a
+  downstream stage ONLY if the IR shape that triggered the injection is rewritten away by the
+  same run (e.g. FlattenStepBlocks clones the process prologue at the wrap-around goto — but
+  keyed on the relative `NextStep` form of that goto, which the same run resolves into a
+  named goto, so a re-run finds no trigger). If the trigger cannot be consumed, carry the
+  provenance as a **member tag** (`DFTag`) instead — tagging an already-tagged member is a
+  no-op, so tags are fix-point-safe.
 
 ---
 
@@ -183,6 +190,12 @@ All mutations are expressed as a **patch list**: `List[(DFMember, Patch)]`. Appl
 designDB.patch(patchList)
 ```
 
+`patch` returns the same `DB` instance when the list is empty — do NOT wrap the call in an
+`if (patchList.isEmpty)` guard.
+
+`patch` returns the same `DB` instance when the list is empty — do NOT wrap the call in an
+`if (patchList.isEmpty)` guard.
+
 ### Patch types
 
 | Patch | Effect |
@@ -242,17 +255,37 @@ not to `anchor` itself.
 If you add several `anchor -> Patch.Move(...)` entries for the same `(anchor, Config.After)`,
 all the member lists are merged and inserted together after the anchor (or its redirect target).
 
-**Conflict: a member cannot appear in two patches simultaneously.** If `Patch.Move` lists a
-member AND that same member appears in a separate `Patch.Remove` (or another `Patch.Move`),
-the DB throws `IllegalArgumentException: Received two different patches for the same member`.
-Note that `Patch.Move` internally generates `Patch.Remove` for each listed member. Common
-triggers:
+**Same-member patches: the patch system MERGES many combinations — prefer ONE bundled
+patch list.** Each `db.patch()` call is costly (full ref-table fold + member-list rebuild),
+so do not reach for sequential `db.patch()` phases just because two patches share a key.
+The patch-table fold in `Patch.scala` merges these same-member combinations:
+- `Add(cfg)` + `Add(cfg)` (same config) → concatenated Add
+- `Add(Before)` + `Add(After)` (and the reverse) → combined `ReplaceWithMemberN`
+- `Add(After)` + `ReplaceWithFirst/Last` combinations → combined Add
+- `Add` + `Remove` → `Add(ReplaceWithFirst())`; `Remove` + `Add` → `Add(ReplaceWithLast())`
+  (e.g. a `Before`-anchored Add plus a Remove on the same block = "replace the block with
+  the added members" — no second phase needed to delete the anchor)
+- `Replace` + `Add(After)` (either order) → Add with the replacement inserted
+  (note: `Add(InsideLast)` on an owner with members is re-keyed to the owner's very last
+  member first, so it usually doesn't even collide with a `Replace` on the owner)
+- `Move` + `Move` (same config) → concatenated; `Add` + `Move` (same config) → merged Move
+- `Remove` + `Remove` → single Remove
+
+Ref-table effects are applied in **patch-list order** (the raw list, before merging), so a
+`Replace(old → new)` placed *before* a MetaDesign `Add` in the list correctly redirects the
+added members' references from `old` to `new`.
+
+Combinations NOT in the list above throw
+`IllegalArgumentException: Received two different patches for the same member`. Note that
+`Patch.Move` internally generates `Patch.Remove` for each listed member. Common triggers:
 - Using a `Goto` as a `Move.Before` anchor (so the Move internally removes it on re-insertion)
   while the same `Goto` is also in another Move's members list.
 - Moving a parent block with all descendants AND separately moving one of those descendants.
 
-The fix is always **multi-phase patching**: split conflicting patches into sequential
-`db.patch()` calls so each phase operates on a clean, conflict-free DB.
+Resort to **multi-phase patching** (sequential `db.patch()` calls) only when the combination
+is genuinely unmergeable, or when a later patch's *computation* must observe the already
+patched DB (e.g. anchoring a MetaDesign on a member that only exists after the first phase —
+though often the merge rules let you anchor on the original member instead).
 
 ### `Patch.Add` via `MetaDesign`
 Use `MetaDesign` when you need to construct new IR members using the DFHDL frontend DSL:
@@ -912,13 +945,13 @@ the top of the file:
 ```scala
 given options.CompilerOptions.LogLevel = _.TRACE
 ```
-Then run the whole pipeline for a top-level design named `Foo` via its generated `top_Foo` main:
+Then run the whole pipeline for a top-level design named `Foo` via the `main` injected into its companion object:
 ```bash
-sbtn.bat ";libPlayground;lib/Test/runMain top_Foo"          # core equivalent: corePlayground + core/Test/runMain
+sbtn.bat ";libPlayground;lib/Test/runMain Foo"          # core equivalent: corePlayground + core/Test/runMain
 ```
 Pass tool/backend arguments after `--`:
 ```bash
-sbtn.bat ";libPlayground;lib/Test/runMain top_Foo -- simulate -t questa"     # or -t nvc/ghdl with -b vhdl
+sbtn.bat ";libPlayground;lib/Test/runMain Foo -- simulate -t questa"     # or -t nvc/ghdl with -b vhdl
 ```
 A design with **no ports + a `finish()`** is treated as a self-contained simulation top, so the
 default (no-arg) action becomes *simulate* instead of *compile*.
@@ -952,8 +985,8 @@ isolated unit test in one step — write the test, watch it fail with the same e
   `[scallop] Error: Excess arguments provided: '--nocache'`). The DFHDL App command
   (`compile` / `simulate` / …) goes *after* `--`:
   ```bash
-  sbtn.bat ";libPlayground;lib/Test/runMain top_Foo --nocache -- compile"
-  sbtn.bat ";libPlayground;lib/Test/runMain top_Foo --nocache -- simulate -t questa"
+  sbtn.bat ";libPlayground;lib/Test/runMain Foo --nocache -- compile"
+  sbtn.bat ";libPlayground;lib/Test/runMain Foo --nocache -- simulate -t questa"
   ```
   (Alternatively clear `sandbox/<Top>` via `sbtn clearSandbox`, or edit the design — but `--nocache`
   is the lightweight option for repeated trace runs.)
@@ -969,6 +1002,8 @@ isolated unit test in one step — write the test, watch it fail with the same e
 For example, a stage that operates on `StepBlock`s should use explicit `def MyStep: Step = …` syntax in the test design rather than `1.cy.wait` or `while (…)` constructs, because those are transformed into `StepBlock`s by `DropRTWaits`, not by the stage under test. Letting `DropRTWaits` silently run as a dependency makes a failing test ambiguous: it is unclear whether the bug is in the stage under test or in the dependency.
 
 The same principle applies to any other prior-stage construct: if `DropFoo` normally feeds into `AddBar`, the `AddBarSpec` tests should express the output of `DropFoo` directly, without triggering `DropFoo`.
+
+**Line-number-sensitive expected strings.** `PrintVHDLCodeSpec` and `PrintVerilogCodeSpec` contain tests (e.g. "text out printing") whose expected output embeds hardcoded source positions of the spec file itself (a `debug(...)` call prints `PrintXCodeSpec.scala:<line>:<col>`). Inserting or removing lines *anywhere above* those tests shifts the positions and fails them with an unrelated-looking diff. After editing these files, grep for `CodeSpec.scala:[0-9]` and realign the embedded line numbers with the actual call sites.
 
 ## Test File Template
 
@@ -1052,10 +1087,12 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     in the moved-members list. If you need to move multiple nesting levels, use the one-level-at-a-time
     `@tailrec` pattern (Pattern 9) to avoid duplicating descendants across multiple Move entries.
 12. **Conflicting patches on the same member** — `Patch.Move` internally generates `Patch.Remove`
-    for each moved member. If that same member also appears in another patch in the same list, you
-    get `IllegalArgumentException: Received two different patches for the same member`. The most
-    common cause is using a `Goto` as a `Move.Before` anchor while that same `Goto` also appears
-    in another Move's members list. Fix by splitting into sequential `db.patch()` calls (multi-phase).
+    for each moved member. If that same member also appears in an *unmergeable* patch in the same
+    list, you get `IllegalArgumentException: Received two different patches for the same member`.
+    The most common cause is using a `Goto` as a `Move.Before` anchor while that same `Goto` also
+    appears in another Move's members list. Before splitting into sequential `db.patch()` calls
+    (multi-phase — each call is costly), check the same-member merge table in the Patch System
+    section: many combinations (Add+Remove, Replace+Add, Add+Add, …) merge fine in one list.
 13. **Using `dfc.owner.ref` inside MetaDesign** — `import dfhdl.core.*` introduces extension
     methods that conflict with `.ref`. Use `dfc.ownerOrEmptyRef` instead to obtain the owner's
     `ir.DFOwner.Ref` when constructing raw IR members.
@@ -1079,9 +1116,136 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     `Received two different patches for the same member`. Drive it `@tailrec` and gate each pass to
     the innermost-only or outermost-only instances (see Pattern 9). This is easy to miss because a
     single-level test passes — **always add a nested test** for any such rewrite.
+17. **Resolving fresh clone refs inside MetaDesign** — refs created by `copyWithNewRefs` /
+    `cloneAnonValueAndDepsHere` are registered only in the MetaDesign's own `MutableDB`. Calling
+    `ref.get` on them with the stage's outer `MemberGetSet` misses (or worse, resolves stale).
+    Inside code that traverses freshly cloned members, bind `given MemberGetSet = dfc.getSet` —
+    the DFC's getSet chains to the parent DB via `injectMetaGetSet`, so it resolves both new and
+    original members.
+18. **`plantMembers` re-owning is lost when the old owner is Replaced in the same list** —
+    `plantMembers(oldOwner, members)` re-owns by registering the members' ownerRefs to the new
+    owner in the Add's ref table, but `Patch.Replace`'s `replaceMember` collects refs from the
+    reverse `memberTable` index, which Add patches do NOT update. A same-list
+    `Replace(oldOwner → x, ChangeRefAndRemove/FullReplacement)` therefore re-redirects the
+    "moved" members' ownerRefs to `x`, undoing the re-own. Fix: use `plantClonedMembers` +
+    `Patch.Remove()` of the originals (fresh clone refs are invisible to the Replace), or split
+    into two patch phases. Relatedly, place `Replace` patches BEFORE a MetaDesign `Add` in the
+    patch list when the Add's members reference the replaced instance — ref-table effects apply
+    in list order, so the Add's references then resolve to the replacement.
+19. **Name shadowing inside MetaDesign bodies** — `MetaDesign` extends `Design`, whose
+    `export dfhdl.hdl.*` brings frontend names (`DFVal`, `StepBlock`, …) into the *class* scope,
+    shadowing the file-level `import dfhdl.compiler.ir.*` wildcard for overlapping names. Inside
+    a MetaDesign body, add `import dfhdl.compiler.ir` at the file top and qualify IR types as
+    `ir.DFVal`, `ir.StepBlock`, etc., importing only the core names actually needed (e.g.
+    `import dfhdl.core.{DFIf, DFBool, DFUnit, refTW, addMember}`).
+20. **Design-block ownership is structural in flat DBs** — calling `getOwnerDesign` (or any
+    owner navigation) on a `DFDesignBlock` throws `No owner found` in a `newToOld` flat DB: a
+    design's `ownerRef` is the hierarchy key (`StaticRef`) and is deliberately NOT in the
+    refTable. To find a design's owning design, build a map from `designMemberList` by
+    collecting child `DFDesignBlock` members per design (see `UniqueDesigns.designOwnerMap`).
+21. **Every read of a def-design (ED method) output creates its own `PortByNameSelect`** —
+    when redirecting readers of a call result, collect ALL `designInstPBNS(inst).filter(_.isOut)`
+    members, not just the first: each read site references a different PBNS member (see
+    `PrepEDDefs` — the main PBNS kept via `ChangeRefOnly` + `OfMembers`, the rest
+    `ChangeRefAndRemove`d).
+
+---
+
+## Additional Transformation Patterns
+
+### Pattern 12 — Memoize original-DB analysis across restructuring phases
+
+A multi-phase stage can compute an analysis on its *input* DB, hold the results (member
+instances or patch lists) across intermediate `db.patch()` phases, and apply/use them at the
+end — because `Patch.Move` preserves member instances (only ownership refs are rewired).
+`FlattenStepBlocks` uses this twice: Phase 3's `gotoPatchList` (computed on the nested input,
+applied after phases 0–2 flattened everything) and Phase 4's fusion-candidate `Set[StepBlock]`
+(nesting provenance is destroyed by flattening, so it must be captured up front). Prefer this
+over inventing an IR tag to transport analysis between two separate stages — a tag also makes
+self-contained spec inputs inexpressible when the frontend has no syntax for it.
+
+### Pattern 13 — MetaDesign as an abortable sandbox (try/fallback transforms)
+
+Constructing a `MetaDesign` mutates only its own private `MutableDB`; nothing touches the real
+DB until its `.patch` is applied. You can therefore `throw` mid-construction to abandon a
+speculative transform and fall back (e.g. `FirstStepFusion` throws `AbortFusion` when a dispatch
+turns out not to be soundly inlinable, drops the offending step from its candidate set, and
+rebuilds all patches from scratch in a `@tailrec` restart loop — the set shrinks each restart,
+guaranteeing termination). Just never apply a partially-built design's `.patch`.
+
+### Pattern 14 — A stage that CREATES a method def design (sub-DB forest surgery)
+
+A stage can synthesize a whole HDL-method design (a `DFDesignBlock` with
+`InstMode.Def`, e.g. a static function) and call it via `Func`/`Op.Def`. See
+`DropInitialBlocks` Rule 1 (init-function conversion) for the full working recipe. The
+non-obvious parts:
+
+1. **Never `dfc.enterOwner`/`applyBlock` a design block inside a MetaDesign.**
+   `OwnershipContext.exit()` on a `DFDesignBlock` calls `DesignContext.endDesign`, which
+   assumes elaboration bookkeeping that meta-programming never set up. Instead, create the
+   block raw (`ir.DFDesignBlock(...)` + `addMember`) and place every body member under it
+   explicitly: `addMember(m)` then `newRefFor(m.ownerRef, defBlockIR)` (mirror
+   `plantClonedMembers`'s mechanics with the def block as the owner fallback).
+2. **Do NOT use `refTW` to reference a port of the new def design from the meta context** —
+   `refTW` on a `DclPort()` whose owner design differs from the current owner mints a
+   `PortByNameSelect` (and crashes on the design-inst cache in stages). Mint refs raw:
+   `dfc.mutableDB.newRefFor(dfc.refGen.genTwoWay[M, O], member)`.
+3. **Do not reuse an existing member's `dfType` instance in new members** — refs are
+   identity objects; clone with `dfType.copyWithNewRefs` and bind each fresh type ref via
+   `newRefFor` to the original target (lazyZip old/new `getRefs`).
+4. **Self-containment**: a def-design member must not reference design-local values of the
+   host (the `directRefCheck` rejects cross-design refs). Captured design-local constants
+   become `PhantomTag`-tagged IN-port formals (redirect body refs to them; pass the
+   captured values as the call's args, in formal member order). Globals are fine (shared by
+   identity).
+5. **The hierarchical model forbids a nested design block in the parent's member list.**
+   After `subDB.patch`, extract the def block + its content (track them BY IDENTITY from
+   the MetaDesign; do not use `isInsideOwner`, which detours through `designBlockInstMap`)
+   into a NEW sub-DB: members = globals closure ::: defBlock :: locals, refTable = refs the
+   members emit (mirror `oldToNew`'s `refsFor`), PLUS `defBlock.ownerRef -> DFMember.Empty`
+   (SanityCheck's `refCheck` resolves `isTop` via `ownerRef.get`; the same ref object
+   doubles as the sub-DB's `StaticRef` key). Rebuild the parent's refTable the same way
+   (minus the def members). Such a stage must manage `designDB.update(subDBs = ...)` itself
+   (mirror `HierarchyStage.transform`) since `HierarchyStage` cannot add sub-DB entries.
+6. **Method shape expected by printers**: phantom formals first, then body, then an
+   `IdentTag`-tagged ident of the return value connected to a non-phantom OUT port named
+   `o` as the LAST members. `newToOld` emits the def body just before its first call, and
+   the VHDL printer declares static functions between the constants and the
+   signal/variable declarations (a signal's default may call one; a static function never
+   reads signals).
+
 ---
 
 ## API Notes
+
+### Raw `ir.DFNet` construction inside MetaDesign
+
+Mirrors the raw `ir.Goto` idiom for emitting an assignment without going through typed core ops:
+
+```scala
+ir.DFNet(
+  lhsIR.refTW[ir.DFNet], ir.DFNet.Op.Assignment, rhsIR.refTW[ir.DFNet],
+  dfc.ownerOrEmptyRef, origNet.meta, origNet.tags
+).addMember
+```
+
+### Cloning a single member with remapped refs
+
+Mirror `plantClonedMembers`'s per-member mechanics when a custom per-ref remap is needed:
+`val cloned = m.copyWithNewRefs` → `dfc.mutableDB.addMember(cloned)` →
+`dfc.mutableDB.newRefFor(cloned.ownerRef, dfc.owner.asIR)` → zip `m.getRefs` with
+`cloned.getRefs` and `newRefFor` each cloned ref to the (remapped) original target.
+
+### Compile-time constant evaluation of values
+
+`dfVal.getConstDataThroughParams[Any]` returns `Some(data)` when the (possibly substituted)
+expression tree folds to a constant. Note the data may be `Option`-wrapped for bubble-capable
+types — match both `Some(Some(b: Boolean))` and `Some(b: Boolean)` for a Bool/Bit guard.
+
+### Full-width assignment check
+
+`net.lhsRef.get.departialDcl` yields `(dcl, slice)`; the assignment covers the whole declaration
+iff `slice.isFullOf(dcl.dfType.widthIntOpt) == Tri.Yes`.
 
 ### `dfhdl.core.DFInt32`
 

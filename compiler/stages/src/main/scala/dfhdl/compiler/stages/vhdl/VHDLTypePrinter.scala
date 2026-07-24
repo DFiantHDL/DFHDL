@@ -21,16 +21,20 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     else s"std_logic_vector(${dfType.widthParamRef.uboundCS} downto 0)"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
-    (signed, fractionWidth) match
-      case (false, 0) =>
-        if (typeCS) "unsigned"
-        else s"unsigned(${widthParamRef.uboundCS} downto 0)"
-      case (true, 0) =>
-        if (dfType.isDFInt32) "integer"
-        else if (typeCS) "signed"
-        else s"signed(${widthParamRef.uboundCS} downto 0)"
-      case (false, _) => ???
-      case (true, _)  => ???
+    // fixed-point (fractionWidth != 0) types are the custom `ufix`/`sfix` arrays with the
+    // binary point at index 0: integer bits `magnitude-1 downto 0`, fraction bits `-1 downto
+    // -F`. The left bound may be parametric.
+    if (fractionWidth != 0)
+      val typeName = if (signed) "sfix" else "ufix"
+      if (typeCS) typeName
+      else s"$typeName(${magnitudeWidthParamRef.uboundCS} downto -$fractionWidth)"
+    else if (signed)
+      if (dfType.isDFInt32) "integer"
+      else if (typeCS) "signed"
+      else s"signed(${magnitudeWidthParamRef.uboundCS} downto 0)"
+    else if (typeCS) "unsigned"
+    else s"unsigned(${magnitudeWidthParamRef.uboundCS} downto 0)"
+  end csDFDecimal
   def csDFString(dfType: DFString, typeCS: Boolean): String = "string"
 
   def csNamedDFTypeConvFuncsDcl(dfType: NamedDFType): String =

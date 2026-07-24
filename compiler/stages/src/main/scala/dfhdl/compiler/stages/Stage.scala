@@ -14,9 +14,9 @@ trait Stage extends Product, Serializable, HasTypeName derives CanEqual:
 
 /** Phase-2 bridge for stages that need cross-design information or whose work cannot be decomposed
   * cleanly per-sub-DB. The stage implements `transformGlobal(designDB)` and operates on the
-  * hierarchical DB (root + per-design sub-DBs), which is the native representation threaded through
-  * the whole pipeline by `StageRunner` (it does the single `oldToNew`/`newToOld` at the pipeline
-  * boundary, so individual stages neither convert at entry nor flatten at exit).
+  * hierarchical DB (root + per-design sub-DBs), which is the native representation produced by
+  * elaboration and threaded through the whole pipeline, so individual stages neither convert at
+  * entry nor flatten at exit.
   *
   * Use `GlobalStage` when the body needs:
   *   - cross-design tracking state (e.g. shared opaque type maps)
@@ -46,8 +46,8 @@ end GlobalStage
 /** Phase-2 bridge for stages whose work decomposes cleanly per-sub-DB.
   *
   * The stage implements `transformSubDB(subDB)` which returns the TRANSFORMED sub-DB (typically via
-  * `subDB.patch(patches)`). `designDB` is the hierarchical root threaded through the pipeline by
-  * `StageRunner` (which does the single `oldToNew`/`newToOld` at the boundary). The trait handles:
+  * `subDB.patch(patches)`). `designDB` is the hierarchical root threaded through the pipeline. The
+  * trait handles:
   *   - per-DB dispatch of `transformSubDB` on every sub-DB in the hierarchy. The root DB is a pure
   *     hierarchy container (empty members, empty refTable) and is NOT passed to `transformSubDB`;
   *     all design content lives in `subDBs`.

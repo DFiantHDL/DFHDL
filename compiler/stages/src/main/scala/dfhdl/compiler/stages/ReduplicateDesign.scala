@@ -7,7 +7,7 @@ import scala.collection.immutable.ListMap
 import scala.collection.mutable
 
 // Re-duplicates a shared design sub-DB into per-instance copies, reversing the
-// natural sharing produced by elaboration / `oldToNew`. The criteria selects
+// natural sharing produced by elaboration. The criteria selects
 // which DFDesignInsts need their own private DFDesignBlock so that downstream
 // stages can transform them differently per instance.
 //
@@ -140,8 +140,10 @@ abstract class ReduplicateDesign extends GlobalStage:
               // `designRef` IS the target design's sub-DB key under unification,
               // so it can be used directly (these merged sub-DBs are not yet wired
               // into a root, so structural `getDesignBlock` is not available here).
-              case inst: DFDesignInst => emit(inst.designRef)
-              case _                  =>
+              // A method call's key is that same kind of key.
+              case inst: DFDesignInst       => emit(inst.designRef)
+              case DFVal.Func.Call(_, dKey) => emit(dKey)
+              case _                        =>
             }
           }
       val topKey = designDB.subDBs.head._1
@@ -183,11 +185,15 @@ abstract class ReduplicateDesign extends GlobalStage:
       m.getAllRefs.lazyZip(newM.getAllRefs).foreach { (o, n) => acc.refMap(o) = n }
     }
 
-    // Recurse for nested designs. Skip if already cloned (when the same target
-    // is reached by multiple peer insts inside this sub-DB).
+    // Recurse for nested designs (instantiated or called). Skip if already cloned (when
+    // the same target is reached by multiple peer insts/calls inside this sub-DB).
     origSubDB.members.foreach {
       case inst: DFDesignInst =>
         val childBlock = inst.getDesignBlock(using origSubDB.getSet)
+        if (!acc.memberMap.contains(childBlock))
+          cloneSubTree(childBlock, None, acc, designDB)
+      case DFVal.Func.Call(_, dKey) =>
+        val childBlock = dKey.getDesignBlock(using origSubDB.getSet)
         if (!acc.memberMap.contains(childBlock))
           cloneSubTree(childBlock, None, acc, designDB)
       case _ =>
@@ -196,6 +202,7 @@ abstract class ReduplicateDesign extends GlobalStage:
     // Under unification a cloned inst's `designRef` must equal its cloned target
     // block's `ownerRef` (the `subDBs` key). `copyWithNewRefs` does not freshen
     // `designRef`, so set it explicitly to the cloned child block's fresh ownerRef.
+    // A cloned method call's key gets the exact same re-anchoring.
     origSubDB.members.foreach {
       case inst: DFDesignInst =>
         val clonedInst = acc.memberMap(inst).asInstanceOf[DFDesignInst]
@@ -203,6 +210,12 @@ abstract class ReduplicateDesign extends GlobalStage:
           acc.memberMap(inst.getDesignBlock(using origSubDB.getSet)).asInstanceOf[DFDesignBlock]
         acc.memberMap(inst) =
           clonedInst.copy(designRef = clonedChild.ownerRef.asInstanceOf[DFDesignInst.DesignRef])
+      case call @ DFVal.Func.Call(_, dKey) =>
+        val clonedCall = acc.memberMap(call).asInstanceOf[DFVal.Func]
+        val clonedChild =
+          acc.memberMap(dKey.getDesignBlock(using origSubDB.getSet)).asInstanceOf[DFDesignBlock]
+        acc.memberMap(call) =
+          clonedCall.copy(op = DFVal.Func.Op.Def(StaticRef(clonedChild.ownerRef)))
       case _ =>
     }
 

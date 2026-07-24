@@ -6,6 +6,7 @@ import scala.collection.mutable
 import scala.collection.immutable.{ListMap, ListSet, BitSet}
 import dfhdl.internals.*
 import dfhdl.compiler.printing.{Printer, DefaultPrinter}
+import dfhdl.compiler.analysis.*
 import DFDesignBlock.InstMode
 import upickle.default.*
 
@@ -65,6 +66,12 @@ final case class DB private (
       "Cannot set global tag on immutable DB"
     )
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = globalTags.getTagOf[CT]
+    def getDesignBlockByKey(key: StaticRef): DFDesignBlock =
+      val root = rootDB
+      val resolved =
+        if (root.isRoot) root.subDBs.get(key).map(_.top)
+        else root.designBlockByKey.get(key.asRef)
+      resolved.getOrElse(apply(key.asRef))
   end getSet
   def atGetSet[T](block: MemberGetSet ?=> T): T = block(using getSet)
 
@@ -77,10 +84,14 @@ final case class DB private (
   lazy val isOldStyleFlatDB: Boolean = rootDB.eq(this) && !isRoot
 
   // The sub-DB representing the top design. Only meaningful on the new-style
-  // root DB; by construction in `oldToNew`, the top design's sub-DB is the
-  // first entry of `subDBs`.
+  // root DB, where the top design's sub-DB is by construction the first entry
+  // of `subDBs`.
   lazy val topDB: DB =
     if (isRoot) subDBs.head._2
+    // old-style flat DB: it is its own root and holds the (flattened) top design
+    // directly, so it *is* the top DB. Guard against `rootDB.topDB` re-entering
+    // this same lazy val (self-recursive init → CountDownLatch deadlock).
+    else if (rootDB.eq(this)) this
     else rootDB.topDB
 
   lazy val top: DFDesignBlock =
@@ -359,15 +370,25 @@ final case class DB private (
       members.view.collect { case inst: DFDesignInst => inst }
         .groupBy(_.getDesignBlock).view.mapValues(_.toList).toMap + (top -> Nil)
 
-  // design block to its owner design blocks map (multiple owners in case of multiple instantiations).
+  // design block to its owner design blocks map (multiple owners in case of multiple
+  // instantiations). A method (def design) is owned through its CALLS (`Func` with
+  // `Op.Def`), since it has no design instance.
   lazy val designBlockOwnershipMap: Map[DFDesignBlock, Set[DFDesignBlock]] =
     if (isOldStyleFlatDB)
-      designBlockInstMap.view.mapValues(_.view.map(_.getOwnerDesign).toSet).toMap
+      members.view.collect {
+        case inst: DFDesignInst => inst.getDesignBlock -> inst.getOwnerDesign
+        // a call at GLOBAL scope (a static function computing a global value) has no owning
+        // design; it is a global method, recognized separately by the printer's global-method
+        // emission
+        case DFVal.Func.Call(call, key) if !call.isGlobal =>
+          key.getDesignBlock -> call.getOwnerDesign
+      }.toList.groupBy(_._1).view.mapValues(_.view.map(_._2).toSet).toMap + (top -> Set.empty)
     else if (isRoot)
       subDBs.view.values.flatMap { subDB =>
         subDB.atGetSet {
           subDB.membersNoGlobals.view.collect {
-            case inst: DFDesignInst => inst.getDesignBlock -> subDB.top
+            case inst: DFDesignInst      => inst.getDesignBlock -> subDB.top
+            case DFVal.Func.Call(_, key) => key.getDesignBlock -> subDB.top
           }
         }
       }.groupBy(_._1).view.mapValues(_.map(_._2).toSet).toMap + (top -> Set.empty)
@@ -382,12 +403,17 @@ final case class DB private (
 
   lazy val designBlockDomainOwnershipMap: Map[DFDesignBlock, Set[DFDomainOwner]] =
     if (isOldStyleFlatDB)
-      designBlockInstMap.view.mapValues(_.view.map(_.getOwnerDomain).toSet).toMap
+      members.view.collect {
+        case inst: DFDesignInst => inst.getDesignBlock -> inst.getOwnerDomain
+        case DFVal.Func.Call(call, key) if !call.isGlobal =>
+          key.getDesignBlock -> call.getOwnerDomain
+      }.toList.groupBy(_._1).view.mapValues(_.view.map(_._2).toSet).toMap + (top -> Set.empty)
     else if (isRoot)
       subDBs.view.values.flatMap { subDB =>
         subDB.atGetSet {
           subDB.membersNoGlobals.view.collect {
-            case inst: DFDesignInst => inst.getDesignBlock -> inst.getOwnerDomain
+            case inst: DFDesignInst         => inst.getDesignBlock -> inst.getOwnerDomain
+            case DFVal.Func.Call(call, key) => key.getDesignBlock -> call.getOwnerDomain
           }
         }
       }.groupBy(_._1).view.mapValues(_.map(_._2).toSet).toMap + (top -> Set.empty)
@@ -642,6 +668,31 @@ final case class DB private (
       }.foldLeft(Map.empty[DFVal.Dcl, Coverage]) { case (acc, (dcl, slice, widthOpt)) =>
         acc.updated(dcl, acc.getOrElse(dcl, Coverage.empty).assign(slice, widthOpt))
       }
+    // A procedural call's `<> OUT` argument actual is written by the call, exactly like a
+    // connection to it, so it counts toward the actual's connectivity coverage. The direction
+    // lives in the called def's formal port: the actuals resolve in the CALLER's sub-DB, the
+    // formal directions in the DEF's own sub-DB (elaboration runs over root+subDBs, so the def's
+    // members are not in the caller's table). Formal ports are in declaration order, aligned with
+    // the call's args; a trailing return output port (a function's result) has no actual and is
+    // dropped by the zip.
+    val outArgActualPoints: Set[ConnectPoint] =
+      subDBs.view.values.flatMap { sub =>
+        sub.atGetSet {
+          sub.members.view.collect { case DFVal.Func.Call(call, staticRef) =>
+            val formalDirs = domainOwnerToSubDB(staticRef.getDesignBlock).atGetSet {
+              designMemberTable(staticRef.getDesignBlock).collect {
+                case dcl: DFVal.Dcl if dcl.modifier.isPort => dcl.modifier.dir
+              }
+            }
+            call.args.view.map(_.get).zip(formalDirs).collect {
+              case (actual, DFVal.Modifier.OUT | DFVal.Modifier.INOUT) => actual
+            }.toList
+          }.flatten.collect {
+            case dcl: DFVal.Dcl               => ConnectPoint.Direct(dcl)
+            case pbns: DFVal.PortByNameSelect => ConnectPoint.Via(pbns)
+          }.toList
+        }
+      }.toSet
     val alreadyConnectedPoints: Set[ConnectPoint] =
       subDBs.view.values.flatMap { sub =>
         sub.atGetSet {
@@ -650,7 +701,7 @@ final case class DB private (
             case pbns: DFVal.PortByNameSelect => ConnectPoint.Via(pbns)
           }.toList
         }
-      }.toSet ++ magnetConnectionMap.keySet
+      }.toSet ++ magnetConnectionMap.keySet ++ outArgActualPoints
     // input ports: checked from the parent sub-DB that owns the instance
     val danglingInputs = subDBs.view.values.flatMap { parentSub =>
       parentSub.atGetSet {
@@ -727,9 +778,7 @@ final case class DB private (
   // ===========================================================================
   // RT clk/rst domain analyses, computed on the hierarchical ROOT DB. Each
   // routes ref resolution / per-design table lookups to the OWNING sub-DB's
-  // getSet (the root getSet throws); a sub-DB delegates up to its root. The
-  // public entry point `resolvedClkRstMap` additionally accepts a bare
-  // old-style flat DB by converting it via `oldToNew` first.
+  // getSet (the root getSet throws); a sub-DB delegates up to its root.
   // ===========================================================================
 
   // Cross-design reaches navigate the DESIGN TREE (no global member index):
@@ -779,6 +828,43 @@ final case class DB private (
       }
     }
   end pbnsToPort
+
+  // Resolve `design`'s own body members from its instantiation site: on a flat DB the
+  // design's body members are directly in this DB's ownerMemberTable, while under a
+  // hierarchical root the instantiation scope holds only the design's header, so we
+  // navigate DOWN to the design's own sub-DB. The collector runs under the resolved
+  // DB's getSet.
+  private def fromDesignMembers[T](design: DFDesignBlock)(
+      collect: List[DFMember] => MemberGetSet ?=> T
+  ): T =
+    def run(sub: DB): T = sub.atGetSet(collect(sub.ownerMemberTable.getOrElse(design, Nil)))
+    if (rootDB.isRoot)
+      rootDB.subDBs.get(design.ownerRef) match
+        case Some(sub) => run(sub)
+        case None      => atGetSet(collect(Nil))
+    else run(this)
+
+  // The names of `design`'s phantom-tagged design parameters (see PhantomTag). Used by
+  // the DFHDL printer to drop phantom parameter applications at a method
+  // instantiation site (only the def view form hides phantoms).
+  def phantomParamNamesOf(design: DFDesignBlock): Set[String] =
+    fromDesignMembers(design) { members =>
+      members.view.collect {
+        case param: DFVal.DesignParam if param.isPhantom => param.getName
+      }.toSet
+    }
+
+  // Whether `design` has any phantom-tagged ports or parameters (see PhantomTag). A
+  // method with phantoms references its host's values by name, so the DFHDL printer
+  // prints its declaration locally in the host design's body (just before the def's
+  // first instance) instead of at file level.
+  def designHasPhantoms(design: DFDesignBlock): Boolean =
+    fromDesignMembers(design) { members =>
+      members.exists {
+        case dfVal @ (_: DFVal.Dcl | _: DFVal.DesignParam) => dfVal.isPhantom
+        case _                                             => false
+      }
+    }
 
   // The domain that encloses `design`'s instantiation: navigate UP to `design`'s
   // parent sub-DB and read the owning domain of `design`'s inst there. Returns
@@ -942,12 +1028,10 @@ final case class DB private (
     else rootDB.domainOwnerToSubDB
 
   // Resolved @timing.clock / @timing.reset per RT domain owner. Computed on the
-  // hierarchical root; a sub-DB delegates to its root; an old-style flat DB is
-  // converted to the hierarchy first (`oldToNew`) — this is the entry point the
-  // CLK_FREQ const-folder (DFMember.Special) hits on a flat stage DB.
+  // hierarchical root; a sub-DB delegates to its root. This is the entry point
+  // the CLK_FREQ const-folder (DFMember.Special) hits.
   lazy val resolvedClkRstMap: Map[DFDomainOwner, ClkRstTiming] =
-    if (isOldStyleFlatDB) oldToNew.resolvedClkRstMap
-    else if (!isRoot) rootDB.resolvedClkRstMap
+    if (!isRoot) rootDB.resolvedClkRstMap
     else
       val reversedDependents: Map[DFDomainOwner, Set[DFDomainOwner]] =
         dependentRTDomainOwners.invert
@@ -1031,13 +1115,27 @@ final case class DB private (
             designUsesClkRst.getOrElseUpdate(design.dclName, (usesClk(design), usesRst(design)))
           case _ =>
             domainOwnerUsesClkRst.getOrElseUpdate(owner, (usesClk(owner), usesRst(owner)))
+      def isInitialPB(pb: ProcessBlock): Boolean = pb.sensitivity match
+        case ProcessBlock.Sensitivity.Initial => true
+        case _                                => false
+      // An RT initial block counts as using reset only when it assigns a REG — semantically
+      // identical to that REG having a declaration init (its content is lowered into the
+      // reset branch / decl init by SplitInitialBlocks and ToED).
+      def initialAssignsREG(pb: ProcessBlock)(using gs: MemberGetSet): Boolean =
+        gs.designDB.getMembersOf(pb, MemberView.Flattened).exists {
+          case DFNet.BAssignment(toVal, _) => toVal.departialDcl.exists(_._1.isReg)
+          case _                           => false
+        }
       def usesClk(owner: DFDomainOwner): Boolean =
         atOwner(owner) {
           domainOwnerMemberTable(owner).exists {
+            // an initial block on its own does not imply a clock (a REG it may assign
+            // already implies one via its Dcl)
+            case pb: ProcessBlock if pb.isInRTDomain => !isInitialPB(pb)
             case dcl: DFVal.Dcl                      => dcl.isReg || dcl.isClkDcl
             case reg: DFVal.Alias.History            => true
-            case pb: ProcessBlock if pb.isInRTDomain => true
             case inst: DFDesignInst                  => usesClkRst(inst.getDesignBlock).usesClk
+            case DFVal.Func.Call(_, key)             => usesClkRst(key.getDesignBlock).usesClk
             case _                                   => false
           }
         } || reversedDependents.getOrElse(owner, Set()).exists(d => usesClkRst(d).usesClk) ||
@@ -1046,12 +1144,14 @@ final case class DB private (
       def usesRst(owner: DFDomainOwner): Boolean =
         atOwner(owner) {
           domainOwnerMemberTable(owner).exists {
+            case pb: ProcessBlock if pb.isInRTDomain =>
+              if (isInitialPB(pb)) initialAssignsREG(pb) else true
             case dcl: DFVal.Dcl =>
               (dcl.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
-            case reg: DFVal.Alias.History            => reg.hasNonBubbleInit
-            case pb: ProcessBlock if pb.isInRTDomain => true
-            case inst: DFDesignInst                  => usesClkRst(inst.getDesignBlock).usesRst
-            case _                                   => false
+            case reg: DFVal.Alias.History => reg.hasNonBubbleInit
+            case inst: DFDesignInst       => usesClkRst(inst.getDesignBlock).usesRst
+            case DFVal.Func.Call(_, key)  => usesClkRst(key.getDesignBlock).usesRst
+            case _                        => false
           }
         } || reversedDependents.getOrElse(owner, Set()).exists(d => usesClkRst(d).usesRst) ||
           (owner eq topDB.top) && atOwner(owner)(isAlwaysAtTopRst(owner)) ||
@@ -1200,6 +1300,175 @@ final case class DB private (
     if (errors.nonEmpty)
       throw new IllegalArgumentException(errors.mkString("\n"))
   end waitCheck
+
+  // ED procedural method call-site checks (see devdocs/methods.md), run once on the root.
+  // A method that (transitively) contains a wait statement suspends its calling process,
+  // which is only legal for processes without a sensitivity list (`process.forever`) or
+  // `initial` blocks — VHDL hard-errors on a wait inside a procedure called from a process
+  // with a sensitivity list, and the equivalent Verilog is semantically broken.
+  // Nested calls (a waiting method called from another method body) are covered by the
+  // outermost call site.
+  def edMethodCallSiteCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    // memoized transitive wait detection per method design (keyed by its hierarchy key)
+    val waitingCache = collection.mutable.Map.empty[DFOwner.Ref, Boolean]
+    def methodSubDBOpt(designKey: StaticRef): Option[DB] = subDBs.get(designKey)
+    def isWaiting(methodDB: DB): Boolean =
+      val key = methodDB.top.ownerRef
+      waitingCache.get(key) match
+        case Some(cached) => cached
+        case None         =>
+          val waiting = methodDB.members.exists {
+            case _: Wait                  => true
+            case DFVal.Func.Call(_, dKey) =>
+              methodSubDBOpt(dKey).exists(sub => sub.top.isEDMethod && isWaiting(sub))
+            case _ => false
+          }
+          waitingCache(key) = waiting
+          waiting
+    subDBs.view.values.foreach { sub =>
+      // a call inside another method body is checked at its outermost call site
+      if (!sub.top.isEDMethod)
+        sub.atGetSet {
+          sub.members.foreach {
+            case DFVal.Func.Call(call, dKey) =>
+              methodSubDBOpt(dKey) match
+                case Some(methodDB) if methodDB.top.isEDMethod && isWaiting(methodDB) =>
+                  def callError(msg: String): Unit =
+                    errors += s"""|DFiant HDL ED method error!
+                                  |Position:  ${call.meta.position}
+                                  |Hierarchy: ${fullNameViaInst(call.getOwnerDesign, sub)}
+                                  |Message:   $msg""".stripMargin
+                  @tailrec def owningProcess(m: DFMember): Option[ProcessBlock] =
+                    m.getOwner match
+                      case pb: ProcessBlock => Some(pb)
+                      case _: DFDesignBlock => None
+                      case o                => owningProcess(o)
+                  owningProcess(call) match
+                    case Some(pb) =>
+                      pb.sensitivity match
+                        case ProcessBlock.Sensitivity.List(Nil) |
+                            ProcessBlock.Sensitivity.Initial => // ok — suspension-capable
+                        case _ =>
+                          callError(
+                            "A wait-containing ED method can only be called inside a process without a sensitivity list (`process.forever`) or an `initial` block."
+                          )
+                    case None =>
+                      callError(
+                        "A wait-containing ED method can only be called inside a process without a sensitivity list (`process.forever`) or an `initial` block."
+                      )
+                case _ => // not a waiting ED method call
+            case _ =>
+          }
+        }
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end edMethodCallSiteCheck
+
+  // `initial` block content and conflict checks, run per design (initial blocks may
+  // only reference values of their own design, so no cross-design pass is needed):
+  //   * Both domains: only blocking assignments — no non-blocking assignments,
+  //     connections, waits, gotos, or nested owners (processes/steps/forks/domains/designs).
+  //   * RT domain: assignments must have a constant RHS; for-loops and conditionals with
+  //     constant guards/selectors as control flow; no while loops, text output, or
+  //     declarations (except loop iterators).
+  //   * ED domain: also allows non-constant conditionals, while loops, text output, and
+  //     local declarations.
+  //   * Conflict rules: a declaration may be assigned by at most one `initial` block, and a
+  //     declaration `init` is mutually exclusive with an `initial` block assignment.
+  def initialCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    def memberError(member: DFMember, msg: String): Unit =
+      errors += s"""|DFiant HDL initial block error!
+                    |Position:  ${member.meta.position}
+                    |Hierarchy: ${member.getOwnerDesign.getFullName}
+                    |Message:   $msg""".stripMargin
+    val initialPBs = members.collect {
+      case pb @ ProcessBlock(sensitivity = ProcessBlock.Sensitivity.Initial) => pb
+    }
+    // per-block content checks, while collecting the externally-declared assigned dcls
+    // (ordered and deduped per block) for the cross-block conflict checks
+    val assignedDclsPerPB: List[(ProcessBlock, List[(DFVal.Dcl, DFNet)])] = initialPBs.map { pb =>
+      val isRT = pb.isInRTDomain
+      if (pb.isInDFDomain)
+        memberError(pb, "An `initial` block is not supported under dataflow (DF) domains.")
+      val assigned = mutable.LinkedHashMap.empty[DFVal.Dcl, DFNet]
+      getMembersOf(pb, MemberView.Flattened).foreach {
+        case net @ DFNet.BAssignment(toVal, fromVal) =>
+          if (isRT && !fromVal.isConst)
+            memberError(
+              net,
+              "An `initial` block under a register-transfer (RT) domain may only assign constant values."
+            )
+          toVal.departialDcl.foreach { (dcl, _) =>
+            // local declarations (inside the initial block itself) are exempt from
+            // the cross-block conflict rules
+            if (!dcl.isInsideOwner(pb) && !assigned.contains(dcl)) assigned += dcl -> net
+          }
+        case net @ DFNet.NBAssignment(_, _) =>
+          memberError(net, "Non-blocking assignments are not allowed inside an `initial` block.")
+        case net: DFNet =>
+          memberError(net, "Connections are not allowed inside an `initial` block.")
+        case wait: Wait =>
+          memberError(wait, "Wait statements are not allowed inside an `initial` block.")
+        case goto: Goto =>
+          memberError(goto, "Step transitions are not allowed inside an `initial` block.")
+        case textOut: TextOut if isRT =>
+          memberError(
+            textOut,
+            "Text output statements are not allowed inside an `initial` block under a register-transfer (RT) domain."
+          )
+        case mh: DFConditional.DFMatchHeader if isRT && !mh.selectorRef.get.isConst =>
+          memberError(
+            mh,
+            "A `match` selector inside an `initial` block under a register-transfer (RT) domain must be a constant."
+          )
+        case cb: DFConditional.Block if isRT =>
+          cb.guardRef.get match
+            case guard: DFVal if !guard.isConst =>
+              memberError(
+                cb,
+                "A conditional guard inside an `initial` block under a register-transfer (RT) domain must be a constant."
+              )
+            case _ => // no guard (else branch / catch-all case) or a constant guard — ok
+        case wb: DFLoop.DFWhileBlock if isRT =>
+          memberError(
+            wb,
+            "While loops are not allowed inside an `initial` block under a register-transfer (RT) domain (only for-loops are)."
+          )
+        case dcl: DFVal.Dcl if isRT && !dcl.hasTagOf[IteratorTag] =>
+          memberError(
+            dcl,
+            "Declarations are not allowed inside an `initial` block under a register-transfer (RT) domain."
+          )
+        case owner @ (_: ProcessBlock | _: StepBlock | _: ForkBlock | _: DomainBlock |
+            _: DFDesignBlock | _: DFDesignInst) =>
+          memberError(owner, "This construct is not allowed inside an `initial` block.")
+        case _ => // ok
+      }
+      pb -> assigned.toList
+    }
+    // cross-block conflict checks
+    val seenDcls = mutable.Set.empty[DFVal.Dcl]
+    assignedDclsPerPB.foreach { (pb, assigned) =>
+      assigned.foreach { (dcl, net) =>
+        if (dcl.hasNonBubbleInit)
+          memberError(
+            net,
+            s"The declaration `${dcl.getName}` has an `init` value and is also assigned inside an `initial` block. These are mutually exclusive."
+          )
+        if (seenDcls.contains(dcl))
+          memberError(
+            net,
+            s"The declaration `${dcl.getName}` is assigned inside more than one `initial` block."
+          )
+        else seenDcls += dcl
+      }
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end initialCheck
 
   // Circular-derived-domain check, run on the root DB. DFS over
   // `dependentRTDomainOwners`; the cycle error names each
@@ -1450,7 +1719,7 @@ final case class DB private (
   //   - hierarchical root: run each sub-DB's per-design checks, then the
   //     cross-design root checks once on the root;
   //   - in-hierarchy sub-DB: run only its per-design checks.
-  // Callers always invoke this on the root (via `oldToNew.check`).
+  // Callers always invoke this on the root.
   lazy val check: Unit =
     if (isRoot)
       subDBs.view.values.foreach(_.subDBCheck)
@@ -1464,6 +1733,7 @@ final case class DB private (
     nameCheck()
     connectionTable // causes connectivity checks
     directRefCheck()
+    initialCheck()
 
   // Whole-tree checks, run once on the root: the cross-design connectivity /
   // RT-domain / device-top checks, via the `*` clones that navigate the
@@ -1474,6 +1744,7 @@ final case class DB private (
     circularDerivedDomainsCheck()
     domainClkRateCheck()
     waitCheck()
+    edMethodCallSiteCheck()
     portLocationCheck()
     portResourceDirCheck()
 
@@ -1508,182 +1779,19 @@ final case class DB private (
       case (at, _) => at
     }
 
-  // Converts an old-style flat DB (subDBs.empty) to a canonical new-style DB
-  // under the "B-pure" shape:
-  //   - The root DB is a pure hierarchy container:
-  //         members = [], refTable = {}, designBlock = None
-  //         subDBs = ListMap of every design (top first, then descendants)
-  //         globalTags and srcFiles preserved as project metadata.
-  //   - Every sub-DB (including the top's) has:
-  //         members = [globalMembers, designBlock, localMembers]
-  //     where `globalMembers` = the closure of globals reachable by the DB's
-  //     local refs, `designBlock` = the DB's own top-level design header (as
-  //     `Some(d)` AND as a member of the sub-DB's `members`), and
-  //     `localMembers` = the DB's direct locals (excluding the designBlock).
-  //   - The TOP design lives only in `subDBs` (as the first entry by
-  //     insertion order), no longer at the root level. There is no root-level
-  //     duplicate of the top.
-  //   - A nested DFDesignBlock is NEVER a member of its parent's sub-DB; only
-  //     the DFDesignInst that instantiates it lives in the parent's locals.
-  //     The nested block lives exclusively as the `designBlock` (and a member)
-  //     of its own sub-DB.
-  //   - Globals and DFDesignBlocks are shared across DBs by OBJECT identity.
-  //   - Each sub-DB's `refTable` is self-contained for its own refs (refs
-  //     emitted by any of its members — including the shared globals and
-  //     designBlock).
-  //   - Only the root carries `subDBs` — a flat ListMap of every design
-  //     in elaboration order (top first). Sub-DBs themselves have an empty
-  //     `subDBs`; descendant lookups always go through the root.
-  //   - Round-trip note: with all globals partitioned per sub-DB by closure,
-  //     `newToOld` no longer guarantees global ordering matches the input.
-  //     The round-trip check in SanityCheck compares globals as a set.
-  lazy val oldToNew: DB =
-    if (subDBs.nonEmpty) this
-    else
-      given MemberGetSet = self.getSet
-      val topDsn = this.top
-      // designOwn(d) = d's own (non-global, non-self, non-nested-block) members
-      // in original order. Nested DFDesignBlocks are NOT included here — they
-      // become the `designBlock` of their own sub-DB and are reachable from the
-      // parent only through their DFDesignInst entries.
-      val designOwn = mutable.LinkedHashMap.empty[DFDesignBlock, mutable.ListBuffer[DFMember]]
-      designOwn(topDsn) = mutable.ListBuffer.empty
-      members.foreach {
-        case d: DFDesignBlock => designOwn.getOrElseUpdate(d, mutable.ListBuffer.empty)
-        case _                =>
-      }
-      // Non-top DFDesignBlocks no longer carry their parent in `ownerRef` — it
-      // resolves to DFMember.Empty under the new convention. Recover the parent
-      // design via the FIRST DFDesignInst (in elaboration order) whose
-      // `designRef` targets the block. That parent is the canonical owner of
-      // the child's sub-DB in the design tree; any other parents that also
-      // instantiate the same block reach it only through their own
-      // DFDesignInst, not via a `directChildren` claim.
-      val designBlockParent = mutable.LinkedHashMap.empty[DFDesignBlock, DFDesignBlock]
-      members.foreach {
-        case inst: DFDesignInst =>
-          designBlockParent.getOrElseUpdate(inst.getDesignBlock, inst.getOwnerDesign)
-        case _ =>
-      }
-      members.foreach {
-        case _: DFDesignBlock => // nested blocks live in their own sub-DB only
-        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // globals handled separately
-        case m                                          => designOwn(m.getOwnerDesign) += m
-      }
-      // parent → ordered list of canonical child DFDesignBlocks. Iteration of
-      // `designBlockParent` (a LinkedHashMap) preserves first-inst-encounter
-      // order, which matches the elaboration order of the children.
-      val parentToChildren =
-        mutable.LinkedHashMap.empty[DFDesignBlock, mutable.ListBuffer[DFDesignBlock]]
-      designBlockParent.foreach { (child, parent) =>
-        parentToChildren.getOrElseUpdate(parent, mutable.ListBuffer.empty) += child
-      }
-      // All globals in their original elaboration order — used to project each
-      // sub-DB's closure back into a deterministic, topological, source-faithful
-      // order (elaboration order is itself topological since a global cannot
-      // reference a later-defined global).
-      val allGlobalsOrdered: List[DFMember] = members.collect {
-        case g: DFVal.CanBeGlobal if g.isGlobal => g
-      }
-      // Compute the closure of globals transitively reachable from a DB's refs.
-      // Walks local members' refs; when a ref target is a global, we include it
-      // and recurse through its own refs to pick up globals-referenced-by-globals.
-      // Non-global intermediaries are NOT included (they belong to their own
-      // design's locals), but their refs ARE walked because we iterate all of
-      // the design's locals directly. Returns reachable globals in original
-      // elaboration order — required because `newToOld` emits a sub-DB's
-      // members directly into the flat output, and both `SanityCheck.orderCheck`
-      // and code generation depend on stable, topological ordering.
-      def globalsClosure(localMembers: Iterable[DFMember]): List[DFMember] =
-        val reachable = mutable.Set.empty[DFMember]
-        def pull(target: DFMember): Unit = target match
-          case g: DFVal.CanBeGlobal if g.isGlobal && !reachable.contains(g) =>
-            reachable += g
-            g.getRefs.foreach(r => refTable.get(r).foreach(pull))
-          case _ =>
-        localMembers.foreach { m =>
-          m.getRefs.foreach(r => refTable.get(r).foreach(pull))
-        }
-        allGlobalsOrdered.filter(reachable.contains)
-      // Build the refTable partition for a DB: every ref emitted (via ownerRef
-      // or getRefs) by any of the DB's members, resolved against the original
-      // flat refTable.
-      def refsFor(dbMembers: Iterable[DFMember]): Map[DFRefAny, DFMember] =
-        val result = mutable.Map.empty[DFRefAny, DFMember]
-        dbMembers.foreach { m =>
-          refTable.get(m.ownerRef).foreach(t => result(m.ownerRef) = t)
-          m.getRefs.foreach(r => refTable.get(r).foreach(t => result(r) = t))
-          // NOTE: `DFDesignInst.designRef` is deliberately NOT added here. It is
-          // unified with the child block's `ownerRef` (the `subDBs` key) and is
-          // resolved structurally via `subDBs`, not through the parent's refTable.
-        }
-        result.toMap
-      // Build sub-DBs in top-down elaboration order. Sub-DBs themselves have
-      // empty `subDBs` — only the root collects the flat hierarchy. The
-      // LinkedHashMap preserves insertion order so the resulting list runs
-      // top → top's first child → grandchildren … in elaboration order.
-      val builtSubDBs = mutable.LinkedHashMap.empty[DFDesignBlock, DB]
-      def buildSubDB(d: DFDesignBlock): DB =
-        builtSubDBs.get(d) match
-          case Some(db) => db
-          case None     =>
-            val locals = designOwn(d).toList
-            // Walk d's own refs in addition to its locals: with nested blocks
-            // no longer present in the parent's `localMembers`, globals reached
-            // only through a sub-DB's `designBlock` refs would otherwise be
-            // missed by every closure that needs them.
-            val closure = globalsClosure(d :: locals)
-            val dbMembers = closure ::: d :: locals
-            val dbRefTable = refsFor(dbMembers)
-            val builtForD = DB(
-              members = dbMembers,
-              refTable = dbRefTable,
-              // Sub-DBs inherit globalTags from the root so per-design stage
-              // helpers (e.g. resolvedClkRstMap) find project-wide tags
-              // like DefaultRTDomainCfgTag when dispatched against a sub-DB.
-              globalTags = this.globalTags,
-              srcFiles = Nil
-            )
-            // Insert d BEFORE recursing into children so the LinkedHashMap
-            // ordering is top-down (parent before children).
-            builtSubDBs(d) = builtForD
-            val directChildren = parentToChildren.getOrElse(d, Nil).toList
-            directChildren.foreach(buildSubDB)
-            builtForD
-      buildSubDB(topDsn)
-      // Orphan globals: any global in the original flat DB that is not reached
-      // by any sub-DB's `globalsClosure` (e.g. a global that nothing references).
-      // Without explicit handling these would vanish across `oldToNew + newToOld`,
-      // because root.members is empty and only sub-DB closures carry globals.
-      // Anchor them at the top design's sub-DB so they survive the round-trip.
-      val coveredGlobals = mutable.Set.empty[DFMember]
-      builtSubDBs.valuesIterator.foreach { sub =>
-        sub.members.foreach {
-          case g: DFVal.CanBeGlobal if g.isGlobal => coveredGlobals += g
-          case _                                  =>
-        }
-      }
-      val orphanGlobals: List[DFMember] = members.collect {
-        case g: DFVal.CanBeGlobal if g.isGlobal && !coveredGlobals.contains(g) => g
-      }
-      if (orphanGlobals.nonEmpty)
-        val topSub = builtSubDBs(topDsn)
-        val newMembers = orphanGlobals ::: topSub.members
-        val orphanRefs = refsFor(orphanGlobals)
-        val newRefTable = topSub.refTable ++ orphanRefs
-        builtSubDBs(topDsn) = topSub.update(members = newMembers, refTable = newRefTable)
-      // Root is a pure hierarchy container: empty members, empty refTable,
-      // designBlock = None. `subDBs` lists every design — top first (so
-      // `topDB` resolves correctly), then the top's descendants in elaboration
-      // order.
-      DB(
-        members = Nil,
-        refTable = Map.empty,
-        globalTags = this.globalTags,
-        srcFiles = this.srcFiles,
-        subDBs = ListMap.from(builtSubDBs.iterator.map((d, sub) => StaticRef(d.ownerRef) -> sub))
-      )
-  end oldToNew
+  // ~~~ sub-design cache support ~~~
+
+  // The return DFType of a loaded method sub-DB: the type of its RETURN output port, or
+  // DFUnit when the def has a Unit return (no return port). The method harness needs this
+  // on a cache hit, before any body exists. The return port is the OUT port driven by a
+  // CONNECTION (the result wiring, mirroring `methodReturnPort`), NOT just any output-class
+  // port: an ED procedure's `<> OUT`/`<> OUT.NB` ARGUMENT is an output-class port too, but the
+  // body drives it by ASSIGNMENT, so it must not be mistaken for the return of a Unit procedure.
+  def subDesignRetDFType: DFType =
+    import topDB.getSet
+    topDB.members.collectFirst {
+      case DFNet.Connection(toVal = p: DFVal.Dcl) if p.isPortOut && !p.isPhantom => p.dfType
+    }.getOrElse(DFUnit)
 
   // Collapses a new-style (option-a) DB back into a flat old-style DB.
   // Non-DFDesignBlock members dedup by OBJECT identity (globals are shared by
@@ -1697,6 +1805,7 @@ final case class DB private (
   // pointing at it (mirroring the original elaboration order, in which the
   // nested block is added during the first instance's elaboration and so
   // appears just before that inst in the flat DB).
+
   lazy val newToOld: DB =
     if (subDBs.isEmpty) this
     else
@@ -1718,6 +1827,9 @@ final case class DB private (
       // own refTable because the root DB's refTable does not necessarily cover
       // refs that originate in sub-DB members.
       val instToDesign = mutable.Map.empty[DFDesignInst, DFDesignBlock]
+      // method call -> canonical target DFDesignBlock (keyed at the member level,
+      // matching `emit`'s scrutinee)
+      val callToDesign = mutable.Map.empty[DFMember, DFDesignBlock]
       allDBs.foreach { db =>
         db.members.foreach {
           case inst: DFDesignInst =>
@@ -1727,11 +1839,23 @@ final case class DB private (
             // unified form and the pre-unification distinct form.
             instToDesign(inst) =
               canonicalize(inst.getDesignBlock(using db.getSet)).asInstanceOf[DFDesignBlock]
+          case DFVal.Func.Call(call, key) =>
+            callToDesign(call) =
+              canonicalize(key.getDesignBlock(using db.getSet)).asInstanceOf[DFDesignBlock]
           case _ =>
         }
       }
       val flat = mutable.ListBuffer.empty[DFMember]
       val seen = mutable.Set.empty[DFMember]
+      // The real top design, and whether it is still waiting to be emitted. A global-scope
+      // call (a static function computing a global value) precedes the top design in the
+      // member list, and emitting it pulls its target def block in with it; see the deferral
+      // in the call case below.
+      val realTopBlock: Option[DFMember] = topDB.members.collectFirst {
+        case d: DFDesignBlock if d.instMode != DFDesignBlock.InstMode.Def => canonicalize(d)
+      }
+      def topPending: Boolean = realTopBlock.exists(rt => !seen.contains(rt))
+      val deferredDefs = mutable.ListBuffer.empty[DFDesignBlock]
       def emit(ms: List[DFMember]): Unit =
         ms.foreach { m =>
           val c = canonicalize(m)
@@ -1745,6 +1869,27 @@ final case class DB private (
                   seen += targetBlock
                   flat += targetBlock
                   subDBs.get(targetBlock.ownerRef).foreach(sub => emit(sub.members))
+              }
+              if (!seen.contains(c))
+                seen += c
+                flat += c
+            // a method call triggers the same first-reference emission of its
+            // target def design's body
+            case call if callToDesign.contains(call) =>
+              callToDesign.get(call).foreach { targetBlock =>
+                if (!seen.contains(targetBlock))
+                  // A GLOBAL-scope call sits before the top design in the member list, so
+                  // emitting its target def block here would place that block AHEAD of the
+                  // top. The flat form's `top` is the first non-global member, and a design
+                  // block is NOT filtered out as a global (only `DFVal.CanBeGlobal` is), so
+                  // the def block would masquerade as the top design, taking over the top
+                  // name, the emitted defs-header name and the output folder. Defer it until
+                  // the top design is out; being ownerless it is valid anywhere in the list.
+                  if (topPending) deferredDefs += targetBlock
+                  else
+                    seen += targetBlock
+                    flat += targetBlock
+                    subDBs.get(targetBlock.ownerRef).foreach(sub => emit(sub.members))
               }
               if (!seen.contains(c))
                 seen += c
@@ -1764,6 +1909,14 @@ final case class DB private (
       // re-entry from looping when topDsn (a member of topDB.members) triggers
       // a recursive `emit(topDB.members)` on its own sub-DB.
       emit(topDB.members)
+      // the def blocks held back while the top design was still pending (see the call case in
+      // `emit`), emitted now that the top is in place
+      deferredDefs.toList.foreach { targetBlock =>
+        if (!seen.contains(targetBlock))
+          seen += targetBlock
+          flat += targetBlock
+          subDBs.get(targetBlock.ownerRef).foreach(sub => emit(sub.members))
+      }
       // Merge refTables from root + every sub-DB. A shared ref key can live in
       // multiple sub-DB refTables (e.g. a nested DFDesignBlock's ownerRef appears
       // in both parent's refTable — where it points to the parent's own members —
@@ -1798,13 +1951,12 @@ final case class DB private (
 
   // Lightweight repair of the per-sub-DB global closure: adds any global member
   // (and its missing ref bindings) that a sub-DB's members reference but that is
-  // absent from that sub-DB — the `globalsClosure`/`refsFor` work `oldToNew`
-  // does, but applied IN PLACE to the existing hierarchy with no flatten and no
-  // full rebuild. A stage that mints globals shared across sub-DBs (e.g.
+  // absent from that sub-DB. Recomputes each sub-DB's global closure and
+  // refTable IN PLACE on the existing hierarchy, with no flatten and no full
+  // rebuild. A stage that mints globals shared across sub-DBs (e.g.
   // GlobalizePortVectorParams creates the globalized port-vector params in the
   // top's MetaDesign, and the vec-type `FullReplacement`s purge their `TypeRef`
-  // bindings) leaves exactly these gaps; this restores them far more cheaply
-  // than `newToOld.oldToNew`. Only meaningful on a root DB; returns `this`
+  // bindings) leaves exactly these gaps; Only meaningful on a root DB; returns `this`
   // unchanged (by reference) when nothing is missing. Sub-DBs needing no repair
   // are likewise carried over by reference.
   def repairGlobalClosures: DB =
@@ -1835,7 +1987,7 @@ final case class DB private (
       // missing.
       def resolve(r: DFRefAny): Option[DFMember] = sub.refTable.get(r).orElse(pool.get(r))
       // Global closure: globals transitively reachable from the sub-DB's
-      // non-global members' refs (mirrors `oldToNew`'s `globalsClosure`).
+      // non-global members' refs.
       val reachable = mutable.HashSet.empty[DFMember]
       def pull(t: DFMember): Unit = t match
         case g: DFVal.CanBeGlobal if globalSet.contains(g) && reachable.add(g) =>
@@ -1846,7 +1998,7 @@ final case class DB private (
       // globals first, in canonical order, then the rest — `closure ::: d :: locals`.
       val newMembers = globalOrder.iterator.filter(reachable.contains).toList ::: nonGlobals
       // Rebuild the refTable from the new members' refs (drops orphan entries,
-      // fills the missing global bindings) — mirrors `oldToNew`'s `refsFor`.
+      // fills the missing global bindings).
       val newRefTable = mutable.Map.empty[DFRefAny, DFMember]
       newMembers.foreach { m =>
         m.getAllRefs.foreach(r => resolve(r).foreach(t => newRefTable(r) = t))
@@ -1866,10 +2018,10 @@ final case class DB private (
   //   2. each non-top DFDesignBlock (and its contiguous content — its own
   //      locals plus any further nested blocks recursively) is positioned
   //      immediately before its FIRST DFDesignInst in the parent's locals.
-  //      Mirrors the form produced by `oldToNew + newToOld` so that
-  //      round-trip equality holds against the original elaboration order
-  //      (which places a nested block where it was first elaborated, not
-  //      where the corresponding inst settles after later stages).
+  //      Matches the form `newToOld` emits, so that round-trip equality holds
+  //      against the original elaboration order (which places a nested block
+  //      where it was first elaborated, not where the corresponding inst
+  //      settles after later stages).
   // Idempotent on already-canonical DBs; a no-op on new-style DBs (those
   // are already canonical).
   def canonicalForm: DB =
@@ -1882,9 +2034,9 @@ final case class DB private (
       case m                                          => nonGlobals += m
     }
     val topD = top
-    // Per-design ordered locals (excluding nested DFDesignBlocks). Mirrors
-    // the partitioning oldToNew uses — members owned by design D land in
-    // designLocals(D) in their original elaboration order.
+    // Per-design ordered locals (excluding nested DFDesignBlocks): members
+    // owned by design D land in designLocals(D) in their original elaboration
+    // order.
     val designLocals = mutable.LinkedHashMap.empty[DFDesignBlock, mutable.ListBuffer[DFMember]]
     designLocals(topD) = mutable.ListBuffer.empty
     nonGlobals.foreach {
@@ -1906,8 +2058,15 @@ final case class DB private (
             emittedDesigns += target
             emitDesign(target)
           out += inst
+        case DFVal.Func.Call(call, key) =>
+          val target = key.getDesignBlock
+          if (!emittedDesigns.contains(target))
+            emittedDesigns += target
+            emitDesign(target)
+          out += call
         case m => out += m
       }
+    end emitDesign
     emittedDesigns += topD
     emitDesign(topD)
     val newMembers = globals.toList ++ out.toList
@@ -2002,6 +2161,13 @@ enum MemberView derives CanEqual:
 trait MemberGetSet:
   val isMutable: Boolean
   def designDB: DB
+  // Structural resolution of a design-block hierarchy key (`StaticRef`). A unified key is
+  // a design's `ownerRef` token, so it must NOT be resolved through the refTable (where
+  // that token maps to the design's owner); each context resolves it against its own
+  // design registry, falling back to the refTable only for the pre-unification
+  // `DFDesignInst.designRef` form (a distinct parent-side entry). A design block is
+  // always accessible from a key; failure to resolve is a bug.
+  def getDesignBlockByKey(key: StaticRef): DFDesignBlock
   def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0
   def getOption[M <: DFMember, M0 <: M](ref: DFRef[M]): Option[M0]
   def getOrigin(ref: DFRef.TwoWayAny): DFMember

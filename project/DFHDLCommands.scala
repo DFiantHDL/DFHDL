@@ -17,7 +17,9 @@ object DFHDLCommands {
       (LocalProject("platforms") / Compile / sources) := Nil,
       (LocalProject("platforms") / Test / sources) := Nil,
       (LocalProject("lib") / Compile / sources) := Nil,
-      (LocalProject("lib") / Test / sources) := Nil
+      (LocalProject("lib") / Test / sources) := Nil,
+      (LocalProject("ips") / Compile / sources) := Nil,
+      (LocalProject("ips") / Test / sources) := Nil
     ), state)
     newState
   }
@@ -29,7 +31,9 @@ object DFHDLCommands {
       (LocalProject("compiler_stages") / Test / sources) := Nil,
       (LocalProject("platforms") / Compile / sources) := Nil,
       (LocalProject("platforms") / Test / sources) := Nil,
-      (LocalProject("lib") / Test / sources) := ((LocalProject("lib") / Test / sources).value.filter(_.toString.contains("Playground.scala")))
+      (LocalProject("lib") / Test / sources) := ((LocalProject("lib") / Test / sources).value.filter(_.toString.contains("Playground.scala"))),
+      (LocalProject("ips") / Compile / sources) := Nil,
+      (LocalProject("ips") / Test / sources) := Nil
     ), state)
     newState
   }
@@ -146,7 +150,7 @@ object DFHDLCommands {
       val ps = new PrintStream(baos)
       val oldOut = System.out
       val oldErr = System.err
-      val arguments = s" util.top_EmptyDesign help simulate-tool -s"
+      val arguments = s" util.EmptyDesign help simulate-tool -s"
       try {
         System.setOut(ps)
         System.setErr(ps)
@@ -164,12 +168,12 @@ object DFHDLCommands {
     }
     //TODO: fix caching issues
     for (tool <- vhdlTools if existingTools.contains(tool); dialect <- vhdlDialects if !skip.contains((tool, dialect))) {
-      val arguments = s" dfhdl.AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
+      val arguments = s" dfhdl.AES.CipherSim simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }
     for (tool <- verilogTools if existingTools.contains(tool); dialect <- verilogDialects if !skip.contains((tool, dialect))) {
-      val arguments = s" dfhdl.AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
+      val arguments = s" dfhdl.AES.CipherSim simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }

@@ -33,6 +33,10 @@ trait AbstractTypePrinter extends AbstractPrinter:
         Option.when(fresh.nonEmpty)(withGetSet(sub.getSet) -> fresh)
       }.toList
     else List(printer -> designDB.membersGlobals)
+  // the global constants flattened out of their groups, each paired with the printer that
+  // renders it (and whose getSet resolves its references)
+  protected final def globalConstsWithPrinters: List[(TPrinter, DFMember)] =
+    globalConstGroups.flatMap((p, gs) => gs.map(p -> _))
   final def csGlobalConstIntDcls: String =
     globalConstGroups.iterator
       .map((p, gs) => p.csDFMembers(gs.filter(isInt32Val)))
@@ -129,15 +133,17 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     else s"Bits($csWidth)"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
-    val csWidth = dfType.widthParamRef.refCodeString(typeCS)
+    // the magnitude-width code string is the total width for integer types (fractionWidth
+    // == 0) and the integer-part width for fixed-point types
+    val csMagWidth = dfType.magnitudeWidthParamRef.refCodeString(typeCS)
     val (ob, cb) = if (typeCS) ("[", "]") else ("(", ")")
     (signed, fractionWidth) match
-      case (false, 0) => s"UInt$ob$csWidth$cb"
+      case (false, 0) => s"UInt$ob$csMagWidth$cb"
       case (true, 0)  =>
         if (dfType.isDFInt32) "Int"
-        else s"SInt$ob$csWidth$cb"
-      case (false, _) => s"UFix$ob$magnitudeWidthUNSAFE, $fractionWidth$cb"
-      case (true, _)  => s"SFix$ob$magnitudeWidthUNSAFE, $fractionWidth$cb"
+        else s"SInt$ob$csMagWidth$cb"
+      case (false, _) => s"UFix$ob$csMagWidth, $fractionWidth$cb"
+      case (true, _)  => s"SFix$ob$csMagWidth, $fractionWidth$cb"
   def csDFString(dfType: DFString, typeCS: Boolean): String = "String"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.name
@@ -185,4 +191,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     s": ${printer.csDFType(dfType, typeCS = true)} <> VAL"
   def csDFValConstType(dfType: DFType): String =
     s": ${printer.csDFType(dfType, typeCS = true)} <> CONST"
+  // a procedure argument's directional type (`<> IN` / `<> OUT`)
+  def csDFValPortType(dfType: DFType, dirCS: String): String =
+    s": ${printer.csDFType(dfType, typeCS = true)} <> $dirCS"
 end DFTypePrinter

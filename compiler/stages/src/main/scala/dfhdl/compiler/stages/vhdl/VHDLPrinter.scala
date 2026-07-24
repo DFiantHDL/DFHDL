@@ -45,19 +45,21 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   def csDFRange(range: DFRange): String = unsupported
   def csWait(wait: Wait): String =
     val trigger = wait.triggerRef.get
-    trigger.dfType match
-      case _: DFBoolOrBit =>
-        // `ir.Wait(X)` resumes when X is true -> `wait until X`.
-        trigger match
-          case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
-            s"wait until ${wait.triggerRef.refCodeString};"
-          // X = `not inner` -> `wait until not inner` (avoids a `not (not ...)`)
-          case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
-            s"wait until not ${printer.csFixedCond(innerRef)};"
-          case _ =>
-            s"wait until ${printer.csFixedCond(wait.triggerRef)};"
-      case DFTime => s"wait for ${wait.triggerRef.refCodeString};"
-      case _      => printer.unsupported
+    if (wait.isEndless) "wait;"
+    else
+      trigger.dfType match
+        case _: DFBoolOrBit =>
+          // `ir.Wait(X)` resumes when X is true -> `wait until X`.
+          trigger match
+            case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
+              s"wait until ${wait.triggerRef.refCodeString};"
+            // X = `not inner` -> `wait until not inner` (avoids a `not (not ...)`)
+            case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
+              s"wait until not ${printer.csFixedCond(innerRef)};"
+            case _ =>
+              s"wait until ${printer.csFixedCond(wait.triggerRef)};"
+        case DFTime => s"wait for ${wait.triggerRef.refCodeString};"
+        case _      => printer.unsupported
   end csWait
   def csTextOut(textOut: TextOut): String =
     def csDFValToVHDLString(dfValRef: DFVal.Ref): String =
@@ -164,6 +166,38 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   def dfhdlDefsFileName: String = s"dfhdl_pkg.vhd"
   def dfhdlSourceContents: String =
     scala.io.Source.fromResource(dfhdlDefsFileName).getLines().mkString("\n")
+  // A static function READ BY A PORT DECLARATION (its width or its init) must be visible at the
+  // entity level: a port declaration lives in the entity, which is elaborated before the
+  // architecture, so a function used to size or initialize a port cannot be declared locally in
+  // the architecture — it must live in the shared package. Such a function is globalized here
+  // even when a single design uses it, on top of the usage-based globals of `super`.
+  override def globalHDLMethods: Set[DFDesignBlock] =
+    super.globalHDLMethods ++
+      methodCallClosure(portDeclStaticFunctions).filter(methodIsGlobalEligible)
+
+  // Static-function blocks reachable from any port declaration, by following the value/type
+  // graph out of each port's dfType (a parametric width) and init refs: a width may reference a
+  // constant or generic whose value is a static-function call, and an init may be one directly,
+  // so the walk follows refs transitively until it reaches the calls. A static function's own
+  // formal/return ports are NOT entity ports, so method-owned ports are skipped.
+  private def portDeclStaticFunctions: Set[DFDesignBlock] =
+    val ports = getSet.designDB.members.collect {
+      case p: DFVal.Dcl if p.isPort && !p.getOwnerDesign.isHDLMethod => p
+    }
+    val found = mutable.Set.empty[DFDesignBlock]
+    val visited = mutable.Set.empty[DFMember]
+    def visit(m: DFMember): Unit =
+      if (visited.add(m))
+        m match
+          case DFVal.Func.Call(_, key) =>
+            val block = key.getDesignBlock
+            if (block.isStaticFunction) found += block
+          case _ =>
+        m.getRefs.foreach(r => visit(r.get))
+    ports.foreach(p => (p.dfType.getRefs ++ p.initRefList).foreach(r => visit(r.get)))
+    found.toSet
+  end portDeclStaticFunctions
+
   override protected def hasGlobalContentCheck: Boolean =
     super.hasGlobalContentCheck || printer.globalVectorTypes.nonEmpty
   override def csGlobalFileContent: String =
@@ -211,6 +245,19 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       val usesMathReal = getSet.designDB.membersGlobals.exists {
         _.dfType.decompose { case dt: DFDouble => dt }.nonEmpty
       }
+      // Global HDL methods (ED methods / static functions used across designs or from
+      // global scope) are declared in the package spec (prototype) and defined in the
+      // package body, so any design can call them. They are self-contained (no design-local
+      // captures), so no call-site substitution is needed.
+      // the package spec holds the constants and the method PROTOTYPES, interleaved in
+      // dependency order (a constant may call a method, a method may read a constant); the
+      // bodies follow in the package body, where every spec name is already visible
+      val protoOf = printer.globalMethodPrinters.toMap
+      val globalSpecDcls = globalDeclsOrdered.map {
+        case GlobalDecl.Const(c)  => printer.csDFMembers(List(c))
+        case GlobalDecl.Method(b) => protoOf(b).csMethodProto(b)
+      }.filter(_.nonEmpty).mkString("\n")
+      val globalMethodBodies = csGlobalMethodDcls
       sn"""|library ieee;
           |use ieee.std_logic_1164.all;
           |use ieee.numeric_std.all;
@@ -218,14 +265,14 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
           |use work.dfhdl_pkg.all;
           |
           |package ${printer.packageName} is
-          |${csGlobalConstIntDcls}
           |${namedTypeConvFuncsDcl}
-          |${csGlobalConstNonIntDcls}
+          |${globalSpecDcls}
           |end package ${printer.packageName};
           |
           |package body ${printer.packageName} is
           |${namedTypeConvFuncsBody}
           |${vectorTypeDclsBody}
+          |${globalMethodBodies}
           |end package body ${printer.packageName};
           |"""
     else ""

@@ -1,8 +1,8 @@
 # Design Domains
 
-DFHDL offers three key domain abstractions—dataflow (DF), register-transfer (RT), and event-driven (ED)—all within a single HDL, as illustrated in the following figure. This unique capability allows developers to employ a cohesive syntax to seamlessly blend these abstractions: DF, RT, and ED. Each abstraction brings its own set of advantages in terms of control, synthesizability, simulation speed, and functional correctness.
+DFHDL offers three key domain abstractions, dataflow (DF), register-transfer (RT), and event-driven (ED), all within a single HDL, as illustrated in the following figure. This unique capability allows developers to employ a cohesive syntax to seamlessly blend these abstractions: DF, RT, and ED. Each abstraction brings its own set of advantages in terms of control, synthesizability, simulation speed, and functional correctness.
 
-The RT abstraction mirrors the capabilities found in languages like Chisel and Amaranth, while the ED abstraction aligns with the functionalities of VHDL and Verilog. Through an intelligent compilation process, the DFHDL compiler transitions from the higher-level DF abstraction through RT and ultimately to ED. The choice of compilation dialect—whether VHDL 93/2008 or Verilog/SystemVerilog—determines the final ED code representation.
+The RT abstraction mirrors the capabilities found in languages like Chisel and Amaranth, while the ED abstraction aligns with the functionalities of VHDL and Verilog. Through an intelligent compilation process, the DFHDL compiler transitions from the higher-level DF abstraction through RT and ultimately to ED. The choice of compilation dialect (VHDL 93/2008 or Verilog/SystemVerilog) determines the final ED code representation.
 
 ![design-domains](design-domains-light.png#only-light)
 ![design-domains](design-domains-dark.png#only-dark)
@@ -62,7 +62,7 @@ class MyDesign extends RTDesign:
   ...
 ```
 
-Annotations may be partial — `@timing.clock(rate = 100.MHz)` overrides only the clock rate
+Annotations may be partial: `@timing.clock(rate = 100.MHz)` overrides only the clock rate
 and inherits the rest from the elaboration defaults. The empty form `@timing.clock()` /
 `@timing.reset()` forces the slot to appear (e.g. on a combinational or blackbox owner) while
 still deriving every field from the defaults.
@@ -117,6 +117,21 @@ class RelatedDomainsDesign extends RTDesign:
   @timing.related(base)
   val designRelated = new RTDomain:
     val from_top_reg = UInt(8) <> VAR.REG init 0
+```
+
+By default a related domain also shares the target's reset. Passing `includeReset = false`
+keeps the shared clock but drops the reset: the domain's registers and memories are not driven
+from a reset-initialization block and instead rely on their initial values (`init`) alone.
+
+```scala
+class NoResetRelatedDomain extends RTDesign:
+  base =>
+  val base_reg = UInt(8) <> VAR.REG init 0
+
+  // Shares base domain's clock, but not its reset
+  @timing.related(base, includeReset = false)
+  val relatedDomain = new RTDomain:
+    val related_reg = UInt(8) <> VAR.REG init 0  // relies on its init value, no reset
 ```
 
 ### Register Types and Initialization

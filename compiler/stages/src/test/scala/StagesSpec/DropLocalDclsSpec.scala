@@ -131,6 +131,34 @@ class DropLocalDclsSpec extends StageSpec:
          |""".stripMargin
     )
 
+  test("Process moves REG local dcls to design level under VHDL"):
+    given options.CompilerOptions.Backend = _.vhdl
+    class ID extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      process:
+        val zzReg = SInt(16) <> VAR.REG init 0
+        val zz    = SInt(16) <> VAR
+        zzReg.din := x
+        zz        := zzReg
+        y         := zz
+    end ID
+    val id = (new ID).dropLocalDcls
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val zzReg = SInt(16) <> VAR.REG init sd"16'0"
+         |  process:
+         |    val zz = SInt(16) <> VAR
+         |    zzReg.din := x
+         |    zz := zzReg
+         |    y := zz
+         |end ID
+         |""".stripMargin
+    )
+
   test("Step block drops local dcls"):
     class ID extends RTDesign:
       val x = SInt(16) <> IN

@@ -11,6 +11,20 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   val supportLogicType: Boolean = printer.dialect match
     case VerilogDialect.v2001 | VerilogDialect.v95 => false
     case _                                         => true
+  def csMethodCall(call: Func, designKey: StaticRef): String =
+    val design = designKey.getDesignBlock
+    val args = csMethodCallArgs(call, design).mkString(", ")
+    // a procedural (Unit-return) call is a task call statement
+    if (call.dfType == DFUnit)
+      // a parameterless task call has no parentheses
+      if (args.isEmpty) s"${printer.moduleName(design)};"
+      else s"${printer.moduleName(design)}($args);"
+    else
+      // the v95/v2001 minimum-one-input rule: an argument-less function call passes a
+      // literal `0` to the declared dummy input
+      val argList = if (args.isEmpty && !printer.dummyLessFunctionSupport) "0" else args
+      s"${printer.moduleName(design)}($argList)"
+  end csMethodCall
   val supportGlobalParameters: Boolean =
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
@@ -245,6 +259,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             s"$relValStr[${toWidthRef.uboundCS}:0]"
         if (printer.allowSignedKeywordAndOps) s"$$unsigned($truncated)"
         else truncated
+      case (DFBit, DFBits(_)) =>
+        s"$relValStr[0]"
       case (DFUInt(_), DFBits(_)) =>
         relValStr
       case (DFBits(_), DFUInt(_)) =>
@@ -361,6 +377,27 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           s"`EXTEND_U($relValStr, 1, ${tWidthRef.refCodeString})"
       case (DFBits(_), _) =>
         s"{$relValStr}"
+      // fixed-point (target fraction != 0): `.signed`/`.unsigned` sign casts and `.resize`
+      // reformats. Verilog is positional, so these are the vector operations: add/drop the
+      // sign bit, and a width-cast + shift by the fraction delta to preserve the value.
+      case (DFSFix(_, _), DFUFix(_, _)) =>
+        val extended = s"{1'b0, $relValStr}"
+        if (printer.allowSignedKeywordAndOps) s"$$signed($extended)" else extended
+      case (DFUFix(_, _), DFSFix(_, _)) =>
+        val total = dfVal.dfType.widthUNSAFE
+        val truncated =
+          if (printer.allowWidthCastSyntax) s"$total'($relValStr)"
+          else s"$relValStr[${total - 1}:0]"
+        if (printer.allowSignedKeywordAndOps) s"$$unsigned($truncated)" else truncated
+      case (t @ (DFUFix(_, _) | DFSFix(_, _)), f @ (DFUFix(_, _) | DFSFix(_, _))) =>
+        val tDecimal = t.asInstanceOf[DFDecimal]
+        val total = tDecimal.widthUNSAFE
+        val shift = tDecimal.fractionWidth - f.asInstanceOf[DFDecimal].fractionWidth
+        val widthCast =
+          if (printer.allowWidthCastSyntax) s"$total'($relValStr)" else relValStr
+        if (shift > 0) s"$widthCast << $shift"
+        else if (shift < 0) s"$widthCast >> ${-shift}"
+        else widthCast
       case x =>
         println(x)
         printer.unsupported

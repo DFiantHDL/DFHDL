@@ -9,40 +9,45 @@ import scala.quoted.*
 import scala.annotation.targetName
 import DFDecimal.Constraints.*
 
-type DFDecimal[S <: Boolean, W <: IntP, F <: Int, N <: NativeType] =
-  DFType[ir.DFDecimal, Args4[S, W, F, N]]
+// `M` is the magnitude (integer-part) width, including the sign bit for signed values. The
+// total bit width is `M + F`; for integer types (F == 0) the magnitude width is the total
+// width. See `DecimalWidth` for the derived total width used by the `Width` type class.
+type DFDecimal[S <: Boolean, M <: IntP, F <: Int, N <: NativeType] =
+  DFType[ir.DFDecimal, Args4[S, M, F, N]]
 object DFDecimal:
-  protected[core] def apply[S <: Boolean, W <: IntP, F <: Int, N <: NativeType](
+  protected[core] def apply[S <: Boolean, M <: IntP, F <: Int, N <: NativeType](
       signed: Inlined[S],
-      width: IntParam[W],
+      magnitudeWidth: IntParam[M],
       fractionWidth: Inlined[F],
       nativeType: N
-  )(using dfc: DFC, check: Width.CheckNUB[S, W]): DFDecimal[S, W, F, N] = trydf:
-    width.toScalaIntOpt.foreach(check(signed, _))
-    ir.DFDecimal(signed, width.ref, fractionWidth, nativeType).asFE[DFDecimal[S, W, F, N]]
-  protected[core] def forced[S <: Boolean, W <: IntP, F <: Int, N <: NativeType](
+  )(using dfc: DFC, check: Width.CheckNUB[S, DecimalWidth[M, F]]): DFDecimal[S, M, F, N] = trydf:
+    // the width constraints apply to the total bit width (magnitude + fraction)
+    magnitudeWidth.toScalaIntOpt.foreach(m => check(signed, m + fractionWidth))
+    ir.DFDecimal(signed, magnitudeWidth.ref, fractionWidth, nativeType).asFE[DFDecimal[S, M, F, N]]
+  protected[core] def forced[S <: Boolean, M <: IntP, F <: Int, N <: NativeType](
       signed: Boolean,
-      width: Int,
+      magnitudeWidth: Int,
       fractionWidth: Int,
       nativeType: NativeType
-  )(using DFC): DFDecimal[S, W, F, N] =
+  )(using DFC): DFDecimal[S, M, F, N] =
     val check = summon[Width.Check[Boolean, Int]]
-    check(signed, width)
-    ir.DFDecimal(signed, ir.IntParamRef(width), fractionWidth, nativeType)
-      .asFE[DFDecimal[S, W, F, N]]
+    check(signed, magnitudeWidth + fractionWidth)
+    ir.DFDecimal(signed, ir.IntParamRef(magnitudeWidth), fractionWidth, nativeType)
+      .asFE[DFDecimal[S, M, F, N]]
 
   given DFInt32 = DFInt32
-  given [S <: Boolean, W <: IntP & Singleton, F <: Int, N <: NativeType](using
+  given [S <: Boolean, M <: IntP & Singleton, F <: Int, N <: NativeType](using
       ValueOf[S],
-      ValueOf[W],
+      ValueOf[M],
       ValueOf[F],
       ValueOf[N]
-  )(using DFCG, Width.CheckNUB[S, W]): DFDecimal[S, W, F, N] = trydf:
-    DFDecimal(valueOf[S], IntParam[W](valueOf[W]), valueOf[F], valueOf[N])
+  )(using DFCG, Width.CheckNUB[S, DecimalWidth[M, F]]): DFDecimal[S, M, F, N] = trydf:
+    DFDecimal(valueOf[S], IntParam[M](valueOf[M]), valueOf[F], valueOf[N])
   object Extensions:
-    extension [S <: Boolean, W <: IntP, F <: Int, N <: NativeType](dfType: DFDecimal[S, W, F, N])
+    extension [S <: Boolean, M <: IntP, F <: Int, N <: NativeType](dfType: DFDecimal[S, M, F, N])
       def signed: Inlined[S] = Inlined.forced[S](dfType.asIR.signed)
       def nativeType: N = dfType.asIR.nativeType.asInstanceOf[N]
+      def fractionWidth: Inlined[F] = Inlined.forced[F](dfType.asIR.fractionWidth)
 
   protected[core] object Constraints:
     object Width
@@ -62,6 +67,23 @@ object DFDecimal:
           Int,
           [s <: Boolean, n <: Int] =>> ITE[s, true, n >= 0],
           [s <: Boolean, n <: Int] =>> "Unsigned value must be natural, but found: " + n
+        ]
+    object FractionWidth
+        extends Check1[
+          Int,
+          [f <: Int] =>> f >= 0,
+          [f <: Int] =>> "Fraction width must be non-negative, but found: " + f
+        ]
+    object MagnitudeWidth
+        extends Check2[
+          Boolean,
+          Int,
+          [s <: Boolean, m <: Int] =>> ITE[s, m > 0, m >= 0],
+          [s <: Boolean, m <: Int] =>> ITE[
+            s,
+            "Signed magnitude width must include the sign bit (at least 1), but found: " + m,
+            "Unsigned magnitude width must be non-negative, but found: " + m
+          ]
         ]
 
     object `LW >= RW`
@@ -326,8 +348,14 @@ object DFDecimal:
     private[DFDecimal] val widthNoValuePattern = "([\\d_,]+)'".r
     private[DFDecimal] val valueNoWidthPattern = "'(-?\\d+)".r
     private[DFDecimal] val widthValuePattern = "(\\d+)'(-?[\\d_,]+)".r
-    private[DFDecimal] val widthFixedPattern = "(\\d+)\\.(\\d+)'(-?\\d+)\\.?(\\d*)".r
+    private[DFDecimal] val widthFixedPattern = "(\\d+)\\.(\\d+)'(-?\\d+)(?:\\.(\\d+))?".r
+    private[DFDecimal] val valueFixedPattern = "(-?\\d+)\\.(\\d+)".r
+    // reserved grammar for scaled formats (binary point outside the stored bits)
+    private[DFDecimal] val scaledFormatPattern = "\\d+(?:\\.\\d+)?[pP][+-]?\\d+'.*".r
     private[DFDecimal] val numPattern = "(-?\\d+)".r
+    // all `from*DecString` helpers and `fromDecString` return the tuple
+    // (signed, magnitudeWidth, fractionWidth, value); for integers the magnitude width is the
+    // total width (fraction width == 0)
     private[DFDecimal] def fromIntDecString(
         numStr: String,
         signedForced: Boolean
@@ -336,53 +364,117 @@ object DFDecimal:
       val signed = value < 0 | signedForced
       val actualWidth = value.bitsWidth(signed)
       (signed, actualWidth, 0, value)
+    // explicit `M.F'value` fixed-point literal: the value is rounded to the closest
+    // representable value (round-half-up, ties away from zero) and must fit the magnitude
+    private def fromFixedDecString(
+        magnitudeWidth: Int,
+        fractionWidth: Int,
+        wholeStr: String,
+        fractionStrOpt: Option[String],
+        signedForced: Boolean
+    ): Either[String, (Boolean, Int, Int, BigInt)] =
+      val decValue = BigDecimal(wholeStr + fractionStrOpt.map("." + _).getOrElse(""))
+      val signed = decValue < 0 | signedForced
+      val raw = (decValue * BigDecimal(2).pow(fractionWidth))
+        .setScale(0, BigDecimal.RoundingMode.HALF_UP).toBigInt
+      val totalWidth = magnitudeWidth + fractionWidth
+      val actualWidth = raw.bitsWidth(signed)
+      if (actualWidth > totalWidth)
+        Left(
+          s"The value $decValue requires a magnitude width of at least ${actualWidth - fractionWidth}, but found: $magnitudeWidth"
+        )
+      else Right((signed, magnitudeWidth, fractionWidth, raw))
+    end fromFixedDecString
+    // `value.fraction` fixed-point literal without an explicit format: allowed only when
+    // the value is exactly representable in binary, inferring the minimal `M.F` format
+    private def fromFixedValueDecString(
+        wholeStr: String,
+        fractionStr: String,
+        signedForced: Boolean
+    ): Either[String, (Boolean, Int, Int, BigInt)] =
+      val decValue = BigDecimal(wholeStr + "." + fractionStr)
+      val signed = decValue < 0 | signedForced
+      // a finite decimal fraction is exactly representable in binary iff its reduced
+      // denominator is a power of two, in which case the minimal fraction width never
+      // exceeds the decimal fraction digit count
+      var scaled = decValue
+      var fractionWidth = 0
+      while (!scaled.isWhole && fractionWidth < fractionStr.length)
+        scaled *= 2
+        fractionWidth += 1
+      if (!scaled.isWhole)
+        Left(
+          s"""|The value $decValue is not exactly representable in binary.
+              |To Fix: use an explicit `M.F'` width format to opt into rounding.""".stripMargin
+        )
+      else
+        val raw = scaled.toBigInt
+        // minimal magnitude: the raw value's bits beyond the fraction, but at least the sign
+        // bit for signed values (and never negative for unsigned)
+        val magnitudeWidth = (raw.bitsWidth(signed) - fractionWidth) max (if (signed) 1 else 0)
+        Right((signed, magnitudeWidth, fractionWidth, raw))
+    end fromFixedValueDecString
     private def fromDecString(
         dec: String,
         signedForced: Boolean
     ): Either[String, (Boolean, Int, Int, BigInt)] =
       dec.replace(",", "").replace("_", "") match
-        case numPattern(numStr) => Right(fromIntDecString(numStr, signedForced))
-        case _                  =>
+        case numPattern(numStr)    => Right(fromIntDecString(numStr, signedForced))
+        case scaledFormatPattern() =>
+          Left("Scaled formats (`p` binary-exponent notation) are not yet supported.")
+        case widthFixedPattern(magnitudeWidthStr, fractionWidthStr, wholeStr, fractionStr) =>
+          fromFixedDecString(
+            magnitudeWidthStr.toInt,
+            fractionWidthStr.toInt,
+            wholeStr,
+            Option(fractionStr),
+            signedForced
+          )
+        case valueFixedPattern(wholeStr, fractionStr) =>
+          fromFixedValueDecString(wholeStr, fractionStr, signedForced)
+        case _ =>
           Left(s"Invalid decimal pattern found: $dec")
       end match
     end fromDecString
 
     extension (fullTerm: String)
-      private[DFDecimal] def interpolate[S <: Boolean, W <: IntP, F <: Int](
+      // the `M` type parameter is the magnitude width (== total width for integer literals,
+      // where the explicit-width forms below only ever apply)
+      private[DFDecimal] def interpolate[S <: Boolean, M <: IntP, F <: Int](
           op: String,
           explicitWidthOption: Option[IntP]
-      )(using DFC): DFConstOf[DFDecimal[S, W, F, BitAccurate]] =
-        val (interpSigned, interpWidth, interpFractionWidth, interpValue) =
+      )(using DFC): DFConstOf[DFDecimal[S, M, F, BitAccurate]] =
+        val (interpSigned, interpMagnitudeWidth, interpFractionWidth, interpValue) =
           fromDecString(fullTerm, op == "sd").toOption.get
         val signed = Inlined.forced[S](interpSigned)
         val fractionWidth = Inlined.forced[F](interpFractionWidth)
         explicitWidthOption match
-          // explicit integer width
+          // explicit integer width (integer literals only, so magnitude == total width)
           case Some(int: Int) =>
-            val width = IntParam.forced[W](int)
+            val magnitudeWidth = IntParam.forced[M](int)
             DFVal.Const(
-              DFDecimal(signed, width, fractionWidth, BitAccurate),
+              DFDecimal(signed, magnitudeWidth, fractionWidth, BitAccurate),
               Some(interpValue),
               named = true
             )
-          // no explicit width, use inferred width from the value
+          // no explicit width, use the inferred magnitude width from the value
           case None =>
-            val width = IntParam.forced[W](interpWidth)
+            val magnitudeWidth = IntParam.forced[M](interpMagnitudeWidth)
             DFVal.Const(
-              DFDecimal(signed, width, fractionWidth, BitAccurate),
+              DFDecimal(signed, magnitudeWidth, fractionWidth, BitAccurate),
               Some(interpValue),
               named = true
             )
           // explicit parametric width, so use the inferred constant and resize it with the parameter
           case Some(ref) =>
-            val width = IntParam.forced[W](ref)
+            val magnitudeWidth = IntParam.forced[M](ref)
             import DFXInt.Val.Ops.resize
             DFVal.Const(
-              DFDecimal(signed, interpWidth, fractionWidth, BitAccurate),
+              DFDecimal(signed, interpMagnitudeWidth, fractionWidth, BitAccurate),
               Some(interpValue)
             )
-              .asConstOf[DFXInt[S, W, BitAccurate]].resize(width)
-              .asConstOf[DFDecimal[S, W, F, BitAccurate]]
+              .asConstOf[DFXInt[S, M, BitAccurate]].resize(magnitudeWidth)
+              .asConstOf[DFDecimal[S, M, F, BitAccurate]]
         end match
     end extension
 
@@ -396,11 +488,11 @@ object DFDecimal:
           case '{ Some($expr) } => Some(expr.asTerm.tpe)
           case _                => None
         val signedForced = opExpr.value.get == "sd"
-        val (signedTpe, interpWidthTpe, fractionWidthTpe) =
+        val (signedTpe, interpMagnitudeWidthTpe, fractionWidthTpe) =
           fullTerm match
             case Literal(StringConstant(t)) =>
               fromDecString(t, signedForced) match
-                case Right((signed, width, fractionWidth, value)) =>
+                case Right((signed, magnitudeWidth, fractionWidth, value)) =>
                   if (!signedForced && value < 0)
                     report.errorAndAbort(
                       s"Negative value in unsigned `d\"\"` interpolation. Use `sd\"\"` for signed values."
@@ -415,21 +507,23 @@ object DFDecimal:
                     case _ =>
                   (
                     ConstantType(BooleanConstant(signed)),
-                    ConstantType(IntConstant(width)),
+                    ConstantType(IntConstant(magnitudeWidth)),
                     ConstantType(IntConstant(fractionWidth))
                   )
                 case Left(msg) =>
                   report.errorAndAbort(msg)
             case _ => (TypeRepr.of[Boolean], TypeRepr.of[Int], TypeRepr.of[Int])
-        val widthTpe: TypeRepr = explicitWidthTpeOption.getOrElse(interpWidthTpe)
+        // for explicit integer widths the magnitude width is the given total width (fraction
+        // width is zero on those paths)
+        val magnitudeWidthTpe: TypeRepr = explicitWidthTpeOption.getOrElse(interpMagnitudeWidthTpe)
         val signedType = signedTpe.asTypeOf[Boolean]
-        val widthType = widthTpe.asTypeOf[IntP]
+        val magnitudeWidthType = magnitudeWidthTpe.asTypeOf[IntP]
         val fractionWidthType = fractionWidthTpe.asTypeOf[Int]
         val fullExpr = fullTerm.asExprOf[String]
         '{
           $fullExpr.interpolate[
             signedType.Underlying,
-            widthType.Underlying,
+            magnitudeWidthType.Underlying,
             fractionWidthType.Underlying
           ](
             $opExpr,
@@ -486,6 +580,24 @@ object DFDecimal:
         *   d"${p}'${str42}" // UInt[p.type], value = 42
         *   }}}
         *
+        * Fixed-point syntax: {{{d"M.F'dec"}}}
+        *   - `M.F`, followed by a `'`, specifies the format: `M` integer (magnitude) bits and `F`
+        *     fraction bits, with a total width of `M + F` bits. `dec` may then contain a decimal
+        *     point (e.g., `11.223`) and is rounded to the closest representable value
+        *     (round-half-up). If the rounded value's integer part does not fit `M`, an error
+        *     occurs. `d"M.0'dec"` is equivalent to `d"M'dec"`.
+        *   - Without an explicit format, a `dec` containing a decimal point is allowed only when it
+        *     is exactly representable in binary, inferring the minimal `UFix[M, F]` format.
+        *   - The output type is `UFix[M, F]` (`DFDecimal` with a non-zero fraction width).
+        *
+        * @example
+        *   {{{
+        *   d"8.10'11.223"   // UFix[8, 10], value = 11.22265625 (rounded)
+        *   d"1.5"           // UFix[1, 1], value = 1.5 (exact)
+        *   d"0.25"          // UFix[0, 2], value = 0.25 (exact)
+        *   d"11.223"        // Error: not exactly representable in binary
+        *   }}}
+        *
         * @note
         *   This interpolator does not accept external arguments through `${arg}` and currently
         *   supports only integer values.
@@ -523,6 +635,16 @@ object DFDecimal:
         *   sd"${w}'${str42}" // SInt[8], value = 42
         *   val p: Int <> CONST = 8
         *   sd"${p}'${str42}" // SInt[p.type], value = 42
+        *   }}}
+        *
+        * Fixed-point syntax: {{{sd"M.F'dec"}}}
+        *   - Same as the `d` interpolator's fixed-point form, but the output is always signed:
+        *     `SFix[M, F]`, where `M` includes the sign bit (consistent with `SInt[W]`).
+        *
+        * @example
+        *   {{{
+        *   sd"4.4'-1.5"     // SFix[4, 4], value = -1.5
+        *   sd"1.5"          // SFix[2, 1], value = 1.5 (minimal exact format)
         *   }}}
         *
         * @note
@@ -570,6 +692,7 @@ object DFDecimal:
           tpe.asTypeOf[Any] match
             case '[DFConstInt32] => Some(arg.asExprOf[DFConstInt32])
             case '[Int]          => Some(ConstIntExpr(arg.asExprOf[Int]))
+            case '[Long]         => Some(ConstLongExpr(arg.asExprOf[Long]))
             case '[BigInt]       => Some(ConstBigIntExpr(arg.asExprOf[BigInt]))
             case '[String]       => Some(ConstStringExpr(arg.asExprOf[String]))
             case _               =>
@@ -578,6 +701,8 @@ object DFDecimal:
                 arg.asTerm.pos
               )
       def ConstIntExpr(valueExpr: Expr[Int]): Expr[DFConstAny] =
+        ConstBigIntExpr('{ BigInt($valueExpr) })
+      def ConstLongExpr(valueExpr: Expr[Long]): Expr[DFConstAny] =
         ConstBigIntExpr('{ BigInt($valueExpr) })
       def ConstStringExpr(valueExpr: Expr[String]): Expr[DFConstAny] =
         ConstBigIntExpr('{ BigInt($valueExpr) })
@@ -627,9 +752,10 @@ object DFDecimal:
         case widthValuePattern(widthStr, valueStr) :: Nil =>
           val widthExpr = Expr(widthStr.toInt)
           Expr(valueStr).asTerm.interpolate(Expr(sc.funcName), '{ Some($widthExpr) })(dfc)
-        // 1234
-        case numPattern(valueStr) :: Nil =>
-          Expr(valueStr).asTerm.interpolate(Expr(sc.funcName), '{ None })(dfc)
+        // any single-part decimal literal, e.g. 1234 / 1.5 / 8.10'11.223
+        // (validity is determined by `fromDecString` within the interpolation macro)
+        case singlePart :: Nil =>
+          Expr(singlePart).asTerm.interpolate(Expr(sc.funcName), '{ None })(dfc)
         case _ =>
           report.errorAndAbort(
             s"Unsupported decimal string interpolation pattern"
@@ -682,6 +808,93 @@ object DFDecimal:
   end StrInterpOps
 
   object Val:
+    // runtime checks for applying a value to a fixed-point receiver: implicit application
+    // is never lossy — fraction/magnitude widths may only grow
+    private def checkFixApply(target: ir.DFDecimal, rhs: ir.DFDecimal)(using dfc: DFC): Unit =
+      import dfc.getSet
+      if (!target.signed && rhs.signed)
+        throw new IllegalArgumentException(
+          "Cannot apply a signed value to an unsigned fixed-point receiver.\nAn explicit conversion must be applied."
+        )
+      if (target.fractionWidth < rhs.fractionWidth)
+        throw new IllegalArgumentException(
+          s"The applied value's fraction width (${rhs.fractionWidth}) is larger than the fixed-point receiver's fraction width (${target.fractionWidth}) and would lose precision.\nAn explicit conversion must be applied."
+        )
+      (target.widthIntOpt, rhs.widthIntOpt) match
+        case (Some(lw), Some(rw)) =>
+          val lm = lw - target.fractionWidth
+          val rm = rw - rhs.fractionWidth + (if (target.signed && !rhs.signed) 1 else 0)
+          if (lm < rm)
+            throw new IllegalArgumentException(
+              s"The applied value's magnitude width ($rm) is larger than the fixed-point receiver's magnitude width ($lm)."
+            )
+        case _ =>
+    end checkFixApply
+    // exact (lossless) conversion of a decimal value to a fixed-point receiver format,
+    // composed from the fixed-point primitives that mirror the integer ones: a `.signed`/
+    // `.unsigned` sign cast (adjusts the magnitude by the sign bit) followed by a `resize` to
+    // the target magnitude and fraction (which realizes the binary-point alignment).
+    private[core] def fixConv[LS <: Boolean, LW <: IntP, LF <: Int, P](
+        dfType: DFDecimal[LS, LW, LF, BitAccurate],
+        rhs: DFValAny
+    )(using dfc: DFC): DFValTP[DFDecimal[LS, LW, LF, BitAccurate], P] =
+      import dfc.getSet
+      import DFUInt.Val.Ops.signed
+      import DFSInt.Val.Ops.unsigned
+      val targetIR = dfType.asIR
+      val rhsIR = rhs.dfType.asIR.asInstanceOf[ir.DFDecimal]
+      if (targetIR =~ rhsIR) rhs.asValTP[DFDecimal[LS, LW, LF, BitAccurate], P]
+      else
+        given dfcAnon: DFC = dfc.anonymize
+        // sign cast: `.signed` (UFix[M,F] -> SFix[M+1,F]) / `.unsigned` (SFix[M,F] -> UFix[M-1,F])
+        val signFix: DFValAny =
+          if (targetIR.signed && !rhsIR.signed) rhs.asValOf[DFUFix[Int, Int]].signed
+          else if (!targetIR.signed && rhsIR.signed) rhs.asValOf[DFSFix[Int, Int]].unsigned
+          else rhs
+        // resize to the target format (magnitude + fraction), unless already there
+        val signFixIR = signFix.dfType.asIR.asInstanceOf[ir.DFDecimal]
+        val resized: DFValAny =
+          if (
+            signFixIR.magnitudeWidthParamRef =~ targetIR.magnitudeWidthParamRef &&
+            signFixIR.fractionWidth == targetIR.fractionWidth
+          ) signFix
+          else DFVal.Alias.AsIs(dfType, signFix)
+        resized.asValTP[DFDecimal[LS, LW, LF, BitAccurate], P]
+      end if
+    end fixConv
+    // exact minimal fixed-point representation of a Double, aligned to the target format.
+    // Every finite Double is a binary rational, so the conversion either fits exactly or
+    // errors — it never rounds.
+    private def doubleToFixRaw(value: Double, target: ir.DFDecimal)(using dfc: DFC): BigInt =
+      import dfc.getSet
+      if (value.isNaN || value.isInfinity)
+        throw new IllegalArgumentException(
+          s"Cannot apply a non-finite Double value ($value) to a fixed-point receiver."
+        )
+      if (!target.signed && value < 0)
+        throw new IllegalArgumentException(
+          "Cannot apply a negative value to an unsigned fixed-point receiver."
+        )
+      var scaled = BigDecimal.exact(value)
+      var fractionWidth = 0
+      while (!scaled.isWhole && fractionWidth < target.fractionWidth)
+        scaled *= 2
+        fractionWidth += 1
+      if (!scaled.isWhole)
+        throw new IllegalArgumentException(
+          s"The Double value $value requires a fraction width larger than the fixed-point receiver's fraction width (${target.fractionWidth}).\nUse an explicit `M.F'` formatted literal to opt into rounding."
+        )
+      val raw = scaled.toBigInt << (target.fractionWidth - fractionWidth)
+      target.widthIntOpt.foreach { w =>
+        if (raw.bitsWidth(target.signed) > w)
+          throw new IllegalArgumentException(
+            s"The Double value $value requires a magnitude width of at least ${raw.bitsWidth(target.signed) -
+                target.fractionWidth}, but the fixed-point receiver's magnitude width is ${w -
+                target.fractionWidth}."
+          )
+      }
+      raw
+    end doubleToFixRaw
     object TC:
       export DFXInt.Val.TC.given
       def apply(
@@ -693,6 +906,40 @@ object DFDecimal:
           case _                    =>
         `LS >= RS`(dfType.signed, dfVal.dfType.signed)
         dfVal
+      // fixed-point receiver (LF != 0) accepting any bit-accurate decimal value —
+      // including DFXInt values (RF == 0) — as long as the conversion is lossless
+      given DFFixTC[
+          LS <: Boolean,
+          LW <: IntP,
+          LF <: Int,
+          RS <: Boolean,
+          RW <: IntP,
+          RF <: Int,
+          RP,
+          R <: DFValTP[DFDecimal[RS, RW, RF, BitAccurate], RP]
+      ](using
+          scala.util.NotGiven[LF =:= 0]
+      ): DFVal.TC[DFDecimal[LS, LW, LF, BitAccurate], R] with
+        type OutP = RP
+        def conv(dfType: DFDecimal[LS, LW, LF, BitAccurate], value: R)(using dfc: DFC): Out =
+          checkFixApply(dfType.asIR, value.dfType.asIR)
+          fixConv[LS, LW, LF, RP](dfType, value)
+      end DFFixTC
+      // Double is the fixed-point wildcard literal: it adapts exactly to the receiver's
+      // format or errors (it never rounds)
+      given DFFixTCFromDouble[
+          LS <: Boolean,
+          LW <: IntP,
+          LF <: Int,
+          R <: Double
+      ](using
+          scala.util.NotGiven[LF =:= 0]
+      ): DFVal.TC[DFDecimal[LS, LW, LF, BitAccurate], R] with
+        type OutP = CONST
+        def conv(dfType: DFDecimal[LS, LW, LF, BitAccurate], value: R)(using dfc: DFC): Out =
+          val raw = doubleToFixRaw(value, dfType.asIR)
+          DFVal.Const(dfType, Some(raw), named = true)
+      end DFFixTCFromDouble
     end TC
     object TCConv:
       export DFXInt.Val.TCConv.given
@@ -856,8 +1103,10 @@ object DFXInt:
                       !DFXInt.Val.Ops.hasImplicitlyFromIntTag(rhs.asIR)
                     )
                       import dfc.getSet
-                      val dfTypeWidthRef = dfType.asIR.widthParamRef
-                      val rhsWidthRef = rhs.dfType.asIR.widthParamRef
+                      // integer operands (fraction 0): the magnitude ref is the total-width
+                      // ref and may be parametric
+                      val dfTypeWidthRef = dfType.asIR.magnitudeWidthParamRef
+                      val rhsWidthRef = rhs.dfType.asIR.magnitudeWidthParamRef
                       def dfTypeWidthStr = dfTypeWidthRef.refCodeString
                       def rhsWidthStr = rhsWidthRef.refCodeString
                       dfTypeWidthRef.compare(rhsWidthRef)(_ >= _) match
@@ -1023,6 +1272,28 @@ object DFXInt:
             DFVal.Func(DFInt32, op.value, List(DFConstInt32(lhs), rhs)).asValTP[DFInt32, RP]
           }
       end evOpShiftOrPowerInt
+      given evOpLogicUInt[
+          Op <: FuncOp.|.type | FuncOp.&.type | FuncOp.^.type,
+          LW <: IntP,
+          LP,
+          RW <: IntP,
+          RP,
+          L <: DFValTP[DFUInt[LW], LP],
+          R <: DFValTP[DFUInt[RW], RP]
+      ](using
+          op: ValueOf[Op]
+      )(using
+          check: `LW == RW`.CheckNUB[LW, RW]
+      ): ExactOp2Aux[Op, DFC, DFValAny, L, R, DFValTP[DFUInt[LW], LP | RP]] =
+        new ExactOp2[Op, DFC, DFValAny, L, R]:
+          type Out = DFValTP[DFUInt[LW], LP | RP]
+          def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
+            (lhs.widthIntOpt, rhs.widthIntOpt) match
+              case (Some(lw), Some(rw)) => check(lw, rw)
+              case _                    =>
+            DFVal.Func(lhs.dfType, op.value, List(lhs, rhs))
+          }
+      end evOpLogicUInt
 
       export dfhdl.internals.clog2
       def clog2[P, S <: Boolean, W <: IntP, N <: NativeType](
@@ -1100,7 +1371,9 @@ object DFXInt:
                   val cw: IntParam[Int] = carryFunc.op.runtimeChecked match
                     case FuncOp.+ | FuncOp.- => funcWidth + 1
                     case FuncOp.*            => funcWidth + funcWidth
-                  val newDT = dt.copy(widthParamRef = cw.ref)
+                  // integer carry arithmetic (fraction width 0), so the magnitude width is
+                  // the total width
+                  val newDT = dt.copy(magnitudeWidthParamRef = cw.ref)
                   dfc.mutableDB
                     .setMember(carryFunc, _.updateDFType(newDT))
                     .asValOf[DFSInt[Int]]
@@ -1115,7 +1388,9 @@ object DFXInt:
                     dfc.tag(ir.ImplicitlyFromIntTag)
                   ).asIR
               else if (
-                !dfType.asIR.widthParamRef.isSimilarTo(lhsCarryPromo.dfType.asIR.widthParamRef)
+                // integer operands (fraction 0): the magnitude ref is the total-width ref
+                !dfType.asIR.magnitudeWidthParamRef
+                  .isSimilarTo(lhsCarryPromo.dfType.asIR.magnitudeWidthParamRef)
               )
                 lhsCarryPromo.resize(dfType.widthIntParam).asIR
               else lhsCarryPromo.asIR
@@ -1124,8 +1399,10 @@ object DFXInt:
           end dfValIR
           dfValIR.asValTP[DFXInt[RS, RW, RN], P]
         end toDFXIntOf
+        @dfhdl.hw.annotation.pure(true, "*")
         def toScalaInt(using DFC, DFVal.ConstCheck[P]): Int =
           lhs.toScalaValue.toInt
+        @dfhdl.hw.annotation.pure(true, "*")
         def toScalaBigInt(using DFC, DFVal.ConstCheck[P]): BigInt =
           lhs.toScalaValue
       end extension
@@ -1713,14 +1990,25 @@ object DFUInt:
       end fromR
     end UBArg
     object Ops:
-      extension [W <: IntP, P](lhs: DFValTP[DFUInt[W], P])
-        def signed(using DFCG): DFValTP[DFSInt[IntP.+[W, 1]], P] = trydf {
-          DFVal.Alias.AsIs(DFSInt(lhs.widthIntParam + 1), lhs)
+      // `.signed` adds a sign bit: UFix[M, F] -> SFix[M+1, F] (UInt[W] -> SInt[W+1] is the
+      // fraction-zero case, so this is the single unified sign cast). Parametric-safe: the
+      // new magnitude is derived via `IntParam`.
+      extension [M <: IntP, F <: Int, P](lhs: DFValTP[DFUFix[M, F], P])
+        def signed(using dfc: DFCG): DFValTP[DFSFix[IntP.+[M, 1], F], P] = trydf {
+          import dfc.getSet
+          val fractionWidth = lhs.dfType.asIR.fractionWidth
+          val newMagnitude = (lhs.widthIntParam - fractionWidth + 1).ref
+          DFVal.Alias.AsIs(
+            ir.DFDecimal(true, newMagnitude, fractionWidth, BitAccurate)
+              .asFE[DFSFix[IntP.+[M, 1], F]],
+            lhs
+          ).asValTP[DFSFix[IntP.+[M, 1], F], P]
         }
+      extension [W <: IntP, P](lhs: DFValTP[DFUInt[W], P])
         @targetName("negateDFUInt")
         def unary_-(using DFCG): DFValTP[DFSInt[IntP.+[W, 1]], P] = trydf {
           import DFSInt.Val.Ops.unary_- as negate
-          lhs.signed.negate
+          lhs.signed.negate.asValTP[DFSInt[IntP.+[W, 1]], P]
         }
         @targetName("toIntDFUInt")
         def toInt(using
@@ -1784,6 +2072,19 @@ object DFSInt:
 
   object Val:
     object Ops:
+      // `.unsigned` drops the sign bit: SFix[M, F] -> UFix[M-1, F] (SInt[W] -> UInt[W-1] is
+      // the fraction-zero case, so this is the single unified unsign cast).
+      extension [M <: IntP, F <: Int, P](lhs: DFValTP[DFSFix[M, F], P])
+        def unsigned(using dfc: DFCG): DFValTP[DFUFix[IntP.-[M, 1], F], P] = trydf {
+          import dfc.getSet
+          val fractionWidth = lhs.dfType.asIR.fractionWidth
+          val newMagnitude = (lhs.widthIntParam - fractionWidth - 1).ref
+          DFVal.Alias.AsIs(
+            ir.DFDecimal(false, newMagnitude, fractionWidth, BitAccurate)
+              .asFE[DFUFix[IntP.-[M, 1], F]],
+            lhs
+          ).asValTP[DFUFix[IntP.-[M, 1], F], P]
+        }
       extension [W <: IntP, P](lhs: DFValTP[DFSInt[W], P])
         @targetName("negateDFSInt")
         def unary_-(using DFCG): DFValTP[DFSInt[W], P] = trydf {
@@ -1795,9 +2096,6 @@ object DFSInt:
             (lhs.widthIntParam - 1).toDFConst
           }
           DFVal.Alias.ApplyIdx(DFBit, lhs, idx).asValTP[DFBit, P]
-        def unsigned(using DFCG): DFValTP[DFUInt[IntP.-[W, 1]], P] = trydf {
-          DFVal.Alias.AsIs(DFUInt(lhs.widthIntParam - 1), lhs)
-        }
         @targetName("msbitsDFSInt")
         def msbits[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: `LW >= RW`.CheckNUB[W, RW],
@@ -1840,6 +2138,38 @@ object DFSInt:
     end Ops
   end Val
 end DFSInt
+
+type DFUFix[M <: IntP, F <: Int] = DFDecimal[false, M, F, BitAccurate]
+object DFUFix:
+  def apply[M <: IntP, F <: Int](magnitudeWidth: IntParam[M], fractionWidth: Inlined[F])(using
+      dfc: DFCG,
+      checkM: MagnitudeWidth.CheckNUB[false, M],
+      checkF: FractionWidth.Check[F],
+      checkW: Width.CheckNUB[false, DecimalWidth[M, F]]
+  ): DFUFix[M, F] = trydf {
+    checkF(fractionWidth)
+    magnitudeWidth.toScalaIntOpt.foreach(checkM(false, _))
+    DFDecimal(false, magnitudeWidth, fractionWidth, BitAccurate)
+  }
+  def apply[M <: IntP, F <: Int](using dfc: DFCG, dfType: => DFUFix[M, F]): DFUFix[M, F] =
+    trydf { dfType }
+end DFUFix
+
+type DFSFix[M <: IntP, F <: Int] = DFDecimal[true, M, F, BitAccurate]
+object DFSFix:
+  def apply[M <: IntP, F <: Int](magnitudeWidth: IntParam[M], fractionWidth: Inlined[F])(using
+      dfc: DFCG,
+      checkM: MagnitudeWidth.CheckNUB[true, M],
+      checkF: FractionWidth.Check[F],
+      checkW: Width.CheckNUB[true, DecimalWidth[M, F]]
+  ): DFSFix[M, F] = trydf {
+    checkF(fractionWidth)
+    magnitudeWidth.toScalaIntOpt.foreach(checkM(true, _))
+    DFDecimal(true, magnitudeWidth, fractionWidth, BitAccurate)
+  }
+  def apply[M <: IntP, F <: Int](using dfc: DFCG, dfType: => DFSFix[M, F]): DFSFix[M, F] =
+    trydf { dfType }
+end DFSFix
 
 //a native Int32 decimal has no explicit Scala compile-time width, since the
 //actual value determines its width.

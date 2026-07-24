@@ -38,7 +38,6 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   var stepType: Type = uninitialized
   var fallThroughType: Type = uninitialized
   var pluginOnEntryExitFallThroughSym: Symbol = uninitialized
-  var waitSym: Symbol = uninitialized
   var dfcStack: List[Tree] = Nil
   val processStepDefs = mutable.LinkedHashMap.empty[PosKey, DefDef]
 
@@ -291,12 +290,15 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     tree match
       case ProcessForever(scopeCtx, block) =>
         processStatCheck(block, returnCheck = CheckType.None)
-      case Apply(Select(This(_), wait), args) if wait.toString == "wait" => // DFHDL/Java wait
-        if (!tree.tpe.isContextualMethod) // Java's wait wouldn't be contextual
-          report.error(
-            "Did you mean to call DFHDL's `wait`? If so, use `<time>.wait` or `wait(<time>)` instead (e.g., `5.ns.wait` or `wait(5.ns)`).\nDid you mean to call Java's `wait`? if so, use `java_wait` instead.",
-            tree.srcPos
-          )
+      // Java's `Object.wait` overloads (explicit `wait()`, `wait(millis)`, `wait(millis, nanos)`)
+      // are never intended in DFHDL code. Note: a bare `wait` statement resolves to DFHDL's
+      // contextual `ContainerOps.wait(using DFC)` (the endless wait), not to Java's.
+      case Apply(Select(This(_), waitName), _)
+          if waitName.toString == "wait" && tree.fun.symbol.owner == defn.ObjectClass =>
+        report.error(
+          "Did you mean to call DFHDL's `wait`? If so, use a bare `wait` (endless), `<time>.wait`, or `wait(<time>)` instead (e.g., `5.ns.wait` or `wait(5.ns)`).\nDid you mean to call Java's `wait`? if so, use `java_wait` instead.",
+          tree.srcPos
+        )
       case _ =>
     end match
     ctx

@@ -8,34 +8,46 @@ import dfhdl.options.*
 import org.rogach.scallop.*
 import dfhdl.internals.{sbtShellIsRunning, sbtnIsRunning, ToolInterruptedException}
 import scala.util.chaining.scalaUtilChainingOps
-import java.time.Instant
 import dfhdl.compiler.stages.{StagedDesign, CompiledDesign}
-import dfhdl.internals.DiskCache
+import dfhdl.internals.{DiskCache, CodeDigest}
 import dfhdl.compiler.ir.SourceFile
 import java.nio.file.Paths
 import dfhdl.internals.scastieIsRunning
+// `DFApp` is an application driver: every `println` here is console output, not hardware text
+// output. It declares a `given dfc: DFCG` (below), and `DFCG <: DFC`, so without this the DFHDL
+// `println` would be selected and then rejected for lacking a text-output scope.
+import dfhdl.hw.flag.scalaPrints
 
-trait DFApp:
+// `DFApp` is the application engine behind every generated top-level entry
+// point. It deliberately has NO `main`: the compiler plugin injects a `main`
+// into the design's companion object that instantiates this class and reroutes
+// the command-line to `run`. Keeping `main` out of here means the companion
+// object (`Foo`) is the single, cleanly-named runnable entry point — there is
+// no separate `top_Foo` object anymore.
+class DFApp:
   private val logger = Logger("DFHDL App")
   logger.setFormatter(LogFormatter.BareFormatter)
   private var designName: String = ""
   private var topScalaPath: String = ""
-  private val appCompileTime: Instant =
-    val clazz = this.getClass
-    val location = clazz.getProtectionDomain.getCodeSource.getLocation
-    val classPath = Paths.get(location.toURI).toRealPath().getParent()
-    // Helper function to recursively get all files in a directory
-    def getAllFiles(dir: java.io.File): List[java.io.File] =
-      val files = dir.listFiles()
-      if (files.isEmpty) Nil
-      else
-        val (dirs, regularFiles) = files.toList.partition(_.isDirectory)
-        regularFiles ++ dirs.flatMap(getAllFiles)
-    val classPathFiles = getAllFiles(classPath.toFile)
-    classPathFiles.map(
-      _.lastModified()
-    ).maxOption.map(Instant.ofEpochMilli).getOrElse(Instant.now())
-  end appCompileTime
+  // The class of the design's generated entry point, supplied by the plugin via
+  // `setInitials`. It anchors `designCodeDigest` at the user's compiled output (for
+  // cache invalidation). Falls back to `this.getClass` for the manual path
+  // (`ManualDFApp`), whose anonymous subclass already lives in the user's output.
+  private var topClassOpt: Option[Class[?]] = None
+  // Content digest of the design's code: the entry-point class, every class it transitively
+  // reaches, the DFHDL version, and the plugin that compiled it. Elaboration is cached against
+  // it, so rebuilds that change no relevant code keep the cache warm, while a body change
+  // anywhere in the design's dependency closure invalidates it - even when the top class itself
+  // was not recompiled.
+  //
+  // It is composed from the records the compiler plugin writes beside each class it compiles
+  // (`CodeDigest`), so it costs a handful of file reads. `factum.CodeRef` answers the same
+  // question by walking the whole reference closure at RUNTIME, hashing thousands of class files
+  // to do it; it stays as the fallback for an entry point the plugin never saw (no record), which
+  // is correct, merely slow, and not a path a DFHDL design takes.
+  private lazy val designCodeDigest: String =
+    val topClass = topClassOpt.getOrElse(this.getClass)
+    CodeDigest.of(topClass, dfhdlVersion).getOrElse(factum.CodeRef(topClass).digest.asString)
 
   // this context is just for enabling `getConstData` to work.
   // the internal global context inside `value` will be actually at play here.
@@ -61,12 +73,13 @@ trait DFApp:
   private var dsn: () => core.Design = compiletime.uninitialized
   // used by the plugin to get the updated design arguments that could be changed by the
   // command-line options
-  final protected def getDsnArg(name: String): Any =
+  final def getDsnArg(name: String): Any =
     designArgs(name).value
   // used by the plugin to get the updated elaboration options that could be changed by the
   // command-line options
   final protected def getElaborationOptions: options.ElaborationOptions = elaborationOptions
-  final protected def setInitials(
+  final def setInitials(
+      topClass: Class[?],
       designName: String,
       topScalaPath: String,
       top: dfhdl.top,
@@ -77,6 +90,7 @@ trait DFApp:
       hasResourceOwner: Boolean,
       hasPorts: Boolean
   ): Unit =
+    this.topClassOpt = Some(topClass)
     this.designName = designName
     this.topScalaPath = topScalaPath
     elaborationOptions = top.elaborationOptions
@@ -105,11 +119,11 @@ trait DFApp:
     designArgs = DesignArgs(argNames, argValues, argDescs)
   end setInitials
 
-  final protected def setDsn(d: => core.Design): Unit = dsn = () => d
+  final def setDsn(d: => core.Design): Unit = dsn = () => d
 
   object diskCache extends DiskCache(compilerOptions.cachePath(designName))
   object elaborate extends diskCache.Step[core.Design, StagedDesign](dsn)(
-        appCompileTime,
+        designCodeDigest,
         dfhdlVersion,
         elaborationOptions.defaultRTDomainCfgTag,
         designArgs
@@ -201,6 +215,7 @@ trait DFApp:
       )(
         simulatorOptions.getTool.toString,
         simulatorOptions.getTool.installedVersion,
+        simulatorOptions.location.toString,
         compilerOptions.backend.toString()
       ):
     override protected def cacheEnable: Boolean = appOptions.cacheEnable
@@ -219,7 +234,10 @@ trait DFApp:
   end simPrep
 
   object simRun
-      extends diskCache.Step[CompiledDesign, CompiledDesign](simPrep)():
+      extends diskCache.Step[
+        CompiledDesign,
+        CompiledDesign
+      ](simPrep)(simulatorOptions.location.toString):
     override protected def cacheEnable: Boolean = appOptions.cacheEnable
     protected def run(simPrepped: CompiledDesign): CompiledDesign =
       simPrepped.tap(_ => logger.info("Running external simulation...")).simRun
@@ -355,6 +373,10 @@ trait DFApp:
     )
   end listSimulateTools
 
+  private def toToolsLocation(s: String): dfhdl.options.ToolOptions._Location = s match
+    case "local" => dfhdl.options.ToolOptions.Location.local
+    case _       => dfhdl.options.ToolOptions.Location.dftools
+
   private def execute(mode: AppMode): Unit =
     try
       mode match
@@ -396,7 +418,8 @@ trait DFApp:
     execute(appMode)
   end runManual
 
-  def main(commandArgs: Array[String]): Unit =
+  // The plugin-injected companion `main` reroutes here with the raw argv.
+  def run(commandArgs: Array[String]): Unit =
     if (appOptions.clearConsole) print("\u001bc")
     logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
     val parsedCommandLine = ParsedCommandLine(designName, topScalaPath, designArgs, commandArgs)
@@ -441,6 +464,7 @@ trait DFApp:
             linterOptions = linterOptions.copy(
               verilogLinter = toolSelection.verilogLinter,
               vhdlLinter = toolSelection.vhdlLinter,
+              location = toToolsLocation(mode.`tools-location`.toOption.get),
               Werror = mode.`Werror-tool`.toOption.get
             )
           case mode: Mode.SimulateMode =>
@@ -448,11 +472,13 @@ trait DFApp:
             simulatorOptions = simulatorOptions.copy(
               verilogSimulator = toolSelection.verilogSimulator,
               vhdlSimulator = toolSelection.vhdlSimulator,
+              location = toToolsLocation(mode.`tools-location`.toOption.get),
               Werror = mode.`Werror-tool`.toOption.get
             )
           case mode: Mode.BuildMode =>
             builderOptions = builderOptions.copy(
               Werror = mode.`Werror-tool`.toOption.get,
+              location = toToolsLocation(mode.`tools-location`.toOption.get),
               flash = mode.flash.toOption.get,
               compress = mode.compress.toOption.get,
               tool = mode.tool.toOption.get match
@@ -460,12 +486,22 @@ trait DFApp:
                 case "vendor" => dfhdl.tools.builders.vendor
             )
           case mode: Mode.ProgramMode =>
+            val toolName = mode.tool.toOption.get
             programmerOptions = programmerOptions.copy(
               Werror = mode.`Werror-tool`.toOption.get,
+              location = toToolsLocation(mode.`tools-location`.toOption.get),
               flash = mode.flash.toOption.get,
-              tool = mode.tool.toOption.get match
+              tool = toolName match
                 case "foss"   => dfhdl.tools.programmers.foss
                 case "vendor" => dfhdl.tools.programmers.vendor
+            )
+            // the build sub-step (run before programming) must use the matching tool family, so
+            // that `program -t foss` both builds and programs with the open-source flow.
+            builderOptions = builderOptions.copy(
+              location = toToolsLocation(mode.`tools-location`.toOption.get)
+              // tool = toolName match
+              //   case "foss"   => dfhdl.tools.builders.foss
+              //   case "vendor" => dfhdl.tools.builders.vendor
             )
             // if the programmer is set to flash, then the builder must be set to flash
             if (mode.flash.toOption.get)
@@ -485,7 +521,7 @@ trait DFApp:
           case _ => execute(parsedCommandLine.mode.modeOption)
         end match
     end match
-  end main
+  end run
 end DFApp
 
 class ManualDFApp(dsn: => core.Design) extends DFApp:

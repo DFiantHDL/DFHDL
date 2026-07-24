@@ -401,8 +401,8 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
-  test("Design def") {
-    class IDWithDesignDef extends DFDesign:
+  test("DF function") {
+    class IDWithMethod extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -418,8 +418,8 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       o := test(7)(data + 1)
       val x = test(10)(data)
       o := x
-    end IDWithDesignDef
-    val id = (new IDWithDesignDef)
+    end IDWithMethod
+    val id = (new IDWithMethod)
     assertCodeString(
       id,
       """|def test2(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
@@ -434,19 +434,19 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  test2(arg + arg) - constArg
          |end test
          |
-         |class IDWithDesignDef extends DFDesign:
+         |class IDWithMethod extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  test(constArg = d"32'5")(data - d"32'1")
          |  o := test(constArg = d"32'7")(data + d"32'1")
          |  val x = test(constArg = d"32'10")(data)
          |  o := x
-         |end IDWithDesignDef
+         |end IDWithMethod
          |""".stripMargin
     )
   }
-  test("Design def Unit return") {
-    class UnitDesignDef extends DFDesign:
+  test("DF procedure (Unit return)") {
+    class UnitDFMethod extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -456,7 +456,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
         test2(arg)
       test(data)
       o := data
-    val id = (new UnitDesignDef)
+    val id = (new UnitDFMethod)
     assertCodeString(
       id,
       """|def test2(arg: UInt[32] <> VAL): Unit <> DFRET =
@@ -467,17 +467,303 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  test2(arg)
          |end test
          |
-         |class UnitDesignDef extends DFDesign:
+         |class UnitDFMethod extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  test(data)
          |  o := data
-         |end UnitDesignDef
+         |end UnitDFMethod
          |""".stripMargin
     )
   }
-  test("Design def with toScalaValue effects") {
-    class DesignDefCont extends DFDesign:
+  test("ED function") {
+    class EDMethodTop extends EDDesign:
+      val a                                                           = UInt(8) <> IN
+      val b                                                           = UInt(8) <> IN
+      val y                                                           = UInt(8) <> OUT
+      val z                                                           = UInt(8) <> OUT
+      def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        val tmp = UInt(8) <> VAR
+        tmp := l + r
+        tmp
+      def zero(): UInt[8] <> EDRET = d"8'0"
+      y <> add(a, b)
+      process(all):
+        z := add(a, b) + zero()
+    end EDMethodTop
+    val id = (new EDMethodTop)
+    // ED methods print inside the owning design class body (locally scoped),
+    // unlike DF methods which print as standalone defs
+    assertCodeString(
+      id,
+      """|class EDMethodTop extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val b = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  val z = UInt(8) <> OUT
+         |  def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    val tmp = UInt(8) <> VAR
+         |    tmp := l + r
+         |    tmp
+         |  end add
+         |
+         |  def zero(): UInt[8] <> EDRET =
+         |    d"8'0"
+         |  end zero
+         |
+         |  y <> add(a, b)
+         |  process(all):
+         |    z := add(a, b) + zero()
+         |end EDMethodTop
+         |""".stripMargin
+    )
+  }
+  test("ED method phantom capture printing") {
+    class FooCap extends EDDesign:
+      val a                   = UInt(8) <> IN
+      val b                   = UInt(8) <> IN
+      val y                   = UInt(8) <> OUT
+      val k: UInt[8] <> CONST = 5
+      // `b` is captured as a phantom input and `k` as a phantom design parameter —
+      // both hidden from the printed signature and call site; the body references
+      // print the captured values' names directly
+      def addBK(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b + k
+      y <> addBK(a)
+    end FooCap
+    val id = (new FooCap)
+    assertCodeString(
+      id,
+      """|class FooCap extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val b = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  val k: UInt[8] <> CONST = d"8'5"
+         |  def addBK(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    l + b + k
+         |  end addBK
+         |
+         |  y <> addBK(a)
+         |end FooCap
+         |""".stripMargin
+    )
+  }
+  test("ED method phantom capture through a path") {
+    class Inner extends EDDesign:
+      val i = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      o <> i + 1
+    end Inner
+    class FooPath extends EDDesign:
+      val a   = UInt(8) <> IN
+      val y   = UInt(8) <> OUT
+      val sub = Inner()
+      sub.i <> a
+      // the capture is a multi-step path, so the phantom port's own name (the path's
+      // leaf, uniquified here against the def's return port) is NOT how the host names
+      // the value: the body must print the ACTUAL, `sub.o`
+      def addSub(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + sub.o
+      y <> addSub(a)
+    end FooPath
+    val id = (new FooPath)
+    assertCodeString(
+      id,
+      """|class Inner extends EDDesign:
+         |  val i = UInt(8) <> IN
+         |  val o = UInt(8) <> OUT
+         |  o <> (i + d"8'1")
+         |end Inner
+         |
+         |class FooPath extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  val sub = Inner()
+         |  def addSub(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    l + sub.o
+         |  end addSub
+         |
+         |  sub.i <> a
+         |  y <> addSub(a)
+         |end FooPath
+         |""".stripMargin
+    )
+  }
+  test("nested ED method calls") {
+    class NestTop extends EDDesign:
+      val a                                          = UInt(8) <> IN
+      val y                                          = UInt(8) <> OUT
+      def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + 1
+      // `inner` is called ONLY from another method's body — it must still be declared
+      def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET = inner(l) + 2
+      y <> outer(a)
+    end NestTop
+    val id = (new NestTop)
+    assertCodeString(
+      id,
+      """|class NestTop extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    l + d"8'1"
+         |  end inner
+         |
+         |  def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    inner(l) + d"8'2"
+         |  end outer
+         |
+         |  y <> outer(a)
+         |end NestTop
+         |""".stripMargin
+    )
+  }
+  test("ED method (procedural task) printing") {
+    class EDTaskTop extends EDDesign:
+      val a                      = UInt(8) <> IN
+      def pause(): Unit <> EDRET =
+        wait(1.ns)
+      process:
+        pause()
+    end EDTaskTop
+    val id = (new EDTaskTop)
+    assertCodeString(
+      id,
+      """|class EDTaskTop extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  def pause(): Unit <> EDRET =
+         |    1.ns.wait
+         |  end pause
+         |
+         |  process:
+         |    pause()
+         |end EDTaskTop
+         |""".stripMargin
+    )
+  }
+  test("ED procedure with an IN argument prints `<> IN`") {
+    class EDProcIn extends EDDesign:
+      val a                                     = UInt(8) <> IN
+      def show(l: UInt[8] <> IN): Unit <> EDRET =
+        val tmp = UInt(8) <> VAR
+        tmp := l
+      process:
+        show(a)
+    end EDProcIn
+    val id = (new EDProcIn)
+    assertCodeString(
+      id,
+      """|class EDProcIn extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  def show(l: UInt[8] <> IN): Unit <> EDRET =
+         |    val tmp = UInt(8) <> VAR
+         |    tmp := l
+         |  end show
+         |
+         |  process:
+         |    show(a)
+         |end EDProcIn
+         |""".stripMargin
+    )
+  }
+  test("ED procedure with an OUT argument prints `<> OUT`") {
+    class EDProcOut extends EDDesign:
+      val a                                                          = UInt(8) <> IN
+      val y                                                          = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT): Unit <> EDRET =
+        o := l + 1
+      process:
+        addOne(a, y)
+    end EDProcOut
+    val id = (new EDProcOut)
+    assertCodeString(
+      id,
+      """|class EDProcOut extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT): Unit <> EDRET =
+         |    o := l + d"8'1"
+         |  end addOne
+         |
+         |  process:
+         |    addOne(a, y)
+         |end EDProcOut
+         |""".stripMargin
+    )
+  }
+  test("ED procedure with a non-blocking OUT.NB argument prints `<> OUT.NB`") {
+    class EDProcOutNB extends EDDesign:
+      val a                                                             = UInt(8) <> IN
+      val y                                                             = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT.NB): Unit <> EDRET =
+        o :== l + 1
+      process:
+        addOne(a, y)
+    end EDProcOutNB
+    val id = (new EDProcOutNB)
+    assertCodeString(
+      id,
+      """|class EDProcOutNB extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT.NB): Unit <> EDRET =
+         |    o :== l + d"8'1"
+         |  end addOne
+         |
+         |  process:
+         |    addOne(a, y)
+         |end EDProcOutNB
+         |""".stripMargin
+    )
+  }
+  test("static function (`<> CONSTRET`) def") {
+    class StaticFnTop extends EDDesign:
+      val o                                               = UInt(8) <> OUT
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      o <> twice(d"8'3")
+    end StaticFnTop
+    val id = (new StaticFnTop)
+    // A static function's const arguments are its input ports (the method formals), and
+    // the call (`Func` with `Op.Def`) binds them positionally, exactly like an ED method call.
+    assertCodeString(
+      id,
+      """|class StaticFnTop extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    n + n
+         |  end twice
+         |
+         |  o <> twice(d"8'3")
+         |end StaticFnTop
+         |""".stripMargin
+    )
+  }
+  test("nested static function calls") {
+    class NestStaticTop extends EDDesign:
+      val o                                               = UInt(8) <> OUT
+      def twice(k: UInt[8] <> CONST): UInt[8] <> CONSTRET = k + k
+      // the inner `twice(n)` result is consumed as the outer call's argument, so it must NOT
+      // also print as a standalone `twice(n)` statement
+      def quad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = twice(twice(n))
+      o <> quad(d"8'3")
+    end NestStaticTop
+    val id = (new NestStaticTop)
+    assertCodeString(
+      id,
+      """|class NestStaticTop extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  def twice(k: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    k + k
+         |  end twice
+         |
+         |  def quad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    twice(twice(n))
+         |  end quad
+         |
+         |  o <> quad(d"8'3")
+         |end NestStaticTop
+         |""".stripMargin
+    )
+  }
+  test("DF function with toScalaValue effects") {
+    class MethodCont extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
 
@@ -485,23 +771,25 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
         arg + const.toScalaInt
       o := test(1)(data)
       o := test(10)(data)
-    val id = (new DesignDefCont)
+    val id = (new MethodCont)
     assertCodeString(
       id,
-      """|def test_0(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+      """|@hw.annotation.pure(impureParams = "const")
+         |def test_0(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
          |  arg + d"32'1"
          |end test_0
          |
+         |@hw.annotation.pure(impureParams = "const")
          |def test_1(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
          |  arg + d"32'10"
          |end test_1
          |
-         |class DesignDefCont extends DFDesign:
+         |class MethodCont extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  o := test_0(const = d"8'1")(data)
          |  o := test_1(const = d"8'10")(data)
-         |end DesignDefCont
+         |end MethodCont
          |""".stripMargin
     )
   }
@@ -545,6 +833,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   test("Domains") {
+    @hw.constraints.timing.reset()
     class IDWithDomains extends DFDesign:
       val y    = SInt(16) <> OUT
       val fast = new RTDomain:
@@ -563,7 +852,8 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val id = (new IDWithDomains)
     assertCodeString(
       id,
-      """|class IDWithDomains extends DFDesign:
+      """|@timing.reset()
+         |class IDWithDomains extends DFDesign:
          |  val y = SInt(16) <> OUT
          |  val fast = new RTDomain:
          |    val pr = SInt(16) <> VAR init sd"16'0"
@@ -580,6 +870,39 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    p := sd"16'1"
          |  end fastdf
          |  fast.pw := fastdf.p
+         |end IDWithDomains
+         |""".stripMargin
+    )
+  }
+  test("Domain related with includeReset = false") {
+    @hw.constraints.timing.reset()
+    class IDWithDomains extends DFDesign:
+      val y    = SInt(16) <> OUT
+      val fast = new RTDomain:
+        val pr = SInt(16) <> VAR init 0
+        pr := pr.reg + 1
+      @hw.constraints.timing.related(fast, includeReset = false)
+      val related = new RTDomain:
+        val x = SInt(16) <> VAR.REG init 0
+        x.din := 1
+      y := fast.pr + related.x
+    end IDWithDomains
+    val id = (new IDWithDomains)
+    assertCodeString(
+      id,
+      """|@timing.reset()
+         |class IDWithDomains extends DFDesign:
+         |  val y = SInt(16) <> OUT
+         |  val fast = new RTDomain:
+         |    val pr = SInt(16) <> VAR init sd"16'0"
+         |    pr := pr.reg + sd"16'1"
+         |  end fast
+         |  @timing.related(fast, includeReset = false)
+         |  val related = new RTDomain:
+         |    val x = SInt(16) <> VAR.REG init sd"16'0"
+         |    x.din := sd"16'1"
+         |  end related
+         |  y := fast.pr + related.x
          |end IDWithDomains
          |""".stripMargin
     )
@@ -1627,6 +1950,53 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("foreign blackbox printing") {
+    class vga_monitor(val WIDTH: Int <> CONST = 8) extends EDBlackBox.ForeignIP:
+      val hsync                        = Bit         <> IN
+      val vsync                        = Bit         <> IN
+      val r                            = Bits(WIDTH) <> IN
+      val g                            = Bits(WIDTH) <> IN
+      val b                            = Bits(WIDTH) <> IN
+      override protected def clsName   = "dfhdl.ips.video.vga.vga_monitor"
+      override protected def dpiLib    = "vga_monitor_dpi"
+      override protected def vpiModule = "vga_monitor"
+      override protected def vhpiLib   = "vga_monitor_vhpi"
+
+    class Foo extends RTDesign:
+      val hsync = Bit     <> IN
+      val vsync = Bit     <> IN
+      val r     = Bits(8) <> IN
+      val g     = Bits(8) <> IN
+      val b     = Bits(8) <> IN
+      val mon   = vga_monitor(8)
+      mon.hsync <> hsync
+      mon.vsync <> vsync
+      mon.r     <> r
+      mon.g     <> g
+      mon.b     <> b
+    end Foo
+
+    val top = (new Foo)
+    assertCodeString(
+      top,
+      """|import dfhdl.ips.video.vga.vga_monitor
+         |
+         |class Foo extends RTDesign:
+         |  val hsync = Bit <> IN
+         |  val vsync = Bit <> IN
+         |  val r = Bits(8) <> IN
+         |  val g = Bits(8) <> IN
+         |  val b = Bits(8) <> IN
+         |  val mon = vga_monitor(WIDTH = 8)
+         |  mon.hsync <> hsync
+         |  mon.vsync <> vsync
+         |  mon.r <> r
+         |  mon.g <> g
+         |  mon.b <> b
+         |end Foo""".stripMargin
+    )
+  }
+
   test("qsys blackbox printing with extended ip class") {
     class testIP(
         val param1: String <> CONST,
@@ -1952,7 +2322,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
-  test("assigned design def name regression") {
+  test("assigned method name regression") {
     def bar(lhs: Bits[8] <> VAL): Bits[8] <> DFRET = lhs ^ h"1b"
     class Foo extends DFDesign:
       val x = Bits(8) <> IN
@@ -2140,6 +2510,259 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val id2_y = id2.y
          |  y <> (id1_y, id2_y).toBits
          |end Foo""".stripMargin
+    )
+  }
+  class FixID extends DFDesign:
+    val x                        = UFix(8, 10) <> IN
+    val y                        = UFix(8, 10) <> OUT
+    val c: UFix[8, 10] <> CONST  = d"8.10'11.223"
+    val d1: UFix[8, 10] <> CONST = 0.25
+    y := x
+    y := c
+    y := d1
+
+  class FixConv extends DFDesign:
+    val x = UFix(4, 4) <> IN
+    val y = SFix(6, 6) <> OUT
+    y <> x
+  test("Fixed-point types design") {
+    val id = (new IDGen(UFix(8, 10)))
+    assertCodeString(
+      id,
+      """|class IDGen extends DFDesign:
+         |  val x = UFix(8, 10) <> IN
+         |  val y = UFix(8, 10) <> OUT
+         |  y := x
+         |end IDGen
+         |""".stripMargin
+    )
+    val fixId = (new FixID)
+    assertCodeString(
+      fixId,
+      """|class FixID extends DFDesign:
+         |  val x = UFix(8, 10) <> IN
+         |  val y = UFix(8, 10) <> OUT
+         |  val c: UFix[8, 10] <> CONST = d"8.10'11.22265625"
+         |  val d1: UFix[8, 10] <> CONST = d"8.10'0.25"
+         |  y := x
+         |  y := c
+         |  y := d1
+         |end FixID
+         |""".stripMargin
+    )
+    val fixConv = (new FixConv)
+    assertCodeString(
+      fixConv,
+      """|class FixConv extends DFDesign:
+         |  val x = UFix(4, 4) <> IN
+         |  val y = SFix(6, 6) <> OUT
+         |  y <> x.signed.resize(6, 6)
+         |end FixConv
+         |""".stripMargin
+    )
+  }
+  test("initial block printing under ED") {
+    class InitED extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      val v = SInt(16) <> VAR
+      initial:
+        v := 0
+        println("initialized")
+      process(all):
+        y :== x + v
+    end InitED
+    val top = (new InitED)
+    assertCodeString(
+      top,
+      """|class InitED extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val v = SInt(16) <> VAR
+         |  initial:
+         |    v := sd"16'0"
+         |    println(s"initialized")
+         |  process(all):
+         |    y :== x + v
+         |end InitED
+         |""".stripMargin
+    )
+  }
+  test("initial block printing under RT") {
+    class InitRT extends RTDesign:
+      val EN: Boolean <> CONST = true
+      val x                    = SInt(16)     <> IN
+      val y                    = SInt(16)     <> OUT.REG
+      val vec                  = SInt(16) X 4 <> VAR
+      initial:
+        if (EN) y.din := 0
+        else y.din    := 1
+        for (i <- 0 until 4)
+          vec(i) := 0
+      y.din := x + vec(0)
+    end InitRT
+    val top = (new InitRT)
+    assertCodeString(
+      top,
+      """|class InitRT extends RTDesign:
+         |  val EN: Boolean <> CONST = true
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT.REG
+         |  val vec = SInt(16) X 4 <> VAR
+         |  initial:
+         |    if (EN) y.din := sd"16'0"
+         |    else y.din := sd"16'1"
+         |    for (i <- 0 until 4)
+         |      vec(i) := sd"16'0"
+         |    end for
+         |  y.din := x + vec(0)
+         |end InitRT
+         |""".stripMargin
+    )
+  }
+  // A method used by more than one design (or from global scope) re-emits as a top-level `def`
+  // (outside the designs) rather than inlined in each. The method is declared in a GLOBAL position
+  // at the top of the test, above the designs.
+  test("static function shared by two designs re-emits as a top-level def") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    class GA extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'3")
+    class GB extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'4")
+    class GTop extends EDDesign:
+      val o1 = UInt(8) <> OUT
+      val o2 = UInt(8) <> OUT
+      val a  = new GA
+      val b  = new GB
+      o1 <> a.o
+      o2 <> b.o
+    end GTop
+    val top = (new GTop).getCodeString
+    assertNoDiff(
+      top,
+      """|def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + n
+         |end globalTwice
+         |
+         |class GA extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> globalTwice(d"8'3")
+         |end GA
+         |
+         |class GB extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> globalTwice(d"8'4")
+         |end GB
+         |
+         |class GTop extends EDDesign:
+         |  val o1 = UInt(8) <> OUT
+         |  val o2 = UInt(8) <> OUT
+         |  val a = GA()
+         |  val b = GB()
+         |  o1 <> a.o
+         |  o2 <> b.o
+         |end GTop
+         |""".stripMargin
+    )
+  }
+  test("static function reading a global constant stays package-eligible") {
+    val gK: UInt[8] <> CONST                           = d"8'5"
+    def addK(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + gK
+    val gW: UInt[8] <> CONST                           = addK(d"8'3")
+    class ReadsGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new ReadsGlobal).getCodeString
+    assertNoDiff(
+      top,
+      """|val gK: UInt[8] <> CONST = d"8'5"
+         |def addK(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + gK
+         |end addK
+         |val gW: UInt[8] <> CONST = addK(d"8'3")
+         |
+         |class ReadsGlobal extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> gW
+         |end ReadsGlobal
+         |""".stripMargin
+    )
+  }
+  test("static function nested inside a global-scope call is emitted too") {
+    def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    def gQuad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET  = gTwice(gTwice(n))
+    val gC: UInt[8] <> CONST                             = gQuad(d"8'3")
+    class NestedGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gC
+    val top = (new NestedGlobal).getCodeString
+    assertNoDiff(
+      top,
+      """|def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + n
+         |end gTwice
+         |def gQuad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  gTwice(gTwice(n))
+         |end gQuad
+         |val gC: UInt[8] <> CONST = gQuad(d"8'3")
+         |
+         |class NestedGlobal extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> gC
+         |end NestedGlobal
+         |""".stripMargin
+    )
+  }
+  test("global constants and static functions interleave by dependency") {
+    val gA: UInt[8] <> CONST                              = d"8'1"
+    def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET  = n + n
+    val gB: UInt[8] <> CONST                              = gTwice(d"8'2")
+    def gTriple(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n + n
+    val gC: UInt[8] <> CONST                              = gTriple(d"8'3")
+    class UsesAll extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gA + gB + gC
+    val top = (new UsesAll).getCodeString
+    assertNoDiff(
+      top,
+      """|val gA: UInt[8] <> CONST = d"8'1"
+         |def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + n
+         |end gTwice
+         |val gB: UInt[8] <> CONST = gTwice(d"8'2")
+         |def gTriple(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + n + n
+         |end gTriple
+         |val gC: UInt[8] <> CONST = gTriple(d"8'3")
+         |
+         |class UsesAll extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> (gA + gB + gC)
+         |end UsesAll
+         |""".stripMargin
+    )
+  }
+  test("static function called at global scope emits a named global constant") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    val gW: UInt[8] <> CONST                                  = globalTwice(d"8'5")
+    class UsesGW extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new UsesGW).getCodeString
+    assertNoDiff(
+      top,
+      """|def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |  n + n
+         |end globalTwice
+         |val gW: UInt[8] <> CONST = globalTwice(d"8'5")
+         |
+         |class UsesGW extends EDDesign:
+         |  val o = UInt(8) <> OUT
+         |  o <> gW
+         |end UsesGW
+         |""".stripMargin
     )
   }
 end PrintCodeStringSpec

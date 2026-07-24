@@ -149,9 +149,59 @@ import scala.annotation.tailrec
   *      end S_1
   *    ```
   *
+  * 6. First-step fusion: a step whose first time-consuming action — scanning through prologue
+  *    statements and through conditional branch guards — is entering a nested step shares its
+  *    entry cycle with that nested step ("same label"). Instead of occupying an FSM state, such a
+  *    step's dispatch (prologue + guard tree + gotos) is inlined combinationally at every goto
+  *    site that targets it, with *value forwarding*: a register with a pending assignment at the
+  *    site is read as the assigned value, so a loop-back site evaluates the loop guard on the
+  *    next-cycle values (e.g. `(i + 1) < 4` after `i.din := i + 1`), and statically resolved
+  *    guards prune their branches. This makes loop entry/exit/loop-back cost zero extra cycles:
+  *    `wait(100.ms)`, `for (i <- 0 until 100) wait(1.ms)`, and nested-loop equivalents all
+  *    consume identical cycle counts, and a zero-iteration loop consumes zero cycles.
+  *    ```scala
+  *    // input
+  *    process:
+  *      def S_0: Step = NextStep
+  *      end S_0
+  *      i.din := 0
+  *      def S_1: Step =            // loop control step — fused away
+  *        if (i < 4)
+  *          def S_1_0: Step =      // the loop body's wait step
+  *            ...ThisStep/NextStep
+  *          end S_1_0
+  *          i.din := i + 1
+  *          ThisStep
+  *        else NextStep
+  *        end if
+  *      end S_1
+  *    // output — S_1 has no state; its dispatch is inlined at both sites
+  *    process:
+  *      def S_0: Step =
+  *        i.din := 0               // entry site: guard (0 < 4) pruned as true
+  *        S_1_0
+  *      end S_0
+  *      def S_1_0: Step =
+  *        if (...)                 // wait counting
+  *          ...
+  *          S_1_0
+  *        else
+  *          i.din := i + 1
+  *          if ((i + 1) < 4) S_1_0 // loop-back: forwarded guard, no control state
+  *          else S_0
+  *      end S_1_0
+  *    ```
+  *    A step is kept as a real state (consuming its entry cycle, as before) when its dispatch
+  *    cannot be soundly inlined — see [[FirstStepFusion]] for the exact fallback conditions —
+  *    and when it is the process's first step, in which case it remains solely as the one-time
+  *    reset bootstrap state. Even that state is dropped when its dispatch const-folds under the
+  *    prologue's reset/initial values: the folded assignments join the prologue and the fold's
+  *    target step becomes the FSM entry state (see [[FirstStepFusion]], reset-site folding).
+  *
   * == Implementation Phases ==
   *
-  * The stage applies four sequential `db.patch()` calls to avoid patch conflicts:
+  * The stage applies four sequential `db.patch()` calls to avoid patch conflicts, followed by the
+  * fusion phase:
   *
   * - **Phase 0** (inter-step relocation): moves trailing statements before the `NextStep` Goto of
   *   `deepestLastChild(stepI)` — processed inner-first so Move patches concatenate correctly.
@@ -163,32 +213,67 @@ import scala.annotation.tailrec
   * - **Phase 3** (goto resolution): `ChangeRef` patches computed from the *original* DB, so
   *   `nextStepMap` and `conditionalStepMap` remain correct regardless of structural changes made
   *   in Phases 0–2.
+  * - **Phase 4** (first-step fusion, Rule 6): candidates are identified on the *original* nested
+  *   DB (only nesting provenance distinguishes a parent-of-first-step from an ordinary sequential
+  *   step — the two are structurally identical once flat) and fused on the flat DB, where their
+  *   bodies are pure dispatch and all gotos are explicit. See [[FirstStepFusion]].
   */
 //format: on
 case object FlattenStepBlocks extends HierarchyStage:
-  // TODO: Not running FoldControlSteps for now
   def dependencies: List[Stage] = List(DropRTWaits, ExplicitNamedVars, DropLocalDcls)
   def nullifies: Set[Stage] = Set()
 
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
-    // Phase 3 ChangeRef patches are computed from the original DB.
-    val gotoPatchList = subDB.members.view.flatMap {
-      case pb: ProcessBlock if pb.isInRTDomain => collectGotoPatches(pb)
-      case _                                   => Nil
-    }.toList
-    // Phase 0: inter-step relocation (Step 5 inter-step + Step 6)
+    // Phase 4 fusion candidates are computed from the original (nested) DB — only nesting
+    // provenance identifies a step whose first time-consuming action is its nested child.
+    val fusionCandidates = FirstStepFusion.collectCandidates(subDB)
+    // Phase 3 ChangeRef patches (and the wrap-around gotos for the rotation) are computed
+    // from the original DB.
+    val (gotoPatchLists, wrapGotoLists) = subDB.members.view.collect {
+      case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial => collectGotoPatches(pb)
+    }.toList.unzip
+    val gotoPatchList = gotoPatchLists.flatten
+    // Forever-loop rotation: `forever { P; S1..Sn }` == `initial P; loop { S1..Sn; P }`.
+    // The prologue P (the leading statements before the first step, which DropRTWaits left
+    // in place only when initial-convertible) is cloned just before each wrap-around
+    // `NextStep` goto, so it re-executes at the loop restart. Only the statement closures
+    // (assignment nets, text output, combinational for loops) are cloned; other leading
+    // members (declarations, ranges, values consumed by the steps) stay in place and keep
+    // serving their users. `DropRTProcess` subsequently lowers the prologue originals into
+    // a generated `initial` block, using the same move-list computation.
+    val rotationPatchList = wrapGotoLists.flatten.flatMap { g =>
+      val pb = g.getOwnerProcessBlock
+      val firstStepOpt = pb.members(MemberView.Folded).collectFirst {
+        case sb: StepBlock if sb.isRegular => sb
+      }
+      firstStepOpt.toList.flatMap { firstStep =>
+        val prologue = pb.members(MemberView.Flattened).takeWhile(_ != firstStep)
+        val moveList = initialConvertibleMoveList(prologue)
+        if (moveList.isEmpty) Nil
+        else
+          val dsn = new MetaDesign(g, Patch.Add.Config.Before):
+            plantClonedMembers(pb, moveList)
+          List(dsn.patch)
+      }
+    }
+    // Phase 0: inter-step relocation (Step 5 inter-step + Step 6) + the rotation clones.
+    // The rotation Adds are appended after the relocation Moves so that when both target the
+    // same wrap-around goto, the merged member order keeps the relocated trailing statements
+    // before the prologue clone (re-initialization wins at the restart).
     val db0 = subDB.patch(
       subDB.members.view.flatMap {
-        case pb: ProcessBlock if pb.isInRTDomain => collectInterStepPatches(pb)
-        case _                                   => Nil
-      }.toList
+        case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial => collectInterStepPatches(pb)
+        case _                                                    => Nil
+      }.toList ++ rotationPatchList
     )
     // Phase 1: conditional branch extraction, one level at a time (uses db0 for updated structure)
     val db1 = extractCondBranchStepsRepeatedly(db0)
     // Phase 2: structural flattening, one level at a time (uses db1, applied repeatedly)
     val db2 = flattenRepeatedly(db1)
     // Phase 3: Goto ChangeRef
-    db2.patch(gotoPatchList)
+    val db3 = db2.patch(gotoPatchList)
+    // Phase 4: first-step fusion — inline candidate dispatches at their goto sites
+    FirstStepFusion.fuse(db3, fusionCandidates)
   end transformSubDB
 
   // Repeatedly extract one nesting level of conditional-branch StepBlocks until none remain nested
@@ -200,8 +285,9 @@ case object FlattenStepBlocks extends HierarchyStage:
   @tailrec private def extractCondBranchStepsRepeatedly(db: DB)(using RefGen): DB =
     given MemberGetSet = db.getSet
     val patches = db.members.view.flatMap {
-      case pb: ProcessBlock if pb.isInRTDomain => collectConditionalExtractionPatches(pb)
-      case _                                   => Nil
+      case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial =>
+        collectConditionalExtractionPatches(pb)
+      case _ => Nil
     }.toList
     if patches.isEmpty then db
     else extractCondBranchStepsRepeatedly(db.patch(patches))
@@ -210,8 +296,8 @@ case object FlattenStepBlocks extends HierarchyStage:
   @tailrec private def flattenRepeatedly(db: DB)(using RefGen): DB =
     given MemberGetSet = db.getSet
     val patches = db.members.view.flatMap {
-      case pb: ProcessBlock if pb.isInRTDomain => collectFlattenPatchesOneLevel(pb)
-      case _                                   => Nil
+      case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial => collectFlattenPatchesOneLevel(pb)
+      case _                                                    => Nil
     }.toList
     if patches.isEmpty then db
     else flattenRepeatedly(db.patch(patches))
@@ -236,6 +322,15 @@ case object FlattenStepBlocks extends HierarchyStage:
       case sb: StepBlock if sb.isRegular => sb :: collectDirectFlatSteps(sb)
       case _                             => Nil
     }
+
+  // A relocated statement together with all its descendants when it is an owner (e.g. a
+  // trailing conditional block): a Move patch repositions only the members it lists, so an
+  // owner moved without its descendants leaves them behind in the flat member list and
+  // breaks its pre-order ownership invariant.
+  private def stmtMoveClosure(stmt: DFMember)(using MemberGetSet): List[DFMember] =
+    stmt match
+      case owner: DFOwner => owner :: owner.members(MemberView.Flattened)
+      case _              => List(stmt)
 
   private def findConsumedGoto(s: StepBlock)(using MemberGetSet): (DFConditional.Block, Goto) =
     val cb = s.getOwner.asInstanceOf[DFConditional.Block]
@@ -268,9 +363,17 @@ case object FlattenStepBlocks extends HierarchyStage:
 
   // --- Phase 3: Goto ChangeRef patches (computed from original DB) ---
 
-  private def collectGotoPatches(pb: ProcessBlock)(using MemberGetSet): List[(DFMember, Patch)] =
+  // Returns the goto-resolution ChangeRef patches plus the wrap-around gotos: the relative
+  // `NextStep` gotos whose resolution wraps past the last step back to the first (the
+  // forever-loop restart). The prologue rotation clones are anchored at these gotos --
+  // and ONLY at relative `NextStep` wraps, never at explicit/`FirstStep` gotos. This keeps
+  // the stage a fix-point: after Phase 3 the `NextStep` is replaced by a named goto, so a
+  // re-run finds no wrap trigger and creates no further copies.
+  private def collectGotoPatches(
+      pb: ProcessBlock
+  )(using MemberGetSet): (List[(DFMember, Patch)], List[Goto]) =
     val flatSteps = collectDirectFlatSteps(pb)
-    if flatSteps.isEmpty then return Nil
+    if flatSteps.isEmpty then return (Nil, Nil)
     val nextStepMap = (flatSteps lazyZip (flatSteps.tail :+ flatSteps.head)).toMap
     val firstStep = flatSteps.head
     val conditionalBranchSteps = pb.members(MemberView.Flattened).collect {
@@ -290,7 +393,8 @@ case object FlattenStepBlocks extends HierarchyStage:
       }
       s -> target
     }.toMap
-    pb.members(MemberView.Flattened)
+    val wrapGotos = List.newBuilder[Goto]
+    val patches = pb.members(MemberView.Flattened)
       .collect { case g: Goto if !consumedGotos.contains(g) => g }
       .flatMap { g =>
         g.stepRef.get match
@@ -301,9 +405,16 @@ case object FlattenStepBlocks extends HierarchyStage:
             Some(g -> Patch.ChangeRef(_.asInstanceOf[Goto].stepRef, firstStep))
           case Goto.NextStep =>
             val owningStep = g.getOwnerStepBlock
-            val target = conditionalStepMap.getOrElse(owningStep, nextStepMap(owningStep))
+            val target = conditionalStepMap.get(owningStep) match
+              case Some(target) => target
+              case None         =>
+                // resolving via the sequential next-step map — wrapping past the last
+                // step back to the first is the forever-loop restart
+                if (owningStep == flatSteps.last) wrapGotos += g
+                nextStepMap(owningStep)
             Some(g -> Patch.ChangeRef(_.asInstanceOf[Goto].stepRef, target))
       }
+    (patches, wrapGotos.result())
   end collectGotoPatches
 
   // --- Phase 0: Inter-step relocation patches ---
@@ -333,7 +444,7 @@ case object FlattenStepBlocks extends HierarchyStage:
       val targetStep = deepestLastChild(s)
       findNextStepGoto(targetStep).toList.flatMap { nextStepGoto =>
         interStepStmts.map { stmt =>
-          nextStepGoto -> Patch.Move(List(stmt), stmt.getOwner, Patch.Move.Config.Before)
+          nextStepGoto -> Patch.Move(stmtMoveClosure(stmt), stmt.getOwner, Patch.Move.Config.Before)
         }
       }
     }
@@ -362,7 +473,8 @@ case object FlattenStepBlocks extends HierarchyStage:
             val targetStep = deepestLastChild(step)
             findNextStepGoto(targetStep).toList.flatMap { nextStepGoto =>
               stmtsToMove.map { stmt =>
-                nextStepGoto -> Patch.Move(List(stmt), stmt.getOwner, Patch.Move.Config.Before)
+                nextStepGoto ->
+                  Patch.Move(stmtMoveClosure(stmt), stmt.getOwner, Patch.Move.Config.Before)
               }
             }
         }

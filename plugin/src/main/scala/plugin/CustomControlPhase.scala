@@ -892,17 +892,21 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       tree.tpe <:< defn.TupleTypeRef && tree.cases.length == 1 && tree.cases.head.guard.isEmpty
 
   override def transformMatch(tree: Match)(using Context): Tree =
-    given valDefGen: ValDefGen = new ValDefGen
-    tree.selector match
-      case DFVal(newSelector) if !skipTrivialTupleMatch(tree) && !tree.isExtractor =>
-        val cases =
-          tree.cases.map(c => transformDFCase(newSelector, c, tree.tpe))
-        val dfMatch =
-          FromCore.dfMatchFromCases(tree.tpe, newSelector, cases, false)
-        Block(valDefGen.getValDefs, dfMatch)
-      case _ =>
-        tree
-    end match
+    // without a dfc in scope this cannot be a DFHDL match, so leave the
+    // Scala match as-is (also, the transformation itself requires a dfc)
+    if (dfcStack.isEmpty) tree
+    else
+      given valDefGen: ValDefGen = new ValDefGen
+      tree.selector match
+        case DFVal(newSelector) if !skipTrivialTupleMatch(tree) && !tree.isExtractor =>
+          val cases =
+            tree.cases.map(c => transformDFCase(newSelector, c, tree.tpe))
+          val dfMatch =
+            FromCore.dfMatchFromCases(tree.tpe, newSelector, cases, false)
+          Block(valDefGen.getValDefs, dfMatch)
+        case _ =>
+          tree
+      end match
   end transformMatch
 
   // This is done for extractor match transformation
@@ -915,6 +919,13 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   // val t1 = <replaced bind for t1>
   // val t2 = <replaced bind for t2>
   override def transformStats(trees: List[Tree])(using Context): List[Tree] =
+    // without a dfc in scope there is no DFHDL match extractor to transform
+    // (also, the transformation itself requires a dfc)
+    if (dfcStack.isEmpty) trees
+    else transformDFStats(trees)
+  end transformStats
+
+  private def transformDFStats(trees: List[Tree])(using Context): List[Tree] =
     given valDefGen: ValDefGen = new ValDefGen
     // var is populated once a match extractor is found
     var tplBinds = List.empty[Tree]
@@ -959,7 +970,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       case (retTrees, tree) => tree :: retTrees
     }
     retTrees.reverse
-  end transformStats
+  end transformDFStats
 
   override def prepareForApply(tree: Apply)(using Context): Context =
     /*

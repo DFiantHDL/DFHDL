@@ -163,13 +163,36 @@ trait AbstractValPrinter extends AbstractPrinter:
     case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
     case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
     case dv: Alias.SelectField => csDFValAliasSelectField(dv)
+  // The number of the method's VISIBLE formals: non-phantom input ports plus non-phantom
+  // `<> OUT` argument ports (a procedure's outputs), but NOT a function's return output port.
+  // Resolved from the def's own sub-DB under a hierarchical root (the call site's scope holds
+  // only the design header), or directly on a flat DB.
+  private def visibleFormalCountOf(design: DFDesignBlock): Int =
+    def count(members: List[DFMember])(using MemberGetSet): Int =
+      val returnPort = design.methodReturnPort
+      members.count {
+        case dcl: DFVal.Dcl =>
+          !dcl.isPhantom &&
+            (dcl.isPortIn || (dcl.isPortOut && !returnPort.contains(dcl)))
+        case _ => false
+      }
+    getSet.designDB.rootDB.subDBs.get(design.ownerRef) match
+      case Some(sub) => sub.atGetSet(count(sub.ownerMemberTable.getOrElse(design, Nil)))
+      case None      => count(design.members(MemberView.Folded))
+  // A method call's visible argument code strings: the leading args bind the visible
+  // (non-phantom) formals positionally, and the trailing phantom actuals stay hidden (the
+  // printed body references the captured values directly, see `phantomActualOf`).
+  final protected def csMethodCallArgs(call: Func, design: DFDesignBlock): List[String] =
+    call.args.take(visibleFormalCountOf(design)).map(_.refCodeString)
+  def csMethodCall(call: Func, designKey: StaticRef): String
   final def csDFValExpr(dfValExpr: DFVal.CanBeExpr, typeCS: Boolean = false): String =
     dfValExpr match
-      case dv: Const                => csDFValConstExpr(dv)
-      case dv: Func                 => csDFValFuncExpr(dv, typeCS)
-      case dv: Alias                => csDFValAliasExpr(dv)
-      case dv: DFVal.DesignParam    => dv.appliedValRefOpt.get.refCodeString
-      case dv: DFConditional.Header => printer.csDFConditional(dv)
+      case dv: Const                   => csDFValConstExpr(dv)
+      case DFVal.Func.Call(call, dKey) => csMethodCall(call, dKey)
+      case dv: Func                    => csDFValFuncExpr(dv, typeCS)
+      case dv: Alias                   => csDFValAliasExpr(dv)
+      case dv: DFVal.DesignParam       => dv.appliedValRefOpt.get.refCodeString
+      case dv: DFConditional.Header    => printer.csDFConditional(dv)
       // case dv: Timer.IsActive       => csTimerIsActive(dv)
       case dv: Special =>
         dv.kind match
@@ -179,9 +202,16 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csDFValNamed(dfVal: DFVal): String
   final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner | DFMember.Empty): String =
     dfVal match
-      case PortOfDesignDef(Modifier.OUT, design) =>
-        if (design.isAnonymous) printer.csDFDesignDefInst(design)
+      case PortOfMethodDesign(Modifier.OUT, design) =>
+        if (design.isAnonymous) printer.csMethodInst(design)
         else design.getName
+      // a def body's reference to a phantom (a value captured from its host) names the
+      // captured value as the HOST names it, not as the phantom is named — see
+      // `AbstractPrinter.phantomActualOf`
+      case named: DFVal
+          if named.isPhantom &&
+            printer.phantomActualOf(named.getName).nonEmpty =>
+        printer.phantomActualOf(named.getName).get
       case pbns: DFVal.PortByNameSelect =>
         val designInst = pbns.designInstRef.get
         s"${designInst.getRelativeName(fromOwner)}.${pbns.portNamePath}"
@@ -191,6 +221,9 @@ end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:
   type TPrinter <: DFPrinter
+  def csMethodCall(call: Func, designKey: StaticRef): String =
+    val design = designKey.getDesignBlock
+    s"${design.dclName}(${csMethodCallArgs(call, design).mkString(", ")})"
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String =
     s"(${csExp.applyBrackets()}: ${printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
@@ -344,6 +377,16 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.toInt"
       case (DFDouble, DFNumber) =>
         s"${relValStr}.toDouble"
+      // fixed-point conversions mirror the integer ones: `.signed`/`.unsigned` sign casts and
+      // `.resize(magnitude, fraction)` reformats (the integer F==0 cases are matched above)
+      case (DFSFix(_, _), DFUFix(_, _)) =>
+        s"${relValStr}.signed"
+      case (DFUFix(_, _), DFSFix(_, _)) =>
+        s"${relValStr}.unsigned"
+      case (DFUFix(tMagnitude, tFraction), DFUFix(_, _)) =>
+        s"${relValStr}.resize(${tMagnitude.refCodeString}, $tFraction)"
+      case (DFSFix(tMagnitude, tFraction), DFSFix(_, _)) =>
+        s"${relValStr}.resize(${tMagnitude.refCodeString}, $tFraction)"
       case _ =>
         throw new IllegalArgumentException("Unsupported alias/conversion")
     end match
@@ -376,7 +419,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
         dfVal.getOwnerDomain.domainType match
           case DomainType.DF => ".prev"
           case DomainType.RT => ".reg"
-          case DomainType.ED => ??? // impossible!
+          // impossible: history has no meaning where time does not advance. `.prev` is guarded by
+          // a positive `DFDomainOnly` and `.reg` by a positive `RTDomainOnly`, so neither the ED
+          // nor the static domain can produce one.
+          case DomainType.ED | DomainType.Static => ???
       case Alias.History.Op.Pipe => ".pipe"
     val appliedStr =
       dfVal.initRefOption match

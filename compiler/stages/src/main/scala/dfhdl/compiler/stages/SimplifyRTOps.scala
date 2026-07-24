@@ -16,15 +16,16 @@ import scala.annotation.tailrec
   * ==Rule 1: Rising/falling edge simplification==
   *
   * `rising` and `falling` predicates on a `Bit` signal are replaced with register-based edge
-  * detection expressions:
+  * detection expressions. Since `rising`/`falling` are Boolean-typed, the bit-level expression is
+  * converted back to Boolean with `.bool`:
   * {{{
   * // Before
   * i.rising
   * i.falling
   *
   * // After
-  * (!i.reg(1, init = 1)) && i
-  * i.reg(1, init = 0) && (!i)
+  * ((!i.reg(1, init = 1)) && i).bool
+  * (i.reg(1, init = 0) && (!i)).bool
   * }}}
   *
   * ==Rule 2: Boolean wait → while loop==
@@ -125,7 +126,7 @@ case object SimplifyRTOps extends HierarchyStage:
 
   // A for loop this stage rewrites into a while loop (Rule 4).
   private def isTransformableForLoop(fb: DFLoop.DFForBlock)(using MemberGetSet): Boolean =
-    fb.isInRTDomain && !fb.isCombinational && fb.isInProcess
+    fb.isInRTDomain && !fb.isCombinational && fb.isInProcess && !fb.isInInitialBlock
 
   private def collectPatches(using MemberGetSet, CompilerOptions, RefGen): List[(DFMember, Patch)] =
     extension (dfVal: DFVal)
@@ -133,6 +134,25 @@ case object SimplifyRTOps extends HierarchyStage:
         case _: Wait => true
         case _       => false
       }
+    // A member this pass will rewrite (Rules 1-4). A for loop must not be rewritten in the same
+    // pass as any transformable member inside its body (an inner for loop, wait, or edge trigger),
+    // or their patches interleave and break the flat-list ownership invariant. Such for loops are
+    // deferred to a later pass (see `transformRepeatedly`). The predicate must match the rewrite
+    // conditions exactly: a for loop whose body holds only non-transforming members (e.g. a
+    // `1.cy.wait`) must still be rewritten, so it cannot over-approximate.
+    def transformsThisPass(member: DFMember): Boolean = member match
+      case fb: DFLoop.DFForBlock => isTransformableForLoop(fb)
+      case trigger @ DFVal.Func(op = FuncOp.rising | FuncOp.falling, args = List(DFRef(_))) =>
+        trigger.isInRTDomain && !trigger.isAnonReferencedByWait
+      case waitMember @ Wait(triggerRef = DFRef(DFBoolOrBit.Val(_))) =>
+        // an endless wait (anonymous const-false trigger) is kept as-is and lowered to a
+        // self-looping step by DropRTWaits
+        waitMember.isInRTDomain && !waitMember.isEndless
+      case Wait(triggerRef = DFRef(cyclesVal @ DFDecimal.Val(DFUInt(_)))) =>
+        cyclesVal match
+          case DFVal.Const(data = Some(value: BigInt)) if value == 1 => false
+          case _                                                     => true
+      case _ => false
     subDB.members.view.flatMap {
       case trigger @ DFVal.Func(
             _,
@@ -148,15 +168,18 @@ case object SimplifyRTOps extends HierarchyStage:
           dfhdl.core.DomainType.RT
         ):
           val argFE = arg.asValOf[dfhdl.core.DFBit]
+          // `rising`/`falling` are Boolean-typed, so the bit-level edge expression is converted to
+          // Boolean via `.bool`; a raw `!`/`&&` result would be a Bit and violate the
+          // FullReplacement type-preservation invariant.
           op match
             case FuncOp.rising =>
-              (!argFE.reg(1, init = 1)).&&(argFE)(using dfc.setMeta(trigger.meta))
+              ((!argFE.reg(1, init = 1)) && argFE).bool(using dfc.setMeta(trigger.meta))
             case FuncOp.falling =>
-              argFE.reg(1, init = 0).&&(!argFE)(using dfc.setMeta(trigger.meta))
+              (argFE.reg(1, init = 0) && (!argFE)).bool(using dfc.setMeta(trigger.meta))
         Some(dsn.patch)
 
       case waitMember @ Wait(triggerRef = DFRef(trigger @ DFBoolOrBit.Val(_)))
-          if waitMember.isInRTDomain =>
+          if waitMember.isInRTDomain && !waitMember.isEndless =>
         // Create a while loop with a cycle wait
         val dsn = new MetaDesign(
           waitMember,
@@ -234,15 +257,12 @@ case object SimplifyRTOps extends HierarchyStage:
         end if
 
       // replace RT for loops with while loops + iterator VAR.REG + increment at end of body.
-      // Only rewrite the innermost transformable for loop in each pass (one whose body contains no
-      // further transformable for loop); outer loops are handled in subsequent passes (see
-      // `transformRepeatedly`).
+      // Only rewrite a for loop whose body contains no other member this pass transforms (inner for
+      // loops, waits, edges); outer/enclosing loops are handled in subsequent passes (see
+      // `transformRepeatedly` and `transformsThisPass`).
       case forBlock: DFLoop.DFForBlock
           if isTransformableForLoop(forBlock) &&
-            !forBlock.members(MemberView.Flattened).exists {
-              case inner: DFLoop.DFForBlock => isTransformableForLoop(inner)
-              case _                        => false
-            } =>
+            !forBlock.members(MemberView.Flattened).exists(transformsThisPass) =>
         val iteratorDcl = forBlock.iteratorRef.get
         val range = forBlock.rangeRef.get
         val startBigInt: BigInt = range.startRef.get match
@@ -276,6 +296,13 @@ case object SimplifyRTOps extends HierarchyStage:
             case (DFRange.Op.To, _)              => newIterDcl >= endVal
           val whileBlock = dfhdl.core.DFWhile.Block(guard)(using dfc.setMeta(forBlock.meta))
           dfc.enterOwner(whileBlock)
+          // An empty for-loop body still requires the iterator increment inside the while loop,
+          // and with no last body member to anchor an After patch on (see M2 below), the
+          // increment is created directly inside the while block. The while block is then no
+          // longer the last M1 member, so the patch selects it by index (see m1Patch below).
+          if (forBodyMembers.isEmpty)
+            val stepConst = dfhdl.core.DFVal.Const(dfhdl.core.DFInt32, Some(stepBigInt))
+            newIterDcl.din := newIterDcl + stepConst
           dfc.exitOwner()
         val newIterDclIR = m1.newIterDcl.asIR
         val iterDclPatch =
@@ -293,7 +320,18 @@ case object SimplifyRTOps extends HierarchyStage:
             val stepConst = dfhdl.core.DFVal.Const(dfhdl.core.DFInt32, Some(stepBigInt))
             m1.newIterDcl.din := m1.newIterDcl + stepConst
           List(m1.patch, iterDclPatch, m2.patch)
-        else List(m1.patch, iterDclPatch)
+        else
+          // The increment members trail the while block inside M1, so the replacement member
+          // (the while block that takes the for block's list position and references) is
+          // selected by its index instead of ReplaceWithLast.
+          val m1Patch = forBlock -> Patch.Add(
+            m1,
+            Patch.Add.Config.ReplaceWithMemberN(
+              m1.getDBOld.members.indexOf(m1.whileBlock.asIR) - 1,
+              Patch.Replace.Config.ChangeRefAndRemove
+            )
+          )
+          List(m1Patch, iterDclPatch)
         end if
 
       case _ => None

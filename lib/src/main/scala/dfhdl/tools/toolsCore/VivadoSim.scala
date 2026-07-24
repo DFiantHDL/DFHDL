@@ -114,16 +114,25 @@ trait VivadoSimCommon extends Linter, Simulator:
     val inVHDL93 = co.backend match
       case be: backends.vhdl => be.dialect == VHDLDialect.v93
       case _                 => false
+    // Foreign IP DPI integration for XSim elaboration: point xelab at each IP's DPI shim (Vivado
+    // uses the MinGW bundle). The run step (default `simulate`) supplies the viewer hook + lib path.
+    val foreignFlags = constructCommand(
+      foreignSources.filter(_.dpiLib.nonEmpty).flatMap { f =>
+        Seq(s"-sv_root ${foreignLibDir(f)}", s"-sv_lib ${f.dpiLib}")
+      }*
+    )
     val cmd = constructCommand(
       "-a",
       topName,
-      if (inVHDL93) "--93_mode" else ""
+      if (inVHDL93) "--93_mode" else "",
+      foreignFlags
     )
     exec(cmd = cmd, runExec = runExec)
     ret
   end simulatePreprocess
 
-  override protected def simRunExec(using MemberGetSet): String = s".${separatorChar}${axsimScript}"
+  override protected def simRunExec(using MemberGetSet, ToolOptions): String =
+    s".${separatorChar}${axsimScript}"
 end VivadoSimCommon
 
 object VivadoSimVerilog extends VivadoSimCommon, VerilogLinter, VerilogSimulator:

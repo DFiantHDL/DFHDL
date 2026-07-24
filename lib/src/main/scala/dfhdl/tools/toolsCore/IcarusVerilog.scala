@@ -9,21 +9,24 @@ import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
-import java.io.File.separatorChar
 import dfhdl.compiler.stages.verilog.VerilogDialect
 
 object IcarusVerilog extends VerilogLinter, VerilogSimulator:
   override val simRunsLint: Boolean = true
   val toolName: String = "Icarus Verilog"
   protected def binExec: String = "iverilog"
-  override protected def simRunExec(using MemberGetSet): String =
-    if (osIsWindows) "vvp.exe" else "vvp"
+  override protected def simRunExec(using MemberGetSet, ToolOptions): String =
+    if (isToolInWindows) "vvp.exe" else "vvp"
   protected def versionCmd: String = "-V"
   protected def extractVersion(cmdRetStr: String): Option[String] =
     val versionPattern = """Icarus Verilog version\s+(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   protected def includeFolderFlag: String = "-I"
+
+  // Icarus uses VPI (not DPI), so it compiles the plain-Verilog wrapper rather than the SV one.
+  override protected def foreignWrapperHdlNames(ipName: String)(using ToolOptions): List[String] =
+    List(s"$ipName.v")
 
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
     val generation = dialect match
@@ -79,6 +82,17 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
       CompilerOptions,
       SimulatorOptions
   ): List[String] = List(s"${topName}")
+
+  // Foreign IP VPI integration: tell `vvp` where to find each IP's VPI module and to load it.
+  override protected def simulateCmdPreLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    foreignSources.filter(_.vpiModule.nonEmpty).flatMap { f =>
+      Seq(s"-M${foreignLibDir(f)}", s"-m${f.vpiModule}")
+    }*
+  )
 
   override protected def simulateCmdPostLangFlags(using
       CompilerOptions,

@@ -10,7 +10,7 @@ object annotation:
   object HWAnnotation:
     given ReadWriter[HWAnnotation] = ReadWriter.merge(
       summon[ReadWriter[Unused]],
-      summon[ReadWriter[Pure.type]],
+      summon[ReadWriter[Pure]],
       summon[ReadWriter[FlattenMode]],
       summon[ReadWriter[constraints.Constraint]]
     )
@@ -26,12 +26,21 @@ object annotation:
         case Keep  => "@hw.annotation.unused.keep"
         case Prune => "@hw.annotation.unused.prune"
 
-  case object Pure extends HWAnnotation:
-    given ReadWriter[Pure.type] = macroRW
+  /** Purity marking. Elaboration is pure by default; `Pure(false)` marks it impure (its results
+    * must not be cached), `Pure(true)` is the user's explicit trust override for the compiler's
+    * purity detection, and `Pure(true, names)` keeps elaboration pure and cacheable while the cache
+    * additionally keys on the named (data-impure) parameters' applied values.
+    */
+  final case class Pure(isPure: Boolean, impureParams: List[String] = Nil) extends HWAnnotation
+      derives CanEqual, ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs(using RefGen): this.type = this
-    def codeString(using Printer): String = "@hw.annotation.pure"
+    def codeString(using Printer): String =
+      if (!isPure) "@hw.annotation.pure(false)"
+      else if (impureParams.isEmpty) "@hw.annotation.pure"
+      else impureParams.map(n => s"\"$n\"")
+        .mkString("@hw.annotation.pure(impureParams = ", ", ", ")")
 
   /** Flattening Mode:
     *   - transparent: $memberName
@@ -65,6 +74,18 @@ object constraints:
       if (this == that) Some(this) else None
     def updateBitIdx(bitIdx: ConfigN[Int]): SigConstraint
     val bitIdx: ConfigN[Int]
+  final case class PlatformID(
+      platformName: String
+  ) extends GlobalConstraint derives CanEqual, ReadWriter:
+    protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs(using RefGen): this.type = this
+    def codeString(using Printer): String =
+      val params = List(
+        csParam("platformName", platformName)
+      ).filter(_.nonEmpty).mkString(", ")
+      s"""@platformID($params)"""
+  end PlatformID
   final case class DeviceID(
       vendor: DeviceID.Vendor,
       deviceName: String,
@@ -405,16 +426,24 @@ object constraints:
     object Reset:
       export RstCfg.{Mode, Active}
 
-    final case class Related(ref: Related.Ref) extends Constraint derives CanEqual, ReadWriter:
+    /** Marks this domain as timing-related to the domain referenced by `ref` (sharing its clock, so
+      * no clk/rst ports are added for it). `includeReset` controls whether the related domain also
+      * shares the target's reset: when `false`, the domain has no reset and its registers/memories
+      * rely on their initial values instead of being driven from a reset-initialization block.
+      */
+    final case class Related(ref: Related.Ref, includeReset: Boolean = true)
+        extends Constraint derives CanEqual, ReadWriter:
       protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean =
         that match
-          case Related(thatRef) => ref =~ thatRef
-          case _                => false
+          case Related(thatRef, thatIncludeReset) =>
+            ref =~ thatRef && includeReset == thatIncludeReset
+          case _ => false
       lazy val getRefs: List[DFRef.TwoWayAny] = List(ref)
       def copyWithNewRefs(using RefGen): this.type =
-        Related(ref.copyAsNewRef).asInstanceOf[this.type]
+        Related(ref.copyAsNewRef, includeReset).asInstanceOf[this.type]
       def codeString(using Printer): String =
-        s"""@timing.related(${ref.refCodeString})"""
+        val extraArgs = if (includeReset) "" else ", includeReset = false"
+        s"""@timing.related(${ref.refCodeString}$extraArgs)"""
     end Related
     object Related:
       type Ref = DFRef.TwoWay[DomainBlock | DFDesignBlock, DomainBlock]

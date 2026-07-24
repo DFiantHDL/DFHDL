@@ -7,19 +7,26 @@ import compiler.ir
 import ir.DFDesignBlock.InstMode
 import java.nio.file._
 
+// pure override: these assertions force width data derived from TYPES only and do not
+// shape the elaborated structure
+// These carry a `DFC` but sit in no DFHDL scope, so the DFHDL `assert` correctly rejects them
+// (nothing here grants the `HasTextOut` capability). They are Scala-level test assertions about
+// type-derived widths, not hardware text output, so they say so explicitly.
 extension [T](t: T)(using tc: core.DFType.TC[T])
   @metaContextIgnore
+  @hw.annotation.pure
   def verifyWidth[R <: IntP](
       r: IntParam[R]
   )(using dfc: DFC, w: Width[tc.Type])(using w.Out =:= R): Unit =
-    assert(t.widthIntParam.toScalaIntOpt.get == r.toScalaIntOpt.get)
+    scala.Predef.assert(t.widthIntParam.toScalaIntOpt.get == r.toScalaIntOpt.get)
 
 extension [T <: DFType](t: DFValOf[T])(using dfc: DFC, w: Width[T])
   @metaContextIgnore
+  @hw.annotation.pure
   def verifyWidth[R <: IntP](
       r: IntParam[R]
   )(using w.Out =:= R): Unit =
-    assert(t.widthIntParam.toScalaIntOpt.get == r.toScalaIntOpt.get)
+    scala.Predef.assert(t.widthIntParam.toScalaIntOpt.get == r.toScalaIntOpt.get)
 
 abstract class DFSpec extends NoDFCSpec, HasTypeName, HasDFC:
   final lazy val dfc: DFC = core.DFC.emptyNoEO

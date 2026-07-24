@@ -1,11 +1,32 @@
 package dfhdl.internals
 
-import java.nio.file.{Paths, Files, Path, StandardCopyOption}
-import java.io.File.separatorChar
-import java.io.FileWriter
-import scala.collection.mutable.ListBuffer
+import factum.{Codec, Evaluator, Output, Task, TaskListener}
+import factum.store.DiskStore
+
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Paths}
+import java.util.concurrent.ConcurrentHashMap
 import scala.util.hashing.MurmurHash3
 
+/** Disk cache for the DFHDL app pipeline steps.
+  *
+  * This is a thin compatibility shim over the Factum library
+  * (https://github.com/DFiantWorks/factum): a typed, persistent, content-addressed task-graph
+  * cache. The `Step` surface is kept source-compatible with the original hand-rolled
+  * implementation; the engine underneath (keying, content-addressed storage, artifact
+  * caching/restore, atomic writes) is Factum's.
+  *
+  * Kept from the original semantics:
+  *   - `otherDeps` keying is bit-compatible (MurmurHash3 over the deps sequence), because some deps
+  *     (e.g. `DesignArgs` values, tool objects) are not yet stable under Factum's strict `KeyHash`.
+  *     Migrating steps to typed, checked keys is a follow-up.
+  *   - On a cache hit the order of events is: `logCachedRun()`, then for steps with generated
+  *     files: value decode, `cleanUpBeforeFileRestore(value)`, and file restore. Steps without
+  *     generated files decode lazily: an upstream hit whose value is never demanded downstream is
+  *     not deserialized at all.
+  *   - `apply(uncached = true)` runs only this step uncached (its dependencies still use their own
+  *     caching defaults) and does not write to the cache.
+  */
 class DiskCache(val cacheFolderStr: String):
   val cacheFolderPath =
     val folderPath = Paths.get(cacheFolderStr)
@@ -13,25 +34,20 @@ class DiskCache(val cacheFolderStr: String):
       Files.createDirectories(folderPath)
     if (folderPath.isAbsolute) folderPath
     else folderPath.toAbsolutePath.normalize()
-  protected def cacheFilePath(step: String, suffix: String, key: String): String =
-    cacheFolderPath.resolve(s"${step}_${key}.${suffix}").toString
-  def isValid(step: String, suffix: String, key: String): Boolean =
-    Files.exists(Paths.get(cacheFilePath(step, suffix, key)))
-  def put(step: String, suffix: String, key: String, value: String): Unit =
-    val writer = new FileWriter(cacheFilePath(step, suffix, key))
-    writer.write(value)
-    writer.close()
-  def get(step: String, suffix: String, key: String): Option[String] =
-    val file = Paths.get(cacheFilePath(step, suffix, key))
-    if (Files.exists(file)) Some(Files.readString(file))
-    else None
-  def getOrElsePut(step: String, suffix: String, key: String)(value: => String): String =
-    get(step, suffix, key).getOrElse {
-      val v = value
-      put(step, suffix, key, v)
-      v
-    }
-  private val base64Encoder = java.util.Base64.getEncoder
+
+  // steps register themselves by cache name so evaluator hooks dispatch back to them
+  private val steps = ConcurrentHashMap[String, Step[?, ?]]()
+  private object stepListener extends TaskListener:
+    override def onCacheHit(name: String): Unit =
+      steps.get(name) match
+        case null => ()
+        case step => step.onCacheHitHook()
+    override def onBeforeFilesRestore(name: String, value: () => Any): Unit =
+      steps.get(name) match
+        case null => ()
+        case step => step.onBeforeRestoreHook(value())
+
+  private lazy val evaluator = Evaluator(DiskStore(cacheFolderPath), listener = stepListener)
 
   /** A Step represents a cacheable computation step in a processing pipeline.
     *
@@ -58,20 +74,13 @@ class DiskCache(val cacheFolderStr: String):
     *
     * Optionally, you can override:
     *   - `logCachedRun`: Custom logging when a cached result is used
-    *   - `name`: The name used for cache files (defaults to the class name)
+    *   - `name`: The name used for cache keys (defaults to the class name)
     */
   abstract class Step[F, R](
       prevStepOrValue: Step[?, F] | (() => F),
       val hasGenFiles: Boolean = false
   )(otherDeps: => Any*) extends HasTypeName:
     protected def run(from: F): R
-    extension (key: String | Product | IterableOnce[?])
-      protected def defaultHash: String =
-        val hashInt = key match
-          case s: String          => MurmurHash3.stringHash(s)
-          case p: Product         => MurmurHash3.caseClassHash(p)
-          case i: IterableOnce[?] => MurmurHash3.orderedHash(i)
-        hashInt.toHexString
     protected def valueToCacheStr(value: R): String
     protected def cacheStrToValue(str: String): R
     protected def logCachedRun(): Unit = {}
@@ -79,79 +88,56 @@ class DiskCache(val cacheFolderStr: String):
     protected def cleanUpBeforeFileRestore(value: R): Unit = {}
     protected def genFiles(value: R): List[String] = Nil
     protected val name: String = typeName
-    private lazy val keyHash: String =
+    protected def cacheEnable: Boolean = true
+
+    // Bit-compatible with the pre-Factum implementation: the otherDeps sequence is
+    // folded with MurmurHash3 and enters the Factum action key as a plain string.
+    private def otherDepsKey: String = MurmurHash3.orderedHash(otherDeps).toHexString
+
+    // Cache-hit hooks are dispatched through the evaluator's TaskListener (see
+    // stepListener above), keeping the codec pure so Factum can decode values
+    // lazily: steps without generated files only deserialize when demanded.
+    private[DiskCache] def onCacheHitHook(): Unit = logCachedRun()
+    private[DiskCache] def onBeforeRestoreHook(value: Any): Unit =
+      cleanUpBeforeFileRestore(value.asInstanceOf[R])
+
+    private object stepCodec extends Codec[R]:
+      def encode(value: R): Array[Byte] =
+        valueToCacheStr(value).getBytes(StandardCharsets.UTF_8)
+      def decode(bytes: Array[Byte]): R =
+        cacheStrToValue(String(bytes, StandardCharsets.UTF_8))
+
+    // register after `name` is initialized above
+    DiskCache.this.steps.put(name, this)
+
+    private def runWithFiles(from: F): (R, Vector[Output]) =
+      val value = run(from)
+      (value, genFiles(value).map(p => Output.File(Paths.get(p))).toVector)
+
+    private[DiskCache] lazy val task: Task[R] =
+      given Codec[R] = stepCodec
       (prevStepOrValue: @unchecked) match
         case prevStep: Step[?, F] =>
-          (otherDeps.defaultHash, prevStep.getDataHash).defaultHash
-        case prevValue: (() => F) => otherDeps.defaultHash
-    private lazy val calcDataValue: R = run((prevStepOrValue: @unchecked) match
-      case prevStep: Step[?, F] => prevStep()
-      case prevValue: (() => F) => prevValue())
-    private lazy val calcDataStr: String = valueToCacheStr(calcDataValue)
-    private[Step] lazy val getDataHash: String =
-      get(name, "hash", keyHash) match
-        case Some(dataHash) => dataHash
-        case None           =>
-          val dataHash = MurmurHash3.stringHash(calcDataStr).toHexString
-          put(name, "hash", keyHash, dataHash)
-          dataHash
-    private lazy val getCachedOrCalcDataValue: R =
-      get(name, "data", getDataHash) match
-        case Some(dataStr) =>
-          logCachedRun()
-          val value = cacheStrToValue(dataStr)
           if (hasGenFiles)
-            cleanUpBeforeFileRestore(value)
-            restoreFiles(value)
-          value
-        case None =>
-          put(name, "data", getDataHash, calcDataStr)
-          val value = calcDataValue
-          if (hasGenFiles) cacheFiles(value)
-          value
-    private def cacheGenFilePath(filePath: String): Path =
-      val filePathBase64 = base64Encoder.encodeToString(filePath.getBytes).replace('=', '_')
-      val suffix = s"${filePathBase64}.file"
-      cacheFolderPath.resolve(cacheFilePath(name, suffix, getDataHash))
-    private def cacheFiles(value: R): Unit =
-      genFiles(value).foreach { filePath =>
-        val file = Paths.get(filePath)
-        Files.copy(file, cacheGenFilePath(filePath), StandardCopyOption.REPLACE_EXISTING)
-      }
-    private def restoreFiles(value: R): Unit =
-      prevStepOrValue match
-        case prevStep: Step[?, ?] if prevStep.hasGenFiles =>
-          prevStep.getCachedOrCalcDataValue // will force restoring previous files
-        case _ =>
-      val files = genFiles(value)
-      files.forall { filePath =>
-        val cachedFile = cacheGenFilePath(filePath)
-        if (Files.exists(cachedFile))
-          val file = Paths.get(filePath)
-          Files.createDirectories(file.getParent)
-          // Only copy if the file doesn't exist or has a different modification time
-          if (
-            !Files.exists(file) ||
-            !(Files.getLastModifiedTime(file) equals Files.getLastModifiedTime(cachedFile))
-          )
-            Files.copy(cachedFile, file, StandardCopyOption.REPLACE_EXISTING)
-          true
-        // at least one file cache is missing, so we need to run the value calculation and cache the files
-        else
-          calcDataValue
-          cacheFiles(value)
-          false // aborting the restoration, since now new files are cached and ready to use
-        end if
-      }
-    end restoreFiles
-
-    protected def cacheEnable: Boolean = true
+            prevStep.task.cachedWithFiles(name, extraKey = otherDepsKey)(runWithFiles)
+          else prevStep.task.cached(name, extraKey = otherDepsKey)(run)
+        case prevValue: (() => F) =>
+          if (hasGenFiles)
+            Task.pure(()).cachedWithFiles(name, extraKey = otherDepsKey)(_ =>
+              runWithFiles(prevValue())
+            )
+          else Task.pure(()).cached(name, extraKey = otherDepsKey)(_ => run(prevValue()))
+    end task
 
     // cached run, unless uncached is true and then only this step is run without caching
     final def apply(uncached: Boolean = !cacheEnable): R =
       val value =
-        if (uncached) calcDataValue
-        else getCachedOrCalcDataValue
+        if (uncached)
+          val from = (prevStepOrValue: @unchecked) match
+            case prevStep: Step[?, F] => prevStep()
+            case prevValue: (() => F) => prevValue()
+          run(from)
+        else evaluator.eval(task)
       runAfterValue(value)
       value
   end Step

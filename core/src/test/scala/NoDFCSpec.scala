@@ -35,6 +35,21 @@ abstract class NoDFCSpec extends FunSuite, NoTopAnnotIsRequired:
     )
   end assertCompileErrorPos
 
+  // Like `assertCompileError`, but the snippet is compiled through the DFHDL plugin phases as
+  // well, so diagnostics that only they emit are surfaced (`typeCheckErrors` stops at the
+  // typer). The snippet must be a self-contained block: it gets `import dfhdl.*` prepended,
+  // but sees the classpath rather than the call site's lexical scope.
+  // See devdocs/plugin-error-testing.md.
+  transparent inline def assertPluginError(expectedErr: String)(
+      inline code: String
+  ): Unit =
+    val errs = internals.PluginErrCheck.pluginCheckErrors(code)
+    assertNoDiff(
+      errs.lastOption.getOrElse(noErrMsg),
+      expectedErr
+    )
+  end assertPluginError
+
   inline def assertRuntimeError(expectedErr: String)(runTimeCode: => Unit): Unit =
     val err =
       try

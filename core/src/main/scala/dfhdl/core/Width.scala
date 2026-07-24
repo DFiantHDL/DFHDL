@@ -8,13 +8,22 @@ import scala.annotation.nowarn
 trait Width[T]:
   type Out <: IntP
   type OutI <: Int
+// the total bit width of a `DFDecimal` is the magnitude width `M` plus the fraction width
+// `F`. For integer types (F == 0) this stays exactly `M` so width-dependent type equality
+// on `UInt`/`SInt` is unchanged.
+type DecimalWidth[M <: IntP, F <: Int] <: IntP = F match
+  case 0 => M
+  case _ => IntP.+[M, F]
+type DecimalWidthI[M <: Int, F <: Int] <: Int = F match
+  case 0 => M
+  case _ => scala.compiletime.ops.int.+[M, F]
 trait WidthLP:
   given fromDFBitsIntP[W <: IntP]: Width[DFBits[W]] with
     type Out = W
     type OutI = Int
-  given fromDFDecimalIntP[S <: Boolean, W <: IntP, F <: Int, N <: ir.DFDecimal.NativeType]
-      : Width[DFDecimal[S, W, F, N]] with
-    type Out = W
+  given fromDFDecimalIntP[S <: Boolean, M <: IntP, F <: Int, N <: ir.DFDecimal.NativeType]
+      : Width[DFDecimal[S, M, F, N]] with
+    type Out = DecimalWidth[M, F]
     type OutI = Int
 object Width extends WidthLP:
   type Aux[T, O <: IntP] = Width[T] { type Out = O }
@@ -22,6 +31,9 @@ object Width extends WidthLP:
   val wide: Width[DFTypeAny] = new Width[DFTypeAny]:
     type Out = Int
     type OutI = Int
+  given fromBitNumWrapper[T <: BitNumWrapper]: Width[T] with
+    type Out = 1
+    type OutI = 1
   given fromDFBoolOrBit[T <: DFBoolOrBit]: Width[T] with
     type Out = 1
     type OutI = 1
@@ -37,10 +49,10 @@ object Width extends WidthLP:
   given fromDFBitsInt[W <: Int]: Width[DFBits[W]] with
     type Out = W
     type OutI = W
-  given fromDFDecimalInt[S <: Boolean, W <: Int, F <: Int, N <: ir.DFDecimal.NativeType]
-      : Width[DFDecimal[S, W, F, N]] with
-    type Out = W
-    type OutI = W
+  given fromDFDecimalInt[S <: Boolean, M <: Int, F <: Int, N <: ir.DFDecimal.NativeType]
+      : Width[DFDecimal[S, M, F, N]] with
+    type Out = DecimalWidthI[M, F]
+    type OutI = DecimalWidthI[M, F]
   transparent inline given [T]: Width[T] = ${ getWidthMacro[T] }
   extension (using quotes: Quotes)(dfTpe: quotes.reflect.TypeRepr)
     def +(rhs: quotes.reflect.TypeRepr): quotes.reflect.TypeRepr =
@@ -89,11 +101,15 @@ object Width extends WidthLP:
                 case '[DFValAny] => TypeRepr.of[Int]
                 case _           =>
                   TypeRepr.of[w].calcWidth
-            case '[DFDecimal[s, w, f, n]] =>
-              Type.of[w] match
+            case '[DFDecimal[s, m, f, n]] =>
+              // `m` is the magnitude width; the total width adds the fraction width
+              Type.of[m] match
                 case '[DFValAny] => TypeRepr.of[Int]
                 case _           =>
-                  TypeRepr.of[w].calcWidth
+                  val magWidth = TypeRepr.of[m].calcWidth
+                  TypeRepr.of[f] match
+                    case ConstantType(IntConstant(0)) => magWidth
+                    case fRepr                        => magWidth + fRepr
             case '[DFEnum[e]] =>
               TypeRepr.of[e].calcWidth
             case '[DFVector[t, d]] =>
@@ -128,6 +144,7 @@ object Width extends WidthLP:
         case '[IntP.Sig]      => TypeRepr.of[Int]
         case '[Int]           => dfTpe
         case '[Boolean.type]  => ConstantType(IntConstant(1))
+        case '[BitNumWrapper] => ConstantType(IntConstant(1))
         case '[Double.type]   => ConstantType(IntConstant(64))
         case '[Byte.type]     => ConstantType(IntConstant(8))
         case '[Int.type]      => ConstantType(IntConstant(32))

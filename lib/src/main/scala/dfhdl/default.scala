@@ -27,8 +27,8 @@ extension (dsn: => Design)
       AppOptions
   ): Unit =
     // this is the behavior we want to trap the compilation information at the call site
-    // (so that `appCompileTime` inside `DFApp` is the current application compile time
-    // and not the DFHDL library compile time)
+    // (so that `designCodeRef` inside `DFApp` is anchored at the user's compiled
+    // application code and not at the DFHDL library itself)
     @scala.annotation.nowarn(
       "msg=New anonymous class definition will be duplicated at each inline site"
     )
@@ -89,7 +89,9 @@ extension (cd: CompiledDesign)
     case (Vendor.Gowin, builders.vendor)            => GowinDesigner
     case (Vendor.Lattice, builders.vendor)          => Diamond
     case (Vendor.AlteraIntel(pro), builders.vendor) => if (pro) QuartusPrimePro else QuartusPrime
-    case (vendor, tool)                             => throw new IllegalArgumentException(
+    // the open-source flow is a single generic builder that dispatches on the device id
+    case (Vendor.Gowin | Vendor.Lattice, builders.foss) => YosysNextPNR
+    case (vendor, tool)                                 => throw new IllegalArgumentException(
         s"No $tool builder tool support for vendor $vendor"
       )
 

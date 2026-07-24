@@ -10,6 +10,20 @@ type TDFString = DFType[ir.DFString, NoArgs]
 object TDFString:
   given DFString = DFString
 
+  /** Rejects non-ASCII characters in DFHDL string values. HDL string literals (Verilog/VHDL) are
+    * limited to ASCII, so any non-ASCII character would not survive code generation.
+    */
+  private[core] def asciiCheck(str: String): String =
+    if (!str.isASCII)
+      val idx = str.firstNonASCIIIndex
+      val ch = str(idx)
+      throw new IllegalArgumentException(
+        f"""|Unsupported non-ASCII character in DFHDL string value.
+            |Found character '$ch' (U+${ch.toInt}%04X) at index $idx.
+            |Only ASCII characters are supported in DFHDL string values.""".stripMargin
+      )
+    str
+
   object Val:
     trait Candidate[R] extends Exact0.TC[R, DFC]:
       type OutT = DFString
@@ -24,7 +38,7 @@ object TDFString:
       given fromString[R <: String]: Candidate[R] with
         type OutP = CONST
         def apply(arg: R)(using DFC): Out =
-          DFVal.Const(DFString, Some(arg), named = true)
+          DFVal.Const(DFString, Some(asciiCheck(arg)), named = true)
       given fromDFStringVal[P, R <: DFValTP[DFString, P]]: Candidate[R] with
         type OutP = P
         def apply(arg: R)(using DFC): Out = arg
@@ -91,6 +105,7 @@ object TDFString:
           }(using dfc, CTName("+"))
       end evOpArithDFString
       extension [P](lhs: DFValTP[DFString, P])
+        @dfhdl.hw.annotation.pure(true, "*")
         def toScalaString(using DFC, DFVal.ConstCheck[P]): String =
           lhs.toScalaValue
       end extension

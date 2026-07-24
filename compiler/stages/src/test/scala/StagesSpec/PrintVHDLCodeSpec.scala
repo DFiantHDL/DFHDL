@@ -884,6 +884,7 @@ class PrintVHDLCodeSpec extends StageSpec:
         50.ns.wait
         x :== 0
         1.ns.wait
+        wait
     end Foo
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
@@ -915,6 +916,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    wait for 50 ns;
          |    x <= '0';
          |    wait for 1 ns;
+         |    wait;
          |  end process;
          |end Foo_arch;""".stripMargin
     )
@@ -1177,12 +1179,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo;
          |
          |architecture Foo_arch of Foo is
-         |  constant param3 : integer := 42;
          |  type t_enum_MyEnum is (
          |    MyEnum_A, MyEnum_B, MyEnum_C
          |  );
          |  constant bar : string := param & "!";
          |  constant param2 : string := param & param;
+         |  constant param3 : integer := 42;
          |  constant param4 : unsigned(4 downto 0) := 5d"22";
          |  constant param5 : std_logic_vector(23 downto 0) := x"abc123";
          |  constant param6 : std_logic_vector(5 downto 0) := 6x"2a";
@@ -1211,7 +1213,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1158:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1160:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -1238,12 +1240,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo;
          |
          |architecture Foo_arch of Foo is
-         |  constant param3 : integer := 42;
          |  type t_enum_MyEnum is (
          |    MyEnum_A, MyEnum_B, MyEnum_C
          |  );
          |  constant bar : string := param & "!";
          |  constant param2 : string := param & param;
+         |  constant param3 : integer := 42;
          |  constant param4 : unsigned(4 downto 0) := to_unsigned(22, 5);
          |  constant param5 : std_logic_vector(23 downto 0) := x"abc123";
          |  constant param6 : std_logic_vector(5 downto 0) := "101010";
@@ -1272,7 +1274,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1158:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1160:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -1836,6 +1838,1154 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    end if;
          |  end process;
          |end ForkJoinFSM_arch;""".stripMargin
+    )
+  }
+
+  test("foreign blackbox: instance emitted, no entity generated") {
+    class vga_monitor extends EDBlackBox.ForeignIP:
+      val hsync                      = Bit     <> IN
+      val vsync                      = Bit     <> IN
+      val r                          = Bits(8) <> IN
+      val g                          = Bits(8) <> IN
+      val b                          = Bits(8) <> IN
+      override protected def clsName = "dfhdl.ips.video.vga.vga_monitor"
+      override protected def vhpiLib = "vga_monitor_vhpi"
+
+    class Foo extends EDDesign:
+      val hsync = Bit     <> IN
+      val vsync = Bit     <> IN
+      val r     = Bits(8) <> IN
+      val g     = Bits(8) <> IN
+      val b     = Bits(8) <> IN
+      val mon   = vga_monitor()
+      mon.hsync <> hsync
+      mon.vsync <> vsync
+      mon.r     <> r
+      mon.g     <> g
+      mon.b     <> b
+    end Foo
+
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  hsync : in std_logic;
+         |  vsync : in std_logic;
+         |  r : in std_logic_vector(7 downto 0);
+         |  g : in std_logic_vector(7 downto 0);
+         |  b : in std_logic_vector(7 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |  signal mon_b : std_logic_vector(7 downto 0);
+         |  signal mon_g : std_logic_vector(7 downto 0);
+         |  signal mon_vsync : std_logic;
+         |  signal mon_hsync : std_logic;
+         |  signal mon_r : std_logic_vector(7 downto 0);
+         |begin
+         |  mon : entity work.vga_monitor(rtl) port map (
+         |    b => mon_b,
+         |    g => mon_g,
+         |    vsync => mon_vsync,
+         |    hsync => mon_hsync,
+         |    r => mon_r
+         |  );
+         |  mon_hsync <= hsync;
+         |  mon_vsync <= vsync;
+         |  mon_r <= r;
+         |  mon_g <= g;
+         |  mon_b <= b;
+         |end Foo_arch;
+         |""".stripMargin
+    )
+  }
+
+  class FixID extends EDDesign:
+    val x                      = UFix(8, 10) <> IN
+    val y                      = UFix(8, 10) <> OUT
+    val c: UFix[1, 2] <> CONST = 0.75
+    y <> x
+
+  class FixConv extends EDDesign:
+    val x = UFix(4, 4) <> IN
+    val y = SFix(6, 6) <> OUT
+    y <> x
+
+  test("Fixed-point identity design") {
+    val id = (new FixID).getCompiledCodeString
+    assertNoDiff(
+      id,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity FixID is
+         |port (
+         |  x : in ufix(7 downto -10);
+         |  y : out ufix(7 downto -10)
+         |);
+         |end FixID;
+         |
+         |architecture FixID_arch of FixID is
+         |  constant c : ufix(0 downto -2) := 3d"3";
+         |begin
+         |  y <= x;
+         |end FixID_arch;
+         |""".stripMargin
+    )
+  }
+
+  test("Fixed-point conversion design") {
+    val conv = (new FixConv).getCompiledCodeString
+    assertNoDiff(
+      conv,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity FixConv is
+         |port (
+         |  x : in ufix(3 downto -4);
+         |  y : out sfix(5 downto -6)
+         |);
+         |end FixConv;
+         |
+         |architecture FixConv_arch of FixConv is
+         |begin
+         |  y <= resize(to_sfix(x), 6, 6);
+         |end FixConv_arch;
+         |""".stripMargin
+    )
+  }
+  test("initial block") {
+    class InitID extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      val v = SInt(16) <> VAR
+      initial:
+        v := 0
+        println("initialized")
+      process(all):
+        y :== x + v
+    end InitID
+    val top = (new InitID).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity InitID is
+         |port (
+         |  x : in signed(15 downto 0);
+         |  y : out signed(15 downto 0)
+         |);
+         |end InitID;
+         |
+         |architecture InitID_arch of InitID is
+         |  signal v : signed(15 downto 0) := 16d"0";
+         |begin
+         |  process
+         |  begin
+         |    println("initialized");
+         |    wait;
+         |  end process;
+         |  process (all)
+         |  begin
+         |    y <= x + v;
+         |  end process;
+         |end InitID_arch;
+         |""".stripMargin
+    )
+  }
+  test("initial block lowered to an init function") {
+    class InitFn extends EDDesign:
+      val x   = SInt(16)     <> IN
+      val y   = SInt(16)     <> OUT
+      val vec = SInt(16) X 4 <> VAR
+      initial:
+        for (i <- 0 until 4)
+          vec(i) := 0
+      process(all):
+        y :== x + vec(0)
+    end InitFn
+    val top = (new InitFn).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.InitFn_pkg.all;
+         |
+         |entity InitFn is
+         |port (
+         |  x : in signed(15 downto 0);
+         |  y : out signed(15 downto 0)
+         |);
+         |end InitFn;
+         |
+         |architecture InitFn_arch of InitFn is
+         |  pure function vec_init return t_arrX1_signed is
+         |    variable vec : t_arrX1_signed(0 to 3)(15 downto 0);
+         |    variable i : integer;
+         |  begin
+         |    for i in 0 to 4-1 loop
+         |      vec(i) := 16d"0";
+         |    end loop;
+         |    return vec;
+         |  end function;
+         |  signal vec : t_arrX1_signed(0 to 3)(15 downto 0) := vec_init;
+         |begin
+         |  process (all)
+         |  begin
+         |    y <= x + vec(0);
+         |  end process;
+         |end InitFn_arch;
+         |""".stripMargin
+    )
+  }
+  test("ED method (function)") {
+    class EDFunc extends EDDesign:
+      val a                                                           = UInt(8) <> IN
+      val b                                                           = UInt(8) <> IN
+      val y                                                           = UInt(8) <> OUT
+      val z                                                           = UInt(8) <> OUT
+      def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        val tmp = UInt(8) <> VAR
+        tmp := l + r
+        tmp
+      val k: UInt[8] <> CONST                        = 5
+      def addBK(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b + k
+      y <> add(a, b)
+      process(all):
+        z :== addBK(a)
+    end EDFunc
+    val top = (new EDFunc).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDFunc is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  b : in unsigned(7 downto 0);
+         |  y : out unsigned(7 downto 0);
+         |  z : out unsigned(7 downto 0)
+         |);
+         |end EDFunc;
+         |
+         |architecture EDFunc_arch of EDFunc is
+         |  constant k : unsigned(7 downto 0) := 8d"5";
+         |  function add(l : unsigned(7 downto 0); r : unsigned(7 downto 0)) return unsigned is
+         |    variable tmp : unsigned(7 downto 0);
+         |  begin
+         |    tmp := l + r;
+         |    return tmp;
+         |  end function;
+         |
+         |  impure function addBK(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return l + b + k;
+         |  end function;
+         |begin
+         |  y <= add(a, b);
+         |  process (a, b)
+         |  begin
+         |    z <= addBK(a);
+         |  end process;
+         |end EDFunc_arch;
+         |""".stripMargin
+    )
+  }
+  test("ED method phantom capture through a path") {
+    class PathInner extends EDDesign:
+      val i = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      o <> i + 1
+    end PathInner
+    class EDPath extends EDDesign:
+      val a   = UInt(8) <> IN
+      val y   = UInt(8) <> OUT
+      val sub = PathInner()
+      sub.i <> a
+      // the phantom port's own name is the path's LEAF (uniquified against the def's
+      // return port), which names nothing in the architecture — the body must print the
+      // ACTUAL wired at the call site
+      def addSub(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + sub.o
+      y <> addSub(a)
+    end EDPath
+    val top = (new EDPath).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity PathInner is
+         |port (
+         |  i : in unsigned(7 downto 0);
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end PathInner;
+         |
+         |architecture PathInner_arch of PathInner is
+         |begin
+         |  o <= i + 8d"1";
+         |end PathInner_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDPath is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end EDPath;
+         |
+         |architecture EDPath_arch of EDPath is
+         |  signal sub_i : unsigned(7 downto 0);
+         |  signal sub_o : unsigned(7 downto 0);
+         |  impure function addSub(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return l + sub_o;
+         |  end function;
+         |begin
+         |  sub : entity work.PathInner(PathInner_arch) port map (
+         |    i => sub_i,
+         |    o => sub_o
+         |  );
+         |  sub_i <= a;
+         |  y <= addSub(a);
+         |end EDPath_arch;
+         |""".stripMargin
+    )
+  }
+  test("nested ED method calls") {
+    class EDNest extends EDDesign:
+      val a                                          = UInt(8) <> IN
+      val y                                          = UInt(8) <> OUT
+      def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + 1
+      // `inner` is called ONLY from `outer`'s body; it must still be declared, and BEFORE
+      // its caller (VHDL requires declaration before use)
+      def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET = inner(l) + 2
+      y <> outer(a)
+    end EDNest
+    val top = (new EDNest).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDNest is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end EDNest;
+         |
+         |architecture EDNest_arch of EDNest is
+         |  function inner(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return l + 8d"1";
+         |  end function;
+         |
+         |  function outer(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return inner(l) + 8d"2";
+         |  end function;
+         |begin
+         |  y <= outer(a);
+         |end EDNest_arch;
+         |""".stripMargin
+    )
+  }
+  test("nested ED method call with a capture") {
+    class EDNestCap extends EDDesign:
+      val b = UInt(8) <> IN
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      // `inner` captures `b`, and is called from `outer`'s body — a scope that cannot see
+      // `b` at all. The capture is propagated inward through a phantom port of `outer`.
+      def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b
+      def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET = inner(l) + 1
+      y <> outer(a)
+    end EDNestCap
+    val top = (new EDNestCap).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDNestCap is
+         |port (
+         |  b : in unsigned(7 downto 0);
+         |  a : in unsigned(7 downto 0);
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end EDNestCap;
+         |
+         |architecture EDNestCap_arch of EDNestCap is
+         |  impure function inner(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return l + b;
+         |  end function;
+         |
+         |  impure function outer(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return inner(l) + 8d"1";
+         |  end function;
+         |begin
+         |  y <= outer(a);
+         |end EDNestCap_arch;
+         |""".stripMargin
+    )
+  }
+  test("ED method (function) under v93") {
+    given options.CompilerOptions.Backend = _.vhdl.v93
+    class EDFuncOld extends EDDesign:
+      val a                                         = UInt(8) <> IN
+      val b                                         = UInt(8) <> IN
+      val z                                         = UInt(8) <> OUT
+      def addB(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b
+      def zero(): UInt[8] <> EDRET                  = d"8'0"
+      process(all):
+        z :== addB(a) + zero()
+    end EDFuncOld
+    val top = (new EDFuncOld).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDFuncOld is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  b : in unsigned(7 downto 0);
+         |  z : out unsigned(7 downto 0)
+         |);
+         |end EDFuncOld;
+         |
+         |architecture EDFuncOld_arch of EDFuncOld is
+         |  impure function addB(l : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return l + b;
+         |  end function;
+         |
+         |  function zero return unsigned is
+         |  begin
+         |    return to_unsigned(0, 8);
+         |  end function;
+         |begin
+         |  process (a, b)
+         |  begin
+         |    z <= addB(a) + zero;
+         |  end process;
+         |end EDFuncOld_arch;
+         |""".stripMargin
+    )
+  }
+  test("ED procedure with an OUT argument") {
+    class EDProcOut extends EDDesign:
+      val a                                                          = UInt(8) <> IN
+      val y                                                          = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT): Unit <> EDRET =
+        o := l + 1
+      process.forever:
+        addOne(a, y)
+    end EDProcOut
+    val top = (new EDProcOut).getCompiledCodeString
+    // A copy-out `<> OUT` argument prints as a mode-`out` procedure formal (default object
+    // class `variable`), written with `:=` in the body and copied back to its actual on return.
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDProcOut is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end EDProcOut;
+         |
+         |architecture EDProcOut_arch of EDProcOut is
+         |  procedure addOne(l : unsigned(7 downto 0); o : out unsigned(7 downto 0)) is
+         |  begin
+         |    o := l + 8d"1";
+         |  end procedure;
+         |begin
+         |  process
+         |  begin
+         |    addOne(a, y);
+         |  end process;
+         |end EDProcOut_arch;
+         |""".stripMargin
+    )
+  }
+  test("ED procedure with a non-blocking OUT.NB argument") {
+    class EDProcOutNB extends EDDesign:
+      val a                                                             = UInt(8) <> IN
+      val y                                                             = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT.NB): Unit <> EDRET =
+        o :== l + 1
+      process.forever:
+        addOne(a, y)
+    end EDProcOutNB
+    val top = (new EDProcOutNB).getCompiledCodeString
+    // A non-blocking `<> OUT.NB` argument prints as a `signal`-class procedure formal (a live
+    // driver), written with a signal assignment `<=` in the body.
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDProcOutNB is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end EDProcOutNB;
+         |
+         |architecture EDProcOutNB_arch of EDProcOutNB is
+         |  procedure addOne(l : unsigned(7 downto 0); signal o : out unsigned(7 downto 0)) is
+         |  begin
+         |    o <= l + 8d"1";
+         |  end procedure;
+         |begin
+         |  process
+         |  begin
+         |    addOne(a, y);
+         |  end process;
+         |end EDProcOutNB_arch;
+         |""".stripMargin
+    )
+  }
+  test("ED method (procedural procedure)") {
+    class EDTask extends EDDesign:
+      val a                                     = UInt(8) <> IN
+      def show(l: UInt[8] <> IN): Unit <> EDRET =
+        report(s"value is $l")
+        wait(1.ns)
+      def pause(): Unit <> EDRET =
+        wait(2.ns)
+      process:
+        show(a)
+        pause()
+    end EDTask
+    val top = (new EDTask).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDTask is
+         |port (
+         |  a : in unsigned(7 downto 0)
+         |);
+         |end EDTask;
+         |
+         |architecture EDTask_arch of EDTask is
+         |  procedure show(l : unsigned(7 downto 0)) is
+         |  begin
+         |    report "value is " & to_string(l) & "" severity NOTE;
+         |    wait for 1 ns;
+         |  end procedure;
+         |
+         |  procedure pause is
+         |  begin
+         |    wait for 2 ns;
+         |  end procedure;
+         |begin
+         |  process
+         |  begin
+         |    show(a);
+         |    pause;
+         |  end process;
+         |end EDTask_arch;
+         |""".stripMargin
+    )
+  }
+  test("static function (`<> CONSTRET`)") {
+    class StaticFn extends EDDesign:
+      val o                                               = UInt(8) <> OUT
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      o <> twice(d"8'3")
+    end StaticFn
+    val top = (new StaticFn).getCompiledCodeString
+    // A static function's formals are its design PARAMETERS (it has no input ports), and a VHDL
+    // method has no generics, so they print in the ordinary formal list, where the default
+    // class is `constant` — exactly what they are. It is emitted `pure`: a static function is pure
+    // by definition, and its captures are constants (enforced by the plugin), never signals.
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity StaticFn is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end StaticFn;
+         |
+         |architecture StaticFn_arch of StaticFn is
+         |  pure function twice(n : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return n + n;
+         |  end function;
+         |begin
+         |  o <= twice(8d"3");
+         |end StaticFn_arch;
+         |""".stripMargin
+    )
+  }
+  test("nested static function calls") {
+    class NestStatic extends EDDesign:
+      val o                                               = UInt(8) <> OUT
+      def twice(k: UInt[8] <> CONST): UInt[8] <> CONSTRET = k + k
+      // the inner call is consumed as the outer call's argument; it must not also emit a
+      // standalone `twice(n)` statement
+      def quad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = twice(twice(n))
+      o <> quad(d"8'3")
+    end NestStatic
+    val top = (new NestStatic).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity NestStatic is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end NestStatic;
+         |
+         |architecture NestStatic_arch of NestStatic is
+         |  pure function twice(k : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return k + k;
+         |  end function;
+         |
+         |  pure function quad(n : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return twice(twice(n));
+         |  end function;
+         |begin
+         |  o <= quad(8d"3");
+         |end NestStatic_arch;
+         |""".stripMargin
+    )
+  }
+  test("static function call parameterizing a sub-design") {
+    class Inner(val k: UInt[8] <> CONST = d"8'0") extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> k
+    class StaticParamTop extends EDDesign:
+      val o                                               = UInt(8) <> OUT
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      val inner                                           = new Inner(twice(d"8'3"))
+      o <> inner.o
+    end StaticParamTop
+    val top = (new StaticParamTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Inner is
+         |generic (
+         |  k : unsigned(7 downto 0) := 8d"0"
+         |);
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end Inner;
+         |
+         |architecture Inner_arch of Inner is
+         |begin
+         |  o <= k;
+         |end Inner_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity StaticParamTop is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end StaticParamTop;
+         |
+         |architecture StaticParamTop_arch of StaticParamTop is
+         |  pure function twice(n : unsigned(7 downto 0)) return unsigned is
+         |  begin
+         |    return n + n;
+         |  end function;
+         |  signal inner_o : unsigned(7 downto 0);
+         |begin
+         |  inner : entity work.Inner(Inner_arch) generic map (
+         |    k => twice(8d"3")
+         |  ) port map (
+         |    o => inner_o
+         |  );
+         |  o <= inner_o;
+         |end StaticParamTop_arch;
+         |""".stripMargin
+    )
+  }
+  // A static function READ BY A PORT DECLARATION (here the init of an output port) must be
+  // visible at the entity level in VHDL: the entity's port clause is elaborated before the
+  // architecture, so the function cannot live locally in the architecture. It is therefore
+  // emitted in the shared package even though a single design uses it (unlike the design-local
+  // `<> CONSTRET` test above, where the call is in a statement, not a port declaration).
+  test("static function read by a port declaration is emitted in the package") {
+    class PortInitStatic extends EDDesign:
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      val o                                               = UInt(8) <> OUT init twice(d"8'3")
+      o <> d"8'0"
+    end PortInitStatic
+    val top = (new PortInitStatic).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|pure function twice(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n;
+         |end function;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.PortInitStatic_pkg.all;
+         |
+         |entity PortInitStatic is
+         |port (
+         |  o : out unsigned(7 downto 0) := twice(8d"3")
+         |);
+         |end PortInitStatic;
+         |
+         |architecture PortInitStatic_arch of PortInitStatic is
+         |begin
+         |  o <= 8d"0";
+         |end PortInitStatic_arch;
+         |""".stripMargin
+    )
+  }
+  test("static function determining a port width is emitted in the package") {
+    def widthOf(n: Int <> CONST): Int <> CONSTRET = n + n
+    class SizedPort(val W: Int <> CONST = widthOf(4)) extends EDDesign:
+      val i = Bits(W) <> IN
+      val o = Bits(W) <> OUT
+      o <> i
+    end SizedPort
+    val top = (new SizedPort).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|pure function widthOf(n : integer) return integer is
+         |begin
+         |  return n + n;
+         |end function;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.SizedPort_pkg.all;
+         |
+         |entity SizedPort is
+         |generic (
+         |  W : integer := widthOf(4)
+         |);
+         |port (
+         |  i : in std_logic_vector(W - 1 downto 0);
+         |  o : out std_logic_vector(W - 1 downto 0)
+         |);
+         |end SizedPort;
+         |
+         |architecture SizedPort_arch of SizedPort is
+         |begin
+         |  o <= i;
+         |end SizedPort_arch;
+         |""".stripMargin
+    )
+  }
+  // A method used by more than one design (or from global scope) is emitted ONCE in the shared
+  // globals area (a VHDL package) instead of inlined in each design. The method is declared in a
+  // GLOBAL position at the top of the test (StageSpec has no ambient DFC), above the designs.
+  test("static function shared by two designs is emitted once in the package") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    class GA extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'3")
+    class GB extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'4")
+    class GTop extends EDDesign:
+      val o1 = UInt(8) <> OUT
+      val o2 = UInt(8) <> OUT
+      val a  = new GA
+      val b  = new GB
+      o1 <> a.o
+      o2 <> b.o
+    end GTop
+    val top = (new GTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|pure function globalTwice(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n;
+         |end function;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GA is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end GA;
+         |
+         |architecture GA_arch of GA is
+         |begin
+         |  o <= globalTwice(8d"3");
+         |end GA_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GB is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end GB;
+         |
+         |architecture GB_arch of GB is
+         |begin
+         |  o <= globalTwice(8d"4");
+         |end GB_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GTop is
+         |port (
+         |  o1 : out unsigned(7 downto 0);
+         |  o2 : out unsigned(7 downto 0)
+         |);
+         |end GTop;
+         |
+         |architecture GTop_arch of GTop is
+         |  signal a_o : unsigned(7 downto 0);
+         |  signal b_o : unsigned(7 downto 0);
+         |begin
+         |  a : entity work.GA(GA_arch) port map (
+         |    o => a_o
+         |  );
+         |  b : entity work.GB(GB_arch) port map (
+         |    o => b_o
+         |  );
+         |  o1 <= a_o;
+         |  o2 <= b_o;
+         |end GTop_arch;
+         |""".stripMargin
+    )
+  }
+  test("ED method shared by two designs is emitted once in the package") {
+    def globalAdd(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET = l + r
+    class GA extends EDDesign:
+      val x = UInt(8) <> IN
+      val y = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      o <> globalAdd(x, y)
+    class GB extends EDDesign:
+      val x = UInt(8) <> IN
+      val y = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      o <> globalAdd(x, y)
+    class GTop extends EDDesign:
+      val o1 = UInt(8) <> OUT
+      val o2 = UInt(8) <> OUT
+      val a  = new GA:
+        this.x <> d"8'1"; this.y <> d"8'2"
+      val b = new GB:
+        this.x <> d"8'3"; this.y <> d"8'4"
+      o1 <> a.o
+      o2 <> b.o
+    end GTop
+    val top = (new GTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|function globalAdd(l : unsigned(7 downto 0); r : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return l + r;
+         |end function;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GA is
+         |port (
+         |  x : in unsigned(7 downto 0);
+         |  y : in unsigned(7 downto 0);
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end GA;
+         |
+         |architecture GA_arch of GA is
+         |begin
+         |  o <= globalAdd(x, y);
+         |end GA_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GB is
+         |port (
+         |  x : in unsigned(7 downto 0);
+         |  y : in unsigned(7 downto 0);
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end GB;
+         |
+         |architecture GB_arch of GB is
+         |begin
+         |  o <= globalAdd(x, y);
+         |end GB_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.GTop_pkg.all;
+         |
+         |entity GTop is
+         |port (
+         |  o1 : out unsigned(7 downto 0);
+         |  o2 : out unsigned(7 downto 0)
+         |);
+         |end GTop;
+         |
+         |architecture GTop_arch of GTop is
+         |  signal a_o : unsigned(7 downto 0);
+         |  signal b_o : unsigned(7 downto 0);
+         |begin
+         |  a : entity work.GA(GA_arch) port map (
+         |    o => a_o,
+         |    x => 8d"1",
+         |    y => 8d"2"
+         |  );
+         |  b : entity work.GB(GB_arch) port map (
+         |    o => b_o,
+         |    x => 8d"3",
+         |    y => 8d"4"
+         |  );
+         |  o1 <= a_o;
+         |  o2 <= b_o;
+         |end GTop_arch;
+         |""".stripMargin
+    )
+  }
+  test("static function reading a global constant stays package-eligible") {
+    val gK: UInt[8] <> CONST                           = d"8'5"
+    def addK(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + gK
+    val gW: UInt[8] <> CONST                           = addK(d"8'3")
+    class ReadsGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new ReadsGlobal).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|constant gK : unsigned(7 downto 0) := 8d"5";
+         |pure function addK(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + gK;
+         |end function;
+         |constant gW : unsigned(7 downto 0) := addK(8d"3");
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.ReadsGlobal_pkg.all;
+         |
+         |entity ReadsGlobal is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end ReadsGlobal;
+         |
+         |architecture ReadsGlobal_arch of ReadsGlobal is
+         |begin
+         |  o <= gW;
+         |end ReadsGlobal_arch;
+         |""".stripMargin
+    )
+  }
+  test("static function nested inside a global-scope call is emitted too") {
+    def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    def gQuad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET  = gTwice(gTwice(n))
+    val gC: UInt[8] <> CONST                             = gQuad(d"8'3")
+    class NestedGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gC
+    val top = (new NestedGlobal).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|pure function gTwice(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n;
+         |end function;
+         |pure function gQuad(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return gTwice(gTwice(n));
+         |end function;
+         |constant gC : unsigned(7 downto 0) := gQuad(8d"3");
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.NestedGlobal_pkg.all;
+         |
+         |entity NestedGlobal is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end NestedGlobal;
+         |
+         |architecture NestedGlobal_arch of NestedGlobal is
+         |begin
+         |  o <= gC;
+         |end NestedGlobal_arch;
+         |""".stripMargin
+    )
+  }
+  test("global constants and static functions interleave by dependency") {
+    val gA: UInt[8] <> CONST                              = d"8'1"
+    def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET  = n + n
+    val gB: UInt[8] <> CONST                              = gTwice(d"8'2")
+    def gTriple(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n + n
+    val gC: UInt[8] <> CONST                              = gTriple(d"8'3")
+    class UsesAll extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gA + gB + gC
+    val top = (new UsesAll).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|constant gA : unsigned(7 downto 0) := 8d"1";
+         |pure function gTwice(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n;
+         |end function;
+         |constant gB : unsigned(7 downto 0) := gTwice(8d"2");
+         |pure function gTriple(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n + n;
+         |end function;
+         |constant gC : unsigned(7 downto 0) := gTriple(8d"3");
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.UsesAll_pkg.all;
+         |
+         |entity UsesAll is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end UsesAll;
+         |
+         |architecture UsesAll_arch of UsesAll is
+         |begin
+         |  o <= gA + gB + gC;
+         |end UsesAll_arch;
+         |""".stripMargin
+    )
+  }
+  test("static function called at global scope") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    val gW: UInt[8] <> CONST                                  = globalTwice(d"8'5")
+    class UsesGW extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new UsesGW).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|pure function globalTwice(n : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return n + n;
+         |end function;
+         |constant gW : unsigned(7 downto 0) := globalTwice(8d"5");
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.UsesGW_pkg.all;
+         |
+         |entity UsesGW is
+         |port (
+         |  o : out unsigned(7 downto 0)
+         |);
+         |end UsesGW;
+         |
+         |architecture UsesGW_arch of UsesGW is
+         |begin
+         |  o <= gW;
+         |end UsesGW_arch;
+         |""".stripMargin
     )
   }
 end PrintVHDLCodeSpec

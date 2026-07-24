@@ -28,6 +28,27 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("endless wait is untouched") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      val i = Bit <> IN
+      process:
+        x.din := i
+        wait
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  val i = Bit <> IN
+         |  process:
+         |    x.din := i
+         |    wait
+         |end Foo""".stripMargin
+    )
+  }
+
   test("ED domain is untouched") {
     class Foo extends EDDesign:
       val x = Bit <> OUT
@@ -74,8 +95,8 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val i = Bit <> IN
          |  process:
          |    x.din := 1
-         |    x.din := (!i.reg(1, init = 1)) && i
-         |    x.din := i.reg(1, init = 0) && (!i)
+         |    x.din := ((!i.reg(1, init = 1)) && i).bool.bit
+         |    x.din := (i.reg(1, init = 0) && (!i)).bool.bit
          |    while (!i)
          |    end while
          |    val MyWait = while ((!i.reg(1, init = 0)) || i)
@@ -316,4 +337,60 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("nested RT for loop, while and wait") {
+    class Foo extends RTDesign:
+      val o = Int <> OUT.REG
+      process:
+        for (i <- 0 until 10)
+          while (true)
+            o.din := 0
+            wait(20.ms)
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val o = Int <> OUT.REG
+         |  process:
+         |    val i = Int <> VAR.REG
+         |    i.din := 0
+         |    while (i < 10)
+         |      while (true)
+         |        o.din := 0
+         |        val waitCnt = UInt(20) <> VAR.REG
+         |        waitCnt.din := d"20'0"
+         |        while (waitCnt != d"20'999999")
+         |          waitCnt.din := waitCnt + d"20'1"
+         |        end while
+         |      end while
+         |      i.din := i + 1
+         |    end while
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("empty for-loop body") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG init 0
+      process:
+        1.cy.wait
+        for (i <- 0 until 3) {}
+        x.din := !x
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG init 0
+         |  process:
+         |    1.cy.wait
+         |    val i = Int <> VAR.REG
+         |    i.din := 0
+         |    while (i < 3)
+         |      i.din := i + 1
+         |    end while
+         |    x.din := !x
+         |end Foo""".stripMargin
+    )
+  }
 end SimplifyRTOpsSpec

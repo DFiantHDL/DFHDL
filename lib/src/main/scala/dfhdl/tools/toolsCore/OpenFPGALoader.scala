@@ -30,8 +30,8 @@ object OpenFPGALoader extends Programmer:
   )(using co: CompilerOptions, po: ProgrammerOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
     val contraintCmdOption = cd.stagedDB.getSet.designDB.top.dclMeta.annotations.collectFirst {
-      case annotation: constraints.ToolOptions => annotation.options.get(toolName)
-    }.flatten
+      case annotation: constraints.PlatformID => "-b " + annotation.platformName
+    }
     val cmd = contraintCmdOption.getOrElse {
       val partName = cd.stagedDB.getSet.designDB.top.dclMeta.annotations.collectFirst {
         case annotation: constraints.DeviceID => annotation.deviceName

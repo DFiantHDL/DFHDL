@@ -9,7 +9,7 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'docs_overrides/**'
-      - 'mkdocs.yml'  
+      - 'properdocs.yml'
       - '.github/workflows/dfdocs.yml'
   pull_request:
     branches: 
@@ -19,7 +19,7 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'docs_overrides/**'
-      - 'mkdocs.yml'
+      - 'properdocs.yml'
       - '.github/workflows/dfdocs.yml'
 jobs:
   build:
@@ -46,6 +46,27 @@ jobs:
           iverilog -V
           ghdl version
           nvc --version
+      # DFTools runs each EDA tool inside a rootless Apptainer image, whose engine needs an
+      # unprivileged user namespace. Ubuntu 24.04 blocks that via an AppArmor sysctl by default;
+      # clear it so Apptainer's rootless engine can start.
+      - name: Enable unprivileged user namespaces (Apptainer rootless engine)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      # Cache the DFTools Apptainer images (SIFs) across runs. scalapptainer stores them under
+      # ~/.scalapptainer/images by content-addressed name, and both DFHDL and scalapptainer skip the
+      # pull entirely when the SIF is already present, so restoring this folder removes the per-run
+      # image downloads. Keyed on dftoolsVersion (build.sbt), which pins the exact image set; the
+      # prefix restore-key lets a version bump reuse every unchanged (content-addressed) image.
+      - name: Resolve DFTools version
+        id: dftools
+        run: |
+          echo "version=$(sed -nE 's/^[[:space:]]*val dftoolsVersion[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' build.sbt)" >> "$GITHUB_OUTPUT"
+      - name: Cache DFTools images
+        uses: actions/cache@v4
+        with:
+          path: ~/.scalapptainer/images
+          key: dftools-images-${{ runner.os }}-${{ steps.dftools.outputs.version }}
+          restore-keys: |
+            dftools-images-${{ runner.os }}-
       - name: Run tests
         run: sbt test
       - name: Run app tests

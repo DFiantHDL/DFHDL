@@ -10,7 +10,28 @@ case object UniqueDesigns extends GlobalStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
 
-  private def groupDesigns(db: DB)(using MemberGetSet): List[List[DFDesignBlock]] =
+  // HDL methods (ED methods and static functions) are locally scoped (printed inside their
+  // owning design), so their name-uniqueness scope is the owning design rather than the whole
+  // design tree — same-named methods in different designs must not trigger collision
+  // renaming. Design-block ownership in a flat DB is structural (not in the refTable), so the
+  // owner is derived from the design member lists.
+  private def scopedDclNameKey(
+      design: DFDesignBlock,
+      ownerByDesign: Map[DFDesignBlock, DFDesignBlock]
+  ): String =
+    ownerByDesign.get(design) match
+      case Some(owner) if design.isHDLMethod =>
+        s"${owner.dclName.toLowerCase()}::${design.dclName.toLowerCase()}"
+      case _ => design.dclName.toLowerCase()
+
+  private def designOwnerMap(db: DB): Map[DFDesignBlock, DFDesignBlock] =
+    db.designMemberList.iterator.flatMap { (owner, members) =>
+      members.collect { case child: DFDesignBlock => child -> owner }
+    }.toMap
+
+  private def groupDesigns(db: DB, ownerByDesign: Map[DFDesignBlock, DFDesignBlock])(using
+      MemberGetSet
+  ): List[List[DFDesignBlock]] =
     val eqDesign: ((DFDesignBlock, List[DFMember]), (DFDesignBlock, List[DFMember])) => Boolean =
       case ((thisBlock, theseMembers), (thatBlock, thoseMembers))
           if thisBlock.dclMeta == thatBlock.dclMeta =>
@@ -20,7 +41,8 @@ case object UniqueDesigns extends GlobalStage:
     // the eventual file names and we want these to be different across all operating systems.
     // the actual name case is preserved for design/entity/module generation.
     db.designMemberList.view
-      .groupByCompare(eqDesign, _._1.dclName.toLowerCase().hashCode()).map(_.unzip._1).toList
+      .groupByCompare(eqDesign, d => scopedDclNameKey(d._1, ownerByDesign).hashCode())
+      .map(_.unzip._1).toList
 
   def transformGlobal(designDB: DB)(using co: CompilerOptions, refGen: RefGen): DB =
     // Cross-design structural comparison resolves refs from BOTH designs, so it
@@ -28,9 +50,11 @@ case object UniqueDesigns extends GlobalStage:
     // this — its design blocks are the SAME objects as the sub-DB tops, so the
     // grouping/decisions map straight back onto the hierarchy.
     val flatDB = designDB.newToOld
-    val sameBlockLists: List[List[DFDesignBlock]] = flatDB.atGetSet(groupDesigns(flatDB))
+    val ownerByDesign = designOwnerMap(flatDB)
+    val sameBlockLists: List[List[DFDesignBlock]] =
+      flatDB.atGetSet(groupDesigns(flatDB, ownerByDesign))
     val uniqueTypeMap: Map[String, List[List[DFDesignBlock]]] =
-      sameBlockLists.groupBy(g => g.head.dclName.toLowerCase())
+      sameBlockLists.groupBy(g => scopedDclNameKey(g.head, ownerByDesign))
 
     val topTop = designDB.top
     // canonical design -> its unique (possibly renamed) declaration name
@@ -80,6 +104,7 @@ case object UniqueDesigns extends GlobalStage:
           if (dupKeys.contains(key.asRef)) None
           else
             val instReplace = collection.mutable.Map.empty[DFDesignInst, DFDesignInst]
+            val callReplace = collection.mutable.Map.empty[DFVal.Func, DFVal.Func]
             val newMembers = sub.members.map {
               // rename the sub-DB's top if it is a renamed canonical design
               case d: DFDesignBlock if canonicalReplace.contains(d) => canonicalReplace(d)
@@ -91,16 +116,24 @@ case object UniqueDesigns extends GlobalStage:
                 )
                 instReplace(inst) = newInst
                 newInst
+              // retarget a method call that targeted a duplicate onto the canonical key
+              case DFVal.Func.Call(call, key) if dupKeyToCanonicalKey.contains(key.asRef) =>
+                val newCall = call.copy(op =
+                  DFVal.Func.Op.Def(StaticRef(dupKeyToCanonicalKey(key.asRef)))
+                )
+                callReplace(call) = newCall
+                newCall
               case m => m
             }
             // keep refTable values consistent: point any ref that targeted a
-            // retargeted inst at its replacement, a renamed canonical at its renamed
+            // retargeted inst/call at its replacement, a renamed canonical at its renamed
             // block (so members resolve their owner to the renamed design), and any
             // remaining duplicate design block at its canonical (renamed if so).
             // `designRef` itself no longer lives in refTable.
             val newRefTable =
               sub.refTable.view.mapValues {
                 case inst: DFDesignInst if instReplace.contains(inst) => instReplace(inst)
+                case func: DFVal.Func if callReplace.contains(func)   => callReplace(func)
                 case d: DFDesignBlock if canonicalReplace.contains(d) => canonicalReplace(d)
                 case d: DFDesignBlock if dupToCanonical.contains(d)   =>
                   val canon = dupToCanonical(d)

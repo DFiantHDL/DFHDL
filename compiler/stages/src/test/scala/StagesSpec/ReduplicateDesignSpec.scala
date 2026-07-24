@@ -39,6 +39,7 @@ class ReduplicateDesignSpec extends StageSpec:
       dup_b.y <> out_b
       dup_c.x <> in_c
       dup_c.y <> out_c
+    end Top
 
     val id = (new Top).reduplicateNamedDup
     assertCodeString(
@@ -98,12 +99,13 @@ class ReduplicateDesignSpec extends StageSpec:
       val a     = Inner()
       val dup_b = Inner()
       val c     = Inner()
-      a.x <> in_a
-      a.y <> out_a
+      a.x     <> in_a
+      a.y     <> out_a
       dup_b.x <> in_b
       dup_b.y <> out_b
-      c.x <> in_c
-      c.y <> out_c
+      c.x     <> in_c
+      c.y     <> out_c
+    end Top
 
     val id = (new Top).reduplicateNamedDup
     assertCodeString(

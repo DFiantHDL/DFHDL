@@ -9,7 +9,7 @@ import dfhdl.options.CompilerOptions
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
+case class SanityCheck(skipAnonRefCheck: Boolean) extends HierarchyStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
   def refCheck()(using MemberGetSet): Unit =
@@ -121,7 +121,10 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
               dfVal match
                 case ch: DFConditional.Header if ch.dfType == DFUnit =>
                 case Ident(_)                                        =>
-                case _                                               =>
+                // a procedural (Unit-return) method call is a statement: referenced by
+                // nothing by design
+                case DFVal.Func.Call(call, _) if call.dfType == DFUnit =>
+                case _                                                 =>
                   reportViolation(
                     s"""|An anonymous value has no references.
                         |Referenced value: $dfVal""".stripMargin
@@ -325,23 +328,108 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     require(!hasViolations, "Failed member order check!")
   end orderCheck
 
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    // Build the hierarchical DB once (oldToNew is O(members) and SanityCheck
-    // runs after every stage). Run the per-design structural checks under each
-    // sub-DB's own getSet, then the design checks (per-sub-DB `subDBCheck` plus
-    // the cross-design root checks) once on the root via `check`.
-    val hierDB = designDB.oldToNew
-    hierDB.subDBs.view.values.foreach { subDB =>
-      subDB.atGetSet {
-        refCheck()
-        memberExistenceCheck()
-        ownershipCheck(subDB.top, subDB.membersNoGlobals.drop(1))
-        orderCheck()
+  // HDL method content checks: an ED method (see devdocs/methods.md) or a static function
+  // (see devdocs/methods.md). Both are design blocks with `instMode = Def`, and only the
+  // domain separates them. An ED method is a FUNCTION when it returns a value (has a return
+  // output port) and a PROCEDURAL method (Verilog task / VHDL procedure) when it returns Unit.
+  // Content rules:
+  //   * ED functions: no waits, no non-blocking assignments
+  //   * ED procedural methods: waits allowed; non-blocking assignments still rejected
+  //     (writes to outer state are not yet supported, see devdocs/methods.md)
+  //   * static functions: no waits (time does not advance in the static domain), no non-blocking
+  //     assignments, and no calls to ED methods (a static function is callable from any domain,
+  //     so it may not depend on one)
+  //   * all: no step transitions, no processes/steps/forks/domains, no design instances other
+  //     than calls to other methods
+  //
+  // PRIMARY enforcement is the compile-time body content check in the plugin's
+  // `MethodsPhase.checkHDLMethodContent`, which rejects these constructs on the offending
+  // expression (several have no type-level twin: a `process` carries no scope guard, since a
+  // positive one would leak, see devdocs/scoping.md §3, and an ED-method call site summons
+  // `DomainType.ED` directly, which reaches past a static body's `Static` given to the enclosing
+  // design's). This IR-level check is deliberately NOT part of the elaboration `DB.check` path;
+  // it runs here (debug mode) as the backstop for scope evidence laundered through helper
+  // `def`s, whose bodies the plugin's syntactic check cannot see.
+  private def hdlMethodCheck()(using MemberGetSet): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    def memberError(member: DFMember, kindStr: String, msg: String): Unit =
+      errors += s"""|DFiant HDL $kindStr error!
+                    |Position:  ${member.meta.position}
+                    |Hierarchy: ${member.getOwnerDesign.getFullName}
+                    |Message:   $msg""".stripMargin
+    val designDB = getSet.designDB
+    val methods =
+      designDB.members.collect { case design: DFDesignBlock if design.isHDLMethod => design }
+    methods.foreach { design =>
+      val isStatic = design.isStaticFunction
+      val designMembers = designDB.getMembersOf(design, MemberView.Flattened)
+      // an ED function has a RETURN output port (an output driven by a connection); an ED
+      // procedural method does not. `<> OUT` argument ports are also outputs but are driven by
+      // assignment, so the return port (not any output) is what distinguishes the two. A static
+      // function always returns a value (a `Unit` return is rejected by the plugin).
+      val isProcedural = !isStatic && design.methodReturnPort.isEmpty
+      val kindStr = if (isStatic) "static function" else "ED method"
+      // The rules below that bind BOTH ED kinds name the kind ("an ED method"); only those that
+      // bind functions alone say "an ED function".
+      val kindNoun = if (isStatic) "a static function" else "an ED method"
+      def err(member: DFMember, msg: String): Unit = memberError(member, kindStr, msg)
+      designMembers.foreach {
+        case wait: Wait if !isProcedural =>
+          err(
+            wait,
+            if (isStatic)
+              "Wait statements are not allowed inside a static function (time does not advance in the static domain)."
+            else "Wait statements are not allowed inside an ED function."
+          )
+        // a `:==` to the method's own `<> OUT.NB` output argument is the intended non-blocking
+        // drive of a live output; every other non-blocking assignment is rejected
+        case net @ DFNet.NBAssignment(toVal, _)
+            if !(toVal.isNonBlockingArg ||
+              toVal.departialDcl.exists(_._1.isNonBlockingArg)) =>
+          err(
+            net,
+            if (isStatic)
+              "Non-blocking assignments `:==` are not allowed inside a static function."
+            else if (isProcedural)
+              "Non-blocking assignments `:==` are not allowed inside an ED method, except to an `<> OUT.NB` output argument."
+            else "Non-blocking assignments `:==` are not allowed inside an ED function."
+          )
+        case goto: Goto =>
+          err(goto, s"Step transitions are not allowed inside $kindNoun.")
+        case pb: ProcessBlock =>
+          err(pb, s"Process blocks are not allowed inside $kindNoun.")
+        case owner @ (_: StepBlock | _: ForkBlock | _: DomainBlock) =>
+          err(owner, s"This construct is not allowed inside $kindNoun.")
+        // a static function may call other static functions, but NOT ED methods: it is callable
+        // from any domain, so it may not depend on being in one
+        case DFVal.Func.Call(call, key) if isStatic && !key.getDesignBlock.isStaticFunction =>
+          err(
+            call,
+            "ED method calls are not allowed inside a static function. A static function is callable from any domain, so it may only call other static functions."
+          )
+        case inst: DFDesignInst =>
+          err(
+            inst,
+            if (isStatic)
+              "Design instances are not allowed inside a static function. Only calls to other static functions are."
+            else
+              "Design instances are not allowed inside an ED method. Only calls to other ED methods and to static functions are."
+          )
+        case _ => // ok
       }
     }
-    hierDB.check
-    designDB
-  end transform
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end hdlMethodCheck
+
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    refCheck()
+    memberExistenceCheck()
+    ownershipCheck(subDB.top, subDB.membersNoGlobals.drop(1))
+    // orderCheck()
+    hdlMethodCheck()
+    subDB
+  end transformSubDB
 end SanityCheck
 
 extension [T: HasDB](t: T)

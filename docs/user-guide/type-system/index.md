@@ -127,8 +127,8 @@ Each DFHDL value is simply a Scala object that has two critical fields:
     * [Port: `IN`/`OUT[.REG]`/`INOUT`][Dcl]
     * [Constant: `CONST`][DFConst]
     * [Struct Field: `VAL`][DFStruct]
-    * [Method Param: `VAL`][DesignDef]
-    * [Method Return: `DFRET`/`RTRET`/`EDRET`][DesignDef]
+    * [Method Param: `VAL`][Methods]
+    * [Method Return: `DFRET`/`RTRET`/`EDRET`][Methods]
 
     Although this mechanism can be quite complex under the hood, the explicit modifiers available to the user are straightforward.
     
@@ -525,16 +525,16 @@ Every DFHDL value has a type of the form `T <> M`, where `T` is the DFHDL type (
 
 Modifiers fall into two groups:
 
-**Declaration modifiers** — used in `val` declarations with the `<>` operator:
+**Declaration modifiers**: used in `val` declarations with the `<>` operator:
 
-- `VAR`, `VAR.REG`, `VAR.SHARED` — variables
-- `IN`, `OUT`, `OUT.REG`, `INOUT` — ports
+- `VAR`, `VAR.REG`, `VAR.SHARED`: variables
+- `IN`, `OUT`, `OUT.REG`, `INOUT`: ports
 
-**Type signature modifiers** — used in type annotations for parameters, struct fields, and method signatures:
+**Type signature modifiers**: used in type annotations for parameters, struct fields, and method signatures:
 
-- `CONST` — compile-time or elaboration-time constant parameter
-- `VAL` — read-only value (struct fields, method parameters)
-- `DFRET` / `RTRET` / `EDRET` — method return types (DF, RT, or ED domain)
+- `CONST`: compile-time or elaboration-time constant parameter
+- `VAL`: read-only value (struct fields, method parameters)
+- `DFRET` / `RTRET` / `EDRET`: method return types (DF, RT, or ED domain)
 
 ### Design Parameters
 
@@ -557,19 +557,19 @@ class Counter(val width: Int <> CONST = 8) extends RTDesign:
   ```scala
   case class Point(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends Struct
   ```
-- **Method/design-def parameters:**
+- **Method parameters:**
   ```scala
   def increment(x: UInt[8] <> VAL): UInt[8] <> DFRET = x + 1
   ```
 
-`VAL` values cannot be assigned or connected — they are inputs to the computation.
+`VAL` values cannot be assigned or connected; they are inputs to the computation.
 
-### Design Defs and `DFRET`
+### Methods and `DFRET`
 
-Design defs are functional helpers. Arguments use `<> VAL`, return types use `<> DFRET` (or `RTRET`/`EDRET` for domain-specific defs):
+Methods are functional helpers. Arguments use `<> VAL`, return types use `<> DFRET` (or `RTRET`/`EDRET` for domain-specific methods):
 
 ```scala
-// DF domain design def
+// DF domain method
 def double(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
 
 // Opaque type extension method
@@ -581,7 +581,7 @@ extension (c: Counter <> VAL)
 
 DFHDL types carry their size (width or length) as a Scala type parameter. There are three levels of size specificity:
 
-**Bounded** — the size is a literal singleton known at compile time. All type checks happen statically:
+**Bounded**: the size is a literal singleton known at compile time. All type checks happen statically:
 
 ```scala
 val a: UInt[8] <> CONST = d"255"
@@ -589,7 +589,7 @@ val b: Bits[4] <> CONST = h"A"
 val v: Bits[8] X 4 <> CONST = all(all(0))
 ```
 
-**Parameterized bounded** — the size is the singleton type of a named parameter. The compiler can track the relationship, even though the concrete value isn't known until instantiation:
+**Parameterized bounded**: the size is the singleton type of a named parameter. The compiler can track the relationship, even though the concrete value isn't known until instantiation:
 
 ```scala
 class Foo(val w: Int <> CONST) extends RTDesign:
@@ -598,7 +598,7 @@ class Foo(val w: Int <> CONST) extends RTDesign:
   val v: UInt[4] X w.type <> CONST = all(0)  // vector length tied to w
 ```
 
-**Unbounded** — the size is bare `Int`, with no compile-time size information. Used when the type is too complex to express at the Scala type level (e.g., results of operations on parameterized types). The DFHDL compiler still has the required size information available during elaboration, where it is checked:
+**Unbounded**: the size is bare `Int`, with no compile-time size information. Used when the type is too complex to express at the Scala type level (e.g., results of operations on parameterized types). The DFHDL compiler still has the required size information available during elaboration, where it is checked:
 
 ```scala
 val cu: UInt[Int] <> VAL = 1
@@ -1072,7 +1072,7 @@ enum MyEnum extends Encoded:
 ```
 
 #### Type Signatures
-`MyEnum <> VAL`, `MyEnum <> CONST`. The enum name itself is the type — no size parameter.
+`MyEnum <> VAL`, `MyEnum <> CONST`. The enum name itself is the type, with no size parameter.
 
 #### Encoding Types
 
@@ -1617,8 +1617,8 @@ val u = e.uint  // Enum -> UInt (encoding-dependent width)
 
 Applies to: `Bits`, `UInt`, `SInt`
 
-- **Range slice**: `value(hi, lo)` extracts bits `hi` down to `lo`. A slice is a bit-level operation and produces an unsigned result: `Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `UInt`. This matches Verilog's "slices are unsigned" convention. To recover signed bit-semantics on an `SInt` slice, chain `.bits.sint` to re-interpret the slice as signed (same width). Do **not** use `.signed` for this — `.signed` is a numeric conversion that adds a zero-extension sign bit, widening by 1.
-- **Top/bottom slice**: `value.msbits(W)` returns the top `W` bits and `value.lsbits(W)` returns the bottom `W` bits — same unsigned-result rule as range slicing (`Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `UInt`). Equivalent to `value(N-1, N-W)` and `value(W-1, 0)` respectively, but without needing to spell out the indices.
+- **Range slice**: `value(hi, lo)` extracts bits `hi` down to `lo`. A slice is a bit-level operation and produces an unsigned result: `Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `UInt`. This matches Verilog's "slices are unsigned" convention. To recover signed bit-semantics on an `SInt` slice, chain `.bits.sint` to re-interpret the slice as signed (same width). Do **not** use `.signed` for this: `.signed` is a numeric conversion that adds a zero-extension sign bit, widening by 1.
+- **Top/bottom slice**: `value.msbits(W)` returns the top `W` bits and `value.lsbits(W)` returns the bottom `W` bits, with the same unsigned-result rule as range slicing (`Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `UInt`). Equivalent to `value(N-1, N-W)` and `value(W-1, 0)` respectively, but without needing to spell out the indices.
 - **Single-bit access**: `value(idx)` returns the bit at position `idx` (as `Bit`). The index can be a static integer or a dynamic `UInt` variable.
 
 ```scala
@@ -1626,13 +1626,13 @@ val b8 = Bits(8) <> VAR
 val u8 = UInt(8) <> VAR
 val s8 = SInt(8) <> VAR
 
-// Range slicing — always produces an unsigned result
+// Range slicing: always produces an unsigned result
 val b4 = b8(7, 4)              // Bits[4]: upper nibble
 val u4 = u8(3, 0)              // UInt[4]: lower nibble
 val u4FromS = s8(3, 0)         // UInt[4]: SInt slice is unsigned
 val s4 = s8(7, 4).bits.sint    // SInt[4]: sign-preserving truncation via re-interpret
 
-// Top/bottom slicing — convenience for `(N-1, N-W)` / `(W-1, 0)`
+// Top/bottom slicing: convenience for `(N-1, N-W)` / `(W-1, 0)`
 val bTop4 = b8.msbits(4)       // Bits[4]: top 4 bits, same as b8(7, 4)
 val uBot4 = u8.lsbits(4)       // UInt[4]: bottom 4 bits, same as u8(3, 0)
 val sTop4 = s8.msbits(4)       // UInt[4]: top 4 bits of SInt, still unsigned
@@ -1836,7 +1836,7 @@ val parity   = b8.^    // Bit: 1 when odd number of bits are 1
 
 Condition: `Bit`, `Boolean`. Arguments: any DFHDL type.
 
-The `.sel` operation is a conditional selection — equivalent to Verilog's ternary operator `cond ? onTrue : onFalse`. It selects between two values based on a `Bit` or `Boolean` condition:
+The `.sel` operation is a conditional selection, equivalent to Verilog's ternary operator `cond ? onTrue : onFalse`. It selects between two values based on a `Bit` or `Boolean` condition:
 
 /// html | div.operations
 | Operation | Description | Returns |
@@ -1844,7 +1844,7 @@ The `.sel` operation is a conditional selection — equivalent to Verilog's tern
 | `cond.sel(onTrue, onFalse)` | Select `onTrue` when `cond` is true/1, `onFalse` otherwise | Same type as the arguments |
 ///
 
-The `onTrue` and `onFalse` arguments can be any DFHDL type — `UInt`, `SInt`, `Bits`, `Enum`, `Struct`, etc. They can also be Scala literals constant parameters. The result type is determined by whichever argument is a DFHDL value (the other is auto-converted via type conversion):
+The `onTrue` and `onFalse` arguments can be any DFHDL type: `UInt`, `SInt`, `Bits`, `Enum`, `Struct`, etc. They can also be Scala literals constant parameters. The result type is determined by whichever argument is a DFHDL value (the other is auto-converted via type conversion):
 
 ```scala
 val flag = Boolean <> VAR
@@ -1867,7 +1867,7 @@ val e = flag.sel(MyEnum.A, MyEnum.B)  // MyEnum
 
 /// admonition | Prefer `if`/`match` for complex conditions
     type: tip
-For simple one-level selections, `.sel` is concise and maps directly to Verilog's ternary. However, nesting or chaining `.sel` operations (e.g., `a.sel(b.sel(x, y), z)`) quickly becomes unreadable. For complex conditional logic, use `if`/`else` or `match` expressions instead — they are clearer and produce equivalent hardware.
+For simple one-level selections, `.sel` is concise and maps directly to Verilog's ternary. However, nesting or chaining `.sel` operations (e.g., `a.sel(b.sel(x, y), z)`) quickly becomes unreadable. For complex conditional logic, use `if`/`else` or `match` expressions instead; they are clearer and produce equivalent hardware.
 ///
 
 /// details | Transitioning from Verilog

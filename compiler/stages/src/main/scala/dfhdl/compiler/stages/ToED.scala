@@ -25,9 +25,19 @@ import scala.collection.mutable
   */
 case object ToED extends HierarchyStage:
   def dependencies: List[Stage] =
-    List(DropUnreferencedAnons, ToRT, DropRTProcess, NameRegAliases, ExplicitNamedVars,
-      ExplicitCondExprAssign, AddClkRst, SimpleOrderMembers)
+    List(
+      DropUnreferencedAnons, ToRT, DropRTProcess, NameRegAliases, ExplicitNamedVars,
+      ExplicitCondExprAssign, SplitInitialBlocks, DropInitialBlocks, AddClkRst,
+      SimpleOrderMembers
+    )
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
+  // Only a DYNAMIC domain lowers to ED. The test is POSITIVE on purpose: its former `!= ED`
+  // form also matched the STATIC domain, and a static function's def design must keep it. Static
+  // is not a timing model to lower, and the printers key on it (VHDL `pure function`, and formals
+  // taken from design parameters rather than from input ports, which it has none of).
+  private def lowersToED(domainType: DomainType): Boolean = domainType match
+    case DomainType.DF | DomainType.RT     => true
+    case DomainType.ED | DomainType.Static => false
   // ToED is per-design: every domain owner it transforms, and the clk/rst Dcls
   // it reads, live in the current sub-DB (the `subDB` helper).
   def transformSubDB(rootDB: DB)(using
@@ -90,15 +100,28 @@ case object ToED extends HierarchyStage:
               timingOwner.meta.annotations.collectFirst {
                 case c: constraints.Timing.Clock => c
               }
+            // The reset is resolved through the `@timing.related` chain honoring `includeReset`:
+            // a related link that excludes the reset yields None here, so no reset branch is
+            // generated and the registers keep their init values (see the second-pass patch).
             val rstAnnotOpt: Option[constraints.Timing.Reset] =
-              timingOwner.meta.annotations.collectFirst {
-                case r: constraints.Timing.Reset => r
-              }
+              domainOwner.resolvedRstAnnot
             // Note: a purely combinational RT owner has no clk/rst annotations after relaxation;
             // we still process it (the original ToED falls into the same branch via `Config(cfg)`
             // even when `clkCfg = None && rstCfg = None`) so single-assignment promotion to
             // connections and `process(all)` wrapping still happen.
             val clkRstOpt = lookupClkRst(domainOwner)
+
+            // Initial blocks and their contents are excluded from the combinational/sequential
+            // accounting below (`domainOwnerMemberList` groups members by owner *domain*, so an
+            // initial block's inner members appear in `members` too). When the domain has a
+            // reset and a sequential process, the (post-SplitInitialBlocks, non-converted)
+            // initial blocks are planted into the reset branch with non-blocking assignments;
+            // otherwise they stay as-is and exit ToED as ED initial blocks.
+            val initialPBs = members.collect { case pb: ProcessBlock if pb.isInitial => pb }
+            val initialMemberSet: Set[DFMember] =
+              initialPBs.view.flatMap(pb => pb :: pb.members(MemberView.Flattened)).toSet
+            val nonInitialMembers =
+              if (initialPBs.isEmpty) members else members.filterNot(initialMemberSet)
 
             val assignCnt = mutable.Map.empty[DFVal.Dcl, Int]
             def anotherAssignCnt(toVal: DFVal): Unit =
@@ -111,6 +134,7 @@ case object ToED extends HierarchyStage:
               case IteratorDcl()                                      => true
               case _: DFVal.Dcl                                       => false
               case _: DFVal.DesignParam                               => false
+              case DclConst()                                         => false
               case _: DFOwnerNamed                                    => false
               case dfVal: DFVal if dfVal.isReferencedByAnyDclOrDesign => false
               case _                                                  => true
@@ -140,7 +164,7 @@ case object ToED extends HierarchyStage:
                 case _                                          => None
               }.toList
             end getProcessAllMembers
-            val combinationalMembers = getProcessAllMembers(members)
+            val combinationalMembers = getProcessAllMembers(nonInitialMembers)
             val singleAssignments = combinationalMembers.flatMap {
               case net @ DFNet.Assignment(dcl: DFVal.Dcl, from)
                   if !dcl.isReg &&
@@ -192,6 +216,13 @@ case object ToED extends HierarchyStage:
             }
             // the full list of handled REG Dcls in this domain
             val dclREGList = dclREGSet.toList
+            val hasSeqProcess =
+              clkAnnotOpt.isDefined &&
+                (dclREGList.nonEmpty ||
+                  processBlockAllMembers.nonEmpty && domainIsPureSequential)
+            // initial blocks are planted into the reset branch (see `regInitBlock`) exactly
+            // when a sequential process with a reset is generated; only then are they removed
+            val plantInitialPBs = hasSeqProcess && rstAnnotOpt.isDefined && initialPBs.nonEmpty
             val processAllDsn =
               new MetaDesign(domainOwner, Patch.Add.Config.InsideLast, domainType = ED):
                 // variables to transfer combinational information from the combinational block
@@ -268,10 +299,22 @@ case object ToED extends HierarchyStage:
 
                 import processAllDsn.dclChangeList
 
-                def regInitBlock() = dclREGList.foreach:
-                  case dcl if dcl.hasNonBubbleInit =>
-                    dcl.asVarAny :== dcl.initRefList.head.get.cloneAnonValueAndDepsHere.asValAny
-                  case _ =>
+                def regInitBlock() =
+                  dclREGList.foreach:
+                    case dcl if dcl.hasNonBubbleInit =>
+                      dcl.asVarAny :== dcl.initRefList.head.get.cloneAnonValueAndDepsHere.asValAny
+                    case _ =>
+                  // plant the initial blocks' contents (cloned, with assignments converted to
+                  // non-blocking) after the reg inits — RT initial content is const-RHS only,
+                  // so the blocking→non-blocking conversion cannot change read semantics
+                  initialPBs.foreach { pb =>
+                    val contents = pb.members(MemberView.Flattened).map {
+                      case net: DFNet => net.copy(op = DFNet.Op.NBAssignment)
+                      case m          => m
+                    }
+                    plantClonedMembers(pb, contents)
+                  }
+                end regInitBlock
                 def regSaveBlock() =
                   if (domainIsPureSequential)
                     plantMembers(
@@ -305,11 +348,6 @@ case object ToED extends HierarchyStage:
                     ifRstOption.getOrElse(DFIf.Header(dfhdl.core.DFUnit)),
                     block
                   )
-                val hasSeqProcess =
-                  clkAnnotOpt.isDefined &&
-                    (dclREGList.nonEmpty ||
-                      processBlockAllMembers.nonEmpty && domainIsPureSequential)
-
                 if (hasSeqProcess)
                   if (rstAnnotOpt.isDefined)
                     val mode = rstAnnotOpt.get.mode.get
@@ -339,11 +377,20 @@ case object ToED extends HierarchyStage:
             val movedMembersRemovalPatches = combinationalMembers.map { m =>
               m -> Patch.Remove(isMoved = true)
             }
+            // initial blocks whose contents were planted (cloned) into the reset branch
+            // are removed along with all their members
+            val initialRemovalPatches =
+              if (plantInitialPBs)
+                initialPBs.flatMap { pb =>
+                  (pb :: pb.members(MemberView.Flattened)).map(_ -> Patch.Remove())
+                }
+              else Nil
             List(
               Some(domainOwner -> Patch.Add(processAllDsn, Patch.Add.Config.InsideLast)),
               processAllDsn.dclChangePatch,
               Some(domainOwner -> Patch.Add(processSeqDsn, Patch.Add.Config.InsideLast)),
-              movedMembersRemovalPatches
+              movedMembersRemovalPatches,
+              initialRemovalPatches
             ).flatten
           // other domains
           case _ => None
@@ -352,25 +399,30 @@ case object ToED extends HierarchyStage:
     val firstPart = subDB.patch(patchList)
     locally {
       import firstPart.getSet
+      // Walk the `@timing.related` chain from a domain owner to the originating owner
+      // whose meta carries the actual resolved clk/rst annotations.
+      @tailrec def resolveTimingOwner(o: DFDomainOwner): DFDomainOwner =
+        o.meta.annotations.collectFirst {
+          case rel: constraints.Timing.Related => rel.ref.get
+        } match
+          case Some(t) => resolveTimingOwner(t)
+          case None    => o
       val patchList = firstPart.members.collect {
         case dcl: DFVal.Dcl if dcl.isReg =>
           // if the domain has no reset, then the register init is preserved for the signal
           // as a startup reset value. The annotation channel encodes "no reset" as
           // an owner that has `@timing.clock` but no `@timing.reset` (the user-explicit
-          // no-reset opt-out implemented in `getResolvedClkRst`).
+          // no-reset opt-out implemented in `getResolvedClkRst`). A `@timing.related` link
+          // with `includeReset = false` is the other "no reset" source: the clock is still
+          // resolved through the chain, but `resolvedRstAnnot` severs the reset, so the init
+          // is likewise kept.
           val ownerDomain = dcl.getOwnerDomain
-          @tailrec def resolveTimingOwner(o: DFDomainOwner): DFDomainOwner =
-            o.meta.annotations.collectFirst {
-              case rel: constraints.Timing.Related => rel.ref.get
-            } match
-              case Some(t) => resolveTimingOwner(t)
-              case None    => o
           val timingOwner = resolveTimingOwner(ownerDomain)
-          val annots = timingOwner.meta.annotations
           val hasClkAnnot =
-            annots.exists { case _: constraints.Timing.Clock => true; case _ => false }
-          val hasRstAnnot =
-            annots.exists { case _: constraints.Timing.Reset => true; case _ => false }
+            timingOwner.meta.annotations.exists {
+              case _: constraints.Timing.Clock => true; case _ => false
+            }
+          val hasRstAnnot = ownerDomain.resolvedRstAnnot.isDefined
           val updatedInitRefList =
             if (hasClkAnnot && !hasRstAnnot) dcl.initRefList else Nil
           val updatedDcl =
@@ -379,7 +431,7 @@ case object ToED extends HierarchyStage:
               modifier = dcl.modifier.copy(special = Modifier.Ordinary)
             )
           dcl -> Patch.Replace(updatedDcl, Patch.Replace.Config.FullReplacement)
-        case domainOwner: DFDomainOwner if domainOwner.domainType != DomainType.ED =>
+        case domainOwner: DFDomainOwner if lowersToED(domainOwner.domainType) =>
           // changing the owner from RT domain to ED domain. Strip all timing annotations
           // from the owner's meta — by this point the clk/rst configuration is fully baked
           // into the generated Clk_<grp>/Rst_<grp> opaque types and ports, so the
@@ -398,7 +450,30 @@ case object ToED extends HierarchyStage:
               domain.copy(domainType = DomainType.ED, meta = stripTimingAnnotations(domain.meta))
           domainOwner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
       }
-      firstPart.patch(patchList)
+      // Transfer the resolved `@timing.clock` constraint from the owner domain onto the
+      // clock input port. In RT the domain owner is the canonical carrier of the timing
+      // configuration, but once we lower to ED the owner's timing annotations are stripped
+      // (see the owner case above), so the clock rate/edge would otherwise be lost. Moving
+      // the annotation onto the port keeps it available for downstream timing-constraint
+      // generation (e.g. the SDC `create_clock` in `BuilderProjectTimingConstraints`, which
+      // reads `@timing.clock` off the top-level clock port).
+      val clkPatchList = firstPart.members.flatMap {
+        case dcl: DFVal.Dcl if dcl.isClkDcl && dcl.isPortIn =>
+          val alreadyHasClk = dcl.meta.annotations.exists {
+            case _: constraints.Timing.Clock => true; case _ => false
+          }
+          if (alreadyHasClk) None
+          else
+            resolveTimingOwner(dcl.getOwnerDomain).meta.annotations.collectFirst {
+              case c: constraints.Timing.Clock => c
+            }.map { clkAnnot =>
+              val updatedDcl =
+                dcl.setMeta(_.copy(annotations = dcl.meta.annotations :+ clkAnnot))
+              dcl -> Patch.Replace(updatedDcl, Patch.Replace.Config.FullReplacement)
+            }
+        case _ => None
+      }
+      firstPart.patch(patchList ++ clkPatchList)
     }
   end transformSubDB
 end ToED

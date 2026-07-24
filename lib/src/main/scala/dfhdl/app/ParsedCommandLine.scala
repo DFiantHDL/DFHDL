@@ -104,6 +104,16 @@ class ParsedCommandLine(
         default = Some(options.Werror.toBoolean),
         noshort = true
       )
+      val `tools-location` = choice(
+        choices = Seq("dftools", "local"),
+        default = Some(options.runLocation.toString),
+        name = "tools-location",
+        noshort = true,
+        descr =
+          "where to run the external tools from: `dftools` (the pinned DFTools image, default) " +
+            "or `local` (tools discovered on your PATH)."
+      )
+    end ToolMode
     trait LintMode extends ToolMode:
       this: ScallopConf & Mode =>
       lazy val options = lo

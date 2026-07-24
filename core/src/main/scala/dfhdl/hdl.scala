@@ -40,13 +40,17 @@ protected object hdl:
   export internals.Inlined
   type DFType = core.DFTypeAny
   lazy val Bit = core.DFBit
-  type Bit = core.DFBit
+  type Bit = core.BitNumWrapper
   type Bits[W <: IntP] = core.DFBits[W]
   val Bits = core.DFBits
   type UInt[W <: IntP] = core.DFUInt[W]
   val UInt = core.DFUInt
   type SInt[W <: IntP] = core.DFSInt[W]
   val SInt = core.DFSInt
+  type UFix[M <: IntP, F <: Int] = core.DFUFix[M, F]
+  val UFix = core.DFUFix
+  type SFix[M <: IntP, F <: Int] = core.DFSFix[M, F]
+  val SFix = core.DFSFix
   type Encoded = core.DFEncoding.Default
   val Encoded = core.DFEncoding
   export core.DFStruct.Fields as Struct
@@ -67,11 +71,14 @@ protected object hdl:
   val OUT = core.Modifier.OUT
   val INOUT = core.Modifier.INOUT
   val VAR = core.Modifier.VAR
+  type IN = core.IN
+  type OUT = core.OUT
   type VAL = core.VAL
   type CONST = core.CONST
   type DFRET = core.DFRET
   type RTRET = core.RTRET
   type EDRET = core.EDRET
+  type CONSTRET = core.CONSTRET
   val OPEN = core.DFVal.OPEN
   val NOTHING = core.DFVal.NOTHING
   export core.DFVal.CLK_FREQ
@@ -101,8 +108,11 @@ protected object hdl:
 
   val dfhdlVersion: String =
     val props = new Properties()
+    // close the stream: a leaked handle keeps `version.properties` open and, on Windows, blocks
+    // the build from re-copying it (AccessDenied during `copyResources`)
     val inputStream = getClass.getClassLoader.getResourceAsStream("version.properties")
-    props.load(inputStream)
+    try props.load(inputStream)
+    finally inputStream.close()
     props.getProperty("version")
 end hdl
 

@@ -98,11 +98,40 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
 end extension
 
 infix type <>[T <: DFType.Supported, M] = M match
-  case DFRET => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
-  case RTRET => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
-  case EDRET => (DFC, DomainType.ED) ?=> DFValOf[DFType.Of[T]]
-  case VAL   => DFValOf[DFType.Of[T]]
-  case CONST => DFConstOf[DFType.Of[T]]
+  case DFRET    => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
+  case RTRET    => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
+  case EDRET    => EDRETOf[T]
+  case CONSTRET => (DFCG, DomainType.Static, DFC.Scope.Function) ?=> DFConstOf[DFType.Of[T]]
+  case VAL      => DFValOf[DFType.Of[T]]
+  // A procedural ED method's directional arguments. The argument type stays GENERIC so ordinary
+  // actuals conform at the call site (any readable value for an input, any assignable variable
+  // for an output), and the direction is carried by a type ANNOTATION the plugin reads: `IN` is a
+  // readable value, `OUT` a copy-out assignable output, and `OUT.NB` a non-blocking (live) output.
+  case IN              => DFValOf[DFType.Of[T]] @IN
+  case OUT             => DFVarOf[DFType.Of[T]] @OUT
+  case Modifier.OUT.NB => DFVarOf[DFType.Of[T]] @Modifier.OUT.NB
+  case CONST           => DFConstOf[DFType.Of[T]]
+
+// A static function (`T <> CONSTRET` — see devdocs/methods.md) shares the ED
+// FUNCTION's scope (`Scope.Function`) and differs from it only in the domain evidence, which
+// is what discriminates the two everywhere it matters (plugin, printers, type-level guards).
+//
+// Neither context parameter is optional:
+//   - `DomainType.Static` SHADOWS the enclosing design's domain given, which would otherwise
+//     stay in scope inside the body (a def body is a lambda lexically nested in its design) and
+//     bring `.reg`, `REG` variables, and the rest back to life. It is also what makes a static
+//     function callable from ANY domain and from the global scope: `Static` is the ambient
+//     given, unlike an ED method's `DomainType.ED`.
+//   - `Scope.Function` is what the plugin's method predicate keys on, so a `CONSTRET` def
+//     gets capture discovery and phantom rigging for free.
+//
+// ED methods are modeled as HDL methods: a `Unit` return type declares a procedural
+// method (Verilog task / VHDL procedure — body+call sites under `Scope.Procedural`),
+// any other return type declares a function (body under `Scope.Function`, callable
+// anywhere in the ED domain via the ambient low-priority `Scope.Function` given).
+type EDRETOf[T <: DFType.Supported] = T match
+  case Unit => (DFC, DomainType.ED, DFC.Scope.Procedural) ?=> DFValOf[DFType.Of[T]]
+  case Any  => (DFC, DomainType.ED, DFC.Scope.Function) ?=> DFValOf[DFType.Of[T]]
 
 infix type X[T <: DFType.Supported, M] = DFVector[DFType.Of[T], Tuple1[M]]
 type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
@@ -190,16 +219,19 @@ sealed protected trait DFValLP:
     DFValConversionMacro[DFBits[W], ISCONST[P], R]('from)('dfc)
   }
   // TODO: candidate should be fixed to cause UInt[?]->SInt[Int] conversion
-  transparent inline implicit def DFXIntValConversion[
+  // covers the entire decimal family: DFUInt/DFSInt (F == 0, with an `Int` wildcard) and
+  // DFUFix/DFSFix (F != 0, with a `Double` wildcard)
+  transparent inline implicit def DFDecimalValConversion[
       S <: Boolean,
       W <: IntP,
+      F <: Int,
       N <: NativeType,
       P <: Boolean,
-      R <: CommonR | Int
+      R <: CommonR | Int | Double
   ](
       inline from: R
-  )(using dfc: DFCG): DFValTP[DFXInt[S, W, N], ISCONST[P]] = ${
-    DFValConversionMacro[DFXInt[S, W, N], ISCONST[P], R]('from)('dfc)
+  )(using dfc: DFCG): DFValTP[DFDecimal[S, W, F, N], ISCONST[P]] = ${
+    DFValConversionMacro[DFDecimal[S, W, F, N], ISCONST[P], R]('from)('dfc)
   }
   transparent inline implicit def DFOpaqueValConversion[
       TFE <: DFOpaque.Abstract,
@@ -240,7 +272,7 @@ sealed protected trait DFValLP:
   }
   transparent inline implicit def DFBitValConversion[
       P <: Boolean,
-      R <: CommonR | Int | Boolean
+      R <: CommonR | Int | Boolean | BitNumWrapper
   ](
       inline from: R
   )(using dfc: DFCG): DFValTP[DFBit, ISCONST[P]] = ${
@@ -248,7 +280,7 @@ sealed protected trait DFValLP:
   }
   transparent inline implicit def DFBoolValConversion[
       P <: Boolean,
-      R <: CommonR | Int | Boolean
+      R <: CommonR | Int | Boolean | BitNumWrapper
   ](
       inline from: R
   )(using dfc: DFCG): DFValTP[DFBool, ISCONST[P]] = ${
@@ -293,7 +325,7 @@ sealed protected trait DFValLP:
   // lower priority than other evidence because this is more generic
   export DFXInt.Val.Ops.{evOpCommutativeArithDFXInt, evOpNonCommutativeArithDFXInt}
   export DFOpaque.Val.Ops.{evOpAsDFOpaqueTFE, evOpAsDFOpaqueComp}
-  export DFBits.Val.Ops.{evLogicOpDFBits, evConcatOpDFBits}
+  export DFBits.Val.Ops.{evOpLogicDFBits, evConcatOpDFBits}
 end DFValLP
 object DFVal extends DFValLP:
   protected type FieldWithModifier[V, M <: ModifierAny] = V match
@@ -350,7 +382,14 @@ object DFVal extends DFValLP:
   ): ConstCheck[P] with {}
 
   extension [D, T <: ir.DFType, P](lhs: DFValTP[DFType[ir.DFType.Aux[T, Option[D]], ?], P])
-    protected[core] def toScalaValue(using dfc: DFC, check: ConstCheck[P]): D =
+    // `pure(true, "*")` marks a constant-data forcer: the result is a pure function of the
+    // receiver's DATA, so elaboration that depends on it can only be cached by keying on
+    // that data. The PureCheck plugin phase attributes each application to the receiver
+    // argument's dataflow roots (export forwarders carry this annotation to the user-facing
+    // call sites). NOTE: the forced value must be a PARAMETER (here, the extension
+    // receiver); a `this`-qualified forcer would escape the call-site attribution.
+    @dfhdl.hw.annotation.pure(true, "*")
+    protected[dfhdl] def toScalaValue(using dfc: DFC, check: ConstCheck[P]): D =
       import dfc.getSet
       val lhsIR = lhs.asIR
       def error(errMsg: String): Nothing =
@@ -712,6 +751,15 @@ object DFVal extends DFValLP:
         case _ if ownerIR.isTop || ownerIR.isVendorIPBlackbox => appliedVal.asIR
         case Some(dv)                                         => dv.asIR
         case None => Const.synthetic(dfTypeIR.asFE[T]).asIR
+      // The applied constant data is snapshotted here — while the applied value (a member of
+      // an enclosing context) is still resolvable — and carried immutably on the design
+      // parameter for elaboration-time evaluation. No snapshot is taken in meta-programming
+      // (the patched DB resolves through the applied/default value refs instead), and `None`
+      // is also the result when the data is unattainable during elaboration (e.g.,
+      // CLK_FREQ-dependent).
+      val appliedData =
+        if (dfc.inMetaProgramming) None
+        else appliedVal.asIR.getConstDataThroughParams[ir.Data]
       val alias: ir.DFVal.DesignParam =
         ir.DFVal.DesignParam(
           dfTypeIR,
@@ -719,8 +767,7 @@ object DFVal extends DFValLP:
           dfc.owner.ref,
           dfc.getMeta,
           dfc.tags
-        )
-      if (!dfc.inMetaProgramming) alias.setCachedAppliedVal(appliedVal.asIR)
+        )(appliedData = appliedData)
       alias.addMember.asConstOf[T]
     end apply
   end DesignParam
@@ -829,23 +876,40 @@ object DFVal extends DFValLP:
               if dfc.inMetaProgramming &&
                 !dfc.mutableDB.DesignContext.current.hasMember(relVal.asIR) =>
             forced(aliasTypeIR, relVal.anonymizeInDFCPosition.asIR).asVal[AT, M]
-          // anonymous constant are replaced by a different constant
-          // after its data value was converted according to the alias.
-          // the target alias type must have a known width (constants must have a known width)
+          // an anonymous constant is converted directly into a constant of the alias type
+          // (with its data value converted according to the alias), instead of wrapping it
+          // in an alias construct. the target alias type must have a known width (constants
+          // must have a known width).
           case const: ir.DFVal.Const
               if (const.isAnonymous || relVal.inDFCPosition) && aliasTypeIR.getRefs.isEmpty &&
                 !forceNewAlias =>
             val updatedData = ir.dataConversion(aliasTypeIR, const.dfType)(
               const.data.asInstanceOf[const.dfType.Data]
             )
-            dfc.mutableDB.setMember(
-              const,
-              _.copy(
-                dfType = aliasTypeIR.dropUnreachableRefs,
-                data = updatedData,
-                meta = dfc.getMeta
-              )
-            ).asVal[AT, M]
+            val newDFType = aliasTypeIR.dropUnreachableRefs
+            // the constant is replaced in place only when it is a throwaway literal freshly
+            // created at the current position. otherwise (an anonymous constant created
+            // elsewhere) it may be aliased by a live Scala reference and reused (e.g. a value
+            // bound via tuple destructuring), so mutating it in place would corrupt those
+            // uses; instead we materialize a new converted constant and leave the original
+            // untouched.
+            if (relVal.inDFCPosition)
+              dfc.mutableDB.setMember(
+                const,
+                _.copy(
+                  dfType = newDFType,
+                  data = updatedData,
+                  meta = dfc.getMeta
+                )
+              ).asVal[AT, M]
+            else
+              ir.DFVal.Const(
+                newDFType,
+                updatedData,
+                dfc.ownerOrEmptyRef,
+                dfc.getMeta,
+                dfc.tags
+              ).addMember.asVal[AT, M]
           // remove redundant intermediate casting when the final result needs to be `.bits` anyways
           // as long as the alias is anonymous and has the same width as the related value,
           // to avoid modifying the semantics of named values that can be referenced in multiple places.
@@ -1297,7 +1361,8 @@ object DFVal extends DFValLP:
     evOpApplyRangeDFXInt,
     evOpShiftOrPowerInt,
     evOpCarryAddSubDFXInt,
-    evOpCarryMulDFXInt
+    evOpCarryMulDFXInt,
+    evOpLogicUInt
   }
   export DFPhysical.Val.Ops.given
   export TDFDouble.Val.Ops.given
@@ -1664,17 +1729,33 @@ object DFVarOps:
     A <:< DomainType.ED,
     "Non-blocking assignments `:==` are allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=` or the logic domain to ED."
   ]
+  // NOTE on the two roles played by these type parameters, which are easy to conflate:
+  //   - a BARE capability leaf (`DFC.Scope.HasAssign`) summons the capability, asking "where am I
+  //     now?";
+  //   - an `A <:< ...` leaf asks "where was this value DECLARED?". `A` is the declaration-site
+  //     modifier, which carries the scope and domain it was declared in (see
+  //     `evPortVarConstructor`, whose result modifier is `A & SC & DT`).
+  //
+  // `:=` needs a scope that grants blocking assignment: a process, an `initial` block, a
+  // procedural body, or a function body. That single capability summon replaces the former
+  // six-way union of places. The remaining alternatives are unchanged: a non-ED-declared value,
+  // or an RT domain (where `:=` is the ordinary assignment form).
   protected type `InsideProcess:=`[D, A] = AssertGiven[
-    DFC.Scope.Process | util.NotGiven[A <:< DomainType.ED] | D <:< DomainType.RT,
+    DFC.Scope.HasAssign | util.NotGiven[A <:< DomainType.ED] | D <:< DomainType.RT,
     "Blocking assignments `:=` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
-  protected type `InsideProcess:==`[D, A] = AssertGiven[
-    DFC.Scope.Process | util.NotGiven[A <:< DomainType.ED],
+  // `:==` is granted by `HasNBAssign`, which only `Process` has.
+  protected type `InsideProcess:==`[A] = AssertGiven[
+    DFC.Scope.HasNBAssign | util.NotGiven[A <:< DomainType.ED],
     "Non-blocking assignments `:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
   protected type RTDomainOnly[A] = AssertGiven[
     A <:< DomainType.RT,
     "`.din` selection is only allowed under register-transfer (RT) domains."
+  ]
+  protected type `NotInInitial:==` = AssertGiven[
+    util.NotGiven[DFC.Scope.Initial],
+    "Non-blocking assignments `:==` are not allowed inside an `initial` block.\nChange the assignment to a blocking assignment `:=`."
   ]
   // extension [L](inline lhs: L)
   //   transparent inline def :=[R](inline rhs: R)(using DFC): Unit =
@@ -1703,7 +1784,8 @@ object DFVarOps:
         varOnly: VarOnly[A],
         edDomainOnly: EDDomainOnly[dt.type],
 //        notLocalVar: NotLocalVar[A],
-        insideProcess: `InsideProcess:==`[dt.type, A]
+        notInInitial: `NotInInitial:==`,
+        insideProcess: `InsideProcess:==`[A]
     ): Unit = trydf {
       dfVar.nbassign(rhs(dfVar.dfType))
     }

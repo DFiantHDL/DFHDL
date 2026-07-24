@@ -25,7 +25,11 @@ object CompiledDesign:
       Printer.printBackendCode(co.backend.printer(cd))
       cd
     def commit(using co: CompilerOptions): CompiledDesign =
-      cd.transform(designDB => Printer.commit(designDB, co.topCommitPath(designDB)))
+      cd.transform { designDB =>
+        val committed = Printer.commit(designDB, co.topCommitPath(designDB))
+        // mirror foreign IP resources into the project and register their HDL wrappers
+        ForeignResources.commit(committed, co.topCommitPath(designDB))
+      }
     def addFiles(files: (Iterable[String] | String)*): CompiledDesign =
       import StagedDesign.addFiles as addFiles2
       staged.addFiles2(files*)

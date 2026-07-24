@@ -43,7 +43,7 @@ trait QuestaSimCommon extends Linter, Simulator:
       work.delete()
     Process("vlib work", new java.io.File(execPath)).!
 
-  override protected def simRunExec(using MemberGetSet): String =
+  override protected def simRunExec(using MemberGetSet, ToolOptions): String =
     if (osIsWindows) "vsimk.exe" else "vsimk"
 
   // we do not cache the work directory because it is too complex,
@@ -55,14 +55,31 @@ trait QuestaSimCommon extends Linter, Simulator:
     val ret = lint(cd)
     given MemberGetSet = ret.stagedDB.getSet
     val doCmd = "set NumericStdNoWarnings 1; run -all; quit"
+    // Foreign IP DPI integration: load each IP's DPI library (Questa uses the MSVC bundle on Windows).
+    val foreignFlags = constructCommand(
+      foreignSources.filter(_.dpiLib.nonEmpty).map { f =>
+        s"-sv_lib ${foreignLibDir(f, windowsUsesMSVC = true)}/${f.dpiLib}"
+      }*
+    )
     val cmd = constructCommand(
       "-quiet",
       "-batch",
+      foreignFlags,
       "-do",
       s"\"${doCmd}\"",
       topName
     )
-    exec(cmd = cmd, loggerOpt = simulateLogger, runExec = simRunExec)
+    // run the foreign-IP sim hooks (viewer/streamer) around the vsim run and pass it their env (e.g.
+    // VGA_MONITOR_STREAM) on top of the MSVC runtime lib path; otherwise the IP backend locks but
+    // has no viewer to stream to.
+    withForeignSimHooks(foreignRuntimeLibPathEnv(windowsUsesMSVC = true)) { env =>
+      exec(
+        cmd = cmd,
+        loggerOpt = simulateLogger,
+        runExec = simRunExec,
+        extraEnv = env
+      )
+    }
     ret
   end simulate
 end QuestaSimCommon

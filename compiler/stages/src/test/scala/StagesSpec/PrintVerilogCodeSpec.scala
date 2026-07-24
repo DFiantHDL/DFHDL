@@ -863,6 +863,7 @@ class PrintVerilogCodeSpec extends StageSpec:
         50.ns.wait
         x :== 0
         1.ns.wait
+        wait
     end Foo
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
@@ -888,6 +889,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    #50ns;
          |    x <= 1'b0;
          |    #1ns;
+         |    wait(0);
          |  end
          |endmodule""".stripMargin
     )
@@ -1099,7 +1101,6 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module Foo#(parameter string param = "Hello\n..\"World\"!");
          |  `include "dfhdl_defs.svh"
-         |  localparam int param3 = 42;
          |  typedef enum logic [1:0] {
          |    MyEnum_A = 0,
          |    MyEnum_B = 1,
@@ -1107,6 +1108,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  } t_enum_MyEnum;
          |  localparam string bar = {param, "!"};
          |  localparam string param2 = {2{param}};
+         |  localparam int param3 = 42;
          |  localparam logic [4:0] param4 = 5'd22;
          |  localparam logic [23:0] param5 = 24'habc123;
          |  localparam logic [5:0] param6 = 6'h2a;
@@ -1117,24 +1119,25 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always_comb
          |  begin
          |    assert (param == "hello2");
-         |    $warning("%s", param, "");
+         |    $warning("%s", param);
          |    assert (param == "hello2")
-         |    else $error("I am the one %s", param, " who knocks");
+         |    else $error("I am the one %s who knocks", param);
          |    assert (param8)
          |    else $fatal(
          |      "I\\am\n",
-         |      "the \"one\"(!)%s", param, "\n",
+         |      "the \"one\"(!)\n",
+         |      "%s\n", param,
          |      "who\n",
          |      "knocks"
          |    );
-         |    $display("%s", bar, "");
+         |    $display("%s", bar);
          |    $display();
-         |    $write("I am the one %s", param2, " who knocks");
+         |    $write("I am the one %s who knocks", param2);
          |    $write("hello");
-         |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", param10.name(), "");
+         |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", param10.name());
          |    $info(
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1087:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1155,7 +1158,6 @@ class PrintVerilogCodeSpec extends StageSpec:
          |module Foo;
          |  `include "dfhdl_defs.vh"
          |  parameter param = "Hello\n..\"World\"!";
-         |  parameter integer param3 = 42;
          |  `define MyEnum_A 0
          |  `define MyEnum_B 1
          |  `define MyEnum_C 2
@@ -1172,6 +1174,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  endfunction
          |  parameter bar = {param, "!"};
          |  parameter param2 = {2{param}};
+         |  parameter integer param3 = 42;
          |  parameter [4:0] param4 = 5'd22;
          |  parameter [23:0] param5 = 24'habc123;
          |  parameter [5:0] param6 = 6'h2a;
@@ -1182,29 +1185,30 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always
          |  begin
          |    if (!(param == "hello2")) begin
-         |      $display("ERROR: ", "Assertion failed!");
+         |      $display("ERROR: Assertion failed!");
          |    end
-         |    $display("WARNING: ", "%s", param, "");
+         |    $display("WARNING: %s", param);
          |    if (!(param == "hello2")) begin
-         |      $display("ERROR: ", "I am the one %s", param, " who knocks");
+         |      $display("ERROR: I am the one %s who knocks", param);
          |    end
          |    if (!(param8)) begin
-         |      $display("FATAL: ", 
-         |        "I\\am\n",
-         |        "the \"one\"(!)%s", param, "\n",
+         |      $display(
+         |        "FATAL: I\\am\n",
+         |        "the \"one\"(!)\n",
+         |        "%s\n", param,
          |        "who\n",
          |        "knocks"
          |      );
          |      $finish;
          |    end
-         |    $display("%s", bar, "");
+         |    $display("%s", bar);
          |    $display();
-         |    $write("I am the one %s", param2, " who knocks");
+         |    $write("I am the one %s who knocks", param2);
          |    $write("hello");
-         |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", MyEnum_to_string(param10), "");
-         |    $display("INFO: ", 
-         |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1087:9\n",
+         |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", MyEnum_to_string(param10));
+         |    $display(
+         |      "INFO: Debug at Foo\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1924,6 +1928,933 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    end
          |  end
          |endmodule""".stripMargin
+    )
+  }
+
+  test("foreign blackbox: instance emitted, no module generated") {
+    class vga_monitor extends EDBlackBox.ForeignIP:
+      val hsync                      = Bit     <> IN
+      val vsync                      = Bit     <> IN
+      val r                          = Bits(8) <> IN
+      val g                          = Bits(8) <> IN
+      val b                          = Bits(8) <> IN
+      override protected def clsName = "dfhdl.ips.video.vga.vga_monitor"
+      override protected def dpiLib  = "vga_monitor_dpi"
+
+    class Foo extends EDDesign:
+      val hsync = Bit     <> IN
+      val vsync = Bit     <> IN
+      val r     = Bits(8) <> IN
+      val g     = Bits(8) <> IN
+      val b     = Bits(8) <> IN
+      val mon   = vga_monitor()
+      mon.hsync <> hsync
+      mon.vsync <> vsync
+      mon.r     <> r
+      mon.g     <> g
+      mon.b     <> b
+    end Foo
+
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Foo(
+         |  input  wire logic hsync,
+         |  input  wire logic vsync,
+         |  input  wire logic [7:0] r,
+         |  input  wire logic [7:0] g,
+         |  input  wire logic [7:0] b
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] mon_b;
+         |  logic [7:0] mon_g;
+         |  logic mon_vsync;
+         |  logic mon_hsync;
+         |  logic [7:0] mon_r;
+         |  vga_monitor mon(
+         |    .b /*<--*/ (mon_b),
+         |    .g /*<--*/ (mon_g),
+         |    .vsync /*<--*/ (mon_vsync),
+         |    .hsync /*<--*/ (mon_hsync),
+         |    .r /*<--*/ (mon_r)
+         |  );
+         |  assign mon_hsync = hsync;
+         |  assign mon_vsync = vsync;
+         |  assign mon_r = r;
+         |  assign mon_g = g;
+         |  assign mon_b = b;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  class FixID extends EDDesign:
+    val x = UFix(8, 10) <> IN
+    val y = UFix(8, 10) <> OUT
+    val c: UFix[1, 2] <> CONST = 0.75
+    y <> x
+
+  class FixConv extends EDDesign:
+    val x = UFix(4, 4) <> IN
+    val y = SFix(6, 6) <> OUT
+    y <> x
+
+  class SFixID extends EDDesign:
+    val x = SFix(6, 6) <> IN
+    val y = SFix(6, 6) <> OUT
+    y <> x
+
+  test("Fixed-point identity design") {
+    val id = (new FixID).getCompiledCodeString
+    assertNoDiff(
+      id,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module FixID(
+         |  input  wire logic `ufix(8, 10) x,
+         |  output logic `ufix(8, 10) y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam logic `ufix(1, 2) c = 3'd3;
+         |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("Fixed-point conversion design") {
+    val conv = (new FixConv).getCompiledCodeString
+    assertNoDiff(
+      conv,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module FixConv(
+         |  input  wire logic `ufix(4, 4) x,
+         |  output logic `sfix(6, 6) y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign y = 12'($signed({1'b0, x})) << 2;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("Fixed-point identity design verilog.v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    val id                                = (new FixID).getCompiledCodeString
+    assertNoDiff(
+      id,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module FixID(
+         |  input  wire `ufix(8, 10) x,
+         |  output wire `ufix(8, 10) y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  parameter `ufix(1, 2) c = 3'd3;
+         |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("Signed fixed-point identity design verilog.v95") {
+    given options.CompilerOptions.Backend = _.verilog.v95
+    val id                                = (new SFixID).getCompiledCodeString
+    assertNoDiff(
+      id,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module SFixID(
+         |  x,
+         |  y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  input  wire `sfix_v95(6, 6) x;
+         |  output wire `sfix_v95(6, 6) y;
+         |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  class InitID extends EDDesign:
+    val x = SInt(16) <> IN
+    val y = SInt(16) <> OUT
+    val v = SInt(16) <> VAR
+    initial:
+      v := 0
+      println("initialized")
+    process(all):
+      y :== x + v
+  end InitID
+  test("initial block") {
+    val top = (new InitID).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module InitID(
+         |  input  wire logic signed [15:0] x,
+         |  output logic signed [15:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic signed [15:0] v;
+         |  initial
+         |  begin
+         |    v = 16'sd0;
+         |    $display("initialized");
+         |  end
+         |  always_comb
+         |  begin
+         |    y <= x + v;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("initial block under old Verilog (v95)") {
+    given options.CompilerOptions.Backend = _.verilog.v95
+    val top                               = (new InitID).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module InitID(
+         |  x,
+         |  y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  input  wire [15:0] x;
+         |  output reg [15:0] y;
+         |  reg [15:0] v;
+         |  initial
+         |  begin
+         |    v = 16'd0;
+         |    $display("initialized");
+         |  end
+         |  always @(x or v)
+         |  begin
+         |    y <= x + v;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("ED method (function)") {
+    class EDFunc extends EDDesign:
+      val a = UInt(8) <> IN
+      val b = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      val z = UInt(8) <> OUT
+      def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        val tmp = UInt(8) <> VAR
+        tmp := l + r
+        tmp
+      val k:                        UInt[8] <> CONST = 5
+      def addBK(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b + k
+      y <> add(a, b)
+      process(all):
+        z := addBK(a)
+    end EDFunc
+    val top = (new EDFunc).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDFunc(
+         |  input  wire logic [7:0] a,
+         |  input  wire logic [7:0] b,
+         |  output logic [7:0] y,
+         |  output logic [7:0] z
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam logic [7:0] k = 8'd5;
+         |  function automatic logic [7:0] add(input logic [7:0] l, input logic [7:0] r);
+         |    logic [7:0] tmp;
+         |  begin
+         |    tmp = l + r;
+         |    add = tmp;
+         |  end
+         |  endfunction
+         |
+         |  function automatic logic [7:0] addBK(input logic [7:0] l);
+         |  begin
+         |    addBK = l + b + k;
+         |  end
+         |  endfunction
+         |  assign y = add(a, b);
+         |  always_comb
+         |  begin
+         |    z = addBK(a);
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("ED method phantom capture through a path") {
+    class PathInner extends EDDesign:
+      val i = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      o <> i + 1
+    end PathInner
+    class EDPath extends EDDesign:
+      val a   = UInt(8) <> IN
+      val y   = UInt(8) <> OUT
+      val sub = PathInner()
+      sub.i <> a
+      // the phantom port's own name is the path's LEAF (uniquified against the def's
+      // return port), which names nothing at module scope — the body must print the
+      // ACTUAL wired at the call site
+      def addSub(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + sub.o
+      y <> addSub(a)
+    end EDPath
+    val top = (new EDPath).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module PathInner(
+         |  input  wire logic [7:0] i,
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = i + 8'd1;
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDPath(
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] sub_i;
+         |  logic [7:0] sub_o;
+         |  function automatic logic [7:0] addSub(input logic [7:0] l);
+         |  begin
+         |    addSub = l + sub_o;
+         |  end
+         |  endfunction
+         |  PathInner sub(
+         |    .i /*<--*/ (sub_i),
+         |    .o /*-->*/ (sub_o)
+         |  );
+         |  assign sub_i = a;
+         |  assign y = addSub(a);
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("nested ED method calls") {
+    class EDNest extends EDDesign:
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + 1
+      // `inner` is called ONLY from `outer`'s body; it must still be declared, and BEFORE
+      // its caller (an HDL method must be declared before it is used)
+      def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET = inner(l) + 2
+      y <> outer(a)
+    end EDNest
+    val top = (new EDNest).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDNest(
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  function automatic logic [7:0] inner(input logic [7:0] l);
+         |  begin
+         |    inner = l + 8'd1;
+         |  end
+         |  endfunction
+         |
+         |  function automatic logic [7:0] outer(input logic [7:0] l);
+         |  begin
+         |    outer = inner(l) + 8'd2;
+         |  end
+         |  endfunction
+         |  assign y = outer(a);
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("nested ED method call with a capture") {
+    class EDNestCap extends EDDesign:
+      val b = UInt(8) <> IN
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      // `inner` captures `b`, and is called from `outer`'s body — a scope that cannot see
+      // `b` at all. The capture is propagated inward through a phantom port of `outer`.
+      def inner(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b
+      def outer(l: UInt[8] <> VAL): UInt[8] <> EDRET = inner(l) + 1
+      y <> outer(a)
+    end EDNestCap
+    val top = (new EDNestCap).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDNestCap(
+         |  input  wire logic [7:0] b,
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  function automatic logic [7:0] inner(input logic [7:0] l);
+         |  begin
+         |    inner = l + b;
+         |  end
+         |  endfunction
+         |
+         |  function automatic logic [7:0] outer(input logic [7:0] l);
+         |  begin
+         |    outer = inner(l) + 8'd1;
+         |  end
+         |  endfunction
+         |  assign y = outer(a);
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("ED method (function) under v95") {
+    given options.CompilerOptions.Backend = _.verilog.v95
+    class EDFuncOld extends EDDesign:
+      val a = UInt(8) <> IN
+      val b = UInt(8) <> IN
+      val z = UInt(8) <> OUT
+      def addB(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + b
+      process(all):
+        z := addB(a)
+    end EDFuncOld
+    val top = (new EDFuncOld).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDFuncOld(
+         |  a,
+         |  b,
+         |  z
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  input  wire [7:0] a;
+         |  input  wire [7:0] b;
+         |  output reg [7:0] z;
+         |  function [7:0] addB;
+         |    input [7:0] l;
+         |  begin
+         |    addB = l + b;
+         |  end
+         |  endfunction
+         |  always @(a or b)
+         |  begin
+         |    z = addB(a);
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("ED method zero-arg function under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class EDFuncZero extends EDDesign:
+      val y = UInt(8) <> OUT
+      def zero(): UInt[8] <> EDRET = d"8'0"
+      y <> zero()
+    end EDFuncZero
+    val top = (new EDFuncZero).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDFuncZero(
+         |  output wire [7:0] y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  function automatic [7:0] zero(input __dummy__);
+         |  begin
+         |    zero = 8'd0;
+         |  end
+         |  endfunction
+         |  assign y = zero(0);
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("ED procedure with an OUT argument") {
+    class EDProcOut extends EDDesign:
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT): Unit <> EDRET =
+        o := l + 1
+      process:
+        addOne(a, y)
+    end EDProcOut
+    val top = (new EDProcOut).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDProcOut(
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  task automatic addOne(input logic [7:0] l, output logic [7:0] o);
+         |  begin
+         |    o = l + 8'd1;
+         |  end
+         |  endtask
+         |  always
+         |  begin
+         |    addOne(a, y);
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("ED procedure with a non-blocking OUT.NB argument") {
+    class EDProcOutNB extends EDDesign:
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      def addOne(l: UInt[8] <> IN, o: UInt[8] <> OUT.NB): Unit <> EDRET =
+        o :== l + 1
+      process:
+        addOne(a, y)
+    end EDProcOutNB
+    val top = (new EDProcOutNB).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDProcOutNB(
+         |  input  wire logic [7:0] a,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  task automatic addOne(input logic [7:0] l, ref logic [7:0] o);
+         |  begin
+         |    o <= l + 8'd1;
+         |  end
+         |  endtask
+         |  always
+         |  begin
+         |    addOne(a, y);
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("ED method (procedural task)") {
+    class EDTask extends EDDesign:
+      val a = UInt(8) <> IN
+      def show(l: UInt[8] <> IN): Unit <> EDRET =
+        report(s"value is $l")
+        wait(1.ns)
+      def pause(): Unit <> EDRET =
+        wait(2.ns)
+      process:
+        show(a)
+        pause()
+    end EDTask
+    val top = (new EDTask).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDTask(
+         |  input  wire logic [7:0] a
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  task automatic show(input logic [7:0] l);
+         |  begin
+         |    $info("value is %d", l);
+         |    #1ns;
+         |  end
+         |  endtask
+         |
+         |  task automatic pause;
+         |  begin
+         |    #2ns;
+         |  end
+         |  endtask
+         |  always
+         |  begin
+         |    show(a);
+         |    pause;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // Counterpart to VHDL's "static function read by a port declaration is emitted in the package":
+  // Verilog has no entity/architecture split, so a port init lowers to an `initial` block inside
+  // the module body, where the module-scoped function is already visible. The function therefore
+  // stays module-local and is NOT globalized (the VHDL globalization rule is backend-specific).
+  test("static function read by a port declaration stays module-local") {
+    class PortInitStatic extends EDDesign:
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      val o = UInt(8) <> OUT init twice(d"8'3")
+      o <> d"8'0"
+    end PortInitStatic
+    val top = (new PortInitStatic).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module PortInitStatic(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  initial begin : o_init
+         |    o = twice(8'd3);
+         |  end
+         |  function automatic logic [7:0] twice(input logic [7:0] n);
+         |  begin
+         |    twice = n + n;
+         |  end
+         |  endfunction
+         |  assign o = 8'd0;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static function (`<> CONSTRET`)") {
+    class StaticFn extends EDDesign:
+      val o = UInt(8) <> OUT
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      o <> twice(d"8'3")
+    end StaticFn
+    val top = (new StaticFn).getCompiledCodeString
+    // a static function's formals are its design PARAMETERS (it has no input ports), and Verilog
+    // has no method generics, so they print as ordinary input formals. NOTE that SystemVerilog's
+    // `static` is a variable LIFETIME, the opposite of `automatic`, and is unrelated to DFHDL's
+    // static DOMAIN: a static function correctly emits as an `automatic` function.
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module StaticFn(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  function automatic logic [7:0] twice(input logic [7:0] n);
+         |  begin
+         |    twice = n + n;
+         |  end
+         |  endfunction
+         |  assign o = twice(8'd3);
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("nested static function calls") {
+    class NestStatic extends EDDesign:
+      val o = UInt(8) <> OUT
+      def twice(k: UInt[8] <> CONST): UInt[8] <> CONSTRET = k + k
+      // the inner call is consumed as the outer call's argument; it must not also emit a
+      // standalone `twice(n)` statement
+      def quad(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = twice(twice(n))
+      o <> quad(d"8'3")
+    end NestStatic
+    val top = (new NestStatic).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module NestStatic(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  function automatic logic [7:0] twice(input logic [7:0] k);
+         |  begin
+         |    twice = k + k;
+         |  end
+         |  endfunction
+         |
+         |  function automatic logic [7:0] quad(input logic [7:0] n);
+         |  begin
+         |    quad = twice(twice(n));
+         |  end
+         |  endfunction
+         |  assign o = quad(8'd3);
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static function call parameterizing a sub-design") {
+    class Inner(val k: UInt[8] <> CONST = d"8'0") extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> k
+    class StaticParamTop extends EDDesign:
+      val o = UInt(8) <> OUT
+      def twice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+      val inner = new Inner(twice(d"8'3"))
+      o <> inner.o
+    end StaticParamTop
+    val top = (new StaticParamTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Inner#(parameter logic [7:0] k = 8'd0)(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = k;
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module StaticParamTop(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  function automatic logic [7:0] twice(input logic [7:0] n);
+         |  begin
+         |    twice = n + n;
+         |  end
+         |  endfunction
+         |  logic [7:0] inner_o;
+         |  Inner #(
+         |    .k (twice(8'd3))
+         |  ) inner(
+         |    .o /*-->*/ (inner_o)
+         |  );
+         |  assign o = inner_o;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // A method used by more than one design (or from global scope) is emitted ONCE in the shared
+  // globals area (a Verilog defs header, at $unit scope under SV) instead of inlined in each
+  // design. The method is declared in a GLOBAL position at the top of the test, above the designs.
+  test("static function shared by two designs is emitted once in the defs header") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    class GA extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'3")
+    class GB extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> globalTwice(d"8'4")
+    class GTop extends EDDesign:
+      val o1 = UInt(8) <> OUT
+      val o2 = UInt(8) <> OUT
+      val a  = new GA
+      val b  = new GB
+      o1 <> a.o
+      o2 <> b.o
+    end GTop
+    val top = (new GTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|function automatic logic [7:0] globalTwice(input logic [7:0] n);
+         |begin
+         |  globalTwice = n + n;
+         |end
+         |endfunction
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "GTop_defs.svh"
+         |
+         |module GA(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = globalTwice(8'd3);
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "GTop_defs.svh"
+         |
+         |module GB(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = globalTwice(8'd4);
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "GTop_defs.svh"
+         |
+         |module GTop(
+         |  output logic [7:0] o1,
+         |  output logic [7:0] o2
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] a_o;
+         |  logic [7:0] b_o;
+         |  GA a(
+         |    .o /*-->*/ (a_o)
+         |  );
+         |  GB b(
+         |    .o /*-->*/ (b_o)
+         |  );
+         |  assign o1 = a_o;
+         |  assign o2 = b_o;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static function nested inside a global-scope call is emitted too") {
+    def gTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    def gQuad(n:  UInt[8] <> CONST): UInt[8] <> CONSTRET = gTwice(gTwice(n))
+    val gC:                          UInt[8] <> CONST    = gQuad(d"8'3")
+    class NestedGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gC
+    val top = (new NestedGlobal).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|function automatic logic [7:0] gTwice(input logic [7:0] n);
+         |begin
+         |  gTwice = n + n;
+         |end
+         |endfunction
+         |function automatic logic [7:0] gQuad(input logic [7:0] n);
+         |begin
+         |  gQuad = gTwice(gTwice(n));
+         |end
+         |endfunction
+         |parameter logic [7:0] gC = gQuad(8'd3);
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "NestedGlobal_defs.svh"
+         |
+         |module NestedGlobal(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = gC;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static function reading a global constant stays package-eligible") {
+    val gK:                        UInt[8] <> CONST    = d"8'5"
+    def addK(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + gK
+    val gW:                        UInt[8] <> CONST    = addK(d"8'3")
+    class ReadsGlobal extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new ReadsGlobal).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|parameter logic [7:0] gK = 8'd5;
+         |function automatic logic [7:0] addK(input logic [7:0] n);
+         |begin
+         |  addK = n + gK;
+         |end
+         |endfunction
+         |parameter logic [7:0] gW = addK(8'd3);
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "ReadsGlobal_defs.svh"
+         |
+         |module ReadsGlobal(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = gW;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("global constants and static functions interleave by dependency") {
+    val gA:                           UInt[8] <> CONST    = d"8'1"
+    def gTwice(n:  UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    val gB:                           UInt[8] <> CONST    = gTwice(d"8'2")
+    def gTriple(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n + n
+    val gC:                           UInt[8] <> CONST    = gTriple(d"8'3")
+    class UsesAll extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gA + gB + gC
+    val top = (new UsesAll).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|parameter logic [7:0] gA = 8'd1;
+         |function automatic logic [7:0] gTwice(input logic [7:0] n);
+         |begin
+         |  gTwice = n + n;
+         |end
+         |endfunction
+         |parameter logic [7:0] gB = gTwice(8'd2);
+         |function automatic logic [7:0] gTriple(input logic [7:0] n);
+         |begin
+         |  gTriple = n + n + n;
+         |end
+         |endfunction
+         |parameter logic [7:0] gC = gTriple(8'd3);
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "UsesAll_defs.svh"
+         |
+         |module UsesAll(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = gA + gB + gC;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static function called at global scope") {
+    def globalTwice(n: UInt[8] <> CONST): UInt[8] <> CONSTRET = n + n
+    val gW:                               UInt[8] <> CONST    = globalTwice(d"8'5")
+    class UsesGW extends EDDesign:
+      val o = UInt(8) <> OUT
+      o <> gW
+    val top = (new UsesGW).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|function automatic logic [7:0] globalTwice(input logic [7:0] n);
+         |begin
+         |  globalTwice = n + n;
+         |end
+         |endfunction
+         |parameter logic [7:0] gW = globalTwice(8'd5);
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "UsesGW_defs.svh"
+         |
+         |module UsesGW(
+         |  output logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = gW;
+         |endmodule
+         |""".stripMargin
     )
   }
 end PrintVerilogCodeSpec

@@ -11,6 +11,23 @@ import DFDesignBlock.InstMode
 import DFVal.Func.Op as FuncOp
 import java.io.File.separatorChar
 
+// A global declaration whose emission position is dependency-driven: a global constant or a
+// global HDL method (see `AbstractPrinter.globalDeclsOrdered`). Global TYPE declarations are not
+// part of this, as they always come first.
+enum GlobalDecl derives CanEqual:
+  case Const(member: DFMember)
+  case Method(block: DFDesignBlock)
+
+// A per-design local declaration whose emission position is dependency-driven: a constant, a
+// static function, a signal/variable, or an ED method (see `Printer.localDeclsOrdered`). The local
+// TYPE declarations and the constants they reference as widths are not part of this: they are
+// emitted in a leading block ahead of these (a type must be declared before it is used).
+enum LocalDecl derives CanEqual:
+  case Const(member: DFVal)
+  case StaticMethod(block: DFDesignBlock)
+  case Signal(member: DFVal.Dcl)
+  case EDMethod(block: DFDesignBlock)
+
 protected trait AbstractPrinter:
   type TPrinter <: Printer
   given printer: TPrinter
@@ -32,6 +49,87 @@ protected trait AbstractPrinter:
     getSet.designDB.rootDB.subDBs.get(design.ownerRef) match
       case Some(sub) => withGetSet(sub.getSet)
       case None      => printer
+  // The code string of each PHANTOM member (port or parameter) of the method this
+  // printer renders, keyed by the phantom's name INSIDE the def, and resolved at the def's
+  // call site in the OWNING design's scope. A phantom materializes a value the def body
+  // captured from its host, and the printed body must name that value as the host names it:
+  // the phantom's own name is the captured path's LEAF (`sub.o` -> `o`), which denotes
+  // nothing at the host's scope. Empty for every printer that is not rendering a def body.
+  private var phantomActualsCS: Map[String, String] = Map.empty
+  final def phantomActualOf(name: String): Option[String] = phantomActualsCS.get(name)
+  protected def setPhantomActuals(actuals: Map[String, String]): Unit =
+    phantomActualsCS = actuals
+  // A printer for the method instantiated by `inst`, bound to the def's own getSet and
+  // carrying the code strings of its phantom actuals as resolved HERE, at the call site, in
+  // this printer's (the host design's) scope — so the rendered body names the captured values
+  // as the host names them. `inst` must be a member of the design this printer renders.
+  final private[printing] def methodPrinterAt(inst: DFDesignInst): TPrinter =
+    val designDB = getSet.designDB
+    val root = designDB.rootDB
+    val defSubOpt = if (root.isRoot) root.subDBs.get(inst.designRef) else None
+    val defPrinter = defSubOpt.map(sub => withGetSet(sub.getSet)).getOrElse(printer)
+    val defGetSet = defSubOpt.map(_.getSet).getOrElse(getSet)
+    val defMembers =
+      defSubOpt.map(_.members).getOrElse(inst.getDesignBlock.members(MemberView.Folded))
+    // A phantom input port is paired with its call-site connection BY ORDER: the harness
+    // (`r__For_Plugin.designFromDef`) appends the phantom ports after the explicit ones and
+    // connects them in that same order. Matching by name would not work — the PBNS records
+    // the port's name as of the connection, while the def's port may be uniquified afterwards
+    // (capturing `sub.o` into a def whose return port is also `o` yields `o_0`), and the
+    // BODY prints the uniquified name.
+    val phantomPorts = defMembers.collect {
+      case dcl @ DclIn() if dcl.isPhantom => dcl
+    }
+    val phantomPBNS = designDB.designInstPBNS.getOrElse(inst, Nil).filter { pbns =>
+      pbns.isIn && pbns.isPhantom
+    }
+    val portActuals =
+      if (phantomPorts.length != phantomPBNS.length) Map.empty[String, String]
+      else
+        phantomPorts.lazyZip(phantomPBNS).map { (port, pbns) =>
+          val DFNet.Connection(_, from: DFVal, _) = pbns.getConnectionsTo.head.runtimeChecked
+          port.getName(using defGetSet) -> printer.csDFValRef(from, inst.getOwner)
+        }.toMap
+    // a phantom design parameter's actual is this call site's applied value. Parameters are
+    // matched by name (the paramMap key IS the parameter's name, kept in sync by the harness).
+    val phantomParams = defMembers.collect {
+      case param: DFVal.DesignParam if param.isPhantom => param
+    }
+    val paramActuals = phantomParams.view.flatMap { param =>
+      inst.paramMap.get(param.meta.name).map { ref =>
+        param.getName(using defGetSet) -> printer.csDFValRef(ref.get, inst.getOwner)
+      }
+    }.toMap
+    defPrinter.setPhantomActuals(portActuals ++ paramActuals)
+    defPrinter
+  end methodPrinterAt
+  // A printer for the method called by `call`, bound to the def's own getSet and
+  // carrying the code strings of its phantom actuals as resolved HERE, at the call site,
+  // in this printer's (the host design's) scope. The call's args bind the formals
+  // POSITIONALLY in formal member order, so a phantom formal's actual is simply the arg
+  // at the phantom formal's index.
+  final private[printing] def methodPrinterAt(call: DFVal.Func, designKey: StaticRef): TPrinter =
+    val designDB = getSet.designDB
+    val root = designDB.rootDB
+    val defSubOpt = if (root.isRoot) root.subDBs.get(designKey) else None
+    val defPrinter = defSubOpt.map(sub => withGetSet(sub.getSet)).getOrElse(printer)
+    val defGetSet = defSubOpt.map(_.getSet).getOrElse(getSet)
+    val defMembers =
+      defSubOpt.map(_.members).getOrElse(designKey.getDesignBlock.members(MemberView.Folded))
+    val formals = defMembers.collect {
+      case dcl: DFVal.Dcl if dcl.isPortIn => dcl
+    }
+    val actuals = call.args.map(_.get)
+    val phantomActuals =
+      if (formals.length != actuals.length) Map.empty[String, String]
+      else
+        formals.zip(actuals).collect {
+          case (formal, actual) if formal.isPhantom =>
+            formal.getName(using defGetSet) -> printer.csDFValRef(actual, call.getOwner)
+        }.toMap
+    defPrinter.setPhantomActuals(phantomActuals)
+    defPrinter
+  end methodPrinterAt
 end AbstractPrinter
 
 trait Printer
@@ -103,7 +201,7 @@ trait Printer
   def csCommentEOL(comment: String): String
   def csDocString(doc: String): String
   final def csDocString(meta: Meta): String =
-    meta.docOpt.map(printer.csDocString).map(x => s"$x\n").getOrElse("")
+    meta.docOpt.map(printer.csDocString).mkString("\n")
   def csAnnotations(annotations: List[annotation.HWAnnotation]): String
   final def csDFMember(member: DFMember): String =
     val cs = member match
@@ -112,7 +210,7 @@ trait Printer
       case net: DFNet                                  => csDFNet(net)
       case inst: DFDesignInst                          =>
         inst.getDesignBlock.instMode match
-          case InstMode.Def => csDFDesignDefInst(inst)
+          case InstMode.Def => csMethodInst(inst)
           case _            => csDFDesignBlockInst(inst)
       case pb: ProcessBlock                => csProcessBlock(pb)
       case fb: ForkBlock                   => csForkBlock(fb)
@@ -130,22 +228,324 @@ trait Printer
       // still produced by `csFile` via `csDFDesignBlockDcl`.
       case _: DFDesignBlock => ""
       case _                => ???
-    s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta.annotations)}$cs"
+    sn"""|${printer.csDocString(member.meta)}
+         |${printer.csAnnotations(member.meta.annotations)}
+         |$cs"""
   end csDFMember
   def designFileName(designName: String): String
   def globalFileName: String
+
+  // ── HDL-method global-emission decision ─────────────────────────────────────
+  // Which HDL-method blocks (ED methods / static functions) are emitted ONCE in the shared
+  // globals area (a VHDL package / a Verilog defs header) instead of inlined in each using
+  // design. This is a PLACEMENT decision computed purely from the IR, and it is
+  // BACKEND-SPECIFIC (VHDL additionally globalizes a static function read by a port
+  // declaration, since the entity is elaborated before the architecture), so it lives in the
+  // printer as an overridable `def` rather than in the IR. The compiler pipeline feeds the
+  // printer a flat DB, so these read the design members directly (no sub-DB routing).
+
+  // HDL-method blocks mapped to the set of NON-method designs that use them. A method call is
+  // owned by the design (or method) whose body makes the call (`designBlockOwnershipMap`); a
+  // method-to-method call is resolved transitively, so the resulting users are always real
+  // designs.
+  private def hdlMethodDesignUsers: Map[DFDesignBlock, Set[DFDesignBlock]] =
+    val ownership = getSet.designDB.designBlockOwnershipMap
+    def realUsersOf(block: DFDesignBlock, seen: Set[DFDesignBlock]): Set[DFDesignBlock] =
+      ownership.getOrElse(block, Set.empty).flatMap { owner =>
+        if (!owner.isHDLMethod) Set(owner)
+        else if (seen(owner)) Set.empty[DFDesignBlock]
+        else realUsersOf(owner, seen + owner)
+      }
+    ownership.keysIterator.filter(_.isHDLMethod)
+      .map(m => m -> realUsersOf(m, Set(m))).toMap
+
+  // The body members of an HDL-method block: the members it owns.
+  protected final def methodBodyMembers(m: DFDesignBlock): List[DFMember] =
+    getSet.designDB.designMemberTable.getOrElse(m, Nil)
+
+  // An HDL method is emittable in a shared package/header only if its body references no value
+  // captured from a single design. Captures materialize as PHANTOM input ports (globals are
+  // never captured — they are reachable everywhere and referenced directly), so a method with
+  // any phantom input is inherently design-local and stays inlined there.
+  // every call of `m`, global-scope calls included (`members` covers the globals)
+  private def callSitesOf(m: DFDesignBlock): List[DFVal.Func] =
+    getSet.designDB.members.collect {
+      case DFVal.Func.Call(call, key) if key.getDesignBlock == m => call
+    }
+  protected final def methodIsGlobalEligible(m: DFDesignBlock): Boolean =
+    val formals = methodBodyMembers(m).collect {
+      case dcl: DFVal.Dcl if dcl.isPortIn => dcl
+    }
+    val phantomIdxs = formals.view.zipWithIndex.collect { case (f, i) if f.isPhantom => i }.toList
+    // A capture materializes as a PHANTOM input port, whose actual is bound POSITIONALLY at
+    // each call site. A GLOBAL actual is reachable from the shared package/header, so it keeps
+    // the method eligible; a design-local one pins the method to its design. An actual that
+    // cannot be lined up with the formals is treated as design-local (the conservative answer).
+    phantomIdxs.isEmpty || callSitesOf(m).forall { call =>
+      val actuals = call.args.map(_.get)
+      actuals.length == formals.length && phantomIdxs.forall { i =>
+        actuals(i) match
+          case dfVal: DFVal.CanBeGlobal => dfVal.isGlobal
+          case _                        => false
+      }
+    }
+  end methodIsGlobalEligible
+
+  // HDL-method blocks referenced by a GLOBAL `Func` call (a static function called at global
+  // scope, e.g. to compute a global constant). Such a method has no design user, but must still
+  // be emitted once in the shared globals area alongside the global value it computes.
+  private def globalCallMethods: Set[DFDesignBlock] =
+    getSet.designDB.membersGlobals.view.collect {
+      case DFVal.Func.Call(_, key) => key.getDesignBlock
+    }.filter(_.isHDLMethod).toSet
+
+  // HDL-method blocks emitted once in the shared globals area: used by more than one design, or
+  // called from global scope; and package-eligible. Overridable per backend (VHDL adds static
+  // functions read by a port declaration).
+  def globalHDLMethods: Set[DFDesignBlock] =
+    val byUsage = hdlMethodDesignUsers.iterator.collect {
+      case (m, users) if users.sizeIs > 1 => m
+    }
+    methodCallClosure(byUsage.toSet ++ globalCallMethods).filter(methodIsGlobalEligible)
+
+  // Expand a set of HDL-method blocks to include everything they transitively call: an emitted
+  // method's body calls them, and a shared package/header function cannot call one that is
+  // declared inside a single design (or, for a method reached only from global scope, not
+  // declared at all).
+  protected final def methodCallClosure(seeds: Set[DFDesignBlock]): Set[DFDesignBlock] =
+    val result = mutable.Set.empty[DFDesignBlock]
+    def visit(m: DFDesignBlock): Unit =
+      if (result.add(m))
+        methodBodyMembers(m).foreach {
+          case DFVal.Func.Call(_, key) =>
+            val callee = key.getDesignBlock
+            if (callee.isHDLMethod) visit(callee)
+          case _ =>
+        }
+    seeds.foreach(visit)
+    result.toSet
+
   protected def hasGlobalContentCheck: Boolean =
     val designDB = getSet.designDB
     val anyNamedGlobal =
       if (designDB.isRoot)
         designDB.subDBs.view.values.exists(_.membersGlobals.exists(!_.isAnonymous))
       else designDB.membersGlobals.exists(!_.isAnonymous)
-    anyNamedGlobal || csGlobalTypeDcls.nonEmpty
+    anyNamedGlobal || csGlobalTypeDcls.nonEmpty ||
+    globalHDLMethods.nonEmpty
   lazy val hasGlobalContent: Boolean = hasGlobalContentCheck
+  // Global constants and global HDL methods in DEPENDENCY order. Both HDLs require a name to be
+  // declared before it is used, and the dependency between the two runs BOTH ways: a constant's
+  // value may CALL a method (a width computed by a static function), while a method's body may
+  // READ a global constant. A fixed constants-then-methods split is therefore wrong in one
+  // direction, so the order is a stable topological sort over the actual references, keeping
+  // declaration order among independent declarations. A reference cycle (representable only in
+  // VHDL, where a prototype and its body are split) falls back to declaration order.
+  protected final def globalDeclsOrdered: List[GlobalDecl] =
+    val constsWithPrinters = globalConstsWithPrinters
+    val globalConsts: List[DFMember] = constsWithPrinters.map(_._2)
+    val constDeclOf: Map[DFMember, GlobalDecl] =
+      globalConsts.view.map(c => c -> GlobalDecl.Const(c)).toMap
+    val methodBlocks: List[DFDesignBlock] = globalMethodPrinters.map(_._1)
+    val methodSet = methodBlocks.toSet
+    // the global declarations transitively referenced from `seeds`, excluding `self`. Resolved
+    // under `gs`, the getSet of the declaration being scanned (on a hierarchical root each
+    // global lives in its own sub-DB).
+    def depsFrom(
+        seeds: List[DFMember],
+        self: Option[DFMember],
+        gs: MemberGetSet
+    ): List[GlobalDecl] =
+      val found = mutable.LinkedHashSet.empty[GlobalDecl]
+      val visited = mutable.Set.empty[DFMember]
+      def visit(m: DFMember): Unit =
+        if (visited.add(m))
+          m match
+            case DFVal.Func.Call(_, key) =>
+              val block = key.getDesignBlock(using gs)
+              if (methodSet.contains(block)) found += GlobalDecl.Method(block)
+            case _ =>
+          if (!self.contains(m)) constDeclOf.get(m).foreach(found += _)
+          m.getRefs.foreach(r => visit(r.get(using gs)))
+      seeds.foreach(visit)
+      found.toList
+    end depsFrom
+    def depsOf(decl: GlobalDecl): List[GlobalDecl] = decl match
+      case GlobalDecl.Const(c) =>
+        depsFrom(List(c), Some(c), constPrinterOf.getOrElse(c, printer).getSet)
+      case GlobalDecl.Method(b) =>
+        depsFrom(methodBodyMembers(b), None, globalMethodPrinterOf(b).getSet)
+          .filterNot(_ == decl)
+    val ordered = mutable.ListBuffer.empty[GlobalDecl]
+    val done = mutable.Set.empty[GlobalDecl]
+    val onPath = mutable.Set.empty[GlobalDecl]
+    def place(decl: GlobalDecl): Unit =
+      if (!done.contains(decl) && onPath.add(decl))
+        depsOf(decl).foreach(place)
+        onPath -= decl
+        done += decl
+        ordered += decl
+    (globalConsts.map(GlobalDecl.Const(_)) ++ methodBlocks.map(GlobalDecl.Method(_)))
+      .foreach(place)
+    ordered.toList
+  end globalDeclsOrdered
+
+  // The local constants a type declaration REFERENCES (a vector/array width or dimension). The
+  // local TYPE declarations are emitted in a leading block, so these width constants precede them
+  // and are excluded from the value/method ordering below (a width is an integer, so a width
+  // constant is Int32 — but not every Int32 constant is a width constant, which is why the split
+  // is on actual type references, not on the constant's type). The set is closed over the value
+  // references of the width constants (a width may be `base + 1`), so a width constant's own
+  // constant dependencies lead too.
+  final def typeReferencedConsts(design: DFDesignBlock): List[DFVal] =
+    val designMembers = design.members(MemberView.Folded)
+    val localConsts: Map[DFMember, DFVal] = designMembers.view.collect {
+      case c @ DclConst() if !c.isInstanceOf[DFVal.DesignParam] => (c: DFMember) -> (c: DFVal)
+    }.toMap
+    // the members named by a local declaration's TYPE (its `dfType` refs are the width/dimension
+    // refs). A width is often an EXPRESSION rather than a bare constant (`clog2(HALF_PERIOD) - 1`),
+    // so from each seed we transitively collect the LOCAL constants it uses; a ref to a design
+    // parameter or a global constant collects nothing (they are declared elsewhere already).
+    val seeds: List[DFMember] = designMembers.view.flatMap {
+      case c @ DclConst()          => c.dfType.getRefs
+      case v: DFVal.Dcl if v.isVar => v.dfType.getRefs
+      case _                       => Nil
+    }.map(_.get).toList
+    val included = mutable.Set.empty[DFMember]
+    val visited = mutable.Set.empty[DFMember]
+    def visit(m: DFMember): Unit =
+      if (visited.add(m))
+        if (localConsts.contains(m)) included += m
+        m.getRefs.foreach(r => visit(r.get))
+    seeds.foreach(visit)
+    designMembers.view.collect { case c @ DclConst() if included.contains(c) => c }.toList
+  end typeReferencedConsts
+
+  // The constants, static functions, signals/variables, and ED methods locally declared by
+  // `design`, in a stable topological order (the same machinery as `globalDeclsOrdered`). These
+  // four kinds reference each other in BOTH directions, so a fixed positional split is wrong in at
+  // least one direction: a constant's value may CALL a static function, whose body READS constants;
+  // a signal's default may CALL a static function; and an ED method READS signals. Declaration
+  // order is preserved among independent declarations (the seed order groups the kinds as
+  // constant, static function, signal, ED method, so an independent set prints in that layout).
+  //
+  // `methodBlocks` are the design's locally declared HDL methods (from `methodPrinters`, already in
+  // post-order). The local TYPE declarations and the constants they reference (`typeReferencedConsts`)
+  // are emitted ahead of these by the caller, so those width constants are excluded here; a type's
+  // width reference is likewise dropped from the dependency walk (`TypeRef`), since it is satisfied
+  // by that leading block. A residual case a leading block cannot express: a width constant whose
+  // value CALLS a static function would forward-reference it; such width computations are folded or
+  // globalized today, so they do not reach here.
+  final def localDeclsOrdered(
+      design: DFDesignBlock,
+      methodBlocks: List[DFDesignBlock]
+  ): List[LocalDecl] =
+    val designMembers = design.members(MemberView.Folded)
+    val typeConsts: Set[DFVal] = typeReferencedConsts(design).toSet
+    val consts: List[DFVal] = designMembers.view.flatMap {
+      case _: DFVal.DesignParam                      => None
+      case c @ DclConst() if !typeConsts.contains(c) => Some(c)
+      case _                                         => None
+    }.toList
+    val signals: List[DFVal.Dcl] = designMembers.view.flatMap {
+      case IteratorDcl()           => None
+      case DclConst()              => None
+      case p: DFVal.Dcl if p.isVar => Some(p)
+      case _                       => None
+    }.toList
+    val staticBlocks = methodBlocks.filter(_.isStaticFunction)
+    val edBlocks = methodBlocks.filterNot(_.isStaticFunction)
+    val methodNodeOf: Map[DFDesignBlock, LocalDecl] =
+      (staticBlocks.view.map(b => b -> LocalDecl.StaticMethod(b)) ++
+        edBlocks.view.map(b => b -> LocalDecl.EDMethod(b))).toMap
+    val constNodeOf: Map[DFMember, LocalDecl] =
+      consts.view.map(c => (c: DFMember) -> LocalDecl.Const(c)).toMap
+    val signalNodeOf: Map[DFMember, LocalDecl] =
+      signals.view.map(s => (s: DFMember) -> LocalDecl.Signal(s)).toMap
+    // the local declarations transitively referenced from `seeds`, excluding `self`. Resolved
+    // under the ambient (flat-DB) getSet: locally every declaration shares one getSet. Type (width)
+    // references are ignored — the width constants lead, ahead of this ordering.
+    def depsFrom(seeds: List[DFMember], self: Option[DFMember]): List[LocalDecl] =
+      val found = mutable.LinkedHashSet.empty[LocalDecl]
+      val visited = mutable.Set.empty[DFMember]
+      def visit(m: DFMember): Unit =
+        if (visited.add(m))
+          m match
+            case DFVal.Func.Call(_, key) =>
+              methodNodeOf.get(key.getDesignBlock).foreach(found += _)
+            case _ =>
+          if (!self.contains(m))
+            constNodeOf.get(m).foreach(found += _)
+            signalNodeOf.get(m).foreach(found += _)
+          m.getRefs.foreach {
+            case _: DFRef.TypeRef =>
+            case r                => visit(r.get)
+          }
+      seeds.foreach(visit)
+      found.toList
+    end depsFrom
+    def depsOf(decl: LocalDecl): List[LocalDecl] = decl match
+      case LocalDecl.Const(c)        => depsFrom(List(c), Some(c))
+      case LocalDecl.Signal(s)       => depsFrom(List(s), Some(s))
+      case LocalDecl.StaticMethod(b) => depsFrom(methodBodyMembers(b), None).filterNot(_ == decl)
+      case LocalDecl.EDMethod(b)     => depsFrom(methodBodyMembers(b), None).filterNot(_ == decl)
+    val ordered = mutable.ListBuffer.empty[LocalDecl]
+    val done = mutable.Set.empty[LocalDecl]
+    val onPath = mutable.Set.empty[LocalDecl]
+    def place(decl: LocalDecl): Unit =
+      if (!done.contains(decl) && onPath.add(decl))
+        depsOf(decl).foreach(place)
+        onPath -= decl
+        done += decl
+        ordered += decl
+    (consts.map(LocalDecl.Const(_)) ++ staticBlocks.map(LocalDecl.StaticMethod(_)) ++
+      signals.map(LocalDecl.Signal(_)) ++ edBlocks.map(LocalDecl.EDMethod(_))).foreach(place)
+    ordered.toList
+  end localDeclsOrdered
+
+  // Join rendered local declarations from `localDeclsOrdered`, setting off two adjacent HDL-method
+  // declarations with a blank line (each method is a multi-line block; a bare newline would run one
+  // into the next). Every other adjacency uses a single newline; empty strings are skipped. The
+  // boolean of each item marks a method declaration.
+  final def joinLocalDecls(items: List[(Boolean, String)]): String =
+    val sb = new StringBuilder
+    var prevMethod = false
+    var first = true
+    items.foreach { (isMethod, cs) =>
+      if (cs.nonEmpty)
+        if (!first) sb.append(if (prevMethod && isMethod) "\n\n" else "\n")
+        sb.append(cs)
+        prevMethod = isMethod
+        first = false
+    }
+    sb.toString
+  end joinLocalDecls
+
+  private lazy val globalMethodPrinterOf: Map[DFDesignBlock, TPrinter] =
+    globalMethodPrinters.toMap
+  private lazy val constPrinterOf: Map[DFMember, TPrinter] =
+    globalConstsWithPrinters.view.map((p, c) => c -> p).toMap
+  // one global declaration rendered as a DEFINITION (a constant declaration, or a method with
+  // its body). VHDL renders the method half as a prototype in its package spec instead.
+  protected final def csGlobalDecl(decl: GlobalDecl): String = decl match
+    case GlobalDecl.Const(c)  => constPrinterOf.getOrElse(c, printer).csDFMembers(List(c))
+    case GlobalDecl.Method(b) => globalMethodPrinterOf(b).csMethodDcl(b).stripTrailing
+  protected final def csGlobalDecls: String =
+    globalDeclsOrdered.map(csGlobalDecl).filter(_.nonEmpty).mkString("\n")
+
   def csGlobalFileContent: String =
-    sn"""|$csGlobalConstIntDcls
-         |$csGlobalTypeDcls
-         |$csGlobalConstNonIntDcls"""
+    sn"""|$csGlobalTypeDcls
+         |$csGlobalDecls"""
+  // The global HDL methods (ED methods / static functions used across designs or from
+  // global scope) rendered as method DEFINITIONS, in post-order (a method after the
+  // methods it calls). Shared by the single-string DB view (`csDB`) and the backends'
+  // globals file (where they are additionally wrapped — a VHDL package body, a Verilog
+  // defs header). Empty for a design with no global methods.
+  def csGlobalMethodDcls: String =
+    // `csMethodDcl` ends with a trailing newline (needed when it stands alone as a file),
+    // so strip it here before joining — otherwise it doubles up with the blank line that
+    // separates the globals block from the rest.
+    globalMethodPrinters.map((block, p) => p.csMethodDcl(block).stripTrailing).mkString("\n\n")
   def alignCode(cs: String): String
   def colorCode(cs: String): String
   import io.AnsiColor._
@@ -161,9 +561,13 @@ trait Printer
   final def csFile(design: DFDesignBlock): String =
     currentDesign = Some(design)
     val designDcl = design.instMode match
-      case InstMode.Def => csDFDesignDefDcl(design)
+      case InstMode.Def => csMethodDcl(design)
       case _            => csDFDesignBlockDcl(design)
-    s"${csDocString(design.dclMeta)}$designDcl"
+    // a foreign IP renders as a bare `import` of its external class, so its doc comment (carried on
+    // the IP class) must not be emitted ahead of the import
+    val docString = if (design.isExternalIPBlackbox) "" else csDocString(design.dclMeta)
+    sn"""|$docString
+         |$designDcl"""
   def dfhdlDefsFileName: String
   def dfhdlSourceContents: String
   val hdlFolderName: String = "hdl"
@@ -194,17 +598,22 @@ trait Printer
     val compiledFiles = Iterable(
       dfhdlSourceFile,
       globalSourceFile,
-      designPrinters.view.map { case (block, p) =>
-        val sourceType = block.instMode match
-          case _: DFDesignBlock.InstMode.BlackBox => SourceType.BlackBox
-          case _                                  => SourceType.Design
-        SourceFile(
-          SourceOrigin.Compiled,
-          sourceType,
-          hdlFolderName + separatorChar + designFileName(block.dclName),
-          formatCode(p.csFile(block), withColor = false)
-        )
-      }
+      designPrinters.view
+        // A foreign IP supplies its own HDL wrapper as a bundled resource (copied into the project
+        // at commit), so DFHDL must not generate an HDL file for it (that would duplicate the
+        // wrapper module/entity).
+        .filterNot { case (block, _) => block.isForeignIPBlackbox }
+        .map { case (block, p) =>
+          val sourceType = block.instMode match
+            case _: DFDesignBlock.InstMode.BlackBox => SourceType.BlackBox
+            case _                                  => SourceType.Design
+          SourceFile(
+            SourceOrigin.Compiled,
+            sourceType,
+            hdlFolderName + separatorChar + designFileName(block.dclName),
+            formatCode(p.csFile(block), withColor = false)
+          )
+        }
     ).flatten
     // removing existing compiled/committed files and adding the newly compiled files
     val srcFiles = designDB.srcFiles.filter {
@@ -222,37 +631,116 @@ trait Printer
   // getSet throws on ref resolution).
   protected final def designPrinters: List[(DFDesignBlock, TPrinter)] =
     val designDB = getSet.designDB
-    if (designDB.isRoot)
-      // Flat `designMemberList` prints designs in post-order DFS of the design
-      // tree (children in instantiation order, then the parent); the `subDBs`
-      // ListMap is pre-order (parent first). Reorder to post-order so the
-      // hierarchical output matches the flat output design-for-design.
-      val childrenOf = mutable.LinkedHashMap.empty[DFOwner.Ref, mutable.ListBuffer[DB]]
-      designDB.subDBs.values.foreach { sub =>
-        sub.parentSubDBOpt.foreach { parent =>
-          childrenOf.getOrElseUpdate(parent.top.ownerRef, mutable.ListBuffer.empty) += sub
+    val printers =
+      if (designDB.isRoot)
+        // Flat `designMemberList` prints designs in post-order DFS of the design
+        // tree (children in instantiation order, then the parent); the `subDBs`
+        // ListMap is pre-order (parent first). Reorder to post-order so the
+        // hierarchical output matches the flat output design-for-design.
+        val childrenOf = mutable.LinkedHashMap.empty[DFOwner.Ref, mutable.ListBuffer[DB]]
+        designDB.subDBs.values.foreach { sub =>
+          sub.parentSubDBOpt.foreach { parent =>
+            childrenOf.getOrElseUpdate(parent.top.ownerRef, mutable.ListBuffer.empty) += sub
+          }
         }
-      }
-      def postOrder(sub: DB): List[DB] =
-        childrenOf.getOrElse(sub.top.ownerRef, mutable.ListBuffer.empty).toList
-          .flatMap(postOrder) :+ sub
-      postOrder(designDB.topDB).map(sub => sub.top -> withGetSet(sub.getSet))
-    else
-      designDB.designMemberList.collect { case (block: DFDesignBlock, _) => block -> printer }
-    end if
+        def postOrder(sub: DB): List[DB] =
+          childrenOf.getOrElse(sub.top.ownerRef, mutable.ListBuffer.empty).toList
+            .flatMap(postOrder) :+ sub
+        postOrder(designDB.topDB).map(sub => sub.top -> withGetSet(sub.getSet))
+      else
+        designDB.designMemberList.collect { case (block: DFDesignBlock, _) => block -> printer }
+    // methods with phantoms print their declaration locally in the host design's
+    // body (see `printMethodDclInline`), and HDL methods are locally scoped — they
+    // print inside their owning design (see `methodPrinters`); neither prints as a
+    // file-level declaration
+    printers.filterNot((block, _) => printMethodDclInline(block) || block.isHDLMethod)
   end designPrinters
 
+  // The (HDL method design, printer-bound-to-its-getSet) pairs locally declared by `design`.
+  // ED methods and static functions print inside their owning design's declaration; they are
+  // discovered through the DFDesignInst members of `design` (including calls made inside process
+  // blocks) AND, transitively, of the method bodies themselves — one called only from
+  // another's body is declared in the host design just the same, and would otherwise never
+  // be emitted at all.
+  //
+  // The order is post-order (a method follows the methods it calls), because an HDL
+  // method must be declared before it is used. Each is bound to its FIRST call site's
+  // printer, which resolves its phantom actuals in that call site's scope.
+  final def methodPrinters(design: DFDesignBlock): List[(DFDesignBlock, TPrinter)] =
+    // methods emitted once in the shared globals area (used by more than one design, or
+    // from global scope) are excluded here — the using design references them by call,
+    // and they are declared globally rather than inside each design (see
+    // `globalMethodPrinters` and the backends' globals-file emission)
+    val globals = globalHDLMethods
+    val ordered = mutable.ListBuffer.empty[(DFDesignBlock, TPrinter)]
+    val visited = mutable.Set.empty[DFDesignBlock]
+    def visit(hostPrinter: TPrinter, host: DFDesignBlock): Unit =
+      host.members(MemberView.Flattened)(using hostPrinter.getSet).foreach {
+        case DFVal.Func.Call(call, designKey) =>
+          val block = designKey.getDesignBlock(using hostPrinter.getSet)
+          // `visited` is marked before recursing, so a (plugin-rejected) recursive method
+          // cannot loop here
+          if (block.isHDLMethod && !globals.contains(block) && visited.add(block))
+            // every concrete printer is its own TPrinter (`given printer: TPrinter = this`),
+            // so `hostPrinter.TPrinter` IS this printer's TPrinter — a fact the path-dependent
+            // type cannot express
+            val methodPrinter = hostPrinter.methodPrinterAt(call, designKey).asInstanceOf[TPrinter]
+            visit(methodPrinter, block)
+            ordered += block -> methodPrinter
+        case _ =>
+      }
+    visit(printer, design)
+    ordered.toList
+  end methodPrinters
+
+  // The (global HDL method design, printer-bound-to-its-getSet) pairs to emit ONCE in the
+  // shared globals area (a VHDL package / a Verilog defs header). A global method is used
+  // by more than one design (or from global scope) and captures nothing design-local (no
+  // phantoms), so it needs no call-site phantom substitution. Ordered post-order (a method
+  // follows the methods it calls) since an HDL method must be declared before it is used.
+  final def globalMethodPrinters: List[(DFDesignBlock, TPrinter)] =
+    val root = getSet.designDB.rootDB
+    val globals = globalHDLMethods
+    val ordered = mutable.ListBuffer.empty[(DFDesignBlock, TPrinter)]
+    val visited = mutable.Set.empty[DFDesignBlock]
+    def blockPrinterAndMembers(block: DFDesignBlock): (TPrinter, List[DFMember], MemberGetSet) =
+      root.subDBs.get(block.ownerRef) match
+        case Some(sub) => (withGetSet(sub.getSet), sub.members, sub.getSet)
+        case None      => (printer, block.members(MemberView.Folded), getSet)
+    def visit(block: DFDesignBlock): Unit =
+      if (globals.contains(block) && visited.add(block))
+        val (p, members, defGetSet) = blockPrinterAndMembers(block)
+        // recurse into callees first (post-order)
+        members.foreach {
+          case DFVal.Func.Call(_, key) => visit(key.getDesignBlock(using defGetSet))
+          case _                       =>
+        }
+        ordered += block -> p
+    // deterministic outer order: the sub-DB (elaboration) order of the global methods
+    val orderedGlobals =
+      if (root.isRoot) root.subDBs.view.values.map(_.top).filter(globals.contains)
+      else globals.view
+    orderedGlobals.foreach(visit)
+    ordered.toList
+  end globalMethodPrinters
+
   final def csDB: String =
+    // a foreign IP renders as an `import <clsName>` of its pre-existing external class; multiple
+    // foreign IP design blocks may share the same class, so emit each distinct import only once.
+    val seenForeignImports = mutable.Set.empty[String]
     val csFileList = designPrinters.collect {
       case (block, p)
           if printerOptions.designPrintFilter(block) &&
-            (!block.isVendorIPBlackbox || printVendorIPBlackbox) =>
+            // external IP blackboxes (vendor IP, foreign IP) are not rendered as modules by the
+            // HDL backends — vendor IP is generated by the vendor tool, foreign IP ships its HDL
+            // wrapper as a resource. The DFHDL printer (printVendorIPBlackbox) still renders them.
+            (!block.isExternalIPBlackbox || printVendorIPBlackbox) &&
+            block.foreignIPSource.forall(src => seenForeignImports.add(src.clsName)) =>
         formatCode(p.csFile(block))
     }
     val globals = formatCode(
-      sn"""|$csGlobalConstIntDcls
-           |$csGlobalTypeDcls
-           |$csGlobalConstNonIntDcls"""
+      sn"""|$csGlobalTypeDcls
+           |$csGlobalDecls"""
     )
     sn"""|$globals
          |
@@ -349,26 +837,29 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     s"${range.startRef.refCodeString} ${op} ${range.endRef.refCodeString}$csBy"
   def csWait(wait: Wait): String =
     val trigger = wait.triggerRef.get
-    trigger.dfType match
-      case _: DFBoolOrBit =>
-        // `ir.Wait(X)` resumes when X is true: `waitUntil(X)`. A negated trigger `not inner`
-        // renders back as `waitWhile(inner)`.
-        trigger match
-          case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
-            s"waitUntil(${wait.triggerRef.refCodeString})"
-          case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
-            s"waitWhile(${innerRef.refCodeString})"
-          case _ =>
-            s"waitUntil(${wait.triggerRef.refCodeString})"
-      case DFTime => s"${wait.triggerRef.refCodeString}.wait"
-      case _      =>
-        wait.triggerRef.get.getConstData[Option[BigInt]] match
-          // simplify display for int constant waits
-          case ConstData.KnownConst(Some(value: BigInt)) if value.isValidInt =>
-            s"${value}.cy.wait"
-          case _ =>
-            s"${wait.triggerRef.refCodeString}.cy.wait"
-    end match
+    if (wait.isEndless) "wait"
+    else
+      trigger.dfType match
+        case _: DFBoolOrBit =>
+          // `ir.Wait(X)` resumes when X is true: `waitUntil(X)`. A negated trigger `not inner`
+          // renders back as `waitWhile(inner)`.
+          trigger match
+            case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
+              s"waitUntil(${wait.triggerRef.refCodeString})"
+            case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
+              s"waitWhile(${innerRef.refCodeString})"
+            case _ =>
+              s"waitUntil(${wait.triggerRef.refCodeString})"
+        case DFTime => s"${wait.triggerRef.refCodeString}.wait"
+        case _      =>
+          wait.triggerRef.get.getConstData[Option[BigInt]] match
+            // simplify display for int constant waits
+            case ConstData.KnownConst(Some(value: BigInt)) if value.isValidInt =>
+              s"${value}.cy.wait"
+            case _ =>
+              s"${wait.triggerRef.refCodeString}.cy.wait"
+      end match
+    end if
   end csWait
   def csTextOut(textOut: TextOut): String =
     val msg =
@@ -404,7 +895,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/**", "\n  *", "*/")
   def csAnnotations(annotations: List[annotation.HWAnnotation]): String =
     if (annotations.isEmpty) ""
-    else annotations.view.map(_.codeString).mkString("", "\n", "\n")
+    else annotations.view.map(_.codeString).mkString("\n")
   // def csTimer(timer: Timer): String =
   //   val timerBody = timer match
   //     case p: Timer.Periodic =>
@@ -442,7 +933,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   import io.AnsiColor._
   val scalaKW: Set[String] = Set(
     "class", "def", "end", "enum", "extends", "new", "object", "val", "if", "else", "match",
-    "case", "final", "for", "while", "until", "to", "by"
+    "case", "final", "for", "while", "until", "to", "by", "import", "this"
   )
   val dfhdlKW: Set[String] = Set(
     "VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",

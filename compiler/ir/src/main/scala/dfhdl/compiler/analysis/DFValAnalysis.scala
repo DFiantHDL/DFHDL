@@ -12,6 +12,17 @@ import scala.util.boundary, boundary.break
 import scala.annotation.targetName
 import scala.collection.immutable.ListMap
 
+extension (design: DFDesignBlock)
+  // A function's RETURN output port: the OUT port driven by a CONNECTION in the def body (the
+  // result wiring), as opposed to an `<> OUT` ARGUMENT port, which the body drives by
+  // ASSIGNMENT. A procedure (`Unit` return) has none. Used to keep the return port out of the
+  // method's printed formal/actual lists.
+  def methodReturnPort(using MemberGetSet): Option[DFVal.Dcl] =
+    design.members(MemberView.Folded).collectFirst {
+      case DFNet.Connection(toVal = p: DFVal.Dcl) if p.isPortOut && !p.isPhantom => p
+    }
+end extension
+
 object IteratorDcl:
   def unapply(dcl: DFVal.Dcl)(using MemberGetSet): Boolean =
     dcl.hasTagOf[IteratorTag]
@@ -166,7 +177,7 @@ object DclOut:
     case Modifier.OUT => true
     case _            => false
 
-object PortOfDesignDef:
+object PortOfMethodDesign:
   def unapply(pbns: DFVal.PortByNameSelect)(using
       getSet: MemberGetSet
   ): Option[(Modifier.IN.type | Modifier.OUT.type, DFDesignInst)] =
@@ -319,10 +330,11 @@ extension (dfVal: DFVal)
           case r: TypeRef =>
             // looking for what kind of type reference it is
             r.originMember.asInstanceOf[DFVal].dfType match
-              case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r    => Some("length")
-              case DFBits(widthRef: TypeRef) if widthRef == r                    => Some("width")
-              case DFDecimal(widthParamRef = widthRef: TypeRef) if widthRef == r => Some("width")
-              case _                                                             => None
+              case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r => Some("length")
+              case DFBits(widthRef: TypeRef) if widthRef == r                 => Some("width")
+              case DFDecimal(magnitudeWidthParamRef = widthRef: TypeRef) if widthRef == r =>
+                Some("width")
+              case _ => None
           case _ => None
         }.headOption
       else None
@@ -477,6 +489,21 @@ extension (member: DFMember)
       case _ => false
 end extension
 
+extension (wait: Wait)
+  /** An endless wait — a `Wait` whose trigger is an anonymous constant `false` (constructed by the
+    * frontend's parameterless `wait`). Since `ir.Wait(X)` resumes when X becomes true, a constant
+    * `false` trigger blocks forever. Printed as bare `wait` (VHDL `wait;`, Verilog `wait(0);`) and
+    * lowered to a self-looping step in RT processes.
+    */
+  def isEndless(using MemberGetSet): Boolean =
+    wait.triggerRef.get match
+      case const @ DFVal.Const(dfType = DFBool) if const.isAnonymous =>
+        const.data match
+          case Some(b: Boolean) => !b
+          case _                => false
+      case _ => false
+end extension
+
 /** An extractor that transforms a DFType using a provided update function.
   *
   * This extractor works in two phases:
@@ -522,7 +549,10 @@ end ComposedDFTypeReplacement
 
 extension (lhs: DFVal)(using MemberGetSet)
   def compareWidths(rhs: DFVal)(func: (Int, Int) => Boolean): Option[Boolean] =
+    // total-width ref: for integer decimals the magnitude ref is the total ref (and may be
+    // parametric); fixed-point total widths are always constant
     def widthRef(v: DFVal): IntParamRef = (v.dfType: @unchecked) match
-      case dt: DFBits    => dt.widthParamRef
-      case dt: DFDecimal => dt.widthParamRef
+      case dt: DFBits                             => dt.widthParamRef
+      case dt: DFDecimal if dt.fractionWidth == 0 => dt.magnitudeWidthParamRef
+      case dt: DFDecimal                          => IntParamRef(dt.widthUNSAFE)
     widthRef(lhs).compare(widthRef(rhs))(func)

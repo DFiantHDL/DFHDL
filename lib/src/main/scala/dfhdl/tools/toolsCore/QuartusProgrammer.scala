@@ -11,7 +11,6 @@ import java.nio.file.Paths
 import dfhdl.backends
 import dfhdl.vendor
 import constraints.DeviceID.Vendor
-import java.io.File.separatorChar
 
 sealed abstract class QuartusProgrammer(pro: Boolean) extends Programmer:
   val toolName: String = if (pro) "Quartus Programmer Pro" else "Quartus Programmer Lite/Standard"

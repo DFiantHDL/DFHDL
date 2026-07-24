@@ -39,6 +39,18 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
       if (tWidth > fWidth) fromData
       else
         fromData.asInstanceOf[Option[BigInt]].map(_.truncateAsUnsigned(tWidth).asSigned(tWidth))
+    // fixed-point conversion: the data is the raw scaled integer (value = raw / 2^fraction).
+    // A fraction-width change scales the raw by 2^(targetFraction - sourceFraction) to
+    // preserve the value; the result is then fit into the target's total width per its sign
+    // (a sign/magnitude change has zero fraction shift and just reinterprets/extends).
+    case (t: DFDecimal, f: DFDecimal) if t.fractionWidth != 0 || f.fractionWidth != 0 =>
+      val tWidth = t.widthUNSAFE
+      val fractionShift = t.fractionWidth - f.fractionWidth
+      fromData.asInstanceOf[Option[BigInt]].map { raw =>
+        val scaled = if (fractionShift >= 0) raw << fractionShift else raw >> -fractionShift
+        if (t.signed) scaled.truncateAsUnsigned(tWidth).asSigned(tWidth)
+        else scaled.truncateAsUnsigned(tWidth)
+      }
     // Casting from DFInt32 to UInt
     case (DFUInt(IntUNSAFE(fWidth)), DFInt32) =>
       assert(fWidth <= 31)
@@ -239,11 +251,19 @@ def calcFuncData[OT <: DFType](
                 Some(lhs: String) :: Some(rhs: String) :: Nil
               ) =>
             Some(lhs + rhs)
-          // DFXInt arithmetic operations and shifting
+          // DFUInt unary_~ operation
+          case (
+                DFUInt(_),
+                FuncOp.unary_~,
+                DFUInt(_) :: Nil,
+                Some(data: BigInt) :: Nil
+              ) =>
+            Some((~data).asUnsigned(outType.widthUNSAFE))
+          // DFXInt arithmetic/logic operations and shifting
           case (
                 outType @ DFXInt(_),
                 op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./ | FuncOp.% | FuncOp.<< |
-                FuncOp.>> | FuncOp.** | FuncOp.max | FuncOp.min),
+                FuncOp.>> | FuncOp.** | FuncOp.max | FuncOp.min | FuncOp.| | FuncOp.& | FuncOp.^),
                 DFXInt(_) :: DFXInt(_) :: maybeMoreTypes,
                 argData: List[Option[BigInt]] @unchecked
               ) =>
@@ -260,6 +280,9 @@ def calcFuncData[OT <: DFType](
               case FuncOp.**  => lhs pow rhs.toInt
               case FuncOp.max => argData.map(_.get).reduce(_ max _)
               case FuncOp.min => argData.map(_.get).reduce(_ min _)
+              case FuncOp.|   => argData.map(_.get).reduce(_ | _)
+              case FuncOp.&   => argData.map(_.get).reduce(_ & _)
+              case FuncOp.^   => argData.map(_.get).reduce(_ ^ _)
             val widthNoTrunc = dataNoTrunc.bitsWidth(outType.signed)
             val dataTrunc =
               if (widthNoTrunc > outType.widthUNSAFE)

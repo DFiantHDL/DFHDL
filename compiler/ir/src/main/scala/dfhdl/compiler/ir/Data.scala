@@ -31,6 +31,8 @@ object Data:
         case listData: List[Data] =>
           given ReadWriter[List[Data]] = listDataWriter
           writeJs(("list", listData))
+        // the data of a DFUnit value (a Unit-return method)
+        case () => writeJs(Tuple1("unit"))
     ,
     json =>
       json match
@@ -59,7 +61,8 @@ object Data:
         case ujson.Arr(ArrayBuffer(ujson.Str("list"), listData)) =>
           given ReadWriter[List[Data]] = listDataWriter
           read[List[Data]](listData)
-        case d => throw new Exception(s"Invalid data: $d")
+        case ujson.Arr(ArrayBuffer(ujson.Str("unit"))) => ()
+        case d                                         => throw new Exception(s"Invalid data: $d")
   )
 end Data
 

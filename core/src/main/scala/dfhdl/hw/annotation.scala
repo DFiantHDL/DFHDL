@@ -39,9 +39,29 @@ object annotation:
       val asIR: ir.annotation.Unused = ir.annotation.Unused.Prune
   end unused
 
-  final class pure(val isActive: Boolean) extends HWAnnotation:
-    def this() = this(true)
-    val asIR: ir.annotation.Pure.type = ir.annotation.Pure
+  /** Purity marking. Designs and methods are PURE BY DEFAULT: their elaboration is assumed to be a
+    * function of their code, applied parameters, input types, and plain Scala arguments, which
+    * enables caching (skipping redundant elaboration).
+    *   - `@pure(false)` marks elaboration as impure, so its results are never cached. The
+    *     compiler's `PureCheck` phase synthesizes this transitively for detectably impure code
+    *     (known-impure calls, outer `var` access, or references to other impure code). Effects the
+    *     compiler cannot detect must be marked manually and are otherwise the user's
+    *     responsibility.
+    *   - `@pure(true, impureParams*)` marks elaboration as pure and cacheable while naming the
+    *     DATA-IMPURE parameters: parameters whose applied data is forced into elaboration (the
+    *     `toScalaXYZ` family), so the cache must additionally key on their applied values. The
+    *     `PureCheck` phase synthesizes this by attributing each forcing to its dataflow root. `"*"`
+    *     marks ALL parameters data-impure; the library's `toScalaXYZ` forcers themselves carry
+    *     `@pure(true, "*")`, making them the base case of the attribution: applying any value to a
+    *     marked parameter re-attributes that value at the call site.
+    *   - `@pure` (or `@pure(true)`) actively marks elaboration as pure, overriding the compiler's
+    *     detection; use it when you know the elaboration is deterministic despite the detection
+    *     (the detection over-approximates). An explicit marking (with or without named params)
+    *     disables the detection entirely, so correctness becomes the user's responsibility.
+    */
+  final class pure(val isPure: Boolean = true, val impureParams: String*) extends HWAnnotation:
+    val isActive: Boolean = true
+    val asIR: ir.annotation.Pure = ir.annotation.Pure(isPure, impureParams.toList)
 
   /** Flattening Mode:
     *   - transparent: $memberName
@@ -68,6 +88,8 @@ object constraints:
     val asIR: ir.constraints.GlobalConstraint
   sealed abstract class SigConstraint extends Constraint:
     val bitIdx: ir.ConfigN[Int]
+  final case class platformID(platformName: String) extends GlobalConstraint:
+    val asIR: ir.constraints.PlatformID = ir.constraints.PlatformID(platformName)
   final case class deviceID(
       vendor: deviceID.vendor,
       deviceName: String,
@@ -103,7 +125,10 @@ object constraints:
   ) extends GlobalConstraint:
     val asIR: ir.constraints.DeviceConfig =
       ir.constraints.DeviceConfig(
-        flashPartName, interface(deviceConfig.interface), sizeLimitMb, masterRate
+        flashPartName,
+        interface(deviceConfig.interface),
+        sizeLimitMb,
+        masterRate
       )
   object deviceConfig:
     import ir.constraints.DeviceConfig.Interface
@@ -163,6 +188,7 @@ object constraints:
       import ir.constraints.IO.PullMode
       export PullMode.UP as up
       export PullMode.DOWN as down
+  end io
 
   object timing:
     type InclusionPolicy = ir.ClkRstInclusionPolicy
@@ -225,12 +251,15 @@ object constraints:
         export Active.Low as low
         export Active.High as high
 
-    final case class related(domainContainer: RTDomainContainer)(using DFC) extends Constraint:
+    final case class related(domainContainer: RTDomainContainer, includeReset: Boolean = true)(using
+        DFC
+    ) extends Constraint:
       val asIR: ir.constraints.Timing.Related =
         ir.constraints.Timing.Related(
           domainContainer.containedOwner.asIR
             .asInstanceOf[ir.DomainBlock | ir.DFDesignBlock]
-            .refTW[ir.DomainBlock]
+            .refTW[ir.DomainBlock],
+          includeReset
         )
   end timing
 end constraints

@@ -60,7 +60,7 @@ Located in `plugin/src/main/scala/plugin/`:
 3. `MetaContextPlacerPhase` — places meta-context markers
 4. `LoopFSMPhase` — loop-to-FSM transformations
 5. `CustomControlPhase` — custom control flow
-6. `DesignDefsPhase` — design definition processing
+6. `MethodsPhase` — DFHDL method (`def`) processing
 7. `MetaContextDelegatePhase` — meta-context delegation
 8. `MetaContextGenPhase` — meta-context code generation
 9. `OnCreateEventsPhase` — on-create event handling
@@ -92,6 +92,7 @@ Generated HDL reference files live in `lib/src/test/resources/ref/`. Update them
 - **Implicit conversions**: only enabled in `internals` and `compiler_ir` via `implicitConversionSettings`
 - **Naming**: `DF`-prefixed types (e.g., `DFVal`, `DFType`), `DFC` for context; stage names follow `Drop*`, `Add*`, `Connect*`, `Break*` patterns
 - **Package root**: `dfhdl.*`
+- **No em dashes**: never use em dashes in official documentation (`docs/`) or in code documentation/comments; use commas, colons, semicolons, parentheses, or separate sentences instead
 
 ## Key Files
 
@@ -100,7 +101,7 @@ Generated HDL reference files live in `lib/src/test/resources/ref/`. Update them
 | `build.sbt` | Multi-project build definition |
 | `project/DFHDLCommands.scala` | Custom SBT commands |
 | `.scalafmt.conf` | Code formatting rules |
-| `mkdocs.yml` | Documentation site config |
+| `properdocs.yml` | Documentation site config (ProperDocs, a maintained MkDocs fork; build with `properdocs build`) |
 | `sandbox/` | Generated output during tests/apps (gitignored, cleared by `clearSandbox`) |
 | `lib/src/test/resources/ref/` | Reference HDL output snapshots for regression tests |
 

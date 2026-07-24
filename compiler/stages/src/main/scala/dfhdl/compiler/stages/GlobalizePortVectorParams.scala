@@ -92,8 +92,7 @@ case object GlobalizePortVectorParams extends HierarchyStage:
   // so the descendant sub-DBs that reference them never receive the globals in
   // their closure, and the vec-type `FullReplacement`s purge the top's
   // globalized `TypeRef`->global bindings from its refTable. `repairGlobalClosures`
-  // restores both gaps in place (far cheaper than a full `newToOld.oldToNew`
-  // re-normalization).
+  // restores both gaps in place.
   override def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     super.transform(designDB).repairGlobalClosures
 

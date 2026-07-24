@@ -9,6 +9,7 @@ import dfhdl.backends
 final case class SimulatorOptions(
     onError: _OnError,
     Werror: WError,
+    location: _Location,
     verilogSimulator: _VerilogSimulator,
     vhdlSimulator: _VHDLSimulator,
     runLimit: RunLimit
@@ -25,11 +26,13 @@ object SimulatorOptions:
     given (using
         onError: OnError,
         Werror: WError,
+        location: Location,
         verilogSimulator: VerilogSimulator,
         vhdlSimulator: VHDLSimulator,
         runLimit: RunLimit
     ): Defaults[Any] = SimulatorOptions(
       onError = onError(dfhdl.options.OnError), Werror = Werror,
+      location = location(dfhdl.options.ToolOptions.Location),
       verilogSimulator = verilogSimulator(dfhdl.tools.simulators.verilogSimulators),
       vhdlSimulator = vhdlSimulator(dfhdl.tools.simulators.vhdlSimulators), runLimit = runLimit
     )
@@ -47,6 +50,14 @@ object SimulatorOptions:
     given (using Werror: dfhdl.options.ToolOptions.WError): WError = Werror
     given [T](using conv: Conversion[T, dfhdl.options.ToolOptions.WError]): Conversion[T, WError] =
       t => conv(t).asInstanceOf[WError]
+
+  type Location = dfhdl.options.ToolOptions.Location.type => _Location
+  private[dfhdl] into opaque type _Location <: dfhdl.options.ToolOptions._Location =
+    dfhdl.options.ToolOptions._Location
+  object _Location:
+    given (using location: dfhdl.options.ToolOptions.Location): Location = location
+    given Conversion[dfhdl.options.ToolOptions._Location, _Location] = x =>
+      x.asInstanceOf[_Location]
 
   type VerilogSimulator = dfhdl.tools.simulators.verilogSimulators.type => _VerilogSimulator
   protected[dfhdl] into opaque type _VerilogSimulator <: dfhdl.tools.toolsCore.VerilogSimulator =

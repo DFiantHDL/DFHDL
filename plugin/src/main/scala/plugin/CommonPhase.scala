@@ -9,7 +9,8 @@ import Flags.*
 import SymDenotations.*
 import Decorators.*
 import ast.Trees.*
-import ast.{tpd, untpd, TreeTypeMap}
+import ast.{tpd, untpd, TreeTypeMap, TreeMapWithImplicits}
+import inlines.Inlines
 import StdNames.nme
 import Names.*
 import Types.*
@@ -65,7 +66,31 @@ abstract class CommonPhase extends PluginPhase:
       .appliedToTypes(trees.map(_.tpe.widen))
       .appliedToArgs(trees)
 
-  private val dropProxiesTreeMap = new TreeMap:
+  // Expands the `inline` calls in `tree`, the way the compiler's `Inlining` phase would have.
+  //
+  // Only annotation trees need this. `Inlining` never visits a symbol's annotations
+  // (see https://github.com/scala/scala3/issues/23650), so an `inline` call in an annotation
+  // argument reaches us unexpanded. That is harmless while it stays an annotation, but we lift
+  // annotation trees into runtime terms, and `Erasure` rejects a term that still references an
+  // `inline` method ("... is declared as `inline`, but was not inlined"). Since Scala 3.10
+  // `Predef.->` is an extension `inline def` rather than the old `@inline` `ArrowAssoc` member, so
+  // even a plain `@ann("a" -> "b")` trips this.
+  protected def inlineCalls(tree: Tree)(using Context): Tree =
+    // `Inlines.needsInlining` only holds under the inlining phase's context, and this phase runs
+    // after it, so step the context back to it.
+    atPhase(Phases.inliningPhase)(inliningTreeMap.transform(tree))
+
+  // mirrors `Inlining.InliningTreeMap`, minus the parts that only matter for whole compilation
+  // units (macro annotation expansion, sbt dependency recording, tracked member defs)
+  private val inliningTreeMap = new TreeMapWithImplicits:
+    override def transform(tree: Tree)(using Context): Tree =
+      if (tree.isType) tree
+      else if (Inlines.needsInlining(tree))
+        val tree1 = super.transform(tree)
+        if (tree1.tpe.isError) tree1 else Inlines.inlineCall(tree1)
+      else super.transform(tree)
+
+  private val dropProxiesTreeMap = new TreeMapWithImplicits:
     override def transform(tree: tpd.Tree)(using Context): tpd.Tree =
       def dropProxies(expr: Tree, proxies: List[Tree], otherStats: List[Tree]): Tree =
         val proxyMap = proxies.collect {
@@ -146,6 +171,9 @@ abstract class CommonPhase extends PluginPhase:
   var inlineAnnotSym: Symbol = uninitialized
   var dfValSym: Symbol = uninitialized
   var constModTpe: Type = uninitialized
+  var inArgAnnotSym: Symbol = uninitialized
+  var outArgAnnotSym: Symbol = uninitialized
+  var outNBArgAnnotSym: Symbol = uninitialized
   var genContainerParamSym: TermSymbol = uninitialized
   private var bTpe: Type = uninitialized
 
@@ -183,6 +211,26 @@ abstract class CommonPhase extends PluginPhase:
             case _ => false
         case _ =>
           false
+    // The direction/non-blocking annotations an HDL-method argument type carries: `T <> IN` is
+    // `DFValOf[...] @IN`, `T <> OUT` is `DFVarOf[...] @OUT`, `T <> OUT.NB` is `DFVarOf[...] @OUT.NB`.
+    // The `<>` match keeps the argument type GENERIC (a readable value for inputs, an assignable
+    // variable for outputs) and marks the direction with a type ANNOTATION, which survives
+    // match-type reduction as an `AnnotatedType` (a type-parameter marker would not), so the
+    // annotation is the reliable place to read directionality.
+    private def argDirAnnots: List[Symbol] =
+      // `dealiasKeepAnnots`, not `dealias`: plain `dealias` strips annotations while reducing the
+      // `<>` match type, which would discard the very markers we are after.
+      def loop(t: Type, acc: List[Symbol]): List[Symbol] = t.dealiasKeepAnnots match
+        case AnnotatedType(parent, annot) => loop(parent, annot.symbol :: acc)
+        case _                            => acc
+      loop(tpe, Nil)
+    // an input argument (`T <> IN`)
+    def isDFPortIN: Boolean = argDirAnnots.contains(inArgAnnotSym)
+    // an output argument (`T <> OUT` copy-out, or `T <> OUT.NB` non-blocking)
+    def isDFPortOUT: Boolean =
+      argDirAnnots.exists(s => s == outArgAnnotSym || s == outNBArgAnnotSym)
+    // a NON-BLOCKING output argument (`T <> OUT.NB`)
+    def isDFPortOUTNB: Boolean = argDirAnnots.contains(outNBArgAnnotSym)
   end extension
 
   extension (tree: ValOrDefDef)(using Context)
@@ -243,11 +291,24 @@ abstract class CommonPhase extends PluginPhase:
         pattern.findFirstMatchIn(docstring) match
           case Some(m) => Some(m.group(1).trim)
           case None    => None
+      def asciiCheck(doc: String): String =
+        val idx = doc.indexWhere(_ > 127)
+        if (idx >= 0)
+          val ch = doc(idx)
+          report.error(
+            f"""|Unsupported non-ASCII character in DFHDL documentation comment.
+                |Found character '$ch' (U+${ch.toInt}%04X) at index $idx.
+                |Only ASCII characters are supported in DFHDL documentation.""".stripMargin,
+            sym.srcPos
+          )
+        doc
+      // Params and constructors delegate to the owner's docString, which is already
+      // ASCII-checked here, so the check is applied only at the extraction source.
       if (sym.is(Param))
         sym.owner.docString.flatMap(d => extractParamDescription(d, sym.name.toString))
       else if (sym.isConstructor)
         sym.owner.docString
-      else ctx.docCtx.flatMap(_.docstring(sym)).map(_.raw).map(extract)
+      else ctx.docCtx.flatMap(_.docstring(sym)).map(_.raw).map(extract).map(asciiCheck)
     end docString
 
     def staticAnnotations(using Context): List[Annotations.Annotation] =
@@ -444,6 +505,9 @@ abstract class CommonPhase extends PluginPhase:
     hasDFCTpe = requiredClassRef("dfhdl.core.HasDFC")
     inlineAnnotSym = requiredClass("scala.inline")
     constModTpe = requiredClassRef("dfhdl.core.ISCONST").appliedTo(ConstantType(Constant(true)))
+    inArgAnnotSym = requiredClass("dfhdl.core.IN")
+    outArgAnnotSym = requiredClass("dfhdl.core.OUT")
+    outNBArgAnnotSym = requiredClass("dfhdl.core.Modifier.OUT.NB")
     contextFunctionSym = defn.FunctionSymbol(1, isContextual = true)
     genContainerParamSym = requiredMethod("dfhdl.core.r__For_Plugin.genContainerParam")
     bTpe = requiredClassRef("dfhdl.hdl.B")

@@ -184,11 +184,11 @@ import dfhdl.core.{DFValAny, DFOwnerAny, asValAny, DFC}
 //format: on
 case object DropRTProcess extends HierarchyStage:
   def dependencies: List[Stage] = List(FlattenStepBlocks)
-  def nullifies: Set[Stage] = Set(DFHDLUniqueNames)
+  def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropUnreferencedAnons)
 
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     val patchList = subDB.members.view.collect {
-      case pb: ProcessBlock if pb.isInRTDomain =>
+      case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial =>
         val stateBlocks = pb.members(MemberView.Folded).collect {
           case sb: StepBlock if sb.isRegular =>
             sb
@@ -197,6 +197,81 @@ case object DropRTProcess extends HierarchyStage:
         val pbPatch = pb -> Patch.Replace(pb.getOwner, Patch.Replace.Config.ChangeRefAndRemove)
         if (stateBlocks.isEmpty) List(pbPatch)
         else
+          // ==== initial-block generation ====
+          // The prologue (leading members before the first step -- kept in place by
+          // `DropRTWaits` only when initial-convertible) is lowered into a generated
+          // `initial` block before the process (clones; the originals are removed -- they
+          // must not survive the process unwrap as every-cycle logic). Its forever
+          // wrap-around re-execution was already cloned by FlattenStepBlocks before the
+          // wrap-around `NextStep` goto (rotation); only fall-through cascades past the
+          // last step still need planting here -- explicit first-step gotos do NOT re-run
+          // it. The first step's `onEntry` body is CLONED into the same initial block (the
+          // original stays for the regular transition-site inlining of Rule 2).
+          val firstStep = stateBlocks.head
+          val prologue = pb.members(MemberView.Flattened).takeWhile(_ != firstStep)
+          val firstStepOnEntry = firstStep.members(MemberView.Folded).collectFirst {
+            case onEntry: StepBlock if onEntry.isOnEntry => onEntry
+          }
+          val onEntryMembers =
+            firstStepOnEntry.map(_.members(MemberView.Flattened)).getOrElse(Nil)
+          def hasNets(members: List[DFMember]): Boolean =
+            members.exists { case _: DFNet => true; case _ => false }
+          // the prologue's effectful statements (assignment nets, combinational for loops,
+          // constant-guarded conditionals) and their anonymous value dependencies move into
+          // the initial block; other leading members (declarations, ranges, values consumed
+          // by the steps) stay in place
+          val prologueMoveList = initialConvertibleMoveList(prologue)
+          // COMB_LOOP tags are stripped on the initial-block clones: inside an `initial`
+          // block the combinational distinction is meaningless (the content runs once) and
+          // the printed form must not carry the process-only marker
+          val stripCombTag: DFMember => DFMember =
+            case fb: DFLoop.DFForBlock if fb.isCombinational =>
+              fb.copy(tags = fb.tags.removeTagOf[CombinationalTag])
+            case m => m
+          val generateInitial = (hasNets(prologue) || hasNets(onEntryMembers)) &&
+            isInitialConvertible(prologue) && isInitialConvertible(onEntryMembers)
+          val initialPatches =
+            if (!generateInitial) Nil
+            else
+              val initialDsn = new MetaDesign(
+                pb,
+                Patch.Add.Config.Before,
+                dfhdl.core.DomainType.RT
+              ):
+                val initialPB =
+                  dfhdl.core.Process.Block.initial(using dfc.setMeta(pb.meta.anonymize))
+                dfc.enterOwner(initialPB)
+                // the prologue is cloned (not re-owned via `plantMembers`) because the same
+                // patch list carries the process-unwrap Replace(ChangeRefAndRemove), which
+                // redirects every ref recorded as pointing to the process -- including a
+                // re-owned member's ownerRef -- to the process's owner; fresh clone refs are
+                // not in that record, so they are unaffected. The originals are removed below.
+                plantClonedMembers(pb, prologueMoveList, stripCombTag)
+                firstStepOnEntry.foreach { onEntry =>
+                  plantClonedMembers(onEntry, onEntryMembers, stripCombTag)
+                }
+                dfc.exitOwner()
+              // "initial wins": strip an existing decl init off any REG the generated initial
+              // block assigns (e.g. SimplifyRTOps' forced iterator init) -- the initial
+              // assignment supersedes it, and keeping both would trip the init/initial
+              // conflict check at the stage boundary
+              val initStripPatches = (prologue ++ onEntryMembers).collect {
+                case DFNet.BAssignment(toVal, _) => toVal.departialDcl
+              }.flatten.collect {
+                case (dcl, _) if dcl.hasNonBubbleInit => dcl
+              }.distinct.flatMap { dcl =>
+                // the orphaned anonymous init value tree is removed along with the strip
+                val initValRemovals = dcl.initList.flatMap(_.collectRelMembers(true))
+                  .filter(_.isAnonymous).map(_ -> Patch.Remove())
+                (dcl -> Patch.Replace(
+                  dcl.copy(initRefList = Nil),
+                  Patch.Replace.Config.FullReplacement
+                )) :: initValRemovals
+              }
+              // the dcl-strip Replace patches precede the Add so the cloned members'
+              // references to the stripped dcls are redirected to the updated instances
+              initStripPatches ::: initialDsn.patch ::
+                prologueMoveList.map(_ -> Patch.Remove())
           // assuming flat step blocks structure
           val nextBlocks = stateBlocks.lazyZip(stateBlocks.tail :+ stateBlocks.head).toMap
           val enumName = if (pb.isAnonymous) s"State" else s"${pb.getName}_State"
@@ -243,6 +318,10 @@ case object DropRTProcess extends HierarchyStage:
               val currentStepBlock = g.getOwnerStepBlock
               // the stage `FlattenStepBlocks` guarantees that the goto always references a regular StepBlock
               val nextStepBlock: StepBlock = g.stepRef.get.asInstanceOf[StepBlock]
+              // the initial-converted prologue re-executes at the forever wrap-around
+              def plantPrologue(): Unit =
+                if (generateInitial && prologueMoveList.nonEmpty)
+                  plantClonedMembers(pb, prologueMoveList)
               def setState(nextStepBlock: StepBlock): Unit =
                 stateReg.din.:=(enumEntry(entries(nextStepBlock.getName)))(using
                   dfc.setMeta(g.meta)
@@ -287,6 +366,8 @@ case object DropRTProcess extends HierarchyStage:
                           DFIf.Header(DFUnit)(using fallThroughDFC)
                         )(using fallThroughDFC)
                         dfc.enterOwner(ifBlock)
+                        // a fall-through cascade past the last step is a wrap-around too
+                        if (nextStepBlock == stateBlocks.last) plantPrologue()
                         val fallThroughStepBlock = nextBlocks(nextStepBlock)
                         handleNextStep(fallThroughStepBlock)
                         dfc.exitOwner()
@@ -299,6 +380,7 @@ case object DropRTProcess extends HierarchyStage:
               end if
           }
           Iterator(
+            initialPatches,
             List(dsn.patch, pbPatch),
             removedOnEntryExitFallThroughMembers.map(_ -> Patch.Remove()),
             caseDsns.map(_.patch),

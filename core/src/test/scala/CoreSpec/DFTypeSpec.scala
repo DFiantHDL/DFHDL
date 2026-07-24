@@ -96,4 +96,85 @@ class DFTypeSpec extends DFSpec:
     val tplc = tpl <> VAR
     tplc._1 <> 1
   }
+
+  test("unsupported DFHDL member name"):
+    assertPluginError(
+      """|Unsupported DFHDL member name x y.
+         |Only alphanumric or underscore characters are supported.
+         |You can leave the Scala name as-is and add @targetName("newName") annotation.""".stripMargin
+    )(
+      """
+      class Foo extends DFDesign:
+        val `x y` = UInt(8) <> VAR
+      """
+    )
+
+  test("missing `<> DFRET` modifier on a DFHDL function return type"):
+    assertPluginError(
+      "Must use a `<> DFRET` modifier for a DFHDL function return type."
+    )(
+      """
+      class Foo extends DFDesign:
+        val x = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        def f(a: UInt[8] <> VAL): UInt[8] <> VAL = a
+        y := f(x)
+      """
+    )
+
+  test("missing `<> VAL` modifier on a DFHDL value argument"):
+    assertPluginError(
+      "A DFHDL value/argument must have a `<> VAL` modifier."
+    )(
+      """
+      class Foo extends DFDesign:
+        def f(a: UInt[8] <> DFRET): Unit = {}
+      """
+    )
+
+  test("non-constant design parameter"):
+    assertPluginError(
+      "DFHDL design/interface parameters must be constant values (use a `<> CONST` modifier)."
+    )(
+      """
+      class Foo(val n: UInt[8] <> VAL) extends RTDesign:
+        val y = UInt(8) <> OUT
+        y := n
+      """
+    )
+
+  test("final DFHDL class"):
+    assertPluginError(
+      "DFHDL classes cannot be final."
+    )(
+      """
+      final class Foo extends DFDesign:
+        val y = UInt(8) <> OUT
+        y := 0
+      """
+    )
+
+  test("case class DFHDL class"):
+    assertPluginError(
+      "DFHDL classes cannot be case classes."
+    )(
+      """
+      case class Foo() extends DFDesign:
+        val y = UInt(8) <> OUT
+        y := 0
+      """
+    )
+
+  test("non-ASCII character in a DFHDL documentation comment"):
+    assertPluginError(
+      """|Unsupported non-ASCII character in DFHDL documentation comment.
+         |Found character 'é' (U+00E9) at index 5.
+         |Only ASCII characters are supported in DFHDL documentation.""".stripMargin
+    )(
+      """
+      class Foo extends DFDesign:
+        /** doc é comment */
+        val x = UInt(8) <> VAR
+      """
+    )
 end DFTypeSpec

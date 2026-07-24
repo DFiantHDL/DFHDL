@@ -21,6 +21,7 @@ object DFRef:
     val grpId: (Int, Int) = (0, 0)
     val id: Int = 0
     override def get(using getSet: MemberGetSet): DFMember.Empty = DFMember.Empty
+    override def copyAsNewRef(using RefGen): this.type = this
   sealed trait OneWay[+M <: DFMember] extends DFRef[M]:
     def copyAsNewRef(using refGen: RefGen): this.type =
       refGen.genOneWay[M].asInstanceOf[this.type]
@@ -114,7 +115,16 @@ object StaticRef:
   given ReadWriter[StaticRef] =
     summon[ReadWriter[DFRefAny]].asInstanceOf[ReadWriter[StaticRef]]
   // The deliberate, explicit unwrap to the underlying design-block reference.
-  extension (ref: StaticRef) def asRef: DFRef.OneWay[DFDesignBlock] = ref
+  extension (ref: StaticRef)
+    def asRef: DFRef.OneWay[DFDesignBlock] = ref
+    // Resolve the referenced design block. A unified hierarchy key is a design's
+    // `ownerRef` token, so it resolves STRUCTURALLY through the context's design registry
+    // (`getDesignBlockByKey`: the mutable run's design map, the root's `subDBs`, or a
+    // flat DB's `designBlockByKey`) and never through the refTable, where the same token
+    // maps to the design's OWNER. Shared by every member kind that carries a design-block
+    // key: `DFDesignInst.designRef` and a method call's `DFVal.Func.Op.Def`.
+    def getDesignBlock(using getSet: MemberGetSet): DFDesignBlock =
+      getSet.getDesignBlockByKey(ref)
 end StaticRef
 
 opaque type IntParamRef = DFRef.TypeRef | Int

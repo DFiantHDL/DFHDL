@@ -73,8 +73,10 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         val docOptTree = mkOptionString(docOpt)
         // the compiler does not transform the annotations, so we need to do it here.
         // See: https://github.com/scala/scala3/issues/23650
+        // `inlineCalls` first, so that each annotation reaches our own transformations (and, later,
+        // `Erasure`) in the shape the compiler would have handed us for an ordinary term.
         // Also, we revesrse the annotations since for some reason the compiler reverses the order of the annotations.
-        val annotTree = mkList(annotations.map(a => transformAllDeep(a.tree)).reverse)
+        val annotTree = mkList(annotations.map(a => transformAllDeep(inlineCalls(a.tree))).reverse)
         tree
           .select(setMetaSym)
           .appliedToArgs(
@@ -115,10 +117,30 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           case _ => false
       case _ => false
 
+  // Within a `simulation { ... }` host block, holding a DFHDL *constant* reference
+  // model in a Scala `var` (e.g. `var model = d"8'0"` updated by constant
+  // arithmetic) is an intentional, idiomatic testbench pattern, so we waive the
+  // `var` discouragement warning for it. The waiver is limited to constants: `var`s
+  // holding non-constant DFHDL values remain discouraged even inside a simulation.
+  private def isWaivedSimConstVar(t: ValOrDefDef)(using Context): Boolean =
+    t match
+      case vd: ValDef if vd.tpt.tpe.isDFConst =>
+        // `dfhdl.sim.SimCtx` lives in the `compiler_stages` subproject and is not on
+        // the classpath when compiling e.g. `core`, so resolve it defensively.
+        val simCtxSym = getClassIfDefined("dfhdl.sim.SimCtx")
+        simCtxSym.exists && t.symbol.ownersIterator.exists { owner =>
+          // the `SimCtx ?=> ...` host-block context function becomes an anonymous
+          // method carrying a `SimCtx` parameter — its presence in the owner chain
+          // marks that we are inside a `simulation` block.
+          owner.is(Method) &&
+          owner.paramSymss.flatten.exists(_.info.typeSymbol == simCtxSym)
+        }
+      case _ => false
+
   def getMetaInfo(ownerTree: Tree, srcPos: util.SrcPos)(using Context): Option[MetaInfo] =
     ownerTree match
       case t: ValOrDefDef if t.needsNewContext =>
-        if (t.symbol.flags.is(Flags.Mutable))
+        if (t.symbol.flags.is(Flags.Mutable) && !isWaivedSimConstVar(t))
           report.warning(
             "Scala `var` modifier for DFHDL values/designs is highly discouraged!\nConsider changing to `val`.",
             t.srcPos

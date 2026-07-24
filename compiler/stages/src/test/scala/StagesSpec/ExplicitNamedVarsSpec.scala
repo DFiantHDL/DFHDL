@@ -264,6 +264,42 @@ class ExplicitNamedVarsSpec extends StageSpec:
     )
   }
 
+  test("named ED function calls become variables") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class Top extends EDDesign:
+      val a                                         = UInt(8) <> IN
+      val y                                         = UInt(8) <> OUT
+      val z                                         = UInt(8) <> OUT
+      def add1(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + 1
+      val x                                         = add1(a)
+      y <> x
+      process(all):
+        val w = add1(a)
+        z := w + w
+    end Top
+    val result = (new Top).explicitNamedVars
+    assertCodeString(
+      result,
+      """|class Top extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  val z = UInt(8) <> OUT
+         |  val x = UInt(8) <> VAR
+         |  def add1(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    l + d"8'1"
+         |  end add1
+         |
+         |  x <> add1(a)
+         |  y <> x
+         |  process(all):
+         |    val w = UInt(8) <> VAR
+         |    w := add1(a)
+         |    z := w + w
+         |end Top
+         |""".stripMargin
+    )
+  }
+
   // TODO: this causes an exception
   // test("AES regression test") {
   //   case class AESByte() extends Opaque(Bits(8))
@@ -278,7 +314,7 @@ class ExplicitNamedVarsSpec extends StageSpec:
   //         shifted ^ o
   //       else shifted
   //     o <> anon.as(AESByte)
-  //   end xtime  
+  //   end xtime
 
   //   val top = (new xtime).explicitNamedVars
   //   assertCodeString(

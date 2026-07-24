@@ -13,7 +13,8 @@ final case class ElaborationOptions(
     trapErrors: TrapErrors,
     defaultClkCfg: DefaultClkCfg,
     defaultRstCfg: DefaultRstCfg,
-    printDFHDLCode: PrintDFHDLCode
+    printDFHDLCode: PrintDFHDLCode,
+    cacheEnable: CacheEnable
 ):
   private[dfhdl] val defaultRTDomainCfgTag: DefaultRTDomainCfgTag =
     DefaultRTDomainCfgTag(defaultClkCfg.asIR, defaultRstCfg.asIR)
@@ -29,11 +30,13 @@ object ElaborationOptions:
         trapErrors: TrapErrors,
         defaultClkCfg: DefaultClkCfg,
         defaultRstCfg: DefaultRstCfg,
-        printDFHDLCode: PrintDFHDLCode
+        printDFHDLCode: PrintDFHDLCode,
+        cacheEnable: CacheEnable
     ): Defaults[Any] = ElaborationOptions(
       logLevel = logLevel(wvlet.log.LogLevel), onError = onError(dfhdl.options.OnError),
       Werror = Werror, trapErrors = trapErrors,
-      defaultClkCfg = defaultClkCfg, defaultRstCfg = defaultRstCfg, printDFHDLCode = printDFHDLCode
+      defaultClkCfg = defaultClkCfg, defaultRstCfg = defaultRstCfg,
+      printDFHDLCode = printDFHDLCode, cacheEnable = cacheEnable
     )
   end Defaults
   given defaults(using defaults: Defaults[Design]): ElaborationOptions = defaults
@@ -171,5 +174,17 @@ object ElaborationOptions:
   object PrintDFHDLCode:
     given PrintDFHDLCode = false
     given Conversion[Boolean, PrintDFHDLCode] = identity
+
+  // Enables the CROSS-RUN tier of the elaboration design load gate: a pure design (a def, or a
+  // class the plugin could guard) skips its body elaboration on a sub-design cache hit and adopts
+  // the cached design instead. Entries live beside the design's declaring class build output (see
+  // `dfhdl.core.SubDesignDiskCache`), keyed by the declaring class's code digest
+  // (`dfhdl.internals.CodeDigest`), so an entry survives exactly as long as the code behind it is
+  // unchanged: the design's own code, everything it reaches, the DFHDL version, and the plugin
+  // that compiled it.
+  into opaque type CacheEnable <: Boolean = Boolean
+  object CacheEnable:
+    given CacheEnable = true
+    given Conversion[Boolean, CacheEnable] = identity
 
 end ElaborationOptions

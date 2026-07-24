@@ -152,6 +152,14 @@ object StateAnalysis:
   )(using MemberGetSet): (Set[DFVal], AssignMap) =
     given DFBlock = currentBlock
     remaining match
+      // initial blocks are once-only initialization — they neither drive nor consume
+      // combinational/state semantics, so the analysis skips them entirely (a variable
+      // assigned only inside an initial block is not an implicit state variable, and an
+      // initial assignment does not cover a partial combinational assignment elsewhere)
+      case (nextBlock: ProcessBlock) :: rs
+          if nextBlock.getOwnerBlock == currentBlock && nextBlock.isInitial =>
+        getImplicitStateVars(rs.dropWhile(_.isInsideOwner(nextBlock)), currentBlock, analysisRoot,
+          scopeMap, currentSet, checkedDomain)
       case (nextBlock: DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => // entering child block
         val (updatedSet, updatedScopeMap) = nextBlock match
           case cb: DFConditional.Block =>

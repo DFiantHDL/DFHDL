@@ -28,7 +28,10 @@ case object DropUnreferencedAnons extends HierarchyStage, NoCheckStage:
       // skipping over conditional headers that can be considered values as well.
       case _: DFConditional.Header => None
       // idents are always kept
-      case Ident(_)                                             => None
+      case Ident(_) => None
+      // a procedural (Unit-return) method call is a statement: referenced by nothing,
+      // dropped by nothing
+      case DFVal.Func.Call(call, _) if call.dfType =~ DFUnit    => None
       case m: DFVal if m.isAnonymous && m.originMembers.isEmpty =>
         Some(m -> Patch.Remove())
       case m: DFRange if m.originMembers.isEmpty => Some(m -> Patch.Remove())

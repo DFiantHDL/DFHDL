@@ -138,6 +138,12 @@ object DFMember:
     def isInEDDomain(using MemberGetSet): Boolean = member.getDomainType match
       case DomainType.ED => true
       case _             => false
+    def isInStaticDomain(using MemberGetSet): Boolean = member.getDomainType match
+      case DomainType.Static => true
+      case _                 => false
+    def isInDynamicDomain(using MemberGetSet): Boolean = member.getDomainType match
+      case _: DomainType.Dynamic => true
+      case _                     => false
     def isInProcess(using MemberGetSet): Boolean = member.isOwnedCond(cond = {
       case _: ProcessBlock  => Some(true)
       case _: DFDomainOwner => Some(false)
@@ -279,6 +285,8 @@ object DFVal:
     extension (mod: Modifier)
       def isReg: Boolean = mod.special == REG
       def isShared: Boolean = mod.special == SHARED
+      // a non-blocking output-argument port, from `<> OUT.NB`
+      def isNB: Boolean = mod.special == NB
       def isPort: Boolean = mod.dir match
         case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
         case _                                           => false
@@ -299,11 +307,19 @@ object DFVal:
       case VIEW(site: ViewSite)
     export Dir.{VAR, IN, OUT, INOUT}
     enum Special derives CanEqual, ReadWriter:
-      case Ordinary, REG, SHARED
-    export Special.{Ordinary, REG, SHARED}
+      case Ordinary, REG, SHARED, NB
+    export Special.{Ordinary, REG, SHARED, NB}
   end Modifier
 
   extension (dfVal: DFVal)
+    // a compiler-synthesized member that materializes a value a method captured from
+    // outside its own scope: a port (non-constant capture), a design parameter (constant
+    // capture), or the by-name port selection wiring them at the call site. See `PhantomTag`.
+    def isPhantom: Boolean = dfVal.hasTagOf[PhantomTag]
+    // a non-blocking (live / signal-class) `<> OUT.NB` output-argument port
+    def isNonBlockingArg: Boolean = dfVal match
+      case dcl: DFVal.Dcl => dcl.modifier.isNB
+      case _              => false
     def isPort: Boolean = dfVal match
       case dcl: DFVal.Dcl => dcl.modifier.isPort
       case _              => false
@@ -470,29 +486,35 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends CanBeExpr derives ReadWriter:
+  )(
+      // The applied (instantiation-site) constant data, snapshotted at construction during
+      // elaboration (see `core.DFVal.DesignParam.apply`). `None` means no snapshot exists —
+      // meta-programming (guarded from taking one), data unattainable during elaboration
+      // (e.g., CLK_FREQ-dependent), or deserialization. A design parameter is always a
+      // constant, so unknown data resolves to `UnknownConst`, never `NotConst`. The secondary
+      // parameter list excludes it from the case class equality: instances of the same design
+      // with different applied values must still unify (`==`/`=~`). It is likewise excluded
+      // from serialization (resolution in a deserialized DB goes through the design instance's
+      // `paramMap` refs instead).
+      val appliedData: Option[Data]
+  ) extends CanBeExpr:
     assert(!this.isAnonymous, "Design parameters cannot be anonymous.")
-    // the value will be cached during elaboration, because the reference via the design's paramMap
-    // will not be available until the design is fully elaborated. during initial contruction and mutation,
-    // the value will be cached in core.DFVal.DesignParam, and later cleared in core.Design
-    private var cachedAppliedVal: Option[DFVal] = None
     protected[compiler] def appliedValRefOpt(using MemberGetSet): Option[DFDesignInst.ParamRef] =
       val ownerDesign = getOwnerDesign
       if (ownerDesign.isTop) None
       else
         val instOpt =
-          if (getSet.isMutable) Some(ownerDesign.getCachedDesignInst)
+          // `None` while the owner design is still elaborating (no instance yet) and in
+          // meta-programming (no cache on foreign design blocks) — the applied value is
+          // simply unavailable in these cases.
+          if (getSet.isMutable) ownerDesign.getCachedDesignInstOpt
           else getSet.designDB.designBlockInstMap.get(ownerDesign).flatMap(_.headOption)
         instOpt.flatMap(_.paramMap.get(getName))
-    def appliedValOpt(using MemberGetSet): Option[DFVal] =
-      if (getSet.isMutable) cachedAppliedVal.orElse(appliedValRefOpt.map(_.get))
-      else appliedValRefOpt.map(_.get)
+    def appliedValOpt(using MemberGetSet): Option[DFVal] = appliedValRefOpt.map(_.get)
     def appliedOrDefaultValRef(using MemberGetSet): DFVal.Ref =
       appliedValRefOpt.getOrElse(defaultValRef.asInstanceOf[DFVal.Ref])
     def appliedOrDefaultVal(using MemberGetSet): DFVal =
       appliedValOpt.getOrElse(defaultValRef.get.asInstanceOf[DFVal])
-    protected[dfhdl] def setCachedAppliedVal(dfVal: DFVal): Unit = cachedAppliedVal = Some(dfVal)
-    protected[dfhdl] def clearCachedAppliedVal(): Unit = cachedAppliedVal = None
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using
         getSet: MemberGetSet,
@@ -504,33 +526,51 @@ object DFVal:
           // it should be updated to NoCache to avoid irrelevant data caching
           case ConstData.CachePolicy.GoThroughDesignParams => ConstData.CachePolicy.NoCache
           case other                                       => other
-        appliedValOpt match
-          case Some(av) => av.getConstData(using getSet, updatedPolicy)
-          case None     =>
-            // Under the hierarchical model the owner design's `ownerRef` is
-            // empty, so `appliedValRefOpt` (which gates on `isTop`) never finds
-            // the parent's binding for a non-top design. Walk up via
-            // `parentSubDBOpt` and evaluate the `paramMap` entry in the parent
-            // sub-DB's getSet — its refTable owns the ref. Fall back to the
-            // (possibly synthetic) default value if no parent binding exists.
-            val ownerDesign = getOwnerDesign
-            val paramName = getName
-            val viaParent: Option[ConstData[Any]] =
-              getSet.designDB.parentSubDBOpt.flatMap { parentSubDB =>
-                parentSubDB.atGetSet {
-                  parentSubDB.members.collectFirst {
-                    case inst: DFDesignInst if inst.getDesignBlock eq ownerDesign => inst
-                  }.flatMap(_.paramMap.get(paramName)).map { paramRef =>
-                    paramRef.get.getConstData[Any](using parentSubDB.getSet, updatedPolicy)
+        // During elaboration (mutable DB) the construction-time `appliedData` snapshot is the
+        // authoritative source (no design instance exists yet to resolve through). Without a
+        // snapshot (meta-programming, or data unattainable during elaboration) resolution goes
+        // through the applied/default value refs; a synthetic default carries no real applied
+        // information, so it resolves to `UnknownConst` (a parameter is always a constant).
+        if (getSet.isMutable)
+          appliedData match
+            case Some(data) => ConstData.KnownConst(data)
+            case None       =>
+              appliedValOpt match
+                case Some(av) => av.getConstData(using getSet, updatedPolicy)
+                case None     =>
+                  defaultValRef.get match
+                    case dv: DFVal if !dv.hasTagOf[SyntheticDefaultTag] =>
+                      dv.getConstData(using getSet, updatedPolicy)
+                    case _ => ConstData.UnknownConst(this)
+        else
+          appliedValOpt match
+            case Some(av) => av.getConstData(using getSet, updatedPolicy)
+            case None     =>
+              // Under the hierarchical model the owner design's `ownerRef` is
+              // empty, so `appliedValRefOpt` (which gates on `isTop`) never finds
+              // the parent's binding for a non-top design. Walk up via
+              // `parentSubDBOpt` and evaluate the `paramMap` entry in the parent
+              // sub-DB's getSet — its refTable owns the ref. Fall back to the
+              // (possibly synthetic) default value if no parent binding exists.
+              val ownerDesign = getOwnerDesign
+              val paramName = getName
+              val viaParent: Option[ConstData[Any]] =
+                getSet.designDB.parentSubDBOpt.flatMap { parentSubDB =>
+                  parentSubDB.atGetSet {
+                    parentSubDB.members.collectFirst {
+                      case inst: DFDesignInst if inst.getDesignBlock eq ownerDesign => inst
+                    }.flatMap(_.paramMap.get(paramName)).map { paramRef =>
+                      paramRef.get.getConstData[Any](using parentSubDB.getSet, updatedPolicy)
+                    }
                   }
                 }
+              viaParent.getOrElse {
+                defaultValRef.get match
+                  case dv: DFVal => dv.getConstData(using getSet, updatedPolicy)
+                  case _         => ConstData.NotConst
               }
-            viaParent.getOrElse {
-              defaultValRef.get match
-                case dv: DFVal => dv.getConstData(using getSet, updatedPolicy)
-                case _         => ConstData.NotConst
-            }
-        end match
+          end match
+        end if
       else ConstData.UnknownConst(this)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DesignParam =>
@@ -541,20 +581,57 @@ object DFVal:
         this.dfType =~ that.dfType && this.defaultValRef =~ that.defaultValRef &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
-    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+    protected def setMeta(meta: Meta): this.type =
+      copy(meta = meta)(appliedData).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type =
+      copy(tags = tags)(appliedData).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] =
       defaultValRef :: dfType.getRefs ++ meta.getRefs
-    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def updateDFType(dfType: DFType): this.type =
+      copy(dfType = dfType)(appliedData).asInstanceOf[this.type]
     def copyWithNewRefs(using RefGen): this.type = copy(
       meta = meta.copyWithNewRefs,
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef,
       defaultValRef = defaultValRef.copyAsNewRef
-    ).asInstanceOf[this.type]
+    )(appliedData).asInstanceOf[this.type]
   end DesignParam
   object DesignParam:
     type DefaultValRef = DFRef.TwoWay[DFVal | DFMember.Empty, DesignParam]
+    // Custom pickler that ignores the second parameter block (`appliedData` is elaboration-only
+    // state and deserializes to `None`): a surrogate case class of just the serialized fields,
+    // pickled untagged via `macroR`/`macroW` (upickle derivation cannot handle a secondary
+    // parameter list) and then re-tagged, since the `ReadWriter.merge` dispatch of
+    // `DFVal`/`DFMember` accepts only tagged picklers. The wire format is identical to a
+    // derived one (the fields inlined in a `$type`-tagged object).
+    private final case class Serialized(
+        dfType: DFType,
+        defaultValRef: DefaultValRef,
+        ownerRef: DFOwner.Ref,
+        meta: Meta,
+        tags: DFTags
+    )
+    given ReadWriter[DesignParam] =
+      val tagKey = upickle.core.Annotator.defaultTagKey
+      val tagValue = "dfhdl.compiler.ir.DFVal.DesignParam"
+      val serializedW = macroW[Serialized].asInstanceOf[ObjectWriter[Serialized]]
+      def toSerialized(dp: DesignParam): Serialized =
+        Serialized(dp.dfType, dp.defaultValRef, dp.ownerRef, dp.meta, dp.tags)
+      val paramReader: Reader[DesignParam] = macroR[Serialized].map(s =>
+        DesignParam(s.dfType, s.defaultValRef, s.ownerRef, s.meta, s.tags)(appliedData = None)
+      )
+      val paramWriter = new ObjectWriter[DesignParam]:
+        def length(v: DesignParam): Int = serializedW.length(toSerialized(v))
+        def writeToObject[R](ctx: upickle.core.ObjVisitor[?, R], v: DesignParam): Unit =
+          serializedW.writeToObject(ctx, toSerialized(v))
+        def write0[R](out: upickle.core.Visitor[?, R], v: DesignParam): R =
+          serializedW.write0(out, toSerialized(v))
+      ReadWriter.join(using
+        annotate(paramReader, tagKey, tagValue, "DesignParam"),
+        annotate(paramWriter, tagKey, tagValue, "DesignParam")
+      )
+    end given
+  end DesignParam
 
   final case class Special(
       dfType: DFType,
@@ -611,7 +688,23 @@ object DFVal:
   ) extends DFVal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
-      ConstData.NotConst
+      // A declaration inside a static function's def design (its formals, the return output
+      // port, and local static variables) is a constant of unknown value: the static domain is
+      // timeless, so every value in it is constant. Folding it to a KnownConst would mean
+      // interpreting the static body, which is deliberately deferred.
+      //
+      // The owner walk must NOT be forced (`getOwnerDesign` here crashes the RT-loop stages):
+      // `getConstData` also runs on a value whose owner chain is transiently out of scope
+      // during meta-programming, where an unreachable owner simply means NotConst (which the
+      // mutable path does not cache, so a later reachable query recomputes correctly).
+      @tailrec def ownerDesignIsStaticFunction(m: DFMember): Boolean =
+        m.ownerRef.getOption match
+          case Some(d: DFDesignBlock) => d.isStaticFunction
+          case Some(b: DFBlock)       => ownerDesignIsStaticFunction(b)
+          case _                      => false
+      if (ownerDesignIsStaticFunction(this)) ConstData.UnknownConst(this)
+      else ConstData.NotConst
+    end protGetConstData
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
         this.dfType =~ that.dfType && this.modifier == that.modifier &&
@@ -663,14 +756,26 @@ object DFVal:
       val args = this.args.map(_.get)
       val argConstData = args.map(_.getConstData[Any])
       if (argConstData.exists(_ == ConstData.NotConst)) ConstData.NotConst
-      else if (argConstData.view.exists(_.isInstanceOf[ConstData.UnknownConst[?]]))
-        ConstData.UnknownConst(this)
       else
-        val argData = argConstData.collect { case ConstData.KnownConst(d) => d }
-        val argTypes = args.map(_.dfType)
-        ConstData.KnownConst(calcFuncData(dfType, op, argTypes, argData))
+        op match
+          case Func.Op.Def(staticRef) =>
+            // task (we should be hitting this because we cannot depend on a task return value)
+            if dfType == DFUnit then ConstData.NotConst
+            // static function always returns a constant. currently we don't evaluate it during elaboration.
+            else ConstData.UnknownConst(this)
+          case _ =>
+            if (argConstData.view.exists(_.isInstanceOf[ConstData.UnknownConst[?]]))
+              ConstData.UnknownConst(this)
+            else
+              val argData = argConstData.collect { case ConstData.KnownConst(d) => d }
+              val argTypes = args.map(_.dfType)
+              ConstData.KnownConst(calcFuncData(dfType, op, argTypes, argData))
+    end protGetConstData
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Func =>
+        // `Op.Def` needs no specialization here: its `staticRef` is a STABLE identity key
+        // (minted once, pointing at the canonical def design, never replaced), so the
+        // plain `==` op comparison is exactly right.
         this.dfType =~ that.dfType && this.op == that.op && this.args =~ that.args &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
@@ -696,8 +801,28 @@ object DFVal:
       case clog2, max, min, abs, sel
       // special-case of initFile construct for vectors of bits
       case InitFile(format: InitFileFormat, path: String)
+      // A method (def-design) application: a call of a static function or an ED
+      // method, with `args` as the actuals (explicit args first, then hidden phantom
+      // actuals; the split is derived from the def block's formal list, `PhantomTag`).
+      // A procedural (Unit-return) call is a `DFUnit`-typed Func in statement position.
+      // `staticRef` is the same design-block hierarchy key as `DFDesignInst.designRef`,
+      // minted at the call site pointing at the CANONICAL def design (the design load
+      // gate already knows the canonical when the call is created). It is a STABLE
+      // identity token: never replaced, never freshened (`copyWithNewRefs` leaves it),
+      // deliberately NOT part of `getRefs`/refTable enumeration, and compared with plain
+      // `==`.
+      case Def(staticRef: StaticRef)
+    end Op
     object Op:
       val associativeSet = Set(Op.+, Op.-, Op.`*`, Op.&, Op.|, Op.^, Op.++, Op.max, Op.min)
+    // Extracts a method call (a `Func` whose op carries a design-block key) as the
+    // (typed call, key) pair. Matches at the member level so it composes with the many
+    // `DFMember`-typed matches across stages.
+    object Call:
+      def unapply(member: DFMember): Option[(Func, StaticRef)] = member match
+        case func @ Func(op = Op.Def(staticRef)) => Some((func, staticRef))
+        case _                                   => None
+  end Func
 
   final case class PortByNameSelect(
       dfType: DFType,
@@ -987,7 +1112,9 @@ object DFVal:
         val relVal = relValRef.get
         relVal.getConstData[Any] match
           case ConstData.KnownConst(relValData) =>
-            val idx = relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(fieldName)
+            // a struct's `Data` is a per-field `List`, so it is indexed by FIELD POSITION.
+            // `fieldRelBitLow` (a bit offset) is what the bit-slice paths use, e.g. `departial`.
+            val idx = relVal.dfType.asInstanceOf[DFStruct].fieldIndex(fieldName)
             ConstData.KnownConst(relValData.asInstanceOf[List[?]](idx))
           case other => other
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -1249,6 +1376,15 @@ object ProcessBlock:
       lazy val getRefs: scala.List[DFRef.TwoWayAny] = refs
       def copyWithNewRefs(using RefGen): this.type =
         List(refs.map(_.copyAsNewRef)).asInstanceOf[this.type]
+    // A once-only initialization block (Verilog-like `initial`). Not sensitivity-driven:
+    // runs exactly once at time zero (ED) or is lowered into reset/declaration-init logic (RT).
+    case object Initial extends Sensitivity:
+      protected def `prot_=~`(that: Sensitivity)(using MemberGetSet): Boolean = that match
+        case Initial => true
+        case _       => false
+      lazy val getRefs: scala.List[DFRef.TwoWayAny] = Nil
+      def copyWithNewRefs(using RefGen): this.type = this
+  end Sensitivity
 end ProcessBlock
 
 final case class ForkBlock(
@@ -1571,6 +1707,12 @@ final case class DFDesignBlock(
   protected[dfhdl] def getCachedDesignInst(using MemberGetSet): DFDesignInst =
     assert(getSet.isMutable, "Design inst cache should only be used during elaboration")
     designInstCache.get
+  // Safe probe: `None` while the design is still elaborating (no instance created yet) and
+  // in meta-programming (foreign design blocks carry no cache) — callers must not use the
+  // applied-value resolution in these cases.
+  protected[dfhdl] def getCachedDesignInstOpt(using MemberGetSet): Option[DFDesignInst] =
+    assert(getSet.isMutable, "Design inst cache should only be used during elaboration")
+    designInstCache
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType =~ that.domainType &&
@@ -1612,13 +1754,78 @@ object DFDesignBlock:
         case Files(path: List[String])
         case Library(libName: String, nameSpace: String)
         case VendorIP(vendor: Vendor, typeName: String)
+        // A foreign IP whose HDL wrapper and per-system simulator integration binaries are bundled
+        // as classpath resources. DFHDL mirrors all resources under `resourcePath` into the project
+        // (see commit) and, at simulate time, loads the relevant FFI shim per tool/system:
+        //   - `clsName`:      FQN of the IP class (used when re-emitting DFHDL that instantiates it)
+        //   - `resourcePath`: classpath root holding the HDL wrappers + per-system binaries; kept out
+        //                     of any Scala package namespace (e.g. `dfhdl-ips/<dclName>`) so the
+        //                     resource directory is not read as a package colliding with the IP
+        //                     class. It also serves as the in-project copy target. The IP name (HDL
+        //                     module + folder leaf) is the design block's `dclName`, not stored here.
+        //   - `dpiLib`:       DPI lib base name (no `lib` prefix / extension), "" if unsupported
+        //   - `vpiModule`:    VPI module name, "" if unsupported
+        //   - `vhpiLib`:      VHPI lib base name, "" if unsupported
+        //   - `simHookClass`: FQN of a `ForeignSimHook` object invoked around simulation, "" if none
+        //   - `needsTiming`:  the HDL wrapper uses delay (`#`) controls, so Verilator must build with
+        //                     `--timing` (other simulators handle delays natively). Default false.
+        // Several IPs may share one bundle (same `resourcePath` + FFI libs + hook) — e.g. a control
+        // and a flag IP backed by one C++ singleton. Such sibling IPs MUST relay identical
+        // `resourcePath`/`dpiLib`/`vpiModule`/`vhpiLib`/`simHookClass` so the per-bundle dedup
+        // (`distinctBy(resourcePath)`) is well-defined; only `clsName` differs per IP.
+        case ForeignIP(
+            clsName: String,
+            resourcePath: String,
+            dpiLib: String,
+            vpiModule: String,
+            vhpiLib: String,
+            simHookClass: String,
+            needsTiming: Boolean = false
+        )
+      end Source
+    end BlackBox
+  end InstMode
 
   extension (dsn: DFDesignBlock)
     def isBlackBox: Boolean = dsn.instMode.isInstanceOf[InstMode.BlackBox]
     def isVendorIPBlackbox: Boolean = dsn.instMode match
       case InstMode.BlackBox(_: InstMode.BlackBox.Source.VendorIP) => true
       case _                                                       => false
+    def isForeignIPBlackbox: Boolean = dsn.instMode match
+      case InstMode.BlackBox(_: InstMode.BlackBox.Source.ForeignIP) => true
+      case _                                                        => false
+    // true for any IP blackbox that extends a pre-existing IP class (vendor IP or foreign IP) — used
+    // where both are handled the same (e.g. parameters live in the class extension, no generated body)
+    def isExternalIPBlackbox: Boolean = dsn.isVendorIPBlackbox || dsn.isForeignIPBlackbox
+    def foreignIPSource: Option[InstMode.BlackBox.Source.ForeignIP] = dsn.instMode match
+      case InstMode.BlackBox(src: InstMode.BlackBox.Source.ForeignIP) => Some(src)
+      case _                                                          => None
     def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
+    // pure by default: only an explicit or PureCheck-synthesized `@pure(false)` marking
+    // makes the design's elaboration impure (its results must not be cached, and it never
+    // unifies through the design load gate)
+    def isPure: Boolean =
+      !dsn.dclMeta.annotations.exists {
+        case annotation.Pure(false, _) => true
+        case _                         => false
+      }
+
+    /** An ED method (HDL function/task — see devdocs/methods.md): a method under the ED domain. ED
+      * methods are locally scoped — printed inside their owning design (as HDL methods) rather than
+      * as standalone design files, and their name-uniqueness scope is the owning design.
+      */
+    def isEDMethod: Boolean =
+      dsn.instMode == DFDesignBlock.InstMode.Def && dsn.domainType == DomainType.ED
+
+    /** A static function (`T <> CONSTRET` — see devdocs/methods.md): a method under the static
+      * domain. Its arguments are static input ports carrying constant data, and it is callable from
+      * any domain and from the global scope.
+      */
+    def isStaticFunction: Boolean =
+      dsn.instMode == DFDesignBlock.InstMode.Def && dsn.domainType == DomainType.Static
+
+    /** Prints as an HDL method (function/task/procedure) rather than as a design instance. */
+    def isHDLMethod: Boolean = dsn.isEDMethod || dsn.isStaticFunction
     def getCommonDesignWith(dsn2: DFDesignBlock)(using MemberGetSet): DFDesignBlock =
       def getOwnerDesignChain(dsn: DFDesignBlock): List[Set[DFDesignBlock]] =
         var chain = List(Set(dsn))
@@ -1658,21 +1865,10 @@ final case class DFDesignInst(
     meta: Meta,
     tags: DFTags
 ) extends DFMember.Named derives ReadWriter:
-  // Resolve the instantiated child design block. `designRef` is unified with the
-  // child block's `ownerRef` (the hierarchy key) and is deliberately NOT present
-  // in the parent's refTable, so resolution goes structurally:
-  //   - mutable (elaboration): the ref still resolves via the live refTable.
-  //   - hierarchical root: the ref is the `subDBs` key → the child sub-DB's top.
-  //   - flat (round-trip) DB: the ref is the `designBlockByKey` map key.
-  // Each non-mutable path falls back to `designRef.get` for the pre-unification
-  // form (where `designRef` is still a distinct parent-side refTable entry).
-  def getDesignBlock(using getSet: MemberGetSet): DFDesignBlock =
-    if (getSet.isMutable) designRef.asRef.get
-    else
-      val root = getSet.designDB.rootDB
-      if (root.isRoot)
-        root.subDBs.get(designRef).map(_.top).getOrElse(designRef.asRef.get)
-      else root.designBlockByKey.getOrElse(designRef.asRef, designRef.asRef.get)
+  // Resolve the instantiated child design block through the shared structural key
+  // resolution (see `StaticRef.getDesignBlock`: `designRef` is unified with the child
+  // block's `ownerRef` and is deliberately NOT present in the parent's refTable).
+  def getDesignBlock(using MemberGetSet): DFDesignBlock = designRef.getDesignBlock
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignInst =>
       // `designRef` is unified with the child block's `ownerRef` (the sub-DB key)

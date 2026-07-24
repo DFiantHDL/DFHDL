@@ -135,6 +135,21 @@ class DFStructSpec extends DFSpec:
       """val xyz = XYZ <> VAR init XYZ(XY(x = u8v, y = b"101"), 0)"""
     )
   }
+  // a struct's `Data` is a per-field `List`, so folding a field selection indexes it by FIELD
+  // POSITION. Indexing it by the bit offset (`fieldRelBitLow`) reverses the fields and runs off
+  // the end of the list for all but the last one.
+  test("Constant Field Selection") {
+    case class XYZ(x: UInt[8] <> VAL, y: UInt[8] <> VAL, z: UInt[8] <> VAL) extends Struct
+    val v: XYZ <> CONST = XYZ(d"8'11", d"8'22", d"8'33")
+    assert(v.x.toScalaInt == 11)
+    assert(v.y.toScalaInt == 22)
+    assert(v.z.toScalaInt == 33)
+    // a nested struct field, selected through its parent
+    case class Wrap(a: XYZ <> VAL, b: UInt[8] <> VAL) extends Struct
+    val w: Wrap <> CONST = Wrap(v, d"8'44")
+    assert(w.a.y.toScalaInt == 22)
+    assert(w.b.toScalaInt == 44)
+  }
   test("Big Endian Packed Order") {
     case class XYZW(x: Bits[8] <> VAL, y: Bits[8] <> VAL, z: Bits[8] <> VAL, w: Bits[8] <> VAL)
         extends Struct
