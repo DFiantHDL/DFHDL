@@ -86,22 +86,11 @@ class SHA256Core extends RTDesign:
   val g = Bits(32) <> VAR.REG init h"1f83d9ab"
   val h = Bits(32) <> VAR.REG init h"5be0cd19"
 
-  val w0 = Bits(32) <> VAR.REG init h"61626380"
-  val w1 = Bits(32) <> VAR.REG init h"00000000"
-  val w2 = Bits(32) <> VAR.REG init h"00000000"
-  val w3 = Bits(32) <> VAR.REG init h"00000000"
-  val w4 = Bits(32) <> VAR.REG init h"00000000"
-  val w5 = Bits(32) <> VAR.REG init h"00000000"
-  val w6 = Bits(32) <> VAR.REG init h"00000000"
-  val w7 = Bits(32) <> VAR.REG init h"00000000"
-  val w8 = Bits(32) <> VAR.REG init h"00000000"
-  val w9 = Bits(32) <> VAR.REG init h"00000000"
-  val w10 = Bits(32) <> VAR.REG init h"00000000"
-  val w11 = Bits(32) <> VAR.REG init h"00000000"
-  val w12 = Bits(32) <> VAR.REG init h"00000000"
-  val w13 = Bits(32) <> VAR.REG init h"00000000"
-  val w14 = Bits(32) <> VAR.REG init h"00000000"
   val w15 = Bits(32) <> VAR.REG init h"00000018"
+  val w14 = w15.reg(1, init = h"00000000")
+  val w9 = w14.reg(5, init = h"00000000")
+  val w1 = w9.reg(8, init = h"00000000")
+  val w0 = w1.reg(1, init = h"61626380")
 
   val t = UInt(6) <> VAR.REG init 0
 
@@ -131,21 +120,6 @@ class SHA256Core extends RTDesign:
   val sw1 = (w14 >> 17 | w14 << 15) ^ (w14 >> 19 | w14 << 13) ^ (w14 >> 10)
   val nw = (sw1.uint + w9.uint + sw0.uint + w0.uint).bits
 
-  w0.din := w1
-  w1.din := w2
-  w2.din := w3
-  w3.din := w4
-  w4.din := w5
-  w5.din := w6
-  w6.din := w7
-  w7.din := w8
-  w8.din := w9
-  w9.din := w10
-  w10.din := w11
-  w11.din := w12
-  w12.din := w13
-  w13.din := w14
-  w14.din := w15
   w15.din := nw
 
   t.din := t + 1
