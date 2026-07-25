@@ -362,6 +362,9 @@ object DFVal:
     def isReg: Boolean = dfVal match
       case dcl: DFVal.Dcl => dcl.modifier.isReg
       case _              => false
+    def isIterator: Boolean = dfVal match
+      case dcl: DFVal.Dcl => dcl.hasTagOf[IteratorTag]
+      case _              => false
     @tailrec def dealias(using
         MemberGetSet
     ): Option[ConnectToVal] = dfVal match

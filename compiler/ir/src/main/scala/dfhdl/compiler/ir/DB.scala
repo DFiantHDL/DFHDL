@@ -1437,7 +1437,7 @@ final case class DB private (
             wb,
             "While loops are not allowed inside an `initial` block under a register-transfer (RT) domain (only for-loops are)."
           )
-        case dcl: DFVal.Dcl if isRT && !dcl.hasTagOf[IteratorTag] =>
+        case dcl: DFVal.Dcl if isRT && !dcl.isIterator =>
           memberError(
             dcl,
             "Declarations are not allowed inside an `initial` block under a register-transfer (RT) domain."
