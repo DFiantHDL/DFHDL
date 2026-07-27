@@ -947,11 +947,12 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
         val PORT_WIDTH: Int <> CONST = 5
     ) extends RTDesign:
       val r = Bits(PORT_WIDTH) <> OUT.REG init all(0)
-      for (i <- 0 until PORT_WIDTH)
-        r(i).din := 1
-      for (i <- 0 until PORT_WIDTH)
-        if (r(PORT_WIDTH - 1 - i))
-          r(i).din := 0
+      COMB_LOOP:
+        for (i <- 0 until PORT_WIDTH)
+          r(i).din := 1
+        for (i <- 0 until PORT_WIDTH)
+          if (r(PORT_WIDTH - 1 - i))
+            r(i).din := 0
     end Foo
 
     val top = (new Foo()).toED
@@ -987,13 +988,14 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     ) extends RTDesign:
       val r = Bits(PORT_WIDTH) <> OUT.REG init all(0)
       val w = Bits(PORT_WIDTH) <> OUT
-      for (i <- 0 until PORT_WIDTH)
-        r(i).din := 1
-      for (i <- 0 until PORT_WIDTH)
-        if (r(PORT_WIDTH - 1 - i))
-          r(i).din := 0
-      for (i <- 0 until PORT_WIDTH)
-        w(i) := r(i)
+      COMB_LOOP:
+        for (i <- 0 until PORT_WIDTH)
+          r(i).din := 1
+        for (i <- 0 until PORT_WIDTH)
+          if (r(PORT_WIDTH - 1 - i))
+            r(i).din := 0
+        for (i <- 0 until PORT_WIDTH)
+          w(i) := r(i)
     end Foo
 
     val top = (new Foo()).toED
@@ -1079,8 +1081,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val x      = UInt(8) X 7 <> VAR.REG
       val FooStr = "Hello World!".toByteVector
       if (z)
-        for (i <- 0 until 7)
-          x(i).din := FooStr(i)
+        COMB_LOOP:
+          for (i <- 0 until 7)
+            x(i).din := FooStr(i)
     end Foo
     val top = (new Foo).toED
     assertCodeString(

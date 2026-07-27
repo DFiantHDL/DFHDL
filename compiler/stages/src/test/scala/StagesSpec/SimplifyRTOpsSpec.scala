@@ -251,9 +251,9 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val x = Bits(4) <> OUT.REG
       process:
         x.din := all(0)
-        for (i <- 0 until 4)
-          COMB_LOOP
-          x(i).din := 1
+        COMB_LOOP:
+          for (i <- 0 until 4)
+            x(i).din := 1
     end Foo
     val top = (new Foo).simplifyRTOps
     assertCodeString(
@@ -262,10 +262,10 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val x = Bits(4) <> OUT.REG
          |  process:
          |    x.din := h"0"
-         |    for (i <- 0 until 4)
-         |      COMB_LOOP
-         |      x(i).din := 1
-         |    end for
+         |    COMB_LOOP:
+         |      for (i <- 0 until 4)
+         |        x(i).din := 1
+         |      end for
          |end Foo""".stripMargin
     )
   }
@@ -273,17 +273,19 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("RT for loop outside a process is untouched") {
     class Foo(val WIDTH: Int <> CONST = 4) extends RTDesign:
       val r = Bits(WIDTH) <> OUT.REG init all(0)
-      for (i <- 0 until WIDTH)
-        r(i).din := 1
+      COMB_LOOP:
+        for (i <- 0 until WIDTH)
+          r(i).din := 1
     end Foo
     val top = (new Foo).simplifyRTOps
     assertCodeString(
       top,
       """|class Foo(val WIDTH: Int <> CONST = 4) extends RTDesign:
          |  val r = Bits(WIDTH) <> OUT.REG init b"0".repeat(WIDTH)
-         |  for (i <- 0 until WIDTH)
-         |    r(i).din := 1
-         |  end for
+         |  COMB_LOOP:
+         |    for (i <- 0 until WIDTH)
+         |      r(i).din := 1
+         |    end for
          |end Foo""".stripMargin
     )
   }

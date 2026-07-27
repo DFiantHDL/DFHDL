@@ -16,8 +16,6 @@ class FullAdderN(val n: Int = 4) extends EDDesign:
   val c_out = Bit     <> OUT
 
   val adder = List.fill(n)(FullAdder1())
-  // to use a pure Scala range loop, import this flag
-  import hw.flag.scalaRanges
   for (i <- 0 until n)
     adder(i).a   <> a(i)
     adder(i).b   <> b(i)

@@ -368,9 +368,9 @@ class DropRTProcessSpec extends StageSpec():
       val x = Bit <> IN
       val vec = Bits(8) X 4 <> VAR.REG
       process:
-        for (i <- 0 until 4)
-          COMB_LOOP
-          vec(i).din := all(0)
+        COMB_LOOP:
+          for (i <- 0 until 4)
+            vec(i).din := all(0)
         def S0: Step =
           if (x) S1 else S0
         def S1: Step =

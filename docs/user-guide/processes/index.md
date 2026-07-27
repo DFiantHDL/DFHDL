@@ -87,7 +87,7 @@ process:
     for (j <- 0 until 10) {}   // 100 cycles: one per innermost iteration
 ```
 
-A loop that runs zero iterations (its guard is false on entry) still consumes its one-cycle minimum, unless it is marked `FALL_THROUGH` (see [Loops](#loops)):
+A loop that runs zero iterations (its guard is false on entry) still consumes its one-cycle minimum, unless it is wrapped with `FALL_THROUGH` (see [Loops](#loops)):
 
 ```scala
 process:
@@ -97,9 +97,12 @@ process:
   finish()                         // fires within the third cycle (fused into the last skip)
 
 process:
-  while (false) { FALL_THROUGH }   // each loop is skipped with zero cycles
-  while (false) { FALL_THROUGH }
-  while (false) { FALL_THROUGH }
+  FALL_THROUGH:                    // each wrapped loop is skipped with zero cycles
+    while (false) {}
+  FALL_THROUGH:
+    while (false) {}
+  FALL_THROUGH:
+    while (false) {}
   finish()                         // fires within the first cycle
 ```
 
@@ -230,9 +233,13 @@ process:
 
 A `while` loop with a body that consumes no cycles samples its guard once per cycle (one cycle per iteration), which is exactly the behavior of `waitUntil`/`waitWhile`.
 
-Inside an RT loop, the **`FALL_THROUGH`** statement marks the loop to fall through to the next step without consuming any cycles when its guard is false on entry.
+Wrapping an RT loop with a **`FALL_THROUGH`** block marks the loop to fall through to the next step without consuming any cycles when its guard is false on entry.
 
-For elaboration-time (unrolled) loops outside processes, see [Loops][loops].
+Wrapping an RT loop with a **`COMB_LOOP`** block marks it combinational: the whole loop executes within a single cycle and generates no steps (so its body must not consume cycles).
+
+Both annotations are allowed under RT domains only; applying them elsewhere is a compile-time error.
+
+For elaboration-time (unrolled) loops outside processes, and for hardware loops at RT design scope, see [Loops][loops].
 
 ### fallThrough
 

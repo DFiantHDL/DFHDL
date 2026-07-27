@@ -84,8 +84,9 @@ class OrderMembersSpec extends StageSpec:
       val x      = UInt(8) X 7 <> VAR.REG
       val FooStr = "Hello World!".toByteVector
       if (z)
-        for (i <- 0 until 7)
-          x(i).din := FooStr(i)
+        COMB_LOOP:
+          for (i <- 0 until 7)
+            x(i).din := FooStr(i)
 
     val foo = (new Foo).simpleOrder
     assertCodeString(
@@ -95,9 +96,10 @@ class OrderMembersSpec extends StageSpec:
          |  val z = Bit <> IN
          |  val x = UInt(8) X 7 <> VAR.REG
          |  if (z)
-         |    for (i <- 0 until 7)
-         |      x(i).din := FooStr(i).uint
-         |    end for
+         |    COMB_LOOP:
+         |      for (i <- 0 until 7)
+         |        x(i).din := FooStr(i).uint
+         |      end for
          |  end if
          |end Foo""".stripMargin
     )

@@ -2,6 +2,8 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import dfhdl.internals.*
 import ir.DFRange.Op as RangeOp
+import DFXInt.Val.Ops.toScalaInt
+
 final class DFRange[P](val irValue: ir.DFRange | DFError) extends AnyVal with DFMember[ir.DFRange]:
   def foreach[T <: DFValTP[DFInt32, P]](f: T => Unit)(using DFC): Unit =
     throw new IllegalArgumentException(
@@ -40,6 +42,13 @@ object DFRange:
   end apply
 
   trait ScalaRangesFlag
+  // DFHDL for loop will materialize if ScalaRangesFlag is not in scope and DFC.Scope.HasLoops is in scope.
+  // otherwise, it will materialize as a Scala for loop.
+  trait HasDFRange
+  object HasDFRange:
+    given [S <: DFC.Scope](using
+        s: S
+    )(using util.NotGiven[ScalaRangesFlag], s.type <:< DFC.Scope.HasLoops): HasDFRange with {}
 
   object Ops:
     extension (start: Int)
@@ -49,15 +58,23 @@ object DFRange:
       // until is selected at compile time, according to the context
       transparent inline def until(end: Int): Range | DFRange[CONST] =
         compiletime.summonFrom {
-          case given ScalaRangesFlag => untilOrig(end)
-          case given DFC             => untilDF(end)(using compiletime.summonInline[DFC])
-          case _                     => untilOrig(end)
+          case given HasDFRange => untilDF(end)(using compiletime.summonInline[DFC])
+          case _                => untilOrig(end)
         }
-      def until[P](end: DFValTP[DFInt32, P])(using DFC): DFRange[P] =
-        DFRange(DFConstInt32(start), end, RangeOp.Until).asFE[P]
+      transparent inline def until[P](end: DFValTP[DFInt32, P])(using DFC): Range | DFRange[P] =
+        compiletime.summonFrom {
+          case given HasDFRange => DFRange(DFConstInt32(start), end, RangeOp.Until).asFE[P]
+          case _                => untilOrig(end.toScalaInt)
+        }
+    end extension
     extension [SP](start: DFValTP[DFInt32, SP])
-      def until[EP](end: DFValTP[DFInt32, EP])(using DFC): DFRange[SP | EP] =
-        DFRange(start, end, RangeOp.Until).asFE[SP | EP]
+      transparent inline def until[EP](end: DFValTP[DFInt32, EP])(using
+          DFC
+      ): Range | DFRange[SP | EP] =
+        compiletime.summonFrom {
+          case given HasDFRange => DFRange(start, end, RangeOp.Until).asFE[SP | EP]
+          case _                => start.toScalaInt.untilOrig(end.toScalaInt)
+        }
     extension (start: Int)
       private[core] def toOrig(end: Int): Range = Range.Inclusive(start, end, 1)
       private[core] def toDF(end: Int)(using DFC): DFRange[CONST] =
@@ -65,14 +82,22 @@ object DFRange:
       // to is selected at compile time, according to the context
       transparent inline def to(end: Int): Range | DFRange[CONST] =
         compiletime.summonFrom {
-          case given ScalaRangesFlag => toOrig(end)
-          case given DFC             => toDF(end)(using compiletime.summonInline[DFC])
-          case _                     => toOrig(end)
+          case given HasDFRange => toDF(end)(using compiletime.summonInline[DFC])
+          case _                => toOrig(end)
         }
-      def to[P](end: DFValTP[DFInt32, P])(using DFC): DFRange[P] =
-        DFRange(DFConstInt32(start), end, RangeOp.To).asFE[P]
+      transparent inline def to[P](end: DFValTP[DFInt32, P])(using DFC): Range | DFRange[P] =
+        compiletime.summonFrom {
+          case given HasDFRange => DFRange(DFConstInt32(start), end, RangeOp.To).asFE[P]
+          case _                => toOrig(end.toScalaInt)
+        }
+    end extension
     extension [SP](start: DFValTP[DFInt32, SP])
-      def to[EP](end: DFValTP[DFInt32, EP])(using DFC): DFRange[SP | EP] =
-        DFRange(start, end, RangeOp.To).asFE[SP | EP]
+      transparent inline def to[EP](end: DFValTP[DFInt32, EP])(using
+          DFC
+      ): Range | DFRange[SP | EP] =
+        compiletime.summonFrom {
+          case given HasDFRange => DFRange(start, end, RangeOp.To).asFE[SP | EP]
+          case _                => start.toScalaInt.toOrig(end.toScalaInt)
+        }
   end Ops
 end DFRange

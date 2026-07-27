@@ -1227,11 +1227,12 @@ class PrintVerilogCodeSpec extends StageSpec:
         val PORT_WIDTH: Int <> CONST = 5
     ) extends RTDesign:
       val r = Bits(PORT_WIDTH) <> OUT.REG init all(0)
-      for (i <- 0 until PORT_WIDTH)
-        r(i).din := 1
-      for (i <- 0 until PORT_WIDTH)
-        if (r(PORT_WIDTH - 1 - i))
-          r(i).din := 0
+      COMB_LOOP:
+        for (i <- 0 until PORT_WIDTH)
+          r(i).din := 1
+        for (i <- 0 until PORT_WIDTH)
+          if (r(PORT_WIDTH - 1 - i))
+            r(i).din := 0
     end Foo
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
