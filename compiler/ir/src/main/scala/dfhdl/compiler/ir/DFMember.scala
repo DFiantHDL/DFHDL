@@ -705,7 +705,8 @@ object DFVal:
           case Some(d: DFDesignBlock) => d.isStaticFunction
           case Some(b: DFBlock)       => ownerDesignIsStaticFunction(b)
           case _                      => false
-      if (ownerDesignIsStaticFunction(this)) ConstData.UnknownConst(this)
+      if (this.isIterator) ConstData.UnknownConst(this)
+      else if (ownerDesignIsStaticFunction(this)) ConstData.UnknownConst(this)
       else ConstData.NotConst
     end protGetConstData
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match

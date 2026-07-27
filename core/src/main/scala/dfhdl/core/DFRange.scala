@@ -3,15 +3,11 @@ import dfhdl.compiler.ir
 import dfhdl.internals.*
 import ir.DFRange.Op as RangeOp
 final class DFRange[P](val irValue: ir.DFRange | DFError) extends AnyVal with DFMember[ir.DFRange]:
-  // TODO: foreach iterator could be const (DFValTP[DFInt32, P]), but for now the IR internals do not
-  // differentiate between a constant interator and constant literal. So disabling the frontend
-  // possibility for now. If for loops will be used for generate emulation, we need to change how
-  // iterator constant derived parameters are checked.
-  def foreach[T <: DFValTP[DFInt32, NOTCONST]](f: T => Unit)(using DFC): Unit =
+  def foreach[T <: DFValTP[DFInt32, P]](f: T => Unit)(using DFC): Unit =
     throw new IllegalArgumentException(
       "foreach is not meant to be run directly, the DFHDL compiler plugin should have replaced its call."
     )
-  def withFilter(f: DFValOf[DFInt32] => DFValOf[DFBoolOrBit]): DFRange[P] =
+  def withFilter[FP](f: DFValTP[DFInt32, P] => DFValTP[DFBoolOrBit, FP]): DFRange[P] =
     throw new IllegalArgumentException(
       "withFilter is not meant to be run directly, the DFHDL compiler plugin should have replaced its call."
     )
