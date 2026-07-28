@@ -1424,7 +1424,7 @@ object DFVal extends DFValLP:
         exactOp2[FuncOp./.type, DFC, DFValAny](lhs, rhs)
       transparent inline def %(inline rhs: SupportedValue)(using DFCG): DFValAny =
         exactOp2[FuncOp.%.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def max(inline rhs: SupportedValue): Any =
+      infix transparent inline def max(inline rhs: SupportedValue): Any =
         inline (lhs, rhs) match
           case (lhs: Int, rhs: Int)       => scala.runtime.RichInt(lhs) max rhs
           case (lhs: Long, rhs: Long)     => scala.runtime.RichLong(lhs) max rhs
@@ -1433,7 +1433,7 @@ object DFVal extends DFValLP:
             exactOp2[FuncOp.max.type, DFC, DFValAny](lhs, rhs)(using
               compiletime.summonInline[DFCG]
             )
-      transparent inline def min(inline rhs: SupportedValue): Any =
+      infix transparent inline def min(inline rhs: SupportedValue): Any =
         inline (lhs, rhs) match
           case (lhs: Int, rhs: Int)       => scala.runtime.RichInt(lhs) min rhs
           case (lhs: Long, rhs: Long)     => scala.runtime.RichLong(lhs) min rhs
