@@ -7,8 +7,8 @@ import DFVal.Func.Op as FuncOp
   * Every expression is decomposed into a linear combination `sum(coeff_i * base_i) + offset`, where
   * the bases are non-constant terms kept opaque (design params, ports, non-linear functions such as
   * `clog2`). Two expressions are equivalent when their bases cancel term-by-term and their offsets
-  * match, so e.g. `2 * W` matches `W + W`, `(W + 5) - W` matches `5`, and `max(W, W + 1)` matches
-  * `W + 1`.
+  * match, so e.g. `2 * W` matches `W + W`, `(W + 5) - W` matches `5`, `v1 * v2` matches `v2 * v1`,
+  * and `max(W, W + 1)` matches `W + 1`.
   *
   * Used by `IntParamRef.compare` for post-elaboration parametric width equivalence, and by the
   * core-library elaboration constant folding (`SimplifyFunc`) through [[constDiff]].
@@ -53,16 +53,58 @@ object IntExprCalc:
         strip(dp.appliedOrDefaultVal)
       case _ => v
 
-    // Equivalence of opaque bases: same op/type Funcs with pairwise equivalent
-    // args (each arg compared through its full linear form, so `clog2(2 * W)`
-    // matches `clog2(W + W)`), or `=~` leaves after stripping.
+    // Ops whose operand order is irrelevant when comparing opaque bases.
+    // Additive ops never reach the generic Func comparison (they are always
+    // linearized) and products get dedicated factor-multiset handling.
+    private val commutativeOps = Set(FuncOp.max, FuncOp.min, FuncOp.&, FuncOp.|, FuncOp.^)
+
+    // Equivalence of opaque bases: same op/type Funcs with equivalent args
+    // (each arg compared through its full linear form, so `clog2(2 * W)`
+    // matches `clog2(W + W)`), or `=~` leaves after stripping. Commutative
+    // ops compare their args as multisets, so `v1 * v2` matches `v2 * v1`.
     private def baseEq(a: DFVal, b: DFVal): Boolean =
       (strip(a), strip(b)) match
-        case (af: DFVal.Func, bf: DFVal.Func) =>
-          af.op == bf.op && af.dfType =~ bf.dfType &&
-          af.args.length == bf.args.length &&
-          af.args.lazyZip(bf.args).forall((ar, br) => equivalent(ar.get, br.get))
+        case (af: DFVal.Func, bf: DFVal.Func) if af.op == bf.op && af.dfType =~ bf.dfType =>
+          if (af.op == FuncOp.`*`)
+            // Product bases: the constant factor is already carried by the
+            // term coefficient (see `linear`), so only the non-constant
+            // factor multisets must match, in any order.
+            multisetEquiv(flattenProduct(af)._2, flattenProduct(bf)._2)
+          else if (commutativeOps.contains(af.op))
+            af.args.length == bf.args.length &&
+            multisetEquiv(af.args.map(_.get), bf.args.map(_.get))
+          else
+            af.args.length == bf.args.length &&
+            af.args.lazyZip(bf.args).forall((ar, br) => equivalent(ar.get, br.get))
         case (sa, sb) => sa =~ sb
+
+    // Multiset equality of DFVal lists under `equivalent` (order-insensitive).
+    private def multisetEquiv(lhs: List[DFVal], rhs: List[DFVal]): Boolean =
+      lhs.length == rhs.length && {
+        val remaining = mutable.ListBuffer.from(rhs)
+        lhs.forall { l =>
+          remaining.indexWhere(equivalent(l, _)) match
+            case -1 => false
+            case i  => remaining.remove(i); true
+        }
+      }
+
+    // Splits a product into its overall constant factor and the list of
+    // non-constant factors, flattening nested products. A non-product part
+    // whose linear form is a constant folds into the constant factor, and one
+    // that is a single scaled term contributes its base with the scale folded
+    // in, so `(W + W) * v` and `2 * W * v` normalize identically.
+    private def flattenProduct(v: DFVal): (Int, List[DFVal]) = strip(v) match
+      case DFVal.Func(op = FuncOp.`*`, args = args) =>
+        args.map(_.get).foldLeft((1, List.empty[DFVal])) { case ((c, fs), arg) =>
+          val (argC, argFs) = flattenProduct(arg)
+          (c * argC, fs ++ argFs)
+        }
+      case sv =>
+        linear(sv) match
+          case Linear(Nil, k)          => (k, Nil)
+          case Linear(List((k, b)), 0) => (k, List(b))
+          case _                       => (1, List(sv))
 
     // Merge coefficients of equivalent bases and drop cancelled-out terms.
     private def canonical(terms: List[(Int, DFVal)]): List[(Int, DFVal)] =
@@ -101,17 +143,18 @@ object IntExprCalc:
         add(linear(aRef.get), negate(linear(bRef.get)))
       case DFVal.Func(op = FuncOp.unary_-, args = List(aRef)) =>
         negate(linear(aRef.get))
-      case sv @ DFVal.Func(op = FuncOp.`*`, args = args) =>
-        // A constant factor distributes over the other side's terms, so
-        // `c * v` is equivalent to summing `c` copies of `v`. A product of
-        // two non-constant parts stays a single opaque base.
-        args.map(r => linear(r.get)).foldLeft(Option(Linear(Nil, 1))) {
-          case (Some(acc), arg) =>
-            if (acc.terms.isEmpty) Some(scale(arg, acc.offset))
-            else if (arg.terms.isEmpty) Some(scale(acc, arg.offset))
-            else None
-          case (None, _) => None
-        }.getOrElse(Linear(List((1, sv)), 0))
+      case sv @ DFVal.Func(op = FuncOp.`*`) =>
+        // The constant factor distributes over a single non-constant part's
+        // terms, so `c * v` is equivalent to summing `c` copies of `v`. Two
+        // or more non-constant factors stay a single opaque product base
+        // whose constant factor is carried by the term coefficient (`baseEq`
+        // then matches product bases by their factor multisets).
+        val (c, fs) = flattenProduct(sv)
+        fs match
+          case Nil         => Linear(Nil, c)
+          case f :: Nil    => scale(linear(f), c)
+          case _ if c == 0 => Linear(Nil, 0)
+          case _           => Linear(List((c, sv)), 0)
       case sv @ DFVal.Func(op = op @ (FuncOp.max | FuncOp.min), args = args) =>
         // max/min reduce to a single linear form when all operands share the
         // same symbolic terms and differ only by their constant offsets:

@@ -2804,7 +2804,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
 
   test("parametric width equivalence across arithmetic forms") {
-    class Foo(val W: Int <> CONST = 8) extends EDDesign:
+    class Foo(val W: Int <> CONST = 8, val W2: Int <> CONST = 3) extends EDDesign:
       val twoW = 2 * W
       val i    = Bits(W)    <> IN
       val o    = Bits(twoW) <> OUT
@@ -2818,11 +2818,17 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val i4 = Bits(2 * W) <> IN
       val o4 = Bits(2 * W) <> OUT
       o4 <> (i4(W - 1, 0), i4(2 * W - 1, W))
+      val i5 = Bits(W * W2) <> IN
+      val o5 = Bits(W2 * W) <> OUT
+      o5 <> i5
     end Foo
     val top = (new Foo)
     assertCodeString(
       top,
-      """|class Foo(val W: Int <> CONST = 8) extends EDDesign:
+      """|class Foo(
+         |    val W: Int <> CONST = 8,
+         |    val W2: Int <> CONST = 3
+         |) extends EDDesign:
          |  val twoW: Int <> CONST = 2 * W
          |  val i = Bits(W) <> IN
          |  val o = Bits(twoW) <> OUT
@@ -2836,6 +2842,9 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val i4 = Bits(2 * W) <> IN
          |  val o4 = Bits(2 * W) <> OUT
          |  o4 <> (i4(W - 1, 0), i4((2 * W) - 1, W)).toBits
+         |  val i5 = Bits(W * W2) <> IN
+         |  val o5 = Bits(W2 * W) <> OUT
+         |  o5 <> i5
          |end Foo""".stripMargin
     )
   }
