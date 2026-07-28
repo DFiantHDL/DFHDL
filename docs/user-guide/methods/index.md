@@ -13,6 +13,8 @@ The return-type marker on a method selects both its domain and how a call to it 
 
 Method arguments are marked `<> VAL` (see the [Type System][type-system]). A method that returns a value is a **function**; a method that returns `Unit` is a **procedure**.
 
+A design-body `def` with **no** return marker is not a DFHDL method at all: it is plain Scala that runs during elaboration and inlines the hardware it describes at each call site. See [Inline method generators](#inline-method-generators).
+
 ## Two ways a method compiles
 
 DFHDL methods fall into two families, distinguished by what a call becomes in the generated code:
@@ -333,6 +335,73 @@ val ADDR_W: UInt[8] <> CONST = clog2(d"8'200")
 ```
 
 `clog2` is emitted once in the globals area, and the global constant is emitted there as its call, `clog2(...)`. A static function called this way is never elaboration-cached (it is re-elaborated per call), which does not affect the generated HDL. (ED methods have no global-scope form: an ED method can only be called inside an event-driven domain.)
+
+## Inline method generators {#inline-method-generators}
+
+A `def` declared inside a design **without** a return-type marker is not a DFHDL method. It is ordinary Scala code that runs during elaboration, so each call **inlines** the hardware its body describes directly at the call site, exactly as if the body's statements were written there by hand. No function, task, procedure, or design instance appears in the generated code; the def itself leaves no trace.
+
+Such a def is an **inline method generator**: its arguments are plain Scala values (`Int`, `Boolean`, collections, and so on), which makes it a compile-time recipe for constructing hardware. Its body may reference the enclosing design's ports, variables, constants, and parameters directly; since the body is inlined where it is called, no capturing is involved. The return value, in contrast to the arguments, is typically a DFHDL value.
+
+/// admonition | An inline generator slicing a packed vector
+    type: example
+`slice` has no return marker and takes a plain Scala `Int`, so each call inlines a parametric part-select of `vec` at the call site. The generated code contains only the two selections and the addition.
+
+```scala
+class SliceSum(
+    val W: Int <> CONST = 8,
+    val N: Int <> CONST = 2
+) extends EDDesign:
+  val vec = Bits(W * N) <> IN
+  val sum = UInt(W) <> OUT
+  def slice(i: Int) = vec(i * W + W - 1, i * W).uint
+  sum <> slice(0) + slice(1)
+end SliceSum
+```
+
+/// tab | Generated Verilog
+```verilog
+module SliceSum#(
+    parameter int W = 8,
+    parameter int N = 2
+)(
+  input  wire logic [(W * N) - 1:0] vec,
+  output logic [W - 1:0] sum
+);
+  `include "dfhdl_defs.svh"
+  assign sum = (vec[W - 1:0]) + (vec[(W + W) - 1:W]);
+endmodule
+```
+Each `slice(i)` call inlined into a part-select of `vec`, with the index arithmetic kept in terms of the parameter `W` (folded per call: `slice(0)` to `[W - 1:0]`, `slice(1)` to `[(W + W) - 1:W]`). Nothing named `slice` exists in the output.
+///
+
+/// tab | Generated VHDL
+```vhdl
+entity SliceSum is
+generic (
+  W : integer := 8;
+  N : integer := 2
+);
+port (
+  vec : in std_logic_vector((W * N) - 1 downto 0);
+  sum : out unsigned(W - 1 downto 0)
+);
+end SliceSum;
+
+architecture SliceSum_arch of SliceSum is
+begin
+  sum <= unsigned(vec(W - 1 downto 0)) + unsigned(vec((W + W) - 1 downto W));
+end SliceSum_arch;
+```
+Each `slice(i)` call inlined into a slice of `vec` in terms of the generic `W`. Nothing named `slice` exists in the output.
+///
+///
+
+Choosing between an inline generator and a DFHDL method:
+
+- An **inline generator** duplicates its body's hardware at every call. It shines when the calls are genuinely different hardware, parameterized by elaboration-time Scala values (an index, a width, a configuration), as in Scala-loop-driven wiring or the per-index slicing above.
+- A **DFHDL method** produces a single named artifact in the output (an HDL subprogram, or a method design for `<> DFRET`) that every call reuses. Prefer it when the calls share one body and the output should say so.
+
+Because an inline generator's arguments are elaboration-time Scala values, a `def` that takes DFHDL **values** as arguments must be a DFHDL method with a return marker; declaring such a def without one is a compile-time error.
 
 ## What a method body may contain
 

@@ -518,6 +518,32 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("plain Scala def as an inline hardware generator") {
+    class SliceSum(
+        val W: Int <> CONST = 8,
+        val N: Int <> CONST = 2
+    ) extends EDDesign:
+      val vec = Bits(W * N) <> IN
+      val sum = UInt(W)     <> OUT
+      // no `<> EDRET` marker: `slice` is a plain Scala def that inlines its body per call,
+      // so nothing named `slice` remains in the printed code
+      def slice(i: Int) = vec(i * W + W - 1, i * W).uint
+      sum <> slice(0) + slice(1)
+    end SliceSum
+    val id = (new SliceSum)
+    assertCodeString(
+      id,
+      """|class SliceSum(
+         |    val W: Int <> CONST = 8,
+         |    val N: Int <> CONST = 2
+         |) extends EDDesign:
+         |  val vec = Bits(W * N) <> IN
+         |  val sum = UInt(W) <> OUT
+         |  sum <> (vec(W - 1, 0).uint + vec((W + W) - 1, W).uint)
+         |end SliceSum
+         |""".stripMargin
+    )
+  }
   test("ED method phantom capture printing") {
     class FooCap extends EDDesign:
       val a                   = UInt(8) <> IN

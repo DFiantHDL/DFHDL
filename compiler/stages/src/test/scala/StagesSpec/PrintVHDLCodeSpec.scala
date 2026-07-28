@@ -2112,6 +2112,44 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("plain Scala def as an inline hardware generator") {
+    class SliceSum(
+        val W: Int <> CONST = 8,
+        val N: Int <> CONST = 2
+    ) extends EDDesign:
+      val vec = Bits(W * N) <> IN
+      val sum = UInt(W)     <> OUT
+      // no `<> EDRET` marker: `slice` is a plain Scala def that inlines its body per call,
+      // referencing the design parameters directly
+      def slice(i: Int) = vec(i * W + W - 1, i * W).uint
+      sum <> slice(0) + slice(1)
+    end SliceSum
+    val top = (new SliceSum).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity SliceSum is
+         |generic (
+         |  W : integer := 8;
+         |  N : integer := 2
+         |);
+         |port (
+         |  vec : in std_logic_vector((W * N) - 1 downto 0);
+         |  sum : out unsigned(W - 1 downto 0)
+         |);
+         |end SliceSum;
+         |
+         |architecture SliceSum_arch of SliceSum is
+         |begin
+         |  sum <= unsigned(vec(W - 1 downto 0)) + unsigned(vec((W + W) - 1 downto W));
+         |end SliceSum_arch;
+         |""".stripMargin
+    )
+  }
   test("ED method phantom capture through a path") {
     class PathInner extends EDDesign:
       val i = UInt(8) <> IN

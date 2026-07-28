@@ -48,6 +48,33 @@ class EDMethodSpec extends DFSpec:
     val errs = dfc.getErrors
     assert(errs.isEmpty, errs.mkString("\n"))
 
+  test("ED function capturing a `<> CONST` class parameter"):
+    class FooParam(val W: UInt[8] <> CONST = 7) extends EDDesign:
+      val a = UInt(8) <> IN
+      val y = UInt(8) <> OUT
+      // `W` is a class parameter: the method body's reference reaches the generated
+      // design-parameter member and is captured as a phantom design parameter
+      def addW(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + W
+      y <> addW(a)
+    val top = FooParam()
+    val errs = dfc.getErrors
+    assert(errs.isEmpty, errs.mkString("\n"))
+
+  test("plain Scala def generator capturing `<> CONST` class parameters (issue #416)"):
+    class SliceSum(
+        val W: Int <> CONST = 8,
+        val N: Int <> CONST = 2
+    ) extends EDDesign:
+      val vec = Bits(W * N) <> IN
+      val sum = UInt(W) <> OUT
+      // a plain Scala def acts as a hardware generator that inlines its body per call;
+      // its class-parameter references must reach the generated design-parameter members
+      def slice(i: Int) = vec(i * W + W - 1, i * W).uint
+      sum <> slice(0) + slice(1)
+    val top = SliceSum()
+    val errs = dfc.getErrors
+    assert(errs.isEmpty, errs.mkString("\n"))
+
   test("valid ED method snippet reports no plugin errors"):
     assertPluginError("No error found")(
       """

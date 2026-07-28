@@ -2202,6 +2202,37 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("plain Scala def as an inline hardware generator") {
+    class SliceSum(
+        val W: Int <> CONST = 8,
+        val N: Int <> CONST = 2
+    ) extends EDDesign:
+      val vec = Bits(W * N) <> IN
+      val sum = UInt(W)     <> OUT
+      // no `<> EDRET` marker: `slice` is a plain Scala def that inlines its body per call,
+      // referencing the design parameters directly
+      def slice(i: Int) = vec(i * W + W - 1, i * W).uint
+      sum <> slice(0) + slice(1)
+    end SliceSum
+    val top = (new SliceSum).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module SliceSum#(
+         |    parameter int W = 8,
+         |    parameter int N = 2
+         |)(
+         |  input  wire logic [(W * N) - 1:0] vec,
+         |  output logic [W - 1:0] sum
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign sum = (vec[W - 1:0]) + (vec[(W + W) - 1:W]);
+         |endmodule
+         |""".stripMargin
+    )
+  }
   test("ED method phantom capture through a path") {
     class PathInner extends EDDesign:
       val i = UInt(8) <> IN

@@ -68,4 +68,50 @@ class PhantomTagSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // a method capturing the host design's `<> CONST` CONSTRUCTOR parameter: the body reference
+  // is rewritten to the generated design-parameter member (a class field), which the method
+  // captures as a phantom design parameter named after the original parameter (issue #416)
+  class HostParam(val phW: UInt[8] <> CONST = 7) extends DFDesign:
+    val data                                        = UInt(8) <> IN
+    val o                                           = UInt(8) <> OUT
+    def calc(arg: UInt[8] <> VAL): UInt[8] <> DFRET =
+      arg + phW
+    o := calc(data)
+  end HostParam
+
+  test("A phantom capture of a `<> CONST` class parameter is hidden in the method view form") {
+    val id = new HostParam
+    assertCodeString(
+      id,
+      """|class HostParam(val phW: UInt[8] <> CONST = d"8'7") extends DFDesign:
+         |  val data = UInt(8) <> IN
+         |  val o = UInt(8) <> OUT
+         |  def calc(arg: UInt[8] <> VAL): UInt[8] <> DFRET =
+         |    arg + phW
+         |  end calc
+         |  o := calc(data)
+         |end HostParam
+         |""".stripMargin
+    )
+  }
+  test("A phantom capture of a `<> CONST` class parameter is visible once the method is dropped") {
+    val id = (new HostParam).dropDFMethods
+    assertCodeString(
+      id,
+      """|class calc(val phW: UInt[8] <> CONST) extends DFDesign:
+         |  val arg = UInt(8) <> IN
+         |  val o = UInt(8) <> OUT
+         |  o <> (arg + phW)
+         |end calc
+         |
+         |class HostParam(val phW: UInt[8] <> CONST = d"8'7") extends DFDesign:
+         |  val data = UInt(8) <> IN
+         |  val o = UInt(8) <> OUT
+         |  val o_part_calc_inst = calc(phW = phW)
+         |  o_part_calc_inst.arg <> data
+         |  o := o_part_calc_inst.o
+         |end HostParam
+         |""".stripMargin
+    )
+  }
 end PhantomTagSpec

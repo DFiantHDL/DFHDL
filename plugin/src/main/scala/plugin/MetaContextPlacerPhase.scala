@@ -86,6 +86,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CapturePhase, IdentityDen
   end prepareForTypeDef
 
   private def genContainerBodyParams(
+      clsSym: ClassSymbol,
       body: List[Tree],
       paramList: List[Tree],
       defaults: Map[Int, Tree],
@@ -103,7 +104,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CapturePhase, IdentityDen
             "DFHDL design/interface parameters must be constant values (use a `<> CONST` modifier).",
             v.tpt
           )
-        val valDef = v.genContainerParamValDef(defaults.get(i), dfcTree)
+        val valDef = v.genContainerParamValDef(clsSym, this, defaults.get(i), dfcTree)
         paramMap += v.symbol -> ref(valDef.symbol)
         valDef
     }.toList
@@ -271,7 +272,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CapturePhase, IdentityDen
           val (updatedBody, containerParamGenValDefs) = dfcArgOpt match
             case Some(dfcTree) if hasClsArgs =>
               val defaults = defaultParamMap.getOrElse(clsSym, Map.empty)
-              genContainerBodyParams(nonParamBody, paramBody, defaults, dfcTree)(using
+              genContainerBodyParams(clsSym, nonParamBody, paramBody, defaults, dfcTree)(using
                 ctx.withOwner(clsSym.primaryConstructor)
               )
             case _ => (nonParamBody, Nil)

@@ -249,7 +249,12 @@ abstract class CommonPhase extends PluginPhase:
   end extension
 
   extension (v: ValDef)(using Context)
-    def genContainerParamValDef(default: Option[Tree], dfcTree: Tree): ValDef =
+    def genContainerParamValDef(
+        clsSym: ClassSymbol,
+        phase: DenotTransformers.DenotTransformer,
+        default: Option[Tree],
+        dfcTree: Tree
+    ): ValDef =
       val meta = v.genMeta
       val paramGen =
         ref(genContainerParamSym)
@@ -257,8 +262,19 @@ abstract class CommonPhase extends PluginPhase:
           .appliedToArgs(List(ref(v.symbol), mkOption(default), meta))
           .appliedTo(dfcTree)
       val uniqueName = NameKinds.UniqueName.fresh(s"${v.name}_plugin".toTermName)
-      val flags: FlagSet = if (ctx.owner.isConstructor) Private else EmptyFlags
-      SyntheticValDef(uniqueName, paramGen, flags)
+      // The generated design-parameter val must be a true member of the class rather than a
+      // constructor-local value: the class body's parameter references are rewritten to it,
+      // and such references may sit inside methods or nested classes, where only a field is
+      // reachable (a constructor-local reference from a method cannot be lambda-lifted).
+      val sym = newSymbol(
+        clsSym,
+        uniqueName,
+        Synthetic | Private,
+        paramGen.tpe.widen,
+        coord = paramGen.span
+      ).enteredAfter(phase)
+      ValDef(sym, paramGen)
+  end extension
 
   extension (sym: Symbol)
     def ignoreMetaContext(using Context): Boolean =
