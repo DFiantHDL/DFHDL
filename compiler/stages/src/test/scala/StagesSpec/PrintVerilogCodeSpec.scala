@@ -2889,4 +2889,29 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("max/min chain printing") {
+    class Foo(
+        val Arg1: Int <> CONST = 1,
+        val Arg2: Int <> CONST = 2,
+        val Arg3: Int <> CONST = 3
+    ) extends EDDesign:
+      val maxArg = Arg1 max Arg2 max Arg3
+      val minArg = Arg1 min Arg2 min Arg3
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Foo#(
+         |    parameter int Arg1 = 1,
+         |    parameter int Arg2 = 2,
+         |    parameter int Arg3 = 3
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam int maxArg = `MAX(Arg1, `MAX(Arg2, Arg3));
+         |  localparam int minArg = `MIN(Arg1, `MIN(Arg2, Arg3));
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

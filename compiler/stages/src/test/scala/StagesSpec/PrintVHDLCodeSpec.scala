@@ -3027,4 +3027,35 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("max/min chain printing") {
+    class Foo(
+        val Arg1: Int <> CONST = 1,
+        val Arg2: Int <> CONST = 2,
+        val Arg3: Int <> CONST = 3
+    ) extends EDDesign:
+      val maxArg = Arg1 max Arg2 max Arg3
+      val minArg = Arg1 min Arg2 min Arg3
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Foo is
+         |generic (
+         |  Arg1 : integer := 1;
+         |  Arg2 : integer := 2;
+         |  Arg3 : integer := 3
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |  constant maxArg : integer := max(Arg1, max(Arg2, Arg3));
+         |  constant minArg : integer := min(Arg1, min(Arg2, Arg3));
+         |begin
+         |end Foo_arch;""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

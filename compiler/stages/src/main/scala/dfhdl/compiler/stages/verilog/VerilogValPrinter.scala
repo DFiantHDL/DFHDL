@@ -233,9 +233,21 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               case _ => args.map(_.refCodeString).csList("{", ",", "}")
             end match
           case _ =>
-            args
-              .map(_.refCodeString.applyBrackets())
-              .mkString(s" ${commonOpStr} ")
+            dfVal.op match
+              // non-infix max/min functions are printed as nested calls, e.g., `max(a, max(b, c))`
+              case Func.Op.max | Func.Op.min =>
+                def recur(args: List[DFRef.TwoWay[DFVal, ?]]): String =
+                  args match
+                    case argL :: argR :: Nil =>
+                      s"${commonOpStr}(${argL.refCodeString}, ${argR.refCodeString})"
+                    case argL :: argR :: rest =>
+                      s"${commonOpStr}(${argL.refCodeString}, ${recur(argR :: rest)})"
+                    case _ => ???
+                recur(args)
+              case _ =>
+                args
+                  .map(_.refCodeString.applyBrackets())
+                  .mkString(s" ${commonOpStr} ")
     end match
   end csDFValFuncExpr
 
