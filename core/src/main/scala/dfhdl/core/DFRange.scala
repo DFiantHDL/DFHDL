@@ -13,7 +13,7 @@ final class DFRange[P](val irValue: ir.DFRange | DFError) extends AnyVal with DF
     throw new IllegalArgumentException(
       "withFilter is not meant to be run directly, the DFHDL compiler plugin should have replaced its call."
     )
-  def by[SP](step: DFValTP[DFInt32, SP])(using dfc: DFC): DFRange[P | SP] =
+  infix def by[SP](step: DFValTP[DFInt32, SP])(using dfc: DFC): DFRange[P | SP] =
     import dfc.getSet
     this.asIR.stepRef.get.replaceMemberWith(step.asIR)
     this.asInstanceOf[DFRange[P | SP]]
@@ -56,19 +56,21 @@ object DFRange:
       private[core] def untilDF(end: Int)(using DFC): DFRange[CONST] =
         DFRange(DFConstInt32(start), DFConstInt32(end), RangeOp.Until)
       // until is selected at compile time, according to the context
-      transparent inline def until(end: Int): Range | DFRange[CONST] =
+      infix transparent inline def until(end: Int): Range | DFRange[CONST] =
         compiletime.summonFrom {
           case given HasDFRange => untilDF(end)(using compiletime.summonInline[DFC])
           case _                => untilOrig(end)
         }
-      transparent inline def until[P](end: DFValTP[DFInt32, P])(using DFC): Range | DFRange[P] =
+      infix transparent inline def until[P](end: DFValTP[DFInt32, P])(using
+          DFC
+      ): Range | DFRange[P] =
         compiletime.summonFrom {
           case given HasDFRange => DFRange(DFConstInt32(start), end, RangeOp.Until).asFE[P]
           case _                => untilOrig(end.toScalaInt)
         }
     end extension
     extension [SP](start: DFValTP[DFInt32, SP])
-      transparent inline def until[EP](end: DFValTP[DFInt32, EP])(using
+      infix transparent inline def until[EP](end: DFValTP[DFInt32, EP])(using
           DFC
       ): Range | DFRange[SP | EP] =
         compiletime.summonFrom {
@@ -80,19 +82,19 @@ object DFRange:
       private[core] def toDF(end: Int)(using DFC): DFRange[CONST] =
         DFRange(DFConstInt32(start), DFConstInt32(end), RangeOp.To)
       // to is selected at compile time, according to the context
-      transparent inline def to(end: Int): Range | DFRange[CONST] =
+      infix transparent inline def to(end: Int): Range | DFRange[CONST] =
         compiletime.summonFrom {
           case given HasDFRange => toDF(end)(using compiletime.summonInline[DFC])
           case _                => toOrig(end)
         }
-      transparent inline def to[P](end: DFValTP[DFInt32, P])(using DFC): Range | DFRange[P] =
+      infix transparent inline def to[P](end: DFValTP[DFInt32, P])(using DFC): Range | DFRange[P] =
         compiletime.summonFrom {
           case given HasDFRange => DFRange(DFConstInt32(start), end, RangeOp.To).asFE[P]
           case _                => toOrig(end.toScalaInt)
         }
     end extension
     extension [SP](start: DFValTP[DFInt32, SP])
-      transparent inline def to[EP](end: DFValTP[DFInt32, EP])(using
+      infix transparent inline def to[EP](end: DFValTP[DFInt32, EP])(using
           DFC
       ): Range | DFRange[SP | EP] =
         compiletime.summonFrom {
