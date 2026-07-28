@@ -854,7 +854,7 @@ final class MutableDB():
   def getMember[M <: DFMember, M0 <: M](
       ref: DFRef[M]
   ): M0 = getMemberOption(ref).getOrElse(
-    throw new IllegalArgumentException(s"Missing ref $ref")
+    throw new Exception(s"Missing ref $ref")
   )
 
   def getOriginMember(
@@ -872,7 +872,7 @@ final class MutableDB():
           // external injected meta-programming context
           .getOrElse(
             metaGetSetList.view.flatMap(_.getOption(ref)).headOption.getOrElse(
-              throw new IllegalArgumentException(s"Missing ref $ref")
+              throw new Exception(s"Missing ref $ref")
             )
           )
     member
