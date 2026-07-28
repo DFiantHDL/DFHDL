@@ -2759,4 +2759,21 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("const param selection") {
+    class Foo(val idx: Int <> CONST = 5) extends EDDesign:
+      val x = Bits(8) <> IN
+      val y = Bit     <> OUT
+      val v = x(idx)
+      y <> v
+    val top = Foo().getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo(val idx: Int <> CONST = 5) extends EDDesign:
+         |  val x = Bits(8) <> IN
+         |  val y = Bit <> OUT
+         |  val v = x(idx)
+         |  y <> v
+         |end Foo""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

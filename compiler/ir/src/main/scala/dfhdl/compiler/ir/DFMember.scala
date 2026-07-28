@@ -1069,9 +1069,9 @@ object DFVal:
             ConstData.KnownConst(outData)
           case (ConstData.KnownConst(_), ConstData.KnownConst(_: None.type)) =>
             ConstData.KnownConst(None)
-          case (ConstData.UnknownConst(_), _) | (_, ConstData.UnknownConst(_)) =>
-            ConstData.UnknownConst(this)
-          case _ => ConstData.NotConst
+          case (ConstData.NotConst, _) | (_, ConstData.NotConst) =>
+            ConstData.NotConst
+          case _ => ConstData.UnknownConst(this)
         end match
       end protGetConstData
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
