@@ -173,7 +173,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       members.count {
         case dcl: DFVal.Dcl =>
           !dcl.isPhantom &&
-            (dcl.isPortIn || (dcl.isPortOut && !returnPort.contains(dcl)))
+          (dcl.isPortIn || (dcl.isPortOut && !returnPort.contains(dcl)))
         case _ => false
       }
     getSet.designDB.rootDB.subDBs.get(design.ownerRef) match

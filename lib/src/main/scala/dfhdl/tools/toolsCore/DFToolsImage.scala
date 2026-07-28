@@ -153,10 +153,10 @@ object DFToolsImage:
       )
 
   /** Whether the given image is resolvable (present locally / overridden / downloadable). A resolve
-    * failure (no container runtime, blocked unprivileged user namespaces, a corrupt or absent asset)
-    * is reported before returning false, so it is distinguishable from an image that is simply not
-    * configured — otherwise the only downstream symptom is a misleading "could not be found in its
-    * DFTools image".
+    * failure (no container runtime, blocked unprivileged user namespaces, a corrupt or absent
+    * asset) is reported before returning false, so it is distinguishable from an image that is
+    * simply not configured — otherwise the only downstream symptom is a misleading "could not be
+    * found in its DFTools image".
     */
   def isAvailable(image: String): Boolean =
     try handle(image).exists
