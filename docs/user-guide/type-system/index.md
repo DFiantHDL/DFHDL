@@ -378,7 +378,7 @@ class IDTop extends DFDesign:
   val x  = UInt(8) <> IN
   val y  = UInt(8) <> OUT
   val yv = UInt(8) <> VAR
-  val id = ID()
+  val id = new ID()
   //direct connection between
   //parent and child design ports
   id.x <> x 
@@ -416,7 +416,7 @@ class IDTop extends DFDesign:
   val x  = UInt(8) <> IN
   val y  = UInt(8) <> OUT
   val yv = UInt(8) <> VAR
-  val id = ID()
+  val id = new ID()
   //direct connection between
   //parent and child design ports
   id.x <> x 
