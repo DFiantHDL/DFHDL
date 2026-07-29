@@ -1,4 +1,4 @@
-let dfhdlVersion = "0.20.0";
+let dfhdlVersion = "0.21.0";
 let scalaVersion = "3.8.4";
 
 function buildSbtConfig(mainClass) {
