@@ -190,4 +190,99 @@ class ClassDesignKeySpec extends StageSpec:
          |end Top""".stripMargin
     )
   }
+
+  test("const Boolean guard inlining rooted at a class param keys the param's applied data") {
+    class Cond(val arg: Boolean <> CONST) extends DFDesign:
+      val x = UInt(32) <> IN
+      val y = UInt(32) <> OUT
+      if (arg) y := x + 1
+      else y     := x + 2
+    class Top extends DFDesign:
+      val x  = UInt(32) <> IN
+      val y  = UInt(32) <> OUT
+      val c1 = new Cond(true)
+      val c2 = new Cond(false)
+      val c3 = new Cond(true)
+      c1.x <> x
+      c2.x <> c1.y
+      c3.x <> c2.y
+      y    <> c3.y
+    end Top
+    // the guard is constant and a design body has no conditional-statement capability, so
+    // the Boolean conversion expands at typer into a Scala `if` that READS the param's
+    // data (`toScalaBoolean`): the purity check sees that forcing and marks the param
+    // data-impure exactly like an explicit toScalaXYZ call, so the applied value joins
+    // the design key. Different applied values elaborate separate designs (with only the
+    // taken branch), while a repeated value unifies (c3 joins c1's design).
+    assertCodeString(
+      new Top,
+      """|@hw.annotation.pure(impureParams = "arg")
+         |class Cond_0(val arg: Boolean <> CONST) extends DFDesign:
+         |  val x = UInt(32) <> IN
+         |  val y = UInt(32) <> OUT
+         |  y := x + d"32'1"
+         |end Cond_0
+         |
+         |@hw.annotation.pure(impureParams = "arg")
+         |class Cond_1(val arg: Boolean <> CONST) extends DFDesign:
+         |  val x = UInt(32) <> IN
+         |  val y = UInt(32) <> OUT
+         |  y := x + d"32'2"
+         |end Cond_1
+         |
+         |class Top extends DFDesign:
+         |  val x = UInt(32) <> IN
+         |  val y = UInt(32) <> OUT
+         |  val c1 = Cond_0(arg = true)
+         |  val c2 = Cond_1(arg = false)
+         |  val c3 = Cond_0(arg = true)
+         |  c1.x <> x
+         |  c2.x <> c1.y
+         |  c3.x <> c2.y
+         |  y <> c3.y
+         |end Top""".stripMargin
+    )
+  }
+
+  test("const Boolean guard inside a process stays a DFHDL conditional and keys nothing") {
+    class Cond(val arg: Boolean <> CONST) extends EDDesign:
+      val x = UInt(32) <> IN
+      val y = UInt(32) <> OUT
+      process(all):
+        if (arg) y :== x + 1
+        else y     :== x + 2
+    class Top extends EDDesign:
+      val x  = UInt(32) <> IN
+      val y  = UInt(32) <> OUT
+      val c1 = new Cond(true)
+      val c2 = new Cond(false)
+      c1.x <> x
+      c2.x <> c1.y
+      y    <> c2.y
+    end Top
+    // inside a process the scope HAS conditional-statement capability, so the constant
+    // guard is NOT inlined: the `if` remains a DFHDL conditional over the parametric
+    // `arg`, no data is forced (no impure-param marking), and both instances unify into
+    // ONE parametric design despite their different applied values
+    assertCodeString(
+      new Top,
+      """|class Cond(val arg: Boolean <> CONST) extends EDDesign:
+         |  val x = UInt(32) <> IN
+         |  val y = UInt(32) <> OUT
+         |  process(all):
+         |    if (arg) y :== x + d"32'1"
+         |    else y :== x + d"32'2"
+         |end Cond
+         |
+         |class Top extends EDDesign:
+         |  val x = UInt(32) <> IN
+         |  val y = UInt(32) <> OUT
+         |  val c1 = Cond(arg = true)
+         |  val c2 = Cond(arg = false)
+         |  c1.x <> x
+         |  c2.x <> c1.y
+         |  y <> c2.y
+         |end Top""".stripMargin
+    )
+  }
 end ClassDesignKeySpec

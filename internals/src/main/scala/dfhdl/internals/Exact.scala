@@ -41,11 +41,9 @@ extension [Q <: Quotes & Singleton](using quotes: Q)(term: quotes.reflect.Term)
     object HackedGuard:
       def unapply(term: Term): Option[Term] =
         term match
-          case Apply(
-                Apply(TypeApply(Ident("BooleanHackInline"), List(_)), List(cond)),
-                List(_)
-              ) => Some(cond)
-          case _ => None
+          case Apply(Apply(Ident("BooleanHackInline"), List(cond)), List(_)) => Some(cond)
+          case Inlined(Some(term: Term), _, _)                               => unapply(term)
+          case _                                                             => None
     end HackedGuard
     term match
       case Inlined(a, b, term)     => Inlined(a, b, term.exactTerm)

@@ -698,19 +698,18 @@ object DFVal extends DFValLP:
         s: S
     )(using util.NotGiven[s.type <:< DFC.Scope.HasCondStats]): ScalaBooleanFlag with {}
 
-  implicit inline def BooleanHackInline[P](inline from: DFValTP[DFBoolOrBit, P])(using
+  implicit transparent inline def BooleanHackInline(inline from: DFValOf[DFBoolOrBit])(using
       dfc: DFC
   ): Boolean =
     import DFBoolOrBit.Val.Ops.toScalaBoolean
-    compiletime.summonFrom {
-      case given (P =:= CONST) =>
+    inline from match
+      case const: DFConstOf[DFBoolOrBit] =>
         compiletime.summonFrom {
           case given ScalaBooleanFlag =>
-            from.toScalaBoolean(using dfc, ConstCheck.Success.asInstanceOf[ConstCheck[P]])
+            const.toScalaBoolean(using dfc, ConstCheck.Success.asInstanceOf[ConstCheck[CONST]])
           case _ => BooleanHack(from)
         }
       case _ => BooleanHack(from)
-    }
 
   // opaque values need special conversion that does not try to summon the opaque dftype
   // because it can be abstract in extension methods that are applied generically on an abstract
