@@ -5,7 +5,7 @@ hide:
 
 # N-Bit Full Adder
 
-```scastie main="FullAdder1"
+```scastie main="FullAdderN"
 --8<-- "lib/src/test/scala/docExamples/FullAdderN.scala:3"
 ```
 
