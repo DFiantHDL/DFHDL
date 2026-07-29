@@ -173,6 +173,24 @@ class DFBitsSpec extends DFSpec:
         |""".stripMargin
     }("b8 := b8 | 2")
   }
+  // regression for an elaboration hang: resizing an anonymous `.bits` alias with
+  // a parametric width compares two symbolic width params via `IntParam.=~`,
+  // which used to self-recurse forever instead of comparing the IR constants;
+  // also checks the resize is not dropped as a "redundant" cast (parametric and
+  // concrete widths alike)
+  test("Width-changing resize of an anonymous alias") {
+    val param: Int <> CONST = 8
+    val pb = Bits(param + 1) <> VAR
+    val b9 = Bits(9) <> VAR
+    assertCodeString {
+      """|val neg = (sd"2'0".resize(param + 1) - pb.sint).bits.resize(param).uint
+         |val negc = (sd"9'0" - b9.sint).bits.resize(8).uint
+         |""".stripMargin
+    } {
+      val neg = (0 - pb.sint).bits.resize(param).uint
+      val negc = (0 - b9.sint).bits.resize(8).uint
+    }
+  }
   test("DFVal Selection") {
     val b8 = Bits(8) <> VAR
     val b3 = Bits(3) <> VAR

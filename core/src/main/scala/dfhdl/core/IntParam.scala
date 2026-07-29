@@ -150,7 +150,7 @@ object IntParam extends IntParamLP:
       import dfc.getSet
       (lhs, that) match
         case (intL: Int, intR: Int)                       => intL == intR
-        case (constL: DFConstInt32, constR: DFConstInt32) => constL =~ constR
+        case (constL: DFConstInt32, constR: DFConstInt32) => constL.asIR =~ constR.asIR
         case _                                            => false
     protected[dfhdl] def cloneAnonValueAndDepsHere: IntParam[Int] =
       lhs match
