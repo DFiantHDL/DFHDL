@@ -38,6 +38,15 @@ extension [Q <: Quotes & Singleton](using quotes: Q)(exprOrTerm: Expr[Any] | quo
 extension [Q <: Quotes & Singleton](using quotes: Q)(term: quotes.reflect.Term)
   private def exactTerm: quotes.reflect.Term =
     import quotes.reflect.*
+    object HackedGuard:
+      def unapply(term: Term): Option[Term] =
+        term match
+          case Apply(
+                Apply(TypeApply(Ident("BooleanHackInline"), List(_)), List(cond)),
+                List(_)
+              ) => Some(cond)
+          case _ => None
+    end HackedGuard
     term match
       case Inlined(a, b, term)     => Inlined(a, b, term.exactTerm)
       case Literal(NullConstant()) => report.errorAndAbort("null is not allowed here")
@@ -63,7 +72,7 @@ extension [Q <: Quotes & Singleton](using quotes: Q)(term: quotes.reflect.Term)
         val AppliedType(tycon, _) = t.tpe.runtimeChecked
         val tupleTypeArgs = tpes.map(_.asTypeTree)
         Apply(TypeApply(fun, tupleTypeArgs), terms)
-      case ifTerm @ If(Apply(Apply(Ident("BooleanHack"), List(cond)), List(_)), onTrue, onFalse) =>
+      case ifTerm @ If(HackedGuard(cond), onTrue, onFalse) =>
         ifTerm.tpe match
           case OrType(_, _) =>
             val condType = cond.tpe.asTypeOf[Any]

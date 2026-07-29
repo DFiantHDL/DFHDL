@@ -263,9 +263,8 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   override def transformWhileDo(tree: WhileDo)(using Context): Tree =
     dfcStack.headOption.map { dfc =>
       val guard = tree.cond match
-        case Apply(Apply(Ident(n), List(dfCond)), List(_)) if n.toString == "BooleanHack" =>
-          dfCond
-        case cond => ref(fromBooleanSym).appliedTo(cond).appliedTo(dfc)
+        case HackedGuard(dfCond) => dfCond
+        case cond                => ref(fromBooleanSym).appliedTo(cond).appliedTo(dfc)
       ref(customWhileSym).appliedTo(guard).appliedTo(tree.body).appliedTo(dfc)
     }.getOrElse(tree)
 

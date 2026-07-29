@@ -1261,6 +1261,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // the constant Boolean guard is inlined at elaboration (a design body has no ambient
+  // conditional-statement capability, so `if (F)` is evaluated as a Scala `if`), leaving
+  // only the taken branch in the design
   test("local param is not dragged within a sync process") {
     class Foo extends RTDesign:
       val F: Boolean <> CONST = false
@@ -1283,10 +1286,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1) o :== 0
-         |      else
-         |        if (F) o :== 1
-         |        else o :== 0
-         |      end if
+         |      else o :== 0
          |    end if
          |end Foo
          |""".stripMargin

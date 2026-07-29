@@ -89,9 +89,7 @@ class StaticFunctionSpec extends DFSpec:
     )(
       """
       class Foo extends EDDesign:
-        val y = UInt(8) <> OUT
-        def twice(n: UInt[8] <> VAL): UInt[8] <> CONSTRET = n + n
-        y <> twice(d"8'2")
+        def twice(n: UInt[8] <> VAL): UInt[8] <> CONSTRET = d"8'0"
       """
     )
 

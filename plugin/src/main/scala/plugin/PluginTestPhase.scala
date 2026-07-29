@@ -127,11 +127,14 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
       override def start: Int = startId
       override def end: Int = endId
 
+    // All nested phase runs share ONE compilation unit, mirroring the real pipeline:
+    // phases communicate through unit state (e.g., PostTyper sets `needsInlining` flags),
+    // and a fresh unit per run would silently drop it between runs.
+    val nestedUnit = CompilationUnit(unitName, fullCode)
     def compilationUnits(untpdTree: untpd.Tree, tpdTree: Tree): List[CompilationUnit] =
-      val unit = CompilationUnit(unitName, fullCode)
-      unit.tpdTree = tpdTree
-      unit.untpdTree = untpdTree
-      List(unit)
+      nestedUnit.tpdTree = tpdTree
+      nestedUnit.untpdTree = untpdTree
+      List(nestedUnit)
 
     // The nested context is built and the snippet parsed and typed at the TYPER phase's
     // period: this phase's own period does not allow implicit search
@@ -165,16 +168,24 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
             // phases. Pickler, SetRootTree (present only under -Yretain-trees), and the
             // InlineVals/ElimRepeated/RefChecks group the upstream intrinsic reconstructs
             // are all irrelevant to plugin diagnostics and skipped.
-            val standardRuns: List[(Int, Tree => Tree)] = List(
-              ctx.base.postTyperPhase,
-              ctx.base.inliningPhase
-            ).collect {
-              case p if p.exists =>
-                (
-                  p.id,
-                  (t: Tree) => atPhase(p)(p.runOn(compilationUnits(untpdTree, t)).head.tpdTree)
-                )
-            }
+            //
+            // The inlining phase runs through the plugin's own Zinc-free tree map instead of
+            // the real `Inlining` phase: the real phase records every inline call as an
+            // incremental-compilation dependency and flushes it to Zinc keyed by the unit's
+            // source, and the snippet's virtual source has no Zinc virtual file, producing a
+            // "Missing Zinc virtual file" warning per recorded dependency.
+            val standardRuns: List[(Int, Tree => Tree)] =
+              List(ctx.base.postTyperPhase).collect {
+                case p if p.exists =>
+                  (
+                    p.id,
+                    (t: Tree) => atPhase(p)(p.runOn(compilationUnits(untpdTree, t)).head.tpdTree)
+                  )
+              } ++
+                List(ctx.base.inliningPhase).collect {
+                  case p if p.exists =>
+                    (p.id, (t: Tree) => inlineCalls(t))
+                }
             // Each fresh plugin phase is pinned to its installed counterpart's phase id, so
             // denotation lookups match the real pipeline, and the whole nested pipeline is
             // ordered by those ids, i.e. by the real schedule's order.

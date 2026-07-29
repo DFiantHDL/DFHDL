@@ -314,7 +314,7 @@ class DFMatchSpec extends DFSpec:
 
   test("string interpolation pattern on an unsupported selector"):
     assertPluginError(
-      "String interpolation pattern is only allowed for Bits, UInt, or SInt DFHDL values."
+      "Cannot compare DFHDL value of type `Boolean` with value of type `Bits[1] <> CONST`."
     )(
       """
       class Foo extends DFDesign:

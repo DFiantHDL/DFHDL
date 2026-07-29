@@ -173,7 +173,8 @@ class EDMethodSpec extends DFSpec:
 
   test("non-blocking assignment inside an ED function body"):
     assertPluginError(
-      "Non-blocking assignments `:==` are not allowed inside an ED function."
+      """|Non-blocking assignments `:==` are only allowed inside a process under an event-driven (ED) domain.
+         |Change the assignment to a connection `<>` or place it in a process.""".stripMargin
     )(
       """
       class Foo extends EDDesign:

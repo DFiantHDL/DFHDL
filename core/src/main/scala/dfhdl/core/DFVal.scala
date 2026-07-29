@@ -374,12 +374,14 @@ object DFVal extends DFValLP:
     CanEqual.derived
 
   trait ConstCheck[P]
-  given [P](using
-      AssertGiven[
-        P =:= CONST,
-        "Only a DFHDL constant is convertible to a Scala value, but this DFHDL value is not a constant."
-      ]
-  ): ConstCheck[P] with {}
+  object ConstCheck:
+    object Success extends ConstCheck[CONST]
+    given [P](using
+        AssertGiven[
+          P =:= CONST,
+          "Only a DFHDL constant is convertible to a Scala value, but this DFHDL value is not a constant."
+        ]
+    ): ConstCheck[P] with {}
 
   extension [D, T <: ir.DFType, P](lhs: DFValTP[DFType[ir.DFType.Aux[T, Option[D]], ?], P])
     // `pure(true, "*")` marks a constant-data forcer: the result is a pure function of the
@@ -688,8 +690,27 @@ object DFVal extends DFValLP:
     //   dfVal.initForced(List(initFileFunc))
   end extension
 
-  implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
-    ???
+  def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean = ???
+
+  trait ScalaBooleanFlag
+  object ScalaBooleanFlag:
+    given [S <: DFC.Scope](using
+        s: S
+    )(using util.NotGiven[s.type <:< DFC.Scope.HasCondStats]): ScalaBooleanFlag with {}
+
+  implicit inline def BooleanHackInline[P](inline from: DFValTP[DFBoolOrBit, P])(using
+      dfc: DFC
+  ): Boolean =
+    import DFBoolOrBit.Val.Ops.toScalaBoolean
+    compiletime.summonFrom {
+      case given (P =:= CONST) =>
+        compiletime.summonFrom {
+          case given ScalaBooleanFlag =>
+            from.toScalaBoolean(using dfc, ConstCheck.Success.asInstanceOf[ConstCheck[P]])
+          case _ => BooleanHack(from)
+        }
+      case _ => BooleanHack(from)
+    }
 
   // opaque values need special conversion that does not try to summon the opaque dftype
   // because it can be abstract in extension methods that are applied generically on an abstract
