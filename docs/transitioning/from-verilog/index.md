@@ -970,30 +970,94 @@ Verilog `generate for` loops map to Scala `for` loops at design scope. Each iter
 <div class="grid" markdown>
 
 ```sv linenums="0" title="Verilog"
-genvar i;
-generate
-  for (i = 0; i < N; i = i + 1)
-  begin : BLK
-    filter #(
-      .WIDTH(BASE_W - 2*i)
-    ) u_filter (...);
-  end
-endgenerate
+module inc(
+  input  [7:0] x,
+  output [7:0] y
+);
+  assign y = x + 1;
+endmodule
+
+module inc_bank #(
+  parameter N = 4
+)(
+  input  [7:0] x [0:N-1],
+  output [7:0] y [0:N-1]
+);
+  genvar i;
+  generate
+    for (i = 0; i < N; i = i + 1) begin : lane
+      inc u_inc (.x(x[i]), .y(y[i]));
+    end
+  endgenerate
+endmodule
 ```
 
 ```scala linenums="0" title="DFHDL"
-for i <- 0 until N.toScalaInt do
-  val u_filter = filter(
-    WIDTH = BASE_W - 2 * i
-  )
-  // connect ports...
+class inc extends EDDesign:
+  val x = UInt(8) <> IN
+  val y = UInt(8) <> OUT
+  y <> x + 1
+end inc
+
+class inc_bank(
+  val N: Int <> CONST = 4
+) extends EDDesign:
+  val x = UInt(8) X N <> IN
+  val y = UInt(8) X N <> OUT
+  for i <- 0 until N do
+    val u_inc = inc()
+    u_inc.x <> x(i)
+    y(i)    <> u_inc.y
+  end for //optional
+end inc_bank
 ```
 
 </div>
 
-Note that `N` must be convertible to a Scala `Int` at elaboration time (use `.toScalaInt` on `Int <> CONST` parameters).
+At design (concurrent) scope the loop runs at elaboration time and unrolls, so `N` may be an `Int <> CONST` parameter directly; its value is read during elaboration and no explicit `.toScalaInt` conversion is needed. See [Loops][loops] for the full elaboration-time loop semantics.
 
-**Important difference from Verilog:** DFHDL type-checks **both** branches of elaboration-time `if` expressions, regardless of the parameter value. Both branches must be valid for all parameter values. See [Loops][loops] for details and workarounds.
+///
+
+/// admonition | `generate if` Conditionals
+    type: verilog
+Verilog `generate if` maps to a Scala `if` at design scope whose condition is a DFHDL constant. The condition is resolved at elaboration time, so only the taken branch generates hardware; the other branch is elaborated away. (Inside a process, the same `if` stays a hardware conditional even when its condition is constant.)
+
+<div class="grid" markdown>
+
+```sv linenums="0" title="Verilog"
+module gate #(
+  parameter INVERT = 0
+)(
+  input  [15:0] x,
+  output [15:0] y
+);
+  generate
+    if (INVERT) begin : impl
+      assign y = ~x;
+    end else begin : impl
+      assign y = x;
+    end
+  endgenerate
+endmodule
+```
+
+```scala linenums="0" title="DFHDL"
+class gate(
+  val INVERT: Boolean <> CONST = false
+) extends EDDesign:
+  val x = Bits(16) <> IN
+  val y = Bits(16) <> OUT
+  if (INVERT)
+    y <> ~x
+  else
+    y <> x
+  end if //optional
+end gate
+```
+
+</div>
+
+**Important difference from Verilog:** DFHDL type-checks **both** branches, regardless of the condition's value, so both must be valid for all parameter values. Because the taken branch depends on the constant, instantiating the design with different parameter values produces distinct elaborated designs. See [Loops][loops] for the analogous elaboration-time loop behavior and workarounds.
 ///
 
 ## Common Pitfalls
