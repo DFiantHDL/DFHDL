@@ -162,7 +162,7 @@ When a signal is used in both arithmetic and bitwise contexts, prefer `UInt` and
 
 /// admonition | Numeric Literals
     type: verilog
-DFHDL uses string interpolators for sized literals. Each type has its own interpolator -- do not mix Verilog base prefixes (`’b`, `’d`, `’h`) inside them.
+DFHDL uses string interpolators for sized literals. Each type has its own interpolator, so do not mix Verilog base prefixes (`’b`, `’d`, `’h`) inside them.
 
 <div class="grid" markdown>
 
@@ -182,7 +182,7 @@ d"5’27"         // 5-bit unsigned decimal
 
 </div>
 
-`b"..."` accepts only binary digits (`0`, `1`, `?`). Writing `b"5’d27"` is an error -- use `d"5’27"` for decimal values.
+`b"..."` accepts only binary digits (`0`, `1`, `?`). Writing `b"5’d27"` is an error. Use `d"5’27"` for decimal values.
 ///
 
 /// admonition | `$clog2` and Width Computation
@@ -452,7 +452,7 @@ process(clk.rising):
 
 </div>
 
-Avoid modeling FSM states as `Bits` or `UInt` constants -- it is an anti-pattern. When compiling to SystemVerilog (SV), the SV enums are being utilized as well.
+Avoid modeling FSM states as `Bits` or `UInt` constants; it is an anti-pattern. When compiling to SystemVerilog (SV), the SV enums are being utilized as well.
 ///
 
 /// admonition | Integer `case` Statements (non-enum)
@@ -795,9 +795,9 @@ To recover signed semantics on a slice, chain `.bits.sint` (re-interpret the bit
 /// admonition | Arithmetic with Signed Values and Constants
     type: verilog
 **Arithmetic operand compatibility:**
-DFHDL enforces sign and width constraints at compile time. **Commutative operations** (`+`, `*`, `max`, `min`) produce the widest, most signed result -- operand order does not matter. **Non-commutative operations** (`-`, `/`, `%`) require the LHS to be at least as wide and signed as the RHS. When mixing signed and unsigned, the unsigned operand is implicitly sign-extended by 1 bit.
+DFHDL enforces sign and width constraints at compile time. **Commutative operations** (`+`, `*`, `max`, `min`) produce the widest, most signed result, and operand order does not matter. **Non-commutative operations** (`-`, `/`, `%`) require the LHS to be at least as wide and signed as the RHS. When mixing signed and unsigned, the unsigned operand is implicitly sign-extended by 1 bit.
 
-Both Scala `Int` values and DFHDL `Int` parameters act as [wildcards][wildcard-ops] -- the wildcard `Int` value adapts to the bit-accurate value's sign and width. If the wildcard `Int` value does not fit, an error is generated.
+Both Scala `Int` values and DFHDL `Int` parameters act as [wildcards][wildcard-ops]: the wildcard `Int` value adapts to the bit-accurate value's sign and width. If the wildcard `Int` value does not fit, an error is generated.
 
 ```scala
 // Commutative: result is widest, most signed
@@ -840,8 +840,8 @@ To compare values of different widths, use `.resize(W)` to match widths first. T
 
 **UInt-to-SInt conversion methods:**
 
-- `.signed` -- converts `UInt[W]` to `SInt[W+1]` by adding a sign bit. The value is preserved (always non-negative).
-- `.bits.sint` -- converts `UInt[W]` to `SInt[W]` by reinterpreting the bit pattern. The width stays the same, but the value may become negative if the MSB is set.
+- `.signed` converts `UInt[W]` to `SInt[W+1]` by adding a sign bit. The value is preserved (always non-negative).
+- `.bits.sint` converts `UInt[W]` to `SInt[W]` by reinterpreting the bit pattern. The width stays the same, but the value may become negative if the MSB is set.
 Use `.resize(W)` to widen a narrower operand before arithmetic.
 
 **Mixed-width signed arithmetic examples:**
@@ -965,7 +965,7 @@ See the [Parameter Declarations](#parameter-declarations) section above for a co
 
 /// admonition | `generate for` Loops
     type: verilog
-Verilog `generate for` loops map to Scala `for` loops at design scope. Each iteration is unrolled at elaboration time -- the generated HDL has no loop construct, only the unrolled instances.
+Verilog `generate for` loops map to Scala `for` loops at design scope. Each iteration is unrolled at elaboration time, so the generated HDL has no loop construct, only the unrolled instances.
 
 <div class="grid" markdown>
 

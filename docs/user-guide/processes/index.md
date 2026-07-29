@@ -535,7 +535,7 @@ process(all):
   y := z
 ```
 
-You can also use plain Scala `val` declarations (without `<> VAR` or `<> CONST`) inside process blocks to name intermediate sub-expressions. These are DFHDL values created inline -- they do not declare new ports or variables but serve as readable names for parts of a computation:
+You can also use plain Scala `val` declarations (without `<> VAR` or `<> CONST`) inside process blocks to name intermediate sub-expressions. These are DFHDL values created inline; they do not declare new ports or variables but serve as readable names for parts of a computation:
 
 ```scala
 process(clk):
@@ -546,7 +546,7 @@ process(clk):
     else result :== sum.resize(8)
 ```
 
-Do not use `<> CONST` or `<> VAR` modifiers inside processes for these intermediates -- plain `val name = expr` is sufficient.
+Do not use `<> CONST` or `<> VAR` modifiers inside processes for these intermediates; plain `val name = expr` is sufficient.
 
 /// admonition | Local `VAR` in clocked processes become registers
     type: warning
