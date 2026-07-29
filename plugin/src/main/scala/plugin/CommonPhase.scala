@@ -177,6 +177,34 @@ abstract class CommonPhase extends PluginPhase:
   var genContainerParamSym: TermSymbol = uninitialized
   private var bTpe: Type = uninitialized
 
+  object HackedGuard:
+    // Extracts the DFHDL condition value out of a `BooleanHack` conversion call. The
+    // conversion (`BooleanHackInline`) is an inline def, so the call arrives wrapped in
+    // Inlined/Block/Typed nodes from the expansion of its body. Its `from` parameter is
+    // declared `inline`, so the call-site condition tree is substituted directly at the
+    // argument position (no inline-proxy val to resolve). Never extract through
+    // `underlyingArgument`: it rebuilds stale `defTree` copies that bypass later tree
+    // rewrites (e.g., match-bind replacement).
+    def unapply(tree: Tree)(using Context): Option[Tree] =
+      def loop(tree: Tree): Option[Tree] =
+        tree match
+          case Inlined(_, _, expr) => loop(expr)
+          case Block(_, expr)      => loop(expr)
+          case Typed(expr, _)      => loop(expr)
+          case Apply(Apply(fun, List(dfCond)), List(_))
+              if fun.symbol.name.toString == "BooleanHack" =>
+            Some(dfCond)
+          case _ => None
+      // even though the argument is substituted as-is, the inliner still re-homes it into
+      // the conversion's own source file; a foreign-source node is skipped by the
+      // span-envelope computation of any tree built around it, losing the condition's
+      // position, so the call-site span and the compilation unit's source are restored
+      loop(tree).map { t =>
+        if (tree.span.exists) t.cloneIn(ctx.source).withSpan(tree.span)
+        else t
+      }
+  end HackedGuard
+
   extension (tree: TypeDef)
     def hasDFC(using Context): Boolean =
       (tree.tpe <:< hasDFCTpe) // && (dfSpecTpe == NoType || !(tree.tpe <:< dfSpecTpe))
@@ -249,7 +277,12 @@ abstract class CommonPhase extends PluginPhase:
   end extension
 
   extension (v: ValDef)(using Context)
-    def genContainerParamValDef(default: Option[Tree], dfcTree: Tree): ValDef =
+    def genContainerParamValDef(
+        clsSym: ClassSymbol,
+        phase: DenotTransformers.DenotTransformer,
+        default: Option[Tree],
+        dfcTree: Tree
+    ): ValDef =
       val meta = v.genMeta
       val paramGen =
         ref(genContainerParamSym)
@@ -257,8 +290,19 @@ abstract class CommonPhase extends PluginPhase:
           .appliedToArgs(List(ref(v.symbol), mkOption(default), meta))
           .appliedTo(dfcTree)
       val uniqueName = NameKinds.UniqueName.fresh(s"${v.name}_plugin".toTermName)
-      val flags: FlagSet = if (ctx.owner.isConstructor) Private else EmptyFlags
-      SyntheticValDef(uniqueName, paramGen, flags)
+      // The generated design-parameter val must be a true member of the class rather than a
+      // constructor-local value: the class body's parameter references are rewritten to it,
+      // and such references may sit inside methods or nested classes, where only a field is
+      // reachable (a constructor-local reference from a method cannot be lambda-lifted).
+      val sym = newSymbol(
+        clsSym,
+        uniqueName,
+        Synthetic | Private,
+        paramGen.tpe.widen,
+        coord = paramGen.span
+      ).enteredAfter(phase)
+      ValDef(sym, paramGen)
+  end extension
 
   extension (sym: Symbol)
     def ignoreMetaContext(using Context): Boolean =

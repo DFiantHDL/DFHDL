@@ -42,7 +42,60 @@ if (reset)
 1. **Type Consistency**: Both branches must produce compatible types if used as an expression
 2. **Scope**: Variables declared inside if blocks are only visible within that block
 3. **Hardware Generation**: Each branch generates hardware - both paths exist in parallel
-4. **Constant Conditions**: If conditions are constant, unused branches may be optimized out during elaboration
+4. **Constant Conditions**: At a concurrent scope (a design or domain body, outside any process), an `if` whose condition is a DFHDL constant is resolved at **elaboration time**; only the taken branch generates hardware. See [Elaboration-Time Conditionals](#elaboration-time-conditionals) below.
+
+### Elaboration-Time Conditionals
+
+In a **concurrent scope** (a design or domain body, outside any process), an `if` whose condition is a **DFHDL constant** is resolved at **elaboration time**, exactly like a Verilog `generate if` (VHDL `if ... generate`). Only the taken branch is elaborated into hardware; the untaken branch produces none:
+
+```scala
+class Gate(val INVERT: Boolean <> CONST = false) extends EDDesign:
+  val x = Bits(16) <> IN
+  val y = Bits(16) <> OUT
+  if (INVERT)          // constant condition: resolved during elaboration
+    y <> ~x            // elaborated only when INVERT is true
+  else
+    y <> x             // elaborated only when INVERT is false
+```
+
+With the default `INVERT = false`, only the `else` branch survives elaboration: the generated HDL contains no conditional, just the pass-through.
+
+/// tab | Generated Verilog
+```verilog
+module Gate#(parameter logic INVERT = 0)(
+  input  wire logic [15:0] x,
+  output      logic [15:0] y
+);
+  `include "dfhdl_defs.svh"
+  assign y = x;
+endmodule
+```
+///
+
+/// tab | Generated VHDL
+```vhdl
+entity Gate is
+generic (
+  INVERT : boolean := false
+);
+port (
+  x : in  std_logic_vector(15 downto 0);
+  y : out std_logic_vector(15 downto 0)
+);
+end Gate;
+
+architecture Gate_arch of Gate is
+begin
+  y <= x;
+end Gate_arch;
+```
+///
+
+Because the selected branch depends on the constant's value, instantiating the design with different parameter values yields distinct elaborated designs (with enumerated names). The `INVERT` parameter still appears in the generated interface, but the body is fixed to the branch chosen at elaboration.
+
+As in Verilog and VHDL, scope decides what an `if` means: at concurrent (design/architecture) scope it is a generate/elaboration conditional, while inside a process it is an ordinary hardware conditional (a multiplexer or enable). A constant condition does not change that: an `if` inside a process stays a hardware conditional even when its condition is constant, exactly as a procedural `if` inside a Verilog `always` or VHDL `process` block is never a generate conditional.
+
+The one genuine difference from Verilog `generate if` / VHDL `if ... generate` is that **DFHDL type-checks both branches**: even though only the taken branch is elaborated, DFHDL (via Scala) compiles both, so both must be valid for every parameter value. See [Loops](../loops/index.md) for the analogous elaboration-time loop behavior and workarounds.
 
 ## Match Expressions
 

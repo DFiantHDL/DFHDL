@@ -4,9 +4,19 @@
 
 When translating from Verilog/VHDL, signal, port, and module names may collide with names already in scope: Scala keywords, DFHDL built-ins, or your own design classes. This section is the single place that covers how to detect and resolve all such collisions.
 
-### General recommendation: Capitalize design-class names
+### General recommendation: Instantiate designs with `new`
 
-The simplest way to avoid the entire class of collisions between a **design class** and a **value** (port/variable) is a naming convention:
+Always instantiate a child design with `new DesignName(...)`:
+
+```scala
+val adder = new Adder(WIDTH = 16)
+```
+
+The `new` keyword forces resolution to the **class constructor**, so the instantiation can never be captured by a value, a port, or a DFHDL built-in function that happens to share the name. Writing `Adder(WIDTH = 16)` relies on Scala 3 universal apply methods, which resolve by name and can therefore be shadowed. Using `new` everywhere removes the entire class of instantiation collisions before it appears, so it is the recommended form throughout this documentation.
+
+### Additional recommendation: Capitalize design-class names
+
+On top of `new`, a naming convention keeps the two namespaces visually distinct:
 
 - Name **design classes** with a `Capitalized` (PascalCase) name.
 - Name **ports and variables** with `camelCase` names.
@@ -21,7 +31,7 @@ class Adder(val WIDTH: Int <> CONST = 8) extends EDDesign:
   // ...
 
 // In a parent design, the Capitalized class name never collides with camelCase values:
-val adder = Adder(WIDTH = 16)
+val adder = new Adder(WIDTH = 16)
 ```
 
 /// admonition | Caveat: direct Verilog/VHDL translation that preserves original names
@@ -53,16 +63,17 @@ class abs(val DATA_WIDTH: Int <> CONST = 8) extends EDDesign:
   // ...
 
 // In the parent design, `abs(...)` resolves to the built-in function, not the class.
-// Fix: create a type alias before instantiation
-type AbsModule = abs
-val u_abs = AbsModule(DATA_WIDTH = 16)
+// Fix: instantiate with `new`, which always resolves to the class constructor
+val u_abs = new abs(DATA_WIDTH = 16)
 ```
+
+This is the [general `new` recommendation](#general-recommendation-instantiate-designs-with-new) applied to a built-in collision. Following it from the start makes this collision a non-issue.
 
 ### Design-class name colliding with a value name
 
 A common translation collision is a **design class** whose name is the same as a port or variable in scope (or a built-in). When the bare name `design_class_name(...)` resolves to the value instead of the class, use one of these two fixes:
 
-**1. Explicitly instantiate with `new`.** The `new` keyword forces resolution to the class constructor, sidestepping the shadowing value:
+**1. Explicitly instantiate with `new`** (the recommended default form). The `new` keyword forces resolution to the class constructor, sidestepping the shadowing value:
 
 ```scala
 // `design_class_name` the value is in scope and shadows the class
@@ -79,7 +90,7 @@ class DesignClassName(val DATA_WIDTH: Int <> CONST = 8) extends EDDesign:
   // ...
 
 // No collision with values; generated HDL module is still named "design_class_name"
-val u = DesignClassName(DATA_WIDTH = 16)
+val u = new DesignClassName(DATA_WIDTH = 16)
 ```
 
 ## Resolution Patterns
@@ -109,14 +120,5 @@ val kernel_out = Bits(WIDTH) <> OUT
 // Generated HDL port is still named "kernel"
 
 // The class "kernel" remains available for instantiation
-val u_kernel = kernel()
-```
-
-### Type alias for class-name conflicts
-
-When a class name conflicts with a DFHDL built-in function:
-
-```scala
-type AbsModule = abs   // alias resolves the class, not the function
-val u_abs = AbsModule(DATA_WIDTH = 8)
+val u_kernel = new kernel()
 ```

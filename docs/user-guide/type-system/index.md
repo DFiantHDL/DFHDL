@@ -378,7 +378,7 @@ class IDTop extends DFDesign:
   val x  = UInt(8) <> IN
   val y  = UInt(8) <> OUT
   val yv = UInt(8) <> VAR
-  val id = ID()
+  val id = new ID()
   //direct connection between
   //parent and child design ports
   id.x <> x 
@@ -416,7 +416,7 @@ class IDTop extends DFDesign:
   val x  = UInt(8) <> IN
   val y  = UInt(8) <> OUT
   val yv = UInt(8) <> VAR
-  val id = ID()
+  val id = new ID()
   //direct connection between
   //parent and child design ports
   id.x <> x 
@@ -1806,9 +1806,9 @@ Reduction operators fold all bits of a `Bits` vector into a single `Bit` value. 
 /// html | div.operations
 | Operation | Description | Returns |
 | --------- | ----------- | ------- |
-| `bits.&` | AND reduction -- `1` if all bits are `1` | `Bit` |
-| `bits.|` | OR reduction -- `1` if any bit is `1` | `Bit` |
-| `bits.^` | XOR reduction -- `1` if an odd number of bits are `1` (parity) | `Bit` |
+| `bits.&` | AND reduction: `1` if all bits are `1` | `Bit` |
+| `bits.|` | OR reduction: `1` if any bit is `1` | `Bit` |
+| `bits.^` | XOR reduction: `1` if an odd number of bits are `1` (parity) | `Bit` |
 ///
 
 ```scala
@@ -1925,7 +1925,7 @@ The result is signed if either operand is signed. When mixing signed and unsigne
 
 ##### Non-commutative result type rules (`-`, `/`, `%`)
 
-**Sign rule** -- The LHS sign must be greater than or equal to the RHS sign (`signed >= unsigned`):
+**Sign rule**: the LHS sign must be greater than or equal to the RHS sign (`signed >= unsigned`):
 
 /// html | div.operations
 | LHS | RHS | Allowed | Note |
@@ -1936,7 +1936,7 @@ The result is signed if either operand is signed. When mixing signed and unsigne
 | `UInt[W1]` | `SInt[W2]` | **No** | Compile error: an explicit conversion is required |
 ///
 
-**Width rule** -- The LHS width must be greater than or equal to the (effective) RHS width. When applying `SInt op UInt`, the effective RHS width is `RHS width + 1` because the unsigned value gains an implicit sign bit.
+**Width rule**: the LHS width must be greater than or equal to the (effective) RHS width. When applying `SInt op UInt`, the effective RHS width is `RHS width + 1` because the unsigned value gains an implicit sign bit.
 
 ### Wildcard `Int` Values {#wildcard-ops}
 
@@ -2126,7 +2126,7 @@ sum := a +^ b +^ 1                      // OK: carry chain widens result before 
 
 Applies to: `UInt`, `SInt`
 
-Carry operations widen the result to prevent overflow. Mixed signedness is allowed -- the result is signed if either operand is signed. When mixing signs, the unsigned operand is sign-extended by 1 bit.
+Carry operations widen the result to prevent overflow. Mixed signedness is allowed, and the result is signed if either operand is signed. When mixing signs, the unsigned operand is sign-extended by 1 bit.
 
 **Carry addition and subtraction (`+^`, `-^`):**
 
@@ -2228,14 +2228,14 @@ Plain Scala `Int` values can be used directly in comparisons and arithmetic with
 ```scala
 val LIMIT: Int <> CONST = 5208
 val counter = UInt.until(LIMIT) <> VAR
-if (counter == LIMIT - 1)  // Int <> CONST compared with UInt -- works directly
+if (counter == LIMIT - 1)  // Int <> CONST compared with UInt: works directly
   counter := 0
 ```
 ///
 
 #### Bits Comparisons
 
-`Bits` values support `==` and `!=` with other `Bits` values of the same width, with `all(0)`, `all(1)`, or with sized literals (`d"..."`, `h"..."`, `b"..."`). Plain Scala `Int` literals cannot be compared directly with `Bits` -- use a sized literal or convert to `.uint` first:
+`Bits` values support `==` and `!=` with other `Bits` values of the same width, with `all(0)`, `all(1)`, or with sized literals (`d"..."`, `h"..."`, `b"..."`). Plain Scala `Int` literals cannot be compared directly with `Bits`. Use a sized literal or convert to `.uint` first:
 
 ```scala
 val b8 = Bits(8) <> VAR
@@ -2279,7 +2279,7 @@ Applies to: `Bits`, `UInt`, `SInt`
 | `lhs >> rhs` | Right shift (logical for `Bits`/`UInt`, arithmetic for `SInt`) | LHS: `Bits`/`UInt`/`SInt`, RHS: unsigned or `Int` | Same type as LHS |
 ///
 
-The `>>` operator is **type-aware**: on `UInt` and `Bits` it performs a logical (zero-filling) right shift, and on `SInt` it performs an arithmetic (sign-extending) right shift. There is no separate `>>>` operator in DFHDL -- the operand type determines the behavior.
+The `>>` operator is **type-aware**: on `UInt` and `Bits` it performs a logical (zero-filling) right shift, and on `SInt` it performs an arithmetic (sign-extending) right shift. There is no separate `>>>` operator in DFHDL; the operand type determines the behavior.
 
 ```scala
 val b = Bits(8) <> VAR
@@ -2398,7 +2398,7 @@ See the [DFType Constructors][DFDecimal] and [Bits constructors][DFBits] section
 
 /// admonition | Non-constant DFHDL `Int` values
     type: note
-Non-constant DFHDL `Int` values (e.g., `Int <> VAR`) are possible and support the same arithmetic operations (`+`, `-`, `*`, `/`, `%`). However, they are discouraged for synthesizable designs because they map to a fixed 32-bit signed representation -- use `SInt[32]` instead for explicit control over the hardware. For simulation purposes, non-constant `Int` values are acceptable as long as the 32-bit width limitation is understood.
+Non-constant DFHDL `Int` values (e.g., `Int <> VAR`) are possible and support the same arithmetic operations (`+`, `-`, `*`, `/`, `%`). However, they are discouraged for synthesizable designs because they map to a fixed 32-bit signed representation; use `SInt[32]` instead for explicit control over the hardware. For simulation purposes, non-constant `Int` values are acceptable as long as the 32-bit width limitation is understood.
 ///
 
 /// admonition | Slicing bits from a DFHDL `Int`

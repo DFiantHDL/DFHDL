@@ -187,12 +187,22 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
       allStepBlocks.foreach { step => processStatCheck(step, returnCheck = CheckType.None) }
   end processStatCheck
 
+  // `withFilter[FP]` carries a type parameter, so its call site is a TypeApply-wrapped
+  // selection
+  object WithFilterSel:
+    def unapply(tree: Tree)(using Context): Option[Tree] =
+      tree match
+        case Select(range, withFilter) if withFilter.toString == "withFilter" => Some(range)
+        case TypeApply(Select(range, withFilter), List(_)) if withFilter.toString == "withFilter" =>
+          Some(range)
+        case _ => None
+
   case class FilteredRange(range: Tree, filters: List[(ValDef, Tree)])
   object FilteredRange:
     def unapply(tree: Tree)(using Context): Option[FilteredRange] =
       tree match
         case Apply(
-              Select(range, withFilter),
+              WithFilterSel(range),
               List(
                 Block(
                   List(
@@ -206,7 +216,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
                   _: Closure
                 )
               )
-            ) if anonfun.toString.startsWith("$anonfun") && withFilter.toString == "withFilter" =>
+            ) if anonfun.toString.startsWith("$anonfun") =>
           val updatedRHS = dd.rhs.changeOwner(dd.symbol, ctx.owner)
           range match
             case FilteredRange(range, filters) =>
@@ -253,9 +263,8 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   override def transformWhileDo(tree: WhileDo)(using Context): Tree =
     dfcStack.headOption.map { dfc =>
       val guard = tree.cond match
-        case Apply(Apply(Ident(n), List(dfCond)), List(_)) if n.toString == "BooleanHack" =>
-          dfCond
-        case cond => ref(fromBooleanSym).appliedTo(cond).appliedTo(dfc)
+        case HackedGuard(dfCond) => dfCond
+        case cond                => ref(fromBooleanSym).appliedTo(cond).appliedTo(dfc)
       ref(customWhileSym).appliedTo(guard).appliedTo(tree.body).appliedTo(dfc)
     }.getOrElse(tree)
 

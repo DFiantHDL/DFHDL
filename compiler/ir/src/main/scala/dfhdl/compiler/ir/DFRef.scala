@@ -4,7 +4,6 @@ import dfhdl.internals.hashString
 import upickle.default.*
 import scala.collection.mutable
 import scala.collection.immutable.ListMap
-import DFVal.Func.Op as FuncOp
 
 type DFRefAny = DFRef[DFMember]
 sealed trait DFRef[+M <: DFMember] extends Product, Serializable derives CanEqual:
@@ -167,6 +166,8 @@ object IntParamRef:
     // If both reduce to a concrete Int, or their symbolic parts cancel under
     // subtraction, returns `Some(func(diff, 0))` where `diff = this - that`.
     // Returns `None` when the unknown parts don't cancel.
+    // Symbolic equivalence is decided by `IntExprCalc`, so e.g. `2 * W`
+    // matches `W + W` and `max(W, W + 1)` matches `W + 1`.
     def compare(that: IntParamRef)(func: (Int, Int) => Boolean)(using
         MemberGetSet
     ): Option[Boolean] =
@@ -174,65 +175,6 @@ object IntParamRef:
         // Fast path: both refs are already concrete Ints.
         case (l: Int, r: Int) => Some(func(l, r))
         case _                =>
-          // Strip type-preserving AsIs wrappers and DesignParams whose owner
-          // design has a parent (i.e., is not the top design). For non-top
-          // designs, the parameter was provided by the instantiating parent —
-          // resolve it via `appliedOrDefaultVal`. Params on a top design have
-          // no parent and stay opaque: they are the symbolic free variables
-          // exposed to the user at elaboration time.
-          def strip(v: DFVal): DFVal = v match
-            case DFVal.Alias.AsIs(dfType = dt, relValRef = DFRef(relVal))
-                if dt == relVal.dfType =>
-              strip(relVal)
-            case dp: DFVal.DesignParam if !dp.getOwnerDesign.isTop =>
-              strip(dp.appliedOrDefaultVal)
-            case _ => v
-          object ConstInt:
-            def unapply(v: DFVal): Option[Int] = v match
-              case c: DFVal.Const =>
-                c.data match
-                  case Some(i: BigInt) => Some(i.toInt)
-                  case _               => None
-              case _ => None
-          // Decompose into (list of non-constant base terms, integer offset).
-          def decompose(v: DFVal): (List[DFVal], Int) = strip(v) match
-            case ConstInt(i)                            => (Nil, i)
-            case DFVal.Func(op = FuncOp.+, args = args) =>
-              args.map(_.get).foldLeft((List.empty[DFVal], 0)) { case ((bases, off), arg) =>
-                val (argBases, argOff) = decompose(arg)
-                (bases ++ argBases, off + argOff)
-              }
-            case DFVal.Func(op = FuncOp.-, args = List(aRef, bRef)) =>
-              decompose(bRef.get) match
-                case (Nil, k) =>
-                  val (aBases, aOff) = decompose(aRef.get)
-                  (aBases, aOff - k)
-                case _ => (List(v), 0)
-            case other => (List(other), 0)
-          // Deep structural equality that keeps stripping at every level,
-          // including through Func args — so `clog2(childParam)` matches
-          // `clog2(parentParam)` once `childParam` has been resolved to
-          // `parentParam` via `appliedOrDefaultVal`.
-          def structEq(a: DFVal, b: DFVal): Boolean =
-            val sa = strip(a)
-            val sb = strip(b)
-            (sa, sb) match
-              case (af: DFVal.Func, bf: DFVal.Func) =>
-                af.op == bf.op && af.dfType =~ bf.dfType &&
-                af.args.length == bf.args.length &&
-                af.args.lazyZip(bf.args).forall((ar, br) => structEq(ar.get, br.get))
-              case _ => sa =~ sb
-          // Check whether two base lists are equivalent as multi-sets under
-          // deep structural equality after stripping.
-          def basesMatch(lhs: List[DFVal], rhs: List[DFVal]): Boolean =
-            lhs.length == rhs.length && {
-              val remaining = mutable.ListBuffer.from(rhs)
-              lhs.forall { l =>
-                remaining.indexWhere(structEq(_, l)) match
-                  case -1 => false
-                  case i  => remaining.remove(i); true
-              }
-            }
           def asDFVal(ref: IntParamRef): Option[DFVal] = ref match
             case i: Int =>
               Some(DFVal.Const(
@@ -242,10 +184,8 @@ object IntParamRef:
           for
             lVal <- asDFVal(intParamRef)
             rVal <- asDFVal(that)
-            (lBases, lOff) = decompose(lVal)
-            (rBases, rOff) = decompose(rVal)
-            if basesMatch(lBases, rBases)
-          yield func(lOff - rOff, 0)
+            diff <- IntExprCalc.constDiff(lVal, rVal, resolveDesignParams = true)
+          yield func(diff, 0)
     end compare
   end extension
 

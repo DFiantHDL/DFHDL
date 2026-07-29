@@ -294,9 +294,9 @@ class DropRTWaitsSpec extends StageSpec():
       val waitCnt1 = UInt(8) <> VAR.REG init 0
       val waitCnt2 = UInt(8) <> VAR.REG init 0
       process:
-        while (waitCnt1 != 149)
-          FALL_THROUGH
-          waitCnt1.din := waitCnt1 + 1
+        FALL_THROUGH:
+          while (waitCnt1 != 149)
+            waitCnt1.din := waitCnt1 + 1
         waitCnt1.din := 0
         x.din := !x
         while (waitCnt2 != 149)
@@ -511,9 +511,9 @@ class DropRTWaitsSpec extends StageSpec():
     class Foo extends RTDesign:
       val vec = Bits(8) X 4 <> OUT.REG
       process:
-        for (i <- 0 until 4)
-          COMB_LOOP
-          vec(i).din := all(0)
+        COMB_LOOP:
+          for (i <- 0 until 4)
+            vec(i).din := all(0)
         1.cy.wait
     end Foo
     val top = (new Foo).dropRTWaits
@@ -525,10 +525,10 @@ class DropRTWaitsSpec extends StageSpec():
       """|class Foo extends RTDesign:
          |  val vec = Bits(8) X 4 <> OUT.REG
          |  process:
-         |    for (i <- 0 until 4)
-         |      COMB_LOOP
-         |      vec(i).din := h"00"
-         |    end for
+         |    COMB_LOOP:
+         |      for (i <- 0 until 4)
+         |        vec(i).din := h"00"
+         |      end for
          |    def S_0: Step =
          |      NextStep
          |    end S_0
@@ -567,9 +567,9 @@ class DropRTWaitsSpec extends StageSpec():
       val x = Bit <> IN
       val y = Bit <> OUT.REG
       process:
-        while (x)
-          COMB_LOOP
-          y.din := 0
+        COMB_LOOP:
+          while (x)
+            y.din := 0
         1.cy.wait
     end Foo
     val top = (new Foo).dropRTWaits
@@ -584,10 +584,10 @@ class DropRTWaitsSpec extends StageSpec():
          |    def S_0: Step =
          |      NextStep
          |    end S_0
-         |    while (x)
-         |      COMB_LOOP
-         |      y.din := 0
-         |    end while
+         |    COMB_LOOP:
+         |      while (x)
+         |        y.din := 0
+         |      end while
          |    def S_1: Step =
          |      NextStep
          |    end S_1

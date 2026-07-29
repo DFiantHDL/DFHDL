@@ -848,9 +848,9 @@ class FlattenStepBlocksSpec extends StageSpec():
     class Foo extends RTDesign:
       val vec = Bits(8) X 4 <> OUT.REG
       process:
-        for (i <- 0 until 4)
-          COMB_LOOP
-          vec(i).din := all(0)
+        COMB_LOOP:
+          for (i <- 0 until 4)
+            vec(i).din := all(0)
         def S0: Step =
           NextStep
         def S1: Step =
@@ -864,18 +864,18 @@ class FlattenStepBlocksSpec extends StageSpec():
       """|class Foo extends RTDesign:
          |  val vec = Bits(8) X 4 <> OUT.REG
          |  process:
-         |    for (i <- 0 until 4)
-         |      COMB_LOOP
-         |      vec(i).din := h"00"
-         |    end for
+         |    COMB_LOOP:
+         |      for (i <- 0 until 4)
+         |        vec(i).din := h"00"
+         |      end for
          |    def S0: Step =
          |      S1
          |    end S0
          |    def S1: Step =
-         |      for (i <- 0 until 4)
-         |        COMB_LOOP
-         |        vec(i).din := h"00"
-         |      end for
+         |      COMB_LOOP:
+         |        for (i <- 0 until 4)
+         |          vec(i).din := h"00"
+         |        end for
          |      S0
          |    end S1
          |end Foo""".stripMargin

@@ -238,6 +238,9 @@ object DFC:
     /** `locally` local blocks. */
     sealed trait HasLocalBlocks extends Scope
 
+    /** `if`/`else` and `case`/`match` as statements */
+    sealed trait HasCondStats extends Scope
+
     // ~~~ BUNDLES: named groupings of the blocks above. Still capabilities, still never given. ~~~
     /** A local (non-structural) DFHDL body: variables, blocking assignment, local blocks.
       *
@@ -255,7 +258,7 @@ object DFC:
     sealed trait Concurrent extends Local, HasConnect, HasProcesses, HasHistory
 
     /** A sequential body: loops on top of the local capabilities. */
-    sealed trait Sequence extends Local, HasLoops
+    sealed trait Sequence extends Local, HasLoops, HasCondStats
 
     /** A sequential body that can also block on time. */
     sealed trait TimedSequence extends Sequence, HasWait
@@ -315,7 +318,7 @@ object DFC:
     @implicitNotFound(
       "An ED function method can only be invoked inside an event-driven (ED) domain."
     )
-    sealed trait Function extends HasVars, HasAssign, HasLoops
+    sealed trait Function extends HasVars, HasAssign, HasLoops, HasCondStats
     object Function extends Function
   end Scope
 

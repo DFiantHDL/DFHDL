@@ -251,41 +251,22 @@ private object SimplifyFunc:
     end unapply
   end SelfCancelling
 
-  // max/min between a value and itself plus a constant offset:
+  // max/min between operands whose symbolic parts cancel, leaving a constant
+  // difference (e.g., a value and itself plus/minus a constant offset):
   //   max(a, a + c) => (a + c) if c > 0, else a
   //   min(a, a + c) => a if c > 0, else (a + c)
-  // Commutative in both operand orderings.
+  // Commutative in both operand orderings. The difference is decided by the
+  // shared ir.IntExprCalc without resolving design params, so the picked
+  // operand is the extremum under any parameter assignment.
   private object MaxMinWithOffset:
-    // If `candidate` is an anonymous DFInt32 additive Func `base (+|-) Const c`,
-    // returns the signed offset relative to `base`.
-    private def offsetFromBase(candidate: ir.DFVal, base: ir.DFVal)(using
-        ir.MemberGetSet
-    ): Option[Int] =
-      candidate match
-        case f: ir.DFVal.Func if f.isAnonymous && f.dfType == ir.DFInt32 =>
-          (f.op, f.args.map(_.get)) match
-            case (FuncOp.+, List(l, ConstInt(c))) if l =~ base => Some(c)
-            case (FuncOp.-, List(l, ConstInt(c))) if l =~ base => Some(-c)
-            case _                                             => None
-        case _ => None
-
     def unapply(opArgs: (ir.DFType, FuncOp, List[ir.DFVal]))(using dfc: DFC): Option[ir.DFVal] =
       import dfc.getSet
       opArgs match
         case (ir.DFInt32, op @ (FuncOp.max | FuncOp.min), List(a, b)) =>
-          val chooseMax = op == FuncOp.max
-          def pick(bigger: ir.DFVal, smaller: ir.DFVal): ir.DFVal =
-            if (chooseMax) rebindMeta(bigger) else rebindMeta(smaller)
-          // b = a + c
-          offsetFromBase(b, a) match
-            case Some(c) if c > 0 => Some(pick(b, a))
-            case Some(c) if c < 0 => Some(pick(a, b))
-            case _                =>
-              // a = b + c
-              offsetFromBase(a, b) match
-                case Some(c) if c > 0 => Some(pick(a, b))
-                case Some(c) if c < 0 => Some(pick(b, a))
-                case _                => None
+          ir.IntExprCalc.constDiff(a, b, resolveDesignParams = false).map { diff =>
+            val aWins = if (op == FuncOp.max) diff >= 0 else diff <= 0
+            rebindMeta(if (aWins) a else b)
+          }
         case _ => None
       end match
     end unapply

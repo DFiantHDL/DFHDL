@@ -1227,11 +1227,12 @@ class PrintVerilogCodeSpec extends StageSpec:
         val PORT_WIDTH: Int <> CONST = 5
     ) extends RTDesign:
       val r = Bits(PORT_WIDTH) <> OUT.REG init all(0)
-      for (i <- 0 until PORT_WIDTH)
-        r(i).din := 1
-      for (i <- 0 until PORT_WIDTH)
-        if (r(PORT_WIDTH - 1 - i))
-          r(i).din := 0
+      COMB_LOOP:
+        for (i <- 0 until PORT_WIDTH)
+          r(i).din := 1
+        for (i <- 0 until PORT_WIDTH)
+          if (r(PORT_WIDTH - 1 - i))
+            r(i).din := 0
     end Foo
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
@@ -2201,6 +2202,37 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("plain Scala def as an inline hardware generator") {
+    class SliceSum(
+        val W: Int <> CONST = 8,
+        val N: Int <> CONST = 2
+    ) extends EDDesign:
+      val vec = Bits(W * N) <> IN
+      val sum = UInt(W)     <> OUT
+      // no `<> EDRET` marker: `slice` is a plain Scala def that inlines its body per call,
+      // referencing the design parameters directly
+      def slice(i: Int) = vec(i * W + W - 1, i * W).uint
+      sum <> slice(0) + slice(1)
+    end SliceSum
+    val top = (new SliceSum).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module SliceSum#(
+         |    parameter int W = 8,
+         |    parameter int N = 2
+         |)(
+         |  input  wire logic [(W * N) - 1:0] vec,
+         |  output logic [W - 1:0] sum
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign sum = (vec[W - 1:0]) + (vec[(W + W) - 1:W]);
+         |endmodule
+         |""".stripMargin
+    )
+  }
   test("ED method phantom capture through a path") {
     class PathInner extends EDDesign:
       val i = UInt(8) <> IN
@@ -2855,6 +2887,31 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  assign o = gW;
          |endmodule
          |""".stripMargin
+    )
+  }
+  test("max/min chain printing") {
+    class Foo(
+        val Arg1: Int <> CONST = 1,
+        val Arg2: Int <> CONST = 2,
+        val Arg3: Int <> CONST = 3
+    ) extends EDDesign:
+      val maxArg = Arg1 max Arg2 max Arg3
+      val minArg = Arg1 min Arg2 min Arg3
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Foo#(
+         |    parameter int Arg1 = 1,
+         |    parameter int Arg2 = 2,
+         |    parameter int Arg3 = 3
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam int maxArg = `MAX(Arg1, `MAX(Arg2, Arg3));
+         |  localparam int minArg = `MIN(Arg1, `MIN(Arg2, Arg3));
+         |endmodule""".stripMargin
     )
   }
 end PrintVerilogCodeSpec

@@ -162,7 +162,7 @@ When a signal is used in both arithmetic and bitwise contexts, prefer `UInt` and
 
 /// admonition | Numeric Literals
     type: verilog
-DFHDL uses string interpolators for sized literals. Each type has its own interpolator -- do not mix Verilog base prefixes (`’b`, `’d`, `’h`) inside them.
+DFHDL uses string interpolators for sized literals. Each type has its own interpolator, so do not mix Verilog base prefixes (`’b`, `’d`, `’h`) inside them.
 
 <div class="grid" markdown>
 
@@ -182,7 +182,7 @@ d"5’27"         // 5-bit unsigned decimal
 
 </div>
 
-`b"..."` accepts only binary digits (`0`, `1`, `?`). Writing `b"5’d27"` is an error -- use `d"5’27"` for decimal values.
+`b"..."` accepts only binary digits (`0`, `1`, `?`). Writing `b"5’d27"` is an error. Use `d"5’27"` for decimal values.
 ///
 
 /// admonition | `$clog2` and Width Computation
@@ -452,7 +452,7 @@ process(clk.rising):
 
 </div>
 
-Avoid modeling FSM states as `Bits` or `UInt` constants -- it is an anti-pattern. When compiling to SystemVerilog (SV), the SV enums are being utilized as well.
+Avoid modeling FSM states as `Bits` or `UInt` constants; it is an anti-pattern. When compiling to SystemVerilog (SV), the SV enums are being utilized as well.
 ///
 
 /// admonition | Integer `case` Statements (non-enum)
@@ -795,9 +795,9 @@ To recover signed semantics on a slice, chain `.bits.sint` (re-interpret the bit
 /// admonition | Arithmetic with Signed Values and Constants
     type: verilog
 **Arithmetic operand compatibility:**
-DFHDL enforces sign and width constraints at compile time. **Commutative operations** (`+`, `*`, `max`, `min`) produce the widest, most signed result -- operand order does not matter. **Non-commutative operations** (`-`, `/`, `%`) require the LHS to be at least as wide and signed as the RHS. When mixing signed and unsigned, the unsigned operand is implicitly sign-extended by 1 bit.
+DFHDL enforces sign and width constraints at compile time. **Commutative operations** (`+`, `*`, `max`, `min`) produce the widest, most signed result, and operand order does not matter. **Non-commutative operations** (`-`, `/`, `%`) require the LHS to be at least as wide and signed as the RHS. When mixing signed and unsigned, the unsigned operand is implicitly sign-extended by 1 bit.
 
-Both Scala `Int` values and DFHDL `Int` parameters act as [wildcards][wildcard-ops] -- the wildcard `Int` value adapts to the bit-accurate value's sign and width. If the wildcard `Int` value does not fit, an error is generated.
+Both Scala `Int` values and DFHDL `Int` parameters act as [wildcards][wildcard-ops]: the wildcard `Int` value adapts to the bit-accurate value's sign and width. If the wildcard `Int` value does not fit, an error is generated.
 
 ```scala
 // Commutative: result is widest, most signed
@@ -840,8 +840,8 @@ To compare values of different widths, use `.resize(W)` to match widths first. T
 
 **UInt-to-SInt conversion methods:**
 
-- `.signed` -- converts `UInt[W]` to `SInt[W+1]` by adding a sign bit. The value is preserved (always non-negative).
-- `.bits.sint` -- converts `UInt[W]` to `SInt[W]` by reinterpreting the bit pattern. The width stays the same, but the value may become negative if the MSB is set.
+- `.signed` converts `UInt[W]` to `SInt[W+1]` by adding a sign bit. The value is preserved (always non-negative).
+- `.bits.sint` converts `UInt[W]` to `SInt[W]` by reinterpreting the bit pattern. The width stays the same, but the value may become negative if the MSB is set.
 Use `.resize(W)` to widen a narrower operand before arithmetic.
 
 **Mixed-width signed arithmetic examples:**
@@ -965,35 +965,99 @@ See the [Parameter Declarations](#parameter-declarations) section above for a co
 
 /// admonition | `generate for` Loops
     type: verilog
-Verilog `generate for` loops map to Scala `for` loops at design scope. Each iteration is unrolled at elaboration time -- the generated HDL has no loop construct, only the unrolled instances.
+Verilog `generate for` loops map to Scala `for` loops at design scope. Each iteration is unrolled at elaboration time, so the generated HDL has no loop construct, only the unrolled instances.
 
 <div class="grid" markdown>
 
 ```sv linenums="0" title="Verilog"
-genvar i;
-generate
-  for (i = 0; i < N; i = i + 1)
-  begin : BLK
-    filter #(
-      .WIDTH(BASE_W - 2*i)
-    ) u_filter (...);
-  end
-endgenerate
+module inc(
+  input  [7:0] x,
+  output [7:0] y
+);
+  assign y = x + 1;
+endmodule
+
+module inc_bank #(
+  parameter N = 4
+)(
+  input  [7:0] x [0:N-1],
+  output [7:0] y [0:N-1]
+);
+  genvar i;
+  generate
+    for (i = 0; i < N; i = i + 1) begin : lane
+      inc u_inc (.x(x[i]), .y(y[i]));
+    end
+  endgenerate
+endmodule
 ```
 
 ```scala linenums="0" title="DFHDL"
-for i <- 0 until N.toScalaInt do
-  val u_filter = filter(
-    WIDTH = BASE_W - 2 * i
-  )
-  // connect ports...
+class inc extends EDDesign:
+  val x = UInt(8) <> IN
+  val y = UInt(8) <> OUT
+  y <> x + 1
+end inc
+
+class inc_bank(
+  val N: Int <> CONST = 4
+) extends EDDesign:
+  val x = UInt(8) X N <> IN
+  val y = UInt(8) X N <> OUT
+  for i <- 0 until N do
+    val u_inc = inc()
+    u_inc.x <> x(i)
+    y(i)    <> u_inc.y
+  end for //optional
+end inc_bank
 ```
 
 </div>
 
-Note that `N` must be convertible to a Scala `Int` at elaboration time (use `.toScalaInt` on `Int <> CONST` parameters).
+At design (concurrent) scope the loop runs at elaboration time and unrolls, so `N` may be an `Int <> CONST` parameter directly; its value is read during elaboration and no explicit `.toScalaInt` conversion is needed. See [Loops][loops] for the full elaboration-time loop semantics.
 
-**Important difference from Verilog:** DFHDL type-checks **both** branches of elaboration-time `if` expressions, regardless of the parameter value. Both branches must be valid for all parameter values. See [Loops][loops] for details and workarounds.
+///
+
+/// admonition | `generate if` Conditionals
+    type: verilog
+Verilog `generate if` maps to a Scala `if` at design scope whose condition is a DFHDL constant. The condition is resolved at elaboration time, so only the taken branch generates hardware; the other branch is elaborated away. (Inside a process, the same `if` stays a hardware conditional even when its condition is constant.)
+
+<div class="grid" markdown>
+
+```sv linenums="0" title="Verilog"
+module gate #(
+  parameter INVERT = 0
+)(
+  input  [15:0] x,
+  output [15:0] y
+);
+  generate
+    if (INVERT) begin : impl
+      assign y = ~x;
+    end else begin : impl
+      assign y = x;
+    end
+  endgenerate
+endmodule
+```
+
+```scala linenums="0" title="DFHDL"
+class gate(
+  val INVERT: Boolean <> CONST = false
+) extends EDDesign:
+  val x = Bits(16) <> IN
+  val y = Bits(16) <> OUT
+  if (INVERT)
+    y <> ~x
+  else
+    y <> x
+  end if //optional
+end gate
+```
+
+</div>
+
+**Important difference from Verilog:** DFHDL type-checks **both** branches, regardless of the condition's value, so both must be valid for all parameter values. Because the taken branch depends on the constant, instantiating the design with different parameter values produces distinct elaborated designs. See [Loops][loops] for the analogous elaboration-time loop behavior and workarounds.
 ///
 
 ## Common Pitfalls

@@ -25,7 +25,7 @@ end extension
 
 object IteratorDcl:
   def unapply(dcl: DFVal.Dcl)(using MemberGetSet): Boolean =
-    dcl.hasTagOf[IteratorTag]
+    dcl.isIterator
 
 object Ident:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =

@@ -313,6 +313,10 @@ final class MutableDB():
       // canonical), so a duplicate's retained snapshot is simply never read.
       designMembers += design.refId -> currentMembers
       stack.head.refTable ++= currentRefTable
+      // origin lookups must survive the design's end just like regular ref lookups: the parent
+      // may query the origin of a ref held by a child member (e.g. printing a child port's
+      // parametric width resolves the width ref's origin for its relative naming)
+      stack.head.originRefTable ++= current.originRefTable
       // a static function called at GLOBAL scope (its parent context IS the global one): carry
       // its pre-built, self-contained sub-DB on the global context, so a run referencing the
       // resulting global value can LOAD it. Its body is private to this def's context and does
@@ -854,7 +858,7 @@ final class MutableDB():
   def getMember[M <: DFMember, M0 <: M](
       ref: DFRef[M]
   ): M0 = getMemberOption(ref).getOrElse(
-    throw new IllegalArgumentException(s"Missing ref $ref")
+    throw new Exception(s"Missing ref $ref")
   )
 
   def getOriginMember(
@@ -872,7 +876,7 @@ final class MutableDB():
           // external injected meta-programming context
           .getOrElse(
             metaGetSetList.view.flatMap(_.getOption(ref)).headOption.getOrElse(
-              throw new IllegalArgumentException(s"Missing ref $ref")
+              throw new Exception(s"Missing ref $ref")
             )
           )
     member

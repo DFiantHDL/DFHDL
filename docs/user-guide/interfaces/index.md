@@ -261,8 +261,8 @@ depends on where the connection is made:
 
 ### Instantiation {#instantiation}
 
-An interface is instantiated inside a design exactly like a child design, by calling its
-constructor. Empty parentheses are required even when there are no parameters:
+An interface is instantiated inside a design by calling its constructor. Empty parentheses are
+required even when there are no parameters:
 
 ```scala linenums="0"
 class Producer extends RTDesign:
@@ -318,8 +318,8 @@ a view with its `flip` is therefore always a legal connection:
 ```scala linenums="0"
 class Link extends RTDesign:
   val io   = Stream(8)
-  val prod = Producer()
-  val cons = Consumer()
+  val prod = new Producer()
+  val cons = new Consumer()
   prod.out <> io.source.ASIS   // producer drives the source side
   cons.in  <> io.sink.ASIS     // consumer reads the sink side
 ```

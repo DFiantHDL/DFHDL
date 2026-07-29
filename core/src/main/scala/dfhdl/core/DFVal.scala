@@ -374,12 +374,14 @@ object DFVal extends DFValLP:
     CanEqual.derived
 
   trait ConstCheck[P]
-  given [P](using
-      AssertGiven[
-        P =:= CONST,
-        "Only a DFHDL constant is convertible to a Scala value, but this DFHDL value is not a constant."
-      ]
-  ): ConstCheck[P] with {}
+  object ConstCheck:
+    object Success extends ConstCheck[CONST]
+    given [P](using
+        AssertGiven[
+          P =:= CONST,
+          "Only a DFHDL constant is convertible to a Scala value, but this DFHDL value is not a constant."
+        ]
+    ): ConstCheck[P] with {}
 
   extension [D, T <: ir.DFType, P](lhs: DFValTP[DFType[ir.DFType.Aux[T, Option[D]], ?], P])
     // `pure(true, "*")` marks a constant-data forcer: the result is a pure function of the
@@ -688,8 +690,26 @@ object DFVal extends DFValLP:
     //   dfVal.initForced(List(initFileFunc))
   end extension
 
-  implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
-    ???
+  def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean = ???
+
+  trait ScalaBooleanFlag
+  object ScalaBooleanFlag:
+    given [S <: DFC.Scope](using
+        s: S
+    )(using util.NotGiven[s.type <:< DFC.Scope.HasCondStats]): ScalaBooleanFlag with {}
+
+  implicit transparent inline def BooleanHackInline(inline from: DFValOf[DFBoolOrBit])(using
+      dfc: DFC
+  ): Boolean =
+    import DFBoolOrBit.Val.Ops.toScalaBoolean
+    inline from match
+      case const: DFConstOf[DFBoolOrBit] =>
+        compiletime.summonFrom {
+          case given ScalaBooleanFlag =>
+            const.toScalaBoolean(using dfc, ConstCheck.Success.asInstanceOf[ConstCheck[CONST]])
+          case _ => BooleanHack(from)
+        }
+      case _ => BooleanHack(from)
 
   // opaque values need special conversion that does not try to summon the opaque dftype
   // because it can be abstract in extension methods that are applied generically on an abstract
@@ -911,12 +931,17 @@ object DFVal extends DFValLP:
                 dfc.tags
               ).addMember.asVal[AT, M]
           // remove redundant intermediate casting when the final result needs to be `.bits` anyways
-          // as long as the alias is anonymous and has the same width as the related value,
-          // to avoid modifying the semantics of named values that can be referenced in multiple places.
+          // as long as the alias is anonymous and no width change is involved (the target bits
+          // width, the intermediate cast, and its underlying value all share the same width),
+          // to avoid modifying the semantics of named values that can be referenced in multiple
+          // places or dropping an actual resize.
           case asIs @ ir.DFVal.Alias.AsIs(relValRef = ir.DFRef(relValIR))
-              if aliasTypeIR.isInstanceOf[ir.DFBits] && asIs.isAnonymous &&
-                dfc.isAnonymous && !forceNewAlias && asIs.tags.isEmpty &&
-                relValIR.asValAny.widthIntParam =~ asIs.asValAny.widthIntParam =>
+              if asIs.isAnonymous && dfc.isAnonymous && !forceNewAlias && asIs.tags.isEmpty &&
+                (aliasTypeIR match
+                  case ir.DFBits(targetWidthRef) =>
+                    targetWidthRef.get =~ asIs.asValAny.widthIntParam &&
+                    relValIR.asValAny.widthIntParam =~ asIs.asValAny.widthIntParam
+                  case _ => false) =>
             asIs.relValRef.get.asVal[AT, M]
           // remove redundant intermediate casting converting from BoolOrBit to Bits/UInt/SInt + resize
           case asIs @ ir.DFVal.Alias.AsIs(
@@ -1424,7 +1449,7 @@ object DFVal extends DFValLP:
         exactOp2[FuncOp./.type, DFC, DFValAny](lhs, rhs)
       transparent inline def %(inline rhs: SupportedValue)(using DFCG): DFValAny =
         exactOp2[FuncOp.%.type, DFC, DFValAny](lhs, rhs)
-      transparent inline def max(inline rhs: SupportedValue): Any =
+      infix transparent inline def max(inline rhs: SupportedValue): Any =
         inline (lhs, rhs) match
           case (lhs: Int, rhs: Int)       => scala.runtime.RichInt(lhs) max rhs
           case (lhs: Long, rhs: Long)     => scala.runtime.RichLong(lhs) max rhs
@@ -1433,7 +1458,7 @@ object DFVal extends DFValLP:
             exactOp2[FuncOp.max.type, DFC, DFValAny](lhs, rhs)(using
               compiletime.summonInline[DFCG]
             )
-      transparent inline def min(inline rhs: SupportedValue): Any =
+      infix transparent inline def min(inline rhs: SupportedValue): Any =
         inline (lhs, rhs) match
           case (lhs: Int, rhs: Int)       => scala.runtime.RichInt(lhs) min rhs
           case (lhs: Long, rhs: Long)     => scala.runtime.RichLong(lhs) min rhs

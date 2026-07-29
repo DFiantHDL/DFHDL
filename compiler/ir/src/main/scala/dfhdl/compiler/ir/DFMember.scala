@@ -362,6 +362,9 @@ object DFVal:
     def isReg: Boolean = dfVal match
       case dcl: DFVal.Dcl => dcl.modifier.isReg
       case _              => false
+    def isIterator: Boolean = dfVal match
+      case dcl: DFVal.Dcl => dcl.hasTagOf[IteratorTag]
+      case _              => false
     @tailrec def dealias(using
         MemberGetSet
     ): Option[ConnectToVal] = dfVal match
@@ -702,7 +705,8 @@ object DFVal:
           case Some(d: DFDesignBlock) => d.isStaticFunction
           case Some(b: DFBlock)       => ownerDesignIsStaticFunction(b)
           case _                      => false
-      if (ownerDesignIsStaticFunction(this)) ConstData.UnknownConst(this)
+      if (this.isIterator) ConstData.UnknownConst(this)
+      else if (ownerDesignIsStaticFunction(this)) ConstData.UnknownConst(this)
       else ConstData.NotConst
     end protGetConstData
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -1065,9 +1069,9 @@ object DFVal:
             ConstData.KnownConst(outData)
           case (ConstData.KnownConst(_), ConstData.KnownConst(_: None.type)) =>
             ConstData.KnownConst(None)
-          case (ConstData.UnknownConst(_), _) | (_, ConstData.UnknownConst(_)) =>
-            ConstData.UnknownConst(this)
-          case _ => ConstData.NotConst
+          case (ConstData.NotConst, _) | (_, ConstData.NotConst) =>
+            ConstData.NotConst
+          case _ => ConstData.UnknownConst(this)
         end match
       end protGetConstData
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match

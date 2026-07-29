@@ -144,7 +144,13 @@ trait CapturePhase extends CommonPhase:
   // prediction of that name, used by PureCheck for impure-param recording and passed as
   // the runtime fallback for anonymous applied values.
   protected def captureName(path: List[Symbol])(using Context): String =
-    path.head.getFinalName()
+    path.head.name match
+      // a capture of a generated design-parameter member (a rewritten reference to a
+      // `<> CONST` class parameter) is named after the original parameter, matching the
+      // parameter's runtime meta name and PureCheck's pre-rewrite prediction
+      case NameKinds.UniqueName(prefix, _) if prefix.toString.endsWith("_plugin") =>
+        prefix.toString.dropRight("_plugin".length)
+      case _ => path.head.getFinalName()
   // rooted at `this` of an enclosing container: an instance member is capturable; static
   // (global) values are reachable/code-determined everywhere and never captured; the def's own
   // parameters and body locals are not captures

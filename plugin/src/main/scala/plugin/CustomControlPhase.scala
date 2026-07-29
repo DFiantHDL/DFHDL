@@ -82,14 +82,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   override def transformApply(tree: Apply)(using Context): Tree =
     tree
 
-  private def isHackedGuard(tree: Tree)(using Context): Boolean =
-    tree match
-      case Apply(Apply(Ident(n), List(dfCond)), List(dfc)) if n.toString == "BooleanHack" =>
-        true
-      case _ => false
-
   private def isHackedIf(tree: If)(using Context): Boolean =
-    isHackedGuard(tree.cond)
+    HackedGuard.unapply(tree.cond).isDefined
 
   @tailrec private def isHackedIfRecur(tree: If)(using Context): Boolean =
     if (isHackedIf(tree)) true
@@ -115,8 +109,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       Context
   ): Tree =
     condTree match
-      case Apply(Apply(_, List(dfCondTree)), _) => dfCondTree
-      case _                                    =>
+      case HackedGuard(dfCondTree) => dfCondTree
+      case _                       =>
         ref(fromBooleanSym)
           .appliedTo(condTree)
           .appliedTo(dfcTree)
@@ -456,7 +450,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       Context
   ): Tree =
     guardTree match
-      case Apply(Apply(_, List(dfGuardTree)), _) =>
+      case HackedGuard(dfGuardTree) =>
         mkSome(dfGuardTree)
       case _ if !guardTree.isEmpty =>
         mkSome(

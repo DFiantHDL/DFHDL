@@ -36,8 +36,8 @@ class Plus1 extends DFDesign:
 class Plus2 extends DFDesign:
   val x = UInt(8) <> IN
   val y = UInt(8) <> OUT
-  val p1A = Plus1()
-  val p1B = Plus1()
+  val p1A = new Plus1()
+  val p1B = new Plus1()
   p1A.x <> x
   p1A.y <> p1B.x
   y <> p1B.y
@@ -115,8 +115,8 @@ class Plus1 extends DFDesign:
 class Plus2 extends DFDesign:
   val x = UInt(8) <> IN
   val y = UInt(8) <> OUT
-  val p1A = Plus1()
-  val p1B = Plus1()
+  val p1A = new Plus1()
+  val p1B = new Plus1()
   p1A.x <> x
   p1A.y <> p1B.x
   y <> p1B.y
@@ -164,7 +164,7 @@ class IO extends DFDesign:
   out := in // OK: an output port can be assigned internally
 
 class Assign1 extends DFDesign:
-  val io = IO()
+  val io = new IO()
   // io.in := 1  // Bad assignment! An input port cannot be assigned to
   io.in <> 1     // OK: use a connection instead
   // io.out := 1 // Bad assignment! An output port can only be assigned internally
@@ -182,7 +182,7 @@ class IO extends DFDesign:
   // i <> 1  // Bad connection! `i` is a producer internally; a constant cannot drive into it
 
 class IOUser extends DFDesign:
-  val io = IO()
+  val io = new IO()
   io.i <> 1    // OK: `io.i` is a consumer externally
   // io.o <> 1 // Bad connection! `io.o` is a producer externally
 ```
@@ -287,7 +287,7 @@ class Sensor extends EDDesign:
 class Top extends EDDesign:
   val din  = UInt(8) <> IN
   val dout = UInt(8) <> OUT
-  val sensor_inst = Sensor()
+  val sensor_inst = new Sensor()
   sensor_inst.din   <> din
   sensor_inst.dout  <> dout
   sensor_inst.debug <> OPEN // explicitly unconnected
@@ -393,7 +393,7 @@ children = [
 class Container extends DFDesign:
   val i  = UInt(8) <> IN
   val o  = UInt(8) <> OUT
-  val io = IODesign()
+  val io = new IODesign()
   i    <> io.i // connecting owner input to child input
   io.o <> o    // connecting child output to owner output
 ```
@@ -426,8 +426,8 @@ children = [
 class Container2 extends DFDesign:
   val i   = UInt(8) <> IN
   val o   = UInt(8) <> OUT
-  val io1 = IODesign()
-  val io2 = IODesign()
+  val io1 = new IODesign()
+  val io2 = new IODesign()
   i     <> io1.i // connecting owner input to child input
   io1.o <> io2.i // connecting between siblings (output <> input)
   io2.o <> o     // connecting child output to owner output
@@ -463,7 +463,7 @@ children = [
 class Container3 extends DFDesign:
   val i  = UInt(8) <> IN
   val o  = UInt(8) <> OUT
-  val io = IODesign2()
+  val io = new IODesign2()
   i <> io.i1 // connecting owner input to child input
   i <> io.i2 // connecting owner input to child input
   o <> (io.o1 + io.o2)
@@ -501,7 +501,7 @@ children = [
 class Container4 extends DFDesign:
   val i  = UInt(8) <> IN
   val o  = UInt(8) <> OUT
-  val io = IODesign2()
+  val io = new IODesign2()
   i     <> io.i1 // connecting owner input to child input
   io.i2 <> 5     // connecting a constant value to a child input
   o     <> io.o2

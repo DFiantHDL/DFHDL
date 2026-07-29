@@ -518,6 +518,32 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("plain Scala def as an inline hardware generator") {
+    class SliceSum(
+        val W: Int <> CONST = 8,
+        val N: Int <> CONST = 2
+    ) extends EDDesign:
+      val vec = Bits(W * N) <> IN
+      val sum = UInt(W)     <> OUT
+      // no `<> EDRET` marker: `slice` is a plain Scala def that inlines its body per call,
+      // so nothing named `slice` remains in the printed code
+      def slice(i: Int) = vec(i * W + W - 1, i * W).uint
+      sum <> slice(0) + slice(1)
+    end SliceSum
+    val id = (new SliceSum)
+    assertCodeString(
+      id,
+      """|class SliceSum(
+         |    val W: Int <> CONST = 8,
+         |    val N: Int <> CONST = 2
+         |) extends EDDesign:
+         |  val vec = Bits(W * N) <> IN
+         |  val sum = UInt(W) <> OUT
+         |  sum <> (vec(W - 1, 0).uint + vec((W + W) - 1, W).uint)
+         |end SliceSum
+         |""".stripMargin
+    )
+  }
   test("ED method phantom capture printing") {
     class FooCap extends EDDesign:
       val a                   = UInt(8) <> IN
@@ -1546,21 +1572,20 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     class Foo extends RTDesign:
       val matrix = Bits(10) X 8 X 8 <> OUT.REG
       process:
-        for (
-          i <- 0 until 8;
-          if i % 2 == 0;
-          j <- 0 until 8;
-          if j % 2 == 0;
-          k <- 0 until 10
-          if k % 2 == 0
-        )
-          COMB_LOOP
-          matrix(i)(j)(k).din := 1
+        COMB_LOOP:
+          for (
+            i <- 0 until 8;
+            if i % 2 == 0;
+            j <- 0 until 8;
+            if j % 2 == 0;
+            k <- 0 until 10
+            if k % 2 == 0
+          ) matrix(i)(j)(k).din := 1
         val ii = UInt.until(8) <> VAR init 0
-        while (ii != 7)
-          COMB_LOOP
-          matrix(ii)(0)(0).din := 0
-          ii                   := ii + 1
+        COMB_LOOP:
+          while (ii != 7)
+            matrix(ii)(0)(0).din := 0
+            ii                   := ii + 1
         10.sec.wait
     end Foo
     val top = (new Foo)
@@ -1569,26 +1594,24 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       """|class Foo extends RTDesign:
          |  val matrix = Bits(10) X 8 X 8 <> OUT.REG
          |  process:
-         |    for (i <- 0 until 8)
-         |      COMB_LOOP
-         |      if ((i % 2) == 0)
-         |        for (j <- 0 until 8)
-         |          COMB_LOOP
-         |          if ((j % 2) == 0)
-         |            for (k <- 0 until 10)
-         |              COMB_LOOP
-         |              if ((k % 2) == 0) matrix(i)(j)(k).din := 1
-         |            end for
-         |          end if
-         |        end for
-         |      end if
-         |    end for
+         |    COMB_LOOP:
+         |      for (i <- 0 until 8)
+         |        if ((i % 2) == 0)
+         |          for (j <- 0 until 8)
+         |            if ((j % 2) == 0)
+         |              for (k <- 0 until 10)
+         |                if ((k % 2) == 0) matrix(i)(j)(k).din := 1
+         |              end for
+         |            end if
+         |          end for
+         |        end if
+         |      end for
          |    val ii = UInt(3) <> VAR init d"3'0"
-         |    while (ii != d"3'7")
-         |      COMB_LOOP
-         |      matrix(ii.toInt)(0)(0).din := 0
-         |      ii := ii + d"3'1"
-         |    end while
+         |    COMB_LOOP:
+         |      while (ii != d"3'7")
+         |        matrix(ii.toInt)(0)(0).din := 0
+         |        ii := ii + d"3'1"
+         |      end while
          |    10.sec.wait
          |end Foo""".stripMargin
     )
@@ -1597,21 +1620,20 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     class Foo extends RTDesign:
       val matrix = Bits(10) X 8 X 8 <> OUT.REG
       process:
-        for (
-          i <- 0 until 8;
-          if i % 2 == 0;
-          j <- 0 until 8;
-          if j % 2 == 0;
-          k <- 0 until 10
-          if k % 2 == 0
-        )
-          FALL_THROUGH
-          matrix(i)(j)(k).din := 1
+        FALL_THROUGH:
+          for (
+            i <- 0 until 8;
+            if i % 2 == 0;
+            j <- 0 until 8;
+            if j % 2 == 0;
+            k <- 0 until 10
+            if k % 2 == 0
+          ) matrix(i)(j)(k).din := 1
         val ii = UInt.until(8) <> VAR init 0
-        while (ii != 7)
-          FALL_THROUGH
-          matrix(ii)(0)(0).din := 0
-          ii                   := ii + 1
+        FALL_THROUGH:
+          while (ii != 7)
+            matrix(ii)(0)(0).din := 0
+            ii                   := ii + 1
         10.sec.wait
     end Foo
     val top = (new Foo)
@@ -1620,26 +1642,24 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       """|class Foo extends RTDesign:
          |  val matrix = Bits(10) X 8 X 8 <> OUT.REG
          |  process:
-         |    for (i <- 0 until 8)
-         |      FALL_THROUGH
-         |      if ((i % 2) == 0)
-         |        for (j <- 0 until 8)
-         |          FALL_THROUGH
-         |          if ((j % 2) == 0)
-         |            for (k <- 0 until 10)
-         |              FALL_THROUGH
-         |              if ((k % 2) == 0) matrix(i)(j)(k).din := 1
-         |            end for
-         |          end if
-         |        end for
-         |      end if
-         |    end for
+         |    FALL_THROUGH:
+         |      for (i <- 0 until 8)
+         |        if ((i % 2) == 0)
+         |          for (j <- 0 until 8)
+         |            if ((j % 2) == 0)
+         |              for (k <- 0 until 10)
+         |                if ((k % 2) == 0) matrix(i)(j)(k).din := 1
+         |              end for
+         |            end if
+         |          end for
+         |        end if
+         |      end for
          |    val ii = UInt(3) <> VAR init d"3'0"
-         |    while (ii != d"3'7")
-         |      FALL_THROUGH
-         |      matrix(ii.toInt)(0)(0).din := 0
-         |      ii := ii + d"3'1"
-         |    end while
+         |    FALL_THROUGH:
+         |      while (ii != d"3'7")
+         |        matrix(ii.toInt)(0)(0).din := 0
+         |        ii := ii + d"3'1"
+         |      end while
          |    10.sec.wait
          |end Foo""".stripMargin
     )
@@ -2763,6 +2783,69 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  o <> gW
          |end UsesGW
          |""".stripMargin
+    )
+  }
+  test("const param selection") {
+    class Foo(val idx: Int <> CONST = 5) extends EDDesign:
+      val x = Bits(8) <> IN
+      val y = Bit     <> OUT
+      val v = x(idx)
+      y <> v
+    val top = Foo().getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo(val idx: Int <> CONST = 5) extends EDDesign:
+         |  val x = Bits(8) <> IN
+         |  val y = Bit <> OUT
+         |  val v = x(idx)
+         |  y <> v
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("parametric width equivalence across arithmetic forms") {
+    class Foo(val W: Int <> CONST = 8, val W2: Int <> CONST = 3) extends EDDesign:
+      val twoW = 2 * W
+      val i    = Bits(W)    <> IN
+      val o    = Bits(twoW) <> OUT
+      o <> (i, i)
+      val i2 = Bits(W)    <> IN
+      val o2 = Bits(twoW) <> OUT
+      o2 <> i2 *^ i2
+      val i3 = Bits(W)        <> IN
+      val o3 = Bits(twoW + 2) <> OUT
+      o3 <> (i3 +^ i3) *^ (i3 +^ i3)
+      val i4 = Bits(2 * W) <> IN
+      val o4 = Bits(2 * W) <> OUT
+      o4 <> (i4(W - 1, 0), i4(2 * W - 1, W))
+      val i5 = Bits(W * W2) <> IN
+      val o5 = Bits(W2 * W) <> OUT
+      o5 <> i5
+    end Foo
+    val top = (new Foo)
+    assertCodeString(
+      top,
+      """|class Foo(
+         |    val W: Int <> CONST = 8,
+         |    val W2: Int <> CONST = 3
+         |) extends EDDesign:
+         |  val twoW: Int <> CONST = 2 * W
+         |  val i = Bits(W) <> IN
+         |  val o = Bits(twoW) <> OUT
+         |  o <> i.repeat(2)
+         |  val i2 = Bits(W) <> IN
+         |  val o2 = Bits(twoW) <> OUT
+         |  o2 <> (i2.uint *^ i2.uint).bits
+         |  val i3 = Bits(W) <> IN
+         |  val o3 = Bits(twoW + 2) <> OUT
+         |  o3 <> ((i3.uint +^ i3.uint) *^ (i3.uint +^ i3.uint)).bits
+         |  val i4 = Bits(2 * W) <> IN
+         |  val o4 = Bits(2 * W) <> OUT
+         |  o4 <> (i4(W - 1, 0), i4((2 * W) - 1, W)).toBits
+         |  val i5 = Bits(W * W2) <> IN
+         |  val o5 = Bits(W2 * W) <> OUT
+         |  o5 <> i5
+         |end Foo""".stripMargin
     )
   }
 end PrintCodeStringSpec

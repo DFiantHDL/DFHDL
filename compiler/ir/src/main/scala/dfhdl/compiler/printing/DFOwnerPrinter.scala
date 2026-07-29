@@ -577,32 +577,53 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
         printer.csDFValType(stepBlock.getVeryLastMember.get.asInstanceOf[DFVal].dfType)
       else ": Unit"
     s"def $name$defType =\n${body.hindent}\nend $name"
+  // COMB_LOOP/FALL_THROUGH are wrappers around a loop, so they print only on the outermost
+  // annotated loop: every loop constructed under a wrapper carries the tag, so a loop whose
+  // closest enclosing loop already carries the same tag is covered by that loop's wrapper.
+  // The wrappers are RT-only constructs, so once the loops are moved into ED processes
+  // (e.g. after `toED`) the tags must not print.
+  private def csLoopAnnotated(loopBlock: DFLoop.Block, csLoop: String): String =
+    def hasEnclosing(annotated: DFLoop.Block => Boolean): Boolean =
+      var ownerIR = loopBlock.getOwner
+      var found = false
+      var stop = false
+      while (!stop)
+        ownerIR match
+          case cb: DFConditional.Block => ownerIR = cb.getOwner
+          case lb: LocalBlock          => ownerIR = lb.getOwner
+          case lb: DFLoop.Block        =>
+            found = annotated(lb)
+            stop = true
+          case _ => stop = true
+      found
+    var cs = csLoop
+    if (loopBlock.isInRTDomain)
+      if (loopBlock.isFallThrough && !hasEnclosing(_.isFallThrough))
+        cs = s"FALL_THROUGH:\n${cs.hindent}"
+      if (loopBlock.isCombinational && !hasEnclosing(_.isCombinational))
+        cs = s"COMB_LOOP:\n${cs.hindent}"
+    cs
+  end csLoopAnnotated
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
-    val csCOMB_LOOP = if (forBlock.isCombinational) "COMB_LOOP" else ""
-    val csFALL_THROUGH = if (forBlock.isFallThrough) "FALL_THROUGH" else ""
-    val body =
-      sn"""|${csCOMB_LOOP}
-           |${csFALL_THROUGH}
-           |${csDFOwnerBody(forBlock)}"""
+    val body = csDFOwnerBody(forBlock)
     val named = forBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val endName = forBlock.meta.nameOpt.map(n => s"end $n").getOrElse("end for")
     //format: off
-    sn"""|${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})
-         |${body.hindent}
-         |$endName"""
+    val csLoop =
+      sn"""|${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})
+           |${body.hindent}
+           |$endName"""
     //format: on
+    csLoopAnnotated(forBlock, csLoop)
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
-    val csCOMB_LOOP = if (whileBlock.isCombinational) "COMB_LOOP" else ""
-    val csFALL_THROUGH = if (whileBlock.isFallThrough) "FALL_THROUGH" else ""
-    val body =
-      sn"""|${csCOMB_LOOP}
-           |${csFALL_THROUGH}
-           |${csDFOwnerBody(whileBlock)}"""
+    val body = csDFOwnerBody(whileBlock)
     val named = whileBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val endName = whileBlock.meta.nameOpt.map(n => s"end $n").getOrElse("end while")
-    sn"""|${named}while (${whileBlock.guardRef.refCodeString})
-         |${body.hindent}
-         |$endName"""
+    val csLoop =
+      sn"""|${named}while (${whileBlock.guardRef.refCodeString})
+           |${body.hindent}
+           |$endName"""
+    csLoopAnnotated(whileBlock, csLoop)
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")

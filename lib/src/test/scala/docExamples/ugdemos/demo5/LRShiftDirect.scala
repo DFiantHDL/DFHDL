@@ -47,8 +47,8 @@ class LRShiftDirect(
 ) extends ShiftGen:
   /** direction of shift */
   val dir   = ShiftDir <> IN
-  val lshifter = LeftShiftGen(width)
-  val rshifter = RightShiftGen(width)
+  val lshifter = new LeftShiftGen(width)
+  val rshifter = new RightShiftGen(width)
   lshifter.iBits <> iBits
   lshifter.shift <> shift
   rshifter.iBits <> iBits

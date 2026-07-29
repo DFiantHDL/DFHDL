@@ -671,7 +671,7 @@ The syntax for direct composition follows standard Scala class instantiation, wi
 
 ```scala linenums="0" title="Direct composition syntax"
 //instantiate a child design
-val _childDesignName_ = _designClass_(_params_)
+val _childDesignName_ = new _designClass_(_params_)
 //port connection (repeat for each child port)
 _childDesignName_._childPort_ <> _connectedValue_ 
 ```
@@ -680,11 +680,11 @@ Where:
 
 * `_childDesignName_` - The instance name for the child design. This name is preserved by the DFHDL compiler and used in error messages and generated artifacts. See the [naming][naming] section for details.
 
-* `_designClass_` - The design class to instantiate.
+* `_designClass_` - The design class to instantiate. Always instantiate it with `new`, which resolves to the class constructor and can therefore never be shadowed by a value, a port, or a DFHDL built-in function of the same name. See the [naming][naming] section for the collisions this avoids.
 
-* `_params_` - Parameters for the child design. Empty parentheses `()` are required even if no parameters are needed. Parameters can be specified:
-    - As ordered values (e.g., `Counter(8, Up)`)
-    - As named parameters (e.g., `Counter(width = 8, dir = Up)`) 
+* `_params_` - Parameters for the child design. With the `new` form, empty parentheses are optional when the design has no parameters, so `new Counter()` and `new Counter` are equivalent. Parameters can be specified:
+    - As ordered values (e.g., `new Counter(8, Up)`)
+    - As named parameters (e.g., `new Counter(width = 8, dir = Up)`) 
     - Parameters with default values can be omitted
 
 * `_childPort_` - The port of the child design to connect.
@@ -871,7 +871,7 @@ class Sensor extends EDDesign:
 class Top extends EDDesign:
   val din  = UInt(8) <> IN
   val dout = UInt(8) <> OUT
-  val sensor_inst = Sensor()
+  val sensor_inst = new Sensor()
   sensor_inst.din   <> din
   sensor_inst.dout  <> dout
   sensor_inst.debug <> OPEN  // explicitly unconnected
