@@ -170,7 +170,7 @@ process:
 1. **Initialization**: when the FSM starts, either on reset when the domain has a reset, or at power-on otherwise.
 2. **Forever wrap-around**: each time the process completes its last step and implicitly (through a `NextStep` jump) wraps back to the first step.
 
-It does **not** run on an explicit jump to the first step (`FirstStep` or the first step's name), nor on a `ThisStep` self-transition.
+The leading statements do **not** re-run on an explicit jump to the first step (`FirstStep` or the first step's name), nor on a `ThisStep` self-transition. The first step's `onEntry` is an ordinary entry hook on top of that: it runs on *every* entry into the first step from a different step, explicit jumps included (but not on a self-transition).
 
 ```scala
 process:

@@ -1642,6 +1642,10 @@ private final class Builder(rawDB: DB):
     private def processHasTime(pb: ProcessBlock): Boolean =
       flattenedOf(pb).exists(isTimeConstructM)
 
+    /** A step's `onEntry` hook block, if any (a nested step block named `onEntry`). */
+    private def onEntryHookOf(sb: StepBlock): Option[StepBlock] =
+      childrenOf.getOrElse(sb, Vector.empty).collectFirst { case h: StepBlock if h.isOnEntry => h }
+
     private enum WaitKind derives CanEqual:
       case Cycles1
       case CyclesN(nVal: DFVal) // cycle count sampled live, like the equivalent FSM counter
@@ -1786,9 +1790,10 @@ private final class Builder(rawDB: DB):
     end foldInitialStatic
 
     /** Pre-pass per RT process with time constructs: M1 validation, the Rule-4 gate (mirroring
-      * `DropRTWaits` Rule 6: bootstrap skipped when the prologue is initial-convertible and no
-      * trailing statement shares a prologue-assigned declaration), and the static fold of the
-      * converted prologue into time-zero state.
+      * `DropRTWaits` Rule 6: bootstrap skipped when the prologue — the leading statements together
+      * with the first step's `onEntry` — is initial-convertible and no trailing statement shares a
+      * prologue-assigned declaration), and the static fold of the converted prologue into time-zero
+      * state.
       */
     private def prepassProcess(pb: ProcessBlock): Unit =
       flattenedOf(pb).foreach {
@@ -1800,16 +1805,6 @@ private final class Builder(rawDB: DB):
           unsupported("FALL_THROUGH for loops (a fall-through while loop works)", fb)
         case w: Wait => waitKindOf(w) // validates the trigger form
         case _       => ()
-      }
-      // the first regular step's onEntry is process-prologue content (the FSM lowering folds it into
-      // the reset initial state / bootstrap); that integration with the prologue/boot machinery is
-      // not done yet, so reject it. onEntry on any later step (fired at its transition edges) works.
-      flattenedOf(pb).collectFirst { case sb: StepBlock if sb.isRegular => sb }.foreach { first =>
-        if childrenOf.getOrElse(first, Vector.empty).exists {
-            case h: StepBlock => h.isOnEntry
-            case _            => false
-          }
-        then unsupported("onEntry on the first step of a process (runs at reset)", first)
       }
       if !processHasTime(pb) then () // every-cycle combinational body — nothing to plan
       else
@@ -1830,22 +1825,40 @@ private final class Builder(rawDB: DB):
         val trailing = expandOwners(trailingTop)
         val prologueDcls = assignedDcls(prologue).toSet
         val shares = prologueDcls.nonEmpty && assignedDcls(trailing).exists(prologueDcls.contains)
+        // the process prologue is the leading statements *together with* the first step's `onEntry`
+        // (see the RT cycle semantics), so both must be initial-convertible for the bootstrap state
+        // to be skipped. A process that starts with a step generator only needs a bootstrap when its
+        // first step's `onEntry` is not convertible (it then fires on the boot -> first-step edge).
+        val firstStepOnEntry =
+          top.collectFirst { case sb: StepBlock if sb.isRegular => sb }.flatMap(onEntryHookOf)
+        val onEntryMembers = firstStepOnEntry.map(flattenedOf(_).toList).getOrElse(Nil)
         val needsBoot =
-          if startsWithGen then false // M1 rejects onEntry, so a leading step never needs a boot
-          else !(isInitialConvertible(prologue) && !shares)
+          if startsWithGen then !isInitialConvertible(onEntryMembers)
+          else
+            !(isInitialConvertible(prologue) && isInitialConvertible(onEntryMembers) && !shares)
         procBootNeeded(pb) = needsBoot
         if !needsBoot then
           foldInitialStatic(prologueTop, pb)
-          // a process-leading for loop's iterator initialization is prologue content in the FSM
-          // lowering, so it lands in the generated initial state: the iterator holds its start
-          // value at time zero (whether the loop control fuses or keeps the reset-entry state)
           top.find(isTimeConstructM) match
+            // a process-leading for loop's iterator initialization is prologue content in the FSM
+            // lowering, so it lands in the generated initial state: the iterator holds its start
+            // value at time zero (whether the loop control fuses or keeps the reset-entry state)
             case Some(fb: DFLoop.DFForBlock) =>
               val iter = fb.iteratorRef.get
               val start = constOpt[Option[BigInt]](fb.rangeRef.get.startRef.get).flatten
                 .getOrElse(unsupported("a non-constant start of a process-leading for loop", fb))
               initOverride(iter) = BitVector.fromLong(start.toLong, widthOf(iter))
+            // the first step's `onEntry` folds into the same time-zero state, after the prologue —
+            // but only when that step is the process's *first state*: with a leading wait or loop
+            // the first state is that construct, and the FSM lowering (which keys the generated
+            // initial block on the first state) leaves the `onEntry` to its transition edge
+            case Some(sb: StepBlock) =>
+              onEntryHookOf(sb).foreach { h =>
+                foldInitialStatic(childrenOf.getOrElse(h, Vector.empty).toList, pb)
+              }
             case _ => ()
+          end match
+        end if
       end if
     end prepassProcess
 
@@ -1867,6 +1880,9 @@ private final class Builder(rawDB: DB):
       *     dispatch const-folds under the prologue values, the folded assignments join the
       *     time-zero state and the FSM resets directly into the fold's target park (the reset-site
       *     fold — zero bootstrap cycles)
+      *   - `onEntry`/`onExit`/`fallThrough` hooks run at the transition edges of their step, which
+      *     never fuses (a hook keeps it a state of its own); the first step's `onEntry` is prologue
+      *     content and folds into the time-zero state alongside the leading statements
       *   - fallback control states: match dispatch, guards reading conditionally/partially assigned
       *     state or history aliases, and dispatch cycles that do not fold (e.g. dynamic-nest or
       *     dynamic wrap-around re-entry), detected with the same visit-capped expansion and
@@ -1904,20 +1920,37 @@ private final class Builder(rawDB: DB):
       // a hook is a nested `StepBlock` named onEntry/onExit/fallThrough that runs combinationally at
       // the transition edges of its enclosing regular step (see the FSM lowering's DropRTProcess);
       // it is never a state of its own and is skipped by the ordered body walk (`!sb.isRegular`).
-      private def onEntryOf(sb: StepBlock): Option[StepBlock] =
-        bodyOf(sb).collectFirst { case h: StepBlock if h.isOnEntry => h }
+      private def onEntryOf(sb: StepBlock): Option[StepBlock] = onEntryHookOf(sb)
       private def onExitOf(sb: StepBlock): Option[StepBlock] =
         bodyOf(sb).collectFirst { case h: StepBlock if h.isOnExit => h }
       private def fallThroughOf(sb: StepBlock): Option[StepBlock] =
         bodyOf(sb).collectFirst { case h: StepBlock if h.isFallThrough => h }
+      private def hasHooks(sb: StepBlock): Boolean =
+        bodyOf(sb).exists { case h: StepBlock => !h.isRegular; case _ => false }
+
+      /** Mirrors `FirstStepFusion`'s hook exclusions: a step carrying hooks is never a fusion
+        * candidate, and neither is one whose dispatch's first time-consuming action is a
+        * hook-carrying step (the candidate scan reports both as blocked). Such a step therefore
+        * always keeps a state of its own, which is what makes its hooks land on real FSM edges.
+        */
+      private def hookBlocked(sb: StepBlock): Boolean =
+        def scan(items: List[DFMember]): Boolean = items match
+          case Nil       => false
+          case m :: rest =>
+            m match
+              case s: StepBlock if !s.isRegular                  => true
+              case s: StepBlock                                  => hasHooks(s)
+              case _: Wait                                       => false
+              case lb: DFLoop.Block if !lb.isCombinational       => false
+              case h: DFConditional.Header if chainHasControl(h) =>
+                val blocks = chainBlocksOf(h)
+                val after = rest.filterNot(blocks.toSet[DFMember])
+                blocks.exists(b => scan(bodyOf(b))) || scan(after)
+              case _ => scan(rest)
+        hasHooks(sb) || scan(bodyOf(sb))
+      end hookBlocked
       private lazy val regularSteps: List[StepBlock] =
         flattenedOf(pb).collect { case sb: StepBlock if sb.isRegular => sb }.toList
-      // the next regular step in declaration order, wrapping the last back to the first — matches the
-      // FSM lowering's `nextBlocks`, the cascade target of a fall-through step
-      private def nextRegular(sb: StepBlock): StepBlock =
-        regularSteps.indexOf(sb) match
-          case -1  => unsupported("a step outside the process's regular steps", sb)
-          case idx => regularSteps((idx + 1) % regularSteps.length)
 
       private def enclosingStep(m: DFMember): StepBlock =
         var o: DFBlock = m.getOwnerBlock
@@ -2047,6 +2080,12 @@ private final class Builder(rawDB: DB):
         // re-executed prologue's values, and a genuinely dynamic re-entry falls back through
         // the visit-capped walks below (Rule C), keeping a control state.
         parkPositions() // populates stepExitConts for the walks below
+        // Rule A: a step carrying onEntry/onExit/fallThrough (or dispatching into one) is never a
+        // fusion candidate, so it keeps a control state
+        flattenedOf(pb).foreach {
+          case sb: StepBlock if isFusable(sb) && hookBlocked(sb) => fallback += sb
+          case _                                                 => ()
+        }
         // Rule B: syntactic fusion blockers
         flattenedOf(pb).foreach {
           // a match chain carrying control cannot be inlined — its nearest fusable region
@@ -2186,7 +2225,13 @@ private final class Builder(rawDB: DB):
       // ---- sites & cells --------------------------------------------------------------------
       private val sitePrograms = mutable.ArrayBuffer.empty[() => Unit]
       private val siteOf = mutable.Map.empty[DFMember, Int]
+      private val stepOfSite = mutable.Map.empty[Int, StepBlock]
       private var bootSite = -1
+      // the FSM state list in the lowering's order (`stateBlocks`), the fall-through cascade's path
+      private var parkOrder: List[DFMember] = Nil
+      // whether the process-leading construct fuses and keeps a state for the reset entry only
+      private var firstFused = false
+      private val prologueTop: List[DFMember] = top.takeWhile(m => !isTimeConstructM(m))
       private val allCells = mutable.ArrayBuffer.empty[PCell]
       private val waitCells = mutable.Map.empty[Wait, PCell]
       private val cellEnv = mutable.Map.empty[PCell, WV]
@@ -2251,11 +2296,13 @@ private final class Builder(rawDB: DB):
           val t = transCtx
           val snap = t.snapshot()
           val basePath = pathConds
+          val baseExit = exitEmitted // each branch is its own path, with its own `onExit` landing
           def restoreBase(): Unit =
             env.clear(); env ++= baseEnv
             cellEnv.clear(); cellEnv ++= baseCells
             po.clear(); po ++= baseOverlay
             t.restore(snap)
+            exitEmitted = baseExit
           // dispatch branches are execution paths, not payload conditionals: a full register
           // write on the taken path stays forwardable (the stage's per-path expansion state)
           pathConds = (cond, false) :: basePath
@@ -2295,11 +2342,13 @@ private final class Builder(rawDB: DB):
         val snap = t.snapshot()
         val basePath = pathConds
         var negs = List.empty[(Int, Boolean)] // not-taken frames of the branches walked so far
+        val baseExit = exitEmitted // each branch is its own path, with its own `onExit` landing
         def restoreBase(): Unit =
           env.clear(); env ++= baseEnv
           cellEnv.clear(); cellEnv ++= baseCells
           po.clear(); po ++= baseOverlay
           t.restore(snap)
+          exitEmitted = baseExit
         var condBranches = List.empty[(Int, Map[DFVal.Dcl, WV], Map[PCell, WV])]
         var elseResult = Option.empty[(Map[DFVal.Dcl, WV], Map[PCell, WV])]
         var done = false
@@ -2379,11 +2428,31 @@ private final class Builder(rawDB: DB):
         case fb: DFLoop.DFForBlock   => compileForGuard(fb)
         case wb: DFLoop.DFWhileBlock => compileGuardFresh(wb.guardRef.get)
 
+      // ---- transition landings ----------------------------------------------------------------
+      // The FSM lowering plants a transition's hooks at its goto site, which — after
+      // `FlattenStepBlocks` relocates the inter-step trailing statements and clones the prologue
+      // before the wrap-around goto — sits at the very end of the state's body. So the source
+      // state's `onExit` is emitted where the transition *lands*, not where the walk into it
+      // starts: once per execution path, right before the state write.
+      private var curStateStep: StepBlock | Null = null // the lowering's `currentStepBlock`
+      private var curSite = -1
+      private var exitEmitted = false
+
+      private def landOn(site: Int): Unit =
+        if !exitEmitted && site != curSite then
+          exitEmitted = true
+          val cur = curStateStep
+          if cur != null then onExitOf(cur).foreach(h => emitPayload(bodyOf(h)))
+
+      private def jumpTo(site: Int): Unit =
+        landOn(site)
+        jump(site)
+
       private def enterWait(wt: Wait): Unit =
         waitCells.get(wt).foreach { cell =>
           cellEnv(cell) = wide.zero(cell.regWV.width) // counter reset on entry
         }
-        jump(siteOf(wt))
+        jumpTo(siteOf(wt))
 
       private def enterLoop(lb: DFLoop.Block, exitCont: PCont): Unit =
         lb match
@@ -2401,8 +2470,8 @@ private final class Builder(rawDB: DB):
             // the FSM lowering's incoming-edge `state.din := S; if (!g) <next>`). A true guard lands
             // in the iteration park; a false guard falls through to the exit continuation this cycle.
             crossBoundary()
-            emitBranch2(loopGuardNode(lb), () => jump(k), () => emitCont(exitCont))
-          case Some(k) => jump(k) // an iteration park or a control state
+            emitBranch2(loopGuardNode(lb), () => jumpTo(k), () => emitCont(exitCont))
+          case Some(k) => jumpTo(k) // an iteration park or a control state
           case None    => // fused: the entry guard evaluates combinationally on this edge
             crossBoundary()
             emitBranch2(
@@ -2415,49 +2484,55 @@ private final class Builder(rawDB: DB):
 
       private def enterStep(sb: StepBlock): Unit =
         siteOf.get(sb) match
-          case Some(k) => jump(k)
+          case Some(k) => enterState(sb, k, cascaded = false)
           case None    => // fused entry: the step's leading payload joins this transition cycle
             crossBoundary()
             emitFrom(bodyOf(sb), stepExitConts(sb))
 
-      private def emitGoto(g: Goto): Unit =
-        val cur = enclosingStep(g)
-        g.stepRef.get match
-          case Goto.ThisStep  => enterStep(cur) // self-transition: no onExit/onEntry hooks
-          case sb: StepBlock  => stepTransition(cur, sb, () => enterStep(sb))
-          case Goto.FirstStep =>
-            stepTransition(cur, firstRegularStep, () => enterStep(firstRegularStep))
-          case Goto.NextStep =>
-            stepTransition(cur, nextRegular(cur), () => emitCont(stepExitConts(cur)))
-
-      /** A step-to-step transition edge: the source step's `onExit`, then entering the target (its
-        * `onEntry`, the jump, and any `fallThrough` cascade). A self-transition fires no hooks
-        * (mirrors the FSM lowering's static `currentStep != nextStep` gate).
+      /** Land on the state of step `sb`: the source state's `onExit`, the target's `onEntry`, the
+        * state write, and any `fallThrough` cascade. A self-transition fires no hooks (the FSM
+        * lowering's static `currentStep != nextStep` gate); a cascade that comes back around to the
+        * transition's origin still runs the origin's `onEntry` and state write, and only stops the
+        * cascade there. The `state`/register writes along a cascade are last-write-wins, exactly as
+        * the nested-conditional overwrites the FSM lowering emits.
         */
-      private def stepTransition(cur: StepBlock, tgt: StepBlock, jump: () => Unit): Unit =
-        if tgt eq cur then jump()
+      private def enterState(sb: StepBlock, site: Int, cascaded: Boolean): Unit =
+        if site == curSite && !cascaded then jump(site)
         else
-          onExitOf(cur).foreach(h => emitPayload(bodyOf(h)))
-          enterWithHooks(cur, tgt, jump)
+          landOn(site)
+          onEntryOf(sb).foreach(h => emitPayload(bodyOf(h)))
+          jump(site)
+          if site != curSite then
+            fallThroughOf(sb).foreach { ft =>
+              emitBranch2(fallThroughCond(ft), () => cascadeFrom(sb), () => ())
+            }
 
-      /** Enter `tgt`: run its `onEntry`, perform the jump, then (if it carries a `fallThrough`)
-        * fold its condition — when true, advance in the same cycle to the next declaration-order
-        * step, recursively, stopping when the cascade reaches the edge's origin (the
-        * circular-fall-through guard). The `state`/register writes on the taken path are
-        * last-write-wins, exactly as the nested-conditional `state.din` overwrites the FSM lowering
-        * emits.
+      /** The zero-cycle fall-through advance out of `sb`: only the next state's `onEntry` and state
+        * write (the skipped state's own body and trailing statements never execute), with the
+        * prologue re-executed when the cascade passes the last state — a wrap-around like any
+        * other.
         */
-      private def enterWithHooks(origin: StepBlock, tgt: StepBlock, jump: () => Unit): Unit =
-        onEntryOf(tgt).foreach(h => emitPayload(bodyOf(h)))
-        jump()
-        fallThroughOf(tgt) match
-          case Some(ft) if nextRegular(tgt) ne origin =>
-            emitBranch2(
-              fallThroughCond(ft),
-              () => enterWithHooks(origin, nextRegular(tgt), () => emitCont(stepExitConts(tgt))),
-              () => ()
-            )
-          case _ => ()
+      private def cascadeFrom(sb: StepBlock): Unit =
+        val idx = parkOrder.indexOf(sb)
+        if idx < 0 then unsupported("a fall-through step outside the process's states", sb)
+        else if idx < parkOrder.length - 1 then landState(parkOrder(idx + 1))
+        else if needsBoot then jumpTo(bootSite)
+        else if firstFused then
+          unsupported("a fall-through cascade past the last step of a fused-entry process", sb)
+        else
+          emitPayload(prologueTop)
+          landState(parkOrder.head)
+
+      private def landState(m: DFMember): Unit = m match
+        case sb: StepBlock => enterState(sb, siteOf(sb), cascaded = true)
+        case _             => jumpTo(siteOf(m))
+
+      private def emitGoto(g: Goto): Unit =
+        g.stepRef.get match
+          case Goto.ThisStep  => enterStep(enclosingStep(g))
+          case sb: StepBlock  => enterStep(sb)
+          case Goto.FirstStep => enterStep(firstRegularStep)
+          case Goto.NextStep  => emitCont(stepExitConts(enclosingStep(g)))
 
       private def fallThroughCond(ft: StepBlock): Int =
         bodyOf(ft).reverse.collectFirst { case v: DFVal => compileGuardFresh(v) }
@@ -2491,7 +2566,7 @@ private final class Builder(rawDB: DB):
             case fb: DFLoop.DFForBlock => emitForIncrement(fb)
             case _                     => ()
           siteOf.get(lb) match
-            case Some(k) => jump(k) // the control state re-evaluates the guard next cycle
+            case Some(k) => jumpTo(k) // the control state re-evaluates the guard next cycle
             case None    => // fused loop-back: forwarded guard in this transition cycle
               crossBoundary()
               emitBranch2(
@@ -2501,7 +2576,7 @@ private final class Builder(rawDB: DB):
               )
         case PCont.Wrap =>
           // forever wrap-around: re-execute the prologue payload and re-enter the process
-          if needsBoot then jump(bootSite)
+          if needsBoot then jumpTo(bootSite)
           else emitFrom(top, PCont.Wrap)
 
       // ---- site programs ----------------------------------------------------------------------
@@ -2590,12 +2665,13 @@ private final class Builder(rawDB: DB):
         // program probed during emission: when the dispatch const-folds under the prologue values
         // (the reset-site fold), the folded assignments become time-zero state, the FSM resets
         // directly into the fold's target park, and this site stays allocated but unreachable
-        val firstFused = !needsBoot && firstConstructOpt.exists {
+        firstFused = !needsBoot && firstConstructOpt.exists {
           case o: DFOwner => isFusable(o) && !fallback.contains(o)
           case _          => false
         }
         val resetSite = if firstFused then addSite(() => emitFrom(top, PCont.Wrap)) else -1
         val positions = parkPositions()
+        parkOrder = positions.map(_._1)
         for (m, cont) <- positions do
           m match
             case wt: Wait =>
@@ -2612,8 +2688,11 @@ private final class Builder(rawDB: DB):
             case lb: DFLoop.Block =>
               if isParkLoop(lb) then siteOf(lb) = addSite(() => emitParkLoop(lb, cont))
               else siteOf(lb) = addSite(() => emitCtrlLoop(lb, cont))
-            case sb: StepBlock => siteOf(sb) = addSite(() => emitStepPark(sb))
-            case m             => unsupported("park construct", m)
+            case sb: StepBlock =>
+              val k = addSite(() => emitStepPark(sb))
+              siteOf(sb) = k
+              stepOfSite(k) = sb
+            case m => unsupported("park construct", m)
         end for
         segW = clog2(sitePrograms.length)
         segCellVar = newCell(segW, BitVector.low(segW), tracked = true)
@@ -2633,15 +2712,21 @@ private final class Builder(rawDB: DB):
           procOverlay = mutable.Map.empty
           transCtx = new TransCtx(condDepth)
           pathConds = (siteConds(k), false) :: basePath
+          curSite = k
+          curStateStep = stepOfSite.getOrElse(k, null)
+          exitEmitted = false
           foldProbing = firstFused && k == resetSite
           if foldProbing then foldViolation = false
           sitePrograms(k)()
           foldProbing = false
           progEnvs += env.toMap
           progCells += cellEnv.toMap
+        end for
         procOverlay = null
         transCtx = null
         pathConds = basePath
+        curSite = -1
+        curStateStep = null
         env.clear(); env ++= envAtStart
         cellEnv.clear()
         // the reset-site fold, with the stage's gates: no dynamic dispatch decision, a single

@@ -409,3 +409,178 @@ class FallThroughEmptyWhileProc extends RTDesign:
       while (go) {}
     1.cy.wait
     tick.din := !tick
+
+/** The first step's `onEntry` is process-prologue content: being initial-convertible it costs no
+  * cycle at process start (it lands in the generated `initial` block, superseding the declaration
+  * init of `y`), and it re-runs on every forever wrap-around back into the first step.
+  */
+class FirstStepEntryProc extends RTDesign:
+  val x = Bit <> IN
+  val y = UInt(8) <> OUT.REG init 0
+  process:
+    def S0: Step =
+      def onEntry =
+        y.din := 1
+      if (x) NextStep else ThisStep
+    def S1: Step =
+      y.din := y + 1
+      NextStep
+
+/** A first-step `onEntry` that is *not* initial-convertible keeps the synthetic bootstrap state: it
+  * fires on the bootstrap -> first-step edge, costing one cycle at process start and one on every
+  * wrap-around (which returns to the bootstrap state).
+  */
+class FirstStepEntryBootProc extends RTDesign:
+  val x = Bit <> IN
+  val y = UInt(8) <> OUT.REG init 0
+  process:
+    def S0: Step =
+      def onEntry =
+        y.din := y + 1
+      if (x) NextStep else ThisStep
+    def S1: Step =
+      y.din := y + 2
+      NextStep
+
+/** Leading statements and the first step's `onEntry` together form the prologue: both fold into the
+  * time-zero state, and both re-execute (leading statements first, then `onEntry`) at the
+  * wrap-around. An explicit jump to the first step runs the `onEntry` but not the leading
+  * statements, which is what `y` distinguishes here.
+  */
+class PrologueEntryProc extends RTDesign:
+  val x = Bit <> IN
+  val y = UInt(8) <> OUT.REG init 0
+  val z = UInt(8) <> OUT.REG init 0
+  process:
+    y.din := 3
+    def S0: Step =
+      def onEntry =
+        z.din := 7
+      NextStep
+    def S1: Step =
+      y.din := y + 1
+      z.din := z + 1
+      if (x) FirstStep else NextStep
+    def S2: Step =
+      y.din := y + 2
+      NextStep
+end PrologueEntryProc
+
+/** With a leading wait the process's first state is that wait, so the first step's `onEntry` is not
+  * folded into the time-zero state: it fires on the wait -> step edge like any other transition.
+  */
+class WaitThenEntryProc extends RTDesign:
+  val x = Bit <> IN
+  val y = UInt(8) <> OUT.REG init 0
+  process:
+    1.cy.wait
+    def S0: Step =
+      def onEntry =
+        y.din := 1
+      if (x) NextStep else ThisStep
+    def S1: Step =
+      y.din := y + 1
+      NextStep
+
+/** Hooks on a nested step: entering it from its parent is a real FSM edge, so the parent's `onExit`
+  * and the nested step's `onEntry` both fire there. Neither step fuses (a hook-carrying step is
+  * never a first-step-fusion candidate), so each keeps its own state.
+  */
+class NestedHookProc extends RTDesign:
+  val y = UInt(8) <> OUT.REG init 0
+  val z = UInt(8) <> OUT.REG init 0
+  process:
+    def S0: Step =
+      def onExit =
+        y.din := y + 9
+      def Inner: Step =
+        def onEntry =
+          z.din := z + 5
+        1.cy.wait
+        NextStep
+      NextStep
+    def S1: Step =
+      y.din := y + 1
+      NextStep
+end NestedHookProc
+
+/** A first step whose `onEntry` is folded into the time-zero state while its own first action is a
+  * nested step: the hook keeps it out of first-step fusion, so it stays a real state of its own.
+  */
+class FirstStepEntryNestedProc extends RTDesign:
+  val y = UInt(8) <> OUT.REG init 0
+  process:
+    def S0: Step =
+      def onEntry =
+        y.din := 1
+      def Inner: Step =
+        y.din := y + 8
+        NextStep
+      NextStep
+    def S1: Step =
+      y.din := y + 1
+      NextStep
+
+/** Every step carries a `fallThrough`, so a cascade can travel the whole ring: it stops only when
+  * it comes back around to the step the transition left, which it still enters (`onEntry` and state
+  * write) before stopping.
+  */
+class FallThroughCycleProc extends RTDesign:
+  val x = Bit <> IN
+  val y = UInt(8) <> OUT.REG init 0
+  process:
+    def S0: Step =
+      def onEntry =
+        y.din := 1
+      def fallThrough = x
+      NextStep
+    def S1: Step =
+      def onEntry =
+        y.din := 2
+      def fallThrough = x
+      NextStep
+    def S2: Step =
+      def onEntry =
+        y.din := 4
+      def fallThrough = x
+      NextStep
+end FallThroughCycleProc
+
+/** A fall-through cascade past the last step is a wrap-around: the leading statements re-execute
+  * before the first step's `onEntry`, while the skipped step's own body does not run at all.
+  */
+class PrologueFallThroughProc extends RTDesign:
+  val x = Bit <> IN
+  val y = UInt(8) <> OUT.REG init 0
+  val z = UInt(8) <> OUT.REG init 0
+  process:
+    y.din := 3
+    def S0: Step =
+      def onEntry =
+        z.din := 7
+      NextStep
+    def S1: Step =
+      y.din := y + 1
+      NextStep
+    def S2: Step =
+      def fallThrough = x
+      z.din := z + 1
+      NextStep
+end PrologueFallThroughProc
+
+/** A transition's hooks are planted at its goto site, which sits *after* the wrap-around's
+  * re-executed leading statements: `y` ends the wrap cycle holding the `onExit` value, not the
+  * prologue one.
+  */
+class ExitOrderProc extends RTDesign:
+  val y = UInt(8) <> OUT.REG init 0
+  val z = UInt(8) <> OUT.REG init 0
+  process:
+    y.din := 3
+    def S0: Step =
+      z.din := z + 1
+      NextStep
+    def S1: Step =
+      def onExit =
+        y.din := 9
+      NextStep

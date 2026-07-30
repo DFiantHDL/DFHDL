@@ -82,11 +82,16 @@ FlattenStepBlocks + FirstStepFusion → DropRTProcess`.
 - **Fusion fallback** (`computeFallbacks`/`ruleCPass`): a visit-capped walk (`walkSeq`/`walkGoto`/
   `walkLoopEntry`) that detects dispatch cycles that cannot const-fold and keeps a control state for
   them — mirroring `FirstStepFusion`'s victim/restart discipline.
-- **Prologue / bootstrap**: statements before the first construct are the prologue.
-  `foldInitialStatic` folds a constant-convertible prologue into time-zero register state; a
-  non-convertible prologue (or a trailing statement that shares a prologue-assigned register) keeps a
-  one-cycle bootstrap state (`needsBoot`). The *reset-site fold* eliminates the bootstrap when the
-  first construct's dispatch const-folds under the prologue values (zero bootstrap cycles).
+- **Prologue / bootstrap**: the prologue is the statements before the first construct **plus the
+  first step's `onEntry`** (that is the user-facing definition too). `foldInitialStatic` folds a
+  constant-convertible prologue into time-zero register state (leading statements first, then the
+  `onEntry`, and an assigned register's declaration `init` is superseded — "initial wins"); a
+  non-convertible prologue *or* `onEntry` (or a trailing statement that shares a prologue-assigned
+  register) keeps a one-cycle bootstrap state (`needsBoot`), and the wrap-around then returns to that
+  bootstrap. The `onEntry` folds only when its step is the process's **first state** — with a leading
+  wait/loop the lowering keys the generated initial block on that construct instead, so the `onEntry`
+  just fires on its transition edge. The *reset-site fold* eliminates the bootstrap when the first
+  construct's dispatch const-folds under the prologue values (zero bootstrap cycles).
 - **Text output** lowers to *actions* — `(guard node, message segments)` fired per committed cycle
   with the cycle's settled values (register operands read through `snap` MOVs that survive the
   commit).
@@ -95,19 +100,36 @@ FlattenStepBlocks + FirstStepFusion → DropRTProcess`.
 
 Hook blocks are nested `StepBlock`s named `onEntry`/`onExit`/`fallThrough` (predicates
 `sb.isOnEntry`/`isOnExit`/`isFallThrough`; `sb.isRegular` excludes all three). They are **not time
-constructs**, are **skipped by the ordered body walk** (`case sb: StepBlock if !sb.isRegular`), and
-are emitted **only at the transition edges** in `emitGoto`:
+constructs** and are **skipped by the ordered body walk** (`case sb: StepBlock if !sb.isRegular`).
 
-- `stepTransition(cur, tgt, jump)`: on a non-self edge, run `onExit(cur)` then `enterWithHooks`. A
-  self-transition (`ThisStep`, or target == source) fires **no** hooks — the FSM lowering's static
-  `currentStep != nextStep` gate, not a runtime state compare.
-- `enterWithHooks(origin, tgt, jump)`: run `onEntry(tgt)`, `jump()`, then if `tgt` has a
-  `fallThrough`, `emitBranch2(cond, cascade→nextRegular(tgt), stay)` — a same-cycle nested-conditional
-  cascade along declaration order (`nextRegular` wraps last→first), stopping when the cascade reaches
-  the edge origin (circular guard). `state`/register writes are last-write-wins, exactly the FSM
-  lowering's nested `state.din` overwrites.
+**Where they are emitted is the whole game.** The lowering plants a goto's hooks *at the goto site* —
+which, after `FlattenStepBlocks` relocates the inter-step trailing statements and clones the prologue
+before the wrap-around goto, sits at the **very end** of the state's body. So DFacsimile emits them
+at the transition's **landing**, not where the walk into it starts:
+
+- `curStateStep` / `curSite` (set per site program) are the lowering's `currentStepBlock`; a step
+  site's owner is recorded in `stepOfSite`.
+- `landOn(site)` emits `onExit(curStateStep)` **once per execution path** (`exitEmitted`, saved and
+  restored by `emitBranch2`/`emitDispatchChain`), and only for a non-self landing. Every jump goes
+  through `jumpTo(site) = landOn(site); jump(site)`.
+- `enterState(sb, site, cascaded)` is the step landing: `landOn`, `onEntry(sb)`, `jump`, then the
+  `fallThrough` cascade. A self-transition (`ThisStep`, or target == source) fires **no** hooks — the
+  lowering's static `currentStep != nextStep` gate, not a runtime state compare.
+- Because the hooks live in `enterState`, a **sequential** entry (a nested step reached by falling
+  into it from its parent's body, no explicit goto) fires the parent's `onExit` and the child's
+  `onEntry` — which is exactly what the flattened form does, since flattening turns that into a goto.
+- `cascadeFrom(sb)`: the zero-cycle advance emits **only** the next state's `onEntry` + state write
+  (the skipped state's own body and trailing statements never run), re-executing the prologue when it
+  passes the last state. It stops **after** re-entering the step the transition left (the lowering's
+  `if (nextStepBlock != currentStepBlock)` sits *inside* `handleNextStep`, after that step's `onEntry`
+  and `state.din`), i.e. one step later than a naive "stop before the origin" reading. `state`/
+  register writes are last-write-wins, exactly the nested `state.din` overwrites.
 - `fallThrough`'s condition is the last `DFVal` in the block body (an `Ident`); `compileGuardFresh`
   it.
+- A hook-carrying step — or one whose dispatch's first time-consuming action is hook-carrying — is
+  **never** a `FirstStepFusion` candidate (`hasNonRegularChild` / the `Blocked` scan). `hookBlocked`
+  mirrors that and forces the step into `fallback`, so it always keeps a state of its own. Without
+  this the hooks would have no edge to land on.
 
 **FALL_THROUGH loops** reuse the same idea at loop entry: `enterLoop` for a FALL_THROUGH park loop
 does `crossBoundary(); emitBranch2(guard, jump(site), emitCont(exitCont))` — a zero-cycle skip to the
@@ -137,6 +159,24 @@ your model matches the hardware. Add DUTs to `RTProcessDesigns.scala`, tests to 
 
 **3. Both tiers, always.** A bug often shows on only one tier (Codegen DCE/observed issues).
 
+**4. The benchmark suite — the wide-coverage regression net.** The benchmarks live in the
+`benchmarks/` submodule (`dfhdl.benchmarks`, *Compile* scope, `runMain` mains — not specs):
+
+```
+benchmarks/runMain dfhdl.benchmarks.benchRun [--verilator]     # all three suites + summary table
+benchmarks/runMain dfhdl.benchmarks.serv.servBench             # or one at a time
+benchmarks/runMain dfhdl.benchmarks.sha_farm.shaFarmBench
+benchmarks/runMain dfhdl.benchmarks.protocol_engine.protocolEngineBench
+```
+
+Each prints throughput **and an architectural state line** — that line is the point. `serv/*`
+(bit-serial RISC-V, ~10M cycles of real instruction execution) and `proto` (step defs, if/match
+dispatch, dynamic-bound while, dyn-gap waits, a second process, ~102M cycles) exercise far more
+RT-process lowering than any unit DUT, and `sha/*` covers the wide datapath. A hook/fusion/prologue
+change that survives unit lockstep can still be caught here. `--verilator` additionally builds and
+runs the external Verilog model of each top and cross-checks the signatures (much longer; needs the
+Verilator toolchain).
+
 ### Debugging a divergence
 
 - **Direct raw-vs-oracle trace.** Drop a throwaway `SimSpec` that runs the design and its
@@ -152,15 +192,25 @@ your model matches the hardware. Add DUTs to `RTProcessDesigns.scala`, tests to 
   ```
   `stageCreatesUnrefAnons = true` is required because the `for→while` rewrite leaves a dangling
   `DFRange` that `dropUnreferencedAnons` cleans in the full pipeline; a bare `sanityCheck` flags it.
+- **Baseline swap for a before/after signature check.** The benchmarks have no checked-in golden
+  values, so get the baseline by running them against the pre-change file — without touching git
+  state (and without committing, which is the standing rule):
+  ```bash
+  cp <file> "$SCRATCHPAD/mine.scala"                 # save your version
+  git show HEAD:<file> > <file>                      # baseline in place
+  sbt.bat --batch "benchmarks/runMain dfhdl.benchmarks.benchRun"   # capture state lines
+  cp "$SCRATCHPAD/mine.scala" <file>                 # restore, then re-run and diff the lines
+  ```
+  Signatures must be bit-identical; throughput only needs to land in the same band (gotcha 12).
 
 ### Build/run commands
 
-- Prefer `sbtn.bat` (project convention); if it wedges (a known intermittent), use
+- Prefer `sbtn.bat` (project convention); if it wedges (a known intermittent), fall back to
   `/c/Users/OronPort/AppData/Local/Coursier/data/bin/sbt.bat --batch "compiler_stages/testOnly ..."`.
-  Both were used successfully this session; `sbt.bat --batch` is the reliable fallback.
-- Fast inner loop: `compiler_stages/testOnly dfhdl.sim.RTProcessSimSpec` (~7 s). Run the full
+- Fast inner loop: `compiler_stages/testOnly dfhdl.sim.RTProcessSimSpec` (~7 s). Then the full
   `compiler_stages/test` + `lib/test` (clean the sandbox first — `clearSandbox` — for output-affecting
-  stage changes) before declaring done.
+  stage changes). For anything touching RT-process lowering, finish with `benchRun` (~35 s) and
+  compare the state lines against a baseline swap.
 
 ---
 
@@ -177,10 +227,11 @@ your model matches the hardware. Add DUTs to `RTProcessDesigns.scala`, tests to 
    fail on the Codegen tier.
 3. **Trailing statements fuse into a construct's exit.** Statements between a construct and the next
    park attach to that construct's *own* exit state; a **fall-through skip bypasses them** (it goes to
-   the construct's `nextBlocks`, not the sequential continuation). So fall-through / FALL_THROUGH
-   targets should be clean parks — a test DUT that puts a bare assignment right after a FALL_THROUGH
-   loop, or a `fallThrough` step whose target has a leading-payload-then-wait body, will diverge for
-   this reason (not a real bug — restructure the DUT with a park immediately after).
+   the construct's `nextBlocks`, not the sequential continuation). For step `fallThrough` this is
+   modelled directly (`cascadeFrom` walks `parkOrder`, not the continuation); for FALL_THROUGH
+   **loops** the skip still runs `emitCont(exitCont)`, so a test DUT that puts a bare assignment right
+   after a FALL_THROUGH loop will diverge for this reason (not a real bug — put a clean park right
+   after the loop).
 4. **`crossBoundary` forwarding.** A guard on a transition edge must read *post-`.din`* register
    values — call `crossBoundary()` before compiling it (`compileGuardFresh`/`loopGuardNode`).
 5. **Park classification is by content, not name.** A step is a park iff pure-dispatch; a nested
@@ -191,6 +242,26 @@ your model matches the hardware. Add DUTs to `RTProcessDesigns.scala`, tests to 
    character '*'`); just run the whole spec (it's fast) or use `.*Foo.*`.
 8. **Phantom `lib/test` failures** after output-affecting stage changes = stale `sandbox/`
    (FullCompileSpec doesn't clean it). `clearSandbox` and re-run before believing a regression.
+9. **Where a hook is emitted is not where the walk enters the transition.** The lowering's goto sits
+   at the end of the flattened state body, i.e. after the relocated trailing statements and the
+   wrap-around prologue clone. Emitting `onExit` eagerly at the goto reverses it against the prologue
+   (`y.din := 3` then `y.din := 9`, not the other way round) — emit at the landing instead. The same
+   applies to the target's `onEntry`: at the wrap-around it must come *after* the re-executed
+   prologue.
+10. **A test DUT can silently miss the path you meant to test.** A `fallThrough` ring whose first
+    step's `onEntry` is non-constant gets a bootstrap state, which changes the cascade's origin and
+    hides a circular-guard bug. Validate each new lockstep test by *temporarily breaking* the
+    implementation it targets and confirming it fails (cheap, and it caught two dead tests here).
+11. **Inspect the lowering before modelling it.** A four-shape throwaway `StageSpec` with
+    `assertCodeString(..., "SHOW-ME")` answered every question about the prologue/`onEntry`/bootstrap
+    interaction in one run — far faster than reading `DropRTWaits` + `FlattenStepBlocks` +
+    `DropRTProcess` + `FirstStepFusion` and guessing how they compose.
+12. **Do not read a benchmark Mcps dip as a regression.** In-sbt runs sit a few percent under a clean
+    forked run and swing several percent between runs (e.g. `sha/n=32` 3.36 vs 3.45 across two runs of
+    the *same* code). The recorded best-case numbers in the plan come from a **forked JDK 25 run with
+    `--add-modules jdk.incubator.vector`**; the repo's `.jvmopts` supplies that module to sbtn-started
+    servers, and without it the vectorized commit silently falls back to scalar (`n=64` ≈ 1.33 instead
+    of ≈ 1.65). Compare *signatures* for correctness; only compare throughput like-for-like.
 
 ---
 
