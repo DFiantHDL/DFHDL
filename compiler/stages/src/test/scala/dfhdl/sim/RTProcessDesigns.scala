@@ -331,3 +331,81 @@ class DebugProc extends RTDesign:
     2.cy.wait
     debug(a)
     a.din := a + 1
+
+/** A `FALL_THROUGH` while loop with a park body (no wait): when `go` is false on entry the loop is
+  * skipped with zero cycles (the fall-through cascade to the following wait); while `go` holds,
+  * each cycle counts one iteration. A wait follows the loop so the fall-through target is a clean
+  * park.
+  */
+class FallThroughWhileProc extends RTDesign:
+  val go = Bit <> IN
+  val cnt = UInt(8) <> OUT.REG init 0
+  val tick = Bit <> OUT.REG init 0
+  process:
+    1.cy.wait
+    FALL_THROUGH:
+      while (go)
+        cnt.din := cnt + 1
+    1.cy.wait
+    tick.din := !tick
+
+/** A step FSM with `onEntry` and `onExit` hooks (the user-guide example): `onEntry` runs on
+  * entering a step from a different step, `onExit` on leaving it; neither fires on a
+  * self-transition.
+  */
+class HookFSMProc extends RTDesign:
+  val x = Bit <> IN
+  val y = Bit <> OUT.REG init 0
+  process:
+    def S0: Step =
+      y.din := 0
+      if (x) S1 else S0
+    def S1: Step =
+      def onEntry =
+        y.din := 1
+      if (x) S2 else S0
+    def S2: Step =
+      def onExit =
+        y.din := 0
+      if (x) ThisStep else S0
+end HookFSMProc
+
+/** A step FSM with `fallThrough` hooks: when a step's fall-through condition holds on entry the FSM
+  * advances to the next step in the same cycle (a conditional zero-cycle chain), running each
+  * traversed step's `onEntry`.
+  */
+class FallThroughStepProc extends RTDesign:
+  val x = Bit <> IN
+  val y = UInt(8) <> OUT.REG init 0
+  process:
+    def S0: Step =
+      y.din := 1
+      NextStep
+    def S1: Step =
+      def onEntry =
+        y.din := y + 1
+      def fallThrough = x
+      NextStep
+    def S2: Step =
+      def onEntry =
+        y.din := y + 2
+      def fallThrough = !x
+      NextStep
+    def S3: Step =
+      y.din := y + 4
+      FirstStep
+end FallThroughStepProc
+
+/** A `FALL_THROUGH` while loop with an empty body: exercises the empty-body branch of the loop
+  * lowering. `go` false on entry falls through with zero cycles to the following wait; `go` true
+  * parks one cycle per sample until it drops (a `waitUntil(!go)` with a zero-cycle skip).
+  */
+class FallThroughEmptyWhileProc extends RTDesign:
+  val go = Bit <> IN
+  val tick = Bit <> OUT.REG init 0
+  process:
+    1.cy.wait
+    FALL_THROUGH:
+      while (go) {}
+    1.cy.wait
+    tick.din := !tick

@@ -530,4 +530,60 @@ class RTProcessSimSpec extends SimSpec:
 
   bothTiers("oracle: failing assertions report on identical cycles"): tier =>
     lockstep(new CountAssertProc(), tier, 12, watch = List(_.cnt))
+
+  bothTiers("oracle: FALL_THROUGH while park loop, zero-cycle skip vs iteration"): tier =>
+    lockstep(
+      new FallThroughWhileProc,
+      tier,
+      40,
+      watch = List(_.cnt, _.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.go.poke(0)
+          else if t == 5 then dut.go.poke(1)
+          else if t == 9 then dut.go.poke(0)
+          else if t == 20 then dut.go.poke(1)
+          else if t == 23 then dut.go.poke(0)
+    )
+
+  bothTiers("oracle: FALL_THROUGH empty-body while loop"): tier =>
+    lockstep(
+      new FallThroughEmptyWhileProc,
+      tier,
+      30,
+      watch = List(_.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.go.poke(0)
+          else if t == 5 then dut.go.poke(1)
+          else if t == 8 then dut.go.poke(0)
+    )
+
+  bothTiers("oracle: onEntry/onExit hooks fire on non-self step transitions only"): tier =>
+    lockstep(
+      new HookFSMProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 3 then dut.x.poke(1)
+          else if t == 8 then dut.x.poke(0)
+          else if t == 12 then dut.x.poke(1)
+          else if t == 16 then dut.x.poke(0)
+    )
+
+  bothTiers("oracle: fallThrough steps advance in the same cycle"): tier =>
+    lockstep(
+      new FallThroughStepProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 5 then dut.x.poke(1)
+          else if t == 12 then dut.x.poke(0)
+    )
 end RTProcessSimSpec
