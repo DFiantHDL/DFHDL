@@ -115,6 +115,7 @@ CI installs these via OSS CAD Suite:
 
 - When asked to **create a new compiler stage** or **modify an existing compiler stage**, always invoke the `/new-stage` skill before doing any work.
 - When working on **compile time performance**, invoke the `/compile-perf` skill to review the methodology, known bottlenecks, and what has already been tried.
+- When working on the **DFacsimile native simulator** (`compiler/stages/src/main/scala/dfhdl/sim/`), invoke the `/dfacsimile` skill for the architecture, the fidelity contract, the lockstep testing methodology, and the banked gotchas.
 
 ## Licenses
 
