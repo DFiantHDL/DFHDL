@@ -294,7 +294,8 @@ case object SimplifyRTOps extends HierarchyStage:
             case (DFRange.Op.To, s) if s >= 0    => newIterDcl <= endVal
             case (DFRange.Op.Until, _)           => newIterDcl > endVal
             case (DFRange.Op.To, _)              => newIterDcl >= endVal
-          val whileBlock = dfhdl.core.DFWhile.Block(guard)(using dfc.setMeta(forBlock.meta))
+          val whileBlock =
+            dfhdl.core.DFWhile.Block(guard)(using dfc.setMeta(forBlock.meta).setTags(forBlock.tags))
           dfc.enterOwner(whileBlock)
           // An empty for-loop body still requires the iterator increment inside the while loop,
           // and with no last body member to anchor an After patch on (see M2 below), the

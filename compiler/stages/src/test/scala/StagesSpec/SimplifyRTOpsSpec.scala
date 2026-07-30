@@ -200,6 +200,34 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("RT FALL_THROUGH for loop is converted to a FALL_THROUGH while loop") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      process:
+        x.din := 1
+        FALL_THROUGH:
+          for (i <- 0 until 4)
+            x.din := 0
+        x.din := 1
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  process:
+         |    x.din := 1
+         |    val i = Int <> VAR.REG
+         |    i.din := 0
+         |    FALL_THROUGH:
+         |      while (i < 4)
+         |        x.din := 0
+         |        i.din := i + 1
+         |      end while
+         |    x.din := 1
+         |end Foo""".stripMargin
+    )
+  }
   test("RT for loop with to is converted to while loop with <= guard") {
     class Foo extends RTDesign:
       val x = Bit <> OUT.REG

@@ -334,6 +334,16 @@ case object DropRTWaits extends HierarchyStage:
                   val step = StepBlock.forced(using dfc.setName(stepName))
                   dfc.enterOwner(step)
                   val wbGuard = wb.guardRef.get
+                  // a FALL_THROUGH marker gets the same `fallThrough` sub-step (= !guard) as the
+                  // non-empty branch below, so an empty-bodied FALL_THROUGH loop still skips with
+                  // zero cycles when its guard is false on entry
+                  if (wb.isFallThrough)
+                    val fallThrough = StepBlock.forced(using dfc.setName("fallThrough"))
+                    dfc.enterOwner(fallThrough)
+                    val clonedCond = !wbGuard.cloneAnonValueAndDepsHere.asValOf[DFBool]
+                    dfhdl.core.DFVal.Alias.AsIs.ident(clonedCond)(using dfc.anonymize)
+                    dfc.exitOwner()
+                  end if
                   val cond = wbGuard.asValOf[DFBool]
                   val ifBlock = DFIf.Block(Some(cond), DFIf.Header(DFUnit))
                   // Stay inside `step` while building the if/else structure so that both

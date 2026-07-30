@@ -334,6 +334,33 @@ class DropRTWaitsSpec extends StageSpec():
          |end Foo""".stripMargin
     )
   }
+  test("empty-body while loop with fall-through") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      val go = Bit <> IN
+      process:
+        FALL_THROUGH:
+          while (!go) {}
+        x.din := !x
+    end Foo
+    val top = (new Foo).dropRTWaits
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  val go = Bit <> IN
+         |  process:
+         |    def S_0: Step =
+         |      def fallThrough: Boolean <> VAL =
+         |        !(!go)
+         |      end fallThrough
+         |      if (!go) ThisStep
+         |      else NextStep
+         |    end S_0
+         |    x.din := !x
+         |end Foo""".stripMargin
+    )
+  }
   test("basic while loops with nested while loops") {
     class Foo extends RTDesign:
       val x = Bit <> OUT.REG
