@@ -10,20 +10,24 @@ class FullAdder1 extends EDDesign:
   c_out <> a && b || b && c_in || c_in && a
 
 class FullAdderN(val n: Int = 4) extends EDDesign:
-  val a, b  = Bits(n) <> IN
-  val c_in  = Bit     <> IN
-  val sum   = Bits(n) <> OUT
-  val c_out = Bit     <> OUT
+  val a, b        = Bits(n) <> IN
+  val c_in        = Bit     <> IN
+  val sum         = Bits(n) <> OUT
+  val c_out       = Bit     <> OUT
+  val adder_c_in  = Bits(n) <> VAR
+  val adder_c_out = Bits(n) <> VAR
 
-  val adder = List.fill(n)(FullAdder1())
+  adder_c_in(0) <> c_in
   for (i <- 0 until n)
-    adder(i).a   <> a(i)
-    adder(i).b   <> b(i)
-    adder(i).sum <> sum(i)
+    val adder = new FullAdder1()
+    adder.a     <> a(i)
+    adder.b     <> b(i)
+    adder.sum   <> sum(i)
+    adder.c_in  <> adder_c_in(i)
+    adder.c_out <> adder_c_out(i)
     if (i < n - 1)
-      adder(i).c_out <> adder(i + 1).c_in
-  adder.head.c_in  <> c_in
-  adder.last.c_out <> c_out
+      adder_c_in(i + 1) <> adder_c_out(i)
+  c_out <> adder_c_out(n - 1)
 end FullAdderN
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

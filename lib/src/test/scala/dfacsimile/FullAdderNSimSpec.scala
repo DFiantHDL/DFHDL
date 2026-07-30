@@ -4,10 +4,13 @@ import dfhdl.sim.*
 import docExamples.fullAdderN.FullAdderN
 
 /** DFacsimile verification of the FullAdderN docExample through the typed simulation API: a real
-  * hierarchical design with four deduplicated FullAdder1 instances (shared sub-DB, per-instance
-  * state), PortByNameSelect connections, a sibling carry chain, and per-bit partial connections
-  * into the sum output. Verified exhaustively (n=4: all 512 input combinations) against a
-  * carry-preserving addition reference in DFHDL constant arithmetic.
+  * hierarchical design with four deduplicated FullAdder1 instances (a shared sub-DB),
+  * PortByNameSelect connections, a sibling carry chain, and per-bit partial connections into the
+  * sum output. The carry-chain wires are read by connections that appear before their drivers, so
+  * this also exercises order-free connection resolution (see [[OrderFreeConnectSimSpec]] in the
+  * stages tests for the isolated cases). Verified exhaustively (n=4: all 512 input combinations)
+  * against a carry-preserving addition reference in DFHDL constant arithmetic. Only the public
+  * ports are driven and observed.
   */
 class FullAdderNSimSpec extends SimSpec:
   bothTiers("FullAdderN(4) exhaustive"): tier =>
@@ -28,10 +31,5 @@ class FullAdderNSimSpec extends SimSpec:
         val total = (if cin == 1 then base + 1 else base).bits
         assertEquals(dut.sum.peek, total(3, 0), s"sum (a=$a b=$b cin=$cin)")
         assertEquals(dut.c_out.peek, total(4), s"c_out (a=$a b=$b cin=$cin)")
-        // internal carry chain through the typed hierarchy: all four instances share the
-        // val name `adder`; the member bridge disambiguates them by sibling rank
-        val lowBase = aC.bits(2, 0).uint +^ bC.bits(2, 0).uint
-        val low3 = (if cin == 1 then lowBase + 1 else lowBase).bits
-        assertEquals(dut.adder(3).c_in.peek, low3(3), s"carry (a=$a b=$b)")
     }.withTier(tier).run()
 end FullAdderNSimSpec

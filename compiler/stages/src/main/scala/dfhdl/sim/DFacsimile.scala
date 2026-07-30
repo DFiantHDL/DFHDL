@@ -507,6 +507,19 @@ private final class Builder(rawDB: DB):
     private val childScopes = mutable.Map.empty[DFDesignInst, Scope]
     // net sink values (raw, pre-dealias) — skipped as reads during the walk
     private val netSinkOf = mutable.Map.empty[DFNet, DFVal]
+    // base declarations that are sinks of a concurrent connection (whole or partial): reading one
+    // before its driving net is legal (connections are continuous, so order-free)
+    private val connSinks = mutable.Set.empty[DFVal.Dcl]
+    // the subset driven bit/range-wise (its drivers are partial views): reads must stay bit-granular
+    // (a single whole placeholder would coalesce independent bits into one node, turning a rippled
+    // carry chain into a false combinational cycle)
+    private val partialConnSinks = mutable.Set.empty[DFVal.Dcl]
+    // whole-value MOV placeholder for a whole-driven connection sink read before its driving net;
+    // patched to the resolved value at scope finalize so the earlier reads observe the right dataflow
+    private val sinkMov = mutable.Map.empty[DFVal.Dcl, WV]
+    // per-bit MOV placeholders for a partially-driven connection sink read before its drivers; each
+    // is patched from the individual partial driver covering that bit, keeping bit dependencies apart
+    private val bitMov = mutable.Map.empty[DFVal.Dcl, mutable.Map[Int, WV]]
     // nonzero while walking conditional-branch members (position-sensitive constructs care)
     private var condDepth = 0
     // the walk's path condition as (1-bit node, negated?) frames whose conjunction gates
@@ -595,6 +608,11 @@ private final class Builder(rawDB: DB):
 
     def elaborate(): Unit =
       // pre-pass: net sink direction (connections are continuous — order-free via MOV patching)
+      // the base local declaration a sink aliases into (None for a child port select — patched there)
+      def baseSinkDcl(v: DFVal): Option[DFVal.Dcl] = v match
+        case dcl: DFVal.Dcl => Some(dcl)
+        case a: DFVal.Alias => baseSinkDcl(a.relValRef.get)
+        case _              => None
       designMembers.foreach {
         case net: DFNet =>
           net.op match
@@ -602,7 +620,13 @@ private final class Builder(rawDB: DB):
             case DFNet.Op.Connection | DFNet.Op.ViaConnection =>
               net match
                 case DFNet.Connection(_, _, swapped) =>
-                  netSinkOf(net) = if swapped then net.rhsRef.get else net.lhsRef.get
+                  val sink = if swapped then net.rhsRef.get else net.lhsRef.get
+                  netSinkOf(net) = sink
+                  baseSinkDcl(sink).foreach { dcl =>
+                    connSinks += dcl
+                    // a sink reached through an alias is driven bit/range-wise (partial)
+                    if !sink.isInstanceOf[DFVal.Dcl] then partialConnSinks += dcl
+                  }
                 case _ => ()
             case _ => ()
         case _ => ()
@@ -789,6 +813,35 @@ private final class Builder(rawDB: DB):
 
     // ---- reads ----------------------------------------------------------------------------
 
+    /** Bits `[lo, lo+w)` of a concurrent connection sink read before its driving net was walked.
+      * Connections are continuous (order-free), so this stands the value in with MOV placeholder(s)
+      * patched to the resolved dataflow at scope finalize. A whole-driven sink gets one whole-value
+      * placeholder (sliced to the range); a partially-driven sink gets independent per-bit
+      * placeholders, so a rippled carry chain (bit `i` driven from bit `i-1` through a sibling)
+      * stays bit-acyclic instead of collapsing into one node and reading as a false combinational
+      * cycle. `None` when `dcl` is not a connection sink.
+      */
+    private def forwardSinkRead(dcl: DFVal.Dcl, lo: Int, w: Int): Option[WV] =
+      if !connSinks.contains(dcl) then None
+      else if partialConnSinks.contains(dcl) then Some(partialSinkRead(dcl, lo, w))
+      else
+        val whole = sinkMov.getOrElseUpdate(dcl, wide.mov(widthOf(dcl)))
+        Some(if lo == 0 && w == whole.width then whole else wide.extract(whole, lo, w))
+
+    private def partialSinkRead(dcl: DFVal.Dcl, lo: Int, w: Int): WV =
+      val bits = bitMov.getOrElseUpdate(dcl, mutable.Map.empty)
+      if w == 1 then bits.getOrElseUpdate(lo, wide.mov(1))
+      else wide.assemble((0 until w).map(k => bits.getOrElseUpdate(lo + k, wide.mov(1)) -> k), w)
+
+    /** A partially-driven connection sink whose value is not yet composed (read before finalize):
+      * its bit views must resolve through the per-bit placeholders, not through a coalescing
+      * extract.
+      */
+    private def undrivenPartialSink(dcl: DFVal): Boolean = dcl match
+      case d: DFVal.Dcl => partialConnSinks.contains(d) && !env.contains(d) &&
+        !regNodeOf.contains(d)
+      case _ => false
+
     private def readWV(v: DFVal): WV = v match
       case dcl: DFVal.Dcl =>
         val t = transCtx
@@ -806,6 +859,7 @@ private final class Builder(rawDB: DB):
           unsupported("a wire read across a process transition boundary", dcl)
         else
           regNodeOf.get(dcl).orElse(env.get(dcl)).orElse(inPortMov.get(dcl))
+            .orElse(forwardSinkRead(dcl, 0, widthOf(dcl)))
             .getOrElse(unsupported("reading a value before it is driven", dcl))
         end if
       case v =>
@@ -1072,6 +1126,8 @@ private final class Builder(rawDB: DB):
                 wide.dynExtract(relWV, off, cellW)
         case _: DFBits =>
           constIdxOpt(a.relIdx.get) match
+            case Some(i) if undrivenPartialSink(rel) =>
+              partialSinkRead(rel.asInstanceOf[DFVal.Dcl], i, 1)
             case Some(i) => wide.extract(readWV(rel), i, 1)
             case None    => wide.dynExtract(readWV(rel), dynBitOffset(a.relIdx.get), 1)
         case t => unsupported(s"indexing into $t", a)
@@ -1083,6 +1139,8 @@ private final class Builder(rawDB: DB):
       val hi = a.idxHighRef.getIntOpt.getOrElse(unsupported("non-constant range", a))
       val lo = a.idxLowRef.getIntOpt.getOrElse(unsupported("non-constant range", a))
       rel.dfType match
+        case _: DFBits if undrivenPartialSink(rel) =>
+          partialSinkRead(rel.asInstanceOf[DFVal.Dcl], lo, hi - lo + 1)
         case _: DFBits => wide.extract(readWV(rel), lo, hi - lo + 1)
         case t         => unsupported(s"range selection on $t", a)
 
@@ -2562,6 +2620,20 @@ private final class Builder(rawDB: DB):
           expectedLo = hi + 1
         if expectedLo != w then unsupported("partial drivers not covering the full value", dcl)
         env(dcl) = wide.assemble(sorted.toSeq.map((_, lo, wv) => wv -> lo), w)
+        // patch this sink's forward-read per-bit placeholders from the driver covering each bit
+        // (bit-granular, so independent bits never coalesce into a false combinational cycle)
+        bitMov.get(dcl).foreach { bits =>
+          for (hi, lo, srcWV) <- sorted; k <- 0 to (hi - lo) do
+            bits.get(lo + k).foreach(mov => wide.patchMov(mov, wide.extract(srcWV, k, 1)))
+        }
+      end for
+      // patch forward-read whole-driven connection sinks (read before their driving net was walked):
+      // the MOV placeholder now forwards the resolved value, so the earlier reads see the right data
+      for (dcl, movWV) <- sinkMov do
+        wide.patchMov(
+          movWV,
+          env.getOrElse(dcl, unsupported("a connection sink was never driven", dcl))
+        )
       // registers commit their pending value; unassigned registers (incl. top IN hold cells) hold
       for (dcl, regWV) <- regNodeOf do wide.setNext(regWV, env.getOrElse(dcl, regWV))
       // names for peek/poke: ports and registered declarations only — registering a named comb
