@@ -1720,7 +1720,7 @@ Values are concatenated from the first (most-significant) to the last (least-sig
 
 ### Logical Operations {#logical-ops}
 
-Applies to: `Bit`, `Boolean`
+Applies to: `Bit`, `Boolean`. The bitwise NOT (`~`) additionally applies to `Bits` and `UInt` vectors.
 
 Logical operations' return type always matches the LHS argument's type.
 These operations propagate constant modifiers, meaning that if all arguments are constant, the returned value is also a constant.
@@ -1735,6 +1735,7 @@ These operations propagate constant modifiers, meaning that if all arguments are
 | `lhs ^ rhs`  | Logical XOR | The LHS argument must be a `Bit`/`Boolean` DFHDL value. The RHS must be a `Bit`/`Boolean` candidate. | LHS-Type DFHDL value |
 | `!lhs` | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
 | `~lhs` | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
+| `~lhs` | Bitwise NOT (invert all bits) | The argument must be a `Bits`/`UInt` DFHDL value. | LHS-Type DFHDL value |
 ///
 
 ```scala
@@ -1750,6 +1751,13 @@ val t6 = bl ^ 0 || !bt
 //conversions, looks like so:
 //(bl && bt.bool) ^ (!(bt || bl.bit)).bool
 val t7 = (bl && bt) ^ !(bt || bl)
+//bitwise NOT on `Bits`/`UInt` vectors
+//inverts all bits and preserves the
+//argument's type
+val v8 = Bits(8) <> VAR
+val u8 = UInt(8) <> VAR
+val t8 = ~v8         //result type: Bits[8]
+val t9 = ~u8         //result type: UInt[8]
 //error: swap argument positions to have
 //the DFHDL value on the LHS.
 val e1 = 0 ^ bt      
@@ -1783,6 +1791,8 @@ Under the ED domain, the following operations are equivalent:
 | `lhs ^ rhs`     | `lhs ^ rhs`                 | `lhs ^ rhs`                     |
 | `!lhs`          | `~lhs`                      | `!lhs`                          |
 | `~lhs`          | `~lhs`                      | `!lhs`                          |
+
+For `Bits`/`UInt` vector values, `~lhs` maps directly to Verilog's bitwise NOT `~lhs`.
 ///
 
 /// details | Transitioning from VHDL
@@ -1795,6 +1805,8 @@ Under the ED domain, the following operations are equivalent:
 | `lhs || rhs`    | `lhs or rhs`      |
 | `lhs ^ rhs`     | `lhs xor rhs`     |
 | `!lhs`          | `not lhs`         |
+
+For `Bits`/`UInt` vector values, `~lhs` maps to VHDL's `not lhs`.
 ///
 
 ### Bit Reduction Operations (`.&`, `.|`, `.^`) {#reduction-ops}
@@ -1902,6 +1914,7 @@ Applies to: `UInt`, `SInt`, `Bits` (via implicit conversion to `UInt`), `Int`, `
 | `lhs % rhs`  | Modulo         | Same type as LHS                    |
 | `lhs max rhs` | Maximum       | Commutative: widest, most signed    |
 | `lhs min rhs` | Minimum       | Commutative: widest, most signed    |
+| `-lhs`       | Unary negation | Always signed: see [the negation rules below](#unary-negation) |
 ///
 
 #### Bit-Accurate Type Constraints (`UInt`, `SInt`)
@@ -1937,6 +1950,36 @@ The result is signed if either operand is signed. When mixing signed and unsigne
 ///
 
 **Width rule**: the LHS width must be greater than or equal to the (effective) RHS width. When applying `SInt op UInt`, the effective RHS width is `RHS width + 1` because the unsigned value gains an implicit sign bit.
+
+#### Unary Negation (`-`) {#unary-negation}
+
+Unary negation applies to all the decimal types (`UInt`, `SInt`, `Int`, and `Double`) and to `Bits`. The result is always signed. `SInt`, `Int`, and `Double` arguments preserve their type and width. `UInt[W]` and `Bits[W]` arguments are implicitly converted to `SInt[W + 1]` before the negation is applied, so the result preserves the exact negated value (e.g., negating `d"8'255"` yields `sd"9'-255"`).
+
+/// html | div.operations
+| Argument Type | Implicit Conversion | Result Type |
+| ------------- | ------------------- | ----------- |
+| `SInt[W]`     | (none)              | `SInt[W]`   |
+| `UInt[W]`     | `.signed` to `SInt[W + 1]` | `SInt[W + 1]` |
+| `Bits[W]`     | `.uint.signed` to `SInt[W + 1]` | `SInt[W + 1]` |
+| `Int`         | (none)              | `Int`       |
+| `Double`      | (none)              | `Double`    |
+///
+
+```scala
+val u8 = UInt(8) <> VAR
+val s8 = SInt(8) <> VAR
+val b8 = Bits(8) <> VAR
+val n1 = -s8    // SInt[8]: same type as the argument
+val n2 = -u8    // SInt[9]: equivalent to -u8.signed
+val n3 = -b8    // SInt[9]: equivalent to -b8.uint.signed
+
+val s9 = SInt(9) <> VAR
+s9 := -u8       // ok: exact fit
+s9 := -b8       // ok: exact fit
+// error: The applied RHS value width (9) is larger than
+// the LHS variable width (8).
+s8 := -u8
+```
 
 ### Wildcard `Int` Values {#wildcard-ops}
 

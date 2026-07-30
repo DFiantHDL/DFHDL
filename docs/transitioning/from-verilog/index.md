@@ -650,6 +650,47 @@ o3 <> a.bool || b || c
 See [Logical Operations][logical-ops] for the full reference and Verilog/VHDL mapping tables.
 ///
 
+/// admonition | Bitwise NOT and Unary Negation (`~x`, `-x`)
+    type: verilog
+DFHDL's `~` is Verilog's bitwise NOT: it applies to `Bits` and `UInt` vector values and returns the same type as its argument.
+
+Unary negation `-x` differs from Verilog. In Verilog, `-x` is evaluated at the context-determined width, so assigning it to a same-width signal wraps modulo `2**W` (two's complement). In DFHDL, `-x` on a `UInt[W]` or `Bits[W]` value implicitly converts the value to `SInt[W + 1]` and returns `SInt[W + 1]`, preserving the exact negated value; `SInt` values keep their type and width. To reproduce Verilog's same-width wrap-around negation, reinterpret the value as signed (same width), negate, and reinterpret back: `(-x.sint).bits` for a `Bits` value, or `(-x.bits.sint).bits.uint` for a `UInt` value.
+
+<div class="grid" markdown>
+
+```sv linenums="0" title="Verilog"
+module Negate(
+  input  wire logic [7:0]        x,
+  output      logic [7:0]        inv,
+  output      logic [7:0]        neg,
+  output      logic signed [8:0] negw
+);
+  assign inv  = ~x;  // bitwise NOT
+  assign neg  = -x;  // wraps modulo 2**8
+  assign negw = -x;  // widened by context
+endmodule
+```
+
+```scala linenums="0" title="DFHDL"
+class Negate extends EDDesign:
+  val x    = Bits(8) <> IN
+  val inv  = Bits(8) <> OUT
+  val neg  = Bits(8) <> OUT
+  val negw = SInt(9) <> OUT
+
+  inv  <> ~x              // bitwise NOT, Bits[8]
+  neg  <> (-x.sint).bits  // same-width wrap-around
+  negw <> -x              // SInt[9]: exact negated value
+end Negate
+```
+
+</div>
+
+This wrap-around conversion may appear cumbersome, and that is intentional: it hints at a code smell. It usually means one of two things: either the base type was chosen badly (a value that is conceptually a signed number should be declared as `SInt`, where `-x` preserves the type directly), or the importance of the preserved sign bit in the widened `SInt[W + 1]` result is not understood (discarding it silently corrupts the value; e.g., same-width negation of `d"8'128"` yields 128 again, not -128).
+
+See [Logical Operations][logical-ops] for the bitwise NOT and [Arithmetic Operations][arithmetic-ops] for the unary negation type rules.
+///
+
 /// admonition | Reduction Operators (`&v`, `|v`, `^v`)
     type: verilog
 Verilog's unary reduction operators have direct DFHDL equivalents using postfix `.&`, `.|`, `.^` on `Bits` values:

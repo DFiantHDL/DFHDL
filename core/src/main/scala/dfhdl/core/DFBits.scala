@@ -815,6 +815,11 @@ object DFBits:
         def sint(using DFCG): DFValTP[DFSInt[W], P] = trydf {
           DFVal.Alias.AsIs(DFSInt(lhs.widthIntParam), lhs)
         }
+        @targetName("negateDFBits")
+        def unary_-(using DFCG): DFValTP[DFSInt[IntP.+[W, 1]], P] = trydf {
+          import DFUInt.Val.Ops.unary_- as negate
+          lhs.uint.negate
+        }
         def msbit(using DFCG): DFVal[DFBit, Modifier[A, C, Any, P]] =
           import DFVal.Ops.apply as applyBits
           lhs.applyBits((lhs.widthIntParam - 1).toDFConst).asVal[DFBit, Modifier[A, C, Any, P]]
