@@ -320,6 +320,36 @@ is genuinely unmergeable, or when a later patch's *computation* must observe the
 patched DB (e.g. anchoring a MetaDesign on a member that only exists after the first phase —
 though often the merge rules let you anchor on the original member instead).
 
+### Recipe: replace a member AND relocate it, in one patch
+
+Naming (or otherwise rewriting) a member while also moving it looks unmergeable, because
+`Patch.Move` emits a `Patch.Remove` per moved member and `Replace + Remove` is not in the merge
+table. The naive reading is that you need two phases. You do not, and the merge could not be added
+anyway: `patchMembers` inserts the Move's member instances **verbatim** (it never re-resolves them
+through the patch table), so merging `Replace(r, FullReplacement) + Remove` would relocate the *old*
+instance and drop `r` entirely.
+
+Use `ChangeRefAndRemove` and put the **replacement** in the move list:
+
+```scala
+List(
+  // drops the original from its old position and redirects every reader to `newMember`
+  origMember -> Patch.Replace(newMember, Patch.Replace.Config.ChangeRefAndRemove),
+  // inserts the *new* instance at the anchor
+  anchor -> Patch.Move(movedMembers, origMember.getOwner, Patch.Move.Config.Before)
+)
+// where movedMembers is the relocation list with origMember swapped for newMember
+```
+
+Why it works: `ChangeRefAndRemove` is rewritten to `(origMember, Patch.Remove())` for the member
+list while still redirecting refs, and the `Remove` the Move emits is keyed on `newMember`, which
+is not in the walked member list and is therefore inert. The two patches never share a key. The
+Move's ownership fixup still finds the right owner because `setName`-style copies share the
+original's ref objects.
+
+`NamedAliases` uses exactly this to name a value and lift it out of a conditional expression branch
+atomically, which it must, since `SanityCheck` would reject the intermediate DB.
+
 ### `Patch.Add` via `MetaDesign`
 Use `MetaDesign` when you need to construct new IR members using the DFHDL frontend DSL:
 
@@ -1021,28 +1051,9 @@ after every non-`NoCheckStage`, and prints the code string after any stage that 
 
 ### Localizing *illegal generated HDL* (nothing throws)
 
-The harder case is a run that succeeds end-to-end and emits HDL the downstream tool rejects
-(`syntax error, unexpected TOK_ASSIGN`). No `SanityCheck` fires, because the DB is structurally
-fine — the shape is merely unrepresentable in the target language. The trace still localizes it:
-read the code-string dumps forward and find the **first printout in which the offending construct
-appears**, then attribute it to the stage that ran just before that dump. From there, ask which
-stage *introduced* the shape, not which one printed it.
-
-The stage that produces the visibly-wrong output is usually innocent. In issue #426 the backend
-faithfully printed `assign` inside an `always_comb`; the connection had been planted by
-`ExplicitNamedVars` several stages earlier, and the *named value* it wrapped had been created two
-stages before that by `NamedVerilogSelection`. Walk the dumps backward through each of those
-handoffs and ask at every one: **is this IR shape legal, or merely tolerated by everything
-downstream?** The earliest stage that produced an illegal shape is the real culprit, and it is
-usually not adjacent to the symptom.
-
-Two habits that pay off here:
-- **Check the other backend.** Re-run with `compile --backend vhdl.v2008` (or `verilog`). If both
-  are wrong in *different* ways, you have two bugs, not one, and the shared IR shape between them
-  is the root cause.
-- **Grep `lib/src/test/resources/ref/` for the construct.** If no reference output contains it (no
-  `.vhd` there has a combinational `process (all)` writing a port, for instance), that code path is
-  untested, which is why the bug survived.
+When a run succeeds end-to-end but emits HDL the downstream tool rejects, no check fires and the
+trace has to be read differently. That diagnosis workflow, along with how to attribute the shape
+to the stage that *introduced* it, lives in [/bugfix](bugfix.md).
 
 ### Harvesting a self-contained reproducer from the trace
 
@@ -1065,35 +1076,17 @@ isolated unit test in one step — write the test, watch it fail with the same e
 
 ---
 
-## Where a Rule Belongs: Elaboration Check vs `SanityCheck`
+## Stage-Facing Invariants Discovered by Bug Fixes
 
-When a bug turns out to be "the IR held a shape that should never have existed", the fix has two
-halves: **state the rule as a check**, then fix the stages that broke it. Put the check in the
-right place, because the two check paths answer different questions:
+Deciding **where a rule belongs** (elaboration `DB.check` vs `SanityCheck`), how to scope it, and
+how to measure its blast radius before fixing stages is bug-fixing methodology and lives in
+[/bugfix](bugfix.md). What follows is only the part a stage author must obey.
 
-| | `DB.check` (elaboration) | `SanityCheck` (stage pipeline) |
-|---|---|---|
-| Runs | once, right after elaboration | after every non-`NoCheckStage`, debug mode |
-| Answers | is the *user's design* well-formed? | did a *stage* corrupt the DB? |
-| Wire it up in | `DB.subDBCheck` / `rootDBCheck` in `DB.scala` | `SanityCheck.transformSubDB` |
-| Test it in | `lib/.../ElaborationChecksSpec.scala` | the failing `<Stage>Spec` |
-
-**The deciding question is: can a user write this by hand?** If yes, it is an elaboration check,
-even when the bug you are chasing was produced by a compiler stage rather than by a user. A rule
-only a stage can violate (ref-table integrity, ownership ordering, an HDL-method body restriction
-laundered through a helper `def`) belongs in `SanityCheck` — see the comment on
-`SanityCheck.hdlMethodCheck`, which spells out why it is deliberately *not* on the elaboration path.
-
-Write the check **first**, before touching any stage. Running the suite with it in place tells you
-the true blast radius: which stages violate the rule, and whether any checked-in design or doc
-example was relying on the shape and now needs fixing. Fixing stages first hides that.
-
-### Worked example: named values in conditional expression branches
+### Named values in conditional expression branches
 
 A `DFConditional.Header` with `dfType != DFUnit` is a conditional *expression*: each branch
-contributes only its resulting value. Whether a branch of one can *also* hold a named value depends
-on the scope the expression sits in, and the boundary is worth internalizing because it is not the
-one you would guess:
+contributes only its resulting value. Whether a branch of one may *also* hold a named value depends
+on the scope, and the boundary is not the one you would guess:
 
 | Conditional expression sits in | Named value in a branch | Why |
 |---|---|---|
@@ -1102,29 +1095,36 @@ one you would guess:
 | RT / DF domain | legal | same |
 | conditional *statement* branch (`dfType == DFUnit`) | legal | branch is a scope in its own right |
 
-The mechanism, not the intuition, is what sets the line. `ExplicitNamedVars` chooses connection vs
-assignment with `named.isInEDDomain && !named.isInProcess`. **Only that one combination emits a
-concurrent connection**; everywhere else it emits `:=`, which lowers into the enclosing procedural
-block correctly. A connection is the only thing with nowhere to live once `ExplicitCondExprAssign`
-wraps the expression into a `process(all)`, at which point it prints as `assign` inside an
-`always_comb`. So `DB.condExprNamedValCheck()` uses that same predicate deliberately, and the
-comment there says the two must stay in agreement.
+`ExplicitNamedVars` chooses connection vs assignment with `named.isInEDDomain && !named.isInProcess`.
+**Only the concurrent combination emits a connection**, and a connection is the only drive with
+nowhere to live once `ExplicitCondExprAssign` wraps the expression into a `process(all)` — at which
+point it prints as `assign` inside an `always_comb` (issue #426). `DB.condExprNamedValCheck()`
+enforces the same predicate, and the comments on both say they must stay in agreement.
 
-Consequences for stage authors:
-- **Never create a named value inside a conditional expression branch in an ED domain body.** If a
-  stage needs to name an intermediate there (as `NamedVerilogSelection` does, because Verilog cannot
-  part-select an arbitrary expression), it must place the name in an enclosing scope where all its
-  operands are visible, not at the point of use. Naming in place is what produced issue #426.
-- Beware that **`isInProcess` walks owners until a `ProcessBlock` or a `DFDomainOwner`, so
-  conditional blocks are transparent to it.** That is correct for the connection-vs-assignment
-  choice above only because the whole conditional gets wrapped into a process later. If you write a
-  guard that means "is this member in a scope that stays concurrent?", `!isInProcess` is the wrong
-  test; check the owner directly with `getOwner.isInstanceOf[DFDomainOwner]`.
+A named **conditional header** is exempt: `ExplicitNamedVars` drives it through `patchChains`
+(`case _: DFConditional.Header => // do nothing`, then an assignment per branch), so it never
+becomes a connection.
 
-The generalizable lesson: when a rule looks like it should be uniform ("a branch is not a scope"),
-compile the shape in **every** scope before writing the check. Here four of the five scopes lower
-correctly, and a uniform rule would have forced pointless rewrites of two stage specs that were
-exercising working behavior.
+Consequences when writing a stage:
+- **Never name an intermediate at its point of use when that point is a conditional expression
+  branch in an ED domain body.** Name *and* relocate in the same patch — see the
+  name-and-relocate-in-one-patch recipe under *Patch System*. A follow-up cleanup stage is not an
+  acceptable substitute: `SanityCheck` runs after every stage, so the intermediate DB would be
+  illegal. `NamedAliases` does both in one patch for this reason.
+- **`isInProcess` walks owners until a `ProcessBlock` or a `DFDomainOwner`, so conditional blocks
+  are transparent to it.** If you need "is this member in a scope that stays concurrent?", that is
+  the wrong test.
+- **`collectRelMembers` recurses only into *anonymous* values.** Mind *when* you call it. Before
+  your patch is applied, a value a sibling group in the same pass is about to name is still
+  anonymous, so it **is** in the cone — which is what lets one group carry another's sub-tree, and
+  exactly why overlapping groups must be gated (next bullet). After the naming patch, the same
+  call stops at that value, so a guard written against the post-patch cone silently passes; check
+  `getRefs` directly there.
+- **Two groups can want to relocate the same sub-tree.** `(if (d) p else q) + 1` produces two
+  naming groups whose move sets overlap, and moving the shared members twice yields
+  `More than one appearance of member in member list`. Gate each pass to the innermost group (drop
+  any group whose own value another group would carry, leaving it anonymous) and drive the stage
+  `@tailrec`; the outer group is picked up next pass, once what it reads sits outside the branch.
 
 ---
 
@@ -1304,8 +1304,20 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     it; place the name in an enclosing scope where all its operands are visible. The same shape is
     legal in an ED `process` and in RT/DF domains, where it lowers to a blocking assignment.
     Relatedly, `isInProcess` treats conditional blocks as transparent, so it is the wrong test for
-    "does this member stay in a concurrent scope?" — use `getOwner.isInstanceOf[DFDomainOwner]`.
-    See *Where a Rule Belongs* for the full story.
+    "does this member stay in a concurrent scope?". See *Stage-Facing Invariants* for the full
+    story, including the conditional-header exemption.
+26. **A new phase inside an existing stage is almost always wrong** — either the work is a
+    self-sustained, idempotent, fix-point transformation, in which case it is its own **stage**, or
+    it belongs in the **same patch** as the existing work. And when the work exists to keep the
+    stage's *own output legal*, a separate stage is not an option either: `SanityCheck` runs after
+    every stage, so the DB in between would be invalid. It has to be the same patch. Check the
+    merge table before concluding that is impossible, and see the
+    *replace AND relocate in one patch* recipe for the case that looks unmergeable but is not.
+27. **Deferring a fix to a later stage lets an illegal DB exist in between** — a stage must never
+    emit IR that violates a stated invariant, not even briefly. If you find yourself writing a
+    cleanup stage for a shape an earlier stage produces, fix the producer instead. The way to
+    discover this at all is to wire the invariant into `SanityCheck`; nothing else in the pipeline
+    will tell you (`DB.check` runs once, at elaboration, and `SanityCheck` never calls it).
 
 ---
 

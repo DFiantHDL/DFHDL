@@ -113,7 +113,8 @@ CI installs these via OSS CAD Suite:
 
 ## Claude Instructions
 
-- When asked to **create a new compiler stage** or **modify an existing compiler stage**, always invoke the `/new-stage` skill before doing any work.
+- When asked to **fix a reported bug**, especially one where the generated HDL is wrong or illegal, invoke the `/bugfix` skill before doing any work.
+- When asked to **create a new compiler stage** or **modify an existing compiler stage**, always invoke the `/new-stage` skill before doing any work. This applies to *any* edit under `compiler/stages/`, including a one-line change; reading the skill file is not the same as invoking it.
 - When working on **compile time performance**, invoke the `/compile-perf` skill to review the methodology, known bottlenecks, and what has already been tried.
 - When working on the **DFacsimile native simulator** (`compiler/stages/src/main/scala/dfhdl/sim/`), invoke the `/dfacsimile` skill for the architecture, the fidelity contract, the lockstep testing methodology, and the banked gotchas.
 

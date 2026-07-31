@@ -428,6 +428,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends HierarchyStage:
     ownershipCheck(subDB.top, subDB.membersNoGlobals.drop(1))
     // orderCheck()
     hdlMethodCheck()
+    subDB.condExprNamedValCheck()
     subDB
   end transformSubDB
 end SanityCheck

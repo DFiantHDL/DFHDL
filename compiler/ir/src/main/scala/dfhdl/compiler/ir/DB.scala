@@ -1484,7 +1484,9 @@ final case class DB private (
   //
   // The concurrent test is `isInEDDomain && !isInProcess`, the same predicate `ExplicitNamedVars`
   // uses to choose a connection over an assignment. The two must stay in agreement: whatever that
-  // stage would drive by connection is exactly what has nowhere to live inside a branch.
+  // stage would drive by connection is exactly what has nowhere to live inside a branch. A named
+  // conditional header is exempt for the same reason: `ExplicitNamedVars` drives it through
+  // `patchChains`, which assigns per branch, so it never becomes a connection and nests fine.
   def condExprNamedValCheck(): Unit =
     val errors = collection.mutable.ArrayBuffer[String]()
     // The nearest enclosing conditional block, if that block belongs to a conditional
@@ -1497,6 +1499,7 @@ final case class DB private (
         case _: DFDomainOwner => None
         case owner            => condExprBlockOf(owner)
     members.foreach {
+      case _: DFConditional.Header => // driven per branch, never by connection
       case dfVal: DFVal
           if !dfVal.isAnonymous && !dfVal.isGlobal &&
             dfVal.isInEDDomain && !dfVal.isInProcess =>

@@ -831,15 +831,17 @@ class ElaborationChecksSpec extends DesignSpec:
         val c = Bit <> IN
         val i = UInt(8) <> IN
         val o = UInt(8) <> OUT
-        o <>
-          (if (c) i + 1
-           else
-             val inv = ~i.bits; inv.uint)
+        o <> (
+          if (c) i + 1
+          else
+            val inv = ~i.bits
+            inv.uint
+        )
     import Test.*
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL conditional expression error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:834:45 - 834:52
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:837:23 - 837:30
           |Hierarchy: Top
           |Message:   Found the named value `inv` inside a conditional expression branch.
           |An event-driven (ED) domain body is a concurrent scope, so a conditional expression
