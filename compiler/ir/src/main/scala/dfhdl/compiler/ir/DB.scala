@@ -1470,6 +1470,55 @@ final case class DB private (
       throw new IllegalArgumentException(errors.mkString("\n"))
   end initialCheck
 
+  // A conditional expression (a header with a non-Unit `dfType`) yields a value, so each of its
+  // branches contributes only that value. Whether a branch can additionally hold a *named* value
+  // depends on the scope the expression sits in:
+  //
+  //   * In a sequential scope (an RT or DF domain, or an ED process), the branch lowers to a
+  //     procedural block, so the named value becomes a plain blocking assignment inside it. Legal,
+  //     and relied upon by existing designs.
+  //   * In a concurrent scope (directly in an ED domain body), the branch is not a block at all.
+  //     The expression is later wrapped into a `process(all)`, but the named value's drive was
+  //     already fixed as a concurrent connection, which then prints as an `assign` inside an
+  //     `always_comb`. There is no scope for it to land in, so it is rejected here.
+  //
+  // The concurrent test is `isInEDDomain && !isInProcess`, the same predicate `ExplicitNamedVars`
+  // uses to choose a connection over an assignment. The two must stay in agreement: whatever that
+  // stage would drive by connection is exactly what has nowhere to live inside a branch.
+  def condExprNamedValCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    // The nearest enclosing conditional block, if that block belongs to a conditional
+    // expression chain. A conditional chain never crosses a domain boundary, so the walk
+    // stops there (which also keeps it clear of the top's empty owner ref).
+    @tailrec def condExprBlockOf(member: DFMember): Option[DFConditional.Block] =
+      member.getOwner match
+        case cb: DFConditional.Block =>
+          if (cb.getHeaderCB.dfType == DFUnit) condExprBlockOf(cb) else Some(cb)
+        case _: DFDomainOwner => None
+        case owner            => condExprBlockOf(owner)
+    members.foreach {
+      case dfVal: DFVal
+          if !dfVal.isAnonymous && !dfVal.isGlobal &&
+            dfVal.isInEDDomain && !dfVal.isInProcess =>
+        condExprBlockOf(dfVal).foreach { _ =>
+          errors +=
+            s"""|DFiant HDL conditional expression error!
+                |Position:  ${dfVal.meta.position}
+                |Hierarchy: ${dfVal.getOwnerDesign.getFullName}
+                |Message:   Found the named value `${dfVal.getName}` inside a conditional expression branch.
+                |An event-driven (ED) domain body is a concurrent scope, so a conditional expression
+                |branch in it is not a block and cannot hold a named value declaration.
+                |To Fix:
+                |Move the declaration before the conditional expression, place the conditional
+                |expression inside a `process`, or turn it into a conditional statement that assigns
+                |or connects its result.""".stripMargin
+        }
+      case _ =>
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end condExprNamedValCheck
+
   // Circular-derived-domain check, run on the root DB. DFS over
   // `dependentRTDomainOwners`; the cycle error names each
   // owner via `fullNameViaInst` routed through that owner's sub-DB.
@@ -1734,6 +1783,7 @@ final case class DB private (
     connectionTable // causes connectivity checks
     directRefCheck()
     initialCheck()
+    condExprNamedValCheck()
 
   // Whole-tree checks, run once on the root: the cross-design connectivity /
   // RT-domain / device-top checks, via the `*` clones that navigate the

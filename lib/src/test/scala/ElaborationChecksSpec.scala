@@ -822,4 +822,67 @@ class ElaborationChecksSpec extends DesignSpec:
           |Move the declaration before its first use.
           |""".stripMargin
     )
+  // An ED domain body is a concurrent scope, so a conditional expression branch in it is not a
+  // block and cannot hold a named value. Such a value would be driven by a connection, which the
+  // backend prints as an `assign` inside the `always_comb` the expression is wrapped into.
+  test("named values inside concurrent conditional expression branches"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val c = Bit <> IN
+        val i = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        o <>
+          (if (c) i + 1
+           else
+             val inv = ~i.bits; inv.uint)
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL conditional expression error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:834:45 - 834:52
+          |Hierarchy: Top
+          |Message:   Found the named value `inv` inside a conditional expression branch.
+          |An event-driven (ED) domain body is a concurrent scope, so a conditional expression
+          |branch in it is not a block and cannot hold a named value declaration.
+          |To Fix:
+          |Move the declaration before the conditional expression, place the conditional
+          |expression inside a `process`, or turn it into a conditional statement that assigns
+          |or connects its result.""".stripMargin
+    )
+  // In a sequential scope the branch lowers to a procedural block, so the named value becomes a
+  // plain blocking assignment inside it. Legal in an ED process, in an RT domain, and in a
+  // conditional *statement* branch (whose branch is a block regardless of the scope).
+  test("named values inside sequential conditional expression branches are allowed"):
+    object Test:
+      @top(false) class EDProc extends EDDesign:
+        val c = Bit <> IN
+        val i = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        process(all):
+          o :=
+            (if (c) i + 1
+             else
+               val inv = ~i.bits; inv.uint)
+      @top(false) class RTBody extends RTDesign:
+        val c = Bit <> IN
+        val i = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        o <>
+          (if (c) i + 1
+           else
+             val inv = ~i.bits; inv.uint)
+      @top(false) class EDStmt extends EDDesign:
+        val c = Bit <> IN
+        val i = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        process(all):
+          if (c) o := i + 1
+          else
+            val inv = ~i.bits
+            o := inv.uint
+    end Test
+    import Test.*
+    assertElaborationErrors(EDProc())("No error found")
+    assertElaborationErrors(RTBody())("No error found")
+    assertElaborationErrors(EDStmt())("No error found")
 end ElaborationChecksSpec

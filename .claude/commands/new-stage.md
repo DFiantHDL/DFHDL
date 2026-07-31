@@ -973,21 +973,40 @@ the full design code string after every stage that changes the DB.
 
 ### Enabling and running
 
-Put a design in `lib/src/test/scala/Playground.scala` (or `core/.../Playground.scala`) and add at
-the top of the file:
-```scala
-given options.CompilerOptions.LogLevel = _.TRACE
-```
-Then run the whole pipeline for a top-level design named `Foo` via the `main` injected into its companion object:
+Put a design in `lib/src/test/scala/Playground.scala` (or `core/.../Playground.scala`) and run the
+whole pipeline for a top-level design named `Foo` via the `main` injected into its companion
+object. The log level is a plain command-line option, so **no source edit is needed**:
 ```bash
-sbtn.bat ";libPlayground;lib/Test/runMain Foo"          # core equivalent: corePlayground + core/Test/runMain
+sbtn.bat 'lib/Test/runMain Foo --nocache --log trace compile --print-backend'
 ```
-Pass tool/backend arguments after `--`:
+(core equivalent: `corePlayground` + `core/Test/runMain`.)
+
+The command line is `[design-args] [app-options] <mode> [mode-options]`, a plain subcommand
+structure, so **placement around the mode is load-bearing**:
+
+| Piece | Side | Examples |
+|---|---|---|
+| Design args + app options | *before* the mode | `--width 12`, `--nocache`, `--log trace` |
+| Mode | — | `compile`, `commit`, `simulate` |
+| Mode options | *after* the mode | `--print-backend`, `-b vhdl.v2008`, `-t questa` |
+
+An option on the wrong side fails with `[scallop] Error: Unknown option 'backend'` — note that
+`--backend`/`-b` is a **mode** option, so it goes after `compile`, not before it. The full
+reference is `docs/user-guide/command-line/index.md`.
+
+Useful combinations:
 ```bash
-sbtn.bat ";libPlayground;lib/Test/runMain Foo -- simulate -t questa"     # or -t nvc/ghdl with -b vhdl
+# see the generated HDL without leaving the trace run
+sbtn.bat 'lib/Test/runMain Foo --nocache --log trace compile --print-backend'
+# compare backends (illegal output is often backend-specific)
+sbtn.bat 'lib/Test/runMain Foo --nocache compile --backend vhdl.v2008 --print-backend'
+sbtn.bat 'lib/Test/runMain Foo --nocache -- simulate -t questa'
 ```
+The older form, a `given options.CompilerOptions.LogLevel = _.TRACE` at the top of the Playground
+file, still works and is what you need when the run is driven by a spec rather than `runMain`.
+
 A design with **no ports + a `finish()`** is treated as a self-contained simulation top, so the
-default (no-arg) action becomes *simulate* instead of *compile*.
+default (no-mode) action becomes *simulate* instead of *compile*.
 
 ### Reading the trace to localize the failing stage
 
@@ -999,6 +1018,31 @@ after every non-`NoCheckStage`, and prints the code string after any stage that 
 - **Don't assume the failing stage is the one you changed.** A stage can pass its own sanity check
   and emit a valid DB, yet a *later* stage chokes on a shape your stage newly produced. Read the
   `Running stage` sequence to find the first failure, not the first suspect.
+
+### Localizing *illegal generated HDL* (nothing throws)
+
+The harder case is a run that succeeds end-to-end and emits HDL the downstream tool rejects
+(`syntax error, unexpected TOK_ASSIGN`). No `SanityCheck` fires, because the DB is structurally
+fine — the shape is merely unrepresentable in the target language. The trace still localizes it:
+read the code-string dumps forward and find the **first printout in which the offending construct
+appears**, then attribute it to the stage that ran just before that dump. From there, ask which
+stage *introduced* the shape, not which one printed it.
+
+The stage that produces the visibly-wrong output is usually innocent. In issue #426 the backend
+faithfully printed `assign` inside an `always_comb`; the connection had been planted by
+`ExplicitNamedVars` several stages earlier, and the *named value* it wrapped had been created two
+stages before that by `NamedVerilogSelection`. Walk the dumps backward through each of those
+handoffs and ask at every one: **is this IR shape legal, or merely tolerated by everything
+downstream?** The earliest stage that produced an illegal shape is the real culprit, and it is
+usually not adjacent to the symptom.
+
+Two habits that pay off here:
+- **Check the other backend.** Re-run with `compile --backend vhdl.v2008` (or `verilog`). If both
+  are wrong in *different* ways, you have two bugs, not one, and the shared IR shape between them
+  is the root cause.
+- **Grep `lib/src/test/resources/ref/` for the construct.** If no reference output contains it (no
+  `.vhd` there has a combinational `process (all)` writing a port, for instance), that code path is
+  untested, which is why the bug survived.
 
 ### Harvesting a self-contained reproducer from the trace
 
@@ -1013,18 +1057,74 @@ isolated unit test in one step — write the test, watch it fail with the same e
 
 - Re-running an unchanged design may short-circuit on the on-disk cache
   (`Loading committed design from cache...`) and skip the stages (and the trace) entirely. Pass
-  **`--nocache`** to disable caching — it is a DFHDL App option that goes *before* the `--`
-  separator (it is NOT a positional arg after `--`; placing it after `--` fails with
-  `[scallop] Error: Excess arguments provided: '--nocache'`). The DFHDL App command
-  (`compile` / `simulate` / …) goes *after* `--`:
-  ```bash
-  sbtn.bat ";libPlayground;lib/Test/runMain Foo --nocache -- compile"
-  sbtn.bat ";libPlayground;lib/Test/runMain Foo --nocache -- simulate -t questa"
-  ```
+  **`--nocache`** to disable caching — it is an app option, so it goes *before* the mode.
   (Alternatively clear `sandbox/<Top>` via `sbtn clearSandbox`, or edit the design — but `--nocache`
   is the lightweight option for repeated trace runs.)
 - `libPlayground` / `corePlayground` zero out other subprojects' test sources for the session. To
   run `StagesSpec` tests again afterwards, reset with a leading `;reload`.
+
+---
+
+## Where a Rule Belongs: Elaboration Check vs `SanityCheck`
+
+When a bug turns out to be "the IR held a shape that should never have existed", the fix has two
+halves: **state the rule as a check**, then fix the stages that broke it. Put the check in the
+right place, because the two check paths answer different questions:
+
+| | `DB.check` (elaboration) | `SanityCheck` (stage pipeline) |
+|---|---|---|
+| Runs | once, right after elaboration | after every non-`NoCheckStage`, debug mode |
+| Answers | is the *user's design* well-formed? | did a *stage* corrupt the DB? |
+| Wire it up in | `DB.subDBCheck` / `rootDBCheck` in `DB.scala` | `SanityCheck.transformSubDB` |
+| Test it in | `lib/.../ElaborationChecksSpec.scala` | the failing `<Stage>Spec` |
+
+**The deciding question is: can a user write this by hand?** If yes, it is an elaboration check,
+even when the bug you are chasing was produced by a compiler stage rather than by a user. A rule
+only a stage can violate (ref-table integrity, ownership ordering, an HDL-method body restriction
+laundered through a helper `def`) belongs in `SanityCheck` — see the comment on
+`SanityCheck.hdlMethodCheck`, which spells out why it is deliberately *not* on the elaboration path.
+
+Write the check **first**, before touching any stage. Running the suite with it in place tells you
+the true blast radius: which stages violate the rule, and whether any checked-in design or doc
+example was relying on the shape and now needs fixing. Fixing stages first hides that.
+
+### Worked example: named values in conditional expression branches
+
+A `DFConditional.Header` with `dfType != DFUnit` is a conditional *expression*: each branch
+contributes only its resulting value. Whether a branch of one can *also* hold a named value depends
+on the scope the expression sits in, and the boundary is worth internalizing because it is not the
+one you would guess:
+
+| Conditional expression sits in | Named value in a branch | Why |
+|---|---|---|
+| ED domain body (**concurrent**) | **illegal** | branch is not a block; the drive becomes a connection |
+| ED `process` | legal | branch lowers to a procedural block |
+| RT / DF domain | legal | same |
+| conditional *statement* branch (`dfType == DFUnit`) | legal | branch is a scope in its own right |
+
+The mechanism, not the intuition, is what sets the line. `ExplicitNamedVars` chooses connection vs
+assignment with `named.isInEDDomain && !named.isInProcess`. **Only that one combination emits a
+concurrent connection**; everywhere else it emits `:=`, which lowers into the enclosing procedural
+block correctly. A connection is the only thing with nowhere to live once `ExplicitCondExprAssign`
+wraps the expression into a `process(all)`, at which point it prints as `assign` inside an
+`always_comb`. So `DB.condExprNamedValCheck()` uses that same predicate deliberately, and the
+comment there says the two must stay in agreement.
+
+Consequences for stage authors:
+- **Never create a named value inside a conditional expression branch in an ED domain body.** If a
+  stage needs to name an intermediate there (as `NamedVerilogSelection` does, because Verilog cannot
+  part-select an arbitrary expression), it must place the name in an enclosing scope where all its
+  operands are visible, not at the point of use. Naming in place is what produced issue #426.
+- Beware that **`isInProcess` walks owners until a `ProcessBlock` or a `DFDomainOwner`, so
+  conditional blocks are transparent to it.** That is correct for the connection-vs-assignment
+  choice above only because the whole conditional gets wrapped into a process later. If you write a
+  guard that means "is this member in a scope that stays concurrent?", `!isInProcess` is the wrong
+  test; check the owner directly with `getOwner.isInstanceOf[DFDomainOwner]`.
+
+The generalizable lesson: when a rule looks like it should be uniform ("a branch is not a scope"),
+compile the shape in **every** scope before writing the check. Here four of the five scopes lower
+correctly, and a uniform rule would have forced pointless rewrites of two stage specs that were
+exercising working behavior.
 
 ---
 
@@ -1197,6 +1297,15 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     whether a downstream stage reads the block positionally. A `fallThrough` block's condition is
     `members.last` in both `DropRTProcess` and `FirstStepFusion`, so a rebuild has to emit each
     synthesized read *before* the member that reads it rather than appending at the end.
+25. **Naming an intermediate at its point of use may land it in a conditional expression branch** —
+    inside an ED *domain body* (a concurrent scope), a branch of a `DFConditional.Header` with
+    `dfType != DFUnit` is not a block, so a named value there is driven by a connection that later
+    prints as `assign` inside an `always_comb` (issue #426). `DB.condExprNamedValCheck()` rejects
+    it; place the name in an enclosing scope where all its operands are visible. The same shape is
+    legal in an ED `process` and in RT/DF domains, where it lowers to a blocking assignment.
+    Relatedly, `isInProcess` treats conditional blocks as transparent, so it is the wrong test for
+    "does this member stay in a concurrent scope?" — use `getOwner.isInstanceOf[DFDomainOwner]`.
+    See *Where a Rule Belongs* for the full story.
 
 ---
 
