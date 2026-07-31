@@ -282,9 +282,8 @@ class DropRTWaitsSpec extends StageSpec():
       val waitCnt1 = UInt(8) <> VAR.REG init 0
       val waitCnt2 = UInt(8) <> VAR.REG init 0
       process:
-        FALL_THROUGH:
-          while (waitCnt1 != 149)
-            waitCnt1.din := waitCnt1 + 1
+        while (FALL_THROUGH(waitCnt1 != 149))
+          waitCnt1.din := waitCnt1 + 1
         waitCnt1.din := 0
         x.din := !x
         while (waitCnt2 != 149)
@@ -327,8 +326,7 @@ class DropRTWaitsSpec extends StageSpec():
       val x = Bit <> OUT.REG
       val go = Bit <> IN
       process:
-        FALL_THROUGH:
-          while (!go) {}
+        while (FALL_THROUGH(!go)) {}
         x.din := !x
     end Foo
     val top = (new Foo).dropRTWaits

@@ -343,9 +343,8 @@ class FallThroughWhileProc extends RTDesign:
   val tick = Bit <> OUT.REG init 0
   process:
     1.cy.wait
-    FALL_THROUGH:
-      while (go)
-        cnt.din := cnt + 1
+    while (FALL_THROUGH(go))
+      cnt.din := cnt + 1
     1.cy.wait
     tick.din := !tick
 
@@ -407,10 +406,9 @@ class FallThroughWaitLoopProc extends RTDesign:
   val tick = Bit <> OUT.REG init 0
   process:
     1.cy.wait
-    FALL_THROUGH:
-      while (go)
-        cnt.din := cnt + 1
-        1.cy.wait
+    while (FALL_THROUGH(go))
+      cnt.din := cnt + 1
+      1.cy.wait
     1.cy.wait
     tick.din := !tick
 
@@ -424,11 +422,10 @@ class FallThroughWrapLoopProc extends RTDesign:
   process:
     cnt.din := 0
     1.cy.wait
-    FALL_THROUGH:
-      while (go)
-        cnt.din := cnt + 1
-        tick.din := !tick
-        1.cy.wait
+    while (FALL_THROUGH(go))
+      cnt.din := cnt + 1
+      tick.din := !tick
+      1.cy.wait
 
 /** Two `FALL_THROUGH` loops back to back, each with a waiting body: both heads fuse, and the first
   * one's exit is the second one's (also fused) head, so the inlined dispatches chain within one
@@ -441,14 +438,12 @@ class FallThroughChainLoopProc extends RTDesign:
   val tick = Bit <> OUT.REG init 0
   process:
     1.cy.wait
-    FALL_THROUGH:
-      while (a)
-        cnt.din := cnt + 1
-        1.cy.wait
-    FALL_THROUGH:
-      while (b)
-        cnt.din := cnt + 16
-        1.cy.wait
+    while (FALL_THROUGH(a))
+      cnt.din := cnt + 1
+      1.cy.wait
+    while (FALL_THROUGH(b))
+      cnt.din := cnt + 16
+      1.cy.wait
     1.cy.wait
     tick.din := !tick
 end FallThroughChainLoopProc
@@ -484,8 +479,7 @@ class FallThroughEmptyWhileProc extends RTDesign:
   val tick = Bit <> OUT.REG init 0
   process:
     1.cy.wait
-    FALL_THROUGH:
-      while (go) {}
+    while (FALL_THROUGH(go)) {}
     1.cy.wait
     tick.din := !tick
 
@@ -723,10 +717,9 @@ class FallThroughForLoopProc extends RTDesign:
   val pass = UInt(8) <> OUT.REG init 0
   process:
     1.cy.wait
-    FALL_THROUGH:
-      for (i <- 0 until n)
-        y.din := y + 1
-        1.cy.wait
+    for (i <- FALL_THROUGH(0 until n))
+      y.din := y + 1
+      1.cy.wait
     pass.din := pass + 1
     1.cy.wait
 end FallThroughForLoopProc
@@ -765,9 +758,8 @@ class FallThroughWrapRegLoopProc extends RTDesign:
   process:
     i.din := 0
     pass.din := pass + 1
-    FALL_THROUGH:
-      while (i < n)
-        x.din := !x
-        i.din := i + 1
-        1.cy.wait
+    while (FALL_THROUGH(i < n))
+      x.din := !x
+      i.din := i + 1
+      1.cy.wait
 end FallThroughWrapRegLoopProc

@@ -1058,11 +1058,10 @@ class FlattenStepBlocksSpec extends StageSpec():
       process:
         cnt.din := d"8'0"
         1.cy.wait
-        FALL_THROUGH:
-          while (go)
-            cnt.din  := cnt + d"8'1"
-            tick.din := !tick
-            1.cy.wait
+        while (FALL_THROUGH(go))
+          cnt.din  := cnt + d"8'1"
+          tick.din := !tick
+          1.cy.wait
     end Foo
     // Nothing follows the loop, so its exit is the forever wrap-around and the rotation planted
     // the prologue clone (`cnt.din := 0`) on that path. Keeping the hook would make that path

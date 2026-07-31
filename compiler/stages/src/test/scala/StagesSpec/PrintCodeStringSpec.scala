@@ -1616,24 +1616,26 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
-  test("for/while loop printing with FALL_THROUGH") {
+  // `FALL_THROUGH` marks one loop, so a multi-iterator comprehension can mark each generator
+  // independently: here the outer and innermost are marked and the middle one is not. The
+  // innermost is nested inside a marked loop and still prints its own marker, which is what
+  // distinguishes this from `COMB_LOOP` (a region, printed once on its outermost loop).
+  test("for/while loop printing with FALL_THROUGH markers, including a nested opt-in") {
     class Foo extends RTDesign:
       val matrix = Bits(10) X 8 X 8 <> OUT.REG
       process:
-        FALL_THROUGH:
-          for (
-            i <- 0 until 8;
-            if i % 2 == 0;
-            j <- 0 until 8;
-            if j % 2 == 0;
-            k <- 0 until 10
-            if k % 2 == 0
-          ) matrix(i)(j)(k).din := 1
+        for (
+          i <- FALL_THROUGH(0 until 8);
+          if i % 2 == 0;
+          j <- 0 until 8;
+          if j % 2 == 0;
+          k <- FALL_THROUGH(0 until 10)
+          if k % 2 == 0
+        ) matrix(i)(j)(k).din := 1
         val ii = UInt.until(8) <> VAR init 0
-        FALL_THROUGH:
-          while (ii != 7)
-            matrix(ii)(0)(0).din := 0
-            ii                   := ii + 1
+        while (FALL_THROUGH(ii != 7))
+          matrix(ii)(0)(0).din := 0
+          ii                   := ii + 1
         10.sec.wait
     end Foo
     val top = (new Foo)
@@ -1642,24 +1644,22 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       """|class Foo extends RTDesign:
          |  val matrix = Bits(10) X 8 X 8 <> OUT.REG
          |  process:
-         |    FALL_THROUGH:
-         |      for (i <- 0 until 8)
-         |        if ((i % 2) == 0)
-         |          for (j <- 0 until 8)
-         |            if ((j % 2) == 0)
-         |              for (k <- 0 until 10)
-         |                if ((k % 2) == 0) matrix(i)(j)(k).din := 1
-         |              end for
-         |            end if
-         |          end for
-         |        end if
-         |      end for
+         |    for (i <- FALL_THROUGH(0 until 8))
+         |      if ((i % 2) == 0)
+         |        for (j <- 0 until 8)
+         |          if ((j % 2) == 0)
+         |            for (k <- FALL_THROUGH(0 until 10))
+         |              if ((k % 2) == 0) matrix(i)(j)(k).din := 1
+         |            end for
+         |          end if
+         |        end for
+         |      end if
+         |    end for
          |    val ii = UInt(3) <> VAR init d"3'0"
-         |    FALL_THROUGH:
-         |      while (ii != d"3'7")
-         |        matrix(ii.toInt)(0)(0).din := 0
-         |        ii := ii + d"3'1"
-         |      end while
+         |    while (FALL_THROUGH(ii != d"3'7"))
+         |      matrix(ii.toInt)(0)(0).din := 0
+         |      ii := ii + d"3'1"
+         |    end while
          |    10.sec.wait
          |end Foo""".stripMargin
     )

@@ -117,4 +117,69 @@ class RTProcessSpec extends NoDFCSpec:
           this.wait(100)
       """
     )
+
+  private val fallThroughPosErr =
+    "`FALL_THROUGH` must mark a loop directly: write it as the whole `while` condition, " +
+      "`while (FALL_THROUGH(cond))`, or as the `for` range, `for (i <- FALL_THROUGH(range))`."
+
+  test("FALL_THROUGH on a while condition and on a for range"):
+    assertPluginError("No error found")(
+      """
+      class Foo extends RTDesign:
+        val go = Bit <> IN
+        val n = Int <> IN
+        val x = Bit <> OUT.REG init 0
+        process:
+          while (FALL_THROUGH(go))
+            x.din := !x
+            1.cy.wait
+          for (i <- FALL_THROUGH(0 until n))
+            x.din := !x
+            1.cy.wait
+      """
+    )
+
+  // a `for` guard becomes a plain `if` inside the loop body, so it is a body predicate with no
+  // loop to mark: skipping the filtered iterations for free would need an unbounded number of
+  // iterator increments in one cycle
+  test("FALL_THROUGH on a for-comprehension guard"):
+    assertPluginError(fallThroughPosErr)(
+      """
+      class Foo extends RTDesign:
+        val p = Bit <> IN
+        val x = Bit <> OUT.REG init 0
+        process:
+          for (i <- 0 until 4 if FALL_THROUGH(p))
+            x.din := !x
+            1.cy.wait
+      """
+    )
+
+  test("FALL_THROUGH on part of a while condition"):
+    assertPluginError(fallThroughPosErr)(
+      """
+      class Foo extends RTDesign:
+        val a = Bit <> IN
+        val b = Bit <> IN
+        val x = Bit <> OUT.REG init 0
+        process:
+          while (FALL_THROUGH(a) && b)
+            x.din := !x
+            1.cy.wait
+      """
+    )
+
+  test("FALL_THROUGH reaching its loop through a val"):
+    assertPluginError(fallThroughPosErr)(
+      """
+      class Foo extends RTDesign:
+        val go = Bit <> IN
+        val x = Bit <> OUT.REG init 0
+        process:
+          val c = FALL_THROUGH(go)
+          while (c)
+            x.din := !x
+            1.cy.wait
+      """
+    )
 end RTProcessSpec

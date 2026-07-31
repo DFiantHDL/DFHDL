@@ -87,7 +87,7 @@ process:
     for (j <- 0 until 10) {}   // 100 cycles: one per innermost iteration
 ```
 
-A loop that runs zero iterations (its guard is false on entry) still consumes its one-cycle minimum, unless it is wrapped with `FALL_THROUGH` (see [Loops](#loops)):
+A loop that runs zero iterations (its guard is false on entry) still consumes its one-cycle minimum, unless it is marked with `FALL_THROUGH` (see [Loops](#loops)):
 
 ```scala
 process:
@@ -97,12 +97,9 @@ process:
   finish()                         // fires within the third cycle (fused into the last skip)
 
 process:
-  FALL_THROUGH:                    // each wrapped loop is skipped with zero cycles
-    while (false) {}
-  FALL_THROUGH:
-    while (false) {}
-  FALL_THROUGH:
-    while (false) {}
+  while (FALL_THROUGH(false)) {}   // each marked loop is skipped with zero cycles
+  while (FALL_THROUGH(false)) {}
+  while (FALL_THROUGH(false)) {}
   finish()                         // fires within the first cycle
 ```
 
@@ -235,13 +232,31 @@ process:
 
 A `while` loop with a body that consumes no cycles samples its guard once per cycle (one cycle per iteration), which is exactly the behavior of `waitUntil`/`waitWhile`.
 
-Wrapping an RT loop with a **`FALL_THROUGH`** block marks the loop to fall through without consuming any cycles when its guard is false on entry, continuing at whatever follows the loop.
+Marking an RT loop with **`FALL_THROUGH`** makes it fall through without consuming any cycles when its guard is false on entry, continuing at whatever follows the loop. The marker is written on the loop's own condition or range:
 
-The marker is only needed for a loop whose body consumes no cycles, since that is the shape that pays a cycle to enter and skip (Rule 2 above). A loop whose body does consume cycles fuses (Rule 3), so it already enters and exits for free: adding `FALL_THROUGH` to one costs nothing and changes nothing.
+```scala
+process:
+  while (FALL_THROUGH(go)) {}          // skipped for free while `go` is low
+  for (i <- FALL_THROUGH(0 until n))   // skipped for free when `n` is 0
+    1.cy.wait
+```
+
+It marks exactly the one loop it is written on. A nested loop is unaffected unless it is marked too, which lets each generator of a multi-iterator comprehension be marked independently:
+
+```scala
+for (i <- 0 until rows; j <- FALL_THROUGH(0 until cols))   // only the inner loop is marked
+  1.cy.wait
+```
+
+The marker is only needed for a loop whose body consumes no cycles, since that is the shape that pays a cycle to enter and skip (Rule 2 above). A loop whose body does consume cycles fuses (Rule 3), so it already enters and exits for free: marking one costs nothing and changes nothing.
 
 The skip is decided in the same cycle that enters the loop, so the guard reads its registers as [`.din`][din], the pending next-cycle value. This is what makes a `FALL_THROUGH` `for` loop mean what it reads as: the loop entry resets the iterator, and the skip decision follows that reset rather than the count left over from the previous pass.
 
-Wrapping an RT loop with a **`COMB_LOOP`** block marks it combinational: the whole loop executes within a single cycle and generates no steps (so its body must not consume cycles).
+A comprehension guard (`for (i <- FALL_THROUGH(0 until n) if p)`) is not part of the decision. It lowers to a plain conditional inside the loop body, so a filtered-out iteration still costs its cycle; only the loop's own range decides the skip.
+
+`FALL_THROUGH` must be written directly on a loop, either as the whole `while` condition or as a `for` range. Anywhere else, including on a comprehension guard or on part of a compound condition, is a compile-time error.
+
+Wrapping an RT loop with a **`COMB_LOOP`** block marks it combinational: the whole loop executes within a single cycle and generates no steps (so its body must not consume cycles). Unlike `FALL_THROUGH`, this one marks a whole region: a loop nested inside a combinational loop cannot consume cycles either, so it is combinational too.
 
 Both annotations are allowed under RT domains only; applying them elsewhere is a compile-time error.
 

@@ -347,11 +347,10 @@ class DropRTProcessSpec extends StageSpec():
       val y = UInt(8) <> OUT.REG init 0
       process:
         1.cy.wait
-        FALL_THROUGH:
-          while (go)
-            y.din := y + 1
-            1.cy.wait
-            if (stop) go.din := 0
+        while (FALL_THROUGH(go))
+          y.din := y + 1
+          1.cy.wait
+          if (stop) go.din := 0
         1.cy.wait
         y.din := 255
     end Foo
@@ -405,10 +404,9 @@ class DropRTProcessSpec extends StageSpec():
       val y = UInt(8) <> OUT.REG init 0
       process:
         1.cy.wait
-        FALL_THROUGH:
-          while (go)
-            y.din := y + 1
-            1.cy.wait
+        while (FALL_THROUGH(go))
+          y.din := y + 1
+          1.cy.wait
         1.cy.wait
         y.din := 255
     end Foo
@@ -620,11 +618,10 @@ class DropRTProcessSpec extends StageSpec():
       val x = Bit <> OUT.REG init 0
       process:
         i.din := 0
-        FALL_THROUGH:
-          while (i < n)
-            x.din := !x
-            i.din := i + 1
-            1.cy.wait
+        while (FALL_THROUGH(i < n))
+          x.din := !x
+          i.din := i + 1
+          1.cy.wait
     end Foo
     val top = (new Foo).dropRTProcess
     // the `fallThrough` condition reads `i.din` -- the value the entering state has just written.
