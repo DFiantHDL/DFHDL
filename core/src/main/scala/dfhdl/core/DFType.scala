@@ -74,9 +74,11 @@ object DFType:
       case _                => None
 
   extension [T <: ir.DFType, A <: Args](dfType: DFType[T, A])
-    def asIR: T = dfType.value match
+    def asIR: T = (dfType.value: Any) match
       case dfTypeIR: T @unchecked => dfTypeIR
       case err: DFError           => throw DFError.Derived(err)
+      // only reachable for a forward-referenced type, which holds a `null` IR value
+      case _ => uninitializedRefError("type")
     def codeString(using printer: Printer)(using DFC): String =
       printer.csDFType(asIR)
   extension (dfType: ir.DFType) def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]

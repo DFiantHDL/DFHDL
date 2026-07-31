@@ -10,10 +10,29 @@ trait DFMember[+T <: ir.DFMember] extends Any:
 type DFMemberAny = DFMember[ir.DFMember]
 object DFMember:
   extension [T <: ir.DFMember](member: DFMember[T])
-    inline def asIR: T = member.irValue.runtimeChecked match
-      case memberIR: T @unchecked => memberIR
-      case err: DFError           => throw DFError.Derived(err)
+    inline def asIR: T =
+      if (isNullRef(member)) uninitializedRefError("value")
+      else
+        (member.irValue: Any).runtimeChecked match
+          case memberIR: T @unchecked => memberIR
+          case err: DFError           => throw DFError.Derived(err)
+          // only reachable when the member is a boxed value class holding a `null` IR value
+          case _ => uninitializedRefError("value")
 end DFMember
+
+private[core] inline def isNullRef(value: Any): Boolean = value.asInstanceOf[AnyRef] eq null
+
+// A `null` DFHDL entity can only come from a forward reference: Scala permits referencing a
+// class member before its definition inside the class body and silently yields `null` for it.
+// Reporting it as a regular elaboration error attaches the position and hierarchy of the
+// operation that consumed it, instead of leaking a raw NullPointerException to the user.
+private[core] def uninitializedRefError(kind: String): Nothing =
+  throw new IllegalArgumentException(
+    s"""|Found a reference to an uninitialized DFHDL $kind.
+        |This is caused by a forward reference: the $kind is declared later in the class body.
+        |To Fix:
+        |Move the declaration before its first use.""".stripMargin
+  )
 
 extension [M <: ir.DFMember](member: M)
   def addMember(using DFC): M =

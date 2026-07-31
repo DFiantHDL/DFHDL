@@ -362,8 +362,121 @@ Constant values are not connectable, meaning they can never be the receiving (dr
 #### Unassignable (Immutable)
 Constant values are immutable and cannot be assigned, meaning they can never be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation.
 
-## DFHDL Value Statement Order & Referencing
+## DFHDL Value Statement Order & Referencing {#statement-order}
 Any DFHDL value must be declared before it can be referenced in code. Other than this (pretty intuitive) limitation, no other limitations exist and ports, variables, constants, and other values may be freely distributed within their approved scope space. During the [compilation process][compilation], you can notice that the compiler reorders the port declarations so that they always come second to [constant declarations][DFConst], and variables right after.
+
+The rule constrains *references*, not statements. The order of the [connection][connection] and [assignment][assignment] statements themselves carries no meaning, and reordering them never changes the generated hardware. Each statement may only mention values that are already declared above it.
+
+It also constrains `val` declarations only. Scala `def` definitions, which is what DFHDL [methods][Methods] and [process steps][step-based-fsm] are, may be referenced from anywhere in the body, including above their own definition. See [Methods and steps are exempt](#methods-and-steps-exempt).
+
+### Forward References {#forward-references}
+
+A design body is an ordinary Scala class body, and Scala permits such a body to reference a `val` that is defined further down. This is a **forward reference**, and Scala neither rejects it nor warns about it: because the value has not been constructed yet, the reference silently evaluates to `null`. DFHDL detects the missing value and reports an elaboration error.
+
+```scala title="Forward reference (error)"
+class Top extends RTDesign:
+  val i = Bit <> IN
+  val o = Bit <> OUT
+  val ctrl = new Ctrl()
+  // `active` is declared further down, so it is still `null` here
+  ctrl.enable <> active
+  val gen = new Gen()
+  val active = gen.active
+  gen.i <> i
+  o <> ctrl.o
+```
+
+```title="Elaboration error"
+DFiant HDL elaboration error!
+Position:  Top.scala:6:3 - 6:24
+Hierarchy: Top
+Operation: `<>`
+Message:   Found a reference to an uninitialized DFHDL value.
+This is caused by a forward reference: the value is declared later in the class body.
+To Fix:
+Move the declaration before its first use.
+```
+
+The resolution is always the same: move the declaration above its first use. Here it is enough to instantiate `gen` before `ctrl`.
+
+```scala title="Declaration before use (OK)"
+class Top extends RTDesign:
+  val i = Bit <> IN
+  val o = Bit <> OUT
+  val gen = new Gen()
+  val active = gen.active
+  gen.i <> i
+  val ctrl = new Ctrl()
+  ctrl.enable <> active
+  o <> ctrl.o
+```
+
+A named DFType follows the same rule, and a forward reference to one is reported as an uninitialized DFHDL *type*:
+
+```scala title="Forward-referenced DFType (error)"
+class Top extends RTDesign:
+  val o = Word <> OUT // error: `Word` is declared below
+  val Word = Bits(8)
+```
+
+/// admonition | Forward reference to a design instance
+    type: warning
+When the forward reference is to the **design instance** itself rather than to one of its ports, Scala selects the member off a `null` instance before any DFHDL code runs. Scala therefore raises the failure itself, as a `NullPointerException` that names the culprit, and DFHDL never gets the chance to turn it into an elaboration error:
+
+```scala
+class Top extends RTDesign:
+  val i = Bit <> IN
+  val o = Bit <> OUT
+  gen.i <> i // `gen` is declared below
+  val gen = new Gen()
+  o <> gen.active
+```
+
+```title="Scala runtime error"
+java.lang.NullPointerException: Cannot invoke "Gen.i()" because
+the return value of "Top.gen()" is null
+```
+
+The resolution is the same: declare the instance before referencing it.
+///
+
+#### Methods and Steps Are Exempt {#methods-and-steps-exempt}
+
+Everything above concerns `val` declarations. A Scala `def` is a method rather than a stored field, so it exists for the whole class body and may be called from anywhere in it, including above its own definition. Two DFHDL constructs are `def`s and therefore exempt from the declaration order rule:
+
+* **[Methods][Methods]**, in every form: DF, ED, and static methods (`<> DFRET`, `<> EDRET`, `<> CONSTRET`), as well as [inline method generators][inline-method-generators].
+
+* **[Step blocks][step-based-fsm]** in an RT [process][processes], which are `def Name: Step` definitions. A step may therefore jump to a step defined further down, which is what lets an FSM with both forward and backward transitions be written in one readable order.
+
+```scala title="Forward call to a method (OK)"
+class Top extends EDDesign:
+  val a = UInt(8) <> IN
+  val b = UInt(8) <> IN
+  val y = UInt(8) <> OUT
+  y <> add(a, b) // OK: `add` is a `def`, defined below
+  def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET = l + r
+```
+
+```scala title="Forward jump to a later step (OK)"
+class Top extends RTDesign:
+  val x = Bit <> IN
+  val y = Bit <> OUT.REG init 0
+  process:
+    def S0: Step =
+      y.din := 0
+      if (x) S2 else S0 // OK: `S2` is a step defined below
+    def S1: Step =
+      y.din := 1
+      FirstStep
+    def S2: Step =
+      y.din := 0
+      if (x) S1 else FirstStep
+```
+
+/// admonition
+    type: note
+The exemption is about *where the `def` is written*, not about what its body may reference. A method body still reads the enclosing design's values, so any value it [captures][capturing-outer-values] must be declared before the call site that reaches it.
+///
 
 ## DFHDL Value Connections {#connection}
 After ([or during][via-connections]) a design instantiation, its ports need to be connected to other ports or values of the same DFType by applying the `<>` operator. Variables can also be connected and used as intermediate wiring between ports. Output ports can be directly referenced (read) without being connected to an intermediate variable. For more rules about design and port connectivity, see the [relevant section][connectivity].

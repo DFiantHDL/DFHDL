@@ -724,4 +724,102 @@ class ElaborationChecksSpec extends DesignSpec:
           |* Instead of `val d = x.din` followed by `y := d + 1` write `y := x.din + 1`.
           |""".stripMargin
     )
+  // Scala allows referencing a class member before its definition inside the class body and
+  // silently yields `null` for it, so a forward reference reaches DFHDL as a `null` value/type.
+  test("forward referenced value in a connection"):
+    class Sub extends RTDesign:
+      val i = Bit <> IN
+      val o = Bit <> OUT
+      o := i
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val i = Bit <> IN
+        val o = Bit <> OUT
+        val sub1 = Sub()
+        sub1.i <> i
+        sub1.o <> fwdIn
+        val sub2 = Sub()
+        val fwdIn = sub2.i
+        sub2.i <> sub1.o
+        o <> sub2.o
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:740:9 - 740:24
+          |Hierarchy: Top
+          |Operation: `<>`
+          |Message:   Found a reference to an uninitialized DFHDL value.
+          |This is caused by a forward reference: the value is declared later in the class body.
+          |To Fix:
+          |Move the declaration before its first use.
+          |""".stripMargin
+    )
+  test("forward referenced value in an assignment"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val i = Bit <> IN
+        val o = Bit <> OUT
+        o := fwd
+        val fwd = Bit <> VAR
+        fwd := i
+        o := fwd
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:763:9 - 763:17
+          |Hierarchy: Top
+          |Operation: `:=`
+          |Message:   Found a reference to an uninitialized DFHDL value.
+          |This is caused by a forward reference: the value is declared later in the class body.
+          |To Fix:
+          |Move the declaration before its first use.
+          |""".stripMargin
+    )
+  test("forward referenced dfhdl type"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val i = Bit <> IN
+        val o = Bit <> OUT
+        val bad = MyType <> VAR
+        val MyType = Bits(8)
+        o := i
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:785:19 - 785:32
+          |Hierarchy: Top.bad
+          |Operation: `Port/Variable constructor`
+          |Message:   Found a reference to an uninitialized DFHDL type.
+          |This is caused by a forward reference: the type is declared later in the class body.
+          |To Fix:
+          |Move the declaration before its first use.
+          |""".stripMargin
+    )
+  // a method may be forward referenced (it is a Scala `def`), but a value its body captures
+  // must still be declared above the call site that elaborates the body. Naming the error also
+  // exercises a method design block whose instance cache was never set, because it aborted.
+  test("forward referenced value captured by a method body"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        y <> addK(a)
+        def addK(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + k
+        val k: UInt[8] <> CONST = 5
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:809:14 - 809:21
+          |Hierarchy: Top.addK
+          |Operation: `designFromDefImpl`
+          |Message:   Found a reference to an uninitialized DFHDL value.
+          |This is caused by a forward reference: the value is declared later in the class body.
+          |To Fix:
+          |Move the declaration before its first use.
+          |""".stripMargin
+    )
 end ElaborationChecksSpec

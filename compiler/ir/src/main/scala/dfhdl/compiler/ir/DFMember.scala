@@ -185,9 +185,13 @@ object DFMember:
 
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
-      case o: DFDesignBlock if o.isTop          => o.dclName
-      case o: DFDesignBlock if getSet.isMutable => o.getCachedDesignInst.getName
-      case _                                    => meta.name
+      case o: DFDesignBlock if o.isTop => o.dclName
+      // the instance cache is empty when the block never completed elaboration, as happens
+      // when an error is raised inside it. Naming it is then still required to render that
+      // error, and the declared meta name is the best available name.
+      case o: DFDesignBlock if getSet.isMutable =>
+        o.getCachedDesignInstOpt.map(_.getName).getOrElse(meta.name)
+      case _ => meta.name
     final lazy val isAnonymous: Boolean = meta.isAnonymous
     final def getFullName(using MemberGetSet): String = this match
       case o: DFDesignBlock if o.isTop => getName

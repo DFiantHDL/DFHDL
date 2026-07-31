@@ -264,7 +264,7 @@ class Conn5 extends RTDesign:
 
 ### Connection Statement Order
 
-The order of `<>` connection statements does not matter.
+The order of `<>` connection statements does not matter. The only ordering constraint is on *declarations*: every value a connection references must already be declared above it. See [statement order and referencing][statement-order], and in particular [forward references][forward-references], which are a common source of elaboration errors.
 
 ### Open (Unconnected) Ports {#connectivity-open-ports}
 
