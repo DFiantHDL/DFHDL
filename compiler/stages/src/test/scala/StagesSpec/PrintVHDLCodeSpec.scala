@@ -1771,16 +1771,19 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end ForkJoinFSM;
          |
          |architecture ForkJoinFSM_arch of ForkJoinFSM is
-         |  type t_enum_State is (
-         |    State_S_0, State_S_1
+         |  type t_enum_State_0 is (
+         |    State_0_S_boot, State_0_S_0
+         |  );
+         |  type t_enum_State_1 is (
+         |    State_1_S_0, State_1_S_1
          |  );
          |  signal fk_start_0 : std_logic;
          |  signal fk_start_1 : std_logic;
          |  signal fk_done_0 : std_logic;
          |  signal fk_done_1 : std_logic;
-         |  signal state_0 : t_enum_State;
-         |  signal state_1 : t_enum_State;
-         |  signal state_2 : t_enum_State;
+         |  signal state_0 : t_enum_State_0;
+         |  signal state_1 : t_enum_State_1;
+         |  signal state_2 : t_enum_State_1;
          |begin
          |  process (clk)
          |  begin
@@ -1788,51 +1791,51 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      if rst = '1' then
          |        a <= '0';
          |        b <= '0';
-         |        state_0 <= State_S_0;
-         |        state_1 <= State_S_0;
-         |        state_2 <= State_S_0;
+         |        state_0 <= State_0_S_boot;
+         |        state_1 <= State_1_S_0;
+         |        state_2 <= State_1_S_0;
          |      else
          |        case state_0 is
-         |          when State_S_0 =>
+         |          when State_0_S_boot =>
          |            fk_start_0 <= '1';
          |            fk_start_1 <= '1';
-         |            state_0 <= State_S_1;
-         |          when State_S_1 =>
-         |            if not (fk_done_0 and fk_done_1) then state_0 <= State_S_1;
+         |            state_0 <= State_0_S_0;
+         |          when State_0_S_0 =>
+         |            if not (fk_done_0 and fk_done_1) then state_0 <= State_0_S_0;
          |            else
          |              fk_start_0 <= '0';
          |              fk_start_1 <= '0';
-         |              state_0 <= State_S_0;
+         |              state_0 <= State_0_S_boot;
          |            end if;
          |        end case;
          |        case state_1 is
-         |          when State_S_0 =>
-         |            if not fk_start_0 then state_1 <= State_S_0;
+         |          when State_1_S_0 =>
+         |            if not fk_start_0 then state_1 <= State_1_S_0;
          |            else
          |              a <= '1';
          |              fk_done_0 <= '1';
-         |              state_1 <= State_S_1;
+         |              state_1 <= State_1_S_1;
          |            end if;
-         |          when State_S_1 =>
-         |            if fk_start_0 then state_1 <= State_S_1;
+         |          when State_1_S_1 =>
+         |            if fk_start_0 then state_1 <= State_1_S_1;
          |            else
          |              fk_done_0 <= '0';
-         |              state_1 <= State_S_0;
+         |              state_1 <= State_1_S_0;
          |            end if;
          |        end case;
          |        case state_2 is
-         |          when State_S_0 =>
-         |            if not fk_start_1 then state_2 <= State_S_0;
+         |          when State_1_S_0 =>
+         |            if not fk_start_1 then state_2 <= State_1_S_0;
          |            else
          |              b <= '1';
          |              fk_done_1 <= '1';
-         |              state_2 <= State_S_1;
+         |              state_2 <= State_1_S_1;
          |            end if;
-         |          when State_S_1 =>
-         |            if fk_start_1 then state_2 <= State_S_1;
+         |          when State_1_S_1 =>
+         |            if fk_start_1 then state_2 <= State_1_S_1;
          |            else
          |              fk_done_1 <= '0';
-         |              state_2 <= State_S_0;
+         |              state_2 <= State_1_S_0;
          |            end if;
          |        end case;
          |      end if;

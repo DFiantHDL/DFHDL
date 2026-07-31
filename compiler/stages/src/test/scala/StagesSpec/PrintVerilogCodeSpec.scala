@@ -1857,72 +1857,76 @@ class PrintVerilogCodeSpec extends StageSpec:
          |);
          |  `include "dfhdl_defs.svh"
          |  typedef enum logic [0:0] {
-         |    State_S_0 = 0,
-         |    State_S_1 = 1
-         |  } t_enum_State;
+         |    State_0_S_boot = 0,
+         |    State_0_S_0 = 1
+         |  } t_enum_State_0;
+         |  typedef enum logic [0:0] {
+         |    State_1_S_0 = 0,
+         |    State_1_S_1 = 1
+         |  } t_enum_State_1;
          |  logic fk_start_0;
          |  logic fk_start_1;
          |  logic fk_done_0;
          |  logic fk_done_1;
-         |  t_enum_State state_0;
-         |  t_enum_State state_1;
-         |  t_enum_State state_2;
+         |  t_enum_State_0 state_0;
+         |  t_enum_State_1 state_1;
+         |  t_enum_State_1 state_2;
          |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) begin
          |      a <= 1'b0;
          |      b <= 1'b0;
-         |      state_0 <= State_S_0;
-         |      state_1 <= State_S_0;
-         |      state_2 <= State_S_0;
+         |      state_0 <= State_0_S_boot;
+         |      state_1 <= State_1_S_0;
+         |      state_2 <= State_1_S_0;
          |    end
          |    else begin
          |      unique case (state_0)
-         |        State_S_0: begin
+         |        State_0_S_boot: begin
          |          fk_start_0 <= 1'b1;
          |          fk_start_1 <= 1'b1;
-         |          state_0 <= State_S_1;
+         |          state_0 <= State_0_S_0;
          |        end
-         |        State_S_1: begin
-         |          if (~(fk_done_0 & fk_done_1)) state_0 <= State_S_1;
+         |        State_0_S_0: begin
+         |          if (~(fk_done_0 & fk_done_1)) state_0 <= State_0_S_0;
          |          else begin
          |            fk_start_0 <= 1'b0;
          |            fk_start_1 <= 1'b0;
-         |            state_0 <= State_S_0;
+         |            state_0 <= State_0_S_boot;
          |          end
          |        end
          |      endcase
          |      unique case (state_1)
-         |        State_S_0: begin
-         |          if (~fk_start_0) state_1 <= State_S_0;
+         |        State_1_S_0: begin
+         |          if (~fk_start_0) state_1 <= State_1_S_0;
          |          else begin
          |            a <= 1'b1;
          |            fk_done_0 <= 1'b1;
-         |            state_1 <= State_S_1;
+         |            state_1 <= State_1_S_1;
          |          end
          |        end
-         |        State_S_1: begin
-         |          if (fk_start_0) state_1 <= State_S_1;
+         |        State_1_S_1: begin
+         |          if (fk_start_0) state_1 <= State_1_S_1;
          |          else begin
          |            fk_done_0 <= 1'b0;
-         |            state_1 <= State_S_0;
+         |            state_1 <= State_1_S_0;
          |          end
          |        end
          |      endcase
          |      unique case (state_2)
-         |        State_S_0: begin
-         |          if (~fk_start_1) state_2 <= State_S_0;
+         |        State_1_S_0: begin
+         |          if (~fk_start_1) state_2 <= State_1_S_0;
          |          else begin
          |            b <= 1'b1;
          |            fk_done_1 <= 1'b1;
-         |            state_2 <= State_S_1;
+         |            state_2 <= State_1_S_1;
          |          end
          |        end
-         |        State_S_1: begin
-         |          if (fk_start_1) state_2 <= State_S_1;
+         |        State_1_S_1: begin
+         |          if (fk_start_1) state_2 <= State_1_S_1;
          |          else begin
          |            fk_done_1 <= 1'b0;
-         |            state_2 <= State_S_0;
+         |            state_2 <= State_1_S_0;
          |          end
          |        end
          |      endcase

@@ -224,18 +224,108 @@ case object FlattenStepBlocks extends HierarchyStage:
   def nullifies: Set[Stage] = Set()
 
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    // Phase -1: synthesize the bootstrap step for every process whose prologue needs a state of
+    // its own. It is created here, and not by `DropRTWaits` where the prologue is left in place,
+    // because `DropRTWaits` still emits relative gotos: a `FirstStep` in its printout cannot tell
+    // a bootstrap step from a real first step, so that stage may not decide it. Here both targets
+    // become explicit in the same run — `FirstStep` resolves to the process's own first step and
+    // the sequential wrap-around resolves to the bootstrap.
+    val bootstrapDsns = subDB.members.view.collect {
+      case pb: ProcessBlock
+          if pb.isInRTDomain && !pb.isInitial && needsBootstrapStep(pb) =>
+        new MetaDesign(pb, Patch.Add.Config.InsideFirst):
+          import dfhdl.core.StepBlock
+          val step = StepBlock.forced(using dfc.setName(bootstrapStepName))
+          dfc.enterOwner(step)
+          NextStep
+          dfc.exitOwner()
+    }.toList
+    val subDB0 = subDB.patch(bootstrapDsns.map(_.patch))
+    // carried by value across the phases below (the same way Phase 4's fusion candidates are):
+    // which step is the bootstrap is this stage's own knowledge, never read back out of the IR
+    val bootstrapSteps: Set[DFMember] = bootstrapDsns.map(_.step.asIR).toSet
+    transformFlat(subDB0, bootstrapSteps)
+  end transformSubDB
+
+  /** The name of the synthesized bootstrap step. It cannot reuse the `S_<n>` enumeration:
+    * `DropRTWaits` owns that counter and has already handed out `S_0` to the process's own first
+    * generated step.
+    */
+  private val bootstrapStepName = "S_boot"
+
+  /** Does this process's prologue need a state of its own? It does unless the prologue (the leading
+    * members before the first step) and the first step's `onEntry` are both initial-convertible, in
+    * which case `DropRTProcess` lowers them into a generated `initial` block and the wrap-around
+    * re-executes the rotation clone, so no bootstrap cycle is consumed. A process *starting* with a
+    * step needs one only when that step's `onEntry` is not convertible, so the hook still fires on
+    * the bootstrap -> first-step transition at reset.
+    */
+  private def needsBootstrapStep(pb: ProcessBlock)(using MemberGetSet): Boolean =
+    val foldedMembers = pb.members(MemberView.Folded)
+    // the convertibility vetting runs on the region's full flattened content, so owners in the
+    // folded region are expanded; a step hiding inside a conditional surfaces in the expansion
+    // and correctly fails the vetting (bootstrap kept)
+    def expandOwners(list: List[DFMember]): List[DFMember] = list.flatMap {
+      case owner: DFOwner => owner :: owner.members(MemberView.Flattened)
+      case m              => List(m)
+    }
+    def leading(list: List[DFMember]): List[DFMember] = list.takeWhile {
+      case _: StepBlock => false
+      case _            => true
+    }
+    val prologue = expandOwners(leading(foldedMembers))
+    val firstStepOnEntryMembers: List[DFMember] =
+      foldedMembers.collectFirst { case sb: StepBlock if sb.isRegular => sb }
+        .flatMap {
+          _.members(MemberView.Folded).collectFirst {
+            case onEntry: StepBlock if onEntry.isOnEntry => onEntry
+          }
+        }
+        .map(_.members(MemberView.Flattened))
+        .getOrElse(Nil)
+    val startsWithStep = foldedMembers.dropWhile {
+      case v: DFVal => v.isAnonymous
+      case _        => false
+    }.headOption.exists(_.isInstanceOf[StepBlock])
+    // Prologue conversion is disallowed when a trailing statement (after the last step —
+    // relocated below to the wrap-around exit) assigns a declaration the prologue also assigns:
+    // the prologue re-initialization inlined at the wrap-around goto site would shadow that
+    // trailing write in the same cycle, whereas with the bootstrap step it is observable for one
+    // cycle (e.g. the fork-join start/done handshake's low pulse).
+    def assignedDclsOf(members: List[DFMember]): Set[DFVal.Dcl] =
+      members.view.collect { case DFNet.BAssignment(toVal, _) =>
+        toVal.departialDcl.map(_._1)
+      }.flatten.toSet
+    val trailing =
+      if (startsWithStep || prologue.sizeIs >= foldedMembers.size) Nil
+      else expandOwners(leading(foldedMembers.reverse).reverse)
+    val trailingSharesPrologueDcl =
+      val prologueDcls = assignedDclsOf(prologue)
+      prologueDcls.nonEmpty && assignedDclsOf(trailing).exists(prologueDcls.contains)
+    if (startsWithStep) !isInitialConvertible(firstStepOnEntryMembers)
+    else
+      !(isInitialConvertible(prologue) && isInitialConvertible(firstStepOnEntryMembers) &&
+        !trailingSharesPrologueDcl)
+  end needsBootstrapStep
+
+  private def transformFlat(subDB: DB, bootstrapSteps: Set[DFMember])(using
+      CompilerOptions,
+      RefGen
+  ): DB =
+    given MemberGetSet = subDB.getSet
     // Phase 4 fusion candidates are computed from the original (nested) DB — only nesting
     // provenance identifies a step whose first time-consuming action is its nested child.
     val fusionCandidates = FirstStepFusion.collectCandidates(subDB)
     // Phase 3 ChangeRef patches (and the wrap-around gotos for the rotation) are computed
     // from the original DB.
     val (gotoPatchLists, wrapGotoLists) = subDB.members.view.collect {
-      case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial => collectGotoPatches(pb)
+      case pb: ProcessBlock if pb.isInRTDomain && !pb.isInitial =>
+        collectGotoPatches(pb, bootstrapSteps)
     }.toList.unzip
     val gotoPatchList = gotoPatchLists.flatten
     // Forever-loop rotation: `forever { P; S1..Sn }` == `initial P; loop { S1..Sn; P }`.
-    // The prologue P (the leading statements before the first step, which DropRTWaits left
-    // in place only when initial-convertible) is cloned just before each wrap-around
+    // The prologue P (the leading statements before the first step) is cloned just before each
+    // wrap-around
     // `NextStep` goto, so it re-executes at the loop restart. Only the statement closures
     // (assignment nets, text output, combinational for loops) are cloned; other leading
     // members (declarations, ranges, values consumed by the steps) stay in place and keep
@@ -274,7 +364,7 @@ case object FlattenStepBlocks extends HierarchyStage:
     val db3 = db2.patch(gotoPatchList)
     // Phase 4: first-step fusion — inline candidate dispatches at their goto sites
     FirstStepFusion.fuse(db3, fusionCandidates)
-  end transformSubDB
+  end transformFlat
 
   // Repeatedly extract one nesting level of conditional-branch StepBlocks until none remain nested
   // inside another conditional-branch step. Extracting an outer and an inner conditional-branch step
@@ -370,12 +460,18 @@ case object FlattenStepBlocks extends HierarchyStage:
   // the stage a fix-point: after Phase 3 the `NextStep` is replaced by a named goto, so a
   // re-run finds no wrap trigger and creates no further copies.
   private def collectGotoPatches(
-      pb: ProcessBlock
+      pb: ProcessBlock,
+      bootstrapSteps: Set[DFMember]
   )(using MemberGetSet): (List[(DFMember, Patch)], List[Goto]) =
     val flatSteps = collectDirectFlatSteps(pb)
     if flatSteps.isEmpty then return (Nil, Nil)
+    // the sequential wrap-around goes through the bootstrap step when there is one -- that is
+    // what re-runs the prologue at the forever restart -- so it stays `flatSteps.head`
     val nextStepMap = (flatSteps lazyZip (flatSteps.tail :+ flatSteps.head)).toMap
-    val firstStep = flatSteps.head
+    // `FirstStep` does not: it targets the process's own first step, whatever construct yielded
+    // it, so that an explicit jump re-runs neither the prologue nor the bootstrap's cycle and is
+    // the same jump as naming that step
+    val firstStep = flatSteps.find(!bootstrapSteps.contains(_)).getOrElse(flatSteps.head)
     val conditionalBranchSteps = pb.members(MemberView.Flattened).collect {
       case sb: StepBlock if sb.isRegular && sb.getOwner.isInstanceOf[DFConditional.Block] => sb
     }

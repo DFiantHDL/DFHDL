@@ -23,7 +23,7 @@ Define states as `def Name: Step = ...` and control flow with:
 
 - **`NextStep`**: advance to the next step in definition order.
 - **`ThisStep`**: stay in the current step for another cycle.
-- **`FirstStep`**: go to the first step (e.g. reset to initial state).
+- **`FirstStep`**: jump to the first step, exactly as naming it would. It is a jump, not a restart: it does not re-run the [process prologue](#cycle-semantics).
 - **Step name** (e.g. `S1`, `S2`): jump to that step.
 
 You can optionally name the process (e.g. `val my_fsm = process:`) so the compiler uses that name for the generated state enum and state register.
@@ -172,6 +172,8 @@ process:
 
 The leading statements do **not** re-run on an explicit jump to the first step (`FirstStep` or the first step's name), nor on a `ThisStep` self-transition. The first step's `onEntry` is an ordinary entry hook on top of that: it runs on *every* entry into the first step from a different step, explicit jumps included (but not on a self-transition).
 
+This holds whether or not the prologue is initial-convertible. When it is not (see [Cycle semantics](#cycle-semantics)), the compiler gives the prologue a state of its own to run it, and the wrap-around passes through that state. `FirstStep` does not: it jumps to the process's first step — the first step *you* wrote, or the one a leading wait or loop yielded — paying neither the prologue nor that state's cycle. `FirstStep` and naming the first step are therefore always the same jump, and are always distinct from a wrap-around.
+
 ```scala
 process:
   sum.din := 0          // prologue: runs at initialization (reset or power-on)
@@ -205,7 +207,7 @@ Fusion falls back to the previous behavior of one extra control cycle (per loop 
 - Steps that carry `onEntry`, `onExit`, or `fallThrough` blocks.
 - Steps whose jump dispatch is a `match` rather than `if` conditionals.
 
-Similarly, Rule 4 falls back to a synthetic bootstrap state (one cycle consumed at process start) when the prologue cannot be lowered into an `initial` block:
+Similarly, Rule 4 falls back to a synthetic bootstrap state when the prologue cannot be lowered into an `initial` block. That state runs the prologue, so it costs a cycle at process start *and* on each wrap-around, which passes through it. An explicit `FirstStep` jump does not pass through it and costs nothing.
 
 - The prologue (or the first step's `onEntry`) is not initial-convertible: it contains non-constant right-hand sides, assignments to wires/ports (non-registered), prints, `while` loops, or conditionals with non-constant guards/selectors.
 - A variable assigned by the prologue is also assigned by trailing statements of the process body (statements executed in the wrap-around exit cycle): the wrap-around re-initialization would shadow that trailing assignment in the same cycle, so the bootstrap state is kept instead.

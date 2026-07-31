@@ -23,7 +23,7 @@ The `DB` is an **immutable snapshot**: each stage receives the current `DB`, com
 
 ## Required Stage Properties
 
-Every stage **must** satisfy two invariants. Violating either causes subtle, hard-to-debug compiler bugs.
+Every stage **must** satisfy three invariants. Violating any of them causes subtle, hard-to-debug compiler bugs.
 
 ### 1. Determinism — same input → same output, every time
 
@@ -54,8 +54,37 @@ This is a **design guideline**, not something that needs to be formally proved. 
   same run (e.g. FlattenStepBlocks clones the process prologue at the wrap-around goto — but
   keyed on the relative `NextStep` form of that goto, which the same run resolves into a
   named goto, so a re-run finds no trigger). If the trigger cannot be consumed, carry the
-  provenance as a **member tag** (`DFTag`) instead — tagging an already-tagged member is a
-  no-op, so tags are fix-point-safe.
+  provenance as a **member tag** (`DFTag`) — but only one that satisfies rule 3 below.
+
+### 3. Printability — every stage's output must survive a print/re-elaborate round trip
+
+Take a stage's printed output, elaborate it as DFHDL source, and run the rest of the pipeline:
+the result must be identical to passing the IR along directly. Printed code is the contract
+between stages, so **no stage may depend on information that its own printout does not carry.**
+
+This is what constrains tags. A tag is safe only when re-elaborating the printed form
+reconstructs it:
+
+- `CombinationalTag` / `FallThroughTag` print as the `COMB_LOOP:` / `FALL_THROUGH:` wrappers, so
+  elaboration puts them back. Safe.
+- `IteratorTag`, `BindTag`, `IdentTag` and friends are re-derived by elaboration from the
+  construct itself. Safe.
+- A tag marking *why a stage synthesized a member* has no printed form and nothing regenerates
+  it. **Unsafe** — and the failure is silent, because the IR path keeps working.
+
+The trap is that a tag can be perfectly fix-point-safe (re-tagging is a no-op) and still break
+this. Idempotency and printability are independent requirements.
+
+The practical test: could a user have hand-written this printout, meaning something different?
+A synthesized process bootstrap step prints as `def S_0: Step = NextStep` followed by the
+prologue statements — byte-identical to a real first step followed by an inter-step statement.
+Nothing in the printout distinguishes them, so no downstream stage may rely on the difference.
+
+When you hit this, the fix is not a better marker; it is to **move the decision into the stage
+that consumes it**, or to resolve the ambiguity before the boundary. The process bootstrap moved
+from `DropRTWaits` into `FlattenStepBlocks` for exactly this reason: `DropRTWaits` still emits
+relative gotos, so a `FirstStep` in its printout is ambiguous about the bootstrap, while by
+`FlattenStepBlocks` every goto is explicit and the ambiguity is gone.
 
 ---
 

@@ -612,3 +612,23 @@ class FallThroughOutOfOrderProc extends RTDesign:
         y.din := y + 8
       S2
 end FallThroughOutOfOrderProc
+
+/** `FirstStep` in a process whose prologue is not initial-convertible, so the lowering adds a
+  * bootstrap step carrying that prologue. The explicit jump must reach the first step the user
+  * wrote, re-running neither the prologue nor the bootstrap's cycle -- `z` counts wrap-arounds, so
+  * it must not advance on the `FirstStep` path.
+  */
+class FirstStepOverBootProc extends RTDesign:
+  val x = Bit <> IN
+  val y = UInt(8) <> OUT.REG init 0
+  val z = UInt(8) <> OUT.REG init 0
+  process:
+    z.din := z + 1
+    def Accum: Step =
+      y.din := y + 1
+      NextStep
+    def Flush: Step =
+      y.din := y + 16
+      if (x) FirstStep
+      else NextStep
+end FirstStepOverBootProc

@@ -272,23 +272,23 @@ class DropRTProcessSpec extends StageSpec():
     assertCodeString(
       top,
       // The first step's onEntry is not initial-convertible (`y.din := y` reads y), so a
-      // bootstrap S_0 step is generated (DropRTWaits Rule 6) and correctly fires S0's
+      // bootstrap S_boot step is generated (DropRTWaits Rule 6) and correctly fires S0's
       // onEntry on reset entry (previously it was silently lost); the wrap-around passes
-      // through S_0. The fall-through cascade does not: it follows each step's own exit
-      // goto (S0 -> S1 -> S2 -> S0), matching the plain transitions, so the S_0 case's chain
-      // ends on the S0 it already passed through rather than back at S_0.
+      // through S_boot. The fall-through cascade does not: it follows each step's own exit
+      // goto (S0 -> S1 -> S2 -> S0), matching the plain transitions, so the S_boot case's chain
+      // ends on the S0 it already passed through rather than back at S_boot.
       """|class Foo extends RTDesign:
          |  enum State(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
-         |    case S_0 extends State(d"2'0")
+         |    case S_boot extends State(d"2'0")
          |    case S0 extends State(d"2'1")
          |    case S1 extends State(d"2'2")
          |    case S2 extends State(d"2'3")
          |
          |  val x = Bit <> IN
          |  val y = Bit <> OUT.REG init 0
-         |  val state = State <> VAR.REG init State.S_0
+         |  val state = State <> VAR.REG init State.S_boot
          |  state match
-         |    case State.S_0 =>
+         |    case State.S_boot =>
          |      y.din := y
          |      state.din := State.S0
          |      if (x)

@@ -601,6 +601,19 @@ class RTProcessSimSpec extends SimSpec:
           else if t == 18 then dut.x.poke(1)
     )
 
+  bothTiers("oracle: FirstStep jumps past the bootstrap step"): tier =>
+    lockstep(
+      new FirstStepOverBootProc,
+      tier,
+      24,
+      watch = List(_.y, _.z),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 6 then dut.x.poke(1)
+          else if t == 15 then dut.x.poke(0)
+    )
+
   bothTiers("oracle: a convertible first-step onEntry folds into the time-zero state"): tier =>
     lockstep(
       new FirstStepEntryProc,

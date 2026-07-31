@@ -278,6 +278,89 @@ class FlattenStepBlocksSpec extends StageSpec():
     )
   }
 
+  test("FirstStep resolves past the bootstrap step, the wrap-around does not") {
+    class Foo extends RTDesign:
+      val x = Bit     <> IN
+      val y = UInt(8) <> OUT.REG init 0
+      val z = UInt(8) <> OUT.REG init 0
+      process:
+        z.din := z + 1 // non-constant RHS: not initial-convertible, so a bootstrap step is added
+        def Accum: Step =
+          y.din := y + 1
+          NextStep
+        def Flush: Step =
+          y.din := y + 16
+          if (x) FirstStep // explicit jump: no prologue re-run
+          else NextStep // wrap-around: the prologue re-runs
+    end Foo
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(
+      top,
+      // S_boot is the synthesized bootstrap carrying the prologue. Flush's two branches are the
+      // whole point: the sequential wrap-around goes through S_boot and so re-runs
+      // `z.din := z + 1`, while `FirstStep` lands on Accum, the process's actual first step, and
+      // re-runs neither the prologue nor the bootstrap's cycle.
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  val z = UInt(8) <> OUT.REG init d"8'0"
+         |  process:
+         |    def S_boot: Step =
+         |      z.din := z + d"8'1"
+         |      Accum
+         |    end S_boot
+         |    def Accum: Step =
+         |      y.din := y + d"8'1"
+         |      Flush
+         |    end Accum
+         |    def Flush: Step =
+         |      y.din := y + d"8'16"
+         |      if (x) Accum
+         |      else S_boot
+         |    end Flush
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("FirstStep targets a generated first step, not the bootstrap") {
+    class Foo extends RTDesign:
+      val x = Bit     <> IN
+      val y = UInt(8) <> OUT.REG init 0
+      val z = UInt(8) <> OUT.REG init 0
+      process:
+        z.din := z + 1 // non-convertible prologue: a bootstrap step is added
+        1.cy.wait // the process's first step, yielded by a wait rather than a `def`
+        y.din := y + 1
+        def Check: Step =
+          if (x) FirstStep
+          else NextStep
+    end Foo
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(
+      top,
+      // How the first step was written has no bearing on `FirstStep`: it targets S_0, the wait's
+      // step, because the bootstrap is the prologue's carrier rather than a step of the process.
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  val z = UInt(8) <> OUT.REG init d"8'0"
+         |  process:
+         |    def S_boot: Step =
+         |      z.din := z + d"8'1"
+         |      S_0
+         |    end S_boot
+         |    def S_0: Step =
+         |      y.din := y + d"8'1"
+         |      Check
+         |    end S_0
+         |    def Check: Step =
+         |      if (x) S_0
+         |      else S_boot
+         |    end Check
+         |end Foo""".stripMargin
+    )
+  }
+
   test("step nested inside conditional branch") {
     class Foo extends RTDesign:
       val i = Bit <> IN
