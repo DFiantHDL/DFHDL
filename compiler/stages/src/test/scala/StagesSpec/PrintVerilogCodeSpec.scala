@@ -2918,4 +2918,145 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+  test("REG DIN write-only") {
+    class Example() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      val y = UInt(8) <> OUT
+      r.din := r + d"8'1"
+      y     := r
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Example(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] r;
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) r <= 8'd0;
+         |    else r <= r + 8'd1;
+         |  end
+         |  assign y = r;
+         |endmodule""".stripMargin
+    )
+  }
+  // the design and its output are reproduced in docs/user-guide/design-domains (the `.din`
+  // read section), so this test also guards that documentation against drift
+  test("REG DIN read") {
+    class SteppedCounter() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(8) <> OUT
+      r.din := r.din + 1
+      r.din := r.din + 1
+      y     := r
+    val top = (SteppedCounter()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module SteppedCounter(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] r;
+         |  logic [7:0] r_din;
+         |  always_comb
+         |  begin
+         |    r_din = r;
+         |    r_din = r_din + 8'd1;
+         |    r_din = r_din + 8'd1;
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) r <= 8'd0;
+         |    else r <= r_din;
+         |  end
+         |  assign y = r;
+         |endmodule""".stripMargin
+    )
+  }
+  test("REG DIN partial read") {
+    class Example() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      val y = UInt(4) <> OUT
+      r(3, 0).din := d"4'5"
+      y           := r(3, 0).din
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Example(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  output logic [3:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] r;
+         |  logic [7:0] r_din;
+         |  always_comb
+         |  begin
+         |    r_din = r;
+         |    r_din[3:0] = 4'd5;
+         |    y = r_din[3:0];
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) r <= 8'd0;
+         |    else r <= r_din;
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("REG DIN read in a named expression") {
+    class Example() extends RTDesign:
+      val r   = UInt(8) <> VAR.REG init d"8'0"
+      val y   = UInt(8) <> OUT
+      val sum = r.din + d"8'1"
+      r.din := sum
+      y     := sum
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Example(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] r;
+         |  logic [7:0] sum;
+         |  logic [7:0] r_din;
+         |  always_comb
+         |  begin
+         |    r_din = r;
+         |    sum = r_din + 8'd1;
+         |    r_din = sum;
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) r <= 8'd0;
+         |    else r <= r_din;
+         |  end
+         |  assign y = sum;
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

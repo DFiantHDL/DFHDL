@@ -873,6 +873,7 @@ object DFVal:
     given ReadWriter[Alias] = ReadWriter.merge(
       summon[ReadWriter[DFVal.Alias.AsIs]],
       summon[ReadWriter[DFVal.Alias.History]],
+      summon[ReadWriter[DFVal.Alias.RegDIN]],
       summon[ReadWriter[DFVal.Alias.ApplyRange]],
       summon[ReadWriter[DFVal.Alias.ApplyIdx]],
       summon[ReadWriter[DFVal.Alias.SelectField]]
@@ -974,6 +975,44 @@ object DFVal:
         def hasNonBubbleInit(using MemberGetSet): Boolean = history.initRefOption match
           case Some(DFRef(dfVal)) => !dfVal.isBubble
           case _                  => false
+
+    /** A read of a register's DIN (`r.din` under an RT domain): the pending next-cycle value of
+      * `relValRef`, meaning the latest assignment committed to it so far in the current cycle body,
+      * or the register's own value when nothing has been assigned yet. `ToED` lowers it into a read
+      * of the register's `_din` shadow variable, which it already generates.
+      *
+      * This is a `Consumer` and deliberately not a `Partial`: it must never propagate
+      * assignability, so it cannot reach an assignment LHS and `departialDcl` stops at it. Every
+      * generic alias walker then treats it as a plain read of the register, which is the correct
+      * conservative reading for the stages it passes through on the way to `ToED`.
+      */
+    final case class RegDIN(
+        dfType: DFType,
+        relValRef: ConsumerRef,
+        ownerRef: DFOwner.Ref,
+        meta: Meta,
+        tags: DFTags
+    ) extends Consumer derives ReadWriter:
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous
+      protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
+        ConstData.NotConst
+      protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+        case that: RegDIN =>
+          this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
+          this.meta =~ that.meta && this.tags =~ that.tags
+        case _ => false
+      protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+      protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+      def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
+      def copyWithNewRefs(using RefGen): this.type = copy(
+        meta = meta.copyWithNewRefs,
+        dfType = dfType.copyWithNewRefs,
+        ownerRef = ownerRef.copyAsNewRef,
+        relValRef = relValRef.copyAsNewRef
+      ).asInstanceOf[this.type]
+    end RegDIN
 
     final case class ApplyRange(
         dfType: DFType,

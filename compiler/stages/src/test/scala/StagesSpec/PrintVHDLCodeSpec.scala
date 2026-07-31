@@ -3061,4 +3061,191 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo_arch;""".stripMargin
     )
   }
+  test("REG DIN write-only") {
+    class Example() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      val y = UInt(8) <> OUT
+      r.din := r + d"8'1"
+      y     := r
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |  signal r : unsigned(7 downto 0);
+         |begin
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then r <= 8d"0";
+         |      else r <= r + 8d"1";
+         |      end if;
+         |    end if;
+         |  end process;
+         |  y <= r;
+         |end Example_arch;
+         |""".stripMargin
+    )
+  }
+  // the design and its output are reproduced in docs/user-guide/design-domains (the `.din`
+  // read section), so this test also guards that documentation against drift
+  test("REG DIN read") {
+    class SteppedCounter() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(8) <> OUT
+      r.din := r.din + 1
+      r.din := r.din + 1
+      y     := r
+    val top = (SteppedCounter()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity SteppedCounter is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end SteppedCounter;
+         |
+         |architecture SteppedCounter_arch of SteppedCounter is
+         |  signal r : unsigned(7 downto 0);
+         |  signal r_din : unsigned(7 downto 0);
+         |begin
+         |  process (all)
+         |    variable r_din_v : unsigned(7 downto 0);
+         |  begin
+         |    r_din_v := r;
+         |    r_din_v := r_din_v + 8d"1";
+         |    r_din_v := r_din_v + 8d"1";
+         |    r_din <= r_din_v;
+         |  end process;
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then r <= 8d"0";
+         |      else r <= r_din;
+         |      end if;
+         |    end if;
+         |  end process;
+         |  y <= r;
+         |end SteppedCounter_arch;
+         |""".stripMargin
+    )
+  }
+  test("REG DIN partial read") {
+    class Example() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      val y = UInt(4) <> OUT
+      r(3, 0).din := d"4'5"
+      y           := r(3, 0).din
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  y : out unsigned(3 downto 0)
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |  signal r : unsigned(7 downto 0);
+         |  signal r_din : unsigned(7 downto 0);
+         |begin
+         |  process (all)
+         |    variable r_din_v : unsigned(7 downto 0);
+         |  begin
+         |    r_din_v := r;
+         |    r_din_v(3 downto 0) := 4d"5";
+         |    y <= r_din_v(3 downto 0);
+         |    r_din <= r_din_v;
+         |  end process;
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then r <= 8d"0";
+         |      else r <= r_din;
+         |      end if;
+         |    end if;
+         |  end process;
+         |end Example_arch;
+         |""".stripMargin
+    )
+  }
+  test("REG DIN read in a named expression") {
+    class Example() extends RTDesign:
+      val r   = UInt(8) <> VAR.REG init d"8'0"
+      val y   = UInt(8) <> OUT
+      val sum = r.din + d"8'1"
+      r.din := sum
+      y     := sum
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |  signal r : unsigned(7 downto 0);
+         |  signal sum : unsigned(7 downto 0);
+         |  signal r_din : unsigned(7 downto 0);
+         |begin
+         |  process (all)
+         |    variable r_din_v : unsigned(7 downto 0);
+         |  begin
+         |    r_din_v := r;
+         |    sum <= r_din_v + 8d"1";
+         |    r_din_v := sum;
+         |    r_din <= r_din_v;
+         |  end process;
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then r <= 8d"0";
+         |      else r <= r_din;
+         |      end if;
+         |    end if;
+         |  end process;
+         |  y <= sum;
+         |end Example_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

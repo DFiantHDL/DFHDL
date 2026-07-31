@@ -11,11 +11,8 @@ type DFMemberAny = DFMember[ir.DFMember]
 object DFMember:
   extension [T <: ir.DFMember](member: DFMember[T])
     inline def asIR: T = member.irValue.runtimeChecked match
-      case memberIR: T @unchecked                   => memberIR
-      case err: DFError.REG_DIN[?] if err.firstTime =>
-        err.firstTime = false
-        throw err
-      case err: DFError => throw DFError.Derived(err)
+      case memberIR: T @unchecked => memberIR
+      case err: DFError           => throw DFError.Derived(err)
 end DFMember
 
 extension [M <: ir.DFMember](member: M)

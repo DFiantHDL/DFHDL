@@ -705,4 +705,23 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |Message:   A `match` selector inside an `initial` block under a register-transfer (RT) domain must be a constant.""".stripMargin
     )
+  test("named register DIN read"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val r = UInt(8) <> VAR.REG init 0
+        val d = r.din
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:712:17 - 712:22
+          |Hierarchy: Top.d
+          |Operation: `.din`
+          |Message:   Cannot name a register DIN read.
+          |Reading `.din` yields the register's pending value at the position of the read, so binding it
+          |to a Scala `val` would hold a live view and not the snapshot it appears to be.
+          |To Fix: apply `.din` directly where it is read. E.g.:
+          |* Instead of `val d = x.din` followed by `y := d + 1` write `y := x.din + 1`.
+          |""".stripMargin
+    )
 end ElaborationChecksSpec

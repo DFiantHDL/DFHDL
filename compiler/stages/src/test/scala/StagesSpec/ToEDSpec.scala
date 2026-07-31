@@ -1292,4 +1292,239 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("REG DIN read") {
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class ID extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(8) <> OUT
+      r.din := r.din + d"8'1"
+      r.din := r.din + d"8'1"
+      y     := r
+    end ID
+    val id = (new ID).toED
+    assertCodeString(
+      id,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val y = UInt(8) <> OUT
+         |  val r = UInt(8) <> VAR
+         |  val r_din = UInt(8) <> VAR
+         |  process(all):
+         |    r_din := r
+         |    r_din := r_din + d"8'1"
+         |    r_din := r_din + d"8'1"
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) r :== d"8'0"
+         |      else r :== r_din
+         |    end if
+         |  y <> r
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("REG DIN partial read") {
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class ID extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(4) <> OUT
+      r(3, 0).din := d"4'5"
+      y           := r(3, 0).din
+    end ID
+    val id = (new ID).toED
+    assertCodeString(
+      id,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val y = UInt(4) <> OUT
+         |  val r = UInt(8) <> VAR
+         |  val r_din = UInt(8) <> VAR
+         |  process(all):
+         |    r_din := r
+         |    r_din(3, 0) := d"4'5"
+         |    y := r_din(3, 0)
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) r :== d"8'0"
+         |      else r :== r_din
+         |    end if
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("REG DIN read without a DIN assignment") {
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class ID extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(8) <> OUT
+      y := r.din
+    end ID
+    val id = (new ID).toED
+    assertCodeString(
+      id,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val y = UInt(8) <> OUT
+         |  val r = UInt(8) <> VAR
+         |  val r_din = UInt(8) <> VAR
+         |  process(all):
+         |    r_din := r
+         |    y := r_din
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) r :== d"8'0"
+         |      else r :== r_din
+         |    end if
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("REG DIN read forces a combinational process in a sequential domain") {
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class ID extends RTDesign:
+      val x  = UInt(8) <> IN
+      val r1 = UInt(8) <> VAR.REG init 0
+      val r2 = UInt(8) <> VAR.REG init 0
+      // r2 has no DIN read, so it must not gain a default assignment of its own
+      r1.din := r1.din + x
+      r2.din := x
+    end ID
+    val id = (new ID).toED
+    assertCodeString(
+      id,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val x = UInt(8) <> IN
+         |  val r1 = UInt(8) <> VAR
+         |  val r2 = UInt(8) <> VAR
+         |  val r1_din = UInt(8) <> VAR
+         |  val r2_din = UInt(8) <> VAR
+         |  process(all):
+         |    r1_din := r1
+         |    r1_din := r1_din + x
+         |    r2_din := x
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1)
+         |        r1 :== d"8'0"
+         |        r2 :== d"8'0"
+         |      else
+         |        r1 :== r1_din
+         |        r2 :== r2_din
+         |      end if
+         |    end if
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("REG DIN read is not hoisted out of the process") {
+    // A DIN read yields the pending value AT ITS POSITION. Promoting `sum` to a concurrent
+    // connection (which its single assignment would otherwise earn) would make it read the
+    // shadow's final value instead, closing a combinational loop: `sum` feeds `r_din` and
+    // would then also be computed from it. `sum` must stay in the process, before `r_din := sum`.
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class ID extends RTDesign:
+      val r   = UInt(8) <> VAR.REG init 0
+      val y   = UInt(8) <> OUT
+      val sum = r.din + d"8'1"
+      r.din := sum
+      y     := sum
+    end ID
+    val id = (new ID).toED
+    assertCodeString(
+      id,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val y = UInt(8) <> OUT
+         |  val r = UInt(8) <> VAR
+         |  val sum = UInt(8) <> VAR
+         |  val r_din = UInt(8) <> VAR
+         |  process(all):
+         |    r_din := r
+         |    sum := r_din + d"8'1"
+         |    r_din := sum
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) r :== d"8'0"
+         |      else r :== r_din
+         |    end if
+         |  y <> sum
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("REG DIN read under VHDL uses a process variable") {
+    // VHDL signal assignment evaluates every RHS against the pre-process value, so a shadow
+    // SIGNAL would turn `r_din := r_din + 1` twice into a single increment, and being
+    // self-referential inside `process(all)` it would never settle. The shadow is therefore a
+    // process variable, published to the design-level signal that the clocked process reads.
+    given options.CompilerOptions.Backend = _.vhdl.v2008
+    @hw.constraints.timing.clock(grpName = "cfg")
+    @hw.constraints.timing.reset()
+    class ID extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(8) <> OUT
+      r.din := r.din + d"8'1"
+      r.din := r.din + d"8'1"
+      y     := r
+    end ID
+    val id = (new ID).toED
+    assertCodeString(
+      id,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val y = UInt(8) <> OUT
+         |  val r = UInt(8) <> VAR
+         |  val r_din = UInt(8) <> VAR
+         |  process(all):
+         |    val r_din_v = UInt(8) <> VAR
+         |    r_din_v := r
+         |    r_din_v := r_din_v + d"8'1"
+         |    r_din_v := r_din_v + d"8'1"
+         |    r_din :== r_din_v
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) r :== d"8'0"
+         |      else r :== r_din
+         |    end if
+         |  y <> r
+         |end ID
+         |""".stripMargin
+    )
+  }
 end ToEDSpec

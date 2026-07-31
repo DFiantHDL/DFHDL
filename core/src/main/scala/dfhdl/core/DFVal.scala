@@ -1002,6 +1002,18 @@ object DFVal extends DFValLP:
         alias.addMember.asValOf[T]
       end apply
     end History
+    object RegDIN:
+      def apply[T <: DFTypeAny](relVal: DFValOf[T])(using DFC): DFValOf[T] =
+        val alias: ir.DFVal.Alias.RegDIN =
+          ir.DFVal.Alias.RegDIN(
+            relVal.dfType.asIR.dropUnreachableRefs,
+            relVal.asIR.refTW[ir.DFVal.Alias.RegDIN],
+            dfc.owner.ref,
+            dfc.getMeta,
+            dfc.tags
+          )
+        alias.addMember.asValOf[T]
+    end RegDIN
     object ApplyRange:
       import IntP.{-, +}
       def apply[W <: IntP, M <: ModifierAny, H <: IntP, L <: IntP](
@@ -1420,7 +1432,7 @@ object DFVal extends DFValLP:
   object Ops:
     protected type SupportedValue =
       DFValAny | Boolean | Int | Long | Double | NonEmptyTuple | Iterable[DFValAny] |
-        SameElementsVector[?] | BoolSelWrapper[?, ?, ?]
+        SameElementsVector[?] | BoolSelWrapper[?, ?, ?] | REG_DIN[?]
     extension (inline lhs: DFValAny)
       transparent inline def apply(inline idx: Any)(using DFCG): DFValAny =
         exactOp2["apply", DFC, DFValAny](lhs, idx)
@@ -1727,14 +1739,30 @@ object VarsTuple:
   end evMacro
 end VarsTuple
 
-final class REG_DIN[T <: DFTypeAny](val irValue: DFError.REG_DIN[T]) extends AnyVal:
+/** The register-input (`.din`) handle of a REG declaration, under an RT domain.
+  *
+  * Assignment goes straight to `relVal`, so `r.din := x` produces the very same IR it always has
+  * and constructs nothing extra. A *read* materialises `dinVal` on demand, which is the only path
+  * that adds an `Alias.RegDIN` member to the design. A write-only `.din` therefore leaves no trace.
+  */
+final class REG_DIN[T <: DFTypeAny](val relVal: DFVarOf[T])(using dfc: DFC):
+  // eager on purpose: a named `.din` must be reported even when it is never read
+  trydf {
+    if (!dfc.isAnonymous) throw new IllegalArgumentException(REG_DIN.namedErrMsg)
+  }(using dfc, CTName(".din"))
+  // built (and added to the design) only when the DIN is read, from the `.din` position
+  lazy val dinVal: DFValOf[T] = DFVal.Alias.RegDIN(relVal)(using dfc)
   def :=(rhs: DFVal.TC.Exact[T])(using DFC): Unit = trydf {
-    val dfVar = irValue.dfVar
-    dfVar.assign(rhs(dfVar.dfType))
+    relVal.assign(rhs(relVal.dfType))
   }
-  // transparent inline def :=[R](inline rhs: R)(using DFC): Unit =
-  //   exactOp2[":=", DFC, Unit](this, rhs)
 object REG_DIN:
+  final val namedErrMsg: String =
+    """|Cannot name a register DIN read.
+       |Reading `.din` yields the register's pending value at the position of the read, so binding it
+       |to a Scala `val` would hold a live view and not the snapshot it appears to be.
+       |To Fix: apply `.din` directly where it is read. E.g.:
+       |* Instead of `val d = x.din` followed by `y := d + 1` write `y := x.din + 1`.
+       |""".stripMargin
   given evREG_DIN_AssignDcl[
       T <: DFTypeAny,
       L <: REG_DIN[T],
@@ -1744,9 +1772,27 @@ object REG_DIN:
   ): ExactOp2Aux[":=", DFC, Unit, L, R, Unit] = new ExactOp2[":=", DFC, Unit, L, R]:
     type Out = Unit
     def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
-      val dfVar = lhs.irValue.dfVar
+      val dfVar = lhs.relVal
       dfVar.assign(tc(dfVar.dfType, rhs))
     }(using dfc, CTName(":="))
+  // A DIN read in an operand position materialises the read alias and delegates to the ordinary
+  // value operation. One given per operand position covers every binary operator, so reading
+  // `.din` needs no per-operator plumbing.
+  given evREG_DIN_OpLHS[Op, T <: DFTypeAny, L <: REG_DIN[T], R, O <: DFValAny](using
+      inner: ExactOp2Aux[Op, DFC, DFValAny, DFValOf[T], R, O]
+  ): ExactOp2Aux[Op, DFC, DFValAny, L, R, O] = new ExactOp2[Op, DFC, DFValAny, L, R]:
+    type Out = O
+    def apply(lhs: L, rhs: R)(using DFC): Out = inner(lhs.dinVal, rhs)
+  given evREG_DIN_OpRHS[Op, T <: DFTypeAny, L, R <: REG_DIN[T], O <: DFValAny](using
+      inner: ExactOp2Aux[Op, DFC, DFValAny, L, DFValOf[T], O]
+  ): ExactOp2Aux[Op, DFC, DFValAny, L, R, O] = new ExactOp2[Op, DFC, DFValAny, L, R]:
+    type Out = O
+    def apply(lhs: L, rhs: R)(using DFC): Out = inner(lhs, rhs.dinVal)
+  // A DIN read as a receiver-typed value: `y := r.din`, `y <> r.din`, method arguments, and so on.
+  given evREG_DIN_TC[T <: DFTypeAny, R <: REG_DIN[T]]: DFVal.TC[T, R] with
+    type OutP = NOTCONST
+    def conv(dfType: T, value: R)(using DFC): Out = value.dinVal.asValTP[T, NOTCONST]
+end REG_DIN
 
 object DFVarOps:
   protected type NotREG[A] = AssertGiven[
@@ -1834,7 +1880,7 @@ object DFVarOps:
       dfVar.nbassign(rhs(dfVar.dfType))
     }
     def din(using dt: DomainType)(using IsREG[A], RTDomainOnly[dt.type], DFC): REG_DIN[T] =
-      new REG_DIN[T](DFError.REG_DIN(dfVar.asVarOf[T]))
+      new REG_DIN[T](dfVar.asVarOf[T])
   end extension
   extension [T <: NonEmptyTuple](dfVarTuple: T)
     def :=[R](rhs: Exact[R])(using

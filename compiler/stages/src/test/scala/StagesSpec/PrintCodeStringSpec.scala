@@ -2848,4 +2848,133 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
+  test("REG DIN write-only adds no read alias") {
+    class Top extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      r.din := r + d"8'1"
+    val db = Top().getDB
+    // the invariant this design exists to protect: a `.din` that is only assigned
+    // constructs nothing at all
+    assert(!db.members.exists {
+      case _: dfhdl.compiler.ir.DFVal.Alias.RegDIN => true
+      case _                                       => false
+    })
+    assertCodeString(
+      db,
+      """|class Top extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  r.din := r + d"8'1"
+         |end Top
+         |""".stripMargin
+    )
+  }
+  test("REG DIN read") {
+    class Top extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      r.din := r.din + d"8'1"
+      r.din := r.din + d"8'1"
+    assertCodeString(
+      Top(),
+      """|class Top extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  r.din := r.din + d"8'1"
+         |  r.din := r.din + d"8'1"
+         |end Top
+         |""".stripMargin
+    )
+  }
+  test("REG DIN partial read") {
+    class Top extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      val y = UInt(4) <> OUT
+      r(3, 0).din := d"4'5"
+      y           := r(3, 0).din
+    assertCodeString(
+      Top(),
+      """|class Top extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  val y = UInt(4) <> OUT
+         |  r(3, 0).din := d"4'5"
+         |  y := r(3, 0).din
+         |end Top
+         |""".stripMargin
+    )
+  }
+  test("REG DIN read in a named expression") {
+    // the name lands on the `+`, not on the `.din`, so this is not a named `.din`
+    class Top extends RTDesign:
+      val r   = UInt(8) <> VAR.REG init d"8'0"
+      val y   = UInt(8) <> OUT
+      val sum = r.din + d"8'1"
+      r.din := sum
+      y     := sum
+    assertCodeString(
+      Top(),
+      """|class Top extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  val y = UInt(8) <> OUT
+         |  val sum = r.din + d"8'1"
+         |  r.din := sum
+         |  y := sum
+         |end Top
+         |""".stripMargin
+    )
+  }
+  // mirrors the `.din` read examples in docs/user-guide/design-domains, so that the
+  // documented forms (plain Int literals included) are known to elaborate
+  test("REG DIN documented examples") {
+    class SteppedCounter extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(8) <> OUT
+      r.din := r.din + 1
+      r.din := r.din + 1
+      y     := r
+    class DinOrdering extends RTDesign:
+      val x = UInt(8) <> IN
+      val r = UInt(8) <> VAR.REG init 0
+      val a = UInt(8) <> OUT
+      val b = UInt(8) <> OUT
+      a     := r.din
+      r.din := x
+      b     := r.din
+    class DinPartial extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(4) <> OUT
+      r(3, 0).din := 5
+      y           := r(3, 0).din
+    assertCodeString(
+      SteppedCounter(),
+      """|class SteppedCounter extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  val y = UInt(8) <> OUT
+         |  r.din := r.din + d"8'1"
+         |  r.din := r.din + d"8'1"
+         |  y := r
+         |end SteppedCounter
+         |""".stripMargin
+    )
+    assertCodeString(
+      DinOrdering(),
+      """|class DinOrdering extends RTDesign:
+         |  val x = UInt(8) <> IN
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  val a = UInt(8) <> OUT
+         |  val b = UInt(8) <> OUT
+         |  a := r.din
+         |  r.din := x
+         |  b := r.din
+         |end DinOrdering
+         |""".stripMargin
+    )
+    assertCodeString(
+      DinPartial(),
+      """|class DinPartial extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  val y = UInt(4) <> OUT
+         |  r(3, 0).din := d"4'5"
+         |  y := r(3, 0).din
+         |end DinPartial
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

@@ -242,7 +242,7 @@ class ID extends DFDesign:
 ```
 
 #### Assignable (Mutable) {#dcl-assignable}
-Output ports, input-output ports, and variables are assignable (mutable), when they can be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation, which occurs only within their design scope. Input ports can never be assigned (are immutable). Registered ports and variables are assignable only when referencing their registers' input via `.din` selection (referencing a register without `.din` is always considered to be its output, which is immutable). 
+Output ports, input-output ports, and variables are assignable (mutable), when they can be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation, which occurs only within their design scope. Input ports can never be assigned (are immutable). Registered ports and variables are assignable only when referencing their registers' input via `.din` selection (referencing a register without `.din` is always considered to be its output, which is immutable). A `.din` selection can also be read, yielding the register's pending value for the next clock edge; see [reading the register input][din-read]. 
 
 Assignment semantics are a key difference between the different design domains DFHDL has to offer. Here are some basic examples:
 ```scala
