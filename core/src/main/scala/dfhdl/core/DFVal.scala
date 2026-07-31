@@ -1508,32 +1508,51 @@ object DFVal extends DFValLP:
       transparent inline def as(inline aliasType: DFType.Supported)(using DFCG): DFValAny =
         exactOp2["as", DFC, DFValAny](lhs, aliasType)
     end extension
+    // if-else expressions may accidentally mix different types, that require `Exact`
+    // enforcement that will wrap them with `IfWrapper` and preserve each branch type.
+    // without this, the branches will be coerced to a common type, which is useless for
+    // `specialConnect` that expects both branches to be concrete types. this is what
+    // `isConcreteDFVal` is for, and only if both LHS and RHS are concrete types,
+    // we call `specialConnect` to handle possible connection in either direction where
+    // both implicit directions are available.
+    private transparent inline def isConcreteDFVal[L]: Boolean =
+      inline compiletime.erasedValue[L] match
+        case _: DFValOf[t] => inline compiletime.erasedValue[t] match
+            case _: DFBoolOrBit    => true
+            case _: DFBits[?]      => true
+            case _: DFUInt[?]      => true
+            case _: DFSInt[?]      => true
+            case _: DFUFix[?, ?]   => true
+            case _: DFSFix[?, ?]   => true
+            case _: DFInt32        => true
+            case _: DFEnum[?]      => true
+            case _: DFVector[?, ?] => true
+            case _: DFTuple[?]     => true
+            case _: DFStruct[?]    => true
+            case _: DFOpaque[?]    => true
+            case _: TDFDouble      => true
+            case _: TDFString      => true
+            case _                 => false
+        case _ => false
     extension [L](inline lhs: L)
       transparent inline def <>[R](inline rhs: R)(using DFC): Any =
         // operator `<>` as a constructor is unidirectional
         // operator `<>` as a connection is bidirectional and commutative
-        inline val lhsIsDFVal = inline compiletime.erasedValue[L] match
-          case _: DFValAny => true
-          case _           => false
-        inline val rhsIsDFVal = inline compiletime.erasedValue[R] match
-          case _: DFValAny => true
-          case _           => false
-        inline val rhsIsModifier = inline compiletime.erasedValue[R] match
-          case _: ModifierAny => true
-          case _              => false
         // if both LHS and RHS are DFVals, we call `specialConnect` to handle possible
         // connection in either direction where both implicit directions are available
-        inline if (lhsIsDFVal && rhsIsDFVal)
+        inline if (isConcreteDFVal[L] && isConcreteDFVal[R])
           inline lhs match
             case ___lhs: DFVal[lt, lm] => inline rhs match
                 case ___rhs: DFVal[rt, rm] =>
                   ConnectOps.specialConnect[lt, lm, rt, rm](___lhs, ___rhs)
-        // if the RHS is a modifier, this is a port/variable constructor,
-        // so we invoke the the implicit given operation only in one way
-        else if (rhsIsModifier) exactOp2["<>", DFC, Any](lhs, rhs)
-        // otherwise, we invoke the implicit given operation in both directions by turning
-        // on the bothWays flag for all other cases
-        else exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
+        else
+          inline compiletime.erasedValue[R] match
+            // if the RHS is a modifier, this is a port/variable constructor,
+            // so we invoke the the implicit given operation only in one way
+            case _: ModifierAny => exactOp2["<>", DFC, Any](lhs, rhs)
+            // otherwise, we invoke the implicit given operation in both directions by turning
+            // on the bothWays flag for all other cases
+            case _ => exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
     end extension
 
     extension [L](inline lhs: L)

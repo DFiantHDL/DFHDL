@@ -1140,4 +1140,25 @@ class DFDecimalSpec extends DFSpec:
         val b = 5 == x
       """
     )
+
+  test("connect to if expression with different types"):
+    assertCodeString {
+      """|val WIDTH: Int <> CONST = 8
+         |val sel = Bit <> IN
+         |val a = UInt(WIDTH) <> IN
+         |val b = Bits(WIDTH) <> IN
+         |val c = Bits(WIDTH) <> OUT
+         |c <> ((
+         |  if (sel) a.bits
+         |  else b
+         |): Bits[WIDTH.type] <> VAL)""".stripMargin
+    } {
+      val WIDTH: Int <> CONST = 8
+      val sel = Bit <> IN
+      val a = UInt(WIDTH) <> IN
+      val b = Bits(WIDTH) <> IN
+      val c = Bits(WIDTH) <> OUT
+      c <> (if (sel) a else b)
+    }
+
 end DFDecimalSpec
