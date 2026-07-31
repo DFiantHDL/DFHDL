@@ -342,6 +342,64 @@ class DropRTProcessSpec extends StageSpec():
   }
   test("fall-through loop with a waiting body cascades to the loop's exit") {
     class Foo extends RTDesign:
+      val stop = Bit <> IN
+      val go = Bit <> VAR.REG init 1
+      val y = UInt(8) <> OUT.REG init 0
+      process:
+        1.cy.wait
+        FALL_THROUGH:
+          while (go)
+            y.din := y + 1
+            1.cy.wait
+            if (stop) go.din := 0
+        1.cy.wait
+        y.din := 255
+    end Foo
+    val top = (new Foo).dropRTProcess
+    assertCodeString(
+      top,
+      // `go` is assigned conditionally on the loop-back edge, so the loop guard cannot be
+      // forwarded to the boundary and the loop step keeps its own state (S_1) -- which is what
+      // leaves the `fallThrough` a real edge hook here. The loop's body wait is a state of its
+      // own (S_1_0) and is declared between the loop step and the loop's exit (S_2). The
+      // zero-cycle skip must cascade to S_2, the loop step's own exit goto -- not to the S_1_0
+      // that merely follows it in the state list, which would enter the body of the very loop
+      // being skipped.
+      """|class Foo extends RTDesign:
+         |  enum State(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
+         |    case S_0 extends State(d"2'0")
+         |    case S_1 extends State(d"2'1")
+         |    case S_1_0 extends State(d"2'2")
+         |    case S_2 extends State(d"2'3")
+         |
+         |  val stop = Bit <> IN
+         |  val go = Bit <> VAR.REG init 1
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  val state = State <> VAR.REG init State.S_0
+         |  state match
+         |    case State.S_0 =>
+         |      state.din := State.S_1
+         |      if (!go) state.din := State.S_2
+         |    case State.S_1 =>
+         |      if (go)
+         |        y.din := y + d"8'1"
+         |        state.din := State.S_1_0
+         |      else state.din := State.S_2
+         |      end if
+         |    case State.S_1_0 =>
+         |      if (stop) go.din := 0
+         |      state.din := State.S_1
+         |      if (!go) state.din := State.S_2
+         |    case State.S_2 =>
+         |      y.din := d"8'255"
+         |      state.din := State.S_0
+         |  end match
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("fall-through loop with a waiting body fuses to the plain loop's states") {
+    class Foo extends RTDesign:
       val go = Bit <> IN
       val y = UInt(8) <> OUT.REG init 0
       process:
@@ -356,33 +414,32 @@ class DropRTProcessSpec extends StageSpec():
     val top = (new Foo).dropRTProcess
     assertCodeString(
       top,
-      // The loop's body wait is a state of its own (S_1_0) and is declared between the loop
-      // step (S_1) and the loop's exit (S_2). The zero-cycle skip must cascade to S_2, the
-      // loop step's own exit goto -- not to the S_1_0 that merely follows it in the state
-      // list, which would enter the body of the very loop being skipped.
+      // The loop step fuses, so it costs no state and no cycle at all -- which subsumes the
+      // conditional zero-cycle skip the `FALL_THROUGH` marker asks for. The marker therefore
+      // adds nothing: this is exactly what the same loop without it lowers to (one cycle per
+      // iteration, and a skip straight to S_2 when `go` is false on entry).
       """|class Foo extends RTDesign:
          |  enum State(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
          |    case S_0 extends State(d"2'0")
-         |    case S_1 extends State(d"2'1")
-         |    case S_1_0 extends State(d"2'2")
-         |    case S_2 extends State(d"2'3")
+         |    case S_1_0 extends State(d"2'1")
+         |    case S_2 extends State(d"2'2")
          |
          |  val go = Bit <> IN
          |  val y = UInt(8) <> OUT.REG init d"8'0"
          |  val state = State <> VAR.REG init State.S_0
          |  state match
          |    case State.S_0 =>
-         |      state.din := State.S_1
-         |      if (!go) state.din := State.S_2
-         |    case State.S_1 =>
          |      if (go)
          |        y.din := y + d"8'1"
          |        state.din := State.S_1_0
          |      else state.din := State.S_2
          |      end if
          |    case State.S_1_0 =>
-         |      state.din := State.S_1
-         |      if (!go) state.din := State.S_2
+         |      if (go)
+         |        y.din := y + d"8'1"
+         |        state.din := State.S_1_0
+         |      else state.din := State.S_2
+         |      end if
          |    case State.S_2 =>
          |      y.din := d"8'255"
          |      state.din := State.S_0

@@ -204,7 +204,7 @@ Fusion falls back to the previous behavior of one extra control cycle (per loop 
 
 - A `while` guard that reads registers assigned *conditionally* or *partially* inside the loop body (the next-cycle guard value cannot be expressed at the boundary).
 - Nested loops whose inner iteration count is not statically known (for example, `for (j <- 0 until n)` with a dynamic `n` inside an outer loop). Single dynamic loops still fuse; only the re-entry of a dynamic nest keeps a control state.
-- Steps that carry `onEntry`, `onExit`, or `fallThrough` blocks.
+- Steps that carry `onEntry` or `onExit` blocks (their statements must land on a real state edge). A `fallThrough` block does not keep a control cycle: a fused step costs none at all, so the condition simply becomes the first decision of the step's own dispatch.
 - Steps whose jump dispatch is a `match` rather than `if` conditionals.
 
 Similarly, Rule 4 falls back to a synthetic bootstrap state when the prologue cannot be lowered into an `initial` block. That state runs the prologue, so it costs a cycle at process start *and* on each wrap-around, which passes through it. An explicit `FirstStep` jump does not pass through it and costs nothing.
@@ -237,6 +237,8 @@ A `while` loop with a body that consumes no cycles samples its guard once per cy
 
 Wrapping an RT loop with a **`FALL_THROUGH`** block marks the loop to fall through without consuming any cycles when its guard is false on entry, continuing at whatever follows the loop.
 
+The marker is only needed for a loop whose body consumes no cycles, since that is the shape that pays a cycle to enter and skip (Rule 2 above). A loop whose body does consume cycles fuses (Rule 3), so it already enters and exits for free: adding `FALL_THROUGH` to one costs nothing and changes nothing.
+
 Wrapping an RT loop with a **`COMB_LOOP`** block marks it combinational: the whole loop executes within a single cycle and generates no steps (so its body must not consume cycles).
 
 Both annotations are allowed under RT domains only; applying them elsewhere is a compile-time error.
@@ -263,6 +265,8 @@ process:
 ```
 
 The advance runs the target step's `onEntry`, and cascades: if the step it advances to also falls through, control keeps advancing within the same cycle, stopping when it reaches a step that does not fall through, or one it has already passed through in this cycle.
+
+A step that fuses (see [Cycle semantics](#cycle-semantics)) costs no cycle to begin with, so on such a step `fallThrough` no longer decides whether a cycle is spent, only whether the step's own statements run: the condition becomes the first decision of the step's dispatch, and is evaluated on the transition edge like the step's other guards, on the values the registers will hold in the next cycle.
 
 ### onEntry and onExit
 

@@ -1927,17 +1927,32 @@ private final class Builder(rawDB: DB):
         bodyOf(sb).collectFirst { case h: StepBlock if h.isFallThrough => h }
       private def hasHooks(sb: StepBlock): Boolean =
         bodyOf(sb).exists { case h: StepBlock => !h.isRegular; case _ => false }
+      // mirrors `FirstStepFusion.isPureFallThrough`: a `fallThrough` holding nothing but its
+      // condition does not keep its step a state — when the step fuses, the condition becomes the
+      // first decision of the dispatch inlined on the entry edge (see `enterStep`)
+      private def isPureFallThrough(h: StepBlock): Boolean =
+        h.isFallThrough && flattenedOf(h).forall {
+          case _: DFVal => true
+          case _        => false
+        }
+      private def hasEdgeHooks(sb: StepBlock): Boolean =
+        bodyOf(sb).exists {
+          case h: StepBlock => !h.isRegular && !isPureFallThrough(h)
+          case _            => false
+        }
 
-      /** Mirrors `FirstStepFusion`'s hook exclusions: a step carrying hooks is never a fusion
-        * candidate, and neither is one whose dispatch's first time-consuming action is a
-        * hook-carrying step (the candidate scan reports both as blocked). Such a step therefore
-        * always keeps a state of its own, which is what makes its hooks land on real FSM edges.
+      /** Mirrors `FirstStepFusion`'s hook exclusions: a step carrying an `onEntry`/`onExit` (or a
+        * `fallThrough` holding statements of its own) is never a fusion candidate, and neither is
+        * one whose dispatch's first time-consuming action is a hook-carrying step (the candidate
+        * scan reports both as blocked). Such a step therefore always keeps a state of its own,
+        * which is what makes its hooks land on real FSM edges.
         */
       private def hookBlocked(sb: StepBlock): Boolean =
         def scan(items: List[DFMember]): Boolean = items match
           case Nil       => false
           case m :: rest =>
             m match
+              case s: StepBlock if isPureFallThrough(s)          => scan(rest)
               case s: StepBlock if !s.isRegular                  => true
               case s: StepBlock                                  => hasHooks(s)
               case _: Wait                                       => false
@@ -1947,7 +1962,7 @@ private final class Builder(rawDB: DB):
                 val after = rest.filterNot(blocks.toSet[DFMember])
                 blocks.exists(b => scan(bodyOf(b))) || scan(after)
               case _ => scan(rest)
-        hasHooks(sb) || scan(bodyOf(sb))
+        hasEdgeHooks(sb) || scan(bodyOf(sb))
       end hookBlocked
       private lazy val regularSteps: List[StepBlock] =
         flattenedOf(pb).collect { case sb: StepBlock if sb.isRegular => sb }.toList
@@ -2487,7 +2502,44 @@ private final class Builder(rawDB: DB):
           case Some(k) => enterState(sb, k, cascaded = false)
           case None    => // fused entry: the step's leading payload joins this transition cycle
             crossBoundary()
-            emitFrom(bodyOf(sb), stepExitConts(sb))
+            fallThroughOf(sb) match
+              case None     => emitFrom(bodyOf(sb), stepExitConts(sb))
+              case Some(ft) =>
+                // a fused step's `fallThrough` is no longer an edge hook: the step consumes no
+                // cycle at all, so its condition is the first decision of the dispatch inlined
+                // here — forwarded like the step's own guards (the `crossBoundary` above), and
+                // sending control to the step's default exit
+                emitBranch2(
+                  fallThroughCond(ft),
+                  () => fusedFallThroughExit(sb),
+                  () => emitFrom(bodyOf(sb), stepExitConts(sb))
+                )
+
+      /** Where a *fused* step's `fallThrough` sends control: the target of the last `Goto` on the
+        * step's own dispatch path, resolved the way `FlattenStepBlocks` resolves it — in particular
+        * a trailing `NextStep` in a step that owns nested steps enters the first of them, since
+        * that is what the parent's `NextStep` becomes once flat.
+        */
+      private def fusedFallThroughExit(sb: StepBlock): Unit =
+        // gotos of nested steps (and of hook bodies) belong to those blocks, not to this dispatch
+        def isOwnDispatch(m: DFMember): Boolean = m.getOwner match
+          case owner if owner == sb => true
+          case _: StepBlock         => false
+          case _: ProcessBlock      => false
+          case owner: DFMember      => isOwnDispatch(owner)
+        flattenedOf(sb).collect { case g: Goto if isOwnDispatch(g) => g }.toList.lastOption match
+          case None    => unsupported("a fallThrough on a step with no dispatch goto", sb)
+          case Some(g) =>
+            g.stepRef.get match
+              case target: StepBlock => enterStep(target)
+              case Goto.FirstStep    => enterStep(firstRegularStep)
+              case Goto.ThisStep     =>
+                unsupported("a fallThrough on a step whose default exit is itself", sb)
+              case Goto.NextStep =>
+                bodyOf(sb).collectFirst { case s: StepBlock if s.isRegular => s } match
+                  case Some(inner) => enterStep(inner)
+                  case None        => emitCont(stepExitConts(sb))
+      end fusedFallThroughExit
 
       /** Land on the state of step `sb`: the source state's `onExit`, the target's `onEntry`, the
         * state write, and any `fallThrough` cascade. A self-transition fires no hooks (the FSM

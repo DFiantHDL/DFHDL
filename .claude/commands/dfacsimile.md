@@ -134,10 +134,20 @@ at the transition's **landing**, not where the walk into it starts:
   list by its own body's first state, while its exit leaves the loop.
 - `fallThrough`'s condition is the last `DFVal` in the block body (an `Ident`); `compileGuardFresh`
   it.
-- A hook-carrying step — or one whose dispatch's first time-consuming action is hook-carrying — is
-  **never** a `FirstStepFusion` candidate (`hasNonRegularChild` / the `Blocked` scan). `hookBlocked`
-  mirrors that and forces the step into `fallback`, so it always keeps a state of its own. Without
-  this the hooks would have no edge to land on.
+- A step carrying an `onEntry`/`onExit` — or one whose dispatch's first time-consuming action is
+  hook-carrying — is **never** a `FirstStepFusion` candidate (`hasNonRegularChild` / the `Blocked`
+  scan). `hookBlocked` mirrors that and forces the step into `fallback`, so it always keeps a state
+  of its own. Without this those hooks would have no edge to land on.
+- A **pure `fallThrough`** (a hook holding nothing but its condition) is the exception: it does not
+  block fusion, because a fused step costs no cycle at all, which subsumes the conditional
+  zero-cycle skip the hook asks for. `enterStep`'s fused path therefore does
+  `crossBoundary(); emitBranch2(fallThroughCond(ft), fusedFallThroughExit(sb), emitFrom(body))` —
+  the condition is **forwarded** (unlike `enterState`'s edge-hook evaluation), matching the stage,
+  which materializes it as the inlined dispatch's first decision. `fusedFallThroughExit` resolves
+  the nested-form equivalent of the flat default exit: a trailing `NextStep` in a step that owns
+  nested steps enters the first of them (what `FlattenStepBlocks` Rule 4 makes of it). The
+  process's first step is excluded on both sides — it survives as the reset bootstrap state, where
+  the hook has no edge left to run on.
 
 **FALL_THROUGH loops** reuse the same idea at loop entry: `enterLoop` for a FALL_THROUGH park loop
 does `crossBoundary(); emitBranch2(guard, jump(site), emitCont(exitCont))` — a zero-cycle skip to the

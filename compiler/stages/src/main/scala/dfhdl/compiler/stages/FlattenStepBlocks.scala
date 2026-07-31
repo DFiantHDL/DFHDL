@@ -198,6 +198,14 @@ import scala.annotation.tailrec
   *    prologue's reset/initial values: the folded assignments join the prologue and the fold's
   *    target step becomes the FSM entry state (see [[FirstStepFusion]], reset-site folding).
   *
+  *    An `onEntry`/`onExit` body must land on a real FSM edge, so a step carrying one keeps its
+  *    state. A `fallThrough` does not: a fused step consumes no cycle at all, which subsumes the
+  *    conditional zero-cycle skip the hook asks for, so the hook's condition is materialized at
+  *    every site as the dispatch's first decision — `if (cond) <default exit> else <dispatch>` —
+  *    and is dropped outright when it is the negation of that dispatch's own leading guard. A
+  *    `FALL_THROUGH` loop whose body consumes cycles therefore lowers to exactly what the same
+  *    loop without the marker lowers to.
+  *
   * == Implementation Phases ==
   *
   * The stage applies four sequential `db.patch()` calls to avoid patch conflicts, followed by the

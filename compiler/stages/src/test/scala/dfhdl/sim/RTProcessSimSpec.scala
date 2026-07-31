@@ -546,6 +546,58 @@ class RTProcessSimSpec extends SimSpec:
           else if t == 23 then dut.go.poke(0)
     )
 
+  bothTiers("oracle: FALL_THROUGH loop with a waiting body costs one cycle per iteration"): tier =>
+    lockstep(
+      new FallThroughWaitLoopProc,
+      tier,
+      40,
+      watch = List(_.cnt, _.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.go.poke(0)
+          else if t == 5 then dut.go.poke(1)
+          else if t == 9 then dut.go.poke(0)
+          else if t == 20 then dut.go.poke(1)
+          else if t == 23 then dut.go.poke(0)
+    )
+
+  bothTiers("oracle: chained fused FALL_THROUGH loops skip within one cycle"): tier =>
+    lockstep(
+      new FallThroughChainLoopProc,
+      tier,
+      40,
+      watch = List(_.cnt, _.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then
+            dut.a.poke(0)
+            dut.b.poke(0)
+          else if t == 4 then dut.a.poke(1)
+          else if t == 8 then
+            dut.a.poke(0)
+            dut.b.poke(1)
+          else if t == 12 then dut.b.poke(0)
+          else if t == 20 then
+            dut.a.poke(1)
+            dut.b.poke(1)
+          else if t == 26 then
+            dut.a.poke(0)
+            dut.b.poke(0)
+    )
+
+  bothTiers("oracle: a fused step's fallThrough skips its payload and its cycle"): tier =>
+    lockstep(
+      new FallThroughFusedStepProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 4 then dut.x.poke(1)
+          else if t == 12 then dut.x.poke(0)
+    )
+
   bothTiers("oracle: FALL_THROUGH empty-body while loop"): tier =>
     lockstep(
       new FallThroughEmptyWhileProc,

@@ -1049,4 +1049,48 @@ class FlattenStepBlocksSpec extends StageSpec():
          |end Foo""".stripMargin
     )
   }
+
+  test("fusion: a fused step's fallThrough becomes the dispatch's first decision") {
+    class Foo extends RTDesign:
+      val x = Bit     <> IN
+      val y = UInt(8) <> OUT.REG init d"8'0"
+      process:
+        def S_0: Step =
+          NextStep
+        end S_0
+        def S_1: Step =
+          def fallThrough = x
+          y.din := y + d"8'1"
+          def S_1_0: Step =
+            y.din := y + d"8'2"
+            NextStep
+          end S_1_0
+          NextStep
+        end S_1
+    end Foo
+    // S_1 fuses, so it consumes no cycle at all and its `fallThrough` is no longer an edge hook:
+    // the condition is materialized at the site as the first decision of the inlined dispatch,
+    // sending control to S_1's default exit (S_1_0) and skipping the step's own payload. The
+    // process's first step never fuses its hook away this way -- it is kept as the reset
+    // bootstrap state, where the hook would have no edge left to run on.
+    val expected =
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  process:
+         |    def S_0: Step =
+         |      if (x) S_1_0
+         |      else
+         |        y.din := y + d"8'1"
+         |        S_1_0
+         |    end S_0
+         |    def S_1_0: Step =
+         |      y.din := y + d"8'2"
+         |      S_0
+         |    end S_1_0
+         |end Foo""".stripMargin
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(top, expected)
+    assertCodeString(top.flattenStepBlocks, expected)
+  }
 end FlattenStepBlocksSpec

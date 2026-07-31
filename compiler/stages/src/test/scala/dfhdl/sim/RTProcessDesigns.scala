@@ -396,6 +396,69 @@ class FallThroughStepProc extends RTDesign:
       FirstStep
 end FallThroughStepProc
 
+/** A `FALL_THROUGH` while loop whose body consumes a cycle: the loop step fuses (it consumes no
+  * cycle at all, which subsumes the marker's conditional zero-cycle skip), so the loop costs one
+  * cycle per iteration and none when skipped -- exactly what the same loop without the marker
+  * costs.
+  */
+class FallThroughWaitLoopProc extends RTDesign:
+  val go = Bit <> IN
+  val cnt = UInt(8) <> OUT.REG init 0
+  val tick = Bit <> OUT.REG init 0
+  process:
+    1.cy.wait
+    FALL_THROUGH:
+      while (go)
+        cnt.din := cnt + 1
+        1.cy.wait
+    1.cy.wait
+    tick.din := !tick
+
+/** Two `FALL_THROUGH` loops back to back, each with a waiting body: both heads fuse, and the first
+  * one's exit is the second one's (also fused) head, so the inlined dispatches chain within one
+  * transition cycle.
+  */
+class FallThroughChainLoopProc extends RTDesign:
+  val a = Bit <> IN
+  val b = Bit <> IN
+  val cnt = UInt(8) <> OUT.REG init 0
+  val tick = Bit <> OUT.REG init 0
+  process:
+    1.cy.wait
+    FALL_THROUGH:
+      while (a)
+        cnt.din := cnt + 1
+        1.cy.wait
+    FALL_THROUGH:
+      while (b)
+        cnt.din := cnt + 16
+        1.cy.wait
+    1.cy.wait
+    tick.din := !tick
+end FallThroughChainLoopProc
+
+/** A user-written `fallThrough` on a step whose first time-consuming action is a nested step. The
+  * step fuses, so its hook is materialized as the first decision of the inlined dispatch: when `x`
+  * holds on entry, control skips both the step's own payload and its cycle, landing directly on the
+  * step's default exit (the nested step).
+  */
+class FallThroughFusedStepProc extends RTDesign:
+  val x = Bit <> IN
+  val y = UInt(8) <> OUT.REG init 0
+  process:
+    1.cy.wait
+    def Load: Step =
+      def fallThrough = x
+      y.din := y + 1
+      def Hold: Step =
+        y.din := y + 2
+        NextStep
+      NextStep
+    end Load
+    1.cy.wait
+    y.din := y + 8
+end FallThroughFusedStepProc
+
 /** A `FALL_THROUGH` while loop with an empty body: exercises the empty-body branch of the loop
   * lowering. `go` false on entry falls through with zero cycles to the following wait; `go` true
   * parks one cycle per sample until it drops (a `waitUntil(!go)` with a zero-cycle skip).
