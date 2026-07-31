@@ -122,8 +122,16 @@ at the transition's **landing**, not where the walk into it starts:
   (the skipped state's own body and trailing statements never run), re-executing the prologue when it
   passes the last state. It stops **after** re-entering the step the transition left (the lowering's
   `if (nextStepBlock != currentStepBlock)` sits *inside* `handleNextStep`, after that step's `onEntry`
-  and `state.din`), i.e. one step later than a naive "stop before the origin" reading. `state`/
-  register writes are last-write-wins, exactly the nested `state.din` overwrites.
+  and `state.din`), i.e. one step later than a naive "stop before the origin" reading, and also on a
+  step the same cascade already passed through (the chain is not a single ring, so it can close on
+  itself without reaching the origin). `state`/register writes are last-write-wins, exactly the
+  nested `state.din` overwrites.
+- **Where the cascade goes** is `defaultExitOf(sb)`, mirroring the lowering's function of the same
+  name: the target of the last `Goto` on the step's dispatch path (hook bodies excluded). Only a
+  goto that names its target (or `FirstStep`) resolves here; `NextStep`/`ThisStep` fall back to the
+  sequential `parkOrder` walk, which is how `FlattenStepBlocks` resolves them. It is emphatically
+  **not** the declaration-order successor — a loop step whose body waits is followed in the state
+  list by its own body's first state, while its exit leaves the loop.
 - `fallThrough`'s condition is the last `DFVal` in the block body (an `Ident`); `compileGuardFresh`
   it.
 - A hook-carrying step — or one whose dispatch's first time-consuming action is hook-carrying — is
@@ -226,12 +234,12 @@ Verilator toolchain).
    drives spill + syncOut), independent of copy-prop pinning. Dropping one → stale reads that only
    fail on the Codegen tier.
 3. **Trailing statements fuse into a construct's exit.** Statements between a construct and the next
-   park attach to that construct's *own* exit state; a **fall-through skip bypasses them** (it goes to
-   the construct's `nextBlocks`, not the sequential continuation). For step `fallThrough` this is
-   modelled directly (`cascadeFrom` walks `parkOrder`, not the continuation); for FALL_THROUGH
-   **loops** the skip still runs `emitCont(exitCont)`, so a test DUT that puts a bare assignment right
-   after a FALL_THROUGH loop will diverge for this reason (not a real bug — put a clean park right
-   after the loop).
+   park attach to that construct's *own* exit state; a **fall-through skip bypasses them** (it lands
+   on the skipped step's exit *state*, it does not run the sequential continuation). For step
+   `fallThrough` this is modelled directly (`cascadeFrom` lands on a state, it does not `emitCont`);
+   for FALL_THROUGH **loops** the skip still runs `emitCont(exitCont)`, so a test DUT that puts a
+   bare assignment right after a FALL_THROUGH loop will diverge for this reason (not a real bug —
+   put a clean park right after the loop).
 4. **`crossBoundary` forwarding.** A guard on a transition edge must read *post-`.din`* register
    values — call `crossBoundary()` before compiling it (`compileGuardFresh`/`loopGuardNode`).
 5. **Park classification is by content, not name.** A step is a park iff pure-dispatch; a nested

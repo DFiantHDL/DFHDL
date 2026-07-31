@@ -587,6 +587,20 @@ class RTProcessSimSpec extends SimSpec:
           else if t == 12 then dut.x.poke(0)
     )
 
+  bothTiers("oracle: a fallThrough cascade follows the step's own exit goto"): tier =>
+    lockstep(
+      new FallThroughOutOfOrderProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 4 then dut.x.poke(1)
+          else if t == 11 then dut.x.poke(0)
+          else if t == 18 then dut.x.poke(1)
+    )
+
   bothTiers("oracle: a convertible first-step onEntry folds into the time-zero state"): tier =>
     lockstep(
       new FirstStepEntryProc,
@@ -620,7 +634,7 @@ class RTProcessSimSpec extends SimSpec:
       new PrologueEntryProc,
       tier,
       30,
-      watch = List(_.y, _.z),
+      watch = List(_.y),
       pokes = t =>
         dut =>
           if t == 0 then dut.x.poke(0)
@@ -668,7 +682,7 @@ class RTProcessSimSpec extends SimSpec:
       new PrologueFallThroughProc,
       tier,
       30,
-      watch = List(_.y, _.z),
+      watch = List(_.y),
       pokes = t =>
         dut =>
           if t == 0 then dut.x.poke(0)

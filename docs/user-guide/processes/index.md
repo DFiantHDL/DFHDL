@@ -233,7 +233,7 @@ process:
 
 A `while` loop with a body that consumes no cycles samples its guard once per cycle (one cycle per iteration), which is exactly the behavior of `waitUntil`/`waitWhile`.
 
-Wrapping an RT loop with a **`FALL_THROUGH`** block marks the loop to fall through to the next step without consuming any cycles when its guard is false on entry.
+Wrapping an RT loop with a **`FALL_THROUGH`** block marks the loop to fall through without consuming any cycles when its guard is false on entry, continuing at whatever follows the loop.
 
 Wrapping an RT loop with a **`COMB_LOOP`** block marks it combinational: the whole loop executes within a single cycle and generates no steps (so its body must not consume cycles).
 
@@ -243,7 +243,24 @@ For elaboration-time (unrolled) loops outside processes, and for hardware loops 
 
 ### fallThrough
 
-A step can define **`def fallThrough = cond`** where `cond` is a Boolean/Bit expression. When the condition holds, the step advances to the next step in the same cycle (conditional advancement); when it does not, the FSM stays in the current step.
+A step can define **`def fallThrough = cond`** where `cond` is a Boolean/Bit expression. When the condition holds, the step advances in the same cycle without registering in it (conditional advancement); when it does not, the FSM enters the step normally.
+
+The step it advances to is the one the step itself would have gone to: the target of the goto on its own default path, not whichever step happens to be declared next. In the example below, entering `S1` with `x` set advances straight to `S3`, and `S2` is never visited:
+
+```scala
+process:
+  def S0: Step =
+    NextStep
+  def S1: Step =
+    def fallThrough = x   // when x, advance to S3 in the same cycle
+    S3
+  def S2: Step =
+    FirstStep
+  def S3: Step =
+    S2
+```
+
+The advance runs the target step's `onEntry`, and cascades: if the step it advances to also falls through, control keeps advancing within the same cycle, stopping when it reaches a step that does not fall through, or one it has already passed through in this cycle.
 
 ### onEntry and onExit
 

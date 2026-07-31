@@ -584,3 +584,31 @@ class ExitOrderProc extends RTDesign:
       def onExit =
         y.din := 9
       NextStep
+
+/** A `fallThrough` step whose exit goto names a step that is not the next one declared. The
+  * execution order S0 -> S1 -> S3 -> S2 -> S0 differs from the declaration order, so a cascade out
+  * of S1 must follow S1's own `S3` goto and run S3's `onEntry`, not the `onEntry` of the S2 that
+  * merely follows it in the state list.
+  */
+class FallThroughOutOfOrderProc extends RTDesign:
+  val x = Bit <> IN
+  val y = UInt(8) <> OUT.REG init 0
+  process:
+    def S0: Step =
+      y.din := 1
+      NextStep
+    def S1: Step =
+      def onEntry =
+        y.din := y + 2
+      def fallThrough = x
+      S3
+    def S2: Step =
+      def onEntry =
+        y.din := y + 4
+      def fallThrough = !x
+      FirstStep
+    def S3: Step =
+      def onEntry =
+        y.din := y + 8
+      S2
+end FallThroughOutOfOrderProc

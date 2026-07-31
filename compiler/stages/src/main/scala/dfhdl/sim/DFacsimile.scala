@@ -2507,21 +2507,49 @@ private final class Builder(rawDB: DB):
               emitBranch2(fallThroughCond(ft), () => cascadeFrom(sb), () => ())
             }
 
+      /** Is `m` inside one of `root`'s hook blocks rather than on its dispatch path? */
+      private def inHookOf(m: DFMember, root: StepBlock): Boolean = m.getOwner match
+        case owner if owner == root => false
+        case owner: StepBlock       => !owner.isRegular || inHookOf(owner, root)
+        case owner: DFMember        => inHookOf(owner, root)
+
+      /** The step's default exit — the target of the last `Goto` on its dispatch path — mirroring
+        * the FSM lowering's `defaultExitOf`. Only a goto that names its target (or `FirstStep`) is
+        * resolved here; `NextStep`/`ThisStep` yield `None` and the caller falls back to the
+        * sequential state order, which is how `FlattenStepBlocks` resolves them.
+        */
+      private def defaultExitOf(sb: StepBlock): Option[StepBlock] =
+        flattenedOf(sb).collect { case g: Goto if !inHookOf(g, sb) => g }.toList.lastOption
+          .flatMap { g =>
+            g.stepRef.get match
+              case target: StepBlock => Some(target)
+              case Goto.FirstStep    => Some(firstRegularStep)
+              case _                 => None
+          }.filter(target => target != sb && siteOf.contains(target))
+
       /** The zero-cycle fall-through advance out of `sb`: only the next state's `onEntry` and state
         * write (the skipped state's own body and trailing statements never execute), with the
-        * prologue re-executed when the cascade passes the last state — a wrap-around like any
-        * other.
+        * prologue re-executed when the cascade leaves the last state for the entry state — a
+        * wrap-around like any other. A cascade over the last state that names some other target is
+        * an ordinary jump, and so is one that names the first state of a process whose entry is the
+        * bootstrap rather than that state.
         */
       private def cascadeFrom(sb: StepBlock): Unit =
         val idx = parkOrder.indexOf(sb)
         if idx < 0 then unsupported("a fall-through step outside the process's states", sb)
-        else if idx < parkOrder.length - 1 then landState(parkOrder(idx + 1))
-        else if needsBoot then jumpTo(bootSite)
-        else if firstFused then
-          unsupported("a fall-through cascade past the last step of a fused-entry process", sb)
         else
-          emitPayload(prologueTop)
-          landState(parkOrder.head)
+          val exit = defaultExitOf(sb)
+          val wraps = idx == parkOrder.length - 1 && exit.forall(target =>
+            !needsBoot && parkOrder.headOption.contains(target)
+          )
+          if !wraps then landState(exit.getOrElse(parkOrder(idx + 1)))
+          else if needsBoot then jumpTo(bootSite)
+          else if firstFused then
+            unsupported("a fall-through cascade past the last step of a fused-entry process", sb)
+          else
+            emitPayload(prologueTop)
+            landState(parkOrder.head)
+      end cascadeFrom
 
       private def landState(m: DFMember): Unit = m match
         case sb: StepBlock => enterState(sb, siteOf(sb), cascaded = true)
