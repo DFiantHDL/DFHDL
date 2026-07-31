@@ -2010,8 +2010,12 @@ private final class Builder(rawDB: DB):
 
       // ---- structure scan: parks/controls in order, with their exit continuations -----------
       private val stepExitConts = mutable.Map.empty[StepBlock, PCont]
+      // a FALL_THROUGH wait needs its exit continuation on the entry edge too, not only inside its
+      // own park program, so it is recorded here alongside the step exits
+      private val waitExitConts = mutable.Map.empty[Wait, PCont]
       private def parkPositions(): List[(DFMember, PCont)] =
         stepExitConts.clear()
+        waitExitConts.clear()
         val acc = List.newBuilder[(DFMember, PCont)]
         def scan(items: List[DFMember], cont: PCont): Unit = items match
           case Nil       => ()
@@ -2019,6 +2023,7 @@ private final class Builder(rawDB: DB):
             val myCont = PCont.SeqC(rest, cont)
             m match
               case wt: Wait =>
+                waitExitConts(wt) = myCont
                 acc += ((wt, myCont))
                 scan(rest, cont)
               case lb: DFLoop.Block if !lb.isCombinational =>
@@ -2201,7 +2206,9 @@ private final class Builder(rawDB: DB):
           case m :: rest =>
             val myCont = PCont.SeqC(rest, cont)
             m match
-              case _: Wait                                 => () // parked — terminal
+              // parked — terminal, unless a FALL_THROUGH wait, whose zero-cycle skip path
+              // (condition true on entry) continues past it in the same cycle
+              case wt: Wait => if wt.isFallThrough then walkSeq(rest, cont, visits)
               case lb: DFLoop.Block if !lb.isCombinational =>
                 if fallback.contains(lb) then () // parked at the control state
                 else if isParkLoop(lb) then
@@ -2498,7 +2505,21 @@ private final class Builder(rawDB: DB):
         waitCells.get(wt).foreach { cell =>
           cellEnv(cell) = wide.zero(cell.regWV.width) // counter reset on entry
         }
-        jumpTo(siteOf(wt))
+        val k = siteOf(wt)
+        waitKindOf(wt) match
+          case WaitKind.CondW(trigger) if wt.isFallThrough =>
+            // FALL_THROUGH: a wait whose condition already holds on entry costs no cycle, so the
+            // trigger evaluates combinationally on this edge (post-`.din` forwarded values, like
+            // the loop case below). A satisfied trigger continues past the wait in this same cycle;
+            // an unsatisfied one parks.
+            crossBoundary()
+            emitBranch2(
+              compileGuardFresh(trigger),
+              () => emitCont(waitExitConts(wt)),
+              () => jumpTo(k)
+            )
+          case _ => jumpTo(k)
+      end enterWait
 
       private def enterLoop(lb: DFLoop.Block, exitCont: PCont): Unit =
         lb match

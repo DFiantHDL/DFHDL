@@ -1514,6 +1514,40 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
+  // the marker prints on the wait's own condition, exactly where the tag is, so each wait states
+  // for itself whether it may be skipped
+  test("wait statements with FALL_THROUGH markers") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      val i = Bit <> IN
+      process:
+        x.din := 1
+        waitUntil(FALL_THROUGH(i))
+        x.din := 0
+        waitWhile(FALL_THROUGH(i))
+        x.din := 1
+        waitUntil(FALL_THROUGH(i.rising))
+        waitUntil(i)
+        1.cy.wait
+    end Foo
+    val top = (new Foo)
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  val i = Bit <> IN
+         |  process:
+         |    x.din := 1
+         |    waitUntil(FALL_THROUGH(i))
+         |    x.din := 0
+         |    waitWhile(FALL_THROUGH(i))
+         |    x.din := 1
+         |    waitUntil(FALL_THROUGH(i.rising))
+         |    waitUntil(i)
+         |    1.cy.wait
+         |end Foo""".stripMargin
+    )
+  }
   test("for loop printing") {
     class Foo extends EDDesign:
       val matrix = Bits(10) X 8 X 8 <> OUT

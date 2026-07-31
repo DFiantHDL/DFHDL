@@ -168,7 +168,12 @@ at the transition's **landing**, not where the walk into it starts:
 
 **FALL_THROUGH loops** reuse the same idea at loop entry: `enterLoop` for a FALL_THROUGH park loop
 does `crossBoundary(); emitBranch2(guard, jump(site), emitCont(exitCont))` — a zero-cycle skip to the
-following park when the guard is false on entry.
+following park when the guard is false on entry. **FALL_THROUGH condition waits**
+(`waitUntil(FALL_THROUGH(c))`) are the mirror image in `enterWait`: same `crossBoundary`, branches
+swapped (the trigger *true* on entry is the skip), with the exit continuation taken from
+`waitExitConts` (recorded by `parkPositions`, since the entry edge is outside the wait's own park
+program). `SimplifyRTOps` turns such a wait into a FALL_THROUGH loop on the negated condition, so the
+two lower to the same FSM and the walk in `walkSeq` must let both continue past.
 
 ---
 

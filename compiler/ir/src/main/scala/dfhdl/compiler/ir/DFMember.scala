@@ -2057,6 +2057,9 @@ final case class Wait(
     meta: Meta,
     tags: DFTags
 ) extends Statement:
+  // A conditional wait that costs no cycle when its condition already holds on entry
+  // (`waitUntil(FALL_THROUGH(cond))`).
+  def isFallThrough(using MemberGetSet): Boolean = this.hasTagOf[FallThroughTag]
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: Wait =>
       this.triggerRef =~ that.triggerRef &&

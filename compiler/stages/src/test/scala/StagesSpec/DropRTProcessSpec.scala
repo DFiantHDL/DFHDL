@@ -446,6 +446,45 @@ class DropRTProcessSpec extends StageSpec():
          |end Foo""".stripMargin
     )
   }
+  test("fall-through conditional wait skips its state when its condition already holds") {
+    class Foo extends RTDesign:
+      val go = Bit <> IN
+      val y = UInt(8) <> OUT.REG init 0
+      process:
+        1.cy.wait
+        waitUntil(FALL_THROUGH(go))
+        1.cy.wait
+        y.din := y + 1
+    end Foo
+    val top = (new Foo).dropRTProcess
+    assertCodeString(
+      top,
+      // The wait lowers to an empty-bodied loop on `!go`, so it keeps a state of its own (S_1) and
+      // its skip is a real edge hook: every transition into S_1 first asks whether `go` already
+      // holds, and if it does jumps straight on to S_2 in the same cycle.
+      """|class Foo extends RTDesign:
+         |  enum State(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
+         |    case S_0 extends State(d"2'0")
+         |    case S_1 extends State(d"2'1")
+         |    case S_2 extends State(d"2'2")
+         |
+         |  val go = Bit <> IN
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  val state = State <> VAR.REG init State.S_0
+         |  state match
+         |    case State.S_0 =>
+         |      state.din := State.S_1
+         |      if (!(!go)) state.din := State.S_2
+         |    case State.S_1 =>
+         |      if (!go) state.din := State.S_1
+         |      else state.din := State.S_2
+         |    case State.S_2 =>
+         |      y.din := y + d"8'1"
+         |      state.din := State.S_0
+         |  end match
+         |end Foo""".stripMargin
+    )
+  }
   test("convertible prologue moves into a generated initial block") {
     class Foo extends RTDesign:
       val x = Bit <> IN

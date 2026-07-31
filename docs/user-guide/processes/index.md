@@ -219,6 +219,16 @@ RT processes can use **cycle waits** (`1.cy.wait`, `n.cy.wait`), **timed waits**
 
 A bare **`wait`**, with no duration or condition, is an **endless wait**: the FSM enters a terminal state and halts there (until reset). Use it to end a run-once sequence. A process ending in an endless wait has no wrap-around, so its prologue runs only at initialization.
 
+A condition wait costs its one-cycle minimum even when its condition already holds on entry. Marking it with **`FALL_THROUGH`** removes that minimum: the wait is skipped without consuming any cycles when its condition is already satisfied, continuing at whatever follows it. The marker is written on the wait's own condition, the same way it is written on a loop's condition or range (see [Loops](#loops)):
+
+```scala
+process:
+  waitUntil(FALL_THROUGH(ready))   // costs nothing when `ready` is already high
+  waitWhile(FALL_THROUGH(busy))    // costs nothing when `busy` is already low
+```
+
+This is the same mechanism the loops use: a condition wait lowers to a loop on the negated condition, so both forms behave identically. The skip is decided in the cycle that enters the wait, so the condition reads its registers as [`.din`][din], the pending next-cycle value. An unconditional wait (`1.cy.wait`, `100.ms.wait`) has no condition that could already hold, so it cannot be marked.
+
 ### Loops
 
 `for` and `while` loops inside an RT process describe sequential (multi-cycle) iteration, following the cycle semantics above: each executed iteration costs its body's cycles, with a minimum of one cycle per iteration, and the loop boundaries add no cycles beyond that. Loop iterators become registers.
@@ -254,7 +264,7 @@ The skip is decided in the same cycle that enters the loop, so the guard reads i
 
 A comprehension guard (`for (i <- FALL_THROUGH(0 until n) if p)`) is not part of the decision. It lowers to a plain conditional inside the loop body, so a filtered-out iteration still costs its cycle; only the loop's own range decides the skip.
 
-`FALL_THROUGH` must be written directly on a loop, either as the whole `while` condition or as a `for` range. Anywhere else, including on a comprehension guard or on part of a compound condition, is a compile-time error.
+`FALL_THROUGH` must be written directly on the construct it marks: as the whole `while` condition, as a `for` range, or as the whole `waitUntil`/`waitWhile` condition (see [Waits](#waits)). Anywhere else, including on a comprehension guard or on part of a compound condition, is a compile-time error.
 
 Wrapping an RT loop with a **`COMB_LOOP`** block marks it combinational: the whole loop executes within a single cycle and generates no steps (so its body must not consume cycles). Unlike `FALL_THROUGH`, this one marks a whole region: a loop nested inside a combinational loop cannot consume cycles either, so it is combinational too.
 

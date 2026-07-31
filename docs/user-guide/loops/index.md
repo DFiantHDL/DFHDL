@@ -70,6 +70,6 @@ end Foo
 
 Inside an RT process, where loops are sequential (multi-cycle) by default, the same wrapper keeps a loop combinational; its body must not consume cycles.
 
-`COMB_LOOP` is a block wrapper because it marks a whole region: a loop nested inside a combinational loop cannot consume cycles either, so it is combinational too. The other RT loop annotation, `FALL_THROUGH`, marks a single loop and is written on that loop's own condition or range instead (see [Processes][processes]).
+`COMB_LOOP` is a block wrapper because it marks a whole region: a loop nested inside a combinational loop cannot consume cycles either, so it is combinational too. The other RT annotation, `FALL_THROUGH`, marks a single loop or condition wait and is written on that construct's own condition or range instead (see [Processes][processes]).
 
 [processes]: ../processes/index.md

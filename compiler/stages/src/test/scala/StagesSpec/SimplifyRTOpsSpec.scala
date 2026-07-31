@@ -309,6 +309,41 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  // a conditional wait lowers to a loop on the negated condition, so its mark carries over to that
+  // loop: the wait costs no cycle when its condition already holds on entry
+  test("FALL_THROUGH conditional waits become FALL_THROUGH while loops") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      val i = Bit <> IN
+      process:
+        x.din := 1
+        waitUntil(FALL_THROUGH(i))
+        val MyWait = waitWhile(FALL_THROUGH(i))
+        waitUntil(FALL_THROUGH(i.rising))
+        waitUntil(i)
+        x.din := 0
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  val i = Bit <> IN
+         |  process:
+         |    x.din := 1
+         |    while (FALL_THROUGH(!i))
+         |    end while
+         |    val MyWait = while (FALL_THROUGH(i))
+         |    end MyWait
+         |    while (FALL_THROUGH(i.reg(1, init = 1) || (!i)))
+         |    end while
+         |    while (!i)
+         |    end while
+         |    x.din := 0
+         |end Foo""".stripMargin
+    )
+  }
+
   test("RT for loop with to is converted to while loop with <= guard") {
     class Foo extends RTDesign:
       val x = Bit <> OUT.REG

@@ -837,6 +837,10 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     s"${range.startRef.refCodeString} ${op} ${range.endRef.refCodeString}$csBy"
   def csWait(wait: Wait): String =
     val trigger = wait.triggerRef.get
+    // like a loop's FALL_THROUGH marker, this sits on the wait's own condition, exactly where the
+    // tag is (see `csFallThrough` in the owner printer)
+    def csFallThrough(cs: String): String =
+      if (wait.isInRTDomain && wait.isFallThrough) s"FALL_THROUGH($cs)" else cs
     if (wait.isEndless) "wait"
     else
       trigger.dfType match
@@ -845,11 +849,11 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
           // renders back as `waitWhile(inner)`.
           trigger match
             case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
-              s"waitUntil(${wait.triggerRef.refCodeString})"
+              s"waitUntil(${csFallThrough(wait.triggerRef.refCodeString)})"
             case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
-              s"waitWhile(${innerRef.refCodeString})"
+              s"waitWhile(${csFallThrough(innerRef.refCodeString)})"
             case _ =>
-              s"waitUntil(${wait.triggerRef.refCodeString})"
+              s"waitUntil(${csFallThrough(wait.triggerRef.refCodeString)})"
         case DFTime => s"${wait.triggerRef.refCodeString}.wait"
         case _      =>
           wait.triggerRef.get.getConstData[Option[BigInt]] match

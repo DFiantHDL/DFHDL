@@ -66,10 +66,11 @@ This is what constrains tags. A tag is safe only when re-elaborating the printed
 reconstructs it:
 
 - `CombinationalTag` prints as the `COMB_LOOP:` block wrapper and `FallThroughTag` as the
-  `FALL_THROUGH(...)` marker on the loop's own condition or range, so elaboration puts them back.
-  Safe. Note the two differ in scope, and the printer must match: `COMB_LOOP` marks a region
-  (every loop under it carries the tag, so it prints once on the outermost) while `FALL_THROUGH`
-  marks one loop (each tagged loop prints its own, including a nested opt-in).
+  `FALL_THROUGH(...)` marker on the construct's own condition or range (a loop's, or a
+  `waitUntil`/`waitWhile`'s), so elaboration puts them back. Safe. Note the two differ in scope,
+  and the printer must match: `COMB_LOOP` marks a region (every loop under it carries the tag, so
+  it prints once on the outermost) while `FALL_THROUGH` marks one construct (each tagged one
+  prints its own, including a nested opt-in).
 - `IteratorTag`, `BindTag`, `IdentTag` and friends are re-derived by elaboration from the
   construct itself. Safe.
 - A tag marking *why a stage synthesized a member* has no printed form and nothing regenerates

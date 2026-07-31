@@ -35,14 +35,15 @@ protected[dfhdl] object LoopOps:
     val dfcWithCombTag = dfc.tag(ir.CombinationalTag)
     block(using dfcWithCombTag, new DFRange.HasDFRange {})
 
-  // Marks a single loop as falling through: when its condition is false on entry, the loop is
-  // skipped without consuming a cycle, continuing straight to the next step. Unlike `COMB_LOOP`,
-  // which marks a whole region (every loop under a combinational loop must itself be
-  // combinational), this is a property of one loop, so it is written on that loop's own condition
-  // or range and a nested loop must opt in again.
+  // Marks a single loop or conditional wait as falling through: when its condition is already
+  // satisfied on entry, the construct is skipped without consuming a cycle, continuing straight to
+  // the next step. Unlike `COMB_LOOP`, which marks a whole region (every loop under a combinational
+  // loop must itself be combinational), this is a property of one construct, so it is written on
+  // that construct's own condition or range and a nested loop must opt in again.
   //
-  // Both forms are replaced by the compiler plugin, which passes the mark to the loop being
-  // constructed and rejects the call anywhere other than a `while` condition or a `for` range.
+  // All forms are replaced by the compiler plugin, which passes the mark to the construct being
+  // built and rejects the call anywhere other than a `while` condition, a `for` range, or a
+  // `waitUntil`/`waitWhile` condition.
   private inline def pluginReplaced: Nothing =
     throw new IllegalArgumentException(
       "FALL_THROUGH is not meant to be run directly, the DFHDL compiler plugin should have replaced its call."

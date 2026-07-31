@@ -625,6 +625,34 @@ class RTProcessSimSpec extends SimSpec:
           else if t == 8 then dut.go.poke(0)
     )
 
+  bothTiers("oracle: FALL_THROUGH conditional waits, zero-cycle skip vs park"): tier =>
+    lockstep(
+      new FallThroughCondWaitProc,
+      tier,
+      40,
+      watch = List(_.cnt, _.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.go.poke(0)
+          else if t == 4 then dut.go.poke(1)
+          else if t == 9 then dut.go.poke(0)
+          else if t == 18 then dut.go.poke(1)
+          else if t == 25 then dut.go.poke(0)
+    )
+
+  bothTiers("oracle: FALL_THROUGH wait decides on the register value just written"): tier =>
+    lockstep(
+      new FallThroughRegWaitProc,
+      tier,
+      30,
+      watch = List(_.y, _.armed),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 5 then dut.x.poke(1)
+          else if t == 12 then dut.x.poke(0)
+    )
+
   bothTiers("oracle: onEntry/onExit hooks fire on non-self step transitions only"): tier =>
     lockstep(
       new HookFSMProc,

@@ -119,8 +119,10 @@ class RTProcessSpec extends NoDFCSpec:
     )
 
   private val fallThroughPosErr =
-    "`FALL_THROUGH` must mark a loop directly: write it as the whole `while` condition, " +
-      "`while (FALL_THROUGH(cond))`, or as the `for` range, `for (i <- FALL_THROUGH(range))`."
+    "`FALL_THROUGH` must mark a loop or a conditional wait directly: write it as the whole " +
+      "`while` condition, `while (FALL_THROUGH(cond))`, as the `for` range, " +
+      "`for (i <- FALL_THROUGH(range))`, or as the whole `waitUntil`/`waitWhile` condition, " +
+      "`waitUntil(FALL_THROUGH(cond))`."
 
   test("FALL_THROUGH on a while condition and on a for range"):
     assertPluginError("No error found")(
@@ -136,6 +138,46 @@ class RTProcessSpec extends NoDFCSpec:
           for (i <- FALL_THROUGH(0 until n))
             x.din := !x
             1.cy.wait
+      """
+    )
+
+  test("FALL_THROUGH on a waitUntil and on a waitWhile condition"):
+    assertPluginError("No error found")(
+      """
+      class Foo extends RTDesign:
+        val go = Bit <> IN
+        val x = Bit <> OUT.REG init 0
+        process:
+          waitUntil(FALL_THROUGH(go))
+          x.din := !x
+          val MyWait = waitWhile(FALL_THROUGH(go))
+          x.din := !x
+      """
+    )
+
+  test("FALL_THROUGH on part of a wait condition"):
+    assertPluginError(fallThroughPosErr)(
+      """
+      class Foo extends RTDesign:
+        val a = Bit <> IN
+        val b = Bit <> IN
+        val x = Bit <> OUT.REG init 0
+        process:
+          waitUntil(FALL_THROUGH(a) && b)
+          x.din := !x
+      """
+    )
+
+  test("FALL_THROUGH reaching its wait through a val"):
+    assertPluginError(fallThroughPosErr)(
+      """
+      class Foo extends RTDesign:
+        val go = Bit <> IN
+        val x = Bit <> OUT.REG init 0
+        process:
+          val c = FALL_THROUGH(go)
+          waitUntil(c)
+          x.din := !x
       """
     )
 

@@ -483,6 +483,41 @@ class FallThroughEmptyWhileProc extends RTDesign:
     1.cy.wait
     tick.din := !tick
 
+/** `FALL_THROUGH` conditional waits, one of each polarity. A wait whose condition already holds on
+  * entry costs no cycle at all (the skip cascades to the following wait); otherwise it parks one
+  * cycle per sample until the condition turns. Each marked wait is followed by a plain wait, so the
+  * fall-through target is a clean park.
+  */
+class FallThroughCondWaitProc extends RTDesign:
+  val go = Bit <> IN
+  val cnt = UInt(8) <> OUT.REG init 0
+  val tick = Bit <> OUT.REG init 0
+  process:
+    1.cy.wait
+    waitUntil(FALL_THROUGH(go))
+    1.cy.wait
+    cnt.din := cnt + 1
+    waitWhile(FALL_THROUGH(go))
+    1.cy.wait
+    tick.din := !tick
+end FallThroughCondWaitProc
+
+/** A `FALL_THROUGH` conditional wait on a register the process itself drives: the skip decision is
+  * taken on the incoming edge, so it must read the pending `.din` the same cycle wrote rather than
+  * the value it replaces.
+  */
+class FallThroughRegWaitProc extends RTDesign:
+  val x = Bit <> IN
+  val armed = Bit <> VAR.REG init 0
+  val y = UInt(8) <> OUT.REG init 0
+  process:
+    1.cy.wait
+    armed.din := x
+    waitUntil(FALL_THROUGH(armed))
+    1.cy.wait
+    y.din := y + 1
+end FallThroughRegWaitProc
+
 /** The first step's `onEntry` is process-prologue content: being initial-convertible it costs no
   * cycle at process start (it lands in the generated `initial` block, superseding the declaration
   * init of `y`), and it re-runs on every forever wrap-around back into the first step.

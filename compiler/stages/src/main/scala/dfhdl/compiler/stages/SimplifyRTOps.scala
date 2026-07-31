@@ -48,6 +48,18 @@ import scala.annotation.tailrec
   * end while
   * }}}
   *
+  * The wait's tags carry over to the loop that replaces it, so a wait marked with `FALL_THROUGH`
+  * becomes a `FALL_THROUGH` loop and keeps costing no cycle when its condition already holds on
+  * entry:
+  * {{{
+  * // Before
+  * waitUntil(FALL_THROUGH(i))
+  *
+  * // After
+  * while (FALL_THROUGH(!i))
+  * end while
+  * }}}
+  *
   * ==Rule 3: Cycle-count wait → while loop with counter==
   *
   * A wait with a cycle count (`N.cy.wait`) is replaced by a `VAR.REG` counter assigned to zero
@@ -205,8 +217,11 @@ case object SimplifyRTOps extends HierarchyStage:
               trigger.dfType match
                 case DFBit => !(trigger.asValOf[dfhdl.core.DFBit])
                 case _     => !(trigger.asValOf[dfhdl.core.DFBool])
-          val whileBlock =
-            dfhdl.core.DFWhile.Block(fixedTrigger)(using dfc.setMeta(waitMember.meta))
+          // the wait's tags carry over to the loop that replaces it, so a `FALL_THROUGH` wait
+          // becomes a `FALL_THROUGH` loop (zero cycles when its condition holds on entry)
+          val whileBlock = dfhdl.core.DFWhile.Block(fixedTrigger)(using
+            dfc.setMeta(waitMember.meta).setTags(waitMember.tags)
+          )
           dfc.enterOwner(whileBlock)
           dfc.exitOwner()
         // a `not inner` trigger (from `waitWhile`) is discarded above (we loop on `inner`).
