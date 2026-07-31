@@ -27,6 +27,17 @@ class ParsedCommandLine(
     default = Some(ao.cacheEnable),
     noshort = true
   )
+  val log = choice(
+    choices = wvlet.log.LogLevel.values.map(_.name),
+    name = "log",
+    descr = "Set the log level of the compilation and app progress messages",
+    default = Some(co.logLevel.name),
+    argName = "level",
+    noshort = true
+  )
+  // The `--log` selection as the log level it names. `choice` already rejected any name
+  // outside `wvlet.log.LogLevel.values`, so the lookup here always succeeds.
+  lazy val logLevel: wvlet.log.LogLevel = wvlet.log.LogLevel(log.toOption.get)
   sealed abstract class Mode(val modeOption: AppMode, modeDesc: String)
       extends Subcommand(modeOption.toString),
         Product,

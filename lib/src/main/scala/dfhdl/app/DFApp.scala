@@ -27,6 +27,11 @@ import dfhdl.hw.flag.scalaPrints
 class DFApp:
   private val logger = Logger("DFHDL App")
   logger.setFormatter(LogFormatter.BareFormatter)
+  // The app's progress messages are on by default, and are deliberately louder than the
+  // compiler's own default level. Set explicitly (rather than left to the wvlet default)
+  // because `Logger` is a process-global singleton keyed by name: a `--log` level from an
+  // earlier run in the same JVM would otherwise carry over into this one.
+  logger.setLogLevel(wvlet.log.LogLevel.INFO)
   private var designName: String = ""
   private var topScalaPath: String = ""
   // The class of the design's generated entry point, supplied by the plugin via
@@ -421,18 +426,24 @@ class DFApp:
   // The plugin-injected companion `main` reroutes here with the raw argv.
   def run(commandArgs: Array[String]): Unit =
     if (appOptions.clearConsole) print("\u001bc")
-    logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
     val parsedCommandLine = ParsedCommandLine(designName, topScalaPath, designArgs, commandArgs)
     import parsedCommandLine.{Mode, HelpMode}
-    if (commandArgs.isEmpty && parsedCommandLine.mode != Mode.help)
-      logger.info(
-        "No command-line given; using defaults. Run with `help` argument to get usage text."
-      )
     parsedCommandLine.getExitCodeOption match
       case Some(code) =>
         if (!sbtShellIsRunning && !sbtnIsRunning) sys.exit(code)
       case None =>
         given CanEqual[ScallopConfBase, ScallopConfBase] = CanEqual.derived
+        // update the log levels from the command line. the app's progress logger keeps its
+        // own (louder) default unless a level was actually asked for. applied before the
+        // first message below, so a quieter level silences the run from its very first line.
+        elaborationOptions = elaborationOptions.copy(logLevel = parsedCommandLine.logLevel)
+        compilerOptions = compilerOptions.copy(logLevel = parsedCommandLine.logLevel)
+        if (parsedCommandLine.log.isSupplied) logger.setLogLevel(parsedCommandLine.logLevel)
+        logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
+        if (commandArgs.isEmpty && parsedCommandLine.mode != Mode.help)
+          logger.info(
+            "No command-line given; using defaults. Run with `help` argument to get usage text."
+          )
         // update app options from command line
         appOptions = appOptions.copy(cacheEnable = parsedCommandLine.cache.toOption.get)
         // update design args from command line

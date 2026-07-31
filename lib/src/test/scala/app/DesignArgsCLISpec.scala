@@ -145,8 +145,42 @@ class DesignArgsCLISpec extends FunSuite:
     assert(clue(out).contains("val a: Int <> CONST = 9"))
 
   // --------------------------------------------------------------------
+  // 5. `--log <level>` is a global option (it sits alongside `--cache`,
+  //    before the mode) that drives both the app's own progress logger and
+  //    the elaboration/compilation log level.
+  //
+  //    The parsing itself is asserted against `ParsedCommandLine` directly:
+  //    the levels it selects only ever surface through the wvlet logger, and
+  //    that writes to the `System.err` captured when wvlet first initialized,
+  //    which is not necessarily the stream `captureMain` installed.
+  // --------------------------------------------------------------------
+  test("help documents the --log option and its level choices"):
+    val out = runCLI("help")
+    assertContainsLine(out, List("--log", "<level>"), negative = false)
+    // the description column wraps at the help width, so match against the
+    // whitespace-collapsed help text rather than a single line.
+    val flat = out.linesIterator.map(_.trim).mkString(" ").replaceAll(" +", " ")
+    assert(clue(flat).contains("Choices: off, error, warn, info, debug, trace, all"))
+
+  test("--log selects the named level, and defaults to the compiler's"):
+    assertEquals(parseCLI("--log", "debug", "compile").logLevel.name, "debug")
+    assertEquals(parseCLI("--log", "off", "elaborate").logLevel.name, "off")
+    val default = parseCLI("compile")
+    assert(!default.log.isSupplied)
+    assertEquals(default.logLevel.name, summon[dfhdl.options.CompilerOptions].logLevel.name)
+
+  test("--log rejects a level outside the known set"):
+    val bad = parseCLI("--log", "verbose", "compile")
+    assert(bad.getExitCodeOption.isDefined)
+
+  // --------------------------------------------------------------------
   // Helpers
   // --------------------------------------------------------------------
+  // Parse an argv against a bare (design-argument-free) command line, for
+  // assertions about the global options themselves rather than their effect.
+  private def parseCLI(args: String*): dfhdl.app.ParsedCommandLine =
+    dfhdl.app.ParsedCommandLine("Foo", "app.Foo", dfhdl.app.DesignArgs.empty, args.toArray)
+
   private def assertContainsLine(
       haystack: String,
       needles: List[String],
