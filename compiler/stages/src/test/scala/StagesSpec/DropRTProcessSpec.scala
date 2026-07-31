@@ -364,7 +364,8 @@ class DropRTProcessSpec extends StageSpec():
       // own (S_1_0) and is declared between the loop step and the loop's exit (S_2). The
       // zero-cycle skip must cascade to S_2, the loop step's own exit goto -- not to the S_1_0
       // that merely follows it in the state list, which would enter the body of the very loop
-      // being skipped.
+      // being skipped. The hook reads `go.din`, so in S_1_0 it decides on the `go.din := 0` that
+      // the same state has just made rather than on the value it is about to replace.
       """|class Foo extends RTDesign:
          |  enum State(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
          |    case S_0 extends State(d"2'0")
@@ -379,7 +380,7 @@ class DropRTProcessSpec extends StageSpec():
          |  state match
          |    case State.S_0 =>
          |      state.din := State.S_1
-         |      if (!go) state.din := State.S_2
+         |      if (!go.din) state.din := State.S_2
          |    case State.S_1 =>
          |      if (go)
          |        y.din := y + d"8'1"
@@ -389,7 +390,7 @@ class DropRTProcessSpec extends StageSpec():
          |    case State.S_1_0 =>
          |      if (stop) go.din := 0
          |      state.din := State.S_1
-         |      if (!go) state.din := State.S_2
+         |      if (!go.din) state.din := State.S_2
          |    case State.S_2 =>
          |      y.din := d"8'255"
          |      state.din := State.S_0
@@ -606,6 +607,55 @@ class DropRTProcessSpec extends StageSpec():
          |        state.din := State.S0
          |      else state.din := State.S1
          |      end if
+         |  end match
+         |end Foo""".stripMargin
+    )
+  }
+  test("a fall-through loop decides on the counter its entry just reset") {
+    // the shape a `FALL_THROUGH` for-loop lowers to: the counter reset sits right before the loop,
+    // so it and the skip decision land in the same state
+    class Foo extends RTDesign:
+      val n = Int <> IN
+      val i = Int <> VAR.REG init 0
+      val x = Bit <> OUT.REG init 0
+      process:
+        i.din := 0
+        FALL_THROUGH:
+          while (i < n)
+            x.din := !x
+            i.din := i + 1
+            1.cy.wait
+    end Foo
+    val top = (new Foo).dropRTProcess
+    // the `fallThrough` condition reads `i.din` -- the value the entering state has just written.
+    // Reading `i` would decide on the count left over from the previous pass, and skip the whole
+    // loop on every other run.
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  enum State(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
+         |    case S_0 extends State(d"1'0")
+         |    case S_0_0 extends State(d"1'1")
+         |
+         |  val n = Int <> IN
+         |  val i = Int <> VAR.REG
+         |  val x = Bit <> OUT.REG init 0
+         |  initial:
+         |    i.din := 0
+         |  val state = State <> VAR.REG init State.S_0
+         |  state match
+         |    case State.S_0 =>
+         |      if (i < n)
+         |        x.din := !x
+         |        i.din := i + 1
+         |        state.din := State.S_0_0
+         |      else
+         |        i.din := 0
+         |        state.din := State.S_0
+         |      end if
+         |    case State.S_0_0 =>
+         |      state.din := State.S_0
+         |      if (!(i.din < n)) state.din := State.S_0_0
          |  end match
          |end Foo""".stripMargin
     )

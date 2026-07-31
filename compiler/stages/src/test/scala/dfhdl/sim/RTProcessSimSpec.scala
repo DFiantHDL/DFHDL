@@ -768,4 +768,47 @@ class RTProcessSimSpec extends SimSpec:
           else if t == 6 then dut.x.poke(1)
           else if t == 14 then dut.x.poke(0)
     )
+
+  bothTiers("oracle: `.din` reads inside a process see only the current state's writes"): tier =>
+    lockstep(new RegDINProcDut, tier, 20, watch = List(_.r, _.seen))
+
+  bothTiers("oracle: a FALL_THROUGH for-loop decides on the reset iterator, not the stale one"):
+    tier =>
+      lockstep(
+        new FallThroughForLoopProc,
+        tier,
+        40,
+        watch = List(_.y, _.pass),
+        pokes = t =>
+          dut =>
+            if t == 0 then dut.n.poke(2)
+            else if t == 12 then dut.n.poke(0)
+            else if t == 18 then dut.n.poke(3)
+      )
+
+  bothTiers("oracle: a register-guarded fall-through loop at the forever wrap-around"): tier =>
+    lockstep(
+      new FallThroughWrapRegLoopProc,
+      tier,
+      40,
+      watch = List(_.x, _.i, _.pass),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.n.poke(2)
+          else if t == 10 then dut.n.poke(0)
+          else if t == 16 then dut.n.poke(1)
+    )
+
+  bothTiers("oracle: a fallThrough reads the register its own onEntry just assigned"): tier =>
+    lockstep(
+      new FallThroughOnEntryRegProc,
+      tier,
+      30,
+      watch = List(_.y, _.armed),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(1)
+          else if t == 5 then dut.x.poke(0)
+          else if t == 14 then dut.x.poke(1)
+    )
 end RTProcessSimSpec

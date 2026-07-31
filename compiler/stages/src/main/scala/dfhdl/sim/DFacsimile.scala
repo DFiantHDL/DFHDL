@@ -550,6 +550,9 @@ private final class Builder(rawDB: DB):
     // per transition context (e.g. a loop guard reads forwarded values at a loop-back edge but
     // committed values inside a control state), so their nodes must not enter the global cache
     private var procOverlay: mutable.Map[DFVal, WV] = null
+    // set while compiling a `fallThrough` condition, whose register reads are pending-value
+    // (`.din`) reads — see the read view in `readWV`
+    private var dinGuardMode = false
     // time-zero state overrides computed in the pre-pass from initial blocks and Rule-4-converted
     // process prologues ("initial wins" over a declaration init)
     private val initOverride = mutable.Map.empty[DFVal.Dcl, BitVector]
@@ -795,6 +798,7 @@ private final class Builder(rawDB: DB):
         case a: DFVal.Alias.ApplyRange   => buildApplyRange(a)
         case sf: DFVal.Alias.SelectField => buildSelectField(sf)
         case h: DFVal.Alias.History      => buildHistory(h)
+        case d: DFVal.Alias.RegDIN       => buildRegDIN(d)
         case c: DFVal.Const              =>
           // reached for bubble (don't-care) constants (`?`, simulated as 0, 2-state) and by the
           // per-instance const path (whole-value folds are bypassed there)
@@ -845,7 +849,12 @@ private final class Builder(rawDB: DB):
     private def readWV(v: DFVal): WV = v match
       case dcl: DFVal.Dcl =>
         val t = transCtx
-        if (t ne null) && regNodeOf.contains(dcl) then
+        // a `fallThrough` condition reads registers as `.din`, which is what `DropRTWaits` rewrites
+        // it to: the pending value at this point of the transition, so the skip is decided on what
+        // entering the step has just assigned (an `onEntry` block, a reset iterator) rather than on
+        // the value it is about to replace
+        if dinGuardMode && regNodeOf.contains(dcl) && env.contains(dcl) then env(dcl)
+        else if (t ne null) && regNodeOf.contains(dcl) then
           // register reads inside a process transition context: committed state, except values
           // promoted across a conceptual cycle boundary (fusion's value forwarding — e.g. a
           // loop-back guard evaluating `(i + 1) < N` after the pending `i.din := i + 1`)
@@ -1178,6 +1187,32 @@ private final class Builder(rawDB: DB):
           out
         case op => unsupported(s"history op $op", h)
 
+    /** `.din` read: the register's pending next-cycle value at this point in the cycle body, i.e.
+      * the latest value assigned to it so far, or the register itself when nothing has been
+      * assigned yet. That is exactly what `env` holds (it is what closes the design at `setNext`),
+      * so the read resolves the alias chain to its declaration and slices the pending value instead
+      * of the committed one.
+      *
+      * Position sensitivity comes for free: `env` is walked in body order, and it is re-seeded per
+      * site program in a process, so a read inside a state sees only that state's writes.
+      */
+    private def buildRegDIN(d: DFVal.Alias.RegDIN): WV =
+      val (dcl, staticLo, dynOffOpt) = assignTarget(d.relValRef.get, d)
+      if memOf.contains(dcl) then
+        unsupported("a `.din` read of a memory-backed register vector", d)
+      if !regNodeOf.contains(dcl) then unsupported("a `.din` read of a non-register", d)
+      val base = env.getOrElse(dcl, readWV(dcl))
+      val w = widthOf(d)
+      dynOffOpt match
+        case None if staticLo == 0 && w == base.width => base
+        case None                                     => wide.extract(base, staticLo, w)
+        case Some(dyn)                                =>
+          val off =
+            if staticLo == 0 then dyn
+            else WV(Vector(nl.add(dyn.lanes(0), nl.const(32, staticLo.toLong))), 32)
+          wide.dynExtract(base, off, w)
+    end buildRegDIN
+
     /** The dynamic index value as a 32-bit lane (bit offsets always fit 32 bits). */
     private def dynBitOffset(idx: DFVal): WV =
       WV(Vector(wide.bitField(readWV(idx), 0, 32)), 32)
@@ -1501,9 +1536,10 @@ private final class Builder(rawDB: DB):
               wide.dynInsert(base, part, off)
 
     /** Resolve a write-view alias chain to its declaration + bit offset (static part + optional
-      * dynamic part).
+      * dynamic part). Also used to re-root a `.din` read onto its register, which is the same chain
+      * walk read instead of written.
       */
-    private def assignTarget(v: DFVal, net: DFNet): (DFVal.Dcl, Int, Option[WV]) =
+    private def assignTarget(v: DFVal, net: DFMember): (DFVal.Dcl, Int, Option[WV]) =
       def addDyn(acc: Option[WV], more: WV): Option[WV] = acc match
         case None    => Some(more)
         case Some(a) => Some(WV(Vector(nl.add(a.lanes(0), more.lanes(0))), 32))
@@ -1798,13 +1834,8 @@ private final class Builder(rawDB: DB):
     private def prepassProcess(pb: ProcessBlock): Unit =
       flattenedOf(pb).foreach {
         case f: ForkBlock => unsupported("fork/join in processes", f)
-        case fb: DFLoop.DFForBlock if !fb.isCombinational && fb.isFallThrough =>
-          // the FSM lowering resets the iterator and evaluates the fall-through guard in the same
-          // state, so the guard reads the pre-reset (stale) iterator: hardware skips the loop every
-          // other run. Refuse rather than simulate a behavior the synthesized design does not have.
-          unsupported("FALL_THROUGH for loops (a fall-through while loop works)", fb)
-        case w: Wait => waitKindOf(w) // validates the trigger form
-        case _       => ()
+        case w: Wait      => waitKindOf(w) // validates the trigger form
+        case _            => ()
       }
       if !processHasTime(pb) then () // every-cycle combinational body — nothing to plan
       else
@@ -2615,8 +2646,11 @@ private final class Builder(rawDB: DB):
           case Goto.NextStep  => emitCont(stepExitConts(enclosingStep(g)))
 
       private def fallThroughCond(ft: StepBlock): Int =
-        bodyOf(ft).reverse.collectFirst { case v: DFVal => compileGuardFresh(v) }
-          .getOrElse(unsupported("a fallThrough block without a condition value", ft))
+        dinGuardMode = true
+        try
+          bodyOf(ft).reverse.collectFirst { case v: DFVal => compileGuardFresh(v) }
+            .getOrElse(unsupported("a fallThrough block without a condition value", ft))
+        finally dinGuardMode = false
 
       private def emitFrom(items: List[DFMember], cont: PCont): Unit = items match
         case Nil       => emitCont(cont)

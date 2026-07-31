@@ -711,3 +711,63 @@ class FirstStepOverBootProc extends RTDesign:
       if (x) FirstStep
       else NextStep
 end FirstStepOverBootProc
+
+/** A `FALL_THROUGH` for-loop. The `for`-to-`while` rewrite resets the iterator right before the
+  * loop, so the reset and the skip decision land in the same cycle: the decision has to read the
+  * iterator's pending value, or it decides on the value left over from the previous pass and skips
+  * the loop every other time. The bound is a runtime input, so nothing folds it away.
+  */
+class FallThroughForLoopProc extends RTDesign:
+  val n = Int <> IN
+  val y = UInt(8) <> OUT.REG init 0
+  val pass = UInt(8) <> OUT.REG init 0
+  process:
+    1.cy.wait
+    FALL_THROUGH:
+      for (i <- 0 until n)
+        y.din := y + 1
+        1.cy.wait
+    pass.din := pass + 1
+    1.cy.wait
+end FallThroughForLoopProc
+
+/** A user-written `fallThrough` reading a register that the step's own `onEntry` assigns on the
+  * same edge: the hook decides on the value `onEntry` has just written, not on the one it replaces.
+  */
+class FallThroughOnEntryRegProc extends RTDesign:
+  val x = Bit <> IN
+  val armed = Bit <> VAR.REG init 0
+  val y = UInt(8) <> OUT.REG init 0
+  process:
+    def Idle: Step =
+      y.din := y + 1
+      NextStep
+    def Armed: Step =
+      def onEntry =
+        armed.din := x
+      def fallThrough = !armed
+      y.din := y + 16
+      NextStep
+    def Done: Step =
+      y.din := y + 64
+      FirstStep
+end FallThroughOnEntryRegProc
+
+/** A `FALL_THROUGH` loop guarded by a register, as the process's last construct: the skip is the
+  * forever wrap-around, so the decision is taken on the loop-back edge against the counter the body
+  * has just advanced, and the exit path re-runs the prologue that resets it.
+  */
+class FallThroughWrapRegLoopProc extends RTDesign:
+  val n = Int <> IN
+  val i = Int <> VAR.REG init 0
+  val x = Bit <> OUT.REG init 0
+  val pass = UInt(8) <> OUT.REG init 0
+  process:
+    i.din := 0
+    pass.din := pass + 1
+    FALL_THROUGH:
+      while (i < n)
+        x.din := !x
+        i.din := i + 1
+        1.cy.wait
+end FallThroughWrapRegLoopProc

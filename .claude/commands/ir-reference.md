@@ -24,6 +24,7 @@ DFMember  (sealed)
 │   ├── DFVal.Alias             — alias / cast / partial selection
 │   │   ├── DFVal.Alias.AsIs        — type cast  (.as(T)  /  .actual)
 │   │   ├── DFVal.Alias.History     — prev / pipe  (.prev, .reg)
+│   │   ├── DFVal.Alias.RegDIN      — register pending value  (r.din read)
 │   │   ├── DFVal.Alias.ApplyRange  — bit-range slice  (x(hi, lo))
 │   │   ├── DFVal.Alias.ApplyIdx    — vector / bits indexing  (x(i))
 │   │   └── DFVal.Alias.SelectField — struct field  (x.fieldName)
@@ -235,7 +236,7 @@ val relValRef: DFRef.TwoWay[DFVal, Alias]   // the value being aliased
 ```
 
 Two sub-traits:
-- `Alias.Consumer` — `relValRef: ConsumerRef` — consumes the source entirely (History)
+- `Alias.Consumer` — `relValRef: ConsumerRef` — consumes the source entirely (History, RegDIN)
 - `Alias.Partial` — `relValRef: PartialRef` — partial view of source; propagates mutability (AsIs, ApplyRange, ApplyIdx, SelectField)
 
 #### DFVal.Alias.AsIs
@@ -275,6 +276,29 @@ enum History.Op: State, Pipe   // State = .prev in DF / .reg in RT; Pipe = DF pi
 history.initOption              // Option[DFVal]
 history.hasNonBubbleInit        // Boolean
 ```
+
+#### DFVal.Alias.RegDIN
+```scala
+final case class DFVal.Alias.RegDIN(
+    dfType:    DFType,
+    relValRef: ConsumerRef,        // the register, or a partial selection into it
+    ownerRef:  DFOwner.Ref,
+    meta:      Meta,
+    tags:      DFTags
+)
+```
+A read of `r.din`: the register's **pending** next-cycle value at that point of the cycle body. RT
+only. Written `.din` (`r.din := x`) creates **no** member at all — the assignment IR is unchanged —
+so this node only ever appears for reads.
+
+`Consumer`, deliberately not `Partial`: it cannot propagate assignability, so it never reaches an
+assignment LHS and `departialDcl` stops at it. To a generic alias walker it reads exactly like
+`History`, i.e. a plain read of the register, which is what lets it travel untouched from
+elaboration to `ToED` (which resolves it to the register's shadow variable and drops the marker).
+
+The canonical partial form wraps the selection, not the other way round: `r(3, 0).din` is
+`RegDIN(ApplyRange(r, 3, 0))`. The inside-out form does not re-elaborate, since `.din` is not
+available on the extension groups keyed on `DFValAny`.
 
 #### DFVal.Alias.ApplyRange
 ```scala

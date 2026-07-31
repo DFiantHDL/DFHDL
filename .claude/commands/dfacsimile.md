@@ -18,9 +18,10 @@ stages. So (Locked decision 11) **DFacsimile's cycle-accurate behavior must matc
 lowering stages produce — bug-for-bug.** It may reuse read-only *analyses* but never runs IR-to-IR
 transformations. Consequences you must internalize:
 
-- If a lowering stage has a bug (e.g. the FALL_THROUGH for-loop stale-iterator bug), DFacsimile must
-  **match that bug or refuse the construct (`unsupported(...)`)** — never silently do the "correct"
-  thing, or the simulator lies about the hardware.
+- If a lowering stage has a bug, DFacsimile must **match that bug or refuse the construct
+  (`unsupported(...)`)** — never silently do the "correct" thing, or the simulator lies about the
+  hardware. (The canonical case, the FALL_THROUGH for-loop stale iterator, was refused for exactly
+  this reason until the stage was fixed — see gotcha 1.)
 - Every RT-process feature is validated by a **lockstep test against the actual stage lowering**
   (`dropRTProcess`). If you can't make lockstep pass, either your model is wrong or you've found a
   stage bug — investigate before assuming.
@@ -58,7 +59,7 @@ connection resolution, `sinkMov`/`bitMov`).
 
 An RT `process:` lowers to an FSM over an implicit **state register** (`segCellVar`), directly from
 the elaborated IR, replicating the *combined* effect of `SimplifyRTOps → DropRTWaits →
-FlattenStepBlocks + FirstStepFusion → DropRTProcess`.
+ExplicitFallThroughDIN → FlattenStepBlocks + FirstStepFusion → DropRTProcess`.
 
 - **Sites (= parks = FSM states).** Each construct that consumes a cycle becomes a *site* with a
   program: a `Wait`, a *park loop* (control-free body — one cycle per iteration), a *control loop*
@@ -133,7 +134,10 @@ at the transition's **landing**, not where the walk into it starts:
   **not** the declaration-order successor — a loop step whose body waits is followed in the state
   list by its own body's first state, while its exit leaves the loop.
 - `fallThrough`'s condition is the last `DFVal` in the block body (an `Ident`); `compileGuardFresh`
-  it.
+  it under `dinGuardMode`, which makes a register read resolve to `env(dcl)` — the value pending at
+  that point of the transition. That mirrors `ExplicitFallThroughDIN`, which rewrites every register read in a
+  `fallThrough` block to a `.din` read, so the skip is decided on what entering the step has just
+  assigned (an `onEntry` block, a reset iterator) and not on the value it is about to replace.
 - A step carrying an `onEntry`/`onExit` — or one whose dispatch's first time-consuming action is
   hook-carrying — is **never** a `FirstStepFusion` candidate (`hasNonRegularChild` / the `Blocked`
   scan). `hookBlocked` mirrors that and forces the step into `fallback`, so it always keeps a state
@@ -152,9 +156,15 @@ at the transition's **landing**, not where the walk into it starts:
   outright, because materializing it would make the guard-false path unreachable (one value, one
   cycle, exact complements) and that path is where `FlattenStepBlocks` relocates the continuation —
   trailing statements and the forever-rotation's prologue clone. This is the shape every
-  `FALL_THROUGH` loop has, so a fused one lowers to exactly the unmarked loop. DFacsimile needs no
-  mirror: `enterLoop`'s fused path never had a hook to begin with, and it is the side that was
-  already right.
+  `FALL_THROUGH` loop has, so a fused one lowers to exactly the unmarked loop. The comparison
+  (`sameAtFusedEntry`) looks past the hook's `.din` reads, since fusion inlines the dispatch into the
+  hook's own cycle with nothing in between. DFacsimile needs no mirror: `enterLoop`'s fused path
+  never had a hook to begin with, and it is the side that was already right.
+- **`.din` reads in the IR** (a user `r.din` read, or the `fallThrough` rewrite arriving through a
+  `dropRTProcess` oracle DB) build via `buildRegDIN`: the alias chain resolves to its declaration
+  with the same `assignTarget` walk a partial *write* uses, and the slice comes off
+  `env.getOrElse(dcl, readWV(dcl))`. Position sensitivity is free — `env` is walked in body order and
+  re-seeded per site program, so a read inside a state sees only that state's writes.
 
 **FALL_THROUGH loops** reuse the same idea at loop entry: `enterLoop` for a FALL_THROUGH park loop
 does `crossBoundary(); emitBranch2(guard, jump(site), emitCont(exitCont))` — a zero-cycle skip to the
@@ -241,11 +251,16 @@ Verilator toolchain).
 
 ## Gotchas banked (each cost real debugging time)
 
-1. **Fidelity, not correctness.** (See the top rule.) The FALL_THROUGH for-loop is the canonical
-   trap: the FSM lowering resets the iterator (`i.din:=0`) and evaluates the fall-through guard
-   (`if(!(i<n))`) in the **same** state, so register read-before-write makes the guard read the
-   **stale** iterator — hardware skips the loop every other run. DFacsimile does the "right" thing and
-   thus diverges, so it is `unsupported`. A `while` loop has no iterator init, so it works.
+1. **Fidelity, not correctness — but check which side is wrong first.** (See the top rule.) The
+   canonical case: the FSM lowering resets a FALL_THROUGH for-loop's iterator (`i.din:=0`) and
+   evaluated the fall-through guard (`if(!(i<n))`) in the **same** state, so register
+   read-before-write made the guard read the **stale** iterator and hardware skipped the loop every
+   other run. DFacsimile's `crossBoundary` forwarding did the "right" thing and diverged, so the
+   construct was `unsupported`. That was the simulator being right: `ExplicitFallThroughDIN` rewrites every
+   register read in a `fallThrough` block to a `.din` read, and `dinGuardMode` gives
+   `fallThroughCond` the matching pending read view, so the guard is `unsupported` no longer. When
+   lockstep says the two disagree, decide which one *should* change before making DFacsimile
+   bug-compatible.
 2. **Codegen `observed` set.** Any node the runtime reads from `sig` after a bulk run (watch
    aggregate, action guards, wait bounds, peeks) **must** be in the codegen `observed` set (which
    drives spill + syncOut), independent of copy-prop pinning. Dropping one → stale reads that only
@@ -254,10 +269,12 @@ Verilator toolchain).
    park attach to that construct's *own* exit state; a **fall-through skip bypasses them** (it lands
    on the skipped step's exit *state*, it does not run the sequential continuation). For step
    `fallThrough` this is modelled directly (`cascadeFrom` lands on a state, it does not `emitCont`);
-   for FALL_THROUGH **loops** the skip runs `emitCont(exitCont)`. A loop that **fuses** now agrees:
+   for FALL_THROUGH **loops** the skip runs `emitCont(exitCont)`. A loop that **fuses** agrees when
    its hook is subsumed by its own dispatch and dropped, so the guard-false path *is* the
    continuation. A loop that keeps a state (a park body, or a fusion fallback) still diverges here,
-   so put a clean park right after such a loop in a test DUT.
+   so put a clean park right after such a loop in a test DUT. Note that a **register-guarded** loop
+   is no longer subsumed — the hook reads `.din` and the dispatch reads the register, so the two no
+   longer name one edge — and its hook is materialized instead.
 4. **`crossBoundary` forwarding.** A guard on a transition edge must read *post-`.din`* register
    values — call `crossBoundary()` before compiling it (`compileGuardFresh`/`loopGuardNode`).
 5. **Park classification is by content, not name.** A step is a park iff pure-dispatch; a nested

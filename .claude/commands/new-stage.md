@@ -1177,6 +1177,22 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     members, not just the first: each read site references a different PBNS member (see
     `PrepEDDefs` — the main PBNS kept via `ChangeRefOnly` + `OfMembers`, the rest
     `ChangeRefAndRemove`d).
+22. **An anonymous value may be read exactly once** — `SanityCheck` reports *"An anonymous value has
+    more than one reference"*. So when a stage synthesizes a *wrapper* per read (a `.din` read, a
+    cast, a sampling alias), do NOT memoize one wrapper per target and share it between two readers:
+    emit a fresh one per reading reference. Memoizing feels like the obvious de-duplication and
+    passes every structural check except this one.
+23. **You cannot redirect an existing member's references from inside a `MetaDesign`** —
+    `dfc.mutableDB.newRefFor` only governs refs registered in the meta design's own DB (fresh clones
+    and members it created). Calling it on a ref belonging to a member that is already in the stage's
+    DB corrupts the ref table (`Failed reference check!`). To rewrite a member's reads you must
+    either replace the member (`Patch.Replace` keyed on it) or rebuild it as a clone — which is also
+    why a rewrite that must reach *several* members of a block is cleanest as a whole-block rebuild
+    (see Pattern 15).
+24. **Position within a block can be load-bearing** — before appending synthesized members, check
+    whether a downstream stage reads the block positionally. A `fallThrough` block's condition is
+    `members.last` in both `DropRTProcess` and `FirstStepFusion`, so a rebuild has to emit each
+    synthesized read *before* the member that reads it rather than appending at the end.
 
 ---
 
@@ -1242,6 +1258,46 @@ non-obvious parts:
    the VHDL printer declares static functions between the constants and the
    signal/variable declarations (a signal's default may call one; a static function never
    reads signals).
+
+### Pattern 15 — Rebuild a block member-by-member to rewrite what it reads
+
+When a stage must redirect reads across *several* members of one block (mistake 23 rules out
+editing them in place), rebuild the block's contents: anchor a `MetaDesign` on the block with
+`Patch.Add.Config.InsideFirst`, re-emit every member as a clone with remapped ref targets, and
+`Patch.Remove()` the originals. `InsideFirst` keys the Add on the block itself, so it never
+collides with the per-member Removes (`InsideLast` is re-keyed onto the block's very last member,
+which usually *is* one of them).
+
+Unlike `plantClonedMembers`, resolve each member's ref targets **before** adding its clone, so any
+member you synthesize for a target lands ahead of its reader (mistake 24). `getRefs` excludes
+`ownerRef`, so set the owner separately:
+
+```scala
+val dsn = new MetaDesign(block, Patch.Add.Config.InsideFirst, dfhdl.core.DomainType.RT):
+  given MemberGetSet = dfc.getSet   // clones resolve here, not in the stage's DB (mistake 17)
+  val clonedOf = mutable.Map.empty[ir.DFMember, ir.DFMember]
+  blockMembers.foreach { m =>
+    val targets = m.getRefs.map { ref =>
+      ref.get match
+        case t: ir.DFVal => rewriteTarget(clonedOf.getOrElse(t, t).asInstanceOf[ir.DFVal])
+        case other       => other
+    }
+    val cloned = m.copyWithNewRefs
+    dfc.mutableDB.addMember(cloned)
+    dfc.mutableDB.newRefFor(cloned.ownerRef, dfc.owner.asIR)
+    cloned.getRefs.lazyZip(targets).foreach(dfc.mutableDB.newRefFor(_, _))
+    clonedOf += m -> cloned
+  }
+dsn.patch :: blockMembers.map(_ -> Patch.Remove())
+```
+
+`copyWithNewRefs` preserves `meta`, so **named** members keep their names — which is the point:
+`cloneAnonValueAndDepsHere` stops at named values, so a clone-the-expression-tree approach silently
+leaves a named intermediate's own reads unrewritten, splitting one block's semantics in two.
+
+When the rewrite wraps a value (rather than substituting one), mind chain-vs-reader: a partial
+selection into the wrapped root is a *link* in the read chain, so wrap at its outermost consumer,
+not at each link, or you produce an inside-out alias that may not even be printable.
 
 ---
 

@@ -203,6 +203,72 @@ Ordinary signals assigned inside the combinational process and read later in it 
 remain signals and converge across delta cycles through `process(all)` re-triggering, exactly as they
 did before this feature.
 
+## 5.3 `DFacsimile`
+
+`Simulation.dbTransform` defaults to `identity`, so the native simulator consumes the elaborated DB
+and never runs `ToED`. It needs its own support, and the model was already there: `env(dcl)` is the
+pending value and is what closes the design
+(`for (dcl, regWV) <- regNodeOf do wide.setNext(regWV, env.getOrElse(dcl, regWV))`).
+
+`buildRegDIN` therefore resolves the alias chain to its declaration with the same `assignTarget`
+walk a partial *write* uses, and slices `env.getOrElse(dcl, readWV(dcl))` instead of the committed
+register. Position sensitivity is free: `env` is walked in body order, and a process re-seeds it per
+site program, so a read inside a state sees only that state's writes. A memory-backed (`VecRepr.Ram`)
+register vector and a non-register relative value are `unsupported`.
+
+## 5.4 The `fallThrough` rewrite
+
+A `fallThrough` condition is decided on the transition *into* its step, in the very cycle in which
+entering that step already assigns registers: a `FALL_THROUGH` `for` loop resets its iterator, an
+entered step runs its `onEntry`, a wrap-around re-runs the process prologue. Reading the registered
+values there decides the skip on the values the entering state is about to replace, one cycle behind
+what the condition names.
+
+The `ExplicitFallThroughDIN` stage therefore rewrites every register read in a `fallThrough` block
+into a DIN read. It sits between `DropRTWaits` and `FlattenStepBlocks`, which is the only window
+where the rule can be stated once: `DropRTWaits` synthesizes the `fallThrough` sub-step (`!guard`)
+for a `FALL_THROUGH` loop, so before it the loop form does not exist yet, and `FirstStepFusion`
+(inside `FlattenStepBlocks`) already consumes the condition. By that point a user-written block and
+a loop-generated one are the same shape, and one pass handles both.
+
+Running it *after* `DropRTWaits` rather than inside it also keeps each stage's printout honest.
+`DropRTWaits` prints the condition as written; re-elaborating that and continuing still reaches the
+same result, because this stage is what defines the reading. That is the same reasoning that moved
+the process bootstrap decision from `DropRTWaits` into `FlattenStepBlocks`.
+
+The block is **rebuilt**, member by member, rather than edited in place. Two reasons: a register read
+shared by two `fallThrough` blocks needs a distinct DIN read per block, which a reference redirect
+keyed on the register cannot express; and redirecting an existing member's references from inside a
+`MetaDesign` corrupts the reference table. Rebuilding also means a named intermediate inside the
+block (`val edge = x && !armed` followed by `edge || armed`) is rewritten along with the condition
+proper, so the whole block reads one way.
+
+Two invariants the rebuild has to respect:
+
+* **The marker stays last.** `DropRTProcess` and `FirstStepFusion` both read the block's condition
+  positionally (`members.last` is the `Ident`), so each DIN read is emitted *before* the member that
+  reads it, never appended.
+* **One DIN read per reading reference.** An anonymous value may only be read once, so the wrappers
+  are never shared between two readers even when they name the same register.
+
+`Alias.RegDIN` is a `Consumer` and so is never itself register-rooted, which makes the rewrite a
+fix-point. A read reached through a partial selection is wrapped at its outermost point, giving the
+canonical `r(3, 0).din` rather than the unspellable `r.din(3, 0)`.
+
+Two consumers had to follow:
+
+* `FirstStepFusion.substDin` resolves a DIN read to the register's pending value *at that point of
+  the expansion* (this region's write, else the value forwarded across the removed boundary), one
+  step ahead of `substDcl`, which crosses only the boundary. A partial DIN read aborts fusion.
+* `fallThroughSubsumed` compares the hook against the dispatch's leading guard through
+  `sameAtFusedEntry`, which looks past the DIN reads: fusion inlines the dispatch into the hook's own
+  cycle with nothing in between, so both resolve to the same forwarded value.
+
+`DFacsimile` mirrors the rewrite rather than seeing it (it reads the elaborated IR, where the hook is
+still a plain read): `dinGuardMode` gives `fallThroughCond` the pending read view. That is what
+retired the `FALL_THROUGH` `for` loop `unsupported` guard, whose whole reason was the stale-iterator
+behavior this rewrite removes.
+
 ## 6. Where each rule is enforced
 
 | Rule | Enforced in |
@@ -225,17 +291,16 @@ did before this feature.
 | `ElaborationChecksSpec` | named `.din` rejection |
 | `ToEDSpec` | the lowering, per-register defaults, the no-hoist rule, the VHDL process variable |
 | `PrintVHDLCodeSpec` / `PrintVerilogCodeSpec` | end-to-end backend output for all four shapes |
+| `RegDINSimSpec` | the `DFacsimile` read: position sensitivity, read-modify-write, partial reads, a read after a conditional assignment |
+| `ExplicitFallThroughDINSpec` | the `fallThrough` rewrite: hook, named intermediate, partial read, and the untouched `onEntry`/`onExit` |
+| `DropRTProcessSpec` | the FSM the rewritten condition lowers to |
+| `RTProcessSimSpec` | the staged oracle for `.din` in a process, the `FALL_THROUGH` `for` loop, a register-guarded loop at the wrap-around, and a hook over its own `onEntry`'s register |
 
 ## 8. Open issues
 
-* **`DFacsimile` has no DIN-read support yet.** `Simulation.dbTransform` defaults to `identity`, so
-  the native simulator consumes the elaborated DB and never runs `ToED`. The model is already there:
-  `env(dcl)` is the pending value and defaults to the register node
-  (`for (dcl, regWV) <- regNodeOf do wide.setNext(regWV, env.getOrElse(dcl, regWV))`), so a read
-  resolves to `env.getOrElse(dcl, regNodeOf(dcl))` at the point of the read. The RAM-repr
-  (`VecRepr.Ram`) and initial-block cases need `unsupported` guards.
-* **A whole-vector DIN read on a RAM-repr REG** forces a full shadow copy. Undecided whether to
-  reject it or accept it with a documented cost.
+* **A whole-vector DIN read on a RAM-repr REG** forces a full shadow copy. `DFacsimile` refuses it;
+  `ToED` does not, so the two disagree on a shape neither handles well. Undecided whether to reject
+  it everywhere or accept it with a documented cost.
 * **A DIN read inside an RT `initial` block** is not rejected yet; that region is const-RHS only.
 * **Cross-domain DIN reads** rely on the same "one domain assigns a given REG" assumption `ToED`
   already makes for assignments, without an explicit error.

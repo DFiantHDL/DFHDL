@@ -239,6 +239,8 @@ Wrapping an RT loop with a **`FALL_THROUGH`** block marks the loop to fall throu
 
 The marker is only needed for a loop whose body consumes no cycles, since that is the shape that pays a cycle to enter and skip (Rule 2 above). A loop whose body does consume cycles fuses (Rule 3), so it already enters and exits for free: adding `FALL_THROUGH` to one costs nothing and changes nothing.
 
+The skip is decided in the same cycle that enters the loop, so the guard reads its registers as [`.din`][din], the pending next-cycle value. This is what makes a `FALL_THROUGH` `for` loop mean what it reads as: the loop entry resets the iterator, and the skip decision follows that reset rather than the count left over from the previous pass.
+
 Wrapping an RT loop with a **`COMB_LOOP`** block marks it combinational: the whole loop executes within a single cycle and generates no steps (so its body must not consume cycles).
 
 Both annotations are allowed under RT domains only; applying them elsewhere is a compile-time error.
@@ -265,6 +267,16 @@ process:
 ```
 
 The advance runs the target step's `onEntry`, and cascades: if the step it advances to also falls through, control keeps advancing within the same cycle, stopping when it reaches a step that does not fall through, or one it has already passed through in this cycle.
+
+The condition is decided on the transition into the step, in the same cycle in which entering it already assigns registers, so it reads every register it names as [`.din`][din]: the pending next-cycle value. A condition over a register that the step's own `onEntry` writes therefore sees what `onEntry` has just written, not the value it is about to replace:
+
+```scala
+def Armed: Step =
+  def onEntry =
+    armed.din := x
+  def fallThrough = !armed   // reads armed.din, so it follows the assignment above
+  NextStep
+```
 
 A step that fuses (see [Cycle semantics](#cycle-semantics)) costs no cycle to begin with, so on such a step `fallThrough` no longer decides whether a cycle is spent, only whether the step's own statements run: the condition becomes the first decision of the step's dispatch, and is evaluated on the transition edge like the step's other guards, on the values the registers will hold in the next cycle.
 
@@ -609,5 +621,6 @@ See [Design Domains][design-domains] for the overall flow from DF → RT → ED 
 - Processes cannot be nested and are not available in the DF domain.
 
 [design-domains]: ../design-domains/index.md
+[din]: ../design-domains/index.md#din-read
 [loops]: ../loops/index.md
 [methods]: ../methods/index.md#static-functions

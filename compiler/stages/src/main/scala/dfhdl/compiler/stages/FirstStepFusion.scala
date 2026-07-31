@@ -151,6 +151,12 @@ private[stages] object FirstStepFusion:
     * The dispatch must *start* with that conditional — a leading statement is the step's own, and
     * the hook is entitled to skip it — and the guard-false path must reach the default exit
     * unconditionally, so that "guard false" and "fall through" name the same edge.
+    *
+    * The hook reads registers through `.din` and the dispatch reads them directly, but here the two
+    * still name one value: fusion inlines the dispatch into the same cycle as the hook, and nothing
+    * runs between them, so both resolve to the same forwarded value ([[substDin]] falls back to
+    * exactly what [[substDcl]] returns when the region has not written the register yet). The
+    * comparison therefore looks through the `.din` reads.
     */
   private def fallThroughSubsumed(s: StepBlock, cond: DFVal, exit: StepBlock)(using
       MemberGetSet
@@ -171,7 +177,7 @@ private[stages] object FirstStepFusion:
             case (List(ifBlock, elseBlock), Nil) =>
               (ifBlock.guardRef.get, elseBlock.guardRef.get) match
                 case (guard: DFVal, _: DFMember.Empty.type) =>
-                  negated =~ guard &&
+                  sameAtFusedEntry(negated, guard) &&
                   // statements on the guard-false path are fine (they are the continuation the
                   // skip must run); a further goto or step on it is not — the path would no
                   // longer be the single edge the hook names
@@ -188,6 +194,23 @@ private[stages] object FirstStepFusion:
       end match
     }
   end fallThroughSubsumed
+
+  /** Structural comparison of two values as they read at a fused entry, where a `.din` read and the
+    * plain read of the same register resolve to one forwarded value (see [[fallThroughSubsumed]]).
+    * A `.din` read through a partial selection is not compared through: such a hook aborts fusion
+    * in [[substDin]] and keeps the step's state, so it never reaches this test.
+    */
+  private def sameAtFusedEntry(a: DFVal, b: DFVal)(using MemberGetSet): Boolean =
+    def stripDin(v: DFVal): DFVal = v match
+      case d: DFVal.Alias.RegDIN =>
+        d.relValRef.get match
+          case dcl: DFVal.Dcl => dcl
+          case _              => v
+      case _ => v
+    (stripDin(a), stripDin(b)) match
+      case (fa: DFVal.Func, fb: DFVal.Func) if fa.op == fb.op && fa.args.length == fb.args.length =>
+        fa.args.lazyZip(fb.args).forall((ra, rb) => sameAtFusedEntry(ra.get, rb.get))
+      case (va, vb) => va =~ vb
 
   // Gathers the conditional chain blocks that follow header `h` among `rest` (skipping the guard
   // values interleaved between chain blocks), returning the chain and the members after it.
@@ -442,6 +465,28 @@ private[stages] object FirstStepFusion:
         case None if st.dirty(dcl) => throw new AbortFusion(victim)
         case None                  => dcl
 
+    /** A `.din` read resolves to the register's pending value *at this point of the expansion*: a
+      * write this region has already made, else the value forwarded across the boundary the
+      * expansion removed, else the register itself. That is one step ahead of the plain register
+      * read above, which crosses only the boundary.
+      *
+      * A partial `.din` read would need the pending value sliced, which the forwarding state does
+      * not carry, so it falls back to keeping the step's own state.
+      */
+    def substDin(
+        din: ir.DFVal.Alias.RegDIN,
+        entryRegs: Regs,
+        st: PathState,
+        victim: ir.StepBlock
+    ): ir.DFVal =
+      din.relValRef.get match
+        case dcl: ir.DFVal.Dcl =>
+          st.pendingRegs.get(dcl).orElse(entryRegs.get(dcl)) match
+            case Some(fwd)             => emitForward(fwd, victim)
+            case None if st.dirty(dcl) => throw new AbortFusion(victim)
+            case None                  => dcl
+        case _ => throw new AbortFusion(victim)
+
     // clones an anonymous expression tree here and retargets its declaration reads through the
     // forwarding state
     def substValue(
@@ -459,14 +504,19 @@ private[stages] object FirstStepFusion:
               val r = substDcl(dcl, entryRegs, st, victim)
               if (r ne dcl)
                 dfc.mutableDB.newRefFor(ref.asInstanceOf[ir.DFRef[ir.DFVal]], r)
+            case din: ir.DFVal.Alias.RegDIN =>
+              val r = substDin(din, entryRegs, st, victim)
+              if (r ne din)
+                dfc.mutableDB.newRefFor(ref.asInstanceOf[ir.DFRef[ir.DFVal]], r)
             case dep: ir.DFVal if dep.isAnonymous => rewire(dep)
             case dep: ir.DFVal                    =>
               if (forbiddenRead(dep, entryRegs, st)) throw new AbortFusion(victim)
             case _ =>
         }
       v match
-        case dcl: ir.DFVal.Dcl   => substDcl(dcl, entryRegs, st, victim)
-        case _ if !v.isAnonymous =>
+        case dcl: ir.DFVal.Dcl          => substDcl(dcl, entryRegs, st, victim)
+        case din: ir.DFVal.Alias.RegDIN => substDin(din, entryRegs, st, victim)
+        case _ if !v.isAnonymous        =>
           if (forbiddenRead(v, entryRegs, st)) throw new AbortFusion(victim)
           v
         case _ =>
