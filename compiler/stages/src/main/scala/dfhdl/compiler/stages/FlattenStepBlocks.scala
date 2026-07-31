@@ -201,10 +201,12 @@ import scala.annotation.tailrec
   *    An `onEntry`/`onExit` body must land on a real FSM edge, so a step carrying one keeps its
   *    state. A `fallThrough` does not: a fused step consumes no cycle at all, which subsumes the
   *    conditional zero-cycle skip the hook asks for, so the hook's condition is materialized at
-  *    every site as the dispatch's first decision — `if (cond) <default exit> else <dispatch>` —
-  *    and is dropped outright when it is the negation of that dispatch's own leading guard. A
-  *    `FALL_THROUGH` loop whose body consumes cycles therefore lowers to exactly what the same
-  *    loop without the marker lowers to.
+  *    every site as the dispatch's first decision — `if (cond) <default exit> else <dispatch>`.
+  *    When it is the negation of that dispatch's own leading guard it is dropped outright, since
+  *    materializing it would make the guard-false path unreachable, and that path is where Rule 3
+  *    above relocated whatever follows the construct (trailing statements, and the wrap-around's
+  *    prologue clone). A `FALL_THROUGH` loop whose body consumes cycles therefore lowers to
+  *    exactly what the same loop without the marker lowers to.
   *
   * == Implementation Phases ==
   *

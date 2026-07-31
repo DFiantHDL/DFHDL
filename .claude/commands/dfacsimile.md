@@ -148,6 +148,13 @@ at the transition's **landing**, not where the walk into it starts:
   nested steps enters the first of them (what `FlattenStepBlocks` Rule 4 makes of it). The
   process's first step is excluded on both sides — it survives as the reset bootstrap state, where
   the hook has no edge left to run on.
+- When the condition is the **negation of the dispatch's leading guard** the stage drops the hook
+  outright, because materializing it would make the guard-false path unreachable (one value, one
+  cycle, exact complements) and that path is where `FlattenStepBlocks` relocates the continuation —
+  trailing statements and the forever-rotation's prologue clone. This is the shape every
+  `FALL_THROUGH` loop has, so a fused one lowers to exactly the unmarked loop. DFacsimile needs no
+  mirror: `enterLoop`'s fused path never had a hook to begin with, and it is the side that was
+  already right.
 
 **FALL_THROUGH loops** reuse the same idea at loop entry: `enterLoop` for a FALL_THROUGH park loop
 does `crossBoundary(); emitBranch2(guard, jump(site), emitCont(exitCont))` — a zero-cycle skip to the
@@ -247,9 +254,10 @@ Verilator toolchain).
    park attach to that construct's *own* exit state; a **fall-through skip bypasses them** (it lands
    on the skipped step's exit *state*, it does not run the sequential continuation). For step
    `fallThrough` this is modelled directly (`cascadeFrom` lands on a state, it does not `emitCont`);
-   for FALL_THROUGH **loops** the skip still runs `emitCont(exitCont)`, so a test DUT that puts a
-   bare assignment right after a FALL_THROUGH loop will diverge for this reason (not a real bug —
-   put a clean park right after the loop).
+   for FALL_THROUGH **loops** the skip runs `emitCont(exitCont)`. A loop that **fuses** now agrees:
+   its hook is subsumed by its own dispatch and dropped, so the guard-false path *is* the
+   continuation. A loop that keeps a state (a park body, or a fusion fallback) still diverges here,
+   so put a clean park right after such a loop in a test DUT.
 4. **`crossBoundary` forwarding.** A guard on a transition edge must read *post-`.din`* register
    values — call `crossBoundary()` before compiling it (`compileGuardFresh`/`loopGuardNode`).
 5. **Park classification is by content, not name.** A step is a park iff pure-dispatch; a nested

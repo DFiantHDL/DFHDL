@@ -561,6 +561,20 @@ class RTProcessSimSpec extends SimSpec:
           else if t == 23 then dut.go.poke(0)
     )
 
+  bothTiers("oracle: a fused FALL_THROUGH loop skipped into the forever wrap-around"): tier =>
+    lockstep(
+      new FallThroughWrapLoopProc,
+      tier,
+      40,
+      watch = List(_.cnt, _.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.go.poke(0)
+          else if t == 4 then dut.go.poke(1)
+          else if t == 10 then dut.go.poke(0)
+          else if t == 18 then dut.go.poke(1)
+    )
+
   bothTiers("oracle: chained fused FALL_THROUGH loops skip within one cycle"): tier =>
     lockstep(
       new FallThroughChainLoopProc,

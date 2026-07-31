@@ -414,6 +414,22 @@ class FallThroughWaitLoopProc extends RTDesign:
     1.cy.wait
     tick.din := !tick
 
+/** A fused `FALL_THROUGH` loop as the process's last construct: skipping it is the forever
+  * wrap-around, so it must re-run the prologue that the rotation planted on the loop's exit path.
+  */
+class FallThroughWrapLoopProc extends RTDesign:
+  val go = Bit <> IN
+  val cnt = UInt(8) <> OUT.REG init 0
+  val tick = Bit <> OUT.REG init 0
+  process:
+    cnt.din := 0
+    1.cy.wait
+    FALL_THROUGH:
+      while (go)
+        cnt.din := cnt + 1
+        tick.din := !tick
+        1.cy.wait
+
 /** Two `FALL_THROUGH` loops back to back, each with a waiting body: both heads fuse, and the first
   * one's exit is the second one's (also fused) head, so the inlined dispatches chain within one
   * transition cycle.

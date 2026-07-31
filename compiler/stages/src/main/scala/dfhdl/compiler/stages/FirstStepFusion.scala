@@ -44,10 +44,15 @@ import scala.annotation.tailrec
   * all, which is strictly more than the conditional zero-cycle skip the hook asks for. Its
   * condition is therefore materialized at every site as the dispatch's first decision —
   * `if (cond) <default exit> else <dispatch>` — and, being part of the dispatch, it is forwarded
-  * like the step's own guards. This is what lets a `FALL_THROUGH` loop whose body consumes cycles
-  * cost exactly what the same loop costs without the marker. Two shapes keep the hook (and hence
-  * the state): one carrying statements of its own, and the process's first step, which survives as
-  * the reset bootstrap state where the hook has no edge left to run on.
+  * like the step's own guards. Two shapes keep the hook (and hence the state): one carrying
+  * statements of its own, and the process's first step, which survives as the reset bootstrap
+  * state where the hook has no edge left to run on.
+  *
+  * When the condition is the negation of the dispatch's own leading guard, the hook is dropped
+  * instead of materialized (`fallThroughSubsumed`) — otherwise the guard-false path, which is
+  * where [[FlattenStepBlocks]] relocates whatever follows the construct, becomes dead code. This
+  * is the shape [[DropRTWaits]] gives a `FALL_THROUGH` loop, so such a loop lowers to exactly what
+  * the same loop without the marker lowers to.
   *
   * ==Fallback==
   *
@@ -131,12 +136,22 @@ private[stages] object FirstStepFusion:
       case g: Goto if !isInHook(g, s) => g.stepRef.get
     }.collect { case target: StepBlock if target != s => target }
 
-  // A `fallThrough` condition that is the negation of the dispatch's leading guard, over a
-  // dispatch that starts with that conditional and whose else path is nothing but the step's
-  // default exit, asks for exactly what the inlined dispatch already does — under the same
-  // condition and in the same (zero) cycles. This is the shape [[DropRTWaits]] gives a
-  // `FALL_THROUGH` loop, so such a loop fuses to exactly what the same loop without the marker
-  // fuses to, rather than carrying a redundant second copy of its own guard.
+  /** Does the step's own dispatch already do what its `fallThrough` asks for?
+    *
+    * The hook is materialized as `if (cond) <default exit> else <dispatch>`, so when `cond` is the
+    * negation of the dispatch's leading guard the two are exact complements of one value in one
+    * cycle: the guard-false path can never be taken, and everything on it becomes **dead code**.
+    * That path is where [[FlattenStepBlocks]] relocates whatever follows the construct — trailing
+    * statements, and the forever-rotation's prologue clone — so killing it silently drops work the
+    * skip is supposed to continue into ("falls through ... continuing at whatever follows the
+    * loop"). Dropping the hook is therefore the only reading under which the guard-false path means
+    * anything, and it is what `DropRTWaits` gives a `FALL_THROUGH` loop: such a loop fuses to
+    * exactly what the same loop without the marker fuses to.
+    *
+    * The dispatch must *start* with that conditional — a leading statement is the step's own, and
+    * the hook is entitled to skip it — and the guard-false path must reach the default exit
+    * unconditionally, so that "guard false" and "fall through" name the same edge.
+    */
   private def fallThroughSubsumed(s: StepBlock, cond: DFVal, exit: StepBlock)(using
       MemberGetSet
   ): Boolean =
@@ -144,8 +159,6 @@ private[stages] object FirstStepFusion:
       case DFVal.Func(op = DFVal.Func.Op.unary_!, args = List(argRef)) => Some(argRef.get)
       case _                                                           => None
     negatedOpt.exists { negated =>
-      // a leading statement would be skipped by the hook but executed by the dispatch, so the
-      // conditional must come first
       val dispatch = s.members(MemberView.Folded).dropWhile {
         case _: DFConditional.Header => false
         case sb: StepBlock           => sb.isFallThrough
@@ -159,11 +172,14 @@ private[stages] object FirstStepFusion:
               (ifBlock.guardRef.get, elseBlock.guardRef.get) match
                 case (guard: DFVal, _: DFMember.Empty.type) =>
                   negated =~ guard &&
-                  (elseBlock.members(MemberView.Folded).reverse match
+                  // statements on the guard-false path are fine (they are the continuation the
+                  // skip must run); a further goto or step on it is not — the path would no
+                  // longer be the single edge the hook names
+                  (elseBlock.members(MemberView.Flattened).reverse match
                     case (g: Goto) :: leading =>
                       g.stepRef.get == exit && leading.forall {
-                        case _: DFVal | _: DFRange => true
-                        case _                     => false
+                        case _: Goto | _: StepBlock => false
+                        case _                      => true
                       }
                     case _ => false)
                 case _ => false

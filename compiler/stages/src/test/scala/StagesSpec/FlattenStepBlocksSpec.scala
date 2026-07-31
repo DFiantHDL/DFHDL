@@ -1050,6 +1050,57 @@ class FlattenStepBlocksSpec extends StageSpec():
     )
   }
 
+  test("fusion: a fused fall-through loop skipped into the forever wrap-around") {
+    class Foo extends RTDesign:
+      val go   = Bit     <> IN
+      val cnt  = UInt(8) <> OUT.REG init d"8'0"
+      val tick = Bit     <> OUT.REG init 0
+      process:
+        cnt.din := d"8'0"
+        1.cy.wait
+        FALL_THROUGH:
+          while (go)
+            cnt.din  := cnt + d"8'1"
+            tick.din := !tick
+            1.cy.wait
+    end Foo
+    // Nothing follows the loop, so its exit is the forever wrap-around and the rotation planted
+    // the prologue clone (`cnt.din := 0`) on that path. Keeping the hook would make that path
+    // dead -- `!go` and `go` are complements of one value in one cycle -- and silently drop the
+    // re-initialization the skip is supposed to continue into, so the hook is dropped instead.
+    val expected =
+      """|class Foo extends RTDesign:
+         |  val go = Bit <> IN
+         |  val cnt = UInt(8) <> OUT.REG init d"8'0"
+         |  val tick = Bit <> OUT.REG init 0
+         |  process:
+         |    cnt.din := d"8'0"
+         |    def S_0: Step =
+         |      if (go)
+         |        cnt.din := cnt + d"8'1"
+         |        tick.din := !tick
+         |        S_1_0
+         |      else
+         |        cnt.din := d"8'0"
+         |        S_0
+         |      end if
+         |    end S_0
+         |    def S_1_0: Step =
+         |      if (go)
+         |        cnt.din := cnt + d"8'1"
+         |        tick.din := !tick
+         |        S_1_0
+         |      else
+         |        cnt.din := d"8'0"
+         |        S_0
+         |      end if
+         |    end S_1_0
+         |end Foo""".stripMargin
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(top, expected)
+    assertCodeString(top.flattenStepBlocks, expected)
+  }
+
   test("fusion: a fused step's fallThrough becomes the dispatch's first decision") {
     class Foo extends RTDesign:
       val x = Bit     <> IN
