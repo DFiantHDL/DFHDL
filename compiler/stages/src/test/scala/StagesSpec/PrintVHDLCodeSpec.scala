@@ -3248,4 +3248,57 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // VHDL spells an assignment after the target's object class, so one DFHDL `:=` prints four
+  // different ways depending on where the target is declared: a process-local variable and a
+  // design-level `VAR.SHARED` take `:=`, while a design-level `VAR` and an output port are
+  // signals and take `<=`.
+  test("assignment operator follows the target's object class") {
+    class Example extends EDDesign:
+      val a          = Bits(8) <> IN
+      val o1, o2, o3 = Bits(8) <> OUT
+      val sig        = Bits(8) <> VAR
+      val shr        = Bits(8) <> VAR.SHARED
+      process(all):
+        val loc = Bits(8) <> VAR
+        loc := ~a
+        sig := loc
+        shr := loc
+        o1  := loc
+      o2 <> sig
+      o3 <> shr
+    val top = (new Example).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  a : in std_logic_vector(7 downto 0);
+         |  o1 : out std_logic_vector(7 downto 0);
+         |  o2 : out std_logic_vector(7 downto 0);
+         |  o3 : out std_logic_vector(7 downto 0)
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |  signal sig : std_logic_vector(7 downto 0);
+         |  shared variable shr : std_logic_vector(7 downto 0);
+         |begin
+         |  process (all)
+         |    variable loc : std_logic_vector(7 downto 0);
+         |  begin
+         |    loc := not a;
+         |    sig <= loc;
+         |    shr := loc;
+         |    o1 <= loc;
+         |  end process;
+         |  o2 <= sig;
+         |  o3 <= shr;
+         |end Example_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

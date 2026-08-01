@@ -212,6 +212,33 @@ Abandon the whole move in that case rather than splitting it.
 any dependency a sibling patch in the same pass just named. A guard written against the cone
 silently passes. Check the members' `getRefs` directly.
 
+### When the culprit really is the printer
+
+Not every wrong-HDL bug is a wrong IR shape. Sometimes the IR is right and the backend flattens a
+distinction the target language makes. `DFNet.Op.Assignment` is one IR construct, but VHDL picks
+the operator from the target's **object class** (`:=` for a variable, `<=` for a signal) where
+DFHDL picks it from blocking-vs-non-blocking. `VHDLPrinter.csAssignment` hard-coded `:=`, so every
+assignment to a signal was illegal VHDL. Two lessons generalize:
+
+- **Hand the backend the IR member, not a pre-digested boolean.** `csAssignment` took
+  `shared: Boolean` because Verilog wanted one bit for a lint pragma, which left VHDL no way to ask
+  its own question. Passing the LHS declaration lets each backend derive what it needs, and the
+  next distinction costs no signature change.
+- **When two print sites decide the same fact, derive both from one predicate in `analysis`.** The
+  declaration keyword (`signal` / `variable` / `shared variable`) and the assignment operator are
+  the same question asked twice; kept apart they drift into declaring a `signal` you then write
+  with `:=`. `DFVal.Dcl.isHDLVariable` answers it once, with a comment at each call site saying so.
+  This is the printer analogue of the check/predicate pairing in §4.
+
+When you rewrite an existing predicate into a shared one, expand both forms case by case and
+confirm they agree on every branch, including the ones no test reaches (a `VAR.SHARED` inside an
+HDL method). A "simplification" that quietly moves an edge case is a second bug riding along.
+
+The blast-radius step still applies, and here it reads inverted: a fully green suite with no
+reference output changed is not evidence the fix is inert, it confirms the whole branch was
+untested. The `ref/` grep from §2 predicts this: only the shared-variable form of `:=` appeared
+anywhere under `lib/src/test/resources/ref/`, which is exactly the one form that was already right.
+
 ---
 
 ## 6. Test at the right level
