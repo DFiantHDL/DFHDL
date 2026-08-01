@@ -175,7 +175,12 @@ These apply to the whole run, whichever mode you select, and are given before th
 
 ### `--cache` / `--nocache`
 
-Caching is on by default. Each pipeline step stores its result under `sandbox/<TopName>/cache` and reuses it when nothing it depends on has changed, including your design's own code. Pass `--nocache` to force every step to run again:
+Caching is on by default, and the flag covers both of the caches a run may consult:
+
+* Each pipeline step stores its result under `sandbox/<TopName>/cache` and reuses it when nothing it depends on has changed, including your design's own code.
+* During elaboration, a sub-design whose code and arguments are unchanged is adopted from the sub-design cache instead of having its body elaborated again.
+
+Pass `--nocache` to force everything to run afresh:
 
 ```{.console .copy linenums="0"}
 <your program> --nocache commit

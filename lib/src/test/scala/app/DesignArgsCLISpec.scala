@@ -174,6 +174,31 @@ class DesignArgsCLISpec extends FunSuite:
     assert(bad.getExitCodeOption.isDefined)
 
   // --------------------------------------------------------------------
+  // 6. The elaboration options the command line can change have to reach
+  //    the design's own context, not just the app's copy: that context is
+  //    what the design load gate reads before consulting the sub-design
+  //    cache (`cacheEnable`), and what the top-level warning check reads
+  //    (`Werror`). A value that stopped at the app would leave `--nocache`
+  //    serving cached sub-designs and `--Werror` doing nothing at all.
+  // --------------------------------------------------------------------
+  test("--cache/--nocache and --Werror reach the design's elaboration context"):
+    def elaborateWith(appArgs: Seq[String], modeArgs: Seq[String]): Unit =
+      ElabFlagsProbe.lastCacheEnable = None
+      ElabFlagsProbe.lastWerror = None
+      // a fresh `tag` keeps the app's own elaborate step from serving this run from
+      // its disk cache, which would skip the design body and record nothing
+      captureMain(
+        DesignArgsCLIHelper.invokeTopTestCLIElabFlags,
+        appArgs ++ Seq("--tag", System.nanoTime().toString, "elaborate") ++ modeArgs
+      )
+    elaborateWith(Seq("--nocache"), Nil)
+    assertEquals(ElabFlagsProbe.lastCacheEnable, Some(false))
+    assertEquals(ElabFlagsProbe.lastWerror, Some(false))
+    elaborateWith(Seq("--cache"), Seq("--Werror"))
+    assertEquals(ElabFlagsProbe.lastCacheEnable, Some(true))
+    assertEquals(ElabFlagsProbe.lastWerror, Some(true))
+
+  // --------------------------------------------------------------------
   // Helpers
   // --------------------------------------------------------------------
   // Parse an argv against a bare (design-argument-free) command line, for
