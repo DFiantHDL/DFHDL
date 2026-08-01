@@ -263,9 +263,9 @@ case object NamedAnonMultiref extends NamedAliases, NoCheckStage:
       else Nil
 end NamedAnonMultiref
 
-//Names anonymous conditional expressions, as long as they are not referenced by an ident which indicates that
-//they are themselves inside another conditional expression, and as long as they are not directly assigned to
-//a declaration or connected to an output port
+//Names anonymous conditional expressions, as long as they are not the result of an enclosing
+//construct that carries them through its own lowering, and as long as they are not directly
+//assigned to a declaration or connected to an output port
 case object NamedAnonCondExpr extends NamedAliases:
   override def dependencies: List[Stage] = List()
   def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal] = dfVal match
@@ -276,8 +276,16 @@ case object NamedAnonCondExpr extends NamedAliases:
           case DFNet.Assignment(toVal = _: DFVal.Dcl) => false
           // directly connected to an output port
           case DFNet.Connection(toVal = DclOut()) => false
-          // is referenced by an ident, which means it is used in another conditional expression
-          case Ident(_) => false
+          // referenced by an ident that trails a scope (a conditional-expression branch, or a
+          // fall-through step block), which means the conditional is that scope's result and the
+          // enclosing construct lowers it along with itself.
+          //
+          // A method's return wiring is an ident too, but it trails the method body rather than a
+          // scope, so nothing downstream would lower the conditional under it and the backend
+          // would be left printing a conditional expression it has no form for. Such a
+          // conditional is named here, and `ExplicitNamedVars` turns the name into a variable
+          // that each branch assigns and the return ident then reads.
+          case ident @ Ident(_) if !ident.getOwner.isInstanceOf[DFDesignBlock] => false
         }.getOrElse(true)
       if (nameIt) List(dfVal)
       else Nil
@@ -287,3 +295,7 @@ end NamedAnonCondExpr
 extension [T: HasDB](t: T)
   def namedAnonMultiref(using CompilerOptions): DB =
     StageRunner.run(NamedAnonMultiref)(t.db)
+
+extension [T: HasDB](t: T)
+  def namedAnonCondExpr(using CompilerOptions): DB =
+    StageRunner.run(NamedAnonCondExpr)(t.db)

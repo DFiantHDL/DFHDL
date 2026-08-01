@@ -2206,6 +2206,88 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // a branch whose value is itself a conditional expression drives the same variable from the
+  // nested branches. The DFHDL printout is the same either way, so only the backend shows whether
+  // the nested expression really became a statement.
+  test("named value from a nested conditional expression") {
+    class NestedCond extends EDDesign:
+      val a, b = UInt(8) <> IN
+      val c    = Bit     <> IN
+      val y    = UInt(8) <> OUT
+      val z: UInt[8] <> VAL =
+        if (c) (if (a > b) a else b)
+        else d"8'0"
+      y <> z
+    end NestedCond
+    val top = (new NestedCond).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module NestedCond(
+         |  input  wire logic [7:0] a,
+         |  input  wire logic [7:0] b,
+         |  input  wire logic c,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] z;
+         |  always_comb
+         |  begin
+         |    if (c) begin
+         |      if (a > b) z = a;
+         |      else z = b;
+         |    end
+         |    else z = 8'd0;
+         |  end
+         |  assign y = z;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // a conditional expression has no Verilog expression form, so a method that returns one is only
+  // printable once the conditional lowers into a variable that each branch assigns, nested
+  // conditionals included
+  test("ED method returning a conditional expression") {
+    class EDCond extends EDDesign:
+      val a, b = UInt(8) <> IN
+      val c    = Bit     <> IN
+      val y    = UInt(8) <> OUT
+      def pick(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        if (c) (if (l > r) l else r)
+        else d"8'0"
+      y <> pick(a, b)
+    end EDCond
+    val top = (new EDCond).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDCond(
+         |  input  wire logic [7:0] a,
+         |  input  wire logic [7:0] b,
+         |  input  wire logic c,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  function automatic logic [7:0] pick(input logic [7:0] l, input logic [7:0] r);
+         |    logic [7:0] anon;
+         |  begin
+         |    if (c) begin
+         |      if (l > r) anon = l;
+         |      else anon = r;
+         |    end
+         |    else anon = 8'd0;
+         |    pick = anon;
+         |  end
+         |  endfunction
+         |  assign y = pick(a, b);
+         |endmodule
+         |""".stripMargin
+    )
+  }
   test("plain Scala def as an inline hardware generator") {
     class SliceSum(
         val W: Int <> CONST = 8,

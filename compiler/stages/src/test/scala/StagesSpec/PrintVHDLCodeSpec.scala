@@ -2115,6 +2115,101 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // a branch whose value is itself a conditional expression drives the same variable from the
+  // nested branches. The DFHDL printout is the same either way, so only the backend shows whether
+  // the nested expression really became a statement.
+  test("named value from a nested conditional expression") {
+    class NestedCond extends EDDesign:
+      val a, b              = UInt(8) <> IN
+      val c                 = Bit     <> IN
+      val y                 = UInt(8) <> OUT
+      val z: UInt[8] <> VAL =
+        if (c) (if (a > b) a else b)
+        else d"8'0"
+      y <> z
+    end NestedCond
+    val top = (new NestedCond).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity NestedCond is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  b : in unsigned(7 downto 0);
+         |  c : in std_logic;
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end NestedCond;
+         |
+         |architecture NestedCond_arch of NestedCond is
+         |  signal z : unsigned(7 downto 0);
+         |begin
+         |  process (all)
+         |  begin
+         |    if c then
+         |      if a > b then z <= a;
+         |      else z <= b;
+         |      end if;
+         |    else z <= 8d"0";
+         |    end if;
+         |  end process;
+         |  y <= z;
+         |end NestedCond_arch;
+         |""".stripMargin
+    )
+  }
+  // a conditional expression has no VHDL expression form, so a method that returns one is only
+  // printable once the conditional lowers into a variable that each branch assigns, nested
+  // conditionals included
+  test("ED method returning a conditional expression") {
+    class EDCond extends EDDesign:
+      val a, b                                                         = UInt(8) <> IN
+      val c                                                            = Bit     <> IN
+      val y                                                            = UInt(8) <> OUT
+      def pick(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        if (c) (if (l > r) l else r)
+        else d"8'0"
+      y <> pick(a, b)
+    end EDCond
+    val top = (new EDCond).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDCond is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  b : in unsigned(7 downto 0);
+         |  c : in std_logic;
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end EDCond;
+         |
+         |architecture EDCond_arch of EDCond is
+         |  impure function pick(l : unsigned(7 downto 0); r : unsigned(7 downto 0)) return unsigned is
+         |    variable anon : unsigned(7 downto 0);
+         |  begin
+         |    if c then
+         |      if l > r then anon := l;
+         |      else anon := r;
+         |      end if;
+         |    else anon := 8d"0";
+         |    end if;
+         |    return anon;
+         |  end function;
+         |begin
+         |  y <= pick(a, b);
+         |end EDCond_arch;
+         |""".stripMargin
+    )
+  }
   test("plain Scala def as an inline hardware generator") {
     class SliceSum(
         val W: Int <> CONST = 8,

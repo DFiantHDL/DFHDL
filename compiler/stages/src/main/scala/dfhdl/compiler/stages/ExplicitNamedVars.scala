@@ -51,8 +51,17 @@ case object ExplicitNamedVars extends HierarchyStage:
       val cbChain = getSet.designDB.conditionalChainTable(ch)
       val lastMembers = cbChain.map(_.members(MemberView.Folded).last)
       lastMembers.flatMap {
-        case Ident(underlying: DFConditional.Header) =>
-          underlying.patchChains(headerVar)
+        // a branch whose value is itself a conditional expression: the nested expression becomes
+        // a statement driving the same variable from its own branches, so its ident placeholder
+        // goes away and its header is retyped to a statement here. The top header is retyped by
+        // the caller instead, which also anonymizes it.
+        case ident @ Ident(underlying: DFConditional.Header) =>
+          ident -> Patch.Remove() ::
+            underlying -> Patch.Replace(
+              underlying.updateDFType(DFUnit),
+              Patch.Replace.Config.FullReplacement
+            ) ::
+            underlying.patchChains(headerVar)
         case m @ Ident(underlying) =>
           val assignDsn = new MetaDesign(
             m,

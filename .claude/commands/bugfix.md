@@ -87,6 +87,31 @@ two stages before that by `NamedVerilogSelection`, which was the real culprit.
   that code path is untested, which is why the bug survived. That also tells you the fix needs a
   new reference test, not just a patched stage.
 
+### An exemption phrased by shape swallows every construct with that shape
+
+When a stage's criteria carry an exemption written as a pattern (`case Ident(_) => false`, "skip
+values referenced by X"), the comment above it names the *one* construct the author had in mind,
+while the pattern matches every construct that happens to build the same node. Enumerate the
+creation sites before trusting it: grep for who constructs that node type. Anonymous idents, for
+instance, come from three unrelated places (a conditional-expression branch result, a fall-through
+step block, and a method's return wiring), and an exemption meant for the first silently swallowed
+the third, so a method returning a conditional expression was never lowered and only surfaced as
+`Unsupported member for this VerilogPrinter` at the very end of the pipeline.
+
+Fixing it means narrowing the pattern to the construct the intent names, and narrow it in the
+direction that keeps unenumerated cases on today's behavior — here `!ident.getOwner
+.isInstanceOf[DFDesignBlock]`, which changes the def-return case alone, rather than an allow-list
+of owners that would also change anything not yet thought of.
+
+### Twin helpers drift, and only one of them gets fixed
+
+Two stages that lower the same construct at different points often carry near-identical recursive
+helpers (`ExplicitNamedVars.patchChains` and `ExplicitCondExprAssign.patchChains`). When one has a
+case the other lacks, that is a bug report, not a design difference: diff them line by line. The
+version that lowers a *named* conditional was missing both the ident removal and the `DFUnit`
+retype that the other one performs on a nested header, so every nested conditional expression in a
+branch was quietly broken, independently of the bug being chased.
+
 ### Fix the shared base, not the subclass you happened to find
 
 If the culprit is one of several stages sharing an abstract base (the `NamedAliases` family, the
@@ -243,8 +268,11 @@ anywhere under `lib/src/test/resources/ref/`, which is exactly the one form that
 
 ## 6. Test at the right level
 
-**Prefer stage specs.** A `<Stage>Spec` test pins the mechanism at the layer that owns it and runs
-in milliseconds. Reach for an end-to-end test only for a property no single stage owns.
+**Prefer stage specs, one per stage you touched.** A `<Stage>Spec` test pins the mechanism at the
+layer that owns it and runs in milliseconds. Reach for an end-to-end test only for a property no
+single stage owns. A fix spanning three stages needs three stage tests, not one on whichever stage
+was easiest to assert on — see [/new-stage](new-stage.md) "Test Authoring Rules" for the rule and
+for what to do when a stage has no spec file yet.
 
 **When the input shape is unwritable by hand.** If the bug's IR shape is one elaboration now
 rejects, a self-contained spec input is impossible by construction. Express the *pre-naming* form
@@ -259,6 +287,27 @@ of every intermediate that is only part-selected.
 **Do not copy the reporter's code into the repo.** Issue reports usually carry no license. Write a
 minimal design of your own that exercises the same path; if the shape is fully covered by stage
 specs, no `issues/iNNN.scala` file is needed at all.
+
+### Prove the test fails without the fix
+
+Stash the fix (`git stash push -- <the stage file>`), re-run the new test, confirm it fails, then
+`git stash pop`. Do this for **every** regression test you add. It costs one command and it is the
+only thing that distinguishes a regression test from decoration.
+
+When the spec's own entry point (`extension ... def <stage>`) lives in the file you stashed, the
+test will not compile and the run reports nothing at all — which reads exactly like "no failures".
+Revert only the changed guard in place instead, and watch for a silent run.
+
+This is not paranoia. A `<Stage>Spec` asserts on the DFHDL *printout*, and two different IRs can
+print identically — the printout is the stage contract precisely because it hides representation.
+A conditional-expression fix that removed a leftover ident placeholder and retyped a nested header
+produced a byte-identical `assertCodeString` while the unfixed IR went on to fail an ownership
+check and crash the Verilog printer. An existing spec test had been covering that exact shape for
+as long as the bug existed, passing the whole time.
+
+So when the stage-level assertion cannot see the difference, the regression test belongs in
+`PrintVerilogCodeSpec`/`PrintVHDLCodeSpec` instead, where the backend renders what the DFHDL
+printer elides. Keep the stage test only if it does fail without the fix.
 
 ---
 
@@ -277,6 +326,7 @@ specs, no `issues/iNNN.scala` file is needed at all.
 - [ ] Fix is in the offending stage's own patch, never a new phase and never a later cleanup stage
 - [ ] Fix is total: no case it declines to handle
 - [ ] Regression tests at stage level; no unlicensed code copied in
+- [ ] Every new test **verified to fail** with the fix stashed (a stage spec can be blind to it)
 - [ ] Both skills updated with anything general learned
 
 ---

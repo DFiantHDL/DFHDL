@@ -300,6 +300,41 @@ class ExplicitNamedVarsSpec extends StageSpec:
     )
   }
 
+  test("ED method returning a conditional expression becomes a variable") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class Top extends EDDesign:
+      val a, b                                                         = UInt(8) <> IN
+      val c                                                            = Bit     <> IN
+      val y                                                            = UInt(8) <> OUT
+      def pick(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        if (c) (if (l > r) l else r)
+        else d"8'0"
+      y <> pick(a, b)
+    end Top
+    val result = (new Top).explicitNamedVars
+    assertCodeString(
+      result,
+      """|class Top extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val b = UInt(8) <> IN
+         |  val c = Bit <> IN
+         |  val y = UInt(8) <> OUT
+         |  def pick(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    val anon = UInt(8) <> VAR
+         |    if (c)
+         |      if (l > r) anon := l
+         |      else anon := r
+         |    else anon := d"8'0"
+         |    end if
+         |    anon
+         |  end pick
+         |
+         |  y <> pick(a, b)
+         |end Top
+         |""".stripMargin
+    )
+  }
+
   // TODO: this causes an exception
   // test("AES regression test") {
   //   case class AESByte() extends Opaque(Bits(8))

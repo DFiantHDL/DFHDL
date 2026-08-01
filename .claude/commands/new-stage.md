@@ -1130,6 +1130,25 @@ Consequences when writing a stage:
 
 ## Test Authoring Rules
 
+**Every stage you touch gets a test in its own `<Stage>Spec`.** One change, one stage, one spec
+test — and if a fix spans three stages, all three get one. Covering the whole fix with a single
+test on the stage that happened to be easiest, or with an end-to-end backend test, leaves the other
+stages' behaviour unpinned: the next person to edit one of them gets no signal, and a failure lands
+on whichever stage is later in the pipeline rather than the one that broke.
+
+A stage with no spec file yet is not an exemption. Add the `extension [T: HasDB](t: T) def
+<stageName>` entry point next to its siblings in the stage's own source file (several stages in a
+shared file have one and the rest do not, purely by accident), and create
+`StagesSpec/<Stage>Spec.scala`. That entry point is also what the test's `import` refers to, so
+reverting the stage file wholesale to prove the test fails will break the spec's compilation
+instead — revert just the changed guard in place. See
+[/bugfix](bugfix.md) "Prove the test fails without the fix".
+
+When a stage's change genuinely cannot be seen in its own printout (two different IRs printing
+identically — the printout is the stage contract precisely because it hides representation), say so
+in a comment at the backend test that does pin it, and do not leave behind a stage test that passes
+either way.
+
 **Tests must be self-contained.** Each test should only exercise the stage under test. Do not write input designs that rely on a prior stage to produce the IR shape that the current stage expects — write that IR shape directly using the DFHDL DSL.
 
 For example, a stage that operates on `StepBlock`s should use explicit `def MyStep: Step = …` syntax in the test design rather than `1.cy.wait` or `while (…)` constructs, because those are transformed into `StepBlock`s by `DropRTWaits`, not by the stage under test. Letting `DropRTWaits` silently run as a dependency makes a failing test ambiguous: it is unclear whether the bug is in the stage under test or in the dependency.
@@ -1481,8 +1500,10 @@ This mirrors the `iterType.<>(VAR.REG)` pattern used for UInt variables.
 - [ ] Pattern matches target the *source* form only; the transformed IR should not re-match the same predicate, so `f(f(x)) == f(x)` **[idempotency]**
 - [ ] Convenience `extension` method added at the bottom of the file
 - [ ] Test file in `StagesSpec/` extends `StageSpec`
+- [ ] **Every** stage the change touches has a test in its **own** `<Stage>Spec` (add the file and the `extension` entry point if the stage has none yet)
 - [ ] At least one "basic" test and one "edge case" or "backend-specific" test
 - [ ] `assertCodeString` expected strings verified manually or via a first-run snapshot
+- [ ] Each new test verified to **fail** with its fix reverted, not just to pass with it
 - [ ] `sbt test` passes (or `sbt quickTestSetup; test` for faster iteration via `lib/Playground.scala`)
 - [ ] **Update this skill** with any general lessons learned (see below)
 
