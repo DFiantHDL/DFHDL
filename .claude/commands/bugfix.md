@@ -77,6 +77,38 @@ In issue #426 the backend faithfully printed `assign` inside an `always_comb`; t
 planted by `ExplicitNamedVars` several stages earlier, and the *named value* it wrapped was created
 two stages before that by `NamedVerilogSelection`, which was the real culprit.
 
+### When the same code works or fails depending on what ran before it
+
+Minimize by **deleting the earlier statements, not the failing one**. If removing an unrelated
+line above the failure makes the failure go away, the bug is not in the failing operation at all:
+something is memoized under a key that does not capture everything the answer depends on, and the
+first query poisoned the slot for the second.
+
+Issue #430 read like "`.toScalaInt` cannot fold parameter arithmetic". It folded fine on its own;
+it only failed when the same expression had already been consumed as a parametric width. Both go
+through `DFVal.getConstData`, which takes a `ConstData.CachePolicy` that decides whether design
+parameters resolve to their applied data or stay an opaque `UnknownConst` — two different answers,
+one cache slot. The half-measure already in the code (invalidate when `this.isDesignParam`) is the
+signature of this genus: someone saw the collision on the parameter itself and missed that it
+propagates to every expression built over it.
+
+So when a cached field feeds off a policy, mode, or `using` flag, the fix is at the cache, and the
+question to ask is *which policies produce interchangeable answers* — not which node types to
+special-case.
+
+**Then keep the cache.** Disabling it for every non-default policy is correct and is the wrong
+answer: it silently turns a memoized walk into a full re-walk on a path (`.toScalaInt`,
+`getConstDataOrDefault`) that user code hits constantly. Look for the asymmetry instead. Here only
+ONE node type reads the policy, and it diverges in one direction only: `Always` answers
+`UnknownConst` exactly where the resolving policies would fold. That makes any *other* `Always`
+answer provably policy-independent, so the resolving path can consult the shared cache first and
+re-walk only on `UnknownConst` — which confines recomputation to the parameter-dependent spine
+while every parameter-free subtree still answers from cache. Note the direction matters: the
+mirrored rule (cache the resolved answer when it is `KnownConst`) is *unsound*, because that
+`KnownConst` may have come through a parameter and would then fold a value that must stay
+parametric. Prove which way the asymmetry runs before exploiting it, and pin **both** consumption
+orders in the regression test.
+
 ### Two habits that pay off
 
 - **Check the other backend.** Re-run with `compile --backend vhdl.v2008` (or `verilog`). If both
@@ -302,6 +334,14 @@ only thing that distinguishes a regression test from decoration.
 When the spec's own entry point (`extension ... def <stage>`) lives in the file you stashed, the
 test will not compile and the run reports nothing at all — which reads exactly like "no failures".
 Revert only the changed guard in place instead, and watch for a silent run.
+
+**A stashed `compiler_ir` / `core` file can leave zinc serving the fix you just removed.** The test
+then passes, and the honest reading ("my reproducer is wrong, go find a different shape") sends you
+chasing a distinction that does not exist. The tell is a `scala.MatchError: <n> (of class
+java.lang.Integer)` from `compileIncremental` on some *other* subproject during the same session —
+the same corrupted-incremental-state symptom as after any front-end edit. Run `clean` before
+trusting a stashed run, and re-confirm on a clean build before concluding the test does not
+reproduce.
 
 This is not paranoia. A `<Stage>Spec` asserts on the DFHDL *printout*, and two different IRs can
 print identically — the printout is the stage contract precisely because it hides representation.
