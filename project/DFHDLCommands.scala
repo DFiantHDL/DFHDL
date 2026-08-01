@@ -93,16 +93,15 @@ object DFHDLCommands {
   }
   lazy val osIsWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
 
-  val clearSandbox = Command.command("clearSandbox") { state =>
-    // Remove the sandbox folder and all its contents before running the tests
-    val sandboxPath = java.nio.file.Paths.get("sandbox")
-    if (java.nio.file.Files.exists(sandboxPath)) {
+  // Recursively delete a directory tree, reporting each failure without aborting the rest.
+  // A missing directory is a no-op.
+  private def deleteTree(root: Path, log: Logger): Unit = {
+    if (Files.exists(root)) {
       import java.nio.file._
       import java.nio.file.attribute.BasicFileAttributes
-      import java.io.IOException
 
       Files.walkFileTree(
-        sandboxPath,
+        root,
         new SimpleFileVisitor[Path] {
           override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
             try {
@@ -118,7 +117,7 @@ object DFHDLCommands {
               Files.delete(file)
             } catch {
               case e: IOException =>
-                System.err.println(s"Failed to delete file: $file - ${e.getMessage}")
+                log.error(s"Failed to delete file: $file - ${e.getMessage}")
             }
             FileVisitResult.CONTINUE
           }
@@ -127,14 +126,46 @@ object DFHDLCommands {
               Files.delete(dir)
             } catch {
               case e: IOException =>
-                System.err.println(s"Failed to delete directory: $dir - ${e.getMessage}")
+                log.error(s"Failed to delete directory: $dir - ${e.getMessage}")
             }
             FileVisitResult.CONTINUE
           }
         }
       )
+      log.info(s"Removed $root")
     }
+  }
+
+  // Every `dfhdl-cache` directory of this build. The sub-design elaboration cache lives BESIDE
+  // each project's build output (`SubDesignDiskCache` resolves it as a sibling of the class
+  // directory), which is why neither `clearSandbox` nor a `clean` of a different project touches
+  // it. Derived from `classDirectory` rather than globbed, so it follows the Scala version and
+  // any project layout.
+  private def elabCacheDirs(state: State): Seq[Path] = {
+    val structure = Project.extract(state).structure
+    structure.allProjectRefs.flatMap { ref =>
+      Seq(Compile, Test).flatMap(conf => (ref / conf / classDirectory).get(structure.data))
+    }.map(_.getParentFile.toPath.resolve("dfhdl-cache")).distinct
+  }
+
+  // Generated output and the compilation step cache of every run.
+  val clearSandbox = Command.command("clearSandbox") { state =>
+    deleteTree(Paths.get("sandbox"), state.log)
     state
+  }
+
+  // The sub-design elaboration cache. Entries are keyed by the owner class's code digest, so a
+  // stale one can never be served and clearing this is never needed for correctness: it is for a
+  // cold start (measuring elaboration time) or for debugging the cache itself.
+  val clearElabCache = Command.command("clearElabCache") { state =>
+    elabCacheDirs(state).foreach(deleteTree(_, state.log))
+    state
+  }
+
+  // Everything the DFHDL tests and apps generate or cache.
+  val clearDFHDL = Command.command("clearDFHDL") { state =>
+    val afterSandbox = Command.process("clearSandbox", state, _ => ())
+    Command.process("clearElabCache", afterSandbox, _ => ())
   }
 
   val vhdlTools = List("ghdl", "nvc", "questa", "vivado")

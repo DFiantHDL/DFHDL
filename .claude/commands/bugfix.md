@@ -44,10 +44,14 @@ structure, so placement around the mode is load-bearing:
 | Mode options | *after* the mode | `--print-backend`, `-b vhdl.v2008`, `-t verilator` |
 
 `--backend`/`-b` is a **mode** option: it goes after `compile`, not before. Full reference:
-`docs/user-guide/command-line/index.md`.
+`docs/user-guide/command-line/index.md`; for the app layer behind it (how options reach the
+elaboration, the step pipeline and its cache keys) see `devdocs/dfapp.md`.
 
 Always pass `--nocache`. Re-running an unchanged design short-circuits on the on-disk cache
-(`Loading committed design from cache...`) and skips the stages and the trace entirely.
+(`Loading committed design from cache...`) and skips the stages and the trace entirely. It disables
+both caches: the app's step cache under `sandbox/<Top>/cache` and the sub-design elaboration cache
+in `*/target/scala-*/dfhdl-cache/`, so the design's body is really re-elaborated and every stage
+really re-runs.
 
 **Restore the Playground when you are done.** It is a working file the user may have their own
 content in. Back it up first (`cp` to the scratchpad) and restore it after each probe.

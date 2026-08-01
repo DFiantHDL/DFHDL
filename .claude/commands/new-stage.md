@@ -1071,6 +1071,11 @@ isolated unit test in one step — write the test, watch it fail with the same e
   **`--nocache`** to disable caching — it is an app option, so it goes *before* the mode.
   (Alternatively clear `sandbox/<Top>` via `sbtn clearSandbox`, or edit the design — but `--nocache`
   is the lightweight option for repeated trace runs.)
+- **`--nocache` covers both caches**: the app's step cache under `sandbox/<Top>/cache` *and* the
+  sub-design elaboration cache, which lives in `*/target/scala-*/dfhdl-cache/` and would otherwise
+  keep adopting cached sub-design bodies instead of elaborating them. `clearSandbox` does NOT reach
+  the second one; `sbtn clearElabCache` clears it, and `sbtn clearDFHDL` clears both. You rarely
+  need either, since cache entries are keyed by code digest and a stale one can never be served.
 - `libPlayground` / `corePlayground` zero out other subprojects' test sources for the session. To
   run `StagesSpec` tests again afterwards, reset with a leading `;reload`.
 

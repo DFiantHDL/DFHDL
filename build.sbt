@@ -1,6 +1,8 @@
 commands += DFHDLCommands.libPlayground
 commands += DFHDLCommands.corePlayground
 commands += DFHDLCommands.clearSandbox
+commands += DFHDLCommands.clearElabCache
+commands += DFHDLCommands.clearDFHDL
 commands += DFHDLCommands.testApps
 commands += DFHDLCommands.docExamplesRefUpdate
 

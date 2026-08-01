@@ -25,7 +25,9 @@ sbtn test             # run all unit tests
 sbtn testApps         # run simulation/app tests (requires OSS CAD tools)
 sbtn corePlayground   # limit test scope to core/Playground.scala only (fast iteration)
 sbtn libPlayground    # limit test scope to lib/Playground.scala only (fast iteration)
-sbtn clearSandbox     # delete sandbox/ directory
+sbtn clearSandbox     # delete sandbox/ directory (generated output + step cache)
+sbtn clearElabCache   # delete every target/scala-*/dfhdl-cache/ (sub-design elaboration cache)
+sbtn clearDFHDL       # both of the above
 sbtn docExamplesRefUpdate  # copy generated HDL from sandbox/ to lib/src/test/resources/ref/
 ```
 
@@ -103,6 +105,7 @@ Generated HDL reference files live in `lib/src/test/resources/ref/`. Update them
 | `.scalafmt.conf` | Code formatting rules |
 | `properdocs.yml` | Documentation site config (ProperDocs, a maintained MkDocs fork; build with `properdocs build`) |
 | `sandbox/` | Generated output during tests/apps (gitignored, cleared by `clearSandbox`) |
+| `*/target/scala-*/dfhdl-cache/` | Sub-design elaboration cache, keyed by code digest (cleared by `clearElabCache`; see [devdocs/elaboration-caching.md](devdocs/elaboration-caching.md)) |
 | `lib/src/test/resources/ref/` | Reference HDL output snapshots for regression tests |
 
 ## External Simulation Tools (for `testApps`)

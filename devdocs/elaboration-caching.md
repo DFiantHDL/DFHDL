@@ -182,6 +182,11 @@ project gets per-module locality. Top-level methods are covered like anything el
 them in the synthetic `<file>$package` class, whose class file sits in the same output. A declaring
 class with no directory code source (a def shipped inside a library jar) skips the DISK tier only.
 
+Living outside `sandbox/` also means `clearSandbox` does NOT touch this cache. The sbt commands
+`clearElabCache` (these directories) and `clearDFHDL` (those plus the sandbox) exist for that.
+Clearing is never needed for correctness, since the key carries code identity: it is for a cold
+start when measuring elaboration time, or for debugging the cache itself.
+
 In front of the disk sits a process-wide in-memory store keyed by the full content key: repeat
 elaborations in one JVM session (an sbt server, a test suite) skip the file read and the JSON parse, a
 run's write-back serves later runs in the same session, and jar-shipped defs still cache in-process.
