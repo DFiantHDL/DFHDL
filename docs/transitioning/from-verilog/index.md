@@ -1067,7 +1067,7 @@ end inc_bank
 
 </div>
 
-At design (concurrent) scope the loop runs at elaboration time and unrolls, so `N` may be an `Int <> CONST` parameter directly; its value is read during elaboration and no explicit `.toScalaInt` conversion is needed. See [Loops][loops] for the full elaboration-time loop semantics.
+At design (concurrent) scope the loop runs at elaboration time and unrolls, so `N` may be an `Int <> CONST` parameter directly; its value is read during elaboration and no explicit `.toScalaInt` conversion is needed. See [Loops][loops] for the full elaboration-time loop semantics, and [reading a constant into Scala][toScala] for the contexts that do need the explicit conversion.
 
 ///
 

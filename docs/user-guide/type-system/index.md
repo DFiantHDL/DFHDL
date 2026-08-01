@@ -662,6 +662,51 @@ class Counter(val width: Int <> CONST = 8) extends RTDesign:
 - Typed constants like `Bits[8] <> CONST` and `UInt[8] <> CONST` are also possible
 - Default values are optional
 
+### Reading a Constant into Scala {#toScala}
+
+A DFHDL constant is not a Scala value, so it cannot be passed where Scala expects one: a `List` size, an index computation, an `if` condition in elaboration code, or an ordinary method argument. The `toScala*` family reads the value during elaboration and hands it back as a plain Scala value.
+
+Every DFHDL constant qualifies: a constant design parameter, a literal, or a value derived from them, since arithmetic over constants is itself a constant. The accessor is chosen by the DFHDL type:
+
+| DFHDL type | Accessor | Scala result |
+| ---------- | -------- | ------------ |
+| `Int`, `UInt[W]`, `SInt[W]` | `.toScalaInt` / `.toScalaBigInt` | `Int` / `BigInt` |
+| `Bit`, `Boolean` | `.toScalaBoolean` / `.toScalaBitNum` | `Boolean` / `0` or `1` |
+| `Double` | `.toScalaDouble` | `Double` |
+| `String` | `.toScalaString` | `String` |
+
+`Bits` has no accessor of its own; convert it first with `.uint` or `.sint`.
+
+```scala
+class Foo(val Arg: Int <> CONST = 8) extends EDDesign:
+  val x = Bits(Arg) <> IN
+  val y = Bits(Arg) <> OUT
+  val scalaInt: Int = Arg.toScalaInt
+  val derived:  Int = (Arg * 2).toScalaInt //a derived constant reads the same way
+  for (i <- 0 until Arg) //concurrent-scope range: implicit `.toScalaInt`, none needed
+    y(i) <> x(scalaInt - 1 - i)
+```
+
+See [Loops](../loops/index.md) for the elaboration-time loop semantics behind the implicit range conversion.
+
+Reading a value that is not a constant is rejected at compile time:
+
+```title="Scala compilation error"
+Only a DFHDL constant is convertible to a Scala value, but this DFHDL value is not a constant.
+```
+
+/// admonition | Reading a parameter into Scala specializes the design
+    type: warning
+A parameter that is only ever *used* as a DFHDL value stays fully parametric, and every instantiation shares a single elaborated design. Reading it into Scala bakes its value into the elaborated body instead, so instances with different applied values no longer unify and elaborate into separate designs, each carrying its own folded constants.
+
+Reach for `toScala*` when Scala genuinely needs the value. When a derived value is only used internally and never has to survive as a named HDL parameter, a plain Scala parameter says the same thing more directly:
+
+```scala
+class Bar(Arg: Int = 8) extends EDDesign:
+  val doubled: Int = Arg * 2 //an ordinary Scala Int throughout
+```
+///
+
 ### `VAL` Modifier
 
 `VAL` marks a read-only value. It is used for:
