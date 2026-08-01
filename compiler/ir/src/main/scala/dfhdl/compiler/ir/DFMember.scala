@@ -241,24 +241,32 @@ sealed trait DFVal extends DFMember.Named:
       getSet: MemberGetSet,
       policy: ConstData.CachePolicy
   ): ConstData[T] =
+    // the cache holds the `Always` answer only. A design parameter is the sole member whose
+    // answer depends on the policy (every other `protGetConstData` just propagates it), and it
+    // diverges in exactly one direction: `Always` leaves a parameter an opaque `UnknownConst`
+    // where the resolving policies fold its applied/default data. So an `Always` answer that is
+    // NOT `UnknownConst` reached no parameter at all and is therefore policy-independent, while
+    // a resolved answer may have gone through one and must never reach the shared slot.
     policy match
-      case ConstData.CachePolicy.NoCache =>
-        cachedConstDataReady = false
-      case ConstData.CachePolicy.GoThroughDesignParams if this.isDesignParam =>
-        cachedConstDataReady = false
+      case ConstData.CachePolicy.Always =>
+        if (cachedConstDataReady) cachedConstData.asInstanceOf[ConstData[T]]
+        else
+          cachedConstData = protGetConstData
+          // disable NotConst constant data caching during mutation, since some data like CLK_FREQ
+          // cannot be attained during mutation and returns NotConst
+          cachedConstDataReady = !(getSet.isMutable && cachedConstData == ConstData.NotConst)
+          cachedConstData.asInstanceOf[ConstData[T]]
+      // consulting the cache through the `Always` answer keeps the parameter-free part of the
+      // cone memoized: only an `UnknownConst` needs the resolve-through-parameters walk, and that
+      // walk in turn answers each of its own parameter-free arguments straight from the cache, so
+      // only the parameter-dependent spine is ever recomputed
+      case ConstData.CachePolicy.GoThroughDesignParams if !this.isDesignParam =>
+        getConstData[T](using getSet, ConstData.CachePolicy.Always) match
+          case ConstData.UnknownConst(_) => protGetConstData.asInstanceOf[ConstData[T]]
+          case policyIndependent         => policyIndependent
       case _ =>
-    if (cachedConstDataReady) cachedConstData.asInstanceOf[ConstData[T]]
-    else
-      cachedConstData = protGetConstData
-      // disable NotConst constant data caching during mutation, since some data like CLK_FREQ
-      // cannot be attained during mutation and returns NotConst
-      cachedConstDataReady =
-        policy match
-          case ConstData.CachePolicy.NoCache                                     => false
-          case ConstData.CachePolicy.GoThroughDesignParams if this.isDesignParam => false
-          case _                                                                 =>
-            !(getSet.isMutable && cachedConstData == ConstData.NotConst)
-      cachedConstData.asInstanceOf[ConstData[T]]
+        cachedConstDataReady = false
+        protGetConstData.asInstanceOf[ConstData[T]]
   end getConstData
   final def getConstDataThroughParams[T](using MemberGetSet): Option[T] =
     getConstData[T](using getSet, ConstData.CachePolicy.GoThroughDesignParams).toOption
