@@ -22,7 +22,16 @@ import collection.mutable
 import annotation.tailrec
 import reporting.*
 
-// not used, but can be potentially useful for modified the reported compiler errors
+/** Re-renders every reported diagnostic before passing it on, which is what puts DFHDL's own type
+  * printer in front of the user (see [[DFHDLTypePrinter]]).
+  *
+  * The rendering swap is `Message.toString` rather than `Diagnostic.message`. They produce the same
+  * text out of the same message, but by different routes: `message` renders under
+  * `Message.inMessageContext`, which pins the printer to the compiler's own `Message.Printer` and
+  * so never consults the one this phase installs, whereas `toString` renders under the context the
+  * message captured, where that printer is live. Re-reporting also drops the diagnostic's outer
+  * position, which suppresses inline-stack error printing.
+  */
 class CustomReporter(
     val orig: Reporter
 ) extends Reporter:
@@ -47,6 +56,10 @@ end CustomReporter
   *     provided `import dfhdl.*` is in lexical scope and no `@top` annotation is already present.
   *     Classes extending `Interface` are excluded, since they are never entry points and must not
   *     receive `@top`.
+  *
+  * It also owns two run-wide reporting hooks, installed from `initContext`: the
+  * [[DFHDLTypePrinter]] that names DFHDL types the way a DFHDL user writes them, and the
+  * [[CustomReporter]] that re-renders every reported diagnostic through that printer.
   */
 class PreTyperPhase(setting: Setting) extends CommonPhase:
   import untpd.*
@@ -353,121 +366,24 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
           t
       end match
     end transform
-  object DFType:
-    def unapply(arg: Type)(using Context): Option[(String, List[Type])] =
-      arg.simple match
-        case AppliedType(dfTypeCore, List(n, argsTp))
-            if dfTypeCore.typeSymbol == requiredClass("dfhdl.core.DFType") =>
-          val nameStr = n.typeSymbol.name.toString
-          argsTp match
-            case AppliedType(_, args) => Some(nameStr, args)
-            case _                    => Some(nameStr, Nil)
-        case _ => None
-  end DFType
-  object DFBool:
-    def unapply(arg: Type)(using Context): Boolean =
-      arg match
-        case DFType("DFBool$", Nil) => true
-        case _                      => false
-  object DFBit:
-    def unapply(arg: Type)(using Context): Boolean =
-      arg match
-        case DFType("DFBit$", Nil) => true
-        case _                     => false
-  object DFBits:
-    def unapply(arg: Type)(using Context): Option[Type] =
-      arg match
-        case DFType("DFBits", w :: Nil) => Some(w)
-        case _                          => None
-  object DFDecimal:
-    def unapply(arg: Type)(using Context): Option[(Type, Type, Type)] =
-      arg match
-        // ignoring the fourth native argument, since it's not needed for matching
-        case DFType("DFDecimal", s :: w :: f :: _ :: Nil) => Some(s, w, f)
-        case _                                            => None
-  object DFXInt:
-    def unapply(arg: Type)(using Context): Option[(Boolean, Type)] =
-      arg match
-        case DFDecimal(
-              ConstantType(Constant(sign: Boolean)),
-              widthTpe,
-              ConstantType(Constant(fractionWidth: Int))
-            ) if fractionWidth == 0 =>
-          Some(sign, widthTpe)
-        case _ => None
-  object DFUInt:
-    def unapply(arg: Type)(using Context): Option[Type] =
-      arg match
-        case DFXInt(sign, widthTpe) if !sign => Some(widthTpe)
-        case _                               => None
-  object DFSInt:
-    def unapply(arg: Type)(using Context): Option[Type] =
-      arg match
-        case DFXInt(sign, widthTpe) if sign => Some(widthTpe)
-        case _                              => None
-  object DFEnum:
-    def unapply(arg: Type)(using Context): Option[Type] =
-      arg match
-        case DFType("DFEnum", e :: Nil) => Some(e)
-        case _                          => None
-  object DFStruct:
-    def unapply(arg: Type)(using Context): Option[Type] =
-      arg match
-        case DFType("DFStruct", t :: Nil) => Some(t)
-        case _                            => None
-
-  object DFVal:
-    private def stripAndType(tpeOpt: Option[Type])(using Context): Option[Type] =
-      tpeOpt.map(tpe =>
-        tpe.simple match
-          case AndType(t1, _) => t1
-          case _              => tpe
-      )
-    def unapply(arg: Type)(using Context): Option[Type] =
-      val dfValClsRef = requiredClassRef("dfhdl.core.DFVal")
-      val ret = arg.simple match
-        case AppliedType(t, List(dfType, _)) if t <:< dfValClsRef =>
-          Some(dfType)
-        case AppliedType(t, List(arg, mod))
-            if t.typeSymbol.name.toString == "<>" &&
-              (mod <:< requiredClassRef("dfhdl.VAL") || mod <:< requiredClassRef("dfhdl.DFRET")) =>
-          arg match
-            case dfType @ DFType(_, _) => Some(dfType)
-            case _                     => None
-        case _ =>
-          None
-      stripAndType(ret)
-    end unapply
-  end DFVal
-
   // Applies this phase's parse-tree rewrites to a standalone parsed tree, so nested snippet
   // compilations (PluginTestPhase) get the same parse-level fidelity as regular units. The
   // auto-@top rewrite is deliberately skipped: it never applies inside block snippets.
   def rewriteParsed(tree: Tree)(using Context): Tree =
     `fixXand<>Precedence`.transform(`fix<>andOpPrecedence`.transform(tree))
 
-  // not used, but can be potentially useful for modified the reported compiler errors
+  // The symbols the DFHDL type printer matches against, cached per run. The cache belongs to
+  // this phase instance rather than to a global, so compilers running concurrently in one JVM
+  // never see each other's symbols (see DFHDLSymbols.Cache).
+  private val printerSymbols = DFHDLSymbols.Cache()
+
+  // installs the DFHDL type printer, so every type the compiler reports on its own initiative
+  // (a type mismatch, a missing member, an IDE hover) names DFHDL types the way a DFHDL user
+  // writes them; see DFHDLTypePrinter
   override def initContext(ctx: FreshContext): Unit =
-    import dotty.tools.dotc.printing.*
-    import dotty.tools.dotc.printing.Texts.Text
-    def foo(ctx: Context): Printer =
-      new RefinedPrinter(ctx):
-        override def toText(tp: Type): Text =
-          tp match
-            case DFVal(dfType) =>
-              val dfTypeText: Text = dfType match
-                case DFBool()           => "Boolean"
-                case DFBit()            => "Bit"
-                case DFBits(w)          => s"Bits[${w.show}]"
-                case DFUInt(w)          => s"UInt[${w.show}]"
-                case DFSInt(w)          => s"SInt[${w.show}]"
-                case DFDecimal(s, w, f) => s"Decimal[${s.show}, ${w.show}, ${f.show}]"
-                case DFEnum(e)          => s"Enum[${e.show}]"
-                case DFStruct(t)        => s"Struct[${t.show}]"
-                case _                  => super.toText(tp)
-              dfTypeText ~ " <> Val"
-            case _ => super.toText(tp)
-    ctx.setPrinterFn(foo)
+    ctx.setPrinterFn(printerCtx =>
+      DFHDLTypePrinter(printerCtx, printerSymbols()(using printerCtx))
+    )
     val typerState = ctx.typerState.setReporter(new CustomReporter(ctx.reporter))
     ctx.setTyperState(typerState)
   end initContext
