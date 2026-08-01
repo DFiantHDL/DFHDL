@@ -242,6 +242,53 @@ class DFBitsSpec extends DFSpec:
       b3(three)
     }
   }
+  test("Part Selection (lsbitsAt/msbitsAt)") {
+    val param: Int <> CONST = 2
+    val b8 = Bits(8) <> VAR
+    val u8 = UInt(8) <> VAR
+    val s8 = SInt(8) <> VAR
+    assertCodeString {
+      """|val la = b8(5, 2)
+         |val ma = b8(5, 2)
+         |val lau = u8(5, 2)
+         |val mau = u8(5, 2)
+         |val las = s8(5, 2)
+         |val mas = s8(5, 2)
+         |val lap = b8(param + 3, param)
+         |b8(5, 2) := b8(7, 4)
+         |""".stripMargin
+    } {
+      val la = b8.lsbitsAt(2, 4)
+      val ma = b8.msbitsAt(5, 4)
+      val lau = u8.lsbitsAt(2, 4)
+      val mau = u8.msbitsAt(5, 4)
+      val las = s8.lsbitsAt(2, 4)
+      val mas = s8.msbitsAt(5, 4)
+      val lap = b8.lsbitsAt(param, 4)
+      b8.lsbitsAt(2, 4) := b8.msbitsAt(7, 4)
+    }
+    assertDSLErrorLog(
+      "Index 8 is out of range of width/length 8"
+    )(
+      """b8.lsbitsAt(5, 4)"""
+    ) {
+      val five = 5
+      b8.lsbitsAt(five, 4)
+    }
+    assertDSLErrorLog(
+      "Index -1 is out of range of width/length 8"
+    )(
+      """b8.msbitsAt(2, 4)"""
+    ) {
+      val two = 2
+      b8.msbitsAt(two, 4)
+    }
+    assertCompileError(
+      "Width must be positive, but found: 0"
+    )(
+      """b8.lsbitsAt(2, 0)"""
+    )
+  }
   test("Comparison") {
     val b8 = Bits(8) <> VAR
     val u8 = UInt(8) <> VAR

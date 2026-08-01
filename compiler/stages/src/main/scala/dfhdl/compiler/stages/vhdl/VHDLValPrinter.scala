@@ -24,12 +24,14 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     if (dfVal.isPort) s"${dfVal.getName} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr"
     else
+      // signal vs variable comes from `isHDLVariable`, the same predicate `csAssignment` uses to
+      // pick `:=` over `<=`, so a declaration and its writes can never disagree
       val sigOrVar = dfVal.getOwnerNamed match
-        // HDL method (ED method / static function) locals are method variables
-        case dsn: DFDesignBlock if dsn.isHDLMethod => "variable"
-        case dsn: DFDesignBlock                    =>
-          if (dfVal.modifier.isShared) "shared variable"
-          else "signal"
+        // a design-level declaration is a signal unless it is a `VAR.SHARED`
+        case _: DFDesignBlock if !dfVal.isHDLVariable => "signal"
+        case dsn: DFDesignBlock if !dsn.isHDLMethod   => "shared variable"
+        // HDL method (ED method / static function) locals, and anything declared inside a
+        // process, are plain variables
         case _ => "variable"
       s"$sigOrVar ${dfVal.getName} : $dfTypeStr"
   end csDFValDclWithoutInit
@@ -295,6 +297,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
       else s".${dfVal.fieldName}"
     s"${dfVal.relValCodeString}$fieldSel"
   def csDFValAliasHistory(dfVal: Alias.History): String = printer.unsupported
+  def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String = printer.unsupported
   // def csTimerIsActive(dfVal: Timer.IsActive): String = printer.unsupported
   def csNOTHING(dfVal: Special): String =
     dfVal.dfType match

@@ -6,6 +6,8 @@ DFHDL supports loops in several contexts with different semantics depending on t
 
 By default, `for` loops in a concurrent scope (a design or domain body, not within a function, procedure, or process) run at elaboration time: their range is an ordinary Scala range, even when the range arguments are DFHDL `Int` values (such as `Int <> CONST` parameters, whose values are read during elaboration). The loop unrolls into repeated hardware, equivalent to Verilog `generate for`, so the generated HDL contains no loop; each iteration produces distinct instances.
 
+A range bound is the one place a DFHDL constant is read implicitly. Anywhere else that Scala needs the number (a `List` size, an index computation, a plain method argument) the constant has to be read explicitly with `.toScalaInt`. See [reading a constant into Scala][toScala].
+
 ```scala
 // A design that adds 1 to its input
 class Plus1 extends EDDesign:
@@ -69,5 +71,7 @@ end Foo
 ```
 
 Inside an RT process, where loops are sequential (multi-cycle) by default, the same wrapper keeps a loop combinational; its body must not consume cycles.
+
+`COMB_LOOP` is a block wrapper because it marks a whole region: a loop nested inside a combinational loop cannot consume cycles either, so it is combinational too. The other RT annotation, `FALL_THROUGH`, marks a single loop or condition wait and is written on that construct's own condition or range instead (see [Processes][processes]).
 
 [processes]: ../processes/index.md

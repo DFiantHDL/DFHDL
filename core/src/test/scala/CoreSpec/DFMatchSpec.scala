@@ -228,7 +228,7 @@ class DFMatchSpec extends DFSpec:
 
   test("unsupported literal pattern for the selector type"):
     assertPluginError(
-      "Unsupported literal 5 for the DFHDL variable type dfhdl.core.DFBit"
+      "Unsupported literal 5 for the DFHDL variable type Bit"
     )(
       """
       class Foo extends DFDesign:

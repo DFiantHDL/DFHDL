@@ -1002,6 +1002,18 @@ object DFVal extends DFValLP:
         alias.addMember.asValOf[T]
       end apply
     end History
+    object RegDIN:
+      def apply[T <: DFTypeAny](relVal: DFValOf[T])(using DFC): DFValOf[T] =
+        val alias: ir.DFVal.Alias.RegDIN =
+          ir.DFVal.Alias.RegDIN(
+            relVal.dfType.asIR.dropUnreachableRefs,
+            relVal.asIR.refTW[ir.DFVal.Alias.RegDIN],
+            dfc.owner.ref,
+            dfc.getMeta,
+            dfc.tags
+          )
+        alias.addMember.asValOf[T]
+    end RegDIN
     object ApplyRange:
       import IntP.{-, +}
       def apply[W <: IntP, M <: ModifierAny, H <: IntP, L <: IntP](
@@ -1420,7 +1432,7 @@ object DFVal extends DFValLP:
   object Ops:
     protected type SupportedValue =
       DFValAny | Boolean | Int | Long | Double | NonEmptyTuple | Iterable[DFValAny] |
-        SameElementsVector[?] | BoolSelWrapper[?, ?, ?]
+        SameElementsVector[?] | BoolSelWrapper[?, ?, ?] | REG_DIN[?]
     extension (inline lhs: DFValAny)
       transparent inline def apply(inline idx: Any)(using DFCG): DFValAny =
         exactOp2["apply", DFC, DFValAny](lhs, idx)
@@ -1508,32 +1520,51 @@ object DFVal extends DFValLP:
       transparent inline def as(inline aliasType: DFType.Supported)(using DFCG): DFValAny =
         exactOp2["as", DFC, DFValAny](lhs, aliasType)
     end extension
+    // if-else expressions may accidentally mix different types, that require `Exact`
+    // enforcement that will wrap them with `IfWrapper` and preserve each branch type.
+    // without this, the branches will be coerced to a common type, which is useless for
+    // `specialConnect` that expects both branches to be concrete types. this is what
+    // `isConcreteDFVal` is for, and only if both LHS and RHS are concrete types,
+    // we call `specialConnect` to handle possible connection in either direction where
+    // both implicit directions are available.
+    private transparent inline def isConcreteDFVal[L]: Boolean =
+      inline compiletime.erasedValue[L] match
+        case _: DFValOf[t] => inline compiletime.erasedValue[t] match
+            case _: DFBoolOrBit    => true
+            case _: DFBits[?]      => true
+            case _: DFUInt[?]      => true
+            case _: DFSInt[?]      => true
+            case _: DFUFix[?, ?]   => true
+            case _: DFSFix[?, ?]   => true
+            case _: DFInt32        => true
+            case _: DFEnum[?]      => true
+            case _: DFVector[?, ?] => true
+            case _: DFTuple[?]     => true
+            case _: DFStruct[?]    => true
+            case _: DFOpaque[?]    => true
+            case _: TDFDouble      => true
+            case _: TDFString      => true
+            case _                 => false
+        case _ => false
     extension [L](inline lhs: L)
       transparent inline def <>[R](inline rhs: R)(using DFC): Any =
         // operator `<>` as a constructor is unidirectional
         // operator `<>` as a connection is bidirectional and commutative
-        inline val lhsIsDFVal = inline compiletime.erasedValue[L] match
-          case _: DFValAny => true
-          case _           => false
-        inline val rhsIsDFVal = inline compiletime.erasedValue[R] match
-          case _: DFValAny => true
-          case _           => false
-        inline val rhsIsModifier = inline compiletime.erasedValue[R] match
-          case _: ModifierAny => true
-          case _              => false
         // if both LHS and RHS are DFVals, we call `specialConnect` to handle possible
         // connection in either direction where both implicit directions are available
-        inline if (lhsIsDFVal && rhsIsDFVal)
+        inline if (isConcreteDFVal[L] && isConcreteDFVal[R])
           inline lhs match
             case ___lhs: DFVal[lt, lm] => inline rhs match
                 case ___rhs: DFVal[rt, rm] =>
                   ConnectOps.specialConnect[lt, lm, rt, rm](___lhs, ___rhs)
-        // if the RHS is a modifier, this is a port/variable constructor,
-        // so we invoke the the implicit given operation only in one way
-        else if (rhsIsModifier) exactOp2["<>", DFC, Any](lhs, rhs)
-        // otherwise, we invoke the implicit given operation in both directions by turning
-        // on the bothWays flag for all other cases
-        else exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
+        else
+          inline compiletime.erasedValue[R] match
+            // if the RHS is a modifier, this is a port/variable constructor,
+            // so we invoke the the implicit given operation only in one way
+            case _: ModifierAny => exactOp2["<>", DFC, Any](lhs, rhs)
+            // otherwise, we invoke the implicit given operation in both directions by turning
+            // on the bothWays flag for all other cases
+            case _ => exactOp2["<>", DFC, Any](lhs, rhs, bothWays = true)
     end extension
 
     extension [L](inline lhs: L)
@@ -1708,14 +1739,30 @@ object VarsTuple:
   end evMacro
 end VarsTuple
 
-final class REG_DIN[T <: DFTypeAny](val irValue: DFError.REG_DIN[T]) extends AnyVal:
+/** The register-input (`.din`) handle of a REG declaration, under an RT domain.
+  *
+  * Assignment goes straight to `relVal`, so `r.din := x` produces the very same IR it always has
+  * and constructs nothing extra. A *read* materialises `dinVal` on demand, which is the only path
+  * that adds an `Alias.RegDIN` member to the design. A write-only `.din` therefore leaves no trace.
+  */
+final class REG_DIN[T <: DFTypeAny](val relVal: DFVarOf[T])(using dfc: DFC):
+  // eager on purpose: a named `.din` must be reported even when it is never read
+  trydf {
+    if (!dfc.isAnonymous) throw new IllegalArgumentException(REG_DIN.namedErrMsg)
+  }(using dfc, CTName(".din"))
+  // built (and added to the design) only when the DIN is read, from the `.din` position
+  lazy val dinVal: DFValOf[T] = DFVal.Alias.RegDIN(relVal)(using dfc)
   def :=(rhs: DFVal.TC.Exact[T])(using DFC): Unit = trydf {
-    val dfVar = irValue.dfVar
-    dfVar.assign(rhs(dfVar.dfType))
+    relVal.assign(rhs(relVal.dfType))
   }
-  // transparent inline def :=[R](inline rhs: R)(using DFC): Unit =
-  //   exactOp2[":=", DFC, Unit](this, rhs)
 object REG_DIN:
+  final val namedErrMsg: String =
+    """|Cannot name a register DIN read.
+       |Reading `.din` yields the register's pending value at the position of the read, so binding it
+       |to a Scala `val` would hold a live view and not the snapshot it appears to be.
+       |To Fix: apply `.din` directly where it is read. E.g.:
+       |* Instead of `val d = x.din` followed by `y := d + 1` write `y := x.din + 1`.
+       |""".stripMargin
   given evREG_DIN_AssignDcl[
       T <: DFTypeAny,
       L <: REG_DIN[T],
@@ -1725,9 +1772,27 @@ object REG_DIN:
   ): ExactOp2Aux[":=", DFC, Unit, L, R, Unit] = new ExactOp2[":=", DFC, Unit, L, R]:
     type Out = Unit
     def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
-      val dfVar = lhs.irValue.dfVar
+      val dfVar = lhs.relVal
       dfVar.assign(tc(dfVar.dfType, rhs))
     }(using dfc, CTName(":="))
+  // A DIN read in an operand position materialises the read alias and delegates to the ordinary
+  // value operation. One given per operand position covers every binary operator, so reading
+  // `.din` needs no per-operator plumbing.
+  given evREG_DIN_OpLHS[Op, T <: DFTypeAny, L <: REG_DIN[T], R, O <: DFValAny](using
+      inner: ExactOp2Aux[Op, DFC, DFValAny, DFValOf[T], R, O]
+  ): ExactOp2Aux[Op, DFC, DFValAny, L, R, O] = new ExactOp2[Op, DFC, DFValAny, L, R]:
+    type Out = O
+    def apply(lhs: L, rhs: R)(using DFC): Out = inner(lhs.dinVal, rhs)
+  given evREG_DIN_OpRHS[Op, T <: DFTypeAny, L, R <: REG_DIN[T], O <: DFValAny](using
+      inner: ExactOp2Aux[Op, DFC, DFValAny, L, DFValOf[T], O]
+  ): ExactOp2Aux[Op, DFC, DFValAny, L, R, O] = new ExactOp2[Op, DFC, DFValAny, L, R]:
+    type Out = O
+    def apply(lhs: L, rhs: R)(using DFC): Out = inner(lhs, rhs.dinVal)
+  // A DIN read as a receiver-typed value: `y := r.din`, `y <> r.din`, method arguments, and so on.
+  given evREG_DIN_TC[T <: DFTypeAny, R <: REG_DIN[T]]: DFVal.TC[T, R] with
+    type OutP = NOTCONST
+    def conv(dfType: T, value: R)(using DFC): Out = value.dinVal.asValTP[T, NOTCONST]
+end REG_DIN
 
 object DFVarOps:
   protected type NotREG[A] = AssertGiven[
@@ -1815,7 +1880,7 @@ object DFVarOps:
       dfVar.nbassign(rhs(dfVar.dfType))
     }
     def din(using dt: DomainType)(using IsREG[A], RTDomainOnly[dt.type], DFC): REG_DIN[T] =
-      new REG_DIN[T](DFError.REG_DIN(dfVar.asVarOf[T]))
+      new REG_DIN[T](dfVar.asVarOf[T])
   end extension
   extension [T <: NonEmptyTuple](dfVarTuple: T)
     def :=[R](rhs: Exact[R])(using
@@ -2102,6 +2167,21 @@ extension (dfVal: ir.DFVal)
   end cloneUnreachable
 
   protected[dfhdl] def cloneAnonValueAndDepsHere(using dfc: DFC): ir.DFVal =
+    // the plain clone substitutes each dependency with its own clone (a non-anonymous one is
+    // returned as-is and keeps being referenced directly)
+    def cloneDep(dep: ir.DFVal): ir.DFVal = dep.cloneAnonValueAndDepsHere(cloneDep)
+    dfVal.cloneAnonValueAndDepsHere(cloneDep)
+
+  /** Clones an anonymous value and its dependency cone into the current (meta) design.
+    *
+    * `substDep` is applied to every dependency before the value that reads it is built, so a
+    * substitution that emits members of its own lands in the member list ahead of its reader.
+    * Rewiring the clone's references afterwards would instead leave the reader pointing forward at
+    * a member defined below it.
+    */
+  protected[dfhdl] def cloneAnonValueAndDepsHere(
+      substDep: ir.DFVal => ir.DFVal
+  )(using dfc: DFC): ir.DFVal =
     import dfc.getSet
     if (dfVal.isAnonymous)
       val dfcForClone = dfc.setMeta(dfVal.meta).setTags(dfVal.tags)
@@ -2110,10 +2190,10 @@ extension (dfVal: ir.DFVal)
         case const: ir.DFVal.Const =>
           DFVal.Const.forced(dfType, const.data)(using dfcForClone)
         case func: ir.DFVal.Func =>
-          val clonedArgs = func.args.map(_.get.cloneAnonValueAndDepsHere)
+          val clonedArgs = func.args.map(arg => substDep(arg.get))
           DFVal.Func(dfType, func.op, clonedArgs)(using dfcForClone)
         case alias: ir.DFVal.Alias.Partial =>
-          val clonedRelValIR = alias.relValRef.get.cloneAnonValueAndDepsHere
+          val clonedRelValIR = substDep(alias.relValRef.get)
           val clonedRelVal = clonedRelValIR.asValAny
           alias match
             case alias: ir.DFVal.Alias.AsIs =>
@@ -2122,7 +2202,7 @@ extension (dfVal: ir.DFVal)
               def cloneIntParam(intParam: IntParam[Int]): IntParam[Int] =
                 val ret = intParam.runtimeChecked match
                   case int: Int                       => int
-                  case const: DFConstInt32 @unchecked => const.asIR.cloneAnonValueAndDepsHere
+                  case const: DFConstInt32 @unchecked => substDep(const.asIR)
                 ret.asInstanceOf[IntParam[Int]]
               DFVal.Alias.ApplyRange(
                 clonedRelVal.asValOf[DFBits[Int]], // this is OK even for UInt/SInt
@@ -2130,7 +2210,7 @@ extension (dfVal: ir.DFVal)
                 cloneIntParam(alias.idxLowRef.get)
               )(using dfcForClone)
             case alias: ir.DFVal.Alias.ApplyIdx =>
-              val clonedIdx = alias.relIdx.get.cloneAnonValueAndDepsHere.asValOf[DFInt32]
+              val clonedIdx = substDep(alias.relIdx.get).asValOf[DFInt32]
               DFVal.Alias.ApplyIdx(dfType, clonedRelVal, clonedIdx)(using dfcForClone)
             case alias: ir.DFVal.Alias.SelectField =>
               DFVal.Alias.SelectField(clonedRelVal, alias.fieldName)(using dfcForClone)

@@ -31,9 +31,6 @@ class DropRTWaitsSpec extends StageSpec():
          |  val i = Bit <> IN
          |  val x = Bit <> OUT.REG
          |  process:
-         |    def S_0: Step =
-         |      NextStep
-         |    end S_0
          |    x.din := i
          |end Foo""".stripMargin
     )
@@ -55,17 +52,14 @@ class DropRTWaitsSpec extends StageSpec():
          |  val i = Bit <> IN
          |  val x = Bit <> OUT.REG
          |  process:
+         |    x.din := i
          |    def S_0: Step =
          |      NextStep
          |    end S_0
          |    x.din := i
          |    def S_1: Step =
-         |      NextStep
-         |    end S_1
-         |    x.din := i
-         |    def S_2: Step =
          |      ThisStep
-         |    end S_2
+         |    end S_1
          |end Foo""".stripMargin
     )
   }
@@ -122,13 +116,10 @@ class DropRTWaitsSpec extends StageSpec():
          |  val i = Bit <> IN
          |  val x = Bit <> OUT.REG
          |  process:
+         |    x.din := i
          |    def S_0: Step =
          |      NextStep
          |    end S_0
-         |    x.din := i
-         |    def S_1: Step =
-         |      NextStep
-         |    end S_1
          |end Foo""".stripMargin
     )
   }
@@ -154,26 +145,23 @@ class DropRTWaitsSpec extends StageSpec():
          |  val i = Bit <> IN
          |  val x = Bit <> OUT.REG
          |  process:
+         |    x.din := 1
+         |    x.din := i
          |    def S_0: Step =
          |      NextStep
          |    end S_0
-         |    x.din := 1
-         |    x.din := i
+         |    x.din := !x
          |    def S_1: Step =
          |      NextStep
          |    end S_1
-         |    x.din := !x
+         |    x.din := 0
          |    def S_2: Step =
          |      NextStep
          |    end S_2
-         |    x.din := 0
+         |    x.din := !x
          |    def S_3: Step =
          |      NextStep
          |    end S_3
-         |    x.din := !x
-         |    def S_4: Step =
-         |      NextStep
-         |    end S_4
          |end Foo""".stripMargin
     )
   }
@@ -294,9 +282,8 @@ class DropRTWaitsSpec extends StageSpec():
       val waitCnt1 = UInt(8) <> VAR.REG init 0
       val waitCnt2 = UInt(8) <> VAR.REG init 0
       process:
-        FALL_THROUGH:
-          while (waitCnt1 != 149)
-            waitCnt1.din := waitCnt1 + 1
+        while (FALL_THROUGH(waitCnt1 != 149))
+          waitCnt1.din := waitCnt1 + 1
         waitCnt1.din := 0
         x.din := !x
         while (waitCnt2 != 149)
@@ -331,6 +318,32 @@ class DropRTWaitsSpec extends StageSpec():
          |    end S_1
          |    waitCnt2.din := d"8'0"
          |    x.din := 1
+         |end Foo""".stripMargin
+    )
+  }
+  test("empty-body while loop with fall-through") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      val go = Bit <> IN
+      process:
+        while (FALL_THROUGH(!go)) {}
+        x.din := !x
+    end Foo
+    val top = (new Foo).dropRTWaits
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  val go = Bit <> IN
+         |  process:
+         |    def S_0: Step =
+         |      def fallThrough: Boolean <> VAL =
+         |        !(!go)
+         |      end fallThrough
+         |      if (!go) ThisStep
+         |      else NextStep
+         |    end S_0
+         |    x.din := !x
          |end Foo""".stripMargin
     )
   }
@@ -396,30 +409,27 @@ class DropRTWaitsSpec extends StageSpec():
       """|class Foo extends RTDesign:
          |  val x = Bit <> OUT.REG init 0
          |  process:
-         |    def S_0: Step =
-         |      NextStep
-         |    end S_0
          |    if (x)
+         |      x.din := !x
+         |      def S_0: Step =
+         |        NextStep
+         |      end S_0
+         |    else
          |      x.din := !x
          |      def S_1: Step =
          |        NextStep
          |      end S_1
-         |    else
-         |      x.din := !x
          |      def S_2: Step =
          |        NextStep
          |      end S_2
          |      def S_3: Step =
          |        NextStep
          |      end S_3
-         |      def S_4: Step =
-         |        NextStep
-         |      end S_4
          |    end if
          |    x.din := !x
-         |    def S_5: Step =
+         |    def S_4: Step =
          |      NextStep
-         |    end S_5
+         |    end S_4
          |end Foo""".stripMargin
     )
   }
@@ -448,34 +458,31 @@ class DropRTWaitsSpec extends StageSpec():
          |  val x = Bit <> OUT.REG init 0
          |  val waitCnt1 = UInt(8) <> VAR.REG init d"8'0"
          |  process:
-         |    def S_0: Step =
-         |      NextStep
-         |    end S_0
          |    if (x)
          |      x.din := !x
-         |      def S_1: Step =
+         |      def S_0: Step =
          |        if (waitCnt1 != d"8'149")
          |          waitCnt1.din := waitCnt1 + d"8'1"
          |          ThisStep
          |        else NextStep
-         |      end S_1
+         |      end S_0
          |      waitCnt1.din := d"8'0"
          |    else
          |      x.din := !x
+         |      def S_1: Step =
+         |        NextStep
+         |      end S_1
          |      def S_2: Step =
          |        NextStep
          |      end S_2
          |      def S_3: Step =
          |        NextStep
          |      end S_3
-         |      def S_4: Step =
-         |        NextStep
-         |      end S_4
          |    end if
          |    x.din := !x
-         |    def S_5: Step =
+         |    def S_4: Step =
          |      NextStep
-         |    end S_5
+         |    end S_4
          |end Foo""".stripMargin
     )
   }
@@ -551,13 +558,10 @@ class DropRTWaitsSpec extends StageSpec():
       """|class Foo extends RTDesign:
          |  val y = Bit <> OUT.REG
          |  process:
+         |    println(s"simulation started")
          |    def S_0: Step =
          |      NextStep
          |    end S_0
-         |    println(s"simulation started")
-         |    def S_1: Step =
-         |      NextStep
-         |    end S_1
          |    y.din := 1
          |end Foo""".stripMargin
     )
@@ -581,16 +585,13 @@ class DropRTWaitsSpec extends StageSpec():
          |  val x = Bit <> IN
          |  val y = Bit <> OUT.REG
          |  process:
-         |    def S_0: Step =
-         |      NextStep
-         |    end S_0
          |    COMB_LOOP:
          |      while (x)
          |        y.din := 0
          |      end while
-         |    def S_1: Step =
+         |    def S_0: Step =
          |      NextStep
-         |    end S_1
+         |    end S_0
          |end Foo""".stripMargin
     )
   }

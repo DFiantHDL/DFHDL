@@ -213,7 +213,16 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
               if (noErrors) transformTree = run(transformTree)
           end if
         end if
-        ctx.reporter.allErrors.map(_.message)
+        // `Message.toString` rather than `Diagnostic.message`, so a snippet's diagnostics
+        // read exactly as the real run's do. `message` renders under `inMessageContext`,
+        // which pins the printer to the compiler's own `Message.Printer` and therefore never
+        // sees the DFHDL type printer; `toString` renders under the context the message
+        // captured, which is where `PreTyperPhase.initContext` installed that printer. It is
+        // the same path the real run takes, since `CustomReporter` re-renders every reported
+        // diagnostic through `toString` (see DFHDLTypePrinter). `toString` also leaves out the
+        // `msgPostscript` addenda (import suggestions and the like), which are noise here.
+        // The colour escapes `Diagnostic.message` would have dropped are stripped the same way.
+        ctx.reporter.allErrors.map(_.msg.toString.replaceAll("\\e\\[[;\\d]*m", ""))
       }
     }
   end snippetErrors

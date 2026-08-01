@@ -178,6 +178,40 @@ class ExplicitCondExprAssignSpec extends StageSpec(stageCreatesUnrefAnons = true
     )
   }
 
+  // the `process(all)` wrap of the previous test exists because an ED design body is concurrent
+  // and holds no statements. An HDL method body is procedural, so the conditional statement stays
+  // where it is (a process inside a method is illegal).
+  test("ED method body takes a conditional statement without a process wrap") {
+    class Top extends EDDesign:
+      val a, b                                                         = UInt(8) <> IN
+      val c                                                            = Bit     <> IN
+      val y                                                            = UInt(8) <> OUT
+      def pick(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        if (c) l
+        else r
+      y <> pick(a, b)
+    end Top
+    val result = (new Top).explicitCondExprAssign
+    assertCodeString(
+      result,
+      """|class Top extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val b = UInt(8) <> IN
+         |  val c = Bit <> IN
+         |  val y = UInt(8) <> OUT
+         |  def pick(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+         |    val anon = UInt(8) <> VAR
+         |    if (c) anon := l
+         |    else anon := r
+         |    anon
+         |  end pick
+         |
+         |  y <> pick(a, b)
+         |end Top
+         |""".stripMargin
+    )
+  }
+
   test("ED domain conditional expression connection to child input port") {
     class Child extends EDDesign:
       val x = Bits(8) <> IN

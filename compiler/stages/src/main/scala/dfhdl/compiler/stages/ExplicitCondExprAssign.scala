@@ -26,8 +26,9 @@ import dfhdl.core.DomainType.ED
   *
   * ==Rule 2: ED domain process wrapping==
   *
-  * When the conditional statement is in an ED domain and outside a process,
-  * it is wrapped in a `process(all)` block.
+  * When the conditional statement is in an ED domain concurrent scope, it is wrapped in a
+  * `process(all)` block, because a concurrent scope holds no statements. An HDL method body is
+  * procedural, so a statement there needs no wrapping (and a process inside a method is illegal).
   * {{{
   * // Before (EDDesign, outside process)
   * val y = SInt(16) <> OUT
@@ -51,6 +52,7 @@ case object ExplicitCondExprAssign extends HierarchyStage:
     val wrapPatches: List[(DFMember, Patch)] = phase1DB.members.view.flatMap {
       case ch: DFConditional.Header
           if ch.dfType == DFUnit && ch.isInEDDomain && !ch.isInProcess
+            && !ch.getOwnerDesign.isHDLMethod
             && !ch.getOwnerBlock.isInstanceOf[DFConditional.Block] =>
         val chain = phase1DB.conditionalChainTable(ch)
         val chainBlocksAndMembers: List[DFMember] =

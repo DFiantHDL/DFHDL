@@ -172,4 +172,94 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end ID""".stripMargin
     )
   }
+  // An ED domain body is a concurrent scope, so a conditional expression branch in it cannot hold
+  // a name (see `DB.condExprNamedValCheck`). The value is named and relocated before the
+  // conditional in the same patch, rather than named where it was built.
+  test("Named selection hoisted out of a concurrent conditional expression") {
+    class ID extends EDDesign:
+      val c = Bit     <> IN
+      val x = SInt(9) <> IN
+      val y = UInt(8) <> OUT
+      y <> (if (c) (~x.bits).uint.lsbits(8) else x.bits.uint.lsbits(8))
+
+    val id = (new ID).verilogNamedSelection
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val c = Bit <> IN
+         |  val x = SInt(9) <> IN
+         |  val y = UInt(8) <> OUT
+         |  val anon = (~x.bits).uint
+         |  val anon = x.bits.uint
+         |  y <> ((
+         |    if (c) anon(7, 0)
+         |    else anon(7, 0)
+         |  ): UInt[8] <> VAL)
+         |end ID
+         |""".stripMargin
+    )
+  }
+  // In a process the branch is a procedural block, so the name stays where it was built.
+  test("Named selection kept inside a sequential conditional expression") {
+    class ID extends EDDesign:
+      val c = Bit     <> IN
+      val x = SInt(9) <> IN
+      val y = UInt(8) <> OUT
+      process(all):
+        y := (if (c) (~x.bits).uint.lsbits(8) else x.bits.uint.lsbits(8))
+
+    val id = (new ID).verilogNamedSelection
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val c = Bit <> IN
+         |  val x = SInt(9) <> IN
+         |  val y = UInt(8) <> OUT
+         |  process(all):
+         |    y := ((
+         |      if (c)
+         |        val anon = (~x.bits).uint
+         |        anon(7, 0)
+         |      else
+         |        val anon = x.bits.uint
+         |        anon(7, 0)
+         |    ): UInt[8] <> VAL)
+         |end ID
+         |""".stripMargin
+    )
+  }
+  // The value to name reads a conditional expression that is a naming group of its own, so both
+  // must relocate. They cannot move in one pass without duplicating the shared sub-tree, so the
+  // innermost is named and hoisted first and the outer one follows on the next pass.
+  test("Named selection hoisted along with a nested conditional expression") {
+    class ID extends EDDesign:
+      val c, d = Bit     <> IN
+      val p, q = UInt(9) <> IN
+      val y    = UInt(8) <> OUT
+      y <> (
+        if (c) p.lsbits(8)
+        else ((if (d) p else q) + d"9'1").lsbits(8)
+      )
+
+    val id = (new ID).verilogNamedSelection
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val c = Bit <> IN
+         |  val d = Bit <> IN
+         |  val p = UInt(9) <> IN
+         |  val q = UInt(9) <> IN
+         |  val y = UInt(8) <> OUT
+         |  val anon_part: UInt[9] <> VAL =
+         |    if (d) p
+         |    else q
+         |  val anon = anon_part + d"9'1"
+         |  y <> ((
+         |    if (c) p(7, 0)
+         |    else anon(7, 0)
+         |  ): UInt[8] <> VAL)
+         |end ID
+         |""".stripMargin
+    )
+  }
 end NamedSelectionSpec

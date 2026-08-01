@@ -200,6 +200,150 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("RT FALL_THROUGH for loop is converted to a FALL_THROUGH while loop") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      process:
+        x.din := 1
+        for (i <- FALL_THROUGH(0 until 4))
+          x.din := 0
+        x.din := 1
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  process:
+         |    x.din := 1
+         |    val i = Int <> VAR.REG
+         |    i.din := 0
+         |    while (FALL_THROUGH(i < 4))
+         |      x.din := 0
+         |      i.din := i + 1
+         |    end while
+         |    x.din := 1
+         |end Foo""".stripMargin
+    )
+  }
+  test("FALL_THROUGH marks only the generator it is written on") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      process:
+        for (i <- FALL_THROUGH(0 until 4); j <- 0 until 2)
+          x.din := 0
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  process:
+         |    val i = Int <> VAR.REG
+         |    i.din := 0
+         |    while (FALL_THROUGH(i < 4))
+         |      val j = Int <> VAR.REG
+         |      j.din := 0
+         |      while (j < 2)
+         |        x.din := 0
+         |        j.din := j + 1
+         |      end while
+         |      i.din := i + 1
+         |    end while
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("an inner generator can be marked while the outer one is not") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      process:
+        for (i <- 0 until 4; j <- FALL_THROUGH(0 until 2))
+          x.din := 0
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  process:
+         |    val i = Int <> VAR.REG
+         |    i.din := 0
+         |    while (i < 4)
+         |      val j = Int <> VAR.REG
+         |      j.din := 0
+         |      while (FALL_THROUGH(j < 2))
+         |        x.din := 0
+         |        j.din := j + 1
+         |      end while
+         |      i.din := i + 1
+         |    end while
+         |end Foo""".stripMargin
+    )
+  }
+
+  // a comprehension guard is a body predicate, not a loop predicate: it lowers to a plain `if`
+  // inside the loop, and the mark stays on the loop's own range
+  test("a marked for-comprehension keeps its guard as an inner conditional") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      val p = Bit <> IN
+      process:
+        for (i <- FALL_THROUGH(0 until 4) if p)
+          x.din := 0
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  val p = Bit <> IN
+         |  process:
+         |    val i = Int <> VAR.REG
+         |    i.din := 0
+         |    while (FALL_THROUGH(i < 4))
+         |      if (p) x.din := 0
+         |      i.din := i + 1
+         |    end while
+         |end Foo""".stripMargin
+    )
+  }
+
+  // a conditional wait lowers to a loop on the negated condition, so its mark carries over to that
+  // loop: the wait costs no cycle when its condition already holds on entry
+  test("FALL_THROUGH conditional waits become FALL_THROUGH while loops") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      val i = Bit <> IN
+      process:
+        x.din := 1
+        waitUntil(FALL_THROUGH(i))
+        val MyWait = waitWhile(FALL_THROUGH(i))
+        waitUntil(FALL_THROUGH(i.rising))
+        waitUntil(i)
+        x.din := 0
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  val i = Bit <> IN
+         |  process:
+         |    x.din := 1
+         |    while (FALL_THROUGH(!i))
+         |    end while
+         |    val MyWait = while (FALL_THROUGH(i))
+         |    end MyWait
+         |    while (FALL_THROUGH(i.reg(1, init = 1) || (!i)))
+         |    end while
+         |    while (!i)
+         |    end while
+         |    x.din := 0
+         |end Foo""".stripMargin
+    )
+  }
+
   test("RT for loop with to is converted to while loop with <= guard") {
     class Foo extends RTDesign:
       val x = Bit <> OUT.REG

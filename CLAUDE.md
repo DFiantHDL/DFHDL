@@ -25,7 +25,9 @@ sbtn test             # run all unit tests
 sbtn testApps         # run simulation/app tests (requires OSS CAD tools)
 sbtn corePlayground   # limit test scope to core/Playground.scala only (fast iteration)
 sbtn libPlayground    # limit test scope to lib/Playground.scala only (fast iteration)
-sbtn clearSandbox     # delete sandbox/ directory
+sbtn clearSandbox     # delete sandbox/ directory (generated output + step cache)
+sbtn clearElabCache   # delete every target/scala-*/dfhdl-cache/ (sub-design elaboration cache)
+sbtn clearDFHDL       # both of the above
 sbtn docExamplesRefUpdate  # copy generated HDL from sandbox/ to lib/src/test/resources/ref/
 ```
 
@@ -103,6 +105,7 @@ Generated HDL reference files live in `lib/src/test/resources/ref/`. Update them
 | `.scalafmt.conf` | Code formatting rules |
 | `properdocs.yml` | Documentation site config (ProperDocs, a maintained MkDocs fork; build with `properdocs build`) |
 | `sandbox/` | Generated output during tests/apps (gitignored, cleared by `clearSandbox`) |
+| `*/target/scala-*/dfhdl-cache/` | Sub-design elaboration cache, keyed by code digest (cleared by `clearElabCache`; see [devdocs/elaboration-caching.md](devdocs/elaboration-caching.md)) |
 | `lib/src/test/resources/ref/` | Reference HDL output snapshots for regression tests |
 
 ## External Simulation Tools (for `testApps`)
@@ -113,8 +116,10 @@ CI installs these via OSS CAD Suite:
 
 ## Claude Instructions
 
-- When asked to **create a new compiler stage** or **modify an existing compiler stage**, always invoke the `/new-stage` skill before doing any work.
+- When asked to **fix a reported bug**, especially one where the generated HDL is wrong or illegal, invoke the `/bugfix` skill before doing any work.
+- When asked to **create a new compiler stage** or **modify an existing compiler stage**, always invoke the `/new-stage` skill before doing any work. This applies to *any* edit under `compiler/stages/`, including a one-line change; reading the skill file is not the same as invoking it.
 - When working on **compile time performance**, invoke the `/compile-perf` skill to review the methodology, known bottlenecks, and what has already been tried.
+- When working on the **DFacsimile native simulator** (`compiler/stages/src/main/scala/dfhdl/sim/`), invoke the `/dfacsimile` skill for the architecture, the fidelity contract, the lockstep testing methodology, and the banked gotchas.
 
 ## Licenses
 

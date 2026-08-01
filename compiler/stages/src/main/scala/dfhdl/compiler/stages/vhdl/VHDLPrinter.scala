@@ -28,8 +28,12 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   )
   val tupleSupportEnable: Boolean = false
   def csViaConnectionSep: String = ","
-  def csAssignment(lhsStr: String, rhsStr: String, shared: Boolean): String =
-    s"$lhsStr := $rhsStr;"
+  // VHDL spells the assignment after the target's object class, not after the blocking/non-blocking
+  // distinction: a variable takes `:=` and a signal takes `<=`. `isHDLVariable` is the same
+  // predicate that chooses the declaration keyword in `csDFValDclWithoutInit`.
+  def csAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String =
+    if (lhsDcl.isHDLVariable) s"$lhsStr := $rhsStr;"
+    else s"$lhsStr <= $rhsStr;"
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr <= $rhsStr;"
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =

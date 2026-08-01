@@ -35,6 +35,25 @@ sbtn.bat test            # then run tests — measure runtime workload
 ```
 This avoids conflating compile time with test runtime in measurements.
 
+### Elaboration Caches Skew Runtime Measurements
+
+The runtime half of the above is *elaboration*, and it is cached on disk. A second run of the same
+unchanged code re-uses the cached sub-design bodies, so it is legitimately much faster and is NOT a
+like-for-like measurement of a cold build. Two tiers matter:
+
+| Tier | Lives in | Cleared by |
+|---|---|---|
+| Sub-design elaboration cache | `*/target/scala-*/dfhdl-cache/` | `sbtn clearElabCache` |
+| DFApp step cache (per top design) | `sandbox/<Top>/cache` | `sbtn clearSandbox` |
+
+`sbtn clearDFHDL` clears both. Clear before any cold-start timing, and note that an sbt `clean` also
+drops the first tier (it sits beside the class output), which is one reason a post-`clean` run looks
+slower than a warm one for reasons that have nothing to do with the Scala compiler.
+
+There is also a process-wide in-memory tier in front of the disk, so repeat runs inside one sbt
+server session are faster again. `shutdown` between measurements if that matters. See
+`devdocs/elaboration-caching.md` for the full picture.
+
 ### When to Run `clean`
 
 - **After modifying `internals/` or `plugin/`** — the incremental compiler doesn't always detect changes in macro code or plugin classes. A stale compiled macro will produce the OLD tree even though the source changed. Always `clean` after touching:

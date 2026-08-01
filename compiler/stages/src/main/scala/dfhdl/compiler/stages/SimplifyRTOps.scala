@@ -48,6 +48,18 @@ import scala.annotation.tailrec
   * end while
   * }}}
   *
+  * The wait's tags carry over to the loop that replaces it, so a wait marked with `FALL_THROUGH`
+  * becomes a `FALL_THROUGH` loop and keeps costing no cycle when its condition already holds on
+  * entry:
+  * {{{
+  * // Before
+  * waitUntil(FALL_THROUGH(i))
+  *
+  * // After
+  * while (FALL_THROUGH(!i))
+  * end while
+  * }}}
+  *
   * ==Rule 3: Cycle-count wait → while loop with counter==
   *
   * A wait with a cycle count (`N.cy.wait`) is replaced by a `VAR.REG` counter assigned to zero
@@ -205,8 +217,11 @@ case object SimplifyRTOps extends HierarchyStage:
               trigger.dfType match
                 case DFBit => !(trigger.asValOf[dfhdl.core.DFBit])
                 case _     => !(trigger.asValOf[dfhdl.core.DFBool])
-          val whileBlock =
-            dfhdl.core.DFWhile.Block(fixedTrigger)(using dfc.setMeta(waitMember.meta))
+          // the wait's tags carry over to the loop that replaces it, so a `FALL_THROUGH` wait
+          // becomes a `FALL_THROUGH` loop (zero cycles when its condition holds on entry)
+          val whileBlock = dfhdl.core.DFWhile.Block(fixedTrigger)(using
+            dfc.setMeta(waitMember.meta).setTags(waitMember.tags)
+          )
           dfc.enterOwner(whileBlock)
           dfc.exitOwner()
         // a `not inner` trigger (from `waitWhile`) is discarded above (we loop on `inner`).
@@ -294,7 +309,8 @@ case object SimplifyRTOps extends HierarchyStage:
             case (DFRange.Op.To, s) if s >= 0    => newIterDcl <= endVal
             case (DFRange.Op.Until, _)           => newIterDcl > endVal
             case (DFRange.Op.To, _)              => newIterDcl >= endVal
-          val whileBlock = dfhdl.core.DFWhile.Block(guard)(using dfc.setMeta(forBlock.meta))
+          val whileBlock =
+            dfhdl.core.DFWhile.Block(guard)(using dfc.setMeta(forBlock.meta).setTags(forBlock.tags))
           dfc.enterOwner(whileBlock)
           // An empty for-loop body still requires the iterator increment inside the while loop,
           // and with no last body member to anchor an After patch on (see M2 below), the

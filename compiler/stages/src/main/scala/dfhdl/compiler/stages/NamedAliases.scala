@@ -9,6 +9,7 @@ import DFVal.Func.Op as FuncOp
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.ir.DFConditional.DFMatchHeader
 import dfhdl.compiler.stages.verilog.VerilogDialect
+import scala.annotation.tailrec
 
 // Names an anonymous relative value which is aliased.
 // The aliasing is limited according to the criteria provided
@@ -17,8 +18,42 @@ private abstract class NamedAliases extends HierarchyStage:
   def nullifies: Set[Stage] =
     Set(DFHDLUniqueNames, DropLocalDcls, ExplicitNamedVars, DropUnreferencedAnons)
   def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal]
-  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
-    val patches = subDB.members.view
+
+  // The conditional header a value has to be named in front of, if naming it where it was built
+  // would leave the name inside a conditional expression branch in a concurrent scope. Such a
+  // position is illegal (see `DB.condExprNamedValCheck`): the branch is not a block, so
+  // `ExplicitNamedVars` would drive the name by connection, and once `ExplicitCondExprAssign`
+  // wraps the expression into a `process(all)` that connection prints as an `assign` inside an
+  // `always_comb` in Verilog, and in VHDL as a signal assignment the next statement reads a delta
+  // cycle too early. `getTopConditionalHeader` climbs to the outermost conditional in the same
+  // scope, the anchor `DropLocalDcls` also uses. A conditional chain never crosses a domain
+  // boundary, so the walk stops there, which keeps it clear of the top's empty owner ref.
+  private def hoistAnchorOf(dfVal: DFVal)(using MemberGetSet): Option[DFConditional.Header] =
+    @tailrec def condExprBlockOf(member: DFMember): Option[DFConditional.Block] =
+      member.getOwner match
+        case cb: DFConditional.Block =>
+          if (cb.getHeaderCB.dfType == DFUnit) condExprBlockOf(cb) else Some(cb)
+        case _: DFDomainOwner => None
+        case owner            => condExprBlockOf(owner)
+    if (dfVal.isInEDDomain && !dfVal.isInProcess)
+      condExprBlockOf(dfVal).map(_.getTopConditionalHeader)
+    else None
+
+  // Everything that has to travel with the hoisted value: its anonymous dependency cone, and for
+  // any conditional expression in that cone the whole construct, since a header cannot leave the
+  // branch without the blocks it owns. Members already outside the branch stay where they are.
+  // The cone is ordered dependencies-first, which is the order the moved members must keep.
+  private def hoistMembers(named: DFVal)(using MemberGetSet): List[DFMember] =
+    named.collectRelMembers(includeOrigVal = true).flatMap {
+      case relVal if hoistAnchorOf(relVal).isEmpty => Nil
+      case ch: DFConditional.Header                =>
+        ch :: ch.getCBList.flatMap(cb => cb :: cb.members(MemberView.Flattened))
+      case relVal => List(relVal)
+    }
+  // One naming pass. Returns an empty list once nothing anonymous meets the criteria any more,
+  // which is what terminates the loop in `transformSubDB`.
+  private def collectPatches(db: DB)(using MemberGetSet, CompilerOptions): List[(DFMember, Patch)] =
+    val patches = db.members.view
       // just values
       .collect { case dfVal: DFVal if dfVal.isAnonymous => dfVal }
       // filter out partial net destinations
@@ -41,25 +76,63 @@ private abstract class NamedAliases extends HierarchyStage:
       )
       // split to list of aliases and list of suggested names for each group
       .map(_.unzip)
-      // for each group use just the head to create the named member and patch
-      // all members to reference that member
-      .flatMap {
-        case (firstAlias :: restOfAliases, suggestedName :: _) =>
-          // we force set the underlying original name before it was anonymized
-          val namedMember = firstAlias.setName(suggestedName)
-          // first alias gets a full replacement
-          val firstPatch =
-            firstAlias -> Patch.Replace(namedMember, Patch.Replace.Config.FullReplacement)
-          // the rest of the aliases (if there are any) are just a reference change
-          firstPatch :: restOfAliases.map(
-            _ -> Patch.Replace(
-              namedMember,
-              Patch.Replace.Config.ChangeRefOnly
-            )
-          )
-        case _ => Nil
+      // for each group use just the head to create the named member, along with the members that
+      // have to travel with it when its position cannot hold a name
+      .collect { case (firstAlias :: restOfAliases, suggestedName :: _) =>
+        // we force set the underlying original name before it was anonymized
+        val namedMember = firstAlias.setName(suggestedName)
+        val moved = hoistAnchorOf(firstAlias).map(anchor => (anchor, hoistMembers(firstAlias)))
+        (firstAlias, namedMember, restOfAliases, moved)
       }.toList
-    subDB.patch(patches)
+    // Two groups can both need to relocate the same sub-tree, because the cone of an outer value
+    // reaches a conditional expression that is a naming group of its own (`(if (d) p else q) + 1`
+    // names both). Moving it twice duplicates it in the member list, so only the innermost group
+    // acts in this pass: a group whose own value another group would carry is dropped entirely,
+    // left anonymous, and picked up by the next pass, once the value it reads sits outside the
+    // branch and no longer moves with it.
+    val carriedByOthers = patches.view.flatMap { case (firstAlias, _, _, moved) =>
+      moved.view.flatMap(_._2).filterNot(_ eq firstAlias)
+    }.toSet
+    patches.filterNot((firstAlias, _, _, _) => carriedByOthers.contains(firstAlias))
+      .flatMap { (firstAlias, namedMember, restOfAliases, moved) =>
+        // the first alias is named in place, unless that place cannot hold a name, in which case
+        // it is named and relocated together. `ChangeRefAndRemove` is what makes the two one
+        // patch: it drops the original from its illegal position and redirects its readers, while
+        // the move inserts the *named* instance before the conditional. `FullReplacement` could
+        // not be used here, because `Patch.Move` emits a `Remove` per moved member and
+        // `Replace` + `Remove` on one member is not a mergeable combination.
+        val firstPatches = moved match
+          case Some((anchor, movedMembers)) =>
+            val relocated = movedMembers.map {
+              case m if m eq firstAlias => namedMember
+              case m                    => m
+            }
+            List(
+              firstAlias -> Patch.Replace(namedMember, Patch.Replace.Config.ChangeRefAndRemove),
+              anchor -> Patch.Move(relocated, firstAlias.getOwner, Patch.Move.Config.Before)
+            )
+          case None =>
+            List(firstAlias -> Patch.Replace(namedMember, Patch.Replace.Config.FullReplacement))
+        // the rest of the aliases (if there are any) are just a reference change
+        firstPatches ::: restOfAliases.map(
+          _ -> Patch.Replace(
+            namedMember,
+            Patch.Replace.Config.ChangeRefOnly
+          )
+        )
+      }
+  end collectPatches
+
+  def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
+    // a pass that only handled the innermost of two overlapping groups leaves the outer one
+    // anonymous, so it is still a criteria match and the next pass picks it up
+    @tailrec def recur(db: DB)(using MemberGetSet): DB =
+      val patches = collectPatches(db)
+      if (patches.isEmpty) db
+      else
+        val patchedDB = db.patch(patches)
+        recur(patchedDB)(using patchedDB.getSet)
+    recur(subDB)
   end transformSubDB
 end NamedAliases
 
@@ -190,9 +263,9 @@ case object NamedAnonMultiref extends NamedAliases, NoCheckStage:
       else Nil
 end NamedAnonMultiref
 
-//Names anonymous conditional expressions, as long as they are not referenced by an ident which indicates that
-//they are themselves inside another conditional expression, and as long as they are not directly assigned to
-//a declaration or connected to an output port
+//Names anonymous conditional expressions, as long as they are not the result of an enclosing
+//construct that carries them through its own lowering, and as long as they are not directly
+//assigned to a declaration or connected to an output port
 case object NamedAnonCondExpr extends NamedAliases:
   override def dependencies: List[Stage] = List()
   def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal] = dfVal match
@@ -203,8 +276,16 @@ case object NamedAnonCondExpr extends NamedAliases:
           case DFNet.Assignment(toVal = _: DFVal.Dcl) => false
           // directly connected to an output port
           case DFNet.Connection(toVal = DclOut()) => false
-          // is referenced by an ident, which means it is used in another conditional expression
-          case Ident(_) => false
+          // referenced by an ident that trails a scope (a conditional-expression branch, or a
+          // fall-through step block), which means the conditional is that scope's result and the
+          // enclosing construct lowers it along with itself.
+          //
+          // A method's return wiring is an ident too, but it trails the method body rather than a
+          // scope, so nothing downstream would lower the conditional under it and the backend
+          // would be left printing a conditional expression it has no form for. Such a
+          // conditional is named here, and `ExplicitNamedVars` turns the name into a variable
+          // that each branch assigns and the return ident then reads.
+          case ident @ Ident(_) if !ident.getOwner.isInstanceOf[DFDesignBlock] => false
         }.getOrElse(true)
       if (nameIt) List(dfVal)
       else Nil
@@ -214,3 +295,7 @@ end NamedAnonCondExpr
 extension [T: HasDB](t: T)
   def namedAnonMultiref(using CompilerOptions): DB =
     StageRunner.run(NamedAnonMultiref)(t.db)
+
+extension [T: HasDB](t: T)
+  def namedAnonCondExpr(using CompilerOptions): DB =
+    StageRunner.run(NamedAnonCondExpr)(t.db)

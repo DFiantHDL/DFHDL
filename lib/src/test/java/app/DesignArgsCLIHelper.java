@@ -28,8 +28,14 @@ public final class DesignArgsCLIHelper {
     // entry object named by the nesting path, so its `main` is a static method.
     private static final String NESTED_MODULE_CLASS = "app.nestedcli_NestedCLIFoo$";
 
+    private static final String ELAB_FLAGS_MODULE_CLASS = "app.TestCLIElabFlags$";
+
     public static void invokeTopTestCLIFoo(String[] args) {
         invokeModuleMain(MODULE_CLASS, args);
+    }
+
+    public static void invokeTopTestCLIElabFlags(String[] args) {
+        invokeModuleMain(ELAB_FLAGS_MODULE_CLASS, args);
     }
 
     public static void invokeTopNestedCLIFoo(String[] args) {

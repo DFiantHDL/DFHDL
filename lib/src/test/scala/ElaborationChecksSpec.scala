@@ -705,4 +705,186 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |Message:   A `match` selector inside an `initial` block under a register-transfer (RT) domain must be a constant.""".stripMargin
     )
+  test("named register DIN read"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val r = UInt(8) <> VAR.REG init 0
+        val d = r.din
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:712:17 - 712:22
+          |Hierarchy: Top.d
+          |Operation: `.din`
+          |Message:   Cannot name a register DIN read.
+          |Reading `.din` yields the register's pending value at the position of the read, so binding it
+          |to a Scala `val` would hold a live view and not the snapshot it appears to be.
+          |To Fix: apply `.din` directly where it is read. E.g.:
+          |* Instead of `val d = x.din` followed by `y := d + 1` write `y := x.din + 1`.
+          |""".stripMargin
+    )
+  // Scala allows referencing a class member before its definition inside the class body and
+  // silently yields `null` for it, so a forward reference reaches DFHDL as a `null` value/type.
+  test("forward referenced value in a connection"):
+    class Sub extends RTDesign:
+      val i = Bit <> IN
+      val o = Bit <> OUT
+      o := i
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val i = Bit <> IN
+        val o = Bit <> OUT
+        val sub1 = Sub()
+        sub1.i <> i
+        sub1.o <> fwdIn
+        val sub2 = Sub()
+        val fwdIn = sub2.i
+        sub2.i <> sub1.o
+        o <> sub2.o
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:740:9 - 740:24
+          |Hierarchy: Top
+          |Operation: `<>`
+          |Message:   Found a reference to an uninitialized DFHDL value.
+          |This is caused by a forward reference: the value is declared later in the class body.
+          |To Fix:
+          |Move the declaration before its first use.
+          |""".stripMargin
+    )
+  test("forward referenced value in an assignment"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val i = Bit <> IN
+        val o = Bit <> OUT
+        o := fwd
+        val fwd = Bit <> VAR
+        fwd := i
+        o := fwd
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:763:9 - 763:17
+          |Hierarchy: Top
+          |Operation: `:=`
+          |Message:   Found a reference to an uninitialized DFHDL value.
+          |This is caused by a forward reference: the value is declared later in the class body.
+          |To Fix:
+          |Move the declaration before its first use.
+          |""".stripMargin
+    )
+  test("forward referenced dfhdl type"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val i = Bit <> IN
+        val o = Bit <> OUT
+        val bad = MyType <> VAR
+        val MyType = Bits(8)
+        o := i
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:785:19 - 785:32
+          |Hierarchy: Top.bad
+          |Operation: `Port/Variable constructor`
+          |Message:   Found a reference to an uninitialized DFHDL type.
+          |This is caused by a forward reference: the type is declared later in the class body.
+          |To Fix:
+          |Move the declaration before its first use.
+          |""".stripMargin
+    )
+  // a method may be forward referenced (it is a Scala `def`), but a value its body captures
+  // must still be declared above the call site that elaborates the body. Naming the error also
+  // exercises a method design block whose instance cache was never set, because it aborted.
+  test("forward referenced value captured by a method body"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        y <> addK(a)
+        def addK(l: UInt[8] <> VAL): UInt[8] <> EDRET = l + k
+        val k: UInt[8] <> CONST = 5
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:809:14 - 809:21
+          |Hierarchy: Top.addK
+          |Operation: `designFromDefImpl`
+          |Message:   Found a reference to an uninitialized DFHDL value.
+          |This is caused by a forward reference: the value is declared later in the class body.
+          |To Fix:
+          |Move the declaration before its first use.
+          |""".stripMargin
+    )
+  // An ED domain body is a concurrent scope, so a conditional expression branch in it is not a
+  // block and cannot hold a named value. Such a value would be driven by a connection, which the
+  // backend prints as an `assign` inside the `always_comb` the expression is wrapped into.
+  test("named values inside concurrent conditional expression branches"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val c = Bit <> IN
+        val i = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        o <> (
+          if (c) i + 1
+          else
+            val inv = ~i.bits
+            inv.uint
+        )
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL conditional expression error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:837:23 - 837:30
+          |Hierarchy: Top
+          |Message:   Found the named value `inv` inside a conditional expression branch.
+          |An event-driven (ED) domain body is a concurrent scope, so a conditional expression
+          |branch in it is not a block and cannot hold a named value declaration.
+          |To Fix:
+          |Move the declaration before the conditional expression, place the conditional
+          |expression inside a `process`, or turn it into a conditional statement that assigns
+          |or connects its result.""".stripMargin
+    )
+  // In a sequential scope the branch lowers to a procedural block, so the named value becomes a
+  // plain blocking assignment inside it. Legal in an ED process, in an RT domain, and in a
+  // conditional *statement* branch (whose branch is a block regardless of the scope).
+  test("named values inside sequential conditional expression branches are allowed"):
+    object Test:
+      @top(false) class EDProc extends EDDesign:
+        val c = Bit <> IN
+        val i = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        process(all):
+          o :=
+            (if (c) i + 1
+             else
+               val inv = ~i.bits; inv.uint)
+      @top(false) class RTBody extends RTDesign:
+        val c = Bit <> IN
+        val i = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        o <>
+          (if (c) i + 1
+           else
+             val inv = ~i.bits; inv.uint)
+      @top(false) class EDStmt extends EDDesign:
+        val c = Bit <> IN
+        val i = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        process(all):
+          if (c) o := i + 1
+          else
+            val inv = ~i.bits
+            o := inv.uint
+    end Test
+    import Test.*
+    assertElaborationErrors(EDProc())("No error found")
+    assertElaborationErrors(RTBody())("No error found")
+    assertElaborationErrors(EDStmt())("No error found")
 end ElaborationChecksSpec

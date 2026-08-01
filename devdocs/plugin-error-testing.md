@@ -143,8 +143,27 @@ mapping. Metals/BSP export `Test / scalacOptions`, so the gating applies in the 
 - Single-phase `MegaPhase` wrapping means `transformFollowing`/`transformAllDeep` inside a
   nested phase sees only that phase, whereas the real pipeline may fuse consecutive minis.
   Fine for diagnostics; a known fidelity gap for tree shapes.
-- Collected messages are raw: the fresh typer state bypasses the `CustomReporter` that
-  `PreTyperPhase.initContext` installs for the real run, exactly as `typeCheckErrors` does.
+- **Messages are collected through `Message.toString`, not `Diagnostic.message`.** The fresh
+  typer state bypasses the `CustomReporter` that `PreTyperPhase.initContext` installs for the
+  real run, so the collection step has to reproduce what that reporter does. It matters:
+  `message` renders under `Message.inMessageContext`, which pins the printer to the compiler's
+  own `Message.Printer` and therefore never sees the DFHDL type printer, whereas `toString`
+  renders under the context the message captured, where that printer is live. Going through
+  `toString` is what lets a snippet assert the text a user actually reads (`Bits[8] <> VAR`
+  rather than `dfhdl.core.DFVal[...]`), and it is the only way to test the printer at all:
+  `typeCheckErrors` packs its diagnostics with `message` and cannot be made to do otherwise.
+  `toString` also leaves out the `msgPostscript` addenda (import suggestions and the like),
+  which keeps expected strings to the diagnostic itself; ANSI colour escapes are stripped the
+  same way `Diagnostic.message` strips them.
+
+## Beyond plugin errors: the DFHDL type printer
+
+`TypePrinterSpec` uses the same helper for a different purpose: asserting how the plugin's
+`DFHDLTypePrinter` names DFHDL types inside ordinary compiler diagnostics (a type mismatch, a
+missing member). Those are typer errors, so `assertCompileError` reaches them just fine, but it
+renders them with the compiler's own `Message.Printer` and would report
+`dfhdl.core.DFVal[dfhdl.core.DFType[...], ...]` where the user sees `Bits[8] <> VAR`. Use
+`assertPluginError` for anything that asserts on how a type is printed.
 
 ## Coverage
 

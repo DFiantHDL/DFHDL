@@ -51,6 +51,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
   // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
+  var dfcTpe: TypeRef = uninitialized
   var designTpe: TypeRef = uninitialized
   var resourceOwnerTpe: TypeRef = uninitialized
   var portModTpe: TypeRef = uninitialized
@@ -237,10 +238,26 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
         val dsnInstArgs = paramVDs.map(vd =>
           ref(appSym).select("getDsnArg".toTermName).appliedTo(Literal(Constant(vd.name.toString)))
         )
-        val dsnInst = New(clsSym.typeRef, dsnInstArgs)
+        // The instantiation is hosted by a local method taking a DFHDL context, so that the
+        // MetaContextPlacer phase binds the design to that parameter (its normal rule: a
+        // design takes the context in scope where it is instantiated) instead of falling back
+        // to the elaboration options at the design's declaration site. The app supplies the
+        // context, so the top design elaborates under the options the app resolved, command
+        // line included. `setDsn` takes its argument by name, so the call below runs at
+        // elaboration time, once `run` has had the command line.
+        val mkDsnSym = newSymbol(
+          mainSym,
+          "mkDsn".toTermName,
+          Synthetic | Method,
+          MethodType(List("dfc".toTermName), List(dfcTpe), clsSym.typeRef),
+          coord = span
+        ).asTerm
+        val mkDsnDef = DefDef(mkDsnSym, _ => New(clsSym.typeRef, dsnInstArgs))
+        val dsnInst =
+          ref(mkDsnSym).appliedTo(ref(appSym).select("getDsnDFC".toTermName))
         val setDsnCall = ref(appSym).select("setDsn".toTermName).appliedTo(dsnInst)
         val runCall = ref(appSym).select("run".toTermName).appliedTo(argsRef)
-        Block(List(appVal, setInitialsCall, setDsnCall), runCall)
+        Block(List(appVal, setInitialsCall, mkDsnDef, setDsnCall), runCall)
     )
     mainDef.withSpan(span)
   end mkMainDef
@@ -486,6 +503,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     topAnnotSym = requiredClass("dfhdl.top")
     appTpe = requiredClassRef("dfhdl.app.DFApp")
+    dfcTpe = requiredClassRef("dfhdl.core.DFC")
     designTpe = requiredClassRef("dfhdl.core.Design")
     resourceOwnerTpe = requiredClassRef("dfhdl.platforms.resources.ResourceOwner")
     portModTpe = requiredClassRef("dfhdl.core.Modifier.Port")

@@ -131,11 +131,14 @@ case object ToED extends HierarchyStage:
                 case _ =>
               }
             def collectFilter(member: DFMember): Boolean = member match
-              case IteratorDcl()                                      => true
-              case _: DFVal.Dcl                                       => false
-              case _: DFVal.DesignParam                               => false
-              case DclConst()                                         => false
-              case _: DFOwnerNamed                                    => false
+              case IteratorDcl()        => true
+              case _: DFVal.Dcl         => false
+              case _: DFVal.DesignParam => false
+              case DclConst()           => false
+              case _: DFOwnerNamed      => false
+              // a DIN read marker is replaced outright (see `dinReadPatches`), so it must not also
+              // be moved into the generated process: the two patches would collide on it
+              case _: DFVal.Alias.RegDIN                              => false
               case dfVal: DFVal if dfVal.isReferencedByAnyDclOrDesign => false
               case _                                                  => true
 
@@ -165,9 +168,21 @@ case object ToED extends HierarchyStage:
               }.toList
             end getProcessAllMembers
             val combinationalMembers = getProcessAllMembers(nonInitialMembers)
+            // A DIN read yields the register's pending value AT THE POSITION OF THE READ, so the
+            // statement holding it must stay in the process body, in order. Promoting it to a
+            // concurrent connection would instead read the shadow variable's final value, and when
+            // the same statement also feeds that shadow it closes a combinational loop:
+            // {{{
+            // always_comb begin r_din = r; r_din = sum; end
+            // assign sum = r_din + 8'd1;   // sum depends on r_din depends on sum
+            // }}}
+            def readsDIN(net: DFNet): Boolean = net.collectRelMembers.exists {
+              case _: DFVal.Alias.RegDIN => true
+              case _                     => false
+            }
             val singleAssignments = combinationalMembers.flatMap {
               case net @ DFNet.Assignment(dcl: DFVal.Dcl, from)
-                  if !dcl.isReg &&
+                  if !dcl.isReg && !readsDIN(net) &&
                     assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
                 net.collectRelMembers.filter(collectFilter) :+ net
               case _ => Nil
@@ -214,6 +229,28 @@ case object ToED extends HierarchyStage:
                   domainIsPureSequential = false
               case x =>
             }
+            // ==== register DIN reads ====
+            // `r.din` read as a value is the register's pending next-cycle value, which is exactly
+            // what the `<reg>_din` shadow variable below holds. Such a read therefore needs the
+            // shadow variable to exist (so the domain cannot stay purely sequential) and to be
+            // seeded with the register's own value, so that a read taken before any assignment in
+            // the cycle body yields the register. The reads themselves are resolved to the variable
+            // further down, together with the assignment redirection that already happens there.
+            val dinReadAliases = nonInitialMembers.collect { case a: DFVal.Alias.RegDIN => a }
+            val dinReadREGs =
+              dinReadAliases.flatMap(_.relValRef.get.departialDcl.map(_._1)).distinct
+            dinReadREGs.foreach { dcl =>
+              // mirrors the assignment path above: the DIN may belong to a Dcl outside this domain,
+              // and marking it handled keeps another domain from claiming it too
+              dclREGSet += dcl
+              handledDesignREGDclSet += dcl
+              dclREGRequiresDefaultSet += dcl
+            }
+            if (dinReadAliases.nonEmpty) domainIsPureSequential = false
+            // an assignment whose target resolves to a DIN-read register's shadow (used by the
+            // VHDL process-variable form below, where such an assignment must stay blocking)
+            def assignsDinReadShadow(net: DFNet): Boolean =
+              net.lhsRef.get.departialDcl.exists((dcl, _) => dinReadREGs.contains(dcl))
             // the full list of handled REG Dcls in this domain
             val dclREGList = dclREGSet.toList
             val hasSeqProcess =
@@ -246,51 +283,101 @@ case object ToED extends HierarchyStage:
                       case ch: DFConditional.Header => true
                       case _                        => false
                     })
+                // VHDL only, and only for a shadow that is READ: under signal assignment every RHS
+                // sees the pre-process value, so a read-modify-write chain such as `r_din <= r_din
+                // + 1` twice increments once, and being self-referential inside a `process(all)` it
+                // never settles. Such a shadow therefore becomes a process VARIABLE with blocking
+                // assignments, published to the design-level signal as the last statement of the
+                // process. The signal is what the clocked process and any concurrent reader see.
+                // Verilog needs none of this: its shadow is already assigned blocking in
+                // `always_comb`. Keyed per register, so a register without DIN reads is untouched.
+                val dinLocalVars = mutable.Map.empty[DFVal.Dcl, DFVal]
                 if (hasProcessAll)
                   process(all) {
                     val inVHDL = co.backend.isVHDL
+                    if (inVHDL)
+                      dclChangeList.foreach { (dclREG, dcl_din) =>
+                        if (dinReadREGs.contains(dclREG))
+                          dinLocalVars += dclREG -> dcl_din.asValAny.genNewVar(using
+                            dfc.setMeta(dcl_din.meta.setName(s"${dcl_din.getName}_v"))
+                          ).asIR
+                      }
                     dclChangeList.foreach {
                       case (dclREG, dcl_din) if dclREGRequiresDefaultSet.contains(dclREG) =>
-                        if (inVHDL) dcl_din.asVarAny :== dclREG.asValAny
-                        else dcl_din.asVarAny := dclREG.asValAny
+                        dinLocalVars.get(dclREG) match
+                          case Some(local)    => local.asVarAny := dclREG.asValAny
+                          case None if inVHDL => dcl_din.asVarAny :== dclREG.asValAny
+                          case None           => dcl_din.asVarAny := dclREG.asValAny
                       case _ => // do nothing
                     }
                     if (inVHDL)
                       plantMembers(
                         domainOwner,
                         processBlockAllMembers.view.map {
+                          // an assignment into a DIN-read shadow keeps its blocking form: the
+                          // shadow is a process variable, not a signal
+                          case net: DFNet if assignsDinReadShadow(net) => net
                           case net: DFNet => net.copy(op = DFNet.Op.NBAssignment)
                           case m          => m
                         }
                       )
                     else plantMembers(domainOwner, processBlockAllMembers)
+                    // publish the process variables to their design-level signals
+                    dclChangeList.foreach { (dclREG, dcl_din) =>
+                      dinLocalVars.get(dclREG).foreach { local =>
+                        dcl_din.asVarAny :== local.asValAny
+                      }
+                    }
                   }
                 // create map of all reg dcls references that are used to assign to the registers,
                 // or partial selection of the registers
                 val dclChangeRefMap = mutable.Map.empty[DFVal.Dcl, Set[DFRefAny]]
+                @tailrec def addDinRef(ref: DFRefAny): Unit =
+                  ref.get match
+                    case dcl: DFVal.Dcl if dcl.isReg =>
+                      dclChangeRefMap += dcl -> (dclChangeRefMap.getOrElse(dcl, Set()) + ref)
+                    case partial: DFVal.Alias.Partial =>
+                      addDinRef(partial.relValRef)
+                    case _ => // do nothing
                 processBlockAllMembers.foreach {
-                  case net: DFNet =>
-                    @tailrec def addDinRef(ref: DFRefAny): Unit =
-                      ref.get match
-                        case dcl: DFVal.Dcl if dcl.isReg =>
-                          dclChangeRefMap += dcl -> (dclChangeRefMap.getOrElse(dcl, Set()) + ref)
-                        case partial: DFVal.Alias.Partial =>
-                          addDinRef(partial.relValRef)
-                        case _ => // do nothing
-                    addDinRef(net.lhsRef)
-                  case _ => // do nothing
+                  case net: DFNet => addDinRef(net.lhsRef)
+                  case _          => // do nothing
+                }
+                // A partial DIN read (`r(5, 0).din`) keeps its existing selection chain and only
+                // needs that chain re-rooted at the shadow variable, which is the very same
+                // redirection an assignment LHS gets. A whole-value read has no chain to re-root
+                // and is swapped for the variable directly (see `dinReadPatches`).
+                dinReadAliases.foreach { alias =>
+                  alias.relValRef.get match
+                    case dcl: DFVal.Dcl if dcl.isReg => // no chain
+                    case _                           => addDinRef(alias.relValRef)
                 }
                 val dclChangePatch = dclChangeList.map((from, to) =>
                   val changeRefs = dclChangeRefMap.getOrElse(from, Set()).toSet
                   val refFilter = new Patch.Replace.RefFilter:
                     def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
                       changeRefs
+                  // every redirected ref (assignment LHS and DIN read alike) originates from a
+                  // member that lands inside the combinational process, so under the VHDL
+                  // process-variable form they all resolve to the local rather than the signal
                   from -> Patch.Replace(
-                    to,
+                    dinLocalVars.getOrElse(from, to),
                     Patch.Replace.Config.ChangeRefOnly,
                     refFilter
                   )
                 )
+                // the DIN read marker itself is dropped: a whole-value read becomes the shadow
+                // variable, a partial read becomes its (now re-rooted) selection chain
+                private val dinVarMap = dclChangeList.toMap
+                val dinReadPatches = dinReadAliases.flatMap { alias =>
+                  val target = alias.relValRef.get match
+                    case dcl: DFVal.Dcl if dcl.isReg =>
+                      dinLocalVars.get(dcl).orElse(dinVarMap.get(dcl))
+                    case relVal => Some(relVal)
+                  target.map(t =>
+                    alias -> Patch.Replace(t, Patch.Replace.Config.ChangeRefAndRemove)
+                  )
+                }
 
             val processSeqDsn =
               new MetaDesign(domainOwner, Patch.Add.Config.InsideLast, domainType = ED):
@@ -388,6 +475,7 @@ case object ToED extends HierarchyStage:
             List(
               Some(domainOwner -> Patch.Add(processAllDsn, Patch.Add.Config.InsideLast)),
               processAllDsn.dclChangePatch,
+              processAllDsn.dinReadPatches,
               Some(domainOwner -> Patch.Add(processSeqDsn, Patch.Add.Config.InsideLast)),
               movedMembersRemovalPatches,
               initialRemovalPatches

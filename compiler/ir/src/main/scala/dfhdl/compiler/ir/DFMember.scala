@@ -185,9 +185,13 @@ object DFMember:
 
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
-      case o: DFDesignBlock if o.isTop          => o.dclName
-      case o: DFDesignBlock if getSet.isMutable => o.getCachedDesignInst.getName
-      case _                                    => meta.name
+      case o: DFDesignBlock if o.isTop => o.dclName
+      // the instance cache is empty when the block never completed elaboration, as happens
+      // when an error is raised inside it. Naming it is then still required to render that
+      // error, and the declared meta name is the best available name.
+      case o: DFDesignBlock if getSet.isMutable =>
+        o.getCachedDesignInstOpt.map(_.getName).getOrElse(meta.name)
+      case _ => meta.name
     final lazy val isAnonymous: Boolean = meta.isAnonymous
     final def getFullName(using MemberGetSet): String = this match
       case o: DFDesignBlock if o.isTop => getName
@@ -237,24 +241,32 @@ sealed trait DFVal extends DFMember.Named:
       getSet: MemberGetSet,
       policy: ConstData.CachePolicy
   ): ConstData[T] =
+    // the cache holds the `Always` answer only. A design parameter is the sole member whose
+    // answer depends on the policy (every other `protGetConstData` just propagates it), and it
+    // diverges in exactly one direction: `Always` leaves a parameter an opaque `UnknownConst`
+    // where the resolving policies fold its applied/default data. So an `Always` answer that is
+    // NOT `UnknownConst` reached no parameter at all and is therefore policy-independent, while
+    // a resolved answer may have gone through one and must never reach the shared slot.
     policy match
-      case ConstData.CachePolicy.NoCache =>
-        cachedConstDataReady = false
-      case ConstData.CachePolicy.GoThroughDesignParams if this.isDesignParam =>
-        cachedConstDataReady = false
+      case ConstData.CachePolicy.Always =>
+        if (cachedConstDataReady) cachedConstData.asInstanceOf[ConstData[T]]
+        else
+          cachedConstData = protGetConstData
+          // disable NotConst constant data caching during mutation, since some data like CLK_FREQ
+          // cannot be attained during mutation and returns NotConst
+          cachedConstDataReady = !(getSet.isMutable && cachedConstData == ConstData.NotConst)
+          cachedConstData.asInstanceOf[ConstData[T]]
+      // consulting the cache through the `Always` answer keeps the parameter-free part of the
+      // cone memoized: only an `UnknownConst` needs the resolve-through-parameters walk, and that
+      // walk in turn answers each of its own parameter-free arguments straight from the cache, so
+      // only the parameter-dependent spine is ever recomputed
+      case ConstData.CachePolicy.GoThroughDesignParams if !this.isDesignParam =>
+        getConstData[T](using getSet, ConstData.CachePolicy.Always) match
+          case ConstData.UnknownConst(_) => protGetConstData.asInstanceOf[ConstData[T]]
+          case policyIndependent         => policyIndependent
       case _ =>
-    if (cachedConstDataReady) cachedConstData.asInstanceOf[ConstData[T]]
-    else
-      cachedConstData = protGetConstData
-      // disable NotConst constant data caching during mutation, since some data like CLK_FREQ
-      // cannot be attained during mutation and returns NotConst
-      cachedConstDataReady =
-        policy match
-          case ConstData.CachePolicy.NoCache                                     => false
-          case ConstData.CachePolicy.GoThroughDesignParams if this.isDesignParam => false
-          case _                                                                 =>
-            !(getSet.isMutable && cachedConstData == ConstData.NotConst)
-      cachedConstData.asInstanceOf[ConstData[T]]
+        cachedConstDataReady = false
+        protGetConstData.asInstanceOf[ConstData[T]]
   end getConstData
   final def getConstDataThroughParams[T](using MemberGetSet): Option[T] =
     getConstData[T](using getSet, ConstData.CachePolicy.GoThroughDesignParams).toOption
@@ -873,6 +885,7 @@ object DFVal:
     given ReadWriter[Alias] = ReadWriter.merge(
       summon[ReadWriter[DFVal.Alias.AsIs]],
       summon[ReadWriter[DFVal.Alias.History]],
+      summon[ReadWriter[DFVal.Alias.RegDIN]],
       summon[ReadWriter[DFVal.Alias.ApplyRange]],
       summon[ReadWriter[DFVal.Alias.ApplyIdx]],
       summon[ReadWriter[DFVal.Alias.SelectField]]
@@ -974,6 +987,44 @@ object DFVal:
         def hasNonBubbleInit(using MemberGetSet): Boolean = history.initRefOption match
           case Some(DFRef(dfVal)) => !dfVal.isBubble
           case _                  => false
+
+    /** A read of a register's DIN (`r.din` under an RT domain): the pending next-cycle value of
+      * `relValRef`, meaning the latest assignment committed to it so far in the current cycle body,
+      * or the register's own value when nothing has been assigned yet. `ToED` lowers it into a read
+      * of the register's `_din` shadow variable, which it already generates.
+      *
+      * This is a `Consumer` and deliberately not a `Partial`: it must never propagate
+      * assignability, so it cannot reach an assignment LHS and `departialDcl` stops at it. Every
+      * generic alias walker then treats it as a plain read of the register, which is the correct
+      * conservative reading for the stages it passes through on the way to `ToED`.
+      */
+    final case class RegDIN(
+        dfType: DFType,
+        relValRef: ConsumerRef,
+        ownerRef: DFOwner.Ref,
+        meta: Meta,
+        tags: DFTags
+    ) extends Consumer derives ReadWriter:
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous
+      protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
+        ConstData.NotConst
+      protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+        case that: RegDIN =>
+          this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
+          this.meta =~ that.meta && this.tags =~ that.tags
+        case _ => false
+      protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+      protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+      def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
+      def copyWithNewRefs(using RefGen): this.type = copy(
+        meta = meta.copyWithNewRefs,
+        dfType = dfType.copyWithNewRefs,
+        ownerRef = ownerRef.copyAsNewRef,
+        relValRef = relValRef.copyAsNewRef
+      ).asInstanceOf[this.type]
+    end RegDIN
 
     final case class ApplyRange(
         dfType: DFType,
@@ -2018,6 +2069,9 @@ final case class Wait(
     meta: Meta,
     tags: DFTags
 ) extends Statement:
+  // A conditional wait that costs no cycle when its condition already holds on entry
+  // (`waitUntil(FALL_THROUGH(cond))`).
+  def isFallThrough(using MemberGetSet): Boolean = this.hasTagOf[FallThroughTag]
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: Wait =>
       this.triggerRef =~ that.triggerRef &&

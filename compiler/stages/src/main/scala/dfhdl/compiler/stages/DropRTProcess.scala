@@ -115,8 +115,9 @@ import dfhdl.core.{DFValAny, DFOwnerAny, asValAny, DFC}
   * waiting). When transitioning into `S`:
   *   1. Inline `S.onEntry` (if any) and assign `stateReg.din := S`.
   *   2. Emit a conditional `if (fallThroughCondition)` block.
-  *   3. Inside that block, recursively apply steps 1–2 for the next step (the one `S`
-  *      itself eventually transitions to via its own `Goto`).
+  *   3. Inside that block, recursively apply steps 1–2 for `S`'s *default exit* — the target
+  *      of the last `Goto` on `S`'s dispatch path, i.e. where control lands when `S` neither
+  *      stays put nor takes an earlier branch.
   * The `fallThrough` condition represents the *exit* predicate — when true, control passes
   * to the subsequent step without registering in `S`.
   * {{{
@@ -146,11 +147,22 @@ import dfhdl.core.{DFValAny, DFOwnerAny, asValAny, DFC}
   *     end if
   *   end if
   * }}}
+  * The default exit is deliberately not the declaration-order successor in the flat state
+  * list. A step whose own body holds further states — a loop step whose body waits — is
+  * followed in that list by its own body's first state, while its exit leaves the loop:
+  * {{{
+  * // a `FALL_THROUGH` loop with a waiting body lowers to S_1 (the loop) + S_1_0 (the body's
+  * // wait) + S_2 (whatever follows the loop), declared in that order
+  * case State.S_0 =>
+  *   state.din := State.S_1
+  *   if (!go) state.din := State.S_2     // S_1's exit, NOT the S_1_0 that follows it
+  * }}}
   *
   * ===Rule 5: Circular fall-through protection===
   * The recursive `fallThrough` chain stops as soon as the next step to handle equals the
-  * step that contains the original `Goto`. This prevents infinite expansion when the fall-
-  * through cycle loops back to the current case.
+  * step that contains the original `Goto`, or is one the same chain already passed through.
+  * This prevents infinite expansion when the fall-through cycle loops back to the current
+  * case, or closes on itself without reaching it.
   * {{{
   * // Before
   * def S0: Step =
@@ -274,6 +286,21 @@ case object DropRTProcess extends HierarchyStage:
                 prologueMoveList.map(_ -> Patch.Remove())
           // assuming flat step blocks structure
           val nextBlocks = stateBlocks.lazyZip(stateBlocks.tail :+ stateBlocks.head).toMap
+          // A step's default exit: the target of the last `Goto` on its dispatch path, i.e. the one
+          // reached when the step neither stays put nor takes an earlier branch. This is where a
+          // `fallThrough` cascade continues, and it is NOT the declaration-order successor: a step
+          // whose own body holds further states (a loop step whose body waits) is followed in the
+          // flat state list by its own body's first state, while its exit leaves the loop entirely.
+          // Hook bodies are excluded -- they run at the transition edges, not on the dispatch path.
+          def isInHook(m: DFMember, root: StepBlock): Boolean = m.getOwner match
+            case owner if owner == root => false
+            case owner: StepBlock       => !owner.isRegular || isInHook(owner, root)
+            case owner: DFMember        => isInHook(owner, root)
+          def defaultExitOf(sb: StepBlock): StepBlock =
+            sb.members(MemberView.Flattened).reverseIterator.collectFirst {
+              case g: Goto if !isInHook(g, sb) => g.stepRef.get
+            }.collect { case target: StepBlock if target != sb => target }
+              .getOrElse(nextBlocks(sb))
           val enumName = if (pb.isAnonymous) s"State" else s"${pb.getName}_State"
           val stateRegName = if (pb.isAnonymous) s"state" else s"${pb.getName}_state"
           val entries = ListMap.from(stateBlocks.view.zipWithIndex.map { case (sb, idx) =>
@@ -336,6 +363,10 @@ case object DropRTProcess extends HierarchyStage:
                   removedOnEntryExitFallThroughMembers += onExit
                   removedOnEntryExitFallThroughMembers ++= onExitMembers
                 }
+                // steps this cascade already passed through: with the target taken from each step's
+                // own exit goto the chain is no longer the single declaration-order ring, so it can
+                // close on itself without ever coming back to the transition's origin
+                val cascadedSteps = mutable.Set.empty[StepBlock]
                 def handleNextStep(nextStepBlock: StepBlock): Unit =
                   // onEntry members will always activated, even if we fall-through the next step block
                   val nextStepBlockMembers = nextStepBlock.members(MemberView.Flattened)
@@ -348,8 +379,9 @@ case object DropRTProcess extends HierarchyStage:
                     removedOnEntryExitFallThroughMembers ++= onEntryMembers
                   }
                   setState(nextStepBlock)
-                  // in case of circular fall-through, we stop
-                  if (nextStepBlock != currentStepBlock)
+                  // in case of circular fall-through, we stop: either back at the transition's
+                  // origin, or on a step this cascade already passed through
+                  if (nextStepBlock != currentStepBlock && cascadedSteps.add(nextStepBlock))
                     val fallThroughCond = nextStepBlockMembers.collectFirst {
                       case fallThrough: StepBlock if fallThrough.isFallThrough =>
                         val fallThroughMembers = fallThrough.members(MemberView.Flattened)
@@ -366,9 +398,14 @@ case object DropRTProcess extends HierarchyStage:
                           DFIf.Header(DFUnit)(using fallThroughDFC)
                         )(using fallThroughDFC)
                         dfc.enterOwner(ifBlock)
-                        // a fall-through cascade past the last step is a wrap-around too
-                        if (nextStepBlock == stateBlocks.last) plantPrologue()
-                        val fallThroughStepBlock = nextBlocks(nextStepBlock)
+                        val fallThroughStepBlock = defaultExitOf(nextStepBlock)
+                        // a fall-through cascade over the last step and back to the first is the
+                        // forever wrap-around, so the prologue re-runs here too (an explicit jump
+                        // to the first step from anywhere else does not re-run it)
+                        if (
+                          nextStepBlock == stateBlocks.last &&
+                          fallThroughStepBlock == stateBlocks.head
+                        ) plantPrologue()
                         handleNextStep(fallThroughStepBlock)
                         dfc.exitOwner()
                     }

@@ -2043,6 +2043,50 @@ object DFUInt:
             .asValTP[DFUInt[RW], P]
         }
       end extension
+      extension [W <: IntP, A, C, I, P](lhs: DFVal[DFUInt[W], Modifier[A, C, I, P]])
+        // ascending part-select (Verilog `lhs[baseIdx +: selWidth]`):
+        // selWidth bits whose LSB is anchored at baseIdx
+        @targetName("lsbitsAtDFUInt")
+        def lsbitsAt[BI <: IntP, SW <: IntP](baseIdx: IntParam[BI], selWidth: IntParam[SW])(using
+            dfc: DFCG,
+            checkWidth: Arg.Width.CheckNUB[SW],
+            checkLow: DFBits.BitIndex.CheckNUB[BI, W],
+            checkHigh: DFBits.BitIndex.CheckNUB[IntP.-[IntP.+[BI, SW], 1], W]
+        ): DFVal[DFUInt[SW], Modifier[A, C, Any, P]] = trydf {
+          selWidth.toScalaIntOpt.foreach(checkWidth(_))
+          val idxHigh = baseIdx + selWidth - 1
+          (baseIdx.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(baseIdxInt), Some(widthInt)) => checkLow(baseIdxInt, widthInt)
+            case _                                  =>
+          (idxHigh.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(idxHighInt), Some(widthInt)) => checkHigh(idxHighInt, widthInt)
+            case _                                  =>
+          DFVal.Alias.ApplyRange
+            .applyDFXInt(lhs, idxHigh, baseIdx)
+            .asVal[DFUInt[SW], Modifier[A, C, Any, P]]
+        }
+        // descending part-select (Verilog `lhs[baseIdx -: selWidth]`):
+        // selWidth bits whose MSB is anchored at baseIdx
+        @targetName("msbitsAtDFUInt")
+        def msbitsAt[BI <: IntP, SW <: IntP](baseIdx: IntParam[BI], selWidth: IntParam[SW])(using
+            dfc: DFCG,
+            checkWidth: Arg.Width.CheckNUB[SW],
+            checkHigh: DFBits.BitIndex.CheckNUB[BI, W],
+            checkLow: DFBits.BitIndex.CheckNUB[IntP.+[IntP.-[BI, SW], 1], W]
+        ): DFVal[DFUInt[SW], Modifier[A, C, Any, P]] = trydf {
+          selWidth.toScalaIntOpt.foreach(checkWidth(_))
+          val idxLow = baseIdx - selWidth + 1
+          (baseIdx.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(baseIdxInt), Some(widthInt)) => checkHigh(baseIdxInt, widthInt)
+            case _                                  =>
+          (idxLow.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(idxLowInt), Some(widthInt)) => checkLow(idxLowInt, widthInt)
+            case _                                 =>
+          DFVal.Alias.ApplyRange
+            .applyDFXInt(lhs, baseIdx, idxLow)
+            .asVal[DFUInt[SW], Modifier[A, C, Any, P]]
+        }
+      end extension
     end Ops
   end Val
 
@@ -2119,6 +2163,50 @@ object DFSInt:
           DFVal.Alias.ApplyRange
             .applyDFXInt(lhs, updatedWidth - 1, 0)
             .asValTP[DFUInt[RW], P]
+        }
+      end extension
+      extension [W <: IntP, A, C, I, P](lhs: DFVal[DFSInt[W], Modifier[A, C, I, P]])
+        // ascending part-select (Verilog `lhs[baseIdx +: selWidth]`):
+        // selWidth bits whose LSB is anchored at baseIdx
+        @targetName("lsbitsAtDFSInt")
+        def lsbitsAt[BI <: IntP, SW <: IntP](baseIdx: IntParam[BI], selWidth: IntParam[SW])(using
+            dfc: DFCG,
+            checkWidth: Arg.Width.CheckNUB[SW],
+            checkLow: DFBits.BitIndex.CheckNUB[BI, W],
+            checkHigh: DFBits.BitIndex.CheckNUB[IntP.-[IntP.+[BI, SW], 1], W]
+        ): DFVal[DFUInt[SW], Modifier[A, C, Any, P]] = trydf {
+          selWidth.toScalaIntOpt.foreach(checkWidth(_))
+          val idxHigh = baseIdx + selWidth - 1
+          (baseIdx.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(baseIdxInt), Some(widthInt)) => checkLow(baseIdxInt, widthInt)
+            case _                                  =>
+          (idxHigh.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(idxHighInt), Some(widthInt)) => checkHigh(idxHighInt, widthInt)
+            case _                                  =>
+          DFVal.Alias.ApplyRange
+            .applyDFXInt(lhs, idxHigh, baseIdx)
+            .asVal[DFUInt[SW], Modifier[A, C, Any, P]]
+        }
+        // descending part-select (Verilog `lhs[baseIdx -: selWidth]`):
+        // selWidth bits whose MSB is anchored at baseIdx
+        @targetName("msbitsAtDFSInt")
+        def msbitsAt[BI <: IntP, SW <: IntP](baseIdx: IntParam[BI], selWidth: IntParam[SW])(using
+            dfc: DFCG,
+            checkWidth: Arg.Width.CheckNUB[SW],
+            checkHigh: DFBits.BitIndex.CheckNUB[BI, W],
+            checkLow: DFBits.BitIndex.CheckNUB[IntP.+[IntP.-[BI, SW], 1], W]
+        ): DFVal[DFUInt[SW], Modifier[A, C, Any, P]] = trydf {
+          selWidth.toScalaIntOpt.foreach(checkWidth(_))
+          val idxLow = baseIdx - selWidth + 1
+          (baseIdx.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(baseIdxInt), Some(widthInt)) => checkHigh(baseIdxInt, widthInt)
+            case _                                  =>
+          (idxLow.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(idxLowInt), Some(widthInt)) => checkLow(idxLowInt, widthInt)
+            case _                                 =>
+          DFVal.Alias.ApplyRange
+            .applyDFXInt(lhs, baseIdx, idxLow)
+            .asVal[DFUInt[SW], Modifier[A, C, Any, P]]
         }
       end extension
       extension [P](lhs: DFValTP[DFInt32, P])

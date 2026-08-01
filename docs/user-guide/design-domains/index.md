@@ -150,6 +150,19 @@ class RegisterPatterns extends RTDesign:
   val delayed2 = x.reg(2)  // Two cycle delay of x
 ```
 
+#### The Register Model
+
+A register declared with `VAR.REG` or `OUT.REG` has two sides:
+
+* The **output** is the declaration name itself (`reg`). Reading it yields the value the register has
+  held since the last clock edge. That value is stable for the whole cycle, no matter what the design
+  body assigns, and it is immutable: you cannot assign to it.
+* The **input** is `reg.din`. It is what the register will hold after the next clock edge, and it is
+  the only assignable side.
+
+The clock edge is what moves the input to the output. Everything the design body does within a cycle
+happens to the input side.
+
 #### Register Access Patterns
 ```scala
 class RegisterAccess extends RTDesign:
@@ -165,10 +178,139 @@ class RegisterAccess extends RTDesign:
   reg := x               // Error: Can't write to register output
   out := reg            // Error: Can't write to register output
   
-  // Reading from registers (always reads output)
+  // Reading a register without `.din` reads its output
   val value = reg        // Reads register output
   val outValue = out     // Reads output register value
 ```
+
+#### Reading the Register Input {#din-read}
+
+`reg.din` can also be read. It yields the register's **pending** value: whatever has been assigned to
+it so far in the current cycle, or the register's output when nothing has been assigned yet. This
+lets a register be built up in steps:
+
+```scala
+class SteppedCounter extends RTDesign:
+  val r = UInt(8) <> VAR.REG init 0
+  val y = UInt(8) <> OUT
+  // each statement builds on the pending value, so `r` advances by 2 every cycle
+  r.din := r.din + 1
+  r.din := r.din + 1
+  y := r
+```
+
+The compiler gives the register a shadow variable holding its pending value, seeds it from the
+register at the top of the cycle, applies the assignments in order, and registers the result on the
+clock edge:
+
+/// tab | Generated Verilog
+```verilog
+module SteppedCounter(
+  input  wire logic clk,
+  input  wire logic rst,
+  output logic [7:0] y
+);
+  `include "dfhdl_defs.svh"
+  logic [7:0] r;
+  logic [7:0] r_din;
+  always_comb
+  begin
+    r_din = r;
+    r_din = r_din + 8'd1;
+    r_din = r_din + 8'd1;
+  end
+  always_ff @(posedge clk)
+  begin
+    if (rst == 1'b1) r <= 8'd0;
+    else r <= r_din;
+  end
+  assign y = r;
+endmodule
+```
+The shadow `r_din` is a module-level `logic` assigned with **blocking** assignments inside
+`always_comb`, so each statement sees the value left by the previous one.
+///
+
+/// tab | Generated VHDL
+```vhdl
+entity SteppedCounter is
+port (
+  clk : in std_logic;
+  rst : in std_logic;
+  y : out unsigned(7 downto 0)
+);
+end SteppedCounter;
+
+architecture SteppedCounter_arch of SteppedCounter is
+  signal r : unsigned(7 downto 0);
+  signal r_din : unsigned(7 downto 0);
+begin
+  process (all)
+    variable r_din_v : unsigned(7 downto 0);
+  begin
+    r_din_v := r;
+    r_din_v := r_din_v + 8d"1";
+    r_din_v := r_din_v + 8d"1";
+    r_din <= r_din_v;
+  end process;
+  process (clk)
+  begin
+    if rising_edge(clk) then
+      if rst = '1' then r <= 8d"0";
+      else r <= r_din;
+      end if;
+    end if;
+  end process;
+  y <= r;
+end SteppedCounter_arch;
+```
+VHDL signal assignment evaluates every right-hand side against the value the signal had when the
+process started, so a shadow **signal** would increment only once here. The shadow is therefore a
+process **variable** (`r_din_v`), which does carry the value forward between statements, and it is
+published to the `r_din` signal at the end of the process for the clocked process to register.
+///
+
+A `.din` read reflects the assignments **above it**, not the register's final input value. Reading it
+before any assignment yields the register output, which is why the model above stays consistent:
+
+```scala
+class DinOrdering extends RTDesign:
+  val x = UInt(8) <> IN
+  val r = UInt(8) <> VAR.REG init 0
+  val a = UInt(8) <> OUT
+  val b = UInt(8) <> OUT
+  a     := r.din   // nothing assigned yet, so this reads the register output
+  r.din := x
+  b     := r.din   // reads x
+```
+
+As with assignment, a partial selection comes before `.din`, not after:
+
+```scala
+class DinPartial extends RTDesign:
+  val r = UInt(8) <> VAR.REG init 0
+  val y = UInt(4) <> OUT
+  r(3, 0).din := 5
+  y := r(3, 0).din   // the pending value of the lower nibble
+```
+
+/// admonition | A `.din` read cannot be given a name
+    type: warning
+Binding a `.din` read to a Scala `val` is rejected at elaboration:
+
+```scala
+val d = r.din   // error: Cannot name a register DIN read.
+```
+
+The reason is that such a binding looks like a snapshot but behaves as a live view: `d` would keep
+reporting the pending value at whatever point it is later read, so `r.din := 5` between the binding
+and its use would change what `d` yields. Apply `.din` directly where it is read instead, which
+reads the same and leaves no room for the confusion:
+
+```scala
+y := r.din + 1
+```
+///
 
 #### Register Composition
 ```scala

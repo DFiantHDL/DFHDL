@@ -102,6 +102,24 @@ sbt run
 
 For more information, please consult the [sbt documentation](https://www.scala-sbt.org/1.x/docs/){target="_blank"}.
 
+### Choosing What the Program Does
+
+Whichever way you launch it, the program you just ran is a full command-line application. Running it with no arguments uses the defaults declared in the source, and every one of those defaults can be overridden for a single run. Ask it what it accepts:
+
+```{.console .copy linenums="0" title="Run in your terminal"}
+scala run . -M Counter8 -- help
+```
+
+A few things you can do without editing a line of code:
+
+```{.console linenums="0"}
+scala run . -M Counter8 -- compile -b vhdl        # generate VHDL instead of Verilog
+scala run . -M Counter8 -- simulate -t iverilog   # simulate with Icarus Verilog
+scala run . -M Counter8 -- --log info commit      # report each compilation stage
+```
+
+For the modes, the design parameters, and the full option list, see the [command-line interface][cli] guide.
+
 ### Recommended Scala Formatting for DFHDL
 
 We recommend actively using [Scalafmt](https://scalameta.org/scalafmt/){target="_blank"}, a code formatter for Scala that integrates well with your toolchain. The following setting is recommended for DFHDL designs:

@@ -1771,16 +1771,19 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end ForkJoinFSM;
          |
          |architecture ForkJoinFSM_arch of ForkJoinFSM is
-         |  type t_enum_State is (
-         |    State_S_0, State_S_1
+         |  type t_enum_State_0 is (
+         |    State_0_S_boot, State_0_S_0
+         |  );
+         |  type t_enum_State_1 is (
+         |    State_1_S_0, State_1_S_1
          |  );
          |  signal fk_start_0 : std_logic;
          |  signal fk_start_1 : std_logic;
          |  signal fk_done_0 : std_logic;
          |  signal fk_done_1 : std_logic;
-         |  signal state_0 : t_enum_State;
-         |  signal state_1 : t_enum_State;
-         |  signal state_2 : t_enum_State;
+         |  signal state_0 : t_enum_State_0;
+         |  signal state_1 : t_enum_State_1;
+         |  signal state_2 : t_enum_State_1;
          |begin
          |  process (clk)
          |  begin
@@ -1788,51 +1791,51 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      if rst = '1' then
          |        a <= '0';
          |        b <= '0';
-         |        state_0 <= State_S_0;
-         |        state_1 <= State_S_0;
-         |        state_2 <= State_S_0;
+         |        state_0 <= State_0_S_boot;
+         |        state_1 <= State_1_S_0;
+         |        state_2 <= State_1_S_0;
          |      else
          |        case state_0 is
-         |          when State_S_0 =>
+         |          when State_0_S_boot =>
          |            fk_start_0 <= '1';
          |            fk_start_1 <= '1';
-         |            state_0 <= State_S_1;
-         |          when State_S_1 =>
-         |            if not (fk_done_0 and fk_done_1) then state_0 <= State_S_1;
+         |            state_0 <= State_0_S_0;
+         |          when State_0_S_0 =>
+         |            if not (fk_done_0 and fk_done_1) then state_0 <= State_0_S_0;
          |            else
          |              fk_start_0 <= '0';
          |              fk_start_1 <= '0';
-         |              state_0 <= State_S_0;
+         |              state_0 <= State_0_S_boot;
          |            end if;
          |        end case;
          |        case state_1 is
-         |          when State_S_0 =>
-         |            if not fk_start_0 then state_1 <= State_S_0;
+         |          when State_1_S_0 =>
+         |            if not fk_start_0 then state_1 <= State_1_S_0;
          |            else
          |              a <= '1';
          |              fk_done_0 <= '1';
-         |              state_1 <= State_S_1;
+         |              state_1 <= State_1_S_1;
          |            end if;
-         |          when State_S_1 =>
-         |            if fk_start_0 then state_1 <= State_S_1;
+         |          when State_1_S_1 =>
+         |            if fk_start_0 then state_1 <= State_1_S_1;
          |            else
          |              fk_done_0 <= '0';
-         |              state_1 <= State_S_0;
+         |              state_1 <= State_1_S_0;
          |            end if;
          |        end case;
          |        case state_2 is
-         |          when State_S_0 =>
-         |            if not fk_start_1 then state_2 <= State_S_0;
+         |          when State_1_S_0 =>
+         |            if not fk_start_1 then state_2 <= State_1_S_0;
          |            else
          |              b <= '1';
          |              fk_done_1 <= '1';
-         |              state_2 <= State_S_1;
+         |              state_2 <= State_1_S_1;
          |            end if;
-         |          when State_S_1 =>
-         |            if fk_start_1 then state_2 <= State_S_1;
+         |          when State_1_S_1 =>
+         |            if fk_start_1 then state_2 <= State_1_S_1;
          |            else
          |              fk_done_1 <= '0';
-         |              state_2 <= State_S_0;
+         |              state_2 <= State_1_S_0;
          |            end if;
          |        end case;
          |      end if;
@@ -2109,6 +2112,101 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    z <= addBK(a);
          |  end process;
          |end EDFunc_arch;
+         |""".stripMargin
+    )
+  }
+  // a branch whose value is itself a conditional expression drives the same variable from the
+  // nested branches. The DFHDL printout is the same either way, so only the backend shows whether
+  // the nested expression really became a statement.
+  test("named value from a nested conditional expression") {
+    class NestedCond extends EDDesign:
+      val a, b              = UInt(8) <> IN
+      val c                 = Bit     <> IN
+      val y                 = UInt(8) <> OUT
+      val z: UInt[8] <> VAL =
+        if (c) (if (a > b) a else b)
+        else d"8'0"
+      y <> z
+    end NestedCond
+    val top = (new NestedCond).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity NestedCond is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  b : in unsigned(7 downto 0);
+         |  c : in std_logic;
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end NestedCond;
+         |
+         |architecture NestedCond_arch of NestedCond is
+         |  signal z : unsigned(7 downto 0);
+         |begin
+         |  process (all)
+         |  begin
+         |    if c then
+         |      if a > b then z <= a;
+         |      else z <= b;
+         |      end if;
+         |    else z <= 8d"0";
+         |    end if;
+         |  end process;
+         |  y <= z;
+         |end NestedCond_arch;
+         |""".stripMargin
+    )
+  }
+  // a conditional expression has no VHDL expression form, so a method that returns one is only
+  // printable once the conditional lowers into a variable that each branch assigns, nested
+  // conditionals included
+  test("ED method returning a conditional expression") {
+    class EDCond extends EDDesign:
+      val a, b                                                         = UInt(8) <> IN
+      val c                                                            = Bit     <> IN
+      val y                                                            = UInt(8) <> OUT
+      def pick(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        if (c) (if (l > r) l else r)
+        else d"8'0"
+      y <> pick(a, b)
+    end EDCond
+    val top = (new EDCond).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity EDCond is
+         |port (
+         |  a : in unsigned(7 downto 0);
+         |  b : in unsigned(7 downto 0);
+         |  c : in std_logic;
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end EDCond;
+         |
+         |architecture EDCond_arch of EDCond is
+         |  impure function pick(l : unsigned(7 downto 0); r : unsigned(7 downto 0)) return unsigned is
+         |    variable anon : unsigned(7 downto 0);
+         |  begin
+         |    if c then
+         |      if l > r then anon := l;
+         |      else anon := r;
+         |      end if;
+         |    else anon := 8d"0";
+         |    end if;
+         |    return anon;
+         |  end function;
+         |begin
+         |  y <= pick(a, b);
+         |end EDCond_arch;
          |""".stripMargin
     )
   }
@@ -3056,6 +3154,246 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant minArg : integer := min(Arg1, min(Arg2, Arg3));
          |begin
          |end Foo_arch;""".stripMargin
+    )
+  }
+  test("REG DIN write-only") {
+    class Example() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      val y = UInt(8) <> OUT
+      r.din := r + d"8'1"
+      y     := r
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |  signal r : unsigned(7 downto 0);
+         |begin
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then r <= 8d"0";
+         |      else r <= r + 8d"1";
+         |      end if;
+         |    end if;
+         |  end process;
+         |  y <= r;
+         |end Example_arch;
+         |""".stripMargin
+    )
+  }
+  // the design and its output are reproduced in docs/user-guide/design-domains (the `.din`
+  // read section), so this test also guards that documentation against drift
+  test("REG DIN read") {
+    class SteppedCounter() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(8) <> OUT
+      r.din := r.din + 1
+      r.din := r.din + 1
+      y     := r
+    val top = (SteppedCounter()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity SteppedCounter is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end SteppedCounter;
+         |
+         |architecture SteppedCounter_arch of SteppedCounter is
+         |  signal r : unsigned(7 downto 0);
+         |  signal r_din : unsigned(7 downto 0);
+         |begin
+         |  process (all)
+         |    variable r_din_v : unsigned(7 downto 0);
+         |  begin
+         |    r_din_v := r;
+         |    r_din_v := r_din_v + 8d"1";
+         |    r_din_v := r_din_v + 8d"1";
+         |    r_din <= r_din_v;
+         |  end process;
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then r <= 8d"0";
+         |      else r <= r_din;
+         |      end if;
+         |    end if;
+         |  end process;
+         |  y <= r;
+         |end SteppedCounter_arch;
+         |""".stripMargin
+    )
+  }
+  test("REG DIN partial read") {
+    class Example() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      val y = UInt(4) <> OUT
+      r(3, 0).din := d"4'5"
+      y           := r(3, 0).din
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  y : out unsigned(3 downto 0)
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |  signal r : unsigned(7 downto 0);
+         |  signal r_din : unsigned(7 downto 0);
+         |begin
+         |  process (all)
+         |    variable r_din_v : unsigned(7 downto 0);
+         |  begin
+         |    r_din_v := r;
+         |    r_din_v(3 downto 0) := 4d"5";
+         |    y <= r_din_v(3 downto 0);
+         |    r_din <= r_din_v;
+         |  end process;
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then r <= 8d"0";
+         |      else r <= r_din;
+         |      end if;
+         |    end if;
+         |  end process;
+         |end Example_arch;
+         |""".stripMargin
+    )
+  }
+  test("REG DIN read in a named expression") {
+    class Example() extends RTDesign:
+      val r   = UInt(8) <> VAR.REG init d"8'0"
+      val y   = UInt(8) <> OUT
+      val sum = r.din + d"8'1"
+      r.din := sum
+      y     := sum
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  y : out unsigned(7 downto 0)
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |  signal r : unsigned(7 downto 0);
+         |  signal sum : unsigned(7 downto 0);
+         |  signal r_din : unsigned(7 downto 0);
+         |begin
+         |  process (all)
+         |    variable r_din_v : unsigned(7 downto 0);
+         |  begin
+         |    r_din_v := r;
+         |    sum <= r_din_v + 8d"1";
+         |    r_din_v := sum;
+         |    r_din <= r_din_v;
+         |  end process;
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then r <= 8d"0";
+         |      else r <= r_din;
+         |      end if;
+         |    end if;
+         |  end process;
+         |  y <= sum;
+         |end Example_arch;
+         |""".stripMargin
+    )
+  }
+  // VHDL spells an assignment after the target's object class, so one DFHDL `:=` prints four
+  // different ways depending on where the target is declared: a process-local variable and a
+  // design-level `VAR.SHARED` take `:=`, while a design-level `VAR` and an output port are
+  // signals and take `<=`.
+  test("assignment operator follows the target's object class") {
+    class Example extends EDDesign:
+      val a          = Bits(8) <> IN
+      val o1, o2, o3 = Bits(8) <> OUT
+      val sig        = Bits(8) <> VAR
+      val shr        = Bits(8) <> VAR.SHARED
+      process(all):
+        val loc = Bits(8) <> VAR
+        loc := ~a
+        sig := loc
+        shr := loc
+        o1  := loc
+      o2 <> sig
+      o3 <> shr
+    val top = (new Example).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  a : in std_logic_vector(7 downto 0);
+         |  o1 : out std_logic_vector(7 downto 0);
+         |  o2 : out std_logic_vector(7 downto 0);
+         |  o3 : out std_logic_vector(7 downto 0)
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |  signal sig : std_logic_vector(7 downto 0);
+         |  shared variable shr : std_logic_vector(7 downto 0);
+         |begin
+         |  process (all)
+         |    variable loc : std_logic_vector(7 downto 0);
+         |  begin
+         |    loc := not a;
+         |    sig <= loc;
+         |    shr := loc;
+         |    o1 <= loc;
+         |  end process;
+         |  o2 <= sig;
+         |  o3 <= shr;
+         |end Example_arch;
+         |""".stripMargin
     )
   }
 end PrintVHDLCodeSpec

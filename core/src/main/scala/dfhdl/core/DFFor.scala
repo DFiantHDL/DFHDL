@@ -4,13 +4,15 @@ import dfhdl.internals.*
 
 object DFFor:
   object Block:
-    def apply(iter: DFValOf[DFInt32], range: DFRange[?])(using DFC): DFOwnerAny =
+    def apply(iter: DFValOf[DFInt32], range: DFRange[?], fallThrough: Boolean = false)(using
+        DFC
+    ): DFOwnerAny =
       val block = ir.DFLoop.DFForBlock(
         iteratorRef = iter.asIR.asInstanceOf[ir.DFVal.Dcl].refTW[ir.DFLoop.DFForBlock],
         rangeRef = range.asIR.refTW[ir.DFLoop.DFForBlock],
         ownerRef = dfc.owner.ref,
         meta = dfc.getMeta,
-        tags = dfc.tags
+        tags = if (fallThrough) dfc.tags.tag(ir.FallThroughTag) else dfc.tags
       )
       block.addMember.asFE
   end Block
@@ -20,13 +22,14 @@ object DFFor:
       iterMeta: ir.Meta,
       forPos: Position,
       range: DFRange[?],
-      guards: List[() => DFValOf[DFBool]]
+      guards: List[() => DFValOf[DFBool]],
+      fallThrough: Boolean = false
   )(
       run: => Unit
   )(using DFC): Unit =
     val iter = DFVal.Dcl.iterator(using dfc.setMeta(iterMeta))
     dfc.mutableDB.DesignContext.addLoopIter(iterMeta, iter)
-    val block = Block(iter, range)(using dfc.setMeta(position = forPos))
+    val block = Block(iter, range, fallThrough)(using dfc.setMeta(position = forPos))
     dfc.enterOwner(block)
     guards.foreach { guard =>
       val guardVal = guard()

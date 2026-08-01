@@ -27,6 +27,11 @@ import dfhdl.hw.flag.scalaPrints
 class DFApp:
   private val logger = Logger("DFHDL App")
   logger.setFormatter(LogFormatter.BareFormatter)
+  // The app's progress messages are on by default, and are deliberately louder than the
+  // compiler's own default level. Set explicitly (rather than left to the wvlet default)
+  // because `Logger` is a process-global singleton keyed by name: a `--log` level from an
+  // earlier run in the same JVM would otherwise carry over into this one.
+  logger.setLogLevel(wvlet.log.LogLevel.INFO)
   private var designName: String = ""
   private var topScalaPath: String = ""
   // The class of the design's generated entry point, supplied by the plugin via
@@ -49,9 +54,24 @@ class DFApp:
     val topClass = topClassOpt.getOrElse(this.getClass)
     CodeDigest.of(topClass, dfhdlVersion).getOrElse(factum.CodeRef(topClass).digest.asString)
 
-  // this context is just for enabling `getConstData` to work.
-  // the internal global context inside `value` will be actually at play here.
-  given dfc: DFCG = DFCG()
+  // A fresh DFHDL context carrying the app's resolved elaboration options. Every caller gets
+  // its OWN instance, and that separation is the point: a context owns a `MutableDB`, and
+  // rebuilding a design argument's constant allocates members into it, which must never be the
+  // design's own DB. What the contexts do share is the options, so that whatever the app
+  // resolved (the `given`s, then the command line) governs uniformly.
+  //
+  // Only valid once `setInitials` has run. Both callers below are lazy for that reason.
+  private def newDFC: core.DFC = core.DFC.empty(elaborationOptions)
+
+  // The context the design arguments are read and rebuilt under. It is what makes
+  // `getConstData` work (the internal global context inside `value` is what actually carries
+  // the data), and what makes an error raised while parsing a command-line argument obey the
+  // app's `OnError` like any other elaboration error.
+  //
+  // It doubles as the reason `println` in this file is Scala's and not DFHDL's: `DFCG <: DFC`,
+  // so without a `DFC` in scope here the DFHDL `println` would be selected and then rejected
+  // for lacking a text-output scope (hence the `scalaPrints` import above).
+  given dfc: DFCG = newDFC
 
   private var designArgs: DesignArgs = DesignArgs.empty
   private var elaborationOptions: ElaborationOptions = compiletime.uninitialized
@@ -75,9 +95,16 @@ class DFApp:
   // command-line options
   final def getDsnArg(name: String): Any =
     designArgs(name).value
-  // used by the plugin to get the updated elaboration options that could be changed by the
-  // command-line options
-  final protected def getElaborationOptions: options.ElaborationOptions = elaborationOptions
+  // The context the top design elaborates in, used by the plugin: it builds the design inside
+  // a local method taking this as its DFHDL context, which is what binds the design to it.
+  //
+  // Without that, a design's context is built from the elaboration options given where the
+  // design is DECLARED, which is compiled code and cannot know about a command line. The
+  // options here are the same ones, with the command line applied on top, so an option the
+  // elaboration itself reads back (`cacheEnable` gating the sub-design cache, `Werror` making
+  // elaboration warnings fatal) honors what the user asked for. Called from within the design
+  // thunk, so it always sees the fully resolved options.
+  final def getDsnDFC: core.DFC = newDFC
   final def setInitials(
       topClass: Class[?],
       designName: String,
@@ -421,20 +448,31 @@ class DFApp:
   // The plugin-injected companion `main` reroutes here with the raw argv.
   def run(commandArgs: Array[String]): Unit =
     if (appOptions.clearConsole) print("\u001bc")
-    logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
     val parsedCommandLine = ParsedCommandLine(designName, topScalaPath, designArgs, commandArgs)
     import parsedCommandLine.{Mode, HelpMode}
-    if (commandArgs.isEmpty && parsedCommandLine.mode != Mode.help)
-      logger.info(
-        "No command-line given; using defaults. Run with `help` argument to get usage text."
-      )
     parsedCommandLine.getExitCodeOption match
       case Some(code) =>
         if (!sbtShellIsRunning && !sbtnIsRunning) sys.exit(code)
       case None =>
         given CanEqual[ScallopConfBase, ScallopConfBase] = CanEqual.derived
-        // update app options from command line
-        appOptions = appOptions.copy(cacheEnable = parsedCommandLine.cache.toOption.get)
+        // update the log levels from the command line. the app's progress logger keeps its
+        // own (louder) default unless a level was actually asked for. applied before the
+        // first message below, so a quieter level silences the run from its very first line.
+        elaborationOptions = elaborationOptions.copy(logLevel = parsedCommandLine.logLevel)
+        compilerOptions = compilerOptions.copy(logLevel = parsedCommandLine.logLevel)
+        if (parsedCommandLine.log.isSupplied) logger.setLogLevel(parsedCommandLine.logLevel)
+        logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
+        if (commandArgs.isEmpty && parsedCommandLine.mode != Mode.help)
+          logger.info(
+            "No command-line given; using defaults. Run with `help` argument to get usage text."
+          )
+        // update the caching options from the command line. the flag covers every cache the
+        // run may consult: the pipeline steps on disk (app options) and the sub-design cache
+        // consulted during elaboration (elaboration options, reaching the design's own
+        // context through `elaborateDsn`).
+        val cacheEnable = parsedCommandLine.cache.toOption.get
+        appOptions = appOptions.copy(cacheEnable = cacheEnable)
+        elaborationOptions = elaborationOptions.copy(cacheEnable = cacheEnable)
         // update design args from command line
         designArgs = parsedCommandLine.updatedDesignArgs
         // update elaboration options from command line

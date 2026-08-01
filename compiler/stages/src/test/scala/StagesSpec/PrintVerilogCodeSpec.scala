@@ -1857,72 +1857,76 @@ class PrintVerilogCodeSpec extends StageSpec:
          |);
          |  `include "dfhdl_defs.svh"
          |  typedef enum logic [0:0] {
-         |    State_S_0 = 0,
-         |    State_S_1 = 1
-         |  } t_enum_State;
+         |    State_0_S_boot = 0,
+         |    State_0_S_0 = 1
+         |  } t_enum_State_0;
+         |  typedef enum logic [0:0] {
+         |    State_1_S_0 = 0,
+         |    State_1_S_1 = 1
+         |  } t_enum_State_1;
          |  logic fk_start_0;
          |  logic fk_start_1;
          |  logic fk_done_0;
          |  logic fk_done_1;
-         |  t_enum_State state_0;
-         |  t_enum_State state_1;
-         |  t_enum_State state_2;
+         |  t_enum_State_0 state_0;
+         |  t_enum_State_1 state_1;
+         |  t_enum_State_1 state_2;
          |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) begin
          |      a <= 1'b0;
          |      b <= 1'b0;
-         |      state_0 <= State_S_0;
-         |      state_1 <= State_S_0;
-         |      state_2 <= State_S_0;
+         |      state_0 <= State_0_S_boot;
+         |      state_1 <= State_1_S_0;
+         |      state_2 <= State_1_S_0;
          |    end
          |    else begin
          |      unique case (state_0)
-         |        State_S_0: begin
+         |        State_0_S_boot: begin
          |          fk_start_0 <= 1'b1;
          |          fk_start_1 <= 1'b1;
-         |          state_0 <= State_S_1;
+         |          state_0 <= State_0_S_0;
          |        end
-         |        State_S_1: begin
-         |          if (~(fk_done_0 & fk_done_1)) state_0 <= State_S_1;
+         |        State_0_S_0: begin
+         |          if (~(fk_done_0 & fk_done_1)) state_0 <= State_0_S_0;
          |          else begin
          |            fk_start_0 <= 1'b0;
          |            fk_start_1 <= 1'b0;
-         |            state_0 <= State_S_0;
+         |            state_0 <= State_0_S_boot;
          |          end
          |        end
          |      endcase
          |      unique case (state_1)
-         |        State_S_0: begin
-         |          if (~fk_start_0) state_1 <= State_S_0;
+         |        State_1_S_0: begin
+         |          if (~fk_start_0) state_1 <= State_1_S_0;
          |          else begin
          |            a <= 1'b1;
          |            fk_done_0 <= 1'b1;
-         |            state_1 <= State_S_1;
+         |            state_1 <= State_1_S_1;
          |          end
          |        end
-         |        State_S_1: begin
-         |          if (fk_start_0) state_1 <= State_S_1;
+         |        State_1_S_1: begin
+         |          if (fk_start_0) state_1 <= State_1_S_1;
          |          else begin
          |            fk_done_0 <= 1'b0;
-         |            state_1 <= State_S_0;
+         |            state_1 <= State_1_S_0;
          |          end
          |        end
          |      endcase
          |      unique case (state_2)
-         |        State_S_0: begin
-         |          if (~fk_start_1) state_2 <= State_S_0;
+         |        State_1_S_0: begin
+         |          if (~fk_start_1) state_2 <= State_1_S_0;
          |          else begin
          |            b <= 1'b1;
          |            fk_done_1 <= 1'b1;
-         |            state_2 <= State_S_1;
+         |            state_2 <= State_1_S_1;
          |          end
          |        end
-         |        State_S_1: begin
-         |          if (fk_start_1) state_2 <= State_S_1;
+         |        State_1_S_1: begin
+         |          if (fk_start_1) state_2 <= State_1_S_1;
          |          else begin
          |            fk_done_1 <= 1'b0;
-         |            state_2 <= State_S_0;
+         |            state_2 <= State_1_S_0;
          |          end
          |        end
          |      endcase
@@ -2198,6 +2202,88 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  begin
          |    z = addBK(a);
          |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // a branch whose value is itself a conditional expression drives the same variable from the
+  // nested branches. The DFHDL printout is the same either way, so only the backend shows whether
+  // the nested expression really became a statement.
+  test("named value from a nested conditional expression") {
+    class NestedCond extends EDDesign:
+      val a, b = UInt(8) <> IN
+      val c    = Bit     <> IN
+      val y    = UInt(8) <> OUT
+      val z: UInt[8] <> VAL =
+        if (c) (if (a > b) a else b)
+        else d"8'0"
+      y <> z
+    end NestedCond
+    val top = (new NestedCond).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module NestedCond(
+         |  input  wire logic [7:0] a,
+         |  input  wire logic [7:0] b,
+         |  input  wire logic c,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] z;
+         |  always_comb
+         |  begin
+         |    if (c) begin
+         |      if (a > b) z = a;
+         |      else z = b;
+         |    end
+         |    else z = 8'd0;
+         |  end
+         |  assign y = z;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // a conditional expression has no Verilog expression form, so a method that returns one is only
+  // printable once the conditional lowers into a variable that each branch assigns, nested
+  // conditionals included
+  test("ED method returning a conditional expression") {
+    class EDCond extends EDDesign:
+      val a, b = UInt(8) <> IN
+      val c    = Bit     <> IN
+      val y    = UInt(8) <> OUT
+      def pick(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET =
+        if (c) (if (l > r) l else r)
+        else d"8'0"
+      y <> pick(a, b)
+    end EDCond
+    val top = (new EDCond).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module EDCond(
+         |  input  wire logic [7:0] a,
+         |  input  wire logic [7:0] b,
+         |  input  wire logic c,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  function automatic logic [7:0] pick(input logic [7:0] l, input logic [7:0] r);
+         |    logic [7:0] anon;
+         |  begin
+         |    if (c) begin
+         |      if (l > r) anon = l;
+         |      else anon = r;
+         |    end
+         |    else anon = 8'd0;
+         |    pick = anon;
+         |  end
+         |  endfunction
+         |  assign y = pick(a, b);
          |endmodule
          |""".stripMargin
     )
@@ -2911,6 +2997,147 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `include "dfhdl_defs.svh"
          |  localparam int maxArg = `MAX(Arg1, `MAX(Arg2, Arg3));
          |  localparam int minArg = `MIN(Arg1, `MIN(Arg2, Arg3));
+         |endmodule""".stripMargin
+    )
+  }
+  test("REG DIN write-only") {
+    class Example() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      val y = UInt(8) <> OUT
+      r.din := r + d"8'1"
+      y     := r
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Example(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] r;
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) r <= 8'd0;
+         |    else r <= r + 8'd1;
+         |  end
+         |  assign y = r;
+         |endmodule""".stripMargin
+    )
+  }
+  // the design and its output are reproduced in docs/user-guide/design-domains (the `.din`
+  // read section), so this test also guards that documentation against drift
+  test("REG DIN read") {
+    class SteppedCounter() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(8) <> OUT
+      r.din := r.din + 1
+      r.din := r.din + 1
+      y     := r
+    val top = (SteppedCounter()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module SteppedCounter(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] r;
+         |  logic [7:0] r_din;
+         |  always_comb
+         |  begin
+         |    r_din = r;
+         |    r_din = r_din + 8'd1;
+         |    r_din = r_din + 8'd1;
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) r <= 8'd0;
+         |    else r <= r_din;
+         |  end
+         |  assign y = r;
+         |endmodule""".stripMargin
+    )
+  }
+  test("REG DIN partial read") {
+    class Example() extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      val y = UInt(4) <> OUT
+      r(3, 0).din := d"4'5"
+      y           := r(3, 0).din
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Example(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  output logic [3:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] r;
+         |  logic [7:0] r_din;
+         |  always_comb
+         |  begin
+         |    r_din = r;
+         |    r_din[3:0] = 4'd5;
+         |    y = r_din[3:0];
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) r <= 8'd0;
+         |    else r <= r_din;
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("REG DIN read in a named expression") {
+    class Example() extends RTDesign:
+      val r   = UInt(8) <> VAR.REG init d"8'0"
+      val y   = UInt(8) <> OUT
+      val sum = r.din + d"8'1"
+      r.din := sum
+      y     := sum
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Example(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] r;
+         |  logic [7:0] sum;
+         |  logic [7:0] r_din;
+         |  always_comb
+         |  begin
+         |    r_din = r;
+         |    sum = r_din + 8'd1;
+         |    r_din = sum;
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) r <= 8'd0;
+         |    else r <= r_din;
+         |  end
+         |  assign y = sum;
          |endmodule""".stripMargin
     )
   }

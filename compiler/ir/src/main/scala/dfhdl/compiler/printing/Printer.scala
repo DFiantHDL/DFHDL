@@ -140,7 +140,9 @@ trait Printer
   def csViaConnectionSep: String
   val normalizeViaConnection: Boolean
   val normalizeConnection: Boolean
-  def csAssignment(lhsStr: String, rhsStr: String, shared: Boolean): String
+  // `lhsDcl` is the declaration the assignment targets (the LHS with its partial selections
+  // stripped). Backends need it to pick the assignment form for the declaration's object class.
+  def csAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String
   def csNBAssignment(lhsStr: String, rhsStr: String): String
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String
@@ -179,15 +181,12 @@ trait Printer
           case DFNet.Op.LazyConnection => csLazyConnection(lhsStr, rhsStr, directionStr)
         end match
       case _ =>
-        val lhsDin = net.lhsRef.get match
-          case dfVal: DFVal if dfVal.dealias.get.asInstanceOf[DFVal.Dcl].isReg => ".din"
-          case _                                                               => ""
-        val lhsShared =
-          net.lhsRef.get.dealias.get.asInstanceOf[DFVal.Dcl].modifier.isShared
+        val lhsDcl = net.lhsRef.get.dealias.get.asInstanceOf[DFVal.Dcl]
+        val lhsDin = if (lhsDcl.isReg) ".din" else ""
         val lhsStr = net.lhsRef.refCodeString + lhsDin
         val rhsStr = net.rhsRef.refCodeString
         net.op.runtimeChecked match
-          case DFNet.Op.Assignment   => csAssignment(lhsStr, rhsStr, lhsShared)
+          case DFNet.Op.Assignment   => csAssignment(lhsStr, rhsStr, lhsDcl)
           case DFNet.Op.NBAssignment => csNBAssignment(lhsStr, rhsStr)
         end match
   end csDFNet
@@ -809,7 +808,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   override val printVendorIPBlackbox: Boolean = true
   val tupleSupportEnable: Boolean = true
   def csViaConnectionSep: String = ""
-  def csAssignment(lhsStr: String, rhsStr: String, shared: Boolean): String =
+  def csAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String =
     s"$lhsStr := $rhsStr"
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr :== $rhsStr"
@@ -837,6 +836,10 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     s"${range.startRef.refCodeString} ${op} ${range.endRef.refCodeString}$csBy"
   def csWait(wait: Wait): String =
     val trigger = wait.triggerRef.get
+    // like a loop's FALL_THROUGH marker, this sits on the wait's own condition, exactly where the
+    // tag is (see `csFallThrough` in the owner printer)
+    def csFallThrough(cs: String): String =
+      if (wait.isInRTDomain && wait.isFallThrough) s"FALL_THROUGH($cs)" else cs
     if (wait.isEndless) "wait"
     else
       trigger.dfType match
@@ -845,11 +848,11 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
           // renders back as `waitWhile(inner)`.
           trigger match
             case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
-              s"waitUntil(${wait.triggerRef.refCodeString})"
+              s"waitUntil(${csFallThrough(wait.triggerRef.refCodeString)})"
             case DFVal.Func(op = FuncOp.unary_!, args = List(innerRef)) =>
-              s"waitWhile(${innerRef.refCodeString})"
+              s"waitWhile(${csFallThrough(innerRef.refCodeString)})"
             case _ =>
-              s"waitUntil(${wait.triggerRef.refCodeString})"
+              s"waitUntil(${csFallThrough(wait.triggerRef.refCodeString)})"
         case DFTime => s"${wait.triggerRef.refCodeString}.wait"
         case _      =>
           wait.triggerRef.get.getConstData[Option[BigInt]] match

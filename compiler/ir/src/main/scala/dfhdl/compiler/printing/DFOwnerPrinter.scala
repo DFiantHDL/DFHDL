@@ -577,11 +577,13 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
         printer.csDFValType(stepBlock.getVeryLastMember.get.asInstanceOf[DFVal].dfType)
       else ": Unit"
     s"def $name$defType =\n${body.hindent}\nend $name"
-  // COMB_LOOP/FALL_THROUGH are wrappers around a loop, so they print only on the outermost
-  // annotated loop: every loop constructed under a wrapper carries the tag, so a loop whose
-  // closest enclosing loop already carries the same tag is covered by that loop's wrapper.
-  // The wrappers are RT-only constructs, so once the loops are moved into ED processes
-  // (e.g. after `toED`) the tags must not print.
+  // COMB_LOOP marks a whole region: every loop constructed under the wrapper carries the tag,
+  // since a loop nested in a combinational loop must itself be combinational. It therefore prints
+  // only on the outermost annotated loop, and a loop whose closest enclosing loop already carries
+  // the tag is covered by that loop's wrapper. FALL_THROUGH is a property of one loop and prints
+  // on that loop's own condition or range instead (see `csFallThrough`).
+  // The wrapper is an RT-only construct, so once the loops are moved into ED processes
+  // (e.g. after `toED`) the tag must not print.
   private def csLoopAnnotated(loopBlock: DFLoop.Block, csLoop: String): String =
     def hasEnclosing(annotated: DFLoop.Block => Boolean): Boolean =
       var ownerIR = loopBlock.getOwner
@@ -598,19 +600,21 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       found
     var cs = csLoop
     if (loopBlock.isInRTDomain)
-      if (loopBlock.isFallThrough && !hasEnclosing(_.isFallThrough))
-        cs = s"FALL_THROUGH:\n${cs.hindent}"
       if (loopBlock.isCombinational && !hasEnclosing(_.isCombinational))
         cs = s"COMB_LOOP:\n${cs.hindent}"
     cs
   end csLoopAnnotated
+  // The FALL_THROUGH marker sits on the loop's own condition or range, so it needs no enclosing
+  // check: it prints exactly where the tag is, and a nested loop that opted in prints its own.
+  private def csFallThrough(loopBlock: DFLoop.Block, cs: String): String =
+    if (loopBlock.isInRTDomain && loopBlock.isFallThrough) s"FALL_THROUGH($cs)" else cs
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
     val body = csDFOwnerBody(forBlock)
     val named = forBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val endName = forBlock.meta.nameOpt.map(n => s"end $n").getOrElse("end for")
     //format: off
     val csLoop =
-      sn"""|${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})
+      sn"""|${named}for (${forBlock.iteratorRef.refCodeString} <- ${csFallThrough(forBlock, printer.csDFRange(forBlock.rangeRef.get))})
            |${body.hindent}
            |$endName"""
     //format: on
@@ -620,7 +624,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val named = whileBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val endName = whileBlock.meta.nameOpt.map(n => s"end $n").getOrElse("end while")
     val csLoop =
-      sn"""|${named}while (${whileBlock.guardRef.refCodeString})
+      sn"""|${named}while (${csFallThrough(whileBlock, whileBlock.guardRef.refCodeString)})
            |${body.hindent}
            |$endName"""
     csLoopAnnotated(whileBlock, csLoop)

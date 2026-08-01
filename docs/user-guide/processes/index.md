@@ -23,7 +23,7 @@ Define states as `def Name: Step = ...` and control flow with:
 
 - **`NextStep`**: advance to the next step in definition order.
 - **`ThisStep`**: stay in the current step for another cycle.
-- **`FirstStep`**: go to the first step (e.g. reset to initial state).
+- **`FirstStep`**: jump to the first step, exactly as naming it would. It is a jump, not a restart: it does not re-run the [process prologue](#cycle-semantics).
 - **Step name** (e.g. `S1`, `S2`): jump to that step.
 
 You can optionally name the process (e.g. `val my_fsm = process:`) so the compiler uses that name for the generated state enum and state register.
@@ -87,7 +87,7 @@ process:
     for (j <- 0 until 10) {}   // 100 cycles: one per innermost iteration
 ```
 
-A loop that runs zero iterations (its guard is false on entry) still consumes its one-cycle minimum, unless it is wrapped with `FALL_THROUGH` (see [Loops](#loops)):
+A loop that runs zero iterations (its guard is false on entry) still consumes its one-cycle minimum, unless it is marked with `FALL_THROUGH` (see [Loops](#loops)):
 
 ```scala
 process:
@@ -97,12 +97,9 @@ process:
   finish()                         // fires within the third cycle (fused into the last skip)
 
 process:
-  FALL_THROUGH:                    // each wrapped loop is skipped with zero cycles
-    while (false) {}
-  FALL_THROUGH:
-    while (false) {}
-  FALL_THROUGH:
-    while (false) {}
+  while (FALL_THROUGH(false)) {}   // each marked loop is skipped with zero cycles
+  while (FALL_THROUGH(false)) {}
+  while (FALL_THROUGH(false)) {}
   finish()                         // fires within the first cycle
 ```
 
@@ -170,7 +167,9 @@ process:
 1. **Initialization**: when the FSM starts, either on reset when the domain has a reset, or at power-on otherwise.
 2. **Forever wrap-around**: each time the process completes its last step and implicitly (through a `NextStep` jump) wraps back to the first step.
 
-It does **not** run on an explicit jump to the first step (`FirstStep` or the first step's name), nor on a `ThisStep` self-transition.
+The leading statements do **not** re-run on an explicit jump to the first step (`FirstStep` or the first step's name), nor on a `ThisStep` self-transition. The first step's `onEntry` is an ordinary entry hook on top of that: it runs on *every* entry into the first step from a different step, explicit jumps included (but not on a self-transition).
+
+This holds whether or not the prologue is initial-convertible. When it is not (see [Cycle semantics](#cycle-semantics)), the compiler gives the prologue a state of its own to run it, and the wrap-around passes through that state. `FirstStep` does not: it jumps to the process's first step — the first step *you* wrote, or the one a leading wait or loop yielded — paying neither the prologue nor that state's cycle. `FirstStep` and naming the first step are therefore always the same jump, and are always distinct from a wrap-around.
 
 ```scala
 process:
@@ -202,10 +201,10 @@ Fusion falls back to the previous behavior of one extra control cycle (per loop 
 
 - A `while` guard that reads registers assigned *conditionally* or *partially* inside the loop body (the next-cycle guard value cannot be expressed at the boundary).
 - Nested loops whose inner iteration count is not statically known (for example, `for (j <- 0 until n)` with a dynamic `n` inside an outer loop). Single dynamic loops still fuse; only the re-entry of a dynamic nest keeps a control state.
-- Steps that carry `onEntry`, `onExit`, or `fallThrough` blocks.
+- Steps that carry `onEntry` or `onExit` blocks (their statements must land on a real state edge). A `fallThrough` block does not keep a control cycle: a fused step costs none at all, so the condition simply becomes the first decision of the step's own dispatch.
 - Steps whose jump dispatch is a `match` rather than `if` conditionals.
 
-Similarly, Rule 4 falls back to a synthetic bootstrap state (one cycle consumed at process start) when the prologue cannot be lowered into an `initial` block:
+Similarly, Rule 4 falls back to a synthetic bootstrap state when the prologue cannot be lowered into an `initial` block. That state runs the prologue, so it costs a cycle at process start *and* on each wrap-around, which passes through it. An explicit `FirstStep` jump does not pass through it and costs nothing.
 
 - The prologue (or the first step's `onEntry`) is not initial-convertible: it contains non-constant right-hand sides, assignments to wires/ports (non-registered), prints, `while` loops, or conditionals with non-constant guards/selectors.
 - A variable assigned by the prologue is also assigned by trailing statements of the process body (statements executed in the wrap-around exit cycle): the wrap-around re-initialization would shadow that trailing assignment in the same cycle, so the bootstrap state is kept instead.
@@ -220,6 +219,16 @@ RT processes can use **cycle waits** (`1.cy.wait`, `n.cy.wait`), **timed waits**
 
 A bare **`wait`**, with no duration or condition, is an **endless wait**: the FSM enters a terminal state and halts there (until reset). Use it to end a run-once sequence. A process ending in an endless wait has no wrap-around, so its prologue runs only at initialization.
 
+A condition wait costs its one-cycle minimum even when its condition already holds on entry. Marking it with **`FALL_THROUGH`** removes that minimum: the wait is skipped without consuming any cycles when its condition is already satisfied, continuing at whatever follows it. The marker is written on the wait's own condition, the same way it is written on a loop's condition or range (see [Loops](#loops)):
+
+```scala
+process:
+  waitUntil(FALL_THROUGH(ready))   // costs nothing when `ready` is already high
+  waitWhile(FALL_THROUGH(busy))    // costs nothing when `busy` is already low
+```
+
+This is the same mechanism the loops use: a condition wait lowers to a loop on the negated condition, so both forms behave identically. The skip is decided in the cycle that enters the wait, so the condition reads its registers as [`.din`][din], the pending next-cycle value. An unconditional wait (`1.cy.wait`, `100.ms.wait`) has no condition that could already hold, so it cannot be marked.
+
 ### Loops
 
 `for` and `while` loops inside an RT process describe sequential (multi-cycle) iteration, following the cycle semantics above: each executed iteration costs its body's cycles, with a minimum of one cycle per iteration, and the loop boundaries add no cycles beyond that. Loop iterators become registers.
@@ -233,9 +242,31 @@ process:
 
 A `while` loop with a body that consumes no cycles samples its guard once per cycle (one cycle per iteration), which is exactly the behavior of `waitUntil`/`waitWhile`.
 
-Wrapping an RT loop with a **`FALL_THROUGH`** block marks the loop to fall through to the next step without consuming any cycles when its guard is false on entry.
+Marking an RT loop with **`FALL_THROUGH`** makes it fall through without consuming any cycles when its guard is false on entry, continuing at whatever follows the loop. The marker is written on the loop's own condition or range:
 
-Wrapping an RT loop with a **`COMB_LOOP`** block marks it combinational: the whole loop executes within a single cycle and generates no steps (so its body must not consume cycles).
+```scala
+process:
+  while (FALL_THROUGH(go)) {}          // skipped for free while `go` is low
+  for (i <- FALL_THROUGH(0 until n))   // skipped for free when `n` is 0
+    1.cy.wait
+```
+
+It marks exactly the one loop it is written on. A nested loop is unaffected unless it is marked too, which lets each generator of a multi-iterator comprehension be marked independently:
+
+```scala
+for (i <- 0 until rows; j <- FALL_THROUGH(0 until cols))   // only the inner loop is marked
+  1.cy.wait
+```
+
+The marker is only needed for a loop whose body consumes no cycles, since that is the shape that pays a cycle to enter and skip (Rule 2 above). A loop whose body does consume cycles fuses (Rule 3), so it already enters and exits for free: marking one costs nothing and changes nothing.
+
+The skip is decided in the same cycle that enters the loop, so the guard reads its registers as [`.din`][din], the pending next-cycle value. This is what makes a `FALL_THROUGH` `for` loop mean what it reads as: the loop entry resets the iterator, and the skip decision follows that reset rather than the count left over from the previous pass.
+
+A comprehension guard (`for (i <- FALL_THROUGH(0 until n) if p)`) is not part of the decision. It lowers to a plain conditional inside the loop body, so a filtered-out iteration still costs its cycle; only the loop's own range decides the skip.
+
+`FALL_THROUGH` must be written directly on the construct it marks: as the whole `while` condition, as a `for` range, or as the whole `waitUntil`/`waitWhile` condition (see [Waits](#waits)). Anywhere else, including on a comprehension guard or on part of a compound condition, is a compile-time error.
+
+Wrapping an RT loop with a **`COMB_LOOP`** block marks it combinational: the whole loop executes within a single cycle and generates no steps (so its body must not consume cycles). Unlike `FALL_THROUGH`, this one marks a whole region: a loop nested inside a combinational loop cannot consume cycles either, so it is combinational too.
 
 Both annotations are allowed under RT domains only; applying them elsewhere is a compile-time error.
 
@@ -243,7 +274,36 @@ For elaboration-time (unrolled) loops outside processes, and for hardware loops 
 
 ### fallThrough
 
-A step can define **`def fallThrough = cond`** where `cond` is a Boolean/Bit expression. When the condition holds, the step advances to the next step in the same cycle (conditional advancement); when it does not, the FSM stays in the current step.
+A step can define **`def fallThrough = cond`** where `cond` is a Boolean/Bit expression. When the condition holds, the step advances in the same cycle without registering in it (conditional advancement); when it does not, the FSM enters the step normally.
+
+The step it advances to is the one the step itself would have gone to: the target of the goto on its own default path, not whichever step happens to be declared next. In the example below, entering `S1` with `x` set advances straight to `S3`, and `S2` is never visited:
+
+```scala
+process:
+  def S0: Step =
+    NextStep
+  def S1: Step =
+    def fallThrough = x   // when x, advance to S3 in the same cycle
+    S3
+  def S2: Step =
+    FirstStep
+  def S3: Step =
+    S2
+```
+
+The advance runs the target step's `onEntry`, and cascades: if the step it advances to also falls through, control keeps advancing within the same cycle, stopping when it reaches a step that does not fall through, or one it has already passed through in this cycle.
+
+The condition is decided on the transition into the step, in the same cycle in which entering it already assigns registers, so it reads every register it names as [`.din`][din]: the pending next-cycle value. A condition over a register that the step's own `onEntry` writes therefore sees what `onEntry` has just written, not the value it is about to replace:
+
+```scala
+def Armed: Step =
+  def onEntry =
+    armed.din := x
+  def fallThrough = !armed   // reads armed.din, so it follows the assignment above
+  NextStep
+```
+
+A step that fuses (see [Cycle semantics](#cycle-semantics)) costs no cycle to begin with, so on such a step `fallThrough` no longer decides whether a cycle is spent, only whether the step's own statements run: the condition becomes the first decision of the step's dispatch, and is evaluated on the transition edge like the step's other guards, on the values the registers will hold in the next cycle.
 
 ### onEntry and onExit
 
@@ -586,5 +646,6 @@ See [Design Domains][design-domains] for the overall flow from DF → RT → ED 
 - Processes cannot be nested and are not available in the DF domain.
 
 [design-domains]: ../design-domains/index.md
+[din]: ../design-domains/index.md#din-read
 [loops]: ../loops/index.md
 [methods]: ../methods/index.md#static-functions

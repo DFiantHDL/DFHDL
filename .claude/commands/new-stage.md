@@ -23,7 +23,7 @@ The `DB` is an **immutable snapshot**: each stage receives the current `DB`, com
 
 ## Required Stage Properties
 
-Every stage **must** satisfy two invariants. Violating either causes subtle, hard-to-debug compiler bugs.
+Every stage **must** satisfy three invariants. Violating any of them causes subtle, hard-to-debug compiler bugs.
 
 ### 1. Determinism — same input → same output, every time
 
@@ -54,8 +54,41 @@ This is a **design guideline**, not something that needs to be formally proved. 
   same run (e.g. FlattenStepBlocks clones the process prologue at the wrap-around goto — but
   keyed on the relative `NextStep` form of that goto, which the same run resolves into a
   named goto, so a re-run finds no trigger). If the trigger cannot be consumed, carry the
-  provenance as a **member tag** (`DFTag`) instead — tagging an already-tagged member is a
-  no-op, so tags are fix-point-safe.
+  provenance as a **member tag** (`DFTag`) — but only one that satisfies rule 3 below.
+
+### 3. Printability — every stage's output must survive a print/re-elaborate round trip
+
+Take a stage's printed output, elaborate it as DFHDL source, and run the rest of the pipeline:
+the result must be identical to passing the IR along directly. Printed code is the contract
+between stages, so **no stage may depend on information that its own printout does not carry.**
+
+This is what constrains tags. A tag is safe only when re-elaborating the printed form
+reconstructs it:
+
+- `CombinationalTag` prints as the `COMB_LOOP:` block wrapper and `FallThroughTag` as the
+  `FALL_THROUGH(...)` marker on the construct's own condition or range (a loop's, or a
+  `waitUntil`/`waitWhile`'s), so elaboration puts them back. Safe. Note the two differ in scope,
+  and the printer must match: `COMB_LOOP` marks a region (every loop under it carries the tag, so
+  it prints once on the outermost) while `FALL_THROUGH` marks one construct (each tagged one
+  prints its own, including a nested opt-in).
+- `IteratorTag`, `BindTag`, `IdentTag` and friends are re-derived by elaboration from the
+  construct itself. Safe.
+- A tag marking *why a stage synthesized a member* has no printed form and nothing regenerates
+  it. **Unsafe** — and the failure is silent, because the IR path keeps working.
+
+The trap is that a tag can be perfectly fix-point-safe (re-tagging is a no-op) and still break
+this. Idempotency and printability are independent requirements.
+
+The practical test: could a user have hand-written this printout, meaning something different?
+A synthesized process bootstrap step prints as `def S_0: Step = NextStep` followed by the
+prologue statements — byte-identical to a real first step followed by an inter-step statement.
+Nothing in the printout distinguishes them, so no downstream stage may rely on the difference.
+
+When you hit this, the fix is not a better marker; it is to **move the decision into the stage
+that consumes it**, or to resolve the ambiguity before the boundary. The process bootstrap moved
+from `DropRTWaits` into `FlattenStepBlocks` for exactly this reason: `DropRTWaits` still emits
+relative gotos, so a `FirstStep` in its printout is ambiguous about the bootstrap, while by
+`FlattenStepBlocks` every goto is explicit and the ambiguity is gone.
 
 ---
 
@@ -286,6 +319,36 @@ Resort to **multi-phase patching** (sequential `db.patch()` calls) only when the
 is genuinely unmergeable, or when a later patch's *computation* must observe the already
 patched DB (e.g. anchoring a MetaDesign on a member that only exists after the first phase —
 though often the merge rules let you anchor on the original member instead).
+
+### Recipe: replace a member AND relocate it, in one patch
+
+Naming (or otherwise rewriting) a member while also moving it looks unmergeable, because
+`Patch.Move` emits a `Patch.Remove` per moved member and `Replace + Remove` is not in the merge
+table. The naive reading is that you need two phases. You do not, and the merge could not be added
+anyway: `patchMembers` inserts the Move's member instances **verbatim** (it never re-resolves them
+through the patch table), so merging `Replace(r, FullReplacement) + Remove` would relocate the *old*
+instance and drop `r` entirely.
+
+Use `ChangeRefAndRemove` and put the **replacement** in the move list:
+
+```scala
+List(
+  // drops the original from its old position and redirects every reader to `newMember`
+  origMember -> Patch.Replace(newMember, Patch.Replace.Config.ChangeRefAndRemove),
+  // inserts the *new* instance at the anchor
+  anchor -> Patch.Move(movedMembers, origMember.getOwner, Patch.Move.Config.Before)
+)
+// where movedMembers is the relocation list with origMember swapped for newMember
+```
+
+Why it works: `ChangeRefAndRemove` is rewritten to `(origMember, Patch.Remove())` for the member
+list while still redirecting refs, and the `Remove` the Move emits is keyed on `newMember`, which
+is not in the walked member list and is therefore inert. The two patches never share a key. The
+Move's ownership fixup still finds the right owner because `setName`-style copies share the
+original's ref objects.
+
+`NamedAliases` uses exactly this to name a value and lift it out of a conditional expression branch
+atomically, which it must, since `SanityCheck` would reject the intermediate DB.
 
 ### `Patch.Add` via `MetaDesign`
 Use `MetaDesign` when you need to construct new IR members using the DFHDL frontend DSL:
@@ -940,21 +1003,40 @@ the full design code string after every stage that changes the DB.
 
 ### Enabling and running
 
-Put a design in `lib/src/test/scala/Playground.scala` (or `core/.../Playground.scala`) and add at
-the top of the file:
-```scala
-given options.CompilerOptions.LogLevel = _.TRACE
-```
-Then run the whole pipeline for a top-level design named `Foo` via the `main` injected into its companion object:
+Put a design in `lib/src/test/scala/Playground.scala` (or `core/.../Playground.scala`) and run the
+whole pipeline for a top-level design named `Foo` via the `main` injected into its companion
+object. The log level is a plain command-line option, so **no source edit is needed**:
 ```bash
-sbtn.bat ";libPlayground;lib/Test/runMain Foo"          # core equivalent: corePlayground + core/Test/runMain
+sbtn.bat 'lib/Test/runMain Foo --nocache --log trace compile --print-backend'
 ```
-Pass tool/backend arguments after `--`:
+(core equivalent: `corePlayground` + `core/Test/runMain`.)
+
+The command line is `[design-args] [app-options] <mode> [mode-options]`, a plain subcommand
+structure, so **placement around the mode is load-bearing**:
+
+| Piece | Side | Examples |
+|---|---|---|
+| Design args + app options | *before* the mode | `--width 12`, `--nocache`, `--log trace` |
+| Mode | — | `compile`, `commit`, `simulate` |
+| Mode options | *after* the mode | `--print-backend`, `-b vhdl.v2008`, `-t questa` |
+
+An option on the wrong side fails with `[scallop] Error: Unknown option 'backend'` — note that
+`--backend`/`-b` is a **mode** option, so it goes after `compile`, not before it. The full
+reference is `docs/user-guide/command-line/index.md`.
+
+Useful combinations:
 ```bash
-sbtn.bat ";libPlayground;lib/Test/runMain Foo -- simulate -t questa"     # or -t nvc/ghdl with -b vhdl
+# see the generated HDL without leaving the trace run
+sbtn.bat 'lib/Test/runMain Foo --nocache --log trace compile --print-backend'
+# compare backends (illegal output is often backend-specific)
+sbtn.bat 'lib/Test/runMain Foo --nocache compile --backend vhdl.v2008 --print-backend'
+sbtn.bat 'lib/Test/runMain Foo --nocache -- simulate -t questa'
 ```
+The older form, a `given options.CompilerOptions.LogLevel = _.TRACE` at the top of the Playground
+file, still works and is what you need when the run is driven by a spec rather than `runMain`.
+
 A design with **no ports + a `finish()`** is treated as a self-contained simulation top, so the
-default (no-arg) action becomes *simulate* instead of *compile*.
+default (no-mode) action becomes *simulate* instead of *compile*.
 
 ### Reading the trace to localize the failing stage
 
@@ -966,6 +1048,12 @@ after every non-`NoCheckStage`, and prints the code string after any stage that 
 - **Don't assume the failing stage is the one you changed.** A stage can pass its own sanity check
   and emit a valid DB, yet a *later* stage chokes on a shape your stage newly produced. Read the
   `Running stage` sequence to find the first failure, not the first suspect.
+
+### Localizing *illegal generated HDL* (nothing throws)
+
+When a run succeeds end-to-end but emits HDL the downstream tool rejects, no check fires and the
+trace has to be read differently. That diagnosis workflow, along with how to attribute the shape
+to the stage that *introduced* it, lives in [/bugfix](bugfix.md).
 
 ### Harvesting a self-contained reproducer from the trace
 
@@ -980,22 +1068,104 @@ isolated unit test in one step — write the test, watch it fail with the same e
 
 - Re-running an unchanged design may short-circuit on the on-disk cache
   (`Loading committed design from cache...`) and skip the stages (and the trace) entirely. Pass
-  **`--nocache`** to disable caching — it is a DFHDL App option that goes *before* the `--`
-  separator (it is NOT a positional arg after `--`; placing it after `--` fails with
-  `[scallop] Error: Excess arguments provided: '--nocache'`). The DFHDL App command
-  (`compile` / `simulate` / …) goes *after* `--`:
-  ```bash
-  sbtn.bat ";libPlayground;lib/Test/runMain Foo --nocache -- compile"
-  sbtn.bat ";libPlayground;lib/Test/runMain Foo --nocache -- simulate -t questa"
-  ```
+  **`--nocache`** to disable caching — it is an app option, so it goes *before* the mode.
   (Alternatively clear `sandbox/<Top>` via `sbtn clearSandbox`, or edit the design — but `--nocache`
   is the lightweight option for repeated trace runs.)
+- **`--nocache` covers both caches**: the app's step cache under `sandbox/<Top>/cache` *and* the
+  sub-design elaboration cache, which lives in `*/target/scala-*/dfhdl-cache/` and would otherwise
+  keep adopting cached sub-design bodies instead of elaborating them. `clearSandbox` does NOT reach
+  the second one; `sbtn clearElabCache` clears it, and `sbtn clearDFHDL` clears both. You rarely
+  need either, since cache entries are keyed by code digest and a stale one can never be served.
 - `libPlayground` / `corePlayground` zero out other subprojects' test sources for the session. To
   run `StagesSpec` tests again afterwards, reset with a leading `;reload`.
 
 ---
 
+## Stage-Facing Invariants Discovered by Bug Fixes
+
+Deciding **where a rule belongs** (elaboration `DB.check` vs `SanityCheck`), how to scope it, and
+how to measure its blast radius before fixing stages is bug-fixing methodology and lives in
+[/bugfix](bugfix.md). What follows is only the part a stage author must obey.
+
+### What `SanityCheck` enforces after your stage
+
+`SanityCheck.transformSubDB` runs, per sub-DB: `refCheck`, `memberExistenceCheck`,
+`ownershipCheck`, `orderCheck`, `hdlMethodCheck`, and the whole of `DB.subDBCheck` — the same
+per-design set elaboration runs (`nameCheck`, the connectivity checks behind `connectionTable`,
+`directRefCheck`, `initialCheck`, `condExprNamedValCheck`). So a stage's output has to satisfy
+every rule a *user design* satisfies, not just the structural ones.
+
+`orderCheck` is the one most likely to be new to you: **every member may reference only members
+defined above it in the flat list** (a `Goto` is the sole exception, since it targets a later
+step). It bites whenever a stage relocates a member without its dependency cone, or emits a
+substitute after the value that reads it (mistake 27).
+
+### Named values in conditional expression branches
+
+A `DFConditional.Header` with `dfType != DFUnit` is a conditional *expression*: each branch
+contributes only its resulting value. Whether a branch of one may *also* hold a named value depends
+on the scope, and the boundary is not the one you would guess:
+
+| Conditional expression sits in | Named value in a branch | Why |
+|---|---|---|
+| ED domain body (**concurrent**) | **illegal** | branch is not a block; the drive becomes a connection |
+| ED `process` | legal | branch lowers to a procedural block |
+| RT / DF domain | legal | same |
+| conditional *statement* branch (`dfType == DFUnit`) | legal | branch is a scope in its own right |
+
+`ExplicitNamedVars` chooses connection vs assignment with `named.isInEDDomain && !named.isInProcess`.
+**Only the concurrent combination emits a connection**, and a connection is the only drive with
+nowhere to live once `ExplicitCondExprAssign` wraps the expression into a `process(all)` — at which
+point it prints as `assign` inside an `always_comb` (issue #426). `DB.condExprNamedValCheck()`
+enforces the same predicate, and the comments on both say they must stay in agreement.
+
+A named **conditional header** is exempt: `ExplicitNamedVars` drives it through `patchChains`
+(`case _: DFConditional.Header => // do nothing`, then an assignment per branch), so it never
+becomes a connection.
+
+Consequences when writing a stage:
+- **Never name an intermediate at its point of use when that point is a conditional expression
+  branch in an ED domain body.** Name *and* relocate in the same patch — see the
+  name-and-relocate-in-one-patch recipe under *Patch System*. A follow-up cleanup stage is not an
+  acceptable substitute: `SanityCheck` runs after every stage, so the intermediate DB would be
+  illegal. `NamedAliases` does both in one patch for this reason.
+- **`isInProcess` walks owners until a `ProcessBlock` or a `DFDomainOwner`, so conditional blocks
+  are transparent to it.** If you need "is this member in a scope that stays concurrent?", that is
+  the wrong test.
+- **`collectRelMembers` recurses only into *anonymous* values.** Mind *when* you call it. Before
+  your patch is applied, a value a sibling group in the same pass is about to name is still
+  anonymous, so it **is** in the cone — which is what lets one group carry another's sub-tree, and
+  exactly why overlapping groups must be gated (next bullet). After the naming patch, the same
+  call stops at that value, so a guard written against the post-patch cone silently passes; check
+  `getRefs` directly there.
+- **Two groups can want to relocate the same sub-tree.** `(if (d) p else q) + 1` produces two
+  naming groups whose move sets overlap, and moving the shared members twice yields
+  `More than one appearance of member in member list`. Gate each pass to the innermost group (drop
+  any group whose own value another group would carry, leaving it anonymous) and drive the stage
+  `@tailrec`; the outer group is picked up next pass, once what it reads sits outside the branch.
+
+---
+
 ## Test Authoring Rules
+
+**Every stage you touch gets a test in its own `<Stage>Spec`.** One change, one stage, one spec
+test — and if a fix spans three stages, all three get one. Covering the whole fix with a single
+test on the stage that happened to be easiest, or with an end-to-end backend test, leaves the other
+stages' behaviour unpinned: the next person to edit one of them gets no signal, and a failure lands
+on whichever stage is later in the pipeline rather than the one that broke.
+
+A stage with no spec file yet is not an exemption. Add the `extension [T: HasDB](t: T) def
+<stageName>` entry point next to its siblings in the stage's own source file (several stages in a
+shared file have one and the rest do not, purely by accident), and create
+`StagesSpec/<Stage>Spec.scala`. That entry point is also what the test's `import` refers to, so
+reverting the stage file wholesale to prove the test fails will break the spec's compilation
+instead — revert just the changed guard in place. See
+[/bugfix](bugfix.md) "Prove the test fails without the fix".
+
+When a stage's change genuinely cannot be seen in its own printout (two different IRs printing
+identically — the printout is the stage contract precisely because it hides representation), say so
+in a comment at the backend test that does pin it, and do not leave behind a stage test that passes
+either way.
 
 **Tests must be self-contained.** Each test should only exercise the stage under test. Do not write input designs that rely on a prior stage to produce the IR shape that the current stage expects — write that IR shape directly using the DFHDL DSL.
 
@@ -1148,6 +1318,60 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     members, not just the first: each read site references a different PBNS member (see
     `PrepEDDefs` — the main PBNS kept via `ChangeRefOnly` + `OfMembers`, the rest
     `ChangeRefAndRemove`d).
+22. **An anonymous value may be read exactly once** — `SanityCheck` reports *"An anonymous value has
+    more than one reference"*. So when a stage synthesizes a *wrapper* per read (a `.din` read, a
+    cast, a sampling alias), do NOT memoize one wrapper per target and share it between two readers:
+    emit a fresh one per reading reference. Memoizing feels like the obvious de-duplication and
+    passes every structural check except this one.
+23. **You cannot redirect an existing member's references from inside a `MetaDesign`** —
+    `dfc.mutableDB.newRefFor` only governs refs registered in the meta design's own DB (fresh clones
+    and members it created). Calling it on a ref belonging to a member that is already in the stage's
+    DB corrupts the ref table (`Failed reference check!`). To rewrite a member's reads you must
+    either replace the member (`Patch.Replace` keyed on it) or rebuild it as a clone — which is also
+    why a rewrite that must reach *several* members of a block is cleanest as a whole-block rebuild
+    (see Pattern 15).
+24. **Position within a block can be load-bearing** — before appending synthesized members, check
+    whether a downstream stage reads the block positionally. A `fallThrough` block's condition is
+    `members.last` in both `DropRTProcess` and `FirstStepFusion`, so a rebuild has to emit each
+    synthesized read *before* the member that reads it rather than appending at the end.
+25. **Naming an intermediate at its point of use may land it in a conditional expression branch** —
+    inside an ED *domain body* (a concurrent scope), a branch of a `DFConditional.Header` with
+    `dfType != DFUnit` is not a block, so a named value there is driven by a connection that later
+    prints as `assign` inside an `always_comb` (issue #426). `DB.condExprNamedValCheck()` rejects
+    it; place the name in an enclosing scope where all its operands are visible. The same shape is
+    legal in an ED `process` and in RT/DF domains, where it lowers to a blocking assignment.
+    Relatedly, `isInProcess` treats conditional blocks as transparent, so it is the wrong test for
+    "does this member stay in a concurrent scope?". See *Stage-Facing Invariants* for the full
+    story, including the conditional-header exemption.
+26. **A new phase inside an existing stage is almost always wrong** — either the work is a
+    self-sustained, idempotent, fix-point transformation, in which case it is its own **stage**, or
+    it belongs in the **same patch** as the existing work. And when the work exists to keep the
+    stage's *own output legal*, a separate stage is not an option either: `SanityCheck` runs after
+    every stage, so the DB in between would be invalid. It has to be the same patch. Check the
+    merge table before concluding that is impossible, and see the
+    *replace AND relocate in one patch* recipe for the case that looks unmergeable but is not.
+27. **Substituting into a cloned expression tree AFTER cloning it inverts the member order** —
+    `cloneAnonValueAndDepsHere` builds each dependency before the value that reads it, which is the
+    only order the flat member list accepts. If you then walk the finished clone and `newRefFor` a
+    ref to a *freshly emitted* replacement (a forwarded value cloned here), that replacement is
+    appended below its reader, and the reader points forward at a member defined under it. Pass the
+    substitution in instead — `cloneAnonValueAndDepsHere(substDep)` applies it to every dependency
+    while the clone is built, so anything it emits lands ahead of the reader:
+    ```scala
+    def substDep(dep: ir.DFVal): ir.DFVal = dep match
+      case dcl: ir.DFVal.Dcl    => forwardedValueFor(dcl)   // may emit its own clone
+      case _ if dep.isAnonymous => dep.cloneAnonValueAndDepsHere(substDep)
+      case _                    => dep
+    v.cloneAnonValueAndDepsHere(substDep)
+    ```
+    `SanityCheck.orderCheck` catches this (`Failed member order check!`). Note the printed output is
+    typically **identical** either way, because an anonymous value prints inline at its use — so no
+    code-string test will ever see it.
+28. **Deferring a fix to a later stage lets an illegal DB exist in between** — a stage must never
+    emit IR that violates a stated invariant, not even briefly. If you find yourself writing a
+    cleanup stage for a shape an earlier stage produces, fix the producer instead. The way to
+    discover this at all is to wire the invariant into `SanityCheck`; nothing else in the pipeline
+    will tell you (`DB.check` runs once, at elaboration, and `SanityCheck` never calls it).
 
 ---
 
@@ -1214,6 +1438,46 @@ non-obvious parts:
    signal/variable declarations (a signal's default may call one; a static function never
    reads signals).
 
+### Pattern 15 — Rebuild a block member-by-member to rewrite what it reads
+
+When a stage must redirect reads across *several* members of one block (mistake 23 rules out
+editing them in place), rebuild the block's contents: anchor a `MetaDesign` on the block with
+`Patch.Add.Config.InsideFirst`, re-emit every member as a clone with remapped ref targets, and
+`Patch.Remove()` the originals. `InsideFirst` keys the Add on the block itself, so it never
+collides with the per-member Removes (`InsideLast` is re-keyed onto the block's very last member,
+which usually *is* one of them).
+
+Unlike `plantClonedMembers`, resolve each member's ref targets **before** adding its clone, so any
+member you synthesize for a target lands ahead of its reader (mistake 24). `getRefs` excludes
+`ownerRef`, so set the owner separately:
+
+```scala
+val dsn = new MetaDesign(block, Patch.Add.Config.InsideFirst, dfhdl.core.DomainType.RT):
+  given MemberGetSet = dfc.getSet   // clones resolve here, not in the stage's DB (mistake 17)
+  val clonedOf = mutable.Map.empty[ir.DFMember, ir.DFMember]
+  blockMembers.foreach { m =>
+    val targets = m.getRefs.map { ref =>
+      ref.get match
+        case t: ir.DFVal => rewriteTarget(clonedOf.getOrElse(t, t).asInstanceOf[ir.DFVal])
+        case other       => other
+    }
+    val cloned = m.copyWithNewRefs
+    dfc.mutableDB.addMember(cloned)
+    dfc.mutableDB.newRefFor(cloned.ownerRef, dfc.owner.asIR)
+    cloned.getRefs.lazyZip(targets).foreach(dfc.mutableDB.newRefFor(_, _))
+    clonedOf += m -> cloned
+  }
+dsn.patch :: blockMembers.map(_ -> Patch.Remove())
+```
+
+`copyWithNewRefs` preserves `meta`, so **named** members keep their names — which is the point:
+`cloneAnonValueAndDepsHere` stops at named values, so a clone-the-expression-tree approach silently
+leaves a named intermediate's own reads unrewritten, splitting one block's semantics in two.
+
+When the rewrite wraps a value (rather than substituting one), mind chain-vs-reader: a partial
+selection into the wrapped root is a *link* in the read chain, so wrap at its outermost consumer,
+not at each link, or you produce an inside-out alias that may not even be printable.
+
 ---
 
 ## API Notes
@@ -1271,8 +1535,10 @@ This mirrors the `iterType.<>(VAR.REG)` pattern used for UInt variables.
 - [ ] Pattern matches target the *source* form only; the transformed IR should not re-match the same predicate, so `f(f(x)) == f(x)` **[idempotency]**
 - [ ] Convenience `extension` method added at the bottom of the file
 - [ ] Test file in `StagesSpec/` extends `StageSpec`
+- [ ] **Every** stage the change touches has a test in its **own** `<Stage>Spec` (add the file and the `extension` entry point if the stage has none yet)
 - [ ] At least one "basic" test and one "edge case" or "backend-specific" test
 - [ ] `assertCodeString` expected strings verified manually or via a first-run snapshot
+- [ ] Each new test verified to **fail** with its fix reverted, not just to pass with it
 - [ ] `sbt test` passes (or `sbt quickTestSetup; test` for faster iteration via `lib/Playground.scala`)
 - [ ] **Update this skill** with any general lessons learned (see below)
 

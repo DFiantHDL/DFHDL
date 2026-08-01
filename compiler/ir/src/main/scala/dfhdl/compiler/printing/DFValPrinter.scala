@@ -155,11 +155,13 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String
   def csDFValAliasSelectField(dfVal: Alias.SelectField): String
   def csDFValAliasHistory(dfVal: Alias.History): String
+  def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String
   // def csTimerIsActive(dfVal: Timer.IsActive): String
   def csNOTHING(dfVal: Special): String
   final def csDFValAliasExpr(dfVal: Alias): String = dfVal match
     case dv: Alias.AsIs        => csDFValAliasAsIs(dv)
     case dv: Alias.History     => csDFValAliasHistory(dv)
+    case dv: Alias.RegDIN      => csDFValAliasRegDIN(dv)
     case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
     case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
     case dv: Alias.SelectField => csDFValAliasSelectField(dv)
@@ -173,7 +175,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       members.count {
         case dcl: DFVal.Dcl =>
           !dcl.isPhantom &&
-            (dcl.isPortIn || (dcl.isPortOut && !returnPort.contains(dcl)))
+          (dcl.isPortIn || (dcl.isPortOut && !returnPort.contains(dcl)))
         case _ => false
       }
     getSet.designDB.rootDB.subDBs.get(design.ownerRef) match
@@ -431,6 +433,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
         case _                    => s"$opStr(${dfVal.step})"
     s"${dfVal.relValCodeString}$appliedStr"
   end csDFValAliasHistory
+  def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String = s"${dfVal.relValCodeString}.din"
   // def csTimerIsActive(dfVal: Timer.IsActive): String =
   //   s"${dfVal.timerRef.refCodeString}.isActive"
   def csNOTHING(dfVal: Special): String = "NOTHING"

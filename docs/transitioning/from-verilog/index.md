@@ -650,6 +650,47 @@ o3 <> a.bool || b || c
 See [Logical Operations][logical-ops] for the full reference and Verilog/VHDL mapping tables.
 ///
 
+/// admonition | Bitwise NOT and Unary Negation (`~x`, `-x`)
+    type: verilog
+DFHDL's `~` is Verilog's bitwise NOT: it applies to `Bits` and `UInt` vector values and returns the same type as its argument.
+
+Unary negation `-x` differs from Verilog. In Verilog, `-x` is evaluated at the context-determined width, so assigning it to a same-width signal wraps modulo `2**W` (two's complement). In DFHDL, `-x` on a `UInt[W]` or `Bits[W]` value implicitly converts the value to `SInt[W + 1]` and returns `SInt[W + 1]`, preserving the exact negated value; `SInt` values keep their type and width. To reproduce Verilog's same-width wrap-around negation, reinterpret the value as signed (same width), negate, and reinterpret back: `(-x.sint).bits` for a `Bits` value, or `(-x.bits.sint).bits.uint` for a `UInt` value.
+
+<div class="grid" markdown>
+
+```sv linenums="0" title="Verilog"
+module Negate(
+  input  wire logic [7:0]        x,
+  output      logic [7:0]        inv,
+  output      logic [7:0]        neg,
+  output      logic signed [8:0] negw
+);
+  assign inv  = ~x;  // bitwise NOT
+  assign neg  = -x;  // wraps modulo 2**8
+  assign negw = -x;  // widened by context
+endmodule
+```
+
+```scala linenums="0" title="DFHDL"
+class Negate extends EDDesign:
+  val x    = Bits(8) <> IN
+  val inv  = Bits(8) <> OUT
+  val neg  = Bits(8) <> OUT
+  val negw = SInt(9) <> OUT
+
+  inv  <> ~x              // bitwise NOT, Bits[8]
+  neg  <> (-x.sint).bits  // same-width wrap-around
+  negw <> -x              // SInt[9]: exact negated value
+end Negate
+```
+
+</div>
+
+This wrap-around conversion may appear cumbersome, and that is intentional: it hints at a code smell. It usually means one of two things: either the base type was chosen badly (a value that is conceptually a signed number should be declared as `SInt`, where `-x` preserves the type directly), or the importance of the preserved sign bit in the widened `SInt[W + 1]` result is not understood (discarding it silently corrupts the value; e.g., same-width negation of `d"8'128"` yields 128 again, not -128).
+
+See [Logical Operations][logical-ops] for the bitwise NOT and [Arithmetic Operations][arithmetic-ops] for the unary negation type rules.
+///
+
 /// admonition | Reduction Operators (`&v`, `|v`, `^v`)
     type: verilog
 Verilog's unary reduction operators have direct DFHDL equivalents using postfix `.&`, `.|`, `.^` on `Bits` values:
@@ -745,12 +786,12 @@ val concat = (a, b, c).toBits  // equivalent to a ++ b ++ c
 
 /// admonition | Part-Select Notation (`-:` and `+:`)
     type: verilog
-Verilog's descending and ascending part-select notation maps to DFHDL's `(hi, lo)` range slice, or use the convenience methods `.msbits(n)` and `.lsbits(n)`:
+Verilog's descending and ascending part-select notation maps directly to DFHDL's anchored slice methods `.msbitsAt(base, W)` and `.lsbitsAt(base, W)`, to the `(hi, lo)` range slice, or to the convenience methods `.msbits(W)` and `.lsbits(W)` for the top/bottom cases:
 
 | Verilog | DFHDL | Notes |
 |---------|-------|-------|
-| `sig[base -: W]` | `sig(base, base - W + 1)` | Descending slice from `base`, `W` bits |
-| `sig[base +: W]` | `sig(base + W - 1, base)` | Ascending slice from `base`, `W` bits |
+| `sig[base -: W]` | `sig.msbitsAt(base, W)` or `sig(base, base - W + 1)` | Descending part-select: `W` bits, MSB anchored at `base` |
+| `sig[base +: W]` | `sig.lsbitsAt(base, W)` or `sig(base + W - 1, base)` | Ascending part-select: `W` bits, LSB anchored at `base` |
 | `sig[N-1 -: W]` | `sig.msbits(W)` or `sig(N-1, N-W)` | Top `W` bits |
 | `sig[0 +: W]` | `sig.lsbits(W)` or `sig(W-1, 0)` | Bottom `W` bits |
 | `sig[idx]` | `sig(idx)` | Single bit access |
@@ -758,22 +799,34 @@ Verilog's descending and ascending part-select notation maps to DFHDL's `(hi, lo
 <div class="grid" markdown>
 
 ```sv linenums="0" title="Verilog"
-logic [15:0] data;
+logic [15:0]        data;
+logic [15:0]        addr;
+logic signed [15:0] sdata;
 logic [3:0] top4  = data[15 -: 4];
 logic [3:0] bot4  = data[0  +: 4];
+logic [3:0] mid4  = data[4  +: 4];
+logic [3:0] amid4 = addr[4  +: 4];
+logic [3:0] smid4 = sdata[4 +: 4];
 logic       bit5  = data[5];
 ```
 
 ```scala linenums="0" title="DFHDL"
-val data = Bits(16) <> VAR
-val top4 = data.msbits(4)  // top 4 bits
-val bot4 = data.lsbits(4)  // bottom 4 bits
-val bit5 = data(5)         // single bit
+val data  = Bits(16) <> VAR
+val addr  = UInt(16) <> VAR
+val sdata = SInt(16) <> VAR
+val top4  = data.msbits(4)        // Bits[4]: top 4 bits
+val bot4  = data.lsbits(4)        // Bits[4]: bottom 4 bits
+val mid4  = data.lsbitsAt(4, 4)   // Bits[4]: data[4 +: 4]
+val amid4 = addr.lsbitsAt(4, 4)   // UInt[4]: addr[4 +: 4]
+val smid4 = sdata.lsbitsAt(4, 4)  // UInt[4]: unsigned slice
+val bit5  = data(5)               // single bit
 ```
 
 </div>
 
-Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with the same syntax, including the `.msbits(W)` and `.lsbits(W)` convenience methods. As in Verilog, a slice is a bit-level operation and yields an unsigned result (`SInt` slices return `UInt`, not `SInt`):
+The part-select base index and width must be elaboration-time constants (Scala `Int` values or `Int <> CONST` parameters), as in a Verilog constant part-select.
+
+Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with the same syntax, including the `.msbits(W)`/`.lsbits(W)` and `.msbitsAt(base, W)`/`.lsbitsAt(base, W)` convenience methods. As in Verilog, a slice is a bit-level operation and yields an unsigned result (`SInt` slices return `UInt`, not `SInt`):
 
 | Source type | Slice result |
 |---|---|
@@ -1014,7 +1067,7 @@ end inc_bank
 
 </div>
 
-At design (concurrent) scope the loop runs at elaboration time and unrolls, so `N` may be an `Int <> CONST` parameter directly; its value is read during elaboration and no explicit `.toScalaInt` conversion is needed. See [Loops][loops] for the full elaboration-time loop semantics.
+At design (concurrent) scope the loop runs at elaboration time and unrolls, so `N` may be an `Int <> CONST` parameter directly; its value is read during elaboration and no explicit `.toScalaInt` conversion is needed. See [Loops][loops] for the full elaboration-time loop semantics, and [reading a constant into Scala][toScala] for the contexts that do need the explicit conversion.
 
 ///
 

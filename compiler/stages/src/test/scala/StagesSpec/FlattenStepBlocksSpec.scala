@@ -278,6 +278,89 @@ class FlattenStepBlocksSpec extends StageSpec():
     )
   }
 
+  test("FirstStep resolves past the bootstrap step, the wrap-around does not") {
+    class Foo extends RTDesign:
+      val x = Bit     <> IN
+      val y = UInt(8) <> OUT.REG init 0
+      val z = UInt(8) <> OUT.REG init 0
+      process:
+        z.din := z + 1 // non-constant RHS: not initial-convertible, so a bootstrap step is added
+        def Accum: Step =
+          y.din := y + 1
+          NextStep
+        def Flush: Step =
+          y.din := y + 16
+          if (x) FirstStep // explicit jump: no prologue re-run
+          else NextStep // wrap-around: the prologue re-runs
+    end Foo
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(
+      top,
+      // S_boot is the synthesized bootstrap carrying the prologue. Flush's two branches are the
+      // whole point: the sequential wrap-around goes through S_boot and so re-runs
+      // `z.din := z + 1`, while `FirstStep` lands on Accum, the process's actual first step, and
+      // re-runs neither the prologue nor the bootstrap's cycle.
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  val z = UInt(8) <> OUT.REG init d"8'0"
+         |  process:
+         |    def S_boot: Step =
+         |      z.din := z + d"8'1"
+         |      Accum
+         |    end S_boot
+         |    def Accum: Step =
+         |      y.din := y + d"8'1"
+         |      Flush
+         |    end Accum
+         |    def Flush: Step =
+         |      y.din := y + d"8'16"
+         |      if (x) Accum
+         |      else S_boot
+         |    end Flush
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("FirstStep targets a generated first step, not the bootstrap") {
+    class Foo extends RTDesign:
+      val x = Bit     <> IN
+      val y = UInt(8) <> OUT.REG init 0
+      val z = UInt(8) <> OUT.REG init 0
+      process:
+        z.din := z + 1 // non-convertible prologue: a bootstrap step is added
+        1.cy.wait // the process's first step, yielded by a wait rather than a `def`
+        y.din := y + 1
+        def Check: Step =
+          if (x) FirstStep
+          else NextStep
+    end Foo
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(
+      top,
+      // How the first step was written has no bearing on `FirstStep`: it targets S_0, the wait's
+      // step, because the bootstrap is the prologue's carrier rather than a step of the process.
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  val z = UInt(8) <> OUT.REG init d"8'0"
+         |  process:
+         |    def S_boot: Step =
+         |      z.din := z + d"8'1"
+         |      S_0
+         |    end S_boot
+         |    def S_0: Step =
+         |      y.din := y + d"8'1"
+         |      Check
+         |    end S_0
+         |    def Check: Step =
+         |      if (x) S_0
+         |      else S_boot
+         |    end Check
+         |end Foo""".stripMargin
+    )
+  }
+
   test("step nested inside conditional branch") {
     class Foo extends RTDesign:
       val i = Bit <> IN
@@ -965,5 +1048,99 @@ class FlattenStepBlocksSpec extends StageSpec():
          |    end S_0_0
          |end Foo""".stripMargin
     )
+  }
+
+  test("fusion: a fused fall-through loop skipped into the forever wrap-around") {
+    class Foo extends RTDesign:
+      val go   = Bit     <> IN
+      val cnt  = UInt(8) <> OUT.REG init d"8'0"
+      val tick = Bit     <> OUT.REG init 0
+      process:
+        cnt.din := d"8'0"
+        1.cy.wait
+        while (FALL_THROUGH(go))
+          cnt.din  := cnt + d"8'1"
+          tick.din := !tick
+          1.cy.wait
+    end Foo
+    // Nothing follows the loop, so its exit is the forever wrap-around and the rotation planted
+    // the prologue clone (`cnt.din := 0`) on that path. Keeping the hook would make that path
+    // dead -- `!go` and `go` are complements of one value in one cycle -- and silently drop the
+    // re-initialization the skip is supposed to continue into, so the hook is dropped instead.
+    val expected =
+      """|class Foo extends RTDesign:
+         |  val go = Bit <> IN
+         |  val cnt = UInt(8) <> OUT.REG init d"8'0"
+         |  val tick = Bit <> OUT.REG init 0
+         |  process:
+         |    cnt.din := d"8'0"
+         |    def S_0: Step =
+         |      if (go)
+         |        cnt.din := cnt + d"8'1"
+         |        tick.din := !tick
+         |        S_1_0
+         |      else
+         |        cnt.din := d"8'0"
+         |        S_0
+         |      end if
+         |    end S_0
+         |    def S_1_0: Step =
+         |      if (go)
+         |        cnt.din := cnt + d"8'1"
+         |        tick.din := !tick
+         |        S_1_0
+         |      else
+         |        cnt.din := d"8'0"
+         |        S_0
+         |      end if
+         |    end S_1_0
+         |end Foo""".stripMargin
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(top, expected)
+    assertCodeString(top.flattenStepBlocks, expected)
+  }
+
+  test("fusion: a fused step's fallThrough becomes the dispatch's first decision") {
+    class Foo extends RTDesign:
+      val x = Bit     <> IN
+      val y = UInt(8) <> OUT.REG init d"8'0"
+      process:
+        def S_0: Step =
+          NextStep
+        end S_0
+        def S_1: Step =
+          def fallThrough = x
+          y.din := y + d"8'1"
+          def S_1_0: Step =
+            y.din := y + d"8'2"
+            NextStep
+          end S_1_0
+          NextStep
+        end S_1
+    end Foo
+    // S_1 fuses, so it consumes no cycle at all and its `fallThrough` is no longer an edge hook:
+    // the condition is materialized at the site as the first decision of the inlined dispatch,
+    // sending control to S_1's default exit (S_1_0) and skipping the step's own payload. The
+    // process's first step never fuses its hook away this way -- it is kept as the reset
+    // bootstrap state, where the hook would have no edge left to run on.
+    val expected =
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  process:
+         |    def S_0: Step =
+         |      if (x) S_1_0
+         |      else
+         |        y.din := y + d"8'1"
+         |        S_1_0
+         |    end S_0
+         |    def S_1_0: Step =
+         |      y.din := y + d"8'2"
+         |      S_0
+         |    end S_1_0
+         |end Foo""".stripMargin
+    val top = (new Foo).flattenStepBlocks
+    assertCodeString(top, expected)
+    assertCodeString(top.flattenStepBlocks, expected)
   }
 end FlattenStepBlocksSpec

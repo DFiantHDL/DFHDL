@@ -172,6 +172,7 @@ class DFDecimalSpec extends DFSpec:
          |u8 := u6.resize(8)
          |s8 := (-u6.signed).resize(8)
          |s8 := -s8
+         |s8 := (-b6.uint.signed).resize(8)
          |s8 := sd"8'0"
          |s8 := sd"8'127"
          |s8 := sd"8'0"
@@ -269,6 +270,7 @@ class DFDecimalSpec extends DFSpec:
       u8 := u6
       s8 := -u6
       s8 := -s8
+      s8 := -b6
       s8 := 0
       s8 := 127
       s8 := d"0"
@@ -336,6 +338,11 @@ class DFDecimalSpec extends DFSpec:
         "The applied RHS value width (9) is larger than the LHS variable width (8)."
       )(
         """s8 := -u8"""
+      )
+      assertCompileError(
+        "The applied RHS value width (9) is larger than the LHS variable width (8)."
+      )(
+        """s8 := -b8"""
       )
       val sl = 1 << param
       val sr = 1 >> param
@@ -1133,4 +1140,25 @@ class DFDecimalSpec extends DFSpec:
         val b = 5 == x
       """
     )
+
+  test("connect to if expression with different types"):
+    assertCodeString {
+      """|val WIDTH: Int <> CONST = 8
+         |val sel = Bit <> IN
+         |val a = UInt(WIDTH) <> IN
+         |val b = Bits(WIDTH) <> IN
+         |val c = Bits(WIDTH) <> OUT
+         |c <> ((
+         |  if (sel) a.bits
+         |  else b
+         |): Bits[WIDTH.type] <> VAL)""".stripMargin
+    } {
+      val WIDTH: Int <> CONST = 8
+      val sel = Bit <> IN
+      val a = UInt(WIDTH) <> IN
+      val b = Bits(WIDTH) <> IN
+      val c = Bits(WIDTH) <> OUT
+      c <> (if (sel) a else b)
+    }
+
 end DFDecimalSpec

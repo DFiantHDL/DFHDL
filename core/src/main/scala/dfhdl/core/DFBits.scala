@@ -815,6 +815,11 @@ object DFBits:
         def sint(using DFCG): DFValTP[DFSInt[W], P] = trydf {
           DFVal.Alias.AsIs(DFSInt(lhs.widthIntParam), lhs)
         }
+        @targetName("negateDFBits")
+        def unary_-(using DFCG): DFValTP[DFSInt[IntP.+[W, 1]], P] = trydf {
+          import DFUInt.Val.Ops.unary_- as negate
+          lhs.uint.negate
+        }
         def msbit(using DFCG): DFVal[DFBit, Modifier[A, C, Any, P]] =
           import DFVal.Ops.apply as applyBits
           lhs.applyBits((lhs.widthIntParam - 1).toDFConst).asVal[DFBit, Modifier[A, C, Any, P]]
@@ -839,6 +844,42 @@ object DFBits:
             case (Some(lhsWidthInt), Some(updatedWidthInt)) => check(lhsWidthInt, updatedWidthInt)
             case _                                          =>
           DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0).asValTP[DFBits[RW], P]
+        }
+        // ascending part-select (Verilog `lhs[baseIdx +: selWidth]`):
+        // selWidth bits whose LSB is anchored at baseIdx
+        def lsbitsAt[BI <: IntP, SW <: IntP](baseIdx: IntParam[BI], selWidth: IntParam[SW])(using
+            dfc: DFCG,
+            checkWidth: Arg.Width.CheckNUB[SW],
+            checkLow: BitIndex.CheckNUB[BI, W],
+            checkHigh: BitIndex.CheckNUB[BI + SW - 1, W]
+        ): DFVal[DFBits[SW], Modifier[A, C, Any, P]] = trydf {
+          selWidth.toScalaIntOpt.foreach(checkWidth(_))
+          val idxHigh = baseIdx + selWidth - 1
+          (baseIdx.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(baseIdxInt), Some(widthInt)) => checkLow(baseIdxInt, widthInt)
+            case _                                  =>
+          (idxHigh.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(idxHighInt), Some(widthInt)) => checkHigh(idxHighInt, widthInt)
+            case _                                  =>
+          DFVal.Alias.ApplyRange(lhs, idxHigh, baseIdx).asVal[DFBits[SW], Modifier[A, C, Any, P]]
+        }
+        // descending part-select (Verilog `lhs[baseIdx -: selWidth]`):
+        // selWidth bits whose MSB is anchored at baseIdx
+        def msbitsAt[BI <: IntP, SW <: IntP](baseIdx: IntParam[BI], selWidth: IntParam[SW])(using
+            dfc: DFCG,
+            checkWidth: Arg.Width.CheckNUB[SW],
+            checkHigh: BitIndex.CheckNUB[BI, W],
+            checkLow: BitIndex.CheckNUB[BI - SW + 1, W]
+        ): DFVal[DFBits[SW], Modifier[A, C, Any, P]] = trydf {
+          selWidth.toScalaIntOpt.foreach(checkWidth(_))
+          val idxLow = baseIdx - selWidth + 1
+          (baseIdx.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(baseIdxInt), Some(widthInt)) => checkHigh(baseIdxInt, widthInt)
+            case _                                  =>
+          (idxLow.toScalaIntOpt, lhs.widthIntOpt) match
+            case (Some(idxLowInt), Some(widthInt)) => checkLow(idxLowInt, widthInt)
+            case _                                 =>
+          DFVal.Alias.ApplyRange(lhs, baseIdx, idxLow).asVal[DFBits[SW], Modifier[A, C, Any, P]]
         }
       end extension
     end Ops

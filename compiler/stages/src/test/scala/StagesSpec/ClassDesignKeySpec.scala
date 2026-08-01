@@ -191,6 +191,62 @@ class ClassDesignKeySpec extends StageSpec:
     )
   }
 
+  test("toScalaXYZ forcing an expression that is also consumed as a parametric width") {
+    class Slicer(val width: Int <> CONST, val lanes: Int <> CONST) extends DFDesign:
+      // a parametric width resolves the expression with the design parameters left opaque, while
+      // forcing it to a Scala value resolves through them. The two answers differ, so neither may
+      // be served out of the other's cached constant data, in either consumption order.
+      val total = width * lanes
+      val x     = Bits(total) <> IN // parametric first ...
+      val y     = Bit         <> OUT
+      y := x(total.toScalaInt - 1) // ... then forced
+      val sum      = width + lanes
+      val sumScala = sum.toScalaInt // forced first ...
+      val par      = Bits(sum)      <> OUT // ... then parametric
+      val fixed    = Bits(sumScala) <> OUT
+      par   := all(0)
+      fixed := all(0)
+    class Top extends DFDesign:
+      val x = Bits(8) <> IN
+      val y = Bit     <> OUT
+      val s = new Slicer(4, 2)
+      s.x <> x
+      y   <> s.y
+    end Top
+    // both expressions stay parametric where they are used as widths (`Bits(total)`, `Bits(sum)`)
+    // and fold where they are forced (`x(7)`, `Bits(6)`)
+    assertCodeString(
+      new Top,
+      """|@hw.annotation.pure(impureParams = "width", "lanes")
+         |class Slicer(
+         |    val width: Int <> CONST,
+         |    val lanes: Int <> CONST
+         |) extends DFDesign:
+         |  val total: Int <> CONST = width * lanes
+         |  val x = Bits(total) <> IN
+         |  val y = Bit <> OUT
+         |  y := x(7)
+         |  val sum: Int <> CONST = width + lanes
+         |  val par = Bits(sum) <> OUT
+         |  val fixed = Bits(6) <> OUT
+         |  par := b"0".repeat(sum)
+         |  fixed := h"6'00"
+         |end Slicer
+         |
+         |class Top extends DFDesign:
+         |  val x = Bits(8) <> IN
+         |  val y = Bit <> OUT
+         |  val s = Slicer(
+         |      width = 4,
+         |      lanes = 2
+         |  )
+         |  val s_total: Int <> CONST = 4 * 2
+         |  s.x <> x
+         |  y <> s.y
+         |end Top""".stripMargin
+    )
+  }
+
   test("const Boolean guard inlining rooted at a class param keys the param's applied data") {
     class Cond(val arg: Boolean <> CONST) extends DFDesign:
       val x = UInt(32) <> IN
@@ -250,7 +306,7 @@ class ClassDesignKeySpec extends StageSpec:
       val y = UInt(32) <> OUT
       process(all):
         if (arg) y :== x + 1
-        else y     :== x + 2
+        else y :== x + 2
     class Top extends EDDesign:
       val x  = UInt(32) <> IN
       val y  = UInt(32) <> OUT

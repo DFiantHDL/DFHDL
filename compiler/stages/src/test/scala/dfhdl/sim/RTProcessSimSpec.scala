@@ -530,4 +530,313 @@ class RTProcessSimSpec extends SimSpec:
 
   bothTiers("oracle: failing assertions report on identical cycles"): tier =>
     lockstep(new CountAssertProc(), tier, 12, watch = List(_.cnt))
+
+  bothTiers("oracle: FALL_THROUGH while park loop, zero-cycle skip vs iteration"): tier =>
+    lockstep(
+      new FallThroughWhileProc,
+      tier,
+      40,
+      watch = List(_.cnt, _.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.go.poke(0)
+          else if t == 5 then dut.go.poke(1)
+          else if t == 9 then dut.go.poke(0)
+          else if t == 20 then dut.go.poke(1)
+          else if t == 23 then dut.go.poke(0)
+    )
+
+  bothTiers("oracle: FALL_THROUGH loop with a waiting body costs one cycle per iteration"): tier =>
+    lockstep(
+      new FallThroughWaitLoopProc,
+      tier,
+      40,
+      watch = List(_.cnt, _.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.go.poke(0)
+          else if t == 5 then dut.go.poke(1)
+          else if t == 9 then dut.go.poke(0)
+          else if t == 20 then dut.go.poke(1)
+          else if t == 23 then dut.go.poke(0)
+    )
+
+  bothTiers("oracle: a fused FALL_THROUGH loop skipped into the forever wrap-around"): tier =>
+    lockstep(
+      new FallThroughWrapLoopProc,
+      tier,
+      40,
+      watch = List(_.cnt, _.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.go.poke(0)
+          else if t == 4 then dut.go.poke(1)
+          else if t == 10 then dut.go.poke(0)
+          else if t == 18 then dut.go.poke(1)
+    )
+
+  bothTiers("oracle: chained fused FALL_THROUGH loops skip within one cycle"): tier =>
+    lockstep(
+      new FallThroughChainLoopProc,
+      tier,
+      40,
+      watch = List(_.cnt, _.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then
+            dut.a.poke(0)
+            dut.b.poke(0)
+          else if t == 4 then dut.a.poke(1)
+          else if t == 8 then
+            dut.a.poke(0)
+            dut.b.poke(1)
+          else if t == 12 then dut.b.poke(0)
+          else if t == 20 then
+            dut.a.poke(1)
+            dut.b.poke(1)
+          else if t == 26 then
+            dut.a.poke(0)
+            dut.b.poke(0)
+    )
+
+  bothTiers("oracle: a fused step's fallThrough skips its payload and its cycle"): tier =>
+    lockstep(
+      new FallThroughFusedStepProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 4 then dut.x.poke(1)
+          else if t == 12 then dut.x.poke(0)
+    )
+
+  bothTiers("oracle: FALL_THROUGH empty-body while loop"): tier =>
+    lockstep(
+      new FallThroughEmptyWhileProc,
+      tier,
+      30,
+      watch = List(_.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.go.poke(0)
+          else if t == 5 then dut.go.poke(1)
+          else if t == 8 then dut.go.poke(0)
+    )
+
+  bothTiers("oracle: FALL_THROUGH conditional waits, zero-cycle skip vs park"): tier =>
+    lockstep(
+      new FallThroughCondWaitProc,
+      tier,
+      40,
+      watch = List(_.cnt, _.tick),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.go.poke(0)
+          else if t == 4 then dut.go.poke(1)
+          else if t == 9 then dut.go.poke(0)
+          else if t == 18 then dut.go.poke(1)
+          else if t == 25 then dut.go.poke(0)
+    )
+
+  bothTiers("oracle: FALL_THROUGH wait decides on the register value just written"): tier =>
+    lockstep(
+      new FallThroughRegWaitProc,
+      tier,
+      30,
+      watch = List(_.y, _.armed),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 5 then dut.x.poke(1)
+          else if t == 12 then dut.x.poke(0)
+    )
+
+  bothTiers("oracle: onEntry/onExit hooks fire on non-self step transitions only"): tier =>
+    lockstep(
+      new HookFSMProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 3 then dut.x.poke(1)
+          else if t == 8 then dut.x.poke(0)
+          else if t == 12 then dut.x.poke(1)
+          else if t == 16 then dut.x.poke(0)
+    )
+
+  bothTiers("oracle: fallThrough steps advance in the same cycle"): tier =>
+    lockstep(
+      new FallThroughStepProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 5 then dut.x.poke(1)
+          else if t == 12 then dut.x.poke(0)
+    )
+
+  bothTiers("oracle: a fallThrough cascade follows the step's own exit goto"): tier =>
+    lockstep(
+      new FallThroughOutOfOrderProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 4 then dut.x.poke(1)
+          else if t == 11 then dut.x.poke(0)
+          else if t == 18 then dut.x.poke(1)
+    )
+
+  bothTiers("oracle: FirstStep jumps past the bootstrap step"): tier =>
+    lockstep(
+      new FirstStepOverBootProc,
+      tier,
+      24,
+      watch = List(_.y, _.z),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 6 then dut.x.poke(1)
+          else if t == 15 then dut.x.poke(0)
+    )
+
+  bothTiers("oracle: a convertible first-step onEntry folds into the time-zero state"): tier =>
+    lockstep(
+      new FirstStepEntryProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 3 then dut.x.poke(1)
+          else if t == 10 then dut.x.poke(0)
+          else if t == 14 then dut.x.poke(1)
+    )
+
+  bothTiers("oracle: a non-convertible first-step onEntry keeps the bootstrap state"): tier =>
+    lockstep(
+      new FirstStepEntryBootProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 4 then dut.x.poke(1)
+          else if t == 11 then dut.x.poke(0)
+          else if t == 15 then dut.x.poke(1)
+    )
+
+  bothTiers("oracle: prologue and first-step onEntry re-run in order at the wrap-around"): tier =>
+    lockstep(
+      new PrologueEntryProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 7 then dut.x.poke(1)
+          else if t == 13 then dut.x.poke(0)
+    )
+
+  bothTiers("oracle: a leading wait leaves the first step's onEntry on its edge"): tier =>
+    lockstep(
+      new WaitThenEntryProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 4 then dut.x.poke(1)
+          else if t == 12 then dut.x.poke(0)
+    )
+
+  bothTiers("oracle: entering a nested step fires the parent's onExit and its onEntry"): tier =>
+    lockstep(new NestedHookProc, tier, 30, watch = List(_.y, _.z))
+
+  bothTiers("oracle: a hook-carrying first step is not fused away"): tier =>
+    lockstep(new FirstStepEntryNestedProc, tier, 20, watch = List(_.y))
+
+  bothTiers("oracle: onExit lands after the wrap-around's re-executed prologue"): tier =>
+    lockstep(new ExitOrderProc, tier, 20, watch = List(_.y, _.z))
+
+  bothTiers("oracle: a fallThrough cascade stops at the step it left"): tier =>
+    lockstep(
+      new FallThroughCycleProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 4 then dut.x.poke(1)
+          else if t == 9 then dut.x.poke(0)
+    )
+
+  bothTiers("oracle: a fallThrough cascade past the last step re-runs the prologue"): tier =>
+    lockstep(
+      new PrologueFallThroughProc,
+      tier,
+      30,
+      watch = List(_.y),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(0)
+          else if t == 6 then dut.x.poke(1)
+          else if t == 14 then dut.x.poke(0)
+    )
+
+  bothTiers("oracle: `.din` reads inside a process see only the current state's writes"): tier =>
+    lockstep(new RegDINProcDut, tier, 20, watch = List(_.r, _.seen))
+
+  bothTiers("oracle: a FALL_THROUGH for-loop decides on the reset iterator, not the stale one"):
+    tier =>
+      lockstep(
+        new FallThroughForLoopProc,
+        tier,
+        40,
+        watch = List(_.y, _.pass),
+        pokes = t =>
+          dut =>
+            if t == 0 then dut.n.poke(2)
+            else if t == 12 then dut.n.poke(0)
+            else if t == 18 then dut.n.poke(3)
+      )
+
+  bothTiers("oracle: a register-guarded fall-through loop at the forever wrap-around"): tier =>
+    lockstep(
+      new FallThroughWrapRegLoopProc,
+      tier,
+      40,
+      watch = List(_.x, _.i, _.pass),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.n.poke(2)
+          else if t == 10 then dut.n.poke(0)
+          else if t == 16 then dut.n.poke(1)
+    )
+
+  bothTiers("oracle: a fallThrough reads the register its own onEntry just assigned"): tier =>
+    lockstep(
+      new FallThroughOnEntryRegProc,
+      tier,
+      30,
+      watch = List(_.y, _.armed),
+      pokes = t =>
+        dut =>
+          if t == 0 then dut.x.poke(1)
+          else if t == 5 then dut.x.poke(0)
+          else if t == 14 then dut.x.poke(1)
+    )
 end RTProcessSimSpec

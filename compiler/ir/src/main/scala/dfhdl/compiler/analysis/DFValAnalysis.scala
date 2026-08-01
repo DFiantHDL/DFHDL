@@ -208,6 +208,27 @@ object BlockRamVar:
         case _ => false
     case _ => false
 
+extension (dcl: DFVal.Dcl)
+  /** True when the declaration is emitted as an HDL VARIABLE (updated where it is written) rather
+    * than an HDL SIGNAL (updated only once the enclosing process suspends). The classification is
+    * by the declaration's own location and modifier:
+    *   - narrower than a design (a process, and before them a local/fork block): a local variable
+    *   - an HDL method's: its locals and its `<> OUT` formals are variables, while an `<> OUT.NB`
+    *     formal is a live driver, so it stays a signal
+    *   - at design level: a variable only when declared `VAR.SHARED`
+    *
+    * Every other design-level declaration, ports included, is a signal.
+    *
+    * This picks both the declaration keyword and the assignment operator (VHDL `:=` vs `<=`), so
+    * the two are derived here and must never be decided independently.
+    */
+  def isHDLVariable(using MemberGetSet): Boolean =
+    dcl.getOwnerNamed match
+      case dsn: DFDesignBlock if dsn.isHDLMethod => !dcl.isNonBlockingArg
+      case _: DFDesignBlock                      => dcl.modifier.isShared
+      case _                                     => true
+end extension
+
 extension (ref: DFRef.TwoWayAny)
   def originMember(using MemberGetSet): DFMember =
     getSet.getOrigin(ref)

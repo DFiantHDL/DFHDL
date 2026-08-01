@@ -37,6 +37,23 @@ import scala.annotation.tailrec
   * re-entry with a constant range resets the iterator to a constant, so the re-entered loop's
   * guard folds and the expansion cycle breaks.
   *
+  * ==Step hooks==
+  *
+  * `onEntry`/`onExit` bodies run on real FSM edges, so a step carrying either keeps its state. A
+  * `fallThrough` holding nothing but its condition does not: a fused step consumes no cycle at
+  * all, which is strictly more than the conditional zero-cycle skip the hook asks for. Its
+  * condition is therefore materialized at every site as the dispatch's first decision —
+  * `if (cond) <default exit> else <dispatch>` — and, being part of the dispatch, it is forwarded
+  * like the step's own guards. Two shapes keep the hook (and hence the state): one carrying
+  * statements of its own, and the process's first step, which survives as the reset bootstrap
+  * state where the hook has no edge left to run on.
+  *
+  * When the condition is the negation of the dispatch's own leading guard, the hook is dropped
+  * instead of materialized (`fallThroughSubsumed`) — otherwise the guard-false path, which is
+  * where [[FlattenStepBlocks]] relocates whatever follows the construct, becomes dead code. This
+  * is the shape [[DropRTWaits]] gives a `FALL_THROUGH` loop, so such a loop lowers to exactly what
+  * the same loop without the marker lowers to.
+  *
   * ==Fallback==
   *
   * Fusion of a step silently falls back to keeping the step as a real FSM state (consuming its
@@ -73,6 +90,127 @@ private[stages] object FirstStepFusion:
       case sb: StepBlock => !sb.isRegular
       case _             => false
     }
+
+  // A `fallThrough` hook holding nothing but its condition value. Such a hook does not force its
+  // step to keep a state: a fused step consumes no cycle at all, so its entry condition simply
+  // becomes the first decision of the dispatch inlined at every site (see `expandGoto`).
+  // `onEntry`/`onExit` bodies, and a `fallThrough` carrying statements of its own, must run on a
+  // real FSM edge, so they still keep their step a state.
+  private def isPureFallThrough(sb: StepBlock)(using MemberGetSet): Boolean =
+    sb.isFallThrough && sb.members(MemberView.Flattened).forall {
+      case _: DFVal => true
+      case _        => false
+    }
+
+  private def hasBlockingHook(s: StepBlock)(using MemberGetSet): Boolean =
+    s.members(MemberView.Folded).exists {
+      case sb: StepBlock => !sb.isRegular && !isPureFallThrough(sb)
+      case _             => false
+    }
+
+  private def fallThroughOf(s: StepBlock)(using MemberGetSet): Option[StepBlock] =
+    s.members(MemberView.Folded).collectFirst { case sb: StepBlock if sb.isFallThrough => sb }
+
+  // the hook's condition is the value its trailing `Ident` wraps (the same shape
+  // [[DropRTProcess]] reads when it plants the cascade)
+  private def fallThroughCondOf(hook: StepBlock, victim: StepBlock)(using
+      MemberGetSet
+  ): DFVal =
+    hook.members(MemberView.Flattened).lastOption match
+      case Some(Ident(cond)) => cond
+      case _                 => throw new AbortFusion(victim)
+
+  /** Is `m` inside one of `root`'s hook blocks rather than on its dispatch path? */
+  private def isInHook(m: DFMember, root: StepBlock)(using MemberGetSet): Boolean =
+    m.getOwner match
+      case owner if owner == root => false
+      case owner: StepBlock       => !owner.isRegular || isInHook(owner, root)
+      case owner: DFMember        => isInHook(owner, root)
+
+  /** A step's default exit — the target of the last `Goto` on its dispatch path — mirroring
+    * [[DropRTProcess]]'s `defaultExitOf`. This is where a `fallThrough` sends control, so a
+    * candidate carrying one fuses only when it resolves to another step.
+    */
+  private def defaultExitOf(s: StepBlock)(using MemberGetSet): Option[StepBlock] =
+    s.members(MemberView.Flattened).reverseIterator.collectFirst {
+      case g: Goto if !isInHook(g, s) => g.stepRef.get
+    }.collect { case target: StepBlock if target != s => target }
+
+  /** Does the step's own dispatch already do what its `fallThrough` asks for?
+    *
+    * The hook is materialized as `if (cond) <default exit> else <dispatch>`, so when `cond` is the
+    * negation of the dispatch's leading guard the two are exact complements of one value in one
+    * cycle: the guard-false path can never be taken, and everything on it becomes **dead code**.
+    * That path is where [[FlattenStepBlocks]] relocates whatever follows the construct — trailing
+    * statements, and the forever-rotation's prologue clone — so killing it silently drops work the
+    * skip is supposed to continue into ("falls through ... continuing at whatever follows the
+    * loop"). Dropping the hook is therefore the only reading under which the guard-false path means
+    * anything, and it is what `DropRTWaits` gives a `FALL_THROUGH` loop: such a loop fuses to
+    * exactly what the same loop without the marker fuses to.
+    *
+    * The dispatch must *start* with that conditional — a leading statement is the step's own, and
+    * the hook is entitled to skip it — and the guard-false path must reach the default exit
+    * unconditionally, so that "guard false" and "fall through" name the same edge.
+    *
+    * The hook reads registers through `.din` and the dispatch reads them directly, but here the two
+    * still name one value: fusion inlines the dispatch into the same cycle as the hook, and nothing
+    * runs between them, so both resolve to the same forwarded value ([[substDin]] falls back to
+    * exactly what [[substDcl]] returns when the region has not written the register yet). The
+    * comparison therefore looks through the `.din` reads.
+    */
+  private def fallThroughSubsumed(s: StepBlock, cond: DFVal, exit: StepBlock)(using
+      MemberGetSet
+  ): Boolean =
+    val negatedOpt = cond match
+      case DFVal.Func(op = DFVal.Func.Op.unary_!, args = List(argRef)) => Some(argRef.get)
+      case _                                                           => None
+    negatedOpt.exists { negated =>
+      val dispatch = s.members(MemberView.Folded).dropWhile {
+        case _: DFConditional.Header => false
+        case sb: StepBlock           => sb.isFallThrough
+        case _: DFVal | _: DFRange   => true
+        case _                       => false
+      }
+      dispatch match
+        case (h: DFConditional.DFIfHeader) :: rest =>
+          gatherChain(h, rest) match
+            case (List(ifBlock, elseBlock), Nil) =>
+              (ifBlock.guardRef.get, elseBlock.guardRef.get) match
+                case (guard: DFVal, _: DFMember.Empty.type) =>
+                  sameAtFusedEntry(negated, guard) &&
+                  // statements on the guard-false path are fine (they are the continuation the
+                  // skip must run); a further goto or step on it is not — the path would no
+                  // longer be the single edge the hook names
+                  (elseBlock.members(MemberView.Flattened).reverse match
+                    case (g: Goto) :: leading =>
+                      g.stepRef.get == exit && leading.forall {
+                        case _: Goto | _: StepBlock => false
+                        case _                      => true
+                      }
+                    case _ => false)
+                case _ => false
+            case _ => false
+        case _ => false
+      end match
+    }
+  end fallThroughSubsumed
+
+  /** Structural comparison of two values as they read at a fused entry, where a `.din` read and the
+    * plain read of the same register resolve to one forwarded value (see [[fallThroughSubsumed]]).
+    * A `.din` read through a partial selection is not compared through: such a hook aborts fusion
+    * in [[substDin]] and keeps the step's state, so it never reaches this test.
+    */
+  private def sameAtFusedEntry(a: DFVal, b: DFVal)(using MemberGetSet): Boolean =
+    def stripDin(v: DFVal): DFVal = v match
+      case d: DFVal.Alias.RegDIN =>
+        d.relValRef.get match
+          case dcl: DFVal.Dcl => dcl
+          case _              => v
+      case _ => v
+    (stripDin(a), stripDin(b)) match
+      case (fa: DFVal.Func, fb: DFVal.Func) if fa.op == fb.op && fa.args.length == fb.args.length =>
+        fa.args.lazyZip(fb.args).forall((ra, rb) => sameAtFusedEntry(ra.get, rb.get))
+      case (va, vb) => va =~ vb
 
   // Gathers the conditional chain blocks that follow header `h` among `rest` (skipping the guard
   // values interleaved between chain blocks), returning the chain and the members after it.
@@ -119,7 +257,10 @@ private[stages] object FirstStepFusion:
           case _: DFConditional.Block        => Scan.Blocked // out-of-chain block — unexpected
           case sb: StepBlock if sb.isRegular =>
             if (hasNonRegularChild(sb)) Scan.Blocked else Scan.FoundStep
-          case _: StepBlock => Scan.Blocked // onEntry/onExit/fallThrough — excluded from fusion
+          // the step's own `fallThrough` hook is a pure entry condition, not a time-consuming
+          // action: the scan continues into the dispatch that follows it
+          case sb: StepBlock if isPureFallThrough(sb) => scanRegion(rest)
+          case _: StepBlock => Scan.Blocked // onEntry/onExit — excluded from fusion
           case _: Goto      => Scan.NoStep // dispatch leaf; subsequent members are unreachable
           case _: Wait      => Scan.Blocked
           case lb: DFLoop.Block if lb.isCombinational        => scanRegion(rest)
@@ -129,7 +270,7 @@ private[stages] object FirstStepFusion:
   end scanRegion
 
   private def isCandidate(s: StepBlock)(using MemberGetSet): Boolean =
-    s.isRegular && !hasNonRegularChild(s) &&
+    s.isRegular && !hasBlockingHook(s) &&
       scanRegion(s.members(MemberView.Folded)) == Scan.FoundStep
 
   /** Collects fusion candidates from the nested (pre-flattening) sub-DB, in member order. */
@@ -166,7 +307,12 @@ private[stages] object FirstStepFusion:
           case sb: StepBlock if sb.isRegular => sb
         }.contains(s)
       case _ => false
-    s.members(MemberView.Flattened).forall {
+    // a `fallThrough` hook is materialized at the fusion sites, so it fuses away only together
+    // with its step: it needs a default exit to redirect to, and the process's first step is kept
+    // as the reset bootstrap state, where the hook would have no edge left to run on
+    val fallThroughFusable =
+      fallThroughOf(s).forall(_ => defaultExitOf(s).isDefined && !isProcessFirstStep)
+    fallThroughFusable && s.members(MemberView.Flattened).forall {
       case _: DFVal.Dcl            => false
       case h: DFConditional.Header => h.isInstanceOf[DFConditional.DFIfHeader]
       case cb: DFConditional.Block => cb.isInstanceOf[DFConditional.DFIfElseBlock]
@@ -179,7 +325,8 @@ private[stages] object FirstStepFusion:
         g.stepRef.get match
           case target: StepBlock => target != s || isProcessFirstStep
           case _                 => false // relative gotos must not remain at this point
-      case _ => false
+      case sb: StepBlock => isPureFallThrough(sb)
+      case _             => false
     }
   end validCandidate
 
@@ -318,6 +465,28 @@ private[stages] object FirstStepFusion:
         case None if st.dirty(dcl) => throw new AbortFusion(victim)
         case None                  => dcl
 
+    /** A `.din` read resolves to the register's pending value *at this point of the expansion*: a
+      * write this region has already made, else the value forwarded across the boundary the
+      * expansion removed, else the register itself. That is one step ahead of the plain register
+      * read above, which crosses only the boundary.
+      *
+      * A partial `.din` read would need the pending value sliced, which the forwarding state does
+      * not carry, so it falls back to keeping the step's own state.
+      */
+    def substDin(
+        din: ir.DFVal.Alias.RegDIN,
+        entryRegs: Regs,
+        st: PathState,
+        victim: ir.StepBlock
+    ): ir.DFVal =
+      din.relValRef.get match
+        case dcl: ir.DFVal.Dcl =>
+          st.pendingRegs.get(dcl).orElse(entryRegs.get(dcl)) match
+            case Some(fwd)             => emitForward(fwd, victim)
+            case None if st.dirty(dcl) => throw new AbortFusion(victim)
+            case None                  => dcl
+        case _ => throw new AbortFusion(victim)
+
     // clones an anonymous expression tree here and retargets its declaration reads through the
     // forwarding state
     def substValue(
@@ -328,29 +497,25 @@ private[stages] object FirstStepFusion:
     ): ir.DFVal =
       // fresh clone refs are registered only in this meta design's mutable DB
       given ir.MemberGetSet = dfc.getSet
-      def rewire(root: ir.DFVal): Unit =
-        root.getRefs.foreach { ref =>
-          ref.get match
-            case dcl: ir.DFVal.Dcl =>
-              val r = substDcl(dcl, entryRegs, st, victim)
-              if (r ne dcl)
-                dfc.mutableDB.newRefFor(ref.asInstanceOf[ir.DFRef[ir.DFVal]], r)
-            case dep: ir.DFVal if dep.isAnonymous => rewire(dep)
-            case dep: ir.DFVal                    =>
-              if (forbiddenRead(dep, entryRegs, st)) throw new AbortFusion(victim)
-            case _ =>
-        }
+      // resolves one dependency of the tree being cloned. It runs while the clone is built, so a
+      // forwarded value it emits precedes the value that reads it; substituting afterwards would
+      // leave the reader referencing a member defined below it.
+      def substDep(dep: ir.DFVal): ir.DFVal = dep match
+        case dcl: ir.DFVal.Dcl          => substDcl(dcl, entryRegs, st, victim)
+        case din: ir.DFVal.Alias.RegDIN => substDin(din, entryRegs, st, victim)
+        case _ if dep.isAnonymous       => dep.cloneAnonValueAndDepsHere(substDep)
+        case _                          =>
+          if (forbiddenRead(dep, entryRegs, st)) throw new AbortFusion(victim)
+          dep
       v match
-        case dcl: ir.DFVal.Dcl   => substDcl(dcl, entryRegs, st, victim)
-        case _ if !v.isAnonymous =>
+        case dcl: ir.DFVal.Dcl          => substDcl(dcl, entryRegs, st, victim)
+        case din: ir.DFVal.Alias.RegDIN => substDin(din, entryRegs, st, victim)
+        case _ if !v.isAnonymous        =>
           if (forbiddenRead(v, entryRegs, st)) throw new AbortFusion(victim)
           v
         case _ =>
-          val cloned =
-            try v.cloneAnonValueAndDepsHere
-            catch case _: IllegalArgumentException => throw new AbortFusion(victim)
-          rewire(cloned)
-          cloned
+          try v.cloneAnonValueAndDepsHere(substDep)
+          catch case _: IllegalArgumentException => throw new AbortFusion(victim)
     end substValue
 
     // clones a single statement member here with fresh registered refs, remapping value reads
@@ -436,13 +601,37 @@ private[stages] object FirstStepFusion:
           // re-entry indicates a dynamic dispatch cycle — not inlinable
           if (count >= 2) throw new AbortFusion(target)
           else
-            buildRegion(
-              target.members(MemberView.Folded),
-              entryRegs,
-              PathState(Map(), Map(), dirty),
-              visits.updated(target, count + 1),
-              target
-            )
+            val visited = visits.updated(target, count + 1)
+            val st = PathState(Map(), Map(), dirty)
+            def dispatch(): Unit =
+              buildRegion(target.members(MemberView.Folded), entryRegs, st, visited, target)
+            // A fused step's `fallThrough` hook is no longer an edge hook: the step consumes no
+            // cycle of its own, so its entry condition becomes the first decision of the dispatch
+            // inlined here — evaluated with the same forwarded values as the step's own guards,
+            // and sending control to the step's default exit exactly as the cascade would.
+            fallThroughOf(target) match
+              case None       => dispatch()
+              case Some(hook) =>
+                val exit = defaultExitOf(target).getOrElse(throw new AbortFusion(target))
+                val hookCond = fallThroughCondOf(hook, target)
+                if (fallThroughSubsumed(target, hookCond, exit)) dispatch()
+                else
+                  val cond = substValue(hookCond, entryRegs, st, target)
+                  guardConstData(cond) match
+                    case Some(true)  => expandGoto(exit, entryRegs, dirty, visited)
+                    case Some(false) => dispatch()
+                    case None        =>
+                      val block = DFIf.Block(Some(cond.asValOf[DFBool]), DFIf.Header(DFUnit))
+                      dfc.enterOwner(block)
+                      expandGoto(exit, entryRegs, dirty, visited)
+                      dfc.exitOwner()
+                      val elseBlock = DFIf.Block(None, block)
+                      dfc.enterOwner(elseBlock)
+                      dispatch()
+                      dfc.exitOwner()
+                end if
+            end match
+          end if
 
       def buildRegion(
           members: List[ir.DFMember],
@@ -488,7 +677,10 @@ private[stages] object FirstStepFusion:
               case _: ir.DFVal => buildRegion(rest, entryRegs, st, visits, victim)
               // orphaned for-loop range leftovers — dead members, not part of the dispatch
               case _: ir.DFRange => buildRegion(rest, entryRegs, st, visits, victim)
-              case _             => throw new AbortFusion(victim)
+              // the step's `fallThrough` hook was already materialized at the entry
+              case sb: ir.StepBlock if sb.isFallThrough =>
+                buildRegion(rest, entryRegs, st, visits, victim)
+              case _ => throw new AbortFusion(victim)
       end buildRegion
 
       // emits a conditional dispatch chain, pruning statically resolved guards. Every branch is

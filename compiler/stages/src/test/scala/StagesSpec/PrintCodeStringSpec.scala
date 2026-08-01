@@ -1514,6 +1514,40 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
+  // the marker prints on the wait's own condition, exactly where the tag is, so each wait states
+  // for itself whether it may be skipped
+  test("wait statements with FALL_THROUGH markers") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      val i = Bit <> IN
+      process:
+        x.din := 1
+        waitUntil(FALL_THROUGH(i))
+        x.din := 0
+        waitWhile(FALL_THROUGH(i))
+        x.din := 1
+        waitUntil(FALL_THROUGH(i.rising))
+        waitUntil(i)
+        1.cy.wait
+    end Foo
+    val top = (new Foo)
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  val i = Bit <> IN
+         |  process:
+         |    x.din := 1
+         |    waitUntil(FALL_THROUGH(i))
+         |    x.din := 0
+         |    waitWhile(FALL_THROUGH(i))
+         |    x.din := 1
+         |    waitUntil(FALL_THROUGH(i.rising))
+         |    waitUntil(i)
+         |    1.cy.wait
+         |end Foo""".stripMargin
+    )
+  }
   test("for loop printing") {
     class Foo extends EDDesign:
       val matrix = Bits(10) X 8 X 8 <> OUT
@@ -1616,24 +1650,26 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
-  test("for/while loop printing with FALL_THROUGH") {
+  // `FALL_THROUGH` marks one loop, so a multi-iterator comprehension can mark each generator
+  // independently: here the outer and innermost are marked and the middle one is not. The
+  // innermost is nested inside a marked loop and still prints its own marker, which is what
+  // distinguishes this from `COMB_LOOP` (a region, printed once on its outermost loop).
+  test("for/while loop printing with FALL_THROUGH markers, including a nested opt-in") {
     class Foo extends RTDesign:
       val matrix = Bits(10) X 8 X 8 <> OUT.REG
       process:
-        FALL_THROUGH:
-          for (
-            i <- 0 until 8;
-            if i % 2 == 0;
-            j <- 0 until 8;
-            if j % 2 == 0;
-            k <- 0 until 10
-            if k % 2 == 0
-          ) matrix(i)(j)(k).din := 1
+        for (
+          i <- FALL_THROUGH(0 until 8);
+          if i % 2 == 0;
+          j <- 0 until 8;
+          if j % 2 == 0;
+          k <- FALL_THROUGH(0 until 10)
+          if k % 2 == 0
+        ) matrix(i)(j)(k).din := 1
         val ii = UInt.until(8) <> VAR init 0
-        FALL_THROUGH:
-          while (ii != 7)
-            matrix(ii)(0)(0).din := 0
-            ii                   := ii + 1
+        while (FALL_THROUGH(ii != 7))
+          matrix(ii)(0)(0).din := 0
+          ii                   := ii + 1
         10.sec.wait
     end Foo
     val top = (new Foo)
@@ -1642,24 +1678,22 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       """|class Foo extends RTDesign:
          |  val matrix = Bits(10) X 8 X 8 <> OUT.REG
          |  process:
-         |    FALL_THROUGH:
-         |      for (i <- 0 until 8)
-         |        if ((i % 2) == 0)
-         |          for (j <- 0 until 8)
-         |            if ((j % 2) == 0)
-         |              for (k <- 0 until 10)
-         |                if ((k % 2) == 0) matrix(i)(j)(k).din := 1
-         |              end for
-         |            end if
-         |          end for
-         |        end if
-         |      end for
+         |    for (i <- FALL_THROUGH(0 until 8))
+         |      if ((i % 2) == 0)
+         |        for (j <- 0 until 8)
+         |          if ((j % 2) == 0)
+         |            for (k <- FALL_THROUGH(0 until 10))
+         |              if ((k % 2) == 0) matrix(i)(j)(k).din := 1
+         |            end for
+         |          end if
+         |        end for
+         |      end if
+         |    end for
          |    val ii = UInt(3) <> VAR init d"3'0"
-         |    FALL_THROUGH:
-         |      while (ii != d"3'7")
-         |        matrix(ii.toInt)(0)(0).din := 0
-         |        ii := ii + d"3'1"
-         |      end while
+         |    while (FALL_THROUGH(ii != d"3'7"))
+         |      matrix(ii.toInt)(0)(0).din := 0
+         |      ii := ii + d"3'1"
+         |    end while
          |    10.sec.wait
          |end Foo""".stripMargin
     )
@@ -2846,6 +2880,135 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val o5 = Bits(W2 * W) <> OUT
          |  o5 <> i5
          |end Foo""".stripMargin
+    )
+  }
+  test("REG DIN write-only adds no read alias") {
+    class Top extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      r.din := r + d"8'1"
+    val db = Top().getDB
+    // the invariant this design exists to protect: a `.din` that is only assigned
+    // constructs nothing at all
+    assert(!db.members.exists {
+      case _: dfhdl.compiler.ir.DFVal.Alias.RegDIN => true
+      case _                                       => false
+    })
+    assertCodeString(
+      db,
+      """|class Top extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  r.din := r + d"8'1"
+         |end Top
+         |""".stripMargin
+    )
+  }
+  test("REG DIN read") {
+    class Top extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      r.din := r.din + d"8'1"
+      r.din := r.din + d"8'1"
+    assertCodeString(
+      Top(),
+      """|class Top extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  r.din := r.din + d"8'1"
+         |  r.din := r.din + d"8'1"
+         |end Top
+         |""".stripMargin
+    )
+  }
+  test("REG DIN partial read") {
+    class Top extends RTDesign:
+      val r = UInt(8) <> VAR.REG init d"8'0"
+      val y = UInt(4) <> OUT
+      r(3, 0).din := d"4'5"
+      y           := r(3, 0).din
+    assertCodeString(
+      Top(),
+      """|class Top extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  val y = UInt(4) <> OUT
+         |  r(3, 0).din := d"4'5"
+         |  y := r(3, 0).din
+         |end Top
+         |""".stripMargin
+    )
+  }
+  test("REG DIN read in a named expression") {
+    // the name lands on the `+`, not on the `.din`, so this is not a named `.din`
+    class Top extends RTDesign:
+      val r   = UInt(8) <> VAR.REG init d"8'0"
+      val y   = UInt(8) <> OUT
+      val sum = r.din + d"8'1"
+      r.din := sum
+      y     := sum
+    assertCodeString(
+      Top(),
+      """|class Top extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  val y = UInt(8) <> OUT
+         |  val sum = r.din + d"8'1"
+         |  r.din := sum
+         |  y := sum
+         |end Top
+         |""".stripMargin
+    )
+  }
+  // mirrors the `.din` read examples in docs/user-guide/design-domains, so that the
+  // documented forms (plain Int literals included) are known to elaborate
+  test("REG DIN documented examples") {
+    class SteppedCounter extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(8) <> OUT
+      r.din := r.din + 1
+      r.din := r.din + 1
+      y     := r
+    class DinOrdering extends RTDesign:
+      val x = UInt(8) <> IN
+      val r = UInt(8) <> VAR.REG init 0
+      val a = UInt(8) <> OUT
+      val b = UInt(8) <> OUT
+      a     := r.din
+      r.din := x
+      b     := r.din
+    class DinPartial extends RTDesign:
+      val r = UInt(8) <> VAR.REG init 0
+      val y = UInt(4) <> OUT
+      r(3, 0).din := 5
+      y           := r(3, 0).din
+    assertCodeString(
+      SteppedCounter(),
+      """|class SteppedCounter extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  val y = UInt(8) <> OUT
+         |  r.din := r.din + d"8'1"
+         |  r.din := r.din + d"8'1"
+         |  y := r
+         |end SteppedCounter
+         |""".stripMargin
+    )
+    assertCodeString(
+      DinOrdering(),
+      """|class DinOrdering extends RTDesign:
+         |  val x = UInt(8) <> IN
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  val a = UInt(8) <> OUT
+         |  val b = UInt(8) <> OUT
+         |  a := r.din
+         |  r.din := x
+         |  b := r.din
+         |end DinOrdering
+         |""".stripMargin
+    )
+    assertCodeString(
+      DinPartial(),
+      """|class DinPartial extends RTDesign:
+         |  val r = UInt(8) <> VAR.REG init d"8'0"
+         |  val y = UInt(4) <> OUT
+         |  r(3, 0).din := d"4'5"
+         |  y := r(3, 0).din
+         |end DinPartial
+         |""".stripMargin
     )
   }
 end PrintCodeStringSpec

@@ -242,7 +242,7 @@ class ID extends DFDesign:
 ```
 
 #### Assignable (Mutable) {#dcl-assignable}
-Output ports, input-output ports, and variables are assignable (mutable), when they can be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation, which occurs only within their design scope. Input ports can never be assigned (are immutable). Registered ports and variables are assignable only when referencing their registers' input via `.din` selection (referencing a register without `.din` is always considered to be its output, which is immutable). 
+Output ports, input-output ports, and variables are assignable (mutable), when they can be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation, which occurs only within their design scope. Input ports can never be assigned (are immutable). Registered ports and variables are assignable only when referencing their registers' input via `.din` selection (referencing a register without `.din` is always considered to be its output, which is immutable). A `.din` selection can also be read, yielding the register's pending value for the next clock edge; see [reading the register input][din-read]. 
 
 Assignment semantics are a key difference between the different design domains DFHDL has to offer. Here are some basic examples:
 ```scala
@@ -362,8 +362,121 @@ Constant values are not connectable, meaning they can never be the receiving (dr
 #### Unassignable (Immutable)
 Constant values are immutable and cannot be assigned, meaning they can never be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation.
 
-## DFHDL Value Statement Order & Referencing
+## DFHDL Value Statement Order & Referencing {#statement-order}
 Any DFHDL value must be declared before it can be referenced in code. Other than this (pretty intuitive) limitation, no other limitations exist and ports, variables, constants, and other values may be freely distributed within their approved scope space. During the [compilation process][compilation], you can notice that the compiler reorders the port declarations so that they always come second to [constant declarations][DFConst], and variables right after.
+
+The rule constrains *references*, not statements. The order of the [connection][connection] and [assignment][assignment] statements themselves carries no meaning, and reordering them never changes the generated hardware. Each statement may only mention values that are already declared above it.
+
+It also constrains `val` declarations only. Scala `def` definitions, which is what DFHDL [methods][Methods] and [process steps][step-based-fsm] are, may be referenced from anywhere in the body, including above their own definition. See [Methods and steps are exempt](#methods-and-steps-exempt).
+
+### Forward References {#forward-references}
+
+A design body is an ordinary Scala class body, and Scala permits such a body to reference a `val` that is defined further down. This is a **forward reference**, and Scala neither rejects it nor warns about it: because the value has not been constructed yet, the reference silently evaluates to `null`. DFHDL detects the missing value and reports an elaboration error.
+
+```scala title="Forward reference (error)"
+class Top extends RTDesign:
+  val i = Bit <> IN
+  val o = Bit <> OUT
+  val ctrl = new Ctrl()
+  // `active` is declared further down, so it is still `null` here
+  ctrl.enable <> active
+  val gen = new Gen()
+  val active = gen.active
+  gen.i <> i
+  o <> ctrl.o
+```
+
+```title="Elaboration error"
+DFiant HDL elaboration error!
+Position:  Top.scala:6:3 - 6:24
+Hierarchy: Top
+Operation: `<>`
+Message:   Found a reference to an uninitialized DFHDL value.
+This is caused by a forward reference: the value is declared later in the class body.
+To Fix:
+Move the declaration before its first use.
+```
+
+The resolution is always the same: move the declaration above its first use. Here it is enough to instantiate `gen` before `ctrl`.
+
+```scala title="Declaration before use (OK)"
+class Top extends RTDesign:
+  val i = Bit <> IN
+  val o = Bit <> OUT
+  val gen = new Gen()
+  val active = gen.active
+  gen.i <> i
+  val ctrl = new Ctrl()
+  ctrl.enable <> active
+  o <> ctrl.o
+```
+
+A named DFType follows the same rule, and a forward reference to one is reported as an uninitialized DFHDL *type*:
+
+```scala title="Forward-referenced DFType (error)"
+class Top extends RTDesign:
+  val o = Word <> OUT // error: `Word` is declared below
+  val Word = Bits(8)
+```
+
+/// admonition | Forward reference to a design instance
+    type: warning
+When the forward reference is to the **design instance** itself rather than to one of its ports, Scala selects the member off a `null` instance before any DFHDL code runs. Scala therefore raises the failure itself, as a `NullPointerException` that names the culprit, and DFHDL never gets the chance to turn it into an elaboration error:
+
+```scala
+class Top extends RTDesign:
+  val i = Bit <> IN
+  val o = Bit <> OUT
+  gen.i <> i // `gen` is declared below
+  val gen = new Gen()
+  o <> gen.active
+```
+
+```title="Scala runtime error"
+java.lang.NullPointerException: Cannot invoke "Gen.i()" because
+the return value of "Top.gen()" is null
+```
+
+The resolution is the same: declare the instance before referencing it.
+///
+
+#### Methods and Steps Are Exempt {#methods-and-steps-exempt}
+
+Everything above concerns `val` declarations. A Scala `def` is a method rather than a stored field, so it exists for the whole class body and may be called from anywhere in it, including above its own definition. Two DFHDL constructs are `def`s and therefore exempt from the declaration order rule:
+
+* **[Methods][Methods]**, in every form: DF, ED, and static methods (`<> DFRET`, `<> EDRET`, `<> CONSTRET`), as well as [inline method generators][inline-method-generators].
+
+* **[Step blocks][step-based-fsm]** in an RT [process][processes], which are `def Name: Step` definitions. A step may therefore jump to a step defined further down, which is what lets an FSM with both forward and backward transitions be written in one readable order.
+
+```scala title="Forward call to a method (OK)"
+class Top extends EDDesign:
+  val a = UInt(8) <> IN
+  val b = UInt(8) <> IN
+  val y = UInt(8) <> OUT
+  y <> add(a, b) // OK: `add` is a `def`, defined below
+  def add(l: UInt[8] <> VAL, r: UInt[8] <> VAL): UInt[8] <> EDRET = l + r
+```
+
+```scala title="Forward jump to a later step (OK)"
+class Top extends RTDesign:
+  val x = Bit <> IN
+  val y = Bit <> OUT.REG init 0
+  process:
+    def S0: Step =
+      y.din := 0
+      if (x) S2 else S0 // OK: `S2` is a step defined below
+    def S1: Step =
+      y.din := 1
+      FirstStep
+    def S2: Step =
+      y.din := 0
+      if (x) S1 else FirstStep
+```
+
+/// admonition
+    type: note
+The exemption is about *where the `def` is written*, not about what its body may reference. A method body still reads the enclosing design's values, so any value it [captures][capturing-outer-values] must be declared before the call site that reaches it.
+///
 
 ## DFHDL Value Connections {#connection}
 After ([or during][via-connections]) a design instantiation, its ports need to be connected to other ports or values of the same DFType by applying the `<>` operator. Variables can also be connected and used as intermediate wiring between ports. Output ports can be directly referenced (read) without being connected to an intermediate variable. For more rules about design and port connectivity, see the [relevant section][connectivity].
@@ -548,6 +661,51 @@ class Counter(val width: Int <> CONST = 8) extends RTDesign:
 - `Int <> CONST` for integer parameters (used for widths, lengths, counts). Accepts any Scala `Int` value (-2^31^ to 2^31^-1).
 - Typed constants like `Bits[8] <> CONST` and `UInt[8] <> CONST` are also possible
 - Default values are optional
+
+### Reading a Constant into Scala {#toScala}
+
+A DFHDL constant is not a Scala value, so it cannot be passed where Scala expects one: a `List` size, an index computation, an `if` condition in elaboration code, or an ordinary method argument. The `toScala*` family reads the value during elaboration and hands it back as a plain Scala value.
+
+Every DFHDL constant qualifies: a constant design parameter, a literal, or a value derived from them, since arithmetic over constants is itself a constant. The accessor is chosen by the DFHDL type:
+
+| DFHDL type | Accessor | Scala result |
+| ---------- | -------- | ------------ |
+| `Int`, `UInt[W]`, `SInt[W]` | `.toScalaInt` / `.toScalaBigInt` | `Int` / `BigInt` |
+| `Bit`, `Boolean` | `.toScalaBoolean` / `.toScalaBitNum` | `Boolean` / `0` or `1` |
+| `Double` | `.toScalaDouble` | `Double` |
+| `String` | `.toScalaString` | `String` |
+
+`Bits` has no accessor of its own; convert it first with `.uint` or `.sint`.
+
+```scala
+class Foo(val Arg: Int <> CONST = 8) extends EDDesign:
+  val x = Bits(Arg) <> IN
+  val y = Bits(Arg) <> OUT
+  val scalaInt: Int = Arg.toScalaInt
+  val derived:  Int = (Arg * 2).toScalaInt //a derived constant reads the same way
+  for (i <- 0 until Arg) //concurrent-scope range: implicit `.toScalaInt`, none needed
+    y(i) <> x(scalaInt - 1 - i)
+```
+
+See [Loops](../loops/index.md) for the elaboration-time loop semantics behind the implicit range conversion.
+
+Reading a value that is not a constant is rejected at compile time:
+
+```title="Scala compilation error"
+Only a DFHDL constant is convertible to a Scala value, but this DFHDL value is not a constant.
+```
+
+/// admonition | Reading a parameter into Scala specializes the design
+    type: warning
+A parameter that is only ever *used* as a DFHDL value stays fully parametric, and every instantiation shares a single elaborated design. Reading it into Scala bakes its value into the elaborated body instead, so instances with different applied values no longer unify and elaborate into separate designs, each carrying its own folded constants.
+
+Reach for `toScala*` when Scala genuinely needs the value. When a derived value is only used internally and never has to survive as a named HDL parameter, a plain Scala parameter says the same thing more directly:
+
+```scala
+class Bar(Arg: Int = 8) extends EDDesign:
+  val doubled: Int = Arg * 2 //an ordinary Scala Int throughout
+```
+///
 
 ### `VAL` Modifier
 
@@ -1619,6 +1777,7 @@ Applies to: `Bits`, `UInt`, `SInt`
 
 - **Range slice**: `value(hi, lo)` extracts bits `hi` down to `lo`. A slice is a bit-level operation and produces an unsigned result: `Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `UInt`. This matches Verilog's "slices are unsigned" convention. To recover signed bit-semantics on an `SInt` slice, chain `.bits.sint` to re-interpret the slice as signed (same width). Do **not** use `.signed` for this: `.signed` is a numeric conversion that adds a zero-extension sign bit, widening by 1.
 - **Top/bottom slice**: `value.msbits(W)` returns the top `W` bits and `value.lsbits(W)` returns the bottom `W` bits, with the same unsigned-result rule as range slicing (`Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `UInt`). Equivalent to `value(N-1, N-W)` and `value(W-1, 0)` respectively, but without needing to spell out the indices.
+- **Part-select (anchored slice)**: `value.lsbitsAt(baseIdx, selWidth)` returns `selWidth` bits whose LSB is anchored at `baseIdx`, and `value.msbitsAt(baseIdx, selWidth)` returns `selWidth` bits whose MSB is anchored at `baseIdx`. These are the DFHDL equivalents of Verilog's ascending (`value[baseIdx +: selWidth]`) and descending (`value[baseIdx -: selWidth]`) part-selects, equivalent to `value(baseIdx + selWidth - 1, baseIdx)` and `value(baseIdx, baseIdx - selWidth + 1)` respectively, with the same unsigned-result rule. The generalization of the top/bottom slices: `msbits(W)` is `msbitsAt(N-1, W)` and `lsbits(W)` is `lsbitsAt(0, W)`. Both arguments must be elaboration-time constants (Scala `Int` values or `Int` parameters).
 - **Single-bit access**: `value(idx)` returns the bit at position `idx` (as `Bit`). The index can be a static integer or a dynamic `UInt` variable.
 
 ```scala
@@ -1636,6 +1795,12 @@ val s4 = s8(7, 4).bits.sint    // SInt[4]: sign-preserving truncation via re-int
 val bTop4 = b8.msbits(4)       // Bits[4]: top 4 bits, same as b8(7, 4)
 val uBot4 = u8.lsbits(4)       // UInt[4]: bottom 4 bits, same as u8(3, 0)
 val sTop4 = s8.msbits(4)       // UInt[4]: top 4 bits of SInt, still unsigned
+
+// Part-select: anchored slices, equivalent to Verilog's `+:`/`-:`
+val psUp   = b8.lsbitsAt(2, 4) // Bits[4]: same as b8(5, 2), Verilog b8[2 +: 4]
+val psDown = b8.msbitsAt(5, 4) // Bits[4]: same as b8(5, 2), Verilog b8[5 -: 4]
+val psU    = u8.lsbitsAt(2, 4) // UInt[4]: same as u8(5, 2)
+val psS    = s8.msbitsAt(5, 4) // UInt[4]: SInt part-select is unsigned
 
 // Single-bit access
 val msb = b8(7)       // Bit
@@ -1720,7 +1885,7 @@ Values are concatenated from the first (most-significant) to the last (least-sig
 
 ### Logical Operations {#logical-ops}
 
-Applies to: `Bit`, `Boolean`
+Applies to: `Bit`, `Boolean`. The bitwise NOT (`~`) additionally applies to `Bits` and `UInt` vectors.
 
 Logical operations' return type always matches the LHS argument's type.
 These operations propagate constant modifiers, meaning that if all arguments are constant, the returned value is also a constant.
@@ -1735,6 +1900,7 @@ These operations propagate constant modifiers, meaning that if all arguments are
 | `lhs ^ rhs`  | Logical XOR | The LHS argument must be a `Bit`/`Boolean` DFHDL value. The RHS must be a `Bit`/`Boolean` candidate. | LHS-Type DFHDL value |
 | `!lhs` | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
 | `~lhs` | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
+| `~lhs` | Bitwise NOT (invert all bits) | The argument must be a `Bits`/`UInt` DFHDL value. | LHS-Type DFHDL value |
 ///
 
 ```scala
@@ -1750,6 +1916,13 @@ val t6 = bl ^ 0 || !bt
 //conversions, looks like so:
 //(bl && bt.bool) ^ (!(bt || bl.bit)).bool
 val t7 = (bl && bt) ^ !(bt || bl)
+//bitwise NOT on `Bits`/`UInt` vectors
+//inverts all bits and preserves the
+//argument's type
+val v8 = Bits(8) <> VAR
+val u8 = UInt(8) <> VAR
+val t8 = ~v8         //result type: Bits[8]
+val t9 = ~u8         //result type: UInt[8]
 //error: swap argument positions to have
 //the DFHDL value on the LHS.
 val e1 = 0 ^ bt      
@@ -1783,6 +1956,8 @@ Under the ED domain, the following operations are equivalent:
 | `lhs ^ rhs`     | `lhs ^ rhs`                 | `lhs ^ rhs`                     |
 | `!lhs`          | `~lhs`                      | `!lhs`                          |
 | `~lhs`          | `~lhs`                      | `!lhs`                          |
+
+For `Bits`/`UInt` vector values, `~lhs` maps directly to Verilog's bitwise NOT `~lhs`.
 ///
 
 /// details | Transitioning from VHDL
@@ -1795,6 +1970,8 @@ Under the ED domain, the following operations are equivalent:
 | `lhs || rhs`    | `lhs or rhs`      |
 | `lhs ^ rhs`     | `lhs xor rhs`     |
 | `!lhs`          | `not lhs`         |
+
+For `Bits`/`UInt` vector values, `~lhs` maps to VHDL's `not lhs`.
 ///
 
 ### Bit Reduction Operations (`.&`, `.|`, `.^`) {#reduction-ops}
@@ -1902,6 +2079,7 @@ Applies to: `UInt`, `SInt`, `Bits` (via implicit conversion to `UInt`), `Int`, `
 | `lhs % rhs`  | Modulo         | Same type as LHS                    |
 | `lhs max rhs` | Maximum       | Commutative: widest, most signed    |
 | `lhs min rhs` | Minimum       | Commutative: widest, most signed    |
+| `-lhs`       | Unary negation | Always signed: see [the negation rules below](#unary-negation) |
 ///
 
 #### Bit-Accurate Type Constraints (`UInt`, `SInt`)
@@ -1937,6 +2115,36 @@ The result is signed if either operand is signed. When mixing signed and unsigne
 ///
 
 **Width rule**: the LHS width must be greater than or equal to the (effective) RHS width. When applying `SInt op UInt`, the effective RHS width is `RHS width + 1` because the unsigned value gains an implicit sign bit.
+
+#### Unary Negation (`-`) {#unary-negation}
+
+Unary negation applies to all the decimal types (`UInt`, `SInt`, `Int`, and `Double`) and to `Bits`. The result is always signed. `SInt`, `Int`, and `Double` arguments preserve their type and width. `UInt[W]` and `Bits[W]` arguments are implicitly converted to `SInt[W + 1]` before the negation is applied, so the result preserves the exact negated value (e.g., negating `d"8'255"` yields `sd"9'-255"`).
+
+/// html | div.operations
+| Argument Type | Implicit Conversion | Result Type |
+| ------------- | ------------------- | ----------- |
+| `SInt[W]`     | (none)              | `SInt[W]`   |
+| `UInt[W]`     | `.signed` to `SInt[W + 1]` | `SInt[W + 1]` |
+| `Bits[W]`     | `.uint.signed` to `SInt[W + 1]` | `SInt[W + 1]` |
+| `Int`         | (none)              | `Int`       |
+| `Double`      | (none)              | `Double`    |
+///
+
+```scala
+val u8 = UInt(8) <> VAR
+val s8 = SInt(8) <> VAR
+val b8 = Bits(8) <> VAR
+val n1 = -s8    // SInt[8]: same type as the argument
+val n2 = -u8    // SInt[9]: equivalent to -u8.signed
+val n3 = -b8    // SInt[9]: equivalent to -b8.uint.signed
+
+val s9 = SInt(9) <> VAR
+s9 := -u8       // ok: exact fit
+s9 := -b8       // ok: exact fit
+// error: The applied RHS value width (9) is larger than
+// the LHS variable width (8).
+s8 := -u8
+```
 
 ### Wildcard `Int` Values {#wildcard-ops}
 

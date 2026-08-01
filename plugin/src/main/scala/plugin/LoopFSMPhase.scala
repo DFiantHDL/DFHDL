@@ -33,6 +33,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   var toFunc1Sym: Symbol = uninitialized
   var fromBooleanSym: Symbol = uninitialized
   var customWhileSym: Symbol = uninitialized
+  var waitPluginSym: Symbol = uninitialized
   var processAnonDefSym: Symbol = uninitialized
   var processScopeCtxSym: Symbol = uninitialized
   var stepType: Type = uninitialized
@@ -260,12 +261,51 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
           None
   end Foreach
 
+  // Matched by name, like `HackedGuard` does for `BooleanHack`: `dfhdl.hdl` re-exports `LoopOps`,
+  // so the call site resolves to an export forwarder rather than to the method in `LoopOps`.
+  private def isFallThroughSym(sym: Symbol)(using Context): Boolean =
+    sym.exists && sym.name.toString == "FALL_THROUGH"
+
+  // `FALL_THROUGH(arg)(using dfc, rt)` (with an extra TypeApply on the range overload).
+  // The mark is CONSUMED here rather than left in the tree: the legal positions unwrap it and pass
+  // the flag to the construct being built, so any application still standing once the unit is
+  // transformed is one the user wrote somewhere it cannot bind to a loop or a wait.
+  private object FallThroughMark:
+    def unapply(tree: Tree)(using Context): Option[Tree] =
+      tree match
+        case Inlined(_, _, expr) => unapply(expr)
+        case Block(Nil, expr)    => unapply(expr)
+        case Typed(expr, _)      => unapply(expr)
+        case Apply(inner @ Apply(fun, List(arg)), _) if isFallThroughSym(fun.symbol) =>
+          Some(arg)
+        case _ => None
+  end FallThroughMark
+
+  // `waitUntil(FALL_THROUGH(cond))(using dfc, waitScope)` and its `waitWhile` counterpart. The
+  // method is matched by name for the same reason `FallThroughMark` is: `dfhdl.hdl` re-exports
+  // `Wait.Ops`, so the call site resolves to an export forwarder. The `Boolean` distinguishes the
+  // two polarities (`waitUntil` keeps the condition, `waitWhile` negates it).
+  private object CondWaitMark:
+    def unapply(tree: Apply)(using Context): Option[(Boolean, Tree, Tree)] =
+      tree match
+        case Apply(Apply(fun, List(FallThroughMark(cond))), List(dfcTree, _)) =>
+          fun.symbol.name.toString match
+            case "waitUntil" => Some((true, cond, dfcTree))
+            case "waitWhile" => Some((false, cond, dfcTree))
+            case _           => None
+        case _ => None
+  end CondWaitMark
+
   override def transformWhileDo(tree: WhileDo)(using Context): Tree =
     dfcStack.headOption.map { dfc =>
-      val guard = tree.cond match
-        case HackedGuard(dfCond) => dfCond
-        case cond                => ref(fromBooleanSym).appliedTo(cond).appliedTo(dfc)
-      ref(customWhileSym).appliedTo(guard).appliedTo(tree.body).appliedTo(dfc)
+      val (guard, fallThrough) = tree.cond match
+        case HackedGuard(FallThroughMark(cond)) => (cond, true)
+        case HackedGuard(dfCond)                => (dfCond, false)
+        case cond => (ref(fromBooleanSym).appliedTo(cond).appliedTo(dfc), false)
+      ref(customWhileSym)
+        .appliedTo(guard, Literal(Constant(fallThrough)))
+        .appliedTo(tree.body)
+        .appliedTo(dfc)
     }.getOrElse(tree)
 
   case class ProcessForever(scopeCtx: ValDef, block: Tree)
@@ -358,9 +398,22 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
             .appliedTo(guard)
         })
         val updatedBody = replaceArgs(body, Map(iter.symbol -> loopIter))
+        val (rangeTree, fallThrough) = range match
+          case FallThroughMark(inner) => (inner, true)
+          case _                      => (range, false)
         ref(customForSym)
-          .appliedTo(iter.genMeta, fe.srcPos.positionTree, range, ifGuards)
+          .appliedTo(
+            iter.genMeta, fe.srcPos.positionTree, rangeTree, ifGuards,
+            Literal(Constant(fallThrough))
+          )
           .appliedTo(updatedBody)
+          .appliedTo(dfc)
+      // the whole wait call is rebuilt so the mark never reaches the frontend. The wait-scope
+      // evidence the original call carried has already been checked by the typer, so the rebuilt
+      // call passes on the design context alone.
+      case CondWaitMark(isUntil, cond, dfc) =>
+        ref(waitPluginSym)
+          .appliedTo(cond, Literal(Constant(isUntil)), Literal(Constant(true)))
           .appliedTo(dfc)
       case ProcessForever(scopeCtx, block) =>
         processStepDefs.clear()
@@ -400,6 +453,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     toFunc1Sym = requiredMethod("dfhdl.core.r__For_Plugin.toFunc1")
     fromBooleanSym = requiredMethod("dfhdl.core.r__For_Plugin.fromBoolean")
     customWhileSym = requiredMethod("dfhdl.core.DFWhile.plugin")
+    waitPluginSym = requiredMethod("dfhdl.core.Wait.plugin")
     stepType = requiredClassRef("dfhdl.core.Step")
     val dfTypeType = requiredClassRef("dfhdl.core.DFType")
     val noArgsType = requiredClassRef("dfhdl.core.NoArgs")
@@ -414,4 +468,24 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     processStepDefs.clear()
     ctx
   end prepareForUnit
+
+  // Every legal `FALL_THROUGH` is unwrapped by the construct that claims it, so whatever survives
+  // the unit's transformation sits somewhere nothing can bind it: a `for` guard, part of a compound
+  // `while` condition, or a value the loop only reaches through a `val`.
+  override def transformUnit(tree: Tree)(using Context): Tree =
+    val res = super.transformUnit(tree)
+    new TreeTraverser:
+      def traverse(t: Tree)(using Context): Unit = t match
+        case FallThroughMark(_) =>
+          report.error(
+            "`FALL_THROUGH` must mark a loop or a conditional wait directly: write it as the whole " +
+              "`while` condition, `while (FALL_THROUGH(cond))`, as the `for` range, " +
+              "`for (i <- FALL_THROUGH(range))`, or as the whole `waitUntil`/`waitWhile` condition, " +
+              "`waitUntil(FALL_THROUGH(cond))`.",
+            t.srcPos
+          )
+        case _ => traverseChildren(t)
+    .traverse(res)
+    res
+  end transformUnit
 end LoopFSMPhase
