@@ -1781,7 +1781,7 @@ final case class DB private (
   // Per-design structural checks: each validates a single design's own members
   // and references in isolation. Run on each sub-DB (and on the flat DB, on the
   // whole design).
-  private lazy val subDBCheck: Unit =
+  lazy val subDBCheck: Unit =
     nameCheck()
     connectionTable // causes connectivity checks
     directRefCheck()

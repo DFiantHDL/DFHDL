@@ -1082,6 +1082,19 @@ Deciding **where a rule belongs** (elaboration `DB.check` vs `SanityCheck`), how
 how to measure its blast radius before fixing stages is bug-fixing methodology and lives in
 [/bugfix](bugfix.md). What follows is only the part a stage author must obey.
 
+### What `SanityCheck` enforces after your stage
+
+`SanityCheck.transformSubDB` runs, per sub-DB: `refCheck`, `memberExistenceCheck`,
+`ownershipCheck`, `orderCheck`, `hdlMethodCheck`, and the whole of `DB.subDBCheck` — the same
+per-design set elaboration runs (`nameCheck`, the connectivity checks behind `connectionTable`,
+`directRefCheck`, `initialCheck`, `condExprNamedValCheck`). So a stage's output has to satisfy
+every rule a *user design* satisfies, not just the structural ones.
+
+`orderCheck` is the one most likely to be new to you: **every member may reference only members
+defined above it in the flat list** (a `Goto` is the sole exception, since it targets a later
+step). It bites whenever a stage relocates a member without its dependency cone, or emits a
+substitute after the value that reads it (mistake 27).
+
 ### Named values in conditional expression branches
 
 A `DFConditional.Header` with `dfType != DFUnit` is a conditional *expression*: each branch
@@ -1332,7 +1345,24 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     every stage, so the DB in between would be invalid. It has to be the same patch. Check the
     merge table before concluding that is impossible, and see the
     *replace AND relocate in one patch* recipe for the case that looks unmergeable but is not.
-27. **Deferring a fix to a later stage lets an illegal DB exist in between** — a stage must never
+27. **Substituting into a cloned expression tree AFTER cloning it inverts the member order** —
+    `cloneAnonValueAndDepsHere` builds each dependency before the value that reads it, which is the
+    only order the flat member list accepts. If you then walk the finished clone and `newRefFor` a
+    ref to a *freshly emitted* replacement (a forwarded value cloned here), that replacement is
+    appended below its reader, and the reader points forward at a member defined under it. Pass the
+    substitution in instead — `cloneAnonValueAndDepsHere(substDep)` applies it to every dependency
+    while the clone is built, so anything it emits lands ahead of the reader:
+    ```scala
+    def substDep(dep: ir.DFVal): ir.DFVal = dep match
+      case dcl: ir.DFVal.Dcl    => forwardedValueFor(dcl)   // may emit its own clone
+      case _ if dep.isAnonymous => dep.cloneAnonValueAndDepsHere(substDep)
+      case _                    => dep
+    v.cloneAnonValueAndDepsHere(substDep)
+    ```
+    `SanityCheck.orderCheck` catches this (`Failed member order check!`). Note the printed output is
+    typically **identical** either way, because an anonymous value prints inline at its use — so no
+    code-string test will ever see it.
+28. **Deferring a fix to a later stage lets an illegal DB exist in between** — a stage must never
     emit IR that violates a stated invariant, not even briefly. If you find yourself writing a
     cleanup stage for a shape an earlier stage produces, fix the producer instead. The way to
     discover this at all is to wire the invariant into `SanityCheck`; nothing else in the pipeline

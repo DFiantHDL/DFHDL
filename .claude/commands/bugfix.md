@@ -166,18 +166,20 @@ violate (ref-table integrity, ownership ordering, an HDL-method body restriction
 a helper `def`) belongs in `SanityCheck` — see the comment on `SanityCheck.hdlMethodCheck` for why
 it is deliberately not on the elaboration path.
 
-**The two are not alternatives.** A rule that a user can violate *and* a stage can violate has to
-be wired into **both**, and this is easy to get wrong because the paths are completely disjoint:
+**The two overlap, deliberately.** `SanityCheck.transformSubDB` runs the whole of `DB.subDBCheck`
+(the per-design half of `DB.check`) on top of its own structural checks, so:
 
-- `DB.check` is a `lazy val` invoked from exactly one place, `Design.onCreateEnd`. It runs once, on
-  the elaborated user design, and never again.
-- `SanityCheck` has its own structural checks and **never calls `DB.check`**.
+- A **per-design** check added to `DB.subDBCheck` binds the user *and* every stage, for free. This
+  is where a rule belongs whenever a user can write it by hand.
+- `rootDBCheck` (the cross-design half: dangling ports, clock rates, device-top placement) is
+  elaboration-only. Those checks assume a shape the pipeline deliberately rewrites, so they cannot
+  run between stages.
+- A rule only a stage can violate goes in `SanityCheck` itself. Note `DB.check` is a `lazy val`
+  invoked from exactly one place, `Design.onCreateEnd` — it runs once, on the elaborated user
+  design, and never again.
 
-So an elaboration-only check binds the user and *nothing else*: every stage in the pipeline may
-produce the forbidden shape silently, forever. That is precisely how issue #426 survived. Add the
-check to `SanityCheck.transformSubDB` as well; every `StageSpec` calls `sanityCheck` directly, so
-all stage tests then enforce it regardless of log level (in a normal compile `SanityCheck` only
-runs at `logLevel >= DEBUG`).
+Every `StageSpec` calls `sanityCheck` directly, so all stage tests enforce these regardless of log
+level (in a normal compile `SanityCheck` only runs at `logLevel >= DEBUG`).
 
 Expect that wiring to fail immediately, and treat that as the point: a stage whose *own output*
 trips the check cannot be repaired by a later cleanup stage, because the DB between them is
@@ -229,9 +231,12 @@ Two structural rules that come up constantly in bug fixes:
 
 When a fix relocates a member, check every ref of every moved member. A dependency that lives in
 the region you are moving out of, but is not moving with them, is left behind as a forward
-reference, and its drive stays put — inferring a latch in the generated HDL. Neither `SanityCheck`
-nor the backend complains (`orderCheck()` is commented out in `SanityCheck`), so this is silent.
-Abandon the whole move in that case rather than splitting it.
+reference, and its drive stays put — inferring a latch in the generated HDL. Abandon the whole move
+in that case rather than splitting it.
+
+`SanityCheck.orderCheck` catches the forward reference itself (`Failed member order check!`), so
+the symptom now arrives right after the offending stage instead of as mystery HDL. It does not
+catch the *drive* left behind, which is the part that infers the latch — that is still on you.
 
 `collectRelMembers` will not warn you: it recurses only into **anonymous** values, so it stops at
 any dependency a sibling patch in the same pass just named. A guard written against the cone

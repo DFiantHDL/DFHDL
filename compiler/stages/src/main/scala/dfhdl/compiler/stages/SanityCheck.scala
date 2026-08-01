@@ -426,9 +426,11 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends HierarchyStage:
     refCheck()
     memberExistenceCheck()
     ownershipCheck(subDB.top, subDB.membersNoGlobals.drop(1))
-    // orderCheck()
+    orderCheck()
     hdlMethodCheck()
-    subDB.condExprNamedValCheck()
+    // the whole per-design set that elaboration runs, not a hand-picked one: a stage that breaks
+    // any of them is caught right after it, and a check added there is picked up here for free
+    subDB.subDBCheck
     subDB
   end transformSubDB
 end SanityCheck

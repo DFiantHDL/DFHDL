@@ -497,22 +497,16 @@ private[stages] object FirstStepFusion:
     ): ir.DFVal =
       // fresh clone refs are registered only in this meta design's mutable DB
       given ir.MemberGetSet = dfc.getSet
-      def rewire(root: ir.DFVal): Unit =
-        root.getRefs.foreach { ref =>
-          ref.get match
-            case dcl: ir.DFVal.Dcl =>
-              val r = substDcl(dcl, entryRegs, st, victim)
-              if (r ne dcl)
-                dfc.mutableDB.newRefFor(ref.asInstanceOf[ir.DFRef[ir.DFVal]], r)
-            case din: ir.DFVal.Alias.RegDIN =>
-              val r = substDin(din, entryRegs, st, victim)
-              if (r ne din)
-                dfc.mutableDB.newRefFor(ref.asInstanceOf[ir.DFRef[ir.DFVal]], r)
-            case dep: ir.DFVal if dep.isAnonymous => rewire(dep)
-            case dep: ir.DFVal                    =>
-              if (forbiddenRead(dep, entryRegs, st)) throw new AbortFusion(victim)
-            case _ =>
-        }
+      // resolves one dependency of the tree being cloned. It runs while the clone is built, so a
+      // forwarded value it emits precedes the value that reads it; substituting afterwards would
+      // leave the reader referencing a member defined below it.
+      def substDep(dep: ir.DFVal): ir.DFVal = dep match
+        case dcl: ir.DFVal.Dcl          => substDcl(dcl, entryRegs, st, victim)
+        case din: ir.DFVal.Alias.RegDIN => substDin(din, entryRegs, st, victim)
+        case _ if dep.isAnonymous       => dep.cloneAnonValueAndDepsHere(substDep)
+        case _                          =>
+          if (forbiddenRead(dep, entryRegs, st)) throw new AbortFusion(victim)
+          dep
       v match
         case dcl: ir.DFVal.Dcl          => substDcl(dcl, entryRegs, st, victim)
         case din: ir.DFVal.Alias.RegDIN => substDin(din, entryRegs, st, victim)
@@ -520,11 +514,8 @@ private[stages] object FirstStepFusion:
           if (forbiddenRead(v, entryRegs, st)) throw new AbortFusion(victim)
           v
         case _ =>
-          val cloned =
-            try v.cloneAnonValueAndDepsHere
-            catch case _: IllegalArgumentException => throw new AbortFusion(victim)
-          rewire(cloned)
-          cloned
+          try v.cloneAnonValueAndDepsHere(substDep)
+          catch case _: IllegalArgumentException => throw new AbortFusion(victim)
     end substValue
 
     // clones a single statement member here with fresh registered refs, remapping value reads

@@ -2167,6 +2167,21 @@ extension (dfVal: ir.DFVal)
   end cloneUnreachable
 
   protected[dfhdl] def cloneAnonValueAndDepsHere(using dfc: DFC): ir.DFVal =
+    // the plain clone substitutes each dependency with its own clone (a non-anonymous one is
+    // returned as-is and keeps being referenced directly)
+    def cloneDep(dep: ir.DFVal): ir.DFVal = dep.cloneAnonValueAndDepsHere(cloneDep)
+    dfVal.cloneAnonValueAndDepsHere(cloneDep)
+
+  /** Clones an anonymous value and its dependency cone into the current (meta) design.
+    *
+    * `substDep` is applied to every dependency before the value that reads it is built, so a
+    * substitution that emits members of its own lands in the member list ahead of its reader.
+    * Rewiring the clone's references afterwards would instead leave the reader pointing forward at
+    * a member defined below it.
+    */
+  protected[dfhdl] def cloneAnonValueAndDepsHere(
+      substDep: ir.DFVal => ir.DFVal
+  )(using dfc: DFC): ir.DFVal =
     import dfc.getSet
     if (dfVal.isAnonymous)
       val dfcForClone = dfc.setMeta(dfVal.meta).setTags(dfVal.tags)
@@ -2175,10 +2190,10 @@ extension (dfVal: ir.DFVal)
         case const: ir.DFVal.Const =>
           DFVal.Const.forced(dfType, const.data)(using dfcForClone)
         case func: ir.DFVal.Func =>
-          val clonedArgs = func.args.map(_.get.cloneAnonValueAndDepsHere)
+          val clonedArgs = func.args.map(arg => substDep(arg.get))
           DFVal.Func(dfType, func.op, clonedArgs)(using dfcForClone)
         case alias: ir.DFVal.Alias.Partial =>
-          val clonedRelValIR = alias.relValRef.get.cloneAnonValueAndDepsHere
+          val clonedRelValIR = substDep(alias.relValRef.get)
           val clonedRelVal = clonedRelValIR.asValAny
           alias match
             case alias: ir.DFVal.Alias.AsIs =>
@@ -2187,7 +2202,7 @@ extension (dfVal: ir.DFVal)
               def cloneIntParam(intParam: IntParam[Int]): IntParam[Int] =
                 val ret = intParam.runtimeChecked match
                   case int: Int                       => int
-                  case const: DFConstInt32 @unchecked => const.asIR.cloneAnonValueAndDepsHere
+                  case const: DFConstInt32 @unchecked => substDep(const.asIR)
                 ret.asInstanceOf[IntParam[Int]]
               DFVal.Alias.ApplyRange(
                 clonedRelVal.asValOf[DFBits[Int]], // this is OK even for UInt/SInt
@@ -2195,7 +2210,7 @@ extension (dfVal: ir.DFVal)
                 cloneIntParam(alias.idxLowRef.get)
               )(using dfcForClone)
             case alias: ir.DFVal.Alias.ApplyIdx =>
-              val clonedIdx = alias.relIdx.get.cloneAnonValueAndDepsHere.asValOf[DFInt32]
+              val clonedIdx = substDep(alias.relIdx.get).asValOf[DFInt32]
               DFVal.Alias.ApplyIdx(dfType, clonedRelVal, clonedIdx)(using dfcForClone)
             case alias: ir.DFVal.Alias.SelectField =>
               DFVal.Alias.SelectField(clonedRelVal, alias.fieldName)(using dfcForClone)
