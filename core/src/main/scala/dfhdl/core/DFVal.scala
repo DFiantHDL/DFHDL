@@ -1552,9 +1552,23 @@ object DFVal extends DFValLP:
         // operator `<>` as a connection is bidirectional and commutative
         // if both LHS and RHS are DFVals, we call `specialConnect` to handle possible
         // connection in either direction where both implicit directions are available
+        // `unstableSkolemPrefix`: the operands are taken apart under the types `L` and `R` the
+        // caller inferred for them, never under the types they are written with. The two name the
+        // same type, except for an operand reached through a qualifier that is not a stable path
+        // (`bars(0).out_data`, and not `bars(0)` bound to a `val` first): the written form is then
+        // a `Bar#out_data` reference type, and the compiler derives such a reference's underlying
+        // type on demand, by an as-seen-from over the unstable prefix. Every derivation invents a
+        // FRESH skolem to stand for the prefix, so a type argument that depends on the prefix (the
+        // width of `Bits(OUTPUT_WIDTH)`) reads as `?1.OUTPUT_WIDTH` in the scrutinee and
+        // `?2.OUTPUT_WIDTH` in the pattern: two types that never conform, and the match fails to
+        // reduce. `L` and `R` are single derivations already, so both sides then name one skolem.
+        // The cast has to stay written out here rather than move into a shared inline helper: the
+        // helper's expansion carries ITS OWN position, which then replaces the user's position in
+        // elaboration errors. See https://github.com/DFiantHDL/DFHDL/issues/427 and the upstream
+        // compiler report at https://github.com/scala/scala3/issues/26681
         inline if (isConcreteDFVal[L] && isConcreteDFVal[R])
-          inline lhs match
-            case ___lhs: DFVal[lt, lm] => inline rhs match
+          inline lhs.asInstanceOf[L] match
+            case ___lhs: DFVal[lt, lm] => inline rhs.asInstanceOf[R] match
                 case ___rhs: DFVal[rt, rm] =>
                   ConnectOps.specialConnect[lt, lm, rt, rm](___lhs, ___rhs)
         else
@@ -1589,8 +1603,10 @@ object DFVal extends DFValLP:
         case _: DFValAny => true
         case _           => false
       inline if (lhsIsDFVal && rhsIsDFVal)
-        inline lhs match
-          case ___lhs: DFValTP[lt, lp] => inline rhs match
+        // the operands are taken apart under `L` and `R`; see the `unstableSkolemPrefix` note in
+        // `<>` above
+        inline lhs.asInstanceOf[L] match
+          case ___lhs: DFValTP[lt, lp] => inline rhs.asInstanceOf[R] match
               case ___rhs: DFValTP[rt, rp] =>
                 specialCompare[Op, lt, lp, rt, rp](___lhs, ___rhs)
       else exactOp2[Op, DFC, DFValOf[DFBool]](lhs, rhs)

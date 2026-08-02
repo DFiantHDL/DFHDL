@@ -221,7 +221,10 @@ object DFBoolOrBit:
             case _               => false
           // onTrue type has priority, except when onTrue is a DFHDL Int parameter while onFalse is not
           inline if (onTrueIsDFVal && !(onTrueIsDFConstInt32 && !onFalseIsDFConstInt32))
-            inline onTrue match
+            // the branch is taken apart under `OT`, the type the caller inferred for it, and not
+            // under the type it is written with; see the `unstableSkolemPrefix` note in
+            // `DFVal.Ops.<>`
+            inline onTrue.asInstanceOf[OT] match
               case ___onTrueDFVal: DFValTP[tt, tp] =>
                 val tc = compiletime.summonInline[DFVal.TC[tt, OF]]
                 val dfType = ___onTrueDFVal.dfType
@@ -232,7 +235,7 @@ object DFBoolOrBit:
                   DFVal.Func(dfType, FuncOp.sel, List(lhs, ___onTrueDFVal, tc(dfType, onFalse)))
                     .asValOf[tt]
           else if (onFalseIsDFVal)
-            inline onFalse match
+            inline onFalse.asInstanceOf[OF] match
               case ___onFalseDFVal: DFValTP[ft, fp] =>
                 val tc = compiletime.summonInline[DFVal.TC[ft, OT]]
                 val dfType = ___onFalseDFVal.dfType
