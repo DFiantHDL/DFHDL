@@ -67,7 +67,18 @@ Located in `plugin/src/main/scala/plugin/`:
 8. `MetaContextGenPhase` — meta-context code generation
 9. `OnCreateEventsPhase` — on-create event handling
 
-The plugin is applied to `core`, `compiler_stages`, `lib`, `platforms`, and `ips` via `pluginUseSettings` / `pluginTestUseSettings`.
+Where the plugin is applied (verify with `show <proj>/<scope>/scalacOptions`, not by reading `build.sbt`):
+
+| Subproject | `Compile` | `Test` |
+|---|---|---|
+| `internals`, `plugin`, `compiler_ir` | — | — |
+| `core` | — | ✔ + `-P:dfhdl.plugin:testing` |
+| `compiler_stages` | — | ✔ |
+| `lib`, `platforms`, `ips`, `benchmarks` | ✔ | ✔ |
+
+So `core` and `compiler_stages` build their own sources *without* the plugin and only apply it to their tests. `core`'s test scope additionally enables the `PluginErrCheck` phase behind `assertPluginError` (see [devdocs/plugin-error-testing.md](devdocs/plugin-error-testing.md)).
+
+`internals` is the only plugin-free subproject with a test directory, which makes it the sandbox for minimizing a suspected *compiler* bug away from DFHDL's own machinery (see [/bugfix](.claude/commands/bugfix.md)).
 
 ## Testing
 

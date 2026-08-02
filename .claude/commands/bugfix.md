@@ -23,6 +23,9 @@ visibly-wrong output is usually innocent. So the work has a standard order:
 Skipping step 4 is the most common mistake: fixing the stage first hides which other stages, doc
 examples, or checked-in designs were relying on the shape.
 
+All six steps presuppose the bug is *in the IR*. Before starting them, rule out the other species:
+see [When the bug is in the front end, not a stage](#when-the-bug-is-in-the-front-end-not-a-stage).
+
 ---
 
 ## 1. Reproduce
@@ -55,6 +58,109 @@ really re-runs.
 
 **Restore the Playground when you are done.** It is a working file the user may have their own
 content in. Back it up first (`cp` to the scratchpad) and restore it after each probe.
+
+---
+
+## When the bug is in the front end, not a stage
+
+Steps 2 through 6 assume a stage produced a shape it should not have. A whole other species never
+gets that far: **the reproducer does not compile**, so there is no DB, no trace, and no stage to
+localize. The tell is a `scalac` error whose "Inline stack trace" points into
+`core/src/main/scala/`, i.e. the failure is inside a DFHDL operator's own inline expansion.
+
+Issue #427 (`out_data <> bars(0).out_data`, where the port width comes from a design `CONST`) was
+one of these. It read like a macro bug and was a Scala 3 compiler bug; the DFHDL fix was six
+`asInstanceOf`s. Work it in this order instead.
+
+### Minimize outside DFHDL, early
+
+Get off the DFHDL types as fast as possible. Two plugin-free sandboxes:
+
+- **`internals/src/test/scala/`.** `internals` is the only plugin-free subproject with a test
+  directory (`plugin` and `compiler_ir` are also plugin-free; `core` and `compiler_stages` apply
+  it to their `Test` scope, which is what you are trying to escape). A file dropped there builds
+  with the same compiler and none of DFHDL's machinery, so it is the fastest way to prove "this is
+  not our macros". Confirm with `show <proj>/<scope>/scalacOptions` rather than by reading
+  `build.sbt`; the settings names do not map to scopes the way they read.
+- **`scala-cli`**, once the repro has no DFHDL dependency at all:
+  `scala-cli compile x.scala -S 3.nightly --server=false`.
+
+Reducing #427 to `class Box[T]` plus `class Owner: val w: Int = 8; val b: Box[w.type]` turned a
+DFHDL bug report into a fifteen-line compiler bug report.
+
+### Bisect the compiler version before blaming the nightly
+
+The build tracks a Scala nightly, so the reflex is "the nightly broke it". Check first:
+
+```bash
+for V in 3.3.7 3.7.4 3.nightly; do scala-cli compile repro.scala -S $V --server=false; done
+```
+
+#427 failed identically from 3.3 LTS through nightly, so it was long-standing rather than a
+regression. That decides whether a workaround is needed now or an upstream revert is coming.
+
+### `-explain` is the tool here, not the plain error
+
+A mismatch between two types that **print almost identically** is the signature of this species.
+The plain error is useless; `-explain` prints the subtyping trace and shows where it bottoms out:
+
+```
+==> (?2.w : Int)  <:  (?1.w : Int)
+  ==> (?2 : Owner)  <:  (?1 : Owner)
+    ==> Owner  <:  (?1 : Owner)  = false
+```
+
+Two skolems, `?1` and `?2`, standing for one prefix. Enable it with
+`sbtn.bat 'set core/Test/scalacOptions += "-explain"; core/Test/compile'`.
+
+### Bracket the trigger
+
+Vary one axis at a time, with all the variants in one file so a single compile classifies them.
+For #427 the trigger needed `transparent` **and** an `inline` parameter **and** a pattern with a
+type variable to instantiate; dropping any one of the three compiled. That set is what makes an
+upstream report actionable, and the variant that compiles is usually the workaround.
+
+### The `core` inline-operator idiom, and its two traps
+
+When an `inline` operator takes an operand's type apart, match the operand **retyped as the
+operator's own type parameter**, never as written:
+
+```scala
+inline lhs.asInstanceOf[L] match
+  case ___lhs: DFVal[lt, lm] => ...
+```
+
+`L` was derived once, at the call site. The operand *as written* may be a reference whose
+underlying type the compiler re-derives per query, minting a fresh skolem each time for a prefix
+that is not a stable path (`bars(0).out_data`). `<>`, `compare` and `DFBoolOrBit.sel` all carry
+this now.
+
+Two tidier-looking rewrites of that line are both wrong:
+
+- **Do not extract the cast into a shared `inline def retyped[T](inline x: T): T`.** It compiles,
+  but the helper's expansion carries *its own* position, which then replaces the user's position in
+  elaboration errors. `ElaborationChecksSpec`'s "forward referenced value" case caught it, blaming
+  `DFVal.scala` instead of the user's line.
+- **Do not bind the scrutinee to your own `val`.** The compiler's inline-match scrutinee binding
+  is named `$scrutineeN`, which the plugin skips; a hand-written `val` becomes a **named DFHDL
+  value** and appears in the generated code. `DFBoolOrBitSpec`'s "selection operation" caught it.
+
+Both cost a full suite cycle to find, and neither is visible in the file being edited.
+
+### Test in `core`, then report upstream
+
+The regression test belongs in `core/src/test/scala/CoreSpec/`, not `StagesSpec`: no stage is
+involved. `core` cannot run the compile pipeline, so assert on the freshly elaborated DB
+(`dsn.getDB`, then `DefaultPrinter(using db.getSet).csDB`) and expect the **raw** member names,
+before the stages that rename and reorder members. `UnstablePathSpec` is the model. Then file the
+compiler bug upstream on `scala/scala3`, with the minimized repro, the version bisect and the
+variant set, and link it from the code comment carrying the workaround; #427 became
+scala/scala3#26681.
+
+**One false alarm to expect.** Editing `core/` and then compiling `lib` incrementally against it
+reproducibly threw `scala.MatchError: 23 ... TreeUnpickler.readConstant` on this nightly. That is
+stale TASTy, not the change under test: `sbtn.bat 'clean; clearDFHDL; Test/compile'` clears it. Do
+not chase it, and do not trust a suite run that followed one.
 
 ---
 
@@ -362,6 +468,8 @@ printer elides. Keep the stage test only if it does fail without the fix.
 
 ## Checklist
 
+- [ ] Ruled out a **front-end** bug first: does the reproducer even compile? If not, the rest of
+      this list does not apply
 - [ ] Reproduced with `--nocache --log trace compile --print-backend`; Playground backed up and restored
 - [ ] Located the stage that **introduced** the shape, not the one that printed it
 - [ ] Checked the other backend (a silent VHDL failure often shadows a loud Verilog one)
@@ -386,3 +494,7 @@ Add a lesson here when it is about **finding and shaping a fix** — diagnosis t
 rule belongs, how to scope an invariant, how to test it. Lessons about **writing a stage** (patch
 mechanics, MetaDesign, IR APIs) belong in [/new-stage](new-stage.md) instead. Keep the split clean
 so neither file becomes the dumping ground.
+
+Front-end bugs (typer, macro, inline expansion, anything that fails before an IR exists) also live
+here, in their own section, rather than in a skill of their own: the entry point is the same
+question, "a bug was reported", and the first move is deciding which species it is.
