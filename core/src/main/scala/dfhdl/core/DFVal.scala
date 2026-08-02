@@ -1020,20 +1020,20 @@ object DFVal extends DFValLP:
           relVal: DFVal[DFBits[W], M],
           idxHigh: IntParam[H],
           idxLow: IntParam[L]
-      )(using DFC): DFVal[DFBits[H - L + 1], M] =
-        forced(relVal.asIR, idxHigh, idxLow).asVal[DFBits[H - L + 1], M]
+      )(using DFC): DFVal[DFBits[IntP.RangeWidth[H, L]], M] =
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFBits[IntP.RangeWidth[H, L]], M]
       def applyDFXInt[S <: Boolean, W <: IntP, M <: ModifierAny, H <: IntP, L <: IntP](
           relVal: DFVal[DFXInt[S, W, NativeType.BitAccurate], M],
           idxHigh: IntParam[H],
           idxLow: IntParam[L]
-      )(using DFC): DFVal[DFUInt[H - L + 1], M] =
-        forced(relVal.asIR, idxHigh, idxLow).asVal[DFUInt[H - L + 1], M]
+      )(using DFC): DFVal[DFUInt[IntP.RangeWidth[H, L]], M] =
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFUInt[IntP.RangeWidth[H, L]], M]
       def applyVector[T <: DFTypeAny, M <: ModifierAny, H <: IntP, L <: IntP](
           relVal: DFVal[DFVector[T, Tuple1[?]], M],
           idxHigh: IntParam[H],
           idxLow: IntParam[L]
-      )(using DFC): DFVal[DFVector[T, Tuple1[H - L + 1]], M] =
-        forced(relVal.asIR, idxHigh, idxLow).asVal[DFVector[T, Tuple1[H - L + 1]], M]
+      )(using DFC): DFVal[DFVector[T, Tuple1[IntP.RangeWidth[H, L]]], M] =
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFVector[T, Tuple1[IntP.RangeWidth[H, L]]], M]
       def forced[H <: IntP, L <: IntP](
           relVal: ir.DFVal,
           idxHigh: IntParam[H],
@@ -1705,7 +1705,10 @@ object DFVal extends DFValLP:
     end extension
 
     extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
-      def bits(using DFCG)(using w: Width[T]): DFValTP[DFBits[w.Out], P] = trydf {
+      // the width is bound to a type parameter rather than returned as `w.Out`: a path-dependent
+      // width reads as non-constant to the `IsConst` guard, so every later operation on this value
+      // (`.repeat`, arithmetic) would collapse to `Bits[Int]` (see `IntP.IsConstInt2`)
+      def bits[W <: IntP](using DFCG)(using w: Width.Aux[T, W]): DFValTP[DFBits[W], P] = trydf {
         DFVal.Alias.AsIs(DFBits(dfVal.widthIntParam), dfVal)
       }
       def genNewVar(using DFC): DFVarOf[T] = trydf {

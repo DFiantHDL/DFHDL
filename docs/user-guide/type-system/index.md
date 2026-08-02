@@ -756,7 +756,7 @@ class Foo(val w: Int <> CONST) extends RTDesign:
   val v: UInt[4] X w.type <> CONST = all(0)  // vector length tied to w
 ```
 
-**Unbounded**: the size is bare `Int`, with no compile-time size information. Used when the type is too complex to express at the Scala type level (e.g., results of operations on parameterized types). The DFHDL compiler still has the required size information available during elaboration, where it is checked:
+**Unbounded**: the size is bare `Int`, with no compile-time size information. The DFHDL compiler still has the required size information available during elaboration, where it is checked:
 
 ```scala
 val cu: UInt[Int] <> VAL = 1
@@ -764,6 +764,33 @@ val cs: SInt[Int] <> VAL = -1
 val bv: Bits[8] X Int <> CONST = Vector(h"12", h"34")
 def twice(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
 ```
+
+#### Result Sizes of Operations {#operation-sizes}
+
+The reference tables throughout this guide give the size an operation produces as a formula over
+its operand sizes: `Max[LW, RW]` for commutative arithmetic, `LW + RW` for concatenation,
+`CLog2[N]` for a range-derived width, and so on. These are notation for the resulting size, not
+types you write yourself.
+
+Such a formula is evaluated at the Scala type level **only when every operand size is a literal**.
+The result is then a literal too, and the value is bounded. If any operand is parameterized or
+unbounded, the result is **unbounded** `Int`: the type level stops tracking the size, and the size
+is computed and checked during elaboration instead.
+
+```scala
+class Foo(val w: Int <> CONST) extends RTDesign:
+  val a = UInt(8) <> IN
+  val b = UInt(8) <> IN
+  val s = a + b // UInt[8], both operand widths are literals
+
+  val c = UInt(w) <> IN
+  val d = UInt(w) <> IN
+  val t = c + d // UInt[Int], the width is `w` and is checked during elaboration
+```
+
+This is why size mismatches between literal-sized values are reported by the Scala compiler, while
+the same mistake between parameterized values is reported during elaboration. Both are caught; only
+the moment differs.
 
 /// admonition | Struct fields must be bounded
     type: warning
