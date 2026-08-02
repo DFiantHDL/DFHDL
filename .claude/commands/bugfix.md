@@ -147,6 +147,77 @@ Two tidier-looking rewrites of that line are both wrong:
 
 Both cost a full suite cycle to find, and neither is visible in the file being edited.
 
+### Changing a type-level algebra: pick the mechanism by when it costs
+
+`IntP` decides widths at the type level, and there are three mechanisms for such a rule. They
+differ most in **when they cost compile time**, and that is what should decide between them:
+
+| mechanism | fires | cost |
+|---|---|---|
+| match type (`IsConstInt2`, `FoldConst1`) | during type reduction | none beyond the reduction |
+| a `using` parameter (type class) | on **every** call site of the operation | can be ruinous |
+| a `given Conversion` | only after an expression **failed to conform** | none on code that already compiles |
+
+A `MaxOf[L, R]` type class summoned once per arithmetic operation did not finish compiling `lib`
+in over half an hour; the same rule as a conversion built the whole tree in 3m33s. The type class
+is not inherently the problem, though: `UBound` is also summoned twice per arithmetic operation
+and is fine, because its given matches by a cheap **subtype** test (`T <: UB`), whereas
+`MaxOf.same[W]: MaxOf[W, W]` made the constraint solver unify one variable against two deep width
+trees and backtrack on every failure. Prefer the conversion when the rule only has to apply where
+something would otherwise fail; prefer the match type when it must always apply.
+
+### A type-level predicate must get STUCK, not answer "false"
+
+Match-type reduction skips a case only when that case is **provably disjoint**; otherwise it gets
+stuck. Stuck is the *safe* answer, because it defers and reduces later once the type is known. A
+predicate that answers `false` about something merely undetermined commits the wrong branch
+permanently. Both failure modes are real and they pull in opposite directions:
+
+- `case (Int & Singleton, ...)` can never refute plain `Int`, so `Max[Int, Int]` sticks. Safe and
+  useless: a collapsed width can then never feed a further operation.
+- `IsConst` answers `false` for anything whose reduction is pending
+  (scala/scala3#26683), so a guard that is not handed a bare type parameter collapses silently at
+  the **definition** site, before the call site can supply a literal.
+
+So an `IsConst` guard's argument must be a plain type parameter or a `compiletime.ops`
+application. Four spellings are not, and all four bit in one change:
+
+1. a nested application of the guarded operators (`CLog2[+[V, 1]]`)
+2. the same composition spelled infix, inside a scope that does `import IntP.{-, +}`
+3. a path-dependent type from a `using` parameter (`ubLW.Out`, `icL.OutW`)
+4. a path-dependent type in a **return** type (`.bits` giving `DFBits[w.Out]`), which poisons
+   every later operation on that value rather than one site
+
+The remedy for all four is the same: bind the width to a type parameter, and express a composed
+width as ONE named operation whose body does the whole calculation in `compiletime.ops.int`.
+Naming those operations (`CLog2P1`, `ArithMaxWidth`, `PartSelectHigh`, `RangeWidth`) is worth doing
+for its own sake, and it makes the guard-once rule visible at each site.
+
+### Weakening a type does not break values, it deletes diagnostics
+
+Making the type level say less is safe for the generated hardware, because the IR carries the real
+width in `IntParamRef` and elaboration checks it there. It is dangerous for *error reporting*. The
+failures to expect are therefore specs that assert an error and find none: `assertCompileError` and
+`assertDSLErrorLog` reporting `No error found`. Note `assertDSLErrorLog` asserts **twice**, a
+compile error for its snippet and then an elaboration error for its block, so "which half failed"
+is a real question and the failure position does not tell you.
+
+### Probing type-level behaviour
+
+Two traps, each of which cost several cycles here:
+
+- **Reproduce in the scope the code actually lives in.** A probe at file scope resolves `+` to
+  `dfhdl.internals.+`, while the site under diagnosis may sit inside `import IntP.{-, +}`. The
+  same source text is then a different type function, and the probe cheerfully proves the opposite
+  of the truth.
+- **Control every probe against `HEAD`.** `summon[BitIndex.CheckNUB[8, 8]]` succeeds both before
+  and after the change, so it establishes nothing. Stash the change, re-run the same probe, and
+  believe it only if the two answers differ.
+
+When hypotheses keep missing, stop reasoning and bisect your own change (`git stash push -- <the
+files>`, re-run the failing spec). That is what found all four spellings above, after three wrong
+guesses at the mechanism.
+
 ### Test in `core`, then report upstream
 
 The regression test belongs in `core/src/test/scala/CoreSpec/`, not `StagesSpec`: no stage is
@@ -470,6 +541,9 @@ printer elides. Keep the stage test only if it does fail without the fix.
 
 - [ ] Ruled out a **front-end** bug first: does the reproducer even compile? If not, the rest of
       this list does not apply
+- [ ] Type-level change: mechanism picked by **when it costs** (match type / `using` / conversion),
+      and every `IsConst` guard handed a bare type parameter, never a composition or a `.Out`
+- [ ] Every type-level probe run in the scope the code lives in, and controlled against `HEAD`
 - [ ] Reproduced with `--nocache --log trace compile --print-backend`; Playground backed up and restored
 - [ ] Located the stage that **introduced** the shape, not the one that printed it
 - [ ] Checked the other backend (a silent VHDL failure often shadows a loud Verilog one)
