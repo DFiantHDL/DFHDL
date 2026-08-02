@@ -8,7 +8,7 @@ class Plugin extends StandardPlugin:
   override val description: String = "Dedicated DSL capabilities for DFiant HDL"
 
   override def initialize(options: List[String])(using Context): List[PluginPhase] =
-    val setting = new Setting(options.filterNot(_ == "testing").headOption)
+    val setting = new Setting(options)
     val phases =
       PreTyperPhase(setting) ::
         TopAnnotPhase(setting) ::
@@ -27,7 +27,7 @@ class Plugin extends StandardPlugin:
     // The PluginErrCheck interceptor exists only for DFHDL's own test compilations, which
     // opt in via `-P:dfhdl.plugin:testing`; production compilations never pass the option,
     // so the phase is never instantiated there (see devdocs/plugin-error-testing.md).
-    if (options.contains("testing")) PluginTestPhase(setting) :: phases
+    if (setting.testing) PluginTestPhase(setting) :: phases
     else phases
   end initialize
 end Plugin

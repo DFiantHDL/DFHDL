@@ -80,6 +80,13 @@ So `core` and `compiler_stages` build their own sources *without* the plugin and
 
 `internals` is the only plugin-free subproject with a test directory, which makes it the sandbox for minimizing a suspected *compiler* bug away from DFHDL's own machinery (see [/bugfix](.claude/commands/bugfix.md)).
 
+Plugin options are `-P:dfhdl.plugin:<option>`, parsed in `plugin/src/main/scala/plugin/Setting.scala` (register a new flag there, or it is read as the config file path instead):
+
+| Option | Purpose |
+|---|---|
+| `testing` | Enables the `PluginErrCheck` phase behind `assertPluginError`. DFHDL's own tests only; see [devdocs/plugin-error-testing.md](devdocs/plugin-error-testing.md) |
+| `disableCustomPrinter` | Leaves the DFHDL type printer and diagnostic re-reporter uninstalled, so errors read in the compiler's own vocabulary. Debugging aid; `TypePrinterSpec` fails while it is on |
+
 ## Testing
 
 **Framework**: munit 1.2.2
