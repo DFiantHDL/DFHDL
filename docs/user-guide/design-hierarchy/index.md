@@ -879,7 +879,11 @@ class Top extends EDDesign:
 
 /// admonition
     type: note
-`OPEN` can only be used with the `<>` connection operator. Using it with `:=` assignment will result in a compile error.
+`OPEN` is valid only on an *entire output port* of a design instance, and only with the `<>` connection operator:
+
+* An input port of a design instance must always be driven, so `OPEN` on one is an elaboration error. This differs from Verilog, where an empty port connection (`.data()`) is also accepted on an input and simply leaves it floating.
+* A partially open output port (`sensor_inst.debug(3, 0) <> OPEN`) has no HDL equivalent. To leave only some bits of an output port unused, just do not connect those bits.
+* Using `OPEN` with the `:=` assignment operator is a compile error.
 ///
 
 /// admonition | Verilog Equivalent

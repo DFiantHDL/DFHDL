@@ -887,4 +887,63 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(EDProc())("No error found")
     assertElaborationErrors(RTBody())("No error found")
     assertElaborationErrors(EDStmt())("No error found")
+  // `OPEN` carries no value, so on an input port it has nothing to drive and the net has no
+  // derivable direction at all. That used to survive elaboration and blow up much later, in the
+  // backend printer, as a raw stack trace.
+  test("OPEN on a design instance input port"):
+    class Sub extends EDDesign:
+      val i = Bits(8) <> IN
+      val o = Bits(8) <> OUT
+      o <> i
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val o = Bits(8) <> OUT
+        val sub = Sub()
+        sub.i <> OPEN
+        o <> sub.o
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:902:9 - 902:22
+          |Hierarchy: Top
+          |LHS:       sub.i
+          |RHS:       OPEN
+          |Message:   Cannot connect `OPEN` to sub.i.
+          |`OPEN` marks an entire output port of a design instance as deliberately
+          |unconnected, so it can never drive a value nor cover just part of a port.
+          |To Fix:
+          |* An input port of a design instance must be driven: connect a value to it.
+          |* To leave only some bits of an output port unused, just do not connect them.""".stripMargin
+    )
+  // an output port is either read or left entirely open; a partially open one has no HDL form
+  // (it used to print as an assignment to the `open` keyword itself).
+  test("OPEN on part of a design instance output port"):
+    class Sub extends EDDesign:
+      val i = Bits(8) <> IN
+      val o = Bits(8) <> OUT
+      o <> i
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val i = Bits(8) <> IN
+        val o = Bits(4) <> OUT
+        val sub = Sub()
+        sub.i <> i
+        sub.o(3, 0) <> OPEN
+        o <> sub.o(7, 4)
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:932:9 - 932:28
+          |Hierarchy: Top
+          |LHS:       sub.o(3, 0)
+          |RHS:       OPEN
+          |Message:   Cannot connect `OPEN` to sub.o(3, 0).
+          |`OPEN` marks an entire output port of a design instance as deliberately
+          |unconnected, so it can never drive a value nor cover just part of a port.
+          |To Fix:
+          |* An input port of a design instance must be driven: connect a value to it.
+          |* To leave only some bits of an output port unused, just do not connect them.""".stripMargin
+    )
 end ElaborationChecksSpec

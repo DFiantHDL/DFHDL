@@ -124,7 +124,7 @@ child_inst.dout  <> dout
 
 </div>
 
-Use `OPEN` to explicitly mark an output port as unconnected. This is equivalent to Verilog’s empty port connection (`.port()`). See [Open (Unconnected) Ports][open-ports] for more details.
+Use `OPEN` to explicitly mark an output port as unconnected. This is equivalent to Verilog’s empty port connection (`.port()`), but only for outputs: Verilog also accepts an empty connection on an *input* port and leaves it floating, whereas DFHDL requires every input port of a design instance to be driven. Give such a port an explicit value (`child_inst.din <> all(0)`) when porting. See [Open (Unconnected) Ports][open-ports] for more details.
 ///
 
 /// admonition | logic/reg/wire

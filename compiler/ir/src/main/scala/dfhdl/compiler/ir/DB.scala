@@ -525,6 +525,31 @@ final case class DB private (
                 |Message:   ${errMsg}""".stripMargin
           newErrors = errMsgComplete :: newErrors
         import flatNet.{lhsVal, rhsVal, net}
+        // `OPEN` marks an entire output port of a design instance as deliberately unconnected.
+        // That is the only partner the backends can render (`OPEN` is printed as the actual of
+        // a port in an instantiation port map) and the only one with a derivable direction,
+        // since `OPEN` carries no value and so can never drive. `ViaConnection` relies on the
+        // same shape: it moves such a net into the port map instead of bridging the port
+        // through a via variable, and any other partner is left as an undirected
+        // `variable <> OPEN` net there, which no longer resolves below.
+        def openCheck(other: DFVal): Unit =
+          val legal = other match
+            case pbns: DFVal.PortByNameSelect => pbns.isOut
+            // the flat-DB form of the same shape: the port declaration itself, referenced from
+            // the design that instantiates its owner (mirrors `getValAccess.isExternalConn`)
+            case dcl: DFVal.Dcl =>
+              dcl.modifier.dir == OUT && (dcl.getOwnerDesign isSameOwnerDesignAs net)
+            case _ => false
+          if (!legal)
+            newError(
+              s"""|Cannot connect `OPEN` to ${other.relValString}.
+                  |`OPEN` marks an entire output port of a design instance as deliberately
+                  |unconnected, so it can never drive a value nor cover just part of a port.
+                  |To Fix:
+                  |* An input port of a design instance must be driven: connect a value to it.
+                  |* To leave only some bits of an output port unused, just do not connect them.""".stripMargin
+            )
+        end openCheck
         val (lhsAccess, rhsAccess) = net.op match
           // assignment is always from right to left
           case Assignment | NBAssignment =>
@@ -538,7 +563,10 @@ final case class DB private (
               case _ =>
                 (Write, Read)
           // connections are analyzed according to the context of the net
-          case _ => (getValAccess(lhsVal, net)(connToMap), getValAccess(rhsVal, net)(connToMap))
+          case _ =>
+            if (lhsVal.isOpen) openCheck(rhsVal)
+            else if (rhsVal.isOpen) openCheck(lhsVal)
+            (getValAccess(lhsVal, net)(connToMap), getValAccess(rhsVal, net)(connToMap))
         val toValOption = (lhsAccess, rhsAccess) match
           case (Write, Read | ReadWrite | Unknown) => Some(lhsVal)
           case (Read | ReadWrite | Unknown, Write) => Some(rhsVal)

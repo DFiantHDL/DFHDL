@@ -295,7 +295,7 @@ class Top extends EDDesign:
 
 /// admonition
     type: note
-`OPEN` can only be used with the `<>` connection operator. Using it with `:=` assignment results in a compile error.
+`OPEN` is valid only on an entire output port of a design instance, and only with the `<>` connection operator. An input port of a design instance must always be driven, so `OPEN` on one is an elaboration error, and using `OPEN` with the `:=` assignment operator is a compile error. See [Open (Unconnected) Ports][open-ports] for the full rules.
 ///
 
 ## Valid Connection and Assignment Examples
