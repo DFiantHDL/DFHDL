@@ -12,6 +12,12 @@ import scala.jdk.CollectionConverters.*
 import munit.Location
 
 abstract class FullCompileSpec extends FunSuite:
+  // External-tool executions dominate these tests, and under a full `test` run (~#CPU suites in
+  // parallel, all sharing the host CPU with the tools) a single lint was measured at 37-74s,
+  // far past munit's 30s default; a test here runs several. The ceiling only matters under that
+  // contention (a lone suite stays seconds-fast) and also covers waiting for a tool execution
+  // permit (e.g. the single-session QuestaSim license). See devdocs/dftools-concurrency.md.
+  override val munitTimeout = scala.concurrent.duration.Duration(6, "min")
   def dut: core.Design
   given options.CompilerOptions.NewFolderForTop = false
   given options.AppOptions.CacheEnable = false

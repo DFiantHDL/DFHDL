@@ -321,6 +321,16 @@ trait Tool:
         os.write.over(stamp, fingerprint)
   end purgeStaleToolArtifactsOnSwitch
 
+  // The maximum number of concurrently running executions of this tool, enforced by a JVM-wide
+  // fair semaphore around the spawned process (all tool launches in a test run come from the one
+  // sbt server JVM, so this bounds the truly live processes). Int.MaxValue (the default) disables
+  // the bound entirely. Override together with `execPermitKey` when several tool objects must
+  // share one bound (e.g. the two QuestaSim front-ends sharing a single-session license).
+  protected def maxConcurrentExecs: Int = Int.MaxValue
+  // The permit-registry key for `maxConcurrentExecs`. Tools sharing a key share the bound, and
+  // must declare the same count: the first execution to arrive fixes the semaphore size.
+  protected def execPermitKey: String = toolName
+
   final protected def exec(
       cmd: String,
       prepare: => Unit = (),
@@ -388,7 +398,51 @@ trait Tool:
           else s"${Paths.get(this.runExecFullPath).getParent().resolve(effRunExec)} $cmd"
         fullExec.split(" ").toSeq
     val displayCmd = argv.mkString(" ")
+    // Bound the number of concurrently running executions when the tool declares a limit
+    // (`maxConcurrentExecs`, e.g. 1 for the single-session QuestaSim license). The wait is
+    // announced once, and an interrupt while queued cancels the run exactly like an interrupt
+    // during it.
+    if (maxConcurrentExecs == Int.MaxValue)
+      spawnAndWait(argv, displayCmd, loggerOpt, dftools, extraEnv)
+    else
+      val permit = Tool.execPermitFor(execPermitKey, maxConcurrentExecs)
+      if (!permit.tryAcquire())
+        println(
+          s"${toolName} is waiting for an execution permit " +
+            s"(at most $maxConcurrentExecs concurrent execution(s) allowed)..."
+        )
+        // Ctrl+C must cancel a run that is still QUEUED through both channels that can deliver
+        // it here: an sbt job cancellation (`sbtn`) interrupts this thread, so the blocked
+        // `acquire` throws directly; a raw console SIGINT (`sbt`/standalone) only fires a signal
+        // handler, and no process-phase handler is installed while we wait, so a temporary INT
+        // handler interrupts this thread to the same effect. The previous handler is restored
+        // either way (the sbtn server JVM is long-lived and reused across runs).
+        val waiter = Thread.currentThread()
+        val queuedInterruptHandler = new sun.misc.SignalHandler:
+          def handle(sig: sun.misc.Signal): Unit = waiter.interrupt()
+        val prevHandler = sun.misc.Signal.handle(new sun.misc.Signal("INT"), queuedInterruptHandler)
+        try permit.acquire()
+        catch
+          case _: InterruptedException =>
+            println(s"\n${toolName} interrupted by user")
+            throw new ToolInterruptedException(s"${toolName} interrupted by user")
+        finally sun.misc.Signal.handle(new sun.misc.Signal("INT"), prevHandler)
+      end if
+      try spawnAndWait(argv, displayCmd, loggerOpt, dftools, extraEnv)
+      finally permit.release()
+    end if
+  end exec
 
+  // Spawns the tool process, pumps/logs its output, handles the cancellation channels, and
+  // reports the exit status. Extracted from `exec` so a permit-bounded run wraps exactly the
+  // process lifetime in acquire/release.
+  private def spawnAndWait(
+      argv: Seq[String],
+      displayCmd: String,
+      loggerOpt: Option[Tool.ProcessLogger],
+      dftools: Boolean,
+      extraEnv: Map[String, String]
+  )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     // process the output.
     // note that reading the output line-by-line may affect the program behavior, since it is
     // disengaged from the TTY.
@@ -542,10 +596,18 @@ trait Tool:
               |Command: $displayCmd""".stripMargin
         )
     end if
-  end exec
+  end spawnAndWait
   override def toString(): String = binExec
 end Tool
 object Tool:
+  // Execution permits, keyed by a tool's `execPermitKey`: a fair (FIFO) semaphore per key,
+  // created on first use with that tool's `maxConcurrentExecs`. Tools sharing a key must declare
+  // the same count, since the first execution fixes the semaphore size.
+  private val execPermits =
+    scala.collection.concurrent.TrieMap.empty[String, java.util.concurrent.Semaphore]
+  private[toolsCore] def execPermitFor(key: String, maxConcurrent: Int) =
+    execPermits.getOrElseUpdate(key, new java.util.concurrent.Semaphore(maxConcurrent, true))
+
   // Rate-limits how fast tool output is forwarded to the console. This serves two purposes under an
   // `sbtn` output flood:
   //  1. It keeps the client<->server channel idle enough to deliver a Ctrl+C: the cancel arrives as a
