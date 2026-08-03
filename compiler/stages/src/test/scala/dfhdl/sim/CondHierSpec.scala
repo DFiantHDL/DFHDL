@@ -10,7 +10,7 @@ class CondHierSpec extends SimSpec:
   bothTiers("CondCounter if/else-if with hold"): tier =>
     (new CondCounter).simulation { dut =>
       // the reference model is a DFHDL constant, updated with constant arithmetic
-      var model = d"8'0"
+      var model: UInt[8] <> CONST = d"8'0"
       // (en, clear) drive pattern covering all branch combinations, incl. counter activity
       val drive = Seq(
         (1, 0),

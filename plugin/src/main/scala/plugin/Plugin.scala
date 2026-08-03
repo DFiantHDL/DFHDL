@@ -14,6 +14,7 @@ class Plugin extends StandardPlugin:
         TopAnnotPhase(setting) ::
         PureCheckPhase(setting) ::
         CodeDigestPhase(setting) ::
+        ScalaVarPhase(setting) ::
         MetaContextPlacerPhase(setting) ::
         FlattenInlinedPhase(setting) ::
         LoopFSMPhase(setting) ::

@@ -360,6 +360,38 @@ connection). A check written without that exemption rejects working user code. P
 sub-shape of the rule separately, and when the check rejects something, verify it *actually*
 miscompiled before accepting the rejection.
 
+### A scope rule must model what the BACKEND renders, not what the IR nests
+
+"A value declared inside a block cannot be read outside it" is the obvious phrasing and it is wrong,
+because an **anonymous value has no place of its own**: the printers emit it inline at whoever reads
+it. Written literally, that rule flagged a shape `DropRTProcess` legitimately produces (an anonymous
+`!go` parked in one case block and read from another, which inlines harmlessly in both). Making
+anonymous values *transparent* instead, and checking only what they transitively reach (a
+declaration or a named value, which do have a place), took the blast radius from one stage failure
+to zero and made the error name the real culprit, the iterator `k`, rather than an unnamed
+expression.
+
+The general form: before phrasing an invariant over the IR, ask what the backend does with each
+node kind. A node that is copied to its use site cannot violate a placement rule; only a node that
+is *emitted where it sits* can.
+
+And **the IR owner is not always the scope the backend gives a member**. A `for` iterator's `Dcl` is
+owned by the ENCLOSING block (elaboration creates it just before the loop) while every backend
+emits it in the loop header. A scope check has to special-case that, and the first version that did
+not silently passed the very bug it was written for. Check where the printer puts a declaration, not
+where the IR hangs it.
+
+### A report can hold two independent defects, including one the reporter dismissed
+
+Issue #433's second listed defect was a missing `;` on a declaration inside a generated `for` block,
+and the reporter's own verification pass concluded it "is not part of this repro". Reproducing it
+directly, with a plain `val v = SInt(16) <> VAR` in a loop body and no `var` anywhere, showed it was
+a separate and more general bug: `DropLocalDcls` climbs out of conditional and step blocks but not
+loop blocks, so Verilog emitted a declaration without its terminator and VHDL put a `variable`
+inside a `loop`, which is illegal outright. Re-derive each listed symptom from scratch instead of
+inheriting the reporter's attribution; theirs was reasoned from one file, and the minimal repro for
+a *different* defect is usually a different program.
+
 ### Classify every position in one run
 
 Building that table costs one compile if you write it as a table. Put each variant in the Playground

@@ -101,6 +101,7 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
     FlattenInlinedPhase(setting),
     TopAnnotPhase(setting),
     PureCheckPhase(setting),
+    ScalaVarPhase(setting),
     MetaContextPlacerPhase(setting),
     LoopFSMPhase(setting),
     CustomControlPhase(setting),

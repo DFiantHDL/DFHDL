@@ -45,7 +45,7 @@ internals → plugin → compiler_ir → core → compiler_stages → lib → pl
 | Subproject | SBT name | Directory | Purpose |
 |---|---|---|---|
 | internals | `internals` | `internals/` | Core utilities: BitVector, MetaContext, DiskCache, etc. |
-| plugin | `plugin` | `plugin/` | Scala 3 compiler plugin (9 phases) |
+| plugin | `plugin` | `plugin/` | Scala 3 compiler plugin (14 phases) |
 | compiler_ir | `compiler_ir` | `compiler/ir/` | IR/AST data structures, type system |
 | core | `core` | `core/` | HDL language abstractions (DFVal, DFType, Design) |
 | compiler_stages | `compiler_stages` | `compiler/stages/` | 50+ transformation stages for code generation |
@@ -55,17 +55,26 @@ internals → plugin → compiler_ir → core → compiler_stages → lib → pl
 
 ## Compiler Plugin Phases
 
-Located in `plugin/src/main/scala/plugin/`:
+Located in `plugin/src/main/scala/plugin/`, in the order `Plugin.initialize` lists them:
 
-1. `PreTyperPhase` — pre-typing transformations
+1. `PreTyperPhase` — untyped parse-tree rewrites (`<>` precedence, auto-`@top`)
 2. `TopAnnotPhase` — top-level annotation processing
-3. `MetaContextPlacerPhase` — places meta-context markers
-4. `LoopFSMPhase` — loop-to-FSM transformations
-5. `CustomControlPhase` — custom control flow
-6. `MethodsPhase` — DFHDL method (`def`) processing
-7. `MetaContextDelegatePhase` — meta-context delegation
-8. `MetaContextGenPhase` — meta-context code generation
-9. `OnCreateEventsPhase` — on-create event handling
+3. `PureCheckPhase` — purity analysis for elaboration caching
+4. `CodeDigestPhase` — code digests, the elaboration cache keys
+5. `ScalaVarPhase` — the permission list for a Scala `var` holding a DFHDL value (see [devdocs/scala-var-rules.md](devdocs/scala-var-rules.md))
+6. `MetaContextPlacerPhase` — places meta-context markers
+7. `FlattenInlinedPhase` — flattens `Inlined` wrappers
+8. `LoopFSMPhase` — loop-to-FSM transformations
+9. `CustomControlPhase` — custom control flow
+10. `MethodsPhase` — DFHDL method (`def`) processing
+11. `MetaContextDelegatePhase` — meta-context delegation
+12. `MetaContextGenPhase` — meta-context code generation
+13. `OnCreateEventsPhase` — on-create event handling
+14. `DesignClsSkipPhase` — skips design classes in later standard transforms
+
+`PluginTestPhase` (pipeline name `PluginErrCheck`) is a 15th phase, appended only under
+`-P:dfhdl.plugin:testing`. Adding a phase means registering it in **both** `Plugin.initialize` and
+`PluginTestPhase.freshPluginPhases`, or `assertPluginError` will not see its diagnostics.
 
 Where the plugin is applied (verify with `show <proj>/<scope>/scalacOptions`, not by reading `build.sbt`):
 

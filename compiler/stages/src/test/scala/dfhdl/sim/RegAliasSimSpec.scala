@@ -14,8 +14,8 @@ class RegAliasSimSpec extends SimSpec:
       assertEquals(dut.d3.peek, 0)
       assertEquals(dut.accD.peek, 0)
       val xs = Vector(d"8'10", d"8'20", d"8'30", d"8'40", d"8'50", d"8'60")
-      var sum = d"8'0"
-      var prevSum = d"8'0"
+      var sum: UInt[8] <> CONST = d"8'0"
+      var prevSum: UInt[8] <> CONST = d"8'0"
       for t <- xs.indices do
         val x = xs(t)
         dut.i.poke(x)
