@@ -15,7 +15,8 @@ import scala.annotation.tailrec
   *
   * Verilog `always` blocks (process blocks) do not support variable declarations — all declarations
   * must appear at the design (module) level. VHDL `process` blocks DO support variable
-  * declarations, so only conditional-block-level declarations need lifting in VHDL.
+  * declarations, so under VHDL only declarations nested inside a conditional, loop or step
+  * block need lifting.
   *
   * ==REG exception==
   *
@@ -28,7 +29,7 @@ import scala.annotation.tailrec
   *
   * ===Rule 1: Declarations inside conditional blocks===
   * Any local variable (`VAR`) or non-global named constant (`CONST`) that is declared inside a
-  * conditional block (`if`, `match`, or `while`) is moved to before the top-level conditional
+  * conditional block (`if` or `match`) is moved to before the top-level conditional
   * header that contains it:
   *   - For non-VHDL backends: if the top-level conditional is itself inside a process block, the
   *     declaration is moved to before the process block (design level).
@@ -85,7 +86,36 @@ import scala.annotation.tailrec
   *     stmt2
   * }}}
   *
-  * ===Rule 3: Declarations inside step blocks===
+  * ===Rule 3: Declarations inside loop blocks===
+  * Neither target language can hold a declaration in a loop body: VHDL forbids it outright, and
+  * the Verilog printer emits one without its terminating `;`. A local variable or constant
+  * declared inside a `for` or `while` block is therefore lifted out of the loop, to the same place
+  * Rule 1 and Rule 2 would put it, which is unchanged in meaning because a loop body is one IR
+  * scope rather than one per iteration.
+  * {{{
+  * // Before — zz declared inside a for loop inside a process
+  * class ID extends EDDesign:
+  *   process(all):
+  *     for (i <- 0 until 4)
+  *       val zz = SInt(16) <> VAR
+  *       ...
+  *
+  * // After (Verilog) — moved to design level, before the process
+  * class ID extends EDDesign:
+  *   val zz = SInt(16) <> VAR
+  *   process(all):
+  *     for (i <- 0 until 4)
+  *       ...
+  *
+  * // After (VHDL) — moved to just before the loop, inside the process
+  * class ID extends EDDesign:
+  *   process(all):
+  *     val zz = SInt(16) <> VAR
+  *     for (i <- 0 until 4)
+  *       ...
+  * }}}
+  *
+  * ===Rule 4: Declarations inside step blocks===
   * A local variable or constant declared inside a `StepBlock` (an RT FSM state) — either directly
   * or nested inside a conditional within the step — is lifted out of the step, because the FSM
   * states generated from steps cannot carry declarations:
@@ -152,16 +182,19 @@ case object DropLocalDcls extends HierarchyStage:
       case pb: ProcessBlock if !keepProcessDcls =>
         Some(pb -> Patch.Move(dcl, Patch.Move.Config.Before))
       // VHDL process scope, or design scope: move before the outermost in-scope anchor, but only
-      // when the declaration actually needs to escape an enclosing conditional or step block.
+      // when the declaration actually needs to escape an enclosing conditional, loop or step
+      // block.
       case _ =>
         if anchor ne dcl then Some(anchor -> Patch.Move(dcl, Patch.Move.Config.Before))
         else None
+  end dclMovePatch
 
-  // Climbs from a member up through enclosing conditional and step blocks, returning the outermost
-  // in-scope anchor to move before, paired with the nearest enclosing non-conditional, non-step
-  // scope block (a ProcessBlock or DFDesignBlock, or a loop block). When the member is inside a
+  // Climbs from a member up through enclosing conditional, step and loop blocks, returning the
+  // outermost in-scope anchor to move before, paired with the nearest enclosing scope block that
+  // can hold a declaration (a ProcessBlock or a DFDesignBlock). When the member is inside a
   // conditional, the anchor is the top-level conditional header for that scope; otherwise it is the
-  // member itself. Step blocks are escaped one level at a time until a non-step scope is reached.
+  // member itself. Step and loop blocks are escaped one level at a time until such a scope is
+  // reached.
   @tailrec private def climbToScope(m: DFMember)(using MemberGetSet): (DFMember, DFBlock) =
     val (anchor, scopeBlock) = m.getOwnerBlock match
       case cb: DFConditional.Block =>
@@ -169,8 +202,9 @@ case object DropLocalDcls extends HierarchyStage:
         (topCondHeader, topCondHeader.getOwnerBlock)
       case b => (m, b)
     scopeBlock match
-      case sb: StepBlock => climbToScope(sb)
-      case _             => (anchor, scopeBlock)
+      case sb: StepBlock    => climbToScope(sb)
+      case lb: DFLoop.Block => climbToScope(lb)
+      case _                => (anchor, scopeBlock)
 end DropLocalDcls
 
 extension [T: HasDB](t: T)

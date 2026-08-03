@@ -217,4 +217,61 @@ class DropLocalDclsSpec extends StageSpec:
          |end ID
          |""".stripMargin
     )
+
+  test("Loop block drops local dcls"):
+    class ID extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      process(all):
+        y := 0
+        for (i <- 0 until 4)
+          val zz = SInt(16) <> VAR
+          zz := x + i
+          y  := y + zz
+    end ID
+    val id = (new ID).dropLocalDcls
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val zz = SInt(16) <> VAR
+         |  process(all):
+         |    y := sd"16'0"
+         |    for (i <- 0 until 4)
+         |      zz := x + sd"16'${i}"
+         |      y := y + zz
+         |    end for
+         |end ID
+         |""".stripMargin
+    )
+
+  test("Loop block keeps local dcls in the process under VHDL"):
+    given options.CompilerOptions.Backend = _.vhdl
+    class ID extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      process(all):
+        y := 0
+        for (i <- 0 until 4)
+          val zz = SInt(16) <> VAR
+          zz := x + i
+          y  := y + zz
+    end ID
+    val id = (new ID).dropLocalDcls
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  process(all):
+         |    y := sd"16'0"
+         |    val zz = SInt(16) <> VAR
+         |    for (i <- 0 until 4)
+         |      zz := x + sd"16'${i}"
+         |      y := y + zz
+         |    end for
+         |end ID
+         |""".stripMargin
+    )
 end DropLocalDclsSpec
