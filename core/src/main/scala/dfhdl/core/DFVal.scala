@@ -1845,12 +1845,25 @@ object DFVarOps:
   //     modifier, which carries the scope and domain it was declared in (see
   //     `evPortVarConstructor`, whose result modifier is `A & SC & DT`).
   //
-  // `:=` needs a scope that grants blocking assignment: a process, an `initial` block, a
-  // procedural body, or a function body. That single capability summon replaces the former
-  // six-way union of places. The remaining alternatives are unchanged: a non-ED-declared value,
-  // or an RT domain (where `:=` is the ordinary assignment form).
+  // "Is the INNERMOST scope a sequential one?", which is the question `:=` under an ED domain has
+  // to ask: a process, an `initial` block, a procedural body, or a function body.
+  //
+  // A bare `AssertGiven[DFC.Scope.HasAssign]` cannot ask it. `Concurrent` (a design or domain
+  // body) also has `HasAssign`, because `:=` IS the ordinary assignment form under the RT and DF
+  // domains, so the summon reaches the enclosing ED design's own given and accepts a concurrent
+  // `:=` (failure mode 1 in `DFC.Scope`: summoning a capability is correct only when NO enclosing
+  // scope has it). Routing through a given that takes the scope as a type parameter tests the
+  // innermost binding instead, the way `TextOut.InTextOutScope` does. `Function` is named
+  // alongside the bundle because it deliberately stays out of the bundles.
+  trait InSeqAssignScope
+  object InSeqAssignScope:
+    given [S <: DFC.Scope](using
+        s: S
+    )(using S <:< (DFC.Scope.Sequence | DFC.Scope.Function)): InSeqAssignScope with {}
+  // The remaining alternatives: a value not declared under an ED domain, or an RT domain (where
+  // `:=` is the ordinary assignment form).
   protected type `InsideProcess:=`[D, A] = AssertGiven[
-    DFC.Scope.HasAssign | util.NotGiven[A <:< DomainType.ED] | D <:< DomainType.RT,
+    InSeqAssignScope | util.NotGiven[A <:< DomainType.ED] | D <:< DomainType.RT,
     "Blocking assignments `:=` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
   // `:==` is granted by `HasNBAssign`, which only `Process` has.
