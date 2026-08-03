@@ -3396,4 +3396,39 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // the LHS-favouring rule for a connection between two of the design's own output ports (see
+  // `PrintVerilogCodeSpec`) makes the RHS an output-port READ, which v93 forbids, so
+  // `DropOutportRead` shadows it through a signal.
+  test("connection between two of the design's own output ports vhdl.v93") {
+    given options.CompilerOptions.Backend = _.vhdl.v93
+    class Example() extends EDDesign:
+      val x = Bits(8) <> OUT
+      val y = Bit     <> OUT
+      x <> all(0)
+      y <> x(0)
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  x : out std_logic_vector(7 downto 0);
+         |  y : out std_logic
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |  signal x_sig : std_logic_vector(7 downto 0);
+         |begin
+         |  x <= x_sig;
+         |  x_sig <= x"00";
+         |  y <= x_sig(0);
+         |end Example_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

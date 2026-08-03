@@ -3141,4 +3141,45 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+  // `<>` is commutative, except between two of the design's own output ports, where both sides
+  // are writable and either could be the sink. There the LHS is the driven one, which only the
+  // backend output shows: the DFHDL printout is `y <> x(0)` whichever way it resolved (that
+  // printout is pinned in `PrintCodeStringSpec`). A domain's output port is promoted to a design
+  // port, so `dmn.d`/`dmn.d2` resolve by the same rule, on either side of the connection.
+  test("connection between two of the design's own output ports") {
+    class Example() extends EDDesign:
+      val x   = Bits(8) <> OUT
+      val y   = Bit     <> OUT
+      val o   = Bits(8) <> OUT
+      val dmn = new RTDomain:
+        val d  = Bits(8) <> OUT
+        val d2 = Bits(8) <> OUT
+        d <> all(0)
+      x      <> all(0)
+      y      <> x(0)
+      o      <> dmn.d
+      dmn.d2 <> x
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Example(
+         |  output logic [7:0] x,
+         |  output logic y,
+         |  output logic [7:0] o,
+         |  output logic [7:0] dmn_d,
+         |  output logic [7:0] dmn_d2
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign dmn_d = 8'h00;
+         |  assign x = 8'h00;
+         |  assign y = x[0];
+         |  assign o = dmn_d;
+         |  assign dmn_d2 = x;
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

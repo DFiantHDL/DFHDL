@@ -3011,4 +3011,42 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // Both sides of these connections are writable output ports of the same design, so the
+  // direction is ambiguous and the LHS is taken as the driven one. A domain's output port is
+  // promoted to a design port, so `dmn.d`/`dmn.d2` count as ones too, on either side. The DFHDL
+  // printout looks the same whichever side won; the same design is compiled in
+  // `PrintVerilogCodeSpec`, where the resolved direction shows.
+  test("Connections between the design's own output ports") {
+    class OutToOut extends EDDesign:
+      val x   = Bits(8) <> OUT
+      val y   = Bit     <> OUT
+      val o   = Bits(8) <> OUT
+      val dmn = new RTDomain:
+        val d  = Bits(8) <> OUT
+        val d2 = Bits(8) <> OUT
+        d <> all(0)
+      x      <> all(0)
+      y      <> x(0)
+      o      <> dmn.d
+      dmn.d2 <> x
+    end OutToOut
+    assertCodeString(
+      OutToOut(),
+      """|class OutToOut extends EDDesign:
+         |  val x = Bits(8) <> OUT
+         |  val y = Bit <> OUT
+         |  val o = Bits(8) <> OUT
+         |  val dmn = new RTDomain:
+         |    val d = Bits(8) <> OUT
+         |    val d2 = Bits(8) <> OUT
+         |    d <> h"00"
+         |  end dmn
+         |  x <> h"00"
+         |  y <> x(0)
+         |  o <> dmn.d
+         |  dmn.d2 <> x
+         |end OutToOut
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

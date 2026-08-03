@@ -550,6 +550,16 @@ final case class DB private (
                   |* To leave only some bits of an output port unused, just do not connect them.""".stripMargin
             )
         end openCheck
+        // A design's own output port is writable from inside the design, and readable there too
+        // (`DropOutportRead` shadows the read through a signal for the dialects that forbid it).
+        // So a connection between two of them (`y <> x`) is the one shape whose direction cannot
+        // be derived: either side could be the sink. `<>` is commutative everywhere else, and
+        // this ambiguity is its single exception: the LHS is taken as the driven side, so the
+        // connection reads like an assignment.
+        def isOwnOutPort(dfVal: DFVal): Boolean =
+          dfVal.departial._1 match
+            case dcl: DFVal.Dcl => dcl.modifier.dir == OUT && (dcl isSameOwnerDesignAs net)
+            case _              => false
         val (lhsAccess, rhsAccess) = net.op match
           // assignment is always from right to left
           case Assignment | NBAssignment =>
@@ -573,7 +583,9 @@ final case class DB private (
           case (Read, Read)                        =>
             newError("Unsupported read-to-read connection.")
             None
-          case (Write, Write) =>
+          // the LHS-favouring exception, see `isOwnOutPort`
+          case (Write, Write) if isOwnOutPort(lhsVal) && isOwnOutPort(rhsVal) => Some(lhsVal)
+          case (Write, Write)                                                 =>
             newError("Unsupported write-to-write connection.")
             None
           case (_, Read)  => Some(lhsVal)
