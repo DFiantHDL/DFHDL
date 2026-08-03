@@ -360,6 +360,32 @@ connection). A check written without that exemption rejects working user code. P
 sub-shape of the rule separately, and when the check rejects something, verify it *actually*
 miscompiled before accepting the rejection.
 
+### Classify every position in one run
+
+Building that table costs one compile if you write it as a table. Put each variant in the Playground
+as its own `@top(false)` design and drive them all from one `@main`:
+
+```scala
+@main def probe(): Unit =
+  def go(name: String, dsn: => core.Design): Unit =
+    println(s"===== $name =====")
+    try println(dsn.getCompiledCodeString)
+    catch case e: Throwable => println(s"[${e.getClass.getSimpleName}] ${e.getMessage}")
+  go("S1", S1()); go("S2", S2()); ...
+```
+
+`getCompiledCodeString` runs the whole pipeline, so every variant lands in one of three buckets:
+legal HDL, a clean error, or a crash. Seven `OPEN` positions (issue #434) took a single 34-second
+run to classify, and the spread was nothing the stage sources suggested: one worked, two crashed
+(one at elaboration, one only in the backend printer) and **four silently emitted illegal HDL**.
+Those four are the reason to compile every variant instead of reasoning about them — a shape that
+does not crash is not thereby legal.
+
+Run it with `sbtn.bat 'lib/Test/runMain probe'`, and do **not** add your own
+`given options.ElaborationOptions.OnError = _.Exception` to the Playground: `ElaborationChecksSpec`
+already declares one at top level in the same (root) package, and a second makes every `@top` in
+the file ambiguous, with 226 errors that never name the duplicate given as the cause.
+
 ---
 
 ## 4. Write the check first
@@ -401,12 +427,45 @@ invalid. The fix has to be inside the offending stage's own patch.
 Keep the check and the stage predicate textually tied: put a comment on each pointing at the other
 and saying they must agree. They encode the same fact and will drift otherwise.
 
+### "It crashes with a stack trace" is a missing check, not a reporting bug
+
+A report of an internal-looking crash misnames the defect twice, and both need correcting before
+you start:
+
+- **The stack shows where the shape was first *queried*, not where it was created.**
+  `connectionTable` is a `lazy val`, so a net it cannot resolve surfaces wherever something first
+  forces it, which can be the backend printer many stages after elaboration. The reported source
+  position is still correct, and that is exactly what makes the trace read like a printer bug.
+- **You cannot judge the user-facing output from an sbt run.** `exitWithError` branches on
+  `OnError`, which defaults to `Exception` under sbt (so the build survives) and to `Exit`
+  everywhere else, where it is `println` + `sys.exit(1)`. An elaboration error is therefore already
+  clean for the user running scala-cli, and the trace they pasted is itself evidence that the error
+  was **not** on the elaboration path. Moving the case onto that path is the whole fix; there is no
+  formatter to go looking for.
+
+### Give the analysis a verdict, do not enrich its fallback
+
+`getConnToMap` derives each net's direction and parks the undecidable ones; once nothing is left to
+re-examine it throws "Unable to determine directionality" with a list of positions and nothing else.
+That throw is a backstop for shapes nobody has ruled on, so a shape reaching it is a **missing
+rule**, not a message worth improving. Add the verdict as a `newError` inside `getConnToMap`: its
+`case Nil if errors.nonEmpty` arm is matched before the pending-net arm, so the specific message
+wins over the generic one automatically, and it arrives in the standard connectivity-error block
+(position, hierarchy, LHS, RHS) at no cost.
+
 ### Then measure the blast radius
 
 Run the full suite with the check in and **no stage fixes yet**. The failures are the deliverable
 of this step: they tell you which stages violate the rule and whether any checked-in design or doc
 example depended on the shape. Report them before fixing, because "this is bad code we should fix"
 and "the rule is too strict" are the user's call, not yours.
+
+That call extends to shapes a **stage** synthesizes, which the suite may not cover at all.
+`ConnectUnused` turns every `@unused` port into `<> OPEN`, so an `@unused` *input* port trips the
+new check. Narrowing the stage to output ports looked obviously correct and was not: the annotation
+exists to silence a check, an input port still has to be driven, and the new error is therefore the
+right outcome, with the user's design the thing that needs fixing. So a producer the tests do not
+exercise is a question, not a to-do.
 
 ### Position-sensitive elaboration tests
 
@@ -548,8 +607,10 @@ printer elides. Keep the stage test only if it does fail without the fix.
 - [ ] Located the stage that **introduced** the shape, not the one that printed it
 - [ ] Checked the other backend (a silent VHDL failure often shadows a loud Verilog one)
 - [ ] Checked whether sibling stages sharing a base reproduce it
-- [ ] Stated the invariant, and compiled the shape in **every** scope to find its real edges
-- [ ] Probed each sub-shape for exemptions; confirmed anything the check rejects really miscompiles
+- [ ] Stated the invariant, and compiled the shape in **every** scope to find its real edges, in
+      one `@main` run rather than one at a time
+- [ ] Probed each sub-shape for exemptions; confirmed anything the check rejects really miscompiles,
+      including the ones that emit HDL silently rather than crashing
 - [ ] Check written **first**, and wired into **both** `DB.check` and `SanityCheck` if a stage can violate it too
 - [ ] Full suite run with the check in and no stage fixes yet, to measure blast radius
 - [ ] Blast radius reported to the user before fixing stages
