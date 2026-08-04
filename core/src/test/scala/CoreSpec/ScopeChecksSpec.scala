@@ -18,6 +18,144 @@ class ScopeChecksSpec extends DFSpec:
        |`print`/`println`/`report`/`assert`/`debug`/`finish` are allowed inside a design, a domain, a process, an `initial` block, or a procedural (task) method body.
        |They are NOT allowed inside a function method body, which must remain pure.""".stripMargin
 
+  private val assignErr =
+    """|Blocking assignments `:=` are only allowed inside a process under an event-driven (ED) domain.
+       |Change the assignment to a connection `<>` or place it in a process.""".stripMargin
+
+  private val nbAssignErr =
+    """|Non-blocking assignments `:==` are only allowed inside a process under an event-driven (ED) domain.
+       |Change the assignment to a connection `<>` or place it in a process.""".stripMargin
+
+  // ~~~ HasAssign: the one capability a plain summon CANNOT check ~~~
+  //
+  // `Concurrent` (a design or domain body) has `HasAssign`, because `:=` is the ordinary
+  // assignment form under the RT and DF domains. So `AssertGiven[DFC.Scope.HasAssign]` reaches the
+  // enclosing ED design's own given and accepts a concurrent `:=`, which is what these pin. The
+  // guard has to test the INNERMOST scope instead (`DFVarOps.InSeqAssignScope`).
+
+  test("`:=` is rejected in an ED design body"):
+    assertCompileError(assignErr)(
+      """
+      class Foo extends EDDesign:
+        val x = Bits(8) <> IN
+        val y = Bits(8) <> OUT
+        y := x
+      """
+    )
+
+  test("`:=` is rejected in an ED domain body"):
+    assertCompileError(assignErr)(
+      """
+      class Foo extends RTDesign:
+        val dmn = new EDDomain:
+          val x = Bits(8) <> IN
+          val y = Bits(8) <> OUT
+          y := x
+      """
+    )
+
+  test("`:==` is rejected in an ED design body"):
+    assertCompileError(nbAssignErr)(
+      """
+      class Foo extends EDDesign:
+        val x = Bits(8) <> IN
+        val y = Bits(8) <> OUT
+        y :== x
+      """
+    )
+
+  // The positive controls. Every sequential place under ED keeps `:=`, and so does an RT design
+  // body, where the enclosing scope IS the concurrent one. Over-tightening the guard shows up
+  // here as a compile error rather than as a silent acceptance.
+
+  test("`:=` is allowed inside a process (ED)"):
+    class Top extends EDDesign:
+      val x = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      process(all):
+        y := x
+    Top()
+
+  test("`:=` is allowed inside an `initial` block"):
+    class Top extends EDDesign:
+      val y = Bits(8) <> OUT
+      initial:
+        y := all(0)
+      process(all):
+        y := all(1)
+    Top()
+
+  test("`:=` is allowed in an RT design body"):
+    class Top extends RTDesign:
+      val x = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      y := x
+    Top()
+
+  test("`:=` is allowed inside an ED function method body"):
+    class Top extends EDDesign:
+      val a = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      def twice(l: UInt[8] <> VAL): UInt[8] <> EDRET =
+        val acc = UInt(8) <> VAR
+        acc := l + l
+        acc
+      o <> twice(a)
+    Top()
+
+  // ~~~ SharedNBAssignOnly: a shared variable takes only `:==` inside an ED process ~~~
+  //
+  // A shared variable's writes commit at the end of the process step (Verilog `<=`, the portable
+  // RAM-inference idiom; VHDL still renders the variable's `:=`), so the blocking form is rejected
+  // wherever the current domain is ED. An `initial` block preload and an RT-domain write (lowered
+  // to `:==` by `ToED`) keep the blocking form.
+
+  private val sharedAssignErr =
+    """|Blocking assignments `:=` to a shared variable are not allowed inside a process under an event-driven (ED) domain.
+       |Change the assignment to a non-blocking assignment `:==`.""".stripMargin
+
+  // the snippet bypasses the plugin's `<>` precedence rewrite, hence the parenthesized `X`
+  test("`:=` to a shared variable is rejected inside a process (ED)"):
+    assertCompileError(sharedAssignErr)(
+      """
+      class Foo extends EDDesign:
+        val clk = Bit <> IN
+        val d = Bits(8) <> IN
+        val ram = (Bits(8) X 4) <> VAR.SHARED
+        process(clk.rising):
+          ram(0) := d
+      """
+    )
+
+  test("`:==` to a shared variable is allowed inside a process (ED)"):
+    class Top extends EDDesign:
+      val clk = Bit <> IN
+      val d = Bits(8) <> IN
+      val ram = Bits(8) X 4 <> VAR.SHARED
+      process(clk.rising):
+        ram(0) :== d
+    Top()
+
+  test("`:=` to a shared variable is allowed inside an `initial` block"):
+    class Top extends EDDesign:
+      val clk = Bit <> IN
+      val q = Bits(8) <> OUT
+      val ram = Bits(8) X 4 <> VAR.SHARED
+      initial:
+        ram(0) := all(0)
+      process(clk.rising):
+        q :== ram(0)
+    Top()
+
+  test("`:=` to a shared variable is allowed under an RT domain"):
+    class Top extends EDDesign:
+      val ram = Bits(8) X 4 <> VAR.SHARED
+      val dmn = new RTDomain:
+        val d = Bits(8) <> IN
+        val we = Bit <> IN
+        if (we) ram(0) := d
+    Top()
+
   // ~~~ HasWait: only `Process` and `Procedural` have it ~~~
 
   test("`wait` is rejected inside an `initial` block"):
@@ -31,12 +169,13 @@ class ScopeChecksSpec extends DFSpec:
       """
     )
 
+  // no `a := 1` here: an ED design body rejects that first, and `assertCompileError` would then
+  // be pinning the assignment error instead of the `wait` one
   test("`wait` is rejected in a design body"):
     assertCompileError(waitErr)(
       """
       class Foo extends EDDesign:
         val a = Bit <> VAR
-        a := 1
         wait
       """
     )
@@ -64,20 +203,20 @@ class ScopeChecksSpec extends DFSpec:
   // the `HasWait` guard were too strict, the designs below would stop compiling.
 
   test("`wait` is allowed inside a process (ED)"):
-    class Foo extends EDDesign:
+    class Top extends EDDesign:
       val a = Bit <> VAR
       process:
         a := 1
         wait(10.ns)
-    Foo()
+    Top()
 
   test("`wait` is allowed inside a process (RT)"):
-    class Foo extends RTDesign:
+    class Top extends RTDesign:
       val a = Bit <> OUT.REG
       process:
         a.din := 1
         wait(1.cy)
-    Foo()
+    Top()
 
   // ~~~ HasTextOut: `Function` does not have it, because a function must stay pure ~~~
 

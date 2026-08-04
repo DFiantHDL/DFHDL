@@ -15,6 +15,13 @@ import scala.sys.process.*
 
 trait QuestaSimCommon extends Linter, Simulator:
   final val toolName: String = s"QuestaSim $binExec"
+  // The QuestaSim license allows a single concurrent session per machine (a second concurrent
+  // run fails fast with "only one session is allowed to run on an uncounted nodelocked
+  // license"), so every QuestaSim execution in the JVM — vlog, vcom, and the vsim run they
+  // precede — shares one execution permit. The key is shared across both front-end objects
+  // (their toolNames differ). See devdocs/dftools-concurrency.md.
+  final override protected def maxConcurrentExecs: Int = 1
+  final override protected def execPermitKey: String = "QuestaSim"
   final protected def versionCmd: String = "-version"
   final protected def extractVersion(cmdRetStr: String): Option[String] =
     val versionPattern = s""".*$binExec\\s+(\\d+\\.\\d+)""".r

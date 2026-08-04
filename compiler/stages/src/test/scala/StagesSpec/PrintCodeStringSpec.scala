@@ -1152,7 +1152,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
         process(clk):
           if (clk.rising)
             if (we)
-              ram(addr) := data
+              ram(addr) :== data
             q :== ram(addr)
     end TrueDPR
     val top = TrueDPR()
@@ -1171,7 +1171,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val we = Bit <> IN
          |    process(clk):
          |      if (clk.rising)
-         |        if (we) ram(addr.uint.toInt) := data
+         |        if (we) ram(addr.uint.toInt) :== data
          |        q :== ram(addr.uint.toInt)
          |      end if
          |  end a
@@ -1183,7 +1183,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val we = Bit <> IN
          |    process(clk):
          |      if (clk.rising)
-         |        if (we) ram(addr.uint.toInt) := data
+         |        if (we) ram(addr.uint.toInt) :== data
          |        q :== ram(addr.uint.toInt)
          |      end if
          |  end b
@@ -3008,6 +3008,44 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  r(3, 0).din := d"4'5"
          |  y := r(3, 0).din
          |end DinPartial
+         |""".stripMargin
+    )
+  }
+  // Both sides of these connections are writable output ports of the same design, so the
+  // direction is ambiguous and the LHS is taken as the driven one. A domain's output port is
+  // promoted to a design port, so `dmn.d`/`dmn.d2` count as ones too, on either side. The DFHDL
+  // printout looks the same whichever side won; the same design is compiled in
+  // `PrintVerilogCodeSpec`, where the resolved direction shows.
+  test("Connections between the design's own output ports") {
+    class OutToOut extends EDDesign:
+      val x   = Bits(8) <> OUT
+      val y   = Bit     <> OUT
+      val o   = Bits(8) <> OUT
+      val dmn = new RTDomain:
+        val d  = Bits(8) <> OUT
+        val d2 = Bits(8) <> OUT
+        d <> all(0)
+      x      <> all(0)
+      y      <> x(0)
+      o      <> dmn.d
+      dmn.d2 <> x
+    end OutToOut
+    assertCodeString(
+      OutToOut(),
+      """|class OutToOut extends EDDesign:
+         |  val x = Bits(8) <> OUT
+         |  val y = Bit <> OUT
+         |  val o = Bits(8) <> OUT
+         |  val dmn = new RTDomain:
+         |    val d = Bits(8) <> OUT
+         |    val d2 = Bits(8) <> OUT
+         |    d <> h"00"
+         |  end dmn
+         |  x <> h"00"
+         |  y <> x(0)
+         |  o <> dmn.d
+         |  dmn.d2 <> x
+         |end OutToOut
          |""".stripMargin
     )
   }

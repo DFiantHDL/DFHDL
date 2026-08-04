@@ -23,6 +23,9 @@ visibly-wrong output is usually innocent. So the work has a standard order:
 Skipping step 4 is the most common mistake: fixing the stage first hides which other stages, doc
 examples, or checked-in designs were relying on the shape.
 
+All six steps presuppose the bug is *in the IR*. Before starting them, rule out the other species:
+see [When the bug is in the front end, not a stage](#when-the-bug-is-in-the-front-end-not-a-stage).
+
 ---
 
 ## 1. Reproduce
@@ -55,6 +58,180 @@ really re-runs.
 
 **Restore the Playground when you are done.** It is a working file the user may have their own
 content in. Back it up first (`cp` to the scratchpad) and restore it after each probe.
+
+---
+
+## When the bug is in the front end, not a stage
+
+Steps 2 through 6 assume a stage produced a shape it should not have. A whole other species never
+gets that far: **the reproducer does not compile**, so there is no DB, no trace, and no stage to
+localize. The tell is a `scalac` error whose "Inline stack trace" points into
+`core/src/main/scala/`, i.e. the failure is inside a DFHDL operator's own inline expansion.
+
+Issue #427 (`out_data <> bars(0).out_data`, where the port width comes from a design `CONST`) was
+one of these. It read like a macro bug and was a Scala 3 compiler bug; the DFHDL fix was six
+`asInstanceOf`s. Work it in this order instead.
+
+### Minimize outside DFHDL, early
+
+Get off the DFHDL types as fast as possible. Two plugin-free sandboxes:
+
+- **`internals/src/test/scala/`.** `internals` is the only plugin-free subproject with a test
+  directory (`plugin` and `compiler_ir` are also plugin-free; `core` and `compiler_stages` apply
+  it to their `Test` scope, which is what you are trying to escape). A file dropped there builds
+  with the same compiler and none of DFHDL's machinery, so it is the fastest way to prove "this is
+  not our macros". Confirm with `show <proj>/<scope>/scalacOptions` rather than by reading
+  `build.sbt`; the settings names do not map to scopes the way they read.
+- **`scala-cli`**, once the repro has no DFHDL dependency at all:
+  `scala-cli compile x.scala -S 3.nightly --server=false`.
+
+Reducing #427 to `class Box[T]` plus `class Owner: val w: Int = 8; val b: Box[w.type]` turned a
+DFHDL bug report into a fifteen-line compiler bug report.
+
+### Bisect the compiler version before blaming the nightly
+
+The build tracks a Scala nightly, so the reflex is "the nightly broke it". Check first:
+
+```bash
+for V in 3.3.7 3.7.4 3.nightly; do scala-cli compile repro.scala -S $V --server=false; done
+```
+
+#427 failed identically from 3.3 LTS through nightly, so it was long-standing rather than a
+regression. That decides whether a workaround is needed now or an upstream revert is coming.
+
+### `-explain` is the tool here, not the plain error
+
+A mismatch between two types that **print almost identically** is the signature of this species.
+The plain error is useless; `-explain` prints the subtyping trace and shows where it bottoms out:
+
+```
+==> (?2.w : Int)  <:  (?1.w : Int)
+  ==> (?2 : Owner)  <:  (?1 : Owner)
+    ==> Owner  <:  (?1 : Owner)  = false
+```
+
+Two skolems, `?1` and `?2`, standing for one prefix. Enable it with
+`sbtn.bat 'set core/Test/scalacOptions += "-explain"; core/Test/compile'`.
+
+### Bracket the trigger
+
+Vary one axis at a time, with all the variants in one file so a single compile classifies them.
+For #427 the trigger needed `transparent` **and** an `inline` parameter **and** a pattern with a
+type variable to instantiate; dropping any one of the three compiled. That set is what makes an
+upstream report actionable, and the variant that compiles is usually the workaround.
+
+### The `core` inline-operator idiom, and its two traps
+
+When an `inline` operator takes an operand's type apart, match the operand **retyped as the
+operator's own type parameter**, never as written:
+
+```scala
+inline lhs.asInstanceOf[L] match
+  case ___lhs: DFVal[lt, lm] => ...
+```
+
+`L` was derived once, at the call site. The operand *as written* may be a reference whose
+underlying type the compiler re-derives per query, minting a fresh skolem each time for a prefix
+that is not a stable path (`bars(0).out_data`). `<>`, `compare` and `DFBoolOrBit.sel` all carry
+this now.
+
+Two tidier-looking rewrites of that line are both wrong:
+
+- **Do not extract the cast into a shared `inline def retyped[T](inline x: T): T`.** It compiles,
+  but the helper's expansion carries *its own* position, which then replaces the user's position in
+  elaboration errors. `ElaborationChecksSpec`'s "forward referenced value" case caught it, blaming
+  `DFVal.scala` instead of the user's line.
+- **Do not bind the scrutinee to your own `val`.** The compiler's inline-match scrutinee binding
+  is named `$scrutineeN`, which the plugin skips; a hand-written `val` becomes a **named DFHDL
+  value** and appears in the generated code. `DFBoolOrBitSpec`'s "selection operation" caught it.
+
+Both cost a full suite cycle to find, and neither is visible in the file being edited.
+
+### Changing a type-level algebra: pick the mechanism by when it costs
+
+`IntP` decides widths at the type level, and there are three mechanisms for such a rule. They
+differ most in **when they cost compile time**, and that is what should decide between them:
+
+| mechanism | fires | cost |
+|---|---|---|
+| match type (`IsConstInt2`, `FoldConst1`) | during type reduction | none beyond the reduction |
+| a `using` parameter (type class) | on **every** call site of the operation | can be ruinous |
+| a `given Conversion` | only after an expression **failed to conform** | none on code that already compiles |
+
+A `MaxOf[L, R]` type class summoned once per arithmetic operation did not finish compiling `lib`
+in over half an hour; the same rule as a conversion built the whole tree in 3m33s. The type class
+is not inherently the problem, though: `UBound` is also summoned twice per arithmetic operation
+and is fine, because its given matches by a cheap **subtype** test (`T <: UB`), whereas
+`MaxOf.same[W]: MaxOf[W, W]` made the constraint solver unify one variable against two deep width
+trees and backtrack on every failure. Prefer the conversion when the rule only has to apply where
+something would otherwise fail; prefer the match type when it must always apply.
+
+### A type-level predicate must get STUCK, not answer "false"
+
+Match-type reduction skips a case only when that case is **provably disjoint**; otherwise it gets
+stuck. Stuck is the *safe* answer, because it defers and reduces later once the type is known. A
+predicate that answers `false` about something merely undetermined commits the wrong branch
+permanently. Both failure modes are real and they pull in opposite directions:
+
+- `case (Int & Singleton, ...)` can never refute plain `Int`, so `Max[Int, Int]` sticks. Safe and
+  useless: a collapsed width can then never feed a further operation.
+- `IsConst` answers `false` for anything whose reduction is pending
+  (scala/scala3#26683), so a guard that is not handed a bare type parameter collapses silently at
+  the **definition** site, before the call site can supply a literal.
+
+So an `IsConst` guard's argument must be a plain type parameter or a `compiletime.ops`
+application. Four spellings are not, and all four bit in one change:
+
+1. a nested application of the guarded operators (`CLog2[+[V, 1]]`)
+2. the same composition spelled infix, inside a scope that does `import IntP.{-, +}`
+3. a path-dependent type from a `using` parameter (`ubLW.Out`, `icL.OutW`)
+4. a path-dependent type in a **return** type (`.bits` giving `DFBits[w.Out]`), which poisons
+   every later operation on that value rather than one site
+
+The remedy for all four is the same: bind the width to a type parameter, and express a composed
+width as ONE named operation whose body does the whole calculation in `compiletime.ops.int`.
+Naming those operations (`CLog2P1`, `ArithMaxWidth`, `PartSelectHigh`, `RangeWidth`) is worth doing
+for its own sake, and it makes the guard-once rule visible at each site.
+
+### Weakening a type does not break values, it deletes diagnostics
+
+Making the type level say less is safe for the generated hardware, because the IR carries the real
+width in `IntParamRef` and elaboration checks it there. It is dangerous for *error reporting*. The
+failures to expect are therefore specs that assert an error and find none: `assertCompileError` and
+`assertDSLErrorLog` reporting `No error found`. Note `assertDSLErrorLog` asserts **twice**, a
+compile error for its snippet and then an elaboration error for its block, so "which half failed"
+is a real question and the failure position does not tell you.
+
+### Probing type-level behaviour
+
+Two traps, each of which cost several cycles here:
+
+- **Reproduce in the scope the code actually lives in.** A probe at file scope resolves `+` to
+  `dfhdl.internals.+`, while the site under diagnosis may sit inside `import IntP.{-, +}`. The
+  same source text is then a different type function, and the probe cheerfully proves the opposite
+  of the truth.
+- **Control every probe against `HEAD`.** `summon[BitIndex.CheckNUB[8, 8]]` succeeds both before
+  and after the change, so it establishes nothing. Stash the change, re-run the same probe, and
+  believe it only if the two answers differ.
+
+When hypotheses keep missing, stop reasoning and bisect your own change (`git stash push -- <the
+files>`, re-run the failing spec). That is what found all four spellings above, after three wrong
+guesses at the mechanism.
+
+### Test in `core`, then report upstream
+
+The regression test belongs in `core/src/test/scala/CoreSpec/`, not `StagesSpec`: no stage is
+involved. `core` cannot run the compile pipeline, so assert on the freshly elaborated DB
+(`dsn.getDB`, then `DefaultPrinter(using db.getSet).csDB`) and expect the **raw** member names,
+before the stages that rename and reorder members. `UnstablePathSpec` is the model. Then file the
+compiler bug upstream on `scala/scala3`, with the minimized repro, the version bisect and the
+variant set, and link it from the code comment carrying the workaround; #427 became
+scala/scala3#26681.
+
+**One false alarm to expect.** Editing `core/` and then compiling `lib` incrementally against it
+reproducibly threw `scala.MatchError: 23 ... TreeUnpickler.readConstant` on this nightly. That is
+stale TASTy, not the change under test: `sbtn.bat 'clean; clearDFHDL; Test/compile'` clears it. Do
+not chase it, and do not trust a suite run that followed one.
 
 ---
 
@@ -183,6 +360,64 @@ connection). A check written without that exemption rejects working user code. P
 sub-shape of the rule separately, and when the check rejects something, verify it *actually*
 miscompiled before accepting the rejection.
 
+### A scope rule must model what the BACKEND renders, not what the IR nests
+
+"A value declared inside a block cannot be read outside it" is the obvious phrasing and it is wrong,
+because an **anonymous value has no place of its own**: the printers emit it inline at whoever reads
+it. Written literally, that rule flagged a shape `DropRTProcess` legitimately produces (an anonymous
+`!go` parked in one case block and read from another, which inlines harmlessly in both). Making
+anonymous values *transparent* instead, and checking only what they transitively reach (a
+declaration or a named value, which do have a place), took the blast radius from one stage failure
+to zero and made the error name the real culprit, the iterator `k`, rather than an unnamed
+expression.
+
+The general form: before phrasing an invariant over the IR, ask what the backend does with each
+node kind. A node that is copied to its use site cannot violate a placement rule; only a node that
+is *emitted where it sits* can.
+
+And **the IR owner is not always the scope the backend gives a member**. A `for` iterator's `Dcl` is
+owned by the ENCLOSING block (elaboration creates it just before the loop) while every backend
+emits it in the loop header. A scope check has to special-case that, and the first version that did
+not silently passed the very bug it was written for. Check where the printer puts a declaration, not
+where the IR hangs it.
+
+### A report can hold two independent defects, including one the reporter dismissed
+
+Issue #433's second listed defect was a missing `;` on a declaration inside a generated `for` block,
+and the reporter's own verification pass concluded it "is not part of this repro". Reproducing it
+directly, with a plain `val v = SInt(16) <> VAR` in a loop body and no `var` anywhere, showed it was
+a separate and more general bug: `DropLocalDcls` climbs out of conditional and step blocks but not
+loop blocks, so Verilog emitted a declaration without its terminator and VHDL put a `variable`
+inside a `loop`, which is illegal outright. Re-derive each listed symptom from scratch instead of
+inheriting the reporter's attribution; theirs was reasoned from one file, and the minimal repro for
+a *different* defect is usually a different program.
+
+### Classify every position in one run
+
+Building that table costs one compile if you write it as a table. Put each variant in the Playground
+as its own `@top(false)` design and drive them all from one `@main`:
+
+```scala
+@main def probe(): Unit =
+  def go(name: String, dsn: => core.Design): Unit =
+    println(s"===== $name =====")
+    try println(dsn.getCompiledCodeString)
+    catch case e: Throwable => println(s"[${e.getClass.getSimpleName}] ${e.getMessage}")
+  go("S1", S1()); go("S2", S2()); ...
+```
+
+`getCompiledCodeString` runs the whole pipeline, so every variant lands in one of three buckets:
+legal HDL, a clean error, or a crash. Seven `OPEN` positions (issue #434) took a single 34-second
+run to classify, and the spread was nothing the stage sources suggested: one worked, two crashed
+(one at elaboration, one only in the backend printer) and **four silently emitted illegal HDL**.
+Those four are the reason to compile every variant instead of reasoning about them — a shape that
+does not crash is not thereby legal.
+
+Run it with `sbtn.bat 'lib/Test/runMain probe'`, and do **not** add your own
+`given options.ElaborationOptions.OnError = _.Exception` to the Playground: `ElaborationChecksSpec`
+already declares one at top level in the same (root) package, and a second makes every `@top` in
+the file ambiguous, with 226 errors that never name the duplicate given as the cause.
+
 ---
 
 ## 4. Write the check first
@@ -224,12 +459,45 @@ invalid. The fix has to be inside the offending stage's own patch.
 Keep the check and the stage predicate textually tied: put a comment on each pointing at the other
 and saying they must agree. They encode the same fact and will drift otherwise.
 
+### "It crashes with a stack trace" is a missing check, not a reporting bug
+
+A report of an internal-looking crash misnames the defect twice, and both need correcting before
+you start:
+
+- **The stack shows where the shape was first *queried*, not where it was created.**
+  `connectionTable` is a `lazy val`, so a net it cannot resolve surfaces wherever something first
+  forces it, which can be the backend printer many stages after elaboration. The reported source
+  position is still correct, and that is exactly what makes the trace read like a printer bug.
+- **You cannot judge the user-facing output from an sbt run.** `exitWithError` branches on
+  `OnError`, which defaults to `Exception` under sbt (so the build survives) and to `Exit`
+  everywhere else, where it is `println` + `sys.exit(1)`. An elaboration error is therefore already
+  clean for the user running scala-cli, and the trace they pasted is itself evidence that the error
+  was **not** on the elaboration path. Moving the case onto that path is the whole fix; there is no
+  formatter to go looking for.
+
+### Give the analysis a verdict, do not enrich its fallback
+
+`getConnToMap` derives each net's direction and parks the undecidable ones; once nothing is left to
+re-examine it throws "Unable to determine directionality" with a list of positions and nothing else.
+That throw is a backstop for shapes nobody has ruled on, so a shape reaching it is a **missing
+rule**, not a message worth improving. Add the verdict as a `newError` inside `getConnToMap`: its
+`case Nil if errors.nonEmpty` arm is matched before the pending-net arm, so the specific message
+wins over the generic one automatically, and it arrives in the standard connectivity-error block
+(position, hierarchy, LHS, RHS) at no cost.
+
 ### Then measure the blast radius
 
 Run the full suite with the check in and **no stage fixes yet**. The failures are the deliverable
 of this step: they tell you which stages violate the rule and whether any checked-in design or doc
 example depended on the shape. Report them before fixing, because "this is bad code we should fix"
 and "the rule is too strict" are the user's call, not yours.
+
+That call extends to shapes a **stage** synthesizes, which the suite may not cover at all.
+`ConnectUnused` turns every `@unused` port into `<> OPEN`, so an `@unused` *input* port trips the
+new check. Narrowing the stage to output ports looked obviously correct and was not: the annotation
+exists to silence a check, an input port still has to be driven, and the new error is therefore the
+right outcome, with the user's design the thing that needs fixing. So a producer the tests do not
+exercise is a question, not a to-do.
 
 ### Position-sensitive elaboration tests
 
@@ -289,7 +557,9 @@ assignment to a signal was illegal VHDL. Two lessons generalize:
 - **Hand the backend the IR member, not a pre-digested boolean.** `csAssignment` took
   `shared: Boolean` because Verilog wanted one bit for a lint pragma, which left VHDL no way to ask
   its own question. Passing the LHS declaration lets each backend derive what it needs, and the
-  next distinction costs no signature change.
+  next distinction costs no signature change. Issue #437 collected on exactly this: once shared
+  writes became `:==`, `csNBAssignment` needed the same `lhsDcl` (VHDL has no non-blocking form
+  for a variable), and the signature change was one parameter because the pattern was in place.
 - **When two print sites decide the same fact, derive both from one predicate in `analysis`.** The
   declaration keyword (`signal` / `variable` / `shared variable`) and the assignment operator are
   the same question asked twice; kept apart they drift into declaring a `signal` you then write
@@ -329,6 +599,14 @@ of every intermediate that is only part-selected.
 minimal design of your own that exercises the same path; if the shape is fully covered by stage
 specs, no `issues/iNNN.scala` file is needed at all.
 
+**`assertCompileError` snippets bypass the plugin's pre-typer rewrites.** The quoted snippet is
+type-checked via `compiletime.testing.typeCheckErrors` inside the typer, so `PreTyperPhase` (which
+fixes `<>` precedence, among others) never sees it. `Bits(8) X 4 <> VAR.SHARED` therefore
+mis-associates as `Bits(8) X (4 <> VAR.SHARED)` and reports a bewildering `Required:
+IntParam[D]` mismatch instead of the error under test. Parenthesize in snippets — `(Bits(8) X 4)
+<> VAR.SHARED` — and expect the same for any other syntax the plugin normalizes before typing.
+The same code OUTSIDE a snippet (a positive-control design in the same spec) is unaffected.
+
 ### Prove the test fails without the fix
 
 Stash the fix (`git stash push -- <the stage file>`), re-run the new test, confirm it fails, then
@@ -362,12 +640,19 @@ printer elides. Keep the stage test only if it does fail without the fix.
 
 ## Checklist
 
+- [ ] Ruled out a **front-end** bug first: does the reproducer even compile? If not, the rest of
+      this list does not apply
+- [ ] Type-level change: mechanism picked by **when it costs** (match type / `using` / conversion),
+      and every `IsConst` guard handed a bare type parameter, never a composition or a `.Out`
+- [ ] Every type-level probe run in the scope the code lives in, and controlled against `HEAD`
 - [ ] Reproduced with `--nocache --log trace compile --print-backend`; Playground backed up and restored
 - [ ] Located the stage that **introduced** the shape, not the one that printed it
 - [ ] Checked the other backend (a silent VHDL failure often shadows a loud Verilog one)
 - [ ] Checked whether sibling stages sharing a base reproduce it
-- [ ] Stated the invariant, and compiled the shape in **every** scope to find its real edges
-- [ ] Probed each sub-shape for exemptions; confirmed anything the check rejects really miscompiles
+- [ ] Stated the invariant, and compiled the shape in **every** scope to find its real edges, in
+      one `@main` run rather than one at a time
+- [ ] Probed each sub-shape for exemptions; confirmed anything the check rejects really miscompiles,
+      including the ones that emit HDL silently rather than crashing
 - [ ] Check written **first**, and wired into **both** `DB.check` and `SanityCheck` if a stage can violate it too
 - [ ] Full suite run with the check in and no stage fixes yet, to measure blast radius
 - [ ] Blast radius reported to the user before fixing stages
@@ -386,3 +671,7 @@ Add a lesson here when it is about **finding and shaping a fix** — diagnosis t
 rule belongs, how to scope an invariant, how to test it. Lessons about **writing a stage** (patch
 mechanics, MetaDesign, IR APIs) belong in [/new-stage](new-stage.md) instead. Keep the split clean
 so neither file becomes the dumping ground.
+
+Front-end bugs (typer, macro, inline expansion, anything that fails before an IR exists) also live
+here, in their own section, rather than in a skill of their own: the entry point is the same
+question, "a bug was reported", and the first move is deciding which species it is.

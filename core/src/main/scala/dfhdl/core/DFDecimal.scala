@@ -1235,11 +1235,11 @@ object DFXInt:
           checkLow: BitIndex.CheckNUB[LO, W],
           checkHiLo: BitsHiLo.CheckNUB[HI, LO]
       ): ExactOp3Aux["apply", DFC, DFValAny, L, HI, LO, DFVal[
-        DFUInt[HI - LO + 1],
+        DFUInt[IntP.RangeWidth[HI, LO]],
         Modifier[A, C, Any, P]
       ]] =
         new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
-          type Out = DFVal[DFUInt[HI - LO + 1], Modifier[A, C, Any, P]]
+          type Out = DFVal[DFUInt[IntP.RangeWidth[HI, LO]], Modifier[A, C, Any, P]]
           def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
             val idxHighParam = IntParam(idxHigh)
             val idxLowParam = IntParam(idxLow)
@@ -1579,7 +1579,9 @@ object DFXInt:
           RS <: Boolean,
           RW <: IntP,
           RN <: NativeType,
-          RP
+          RP,
+          LWUB <: Int,
+          RWUB <: Int
       ](using
           icL: Candidate.Aux[L, LS, LW, LN, LP],
           icR: Candidate.Aux[R, RS, RW, RN, RP],
@@ -1593,33 +1595,29 @@ object DFXInt:
           resultWidth: Id[ITE[LN && ![RN], RW, ITE[
             RN && ![LN],
             LW,
-            ITE[
-              LN && RN,
-              LW,
-              IntP.Max[
-                ITE[![LS] && RS, LW + 1, LW],
-                ITE[![RS] && LS, RW + 1, RW]
-              ]
-            ]
+            ITE[LN && RN, LW, IntP.ArithMaxWidth[LS, LW, RS, RW]]
           ]]],
           resultNative: Id[ITE[LN && ![RN], RN, LN]],
           // Compile-time wildcard fit: when one operand is a literal wildcard,
           // verify its sign and width fit in the bit-accurate value's type.
-          ubLW: UBound.Aux[Int, LW, ? <: Int],
-          ubRW: UBound.Aux[Int, RW, ? <: Int],
+          // the UBound outputs are bound to plain type parameters rather than read off the
+          // instances: `IsConst` answers `false` for a path-dependent type just as it does for an
+          // unreduced match type, which would collapse these widths (see `IntP.IsConstInt2`)
+          ubLW: UBound.Aux[Int, LW, LWUB],
+          ubRW: UBound.Aux[Int, RW, RWUB],
           checkWS: `BaS >= WcS`.Check[
             ITE[RN && ![LN], LS, ITE[LN && ![RN], RS, LS]],
             ITE[RN && ![LN], RS, ITE[LN && ![RN], LS, LS]]
           ],
           checkWW: `BaW >= WcW`.Check[
-            ITE[RN && ![LN], ubLW.Out, ITE[LN && ![RN], ubRW.Out, ubLW.Out]],
+            ITE[RN && ![LN], LWUB, ITE[LN && ![RN], RWUB, LWUB]],
             ITE[
               RN && ![LN],
-              ITE[LS && ![RS], ubRW.Out + 1, ubRW.Out],
+              ITE[LS && ![RS], IntP.Inc[RWUB], RWUB],
               ITE[
                 LN && ![RN],
-                ITE[RS && ![LS], ubLW.Out + 1, ubLW.Out],
-                ubLW.Out
+                ITE[RS && ![LS], IntP.Inc[LWUB], LWUB],
+                LWUB
               ]
             ]
           ]
@@ -1682,7 +1680,9 @@ object DFXInt:
           RS <: Boolean,
           RW <: IntP,
           RN <: NativeType,
-          RP
+          RP,
+          LWUB <: Int,
+          RWUB <: Int
       ](using
           icL: Candidate.Aux[L, LS, LW, LN, LP],
           icR: Candidate.Aux[R, RS, RW, RN, RP],
@@ -1697,18 +1697,21 @@ object DFXInt:
           resultNative: Id[ITE[LN && ![RN], RN, LN]],
           // Compile-time wildcard fit: when LHS is a literal wildcard,
           // verify its sign and width fit in the RHS (bit-accurate value) type.
-          ubLW: UBound.Aux[Int, LW, ? <: Int],
-          ubRW: UBound.Aux[Int, RW, ? <: Int],
+          // the UBound outputs are bound to plain type parameters rather than read off the
+          // instances: `IsConst` answers `false` for a path-dependent type just as it does for an
+          // unreduced match type, which would collapse these widths (see `IntP.IsConstInt2`)
+          ubLW: UBound.Aux[Int, LW, LWUB],
+          ubRW: UBound.Aux[Int, RW, RWUB],
           checkWS: `BaS >= WcS`.Check[
             ITE[LN && ![RN], RS, LS],
             ITE[LN && ![RN], LS, LS]
           ],
           checkWW: `BaW >= WcW`.Check[
-            ITE[LN && ![RN], ubRW.Out, ubLW.Out],
+            ITE[LN && ![RN], RWUB, LWUB],
             ITE[
               LN && ![RN],
-              ITE[RS && ![LS], ubLW.Out + 1, ubLW.Out],
-              ubLW.Out
+              ITE[RS && ![LS], IntP.Inc[LWUB], LWUB],
+              LWUB
             ]
           ]
       ): ExactOp2Aux[Op, DFC, DFValAny, L, R, DFValTP[
@@ -1753,10 +1756,10 @@ object DFXInt:
           icR: Candidate.Aux[R, RS, RW, RN, RP],
           op: ValueOf[Op]
       ): ExactOp2Aux[CarryOp[Op], DFC, DFValAny, L, R, DFValTP[
-        DFXInt[LS || RS, IntP.+[IntP.Max[LW, RW], 1], BitAccurate],
+        DFXInt[LS || RS, IntP.ArithCarryWidth[LW, RW], BitAccurate],
         LP | RP
       ]] = new ExactOp2[CarryOp[Op], DFC, DFValAny, L, R]:
-        type Out = DFValTP[DFXInt[LS || RS, IntP.+[IntP.Max[LW, RW], 1], BitAccurate], LP | RP]
+        type Out = DFValTP[DFXInt[LS || RS, IntP.ArithCarryWidth[LW, RW], BitAccurate], LP | RP]
         def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
           val dfcAnon = dfc.anonymize
           val lhsVal = icL(lhs)(using dfcAnon)
@@ -1887,9 +1890,11 @@ object DFUInt:
   def to[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
-  ): DFUInt[IntP.CLog2[IntP.+[V, 1]]] = trydf {
+  ): DFUInt[IntP.CLog2P1[V]] = trydf {
     max.toScalaIntOpt.foreach(check(_))
-    DFXInt(false, (max + 1).clog2, BitAccurate)
+    // the width value is `clog2(max + 1)`; the declared type says the same thing under a single
+    // guard on `V`, which the composed spelling cannot (see `IntP.IsConstInt2`)
+    DFXInt(false, (max + 1).clog2, BitAccurate).asInstanceOf[DFUInt[IntP.CLog2P1[V]]]
   }
 
   protected object Unsigned
@@ -2051,7 +2056,7 @@ object DFUInt:
             dfc: DFCG,
             checkWidth: Arg.Width.CheckNUB[SW],
             checkLow: DFBits.BitIndex.CheckNUB[BI, W],
-            checkHigh: DFBits.BitIndex.CheckNUB[IntP.-[IntP.+[BI, SW], 1], W]
+            checkHigh: DFBits.BitIndex.CheckNUB[IntP.PartSelectHigh[BI, SW], W]
         ): DFVal[DFUInt[SW], Modifier[A, C, Any, P]] = trydf {
           selWidth.toScalaIntOpt.foreach(checkWidth(_))
           val idxHigh = baseIdx + selWidth - 1
@@ -2072,7 +2077,7 @@ object DFUInt:
             dfc: DFCG,
             checkWidth: Arg.Width.CheckNUB[SW],
             checkHigh: DFBits.BitIndex.CheckNUB[BI, W],
-            checkLow: DFBits.BitIndex.CheckNUB[IntP.+[IntP.-[BI, SW], 1], W]
+            checkLow: DFBits.BitIndex.CheckNUB[IntP.PartSelectLow[BI, SW], W]
         ): DFVal[DFUInt[SW], Modifier[A, C, Any, P]] = trydf {
           selWidth.toScalaIntOpt.foreach(checkWidth(_))
           val idxLow = baseIdx - selWidth + 1
@@ -2102,16 +2107,16 @@ object DFSInt:
   def untilAbs[V <: IntP](sup: IntParam[V])(using
       dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
-  ): DFSInt[IntP.+[IntP.CLog2[V], 1]] = trydf {
+  ): DFSInt[IntP.CLog2Signed[V]] = trydf {
     sup.toScalaIntOpt.foreach(check(_))
-    DFXInt(true, sup.clog2 + 1, BitAccurate)
+    DFXInt(true, sup.clog2 + 1, BitAccurate).asInstanceOf[DFSInt[IntP.CLog2Signed[V]]]
   }
   def toAbs[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
-  ): DFSInt[IntP.+[IntP.CLog2[IntP.+[V, 1]], 1]] = trydf {
+  ): DFSInt[IntP.CLog2P1Signed[V]] = trydf {
     max.toScalaIntOpt.foreach(check(_))
-    DFXInt(true, (max + 1).clog2 + 1, BitAccurate)
+    DFXInt(true, (max + 1).clog2 + 1, BitAccurate).asInstanceOf[DFSInt[IntP.CLog2P1Signed[V]]]
   }
 
   object Val:
@@ -2173,7 +2178,7 @@ object DFSInt:
             dfc: DFCG,
             checkWidth: Arg.Width.CheckNUB[SW],
             checkLow: DFBits.BitIndex.CheckNUB[BI, W],
-            checkHigh: DFBits.BitIndex.CheckNUB[IntP.-[IntP.+[BI, SW], 1], W]
+            checkHigh: DFBits.BitIndex.CheckNUB[IntP.PartSelectHigh[BI, SW], W]
         ): DFVal[DFUInt[SW], Modifier[A, C, Any, P]] = trydf {
           selWidth.toScalaIntOpt.foreach(checkWidth(_))
           val idxHigh = baseIdx + selWidth - 1
@@ -2194,7 +2199,7 @@ object DFSInt:
             dfc: DFCG,
             checkWidth: Arg.Width.CheckNUB[SW],
             checkHigh: DFBits.BitIndex.CheckNUB[BI, W],
-            checkLow: DFBits.BitIndex.CheckNUB[IntP.+[IntP.-[BI, SW], 1], W]
+            checkLow: DFBits.BitIndex.CheckNUB[IntP.PartSelectLow[BI, SW], W]
         ): DFVal[DFUInt[SW], Modifier[A, C, Any, P]] = trydf {
           selWidth.toScalaIntOpt.foreach(checkWidth(_))
           val idxLow = baseIdx - selWidth + 1

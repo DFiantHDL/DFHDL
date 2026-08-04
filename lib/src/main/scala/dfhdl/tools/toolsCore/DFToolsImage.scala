@@ -105,10 +105,23 @@ object DFToolsImage:
     s"https://github.com/$repo/releases/download/$version/$asset"
 
   private val handles = scala.collection.concurrent.TrieMap.empty[String, ApptainerImage]
+  // Per-image resolve locks. `TrieMap.getOrElseUpdate` is atomic in what it stores but NOT
+  // mutually exclusive in evaluating the default, so without a lock two threads first-using the
+  // same cold image would both run `apptainer pull` to the same destination. Racing on the lock
+  // objects themselves is harmless: both racers receive the single stored instance.
+  private val resolveLocks = scala.collection.concurrent.TrieMap.empty[String, Object]
 
-  /** The resolved handle for an image (memoized); downloads the release asset on first use. */
+  /** The resolved handle for an image (memoized); downloads the release asset on first use. The
+    * warm path is lock-free; a cold image resolves under a per-image lock so concurrent first uses
+    * pull once (`resolve`'s staged download additionally covers a concurrent *process*).
+    */
   def handle(image: String): ApptainerImage =
-    handles.getOrElseUpdate(image, resolve(image))
+    handles.getOrElse(
+      image,
+      resolveLocks.getOrElseUpdate(image, new Object).synchronized {
+        handles.getOrElseUpdate(image, resolve(image))
+      }
+    )
 
   private def resolve(image: String): ApptainerImage =
     overrideSif(image) match
@@ -128,10 +141,24 @@ object DFToolsImage:
           // the fresh bytes and report completion. Both messages are gated on the cache miss so the
           // common warm-cache path stays noise-free.
           println(s"[dftools] downloading image '$image' ($version)...")
-          val img = Apptainer.pull(assetUrl(asset), dest = Some(dest), interactive = true)
-          verifySha256(dest, sha) // verify only freshly pulled bytes, backend-side
+          // Download to a private per-process name, verify, then atomically rename into place: the
+          // shared dest is thus never visible half-written, so a concurrent DFHDL *process* (e.g. a
+          // second sbt session; in-JVM racers are already excluded by `handle`'s per-image lock)
+          // can neither pick up nor clobber a partial download. Racing winners hold identical
+          // bytes (the asset name is content-addressed), so `mv -f` in either order is safe, and
+          // verifying before publishing means a corrupt download is never visible to anyone.
+          val staged = s"$dest.${ProcessHandle.current().pid()}.tmp"
+          try
+            Apptainer.pull(assetUrl(asset), dest = Some(staged), interactive = true)
+            verifySha256(staged, sha) // verify the fresh bytes, backend-side, before publishing
+            Apptainer.backend.runShell(s"mv -f '$staged' '$dest'").throwIfFailed()
+          finally
+            // no-op on success (the rename consumed it); drops the partial file a failed pull
+            // can leave behind (a failed verify already removed it)
+            Apptainer.backend.runShell(s"rm -f '$staged'")
           println(s"[dftools] image '$image' ready")
-          img
+          Apptainer.image(dest)
+        end if
 
   /** Verify a freshly pulled SIF against its expected sha256. The file lives in the backend (a WSL
     * VM on Windows), so hash it there — a host-side digest would read a non-existent path. On a
@@ -153,10 +180,10 @@ object DFToolsImage:
       )
 
   /** Whether the given image is resolvable (present locally / overridden / downloadable). A resolve
-    * failure (no container runtime, blocked unprivileged user namespaces, a corrupt or absent asset)
-    * is reported before returning false, so it is distinguishable from an image that is simply not
-    * configured — otherwise the only downstream symptom is a misleading "could not be found in its
-    * DFTools image".
+    * failure (no container runtime, blocked unprivileged user namespaces, a corrupt or absent
+    * asset) is reported before returning false, so it is distinguishable from an image that is
+    * simply not configured — otherwise the only downstream symptom is a misleading "could not be
+    * found in its DFTools image".
     */
   def isAvailable(image: String): Boolean =
     try handle(image).exists

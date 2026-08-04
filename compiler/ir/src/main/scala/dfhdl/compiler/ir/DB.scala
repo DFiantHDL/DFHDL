@@ -525,6 +525,41 @@ final case class DB private (
                 |Message:   ${errMsg}""".stripMargin
           newErrors = errMsgComplete :: newErrors
         import flatNet.{lhsVal, rhsVal, net}
+        // `OPEN` marks an entire output port of a design instance as deliberately unconnected.
+        // That is the only partner the backends can render (`OPEN` is printed as the actual of
+        // a port in an instantiation port map) and the only one with a derivable direction,
+        // since `OPEN` carries no value and so can never drive. `ViaConnection` relies on the
+        // same shape: it moves such a net into the port map instead of bridging the port
+        // through a via variable, and any other partner is left as an undirected
+        // `variable <> OPEN` net there, which no longer resolves below.
+        def openCheck(other: DFVal): Unit =
+          val legal = other match
+            case pbns: DFVal.PortByNameSelect => pbns.isOut
+            // the flat-DB form of the same shape: the port declaration itself, referenced from
+            // the design that instantiates its owner (mirrors `getValAccess.isExternalConn`)
+            case dcl: DFVal.Dcl =>
+              dcl.modifier.dir == OUT && (dcl.getOwnerDesign isSameOwnerDesignAs net)
+            case _ => false
+          if (!legal)
+            newError(
+              s"""|Cannot connect `OPEN` to ${other.relValString}.
+                  |`OPEN` marks an entire output port of a design instance as deliberately
+                  |unconnected, so it can never drive a value nor cover just part of a port.
+                  |To Fix:
+                  |* An input port of a design instance must be driven: connect a value to it.
+                  |* To leave only some bits of an output port unused, just do not connect them.""".stripMargin
+            )
+        end openCheck
+        // A design's own output port is writable from inside the design, and readable there too
+        // (`DropOutportRead` shadows the read through a signal for the dialects that forbid it).
+        // So a connection between two of them (`y <> x`) is the one shape whose direction cannot
+        // be derived: either side could be the sink. `<>` is commutative everywhere else, and
+        // this ambiguity is its single exception: the LHS is taken as the driven side, so the
+        // connection reads like an assignment.
+        def isOwnOutPort(dfVal: DFVal): Boolean =
+          dfVal.departial._1 match
+            case dcl: DFVal.Dcl => dcl.modifier.dir == OUT && (dcl isSameOwnerDesignAs net)
+            case _              => false
         val (lhsAccess, rhsAccess) = net.op match
           // assignment is always from right to left
           case Assignment | NBAssignment =>
@@ -538,14 +573,19 @@ final case class DB private (
               case _ =>
                 (Write, Read)
           // connections are analyzed according to the context of the net
-          case _ => (getValAccess(lhsVal, net)(connToMap), getValAccess(rhsVal, net)(connToMap))
+          case _ =>
+            if (lhsVal.isOpen) openCheck(rhsVal)
+            else if (rhsVal.isOpen) openCheck(lhsVal)
+            (getValAccess(lhsVal, net)(connToMap), getValAccess(rhsVal, net)(connToMap))
         val toValOption = (lhsAccess, rhsAccess) match
           case (Write, Read | ReadWrite | Unknown) => Some(lhsVal)
           case (Read | ReadWrite | Unknown, Write) => Some(rhsVal)
           case (Read, Read)                        =>
             newError("Unsupported read-to-read connection.")
             None
-          case (Write, Write) =>
+          // the LHS-favouring exception, see `isOwnOutPort`
+          case (Write, Write) if isOwnOutPort(lhsVal) && isOwnOutPort(rhsVal) => Some(lhsVal)
+          case (Write, Write)                                                 =>
             newError("Unsupported write-to-write connection.")
             None
           case (_, Read)  => Some(lhsVal)
@@ -1522,6 +1562,88 @@ final case class DB private (
       throw new IllegalArgumentException(errors.mkString("\n"))
   end condExprNamedValCheck
 
+  // A DECLARATION made inside a statement block exists only inside it, so nothing outside may
+  // read it. Elaboration breaks this whenever a Scala `var` is reassigned inside a DFHDL loop or
+  // conditional block: the reassignment binds the Scala name to a value built under that block,
+  // and the next read of the `var`, after the block, reaches through to what that value reads,
+  // which includes the block's own iterator. Nothing downstream notices, because the expression
+  // is anonymous and therefore printed at its reader, so the backend emits it outside the loop,
+  // where the iterator is not in scope (issue #433).
+  //
+  // Which is why an anonymous value is TRANSPARENT here: it has no place of its own, so the
+  // question is not where it sits but what it reads, asked from the position of whoever reads it.
+  // A declaration or a named value does have a place, and that place has to enclose the reader.
+  //
+  // Only statement blocks bind: a `DFDomainOwner` (a design, a domain, an interface) declares
+  // members that are public by construction, since a domain's port is read by the design that
+  // owns it.
+  def blockScopeCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    // `ownerRef.get` rather than `getOwner`, which throws on a member with no owner at all: a
+    // global, the top, and the `Goto` step placeholders all have an empty owner ref
+    @tailrec def isInsideOrIs(member: DFMember, block: DFBlock): Boolean =
+      if (member == block) true
+      else
+        member.ownerRef.get match
+          case owner if owner == block => true
+          // stop at the enclosing design/domain, and at anything with no owning block
+          case _: DFDomainOwner => false
+          case owner: DFBlock   => isInsideOrIs(owner, block)
+          case _                => false
+    // A `for` iterator is declared in the loop header, so the loop is its scope. Elaboration owns
+    // the declaration from the ENCLOSING block instead (it is created just before the loop), so
+    // the loop has to be looked up rather than read off the declaration's owner. Once
+    // `SimplifyRTOps` rewrites the loop into a `while`, the iterator becomes an ordinary variable
+    // of the enclosing scope and this map no longer holds it, which is correct.
+    val iteratorScope: Map[DFMember, DFBlock] = members.view.collect {
+      case forBlock: DFLoop.DFForBlock => forBlock.iteratorRef.get -> forBlock
+    }.toMap
+    def blockKind(block: DFBlock): String = block match
+      case _: DFLoop.DFForBlock   => "`for` loop"
+      case _: DFLoop.DFWhileBlock => "`while` loop"
+      case _: DFConditional.Block => "conditional block"
+      case _: ProcessBlock        => "process"
+      case _: StepBlock           => "step"
+      case _: ForkBlock           => "fork block"
+      case _                      => "block"
+    // `visited` also keeps one reader from reporting the same declaration once per path to it:
+    // `x(k * 11 + 10, k * 11)` reaches the iterator through two independent index expressions
+    def checkReads(reader: DFMember, target: DFMember, visited: mutable.Set[DFMember]): Unit =
+      if (visited.add(target)) target match
+        case dfVal: DFVal if dfVal.isAnonymous =>
+          dfVal.getRefs.foreach(r => checkReads(reader, r.get, visited))
+        case named: DFMember.Named =>
+          iteratorScope.getOrElse(target, target.ownerRef.get) match
+            case block: DFBlock
+                if !block.isInstanceOf[DFDomainOwner] && !isInsideOrIs(reader, block) =>
+              errors +=
+                s"""|DFiant HDL scope error!
+                    |Position:  ${reader.meta.position}
+                    |Hierarchy: ${reader.getOwnerDesign.getFullName}
+                    |Message:   Found a read of `${named.getName}`, declared inside the ${blockKind(
+                     block
+                   )} at
+                    |${block.meta.position}, from outside that block.
+                    |A declaration made inside a block exists only within it. This usually comes from
+                    |a Scala `var` reassigned inside the block: the reassignment binds the Scala name
+                    |to a value built under the block, so reading the `var` afterwards reaches the
+                    |block's own declarations from outside.
+                    |To Fix:
+                    |Declare a DFHDL variable before the block, assign it with `:=` inside the block,
+                    |and read the variable afterwards.""".stripMargin
+            case _ =>
+        case _ =>
+    members.foreach {
+      // an anonymous value is checked from whoever reads it, not from where it sits
+      case dfVal: DFVal if dfVal.isAnonymous =>
+      case member                            =>
+        val visited = mutable.Set.empty[DFMember]
+        member.getRefs.foreach(ref => checkReads(member, ref.get, visited))
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end blockScopeCheck
+
   // Circular-derived-domain check, run on the root DB. DFS over
   // `dependentRTDomainOwners`; the cycle error names each
   // owner via `fullNameViaInst` routed through that owner's sub-DB.
@@ -1787,6 +1909,7 @@ final case class DB private (
     directRefCheck()
     initialCheck()
     condExprNamedValCheck()
+    blockScopeCheck()
 
   // Whole-tree checks, run once on the root: the cross-design connectivity /
   // RT-domain / device-top checks, via the `*` clones that navigate the

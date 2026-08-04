@@ -41,11 +41,17 @@ jobs:
         uses: nickg/setup-nvc@v1
         with:
           version: latest
+      # ffmpeg backs the vga_monitor IP's headless frame capture. The viewer runs wherever the
+      # simulator runs, and with the `auto` tools-location default the locally-installed simulators
+      # above win, so the local capture cases need ffmpeg on the PATH too.
+      - name: Setup ffmpeg (vga_monitor viewer capture)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: |
           verilator -version
           iverilog -V
           ghdl version
           nvc --version
+          ffmpeg -hide_banner -version
       # DFTools runs each EDA tool inside a rootless Apptainer image, whose engine needs an
       # unprivileged user namespace. Ubuntu 24.04 blocks that via an AppArmor sysctl by default;
       # clear it so Apptainer's rootless engine can start.

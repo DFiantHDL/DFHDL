@@ -15,7 +15,7 @@ class DocExamplesSimSpec extends SimSpec:
   bothTiers("Counter docExample"): tier =>
     (new docExamples.counter.Counter()).simulation { dut =>
       // the reference model is a DFHDL constant, updated with constant arithmetic
-      var model = d"8'0"
+      var model: UInt[8] <> CONST = d"8'0"
       val drive = Seq[Bit](1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1)
       for (en, cyc) <- (drive ++ drive).zipWithIndex do
         dut.en.poke(en == 1)

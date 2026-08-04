@@ -887,4 +887,113 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(EDProc())("No error found")
     assertElaborationErrors(RTBody())("No error found")
     assertElaborationErrors(EDStmt())("No error found")
+  // `OPEN` carries no value, so on an input port it has nothing to drive and the net has no
+  // derivable direction at all. That used to survive elaboration and blow up much later, in the
+  // backend printer, as a raw stack trace.
+  test("OPEN on a design instance input port"):
+    class Sub extends EDDesign:
+      val i = Bits(8) <> IN
+      val o = Bits(8) <> OUT
+      o <> i
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val o = Bits(8) <> OUT
+        val sub = Sub()
+        sub.i <> OPEN
+        o <> sub.o
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:902:9 - 902:22
+          |Hierarchy: Top
+          |LHS:       sub.i
+          |RHS:       OPEN
+          |Message:   Cannot connect `OPEN` to sub.i.
+          |`OPEN` marks an entire output port of a design instance as deliberately
+          |unconnected, so it can never drive a value nor cover just part of a port.
+          |To Fix:
+          |* An input port of a design instance must be driven: connect a value to it.
+          |* To leave only some bits of an output port unused, just do not connect them.""".stripMargin
+    )
+  // an output port is either read or left entirely open; a partially open one has no HDL form
+  // (it used to print as an assignment to the `open` keyword itself).
+  test("OPEN on part of a design instance output port"):
+    class Sub extends EDDesign:
+      val i = Bits(8) <> IN
+      val o = Bits(8) <> OUT
+      o <> i
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val i = Bits(8) <> IN
+        val o = Bits(4) <> OUT
+        val sub = Sub()
+        sub.i <> i
+        sub.o(3, 0) <> OPEN
+        o <> sub.o(7, 4)
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:932:9 - 932:28
+          |Hierarchy: Top
+          |LHS:       sub.o(3, 0)
+          |RHS:       OPEN
+          |Message:   Cannot connect `OPEN` to sub.o(3, 0).
+          |`OPEN` marks an entire output port of a design instance as deliberately
+          |unconnected, so it can never drive a value nor cover just part of a port.
+          |To Fix:
+          |* An input port of a design instance must be driven: connect a value to it.
+          |* To leave only some bits of an output port unused, just do not connect them.""".stripMargin
+    )
+  // A DFHDL `for` loop is one hardware loop, not an unrolled sequence, so a Scala `var`
+  // reassigned in its body just rebinds the Scala name to a value built under the loop. Reading
+  // the `var` afterwards then reaches the loop's own iterator, the loop body comes out empty, and
+  // the backend prints the expression outside the loop where the iterator does not exist.
+  //
+  // `ScalaVarPhase` rejects the `var` form of this outright, but its view is lexical: it sees a
+  // Scala name being rebound. Any other Scala-level container carries the value out of the loop
+  // just as well, and this check is the backstop for those. Here a mutable collection, held in a
+  // plain `val`, is filled inside the loop and read after it.
+  test("value declared inside a loop read from outside it"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val lanes = UInt(8) X 4 <> IN
+        val last = UInt(8) <> OUT
+        private val picked = collection.mutable.ArrayBuffer.empty[UInt[8] <> VAL]
+        process(all):
+          for (i <- 0 until 4)
+            picked += lanes(i)
+          last := picked.last
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL scope error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:967:11 - 967:30
+          |Hierarchy: Top
+          |Message:   Found a read of `i`, declared inside the `for` loop at
+          |${currentFilePos}ElaborationChecksSpec.scala:965:11 - 966:31, from outside that block.
+          |A declaration made inside a block exists only within it. This usually comes from
+          |a Scala `var` reassigned inside the block: the reassignment binds the Scala name
+          |to a value built under the block, so reading the `var` afterwards reaches the
+          |block's own declarations from outside.
+          |To Fix:
+          |Declare a DFHDL variable before the block, assign it with `:=` inside the block,
+          |and read the variable afterwards.""".stripMargin
+    )
+  // the same accumulation written with a DFHDL variable: the loop body drives it, and the read
+  // after the loop reads the variable, which is declared outside
+  test("a DFHDL variable accumulated across a loop is allowed"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val lanes = UInt(8) X 4 <> IN
+        val total = UInt(10) <> OUT
+        val sum = UInt(10) <> VAR
+        process(all):
+          sum := 0
+          for (i <- 0 until 4)
+            sum := sum + lanes(i).resize(10)
+          total := sum
+    import Test.*
+    assertElaborationErrors(Top())("No error found")
 end ElaborationChecksSpec

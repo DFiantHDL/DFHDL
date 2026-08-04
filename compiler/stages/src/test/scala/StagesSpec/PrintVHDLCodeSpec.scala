@@ -3343,10 +3343,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  // VHDL spells an assignment after the target's object class, so one DFHDL `:=` prints four
-  // different ways depending on where the target is declared: a process-local variable and a
-  // design-level `VAR.SHARED` take `:=`, while a design-level `VAR` and an output port are
-  // signals and take `<=`.
+  // VHDL spells an assignment after the target's object class, not after the blocking vs
+  // non-blocking distinction: a process-local variable takes `:=` and a design-level `VAR` or an
+  // output port takes `<=`, while a design-level `VAR.SHARED` (writable only via `:==` under ED)
+  // still takes the variable's `:=`.
   test("assignment operator follows the target's object class") {
     class Example extends EDDesign:
       val a          = Bits(8) <> IN
@@ -3355,10 +3355,10 @@ class PrintVHDLCodeSpec extends StageSpec:
       val shr        = Bits(8) <> VAR.SHARED
       process(all):
         val loc = Bits(8) <> VAR
-        loc := ~a
-        sig := loc
-        shr := loc
-        o1  := loc
+        loc  := ~a
+        sig  := loc
+        shr :== loc
+        o1   := loc
       o2 <> sig
       o3 <> shr
     val top = (new Example).getCompiledCodeString
@@ -3392,6 +3392,41 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  end process;
          |  o2 <= sig;
          |  o3 <= shr;
+         |end Example_arch;
+         |""".stripMargin
+    )
+  }
+  // the LHS-favouring rule for a connection between two of the design's own output ports (see
+  // `PrintVerilogCodeSpec`) makes the RHS an output-port READ, which v93 forbids, so
+  // `DropOutportRead` shadows it through a signal.
+  test("connection between two of the design's own output ports vhdl.v93") {
+    given options.CompilerOptions.Backend = _.vhdl.v93
+    class Example() extends EDDesign:
+      val x = Bits(8) <> OUT
+      val y = Bit     <> OUT
+      x <> all(0)
+      y <> x(0)
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  x : out std_logic_vector(7 downto 0);
+         |  y : out std_logic
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |  signal x_sig : std_logic_vector(7 downto 0);
+         |begin
+         |  x <= x_sig;
+         |  x_sig <= x"00";
+         |  y <= x_sig(0);
          |end Example_arch;
          |""".stripMargin
     )

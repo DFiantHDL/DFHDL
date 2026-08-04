@@ -379,13 +379,16 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
 
   // installs the DFHDL type printer, so every type the compiler reports on its own initiative
   // (a type mismatch, a missing member, an IDE hover) names DFHDL types the way a DFHDL user
-  // writes them; see DFHDLTypePrinter
+  // writes them; see DFHDLTypePrinter. `-P:dfhdl.plugin:disableCustomPrinter` leaves both hooks
+  // uninstalled, which is how a diagnostic gets read in the compiler's own vocabulary while
+  // working on the DSL.
   override def initContext(ctx: FreshContext): Unit =
-    ctx.setPrinterFn(printerCtx =>
-      DFHDLTypePrinter(printerCtx, printerSymbols()(using printerCtx))
-    )
-    val typerState = ctx.typerState.setReporter(new CustomReporter(ctx.reporter))
-    ctx.setTyperState(typerState)
+    if (!setting.disableCustomPrinter)
+      ctx.setPrinterFn(printerCtx =>
+        DFHDLTypePrinter(printerCtx, printerSymbols()(using printerCtx))
+      )
+      val typerState = ctx.typerState.setReporter(new CustomReporter(ctx.reporter))
+      ctx.setTyperState(typerState)
   end initContext
 
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =

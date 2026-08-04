@@ -163,7 +163,7 @@ val _name_ = _dftype_ <> _modifier_ [init _const_]
     * `OUT` - to construct an output port
     * `INOUT` - to construct a bidirectional input-output port
     * `VAR.REG` / `OUT.REG` - to construct a registered variable or output port (available only in RT domains) 
-    * `VAR.SHARED` - to construct a shared variable that can be assigned in more than one domain (this feature is to be used scarcely, to model unique designs like [True Dual-Port RAM][true-dpr])
+    * `VAR.SHARED` - to construct a shared variable that can be assigned in more than one domain (this feature is to be used scarcely, to model unique designs like [True Dual-Port RAM][true-dpr]). Directly under an ED domain, a shared variable is assigned within a process only with the non-blocking `:==` operator, so its writes commit at the end of the process step (the standard RAM inference behavior; in the VHDL backend such writes still render with the variable assignment `:=`).
 * __`init`__ is an optional construct to initialize the DFHDL variable/port declaration history with the applied `_const_` value.
 * __`_const_`__ is the [state history][state] initialization value which must be a [constant][DFConst] that is supported by the DFType `_dftype_`. Under DF domain only, `_const_` can also be represented by a [Scala Tuple](https://docs.scala-lang.org/tour/tuples.html){target="_blank"} sequence of [constant][DFConst] initialization values that are supported by the DFType `_dftype_`.
 
@@ -539,24 +539,103 @@ class IDTop extends DFDesign:
   y <> yv
 ```
 
-/// admonition | Don't use `var` with DFHDL values/designs
-    type: warning
-Because the semantics may get confusing, we enforced a compiler warning if a DFHDL value/design is constructed and fed into a Scala `#!scala var` reference. You can apply a Scala `@nowarn` annotation to suppress this warning.
+## Scala `var` with DFHDL Values {#scala-var}
 
-```scala title="Warning when using a Scala `var` and suppression example"
-import scala.annotation.nowarn
-class Foo extends DFDesign:
-  //warning: 
-  //Scala `var` modifier for DFHDL 
-  //values/designs is highly discouraged!
-  //Consider changing to `val`.   
-  var a = UInt(8) <> IN
-  //this specific warning is suppressed
-  @nowarn("msg=Scala `var` modifier for DFHDL")
-  var ok = UInt(8) <> IN 
+A Scala `#!scala var` is rebound during **elaboration**, while a DFHDL variable is assigned at **runtime** with `:=`. The two look alike and mean different things, so a `#!scala var` holding a DFHDL value is accepted only in the positions where it cannot express something the elaboration is unable to honour. Everywhere else it is a compile error, and no flag relaxes it.
+
+What a `#!scala var` is for is accumulating **during elaboration**, in an event-driven (ED) design or domain body. The design below packs four input lanes into one word, one lane per iteration:
+
+```scala title="Elaboration-time accumulation"
+/** Packs four 8-bit lanes into one 32-bit word */
+class LaneConcat extends EDDesign:
+  /** the four input lanes */
+  val lanes = Bits(8) X 4 <> IN
+  /** the packed word */
+  val word  = Bits(32)    <> OUT
+  //the accumulator, ascribed `<> VAL` so its width
+  //is not fixed by the first lane
+  private var acc: Bits[Int] <> VAL = lanes(0)
+  //a Scala range in a concurrent scope, so this
+  //loop runs during elaboration and unrolls
+  for (i <- 1 until 4) acc = acc ++ lanes(i)
+  //freeze the accumulator before a process reads it
+  val allLanes = acc
+  process(all):
+    word := allLanes
+end LaneConcat
 ```
+
+The `#!scala for` runs over a Scala range in a concurrent scope, so it is an elaboration-time loop: it unrolls, and each iteration rebinds `acc` to a wider concatenation. Nothing of the loop reaches the backend.
+
+/// tab | Generated Verilog
+```verilog
+module LaneConcat(
+  /* the four input lanes */
+  input  wire logic [7:0] lanes [0:3],
+  /* the packed word */
+  output      logic [31:0] word
+);
+  `include "dfhdl_defs.svh"
+  logic [7:0]  acc;
+  logic [31:0] allLanes;
+  assign acc      = lanes[0];
+  assign allLanes = {acc, lanes[1], lanes[2], lanes[3]};
+  always_comb
+  begin
+    word = allLanes;
+  end
+endmodule
+```
+Three things are worth noticing in the generated code:
+
+1. **The loop is gone.** Four rebindings of one Scala name collapsed into a single concatenation, `{acc, lanes[1], lanes[2], lanes[3]}`. There is no `for` and no unrolled sequence, because the loop never existed in hardware to begin with.
+
+2. **Only two of the bindings kept a name.** `acc` names the *first* binding (`lanes[0]`), which is where the Scala name was introduced; the intermediate concatenations are anonymous and were folded away. `allLanes` is the `#!scala val` that froze the result.
+
+3. **The vector port survives as a vector.** `lanes` is emitted as an unpacked array (`input wire logic [7:0] lanes [0:3]`) and indexed with constants, since every index was resolved during elaboration.
 ///
 
+/// tab | Generated VHDL
+```vhdl
+entity LaneConcat is
+port (
+  -- the four input lanes
+  lanes : in  t_arrX1_std_logic_vector(0 to 3)(7 downto 0);
+  -- the packed word
+  word  : out std_logic_vector(31 downto 0)
+);
+end LaneConcat;
+
+architecture LaneConcat_arch of LaneConcat is
+  signal acc      : std_logic_vector(7 downto 0);
+  signal allLanes : std_logic_vector(31 downto 0);
+begin
+  acc      <= lanes(0);
+  allLanes <= acc & lanes(1) & lanes(2) & lanes(3);
+  process (all)
+  begin
+    word   <= allLanes;
+  end process;
+end LaneConcat_arch;
+```
+The VHDL output tells the same story with different spelling:
+
+1. **The concatenation is one signal assignment**, `acc & lanes(1) & lanes(2) & lanes(3)`, using VHDL's `&` operator where Verilog uses `{...}`.
+
+2. **`acc` and `allLanes` become architecture signals**, declared before `begin`, since a DFHDL value that carries a name needs somewhere to live.
+
+3. **The vector port becomes a generated array type**, `t_arrX1_std_logic_vector(0 to 3)(7 downto 0)`, declared in the design's companion package.
+///
+
+The rules the compiler enforces:
+
+* **Ascribe the type as `T <> VAL` or `T <> CONST`.** An inferred type comes from the initializer, so it fixes the width at the first assignment (`#!scala var acc = lanes(0)` infers `Bits[8]`, and the next `#!scala acc = acc ++ lanes(1)` is then a width error) and it carries the initializer's scope, domain and assignability markers into every later use. An **assignable** ascription (a variable or a port) is rejected outright, since it would let one name be rebound with `=` and assigned with `:=`.
+* **Declare it only in an ED design or domain body.** Every other scope (a [process][processes], an `#!scala initial` block, a method body, and an RT or DF design or domain body) is sequential: it is elaborated once, not once per execution, so a `#!scala var` there cannot accumulate across a loop. Reassigning it only rebinds the Scala name to a value built inside the loop.
+* **Access it only from where it is declared.** A read or a reassignment from a sequential scope, or from inside a named method, is rejected: a method can be called from anywhere, including from inside a hardware loop. Freeze the accumulator into a `#!scala val` first, the way `allLanes` does above.
+* **Keep it `#!scala private`.** A public (or `#!scala protected`) `#!scala var` member stays reassignable from outside the design once elaboration is over, and it takes part in the design's selectable surface.
+* **Never hold a design, domain, or interface instance.** An instance is structural: it is created once and rebinding the Scala name neither removes the old one nor creates a new one.
+
+To accumulate in **hardware** rather than during elaboration, declare a DFHDL variable and assign it with `:=`. See [accumulating across a loop][loop-accumulators].
 
 ## Bubble Values {#bubble}
 
@@ -756,7 +835,7 @@ class Foo(val w: Int <> CONST) extends RTDesign:
   val v: UInt[4] X w.type <> CONST = all(0)  // vector length tied to w
 ```
 
-**Unbounded**: the size is bare `Int`, with no compile-time size information. Used when the type is too complex to express at the Scala type level (e.g., results of operations on parameterized types). The DFHDL compiler still has the required size information available during elaboration, where it is checked:
+**Unbounded**: the size is bare `Int`, with no compile-time size information. The DFHDL compiler still has the required size information available during elaboration, where it is checked:
 
 ```scala
 val cu: UInt[Int] <> VAL = 1
@@ -764,6 +843,33 @@ val cs: SInt[Int] <> VAL = -1
 val bv: Bits[8] X Int <> CONST = Vector(h"12", h"34")
 def twice(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
 ```
+
+#### Result Sizes of Operations {#operation-sizes}
+
+The reference tables throughout this guide give the size an operation produces as a formula over
+its operand sizes: `Max[LW, RW]` for commutative arithmetic, `LW + RW` for concatenation,
+`CLog2[N]` for a range-derived width, and so on. These are notation for the resulting size, not
+types you write yourself.
+
+Such a formula is evaluated at the Scala type level **only when every operand size is a literal**.
+The result is then a literal too, and the value is bounded. If any operand is parameterized or
+unbounded, the result is **unbounded** `Int`: the type level stops tracking the size, and the size
+is computed and checked during elaboration instead.
+
+```scala
+class Foo(val w: Int <> CONST) extends RTDesign:
+  val a = UInt(8) <> IN
+  val b = UInt(8) <> IN
+  val s = a + b // UInt[8], both operand widths are literals
+
+  val c = UInt(w) <> IN
+  val d = UInt(w) <> IN
+  val t = c + d // UInt[Int], the width is `w` and is checked during elaboration
+```
+
+This is why size mismatches between literal-sized values are reported by the Scala compiler, while
+the same mistake between parameterized values is reported during elaboration. Both are caught; only
+the moment differs.
 
 /// admonition | Struct fields must be bounded
     type: warning
@@ -1362,18 +1468,22 @@ matrix := all(all(0))  // All elements to 0
 
 #### Memory/RAM Implementation
 
-Vectors are commonly used to implement memories and RAMs:
+Vectors are commonly used to implement memories and RAMs. A shared vector variable, declared
+under an ED design and accessed from one or more RT domains (one per memory port), yields the
+standard synthesizable RAM template:
 
 ```scala
-class RAM extends RTDesign:
-  val addr = UInt(10) <> IN           // 10-bit address
-  val data = UInt(32) <> INOUT        // 32-bit data
-  val we   = Bit <> IN               // Write enable
-  
+class RAM extends EDDesign:
   val mem = UInt(32) X 1024 <> VAR.SHARED  // 1K x 32-bit memory
-  
-  if (we) mem(addr) := data          // Write
-  data := mem(addr)                  // Read
+
+  val port = new RTDomain:
+    val addr = UInt(10) <> IN              // 10-bit address
+    val data = UInt(32) <> IN              // 32-bit write data
+    val q    = UInt(32) <> OUT.REG         // 32-bit registered read data
+    val we   = Bit      <> IN              // Write enable
+
+    if (we) mem(addr) := data              // Write
+    q.din := mem(addr)                     // Read
 ```
 
 #### File Initialization

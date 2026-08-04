@@ -72,6 +72,66 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // a shared-variable (RAM) write lowers to `:==` like every other assignment in the clocked
+  // process (`SanityCheck.sharedAssignCheck` rejects the blocking form there); backends then
+  // render it per the target's object class (Verilog `<=`, VHDL `:=`)
+  test("Shared variable writes become non-blocking in the clocked process") {
+    class TrueDPR(
+        val DATA_WIDTH: Int <> CONST = 8,
+        val ADDR_WIDTH: Int <> CONST = 8
+    ) extends EDDesign:
+      val ram = Bits(DATA_WIDTH) X (2 ** ADDR_WIDTH) <> VAR.SHARED
+
+      val a, b = new RTDomain:
+        val data = Bits(DATA_WIDTH) <> IN
+        val addr = Bits(ADDR_WIDTH) <> IN
+        val q    = Bits(DATA_WIDTH) <> OUT.REG
+        val we   = Bit              <> IN
+
+        if (we)
+          ram(addr) := data
+        q.din       := ram(addr)
+    end TrueDPR
+    val top = (new TrueDPR()).toED
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |
+         |class TrueDPR(
+         |    val DATA_WIDTH: Int <> CONST = 8,
+         |    val ADDR_WIDTH: Int <> CONST = 8
+         |) extends EDDesign:
+         |  val ram = Bits(DATA_WIDTH) X (2 ** ADDR_WIDTH) <> VAR.SHARED
+         |  val a = new EDDomain:
+         |    @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |    val clk = Clk_default <> IN
+         |    val data = Bits(DATA_WIDTH) <> IN
+         |    val addr = Bits(ADDR_WIDTH) <> IN
+         |    val q = Bits(DATA_WIDTH) <> OUT
+         |    val we = Bit <> IN
+         |    process(clk):
+         |      if (clk.actual.rising)
+         |        if (we) ram(addr.uint.toInt) :== data
+         |        q :== ram(addr.uint.toInt)
+         |      end if
+         |  end a
+         |  val b = new EDDomain:
+         |    @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |    val clk = Clk_default <> IN
+         |    val data = Bits(DATA_WIDTH) <> IN
+         |    val addr = Bits(ADDR_WIDTH) <> IN
+         |    val q = Bits(DATA_WIDTH) <> OUT
+         |    val we = Bit <> IN
+         |    process(clk):
+         |      if (clk.actual.rising)
+         |        if (we) ram(addr.uint.toInt) :== data
+         |        q :== ram(addr.uint.toInt)
+         |      end if
+         |  end b
+         |end TrueDPR
+         |""".stripMargin
+    )
+  }
   test("Rising clk, Async Reset") {
     @hw.constraints.timing.clock(grpName = "cfg")
     @hw.constraints.timing.reset(mode = _.async)

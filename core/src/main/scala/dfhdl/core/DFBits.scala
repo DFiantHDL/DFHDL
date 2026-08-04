@@ -30,9 +30,9 @@ object DFBits:
   def to[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
-  ): DFBits[IntP.CLog2[IntP.+[V, 1]]] = trydf:
+  ): DFBits[IntP.CLog2P1[V]] = trydf:
     max.toScalaIntOpt.foreach(check(_))
-    ir.DFBits((max + 1).clog2.ref).asFE[DFBits[IntP.CLog2[IntP.+[V, 1]]]]
+    ir.DFBits((max + 1).clog2.ref).asFE[DFBits[IntP.CLog2P1[V]]]
 
   given [W <: IntP & Singleton](using
       dfc: DFCG,
@@ -615,11 +615,11 @@ object DFBits:
           checkLow: BitIndex.CheckNUB[LO, W],
           checkHiLo: BitsHiLo.CheckNUB[HI, LO]
       ): ExactOp3Aux["apply", DFC, DFValAny, L, HI, LO, DFVal[
-        DFBits[HI - LO + 1],
+        DFBits[IntP.RangeWidth[HI, LO]],
         Modifier[A, C, Any, P]
       ]] =
         new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
-          type Out = DFVal[DFBits[HI - LO + 1], Modifier[A, C, Any, P]]
+          type Out = DFVal[DFBits[IntP.RangeWidth[HI, LO]], Modifier[A, C, Any, P]]
           def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
             val idxHighParam = IntParam(idxHigh)
             val idxLowParam = IntParam(idxLow)
@@ -763,7 +763,9 @@ object DFBits:
         def repeat[N <: IntP](num: IntParam[N])(using
             dfc: DFCG,
             check: Arg.Positive.CheckNUB[N]
-        ): DFValTP[DFBits[IntP.*[icL.OutW, N]], icL.OutP | CONST] = trydf {
+          // `LW`, not the equivalent `icL.OutW`: a path-dependent type reads as non-constant to
+          // the `IsConst` guard and would collapse the width (see `IntP.IsConstInt2`)
+        ): DFValTP[DFBits[IntP.*[LW, N]], icL.OutP | CONST] = trydf {
           val lhsVal = icL(lhs)
           num.toScalaIntOpt.foreach(check(_))
           val lhsWidth = lhsVal.widthIntParam
@@ -851,7 +853,7 @@ object DFBits:
             dfc: DFCG,
             checkWidth: Arg.Width.CheckNUB[SW],
             checkLow: BitIndex.CheckNUB[BI, W],
-            checkHigh: BitIndex.CheckNUB[BI + SW - 1, W]
+            checkHigh: BitIndex.CheckNUB[IntP.PartSelectHigh[BI, SW], W]
         ): DFVal[DFBits[SW], Modifier[A, C, Any, P]] = trydf {
           selWidth.toScalaIntOpt.foreach(checkWidth(_))
           val idxHigh = baseIdx + selWidth - 1
@@ -869,7 +871,7 @@ object DFBits:
             dfc: DFCG,
             checkWidth: Arg.Width.CheckNUB[SW],
             checkHigh: BitIndex.CheckNUB[BI, W],
-            checkLow: BitIndex.CheckNUB[BI - SW + 1, W]
+            checkLow: BitIndex.CheckNUB[IntP.PartSelectLow[BI, SW], W]
         ): DFVal[DFBits[SW], Modifier[A, C, Any, P]] = trydf {
           selWidth.toScalaIntOpt.foreach(checkWidth(_))
           val idxLow = baseIdx - selWidth + 1

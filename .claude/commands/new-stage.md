@@ -1482,6 +1482,15 @@ not at each link, or you produce an inside-out alias that may not even be printa
 
 ## API Notes
 
+### `getOwner` throws; walking owners needs `ownerRef.get`
+
+`m.getOwner` raises `Exception: No owner found for member $m` whenever `ownerRef.get` is
+`DFMember.Empty`, which covers **globals, the top design, and the `Goto` step placeholders**
+(`NextStep`, `ThisStep`, `FirstStep`). Any pass that walks owners over *arbitrary* members, rather
+than ones it already knows are in-design, must match `m.ownerRef.get` and treat a non-`DFOwner`
+result as "no owning block". Getting this wrong turns one pass into hundreds of test failures whose
+message names the API rather than the pass, so it reads like a broken build, not a broken walk.
+
 ### Raw `ir.DFNet` construction inside MetaDesign
 
 Mirrors the raw `ir.Goto` idiom for emitting an assignment without going through typed core ops:

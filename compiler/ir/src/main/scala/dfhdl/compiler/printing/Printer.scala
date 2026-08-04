@@ -143,7 +143,7 @@ trait Printer
   // `lhsDcl` is the declaration the assignment targets (the LHS with its partial selections
   // stripped). Backends need it to pick the assignment form for the declaration's object class.
   def csAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String
-  def csNBAssignment(lhsStr: String, rhsStr: String): String
+  def csNBAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String
@@ -187,7 +187,7 @@ trait Printer
         val rhsStr = net.rhsRef.refCodeString
         net.op.runtimeChecked match
           case DFNet.Op.Assignment   => csAssignment(lhsStr, rhsStr, lhsDcl)
-          case DFNet.Op.NBAssignment => csNBAssignment(lhsStr, rhsStr)
+          case DFNet.Op.NBAssignment => csNBAssignment(lhsStr, rhsStr, lhsDcl)
         end match
   end csDFNet
   def csOpenKeyWord: String
@@ -810,7 +810,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   def csViaConnectionSep: String = ""
   def csAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String =
     s"$lhsStr := $rhsStr"
-  def csNBAssignment(lhsStr: String, rhsStr: String): String =
+  def csNBAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String =
     s"$lhsStr :== $rhsStr"
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
     s"$lhsStr <> ${rhsStr.applyBrackets()}"
@@ -942,7 +942,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     "VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
     "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",
     "goto", "wait", "assert", "report", "print", "println", "debug", "finish", "CLK_FREQ",
-    "COMB_LOOP", "FALL_THROUGH", "onEntry", "onExit", "fallThrough"
+    "COMB_LOOP", "FALL_THROUGH", "onEntry", "onExit", "fallThrough", "SHARED"
   )
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] = Set(

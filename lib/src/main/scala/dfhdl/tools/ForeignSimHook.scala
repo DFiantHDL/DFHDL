@@ -8,6 +8,10 @@ import dfhdl.options.SimulatorOptions
   *   - [[ipDir]]: the committed IP folder in the project (`<project>/dfhdl-ips/<ipName>`)
   *   - [[topName]]: the top design name being simulated
   *   - [[platformID]]: the top design's `@platformID(...)` name, if annotated (e.g. `ulx3s`)
+  *   - [[simInDFTools]]: whether the simulator itself runs from a DFTools image. This is the tool's
+  *     *effective* location — under `tools-location = auto` it cannot be derived from the option
+  *     alone — and is what a hook must key its own launches on (e.g. a viewer sharing the
+  *     simulator's loopback must run inside the DFTools network too, or on the host with it).
   *
   * An IP that needs more (test/capture config, per-run state, …) extends this with its own context
   * type and carries it through the whole lifecycle — DFHDL never needs to know those specifics.
@@ -16,7 +20,8 @@ open class ForeignSimContext(
     val ipName: String,
     val ipDir: os.Path,
     val topName: String,
-    val platformID: Option[String] = None
+    val platformID: Option[String] = None,
+    val simInDFTools: Boolean = false
 )
 
 /** A hook a foreign IP can register to run code around a DFHDL-driven simulation (e.g. launch a

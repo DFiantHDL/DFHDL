@@ -288,11 +288,11 @@ object DFVector:
           checkHigh: BitIndex.CheckNUB[HI, D1],
           checkHiLo: BitsHiLo.CheckNUB[HI, LO]
       ): ExactOp3Aux["apply", DFC, DFValAny, L, LO, HI, DFVal[
-        DFVector[T, Tuple1[HI - LO + 1]],
+        DFVector[T, Tuple1[IntP.RangeWidth[HI, LO]]],
         M
       ]] =
         new ExactOp3["apply", DFC, DFValAny, L, LO, HI]:
-          type Out = DFVal[DFVector[T, Tuple1[HI - LO + 1]], M]
+          type Out = DFVal[DFVector[T, Tuple1[IntP.RangeWidth[HI, LO]]], M]
           def apply(lhs: L, idxLow: LO, idxHigh: HI)(using DFC): Out = trydf {
             val idxLowParam = IntParam(idxLow)
             val idxHighParam = IntParam(idxHigh)

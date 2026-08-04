@@ -422,12 +422,53 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends HierarchyStage:
       throw new IllegalArgumentException(errors.mkString("\n"))
   end hdlMethodCheck
 
+  // Shared-variable write discipline under an event-driven (ED) domain: inside a process (an
+  // `initial` block excepted, where blocking preload is the correct form and `:==` is
+  // forbidden), a shared variable takes only non-blocking assignments. Writes then commit at
+  // the end of the process step, so every consumer agrees on read-during-write behavior:
+  // Verilog renders `<=` (the portable RAM-inference idiom) and DFacsimile applies its memory
+  // write ports after the sweep, while VHDL renders the same net with the variable's `:=`.
+  // PRIMARY enforcement is the compile-time `SharedNBAssignOnly` guard on `:=` in `DFVarOps`;
+  // the two must agree. A user cannot reach elaboration with the blocking form, so this
+  // IR-level check is deliberately NOT part of the elaboration `DB.check` path; it runs here
+  // (debug mode) to bind the stages, so a lowering that leaves a blocking shared write inside
+  // an ED process (e.g. `ToED`'s clocked-process conversion) fails right after the offending
+  // stage.
+  private def sharedAssignCheck()(using MemberGetSet): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    getSet.designDB.members.foreach {
+      case net @ DFNet.BAssignment(toVal, _) if net.isInEDDomain =>
+        toVal.departialDcl match
+          case Some((dcl, _)) if dcl.modifier.isShared =>
+            val inNonInitialProcess = net.isOwnedCond(cond = {
+              case pb: ProcessBlock =>
+                pb.sensitivity match
+                  case ProcessBlock.Sensitivity.Initial => Some(false)
+                  case _                                => Some(true)
+              case _: DFDomainOwner => Some(false)
+              case _                => None
+            })
+            if (inNonInitialProcess)
+              errors +=
+                s"""|DFiant HDL assignment error!
+                    |Position:  ${net.meta.position}
+                    |Hierarchy: ${net.getOwnerDesign.getFullName}
+                    |Message:   Blocking assignments `:=` to a shared variable are not allowed inside a process under an event-driven (ED) domain.
+                    |Change the assignment to a non-blocking assignment `:==`.""".stripMargin
+          case _ =>
+      case _ =>
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end sharedAssignCheck
+
   def transformSubDB(rootDB: DB)(using MemberGetSet, CompilerOptions, RefGen): DB =
     refCheck()
     memberExistenceCheck()
     ownershipCheck(subDB.top, subDB.membersNoGlobals.drop(1))
     orderCheck()
     hdlMethodCheck()
+    sharedAssignCheck()
     // the whole per-design set that elaboration runs, not a hand-picked one: a stage that breaks
     // any of them is caught right after it, and a check added there is picked up here for free
     subDB.subDBCheck

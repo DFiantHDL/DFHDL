@@ -278,10 +278,26 @@ trait Tool:
   protected def supportsDFTools: Boolean =
     DFToolsImage.imageForOpt(binExec, vhdl = false).isDefined
 
-  // True when the tool options select the DFTools image AND this tool actually has one; an
-  // unsupported tool always runs from the local PATH (fallback) regardless of the option.
+  // True when a dev/test sif override (`-Ddfhdl.dftools.sif.<image>`) is installed for an image
+  // this tool can run from (both yosys dialect images are checked). Used by `auto` below: an
+  // explicit override means "validate this image" (DFTools CI), which a silent local-tool win
+  // would bypass.
+  private def hasDFToolsSifOverride: Boolean =
+    List(false, true).flatMap(vhdl => DFToolsImage.imageForOpt(binExec, vhdl)).distinct
+      .exists(image => DFToolsImage.overrideSif(image).nonEmpty)
+
+  // True when this tool runs from its DFTools image; an unsupported tool (no image) always runs
+  // from the local PATH regardless of the option. Under `auto` (the default) the choice is
+  // local-first: a tool resolvable on the host PATH runs locally, and only a missing (or
+  // version-probe-failing) local install falls back to the image — except when a sif override
+  // explicitly targets the tool's image, which forces the image path.
   protected final def usesDFTools(using to: ToolOptions): Boolean =
-    supportsDFTools && to.runLocation == dfhdl.options.ToolOptions.Location.dftools
+    import dfhdl.options.ToolOptions.Location
+    supportsDFTools &&
+    (to.runLocation match
+      case Location.dftools => true
+      case Location.local   => false
+      case Location.auto    => hasDFToolsSifOverride || !isAvailable)
 
   // A short identifier of the active toolchain: its install location (local vs. the DFTools image)
   // and resolved version. Tools that keep cache-unmanaged build intermediates in the sandbox use
@@ -321,6 +337,16 @@ trait Tool:
         os.write.over(stamp, fingerprint)
   end purgeStaleToolArtifactsOnSwitch
 
+  // The maximum number of concurrently running executions of this tool, enforced by a JVM-wide
+  // fair semaphore around the spawned process (all tool launches in a test run come from the one
+  // sbt server JVM, so this bounds the truly live processes). Int.MaxValue (the default) disables
+  // the bound entirely. Override together with `execPermitKey` when several tool objects must
+  // share one bound (e.g. the two QuestaSim front-ends sharing a single-session license).
+  protected def maxConcurrentExecs: Int = Int.MaxValue
+  // The permit-registry key for `maxConcurrentExecs`. Tools sharing a key share the bound, and
+  // must declare the same count: the first execution to arrive fixes the semaphore size.
+  protected def execPermitKey: String = toolName
+
   final protected def exec(
       cmd: String,
       prepare: => Unit = (),
@@ -356,8 +382,14 @@ trait Tool:
       else ""
     if (dftools)
       if (!DFToolsImage.isAvailable(dftoolsImage))
+        // under `auto` this is the end of the fallback chain, so say why the local path was not
+        // taken either — otherwise the message reads as if the image were the only option tried
+        val autoNote =
+          if (summon[ToolOptions].runLocation == dfhdl.options.ToolOptions.Location.auto)
+            s" (tools-location is `auto` and no local ${toolName} installation was found either)"
+          else ""
         error(
-          s"DFTools image '$dftoolsImage' (${DFToolsImage.version}) could not be resolved for ${toolName}."
+          s"DFTools image '$dftoolsImage' (${DFToolsImage.version}) could not be resolved for ${toolName}$autoNote."
         )
     else preCheck()
     prepare
@@ -388,7 +420,51 @@ trait Tool:
           else s"${Paths.get(this.runExecFullPath).getParent().resolve(effRunExec)} $cmd"
         fullExec.split(" ").toSeq
     val displayCmd = argv.mkString(" ")
+    // Bound the number of concurrently running executions when the tool declares a limit
+    // (`maxConcurrentExecs`, e.g. 1 for the single-session QuestaSim license). The wait is
+    // announced once, and an interrupt while queued cancels the run exactly like an interrupt
+    // during it.
+    if (maxConcurrentExecs == Int.MaxValue)
+      spawnAndWait(argv, displayCmd, loggerOpt, dftools, extraEnv)
+    else
+      val permit = Tool.execPermitFor(execPermitKey, maxConcurrentExecs)
+      if (!permit.tryAcquire())
+        println(
+          s"${toolName} is waiting for an execution permit " +
+            s"(at most $maxConcurrentExecs concurrent execution(s) allowed)..."
+        )
+        // Ctrl+C must cancel a run that is still QUEUED through both channels that can deliver
+        // it here: an sbt job cancellation (`sbtn`) interrupts this thread, so the blocked
+        // `acquire` throws directly; a raw console SIGINT (`sbt`/standalone) only fires a signal
+        // handler, and no process-phase handler is installed while we wait, so a temporary INT
+        // handler interrupts this thread to the same effect. The previous handler is restored
+        // either way (the sbtn server JVM is long-lived and reused across runs).
+        val waiter = Thread.currentThread()
+        val queuedInterruptHandler = new sun.misc.SignalHandler:
+          def handle(sig: sun.misc.Signal): Unit = waiter.interrupt()
+        val prevHandler = sun.misc.Signal.handle(new sun.misc.Signal("INT"), queuedInterruptHandler)
+        try permit.acquire()
+        catch
+          case _: InterruptedException =>
+            println(s"\n${toolName} interrupted by user")
+            throw new ToolInterruptedException(s"${toolName} interrupted by user")
+        finally sun.misc.Signal.handle(new sun.misc.Signal("INT"), prevHandler)
+      end if
+      try spawnAndWait(argv, displayCmd, loggerOpt, dftools, extraEnv)
+      finally permit.release()
+    end if
+  end exec
 
+  // Spawns the tool process, pumps/logs its output, handles the cancellation channels, and
+  // reports the exit status. Extracted from `exec` so a permit-bounded run wraps exactly the
+  // process lifetime in acquire/release.
+  private def spawnAndWait(
+      argv: Seq[String],
+      displayCmd: String,
+      loggerOpt: Option[Tool.ProcessLogger],
+      dftools: Boolean,
+      extraEnv: Map[String, String]
+  )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     // process the output.
     // note that reading the output line-by-line may affect the program behavior, since it is
     // disengaged from the TTY.
@@ -542,10 +618,18 @@ trait Tool:
               |Command: $displayCmd""".stripMargin
         )
     end if
-  end exec
+  end spawnAndWait
   override def toString(): String = binExec
 end Tool
 object Tool:
+  // Execution permits, keyed by a tool's `execPermitKey`: a fair (FIFO) semaphore per key,
+  // created on first use with that tool's `maxConcurrentExecs`. Tools sharing a key must declare
+  // the same count, since the first execution fixes the semaphore size.
+  private val execPermits =
+    scala.collection.concurrent.TrieMap.empty[String, java.util.concurrent.Semaphore]
+  private[toolsCore] def execPermitFor(key: String, maxConcurrent: Int) =
+    execPermits.getOrElseUpdate(key, new java.util.concurrent.Semaphore(maxConcurrent, true))
+
   // Rate-limits how fast tool output is forwarded to the console. This serves two purposes under an
   // `sbtn` output flood:
   //  1. It keeps the client<->server channel idle enough to deliver a Ctrl+C: the cancel arrives as a
@@ -784,7 +868,10 @@ trait Simulator extends Tool:
         val fsrc = b.foreignIPSource.get
         loadForeignSimHook(fsrc.simHookClass).map { hook =>
           val ipDir = os.Path(execPath, os.pwd) / os.RelPath(fsrc.resourcePath)
-          val base = new dfhdl.tools.ForeignSimContext(b.dclName, ipDir, topName, platformID)
+          // hand the hook this tool's EFFECTIVE location (under `auto` it is not derivable from
+          // the options), so a viewer it launches lands where the simulator actually runs
+          val base =
+            new dfhdl.tools.ForeignSimContext(b.dclName, ipDir, topName, platformID, usesDFTools)
           dfhdl.tools.ForeignSimHook.bind(hook, base)
         }
       }

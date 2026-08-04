@@ -165,6 +165,17 @@ renders them with the compiler's own `Message.Printer` and would report
 `dfhdl.core.DFVal[dfhdl.core.DFType[...], ...]` where the user sees `Bits[8] <> VAR`. Use
 `assertPluginError` for anything that asserts on how a type is printed.
 
+`-P:dfhdl.plugin:disableCustomPrinter` leaves the printer and the `CustomReporter` uninstalled for
+a compilation, so diagnostics come out in the compiler's own vocabulary. It is a debugging aid for
+work on the DSL: when a diagnostic is hard to read, it separates a genuinely confusing error from
+one the printer made confusing, without commenting out `PreTyperPhase.initContext` to find out.
+Expect `TypePrinterSpec` (and `DFMatchSpec`'s literal-pattern case) to fail while it is on, since
+those assert the printer's output:
+
+```bash
+sbtn.bat 'set core/Test/scalacOptions += "-P:dfhdl.plugin:disableCustomPrinter"; core/Test/compile'
+```
+
 ## Coverage
 
 Every plugin `report.error` site is covered by an `assertPluginError` test in the core spec

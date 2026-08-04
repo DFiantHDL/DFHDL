@@ -30,12 +30,15 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   def csViaConnectionSep: String = ","
   // VHDL spells the assignment after the target's object class, not after the blocking/non-blocking
   // distinction: a variable takes `:=` and a signal takes `<=`. `isHDLVariable` is the same
-  // predicate that chooses the declaration keyword in `csDFValDclWithoutInit`.
+  // predicate that chooses the declaration keyword in `csDFValDclWithoutInit`. This covers the
+  // non-blocking op too: a `:==` write to a shared variable (the multi-port RAM idiom) has no
+  // VHDL spelling other than the variable's `:=`.
   def csAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String =
     if (lhsDcl.isHDLVariable) s"$lhsStr := $rhsStr;"
     else s"$lhsStr <= $rhsStr;"
-  def csNBAssignment(lhsStr: String, rhsStr: String): String =
-    s"$lhsStr <= $rhsStr;"
+  def csNBAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String =
+    if (lhsDcl.isHDLVariable) s"$lhsStr := $rhsStr;"
+    else s"$lhsStr <= $rhsStr;"
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
     s"$lhsStr <= $rhsStr;"
   def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String =

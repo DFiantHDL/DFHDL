@@ -1020,20 +1020,20 @@ object DFVal extends DFValLP:
           relVal: DFVal[DFBits[W], M],
           idxHigh: IntParam[H],
           idxLow: IntParam[L]
-      )(using DFC): DFVal[DFBits[H - L + 1], M] =
-        forced(relVal.asIR, idxHigh, idxLow).asVal[DFBits[H - L + 1], M]
+      )(using DFC): DFVal[DFBits[IntP.RangeWidth[H, L]], M] =
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFBits[IntP.RangeWidth[H, L]], M]
       def applyDFXInt[S <: Boolean, W <: IntP, M <: ModifierAny, H <: IntP, L <: IntP](
           relVal: DFVal[DFXInt[S, W, NativeType.BitAccurate], M],
           idxHigh: IntParam[H],
           idxLow: IntParam[L]
-      )(using DFC): DFVal[DFUInt[H - L + 1], M] =
-        forced(relVal.asIR, idxHigh, idxLow).asVal[DFUInt[H - L + 1], M]
+      )(using DFC): DFVal[DFUInt[IntP.RangeWidth[H, L]], M] =
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFUInt[IntP.RangeWidth[H, L]], M]
       def applyVector[T <: DFTypeAny, M <: ModifierAny, H <: IntP, L <: IntP](
           relVal: DFVal[DFVector[T, Tuple1[?]], M],
           idxHigh: IntParam[H],
           idxLow: IntParam[L]
-      )(using DFC): DFVal[DFVector[T, Tuple1[H - L + 1]], M] =
-        forced(relVal.asIR, idxHigh, idxLow).asVal[DFVector[T, Tuple1[H - L + 1]], M]
+      )(using DFC): DFVal[DFVector[T, Tuple1[IntP.RangeWidth[H, L]]], M] =
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFVector[T, Tuple1[IntP.RangeWidth[H, L]]], M]
       def forced[H <: IntP, L <: IntP](
           relVal: ir.DFVal,
           idxHigh: IntParam[H],
@@ -1552,9 +1552,23 @@ object DFVal extends DFValLP:
         // operator `<>` as a connection is bidirectional and commutative
         // if both LHS and RHS are DFVals, we call `specialConnect` to handle possible
         // connection in either direction where both implicit directions are available
+        // `unstableSkolemPrefix`: the operands are taken apart under the types `L` and `R` the
+        // caller inferred for them, never under the types they are written with. The two name the
+        // same type, except for an operand reached through a qualifier that is not a stable path
+        // (`bars(0).out_data`, and not `bars(0)` bound to a `val` first): the written form is then
+        // a `Bar#out_data` reference type, and the compiler derives such a reference's underlying
+        // type on demand, by an as-seen-from over the unstable prefix. Every derivation invents a
+        // FRESH skolem to stand for the prefix, so a type argument that depends on the prefix (the
+        // width of `Bits(OUTPUT_WIDTH)`) reads as `?1.OUTPUT_WIDTH` in the scrutinee and
+        // `?2.OUTPUT_WIDTH` in the pattern: two types that never conform, and the match fails to
+        // reduce. `L` and `R` are single derivations already, so both sides then name one skolem.
+        // The cast has to stay written out here rather than move into a shared inline helper: the
+        // helper's expansion carries ITS OWN position, which then replaces the user's position in
+        // elaboration errors. See https://github.com/DFiantHDL/DFHDL/issues/427 and the upstream
+        // compiler report at https://github.com/scala/scala3/issues/26681
         inline if (isConcreteDFVal[L] && isConcreteDFVal[R])
-          inline lhs match
-            case ___lhs: DFVal[lt, lm] => inline rhs match
+          inline lhs.asInstanceOf[L] match
+            case ___lhs: DFVal[lt, lm] => inline rhs.asInstanceOf[R] match
                 case ___rhs: DFVal[rt, rm] =>
                   ConnectOps.specialConnect[lt, lm, rt, rm](___lhs, ___rhs)
         else
@@ -1589,8 +1603,10 @@ object DFVal extends DFValLP:
         case _: DFValAny => true
         case _           => false
       inline if (lhsIsDFVal && rhsIsDFVal)
-        inline lhs match
-          case ___lhs: DFValTP[lt, lp] => inline rhs match
+        // the operands are taken apart under `L` and `R`; see the `unstableSkolemPrefix` note in
+        // `<>` above
+        inline lhs.asInstanceOf[L] match
+          case ___lhs: DFValTP[lt, lp] => inline rhs.asInstanceOf[R] match
               case ___rhs: DFValTP[rt, rp] =>
                 specialCompare[Op, lt, lp, rt, rp](___lhs, ___rhs)
       else exactOp2[Op, DFC, DFValOf[DFBool]](lhs, rhs)
@@ -1689,7 +1705,10 @@ object DFVal extends DFValLP:
     end extension
 
     extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
-      def bits(using DFCG)(using w: Width[T]): DFValTP[DFBits[w.Out], P] = trydf {
+      // the width is bound to a type parameter rather than returned as `w.Out`: a path-dependent
+      // width reads as non-constant to the `IsConst` guard, so every later operation on this value
+      // (`.repeat`, arithmetic) would collapse to `Bits[Int]` (see `IntP.IsConstInt2`)
+      def bits[W <: IntP](using DFCG)(using w: Width.Aux[T, W]): DFValTP[DFBits[W], P] = trydf {
         DFVal.Alias.AsIs(DFBits(dfVal.widthIntParam), dfVal)
       }
       def genNewVar(using DFC): DFVarOf[T] = trydf {
@@ -1826,12 +1845,25 @@ object DFVarOps:
   //     modifier, which carries the scope and domain it was declared in (see
   //     `evPortVarConstructor`, whose result modifier is `A & SC & DT`).
   //
-  // `:=` needs a scope that grants blocking assignment: a process, an `initial` block, a
-  // procedural body, or a function body. That single capability summon replaces the former
-  // six-way union of places. The remaining alternatives are unchanged: a non-ED-declared value,
-  // or an RT domain (where `:=` is the ordinary assignment form).
+  // "Is the INNERMOST scope a sequential one?", which is the question `:=` under an ED domain has
+  // to ask: a process, an `initial` block, a procedural body, or a function body.
+  //
+  // A bare `AssertGiven[DFC.Scope.HasAssign]` cannot ask it. `Concurrent` (a design or domain
+  // body) also has `HasAssign`, because `:=` IS the ordinary assignment form under the RT and DF
+  // domains, so the summon reaches the enclosing ED design's own given and accepts a concurrent
+  // `:=` (failure mode 1 in `DFC.Scope`: summoning a capability is correct only when NO enclosing
+  // scope has it). Routing through a given that takes the scope as a type parameter tests the
+  // innermost binding instead, the way `TextOut.InTextOutScope` does. `Function` is named
+  // alongside the bundle because it deliberately stays out of the bundles.
+  trait InSeqAssignScope
+  object InSeqAssignScope:
+    given [S <: DFC.Scope](using
+        s: S
+    )(using S <:< (DFC.Scope.Sequence | DFC.Scope.Function)): InSeqAssignScope with {}
+  // The remaining alternatives: a value not declared under an ED domain, or an RT domain (where
+  // `:=` is the ordinary assignment form).
   protected type `InsideProcess:=`[D, A] = AssertGiven[
-    DFC.Scope.HasAssign | util.NotGiven[A <:< DomainType.ED] | D <:< DomainType.RT,
+    InSeqAssignScope | util.NotGiven[A <:< DomainType.ED] | D <:< DomainType.RT,
     "Blocking assignments `:=` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
   // `:==` is granted by `HasNBAssign`, which only `Process` has.
@@ -1846,6 +1878,17 @@ object DFVarOps:
   protected type `NotInInitial:==` = AssertGiven[
     util.NotGiven[DFC.Scope.Initial],
     "Non-blocking assignments `:==` are not allowed inside an `initial` block.\nChange the assignment to a blocking assignment `:=`."
+  ]
+  // Under an ED domain a shared variable takes only non-blocking assignments, so that its
+  // writes commit at the end of the process step for every consumer alike (Verilog `<=`,
+  // DFacsimile's memory write ports; VHDL renders the same net with the variable's `:=`).
+  // `SanityCheck.sharedAssignCheck` is the stage-level twin of this guard (binding the
+  // lowerings, e.g. `ToED`); the two must agree. An `initial` block is the exception: there
+  // `:==` is forbidden and a blocking preload is the correct form.
+  protected type SharedNBAssignOnly[D, A] = AssertGiven[
+    util.NotGiven[A <:< Modifier.AssignableSHARED] | util.NotGiven[D <:< DomainType.ED] |
+      DFC.Scope.Initial,
+    "Blocking assignments `:=` to a shared variable are not allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a non-blocking assignment `:==`."
   ]
   // extension [L](inline lhs: L)
   //   transparent inline def :=[R](inline rhs: R)(using DFC): Unit =
@@ -1862,7 +1905,8 @@ object DFVarOps:
         notREG: NotREG[A],
         varOnly: VarOnly[A],
 //        localOrNonED: LocalOrNonED[A],
-        insideProcess: `InsideProcess:=`[dt.type, A]
+        insideProcess: `InsideProcess:=`[dt.type, A],
+        sharedNBOnly: SharedNBAssignOnly[dt.type, A]
     ): Unit = trydf {
       dfVar.assign(rhs(dfVar.dfType))
     }

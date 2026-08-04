@@ -45,7 +45,7 @@ internals → plugin → compiler_ir → core → compiler_stages → lib → pl
 | Subproject | SBT name | Directory | Purpose |
 |---|---|---|---|
 | internals | `internals` | `internals/` | Core utilities: BitVector, MetaContext, DiskCache, etc. |
-| plugin | `plugin` | `plugin/` | Scala 3 compiler plugin (9 phases) |
+| plugin | `plugin` | `plugin/` | Scala 3 compiler plugin (14 phases) |
 | compiler_ir | `compiler_ir` | `compiler/ir/` | IR/AST data structures, type system |
 | core | `core` | `core/` | HDL language abstractions (DFVal, DFType, Design) |
 | compiler_stages | `compiler_stages` | `compiler/stages/` | 50+ transformation stages for code generation |
@@ -55,19 +55,46 @@ internals → plugin → compiler_ir → core → compiler_stages → lib → pl
 
 ## Compiler Plugin Phases
 
-Located in `plugin/src/main/scala/plugin/`:
+Located in `plugin/src/main/scala/plugin/`, in the order `Plugin.initialize` lists them:
 
-1. `PreTyperPhase` — pre-typing transformations
+1. `PreTyperPhase` — untyped parse-tree rewrites (`<>` precedence, auto-`@top`)
 2. `TopAnnotPhase` — top-level annotation processing
-3. `MetaContextPlacerPhase` — places meta-context markers
-4. `LoopFSMPhase` — loop-to-FSM transformations
-5. `CustomControlPhase` — custom control flow
-6. `MethodsPhase` — DFHDL method (`def`) processing
-7. `MetaContextDelegatePhase` — meta-context delegation
-8. `MetaContextGenPhase` — meta-context code generation
-9. `OnCreateEventsPhase` — on-create event handling
+3. `PureCheckPhase` — purity analysis for elaboration caching
+4. `CodeDigestPhase` — code digests, the elaboration cache keys
+5. `ScalaVarPhase` — the permission list for a Scala `var` holding a DFHDL value (see [devdocs/scala-var-rules.md](devdocs/scala-var-rules.md))
+6. `MetaContextPlacerPhase` — places meta-context markers
+7. `FlattenInlinedPhase` — flattens `Inlined` wrappers
+8. `LoopFSMPhase` — loop-to-FSM transformations
+9. `CustomControlPhase` — custom control flow
+10. `MethodsPhase` — DFHDL method (`def`) processing
+11. `MetaContextDelegatePhase` — meta-context delegation
+12. `MetaContextGenPhase` — meta-context code generation
+13. `OnCreateEventsPhase` — on-create event handling
+14. `DesignClsSkipPhase` — skips design classes in later standard transforms
 
-The plugin is applied to `core`, `compiler_stages`, `lib`, `platforms`, and `ips` via `pluginUseSettings` / `pluginTestUseSettings`.
+`PluginTestPhase` (pipeline name `PluginErrCheck`) is a 15th phase, appended only under
+`-P:dfhdl.plugin:testing`. Adding a phase means registering it in **both** `Plugin.initialize` and
+`PluginTestPhase.freshPluginPhases`, or `assertPluginError` will not see its diagnostics.
+
+Where the plugin is applied (verify with `show <proj>/<scope>/scalacOptions`, not by reading `build.sbt`):
+
+| Subproject | `Compile` | `Test` |
+|---|---|---|
+| `internals`, `plugin`, `compiler_ir` | — | — |
+| `core` | — | ✔ + `-P:dfhdl.plugin:testing` |
+| `compiler_stages` | — | ✔ |
+| `lib`, `platforms`, `ips`, `benchmarks` | ✔ | ✔ |
+
+So `core` and `compiler_stages` build their own sources *without* the plugin and only apply it to their tests. `core`'s test scope additionally enables the `PluginErrCheck` phase behind `assertPluginError` (see [devdocs/plugin-error-testing.md](devdocs/plugin-error-testing.md)).
+
+`internals` is the only plugin-free subproject with a test directory, which makes it the sandbox for minimizing a suspected *compiler* bug away from DFHDL's own machinery (see [/bugfix](.claude/commands/bugfix.md)).
+
+Plugin options are `-P:dfhdl.plugin:<option>`, parsed in `plugin/src/main/scala/plugin/Setting.scala` (register a new flag there, or it is read as the config file path instead):
+
+| Option | Purpose |
+|---|---|
+| `testing` | Enables the `PluginErrCheck` phase behind `assertPluginError`. DFHDL's own tests only; see [devdocs/plugin-error-testing.md](devdocs/plugin-error-testing.md) |
+| `disableCustomPrinter` | Leaves the DFHDL type printer and diagnostic re-reporter uninstalled, so errors read in the compiler's own vocabulary. Debugging aid; `TypePrinterSpec` fails while it is on |
 
 ## Testing
 

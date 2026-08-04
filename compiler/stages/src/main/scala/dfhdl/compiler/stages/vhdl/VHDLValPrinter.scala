@@ -24,8 +24,9 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     if (dfVal.isPort) s"${dfVal.getName} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr"
     else
-      // signal vs variable comes from `isHDLVariable`, the same predicate `csAssignment` uses to
-      // pick `:=` over `<=`, so a declaration and its writes can never disagree
+      // signal vs variable comes from `isHDLVariable`, the same predicate `csAssignment` and
+      // `csNBAssignment` use to pick `:=` over `<=`, so a declaration and its writes can never
+      // disagree
       val sigOrVar = dfVal.getOwnerNamed match
         // a design-level declaration is a signal unless it is a `VAR.SHARED`
         case _: DFDesignBlock if !dfVal.isHDLVariable => "signal"

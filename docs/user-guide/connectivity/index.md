@@ -15,7 +15,7 @@ This section focuses on the `<>` connection operator and how it relates to the a
 
 | Criteria | `<>` Connection | `:=`/`:==` Assignment |
 | --- | :--- | :--- |
-| Directionality &<br />Commutativity | Commutative: `a <> b` is equivalent to `b <> a`. One side is the *producer* and the other the *consumer*; the dataflow direction is inferred from the operands and the context in which the operator is applied. | Non-commutative: `a := b` makes `b` the *producer*, transferring data to the *consumer* `a`. |
+| Directionality &<br />Commutativity | Commutative: `a <> b` is equivalent to `b <> a`. One side is the *producer* and the other the *consumer*; the dataflow direction is inferred from the operands and the context in which the operator is applied. The sole exception is a connection between two of the design's own output ports, where both sides could be the consumer and the LHS wins (see [output-to-output connections](#output-to-output)). | Non-commutative: `a := b` makes `b` the *producer*, transferring data to the *consumer* `a`. |
 | Mutation | Each consumer bit can be connected at most once. A consumer may still receive several connections, as long as they target disjoint bit ranges (e.g. `y(3, 0) <> a` and `y(7, 4) <> b`). | A consumer bit can be assigned any number of times; the last assignment in program order wins. |
 | Statement Order | Connection statements can be placed in any order. | Assignment statements are order-sensitive. |
 
@@ -170,6 +170,22 @@ class Assign1 extends DFDesign:
   // io.out := 1 // Bad assignment! An output port can only be assigned internally
 ```
 
+### Output-to-Output Connections {#output-to-output}
+
+A design's own output port can be driven inside the design and read there as well, so a connection between two of them is the one case where the direction cannot be inferred: either side could be the consumer. Here, and only here, `<>` is not commutative. The **left-hand side is the consumer**, which makes the connection read like an assignment:
+
+```scala
+class Foo extends EDDesign:
+  val x = Bits(8) <> OUT
+  val y = Bit <> OUT
+  x <> all(0)
+  y <> x(0) // `y` is the consumer, driven by bit 0 of `x`
+```
+
+Written the other way around, `x(0) <> y` makes `x(0)` the consumer, which in this example collides with the `x <> all(0)` connection and is reported as a [multiple connection](#multiple-connections) error.
+
+A [domain][design-domains]'s output port is promoted to a port of the enclosing design, so it counts here too: `o <> dmn.d` drives the design's `o` from the domain's `d`.
+
 ### Immutable Value Connections
 
 When connecting a port to an immutable value (such as a constant), the port must be the consumer. This means the connection is done internally to an output port or externally to an input port, e.g.:
@@ -295,7 +311,7 @@ class Top extends EDDesign:
 
 /// admonition
     type: note
-`OPEN` can only be used with the `<>` connection operator. Using it with `:=` assignment results in a compile error.
+`OPEN` is valid only on an entire output port of a design instance, and only with the `<>` connection operator. An input port of a design instance must always be driven, so `OPEN` on one is an elaboration error, and using `OPEN` with the `:=` assignment operator is a compile error. See [Open (Unconnected) Ports][open-ports] for the full rules.
 ///
 
 ## Valid Connection and Assignment Examples

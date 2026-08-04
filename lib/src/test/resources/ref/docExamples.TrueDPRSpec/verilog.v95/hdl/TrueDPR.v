@@ -26,23 +26,17 @@ module TrueDPR(
   input  wire [ADDR_WIDTH - 1:0] b_addr;
   output reg [DATA_WIDTH - 1:0]  b_q;
   input  wire                    b_we;
+  /* verilator lint_off MULTIDRIVEN */
   reg [DATA_WIDTH - 1:0] ram [0:power(2, ADDR_WIDTH) - 1];
+  /* verilator lint_on MULTIDRIVEN */
   always @(posedge a_clk)
   begin
-    if (a_we) begin
-      /* verilator lint_off BLKSEQ */
-      ram[a_addr] = a_data;
-      /* verilator lint_on BLKSEQ */
-    end
-    a_q           <= ram[a_addr];
+    if (a_we) ram[a_addr] <= a_data;
+    a_q <= ram[a_addr];
   end
   always @(posedge b_clk)
   begin
-    if (b_we) begin
-      /* verilator lint_off BLKSEQ */
-      ram[b_addr] = b_data;
-      /* verilator lint_on BLKSEQ */
-    end
-    b_q           <= ram[b_addr];
+    if (b_we) ram[b_addr] <= b_data;
+    b_q <= ram[b_addr];
   end
 endmodule

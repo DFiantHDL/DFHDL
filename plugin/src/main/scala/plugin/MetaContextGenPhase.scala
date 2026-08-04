@@ -117,34 +117,11 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           case _ => false
       case _ => false
 
-  // Within a `simulation { ... }` host block, holding a DFHDL *constant* reference
-  // model in a Scala `var` (e.g. `var model = d"8'0"` updated by constant
-  // arithmetic) is an intentional, idiomatic testbench pattern, so we waive the
-  // `var` discouragement warning for it. The waiver is limited to constants: `var`s
-  // holding non-constant DFHDL values remain discouraged even inside a simulation.
-  private def isWaivedSimConstVar(t: ValOrDefDef)(using Context): Boolean =
-    t match
-      case vd: ValDef if vd.tpt.tpe.isDFConst =>
-        // `dfhdl.sim.SimCtx` lives in the `compiler_stages` subproject and is not on
-        // the classpath when compiling e.g. `core`, so resolve it defensively.
-        val simCtxSym = getClassIfDefined("dfhdl.sim.SimCtx")
-        simCtxSym.exists && t.symbol.ownersIterator.exists { owner =>
-          // the `SimCtx ?=> ...` host-block context function becomes an anonymous
-          // method carrying a `SimCtx` parameter — its presence in the owner chain
-          // marks that we are inside a `simulation` block.
-          owner.is(Method) &&
-          owner.paramSymss.flatten.exists(_.info.typeSymbol == simCtxSym)
-        }
-      case _ => false
-
   def getMetaInfo(ownerTree: Tree, srcPos: util.SrcPos)(using Context): Option[MetaInfo] =
     ownerTree match
       case t: ValOrDefDef if t.needsNewContext =>
-        if (t.symbol.flags.is(Flags.Mutable) && !isWaivedSimConstVar(t))
-          report.warning(
-            "Scala `var` modifier for DFHDL values/designs is highly discouraged!\nConsider changing to `val`.",
-            t.srcPos
-          )
+        // A Scala `var` holding a DFHDL value used to be met with a blanket discouragement
+        // warning here. It is now a permission list of errors, in `ScalaVarPhase`.
         val (nameOpt, docOpt, annots) =
           t match
             case vd: ValDef if vd.isEmpty || ignoreValDef(vd) => (None, None, Nil)

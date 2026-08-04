@@ -154,6 +154,17 @@ Two traps here, both of which produce confusing failures:
   variable and makes every `:=` fail with "Cannot assign to an immutable value". (This is the same
   hazard the `idA: Id[A]` hack guards against in `evAssignDcl`.)
 
+`HasAssign` needs the same form for a second, independent reason: **`Concurrent` has it too**,
+because `:=` is the ordinary assignment form under the RT and DF domains. So even setting the
+ambient `Function` given aside, `AssertGiven[HasAssign]` inside an ED design body finds that body's
+own given and accepts a concurrent `:=`. `DFVarOps.InSeqAssignScope` asks what the ED rule actually
+needs, "is the innermost scope a `Sequence` or a `Function`?", and `CoreSpec.ScopeChecksSpec` pins
+both the rejections and the four places that keep `:=`.
+
+The lesson generalizes past the ambient-`Function` framing: before writing a plain capability
+summon, list **every** place that mixes the capability in, not just the ones the construct is meant
+for. A capability that any enclosing place has cannot be summoned plainly, whatever the reason.
+
 Inside an `inline` body the innermost scope's *type* cannot be named, so the type-parameter form is
 unavailable. Route through an intermediate given that summons the scope internally:
 
@@ -256,3 +267,7 @@ this reason.
   the runtime owner check in `evPortVarConstructor`.
 - **RT and `HasLoops`.** `while` is still gated on `DomainType.RT` rather than on the `HasLoops`
   capability. The two agree today, but the domain guard is the one actually doing the work.
+- **Five capabilities are declared but never summoned.** `HasConnect`, `HasDomains`, `HasHistory`,
+  `HasSteps` and `HasLocalBlocks` appear in the lattice and in no guard, so the constructs they
+  name are restricted by other means (or not at all). They document intent rather than enforce it,
+  which is worth knowing before assuming a scope violation would be caught.
