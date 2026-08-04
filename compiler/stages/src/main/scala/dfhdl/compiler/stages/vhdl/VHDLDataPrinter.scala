@@ -21,7 +21,9 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
     printer.dialect match
       case VHDLDialect.v93 => false
       case _               => true
-  def csDFBitBubbleChar: Char = '-'
+  // `'-'` is VHDL's don't-care in value positions AND the `case?` pattern wildcard, so the
+  // pattern context needs no digit change
+  def csDFBitBubbleChar(inPattern: Boolean): Char = '-'
   def csDFBitsBinFormat(binRep: String): String = s""""$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""x"$hexRep""""
   def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String =

@@ -2,7 +2,7 @@
 `timescale 1ns/1ps
 `include "Cipher_defs.svh"
 
-module mulByte_2#(parameter logic [7:0] lhs = 8'h??)(
+module mulByte_2#(parameter logic [7:0] lhs = 8'hxx)(
   input  wire t_opaque_AESByte rhs,
   output t_opaque_AESByte      o
 );

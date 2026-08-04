@@ -3433,4 +3433,51 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // a branch-local temporary hoisted to a process variable receives a don't-care default at the
+  // top of the combinational process, so its lifetime extension does not retain state across
+  // process activations (issue #438)
+  test("hoisted combinational branch temporary gets a don't-care default") {
+    class CombBranchTemp extends EDDesign:
+      val sel = Bit     <> IN
+      val a   = UInt(8) <> IN
+      val b   = UInt(8) <> IN
+      val res = UInt(8) <> OUT
+      process(all):
+        res := a
+        if (sel)
+          val tmp = a + b
+          res := tmp
+    val top = (new CombBranchTemp).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity CombBranchTemp is
+         |port (
+         |  sel : in std_logic;
+         |  a : in unsigned(7 downto 0);
+         |  b : in unsigned(7 downto 0);
+         |  res : out unsigned(7 downto 0)
+         |);
+         |end CombBranchTemp;
+         |
+         |architecture CombBranchTemp_arch of CombBranchTemp is
+         |begin
+         |  process (all)
+         |    variable tmp : unsigned(7 downto 0);
+         |  begin
+         |    res <= a;
+         |    tmp := unsigned'(x"--");
+         |    if sel then
+         |      tmp := a + b;
+         |      res <= tmp;
+         |    end if;
+         |  end process;
+         |end CombBranchTemp_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

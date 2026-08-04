@@ -76,6 +76,7 @@ class DropLocalDclsSpec extends StageSpec:
          |  val zzz = SInt(16) <> VAR init sd"16'0"
          |  val c: SInt[16] <> CONST = sd"16'1"
          |  process(all):
+         |    zz := ?
          |    if (x > sd"16'5")
          |      x match
          |        case sd"16'2" => zzz := x + c
@@ -116,6 +117,7 @@ class DropLocalDclsSpec extends StageSpec:
          |  val z = SInt(16) <> VAR
          |  process(all):
          |    val zz = SInt(16) <> VAR
+         |    zz := ?
          |    val zzz = SInt(16) <> VAR init sd"16'0"
          |    val c: SInt[16] <> CONST = sd"16'1"
          |    if (x > sd"16'5")
@@ -214,6 +216,89 @@ class DropLocalDclsSpec extends StageSpec:
          |      y.din := zz
          |      NextStep
          |    end S_0
+         |end ID
+         |""".stripMargin
+    )
+
+  test("Combinational defaults for conditionally scoped dcls"):
+    class ID extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      process(all):
+        y := 0
+        while (y < x)
+          val zw = SInt(16) <> VAR
+          zw := y + 1
+          y  := zw
+        for (i <- 0 until 4)
+          if (x > 5)
+            val zf = SInt(16) <> VAR
+            zf := x + i
+            y  := zf
+    end ID
+    val id = (new ID).dropLocalDcls
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val zw = SInt(16) <> VAR
+         |  val zf = SInt(16) <> VAR
+         |  process(all):
+         |    y := sd"16'0"
+         |    zw := ?
+         |    while (y < x)
+         |      zw := y + sd"16'1"
+         |      y := zw
+         |    end while
+         |    zf := ?
+         |    for (i <- 0 until 4)
+         |      if (x > sd"16'5")
+         |        zf := x + sd"16'${i}"
+         |        y := zf
+         |      end if
+         |    end for
+         |end ID
+         |""".stripMargin
+    )
+
+  test("No combinational defaults in non-combinational processes"):
+    class ID extends EDDesign:
+      val clk = Bit      <> IN
+      val x   = SInt(16) <> IN
+      val y   = SInt(16) <> OUT
+      val z   = SInt(16) <> OUT
+      process(clk):
+        if (clk.rising)
+          val zc = SInt(16) <> VAR
+          zc := x + 1
+          y  := zc
+      process(x):
+        if (x > 5)
+          val zs = SInt(16) <> VAR
+          zs := x + 1
+          z  := zs
+    end ID
+    val id = (new ID).dropLocalDcls
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val clk = Bit <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val z = SInt(16) <> OUT
+         |  val zc = SInt(16) <> VAR
+         |  process(clk):
+         |    if (clk.rising)
+         |      zc := x + sd"16'1"
+         |      y := zc
+         |    end if
+         |  val zs = SInt(16) <> VAR
+         |  process(x):
+         |    if (x > sd"16'5")
+         |      zs := x + sd"16'1"
+         |      z := zs
+         |    end if
          |end ID
          |""".stripMargin
     )

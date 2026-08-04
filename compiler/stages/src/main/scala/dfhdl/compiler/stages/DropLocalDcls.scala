@@ -144,6 +144,42 @@ import scala.annotation.tailrec
   *     def S_0: Step =
   *       ...
   * }}}
+  *
+  * ===Rule 5: Combinational don't-care defaults for lifted variables===
+  * Lifting a variable out of a conditional scope inside a combinational process (`process(all)`)
+  * extends its lifetime: the variable is then driven on only some of the process paths, so
+  * synthesis infers a latch for it, which is a hard error for Verilog `always_comb`. Since the
+  * variable's original scope ended with the conditional, nothing can observe it across process
+  * activations, and a don't-care default assignment placed at the position the declaration
+  * escaped from keeps the process combinationally complete without changing behavior:
+  * {{{
+  * // Before — tmp declared (without init) inside an if inside a combinational process
+  * class ID extends EDDesign:
+  *   process(all):
+  *     res := a
+  *     if (sel)
+  *       val tmp = UInt(8) <> VAR
+  *       tmp := a + b
+  *       res := tmp
+  *
+  * // After (Verilog) — moved to design level, don't-care default before the if
+  * class ID extends EDDesign:
+  *   val tmp = UInt(8) <> VAR
+  *   process(all):
+  *     res := a
+  *     tmp := d"8'?"
+  *     if (sel)
+  *       tmp := a + b
+  *       res := tmp
+  * }}}
+  * The default applies only when all of the following hold, since otherwise the lift does not
+  * create an incompletely-driven combinational variable:
+  *   - the enclosing process is `process(all)` (an explicit sensitivity list keeps the target
+  *     language's own semantics, and a clocked process infers registers, not latches)
+  *   - the declaration has no init (an init declares deliberate state retention, which a
+  *     per-activation default would break)
+  *   - the escaped scope is genuinely conditional: an `if`/`match` branch or a `while` body
+  *     (a `for` body iterates a static range, so its contents are driven on every activation)
   */
 //format: on
 case object DropLocalDcls extends HierarchyStage:
@@ -164,10 +200,49 @@ case object DropLocalDcls extends HierarchyStage:
         case _                             => None
       }
       .flatMap: (dcl, keepProcessDcls) =>
-        dcl.collectRelMembers(includeOrigVal = true).flatMap(dclMovePatch(_, keepProcessDcls))
+        // the don't-care default (when needed) is listed AFTER the moves, so that under VHDL its
+        // `Add` merges into the same-anchor `Move` with the assignment placed right after the
+        // moved declaration
+        dcl.collectRelMembers(includeOrigVal = true).flatMap(dclMovePatch(_, keepProcessDcls)) ++
+          combDefaultPatch(dcl)
       .toList
     subDB.patch(patches)
   end transformSubDB
+
+  // Rule 5 (see the stage doc): a variable lifted out of a conditional scope inside a
+  // combinational process receives a don't-care default assignment at the position the
+  // declaration escaped from, keeping the process combinationally complete (issue #438).
+  private def combDefaultPatch(dclVal: DFVal)(using
+      MemberGetSet,
+      RefGen
+  ): Option[(DFMember, Patch)] =
+    dclVal match
+      case dcl @ DclVar() if !dcl.isReg && dcl.initRefList.isEmpty && insideConditional(dcl) =>
+        val (anchor, scopeBlock) = climbToScope(dcl)
+        scopeBlock match
+          case pb: ProcessBlock =>
+            pb.sensitivity match
+              case ProcessBlock.Sensitivity.All =>
+                val dsn = new MetaDesign(anchor, Patch.Add.Config.Before):
+                  dcl.asVarAny.:=(
+                    dfhdl.core.Bubble.constValOf(new dfhdl.core.DFType(dcl.dfType), named = false)
+                  )(using dfc.setMetaAnon(dcl.meta.position))
+                Some(dsn.patch)
+              case _ => None
+          case _ => None
+      case _ => None
+
+  // Whether the member's lexical scope is conditioned: an enclosing block between the member and
+  // its nearest scope block (process or design) decides per activation whether the member's scope
+  // executes. Step and for-loop blocks are climbed through (a for body iterates a static range),
+  // while a while body only executes when its guard holds.
+  @tailrec private def insideConditional(m: DFMember)(using MemberGetSet): Boolean =
+    m.getOwnerBlock match
+      case _: DFConditional.Block => true
+      case _: DFLoop.DFWhileBlock => true
+      case sb: StepBlock          => insideConditional(sb)
+      case lb: DFLoop.DFForBlock  => insideConditional(lb)
+      case _                      => false
 
   // Computes the move patch (if any) relocating a local declaration `dcl` out of its lexical scope
   // to a position supported by the target language. Returns `None` when the declaration is already

@@ -15,7 +15,9 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
-  def csDFBitBubbleChar: Char = '?'
+  // `?` (a `z` alias) is the wildcard digit under `casez`/`case inside` patterns; `x` is the
+  // don't-care digit in value positions (a `?` there would read as a tri-state drive)
+  def csDFBitBubbleChar(inPattern: Boolean): Char = if (inPattern) '?' else 'x'
   def csDFBitsBinFormat(binRep: String): String = s"""${binRep.length}'b$binRep"""
   def csDFBitsHexFormat(hexRep: String): String = s"""${hexRep.length * 4}'h$hexRep"""
   def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String =

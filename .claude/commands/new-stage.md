@@ -727,6 +727,25 @@ designDB.members.view
   }.toList
 ```
 
+**Widening a declaration's scope must preserve what the old scope implied — in the same patch
+list.** Hoisting a declaration out of a conditional block extends its lifetime: what was
+"exists only while this branch runs" becomes "persists across process activations", and in a
+combinational process the target-language reading of that is a latch (a hard `always_comb`
+error under Yosys — issue #438). `DropLocalDcls` Rule 5 compensates inside the same
+`db.patch()` list with a don't-care default assignment
+(`dcl.asVarAny := dfhdl.core.Bubble.constValOf(new dfhdl.core.DFType(dcl.dfType), named =
+false)` in a `MetaDesign(anchor, Add.Config.Before)`), anchored at the position the
+declaration escaped from. Two mechanics worth reusing:
+- `Move(anchor, Before)` + `Add(anchor, Before)` on the SAME anchor merge, with the added
+  members appended AFTER the moved ones (list the Move entries first) — that places the
+  default right after the relocated declaration under VHDL without a second phase.
+- Scope such compensation by the exact semantic trigger, not by the move: only
+  `Sensitivity.All` processes (`process(all)` is ED-only; an RT `process` has
+  `Sensitivity.List(Nil)`), only no-init declarations (an init declares deliberate state
+  retention), and only genuinely conditional scopes (`if`/`match` branch or `while` body; a
+  `for` body runs a static range, and a clocked guard-style process must NOT get a
+  process-level default, which would sit outside the clock guard).
+
 ### Pattern 3 — Construct new members with `MetaDesign`
 ```scala
 designDB.members.view.flatMap {
