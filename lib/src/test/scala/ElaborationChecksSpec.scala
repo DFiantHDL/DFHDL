@@ -1042,4 +1042,54 @@ class ElaborationChecksSpec extends DesignSpec:
           |To Fix: move the access into a process, or use a regular variable instead.
           |""".stripMargin
     )
+
+  // `DB.sharedVarCheck` Rule 3: no position capture can fix a guard-path hazard on an
+  // RT-domain shared-variable write, so it cannot lower into the clocked process
+  test("shared variable write under an unsettled guard"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val ram = Bits(8) X 256 <> VAR.SHARED
+        val a = new RTDomain:
+          val data = Bits(8) <> IN
+          val addr = Bits(8) <> IN
+          val we = Bit <> IN
+          val gate = Bit <> VAR
+          gate := we
+          if (gate)
+            ram(addr) := data
+          gate := 0
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL shared variable error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1059:13 - 1059:30
+          |Hierarchy: Top
+          |Message:   A shared-variable write must lower into the clocked process, but its guard path reads a value that is reassigned later in the domain body, or it reads a `.din` value.
+          |To Fix: restructure so that nothing the write's guards depend on is reassigned after the write, or hoist the guard condition computation after its operands' final assignments.
+          |""".stripMargin
+    )
+
+  // `DB.sharedVarCheck` Rule 4: a loop containing a shared-variable write moves whole into the
+  // clocked process, so a loop mixing combinational content must be split
+  test("shared variable write in a mixed loop"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val ram = Bits(8) X 4 <> VAR.SHARED
+        val a = new RTDomain:
+          val data = Bits(8) <> IN
+          val w = Bits(4) <> OUT
+          COMB_LOOP:
+            for (i <- 0 until 4)
+              w(i) := data(i)
+              ram(i) := data
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL shared variable error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1084:15 - 1084:29
+          |Hierarchy: Top
+          |Message:   A shared-variable write inside a loop requires the whole loop to lower into the clocked process, but the loop mixes combinational content or reads values that are reassigned later in the domain body.
+          |To Fix: split the loop so that the shared-variable write is in a purely-sequential loop.
+          |""".stripMargin
+    )
 end ElaborationChecksSpec

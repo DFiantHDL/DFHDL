@@ -1174,9 +1174,14 @@ final case class DB private (
             case pb: ProcessBlock if pb.isInRTDomain => !isInitialPB(pb)
             case dcl: DFVal.Dcl                      => dcl.isReg || dcl.isClkDcl
             case reg: DFVal.Alias.History            => true
-            case inst: DFDesignInst                  => usesClkRst(inst.getDesignBlock).usesClk
-            case DFVal.Func.Call(_, key)             => usesClkRst(key.getDesignBlock).usesClk
-            case _                                   => false
+            // a shared-variable write commits at the clock step's end, so it requires a clock
+            // even in a domain with no registers of its own (the shared Dcl itself is
+            // declared outside the domain)
+            case net @ DFNet.Assignment(toVal, _) if net.isInRTDomain =>
+              toVal.departialDcl.exists(_._1.modifier.isShared)
+            case inst: DFDesignInst      => usesClkRst(inst.getDesignBlock).usesClk
+            case DFVal.Func.Call(_, key) => usesClkRst(key.getDesignBlock).usesClk
+            case _                       => false
           }
         } || reversedDependents.getOrElse(owner, Set()).exists(d => usesClkRst(d).usesClk) ||
           (owner eq topDB.top) && atOwner(owner)(isAlwaysAtTopClk(owner)) ||
@@ -1657,6 +1662,14 @@ final case class DB private (
   //     concurrent statement, which silently freezes at its time-zero value. RT/DF-domain
   //     accesses are concurrent by nature and are exempt; the compilation stages lower them
   //     into clocked processes.
+  //   * Rule 3: an RT-domain shared-variable write must be able to lower into the clocked
+  //     process. A plain read of a later-reassigned wire is fine (`NameVarVersions` captures
+  //     it into a version variable), but no capture can fix a guard-path hazard (a chain
+  //     guard reading a later-reassigned wire) or a `.din` read (its shadow variable only
+  //     exists in the combinational process).
+  //   * Rule 4: a loop containing an RT-domain shared-variable write moves whole into the
+  //     clocked process, so all its content must be sequential-sink writes with settled
+  //     reads; otherwise the loop must be split.
   def sharedVarCheck(): Unit =
     val errors = collection.mutable.ArrayBuffer[String]()
     def memberError(member: DFMember, msg: String): Unit =
@@ -1702,6 +1715,50 @@ final case class DB private (
              |A concurrent access has no faithful VHDL rendering: a shared variable is not a signal, so its change never re-triggers a concurrent statement.
              |To Fix: move the access into a process, or use a regular variable instead.""".stripMargin
         )
+    }
+    // Rules 3 and 4: RT-domain shared-variable writes must be movable into the clocked process
+    domainOwnerMemberList.foreach { (owner, members) =>
+      def sharedWriteTarget(net: DFNet): Option[DFVal.Dcl] =
+        net match
+          case DFNet.Assignment(toVal, _) if !net.isInProcess =>
+            toVal.departialDcl.collect { case (dcl, _) if dcl.modifier.isShared => dcl }
+          case _ => None
+      val rtBlockOwner = owner match
+        case block: (DFDomainOwner & DFBlock) =>
+          block.domainType match
+            case DomainType.RT => Some(block)
+            case _             => None
+      val analysisOpt = rtBlockOwner
+        .filter(_ =>
+          members.exists {
+            case net: DFNet => sharedWriteTarget(net).nonEmpty
+            case _          => false
+          }
+        )
+        .map(new dfhdl.compiler.analysis.RTDomainAnalysis(_, members))
+      analysisOpt.foreach { analysis =>
+        members.foreach {
+          case net: DFNet =>
+            sharedWriteTarget(net).foreach { dcl =>
+              analysis.loopRootOf(net) match
+                case Some(loop) =>
+                  if (!analysis.loopSeqMovable(loop, analysis.dinReadREGs))
+                    memberError(
+                      net,
+                      """|A shared-variable write inside a loop requires the whole loop to lower into the clocked process, but the loop mixes combinational content or reads values that are reassigned later in the domain body.
+                         |To Fix: split the loop so that the shared-variable write is in a purely-sequential loop.""".stripMargin
+                    )
+                case None =>
+                  if (analysis.stmtUncapturable(net, Some(dcl)))
+                    memberError(
+                      net,
+                      """|A shared-variable write must lower into the clocked process, but its guard path reads a value that is reassigned later in the domain body, or it reads a `.din` value.
+                         |To Fix: restructure so that nothing the write's guards depend on is reassigned after the write, or hoist the guard condition computation after its operands' final assignments.""".stripMargin
+                    )
+            }
+          case _ =>
+        }
+      }
     }
     if (errors.nonEmpty)
       throw new IllegalArgumentException(errors.mkString("\n"))

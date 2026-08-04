@@ -1372,6 +1372,23 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     cleanup stage for a shape an earlier stage produces, fix the producer instead. The way to
     discover this at all is to wire the invariant into `SanityCheck`; nothing else in the pipeline
     will tell you (`DB.check` runs once, at elaboration, and `SanityCheck` never calls it).
+29. **Cloning a FILTERED conditional subtree with `plantClonedMembers`** (`ToED`'s skeleton
+    duplication) — the flattened member list you pass may drop whole statements, but it must keep
+    the structure the kept members depend on: every kept member's OWNER chain up to the anchor
+    context, every chain PREDECESSOR of a kept `DFConditional.Block` (walk `prevBlockOrHeaderRef`
+    back to the header; middle branches stay as empty blocks for guard exclusivity, only trailing
+    branches may be dropped), and every kept guard/argument anonymous cone (cloned per copy, since
+    the original cone stays with the other copy). `plantClonedMembers` re-owns any member whose
+    owner is NOT in the cloned map to the current context owner, which is exactly right for the
+    subtree roots. Pair the removals by fate: originals replanted elsewhere as the same instances
+    get `Patch.Remove(isMoved = true)`; originals that exist only as clones get a plain
+    `Patch.Remove()` so their refs are purged.
+30. **Twin decision predicates in two stages must be one function** — when stage B's correctness
+    depends on predicting a classification stage A makes (e.g. `NameVarVersions` must know which
+    single-assignment wires `ToED` promotes to connections), do not mirror the predicate in both
+    stages: extract it to a shared analysis class (`RTDomainAnalysis`) and have BOTH consume it,
+    so they cannot drift. The bugfix skill's "twin helpers drift" warning applies doubly when the
+    twins live in different stages.
 
 ---
 

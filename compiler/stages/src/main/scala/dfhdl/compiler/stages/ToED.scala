@@ -19,6 +19,22 @@ import scala.collection.mutable
   *   - Pick the reset mode (sync vs async) and active polarity for the reset branch.
   *   - Walk `@timing.related(ref)` to the related target's clk/rst Dcls.
   *
+  * Each RT domain body is sliced so that everything that can be sequential lands in the clocked
+  * process, and `process(all)` keeps only a minimal combinational residue:
+  *
+  *   - Sequential-sink statements (register writes, shared-variable writes, text outputs) whose
+  *     reads are all settled (position-independent; [[NameVarVersions]] has already captured the
+  *     unsettled reads into version variables) move into the clocked process as-is, converted to
+  *     non-blocking assignments. A register whose every write moves and whose `.din` is never read
+  *     commits directly, with no `_din` shadow variable and no default.
+  *   - A conditional skeleton with mixed content is emitted twice, each copy holding only its
+  *     slice's statements (empty trailing branches dropped, in-chain empty branches kept for guard
+  *     exclusivity). Loops are atomic: they move whole when all their content is sequential with
+  *     settled reads, and otherwise stay combinational.
+  *   - The residue (combinational assignments, `.din`-read register shadows, unmovable sites) keeps
+  *     today's `process(all)` + `<reg>_din` shadow machinery. A shared-variable write may never
+  *     fall back there (`DB.sharedVarCheck` forbids it), so an unmovable one is an error.
+  *
   * Strips the resolved timing annotations on RT→ED conversion — by that point the configuration is
   * fully baked into the generated `Clk_<grp>` / `Rst_<grp>` opaque port types and the annotations
   * are redundant.
@@ -28,7 +44,7 @@ case object ToED extends HierarchyStage:
     List(
       DropUnreferencedAnons, ToRT, DropRTProcess, NameRegAliases, ExplicitNamedVars,
       ExplicitCondExprAssign, SplitInitialBlocks, DropInitialBlocks, AddClkRst,
-      SimpleOrderMembers
+      SimpleOrderMembers, NameVarVersions
     )
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   // Only a DYNAMIC domain lowers to ED. The test is POSITIVE on purpose: its former `!= ED`
@@ -123,13 +139,6 @@ case object ToED extends HierarchyStage:
             val nonInitialMembers =
               if (initialPBs.isEmpty) members else members.filterNot(initialMemberSet)
 
-            val assignCnt = mutable.Map.empty[DFVal.Dcl, Int]
-            def anotherAssignCnt(toVal: DFVal): Unit =
-              toVal.departialDcl.foreach {
-                case (dcl: DFVal.Dcl, _) if !dcl.isReg =>
-                  assignCnt.update(dcl, assignCnt.getOrElse(dcl, 0) + 1)
-                case _ =>
-              }
             def collectFilter(member: DFMember): Boolean = member match
               case IteratorDcl()        => true
               case _: DFVal.Dcl         => false
@@ -145,7 +154,6 @@ case object ToED extends HierarchyStage:
             def getProcessAllMembers(list: List[DFMember]): List[DFMember] =
               val processBlockAllMembersSet: Set[DFMember] = list.view.flatMap {
                 case net @ DFNet.Assignment(toVal, _) =>
-                  anotherAssignCnt(toVal)
                   net :: net.collectRelMembers
                 case ch: DFConditional.Header if ch.dfType == DFUnit =>
                   ch.collectRelMembers(true)
@@ -168,22 +176,11 @@ case object ToED extends HierarchyStage:
               }.toList
             end getProcessAllMembers
             val combinationalMembers = getProcessAllMembers(nonInitialMembers)
-            // A DIN read yields the register's pending value AT THE POSITION OF THE READ, so the
-            // statement holding it must stay in the process body, in order. Promoting it to a
-            // concurrent connection would instead read the shadow variable's final value, and when
-            // the same statement also feeds that shadow it closes a combinational loop:
-            // {{{
-            // always_comb begin r_din = r; r_din = sum; end
-            // assign sum = r_din + 8'd1;   // sum depends on r_din depends on sum
-            // }}}
-            def readsDIN(net: DFNet): Boolean = net.collectRelMembers.exists {
-              case _: DFVal.Alias.RegDIN => true
-              case _                     => false
-            }
+            // settledness analysis over the domain body, shared with `NameVarVersions`; it also
+            // decides which single-assignment wires are promoted to concurrent connections
+            val analysis = new RTDomainAnalysis(domainOwner, members)
             val singleAssignments = combinationalMembers.flatMap {
-              case net @ DFNet.Assignment(dcl: DFVal.Dcl, from)
-                  if !dcl.isReg && !readsDIN(net) &&
-                    assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
+              case net: DFNet if analysis.connectionWireNets.contains(net) =>
                 net.collectRelMembers.filter(collectFilter) :+ net
               case _ => Nil
             }.distinct
@@ -205,9 +202,6 @@ case object ToED extends HierarchyStage:
             // TODO: it is possible to check for complete coverage test of assignment, to remove redundant
             // default assignments in the future.
             val dclREGRequiresDefaultSet = mutable.Set.empty[DFVal.Dcl]
-            // domain is purely sequential if the configuration is not combinational and
-            // all the remaining non-single assignment variables are either REGs or SHARED variables
-            var domainIsPureSequential = clkAnnotOpt.isDefined
             processBlockAllMembers.foreach {
               case net @ DFNet.Assignment(dfVal: DFVal, _) =>
                 val (dcl, slice) = dfVal.departialDcl.get
@@ -225,14 +219,12 @@ case object ToED extends HierarchyStage:
                   case _ if slice.isFullOf(dcl.dfType.widthIntOpt) != Tri.Yes =>
                     dclREGRequiresDefaultSet += dcl
                   case _ => // do nothing
-                if (!dcl.isReg && !dcl.modifier.isShared)
-                  domainIsPureSequential = false
               case x =>
             }
             // ==== register DIN reads ====
             // `r.din` read as a value is the register's pending next-cycle value, which is exactly
             // what the `<reg>_din` shadow variable below holds. Such a read therefore needs the
-            // shadow variable to exist (so the domain cannot stay purely sequential) and to be
+            // shadow variable to exist (forcing the shadow form on its register) and to be
             // seeded with the register's own value, so that a read taken before any assignment in
             // the cycle body yields the register. The reads themselves are resolved to the variable
             // further down, together with the assignment redirection that already happens there.
@@ -246,17 +238,151 @@ case object ToED extends HierarchyStage:
               handledDesignREGDclSet += dcl
               dclREGRequiresDefaultSet += dcl
             }
-            if (dinReadAliases.nonEmpty) domainIsPureSequential = false
             // an assignment whose target resolves to a DIN-read register's shadow (used by the
             // VHDL process-variable form below, where such an assignment must stay blocking)
             def assignsDinReadShadow(net: DFNet): Boolean =
               net.lhsRef.get.departialDcl.exists((dcl, _) => dinReadREGs.contains(dcl))
             // the full list of handled REG Dcls in this domain
             val dclREGList = dclREGSet.toList
+
+            // ==== sequential/combinational slicing ====
+            // Every sequential-sink statement (register write, shared-variable write, text
+            // output) whose reads are all settled moves into the clocked process; the
+            // combinational process keeps the residue. Without a clock nothing can move.
+            val sliceable = clkAnnotOpt.isDefined
+            val pbmSet = processBlockAllMembers.toSet
+            // the read cone claimed by each collected member, mirroring the
+            // `getProcessAllMembers` collection cases
+            val relMembersOf: Map[DFMember, List[DFMember]] =
+              processBlockAllMembers.view.map {
+                case net: DFNet               => net -> net.collectRelMembers
+                case ch: DFConditional.Header => ch -> ch.collectRelMembers(false)
+                case loop: DFLoop.DFForBlock  =>
+                  val range = loop.rangeRef.get
+                  loop ->
+                    (loop.iteratorRef.get :: range ::
+                      Iterator(range.startRef, range.endRef, range.stepRef)
+                        .flatMap(_.get.collectRelMembers(true)).toList)
+                case cb: (DFConditional.Block | DFLoop.Block | TextOut) =>
+                  cb -> cb.getRefs.view.filterNot(_.isTypeRef).map(_.get).flatMap {
+                    case dfVal: DFVal => dfVal.collectRelMembers(true)
+                    case _            => Nil
+                  }.toList
+                case m => m -> Nil
+              }.toMap
+            // registers lowering through the `_din` shadow form; a register moves directly (no
+            // shadow, no default) only when its `.din` is never read and every write site moves
+            val shadowREGs = mutable.Set.empty[DFVal.Dcl]
+            def isShadow(dcl: DFVal.Dcl): Boolean = !sliceable || shadowREGs.contains(dcl)
+            val outermostLoops = processBlockAllMembers.collect {
+              case loop: DFLoop.Block if analysis.loopRootOf(loop).isEmpty => loop
+            }
+            var loopMov: Map[DFLoop.Block, Boolean] = Map.empty
+            if (sliceable)
+              shadowREGs ++= dinReadREGs
+              // demoting a register to the shadow form turns its write sites combinational,
+              // which can break a containing loop's all-sequential requirement and demote
+              // further registers, so iterate to a fixpoint
+              var demoted = true
+              while (demoted)
+                demoted = false
+                loopMov =
+                  outermostLoops.view.map(l => l -> analysis.loopSeqMovable(l, shadowREGs)).toMap
+                processBlockAllMembers.foreach {
+                  case net @ DFNet.Assignment(toVal, _) =>
+                    toVal.departialDcl.foreach { (dcl, _) =>
+                      if (dcl.isReg && !shadowREGs.contains(dcl))
+                        val movable = analysis.loopRootOf(net) match
+                          case Some(loop) => loopMov(loop)
+                          case None       => analysis.stmtMovable(net, Some(dcl))
+                        if (!movable)
+                          shadowREGs += dcl
+                          demoted = true
+                    }
+                  case _ =>
+                }
+              end while
+            end if
+            // internal backstop only: `DB.sharedVarCheck` rejects the user-writable shapes at
+            // elaboration (Rules 3 and 4), so reaching this means an intermediate stage created
+            // an unmovable shared write (or a shape the elaboration approximation cannot see,
+            // e.g. a register demotion cascade into the loop)
+            def sharedLowerError(net: DFNet, inLoop: Boolean): Nothing =
+              val reason =
+                if (inLoop)
+                  "it is inside a loop that mixes combinational content or reads unsettled values"
+                else
+                  "its guard path or read values are not settled at the write position"
+              throw new IllegalArgumentException(
+                s"Cannot lower the shared-variable write at ${net.meta.position} into the clocked process: $reason."
+              )
+            // mark each statement's slice, closing over its read cone, its skeleton path (chain
+            // predecessors keep guard exclusivity; trailing branches of the other slice are
+            // simply never marked and drop from this copy), and, for loops, their whole content
+            val neededSeq = mutable.Set.empty[DFMember]
+            val neededComb = mutable.Set.empty[DFMember]
+            def markNeeded(needed: mutable.Set[DFMember])(m: DFMember): Unit =
+              if (pbmSet.contains(m) && !needed.contains(m))
+                needed += m
+                relMembersOf.getOrElse(m, Nil).foreach(markNeeded(needed))
+                m match
+                  case cb: DFConditional.Block => markNeeded(needed)(cb.prevBlockOrHeaderRef.get)
+                  case _                       =>
+                m.getOwner match
+                  case owner if owner != domainOwner => markNeeded(needed)(owner)
+                  case _                             =>
+            def markLoopNeeded(needed: mutable.Set[DFMember])(loop: DFLoop.Block): Unit =
+              markNeeded(needed)(loop)
+              loop.members(MemberView.Flattened).foreach(markNeeded(needed))
+            processBlockAllMembers.foreach { m =>
+              if (analysis.loopRootOf(m).isEmpty) m match
+                case loop: DFLoop.Block =>
+                  if (sliceable && loopMov(loop)) markLoopNeeded(neededSeq)(loop)
+                  else
+                    if (sliceable)
+                      loop.members(MemberView.Flattened).foreach {
+                        case net @ DFNet.Assignment(toVal, _)
+                            if toVal.departialDcl.exists(_._1.modifier.isShared) =>
+                          sharedLowerError(net, inLoop = true)
+                        case _ =>
+                      }
+                    markLoopNeeded(neededComb)(loop)
+                case net @ DFNet.Assignment(toVal, _) =>
+                  val dest = toVal.departialDcl match
+                    case Some((dcl, _)) if sliceable && dcl.modifier.isShared =>
+                      if (!analysis.stmtMovable(net, Some(dcl)))
+                        sharedLowerError(net, inLoop = false)
+                      neededSeq
+                    case Some((dcl, _)) if sliceable && dcl.isReg && !shadowREGs.contains(dcl) =>
+                      neededSeq
+                    case _ => neededComb
+                  markNeeded(dest)(net)
+                case net: DFNet       => markNeeded(neededComb)(net)
+                case textOut: TextOut =>
+                  val dest =
+                    if (sliceable && analysis.stmtMovable(textOut, None)) neededSeq
+                    else neededComb
+                  markNeeded(dest)(textOut)
+                case _ => // skeleton and cone members are marked through the statements needing them
+            }
+            // statement-free leftovers (e.g. a conditional with no content) keep their process
+            val leftovers =
+              processBlockAllMembers.filterNot(m => neededSeq.contains(m) || neededComb.contains(m))
+            if (leftovers.nonEmpty)
+              val dest = if (neededComb.nonEmpty || neededSeq.isEmpty) neededComb else neededSeq
+              leftovers.foreach(markNeeded(dest))
+            val keptSeq = processBlockAllMembers.filter(neededSeq.contains)
+            val keptComb = processBlockAllMembers.filter(neededComb.contains)
+            // with no combinational residue the whole body moves as the original instances
+            // (the purely-sequential degenerate case); with a residue the sequential copy is
+            // cloned, since mixed skeletons and shared cones stay behind combinationally
+            val seqUsesOriginals = neededComb.isEmpty
             val hasSeqProcess =
-              clkAnnotOpt.isDefined &&
-                (dclREGList.nonEmpty ||
-                  processBlockAllMembers.nonEmpty && domainIsPureSequential)
+              clkAnnotOpt.isDefined && (
+                keptSeq.nonEmpty || dclREGList.exists(isShadow) ||
+                  rstAnnotOpt.isDefined &&
+                  (dclREGList.exists(_.hasNonBubbleInit) || initialPBs.nonEmpty)
+              )
             // initial blocks are planted into the reset branch (see `regInitBlock`) exactly
             // when a sequential process with a reset is generated; only then are they removed
             val plantInitialPBs = hasSeqProcess && rstAnnotOpt.isDefined && initialPBs.nonEmpty
@@ -265,24 +391,24 @@ case object ToED extends HierarchyStage:
                 // variables to transfer combinational information from the combinational block
                 // to the sequential block, to be registered
                 val dcl_din_vars = dclREGList.map: orig =>
-                  if (domainIsPureSequential) None
-                  else
+                  if (isShadow(orig))
                     Some(
                       orig.asValAny.genNewVar(using
                         dfc.setMeta(orig.meta.setName(s"${orig.getName}_din"))
                       ).asIR
                     )
+                  else None
                 val dclChangeList = dclREGList.lazyZip(dcl_din_vars).collect {
                   case (dclREG, Some(dcl_din)) => (dclREG, dcl_din)
                 }.toList
                 // create a combinational process if needed
                 val hasProcessAll =
-                  !domainIsPureSequential &&
-                    (dclChangeList.nonEmpty || processBlockAllMembers.exists {
-                      case net: DFNet               => true
-                      case ch: DFConditional.Header => true
-                      case _                        => false
-                    })
+                  dclChangeList.nonEmpty || keptComb.exists {
+                    case net: DFNet               => true
+                    case ch: DFConditional.Header => true
+                    case textOut: TextOut         => true
+                    case _                        => false
+                  }
                 // VHDL only, and only for a shadow that is READ: under signal assignment every RHS
                 // sees the pre-process value, so a read-modify-write chain such as `r_din <= r_din
                 // + 1` twice increments once, and being self-referential inside a `process(all)` it
@@ -313,7 +439,7 @@ case object ToED extends HierarchyStage:
                     if (inVHDL)
                       plantMembers(
                         domainOwner,
-                        processBlockAllMembers.view.map {
+                        keptComb.view.map {
                           // an assignment into a DIN-read shadow keeps its blocking form: the
                           // shadow is a process variable, not a signal
                           case net: DFNet if assignsDinReadShadow(net) => net
@@ -321,7 +447,7 @@ case object ToED extends HierarchyStage:
                           case m          => m
                         }
                       )
-                    else plantMembers(domainOwner, processBlockAllMembers)
+                    else plantMembers(domainOwner, keptComb)
                     // publish the process variables to their design-level signals
                     dclChangeList.foreach { (dclREG, dcl_din) =>
                       dinLocalVars.get(dclREG).foreach { local =>
@@ -403,23 +529,21 @@ case object ToED extends HierarchyStage:
                   }
                 end regInitBlock
                 def regSaveBlock() =
-                  if (domainIsPureSequential)
-                    plantMembers(
-                      domainOwner,
-                      processBlockAllMembers.view.map {
-                        // shared-variable writes convert like the rest: inside the clocked
-                        // process every write commits at the step's end
-                        // (`SanityCheck.sharedAssignCheck` rejects a blocking shared write
-                        // here), and the backends render the non-blocking net per the target's
-                        // object class
-                        case net @ DFNet.Assignment(_, _) =>
-                          net.copy(op = DFNet.Op.NBAssignment)
-                        case m => m
-                      }
-                    )
-                  else
-                    dclChangeList.foreach: (dclREG, dcl_din) =>
-                      dclREG.asVarAny :== dcl_din.asValAny
+                  // the moved sequential slice, in original order; every assignment commits
+                  // non-blocking at the step's end, shared-variable writes included
+                  // (`SanityCheck.sharedAssignCheck` rejects a blocking shared write here, and
+                  // the backends render the non-blocking net per the target's object class)
+                  def seqConvert(m: DFMember): DFMember = m match
+                    case net @ DFNet.Assignment(_, _) => net.copy(op = DFNet.Op.NBAssignment)
+                    case m                            => m
+                  if (keptSeq.nonEmpty)
+                    if (seqUsesOriginals)
+                      plantMembers(domainOwner, keptSeq.view.map(seqConvert))
+                    else plantClonedMembers(domainOwner, keptSeq, seqConvert)
+                  // shadow-form register commits
+                  dclChangeList.foreach: (dclREG, dcl_din) =>
+                    dclREG.asVarAny :== dcl_din.asValAny
+                end regSaveBlock
                 def ifRstActive =
                   val active = rstAnnotOpt.get.active.get
                   val cond = active match
@@ -465,8 +589,14 @@ case object ToED extends HierarchyStage:
                   }
                 )
 
+            // members planted as the original instances are marked moved (their references
+            // stay valid); members that were only cloned into the sequential copy are plainly
+            // removed together with their references
+            val seqClonedMembers: Set[DFMember] =
+              if (seqUsesOriginals) Set.empty else neededSeq.toSet
             val movedMembersRemovalPatches = combinationalMembers.map { m =>
-              m -> Patch.Remove(isMoved = true)
+              val movedAsOriginal = neededComb.contains(m) || !seqClonedMembers.contains(m)
+              m -> Patch.Remove(isMoved = movedAsOriginal)
             }
             // initial blocks whose contents were planted (cloned) into the reset branch
             // are removed along with all their members
