@@ -21,6 +21,7 @@ case object BackendPrepStage
       DropMagnets,
       ConnectUnused,
       VHDLProcToVerilog,
+      VerilogProcToVHDL,
       ExplicitNamedVars,
       ExplicitCondExprAssign,
       DropLocalDcls,

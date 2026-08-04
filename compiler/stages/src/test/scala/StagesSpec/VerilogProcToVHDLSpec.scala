@@ -1,10 +1,11 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.vhdlProcToVerilog
+import dfhdl.compiler.stages.verilogProcToVHDL
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class VHDLProcToVerilogSpec extends StageSpec:
+class VerilogProcToVHDLSpec extends StageSpec:
+  given options.CompilerOptions.Backend = _.vhdl
   test("Only clock") {
     class ID extends EDDesign:
       val clk   = Bit      <> IN
@@ -12,13 +13,11 @@ class VHDLProcToVerilogSpec extends StageSpec:
       val y1    = SInt(16) <> OUT
       val x2    = SInt(16) <> IN
       val y2    = SInt(16) <> OUT
-      val proc1 = process(clk):
-        if (clk.rising)
-          y1 := x1
-      val proc2 = process(clk):
-        if (clk.falling)
-          y2 := x2
-    val id = (new ID).vhdlProcToVerilog
+      val proc1 = process(clk.rising):
+        y1 := x1
+      val proc2 = process(clk.falling):
+        y2 := x2
+    val id = (new ID).verilogProcToVHDL
     assertCodeString(
       id,
       """|class ID extends EDDesign:
@@ -27,10 +26,10 @@ class VHDLProcToVerilogSpec extends StageSpec:
          |  val y1 = SInt(16) <> OUT
          |  val x2 = SInt(16) <> IN
          |  val y2 = SInt(16) <> OUT
-         |  val proc1 = process(clk.rising):
-         |    y1 := x1
-         |  val proc2 = process(clk.falling):
-         |    y2 := x2
+         |  val proc1 = process(clk):
+         |    if (clk.rising) y1 := x1
+         |  val proc2 = process(clk):
+         |    if (clk.falling) y2 := x2
          |end ID
          |""".stripMargin
     )
@@ -47,28 +46,28 @@ class VHDLProcToVerilogSpec extends StageSpec:
       val y3    = SInt(16) <> OUT
       val x4    = SInt(16) <> IN
       val y4    = SInt(16) <> OUT
-      val proc1 = process(clk, rst):
+      val proc1 = process(clk.rising, rst.falling):
         if (rst == 0)
           y1 := 0
-        else if (clk.rising)
+        else
           y1 := x1
-      val proc2 = process(clk, rst):
+      val proc2 = process(clk.falling, rst.rising):
         if (rst == 1)
           y2 := 0
-        else if (clk.falling)
+        else
           y2 := x2
-      val proc3 = process(clk, rst):
+      val proc3 = process(clk.falling, rst.rising):
         if (rst)
           y3 := 0
-        else if (clk.falling)
+        else
           y3 := x3
-      val proc4 = process(clk, rst):
+      val proc4 = process(clk.falling, rst.falling):
         if (!rst)
           y4 := 0
-        else if (clk.falling)
+        else
           y4 := x4
     end ID
-    val id = (new ID).vhdlProcToVerilog
+    val id = (new ID).verilogProcToVHDL
     assertCodeString(
       id,
       """|class ID extends EDDesign:
@@ -82,18 +81,18 @@ class VHDLProcToVerilogSpec extends StageSpec:
          |  val y3 = SInt(16) <> OUT
          |  val x4 = SInt(16) <> IN
          |  val y4 = SInt(16) <> OUT
-         |  val proc1 = process(clk.rising, rst.falling):
+         |  val proc1 = process(clk, rst):
          |    if (rst == 0) y1 := sd"16'0"
-         |    else y1 := x1
-         |  val proc2 = process(clk.falling, rst.rising):
+         |    else if (clk.rising) y1 := x1
+         |  val proc2 = process(clk, rst):
          |    if (rst == 1) y2 := sd"16'0"
-         |    else y2 := x2
-         |  val proc3 = process(clk.falling, rst.rising):
+         |    else if (clk.falling) y2 := x2
+         |  val proc3 = process(clk, rst):
          |    if (rst) y3 := sd"16'0"
-         |    else y3 := x3
-         |  val proc4 = process(clk.falling, rst.falling):
+         |    else if (clk.falling) y3 := x3
+         |  val proc4 = process(clk, rst):
          |    if (!rst) y4 := sd"16'0"
-         |    else y4 := x4
+         |    else if (clk.falling) y4 := x4
          |end ID
          |""".stripMargin
     )
@@ -115,25 +114,25 @@ class VHDLProcToVerilogSpec extends StageSpec:
       val z3        = Bit <> OUT
       val clkGen    = ClkGen()
       val clkRstGen = ClkRstGen()
-      process(clkGen.clk):
-        if (clkGen.clk.rising) println(y)
-      process(clkRstGen.clk, clkRstGen.rst):
+      process(clkGen.clk.rising):
+        println(y)
+      process(clkRstGen.clk.rising, clkRstGen.rst.rising):
         if (clkRstGen.rst)
           z := 0
-        else if (clkRstGen.clk.rising)
+        else
           z := 1
-      process(clkRstGen.clk, clkRstGen.rst):
+      process(clkRstGen.clk.falling, clkRstGen.rst.falling):
         if (clkRstGen.rst == 0)
           z2 := 0
-        else if (clkRstGen.clk.falling)
+        else
           z2 := 1
-      process(clkRstGen.clk, clkRstGen.rst):
+      process(clkRstGen.clk.falling, clkRstGen.rst.falling):
         if (!clkRstGen.rst)
           z3 := 0
-        else if (clkRstGen.clk.falling)
+        else
           z3 := 1
     end Foo
-    val top = (new Foo).vhdlProcToVerilog
+    val top = (new Foo).verilogProcToVHDL
     assertCodeString(
       top,
       """|class ClkGen extends EDDesign:
@@ -155,17 +154,17 @@ class VHDLProcToVerilogSpec extends StageSpec:
          |  val z3 = Bit <> OUT
          |  val clkGen = ClkGen()
          |  val clkRstGen = ClkRstGen()
-         |  process(clkGen.clk.rising):
-         |    println(s"${y}")
-         |  process(clkRstGen.clk.rising, clkRstGen.rst.rising):
+         |  process(clkGen.clk):
+         |    if (clkGen.clk.rising) println(s"${y}")
+         |  process(clkRstGen.clk, clkRstGen.rst):
          |    if (clkRstGen.rst) z := 0
-         |    else z := 1
-         |  process(clkRstGen.clk.falling, clkRstGen.rst.falling):
+         |    else if (clkRstGen.clk.rising) z := 1
+         |  process(clkRstGen.clk, clkRstGen.rst):
          |    if (clkRstGen.rst == 0) z2 := 0
-         |    else z2 := 1
-         |  process(clkRstGen.clk.falling, clkRstGen.rst.falling):
+         |    else if (clkRstGen.clk.falling) z2 := 1
+         |  process(clkRstGen.clk, clkRstGen.rst):
          |    if (!clkRstGen.rst) z3 := 0
-         |    else z3 := 1
+         |    else if (clkRstGen.clk.falling) z3 := 1
          |end Foo
          |""".stripMargin
     )
@@ -186,23 +185,20 @@ class VHDLProcToVerilogSpec extends StageSpec:
       val y2        = SInt(16) <> OUT
       val z         = Bit      <> OUT
       val clkRstGen = ClkRstGen()
-      val proc1     = process(clk, rst):
-        if (clk.rising)
-          y1 := x1
+      val proc1     = process(clk.rising, rst.rising):
+        y1 := x1
         if (rst)
           y1 := 0
-      val proc2 = process(clk, rst):
-        if (clk.falling)
-          y2 := x2
+      val proc2 = process(clk.falling, rst.falling):
+        y2 := x2
         if (rst == 0)
           y2 := 0
-      process(clkRstGen.clk, clkRstGen.rst):
-        if (clkRstGen.clk.rising)
-          z := 1
+      process(clkRstGen.clk.rising, clkRstGen.rst.falling):
+        z := 1
         if (!clkRstGen.rst)
           z := 0
     end ID
-    val id = (new ID).vhdlProcToVerilog
+    val id = (new ID).verilogProcToVHDL
     assertCodeString(
       id,
       """|class ClkRstGen extends EDDesign:
@@ -221,17 +217,17 @@ class VHDLProcToVerilogSpec extends StageSpec:
          |  val y2 = SInt(16) <> OUT
          |  val z = Bit <> OUT
          |  val clkRstGen = ClkRstGen()
-         |  val proc1 = process(clk.rising, rst.rising):
-         |    y1 := x1
+         |  val proc1 = process(clk, rst):
+         |    if (clk.rising) y1 := x1
          |    if (rst) y1 := sd"16'0"
-         |  val proc2 = process(clk.falling, rst.falling):
-         |    y2 := x2
+         |  val proc2 = process(clk, rst):
+         |    if (clk.falling) y2 := x2
          |    if (rst == 0) y2 := sd"16'0"
-         |  process(clkRstGen.clk.rising, clkRstGen.rst.falling):
-         |    z := 1
+         |  process(clkRstGen.clk, clkRstGen.rst):
+         |    if (clkRstGen.clk.rising) z := 1
          |    if (!clkRstGen.rst) z := 0
          |end ID
          |""".stripMargin
     )
   }
-end VHDLProcToVerilogSpec
+end VerilogProcToVHDLSpec
