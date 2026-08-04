@@ -106,6 +106,7 @@ class DFBitsSpec extends DFSpec:
       """|val param: Int <> CONST = 8
          |val b8p = Bits(param) <> VAR init b"0".repeat(param)
          |b8p := b"10".resize(param)
+         |b8p := b"?".repeat(param)
          |val byte = Bits(8) <> VAR init h"00"
          |b8 := h"11"
          |b8 := h"00"
@@ -132,6 +133,7 @@ class DFBitsSpec extends DFSpec:
       val param: Int <> CONST = 8
       val b8p = Bits(param) <> VAR init all(0)
       b8p := b"${param}'10"
+      b8p := ?
       val byte: Byte <> VAL = Byte <> VAR init all(0)
       b8 := h"11"
       b8 := all(0)

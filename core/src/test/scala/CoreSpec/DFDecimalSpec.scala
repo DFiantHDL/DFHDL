@@ -156,6 +156,8 @@ class DFDecimalSpec extends DFSpec:
          |val ui = UInt(clog2(i)) <> VAR init d"${clog2(i)}'${(i - 1)}"
          |val si = SInt(8) <> VAR init sd"8'${ni}"
          |u8 := d"8'${i}"
+         |u8p := b"?".repeat(param).uint
+         |s8p := b"?".repeat(param).sint
          |val b6: Bits[6] <> CONST = h"6'00"
          |val s32: Int <> CONST = -120
          |val s32b = Int <> VAR
@@ -232,6 +234,8 @@ class DFDecimalSpec extends DFSpec:
       val ui = UInt.until(i) <> VAR init d"${clog2(i)}'${i - 1}"
       val si = SInt(8) <> VAR init sd"8'${ni}"
       u8 := i
+      u8p := ?
+      s8p := ?
       assertDSLErrorLog(
         """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
            |An explicit conversion must be applied.""".stripMargin
