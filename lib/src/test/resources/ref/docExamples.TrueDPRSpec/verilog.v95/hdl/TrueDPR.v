@@ -31,12 +31,12 @@ module TrueDPR(
   /* verilator lint_on MULTIDRIVEN */
   always @(posedge a_clk)
   begin
-    if (a_we) ram[a_addr] <= a_data;
     a_q <= ram[a_addr];
+    if (a_we) ram[a_addr] <= a_data;
   end
   always @(posedge b_clk)
   begin
-    if (b_we) ram[b_addr] <= b_data;
     b_q <= ram[b_addr];
+    if (b_we) ram[b_addr] <= b_data;
   end
 endmodule

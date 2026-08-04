@@ -996,4 +996,50 @@ class ElaborationChecksSpec extends DesignSpec:
           total := sum
     import Test.*
     assertElaborationErrors(Top())("No error found")
+
+  // `DB.sharedVarCheck` Rule 1: a shared-variable write inside `process(all)` has no faithful
+  // rendering (see the check's comment)
+  test("shared variable write in a combinational process"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val a = Bits(8) <> IN
+        val o = Bits(8) <> OUT
+        val shr = Bits(8) <> VAR.SHARED
+        process(all):
+          shr :== ~a
+        o <> a
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL shared variable error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1009:11 - 1009:21
+          |Hierarchy: Top
+          |Message:   A shared variable cannot be written inside a combinational process (`process(all)`).
+          |A shared-variable write commits at the end of a clock step, so it must reside inside a clocked process.
+          |""".stripMargin
+    )
+
+  // `DB.sharedVarCheck` Rule 2: a concurrent access of a shared variable never re-triggers in
+  // VHDL (a shared variable is not a signal), so it is rejected under ED domains
+  test("shared variable concurrent access"):
+    object Test:
+      @top(false) class Top extends EDDesign:
+        val clk = Bit <> IN
+        val d = Bits(8) <> IN
+        val o = Bits(8) <> OUT
+        val shr = Bits(8) <> VAR.SHARED
+        process(clk):
+          if (clk.rising) shr :== d
+        o <> shr
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL shared variable error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1033:9 - 1033:17
+          |Hierarchy: Top
+          |Message:   A shared variable can only be accessed inside a process under an event-driven (ED) domain.
+          |A concurrent access has no faithful VHDL rendering: a shared variable is not a signal, so its change never re-triggers a concurrent statement.
+          |To Fix: move the access into a process, or use a regular variable instead.
+          |""".stripMargin
+    )
 end ElaborationChecksSpec

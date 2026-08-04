@@ -29,17 +29,17 @@ begin
   process (a_clk)
   begin
     if rising_edge(a_clk) then
+      a_q <= ram(to_integer(unsigned(a_addr)));
       if to_bool(a_we) then ram(to_integer(unsigned(a_addr))) := a_data;
       end if;
-      a_q <= ram(to_integer(unsigned(a_addr)));
     end if;
   end process;
   process (b_clk)
   begin
     if rising_edge(b_clk) then
+      b_q <= ram(to_integer(unsigned(b_addr)));
       if to_bool(b_we) then ram(to_integer(unsigned(b_addr))) := b_data;
       end if;
-      b_q <= ram(to_integer(unsigned(b_addr)));
     end if;
   end process;
 end TrueDPR_arch;

@@ -1644,6 +1644,69 @@ final case class DB private (
       throw new IllegalArgumentException(errors.mkString("\n"))
   end blockScopeCheck
 
+  // Shared-variable access rules that only a clocked context can honor (`VAR.SHARED` models a
+  // multi-ported RAM; the write-operator discipline lives in `DFVarOps.SharedNBAssignOnly` and
+  // `SanityCheck.sharedAssignCheck`):
+  //   * Rule 1: no writes inside a combinational `process(all)`. Such a write has no faithful
+  //     rendering (Verilog executes a non-blocking assignment in `always_comb` as blocking, and
+  //     a level-sensitive RAM write contradicts the end-of-step commit semantics that
+  //     DFacsimile and the clocked-process backends implement).
+  //   * Rule 2: under an ED domain, a shared variable may only be accessed inside a process. A
+  //     concurrent access (connection, expression, or sensitivity entry) has no faithful VHDL
+  //     rendering: a shared variable is not a signal, so its change never re-triggers a
+  //     concurrent statement, which silently freezes at its time-zero value. RT/DF-domain
+  //     accesses are concurrent by nature and are exempt; the compilation stages lower them
+  //     into clocked processes.
+  def sharedVarCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    def memberError(member: DFMember, msg: String): Unit =
+      errors += s"""|DFiant HDL shared variable error!
+                    |Position:  ${member.meta.position}
+                    |Hierarchy: ${member.getOwnerDesign.getFullName}
+                    |Message:   $msg""".stripMargin
+    @tailrec def ownerProcessOpt(member: DFMember): Option[ProcessBlock] =
+      member.ownerRef.get match
+        case pb: ProcessBlock => Some(pb)
+        case _: DFDomainOwner => None
+        case owner: DFBlock   => ownerProcessOpt(owner)
+        case _                => None
+    members.foreach { m =>
+      // Rule 1: a write to a shared variable inside a `process(all)`
+      m match
+        case net @ DFNet.Assignment(toVal, _) =>
+          toVal.departialDcl match
+            case Some((dcl, _)) if dcl.modifier.isShared =>
+              ownerProcessOpt(net) match
+                case Some(ProcessBlock(sensitivity = ProcessBlock.Sensitivity.All)) =>
+                  memberError(
+                    net,
+                    """|A shared variable cannot be written inside a combinational process (`process(all)`).
+                       |A shared-variable write commits at the end of a clock step, so it must reside inside a clocked process.""".stripMargin
+                  )
+                case _ =>
+            case _ =>
+        case _ =>
+      // Rule 2: a concurrent (outside-process) access under an ED domain. The shared-ref test
+      // comes first: it is the only part safe to evaluate on global members (the domain walk
+      // throws on a member with no owner), and a global can never reference a design-local
+      // declaration.
+      val refsShared = m.getRefs.exists { ref =>
+        ref.get match
+          case dcl: DFVal.Dcl => dcl.modifier.isShared
+          case _              => false
+      }
+      if (refsShared && m.isInEDDomain && !m.isInProcess)
+        memberError(
+          m,
+          """|A shared variable can only be accessed inside a process under an event-driven (ED) domain.
+             |A concurrent access has no faithful VHDL rendering: a shared variable is not a signal, so its change never re-triggers a concurrent statement.
+             |To Fix: move the access into a process, or use a regular variable instead.""".stripMargin
+        )
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end sharedVarCheck
+
   // Circular-derived-domain check, run on the root DB. DFS over
   // `dependentRTDomainOwners`; the cycle error names each
   // owner via `fullNameViaInst` routed through that owner's sub-DB.
@@ -1910,6 +1973,7 @@ final case class DB private (
     initialCheck()
     condExprNamedValCheck()
     blockScopeCheck()
+    sharedVarCheck()
 
   // Whole-tree checks, run once on the root: the cross-design connectivity /
   // RT-domain / device-top checks, via the `*` clones that navigate the
