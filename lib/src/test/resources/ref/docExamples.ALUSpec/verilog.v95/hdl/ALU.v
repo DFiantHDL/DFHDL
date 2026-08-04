@@ -29,7 +29,7 @@ module ALU(
       `ALUSel_SRL: aluOut = op1 >> shamt;
       `ALUSel_SRA: aluOut = {`SIGNED_SHIFT_RIGHT(op1, shamt, 32)};
       `ALUSel_COPY1: aluOut = op1;
-      default: aluOut = 32'h????????;
+      default: aluOut = 32'hxxxxxxxx;
     endcase
   end
   assign shamt = op2[4:0];

@@ -347,9 +347,16 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCaseKeyword: String = "when "
   def csDFCaseSeparator: String = " =>"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
+  // wildcard patterns require the VHDL-2008 matching form `case?`: in a plain `case` a `'-'`
+  // choice digit compares exactly (as the metavalue) and the arm can never match a real signal.
+  // Under v93 `MatchToIf` already lowers wildcard matches to if chains, so `wildcardSupport`
+  // can only be true for dialects that have `case?`.
   def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean, isUnique: Boolean): String =
-    s"case $csSelector is"
-  def csDFMatchEnd: String = "end case;"
+    if (wildcardSupport) s"case? $csSelector is"
+    else s"case $csSelector is"
+  def csDFMatchEnd(wildcardSupport: Boolean): String =
+    if (wildcardSupport) "end case?;"
+    else "end case;"
   def csProcessBlock(pb: ProcessBlock): String =
     val (statements, dcls) = pb
       .members(MemberView.Folded)

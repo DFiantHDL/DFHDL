@@ -727,6 +727,25 @@ designDB.members.view
   }.toList
 ```
 
+**Widening a declaration's scope must preserve what the old scope implied — in the same patch
+list.** Hoisting a declaration out of a conditional block extends its lifetime: what was
+"exists only while this branch runs" becomes "persists across process activations", and in a
+combinational process the target-language reading of that is a latch (a hard `always_comb`
+error under Yosys — issue #438). `DropLocalDcls` Rule 5 compensates inside the same
+`db.patch()` list with a don't-care default assignment
+(`dcl.asVarAny := dfhdl.core.Bubble.constValOf(new dfhdl.core.DFType(dcl.dfType), named =
+false)` in a `MetaDesign(anchor, Add.Config.Before)`), anchored at the position the
+declaration escaped from. Two mechanics worth reusing:
+- `Move(anchor, Before)` + `Add(anchor, Before)` on the SAME anchor merge, with the added
+  members appended AFTER the moved ones (list the Move entries first) — that places the
+  default right after the relocated declaration under VHDL without a second phase.
+- Scope such compensation by the exact semantic trigger, not by the move: only
+  `Sensitivity.All` processes (`process(all)` is ED-only; an RT `process` has
+  `Sensitivity.List(Nil)`), only no-init declarations (an init declares deliberate state
+  retention), and only genuinely conditional scopes (`if`/`match` branch or `while` body; a
+  `for` body runs a static range, and a clocked guard-style process must NOT get a
+  process-level default, which would sit outside the clock guard).
+
 ### Pattern 3 — Construct new members with `MetaDesign`
 ```scala
 designDB.members.view.flatMap {
@@ -1372,6 +1391,23 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     cleanup stage for a shape an earlier stage produces, fix the producer instead. The way to
     discover this at all is to wire the invariant into `SanityCheck`; nothing else in the pipeline
     will tell you (`DB.check` runs once, at elaboration, and `SanityCheck` never calls it).
+29. **Cloning a FILTERED conditional subtree with `plantClonedMembers`** (`ToED`'s skeleton
+    duplication) — the flattened member list you pass may drop whole statements, but it must keep
+    the structure the kept members depend on: every kept member's OWNER chain up to the anchor
+    context, every chain PREDECESSOR of a kept `DFConditional.Block` (walk `prevBlockOrHeaderRef`
+    back to the header; middle branches stay as empty blocks for guard exclusivity, only trailing
+    branches may be dropped), and every kept guard/argument anonymous cone (cloned per copy, since
+    the original cone stays with the other copy). `plantClonedMembers` re-owns any member whose
+    owner is NOT in the cloned map to the current context owner, which is exactly right for the
+    subtree roots. Pair the removals by fate: originals replanted elsewhere as the same instances
+    get `Patch.Remove(isMoved = true)`; originals that exist only as clones get a plain
+    `Patch.Remove()` so their refs are purged.
+30. **Twin decision predicates in two stages must be one function** — when stage B's correctness
+    depends on predicting a classification stage A makes (e.g. `NameVarVersions` must know which
+    single-assignment wires `ToED` promotes to connections), do not mirror the predicate in both
+    stages: extract it to a shared analysis class (`RTDomainAnalysis`) and have BOTH consume it,
+    so they cannot drift. The bugfix skill's "twin helpers drift" warning applies doubly when the
+    twins live in different stages.
 
 ---
 
@@ -1478,9 +1514,66 @@ When the rewrite wraps a value (rather than substituting one), mind chain-vs-rea
 selection into the wrapped root is a *link* in the read chain, so wrap at its outermost consumer,
 not at each link, or you produce an inside-out alias that may not even be printable.
 
+### Pattern 16 — Wrap a block's body in a new sub-block (bulk re-own + carve-out)
+
+To wrap the body of an existing block (e.g. a `ProcessBlock`) in a newly synthesized inner block
+(e.g. an `if` guard), build the replacement skeleton in a `MetaDesign` anchored on the block with
+`ReplaceWithLast()`, making the new INNER block the last created member:
+
+```scala
+val dsn = new MetaDesign(pb, Patch.Add.Config.ReplaceWithLast(), domainType = ED):
+  import dfhdl.core.{DFIf, DFUnit}
+  val newPB = dfhdl.core.Process.Block.list(...)(using dfc.setMeta(pb.meta))
+  dfc.enterOwner(newPB)
+  val guard = ...                                            // members created inside newPB
+  val inner = DFIf.Block(Some(guard), DFIf.Header(DFUnit))   // the LAST meta member
+  dfc.exitOwner()
+  val newPBIR = newPB.asIR
+```
+
+`ReplaceWithLast` redirects every reference to `pb` — i.e. every body member's `ownerRef` — to
+`inner`, so the whole body lands inside the new sub-block in a single patch, and the flat-list
+positions still satisfy pre-order DFS (the skeleton is inserted at `pb`'s old position, above the
+body). Two follow-ups compose with it, both relying on ref-table effects applying in patch-list
+order:
+
+- **Carve-out**: members that must stay direct children of the outer block (here `newPB`) get a
+  `m -> Patch.ChangeOwner(dsn.newPBIR)` entry listed AFTER `dsn.patch` — a `ChangeRef` is a raw
+  ref-table override, so it wins over the bulk redirect. `VerilogProcToVHDL` Rule 3 uses this to
+  keep the final reset `if` (its block, header, and pb-owned guard cone via
+  `guard.collectRelMembers(false).filter(_.getOwner == pb)`) at process level while the rest of
+  the body is wrapped by the clock guard.
+- **Late-resolved Add ownership**: a second `MetaDesign` anchored (`Before`/`After`) on a member
+  still owned by `pb` emits ownerRefs pointing at `pb`; because an Add's ref entries are resolved
+  through the accumulated replacement context, listing it after `dsn.patch` re-homes its members
+  to `pb`'s replacement automatically. (This is the positive use of the list-order rule stated in
+  mistake 18.)
+
 ---
 
 ## API Notes
+
+### Attaching a guard to an existing conditional block
+
+A plain `else` block (`guardRef.get == DFMember.Empty`) becomes `else if (cond)` by minting the
+guard ref inside a `MetaDesign` and swapping it into a copy of the block:
+
+```scala
+val guardDsn = new MetaDesign(prevBlock, Patch.Add.Config.After, domainType = ED):
+  import dfhdl.core.refTW
+  val cond = ...                        // the guard value (and its anonymous cone)
+  val newGuardRef: DFConditional.Block.GuardRef = cond.asIR.refTW[DFIfElseBlock]
+...
+elseBlock -> Patch.Replace(
+  elseBlock.copy(guardRef = guardDsn.newGuardRef), Patch.Replace.Config.FullReplacement)
+```
+
+Anchor the Add on the PREVIOUS chain block with `After` — it physically lands right before the
+else block via the `getVeryLastMember` redirect. Anchoring `Before` the else block itself would
+collide with the `Replace` on the same key (`Add(Before)+Replace` is not in the merge table,
+unlike `Add(After)+Replace`). The copy keeps the original's other ref objects, so only the guard
+ref changes; `FullReplacement` purges the old guard-ref entry. `VerilogProcToVHDL` Rule 2 is the
+working example.
 
 ### `getOwner` throws; walking owners needs `ownerRef.get`
 

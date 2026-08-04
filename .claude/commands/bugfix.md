@@ -570,6 +570,26 @@ When you rewrite an existing predicate into a shared one, expand both forms case
 confirm they agree on every branch, including the ones no test reaches (a `VAR.SHARED` inside an
 HDL method). A "simplification" that quietly moves an edge case is a second bug riding along.
 
+- **One literal-format knob can be semantically overloaded across print contexts.** The Verilog
+  bubble digit was `?` everywhere, which is correct in a `casez` pattern (where `?` aliases `z`,
+  the wildcard) and wrong in every value position (where it *drives* high-impedance; the value
+  don't-care is `x`). Issue #438's fix exposed it: the new comb defaults printed `tmp = 8'h??`
+  and Yosys warned about tri-state logic; the checked-in ALU example was likewise assigning
+  32 bits of `z` in a `case` default arm. When one format hook serves two target-language
+  contexts with different semantics, split by *printing context*, not by node type. Carry the
+  context as an explicit parameter threaded through the method signatures, defaulted to the
+  common case (`inPattern: Boolean = false` on `csConstData` down to `csDFBitBubbleChar`) and
+  turned on only at the special site — review rejected both a printer `var` (a printer may be a
+  shared object) and a sibling printer-instance mechanism in favor of the explicit flag. The
+  interception point is exact: for an anonymous const, `refCodeString` IS `csConstData(dfType,
+  data)` (no wrapping), so `csDFCasePattern` can re-route singletons through the flagged call
+  print-identically. The same overload can hide in a STATEMENT form instead of a digit: VHDL
+  keeps one don't-care digit (`'-'`) but splits wildcard semantics by construct (`case?` vs
+  `case`), and the VHDL printer was emitting a plain `case` for wildcard matches, leaving every
+  wildcard arm dead in simulation, silently (GHDL analyzes it without a warning). When auditing
+  one backend's context split, audit the OTHER backend's rendering of the same IR feature: the
+  distinction always exists somewhere, either in the literal or in the construct.
+
 The blast-radius step still applies, and here it reads inverted: a fully green suite with no
 reference output changed is not evidence the fix is inert, it confirms the whole branch was
 untested. The `ref/` grep from §2 predicts this: only the shared-variable form of `:=` appeared

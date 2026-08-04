@@ -354,6 +354,13 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCasePatternBind(pattern: Pattern.Bind): String = printer.unsupported
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String = printer.unsupported
   def csDFCasePatternNamedArg(pattern: Pattern.NamedArg): String = printer.unsupported
+  // case patterns print bubble digits as the wildcard `?`, while value positions print the
+  // don't-care digit `x`. An anonymous singleton const prints exactly as its `refCodeString`
+  // form would (`csConstData`), only with the pattern flag raised.
+  override def csDFCasePattern(pattern: Pattern): String = pattern match
+    case Pattern.Singleton(DFRef(const: DFVal.Const)) if const.isAnonymous =>
+      printer.csConstData(const.dfType, const.data, inPattern = true)
+    case _ => super.csDFCasePattern(pattern)
   def csDFCaseKeyword: String = ""
   def csDFCaseSeparator: String = ":"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
@@ -369,7 +376,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val keyWord = if (wildcardSupport && !insideSupport) "casez" else "case"
     val insideStr = if (wildcardSupport && insideSupport) " inside" else ""
     s"$uniquePrefix$keyWord ($csSelector)$insideStr"
-  def csDFMatchEnd: String = "endcase"
+  def csDFMatchEnd(wildcardSupport: Boolean): String = "endcase"
   val sensitivityListSep =
     printer.dialect match
       case VerilogDialect.v95 => " or "

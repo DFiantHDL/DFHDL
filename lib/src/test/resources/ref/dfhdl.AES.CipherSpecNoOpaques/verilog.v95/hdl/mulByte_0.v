@@ -8,7 +8,7 @@ module mulByte_0(
 );
   `include "dfhdl_defs.vh"
   `include "CipherNoOpaques_defs.vh"
-  parameter [7:0] lhs = 8'h??;
+  parameter [7:0] lhs = 8'hxx;
   input  wire [7:0] rhs;
   output wire [7:0] o;
   wire [7:0] a_lhs;

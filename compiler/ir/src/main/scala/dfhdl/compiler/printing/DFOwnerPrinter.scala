@@ -219,7 +219,9 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   // SystemVerilog to avoid lint warnings. Global enums are excluded because
   // their full set of entries is not guaranteed to be covered at every match site.
   def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean, isUnique: Boolean): String
-  def csDFMatchEnd: String
+  // `wildcardSupport` must reach the end as well: VHDL's matching form is `case? ... end case?;`
+  // and mixing the closers is a compile error
+  def csDFMatchEnd(wildcardSupport: Boolean): String
   def csStepBlock(stepBlock: StepBlock): String
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String
@@ -263,7 +265,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
           case _         => false
         sn"""|${csDFMatchStatement(csSelector, mh.hasWildcards, isUnique)}
              |${csChains.hindent}
-             |${csDFMatchEnd}"""
+             |${csDFMatchEnd(mh.hasWildcards)}"""
       case ih: DFConditional.DFIfHeader => csChains
   def csProcessBlock(pb: ProcessBlock): String
   def csForkBlock(fb: ForkBlock): String
@@ -543,7 +545,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     s" if ${guardRef.refCodeString}"
   def csDFCaseKeyword: String = "case "
   def csDFCaseSeparator: String = " =>"
-  def csDFMatchEnd: String = "end match"
+  def csDFMatchEnd(wildcardSupport: Boolean): String = "end match"
   def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean, isUnique: Boolean): String =
     s"$csSelector match"
   def csProcessBlock(pb: ProcessBlock): String =

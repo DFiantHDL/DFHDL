@@ -43,17 +43,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val r1 = SInt(16) <> VAR
          |  val r2 = SInt(16) <> VAR
          |  val r3 = Bits(16) <> VAR
-         |  val r1_din = SInt(16) <> VAR
-         |  val r2_din = SInt(16) <> VAR
-         |  val r3_din = Bits(16) <> VAR
          |  process(all):
-         |    r2_din := r2
-         |    r3_din := r3
          |    w1 := x
          |    w1 := w1 + sd"16'1"
-         |    r1_din := w2
-         |    if (x > sd"16'0") r2_din := x
-         |    r3_din(7, 0) := h"88"
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1)
@@ -61,9 +53,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |        r2 :== sd"16'0"
          |        r3 :== h"0000"
          |      else
-         |        r1 :== r1_din
-         |        r2 :== r2_din
-         |        r3 :== r3_din
+         |        r1 :== w2
+         |        if (x > sd"16'0") r2 :== x
+         |        r3(7, 0) :== h"88"
          |      end if
          |    end if
          |  w2 <> x
@@ -129,6 +121,56 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |      end if
          |  end b
          |end TrueDPR
+         |""".stripMargin
+    )
+  }
+  // slicing with a mixed skeleton: the comb copy of `if (we)` keeps the wire assignment, the
+  // cloned seq copy keeps the shared-variable write, and the register commits directly; the
+  // text output (reading only settled values) fires once per step in the clocked process
+  test("Mixed combinational and sequential slices with a shared variable") {
+    class Mixed extends EDDesign:
+      val ram = Bits(8) X 256 <> VAR.SHARED
+      val a   = new RTDomain:
+        val data   = Bits(8) <> IN
+        val addr   = Bits(8) <> IN
+        val we     = Bit     <> IN
+        val status = Bits(2) <> OUT
+        val q      = Bits(8) <> OUT.REG
+        status := b"00"
+        if (we)
+          status    := b"11"
+          ram(addr) := data
+        q.din := ram(addr)
+        println(s"q: $q")
+    end Mixed
+    val top = (new Mixed).toED
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |
+         |class Mixed extends EDDesign:
+         |  val ram = Bits(8) X 256 <> VAR.SHARED
+         |  val a = new EDDomain:
+         |    @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |    val clk = Clk_default <> IN
+         |    val data = Bits(8) <> IN
+         |    val addr = Bits(8) <> IN
+         |    val we = Bit <> IN
+         |    val status = Bits(2) <> OUT
+         |    val q = Bits(8) <> OUT
+         |    val a_0: Bits[2] <> CONST = b"00"
+         |    val a_1: Bits[2] <> CONST = b"11"
+         |    process(all):
+         |      status := a_0
+         |      if (we) status := a_1
+         |    process(clk):
+         |      if (clk.actual.rising)
+         |        if (we) ram(addr.uint.toInt) :== data
+         |        q :== ram(addr.uint.toInt)
+         |        println(s"q: ${q}")
+         |      end if
+         |  end a
+         |end Mixed
          |""".stripMargin
     )
   }
@@ -243,15 +285,13 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val r = SInt(16) <> VAR
-         |  val y_din = SInt(16) <> VAR
          |  process(all):
          |    r := sd"16'1"
          |    r := x + r
-         |    y_din := r
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1) {}
-         |      else y :== y_din
+         |      else y :== r
          |    end if
          |end ID
          |
@@ -343,6 +383,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // the `.reg` alias reads `z` positionally (it is reassigned right after), so NameVarVersions
+  // captures the read into `z_ver`; the register then commits directly under the duplicated
+  // `if (c)` skeleton in the clocked process, with no `_din` shadow
   test("Inside conditional") {
     class Test() extends RTDesign:
       val c = Boolean <> IN
@@ -364,18 +407,20 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val c = Boolean <> IN
          |  val z = UInt(8) <> OUT
          |  val z_ver_reg = UInt(8) <> VAR
-         |  val z_ver_reg_din = UInt(8) <> VAR
+         |  val z_ver = UInt(8) <> VAR
          |  process(all):
-         |    z_ver_reg_din := z_ver_reg
+         |    z_ver := ?
          |    z := d"8'0"
          |    if (c)
-         |      z_ver_reg_din := z
+         |      z_ver := z
          |      z := z_ver_reg + d"8'1"
          |    end if
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1) z_ver_reg :== d"8'0"
-         |      else z_ver_reg :== z_ver_reg_din
+         |      else
+         |        if (c) z_ver_reg :== z_ver
+         |      end if
          |    end if
          |end Test
          |""".stripMargin
@@ -466,14 +511,11 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val clk = Clk_default <> IN
          |  val y = Bit <> OUT
          |  val status = UInt(8) <> VAR
-         |  val status_din = UInt(8) <> VAR
          |  process(all):
          |    y := 1
          |    status match
          |      case d"8'0" => y := 0
          |    end match
-         |  process(clk):
-         |    if (clk.actual.rising) status :== status_din
          |end Test
          |""".stripMargin
     )
@@ -1070,24 +1112,108 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val rst = Rst_default <> IN
          |  val r = Bits(PORT_WIDTH) <> OUT
          |  val w = Bits(PORT_WIDTH) <> OUT
-         |  val r_din = Bits(PORT_WIDTH) <> VAR
          |  process(all):
-         |    r_din := r
-         |    for (i <- 0 until PORT_WIDTH)
-         |      r_din(i) := 1
-         |    end for
-         |    for (i <- 0 until PORT_WIDTH)
-         |      if (r((PORT_WIDTH - 1) - i)) r_din(i) := 0
-         |    end for
          |    for (i <- 0 until PORT_WIDTH)
          |      w(i) := r(i)
          |    end for
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1) r :== b"0".repeat(PORT_WIDTH)
-         |      else r :== r_din
+         |      else
+         |        for (i <- 0 until PORT_WIDTH)
+         |          r(i) :== 1
+         |        end for
+         |        for (i <- 0 until PORT_WIDTH)
+         |          if (r((PORT_WIDTH - 1) - i)) r(i) :== 0
+         |        end for
+         |      end if
          |    end if
          |end Foo""".stripMargin
+    )
+  }
+
+  // a register write site under a guard that reads a later-reassigned wire cannot move (no
+  // guard capture in v1), so the register falls back to the `_din` shadow form
+  test("REG write under an unsettled guard falls back to the shadow form") {
+    class Foo extends RTDesign:
+      val x = Bits(8) <> IN
+      val y = Bit     <> OUT
+      val q = Bits(8) <> OUT.REG init all(0)
+      val c = Bit     <> VAR
+      c            := x(0)
+      if (c) q.din := x
+      c            := c || x(1)
+      y            := c
+    end Foo
+    val top = (new Foo).toED
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |
+         |class Foo extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = Bits(8) <> IN
+         |  val y = Bit <> OUT
+         |  val q = Bits(8) <> OUT
+         |  val c = Bit <> VAR
+         |  val q_din = Bits(8) <> VAR
+         |  process(all):
+         |    q_din := q
+         |    c := x(0)
+         |    if (c) q_din := x
+         |    c := c || x(1)
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) q :== h"00"
+         |      else q :== q_din
+         |    end if
+         |  y <> c
+         |end Foo
+         |""".stripMargin
+    )
+  }
+
+  // a register written inside a loop that also holds combinational content cannot move (loops
+  // are atomic), so the register falls back to the `_din` shadow form
+  test("REG write in a mixed loop falls back to the shadow form") {
+    class Foo extends RTDesign:
+      val data = Bits(8) <> IN
+      val w    = Bits(4) <> OUT
+      val r    = Bits(4) <> OUT.REG init all(0)
+      COMB_LOOP:
+        for (i <- 0 until 4)
+          w(i)     := data(i)
+          r(i).din := data(i + 4)
+    end Foo
+    val top = (new Foo).toED
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |
+         |class Foo extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val data = Bits(8) <> IN
+         |  val w = Bits(4) <> OUT
+         |  val r = Bits(4) <> OUT
+         |  val r_din = Bits(4) <> VAR
+         |  process(all):
+         |    for (i <- 0 until 4)
+         |      w(i) := data(i)
+         |      r_din(i) := data(i + 4)
+         |    end for
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) r :== h"0"
+         |      else r :== r_din
+         |    end if
+         |end Foo
+         |""".stripMargin
     )
   }
 
@@ -1464,7 +1590,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val x  = UInt(8) <> IN
       val r1 = UInt(8) <> VAR.REG init 0
       val r2 = UInt(8) <> VAR.REG init 0
-      // r2 has no DIN read, so it must not gain a default assignment of its own
+      // r2 has no DIN read, so it commits directly in the clocked process with no shadow
       r1.din := r1.din + x
       r2.din := x
     end ID
@@ -1482,19 +1608,17 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val r1 = UInt(8) <> VAR
          |  val r2 = UInt(8) <> VAR
          |  val r1_din = UInt(8) <> VAR
-         |  val r2_din = UInt(8) <> VAR
          |  process(all):
          |    r1_din := r1
          |    r1_din := r1_din + x
-         |    r2_din := x
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1)
          |        r1 :== d"8'0"
          |        r2 :== d"8'0"
          |      else
+         |        r2 :== x
          |        r1 :== r1_din
-         |        r2 :== r2_din
          |      end if
          |    end if
          |end ID

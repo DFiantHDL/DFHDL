@@ -380,7 +380,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  } t_struct_DFTuple2;
          |  localparam logic c01 = 1'b0;
          |  localparam logic c02 = 1'b1;
-         |  localparam logic c03 = 1'b?;
+         |  localparam logic c03 = 1'bx;
          |  localparam logic c04 = 0;
          |  localparam logic c05 = 1;
          |  localparam logic [7:0] c06 = 8'h22;
@@ -390,8 +390,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  localparam logic [47:0] c10 = 48'd239794508230343;
          |  localparam logic signed [3:0] c11 = -4'sd8;
          |  localparam logic signed [48:0] c12 = -49'sd239794508230343;
-         |  localparam logic [7:0] c13 = 8'h??;
-         |  localparam logic signed [7:0] c14 = $signed(8'h??);
+         |  localparam logic [7:0] c13 = 8'hxx;
+         |  localparam logic signed [7:0] c14 = $signed(8'hxx);
          |  localparam t_struct_DFTuple2 c15 = '{3'h0, 1'b1};
          |  localparam logic [7:0] c16 [0:6] [0:4] = '{
          |    0: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 1: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
@@ -735,7 +735,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always_comb
          |  begin
          |    case (x) inside
-         |      16'h12??, 16'h345?: y = 16'h22??;
+         |      16'h12??, 16'h345?: y = 16'h22xx;
          |      default: y = 16'hffff;
          |    endcase
          |  end
@@ -768,7 +768,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output reg [15:0] y;
          |  always @(x)
          |  begin
-         |    if ((x[15:8] == 8'h12) || (x[15:4] == 12'h345)) y = 16'h22??;
+         |    if ((x[15:8] == 8'h12) || (x[15:4] == 12'h345)) y = 16'h22xx;
          |    else y = 16'hffff;
          |  end
          |endmodule
@@ -3219,6 +3219,47 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    else dout <= ram[addr];
          |  end
          |endmodule""".stripMargin
+    )
+  }
+  // a branch-local temporary hoisted to module scope receives a don't-care default at the top of
+  // the combinational process, so `always_comb` stays fully assigned and no latch is inferred
+  // for it (issue #438)
+  test("hoisted combinational branch temporary gets a don't-care default") {
+    class CombBranchTemp extends EDDesign:
+      val sel = Bit     <> IN
+      val a   = UInt(8) <> IN
+      val b   = UInt(8) <> IN
+      val res = UInt(8) <> OUT
+      process(all):
+        res := a
+        if (sel)
+          val tmp = a + b
+          res := tmp
+    val top = (new CombBranchTemp).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module CombBranchTemp(
+         |  input  wire logic sel,
+         |  input  wire logic [7:0] a,
+         |  input  wire logic [7:0] b,
+         |  output logic [7:0] res
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] tmp;
+         |  always_comb
+         |  begin
+         |    res = a;
+         |    tmp = 8'hxx;
+         |    if (sel) begin
+         |      tmp = a + b;
+         |      res = tmp;
+         |    end
+         |  end
+         |endmodule
+         |""".stripMargin
     )
   }
 end PrintVerilogCodeSpec

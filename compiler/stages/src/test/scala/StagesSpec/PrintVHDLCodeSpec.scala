@@ -755,10 +755,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |begin
          |  process (all)
          |  begin
-         |    case x is
+         |    case? x is
          |      when x"12--" | x"345-" => y <= x"22--";
          |      when others => y <= x"ffff";
-         |    end case;
+         |    end case?;
          |  end process;
          |end Foo_arch;
          |""".stripMargin
@@ -3345,22 +3345,23 @@ class PrintVHDLCodeSpec extends StageSpec:
   }
   // VHDL spells an assignment after the target's object class, not after the blocking vs
   // non-blocking distinction: a process-local variable takes `:=` and a design-level `VAR` or an
-  // output port takes `<=`, while a design-level `VAR.SHARED` (writable only via `:==` under ED)
-  // still takes the variable's `:=`.
+  // output port takes `<=`, while a design-level `VAR.SHARED` (writable only via `:==` under ED,
+  // and only inside a clocked process) still takes the variable's `:=`.
   test("assignment operator follows the target's object class") {
     class Example extends EDDesign:
-      val a          = Bits(8) <> IN
-      val o1, o2, o3 = Bits(8) <> OUT
-      val sig        = Bits(8) <> VAR
-      val shr        = Bits(8) <> VAR.SHARED
-      process(all):
+      val clk    = Bit     <> IN
+      val a      = Bits(8) <> IN
+      val o1, o2 = Bits(8) <> OUT
+      val sig    = Bits(8) <> VAR
+      val shr    = Bits(8) <> VAR.SHARED
+      process(clk):
         val loc = Bits(8) <> VAR
-        loc  := ~a
-        sig  := loc
-        shr :== loc
-        o1   := loc
+        loc := ~a
+        if (clk.rising)
+          sig :== loc
+          shr :== loc
+          o1  :== loc
       o2 <> sig
-      o3 <> shr
     val top = (new Example).getCompiledCodeString
     assertNoDiff(
       top,
@@ -3371,10 +3372,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Example is
          |port (
+         |  clk : in std_logic;
          |  a : in std_logic_vector(7 downto 0);
          |  o1 : out std_logic_vector(7 downto 0);
-         |  o2 : out std_logic_vector(7 downto 0);
-         |  o3 : out std_logic_vector(7 downto 0)
+         |  o2 : out std_logic_vector(7 downto 0)
          |);
          |end Example;
          |
@@ -3382,16 +3383,17 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  signal sig : std_logic_vector(7 downto 0);
          |  shared variable shr : std_logic_vector(7 downto 0);
          |begin
-         |  process (all)
+         |  process (clk)
          |    variable loc : std_logic_vector(7 downto 0);
          |  begin
          |    loc := not a;
-         |    sig <= loc;
-         |    shr := loc;
-         |    o1 <= loc;
+         |    if rising_edge(clk) then
+         |      sig <= loc;
+         |      shr := loc;
+         |      o1 <= loc;
+         |    end if;
          |  end process;
          |  o2 <= sig;
-         |  o3 <= shr;
          |end Example_arch;
          |""".stripMargin
     )
@@ -3428,6 +3430,53 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  x_sig <= x"00";
          |  y <= x_sig(0);
          |end Example_arch;
+         |""".stripMargin
+    )
+  }
+  // a branch-local temporary hoisted to a process variable receives a don't-care default at the
+  // top of the combinational process, so its lifetime extension does not retain state across
+  // process activations (issue #438)
+  test("hoisted combinational branch temporary gets a don't-care default") {
+    class CombBranchTemp extends EDDesign:
+      val sel = Bit     <> IN
+      val a   = UInt(8) <> IN
+      val b   = UInt(8) <> IN
+      val res = UInt(8) <> OUT
+      process(all):
+        res := a
+        if (sel)
+          val tmp = a + b
+          res := tmp
+    val top = (new CombBranchTemp).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity CombBranchTemp is
+         |port (
+         |  sel : in std_logic;
+         |  a : in unsigned(7 downto 0);
+         |  b : in unsigned(7 downto 0);
+         |  res : out unsigned(7 downto 0)
+         |);
+         |end CombBranchTemp;
+         |
+         |architecture CombBranchTemp_arch of CombBranchTemp is
+         |begin
+         |  process (all)
+         |    variable tmp : unsigned(7 downto 0);
+         |  begin
+         |    res <= a;
+         |    tmp := unsigned'(x"--");
+         |    if sel then
+         |      tmp := a + b;
+         |      res <= tmp;
+         |    end if;
+         |  end process;
+         |end CombBranchTemp_arch;
          |""".stripMargin
     )
   }

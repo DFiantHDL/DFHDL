@@ -169,7 +169,7 @@ process:
 
 The leading statements do **not** re-run on an explicit jump to the first step (`FirstStep` or the first step's name), nor on a `ThisStep` self-transition. The first step's `onEntry` is an ordinary entry hook on top of that: it runs on *every* entry into the first step from a different step, explicit jumps included (but not on a self-transition).
 
-This holds whether or not the prologue is initial-convertible. When it is not (see [Cycle semantics](#cycle-semantics)), the compiler gives the prologue a state of its own to run it, and the wrap-around passes through that state. `FirstStep` does not: it jumps to the process's first step — the first step *you* wrote, or the one a leading wait or loop yielded — paying neither the prologue nor that state's cycle. `FirstStep` and naming the first step are therefore always the same jump, and are always distinct from a wrap-around.
+This holds whether or not the prologue is initial-convertible. When it is not (see [Cycle semantics](#cycle-semantics)), the compiler gives the prologue a state of its own to run it, and the wrap-around passes through that state. `FirstStep` does not: it jumps to the process's first step (the first step *you* wrote, or the one a leading wait or loop yielded), paying neither the prologue nor that state's cycle. `FirstStep` and naming the first step are therefore always the same jump, and are always distinct from a wrap-around.
 
 ```scala
 process:
@@ -355,12 +355,12 @@ class CombAndSeq extends EDDesign:
   process(x):
     y := x + 1
 
-  // Sequential logic, Verilog style: runs on clock (and optionally reset) events
+  // Sequential logic, edge style (as in Verilog): runs on clock (and optionally reset) events
   val r1 = UInt(8) <> VAR init 0
   process(clk.rising):
     r1 :== x
 
-  // Sequential logic, VHDL style: runs on clock (and optionally reset) events
+  // Sequential logic, guard style (as in VHDL): runs on clock (and optionally reset) events
   val r2 = UInt(8) <> VAR init 0
   process(clk):
     if (clk.rising)
@@ -428,9 +428,9 @@ It compiles to `wait;` in VHDL and `wait(0);` in Verilog.
 
 ## Edge sensitivity
 
-For sequential (clocked) logic you typically want the process to run only on a specific clock edge. You can either:
+For sequential (clocked) logic you typically want the process to run only on a specific clock edge. DFHDL supports both classic HDL styles, and they are interchangeable:
 
-1. **List the clock and check the edge inside the block** (VHDL-style):
+1. **Guard style** (as in VHDL): list the signals and check the edge inside the block:
 
 ```scala
 process(clk):
@@ -438,26 +438,43 @@ process(clk):
     reg :== nextVal
 ```
 
-2. **Put the edge in the sensitivity list** (Verilog-style; compiler may normalize to this):
+2. **Edge style** (as in Verilog): put the edge in the sensitivity list:
 
 ```scala
 process(clk.rising):
   reg :== nextVal
 ```
 
-Edge options are `.rising` and `.falling` on clock (or bit) signals. When reset is used, list both clock and reset and branch on reset then clock edge:
+Edge qualifiers are `.rising` and `.falling` on clock (or bit) signals. A VHDL sensitivity list may only contain signal names, and Verilog cannot test an edge inside a process body, so neither style can be printed as-is for both backends. Instead, the compiler recognizes the synthesizable patterns below and converts each process to the form the target backend requires: guard style for VHDL, edge style for Verilog. Write whichever style you prefer; the generated code is correct for both backends.
+
+### Synthesizable sequential patterns
+
+Each pattern is shown in both styles. The two spellings are equivalent, and the compiler translates between them according to the target backend.
+
+**Clock only:**
 
 ```scala
+// guard style (VHDL)
+process(clk):
+  if (clk.rising)
+    out :== nextVal
+
+// edge style (Verilog)
+process(clk.rising):
+  out :== nextVal
+```
+
+**Async reset, if-reset-else-clock:** the reset condition takes priority over the clocked assignments. In the edge style the reset is edge-qualified too, with the edge matching the active level (`.rising` for an active-high reset, `.falling` for an active-low reset):
+
+```scala
+// guard style (VHDL)
 process(clk, rst):
   if (rst)
     out :== 0
   else if (clk.rising)
     out :== nextVal
-```
 
-For the **Verilog-style async reset** pattern, put the edges in the sensitivity list and branch on reset only:
-
-```scala
+// edge style (Verilog)
 process(clk.rising, rst.rising):
   if (rst)
     out :== 0
@@ -465,13 +482,58 @@ process(clk.rising, rst.rising):
     out :== nextVal
 ```
 
-/// admonition | ED is a faithful mirror of Verilog/VHDL, so write synthesizable patterns
+The reset condition can be any of the simple active forms: `rst`, `!rst`, `rst == 1`, or `rst == 0`.
+
+**Async reset at the end of the process:** the reset condition is a separate `if` statement placed *last* in the process, overriding the clocked assignments made above it:
+
+```scala
+// guard style (VHDL)
+process(clk, rst):
+  if (clk.rising)
+    out :== nextVal
+  if (rst)
+    out :== 0
+
+// edge style (Verilog)
+process(clk.rising, rst.rising):
+  out :== nextVal
+  if (rst)
+    out :== 0
+```
+
+Since the reset override relies on last-assignment-wins, every register that requires a reset must be assigned inside the final reset `if`.
+
+**Sync reset:** the reset signal is not part of the sensitivity at all; it is simply the first condition checked under the clock event. This needs no special recognition, since it is the clock-only pattern with a reset conditional as its body:
+
+```scala
+// guard style (VHDL)
+process(clk):
+  if (clk.rising)
+    if (rst)
+      out :== 0
+    else
+      out :== nextVal
+
+// edge style (Verilog)
+process(clk.rising):
+  if (rst)
+    out :== 0
+  else
+    out :== nextVal
+```
+
+/// admonition | ED is a faithful mirror of Verilog/VHDL, so stick to the recognized patterns
     type: warning
 The ED domain is intentionally a low-level, faithful mapping to Verilog `always` blocks / VHDL `process` blocks. **DFHDL does not enforce synthesizability in the ED domain.** If you describe a non-synthesizable process pattern, the generated Verilog/VHDL will faithfully reflect that pattern, and downstream synthesis (or even a parser like Yosys) may reject it.
 
-It is your responsibility to write process bodies that match a synthesizable template. In particular, when an edge is **already in the sensitivity list**, do not re-check that edge inside the body: the body has already been triggered by it.
+The style conversion described above applies only to the recognized patterns. A sequential process that matches none of them is printed as-is, which is illegal HDL whenever the style does not match the backend:
 
-**Non-synthesizable** (clock edge appears both in sensitivity list and as a nested `else if`):
+- Under the VHDL backend, an unrecognized edge-style process keeps the edge function in its sensitivity list, and `process (rising_edge(clk))` is illegal VHDL.
+- Under the Verilog backend, an unrecognized guard-style process keeps the edge test in its body, and `if (posedge clk)` is illegal Verilog.
+
+In particular, do not re-check an edge that is **already in the sensitivity list**: the body has already been triggered by it, and the redundant guard breaks the pattern recognition.
+
+**Non-synthesizable** (clock edge appears both in the sensitivity list and as a nested `else if`):
 
 ```scala
 // BAD: emits `else if (posedge clk)` inside an always_ff, which is not valid Verilog
@@ -482,25 +544,7 @@ process(clk.rising, rst.rising):
     x :== x + 1
 ```
 
-**Synthesizable** equivalents, pick the style that matches the intent:
-
-```scala
-// Verilog-style async reset: edges in the sensitivity list, branch on reset only
-process(clk.rising, rst.rising):
-  if (rst)
-    x :== 0
-  else
-    x :== x + 1
-
-// VHDL-style: list the signals, branch on reset, then on the clock edge
-process(clk, rst):
-  if (rst)
-    x :== 0
-  else if (clk.rising)
-    x :== x + 1
-```
-
-The rule of thumb: an edge qualifier (`.rising` / `.falling`) belongs in **either** the sensitivity list **or** an `if` inside the body, not both for the same signal.
+Pick one of the async reset patterns above instead. The rule of thumb: an edge qualifier (`.rising` / `.falling`) belongs in **either** the sensitivity list **or** an `if` inside the body, not both for the same signal.
 ///
 
 ## Initial blocks
@@ -642,6 +686,7 @@ See [Design Domains][design-domains] for the overall flow from DF → RT → ED 
 - **`initial` blocks**: once-only initialization in RT (constants only; re-applied on reset) and ED (power-on; may include simulation output). A variable is initialized by declaration `init` or by one `initial` block, never both.
 - A bare **`wait`** halts a process forever (terminal FSM state in RT; `wait;` / `wait(0);` in ED output).
 - **ED**: Use **`process(sig1, sig2, ...)`** or **`process(all)`** in **EDDesign** / **EDDomain** to define when a block runs; **`process(all)`** for combinational logic; **`process(clk)`** (and optionally **`process(clk, rst)`**) with **`clk.rising`** / **`clk.falling`** for sequential logic.
+- **ED sequential patterns**: write clocked processes in either the guard style (edge tested inside the body, as in VHDL) or the edge style (edge in the sensitivity list, as in Verilog); the recognized patterns (clock only, async reset in if-reset-else-clock or reset-at-the-end form, sync reset) are converted by the compiler to the form each target backend requires (see [Synthesizable sequential patterns](#synthesizable-sequential-patterns)).
 - Use **`:=`** for immediate (blocking) updates and **`:==`** for register (non-blocking) updates in ED processes.
 - Processes cannot be nested and are not available in the DF domain.
 

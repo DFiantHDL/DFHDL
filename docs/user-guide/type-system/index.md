@@ -1482,9 +1482,11 @@ class RAM extends EDDesign:
     val q    = UInt(32) <> OUT.REG         // 32-bit registered read data
     val we   = Bit      <> IN              // Write enable
 
+    q.din := mem(addr)                     // Read (before the write, see note)
     if (we) mem(addr) := data              // Write
-    q.din := mem(addr)                     // Read
 ```
+
+Note: place shared-variable reads *before* writes within the same domain or process. The DFHDL semantics are read-first either way (writes commit at the end of the clock step), but the VHDL backend renders the statements in source order with the variable assignment `:=`, so only the read-before-write order makes the VHDL read-first as well, matching the Verilog and simulation behavior on a same-address write collision.
 
 #### File Initialization
 

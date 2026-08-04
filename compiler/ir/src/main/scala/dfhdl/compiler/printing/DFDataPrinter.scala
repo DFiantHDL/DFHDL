@@ -7,11 +7,17 @@ trait AbstractDataPrinter extends AbstractPrinter:
   val allowBitsBinModeInHex: Boolean
   val allowBitsBubbleInHex: Boolean
   val allowBitsExplicitWidth: Boolean
-  def csDFBitBubbleChar: Char
+  // `inPattern` is true only when printing a case-pattern literal, where a backend may need a
+  // different bubble digit than in a value position (Verilog: wildcard `?` vs don't-care `x`)
+  def csDFBitBubbleChar(inPattern: Boolean): Char
   def csDFBitsBinFormat(binRep: String): String
   def csDFBitsHexFormat(hexRep: String): String
   def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String
-  final def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String =
+  final def csDFBitsData(
+      dfType: DFBits,
+      data: (BitVector, BitVector),
+      inPattern: Boolean = false
+  ): String =
     val valueBits: BitVector = data._1
     val bubbleBits: BitVector = data._2
     import dfType.widthParamRef
@@ -20,7 +26,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
     def binZip(v: BitVector, b: BitVector): String =
       v.toBin.zip(b.toBin)
         .map {
-          case (_, '1')       => csDFBitBubbleChar
+          case (_, '1')       => csDFBitBubbleChar(inPattern)
           case (zeroOrOne, _) => zeroOrOne
         }
         .mkString
@@ -30,7 +36,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
       val ret = Some(
         v.toHex.zip(b.toHex)
           .flatMap {
-            case (_, 'F' | 'f')                  => s"$csDFBitBubbleChar"
+            case (_, 'F' | 'f')                  => s"${csDFBitBubbleChar(inPattern)}"
             case (h, '0')                        => s"$h"
             case (h, b) if allowBitsBinModeInHex => s"{${binZip(BitVector(h), BitVector(b))}}"
             case _                               =>
@@ -52,7 +58,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
         val (headValue, theRestValue) = valueBits.splitAt(headWidth)
         val (headBubble, theRestBubble) = bubbleBits.splitAt(headWidth)
         val headOption =
-          if (headBubble === BitVector.high(headWidth)) Some(s"$csDFBitBubbleChar")
+          if (headBubble === BitVector.high(headWidth)) Some(s"${csDFBitBubbleChar(inPattern)}")
           else hexZip(headValue.resize(4), headBubble.resize(4))
         val theRestOption = hexZip(theRestValue, theRestBubble)
         for (h <- headOption; tr <- theRestOption) yield h + tr
@@ -70,13 +76,17 @@ trait AbstractDataPrinter extends AbstractPrinter:
   end csDFBitsData
   def csDFBitFormat(bitRep: String): String
   def csDFBoolFormat(value: Boolean): String
-  final def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean]): String =
+  final def csDFBoolOrBitData(
+      dfType: DFBoolOrBit,
+      data: Option[Boolean],
+      inPattern: Boolean = false
+  ): String =
     data match
       case Some(value) =>
         dfType match
           case DFBool => csDFBoolFormat(value)
           case DFBit  => csDFBitFormat(if (value) "1" else "0")
-      case None => csDFBitFormat(s"${csDFBitBubbleChar}")
+      case None => csDFBitFormat(s"${csDFBitBubbleChar(inPattern)}")
   val allowDecimalBigInt: Boolean
   def csDFUIntFormatBig(value: BigInt, width: IntParamRef): String
   def csDFSIntFormatBig(value: BigInt, width: IntParamRef): String
@@ -148,33 +158,37 @@ trait AbstractDataPrinter extends AbstractPrinter:
   def csDFFreqData(data: FreqNumber): String
   def csDFNumberData(data: LiteralNumber): String
   def csDFStringData(dfType: DFString, data: Option[String]): String
-  final def csConstData(dfType: DFType, data: Any): String = (dfType, data) match
-    case DFBits.Data(dt, data)                                       => csDFBitsData(dt, data)
-    case DFBoolOrBit.Data(dt, data)                                  => csDFBoolOrBitData(dt, data)
-    case DFDecimal.Data(dt, data)                                    => csDFDecimalData(dt, data)
-    case DFDouble.Data(dt, data)                                     => csDFDoubleData(dt, data)
-    case DFEnum.Data(dt, data)                                       => csDFEnumData(dt, data)
-    case DFVector.Data(dt, data)                                     => csDFVectorData(dt, data)
-    case DFOpaque.Data(dt, data)                                     => csDFOpaqueData(dt, data)
-    case DFStruct.Data(dt, data) if dt.isTuple && tupleSupportEnable =>
-      csDFTupleData(dt.fieldMap.values.toList, data)
-    case DFStruct.Data(dt, data) => csDFStructData(dt, data)
-    case DFUnit.Data(dt, data)   => csDFUnitData(dt, data)
-    case DFTime.Data(dt, data)   => csDFTimeData(data)
-    case DFFreq.Data(dt, data)   => csDFFreqData(data)
-    case DFNumber.Data(dt, data) => csDFNumberData(data)
-    case DFString.Data(dt, data) => csDFStringData(dt, data)
-    case x                       =>
-      throw new IllegalArgumentException(
-        s"Unexpected data found: $x"
-      )
+  // `inPattern` reaches only the scalar bit-carrying leaves (bits/bool/bit); composed types
+  // (vector/struct/opaque) recurse through backend-implemented methods in value form, since
+  // none of the backends can express a composed literal as a case pattern
+  final def csConstData(dfType: DFType, data: Any, inPattern: Boolean = false): String =
+    (dfType, data) match
+      case DFBits.Data(dt, data)      => csDFBitsData(dt, data, inPattern)
+      case DFBoolOrBit.Data(dt, data) => csDFBoolOrBitData(dt, data, inPattern)
+      case DFDecimal.Data(dt, data)   => csDFDecimalData(dt, data)
+      case DFDouble.Data(dt, data)    => csDFDoubleData(dt, data)
+      case DFEnum.Data(dt, data)      => csDFEnumData(dt, data)
+      case DFVector.Data(dt, data)    => csDFVectorData(dt, data)
+      case DFOpaque.Data(dt, data)    => csDFOpaqueData(dt, data)
+      case DFStruct.Data(dt, data) if dt.isTuple && tupleSupportEnable =>
+        csDFTupleData(dt.fieldMap.values.toList, data)
+      case DFStruct.Data(dt, data) => csDFStructData(dt, data)
+      case DFUnit.Data(dt, data)   => csDFUnitData(dt, data)
+      case DFTime.Data(dt, data)   => csDFTimeData(data)
+      case DFFreq.Data(dt, data)   => csDFFreqData(data)
+      case DFNumber.Data(dt, data) => csDFNumberData(data)
+      case DFString.Data(dt, data) => csDFStringData(dt, data)
+      case x                       =>
+        throw new IllegalArgumentException(
+          s"Unexpected data found: $x"
+        )
 end AbstractDataPrinter
 
 protected trait DFDataPrinter extends AbstractDataPrinter:
   val allowBitsBinModeInHex: Boolean = true
   val allowBitsBubbleInHex: Boolean = true
   val allowBitsExplicitWidth: Boolean = true
-  def csDFBitBubbleChar: Char = '?'
+  def csDFBitBubbleChar(inPattern: Boolean): Char = '?'
   def csDFBitsBinFormat(binRep: String): String = s"""b"$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""h"$hexRep""""
   def csWidthInterp(width: IntParamRef): String = width match
