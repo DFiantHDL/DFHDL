@@ -116,13 +116,14 @@ class ParsedCommandLine(
         noshort = true
       )
       val `tools-location` = choice(
-        choices = Seq("dftools", "local"),
+        choices = Seq("auto", "dftools", "local"),
         default = Some(options.runLocation.toString),
         name = "tools-location",
         noshort = true,
         descr =
-          "where to run the external tools from: `dftools` (the pinned DFTools image, default) " +
-            "or `local` (tools discovered on your PATH)."
+          "where to run the external tools from: `auto` (local-first — a tool found on your PATH " +
+            "runs locally, otherwise from the pinned DFTools image; default), `dftools` (always " +
+            "the pinned DFTools image), or `local` (only tools discovered on your PATH)."
       )
     end ToolMode
     trait LintMode extends ToolMode:

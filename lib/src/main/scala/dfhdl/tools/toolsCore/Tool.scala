@@ -278,10 +278,26 @@ trait Tool:
   protected def supportsDFTools: Boolean =
     DFToolsImage.imageForOpt(binExec, vhdl = false).isDefined
 
-  // True when the tool options select the DFTools image AND this tool actually has one; an
-  // unsupported tool always runs from the local PATH (fallback) regardless of the option.
+  // True when a dev/test sif override (`-Ddfhdl.dftools.sif.<image>`) is installed for an image
+  // this tool can run from (both yosys dialect images are checked). Used by `auto` below: an
+  // explicit override means "validate this image" (DFTools CI), which a silent local-tool win
+  // would bypass.
+  private def hasDFToolsSifOverride: Boolean =
+    List(false, true).flatMap(vhdl => DFToolsImage.imageForOpt(binExec, vhdl)).distinct
+      .exists(image => DFToolsImage.overrideSif(image).nonEmpty)
+
+  // True when this tool runs from its DFTools image; an unsupported tool (no image) always runs
+  // from the local PATH regardless of the option. Under `auto` (the default) the choice is
+  // local-first: a tool resolvable on the host PATH runs locally, and only a missing (or
+  // version-probe-failing) local install falls back to the image — except when a sif override
+  // explicitly targets the tool's image, which forces the image path.
   protected final def usesDFTools(using to: ToolOptions): Boolean =
-    supportsDFTools && to.runLocation == dfhdl.options.ToolOptions.Location.dftools
+    import dfhdl.options.ToolOptions.Location
+    supportsDFTools &&
+    (to.runLocation match
+      case Location.dftools => true
+      case Location.local   => false
+      case Location.auto    => hasDFToolsSifOverride || !isAvailable)
 
   // A short identifier of the active toolchain: its install location (local vs. the DFTools image)
   // and resolved version. Tools that keep cache-unmanaged build intermediates in the sandbox use
@@ -366,8 +382,14 @@ trait Tool:
       else ""
     if (dftools)
       if (!DFToolsImage.isAvailable(dftoolsImage))
+        // under `auto` this is the end of the fallback chain, so say why the local path was not
+        // taken either — otherwise the message reads as if the image were the only option tried
+        val autoNote =
+          if (summon[ToolOptions].runLocation == dfhdl.options.ToolOptions.Location.auto)
+            s" (tools-location is `auto` and no local ${toolName} installation was found either)"
+          else ""
         error(
-          s"DFTools image '$dftoolsImage' (${DFToolsImage.version}) could not be resolved for ${toolName}."
+          s"DFTools image '$dftoolsImage' (${DFToolsImage.version}) could not be resolved for ${toolName}$autoNote."
         )
     else preCheck()
     prepare
@@ -846,7 +868,10 @@ trait Simulator extends Tool:
         val fsrc = b.foreignIPSource.get
         loadForeignSimHook(fsrc.simHookClass).map { hook =>
           val ipDir = os.Path(execPath, os.pwd) / os.RelPath(fsrc.resourcePath)
-          val base = new dfhdl.tools.ForeignSimContext(b.dclName, ipDir, topName, platformID)
+          // hand the hook this tool's EFFECTIVE location (under `auto` it is not derivable from
+          // the options), so a viewer it launches lands where the simulator actually runs
+          val base =
+            new dfhdl.tools.ForeignSimContext(b.dclName, ipDir, topName, platformID, usesDFTools)
           dfhdl.tools.ForeignSimHook.bind(hook, base)
         }
       }

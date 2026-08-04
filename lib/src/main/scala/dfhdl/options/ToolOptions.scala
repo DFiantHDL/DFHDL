@@ -15,15 +15,17 @@ object ToolOptions:
     given (using onError: dfhdl.options.OnError): OnError = onError
     given Conversion[dfhdl.options._OnError, _OnError] = x => x.asInstanceOf[_OnError]
 
-  // where the external tools are run from; defaults to the DFTools image.
-  //   dftools - the pinned DFTools Apptainer image (default)
-  //   local   - tools discovered on the system PATH
+  // where the external tools are run from; defaults to auto.
+  //   auto    - local-first: a tool found on the system PATH runs locally, and otherwise runs
+  //             from the pinned DFTools Apptainer image (default)
+  //   dftools - always the pinned DFTools Apptainer image
+  //   local   - only tools discovered on the system PATH
   type Location = _Location.type => _Location
   val Location = _Location
   protected[dfhdl] enum _Location derives CanEqual:
-    case dftools, local
+    case auto, dftools, local
   object _Location:
-    given Location = _ => dftools
+    given Location = _ => auto
 
   into opaque type WError <: dfhdl.options.WError = dfhdl.options.WError
   object WError:

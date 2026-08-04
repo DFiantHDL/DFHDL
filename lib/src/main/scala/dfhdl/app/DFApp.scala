@@ -401,8 +401,9 @@ class DFApp:
   end listSimulateTools
 
   private def toToolsLocation(s: String): dfhdl.options.ToolOptions._Location = s match
-    case "local" => dfhdl.options.ToolOptions.Location.local
-    case _       => dfhdl.options.ToolOptions.Location.dftools
+    case "local"   => dfhdl.options.ToolOptions.Location.local
+    case "dftools" => dfhdl.options.ToolOptions.Location.dftools
+    case _         => dfhdl.options.ToolOptions.Location.auto
 
   private def execute(mode: AppMode): Unit =
     try

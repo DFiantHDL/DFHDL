@@ -248,7 +248,7 @@ No options of its own beyond those of `compile`.
 
 | Option | Default | Description |
 |---|---|---|
-| `--tools-location <location>` | `dftools` | `dftools` runs the tools from the pinned DFTools image, `local` uses the tools found on your `PATH` |
+| `--tools-location <location>` | `auto` | `auto` runs a tool from your `PATH` when it is installed there and falls back to the pinned DFTools image otherwise; `dftools` always runs the tools from the DFTools image; `local` only uses the tools found on your `PATH` |
 | `--Werror-tool` / `--noWerror-tool` | `--noWerror-tool` | Make tool warnings fatal and exit with a non-zero code |
 
 `lint` and `simulate` select their tool per language, and you may give one side or both, separated by `/`:
