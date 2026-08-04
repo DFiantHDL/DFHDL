@@ -103,6 +103,59 @@ class ScopeChecksSpec extends DFSpec:
       o <> twice(a)
     Top()
 
+  // ~~~ SharedNBAssignOnly: a shared variable takes only `:==` inside an ED process ~~~
+  //
+  // A shared variable's writes commit at the end of the process step (Verilog `<=`, the portable
+  // RAM-inference idiom; VHDL still renders the variable's `:=`), so the blocking form is rejected
+  // wherever the current domain is ED. An `initial` block preload and an RT-domain write (lowered
+  // to `:==` by `ToED`) keep the blocking form.
+
+  private val sharedAssignErr =
+    """|Blocking assignments `:=` to a shared variable are not allowed inside a process under an event-driven (ED) domain.
+       |Change the assignment to a non-blocking assignment `:==`.""".stripMargin
+
+  // the snippet bypasses the plugin's `<>` precedence rewrite, hence the parenthesized `X`
+  test("`:=` to a shared variable is rejected inside a process (ED)"):
+    assertCompileError(sharedAssignErr)(
+      """
+      class Foo extends EDDesign:
+        val clk = Bit <> IN
+        val d = Bits(8) <> IN
+        val ram = (Bits(8) X 4) <> VAR.SHARED
+        process(clk.rising):
+          ram(0) := d
+      """
+    )
+
+  test("`:==` to a shared variable is allowed inside a process (ED)"):
+    class Top extends EDDesign:
+      val clk = Bit <> IN
+      val d = Bits(8) <> IN
+      val ram = Bits(8) X 4 <> VAR.SHARED
+      process(clk.rising):
+        ram(0) :== d
+    Top()
+
+  test("`:=` to a shared variable is allowed inside an `initial` block"):
+    class Top extends EDDesign:
+      val clk = Bit <> IN
+      val q = Bits(8) <> OUT
+      val ram = Bits(8) X 4 <> VAR.SHARED
+      initial:
+        ram(0) := all(0)
+      process(clk.rising):
+        q :== ram(0)
+    Top()
+
+  test("`:=` to a shared variable is allowed under an RT domain"):
+    class Top extends EDDesign:
+      val ram = Bits(8) X 4 <> VAR.SHARED
+      val dmn = new RTDomain:
+        val d = Bits(8) <> IN
+        val we = Bit <> IN
+        if (we) ram(0) := d
+    Top()
+
   // ~~~ HasWait: only `Process` and `Procedural` have it ~~~
 
   test("`wait` is rejected inside an `initial` block"):

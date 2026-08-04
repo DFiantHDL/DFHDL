@@ -120,8 +120,9 @@ The memory emits power-up-initialized and *outside* the reset, with non-blocking
 
 Pitfalls: leaving the write logic in the **parent** scope makes domain-flattening pull `mem` back
 into the parent reset; a bare `RTDomain` with its own `@timing.clock` spawns a *duplicate* clock
-port; a `VAR.SHARED` mem emits **blocking `=`** writes (write-first); an `EDDomain` (or a `Clk`/`Rst`
-/`process` *inside* one) is rejected by DFacsimile. DFacsimile builds a `@timing.related` RT domain
+port; a `VAR.SHARED` mem is for **multi-ported** RAMs (its clocked writes also lower to non-blocking
+`<=`, read-first; historically they emitted blocking `=` until issue #437); an `EDDomain` (or a
+`Clk`/`Rst`/`process` *inside* one) is rejected by DFacsimile. DFacsimile builds a `@timing.related` RT domain
 inline and binds an explicit `Clk`/`Rst` port to its deasserted value (both added to
 `DFacsimile.scala` alongside this port).
 

@@ -557,7 +557,9 @@ assignment to a signal was illegal VHDL. Two lessons generalize:
 - **Hand the backend the IR member, not a pre-digested boolean.** `csAssignment` took
   `shared: Boolean` because Verilog wanted one bit for a lint pragma, which left VHDL no way to ask
   its own question. Passing the LHS declaration lets each backend derive what it needs, and the
-  next distinction costs no signature change.
+  next distinction costs no signature change. Issue #437 collected on exactly this: once shared
+  writes became `:==`, `csNBAssignment` needed the same `lhsDcl` (VHDL has no non-blocking form
+  for a variable), and the signature change was one parameter because the pattern was in place.
 - **When two print sites decide the same fact, derive both from one predicate in `analysis`.** The
   declaration keyword (`signal` / `variable` / `shared variable`) and the assignment operator are
   the same question asked twice; kept apart they drift into declaring a `signal` you then write
@@ -596,6 +598,14 @@ of every intermediate that is only part-selected.
 **Do not copy the reporter's code into the repo.** Issue reports usually carry no license. Write a
 minimal design of your own that exercises the same path; if the shape is fully covered by stage
 specs, no `issues/iNNN.scala` file is needed at all.
+
+**`assertCompileError` snippets bypass the plugin's pre-typer rewrites.** The quoted snippet is
+type-checked via `compiletime.testing.typeCheckErrors` inside the typer, so `PreTyperPhase` (which
+fixes `<>` precedence, among others) never sees it. `Bits(8) X 4 <> VAR.SHARED` therefore
+mis-associates as `Bits(8) X (4 <> VAR.SHARED)` and reports a bewildering `Required:
+IntParam[D]` mismatch instead of the error under test. Parenthesize in snippets — `(Bits(8) X 4)
+<> VAR.SHARED` — and expect the same for any other syntax the plugin normalizes before typing.
+The same code OUTSIDE a snippet (a positive-control design in the same spec) is unaffected.
 
 ### Prove the test fails without the fix
 

@@ -1879,6 +1879,17 @@ object DFVarOps:
     util.NotGiven[DFC.Scope.Initial],
     "Non-blocking assignments `:==` are not allowed inside an `initial` block.\nChange the assignment to a blocking assignment `:=`."
   ]
+  // Under an ED domain a shared variable takes only non-blocking assignments, so that its
+  // writes commit at the end of the process step for every consumer alike (Verilog `<=`,
+  // DFacsimile's memory write ports; VHDL renders the same net with the variable's `:=`).
+  // `SanityCheck.sharedAssignCheck` is the stage-level twin of this guard (binding the
+  // lowerings, e.g. `ToED`); the two must agree. An `initial` block is the exception: there
+  // `:==` is forbidden and a blocking preload is the correct form.
+  protected type SharedNBAssignOnly[D, A] = AssertGiven[
+    util.NotGiven[A <:< Modifier.AssignableSHARED] | util.NotGiven[D <:< DomainType.ED] |
+      DFC.Scope.Initial,
+    "Blocking assignments `:=` to a shared variable are not allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a non-blocking assignment `:==`."
+  ]
   // extension [L](inline lhs: L)
   //   transparent inline def :=[R](inline rhs: R)(using DFC): Unit =
   //     exactOp2[":=", DFC, Unit](lhs, rhs)
@@ -1894,7 +1905,8 @@ object DFVarOps:
         notREG: NotREG[A],
         varOnly: VarOnly[A],
 //        localOrNonED: LocalOrNonED[A],
-        insideProcess: `InsideProcess:=`[dt.type, A]
+        insideProcess: `InsideProcess:=`[dt.type, A],
+        sharedNBOnly: SharedNBAssignOnly[dt.type, A]
     ): Unit = trydf {
       dfVar.assign(rhs(dfVar.dfType))
     }

@@ -407,8 +407,12 @@ case object ToED extends HierarchyStage:
                     plantMembers(
                       domainOwner,
                       processBlockAllMembers.view.map {
-                        case net @ DFNet.Assignment(toVal, _)
-                            if !toVal.departialDcl.get._1.modifier.isShared =>
+                        // shared-variable writes convert like the rest: inside the clocked
+                        // process every write commits at the step's end
+                        // (`SanityCheck.sharedAssignCheck` rejects a blocking shared write
+                        // here), and the backends render the non-blocking net per the target's
+                        // object class
+                        case net @ DFNet.Assignment(_, _) =>
                           net.copy(op = DFNet.Op.NBAssignment)
                         case m => m
                       }

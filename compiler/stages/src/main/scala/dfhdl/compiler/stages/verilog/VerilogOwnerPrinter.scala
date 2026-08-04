@@ -96,10 +96,19 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     // additionally emits an `initial` block right after its declaration
     def csDcl(m: DFVal): List[String] = m match
       case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport =>
+        // a shared variable is multi-driven by design (e.g., one clocked process per RAM port),
+        // which Verilator reports on the declaration, so the suppression wraps it here
+        def csDclLine =
+          val cs = printer.csDFMember(p) + ";"
+          if (p.modifier.isShared)
+            s"""|/* verilator lint_off MULTIDRIVEN */
+                |$cs
+                |/* verilator lint_on MULTIDRIVEN */""".stripMargin
+          else cs
         p.dfType match
           case _: DFVector if !printer.supportVectorInlineInit && p.initRefList.nonEmpty =>
-            List(printer.csDFMember(p) + ";", printer.csDFValDclInitialBlock(p))
-          case _ => List(printer.csDFMember(p) + ";")
+            List(csDclLine, printer.csDFValDclInitialBlock(p))
+          case _ => List(csDclLine)
       case c @ DclConst() => List(printer.csDFMember(c) + ";")
       case _              => Nil
     // constants, static functions, signals, and ED methods (all HDL methods are locally scoped,

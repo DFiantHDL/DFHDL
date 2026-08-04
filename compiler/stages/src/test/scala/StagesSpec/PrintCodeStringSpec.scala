@@ -1152,7 +1152,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
         process(clk):
           if (clk.rising)
             if (we)
-              ram(addr) := data
+              ram(addr) :== data
             q :== ram(addr)
     end TrueDPR
     val top = TrueDPR()
@@ -1171,7 +1171,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val we = Bit <> IN
          |    process(clk):
          |      if (clk.rising)
-         |        if (we) ram(addr.uint.toInt) := data
+         |        if (we) ram(addr.uint.toInt) :== data
          |        q :== ram(addr.uint.toInt)
          |      end if
          |  end a
@@ -1183,7 +1183,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val we = Bit <> IN
          |    process(clk):
          |      if (clk.rising)
-         |        if (we) ram(addr.uint.toInt) := data
+         |        if (we) ram(addr.uint.toInt) :== data
          |        q :== ram(addr.uint.toInt)
          |      end if
          |  end b

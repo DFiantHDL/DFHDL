@@ -3343,10 +3343,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  // VHDL spells an assignment after the target's object class, so one DFHDL `:=` prints four
-  // different ways depending on where the target is declared: a process-local variable and a
-  // design-level `VAR.SHARED` take `:=`, while a design-level `VAR` and an output port are
-  // signals and take `<=`.
+  // VHDL spells an assignment after the target's object class, not after the blocking vs
+  // non-blocking distinction: a process-local variable takes `:=` and a design-level `VAR` or an
+  // output port takes `<=`, while a design-level `VAR.SHARED` (writable only via `:==` under ED)
+  // still takes the variable's `:=`.
   test("assignment operator follows the target's object class") {
     class Example extends EDDesign:
       val a          = Bits(8) <> IN
@@ -3355,10 +3355,10 @@ class PrintVHDLCodeSpec extends StageSpec:
       val shr        = Bits(8) <> VAR.SHARED
       process(all):
         val loc = Bits(8) <> VAR
-        loc := ~a
-        sig := loc
-        shr := loc
-        o1  := loc
+        loc  := ~a
+        sig  := loc
+        shr :== loc
+        o1   := loc
       o2 <> sig
       o3 <> shr
     val top = (new Example).getCompiledCodeString

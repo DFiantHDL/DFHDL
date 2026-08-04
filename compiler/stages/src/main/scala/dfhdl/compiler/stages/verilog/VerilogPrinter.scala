@@ -25,13 +25,8 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
   val tupleSupportEnable: Boolean = false
   def csViaConnectionSep: String = ","
   def csAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String =
-    val cs = s"$lhsStr = $rhsStr;"
-    if (lhsDcl.modifier.isShared)
-      s"""|/* verilator lint_off BLKSEQ */
-          |$cs
-          |/* verilator lint_on BLKSEQ */""".stripMargin
-    else cs
-  def csNBAssignment(lhsStr: String, rhsStr: String): String =
+    s"$lhsStr = $rhsStr;"
+  def csNBAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String =
     s"$lhsStr <= $rhsStr;"
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
     s"assign $lhsStr = $rhsStr;"

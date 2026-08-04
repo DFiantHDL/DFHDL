@@ -17,23 +17,17 @@ module TrueDPR#(
   input  wire logic                    b_we
 );
   `include "dfhdl_defs.svh"
+  /* verilator lint_off MULTIDRIVEN */
   logic [DATA_WIDTH - 1:0] ram [0:(2 ** ADDR_WIDTH) - 1];
+  /* verilator lint_on MULTIDRIVEN */
   always_ff @(posedge a_clk)
   begin
-    if (a_we) begin
-      /* verilator lint_off BLKSEQ */
-      ram[a_addr] = a_data;
-      /* verilator lint_on BLKSEQ */
-    end
-    a_q           <= ram[a_addr];
+    if (a_we) ram[a_addr] <= a_data;
+    a_q <= ram[a_addr];
   end
   always_ff @(posedge b_clk)
   begin
-    if (b_we) begin
-      /* verilator lint_off BLKSEQ */
-      ram[b_addr] = b_data;
-      /* verilator lint_on BLKSEQ */
-    end
-    b_q           <= ram[b_addr];
+    if (b_we) ram[b_addr] <= b_data;
+    b_q <= ram[b_addr];
   end
 endmodule

@@ -163,7 +163,7 @@ val _name_ = _dftype_ <> _modifier_ [init _const_]
     * `OUT` - to construct an output port
     * `INOUT` - to construct a bidirectional input-output port
     * `VAR.REG` / `OUT.REG` - to construct a registered variable or output port (available only in RT domains) 
-    * `VAR.SHARED` - to construct a shared variable that can be assigned in more than one domain (this feature is to be used scarcely, to model unique designs like [True Dual-Port RAM][true-dpr])
+    * `VAR.SHARED` - to construct a shared variable that can be assigned in more than one domain (this feature is to be used scarcely, to model unique designs like [True Dual-Port RAM][true-dpr]). Directly under an ED domain, a shared variable is assigned within a process only with the non-blocking `:==` operator, so its writes commit at the end of the process step (the standard RAM inference behavior; in the VHDL backend such writes still render with the variable assignment `:=`).
 * __`init`__ is an optional construct to initialize the DFHDL variable/port declaration history with the applied `_const_` value.
 * __`_const_`__ is the [state history][state] initialization value which must be a [constant][DFConst] that is supported by the DFType `_dftype_`. Under DF domain only, `_const_` can also be represented by a [Scala Tuple](https://docs.scala-lang.org/tour/tuples.html){target="_blank"} sequence of [constant][DFConst] initialization values that are supported by the DFType `_dftype_`.
 
@@ -1468,18 +1468,22 @@ matrix := all(all(0))  // All elements to 0
 
 #### Memory/RAM Implementation
 
-Vectors are commonly used to implement memories and RAMs:
+Vectors are commonly used to implement memories and RAMs. A shared vector variable, declared
+under an ED design and accessed from one or more RT domains (one per memory port), yields the
+standard synthesizable RAM template:
 
 ```scala
-class RAM extends RTDesign:
-  val addr = UInt(10) <> IN           // 10-bit address
-  val data = UInt(32) <> INOUT        // 32-bit data
-  val we   = Bit <> IN               // Write enable
-  
+class RAM extends EDDesign:
   val mem = UInt(32) X 1024 <> VAR.SHARED  // 1K x 32-bit memory
-  
-  if (we) mem(addr) := data          // Write
-  data := mem(addr)                  // Read
+
+  val port = new RTDomain:
+    val addr = UInt(10) <> IN              // 10-bit address
+    val data = UInt(32) <> IN              // 32-bit write data
+    val q    = UInt(32) <> OUT.REG         // 32-bit registered read data
+    val we   = Bit      <> IN              // Write enable
+
+    if (we) mem(addr) := data              // Write
+    q.din := mem(addr)                     // Read
 ```
 
 #### File Initialization

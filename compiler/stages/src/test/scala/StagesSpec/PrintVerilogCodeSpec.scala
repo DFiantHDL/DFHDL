@@ -3182,4 +3182,43 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+  // a `:==` write to a shared variable (the multi-port RAM idiom) renders as a plain non-blocking
+  // `<=` inside the clocked process, the portable RAM-inference template form (issue #437)
+  test("shared variable (RAM) writes are non-blocking") {
+    class SimpleRAM extends EDDesign:
+      val clk  = Bit          <> IN
+      val we   = Bit          <> IN
+      val addr = Bits(4)      <> IN
+      val din  = Bits(8)      <> IN
+      val dout = Bits(8)      <> OUT
+      val ram  = Bits(8) X 16 <> VAR.SHARED
+      process(clk.rising):
+        if (we) ram(addr) :== din
+        else dout         :== ram(addr)
+    val top = (new SimpleRAM).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module SimpleRAM(
+         |  input  wire logic clk,
+         |  input  wire logic we,
+         |  input  wire logic [3:0] addr,
+         |  input  wire logic [7:0] din,
+         |  output logic [7:0] dout
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  /* verilator lint_off MULTIDRIVEN */
+         |  logic [7:0] ram [0:15];
+         |  /* verilator lint_on MULTIDRIVEN */
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (we) ram[addr] <= din;
+         |    else dout <= ram[addr];
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec
