@@ -755,10 +755,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |begin
          |  process (all)
          |  begin
-         |    case x is
+         |    case? x is
          |      when x"12--" | x"345-" => y <= x"22--";
          |      when others => y <= x"ffff";
-         |    end case;
+         |    end case?;
          |  end process;
          |end Foo_arch;
          |""".stripMargin

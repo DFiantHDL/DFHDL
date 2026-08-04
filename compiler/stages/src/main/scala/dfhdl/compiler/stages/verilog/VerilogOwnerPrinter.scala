@@ -376,7 +376,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val keyWord = if (wildcardSupport && !insideSupport) "casez" else "case"
     val insideStr = if (wildcardSupport && insideSupport) " inside" else ""
     s"$uniquePrefix$keyWord ($csSelector)$insideStr"
-  def csDFMatchEnd: String = "endcase"
+  def csDFMatchEnd(wildcardSupport: Boolean): String = "endcase"
   val sensitivityListSep =
     printer.dialect match
       case VerilogDialect.v95 => " or "
