@@ -765,8 +765,10 @@ chasing a distinction that does not exist. The tell is a `scala.MatchError: <n> 
 java.lang.Integer)` from `compileIncremental` on some *other* subproject during the same session —
 the same corrupted-incremental-state symptom as after any front-end edit. A
 `dotty.tools.dotc.core.Denotations$StaleSymbolException` ("stale symbol ... referred to in run")
-while compiling a *downstream* subproject is the same disease. Run `clean` before trusting a
-stashed run, and re-confirm on a clean build before concluding the test does not reproduce.
+while compiling a *downstream* subproject is the same disease, and so is a phantom
+`[E046] Cyclic Error ... Cyclic reference involving val <import>` in an untouched `core` file
+right after a `compiler_ir` edit — even a body-only one. Run `clean` before trusting a stashed
+run, and re-confirm on a clean build before concluding the test does not reproduce.
 
 This is not paranoia. A `<Stage>Spec` asserts on the DFHDL *printout*, and two different IRs can
 print identically — the printout is the stage contract precisely because it hides representation.

@@ -1683,6 +1683,55 @@ final case class DB private (
   //   * Rule 4: a loop containing an RT-domain shared-variable write moves whole into the
   //     clocked process, so all its content must be sequential-sink writes with settled
   //     reads; otherwise the loop must be split.
+  // The process block a member statement resides in, if any (walks out of nested
+  // conditional/step blocks; a domain owner boundary means the member is not in a process).
+  @tailrec private def ownerProcessOpt(member: DFMember): Option[ProcessBlock] =
+    member.ownerRef.get match
+      case pb: ProcessBlock => Some(pb)
+      case _: DFDomainOwner => None
+      case owner: DFBlock   => ownerProcessOpt(owner)
+      case _                => None
+
+  // A variable (or any part of it) written with both a blocking (`:=`) and a non-blocking
+  // (`:==`) assignment inside the same process commits at two different times, which is a
+  // semantic contradiction; the generated HDL then mixes `=`/`<=` on one variable inside a
+  // single process, which downstream tools reject (issue #446). The rule is per declaration
+  // and per process: which parts are assigned is irrelevant, and a consistently-assigned
+  // variable is fine with either kind (a blocking-assigned temporary in a clocked process
+  // is legitimate; see DropBAssignFromSeqProc). Shared variables are excluded, since their
+  // writes are already restricted to `:==` at compile time.
+  def mixedAssignKindCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    val firstNets = collection.mutable.Map.empty[(ProcessBlock, DFVal.Dcl), DFNet]
+    val reported = collection.mutable.Set.empty[(ProcessBlock, DFVal.Dcl)]
+    members.foreach {
+      case net @ DFNet.Assignment(toVal, _) =>
+        toVal.departialDcl match
+          case Some((dcl, _)) if !dcl.modifier.isShared =>
+            ownerProcessOpt(net).foreach { pb =>
+              val key = (pb, dcl)
+              firstNets.get(key) match
+                case Some(prevNet) =>
+                  if (prevNet.op != net.op && !reported.contains(key))
+                    reported += key
+                    errors +=
+                      s"""|DFiant HDL connectivity error!
+                          |Position:  ${net.meta.position}
+                          |Hierarchy: ${net.getOwnerDesign.getFullName}
+                          |LHS:       ${printer.csDFValRef(net.lhsRef.get, net.getOwnerDesign)}
+                          |RHS:       ${printer.csDFValRef(net.rhsRef.get, net.getOwnerDesign)}
+                          |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `${dcl.getFullName}` within the same process.
+                          |Use one assignment kind consistently for this variable inside the process.
+                          |The previous write occurred at ${prevNet.meta.position}""".stripMargin
+                case None => firstNets(key) = net
+            }
+          case _ =>
+      case _ =>
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n\n"))
+  end mixedAssignKindCheck
+
   def sharedVarCheck(): Unit =
     val errors = collection.mutable.ArrayBuffer[String]()
     def memberError(member: DFMember, msg: String): Unit =
@@ -1690,12 +1739,6 @@ final case class DB private (
                     |Position:  ${member.meta.position}
                     |Hierarchy: ${member.getOwnerDesign.getFullName}
                     |Message:   $msg""".stripMargin
-    @tailrec def ownerProcessOpt(member: DFMember): Option[ProcessBlock] =
-      member.ownerRef.get match
-        case pb: ProcessBlock => Some(pb)
-        case _: DFDomainOwner => None
-        case owner: DFBlock   => ownerProcessOpt(owner)
-        case _                => None
     members.foreach { m =>
       // Rule 1: a write to a shared variable inside a `process(all)`
       m match
@@ -2044,6 +2087,7 @@ final case class DB private (
     condExprNamedValCheck()
     blockScopeCheck()
     sharedVarCheck()
+    mixedAssignKindCheck()
 
   // Whole-tree checks, run once on the root: the cross-design connectivity /
   // RT-domain / device-top checks, via the `*` clones that navigate the

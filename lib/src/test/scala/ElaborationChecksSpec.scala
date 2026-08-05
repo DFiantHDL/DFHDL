@@ -1293,4 +1293,80 @@ class ElaborationChecksSpec extends DesignSpec:
           |them, or use assignments within a process instead of connections.
           |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1279:9 - 1279:27""".stripMargin
     )
+  test("consistent assignment kinds per process are accepted"):
+    object Test:
+      @top(false) class ConsistentNB extends EDDesign:
+        val clk, rst = Bit <> IN
+        val d = Bit <> IN
+        val q = Bit <> OUT
+        process(clk.rising, rst.rising):
+          if (rst) q :== 0
+          else q :== d
+      end ConsistentNB
+      @top(false) class BlockingTemp extends EDDesign:
+        val clk = Bit <> IN
+        val a, b = Bits(8) <> IN
+        val q = Bits(8) <> OUT
+        val tmp = Bits(8) <> VAR
+        process(clk.rising):
+          tmp := a | b
+          q :== tmp
+      end BlockingTemp
+      @top(false) class SplitProcesses extends EDDesign:
+        val clk = Bit <> IN
+        val d = Bits(8) <> IN
+        val q = Bits(8) <> OUT
+        process(clk.rising):
+          q(3, 0) := d(3, 0)
+        process(clk.rising):
+          q(7, 4) :== d(7, 4)
+      end SplitProcesses
+    end Test
+    import Test.*
+    ConsistentNB()
+    BlockingTemp()
+    SplitProcesses()
+
+  test("mixed assignment kinds to one variable in one process error"):
+    object Test:
+      @top(false) class MixedWhole extends EDDesign:
+        val clk, rst = Bit <> IN
+        val d = Bit <> IN
+        val q = Bit <> OUT
+        process(clk.rising, rst.rising):
+          if (rst) q := 0
+          else q :== d
+      end MixedWhole
+      @top(false) class MixedParts extends EDDesign:
+        val clk = Bit <> IN
+        val d = Bits(8) <> IN
+        val q = Bits(8) <> OUT
+        process(clk.rising):
+          q(3, 0) := d(3, 0)
+          q(7, 4) :== d(7, 4)
+      end MixedParts
+    end Test
+    import Test.*
+    assertElaborationErrors(MixedWhole())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1338:16 - 1338:23
+          |Hierarchy: MixedWhole
+          |LHS:       q
+          |RHS:       d
+          |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `MixedWhole.q` within the same process.
+          |Use one assignment kind consistently for this variable inside the process.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1337:20 - 1337:26""".stripMargin
+    )
+    assertElaborationErrors(MixedParts())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1346:11 - 1346:30
+          |Hierarchy: MixedParts
+          |LHS:       q(7, 4)
+          |RHS:       d(7, 4)
+          |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `MixedParts.q` within the same process.
+          |Use one assignment kind consistently for this variable inside the process.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1345:11 - 1345:29""".stripMargin
+    )
 end ElaborationChecksSpec
