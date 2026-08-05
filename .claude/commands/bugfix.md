@@ -573,6 +573,40 @@ rule**, not a message worth improving. Add the verdict as a `newError` inside `g
 wins over the generic one automatically, and it arrives in the standard connectivity-error block
 (position, hierarchy, LHS, RHS) at no cost.
 
+### A conservative check over parametric bounds: prove, resolve, and only then reject
+
+A check that compares parameter-dependent index/width expressions (the slice-overlap check of
+issues #442/#447 is the archetype) must not collapse "parametric" to "unknown": that rejects
+`o(W-1, 0)` next to `o(2W-1, W)`, which are disjoint for every W. The machinery that fixed it
+generalizes:
+
+- **Decide on linear forms.** `IntExprCalc` decomposes an integer `DFVal` expression into
+  `Σ ci·basei + offset`; `Slice.Symbolic` carries `(lo, width)` as such forms, and
+  `IntExprCalc.DataCalc.proveNonNeg` proves `e >= 0` using validity facts (every slice width is
+  `>= 1` on the valid parameter domain). The single-fact proportional rule is enough for the
+  equal-bin family (`k*W` slices of width `W`) at any pair distance. When neither disjointness
+  nor overlap is provable, keep the conservative error but say *why* (a distinct message for
+  "cannot be proven disjoint"), the generic message misled the #442 reporter into a wrong theory.
+- **Resolve applied parameters through the instantiation site, never by gating on `isTop`.**
+  Under the hierarchical model *and* in DBs flattened from it (the backend printer's flat DB),
+  every design block's `ownerRef` is empty, so `isTop` reads true where it must not — that gate
+  silently kept a sub-design's `W` symbolic. `GoThroughDesignParams` is wrong in the other
+  direction: it folds even the elaboration root's parameters (that is `toScalaInt`'s job), and a
+  root parameter must stay symbolic because it is overridable in the generated HDL.
+  `DesignParam.instAppliedConstDataOpt` is the correct primitive: cached instance during
+  elaboration, `designBlockInstMap` on flat DBs, `parentSubDBOpt` walk-up on hierarchical
+  sub-DBs, and `None` exactly for the elaboration root.
+- **The check re-runs where you don't expect.** `connectionTable` is forced again by the backend
+  printer on the *flat* DB, so a connectivity-analysis fix must resolve under every DB model; a
+  test that only elaborates is blind to the print-time re-run. Pin it with
+  `getCompiledCodeString` (`ElaborationChecksSpec`'s sub-design slice test is the model).
+- **`clearDFHDL` between probe re-runs after compiler edits.** The sub-design elaboration cache
+  serves API-driven probes (`getCompiledCodeString`) too, not just DFApp runs; a cached child
+  elaboration skips the very code you just changed and the probe "reproduces" stale behavior.
+- One departial-coordinate trap fixed alongside: a vector `ApplyRange`'s indices are in **cell**
+  units and must be scaled by the cell width into bit coordinates; the old `shift(idxLow)` mixed
+  units and falsely errored even fully-literal `o(0, 1)` / `o(2, 3)` vector range connections.
+
 ### Then measure the blast radius
 
 Run the full suite with the check in and **no stage fixes yet**. The failures are the deliverable
@@ -729,9 +763,10 @@ Revert only the changed guard in place instead, and watch for a silent run.
 then passes, and the honest reading ("my reproducer is wrong, go find a different shape") sends you
 chasing a distinction that does not exist. The tell is a `scala.MatchError: <n> (of class
 java.lang.Integer)` from `compileIncremental` on some *other* subproject during the same session —
-the same corrupted-incremental-state symptom as after any front-end edit. Run `clean` before
-trusting a stashed run, and re-confirm on a clean build before concluding the test does not
-reproduce.
+the same corrupted-incremental-state symptom as after any front-end edit. A
+`dotty.tools.dotc.core.Denotations$StaleSymbolException` ("stale symbol ... referred to in run")
+while compiling a *downstream* subproject is the same disease. Run `clean` before trusting a
+stashed run, and re-confirm on a clean build before concluding the test does not reproduce.
 
 This is not paranoia. A `<Stage>Spec` asserts on the DFHDL *printout*, and two different IRs can
 print identically — the printout is the stage contract precisely because it hides representation.

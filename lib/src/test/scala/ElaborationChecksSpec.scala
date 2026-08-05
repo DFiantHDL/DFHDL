@@ -1135,4 +1135,162 @@ class ElaborationChecksSpec extends DesignSpec:
           |Operation: `apply`
           |Message:   The applied RHS value width (16) is undefined compared to the LHS variable width (16 max W).""".stripMargin
     )
+
+  test("disjoint parameter-dependent slice connections are accepted"):
+    object Test:
+      @top(false) class SliceParam(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        o.lsbitsAt(0, W) <> i.lsbitsAt(0, W)
+        o.lsbitsAt(W, W) <> i.lsbitsAt(W, W)
+      end SliceParam
+      @top(false) class SliceLoop(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 3) <> IN
+        val o = Bits(W * 3) <> OUT
+        for (k <- 0 until 3)
+          o.lsbitsAt(k * W, W) <> i.lsbitsAt(k * W, W)
+      end SliceLoop
+      @top(false) class SliceHiLo(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        o(W - 1, 0) <> i(W - 1, 0)
+        o(2 * W - 1, W) <> i(2 * W - 1, W)
+      end SliceHiLo
+      @top(false) class SliceParamHigh(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W) <> IN
+        val o = Bits(W) <> OUT
+        o(W - 1, 1) <> i(W - 1, 1)
+        o(0, 0) <> i(0, 0)
+      end SliceParamHigh
+      @top(false) class VecCellRanges(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W) X 4 <> IN
+        val o = Bits(W) X 4 <> OUT
+        o(0, 1) <> i(0, 1)
+        o(2, 3) <> i(2, 3)
+      end VecCellRanges
+      class VecSrc(val W: Int <> CONST = 4) extends EDDesign:
+        val q = Bits(W) <> OUT
+        q <> all(0)
+      @top(false) class VecElems(val W: Int <> CONST = 4) extends EDDesign:
+        val v = Bits(W) X 3 <> VAR
+        val o = Bits(W) <> OUT
+        for (k <- 0 until 3)
+          val s = VecSrc(W = W)
+          v(k) <> s.q
+        o <> v(0)
+      end VecElems
+      @top(false) class ProcConnMix(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        process(all):
+          o.lsbitsAt(0, W) := i.lsbitsAt(0, W)
+        o.lsbitsAt(W, W) <> i.lsbitsAt(W, W)
+      end ProcConnMix
+    end Test
+    import Test.*
+    SliceParam()
+    SliceLoop()
+    SliceHiLo()
+    SliceParamHigh()
+    VecCellRanges()
+    VecElems()
+    ProcConnMix()
+
+  test("sub-design parameter-dependent slices resolve through applied parameters"):
+    object Test:
+      class MixChild(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        o(3, 0) <> i(3, 0)
+        o(2 * W - 1, W) <> i(2 * W - 1, W)
+      end MixChild
+      @top(false) class MixParent extends EDDesign:
+        val i = Bits(8) <> IN
+        val o = Bits(8) <> OUT
+        val c = MixChild(4)
+        c.i <> i
+        o <> c.o
+      end MixParent
+    import Test.*
+    import dfhdl.compiler.stages.getCompiledCodeString
+    // the backend printing itself re-derives the connectivity on the flat DB, so the
+    // compiled code string (not just elaboration) is part of this regression
+    assertNoDiff(
+      MixParent().getCompiledCodeString,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module MixChild#(parameter int W = 4)(
+         |  input  wire logic [(W * 2) - 1:0] i,
+         |  output      logic [(W * 2) - 1:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o[3:0] = i[3:0];
+         |  assign o[(2 * W) - 1:W] = i[(2 * W) - 1:W];
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module MixParent(
+         |  input  wire logic [7:0] i,
+         |  output      logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [(4 * 2) - 1:0] c_i;
+         |  logic [(4 * 2) - 1:0] c_o;
+         |  MixChild #(
+         |    .W (4)
+         |  ) c(
+         |    .i /*<--*/ (c_i),
+         |    .o /*-->*/ (c_o)
+         |  );
+         |  assign c_i = i;
+         |  assign o   = c_o;
+         |endmodule
+         |""".stripMargin
+    )
+
+  test("overlapping parameter-dependent slice connections error"):
+    object Test:
+      @top(false) class SliceOverlap(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        o.lsbitsAt(0, W) <> i.lsbitsAt(0, W)
+        o.lsbitsAt(0, W) <> i.lsbitsAt(W, W)
+      end SliceOverlap
+    import Test.*
+    assertElaborationErrors(SliceOverlap())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1260:9 - 1260:45
+          |Hierarchy: SliceOverlap
+          |LHS:       o(W - 1, 0)
+          |RHS:       i((W + W) - 1, W)
+          |Message:   Found multiple connections write to the same variable/port `SliceOverlap.o`.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1259:9 - 1259:45""".stripMargin
+    )
+
+  test("unprovable parameter-dependent slice connections error"):
+    object Test:
+      @top(false) class SliceUnprovable(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        o(3, 0) <> i(3, 0)
+        o(2 * W - 1, W) <> i(2 * W - 1, W)
+      end SliceUnprovable
+    import Test.*
+    assertElaborationErrors(SliceUnprovable())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1280:9 - 1280:43
+          |Hierarchy: SliceUnprovable
+          |LHS:       o((2 * W) - 1, W)
+          |RHS:       i((2 * W) - 1, W)
+          |Message:   Found a write to the same variable/port `SliceUnprovable.o` that cannot be proven to be
+          |disjoint from a previous write, because their parameter-dependent bit ranges could not be
+          |resolved. If the ranges never overlap, restructure their indexing so the compiler can relate
+          |them, or use assignments within a process instead of connections.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1279:9 - 1279:27""".stripMargin
+    )
 end ElaborationChecksSpec

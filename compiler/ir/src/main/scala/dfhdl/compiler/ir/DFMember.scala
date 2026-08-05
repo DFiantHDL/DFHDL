@@ -386,20 +386,35 @@ object DFVal:
       case alias: DFVal.Alias                 => alias.relValRef.get.dealias
       case _                                  => None
     @tailrec private def departial(slice: Slice)(using MemberGetSet): (DFVal, Slice) =
+      import IntExprCalc.DataCalc.*
       dfVal match
         case partial: DFVal.Alias.Partial =>
           val relVal = partial.relValRef.get
           partial match
             case partial: DFVal.Alias.ApplyRange =>
-              partial.idxLowRef.getIntOpt match
-                case Some(idxLow) => relVal.departial(slice.shift(idxLow))
-                case None         => relVal.departial(Slice.Unknown)
+              // the selection indices are in cell units for a vector range selection,
+              // in bit units otherwise
+              val unitWidthOpt = relVal.dfType match
+                case DFVector(cellType = cellType) => linearOfTypeWidth(cellType)
+                case _                             => Some(const(1))
+              val newSlice = unitWidthOpt match
+                case Some(unitWidth) =>
+                  val loUnits = linearOfParamRef(partial.idxLowRef)
+                  val hiUnits = linearOfParamRef(partial.idxHighRef)
+                  val selWidthUnits = addConst(sub(hiUnits, loUnits), 1)
+                  (mulOpt(loUnits, unitWidth), mulOpt(selWidthUnits, unitWidth)) match
+                    case (Some(loBits), Some(selWidthBits)) =>
+                      Slice.compose(slice, loBits, selWidthBits)
+                    case _ => Slice.Unknown
+                case None => Slice.Unknown
+              relVal.departial(newSlice)
             case partial: DFVal.Alias.ApplyIdx =>
               partial.relIdx.get match
                 case DFVal.Alias.ApplyIdx.ConstIdx(idx) =>
-                  partial.dfType.widthIntOpt match
-                    case Some(w) => relVal.departial(slice.shift(idx * w))
-                    case None    => relVal.departial(Slice.Unknown)
+                  linearOfTypeWidth(partial.dfType) match
+                    case Some(cellWidth) =>
+                      relVal.departial(Slice.compose(slice, scale(cellWidth, idx), cellWidth))
+                    case None => relVal.departial(Slice.Unknown)
                 // if not a constant index selection, then the entire value range is affected
                 case _ =>
                   relVal.dealias match
@@ -530,6 +545,42 @@ object DFVal:
       appliedValRefOpt.getOrElse(defaultValRef.asInstanceOf[DFVal.Ref])
     def appliedOrDefaultVal(using MemberGetSet): DFVal =
       appliedValOpt.getOrElse(defaultValRef.get.asInstanceOf[DFVal])
+
+    // The applied constant data resolved ONLY through an instantiation site: the elaboration-time
+    // cached instance, the DB's instance map, or the hierarchical parent sub-DB walk-up. The
+    // instance map is queried directly and NOT via `appliedValRefOpt`, whose `isTop` gate reads
+    // the owner's `ownerRef` — empty for every design block under the hierarchical model (and in
+    // DBs flattened from it), so the gate misfires there; the map itself is correct in every DB
+    // model, and the elaboration root safely resolves to no instance (its entry is `top -> Nil`).
+    // The walk-up via `parentSubDBOpt` evaluates the `paramMap` entry in the parent sub-DB's
+    // getSet, whose refTable owns the ref. `None` exactly when no instantiation site exists: the
+    // design is the elaboration root (its parameters are the free variables of the compilation),
+    // or meta-programming with no cached instance. Never falls back to the construction-time
+    // snapshot or the default value, so callers can rely on `None` to keep root parameters
+    // symbolic.
+    protected[compiler] def instAppliedConstDataOpt(using
+        getSet: MemberGetSet,
+        policy: ConstData.CachePolicy
+    ): Option[ConstData[Any]] =
+      val ownerDesign = getOwnerDesign
+      val instOpt =
+        if (getSet.isMutable) ownerDesign.getCachedDesignInstOpt
+        else getSet.designDB.designBlockInstMap.get(ownerDesign).flatMap(_.headOption)
+      instOpt.flatMap(_.paramMap.get(getName)) match
+        case Some(paramRef)            => Some(paramRef.get.getConstData[Any](using getSet, policy))
+        case None if !getSet.isMutable =>
+          val paramName = getName
+          getSet.designDB.parentSubDBOpt.flatMap { parentSubDB =>
+            parentSubDB.atGetSet {
+              parentSubDB.members.collectFirst {
+                case inst: DFDesignInst if inst.getDesignBlock eq ownerDesign => inst
+              }.flatMap(_.paramMap.get(paramName)).map { paramRef =>
+                paramRef.get.getConstData[Any](using parentSubDB.getSet, policy)
+              }
+            }
+          }
+        case None => None
+    end instAppliedConstDataOpt
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using
         getSet: MemberGetSet,
@@ -558,33 +609,13 @@ object DFVal:
                       dv.getConstData(using getSet, updatedPolicy)
                     case _ => ConstData.UnknownConst(this)
         else
-          appliedValOpt match
-            case Some(av) => av.getConstData(using getSet, updatedPolicy)
-            case None     =>
-              // Under the hierarchical model the owner design's `ownerRef` is
-              // empty, so `appliedValRefOpt` (which gates on `isTop`) never finds
-              // the parent's binding for a non-top design. Walk up via
-              // `parentSubDBOpt` and evaluate the `paramMap` entry in the parent
-              // sub-DB's getSet — its refTable owns the ref. Fall back to the
-              // (possibly synthetic) default value if no parent binding exists.
-              val ownerDesign = getOwnerDesign
-              val paramName = getName
-              val viaParent: Option[ConstData[Any]] =
-                getSet.designDB.parentSubDBOpt.flatMap { parentSubDB =>
-                  parentSubDB.atGetSet {
-                    parentSubDB.members.collectFirst {
-                      case inst: DFDesignInst if inst.getDesignBlock eq ownerDesign => inst
-                    }.flatMap(_.paramMap.get(paramName)).map { paramRef =>
-                      paramRef.get.getConstData[Any](using parentSubDB.getSet, updatedPolicy)
-                    }
-                  }
-                }
-              viaParent.getOrElse {
-                defaultValRef.get match
-                  case dv: DFVal => dv.getConstData(using getSet, updatedPolicy)
-                  case _         => ConstData.NotConst
-              }
-          end match
+          // Resolve through the instantiation site; fall back to the (possibly
+          // synthetic) default value if no binding exists.
+          instAppliedConstDataOpt(using getSet, updatedPolicy).getOrElse {
+            defaultValRef.get match
+              case dv: DFVal => dv.getConstData(using getSet, updatedPolicy)
+              case _         => ConstData.NotConst
+          }
         end if
       else ConstData.UnknownConst(this)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match

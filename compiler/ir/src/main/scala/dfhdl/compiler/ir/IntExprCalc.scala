@@ -21,13 +21,112 @@ object IntExprCalc:
 
   /** Decomposes `v` into its linear form. */
   def linearOf(v: DFVal, resolveDesignParams: Boolean)(using MemberGetSet): Linear =
-    Calc(resolveDesignParams).linear(v)
+    Calc(if (resolveDesignParams) ParamResolve.AppliedExpr else ParamResolve.Opaque).linear(v)
 
   /** If `a - b` reduces to a constant (all symbolic terms cancel), returns it. */
   def constDiff(a: DFVal, b: DFVal, resolveDesignParams: Boolean)(using
       MemberGetSet
   ): Option[Int] =
-    Calc(resolveDesignParams).constDiff(a, b)
+    Calc(if (resolveDesignParams) ParamResolve.AppliedExpr else ParamResolve.Opaque)
+      .constDiff(a, b)
+
+  /** How the calculus treats a [[DFVal.DesignParam]] it reaches. */
+  private enum ParamResolve derives CanEqual:
+    /** Stays an opaque base, so a decision holds for any parameter assignment (elaboration-time
+      * folding, `SimplifyFunc`).
+      */
+    case Opaque
+
+    /** Substituted by the applied/default value EXPRESSION for non-top designs
+      * (`appliedOrDefaultVal`). Correct only under a getSet where the instantiation site is
+      * resolvable (the flat DB); used by post-elaboration width equivalence
+      * (`IntParamRef.compare`).
+      */
+    case AppliedExpr
+
+    /** Folded to the applied constant DATA, resolved only through an instantiation site
+      * (`DesignParam.instAppliedConstDataOpt`), which works under any getSet (elaboration-time
+      * cached instance, hierarchical sub-DB walk-up, or flat DB). A parameter with no instantiation
+      * site (the elaboration root's own parameters, overridable in the generated HDL) or one that
+      * does not fold to a constant stays an opaque base, so any decision made with this mode holds
+      * for every assignment of the root parameters. Used by the slice calculus ([[DataCalc]]).
+      */
+    case AppliedData
+  end ParamResolve
+
+  /** Linear calculus over slice bounds (parameter-dependent bit-range endpoints), used by
+    * [[DFMember.departial]] and the connectivity slice-overlap analysis. See
+    * [[ParamResolve.AppliedData]] for the design-parameter resolution semantics.
+    */
+  object DataCalc:
+    private def calc(using MemberGetSet): Calc = Calc(ParamResolve.AppliedData)
+    def const(i: Int): Linear = Linear(Nil, i)
+    def isConst(l: Linear): Boolean = l.terms.isEmpty
+    def linearOfVal(v: DFVal)(using MemberGetSet): Linear = calc.linear(v)
+    def linearOfParamRef(ref: IntParamRef)(using MemberGetSet): Linear =
+      ref.getRef match
+        case Some(typeRef) => linearOfVal(typeRef.get)
+        case None          => const(ref.getIntUNSAFE)
+    def add(a: Linear, b: Linear)(using MemberGetSet): Linear = calc.add(a, b)
+    def sub(a: Linear, b: Linear)(using MemberGetSet): Linear = calc.add(a, negate(b))
+    def negate(l: Linear): Linear = Linear(l.terms.map((c, b) => (-c, b)), -l.offset)
+    def addConst(l: Linear, k: Int): Linear = l.copy(offset = l.offset + k)
+    def scale(l: Linear, k: Int): Linear =
+      if (k == 0) Linear(Nil, 0)
+      else Linear(l.terms.map((c, b) => (c * k, b)), l.offset * k)
+
+    /** Product of two linear forms; defined only when at least one side is a constant. */
+    def mulOpt(a: Linear, b: Linear): Option[Linear] =
+      if (a.terms.isEmpty) Some(scale(b, a.offset))
+      else if (b.terms.isEmpty) Some(scale(a, b.offset))
+      else None
+
+    /** Total bit width of a type as a linear form, when expressible. */
+    def linearOfTypeWidth(t: DFType)(using MemberGetSet): Option[Linear] =
+      t.widthIntOpt match
+        case Some(w) => Some(const(w))
+        case None    =>
+          t match
+            case DFBits(widthParamRef) => Some(linearOfParamRef(widthParamRef))
+            case dec: DFDecimal        =>
+              Some(addConst(linearOfParamRef(dec.magnitudeWidthParamRef), dec.fractionWidth))
+            case vec: DFVector =>
+              vec.cellDimParamRefs.foldLeft(linearOfTypeWidth(vec.cellType)) { (accOpt, dim) =>
+                accOpt.flatMap(mulOpt(_, linearOfParamRef(dim)))
+              }
+            case opaque: DFOpaque => linearOfTypeWidth(opaque.actualType)
+            case _                => None
+
+    /** Proves `e >= 0` for every valid parameter assignment. Each fact in `facts` is a linear form
+      * known to be `>= 1` on the valid domain (slice widths: a slice of zero or negative width is
+      * never a valid elaboration). Two proof rules: a constant `e` decides directly, and a
+      * single-fact proportional bound: if `e == λ*f + c` with rational `λ >= 0`, then
+      * `e >= λ*1 + c`, so `λ + c >= 0` proves it. This covers the equal-bin pattern (`k*W`-based
+      * slices of width `W`) at any distance.
+      */
+    def proveNonNeg(e: Linear, facts: List[Linear])(using MemberGetSet): Boolean =
+      if (e.terms.isEmpty) e.offset >= 0
+      else
+        val c = calc
+        facts.exists { f =>
+          f.terms.nonEmpty && f.terms.length == e.terms.length && {
+            // pair each e-term with its baseEq f-term and derive λ = p/q from the first pair
+            val paired = e.terms.map { (ce, be) =>
+              f.terms.collectFirst { case (cf, bf) if c.baseEq(be, bf) => (ce, cf) }
+            }
+            paired.forall(_.nonEmpty) && {
+              val pairs = paired.flatten
+              val (p0, q0) = pairs.head
+              // normalize the denominator positive; λ >= 0 then requires p >= 0
+              val (p, q) = if (q0 < 0) (-p0, -q0) else (p0, q0)
+              p >= 0 &&
+              pairs.forall((ce, cf) => ce * q == cf * p) &&
+              // λ + c >= 0 with c = e.offset - λ*f.offset, scaled by q > 0
+              p + q * e.offset - p * f.offset >= 0
+            }
+          }
+        }
+  end DataCalc
 
   private object ConstInt:
     def unapply(v: DFVal): Option[Int] = v match
@@ -37,19 +136,21 @@ object IntExprCalc:
           case _               => None
       case _ => None
 
-  private final class Calc(resolveDesignParams: Boolean)(using MemberGetSet):
-    // Strip type-preserving AsIs wrappers and, when `resolveDesignParams` is
-    // enabled, DesignParams whose owner design has a parent (i.e., is not the
-    // top design). For non-top designs, the parameter was provided by the
-    // instantiating parent, so resolve it via `appliedOrDefaultVal`. Params on
-    // a top design have no parent and stay opaque: they are the symbolic free
-    // variables exposed to the user at elaboration time. Elaboration-time
-    // folding (SimplifyFunc) disables the resolution so its decisions hold for
-    // any parameter assignment and designs stay parametric.
+  private final class Calc(mode: ParamResolve)(using getSet: MemberGetSet):
+    // Strip type-preserving AsIs wrappers and, under `AppliedExpr`, DesignParams
+    // whose owner design has a parent (i.e., is not the top design). For non-top
+    // designs, the parameter was provided by the instantiating parent, so
+    // resolve it via `appliedOrDefaultVal`. Params on a top design have no
+    // parent and stay opaque: they are the symbolic free variables exposed to
+    // the user at elaboration time. Elaboration-time folding (SimplifyFunc)
+    // disables the resolution (`Opaque`) so its decisions hold for any parameter
+    // assignment and designs stay parametric. `AppliedData` resolves in `linear`
+    // at the data level instead (see ParamResolve).
     private def strip(v: DFVal): DFVal = v match
       case DFVal.Alias.AsIs(dfType = dt, relValRef = DFRef(relVal)) if dt == relVal.dfType =>
         strip(relVal)
-      case dp: DFVal.DesignParam if resolveDesignParams && !dp.getOwnerDesign.isTop =>
+      case dp: DFVal.DesignParam
+          if mode == ParamResolve.AppliedExpr && !dp.getOwnerDesign.isTop =>
         strip(dp.appliedOrDefaultVal)
       case _ => v
 
@@ -62,7 +163,7 @@ object IntExprCalc:
     // (each arg compared through its full linear form, so `clog2(2 * W)`
     // matches `clog2(W + W)`), or `=~` leaves after stripping. Commutative
     // ops compare their args as multisets, so `v1 * v2` matches `v2 * v1`.
-    private def baseEq(a: DFVal, b: DFVal): Boolean =
+    def baseEq(a: DFVal, b: DFVal): Boolean =
       (strip(a), strip(b)) match
         case (af: DFVal.Func, bf: DFVal.Func) if af.op == bf.op && af.dfType =~ bf.dfType =>
           if (af.op == FuncOp.`*`)
@@ -116,7 +217,7 @@ object IntExprCalc:
       }
       merged.filter(_._1 != 0).toList
 
-    private def add(l: Linear, r: Linear): Linear =
+    def add(l: Linear, r: Linear): Linear =
       Linear(canonical(l.terms ++ r.terms), l.offset + r.offset)
     private def negate(l: Linear): Linear =
       Linear(l.terms.map((c, b) => (-c, b)), -l.offset)
@@ -155,6 +256,13 @@ object IntExprCalc:
           case f :: Nil    => scale(linear(f), c)
           case _ if c == 0 => Linear(Nil, 0)
           case _           => Linear(List((c, sv)), 0)
+      // AppliedData: fold a design parameter to its applied constant data, resolved only
+      // through an instantiation site, so an elaboration root's parameters (which have none)
+      // and anything else unresolvable stay opaque bases
+      case dp: DFVal.DesignParam if mode == ParamResolve.AppliedData =>
+        dp.instAppliedConstDataOpt(using getSet, ConstData.CachePolicy.NoCache) match
+          case Some(ConstData.KnownConst(Some(i: BigInt))) if i.isValidInt => Linear(Nil, i.toInt)
+          case _ => Linear(List((1, dp)), 0)
       case sv @ DFVal.Func(op = op @ (FuncOp.max | FuncOp.min), args = args) =>
         // max/min reduce to a single linear form when all operands share the
         // same symbolic terms and differ only by their constant offsets:

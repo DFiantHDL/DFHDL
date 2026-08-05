@@ -611,7 +611,8 @@ final case class DB private (
         toValAndSliceOption match
           // found target variable or port declaration for the given connection/assignment
           case Some(connectToVal, slice) =>
-            val prevNets = connToMap.getNets(connectToVal, slice)
+            val prevNetsVerdicts = connToMap.getNetsVerdicts(connectToVal, slice)
+            val prevNets = prevNetsVerdicts.view.map(_._1).toSet
             // checking multiple assignments from different domains, except for a condition
             // where the declaration is a shared variable.
             // this is used to define a shared variable which is against the RT model,
@@ -620,7 +621,7 @@ final case class DB private (
               case dcl: DFVal.Dcl if dcl.modifier.isShared => true
               case _                                       => false
             if (!isSharedVar)
-              prevNets.headOption.foreach: prevNet =>
+              prevNetsVerdicts.headOption.foreach: (prevNet, _) =>
                 if (prevNet.getOwnerDomain != net.getOwnerDomain)
                   newError(
                     s"""|Found multiple domain assignments to the same variable/port `${connectToVal.getFullName}`.
@@ -628,14 +629,26 @@ final case class DB private (
                         |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                   )
             // go through all previous nets and check for collisions
-            prevNets.foreach: prevNet =>
+            prevNetsVerdicts.foreach: (prevNet, verdict) =>
               // multiple assignments are allowed in the same range, but not multiple
               // connections or a combination of an assignment and a connection
               if (prevNet.isConnection || prevNet.isAssignment && !net.isAssignment)
-                newError(
-                  s"""Found multiple connections write to the same variable/port `${connectToVal.getFullName}`.
-                     |The previous write occurred at ${prevNet.meta.position}""".stripMargin
-                )
+                if (verdict == Tri.Yes)
+                  newError(
+                    s"""Found multiple connections write to the same variable/port `${connectToVal.getFullName}`.
+                       |The previous write occurred at ${prevNet.meta.position}""".stripMargin
+                  )
+                // the slices could not be proven overlapping NOR disjoint (parameter-dependent
+                // indices the slice calculus cannot relate), so the write is conservatively
+                // rejected with an error that names the actual problem
+                else
+                  newError(
+                    s"""|Found a write to the same variable/port `${connectToVal.getFullName}` that cannot be proven to be
+                        |disjoint from a previous write, because their parameter-dependent bit ranges could not be
+                        |resolved. If the ranges never overlap, restructure their indexing so the compiler can relate
+                        |them, or use assignments within a process instead of connections.
+                        |The previous write occurred at ${prevNet.meta.position}""".stripMargin
+                  )
             // if no previous connection in this range, we add it to the range map
             if (prevNets.isEmpty)
               getConnToMap(
