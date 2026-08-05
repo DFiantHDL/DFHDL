@@ -4,6 +4,7 @@ import ir.DFVal.Func.Op as FuncOp
 import dfhdl.internals.*
 
 import annotation.{implicitNotFound, targetName}
+import scala.util.NotGiven
 
 type BitNum = 0 | 1
 type BitOrBool = BitNum | Boolean
@@ -199,55 +200,137 @@ object DFBoolOrBit:
         @targetName("not2OfDFBool")
         inline def unary_~(using DFCG) = lhs.unary_!
 
+      // Runtime construction for the `sel` operation givens below. The
+      // candidates are by-name so their evaluation (including the TC
+      // conversion of the non-DFHDL candidate and the dfType access, which
+      // throws a derived error for an errored value) happens under `trydf`,
+      // surfacing as a positioned elaboration error instead of an escaping
+      // exception.
+      def selRuntime[OT <: DFTypeAny](
+          cond: DFValOf[DFBoolOrBit],
+          onTrue: => DFValOf[OT],
+          onFalse: => DFValOf[OT]
+      )(using dfc: DFC): DFValOf[OT] =
+        trydf {
+          val onTrueVal = onTrue
+          val onFalseVal = onFalse
+          DFVal.Func(onTrueVal.dfType, FuncOp.sel, List(cond, onTrueVal, onFalseVal))
+        }(using dfc, CTName("sel"))
+
+      // ~~~ `sel` candidate resolution ~~~
+      // The onTrue candidate type leads, except when onTrue is a DFHDL Int
+      // parameter (DFConstInt32) while onFalse is not, and when neither
+      // candidate is a DFHDL value the selection is deferred through
+      // BoolSelWrapper for an outer context to type. The cases are kept
+      // mutually exclusive via the NotGiven guards, so no given
+      // prioritization is involved.
+      given evSelOnTrueDFVal[
+          CP,
+          L <: DFValTP[DFBoolOrBit, CP],
+          TT <: DFTypeAny,
+          TP,
+          OT <: DFValTP[TT, TP],
+          OF,
+          RP
+      ](using
+          NotGiven[OT <:< DFConstInt32]
+      )(using
+          tc: DFVal.TC[TT, OF] { type OutP = RP }
+      ): ExactOp3Aux[FuncOp.sel.type, DFC, Any, L, OT, OF, DFValTP[TT, CP | TP | RP]] =
+        new ExactOp3[FuncOp.sel.type, DFC, Any, L, OT, OF]:
+          type Out = DFValTP[TT, CP | TP | RP]
+          def apply(lhs: L, mhs: OT, rhs: OF)(using DFC): Out =
+            selRuntime[TT](lhs, mhs, tc(mhs.dfType, rhs)).asValTP[TT, CP | TP | RP]
+      end evSelOnTrueDFVal
+      given evSelBothConstInt32[
+          CP,
+          L <: DFValTP[DFBoolOrBit, CP],
+          OT <: DFConstInt32,
+          OF <: DFConstInt32
+      ]: ExactOp3Aux[FuncOp.sel.type, DFC, Any, L, OT, OF, DFValTP[DFInt32, CP | CONST]] =
+        new ExactOp3[FuncOp.sel.type, DFC, Any, L, OT, OF]:
+          type Out = DFValTP[DFInt32, CP | CONST]
+          def apply(lhs: L, mhs: OT, rhs: OF)(using DFC): Out =
+            selRuntime[DFInt32](lhs, mhs, rhs).asValTP[DFInt32, CP | CONST]
+      end evSelBothConstInt32
+      given evSelOnFalseDFValFlip[
+          CP,
+          L <: DFValTP[DFBoolOrBit, CP],
+          OT <: DFConstInt32,
+          FT <: DFTypeAny,
+          FP,
+          OF <: DFValTP[FT, FP],
+          RP
+      ](using
+          NotGiven[OF <:< DFConstInt32]
+      )(using
+          tc: DFVal.TC[FT, OT] { type OutP = RP }
+      ): ExactOp3Aux[FuncOp.sel.type, DFC, Any, L, OT, OF, DFValTP[FT, CP | FP | RP]] =
+        new ExactOp3[FuncOp.sel.type, DFC, Any, L, OT, OF]:
+          type Out = DFValTP[FT, CP | FP | RP]
+          def apply(lhs: L, mhs: OT, rhs: OF)(using DFC): Out =
+            selRuntime[FT](lhs, tc(rhs.dfType, mhs), rhs).asValTP[FT, CP | FP | RP]
+      end evSelOnFalseDFValFlip
+      given evSelOnFalseDFVal[
+          CP,
+          L <: DFValTP[DFBoolOrBit, CP],
+          OT,
+          FT <: DFTypeAny,
+          FP,
+          OF <: DFValTP[FT, FP],
+          RP
+      ](using
+          NotGiven[OT <:< DFValAny]
+      )(using
+          tc: DFVal.TC[FT, OT] { type OutP = RP }
+      ): ExactOp3Aux[FuncOp.sel.type, DFC, Any, L, OT, OF, DFValTP[FT, CP | FP | RP]] =
+        new ExactOp3[FuncOp.sel.type, DFC, Any, L, OT, OF]:
+          type Out = DFValTP[FT, CP | FP | RP]
+          def apply(lhs: L, mhs: OT, rhs: OF)(using DFC): Out =
+            selRuntime[FT](lhs, tc(rhs.dfType, mhs), rhs).asValTP[FT, CP | FP | RP]
+      end evSelOnFalseDFVal
+      given evSelWrapperInt32[
+          CP,
+          L <: DFValTP[DFBoolOrBit, CP],
+          OT <: DFConstInt32,
+          OF
+      ](using
+          NotGiven[OF <:< DFValAny]
+      ): ExactOp3Aux[FuncOp.sel.type, DFC, Any, L, OT, OF, BoolSelWrapper[CP, OT, OF]] =
+        new ExactOp3[FuncOp.sel.type, DFC, Any, L, OT, OF]:
+          type Out = BoolSelWrapper[CP, OT, OF]
+          def apply(lhs: L, mhs: OT, rhs: OF)(using DFC): Out =
+            BoolSelWrapper[CP, OT, OF](lhs, mhs, rhs)
+      end evSelWrapperInt32
+      given evSelWrapper[
+          CP,
+          L <: DFValTP[DFBoolOrBit, CP],
+          OT,
+          OF
+      ](using
+          NotGiven[OT <:< DFValAny],
+          NotGiven[OF <:< DFValAny]
+      ): ExactOp3Aux[FuncOp.sel.type, DFC, Any, L, OT, OF, BoolSelWrapper[CP, OT, OF]] =
+        new ExactOp3[FuncOp.sel.type, DFC, Any, L, OT, OF]:
+          type Out = BoolSelWrapper[CP, OT, OF]
+          def apply(lhs: L, mhs: OT, rhs: OF)(using DFC): Out =
+            BoolSelWrapper[CP, OT, OF](lhs, mhs, rhs)
+      end evSelWrapper
+
       extension [T <: DFBoolOrBit, P](lhs: DFValTP[T, P])
         @targetName("notOfDFBoolOrBit")
         private[core] def not(using DFC): DFValTP[T, P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_!, List(lhs))
         }
+        // The exactOp3 macro boundary binds all three operands at the user's
+        // call site, so candidate failures are reported at the user's code
+        // (an in-body summon would report inside this file), and the operand
+        // typing goes through exactInfo widening, which also covers the
+        // `unstableSkolemPrefix` concern noted in `DFVal.Ops.<>`.
         transparent inline def sel[OT, OF](inline onTrue: OT, inline onFalse: OF)(using
             dfc: DFCG
         ): Any =
-          inline val onTrueIsDFVal = inline compiletime.erasedValue[OT] match
-            case _: DFValAny => true
-            case _           => false
-          inline val onTrueIsDFConstInt32 = inline compiletime.erasedValue[OT] match
-            case _: DFConstInt32 => true
-            case _               => false
-          inline val onFalseIsDFVal = inline compiletime.erasedValue[OF] match
-            case _: DFValAny => true
-            case _           => false
-          inline val onFalseIsDFConstInt32 = inline compiletime.erasedValue[OF] match
-            case _: DFConstInt32 => true
-            case _               => false
-          // onTrue type has priority, except when onTrue is a DFHDL Int parameter while onFalse is not
-          inline if (onTrueIsDFVal && !(onTrueIsDFConstInt32 && !onFalseIsDFConstInt32))
-            // the branch is taken apart under `OT`, the type the caller inferred for it, and not
-            // under the type it is written with; see the `unstableSkolemPrefix` note in
-            // `DFVal.Ops.<>`
-            inline onTrue.asInstanceOf[OT] match
-              case ___onTrueDFVal: DFValTP[tt, tp] =>
-                val tc = compiletime.summonInline[DFVal.TC[tt, OF]]
-                val dfType = ___onTrueDFVal.dfType
-                inline if (isConstCheck[OF])
-                  DFVal.Func(dfType, FuncOp.sel, List(lhs, ___onTrueDFVal, tc(dfType, onFalse)))
-                    .asValTP[tt, P | tp]
-                else
-                  DFVal.Func(dfType, FuncOp.sel, List(lhs, ___onTrueDFVal, tc(dfType, onFalse)))
-                    .asValOf[tt]
-          else if (onFalseIsDFVal)
-            inline onFalse.asInstanceOf[OF] match
-              case ___onFalseDFVal: DFValTP[ft, fp] =>
-                val tc = compiletime.summonInline[DFVal.TC[ft, OT]]
-                val dfType = ___onFalseDFVal.dfType
-                inline if (isConstCheck[OT])
-                  DFVal.Func(dfType, FuncOp.sel, List(lhs, tc(dfType, onTrue), ___onFalseDFVal))
-                    .asValTP[ft, P | fp]
-                else
-                  DFVal.Func(dfType, FuncOp.sel, List(lhs, tc(dfType, onTrue), ___onFalseDFVal))
-                    .asValOf[ft]
-          else
-            BoolSelWrapper[P, OT, OF](lhs, onTrue, onFalse)
-        end sel
+          exactOp3[FuncOp.sel.type, DFC, Any](lhs, onTrue, onFalse)
       end extension
     end Ops
   end Val

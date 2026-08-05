@@ -1092,4 +1092,47 @@ class ElaborationChecksSpec extends DesignSpec:
           |To Fix: split the loop so that the shared-variable write is in a purely-sequential loop.
           |""".stripMargin
     )
+
+  // `sel` constructs its selection Func through a trydf-wrapped runtime helper, so a
+  // candidate width mismatch must surface as a positioned elaboration error (and not as
+  // an escaping derived-error exception that aborts elaboration).
+  test("DFBoolOrBit sel candidate width checks"):
+    object Test:
+      @top(false) class SelFixed extends EDDesign:
+        val c = Bit <> IN
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        // a runtime Scala Int, so the candidate width check runs at elaboration
+        // (a literal would already be rejected at compile time)
+        val arg = 512
+        y <> c.sel(a, arg)
+      end SelFixed
+      @top(false) class SelParam(val W: Int <> CONST = 14) extends EDDesign:
+        val c = Bit <> IN
+        val b = UInt(W) <> IN
+        val y = UInt(16) <> OUT
+        private var acc: UInt[Int] <> VAL = d"16'0"
+        for (_ <- 0 until 3) acc = acc + b
+        y <> c.sel(acc, d"16'0")
+      end SelParam
+    end Test
+    import Test.*
+    assertElaborationErrors(SelFixed())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1108:9 - 1108:27
+          |Hierarchy: SelFixed
+          |Operation: `apply`
+          |Message:   The applied RHS value width (10) is larger than the LHS variable width (8).""".stripMargin
+    )
+    // the accumulated width is a `max` chain the repeated-operand absorption keeps
+    // minimal, so the reported LHS width reads `16 max W` (not `16 max W max W max W`)
+    assertElaborationErrors(SelParam())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1116:9 - 1116:33
+          |Hierarchy: SelParam
+          |Operation: `apply`
+          |Message:   The applied RHS value width (16) is undefined compared to the LHS variable width (16 max W).""".stripMargin
+    )
 end ElaborationChecksSpec

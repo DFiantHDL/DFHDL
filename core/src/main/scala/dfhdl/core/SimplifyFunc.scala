@@ -10,9 +10,12 @@ private object SimplifyFunc:
     if (dfc.inMetaProgramming) None
     else
       opArgs match
-        // These two run even in global context (no owner).
+        // These three run even in global context (no owner).
         case ConstFoldAddSubChain(v) => Some(v)
-        case MergeAssocFunc(v)       => Some(v)
+        // Must precede MergeAssocFunc, which otherwise consumes the same
+        // shape by appending the duplicate operand to the chain.
+        case MaxMinChainAbsorb(v) => Some(v)
+        case MergeAssocFunc(v)    => Some(v)
         // TODO: maybe drop this limitation, if we can make DropStructsVecs work in
         // global context.
         case _ if dfc.ownerOption.isEmpty => None
@@ -135,6 +138,32 @@ private object SimplifyFunc:
       end match
     end unapply
   end ConstFoldAddSubChain
+
+  // max/min chain absorption: when one operand is itself a same-op max/min
+  // Func that already carries the other operand as one of its arguments, the
+  // chain subsumes it (max(max(a, b), b) == max(a, b), likewise for min), so
+  // the existing chain value is returned as-is. This keeps unrolled width
+  // computations like max(max(max(16, W), W), W) minimized to max(16, W).
+  // Runs even in global context (no owner): it only reads the chain and never
+  // creates or removes members.
+  private object MaxMinChainAbsorb:
+    private def chainAbsorbs(chain: ir.DFVal, other: ir.DFVal, op: FuncOp)(using
+        dfc: DFC
+    ): Boolean =
+      import dfc.getSet
+      chain match
+        case chainFunc: ir.DFVal.Func if chainFunc.dfType == ir.DFInt32 && chainFunc.op == op =>
+          chainFunc.args.exists(_.get =~ other)
+        case _ => false
+    def unapply(opArgs: (ir.DFType, FuncOp, List[ir.DFVal]))(using dfc: DFC): Option[ir.DFVal] =
+      opArgs match
+        case (ir.DFInt32, op @ (FuncOp.max | FuncOp.min), List(a, b)) =>
+          if (chainAbsorbs(a, b, op)) Some(rebindMeta(a))
+          else if (chainAbsorbs(b, a, op)) Some(rebindMeta(b))
+          else None
+        case _ => None
+    end unapply
+  end MaxMinChainAbsorb
 
   // Merge consecutive same-op anonymous Funcs for associative operations.
   // E.g., `a + b + c` becomes Func(+, [a, b, c]) instead of nested binary Funcs.

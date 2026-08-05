@@ -145,6 +145,94 @@ Two tidier-looking rewrites of that line are both wrong:
   is named `$scrutineeN`, which the plugin skips; a hand-written `val` becomes a **named DFHDL
   value** and appears in the generated code. `DFBoolOrBitSpec`'s "selection operation" caught it.
 
+### Every member-creating front-end op needs a trydf'd, cleanly-named runtime def
+
+A raw `dfhdl.core.DFError$Derived` stack trace (instead of a formatted, positioned elaboration
+error) means some inline op creates IR members with **no `trydf` on its runtime path**: an inner
+TC conversion traps its own error and returns an errored value, and the first thing to touch it
+(`DFVal.Func`'s arg walk) throws the `Derived`, which nothing catches. The fix is never to wrap
+the inline body itself; move the `DFVal.Func` call (and, via by-name parameters, the TC-conversion
+arguments) into a **runtime def** wrapped in `trydf { ... }(using dfc, CTName("<opname>"))`
+(`DFBoolOrBit.Val.Ops.selRuntime` is the model; `CTName` is passed explicitly so the reported
+operation name stays the user-facing one).
+
+Two properties of that runtime def are load-bearing and easy to break:
+
+- **It must be public** (or at least reachable without a synthetic accessor). A `private` def
+  referenced from an inline body is compiled into an `inline$foo` accessor, and the plugin's
+  meta-context fallback deliberately skips `$`-named applies. The stamp it would have applied is
+  what *anonymizes* the propagated context, so without it a statement-positioned member silently
+  inherits the **design instance's own name** from the constructor DFC (`PrintCodeStringSpec`'s
+  "Boolean selection operation" caught three members all named after the outer `val id` binding).
+  The `treeOwnerApplyMap` + anonymous-fallback pair in `MetaContextGenPhase.transformApply` IS the
+  naming mechanism: spine applies of a `val` get the val's name, everything else gets an anonymous
+  stamp, and both assume they can stamp the op's context apply.
+- **Its error position comes from the plugin, not the DFC it happens to receive.** Applies inside
+  a *library* inline expansion carry the library's own tree positions, and for TASTy-unpickled
+  sources those are mangled (the tell: `DFBoolOrBit.scala:120:5642`, a line near the source's
+  line count with an offset-sized column). A **macro-synthesized** apply (e.g. the
+  `ExactOp3.apply` call that `exactOp3Macro` builds) is just as bad: its trees carry the
+  position of the quote inside the macro's own source (`Exact.scala:505`), even though
+  `Position.ofMacroExpansion` read *inside* that macro is the user span. `MetaContextGenPhase`
+  keeps an `inlinedUserPosStack` of enclosing user-source `Inlined` nodes and substitutes the
+  innermost user position wherever a stamp would otherwise carry an out-of-unit position; if
+  positions regress to library files, start there. To see who stamps what, add temporary **file
+  logging** (plugin `println` never reaches the sbtn client) around `addToTreeOwnerMap` and the
+  two stamp sites in `transformApply`, filtered to the Playground unit.
+
+Note the position such stamps produce is the innermost user-code inline call, which for a nested
+op is the failing *sub-expression*, not the whole statement; `DFDecimalSpec`'s "Runtime error
+positions" pins the exact spans.
+
+The **compile-time** twin of this disease is separate: a raw `compiletime.summonInline` failure
+inside an inline op's body reports at the summon site in the library
+(`DFBoolOrBit.scala:120:6431`-style once TASTy-mangled), with no outer position chain for the
+reporter to recover. Prove plugin-independence first with
+`-P:dfhdl.plugin:disableCustomPrinter`: the raw compiler output is identical, so neither the
+`CustomReporter` outer-drop nor any transform phase is the cause. The ops that report at the
+user's code get their positions from **Exact-boundary macros** that bind the user's expression at
+the call site, before inlining. Three cheaper spellings do NOT work from inside the inline body,
+because the inliner rewrites substituted argument trees to body-local positions (verified by
+macro file-logging: the user's literal argument arrives carrying a `DFBoolOrBit.scala` span): a
+TrapError-style given splicing `compiletime.error`, extra transparent-inline nesting around the
+summon, and a boundary macro taking the inline arg.
+
+The fix that works is restructuring the op through an `exactOp*` boundary: `sel` became a thin
+`transparent inline` forwarder to `exactOp3`, with its type-level dispatch re-encoded as
+mutually-exclusive `ExactOp3` given instances (disjointness via `NotGiven` guards, so no given
+prioritization). Two properties of that conversion carry the diagnostics:
+
+- **Search the op instance under the `ControlledMacroError` trap** (`activate()` before
+  `Implicits.search`, read `getLastMacroAbortError` on failure, `deactivate()` after — the
+  `DualSummonTrapError` protocol). Without the trap, a candidate whose nested TC resolution fails
+  through a reporting fallback macro RESOLVES with a stray `compiletime.error` spliced into the
+  instance, and that leftover is later reported at a library-internal span; with it, the
+  candidate aborts and the specific message (e.g. ``Unsupported value of type `"1"` for DFHDL
+  receiver type `Bit`.``) is captured.
+- **Report the trapped message at `Position.ofMacroExpansion`**, which inside an Exact-op macro
+  IS the user's expression span (the flattenInlined instrumentation confirmed it), not at any
+  tree position reachable from the operands.
+
+`exactOp1`/`exactOp2` still use the untrapped generic-message report and would benefit from the
+same upgrade. When converting an inline-dispatch op this way, the behavior matrix (which operand
+drives the result type, and every exception to it) must be transcribed case by case into disjoint
+givens; the op's existing print/selection spec tests are the safety net, and `UnstablePathSpec`
+guards the skolem concern that the old `asInstanceOf[OT]` retype was carrying (exactInfo's
+widening covers it at the macro boundary).
+
+`Exact.flattenInlined` is a related but distinct position-stripper, and worth ruling out
+explicitly when chasing a position bug: instrumenting it shows it discards `Inlined` wrappers
+whose `call` carries the user span (e.g. `method + @ Playground:<225..233>`) and hoists their
+proxy bindings into a flat macro-built Block, which is exactly why `MetaContextGenPhase`'s
+args-descent workaround exists ("macros (e.g., flattenInlined in Exact) strip Inlined wrappers
+that prepareForInlined relied on"). With that workaround the Exact-op stamps land correctly (the
+plugin debug log shows `ExactOp2.apply` stamped at user positions). It was NOT in the chain of
+either `sel` issue: the runtime junk stamps came from raw (non-Exact) inline bodies, and the
+compile-time `sel` failure happens before any Exact macro runs, because `sel`'s generic `OT`/`OF`
+params take the argument as-is; the INLINER itself repositions the substituted argument (macro
+logging showed the user's `"1"` literal arriving with the span of the `onTrue` reference inside
+the `sel` body).
+
 Both cost a full suite cycle to find, and neither is visible in the file being edited.
 
 ### Changing a type-level algebra: pick the mechanism by when it costs

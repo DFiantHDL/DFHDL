@@ -36,6 +36,17 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   val contextDefs = mutable.Map.empty[String, Tree]
   var clsStack = List.empty[TypeDef]
   var applyStack = List.empty[Apply]
+  // Enclosing `Inlined` nodes whose call is written in the compilation unit
+  // being compiled (innermost first). Trees inside a library inline expansion
+  // carry the library's own positions (often mangled for TASTy-unpickled
+  // sources), and macro-synthesized applies carry the position of the quote
+  // inside the macro's own source, so when such a tree needs a position
+  // stamp, the innermost user-code inline call is the position the user can
+  // act on.
+  var inlinedUserPosStack = List.empty[util.SrcPos]
+
+  private def isUserSourced(tree: Tree)(using Context): Boolean =
+    tree.span.exists && tree.srcPos.startPos.source == ctx.compilationUnit.source
 
   extension (tree: ValOrDefDef)(using Context)
     def needsNewContext: Boolean =
@@ -186,7 +197,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
                       metaInfo.nameOpt.isEmpty && argTree.isProxyContext &&
                       metaInfo.srcPos.startPos.source != ctx.compilationUnit.source
                     )
-                      enclosingUserSrcPos.getOrElse(metaInfo.srcPos)
+                      inlinedUserPosStack.headOption
+                        .orElse(enclosingUserSrcPos)
+                        .getOrElse(metaInfo.srcPos)
                     else metaInfo.srcPos
                   fixedApply.replaceArg(
                     argTree,
@@ -210,7 +223,17 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
               if (fixedApply.fun.symbol.name.toString.contains("$")) fixedApply
               // generating a new anonymous context
               else
-                fixedApply.replaceArg(argTree, argTree.setMeta(None, origApply.srcPos, None, Nil))
+                // An apply inside a library inline expansion (or synthesized
+                // by a macro, carrying the quote's own source position)
+                // points into library code; stamp it with the innermost
+                // user-code inline call position instead.
+                val srcPos =
+                  if (isUserSourced(origApply)) origApply.srcPos
+                  else
+                    inlinedUserPosStack.headOption
+                      .orElse(enclosingUserSrcPos)
+                      .getOrElse(origApply.srcPos)
+                fixedApply.replaceArg(argTree, argTree.setMeta(None, srcPos, None, Nil))
           end match
         case _ => fixedApply
     else fixedApply
@@ -488,10 +511,20 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   end prepareForDefDef
 
   override def prepareForInlined(tree: Inlined)(using Context): Context =
+    if (isUserSourced(tree)) inlinedUserPosStack = tree.srcPos :: inlinedUserPosStack
     // skipping over redundant inlines that should not be used for positioning
     if (!tree.call.symbol.is(Permanent))
-      nameValOrDef(tree.expansion, EmptyValDef, tree.expansion.tpe, Some(tree.srcPos))
+      // A nested inline call within a library's own expansion carries the
+      // library position; walk its expansion with the innermost user-code
+      // inline position instead, so the context applies it reaches are
+      // stamped with a position the user can act on.
+      val walkPos = inlinedUserPosStack.headOption.getOrElse(tree.srcPos)
+      nameValOrDef(tree.expansion, EmptyValDef, tree.expansion.tpe, Some(walkPos))
     ctx
+
+  override def transformInlined(tree: Inlined)(using Context): Tree =
+    if (isUserSourced(tree)) inlinedUserPosStack = inlinedUserPosStack.drop(1)
+    tree
 
   // This is requires for situations like:
   // val (a, b) = (foo(using DFC), foo(using DFC))

@@ -1128,9 +1128,9 @@ class DFDecimalSpec extends DFSpec:
     val arg = 10000
     val errMsg =
       "Wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
-    assertRuntimeErrorLog(errMsg, 43, 59)(cnt := cnt + arg)
-    assertRuntimeErrorLog(errMsg, 43, 67)(cnt := cnt + (cnt + arg))
-    assertRuntimeErrorLog(errMsg, 43, 65)(cnt := cnt + arg + cnt)
+    assertRuntimeErrorLog(errMsg, 50, 59)(cnt := cnt + arg)
+    assertRuntimeErrorLog(errMsg, 50, 66)(cnt := cnt + (cnt + arg))
+    assertRuntimeErrorLog(errMsg, 50, 65)(cnt := cnt + arg + cnt)
     assertRuntimeErrorLog(errMsg, 69, 78) { val x: Bits[8] <> VAL = cnt + arg }
   }
 

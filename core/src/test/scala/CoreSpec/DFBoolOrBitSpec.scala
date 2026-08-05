@@ -126,6 +126,17 @@ class DFBoolOrBitSpec extends DFSpec:
     }
   }
 
+  // `sel` goes through the exactOp3 macro boundary, so a candidate failure is
+  // reported at the user's expression with the failing candidate's specific
+  // message (an in-body summon reported inside DFBoolOrBit.scala instead)
+  test("selection operation candidate error message and position") {
+    val bl = Boolean <> VAR
+    val bt = Bit <> VAR
+    val err = compiletime.testing.typeCheckErrors("""val x = bl.sel("1", bt)""").last
+    assertEquals(err.message, "Unsupported value of type `\"1\"` for DFHDL receiver type `Bit`.")
+    assertEquals(err.column, 8)
+  }
+
   test("Scala Boolean at the LHS of a logical op with a DFHDL value"):
     assertPluginError(
       "Unsupported Scala Boolean primitive at the LHS of `&&` with a DFHDL value.\nConsider switching positions of the arguments."

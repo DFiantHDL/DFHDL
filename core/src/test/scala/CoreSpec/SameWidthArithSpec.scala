@@ -31,6 +31,28 @@ class SameWidthArithSpec extends NoDFCSpec:
     )
   }
 
+  // An unrolled accumulation over a parametric width grows its result width as a
+  // left-nested `max` chain (`((16 max W) max W) max W`). `SimplifyFunc.MaxMinChainAbsorb`
+  // collapses the repeated operand, so the chain stays minimal (`16 max W`). Design
+  // parameters are used since they stay symbolically opaque (a local `Int <> CONST`
+  // has known data and folds through `MaxMinWithOffset` instead).
+  test("a repeated max/min chain over a design parameter is absorbed") {
+    class Top(val W: Int <> CONST = 11) extends DFDesign:
+      val v = Int <> VAR
+      v := 16 max W max W max W
+      v := 1 min W min W
+      v := W max 5 max W
+    assertNoDiff(
+      codeString(Top()),
+      """|class Top(val W: Int <> CONST = 11) extends DFDesign:
+         |  val v = Int <> VAR
+         |  v := 16 max W
+         |  v := 1 min W
+         |  v := W max 5
+         |end Top""".stripMargin
+    )
+  }
+
   test("a same-width sum has its operands' own type, without reduce") {
     class Top(val BIN_WIDTH: Int <> CONST = 11) extends EDDesign:
       val din = Bits(BIN_WIDTH * 2) <> IN
