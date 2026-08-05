@@ -23,12 +23,27 @@ object IntExprCalc:
   def linearOf(v: DFVal, resolveDesignParams: Boolean)(using MemberGetSet): Linear =
     Calc(if (resolveDesignParams) ParamResolve.AppliedExpr else ParamResolve.Opaque).linear(v)
 
-  /** If `a - b` reduces to a constant (all symbolic terms cancel), returns it. */
-  def constDiff(a: DFVal, b: DFVal, resolveDesignParams: Boolean)(using
+  /** If `a - b` reduces to a constant (all symbolic terms cancel), returns it.
+    *
+    * With `elimSymbolicMaxMin` enabled, a `max`/`min` whose operands are partly symbolic and partly
+    * constant additionally reduces to its constant operands, ELIMINATING the symbolic dependency:
+    * `max(W, 16)` reads as `16`. This is a deliberate semantic choice for width-fit decisions (a
+    * comparison such as `16 >= max(W, 16)` then decides as `16 >= 16`), not an equivalence: never
+    * enable it for equality/similarity queries (`=~`, `isSimilarTo`), where `max(W, 16)` and `16`
+    * must stay distinct.
+    */
+  def constDiff(
+      a: DFVal,
+      b: DFVal,
+      resolveDesignParams: Boolean,
+      elimSymbolicMaxMin: Boolean = false
+  )(using
       MemberGetSet
   ): Option[Int] =
-    Calc(if (resolveDesignParams) ParamResolve.AppliedExpr else ParamResolve.Opaque)
-      .constDiff(a, b)
+    Calc(
+      if (resolveDesignParams) ParamResolve.AppliedExpr else ParamResolve.Opaque,
+      elimSymbolicMaxMin
+    ).constDiff(a, b)
 
   /** How the calculus treats a [[DFVal.DesignParam]] it reaches. */
   private enum ParamResolve derives CanEqual:
@@ -136,7 +151,9 @@ object IntExprCalc:
           case _               => None
       case _ => None
 
-  private final class Calc(mode: ParamResolve)(using getSet: MemberGetSet):
+  private final class Calc(mode: ParamResolve, elimSymbolicMaxMin: Boolean = false)(using
+      getSet: MemberGetSet
+  ):
     // Strip type-preserving AsIs wrappers and, under `AppliedExpr`, DesignParams
     // whose owner design has a parent (i.e., is not the top design). For non-top
     // designs, the parameter was provided by the instantiating parent, so
@@ -274,6 +291,11 @@ object IntExprCalc:
         if (linears.tail.forall(sameTerms(_, head)))
           val offsets = linears.map(_.offset)
           Linear(head.terms, if (op == FuncOp.max) offsets.max else offsets.min)
+        // symbolic elimination (see `constDiff`): a mixed max/min reduces to its constant
+        // operands, dropping the symbolic ones, so e.g. `max(W, 16)` reads as `16`
+        else if (elimSymbolicMaxMin && linears.exists(_.terms.isEmpty))
+          val offsets = linears.collect { case Linear(Nil, k) => k }
+          Linear(Nil, if (op == FuncOp.max) offsets.max else offsets.min)
         else Linear(List((1, sv)), 0)
       case sv => Linear(List((1, sv)), 0)
     end linear

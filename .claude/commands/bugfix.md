@@ -606,6 +606,15 @@ generalizes:
 - One departial-coordinate trap fixed alongside: a vector `ApplyRange`'s indices are in **cell**
   units and must be scaled by the cell width into bit coordinates; the old `shift(idxLow)` mixed
   units and falsely errored even fully-literal `o(0, 1)` / `o(2, 3)` vector range connections.
+- **Symbolic elimination is a per-site semantic choice, not a smarter equivalence.** The width-fit
+  checks accept `LHS >= RHS` after a mixed `max`/`min` drops its symbolic operands
+  (`16 >= WIDTH max 16` decides as `16 >= 16`; `IntParamRef.compare(..., elimSymbolicMaxMin =
+  true)`), which deliberately tolerates the symbolic case's truncation. Two rules keep it safe:
+  it must NEVER back `=~`/`isSimilarTo` (calling `max(W,16)` similar to `16` would skip the
+  resize insertion in `toDFXIntOf` and miscompile), and every sibling decision site of the same
+  construct must adopt it together — carry promotion (`carryPromoteWidthCheck`) had to switch
+  with the TC width-fit check, or `sum := x + y` (anonymous, carry-promoted to `max+1`) would be
+  definitively rejected while `val xy = x + y; sum := xy` passes.
 
 ### Then measure the blast radius
 

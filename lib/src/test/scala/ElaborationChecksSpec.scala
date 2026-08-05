@@ -1126,15 +1126,9 @@ class ElaborationChecksSpec extends DesignSpec:
           |Message:   The applied RHS value width (10) is larger than the LHS variable width (8).""".stripMargin
     )
     // the accumulated width is a `max` chain the repeated-operand absorption keeps
-    // minimal, so the reported LHS width reads `16 max W` (not `16 max W max W max W`)
-    assertElaborationErrors(SelParam())(
-      s"""|Elaboration errors found!
-          |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1116:9 - 1116:33
-          |Hierarchy: SelParam
-          |Operation: `apply`
-          |Message:   The applied RHS value width (16) is undefined compared to the LHS variable width (16 max W).""".stripMargin
-    )
+    // minimal (`16 max W`), and the width-fit check eliminates the symbolic max operand,
+    // so `16 max W >= 16` decides as `16 >= 16` and the parametric variant is accepted
+    SelParam()
 
   test("disjoint parameter-dependent slice connections are accepted"):
     object Test:
@@ -1263,12 +1257,12 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(SliceOverlap())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1260:9 - 1260:45
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1254:9 - 1254:45
           |Hierarchy: SliceOverlap
           |LHS:       o(W - 1, 0)
           |RHS:       i((W + W) - 1, W)
           |Message:   Found multiple connections write to the same variable/port `SliceOverlap.o`.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1259:9 - 1259:45""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1253:9 - 1253:45""".stripMargin
     )
 
   test("unprovable parameter-dependent slice connections error"):
@@ -1283,7 +1277,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(SliceUnprovable())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1280:9 - 1280:43
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1274:9 - 1274:43
           |Hierarchy: SliceUnprovable
           |LHS:       o((2 * W) - 1, W)
           |RHS:       i((2 * W) - 1, W)
@@ -1291,7 +1285,7 @@ class ElaborationChecksSpec extends DesignSpec:
           |disjoint from a previous write, because their parameter-dependent bit ranges could not be
           |resolved. If the ranges never overlap, restructure their indexing so the compiler can relate
           |them, or use assignments within a process instead of connections.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1279:9 - 1279:27""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1273:9 - 1273:27""".stripMargin
     )
   test("consistent assignment kinds per process are accepted"):
     object Test:
@@ -1350,23 +1344,93 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(MixedWhole())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1338:16 - 1338:23
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1332:16 - 1332:23
           |Hierarchy: MixedWhole
           |LHS:       q
           |RHS:       d
           |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `MixedWhole.q` within the same process.
           |Use one assignment kind consistently for this variable inside the process.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1337:20 - 1337:26""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1331:20 - 1331:26""".stripMargin
     )
     assertElaborationErrors(MixedParts())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1346:11 - 1346:30
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1340:11 - 1340:30
           |Hierarchy: MixedParts
           |LHS:       q(7, 4)
           |RHS:       d(7, 4)
           |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `MixedParts.q` within the same process.
           |Use one assignment kind consistently for this variable inside the process.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1345:11 - 1345:29""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1339:11 - 1339:29""".stripMargin
+    )
+  test("parametric max width-fit accepted via symbolic elimination"):
+    object Test:
+      @top(false) class MaxFitNamed(val WIDTH: Int <> CONST = 14) extends RTDesign:
+        val x = UInt(WIDTH) <> IN
+        val y = UInt(16) <> IN
+        val sum = UInt(16) <> OUT
+        val xy = x + y
+        sum := xy
+      end MaxFitNamed
+      @top(false) class MaxFitAnon(val WIDTH: Int <> CONST = 14) extends RTDesign:
+        val x = UInt(WIDTH) <> IN
+        val y = UInt(16) <> IN
+        val sum = UInt(16) <> OUT
+        sum := x + y
+      end MaxFitAnon
+      @top(false) class MaxFitCarry(val WIDTH: Int <> CONST = 14) extends RTDesign:
+        val x = UInt(WIDTH) <> IN
+        val y = UInt(16) <> IN
+        val sum20 = UInt(20) <> OUT
+        sum20 := x + y
+      end MaxFitCarry
+      @top(false) class WidthIdentities(val W: Int <> CONST = 8) extends RTDesign:
+        val a = Bits(W) <> IN
+        val b = Bits(1 * W) <> OUT
+        val c = Bits(W + 0) <> OUT
+        val d = Bits(W - 0) <> OUT
+        val z = Bits(0 * W + 4) <> OUT
+        b := a
+        c := a
+        d := a
+        z := h"4'0"
+      end WidthIdentities
+    end Test
+    import Test.*
+    MaxFitNamed()
+    MaxFitAnon()
+    MaxFitCarry()
+    WidthIdentities()
+
+  test("parametric max width-fit rejections"):
+    object Test:
+      @top(false) class MaxTooNarrow(val WIDTH: Int <> CONST = 14) extends RTDesign:
+        val x = UInt(WIDTH) <> IN
+        val y = UInt(16) <> IN
+        val sum15 = UInt(15) <> OUT
+        val xy = x + y
+        sum15 := xy
+      end MaxTooNarrow
+      @top(false) class PlainSymWidth(val WIDTH: Int <> CONST = 14) extends RTDesign:
+        val x = UInt(WIDTH) <> IN
+        val sum = UInt(16) <> OUT
+        sum := x
+      end PlainSymWidth
+    import Test.*
+    assertElaborationErrors(MaxTooNarrow())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1412:9 - 1412:20
+          |Hierarchy: MaxTooNarrow
+          |Operation: `:=`
+          |Message:   The applied RHS value width (WIDTH max 16) is larger than the LHS variable width (15).""".stripMargin
+    )
+    assertElaborationErrors(PlainSymWidth())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1417:9 - 1417:17
+          |Hierarchy: PlainSymWidth
+          |Operation: `:=`
+          |Message:   The applied RHS value width (WIDTH) is undefined compared to the LHS variable width (16).""".stripMargin
     )
 end ElaborationChecksSpec

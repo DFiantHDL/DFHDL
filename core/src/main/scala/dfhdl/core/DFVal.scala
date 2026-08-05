@@ -409,10 +409,11 @@ object DFVal extends DFValLP:
 
   extension [LW <: IntP, LT <: DFTypeW[LW]](lhs: DFValOf[LT])
     protected[core] def compareWidths[RW <: IntP, RT <: DFTypeW[RW]](
-        rhs: DFValOf[RT]
+        rhs: DFValOf[RT],
+        elimSymbolicMaxMin: Boolean = false
     )(func: (Int, Int) => Boolean)(using dfc: DFC): Option[Boolean] =
       import dfc.getSet
-      lhs.dfType.compareWidths(rhs.dfType)(func)
+      lhs.dfType.compareWidths(rhs.dfType, elimSymbolicMaxMin)(func)
 
   trait InitCheck[I]
   given [I](using

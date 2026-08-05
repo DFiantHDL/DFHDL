@@ -1109,7 +1109,11 @@ object DFXInt:
                       val rhsWidthRef = rhs.dfType.asIR.magnitudeWidthParamRef
                       def dfTypeWidthStr = dfTypeWidthRef.refCodeString
                       def rhsWidthStr = rhsWidthRef.refCodeString
-                      dfTypeWidthRef.compare(rhsWidthRef)(_ >= _) match
+                      // width-fit acceptance rule: LHS >= RHS after symbolic elimination, so a
+                      // mixed max/min drops its symbolic operands (`16 >= WIDTH max 16` decides
+                      // as `16 >= 16`); a residual plain-symbol comparison stays undecidable
+                      // and is conservatively rejected below
+                      dfTypeWidthRef.compare(rhsWidthRef, elimSymbolicMaxMin = true)(_ >= _) match
                         case Some(false) =>
                           throw new IllegalArgumentException(
                             s"""The applied RHS value width ($rhsWidthStr) is larger than the LHS variable width ($dfTypeWidthStr)."""
@@ -1326,9 +1330,14 @@ object DFXInt:
               import IntParam.+
               val funcWidth = lhsSignFix.widthIntParam
 
-              // if not a constant, optimistically assume it's large enough to allow carry promotion
+              // symbolic elimination keeps this consistent with the width-fit acceptance rule
+              // of the TC conversion: `16 > WIDTH max 16` decides as `16 > 16` (no promotion),
+              // so the anonymous form resolves exactly like a named intermediate value; if
+              // still undecidable, optimistically assume the target is large enough
               def carryPromoteWidthCheck: Boolean =
-                dfType.asFE[DFSInt[Int]].compareWidths(lhsSignFix.dfType)(_ > _).getOrElse(true)
+                dfType.asFE[DFSInt[Int]]
+                  .compareWidths(lhsSignFix.dfType, elimSymbolicMaxMin = true)(_ > _)
+                  .getOrElse(true)
 
               val lhsCarryPromo: DFValOf[DFSInt[Int]] = lhsSignFix.asIR match
                 case func @ ir.DFVal.Func(

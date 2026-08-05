@@ -267,11 +267,14 @@ object DFType:
       case dt: ir.DFBits    => dt.widthParamRef
       case dt: ir.DFDecimal => dt.magnitudeWidthParamRef
   extension [LW <: IntP](lhs: DFTypeW[LW])
-    protected[core] def compareWidths[RW <: IntP](rhs: DFTypeW[RW])(
+    protected[core] def compareWidths[RW <: IntP](
+        rhs: DFTypeW[RW],
+        elimSymbolicMaxMin: Boolean = false
+    )(
         func: (Int, Int) => Boolean
     )(using dfc: DFC): Option[Boolean] =
       import dfc.getSet
-      widthRef(lhs).compare(widthRef(rhs))(func)
+      widthRef(lhs).compare(widthRef(rhs), elimSymbolicMaxMin)(func)
     protected[core] def widthCodeString(using dfc: DFC): String =
       import dfc.getSet
       widthRef(lhs).refCodeString
