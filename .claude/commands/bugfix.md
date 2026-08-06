@@ -418,8 +418,11 @@ the loading run. Lessons that generalize:
   protocols (`initForced`, conditional-header retyping, `setName`/`tag`) legitimately keep
   revision semantics; a ghost from one of those would surface loudly via `DB.check` /
   `SanityCheck.refCheck` and the sanity-level `isSelfContained` contract in the cache specs.
-  Full plan and the complete troublemaker inventory (SimplifyFunc, the DFDecimal carry
-  peel/retype, the DFVal AsIs in-place conversions): devdocs/issue-449-cache-adoption-plan.md.
+  Converted sites: `SimplifyFunc` (all extractors, with `rebindMeta` naming by `Ident` wrap and
+  the `=~` comparisons made ident-transparent via `stripTypePreservingAliases`) and the
+  DFDecimal carry peel/retype; the DFVal `AsIs` in-place conversions were audited and KEPT (a
+  revision, unlike a removal, cannot ghost: same-context bindings are re-pointed, cross-context
+  bindings to anons never exist).
 - **`clearDFHDL` before trusting a full-suite run that follows core elaboration edits.** Stale
   `dfhdl-cache` entries stored by the pre-edit build stay digest-valid under uncommitted edits
   (the `dfhdl@<version>` fold only changes on a commit), and adopting mixed-era entries can shift

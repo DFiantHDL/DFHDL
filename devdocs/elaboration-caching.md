@@ -159,9 +159,10 @@ re-mints tokens for members only, so a ghost's tokens dangle in the loading run.
 SANITY-LEVEL check (asserted in the cache specs; `SanityCheck.refCheck` reports the underlying
 defect as "Ref exists for a removed member" in debug/spec runs), deliberately NOT evaluated on the
 production store/lookup path: a ghost-free elaboration is guaranteed by construction (operation
-simplifications never revise or remove anonymous members; see
-devdocs/issue-449-cache-adoption-plan.md), and only a DFHDL bug or a dirty dev loop (uncommitted
-DFHDL edits under an unchanged version; `clearDFHDL` territory) can produce a violating entry.
+simplifications never revise or remove anonymous members; unread debris is swept once at the end
+of each design, `DesignContext.sweepUnreadAnons`), and only a DFHDL bug or a dirty dev loop
+(uncommitted DFHDL edits under an unchanged version; `clearDFHDL` territory) can produce a
+violating entry.
 
 Storing requires every child to be a stored entry itself: a keyless child (an impure design, or a
 class the plugin could not guard) cannot be referenced, so its parent is not storable either. Children

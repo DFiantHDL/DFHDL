@@ -46,8 +46,7 @@ final case class SubDesignEntry(
     * OneWay keys (`DFDesignInst.designRef`, a method call's design key) are deliberately absent
     * from the refTable and resolve through the design registry instead.
     *
-    * Consumed by the `ClassDesignCacheSpec` "issue #449" test; the elaboration-side fix plan is
-    * devdocs/issue-449-cache-adoption-plan.md.
+    * Consumed by the `ClassDesignCacheSpec` "issue #449" test.
     */
   def isSelfContained: Boolean =
     val memberSet = db.members.toSet
