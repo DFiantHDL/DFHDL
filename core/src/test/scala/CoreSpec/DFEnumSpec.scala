@@ -110,4 +110,30 @@ class DFEnumSpec extends DFSpec:
     assert((e0 != BinEnum.One).toScalaBoolean)
     assert((e1 != BinEnum.Zero).toScalaBoolean)
   }
+
+  test("Enum to UInt conversion") {
+    // the encoding value at the enum's width, for every encoding kind
+    val e1: MyEnum1 <> CONST = MyEnum1.Baz
+    assertEquals(e1.uint, d"2'2")
+    val e2: MyEnum2 <> CONST = MyEnum2.Bar
+    assertEquals(e2.uint, d"5'21")
+    val e3: MyEnum3 <> CONST = MyEnum3.Baz
+    assertEquals(e3.uint, d"3'4")
+    val e4: MyEnum4 <> CONST = MyEnum4.Baz
+    assertEquals(e4.uint, d"2'3")
+    val e5: MyEnum5 <> CONST = MyEnum5.Foo
+    assertEquals(e5.uint, d"8'200")
+    val eb: BinEnum <> CONST = BinEnum.One
+    assertEquals(eb.uint, d"1'1")
+    // the conversion is composed as `.bits.uint`, which is also how it prints
+    assertCodeString {
+      """|val x = MyEnum1 <> VAR
+         |val u = x.bits.uint
+         |""".stripMargin
+    } {
+      val x = MyEnum1 <> VAR
+      val u = x.uint
+      u.verifyValOf[UInt[2]]
+    }
+  }
 end DFEnumSpec
