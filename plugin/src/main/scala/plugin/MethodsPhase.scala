@@ -181,6 +181,7 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
                 )
                 hasHDLMethodErrors = true
             }
+        end if
         if (isStatic)
           // The inverse of the ED rule: a static function is a region in which every value is
           // constant, so a non-constant argument has no meaning in it. Its const args become
@@ -210,7 +211,10 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
           // those parameter symbols are exempt from the "no `:==` in an ED method" body rule
           val nbArgSyms = dfValArgs.view.filter(_.tpt.tpe.isDFPortOUTNB).map(_.symbol).toSet
           checkHDLMethodContent(
-            anonDef, isStatic, isEDMethod && hasUnitRet(anonDef), nbArgSyms
+            anonDef,
+            isStatic,
+            isEDMethod && hasUnitRet(anonDef),
+            nbArgSyms
           ) {
             (msg, pos) =>
               report.error(msg, pos)
@@ -459,7 +463,7 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
               // sits several `Apply`/`TypeApply` layers down the curried `:==` spine (extension
               // receiver, then rhs, then `using DFC`), so gather every argument along the spine.
               def spineArgs(t: Tree): List[Tree] = t match
-                case Apply(fun, as)  => as ++ spineArgs(fun)
+                case Apply(fun, as)    => as ++ spineArgs(fun)
                 case TypeApply(fun, _) => spineArgs(fun)
                 case _                 => Nil
               val targetsNBArg = spineArgs(ap).exists(a => nbArgSyms.contains(a.symbol))

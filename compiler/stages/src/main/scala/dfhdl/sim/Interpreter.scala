@@ -58,7 +58,8 @@ object Interpreter:
     private val commitTmp = new Array[Long](regOut.length)
     // kernel-owned memory backing store: one long per word (masked at write). Reads (Op.MEMRD)
     // observe the pre-commit contents; write ports apply after the sweep, like registers.
-    private val mem: Array[Array[Long]] = Array.tabulate(memDepth.length)(k => new Array[Long](memDepth(k)))
+    private val mem: Array[Array[Long]] =
+      Array.tabulate(memDepth.length)(k => new Array[Long](memDepth(k)))
     // memory-less designs skip the commit entirely: a final-false branch the JIT folds out, so the
     // per-cycle path is identical to before the memory node existed (no added call or loop)
     private val hasMem = memWrites.length > 0

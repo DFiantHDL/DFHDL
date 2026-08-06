@@ -8,8 +8,8 @@ package dfhdl.sim
   */
 trait SimKernel:
   /** Install the reset image of each memory (indexed by memory id) into the kernel's backing store.
-    * Called once after construction; memory-less kernels ignore it. The kernel owns the working copy
-    * that writes mutate; `mems` is the reset image and is not retained.
+    * Called once after construction; memory-less kernels ignore it. The kernel owns the working
+    * copy that writes mutate; `mems` is the reset image and is not retained.
     */
   def initMem(mems: Array[Array[Long]]): Unit = ()
 
