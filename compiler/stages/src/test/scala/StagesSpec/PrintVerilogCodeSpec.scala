@@ -3262,4 +3262,46 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // a carry-widened func under a sign conversion is hoisted to a named variable by
+  // `NamedVerilogSelection`: a concat operand is self-determined in Verilog, so an
+  // inline func inside the `$signed({1'b0, ...})` sign extension would be evaluated at
+  // its narrow operand width and truncate; the named variable's assignment provides the
+  // widening context and the concat sees a declared identifier (issue #452)
+  test("sign-converted carry func is named ahead of the concat") {
+    class SignedCarry extends EDDesign:
+      val a = UInt(2)  <> IN
+      val b = UInt(8)  <> IN
+      val c = UInt(8)  <> IN
+      val o = SInt(8)  <> OUT
+      val q = SInt(10) <> OUT
+      process(all):
+        o := sd"8'0" - 3 * a
+        q := (b +^ c).signed
+    val top = (new SignedCarry).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module SignedCarry(
+         |  input  wire logic [1:0] a,
+         |  input  wire logic [7:0] b,
+         |  input  wire logic [7:0] c,
+         |  output logic signed [7:0] o,
+         |  output logic signed [9:0] q
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [3:0] o_part;
+         |  logic [8:0] q_part;
+         |  always_comb
+         |  begin
+         |    o_part = 2'd3 * a;
+         |    o = 8'sd0 - 8'($signed({1'b0, o_part}));
+         |    q_part = b + c;
+         |    q = $signed({1'b0, q_part});
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

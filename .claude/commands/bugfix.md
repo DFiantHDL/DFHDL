@@ -831,6 +831,31 @@ HDL method). A "simplification" that quietly moves an edge case is a second bug 
   only affects scalac diagnostics; if a bad message survives that flag, stop suspecting the
   custom printer.
 
+- **The Verilog printer prints arithmetic funcs bare and relies on the CONSUMER to size them —
+  self-determined contexts break that contract, and the fix belongs in a STAGE, not the
+  printer.** A carry-widened func (IR width exceeds its operands') is correct under an
+  assignment or a size cast (context-determined), and silently truncates as a concatenation
+  operand, because Verilog concat operands are self-determined. The `$signed({1'b0, ...})`
+  sign-conversion emission is such a context (issue #452 follow-up: `$signed({1'b0, a * 2'd3})`
+  pinned a promoted 4-bit mul at 2 bits). A printer-side width pin
+  (`$signed({1'b0, 4'(a * 2'd3)})`) works but was REJECTED by review: the established remedy
+  for "Verilog cannot render this anonymous construct inline" is the `NamedAliases` family —
+  a `NamedVerilogSelection` criterion names the carry func, its assignment provides the
+  widening context, and the concat sees a declared identifier. When auditing, check every
+  emission that embeds an expression in `{...}`. VHDL is immune (its helpers are
+  width-explicit) and DFacsimile follows IR semantics, so this class of bug is SV-only and
+  invisible to DFHDL-printout tests — pin the naming in `NamedSelectionSpec` and the emission
+  in `PrintVerilogCodeSpec` (append new tests at the END; mid-file inserts shift embedded
+  source positions).
+- **A transformation that wraps its operand BEFORE pattern-matching it hides the shape from
+  itself and every check inside the match.** `toDFXIntOf` applied the `.signed` sign fix first
+  and then matched for the carry-promotion candidate, so an unsigned chain meeting a signed
+  context was never promoted AND never warned (the warning lived inside the promotion branch).
+  Order shape-sensitive rewrites before wrapping, and when an upstream site pre-wraps (the
+  commutative sign alignment), unwrap the known wrapper — guarded by its exact signature
+  (signed alias over unsigned func, width == w+1, widths resolved through params) so
+  reinterpret casts stay untouched.
+
 The blast-radius step still applies, and here it reads inverted: a fully green suite with no
 reference output changed is not evidence the fix is inert, it confirms the whole branch was
 untested. The `ref/` grep from §2 predicts this: only the shared-variable form of `:=` appeared

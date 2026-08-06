@@ -963,6 +963,27 @@ class DFDecimalSpec extends DFSpec:
       u9 := u8 + u8 + u8 + u8
     }
   }
+  test("Arithmetic auto-carry promotion through sign conversion") {
+    val u2 = UInt(2) <> VAR
+    val s8 = SInt(8) <> VAR
+    val s9 = SInt(9) <> VAR
+    assertCodeString {
+      """|s8 := sd"8'0" - (d"2'3" *^ u2).signed.resize(8)
+         |s8 := s8 - (d"2'3" *^ u2).signed.resize(8)
+         |s9 := (d"2'3" *^ u2).signed.resize(8) +^ s8
+         |""".stripMargin
+    } {
+      // The unsigned narrow chain is promoted BEFORE the sign conversion the signed
+      // sibling forces, so the widening happens ahead of the conversion instead of the
+      // conversion pinning the chain at its narrow width
+      s8 := sd"8'0" - 3 * u2
+      s8 := s8 - 3 * u2
+      // The commutative sign alignment wraps the chain in a `.signed` alias before the
+      // conversion; the promotion unwraps it and re-applies the conversion on top,
+      // keeping the written operand order
+      s9 := 3 * u2 + s8
+    }
+  }
   test("Int32 arithmetic") {
     val param: Int <> CONST = 2
     val t1 = 1 + param
