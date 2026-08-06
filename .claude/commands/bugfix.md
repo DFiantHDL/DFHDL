@@ -459,6 +459,23 @@ the loading run. Lessons that generalize:
   the dclName enumeration: the AES `FullCompileSpec` file-NAME comparison failed with
   `mulByte_0/1/2` renamed to `_1/2/3`, which reads like an enumeration bug and is cache debris.
 
+### A missed diagnostic can have several independent gates
+
+When the bug is "a warning/error SHOULD have fired and did not", the predicate that suppressed
+it is usually a conjunction, and more than one conjunct can be false for the same input. Fixing
+the gate the reporter (correctly) suspected and observing no change does not refute that fix; it
+means there is a SECOND gate. Issue #452: the parametric-width warning miss required both a
+width test that returned "not narrow" for unresolvable widths AND a tag check blind to the alias
+that parametric adaptation wraps around the tagged const (literal widths fold the const, so the
+alias only exists in the parametric regime). Re-run the reproducer after EACH gate fix, and
+diagnose the remaining gates by diffing the IR shape (`getCodeString`) of the warning and
+non-warning twins, not by re-reading the predicate.
+
+Probing designs outside the app runner has its own traps: a lib design class with all-defaulted
+parameters is auto-`@top`ed, and a bare `Design()` of a topped class returns a STAGED handle
+that never elaborates (no warnings, empty DB) — mark probe designs `@top(false)`. Read warnings
+via `dsn.dfc.getWarnings`; prefer `getCodeString` over `getDB` for IR inspection in a lib @main.
+
 ### Two habits that pay off
 
 - **Check the other backend.** Re-run with `compile --backend vhdl.v2008` (or `verilog`). If both

@@ -1109,11 +1109,11 @@ object DFXInt:
                 (dfType.widthIntOpt, rhsWidthOpt) match
                   case (Some(dfTypeW), Some(rhsW)) => check(dfType.signed, dfTypeW, rhsSigned, rhsW)
                   case _                           =>
+                    import dfc.getSet
                     if (
                       !dfType.asIR.isDFInt32 && !rhs.dfType.asIR.isDFInt32 &&
                       !DFXInt.Val.Ops.hasImplicitlyFromIntTag(rhs.asIR)
                     )
-                      import dfc.getSet
                       // integer operands (fraction 0): the magnitude ref is the total-width
                       // ref and may be parametric
                       val dfTypeWidthRef = dfType.asIR.magnitudeWidthParamRef
@@ -1464,9 +1464,33 @@ object DFXInt:
            |In DFHDL, Int literals are converted to minimum bit-accurate width.
            |Use carry operations (+^, -^, *^) or explicit bit-accurate literals (d"W'V").""".stripMargin
 
-      // Check if a value is tagged with ImplicitlyFromIntTag
-      private[core] def hasImplicitlyFromIntTag(dfVal: ir.DFVal): Boolean =
-        dfVal.tags.hasTagOf[ir.ImplicitlyFromIntTag]
+      // Check if a value is tagged with ImplicitlyFromIntTag. An implicit `Int` operand
+      // adapted to a parametric width keeps its tagged const under a resize alias (the
+      // fold into a single const happens only for literal widths), so the check follows
+      // alias chains down to the underlying value.
+      private[core] def hasImplicitlyFromIntTag(dfVal: ir.DFVal)(using ir.MemberGetSet): Boolean =
+        dfVal.tags.hasTagOf[ir.ImplicitlyFromIntTag] ||
+          (dfVal match
+            case alias: ir.DFVal.Alias => hasImplicitlyFromIntTag(alias.relValRef.get)
+            case _                     => false)
+
+      // A value's width classified as narrow (< 32 bits), resolved through design
+      // parameters: this decision runs during elaboration, where a parameter's applied
+      // (or default) value is known, so a parametric width like `CORDW + 1` classifies
+      // by its actual value rather than being skipped. A width that still cannot be
+      // resolved counts as narrow: a false-positive warning costs one carry op, while a
+      // false negative is silently wrong hardware.
+      private def resolvedWidthIsNarrow(dfVal: ir.DFVal)(using getSet: ir.MemberGetSet): Boolean =
+        dfVal.dfType match
+          case dec: ir.DFDecimal =>
+            dec.magnitudeWidthParamRef.getIntConstData(using
+              getSet,
+              ir.ConstData.CachePolicy.GoThroughDesignParams
+            ) match
+              case ir.ConstData.KnownConst(m) => m + dec.fractionWidth < 32
+              case _                          => true
+          case _ =>
+            dfVal.dfType.widthIntOpt.map(_ < 32).getOrElse(true)
 
       // Check if an anonymous sub-tree contains non-carry +/-/* with width < 32.
       private[core] def containsNarrowNonCarryArith(
@@ -1477,7 +1501,7 @@ object DFXInt:
             func.op match
               case FuncOp.+ | FuncOp.- | FuncOp.* =>
                 val isNonCarry = func.dfType =~ func.args.head.get.dfType
-                val isNarrowNonCarry = isNonCarry && func.widthIntOpt.map(_ < 32).getOrElse(false)
+                val isNarrowNonCarry = isNonCarry && resolvedWidthIsNarrow(func)
                 isNarrowNonCarry ||
                 func.args.exists(ref => containsNarrowNonCarryArith(ref.get))
               case _ =>
@@ -1495,7 +1519,7 @@ object DFXInt:
             func.op match
               case FuncOp.+ | FuncOp.- | FuncOp.* =>
                 val isNonCarry = func.dfType =~ func.args.head.get.dfType
-                val isNarrowNonCarry = isNonCarry && func.widthIntOpt.map(_ < 32).getOrElse(false)
+                val isNarrowNonCarry = isNonCarry && resolvedWidthIsNarrow(func)
                 (isNarrowNonCarry && func.args.exists(ref => hasImplicitlyFromIntTag(ref.get))) ||
                 func.args.exists(ref =>
                   containsNarrowNonCarryArithWithTaggedOperand(ref.get)

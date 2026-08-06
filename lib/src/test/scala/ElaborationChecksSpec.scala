@@ -1523,4 +1523,33 @@ class ElaborationChecksSpec extends DesignSpec:
           |Consider applying `.resize` to resolve this issue.""".stripMargin
     )
 
+  test("Verilog-semantics warning with parametric widths"):
+    object Test:
+      @top(false) class ParW(val CORDW: Int <> CONST = 16) extends EDDesign:
+        val err = SInt(CORDW + 1) <> IN
+        val dy = SInt(CORDW + 1) <> IN
+        val t = 2 * err >= dy
+      end ParW
+      @top(false) class ParWDiv(val CORDW: Int <> CONST = 16) extends EDDesign:
+        val a = UInt(CORDW) <> IN
+        val b = UInt(CORDW) <> IN
+        val t = (a + b) / 4
+      end ParWDiv
+    import Test.*
+    val warnMsg =
+      """|Implicit Scala/DFHDL Int conversion may produce different results than Verilog.
+         |In Verilog, integer literals are 32-bit, which can widen intermediate arithmetic.
+         |In DFHDL, Int literals are converted to minimum bit-accurate width.
+         |Use carry operations (+^, -^, *^) or explicit bit-accurate literals (d"W'V").""".stripMargin
+    def assertWarns(dsn: dfhdl.core.Design, expected: String*): Unit =
+      val warns = dsn.dfc.getWarnings.map(_.dfMsg)
+      assertEquals(warns.length, expected.length)
+      warns.lazyZip(expected).foreach(assertNoDiff(_, _))
+    // the parametric width resolves through the design parameter's applied (or default)
+    // value at elaboration, so the warning fires exactly as with a literal width
+    assertWarns(ParW(), warnMsg)
+    assertWarns(ParWDiv(), warnMsg)
+    // a parametric width that resolves to 32 bits or wider stays suppressed
+    assertWarns(ParW(31))
+
 end ElaborationChecksSpec
