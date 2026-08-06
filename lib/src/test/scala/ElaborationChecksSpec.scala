@@ -1433,4 +1433,94 @@ class ElaborationChecksSpec extends DesignSpec:
           |Operation: `:=`
           |Message:   The applied RHS value width (WIDTH) is undefined compared to the LHS variable width (16).""".stripMargin
     )
+
+  test("same-named width constants are qualified in DFBits width errors"):
+    object Test:
+      @top(false) class Child(val W: Int <> CONST = 4) extends EDDesign:
+        val OUTPUT_WIDTH = W * 2
+        val o = Bits(OUTPUT_WIDTH) <> OUT
+        o <> all(0)
+      end Child
+      @top(false) class Parent(val W: Int <> CONST = 8) extends EDDesign:
+        val OUTPUT_WIDTH = W
+        val o = Bits(OUTPUT_WIDTH) <> OUT
+        val c = Child(W = 4)
+        o <> c.o
+      end Parent
+    import Test.*
+    assertElaborationErrors(Parent())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1448:9 - 1448:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The argument width (c.OUTPUT_WIDTH) is different than the receiver width (OUTPUT_WIDTH).
+          |Consider applying `.resize` to resolve this issue.
+          |
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1448:9 - 1448:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The argument width (OUTPUT_WIDTH) is different than the receiver width (c.OUTPUT_WIDTH).
+          |Consider applying `.resize` to resolve this issue.""".stripMargin
+    )
+
+  test("same-named width constants are qualified in DFDecimal width errors"):
+    object Test:
+      @top(false) class Child(val W: Int <> CONST = 4) extends EDDesign:
+        val OUTPUT_WIDTH = W * 2
+        val o = UInt(OUTPUT_WIDTH) <> OUT
+        o <> 0
+      end Child
+      @top(false) class Parent(val W: Int <> CONST = 8) extends EDDesign:
+        val OUTPUT_WIDTH = W
+        val o = UInt(OUTPUT_WIDTH) <> OUT
+        val c = Child(W = 4)
+        o <> c.o
+      end Parent
+    import Test.*
+    assertElaborationErrors(Parent())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1479:9 - 1479:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The applied RHS value width (c.OUTPUT_WIDTH) is undefined compared to the LHS variable width (OUTPUT_WIDTH).
+          |
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1479:9 - 1479:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The applied RHS value width (OUTPUT_WIDTH) is undefined compared to the LHS variable width (c.OUTPUT_WIDTH).""".stripMargin
+    )
+
+  test("same-named design parameters are qualified in width errors"):
+    object Test:
+      @top(false) class Child(val W: Int <> CONST = 8) extends EDDesign:
+        val o = Bits(W) <> OUT
+        o <> all(0)
+      end Child
+      @top(false) class Parent(val W: Int <> CONST = 8) extends EDDesign:
+        val o = Bits(W) <> OUT
+        val c = Child(W = 4)
+        o <> c.o
+      end Parent
+    import Test.*
+    assertElaborationErrors(Parent())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1506:9 - 1506:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The argument width (c.W) is different than the receiver width (W).
+          |Consider applying `.resize` to resolve this issue.
+          |
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1506:9 - 1506:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The argument width (W) is different than the receiver width (c.W).
+          |Consider applying `.resize` to resolve this issue.""".stripMargin
+    )
+
 end ElaborationChecksSpec

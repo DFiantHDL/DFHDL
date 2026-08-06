@@ -268,3 +268,21 @@ extension (intParamRef: ir.IntParamRef)
     import dfhdl.compiler.printing.refCodeString as refCodeStringIR
     given printer: Printer = DefaultPrinter
     intParamRef.refCodeStringIR
+  // Diagnostic rendering of a width/length parameter reference: a named parameter is
+  // qualified relative to the error site's owner (`c.OUTPUT_WIDTH` vs `OUTPUT_WIDTH`), so
+  // two same-named constants from different designs stay distinguishable in the message.
+  // Code printing (`refCodeString`) stays relative to the reference's own design, where
+  // such qualification would be wrong.
+  protected[core] def refErrorString(using dfc: DFC): String =
+    intParamRef match
+      case ref: ir.DFRef.TypeRef =>
+        import dfc.getSet
+        val dfVal = ref.get
+        if (dfVal.isAnonymous) refCodeString
+        else
+          val callOwner: ir.DFOwner | ir.DFMember.Empty = dfc.ownerOption match
+            case Some(owner) => owner.asIR
+            case None        => ir.DFMember.Empty
+          dfVal.getRelativeName(callOwner)
+      case int: Int => int.toString
+end extension

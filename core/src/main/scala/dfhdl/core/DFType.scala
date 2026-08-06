@@ -278,6 +278,11 @@ object DFType:
     protected[core] def widthCodeString(using dfc: DFC): String =
       import dfc.getSet
       widthRef(lhs).refCodeString
+    // for diagnostics: qualifies a named width relative to the error site's owner
+    protected[core] def widthErrorString(using dfc: DFC): String =
+      import dfc.getSet
+      widthRef(lhs).refErrorString
+  end extension
 
 end DFType
 

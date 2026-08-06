@@ -1118,8 +1118,8 @@ object DFXInt:
                       // ref and may be parametric
                       val dfTypeWidthRef = dfType.asIR.magnitudeWidthParamRef
                       val rhsWidthRef = rhs.dfType.asIR.magnitudeWidthParamRef
-                      def dfTypeWidthStr = dfTypeWidthRef.refCodeString
-                      def rhsWidthStr = rhsWidthRef.refCodeString
+                      def dfTypeWidthStr = dfTypeWidthRef.refErrorString
+                      def rhsWidthStr = rhsWidthRef.refErrorString
                       // width-fit acceptance rule: LHS >= RHS after symbolic elimination, so a
                       // mixed max/min drops its symbolic operands (`16 >= WIDTH max 16` decides
                       // as `16 >= 16`); a residual plain-symbol comparison stays undecidable

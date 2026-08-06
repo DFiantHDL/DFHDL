@@ -802,6 +802,18 @@ HDL method). A "simplification" that quietly moves an edge case is a second bug 
   one backend's context split, audit the OTHER backend's rendering of the same IR feature: the
   distinction always exists somewhere, either in the literal or in the construct.
 
+- **A diagnostic that names IR members through the code printer inherits the code printer's
+  scoping, which is wrong for errors.** `refCodeString` renders a reference relative to the
+  reference's OWN design (and prints a `DesignParam` bare unconditionally), which is correct for
+  printing code and degenerate in an error message: two same-named constants from different
+  designs print identically ("width (OUTPUT_WIDTH) differs from width (OUTPUT_WIDTH)", issue
+  #448). Error messages must render relative to the ERROR SITE (`getRelativeName(dfc.ownerOption
+  ...)` → `c.OUTPUT_WIDTH` vs `OUTPUT_WIDTH`); that lives in a dedicated sibling
+  (`refErrorString` / `widthErrorString`), never in a change to the code-printing path. Related:
+  such runtime elaboration messages are untouched by the plugin's `disableCustomPrinter`, which
+  only affects scalac diagnostics; if a bad message survives that flag, stop suspecting the
+  custom printer.
+
 The blast-radius step still applies, and here it reads inverted: a fully green suite with no
 reference output changed is not evidence the fix is inert, it confirms the whole branch was
 untested. The `ref/` grep from §2 predicts this: only the shared-variable form of `:=` appeared
