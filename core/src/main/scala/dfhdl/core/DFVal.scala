@@ -908,12 +908,15 @@ object DFVal extends DFValLP:
               const.data.asInstanceOf[const.dfType.Data]
             )
             val newDFType = aliasTypeIR.dropUnreachableRefs
-            // the constant is replaced in place only when it is a throwaway literal freshly
-            // created at the current position. otherwise (an anonymous constant created
+            // The constant is replaced in place only when it is a throwaway literal freshly
+            // created at the current position. Otherwise (an anonymous constant created
             // elsewhere) it may be aliased by a live Scala reference and reused (e.g. a value
             // bound via tuple destructuring), so mutating it in place would corrupt those
             // uses; instead we materialize a new converted constant and leave the original
-            // untouched.
+            // untouched. NOTE (issue #449 audit): unlike a REMOVAL, an in-place revision
+            // cannot leave a ghost refTable value: same-context bindings are re-pointed by
+            // `setMember`, and cross-context bindings to anonymous members never exist
+            // (`cloneUnreachable` clones instead).
             if (relVal.inDFCPosition)
               dfc.mutableDB.setMember(
                 const,
@@ -949,6 +952,8 @@ object DFVal extends DFValLP:
                 dfType = ir.DFBits(_) | ir.DFUInt(_) | ir.DFSInt(_),
                 relValRef = ir.DFRef(ir.DFBoolOrBit.Val(deepRelVal))
               ) if asIs.isAnonymous && !forceNewAlias =>
+            // in-place retype of the intermediate cast (see the issue #449 audit note above:
+            // a revision, unlike a removal, cannot leave a ghost refTable value)
             dfc.mutableDB.setMember(
               asIs,
               _.copy(

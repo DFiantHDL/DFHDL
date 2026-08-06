@@ -2222,7 +2222,8 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |
          |class Foo extends RTDesign:
          |  val i = SInt(w) <> IN
-         |  val p2: Int <> CONST = p0 + 1
+         |  val p1: Int <> CONST = p0
+         |  val p2: Int <> CONST = p1 + 1
          |  val p3: Int <> CONST = p2 + (-1)
          |  val p4: Int <> CONST = p3 + 3
          |  val p5: Int <> CONST = p4 - 3

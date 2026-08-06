@@ -1,5 +1,6 @@
 package dfhdl.core
 import dfhdl.compiler.ir
+import dfhdl.compiler.analysis.stripTypePreservingAliases
 import DFVal.Func.Op as FuncOp
 import dfhdl.internals.Position
 
@@ -52,12 +53,13 @@ private object SimplifyFunc:
       dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
     ).addMember
 
-  // Re-stamps an anonymous returning DFVal with the current meta so the outer
-  // val binding picks up its name, matching the existing pattern in
-  // ConstFoldAddSubChain. Named values are returned as-is.
+  // Naming without mutation: a simplification returns an EXISTING value, so a `val` binding's
+  // name is applied by wrapping the value in a named Ident rather than by restamping its meta
+  // (an anonymous member is never revised; issue #449). With an anonymous context the value is
+  // returned untouched and keeps its own meta.
   private def rebindMeta(v: ir.DFVal)(using dfc: DFC): ir.DFVal =
-    import dfc.getSet
-    if (v.isAnonymous) v.setMeta(_ => dfc.getMeta) else v
+    if (dfc.isAnonymous) v
+    else DFVal.Alias.AsIs.ident(v.asValAny).asIR
 
   // Extractor for an anonymous DFInt32 Const with a known Int payload.
   private object ConstInt:
@@ -104,13 +106,27 @@ private object SimplifyFunc:
                 case (FuncOp.-, FuncOp.+) => prevRHSData - currentRHSData
               if (newRHSData == BigInt(0)) Some(rebindMeta(prevLHSArg))
               else
-                // Clone prevFunc to avoid destructively modifying shared IR nodes
-                val clonedFunc = prevFunc.cloneAnonValueAndDepsHere
-                  .asInstanceOf[ir.DFVal.Func]
-                val clonedRHSArg = clonedFunc.args.last.get
-                  .asInstanceOf[ir.DFVal.Const]
-                dfc.mutableDB.setMember(clonedRHSArg, _.copy(data = Some(newRHSData)))
-                Some(dfc.mutableDB.setMember(clonedFunc, _.copy(meta = dfc.getMeta)))
+                // Fold by construction: a fresh Const carrying the folded payload plus a fresh
+                // Func referencing the original LHS. The superseded chain is left as debris for
+                // the end-of-design sweep (an anonymous member is never revised; issue #449).
+                val foldedConst = ir.DFVal.Const(
+                  ir.DFInt32, Some(newRHSData),
+                  dfc.ownerOrEmptyRef, prevRHSArg.meta, dfc.tags
+                ).addMember
+                Some(
+                  ir.DFVal.Func(
+                    ir.DFInt32,
+                    prevOp,
+                    List(
+                      prevLHSArg.refTW[ir.DFVal](knownReachable = true),
+                      foldedConst.refTW[ir.DFVal](knownReachable = true)
+                    ),
+                    dfc.ownerOrEmptyRef,
+                    dfc.getMeta,
+                    dfc.tags
+                  ).addMember
+                )
+              end if
             case _ => None
           end match
         // Const +/- Const fold. Runs when the LHS has been collapsed to a
@@ -128,12 +144,8 @@ private object SimplifyFunc:
           val result = currentOp.runtimeChecked match
             case FuncOp.+ => lhsData + rhsData
             case FuncOp.- => lhsData - rhsData
-          Some(
-            dfc.mutableDB.setMember(
-              lhs,
-              _.copy(data = Some(result), meta = dfc.getMeta)
-            )
-          )
+          // a fresh folded Const; the operand literals become debris for the sweep
+          Some(mkInt32Const(result))
         case _ => None
       end match
     end unapply
@@ -151,9 +163,12 @@ private object SimplifyFunc:
         dfc: DFC
     ): Boolean =
       import dfc.getSet
-      chain match
+      // ident-transparent: the chain and the compared operands may be (named) idents of the
+      // actual expressions, e.g. `max(M, b)` with `val M = max(a, b)`
+      chain.stripTypePreservingAliases match
         case chainFunc: ir.DFVal.Func if chainFunc.dfType == ir.DFInt32 && chainFunc.op == op =>
-          chainFunc.args.exists(_.get =~ other)
+          val otherStripped = other.stripTypePreservingAliases
+          chainFunc.args.exists(_.get.stripTypePreservingAliases =~ otherStripped)
         case _ => false
     def unapply(opArgs: (ir.DFType, FuncOp, List[ir.DFVal]))(using dfc: DFC): Option[ir.DFVal] =
       opArgs match
@@ -188,26 +203,21 @@ private object SimplifyFunc:
             currentPos.lineEnd, currentPos.columnEnd
           )
           val meta = currentMeta.copy(position = mergedPos)
-          // If prevFunc is referenced elsewhere, absorbing it would orphan those
-          // refs. Clone it so we consume a private copy and leave the original
-          // (and its referrers) intact.
-          val absorbable =
-            if (dfc.mutableDB.DesignContext.current.getMemberRefs(prevFunc).isEmpty) prevFunc
-            else prevFunc.cloneAnonValueAndDepsHere.asInstanceOf[ir.DFVal.Func]
-          // Reuse absorbed Func's existing arg refs (so they aren't orphaned)
-          // and create new refs only for the tail args being appended.
-          val newArgRefs: List[ir.DFVal.Ref] =
-            absorbable.args ++ rest.map(_.refTW[ir.DFVal](knownReachable = true))
-          val func: ir.DFVal = ir.DFVal.Func(
-            dfType, op, newArgRefs,
-            dfc.ownerOrEmptyRef, meta, dfc.tags
+          // Purely additive: fresh refs for both the absorbed args and the appended tail args.
+          // The absorbed Func's own arg refs are never reused (reuse entangles the two members'
+          // tokens and breaks origin tracking), and the absorbed Func itself is never removed:
+          // the front end may still hold a handle to it and reference it later (e.g. `lsbitsAt`
+          // referencing its offset expression after the width computation absorbed it; issue
+          // #449). When nothing ends up reading it, the end-of-design sweep drops it.
+          val newArgRefs: List[ir.DFVal.Ref] = (prevFunc.args.map(_.get) ++ rest).map(
+            _.refTW[ir.DFVal](knownReachable = true)
           )
-          // Add positions newFunc at the tail (after any later-created arg deps).
-          // Reusing absorbable.args causes setOriginRefs to update their origin to
-          // newFunc, so the absorbed Func can simply be marked ignored.
-          func.addMember
-          getSet.remove(absorbable)
-          Some(func)
+          Some(
+            ir.DFVal.Func(
+              dfType, op, newArgRefs,
+              dfc.ownerOrEmptyRef, meta, dfc.tags
+            ).addMember
+          )
         case _ => None
       end match
     end unapply
@@ -223,14 +233,18 @@ private object SimplifyFunc:
               FuncOp.unary_-,
               List(const @ ir.DFVal.Const(dfType = _: ir.DFDecimal, data = Some(data: BigInt)))
             ) if (const.isAnonymous || const.asValAny.inDFCPosition) =>
+          // a fresh negated Const takes over the binding name; the original literal,
+          // anonymized, becomes debris for the sweep (an anonymous member is never revised
+          // in place; issue #449)
+          const.asValAny.anonymizeInDFCPosition
           Some(
-            dfc.mutableDB.setMember(
-              const,
-              _.copy(
-                data = Some(-data),
-                meta = dfc.getMeta
-              )
-            )
+            ir.DFVal.Const(
+              const.dfType,
+              Some(-data),
+              dfc.ownerOrEmptyRef,
+              dfc.getMeta,
+              dfc.tags
+            ).addMember
           )
         case _ => None
       end match
@@ -249,17 +263,13 @@ private object SimplifyFunc:
         // x * 1 / 1 * x  ->  x
         case (ir.DFInt32, FuncOp.`*`, List(x, ConstInt(1))) => Some(rebindMeta(x))
         case (ir.DFInt32, FuncOp.`*`, List(ConstInt(1), x)) => Some(rebindMeta(x))
-        // x * 0 / 0 * x  ->  0
+        // x * 0 / 0 * x  ->  0 (a fresh Const; the operands become debris for the sweep)
         case (ir.DFInt32, FuncOp.`*`, List(_, c @ ir.DFVal.Const(data = Some(d: BigInt))))
             if d == BigInt(0) && c.isAnonymous =>
-          Some(
-            dfc.mutableDB.setMember(c, _.copy(meta = dfc.getMeta))
-          )
+          Some(mkInt32Const(0))
         case (ir.DFInt32, FuncOp.`*`, List(c @ ir.DFVal.Const(data = Some(d: BigInt)), _))
             if d == BigInt(0) && c.isAnonymous =>
-          Some(
-            dfc.mutableDB.setMember(c, _.copy(meta = dfc.getMeta))
-          )
+          Some(mkInt32Const(0))
         case _ => None
       end match
     end unapply
@@ -270,11 +280,13 @@ private object SimplifyFunc:
     def unapply(opArgs: (ir.DFType, FuncOp, List[ir.DFVal]))(using dfc: DFC): Option[ir.DFVal] =
       import dfc.getSet
       opArgs match
-        // a - a  ->  0
-        case (ir.DFInt32, FuncOp.-, List(a, b)) if a =~ b =>
+        // a - a  ->  0 (ident-transparent: `W - a` cancels when `val W = <collapses to a>`)
+        case (ir.DFInt32, FuncOp.-, List(a, b))
+            if a.stripTypePreservingAliases =~ b.stripTypePreservingAliases =>
           Some(mkInt32Const(0))
         // max(a, a) / min(a, a)  ->  a
-        case (ir.DFInt32, FuncOp.max | FuncOp.min, List(a, b)) if a =~ b =>
+        case (ir.DFInt32, FuncOp.max | FuncOp.min, List(a, b))
+            if a.stripTypePreservingAliases =~ b.stripTypePreservingAliases =>
           Some(rebindMeta(a))
         case _ => None
     end unapply
@@ -327,12 +339,14 @@ private object SimplifyFunc:
           val chain = collectChain(prev) :+ ((if (currentOp == FuncOp.+) 1 else -1, curr))
           if (chain.size < 2) None
           else
-            // Find two terms with opposite signs whose DFVals are =~.
+            // Find two terms with opposite signs whose DFVals are =~ (ident-transparent).
             val indexed = chain.zipWithIndex
             val pairOpt: Option[(Int, Int)] = indexed.iterator.collectFirst {
               case ((s1, t1), i) =>
                 indexed.iterator.collectFirst {
-                  case ((s2, t2), j) if j != i && s1 == -s2 && t1 =~ t2 =>
+                  case ((s2, t2), j)
+                      if j != i && s1 == -s2 &&
+                        t1.stripTypePreservingAliases =~ t2.stripTypePreservingAliases =>
                     (i, j)
                 }
             }.flatten

@@ -378,6 +378,54 @@ mirrored rule (cache the resolved answer when it is `KnownConst`) is *unsound*, 
 parametric. Prove which way the asymmetry runs before exploiting it, and pin **both** consumption
 orders in the regression test.
 
+### When the bug only appears across a serialization or cache boundary
+
+An internal `NoSuchElementException: key not found: "TW_..."` that fires only when the sub-design
+cache serves a hit, while a live elaboration of the identical source passes every check, is a
+**ghost binding**: a refTable VALUE whose member object was removed from the member list after the
+binding was made (issue #449). Live runs tolerate ghosts because the tokens a ghost emits still
+resolve in their own run; adoption re-mints tokens for members only, so a ghost's tokens dangle in
+the loading run. Lessons that generalize:
+
+- **The report's trigger may be cache-bypass, not cause.** A coarser cache above the buggy one
+  (the DFApp step cache replays the whole design on identical re-runs) can mean the failing run is
+  the FIRST to ever exercise the buggy path. "Edit + rebuild crashes, identical rebuild is fine"
+  read as invalidation; the truth was "adoption of this entry always crashes, and only the edit
+  makes elaboration actually run". Reproduce with two elaborations in one JVM through the
+  `MapSubDesignCache` seam before believing any staleness theory.
+- **Token forensics.** A ref token prints as `TW_<grpId1Hex>_<grpId2Hex>_<id>` with
+  `grpId = (position.hashCode, per-position JVM counter)`. In-JVM double elaboration gives the
+  storing run counter 0 and the loading run counter 1, so the failing token's counter says
+  immediately whether an unfreshened STORED token leaked through re-minting.
+- **Validate an artifact over its refTable VALUES, not only its keys.** "Every ref a member emits
+  is bound" (key closure) does not imply "every binding target is a member" (value re-uniting),
+  and only the second catches ghosts. `SanityCheck.refCheck` reports the same defect stage-side as
+  "Ref exists for a removed member"; `SubDesignEntry.isSelfContained` is the entry-level contract,
+  kept at SANITY level (asserted in the cache specs, never computed on the production store/lookup
+  path: always-on validation was rejected as redundant, since only a DFHDL bug or a dirty dev loop
+  can violate it). The stored entry is JSON, so all of this is checkable offline in a Playground
+  `@main` with no compiler edits.
+- **A removal decided on "unreferenced NOW" is unsound when a front-end handle can bind refs
+  LATER.** `MergeAssocFunc` absorbed an intermediate `+` Func and removed it before `lsbitsAt`
+  bound the offset refs to it (a method parameter is a handle; anonymity is about naming, not
+  about reachability from Scala code). A first fix made the removal resurrectable (un-ignore on
+  bind), and it worked, but was retired as compensation for a decision made at the wrong time.
+  The adopted principle instead, scoped to OPERATION SIMPLIFICATIONS
+  (arithmetic/logic/casting/conversion): a simplification never `setMember`s/`replaceMember`s/
+  removes an anonymous member; it builds a NEW member with fresh refs and leaves the superseded
+  one as debris for a snapshot-boundary sweep (`endDesign`, where "is it read?" has its final
+  answer). A blanket non-anonymous-target guard was rejected as too broad: construction
+  protocols (`initForced`, conditional-header retyping, `setName`/`tag`) legitimately keep
+  revision semantics; a ghost from one of those would surface loudly via `DB.check` /
+  `SanityCheck.refCheck` and the sanity-level `isSelfContained` contract in the cache specs.
+  Full plan and the complete troublemaker inventory (SimplifyFunc, the DFDecimal carry
+  peel/retype, the DFVal AsIs in-place conversions): devdocs/issue-449-cache-adoption-plan.md.
+- **`clearDFHDL` before trusting a full-suite run that follows core elaboration edits.** Stale
+  `dfhdl-cache` entries stored by the pre-edit build stay digest-valid under uncommitted edits
+  (the `dfhdl@<version>` fold only changes on a commit), and adopting mixed-era entries can shift
+  the dclName enumeration: the AES `FullCompileSpec` file-NAME comparison failed with
+  `mulByte_0/1/2` renamed to `_1/2/3`, which reads like an enumeration bug and is cache debris.
+
 ### Two habits that pay off
 
 - **Check the other backend.** Re-run with `compile --backend vhdl.v2008` (or `verilog`). If both

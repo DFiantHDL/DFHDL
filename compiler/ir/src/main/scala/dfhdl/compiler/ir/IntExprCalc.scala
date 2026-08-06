@@ -1,4 +1,5 @@
 package dfhdl.compiler.ir
+import dfhdl.compiler.analysis.stripTypePreservingAliases
 import scala.collection.mutable
 import DFVal.Func.Op as FuncOp
 
@@ -163,13 +164,11 @@ object IntExprCalc:
     // disables the resolution (`Opaque`) so its decisions hold for any parameter
     // assignment and designs stay parametric. `AppliedData` resolves in `linear`
     // at the data level instead (see ParamResolve).
-    private def strip(v: DFVal): DFVal = v match
-      case DFVal.Alias.AsIs(dfType = dt, relValRef = DFRef(relVal)) if dt == relVal.dfType =>
-        strip(relVal)
+    private def strip(v: DFVal): DFVal = v.stripTypePreservingAliases match
       case dp: DFVal.DesignParam
           if mode == ParamResolve.AppliedExpr && !dp.getOwnerDesign.isTop =>
         strip(dp.appliedOrDefaultVal)
-      case _ => v
+      case stripped => stripped
 
     // Ops whose operand order is irrelevant when comparing opaque bases.
     // Additive ops never reach the generic Func comparison (they are always

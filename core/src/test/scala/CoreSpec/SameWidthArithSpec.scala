@@ -36,6 +36,29 @@ class SameWidthArithSpec extends NoDFCSpec:
   // collapses the repeated operand, so the chain stays minimal (`16 max W`). Design
   // parameters are used since they stay symbolically opaque (a local `Int <> CONST`
   // has known data and folds through `MaxMinWithOffset` instead).
+  // A named `val` over a collapsed simplification result wraps it in a named Ident (never a
+  // meta restamp of the underlying anonymous member; issue #449), and the simplifications see
+  // THROUGH such idents: the chain absorb and the self-cancellation below only fire when
+  // `M`/`E` dereference to the expressions they name.
+  test("simplifications see through named intermediates (idents)") {
+    class Top(val W: Int <> CONST = 11) extends DFDesign:
+      val M: Int <> CONST = 16 max W max W // absorbed, so `M` idents `16 max W`
+      val E: Int <> CONST = W max W // collapsed, so `E` idents `W`
+      val v = Int <> VAR
+      v := M max W // absorbs through the `M` ident
+      v := E - W // cancels through the `E` ident
+    assertNoDiff(
+      codeString(Top()),
+      """|class Top(val W: Int <> CONST = 11) extends DFDesign:
+         |  val M: Int <> CONST = 16 max W
+         |  val E: Int <> CONST = W
+         |  val v = Int <> VAR
+         |  v := M
+         |  v := 0
+         |end Top""".stripMargin
+    )
+  }
+
   test("a repeated max/min chain over a design parameter is absorbed") {
     class Top(val W: Int <> CONST = 11) extends DFDesign:
       val v = Int <> VAR

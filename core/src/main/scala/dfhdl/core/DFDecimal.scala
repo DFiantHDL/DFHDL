@@ -1345,47 +1345,58 @@ object DFXInt:
                       op = op @ (FuncOp.+ | FuncOp.- | FuncOp.*)
                     )
                     if func.isAnonymous && carryPromoteWidthCheck =>
-                  // For multi-arg merged Funcs (3+ args), peel the last arg:
-                  // Func(+, [a, b, c]) → Func(+, [Func(+, [a, b]), c])
-                  // Shrink the original func in-place to become the inner (non-carry)
-                  // Func, then add a new binary carry Func at the tail. This keeps
-                  // the inner before the carry Func in member order.
-                  // Skipped during meta-programming where MutableDB ref tracking is limited.
-                  val carryFunc =
+                  // The carry-promoted Func is BUILT FRESH rather than revised in place (an
+                  // anonymous member is never revised; issue #449); the original Func becomes
+                  // debris for the end-of-design sweep. For multi-arg merged Funcs (3+ args),
+                  // the last arg is peeled: Func(+, [a, b, c]) becomes
+                  // Func(+, [Func(+, [a, b]), c]), with the inner (non-carry) Func added
+                  // before the carry Func so member order holds. The peel is skipped during
+                  // meta-programming, where no member is registered at all (see below).
+                  val carryArgVals: List[ir.DFVal] =
                     if (func.args.length > 2 && !dfc.inMetaProgramming)
-                      val lastArgRef = func.args.last
-                      // Shrink `func` in-place to the inner Func (N-1 args, non-carry)
-                      val innerFunc =
-                        dfc.mutableDB.setMember(func, _.copy(args = func.args.dropRight(1)))
-                      // Add a new binary carry Func at the tail referencing innerFunc
-                      func.copy(args =
-                        List(innerFunc.refTW[ir.DFVal](knownReachable = true), lastArgRef)
+                      val innerFunc = ir.DFVal.Func(
+                        dt,
+                        op,
+                        func.args.dropRight(1).map(_.get.refTW[ir.DFVal](knownReachable = true)),
+                        dfc.ownerOrEmptyRef,
+                        func.meta,
+                        func.tags
                       ).addMember
-                    else func
+                      List(innerFunc, func.args.last.get)
+                    else func.args.map(_.get)
                   // Check B: warn if sub-expressions contain implicit Int with
                   // narrow non-carry arith. Check args (not func itself, since
                   // the func is about to be carry-promoted).
                   val argHasImplicitFromIntTag =
-                    carryFunc.args.exists(ref => hasImplicitlyFromIntTag(ref.get))
+                    carryArgVals.exists(hasImplicitlyFromIntTag)
                   val argsContainNarrowNonCarryArith =
-                    carryFunc.args.exists(ref => containsNarrowNonCarryArith(ref.get))
-                  val argsContainNarrowNonCarryArithWithTaggedOperand = carryFunc.args.exists(ref =>
-                    containsNarrowNonCarryArithWithTaggedOperand(ref.get)
-                  )
+                    carryArgVals.exists(containsNarrowNonCarryArith)
+                  val argsContainNarrowNonCarryArithWithTaggedOperand =
+                    carryArgVals.exists(containsNarrowNonCarryArithWithTaggedOperand)
                   if argHasImplicitFromIntTag && argsContainNarrowNonCarryArith ||
                     argsContainNarrowNonCarryArithWithTaggedOperand
                   then
                     dfc.logEvent(DFWarning(op.toString, verilogSemanticsWarnMsg))
                   end if
-                  val cw: IntParam[Int] = carryFunc.op.runtimeChecked match
+                  val cw: IntParam[Int] = op.runtimeChecked match
                     case FuncOp.+ | FuncOp.- => funcWidth + 1
                     case FuncOp.*            => funcWidth + funcWidth
                   // integer carry arithmetic (fraction width 0), so the magnitude width is
                   // the total width
                   val newDT = dt.copy(magnitudeWidthParamRef = cw.ref)
-                  dfc.mutableDB
-                    .setMember(carryFunc, _.updateDFType(newDT))
-                    .asValOf[DFSInt[Int]]
+                  if (dfc.inMetaProgramming)
+                    // no MutableDB revision under meta-programming (matching `setMember`'s
+                    // behavior there): the retyped value is returned unregistered
+                    func.updateDFType(newDT).asValOf[DFSInt[Int]]
+                  else
+                    ir.DFVal.Func(
+                      newDT,
+                      op,
+                      carryArgVals.map(_.refTW[ir.DFVal](knownReachable = true)),
+                      dfc.ownerOrEmptyRef,
+                      func.meta,
+                      func.tags
+                    ).addMember.asValOf[DFSInt[Int]]
                 case _ => lhsSignFix
               end lhsCarryPromo
               val nativeTypeChanged = dfType.nativeType != lhsCarryPromo.dfType.nativeType
