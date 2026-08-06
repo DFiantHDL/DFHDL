@@ -808,6 +808,62 @@ class DFDecimalSpec extends DFSpec:
       s8 + bigUnsigned
     }
   }
+  test("Carry ops with wildcard Int operands") {
+    val u8 = UInt(8) <> VAR
+    val s8 = SInt(8) <> VAR
+    val param: Int <> CONST = 10
+
+    // A wildcard `Int` parameter adapts to the bit-accurate operand's sign and width,
+    // so `+^`/`-^` widen that operand's width by one bit (instead of promoting the
+    // parameter to a 32-bit signed value)
+    val c1: UInt[9] <> CONST = d"8'22" +^ param
+    assertEquals(c1, d"9'32")
+    val c2: UInt[9] <> CONST = param +^ d"8'22"
+    assertEquals(c2, d"9'32")
+    val c3: UInt[9] <> CONST = d"8'22" -^ param
+    assertEquals(c3, d"9'12")
+    val c4: UInt[9] <> CONST = param -^ d"8'3"
+    assertEquals(c4, d"9'7")
+    val c5: SInt[9] <> CONST = sd"8'22" +^ param
+    assertEquals(c5, sd"9'32")
+    // Carry mul with a wildcard parameter doubles the bit-accurate operand's width
+    val c6: UInt[16] <> CONST = d"8'22" *^ param
+    assertEquals(c6, d"16'220")
+    val c7: UInt[16] <> CONST = param *^ d"8'22"
+    assertEquals(c7, d"16'220")
+    val c8: SInt[16] <> CONST = sd"8'22" *^ param
+    assertEquals(c8, sd"16'220")
+    // Unsized `d"$param"` binding and parameter expressions adapt the same way
+    val c9: UInt[9] <> CONST = d"8'22" +^ d"$param"
+    assertEquals(c9, d"9'32")
+    val c10: UInt[9] <> CONST = d"8'22" +^ (param + 2)
+    assertEquals(c10, d"9'34")
+
+    // Both-Int carry ops are rejected: there is no bit-accurate operand to widen against
+    val param2: Int <> CONST = 3
+    val bothIntErr =
+      "Carry operations require at least one bit-accurate operand (`UInt`/`SInt`), but both operands are `Int` values."
+    assertCompileError(bothIntErr)("""param +^ param2""")
+    assertCompileError(bothIntErr)("""param -^ param2""")
+    assertCompileError(bothIntErr)("""param *^ param2""")
+    assertCompileError(bothIntErr)("""3 +^ param""")
+    assertCompileError(bothIntErr)("""param *^ 3""")
+    assertCompileError(bothIntErr)("""3 +^ 5""")
+
+    // The wildcard parameter must fit the bit-accurate operand
+    assertRuntimeErrorLog(
+      "Wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
+    ) {
+      val bigVal: Int <> CONST = 1000
+      u8 +^ bigVal
+    }
+    assertRuntimeErrorLog(
+      "Wildcard `Int` value is negative and cannot adapt to an unsigned bit-accurate value."
+    ) {
+      val negVal: Int <> CONST = -1
+      u8 +^ negVal
+    }
+  }
   test("d\"\" unsigned-only interpolation") {
     // d"" produces unsigned UInt constants
     assertEquals(d"0", d"1'0")

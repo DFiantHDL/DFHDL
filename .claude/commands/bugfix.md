@@ -290,6 +290,36 @@ failures to expect are therefore specs that assert an error and find none: `asse
 compile error for its snippet and then an elaboration error for its block, so "which half failed"
 is a real question and the failure position does not tell you.
 
+### Sibling op givens drift like twin helpers do
+
+The "twin helpers drift" rule from §2 applies to `ExactOp*` given families too. Issue #445: the
+commutative and non-commutative arith givens both carried wildcard-`Int` adaptation
+(`checkWildcardFit` + adapt to the bit-accurate operand), while the carry givens
+(`evOpCarryAddSubDFXInt`, `evOpCarryMulDFXInt`) had none, so an `Int <> CONST` parameter fell
+through to its runtime representation (signed 32-bit) and silently produced `SInt[33]` where
+`UInt[11]` was expected. When one given of a family handles a species of operand specially, diff
+the siblings for that branch before concluding the behavior difference is intentional.
+
+Two mechanism notes from that fix:
+
+- **Two operand species can be type-level identical and runtime distinct.** A Scala `Int`
+  (literal or runtime) and a DFHDL `Int` parameter both reach an op given as
+  `OutS = Boolean, OutW = Int, OutN = Int32`, but at runtime the Scala `Int` candidate has
+  already built a bit-accurate const at the value's minimal width, while the parameter is still
+  `DFInt32`. When the two need different semantics (carry ops: literals keep minimal width,
+  pinned by `100 *^ u8 == UInt[15]`; parameters adapt), dispatch on
+  `dfType.asIR.isDFInt32` at runtime and leave the static `Out` degraded, rather than inventing
+  an `IsConst`-style type-level discriminator (the §"stuck, not false" traps).
+- **For a new operand-legality rule on type-level `Boolean`/`Int` values, prefer a
+  `Check1`/`Check2` object (`Checked.scala`) over `AssertGiven`.** One object holds the condition
+  and message for every use site (alias it in `Constraints`, e.g. `CarryCheck`), it fails at
+  compile time when the types reduce, and the same instance is runtime-invocable with runtime
+  witnesses for the widened case. Empirically its failure inside an **untrapped** `exactOp2`
+  candidate resolution still surfaced the *specific* message at the *user's expression* span
+  (the spliced `compiletime.error` reports at the inlined call), so the generic-message caveat
+  above does not always cost you the diagnostic; verify per case with `assertCompileError` plus
+  one manual compile for the position.
+
 ### Probing type-level behaviour
 
 Two traps, each of which cost several cycles here:

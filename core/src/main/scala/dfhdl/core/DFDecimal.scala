@@ -142,6 +142,17 @@ object DFDecimal:
           [BaW <: Int, WcW <: Int] =>> "The wildcard `Int` value width (" + WcW +
             ") is larger than the bit-accurate value width (" + BaW + ")."
         ]
+    object `!(LN && RN)`
+        extends Check2[
+          Boolean,
+          Boolean,
+          [LN <: Boolean, RN <: Boolean] =>> ![LN && RN],
+          [LN <: Boolean,
+          RN <: Boolean] =>> "Carry operations require at least one bit-accurate operand (`UInt`/`SInt`), but both operands are `Int` values."
+        ]
+    // A carry operation widens relative to a bit-accurate operand, so at least one operand
+    // must be bit-accurate (native `Int` operands are wildcards with no width of their own).
+    type CarryCheck[LN <: NativeType, RN <: NativeType] = `!(LN && RN)`.Check[LN, RN]
     type SignStr[S <: Boolean] = ITE[S, "a signed", "an unsigned"]
     object `LS == RS`
         extends Check2[
@@ -1775,6 +1786,8 @@ object DFXInt:
           icL: Candidate.Aux[L, LS, LW, LN, LP],
           icR: Candidate.Aux[R, RS, RW, RN, RP],
           op: ValueOf[Op]
+      )(using
+          carryCheck: CarryCheck[LN, RN]
       ): ExactOp2Aux[CarryOp[Op], DFC, DFValAny, L, R, DFValTP[
         DFXInt[LS || RS, IntP.ArithCarryWidth[LW, RW], BitAccurate],
         LP | RP
@@ -1784,9 +1797,26 @@ object DFXInt:
           val dfcAnon = dfc.anonymize
           val lhsVal = icL(lhs)(using dfcAnon)
           val rhsVal = icR(rhs)(using dfcAnon)
-          val resultSigned = lhsVal.dfType.signed || rhsVal.dfType.signed
           import IntParam.{+, max}
-          val commonWidth = lhsVal.widthIntParam.max(rhsVal.widthIntParam)
+          // A wildcard `Int` operand (a DFHDL `Int` parameter or an expression over one)
+          // adapts to the bit-accurate operand's sign and width before the carry widening,
+          // instead of contributing its 32-bit signed representation. `carryCheck` rules
+          // out two wildcard operands. Scala `Int` operands are already bit-accurate here
+          // (the candidate converts them at their value's minimal width), so they keep
+          // contributing that width to the common-width calculation.
+          val lhsIsWildcard = lhsVal.dfType.asIR.isDFInt32
+          val rhsIsWildcard = rhsVal.dfType.asIR.isDFInt32
+          carryCheck(lhsIsWildcard, rhsIsWildcard)
+          if (rhsIsWildcard) checkWildcardFit(rhsVal.asValOf[DFInt32], lhsVal.dfType)
+          else if (lhsIsWildcard) checkWildcardFit(lhsVal.asValOf[DFInt32], rhsVal.dfType)
+          val resultSigned: Boolean =
+            if (rhsIsWildcard) lhsVal.dfType.signed
+            else if (lhsIsWildcard) rhsVal.dfType.signed
+            else lhsVal.dfType.signed || rhsVal.dfType.signed
+          val commonWidth: IntParam[Int] =
+            if (rhsIsWildcard) lhsVal.widthIntParam
+            else if (lhsIsWildcard) rhsVal.widthIntParam
+            else lhsVal.widthIntParam.max(rhsVal.widthIntParam)
           val width = commonWidth + 1
           val dfType = DFXInt(resultSigned, width, BitAccurate)
           // Resize both operands to common width, converting to signed if needed
@@ -1813,6 +1843,8 @@ object DFXInt:
       ](using
           icL: Candidate.Aux[L, LS, LW, LN, LP],
           icR: Candidate.Aux[R, RS, RW, RN, RP]
+      )(using
+          carryCheck: CarryCheck[LN, RN]
       ): ExactOp2Aux[CarryOp[Op], DFC, DFValAny, L, R, DFValTP[
         DFXInt[LS || RS, IntP.+[LW, RW], BitAccurate],
         LP | RP
@@ -1822,21 +1854,46 @@ object DFXInt:
           val dfcAnon = dfc.anonymize
           val lhsVal = icL(lhs)(using dfcAnon)
           val rhsVal = icR(rhs)(using dfcAnon)
-          val resultSigned = lhsVal.dfType.signed || rhsVal.dfType.signed
           import IntParam.+
-          val width = lhsVal.widthIntParam + rhsVal.widthIntParam
-          val dfType = DFXInt(resultSigned, width, BitAccurate)
-          // Convert unsigned operand to signed if needed
-          val lhsFix =
-            if (resultSigned && !lhsVal.dfType.signed)
-              lhsVal.toDFXIntOf(DFXInt(true, lhsVal.widthIntParam + 1, BitAccurate))(using dfcAnon)
-            else lhsVal
-          val rhsFix =
-            if (resultSigned && !rhsVal.dfType.signed)
-              rhsVal.toDFXIntOf(DFXInt(true, rhsVal.widthIntParam + 1, BitAccurate))(using dfcAnon)
-            else rhsVal
-          DFVal.Func(dfType, FuncOp.`*`, List(lhsFix, rhsFix))
-            .asInstanceOf[Out]
+          // Same wildcard adaptation as carry add/sub: the wildcard `Int` operand takes
+          // the bit-accurate operand's sign and width, so the product doubles that width
+          // and keeps that sign.
+          val lhsIsWildcard = lhsVal.dfType.asIR.isDFInt32
+          val rhsIsWildcard = rhsVal.dfType.asIR.isDFInt32
+          carryCheck(lhsIsWildcard, rhsIsWildcard)
+          if (rhsIsWildcard) checkWildcardFit(rhsVal.asValOf[DFInt32], lhsVal.dfType)
+          else if (lhsIsWildcard) checkWildcardFit(lhsVal.asValOf[DFInt32], rhsVal.dfType)
+          if (lhsIsWildcard || rhsIsWildcard)
+            val baSigned: Boolean =
+              if (rhsIsWildcard) lhsVal.dfType.signed else rhsVal.dfType.signed
+            val baWidth: IntParam[Int] =
+              if (rhsIsWildcard) lhsVal.widthIntParam else rhsVal.widthIntParam
+            val commonType = DFXInt(baSigned, baWidth, BitAccurate)
+            val dfType = DFXInt(baSigned, baWidth + baWidth, BitAccurate)
+            val lhsFix = lhsVal.toDFXIntOf(commonType)(using dfcAnon)
+            val rhsFix = rhsVal.toDFXIntOf(commonType)(using dfcAnon)
+            DFVal.Func(dfType, FuncOp.`*`, List(lhsFix, rhsFix))
+              .asInstanceOf[Out]
+          else
+            val resultSigned = lhsVal.dfType.signed || rhsVal.dfType.signed
+            val width = lhsVal.widthIntParam + rhsVal.widthIntParam
+            val dfType = DFXInt(resultSigned, width, BitAccurate)
+            // Convert unsigned operand to signed if needed
+            val lhsFix =
+              if (resultSigned && !lhsVal.dfType.signed)
+                lhsVal.toDFXIntOf(DFXInt(true, lhsVal.widthIntParam + 1, BitAccurate))(using
+                  dfcAnon
+                )
+              else lhsVal
+            val rhsFix =
+              if (resultSigned && !rhsVal.dfType.signed)
+                rhsVal.toDFXIntOf(DFXInt(true, rhsVal.widthIntParam + 1, BitAccurate))(using
+                  dfcAnon
+                )
+              else rhsVal
+            DFVal.Func(dfType, FuncOp.`*`, List(lhsFix, rhsFix))
+              .asInstanceOf[Out]
+          end if
         }(using dfc, CTName("*^"))
       end evOpCarryMulDFXInt
 

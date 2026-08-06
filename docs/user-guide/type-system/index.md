@@ -1262,7 +1262,7 @@ d"width'dec"
 - If specified, the output is padded with zeros
 - Returns `UInt[W]`, where `W` is the width in bits
 - An error occurs if the specified width is less than required to represent the value
-- When used with a DFHDL `Int` parameter, the interpolation binds it as unsigned
+- When used with a DFHDL `Int` parameter and an explicit or parametric width, the interpolation binds the parameter as an unsigned value of that width. Without a width, the parameter passes through unchanged and remains a [wildcard `Int` value][wildcard-ops].
 
 ```scala
 d"0"           // UInt[1], value = 0
@@ -1270,7 +1270,7 @@ d"255"         // UInt[8], value = 255
 d"8'42"        // UInt[8], value = 42
 d"1,023"       // UInt[10], value = 1023
 d"1_000"       // UInt[10], value = 1000
-d"$param"      // UInt[Int], unsigned binding of Int parameter
+d"$param"      // Int, parameter passes through as a wildcard value
 d"8'$param"    // UInt[8], unsigned binding with explicit width
 d"${w}'$param" // UInt[w.type], unsigned binding with parametric width
 ```
@@ -2260,7 +2260,7 @@ s8 := -u8
 
 ### Wildcard `Int` Values {#wildcard-ops}
 
-Both Scala `Int` values and DFHDL `Int` parameters (`Int <> CONST`) act as **wildcards** when used in operations with bit-accurate `UInt` or `SInt` values. The wildcard `Int` value adapts to the bit-accurate value's sign and width. If the wildcard `Int` value does not fit in the bit-accurate value's range or has incompatible sign, an error is generated.
+Both Scala `Int` values and DFHDL `Int` parameters (`Int <> CONST`) act as **wildcards** when used in operations with bit-accurate `UInt` or `SInt` values. The wildcard `Int` value adapts to the bit-accurate value's sign and width. If the wildcard `Int` value does not fit in the bit-accurate value's range or has incompatible sign, an error is generated. One exception: in [carry operations][carry-ops] a Scala `Int` operand contributes its value's minimal width instead of adapting, while a DFHDL `Int` parameter adapts as usual.
 
 ```scala
 val u8 = UInt(8) <> VAR
@@ -2470,6 +2470,8 @@ Carry operations widen the result to prevent overflow. Mixed signedness is allow
 | `UInt[LW]` | `SInt[RW]` | `SInt[LW + 1 + RW]` |
 ///
 
+**Wildcard `Int` operands:** at least one operand must be bit-accurate; a carry operation between two `Int` values is a compile-time error. A Scala `Int` operand contributes its value's minimal width to the tables above. A DFHDL `Int` parameter (`Int <> CONST`) instead [adapts][wildcard-ops] to the bit-accurate operand's sign and width, so `+^`/`-^` widen that operand by one bit and `*^` doubles its width.
+
 ```scala
 val u8 = UInt(8) <> VAR
 
@@ -2490,6 +2492,16 @@ val r4 = 100 *^ u8          // UInt[15]
 val s8 = SInt(8) <> VAR
 val r5 = s8 +^ s8           // SInt[9]
 val r6 = s8 *^ s8           // SInt[16]
+
+// DFHDL Int parameter adapts to the bit-accurate operand
+val param: Int <> CONST = 3
+val r7 = u8 +^ param        // UInt[9]  (param adapts to UInt[8], carry widens to 9)
+val r8 = u8 *^ param        // UInt[16] (param adapts to UInt[8], product doubles to 16)
+val r9 = s8 +^ param        // SInt[9]  (param adapts to SInt[8])
+
+// error: Carry operations require at least one bit-accurate
+// operand (`UInt`/`SInt`), but both operands are `Int` values.
+val e1 = param +^ 1
 ```
 
 
