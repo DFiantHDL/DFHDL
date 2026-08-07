@@ -3313,10 +3313,15 @@ class PrintVerilogCodeSpec extends StageSpec:
       val usub   = UInt(W + 1) <> OUT
       val acc    = SInt(W + 2) <> OUT
       val uacc   = UInt(W + 2) <> OUT
-      sum  <> a + b
-      usub <> ua - ub
-      acc  <> a + b
-      uacc <> ua + ub
+      val prod   = SInt(2 * W) <> OUT
+      val uprod  = UInt(2 * W) <> OUT
+      sum   <> a + b
+      usub  <> ua - ub
+      acc   <> a + b
+      uacc  <> ua + ub
+      prod  <> a * b
+      uprod <> ua * ub
+    end ParamWiden
     val top = ParamWiden().getCompiledCodeString
     assertNoDiff(
       top,
@@ -3331,13 +3336,17 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic signed [(W + 1) - 1:0] sum,
          |  output logic [(W + 1) - 1:0] usub,
          |  output logic signed [(W + 2) - 1:0] acc,
-         |  output logic [(W + 2) - 1:0] uacc
+         |  output logic [(W + 2) - 1:0] uacc,
+         |  output logic signed [(2 * W) - 1:0] prod,
+         |  output logic [(2 * W) - 1:0] uprod
          |);
          |  `include "dfhdl_defs.svh"
          |  assign sum = a + b;
          |  assign usub = ua - ub;
          |  assign acc = `EBY_S(a, 2) + `EBY_S(b, 2);
          |  assign uacc = `EBY_U(ua, 2) + `EBY_U(ub, 2);
+         |  assign prod = a * b;
+         |  assign uprod = ua * ub;
          |endmodule
          |""".stripMargin
     )

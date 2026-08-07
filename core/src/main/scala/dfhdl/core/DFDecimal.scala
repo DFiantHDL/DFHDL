@@ -1120,11 +1120,13 @@ object DFXInt:
                       val rhsWidthRef = rhs.dfType.asIR.magnitudeWidthParamRef
                       def dfTypeWidthStr = dfTypeWidthRef.refErrorString
                       def rhsWidthStr = rhsWidthRef.refErrorString
-                      // width-fit acceptance rule: LHS >= RHS after symbolic elimination, so a
-                      // mixed max/min drops its symbolic operands (`16 >= WIDTH max 16` decides
-                      // as `16 >= 16`); a residual plain-symbol comparison stays undecidable
-                      // and is conservatively rejected below
-                      dfTypeWidthRef.compare(rhsWidthRef, elimSymbolicMaxMin = true)(_ >= _) match
+                      // width-fit acceptance rule: LHS >= RHS after symbolic elimination (a
+                      // mixed max/min drops its symbolic operands, so `16 >= WIDTH max 16`
+                      // decides as `16 >= 16`), falling back to a non-negativity proof over
+                      // the validity domain (all widths are >= 1), so `2 * W >= W` accepts
+                      // for a free parameter `W`; a residual undecidable comparison (e.g.
+                      // `16 >= W`) is conservatively rejected below
+                      dfTypeWidthRef.widthFitGE(rhsWidthRef) match
                         case Some(false) =>
                           throw new IllegalArgumentException(
                             s"""The applied RHS value width ($rhsWidthStr) is larger than the LHS variable width ($dfTypeWidthStr)."""

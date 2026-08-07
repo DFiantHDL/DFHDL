@@ -199,6 +199,30 @@ object IntParamRef:
             )
           yield func(diff, 0)
     end compare
+    // Width-fit decision `this >= that` (see `IntExprCalc.widthFitCompare`): the constant
+    // difference rule of `compare` (with the max/min symbolic elimination) plus a
+    // non-negativity proof over the validity domain, where both sides are widths and hence
+    // `>= 1` for every valid elaboration. Relations that hold for every valid parameter
+    // assignment (e.g. `2 * W >= W`) are accepted, and provably violated ones
+    // (e.g. `W >= 2 * W`) decide `Some(false)`. Width-fit check sites only, never for
+    // equality/similarity.
+    def widthFitGE(that: IntParamRef)(using MemberGetSet): Option[Boolean] =
+      (intParamRef, that) match
+        // Fast path: both refs are already concrete Ints.
+        case (l: Int, r: Int) => Some(l >= r)
+        case _                =>
+          def asDFVal(ref: IntParamRef): Option[DFVal] = ref match
+            case i: Int =>
+              Some(DFVal.Const(
+                DFInt32, Some(BigInt(i)), DFRef.OneWay.Empty, Meta.empty, DFTags.empty
+              ))
+            case r: DFRef.TypeRef => r.getOption
+          for
+            lVal <- asDFVal(intParamRef)
+            rVal <- asDFVal(that)
+            decision <- IntExprCalc.widthFitCompare(lVal, rVal)
+          yield decision
+    end widthFitGE
     // The constant difference `this - that` when all symbolic terms cancel (see `compare`);
     // `None` otherwise. Lets printers render a widening as a relative extension (`.eby(k)`,
     // `EBY_U`/`EBY_S`, VHDL `eby`) exactly when the width delta folds to a literal. Design

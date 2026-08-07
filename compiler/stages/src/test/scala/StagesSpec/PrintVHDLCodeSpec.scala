@@ -3491,10 +3491,15 @@ class PrintVHDLCodeSpec extends StageSpec:
       val usub   = UInt(W + 1) <> OUT
       val acc    = SInt(W + 2) <> OUT
       val uacc   = UInt(W + 2) <> OUT
-      sum  <> a + b
-      usub <> ua - ub
-      acc  <> a + b
-      uacc <> ua + ub
+      val prod   = SInt(2 * W) <> OUT
+      val uprod  = UInt(2 * W) <> OUT
+      sum   <> a + b
+      usub  <> ua - ub
+      acc   <> a + b
+      uacc  <> ua + ub
+      prod  <> a * b
+      uprod <> ua * ub
+    end ParamWiden
     val top = ParamWiden().getCompiledCodeString
     assertNoDiff(
       top,
@@ -3515,7 +3520,9 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  sum : out signed((W + 1) - 1 downto 0);
          |  usub : out unsigned((W + 1) - 1 downto 0);
          |  acc : out signed((W + 2) - 1 downto 0);
-         |  uacc : out unsigned((W + 2) - 1 downto 0)
+         |  uacc : out unsigned((W + 2) - 1 downto 0);
+         |  prod : out signed((2 * W) - 1 downto 0);
+         |  uprod : out unsigned((2 * W) - 1 downto 0)
          |);
          |end ParamWiden;
          |
@@ -3525,6 +3532,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  usub <= csub(ua, ub);
          |  acc <= eby(a, 2) + eby(b, 2);
          |  uacc <= eby(ua, 2) + eby(ub, 2);
+         |  prod <= a * b;
+         |  uprod <= ua * ub;
          |end ParamWiden_arch;
          |""".stripMargin
     )

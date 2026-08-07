@@ -46,6 +46,32 @@ object IntExprCalc:
       elimSymbolicMaxMin
     ).constDiff(a, b)
 
+  /** Decides the width-fit acceptance `a >= b` between two width expressions. A constant difference
+    * (with the max/min symbolic elimination of [[constDiff]]) decides directly; an undecidable
+    * difference falls back to a non-negativity proof over the validity domain, using the fact that
+    * both sides are widths and hence `>= 1` for every valid elaboration (`Arg.Width` rejects
+    * non-positive widths). So `2 * W >= W` is accepted for a free parameter `W`, `W >= 2 * W` is
+    * definitively rejected, and `16 >= W` stays undecidable (`W` may exceed 16). Width-fit check
+    * sites only: like the max/min elimination, the proof rules must never back equality/similarity
+    * queries (`=~`, `isSimilarTo`).
+    */
+  def widthFitCompare(a: DFVal, b: DFVal)(using MemberGetSet): Option[Boolean] =
+    val calc = Calc(ParamResolve.AppliedExpr, elimSymbolicMaxMin = true)
+    val la = calc.linear(a)
+    val lb = calc.linear(b)
+    val diff = calc.sub(la, lb)
+    if (diff.terms.isEmpty) Some(diff.offset >= 0)
+    else
+      // both sides are widths: `>= 1` on the valid domain
+      val facts = List(la, lb)
+      if (calc.proveNonNeg(diff, facts)) Some(true)
+      else
+        // the negative direction: `b - a - 1 >= 0` proves `b > a`, deciding `a >= b` as false
+        val negDiffM1 = Linear(diff.terms.map((c, b) => (-c, b)), -diff.offset - 1)
+        if (calc.proveNonNeg(negDiffM1, facts)) Some(false)
+        else None
+  end widthFitCompare
+
   /** How the calculus treats a [[DFVal.DesignParam]] it reaches. */
   private enum ParamResolve derives CanEqual:
     /** Stays an opaque base, so a decision holds for any parameter assignment (elaboration-time
@@ -115,33 +141,11 @@ object IntExprCalc:
 
     /** Proves `e >= 0` for every valid parameter assignment. Each fact in `facts` is a linear form
       * known to be `>= 1` on the valid domain (slice widths: a slice of zero or negative width is
-      * never a valid elaboration). Two proof rules: a constant `e` decides directly, and a
-      * single-fact proportional bound: if `e == λ*f + c` with rational `λ >= 0`, then
-      * `e >= λ*1 + c`, so `λ + c >= 0` proves it. This covers the equal-bin pattern (`k*W`-based
-      * slices of width `W`) at any distance.
+      * never a valid elaboration). This covers the equal-bin pattern (`k*W`-based slices of width
+      * `W`) at any distance. See [[Calc.proveNonNeg]] for the proof rules.
       */
     def proveNonNeg(e: Linear, facts: List[Linear])(using MemberGetSet): Boolean =
-      if (e.terms.isEmpty) e.offset >= 0
-      else
-        val c = calc
-        facts.exists { f =>
-          f.terms.nonEmpty && f.terms.length == e.terms.length && {
-            // pair each e-term with its baseEq f-term and derive λ = p/q from the first pair
-            val paired = e.terms.map { (ce, be) =>
-              f.terms.collectFirst { case (cf, bf) if c.baseEq(be, bf) => (ce, cf) }
-            }
-            paired.forall(_.nonEmpty) && {
-              val pairs = paired.flatten
-              val (p0, q0) = pairs.head
-              // normalize the denominator positive; λ >= 0 then requires p >= 0
-              val (p, q) = if (q0 < 0) (-p0, -q0) else (p0, q0)
-              p >= 0 &&
-              pairs.forall((ce, cf) => ce * q == cf * p) &&
-              // λ + c >= 0 with c = e.offset - λ*f.offset, scaled by q > 0
-              p + q * e.offset - p * f.offset >= 0
-            }
-          }
-        }
+      calc.proveNonNeg(e, facts)
   end DataCalc
 
   private object ConstInt:
@@ -244,6 +248,8 @@ object IntExprCalc:
     private def sameTerms(l: Linear, r: Linear): Boolean =
       canonical(l.terms ++ negate(r).terms).isEmpty
 
+    def sub(l: Linear, r: Linear): Linear = add(l, negate(r))
+
     def equivalent(a: DFVal, b: DFVal): Boolean =
       constDiff(a, b).contains(0)
 
@@ -251,6 +257,34 @@ object IntExprCalc:
       val la = linear(a)
       val lb = linear(b)
       Option.when(sameTerms(la, lb))(la.offset - lb.offset)
+
+    /** Proves `e >= 0` for every valid parameter assignment, where each fact in `facts` is a linear
+      * form known to be `>= 1` on the valid domain. Two proof rules: a constant `e` decides
+      * directly, and a single-fact proportional bound: if `e == λ*f + c` with rational `λ >= 0`,
+      * then `e >= λ*1 + c`, so `λ + c >= 0` proves it. The proof runs in this calc's own
+      * linearization mode, so `e` and the facts must be produced by the same calc.
+      */
+    def proveNonNeg(e: Linear, facts: List[Linear]): Boolean =
+      if (e.terms.isEmpty) e.offset >= 0
+      else
+        facts.exists { f =>
+          f.terms.nonEmpty && f.terms.length == e.terms.length && {
+            // pair each e-term with its baseEq f-term and derive λ = p/q from the first pair
+            val paired = e.terms.map { (ce, be) =>
+              f.terms.collectFirst { case (cf, bf) if baseEq(be, bf) => (ce, cf) }
+            }
+            paired.forall(_.nonEmpty) && {
+              val pairs = paired.flatten
+              val (p0, q0) = pairs.head
+              // normalize the denominator positive; λ >= 0 then requires p >= 0
+              val (p, q) = if (q0 < 0) (-p0, -q0) else (p0, q0)
+              p >= 0 &&
+              pairs.forall((ce, cf) => ce * q == cf * p) &&
+              // λ + c >= 0 with c = e.offset - λ*f.offset, scaled by q > 0
+              p + q * e.offset - p * f.offset >= 0
+            }
+          }
+        }
 
     def linear(v: DFVal): Linear = strip(v) match
       case ConstInt(i)                            => Linear(Nil, i)

@@ -9,7 +9,12 @@ package dfhdl
   *
   * The parametric shapes are the ones a literal-width core spec cannot host (see
   * `CoreSpec.DFDecimalSpec` for the literal-width matrix): symbolic carry-fit decisions (`W + 1`
-  * fits `+^`; `W + W` would fit `*^`) and the relative `.eby(k)` printing.
+  * fits `+^`; `W + W` fits `*^`) and the relative `.eby(k)` printing.
+  *
+  * The width-fit acceptance itself is proof-backed (issue dfhdl_by_agents#116): a parametric
+  * relation such as `2 * W >= W` is accepted because it holds for every valid (positive) width
+  * assignment, while a relation that a valid assignment can violate (e.g. `16 >= W`) still requires
+  * an explicit carry op or `.resize` (see `ElaborationChecksSpec` for the rejections).
   */
 class ContextWidenSpec extends DesignSpec:
   test("parametric target-context widening") {
@@ -48,6 +53,45 @@ class ContextWidenSpec extends DesignSpec:
          |  acc <> (a.eby(2) + b.eby(2))
          |  chain <> (a.eby(2) + b.eby(2) + sd"2'1".resize(W).eby(2))
          |end ParamWiden
+         |""".stripMargin
+    )
+  }
+
+  test("parametric mul target-context widening (width-fit proofs)") {
+    @top(false) class ParamMul(val W: Int <> CONST = 8) extends EDDesign:
+      val a, b = SInt(W) <> IN
+      val ua, ub = UInt(W) <> IN
+      val prod = SInt(2 * W) <> OUT
+      val prod2 = SInt(W + W) <> OUT
+      val uprod = UInt(2 * W) <> OUT
+      val named = SInt(2 * W) <> OUT
+      // the width-fit check accepts by proof: 2 * W >= W for every valid (positive) W
+      prod <> a * b
+      // ref-shape independence: the carry fit decides symbolically, W + W =~ 2 * W
+      prod2 <> a * b
+      uprod <> ua * ub
+      // a NAMED product evaluates at the operand width and resizes to the target, printed
+      // absolutely (the width delta is symbolic, so no relative `.eby` spelling)
+      val p = a * b
+      named <> p
+    end ParamMul
+
+    ParamMul().assertCodeString(
+      """|class ParamMul(val W: Int <> CONST = 8) extends EDDesign:
+         |  val a = SInt(W) <> IN
+         |  val b = SInt(W) <> IN
+         |  val ua = UInt(W) <> IN
+         |  val ub = UInt(W) <> IN
+         |  val prod = SInt(2 * W) <> OUT
+         |  val prod2 = SInt(W + W) <> OUT
+         |  val uprod = UInt(2 * W) <> OUT
+         |  val named = SInt(2 * W) <> OUT
+         |  prod <> (a *^ b)
+         |  prod2 <> (a *^ b)
+         |  uprod <> (ua *^ ub)
+         |  val p = a * b
+         |  named <> p.resize(2 * W)
+         |end ParamMul
          |""".stripMargin
     )
   }

@@ -2503,7 +2503,10 @@ u9 := sum          // extended by 1: sum.eby(1)
 // for a, b: SInt(W) the following hold
 //   SInt(W + 1) target: sum := a +^ b
 //   SInt(W + 2) target: acc := a.eby(2) + b.eby(2)
+//   SInt(2 * W) target: prod := a *^ b
 ```
+
+A parametric width relation is accepted when it holds for **every valid parameter assignment**, using the fact that widths are positive: `SInt(2 * W)` accepts a `W`-wide operation because `2 * W >= W` for any valid `W`. A relation that a valid assignment can violate is definitively rejected (`SInt(W)` never fits a `2 * W`-wide value), and an undecidable one (e.g. a literal target such as `SInt(16)` against a free `W`, which may exceed 16) is conservatively rejected as well; both still require an explicit carry op or `.resize` to state the intent.
 ///
 
 /// admonition | Implicit Scala `Int` and Verilog-semantics mismatch
