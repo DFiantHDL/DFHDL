@@ -2291,14 +2291,14 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("cascade aliasing regression") {
     class Foo() extends DFDesign:
       val x = UInt(3) <> IN
-      val y = x.resize(16).bits.sint
+      val y = x.eby(13).bits.sint
     end Foo
     val top = (new Foo)
     assertCodeString(
       top,
       """|class Foo extends DFDesign:
          |  val x = UInt(3) <> IN
-         |  val y = x.resize(16).bits.sint
+         |  val y = x.eby(13).bits.sint
          |end Foo""".stripMargin
     )
   }

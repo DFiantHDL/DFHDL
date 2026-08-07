@@ -2027,7 +2027,7 @@ Applies to: `Bits`, `UInt`, `SInt`
 
 - `.resize(N)` sets the width to exactly `N` bits. For `UInt` and `Bits`, widening zero-extends; for `SInt`, widening sign-extends. Narrowing truncates the most-significant bits.
 - `.resize` (no argument) automatically adjusts the width to match the assignment or operation context; narrowing or widening as needed.
-- `.eby(K)` extends the width by `K` bits, *relative* to the current width; sugar for `.resize(width + K)`. `K` must be positive, so `.eby` always widens (zero-extension for `UInt` and `Bits`, sign-extension for `SInt`). The relative form shines with parametric widths, where the absolute width would repeat the symbolic expression: `x.eby(1)` instead of `x.resize(W + 1)`.
+- `.eby(K)` extends the width by `K` bits, *relative* to the current width; sugar for `.resize(width + K)`. `K` must be positive, so `.eby` always widens (zero-extension for `UInt` and `Bits`, sign-extension for `SInt`). This is the **canonical widening spelling**: elaboration prints any widening whose delta is a known number of bits in this relative form (a user-written `x.resize(9)` over an 8-bit `x` prints back as `x.eby(1)` -- the two produce identical designs). It is also the form that scales to parametric widths, where the absolute spelling would repeat the symbolic expression: `x.eby(1)` instead of `x.resize(W + 1)`. Absolute `.resize` remains the spelling for narrowing and for widths given by a named parameter.
 
 ```scala
 val b8 = Bits(8) <> VAR
@@ -2050,6 +2050,7 @@ val W: Int <> CONST = 8
 val sW  = SInt(W) <> VAR
 val sW2 = SInt(W + 2) <> VAR
 sW2 := sW.eby(2)      // sign-extend by 2 bits (to W + 2)
+b8 := b4.eby(4)       // zero-extend by 4 bits; same design as b4.resize(8)
 ```
 
 ### Bit Concatenation {#bit-concat}
@@ -2475,7 +2476,7 @@ val r14 = d1 / d2         // Double
     type: warning
 Standard arithmetic operations wrap on overflow. For example, `d"8'255" + d"8'1"` produces `d"8'0"`. Use the carry variants (`+^`, `-^`, `*^`) described below to get a wider result that preserves the full value.
 
-However, an **anonymous** arithmetic expression (`+`, `-`, `*`) that is assigned or connected to a variable **wider** than the operation's result is re-evaluated at the target's width and sign, exactly like Verilog's assignment-context width propagation: every operand, recursively through the anonymous expression, is widened to the target type, and the operations stay modular at that width. When that evaluation is exactly a carry operation (a binary operation over simple operands whose carry width fits the target), it elaborates as one; a promoted carry operation is never *extended*, only *truncated*, since extension of a carry result is sign-dependent (an unsigned subtraction's carry result is a two's-complement pattern, and zero-extending it would flip its sign).
+However, an **anonymous** arithmetic expression (`+`, `-`, `*`) that is assigned or connected to a variable **wider** than the operation's result is re-evaluated at the target's width and sign, exactly like Verilog's assignment-context width propagation: every operand, recursively through the anonymous expression, is widened to the target type, and the operations stay modular at that width. The carry operators are themselves shorthand for exactly this operand-widened evaluation (`x +^ y` is `x.eby(1) + y.eby(1)` with the operands first aligned to a common width), so when a widening lands exactly on a carry shape it prints back as the carry operator.
 
 ```scala
 val u8  = UInt(8) <> VAR
@@ -2487,16 +2488,16 @@ val s9  = SInt(9) <> VAR
 u9  := u8 + u8   // carry fit: elaborates to u8 +^ u8
 u9  := u8 - u8   // carry fit: elaborates to u8 -^ u8
 u16 := u8 * u8   // carry fit: elaborates to u8 *^ u8
-u12 := u8 * u8   // carry beyond the target: (u8 *^ u8).resize(12)
-u10 := u8 + u8   // target beyond the carry width: u8.resize(10) + u8.resize(10)
+u12 := u8 * u8   // beyond the carry fit: u8.eby(4) * u8.eby(4)
+u10 := u8 + u8   // target beyond the carry width: u8.eby(2) + u8.eby(2)
 s9  := u8 - u8   // unsigned to signed: operands convert, u8.signed - u8.signed
 
 // Implicit Int operands and whole chains evaluate at the target width:
-u10 := u8 + u8 + 1   // elaborates to u10 := u8.resize(10) + u8.resize(10) + d"10'1"
+u10 := u8 + u8 + 1   // elaborates to u10 := u8.eby(2) + u8.eby(2) + d"10'1"
 
 // Named expressions are NOT widened:
 val sum = u8 + u8  // UInt[8], named value
-u9 := sum          // resized from 8 to 9
+u9 := sum          // extended by 1: sum.eby(1)
 
 // Parametric widths decide symbolically and print RELATIVE widenings via `.eby`:
 // for a, b: SInt(W) the following hold
@@ -2573,7 +2574,7 @@ val t10c = (a +^ b +^ 0) >> 1           // OK: carry chain cannot overflow
 - The implicit `Int` is only used in modular operations (`+`, `-`, `*`) that feed an assignment. A same-width target wraps identically in both languages, and a wider target re-evaluates the chain at the target width (see the automatic target-context widening above), matching the context Verilog's assignment provides; truncation to the target width commutes with `+`/`-`/`*`, so the two evaluations agree for every input.
 ```scala
 val sum = UInt(10) <> VAR
-// OK: widened to the target, elaborates to sum := a.resize(10) + b.resize(10) + d"10'1"
+// OK: widened to the target, elaborates to sum := a.eby(2) + b.eby(2) + d"10'1"
 sum := a + b + 1
 val cnt = UInt(8) <> VAR
 cnt := cnt + 1                          // OK: same-width target, modular truncation matches

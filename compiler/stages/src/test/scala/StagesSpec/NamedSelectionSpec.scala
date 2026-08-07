@@ -146,7 +146,7 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val x = UInt(6) <> IN
          |  val y = (x min x).resize(5)
          |  val z = (x + x).resize(5)
-         |  val w = x.resize(20) + x.resize(20) + x.resize(20)
+         |  val w = x.eby(14) + x.eby(14) + x.eby(14)
          |end ID""".stripMargin
     )
   }
@@ -167,7 +167,7 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val y = y_part.resize(5)
          |  val z_part = x + x
          |  val z = z_part.resize(5)
-         |  val w = x.resize(20) + x.resize(20) + x.resize(20)
+         |  val w = x.eby(14) + x.eby(14) + x.eby(14)
          |end ID""".stripMargin
     )
   }
@@ -262,10 +262,11 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
   // a carry-widened func consumed by an unsigned-to-signed conversion is named, so the
-  // Verilog `{1'b0, ...}` sign-extension concat (whose operands are self-determined)
-  // sees a declared identifier instead of an inline func pinned at its narrow operand
-  // width (issue #452)
-  test("Sign-converted carry func is named") {
+  // With carry ops elaborating as modular funcs over explicitly widened operands, a
+  // sign conversion re-evaluates the cone at the converted width and no naming is needed:
+  // every operand carries its own widening, so Verilog's self-determined contexts can no
+  // longer truncate it (issue #452 became structurally impossible)
+  test("Sign-converted carry func needs no naming") {
     class SignedCarry extends EDDesign:
       val a = UInt(8)  <> IN
       val b = UInt(8)  <> IN
@@ -279,8 +280,7 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val a = UInt(8) <> IN
          |  val b = UInt(8) <> IN
          |  val o = SInt(10) <> OUT
-         |  val o_part = a +^ b
-         |  o <> o_part.signed
+         |  o <> (a.signed +^ b.signed)
          |end SignedCarry
          |""".stripMargin
     )

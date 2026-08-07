@@ -103,8 +103,8 @@ class ExplicitNamedVarsSpec extends StageSpec:
          |        case sd"16'1" => zz := sd"4'5"
          |        case sd"16'2" => zz := sd"4'3"
          |      end match
-         |      if (x < sd"16'11") z2 := zz.resize(16) + sd"16'3"
-         |      else z2 := zz.resize(16)
+         |      if (x < sd"16'11") z2 := zz.eby(12) + sd"16'3"
+         |      else z2 := zz.eby(12)
          |    case _ => z2 := z + sd"16'12"
          |  end match
          |  y := z

@@ -413,8 +413,8 @@ class ElaborationChecksSpec extends DesignSpec:
           |Position:  ${currentFilePos}ElaborationChecksSpec.scala:406:9 - 406:15
           |Hierarchy: Top
           |LHS:       x
-          |RHS:       y.resize(8)
-          |Message:   Unexpected write access to the immutable value y.resize(8).""".stripMargin
+          |RHS:       y.eby(1)
+          |Message:   Unexpected write access to the immutable value y.eby(1).""".stripMargin
     )
   test("no need for clock location constraint check in internal designs"):
     object Test:

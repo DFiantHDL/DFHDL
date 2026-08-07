@@ -222,14 +222,16 @@ object IntParamRef:
           yield diff
     end constDiffFrom
     // The literal widening delta `this - that` for printers preferring the RELATIVE
-    // extension spelling (`.eby(k)`, `EBY_U`/`EBY_S`, VHDL `eby`): defined exactly when
-    // `this` is an ANONYMOUS `base + k` width increment whose base is the source width
-    // itself (e.g. a `W + 1` target over a `W`-wide source). A literal width, a NAMED
-    // width (a parameter or named constant), or any other expression shape prints
-    // absolutely, by value or by name, so the printed form always preserves the width
-    // symbols the user can see.
+    // extension spelling (`.eby(k)`, `EBY_U`/`EBY_S`, VHDL `eby`): defined when `this` is
+    // a LITERAL width sitting `k` above a literal source width (a widening between
+    // literal widths carries no spelling in the IR, and the relative form is the
+    // canonical one), or when `this` is an ANONYMOUS `base + k` width increment whose
+    // base is the source width itself (e.g. a `W + 1` target over a `W`-wide source). A
+    // NAMED width (a parameter or named constant) or any other expression shape prints
+    // absolutely, by name, so the width symbols the user can see are preserved.
     def widenDeltaOpt(that: IntParamRef)(using MemberGetSet): Option[Int] =
       intParamRef match
+        case _: Int             => constDiffFrom(that).filter(_ > 0)
         case ref: DFRef.TypeRef =>
           ref.getOption match
             case Some(func: DFVal.Func) if func.isAnonymous && func.op == DFVal.Func.Op.+ =>
@@ -244,8 +246,11 @@ object IntParamRef:
                             DFInt32, Some(BigInt(i)), DFRef.OneWay.Empty, Meta.empty, DFTags.empty
                           ))
                       val baseEquiv = thatValOpt.exists { thatVal =>
-                        (thatVal == baseRef.get) || (IntExprCalc.constDiff(
-                          baseRef.get, thatVal, resolveDesignParams = false
+                        (thatVal == baseRef.get) ||
+                        (IntExprCalc.constDiff(
+                          baseRef.get,
+                          thatVal,
+                          resolveDesignParams = false
                         ) == Some(0))
                       }
                       if (baseEquiv) Some(k.toInt) else None

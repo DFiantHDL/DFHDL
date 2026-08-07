@@ -41,7 +41,7 @@ class ClassDesignKeySpec extends StageSpec:
          |  val c1 = Child(width = 8)
          |  val c2 = Child(width = 16)
          |  c1.x <> x
-         |  c2.x <> c1.y.resize(16)
+         |  c2.x <> c1.y.eby(8)
          |  y <> c2.y.resize(8)
          |end Top""".stripMargin
     )

@@ -298,7 +298,7 @@ class ExplicitStateSpec extends StageSpec:
          |  shamt := op(4, 0)
          |  val outCalc = Bits(32) <> VAR
          |  op match
-         |    case _ => outCalc := shamt.resize(32)
+         |    case _ => outCalc := shamt.eby(27)
          |  end match
          |  aluOut := outCalc
          |end ALU

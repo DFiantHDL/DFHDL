@@ -48,7 +48,7 @@ class ExplicitRegInitsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val y2 = Bits(16) <> OUT
          |  y1 := (x1 + sd"16'1").reg(1, init = ?)
          |  val z = (x2 << 1).reg(1, init = h"????")
-         |  y2 := x2(7, 0).reg(1, init = h"??").resize(16).reg(2, init = h"????") | z
+         |  y2 := x2(7, 0).reg(1, init = h"??").eby(8).reg(2, init = h"????") | z
          |end ID
          |""".stripMargin
     )

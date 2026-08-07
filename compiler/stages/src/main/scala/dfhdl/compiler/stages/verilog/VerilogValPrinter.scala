@@ -157,6 +157,23 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             s"${literalGroupOpen}default: ${argL.refCodeString}}"
           case _ =>
             s"{${argR.refCodeString.applyBrackets()}{${argL.refCodeString}}}"
+      // A carry-shaped arithmetic func (operands widened by exactly the carry bit, see
+      // `CarryFunc`) prints BARE (`x - y`) when every consumer provides an evaluation
+      // context at least as wide as the func: a net's RHS takes the target's width, and a
+      // same-width func operand is context-determined at the parent's width. Under any
+      // other consumer (an alias: a sign-conversion concatenation or a resize macro,
+      // where the operand would be self-determined) the operands keep their explicit
+      // widened forms, which are width-correct in every context.
+      case argL :: argR :: Nil if CarryFunc.unapply(dfVal).nonEmpty && {
+            dfVal.getReadDeps.forall {
+              case _: DFNet      => true
+              case _: DFVal.Func => true
+              case _             => false
+            }
+          } =>
+        val csX = argL.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString
+        val csY = argR.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString
+        s"${csX.applyBrackets()} ${dfVal.op} ${csY.applyBrackets()}"
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         val isInfix = dfVal.op match

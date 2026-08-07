@@ -3267,7 +3267,9 @@ class PrintVerilogCodeSpec extends StageSpec:
   // inline func inside the `$signed({1'b0, ...})` sign extension would be evaluated at
   // its narrow operand width and truncate; the named variable's assignment provides the
   // widening context and the concat sees a declared identifier (issue #452)
-  test("sign-converted carry func is named ahead of the concat") {
+  // the sign-converted carry cone re-evaluates at the converted width, so its emission
+  // is per-operand sign extensions under the assignment context, with no named part
+  test("sign-converted carry cone emission") {
     class SignedCarry extends EDDesign:
       val a = UInt(2)  <> IN
       val b = UInt(8)  <> IN
@@ -3291,12 +3293,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic signed [9:0] q
          |);
          |  `include "dfhdl_defs.svh"
-         |  logic [8:0] q_part;
          |  always_comb
          |  begin
-         |    o = 8'sd0 - (8'sd3 * $signed(`EXTEND_U(a, 2, 8)));
-         |    q_part = b + c;
-         |    q = $signed({1'b0, q_part});
+         |    o = 8'sd0 - (8'sd3 * $signed(`EBY_U(a, 6)));
+         |    q = $signed({1'b0, b}) + $signed({1'b0, c});
          |  end
          |endmodule
          |""".stripMargin

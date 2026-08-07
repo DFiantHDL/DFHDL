@@ -1377,85 +1377,39 @@ object DFXInt:
                       func.dfType =~ func.args.head.get.dfType &&
                       contextWidenCheck(func.asValOf[DFSInt[Int]].widthIntParam)
                     } =>
-                  import IntParam.+
-                  val funcWidth: IntParam[Int] = func.asValOf[DFSInt[Int]].widthIntParam
-                  val carryWidth: IntParam[Int] = func.op match
-                    case FuncOp.* => funcWidth + funcWidth
-                    case _        => funcWidth + 1
-                  def isWidenableCone(v: ir.DFVal): Boolean = v match
-                    case f: ir.DFVal.Func =>
-                      f.isAnonymous &&
-                      (f.dfType match
-                        case ir.DFUInt(_) | ir.DFSInt(_) =>
-                          f.op match
-                            case FuncOp.+ | FuncOp.- | FuncOp.* =>
-                              f.dfType =~ f.args.head.get.dfType
-                            case _ => false
-                        case _ => false)
-                    case _ => signConversionRelVal(v).exists(isWidenableCone)
-                  // The carry spelling is preferred where it is provably identical to the
-                  // target-width evaluation: a BINARY func over leaf operands (neither is a
-                  // widenable cone itself), with the target's own sign, whose carry width
-                  // fits the target exactly (bare carry op) or exceeds it decidably (carry
-                  // op + truncating resize, applied by the width fix below). A promoted
-                  // carry op is never EXTENDED, only truncated: truncation commutes with
-                  // +/-/* unconditionally, while extension is sign/op-dependent (an
-                  // unsigned subtraction's carry result is a wrap pattern, not the
-                  // difference). An undecidable symbolic comparison falls back to the
-                  // evaluated form, which is correct either way, just more verbose.
-                  def carryFits: Boolean =
-                    dfType.signed.value == func.dfType.asInstanceOf[ir.DFDecimal].signed &&
-                      func.args.lengthIs == 2 &&
-                      !func.args.exists(r => isWidenableCone(r.get)) && {
-                        def cmp(f: (Int, Int) => Boolean) = dfType.asFE[DFSInt[Int]]
-                          .compareWidths(DFXInt(true, carryWidth, BitAccurate))(f)
-                        cmp(_ == _).getOrElse(false) || cmp(_ < _).getOrElse(false)
-                      }
                   // The widened Func is BUILT FRESH rather than revised in place (an
                   // anonymous member is never revised; issue #449); the original cone
-                  // becomes debris for the end-of-design sweep. Under meta-programming
-                  // there is no MutableDB revision (matching `setMember`'s behavior
-                  // there): the retyped value is returned unregistered and the argument
-                  // conversions are skipped, since no member is registered.
-                  if (carryFits)
-                    val newDT = func.dfType.asInstanceOf[ir.DFDecimal]
-                      .copy(magnitudeWidthParamRef = carryWidth.ref)
-                    if (dfc.inMetaProgramming) func.updateDFType(newDT).asValOf[DFSInt[Int]]
-                    else
-                      ir.DFVal.Func(
-                        newDT,
-                        func.op,
-                        func.args.map(_.get.refTW[ir.DFVal](knownReachable = true)),
-                        dfc.ownerOrEmptyRef,
-                        func.meta,
-                        func.tags
-                      ).addMember.asValOf[DFSInt[Int]]
+                  // becomes debris for the end-of-design sweep. The spelling of the result
+                  // (a carry op or explicit operand widenings) is purely a PRINTING
+                  // decision, reconstructed from this shape by the CarryFunc/Eby
+                  // extractors. The widened evaluation type is the target itself as a
+                  // bit-accurate type; an Int target widens the cone at its native 32-bit
+                  // width (Verilog's `integer` context) and converts below.
+                  val newDT = dfType.asIR.asInstanceOf[ir.DFDecimal].copy(
+                    magnitudeWidthParamRef = dfType.widthIntParam.ref,
+                    nativeType = BitAccurate
+                  )
+                  if (dfc.inMetaProgramming)
+                    // no MutableDB revision under meta-programming (matching `setMember`'s
+                    // behavior there): the retyped value is returned unregistered and the
+                    // argument conversions are skipped, since no member is registered
+                    func.updateDFType(newDT).asValOf[DFSInt[Int]]
                   else
-                    // the widened evaluation type is the target itself as a bit-accurate
-                    // type; an Int target widens the cone at its native 32-bit width
-                    // (Verilog's `integer` context) and converts below
-                    val newDT = dfType.asIR.asInstanceOf[ir.DFDecimal].copy(
-                      magnitudeWidthParamRef = dfType.widthIntParam.ref,
-                      nativeType = BitAccurate
-                    )
-                    if (dfc.inMetaProgramming) func.updateDFType(newDT).asValOf[DFSInt[Int]]
-                    else
-                      val widenedArgs = func.args.map { argRef =>
-                        DFXInt.Val.Ops.toDFXIntOf(
-                          argRef.get.asValOf[DFXInt[Boolean, Int, NativeType]]
-                        )(DFXInt(dfType.signed, dfType.widthIntParam, BitAccurate))(using
-                          dfc.anonymize
-                        )
-                      }
-                      ir.DFVal.Func(
-                        newDT,
-                        func.op,
-                        widenedArgs.map(_.asIR.refTW[ir.DFVal](knownReachable = true)),
-                        dfc.ownerOrEmptyRef,
-                        func.meta,
-                        func.tags
-                      ).addMember.asValOf[DFSInt[Int]]
-                    end if
+                    val widenedArgs = func.args.map { argRef =>
+                      DFXInt.Val.Ops.toDFXIntOf(
+                        argRef.get.asValOf[DFXInt[Boolean, Int, NativeType]]
+                      )(DFXInt(dfType.signed, dfType.widthIntParam, BitAccurate))(using
+                        dfc.anonymize
+                      )
+                    }
+                    ir.DFVal.Func(
+                      newDT,
+                      func.op,
+                      widenedArgs.map(_.asIR.refTW[ir.DFVal](knownReachable = true)),
+                      dfc.ownerOrEmptyRef,
+                      func.meta,
+                      func.tags
+                    ).addMember.asValOf[DFSInt[Int]]
                   end if
                 case _ =>
                   // Fold stacked widenings: an anonymous same-kind widening resize alias
@@ -1619,7 +1573,9 @@ object DFXInt:
           case func: ir.DFVal.Func if func.isAnonymous =>
             func.op match
               case FuncOp.+ | FuncOp.- | FuncOp.* =>
-                val isNonCarry = func.dfType =~ func.args.head.get.dfType
+                // carry-ness is a SHAPE property now (operand-widened funcs, see CarryFunc)
+                val isNonCarry =
+                  dfhdl.compiler.analysis.CarryFunc.unapply(func).isEmpty
                 val isNarrowNonCarry = isNonCarry && resolvedWidthIsNarrow(func)
                 isNarrowNonCarry ||
                 func.args.exists(ref => containsNarrowNonCarryArith(ref.get))
@@ -1628,7 +1584,13 @@ object DFXInt:
           case _ =>
             signConversionRelVal(dfVal) match
               case Some(relVal) => containsNarrowNonCarryArith(relVal)
-              case None         => false
+              case None         =>
+                dfVal match
+                  case alias: ir.DFVal.Alias.AsIs if alias.isAnonymous =>
+                    dfhdl.compiler.analysis.Eby.unapply(alias) match
+                      case Some(relVal, _) => containsNarrowNonCarryArith(relVal)
+                      case None            => false
+                  case _ => false
 
       // Check if an anonymous sub-tree contains narrow non-carry arith that
       // also has an ImplicitlyFromIntTag operand (Verilog "Forcing Larger
@@ -1640,7 +1602,8 @@ object DFXInt:
           case func: ir.DFVal.Func if func.isAnonymous =>
             func.op match
               case FuncOp.+ | FuncOp.- | FuncOp.* =>
-                val isNonCarry = func.dfType =~ func.args.head.get.dfType
+                val isNonCarry =
+                  dfhdl.compiler.analysis.CarryFunc.unapply(func).isEmpty
                 val isNarrowNonCarry = isNonCarry && resolvedWidthIsNarrow(func)
                 (isNarrowNonCarry && func.args.exists(ref => hasImplicitlyFromIntTag(ref.get))) ||
                 func.args.exists(ref =>
@@ -1653,7 +1616,14 @@ object DFXInt:
           case _ =>
             signConversionRelVal(dfVal) match
               case Some(relVal) => containsNarrowNonCarryArithWithTaggedOperand(relVal)
-              case None         => false
+              case None         =>
+                dfVal match
+                  case alias: ir.DFVal.Alias.AsIs if alias.isAnonymous =>
+                    dfhdl.compiler.analysis.Eby.unapply(alias) match
+                      case Some(relVal, _) =>
+                        containsNarrowNonCarryArithWithTaggedOperand(relVal)
+                      case None => false
+                  case _ => false
 
       // Unified Verilog-semantics warning trigger shared by `/`, `%` (arithOp)
       // and comparison operations (DFXIntCompare). Warns when a narrow non-carry
@@ -1972,12 +1942,19 @@ object DFXInt:
             else if (lhsIsWildcard) rhsVal.widthIntParam
             else lhsVal.widthIntParam.max(rhsVal.widthIntParam)
           val width = commonWidth + 1
-          val dfType = DFXInt(resultSigned, width, BitAccurate)
-          // Resize both operands to common width, converting to signed if needed
+          // Align both operands to the common width (converting sign if needed), then widen
+          // them BY THE CARRY BIT as explicit aliases: a carry operation IS the modular
+          // operation over carry-widened operands, with no special-cased Func type; the
+          // printers reconstruct the `op^` spelling from this shape (see `CarryFunc`). The
+          // widening is an explicit alias, never a re-evaluation, so a nested anonymous
+          // chain operand keeps its own width semantics.
           val commonType = DFXInt(resultSigned, commonWidth, BitAccurate)
           val lhsFix = lhsVal.toDFXIntOf(commonType)(using dfcAnon)
           val rhsFix = rhsVal.toDFXIntOf(commonType)(using dfcAnon)
-          DFVal.Func(dfType, op.value, List(lhsFix, rhsFix))
+          def wideType = DFXInt(resultSigned, width, BitAccurate)
+          val lhsWide = DFVal.Alias.AsIs(wideType, lhsFix)(using dfcAnon)
+          val rhsWide = DFVal.Alias.AsIs(wideType, rhsFix)(using dfcAnon)
+          DFVal.Func(wideType, op.value, List(lhsWide, rhsWide))
             .asInstanceOf[Out]
         }(using dfc, CTName(op.value.toString + "^"))
       end evOpCarryAddSubDFXInt
@@ -2023,15 +2000,17 @@ object DFXInt:
             val baWidth: IntParam[Int] =
               if (rhsIsWildcard) lhsVal.widthIntParam else rhsVal.widthIntParam
             val commonType = DFXInt(baSigned, baWidth, BitAccurate)
-            val dfType = DFXInt(baSigned, baWidth + baWidth, BitAccurate)
+            def wideType = DFXInt(baSigned, baWidth + baWidth, BitAccurate)
             val lhsFix = lhsVal.toDFXIntOf(commonType)(using dfcAnon)
             val rhsFix = rhsVal.toDFXIntOf(commonType)(using dfcAnon)
-            DFVal.Func(dfType, FuncOp.`*`, List(lhsFix, rhsFix))
+            val lhsWide = DFVal.Alias.AsIs(wideType, lhsFix)(using dfcAnon)
+            val rhsWide = DFVal.Alias.AsIs(wideType, rhsFix)(using dfcAnon)
+            DFVal.Func(wideType, FuncOp.`*`, List(lhsWide, rhsWide))
               .asInstanceOf[Out]
           else
             val resultSigned = lhsVal.dfType.signed || rhsVal.dfType.signed
             val width = lhsVal.widthIntParam + rhsVal.widthIntParam
-            val dfType = DFXInt(resultSigned, width, BitAccurate)
+            def wideType = DFXInt(resultSigned, width, BitAccurate)
             // Convert unsigned operand to signed if needed
             val lhsFix =
               if (resultSigned && !lhsVal.dfType.signed)
@@ -2045,7 +2024,9 @@ object DFXInt:
                   dfcAnon
                 )
               else rhsVal
-            DFVal.Func(dfType, FuncOp.`*`, List(lhsFix, rhsFix))
+            val lhsWide = DFVal.Alias.AsIs(wideType, lhsFix)(using dfcAnon)
+            val rhsWide = DFVal.Alias.AsIs(wideType, rhsFix)(using dfcAnon)
+            DFVal.Func(wideType, FuncOp.`*`, List(lhsWide, rhsWide))
               .asInstanceOf[Out]
           end if
         }(using dfc, CTName("*^"))

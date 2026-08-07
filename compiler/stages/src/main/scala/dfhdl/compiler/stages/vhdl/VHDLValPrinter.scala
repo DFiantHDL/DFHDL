@@ -66,6 +66,17 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case _ =>
             println(dfVal)
             ???
+      // carry-shaped arithmetic (operands widened by exactly the carry bit, see
+      // `CarryFunc`): `+`/`-` reconstruct the cadd/csub carry helpers; a carry `*`
+      // prints its bases bare, numeric_std multiplication being naturally full-width
+      // (a'length + b'length)
+      case argL :: argR :: Nil if CarryFunc.unapply(dfVal).nonEmpty =>
+        val csX = argL.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString
+        val csY = argR.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString
+        dfVal.op match
+          case Func.Op.+ => s"cadd($csX, $csY)"
+          case Func.Op.- => s"csub($csX, $csY)"
+          case _         => s"${csX.applyBrackets()} * ${csY.applyBrackets()}"
       // infix/regular func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         var infix = true
@@ -91,18 +102,6 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
               case _         =>
                 infix = false
                 "slv_srl"
-          // if the result width for +/- ops is larger than the left argument width
-          // then we have a carry-inclusive operation. to simplify the check given possible
-          // parameterized widths, we will just compare the type structure and assume the
-          // width is larger under such conditions. A carry `*` needs no helper: numeric_std
-          // multiplication is already full-width (a'length + b'length), which is exactly
-          // the carry-mul width, so it stays infix.
-          case op @ (Func.Op.+ | Func.Op.-)
-              if !dfVal.dfType.isSimilarTo(argL.get.dfType) =>
-            infix = false
-            op match
-              case Func.Op.+ => "cadd"
-              case Func.Op.- => "csub"
           case _ => commonOpStr
         if (infix)
           s"${argL.refCodeString.applyBrackets()} $opStr ${argR.refCodeString.applyBrackets()}"

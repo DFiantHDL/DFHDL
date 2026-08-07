@@ -114,7 +114,7 @@ class DFBitsSpec extends DFSpec:
          |b8 := h"??"
          |b8 := u8.bits
          |b8 := u8.bits
-         |b8 := b3M.resize(8)
+         |b8 := b3M.eby(5)
          |b3M := b8.resize(3)
          |b8 := (h"1", b"1", b"0", b"11").toBits
          |b4M := h"1"

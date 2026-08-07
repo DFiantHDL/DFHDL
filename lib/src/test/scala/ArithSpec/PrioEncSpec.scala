@@ -100,7 +100,7 @@ class PrioEncSpec extends DesignSpec:
          |end prioEncRecur_3
          |
          |def prioEncRecur_4(value: Bits[31] <> VAL): (Bit, Bits[5]) <> DFRET =
-         |  val lsPrio = prioEncRecur_3(value(14, 0).resize(16))
+         |  val lsPrio = prioEncRecur_3(value(14, 0).eby(1))
          |  val msPrio = prioEncRecur_3(value(30, 15))
          |  val selPrio: Bits[4] <> VAL =
          |    if (msPrio._1) msPrio._2

@@ -258,18 +258,19 @@ protected trait DFValPrinter extends AbstractValPrinter:
             s"${csArgL.applyBrackets()}.repeat${csArgR.applyBrackets(onlyIfRequired = false)}"
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
-        val csArgL = argL.refCodeString(typeCS)
-        val csArgR = argR.refCodeString(typeCS)
-        val opStr = dfVal.op match
-          // if the result width for +/-/* ops is larger than the left argument width
-          // then we have a carry-inclusive operation. to simplify the check given possible
-          // parameterized widths, we will just compare the type structure and assume the
-          // width is larger under such conditions.
-          case Func.Op.+ | Func.Op.- | Func.Op.`*`
-              if !dfVal.dfType.isUnbounded && !dfVal.dfType.isSimilarTo(argL.get.dfType) =>
-            s"${dfVal.op}^"
-          case op => commonOpStr
-        s"${csArgL.applyBrackets()} $opStr ${csArgR.applyBrackets()}"
+        dfVal match
+          // a func in the carry SHAPE (operands widened by exactly the carry bit, see
+          // `CarryFunc`) prints as the carry-operator sugar it elaborated from
+          case CarryFunc(_, _) =>
+            val csArgL =
+              argL.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString(typeCS)
+            val csArgR =
+              argR.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString(typeCS)
+            s"${csArgL.applyBrackets()} ${dfVal.op}^ ${csArgR.applyBrackets()}"
+          case _ =>
+            val csArgL = argL.refCodeString(typeCS)
+            val csArgR = argR.refCodeString(typeCS)
+            s"${csArgL.applyBrackets()} $commonOpStr ${csArgR.applyBrackets()}"
       // unary/postfix func
       case arg :: Nil =>
         val csArg = arg.refCodeString(typeCS)

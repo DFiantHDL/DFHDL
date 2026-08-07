@@ -58,7 +58,7 @@ class DFDecimalSpec extends DFSpec:
   test("DFVal Conversion") {
     assertCodeString {
       """|val t0: Bits[6] <> CONST = h"6'00"
-         |val t1: UInt[8] <> CONST = t0.uint.resize(8)
+         |val t1: UInt[8] <> CONST = t0.uint.eby(2)
          |val t2 = UInt(8) <> VAR
          |val t3: UInt[6] <> CONST = t0.uint
          |val t4: SInt[7] <> CONST = t0.uint.signed
@@ -170,19 +170,19 @@ class DFDecimalSpec extends DFSpec:
          |u8 := d"8'0"
          |u8 := ?
          |u8 := d"8'7"
-         |u8 := b6.uint.resize(8)
-         |u8 := u6.resize(8)
-         |s8 := (-u6.signed).resize(8)
+         |u8 := b6.uint.eby(2)
+         |u8 := u6.eby(2)
+         |s8 := (-u6.signed).eby(1)
          |s8 := -s8
-         |s8 := (-b6.uint.signed).resize(8)
+         |s8 := (-b6.uint.signed).eby(1)
          |s8 := sd"8'0"
          |s8 := sd"8'127"
          |s8 := sd"8'0"
          |s8 := ?
          |s8 := sd"8'-1"
          |s8 := sd"8'-127"
-         |s8 := u6.signed.resize(8)
-         |s8 := s6.resize(8)
+         |s8 := u6.signed.eby(1)
+         |s8 := s6.eby(2)
          |u6 := u8.resize(6)
          |s6 := s8.resize(6)
          |u6 := u6 ^ u6
@@ -580,9 +580,9 @@ class DFDecimalSpec extends DFSpec:
          |val t5 = u8 % d"8'9"
          |val t6 = u8 * d"8'22"
          |val t7 = s8 + sd"8'22"
-         |val t8 = s8 +^ sd"8'1"
-         |val t9 = u8 -^ d"8'22"
-         |val t10 = d"7'100" *^ u8
+         |val t8 = s8.eby(1) + sd"9'1"
+         |val t9 = u8.eby(1) - d"9'22"
+         |val t10 = d"15'100" * u8.eby(7)
          |""".stripMargin
     } {
       val t1 = u8 + u8
@@ -921,20 +921,20 @@ class DFDecimalSpec extends DFSpec:
       """|u9 := u8 +^ u8
          |u9 := u8 -^ u8
          |u16 := u8 *^ u8
-         |u10 := u8.resize(10) + u8.resize(10)
+         |u10 := u8.eby(2) + u8.eby(2)
          |u8b := u8 + u8
          |val sum = u8 + u8
-         |u9 := sum.resize(9)
+         |u9 := sum.eby(1)
          |s9 := s8 +^ s8
-         |u9 := (u8 / u8).resize(9)
-         |u9 := u8 +^ u5.resize(8)
-         |u9 := u8 +^ d"8'200"
-         |u12 := (u8 *^ u8).resize(12)
-         |u9 := u8.resize(9) + u8.resize(9) + u8.resize(9)
-         |u9 := u8.resize(9) + u8.resize(9) + u8.resize(9) + u8.resize(9)
-         |u10 := u8.resize(10) + u8.resize(10) + d"10'1"
-         |u10 := u8.resize(10) + u8b.resize(10) + u8.resize(10) + d"10'1"
-         |s9 := s8.resize(9) + s8.resize(9) + sd"9'1"
+         |u9 := (u8 / u8).eby(1)
+         |u9 := u8 +^ u5
+         |u9 := u8.eby(1) + d"9'200"
+         |u12 := u8.eby(4) * u8.eby(4)
+         |u9 := u8.eby(1) + u8.eby(1) + u8.eby(1)
+         |u9 := u8.eby(1) + u8.eby(1) + u8.eby(1) + u8.eby(1)
+         |u10 := u8.eby(2) + u8.eby(2) + d"10'1"
+         |u10 := u8.eby(2) + u8b.eby(2) + u8.eby(2) + d"10'1"
+         |s9 := s8.eby(1) + s8.eby(1) + sd"9'1"
          |""".stripMargin
     } {
       // An anonymous +/-/* cone assigned to a wider target re-evaluates at the target
@@ -958,11 +958,12 @@ class DFDecimalSpec extends DFSpec:
       s9 := s8 + s8
       // Division is not context-widened (zero-extension commutes with unsigned division)
       u9 := u8 / u8
-      // Asymmetric widths: u5 was aligned to 8 at the op; carry fits the target exactly
+      // Asymmetric widths: u5 aligns at the op and the carry spelling reconstructs
       u9 := u8 + u5
-      // Int literal: adapts at the operand width; carry fits the target exactly
+      // Int literal: the const folds at the target width, so the modular (equivalent)
+      // spelling prints instead of a carry reconstruction
       u9 := u8 + 200
-      // Mul carry beyond the target: carry mul + truncating resize (truncation commutes)
+      // Mul beyond the carry fit: evaluation at the target width
       u12 := u8 * u8
       // widening with 3 arguments (merged func): not binary, evaluated at the target
       u9 := u8 + u8 + u8
@@ -980,9 +981,9 @@ class DFDecimalSpec extends DFSpec:
     val s8 = SInt(8) <> VAR
     val s9 = SInt(9) <> VAR
     assertCodeString {
-      """|s8 := sd"8'0" - (sd"8'3" * u2.signed.resize(8))
-         |s8 := s8 - (sd"8'3" * u2.signed.resize(8))
-         |s9 := (sd"8'3" *^ u2.signed.resize(8)).resize(9) + s8.resize(9)
+      """|s8 := sd"8'0" - (sd"8'3" * u2.signed.eby(5))
+         |s8 := s8 - (sd"8'3" * u2.signed.eby(5))
+         |s9 := (sd"9'3" * u2.signed.eby(6)) + s8.eby(1)
          |""".stripMargin
     } {
       // The unsigned narrow chain is widened at the OPERANDS when a signed sibling
