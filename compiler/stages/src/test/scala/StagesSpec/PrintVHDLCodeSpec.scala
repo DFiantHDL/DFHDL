@@ -3480,4 +3480,53 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // parametric target-context widening (issue dfhdl_by_agents#119): a carry op prints
+  // via the cadd/csub helpers, and an eby-widened operand prints via the relative `eby`
+  // package function instead of repeating the symbolic target width
+  test("parametric context widening emission") {
+    class ParamWiden(val W: Int <> CONST = 8) extends EDDesign:
+      val a, b   = SInt(W)     <> IN
+      val ua, ub = UInt(W)     <> IN
+      val sum    = SInt(W + 1) <> OUT
+      val usub   = UInt(W + 1) <> OUT
+      val acc    = SInt(W + 2) <> OUT
+      val uacc   = UInt(W + 2) <> OUT
+      sum  <> a + b
+      usub <> ua - ub
+      acc  <> a + b
+      uacc <> ua + ub
+    val top = ParamWiden().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity ParamWiden is
+         |generic (
+         |  W : integer := 8
+         |);
+         |port (
+         |  a : in signed(W - 1 downto 0);
+         |  b : in signed(W - 1 downto 0);
+         |  ua : in unsigned(W - 1 downto 0);
+         |  ub : in unsigned(W - 1 downto 0);
+         |  sum : out signed((W + 1) - 1 downto 0);
+         |  usub : out unsigned((W + 1) - 1 downto 0);
+         |  acc : out signed((W + 2) - 1 downto 0);
+         |  uacc : out unsigned((W + 2) - 1 downto 0)
+         |);
+         |end ParamWiden;
+         |
+         |architecture ParamWiden_arch of ParamWiden is
+         |begin
+         |  sum <= cadd(a, b);
+         |  usub <= csub(ua, ub);
+         |  acc <= eby(a, 2) + eby(b, 2);
+         |  uacc <= eby(ua, 2) + eby(ub, 2);
+         |end ParamWiden_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

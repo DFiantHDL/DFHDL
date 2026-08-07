@@ -130,6 +130,10 @@ object IntP:
   type ArithCarryWidth[LW <: IntP, RW <: IntP] =
     FoldConst2[LW, RW, [X <: Int, Y <: Int] =>> int.+[int.Max[X, Y], 1]]
 
+  /** `W + K`, the width after extending a value by `K` bits (`.eby`). */
+  type ExtendByWidth[W <: IntP, K <: IntP] =
+    FoldConst2[W, K, [X <: Int, Y <: Int] =>> int.+[X, Y]]
+
   /** `BI + SW - 1`, the high index of an ascending part-select anchored at `BI`. */
   type PartSelectHigh[BI <: IntP, SW <: IntP] =
     FoldConst2[BI, SW, [X <: Int, Y <: Int] =>> int.-[int.+[X, Y], 1]]

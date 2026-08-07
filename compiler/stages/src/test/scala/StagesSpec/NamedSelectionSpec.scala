@@ -146,7 +146,7 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val x = UInt(6) <> IN
          |  val y = (x min x).resize(5)
          |  val z = (x + x).resize(5)
-         |  val w = ((x + x) +^ x).resize(20)
+         |  val w = x.resize(20) + x.resize(20) + x.resize(20)
          |end ID""".stripMargin
     )
   }
@@ -167,8 +167,7 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val y = y_part.resize(5)
          |  val z_part = x + x
          |  val z = z_part.resize(5)
-         |  val w_part = x + x
-         |  val w = (w_part +^ x).resize(20)
+         |  val w = x.resize(20) + x.resize(20) + x.resize(20)
          |end ID""".stripMargin
     )
   }

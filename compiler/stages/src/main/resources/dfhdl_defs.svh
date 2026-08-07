@@ -27,6 +27,14 @@
 `define MAX(a, b) ((a) > (b) ? (a) : (b))
 `define MIN(a, b) ((a) < (b) ? (a) : (b))
 `define ABS(a) ((a) < 0 ? -(a) : (a))
+`define EXTEND_U(vec, fromW, toW) \
+    /* verilator lint_off WIDTH */ \
+    ((toW) == (fromW) ? vec : {{((toW) - (fromW)){1'b0}}, vec}) \
+    /* verilator lint_on WIDTH */
+// Relative widening: extend `vec` by `by` bits, width-free. The sign-extending form
+// bit-selects `vec` (via $bits), so `vec` must be an indexable primary (an identifier).
+`define EBY_U(vec, by) {{(by){1'b0}}, vec}
+`define EBY_S(vec, by) $signed({{(by){vec[$bits(vec) - 1]}}, vec})
 // Fixed-point types: `M` integer (magnitude) bits and `F` fraction bits, laid out with the
 // binary point at index 0 so bit weights are 2^index (integer bits M-1..0, fraction bits
 // -1..-F). `sfix` carries the `signed` keyword so it is not repeated at the declaration.

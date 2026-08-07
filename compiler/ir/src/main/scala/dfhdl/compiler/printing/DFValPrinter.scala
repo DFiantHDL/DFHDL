@@ -322,6 +322,11 @@ protected trait DFValPrinter extends AbstractValPrinter:
         end match
     end match
   end csDFValFuncExpr
+  // a widening whose delta folds to a literal prints as the relative `.eby(k)` form
+  private def csResizeOrEby(toWidthRef: IntParamRef, fromWidthRef: IntParamRef): String =
+    toWidthRef.widenDeltaOpt(fromWidthRef) match
+      case Some(k) => s".eby($k)"
+      case _       => s".resize(${toWidthRef.refCodeString})"
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String =
     val relVal = dfVal.relValRef.get
     val relValStr = dfVal.relValCodeString
@@ -341,18 +346,18 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.uint"
       case (DFSInt(tWidthRef), DFBits(fWidthRef)) =>
         s"${relValStr}.sint"
-      case (DFBits(tWidthParamRef), DFBits(_)) =>
-        s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
+      case (DFBits(tWidthParamRef), DFBits(fWidthRef)) =>
+        s"${relValStr}${csResizeOrEby(tWidthParamRef, fWidthRef)}"
       case (DFBits(tWidthParamRef), DFBit | DFBool) =>
         s"${relValStr}.toBits(${tWidthParamRef.refCodeString})"
       case (DFBits(_), _) =>
         s"${relValStr}.bits"
-      case (DFUInt(tWidthParamRef), DFUInt(_)) =>
-        s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
+      case (DFUInt(tWidthParamRef), DFUInt(fWidthRef)) =>
+        s"${relValStr}${csResizeOrEby(tWidthParamRef, fWidthRef)}"
       case (DFInt32, DFSInt(_)) =>
         s"${relValStr}.toInt"
-      case (DFSInt(tWidthParamRef), DFSInt(_)) =>
-        s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
+      case (DFSInt(tWidthParamRef), DFSInt(fWidthRef)) =>
+        s"${relValStr}${csResizeOrEby(tWidthParamRef, fWidthRef)}"
       case (DFBit, DFBool | DFEnum(widthParam = 1)) =>
         s"${relValStr}.bit"
       case (DFBool, DFBit | DFEnum(widthParam = 1)) =>

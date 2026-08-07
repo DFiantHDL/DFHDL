@@ -751,6 +751,18 @@ object DFBits:
           updatedWidth.toScalaIntOpt.foreach(check(_))
           lhs.resizeBits(updatedWidth)
         }
+        // extend-by: a RELATIVE zero-extension by `delta` bits, sugar over
+        // `.resize(width + delta)`; printed back in this relative form whenever the
+        // width delta folds to a literal
+        def eby[RK <: IntP](delta: IntParam[RK])(using
+            check: Arg.Positive.CheckNUB[RK],
+            dfc: DFCG
+        ): DFValTP[DFBits[IntP.ExtendByWidth[W, RK]], P] = trydf {
+          delta.toScalaIntOpt.foreach(check(_))
+          import IntParam.+
+          lhs.resizeBits(lhs.dfType.widthIntParam + delta)
+            .asValTP[DFBits[IntP.ExtendByWidth[W, RK]], P]
+        }
       end extension
       extension [T <: Int, P](iter: Iterable[DFValTP[DFBits[T], P]])
         protected[core] def concatBits(using DFC): DFValTP[DFBits[Int], P] =

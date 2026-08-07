@@ -66,6 +66,12 @@
     ((toW) == (fromW) ? vec : {{((toW) - (fromW)){vec[fromW - 1]}}, vec}) \
     /* verilator lint_on WIDTH */
 `define EXTEND_S(vec, fromW, toW) $signed(`EXTEND_S_V95(vec, fromW, toW))
+// Relative widening: extend `vec` by `by` bits. The zero-extension needs no width at
+// all; the sign-extension replicates the sign bit, indexed via the source width.
+// `vec` must be an indexable primary (an identifier) for the sign-extending forms.
+`define EBY_U(vec, by) {{(by){1'b0}}, vec}
+`define EBY_S_V95(vec, fromW, by) {{(by){vec[(fromW) - 1]}}, vec}
+`define EBY_S(vec, fromW, by) $signed(`EBY_S_V95(vec, fromW, by))
 `define SIGNED_GREATER_THAN(a, b, width)  \
     ((a[width-1] && !b[width-1]) ? 1'b0 : /* a is negative, b is positive */ \
      (!a[width-1] && b[width-1]) ? 1'b1 : /* a is positive, b is negative */ \

@@ -198,6 +198,31 @@ case object NamedVerilogSelection extends NamedAliases:
           // so we need to name the value in old verilog
           if (isBasicVerilog) List(alias.relValRef.get)
           else Nil
+      // A width-WIDENING resize over an anonymous expression: basic Verilog's EXTEND macros
+      // embed the operand in a replication/concatenation (self-determined width, and the
+      // EXTEND_S variants bit-select the operand, which must be an indexable primary), while
+      // the SystemVerilog W'() cast evaluates its operand AT THE CAST WIDTH. An anonymous
+      // func operand would therefore evaluate at the wrong width (or print illegally), so it
+      // is named, pinning the evaluation at its declared width; in basic Verilog any other
+      // anonymous non-primary operand is named for the EXTEND_S syntax constraint. The
+      // exception: a resize over an anonymous sign-conversion alias prints FUSED as a single
+      // zero-extension of the conversion's own operand (see `csDFValAliasAsIs`), so it needs
+      // no name.
+      case alias @ DFVal.Alias.AsIs(
+            dfType = _: (DFDecimal | DFBits),
+            relValRef = DFRef(relVal @ (DFBits.Val(_) | DFDecimal.Val(_)))
+          )
+          if relVal.dfType != DFInt32 && alias.compareWidths(relVal)(_ > _).getOrElse(false) =>
+        relVal match
+          case signConv: DFVal.Alias.AsIs
+              if signConv.isAnonymous &&
+                ((signConv.dfType, signConv.relValRef.get.dfType) match
+                  case (DFSInt(_), DFUInt(_)) => true
+                  case _ => false) =>
+            Nil // fused sign-conversion emission
+          case func: DFVal.Func    => List(func)
+          case _ if isBasicVerilog => List(relVal)
+          case _                   => Nil
       // to/from vector conversion is used with selection
       case DFVal.Alias.AsIs(dfType = DFVector(_, _), relValRef = DFRef(relVal @ DFBits.Val(_))) =>
         // in basic verilog this casting is only kept for initial values and later ignored by the backend

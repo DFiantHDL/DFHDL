@@ -3291,15 +3291,53 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic signed [9:0] q
          |);
          |  `include "dfhdl_defs.svh"
-         |  logic [3:0] o_part;
          |  logic [8:0] q_part;
          |  always_comb
          |  begin
-         |    o_part = 2'd3 * a;
-         |    o = 8'sd0 - 8'($signed({1'b0, o_part}));
+         |    o = 8'sd0 - (8'sd3 * $signed(`EXTEND_U(a, 2, 8)));
          |    q_part = b + c;
          |    q = $signed({1'b0, q_part});
          |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // parametric target-context widening (issue dfhdl_by_agents#119): a carry op prints
+  // bare under the assignment context, and an eby-widened operand prints via the
+  // relative, width-free EBY macros instead of repeating the symbolic target width
+  test("parametric context widening emission") {
+    class ParamWiden(val W: Int <> CONST = 8) extends EDDesign:
+      val a, b   = SInt(W)     <> IN
+      val ua, ub = UInt(W)     <> IN
+      val sum    = SInt(W + 1) <> OUT
+      val usub   = UInt(W + 1) <> OUT
+      val acc    = SInt(W + 2) <> OUT
+      val uacc   = UInt(W + 2) <> OUT
+      sum  <> a + b
+      usub <> ua - ub
+      acc  <> a + b
+      uacc <> ua + ub
+    val top = ParamWiden().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module ParamWiden#(parameter int W = 8)(
+         |  input  wire logic signed [W - 1:0] a,
+         |  input  wire logic signed [W - 1:0] b,
+         |  input  wire logic [W - 1:0] ua,
+         |  input  wire logic [W - 1:0] ub,
+         |  output logic signed [(W + 1) - 1:0] sum,
+         |  output logic [(W + 1) - 1:0] usub,
+         |  output logic signed [(W + 2) - 1:0] acc,
+         |  output logic [(W + 2) - 1:0] uacc
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign sum = a + b;
+         |  assign usub = ua - ub;
+         |  assign acc = `EBY_S(a, 2) + `EBY_S(b, 2);
+         |  assign uacc = `EBY_U(ua, 2) + `EBY_U(ub, 2);
          |endmodule
          |""".stripMargin
     )

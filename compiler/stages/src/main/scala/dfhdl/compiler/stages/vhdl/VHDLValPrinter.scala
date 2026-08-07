@@ -91,17 +91,18 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
               case _         =>
                 infix = false
                 "slv_srl"
-          // if the result width for +/-/* ops is larger than the left argument width
+          // if the result width for +/- ops is larger than the left argument width
           // then we have a carry-inclusive operation. to simplify the check given possible
           // parameterized widths, we will just compare the type structure and assume the
-          // width is larger under such conditions.
-          case op @ (Func.Op.+ | Func.Op.- | Func.Op.`*`)
+          // width is larger under such conditions. A carry `*` needs no helper: numeric_std
+          // multiplication is already full-width (a'length + b'length), which is exactly
+          // the carry-mul width, so it stays infix.
+          case op @ (Func.Op.+ | Func.Op.-)
               if !dfVal.dfType.isSimilarTo(argL.get.dfType) =>
             infix = false
             op match
-              case Func.Op.+   => "cadd"
-              case Func.Op.-   => "csub"
-              case Func.Op.`*` => "cmul"
+              case Func.Op.+ => "cadd"
+              case Func.Op.- => "csub"
           case _ => commonOpStr
         if (infix)
           s"${argL.refCodeString.applyBrackets()} $opStr ${argR.refCodeString.applyBrackets()}"
@@ -217,23 +218,32 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     val fromType = relVal.dfType
     val toType = dfVal.dfType
     (toType, fromType) match
-      case (t, f) if t == f               => relValStr
-      case (DFSInt(tWidthRef), DFUInt(_)) =>
-        s"signed(resize($relValStr, ${tWidthRef.refCodeString}))"
+      case (t, f) if t == f                       => relValStr
+      case (DFSInt(tWidthRef), DFUInt(fWidthRef)) =>
+        tWidthRef.widenDeltaOpt(fWidthRef) match
+          // a widening whose delta folds to a literal prints as the relative `eby` form
+          case Some(k) => s"signed(eby($relValStr, $k))"
+          case _       => s"signed(resize($relValStr, ${tWidthRef.refCodeString}))"
       case (DFUInt(tWidthRef), DFSInt(_)) =>
         s"resize(unsigned($relValStr), ${tWidthRef.refCodeString})"
-      case (DFBits(tWidthRef), DFBits(_)) =>
-        s"resize($relValStr, ${tWidthRef.refCodeString})"
+      case (DFBits(tWidthRef), DFBits(fWidthRef)) =>
+        tWidthRef.widenDeltaOpt(fWidthRef) match
+          case Some(k) => s"eby($relValStr, $k)"
+          case _       => s"resize($relValStr, ${tWidthRef.refCodeString})"
       case (toType: DFType, fromType: DFBits) =>
         csBitsToType(toType, relValStr)
       case (DFBits(tWidthRef), DFBit | DFBool) =>
         s"to_slv($relValStr, ${tWidthRef.refCodeString})"
       case (DFBits(_), fromType: DFType) =>
         csToSLV(fromType, relValStr)
-      case (DFUInt(tWidthRef), DFUInt(_)) =>
-        s"resize($relValStr, ${tWidthRef.refCodeString})"
-      case (DFSInt(tWidthRef), DFSInt(_)) =>
-        s"resize($relValStr, ${tWidthRef.refCodeString})"
+      case (DFUInt(tWidthRef), DFUInt(fWidthRef)) =>
+        tWidthRef.widenDeltaOpt(fWidthRef) match
+          case Some(k) => s"eby($relValStr, $k)"
+          case _       => s"resize($relValStr, ${tWidthRef.refCodeString})"
+      case (DFSInt(tWidthRef), DFSInt(fWidthRef)) =>
+        tWidthRef.widenDeltaOpt(fWidthRef) match
+          case Some(k) => s"eby($relValStr, $k)"
+          case _       => s"resize($relValStr, ${tWidthRef.refCodeString})"
       case (t, DFOpaque(actualType = ot)) if ot =~ t =>
         relValStr
       case (DFOpaque(_, _, _, _), _) =>

@@ -1024,7 +1024,7 @@ See [Arithmetic Operations][arithmetic-ops] and [Carry Arithmetic][carry-ops] fo
     type: verilog
 In Verilog, unsized integer literals are 32-bit. When combined with narrower signals, the wider literal causes the entire expression to evaluate at 32-bit width via context-dependent propagation. This prevents intermediate overflow in expressions like `(a + b + c + d) / 4`.
 
-In DFHDL, Scala `Int` literals are implicitly converted to minimum-width bit-accurate types (e.g., `4` becomes `UInt[3]`). Each arithmetic operation independently uses the LHS width, so intermediate results can overflow before reaching a division, shift, or comparison. (An assignment to a wider target is unaffected: the chain is automatically promoted to evaluate at the target width, matching Verilog.)
+In DFHDL, Scala `Int` literals are implicitly converted to minimum-width bit-accurate types (e.g., `4` becomes `UInt[3]`). Each arithmetic operation independently uses the LHS width, so intermediate results can overflow before reaching a division, shift, or comparison. (An assignment to a wider target is unaffected: the whole chain is automatically re-evaluated at the target width, matching Verilog.)
 
 DFHDL detects this pattern at elaboration and issues a warning. See [Implicit Scala `Int` and Verilog-semantics mismatch][arithmetic-ops] for the full list of warning triggers.
 
