@@ -2355,6 +2355,10 @@ u9  := u8 + u8   // promoted to carry addition (width 9), exact fit
 u16 := u8 * u8   // promoted to carry multiplication (width 16), exact fit
 u12 := u8 * u8   // promoted to carry multiplication (width 16), resized to 12
 
+// Implicit Int operands participate in the promotion:
+u9  := u8 + u8 + 1   // elaborates to u9 := (u8 + u8) +^ d"8'1"
+u12 := u8 + u8 + 1   // elaborates to u12 := ((u8 + u8) +^ d"8'1").resize(12)
+
 // Named expressions are NOT promoted:
 val sum = u8 + u8  // UInt[8], named value
 u9 := sum          // resized from 8 to 9, no carry promotion
@@ -2421,25 +2425,19 @@ val t10a = (a + b + d"1'0") >> 1        // OK: 0 is explicit
 val t10c = (a +^ b +^ 0) >> 1           // OK: carry chain cannot overflow
 ```
 
-**4. Assignment to wider target with implicit `Int` in the chain:**
-An anonymous expression assigned to a wider target contains both an implicit `Int` and sub-32-bit `+`/`-`/`*` operations.
-```scala
-val sum = UInt(10) <> VAR
-sum := a + b + 1                        // WARNING: + 1 widens to 32-bit in Verilog, not in DFHDL
-val cnt = UInt(8) <> VAR
-cnt := cnt + 1                          // OK: same-width target, modular truncation matches
-// Accept overflow: replace the implicit Int with a bit-accurate literal
-sum := a + b + d"1"                     // OK: 1 is explicit
-// Prevent overflow: widen the chain with carry to match the wider target
-sum := a +^ b +^ 1                      // OK: carry chain widens result before assignment
-```
-
 **No warning** is issued when:
 
 - The expression uses carry operations (`+^`, `-^`, `*^`), which widen the result.
 - The integer constant is an explicit bit-accurate literal (e.g., `d"3'4"`).
 - The bit-accurate expression width is already 32 bits or wider.
-- The implicit `Int` is only used in modular operations (`+`, `-`, `*`) assigned to a same-width target.
+- The implicit `Int` is only used in modular operations (`+`, `-`, `*`) that feed an assignment. A same-width target wraps identically in both languages, and a wider target promotes the chain to evaluate at the target width (see the automatic carry promotion above), matching the context Verilog's assignment provides; truncation to the target width commutes with `+`/`-`/`*`, so the two evaluations agree for every input.
+```scala
+val sum = UInt(10) <> VAR
+// OK: promoted to carry, elaborates to sum := ((a + b) +^ d"8'1").resize(10)
+sum := a + b + 1
+val cnt = UInt(8) <> VAR
+cnt := cnt + 1                          // OK: same-width target, modular truncation matches
+```
 ///
 
 ### Carry Arithmetic (`+^`, `-^`, `*^`) {#carry-ops}

@@ -1390,20 +1390,10 @@ object DFXInt:
                       ).addMember
                       List(innerFunc, func.args.last.get)
                     else func.args.map(_.get)
-                  // Check B: warn if sub-expressions contain implicit Int with
-                  // narrow non-carry arith. Check args (not func itself, since
-                  // the func is about to be carry-promoted).
-                  val argHasImplicitFromIntTag =
-                    carryArgVals.exists(hasImplicitlyFromIntTag)
-                  val argsContainNarrowNonCarryArith =
-                    carryArgVals.exists(containsNarrowNonCarryArith)
-                  val argsContainNarrowNonCarryArithWithTaggedOperand =
-                    carryArgVals.exists(containsNarrowNonCarryArithWithTaggedOperand)
-                  if argHasImplicitFromIntTag && argsContainNarrowNonCarryArith ||
-                    argsContainNarrowNonCarryArithWithTaggedOperand
-                  then
-                    dfc.logEvent(DFWarning(op.toString, verilogSemanticsWarnMsg))
-                  end if
+                  // No Verilog-semantics warning for this shape: the promoted chain is
+                  // emitted under the target's width context (a size cast or the
+                  // assignment itself), and truncation to N bits commutes with +/-/*,
+                  // so Verilog's 32-bit evaluation agrees for every input (issue #453).
                   val cw: IntParam[Int] = op.runtimeChecked match
                     case FuncOp.+ | FuncOp.- => funcWidth + 1
                     case FuncOp.*            => funcWidth + funcWidth
@@ -1565,7 +1555,7 @@ object DFXInt:
 
       // Check if an anonymous sub-tree contains narrow non-carry arith that
       // also has an ImplicitlyFromIntTag operand (Verilog "Forcing Larger
-      // Evaluation" pattern, or implicit Int in a chain assigned to wider target).
+      // Evaluation" pattern).
       private[core] def containsNarrowNonCarryArithWithTaggedOperand(
           dfVal: ir.DFVal
       )(using ir.MemberGetSet): Boolean =

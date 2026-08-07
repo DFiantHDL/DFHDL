@@ -932,6 +932,9 @@ class DFDecimalSpec extends DFSpec:
          |u12 := (u8 *^ u8).resize(12)
          |u9 := (u8 + u8) +^ u8
          |u9 := (u8 + u8 + u8) +^ u8
+         |u10 := ((u8 + u8) +^ d"8'1").resize(10)
+         |u10 := ((u8 + u8b + u8) +^ d"8'1").resize(10)
+         |s9 := (s8 + s8) +^ sd"8'1"
          |""".stripMargin
     } {
       // Basic carry promotion for +
@@ -961,6 +964,12 @@ class DFDecimalSpec extends DFSpec:
       u9 := u8 + u8 + u8
       // carry promotion with 4 arguments
       u9 := u8 + u8 + u8 + u8
+      // Implicit-Int chain to a wider target: the outer op is promoted to carry
+      // under the target-width context, so no Verilog-semantics divergence remains
+      // (issue #453) and the promotion is visible in the printed code
+      u10 := u8 + u8 + 1
+      u10 := u8 + u8b + u8 + 1
+      s9 := s8 + s8 + 1
     }
   }
   test("Arithmetic auto-carry promotion through sign conversion") {
@@ -1049,11 +1058,11 @@ class DFDecimalSpec extends DFSpec:
     // Should NOT warn: (a + b) >> 2 — no implicit Int in the + chain
     val t2d = (a + b) >> 2
 
-    // Should warn: wider target with implicit Int in chain
+    // Should NOT warn: wider target with implicit Int in chain - the chain is
+    // emitted under the target-width context (size cast), so it is bit-exact
+    // with Verilog's 32-bit evaluation and truncation (issue #453)
     val sum = UInt(10) <> VAR
-    assertRuntimeWarningLog(warnMsg) {
-      sum := a + b + c + d + 1
-    }
+    sum := a + b + c + d + 1
 
     // Should NOT warn: wider target but explicit literal
     sum := a + b + c + d + d"1"
@@ -1061,10 +1070,8 @@ class DFDecimalSpec extends DFSpec:
     // Should NOT warn: wider target but single op, carry promotion handles it
     sum := u8 + 1
 
-    // Should warn: wider target with chain, intermediate overflow
-    assertRuntimeWarningLog(warnMsg) {
-      sum := u8 + u8 + 1
-    }
+    // Should NOT warn: wider target with chain - same target-width context
+    sum := u8 + u8 + 1
 
     // Should NOT warn: target width == expression width
     u8 := u8 + 1
