@@ -72,6 +72,27 @@ Issue #427 (`out_data <> bars(0).out_data`, where the port width comes from a de
 one of these. It read like a macro bug and was a Scala 3 compiler bug; the DFHDL fix was six
 `asInstanceOf`s. Work it in this order instead.
 
+### An untyped tree the plugin synthesizes resolves in the USER's scope
+
+A pre-typer phase that injects an untyped tree gets that tree name-resolved as if the user had
+written it, so any unqualified `Ident` in it is captured by a same-named user definition. The
+auto-`@top` injection spelled the annotation `Ident("top")`, and a design class itself named
+`top` (the standard Verilog top-module name) captured it: the annotation then referred to the
+class being annotated, and scalac reported `Cyclic reference involving class top` at the class
+definition, with nothing pointing at the plugin (issue #458). Anchor every synthesized library
+reference at the root (`Select(Select(Ident(nme.ROOTPKG), "dfhdl"), ...)`, i.e.
+`_root_.dfhdl.top`) — a bare `Ident("dfhdl")` can itself be captured by a user package or object
+named `dfhdl`. Rightmost-name-based detection helpers (`rightmostName`) keep matching the
+qualified spelling, so only the construction site changes.
+
+The tell for this species: a resolution-flavored error (cyclic reference, ambiguity, "not
+found") positioned on ordinary user code that appears or vanishes with the *name* of a
+definition, not its body — the reporter of #458 bisected the whole class body before renaming
+the class revealed it. Minimize by renaming the identifier, not by editing the body. The
+regression test is a lib spec design using the colliding name with NO explicit annotation (the
+auto-injection path must fire); it pins the fix at compile level, since the unfixed plugin
+fails the whole test-scope compilation.
+
 ### Minimize outside DFHDL, early
 
 Get off the DFHDL types as fast as possible. Two plugin-free sandboxes:

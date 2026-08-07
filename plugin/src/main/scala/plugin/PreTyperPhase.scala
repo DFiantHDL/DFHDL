@@ -236,8 +236,20 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
       // lenient variant — TopAnnotPhase silently skips entry-point generation when the
       // annotated class turns out not to be a Design, whereas bare `@top` is strict
       // and would surface a compile error on a false positive.
+      // The annotation is fully qualified as `_root_.dfhdl.top`: an unqualified `top`
+      // resolves to the annotated class itself when the class is named `top` (a common
+      // Verilog top-module convention), yielding a baffling "Cyclic reference involving
+      // class top" error (#458).
       untpd.Apply(
-        untpd.Select(untpd.New(untpd.Ident("top".toTypeName)), nme.CONSTRUCTOR),
+        untpd.Select(
+          untpd.New(
+            untpd.Select(
+              untpd.Select(untpd.Ident(nme.ROOTPKG), "dfhdl".toTermName),
+              "top".toTypeName
+            )
+          ),
+          nme.CONSTRUCTOR
+        ),
         List(untpd.Literal(Constant(true)))
       ).withSpan(span)
 
