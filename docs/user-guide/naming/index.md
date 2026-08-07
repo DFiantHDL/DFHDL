@@ -121,15 +121,13 @@ val `type` = UInt(8) <> IN
 val `match` = Bit <> OUT
 ```
 
-### `@targetName` annotation
+### `@setName` annotation
 
-`@targetName` applies to a **port or variable**, and sets the name that value carries in the generated HDL. Use it when the Scala-side identifier must differ from the HDL name you need to emit:
+`@hw.annotation.setName` applies to a **port, variable, or DFHDL method**, and sets the name that construct carries in the generated HDL. Use it when the Scala-side identifier must differ from the HDL name you need to emit:
 
 ```scala
-import scala.annotation.targetName
-
 class filter(val WIDTH: Int <> CONST = 8) extends EDDesign:
-  @targetName("data_out")
+  @hw.annotation.setName("data_out")
   val dataOut = Bits(WIDTH) <> OUT
   dataOut <> all(0)
 ```
@@ -140,12 +138,10 @@ module filter#(parameter int WIDTH = 8)(
 );
 ```
 
-The same annotation applies to a **design class**, where it sets the emitted module name. This is what lets a translation follow Scala naming style on the Scala side while still emitting the original Verilog module name:
+The same annotation applies to a **design class**, where it sets the emitted module name. This is what lets a translation follow Scala naming style on the Scala side while still emitting the original Verilog module name. It works on top-level classes too, where Scala's own `@targetName` is rejected (the DFHDL compiler plugin reads the annotation, not the Scala backend):
 
 ```scala
-import scala.annotation.targetName
-
-@targetName("data_path")
+@hw.annotation.setName("data_path")
 class DataPath(val WIDTH: Int <> CONST = 8) extends EDDesign:
   // ...
 // Generated HDL module is named "data_path"
@@ -154,5 +150,5 @@ val u_dp = new DataPath(16)
 
 /// admonition | Not for names that merely look alike
     type: note
-A port sharing a name with a design class needs no annotation and no rename, since types and terms live in separate namespaces. See [Design-class name shared with a value name](#design-class-name-shared-with-a-value-name). Reach for `@targetName` when you need a **different** HDL name, not when two Scala names collide.
+A port sharing a name with a design class needs no annotation and no rename, since types and terms live in separate namespaces. See [Design-class name shared with a value name](#design-class-name-shared-with-a-value-name). Reach for `@hw.annotation.setName` when you need a **different** HDL name, not when two Scala names collide.
 ///

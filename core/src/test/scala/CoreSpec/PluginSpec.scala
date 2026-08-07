@@ -3,7 +3,7 @@ import dfhdl.*
 import munit.*
 import internals.*
 
-import scala.annotation.{Annotation, nowarn, targetName}
+import scala.annotation.{Annotation, nowarn}
 import scala.collection.immutable.ListMap
 
 class PluginSpec extends DFSpec:
@@ -158,7 +158,7 @@ class PluginSpec extends DFSpec:
     case object FooCaseObj extends Foo(1, 2)
     assertLastNames("FooCaseObj")
 
-    @targetName("foo")
+    @hw.annotation.setName("foo")
     val -- = new Foo(1, 2)
     assertLastNames("foo")
     val fooCls2 = new Foo(1, 2):

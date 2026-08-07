@@ -3050,4 +3050,25 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // The design and port names come from the DFHDL `setName` annotation, decoupled from the
+  // Scala identifiers (issue #454)
+  test("Design class and port renaming via `setName` annotation") {
+    @hw.annotation.setName("data_path")
+    class DataPath(val WIDTH: Int <> CONST = 8) extends EDDesign:
+      @hw.annotation.setName("data_in")
+      val dataIn = Bits(WIDTH) <> IN
+      @hw.annotation.setName("data_out")
+      val dataOut = Bits(WIDTH) <> OUT
+      dataOut <> dataIn
+    end DataPath
+    assertCodeString(
+      (new DataPath()),
+      """|class data_path(val WIDTH: Int <> CONST = 8) extends EDDesign:
+         |  val data_in = Bits(WIDTH) <> IN
+         |  val data_out = Bits(WIDTH) <> OUT
+         |  data_out <> data_in
+         |end data_path
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

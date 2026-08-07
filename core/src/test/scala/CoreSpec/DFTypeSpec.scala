@@ -101,7 +101,7 @@ class DFTypeSpec extends DFSpec:
     assertPluginError(
       """|Unsupported DFHDL member name x y.
          |Only alphanumric or underscore characters are supported.
-         |You can leave the Scala name as-is and add @targetName("newName") annotation.""".stripMargin
+         |You can leave the Scala name as-is and add @hw.annotation.setName("newName") annotation.""".stripMargin
     )(
       """
       class Foo extends DFDesign:

@@ -1218,7 +1218,7 @@ class foo extends EDDesign:
 
 </div>
 
-Alternatively, use a non-keyword name with the Scala `@targetName` annotation to set the actual HDL name:
+Alternatively, use a non-keyword name with the `@hw.annotation.setName` annotation to set the actual HDL name:
 
 <div class="grid" markdown>
 
@@ -1231,16 +1231,15 @@ endmodule
 ```
 
 ```scala linenums="0" title="DFHDL"
-import scala.annotation.targetName
 class foo extends EDDesign:
-  @targetName("class") 
+  @hw.annotation.setName("class")
   val class_ = SInt(16) <> OUT
   class_ <> 42
 ```
 
 </div>
 
-Beyond Scala keywords, Verilog module names may also conflict with DFHDL built-in functions brought in by `import dfhdl.*` (e.g., `abs`, `max`, `min`) or with other class names in the same design hierarchy. See [Naming][naming] for the full list of reserved names and resolution patterns (`@targetName`, type aliases, backtick escaping).
+Beyond Scala keywords, Verilog module names may also conflict with DFHDL built-in functions brought in by `import dfhdl.*` (e.g., `abs`, `max`, `min`) or with other class names in the same design hierarchy. See [Naming][naming] for the full list of reserved names and resolution patterns (`@hw.annotation.setName`, type aliases, backtick escaping).
 ///
 
 /// admonition | `Bits` Initialization or Assignment

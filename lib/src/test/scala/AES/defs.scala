@@ -41,6 +41,7 @@ extension (lhs: AESByte <> VAL)
   // corresponding powers in the polynomials for the two elements. The addition is performed with
   // the XOR operation.
   @targetName("addByte")
+  @hw.annotation.setName("addByte")
   @inline def +(rhs: AESByte <> VAL): AESByte <> DFRET = (lhs.actual ^ rhs.actual).as(AESByte)
 
   private def xtime: AESByte <> DFRET = lhs.mapActual: lhs =>
@@ -63,6 +64,7 @@ extension (lhs: Byte <> CONST)
   // its own design). The declaration is explicit because the automatic attribution
   // cannot trace the forcing through the foldLeft lambda's pattern-bound index.
   @targetName("mulByte")
+  @hw.annotation.setName("mulByte")
   @hw.annotation.pure(true, "lhs")
   def *(rhs: AESByte <> VAL): AESByte <> DFRET =
     val a = LazyList.iterate(rhs)(_.xtime)
@@ -78,6 +80,7 @@ case class AESWord() extends Column(AESByte, 4)
 
 extension (lhs: AESWord <> VAL)
   @targetName("addWord")
+  @hw.annotation.setName("addWord")
   @inline def +(rhs: AESWord <> VAL): AESWord <> DFRET =
     lhs.zipMapElems(rhs)(_ + _)
 
