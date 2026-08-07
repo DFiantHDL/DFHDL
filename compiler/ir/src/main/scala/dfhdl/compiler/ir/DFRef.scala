@@ -281,7 +281,6 @@ object IntParamRef:
                     case _ => None
                 case _ => None
             case _ => None
-        case _ => None
   end extension
 
   given ReadWriter[IntParamRef] = readwriter[ujson.Value].bimap(
