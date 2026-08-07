@@ -219,6 +219,8 @@ class Foo extends DFDesign:
     o := 0
 ```
 
+* Named DFTypes, such as an [enum][DFEnum], a [struct][DFStruct], or an [opaque][DFOpaque] type, may be declared at global scope (shared across designs) **or** inside a design class body (private to that design). Unlike ports and variables, they are not restricted to non-global scopes. See [Declaration Scope][DFEnum] for which to choose and what it means for the generated HDL.
+
 #### Naming {#dcl-naming}
 Ports and variables must always be named, and cannot be anonymous. 
 
@@ -976,6 +978,8 @@ class Foo extends RTDesign:
 ```
 ///
 
+**Operations on this type:** [Logical Operations][logical-ops] (`&`, `|`, `^`, `~`, `&&`, `||`, `!`), [Comparison Operations][comparison-ops] (`==`/`!=` only, with a `Bit`/`Boolean` as an operand), [Selection][sel-ops] (as the condition, and as a selected argument), [Edge Detection][history-ops] (`.rising`, `.falling`, `Bit` only), and [conversions to and from `Bits`/`Boolean`][bit-bool-cast].
+
 ### `Bits` {#DFBits}
 
 `Bits` DFHDL values represent vectors of DFHDL `Bit` values as elements. 
@@ -1338,6 +1342,56 @@ enum MyEnum extends Encoded:
 #### Type Signatures
 `MyEnum <> VAL`, `MyEnum <> CONST`. The enum name itself is the type, with no size parameter.
 
+#### Declaration Scope
+
+An enum may be declared at **top level**, where it is shared by every design in the compilation unit, or **inside a design class body**, where it is private to that design. A per-design FSM state type belongs inside the class:
+
+```scala
+class Child extends EDDesign:
+  enum State extends Encoded:
+    case IDLE, DRAW
+  val state = State <> VAR
+  // ...
+
+class Parent extends EDDesign:
+  enum State extends Encoded:
+    case IDLE, BUSY, HOLD
+  val state = State <> VAR
+  val c = new Child
+```
+
+Where the **generated** typedef lands is decided by **usage**, not by where the enum is declared in Scala. An enum used inside a single design is emitted module-scoped; an enum that has to be visible to more than one design (because it appears in a port type, for instance) is emitted into the design's [global definitions file][global-defs] instead.
+
+Because a single-design enum is module-scoped, two designs may nest identically named enums of different widths with no conflict:
+
+```systemverilog
+module Child(...);
+  typedef enum logic [0:0] { State_IDLE = 0, State_DRAW = 1 } t_enum_State;
+  t_enum_State state;
+endmodule
+
+module Parent(...);
+  typedef enum logic [1:0] { State_IDLE = 0, State_BUSY = 1, State_HOLD = 2 } t_enum_State;
+  t_enum_State state;
+  Child c(...);
+endmodule
+```
+
+Put the same enum in a port type and it moves out to the shared file, since both modules must name the same type. That is a property of how the type is used, so a top-level Scala declaration is not required to get it, and does not by itself cause it.
+
+/// admonition | Two top-level enums of the same name
+    type: warning
+Declaring the same enum name at top level in two files of one compilation unit is a duplicate definition. The first error says so plainly, but the errors after it do not:
+
+```
+State is already defined as class State in ./src/ModA.scala
+value IDLE is not a member of State$2
+value BUSY is not a member of State, but could be made available as an extension method.
+```
+
+The mangled `State$2` and the import suggestions that follow are dead ends. Read the first line, and prefer nesting the enum inside the design that uses it.
+///
+
 #### Encoding Types
 
 DFHDL supports several encoding schemes for enums:
@@ -1409,6 +1463,8 @@ class CPU extends RTDesign:
     case State.Store =>
       // Store state logic
 ```
+
+**Operations on this type:** [Comparison Operations][comparison-ops] (`==`/`!=` between values of the same enum type), [Selection][sel-ops] (enum values are valid `.sel` arguments), [pattern matching](#pattern-matching), and [`Enum` to `UInt` conversion][enum-uint-cast].
 
 ### Vector {#DFVector}
 
@@ -1779,6 +1835,13 @@ class Example extends EDDesign:
 ```
 ## Operations
 
+/// admonition | Which operations apply to which types
+    type: note
+Every section in this part opens with an **`Applies to:`** line naming the types the operation accepts. Those lines are the reference for "does this type support this operation": they are meant to be exhaustive, so a type absent from one is a type the operation does not accept.
+
+Read that line before concluding an operation is unavailable. The operations reference sits below the whole type reference, so it is easy to work through the type sections and never reach the section that actually decides whether an expression is legal.
+///
+
 ### Constant Propagation
 
 When all operands of an expression are constants (`CONST`), the result is also a constant. This includes Scala `Int` literals, DFHDL `Int` parameters, and bit-accurate constants created with `d""` or `sd""`.
@@ -1889,7 +1952,7 @@ Applies to: `Bits`, `UInt`, `SInt`
 
 - **Range slice**: `value(hi, lo)` extracts bits `hi` down to `lo`. A slice is a bit-level operation and produces an unsigned result: `Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `UInt`. This matches Verilog's "slices are unsigned" convention. To recover signed bit-semantics on an `SInt` slice, chain `.bits.sint` to re-interpret the slice as signed (same width). Do **not** use `.signed` for this: `.signed` is a numeric conversion that adds a zero-extension sign bit, widening by 1.
 - **Top/bottom slice**: `value.msbits(W)` returns the top `W` bits and `value.lsbits(W)` returns the bottom `W` bits, with the same unsigned-result rule as range slicing (`Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `UInt`). Equivalent to `value(N-1, N-W)` and `value(W-1, 0)` respectively, but without needing to spell out the indices.
-- **Part-select (anchored slice)**: `value.lsbitsAt(baseIdx, selWidth)` returns `selWidth` bits whose LSB is anchored at `baseIdx`, and `value.msbitsAt(baseIdx, selWidth)` returns `selWidth` bits whose MSB is anchored at `baseIdx`. These are the DFHDL equivalents of Verilog's ascending (`value[baseIdx +: selWidth]`) and descending (`value[baseIdx -: selWidth]`) part-selects, equivalent to `value(baseIdx + selWidth - 1, baseIdx)` and `value(baseIdx, baseIdx - selWidth + 1)` respectively, with the same unsigned-result rule. The generalization of the top/bottom slices: `msbits(W)` is `msbitsAt(N-1, W)` and `lsbits(W)` is `lsbitsAt(0, W)`. Both arguments must be elaboration-time constants (Scala `Int` values or `Int` parameters).
+- **Part-select (anchored slice)**: `value.lsbitsAt(baseIdx, selWidth)` returns `selWidth` bits whose LSB is anchored at `baseIdx`, and `value.msbitsAt(baseIdx, selWidth)` returns `selWidth` bits whose MSB is anchored at `baseIdx`. These are the DFHDL equivalents of Verilog's ascending (`value[baseIdx +: selWidth]`) and descending (`value[baseIdx -: selWidth]`) part-selects, equivalent to `value(baseIdx + selWidth - 1, baseIdx)` and `value(baseIdx, baseIdx - selWidth + 1)` respectively, with the same unsigned-result rule. The generalization of the top/bottom slices: `msbits(W)` is `msbitsAt(N-1, W)` and `lsbits(W)` is `lsbitsAt(0, W)`. The **width** must always be an elaboration-time constant (a Scala `Int` value or an `Int` parameter). The **base** must be too, with one exception: inside an ED `process`, the base may be an expression over a process-scope `for` iterator, which emits a variable-base part-select. See [ED Domain Loops][loops] for what that iterator is and is not.
 - **Single-bit access**: `value(idx)` returns the bit at position `idx` (as `Bit`). The index can be a static integer or a dynamic `UInt` variable.
 
 ```scala
@@ -1994,6 +2057,22 @@ val wide = (u8, u4).toBits                        // Bits[12]
 ```
 
 Values are concatenated from the first (most-significant) to the last (least-significant) position.
+
+/// admonition | Building a value from a Scala collection
+    type: note
+To assemble a value from a collection of **single-bit** sources, connect each bit of the target individually in a loop:
+
+```scala
+class Foo extends EDDesign:
+  val data  = Bits(9 * 8) <> IN
+  val thr   = UInt(8)     <> IN
+  val flags = Bits(9)     <> OUT
+  for (i <- 0 until 9)
+    flags(i) <> (data.lsbitsAt(i * 8, 8).uint >= thr)
+```
+
+For **wider lanes**, accumulate with a Scala `#!scala var` ascribed to an unbounded `Bits[Int]`, as in the [`LaneConcat` example][scala-var]. The ascription is what keeps the accumulator's width from being fixed by the first element.
+///
 
 ### Logical Operations {#logical-ops}
 
@@ -2123,7 +2202,7 @@ val parity   = b8.^    // Bit: 1 when odd number of bits are 1
 
 ### Selection (`.sel`) {#sel-ops}
 
-Condition: `Bit`, `Boolean`. Arguments: any DFHDL type.
+Applies to: any DFHDL type as the selected arguments; the condition itself is a `Bit` or `Boolean`.
 
 The `.sel` operation is a conditional selection, equivalent to Verilog's ternary operator `cond ? onTrue : onFalse`. It selects between two values based on a `Bit` or `Boolean` condition:
 
@@ -2505,7 +2584,7 @@ val e1 = param +^ 1
 
 ### Comparison Operations (`==`, `!=`, `<`, `>`, `<=`, `>=`) {#comparison-ops}
 
-Applies to: `UInt`, `SInt`, `Int`, `Double` (all comparisons); `Bits`, `Enum`, `Struct`, `Tuple` (`==`/`!=` only)
+Applies to: `UInt`, `SInt`, `Int`, `Double` (all comparisons); `Bits`, `Bit`, `Boolean`, `Enum`, `Struct`, `Tuple` (`==`/`!=` only)
 
 #### Decimal Comparisons
 
@@ -2578,6 +2657,29 @@ val isDec      = b8 == d"8'12"     // Boolean: match with sized decimal
 // val bad = b8 == 0
 // FIX: use all(0), a sized literal, or convert to UInt first:
 // b8 == all(0)  OR  b8 == d"8'0"  OR  b8.uint == 0
+```
+
+#### `Bit`/`Boolean` Comparisons
+
+A `Bit` or `Boolean` is a valid **operand** of `==`/`!=`, against another `Bit`/`Boolean` or against the `0`/`1` and `true`/`false` literals. The result is a `Boolean`, like every other comparison:
+
+```scala
+val b1, b2 = Bit <> VAR
+val bl     = Boolean <> VAR
+
+val c1 = b1 == 0      // Boolean
+val c2 = b1 != 1      // Boolean
+val c3 = b1 == b2     // Boolean
+val c4 = bl == true   // Boolean
+```
+
+`b == 0` and `!b` describe the same hardware. A Verilog translation produces the former (Verilog spells the test `b == 1'b0`), while idiomatic DFHDL tends toward the latter; use whichever keeps the source recognizable.
+
+Ordering comparisons (`<`, `>`, `<=`, `>=`) do **not** apply to `Bit`/`Boolean`. They are rejected at compile time:
+
+```scala
+// error: Cannot compare DFHDL value of type `Bit` with value of type `1`.
+val e1 = b1 < 1
 ```
 
 #### Enum, Struct, and Tuple Comparisons

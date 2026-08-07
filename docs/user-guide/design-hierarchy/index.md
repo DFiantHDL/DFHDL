@@ -694,7 +694,22 @@ Where:
     - A variable
     - A port of the parent design
     - A port of another child design instance
+    - An inline expression (a comparison, a logical combination, a slice, and so on)
     - `OPEN` - to explicitly leave an output port unconnected (see [Open Ports](#open-ports) below)
+
+An inline expression needs no intermediate `val`, and is the direct equivalent of Verilog's `.port(expr)` connection at the instantiation site:
+
+```scala
+val u = new lane
+u.start <> (state == State.RUN)
+```
+
+```verilog title="Generated Verilog"
+lane u(...);
+assign u_start = state == State_RUN;
+```
+
+The expression elaborates as if an anonymous value held its result, and that value drives the child port.
 
 The `<>` connection operator has no explicit directionality - it automatically infers producer/consumer relationships based on the connected value types and scope. See the [connectivity][connectivity] section for details.
 
