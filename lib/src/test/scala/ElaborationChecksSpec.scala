@@ -1092,4 +1092,464 @@ class ElaborationChecksSpec extends DesignSpec:
           |To Fix: split the loop so that the shared-variable write is in a purely-sequential loop.
           |""".stripMargin
     )
+
+  // `sel` constructs its selection Func through a trydf-wrapped runtime helper, so a
+  // candidate width mismatch must surface as a positioned elaboration error (and not as
+  // an escaping derived-error exception that aborts elaboration).
+  test("DFBoolOrBit sel candidate width checks"):
+    object Test:
+      @top(false) class SelFixed extends EDDesign:
+        val c = Bit <> IN
+        val a = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        // a runtime Scala Int, so the candidate width check runs at elaboration
+        // (a literal would already be rejected at compile time)
+        val arg = 512
+        y <> c.sel(a, arg)
+      end SelFixed
+      @top(false) class SelParam(val W: Int <> CONST = 14) extends EDDesign:
+        val c = Bit <> IN
+        val b = UInt(W) <> IN
+        val y = UInt(16) <> OUT
+        private var acc: UInt[Int] <> VAL = d"16'0"
+        for (_ <- 0 until 3) acc = acc + b
+        y <> c.sel(acc, d"16'0")
+      end SelParam
+    end Test
+    import Test.*
+    assertElaborationErrors(SelFixed())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1108:9 - 1108:27
+          |Hierarchy: SelFixed
+          |Operation: `apply`
+          |Message:   The applied RHS value width (10) is larger than the LHS variable width (8).""".stripMargin
+    )
+    // the accumulated width is a `max` chain the repeated-operand absorption keeps
+    // minimal (`16 max W`), and the width-fit check eliminates the symbolic max operand,
+    // so `16 max W >= 16` decides as `16 >= 16` and the parametric variant is accepted
+    SelParam()
+
+  test("disjoint parameter-dependent slice connections are accepted"):
+    object Test:
+      @top(false) class SliceParam(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        o.lsbitsAt(0, W) <> i.lsbitsAt(0, W)
+        o.lsbitsAt(W, W) <> i.lsbitsAt(W, W)
+      end SliceParam
+      @top(false) class SliceLoop(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 3) <> IN
+        val o = Bits(W * 3) <> OUT
+        for (k <- 0 until 3)
+          o.lsbitsAt(k * W, W) <> i.lsbitsAt(k * W, W)
+      end SliceLoop
+      @top(false) class SliceHiLo(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        o(W - 1, 0) <> i(W - 1, 0)
+        o(2 * W - 1, W) <> i(2 * W - 1, W)
+      end SliceHiLo
+      @top(false) class SliceParamHigh(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W) <> IN
+        val o = Bits(W) <> OUT
+        o(W - 1, 1) <> i(W - 1, 1)
+        o(0, 0) <> i(0, 0)
+      end SliceParamHigh
+      @top(false) class VecCellRanges(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W) X 4 <> IN
+        val o = Bits(W) X 4 <> OUT
+        o(0, 1) <> i(0, 1)
+        o(2, 3) <> i(2, 3)
+      end VecCellRanges
+      class VecSrc(val W: Int <> CONST = 4) extends EDDesign:
+        val q = Bits(W) <> OUT
+        q <> all(0)
+      @top(false) class VecElems(val W: Int <> CONST = 4) extends EDDesign:
+        val v = Bits(W) X 3 <> VAR
+        val o = Bits(W) <> OUT
+        for (k <- 0 until 3)
+          val s = VecSrc(W = W)
+          v(k) <> s.q
+        o <> v(0)
+      end VecElems
+      @top(false) class ProcConnMix(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        process(all):
+          o.lsbitsAt(0, W) := i.lsbitsAt(0, W)
+        o.lsbitsAt(W, W) <> i.lsbitsAt(W, W)
+      end ProcConnMix
+    end Test
+    import Test.*
+    SliceParam()
+    SliceLoop()
+    SliceHiLo()
+    SliceParamHigh()
+    VecCellRanges()
+    VecElems()
+    ProcConnMix()
+
+  test("sub-design parameter-dependent slices resolve through applied parameters"):
+    object Test:
+      class MixChild(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        o(3, 0) <> i(3, 0)
+        o(2 * W - 1, W) <> i(2 * W - 1, W)
+      end MixChild
+      @top(false) class MixParent extends EDDesign:
+        val i = Bits(8) <> IN
+        val o = Bits(8) <> OUT
+        val c = MixChild(4)
+        c.i <> i
+        o <> c.o
+      end MixParent
+    import Test.*
+    import dfhdl.compiler.stages.getCompiledCodeString
+    // the backend printing itself re-derives the connectivity on the flat DB, so the
+    // compiled code string (not just elaboration) is part of this regression
+    assertNoDiff(
+      MixParent().getCompiledCodeString,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module MixChild#(parameter int W = 4)(
+         |  input  wire logic [(W * 2) - 1:0] i,
+         |  output      logic [(W * 2) - 1:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o[3:0] = i[3:0];
+         |  assign o[(2 * W) - 1:W] = i[(2 * W) - 1:W];
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module MixParent(
+         |  input  wire logic [7:0] i,
+         |  output      logic [7:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [(4 * 2) - 1:0] c_i;
+         |  logic [(4 * 2) - 1:0] c_o;
+         |  MixChild #(
+         |    .W (4)
+         |  ) c(
+         |    .i /*<--*/ (c_i),
+         |    .o /*-->*/ (c_o)
+         |  );
+         |  assign c_i = i;
+         |  assign o   = c_o;
+         |endmodule
+         |""".stripMargin
+    )
+
+  test("overlapping parameter-dependent slice connections error"):
+    object Test:
+      @top(false) class SliceOverlap(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        o.lsbitsAt(0, W) <> i.lsbitsAt(0, W)
+        o.lsbitsAt(0, W) <> i.lsbitsAt(W, W)
+      end SliceOverlap
+    import Test.*
+    assertElaborationErrors(SliceOverlap())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1254:9 - 1254:45
+          |Hierarchy: SliceOverlap
+          |LHS:       o(W - 1, 0)
+          |RHS:       i((W + W) - 1, W)
+          |Message:   Found multiple connections write to the same variable/port `SliceOverlap.o`.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1253:9 - 1253:45""".stripMargin
+    )
+
+  test("unprovable parameter-dependent slice connections error"):
+    object Test:
+      @top(false) class SliceUnprovable(val W: Int <> CONST = 4) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        o(3, 0) <> i(3, 0)
+        o(2 * W - 1, W) <> i(2 * W - 1, W)
+      end SliceUnprovable
+    import Test.*
+    assertElaborationErrors(SliceUnprovable())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1274:9 - 1274:43
+          |Hierarchy: SliceUnprovable
+          |LHS:       o((2 * W) - 1, W)
+          |RHS:       i((2 * W) - 1, W)
+          |Message:   Found a write to the same variable/port `SliceUnprovable.o` that cannot be proven to be
+          |disjoint from a previous write, because their parameter-dependent bit ranges could not be
+          |resolved. If the ranges never overlap, restructure their indexing so the compiler can relate
+          |them, or use assignments within a process instead of connections.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1273:9 - 1273:27""".stripMargin
+    )
+  test("consistent assignment kinds per process are accepted"):
+    object Test:
+      @top(false) class ConsistentNB extends EDDesign:
+        val clk, rst = Bit <> IN
+        val d = Bit <> IN
+        val q = Bit <> OUT
+        process(clk.rising, rst.rising):
+          if (rst) q :== 0
+          else q :== d
+      end ConsistentNB
+      @top(false) class BlockingTemp extends EDDesign:
+        val clk = Bit <> IN
+        val a, b = Bits(8) <> IN
+        val q = Bits(8) <> OUT
+        val tmp = Bits(8) <> VAR
+        process(clk.rising):
+          tmp := a | b
+          q :== tmp
+      end BlockingTemp
+      @top(false) class SplitProcesses extends EDDesign:
+        val clk = Bit <> IN
+        val d = Bits(8) <> IN
+        val q = Bits(8) <> OUT
+        process(clk.rising):
+          q(3, 0) := d(3, 0)
+        process(clk.rising):
+          q(7, 4) :== d(7, 4)
+      end SplitProcesses
+    end Test
+    import Test.*
+    ConsistentNB()
+    BlockingTemp()
+    SplitProcesses()
+
+  test("mixed assignment kinds to one variable in one process error"):
+    object Test:
+      @top(false) class MixedWhole extends EDDesign:
+        val clk, rst = Bit <> IN
+        val d = Bit <> IN
+        val q = Bit <> OUT
+        process(clk.rising, rst.rising):
+          if (rst) q := 0
+          else q :== d
+      end MixedWhole
+      @top(false) class MixedParts extends EDDesign:
+        val clk = Bit <> IN
+        val d = Bits(8) <> IN
+        val q = Bits(8) <> OUT
+        process(clk.rising):
+          q(3, 0) := d(3, 0)
+          q(7, 4) :== d(7, 4)
+      end MixedParts
+    end Test
+    import Test.*
+    assertElaborationErrors(MixedWhole())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1332:16 - 1332:23
+          |Hierarchy: MixedWhole
+          |LHS:       q
+          |RHS:       d
+          |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `MixedWhole.q` within the same process.
+          |Use one assignment kind consistently for this variable inside the process.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1331:20 - 1331:26""".stripMargin
+    )
+    assertElaborationErrors(MixedParts())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1340:11 - 1340:30
+          |Hierarchy: MixedParts
+          |LHS:       q(7, 4)
+          |RHS:       d(7, 4)
+          |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `MixedParts.q` within the same process.
+          |Use one assignment kind consistently for this variable inside the process.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1339:11 - 1339:29""".stripMargin
+    )
+  test("parametric max width-fit accepted via symbolic elimination"):
+    object Test:
+      @top(false) class MaxFitNamed(val WIDTH: Int <> CONST = 14) extends RTDesign:
+        val x = UInt(WIDTH) <> IN
+        val y = UInt(16) <> IN
+        val sum = UInt(16) <> OUT
+        val xy = x + y
+        sum := xy
+      end MaxFitNamed
+      @top(false) class MaxFitAnon(val WIDTH: Int <> CONST = 14) extends RTDesign:
+        val x = UInt(WIDTH) <> IN
+        val y = UInt(16) <> IN
+        val sum = UInt(16) <> OUT
+        sum := x + y
+      end MaxFitAnon
+      @top(false) class MaxFitCarry(val WIDTH: Int <> CONST = 14) extends RTDesign:
+        val x = UInt(WIDTH) <> IN
+        val y = UInt(16) <> IN
+        val sum20 = UInt(20) <> OUT
+        sum20 := x + y
+      end MaxFitCarry
+      @top(false) class WidthIdentities(val W: Int <> CONST = 8) extends RTDesign:
+        val a = Bits(W) <> IN
+        val b = Bits(1 * W) <> OUT
+        val c = Bits(W + 0) <> OUT
+        val d = Bits(W - 0) <> OUT
+        val z = Bits(0 * W + 4) <> OUT
+        b := a
+        c := a
+        d := a
+        z := h"4'0"
+      end WidthIdentities
+    end Test
+    import Test.*
+    MaxFitNamed()
+    MaxFitAnon()
+    MaxFitCarry()
+    WidthIdentities()
+
+  test("parametric max width-fit rejections"):
+    object Test:
+      @top(false) class MaxTooNarrow(val WIDTH: Int <> CONST = 14) extends RTDesign:
+        val x = UInt(WIDTH) <> IN
+        val y = UInt(16) <> IN
+        val sum15 = UInt(15) <> OUT
+        val xy = x + y
+        sum15 := xy
+      end MaxTooNarrow
+      @top(false) class PlainSymWidth(val WIDTH: Int <> CONST = 14) extends RTDesign:
+        val x = UInt(WIDTH) <> IN
+        val sum = UInt(16) <> OUT
+        sum := x
+      end PlainSymWidth
+    import Test.*
+    assertElaborationErrors(MaxTooNarrow())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1412:9 - 1412:20
+          |Hierarchy: MaxTooNarrow
+          |Operation: `:=`
+          |Message:   The applied RHS value width (WIDTH max 16) is larger than the LHS variable width (15).""".stripMargin
+    )
+    assertElaborationErrors(PlainSymWidth())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1417:9 - 1417:17
+          |Hierarchy: PlainSymWidth
+          |Operation: `:=`
+          |Message:   The applied RHS value width (WIDTH) is undefined compared to the LHS variable width (16).""".stripMargin
+    )
+
+  test("same-named width constants are qualified in DFBits width errors"):
+    object Test:
+      @top(false) class Child(val W: Int <> CONST = 4) extends EDDesign:
+        val OUTPUT_WIDTH = W * 2
+        val o = Bits(OUTPUT_WIDTH) <> OUT
+        o <> all(0)
+      end Child
+      @top(false) class Parent(val W: Int <> CONST = 8) extends EDDesign:
+        val OUTPUT_WIDTH = W
+        val o = Bits(OUTPUT_WIDTH) <> OUT
+        val c = Child(W = 4)
+        o <> c.o
+      end Parent
+    import Test.*
+    assertElaborationErrors(Parent())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1448:9 - 1448:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The argument width (c.OUTPUT_WIDTH) is different than the receiver width (OUTPUT_WIDTH).
+          |Consider applying `.resize` to resolve this issue.
+          |
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1448:9 - 1448:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The argument width (OUTPUT_WIDTH) is different than the receiver width (c.OUTPUT_WIDTH).
+          |Consider applying `.resize` to resolve this issue.""".stripMargin
+    )
+
+  test("same-named width constants are qualified in DFDecimal width errors"):
+    object Test:
+      @top(false) class Child(val W: Int <> CONST = 4) extends EDDesign:
+        val OUTPUT_WIDTH = W * 2
+        val o = UInt(OUTPUT_WIDTH) <> OUT
+        o <> 0
+      end Child
+      @top(false) class Parent(val W: Int <> CONST = 8) extends EDDesign:
+        val OUTPUT_WIDTH = W
+        val o = UInt(OUTPUT_WIDTH) <> OUT
+        val c = Child(W = 4)
+        o <> c.o
+      end Parent
+    import Test.*
+    assertElaborationErrors(Parent())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1479:9 - 1479:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The applied RHS value width (c.OUTPUT_WIDTH) is undefined compared to the LHS variable width (OUTPUT_WIDTH).
+          |
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1479:9 - 1479:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The applied RHS value width (OUTPUT_WIDTH) is undefined compared to the LHS variable width (c.OUTPUT_WIDTH).""".stripMargin
+    )
+
+  test("same-named design parameters are qualified in width errors"):
+    object Test:
+      @top(false) class Child(val W: Int <> CONST = 8) extends EDDesign:
+        val o = Bits(W) <> OUT
+        o <> all(0)
+      end Child
+      @top(false) class Parent(val W: Int <> CONST = 8) extends EDDesign:
+        val o = Bits(W) <> OUT
+        val c = Child(W = 4)
+        o <> c.o
+      end Parent
+    import Test.*
+    assertElaborationErrors(Parent())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1506:9 - 1506:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The argument width (c.W) is different than the receiver width (W).
+          |Consider applying `.resize` to resolve this issue.
+          |
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1506:9 - 1506:17
+          |Hierarchy: Parent
+          |Operation: `apply`
+          |Message:   The argument width (W) is different than the receiver width (c.W).
+          |Consider applying `.resize` to resolve this issue.""".stripMargin
+    )
+
+  test("Verilog-semantics warning with parametric widths"):
+    object Test:
+      @top(false) class ParW(val CORDW: Int <> CONST = 16) extends EDDesign:
+        val err = SInt(CORDW + 1) <> IN
+        val dy = SInt(CORDW + 1) <> IN
+        val t = 2 * err >= dy
+      end ParW
+      @top(false) class ParWDiv(val CORDW: Int <> CONST = 16) extends EDDesign:
+        val a = UInt(CORDW) <> IN
+        val b = UInt(CORDW) <> IN
+        val t = (a + b) / 4
+      end ParWDiv
+    import Test.*
+    val warnMsg =
+      """|Implicit Scala/DFHDL Int conversion may produce different results than Verilog.
+         |In Verilog, integer literals are 32-bit, which can widen intermediate arithmetic.
+         |In DFHDL, Int literals are converted to minimum bit-accurate width.
+         |Use carry operations (+^, -^, *^) or explicit bit-accurate literals (d"W'V").""".stripMargin
+    def assertWarns(dsn: dfhdl.core.Design, expected: String*): Unit =
+      val warns = dsn.dfc.getWarnings.map(_.dfMsg)
+      assertEquals(warns.length, expected.length)
+      warns.lazyZip(expected).foreach(assertNoDiff(_, _))
+    // the parametric width resolves through the design parameter's applied (or default)
+    // value at elaboration, so the warning fires exactly as with a literal width
+    assertWarns(ParW(), warnMsg)
+    assertWarns(ParWDiv(), warnMsg)
+    // a parametric width that resolves to 32 bits or wider stays suppressed
+    assertWarns(ParW(31))
+
 end ElaborationChecksSpec

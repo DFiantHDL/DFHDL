@@ -487,7 +487,7 @@ object DFBits:
               case _                    =>
                 if (dfType.compareWidths(dfVal.dfType)(_ != _).getOrElse(true))
                   throw new IllegalArgumentException(
-                    s"""|The argument width (${dfVal.dfType.widthCodeString}) is different than the receiver width (${dfType.widthCodeString}).
+                    s"""|The argument width (${dfVal.dfType.widthErrorString}) is different than the receiver width (${dfType.widthErrorString}).
                         |Consider applying `.resize` to resolve this issue.""".stripMargin
                   )
             dfVal.nameInDFCPosition.asValTP[DFBits[LW], RP]
@@ -536,9 +536,9 @@ object DFBits:
             case _                    =>
               if (dfType.compareWidths(dfValArg.dfType)(_ != _).getOrElse(true))
                 val lhsStr =
-                  if (castling) dfValArg.dfType.widthCodeString else dfType.widthCodeString
+                  if (castling) dfValArg.dfType.widthErrorString else dfType.widthErrorString
                 val rhsStr =
-                  if (castling) dfType.widthCodeString else dfValArg.dfType.widthCodeString
+                  if (castling) dfType.widthErrorString else dfValArg.dfType.widthErrorString
                 throw new IllegalArgumentException(
                   s"""|Cannot apply this operation between a value of $lhsStr bits width (LHS) and a value of $rhsStr bits width (RHS).
                       |An explicit conversion must be applied.""".stripMargin
@@ -763,8 +763,8 @@ object DFBits:
         def repeat[N <: IntP](num: IntParam[N])(using
             dfc: DFCG,
             check: Arg.Positive.CheckNUB[N]
-          // `LW`, not the equivalent `icL.OutW`: a path-dependent type reads as non-constant to
-          // the `IsConst` guard and would collapse the width (see `IntP.IsConstInt2`)
+            // `LW`, not the equivalent `icL.OutW`: a path-dependent type reads as non-constant to
+            // the `IsConst` guard and would collapse the width (see `IntP.IsConstInt2`)
         ): DFValTP[DFBits[IntP.*[LW, N]], icL.OutP | CONST] = trydf {
           val lhsVal = icL(lhs)
           num.toScalaIntOpt.foreach(check(_))

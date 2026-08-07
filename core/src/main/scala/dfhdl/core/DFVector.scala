@@ -110,8 +110,8 @@ object DFVector:
               val dfTypeLengthRef = dfType.asIR.cellDimParamRefs.head
               val argLengthRef = arg.dfType.asIR.cellDimParamRefs.head
               if (dfTypeLengthRef.compare(argLengthRef)(_ != _).getOrElse(true))
-                val dfTypeLengthStr = dfTypeLengthRef.refCodeString
-                val argLengthStr = argLengthRef.refCodeString
+                val dfTypeLengthStr = dfTypeLengthRef.refErrorString
+                val argLengthStr = argLengthRef.refErrorString
                 throw new IllegalArgumentException(
                   s"""The argument vector length ($argLengthStr) is different than the receiver vector length ($dfTypeLengthStr)."""
                 )
@@ -141,7 +141,7 @@ object DFVector:
           dfType.lengthIntOpt match
             case Some(ll) => check(ll, dfVals.length)
             case None     =>
-              val dfTypeLengthStr = dfType.asIR.cellDimParamRefs.head.refCodeString
+              val dfTypeLengthStr = dfType.asIR.cellDimParamRefs.head.refErrorString
               throw new IllegalArgumentException(
                 s"""The argument vector length (${dfVals.length}) is different than the receiver vector length ($dfTypeLengthStr)."""
               )
@@ -211,8 +211,8 @@ object DFVector:
               val dfTypeLengthRef = dfType.asIR.cellDimParamRefs.head
               val argLengthRef = arg.dfType.asIR.cellDimParamRefs.head
               if (dfTypeLengthRef.compare(argLengthRef)(_ != _).getOrElse(true))
-                val dfTypeLengthStr = dfTypeLengthRef.refCodeString
-                val argLengthStr = argLengthRef.refCodeString
+                val dfTypeLengthStr = dfTypeLengthRef.refErrorString
+                val argLengthStr = argLengthRef.refErrorString
                 throw new IllegalArgumentException(
                   s"""The argument vector length ($argLengthStr) is different than the receiver vector length ($dfTypeLengthStr)."""
                 )
@@ -248,7 +248,7 @@ object DFVector:
               val check = summon[`LL == RL`.Check[Int, Int]]
               check(ll, dfVals.length)
             case None =>
-              val dfTypeLengthStr = dfType.asIR.cellDimParamRefs.head.refCodeString
+              val dfTypeLengthStr = dfType.asIR.cellDimParamRefs.head.refErrorString
               throw new IllegalArgumentException(
                 s"""The argument vector length (${dfVals.length}) is different than the receiver vector length ($dfTypeLengthStr)."""
               )

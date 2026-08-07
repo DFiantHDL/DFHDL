@@ -611,7 +611,8 @@ final case class DB private (
         toValAndSliceOption match
           // found target variable or port declaration for the given connection/assignment
           case Some(connectToVal, slice) =>
-            val prevNets = connToMap.getNets(connectToVal, slice)
+            val prevNetsVerdicts = connToMap.getNetsVerdicts(connectToVal, slice)
+            val prevNets = prevNetsVerdicts.view.map(_._1).toSet
             // checking multiple assignments from different domains, except for a condition
             // where the declaration is a shared variable.
             // this is used to define a shared variable which is against the RT model,
@@ -620,7 +621,7 @@ final case class DB private (
               case dcl: DFVal.Dcl if dcl.modifier.isShared => true
               case _                                       => false
             if (!isSharedVar)
-              prevNets.headOption.foreach: prevNet =>
+              prevNetsVerdicts.headOption.foreach: (prevNet, _) =>
                 if (prevNet.getOwnerDomain != net.getOwnerDomain)
                   newError(
                     s"""|Found multiple domain assignments to the same variable/port `${connectToVal.getFullName}`.
@@ -628,14 +629,26 @@ final case class DB private (
                         |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                   )
             // go through all previous nets and check for collisions
-            prevNets.foreach: prevNet =>
+            prevNetsVerdicts.foreach: (prevNet, verdict) =>
               // multiple assignments are allowed in the same range, but not multiple
               // connections or a combination of an assignment and a connection
               if (prevNet.isConnection || prevNet.isAssignment && !net.isAssignment)
-                newError(
-                  s"""Found multiple connections write to the same variable/port `${connectToVal.getFullName}`.
-                     |The previous write occurred at ${prevNet.meta.position}""".stripMargin
-                )
+                if (verdict == Tri.Yes)
+                  newError(
+                    s"""Found multiple connections write to the same variable/port `${connectToVal.getFullName}`.
+                       |The previous write occurred at ${prevNet.meta.position}""".stripMargin
+                  )
+                // the slices could not be proven overlapping NOR disjoint (parameter-dependent
+                // indices the slice calculus cannot relate), so the write is conservatively
+                // rejected with an error that names the actual problem
+                else
+                  newError(
+                    s"""|Found a write to the same variable/port `${connectToVal.getFullName}` that cannot be proven to be
+                        |disjoint from a previous write, because their parameter-dependent bit ranges could not be
+                        |resolved. If the ranges never overlap, restructure their indexing so the compiler can relate
+                        |them, or use assignments within a process instead of connections.
+                        |The previous write occurred at ${prevNet.meta.position}""".stripMargin
+                  )
             // if no previous connection in this range, we add it to the range map
             if (prevNets.isEmpty)
               getConnToMap(
@@ -1670,6 +1683,55 @@ final case class DB private (
   //   * Rule 4: a loop containing an RT-domain shared-variable write moves whole into the
   //     clocked process, so all its content must be sequential-sink writes with settled
   //     reads; otherwise the loop must be split.
+  // The process block a member statement resides in, if any (walks out of nested
+  // conditional/step blocks; a domain owner boundary means the member is not in a process).
+  @tailrec private def ownerProcessOpt(member: DFMember): Option[ProcessBlock] =
+    member.ownerRef.get match
+      case pb: ProcessBlock => Some(pb)
+      case _: DFDomainOwner => None
+      case owner: DFBlock   => ownerProcessOpt(owner)
+      case _                => None
+
+  // A variable (or any part of it) written with both a blocking (`:=`) and a non-blocking
+  // (`:==`) assignment inside the same process commits at two different times, which is a
+  // semantic contradiction; the generated HDL then mixes `=`/`<=` on one variable inside a
+  // single process, which downstream tools reject (issue #446). The rule is per declaration
+  // and per process: which parts are assigned is irrelevant, and a consistently-assigned
+  // variable is fine with either kind (a blocking-assigned temporary in a clocked process
+  // is legitimate; see DropBAssignFromSeqProc). Shared variables are excluded, since their
+  // writes are already restricted to `:==` at compile time.
+  def mixedAssignKindCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    val firstNets = collection.mutable.Map.empty[(ProcessBlock, DFVal.Dcl), DFNet]
+    val reported = collection.mutable.Set.empty[(ProcessBlock, DFVal.Dcl)]
+    members.foreach {
+      case net @ DFNet.Assignment(toVal, _) =>
+        toVal.departialDcl match
+          case Some((dcl, _)) if !dcl.modifier.isShared =>
+            ownerProcessOpt(net).foreach { pb =>
+              val key = (pb, dcl)
+              firstNets.get(key) match
+                case Some(prevNet) =>
+                  if (prevNet.op != net.op && !reported.contains(key))
+                    reported += key
+                    errors +=
+                      s"""|DFiant HDL connectivity error!
+                          |Position:  ${net.meta.position}
+                          |Hierarchy: ${net.getOwnerDesign.getFullName}
+                          |LHS:       ${printer.csDFValRef(net.lhsRef.get, net.getOwnerDesign)}
+                          |RHS:       ${printer.csDFValRef(net.rhsRef.get, net.getOwnerDesign)}
+                          |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `${dcl.getFullName}` within the same process.
+                          |Use one assignment kind consistently for this variable inside the process.
+                          |The previous write occurred at ${prevNet.meta.position}""".stripMargin
+                case None => firstNets(key) = net
+            }
+          case _ =>
+      case _ =>
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n\n"))
+  end mixedAssignKindCheck
+
   def sharedVarCheck(): Unit =
     val errors = collection.mutable.ArrayBuffer[String]()
     def memberError(member: DFMember, msg: String): Unit =
@@ -1677,12 +1739,6 @@ final case class DB private (
                     |Position:  ${member.meta.position}
                     |Hierarchy: ${member.getOwnerDesign.getFullName}
                     |Message:   $msg""".stripMargin
-    @tailrec def ownerProcessOpt(member: DFMember): Option[ProcessBlock] =
-      member.ownerRef.get match
-        case pb: ProcessBlock => Some(pb)
-        case _: DFDomainOwner => None
-        case owner: DFBlock   => ownerProcessOpt(owner)
-        case _                => None
     members.foreach { m =>
       // Rule 1: a write to a shared variable inside a `process(all)`
       m match
@@ -2031,6 +2087,7 @@ final case class DB private (
     condExprNamedValCheck()
     blockScopeCheck()
     sharedVarCheck()
+    mixedAssignKindCheck()
 
   // Whole-tree checks, run once on the root: the cross-design connectivity /
   // RT-domain / device-top checks, via the `*` clones that navigate the

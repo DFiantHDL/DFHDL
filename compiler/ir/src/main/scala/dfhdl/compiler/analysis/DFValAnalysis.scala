@@ -32,6 +32,43 @@ object Ident:
     if (alias.hasTagOf[IdentTag]) Some(alias.relValRef.get)
     else None
 
+extension (member: DFMember)
+  // The kind-level half of the unreferenced-anonymous sweeps: whether this member MAY be
+  // dropped when nothing reads it. SHARED by the `DropUnreferencedAnons` compiler stage and
+  // elaboration's end-of-design sweep (`DesignContext.sweepUnreadAnons`), so the two can never
+  // drift. The "is it read" half is deliberately NOT shared: the stage asks
+  // `originMembers.isEmpty` on the immutable DB, while the elaboration sweep computes
+  // reachability over `getRefs` on the mutable snapshot (where origin tracking is not final).
+  def isDroppableIfUnread(using MemberGetSet): Boolean = member match
+    // conditional headers can be values (referenced by nothing, driven per branch)
+    case _: DFConditional.Header => false
+    // idents are always kept
+    case Ident(_) => false
+    // a procedural (Unit-return) method call is a statement: referenced by nothing,
+    // dropped by nothing
+    case DFVal.Func.Call(call, _) if call.dfType =~ DFUnit => false
+    // a declaration is a PLACE, not an expression: an anonymous dcl must survive the
+    // elaboration sweep so the elaboration check can REJECT it ("anonymous port/var
+    // declarations are forbidden"), and unreferenced named dcls belong to
+    // `DropUnreferencedVars`. No change for the stage: post-check DBs hold no anonymous dcls.
+    case _: DFVal.Dcl => false
+    case dfVal: DFVal => dfVal.isAnonymous
+    case _: DFRange   => true
+    case _            => false
+end extension
+
+extension (dfVal: DFVal)
+  // Dereferences type-preserving `AsIs` wrappers (idents and other identity casts) down to the
+  // first value of a different shape. SHARED by `IntExprCalc.Calc.strip` and `SimplifyFunc`'s
+  // structural comparisons, so simplifications see through `Ident(a)` to `a` (a named ident is
+  // value-identical to what it wraps).
+  @tailrec def stripTypePreservingAliases(using MemberGetSet): DFVal = dfVal match
+    case alias: DFVal.Alias.AsIs =>
+      val relVal = alias.relValRef.get
+      if (alias.dfType == relVal.dfType) relVal.stripTypePreservingAliases
+      else alias
+    case _ => dfVal
+
 //A design parameter is an as-is alias that:
 //1. has `DesignParamTag` tag
 //TODO: This is not yet working. more complicated than initially thought.

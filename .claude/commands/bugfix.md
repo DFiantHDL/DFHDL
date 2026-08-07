@@ -145,6 +145,94 @@ Two tidier-looking rewrites of that line are both wrong:
   is named `$scrutineeN`, which the plugin skips; a hand-written `val` becomes a **named DFHDL
   value** and appears in the generated code. `DFBoolOrBitSpec`'s "selection operation" caught it.
 
+### Every member-creating front-end op needs a trydf'd, cleanly-named runtime def
+
+A raw `dfhdl.core.DFError$Derived` stack trace (instead of a formatted, positioned elaboration
+error) means some inline op creates IR members with **no `trydf` on its runtime path**: an inner
+TC conversion traps its own error and returns an errored value, and the first thing to touch it
+(`DFVal.Func`'s arg walk) throws the `Derived`, which nothing catches. The fix is never to wrap
+the inline body itself; move the `DFVal.Func` call (and, via by-name parameters, the TC-conversion
+arguments) into a **runtime def** wrapped in `trydf { ... }(using dfc, CTName("<opname>"))`
+(`DFBoolOrBit.Val.Ops.selRuntime` is the model; `CTName` is passed explicitly so the reported
+operation name stays the user-facing one).
+
+Two properties of that runtime def are load-bearing and easy to break:
+
+- **It must be public** (or at least reachable without a synthetic accessor). A `private` def
+  referenced from an inline body is compiled into an `inline$foo` accessor, and the plugin's
+  meta-context fallback deliberately skips `$`-named applies. The stamp it would have applied is
+  what *anonymizes* the propagated context, so without it a statement-positioned member silently
+  inherits the **design instance's own name** from the constructor DFC (`PrintCodeStringSpec`'s
+  "Boolean selection operation" caught three members all named after the outer `val id` binding).
+  The `treeOwnerApplyMap` + anonymous-fallback pair in `MetaContextGenPhase.transformApply` IS the
+  naming mechanism: spine applies of a `val` get the val's name, everything else gets an anonymous
+  stamp, and both assume they can stamp the op's context apply.
+- **Its error position comes from the plugin, not the DFC it happens to receive.** Applies inside
+  a *library* inline expansion carry the library's own tree positions, and for TASTy-unpickled
+  sources those are mangled (the tell: `DFBoolOrBit.scala:120:5642`, a line near the source's
+  line count with an offset-sized column). A **macro-synthesized** apply (e.g. the
+  `ExactOp3.apply` call that `exactOp3Macro` builds) is just as bad: its trees carry the
+  position of the quote inside the macro's own source (`Exact.scala:505`), even though
+  `Position.ofMacroExpansion` read *inside* that macro is the user span. `MetaContextGenPhase`
+  keeps an `inlinedUserPosStack` of enclosing user-source `Inlined` nodes and substitutes the
+  innermost user position wherever a stamp would otherwise carry an out-of-unit position; if
+  positions regress to library files, start there. To see who stamps what, add temporary **file
+  logging** (plugin `println` never reaches the sbtn client) around `addToTreeOwnerMap` and the
+  two stamp sites in `transformApply`, filtered to the Playground unit.
+
+Note the position such stamps produce is the innermost user-code inline call, which for a nested
+op is the failing *sub-expression*, not the whole statement; `DFDecimalSpec`'s "Runtime error
+positions" pins the exact spans.
+
+The **compile-time** twin of this disease is separate: a raw `compiletime.summonInline` failure
+inside an inline op's body reports at the summon site in the library
+(`DFBoolOrBit.scala:120:6431`-style once TASTy-mangled), with no outer position chain for the
+reporter to recover. Prove plugin-independence first with
+`-P:dfhdl.plugin:disableCustomPrinter`: the raw compiler output is identical, so neither the
+`CustomReporter` outer-drop nor any transform phase is the cause. The ops that report at the
+user's code get their positions from **Exact-boundary macros** that bind the user's expression at
+the call site, before inlining. Three cheaper spellings do NOT work from inside the inline body,
+because the inliner rewrites substituted argument trees to body-local positions (verified by
+macro file-logging: the user's literal argument arrives carrying a `DFBoolOrBit.scala` span): a
+TrapError-style given splicing `compiletime.error`, extra transparent-inline nesting around the
+summon, and a boundary macro taking the inline arg.
+
+The fix that works is restructuring the op through an `exactOp*` boundary: `sel` became a thin
+`transparent inline` forwarder to `exactOp3`, with its type-level dispatch re-encoded as
+mutually-exclusive `ExactOp3` given instances (disjointness via `NotGiven` guards, so no given
+prioritization). Two properties of that conversion carry the diagnostics:
+
+- **Search the op instance under the `ControlledMacroError` trap** (`activate()` before
+  `Implicits.search`, read `getLastMacroAbortError` on failure, `deactivate()` after — the
+  `DualSummonTrapError` protocol). Without the trap, a candidate whose nested TC resolution fails
+  through a reporting fallback macro RESOLVES with a stray `compiletime.error` spliced into the
+  instance, and that leftover is later reported at a library-internal span; with it, the
+  candidate aborts and the specific message (e.g. ``Unsupported value of type `"1"` for DFHDL
+  receiver type `Bit`.``) is captured.
+- **Report the trapped message at `Position.ofMacroExpansion`**, which inside an Exact-op macro
+  IS the user's expression span (the flattenInlined instrumentation confirmed it), not at any
+  tree position reachable from the operands.
+
+`exactOp1`/`exactOp2` still use the untrapped generic-message report and would benefit from the
+same upgrade. When converting an inline-dispatch op this way, the behavior matrix (which operand
+drives the result type, and every exception to it) must be transcribed case by case into disjoint
+givens; the op's existing print/selection spec tests are the safety net, and `UnstablePathSpec`
+guards the skolem concern that the old `asInstanceOf[OT]` retype was carrying (exactInfo's
+widening covers it at the macro boundary).
+
+`Exact.flattenInlined` is a related but distinct position-stripper, and worth ruling out
+explicitly when chasing a position bug: instrumenting it shows it discards `Inlined` wrappers
+whose `call` carries the user span (e.g. `method + @ Playground:<225..233>`) and hoists their
+proxy bindings into a flat macro-built Block, which is exactly why `MetaContextGenPhase`'s
+args-descent workaround exists ("macros (e.g., flattenInlined in Exact) strip Inlined wrappers
+that prepareForInlined relied on"). With that workaround the Exact-op stamps land correctly (the
+plugin debug log shows `ExactOp2.apply` stamped at user positions). It was NOT in the chain of
+either `sel` issue: the runtime junk stamps came from raw (non-Exact) inline bodies, and the
+compile-time `sel` failure happens before any Exact macro runs, because `sel`'s generic `OT`/`OF`
+params take the argument as-is; the INLINER itself repositions the substituted argument (macro
+logging showed the user's `"1"` literal arriving with the span of the `onTrue` reference inside
+the `sel` body).
+
 Both cost a full suite cycle to find, and neither is visible in the file being edited.
 
 ### Changing a type-level algebra: pick the mechanism by when it costs
@@ -201,6 +289,36 @@ failures to expect are therefore specs that assert an error and find none: `asse
 `assertDSLErrorLog` reporting `No error found`. Note `assertDSLErrorLog` asserts **twice**, a
 compile error for its snippet and then an elaboration error for its block, so "which half failed"
 is a real question and the failure position does not tell you.
+
+### Sibling op givens drift like twin helpers do
+
+The "twin helpers drift" rule from §2 applies to `ExactOp*` given families too. Issue #445: the
+commutative and non-commutative arith givens both carried wildcard-`Int` adaptation
+(`checkWildcardFit` + adapt to the bit-accurate operand), while the carry givens
+(`evOpCarryAddSubDFXInt`, `evOpCarryMulDFXInt`) had none, so an `Int <> CONST` parameter fell
+through to its runtime representation (signed 32-bit) and silently produced `SInt[33]` where
+`UInt[11]` was expected. When one given of a family handles a species of operand specially, diff
+the siblings for that branch before concluding the behavior difference is intentional.
+
+Two mechanism notes from that fix:
+
+- **Two operand species can be type-level identical and runtime distinct.** A Scala `Int`
+  (literal or runtime) and a DFHDL `Int` parameter both reach an op given as
+  `OutS = Boolean, OutW = Int, OutN = Int32`, but at runtime the Scala `Int` candidate has
+  already built a bit-accurate const at the value's minimal width, while the parameter is still
+  `DFInt32`. When the two need different semantics (carry ops: literals keep minimal width,
+  pinned by `100 *^ u8 == UInt[15]`; parameters adapt), dispatch on
+  `dfType.asIR.isDFInt32` at runtime and leave the static `Out` degraded, rather than inventing
+  an `IsConst`-style type-level discriminator (the §"stuck, not false" traps).
+- **For a new operand-legality rule on type-level `Boolean`/`Int` values, prefer a
+  `Check1`/`Check2` object (`Checked.scala`) over `AssertGiven`.** One object holds the condition
+  and message for every use site (alias it in `Constraints`, e.g. `CarryCheck`), it fails at
+  compile time when the types reduce, and the same instance is runtime-invocable with runtime
+  witnesses for the widened case. Empirically its failure inside an **untrapped** `exactOp2`
+  candidate resolution still surfaced the *specific* message at the *user's expression* span
+  (the spliced `compiletime.error` reports at the inlined call), so the generic-message caveat
+  above does not always cost you the diagnostic; verify per case with `assertCompileError` plus
+  one manual compile for the position.
 
 ### Probing type-level behaviour
 
@@ -289,6 +407,74 @@ mirrored rule (cache the resolved answer when it is `KnownConst`) is *unsound*, 
 `KnownConst` may have come through a parameter and would then fold a value that must stay
 parametric. Prove which way the asymmetry runs before exploiting it, and pin **both** consumption
 orders in the regression test.
+
+### When the bug only appears across a serialization or cache boundary
+
+An internal `NoSuchElementException: key not found: "TW_..."` that fires only when the sub-design
+cache serves a hit, while a live elaboration of the identical source passes every check, is a
+**ghost binding**: a refTable VALUE whose member object was removed from the member list after the
+binding was made (issue #449). Live runs tolerate ghosts because the tokens a ghost emits still
+resolve in their own run; adoption re-mints tokens for members only, so a ghost's tokens dangle in
+the loading run. Lessons that generalize:
+
+- **The report's trigger may be cache-bypass, not cause.** A coarser cache above the buggy one
+  (the DFApp step cache replays the whole design on identical re-runs) can mean the failing run is
+  the FIRST to ever exercise the buggy path. "Edit + rebuild crashes, identical rebuild is fine"
+  read as invalidation; the truth was "adoption of this entry always crashes, and only the edit
+  makes elaboration actually run". Reproduce with two elaborations in one JVM through the
+  `MapSubDesignCache` seam before believing any staleness theory.
+- **Token forensics.** A ref token prints as `TW_<grpId1Hex>_<grpId2Hex>_<id>` with
+  `grpId = (position.hashCode, per-position JVM counter)`. In-JVM double elaboration gives the
+  storing run counter 0 and the loading run counter 1, so the failing token's counter says
+  immediately whether an unfreshened STORED token leaked through re-minting.
+- **Validate an artifact over its refTable VALUES, not only its keys.** "Every ref a member emits
+  is bound" (key closure) does not imply "every binding target is a member" (value re-uniting),
+  and only the second catches ghosts. `SanityCheck.refCheck` reports the same defect stage-side as
+  "Ref exists for a removed member"; `SubDesignEntry.isSelfContained` is the entry-level contract,
+  kept at SANITY level (asserted in the cache specs, never computed on the production store/lookup
+  path: always-on validation was rejected as redundant, since only a DFHDL bug or a dirty dev loop
+  can violate it). The stored entry is JSON, so all of this is checkable offline in a Playground
+  `@main` with no compiler edits.
+- **A removal decided on "unreferenced NOW" is unsound when a front-end handle can bind refs
+  LATER.** `MergeAssocFunc` absorbed an intermediate `+` Func and removed it before `lsbitsAt`
+  bound the offset refs to it (a method parameter is a handle; anonymity is about naming, not
+  about reachability from Scala code). A first fix made the removal resurrectable (un-ignore on
+  bind), and it worked, but was retired as compensation for a decision made at the wrong time.
+  The adopted principle instead, scoped to OPERATION SIMPLIFICATIONS
+  (arithmetic/logic/casting/conversion): a simplification never `setMember`s/`replaceMember`s/
+  removes an anonymous member; it builds a NEW member with fresh refs and leaves the superseded
+  one as debris for a snapshot-boundary sweep (`endDesign`, where "is it read?" has its final
+  answer). A blanket non-anonymous-target guard was rejected as too broad: construction
+  protocols (`initForced`, conditional-header retyping, `setName`/`tag`) legitimately keep
+  revision semantics; a ghost from one of those would surface loudly via `DB.check` /
+  `SanityCheck.refCheck` and the sanity-level `isSelfContained` contract in the cache specs.
+  Converted sites: `SimplifyFunc` (all extractors, with `rebindMeta` naming by `Ident` wrap and
+  the `=~` comparisons made ident-transparent via `stripTypePreservingAliases`) and the
+  DFDecimal carry peel/retype; the DFVal `AsIs` in-place conversions were audited and KEPT (a
+  revision, unlike a removal, cannot ghost: same-context bindings are re-pointed, cross-context
+  bindings to anons never exist).
+- **`clearDFHDL` before trusting a full-suite run that follows core elaboration edits.** Stale
+  `dfhdl-cache` entries stored by the pre-edit build stay digest-valid under uncommitted edits
+  (the `dfhdl@<version>` fold only changes on a commit), and adopting mixed-era entries can shift
+  the dclName enumeration: the AES `FullCompileSpec` file-NAME comparison failed with
+  `mulByte_0/1/2` renamed to `_1/2/3`, which reads like an enumeration bug and is cache debris.
+
+### A missed diagnostic can have several independent gates
+
+When the bug is "a warning/error SHOULD have fired and did not", the predicate that suppressed
+it is usually a conjunction, and more than one conjunct can be false for the same input. Fixing
+the gate the reporter (correctly) suspected and observing no change does not refute that fix; it
+means there is a SECOND gate. Issue #452: the parametric-width warning miss required both a
+width test that returned "not narrow" for unresolvable widths AND a tag check blind to the alias
+that parametric adaptation wraps around the tagged const (literal widths fold the const, so the
+alias only exists in the parametric regime). Re-run the reproducer after EACH gate fix, and
+diagnose the remaining gates by diffing the IR shape (`getCodeString`) of the warning and
+non-warning twins, not by re-reading the predicate.
+
+Probing designs outside the app runner has its own traps: a lib design class with all-defaulted
+parameters is auto-`@top`ed, and a bare `Design()` of a topped class returns a STAGED handle
+that never elaborates (no warnings, empty DB) — mark probe designs `@top(false)`. Read warnings
+via `dsn.dfc.getWarnings`; prefer `getCodeString` over `getDB` for IR inspection in a lib @main.
 
 ### Two habits that pay off
 
@@ -485,6 +671,49 @@ rule**, not a message worth improving. Add the verdict as a `newError` inside `g
 wins over the generic one automatically, and it arrives in the standard connectivity-error block
 (position, hierarchy, LHS, RHS) at no cost.
 
+### A conservative check over parametric bounds: prove, resolve, and only then reject
+
+A check that compares parameter-dependent index/width expressions (the slice-overlap check of
+issues #442/#447 is the archetype) must not collapse "parametric" to "unknown": that rejects
+`o(W-1, 0)` next to `o(2W-1, W)`, which are disjoint for every W. The machinery that fixed it
+generalizes:
+
+- **Decide on linear forms.** `IntExprCalc` decomposes an integer `DFVal` expression into
+  `Σ ci·basei + offset`; `Slice.Symbolic` carries `(lo, width)` as such forms, and
+  `IntExprCalc.DataCalc.proveNonNeg` proves `e >= 0` using validity facts (every slice width is
+  `>= 1` on the valid parameter domain). The single-fact proportional rule is enough for the
+  equal-bin family (`k*W` slices of width `W`) at any pair distance. When neither disjointness
+  nor overlap is provable, keep the conservative error but say *why* (a distinct message for
+  "cannot be proven disjoint"), the generic message misled the #442 reporter into a wrong theory.
+- **Resolve applied parameters through the instantiation site, never by gating on `isTop`.**
+  Under the hierarchical model *and* in DBs flattened from it (the backend printer's flat DB),
+  every design block's `ownerRef` is empty, so `isTop` reads true where it must not — that gate
+  silently kept a sub-design's `W` symbolic. `GoThroughDesignParams` is wrong in the other
+  direction: it folds even the elaboration root's parameters (that is `toScalaInt`'s job), and a
+  root parameter must stay symbolic because it is overridable in the generated HDL.
+  `DesignParam.instAppliedConstDataOpt` is the correct primitive: cached instance during
+  elaboration, `designBlockInstMap` on flat DBs, `parentSubDBOpt` walk-up on hierarchical
+  sub-DBs, and `None` exactly for the elaboration root.
+- **The check re-runs where you don't expect.** `connectionTable` is forced again by the backend
+  printer on the *flat* DB, so a connectivity-analysis fix must resolve under every DB model; a
+  test that only elaborates is blind to the print-time re-run. Pin it with
+  `getCompiledCodeString` (`ElaborationChecksSpec`'s sub-design slice test is the model).
+- **`clearDFHDL` between probe re-runs after compiler edits.** The sub-design elaboration cache
+  serves API-driven probes (`getCompiledCodeString`) too, not just DFApp runs; a cached child
+  elaboration skips the very code you just changed and the probe "reproduces" stale behavior.
+- One departial-coordinate trap fixed alongside: a vector `ApplyRange`'s indices are in **cell**
+  units and must be scaled by the cell width into bit coordinates; the old `shift(idxLow)` mixed
+  units and falsely errored even fully-literal `o(0, 1)` / `o(2, 3)` vector range connections.
+- **Symbolic elimination is a per-site semantic choice, not a smarter equivalence.** The width-fit
+  checks accept `LHS >= RHS` after a mixed `max`/`min` drops its symbolic operands
+  (`16 >= WIDTH max 16` decides as `16 >= 16`; `IntParamRef.compare(..., elimSymbolicMaxMin =
+  true)`), which deliberately tolerates the symbolic case's truncation. Two rules keep it safe:
+  it must NEVER back `=~`/`isSimilarTo` (calling `max(W,16)` similar to `16` would skip the
+  resize insertion in `toDFXIntOf` and miscompile), and every sibling decision site of the same
+  construct must adopt it together — carry promotion (`carryPromoteWidthCheck`) had to switch
+  with the TC width-fit check, or `sum := x + y` (anonymous, carry-promoted to `max+1`) would be
+  definitively rejected while `val xy = x + y; sum := xy` passes.
+
 ### Then measure the blast radius
 
 Run the full suite with the check in and **no stage fixes yet**. The failures are the deliverable
@@ -590,6 +819,43 @@ HDL method). A "simplification" that quietly moves an edge case is a second bug 
   one backend's context split, audit the OTHER backend's rendering of the same IR feature: the
   distinction always exists somewhere, either in the literal or in the construct.
 
+- **A diagnostic that names IR members through the code printer inherits the code printer's
+  scoping, which is wrong for errors.** `refCodeString` renders a reference relative to the
+  reference's OWN design (and prints a `DesignParam` bare unconditionally), which is correct for
+  printing code and degenerate in an error message: two same-named constants from different
+  designs print identically ("width (OUTPUT_WIDTH) differs from width (OUTPUT_WIDTH)", issue
+  #448). Error messages must render relative to the ERROR SITE (`getRelativeName(dfc.ownerOption
+  ...)` → `c.OUTPUT_WIDTH` vs `OUTPUT_WIDTH`); that lives in a dedicated sibling
+  (`refErrorString` / `widthErrorString`), never in a change to the code-printing path. Related:
+  such runtime elaboration messages are untouched by the plugin's `disableCustomPrinter`, which
+  only affects scalac diagnostics; if a bad message survives that flag, stop suspecting the
+  custom printer.
+
+- **The Verilog printer prints arithmetic funcs bare and relies on the CONSUMER to size them —
+  self-determined contexts break that contract, and the fix belongs in a STAGE, not the
+  printer.** A carry-widened func (IR width exceeds its operands') is correct under an
+  assignment or a size cast (context-determined), and silently truncates as a concatenation
+  operand, because Verilog concat operands are self-determined. The `$signed({1'b0, ...})`
+  sign-conversion emission is such a context (issue #452 follow-up: `$signed({1'b0, a * 2'd3})`
+  pinned a promoted 4-bit mul at 2 bits). A printer-side width pin
+  (`$signed({1'b0, 4'(a * 2'd3)})`) works but was REJECTED by review: the established remedy
+  for "Verilog cannot render this anonymous construct inline" is the `NamedAliases` family —
+  a `NamedVerilogSelection` criterion names the carry func, its assignment provides the
+  widening context, and the concat sees a declared identifier. When auditing, check every
+  emission that embeds an expression in `{...}`. VHDL is immune (its helpers are
+  width-explicit) and DFacsimile follows IR semantics, so this class of bug is SV-only and
+  invisible to DFHDL-printout tests — pin the naming in `NamedSelectionSpec` and the emission
+  in `PrintVerilogCodeSpec` (append new tests at the END; mid-file inserts shift embedded
+  source positions).
+- **A transformation that wraps its operand BEFORE pattern-matching it hides the shape from
+  itself and every check inside the match.** `toDFXIntOf` applied the `.signed` sign fix first
+  and then matched for the carry-promotion candidate, so an unsigned chain meeting a signed
+  context was never promoted AND never warned (the warning lived inside the promotion branch).
+  Order shape-sensitive rewrites before wrapping, and when an upstream site pre-wraps (the
+  commutative sign alignment), unwrap the known wrapper — guarded by its exact signature
+  (signed alias over unsigned func, width == w+1, widths resolved through params) so
+  reinterpret casts stay untouched.
+
 The blast-radius step still applies, and here it reads inverted: a fully green suite with no
 reference output changed is not evidence the fix is inert, it confirms the whole branch was
 untested. The `ref/` grep from §2 predicts this: only the shared-variable form of `:=` appeared
@@ -641,9 +907,12 @@ Revert only the changed guard in place instead, and watch for a silent run.
 then passes, and the honest reading ("my reproducer is wrong, go find a different shape") sends you
 chasing a distinction that does not exist. The tell is a `scala.MatchError: <n> (of class
 java.lang.Integer)` from `compileIncremental` on some *other* subproject during the same session —
-the same corrupted-incremental-state symptom as after any front-end edit. Run `clean` before
-trusting a stashed run, and re-confirm on a clean build before concluding the test does not
-reproduce.
+the same corrupted-incremental-state symptom as after any front-end edit. A
+`dotty.tools.dotc.core.Denotations$StaleSymbolException` ("stale symbol ... referred to in run")
+while compiling a *downstream* subproject is the same disease, and so is a phantom
+`[E046] Cyclic Error ... Cyclic reference involving val <import>` in an untouched `core` file
+right after a `compiler_ir` edit — even a body-only one. Run `clean` before trusting a stashed
+run, and re-confirm on a clean build before concluding the test does not reproduce.
 
 This is not paranoia. A `<Stage>Spec` asserts on the DFHDL *printout*, and two different IRs can
 print identically — the printout is the stage contract precisely because it hides representation.

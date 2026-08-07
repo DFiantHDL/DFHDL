@@ -86,4 +86,6 @@ class IssuesSpec extends FunSuite:
     i147.ClockRstConnection().compile.lint
   test("i375 compiles with no exception"):
     i375.draw_line().compile
+  test("i450 compiles with no exception"):
+    i450.TopC().compile
 end IssuesSpec

@@ -22,6 +22,44 @@ final case class SubDesignEntry(
     children: List[(StaticRef, SubDesignRef)]
 ) derives ReadWriter:
 
+  /** SANITY-LEVEL contract check, for tests and debugging only: deliberately NOT evaluated on
+    * the production store/lookup path (an O(members + refs) walk per entry would tax every cache
+    * interaction to defend against states only a DFHDL bug or a dirty dev loop can produce; a
+    * ghost-free elaboration is guaranteed by construction, and stale entries from other DFHDL
+    * builds retire through the code digest's version fold, with `clearDFHDL` covering
+    * uncommitted-edit dev loops).
+    *
+    * Whether this entry's DB is self-contained: every reference a member emits resolves in the
+    * entry's refTable, and every refTable binding's target is (a value-equal copy of) one of the
+    * entry's members.
+    *
+    * The value half is not implied by the key half: elaboration can leave a binding whose target
+    * object was removed from (or revised in) the member list after the binding was made (issue
+    * #449's ghost: `MergeAssocFunc` absorbed an intermediate Func and removed it, and the front end
+    * then bound new refs to it through its still-live handle). Such a ghost is harmless in its own
+    * run, whose refTable still resolves the tokens the ghost emits, but it cannot survive adoption:
+    * token re-minting covers members only, so the ghost keeps emitting the STORING run's tokens,
+    * which resolve against nothing in the loading run. `SanityCheck.refCheck` reports the same
+    * defect ("Ref exists for a removed member") in debug/spec runs.
+    *
+    * Only `getRefs` (the TwoWay refs) and `ownerRef` are required to be bound: the structural
+    * OneWay keys (`DFDesignInst.designRef`, a method call's design key) are deliberately absent
+    * from the refTable and resolve through the design registry instead.
+    *
+    * Consumed by the `ClassDesignCacheSpec` "issue #449" test.
+    */
+  def isSelfContained: Boolean =
+    val memberSet = db.members.toSet
+    val keysClosed = db.members.forall { m =>
+      (m.ownerRef.isInstanceOf[DFRef.Empty] || db.refTable.contains(m.ownerRef)) &&
+      m.getRefs.forall(db.refTable.contains)
+    }
+    keysClosed && db.refTable.valuesIterator.forall {
+      case _: DFMember.Empty => true
+      case t                 => memberSet.contains(t)
+    }
+  end isSelfContained
+
   /** This entry's design as a design of the LOADING run.
     *
     * A stored ref token means nothing to this run. The storing run minted it from its own

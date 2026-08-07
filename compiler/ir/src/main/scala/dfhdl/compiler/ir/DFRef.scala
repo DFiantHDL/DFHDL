@@ -168,7 +168,14 @@ object IntParamRef:
     // Returns `None` when the unknown parts don't cancel.
     // Symbolic equivalence is decided by `IntExprCalc`, so e.g. `2 * W`
     // matches `W + W` and `max(W, W + 1)` matches `W + 1`.
-    def compare(that: IntParamRef)(func: (Int, Int) => Boolean)(using
+    // With `elimSymbolicMaxMin`, a mixed max/min additionally reduces to its
+    // constant operands (`max(W, 16)` reads as `16`), so a width-fit decision
+    // such as `16 >= max(W, 16)` answers definitively; this deliberately
+    // discards the symbolic case, so it is only for check sites that accept
+    // by that rule, never for equality/similarity (see `IntExprCalc.constDiff`).
+    def compare(that: IntParamRef, elimSymbolicMaxMin: Boolean = false)(
+        func: (Int, Int) => Boolean
+    )(using
         MemberGetSet
     ): Option[Boolean] =
       (intParamRef, that) match
@@ -184,7 +191,12 @@ object IntParamRef:
           for
             lVal <- asDFVal(intParamRef)
             rVal <- asDFVal(that)
-            diff <- IntExprCalc.constDiff(lVal, rVal, resolveDesignParams = true)
+            diff <- IntExprCalc.constDiff(
+              lVal,
+              rVal,
+              resolveDesignParams = true,
+              elimSymbolicMaxMin
+            )
           yield func(diff, 0)
     end compare
   end extension

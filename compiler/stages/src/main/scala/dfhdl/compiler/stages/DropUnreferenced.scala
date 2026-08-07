@@ -24,18 +24,13 @@ case object DropUnreferencedAnons extends HierarchyStage, NoCheckStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
   @tailrec private def loop(rootDB: DB)(using MemberGetSet, RefGen): DB =
+    // the kind-level criteria (which members may be dropped and which are always kept) are the
+    // shared `isDroppableIfUnread` predicate, so this stage and elaboration's end-of-design
+    // sweep (`DesignContext.sweepUnreadAnons`) can never drift; only the "is it read" question
+    // differs (here: origin tracking on the immutable DB)
     val patchList = subDB.members.flatMap {
-      // skipping over conditional headers that can be considered values as well.
-      case _: DFConditional.Header => None
-      // idents are always kept
-      case Ident(_) => None
-      // a procedural (Unit-return) method call is a statement: referenced by nothing,
-      // dropped by nothing
-      case DFVal.Func.Call(call, _) if call.dfType =~ DFUnit    => None
-      case m: DFVal if m.isAnonymous && m.originMembers.isEmpty =>
-        Some(m -> Patch.Remove())
-      case m: DFRange if m.originMembers.isEmpty => Some(m -> Patch.Remove())
-      case _                                     => None
+      case m if m.isDroppableIfUnread && m.originMembers.isEmpty => Some(m -> Patch.Remove())
+      case _                                                     => None
     }
     if (patchList.isEmpty) subDB
     else

@@ -808,6 +808,62 @@ class DFDecimalSpec extends DFSpec:
       s8 + bigUnsigned
     }
   }
+  test("Carry ops with wildcard Int operands") {
+    val u8 = UInt(8) <> VAR
+    val s8 = SInt(8) <> VAR
+    val param: Int <> CONST = 10
+
+    // A wildcard `Int` parameter adapts to the bit-accurate operand's sign and width,
+    // so `+^`/`-^` widen that operand's width by one bit (instead of promoting the
+    // parameter to a 32-bit signed value)
+    val c1: UInt[9] <> CONST = d"8'22" +^ param
+    assertEquals(c1, d"9'32")
+    val c2: UInt[9] <> CONST = param +^ d"8'22"
+    assertEquals(c2, d"9'32")
+    val c3: UInt[9] <> CONST = d"8'22" -^ param
+    assertEquals(c3, d"9'12")
+    val c4: UInt[9] <> CONST = param -^ d"8'3"
+    assertEquals(c4, d"9'7")
+    val c5: SInt[9] <> CONST = sd"8'22" +^ param
+    assertEquals(c5, sd"9'32")
+    // Carry mul with a wildcard parameter doubles the bit-accurate operand's width
+    val c6: UInt[16] <> CONST = d"8'22" *^ param
+    assertEquals(c6, d"16'220")
+    val c7: UInt[16] <> CONST = param *^ d"8'22"
+    assertEquals(c7, d"16'220")
+    val c8: SInt[16] <> CONST = sd"8'22" *^ param
+    assertEquals(c8, sd"16'220")
+    // Unsized `d"$param"` binding and parameter expressions adapt the same way
+    val c9: UInt[9] <> CONST = d"8'22" +^ d"$param"
+    assertEquals(c9, d"9'32")
+    val c10: UInt[9] <> CONST = d"8'22" +^ (param + 2)
+    assertEquals(c10, d"9'34")
+
+    // Both-Int carry ops are rejected: there is no bit-accurate operand to widen against
+    val param2: Int <> CONST = 3
+    val bothIntErr =
+      "Carry operations require at least one bit-accurate operand (`UInt`/`SInt`), but both operands are `Int` values."
+    assertCompileError(bothIntErr)("""param +^ param2""")
+    assertCompileError(bothIntErr)("""param -^ param2""")
+    assertCompileError(bothIntErr)("""param *^ param2""")
+    assertCompileError(bothIntErr)("""3 +^ param""")
+    assertCompileError(bothIntErr)("""param *^ 3""")
+    assertCompileError(bothIntErr)("""3 +^ 5""")
+
+    // The wildcard parameter must fit the bit-accurate operand
+    assertRuntimeErrorLog(
+      "Wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
+    ) {
+      val bigVal: Int <> CONST = 1000
+      u8 +^ bigVal
+    }
+    assertRuntimeErrorLog(
+      "Wildcard `Int` value is negative and cannot adapt to an unsigned bit-accurate value."
+    ) {
+      val negVal: Int <> CONST = -1
+      u8 +^ negVal
+    }
+  }
   test("d\"\" unsigned-only interpolation") {
     // d"" produces unsigned UInt constants
     assertEquals(d"0", d"1'0")
@@ -876,6 +932,9 @@ class DFDecimalSpec extends DFSpec:
          |u12 := (u8 *^ u8).resize(12)
          |u9 := (u8 + u8) +^ u8
          |u9 := (u8 + u8 + u8) +^ u8
+         |u10 := ((u8 + u8) +^ d"8'1").resize(10)
+         |u10 := ((u8 + u8b + u8) +^ d"8'1").resize(10)
+         |s9 := (s8 + s8) +^ sd"8'1"
          |""".stripMargin
     } {
       // Basic carry promotion for +
@@ -905,6 +964,33 @@ class DFDecimalSpec extends DFSpec:
       u9 := u8 + u8 + u8
       // carry promotion with 4 arguments
       u9 := u8 + u8 + u8 + u8
+      // Implicit-Int chain to a wider target: the outer op is promoted to carry
+      // under the target-width context, so no Verilog-semantics divergence remains
+      // (issue #453) and the promotion is visible in the printed code
+      u10 := u8 + u8 + 1
+      u10 := u8 + u8b + u8 + 1
+      s9 := s8 + s8 + 1
+    }
+  }
+  test("Arithmetic auto-carry promotion through sign conversion") {
+    val u2 = UInt(2) <> VAR
+    val s8 = SInt(8) <> VAR
+    val s9 = SInt(9) <> VAR
+    assertCodeString {
+      """|s8 := sd"8'0" - (d"2'3" *^ u2).signed.resize(8)
+         |s8 := s8 - (d"2'3" *^ u2).signed.resize(8)
+         |s9 := (d"2'3" *^ u2).signed.resize(8) +^ s8
+         |""".stripMargin
+    } {
+      // The unsigned narrow chain is promoted BEFORE the sign conversion the signed
+      // sibling forces, so the widening happens ahead of the conversion instead of the
+      // conversion pinning the chain at its narrow width
+      s8 := sd"8'0" - 3 * u2
+      s8 := s8 - 3 * u2
+      // The commutative sign alignment wraps the chain in a `.signed` alias before the
+      // conversion; the promotion unwraps it and re-applies the conversion on top,
+      // keeping the written operand order
+      s9 := 3 * u2 + s8
     }
   }
   test("Int32 arithmetic") {
@@ -972,11 +1058,11 @@ class DFDecimalSpec extends DFSpec:
     // Should NOT warn: (a + b) >> 2 — no implicit Int in the + chain
     val t2d = (a + b) >> 2
 
-    // Should warn: wider target with implicit Int in chain
+    // Should NOT warn: wider target with implicit Int in chain - the chain is
+    // emitted under the target-width context (size cast), so it is bit-exact
+    // with Verilog's 32-bit evaluation and truncation (issue #453)
     val sum = UInt(10) <> VAR
-    assertRuntimeWarningLog(warnMsg) {
-      sum := a + b + c + d + 1
-    }
+    sum := a + b + c + d + 1
 
     // Should NOT warn: wider target but explicit literal
     sum := a + b + c + d + d"1"
@@ -984,10 +1070,8 @@ class DFDecimalSpec extends DFSpec:
     // Should NOT warn: wider target but single op, carry promotion handles it
     sum := u8 + 1
 
-    // Should warn: wider target with chain, intermediate overflow
-    assertRuntimeWarningLog(warnMsg) {
-      sum := u8 + u8 + 1
-    }
+    // Should NOT warn: wider target with chain - same target-width context
+    sum := u8 + u8 + 1
 
     // Should NOT warn: target width == expression width
     u8 := u8 + 1
@@ -1128,9 +1212,9 @@ class DFDecimalSpec extends DFSpec:
     val arg = 10000
     val errMsg =
       "Wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
-    assertRuntimeErrorLog(errMsg, 43, 59)(cnt := cnt + arg)
-    assertRuntimeErrorLog(errMsg, 43, 67)(cnt := cnt + (cnt + arg))
-    assertRuntimeErrorLog(errMsg, 43, 65)(cnt := cnt + arg + cnt)
+    assertRuntimeErrorLog(errMsg, 50, 59)(cnt := cnt + arg)
+    assertRuntimeErrorLog(errMsg, 50, 66)(cnt := cnt + (cnt + arg))
+    assertRuntimeErrorLog(errMsg, 50, 65)(cnt := cnt + arg + cnt)
     assertRuntimeErrorLog(errMsg, 69, 78) { val x: Bits[8] <> VAL = cnt + arg }
   }
 

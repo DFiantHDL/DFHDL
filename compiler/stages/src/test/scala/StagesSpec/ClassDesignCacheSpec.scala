@@ -2,6 +2,8 @@ package StagesSpec
 
 import dfhdl.*
 import dfhdl.compiler.ir
+import dfhdl.compiler.analysis.isDroppableIfUnread
+import dfhdl.compiler.printing.DefaultPrinter
 import dfhdl.core.{DFC, SubDesignCache}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
@@ -202,4 +204,65 @@ class ClassDesignCacheSpec extends StageSpec:
     assertCodeString(genParamHost(using cachedDFC(cache)), expectedParamCodeString)
     assertEquals(ClassBodyElaborations.count, 0)
   }
+
+  // ~~~ issue #449: a parametric slice whose offset expression is absorbed by index arithmetic ~~~
+  // Building the slice's high index absorbs the offset `+` Func (`SimplifyFunc.MergeAssocFunc`)
+  // BEFORE `lsbitsAt` binds its own refs to it. The absorbed Func must come back as a member
+  // (resurrectable removal) rather than stay a removed-member ghost among the refTable values:
+  // a ghost is harmless in its own run, whose refTable still resolves the tokens it emits, but
+  // cache adoption re-mints tokens for members only, so a ghost's tokens dangle in the loading
+  // run and the first ref resolution through it crashes.
+  def genSliceHost(using DFC): dfhdl.core.Design =
+    class SliceChild(
+        val W: Int <> CONST    = 11,
+        val BINS: Int <> CONST = 9
+    ) extends EDDesign:
+      val v = Bits(W * BINS) <> VAR
+      val o = Bits(W)        <> VAR
+      v <> all(0)
+      process(all):
+        for (i <- 0 until BINS)
+          o := v.lsbitsAt(i * W + 1, W)
+    end SliceChild
+    class SliceHost extends EDDesign:
+      val WIDTH: Int <> CONST = 4
+      val child               = SliceChild(W = WIDTH, BINS = 3)
+    new SliceHost
+  end genSliceHost
+
+  // Issue #449 regression: the `isSelfContained` assert is the entry contract's only
+  // enforcement point (a test-level sanity check, deliberately kept off the production
+  // store/lookup path), and the debris assert pins the end-of-design sweep: superseded
+  // simplification intermediates never reach a stored entry.
+  test("issue #449: a cached child with an absorbed slice-offset Func round-trips") {
+    val cache    = new MapSubDesignCache
+    val liveFlat = genSliceHost(using liveDFC).getDB.newToOld
+    val liveCS   =
+      import liveFlat.getSet
+      DefaultPrinter.csDB
+    // the first elaboration runs live; the stored entry must be self-contained (the absorbed
+    // offset Func stays a member since the slice reads it, no ghost refTable value) and
+    // debris-free (unread simplification leftovers swept at the end of the design)
+    genSliceHost(using cachedDFC(cache))
+    assertEquals(cache.entries.size, 1)
+    assert(cache.entries.values.forall { json =>
+      val entry             = ir.SubDesignEntry.fromJsonString(json)
+      given ir.MemberGetSet = entry.db.getSet
+      val readTargets       =
+        entry.db.members.view.flatMap(_.getRefs).flatMap(entry.db.refTable.get).toSet
+      entry.isSelfContained && entry.db.members.forall(m =>
+        !m.isDroppableIfUnread || readTargets.contains(m)
+      )
+    })
+    // the second elaboration adopts the entry; every ref in the flat view must resolve,
+    // and the design must print exactly as the live one
+    val cachedFlat = genSliceHost(using cachedDFC(cache)).getDB.newToOld
+    cachedFlat.check
+    assertEquals(cache.hits, 1)
+    val cachedCS =
+      import cachedFlat.getSet
+      DefaultPrinter.csDB
+    assertNoDiff(cachedCS, liveCS)
+  }
+
 end ClassDesignCacheSpec

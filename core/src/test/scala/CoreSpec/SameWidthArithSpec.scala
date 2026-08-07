@@ -31,6 +31,51 @@ class SameWidthArithSpec extends NoDFCSpec:
     )
   }
 
+  // An unrolled accumulation over a parametric width grows its result width as a
+  // left-nested `max` chain (`((16 max W) max W) max W`). `SimplifyFunc.MaxMinChainAbsorb`
+  // collapses the repeated operand, so the chain stays minimal (`16 max W`). Design
+  // parameters are used since they stay symbolically opaque (a local `Int <> CONST`
+  // has known data and folds through `MaxMinWithOffset` instead).
+  // A named `val` over a collapsed simplification result wraps it in a named Ident (never a
+  // meta restamp of the underlying anonymous member; issue #449), and the simplifications see
+  // THROUGH such idents: the chain absorb and the self-cancellation below only fire when
+  // `M`/`E` dereference to the expressions they name.
+  test("simplifications see through named intermediates (idents)") {
+    class Top(val W: Int <> CONST = 11) extends DFDesign:
+      val M: Int <> CONST = 16 max W max W // absorbed, so `M` idents `16 max W`
+      val E: Int <> CONST = W max W // collapsed, so `E` idents `W`
+      val v = Int <> VAR
+      v := M max W // absorbs through the `M` ident
+      v := E - W // cancels through the `E` ident
+    assertNoDiff(
+      codeString(Top()),
+      """|class Top(val W: Int <> CONST = 11) extends DFDesign:
+         |  val M: Int <> CONST = 16 max W
+         |  val E: Int <> CONST = W
+         |  val v = Int <> VAR
+         |  v := M
+         |  v := 0
+         |end Top""".stripMargin
+    )
+  }
+
+  test("a repeated max/min chain over a design parameter is absorbed") {
+    class Top(val W: Int <> CONST = 11) extends DFDesign:
+      val v = Int <> VAR
+      v := 16 max W max W max W
+      v := 1 min W min W
+      v := W max 5 max W
+    assertNoDiff(
+      codeString(Top()),
+      """|class Top(val W: Int <> CONST = 11) extends DFDesign:
+         |  val v = Int <> VAR
+         |  v := 16 max W
+         |  v := 1 min W
+         |  v := W max 5
+         |end Top""".stripMargin
+    )
+  }
+
   test("a same-width sum has its operands' own type, without reduce") {
     class Top(val BIN_WIDTH: Int <> CONST = 11) extends EDDesign:
       val din = Bits(BIN_WIDTH * 2) <> IN

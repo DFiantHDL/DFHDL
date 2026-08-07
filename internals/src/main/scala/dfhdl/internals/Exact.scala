@@ -475,15 +475,26 @@ private def exactOp3Macro[Op, Ctx, OutUB](
         val (mhsBindings, mhsInner) = flattenInlined(mhsExactInfo.exactExpr.asTerm)
         val (rhsBindings, rhsInner) = flattenInlined(rhsExactInfo.exactExpr.asTerm)
         val allBindings = lhsBindings ++ mhsBindings ++ rhsBindings
-        Expr.summon[ExactOp3[
+        // The op instance is searched under the ControlledMacroError trap
+        // (the DualSummonTrapError protocol): a candidate whose nested TC
+        // resolution fails through a reporting fallback macro then ABORTS,
+        // its specific message captured, instead of resolving with a stray
+        // `compiletime.error` spliced into the instance, which would later
+        // be reported at the splice's library-internal position.
+        ControlledMacroError.activate()
+        val summoned = Expr.summonOrError[ExactOp3[
           Op,
           Ctx,
           OutUB,
           lhsExactInfo.Underlying,
           mhsExactInfo.Underlying,
           rhsExactInfo.Underlying
-        ]] match
-          case Some(expr) =>
+        ]]
+        // read before deactivate clears the trapped message
+        val lastError = ControlledMacroError.getLastMacroAbortError
+        ControlledMacroError.deactivate()
+        summoned match
+          case Right(expr) =>
             val appTerm = ascribeWidenedType('{
               $expr(
                 ${ lhsInner.asExpr },
@@ -497,8 +508,13 @@ private def exactOp3Macro[Op, Ctx, OutUB](
                 case Inlined(_, Nil, inner) => inner
                 case t                      => t
               Block(allBindings, innerTerm).asExprOf[OutUB]
-          case None =>
-            ControlledMacroError.report("Unsupported argument types for this operation.")
+          case Left(_) =>
+            // reported at the macro expansion position: the user's expression
+            report.errorAndAbort(
+              if (lastError.nonEmpty) lastError
+              else "Unsupported argument types for this operation.",
+              Position.ofMacroExpansion
+            )
         end match
       }
     }

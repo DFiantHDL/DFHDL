@@ -156,6 +156,20 @@ object DFEnum:
           DFVal.Func(lhs.dfType, FuncOp.unary_!, List(lhs))
         }
       end extension
+      extension [P, E <: DFEncoding](lhs: DFValTP[DFEnum[E], P])
+        // The entry encoding reinterpreted as an unsigned integer of the enum's width,
+        // composed as `.bits.uint`: every backend already renders that chain as a direct
+        // cast, so no dedicated enum-to-uint alias exists in the IR or the printers.
+        // The width is bound to a type parameter rather than read off the instance; see
+        // the note on `bits` in `DFVal.Ops`.
+        @targetName("uintOfDFEnum")
+        def uint[W <: IntP](using DFCG)(using Width.Aux[DFEnum[E], W]): DFValTP[DFUInt[W], P] =
+          trydf {
+            import DFVal.Ops.bits
+            import DFBits.Val.Ops.uint as bitsUint
+            lhs.bits.bitsUint
+          }
+      end extension
     end Ops
   end Val
 end DFEnum

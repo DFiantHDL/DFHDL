@@ -1262,7 +1262,7 @@ d"width'dec"
 - If specified, the output is padded with zeros
 - Returns `UInt[W]`, where `W` is the width in bits
 - An error occurs if the specified width is less than required to represent the value
-- When used with a DFHDL `Int` parameter, the interpolation binds it as unsigned
+- When used with a DFHDL `Int` parameter and an explicit or parametric width, the interpolation binds the parameter as an unsigned value of that width. Without a width, the parameter passes through unchanged and remains a [wildcard `Int` value][wildcard-ops].
 
 ```scala
 d"0"           // UInt[1], value = 0
@@ -1270,7 +1270,7 @@ d"255"         // UInt[8], value = 255
 d"8'42"        // UInt[8], value = 42
 d"1,023"       // UInt[10], value = 1023
 d"1_000"       // UInt[10], value = 1000
-d"$param"      // UInt[Int], unsigned binding of Int parameter
+d"$param"      // Int, parameter passes through as a wildcard value
 d"8'$param"    // UInt[8], unsigned binding with explicit width
 d"${w}'$param" // UInt[w.type], unsigned binding with parametric width
 ```
@@ -2260,7 +2260,7 @@ s8 := -u8
 
 ### Wildcard `Int` Values {#wildcard-ops}
 
-Both Scala `Int` values and DFHDL `Int` parameters (`Int <> CONST`) act as **wildcards** when used in operations with bit-accurate `UInt` or `SInt` values. The wildcard `Int` value adapts to the bit-accurate value's sign and width. If the wildcard `Int` value does not fit in the bit-accurate value's range or has incompatible sign, an error is generated.
+Both Scala `Int` values and DFHDL `Int` parameters (`Int <> CONST`) act as **wildcards** when used in operations with bit-accurate `UInt` or `SInt` values. The wildcard `Int` value adapts to the bit-accurate value's sign and width. If the wildcard `Int` value does not fit in the bit-accurate value's range or has incompatible sign, an error is generated. One exception: in [carry operations][carry-ops] a Scala `Int` operand contributes its value's minimal width instead of adapting, while a DFHDL `Int` parameter adapts as usual.
 
 ```scala
 val u8 = UInt(8) <> VAR
@@ -2355,6 +2355,10 @@ u9  := u8 + u8   // promoted to carry addition (width 9), exact fit
 u16 := u8 * u8   // promoted to carry multiplication (width 16), exact fit
 u12 := u8 * u8   // promoted to carry multiplication (width 16), resized to 12
 
+// Implicit Int operands participate in the promotion:
+u9  := u8 + u8 + 1   // elaborates to u9 := (u8 + u8) +^ d"8'1"
+u12 := u8 + u8 + 1   // elaborates to u12 := ((u8 + u8) +^ d"8'1").resize(12)
+
 // Named expressions are NOT promoted:
 val sum = u8 + u8  // UInt[8], named value
 u9 := sum          // resized from 8 to 9, no carry promotion
@@ -2421,25 +2425,19 @@ val t10a = (a + b + d"1'0") >> 1        // OK: 0 is explicit
 val t10c = (a +^ b +^ 0) >> 1           // OK: carry chain cannot overflow
 ```
 
-**4. Assignment to wider target with implicit `Int` in the chain:**
-An anonymous expression assigned to a wider target contains both an implicit `Int` and sub-32-bit `+`/`-`/`*` operations.
-```scala
-val sum = UInt(10) <> VAR
-sum := a + b + 1                        // WARNING: + 1 widens to 32-bit in Verilog, not in DFHDL
-val cnt = UInt(8) <> VAR
-cnt := cnt + 1                          // OK: same-width target, modular truncation matches
-// Accept overflow: replace the implicit Int with a bit-accurate literal
-sum := a + b + d"1"                     // OK: 1 is explicit
-// Prevent overflow: widen the chain with carry to match the wider target
-sum := a +^ b +^ 1                      // OK: carry chain widens result before assignment
-```
-
 **No warning** is issued when:
 
 - The expression uses carry operations (`+^`, `-^`, `*^`), which widen the result.
 - The integer constant is an explicit bit-accurate literal (e.g., `d"3'4"`).
 - The bit-accurate expression width is already 32 bits or wider.
-- The implicit `Int` is only used in modular operations (`+`, `-`, `*`) assigned to a same-width target.
+- The implicit `Int` is only used in modular operations (`+`, `-`, `*`) that feed an assignment. A same-width target wraps identically in both languages, and a wider target promotes the chain to evaluate at the target width (see the automatic carry promotion above), matching the context Verilog's assignment provides; truncation to the target width commutes with `+`/`-`/`*`, so the two evaluations agree for every input.
+```scala
+val sum = UInt(10) <> VAR
+// OK: promoted to carry, elaborates to sum := ((a + b) +^ d"8'1").resize(10)
+sum := a + b + 1
+val cnt = UInt(8) <> VAR
+cnt := cnt + 1                          // OK: same-width target, modular truncation matches
+```
 ///
 
 ### Carry Arithmetic (`+^`, `-^`, `*^`) {#carry-ops}
@@ -2470,6 +2468,8 @@ Carry operations widen the result to prevent overflow. Mixed signedness is allow
 | `UInt[LW]` | `SInt[RW]` | `SInt[LW + 1 + RW]` |
 ///
 
+**Wildcard `Int` operands:** at least one operand must be bit-accurate; a carry operation between two `Int` values is a compile-time error. A Scala `Int` operand contributes its value's minimal width to the tables above. A DFHDL `Int` parameter (`Int <> CONST`) instead [adapts][wildcard-ops] to the bit-accurate operand's sign and width, so `+^`/`-^` widen that operand by one bit and `*^` doubles its width.
+
 ```scala
 val u8 = UInt(8) <> VAR
 
@@ -2490,6 +2490,16 @@ val r4 = 100 *^ u8          // UInt[15]
 val s8 = SInt(8) <> VAR
 val r5 = s8 +^ s8           // SInt[9]
 val r6 = s8 *^ s8           // SInt[16]
+
+// DFHDL Int parameter adapts to the bit-accurate operand
+val param: Int <> CONST = 3
+val r7 = u8 +^ param        // UInt[9]  (param adapts to UInt[8], carry widens to 9)
+val r8 = u8 *^ param        // UInt[16] (param adapts to UInt[8], product doubles to 16)
+val r9 = s8 +^ param        // SInt[9]  (param adapts to SInt[8])
+
+// error: Carry operations require at least one bit-accurate
+// operand (`UInt`/`SInt`), but both operands are `Int` values.
+val e1 = param +^ 1
 ```
 
 

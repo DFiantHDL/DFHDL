@@ -28,6 +28,7 @@ import dfhdl.compiler.ir.{
   SubDesignRef
 }
 
+import dfhdl.compiler.analysis.isDroppableIfUnread
 import scala.reflect.{ClassTag, classTag}
 import scala.util.control.NonFatal
 import collection.mutable
@@ -207,6 +208,43 @@ class DesignContext:
     globalDefSubDBs ++= sourceCtx.globalDefSubDBs
   end inject
 
+  // ~~~ the end-of-design sweep of unread droppable members ~~~
+  // Operation simplifications never revise or remove members (an anonymous member is an
+  // immutable expression-graph node; revising or removing one that a still-live front-end
+  // handle can later reference plants refTable values that are no longer members, which is
+  // fatal across the sub-design cache adoption boundary, issue #449). Superseded intermediates
+  // therefore accumulate as debris and are dropped HERE, at the snapshot boundary, where
+  // "is it read?" has its final answer. The kind-level criteria (`isDroppableIfUnread`) are
+  // shared with the `DropUnreferencedAnons` stage; a droppable member survives only when it is
+  // transitively reachable from a non-droppable member through `getRefs`. Reachability is
+  // computed over the refs and never over `refSet`, which misses binds that landed in a nested
+  // context's table (`newRefFor`'s fallback branch).
+  def sweepUnreadAnons()(using MemberGetSet): Unit =
+    val keep = new Array[Boolean](members.length)
+    val queue = mutable.ArrayDeque.empty[Int]
+    members.zipWithIndex.foreach { case (e, i) =>
+      if (!e.ignore && !e.irValue.isDroppableIfUnread)
+        keep(i) = true
+        queue += i
+    }
+    while (queue.nonEmpty)
+      val i = queue.removeHead()
+      members(i).irValue.getRefs.foreach { r =>
+        refTable.get(r).foreach { target =>
+          memberTable.get(target).foreach { ti =>
+            if (!keep(ti) && !members(ti).ignore)
+              keep(ti) = true
+              queue += ti
+          }
+        }
+      }
+    var i = 0
+    while (i < members.length)
+      val e = members(i)
+      if (!e.ignore && !keep(i)) members.update(i, e.copy(ignore = true))
+      i += 1
+  end sweepUnreadAnons
+
   def getImmutableMemberList: List[DFMember] =
     members.view.filterNot(e => e.ignore).map(e => e.irValue).toList
 
@@ -287,6 +325,12 @@ final class MutableDB():
       stack = current :: stack
       current = new DesignContext
     def endDesign(design: DFDesignBlock): Unit =
+      // Sweep unread droppable members before the snapshot (see `sweepUnreadAnons`). Skipped
+      // for a duplicate design (its snapshot is never read) and under meta-programming, where
+      // a stage's members gain their readers only after the patch lands in the target DB, so
+      // sweeping would delete live stage work.
+      if (!inMetaProgramming && current.duplicateOf.isEmpty)
+        current.sweepUnreadAnons()(using self.getSet)
       val currentMembers = current.getImmutableMemberList.drop(1)
       val currentRefTable = current.getImmutableRefTable
       val designType = design.dclName

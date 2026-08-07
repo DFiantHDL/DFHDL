@@ -149,6 +149,21 @@ like a live instantiation, so a design used by several parents is loaded once an
 elaboration of the same key. Embedding child bodies would duplicate every shared descendant, once per
 adopting parent.
 
+An entry must be SELF-CONTAINED (`SubDesignEntry.isSelfContained`): every ref its members emit
+resolves in its refTable, and every refTable binding target re-unites, by value, with one of its
+members. The value half is not implied by the key half: elaboration can leave a binding whose
+target object was removed from the member list after the binding was made (issue #449: a
+merge-absorbed intermediate Func rebound through a still-live front-end handle). Such a "ghost" is
+harmless in its own run, whose refTable still resolves the tokens the ghost emits, but adoption
+re-mints tokens for members only, so a ghost's tokens dangle in the loading run. The contract is a
+SANITY-LEVEL check (asserted in the cache specs; `SanityCheck.refCheck` reports the underlying
+defect as "Ref exists for a removed member" in debug/spec runs), deliberately NOT evaluated on the
+production store/lookup path: a ghost-free elaboration is guaranteed by construction (operation
+simplifications never revise or remove anonymous members; unread debris is swept once at the end
+of each design, `DesignContext.sweepUnreadAnons`), and only a DFHDL bug or a dirty dev loop
+(uncommitted DFHDL edits under an unchanged version; `clearDFHDL` territory) can produce a
+violating entry.
+
 Storing requires every child to be a stored entry itself: a keyless child (an impure design, or a
 class the plugin could not guard) cannot be referenced, so its parent is not storable either. Children
 end before their parents, so this simply propagates up the tree.
@@ -195,7 +210,8 @@ per-run mutable caches, so two elaborations must never adopt the same member obj
 
 Writes go through a temp file and an atomic move, so parallel test forks writing the same key stay
 consistent. A store that fails is not an error (the run simply stays live), and a corrupt entry is
-just a miss.
+just a miss ("corrupt" meaning a failed parse; structural validation is deliberately not on this
+path, see the self-containment note above).
 
 The full content key is `<code digest of the declaring class>|<localKey>`.
 

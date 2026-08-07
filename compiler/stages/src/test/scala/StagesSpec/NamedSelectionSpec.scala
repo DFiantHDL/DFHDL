@@ -262,4 +262,28 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // a carry-widened func consumed by an unsigned-to-signed conversion is named, so the
+  // Verilog `{1'b0, ...}` sign-extension concat (whose operands are self-determined)
+  // sees a declared identifier instead of an inline func pinned at its narrow operand
+  // width (issue #452)
+  test("Sign-converted carry func is named") {
+    class SignedCarry extends EDDesign:
+      val a = UInt(8)  <> IN
+      val b = UInt(8)  <> IN
+      val o = SInt(10) <> OUT
+      o <> (a +^ b).signed
+
+    val id = (new SignedCarry).verilogNamedSelection
+    assertCodeString(
+      id,
+      """|class SignedCarry extends EDDesign:
+         |  val a = UInt(8) <> IN
+         |  val b = UInt(8) <> IN
+         |  val o = SInt(10) <> OUT
+         |  val o_part = a +^ b
+         |  o <> o_part.signed
+         |end SignedCarry
+         |""".stripMargin
+    )
+  }
 end NamedSelectionSpec
