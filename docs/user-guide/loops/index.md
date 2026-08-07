@@ -31,25 +31,165 @@ When a design containing an elaboration-time loop is instantiated with different
 
 ### Elaboration-Time Conditionals
 
-Unlike Verilog `generate if`, DFHDL type-checks **both** branches of an `if` expression at elaboration time, regardless of the parameter value. This means both branches must be type-correct for all possible parameter values:
+An `if` whose condition is a **constant** resolves during elaboration, so only the taken branch produces hardware. Both branches are still ordinary Scala code, though, so Scala type-checks both. Whether that rejects an untaken branch depends on whether the widths involved are **literal** or **parameterized**.
+
+/// admonition | Which `if` you get depends on the domain
+    type: note
+In an **ED** design body, an implicit `.toScalaBoolean` is applied to a constant condition, so the `if` is a Scala `if` and resolves at elaboration.
+
+In an **RT** or **DF** design body, an `if` is a DFHDL (hardware) `if` unless its condition is a Scala `Boolean`. Force that with `.toScalaBoolean` when you want the elaboration-time behavior:
 
 ```scala
-// PROBLEM: when DEPTH == 1, the else branch has an invalid slice
-if (DEPTH == 1)
-  out := in
-else
-  out := (in, data(WIDTH - 1, ELEM_WIDTH))  // invalid range when DEPTH=1
-
-// SOLUTION: use .resize or guard index computations
-if (DEPTH == 1)
-  out := in.resize(WIDTH)
-else
-  out := (in, data.msbits(WIDTH - ELEM_WIDTH))
+if ((WIDTH == 4).toScalaBoolean)  // a Scala `if` in an RT/DF body
 ```
+
+A DFHDL `if` elaborates **both** branches, so a width that is invalid in either one is an error regardless of which is taken:
+
+```
+The argument width (((WIDTH - 1) - (WIDTH - 2)) + 1) is different than the receiver width (WIDTH).
+```
+///
+
+What decides the Scala-level check is the **type ascription** on the width, not the value. These two declarations look almost identical and behave differently:
+
+```scala
+val WIDTH = 4                  // a plain Scala Int: a literal the Scala type level tracks
+val WIDTH: Int <> CONST = 4    // a DFHDL constant: unbounded at the Scala type level
+```
+
+**A plain Scala `Int`** gives `Bits(4)` the bounded type `Bits[4]`, so Scala tracks the width and rejects an invalid untaken branch at compile time:
+
+```scala
+class narrow_lit extends EDDesign:
+  val WIDTH = 4                 // plain Scala Int
+  val din  = Bits(WIDTH) <> IN
+  val dout = Bits(WIDTH) <> OUT
+  if (WIDTH == 4)
+    dout <> din
+  else
+    dout <> din.msbits(2)       // rejected even though this branch is never taken
+```
+
+```
+The argument width (2) is different than the receiver width (4).
+Consider applying `.resize` to resolve this issue.
+```
+
+**An `Int <> CONST`** gives `Bits(WIDTH)` the unbounded type `Bits[Int]`, which the Scala type level does not track, so there is nothing for it to reject. The width check moves to elaboration, and elaboration only ever visits the taken branch:
+
+```scala
+class narrow_const extends EDDesign:
+  val WIDTH: Int <> CONST = 4   // same value, ascribed as a DFHDL constant
+  val din  = Bits(WIDTH) <> IN
+  val dout = Bits(WIDTH) <> OUT
+  if (WIDTH == 4)
+    dout <> din
+  else
+    dout <> din.msbits(2)       // never elaborated, so never checked
+```
+
+The same holds for a width that arrives as a design parameter (`class narrow(val WIDTH: Int <> CONST = 4)`), which is the usual case when translating a Verilog `parameter`. This is why a `generate if` whose branches are each valid only for their own parameter value translates directly, with no `.resize` guard and no `.toScalaInt`. If you do need both branches valid at the Scala level, use `.resize` or guard the index computations, as in the plain-`Int` example above.
+
+The ascription has a second, visible consequence: an `Int <> CONST` survives into the generated HDL as a `localparam`, while a plain Scala `Int` is inlined away. See [`localparam`][localparam] for that side of the same distinction.
 
 ## ED Domain Loops
 
-In ED designs, `for` and `while` loops inside processes produce combinational or sequential logic depending on the process type. These loops are unrolled by the compiler.
+In ED designs, `for` and `while` loops inside processes produce combinational or sequential logic depending on the process type. Unlike a design-scope loop, a loop inside a process **stays a loop**: it is elaborated once and emitted as a real `for` in the generated HDL, as the `OnesCount` example below shows.
+
+That difference decides what its iterator is. A design-scope iterator is an ordinary Scala `Int`, so it can index Scala collections and be used anywhere Scala needs a number. A **process-scope iterator is a hardware value**, and cannot be read out into Scala at all, `.toScalaInt` included:
+
+```scala
+val lanes = List.fill(3)(new lane)  // a Scala collection, built at design scope
+process(all):
+  for (i <- 0 until LANES)
+    out_bus.lsbitsAt(i * 8, 8) := lanes(i.toScalaInt).q  // error
+```
+
+```
+Scala value access error!
+Message:   Cannot fetch a Scala value from a non-constant DFHDL value.
+```
+
+The reported position is the `i` in the `for` binding rather than the use that actually needs a Scala value, so read the message as "something in this loop body wanted a Scala `Int`" and look at the uses, not the range.
+
+To write per-index slices of a packed bus, do the work in a **design-scope** loop and give each iteration its own small process. The `i` is then a Scala value captured by closure, and no loop exists inside a process:
+
+```scala
+class Foo(val LANES: Int <> CONST = 3) extends EDDesign:
+  val out_bus = Bits(8 * 3) <> OUT
+  for (i <- 0 until LANES)
+    val u = new lane
+    process(all):
+      out_bus.lsbitsAt(i * 8, 8) := u.q
+```
+
+/// tab | Generated Verilog
+```verilog
+module Foo#(parameter int LANES = 3)(
+  output logic [23:0] out_bus
+);
+  logic [7:0] u_0_q;
+  logic [7:0] u_1_q;
+  logic [7:0] u_2_q;
+  lane u_0(.q /*-->*/ (u_0_q));
+  lane u_1(.q /*-->*/ (u_1_q));
+  lane u_2(.q /*-->*/ (u_2_q));
+  always_comb
+  begin
+    out_bus[7:0]   = u_0_q;
+  end
+  always_comb
+  begin
+    out_bus[15:8]  = u_1_q;
+  end
+  always_comb
+  begin
+    out_bus[23:16] = u_2_q;
+  end
+endmodule
+```
+The design-scope loop unrolls: three `lane` instances and three separate `always_comb` blocks, each writing one static slice. No loop remains.
+///
+
+/// tab | Generated VHDL
+```vhdl
+entity Foo is
+generic (
+  LANES : integer := 3
+);
+port (
+  out_bus : out std_logic_vector(23 downto 0)
+);
+end Foo;
+
+architecture Foo_arch of Foo is
+  signal u_0_q : std_logic_vector(7 downto 0);
+  signal u_1_q : std_logic_vector(7 downto 0);
+  signal u_2_q : std_logic_vector(7 downto 0);
+begin
+  u_0 : entity work.lane(lane_arch) port map (q => u_0_q);
+  u_1 : entity work.lane(lane_arch) port map (q => u_1_q);
+  u_2 : entity work.lane(lane_arch) port map (q => u_2_q);
+  process (all)
+  begin
+    out_bus(7 downto 0) <= u_0_q;
+  end process;
+  process (all)
+  begin
+    out_bus(15 downto 8) <= u_1_q;
+  end process;
+  process (all)
+  begin
+    out_bus(23 downto 16) <= u_2_q;
+  end process;
+end Foo_arch;
+```
+Same unrolling: three component instantiations and three processes, each driving one slice of `out_bus`.
+///
+
+Contrast this with the `OnesCount` example above, where the loop is **inside** the process and survives into the generated HDL as a real `for`.
+
+Arithmetic on the iterator that stays inside DFHDL is fine either way: a process-scope `i` is a valid part-select base (see [Bit Selection and Slicing][common-bit-vector-ops]), and emits a variable-base part-select.
 
 ### Loops Accumulation Example {#loop-accumulators}
 

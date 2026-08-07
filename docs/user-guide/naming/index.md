@@ -69,29 +69,46 @@ val u_abs = new abs(DATA_WIDTH = 16)
 
 This is the [general `new` recommendation](#general-recommendation-instantiate-designs-with-new) applied to a built-in collision. Following it from the start makes this collision a non-issue.
 
-### Design-class name colliding with a value name
+### Design-class name shared with a value name
 
-A common translation collision is a **design class** whose name is the same as a port or variable in scope (or a built-in). When the bare name `design_class_name(...)` resolves to the value instead of the class, use one of these two fixes:
-
-**1. Explicitly instantiate with `new`** (the recommended default form). The `new` keyword forces resolution to the class constructor, sidestepping the shadowing value:
+A **design class** may share its name with a port or variable in scope. This is not a collision that needs resolving: Scala keeps types and terms in separate namespaces, so the class stays reachable and the value keeps its name.
 
 ```scala
-// `design_class_name` the value is in scope and shadows the class
-val u = new design_class_name(DATA_WIDTH = 16)
+class stage(val WIDTH: Int <> CONST = 8) extends EDDesign:
+  val d = Bits(WIDTH) <> IN
+  val q = Bits(WIDTH) <> OUT
+  q <> d
+
+class wrapper(val WIDTH: Int <> CONST = 8) extends EDDesign:
+  val d     = Bits(WIDTH) <> IN
+  val stage = Bits(WIDTH) <> OUT     // port sharing the child class's name
+
+  val stage_inst = new stage(WIDTH)  // resolves to the class constructor
+  stage_inst.d <> d
+  stage <> stage_inst.q
 ```
 
-**2. Use a Capitalized class name plus `@targetName` to preserve the emitted name.** Rename the Scala class to a Capitalized identifier (which can no longer collide with a camelCase value) and pin the original lowercase name onto the generated HDL with `@targetName`:
+```verilog title="Generated Verilog"
+module wrapper#(parameter int WIDTH = 8)(
+  input  wire logic [WIDTH - 1:0] d,
+  output      logic [WIDTH - 1:0] stage
+);
+  stage #(.WIDTH (WIDTH)) stage_inst(...);
+```
+
+The port keeps the name `stage` and the child module is still instantiated from the class of the same name. The one form that goes wrong is the bare apply, and only because the value wins the term position:
 
 ```scala
-import scala.annotation.targetName
-
-@targetName("design_class_name")
-class DesignClassName(val DATA_WIDTH: Int <> CONST = 8) extends EDDesign:
-  // ...
-
-// No collision with values; generated HDL module is still named "design_class_name"
-val u = new DesignClassName(DATA_WIDTH = 16)
+val stage_inst = stage(WIDTH)  // NOT an instantiation: this bit-selects the port
 ```
+
+It fails in a way worth recognizing, because it usually stays silent until something downstream reads a member off it:
+
+```
+value q is not a member of Bit <> VAR, but could be made available as an extension method.
+```
+
+That is `stage(WIDTH)` having quietly become a bit-select on the port. Always instantiating with `new`, per the [general recommendation](#general-recommendation-instantiate-designs-with-new), removes the whole class of problems and needs no renaming and no annotation.
 
 ## Resolution Patterns
 
@@ -106,19 +123,36 @@ val `match` = Bit <> OUT
 
 ### `@targetName` annotation
 
-When a Scala-side name must differ from the generated HDL name, use `@targetName` to set the hardware name explicitly. This is useful when:
-
-- A port name conflicts with a sub-module class name in the same design.
-- You want to rename a Scala identifier but preserve the original Verilog port/module name (see [Design-class name colliding with a value name](#design-class-name-colliding-with-a-value-name)).
+`@targetName` applies to a **port or variable**, and sets the name that value carries in the generated HDL. Use it when the Scala-side identifier must differ from the HDL name you need to emit:
 
 ```scala
 import scala.annotation.targetName
 
-// Port "kernel" conflicts with class "kernel" in scope
-@targetName("kernel")
-val kernel_out = Bits(WIDTH) <> OUT
-// Generated HDL port is still named "kernel"
-
-// The class "kernel" remains available for instantiation
-val u_kernel = new kernel()
+class filter(val WIDTH: Int <> CONST = 8) extends EDDesign:
+  @targetName("data_out")
+  val dataOut = Bits(WIDTH) <> OUT
+  dataOut <> all(0)
 ```
+
+```verilog title="Generated Verilog"
+module filter#(parameter int WIDTH = 8)(
+  output logic [WIDTH - 1:0] data_out
+);
+```
+
+The same annotation applies to a **design class**, where it sets the emitted module name. This is what lets a translation follow Scala naming style on the Scala side while still emitting the original Verilog module name:
+
+```scala
+import scala.annotation.targetName
+
+@targetName("data_path")
+class DataPath(val WIDTH: Int <> CONST = 8) extends EDDesign:
+  // ...
+// Generated HDL module is named "data_path"
+val u_dp = new DataPath(16)
+```
+
+/// admonition | Not for names that merely look alike
+    type: note
+A port sharing a name with a design class needs no annotation and no rename, since types and terms live in separate namespaces. See [Design-class name shared with a value name](#design-class-name-shared-with-a-value-name). Reach for `@targetName` when you need a **different** HDL name, not when two Scala names collide.
+///
