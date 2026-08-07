@@ -666,7 +666,7 @@ There is no `>>>` operator in DFHDL. The type of the LHS determines the shift se
 ///
 
 
-/// admonition | Bit/Boolean Operators: `|`/`&`/`~` and `||`/`&&`/`!`
+/// admonition | Bit/Boolean Operators: `|`/`&`/`^`/`~` and `||`/`&&`/`!`
     type: verilog
 In DFHDL, `||`/`&&`/`!` and `|`/`&`/`~` are interchangeable on `Bit` and `Boolean` types. The generated Verilog operator depends on the LHS type: `Bit` produces bitwise `|`/`&`/`~`, `Boolean` produces logical `||`/`&&`/`!`.
 <div class="grid" markdown>
@@ -730,7 +730,7 @@ end Negate
 
 This wrap-around conversion may appear cumbersome, and that is intentional: it hints at a code smell. It usually means one of two things: either the base type was chosen badly (a value that is conceptually a signed number should be declared as `SInt`, where `-x` preserves the type directly), or the importance of the preserved sign bit in the widened `SInt[W + 1]` result is not understood (discarding it silently corrupts the value; e.g., same-width negation of `d"8'128"` yields 128 again, not -128).
 
-See [Logical Operations][logical-ops] for the bitwise NOT and [Arithmetic Operations][arithmetic-ops] for the unary negation type rules.
+See [Bitwise Operations][bitwise-ops] for the bitwise NOT and [Arithmetic Operations][arithmetic-ops] for the unary negation type rules.
 ///
 
 /// admonition | Reduction Operators (`&v`, `|v`, `^v`)

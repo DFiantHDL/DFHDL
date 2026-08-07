@@ -2078,7 +2078,7 @@ For **wider lanes**, accumulate with a Scala `#!scala var` ascribed to an unboun
 
 ### Logical Operations {#logical-ops}
 
-Applies to: `Bit`, `Boolean`. The bitwise NOT (`~`) additionally applies to `Bits` and `UInt` vectors.
+Applies to: `Bit`, `Boolean`. For the elementwise bitwise operations on `Bits`/`UInt` vectors (`&`, `|`, `^`, `~`), see [Bitwise Operations][bitwise-ops].
 
 Logical operations' return type always matches the LHS argument's type.
 These operations propagate constant modifiers, meaning that if all arguments are constant, the returned value is also a constant.
@@ -2093,7 +2093,6 @@ These operations propagate constant modifiers, meaning that if all arguments are
 | `lhs ^ rhs`  | Logical XOR | The LHS argument must be a `Bit`/`Boolean` DFHDL value. The RHS must be a `Bit`/`Boolean` candidate. | LHS-Type DFHDL value |
 | `!lhs` | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
 | `~lhs` | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
-| `~lhs` | Bitwise NOT (invert all bits) | The argument must be a `Bits`/`UInt` DFHDL value. | LHS-Type DFHDL value |
 ///
 
 ```scala
@@ -2109,13 +2108,6 @@ val t6 = bl ^ 0 || !bt
 //conversions, looks like so:
 //(bl && bt.bool) ^ (!(bt || bl.bit)).bool
 val t7 = (bl && bt) ^ !(bt || bl)
-//bitwise NOT on `Bits`/`UInt` vectors
-//inverts all bits and preserves the
-//argument's type
-val v8 = Bits(8) <> VAR
-val u8 = UInt(8) <> VAR
-val t8 = ~v8         //result type: Bits[8]
-val t9 = ~u8         //result type: UInt[8]
 //error: swap argument positions to have
 //the DFHDL value on the LHS.
 val e1 = 0 ^ bt      
@@ -2150,7 +2142,6 @@ Under the ED domain, the following operations are equivalent:
 | `!lhs`          | `~lhs`                      | `!lhs`                          |
 | `~lhs`          | `~lhs`                      | `!lhs`                          |
 
-For `Bits`/`UInt` vector values, `~lhs` maps directly to Verilog's bitwise NOT `~lhs`.
 ///
 
 /// details | Transitioning from VHDL
@@ -2164,14 +2155,61 @@ Under the ED domain, the following operations are equivalent:
 | `lhs ^ rhs`     | `lhs xor rhs`     |
 | `!lhs`          | `not lhs`         |
 
-For `Bits`/`UInt` vector values, `~lhs` maps to VHDL's `not lhs`.
+///
+
+### Bitwise Operations {#bitwise-ops}
+
+Applies to: `Bits`, `UInt`
+
+Bitwise operations apply **elementwise** on their vector arguments' bits, and their return type always matches the LHS argument's type.
+These operations propagate constant modifiers, meaning that if all arguments are constant, the returned value is also a constant.
+Do not confuse the two-operand `&`/`|`/`^` with the single-operand postfix [reduction operators][reduction-ops] `.&`/`.|`/`.^`, which fold a vector into a single `Bit`.
+
+/// html | div.operations
+| Operation    | Description | LHS/RHS Constraints | Returns |
+| ------------ | ----------- | ------------------- | ------- |
+| `lhs & rhs`  | Bitwise AND | The LHS argument must be a `Bits`/`UInt` DFHDL value. The RHS must match the LHS type and width (for `Bits`, any same-width `Bits` candidate). | LHS-Type DFHDL value |
+| `lhs | rhs` | Bitwise OR  | The LHS argument must be a `Bits`/`UInt` DFHDL value. The RHS must match the LHS type and width (for `Bits`, any same-width `Bits` candidate). | LHS-Type DFHDL value |
+| `lhs ^ rhs`  | Bitwise XOR | The LHS argument must be a `Bits`/`UInt` DFHDL value. The RHS must match the LHS type and width (for `Bits`, any same-width `Bits` candidate). | LHS-Type DFHDL value |
+| `~lhs` | Bitwise NOT (invert all bits) | The argument must be a `Bits`/`UInt` DFHDL value. | LHS-Type DFHDL value |
+///
+
+```scala
+val v8 = Bits(8) <> VAR
+val m8 = Bits(8) <> VAR
+val u8 = UInt(8) <> VAR
+//bitwise NOT inverts all bits and
+//preserves the argument's type
+val t1 = ~v8          //result type: Bits[8]
+val t2 = ~u8          //result type: UInt[8]
+//AND/OR/XOR apply elementwise between
+//two same-width vectors and preserve
+//the LHS type
+val t3 = v8 | m8      //result type: Bits[8]
+val t4 = v8 & h"F0"   //result type: Bits[8]
+val t5 = u8 ^ d"8'85" //result type: UInt[8]
+//error: an integer value cannot be a
+//candidate for a Bits type
+val e1 = v8 | 2
+//error: the argument widths must match
+val e2 = v8 ^ b"1010"
+```
+
+/// details | Transitioning from Verilog
+    type: verilog
+`lhs & rhs`/`lhs | rhs`/`lhs ^ rhs`/`~lhs` on `Bits`/`UInt` vector values map directly to Verilog's elementwise bitwise `&`/`|`/`^`/`~`. Verilog's same-symbol unary reduction operators (`&v`, `|v`, `^v`) map to the postfix [reduction operators][reduction-ops] instead.
+///
+
+/// details | Transitioning from VHDL
+    type: vhdl
+`lhs & rhs`/`lhs | rhs`/`lhs ^ rhs`/`~lhs` on `Bits`/`UInt` vector values map to VHDL's `and`/`or`/`xor`/`not`.
 ///
 
 ### Bit Reduction Operations (`.&`, `.|`, `.^`) {#reduction-ops}
 
 Applies to: `Bits`, `UInt` (via implicit conversion to `Bits`)
 
-Reduction operators fold all bits of a `Bits` vector into a single `Bit` value. They are the DFHDL equivalents of Verilog's unary reduction operators (`&v`, `|v`, `^v`):
+Reduction operators fold all bits of a `Bits` vector into a single `Bit` value. They are the DFHDL equivalents of Verilog's unary reduction operators (`&v`, `|v`, `^v`); the infix two-operand `&`/`|`/`^` between same-width vectors are separate elementwise operations, covered under [Bitwise Operations][bitwise-ops]:
 
 /// html | div.operations
 | Operation | Description | Returns |
