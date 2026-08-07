@@ -177,4 +177,34 @@ class DFTypeSpec extends DFSpec:
         val x = UInt(8) <> VAR
       """
     )
+
+  test("multiple DFHDL parameter blocks for a design class"):
+    val expectedErr =
+      """|A DFHDL design/interface class must declare all its DFHDL parameters in a single parameter block.
+         |For a parameter that depends on an earlier parameter, use a derived value in the class body instead.""".stripMargin
+    // a default value in a second parameter block used to crash the compiler (issue #456)
+    assertPluginError(expectedErr)(
+      """
+      class Foo(val A: Int <> CONST = 4)(val B: Int <> CONST = 8) extends DFDesign:
+        val o = UInt(8) <> OUT
+      """
+    )
+    // forbidden also without default values
+    assertPluginError(expectedErr)(
+      """
+      class Foo(val A: Int <> CONST)(val B: Int <> CONST) extends DFDesign:
+        val o = UInt(8) <> OUT
+      """
+    )
+    // a single DFHDL parameter block AFTER a plain Scala block is allowed (dependent
+    // types require it), but a default value there generates a default getter taking
+    // the earlier block's parameters, which used to crash the compiler (issue #456)
+    assertPluginError(
+      "A DFHDL parameter with a default value must be declared in the first parameter block."
+    )(
+      """
+      class Foo(val a: Int)(val B: Int <> CONST = 8) extends DFDesign:
+        val o = UInt(8) <> OUT
+      """
+    )
 end DFTypeSpec

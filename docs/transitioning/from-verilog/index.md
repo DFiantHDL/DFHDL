@@ -100,6 +100,8 @@ end Concat
 
 </div>
 
+A Verilog parameter whose default references an earlier parameter cannot stay a parameter in DFHDL: Scala does not allow a default value to reference an earlier parameter of the same parameter block, and DFHDL requires all its parameters in a single block (a curried second block is rejected with a clear error). Declare it as a derived value in the design body instead, like `midLen` and `outlen` above.
+
 ### `localparam` {#localparam}
 
 A module-level `parameter` becomes a design constructor argument, as above. A body-level **`localparam`** becomes a `val` in the design body, but whether it survives into the generated HDL depends on whether it is a DFHDL constant:
