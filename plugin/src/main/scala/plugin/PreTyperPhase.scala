@@ -31,15 +31,80 @@ import reporting.*
   * so never consults the one this phase installs, whereas `toString` renders under the context the
   * message captured, where that printer is live. Re-reporting also drops the diagnostic's outer
   * position, which suppresses inline-stack error printing.
+  *
+  * Dropping the outer chain is only sound when the innermost position is trustworthy, and a
+  * diagnostic raised on a macro-synthesized tree is not: its innermost frame carries the span of
+  * the quote inside the macro's own source paired with the CURRENT unit's source file, so the
+  * rendered position lands past the unit's end (`Playground.scala:13:12843`-style). The position is
+  * therefore normalized first: walk the inline chain innermost to outermost and keep the first
+  * frame that belongs to the compiled unit (the outermost frame's source, by construction the call
+  * site being typed) with a span that fits inside it. For every well-formed diagnostic the
+  * innermost frame qualifies, so this changes nothing; only corrupt or library-positioned frames
+  * are skipped.
+  *
+  * Re-reporting also bypasses the original reporter's `UniqueMessagePositions` dedup (that dedup
+  * keys on the positions this reporter rewrites), so the same inline-expansion error re-raised at
+  * several positions would render several times. The normalized (position, message) pair is
+  * deduplicated here instead.
+  *
+  * Finally, a type mismatch whose REQUIRED side is a DFHDL value is read by a user thinking in
+  * DFHDL types, where the compiler's own trailing guidance (`msgPostscript`) is noise or worse: the
+  * transparent-inline note explains the Scala mechanics behind the DFHDL operators, and the import
+  * suggestions (`InitValue.fromValue` and friends) never fix a DFHDL mismatch. Such a diagnostic is
+  * re-issued with an EMPTY postscript: a fresh message rather than `mapMsg`, since `mapMsg`
+  * deliberately carries the original postscript, and the postscript itself is protected so it
+  * cannot be filtered piecewise. The `-explain` explanation is kept.
   */
 class CustomReporter(
-    val orig: Reporter
+    val orig: Reporter,
+    symbols: DFHDLSymbols.Cache
 ) extends Reporter:
+  private val reported = collection.mutable.HashSet.empty[(String, Int, Int, Int, String)]
   override def flush()(using ctx: Context): Unit = orig.flush()
+  private def updatedMsg(base: Message)(using Context): Message =
+    // `toString` rather than `message`: it renders the message proper (without the postscript)
+    // under the context the message captured, where the DFHDL type printer is live
+    val rendered = base.toString
+    val dropPostscript = base match
+      case tm: TypeMismatchMsg =>
+        val syms = symbols()
+        syms.available && tm.expected.derivesFrom(syms.dfVal)
+      case _ => false
+    if (dropPostscript)
+      new Message(base.errorId):
+        val kind = base.kind
+        def msg(using Context) = rendered
+        override def msgPostscript(using Context) = ""
+        def explain(using Context) = base.explanation
+        override def canExplain = base.canExplain
+    else base.mapMsg(_ => rendered)
+  end updatedMsg
+  private def normalizedPos(pos: util.SourcePosition): util.SourcePosition =
+    val frames = Iterator
+      .iterate(pos)(_.outer)
+      .takeWhile(p => p != null && p.exists)
+      .toList
+    if (frames.isEmpty) pos
+    else
+      val unitSource = frames.last.source
+      def sane(p: util.SourcePosition): Boolean =
+        p.span.exists && p.span.end <= p.source.content().length
+      frames.find(p => (p.source eq unitSource) && sane(p)).getOrElse(frames.last)
+  end normalizedPos
+  private def dedupKey(dia: Diagnostic)(using Context): (String, Int, Int, Int, String) =
+    val diaPos = normalizedPos(dia.pos)
+    val (spanStart, spanEnd) =
+      if (diaPos.span.exists) (diaPos.span.start, diaPos.span.end) else (-1, -1)
+    (diaPos.source.file.path, spanStart, spanEnd, dia.level, dia.msg.toString)
+  // the dedup lives in `isHidden` rather than `doReport` so a swallowed duplicate is also
+  // never counted, keeping the "N errors found" summary consistent with what is rendered
+  // (the same reason the compiler's own dedup, `UniqueMessagePositions`, works at this hook)
+  override def isHidden(dia: Diagnostic)(using Context): Boolean =
+    super.isHidden(dia) ||
+      dia.level >= interfaces.Diagnostic.WARNING && !reported.add(dedupKey(dia))
   override def doReport(dia: Diagnostic)(using ctx: Context): Unit =
-    val updatedMsg = dia.msg.toString
-    val diaPos = dia.pos.copy(outer = null) // disable inline stack error printing
-    val updatedDia = Diagnostic(dia.msg.mapMsg(x => updatedMsg), diaPos, dia.level)
+    val diaPos = normalizedPos(dia.pos).copy(outer = null) // disable inline stack error printing
+    val updatedDia = Diagnostic(updatedMsg(dia.msg), diaPos, dia.level)
     orig.doReport(updatedDia)
   end doReport
 end CustomReporter
@@ -399,7 +464,7 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
       ctx.setPrinterFn(printerCtx =>
         DFHDLTypePrinter(printerCtx, printerSymbols()(using printerCtx))
       )
-      val typerState = ctx.typerState.setReporter(new CustomReporter(ctx.reporter))
+      val typerState = ctx.typerState.setReporter(new CustomReporter(ctx.reporter, printerSymbols))
       ctx.setTyperState(typerState)
   end initContext
 

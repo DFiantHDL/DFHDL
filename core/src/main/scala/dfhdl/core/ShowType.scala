@@ -52,12 +52,21 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
     end match
   end showDFType
 
+  // keep in sync with the plugin's `DFHDLTypePrinter.modifierText`, its compile-time twin:
+  // a constant value is a `CONST`, a port is its direction, an assignable non-port a `VAR`,
+  // and anything else a plain readable `VAL`
   def showModifier: String =
     import quotes.reflect.*
     tpe.asTypeOf[ModifierAny] match
-      case '[Modifier.CONST]   => "CONST"
-      case '[Modifier.Mutable] => "VAR"
-      case _                   => "VAL"
+      case '[Modifier.CONST]       => "CONST"
+      case '[Modifier[a, c, i, p]] =>
+        val access = TypeRepr.of[a]
+        if (access <:< TypeRepr.of[Modifier.PortINOUT]) "INOUT"
+        else if (access <:< TypeRepr.of[Modifier.PortOUT]) "OUT"
+        else if (access <:< TypeRepr.of[Modifier.PortIN]) "IN"
+        else if (access <:< TypeRepr.of[Modifier.Assignable]) "VAR"
+        else "VAL"
+      case _ => "VAL"
 
   def showDFVal: String =
     import quotes.reflect.*

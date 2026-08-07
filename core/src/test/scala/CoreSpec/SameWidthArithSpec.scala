@@ -3,11 +3,11 @@ import dfhdl.*
 import dfhdl.compiler.printing.DefaultPrinter
 
 // A commutative arithmetic operation is as wide as its wider operand, so on two operands of the
-// same parametric width its result width is the symbolic `Max[W, W]`, a different type from `W`
-// even though it stands for it (the fold happens only for literal widths, where `Max` bottoms out
-// in `compiletime.ops.int.Max`). `DFVal.MaxOfSameWidth` is the conversion that closes the gap, and
-// `reduce` is the shape that demands it: it fixes its type parameter to the element type before
-// the operator is typed, so the operator has to land back on exactly that type.
+// same parametric width its result width would be the symbolic `Max[W, W]`, a different type from
+// `W` even though it stands for it. The width algebra therefore collapses every non-literal width
+// to `Int` (the fold to a precise width happens only for literals), so the result of an operation
+// over collapsed operands lands back on their own type. `reduce` is the shape that demands it: it
+// fixes its type parameter to the element type before the operator is typed.
 // See https://github.com/DFiantHDL/DFHDL/issues/431
 class SameWidthArithSpec extends NoDFCSpec:
   // the freshly elaborated design, before any of the stages that rename and reorder members
@@ -91,6 +91,44 @@ class SameWidthArithSpec extends NoDFCSpec:
          |  val din = Bits(BIN_WIDTH * 2) <> IN
          |  val dout = UInt(BIN_WIDTH) <> OUT
          |  dout <> (din(BIN_WIDTH - 1, 0).uint + din((2 * BIN_WIDTH) - 1, BIN_WIDTH).uint)
+         |end Top""".stripMargin
+    )
+  }
+
+  // The collapse happens once, where a width VALUE enters the algebra (`IntParam.fromValue`):
+  // a non-literal width enters as `IntParam[Int]`, so `Bits(LANE)` is `Bits[Int]` rather than
+  // `Bits[LANE.type]`, while a literal keeps its precise type. The part-select elements below
+  // are therefore `Bits[Int]`-typed and the `Seq[Bits[Int] <> VAL]` ascription conforms by
+  // plain subsumption, which is what lets a width-growing operator (`++`) reduce: its collapsed
+  // result is the elements' own type. Without the ascription the elements keep the port's
+  // modifier, which no operation result can land back on, and that is the correct error.
+  // See https://github.com/DFiantHDL/DFHDL/issues/455
+  test("reduce-concat over parametric port slices") {
+    class Top extends EDDesign:
+      val LANE: Int <> CONST = 3
+      val LANES: Int <> CONST = 3
+      // compile-level pins of the boundary collapse: a parametric width constructs a
+      // `Bits[Int]`/`UInt[Int]`/`SInt[Int]`, a literal width stays precise
+      val cb: Bits[Int] = Bits(LANE)
+      val cu: UInt[Int] = UInt(LANE)
+      val cs: SInt[Int] = SInt(LANE)
+      val lb: Bits[8] = Bits(8)
+      val data = Bits(LANE * LANES) <> IN
+      val out = Bits(LANE * LANES) <> OUT
+      val list: Seq[Bits[Int] <> VAL] =
+        for (i <- 0 until LANES) yield data.lsbitsAt(i * LANE, LANE)
+      out <> list.reduce(_ ++ _)
+    assertNoDiff(
+      codeString(Top()),
+      """|class Top extends EDDesign:
+         |  val LANE: Int <> CONST = 3
+         |  val LANES: Int <> CONST = 3
+         |  val data = Bits(LANE * LANES) <> IN
+         |  val out = Bits(LANE * LANES) <> OUT
+         |  val list = data(LANE - 1, 0)
+         |  val list = data((LANE + LANE) - 1, LANE)
+         |  val list = data(((2 * LANE) + LANE) - 1, 2 * LANE)
+         |  out <> (list, list, list).toBits
          |end Top""".stripMargin
     )
   }

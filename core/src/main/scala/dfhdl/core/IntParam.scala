@@ -149,6 +149,7 @@ object IntP:
 
   /** `BI - SW + 1`, the low index of a descending part-select anchored at `BI`. */
   type PartSelectLow[BI <: IntP, SW <: IntP] = RangeWidth[BI, SW]
+
 end IntP
 
 into opaque type IntParam[V <: IntP] = Int | DFConstInt32
@@ -161,14 +162,21 @@ object IntParam extends IntParamLP:
   given [T <: IntP]: CanEqual[IntParam[T], Int] = CanEqual.derived
   given [T <: IntP]: CanEqual[Int, IntParam[T]] = CanEqual.derived
 
-  inline implicit def fromValue[T <: IntP & Singleton](inline value: T): IntParam[T] =
+  // A `DFConstInt32` value (a parameter constant) enters the `IntParam` algebra COLLAPSED: only
+  // `Int`-typed singletons take the precise conversion, so `Bits(LANE)` is `Bits[Int]` rather
+  // than `Bits[LANE.type]`, a singleton type no operation result can land back on (issue #455).
+  // The wide conversion below is deliberately monomorphic, which also lets any value be accepted
+  // where a collapsed `IntParam[Int]` is expected. Note the precise conversion still serves an
+  // ABSTRACT `Int & Singleton` type parameter (generic code over literal widths, e.g.
+  // `Matrix[CN <: Int & Singleton]`), where precision must be deferred, not dropped.
+  inline implicit def fromValue[T <: Int & Singleton](inline value: T): IntParam[T] =
     value.asInstanceOf[IntParam[T]]
   @targetName("fromValueInlined")
   inline implicit def fromValue[T <: Int](inline value: Inlined[T]): IntParam[T] =
     value.asInstanceOf[IntParam[T]]
   @targetName("fromValueWide")
-  inline implicit def fromValue[Wide <: IntP](inline value: Wide): IntParam[Wide] =
-    value.asInstanceOf[IntParam[Wide]]
+  inline implicit def fromValue(inline value: IntP): IntParam[Int] =
+    value.asInstanceOf[IntParam[Int]]
   inline def apply[T <: IntP](inline value: T): IntParam[T] = value match
     case sig: IntP.Sig => sig.value.asInstanceOf[IntParam[T]]
     case _             => value.asInstanceOf[IntParam[T]]

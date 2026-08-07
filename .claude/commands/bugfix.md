@@ -341,6 +341,45 @@ Two mechanism notes from that fix:
   above does not always cost you the diagnostic; verify per case with `assertCompileError` plus
   one manual compile for the position.
 
+### A rule about a value's type belongs where the value ENTERS the algebra
+
+Issue #455's collapse rule ("a non-literal width is `Int` at the type level") was first
+implemented per operation, rewriting each return type to a guarded fold, and that shape fails
+structurally: every *internal* call site that constructs with an exact type parameter
+(`DFBits(updatedWidth)` inside `resizeBits`, `repeat`, `.bits`) is left stuck on the fold and
+needs an exact-typed `raw` twin. Implementing the same rule at the single point where a value
+*converts into* the algebra's carrier (`IntParam.fromValue`) needed three lines and no signature
+changes: only user-facing entries collapse, and the typed internal plumbing never sees the rule.
+Mechanism notes from getting the conversion family right:
+
+- **A conversion whose RESULT type contains a match type is dead on arrival, in both
+  directions.** Expected-type-driven eligibility cannot invert the match type (`IntParam[8]`
+  wanted, `IntParam[Collapse[?T]]` offered: the candidate is rejected before the argument is
+  tried), and an arg-driven term singleton (`cellDim.type` of an `Int` method parameter) leaves
+  it STUCK in the result (`IsConst` on a TermRef does not reduce, not even to `false`).
+- **Bound-narrowing beats evidence-gating.** Restricting the precise conversion's bound
+  (`IntP & Singleton` to `Int & Singleton`) excludes exactly the species that must collapse (a
+  `DFConstInt32` parameter's singleton). An `=:=`-to-match-type evidence gate also excludes
+  ABSTRACT type parameters (`CN <: Int & Singleton` in generic library code, `Matrix`), which
+  must *defer* precision, not drop it: the evidence is unprovable for both, and only the
+  reflection level could tell them apart. Such generic code lives in `lib`, so core+stages
+  green is NOT enough blast radius for a conversion-family change.
+
+### A custom reporter that rewrites positions must re-own rendering-position sanity AND dedup
+
+`CustomReporter` drops a diagnostic's outer position chain to suppress inline-stack printing.
+That is only sound when the innermost frame is trustworthy, and a diagnostic raised on a
+macro-synthesized tree is not: its innermost frame pairs the CURRENT unit's source file with the
+span of the `${...}` splice in the macro's own source (`Exact.scala`), so the rendered position
+clamps to the unit's last line with an offset-sized column (`Playground.scala:13:12843`). The raw
+compiler never shows this frame because it renders *and dedups* through the outer chain
+(`UniqueMessagePositions`), which the re-reporting also bypassed (it forwarded straight to
+`orig.doReport`), so one inline-expansion error rendered up to three times. The fix is paired,
+and each half needs the other: normalize the position (walk innermost to outermost, keep the
+first frame whose source IS the compiled unit and whose span fits inside it), and dedup the
+normalized (position, message) in `isHidden`, where a swallowed duplicate is also never counted,
+keeping the "N errors found" summary consistent with what is rendered.
+
 ### Probing type-level behaviour
 
 Two traps, each of which cost several cycles here:

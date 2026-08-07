@@ -43,11 +43,21 @@ class TypePrinterSpec extends DFSpec:
         val e: Int = x
       """
     )
-    // a width parameter is named after the parameter it refers to
-    assertPluginError(foundRequiredInt("Bits[WIDTH] <> VAR"))(
+    // a non-literal width collapses to `Int` where the value enters the width algebra
+    // (`IntParam.fromValue`), so a parameter-constructed width prints as `Int`
+    assertPluginError(foundRequiredInt("Bits[Int] <> VAR"))(
       """
       class Foo(val WIDTH: Int <> CONST = 8) extends DFDesign:
         val x = Bits(WIDTH) <> VAR
+        val e: Int = x
+      """
+    )
+    // an explicitly written singleton width is kept, and is named after the parameter it
+    // refers to
+    assertPluginError(foundRequiredInt("Bits[WIDTH] <> VAR"))(
+      """
+      class Foo(val WIDTH: Int <> CONST = 8) extends DFDesign:
+        val x = Bits[WIDTH.type] <> VAR
         val e: Int = x
       """
     )
@@ -182,16 +192,17 @@ class TypePrinterSpec extends DFSpec:
     )
 
   test("modifiers"):
-    // ports are named by what they grant rather than by their direction, exactly as `ShowType`
-    // names them: an input is a readable value, an output an assignable variable
-    assertPluginError(foundRequiredInt("Bits[8] <> VAL"))(
+    // a port is named by its direction, exactly as `ShowType` names it. Naming it by what it
+    // grants instead (an input as a readable `VAL`) rendered a reduce-over-port-slices
+    // mismatch with `Bits[Int] <> VAL` on BOTH sides of the error (issue #455).
+    assertPluginError(foundRequiredInt("Bits[8] <> IN"))(
       """
       class Foo extends DFDesign:
         val x = Bits(8) <> IN
         val e: Int = x
       """
     )
-    assertPluginError(foundRequiredInt("Bits[8] <> VAR"))(
+    assertPluginError(foundRequiredInt("Bits[8] <> OUT"))(
       """
       class Foo extends DFDesign:
         val x = Bits(8) <> OUT
