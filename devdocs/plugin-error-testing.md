@@ -143,18 +143,23 @@ mapping. Metals/BSP export `Test / scalacOptions`, so the gating applies in the 
 - Single-phase `MegaPhase` wrapping means `transformFollowing`/`transformAllDeep` inside a
   nested phase sees only that phase, whereas the real pipeline may fuse consecutive minis.
   Fine for diagnostics; a known fidelity gap for tree shapes.
-- **Messages are collected through `Message.toString`, not `Diagnostic.message`.** The fresh
-  typer state bypasses the `CustomReporter` that `PreTyperPhase.initContext` installs for the
-  real run, so the collection step has to reproduce what that reporter does. It matters:
-  `message` renders under `Message.inMessageContext`, which pins the printer to the compiler's
-  own `Message.Printer` and therefore never sees the DFHDL type printer, whereas `toString`
-  renders under the context the message captured, where that printer is live. Going through
-  `toString` is what lets a snippet assert the text a user actually reads (`Bits[8] <> VAR`
-  rather than `dfhdl.core.DFVal[...]`), and it is the only way to test the printer at all:
-  `typeCheckErrors` packs its diagnostics with `message` and cannot be made to do otherwise.
-  `toString` also leaves out the `msgPostscript` addenda (import suggestions and the like),
-  which keeps expected strings to the diagnostic itself; ANSI colour escapes are stripped the
-  same way `Diagnostic.message` strips them.
+- **Diagnostics go through the run-wide rewriting, then render through `Message.toString`, not
+  `Diagnostic.message`.** The fresh typer state bypasses the `CustomReporter` that
+  `PreTyperPhase.initContext` installs for the real run, so the collection step applies the
+  SAME rewriting through the shared `DiagnosticRewriter`: position normalization, dedup (an
+  inline-expansion error re-raised at several positions must render once; asserted with
+  `assertSinglePluginError`), the DFHDL-mismatch postscript drop, and the guide rails (which
+  name the enclosing call from the snippet's parse tree). The rewriter's `unitSource` must be
+  the snippet's virtual source: a nested diagnostic's position chain extends past it into the
+  real unit (the marker call site), so the outermost frame does not identify the unit. The
+  rendering itself matters too: `message` renders under `Message.inMessageContext`, which pins
+  the printer to the compiler's own `Message.Printer` and therefore never sees the DFHDL type
+  printer, whereas `toString` renders under the context the message captured, where that
+  printer is live. Going through `toString` is what lets a snippet assert the text a user
+  actually reads (`Bits[8] <> VAR` rather than `dfhdl.core.DFVal[...]`), and it is the only
+  way to test the printer at all: `typeCheckErrors` packs its diagnostics with `message` and
+  cannot be made to do otherwise. ANSI colour escapes are stripped the same way
+  `Diagnostic.message` strips them.
 
 ## Beyond plugin errors: the DFHDL type printer
 

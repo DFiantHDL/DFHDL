@@ -34,6 +34,10 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
 
   private var markerClass: Symbol = NoSymbol
   private val preTyperRewriter = new PreTyperPhase(setting)
+  // the same rewriting the real run's CustomReporter applies, so specs assert on exactly what a
+  // user reads (its symbol cache is per run, hence an instance here rather than a shared global)
+  private val testerSymbols = DFHDLSymbols.Cache()
+  private val diagRewriter = DiagnosticRewriter(testerSymbols)
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
@@ -156,9 +160,13 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
 
       inContext(newContext) {
         def noErrors = ctx.reporter.allErrors.isEmpty
+        // the snippet's parse tree, kept for the diagnostic rewriting below (the guide rails
+        // name the enclosing call from it); empty when parsing itself failed
+        var snippetUntpd: untpd.Tree = untpd.EmptyTree
         val parsed = new Parser(source2).block()
         if (noErrors)
           val untpdTree = preTyperRewriter.rewriteParsed(parsed)
+          snippetUntpd = untpdTree
           val tpdTree = ctx.typer.typed(untpdTree)
           if (noErrors)
             // Every run below is constructed INSIDE this nested context on purpose: the
@@ -214,16 +222,22 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
               if (noErrors) transformTree = run(transformTree)
           end if
         end if
-        // `Message.toString` rather than `Diagnostic.message`, so a snippet's diagnostics
-        // read exactly as the real run's do. `message` renders under `inMessageContext`,
-        // which pins the printer to the compiler's own `Message.Printer` and therefore never
-        // sees the DFHDL type printer; `toString` renders under the context the message
-        // captured, which is where `PreTyperPhase.initContext` installed that printer. It is
-        // the same path the real run takes, since `CustomReporter` re-renders every reported
-        // diagnostic through `toString` (see DFHDLTypePrinter). `toString` also leaves out the
-        // `msgPostscript` addenda (import suggestions and the like), which are noise here.
-        // The colour escapes `Diagnostic.message` would have dropped are stripped the same way.
-        ctx.reporter.allErrors.map(_.msg.toString.replaceAll("\\e\\[[;\\d]*m", ""))
+        // Every diagnostic goes through the SAME rewriting the real run's CustomReporter
+        // applies (position normalization, dedup, postscript drop, guide rails), then renders
+        // through `Message.toString` rather than `Diagnostic.message`: `message` renders under
+        // `inMessageContext`, which pins the printer to the compiler's own `Message.Printer`
+        // and therefore never sees the DFHDL type printer, whereas `toString` renders under
+        // the context the message captured, which is where `PreTyperPhase.initContext`
+        // installed that printer. The colour escapes `Diagnostic.message` would have dropped
+        // are stripped the same way.
+        val seen = collection.mutable.HashSet.empty[(String, Int, Int, Int, String)]
+        ctx.reporter.allErrors.collect {
+          case dia if seen.add(diagRewriter.dedupKey(dia, source2)) =>
+            val userPos = diagRewriter.normalizedPos(dia.pos, source2)
+            diagRewriter
+              .updatedMsg(dia.msg, userPos, snippetUntpd)
+              .toString.replaceAll("\\e\\[[;\\d]*m", "")
+        }
       }
     }
   end snippetErrors

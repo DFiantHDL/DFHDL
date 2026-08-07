@@ -265,4 +265,31 @@ class TypePrinterSpec extends DFSpec:
         val e: Int = x
       """
     )
+
+  test("reduce over declaration slices guide rail"):
+    // The issue #455 shape: `reduce` commits its type parameter to the port-modified slice
+    // element type, which no operation result can conform to. The rewriter identifies the
+    // enclosing fold-family call from the parse tree and spells the pinned-type remedy with
+    // the actual element type. The single-error assertion also pins the diagnostic dedup:
+    // the typer re-raises this mismatch through the inline expansion of `++`, once with a
+    // corrupt macro-splice position, and all re-raises must collapse into this one message.
+    assertSinglePluginError(
+      """|Found:    Bits[Int] <> VAL
+         |Required: Bits[Int] <> IN
+         |
+         |Note: `reduce` inferred its type parameter from the declaration (port or
+         |variable) slice elements, so the operator must land back on the declaration
+         |type, and an operation result is a plain value that never can. Set the type
+         |parameter to the plain value type explicitly:
+         |
+         |  .reduce[Bits[Int] <> VAL](...)""".stripMargin
+    )(
+      """
+      class Foo(val LANE: Int <> CONST = 3, val LANES: Int <> CONST = 3) extends EDDesign:
+        val data = Bits(LANE * LANES) <> IN
+        val out = Bits(LANE * LANES) <> OUT
+        val list = for (i <- 0 until LANES) yield data.lsbitsAt(i * LANE, LANE)
+        out <> list.reduce(_ ++ _)
+      """
+    )
 end TypePrinterSpec

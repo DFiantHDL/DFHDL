@@ -22,6 +22,178 @@ import collection.mutable
 import annotation.tailrec
 import reporting.*
 
+/** The single home of DFHDL's user-facing diagnostic rewriting, applied by [[CustomReporter]] on
+  * the real compilation and by [[PluginTestPhase]] on nested snippet compilations, so specs assert
+  * on exactly what a user reads.
+  */
+final class DiagnosticRewriter(symbols: DFHDLSymbols.Cache):
+  /** The frame of the diagnostic's inline position chain to report at. Dropping the outer chain
+    * (see [[CustomReporter]]) is only sound when the innermost position is trustworthy, and a
+    * diagnostic raised on a macro-synthesized tree is not: its innermost frame carries the span of
+    * the quote inside the macro's own source paired with the CURRENT unit's source file, so the
+    * rendered position lands past the unit's end (`Playground.scala:13:12843`-style). The chain is
+    * walked innermost to outermost, keeping the first frame that belongs to the compiled unit
+    * (`unitSource`: passed explicitly, since in a NESTED snippet compilation the chain extends past
+    * the snippet's virtual source into the enclosing real unit, so the outermost frame does not
+    * identify it) with a span that fits inside it. For every well-formed diagnostic the innermost
+    * frame qualifies, so this changes nothing; only corrupt or library-positioned frames are
+    * skipped.
+    */
+  def normalizedPos(pos: util.SourcePosition, unitSource: util.SourceFile): util.SourcePosition =
+    val frames = Iterator
+      .iterate(pos)(_.outer)
+      .takeWhile(p => p != null && p.exists)
+      .toList
+    if (frames.isEmpty) pos
+    else
+      def sane(p: util.SourcePosition): Boolean =
+        p.span.exists && p.span.end <= p.source.content().length
+      frames.find(p => (p.source eq unitSource) && sane(p)).getOrElse(frames.last)
+  end normalizedPos
+
+  /** The identity of a diagnostic AS RENDERED: the same inline-expansion error re-raised at several
+    * positions collapses onto one normalized position, so it must render once.
+    */
+  def dedupKey(dia: Diagnostic, unitSource: util.SourceFile)(using
+      Context
+  ): (String, Int, Int, Int, String) =
+    val diaPos = normalizedPos(dia.pos, unitSource)
+    val (spanStart, spanEnd) =
+      if (diaPos.span.exists) (diaPos.span.start, diaPos.span.end) else (-1, -1)
+    (diaPos.source.file.path, spanStart, spanEnd, dia.level, dia.msg.toString)
+
+  /** The message to report in place of `base`. Every message is re-rendered through the DFHDL type
+    * printer. A type mismatch whose REQUIRED side is a DFHDL value is additionally re-issued with
+    * an EMPTY postscript, since the compiler's own trailing guidance is noise or worse there (the
+    * transparent-inline note explains the Scala mechanics behind the DFHDL operators, and the
+    * import suggestions, `InitValue.fromValue` and friends, never fix a DFHDL mismatch): a fresh
+    * message rather than `mapMsg`, since `mapMsg` deliberately carries the original postscript, and
+    * the postscript itself is protected so it cannot be filtered piecewise. The `-explain`
+    * explanation is kept. `untpdRoot` is the compiled unit's parse tree, used to name the enclosing
+    * call in [[reduceGuideRail]] (pass `untpd.EmptyTree` when unavailable).
+    */
+  def updatedMsg(base: Message, userPos: util.SourcePosition, untpdRoot: untpd.Tree)(using
+      Context
+  ): Message =
+    // `toString` rather than `message`: it renders the message proper (without the postscript)
+    // under the context the message captured, where the DFHDL type printer is live
+    val rendered = base.toString
+    val dropPostscript = base match
+      case tm: TypeMismatchMsg =>
+        val syms = symbols()
+        syms.available && tm.expected.derivesFrom(syms.dfVal)
+      case _ => false
+    if (dropPostscript)
+      val withGuideRail = rendered ++ reduceGuideRail(base, userPos, untpdRoot)
+      new Message(base.errorId):
+        val kind = base.kind
+        def msg(using Context) = withGuideRail
+        override def msgPostscript(using Context) = ""
+        def explain(using Context) = base.explanation
+        override def canExplain = base.canExplain
+    else base.mapMsg(_ => rendered)
+  end updatedMsg
+
+  // The `(dfType, modifier args)` decomposition of a DFHDL value type, or None for anything else.
+  private def dfValParts(tp: Type)(using Context): Option[(Type, List[Type])] =
+    val syms = symbols()
+    tp.dealias match
+      case AppliedType(tycon, List(t, mod)) if tycon.typeSymbol == syms.dfVal =>
+        mod.dealias match
+          case AppliedType(modTycon, args @ List(_, _, _, _))
+              if modTycon.typeSymbol == syms.modifier =>
+            Some((t, args))
+          case _ => None
+      case _ => None
+
+  private val foldFamily = Set(
+    "reduce", "reduceLeft", "reduceRight", "reduceOption", "reduceLeftOption",
+    "reduceRightOption", "fold", "foldLeft", "foldRight", "scan", "scanLeft", "scanRight"
+  )
+
+  // The simple name of the innermost call in `untpdRoot` one of whose arguments contains `pos`
+  // (the typed tree does not exist yet at reporting time, but the parse tree does). A parent is
+  // visited before its children, so the last match recorded is the innermost. Purely cosmetic,
+  // so any failure to answer is just `None`.
+  private def enclosingCallName(pos: util.SourcePosition, untpdRoot: untpd.Tree)(using
+      Context
+  ): Option[String] =
+    try
+      if (untpdRoot.isEmpty || !pos.span.exists) None
+      else
+        var found: Option[String] = None
+        def nameOf(fun: untpd.Tree): Option[String] = fun match
+          case untpd.Select(_, name) => Some(name.show)
+          case untpd.Ident(name)     => Some(name.show)
+          case untpd.TypeApply(f, _) => nameOf(f)
+          case untpd.Apply(f, _)     => nameOf(f)
+          case _                     => None
+        val traverser = new untpd.UntypedTreeTraverser:
+          def traverse(tree: untpd.Tree)(using Context): Unit =
+            tree match
+              case untpd.Apply(fun, args)
+                  if args.exists(a => a.span.exists && a.span.contains(pos.span)) =>
+                nameOf(fun).foreach(n => found = Some(n))
+              case _ =>
+            traverseChildren(tree)
+        traverser.traverse(untpdRoot)
+        found
+      end if
+    catch case scala.util.control.NonFatal(_) => None
+  end enclosingCallName
+
+  /** The guide rail for a plain computed value found where a declaration-modified value of the SAME
+    * DFHDL type is required (`Found: Bits[Int] <> VAL` vs `Required: Bits[Int] <> IN`): the
+    * signature of a `reduce`-style method that inferred its type parameter from port/variable slice
+    * elements before the operator was typed, where pinning the type parameter to the plain value
+    * type is the fix. When the enclosing call is identified as a known fold-family method the note
+    * asserts and names it; otherwise it stays conditional. Empty for every other mismatch.
+    */
+  private def reduceGuideRail(
+      base: Message,
+      userPos: util.SourcePosition,
+      untpdRoot: untpd.Tree
+  )(using Context): String =
+    base match
+      case tm: TypeMismatch =>
+        val syms = symbols()
+        val hint =
+          for
+            (foundT, foundMod) <- dfValParts(tm.found)
+            (expectedT, expectedMod) <- dfValParts(tm.expected)
+            // found is a plain value (Any access), required is declaration-modified, and the
+            // DFHDL type parts agree, so retyping the requirement as a plain value must succeed
+            if foundMod.head.isRef(defn.AnyClass) && !expectedMod.head.isRef(defn.AnyClass) &&
+              (foundT =:= expectedT)
+          yield
+            val plainMod = syms.modifier.typeRef.appliedTo(List.fill(4)(defn.AnyType))
+            val plainVal = syms.dfVal.typeRef.appliedTo(List(expectedT, plainMod)).show
+            enclosingCallName(userPos, untpdRoot).filter(foldFamily) match
+              case Some(name) =>
+                s"""|
+                    |
+                    |Note: `$name` inferred its type parameter from the declaration (port or
+                    |variable) slice elements, so the operator must land back on the declaration
+                    |type, and an operation result is a plain value that never can. Set the type
+                    |parameter to the plain value type explicitly:
+                    |
+                    |  .$name[$plainVal](...)""".stripMargin
+              case None =>
+                s"""|
+                    |
+                    |Note: the required type belongs to a declaration (a port or a variable), and an
+                    |operation result is a plain value that can never take its place. If this is the
+                    |operator of a method like `reduce`, the method inferred its type parameter from
+                    |the declaration slices before the operator was typed; set it to the plain value
+                    |type explicitly:
+                    |
+                    |  .reduce[$plainVal](...)""".stripMargin
+            end match
+        hint.getOrElse("")
+      case _ => ""
+  end reduceGuideRail
+end DiagnosticRewriter
+
 /** Re-renders every reported diagnostic before passing it on, which is what puts DFHDL's own type
   * printer in front of the user (see [[DFHDLTypePrinter]]).
   *
@@ -32,80 +204,39 @@ import reporting.*
   * message captured, where that printer is live. Re-reporting also drops the diagnostic's outer
   * position, which suppresses inline-stack error printing.
   *
-  * Dropping the outer chain is only sound when the innermost position is trustworthy, and a
-  * diagnostic raised on a macro-synthesized tree is not: its innermost frame carries the span of
-  * the quote inside the macro's own source paired with the CURRENT unit's source file, so the
-  * rendered position lands past the unit's end (`Playground.scala:13:12843`-style). The position is
-  * therefore normalized first: walk the inline chain innermost to outermost and keep the first
-  * frame that belongs to the compiled unit (the outermost frame's source, by construction the call
-  * site being typed) with a span that fits inside it. For every well-formed diagnostic the
-  * innermost frame qualifies, so this changes nothing; only corrupt or library-positioned frames
-  * are skipped.
-  *
-  * Re-reporting also bypasses the original reporter's `UniqueMessagePositions` dedup (that dedup
-  * keys on the positions this reporter rewrites), so the same inline-expansion error re-raised at
-  * several positions would render several times. The normalized (position, message) pair is
-  * deduplicated here instead.
-  *
-  * Finally, a type mismatch whose REQUIRED side is a DFHDL value is read by a user thinking in
-  * DFHDL types, where the compiler's own trailing guidance (`msgPostscript`) is noise or worse: the
-  * transparent-inline note explains the Scala mechanics behind the DFHDL operators, and the import
-  * suggestions (`InitValue.fromValue` and friends) never fix a DFHDL mismatch. Such a diagnostic is
-  * re-issued with an EMPTY postscript: a fresh message rather than `mapMsg`, since `mapMsg`
-  * deliberately carries the original postscript, and the postscript itself is protected so it
-  * cannot be filtered piecewise. The `-explain` explanation is kept.
+  * The rewriting itself (position normalization, dedup identity, postscript handling and the DFHDL
+  * guide rails) lives in [[DiagnosticRewriter]], which the nested snippet compilations of
+  * [[PluginTestPhase]] share, so `assertPluginError` specs assert on exactly what a user reads.
+  * Re-reporting bypasses the original reporter's `UniqueMessagePositions` dedup (that dedup keys on
+  * the positions the rewriter rewrites), so the rewriter's own dedup is applied in `isHidden`.
   */
 class CustomReporter(
     val orig: Reporter,
     symbols: DFHDLSymbols.Cache
 ) extends Reporter:
+  private val rewriter = DiagnosticRewriter(symbols)
   private val reported = collection.mutable.HashSet.empty[(String, Int, Int, Int, String)]
   override def flush()(using ctx: Context): Unit = orig.flush()
-  private def updatedMsg(base: Message)(using Context): Message =
-    // `toString` rather than `message`: it renders the message proper (without the postscript)
-    // under the context the message captured, where the DFHDL type printer is live
-    val rendered = base.toString
-    val dropPostscript = base match
-      case tm: TypeMismatchMsg =>
-        val syms = symbols()
-        syms.available && tm.expected.derivesFrom(syms.dfVal)
-      case _ => false
-    if (dropPostscript)
-      new Message(base.errorId):
-        val kind = base.kind
-        def msg(using Context) = rendered
-        override def msgPostscript(using Context) = ""
-        def explain(using Context) = base.explanation
-        override def canExplain = base.canExplain
-    else base.mapMsg(_ => rendered)
-  end updatedMsg
-  private def normalizedPos(pos: util.SourcePosition): util.SourcePosition =
-    val frames = Iterator
-      .iterate(pos)(_.outer)
-      .takeWhile(p => p != null && p.exists)
-      .toList
-    if (frames.isEmpty) pos
-    else
-      val unitSource = frames.last.source
-      def sane(p: util.SourcePosition): Boolean =
-        p.span.exists && p.span.end <= p.source.content().length
-      frames.find(p => (p.source eq unitSource) && sane(p)).getOrElse(frames.last)
-  end normalizedPos
-  private def dedupKey(dia: Diagnostic)(using Context): (String, Int, Int, Int, String) =
-    val diaPos = normalizedPos(dia.pos)
-    val (spanStart, spanEnd) =
-      if (diaPos.span.exists) (diaPos.span.start, diaPos.span.end) else (-1, -1)
-    (diaPos.source.file.path, spanStart, spanEnd, dia.level, dia.msg.toString)
+  // the compiled unit's parse tree, for naming the enclosing call in the guide rail; the
+  // reporting context is the typing context, so its unit is the one holding the error
+  private def untpdRootFor(pos: util.SourcePosition)(using Context): untpd.Tree =
+    try
+      val unit = ctx.compilationUnit
+      if ((unit ne null) && (pos.source eq unit.source)) unit.untpdTree else untpd.EmptyTree
+    catch
+      case scala.util.control.NonFatal(_) => untpd.EmptyTree
   // the dedup lives in `isHidden` rather than `doReport` so a swallowed duplicate is also
   // never counted, keeping the "N errors found" summary consistent with what is rendered
   // (the same reason the compiler's own dedup, `UniqueMessagePositions`, works at this hook)
   override def isHidden(dia: Diagnostic)(using Context): Boolean =
     super.isHidden(dia) ||
-      dia.level >= interfaces.Diagnostic.WARNING && !reported.add(dedupKey(dia))
+      dia.level >= interfaces.Diagnostic.WARNING &&
+      !reported.add(rewriter.dedupKey(dia, ctx.source))
   override def doReport(dia: Diagnostic)(using ctx: Context): Unit =
-    val diaPos = normalizedPos(dia.pos).copy(outer = null) // disable inline stack error printing
-    val updatedDia = Diagnostic(updatedMsg(dia.msg), diaPos, dia.level)
-    orig.doReport(updatedDia)
+    val userPos = rewriter.normalizedPos(dia.pos, ctx.source)
+    val diaPos = userPos.copy(outer = null) // disable inline stack error printing
+    val newMsg = rewriter.updatedMsg(dia.msg, userPos, untpdRootFor(userPos))
+    orig.doReport(Diagnostic(newMsg, diaPos, dia.level))
   end doReport
 end CustomReporter
 
