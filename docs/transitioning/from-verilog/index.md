@@ -402,6 +402,8 @@ class Foo extends EDDesign:
 </div>
 ///
 
+[](){#fsm-state-encoding}
+
 /// admonition | FSM State Encoding
     type: verilog
 Verilog FSMs typically use `parameter` constants and `case`/`if` chains. In DFHDL, the idiomatic translation uses an `enum extends Encoded` and `match`:
@@ -441,6 +443,8 @@ class gun extends EDDesign:
 ```
 
 </div>
+
+Note that the `default:` branch is kept as `case _ =>`: the three states occupy a 2-bit binary encoding, leaving `2'b11` representable but unlisted, and only the wildcard branch covers it. Translate a `default:` branch as `case _ =>` whenever such unlisted encodings exist, i.e. always except for the default binary encoding with exactly 2^n unique cases; dropping it turns them into synthesis don't-cares and the translation is no longer formally equivalent to the original. For fresh (non-translated) FSMs the wildcard is a reliability choice instead; see [Enum Matches and the Wildcard `case _`][enum-match-wildcard].
 
 A Verilog `enum {IDLE, DRAW} state;` (or a set of state `parameter`s) is a **module-local** declaration, so the faithful translation declares the enum inside the design class. That also keeps per-module FSMs independent: several designs may each declare their own `State` without colliding, whereas two top-level enums of the same name in one compilation unit are a duplicate definition. See [Declaration Scope][DFEnum] for the details and for where the generated typedef ends up.
 

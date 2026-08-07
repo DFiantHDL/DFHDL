@@ -13,7 +13,8 @@ for all the mechanics this skill deliberately omits:
 - **[Transitioning from Verilog][from-verilog]** (`docs/transitioning/from-verilog/index.md`) -
   module/param/port mapping, `logic`/`reg`/`wire` → `VAR init`, `UInt`/`Bits`/`SInt` choice, numeric
   literals, `$clog2` → `.until`/`.to`, `always` → `process`, blocking/non-blocking → `:=`/`:==`, FSM →
-  `enum extends Encoded`, integer `case` → `match`, functions/tasks → methods, all operators (shift,
+  `enum extends Encoded`, integer `case` → `match`, `default:`/`others` → `case _` (kept for formal
+  equivalence unless binary encoding with exactly 2^n cases), functions/tasks → methods, all operators (shift,
   `|&~`, reductions, `.repeat`, `++`/`.toBits`, part-select `-:`/`+:`, signed arithmetic), `generate
   for` → Scala `for`, reserved-keyword escaping (backtick / `@targetName`), `Bits` init `all(0)`,
   ternary → `.sel`.

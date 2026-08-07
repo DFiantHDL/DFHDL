@@ -1443,6 +1443,8 @@ state match
   case MyEnum.C => // handle C
 ```
 
+Listing every declared entry makes the match exhaustive, yet a wildcard `case _ =>` branch is still permitted: it covers any encoding of the underlying register that no entry names. See [Enum Matches and the Wildcard `case _`][enum-match-wildcard] for when to include it.
+
 #### Examples
 
 ```scala

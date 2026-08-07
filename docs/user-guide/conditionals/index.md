@@ -229,7 +229,7 @@ else
 
 ### Rules
 
-1. **Exhaustiveness**: Match expressions must cover all possible cases
+1. **Exhaustiveness**: Match expressions must cover all possible cases (for an enum selector, listing all declared entries suffices; see [Enum Matches and the Wildcard `case _`][enum-match-wildcard] for when to add a wildcard branch anyway)
 2. **Pattern Order**: Patterns are evaluated in order, first match wins
 3. **Type Safety**: All case branches must produce compatible types if used as an expression
 4. **Hardware Implementation**: 
@@ -260,6 +260,25 @@ enum State(val value: UInt[3] <> CONST) extends Encoded.Manual(3):
   case Data  extends State(d"3'5")
 ```
 ///
+
+### Enum Matches and the Wildcard `case _` {#enum-match-wildcard}
+
+Listing every entry of an enum makes a `match` exhaustive, but the register underneath can often hold encodings that no entry names: the 3-entry `State` enum above occupies 2 bits, leaving `b"11"` representable but unlisted (one-hot, gray, `StartAt`, and `Manual` encodings leave even more). A wildcard branch after all the entries covers exactly those unlisted encodings, and whether to write it depends on the rules below:
+
+```scala
+state match
+  case State.Idle  => // idle logic
+  case State.Start => // start logic
+  case State.Data  => // data logic
+  // wildcard branch, reached only on the unlisted b"11" encoding;
+  // optional in a fresh design, mandatory in a translation 
+  // from Verilog's `default:` or VHDL's `when others =>` 
+  // (see rules below)
+  case _           => state := State.Idle
+```
+
+- **Fresh designs:** no need to write `case _ =>` if don't-care behavior on unlisted encodings is acceptable; synthesis exploits the don't-cares for better hardware utilization, and most designs require nothing more. The trade-off: if unstable timing/reset or an environmental effect that randomly flips bits (however unlikely) lands the register on an unlisted encoding, the outcome is unknown, and without a wildcard branch that keeps the current state or jumps to a known initialization state (as above) the chances of recovery are reduced. Only high-reliability designs need it.
+- **Translations of existing Verilog/VHDL:** translate a `default:` / `when others =>` branch as `case _ =>` too. Omit it only for the default binary encoding with exactly 2^n unique cases, where every encoding is named and the branch is unreachable; for any other encoding or case count, dropping it makes the translation not formally equivalent to the original. See [FSM State Encoding][fsm-state-encoding] for a worked translation.
 
 ### Best Practices
 
@@ -302,7 +321,7 @@ class Decoder extends DFDesign:
     case 0  => b"0001"
     case 1  => b"0010"
     case 2  => b"0100"
-    case _ => b"0000"
+    case _  => b"0000"
 ```
 
 ### Complex Pattern Matching
@@ -313,9 +332,9 @@ class PixelProcessor extends DFDesign:
   
   result := pixel match
     case Pixel(x, y) if x == y => x
-    case Pixel(x, 0) => x * 2
-    case Pixel(0, y) => y * 2
-    case Pixel(x, y) => (x + y) / 2
+    case Pixel(x, 0)           => x * 2
+    case Pixel(0, y)           => y * 2
+    case Pixel(x, y)           => (x + y) / 2
 ```
 
 ### Usage Modes
@@ -333,7 +352,7 @@ else if (!i) x := 2
 // Match statement
 x match
   case 77 | 11 => x := 1
-  case _ =>
+  case _       =>
     x := 3
     x := 4
 ```
