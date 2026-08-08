@@ -72,9 +72,11 @@ final class DiagnosticRewriter(symbols: DFHDLSymbols.Cache):
     * internal conversions for EVERY receiver, and the extension-attempt transcript restates the
     * receiver in raw types over dozens of lines, so both mislead rather than help; when extension
     * methods were tried, that fact is kept as a bare ` (extension method tried)`. The did-you-mean
-    * hint, which only appears when no other addendum does, is kept. The `-explain` explanation is
-    * kept everywhere. `untpdRoot` is the compiled unit's parse tree, used to name the enclosing
-    * call in [[reduceGuideRail]] (pass `untpd.EmptyTree` when unavailable).
+    * hint is RESTORED rather than merely kept: upstream computes it only when no other addendum
+    * exists, and here the (garbage) import-suggestion addendum always does, so it is recomputed
+    * after the strip (see [[didYouMeanHint]]). The `-explain` explanation is kept everywhere.
+    * `untpdRoot` is the compiled unit's parse tree, used to name the enclosing call in
+    * [[reduceGuideRail]] (pass `untpd.EmptyTree` when unavailable).
     */
   def updatedMsg(base: Message, userPos: util.SourcePosition, untpdRoot: untpd.Tree)(using
       Context
@@ -87,7 +89,7 @@ final class DiagnosticRewriter(symbols: DFHDLSymbols.Cache):
       case tm: TypeMismatchMsg if syms.available && tm.expected.derivesFrom(syms.dfVal) =>
         freshMsg(base, rendered ++ reduceGuideRail(base, userPos, untpdRoot))
       case nam: NotAMember if syms.available =>
-        freshMsg(base, notAMemberText(rendered))
+        freshMsg(base, notAMemberText(nam, rendered))
       case _ => base.mapMsg(_ => rendered)
   end updatedMsg
 
@@ -116,7 +118,7 @@ final class DiagnosticRewriter(symbols: DFHDLSymbols.Cache):
     "\nThe following import might"
   )
 
-  private def notAMemberText(rendered: String): String =
+  private def notAMemberText(nam: NotAMember, rendered: String)(using Context): String =
     def firstIdx(markers: List[String]): Option[Int] =
       markers.map(rendered.indexOf).filter(_ >= 0).minOption
     val extIdx = firstIdx(extTriedMarkers)
@@ -124,9 +126,40 @@ final class DiagnosticRewriter(symbols: DFHDLSymbols.Cache):
     cutIdx match
       case Some(cut) =>
         val core = rendered.take(cut)
-        if (extIdx.contains(cut)) core ++ " (extension method tried)" else core
+        if (extIdx.contains(cut)) core ++ " (extension method tried)"
+        else core ++ didYouMeanHint(nam)
       case None => rendered
   end notAMemberText
+
+  // The did-you-mean hint for a stripped `NotAMember`, recomputed the way `NotAMember.msg`
+  // computes it. Upstream only computes the hint when NO other addendum exists, and in a DFHDL
+  // compilation the (stripped) import-suggestion addendum always exists, so the hint the user
+  // deserves never gets a chance there. The message's `site` and `proto` are private constructor
+  // parameters, hence the reflection; any failure just means no hint.
+  private def didYouMeanHint(nam: NotAMember)(using Context): String =
+    try
+      import DidYouMean.*
+      def field[T](fname: String): T =
+        val f = classOf[NotAMember].getDeclaredField(fname)
+        f.setAccessible(true)
+        f.get(nam).asInstanceOf[T]
+      val site = field[Type]("site")
+      val proto = field[Type]("proto")
+      didYouMean(
+        memberCandidates(
+          site,
+          nam.name.isTypeName,
+          isApplied = proto.isInstanceOf[typer.ProtoTypes.FunProto]
+        )
+          .closestTo(nam.name.show)
+          .map((d, sym) => (d, Binding(sym.name, sym, site))),
+        proto,
+        prefix = site match
+          case site: NamedType => i"${site.name}."
+          case site            => i"$site."
+      )
+    catch case scala.util.control.NonFatal(_) => ""
+  end didYouMeanHint
 
   // The `(dfType, modifier args)` decomposition of a DFHDL value type, or None for anything else.
   private def dfValParts(tp: Type)(using Context): Option[(Type, List[Type])] =

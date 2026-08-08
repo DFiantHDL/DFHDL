@@ -297,6 +297,16 @@ class TypePrinterSpec extends DFSpec:
         x.zzz
       """
     )
+    // the did-you-mean hint is recomputed after the strip: upstream computes it only when no
+    // other addendum exists, and the conversions make the import-suggestion addendum non-empty
+    // for every selection, so without the recomputation DFHDL users would never see it
+    assertSinglePluginError("value toStrig is not a member of Int - did you mean x.toString?")(
+      """
+      class Foo extends EDDesign:
+        val x: Int = 1
+        x.toStrig
+      """
+    )
 
   test("reduce over declaration slices guide rail"):
     // The issue #455 shape: `reduce` commits its type parameter to the port-modified slice
