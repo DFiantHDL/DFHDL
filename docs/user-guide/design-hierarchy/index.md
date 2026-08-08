@@ -226,7 +226,7 @@ The DFHDL design parameter block follows standard Scala syntax, accepting a comm
     - Used in the generated backend code
     - Available through the CLI for top designs
 
-* __`_default_`__ - Optional default value.
+* __`_default_`__ - Optional default value. A default cannot reference another parameter of the same design; a parameter that would be derived from its siblings belongs in the design body instead. See [Inter-Dependent Design Parameters][inter-dependent-params].
 
 * __`_access_`__ - Optional [Scala access modifier](https://docs.scala-lang.org/scala3/book/domain-modeling-oop.html#access-modifiers){target="_blank"}. Usually `#!scala val` to make the parameter public. See [Design Parameter Access Rules][design-parameter-access-rules] for details.
 
@@ -400,6 +400,98 @@ class Foo(
     type: tip
 Overusing default parameter values is considered bad design practice. In general, default values should be used sparingly and only to define "sensible defaults" for parameters that are rarely changed. A good rule of thumb is to *avoid* default values that affect a design's interface (e.g., the width of a port).
 ///
+
+#### Inter-Dependent Design Parameters {#inter-dependent-params}
+
+HDL designs often declare one parameter whose value is derived from another, like a width parameter alongside an initialization parameter of that width, or a `$clog2`-computed width in Verilog. In DFHDL such a DERIVED parameter is not declared as a parameter at all: a parameter default cannot reference a sibling parameter (a Scala restriction on parameter lists), and no separate parameter is needed, since the derived value is simply computed in the design body as a named constant. The body constant serves everywhere a parameter would, port widths included, and appears by name in the generated code.
+
+The generic register below is parameterized solely by its initialization value `INIT`, an unbounded-width `Bits[Int] <> CONST` parameter. The register length `LEN` is derived from it with the [`.length` query][width-length-ops] and sets the port widths:
+
+```scala
+import dfhdl.*
+
+/** A generic register */
+class InitReg(
+    val INIT: Bits[Int] <> CONST = h"00"
+) extends RTDesign:
+  /** the register length, derived from the initialization parameter */
+  val LEN = INIT.length
+  /** data input */
+  val din = Bits(LEN) <> IN
+  /** data output */
+  val dout = Bits(LEN) <> OUT
+  dout := din.reg(1, init = INIT)
+```
+
+/// tab | Generated Verilog
+```verilog
+/* A generic register */
+`default_nettype none
+`timescale 1ns/1ps
+
+module InitReg#(parameter logic [7:0] INIT = 8'h00)(
+  input  wire logic             clk,
+  input  wire logic             rst,
+  /* data input */
+  input  wire logic [LEN - 1:0] din,
+  /* data output */
+  output      logic [LEN - 1:0] dout
+);
+  `include "dfhdl_defs.svh"
+  /* the register length, derived from the initialization parameter */
+  localparam int LEN = 8;
+  always_ff @(posedge clk)
+  begin
+    if (rst == 1'b1) dout <= INIT;
+    else dout <= din;
+  end
+endmodule
+```
+///
+
+/// tab | Generated VHDL
+```vhdl
+-- A generic register
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.dfhdl_pkg.all;
+
+entity InitReg is
+generic (
+  INIT : std_logic_vector(7 downto 0) := x"00";
+  LEN : integer := 8
+);
+port (
+  clk  : in  std_logic;
+  rst  : in  std_logic;
+  -- data input
+  din  : in  std_logic_vector(LEN - 1 downto 0);
+  -- data output
+  dout : out std_logic_vector(LEN - 1 downto 0)
+);
+end InitReg;
+
+architecture InitReg_arch of InitReg is
+begin
+  process (clk)
+  begin
+    if rising_edge(clk) then
+      if rst = '1' then dout <= INIT;
+      else dout <= din;
+      end if;
+    end if;
+  end process;
+end InitReg_arch;
+```
+///
+
+Points worth noting in this pattern:
+
+- Declaring `LEN` as a separate design parameter next to `INIT` is not possible in DFHDL, and it is also not needed: the width of a `Bits[Int] <> CONST` parameter travels with the applied argument itself, so `LEN` always agrees with `INIT` by construction. Two separate parameters would have to be kept consistent manually at every instantiation, a mismatch the derived form rules out entirely.
+- The width of `INIT` is set by the APPLIED argument (here the default `h"00"`, so 8). In the generated code that width is fixed in the module/entity declaration, while the VALUE of `INIT` remains overridable at that width. Applying an argument of a different width elaborates a design with the corresponding widths.
+- `val LEN = INIT.length` is a named constant, so the generated code declares it by name (a Verilog `localparam`, a VHDL `generic` with a consistent default) and references it wherever it is used, rather than inlining its expression.
+- The same recipe serves any derived parameter, for example a `clog2`-computed address width: declare the primary parameters, and compute the derived constants in the body. See also the [width derivation idiom][width-length-ops] (`UInt.until(DEPTH).width`).
 
 #### Design Parameter Access Rules
 Without any [Scala access modifier](https://docs.scala-lang.org/scala3/book/domain-modeling-oop.html#access-modifiers){target="_blank"}, a Scala class parameter access is declared as `#!scala private val`. This default access leads to an error if that parameter affects the type of non-private class member (e.g., a `width` parameter affecting the bits width of a port). To resolve this error, the parameter can be declared as public `#!scala val`, as `#!scala protected val`, or even `#!scala private[scope] val` with a scope [access qualifier](https://www.scala-lang.org/files/archive/spec/3.4/05-classes-and-objects.html#private){target="_blank"}.
