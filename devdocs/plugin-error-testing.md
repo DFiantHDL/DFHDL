@@ -16,7 +16,7 @@ dedicated plugin phase intercepts, nested-compiles, and replaces with the litera
 |---|---|---|
 | `PluginErrCheck.pluginCheckErrors(code)` | `internals/src/test/.../PluginErrCheck.scala` | marker; throwing body, never published |
 | `PluginTestPhase` (pipeline name `PluginErrCheck`) | `plugin/.../PluginTestPhase.scala` | intercepts marker calls, runs the nested compile |
-| `assertPluginError(expectedErr)(code)` | `NoDFCSpec` | munit-facing helper |
+| `assertPluginError(expectedErr)(code)` | `NoDFCSpec` | munit-facing helper (variants: `assertSinglePluginError`, `assertPluginErrors`) |
 | `pluginErrorTestSettings` + `internals % "test->test;compile->compile"` | build.sbt (core only) | gating and marker visibility |
 | `CoreSpec` | core tests |
 
@@ -48,10 +48,16 @@ reported error, the same convention as `assertCompileError`.
    snippets isolated: block-local classes are owned by a throwaway symbol and never enter a
    package scope, so snippets cannot collide with each other or leak into the real
    compilation.
-2. `PreTyperPhase.rewriteParsed` applies the two `<>` precedence fixers to the parse tree,
-   giving snippets the same parse-level fidelity as regular units (the auto-`@top` rewrite
-   never applies inside a block and is skipped). Notably, `typeCheckErrors` skips untyped
-   rewrites entirely; owning the pipeline is what makes this fidelity possible.
+2. `PreTyperPhase.rewriteParsed` applies the parse-tree rewrites (the two `<>` precedence
+   fixers and the single-line `process`/`initial` error) to the parse tree, giving snippets
+   the same parse-level fidelity as regular units (the auto-`@top` rewrite never applies
+   inside a block and is skipped). Notably, `typeCheckErrors` skips untyped rewrites
+   entirely; owning the pipeline is what makes this fidelity possible. When the PARSE itself
+   errored, `rewriteParsed` is skipped and the parser's recovered tree is typed raw instead,
+   mirroring the real pipeline: a parser error makes the compiler skip every plugin phase for
+   the run while still running the typer, and that recovery mode is exactly where the
+   reporter-side single-line override (`DiagnosticRewriter.singleLineOverride`) exists, so
+   snippets exercise it too.
 3. A fresh nested context is created: a fresh typer state (whose buffering reporter is what
    isolates the snippet's diagnostics from the real run), a nested `Typer`, a dummy owner (as
    in the intrinsic: the real owner may be inspected by a transform phase, causing cyclic
@@ -79,6 +85,9 @@ reported error, the same convention as `assertCompileError`.
    replacement literal. A snippet that fails the typer therefore reports the typer error and
    the plugin phases never run: typer errors mask plugin errors (e.g. a `Unit <> EDRET` body
    using `:=` hits the `Scope.Procedural` typer error before the plugin's procedural error).
+   A snippet that fails the PARSER reports the parser error plus whatever the typer says
+   about the recovered tree (after the same diagnostic rewriting; `assertPluginErrors`
+   asserts the full chronological list for these).
 
 ## Writing tests
 
@@ -148,8 +157,10 @@ mapping. Metals/BSP export `Test / scalacOptions`, so the gating applies in the 
   `PreTyperPhase.initContext` installs for the real run, so the collection step applies the
   SAME rewriting through the shared `DiagnosticRewriter`: position normalization, dedup (an
   inline-expansion error re-raised at several positions must render once; asserted with
-  `assertSinglePluginError`), the DFHDL-mismatch postscript drop, and the guide rails (which
-  name the enclosing call from the snippet's parse tree). The rewriter's `unitSource` must be
+  `assertSinglePluginError`), the DFHDL-mismatch postscript drop, the guide rails (which
+  name the enclosing call from the snippet's parse tree), and the single-line
+  `process`/`initial` override (which replaces every ascription error of one mistake with
+  the dedicated message and collapses them onto one). The rewriter's `unitSource` must be
   the snippet's virtual source: a nested diagnostic's position chain extends past it into the
   real unit (the marker call site), so the outermost frame does not identify the unit. The
   rendering itself matters too: `message` renders under `Message.inMessageContext`, which pins
@@ -185,7 +196,7 @@ sbtn.bat 'set core/Test/scalacOptions += "-P:dfhdl.plugin:disableCustomPrinter";
 
 Every plugin `report.error` site is covered by an `assertPluginError` test in the core spec
 that matches its subject (EDMethodSpec, StaticFunctionSpec, DFMatchSpec, DFTypeSpec,
-DFDecimalSpec, DFBoolOrBitSpec, RTProcessSpec), EXCEPT the following, which are deliberately
+DFDecimalSpec, DFBoolOrBitSpec, ProcessSpec), EXCEPT the following, which are deliberately
 untested:
 
 - **TopAnnotPhase errors and the missing-`@top` instantiation error**: exercising them needs

@@ -22,6 +22,70 @@ import collection.mutable
 import annotation.tailrec
 import reporting.*
 
+/** The single-line `process`/`initial` block mistake, `process(all): y := x`: the parser reads the
+  * line as a TYPE ASCRIPTION (`process(all)` ascribed to the "type" `y := x`), which the typer then
+  * rejects with baffling errors (`Not found: type :=`, `Expected a type, but found a term`). The
+  * recognition and the dedicated message live here, shared by the two interception points: the
+  * [[PreTyperPhase]] parse-tree rewrite (well-formed parse trees) and the
+  * [[DiagnosticRewriter.singleLineOverride]] reporting hook (trees a PARSE error kept the plugin
+  * phases from ever seeing). Sharing the builder keeps the two paths from drifting: whichever
+  * fires, the user reads the same text.
+  */
+private object SingleLineProcessBlock:
+  import untpd.*
+  private val bodyOps = Set(":=", ":==", "<>")
+
+  @tailrec private def blockName(tree: Tree): Option[String] =
+    tree match
+      case Ident(name) if name.toString == "process" || name.toString == "initial" =>
+        Some(name.toString)
+      case Select(Ident(qual), name)
+          if qual.toString == "process" && name.toString == "forever" =>
+        Some("process")
+      case Apply(fun, _) => blockName(fun)
+      case _             => None
+
+  /** The mistake's ascription shape, as (block name, term, ascribed "type"). With `bodyOpOnly` the
+    * ascribed tree must be a `:=`/`:==`/`<>` infix op, the strict gate the parse-tree rewrite uses
+    * on well-formed trees (where an ordinary ascription must keep its meaning). The reporting hook
+    * drops the gate entirely: parser recovery leaves unpredictable shapes there, a bare body prefix
+    * (`y(0) := x` keeps just `y`) or an infix chain under a body identifier taken as the operator
+    * (`y := !x` parses as `(y := !) x ...`), so the `process`/`initial` term is the discriminator.
+    */
+  def matchTyped(tree: Tree, bodyOpOnly: Boolean): Option[(String, Tree, Tree)] =
+    tree match
+      case Typed(expr, tpt) =>
+        val bodyLike = tpt match
+          case InfixOp(_, Ident(op), _) => bodyOps.contains(op.toString)
+          case _                        => false
+        if (bodyLike || !bodyOpOnly) blockName(expr).map((_, expr, tpt)) else None
+      case _ => None
+
+  /** The dedicated error text, spelling out the fix with the statement's own source: the block head
+    * from the term's span, and the body from the ascribed tree's start to the END OF ITS LINE (the
+    * ascribed tree itself may hold only a prefix of the body after parser recovery).
+    */
+  def message(name: String, expr: Tree, tpt: Tree)(using Context): String =
+    val article = if (name == "initial") "an" else "a"
+    val source = expr.source
+    val head =
+      if (expr.span.exists && source.exists)
+        String(source.content().slice(expr.span.start, expr.span.end))
+      else name
+    val body =
+      if (tpt.span.exists && source.exists)
+        val content = source.content()
+        var end = tpt.span.start
+        while (end < content.length && content(end) != '\n' && content(end) != '\r') end += 1
+        String(content.slice(tpt.span.start, end)).trim
+      else "y := x"
+    s"""|The body of $article `$name` block cannot be placed on the same line after the `:`.
+        |Move it to its own indented line:
+        |  $head:
+        |    $body""".stripMargin
+  end message
+end SingleLineProcessBlock
+
 /** The single home of DFHDL's user-facing diagnostic rewriting, applied by [[CustomReporter]] on
   * the real compilation and by [[PluginTestPhase]] on nested snippet compilations, so specs assert
   * on exactly what a user reads.
@@ -52,15 +116,78 @@ final class DiagnosticRewriter(symbols: DFHDLSymbols.Cache):
   end normalizedPos
 
   /** The identity of a diagnostic AS RENDERED: the same inline-expansion error re-raised at several
-    * positions collapses onto one normalized position, so it must render once.
+    * positions collapses onto one normalized position, so it must render once. A diagnostic the
+    * single-line override replaces keys on the OVERRIDE's position and text instead: every
+    * ascription error of one mistake renders as the same dedicated message, so all of them must
+    * collapse onto one.
     */
-  def dedupKey(dia: Diagnostic, unitSource: util.SourceFile)(using
+  def dedupKey(
+      dia: Diagnostic,
+      unitSource: util.SourceFile,
+      untpdRoot: untpd.Tree,
+      parseErrored: Boolean
+  )(using
       Context
   ): (String, Int, Int, Int, String) =
-    val diaPos = normalizedPos(dia.pos, unitSource)
-    val (spanStart, spanEnd) =
-      if (diaPos.span.exists) (diaPos.span.start, diaPos.span.end) else (-1, -1)
-    (diaPos.source.file.path, spanStart, spanEnd, dia.level, dia.msg.toString)
+    singleLineOverride(dia, unitSource, untpdRoot, parseErrored) match
+      case Some((text, pos)) =>
+        (pos.source.file.path, pos.span.start, pos.span.end, dia.level, text)
+      case None =>
+        val diaPos = normalizedPos(dia.pos, unitSource)
+        val (spanStart, spanEnd) =
+          if (diaPos.span.exists) (diaPos.span.start, diaPos.span.end) else (-1, -1)
+        (diaPos.source.file.path, spanStart, spanEnd, dia.level, dia.msg.toString)
+
+  /** The dedicated single-line `process`/`initial` error standing in for `dia`, or None. When the
+    * block body fails the TYPE parse (`process(all): y(0) := x`), the parser reports its own error
+    * and the compiler then skips every plugin phase for the run while STILL running the typer, so
+    * the PreTyper parse-tree rewrite never sees the mistake and the ascription's obscure typer
+    * errors surface after the parser's. They are caught here instead, at reporting: an ERROR whose
+    * position falls inside the ascribed "type" of a surviving mistake shape in the unit's parse
+    * tree is replaced with the dedicated message, anchored at the ascribed tree so every such error
+    * collapses onto ONE rendered diagnostic (see [[dedupKey]]). `parseErrored` (the compilation has
+    * reported a PARSER error, and `dia` is not itself one; see [[CustomReporter]]) gates the whole
+    * override: the recovery mode is the only one it exists for, so an ordinary failing compilation
+    * never pays the tree traversal, on an error-free parse the PreTyper rewrite has already
+    * neutralized every matching shape, and an error landing inside a surviving ascription of
+    * ordinary code keeps its own diagnostic.
+    */
+  def singleLineOverride(
+      dia: Diagnostic,
+      unitSource: util.SourceFile,
+      untpdRoot: untpd.Tree,
+      parseErrored: Boolean
+  )(using Context): Option[(String, util.SourcePosition)] =
+    if (!parseErrored || dia.level < interfaces.Diagnostic.ERROR || untpdRoot.isEmpty) None
+    else
+      try
+        val diaPos = normalizedPos(dia.pos, unitSource)
+        if (!(diaPos.source eq unitSource) || !diaPos.span.exists) None
+        else
+          var found: Option[(String, untpd.Tree, untpd.Tree)] = None
+          val traverser = new untpd.UntypedTreeTraverser:
+            def traverse(tree: untpd.Tree)(using Context): Unit =
+              if (found.isEmpty)
+                SingleLineProcessBlock.matchTyped(tree, bodyOpOnly = false) match
+                  case res @ Some((_, _, tpt))
+                      if tpt.span.exists && tpt.span.contains(diaPos.span) =>
+                    found = res
+                  case _ => traverseChildren(tree)
+          traverser.traverse(untpdRoot)
+          found.map { (name, expr, tpt) =>
+            // the position covers the body from the ascribed tree's start to its LINE end:
+            // parser recovery may run the tree past the line (absorbing the next statement)
+            // or stop it short of the body's end, and the mistake is its line either way
+            val content = unitSource.content()
+            var end = tpt.span.start
+            while (end < content.length && content(end) != '\n' && content(end) != '\r')
+              end += 1
+            val pos = unitSource.atSpan(util.Spans.Span(tpt.span.start, end))
+            (SingleLineProcessBlock.message(name, expr, tpt), pos)
+          }
+        end if
+      catch case scala.util.control.NonFatal(_) => None
+  end singleLineOverride
 
   /** The message to report in place of `base`. Every message is re-rendered through the DFHDL type
     * printer. A type mismatch whose REQUIRED side is a DFHDL value is additionally re-issued with
@@ -292,18 +419,33 @@ class CustomReporter(
       if ((unit ne null) && (pos.source eq unit.source)) unit.untpdTree else untpd.EmptyTree
     catch
       case scala.util.control.NonFatal(_) => untpd.EmptyTree
+  // Whether the run has reported a PARSER error: the gate of the single-line process/initial
+  // override, which exists only for that recovery mode (a parser error makes the compiler skip
+  // every plugin phase while still running the typer), so an ordinary failing compilation never
+  // pays the override's tree traversal. The flag is raised in `isHidden` (called first for
+  // every diagnostic). A parse error itself can never be overridden even though the flag is
+  // already up while it reports: at that moment the unit's parse tree is not yet assigned, so
+  // `untpdRootFor` answers empty.
+  private var parseErrorSeen = false
   // the dedup lives in `isHidden` rather than `doReport` so a swallowed duplicate is also
   // never counted, keeping the "N errors found" summary consistent with what is rendered
   // (the same reason the compiler's own dedup, `UniqueMessagePositions`, works at this hook)
   override def isHidden(dia: Diagnostic)(using Context): Boolean =
+    if (dia.level >= interfaces.Diagnostic.ERROR && ctx.phase.phaseName == "parser")
+      parseErrorSeen = true
     super.isHidden(dia) ||
-      dia.level >= interfaces.Diagnostic.WARNING &&
-      !reported.add(rewriter.dedupKey(dia, ctx.source))
+    dia.level >= interfaces.Diagnostic.WARNING &&
+    !reported.add(rewriter.dedupKey(dia, ctx.source, untpdRootFor(dia.pos), parseErrorSeen))
   override def doReport(dia: Diagnostic)(using ctx: Context): Unit =
     val userPos = rewriter.normalizedPos(dia.pos, ctx.source)
-    val diaPos = userPos.copy(outer = null) // disable inline stack error printing
-    val newMsg = rewriter.updatedMsg(dia.msg, userPos, untpdRootFor(userPos))
-    orig.doReport(Diagnostic(newMsg, diaPos, dia.level))
+    val untpdRoot = untpdRootFor(userPos)
+    rewriter.singleLineOverride(dia, ctx.source, untpdRoot, parseErrorSeen) match
+      case Some((text, pos)) =>
+        orig.doReport(Diagnostic(NoExplanation(text), pos, dia.level))
+      case None =>
+        val diaPos = userPos.copy(outer = null) // disable inline stack error printing
+        val newMsg = rewriter.updatedMsg(dia.msg, userPos, untpdRoot)
+        orig.doReport(Diagnostic(newMsg, diaPos, dia.level))
   end doReport
 end CustomReporter
 
@@ -314,6 +456,9 @@ end CustomReporter
   *   - change infix operator precedence of terms: `a := b match {...}` to be `a := (b match {...})`
   *     and `a <> b match {...}` to be `a <> (b match {...})`
   *   - change process{} to process.forever{}
+  *   - report a dedicated error when a `process`/`initial` block body is placed on the same line
+  *     after the `:` (e.g., `process(all): y := x`), which the parser otherwise reads as a type
+  *     ascription that later fails with obscure typer errors
   *   - auto-add `@top` annotation to concrete classes that look like DFHDL designs (extend
   *     EDDesign/RTDesign/DFDesign, have `type <> CONST` parameters, or use `<>` in their body),
   *     provided `import dfhdl.*` is in lexical scope and no `@top` annotation is already present.
@@ -641,11 +786,35 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
           t
       end match
     end transform
+
+  /** The [[SingleLineProcessBlock]] mistake caught on a well-formed parse tree: a dedicated error
+    * is reported and the statement is replaced with `scala.Predef.???` (valid in any position, no
+    * purity warning) so none of the ascription's typer errors surface. Bodies that fail the TYPE
+    * parse never reach this rewrite (a parser error skips every plugin phase for the run); those
+    * are caught at reporting instead, by [[DiagnosticRewriter.singleLineOverride]].
+    */
+  private val `singleLineProcessErr` = new UntypedTreeMap:
+    override def transform(tree: Tree)(using Context): Tree =
+      SingleLineProcessBlock.matchTyped(tree, bodyOpOnly = true) match
+        case Some((name, expr, tpt)) =>
+          report.error(SingleLineProcessBlock.message(name, expr, tpt), tpt.srcPos)
+          Select(
+            Select(
+              Select(Ident(nme.ROOTPKG), "scala".toTermName),
+              "Predef".toTermName
+            ),
+            "???".toTermName
+          ).withSpan(tree.span)
+        case None => super.transform(tree)
+    end transform
+
   // Applies this phase's parse-tree rewrites to a standalone parsed tree, so nested snippet
   // compilations (PluginTestPhase) get the same parse-level fidelity as regular units. The
   // auto-@top rewrite is deliberately skipped: it never applies inside block snippets.
   def rewriteParsed(tree: Tree)(using Context): Tree =
-    `fixXand<>Precedence`.transform(`fix<>andOpPrecedence`.transform(tree))
+    `fixXand<>Precedence`.transform(
+      `fix<>andOpPrecedence`.transform(`singleLineProcessErr`.transform(tree))
+    )
 
   // The symbols the DFHDL type printer matches against, cached per run. The cache belongs to
   // this phase instance rather than to a global, so compilers running concurrently in one JVM

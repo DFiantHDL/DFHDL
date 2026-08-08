@@ -57,7 +57,7 @@ internals → plugin → compiler_ir → core → compiler_stages → lib → pl
 
 Located in `plugin/src/main/scala/plugin/`, in the order `Plugin.initialize` lists them:
 
-1. `PreTyperPhase` — untyped parse-tree rewrites (`<>` precedence, auto-`@top`)
+1. `PreTyperPhase` — untyped parse-tree rewrites (`<>` precedence, auto-`@top`, the single-line `process`/`initial` block error)
 2. `TopAnnotPhase` — top-level annotation processing
 3. `PureCheckPhase` — purity analysis for elaboration caching
 4. `CodeDigestPhase` — code digests, the elaboration cache keys
