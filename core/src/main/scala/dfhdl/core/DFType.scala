@@ -284,6 +284,20 @@ object DFType:
       widthRef(lhs).refErrorString
   end extension
 
+  object Ops:
+    extension (dfType: DFTypeAny)
+      @targetName("widthDFType")
+      def width(using DFC): DFConstInt32 =
+        dfType.widthIntParam(using TC(dfType))(using dfc, new Width[DFTypeAny] {}).toDFConst
+    // for Bits/UInt/SInt, length == width, but for vectors,
+    // length is the number of elements, and width is the total width of the vector (length * element width)
+    extension [W <: IntP](dfType: DFTypeW[W])
+      @targetName("lengthDFTypeW")
+      def length(using DFC): DFConstInt32 = dfType.width
+    extension [W <: IntP, T <: DFTypeW[W]](dfVal: DFValOf[T])
+      @targetName("lengthDFValDFTypeW")
+      def length(using DFC): DFConstInt32 = dfVal.dfType.width
+
 end DFType
 
 type DFTypeW[W <: IntP] = DFBits[W] | DFUInt[W] | DFSInt[W]

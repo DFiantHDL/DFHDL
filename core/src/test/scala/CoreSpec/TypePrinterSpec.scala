@@ -279,13 +279,15 @@ class TypePrinterSpec extends DFSpec:
         o.mem
       """
     )
+    // `Bit` supports neither the vector `length` (element count) nor the `Bits`/`UInt`/`SInt`
+    // `length` (bit count), so the tried extensions fail
     assertSinglePluginError(
-      "value length is not a member of UInt[8] <> OUT (extension method tried)"
+      "value length is not a member of Bit <> VAR (extension method tried)"
     )(
       """
       class Foo extends EDDesign:
-        val o = UInt(8) <> OUT
-        o.length
+        val b = Bit <> VAR
+        b.length
       """
     )
     // the reduction applies to any receiver, not just DFHDL values: the suggested-import noise

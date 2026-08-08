@@ -23,6 +23,7 @@ protected object hdl:
   export compiler.ir.TextOut.Severity
   export internals.CommonOps.*
   export core.{dfType}
+  export core.DFType.Ops.*
   export core.DFPhysical.Val.Ops.*
   export core.LoopOps.*
   type Time = core.DFTime

@@ -2891,6 +2891,12 @@ val addr = UInt.until(DEPTH) <> VAR   // width = clog2(DEPTH)
 val mask = Bits.until(SIZE) <> VAR    // width = clog2(SIZE)
 ```
 See the [DFType Constructors][DFDecimal] and [Bits constructors][DFBits] sections for details on `.until` and `.to`.
+
+When the computed width itself is needed, for example to pass it on to a child design or to size a related field, recover it from the constructed type with `.width` instead of calling `clog2` yourself:
+```scala
+val ADDR_WIDTH = UInt.until(DEPTH).width   // Int <> CONST = clog2(DEPTH)
+```
+See [Width and Length Queries][width-length-ops] for details.
 ///
 
 /// admonition | Non-constant DFHDL `Int` values
@@ -2901,6 +2907,44 @@ Non-constant DFHDL `Int` values (e.g., `Int <> VAR`) are possible and support th
 /// admonition | Slicing bits from a DFHDL `Int`
     type: note
 To extract a partial bit range from a DFHDL `Int` value, first convert it to `Bits` using `.bits`, then apply the slice: `myInt.bits(hi, lo)`. This is a `.bits` conversion followed by `(hi, lo)` slicing. The `.bits` conversion is a DFHDL extension method available on DFHDL `Int <> CONST` values, not on plain Scala `Int`.
+///
+
+### Width and Length Queries (`.width`, `.length`) {#width-length-ops}
+
+Applies to: `.width`: any DFType and any DFHDL value; `.length`: `Bits`/`UInt`/`SInt` DFTypes and values, and `Vector` DFTypes and values
+
+Both queries return a constant DFHDL `Int` value (`Int <> CONST`) rather than a plain Scala `Int`, so they compose with design parameters: querying a parametric type keeps the result symbolic, and the generated code carries the width expression (`clog2(DEPTH)`, `LANE * LANES`, and so on) instead of a folded number.
+
+/// html | div.operations
+| Operation  | Description | Returns |
+| ---------- | ----------- | ------- |
+| `x.width`  | The total bit width of `x`, a DFType or a DFHDL value | `Int <> CONST` |
+| `x.length` | For `Bits`/`UInt`/`SInt`: the number of bits, identical to `.width`. For `Vector`: the number of elements | `Int <> CONST` |
+///
+
+Applying `.width` directly on a DFType is the DFHDL counterpart of Verilog's `$clog2` width derivation: construct the type with [`UInt.until`/`UInt.to`][DFDecimal] (or their [`Bits` counterparts][DFBits]) and recover the width the constructor computed:
+
+```scala
+class Foo(val DEPTH: Int <> CONST = 854) extends RTDesign:
+  // like Verilog's `$clog2(DEPTH)`, and stays parametric: elaborates as `clog2(DEPTH)`
+  val ADDR_WIDTH = UInt.until(DEPTH).width
+  val addr = UInt(ADDR_WIDTH) <> VAR
+```
+
+For vectors the two queries answer different questions: `.length` counts elements, while `.width` is the total bit width (the element count times the element width).
+
+```scala
+val w8    = Bits(8).width      // Int <> CONST = 8
+val vec   = Bits(8) X 4 <> VAR
+val elems = vec.length         // Int <> CONST = 4  (elements)
+val bits  = vec.width          // Int <> CONST = 32 (total bits: 4 * 8)
+val o     = UInt(8) <> OUT
+val ol    = o.length           // Int <> CONST = 8, same as `o.width`
+```
+
+/// admonition | Declare with `.until`/`.to`, recover with `.width`
+    type: tip
+Prefer declaring range-derived values directly with the `.until`/`.to` constructors and reach for `.width` only where the width itself is the value you need. The declaration then remains the single source of the width relationship, and every derived width follows it.
 ///
 
 ### History Operations {#history-ops}
@@ -3056,7 +3100,8 @@ vec(idx) := newValue    // Write element at index
 | ------------ | ----------- | ------- |
 | `vec(idx)` | Access element at index | Element type |
 | `vec.elements` | Get all elements as Scala sequence | Seq[BaseType] |
-| `vec.size` | Get vector dimension | Int |
+| `vec.length` | Get the number of elements | `Int <> CONST` |
+| `vec.width` | Get the total bit width (see [Width and Length Queries][width-length-ops]) | `Int <> CONST` |
 ///
 
 
