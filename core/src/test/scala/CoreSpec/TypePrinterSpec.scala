@@ -266,6 +266,38 @@ class TypePrinterSpec extends DFSpec:
       """
     )
 
+  test("not-a-member errors keep only their core sentence"):
+    // in a DFHDL compilation the compiler's own selection-error addenda mislead rather than
+    // help (the import-suggestion machinery proposes DFHDL's internal conversions for every
+    // receiver, and the extension-attempt transcript restates the receiver in raw types), so
+    // the rewriter reduces the error to its core sentence; a tried-but-failed extension is
+    // kept as a bare parenthetical
+    assertSinglePluginError("value mem is not a member of UInt[8] <> OUT")(
+      """
+      class Foo extends EDDesign:
+        val o = UInt(8) <> OUT
+        o.mem
+      """
+    )
+    assertSinglePluginError(
+      "value length is not a member of UInt[8] <> OUT (extension method tried)"
+    )(
+      """
+      class Foo extends EDDesign:
+        val o = UInt(8) <> OUT
+        o.length
+      """
+    )
+    // the reduction applies to any receiver, not just DFHDL values: the suggested-import noise
+    // is compilation-wide once DFHDL's conversions are on the classpath
+    assertSinglePluginError("value zzz is not a member of Int")(
+      """
+      class Foo extends EDDesign:
+        val x: Int = 1
+        x.zzz
+      """
+    )
+
   test("reduce over declaration slices guide rail"):
     // The issue #455 shape: `reduce` commits its type parameter to the port-modified slice
     // element type, which no operation result can conform to. The rewriter identifies the

@@ -66,10 +66,14 @@ final class DiagnosticRewriter(symbols: DFHDLSymbols.Cache):
     * printer. A type mismatch whose REQUIRED side is a DFHDL value is additionally re-issued with
     * an EMPTY postscript, since the compiler's own trailing guidance is noise or worse there (the
     * transparent-inline note explains the Scala mechanics behind the DFHDL operators, and the
-    * import suggestions, `InitValue.fromValue` and friends, never fix a DFHDL mismatch): a fresh
-    * message rather than `mapMsg`, since `mapMsg` deliberately carries the original postscript, and
-    * the postscript itself is protected so it cannot be filtered piecewise. The `-explain`
-    * explanation is kept. `untpdRoot` is the compiled unit's parse tree, used to name the enclosing
+    * import suggestions, `InitValue.fromValue` and friends, never fix a DFHDL mismatch). A
+    * `NotAMember` selection error is reduced to its core sentence (`value mem is not a member of
+    * UInt[Int] <> OUT`): in a DFHDL compilation the import-suggestion machinery proposes DFHDL's
+    * internal conversions for EVERY receiver, and the extension-attempt transcript restates the
+    * receiver in raw types over dozens of lines, so both mislead rather than help; when extension
+    * methods were tried, that fact is kept as a bare ` (extension method tried)`. The did-you-mean
+    * hint, which only appears when no other addendum does, is kept. The `-explain` explanation is
+    * kept everywhere. `untpdRoot` is the compiled unit's parse tree, used to name the enclosing
     * call in [[reduceGuideRail]] (pass `untpd.EmptyTree` when unavailable).
     */
   def updatedMsg(base: Message, userPos: util.SourcePosition, untpdRoot: untpd.Tree)(using
@@ -78,21 +82,51 @@ final class DiagnosticRewriter(symbols: DFHDLSymbols.Cache):
     // `toString` rather than `message`: it renders the message proper (without the postscript)
     // under the context the message captured, where the DFHDL type printer is live
     val rendered = base.toString
-    val dropPostscript = base match
-      case tm: TypeMismatchMsg =>
-        val syms = symbols()
-        syms.available && tm.expected.derivesFrom(syms.dfVal)
-      case _ => false
-    if (dropPostscript)
-      val withGuideRail = rendered ++ reduceGuideRail(base, userPos, untpdRoot)
-      new Message(base.errorId):
-        val kind = base.kind
-        def msg(using Context) = withGuideRail
-        override def msgPostscript(using Context) = ""
-        def explain(using Context) = base.explanation
-        override def canExplain = base.canExplain
-    else base.mapMsg(_ => rendered)
+    val syms = symbols()
+    base match
+      case tm: TypeMismatchMsg if syms.available && tm.expected.derivesFrom(syms.dfVal) =>
+        freshMsg(base, rendered ++ reduceGuideRail(base, userPos, untpdRoot))
+      case nam: NotAMember if syms.available =>
+        freshMsg(base, notAMemberText(rendered))
+      case _ => base.mapMsg(_ => rendered)
   end updatedMsg
+
+  // a fresh message rather than `mapMsg`: `mapMsg` deliberately carries the original postscript,
+  // and the postscript itself is protected so it cannot be filtered piecewise; the `-explain`
+  // explanation is kept
+  private def freshMsg(base: Message, text: String)(using Context): Message =
+    new Message(base.errorId):
+      val kind = base.kind
+      def msg(using Context) = text
+      override def msgPostscript(using Context) = ""
+      def explain(using Context) = base.explanation
+      override def canExplain = base.canExplain
+
+  // the exact addendum openers `ErrorReporting.selectErrorAddendum` can append to a `NotAMember`
+  // core sentence (the leading `.` there belongs to the addendum, not the sentence), plus the
+  // import-suggestion openers for defensive coverage of any other route into the message
+  private val extTriedMarkers = List(
+    ".\nAn extension method was tried, but could not be fully constructed:",
+    ".\nExtension methods were tried, but could not be fully constructed:",
+    ".\nExtension methods were tried, but the search failed with:"
+  )
+  private val availableMarker = ", but could be made available as an extension method."
+  private val importMarkers = List(
+    "\nOne of the following imports might",
+    "\nThe following import might"
+  )
+
+  private def notAMemberText(rendered: String): String =
+    def firstIdx(markers: List[String]): Option[Int] =
+      markers.map(rendered.indexOf).filter(_ >= 0).minOption
+    val extIdx = firstIdx(extTriedMarkers)
+    val cutIdx = (extIdx ++ firstIdx(availableMarker :: Nil) ++ firstIdx(importMarkers)).minOption
+    cutIdx match
+      case Some(cut) =>
+        val core = rendered.take(cut)
+        if (extIdx.contains(cut)) core ++ " (extension method tried)" else core
+      case None => rendered
+  end notAMemberText
 
   // The `(dfType, modifier args)` decomposition of a DFHDL value type, or None for anything else.
   private def dfValParts(tp: Type)(using Context): Option[(Type, List[Type])] =
