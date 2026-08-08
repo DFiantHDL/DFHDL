@@ -106,9 +106,7 @@ object IntExprCalc:
     def isConst(l: Linear): Boolean = l.terms.isEmpty
     def linearOfVal(v: DFVal)(using MemberGetSet): Linear = calc.linear(v)
     def linearOfParamRef(ref: IntParamRef)(using MemberGetSet): Linear =
-      ref.getRef match
-        case Some(typeRef) => linearOfVal(typeRef.get)
-        case None          => const(ref.getIntUNSAFE)
+      calc.linearOfParamRef(ref)
     def add(a: Linear, b: Linear)(using MemberGetSet): Linear = calc.add(a, b)
     def sub(a: Linear, b: Linear)(using MemberGetSet): Linear = calc.add(a, negate(b))
     def negate(l: Linear): Linear = Linear(l.terms.map((c, b) => (-c, b)), -l.offset)
@@ -125,19 +123,7 @@ object IntExprCalc:
 
     /** Total bit width of a type as a linear form, when expressible. */
     def linearOfTypeWidth(t: DFType)(using MemberGetSet): Option[Linear] =
-      t.widthIntOpt match
-        case Some(w) => Some(const(w))
-        case None    =>
-          t match
-            case DFBits(widthParamRef) => Some(linearOfParamRef(widthParamRef))
-            case dec: DFDecimal        =>
-              Some(addConst(linearOfParamRef(dec.magnitudeWidthParamRef), dec.fractionWidth))
-            case vec: DFVector =>
-              vec.cellDimParamRefs.foldLeft(linearOfTypeWidth(vec.cellType)) { (accOpt, dim) =>
-                accOpt.flatMap(mulOpt(_, linearOfParamRef(dim)))
-              }
-            case opaque: DFOpaque => linearOfTypeWidth(opaque.actualType)
-            case _                => None
+      calc.linearOfTypeWidth(t)
 
     /** Proves `e >= 0` for every valid parameter assignment. Each fact in `facts` is a linear form
       * known to be `>= 1` on the valid domain (slice widths: a slice of zero or negative width is
@@ -179,19 +165,29 @@ object IntExprCalc:
     // linearized) and products get dedicated factor-multiset handling.
     private val commutativeOps = Set(FuncOp.max, FuncOp.min, FuncOp.&, FuncOp.|, FuncOp.^)
 
+    // The non-constant factor multiset of a product-like base: a `*` chain, or a
+    // width/length query whose queried width is a pure product of parameters. The constant
+    // factor is already carried by the term coefficient (see `linear`), so bases match by
+    // their non-constant factors only.
+    private def productFactorsOpt(f: DFVal.Func): Option[List[DFVal]] = f.op match
+      case FuncOp.`*`                   => Some(flattenProduct(f)._2)
+      case FuncOp.width | FuncOp.length => widthQueryFactors(f).filter(_._2.nonEmpty).map(_._2)
+      case _                            => None
+
     // Equivalence of opaque bases: same op/type Funcs with equivalent args
     // (each arg compared through its full linear form, so `clog2(2 * W)`
     // matches `clog2(W + W)`), or `=~` leaves after stripping. Commutative
     // ops compare their args as multisets, so `v1 * v2` matches `v2 * v1`.
     def baseEq(a: DFVal, b: DFVal): Boolean =
       (strip(a), strip(b)) match
+        // Product-like bases match by their non-constant factor multisets, in any order
+        // and across the two shapes, so `vec.width` matches `W * N`.
+        case (af: DFVal.Func, bf: DFVal.Func)
+            if af.dfType =~ bf.dfType &&
+              productFactorsOpt(af).nonEmpty && productFactorsOpt(bf).nonEmpty =>
+          multisetEquiv(productFactorsOpt(af).get, productFactorsOpt(bf).get)
         case (af: DFVal.Func, bf: DFVal.Func) if af.op == bf.op && af.dfType =~ bf.dfType =>
-          if (af.op == FuncOp.`*`)
-            // Product bases: the constant factor is already carried by the
-            // term coefficient (see `linear`), so only the non-constant
-            // factor multisets must match, in any order.
-            multisetEquiv(flattenProduct(af)._2, flattenProduct(bf)._2)
-          else if (commutativeOps.contains(af.op))
+          if (commutativeOps.contains(af.op))
             af.args.length == bf.args.length &&
             multisetEquiv(af.args.map(_.get), bf.args.map(_.get))
           else
@@ -211,7 +207,9 @@ object IntExprCalc:
       }
 
     // Splits a product into its overall constant factor and the list of
-    // non-constant factors, flattening nested products. A non-product part
+    // non-constant factors, flattening nested products. A width/length query over a
+    // pure-product width expands into the width parameters' factors, so `vec.width * 2`
+    // and `W * N * 2` normalize identically. A non-product part
     // whose linear form is a constant folds into the constant factor, and one
     // that is a single scaled term contributes its base with the scale folded
     // in, so `(W + W) * v` and `2 * W * v` normalize identically.
@@ -221,11 +219,44 @@ object IntExprCalc:
           val (argC, argFs) = flattenProduct(arg)
           (c * argC, fs ++ argFs)
         }
+      case sv @ DFVal.Func(op = FuncOp.width | FuncOp.length) if widthQueryFactors(sv).nonEmpty =>
+        widthQueryFactors(sv).get
       case sv =>
         linear(sv) match
           case Linear(Nil, k)          => (k, Nil)
           case Linear(List((k, b)), 0) => (k, List(b))
           case _                       => (1, List(sv))
+
+    // The multiplicative decomposition (constant factor, non-constant factor values) of a
+    // width/length type query whose queried width is a pure product of parameters, e.g. a
+    // vector of parametric cells: `vec.width` then normalizes exactly like `W * N`. `None`
+    // for a width with additive structure (fixed-point, structs) or no decomposition at all.
+    private def widthQueryFactors(v: DFVal): Option[(Int, List[DFVal])] =
+      def paramRefFactors(ref: IntParamRef): (Int, List[DFVal]) =
+        ref.getRef match
+          case Some(typeRef) => flattenProduct(typeRef.get)
+          case None          => (ref.getIntUNSAFE, Nil)
+      def typeFactors(t: DFType): Option[(Int, List[DFVal])] = t match
+        case _ if t.getRefs.isEmpty      => t.widthIntOpt.map((_, Nil))
+        case DFBits(widthParamRef)       => Some(paramRefFactors(widthParamRef))
+        case DFXInt(_, widthParamRef, _) => Some(paramRefFactors(widthParamRef))
+        case vec: DFVector               =>
+          vec.cellDimParamRefs.foldLeft(typeFactors(vec.cellType)) { (accOpt, dim) =>
+            accOpt.map { (c, fs) =>
+              val (dimC, dimFs) = paramRefFactors(dim)
+              (c * dimC, fs ++ dimFs)
+            }
+          }
+        case opaque: DFOpaque => typeFactors(opaque.actualType)
+        case _                => None
+      v match
+        case DFVal.Func(op = op @ (FuncOp.width | FuncOp.length), args = List(argRef)) =>
+          val argType = argRef.get.dfType
+          (op, argType) match
+            case (FuncOp.length, vec: DFVector) => Some(paramRefFactors(vec.cellDimParamRefs.head))
+            case _                              => typeFactors(argType)
+        case _ => None
+    end widthQueryFactors
 
     // Merge coefficients of equivalent bases and drop cancelled-out terms.
     private def canonical(terms: List[(Int, DFVal)]): List[(Int, DFVal)] =
@@ -249,6 +280,30 @@ object IntExprCalc:
       canonical(l.terms ++ negate(r).terms).isEmpty
 
     def sub(l: Linear, r: Linear): Linear = add(l, negate(r))
+
+    def linearOfParamRef(ref: IntParamRef): Linear =
+      ref.getRef match
+        case Some(typeRef) => linear(typeRef.get)
+        case None          => Linear(Nil, ref.getIntUNSAFE)
+
+    /** Total bit width of a type as a linear form (in this calc's own parameter-resolution mode),
+      * when expressible. A type carrying width-parameter refs decomposes through its structure so
+      * the refs resolve in this calc's mode; the `widthIntOpt` shortcut applies only to ref-free
+      * types, since its internal resolution (the default `Always` policy) folds a TOP design's
+      * parameters through their default values, which no calc mode does.
+      */
+    def linearOfTypeWidth(t: DFType): Option[Linear] =
+      t match
+        case _ if t.getRefs.isEmpty => t.widthIntOpt.map(Linear(Nil, _))
+        case DFBits(widthParamRef)  => Some(linearOfParamRef(widthParamRef))
+        case dec: DFDecimal         =>
+          Some(DataCalc.addConst(linearOfParamRef(dec.magnitudeWidthParamRef), dec.fractionWidth))
+        case vec: DFVector =>
+          vec.cellDimParamRefs.foldLeft(linearOfTypeWidth(vec.cellType)) { (accOpt, dim) =>
+            accOpt.flatMap(DataCalc.mulOpt(_, linearOfParamRef(dim)))
+          }
+        case opaque: DFOpaque => linearOfTypeWidth(opaque.actualType)
+        case _                => t.widthIntOpt.map(Linear(Nil, _))
 
     def equivalent(a: DFVal, b: DFVal): Boolean =
       constDiff(a, b).contains(0)
@@ -330,6 +385,24 @@ object IntExprCalc:
           val offsets = linears.collect { case Linear(Nil, k) => k }
           Linear(Nil, if (op == FuncOp.max) offsets.max else offsets.min)
         else Linear(List((1, sv)), 0)
+      // a width/length type query decomposes through the argument type's width parameters,
+      // so `Bits(W * 3).width` linearizes as `3 * W` and a literal width as its constant; a
+      // pure-product width over several parameters (a vector of parametric cells) keeps an
+      // opaque base whose product factors match the equivalent `*` expression (see `baseEq`)
+      case sv @ DFVal.Func(op = op @ (FuncOp.width | FuncOp.length), args = List(argRef)) =>
+        val argType = argRef.get.dfType
+        val additiveOpt = (op, argType) match
+          case (FuncOp.length, vec: DFVector) => Some(linearOfParamRef(vec.cellDimParamRefs.head))
+          case _                              => linearOfTypeWidth(argType)
+        additiveOpt.orElse {
+          widthQueryFactors(sv).map { (c, fs) =>
+            fs match
+              case Nil         => Linear(Nil, c)
+              case f :: Nil    => scale(linear(f), c)
+              case _ if c == 0 => Linear(Nil, 0)
+              case _           => Linear(List((c, sv)), 0)
+          }
+        }.getOrElse(Linear(List((1, sv)), 0))
       case sv => Linear(List((1, sv)), 0)
     end linear
   end Calc

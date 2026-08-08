@@ -3071,4 +3071,84 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // `.width` applied on a DFType is the `$clog2` width-derivation idiom (issue #457):
+  // construct the type with `.until`/`.to` and recover the width the constructor computed,
+  // materialized as a width constant (symbolic for a parametric type, `clog2(N)` below).
+  // `.length` equals `.width` for the bit-accurate scalars and counts ELEMENTS for vectors.
+  test("Type-receiver width/length queries materialize width constants") {
+    class QueryTypes extends EDDesign:
+      val N: Int <> CONST = 854
+      val ADDR_WIDTH      = UInt.until(N).width
+      val a               = UInt(ADDR_WIDTH) <> OUT
+      val W8              = Bits(8).width
+      val LB              = Bits(8).length
+      val LU              = UInt(8).length
+      val LS              = SInt(8).length
+      val TVW             = (Bits(8) X 4).width
+      val TVL             = (Bits(8) X 4).length
+      val o               = UInt(8)          <> OUT
+      val OL              = o.length
+      o <> OL.bits.uint.resize(8)
+      a <> 0
+    end QueryTypes
+    assertCodeString(
+      QueryTypes(),
+      """|class QueryTypes extends EDDesign:
+         |  val N: Int <> CONST = 854
+         |  val ADDR_WIDTH: Int <> CONST = clog2(N)
+         |  val a = UInt(ADDR_WIDTH) <> OUT
+         |  val W8: Int <> CONST = 8
+         |  val LB: Int <> CONST = 8
+         |  val LU: Int <> CONST = 8
+         |  val LS: Int <> CONST = 8
+         |  val TVW: Int <> CONST = 32
+         |  val TVL: Int <> CONST = 4
+         |  val o = UInt(8) <> OUT
+         |  val OL: Int <> CONST = o.length
+         |  o <> OL.bits.uint.resize(8)
+         |  a <> d"1'0".resize(ADDR_WIDTH)
+         |end QueryTypes
+         |""".stripMargin
+    )
+  }
+  // a VALUE-receiver query constructs a `width`/`length` FUNC over the value, so the
+  // backends spell the query natively (`$bits(x)`/`$size(x)` in SystemVerilog,
+  // `x'length`/`bitWidth(x)` in VHDL) and the generated code keeps the value-to-width
+  // relation instead of a baked number
+  test("Value-receiver width/length queries construct query FUNCs") {
+    class QueryVals(
+        val W: Int <> CONST          = 4,
+        val N: Int <> CONST          = 3,
+        val INIT: Bits[Int] <> CONST = h"00"
+    ) extends EDDesign:
+      val IL   = INIT.length
+      val vec  = Bits(W) X N <> IN
+      val LEN  = vec.length
+      val WID  = vec.width
+      val din  = Bits(W)     <> IN
+      val DW   = din.width
+      val flat = Bits(WID)   <> OUT
+      // `vec.width` and the argument's own `W * N` width compare equal symbolically
+      // (the query linearizes through the vector type's width parameters)
+      flat <> vec.bits
+    end QueryVals
+    assertCodeString(
+      QueryVals(),
+      """|class QueryVals(
+         |    val W: Int <> CONST = 4,
+         |    val N: Int <> CONST = 3,
+         |    val INIT: Bits[8] <> CONST = h"00"
+         |) extends EDDesign:
+         |  val IL: Int <> CONST = INIT.length
+         |  val vec = Bits(W) X N <> IN
+         |  val LEN: Int <> CONST = vec.length
+         |  val WID: Int <> CONST = vec.width
+         |  val din = Bits(W) <> IN
+         |  val DW: Int <> CONST = din.width
+         |  val flat = Bits(WID) <> OUT
+         |  flat <> vec.bits
+         |end QueryVals
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

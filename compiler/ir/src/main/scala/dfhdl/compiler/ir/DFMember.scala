@@ -800,6 +800,24 @@ object DFVal:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
       args.forall(_.get.isFullyAnonymous)
     protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
+      op match
+        // width/length read the argument's TYPE, never its data, so the query is constant
+        // even when the argument value itself is not (a port, a variable)
+        case Func.Op.width | Func.Op.length =>
+          val argType = this.args.head.get.dfType
+          val widthOpt = (op, argType) match
+            case (Func.Op.length, vec: DFVector) => vec.lengthIntOpt
+            case _                               => argType.widthIntOpt
+          widthOpt match
+            case Some(i) => ConstData.KnownConst(Some(BigInt(i)))
+            // a parameter-dependent width: still a constant, resolved per instantiation
+            case None => ConstData.UnknownConst(this)
+        case _ => protGetConstDataFromArgs
+    end protGetConstData
+    private def protGetConstDataFromArgs(using
+        MemberGetSet,
+        ConstData.CachePolicy
+    ): ConstData[Any] =
       val args = this.args.map(_.get)
       val argConstData = args.map(_.getConstData[Any])
       if (argConstData.exists(_ == ConstData.NotConst)) ConstData.NotConst
@@ -817,7 +835,7 @@ object DFVal:
               val argData = argConstData.collect { case ConstData.KnownConst(d) => d }
               val argTypes = args.map(_.dfType)
               ConstData.KnownConst(calcFuncData(dfType, op, argTypes, argData))
-    end protGetConstData
+    end protGetConstDataFromArgs
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Func =>
         // `Op.Def` needs no specialization here: its `staticRef` is a STABLE identity key
@@ -846,6 +864,11 @@ object DFVal:
       case unary_-, unary_~, unary_!
       case rising, falling
       case clog2, max, min, abs, sel
+      // type queries over the single argument: `width` is the total bit width of the
+      // argument's type, `length` its element count (a vector) or bit count (bits/uint/sint).
+      // Both read the argument's TYPE, never its data, so they are constant even over a
+      // non-constant argument (see `protGetConstData`).
+      case width, length
       // special-case of initFile construct for vectors of bits
       case InitFile(format: InitFileFormat, path: String)
       // A method (def-design) application: a call of a static function or an ED

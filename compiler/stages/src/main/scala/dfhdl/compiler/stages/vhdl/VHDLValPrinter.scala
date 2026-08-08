@@ -118,13 +118,36 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
             dfVal.dfType match
               case dfType: DFEnum => s"toggle($argStrB)"
               case _              => s"not $argStrB"
-          case Func.Op.unary_~ => s"not $argStrB"
-          case Func.Op.&       => s"and reduce $argStrB"
-          case Func.Op.|       => s"or reduce $argStrB"
-          case Func.Op.^       => s"xor reduce $argStrB"
-          case Func.Op.abs     => s"abs($argStr)"
-          case Func.Op.clog2   => s"clog2($argStr)"
-          case _               => printer.unsupported
+          case Func.Op.unary_~                => s"not $argStrB"
+          case Func.Op.&                      => s"and reduce $argStrB"
+          case Func.Op.|                      => s"or reduce $argStrB"
+          case Func.Op.^                      => s"xor reduce $argStrB"
+          case Func.Op.abs                    => s"abs($argStr)"
+          case Func.Op.clog2                  => s"clog2($argStr)"
+          case Func.Op.width | Func.Op.length =>
+            // Only a CONSTANT argument (a generic or a constant) may be named from every
+            // context this query can print into -- in particular a design-level constant
+            // becomes a GENERIC whose default cannot reference a port. A non-constant
+            // argument (a port, a variable) inlines the width parameter expression
+            // instead, which is what the argument's own subtype indication prints.
+            if (arg.get.isConst)
+              (dfVal.op, arg.get.dfType) match
+                // every `length` receiver and every flat-array rendering (std_logic_vector,
+                // unsigned, signed, fixed-point) spells the query with 'length (a
+                // fixed-point array spans its fraction bits, so its 'length is the total
+                // width too)
+                case (Func.Op.length, _)                 => s"$argStrB'length"
+                case (_, dt: DFDecimal) if !dt.isDFInt32 => s"$argStrB'length"
+                case (_, _: DFBits)                      => s"$argStrB'length"
+                // every other rendering (integer, std_logic, boolean, enum, record, vector
+                // array, opaque) is covered by the `bitWidth` overload family the printer
+                // already emits (dfhdl_pkg + the per-named-type support functions)
+                case _ => s"bitWidth($argStr)"
+            else
+              (dfVal.op, arg.get.dfType) match
+                case (Func.Op.length, vec: DFVector) => vec.cellDimParamRefs.head.refCodeString
+                case (_, argType)                    => csInlinedWidth(argType)
+          case _ => printer.unsupported
         end match
       // multiarg func
       case args =>
@@ -167,6 +190,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                   .mkString(s" ${commonOpStr} ")
     end match
   end csDFValFuncExpr
+
   def csFixedCond(condRef: DFRef.TwoWay[DFVal, ?]): String =
     val requiresBoolConv =
       if (printer.inVHDL93)

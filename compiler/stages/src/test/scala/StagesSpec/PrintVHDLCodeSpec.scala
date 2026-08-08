@@ -3538,4 +3538,64 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  // width/length queries over a CONSTANT argument print natively (`'length` for arrays,
+  // `bitWidth(...)` otherwise), so a design-level constant binding one becomes a generic
+  // whose default keeps the value-to-width relation. Over a NON-constant argument (a
+  // port), the width parameter expression is inlined instead: the query may print into a
+  // generic default, where naming a port is illegal.
+  test("width/length query emission") {
+    class WidthQuery(
+        val W: Int <> CONST          = 4,
+        val N: Int <> CONST          = 3,
+        val INIT: Bits[Int] <> CONST = h"00"
+    ) extends EDDesign:
+      val LI   = INIT.length
+      val vec  = Bits(W) X N <> IN
+      val LEN  = vec.length
+      val WID  = vec.width
+      val din  = Bits(LI)    <> IN
+      val dout = Bits(LI)    <> OUT
+      val flat = Bits(WID)   <> OUT
+      val cnt  = UInt(LEN)   <> OUT
+      dout <> din
+      flat <> vec.bits
+      cnt  <> 0
+    end WidthQuery
+    val top = WidthQuery().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.WidthQuery_pkg.all;
+         |
+         |entity WidthQuery is
+         |generic (
+         |  W : integer := 4;
+         |  N : integer := 3;
+         |  INIT : std_logic_vector(7 downto 0) := x"00";
+         |  LI : integer := INIT'length;
+         |  LEN : integer := N;
+         |  WID : integer := N * W
+         |);
+         |port (
+         |  vec : in t_arrX1_std_logic_vector(0 to N - 1)(W - 1 downto 0);
+         |  din : in std_logic_vector(LI - 1 downto 0);
+         |  dout : out std_logic_vector(LI - 1 downto 0);
+         |  flat : out std_logic_vector(WID - 1 downto 0);
+         |  cnt : out unsigned(LEN - 1 downto 0)
+         |);
+         |end WidthQuery;
+         |
+         |architecture WidthQuery_arch of WidthQuery is
+         |begin
+         |  dout <= din;
+         |  flat <= to_slv(vec);
+         |  cnt <= resize(1d"0", LEN);
+         |end WidthQuery_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

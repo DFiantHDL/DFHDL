@@ -294,9 +294,6 @@ object DFType:
     extension [W <: IntP](dfType: DFTypeW[W])
       @targetName("lengthDFTypeW")
       def length(using DFC): DFConstInt32 = dfType.width
-    extension [W <: IntP, T <: DFTypeW[W]](dfVal: DFValOf[T])
-      @targetName("lengthDFValDFTypeW")
-      def length(using DFC): DFConstInt32 = dfVal.dfType.width
 
 end DFType
 

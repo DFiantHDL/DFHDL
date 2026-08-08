@@ -128,6 +128,15 @@ def calcFuncData[OT <: DFType](
         println(x)
         ???
     ret.asInstanceOf[outType.Data]
+  else if (op == FuncOp.width || op == FuncOp.length)
+    // type queries: computed from the argument's TYPE; the argument's data is never consulted.
+    // `Func.protGetConstData` resolves these directly (policy-aware); this covers any other
+    // data-level evaluator that dispatches through `calcFuncData`.
+    val argType = argTypes.head
+    val ret: Option[BigInt] = (op, argType) match
+      case (FuncOp.length, vec: DFVector) => Some(BigInt(vec.lengthUNSAFE))
+      case _                              => Some(BigInt(argType.widthUNSAFE))
+    ret.asInstanceOf[outType.Data]
   else
     outType match
       // bits operations are handled specially, because bubble is bit-accurate

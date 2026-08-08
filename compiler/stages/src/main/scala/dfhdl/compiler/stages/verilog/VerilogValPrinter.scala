@@ -232,6 +232,20 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               case VerilogDialect.v95 | VerilogDialect.v2001 => ""
               case _                                         => "$"
             s"${internalLog}clog2($argStr)"
+          case Func.Op.width | Func.Op.length =>
+            val supportsQuerySyntax = printer.dialect match
+              case VerilogDialect.v95 | VerilogDialect.v2001 => false
+              case _                                         => true
+            (dfVal.op, arg.get.dfType) match
+              // a vector's element count (`DropStructsVecs` folds these for the pre-SV
+              // dialects, so only a SystemVerilog `$size` spelling is ever needed)
+              case (Func.Op.length, _: DFVector) =>
+                if (supportsQuerySyntax) s"$$size($argStrB)" else printer.unsupported
+              case (_, argType) =>
+                if (supportsQuerySyntax) s"$$bits($argStrB)"
+                // pre-SystemVerilog dialects have no width query; inline the width
+                // parameter expression, which is what the type declaration itself prints
+                else csInlinedWidth(argType)
           case _ => printer.unsupported
         end match
       // multiarg func

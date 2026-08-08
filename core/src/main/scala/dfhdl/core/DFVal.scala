@@ -1707,7 +1707,20 @@ object DFVal extends DFValLP:
         DFVal.Alias.History(dfVal, step, HistoryOp.State, initOpt)
       }
       def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
-      def width(using DFC): DFConstInt32 = dfVal.widthIntParam.toDFConstQuery
+      // a `width` FUNC rather than a materialized constant: the backends spell the query
+      // natively (`$bits(x)` in SystemVerilog, `bitWidth(x)`/`x'length` in VHDL), so the
+      // generated code keeps the value-to-width relation instead of a baked number
+      def width(using DFC): DFConstInt32 = trydf {
+        DFVal.Func(DFInt32, FuncOp.width, List(dfVal.asIR)).asConstOf[DFInt32]
+      }
+    end extension
+
+    extension [W <: IntP, T <: DFTypeW[W]](dfVal: DFValOf[T])
+      @targetName("lengthDFValDFTypeW")
+      // a `length` FUNC rather than a materialized constant (see `width` above);
+      def length(using DFC): DFConstInt32 = trydf {
+        DFVal.Func(DFInt32, FuncOp.length, List(dfVal.asIR)).asConstOf[DFInt32]
+      }
     end extension
 
     extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])

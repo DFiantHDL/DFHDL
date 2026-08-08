@@ -3351,4 +3351,95 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  // width/length queries print natively in SystemVerilog: `$bits` for the total width,
+  // `$size` for a vector's element count; a named query binding becomes a localparam
+  // over the query, keeping the value-to-width relation in the generated code
+  test("width/length query emission") {
+    class WidthQuery(
+        val W:    Int <> CONST       = 4,
+        val N:    Int <> CONST       = 3,
+        val INIT: Bits[Int] <> CONST = h"00"
+    ) extends EDDesign:
+      val LI   = INIT.length
+      val vec  = Bits(W) X N <> IN
+      val LEN  = vec.length
+      val WID  = vec.width
+      val din  = Bits(LI)    <> IN
+      val dout = Bits(LI)    <> OUT
+      val flat = Bits(WID)   <> OUT
+      val cnt  = UInt(LEN)   <> OUT
+      dout <> din
+      flat <> vec.bits
+      cnt  <> 0
+    end WidthQuery
+    val top = WidthQuery().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module WidthQuery#(
+         |    parameter int W = 4,
+         |    parameter int N = 3,
+         |    parameter logic [7:0] INIT = 8'h00
+         |)(
+         |  input  wire logic [W - 1:0] vec [0:N - 1],
+         |  input  wire logic [LI - 1:0] din,
+         |  output logic [LI - 1:0] dout,
+         |  output logic [WID - 1:0] flat,
+         |  output logic [LEN - 1:0] cnt
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam int LI = $bits(INIT);
+         |  localparam int LEN = $size(vec);
+         |  localparam int WID = $bits(vec);
+         |  assign dout = din;
+         |  assign flat = {vec};
+         |  assign cnt = LEN'(1'd0);
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  // the pre-SystemVerilog dialects have no width query syntax; the width parameter
+  // expression is inlined instead, and a vector's length query is folded by
+  // `DropStructsVecs` into the element-count parameter before the vector is flattened
+  test("width/length query emission under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class WidthQueryOld(
+        val W: Int <> CONST = 4,
+        val N: Int <> CONST = 3
+    ) extends EDDesign:
+      val vec  = Bits(W) X N <> IN
+      val LEN  = vec.length
+      val WID  = vec.width
+      val flat = Bits(WID)   <> OUT
+      val cnt  = UInt(LEN)   <> OUT
+      flat <> vec.bits
+      cnt  <> 0
+    end WidthQueryOld
+    val top = WidthQueryOld().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module WidthQueryOld#(
+         |    parameter integer W = 4,
+         |    parameter integer N = 3
+         |)(
+         |  input  wire [(W * N) - 1:0] vec,
+         |  output wire [WID - 1:0] flat,
+         |  output wire [LEN - 1:0] cnt
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  parameter integer LEN = N;
+         |  parameter integer WID = W * N;
+         |  assign flat = `EXTEND_U(vec, W * N, W * N);
+         |  assign cnt = `EXTEND_U(1'd0, 1, LEN);
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

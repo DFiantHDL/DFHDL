@@ -2913,7 +2913,7 @@ To extract a partial bit range from a DFHDL `Int` value, first convert it to `Bi
 
 Applies to: `.width`: any DFType and any DFHDL value; `.length`: `Bits`/`UInt`/`SInt` DFTypes and values, and `Vector` DFTypes and values
 
-Both queries return a constant DFHDL `Int` value (`Int <> CONST`) rather than a plain Scala `Int`, so they compose with design parameters: querying a parametric type keeps the result symbolic, and the generated code carries the width expression (`clog2(DEPTH)`, `LANE * LANES`, and so on) instead of a folded number.
+Both queries return a constant DFHDL `Int` value (`Int <> CONST`) rather than a plain Scala `Int`, so they compose with design parameters: querying a parametric type keeps the result symbolic, and the generated code carries the width expression (`clog2(DEPTH)`, `LANE * LANES`, and so on) instead of a folded number. A query over a DFHDL VALUE is spelled natively in the generated code where the target language has a width query: `$bits(x)`/`$size(x)` in SystemVerilog and `x'length`/`bitWidth(x)` in VHDL (dialects without one, such as Verilog-2001, inline the width expression instead). See [Inter-Dependent Design Parameters][inter-dependent-params] for the canonical use.
 
 /// html | div.operations
 | Operation  | Description | Returns |

@@ -95,6 +95,27 @@ trait AbstractValPrinter extends AbstractPrinter:
     ref.get match
       case DFVal.Const(dfType = _: DFDecimal, data = Some(i)) => i.toString
       case _                                                  => ref.refCodeString
+
+  /** The total-width expression of a type, spelled the way its own declaration spells it (a literal
+    * stays a literal, a parametric width keeps its parameter expression, rendered through the
+    * concrete printer). Used by the backends where a `width`/`length` query cannot be spelled
+    * natively: the pre-SystemVerilog dialects, and a VHDL query over a non-constant argument (which
+    * may print into a generic default that cannot name it).
+    */
+  final def csInlinedWidth(dfType: DFType): String = dfType match
+    case DFBool | DFBit => "1"
+    case dt: DFBits     => dt.widthParamRef.refCodeString
+    case dt: DFDecimal  =>
+      if (dt.fractionWidth == 0) dt.magnitudeWidthParamRef.refCodeString
+      else s"${dt.magnitudeWidthParamRef.refCodeString.applyBrackets()} + ${dt.fractionWidth}"
+    case dt: DFEnum   => dt.widthParam.toString
+    case dt: DFVector =>
+      s"${dt.cellDimParamRefs.head.refCodeString.applyBrackets()} * ${csInlinedWidth(dt.cellType).applyBrackets()}"
+    case dt: DFOpaque => csInlinedWidth(dt.actualType)
+    case dt           =>
+      dt.widthIntOpt.map(_.toString).getOrElse(
+        throw new IllegalArgumentException(s"Unable to inline the width of type: $dt")
+      )
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String
   def csDFMemberName(named: DFMember.Named): String =
     named.getName
@@ -286,7 +307,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
           case Func.Op.abs =>
             if (typeCS) s"Abs[$csArg]"
             else s"abs($csArg)"
+          // the postfix fallback also serves the width/length queries (`x.width`, `x.length`),
+          // which have no type-level twin (the receiver is a term), so typeCS prints the same
           case _ => s"${csArg.applyBrackets()}.${opStr}"
+        end match
       // multiarg func
       case args =>
         val csArgs = args.map(_.refCodeString)
