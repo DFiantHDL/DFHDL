@@ -2926,7 +2926,8 @@ Applying `.width` directly on a DFType is the DFHDL counterpart of Verilog's `$c
 
 ```scala
 class Foo(val DEPTH: Int <> CONST = 854) extends RTDesign:
-  // like Verilog's `$clog2(DEPTH)`, and stays parametric: elaborates as `clog2(DEPTH)`
+  // like Verilog's `$clog2(DEPTH)`, and stays parametric: the generated code keeps the
+  // named constant `ADDR_WIDTH = clog2(DEPTH)`
   val ADDR_WIDTH = UInt.until(DEPTH).width
   val addr = UInt(ADDR_WIDTH) <> VAR
 ```

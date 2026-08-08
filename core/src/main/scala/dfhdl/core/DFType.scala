@@ -288,7 +288,7 @@ object DFType:
     extension (dfType: DFTypeAny)
       @targetName("widthDFType")
       def width(using DFC): DFConstInt32 =
-        dfType.widthIntParam(using TC(dfType))(using dfc, new Width[DFTypeAny] {}).toDFConst
+        dfType.widthIntParam(using TC(dfType))(using dfc, new Width[DFTypeAny] {}).toDFConstQuery
     // for Bits/UInt/SInt, length == width, but for vectors,
     // length is the number of elements, and width is the total width of the vector (length * element width)
     extension [W <: IntP](dfType: DFTypeW[W])

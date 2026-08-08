@@ -337,7 +337,7 @@ object DFVector:
       extension [T <: DFTypeAny, D1 <: IntP](
           dfType: DFVector[T, Tuple1[D1]]
       )
-        def length(using DFC): DFConstInt32 = dfType.lengthIntParam.toDFConst
+        def length(using DFC): DFConstInt32 = dfType.lengthIntParam.toDFConstQuery
 
       extension [T <: DFTypeAny, D1 <: IntP, M <: ModifierAny](
           lhs: DFVal[DFVector[T, Tuple1[D1]], M]

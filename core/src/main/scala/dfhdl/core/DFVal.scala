@@ -1707,7 +1707,7 @@ object DFVal extends DFValLP:
         DFVal.Alias.History(dfVal, step, HistoryOp.State, initOpt)
       }
       def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
-      def width(using DFC): DFConstInt32 = dfVal.widthIntParam.toDFConst
+      def width(using DFC): DFConstInt32 = dfVal.widthIntParam.toDFConstQuery
     end extension
 
     extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])

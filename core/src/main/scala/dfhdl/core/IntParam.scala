@@ -215,6 +215,19 @@ object IntParam extends IntParamLP:
       lhs match
         case int: Int            => DFConstInt32(int, named = true)
         case const: DFConstInt32 => const
+    // The user-facing sibling of `toDFConst` for the width/length QUERIES, whose result a `val`
+    // binds directly (`val ADDR_WIDTH = UInt.until(N).width`). A literal is minted named, as in
+    // `toDFConst`, but a pre-existing constant (a parametric width) reached under a named context
+    // is rebound through a named Ident, never a meta restamp (issue #449), so the binding's name
+    // survives into the generated code instead of the expression inlining at every use site.
+    // `toDFConst` itself must stay wrap-free: operations pass constants as function ARGUMENTS
+    // under the operation's own context, and a wrap there would steal the result's name.
+    def toDFConstQuery: DFConstInt32 =
+      lhs match
+        case int: Int            => DFConstInt32(int, named = true)
+        case const: DFConstInt32 =>
+          if (dfc.isAnonymous) const
+          else DFVal.Alias.AsIs.ident(const)
     def toScalaIntOpt: Option[Int] =
       lhs match
         case int: Int            => Some(int)
