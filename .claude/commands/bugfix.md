@@ -256,6 +256,50 @@ the `sel` body).
 
 Both cost a full suite cycle to find, and neither is visible in the file being edited.
 
+### An in-place member revision only works in the design context that holds the member
+
+`MutableDB.setMember` looks its original member up in `DesignContext.current`, so every
+front-end op that revises a member in place (`tag`, `setName`, anything reaching `setMeta` /
+`setTags`) silently assumes the member lives in the design being elaborated. A
+`java.util.NoSuchElementException: key not found: Dcl(...)` out of `DesignContext.setMember` is
+that assumption failing, and the `Meta` inside the printed key names the *other* design's
+source line while the frames below it are the current one — that mismatch is the whole
+diagnosis (issue #470).
+
+The archetype is a **sub-design instance's port**. `inst.port` hands back the child's `Dcl`
+itself; the parent's own representative of that port is a `PortByNameSelect`, and `refTW` mints
+one lazily, at **reference** time. So every op that *references* the port works and every op
+that *revises* it before referencing crashes. `.resize(N)` versus argument-less `.resize` is
+exactly this split: the first builds an alias (a reference), the second marks its operand with
+`ir.ResizeTag` (a revision).
+
+Three things generalize:
+
+- **Route revisions through the same representative the reference path materializes**, rather
+  than teaching `setMember` about foreign members. Factoring that out of `refTW` also removes a
+  duplicated predicate; split it in two, though: a **pure** `isForeignPort` and a
+  member-**planting** `foreignPortSelectOpt`. Testing the condition with the planting one adds
+  an IR member as a side effect of asking a question.
+- **Not every revision can be redirected, and the kind decides.** A tag describes the *use* of
+  the port and belongs on the local representative, which is also why redirecting it is a fix
+  and not a workaround. A name is a property of the *declaration*, so there is nothing local to
+  put it on and the honest answer is an elaboration error naming the design that does get to
+  set it. Deciding this per revision kind is the design step; a uniform answer is wrong in one
+  direction or the other.
+- **Guard the redirect with `!dfc.inMetaProgramming`.** There `MutableDB.setMember` revises
+  without touching any design context, so foreign members are already handled, and planting a
+  representative would hand a stage a member it never asked for.
+
+One trap when adding the error: **`@metaContextForward(n)` costs you the position.**
+`MetaContextGenPhase.transformApply` skips applies of symbols carrying it (`!fixedApply.fun
+.symbol.forwardMetaContext`), so no meta context is stamped and a `DFError.Basic` raised inside
+reports `Position:  :0:0 - 0:0`. Its purpose is naming (`nameValOrDef` descends into the
+forwarded argument instead of stopping at the call), so an op that both forwards naming and
+reports errors cannot have both. Dropping the annotation from `setName` restored exact spans in
+all three call shapes (nested operand, standalone statement, `val` RHS) and changed no name:
+the forwarded argument's name is overwritten by `setName`'s own argument anyway. Check the
+naming-sensitive suites before assuming that holds for another op.
+
 ### Changing a type-level algebra: pick the mechanism by when it costs
 
 `IntP` decides widths at the type level, and there are three mechanisms for such a rule. They

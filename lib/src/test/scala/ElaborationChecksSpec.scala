@@ -1585,4 +1585,30 @@ class ElaborationChecksSpec extends DesignSpec:
           |Message:   The applied RHS value width (2 * W) is larger than the LHS variable width (W).""".stripMargin
     )
 
+  // A port of a sub-design instance is not a member of the instantiating design, which only
+  // represents it by a port-by-name selection. A tag applied to the port from here can land on
+  // that representative, but a name cannot: a name belongs to the declaration, and the
+  // declaring design is the one that gets to set it.
+  test("naming a sub-design instance's port"):
+    object Test:
+      class Child extends EDDesign:
+        val o = Bits(8) <> OUT
+        o <> all(0)
+      end Child
+      @top(false) class Top extends EDDesign:
+        val p = Bits(8) <> OUT
+        val c = Child()
+        p <> c.o.setName("kernel")
+      end Top
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1601:14 - 1601:35
+          |Hierarchy: Top
+          |Operation: `setName`
+          |Message:   Cannot set a name for a port of an internal design.
+          |The name of a port is set by the design that declares it.""".stripMargin
+    )
+
 end ElaborationChecksSpec

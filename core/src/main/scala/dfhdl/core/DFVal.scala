@@ -433,12 +433,28 @@ object DFVal extends DFValLP:
   ]
 
   extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
+    // The member a tag may be applied to from here. A port of another design (a sub-design
+    // instance's port, accessed as `inst.port`) is not a member of the current design
+    // context, and `MutableDB.setMember` looks the original member up there, so tagging the
+    // foreign declaration is not possible from this design. The current design's
+    // representative of that port is a `PortByNameSelect`, which is also what a reference to
+    // the port materializes, so the tag lands there instead. It then stays local, as it must:
+    // a marker like `ir.ResizeTag` describes this use of the port, not the port itself.
+    // Not applied during meta-programming: there `MutableDB.setMember` revises the member
+    // without touching any design context, so a foreign port is already handled and
+    // materializing a selection for it would plant a member a stage never asked for.
+    private def revisableHere(using dfc: DFC): DFVal[T, M] =
+      if (dfc.inMetaProgramming) dfVal
+      else
+        dfVal.asIR.foreignPortSelectOpt match
+          case Some(portSelect) => portSelect.asVal[T, M]
+          case None             => dfVal
     @metaContextForward(0)
     infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using
         dfc: DFC
     ): DFVal[T, M] =
       import dfc.getSet
-      dfVal.asIR
+      dfVal.revisableHere.asIR
         .setTags(_.tag(customTag))
         .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
         .asVal[T, M]
@@ -449,15 +465,22 @@ object DFVal extends DFValLP:
     def hasTag[CT <: ir.DFTag: ClassTag](using dfc: DFC): Boolean =
       import dfc.getSet
       dfVal.asIR.tags.hasTagOf[CT]
-    @metaContextForward(0)
-    infix def setName(name: String)(using dfc: DFC): DFVal[T, M] =
+    infix def setName(name: String)(using dfc: DFC): DFVal[T, M] = trydf {
       import dfc.getSet
+      // Unlike a tag, a name is a property of the declaration itself, so there is nothing
+      // local to redirect it to: renaming a port of another design would have to revise that
+      // design's declaration, which this design context cannot reach (see `isForeignPort`).
+      if (!dfc.inMetaProgramming && dfVal.asIR.isForeignPort)
+        throw new IllegalArgumentException(
+          "Cannot set a name for a port of an internal design.\nThe name of a port is set by the design that declares it."
+        )
       dfVal.asIR
         .setMeta(m =>
           if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta.setName(name)
           else m.setName(name)
         )
         .asVal[T, M]
+    }(using dfc, CTName("setName"))
     def anonymize(using dfc: DFC): DFVal[T, M] =
       import dfc.getSet
       dfVal.asIR match

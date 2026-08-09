@@ -3151,4 +3151,46 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // A port of a sub-design instance is not a member of the instantiating design. That design
+  // represents the port by a `PortByNameSelect`, which is what a reference to it materializes,
+  // so an in-place member revision applied to the port from here has nowhere to land on the
+  // foreign declaration and must target the representative instead.
+  // The argument-less `.resize` is such a revision: it marks its operand with a tag that the
+  // connection's width then resolves. This pins that the mark lands locally, giving the same
+  // result as the explicit-width `.resize(16)` form.
+  // See https://github.com/DFiantHDL/DFHDL/issues/470
+  test("Argument-less resize of a sub-design instance's output port") {
+    class SubDsn extends EDDesign:
+      val WIDTH: Int <> CONST = 24
+      val ob                  = Bits(WIDTH) <> OUT
+      val ou                  = UInt(WIDTH) <> OUT
+      ob <> all(0)
+      ou <> 0
+    class Top extends EDDesign:
+      val pb = Bits(16) <> OUT
+      val pu = UInt(16) <> OUT
+      val c  = SubDsn()
+      pb <> c.ob.resize
+      pu <> c.ou.resize
+    assertCodeString(
+      Top(),
+      """|class SubDsn extends EDDesign:
+         |  val WIDTH: Int <> CONST = 24
+         |  val ob = Bits(WIDTH) <> OUT
+         |  val ou = UInt(WIDTH) <> OUT
+         |  ob <> b"0".repeat(WIDTH)
+         |  ou <> d"1'0".resize(WIDTH)
+         |end SubDsn
+         |
+         |class Top extends EDDesign:
+         |  val pb = Bits(16) <> OUT
+         |  val pu = UInt(16) <> OUT
+         |  val c = SubDsn()
+         |  val c_WIDTH: Int <> CONST = 24
+         |  pb <> c.ob.resize(16)
+         |  pu <> c.ou.resize(16)
+         |end Top
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec
