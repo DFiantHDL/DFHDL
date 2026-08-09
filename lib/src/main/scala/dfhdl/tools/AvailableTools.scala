@@ -4,6 +4,7 @@ import toolsCore.*
 object linters:
   val verilator = Verilator
   val iverilog = IcarusVerilog
+  val xezim = Xezim
   val vlog = QuestaSimVerilog
   val xvlog = VivadoSimVerilog
   val ghdl = GHDL
@@ -19,6 +20,7 @@ object linters:
   object verilogLinters:
     val verilator = linters.verilator
     val iverilog = linters.iverilog
+    val xezim = linters.xezim
     val vlog = linters.vlog
     val xvlog = linters.xvlog
     val nvc = NVCVerilog
@@ -32,6 +34,7 @@ end linters
 object simulators:
   val verilator = Verilator
   val iverilog = IcarusVerilog
+  val xezim = Xezim
   val vlog = QuestaSimVerilog
   val xvlog = VivadoSimVerilog
   val ghdl = GHDL
@@ -45,7 +48,7 @@ object simulators:
   // that resolves per language, while each language scope below holds its actual front-end.
   object nvc
   object verilogSimulators:
-    export simulators.{verilator, iverilog, vlog, xvlog, questa, vsim, vivado, xsim}
+    export simulators.{verilator, iverilog, xezim, vlog, xvlog, questa, vsim, vivado, xsim}
     val nvc = NVCVerilog
   object vhdlSimulators:
     export simulators.{ghdl, vcom, xvhdl, questa, vsim, vivado, xsim}

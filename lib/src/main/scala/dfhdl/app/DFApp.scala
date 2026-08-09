@@ -355,6 +355,7 @@ class DFApp:
           |Selectable Verilog/SystemVerilog linting tools:
           |verilator         - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
           |iverilog          - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
+          |xezim             - Xezim               ${scanned(dfhdl.tools.linters.xezim)}
           |nvc               - NVC                 ${scanned(dfhdl.tools.linters.verilogLinters.nvc)}
           |vlog|questa|vsim  - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vlog)}
           |xvlog|vivado|xsim - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvlog)}
@@ -391,6 +392,7 @@ class DFApp:
           |Selectable Verilog/SystemVerilog simulation tools:
           |verilator            - Verilator (default) ${scanned(dfhdl.tools.simulators.verilator)}
           |iverilog             - Icarus Verilog      ${scanned(dfhdl.tools.simulators.iverilog)}
+          |xezim                - Xezim               ${scanned(dfhdl.tools.simulators.xezim)}
           |nvc                  - NVC                 ${scanned(
            dfhdl.tools.simulators.verilogSimulators.nvc
          )}

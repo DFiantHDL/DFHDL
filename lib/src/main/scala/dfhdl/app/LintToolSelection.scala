@@ -23,6 +23,7 @@ object LintToolSelection:
         toolName match
           case "verilator" => Some(linters.verilator)
           case "iverilog"  => Some(linters.iverilog)
+          case "xezim"     => Some(linters.xezim)
           case "vlog"      => Some(linters.vlog)
           case "xvlog"     => Some(linters.xvlog)
           case "ghdl"      => Some(linters.ghdl)

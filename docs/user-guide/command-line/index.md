@@ -101,6 +101,7 @@ Add `-s` / `--scan` to the two tool listings to also probe your system for each 
 Selectable Verilog/SystemVerilog simulation tools:
 verilator            - Verilator (default) Found version 5.049
 iverilog             - Icarus Verilog      Found version 14.0
+xezim                - Xezim               Not found on your system
 nvc                  - NVC                 Found version 1.22.1
 vlog|questa|modelsim - QuestaSim/ModelSim  Found version 2023.3
 xvlog|vivado|xsim    - Vivado Simulator    Not found on your system

@@ -43,6 +43,7 @@ object DFToolsImage:
     case "ghdl" | "nvc"                                                   => Some("sim-llvm")
     case "verilator" | "verilator_bin"                                    => Some("sim-verilator")
     case "iverilog" | "vvp"                                               => Some("sim-iverilog")
+    case "xezim"                                                          => Some("sim-xezim")
     case "surfer"                                                         => Some("wavegen")
     case "openFPGALoader"                                                 => Some("program")
     case _                                                                => None

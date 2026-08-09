@@ -25,6 +25,7 @@ object SimulateToolSelection:
         toolName match
           case "verilator" => Some(simulators.verilator)
           case "iverilog"  => Some(simulators.iverilog)
+          case "xezim"     => Some(simulators.xezim)
           case "vlog"      => Some(simulators.vlog)
           case "xvlog"     => Some(simulators.xvlog)
           case "ghdl"      => Some(simulators.ghdl)
