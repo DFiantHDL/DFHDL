@@ -124,6 +124,42 @@ class ContextWidenSpec extends DesignSpec:
     )
   }
 
+  test("parametric conditional-expression target-context widening") {
+    @top(false) class CondWiden(val W: Int <> CONST = 4) extends EDDesign:
+      val a, b = SInt(W) <> IN
+      val c = Bit <> IN
+      val viaConn = SInt(W + 1) <> OUT
+      val viaArith = SInt(W + 2) <> OUT
+      // an anonymous conditional EXPRESSION re-evaluates each branch at the target,
+      // matching the per-branch assignments it lowers to (issue #464); these are the
+      // type-free positions (connection RHS, operand of a wider operation), where the
+      // header was typed by its branches
+      viaConn <> (if (c) b - a else a - b)
+      viaArith <> (if (c) b - a else a - b) + a
+    end CondWiden
+
+    CondWiden().assertCodeString(
+      """|class CondWiden(val W: Int <> CONST = 4) extends EDDesign:
+         |  val a = SInt(W) <> IN
+         |  val b = SInt(W) <> IN
+         |  val c = Bit <> IN
+         |  val viaConn = SInt(W + 1) <> OUT
+         |  val viaArith = SInt(W + 2) <> OUT
+         |  viaConn <> ((
+         |    if (c) b -^ a
+         |    else a -^ b
+         |  ): SInt[W + 1] <> VAL)
+         |  viaArith <> (
+         |    ((
+         |      if (c) b.eby(2) - a.eby(2)
+         |      else a.eby(2) - b.eby(2)
+         |    ): SInt[W + 2] <> VAL) + a.eby(2)
+         |  )
+         |end CondWiden
+         |""".stripMargin
+    )
+  }
+
   test("explicit eby") {
     @top(false) class Eby(val W: Int <> CONST = 8) extends EDDesign:
       val a = SInt(W) <> IN

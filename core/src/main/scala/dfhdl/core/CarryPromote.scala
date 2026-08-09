@@ -10,8 +10,9 @@ import DFDecimal.Extensions.*
   * Verilog-semantics warning machinery.
   *
   * [[widenedOpt]] holds the deep re-evaluation rule used by the `toDFXIntOf` conversion: an
-  * anonymous non-carry `+`/`-`/`*` cone (or a `sel`, matching Verilog's `?:`) converted to a wider
-  * type is re-evaluated at the target's width and sign. The warning helpers detect the
+  * anonymous non-carry `+`/`-`/`*` cone (or a `sel`, matching Verilog's `?:`, or an `if`/`match`
+  * expression, matching the per-branch assignments it lowers to) converted to a wider type is
+  * re-evaluated at the target's width and sign. The warning helpers detect the
   * narrow-chain/implicit-`Int` patterns whose Verilog evaluation would diverge from DFHDL's
   * bit-accurate one; they are invoked from the `/`, `%`, comparison, and shift operation builders
   * in `DFDecimal` and `DFBits`.
@@ -28,7 +29,9 @@ private[core] object CarryPromote:
     *
     * A `sel` is context-transparent the same way: it corresponds to Verilog's `?:`, whose branch
     * operands are context-determined, so the selection re-types to the target and each branch
-    * re-enters the widening, while the condition passes through untouched.
+    * re-enters the widening, while the condition passes through untouched. An `if`/`match`
+    * EXPRESSION is likewise transparent, matching the per-branch assignments it lowers to; its
+    * blocks are revised in place (see the conditional-header case below for the mechanics).
     *
     * The candidate is taken BEFORE any sign conversion: an upstream anonymous sign-conversion alias
     * (the commutative-arith sign alignment creates one) is unwrapped, or it would hide the func and
@@ -69,14 +72,15 @@ private[core] object CarryPromote:
       magnitudeWidthParamRef = dfType.widthIntParam.ref,
       nativeType = BitAccurate
     )
-    // an argument re-enters the full conversion, so nested cones widen and leaves
+    // a nested value re-enters the full conversion, so nested cones widen and leaves
     // get their sign conversion / resize at the target type
-    def widenedArg(argRef: ir.DFVal.Ref): DFValAny =
+    def widened(v: ir.DFVal): DFValAny =
       DFXInt.Val.Ops.toDFXIntOf(
-        argRef.get.asValOf[DFXInt[Boolean, Int, NativeType]]
+        v.asValOf[DFXInt[Boolean, Int, NativeType]]
       )(DFXInt(dfType.signed, dfType.widthIntParam, BitAccurate))(using
         dfc.anonymize
       )
+    def widenedArg(argRef: ir.DFVal.Ref): DFValAny = widened(argRef.get)
     // no MutableDB revision under meta-programming (matching `setMember`'s behavior
     // there): the retyped value is returned unregistered and the argument
     // conversions are skipped, since no member is registered
@@ -112,6 +116,68 @@ private[core] object CarryPromote:
           if func.isAnonymous &&
             contextWidenCheck(func.asValOf[DFSInt[Int]].widthIntParam) =>
         Some(rebuilt(func, func.args.head.get :: func.args.tail.map(widenedArg(_).asIR)))
+      // A conditional EXPRESSION (if/match) re-evaluates each branch at the target,
+      // matching the Verilog its branches lower to (per-branch assignments to the
+      // wider target). The type-driven construction (fromBranchesExact1/fromCasesExact)
+      // already converts inside the branches; this covers the type-free positions
+      // (an operand of a wider operation, a connection RHS), where the header was
+      // typed by its branches. Each branch's terminal ident is superseded by a fresh
+      // ident over the branch value's widened re-evaluation, built INSIDE the branch
+      // block (so branch-local named values stay in scope); the old terminal and cone
+      // become debris for the end-of-design sweep, and the header is revised in place
+      // to the target type, the same revision its construction applies.
+      case header: ir.DFConditional.Header
+          if header.isAnonymous &&
+            (header.dfType match
+              case ir.DFUInt(_) | ir.DFSInt(_) => true
+              case _ => false) && contextWidenCheck(header.asValOf[DFSInt[Int]].widthIntParam) =>
+        if (dfc.inMetaProgramming) Some(header.updateDFType(newDT).asValOf[DFSInt[Int]])
+        else
+          import dfhdl.compiler.analysis.{getHeaderCB, Ident}
+          // this runs MID-construction (the enclosing statement is still being built), so
+          // the conditional's structure is recovered from the raw creation-ordered member
+          // list of the current design context via plain ref walks; a designDB snapshot
+          // (`members`/`getCBList`) is not available in this state
+          val memberList = dfc.mutableDB.DesignContext.current.getImmutableMemberList
+          val blocks = memberList.collect {
+            case cb: ir.DFConditional.Block if cb.getHeaderCB == header => cb
+          }
+          val blockSet = blocks.toSet
+          // each block's terminal is its LAST directly-owned value (nested constructs in
+          // the branch body own their internals, so they never shadow the terminal ident)
+          val lastOwnedByBlock =
+            memberList.foldLeft(Map.empty[ir.DFConditional.Block, ir.DFVal]) { (acc, m) =>
+              m match
+                case v: ir.DFVal =>
+                  v.ownerRef.get match
+                    case cb: ir.DFConditional.Block if blockSet(cb) => acc.updated(cb, v)
+                    case _                                          => acc
+                case _ => acc
+            }
+          val branchVals = blocks.flatMap { block =>
+            lastOwnedByBlock.get(block).collect {
+              case ident @ Ident(underlying) => (block, ident, underlying)
+            }
+          }
+          // all-or-nothing: an unexpected branch shape (no terminal ident) leaves the
+          // whole conversion to the caller's leaf path
+          if (branchVals.sizeCompare(blocks) != 0) None
+          else
+            branchVals.foreach { (block, oldIdent, branchVal) =>
+              // the widened members are INSERTED after the old terminal, inside the
+              // block's span, keeping the flat member list properly nested
+              dfc.mutableDB.insertingAfter(oldIdent) {
+                dfc.enterOwner(block.asFE)
+                DFVal.Alias.AsIs.ident(widened(branchVal))(using dfc.anonymize)
+                dfc.exitOwner()
+              }
+              // the superseded terminal is dropped explicitly: an ident is consumed
+              // positionally (never by reference), so the sweep alone would keep it
+              // and, through it, the superseded narrow cone
+              dfc.mutableDB.ignoreMember(oldIdent)
+            }
+            Some(header.replaceMemberWith(header.updateDFType(newDT)).asValOf[DFSInt[Int]])
+          end if
       case _ => None
     end match
   end widenedOpt

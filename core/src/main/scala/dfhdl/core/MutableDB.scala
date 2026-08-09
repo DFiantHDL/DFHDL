@@ -103,9 +103,28 @@ class DesignContext:
   def setOriginRefs(member: DFMember): Unit =
     member.getRefs.foreach { r => originRefTable += r -> member }
 
+  // ~~~ positional insertion (see MutableDB.insertingAfter) ~~~
+  // While anchors are set, `addMember` INSERTS each new member right after the head
+  // anchor instead of appending, and the added member becomes the head anchor, so a
+  // sequence of additions lays out in creation order at the insertion point. This keeps
+  // the flat member list properly nested when constructing into an already-built block.
+  // A stack of anchors supports re-entry (a nested insertion at an earlier position
+  // shifts later indices, so every addition re-resolves its anchor through memberTable).
+  var insertAnchors = List.empty[DFMember]
+
   def addMember[M <: DFMember](member: M): M =
-    memberTable += (member -> members.length)
-    members += MemberEntry(member, Set(), false)
+    insertAnchors match
+      case anchor :: rest =>
+        val idx = memberTable(anchor) + 1
+        members.insert(idx, MemberEntry(member, Set(), false))
+        var i = idx
+        while (i < members.length)
+          memberTable.update(members(i).irValue, i)
+          i += 1
+        insertAnchors = member :: rest
+      case Nil =>
+        memberTable += (member -> members.length)
+        members += MemberEntry(member, Set(), false)
     setOriginRefs(member)
     member
   end addMember
@@ -939,6 +958,16 @@ final class MutableDB():
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
         injectGlobals(dfVal.globalCtx.asInstanceOf[DesignContext])
       case _ =>
+
+  // Runs `body` with member additions INSERTED right after `anchor` in the current
+  // design context instead of appended, so constructing into an already-built block
+  // (the widened conditional branches of `CarryPromote`) keeps the flat member list
+  // properly nested. Re-entrant: a nested insertion stacks its own anchor.
+  def insertingAfter[T](anchor: DFMember)(body: => T): T =
+    val ctx = DesignContext.current
+    ctx.insertAnchors = anchor :: ctx.insertAnchors
+    try body
+    finally ctx.insertAnchors = ctx.insertAnchors.drop(1)
 
   def setMember[M <: DFMember](originalMember: M, newMemberFunc: M => M): M =
     if (inMetaProgramming) newMemberFunc(originalMember)

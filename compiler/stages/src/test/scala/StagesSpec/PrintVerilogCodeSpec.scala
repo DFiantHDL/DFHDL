@@ -3317,6 +3317,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       val uprod  = UInt(2 * W) <> OUT
       val c      = Bit         <> IN
       val viaSel = SInt(W + 1) <> OUT
+      val viaIf  = SInt(W + 1) <> OUT
       sum    <> a + b
       usub   <> ua - ub
       acc    <> a + b
@@ -3324,6 +3325,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       prod   <> a * b
       uprod  <> ua * ub
       viaSel <> c.sel(b - a, a - b)
+      viaIf  <> (if (c) b - a else a - b)
     end ParamWiden
     val top = ParamWiden().getCompiledCodeString
     assertNoDiff(
@@ -3343,7 +3345,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic signed [(2 * W) - 1:0] prod,
          |  output logic [(2 * W) - 1:0] uprod,
          |  input  wire logic c,
-         |  output logic signed [(W + 1) - 1:0] viaSel
+         |  output logic signed [(W + 1) - 1:0] viaSel,
+         |  output logic signed [(W + 1) - 1:0] viaIf
          |);
          |  `include "dfhdl_defs.svh"
          |  assign sum = a + b;
@@ -3353,6 +3356,11 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  assign prod = a * b;
          |  assign uprod = ua * ub;
          |  assign viaSel = c ? (b - a) : (a - b);
+         |  always_comb
+         |  begin
+         |    if (c) viaIf = b - a;
+         |    else viaIf = a - b;
+         |  end
          |endmodule
          |""".stripMargin
     )

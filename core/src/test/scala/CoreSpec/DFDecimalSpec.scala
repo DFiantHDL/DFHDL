@@ -1033,6 +1033,40 @@ class DFDecimalSpec extends DFSpec:
       u9 := q
     }
   }
+  test("Arithmetic target-context widening through conditional expressions") {
+    val u8 = UInt(8) <> VAR
+    val u9 = UInt(9) <> VAR
+    val u10 = UInt(10) <> VAR
+    val c = Bit <> VAR
+    assertCodeString {
+      """|u9 := ((
+         |  if (c) u8 +^ u8
+         |  else u8 -^ u8
+         |): UInt[9] <> VAL)
+         |u10 := ((
+         |  if (c) u8.eby(2) + u8.eby(2)
+         |  else u8.eby(2)
+         |): UInt[10] <> VAL) + u8.eby(2)
+         |u10 := ((
+         |  c match
+         |    case 1 => u8.eby(2) + u8.eby(2)
+         |    case _ => u8.eby(2)
+         |  end match
+         |): UInt[10] <> VAL) + u8.eby(2)
+         |""".stripMargin
+    } {
+      // a type-driven position converts each branch at construction (the plugin's
+      // Exact1 route), landing on the same widened form
+      u9 := (if (c) u8 + u8 else u8 - u8)
+      // a type-free position (an operand of a wider operation): the conditional header
+      // was typed by its branches and re-evaluates at the target per branch (issue #464)
+      u10 := (if (c) u8 + u8 else u8) + u8
+      u10 := (c match
+        case 1 => u8 + u8
+        case _ => u8
+      ) + u8
+    }
+  }
   test("Int32 arithmetic") {
     val param: Int <> CONST = 2
     val t1 = 1 + param

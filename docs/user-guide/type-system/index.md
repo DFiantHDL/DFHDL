@@ -2478,7 +2478,7 @@ Standard arithmetic operations wrap on overflow. For example, `d"8'255" + d"8'1"
 
 However, an **anonymous** arithmetic expression (`+`, `-`, `*`) that is assigned or connected to a variable **wider** than the operation's result is re-evaluated at the target's width and sign, exactly like Verilog's assignment-context width propagation: every operand, recursively through the anonymous expression, is widened to the target type, and the operations stay modular at that width. The carry operators are themselves shorthand for exactly this operand-widened evaluation (`x +^ y` is `x.eby(1) + y.eby(1)` with the operands first aligned to a common width), so when a widening lands exactly on a carry shape it prints back as the carry operator.
 
-The widening context also crosses an anonymous `.sel`, matching Verilog's `?:` whose branch operands are context-determined: each selection branch re-evaluates at the target, while the selection condition is unaffected. The context stops at exactly three kinds of boundaries: a **named value** (a `val`-bound expression evaluates at its own declared width and only its result extends), a **carry operation** (its widened result is already exact), and any **other operation** (shifts, bitwise logic, comparisons, `if`/`match` expressions), whose result converts as a plain value.
+The widening context also crosses an anonymous `.sel` (matching Verilog's `?:`, whose branch operands are context-determined) and anonymous `if`/`match` **expressions** (matching the per-branch assignments they lower to): each branch re-evaluates at the target, while the selection condition or match selector is unaffected. The context stops at exactly three kinds of boundaries: a **named value** (a `val`-bound expression evaluates at its own declared width and only its result extends), a **carry operation** (its widened result is already exact), and any **other operation** (shifts, bitwise logic, comparisons), whose result converts as a plain value.
 
 ```scala
 val u8  = UInt(8) <> VAR
@@ -2497,6 +2497,8 @@ s9  := u8 - u8   // unsigned to signed: operands convert, u8.signed - u8.signed
 // The context crosses .sel branches (Verilog's ?:), condition untouched:
 val c = Bit <> VAR
 u9 := c.sel(u8 + u8, u8 - u8)   // elaborates to c.sel(u8 +^ u8, u8 -^ u8)
+// ... and if/match EXPRESSION branches the same way:
+u9 := (if (c) u8 + u8 else u8 - u8)   // each branch elaborates as a carry op
 
 // Implicit Int operands and whole chains evaluate at the target width:
 u10 := u8 + u8 + 1   // elaborates to u10 := u8.eby(2) + u8.eby(2) + d"10'1"
