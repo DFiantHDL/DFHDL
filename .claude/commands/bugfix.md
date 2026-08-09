@@ -311,6 +311,24 @@ failures to expect are therefore specs that assert an error and find none: `asse
 compile error for its snippet and then an elaboration error for its block, so "which half failed"
 is a real question and the failure position does not tell you.
 
+### Pick the error assertion by which halves the rule actually has
+
+The three are not interchangeable, and passing `""` to opt out of a half is a smell:
+
+| assertion | use when |
+|---|---|
+| `assertCompileError(msg)(snippet)` | the rule is decided at compile time only |
+| `assertRuntimeErrorLog(msg, col1, col2)(block)` | the rule is decided at elaboration only |
+| `assertDSLErrorLog(msg)(snippet)(block)` | the SAME rule has both halves |
+
+`assertDSLErrorLog(msg)("")(block)` is an elaboration-only assertion wearing the two-sided
+helper: write `assertRuntimeErrorLog` there instead. Because `assertDSLErrorLog` takes ONE
+message for both halves, using it is also a design statement: the compile-time check and the
+elaboration check must report the SAME text. When a rule is enforced statically for operands
+whose widths are known and dynamically for those that are not (the `Int`-literal vs. parameter
+split of the wildcard rules), give both checks that one message, and let a single
+`assertDSLErrorLog` pin the pair.
+
 ### Sibling op givens drift like twin helpers do
 
 The "twin helpers drift" rule from §2 applies to `ExactOp*` given families too. Issue #445: the

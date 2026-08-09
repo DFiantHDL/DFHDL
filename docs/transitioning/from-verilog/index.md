@@ -915,12 +915,22 @@ val sign  = prod(15)                // single-bit access (Bit)
 To recover signed semantics on a slice, chain `.bits.sint` (re-interpret the bits as signed, same width). Do **not** use `.signed` for this: `.signed` is a numeric conversion that widens by one zero-extension bit, which is not what slice migration wants.
 ///
 
+/// admonition | Rule of thumb: transcribe, then follow the diagnostics
+    type: tip
+You do not have to apply the width and sign rules by hand while translating. Write each arithmetic or logic expression exactly as the Verilog has it, in DFHDL syntax, and let the compiler review it:
+
+- Where DFHDL can reproduce Verilog's context-dependent width propagation, it does so silently. An anonymous `+`, `-`, `*`, unary `-`, `.sel`, `if`/`match` expression or shift feeding a wider target re-evaluates at that target's width, which is what the Verilog line does, so the transcription stands as written.
+- Where the two would disagree, DFHDL declines to guess. It reports a **compile-time or elaboration error** for a width or sign relation it cannot express (a narrower LHS under `-`, `/`, `%`, or a comparison between operands of different widths), and an **elaboration warning** where an implicit `Int` would have evaluated 32-bit in Verilog but is bit-accurate here.
+
+So the loop is: transcribe, compile, apply whatever the diagnostic names (a carry operation, an explicit `d"W'V"` literal, or a `.resize`), and repeat until it is quiet. An expression that compiles and elaborates without warnings carries the original's semantics.
+///
+
 /// admonition | Arithmetic with Signed Values and Constants
     type: verilog
 **Arithmetic operand compatibility:**
 DFHDL enforces sign and width constraints at compile time. **Commutative operations** (`+`, `*`, `max`, `min`) produce the widest, most signed result, and operand order does not matter. **Non-commutative operations** (`-`, `/`, `%`) require the LHS to be at least as wide and signed as the RHS. When mixing signed and unsigned, the unsigned operand is implicitly sign-extended by 1 bit.
 
-Both Scala `Int` values and DFHDL `Int` parameters act as [wildcards][wildcard-ops]: the wildcard `Int` value adapts to the bit-accurate value's sign and width. If the wildcard `Int` value does not fit, an error is generated.
+Both Scala `Int` values and DFHDL `Int` parameters act as [wildcards][wildcard-ops]: the wildcard `Int` value adapts to the bit-accurate value's sign and width, and an error is generated if it does not fit. In `+`, `-` and `*` a Scala `Int` **literal** is instead taken at its own minimum width whenever the other operand's width is known at compile time as well, so the result is simply the wider of the two.
 
 ```scala
 // Commutative: result is widest, most signed
@@ -936,14 +946,15 @@ sd"8'5" + (-3)     // SInt[8] (-3 adapts to SInt[8])
 val param: Int <> CONST = 10
 d"8'5" + param     // UInt[8] (param adapts to UInt[8])
 sd"8'5" + param    // SInt[8] (param adapts to SInt[8])
-d"8'5" + 1000      // ERROR: 1000 exceeds UInt[8] range
-d"8'5" + (-1)      // ERROR: -1 is negative for UInt bit-accurate value
+d"8'5" + 1000      // UInt[10] (1000's minimum width of 10 is the wider one)
 
 // Non-commutative: LHS-dominant, LHS must be >= RHS
 d"8'5" - d"4'3"    // UInt[8]
 sd"8'5" - d"4'3"   // SInt[8] (RHS widened to 5 bits, 8 >= 5)
 // d"4'5" - d"8'3" // ERROR: RHS width > LHS width
 // d"8'5" - sd"4'3" // ERROR: unsigned LHS, signed RHS
+// (-1) - d"8'5"   // ERROR: a negative literal cannot adapt to an unsigned operand,
+//                 //        and LHS-dominance leaves no room to widen it
 ```
 
 **Comparison operand compatibility:**

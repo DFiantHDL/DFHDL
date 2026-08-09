@@ -2387,7 +2387,11 @@ s8 := -u8
 
 ### Wildcard `Int` Values {#wildcard-ops}
 
-Both Scala `Int` values and DFHDL `Int` parameters (`Int <> CONST`) act as **wildcards** when used in operations with bit-accurate `UInt` or `SInt` values. The wildcard `Int` value adapts to the bit-accurate value's sign and width. If the wildcard `Int` value does not fit in the bit-accurate value's range or has incompatible sign, an error is generated. One exception: in [carry operations][carry-ops] a Scala `Int` operand contributes its value's minimal width instead of adapting, while a DFHDL `Int` parameter adapts as usual.
+Both Scala `Int` values and DFHDL `Int` parameters (`Int <> CONST`) act as **wildcards** when used in operations with bit-accurate `UInt` or `SInt` values. A wildcard has no exact width of its own, only a **minimum** one, and a natural (non-negative) wildcard has no sign of its own either: it can be taken as unsigned, or as signed at the cost of one more bit. Only a negative wildcard is inherently signed. It therefore adapts to the bit-accurate value's sign and width, and that absence of a fixed width and sign is the whole difference from a constant of the same value: `u8 == 0` compares fine while `u8 == d"1'0"` is a width mismatch, and `5 - s8` is `SInt[8]` while `d"5" - s8` is a sign mismatch.
+
+The two kinds of wildcard differ in how much is known about that minimum. A Scala `Int` always has one, from the literal at compile time or from the value at elaboration. A DFHDL `Int` parameter may have none at elaboration, and an overridable one has none for any manifestation, so it can only ever adapt.
+
+For `+`, `-` and `*`, a Scala `Int` **literal**'s minimum width counts as an actual width when the result width is computed, so the result is simply the wider of the two operands. A literal that fits is unchanged by this (the bit-accurate operand is the wider one), and a literal that does not fit widens the operation instead of being an error: `u8 + 1000` is `UInt[10]`. It takes the other operand's width at compile time too, so against a parametric width, or for an `Int` whose value is not a literal, the wildcard adapts and must fit as before. In [carry operations][carry-ops] a Scala `Int` operand always contributes its minimum width.
 
 ```scala
 val u8 = UInt(8) <> VAR
@@ -2408,10 +2412,24 @@ u8 / param          // UInt[8] (param adapts to UInt[8])
 u8 == 200           // OK (200 fits in UInt[8])
 s8 < (-5)           // OK (-5 fits in SInt[8])
 
-// ERROR: wildcard `Int` value does not fit bit-accurate value
-u8 + 1000           // ERROR: 1000 exceeds UInt[8] range (0..255)
-u8 + (-1)           // ERROR: -1 is negative for unsigned bit-accurate value
-s8 + 1000           // ERROR: 1000 exceeds SInt[8] range (-128..127)
+// A runtime Scala `Int` has a minimum width too, but only at elaboration, so it
+// always adapts and must fit, exactly like a DFHDL `Int` parameter
+val rt = List(1, 2, 3).sum   // a Scala `Int`, but not a literal
+u8 + rt             // UInt[8] (adapts; a value over 255 is an elaboration error)
+
+// In +, - and * a literal's MINIMUM width counts as an actual width, so the
+// result is the wider of the two operands
+u8 + 1000           // UInt[10] (1000's minimum is 10 bits, the wider of the two)
+u8 + (-1)           // SInt[9]  (-1 is inherently signed, so u8 gains a sign bit)
+s8 + 1000           // SInt[11] (1000 taken as signed needs one bit more, 11)
+1000 - u8           // UInt[10] (the literal is the wider operand, so LHS-dominance holds)
+
+// ... but only when the other width is known at compile time as well
+val wp = UInt(param) <> VAR
+wp + 1000           // ERROR: nothing to compare against, so 1000 must adapt to UInt[param]
+
+// ERROR: `-`, `/` and `%` take the LHS width, which a negative literal cannot supply
+(-1) - u8           // ERROR: -1 is negative and cannot adapt to an unsigned value
 ```
 
 See [Wildcard Arithmetic Value Checking][wildcard-check] for details on when these checks occur (compile-time, elaboration-time, or synthesis-time).
@@ -2447,7 +2465,7 @@ val r3 = u4 + u8          // UInt[8]  (commutative, same as above)
 val r4 = s8 + u4          // SInt[8]  (max(8, 4+1) = 8, signed)
 val r5 = u8 + s8          // SInt[9]  (max(8+1, 8) = 9, signed)
 val r6 = u8 + 200         // UInt[8]  (literal adapts)
-val r7 = (-5) + u8        // SInt[8]  (negative literal, signed result)
+val r7 = (-5) + u8        // SInt[9]  (-5 is signed, so u8 gains a sign bit)
 
 // Non-commutative: LHS-dominant
 val r8 = 200 - u8         // UInt[8]
