@@ -31,13 +31,15 @@ private[core] object CarryPromote:
     * operands are context-determined, so the selection re-types to the target and each branch
     * re-enters the widening, while the condition passes through untouched. An `if`/`match`
     * EXPRESSION is likewise transparent, matching the per-branch assignments it lowers to; its
-    * blocks are revised in place (see the conditional-header case below for the mechanics).
+    * blocks are revised in place (see the conditional-header case below for the mechanics). A
+    * shift's LEFT operand is context-determined too (the amount is self-determined), gated on the
+    * target keeping the operand's signedness (see the shift case below).
     *
     * The candidate is taken BEFORE any sign conversion: an upstream anonymous sign-conversion alias
     * (the commutative-arith sign alignment creates one) is unwrapped, or it would hide the func and
     * pin the chain at its narrow width. A carry func (result wider than its operands) keeps its
-    * documented exact semantics and converts as a leaf; so do all other ops (shifts, bitwise,
-    * comparisons), whose evaluation this rule does not context-widen.
+    * documented exact semantics and converts as a leaf; so do all other ops (bitwise logic,
+    * comparisons, rotations), whose evaluation this rule does not context-widen.
     *
     * Returns `None` when no widening applies, leaving the plain leaf conversion to the caller
     * (`toDFXIntOf` in `DFDecimal`).
@@ -68,7 +70,7 @@ private[core] object CarryPromote:
     // shape by the CarryFunc/Eby extractors. The widened evaluation type is the
     // target itself as a bit-accurate type; an Int target widens the cone at its
     // native 32-bit width (Verilog's `integer` context) and converts by the caller.
-    def newDT = dfType.asIR.asInstanceOf[ir.DFDecimal].copy(
+    def newDT = dfType.asIR.copy(
       magnitudeWidthParamRef = dfType.widthIntParam.ref,
       nativeType = BitAccurate
     )
@@ -99,7 +101,7 @@ private[core] object CarryPromote:
     candidateIR match
       case func @ ir.DFVal.Func(
             dfType = ir.DFUInt(_) | ir.DFSInt(_),
-            op = FuncOp.+ | FuncOp.- | FuncOp.*
+            op = FuncOp.+ | FuncOp.- | FuncOp.* | FuncOp.unary_-
           )
           if func.isAnonymous && {
             // non-carry (modular) func: its type equals its aligned operands'
@@ -107,6 +109,22 @@ private[core] object CarryPromote:
             contextWidenCheck(func.asValOf[DFSInt[Int]].widthIntParam)
           } =>
         Some(rebuilt(func, func.args.map(widenedArg(_).asIR)))
+      // A shift's LEFT operand is context-determined in Verilog (the amount is
+      // self-determined), so an anonymous shift converted to a wider SAME-SIGN type
+      // re-types to the target and its left operand re-enters the widening: the high
+      // bits a narrow evaluation would lose (`>>` bringing down a carry bit, `<<`
+      // pushing into the extension range) are exactly what the context preserves. A
+      // sign-CROSSING shift context stays a leaf: a shift evaluates at its operand's
+      // own signedness (an arithmetic-vs-logical `>>` difference), so the sign
+      // conversion cannot move to the operands; the explicit spelling states the
+      // intent there.
+      case func @ ir.DFVal.Func(
+            dfType = ir.DFDecimal(funcSigned, _, 0, BitAccurate),
+            op = FuncOp.>> | FuncOp.<<
+          )
+          if func.isAnonymous && funcSigned == dfType.asIR.signed &&
+            contextWidenCheck(func.asValOf[DFSInt[Int]].widthIntParam) =>
+        Some(rebuilt(func, widenedArg(func.args.head).asIR :: func.args.tail.map(_.get)))
       case func @ ir.DFVal.Func(
             dfType = ir.DFUInt(_) | ir.DFSInt(_),
             op = FuncOp.sel
@@ -133,36 +151,9 @@ private[core] object CarryPromote:
               case _ => false) && contextWidenCheck(header.asValOf[DFSInt[Int]].widthIntParam) =>
         if (dfc.inMetaProgramming) Some(header.updateDFType(newDT).asValOf[DFSInt[Int]])
         else
-          import dfhdl.compiler.analysis.{getHeaderCB, Ident}
-          // this runs MID-construction (the enclosing statement is still being built), so
-          // the conditional's structure is recovered from the raw creation-ordered member
-          // list of the current design context via plain ref walks; a designDB snapshot
-          // (`members`/`getCBList`) is not available in this state
-          val memberList = dfc.mutableDB.DesignContext.current.getImmutableMemberList
-          val blocks = memberList.collect {
-            case cb: ir.DFConditional.Block if cb.getHeaderCB == header => cb
-          }
-          val blockSet = blocks.toSet
-          // each block's terminal is its LAST directly-owned value (nested constructs in
-          // the branch body own their internals, so they never shadow the terminal ident)
-          val lastOwnedByBlock =
-            memberList.foldLeft(Map.empty[ir.DFConditional.Block, ir.DFVal]) { (acc, m) =>
-              m match
-                case v: ir.DFVal =>
-                  v.ownerRef.get match
-                    case cb: ir.DFConditional.Block if blockSet(cb) => acc.updated(cb, v)
-                    case _                                          => acc
-                case _ => acc
-            }
-          val branchVals = blocks.flatMap { block =>
-            lastOwnedByBlock.get(block).collect {
-              case ident @ Ident(underlying) => (block, ident, underlying)
-            }
-          }
           // all-or-nothing: an unexpected branch shape (no terminal ident) leaves the
           // whole conversion to the caller's leaf path
-          if (branchVals.sizeCompare(blocks) != 0) None
-          else
+          condBranchTerminals(header).map { branchVals =>
             branchVals.foreach { (block, oldIdent, branchVal) =>
               // the widened members are INSERTED after the old terminal, inside the
               // block's span, keeping the flat member list properly nested
@@ -176,11 +167,47 @@ private[core] object CarryPromote:
               // and, through it, the superseded narrow cone
               dfc.mutableDB.ignoreMember(oldIdent)
             }
-            Some(header.replaceMemberWith(header.updateDFType(newDT)).asValOf[DFSInt[Int]])
-          end if
+            header.replaceMemberWith(header.updateDFType(newDT)).asValOf[DFSInt[Int]]
+          }
       case _ => None
     end match
   end widenedOpt
+
+  // The branch blocks, terminal idents, and terminal values of a conditional
+  // EXPRESSION, recovered from the raw creation-ordered member list of the current
+  // design context via plain ref walks. This runs MID-construction (the enclosing
+  // statement is still being built), where a designDB flat snapshot (`members`,
+  // `getCBList`) is unavailable: its owner-member generation requires the closed,
+  // properly-nested state. Each block's terminal is its LAST directly-owned value
+  // (nested constructs in a branch body own their internals, so they never shadow
+  // the terminal ident). Returns None when any branch lacks a terminal ident (an
+  // unexpected shape).
+  private def condBranchTerminals(header: ir.DFConditional.Header)(using
+      dfc: DFC
+  ): Option[List[(ir.DFConditional.Block, ir.DFVal, ir.DFVal)]] =
+    import dfc.getSet
+    import dfhdl.compiler.analysis.{getHeaderCB, Ident}
+    val memberList = dfc.mutableDB.DesignContext.current.getImmutableMemberList
+    val blocks = memberList.collect {
+      case cb: ir.DFConditional.Block if cb.getHeaderCB == header => cb
+    }
+    val blockSet = blocks.toSet
+    val lastOwnedByBlock =
+      memberList.foldLeft(Map.empty[ir.DFConditional.Block, ir.DFVal]) { (acc, m) =>
+        m match
+          case v: ir.DFVal =>
+            v.ownerRef.get match
+              case cb: ir.DFConditional.Block if blockSet(cb) => acc.updated(cb, v)
+              case _                                          => acc
+          case _ => acc
+      }
+    val branchVals = blocks.flatMap { block =>
+      lastOwnedByBlock.get(block).collect {
+        case ident @ Ident(underlying) => (block, ident, underlying)
+      }
+    }
+    Option.when(branchVals.sizeCompare(blocks) == 0)(branchVals)
+  end condBranchTerminals
 
   private[core] val verilogSemanticsWarnMsg =
     """|Implicit Scala/DFHDL Int conversion may produce different results than Verilog.
@@ -248,7 +275,8 @@ private[core] object CarryPromote:
   // Check if an anonymous sub-tree contains non-carry +/-/* with width < 32.
   private[core] def containsNarrowNonCarryArith(
       dfVal: ir.DFVal
-  )(using ir.MemberGetSet): Boolean =
+  )(using dfc: DFC): Boolean =
+    import dfc.getSet
     dfVal match
       case func: ir.DFVal.Func if func.isAnonymous =>
         func.op match
@@ -270,14 +298,22 @@ private[core] object CarryPromote:
                 dfhdl.compiler.analysis.Eby.unapply(alias) match
                   case Some(relVal, _) => containsNarrowNonCarryArith(relVal)
                   case None            => false
+              // a conditional EXPRESSION hides a chain one selection away: each
+              // branch terminal is an operand position too (issue #464 warning gap)
+              case header: ir.DFConditional.Header if header.isAnonymous =>
+                condBranchTerminals(header)
+                  .exists(_.exists((_, _, v) => containsNarrowNonCarryArith(v)))
               case _ => false
+    end match
+  end containsNarrowNonCarryArith
 
   // Check if an anonymous sub-tree contains narrow non-carry arith that
   // also has an ImplicitlyFromIntTag operand (Verilog "Forcing Larger
   // Evaluation" pattern).
   private[core] def containsNarrowNonCarryArithWithTaggedOperand(
       dfVal: ir.DFVal
-  )(using ir.MemberGetSet): Boolean =
+  )(using dfc: DFC): Boolean =
+    import dfc.getSet
     dfVal match
       case func: ir.DFVal.Func if func.isAnonymous =>
         func.op match
@@ -303,7 +339,14 @@ private[core] object CarryPromote:
                   case Some(relVal, _) =>
                     containsNarrowNonCarryArithWithTaggedOperand(relVal)
                   case None => false
+              // a conditional EXPRESSION hides a chain one selection away: each
+              // branch terminal is an operand position too (issue #464 warning gap)
+              case header: ir.DFConditional.Header if header.isAnonymous =>
+                condBranchTerminals(header)
+                  .exists(_.exists((_, _, v) => containsNarrowNonCarryArithWithTaggedOperand(v)))
               case _ => false
+    end match
+  end containsNarrowNonCarryArithWithTaggedOperand
 
   // Unified Verilog-semantics warning trigger shared by `/`, `%` (arithOp)
   // and comparison operations (DFXIntCompare). Warns when a narrow non-carry
@@ -312,9 +355,10 @@ private[core] object CarryPromote:
   private[core] def shouldWarnVerilogSemantics(
       lhs: ir.DFVal,
       rhs: ir.DFVal
-  )(using ir.MemberGetSet): Boolean =
+  )(using DFC): Boolean =
+    import dfc.getSet
     (hasImplicitlyFromIntTag(rhs) && containsNarrowNonCarryArith(lhs)) ||
-      (hasImplicitlyFromIntTag(lhs) && containsNarrowNonCarryArith(rhs)) ||
-      containsNarrowNonCarryArithWithTaggedOperand(lhs) ||
-      containsNarrowNonCarryArithWithTaggedOperand(rhs)
+    (hasImplicitlyFromIntTag(lhs) && containsNarrowNonCarryArith(rhs)) ||
+    containsNarrowNonCarryArithWithTaggedOperand(lhs) ||
+    containsNarrowNonCarryArithWithTaggedOperand(rhs)
 end CarryPromote

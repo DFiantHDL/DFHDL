@@ -172,9 +172,9 @@ class DFDecimalSpec extends DFSpec:
          |u8 := d"8'7"
          |u8 := b6.uint.eby(2)
          |u8 := u6.eby(2)
-         |s8 := (-u6.signed).eby(1)
+         |s8 := -u6.signed.eby(1)
          |s8 := -s8
-         |s8 := (-b6.uint.signed).eby(1)
+         |s8 := -b6.uint.signed.eby(1)
          |s8 := sd"8'0"
          |s8 := sd"8'127"
          |s8 := sd"8'0"
@@ -1033,6 +1033,39 @@ class DFDecimalSpec extends DFSpec:
       u9 := q
     }
   }
+  test("Arithmetic target-context widening through shifts and negation") {
+    val u8 = UInt(8) <> VAR
+    val s8 = SInt(8) <> VAR
+    val u9 = UInt(9) <> VAR
+    val u10 = UInt(10) <> VAR
+    val s10 = SInt(10) <> VAR
+    assertCodeString {
+      """|u10 := (u8.eby(2) + u8.eby(2)) >> 1
+         |u10 := (u8.eby(2) + u8.eby(2)) << 1
+         |s10 := (s8.eby(2) + s8.eby(2)) >> 1
+         |u9 := u8.eby(1) >> 1
+         |s10 := -(s8.eby(2) + s8.eby(2))
+         |u10 := (u8.eby(2) >> 1) + u8.eby(2)
+         |s10 := ((u8 + u8) >> 1).signed.eby(1)
+         |""".stripMargin
+    } {
+      // a shift's LEFT operand is context-determined in Verilog (the amount is
+      // self-determined): the left operand re-evaluates at the target width, so the
+      // carry bit survives a `>>` and a `<<` pushes into the extension range
+      u10 := (u8 + u8) >> 1
+      u10 := (u8 + u8) << 1
+      s10 := (s8 + s8) >> 1
+      // a leaf left operand extends the same way
+      u9 := u8 >> 1
+      // negation is truncation-commutative and widens like binary arithmetic
+      s10 := -(s8 + s8)
+      // a shift nested inside a widened cone re-enters the widening
+      u10 := (u8 >> 1) + u8
+      // a sign-CROSSING shift context stays a leaf: a shift evaluates at its
+      // operand's own signedness, so the conversion applies to the result
+      s10 := (u8 + u8) >> 1
+    }
+  }
   test("Arithmetic target-context widening through conditional expressions") {
     val u8 = UInt(8) <> VAR
     val u9 = UInt(9) <> VAR
@@ -1158,6 +1191,15 @@ class DFDecimalSpec extends DFSpec:
 
     // Should NOT warn: explicit bit-accurate literal
     val t5 = (a + b + c + d) / d"3'4"
+
+    // Should warn: the chain hides one conditional away (issue #464 warning gap)
+    val cnd = Bit <> VAR
+    assertRuntimeWarningLog(warnMsg) {
+      val t5b = (if (cnd) a + 1 else b) / 4
+    }
+
+    // Should NOT warn: carry ops inside the conditional
+    val t5c = (if (cnd) a +^ b else b.eby(1)) / 4
 
     // Should warn: DFHDL Int <> CONST used as divisor
     val p: Int <> CONST = 4

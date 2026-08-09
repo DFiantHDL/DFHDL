@@ -160,6 +160,33 @@ class ContextWidenSpec extends DesignSpec:
     )
   }
 
+  test("parametric shift and negation target-context widening") {
+    @top(false) class ShiftWiden(val W: Int <> CONST = 8) extends EDDesign:
+      val a, b = UInt(W) <> IN
+      val sa, sb = SInt(W) <> IN
+      val shr = UInt(W + 2) <> OUT
+      val neg = SInt(W + 2) <> OUT
+      // a shift's left operand is context-determined (the amount is self-determined),
+      // and negation is truncation-commutative: both re-evaluate at the target
+      shr <> (a + b) >> 1
+      neg <> -(sa + sb)
+    end ShiftWiden
+
+    ShiftWiden().assertCodeString(
+      """|class ShiftWiden(val W: Int <> CONST = 8) extends EDDesign:
+         |  val a = UInt(W) <> IN
+         |  val b = UInt(W) <> IN
+         |  val sa = SInt(W) <> IN
+         |  val sb = SInt(W) <> IN
+         |  val shr = UInt(W + 2) <> OUT
+         |  val neg = SInt(W + 2) <> OUT
+         |  shr <> ((a.eby(2) + b.eby(2)) >> 1)
+         |  neg <> (-(sa.eby(2) + sb.eby(2)))
+         |end ShiftWiden
+         |""".stripMargin
+    )
+  }
+
   test("explicit eby") {
     @top(false) class Eby(val W: Int <> CONST = 8) extends EDDesign:
       val a = SInt(W) <> IN
