@@ -67,6 +67,7 @@ object SimulatorOptions:
     given Conversion[dfhdl.tools.toolsCore.VerilogSimulator, _VerilogSimulator] = identity
     given Conversion[dfhdl.tools.simulators.questa.type, VerilogSimulator] = _ => _.vlog
     given Conversion[dfhdl.tools.simulators.vivado.type, VerilogSimulator] = _ => _.xvlog
+    given Conversion[dfhdl.tools.simulators.nvc.type, VerilogSimulator] = _ => _.nvc
 
   type VHDLSimulator = dfhdl.tools.simulators.vhdlSimulators.type => _VHDLSimulator
   protected[dfhdl] into opaque type _VHDLSimulator <: dfhdl.tools.toolsCore.VHDLSimulator =
@@ -76,6 +77,7 @@ object SimulatorOptions:
     given Conversion[dfhdl.tools.toolsCore.VHDLSimulator, _VHDLSimulator] = identity
     given Conversion[dfhdl.tools.simulators.questa.type, VHDLSimulator] = _ => _.vcom
     given Conversion[dfhdl.tools.simulators.vivado.type, VHDLSimulator] = _ => _.xvhdl
+    given Conversion[dfhdl.tools.simulators.nvc.type, VHDLSimulator] = _ => _.nvc
 
   into opaque type RunLimit <: (Duration | None.type) = (Duration | None.type)
   object RunLimit:

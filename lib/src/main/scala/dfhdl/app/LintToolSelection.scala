@@ -13,22 +13,31 @@ object LintToolSelection:
     def parse(
         arg: String
     ): Either[String, Option[LintToolSelection]] =
-      def parseTool(toolName: String): Option[dfhdl.tools.toolsCore.Simulator] =
+      // `nvc` serves both languages, so in the two-tool `/` syntax it resolves by its slot
+      // (first is the Verilog side, second is the VHDL side); the bare single `nvc` is handled
+      // as a both-languages selection below, like `questa` and `vivado`.
+      def parseTool(
+          toolName: String,
+          verilogSlot: Boolean
+      ): Option[dfhdl.tools.toolsCore.Simulator] =
         toolName match
           case "verilator" => Some(linters.verilator)
           case "iverilog"  => Some(linters.iverilog)
           case "vlog"      => Some(linters.vlog)
           case "xvlog"     => Some(linters.xvlog)
           case "ghdl"      => Some(linters.ghdl)
-          case "nvc"       => Some(linters.nvc)
-          case "vcom"      => Some(linters.vcom)
-          case "xvhdl"     => Some(linters.xvhdl)
-          case _           => None
+          case "nvc"       =>
+            if (verilogSlot) Some(linters.verilogLinters.nvc) else Some(linters.vhdlLinters.nvc)
+          case "vcom"  => Some(linters.vcom)
+          case "xvhdl" => Some(linters.xvhdl)
+          case _       => None
       val toolNames = arg.split("\\/").toList
       val parsedTools = arg match
         case "questa" | "vsim" => List(Some(linters.vlog), Some(linters.vcom))
         case "vivado" | "xsim" => List(Some(linters.xvlog), Some(linters.xvhdl))
-        case _                 => toolNames.map(parseTool)
+        case "nvc" => List(Some(linters.verilogLinters.nvc), Some(linters.vhdlLinters.nvc))
+        case _     =>
+          toolNames.zipWithIndex.map((name, idx) => parseTool(name, verilogSlot = idx == 0))
       parsedTools match
         case Some(tool: VerilogLinter) :: Nil =>
           Right(Some(LintToolSelection(tool, lo.vhdlLinter)))

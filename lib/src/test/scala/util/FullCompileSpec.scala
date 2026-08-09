@@ -32,7 +32,7 @@ abstract class FullCompileSpec extends FunSuite:
   def verilogLinters(using CompilerOptions): List[LinterOptions._VerilogLinter] =
     List(verilator, iverilog, vlog, xvlog)
   def vhdlLinters(using CompilerOptions): List[LinterOptions._VHDLLinter] =
-    List(ghdl, nvc, vcom, xvhdl)
+    List(ghdl, dfhdl.tools.linters.vhdlLinters.nvc, vcom, xvhdl)
   extension [D <: core.Design](cd: CompiledDesign)
     def lintVerilog(using CompilerOptions): CompiledDesign =
       verilogLinters.foreach { linter =>
