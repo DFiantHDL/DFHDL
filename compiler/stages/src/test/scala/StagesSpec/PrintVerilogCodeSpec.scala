@@ -3267,7 +3267,9 @@ class PrintVerilogCodeSpec extends StageSpec:
   // inline func inside the `$signed({1'b0, ...})` sign extension would be evaluated at
   // its narrow operand width and truncate; the named variable's assignment provides the
   // widening context and the concat sees a declared identifier (issue #452)
-  test("sign-converted carry func is named ahead of the concat") {
+  // the sign-converted carry cone re-evaluates at the converted width, so its emission
+  // is per-operand sign extensions under the assignment context, with no named part
+  test("sign-converted carry cone emission") {
     class SignedCarry extends EDDesign:
       val a = UInt(2)  <> IN
       val b = UInt(8)  <> IN
@@ -3291,15 +3293,173 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic signed [9:0] q
          |);
          |  `include "dfhdl_defs.svh"
-         |  logic [3:0] o_part;
-         |  logic [8:0] q_part;
          |  always_comb
          |  begin
-         |    o_part = 2'd3 * a;
-         |    o = 8'sd0 - 8'($signed({1'b0, o_part}));
-         |    q_part = b + c;
-         |    q = $signed({1'b0, q_part});
+         |    o = 8'sd0 - (8'sd3 * $signed(`EBY_U(a, 6)));
+         |    q = $signed({1'b0, b}) + $signed({1'b0, c});
          |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // parametric target-context widening (issue dfhdl_by_agents#119): a carry op prints
+  // bare under the assignment context, and an eby-widened operand prints via the
+  // relative, width-free EBY macros instead of repeating the symbolic target width
+  test("parametric context widening emission") {
+    class ParamWiden(val W: Int <> CONST = 8) extends EDDesign:
+      val a, b   = SInt(W)     <> IN
+      val ua, ub = UInt(W)     <> IN
+      val sum    = SInt(W + 1) <> OUT
+      val usub   = UInt(W + 1) <> OUT
+      val acc    = SInt(W + 2) <> OUT
+      val uacc   = UInt(W + 2) <> OUT
+      val prod   = SInt(2 * W) <> OUT
+      val uprod  = UInt(2 * W) <> OUT
+      val c      = Bit         <> IN
+      val viaSel = SInt(W + 1) <> OUT
+      val viaIf  = SInt(W + 1) <> OUT
+      val shr    = SInt(W + 2) <> OUT
+      val neg    = SInt(W + 2) <> OUT
+      sum    <> a + b
+      usub   <> ua - ub
+      acc    <> a + b
+      uacc   <> ua + ub
+      prod   <> a * b
+      uprod  <> ua * ub
+      viaSel <> c.sel(b - a, a - b)
+      viaIf  <> (if (c) b - a else a - b)
+      shr    <> (a + b) >> 1
+      neg    <> -(a + b)
+    end ParamWiden
+    val top = ParamWiden().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module ParamWiden#(parameter int W = 8)(
+         |  input  wire logic signed [W - 1:0] a,
+         |  input  wire logic signed [W - 1:0] b,
+         |  input  wire logic [W - 1:0] ua,
+         |  input  wire logic [W - 1:0] ub,
+         |  output logic signed [(W + 1) - 1:0] sum,
+         |  output logic [(W + 1) - 1:0] usub,
+         |  output logic signed [(W + 2) - 1:0] acc,
+         |  output logic [(W + 2) - 1:0] uacc,
+         |  output logic signed [(2 * W) - 1:0] prod,
+         |  output logic [(2 * W) - 1:0] uprod,
+         |  input  wire logic c,
+         |  output logic signed [(W + 1) - 1:0] viaSel,
+         |  output logic signed [(W + 1) - 1:0] viaIf,
+         |  output logic signed [(W + 2) - 1:0] shr,
+         |  output logic signed [(W + 2) - 1:0] neg
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign sum = a + b;
+         |  assign usub = ua - ub;
+         |  assign acc = `EBY_S(a, 2) + `EBY_S(b, 2);
+         |  assign uacc = `EBY_U(ua, 2) + `EBY_U(ub, 2);
+         |  assign prod = a * b;
+         |  assign uprod = ua * ub;
+         |  assign viaSel = c ? (b - a) : (a - b);
+         |  always_comb
+         |  begin
+         |    if (c) viaIf = b - a;
+         |    else viaIf = a - b;
+         |  end
+         |  assign shr = (`EBY_S(a, 2) + `EBY_S(b, 2)) >>> 1;
+         |  assign neg = -(`EBY_S(a, 2) + `EBY_S(b, 2));
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  // width/length queries print natively in SystemVerilog: `$bits` for the total width,
+  // `$size` for a vector's element count; a named query binding becomes a localparam
+  // over the query, keeping the value-to-width relation in the generated code
+  test("width/length query emission") {
+    class WidthQuery(
+        val W:    Int <> CONST       = 4,
+        val N:    Int <> CONST       = 3,
+        val INIT: Bits[Int] <> CONST = h"00"
+    ) extends EDDesign:
+      val LI   = INIT.length
+      val vec  = Bits(W) X N <> IN
+      val LEN  = vec.length
+      val WID  = vec.width
+      val din  = Bits(LI)    <> IN
+      val dout = Bits(LI)    <> OUT
+      val flat = Bits(WID)   <> OUT
+      val cnt  = UInt(LEN)   <> OUT
+      dout <> din
+      flat <> vec.bits
+      cnt  <> 0
+    end WidthQuery
+    val top = WidthQuery().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module WidthQuery#(
+         |    parameter int W = 4,
+         |    parameter int N = 3,
+         |    parameter logic [7:0] INIT = 8'h00
+         |)(
+         |  input  wire logic [W - 1:0] vec [0:N - 1],
+         |  input  wire logic [LI - 1:0] din,
+         |  output logic [LI - 1:0] dout,
+         |  output logic [WID - 1:0] flat,
+         |  output logic [LEN - 1:0] cnt
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam int LI = $bits(INIT);
+         |  localparam int LEN = $size(vec);
+         |  localparam int WID = $bits(vec);
+         |  assign dout = din;
+         |  assign flat = {vec};
+         |  assign cnt = LEN'(1'd0);
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  // the pre-SystemVerilog dialects have no width query syntax; the width parameter
+  // expression is inlined instead, and a vector's length query is folded by
+  // `DropStructsVecs` into the element-count parameter before the vector is flattened
+  test("width/length query emission under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class WidthQueryOld(
+        val W: Int <> CONST = 4,
+        val N: Int <> CONST = 3
+    ) extends EDDesign:
+      val vec  = Bits(W) X N <> IN
+      val LEN  = vec.length
+      val WID  = vec.width
+      val flat = Bits(WID)   <> OUT
+      val cnt  = UInt(LEN)   <> OUT
+      flat <> vec.bits
+      cnt  <> 0
+    end WidthQueryOld
+    val top = WidthQueryOld().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module WidthQueryOld#(
+         |    parameter integer W = 4,
+         |    parameter integer N = 3
+         |)(
+         |  input  wire [(W * N) - 1:0] vec,
+         |  output wire [WID - 1:0] flat,
+         |  output wire [LEN - 1:0] cnt
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  parameter integer LEN = N;
+         |  parameter integer WID = W * N;
+         |  assign flat = `EXTEND_U(vec, W * N, W * N);
+         |  assign cnt = `EXTEND_U(1'd0, 1, LEN);
          |endmodule
          |""".stripMargin
     )

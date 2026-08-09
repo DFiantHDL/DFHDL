@@ -32,6 +32,76 @@ object Ident:
     if (alias.hasTagOf[IdentTag]) Some(alias.relValRef.get)
     else None
 
+// A relative widening alias: a same-kind (UInt/SInt/Bits) width extension whose delta folds
+// to a positive literal `k` for every parameter assignment. This is the value-level twin of
+// `IntParamRef.widenDeltaOpt`, which additionally constrains the printed SPELLING to the
+// anonymous `base + k` width form; this extractor recognizes the widening SHAPE itself,
+// whether the target width is spelled relatively or folded to a literal.
+object Eby:
+  def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[(DFVal, Int)] =
+    val relVal = alias.relValRef.get
+    val deltaOpt = (alias.dfType, relVal.dfType) match
+      case (DFUInt(toW), DFUInt(fromW)) => toW.constDiffFrom(fromW)
+      case (DFSInt(toW), DFSInt(fromW)) => toW.constDiffFrom(fromW)
+      case (DFBits(toW), DFBits(fromW)) => toW.constDiffFrom(fromW)
+      case _                            => None
+    deltaOpt.filter(_ > 0).map((relVal, _))
+
+// A carry-spelled arithmetic func: a binary `+`/`-`/`*` over two anonymous same-kind widening
+// aliases whose bases sit at a common width `cw`, with the func landing exactly at the carry
+// width (`cw + 1` for `+`/`-`, `2 * cw` for `*`). This is precisely the shape the carry
+// operators (`+^`, `-^`, `*^`) elaborate to, so the printers reconstruct the carry spelling
+// from it. The width equations are decided symbolically (linear forms), so a parametric
+// `a *^ b` over `SInt(W)` operands reconstructs even though its operand delta `W` is not a
+// literal. Extraction is conservative: an undecidable equation simply does not match, and the
+// func prints in its structural (operand-widened) form, which is always equivalent.
+object CarryFunc:
+  // A same-kind conversion alias operand candidate. No widening check here: the carry-width
+  // equations below imply the widening (widths are positive, so `fw == max + 1` or
+  // `fw == xw + yw` cannot hold for a narrowing operand), and a decidability gate would
+  // wrongly reject symbolic deltas such as the `W` of a parametric carry mul.
+  private def widenBase(v: DFVal)(using MemberGetSet): Option[DFVal] = v match
+    case alias: DFVal.Alias.AsIs if alias.isAnonymous =>
+      val relVal = alias.relValRef.get
+      val sameKind = (alias.dfType, relVal.dfType) match
+        case (DFUInt(_), DFUInt(_)) => true
+        case (DFSInt(_), DFSInt(_)) => true
+        case _                      => false
+      if (sameKind) Some(relVal) else None
+    case _ => None
+  private def widthLinear(v: DFVal)(using MemberGetSet): Option[IntExprCalc.Linear] =
+    IntExprCalc.DataCalc.linearOfTypeWidth(v.dfType)
+  def unapply(func: DFVal.Func)(using MemberGetSet): Option[(DFVal, DFVal)] =
+    import IntExprCalc.DataCalc.*
+    func.op match
+      case FuncOp.+ | FuncOp.- | FuncOp.`*` =>
+        func.args match
+          case aRef :: bRef :: Nil =>
+            for
+              x <- widenBase(aRef.get)
+              y <- widenBase(bRef.get)
+              fwL <- widthLinear(func)
+              xwL <- widthLinear(x)
+              ywL <- widthLinear(y)
+              carryL <- func.op match
+                case FuncOp.`*` =>
+                  // a carry mul keeps its operands' own widths: fw == xw + yw
+                  Some(add(xwL, ywL))
+                case _ =>
+                  // the aligned (common) width is the wider operand's; require decidability
+                  val dxy = sub(xwL, ywL)
+                  if (isConst(dxy) && dxy.offset >= 0) Some(addConst(xwL, 1))
+                  else if (isConst(dxy)) Some(addConst(ywL, 1))
+                  else None
+              d = sub(fwL, carryL)
+              if isConst(d) && d.offset == 0
+            yield (x, y)
+          case _ => None
+      case _ => None
+    end match
+  end unapply
+end CarryFunc
+
 extension (member: DFMember)
   // The kind-level half of the unreferenced-anonymous sweeps: whether this member MAY be
   // dropped when nothing reads it. SHARED by the `DropUnreferencedAnons` compiler stage and

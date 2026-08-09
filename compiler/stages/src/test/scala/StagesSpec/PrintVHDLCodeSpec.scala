@@ -3480,4 +3480,145 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // parametric target-context widening (issue dfhdl_by_agents#119): a carry op prints
+  // via the cadd/csub helpers, and an eby-widened operand prints via the relative `eby`
+  // package function instead of repeating the symbolic target width
+  test("parametric context widening emission") {
+    class ParamWiden(val W: Int <> CONST = 8) extends EDDesign:
+      val a, b   = SInt(W)     <> IN
+      val ua, ub = UInt(W)     <> IN
+      val sum    = SInt(W + 1) <> OUT
+      val usub   = UInt(W + 1) <> OUT
+      val acc    = SInt(W + 2) <> OUT
+      val uacc   = UInt(W + 2) <> OUT
+      val prod   = SInt(2 * W) <> OUT
+      val uprod  = UInt(2 * W) <> OUT
+      val c      = Bit         <> IN
+      val viaSel = SInt(W + 1) <> OUT
+      val viaIf  = SInt(W + 1) <> OUT
+      val shr    = SInt(W + 2) <> OUT
+      val neg    = SInt(W + 2) <> OUT
+      sum    <> a + b
+      usub   <> ua - ub
+      acc    <> a + b
+      uacc   <> ua + ub
+      prod   <> a * b
+      uprod  <> ua * ub
+      viaSel <> c.sel(b - a, a - b)
+      viaIf  <> (if (c) b - a else a - b)
+      shr    <> (a + b) >> 1
+      neg    <> -(a + b)
+    end ParamWiden
+    val top = ParamWiden().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity ParamWiden is
+         |generic (
+         |  W : integer := 8
+         |);
+         |port (
+         |  a : in signed(W - 1 downto 0);
+         |  b : in signed(W - 1 downto 0);
+         |  ua : in unsigned(W - 1 downto 0);
+         |  ub : in unsigned(W - 1 downto 0);
+         |  sum : out signed((W + 1) - 1 downto 0);
+         |  usub : out unsigned((W + 1) - 1 downto 0);
+         |  acc : out signed((W + 2) - 1 downto 0);
+         |  uacc : out unsigned((W + 2) - 1 downto 0);
+         |  prod : out signed((2 * W) - 1 downto 0);
+         |  uprod : out unsigned((2 * W) - 1 downto 0);
+         |  c : in std_logic;
+         |  viaSel : out signed((W + 1) - 1 downto 0);
+         |  viaIf : out signed((W + 1) - 1 downto 0);
+         |  shr : out signed((W + 2) - 1 downto 0);
+         |  neg : out signed((W + 2) - 1 downto 0)
+         |);
+         |end ParamWiden;
+         |
+         |architecture ParamWiden_arch of ParamWiden is
+         |begin
+         |  sum <= cadd(a, b);
+         |  usub <= csub(ua, ub);
+         |  acc <= eby(a, 2) + eby(b, 2);
+         |  uacc <= eby(ua, 2) + eby(ub, 2);
+         |  prod <= a * b;
+         |  uprod <= ua * ub;
+         |  viaSel <= bool_sel(to_bool(c), csub(b, a), csub(a, b));
+         |  process (all)
+         |  begin
+         |    if c then viaIf <= csub(b, a);
+         |    else viaIf <= csub(a, b);
+         |    end if;
+         |  end process;
+         |  shr <= signed_sra(eby(a, 2) + eby(b, 2), 1);
+         |  neg <= -(eby(a, 2) + eby(b, 2));
+         |end ParamWiden_arch;
+         |""".stripMargin
+    )
+  }
+
+  // width/length queries over a CONSTANT argument print natively (`'length` for arrays,
+  // `bitWidth(...)` otherwise), so a design-level constant binding one becomes a generic
+  // whose default keeps the value-to-width relation. Over a NON-constant argument (a
+  // port), the width parameter expression is inlined instead: the query may print into a
+  // generic default, where naming a port is illegal.
+  test("width/length query emission") {
+    class WidthQuery(
+        val W: Int <> CONST          = 4,
+        val N: Int <> CONST          = 3,
+        val INIT: Bits[Int] <> CONST = h"00"
+    ) extends EDDesign:
+      val LI   = INIT.length
+      val vec  = Bits(W) X N <> IN
+      val LEN  = vec.length
+      val WID  = vec.width
+      val din  = Bits(LI)    <> IN
+      val dout = Bits(LI)    <> OUT
+      val flat = Bits(WID)   <> OUT
+      val cnt  = UInt(LEN)   <> OUT
+      dout <> din
+      flat <> vec.bits
+      cnt  <> 0
+    end WidthQuery
+    val top = WidthQuery().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.WidthQuery_pkg.all;
+         |
+         |entity WidthQuery is
+         |generic (
+         |  W : integer := 4;
+         |  N : integer := 3;
+         |  INIT : std_logic_vector(7 downto 0) := x"00";
+         |  LI : integer := INIT'length;
+         |  LEN : integer := N;
+         |  WID : integer := N * W
+         |);
+         |port (
+         |  vec : in t_arrX1_std_logic_vector(0 to N - 1)(W - 1 downto 0);
+         |  din : in std_logic_vector(LI - 1 downto 0);
+         |  dout : out std_logic_vector(LI - 1 downto 0);
+         |  flat : out std_logic_vector(WID - 1 downto 0);
+         |  cnt : out unsigned(LEN - 1 downto 0)
+         |);
+         |end WidthQuery;
+         |
+         |architecture WidthQuery_arch of WidthQuery is
+         |begin
+         |  dout <= din;
+         |  flat <= to_slv(vec);
+         |  cnt <= resize(1d"0", LEN);
+         |end WidthQuery_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

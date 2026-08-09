@@ -34,6 +34,10 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
 
   private var markerClass: Symbol = NoSymbol
   private val preTyperRewriter = new PreTyperPhase(setting)
+  // the same rewriting the real run's CustomReporter applies, so specs assert on exactly what a
+  // user reads (its symbol cache is per run, hence an instance here rather than a shared global)
+  private val testerSymbols = DFHDLSymbols.Cache()
+  private val diagRewriter = DiagnosticRewriter(testerSymbols)
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
@@ -156,74 +160,101 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
 
       inContext(newContext) {
         def noErrors = ctx.reporter.allErrors.isEmpty
+        // The snippet's parse tree, kept for the diagnostic rewriting below (the guide rails
+        // and the single-line process/initial override read it). On a parse error the real
+        // pipeline skips every plugin phase but STILL runs the typer on the parser's recovered
+        // tree; both are mirrored here (raw tree, no `rewriteParsed`), so a snippet surfaces
+        // exactly the diagnostics a user reads, including the reporter-side override that only
+        // exists for that recovery mode.
         val parsed = new Parser(source2).block()
+        // The parse-phase diagnostics, snapshotted: their presence is the single-line
+        // override's gate, and the override must never apply to one of THEM (in the real
+        // pipeline it cannot: the unit's parse tree is still unassigned while they report).
+        val parseDiags = ctx.reporter.allErrors
+        val parsedClean = parseDiags.isEmpty
+        val snippetUntpd: untpd.Tree =
+          if (parsedClean) preTyperRewriter.rewriteParsed(parsed) else parsed
+        val tpdTree = ctx.typer.typed(snippetUntpd)
         if (noErrors)
-          val untpdTree = preTyperRewriter.rewriteParsed(parsed)
-          val tpdTree = ctx.typer.typed(untpdTree)
-          if (noErrors)
-            // Every run below is constructed INSIDE this nested context on purpose: the
-            // closures capture the given Context, and capturing the enclosing real one
-            // would leak the snippet's diagnostics into the real compilation.
-            //
-            // The standard runs are those the real pipeline interleaves with the plugin
-            // phases. Pickler, SetRootTree (present only under -Yretain-trees), and the
-            // InlineVals/ElimRepeated/RefChecks group the upstream intrinsic reconstructs
-            // are all irrelevant to plugin diagnostics and skipped.
-            //
-            // The inlining phase runs through the plugin's own Zinc-free tree map instead of
-            // the real `Inlining` phase: the real phase records every inline call as an
-            // incremental-compilation dependency and flushes it to Zinc keyed by the unit's
-            // source, and the snippet's virtual source has no Zinc virtual file, producing a
-            // "Missing Zinc virtual file" warning per recorded dependency.
-            val standardRuns: List[(Int, Tree => Tree)] =
-              List(ctx.base.postTyperPhase).collect {
+          // Every run below is constructed INSIDE this nested context on purpose: the
+          // closures capture the given Context, and capturing the enclosing real one
+          // would leak the snippet's diagnostics into the real compilation.
+          //
+          // The standard runs are those the real pipeline interleaves with the plugin
+          // phases. Pickler, SetRootTree (present only under -Yretain-trees), and the
+          // InlineVals/ElimRepeated/RefChecks group the upstream intrinsic reconstructs
+          // are all irrelevant to plugin diagnostics and skipped.
+          //
+          // The inlining phase runs through the plugin's own Zinc-free tree map instead of
+          // the real `Inlining` phase: the real phase records every inline call as an
+          // incremental-compilation dependency and flushes it to Zinc keyed by the unit's
+          // source, and the snippet's virtual source has no Zinc virtual file, producing a
+          // "Missing Zinc virtual file" warning per recorded dependency.
+          val standardRuns: List[(Int, Tree => Tree)] =
+            List(ctx.base.postTyperPhase).collect {
+              case p if p.exists =>
+                (
+                  p.id,
+                  (t: Tree) =>
+                    atPhase(p)(p.runOn(compilationUnits(snippetUntpd, t)).head.tpdTree)
+                )
+            } ++
+              List(ctx.base.inliningPhase).collect {
                 case p if p.exists =>
-                  (
-                    p.id,
-                    (t: Tree) => atPhase(p)(p.runOn(compilationUnits(untpdTree, t)).head.tpdTree)
-                  )
-              } ++
-                List(ctx.base.inliningPhase).collect {
-                  case p if p.exists =>
-                    (p.id, (t: Tree) => inlineCalls(t))
-                }
-            // Each fresh plugin phase is pinned to its installed counterpart's phase id, so
-            // denotation lookups match the real pipeline, and the whole nested pipeline is
-            // ordered by those ids, i.e. by the real schedule's order.
-            val installed = installedPhaseMap
-            val pluginRuns: List[(Int, Tree => Tree)] =
-              freshPluginPhases.flatMap { fresh =>
-                installed.get(fresh.phaseName).map { real =>
-                  val mp = MegaPhaseWithCustomPhaseId(Array(fresh), real.id, real.id)
-                  val run: Tree => Tree = fresh match
-                    // PureCheck does its whole-run analysis (and its static-impurity error
-                    // reporting) in `runOn`, which `transformUnit` never reaches
-                    case pureCheck: PureCheckPhase =>
-                      (t: Tree) =>
-                        atPhase(mp.end + 1) {
-                          val res = mp.transformUnit(t)
-                          pureCheck.analyzeNested(compilationUnits(untpdTree, res))
-                          res
-                        }
-                    case _ => (t: Tree) => atPhase(mp.end + 1)(mp.transformUnit(t))
-                  (real.id, run)
-                }
+                  (p.id, (t: Tree) => inlineCalls(t))
               }
-            var transformTree = tpdTree
-            for ((_, run) <- (standardRuns ++ pluginRuns).sortBy(_._1))
-              if (noErrors) transformTree = run(transformTree)
-          end if
+          // Each fresh plugin phase is pinned to its installed counterpart's phase id, so
+          // denotation lookups match the real pipeline, and the whole nested pipeline is
+          // ordered by those ids, i.e. by the real schedule's order.
+          val installed = installedPhaseMap
+          val pluginRuns: List[(Int, Tree => Tree)] =
+            freshPluginPhases.flatMap { fresh =>
+              installed.get(fresh.phaseName).map { real =>
+                val mp = MegaPhaseWithCustomPhaseId(Array(fresh), real.id, real.id)
+                val run: Tree => Tree = fresh match
+                  // PureCheck does its whole-run analysis (and its static-impurity error
+                  // reporting) in `runOn`, which `transformUnit` never reaches
+                  case pureCheck: PureCheckPhase =>
+                    (t: Tree) =>
+                      atPhase(mp.end + 1) {
+                        val res = mp.transformUnit(t)
+                        pureCheck.analyzeNested(compilationUnits(snippetUntpd, res))
+                        res
+                      }
+                  case _ => (t: Tree) => atPhase(mp.end + 1)(mp.transformUnit(t))
+                (real.id, run)
+              }
+            }
+          var transformTree = tpdTree
+          for ((_, run) <- (standardRuns ++ pluginRuns).sortBy(_._1))
+            if (noErrors) transformTree = run(transformTree)
         end if
-        // `Message.toString` rather than `Diagnostic.message`, so a snippet's diagnostics
-        // read exactly as the real run's do. `message` renders under `inMessageContext`,
-        // which pins the printer to the compiler's own `Message.Printer` and therefore never
-        // sees the DFHDL type printer; `toString` renders under the context the message
-        // captured, which is where `PreTyperPhase.initContext` installed that printer. It is
-        // the same path the real run takes, since `CustomReporter` re-renders every reported
-        // diagnostic through `toString` (see DFHDLTypePrinter). `toString` also leaves out the
-        // `msgPostscript` addenda (import suggestions and the like), which are noise here.
-        // The colour escapes `Diagnostic.message` would have dropped are stripped the same way.
-        ctx.reporter.allErrors.map(_.msg.toString.replaceAll("\\e\\[[;\\d]*m", ""))
+        // Every diagnostic goes through the SAME rewriting the real run's CustomReporter
+        // applies (position normalization, dedup, postscript drop, guide rails), then renders
+        // through `Message.toString` rather than `Diagnostic.message`: `message` renders under
+        // `inMessageContext`, which pins the printer to the compiler's own `Message.Printer`
+        // and therefore never sees the DFHDL type printer, whereas `toString` renders under
+        // the context the message captured, which is where `PreTyperPhase.initContext`
+        // installed that printer. The colour escapes `Diagnostic.message` would have dropped
+        // are stripped the same way.
+        val seen = collection.mutable.HashSet.empty[(String, Int, Int, Int, String)]
+        def overrideEligible(dia: reporting.Diagnostic): Boolean =
+          !parsedClean && parseDiags.forall(_ ne dia)
+        ctx.reporter.allErrors.collect {
+          case dia
+              if seen.add(
+                diagRewriter.dedupKey(dia, source2, snippetUntpd, overrideEligible(dia))
+              ) =>
+            val overridden =
+              diagRewriter.singleLineOverride(dia, source2, snippetUntpd, overrideEligible(dia))
+            overridden match
+              case Some((text, _)) => text
+              case None            =>
+                val userPos = diagRewriter.normalizedPos(dia.pos, source2)
+                diagRewriter
+                  .updatedMsg(dia.msg, userPos, snippetUntpd)
+                  .toString.replaceAll("\\e\\[[;\\d]*m", "")
+        }
       }
     }
   end snippetErrors

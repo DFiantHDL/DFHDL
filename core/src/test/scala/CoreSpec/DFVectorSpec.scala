@@ -19,7 +19,7 @@ class DFVectorSpec extends DFSpec:
          |val i2 = UInt(2) <> VAR
          |val i4 = UInt(4) <> VAR
          |val t4 = v1(i.toInt)
-         |val o2 = v1(i2.resize(3).toInt)
+         |val o2 = v1(i2.eby(1).toInt)
          |val o4 = v1(i4.resize(3).toInt)
          |val v3 = UInt(8) X 4 X 4 <> VAR
          |v3 := all(all(d"8'0"))

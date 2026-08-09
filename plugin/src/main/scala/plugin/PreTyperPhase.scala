@@ -22,6 +22,372 @@ import collection.mutable
 import annotation.tailrec
 import reporting.*
 
+/** The single-line `process`/`initial` block mistake, `process(all): y := x`: the parser reads the
+  * line as a TYPE ASCRIPTION (`process(all)` ascribed to the "type" `y := x`), which the typer then
+  * rejects with baffling errors (`Not found: type :=`, `Expected a type, but found a term`). The
+  * recognition and the dedicated message live here, shared by the two interception points: the
+  * [[PreTyperPhase]] parse-tree rewrite (well-formed parse trees) and the
+  * [[DiagnosticRewriter.singleLineOverride]] reporting hook (trees a PARSE error kept the plugin
+  * phases from ever seeing). Sharing the builder keeps the two paths from drifting: whichever
+  * fires, the user reads the same text.
+  */
+private object SingleLineProcessBlock:
+  import untpd.*
+  private val bodyOps = Set(":=", ":==", "<>")
+
+  @tailrec private def blockName(tree: Tree): Option[String] =
+    tree match
+      case Ident(name) if name.toString == "process" || name.toString == "initial" =>
+        Some(name.toString)
+      case Select(Ident(qual), name)
+          if qual.toString == "process" && name.toString == "forever" =>
+        Some("process")
+      case Apply(fun, _) => blockName(fun)
+      case _             => None
+
+  /** The mistake's ascription shape, as (block name, term, ascribed "type"). With `bodyOpOnly` the
+    * ascribed tree must be a `:=`/`:==`/`<>` infix op, the strict gate the parse-tree rewrite uses
+    * on well-formed trees (where an ordinary ascription must keep its meaning). The reporting hook
+    * drops the gate entirely: parser recovery leaves unpredictable shapes there, a bare body prefix
+    * (`y(0) := x` keeps just `y`) or an infix chain under a body identifier taken as the operator
+    * (`y := !x` parses as `(y := !) x ...`), so the `process`/`initial` term is the discriminator.
+    */
+  def matchTyped(tree: Tree, bodyOpOnly: Boolean): Option[(String, Tree, Tree)] =
+    tree match
+      case Typed(expr, tpt) =>
+        val bodyLike = tpt match
+          case InfixOp(_, Ident(op), _) => bodyOps.contains(op.toString)
+          case _                        => false
+        if (bodyLike || !bodyOpOnly) blockName(expr).map((_, expr, tpt)) else None
+      case _ => None
+
+  /** The dedicated error text, spelling out the fix with the statement's own source: the block head
+    * from the term's span, and the body from the ascribed tree's start to the END OF ITS LINE (the
+    * ascribed tree itself may hold only a prefix of the body after parser recovery).
+    */
+  def message(name: String, expr: Tree, tpt: Tree)(using Context): String =
+    val article = if (name == "initial") "an" else "a"
+    val source = expr.source
+    val head =
+      if (expr.span.exists && source.exists)
+        String(source.content().slice(expr.span.start, expr.span.end))
+      else name
+    val body =
+      if (tpt.span.exists && source.exists)
+        val content = source.content()
+        var end = tpt.span.start
+        while (end < content.length && content(end) != '\n' && content(end) != '\r') end += 1
+        String(content.slice(tpt.span.start, end)).trim
+      else "y := x"
+    s"""|The body of $article `$name` block cannot be placed on the same line after the `:`.
+        |Move it to its own indented line:
+        |  $head:
+        |    $body""".stripMargin
+  end message
+end SingleLineProcessBlock
+
+/** The single home of DFHDL's user-facing diagnostic rewriting, applied by [[CustomReporter]] on
+  * the real compilation and by [[PluginTestPhase]] on nested snippet compilations, so specs assert
+  * on exactly what a user reads.
+  */
+final class DiagnosticRewriter(symbols: DFHDLSymbols.Cache):
+  /** The frame of the diagnostic's inline position chain to report at. Dropping the outer chain
+    * (see [[CustomReporter]]) is only sound when the innermost position is trustworthy, and a
+    * diagnostic raised on a macro-synthesized tree is not: its innermost frame carries the span of
+    * the quote inside the macro's own source paired with the CURRENT unit's source file, so the
+    * rendered position lands past the unit's end (`Playground.scala:13:12843`-style). The chain is
+    * walked innermost to outermost, keeping the first frame that belongs to the compiled unit
+    * (`unitSource`: passed explicitly, since in a NESTED snippet compilation the chain extends past
+    * the snippet's virtual source into the enclosing real unit, so the outermost frame does not
+    * identify it) with a span that fits inside it. For every well-formed diagnostic the innermost
+    * frame qualifies, so this changes nothing; only corrupt or library-positioned frames are
+    * skipped.
+    */
+  def normalizedPos(pos: util.SourcePosition, unitSource: util.SourceFile): util.SourcePosition =
+    val frames = Iterator
+      .iterate(pos)(_.outer)
+      .takeWhile(p => p != null && p.exists)
+      .toList
+    if (frames.isEmpty) pos
+    else
+      def sane(p: util.SourcePosition): Boolean =
+        p.span.exists && p.span.end <= p.source.content().length
+      frames.find(p => (p.source eq unitSource) && sane(p)).getOrElse(frames.last)
+  end normalizedPos
+
+  /** The identity of a diagnostic AS RENDERED: the same inline-expansion error re-raised at several
+    * positions collapses onto one normalized position, so it must render once. A diagnostic the
+    * single-line override replaces keys on the OVERRIDE's position and text instead: every
+    * ascription error of one mistake renders as the same dedicated message, so all of them must
+    * collapse onto one.
+    */
+  def dedupKey(
+      dia: Diagnostic,
+      unitSource: util.SourceFile,
+      untpdRoot: untpd.Tree,
+      parseErrored: Boolean
+  )(using
+      Context
+  ): (String, Int, Int, Int, String) =
+    singleLineOverride(dia, unitSource, untpdRoot, parseErrored) match
+      case Some((text, pos)) =>
+        (pos.source.file.path, pos.span.start, pos.span.end, dia.level, text)
+      case None =>
+        val diaPos = normalizedPos(dia.pos, unitSource)
+        val (spanStart, spanEnd) =
+          if (diaPos.span.exists) (diaPos.span.start, diaPos.span.end) else (-1, -1)
+        (diaPos.source.file.path, spanStart, spanEnd, dia.level, dia.msg.toString)
+
+  /** The dedicated single-line `process`/`initial` error standing in for `dia`, or None. When the
+    * block body fails the TYPE parse (`process(all): y(0) := x`), the parser reports its own error
+    * and the compiler then skips every plugin phase for the run while STILL running the typer, so
+    * the PreTyper parse-tree rewrite never sees the mistake and the ascription's obscure typer
+    * errors surface after the parser's. They are caught here instead, at reporting: an ERROR whose
+    * position falls inside the ascribed "type" of a surviving mistake shape in the unit's parse
+    * tree is replaced with the dedicated message, anchored at the ascribed tree so every such error
+    * collapses onto ONE rendered diagnostic (see [[dedupKey]]). `parseErrored` (the compilation has
+    * reported a PARSER error, and `dia` is not itself one; see [[CustomReporter]]) gates the whole
+    * override: the recovery mode is the only one it exists for, so an ordinary failing compilation
+    * never pays the tree traversal, on an error-free parse the PreTyper rewrite has already
+    * neutralized every matching shape, and an error landing inside a surviving ascription of
+    * ordinary code keeps its own diagnostic.
+    */
+  def singleLineOverride(
+      dia: Diagnostic,
+      unitSource: util.SourceFile,
+      untpdRoot: untpd.Tree,
+      parseErrored: Boolean
+  )(using Context): Option[(String, util.SourcePosition)] =
+    if (!parseErrored || dia.level < interfaces.Diagnostic.ERROR || untpdRoot.isEmpty) None
+    else
+      try
+        val diaPos = normalizedPos(dia.pos, unitSource)
+        if (!(diaPos.source eq unitSource) || !diaPos.span.exists) None
+        else
+          var found: Option[(String, untpd.Tree, untpd.Tree)] = None
+          val traverser = new untpd.UntypedTreeTraverser:
+            def traverse(tree: untpd.Tree)(using Context): Unit =
+              if (found.isEmpty)
+                SingleLineProcessBlock.matchTyped(tree, bodyOpOnly = false) match
+                  case res @ Some((_, _, tpt))
+                      if tpt.span.exists && tpt.span.contains(diaPos.span) =>
+                    found = res
+                  case _ => traverseChildren(tree)
+          traverser.traverse(untpdRoot)
+          found.map { (name, expr, tpt) =>
+            // the position covers the body from the ascribed tree's start to its LINE end:
+            // parser recovery may run the tree past the line (absorbing the next statement)
+            // or stop it short of the body's end, and the mistake is its line either way
+            val content = unitSource.content()
+            var end = tpt.span.start
+            while (end < content.length && content(end) != '\n' && content(end) != '\r')
+              end += 1
+            val pos = unitSource.atSpan(util.Spans.Span(tpt.span.start, end))
+            (SingleLineProcessBlock.message(name, expr, tpt), pos)
+          }
+        end if
+      catch case scala.util.control.NonFatal(_) => None
+  end singleLineOverride
+
+  /** The message to report in place of `base`. Every message is re-rendered through the DFHDL type
+    * printer. A type mismatch whose REQUIRED side is a DFHDL value is additionally re-issued with
+    * an EMPTY postscript, since the compiler's own trailing guidance is noise or worse there (the
+    * transparent-inline note explains the Scala mechanics behind the DFHDL operators, and the
+    * import suggestions, `InitValue.fromValue` and friends, never fix a DFHDL mismatch). A
+    * `NotAMember` selection error is reduced to its core sentence (`value mem is not a member of
+    * UInt[Int] <> OUT`): in a DFHDL compilation the import-suggestion machinery proposes DFHDL's
+    * internal conversions for EVERY receiver, and the extension-attempt transcript restates the
+    * receiver in raw types over dozens of lines, so both mislead rather than help; when extension
+    * methods were tried, that fact is kept as a bare ` (extension method tried)`. The did-you-mean
+    * hint is RESTORED rather than merely kept: upstream computes it only when no other addendum
+    * exists, and here the (garbage) import-suggestion addendum always does, so it is recomputed
+    * after the strip (see [[didYouMeanHint]]). The `-explain` explanation is kept everywhere.
+    * `untpdRoot` is the compiled unit's parse tree, used to name the enclosing call in
+    * [[reduceGuideRail]] (pass `untpd.EmptyTree` when unavailable).
+    */
+  def updatedMsg(base: Message, userPos: util.SourcePosition, untpdRoot: untpd.Tree)(using
+      Context
+  ): Message =
+    // `toString` rather than `message`: it renders the message proper (without the postscript)
+    // under the context the message captured, where the DFHDL type printer is live
+    val rendered = base.toString
+    val syms = symbols()
+    base match
+      case tm: TypeMismatchMsg if syms.available && tm.expected.derivesFrom(syms.dfVal) =>
+        freshMsg(base, rendered ++ reduceGuideRail(base, userPos, untpdRoot))
+      case nam: NotAMember if syms.available =>
+        freshMsg(base, notAMemberText(nam, rendered))
+      case _ => base.mapMsg(_ => rendered)
+  end updatedMsg
+
+  // a fresh message rather than `mapMsg`: `mapMsg` deliberately carries the original postscript,
+  // and the postscript itself is protected so it cannot be filtered piecewise; the `-explain`
+  // explanation is kept
+  private def freshMsg(base: Message, text: String)(using Context): Message =
+    new Message(base.errorId):
+      val kind = base.kind
+      def msg(using Context) = text
+      override def msgPostscript(using Context) = ""
+      def explain(using Context) = base.explanation
+      override def canExplain = base.canExplain
+
+  // the exact addendum openers `ErrorReporting.selectErrorAddendum` can append to a `NotAMember`
+  // core sentence (the leading `.` there belongs to the addendum, not the sentence), plus the
+  // import-suggestion openers for defensive coverage of any other route into the message
+  private val extTriedMarkers = List(
+    ".\nAn extension method was tried, but could not be fully constructed:",
+    ".\nExtension methods were tried, but could not be fully constructed:",
+    ".\nExtension methods were tried, but the search failed with:"
+  )
+  private val availableMarker = ", but could be made available as an extension method."
+  private val importMarkers = List(
+    "\nOne of the following imports might",
+    "\nThe following import might"
+  )
+
+  private def notAMemberText(nam: NotAMember, rendered: String)(using Context): String =
+    def firstIdx(markers: List[String]): Option[Int] =
+      markers.map(rendered.indexOf).filter(_ >= 0).minOption
+    val extIdx = firstIdx(extTriedMarkers)
+    val cutIdx = (extIdx ++ firstIdx(availableMarker :: Nil) ++ firstIdx(importMarkers)).minOption
+    cutIdx match
+      case Some(cut) =>
+        val core = rendered.take(cut)
+        if (extIdx.contains(cut)) core ++ " (extension method tried)"
+        else core ++ didYouMeanHint(nam)
+      case None => rendered
+  end notAMemberText
+
+  // The did-you-mean hint for a stripped `NotAMember`, recomputed the way `NotAMember.msg`
+  // computes it. Upstream only computes the hint when NO other addendum exists, and in a DFHDL
+  // compilation the (stripped) import-suggestion addendum always exists, so the hint the user
+  // deserves never gets a chance there. The message's `site` and `proto` are private constructor
+  // parameters, hence the reflection; any failure just means no hint.
+  private def didYouMeanHint(nam: NotAMember)(using Context): String =
+    try
+      import DidYouMean.*
+      def field[T](fname: String): T =
+        val f = classOf[NotAMember].getDeclaredField(fname)
+        f.setAccessible(true)
+        f.get(nam).asInstanceOf[T]
+      val site = field[Type]("site")
+      val proto = field[Type]("proto")
+      didYouMean(
+        memberCandidates(
+          site,
+          nam.name.isTypeName,
+          isApplied = proto.isInstanceOf[typer.ProtoTypes.FunProto]
+        )
+          .closestTo(nam.name.show)
+          .map((d, sym) => (d, Binding(sym.name, sym, site))),
+        proto,
+        prefix = site match
+          case site: NamedType => i"${site.name}."
+          case site            => i"$site."
+      )
+    catch case scala.util.control.NonFatal(_) => ""
+  end didYouMeanHint
+
+  // The `(dfType, modifier args)` decomposition of a DFHDL value type, or None for anything else.
+  private def dfValParts(tp: Type)(using Context): Option[(Type, List[Type])] =
+    val syms = symbols()
+    tp.dealias match
+      case AppliedType(tycon, List(t, mod)) if tycon.typeSymbol == syms.dfVal =>
+        mod.dealias match
+          case AppliedType(modTycon, args @ List(_, _, _, _))
+              if modTycon.typeSymbol == syms.modifier =>
+            Some((t, args))
+          case _ => None
+      case _ => None
+
+  private val foldFamily = Set(
+    "reduce", "reduceLeft", "reduceRight", "reduceOption", "reduceLeftOption",
+    "reduceRightOption", "fold", "foldLeft", "foldRight", "scan", "scanLeft", "scanRight"
+  )
+
+  // The simple name of the innermost call in `untpdRoot` one of whose arguments contains `pos`
+  // (the typed tree does not exist yet at reporting time, but the parse tree does). A parent is
+  // visited before its children, so the last match recorded is the innermost. Purely cosmetic,
+  // so any failure to answer is just `None`.
+  private def enclosingCallName(pos: util.SourcePosition, untpdRoot: untpd.Tree)(using
+      Context
+  ): Option[String] =
+    try
+      if (untpdRoot.isEmpty || !pos.span.exists) None
+      else
+        var found: Option[String] = None
+        def nameOf(fun: untpd.Tree): Option[String] = fun match
+          case untpd.Select(_, name) => Some(name.show)
+          case untpd.Ident(name)     => Some(name.show)
+          case untpd.TypeApply(f, _) => nameOf(f)
+          case untpd.Apply(f, _)     => nameOf(f)
+          case _                     => None
+        val traverser = new untpd.UntypedTreeTraverser:
+          def traverse(tree: untpd.Tree)(using Context): Unit =
+            tree match
+              case untpd.Apply(fun, args)
+                  if args.exists(a => a.span.exists && a.span.contains(pos.span)) =>
+                nameOf(fun).foreach(n => found = Some(n))
+              case _ =>
+            traverseChildren(tree)
+        traverser.traverse(untpdRoot)
+        found
+      end if
+    catch case scala.util.control.NonFatal(_) => None
+  end enclosingCallName
+
+  /** The guide rail for a plain computed value found where a declaration-modified value of the SAME
+    * DFHDL type is required (`Found: Bits[Int] <> VAL` vs `Required: Bits[Int] <> IN`): the
+    * signature of a `reduce`-style method that inferred its type parameter from port/variable slice
+    * elements before the operator was typed, where pinning the type parameter to the plain value
+    * type is the fix. When the enclosing call is identified as a known fold-family method the note
+    * asserts and names it; otherwise it stays conditional. Empty for every other mismatch.
+    */
+  private def reduceGuideRail(
+      base: Message,
+      userPos: util.SourcePosition,
+      untpdRoot: untpd.Tree
+  )(using Context): String =
+    base match
+      case tm: TypeMismatch =>
+        val syms = symbols()
+        val hint =
+          for
+            (foundT, foundMod) <- dfValParts(tm.found)
+            (expectedT, expectedMod) <- dfValParts(tm.expected)
+            // found is a plain value (Any access), required is declaration-modified, and the
+            // DFHDL type parts agree, so retyping the requirement as a plain value must succeed
+            if foundMod.head.isRef(defn.AnyClass) && !expectedMod.head.isRef(defn.AnyClass) &&
+              (foundT =:= expectedT)
+          yield
+            val plainMod = syms.modifier.typeRef.appliedTo(List.fill(4)(defn.AnyType))
+            val plainVal = syms.dfVal.typeRef.appliedTo(List(expectedT, plainMod)).show
+            enclosingCallName(userPos, untpdRoot).filter(foldFamily) match
+              case Some(name) =>
+                s"""|
+                    |
+                    |Note: `$name` inferred its type parameter from the declaration (port or
+                    |variable) slice elements, so the operator must land back on the declaration
+                    |type, and an operation result is a plain value that never can. Set the type
+                    |parameter to the plain value type explicitly:
+                    |
+                    |  .$name[$plainVal](...)""".stripMargin
+              case None =>
+                s"""|
+                    |
+                    |Note: the required type belongs to a declaration (a port or a variable), and an
+                    |operation result is a plain value that can never take its place. If this is the
+                    |operator of a method like `reduce`, the method inferred its type parameter from
+                    |the declaration slices before the operator was typed; set it to the plain value
+                    |type explicitly:
+                    |
+                    |  .reduce[$plainVal](...)""".stripMargin
+            end match
+        hint.getOrElse("")
+      case _ => ""
+  end reduceGuideRail
+end DiagnosticRewriter
+
 /** Re-renders every reported diagnostic before passing it on, which is what puts DFHDL's own type
   * printer in front of the user (see [[DFHDLTypePrinter]]).
   *
@@ -31,16 +397,55 @@ import reporting.*
   * so never consults the one this phase installs, whereas `toString` renders under the context the
   * message captured, where that printer is live. Re-reporting also drops the diagnostic's outer
   * position, which suppresses inline-stack error printing.
+  *
+  * The rewriting itself (position normalization, dedup identity, postscript handling and the DFHDL
+  * guide rails) lives in [[DiagnosticRewriter]], which the nested snippet compilations of
+  * [[PluginTestPhase]] share, so `assertPluginError` specs assert on exactly what a user reads.
+  * Re-reporting bypasses the original reporter's `UniqueMessagePositions` dedup (that dedup keys on
+  * the positions the rewriter rewrites), so the rewriter's own dedup is applied in `isHidden`.
   */
 class CustomReporter(
-    val orig: Reporter
+    val orig: Reporter,
+    symbols: DFHDLSymbols.Cache
 ) extends Reporter:
+  private val rewriter = DiagnosticRewriter(symbols)
+  private val reported = collection.mutable.HashSet.empty[(String, Int, Int, Int, String)]
   override def flush()(using ctx: Context): Unit = orig.flush()
+  // the compiled unit's parse tree, for naming the enclosing call in the guide rail; the
+  // reporting context is the typing context, so its unit is the one holding the error
+  private def untpdRootFor(pos: util.SourcePosition)(using Context): untpd.Tree =
+    try
+      val unit = ctx.compilationUnit
+      if ((unit ne null) && (pos.source eq unit.source)) unit.untpdTree else untpd.EmptyTree
+    catch
+      case scala.util.control.NonFatal(_) => untpd.EmptyTree
+  // Whether the run has reported a PARSER error: the gate of the single-line process/initial
+  // override, which exists only for that recovery mode (a parser error makes the compiler skip
+  // every plugin phase while still running the typer), so an ordinary failing compilation never
+  // pays the override's tree traversal. The flag is raised in `isHidden` (called first for
+  // every diagnostic). A parse error itself can never be overridden even though the flag is
+  // already up while it reports: at that moment the unit's parse tree is not yet assigned, so
+  // `untpdRootFor` answers empty.
+  private var parseErrorSeen = false
+  // the dedup lives in `isHidden` rather than `doReport` so a swallowed duplicate is also
+  // never counted, keeping the "N errors found" summary consistent with what is rendered
+  // (the same reason the compiler's own dedup, `UniqueMessagePositions`, works at this hook)
+  override def isHidden(dia: Diagnostic)(using Context): Boolean =
+    if (dia.level >= interfaces.Diagnostic.ERROR && ctx.phase.phaseName == "parser")
+      parseErrorSeen = true
+    super.isHidden(dia) ||
+    dia.level >= interfaces.Diagnostic.WARNING &&
+    !reported.add(rewriter.dedupKey(dia, ctx.source, untpdRootFor(dia.pos), parseErrorSeen))
   override def doReport(dia: Diagnostic)(using ctx: Context): Unit =
-    val updatedMsg = dia.msg.toString
-    val diaPos = dia.pos.copy(outer = null) // disable inline stack error printing
-    val updatedDia = Diagnostic(dia.msg.mapMsg(x => updatedMsg), diaPos, dia.level)
-    orig.doReport(updatedDia)
+    val userPos = rewriter.normalizedPos(dia.pos, ctx.source)
+    val untpdRoot = untpdRootFor(userPos)
+    rewriter.singleLineOverride(dia, ctx.source, untpdRoot, parseErrorSeen) match
+      case Some((text, pos)) =>
+        orig.doReport(Diagnostic(NoExplanation(text), pos, dia.level))
+      case None =>
+        val diaPos = userPos.copy(outer = null) // disable inline stack error printing
+        val newMsg = rewriter.updatedMsg(dia.msg, userPos, untpdRoot)
+        orig.doReport(Diagnostic(newMsg, diaPos, dia.level))
   end doReport
 end CustomReporter
 
@@ -51,6 +456,9 @@ end CustomReporter
   *   - change infix operator precedence of terms: `a := b match {...}` to be `a := (b match {...})`
   *     and `a <> b match {...}` to be `a <> (b match {...})`
   *   - change process{} to process.forever{}
+  *   - report a dedicated error when a `process`/`initial` block body is placed on the same line
+  *     after the `:` (e.g., `process(all): y := x`), which the parser otherwise reads as a type
+  *     ascription that later fails with obscure typer errors
   *   - auto-add `@top` annotation to concrete classes that look like DFHDL designs (extend
   *     EDDesign/RTDesign/DFDesign, have `type <> CONST` parameters, or use `<>` in their body),
   *     provided `import dfhdl.*` is in lexical scope and no `@top` annotation is already present.
@@ -236,8 +644,20 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
       // lenient variant — TopAnnotPhase silently skips entry-point generation when the
       // annotated class turns out not to be a Design, whereas bare `@top` is strict
       // and would surface a compile error on a false positive.
+      // The annotation is fully qualified as `_root_.dfhdl.top`: an unqualified `top`
+      // resolves to the annotated class itself when the class is named `top` (a common
+      // Verilog top-module convention), yielding a baffling "Cyclic reference involving
+      // class top" error (#458).
       untpd.Apply(
-        untpd.Select(untpd.New(untpd.Ident("top".toTypeName)), nme.CONSTRUCTOR),
+        untpd.Select(
+          untpd.New(
+            untpd.Select(
+              untpd.Select(untpd.Ident(nme.ROOTPKG), "dfhdl".toTermName),
+              "top".toTypeName
+            )
+          ),
+          nme.CONSTRUCTOR
+        ),
         List(untpd.Literal(Constant(true)))
       ).withSpan(span)
 
@@ -366,11 +786,35 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
           t
       end match
     end transform
+
+  /** The [[SingleLineProcessBlock]] mistake caught on a well-formed parse tree: a dedicated error
+    * is reported and the statement is replaced with `scala.Predef.???` (valid in any position, no
+    * purity warning) so none of the ascription's typer errors surface. Bodies that fail the TYPE
+    * parse never reach this rewrite (a parser error skips every plugin phase for the run); those
+    * are caught at reporting instead, by [[DiagnosticRewriter.singleLineOverride]].
+    */
+  private val `singleLineProcessErr` = new UntypedTreeMap:
+    override def transform(tree: Tree)(using Context): Tree =
+      SingleLineProcessBlock.matchTyped(tree, bodyOpOnly = true) match
+        case Some((name, expr, tpt)) =>
+          report.error(SingleLineProcessBlock.message(name, expr, tpt), tpt.srcPos)
+          Select(
+            Select(
+              Select(Ident(nme.ROOTPKG), "scala".toTermName),
+              "Predef".toTermName
+            ),
+            "???".toTermName
+          ).withSpan(tree.span)
+        case None => super.transform(tree)
+    end transform
+
   // Applies this phase's parse-tree rewrites to a standalone parsed tree, so nested snippet
   // compilations (PluginTestPhase) get the same parse-level fidelity as regular units. The
   // auto-@top rewrite is deliberately skipped: it never applies inside block snippets.
   def rewriteParsed(tree: Tree)(using Context): Tree =
-    `fixXand<>Precedence`.transform(`fix<>andOpPrecedence`.transform(tree))
+    `fixXand<>Precedence`.transform(
+      `fix<>andOpPrecedence`.transform(`singleLineProcessErr`.transform(tree))
+    )
 
   // The symbols the DFHDL type printer matches against, cached per run. The cache belongs to
   // this phase instance rather than to a global, so compilers running concurrently in one JVM
@@ -387,7 +831,7 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
       ctx.setPrinterFn(printerCtx =>
         DFHDLTypePrinter(printerCtx, printerSymbols()(using printerCtx))
       )
-      val typerState = ctx.typerState.setReporter(new CustomReporter(ctx.reporter))
+      val typerState = ctx.typerState.setReporter(new CustomReporter(ctx.reporter, printerSymbols))
       ctx.setTyperState(typerState)
   end initContext
 

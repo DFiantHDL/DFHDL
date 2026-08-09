@@ -199,6 +199,88 @@ object IntParamRef:
             )
           yield func(diff, 0)
     end compare
+    // Width-fit decision `this >= that` (see `IntExprCalc.widthFitCompare`): the constant
+    // difference rule of `compare` (with the max/min symbolic elimination) plus a
+    // non-negativity proof over the validity domain, where both sides are widths and hence
+    // `>= 1` for every valid elaboration. Relations that hold for every valid parameter
+    // assignment (e.g. `2 * W >= W`) are accepted, and provably violated ones
+    // (e.g. `W >= 2 * W`) decide `Some(false)`. Width-fit check sites only, never for
+    // equality/similarity.
+    def widthFitGE(that: IntParamRef)(using MemberGetSet): Option[Boolean] =
+      (intParamRef, that) match
+        // Fast path: both refs are already concrete Ints.
+        case (l: Int, r: Int) => Some(l >= r)
+        case _                =>
+          def asDFVal(ref: IntParamRef): Option[DFVal] = ref match
+            case i: Int =>
+              Some(DFVal.Const(
+                DFInt32, Some(BigInt(i)), DFRef.OneWay.Empty, Meta.empty, DFTags.empty
+              ))
+            case r: DFRef.TypeRef => r.getOption
+          for
+            lVal <- asDFVal(intParamRef)
+            rVal <- asDFVal(that)
+            decision <- IntExprCalc.widthFitCompare(lVal, rVal)
+          yield decision
+    end widthFitGE
+    // The constant difference `this - that` when all symbolic terms cancel (see `compare`);
+    // `None` otherwise. Lets printers render a widening as a relative extension (`.eby(k)`,
+    // `EBY_U`/`EBY_S`, VHDL `eby`) exactly when the width delta folds to a literal. Design
+    // parameters stay OPAQUE here: the relative form is only used when the delta holds for
+    // every parameter assignment, or a printed `.eby(k)` would pin an overridable width to
+    // its currently applied value.
+    def constDiffFrom(that: IntParamRef)(using MemberGetSet): Option[Int] =
+      (intParamRef, that) match
+        case (l: Int, r: Int) => Some(l - r)
+        case _                =>
+          def asDFVal(ref: IntParamRef): Option[DFVal] = ref match
+            case i: Int =>
+              Some(DFVal.Const(
+                DFInt32, Some(BigInt(i)), DFRef.OneWay.Empty, Meta.empty, DFTags.empty
+              ))
+            case r: DFRef.TypeRef => r.getOption
+          for
+            lVal <- asDFVal(intParamRef)
+            rVal <- asDFVal(that)
+            diff <- IntExprCalc.constDiff(lVal, rVal, resolveDesignParams = false)
+          yield diff
+    end constDiffFrom
+    // The literal widening delta `this - that` for printers preferring the RELATIVE
+    // extension spelling (`.eby(k)`, `EBY_U`/`EBY_S`, VHDL `eby`): defined when `this` is
+    // a LITERAL width sitting `k` above a literal source width (a widening between
+    // literal widths carries no spelling in the IR, and the relative form is the
+    // canonical one), or when `this` is an ANONYMOUS `base + k` width increment whose
+    // base is the source width itself (e.g. a `W + 1` target over a `W`-wide source). A
+    // NAMED width (a parameter or named constant) or any other expression shape prints
+    // absolutely, by name, so the width symbols the user can see are preserved.
+    def widenDeltaOpt(that: IntParamRef)(using MemberGetSet): Option[Int] =
+      intParamRef match
+        case _: Int             => constDiffFrom(that).filter(_ > 0)
+        case ref: DFRef.TypeRef =>
+          ref.getOption match
+            case Some(func: DFVal.Func) if func.isAnonymous && func.op == DFVal.Func.Op.+ =>
+              func.args match
+                case baseRef :: DFRef(konst: DFVal.Const) :: Nil =>
+                  konst.data match
+                    case Some(k: BigInt) if k > 0 =>
+                      val thatValOpt: Option[DFVal] = that match
+                        case thatRef: DFRef.TypeRef => thatRef.getOption
+                        case i: Int                 =>
+                          Some(DFVal.Const(
+                            DFInt32, Some(BigInt(i)), DFRef.OneWay.Empty, Meta.empty, DFTags.empty
+                          ))
+                      val baseEquiv = thatValOpt.exists { thatVal =>
+                        (thatVal == baseRef.get) ||
+                        (IntExprCalc.constDiff(
+                          baseRef.get,
+                          thatVal,
+                          resolveDesignParams = false
+                        ) == Some(0))
+                      }
+                      if (baseEquiv) Some(k.toInt) else None
+                    case _ => None
+                case _ => None
+            case _ => None
   end extension
 
   given ReadWriter[IntParamRef] = readwriter[ujson.Value].bimap(

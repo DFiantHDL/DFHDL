@@ -141,14 +141,6 @@ end NamedAliases
 // making sure the names will be unique.
 case object NamedVerilogSelection extends NamedAliases:
   override def runCondition(using co: CompilerOptions): Boolean = co.backend.isVerilog
-  private val carryOps = Set(FuncOp.`*`, FuncOp.+, FuncOp.-)
-  // A carry-widened unsigned func: its width exceeds its first operand's, so its printed
-  // Verilog form relies on consumer context to evaluate at the full width.
-  private def isCarryWidenedUInt(func: DFVal.Func)(using MemberGetSet): Boolean =
-    carryOps.contains(func.op) &&
-      (func.dfType match
-        case DFUInt(_) => !func.dfType.isSimilarTo(func.args.head.get.dfType)
-        case _         => false)
   extension (dfVal: DFVal)(using MemberGetSet)
     def hasVerilogName: Boolean =
       dfVal match
@@ -177,15 +169,6 @@ case object NamedVerilogSelection extends NamedAliases:
       case alias: DFVal.Alias.ApplyRange
           if alias.compareWidths(alias.relValRef.get)(_ != _).getOrElse(true) =>
         List(alias.relValRef.get)
-      // A carry-widened func (its width exceeds its operands') consumed by an
-      // unsigned-to-signed conversion must be named: the conversion prints as a
-      // `{1'b0, ...}` concatenation, whose operands are self-determined in Verilog, so
-      // an inline func would evaluate at its narrow operand width and truncate ahead of
-      // the sign extension. A named value's self-determined width is its declared width,
-      // which carries the widening through the concat.
-      case DFVal.Alias.AsIs(dfType = DFSInt(_), relValRef = DFRef(relVal: DFVal.Func))
-          if isCarryWidenedUInt(relVal) =>
-        List(relVal)
       case alias @ DFVal.Alias.AsIs(
             dfType = _: (DFDecimal | DFBits),
             relValRef = DFRef(relVal @ (DFBits.Val(_) | DFDecimal.Val(_)))
@@ -198,6 +181,31 @@ case object NamedVerilogSelection extends NamedAliases:
           // so we need to name the value in old verilog
           if (isBasicVerilog) List(alias.relValRef.get)
           else Nil
+      // A width-WIDENING resize over an anonymous expression: basic Verilog's EXTEND macros
+      // embed the operand in a replication/concatenation (self-determined width, and the
+      // EXTEND_S variants bit-select the operand, which must be an indexable primary), while
+      // the SystemVerilog W'() cast evaluates its operand AT THE CAST WIDTH. An anonymous
+      // func operand would therefore evaluate at the wrong width (or print illegally), so it
+      // is named, pinning the evaluation at its declared width; in basic Verilog any other
+      // anonymous non-primary operand is named for the EXTEND_S syntax constraint. The
+      // exception: a resize over an anonymous sign-conversion alias prints FUSED as a single
+      // zero-extension of the conversion's own operand (see `csDFValAliasAsIs`), so it needs
+      // no name.
+      case alias @ DFVal.Alias.AsIs(
+            dfType = _: (DFDecimal | DFBits),
+            relValRef = DFRef(relVal @ (DFBits.Val(_) | DFDecimal.Val(_)))
+          )
+          if relVal.dfType != DFInt32 && alias.compareWidths(relVal)(_ > _).getOrElse(false) =>
+        relVal match
+          case signConv: DFVal.Alias.AsIs
+              if signConv.isAnonymous &&
+                ((signConv.dfType, signConv.relValRef.get.dfType) match
+                  case (DFSInt(_), DFUInt(_)) => true
+                  case _ => false) =>
+            Nil // fused sign-conversion emission
+          case func: DFVal.Func    => List(func)
+          case _ if isBasicVerilog => List(relVal)
+          case _                   => Nil
       // to/from vector conversion is used with selection
       case DFVal.Alias.AsIs(dfType = DFVector(_, _), relValRef = DFRef(relVal @ DFBits.Val(_))) =>
         // in basic verilog this casting is only kept for initial values and later ignored by the backend
@@ -208,10 +216,6 @@ case object NamedVerilogSelection extends NamedAliases:
         List(relVal)
       case alias: DFVal.Alias.ApplyIdx =>
         List(alias.relValRef.get)
-      case func @ DFVal.Func(op = op, args = DFRef(lhs) :: _ :: Nil)
-          if isBasicVerilog && !lhs.hasVerilogName && carryOps.contains(op) &&
-            !func.dfType.isSimilarTo(lhs.dfType) =>
-        List(lhs)
       case func: DFVal.Func =>
         func.getReadDeps.headOption match
           case Some(dfVal: DFVal) => criteria(dfVal)

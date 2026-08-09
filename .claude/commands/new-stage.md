@@ -1602,6 +1602,34 @@ Mirror `plantClonedMembers`'s per-member mechanics when a custom per-ref remap i
 `dfc.mutableDB.newRefFor(cloned.ownerRef, dfc.owner.asIR)` → zip `m.getRefs` with
 `cloned.getRefs` and `newRefFor` each cloned ref to the (remapped) original target.
 
+### Materializing a type's width parameter as a standalone member
+
+To replace a member with the VALUE behind an `IntParamRef` (e.g. folding a `width`/`length`
+query into the parameter it queries — `DropStructsVecs.lengthFoldPatch` is the model), inside a
+`MetaDesign(member, ReplaceWithLast(ChangeRefAndRemove))`:
+
+```scala
+val lengthParam =
+  vecType.cellDimParamRefs.head.get.asInstanceOf[IntParam[Int]].cloneAnonValueAndDepsHere
+lengthParam.toScalaIntOpt match
+  case Some(int) => dfhdl.core.DFConstInt32(int, named = true)(using dfc.setMeta(func.meta))
+  case None      =>
+    dfhdl.core.DFVal.Alias.AsIs.ident(lengthParam.toDFConst(using dfc.anonymize))(using
+      dfc.setMeta(func.meta))
+```
+
+Three load-bearing details: `cloneAnonValueAndDepsHere` first, because an anonymous width cone
+is already read by the TYPE that carries it and an anonymous value may be read exactly once
+(mistake 22); a literal must MINT a member (`DFConstInt32(int, named = true)`) and a named
+target must be WRAPPED in an ident, because `ReplaceWithLast` needs a member to be created in
+the MetaDesign (bare `toDFConst` on a pre-existing constant creates none); and the replacement
+carries the original's meta via `dfc.setMeta(member.meta)` so a named binding keeps its name.
+
+Relatedly, a new `Func.Op` whose result is constant over a NON-constant argument (the
+`width`/`length` type queries) must also be taught to `IntExprCalc` (linearization through the
+argument TYPE's width params, product-base equivalence so `vec.width` matches `W * N`), or
+every symbolic width-equivalence check against such an expression fails at elaboration.
+
 ### Compile-time constant evaluation of values
 
 `dfVal.getConstDataThroughParams[Any]` returns `Some(data)` when the (possibly substituted)

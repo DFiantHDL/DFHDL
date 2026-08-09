@@ -1112,7 +1112,7 @@ object DFXInt:
                     import dfc.getSet
                     if (
                       !dfType.asIR.isDFInt32 && !rhs.dfType.asIR.isDFInt32 &&
-                      !DFXInt.Val.Ops.hasImplicitlyFromIntTag(rhs.asIR)
+                      !CarryPromote.hasImplicitlyFromIntTag(rhs.asIR)
                     )
                       // integer operands (fraction 0): the magnitude ref is the total-width
                       // ref and may be parametric
@@ -1120,11 +1120,13 @@ object DFXInt:
                       val rhsWidthRef = rhs.dfType.asIR.magnitudeWidthParamRef
                       def dfTypeWidthStr = dfTypeWidthRef.refErrorString
                       def rhsWidthStr = rhsWidthRef.refErrorString
-                      // width-fit acceptance rule: LHS >= RHS after symbolic elimination, so a
-                      // mixed max/min drops its symbolic operands (`16 >= WIDTH max 16` decides
-                      // as `16 >= 16`); a residual plain-symbol comparison stays undecidable
-                      // and is conservatively rejected below
-                      dfTypeWidthRef.compare(rhsWidthRef, elimSymbolicMaxMin = true)(_ >= _) match
+                      // width-fit acceptance rule: LHS >= RHS after symbolic elimination (a
+                      // mixed max/min drops its symbolic operands, so `16 >= WIDTH max 16`
+                      // decides as `16 >= 16`), falling back to a non-negativity proof over
+                      // the validity domain (all widths are >= 1), so `2 * W >= W` accepts
+                      // for a free parameter `W`; a residual undecidable comparison (e.g.
+                      // `16 >= W`) is conservatively rejected below
+                      dfTypeWidthRef.widthFitGE(rhsWidthRef) match
                         case Some(false) =>
                           throw new IllegalArgumentException(
                             s"""The applied RHS value width ($rhsWidthStr) is larger than the LHS variable width ($dfTypeWidthStr)."""
@@ -1137,7 +1139,10 @@ object DFXInt:
                     end if
             case None =>
           end match
-          DFXInt.Val.Ops.toDFXIntOf(rhs)(dfType).asValTP[DFXInt[LS, LW, LN], RP]
+          // a widened cone lands exactly at the target type with the original func's
+          // (anonymous) meta, so a named-val binding must be applied here, like the
+          // DFBits TC does (with an anonymous or positionally-foreign DFC this no-ops)
+          DFXInt.Val.Ops.toDFXIntOf(rhs)(dfType).nameInDFCPosition.asValTP[DFXInt[LS, LW, LN], RP]
         end conv
       end given
     end TC
@@ -1201,10 +1206,10 @@ object DFXInt:
           val op = opv.value
           op match
             case FuncOp.=== | FuncOp.=!= | FuncOp.< | FuncOp.> | FuncOp.<= | FuncOp.>= =>
-              if DFXInt.Val.Ops.shouldWarnVerilogSemantics(dfVal.asIR, dfValArg.asIR)
+              if CarryPromote.shouldWarnVerilogSemantics(dfVal.asIR, dfValArg.asIR)
               then
                 dfc.logEvent(
-                  DFWarning(op.toString, DFXInt.Val.Ops.verilogSemanticsWarnMsg)
+                  DFWarning(op.toString, CarryPromote.verilogSemanticsWarnMsg)
                 )
             case _ =>
           func(dfVal, dfValArg)
@@ -1333,111 +1338,52 @@ object DFXInt:
           val dfValIR =
             if (dfType.asIR.isDFInt32 && lhs.dfType.asIR.isDFInt32) lhs.asIR
             else
-              // Auto-promote anonymous +/-/* to carry when the target is wide enough. The
-              // promotion candidate is taken BEFORE any sign conversion: converting first
-              // wraps the func in a `.signed` alias that hides it from the promotion and
-              // pins the chain at its narrow width, which the Verilog backend then emits
-              // as a self-determined concat operand that truncates. An upstream anonymous
-              // sign-conversion alias (the commutative-arith sign alignment creates one)
-              // is unwrapped for the same reason.
-              import IntParam.+
               val signFixNeeded =
                 !lhs.dfType.asIR.isDFInt32 && dfType.signed && !lhs.dfType.signed
-              val (candidateIR, signWrapped) = signConversionRelVal(lhs.asIR) match
-                case Some(relVal) => (relVal, true)
-                case None         => (lhs.asIR, false)
-
-              // symbolic elimination keeps this consistent with the width-fit acceptance rule
-              // of the TC conversion: `16 > WIDTH max 16` decides as `16 > 16` (no promotion),
-              // so the anonymous form resolves exactly like a named intermediate value; if
-              // still undecidable, optimistically assume the target is large enough. The
-              // effective width includes the sign bit a later sign conversion adds.
-              def carryPromoteWidthCheck(effWidth: IntParam[Int]): Boolean =
-                dfType.asFE[DFSInt[Int]]
-                  .compareWidths(DFXInt(true, effWidth, BitAccurate), elimSymbolicMaxMin = true)(
-                    _ > _
-                  )
-                  .getOrElse(true)
-
-              val lhsCarryPromo: DFValOf[DFSInt[Int]] = candidateIR match
-                case func @ ir.DFVal.Func(
-                      dfType = dt @ (ir.DFUInt(_) | ir.DFSInt(_)),
-                      op = op @ (FuncOp.+ | FuncOp.- | FuncOp.*)
-                    )
-                    if func.isAnonymous && {
-                      val funcWidth: IntParam[Int] = func.asValOf[DFSInt[Int]].widthIntParam
-                      val effWidth =
-                        if (signFixNeeded || signWrapped) funcWidth + 1 else funcWidth
-                      carryPromoteWidthCheck(effWidth)
-                    } =>
-                  val funcWidth: IntParam[Int] = func.asValOf[DFSInt[Int]].widthIntParam
-                  // The carry-promoted Func is BUILT FRESH rather than revised in place (an
-                  // anonymous member is never revised; issue #449); the original Func becomes
-                  // debris for the end-of-design sweep. For multi-arg merged Funcs (3+ args),
-                  // the last arg is peeled: Func(+, [a, b, c]) becomes
-                  // Func(+, [Func(+, [a, b]), c]), with the inner (non-carry) Func added
-                  // before the carry Func so member order holds. The peel is skipped during
-                  // meta-programming, where no member is registered at all (see below).
-                  val carryArgVals: List[ir.DFVal] =
-                    if (func.args.length > 2 && !dfc.inMetaProgramming)
-                      val innerFunc = ir.DFVal.Func(
-                        dt,
-                        op,
-                        func.args.dropRight(1).map(_.get.refTW[ir.DFVal](knownReachable = true)),
-                        dfc.ownerOrEmptyRef,
-                        func.meta,
-                        func.tags
-                      ).addMember
-                      List(innerFunc, func.args.last.get)
-                    else func.args.map(_.get)
-                  // No Verilog-semantics warning for this shape: the promoted chain is
-                  // emitted under the target's width context (a size cast or the
-                  // assignment itself), and truncation to N bits commutes with +/-/*,
-                  // so Verilog's 32-bit evaluation agrees for every input (issue #453).
-                  val cw: IntParam[Int] = op.runtimeChecked match
-                    case FuncOp.+ | FuncOp.- => funcWidth + 1
-                    case FuncOp.*            => funcWidth + funcWidth
-                  // integer carry arithmetic (fraction width 0), so the magnitude width is
-                  // the total width
-                  val newDT = dt.copy(magnitudeWidthParamRef = cw.ref)
-                  val promoted =
-                    if (dfc.inMetaProgramming)
-                      // no MutableDB revision under meta-programming (matching `setMember`'s
-                      // behavior there): the retyped value is returned unregistered
-                      func.updateDFType(newDT).asValOf[DFUInt[Int]]
-                    else
-                      ir.DFVal.Func(
-                        newDT,
-                        op,
-                        carryArgVals.map(_.refTW[ir.DFVal](knownReachable = true)),
-                        dfc.ownerOrEmptyRef,
-                        func.meta,
-                        func.tags
-                      ).addMember.asValOf[DFUInt[Int]]
-                  // the sign conversion is applied to the PROMOTED value, so the widening
-                  // happens before the concat the conversion prints as
-                  if (signFixNeeded || signWrapped) promoted.signed.asValOf[DFSInt[Int]]
-                  else promoted.asValOf[DFSInt[Int]]
-                case _ =>
-                  // no promotion: apply the plain sign fix when the target requires it
-                  if (signFixNeeded) lhs.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
-                  else lhs.asValOf[DFSInt[Int]]
-              end lhsCarryPromo
-              val nativeTypeChanged = dfType.nativeType != lhsCarryPromo.dfType.nativeType
+              // deep target-context widening first (the carry-promotion machinery, see
+              // CarryPromote.widenedOpt); when it does not apply, the value converts as
+              // a leaf below
+              val lhsConverted: DFValOf[DFSInt[Int]] =
+                CarryPromote.widenedOpt(lhs.asIR, dfType).getOrElse {
+                  // Fold stacked widenings: an anonymous same-kind widening resize alias
+                  // is transparent to a further conversion (both are value-preserving
+                  // extensions), so when the width fix below would resize anyway, it
+                  // applies to the alias's base directly instead of stacking.
+                  def unstack(v: ir.DFVal): ir.DFVal = v match
+                    case alias: ir.DFVal.Alias.AsIs if alias.isAnonymous =>
+                      val relVal = alias.relValRef.get
+                      val widening = (alias.dfType, relVal.dfType) match
+                        case (ir.DFUInt(toW), ir.DFUInt(fromW)) =>
+                          toW.compare(fromW)(_ > _).getOrElse(false)
+                        case (ir.DFSInt(toW), ir.DFSInt(fromW)) =>
+                          toW.compare(fromW)(_ > _).getOrElse(false)
+                        case _ => false
+                      if (widening) unstack(relVal) else v
+                    case _ => v
+                  val widthChanges = !dfType.asIR.magnitudeWidthParamRef
+                    .isSimilarTo(lhs.dfType.asIR.magnitudeWidthParamRef)
+                  val base =
+                    if (widthChanges) unstack(lhs.asIR).asValOf[DFSInt[Int]]
+                    else lhs.asValOf[DFSInt[Int]]
+                  // no widening: apply the plain sign fix when the target requires it
+                  if (signFixNeeded) base.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
+                  else base
+                }
+              val nativeTypeChanged = dfType.nativeType != lhsConverted.dfType.nativeType
               if (nativeTypeChanged) dfType.asIR.nativeType match
                 case Int32 =>
-                  lhsCarryPromo.toInt.asIR
+                  lhsConverted.toInt.asIR
                 case BitAccurate =>
-                  DFVal.Alias.AsIs(dfType, lhsCarryPromo)(using
+                  DFVal.Alias.AsIs(dfType, lhsConverted)(using
                     dfc.tag(ir.ImplicitlyFromIntTag)
                   ).asIR
               else if (
                 // integer operands (fraction 0): the magnitude ref is the total-width ref
                 !dfType.asIR.magnitudeWidthParamRef
-                  .isSimilarTo(lhsCarryPromo.dfType.asIR.magnitudeWidthParamRef)
+                  .isSimilarTo(lhsConverted.dfType.asIR.magnitudeWidthParamRef)
               )
-                lhsCarryPromo.resize(dfType.widthIntParam).asIR
-              else lhsCarryPromo.asIR
+                lhsConverted.resize(dfType.widthIntParam).asIR
+              else lhsConverted.asIR
               end if
             end if
           end dfValIR
@@ -1469,127 +1415,25 @@ object DFXInt:
           DFVal.Alias.AsIs(DFXInt(signed, updatedWidth, BitAccurate), lhs)
         }
         end resize
+        // extend-by: a RELATIVE widening by `delta` bits (zero-extension for unsigned,
+        // sign-extension for signed), sugar over `.resize(width + delta)`; printed back in
+        // this relative form whenever the width delta folds to a literal
+        @targetName("ebyDFXInt")
+        def eby[RK <: IntP](
+            delta: IntParam[RK]
+        )(using
+            dfc: DFCG,
+            check: Arg.Positive.CheckNUB[RK]
+        ): DFValTP[DFXInt[S, IntP.ExtendByWidth[W, RK], BitAccurate], P] = trydf {
+          delta.toScalaIntOpt.foreach(check(_))
+          import IntParam.+
+          DFVal.Alias.AsIs(
+            DFXInt(lhs.dfType.signed, lhs.dfType.widthIntParam + delta, BitAccurate),
+            lhs
+          ).asValTP[DFXInt[S, IntP.ExtendByWidth[W, RK], BitAccurate], P]
+        }
+        end eby
       end extension
-
-      private[core] val verilogSemanticsWarnMsg =
-        """|Implicit Scala/DFHDL Int conversion may produce different results than Verilog.
-           |In Verilog, integer literals are 32-bit, which can widen intermediate arithmetic.
-           |In DFHDL, Int literals are converted to minimum bit-accurate width.
-           |Use carry operations (+^, -^, *^) or explicit bit-accurate literals (d"W'V").""".stripMargin
-
-      // Check if a value is tagged with ImplicitlyFromIntTag. An implicit `Int` operand
-      // adapted to a parametric width keeps its tagged const under a resize alias (the
-      // fold into a single const happens only for literal widths), so the check follows
-      // alias chains down to the underlying value.
-      private[core] def hasImplicitlyFromIntTag(dfVal: ir.DFVal)(using ir.MemberGetSet): Boolean =
-        dfVal.tags.hasTagOf[ir.ImplicitlyFromIntTag] ||
-          (dfVal match
-            case alias: ir.DFVal.Alias => hasImplicitlyFromIntTag(alias.relValRef.get)
-            case _                     => false)
-
-      // A width reference resolved through design parameters: this runs during
-      // elaboration, where a parameter's applied (or default) value is known, so a
-      // parametric width like `CORDW + 1` resolves to its actual value.
-      private def resolvedWidthOf(ref: ir.IntParamRef)(using
-          getSet: ir.MemberGetSet
-      ): Option[Int] =
-        ref.getIntConstData(using
-          getSet,
-          ir.ConstData.CachePolicy.GoThroughDesignParams
-        ) match
-          case ir.ConstData.KnownConst(w) => Some(w)
-          case _                          => None
-
-      // A value's width classified as narrow (< 32 bits). A width that cannot be
-      // resolved counts as narrow: a false-positive warning costs one carry op, while a
-      // false negative is silently wrong hardware.
-      private def resolvedWidthIsNarrow(dfVal: ir.DFVal)(using ir.MemberGetSet): Boolean =
-        dfVal.dfType match
-          case dec: ir.DFDecimal =>
-            resolvedWidthOf(dec.magnitudeWidthParamRef) match
-              case Some(m) => m + dec.fractionWidth < 32
-              case None    => true
-          case _ =>
-            dfVal.dfType.widthIntOpt.map(_ < 32).getOrElse(true)
-
-      // An anonymous sign-conversion alias: an unsigned value reinterpreted as signed
-      // with exactly one extra bit (`.signed`). The Verilog backend emits it as
-      // `$signed({1'b0, ...})`, whose concatenation operand is self-determined, so a
-      // narrow chain stays narrow through it and the promotion/warning machinery must
-      // look through it. An equal-width alias is a reinterpret cast and never matches.
-      private def signConversionRelVal(dfVal: ir.DFVal)(using
-          ir.MemberGetSet
-      ): Option[ir.DFVal] =
-        dfVal match
-          case alias: ir.DFVal.Alias.AsIs if alias.isAnonymous =>
-            alias.dfType match
-              case ir.DFSInt(aliasWidthRef) =>
-                val relVal = alias.relValRef.get
-                relVal.dfType match
-                  case ir.DFUInt(relWidthRef) =>
-                    (resolvedWidthOf(aliasWidthRef), resolvedWidthOf(relWidthRef)) match
-                      case (Some(aw), Some(rw)) if aw == rw + 1 => Some(relVal)
-                      case _                                    => None
-                  case _ => None
-              case _ => None
-          case _ => None
-
-      // Check if an anonymous sub-tree contains non-carry +/-/* with width < 32.
-      private[core] def containsNarrowNonCarryArith(
-          dfVal: ir.DFVal
-      )(using ir.MemberGetSet): Boolean =
-        dfVal match
-          case func: ir.DFVal.Func if func.isAnonymous =>
-            func.op match
-              case FuncOp.+ | FuncOp.- | FuncOp.* =>
-                val isNonCarry = func.dfType =~ func.args.head.get.dfType
-                val isNarrowNonCarry = isNonCarry && resolvedWidthIsNarrow(func)
-                isNarrowNonCarry ||
-                func.args.exists(ref => containsNarrowNonCarryArith(ref.get))
-              case _ =>
-                func.args.exists(ref => containsNarrowNonCarryArith(ref.get))
-          case _ =>
-            signConversionRelVal(dfVal) match
-              case Some(relVal) => containsNarrowNonCarryArith(relVal)
-              case None         => false
-
-      // Check if an anonymous sub-tree contains narrow non-carry arith that
-      // also has an ImplicitlyFromIntTag operand (Verilog "Forcing Larger
-      // Evaluation" pattern).
-      private[core] def containsNarrowNonCarryArithWithTaggedOperand(
-          dfVal: ir.DFVal
-      )(using ir.MemberGetSet): Boolean =
-        dfVal match
-          case func: ir.DFVal.Func if func.isAnonymous =>
-            func.op match
-              case FuncOp.+ | FuncOp.- | FuncOp.* =>
-                val isNonCarry = func.dfType =~ func.args.head.get.dfType
-                val isNarrowNonCarry = isNonCarry && resolvedWidthIsNarrow(func)
-                (isNarrowNonCarry && func.args.exists(ref => hasImplicitlyFromIntTag(ref.get))) ||
-                func.args.exists(ref =>
-                  containsNarrowNonCarryArithWithTaggedOperand(ref.get)
-                )
-              case _ =>
-                func.args.exists(ref =>
-                  containsNarrowNonCarryArithWithTaggedOperand(ref.get)
-                )
-          case _ =>
-            signConversionRelVal(dfVal) match
-              case Some(relVal) => containsNarrowNonCarryArithWithTaggedOperand(relVal)
-              case None         => false
-
-      // Unified Verilog-semantics warning trigger shared by `/`, `%` (arithOp)
-      // and comparison operations (DFXIntCompare). Warns when a narrow non-carry
-      // chain mixes with a tagged-from-Int operand on either side - directly OR
-      // nested inside the chain.
-      private[core] def shouldWarnVerilogSemantics(
-          lhs: ir.DFVal,
-          rhs: ir.DFVal
-      )(using ir.MemberGetSet): Boolean =
-        (hasImplicitlyFromIntTag(rhs) && containsNarrowNonCarryArith(lhs)) ||
-          (hasImplicitlyFromIntTag(lhs) && containsNarrowNonCarryArith(rhs)) ||
-          containsNarrowNonCarryArithWithTaggedOperand(lhs) ||
-          containsNarrowNonCarryArithWithTaggedOperand(rhs)
 
       // Check that a wildcard `Int` value fits in the bit-accurate value's type.
       // Produces an elaboration error if it doesn't.
@@ -1644,10 +1488,10 @@ object DFXInt:
         // so any narrow non-carry chain mixed with an implicit Int diverges.
         val shouldWarn = op match
           case FuncOp./ | FuncOp.% =>
-            shouldWarnVerilogSemantics(lhs.asIR, rhsFix.asIR)
+            CarryPromote.shouldWarnVerilogSemantics(lhs.asIR, rhsFix.asIR)
           case _ => false
         if shouldWarn then
-          dfc.logEvent(DFWarning(op.toString, verilogSemanticsWarnMsg))
+          dfc.logEvent(DFWarning(op.toString, CarryPromote.verilogSemanticsWarnMsg))
         DFVal.Func(dfType, op, List(lhs, rhsFix))
       end arithOp
 
@@ -1895,12 +1739,19 @@ object DFXInt:
             else if (lhsIsWildcard) rhsVal.widthIntParam
             else lhsVal.widthIntParam.max(rhsVal.widthIntParam)
           val width = commonWidth + 1
-          val dfType = DFXInt(resultSigned, width, BitAccurate)
-          // Resize both operands to common width, converting to signed if needed
+          // Align both operands to the common width (converting sign if needed), then widen
+          // them BY THE CARRY BIT as explicit aliases: a carry operation IS the modular
+          // operation over carry-widened operands, with no special-cased Func type; the
+          // printers reconstruct the `op^` spelling from this shape (see `CarryFunc`). The
+          // widening is an explicit alias, never a re-evaluation, so a nested anonymous
+          // chain operand keeps its own width semantics.
           val commonType = DFXInt(resultSigned, commonWidth, BitAccurate)
           val lhsFix = lhsVal.toDFXIntOf(commonType)(using dfcAnon)
           val rhsFix = rhsVal.toDFXIntOf(commonType)(using dfcAnon)
-          DFVal.Func(dfType, op.value, List(lhsFix, rhsFix))
+          def wideType = DFXInt(resultSigned, width, BitAccurate)
+          val lhsWide = DFVal.Alias.AsIs(wideType, lhsFix)(using dfcAnon)
+          val rhsWide = DFVal.Alias.AsIs(wideType, rhsFix)(using dfcAnon)
+          DFVal.Func(wideType, op.value, List(lhsWide, rhsWide))
             .asInstanceOf[Out]
         }(using dfc, CTName(op.value.toString + "^"))
       end evOpCarryAddSubDFXInt
@@ -1946,15 +1797,17 @@ object DFXInt:
             val baWidth: IntParam[Int] =
               if (rhsIsWildcard) lhsVal.widthIntParam else rhsVal.widthIntParam
             val commonType = DFXInt(baSigned, baWidth, BitAccurate)
-            val dfType = DFXInt(baSigned, baWidth + baWidth, BitAccurate)
+            def wideType = DFXInt(baSigned, baWidth + baWidth, BitAccurate)
             val lhsFix = lhsVal.toDFXIntOf(commonType)(using dfcAnon)
             val rhsFix = rhsVal.toDFXIntOf(commonType)(using dfcAnon)
-            DFVal.Func(dfType, FuncOp.`*`, List(lhsFix, rhsFix))
+            val lhsWide = DFVal.Alias.AsIs(wideType, lhsFix)(using dfcAnon)
+            val rhsWide = DFVal.Alias.AsIs(wideType, rhsFix)(using dfcAnon)
+            DFVal.Func(wideType, FuncOp.`*`, List(lhsWide, rhsWide))
               .asInstanceOf[Out]
           else
             val resultSigned = lhsVal.dfType.signed || rhsVal.dfType.signed
             val width = lhsVal.widthIntParam + rhsVal.widthIntParam
-            val dfType = DFXInt(resultSigned, width, BitAccurate)
+            def wideType = DFXInt(resultSigned, width, BitAccurate)
             // Convert unsigned operand to signed if needed
             val lhsFix =
               if (resultSigned && !lhsVal.dfType.signed)
@@ -1968,7 +1821,9 @@ object DFXInt:
                   dfcAnon
                 )
               else rhsVal
-            DFVal.Func(dfType, FuncOp.`*`, List(lhsFix, rhsFix))
+            val lhsWide = DFVal.Alias.AsIs(wideType, lhsFix)(using dfcAnon)
+            val rhsWide = DFVal.Alias.AsIs(wideType, rhsFix)(using dfcAnon)
+            DFVal.Func(wideType, FuncOp.`*`, List(lhsWide, rhsWide))
               .asInstanceOf[Out]
           end if
         }(using dfc, CTName("*^"))

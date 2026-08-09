@@ -2,7 +2,7 @@ package CoreSpec
 import dfhdl.*
 import munit.*
 
-class RTProcessSpec extends NoDFCSpec:
+class ProcessSpec extends NoDFCSpec:
   test("valid RT process steps report no plugin errors"):
     assertPluginError("No error found")(
       """
@@ -224,4 +224,74 @@ class RTProcessSpec extends NoDFCSpec:
             1.cy.wait
       """
     )
-end RTProcessSpec
+
+  test("single-line sensitivity-list process body"):
+    assertSinglePluginError(
+      "The body of a `process` block cannot be placed on the same line after the `:`.\n" +
+        "Move it to its own indented line:\n  process(all):\n    y := x"
+    )(
+      """
+      class Foo extends EDDesign:
+        val x = Bits(8) <> IN
+        val y = Bits(8) <> OUT
+        process(all): y := x
+      """
+    )
+
+  test("single-line forever process body"):
+    assertSinglePluginError(
+      "The body of a `process` block cannot be placed on the same line after the `:`.\n" +
+        "Move it to its own indented line:\n  process:\n    y :== x"
+    )(
+      """
+      class Foo extends EDDesign:
+        val x = Bits(8) <> IN
+        val y = Bits(8) <> OUT
+        process: y :== x
+      """
+    )
+
+  test("single-line initial block body"):
+    assertSinglePluginError(
+      "The body of an `initial` block cannot be placed on the same line after the `:`.\n" +
+        "Move it to its own indented line:\n  initial:\n    y := x"
+    )(
+      """
+      class Foo extends EDDesign:
+        val y = Bits(8) <> OUT
+        initial: y := x
+      """
+    )
+
+  // The two tests below have bodies that fail the TYPE parse (a call's parentheses are not type
+  // syntax), so the parser reports first and every plugin phase is skipped for the compilation;
+  // the dedicated error then comes from the reporter-side override, which also collapses the
+  // ascription's obscure typer errors into it (hence exactly TWO errors asserted).
+  test("single-line process body failing the type parse (call on the assignment target)"):
+    assertPluginErrors(
+      "end of statement expected but '(' found\n\n" +
+        "The body of a `process` block cannot be placed on the same line after the `:`.\n" +
+        "Move it to its own indented line:\n  process(all):\n    y(0) := x"
+    )(
+      """
+      class Foo extends EDDesign:
+        val x = Bits(8) <> IN
+        val y = Bits(8) <> OUT
+        process(all): y(0) := x
+      """
+    )
+
+  test("single-line initial body failing the type parse (call on the assignment source)"):
+    assertPluginErrors(
+      "end of statement expected but '(' found\n\n" +
+        "The body of an `initial` block cannot be placed on the same line after the `:`.\n" +
+        "Move it to its own indented line:\n  initial:\n    y := x.resize(4)"
+    )(
+      """
+      class Foo extends EDDesign:
+        val x = Bits(8) <> IN
+        val y = Bits(8) <> OUT
+        initial: y := x.resize(4)
+      """
+    )
+end ProcessSpec

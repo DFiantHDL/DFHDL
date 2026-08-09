@@ -307,4 +307,46 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+
+  test("Vector length query folds before the drop") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    // the drop flattens `vec` to Bits, whose own length is the TOTAL width, so a `length`
+    // query over it is folded into the element-count parameter value while the vector type
+    // still exists: a parametric count rebinds the parameter (`LEN = N`), a literal count
+    // materializes the literal (`FOUR = 4`). A `width` query needs no fold (flattening
+    // preserves the total width), so it stays a query over the flattened value.
+    class Top(val W: Int <> CONST = 4, val N: Int <> CONST = 3) extends RTDesign:
+      val vec  = Bits(W) X N <> IN
+      val lit  = Bits(8) X 4 <> IN
+      val LEN  = vec.length
+      val FOUR = lit.length
+      val WID  = vec.width
+      val cnt  = UInt(LEN)   <> OUT
+      val idx  = UInt(FOUR)  <> OUT
+      val flat = Bits(WID)   <> OUT
+      cnt  := 0
+      idx  := 0
+      flat := vec.bits
+    val top = (new Top).dropStructsVecs
+    assertCodeString(
+      top,
+      """|class Top(
+         |    val W: Int <> CONST = 4,
+         |    val N: Int <> CONST = 3
+         |) extends RTDesign:
+         |  val vec = Bits(W * N) <> IN
+         |  val lit = Bits(32) <> IN
+         |  val LEN: Int <> CONST = N
+         |  val FOUR: Int <> CONST = 4
+         |  val WID: Int <> CONST = vec.width
+         |  val cnt = UInt(LEN) <> OUT
+         |  val idx = UInt(FOUR) <> OUT
+         |  val flat = Bits(WID) <> OUT
+         |  cnt := d"1'0".resize(LEN)
+         |  idx := d"1'0".resize(FOUR)
+         |  flat := vec.resize(W * N)
+         |end Top
+         |""".stripMargin
+    )
+  }
 end DropStructsVecsSpec

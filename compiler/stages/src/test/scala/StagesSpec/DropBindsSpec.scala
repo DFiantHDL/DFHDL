@@ -46,7 +46,7 @@ class DropBindsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val hi = x(11, 8)
          |  val hi = x(7, 4)
          |  x match
-         |    case h"8?88" => z := hi.resize(8)
+         |    case h"8?88" => z := hi.eby(4)
          |    case h"fb?e" =>
          |  end match
          |  val same = x(11, 8)

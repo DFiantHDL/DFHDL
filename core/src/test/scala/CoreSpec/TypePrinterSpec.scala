@@ -43,11 +43,21 @@ class TypePrinterSpec extends DFSpec:
         val e: Int = x
       """
     )
-    // a width parameter is named after the parameter it refers to
-    assertPluginError(foundRequiredInt("Bits[WIDTH] <> VAR"))(
+    // a non-literal width collapses to `Int` where the value enters the width algebra
+    // (`IntParam.fromValue`), so a parameter-constructed width prints as `Int`
+    assertPluginError(foundRequiredInt("Bits[Int] <> VAR"))(
       """
       class Foo(val WIDTH: Int <> CONST = 8) extends DFDesign:
         val x = Bits(WIDTH) <> VAR
+        val e: Int = x
+      """
+    )
+    // an explicitly written singleton width is kept, and is named after the parameter it
+    // refers to
+    assertPluginError(foundRequiredInt("Bits[WIDTH] <> VAR"))(
+      """
+      class Foo(val WIDTH: Int <> CONST = 8) extends DFDesign:
+        val x = Bits[WIDTH.type] <> VAR
         val e: Int = x
       """
     )
@@ -182,16 +192,17 @@ class TypePrinterSpec extends DFSpec:
     )
 
   test("modifiers"):
-    // ports are named by what they grant rather than by their direction, exactly as `ShowType`
-    // names them: an input is a readable value, an output an assignable variable
-    assertPluginError(foundRequiredInt("Bits[8] <> VAL"))(
+    // a port is named by its direction, exactly as `ShowType` names it. Naming it by what it
+    // grants instead (an input as a readable `VAL`) rendered a reduce-over-port-slices
+    // mismatch with `Bits[Int] <> VAL` on BOTH sides of the error (issue #455).
+    assertPluginError(foundRequiredInt("Bits[8] <> IN"))(
       """
       class Foo extends DFDesign:
         val x = Bits(8) <> IN
         val e: Int = x
       """
     )
-    assertPluginError(foundRequiredInt("Bits[8] <> VAR"))(
+    assertPluginError(foundRequiredInt("Bits[8] <> OUT"))(
       """
       class Foo extends DFDesign:
         val x = Bits(8) <> OUT
@@ -252,6 +263,77 @@ class TypePrinterSpec extends DFSpec:
       class Foo extends DFDesign:
         val x: core.DFValAny = Bit <> VAR
         val e: Int = x
+      """
+    )
+
+  test("not-a-member errors keep only their core sentence"):
+    // in a DFHDL compilation the compiler's own selection-error addenda mislead rather than
+    // help (the import-suggestion machinery proposes DFHDL's internal conversions for every
+    // receiver, and the extension-attempt transcript restates the receiver in raw types), so
+    // the rewriter reduces the error to its core sentence; a tried-but-failed extension is
+    // kept as a bare parenthetical
+    assertSinglePluginError("value mem is not a member of UInt[8] <> OUT")(
+      """
+      class Foo extends EDDesign:
+        val o = UInt(8) <> OUT
+        o.mem
+      """
+    )
+    // `Bit` supports neither the vector `length` (element count) nor the `Bits`/`UInt`/`SInt`
+    // `length` (bit count), so the tried extensions fail
+    assertSinglePluginError(
+      "value length is not a member of Bit <> VAR (extension method tried)"
+    )(
+      """
+      class Foo extends EDDesign:
+        val b = Bit <> VAR
+        b.length
+      """
+    )
+    // the reduction applies to any receiver, not just DFHDL values: the suggested-import noise
+    // is compilation-wide once DFHDL's conversions are on the classpath
+    assertSinglePluginError("value zzz is not a member of Int")(
+      """
+      class Foo extends EDDesign:
+        val x: Int = 1
+        x.zzz
+      """
+    )
+    // the did-you-mean hint is recomputed after the strip: upstream computes it only when no
+    // other addendum exists, and the conversions make the import-suggestion addendum non-empty
+    // for every selection, so without the recomputation DFHDL users would never see it
+    assertSinglePluginError("value toStrig is not a member of Int - did you mean x.toString?")(
+      """
+      class Foo extends EDDesign:
+        val x: Int = 1
+        x.toStrig
+      """
+    )
+
+  test("reduce over declaration slices guide rail"):
+    // The issue #455 shape: `reduce` commits its type parameter to the port-modified slice
+    // element type, which no operation result can conform to. The rewriter identifies the
+    // enclosing fold-family call from the parse tree and spells the pinned-type remedy with
+    // the actual element type. The single-error assertion also pins the diagnostic dedup:
+    // the typer re-raises this mismatch through the inline expansion of `++`, once with a
+    // corrupt macro-splice position, and all re-raises must collapse into this one message.
+    assertSinglePluginError(
+      """|Found:    Bits[Int] <> VAL
+         |Required: Bits[Int] <> IN
+         |
+         |Note: `reduce` inferred its type parameter from the declaration (port or
+         |variable) slice elements, so the operator must land back on the declaration
+         |type, and an operation result is a plain value that never can. Set the type
+         |parameter to the plain value type explicitly:
+         |
+         |  .reduce[Bits[Int] <> VAL](...)""".stripMargin
+    )(
+      """
+      class Foo(val LANE: Int <> CONST = 3, val LANES: Int <> CONST = 3) extends EDDesign:
+        val data = Bits(LANE * LANES) <> IN
+        val out = Bits(LANE * LANES) <> OUT
+        val list = for (i <- 0 until LANES) yield data.lsbitsAt(i * LANE, LANE)
+        out <> list.reduce(_ ++ _)
       """
     )
 end TypePrinterSpec

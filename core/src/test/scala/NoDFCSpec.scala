@@ -50,6 +50,34 @@ abstract class NoDFCSpec extends FunSuite, NoTopAnnotIsRequired:
     )
   end assertPluginError
 
+  // Like `assertPluginError`, but asserts on ALL errors the snippet produces, chronologically,
+  // joined with a blank line: for mistakes whose parser error is followed by a rewritten
+  // diagnostic (e.g. the single-line process/initial override), this pins both texts and the
+  // collapse of everything else.
+  transparent inline def assertPluginErrors(expectedErrs: String)(
+      inline code: String
+  ): Unit =
+    val errs = internals.PluginErrCheck.pluginCheckErrors(code)
+    assertNoDiff(
+      if (errs.isEmpty) noErrMsg else errs.reverse.mkString("\n\n"),
+      expectedErrs
+    )
+  end assertPluginErrors
+
+  // Like `assertPluginError`, but asserts the snippet produces EXACTLY one error with the given
+  // user-facing text: on top of the message itself, this pins the diagnostic dedup (an
+  // inline-expansion error re-raised at several positions must render once).
+  transparent inline def assertSinglePluginError(expectedErr: String)(
+      inline code: String
+  ): Unit =
+    val errs = internals.PluginErrCheck.pluginCheckErrors(code)
+    val actual = errs match
+      case single :: Nil => single
+      case Nil           => noErrMsg
+      case many          => many.mkString("\n===== MULTIPLE ERRORS =====\n")
+    assertNoDiff(actual, expectedErr)
+  end assertSinglePluginError
+
   inline def assertRuntimeError(expectedErr: String)(runTimeCode: => Unit): Unit =
     val err =
       try

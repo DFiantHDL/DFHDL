@@ -58,6 +58,11 @@ function cadd(A, B : unsigned) return unsigned;
 function cadd(A, B : signed) return signed;
 function csub(A, B : unsigned) return unsigned;
 function csub(A, B : signed) return signed;
+-- extend-by: relative widening by `k` bits (zero-extension for unsigned/std_logic_vector,
+-- sign-extension for signed)
+function eby(A : unsigned; k : natural) return unsigned;
+function eby(A : signed; k : natural) return signed;
+function eby(A : std_logic_vector; k : natural) return std_logic_vector;
 function clog2(n : natural) return natural;
 function to_slv(A : unsigned) return std_logic_vector;
 function to_slv(A : signed) return std_logic_vector;
@@ -119,6 +124,18 @@ end function;
 function csub(A, B : signed) return signed is
 begin
     return signed(A(A'left) & A) - signed(B(B'left) & B);
+end function;
+function eby(A : unsigned; k : natural) return unsigned is
+begin
+    return resize(A, A'length + k);
+end function;
+function eby(A : signed; k : natural) return signed is
+begin
+    return resize(A, A'length + k);
+end function;
+function eby(A : std_logic_vector; k : natural) return std_logic_vector is
+begin
+    return resize(A, A'length + k);
 end function;
 function clog2(n : natural) return natural is
   variable result        : natural := 0;

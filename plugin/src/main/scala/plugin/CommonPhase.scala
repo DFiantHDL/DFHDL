@@ -19,7 +19,6 @@ import dotty.tools.dotc.ast.tpd.Tree
 import annotation.tailrec
 import scala.language.implicitConversions
 import scala.compiletime.uninitialized
-import scala.annotation.targetName
 
 given canEqualNothingL: CanEqual[Nothing, Any] = CanEqual.derived
 given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
@@ -169,6 +168,7 @@ abstract class CommonPhase extends PluginPhase:
   var contextFunctionSym: Symbol = uninitialized
   var hasDFCTpe: TypeRef = uninitialized
   var inlineAnnotSym: Symbol = uninitialized
+  var setNameAnnotSym: ClassSymbol = uninitialized
   var dfValSym: Symbol = uninitialized
   var constModTpe: Type = uninitialized
   var inArgAnnotSym: Symbol = uninitialized
@@ -203,6 +203,7 @@ abstract class CommonPhase extends PluginPhase:
         if (tree.span.exists) t.cloneIn(ctx.source).withSpan(tree.span)
         else t
       }
+    end unapply
   end HackedGuard
 
   extension (tree: TypeDef)
@@ -375,7 +376,7 @@ abstract class CommonPhase extends PluginPhase:
 
   extension (sym: Symbol)(using Context)
     def getFinalName(name: String = sym.name.toString): String =
-      sym.getAnnotation(defn.TargetNameAnnot)
+      sym.getAnnotation(setNameAnnotSym)
         .flatMap(_.argumentConstantString(0))
         .getOrElse(name)
 
@@ -390,7 +391,7 @@ abstract class CommonPhase extends PluginPhase:
         report.error(
           s"""Unsupported DFHDL member name $finalName.
              |Only alphanumric or underscore characters are supported.
-             |You can leave the Scala name as-is and add @targetName("newName") annotation.""".stripMargin,
+             |You can leave the Scala name as-is and add @hw.annotation.setName("newName") annotation.""".stripMargin,
           posTree.srcPos
         )
       finalName
@@ -548,6 +549,7 @@ abstract class CommonPhase extends PluginPhase:
     positionGenSym = requiredMethod("dfhdl.internals.Position.fromAbsPath")
     hasDFCTpe = requiredClassRef("dfhdl.core.HasDFC")
     inlineAnnotSym = requiredClass("scala.inline")
+    setNameAnnotSym = requiredClass("dfhdl.hw.annotation.setName")
     constModTpe = requiredClassRef("dfhdl.core.ISCONST").appliedTo(ConstantType(Constant(true)))
     inArgAnnotSym = requiredClass("dfhdl.core.IN")
     outArgAnnotSym = requiredClass("dfhdl.core.OUT")

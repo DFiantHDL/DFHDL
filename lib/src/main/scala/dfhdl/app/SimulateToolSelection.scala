@@ -15,22 +15,34 @@ object SimulateToolSelection:
     def parse(
         arg: String
     ): Either[String, Option[SimulateToolSelection]] =
-      def parseTool(toolName: String): Option[dfhdl.tools.toolsCore.Simulator] =
+      // `nvc` serves both languages, so in the two-tool `/` syntax it resolves by its slot
+      // (first is the Verilog side, second is the VHDL side); the bare single `nvc` is handled
+      // as a both-languages selection below, like `questa` and `vivado`.
+      def parseTool(
+          toolName: String,
+          verilogSlot: Boolean
+      ): Option[dfhdl.tools.toolsCore.Simulator] =
         toolName match
           case "verilator" => Some(simulators.verilator)
           case "iverilog"  => Some(simulators.iverilog)
+          case "xezim"     => Some(simulators.xezim)
           case "vlog"      => Some(simulators.vlog)
           case "xvlog"     => Some(simulators.xvlog)
           case "ghdl"      => Some(simulators.ghdl)
-          case "nvc"       => Some(simulators.nvc)
-          case "vcom"      => Some(simulators.vcom)
-          case "xvhdl"     => Some(simulators.xvhdl)
-          case _           => None
+          case "nvc"       =>
+            if (verilogSlot) Some(simulators.verilogSimulators.nvc)
+            else Some(simulators.vhdlSimulators.nvc)
+          case "vcom"  => Some(simulators.vcom)
+          case "xvhdl" => Some(simulators.xvhdl)
+          case _       => None
       val toolNames = arg.split("\\/").toList
       val parsedTools = arg match
         case "questa" | "vsim" => List(Some(simulators.vlog), Some(simulators.vcom))
         case "vivado" | "xsim" => List(Some(simulators.xvlog), Some(simulators.xvhdl))
-        case _                 => toolNames.map(parseTool)
+        case "nvc"             =>
+          List(Some(simulators.verilogSimulators.nvc), Some(simulators.vhdlSimulators.nvc))
+        case _ =>
+          toolNames.zipWithIndex.map((name, idx) => parseTool(name, verilogSlot = idx == 0))
       parsedTools match
         case Some(tool: VerilogSimulator) :: Nil =>
           Right(Some(SimulateToolSelection(tool, so.vhdlSimulator)))

@@ -269,6 +269,36 @@ class MetaContextPlacerPhase(setting: Setting) extends CapturePhase, IdentityDen
           // parameters into design-parameter members — other `HasClsMeta` classes (e.g.
           // platform resources) may carry DFHDL-value parameters that must stay untouched
           val hasClsArgs = clsTpe <:< hasClsArgsTpe
+          // a design/interface class must declare all its DFHDL parameters in a single
+          // parameter block: the plugin's parameter threading assumes it, and a default
+          // value in a later DFHDL block crashes the compiler downstream (issue #456).
+          // Plain Scala parameter blocks are free, so a dependent-typed DFHDL parameter
+          // block after a plain block (e.g. RTGenericRom's `depth.type`-sized ROM) stays
+          // legal
+          if (hasClsArgs)
+            val termParamss = template.constr.termParamss
+            termParamss.filter(_.exists(_.dfValTpeOpt.nonEmpty)) match
+              case _ :: secondBlock :: _ =>
+                report.error(
+                  """|A DFHDL design/interface class must declare all its DFHDL parameters in a single parameter block.
+                     |For a parameter that depends on an earlier parameter, use a derived value in the class body instead.""".stripMargin,
+                  secondBlock.head.srcPos
+                )
+              case _ =>
+                // a DFHDL parameter default in a non-first block generates a default getter
+                // that takes the earlier blocks' parameters as arguments, which the
+                // parameter threading cannot consume
+                for
+                  block <- termParamss.drop(1)
+                  v <- block
+                  if v.dfValTpeOpt.nonEmpty && v.symbol.is(HasDefault)
+                do
+                  report.error(
+                    "A DFHDL parameter with a default value must be declared in the first parameter block.",
+                    v.srcPos
+                  )
+            end match
+          end if
           val (updatedBody, containerParamGenValDefs) = dfcArgOpt match
             case Some(dfcTree) if hasClsArgs =>
               val defaults = defaultParamMap.getOrElse(clsSym, Map.empty)

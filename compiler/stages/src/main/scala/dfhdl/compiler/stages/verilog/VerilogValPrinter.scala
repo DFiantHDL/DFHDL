@@ -157,6 +157,23 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             s"${literalGroupOpen}default: ${argL.refCodeString}}"
           case _ =>
             s"{${argR.refCodeString.applyBrackets()}{${argL.refCodeString}}}"
+      // A carry-shaped arithmetic func (operands widened by exactly the carry bit, see
+      // `CarryFunc`) prints BARE (`x - y`) when every consumer provides an evaluation
+      // context at least as wide as the func: a net's RHS takes the target's width, and a
+      // same-width func operand is context-determined at the parent's width. Under any
+      // other consumer (an alias: a sign-conversion concatenation or a resize macro,
+      // where the operand would be self-determined) the operands keep their explicit
+      // widened forms, which are width-correct in every context.
+      case argL :: argR :: Nil if CarryFunc.unapply(dfVal).nonEmpty && {
+            dfVal.getReadDeps.forall {
+              case _: DFNet      => true
+              case _: DFVal.Func => true
+              case _             => false
+            }
+          } =>
+        val csX = argL.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString
+        val csY = argR.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString
+        s"${csX.applyBrackets()} ${dfVal.op} ${csY.applyBrackets()}"
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         val isInfix = dfVal.op match
@@ -215,6 +232,20 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               case VerilogDialect.v95 | VerilogDialect.v2001 => ""
               case _                                         => "$"
             s"${internalLog}clog2($argStr)"
+          case Func.Op.width | Func.Op.length =>
+            val supportsQuerySyntax = printer.dialect match
+              case VerilogDialect.v95 | VerilogDialect.v2001 => false
+              case _                                         => true
+            (dfVal.op, arg.get.dfType) match
+              // a vector's element count (`DropStructsVecs` folds these for the pre-SV
+              // dialects, so only a SystemVerilog `$size` spelling is ever needed)
+              case (Func.Op.length, _: DFVector) =>
+                if (supportsQuerySyntax) s"$$size($argStrB)" else printer.unsupported
+              case (_, argType) =>
+                if (supportsQuerySyntax) s"$$bits($argStrB)"
+                // pre-SystemVerilog dialects have no width query; inline the width
+                // parameter expression, which is what the type declaration itself prints
+                else csInlinedWidth(argType)
           case _ => printer.unsupported
         end match
       // multiarg func
@@ -281,25 +312,35 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         if (printer.allowSignedKeywordAndOps) s"$$signed($relValStr)"
         else relValStr
       case (DFBits(toWidthRef), DFBits(fromWidthRef)) =>
-        if (printer.allowWidthCastSyntax)
-          s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
-        else
-          val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
-          if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
-          else
-            s"`EXTEND_U($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
+        toWidthRef.widenDeltaOpt(fromWidthRef) match
+          // a widening whose delta folds to a literal prints as the relative,
+          // width-free `EBY_U` form
+          case Some(k) => s"`EBY_U($relValStr, $k)"
+          case _       =>
+            if (printer.allowWidthCastSyntax)
+              s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
+            else
+              val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
+              if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
+              else
+                s"`EXTEND_U($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
       case (t, DFOpaque(actualType = ot)) if ot =~ t =>
         relValStr
       case (DFOpaque(_, _, _, _), _) =>
         relValStr
       case (DFUInt(toWidthRef), DFUInt(fromWidthRef)) =>
-        if (printer.allowWidthCastSyntax)
-          s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
-        else
-          val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
-          if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
-          else
-            s"`EXTEND_U($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
+        toWidthRef.widenDeltaOpt(fromWidthRef) match
+          // a widening whose delta folds to a literal prints as the relative,
+          // width-free `EBY_U` form
+          case Some(k) => s"`EBY_U($relValStr, $k)"
+          case _       =>
+            if (printer.allowWidthCastSyntax)
+              s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
+            else
+              val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
+              if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
+              else
+                s"`EXTEND_U($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
       case (DFUInt(tWidthRef), DFInt32) =>
         if (printer.allowWidthCastSyntax)
           s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
@@ -309,16 +350,47 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else relValStr
       case (DFSInt(toWidthRef), DFSInt(fromWidthRef)) =>
-        if (printer.allowWidthCastSyntax)
-          s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
-        else
-          val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
-          if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
-          else
-            if (printer.allowSignedKeywordAndOps)
-              s"`EXTEND_S($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
-            else
-              s"`EXTEND_S_V95($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
+        // Fused sign-conversion widening: the conversion's added sign bit is zero, so
+        // sign-extending its result equals zero-extending the unsigned operand, in one
+        // step. The fusion is also load-bearing in basic Verilog: the EXTEND_S macros
+        // bit-select their operand, which must be an indexable primary, while the
+        // conversion alone would print as a (non-indexable) concatenation.
+        val fused = relVal match
+          case signConv: Alias.AsIs if signConv.isAnonymous =>
+            (signConv.dfType, signConv.relValRef.get.dfType) match
+              case (DFSInt(_), DFUInt(vWidthRef)) =>
+                val vStr = signConv.relValRef.refCodeString
+                val ext = toWidthRef.widenDeltaOpt(vWidthRef) match
+                  case Some(k) => s"`EBY_U($vStr, $k)"
+                  case _       =>
+                    s"`EXTEND_U($vStr, ${vWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
+                Some(if (printer.allowSignedKeywordAndOps) s"$$signed($ext)" else ext)
+              case _ => None
+          case _ => None
+        fused.getOrElse {
+          toWidthRef.widenDeltaOpt(fromWidthRef) match
+            // A widening whose delta folds to a literal prints as the relative `EBY_S`
+            // form (width-free via $bits in SystemVerilog; sign-bit index via the source
+            // width in basic Verilog). EBY_S bit-selects its operand, which must be an
+            // indexable primary: basic Verilog guarantees it by the NamedVerilogSelection
+            // criterion; SystemVerilog names only funcs there, so an anonymous alias
+            // operand keeps the (absolute) cast form instead.
+            case Some(k) if !(printer.allowWidthCastSyntax && relVal.isAnonymous) =>
+              if (printer.allowWidthCastSyntax) s"`EBY_S($relValStr, $k)"
+              else if (printer.allowSignedKeywordAndOps)
+                s"`EBY_S($relValStr, ${fromWidthRef.refCodeString}, $k)"
+              else s"`EBY_S_V95($relValStr, ${fromWidthRef.refCodeString}, $k)"
+            case _ =>
+              if (printer.allowWidthCastSyntax)
+                s"${toWidthRef.refCodeString.applyBrackets()}'($relValStr)"
+              else
+                val truncate = toWidthRef.compare(fromWidthRef)(_ < _).getOrElse(false)
+                if (truncate) s"`TRUNCATE($relValStr, ${fromWidthRef.refCodeString})"
+                else if (printer.allowSignedKeywordAndOps)
+                  s"`EXTEND_S($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
+                else
+                  s"`EXTEND_S_V95($relValStr, ${fromWidthRef.refCodeString}, ${toWidthRef.refCodeString})"
+        }
       case (DFUInt(tWidthRef), DFBit | DFBool) =>
         if (printer.allowWidthCastSyntax)
           s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"

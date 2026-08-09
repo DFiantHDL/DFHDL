@@ -147,6 +147,32 @@ case object DropStructsVecs extends GlobalStage:
       dsn.patch
     end stage1Patch
 
+    // A `length` query over a vector is folded into the vector's element-count parameter
+    // value: the drop retargets the query's argument to the flattened Bits replacement,
+    // whose own width/length is the vector's TOTAL width, so the element count must be
+    // materialized while the vector type still exists. (A `width` query needs no fold:
+    // flattening preserves the total width, and the pre-SV dialects inline it at print.)
+    def lengthFoldPatch(func: DFVal.Func, vecType: DFVector)(using
+        MemberGetSet
+    ): (DFMember, Patch) =
+      val dsn = new MetaDesign(
+        func,
+        Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove)
+      ):
+        // a fresh clone for an anonymous element-count cone: the original stays referenced
+        // by the (block-ram) vector type, and an anonymous value may be read exactly once
+        val lengthParam = vecType.cellDimParamRefs.head.get.cloneAnonValueAndDepsHere
+        lengthParam.toScalaIntOpt match
+          case Some(int) =>
+            dfhdl.core.DFConstInt32(int, named = true)(using dfc.setMeta(func.meta))
+          case None =>
+            // parametric element count: rebind the referenced value under the query's meta
+            dfhdl.core.DFVal.Alias.AsIs.ident(lengthParam.toDFConst(using dfc.anonymize))(using
+              dfc.setMeta(func.meta)
+            )
+      dsn.patch
+    end lengthFoldPatch
+
     val stage1Subs: ListMap[StaticRef, DB] = ListMap.from(
       designDB.subDBs.iterator.map { (key, sub) =>
         val patchList = sub.atGetSet {
@@ -156,6 +182,8 @@ case object DropStructsVecs extends GlobalStage:
               // every sub-DB that holds it (see `globalStage1Patch`)
               if (dfVal.isGlobal) globalStage1Patch.getOrElseUpdate(dfVal, stage1Patch(dfVal))
               else stage1Patch(dfVal)
+            case func @ DFVal.Func(op = FuncOp.length, args = List(DFRef(DFVector.Val(vecType)))) =>
+              lengthFoldPatch(func, vecType)
           }
         }
         key -> sub.patch(patchList)

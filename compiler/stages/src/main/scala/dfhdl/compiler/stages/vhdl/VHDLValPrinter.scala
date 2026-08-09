@@ -66,6 +66,17 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case _ =>
             println(dfVal)
             ???
+      // carry-shaped arithmetic (operands widened by exactly the carry bit, see
+      // `CarryFunc`): `+`/`-` reconstruct the cadd/csub carry helpers; a carry `*`
+      // prints its bases bare, numeric_std multiplication being naturally full-width
+      // (a'length + b'length)
+      case argL :: argR :: Nil if CarryFunc.unapply(dfVal).nonEmpty =>
+        val csX = argL.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString
+        val csY = argR.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString
+        dfVal.op match
+          case Func.Op.+ => s"cadd($csX, $csY)"
+          case Func.Op.- => s"csub($csX, $csY)"
+          case _         => s"${csX.applyBrackets()} * ${csY.applyBrackets()}"
       // infix/regular func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         var infix = true
@@ -91,17 +102,6 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
               case _         =>
                 infix = false
                 "slv_srl"
-          // if the result width for +/-/* ops is larger than the left argument width
-          // then we have a carry-inclusive operation. to simplify the check given possible
-          // parameterized widths, we will just compare the type structure and assume the
-          // width is larger under such conditions.
-          case op @ (Func.Op.+ | Func.Op.- | Func.Op.`*`)
-              if !dfVal.dfType.isSimilarTo(argL.get.dfType) =>
-            infix = false
-            op match
-              case Func.Op.+   => "cadd"
-              case Func.Op.-   => "csub"
-              case Func.Op.`*` => "cmul"
           case _ => commonOpStr
         if (infix)
           s"${argL.refCodeString.applyBrackets()} $opStr ${argR.refCodeString.applyBrackets()}"
@@ -118,13 +118,36 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
             dfVal.dfType match
               case dfType: DFEnum => s"toggle($argStrB)"
               case _              => s"not $argStrB"
-          case Func.Op.unary_~ => s"not $argStrB"
-          case Func.Op.&       => s"and reduce $argStrB"
-          case Func.Op.|       => s"or reduce $argStrB"
-          case Func.Op.^       => s"xor reduce $argStrB"
-          case Func.Op.abs     => s"abs($argStr)"
-          case Func.Op.clog2   => s"clog2($argStr)"
-          case _               => printer.unsupported
+          case Func.Op.unary_~                => s"not $argStrB"
+          case Func.Op.&                      => s"and reduce $argStrB"
+          case Func.Op.|                      => s"or reduce $argStrB"
+          case Func.Op.^                      => s"xor reduce $argStrB"
+          case Func.Op.abs                    => s"abs($argStr)"
+          case Func.Op.clog2                  => s"clog2($argStr)"
+          case Func.Op.width | Func.Op.length =>
+            // Only a CONSTANT argument (a generic or a constant) may be named from every
+            // context this query can print into -- in particular a design-level constant
+            // becomes a GENERIC whose default cannot reference a port. A non-constant
+            // argument (a port, a variable) inlines the width parameter expression
+            // instead, which is what the argument's own subtype indication prints.
+            if (arg.get.isConst)
+              (dfVal.op, arg.get.dfType) match
+                // every `length` receiver and every flat-array rendering (std_logic_vector,
+                // unsigned, signed, fixed-point) spells the query with 'length (a
+                // fixed-point array spans its fraction bits, so its 'length is the total
+                // width too)
+                case (Func.Op.length, _)                 => s"$argStrB'length"
+                case (_, dt: DFDecimal) if !dt.isDFInt32 => s"$argStrB'length"
+                case (_, _: DFBits)                      => s"$argStrB'length"
+                // every other rendering (integer, std_logic, boolean, enum, record, vector
+                // array, opaque) is covered by the `bitWidth` overload family the printer
+                // already emits (dfhdl_pkg + the per-named-type support functions)
+                case _ => s"bitWidth($argStr)"
+            else
+              (dfVal.op, arg.get.dfType) match
+                case (Func.Op.length, vec: DFVector) => vec.cellDimParamRefs.head.refCodeString
+                case (_, argType)                    => csInlinedWidth(argType)
+          case _ => printer.unsupported
         end match
       // multiarg func
       case args =>
@@ -167,6 +190,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                   .mkString(s" ${commonOpStr} ")
     end match
   end csDFValFuncExpr
+
   def csFixedCond(condRef: DFRef.TwoWay[DFVal, ?]): String =
     val requiresBoolConv =
       if (printer.inVHDL93)
@@ -217,23 +241,32 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     val fromType = relVal.dfType
     val toType = dfVal.dfType
     (toType, fromType) match
-      case (t, f) if t == f               => relValStr
-      case (DFSInt(tWidthRef), DFUInt(_)) =>
-        s"signed(resize($relValStr, ${tWidthRef.refCodeString}))"
+      case (t, f) if t == f                       => relValStr
+      case (DFSInt(tWidthRef), DFUInt(fWidthRef)) =>
+        tWidthRef.widenDeltaOpt(fWidthRef) match
+          // a widening whose delta folds to a literal prints as the relative `eby` form
+          case Some(k) => s"signed(eby($relValStr, $k))"
+          case _       => s"signed(resize($relValStr, ${tWidthRef.refCodeString}))"
       case (DFUInt(tWidthRef), DFSInt(_)) =>
         s"resize(unsigned($relValStr), ${tWidthRef.refCodeString})"
-      case (DFBits(tWidthRef), DFBits(_)) =>
-        s"resize($relValStr, ${tWidthRef.refCodeString})"
+      case (DFBits(tWidthRef), DFBits(fWidthRef)) =>
+        tWidthRef.widenDeltaOpt(fWidthRef) match
+          case Some(k) => s"eby($relValStr, $k)"
+          case _       => s"resize($relValStr, ${tWidthRef.refCodeString})"
       case (toType: DFType, fromType: DFBits) =>
         csBitsToType(toType, relValStr)
       case (DFBits(tWidthRef), DFBit | DFBool) =>
         s"to_slv($relValStr, ${tWidthRef.refCodeString})"
       case (DFBits(_), fromType: DFType) =>
         csToSLV(fromType, relValStr)
-      case (DFUInt(tWidthRef), DFUInt(_)) =>
-        s"resize($relValStr, ${tWidthRef.refCodeString})"
-      case (DFSInt(tWidthRef), DFSInt(_)) =>
-        s"resize($relValStr, ${tWidthRef.refCodeString})"
+      case (DFUInt(tWidthRef), DFUInt(fWidthRef)) =>
+        tWidthRef.widenDeltaOpt(fWidthRef) match
+          case Some(k) => s"eby($relValStr, $k)"
+          case _       => s"resize($relValStr, ${tWidthRef.refCodeString})"
+      case (DFSInt(tWidthRef), DFSInt(fWidthRef)) =>
+        tWidthRef.widenDeltaOpt(fWidthRef) match
+          case Some(k) => s"eby($relValStr, $k)"
+          case _       => s"resize($relValStr, ${tWidthRef.refCodeString})"
       case (t, DFOpaque(actualType = ot)) if ot =~ t =>
         relValStr
       case (DFOpaque(_, _, _, _), _) =>

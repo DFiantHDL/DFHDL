@@ -83,7 +83,7 @@ class NameRegAliasesSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  y1.din := x1 + sd"16'1"
          |  z.din := x2 << 1
          |  y2_part1_reg.din := x2(7, 0)
-         |  y2_part2_reg1.din := y2_part1_reg.resize(16)
+         |  y2_part2_reg1.din := y2_part1_reg.eby(8)
          |  y2_part2_reg2.din := y2_part2_reg1
          |  y2 := y2_part2_reg2 | z
          |end ID

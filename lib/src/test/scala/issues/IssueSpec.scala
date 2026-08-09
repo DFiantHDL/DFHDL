@@ -88,4 +88,6 @@ class IssuesSpec extends FunSuite:
     i375.draw_line().compile
   test("i450 compiles with no exception"):
     i450.TopC().compile
+  test("i458 design class named `top` compiles with no exception"):
+    i458.top().compile
 end IssuesSpec

@@ -219,6 +219,8 @@ class Foo extends DFDesign:
     o := 0
 ```
 
+* Named DFTypes, such as an [enum][DFEnum], a [struct][DFStruct], or an [opaque][DFOpaque] type, may be declared at global scope (shared across designs) **or** inside a design class body (private to that design). Unlike ports and variables, they are not restricted to non-global scopes. See [Declaration Scope][DFEnum] for which to choose and what it means for the generated HDL.
+
 #### Naming {#dcl-naming}
 Ports and variables must always be named, and cannot be anonymous. 
 
@@ -976,6 +978,8 @@ class Foo extends RTDesign:
 ```
 ///
 
+**Operations on this type:** [Logical Operations][logical-ops] (`&`, `|`, `^`, `~`, `&&`, `||`, `!`), [Comparison Operations][comparison-ops] (`==`/`!=` only, with a `Bit`/`Boolean` as an operand), [Selection][sel-ops] (as the condition, and as a selected argument), [Edge Detection][history-ops] (`.rising`, `.falling`, `Bit` only), and [conversions to and from `Bits`/`Boolean`][bit-bool-cast].
+
 ### `Bits` {#DFBits}
 
 `Bits` DFHDL values represent vectors of DFHDL `Bit` values as elements. 
@@ -1338,6 +1342,56 @@ enum MyEnum extends Encoded:
 #### Type Signatures
 `MyEnum <> VAL`, `MyEnum <> CONST`. The enum name itself is the type, with no size parameter.
 
+#### Declaration Scope
+
+An enum may be declared at **top level**, where it is shared by every design in the compilation unit, or **inside a design class body**, where it is private to that design. A per-design FSM state type belongs inside the class:
+
+```scala
+class Child extends EDDesign:
+  enum State extends Encoded:
+    case IDLE, DRAW
+  val state = State <> VAR
+  // ...
+
+class Parent extends EDDesign:
+  enum State extends Encoded:
+    case IDLE, BUSY, HOLD
+  val state = State <> VAR
+  val c = new Child
+```
+
+Where the **generated** typedef lands is decided by **usage**, not by where the enum is declared in Scala. An enum used inside a single design is emitted module-scoped; an enum that has to be visible to more than one design (because it appears in a port type, for instance) is emitted into the design's [global definitions file][global-defs] instead.
+
+Because a single-design enum is module-scoped, two designs may nest identically named enums of different widths with no conflict:
+
+```systemverilog
+module Child(...);
+  typedef enum logic [0:0] { State_IDLE = 0, State_DRAW = 1 } t_enum_State;
+  t_enum_State state;
+endmodule
+
+module Parent(...);
+  typedef enum logic [1:0] { State_IDLE = 0, State_BUSY = 1, State_HOLD = 2 } t_enum_State;
+  t_enum_State state;
+  Child c(...);
+endmodule
+```
+
+Put the same enum in a port type and it moves out to the shared file, since both modules must name the same type. That is a property of how the type is used, so a top-level Scala declaration is not required to get it, and does not by itself cause it.
+
+/// admonition | Two top-level enums of the same name
+    type: warning
+Declaring the same enum name at top level in two files of one compilation unit is a duplicate definition. The first error says so plainly, but the errors after it do not:
+
+```
+State is already defined as class State in ./src/ModA.scala
+value IDLE is not a member of State$2
+value BUSY is not a member of State, but could be made available as an extension method.
+```
+
+The mangled `State$2` and the import suggestions that follow are dead ends. Read the first line, and prefer nesting the enum inside the design that uses it.
+///
+
 #### Encoding Types
 
 DFHDL supports several encoding schemes for enums:
@@ -1389,6 +1443,8 @@ state match
   case MyEnum.C => // handle C
 ```
 
+Listing every declared entry makes the match exhaustive, yet a wildcard `case _ =>` branch is still permitted: it covers any encoding of the underlying register that no entry names. See [Enum Matches and the Wildcard `case _`][enum-match-wildcard] for when to include it.
+
 #### Examples
 
 ```scala
@@ -1409,6 +1465,8 @@ class CPU extends RTDesign:
     case State.Store =>
       // Store state logic
 ```
+
+**Operations on this type:** [Comparison Operations][comparison-ops] (`==`/`!=` between values of the same enum type), [Selection][sel-ops] (enum values are valid `.sel` arguments), [pattern matching](#pattern-matching), and [`Enum` to `UInt` conversion][enum-uint-cast].
 
 ### Vector {#DFVector}
 
@@ -1779,6 +1837,13 @@ class Example extends EDDesign:
 ```
 ## Operations
 
+/// admonition | Which operations apply to which types
+    type: note
+Every section in this part opens with an **`Applies to:`** line naming the types the operation accepts. Those lines are the reference for "does this type support this operation": they are meant to be exhaustive, so a type absent from one is a type the operation does not accept.
+
+Read that line before concluding an operation is unavailable. The operations reference sits below the whole type reference, so it is easy to work through the type sections and never reach the section that actually decides whether an expression is legal.
+///
+
 ### Constant Propagation
 
 When all operands of an expression are constants (`CONST`), the result is also a constant. This includes Scala `Int` literals, DFHDL `Int` parameters, and bit-accurate constants created with `d""` or `sd""`.
@@ -1889,7 +1954,7 @@ Applies to: `Bits`, `UInt`, `SInt`
 
 - **Range slice**: `value(hi, lo)` extracts bits `hi` down to `lo`. A slice is a bit-level operation and produces an unsigned result: `Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `UInt`. This matches Verilog's "slices are unsigned" convention. To recover signed bit-semantics on an `SInt` slice, chain `.bits.sint` to re-interpret the slice as signed (same width). Do **not** use `.signed` for this: `.signed` is a numeric conversion that adds a zero-extension sign bit, widening by 1.
 - **Top/bottom slice**: `value.msbits(W)` returns the top `W` bits and `value.lsbits(W)` returns the bottom `W` bits, with the same unsigned-result rule as range slicing (`Bits` → `Bits`, `UInt` → `UInt`, `SInt` → `UInt`). Equivalent to `value(N-1, N-W)` and `value(W-1, 0)` respectively, but without needing to spell out the indices.
-- **Part-select (anchored slice)**: `value.lsbitsAt(baseIdx, selWidth)` returns `selWidth` bits whose LSB is anchored at `baseIdx`, and `value.msbitsAt(baseIdx, selWidth)` returns `selWidth` bits whose MSB is anchored at `baseIdx`. These are the DFHDL equivalents of Verilog's ascending (`value[baseIdx +: selWidth]`) and descending (`value[baseIdx -: selWidth]`) part-selects, equivalent to `value(baseIdx + selWidth - 1, baseIdx)` and `value(baseIdx, baseIdx - selWidth + 1)` respectively, with the same unsigned-result rule. The generalization of the top/bottom slices: `msbits(W)` is `msbitsAt(N-1, W)` and `lsbits(W)` is `lsbitsAt(0, W)`. Both arguments must be elaboration-time constants (Scala `Int` values or `Int` parameters).
+- **Part-select (anchored slice)**: `value.lsbitsAt(baseIdx, selWidth)` returns `selWidth` bits whose LSB is anchored at `baseIdx`, and `value.msbitsAt(baseIdx, selWidth)` returns `selWidth` bits whose MSB is anchored at `baseIdx`. These are the DFHDL equivalents of Verilog's ascending (`value[baseIdx +: selWidth]`) and descending (`value[baseIdx -: selWidth]`) part-selects, equivalent to `value(baseIdx + selWidth - 1, baseIdx)` and `value(baseIdx, baseIdx - selWidth + 1)` respectively, with the same unsigned-result rule. The generalization of the top/bottom slices: `msbits(W)` is `msbitsAt(N-1, W)` and `lsbits(W)` is `lsbitsAt(0, W)`. The **width** must always be an elaboration-time constant (a Scala `Int` value or an `Int` parameter). The **base** must be too, with one exception: inside an ED `process`, the base may be an expression over a process-scope `for` iterator, which emits a variable-base part-select. See [ED Domain Loops][loops] for what that iterator is and is not.
 - **Single-bit access**: `value(idx)` returns the bit at position `idx` (as `Bit`). The index can be a static integer or a dynamic `UInt` variable.
 
 ```scala
@@ -1962,6 +2027,7 @@ Applies to: `Bits`, `UInt`, `SInt`
 
 - `.resize(N)` sets the width to exactly `N` bits. For `UInt` and `Bits`, widening zero-extends; for `SInt`, widening sign-extends. Narrowing truncates the most-significant bits.
 - `.resize` (no argument) automatically adjusts the width to match the assignment or operation context; narrowing or widening as needed.
+- `.eby(K)` extends the width by `K` bits, *relative* to the current width; sugar for `.resize(width + K)`. `K` must be positive, so `.eby` always widens (zero-extension for `UInt` and `Bits`, sign-extension for `SInt`). This is the **canonical widening spelling**: elaboration prints any widening whose delta is a known number of bits in this relative form (a user-written `x.resize(9)` over an 8-bit `x` prints back as `x.eby(1)` -- the two produce identical designs). It is also the form that scales to parametric widths, where the absolute spelling would repeat the symbolic expression: `x.eby(1)` instead of `x.resize(W + 1)`. Absolute `.resize` remains the spelling for narrowing and for widths given by a named parameter.
 
 ```scala
 val b8 = Bits(8) <> VAR
@@ -1978,6 +2044,13 @@ val s8 = SInt(8) <> VAR
 val s4 = SInt(4) <> VAR
 s8 := s4.resize       // sign-extend to match s8's width
 s4 := s8.resize(4)    // explicit narrow to 4 bits
+
+// relative widening, most useful with parametric widths
+val W: Int <> CONST = 8
+val sW  = SInt(W) <> VAR
+val sW2 = SInt(W + 2) <> VAR
+sW2 := sW.eby(2)      // sign-extend by 2 bits (to W + 2)
+b8 := b4.eby(4)       // zero-extend by 4 bits; same design as b4.resize(8)
 ```
 
 ### Bit Concatenation {#bit-concat}
@@ -1995,9 +2068,25 @@ val wide = (u8, u4).toBits                        // Bits[12]
 
 Values are concatenated from the first (most-significant) to the last (least-significant) position.
 
+/// admonition | Building a value from a Scala collection
+    type: note
+To assemble a value from a collection of **single-bit** sources, connect each bit of the target individually in a loop:
+
+```scala
+class Foo extends EDDesign:
+  val data  = Bits(9 * 8) <> IN
+  val thr   = UInt(8)     <> IN
+  val flags = Bits(9)     <> OUT
+  for (i <- 0 until 9)
+    flags(i) <> (data.lsbitsAt(i * 8, 8).uint >= thr)
+```
+
+For **wider lanes**, accumulate with a Scala `#!scala var` ascribed to an unbounded `Bits[Int]`, as in the [`LaneConcat` example][scala-var]. The ascription is what keeps the accumulator's width from being fixed by the first element.
+///
+
 ### Logical Operations {#logical-ops}
 
-Applies to: `Bit`, `Boolean`. The bitwise NOT (`~`) additionally applies to `Bits` and `UInt` vectors.
+Applies to: `Bit`, `Boolean`. For the elementwise bitwise operations on `Bits`/`UInt` vectors (`&`, `|`, `^`, `~`), see [Bitwise Operations][bitwise-ops].
 
 Logical operations' return type always matches the LHS argument's type.
 These operations propagate constant modifiers, meaning that if all arguments are constant, the returned value is also a constant.
@@ -2012,7 +2101,6 @@ These operations propagate constant modifiers, meaning that if all arguments are
 | `lhs ^ rhs`  | Logical XOR | The LHS argument must be a `Bit`/`Boolean` DFHDL value. The RHS must be a `Bit`/`Boolean` candidate. | LHS-Type DFHDL value |
 | `!lhs` | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
 | `~lhs` | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
-| `~lhs` | Bitwise NOT (invert all bits) | The argument must be a `Bits`/`UInt` DFHDL value. | LHS-Type DFHDL value |
 ///
 
 ```scala
@@ -2028,13 +2116,6 @@ val t6 = bl ^ 0 || !bt
 //conversions, looks like so:
 //(bl && bt.bool) ^ (!(bt || bl.bit)).bool
 val t7 = (bl && bt) ^ !(bt || bl)
-//bitwise NOT on `Bits`/`UInt` vectors
-//inverts all bits and preserves the
-//argument's type
-val v8 = Bits(8) <> VAR
-val u8 = UInt(8) <> VAR
-val t8 = ~v8         //result type: Bits[8]
-val t9 = ~u8         //result type: UInt[8]
 //error: swap argument positions to have
 //the DFHDL value on the LHS.
 val e1 = 0 ^ bt      
@@ -2069,7 +2150,6 @@ Under the ED domain, the following operations are equivalent:
 | `!lhs`          | `~lhs`                      | `!lhs`                          |
 | `~lhs`          | `~lhs`                      | `!lhs`                          |
 
-For `Bits`/`UInt` vector values, `~lhs` maps directly to Verilog's bitwise NOT `~lhs`.
 ///
 
 /// details | Transitioning from VHDL
@@ -2083,14 +2163,61 @@ Under the ED domain, the following operations are equivalent:
 | `lhs ^ rhs`     | `lhs xor rhs`     |
 | `!lhs`          | `not lhs`         |
 
-For `Bits`/`UInt` vector values, `~lhs` maps to VHDL's `not lhs`.
+///
+
+### Bitwise Operations {#bitwise-ops}
+
+Applies to: `Bits`, `UInt`
+
+Bitwise operations apply **elementwise** on their vector arguments' bits, and their return type always matches the LHS argument's type.
+These operations propagate constant modifiers, meaning that if all arguments are constant, the returned value is also a constant.
+Do not confuse the two-operand `&`/`|`/`^` with the single-operand postfix [reduction operators][reduction-ops] `.&`/`.|`/`.^`, which fold a vector into a single `Bit`.
+
+/// html | div.operations
+| Operation    | Description | LHS/RHS Constraints | Returns |
+| ------------ | ----------- | ------------------- | ------- |
+| `lhs & rhs`  | Bitwise AND | The LHS argument must be a `Bits`/`UInt` DFHDL value. The RHS must match the LHS type and width (for `Bits`, any same-width `Bits` candidate). | LHS-Type DFHDL value |
+| `lhs | rhs` | Bitwise OR  | The LHS argument must be a `Bits`/`UInt` DFHDL value. The RHS must match the LHS type and width (for `Bits`, any same-width `Bits` candidate). | LHS-Type DFHDL value |
+| `lhs ^ rhs`  | Bitwise XOR | The LHS argument must be a `Bits`/`UInt` DFHDL value. The RHS must match the LHS type and width (for `Bits`, any same-width `Bits` candidate). | LHS-Type DFHDL value |
+| `~lhs` | Bitwise NOT (invert all bits) | The argument must be a `Bits`/`UInt` DFHDL value. | LHS-Type DFHDL value |
+///
+
+```scala
+val v8 = Bits(8) <> VAR
+val m8 = Bits(8) <> VAR
+val u8 = UInt(8) <> VAR
+//bitwise NOT inverts all bits and
+//preserves the argument's type
+val t1 = ~v8          //result type: Bits[8]
+val t2 = ~u8          //result type: UInt[8]
+//AND/OR/XOR apply elementwise between
+//two same-width vectors and preserve
+//the LHS type
+val t3 = v8 | m8      //result type: Bits[8]
+val t4 = v8 & h"F0"   //result type: Bits[8]
+val t5 = u8 ^ d"8'85" //result type: UInt[8]
+//error: an integer value cannot be a
+//candidate for a Bits type
+val e1 = v8 | 2
+//error: the argument widths must match
+val e2 = v8 ^ b"1010"
+```
+
+/// details | Transitioning from Verilog
+    type: verilog
+`lhs & rhs`/`lhs | rhs`/`lhs ^ rhs`/`~lhs` on `Bits`/`UInt` vector values map directly to Verilog's elementwise bitwise `&`/`|`/`^`/`~`. Verilog's same-symbol unary reduction operators (`&v`, `|v`, `^v`) map to the postfix [reduction operators][reduction-ops] instead.
+///
+
+/// details | Transitioning from VHDL
+    type: vhdl
+`lhs & rhs`/`lhs | rhs`/`lhs ^ rhs`/`~lhs` on `Bits`/`UInt` vector values map to VHDL's `and`/`or`/`xor`/`not`.
 ///
 
 ### Bit Reduction Operations (`.&`, `.|`, `.^`) {#reduction-ops}
 
 Applies to: `Bits`, `UInt` (via implicit conversion to `Bits`)
 
-Reduction operators fold all bits of a `Bits` vector into a single `Bit` value. They are the DFHDL equivalents of Verilog's unary reduction operators (`&v`, `|v`, `^v`):
+Reduction operators fold all bits of a `Bits` vector into a single `Bit` value. They are the DFHDL equivalents of Verilog's unary reduction operators (`&v`, `|v`, `^v`); the infix two-operand `&`/`|`/`^` between same-width vectors are separate elementwise operations, covered under [Bitwise Operations][bitwise-ops]:
 
 /// html | div.operations
 | Operation | Description | Returns |
@@ -2123,7 +2250,7 @@ val parity   = b8.^    // Bit: 1 when odd number of bits are 1
 
 ### Selection (`.sel`) {#sel-ops}
 
-Condition: `Bit`, `Boolean`. Arguments: any DFHDL type.
+Applies to: any DFHDL type as the selected arguments; the condition itself is a `Bit` or `Boolean`.
 
 The `.sel` operation is a conditional selection, equivalent to Verilog's ternary operator `cond ? onTrue : onFalse`. It selects between two values based on a `Bit` or `Boolean` condition:
 
@@ -2301,6 +2428,11 @@ Elaborates to:
 ```scala
 o := (i.uint + i.uint).bits
 ```
+The implicit `.bits` result conversion requires an **exact** target width, so the automatic target-context widening described above does not apply to a *wider* `Bits` target (a `Bits(9)` target for `i + i` is a width-mismatch error). `Bits` *operands* widen fine when the target is `UInt`/`SInt` (via their implicit `.uint` conversion); for a genuinely wider `Bits` target, use an explicit carry operation, whose result width then fits exactly:
+```scala
+val o9 = Bits(9) <> OUT
+o9 := i +^ i   // UInt[9] carry result converts to the exact-width Bits(9)
+```
 ///
 
 ```scala
@@ -2340,29 +2472,54 @@ val r13 = d1 + d2         // Double
 val r14 = d1 / d2         // Double
 ```
 
-/// admonition | Overflow and automatic carry promotion
+/// admonition | Overflow and automatic target-context widening
     type: warning
 Standard arithmetic operations wrap on overflow. For example, `d"8'255" + d"8'1"` produces `d"8'0"`. Use the carry variants (`+^`, `-^`, `*^`) described below to get a wider result that preserves the full value.
 
-However, when an **anonymous** arithmetic expression (`+`, `-`, `*`) is assigned or connected to a variable that is **wider** than the operation's result, the operation is **automatically promoted** to a carry operation. This matches Verilog's behavior where the assignment target width determines the operation width. The carry result is then resized to fit the target if needed.
+However, an **anonymous** arithmetic expression (`+`, `-`, `*`, unary `-`) that is assigned or connected to a variable **wider** than the operation's result is re-evaluated at the target's width and sign, exactly like Verilog's assignment-context width propagation: every operand, recursively through the anonymous expression, is widened to the target type, and the operations stay modular at that width. The carry operators are themselves shorthand for exactly this operand-widened evaluation (`x +^ y` is `x.eby(1) + y.eby(1)` with the operands first aligned to a common width), so when a widening lands exactly on a carry shape it prints back as the carry operator.
+
+The widening context also crosses an anonymous `.sel` (matching Verilog's `?:`, whose branch operands are context-determined) and anonymous `if`/`match` **expressions** (matching the per-branch assignments they lower to): each branch re-evaluates at the target, while the selection condition or match selector is unaffected. A **shift**'s left operand is likewise context-determined (matching Verilog; the shift amount is self-determined), as long as the target keeps the operand's signedness: a shift evaluates at its operand's own signedness (an arithmetic-vs-logical `>>` difference), so a sign-crossing shift context is a boundary and the shifted result converts as a plain value there. The context stops at exactly three kinds of boundaries: a **named value** (a `val`-bound expression evaluates at its own declared width and only its result extends), a **carry operation** (its widened result is already exact), and any **other operation** (bitwise logic, comparisons, rotations), whose result converts as a plain value.
 
 ```scala
 val u8  = UInt(8) <> VAR
 val u9  = UInt(9) <> VAR
+val u10 = UInt(10) <> VAR
 val u12 = UInt(12) <> VAR
 val u16 = UInt(16) <> VAR
-u9  := u8 + u8   // promoted to carry addition (width 9), exact fit
-u16 := u8 * u8   // promoted to carry multiplication (width 16), exact fit
-u12 := u8 * u8   // promoted to carry multiplication (width 16), resized to 12
+val s9  = SInt(9) <> VAR
+u9  := u8 + u8   // carry fit: elaborates to u8 +^ u8
+u9  := u8 - u8   // carry fit: elaborates to u8 -^ u8
+u16 := u8 * u8   // carry fit: elaborates to u8 *^ u8
+u12 := u8 * u8   // beyond the carry fit: u8.eby(4) * u8.eby(4)
+u10 := u8 + u8   // target beyond the carry width: u8.eby(2) + u8.eby(2)
+s9  := u8 - u8   // unsigned to signed: operands convert, u8.signed - u8.signed
 
-// Implicit Int operands participate in the promotion:
-u9  := u8 + u8 + 1   // elaborates to u9 := (u8 + u8) +^ d"8'1"
-u12 := u8 + u8 + 1   // elaborates to u12 := ((u8 + u8) +^ d"8'1").resize(12)
+// The context crosses .sel branches (Verilog's ?:), condition untouched:
+val c = Bit <> VAR
+u9 := c.sel(u8 + u8, u8 - u8)   // elaborates to c.sel(u8 +^ u8, u8 -^ u8)
+// ... and if/match EXPRESSION branches the same way:
+u9 := (if (c) u8 + u8 else u8 - u8)   // each branch elaborates as a carry op
 
-// Named expressions are NOT promoted:
+// A shift's LEFT operand is context-determined (the amount is self-determined),
+// so the carry bit survives a >> into a wider target:
+u10 := (u8 + u8) >> 1   // elaborates to (u8.eby(2) + u8.eby(2)) >> 1
+
+// Implicit Int operands and whole chains evaluate at the target width:
+u10 := u8 + u8 + 1   // elaborates to u10 := u8.eby(2) + u8.eby(2) + d"10'1"
+
+// Named expressions are NOT widened:
 val sum = u8 + u8  // UInt[8], named value
-u9 := sum          // resized from 8 to 9, no carry promotion
+u9 := sum          // extended by 1: sum.eby(1)
+
+// Parametric widths decide symbolically and print RELATIVE widenings via `.eby`:
+// for a, b: SInt(W) the following hold
+//   SInt(W + 1) target: sum := a +^ b
+//   SInt(W + 2) target: acc := a.eby(2) + b.eby(2)
+//   SInt(2 * W) target: prod := a *^ b
+//   SInt(W + 1) target: dx := c.sel(b -^ a, a -^ b)
 ```
+
+A parametric width relation is accepted when it holds for **every valid parameter assignment**, using the fact that widths are positive: `SInt(2 * W)` accepts a `W`-wide operation because `2 * W >= W` for any valid `W`. A relation that a valid assignment can violate is definitively rejected (`SInt(W)` never fits a `2 * W`-wide value), and an undecidable one (e.g. a literal target such as `SInt(16)` against a free `W`, which may exceed 16) is conservatively rejected as well; both still require an explicit carry op or `.resize` to state the intent.
 ///
 
 /// admonition | Implicit Scala `Int` and Verilog-semantics mismatch
@@ -2430,10 +2587,10 @@ val t10c = (a +^ b +^ 0) >> 1           // OK: carry chain cannot overflow
 - The expression uses carry operations (`+^`, `-^`, `*^`), which widen the result.
 - The integer constant is an explicit bit-accurate literal (e.g., `d"3'4"`).
 - The bit-accurate expression width is already 32 bits or wider.
-- The implicit `Int` is only used in modular operations (`+`, `-`, `*`) that feed an assignment. A same-width target wraps identically in both languages, and a wider target promotes the chain to evaluate at the target width (see the automatic carry promotion above), matching the context Verilog's assignment provides; truncation to the target width commutes with `+`/`-`/`*`, so the two evaluations agree for every input.
+- The implicit `Int` is only used in modular operations (`+`, `-`, `*`) that feed an assignment. A same-width target wraps identically in both languages, and a wider target re-evaluates the chain at the target width (see the automatic target-context widening above), matching the context Verilog's assignment provides; truncation to the target width commutes with `+`/`-`/`*`, so the two evaluations agree for every input.
 ```scala
 val sum = UInt(10) <> VAR
-// OK: promoted to carry, elaborates to sum := ((a + b) +^ d"8'1").resize(10)
+// OK: widened to the target, elaborates to sum := a.eby(2) + b.eby(2) + d"10'1"
 sum := a + b + 1
 val cnt = UInt(8) <> VAR
 cnt := cnt + 1                          // OK: same-width target, modular truncation matches
@@ -2505,7 +2662,7 @@ val e1 = param +^ 1
 
 ### Comparison Operations (`==`, `!=`, `<`, `>`, `<=`, `>=`) {#comparison-ops}
 
-Applies to: `UInt`, `SInt`, `Int`, `Double` (all comparisons); `Bits`, `Enum`, `Struct`, `Tuple` (`==`/`!=` only)
+Applies to: `UInt`, `SInt`, `Int`, `Double` (all comparisons); `Bits`, `Bit`, `Boolean`, `Enum`, `Struct`, `Tuple` (`==`/`!=` only)
 
 #### Decimal Comparisons
 
@@ -2578,6 +2735,29 @@ val isDec      = b8 == d"8'12"     // Boolean: match with sized decimal
 // val bad = b8 == 0
 // FIX: use all(0), a sized literal, or convert to UInt first:
 // b8 == all(0)  OR  b8 == d"8'0"  OR  b8.uint == 0
+```
+
+#### `Bit`/`Boolean` Comparisons
+
+A `Bit` or `Boolean` is a valid **operand** of `==`/`!=`, against another `Bit`/`Boolean` or against the `0`/`1` and `true`/`false` literals. The result is a `Boolean`, like every other comparison:
+
+```scala
+val b1, b2 = Bit <> VAR
+val bl     = Boolean <> VAR
+
+val c1 = b1 == 0      // Boolean
+val c2 = b1 != 1      // Boolean
+val c3 = b1 == b2     // Boolean
+val c4 = bl == true   // Boolean
+```
+
+`b == 0` and `!b` describe the same hardware. A Verilog translation produces the former (Verilog spells the test `b == 1'b0`), while idiomatic DFHDL tends toward the latter; use whichever keeps the source recognizable.
+
+Ordering comparisons (`<`, `>`, `<=`, `>=`) do **not** apply to `Bit`/`Boolean`. They are rejected at compile time:
+
+```scala
+// error: Cannot compare DFHDL value of type `Bit` with value of type `1`.
+val e1 = b1 < 1
 ```
 
 #### Enum, Struct, and Tuple Comparisons
@@ -2724,6 +2904,12 @@ val addr = UInt.until(DEPTH) <> VAR   // width = clog2(DEPTH)
 val mask = Bits.until(SIZE) <> VAR    // width = clog2(SIZE)
 ```
 See the [DFType Constructors][DFDecimal] and [Bits constructors][DFBits] sections for details on `.until` and `.to`.
+
+When the computed width itself is needed, for example to pass it on to a child design or to size a related field, recover it from the constructed type with `.width` instead of calling `clog2` yourself:
+```scala
+val ADDR_WIDTH = UInt.until(DEPTH).width   // Int <> CONST = clog2(DEPTH)
+```
+See [Width and Length Queries][width-length-ops] for details.
 ///
 
 /// admonition | Non-constant DFHDL `Int` values
@@ -2734,6 +2920,45 @@ Non-constant DFHDL `Int` values (e.g., `Int <> VAR`) are possible and support th
 /// admonition | Slicing bits from a DFHDL `Int`
     type: note
 To extract a partial bit range from a DFHDL `Int` value, first convert it to `Bits` using `.bits`, then apply the slice: `myInt.bits(hi, lo)`. This is a `.bits` conversion followed by `(hi, lo)` slicing. The `.bits` conversion is a DFHDL extension method available on DFHDL `Int <> CONST` values, not on plain Scala `Int`.
+///
+
+### Width and Length Queries (`.width`, `.length`) {#width-length-ops}
+
+Applies to: `.width`: any DFType and any DFHDL value; `.length`: `Bits`/`UInt`/`SInt` DFTypes and values, and `Vector` DFTypes and values
+
+Both queries return a constant DFHDL `Int` value (`Int <> CONST`) rather than a plain Scala `Int`, so they compose with design parameters: querying a parametric type keeps the result symbolic, and the generated code carries the width expression (`clog2(DEPTH)`, `LANE * LANES`, and so on) instead of a folded number. A query over a DFHDL VALUE is spelled natively in the generated code where the target language has a width query: `$bits(x)`/`$size(x)` in SystemVerilog and `x'length`/`bitWidth(x)` in VHDL (dialects without one, such as Verilog-2001, inline the width expression instead). See [Inter-Dependent Design Parameters][inter-dependent-params] for the canonical use.
+
+/// html | div.operations
+| Operation  | Description | Returns |
+| ---------- | ----------- | ------- |
+| `x.width`  | The total bit width of `x`, a DFType or a DFHDL value | `Int <> CONST` |
+| `x.length` | For `Bits`/`UInt`/`SInt`: the number of bits, identical to `.width`. For `Vector`: the number of elements | `Int <> CONST` |
+///
+
+Applying `.width` directly on a DFType is the DFHDL counterpart of Verilog's `$clog2` width derivation: construct the type with [`UInt.until`/`UInt.to`][DFDecimal] (or their [`Bits` counterparts][DFBits]) and recover the width the constructor computed:
+
+```scala
+class Foo(val DEPTH: Int <> CONST = 854) extends RTDesign:
+  // like Verilog's `$clog2(DEPTH)`, and stays parametric: the generated code keeps the
+  // named constant `ADDR_WIDTH = clog2(DEPTH)`
+  val ADDR_WIDTH = UInt.until(DEPTH).width
+  val addr = UInt(ADDR_WIDTH) <> VAR
+```
+
+For vectors the two queries answer different questions: `.length` counts elements, while `.width` is the total bit width (the element count times the element width).
+
+```scala
+val w8    = Bits(8).width      // Int <> CONST = 8
+val vec   = Bits(8) X 4 <> VAR
+val elems = vec.length         // Int <> CONST = 4  (elements)
+val bits  = vec.width          // Int <> CONST = 32 (total bits: 4 * 8)
+val o     = UInt(8) <> OUT
+val ol    = o.length           // Int <> CONST = 8, same as `o.width`
+```
+
+/// admonition | Declare with `.until`/`.to`, recover with `.width`
+    type: tip
+Prefer declaring range-derived values directly with the `.until`/`.to` constructors and reach for `.width` only where the width itself is the value you need. The declaration then remains the single source of the width relationship, and every derived width follows it.
 ///
 
 ### History Operations {#history-ops}
@@ -2889,7 +3114,8 @@ vec(idx) := newValue    // Write element at index
 | ------------ | ----------- | ------- |
 | `vec(idx)` | Access element at index | Element type |
 | `vec.elements` | Get all elements as Scala sequence | Seq[BaseType] |
-| `vec.size` | Get vector dimension | Int |
+| `vec.length` | Get the number of elements | `Int <> CONST` |
+| `vec.width` | Get the total bit width (see [Width and Length Queries][width-length-ops]) | `Int <> CONST` |
 ///
 
 

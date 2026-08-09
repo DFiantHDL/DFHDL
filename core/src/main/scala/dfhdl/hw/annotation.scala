@@ -19,6 +19,13 @@ object annotation:
       case annot: HWAnnotation if annot.isActive => annot.asIR
     }
 
+  /** Sets the emitted HDL name of the annotated construct, decoupling it from its Scala identifier.
+    * Applies to design classes (setting the emitted module/entity name), ports, variables, design
+    * parameters, and DFHDL methods. The name is consumed at compile time by the DFHDL compiler
+    * plugin, so it must be a string literal.
+    */
+  final class setName(val name: String) extends StaticAnnotation
+
   object unused:
     /** `quiet` suppresses the unused warning for the tagged value.
       */

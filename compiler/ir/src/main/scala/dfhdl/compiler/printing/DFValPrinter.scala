@@ -95,6 +95,27 @@ trait AbstractValPrinter extends AbstractPrinter:
     ref.get match
       case DFVal.Const(dfType = _: DFDecimal, data = Some(i)) => i.toString
       case _                                                  => ref.refCodeString
+
+  /** The total-width expression of a type, spelled the way its own declaration spells it (a literal
+    * stays a literal, a parametric width keeps its parameter expression, rendered through the
+    * concrete printer). Used by the backends where a `width`/`length` query cannot be spelled
+    * natively: the pre-SystemVerilog dialects, and a VHDL query over a non-constant argument (which
+    * may print into a generic default that cannot name it).
+    */
+  final def csInlinedWidth(dfType: DFType): String = dfType match
+    case DFBool | DFBit => "1"
+    case dt: DFBits     => dt.widthParamRef.refCodeString
+    case dt: DFDecimal  =>
+      if (dt.fractionWidth == 0) dt.magnitudeWidthParamRef.refCodeString
+      else s"${dt.magnitudeWidthParamRef.refCodeString.applyBrackets()} + ${dt.fractionWidth}"
+    case dt: DFEnum   => dt.widthParam.toString
+    case dt: DFVector =>
+      s"${dt.cellDimParamRefs.head.refCodeString.applyBrackets()} * ${csInlinedWidth(dt.cellType).applyBrackets()}"
+    case dt: DFOpaque => csInlinedWidth(dt.actualType)
+    case dt           =>
+      dt.widthIntOpt.map(_.toString).getOrElse(
+        throw new IllegalArgumentException(s"Unable to inline the width of type: $dt")
+      )
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String
   def csDFMemberName(named: DFMember.Named): String =
     named.getName
@@ -258,18 +279,19 @@ protected trait DFValPrinter extends AbstractValPrinter:
             s"${csArgL.applyBrackets()}.repeat${csArgR.applyBrackets(onlyIfRequired = false)}"
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
-        val csArgL = argL.refCodeString(typeCS)
-        val csArgR = argR.refCodeString(typeCS)
-        val opStr = dfVal.op match
-          // if the result width for +/-/* ops is larger than the left argument width
-          // then we have a carry-inclusive operation. to simplify the check given possible
-          // parameterized widths, we will just compare the type structure and assume the
-          // width is larger under such conditions.
-          case Func.Op.+ | Func.Op.- | Func.Op.`*`
-              if !dfVal.dfType.isUnbounded && !dfVal.dfType.isSimilarTo(argL.get.dfType) =>
-            s"${dfVal.op}^"
-          case op => commonOpStr
-        s"${csArgL.applyBrackets()} $opStr ${csArgR.applyBrackets()}"
+        dfVal match
+          // a func in the carry SHAPE (operands widened by exactly the carry bit, see
+          // `CarryFunc`) prints as the carry-operator sugar it elaborated from
+          case CarryFunc(_, _) =>
+            val csArgL =
+              argL.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString(typeCS)
+            val csArgR =
+              argR.get.asInstanceOf[Alias.AsIs].relValRef.refCodeString(typeCS)
+            s"${csArgL.applyBrackets()} ${dfVal.op}^ ${csArgR.applyBrackets()}"
+          case _ =>
+            val csArgL = argL.refCodeString(typeCS)
+            val csArgR = argR.refCodeString(typeCS)
+            s"${csArgL.applyBrackets()} $commonOpStr ${csArgR.applyBrackets()}"
       // unary/postfix func
       case arg :: Nil =>
         val csArg = arg.refCodeString(typeCS)
@@ -285,7 +307,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
           case Func.Op.abs =>
             if (typeCS) s"Abs[$csArg]"
             else s"abs($csArg)"
+          // the postfix fallback also serves the width/length queries (`x.width`, `x.length`),
+          // which have no type-level twin (the receiver is a term), so typeCS prints the same
           case _ => s"${csArg.applyBrackets()}.${opStr}"
+        end match
       // multiarg func
       case args =>
         val csArgs = args.map(_.refCodeString)
@@ -322,6 +347,11 @@ protected trait DFValPrinter extends AbstractValPrinter:
         end match
     end match
   end csDFValFuncExpr
+  // a widening whose delta folds to a literal prints as the relative `.eby(k)` form
+  private def csResizeOrEby(toWidthRef: IntParamRef, fromWidthRef: IntParamRef): String =
+    toWidthRef.widenDeltaOpt(fromWidthRef) match
+      case Some(k) => s".eby($k)"
+      case _       => s".resize(${toWidthRef.refCodeString})"
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String =
     val relVal = dfVal.relValRef.get
     val relValStr = dfVal.relValCodeString
@@ -341,18 +371,18 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.uint"
       case (DFSInt(tWidthRef), DFBits(fWidthRef)) =>
         s"${relValStr}.sint"
-      case (DFBits(tWidthParamRef), DFBits(_)) =>
-        s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
+      case (DFBits(tWidthParamRef), DFBits(fWidthRef)) =>
+        s"${relValStr}${csResizeOrEby(tWidthParamRef, fWidthRef)}"
       case (DFBits(tWidthParamRef), DFBit | DFBool) =>
         s"${relValStr}.toBits(${tWidthParamRef.refCodeString})"
       case (DFBits(_), _) =>
         s"${relValStr}.bits"
-      case (DFUInt(tWidthParamRef), DFUInt(_)) =>
-        s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
+      case (DFUInt(tWidthParamRef), DFUInt(fWidthRef)) =>
+        s"${relValStr}${csResizeOrEby(tWidthParamRef, fWidthRef)}"
       case (DFInt32, DFSInt(_)) =>
         s"${relValStr}.toInt"
-      case (DFSInt(tWidthParamRef), DFSInt(_)) =>
-        s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
+      case (DFSInt(tWidthParamRef), DFSInt(fWidthRef)) =>
+        s"${relValStr}${csResizeOrEby(tWidthParamRef, fWidthRef)}"
       case (DFBit, DFBool | DFEnum(widthParam = 1)) =>
         s"${relValStr}.bit"
       case (DFBool, DFBit | DFEnum(widthParam = 1)) =>

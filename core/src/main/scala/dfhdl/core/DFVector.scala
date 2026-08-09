@@ -334,6 +334,11 @@ object DFVector:
             DFVal.Func(vectorType, FuncOp.++, elems.toList)
       end DFVector
 
+      extension [T <: DFTypeAny, D1 <: IntP](
+          dfType: DFVector[T, Tuple1[D1]]
+      )
+        def length(using DFC): DFConstInt32 = dfType.lengthIntParam.toDFConstQuery
+
       extension [T <: DFTypeAny, D1 <: IntP, M <: ModifierAny](
           lhs: DFVal[DFVector[T, Tuple1[D1]], M]
       )
@@ -349,7 +354,10 @@ object DFVector:
             val idxVal = DFConstInt32(i)
             DFVal.Alias.ApplyIdx(elementType, lhs, idxVal)(using dfc.anonymize)
           )
-        def length(using DFC): DFConstInt32 = lhs.dfType.lengthIntParam.toDFConst
+        // a `length` FUNC rather than a materialized constant (see `DFVal.Ops.width`)
+        def length(using DFC): DFConstInt32 = trydf {
+          DFVal.Func(DFInt32, FuncOp.length, List(lhs.asIR)).asConstOf[DFInt32]
+        }
       end extension
       extension (str: String)
         def toByteVector(using dfc: DFC): DFConstOf[DFVector[DFBits[8], Tuple1[Int]]] =

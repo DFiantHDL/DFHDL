@@ -413,8 +413,8 @@ class ElaborationChecksSpec extends DesignSpec:
           |Position:  ${currentFilePos}ElaborationChecksSpec.scala:406:9 - 406:15
           |Hierarchy: Top
           |LHS:       x
-          |RHS:       y.resize(8)
-          |Message:   Unexpected write access to the immutable value y.resize(8).""".stripMargin
+          |RHS:       y.eby(1)
+          |Message:   Unexpected write access to the immutable value y.eby(1).""".stripMargin
     )
   test("no need for clock location constraint check in internal designs"):
     object Test:
@@ -1551,5 +1551,38 @@ class ElaborationChecksSpec extends DesignSpec:
     assertWarns(ParWDiv(), warnMsg)
     // a parametric width that resolves to 32 bits or wider stays suppressed
     assertWarns(ParW(31))
+
+  test("parametric width-fit proof rejections"):
+    object Test:
+      @top(false) class MulTooNarrow(val W: Int <> CONST = 8) extends EDDesign:
+        val a, b = SInt(W) <> IN
+        val prod16 = SInt(16) <> OUT
+        prod16 <> a * b
+      end MulTooNarrow
+      @top(false) class ProvablyNarrow(val W: Int <> CONST = 8) extends RTDesign:
+        val x = SInt(2 * W) <> IN
+        val narrow = SInt(W) <> OUT
+        narrow := x
+      end ProvablyNarrow
+    import Test.*
+    // a literal target against a free parameter stays undecidable: a valid W may exceed it
+    assertElaborationErrors(MulTooNarrow())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1560:9 - 1560:24
+          |Hierarchy: MulTooNarrow
+          |Operation: `apply`
+          |Message:   The applied RHS value width (W) is undefined compared to the LHS variable width (16).""".stripMargin
+    )
+    // the width-fit proof decides the negative direction definitively: W >= 2 * W is
+    // violated for every valid W, so the vague "undefined" error upgrades to "larger than"
+    assertElaborationErrors(ProvablyNarrow())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1565:9 - 1565:20
+          |Hierarchy: ProvablyNarrow
+          |Operation: `:=`
+          |Message:   The applied RHS value width (2 * W) is larger than the LHS variable width (W).""".stripMargin
+    )
 
 end ElaborationChecksSpec

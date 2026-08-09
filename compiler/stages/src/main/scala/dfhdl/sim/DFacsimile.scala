@@ -23,7 +23,8 @@ enum SimTier derives CanEqual:
   *     at the alias position (wires sampled inside a conditional branch are rejected)
   *   - funcs: n-ary `+`/`-`/`&`/`|`/`^` (width-extending variants included), `*`/`/`/`%` (up to
   *     64-bit results), `++`, comparisons, `unary_-`/`unary_~`/`unary_!`, `<<`/`>>` by constant or
-  *     dynamic amount, `ror`/`rol`, `reverse`/`repeat`, `max`/`min`/`abs`, `sel`
+  *     dynamic amount, `ror`/`rol`, `reverse`/`repeat`, `max`/`min`/`abs`, `sel`, and the
+  *     `width`/`length` type queries (folded to the per-instance resolved width/element count)
   *   - `AsIs` casts (sign-extending for signed sources), bit-select/range on Bits (constant or
   *     dynamic index), field select on structs, vector indexing (constant or dynamic index;
   *     constant-vector indexing becomes per-lane ROMs)
@@ -919,7 +920,11 @@ private final class Builder(rawDB: DB):
           val b = v match
             case _: DFVal.DesignParam => true
             case _: DFVal.Dcl         => false
-            case _                    =>
+            // a width/length query reads its argument's TYPE: dependence comes through the
+            // type's width params, while the value-ref walk would stop at the argument Dcl
+            case f: DFVal.Func if f.op == DFVal.Func.Op.width || f.op == DFVal.Func.Op.length =>
+              f.args.head.get.dfType.getRefs.exists(r => paramDependent(r.get))
+            case _ =>
               v.getRefs.exists { r =>
                 r.get match
                   case dv: DFVal => paramDependent(dv)
@@ -1064,6 +1069,13 @@ private final class Builder(rawDB: DB):
             wide.mux(wide.ltNode(a, wide.zero(resW), signed = true), wide.neg(a), a)
           else a
         case FO.sel => wide.mux(rd(args.head).lanes(0), rd(args(1)), rd(args(2)))
+        // type queries fold to a constant of the argument's per-instance width/length;
+        // the argument itself is never read
+        case FO.width | FO.length =>
+          val value = (f.op, args.head.dfType) match
+            case (FO.length, vt: DFVector) => vecLengthOf(vt, f)
+            case _                         => widthOf(args.head)
+          wide.const(resW, BigInt(value).toBitVector(resW))
         // edge detection over a 1-cycle sampling register; the init biases match the RT lowering
         // (no spurious edge at time zero: rising samples 1, falling samples 0)
         case FO.rising =>
@@ -2982,5 +2994,12 @@ private final class Builder(rawDB: DB):
         case o: DFOpaque => o.actualType.widthIntOpt.orElse(widthThroughParams(o.actualType))
         case _           => None
     end widthThroughParams
+
+    /** A vector's element count, resolved like [[widthOfType]] (through design params). */
+    private def vecLengthOf(t: DFVector, where: Any): Int =
+      t.lengthIntOpt.orElse {
+        given ConstData.CachePolicy = ConstData.CachePolicy.NoCache
+        t.cellDimParamRefs.head.getIntConstData.toOption
+      }.getOrElse(unsupported("unresolvable (param-dependent) vector length", where))
   end Scope
 end Builder

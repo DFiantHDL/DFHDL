@@ -41,6 +41,9 @@ final class DFHDLSymbols(using Context):
   val dfVal: Symbol = getClassIfDefined("dfhdl.core.DFVal")
   val modifier: Symbol = getClassIfDefined("dfhdl.core.Modifier")
   val assignable: Symbol = getClassIfDefined("dfhdl.core.Modifier.Assignable")
+  val portIN: Symbol = getClassIfDefined("dfhdl.core.Modifier.PortIN")
+  val portOUT: Symbol = getClassIfDefined("dfhdl.core.Modifier.PortOUT")
+  val portINOUT: Symbol = getClassIfDefined("dfhdl.core.Modifier.PortINOUT")
   val isConst: Symbol = getClassIfDefined("dfhdl.core.ISCONST")
   val timeNumber: Symbol = irClass("TimeNumber")
   val freqNumber: Symbol = irClass("FreqNumber")
@@ -232,9 +235,14 @@ class DFHDLTypePrinter(_ctx: Context, syms: DFHDLSymbols) extends RefinedPrinter
   private def modifierText(tp: Type)(using Context): Text =
     tp.dealias match
       case AppliedType(tycon, List(access, _, _, param)) if tycon.typeSymbol == syms.modifier =>
-        // the same three names `ShowType` reports, and for the same reasons: a constant value
-        // is a `CONST`, an assignable one a `VAR`, and anything else a plain readable `VAL`
+        // the same names `ShowType` reports, and for the same reasons: a constant value is a
+        // `CONST`, a port is its direction (so a mismatch against a port-typed value is not
+        // rendered identically to the plain readable value that failed to conform to it), an
+        // assignable non-port a `VAR`, and anything else a plain readable `VAL`
         if (isConstParam(param)) "CONST"
+        else if (access.derivesFrom(syms.portINOUT)) "INOUT"
+        else if (access.derivesFrom(syms.portOUT)) "OUT"
+        else if (access.derivesFrom(syms.portIN)) "IN"
         else if (access.derivesFrom(syms.assignable)) "VAR"
         else "VAL"
       case _ => "VAL"

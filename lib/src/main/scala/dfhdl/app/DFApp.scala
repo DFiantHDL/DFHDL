@@ -346,20 +346,23 @@ class DFApp:
           |one you intend to run according to your chosen backend.
           |Examples:
           |-t verilator     - Set the Verilog linter to Verilator (VHDL linter remains default)
-          |-t nvc           - Set the VHDL linter to NVC (Verilog linter remains default)
+          |-t ghdl          - Set the VHDL linter to GHDL (Verilog linter remains default)
           |-t iverilog/ghdl - Set both Verilog and VHDL linters
+          |-t nvc           - Set both Verilog and VHDL linters to NVC
           |-t questa        - Set both Verilog and VHDL linters to QuestaSim/ModelSim
           |-t vivado        - Set both Verilog and VHDL linters to Vivado Simulator
           |
           |Selectable Verilog/SystemVerilog linting tools:
           |verilator         - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
           |iverilog          - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
+          |xezim             - Xezim               ${scanned(dfhdl.tools.linters.xezim)}
+          |nvc               - NVC                 ${scanned(dfhdl.tools.linters.verilogLinters.nvc)}
           |vlog|questa|vsim  - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vlog)}
           |xvlog|vivado|xsim - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvlog)}
           |
           |Selectable VHDL linting tools:
           |ghdl              - GHDL (default)      ${scanned(dfhdl.tools.linters.ghdl)}
-          |nvc               - NVC                 ${scanned(dfhdl.tools.linters.nvc)}
+          |nvc               - NVC                 ${scanned(dfhdl.tools.linters.vhdlLinters.nvc)}
           |vcom|questa|vsim  - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vcom)}
           |xvhdl|vivado|xsim - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvhdl)}
           |""".stripMargin
@@ -380,20 +383,27 @@ class DFApp:
           |one you intend to run according to your chosen backend.
           |Examples:
           |-t verilator     - Set the Verilog simulator to Verilator (VHDL simulator remains default)
-          |-t nvc           - Set the VHDL simulator to NVC (Verilog simulator remains default)
+          |-t ghdl          - Set the VHDL simulator to GHDL (Verilog simulator remains default)
           |-t iverilog/ghdl - Set both Verilog and VHDL simulators
+          |-t nvc           - Set both Verilog and VHDL simulators to NVC
           |-t questa        - Set both Verilog and VHDL simulators to QuestaSim/ModelSim
           |-t vivado        - Set both Verilog and VHDL simulators to Vivado Simulator
           |
           |Selectable Verilog/SystemVerilog simulation tools:
           |verilator            - Verilator (default) ${scanned(dfhdl.tools.simulators.verilator)}
           |iverilog             - Icarus Verilog      ${scanned(dfhdl.tools.simulators.iverilog)}
+          |xezim                - Xezim               ${scanned(dfhdl.tools.simulators.xezim)}
+          |nvc                  - NVC                 ${scanned(
+           dfhdl.tools.simulators.verilogSimulators.nvc
+         )}
           |vlog|questa|modelsim - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vlog)}
           |xvlog|vivado|xsim    - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvlog)}
           |
           |Selectable VHDL simulation tools:
           |ghdl                 - GHDL (default)      ${scanned(dfhdl.tools.simulators.ghdl)}
-          |nvc                  - NVC                 ${scanned(dfhdl.tools.simulators.nvc)}
+          |nvc                  - NVC                 ${scanned(
+           dfhdl.tools.simulators.vhdlSimulators.nvc
+         )}
           |vcom|questa|modelsim - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vcom)}
           |xvhdl|vivado|xsim    - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvhdl)}
           |""".stripMargin

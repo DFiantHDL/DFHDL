@@ -99,6 +99,39 @@ end Concat
 ```
 
 </div>
+
+A Verilog parameter whose default references an earlier parameter cannot stay a parameter in DFHDL: Scala does not allow a default value to reference an earlier parameter of the same parameter block, and DFHDL requires all its parameters in a single block (a curried second block is rejected with a clear error). Declare it as a derived value in the design body instead, like `midLen` and `outlen` above.
+
+### `localparam` {#localparam}
+
+A module-level `parameter` becomes a design constructor argument, as above. A body-level **`localparam`** becomes a `val` in the design body, but whether it survives into the generated HDL depends on whether it is a DFHDL constant:
+
+- `val X = <scala expr>` is a DFHDL constant only if a DFHDL constant appears in its right-hand side. Otherwise it is plain Scala arithmetic, and its value is **inlined away**.
+- `val X: Int <> CONST = <expr>` is always a DFHDL constant, and is **emitted as `localparam int X`**.
+
+This is worth knowing because two adjacent, identically written `val`s can compile to different things depending only on the types of the operands in their initializers:
+
+```scala
+class Foo(
+    val IMAGE_WIDTH: Int <> CONST = 640
+) extends EDDesign:
+  val WINDOW_BLOCKS = 64 / 16                    // plain Scala arithmetic
+  val ROW_BLOCKS    = IMAGE_WIDTH / 16           // derives from an Int <> CONST
+  val COLUMN_BLOCKS: Int <> CONST = 128 / 16     // ascription forces a DFHDL constant
+  // ...
+```
+
+```verilog title="Generated Verilog"
+module Foo#(parameter int IMAGE_WIDTH = 640)(
+  output logic signed [31:0] o
+);
+  localparam int ROW_BLOCKS = IMAGE_WIDTH / 16;
+  localparam int COLUMN_BLOCKS = 8;
+  assign o = 32'(ROW_BLOCKS + 4 + COLUMN_BLOCKS);
+endmodule
+```
+
+`WINDOW_BLOCKS` has vanished into the literal `4`, while the other two survive. Ascribe `: Int <> CONST` wherever you want the `localparam` preserved in the emitted interface; leave it off when the value is only needed during elaboration. Note that the `Concat` example above deliberately uses the first form, so its `midLen` and `outlen` are elaboration-time only and emit nothing.
 ///
 
 /// admonition | Unconnected Output Ports
@@ -369,6 +402,8 @@ class Foo extends EDDesign:
 </div>
 ///
 
+[](){#fsm-state-encoding}
+
 /// admonition | FSM State Encoding
     type: verilog
 Verilog FSMs typically use `parameter` constants and `case`/`if` chains. In DFHDL, the idiomatic translation uses an `enum extends Encoded` and `match`:
@@ -391,20 +426,27 @@ always @(posedge clk)
 ```
 
 ```scala linenums="0" title="DFHDL"
-enum State extends Encoded:
-  case Ready, Aim, Fire
-import State.*
-val state = State <> VAR init Ready
+class gun extends EDDesign:
+  //declared inside the design, like the
+  //Verilog module-local parameters it replaces
+  enum State extends Encoded:
+    case Ready, Aim, Fire
+  import State.*
+  val state = State <> VAR init Ready
 
-process(clk.rising):
-  state match
-    case Ready => if (go) state :== Aim
-    case Aim   => state :== Fire
-    case Fire  => state :== Ready
-    case _     => state :== Ready
+  process(clk.rising):
+    state match
+      case Ready => if (go) state :== Aim
+      case Aim   => state :== Fire
+      case Fire  => state :== Ready
+      case _     => state :== Ready
 ```
 
 </div>
+
+Note that the `default:` branch is kept as `case _ =>`: the three states occupy a 2-bit binary encoding, leaving `2'b11` representable but unlisted, and only the wildcard branch covers it. Translate a `default:` branch as `case _ =>` whenever such unlisted encodings exist, i.e. always except for the default binary encoding with exactly 2^n unique cases; dropping it turns them into synthesis don't-cares and the translation is no longer formally equivalent to the original. For fresh (non-translated) FSMs the wildcard is a reliability choice instead; see [Enum Matches and the Wildcard `case _`][enum-match-wildcard].
+
+A Verilog `enum {IDLE, DRAW} state;` (or a set of state `parameter`s) is a **module-local** declaration, so the faithful translation declares the enum inside the design class. That also keeps per-module FSMs independent: several designs may each declare their own `State` without colliding, whereas two top-level enums of the same name in one compilation unit are a duplicate definition. See [Declaration Scope][DFEnum] for the details and for where the generated typedef ends up.
 
 If the encoded Verilog state values follow a standard pattern (incremental, gray, one-hot), use the corresponding `Encoded` variant. For non-standard encodings, use `Encoded.Manual` with a constructor parameter:
 
@@ -624,7 +666,7 @@ There is no `>>>` operator in DFHDL. The type of the LHS determines the shift se
 ///
 
 
-/// admonition | Bit/Boolean Operators: `|`/`&`/`~` and `||`/`&&`/`!`
+/// admonition | Bit/Boolean Operators: `|`/`&`/`^`/`~` and `||`/`&&`/`!`
     type: verilog
 In DFHDL, `||`/`&&`/`!` and `|`/`&`/`~` are interchangeable on `Bit` and `Boolean` types. The generated Verilog operator depends on the LHS type: `Bit` produces bitwise `|`/`&`/`~`, `Boolean` produces logical `||`/`&&`/`!`.
 <div class="grid" markdown>
@@ -688,7 +730,7 @@ end Negate
 
 This wrap-around conversion may appear cumbersome, and that is intentional: it hints at a code smell. It usually means one of two things: either the base type was chosen badly (a value that is conceptually a signed number should be declared as `SInt`, where `-x` preserves the type directly), or the importance of the preserved sign bit in the widened `SInt[W + 1]` result is not understood (discarding it silently corrupts the value; e.g., same-width negation of `d"8'128"` yields 128 again, not -128).
 
-See [Logical Operations][logical-ops] for the bitwise NOT and [Arithmetic Operations][arithmetic-ops] for the unary negation type rules.
+See [Bitwise Operations][bitwise-ops] for the bitwise NOT and [Arithmetic Operations][arithmetic-ops] for the unary negation type rules.
 ///
 
 /// admonition | Reduction Operators (`&v`, `|v`, `^v`)
@@ -795,6 +837,7 @@ Verilog's descending and ascending part-select notation maps directly to DFHDL's
 | `sig[N-1 -: W]` | `sig.msbits(W)` or `sig(N-1, N-W)` | Top `W` bits |
 | `sig[0 +: W]` | `sig.lsbits(W)` or `sig(W-1, 0)` | Bottom `W` bits |
 | `sig[idx]` | `sig(idx)` | Single bit access |
+| `sig[k*W +: W]` (runtime `k`) | `sig.lsbitsAt(k * W, W)` inside an ED `process` loop | Variable-base part-select, with `k` a process-scope `for` iterator |
 
 <div class="grid" markdown>
 
@@ -824,7 +867,34 @@ val bit5  = data(5)               // single bit
 
 </div>
 
-The part-select base index and width must be elaboration-time constants (Scala `Int` values or `Int <> CONST` parameters), as in a Verilog constant part-select.
+The part-select **width** must always be an elaboration-time constant (a Scala `Int` value or an `Int <> CONST` parameter). The **base** must be too when the part-select sits at design scope, matching a Verilog constant part-select.
+
+A Verilog **variable-base** part-select does have a direct equivalent: inside an ED `process`, a `for` loop stays a hardware loop, and its iterator is a legal part-select base:
+
+```scala
+class Foo(
+    val LANE:  Int <> CONST = 8,
+    val LANES: Int <> CONST = 4
+) extends EDDesign:
+  val data = Bits(LANE * LANES) <> IN
+  val sum  = UInt(16) <> OUT
+  process(all):
+    sum := 0
+    for (k <- 0 until LANES)
+      sum := sum + data.lsbitsAt(k * LANE, LANE).uint.resize(16)
+```
+
+```verilog title="Generated Verilog"
+always_comb
+begin
+  sum   = 16'd0;
+  for (int k = 0; k < LANES; k = k + 1) begin
+    sum = sum + 16'(data[((k * LANE) + LANE) - 1:k * LANE]);
+  end
+end
+```
+
+See [ED Domain Loops][loops] for the limits on that iterator: it is a hardware value, so it cannot be read into Scala or used to index a Scala collection.
 
 Bit-slicing and single-bit access work on `Bits`, `UInt`, and `SInt` values with the same syntax, including the `.msbits(W)`/`.lsbits(W)` and `.msbitsAt(base, W)`/`.lsbitsAt(base, W)` convenience methods. As in Verilog, a slice is a bit-level operation and yields an unsigned result (`SInt` slices return `UInt`, not `SInt`):
 
@@ -891,6 +961,8 @@ sd"8'5" == (-3)     // OK (-3 adapts to SInt[8])
 
 To compare values of different widths, use `.resize(W)` to match widths first. To compare values of different signedness, convert explicitly (e.g., `.bits.sint` or `.signed`).
 
+Comparisons are not a numeric-only facility. `Bits`, `Bit`, `Boolean`, `Enum`, `Struct`, and `Tuple` all support `==`/`!=` (only the ordering comparisons are restricted to the numeric types), so a Verilog `b_edge == 1'b0` or a state test translates directly. See [Comparison Operations][comparison-ops] for the operand rules per type.
+
 **UInt-to-SInt conversion methods:**
 
 - `.signed` converts `UInt[W]` to `SInt[W+1]` by adding a sign bit. The value is preserved (always non-negative).
@@ -952,7 +1024,7 @@ See [Arithmetic Operations][arithmetic-ops] and [Carry Arithmetic][carry-ops] fo
     type: verilog
 In Verilog, unsized integer literals are 32-bit. When combined with narrower signals, the wider literal causes the entire expression to evaluate at 32-bit width via context-dependent propagation. This prevents intermediate overflow in expressions like `(a + b + c + d) / 4`.
 
-In DFHDL, Scala `Int` literals are implicitly converted to minimum-width bit-accurate types (e.g., `4` becomes `UInt[3]`). Each arithmetic operation independently uses the LHS width, so intermediate results can overflow before reaching a division, shift, or comparison. (An assignment to a wider target is unaffected: the chain is automatically promoted to evaluate at the target width, matching Verilog.)
+In DFHDL, Scala `Int` literals are implicitly converted to minimum-width bit-accurate types (e.g., `4` becomes `UInt[3]`). Each arithmetic operation independently uses the LHS width, so intermediate results can overflow before reaching a division, shift, or comparison. (An assignment to a wider target is unaffected: the whole chain is automatically re-evaluated at the target width, matching Verilog.)
 
 DFHDL detects this pattern at elaboration and issues a warning. See [Implicit Scala `Int` and Verilog-semantics mismatch][arithmetic-ops] for the full list of warning triggers.
 
@@ -1110,7 +1182,23 @@ end gate
 
 </div>
 
-**Important difference from Verilog:** DFHDL type-checks **both** branches, regardless of the condition's value, so both must be valid for all parameter values. Because the taken branch depends on the constant, instantiating the design with different parameter values produces distinct elaborated designs. See [Loops][loops] for the analogous elaboration-time loop behavior and workarounds.
+**Difference from Verilog, and its limit:** Scala type-checks **both** branches, since both are ordinary Scala code. That only constrains you where the Scala type level actually tracks widths, which is when widths are **literal** (bounded): then both branches must be valid for every parameter value. When widths derive from `Int <> CONST` parameters the types are unbounded (`Bits[Int]`), Scala checks nothing about them, and the **elaboration-time** width check runs on the taken branch only. So a parameterized `generate if` whose branches are each valid only for their own parameter value translates directly, with no `.toScalaInt` and no `.resize` guard:
+
+```scala
+class narrow(
+    val N: Int <> CONST = 4
+) extends EDDesign:
+  val din  = Bits(N) <> IN
+  val dout = Bits(N) <> OUT
+  if (N == 4)
+    dout <> din
+  else
+    dout <> din.msbits(2)  // Bits[2] into Bits[N]: never elaborated, never checked
+```
+
+Change `Bits(N)` to a literal `Bits(4)` and the same untaken branch is rejected before elaboration ever runs, with `The argument width (2) is different than the receiver width (4)`.
+
+Reaching for `BLOCK_WIDTH.toScalaInt == 1` to force a Scala-level branch is unnecessary here: the plain constant `if` already resolves during elaboration. Because the taken branch depends on the constant, instantiating the design with different parameter values produces distinct elaborated designs either way. See [Loops][loops] for the analogous elaboration-time loop behavior.
 ///
 
 ## Common Pitfalls
@@ -1136,7 +1224,7 @@ class foo extends EDDesign:
 
 </div>
 
-Alternatively, use a non-keyword name with the Scala `@targetName` annotation to set the actual HDL name:
+Alternatively, use a non-keyword name with the `@hw.annotation.setName` annotation to set the actual HDL name:
 
 <div class="grid" markdown>
 
@@ -1149,16 +1237,15 @@ endmodule
 ```
 
 ```scala linenums="0" title="DFHDL"
-import scala.annotation.targetName
 class foo extends EDDesign:
-  @targetName("class") 
+  @hw.annotation.setName("class")
   val class_ = SInt(16) <> OUT
   class_ <> 42
 ```
 
 </div>
 
-Beyond Scala keywords, Verilog module names may also conflict with DFHDL built-in functions brought in by `import dfhdl.*` (e.g., `abs`, `max`, `min`) or with other class names in the same design hierarchy. See [Naming][naming] for the full list of reserved names and resolution patterns (`@targetName`, type aliases, backtick escaping).
+Beyond Scala keywords, Verilog module names may also conflict with DFHDL built-in functions brought in by `import dfhdl.*` (e.g., `abs`, `max`, `min`) or with other class names in the same design hierarchy. See [Naming][naming] for the full list of reserved names and resolution patterns (`@hw.annotation.setName`, type aliases, backtick escaping).
 ///
 
 /// admonition | `Bits` Initialization or Assignment
@@ -1210,7 +1297,7 @@ else out := b
 
 </div>
 
-The `.sel` method compiles directly to Verilog's ternary operator. For complex nested conditions, prefer `if`/`else` or `match` over chaining `.sel` calls. See [Selection (.sel)][sel-ops] for details.
+The `.sel` method compiles directly to Verilog's ternary operator, and all three forms are width-faithful to it: Verilog's context-dependent width propagation crosses `?:`, and DFHDL's target-context widening likewise crosses `.sel` and `if`/`else` (and `match`) expression branches, so `dx := cond.sel(xb - xa, xa - xb)` into a wider `dx` re-evaluates both branches at the target width exactly as the original `?:` line does. For complex nested conditions, prefer `if`/`else` or `match` over chaining `.sel` calls. See [Selection (.sel)][sel-ops] for details.
 
 When using inline `if`/`else` as the RHS of `:=` or `:==`, **parentheses are required**. Without them, Scala 3 parses the `if` as a statement, not an expression:
 

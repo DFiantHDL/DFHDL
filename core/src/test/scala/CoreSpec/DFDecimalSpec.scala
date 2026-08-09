@@ -58,7 +58,7 @@ class DFDecimalSpec extends DFSpec:
   test("DFVal Conversion") {
     assertCodeString {
       """|val t0: Bits[6] <> CONST = h"6'00"
-         |val t1: UInt[8] <> CONST = t0.uint.resize(8)
+         |val t1: UInt[8] <> CONST = t0.uint.eby(2)
          |val t2 = UInt(8) <> VAR
          |val t3: UInt[6] <> CONST = t0.uint
          |val t4: SInt[7] <> CONST = t0.uint.signed
@@ -170,19 +170,19 @@ class DFDecimalSpec extends DFSpec:
          |u8 := d"8'0"
          |u8 := ?
          |u8 := d"8'7"
-         |u8 := b6.uint.resize(8)
-         |u8 := u6.resize(8)
-         |s8 := (-u6.signed).resize(8)
+         |u8 := b6.uint.eby(2)
+         |u8 := u6.eby(2)
+         |s8 := -u6.signed.eby(1)
          |s8 := -s8
-         |s8 := (-b6.uint.signed).resize(8)
+         |s8 := -b6.uint.signed.eby(1)
          |s8 := sd"8'0"
          |s8 := sd"8'127"
          |s8 := sd"8'0"
          |s8 := ?
          |s8 := sd"8'-1"
          |s8 := sd"8'-127"
-         |s8 := u6.signed.resize(8)
-         |s8 := s6.resize(8)
+         |s8 := u6.signed.eby(1)
+         |s8 := s6.eby(2)
          |u6 := u8.resize(6)
          |s6 := s8.resize(6)
          |u6 := u6 ^ u6
@@ -580,9 +580,9 @@ class DFDecimalSpec extends DFSpec:
          |val t5 = u8 % d"8'9"
          |val t6 = u8 * d"8'22"
          |val t7 = s8 + sd"8'22"
-         |val t8 = s8 +^ sd"8'1"
-         |val t9 = u8 -^ d"8'22"
-         |val t10 = d"7'100" *^ u8
+         |val t8 = s8.eby(1) + sd"9'1"
+         |val t9 = u8.eby(1) - d"9'22"
+         |val t10 = d"15'100" * u8.eby(7)
          |""".stripMargin
     } {
       val t1 = u8 + u8
@@ -907,7 +907,7 @@ class DFDecimalSpec extends DFSpec:
     // chained ^: merged into multi-arg, position spans from first to last operand
     val t3 = b8 ^ b8 ^ b8; t3.assertPosition(0, 1, 14, 26)
   }
-  test("Arithmetic auto-carry promotion") {
+  test("Arithmetic target-context widening") {
     val u8 = UInt(8) <> VAR
     val u5 = UInt(5) <> VAR
     val s8 = SInt(8) <> VAR
@@ -921,76 +921,183 @@ class DFDecimalSpec extends DFSpec:
       """|u9 := u8 +^ u8
          |u9 := u8 -^ u8
          |u16 := u8 *^ u8
-         |u10 := (u8 +^ u8).resize(10)
+         |u10 := u8.eby(2) + u8.eby(2)
          |u8b := u8 + u8
          |val sum = u8 + u8
-         |u9 := sum.resize(9)
+         |u9 := sum.eby(1)
          |s9 := s8 +^ s8
-         |u9 := (u8 / u8).resize(9)
-         |u9 := u8 +^ u5.resize(8)
-         |u9 := u8 +^ d"8'200"
-         |u12 := (u8 *^ u8).resize(12)
-         |u9 := (u8 + u8) +^ u8
-         |u9 := (u8 + u8 + u8) +^ u8
-         |u10 := ((u8 + u8) +^ d"8'1").resize(10)
-         |u10 := ((u8 + u8b + u8) +^ d"8'1").resize(10)
-         |s9 := (s8 + s8) +^ sd"8'1"
+         |u9 := (u8 / u8).eby(1)
+         |u9 := u8 +^ u5
+         |u9 := u8.eby(1) + d"9'200"
+         |u12 := u8.eby(4) * u8.eby(4)
+         |u9 := u8.eby(1) + u8.eby(1) + u8.eby(1)
+         |u9 := u8.eby(1) + u8.eby(1) + u8.eby(1) + u8.eby(1)
+         |u10 := u8.eby(2) + u8.eby(2) + d"10'1"
+         |u10 := u8.eby(2) + u8b.eby(2) + u8.eby(2) + d"10'1"
+         |s9 := s8.eby(1) + s8.eby(1) + sd"9'1"
          |""".stripMargin
     } {
-      // Basic carry promotion for +
+      // An anonymous +/-/* cone assigned to a wider target re-evaluates at the target
+      // width, exactly like Verilog's assignment context. When the evaluation is
+      // exactly a carry operation (a binary op over leaf operands, same sign, carry
+      // width fitting the target), it elaborates as one; otherwise the operands are
+      // widened explicitly and the operations stay modular at the target width. A
+      // promoted carry op is never extended, only truncated.
       u9 := u8 + u8
-      // Basic carry promotion for -
       u9 := u8 - u8
-      // Basic carry promotion for *
       u16 := u8 * u8
-      // Target wider than carry width: promote to 9, resize to 10
+      // Target beyond the carry width: evaluation at 10 bits (extension of an
+      // unsigned subtraction's carry result would flip its sign, so no carry form)
       u10 := u8 + u8
-      // Target = func width: no promotion
+      // Target = func width: untouched
       u8b := u8 + u8
-      // Named value: no promotion
+      // Named value: a user-pinned boundary, never widened
       val sum = u8 + u8
       u9 := sum
       // SInt version
       s9 := s8 + s8
-      // Division: no carry variant, normal resize
+      // Division is not context-widened (zero-extension commutes with unsigned division)
       u9 := u8 / u8
-      // Asymmetric widths: u8 + u5 → func width 8, carry = 9
+      // Asymmetric widths: u5 aligns at the op and the carry spelling reconstructs
       u9 := u8 + u5
-      // Int literal: 200 is 8 bits, carry width = 9
+      // Int literal: the const folds at the target width, so the modular (equivalent)
+      // spelling prints instead of a carry reconstruction
       u9 := u8 + 200
-      // Partial mul promotion: target (12) > funcWidth (8), promote to 16, resize to 12
+      // Mul beyond the carry fit: evaluation at the target width
       u12 := u8 * u8
-      // carry promotion with 3 arguments
+      // widening with 3 arguments (merged func): not binary, evaluated at the target
       u9 := u8 + u8 + u8
-      // carry promotion with 4 arguments
+      // widening with 4 arguments
       u9 := u8 + u8 + u8 + u8
-      // Implicit-Int chain to a wider target: the outer op is promoted to carry
-      // under the target-width context, so no Verilog-semantics divergence remains
-      // (issue #453) and the promotion is visible in the printed code
+      // Implicit-Int chain to a wider target: every intermediate evaluates at the
+      // target width, so no Verilog-semantics divergence remains (issues #453, #119)
       u10 := u8 + u8 + 1
       u10 := u8 + u8b + u8 + 1
       s9 := s8 + s8 + 1
     }
   }
-  test("Arithmetic auto-carry promotion through sign conversion") {
+  test("Arithmetic target-context widening through sign conversion") {
     val u2 = UInt(2) <> VAR
     val s8 = SInt(8) <> VAR
     val s9 = SInt(9) <> VAR
     assertCodeString {
-      """|s8 := sd"8'0" - (d"2'3" *^ u2).signed.resize(8)
-         |s8 := s8 - (d"2'3" *^ u2).signed.resize(8)
-         |s9 := (d"2'3" *^ u2).signed.resize(8) +^ s8
+      """|s8 := sd"8'0" - (sd"8'3" * u2.signed.eby(5))
+         |s8 := s8 - (sd"8'3" * u2.signed.eby(5))
+         |s9 := (sd"9'3" * u2.signed.eby(6)) + s8.eby(1)
          |""".stripMargin
     } {
-      // The unsigned narrow chain is promoted BEFORE the sign conversion the signed
-      // sibling forces, so the widening happens ahead of the conversion instead of the
-      // conversion pinning the chain at its narrow width
+      // The unsigned narrow chain is widened at the OPERANDS when a signed sibling
+      // forces a sign conversion: converting the result instead would zero-extend a
+      // wrapped value and flip its sign (issue #119)
       s8 := sd"8'0" - 3 * u2
       s8 := s8 - 3 * u2
-      // The commutative sign alignment wraps the chain in a `.signed` alias before the
-      // conversion; the promotion unwraps it and re-applies the conversion on top,
-      // keeping the written operand order
+      // The commutative sign alignment wraps the chain in a `.signed` alias; the
+      // widening unwraps it and converts the operands at the target width, keeping
+      // the written operand order
       s9 := 3 * u2 + s8
+    }
+  }
+  test("Arithmetic target-context widening through sel") {
+    val u8 = UInt(8) <> VAR
+    val u8b = UInt(8) <> VAR
+    val u9 = UInt(9) <> VAR
+    val u10 = UInt(10) <> VAR
+    val s9 = SInt(9) <> VAR
+    val c = Bit <> VAR
+    assertCodeString {
+      """|u9 := c.sel(u8 +^ u8, u8 -^ u8)
+         |u10 := c.sel(u8.eby(2) + u8.eby(2), u8.eby(2))
+         |u8b := c.sel(u8 + u8, u8)
+         |s9 := c.sel(u8.signed - u8.signed, u8.signed + u8.signed)
+         |u9 := c.sel(c.sel(u8 +^ u8, u8.eby(1)), u8.eby(1))
+         |u10 := c.sel(u8.eby(2) + u8.eby(2), u8.eby(2)) + u8.eby(2)
+         |val q = c.sel(u8 + u8, u8)
+         |u9 := q.eby(1)
+         |""".stripMargin
+    } {
+      // sel corresponds to Verilog's ?:, whose branch operands are context-determined:
+      // the widening crosses the selection into each branch (issue #464)
+      u9 := c.sel(u8 + u8, u8 - u8)
+      // beyond the carry width, with a plain leaf branch (widened as a leaf)
+      u10 := c.sel(u8 + u8, u8)
+      // target = sel width: untouched
+      u8b := c.sel(u8 + u8, u8)
+      // signed target: the sign conversion applies at the operands inside the branches
+      s9 := c.sel(u8 - u8, u8 + u8)
+      // nested sel: the context propagates through both levels
+      u9 := c.sel(c.sel(u8 + u8, u8), u8)
+      // sel nested inside a widened arithmetic cone
+      u10 := c.sel(u8 + u8, u8) + u8
+      // named sel: a user-pinned boundary, extended as a value
+      val q = c.sel(u8 + u8, u8)
+      u9 := q
+    }
+  }
+  test("Arithmetic target-context widening through shifts and negation") {
+    val u8 = UInt(8) <> VAR
+    val s8 = SInt(8) <> VAR
+    val u9 = UInt(9) <> VAR
+    val u10 = UInt(10) <> VAR
+    val s10 = SInt(10) <> VAR
+    assertCodeString {
+      """|u10 := (u8.eby(2) + u8.eby(2)) >> 1
+         |u10 := (u8.eby(2) + u8.eby(2)) << 1
+         |s10 := (s8.eby(2) + s8.eby(2)) >> 1
+         |u9 := u8.eby(1) >> 1
+         |s10 := -(s8.eby(2) + s8.eby(2))
+         |u10 := (u8.eby(2) >> 1) + u8.eby(2)
+         |s10 := ((u8 + u8) >> 1).signed.eby(1)
+         |""".stripMargin
+    } {
+      // a shift's LEFT operand is context-determined in Verilog (the amount is
+      // self-determined): the left operand re-evaluates at the target width, so the
+      // carry bit survives a `>>` and a `<<` pushes into the extension range
+      u10 := (u8 + u8) >> 1
+      u10 := (u8 + u8) << 1
+      s10 := (s8 + s8) >> 1
+      // a leaf left operand extends the same way
+      u9 := u8 >> 1
+      // negation is truncation-commutative and widens like binary arithmetic
+      s10 := -(s8 + s8)
+      // a shift nested inside a widened cone re-enters the widening
+      u10 := (u8 >> 1) + u8
+      // a sign-CROSSING shift context stays a leaf: a shift evaluates at its
+      // operand's own signedness, so the conversion applies to the result
+      s10 := (u8 + u8) >> 1
+    }
+  }
+  test("Arithmetic target-context widening through conditional expressions") {
+    val u8 = UInt(8) <> VAR
+    val u9 = UInt(9) <> VAR
+    val u10 = UInt(10) <> VAR
+    val c = Bit <> VAR
+    assertCodeString {
+      """|u9 := ((
+         |  if (c) u8 +^ u8
+         |  else u8 -^ u8
+         |): UInt[9] <> VAL)
+         |u10 := ((
+         |  if (c) u8.eby(2) + u8.eby(2)
+         |  else u8.eby(2)
+         |): UInt[10] <> VAL) + u8.eby(2)
+         |u10 := ((
+         |  c match
+         |    case 1 => u8.eby(2) + u8.eby(2)
+         |    case _ => u8.eby(2)
+         |  end match
+         |): UInt[10] <> VAL) + u8.eby(2)
+         |""".stripMargin
+    } {
+      // a type-driven position converts each branch at construction (the plugin's
+      // Exact1 route), landing on the same widened form
+      u9 := (if (c) u8 + u8 else u8 - u8)
+      // a type-free position (an operand of a wider operation): the conditional header
+      // was typed by its branches and re-evaluates at the target per branch (issue #464)
+      u10 := (if (c) u8 + u8 else u8) + u8
+      u10 := (c match
+        case 1 => u8 + u8
+        case _ => u8
+      ) + u8
     }
   }
   test("Int32 arithmetic") {
@@ -1084,6 +1191,15 @@ class DFDecimalSpec extends DFSpec:
 
     // Should NOT warn: explicit bit-accurate literal
     val t5 = (a + b + c + d) / d"3'4"
+
+    // Should warn: the chain hides one conditional away (issue #464 warning gap)
+    val cnd = Bit <> VAR
+    assertRuntimeWarningLog(warnMsg) {
+      val t5b = (if (cnd) a + 1 else b) / 4
+    }
+
+    // Should NOT warn: carry ops inside the conditional
+    val t5c = (if (cnd) a +^ b else b.eby(1)) / 4
 
     // Should warn: DFHDL Int <> CONST used as divisor
     val p: Int <> CONST = 4
