@@ -997,6 +997,42 @@ class DFDecimalSpec extends DFSpec:
       s9 := 3 * u2 + s8
     }
   }
+  test("Arithmetic target-context widening through sel") {
+    val u8 = UInt(8) <> VAR
+    val u8b = UInt(8) <> VAR
+    val u9 = UInt(9) <> VAR
+    val u10 = UInt(10) <> VAR
+    val s9 = SInt(9) <> VAR
+    val c = Bit <> VAR
+    assertCodeString {
+      """|u9 := c.sel(u8 +^ u8, u8 -^ u8)
+         |u10 := c.sel(u8.eby(2) + u8.eby(2), u8.eby(2))
+         |u8b := c.sel(u8 + u8, u8)
+         |s9 := c.sel(u8.signed - u8.signed, u8.signed + u8.signed)
+         |u9 := c.sel(c.sel(u8 +^ u8, u8.eby(1)), u8.eby(1))
+         |u10 := c.sel(u8.eby(2) + u8.eby(2), u8.eby(2)) + u8.eby(2)
+         |val q = c.sel(u8 + u8, u8)
+         |u9 := q.eby(1)
+         |""".stripMargin
+    } {
+      // sel corresponds to Verilog's ?:, whose branch operands are context-determined:
+      // the widening crosses the selection into each branch (issue #464)
+      u9 := c.sel(u8 + u8, u8 - u8)
+      // beyond the carry width, with a plain leaf branch (widened as a leaf)
+      u10 := c.sel(u8 + u8, u8)
+      // target = sel width: untouched
+      u8b := c.sel(u8 + u8, u8)
+      // signed target: the sign conversion applies at the operands inside the branches
+      s9 := c.sel(u8 - u8, u8 + u8)
+      // nested sel: the context propagates through both levels
+      u9 := c.sel(c.sel(u8 + u8, u8), u8)
+      // sel nested inside a widened arithmetic cone
+      u10 := c.sel(u8 + u8, u8) + u8
+      // named sel: a user-pinned boundary, extended as a value
+      val q = c.sel(u8 + u8, u8)
+      u9 := q
+    }
+  }
   test("Int32 arithmetic") {
     val param: Int <> CONST = 2
     val t1 = 1 + param

@@ -718,14 +718,14 @@ object DFBits:
             import dfc.getSet
             // Check B: shift amount is self-determined in Verilog,
             // so only warn if the LHS chain itself contains a tagged operand
-            if DFXInt.Val.Ops.containsNarrowNonCarryArithWithTaggedOperand(
+            if CarryPromote.containsNarrowNonCarryArithWithTaggedOperand(
                 lhs.asIR
               )
             then
               dfc.logEvent(
                 DFWarning(
                   op.value.toString,
-                  DFXInt.Val.Ops.verilogSemanticsWarnMsg
+                  CarryPromote.verilogSemanticsWarnMsg
                 )
               )
             val shiftVal = ub(lhs.widthIntParam.asInstanceOf[IntParam[LW]], rhs)

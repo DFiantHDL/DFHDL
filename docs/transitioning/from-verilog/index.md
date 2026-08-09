@@ -1297,7 +1297,7 @@ else out := b
 
 </div>
 
-The `.sel` method compiles directly to Verilog's ternary operator. For complex nested conditions, prefer `if`/`else` or `match` over chaining `.sel` calls. See [Selection (.sel)][sel-ops] for details.
+The `.sel` method compiles directly to Verilog's ternary operator, and it is width-faithful to it: Verilog's context-dependent width propagation crosses `?:`, and DFHDL's target-context widening likewise crosses `.sel`, so `dx := cond.sel(xb - xa, xa - xb)` into a wider `dx` re-evaluates both branches at the target width exactly as the original `?:` line does. For complex nested conditions, prefer `if`/`else` or `match` over chaining `.sel` calls; note that an inline `if`/`else` expression is NOT context-widened (its result converts as a plain value), so a widening translation of `?:` should use `.sel` or explicit carry ops. See [Selection (.sel)][sel-ops] for details.
 
 When using inline `if`/`else` as the RHS of `:=` or `:==`, **parentheses are required**. Without them, Scala 3 parses the `if` as a statement, not an expression:
 

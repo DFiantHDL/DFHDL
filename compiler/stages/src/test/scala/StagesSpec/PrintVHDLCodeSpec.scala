@@ -3493,12 +3493,15 @@ class PrintVHDLCodeSpec extends StageSpec:
       val uacc   = UInt(W + 2) <> OUT
       val prod   = SInt(2 * W) <> OUT
       val uprod  = UInt(2 * W) <> OUT
-      sum   <> a + b
-      usub  <> ua - ub
-      acc   <> a + b
-      uacc  <> ua + ub
-      prod  <> a * b
-      uprod <> ua * ub
+      val c      = Bit         <> IN
+      val viaSel = SInt(W + 1) <> OUT
+      sum    <> a + b
+      usub   <> ua - ub
+      acc    <> a + b
+      uacc   <> ua + ub
+      prod   <> a * b
+      uprod  <> ua * ub
+      viaSel <> c.sel(b - a, a - b)
     end ParamWiden
     val top = ParamWiden().getCompiledCodeString
     assertNoDiff(
@@ -3522,7 +3525,9 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  acc : out signed((W + 2) - 1 downto 0);
          |  uacc : out unsigned((W + 2) - 1 downto 0);
          |  prod : out signed((2 * W) - 1 downto 0);
-         |  uprod : out unsigned((2 * W) - 1 downto 0)
+         |  uprod : out unsigned((2 * W) - 1 downto 0);
+         |  c : in std_logic;
+         |  viaSel : out signed((W + 1) - 1 downto 0)
          |);
          |end ParamWiden;
          |
@@ -3534,6 +3539,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  uacc <= eby(ua, 2) + eby(ub, 2);
          |  prod <= a * b;
          |  uprod <= ua * ub;
+         |  viaSel <= bool_sel(to_bool(c), csub(b, a), csub(a, b));
          |end ParamWiden_arch;
          |""".stripMargin
     )

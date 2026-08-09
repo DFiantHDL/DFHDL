@@ -96,6 +96,34 @@ class ContextWidenSpec extends DesignSpec:
     )
   }
 
+  test("parametric sel target-context widening") {
+    @top(false) class SelWiden(val W: Int <> CONST = 4) extends EDDesign:
+      val a, b = SInt(W) <> IN
+      val c = Bit <> IN
+      val viaSel = SInt(W + 1) <> OUT
+      val wide = SInt(W + 2) <> OUT
+      // sel is Verilog's ?:, whose branch operands are context-determined: the
+      // widening crosses the selection and each branch re-evaluates at the target
+      // width (issue #464: previously the branches stayed modular at W and only
+      // the selection result was extended)
+      viaSel <> c.sel(b - a, a - b)
+      wide <> c.sel(b - a, a - b)
+    end SelWiden
+
+    SelWiden().assertCodeString(
+      """|class SelWiden(val W: Int <> CONST = 4) extends EDDesign:
+         |  val a = SInt(W) <> IN
+         |  val b = SInt(W) <> IN
+         |  val c = Bit <> IN
+         |  val viaSel = SInt(W + 1) <> OUT
+         |  val wide = SInt(W + 2) <> OUT
+         |  viaSel <> c.sel(b -^ a, a -^ b)
+         |  wide <> c.sel(b.eby(2) - a.eby(2), a.eby(2) - b.eby(2))
+         |end SelWiden
+         |""".stripMargin
+    )
+  }
+
   test("explicit eby") {
     @top(false) class Eby(val W: Int <> CONST = 8) extends EDDesign:
       val a = SInt(W) <> IN

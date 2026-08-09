@@ -2478,6 +2478,8 @@ Standard arithmetic operations wrap on overflow. For example, `d"8'255" + d"8'1"
 
 However, an **anonymous** arithmetic expression (`+`, `-`, `*`) that is assigned or connected to a variable **wider** than the operation's result is re-evaluated at the target's width and sign, exactly like Verilog's assignment-context width propagation: every operand, recursively through the anonymous expression, is widened to the target type, and the operations stay modular at that width. The carry operators are themselves shorthand for exactly this operand-widened evaluation (`x +^ y` is `x.eby(1) + y.eby(1)` with the operands first aligned to a common width), so when a widening lands exactly on a carry shape it prints back as the carry operator.
 
+The widening context also crosses an anonymous `.sel`, matching Verilog's `?:` whose branch operands are context-determined: each selection branch re-evaluates at the target, while the selection condition is unaffected. The context stops at exactly three kinds of boundaries: a **named value** (a `val`-bound expression evaluates at its own declared width and only its result extends), a **carry operation** (its widened result is already exact), and any **other operation** (shifts, bitwise logic, comparisons, `if`/`match` expressions), whose result converts as a plain value.
+
 ```scala
 val u8  = UInt(8) <> VAR
 val u9  = UInt(9) <> VAR
@@ -2492,6 +2494,10 @@ u12 := u8 * u8   // beyond the carry fit: u8.eby(4) * u8.eby(4)
 u10 := u8 + u8   // target beyond the carry width: u8.eby(2) + u8.eby(2)
 s9  := u8 - u8   // unsigned to signed: operands convert, u8.signed - u8.signed
 
+// The context crosses .sel branches (Verilog's ?:), condition untouched:
+val c = Bit <> VAR
+u9 := c.sel(u8 + u8, u8 - u8)   // elaborates to c.sel(u8 +^ u8, u8 -^ u8)
+
 // Implicit Int operands and whole chains evaluate at the target width:
 u10 := u8 + u8 + 1   // elaborates to u10 := u8.eby(2) + u8.eby(2) + d"10'1"
 
@@ -2504,6 +2510,7 @@ u9 := sum          // extended by 1: sum.eby(1)
 //   SInt(W + 1) target: sum := a +^ b
 //   SInt(W + 2) target: acc := a.eby(2) + b.eby(2)
 //   SInt(2 * W) target: prod := a *^ b
+//   SInt(W + 1) target: dx := c.sel(b -^ a, a -^ b)
 ```
 
 A parametric width relation is accepted when it holds for **every valid parameter assignment**, using the fact that widths are positive: `SInt(2 * W)` accepts a `W`-wide operation because `2 * W >= W` for any valid `W`. A relation that a valid assignment can violate is definitively rejected (`SInt(W)` never fits a `2 * W`-wide value), and an undecidable one (e.g. a literal target such as `SInt(16)` against a free `W`, which may exceed 16) is conservatively rejected as well; both still require an explicit carry op or `.resize` to state the intent.
