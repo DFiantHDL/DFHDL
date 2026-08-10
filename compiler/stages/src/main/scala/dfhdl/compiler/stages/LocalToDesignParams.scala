@@ -8,6 +8,11 @@ import dfhdl.options.CompilerOptions
 /** This stage converts local parameters that are used in IOs to be design parameters with default
   * values, since VHDL does not support local parameters for IO access. These kind of design
   * parameters remain at their default (relative) values and are never directly applied.
+  *
+  * Verilog has the same restriction and does NOT use this stage: a module body declaration is
+  * positionally after the header that names it, so an IO-referenced local parameter is a
+  * use-before-declare there too. It is fixed in the Verilog printer instead (a `localparam` in the
+  * parameter port list), which keeps the value non-overridable at the instantiation site.
   */
 case object LocalToDesignParams extends HierarchyStage:
   override def runCondition(using co: CompilerOptions): Boolean =

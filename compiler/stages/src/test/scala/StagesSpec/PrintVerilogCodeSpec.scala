@@ -3376,9 +3376,12 @@ class PrintVerilogCodeSpec extends StageSpec:
     )
   }
 
-  // width/length queries print natively in SystemVerilog: `$bits` for the total width,
-  // `$size` for a vector's element count; a named query binding becomes a localparam
-  // over the query, keeping the value-to-width relation in the generated code
+  // width/length queries over a CONSTANT argument print natively in SystemVerilog (`$bits` for
+  // the total width, `$size` for a vector's element count), so a named query binding keeps the
+  // value-to-width relation in the generated code. Over a NON-constant argument (a port), the
+  // width parameter expression is inlined instead: the query may print into a parameter port
+  // list entry, where naming a port is a use-before-declare. A port-referenced binding is
+  // declared there rather than in the module body, which the port list precedes (issue #472)
   test("width/length query emission") {
     class WidthQuery(
         val W:    Int <> CONST       = 4,
@@ -3406,7 +3409,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |module WidthQuery#(
          |    parameter int W = 4,
          |    parameter int N = 3,
-         |    parameter logic [7:0] INIT = 8'h00
+         |    parameter logic [7:0] INIT = 8'h00,
+         |    parameter int LI = $bits(INIT),
+         |    parameter int WID = N * W,
+         |    parameter int LEN = N
          |)(
          |  input  wire logic [W - 1:0] vec [0:N - 1],
          |  input  wire logic [LI - 1:0] din,
@@ -3415,9 +3421,6 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [LEN - 1:0] cnt
          |);
          |  `include "dfhdl_defs.svh"
-         |  localparam int LI = $bits(INIT);
-         |  localparam int LEN = $size(vec);
-         |  localparam int WID = $bits(vec);
          |  assign dout = din;
          |  assign flat = {vec};
          |  assign cnt = LEN'(1'd0);
@@ -3428,7 +3431,9 @@ class PrintVerilogCodeSpec extends StageSpec:
 
   // the pre-SystemVerilog dialects have no width query syntax; the width parameter
   // expression is inlined instead, and a vector's length query is folded by
-  // `DropStructsVecs` into the element-count parameter before the vector is flattened
+  // `DropStructsVecs` into the element-count parameter before the vector is flattened.
+  // The parameter port list has no `localparam` before 1800-2009, so the port-referenced
+  // bindings are declared there as plain parameters (issue #472)
   test("width/length query emission under v2001") {
     given options.CompilerOptions.Backend = _.verilog.v2001
     class WidthQueryOld(
@@ -3451,15 +3456,15 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module WidthQueryOld#(
          |    parameter integer W = 4,
-         |    parameter integer N = 3
+         |    parameter integer N = 3,
+         |    parameter integer WID = W * N,
+         |    parameter integer LEN = N
          |)(
          |  input  wire [(W * N) - 1:0] vec,
          |  output wire [WID - 1:0] flat,
          |  output wire [LEN - 1:0] cnt
          |);
          |  `include "dfhdl_defs.vh"
-         |  parameter integer LEN = N;
-         |  parameter integer WID = W * N;
          |  assign flat = `EXTEND_U(vec, W * N, W * N);
          |  assign cnt = `EXTEND_U(1'd0, 1, LEN);
          |endmodule

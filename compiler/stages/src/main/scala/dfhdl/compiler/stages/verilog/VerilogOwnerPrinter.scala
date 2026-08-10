@@ -64,17 +64,28 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
                                           |${ports.hindent}
                                           |)""".stripMargin)
     val localTypeDcls = printer.csLocalTypeDcls(design)
+    // the local constants the PORTS reference. A module body declaration is positionally after
+    // the header that names it, so declaring these in the body is a use-before-declare (issue
+    // #472): with an ANSI header they are declared in the parameter port list instead, and with a
+    // non-ANSI header (where the ports are body declarations too) they only have to lead the port
+    // declarations, which the `constIntDcls` block below does. Either way they are dropped from
+    // the value/method ordering. VHDL has the same restriction and solves it a stage earlier, by
+    // converting them into design parameters (`LocalToDesignParams`).
+    val ioConsts: List[DFVal.CanBeExpr] = design.getIOLocalParams
+    val ioConstSet: Set[DFVal] = ioConsts.toSet
     // design parameters (non-ANSI dialects only) and the constants named by a local type
     // declaration (a vector/array width); both must precede the local type declarations
     val typeConsts = printer.typeReferencedConsts(design).toSet
+    val leadingConsts: Set[DFVal] =
+      if (parameterizedModuleSupport) typeConsts -- ioConstSet else typeConsts ++ ioConstSet
     val constIntDcls =
       designMembers.view
         .flatMap {
           case p: DesignParam =>
             if (parameterizedModuleSupport) None
             else Some(p)
-          case c @ DclConst() if typeConsts.contains(c) => Some(c)
-          case _                                        => None
+          case c @ DclConst() if leadingConsts.contains(c) => Some(c)
+          case _                                           => None
         }
         .map(x => printer.csDFMember(x) + ";")
         .mkString("\n")
@@ -123,10 +134,11 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
            |${p.csMethodDcl(block)}""".stripTrailing
     val orderedDcls = printer.joinLocalDecls(
       printer.localDeclsOrdered(design, methodPrinters.map(_._1)).flatMap {
-        case LocalDecl.Const(c)        => csDcl(c).map((false, _))
-        case LocalDecl.Signal(s)       => csDcl(s).map((false, _))
-        case LocalDecl.StaticMethod(b) => List((true, csMethodLocal(b)))
-        case LocalDecl.EDMethod(b)     => List((true, csMethodLocal(b)))
+        case LocalDecl.Const(c) if ioConstSet.contains(c) => Nil
+        case LocalDecl.Const(c)                           => csDcl(c).map((false, _))
+        case LocalDecl.Signal(s)                          => csDcl(s).map((false, _))
+        case LocalDecl.StaticMethod(b)                    => List((true, csMethodLocal(b)))
+        case LocalDecl.EDMethod(b)                        => List((true, csMethodLocal(b)))
       }
     )
     val declarations =
@@ -161,10 +173,23 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       val csTypeNoLogic = if (printer.supportLogicType) csType else csType.replace("logic ", "")
       s"parameter ${csTypeNoLogic}${param.getName}$defaultValue"
     }
+    // the port-referenced local constants, declared after the design parameters their values
+    // read (`getIOLocalParams` yields them in dependency order)
+    val ioConstList =
+      if (!parameterizedModuleSupport) Nil
+      else
+        ioConsts.map { c =>
+          val keyword = if (printer.supportParamPortListLocalParam) "localparam" else "parameter"
+          val csType = printer.csDFType(c.dfType).emptyOr(_ + " ")
+          val csTypeNoLogic = if (printer.supportLogicType) csType else csType.replace("logic ", "")
+          val arrRange = printer.csDFVectorRanges(c.dfType)
+          s"$keyword ${csTypeNoLogic}${c.getName}$arrRange = ${printer.csDFValExpr(c)}"
+        }
+    val headerParamList = designParamList ++ ioConstList
     val designParamCS =
-      if (designParamList.length == 0 || !parameterizedModuleSupport) ""
-      else if (designParamList.length == 1) designParamList.mkString("#(", ", ", ")")
-      else "#(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
+      if (headerParamList.length == 0 || !parameterizedModuleSupport) ""
+      else if (headerParamList.length == 1) headerParamList.mkString("#(", ", ", ")")
+      else "#(" + headerParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
     val includeModuleDefs =
       if (printer.allowTypeDef || !printer.hasGlobalContent) ""
       else s"""`include "${printer.globalFileName}""""

@@ -39,6 +39,13 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
+  // a `localparam` inside the parameter port list arrived with 1800-2009; the earlier ANSI
+  // dialects declare a port-list parameter with `parameter` (DFHDL never overrides it at an
+  // instantiation site either way)
+  val supportParamPortListLocalParam: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 | VerilogDialect.sv2005 => false
+      case _                                                                 => true
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
 
   def csDesignParamDefault(param: DesignParam): String = param.defaultValRef.get match
@@ -236,16 +243,21 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             val supportsQuerySyntax = printer.dialect match
               case VerilogDialect.v95 | VerilogDialect.v2001 => false
               case _                                         => true
-            (dfVal.op, arg.get.dfType) match
-              // a vector's element count (`DropStructsVecs` folds these for the pre-SV
-              // dialects, so only a SystemVerilog `$size` spelling is ever needed)
-              case (Func.Op.length, _: DFVector) =>
-                if (supportsQuerySyntax) s"$$size($argStrB)" else printer.unsupported
-              case (_, argType) =>
-                if (supportsQuerySyntax) s"$$bits($argStrB)"
-                // pre-SystemVerilog dialects have no width query; inline the width
-                // parameter expression, which is what the type declaration itself prints
-                else csInlinedWidth(argType)
+            // Only a CONSTANT argument may be named from every context this query can print
+            // into -- in particular a design-level constant becomes a module PARAMETER whose
+            // default cannot reference a port. A non-constant argument (a port, a variable)
+            // inlines the width parameter expression instead, which is what the argument's own
+            // declaration prints. The pre-SystemVerilog dialects have no width query at all and
+            // always inline.
+            if (supportsQuerySyntax && arg.get.isConst)
+              (dfVal.op, arg.get.dfType) match
+                // a vector's element count
+                case (Func.Op.length, _: DFVector) => s"$$size($argStrB)"
+                case _                             => s"$$bits($argStrB)"
+            else
+              (dfVal.op, arg.get.dfType) match
+                case (Func.Op.length, vec: DFVector) => vec.cellDimParamRefs.head.refCodeString
+                case (_, argType)                    => csInlinedWidth(argType)
           case _ => printer.unsupported
         end match
       // multiarg func
