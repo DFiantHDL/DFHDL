@@ -175,7 +175,7 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
       }
     )
 
-  // members of the `dfhdl` root package itself (the `hdl` object and the package-level export
+  // members of the `dfhdl` root package itself (the `__hdl` object and the package-level export
   // forwarders of the core ops); library code like `dfhdl.lib` lives in SUB-packages and is
   // deliberately not covered
   private val dfhdlRootPkgCache = mutable.Map.empty[Symbol, Boolean]

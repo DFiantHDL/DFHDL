@@ -261,7 +261,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
           None
   end Foreach
 
-  // Matched by name, like `HackedGuard` does for `BooleanHack`: `dfhdl.hdl` re-exports `LoopOps`,
+  // Matched by name, like `HackedGuard` does for `BooleanHack`: `dfhdl.__hdl` re-exports `LoopOps`,
   // so the call site resolves to an export forwarder rather than to the method in `LoopOps`.
   private def isFallThroughSym(sym: Symbol)(using Context): Boolean =
     sym.exists && sym.name.toString == "FALL_THROUGH"
@@ -282,7 +282,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   end FallThroughMark
 
   // `waitUntil(FALL_THROUGH(cond))(using dfc, waitScope)` and its `waitWhile` counterpart. The
-  // method is matched by name for the same reason `FallThroughMark` is: `dfhdl.hdl` re-exports
+  // method is matched by name for the same reason `FallThroughMark` is: `dfhdl.__hdl` re-exports
   // `Wait.Ops`, so the call site resolves to an export forwarder. The `Boolean` distinguishes the
   // two polarities (`waitUntil` keeps the condition, `waitWhile` negates it).
   private object CondWaitMark:

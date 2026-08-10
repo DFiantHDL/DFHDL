@@ -389,4 +389,20 @@ class DFBitsSpec extends DFSpec:
     )
     val o2 = b8(u2.resize)
   }
+  // A `Bit` value's `.bits` reaches an unbounded `Bits[Int] <> VAL` ascription (the accumulator
+  // form of the elaboration-time concatenation idiom) through the implicit conversion. The
+  // conversion used to select the frontend namespace object through a prefix inaccessible from
+  // user code, so this failed to COMPILE with `illegal access to protected object hdl in package
+  // dfhdl` (issue #468) — which is what this test pins, the code string below merely confirming
+  // the value that reaches the ascription.
+  test("Bit conversion into an unbounded Bits ascription") {
+    assertCodeString {
+      """|val bit = Bit <> VAR
+         |val acc = bit.toBits(1)
+         |""".stripMargin
+    } {
+      val bit = Bit <> VAR
+      val acc: Bits[Int] <> VAL = bit.bits
+    }
+  }
 end DFBitsSpec
