@@ -402,6 +402,11 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       if (dcls.isEmpty) ""
       else s"${csDFMembers(dcls)}\n"
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
+    // `always_ff` guarantees a single driver for everything it writes, so a process writing a
+    // shared variable (multi-driven by design, e.g. one clocked process per RAM port) degrades
+    // to a plain `always`, which carries no such guarantee (issue #473). Only the writers
+    // degrade: a process merely reading the shared variable is unconstrained.
+    val sharedWriter = pb.writesSharedVar
     val alwaysKW = pb.sensitivity match
       case Sensitivity.Initial => "initial"
       case _                   =>
@@ -412,10 +417,12 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
               case Sensitivity.All        => "always_comb"
               case Sensitivity.List(refs) =>
                 refs match
-                  case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
+                  case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil
+                      if !sharedWriter =>
                     "always_ff"
                   case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) ::
-                      DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
+                      DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil
+                      if !sharedWriter =>
                     "always_ff"
                   case _ => "always"
     val senList = pb.sensitivity match

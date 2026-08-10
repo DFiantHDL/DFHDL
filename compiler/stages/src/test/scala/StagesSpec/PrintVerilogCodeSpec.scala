@@ -3183,7 +3183,9 @@ class PrintVerilogCodeSpec extends StageSpec:
     )
   }
   // a `:==` write to a shared variable (the multi-port RAM idiom) renders as a plain non-blocking
-  // `<=` inside the clocked process, the portable RAM-inference template form (issue #437)
+  // `<=` inside the clocked process, the portable RAM-inference template form (issue #437). The
+  // process itself is a plain `always` and not an `always_ff`, since the latter guarantees a
+  // single driver for what it writes (issue #473)
   test("shared variable (RAM) writes are non-blocking") {
     class SimpleRAM extends EDDesign:
       val clk  = Bit          <> IN
@@ -3213,7 +3215,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  /* verilator lint_off MULTIDRIVEN */
          |  logic [7:0] ram [0:15];
          |  /* verilator lint_on MULTIDRIVEN */
-         |  always_ff @(posedge clk)
+         |  always @(posedge clk)
          |  begin
          |    if (we) ram[addr] <= din;
          |    else dout <= ram[addr];
