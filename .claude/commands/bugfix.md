@@ -952,6 +952,34 @@ When you rewrite an existing predicate into a shared one, expand both forms case
 confirm they agree on every branch, including the ones no test reaches (a `VAR.SHARED` inside an
 HDL method). A "simplification" that quietly moves an edge case is a second bug riding along.
 
+- **A keyword that carries a language-level GUARANTEE needs the IR fact that contradicts it.**
+  SystemVerilog `always_ff` promises a single driver for everything the process writes, which a
+  `VAR.SHARED` (a multi-ported memory) contradicts by construction, so a conforming frontend
+  rejects the pair while permissive ones (Yosys, Verilator) accept it (issue #473). Degrade only
+  the processes that actually make the contradicted claim (the *writers*; a reader is
+  unconstrained), and derive the fact from an `analysis` predicate rather than from the printer.
+  A pragma already emitted for the same reason (`/* verilator lint_off MULTIDRIVEN */`) is a
+  *lint* suppression and cannot rescue a language rule, so its presence is a hint that the
+  information is available, not that the case is handled.
+
+- **When the sibling backend already solves a restriction, its mechanism tells you the RULE, not
+  the LAYER.** VHDL fixes "a declaration the interface names cannot live in the body" with a
+  stage (`LocalToDesignParams`, which converts such constants into design parameters). Verilog
+  has the same restriction (issue #472: a body `localparam` referenced from the ANSI port list is
+  a use-before-declare), and reusing the stage for it introduced two fresh defects that the
+  printer-side equivalent has neither of: a `DropStructsVecs` length fold whose `Ident` wrapper
+  became an anonymous design-param default and then printed as a stray statement (the
+  `case Ident(_) => true` viewability exemption in `DFOwnerPrinter` makes every anonymous ident a
+  statement), and the v95 body-parameter path folding a derived default to a wrong literal
+  (`csDesignParamDefault` resolves constant data for a top design, so `W * N` became `24` and an
+  unresolvable width became `0`). Enumerate what else consumes the IR shape a stage would create
+  before preferring a stage to a printer fix; when only the emitted text is wrong, the printer is
+  the layer, and the shared IR stays backend-neutral. What DOES transfer between the backends is
+  the sibling's *rule*: VHDL keeps a native width query (`'length` / `bitWidth`) only over a
+  CONSTANT argument, because the query may print into a generic default where naming a port is
+  illegal, and the moment Verilog's constants moved into the parameter port list `$bits(vec)` had
+  the identical defect.
+
 - **One literal-format knob can be semantically overloaded across print contexts.** The Verilog
   bubble digit was `?` everywhere, which is correct in a `casez` pattern (where `?` aliases `z`,
   the wildcard) and wrong in every value position (where it *drives* high-impedance; the value
