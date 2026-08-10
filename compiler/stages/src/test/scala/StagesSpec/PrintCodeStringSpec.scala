@@ -3193,4 +3193,59 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+
+  // A bit-select whose index is parameter-dependent keeps its symbolic index in the printed
+  // code, and the connectivity re-derived here (`sanityCheck` forces it) must give the same
+  // directions the elaboration did, with the index resolved through the applied parameter.
+  test("Parametric bit-select index") {
+    class Fifo extends EDDesign:
+      val wReady = Bit <> OUT
+      wReady <> 1
+    class ParamIdxChild(val N: Int <> CONST = 3) extends EDDesign:
+      val a   = Bit     <> IN
+      val out = Bits(N) <> OUT
+      val w   = Bit     <> VAR
+      val v   = Bits(N) <> VAR
+      v(N - 1) <> a
+      v(0)     <> w
+      v(1)     <> a
+      out      <> v
+      val f = Fifo()
+      w <> f.wReady
+    class ParamIdxParent extends EDDesign:
+      val a   = Bit     <> IN
+      val out = Bits(3) <> OUT
+      val c   = ParamIdxChild(3)
+      c.a <> a
+      out <> c.out
+    assertCodeString(
+      ParamIdxParent(),
+      """|class Fifo extends EDDesign:
+         |  val wReady = Bit <> OUT
+         |  wReady <> 1
+         |end Fifo
+         |
+         |class ParamIdxChild(val N: Int <> CONST = 3) extends EDDesign:
+         |  val a = Bit <> IN
+         |  val out = Bits(N) <> OUT
+         |  val w = Bit <> VAR
+         |  val v = Bits(N) <> VAR
+         |  v(N - 1) <> a
+         |  v(0) <> w
+         |  v(1) <> a
+         |  out <> v
+         |  val f = Fifo()
+         |  w <> f.wReady
+         |end ParamIdxChild
+         |
+         |class ParamIdxParent extends EDDesign:
+         |  val a = Bit <> IN
+         |  val out = Bits(3) <> OUT
+         |  val c = ParamIdxChild(N = 3)
+         |  c.a <> a
+         |  out <> c.out
+         |end ParamIdxParent
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

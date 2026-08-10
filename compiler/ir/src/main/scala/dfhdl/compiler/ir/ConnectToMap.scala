@@ -16,19 +16,21 @@ object ConnectToMap:
   extension (ctm: ConnectToMap)(using MemberGetSet)
     def connectToVals: Set[ConnectToVal] = ctm.keySet
 
-    /** All nets whose slice overlaps `slice` on `connectToVal`, each with its overlap verdict:
-      * `Tri.Yes` for a proven overlap, `Tri.Unknown` when the relation could not be proven either
-      * way (conservatively included). Provably disjoint nets are excluded.
+    /** All nets whose slice overlaps `slice` on `connectToVal`, each with the slice it was stored
+      * under and its overlap verdict: `Tri.Yes` for a proven overlap, `Tri.Unknown` when the
+      * relation could not be proven either way (conservatively included). Provably disjoint nets
+      * are excluded. The stored slice is carried so a legality check can re-decide an `Unknown`
+      * verdict at the elaborated parameter values (see [[ConnectToMap.foldedOverlap]]).
       */
-    def getNetsVerdicts(connectToVal: ConnectToVal, slice: Slice): Vector[(DFNet, Tri)] =
+    def getNetsVerdicts(connectToVal: ConnectToVal, slice: Slice): Vector[(DFNet, Slice, Tri)] =
       ctm.get(connectToVal) match
         case Some(entry) =>
           val widthOpt = connectToVal.widthIntOpt
           entry.nets.view
             .map { (storedSlice, net) =>
-              (net, ConnectToMap.overlapsSlices(storedSlice, slice, widthOpt))
+              (net, storedSlice, ConnectToMap.overlapsSlices(storedSlice, slice, widthOpt))
             }
-            .filter(_._2 != Tri.No)
+            .filter(_._3 != Tri.No)
             .toVector
         case None => Vector.empty
 
@@ -37,6 +39,18 @@ object ConnectToMap:
       */
     def getNets(connectToVal: ConnectToVal, slice: Slice): Set[DFNet] =
       getNetsVerdicts(connectToVal, slice).view.map(_._1).toSet
+
+    /** Is some net's write to `slice` PROVEN to overlap? Unlike [[contains]], a merely unproven
+      * (parameter-dependent) relation answers `false`. Directionality decisions use this: which end
+      * of a connection is the sink is a structural property that must hold for every parameter
+      * assignment, so parameter opacity may never flip it.
+      */
+    def hasProvenNet(connectToVal: ConnectToVal, slice: Slice): Boolean =
+      getNetsVerdicts(connectToVal, slice).exists(_._3 == Tri.Yes)
+    def hasProvenNet(dfVal: DFVal): Boolean =
+      dfVal.departialPBNS match
+        case Some(connectToVal, slice) => hasProvenNet(connectToVal, slice)
+        case _                         => false
     def getNets(dfVal: DFVal): Set[DFNet] =
       dfVal.departialPBNS match
         case Some(connectToVal, slice) => getNets(connectToVal, slice)
@@ -66,6 +80,32 @@ object ConnectToMap:
     def coverageOf(connectToVal: ConnectToVal): Coverage =
       ctm.get(connectToVal).map(_.coverage).getOrElse(Coverage.empty)
   end extension
+
+  /** Re-decides an overlap the symbolic proofs left [[Tri.Unknown]], by folding both slices at the
+    * elaborated parameter values (an elaboration root's own parameters resolve through their
+    * defaults). `Some(true)` for a collision at those values, `Some(false)` when disjoint there,
+    * and `None` when either endpoint does not fold, in which case the caller skips its check.
+    *
+    * LEGALITY ONLY, never directionality: unlike [[overlapsSlices]], a verdict here holds for the
+    * parameters actually elaborated rather than for every HDL parameter override. See
+    * [[IntExprCalc.DataCalc.foldConst]].
+    */
+  def foldedOverlap(a: Slice, b: Slice)(using MemberGetSet): Option[Boolean] =
+    for
+      ra <- foldedRange(a)
+      rb <- foldedRange(b)
+    yield ra.intersect(rb).nonEmpty
+
+  private def foldedRange(slice: Slice)(using MemberGetSet): Option[Range] = slice match
+    case Slice.Concrete(r)     => Some(r)
+    case Slice.Symbolic(lo, w) =>
+      for
+        loInt <- IntExprCalc.DataCalc.foldConst(lo)
+        wInt <- IntExprCalc.DataCalc.foldConst(w)
+      yield Range(loInt, loInt + wInt)
+    // `Full` and `Unknown` never reach here: every pairing of `Full` is already decided by
+    // `overlapsSlices`, and `Unknown` carries nothing to fold.
+    case _ => None
 
   /** Pairwise slice-overlap predicate used by `getNets`. Returns `Tri.Yes` only when provably
     * overlapping, `Tri.No` only when provably disjoint, `Tri.Unknown` otherwise.

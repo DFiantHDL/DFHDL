@@ -132,6 +132,24 @@ object IntExprCalc:
       */
     def proveNonNeg(e: Linear, facts: List[Linear])(using MemberGetSet): Boolean =
       calc.proveNonNeg(e, facts)
+
+    /** Folds a linear form to a single integer by resolving every remaining opaque base through the
+      * design-parameter chain, which includes an elaboration ROOT's own parameters via their
+      * defaults (`AppliedData` deliberately keeps those symbolic). `None` when any base does not
+      * resolve to an integer.
+      *
+      * A decision made on folded values holds for the parameters actually elaborated, NOT for every
+      * HDL override, so this may only refine a legality verdict. It must never reach a
+      * directionality decision: the flow of a connection is a structural property that has to hold
+      * for every parameter assignment.
+      */
+    def foldConst(l: Linear)(using MemberGetSet): Option[Int] =
+      l.terms.foldLeft(Option(l.offset)) { case (accOpt, (c, base)) =>
+        accOpt.flatMap { acc =>
+          base.getConstDataThroughParams[Option[BigInt]].flatten
+            .filter(_.isValidInt).map(v => acc + c * v.toInt)
+        }
+      }
   end DataCalc
 
   private object ConstInt:

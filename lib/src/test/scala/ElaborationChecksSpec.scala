@@ -1206,44 +1206,9 @@ class ElaborationChecksSpec extends DesignSpec:
         o <> c.o
       end MixParent
     import Test.*
-    import dfhdl.compiler.stages.getCompiledCodeString
-    // the backend printing itself re-derives the connectivity on the flat DB, so the
-    // compiled code string (not just elaboration) is part of this regression
-    assertNoDiff(
-      MixParent().getCompiledCodeString,
-      """|`default_nettype none
-         |`timescale 1ns/1ps
-         |
-         |module MixChild#(parameter int W = 4)(
-         |  input  wire logic [(W * 2) - 1:0] i,
-         |  output      logic [(W * 2) - 1:0] o
-         |);
-         |  `include "dfhdl_defs.svh"
-         |  assign o[3:0] = i[3:0];
-         |  assign o[(2 * W) - 1:W] = i[(2 * W) - 1:W];
-         |endmodule
-         |
-         |`default_nettype none
-         |`timescale 1ns/1ps
-         |
-         |module MixParent(
-         |  input  wire logic [7:0] i,
-         |  output      logic [7:0] o
-         |);
-         |  `include "dfhdl_defs.svh"
-         |  logic [(4 * 2) - 1:0] c_i;
-         |  logic [(4 * 2) - 1:0] c_o;
-         |  MixChild #(
-         |    .W (4)
-         |  ) c(
-         |    .i /*<--*/ (c_i),
-         |    .o /*-->*/ (c_o)
-         |  );
-         |  assign c_i = i;
-         |  assign o   = c_o;
-         |endmodule
-         |""".stripMargin
-    )
+    // the printed form of this shape is pinned by `PrintCodeStringSpec`, which re-derives the
+    // connectivity after the stages have run
+    MixParent()
 
   test("overlapping parameter-dependent slice connections error"):
     object Test:
@@ -1257,15 +1222,19 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(SliceOverlap())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1254:9 - 1254:45
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1219:9 - 1219:45
           |Hierarchy: SliceOverlap
           |LHS:       o(W - 1, 0)
           |RHS:       i((W + W) - 1, W)
           |Message:   Found multiple connections write to the same variable/port `SliceOverlap.o`.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1253:9 - 1253:45""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1218:9 - 1218:45""".stripMargin
     )
 
-  test("unprovable parameter-dependent slice connections error"):
+  // A relation no symbolic proof can settle is decided at the parameters actually elaborated
+  // (`W = 4` below makes the two ranges `[0, 4)` and `[4, 8)`), rather than rejected for being
+  // parametric. A legality verdict may be deferred that way; see the directionality tests below
+  // for the property that may NOT.
+  test("unprovable parameter-dependent slice connections resolve at the elaborated values"):
     object Test:
       @top(false) class SliceUnprovable(val W: Int <> CONST = 4) extends EDDesign:
         val i = Bits(W * 2) <> IN
@@ -1274,18 +1243,26 @@ class ElaborationChecksSpec extends DesignSpec:
         o(2 * W - 1, W) <> i(2 * W - 1, W)
       end SliceUnprovable
     import Test.*
-    assertElaborationErrors(SliceUnprovable())(
+    SliceUnprovable()
+
+  test("unprovable parameter-dependent slices colliding at the elaborated values error"):
+    object Test:
+      @top(false) class SliceUnprovableCollide(val W: Int <> CONST = 2) extends EDDesign:
+        val i = Bits(W * 2) <> IN
+        val o = Bits(W * 2) <> OUT
+        o(3, 0) <> i(3, 0)
+        o(2 * W - 1, W) <> i(2 * W - 1, W)
+      end SliceUnprovableCollide
+    import Test.*
+    assertElaborationErrors(SliceUnprovableCollide())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1274:9 - 1274:43
-          |Hierarchy: SliceUnprovable
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1254:9 - 1254:43
+          |Hierarchy: SliceUnprovableCollide
           |LHS:       o((2 * W) - 1, W)
           |RHS:       i((2 * W) - 1, W)
-          |Message:   Found a write to the same variable/port `SliceUnprovable.o` that cannot be proven to be
-          |disjoint from a previous write, because their parameter-dependent bit ranges could not be
-          |resolved. If the ranges never overlap, restructure their indexing so the compiler can relate
-          |them, or use assignments within a process instead of connections.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1273:9 - 1273:27""".stripMargin
+          |Message:   Found multiple connections write to the same variable/port `SliceUnprovableCollide.o`.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1253:9 - 1253:27""".stripMargin
     )
   test("consistent assignment kinds per process are accepted"):
     object Test:
@@ -1344,24 +1321,24 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(MixedWhole())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1332:16 - 1332:23
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1309:16 - 1309:23
           |Hierarchy: MixedWhole
           |LHS:       q
           |RHS:       d
           |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `MixedWhole.q` within the same process.
           |Use one assignment kind consistently for this variable inside the process.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1331:20 - 1331:26""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1308:20 - 1308:26""".stripMargin
     )
     assertElaborationErrors(MixedParts())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1340:11 - 1340:30
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1317:11 - 1317:30
           |Hierarchy: MixedParts
           |LHS:       q(7, 4)
           |RHS:       d(7, 4)
           |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `MixedParts.q` within the same process.
           |Use one assignment kind consistently for this variable inside the process.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1339:11 - 1339:29""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1316:11 - 1316:29""".stripMargin
     )
   test("parametric max width-fit accepted via symbolic elimination"):
     object Test:
@@ -1420,7 +1397,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(MaxTooNarrow())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1412:9 - 1412:20
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1389:9 - 1389:20
           |Hierarchy: MaxTooNarrow
           |Operation: `:=`
           |Message:   The applied RHS value width (WIDTH max 16) is larger than the LHS variable width (15).""".stripMargin
@@ -1428,7 +1405,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(PlainSymWidth())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1417:9 - 1417:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1394:9 - 1394:17
           |Hierarchy: PlainSymWidth
           |Operation: `:=`
           |Message:   The applied RHS value width (WIDTH) is undefined compared to the LHS variable width (16).""".stripMargin
@@ -1451,14 +1428,14 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Parent())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1448:9 - 1448:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1425:9 - 1425:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (c.OUTPUT_WIDTH) is different than the receiver width (OUTPUT_WIDTH).
           |Consider applying `.resize` to resolve this issue.
           |
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1448:9 - 1448:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1425:9 - 1425:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (OUTPUT_WIDTH) is different than the receiver width (c.OUTPUT_WIDTH).
@@ -1482,13 +1459,13 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Parent())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1479:9 - 1479:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1456:9 - 1456:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The applied RHS value width (c.OUTPUT_WIDTH) is undefined compared to the LHS variable width (OUTPUT_WIDTH).
           |
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1479:9 - 1479:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1456:9 - 1456:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The applied RHS value width (OUTPUT_WIDTH) is undefined compared to the LHS variable width (c.OUTPUT_WIDTH).""".stripMargin
@@ -1509,14 +1486,14 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Parent())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1506:9 - 1506:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1483:9 - 1483:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (c.W) is different than the receiver width (W).
           |Consider applying `.resize` to resolve this issue.
           |
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1506:9 - 1506:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1483:9 - 1483:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (W) is different than the receiver width (c.W).
@@ -1569,7 +1546,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(MulTooNarrow())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1560:9 - 1560:24
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1537:9 - 1537:24
           |Hierarchy: MulTooNarrow
           |Operation: `apply`
           |Message:   The applied RHS value width (W) is undefined compared to the LHS variable width (16).""".stripMargin
@@ -1579,7 +1556,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(ProvablyNarrow())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1565:9 - 1565:20
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1542:9 - 1542:20
           |Hierarchy: ProvablyNarrow
           |Operation: `:=`
           |Message:   The applied RHS value width (2 * W) is larger than the LHS variable width (W).""".stripMargin
@@ -1604,11 +1581,115 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1601:14 - 1601:35
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1578:14 - 1578:35
           |Hierarchy: Top
           |Operation: `setName`
           |Message:   Cannot set a name for a port of an internal design.
           |The name of a port is set by the design that declares it.""".stripMargin
+    )
+
+  // Which end of a connection is the sink must never depend on a parameter value: a bit-select
+  // whose index is parameter-dependent is a fixed selection, not a write to the whole value, and
+  // an unproven overlap may not make a variable read as already-driven.
+  test("parametric bit-select indices keep connection directionality"):
+    object Test:
+      class Fifo extends EDDesign:
+        val w_ready = Bit <> OUT
+        w_ready <> 1
+      // `w` is read into `v(0)` before its own driver is written, so the parametric `v(N - 1)`
+      // must not make the later drive of `w` read as a second driver
+      @top(false) class ParamIdxFlow(val N: Int <> CONST = 3) extends EDDesign:
+        val a = Bit <> IN
+        val out = Bits(N) <> OUT
+        val w = Bit <> VAR
+        val v = Bits(N) <> VAR
+        v(N - 1) <> a
+        v(0) <> w
+        v(1) <> a
+        out <> v
+        val f = Fifo()
+        w <> f.w_ready
+      end ParamIdxFlow
+      // the same design with the drive of `w` written before the read of `w`
+      @top(false) class ParamIdxFlowSwapped(val N: Int <> CONST = 3) extends EDDesign:
+        val a = Bit <> IN
+        val out = Bits(N) <> OUT
+        val w = Bit <> VAR
+        val v = Bits(N) <> VAR
+        val f = Fifo()
+        w <> f.w_ready
+        v(N - 1) <> a
+        v(0) <> w
+        v(1) <> a
+        out <> v
+      end ParamIdxFlowSwapped
+      // a parametric top index alongside per-element child drives of the same bus
+      @top(false) class ParamIdxFanout(val H: Int <> CONST = 4) extends EDDesign:
+        val kReady = Bit <> IN
+        val extOut = Bits(H) <> OUT
+        val bus = Bits(H) <> VAR
+        val firstReady = Bit <> VAR
+        bus(H - 1) <> kReady
+        bus(0) <> firstReady
+        val firstLine = Fifo()
+        firstReady <> firstLine.w_ready
+        for (i <- 1 until H - 1)
+          val lineBuff = Fifo()
+          bus(i) <> lineBuff.w_ready
+        extOut <> bus
+      end ParamIdxFanout
+    end Test
+    import Test.*
+    ParamIdxFlow()
+    ParamIdxFlowSwapped()
+    ParamIdxFanout()
+
+  test("a parametric bit-select colliding at the elaborated parameters errors"):
+    object Test:
+      @top(false) class ParamIdxCollide(val N: Int <> CONST = 2) extends EDDesign:
+        val a = Bit <> IN
+        val out = Bits(N) <> OUT
+        val v = Bits(N) <> VAR
+        v(N - 1) <> a
+        v(0) <> a
+        v(1) <> a
+        out <> v
+      end ParamIdxCollide
+    import Test.*
+    assertElaborationErrors(ParamIdxCollide())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1655:9 - 1655:18
+          |Hierarchy: ParamIdxCollide
+          |LHS:       v(1)
+          |RHS:       a
+          |Message:   Found multiple connections write to the same variable/port `ParamIdxCollide.v`.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1653:9 - 1653:22""".stripMargin
+    )
+
+  // A variable already driven reads as a source, so a second driver reaches the analysis as a
+  // read-to-read pairing; the reported error must still name the write collision.
+  test("a second connection to the same variable bit reports a write collision"):
+    object Test:
+      @top(false) class VarRedrive extends EDDesign:
+        val a = Bit <> IN
+        val o = Bits(4) <> OUT
+        val v = Bits(4) <> VAR
+        v(0) <> a
+        v(0) <> a
+        v(3, 1) <> b"000"
+        o <> v
+      end VarRedrive
+    import Test.*
+    assertElaborationErrors(VarRedrive())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1679:9 - 1679:18
+          |Hierarchy: VarRedrive
+          |LHS:       v(0)
+          |RHS:       a
+          |Message:   Found multiple connections write to the same variable/port `VarRedrive.v`.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1678:9 - 1678:18""".stripMargin
     )
 
 end ElaborationChecksSpec

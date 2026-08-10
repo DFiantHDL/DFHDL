@@ -816,16 +816,37 @@ generalizes:
   `DesignParam.instAppliedConstDataOpt` is the correct primitive: cached instance during
   elaboration, `designBlockInstMap` on flat DBs, `parentSubDBOpt` walk-up on hierarchical
   sub-DBs, and `None` exactly for the elaboration root.
-- **The check re-runs where you don't expect.** `connectionTable` is forced again by the backend
-  printer on the *flat* DB, so a connectivity-analysis fix must resolve under every DB model; a
-  test that only elaborates is blind to the print-time re-run. Pin it with
-  `getCompiledCodeString` (`ElaborationChecksSpec`'s sub-design slice test is the model).
+- **The check re-runs where you don't expect.** `connectionTable` is forced again after the
+  stages have run, so a connectivity-analysis fix must resolve under every DB model; a test that
+  only elaborates is blind to that re-run. Pin it in `PrintCodeStringSpec`, NOT with
+  `getCompiledCodeString` in `ElaborationChecksSpec` — see the rule in §6.
 - **`clearDFHDL` between probe re-runs after compiler edits.** The sub-design elaboration cache
   serves API-driven probes (`getCompiledCodeString`) too, not just DFApp runs; a cached child
   elaboration skips the very code you just changed and the probe "reproduces" stale behavior.
 - One departial-coordinate trap fixed alongside: a vector `ApplyRange`'s indices are in **cell**
   units and must be scaled by the cell width into bit coordinates; the old `shift(idxLow)` mixed
   units and falsely errored even fully-literal `o(0, 1)` / `o(2, 3)` vector range connections.
+- **Separate what may be deferred from what may not, before choosing how conservative to be.**
+  One analysis usually answers two different kinds of question, and they have opposite tolerances
+  for an unresolved parameter. A **legality** verdict ("do these two writes collide?") may be
+  deferred: skip it and it re-runs wherever the parameters do resolve, e.g. when the design is
+  instantiated by a parent. A **structural** verdict ("which end of this connection is the sink?")
+  may not: it must hold for every parameter assignment, so an unproven relation must leave the
+  flow undecided rather than guess. Issues #467/#471 were one analysis serving both through a
+  single `contains` query, so parameter opacity silently flipped a connection's direction and the
+  corruption cascaded into unrelated nets. The fix is to give each consumer its own verdict from
+  the shared machinery (`hasProvenNet` for direction, `foldedOverlap` for legality), never to make
+  the shared query smarter. When a report shows errors on lines that are innocent, suspect this
+  shape: a *classification* was poisoned upstream, and the reported line is just where the poison
+  surfaced.
+- **A conservative fallback needs a progress guard, or it never terminates.** Weakening a rule to
+  "only decide on proof" turns cases that used to resolve immediately into pending ones, and a
+  re-examination loop keyed on "is anything relevant in the map" then spins forever, because the
+  unproven relation keeps the endpoint in the map without ever settling it. Track whether a full
+  pass settled anything; when a pass settles nothing, run one pass under the OLD conservative rule
+  as the tiebreak, then fail. That fallback is what keeps every previously-accepted shape accepted
+  (a read of a bit whose only writer is parametric still resolves), so the change stays confined to
+  the shapes the bug affected.
 - **Symbolic elimination is a per-site semantic choice, not a smarter equivalence.** The width-fit
   checks accept `LHS >= RHS` after a mixed `max`/`min` drops its symbolic operands
   (`16 >= WIDTH max 16` decides as `16 >= 16`; `IntParamRef.compare(..., elimSymbolicMaxMin =
@@ -856,6 +877,16 @@ exercise is a question, not a to-do.
 scalafmt reflows the test design (a braces-on-one-line block becomes multi-line), which silently
 shifts those positions. Write the design in the already-normalized indented form so reformatting
 does not move it, and re-check the positions after running scalafmt.
+
+Any edit that changes the file's LINE COUNT shifts every expectation below it, so adding a test in
+the middle breaks unrelated tests that were passing. Append new tests at the end of the file. When
+a mid-file edit is unavoidable (rewriting an existing test), do not hand-patch the fallout: munit
+prints each expected/obtained pair, so drive the rewrite off the run log — extract the
+`-Position:`/`+Position:` pairs and apply them to the source in ONE simultaneous pass (a
+sequential pass can rewrite a value that a later rule then matches). Two or three iterations
+converge, since a test with several expected errors only reveals its next stale position after the
+first is fixed. Do the substitution with a script that preserves the file's CRLF bytes, not
+`sed -i`, which rewrites the whole file's line endings and produces phantom diffs.
 
 ---
 
@@ -998,10 +1029,20 @@ rejects, a self-contained spec input is impossible by construction. Express the 
 and let the stage's declared `dependencies` build the shape it consumes — that is what dependencies
 are for. Say so in a comment, since it deliberately departs from the self-contained-input rule.
 
-**Code-string assertions beat lint.** `assertNoDiff(design.getCompiledCodeString, ...)` is
-deterministic and needs no external tool. `.compile.lint` under `options.LinterOptions.WError` will
-fail on warnings unrelated to your fix — an `abs`-style design trips `UNUSEDSIGNAL` on the high bit
-of every intermediate that is only part-selected.
+**Code-string assertions beat lint.** A printed-output assertion is deterministic and needs no
+external tool. `.compile.lint` under `options.LinterOptions.WError` will fail on warnings unrelated
+to your fix — an `abs`-style design trips `UNUSEDSIGNAL` on the high bit of every intermediate that
+is only part-selected.
+
+**Reaching for `getCompiledCodeString` means the test is in the wrong file.** A code-string
+regression belongs in the print specs, which own printed output and already select their backend
+(`PrintCodeStringSpec` for the DFHDL code string, `PrintVerilogCodeSpec` / `PrintVHDLCodeSpec` for a
+backend-specific rendering). `ElaborationChecksSpec` asserts what elaboration *accepts and
+rejects*, so a test there ends at constructing the design; the moment it wants printed output, move
+it. `StageSpec.assertCodeString` runs `sanityCheck`, hence `DB.subDBCheck`, hence `connectionTable`,
+so a print-spec test re-derives the connectivity analysis for free — a compiled string is not needed
+to cover the post-stage re-run. Two `ElaborationChecksSpec` tests were written the wrong way here
+before the rule was clear; do not copy them as a model.
 
 **Do not copy the reporter's code into the repo.** Issue reports usually carry no license. Write a
 minimal design of your own that exercises the same path; if the shape is fully covered by stage

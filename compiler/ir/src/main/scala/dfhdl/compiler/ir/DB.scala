@@ -450,7 +450,7 @@ final case class DB private (
   import Access.*
   import DFVal.Modifier.*
   import DFNet.Op.*
-  private def getValAccess(dfVal: DFVal, slice: Slice, net: DFNet)(
+  private def getValAccess(dfVal: DFVal, slice: Slice, net: DFNet, conservative: Boolean)(
       connToMap: ConnectToMap
   ): Access =
     def isExternalConn =
@@ -479,8 +479,17 @@ final case class DB private (
           case INOUT if isExternalConn || isInternalConn => ReadWrite
           // internal connection to a var
           case VAR if isInternalConn =>
-            // if already was connected as write, then it must be read
-            if (connToMap.contains(dfVal, slice)) Read
+            // if already was connected as write, then it must be read.
+            // only a PROVEN overlap decides this: which end of a connection is the sink is a
+            // structural property that must hold for every parameter assignment, so an
+            // unproven parameter-dependent relation may never flip the flow. Such a net stays
+            // undecided and is re-examined once other nets supply the direction, with the
+            // conservative reading (any not-disproven overlap counts) as the final tiebreak
+            // for a net nothing else can settle (see `getConnToMap`'s pending passes).
+            if (
+              if (conservative) connToMap.contains(dfVal, slice)
+              else connToMap.hasProvenNet(dfVal, slice)
+            ) Read
             // otherwise it is unknown
             else Unknown
           // illegal connection
@@ -490,11 +499,11 @@ final case class DB private (
       case _                   => Read
     end match
   end getValAccess
-  private def getValAccess(dfVal: DFVal, net: DFNet)(
+  private def getValAccess(dfVal: DFVal, net: DFNet, conservative: Boolean)(
       connToMap: ConnectToMap
   ): Access =
     val dpart = dfVal.departial
-    getValAccess(dpart._1, dpart._2, net)(connToMap)
+    getValAccess(dpart._1, dpart._2, net, conservative)(connToMap)
   private case class FlatNet(lhsVal: DFVal, rhsVal: DFVal, net: DFNet) derives CanEqual
   private object FlatNet:
     def apply(net: DFNet): List[FlatNet] =
@@ -507,7 +516,9 @@ final case class DB private (
       analyzeNets: List[FlatNet],
       pendingNets: List[FlatNet],
       connToMap: ConnectToMap,
-      errors: List[String]
+      errors: List[String],
+      progress: Boolean = false,
+      conservative: Boolean = false
   ): ConnectToMap =
     analyzeNets match
       case flatNet :: otherNets =>
@@ -576,12 +587,32 @@ final case class DB private (
           case _ =>
             if (lhsVal.isOpen) openCheck(rhsVal)
             else if (rhsVal.isOpen) openCheck(lhsVal)
-            (getValAccess(lhsVal, net)(connToMap), getValAccess(rhsVal, net)(connToMap))
+            (
+              getValAccess(lhsVal, net, conservative)(connToMap),
+              getValAccess(rhsVal, net, conservative)(connToMap)
+            )
+        // A variable already driven on a proven-overlapping slice reads as a source (see the
+        // `VAR` case of `getValAccess`), so a second driver arrives here as a read-to-read
+        // rather than as a write collision. Recover the real diagnosis: name the variable and
+        // the earlier write, instead of a "read-to-read" the user cannot act on.
+        def priorWriteOf(dfVal: DFVal): Option[(ConnectToVal, DFNet)] =
+          dfVal.departialPBNS.collect {
+            case (dcl: DFVal.Dcl, slice) if dcl.modifier.dir == VAR =>
+              connToMap.getNetsVerdicts(dcl, slice).collectFirst {
+                case (prevNet, _, Tri.Yes) if prevNet.isConnection => (dcl, prevNet)
+              }
+          }.flatten
         val toValOption = (lhsAccess, rhsAccess) match
           case (Write, Read | ReadWrite | Unknown) => Some(lhsVal)
           case (Read | ReadWrite | Unknown, Write) => Some(rhsVal)
           case (Read, Read)                        =>
-            newError("Unsupported read-to-read connection.")
+            priorWriteOf(lhsVal).orElse(priorWriteOf(rhsVal)) match
+              case Some(connectToVal, prevNet) =>
+                newError(
+                  s"""Found multiple connections write to the same variable/port `${connectToVal.getFullName}`.
+                     |The previous write occurred at ${prevNet.meta.position}""".stripMargin
+                )
+              case None => newError("Unsupported read-to-read connection.")
             None
           // the LHS-favouring exception, see `isOwnOutPort`
           case (Write, Write) if isOwnOutPort(lhsVal) && isOwnOutPort(rhsVal) => Some(lhsVal)
@@ -612,7 +643,6 @@ final case class DB private (
           // found target variable or port declaration for the given connection/assignment
           case Some(connectToVal, slice) =>
             val prevNetsVerdicts = connToMap.getNetsVerdicts(connectToVal, slice)
-            val prevNets = prevNetsVerdicts.view.map(_._1).toSet
             // checking multiple assignments from different domains, except for a condition
             // where the declaration is a shared variable.
             // this is used to define a shared variable which is against the RT model,
@@ -621,60 +651,79 @@ final case class DB private (
               case dcl: DFVal.Dcl if dcl.modifier.isShared => true
               case _                                       => false
             if (!isSharedVar)
-              prevNetsVerdicts.headOption.foreach: (prevNet, _) =>
+              prevNetsVerdicts.headOption.foreach: (prevNet, _, _) =>
                 if (prevNet.getOwnerDomain != net.getOwnerDomain)
                   newError(
                     s"""|Found multiple domain assignments to the same variable/port `${connectToVal.getFullName}`.
                         |Only variables declared as `VAR.SHARED` under ED domain allow this.
                         |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                   )
+            // Whether a previous write really covers bits this one writes. A symbolic proof
+            // decides it for every parameter assignment; when it cannot, the bit ranges are
+            // folded at the elaborated parameter values, which decides the design at hand (a
+            // parameter override changing the answer is the HDL tool's multiple-driver check to
+            // catch). An unfoldable relation leaves the check with no verdict, and an
+            // unprovable legality check is skipped rather than guessed: unlike directionality,
+            // it can be deferred to wherever the parameters do resolve, such as this design
+            // being instantiated by a parent.
+            def collides(prevSlice: Slice, verdict: Tri): Boolean =
+              verdict == Tri.Yes ||
+                ConnectToMap.foldedOverlap(prevSlice, slice).getOrElse(false)
             // go through all previous nets and check for collisions
-            prevNetsVerdicts.foreach: (prevNet, verdict) =>
+            prevNetsVerdicts.foreach: (prevNet, prevSlice, verdict) =>
               // multiple assignments are allowed in the same range, but not multiple
               // connections or a combination of an assignment and a connection
               if (prevNet.isConnection || prevNet.isAssignment && !net.isAssignment)
-                if (verdict == Tri.Yes)
+                if (collides(prevSlice, verdict))
                   newError(
                     s"""Found multiple connections write to the same variable/port `${connectToVal.getFullName}`.
                        |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                   )
-                // the slices could not be proven overlapping NOR disjoint (parameter-dependent
-                // indices the slice calculus cannot relate), so the write is conservatively
-                // rejected with an error that names the actual problem
-                else
-                  newError(
-                    s"""|Found a write to the same variable/port `${connectToVal.getFullName}` that cannot be proven to be
-                        |disjoint from a previous write, because their parameter-dependent bit ranges could not be
-                        |resolved. If the ranges never overlap, restructure their indexing so the compiler can relate
-                        |them, or use assignments within a process instead of connections.
-                        |The previous write occurred at ${prevNet.meta.position}""".stripMargin
-                  )
-            // if no previous connection in this range, we add it to the range map
-            if (prevNets.isEmpty)
+            // if no previous write can touch this range, we add it to the range map. a previous
+            // write proven disjoint only at the elaborated values still counts as disjoint here,
+            // so per-element parametric writes each get tracked.
+            if (
+              prevNetsVerdicts.forall((_, prevSlice, verdict) =>
+                verdict != Tri.Yes && ConnectToMap.foldedOverlap(prevSlice, slice).contains(false)
+              )
+            )
               getConnToMap(
                 otherNets,
                 pendingNets,
                 connToMap.addNet(connectToVal, slice, net),
-                newErrors
+                newErrors,
+                progress = true,
+                conservative
               )
             // if there are previous connections, it's either assignments or already reported as
             // errors, so no need to further modify the range map (the range map is not intended
             // to save all the previous assignment nets).
             else
-              getConnToMap(otherNets, pendingNets, connToMap, newErrors)
+              getConnToMap(otherNets, pendingNets, connToMap, newErrors, progress = true,
+                conservative)
           // unable to determine net directionality, so move net to pending
           case None =>
-            getConnToMap(otherNets, flatNet :: pendingNets, connToMap, newErrors)
+            getConnToMap(
+              otherNets,
+              flatNet :: pendingNets,
+              connToMap,
+              newErrors,
+              progress,
+              conservative
+            )
         end match
       case Nil if errors.nonEmpty =>
         throw new IllegalArgumentException(
           errors.view.reverse.mkString("\n\n")
         )
       case Nil if pendingNets.nonEmpty =>
-        val reexamine = pendingNets.exists { n =>
-          connToMap.contains(n.lhsVal) | connToMap.contains(n.rhsVal)
-        }
-        if (reexamine) getConnToMap(pendingNets, Nil, connToMap, errors)
+        // Re-examine as long as the last pass settled something, since a resolved net is what
+        // supplies a pending one its direction. A pass that settles nothing has exhausted the
+        // proven reasoning, so one conservative pass follows as the tiebreak (see the `VAR` case
+        // of `getValAccess`); only when that too settles nothing is the net undecidable.
+        if (progress) getConnToMap(pendingNets, Nil, connToMap, errors)
+        else if (!conservative)
+          getConnToMap(pendingNets, Nil, connToMap, errors, conservative = true)
         else
           throw new IllegalArgumentException(
             s"""DFiant HDL connectivity errors!
