@@ -93,6 +93,36 @@ regression test is a lib spec design using the colliding name with NO explicit a
 auto-injection path must fire); it pins the fix at compile level, since the unfixed plugin
 fails the whole test-scope compilation.
 
+### An error naming a DFHDL-internal symbol at the user's line is an inaccessible PREFIX
+
+`illegal access to protected object hdl in package dfhdl from class Probe` reads like a
+reporting bug and is a resolution fact: the typer built a `Select` whose qualifier is a
+library-internal object, and user code cannot name that qualifier. Find the qualifier rather
+than the error: compile the unit with `-Xprint:typer` and grep the tree for the internal name.
+The same op resolved elsewhere in the same run through the *public* spelling
+(`dfhdl.bits` in every ordinary use, `dfhdl.hdl.bits` in the one failing use), and that
+side-by-side is the whole diagnosis (issue #468).
+
+Three properties of this species are worth knowing before chasing it:
+
+- **The access check is not in the typer.** With other typer errors in the same run the tree is
+  printed and no access error appears at all; it surfaces in a later phase, which is why the
+  diagnostic carries no inline stack and no context to work back from.
+- **`-P:dfhdl.plugin:disableCustomPrinter` rules the plugin out in one compile**, and should be
+  the first thing tried on any raw-looking scalac diagnostic.
+- **The fix is accessibility, not resolution.** A namespace object that exists only to be
+  re-exported (`export hdl.*` at package level, plus `MetaDesign` / `Resource` re-exporting it as
+  a unit, which a package cannot provide) has no user-facing API of its own, so publishing it
+  costs nothing and removes the only spelling that can fail. Make the NAME the deterrent
+  (`__hdl`), not the access modifier. Renaming such an object means updating the by-name lookups
+  too: `requiredClassRef("dfhdl.__hdl.B")` in the plugin is not found by a search for the object.
+
+Minimizing this one outside DFHDL did NOT succeed: the leak needs the compiler to accept a
+SECOND typing attempt (the accepted tree fixes the extension's width parameter from its implicit,
+not from the expected type), and a synthetic version of the same shape fails at the first attempt
+instead. Before spending on such a minimization, check whether the project-side fix is a one-word
+change; here it was.
+
 ### Minimize outside DFHDL, early
 
 Get off the DFHDL types as fast as possible. Two plugin-free sandboxes:
