@@ -3632,12 +3632,13 @@ class PrintVerilogCodeSpec extends StageSpec:
     // an assumption the width algebra could not prove reaches the backend as the design's own
     // elaboration-time contract, over the parameter the generated module leaves overridable
     given options.CompilerOptions.Backend = _.verilog.sv2009
-    class Fits(val W: Int <> CONST = 8) extends RTDesign:
+    class Fits(val W: Int <> CONST = 8, val V: Int <> CONST = 8) extends RTDesign:
       val x = UInt(W)  <> IN
+      val y = UInt(V)  <> IN
       val z = UInt(16) <> OUT
       val n = UInt(8)  <> OUT
       z := x
-      n := x
+      n := y
     end Fits
     val top = Fits().getCompiledCodeString
     assertNoDiff(
@@ -3645,8 +3646,12 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|`default_nettype none
          |`timescale 1ns/1ps
          |
-         |module Fits#(parameter int W = 8)(
+         |module Fits#(
+         |    parameter int W = 8,
+         |    parameter int V = 8
+         |)(
          |  input  wire logic [W - 1:0] x,
+         |  input  wire logic [V - 1:0] y,
          |  output logic [15:0] z,
          |  output logic [7:0] n
          |);
@@ -3654,11 +3659,11 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  if (!(16 >= W)) begin : constraint_0
          |    $fatal(1, "Design parameter violation found. Expected: 16 >= W");
          |  end
-         |  if (!(8 >= W)) begin : constraint_1
-         |    $fatal(1, "Design parameter violation found. Expected: 8 >= W");
+         |  if (!(8 >= V)) begin : constraint_1
+         |    $fatal(1, "Design parameter violation found. Expected: 8 >= V");
          |  end
          |  assign z = 16'(x);
-         |  assign n = 8'(x);
+         |  assign n = 8'(y);
          |endmodule
          |""".stripMargin
     )

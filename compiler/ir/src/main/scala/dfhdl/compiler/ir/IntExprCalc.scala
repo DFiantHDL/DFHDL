@@ -72,18 +72,26 @@ object IntExprCalc:
         else None
   end widthFitCompare
 
-  /** Whether `a1 - b1` and `a2 - b2` are the same linear expression.
+  /** The linear form of `a - b`, the canonical shape of a relation between two integer expressions:
+    * `a >= b` is `linearDiff(a, b) >= 0`, and every other comparison normalizes onto the same
+    * shape. So `W + W >= 8` and `2 * W >= 8` state one relation rather than two.
     *
-    * The identity of a parametric relation between two integer expressions, so `W + W >= 8` and
-    * `2 * W >= 8` state one relation rather than two. Design parameters stay OPAQUE, which is what
-    * makes it an identity of the DESIGN's relation: two relations that coincide only for the values
-    * of one instantiation stay distinct.
+    * Design parameters stay OPAQUE, which is what makes it a statement about the DESIGN: two
+    * relations that coincide only for the values of one instantiation stay distinct.
     */
-  def sameDiff(a1: DFVal, b1: DFVal)(a2: DFVal, b2: DFVal)(using MemberGetSet): Boolean =
+  def linearDiff(a: DFVal, b: DFVal)(using MemberGetSet): Linear =
     val calc = Calc(ParamResolve.Opaque)
-    def diff(a: DFVal, b: DFVal): Linear = calc.sub(calc.linear(a), calc.linear(b))
-    val d = calc.sub(diff(a1, b1), diff(a2, b2))
-    d.terms.isEmpty && d.offset == 0
+    calc.sub(calc.linear(a), calc.linear(b))
+
+  /** The constant `x - y`, or `None` when their symbolic terms do not cancel.
+    *
+    * This is what compares two relations in the [[linearDiff]] form: an answer at all means they
+    * constrain the same expression, and `x - y >= 0` means `y >= 0` implies `x >= 0`, i.e. `y` is
+    * the stronger of the two and `x` states nothing further.
+    */
+  def constOffsetDiff(x: Linear, y: Linear)(using MemberGetSet): Option[Int] =
+    val d = Calc(ParamResolve.Opaque).sub(x, y)
+    Option.when(d.terms.isEmpty)(d.offset)
 
   /** How the calculus treats a [[DFVal.DesignParam]] it reaches. */
   private enum ParamResolve derives CanEqual:

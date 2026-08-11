@@ -74,18 +74,55 @@ object AutoConstraint:
       guard.asIR.setTags(_.tag(ir.AutoConstraint))
       ()
 
-  /** Whether two guards state the same constraint. A relation between integer expressions is
-    * compared as a relation (`W + W >= 8` and `2 * W >= 8` are one), and anything else
-    * structurally.
+  /** What a guard requires, canonically: the relation it states, as `linear >= 0`. */
+  private type Requirement = ir.IntExprCalc.Linear
+
+  /** The requirement a guard states, or `None` for a guard that is not a comparison of two integer
+    * expressions. Nothing generates such a guard, but a user's own assertion may well be one, and
+    * it then simply takes no part in minimization.
+    *
+    * Every comparison normalizes onto the same shape, so a user's `W <= 8` is comparable with a
+    * generated `16 >= W` without either being rewritten. A strict comparison is the non-strict one
+    * over integers, one tighter.
     */
-  private def sameConstraint(a: ir.DFVal, b: ir.DFVal)(using ir.MemberGetSet): Boolean =
-    (a, b) match
-      case (
-            ir.DFVal.Func(op = opA, args = List(lhsA, rhsA)),
-            ir.DFVal.Func(op = opB, args = List(lhsB, rhsB))
-          ) if opA == opB =>
-        ir.IntExprCalc.sameDiff(lhsA.get, rhsA.get)(lhsB.get, rhsB.get)
-      case _ => a =~ b
+  private def requirementOf(guard: ir.DFVal)(using ir.MemberGetSet): Option[Requirement] =
+    def diff(a: ir.DFVal, b: ir.DFVal): Requirement = ir.IntExprCalc.linearDiff(a, b)
+    def tighter(req: Requirement): Requirement = req.copy(offset = req.offset - 1)
+    guard match
+      case ir.DFVal.Func(op = op, args = List(lhs, rhs)) =>
+        op match
+          case FuncOp.>= => Some(diff(lhs.get, rhs.get))
+          case FuncOp.>  => Some(tighter(diff(lhs.get, rhs.get)))
+          case FuncOp.<= => Some(diff(rhs.get, lhs.get))
+          case FuncOp.<  => Some(tighter(diff(rhs.get, lhs.get)))
+          case _         => None
+      case _ => None
+
+  /** Whether `stronger` leaves `weaker` with nothing to say: they constrain the same expression,
+    * and satisfying `stronger` satisfies `weaker`.
+    */
+  private def implies(stronger: Requirement, weaker: Requirement)(using ir.MemberGetSet): Boolean =
+    ir.IntExprCalc.constOffsetDiff(weaker, stronger).exists(_ >= 0)
+
+  /** The design's own contract, as the body stated it: the requirements of its static assertions
+    * whose severity makes them requirements at all. `Info` and `Warning` report, they do not
+    * constrain.
+    *
+    * These are read as facts and never touched. The user wrote them, so they stay exactly as
+    * written, in their own position, with their own message and severity; what they can do is make
+    * a GENERATED constraint redundant, and having written `assert(W <= 8, ...)` the user should not
+    * then be shown a generated `16 >= W` next to it.
+    */
+  private def userRequirements(ctx: DesignContext)(using dfc: DFC): List[Requirement] =
+    import dfc.getSet
+    import dfhdl.compiler.analysis.isStaticAssert
+    ctx.getImmutableMemberList.view.collect {
+      case textOut: ir.TextOut if textOut.isStaticAssert =>
+        textOut.op match
+          case ir.TextOut.Op.Assert(assertionRef, Severity.Error | Severity.Fatal) =>
+            requirementOf(assertionRef.get)
+          case _ => None
+    }.flatten.toList
 
   /** The condition as the design states it, which is the whole of what a violation has to report.
     */
@@ -106,6 +143,11 @@ object AutoConstraint:
     * original is then read by nothing and the end-of-design sweep collects it, which is also what
     * makes a constraint dropped below cost nothing.
     *
+    * MINIMIZED first, against each other and against the body's own assertions: a constraint that
+    * another statement already implies says nothing, and several operations assuming related
+    * relations is the normal case rather than the exception. Deduplication falls out of this, as
+    * the case where two constraints imply each other.
+    *
     * The tag is consumed here. It marks a PENDING constraint, and a materialized one is not
     * pending, so the clone is planted without it and no member of the finished design carries one.
     */
@@ -114,13 +156,29 @@ object AutoConstraint:
     val ctx = dfc.mutableDB.DesignContext.current
     if (!dfc.inMetaProgramming)
       val pending = ctx.autoConstraintGuards.map(_.setTags(_.removeTagOf[ir.AutoConstraint]))
-      val kept = mutable.ListBuffer.empty[ir.DFVal]
-      pending.foreach { guard =>
-        if (!kept.exists(sameConstraint(_, guard))) kept += guard
-      }
-      kept.zipWithIndex.foreach { (guard, idx) =>
+      val kept = mutable.ListBuffer.empty[(ir.DFVal, Option[Requirement])]
+      if (pending.nonEmpty)
+        val userReqs = userRequirements(ctx)
+        pending.foreach { guard =>
+          val reqOpt = requirementOf(guard)
+          val alreadyStated = reqOpt match
+            case Some(req) =>
+              userReqs.exists(implies(_, req)) ||
+              kept.exists((_, keptOpt) => keptOpt.exists(implies(_, req)))
+            // a guard with no comparable form takes no part: kept unless structurally repeated
+            case None => kept.exists((keptGuard, _) => keptGuard =~ guard)
+          if (!alreadyStated)
+            // this one may in turn be the stronger statement of something already kept
+            reqOpt.foreach(req =>
+              kept.filterInPlace((_, keptOpt) => !keptOpt.exists(implies(req, _)))
+            )
+            kept += ((guard, reqOpt))
+        }
+      end if
+      val survivors = kept.map(_._1).toList
+      survivors.zipWithIndex.foreach { (guard, idx) =>
         val constraintDFC =
-          dfc.emptyTags.setMeta(guard.meta).setName(constraintName(idx, kept.length))
+          dfc.emptyTags.setMeta(guard.meta).setName(constraintName(idx, survivors.length))
         val cloned = guard.cloneAnonValueAndDepsHere(using constraintDFC.anonymize)
         TextOut(
           TextOut.Op.Assert(cloned.asValOf[DFBool], Severity.Fatal)(using constraintDFC),

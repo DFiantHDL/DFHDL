@@ -3317,25 +3317,30 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
     // A width relation that is neither provably held nor provably violated is accepted, and the
     // fit the operation needs is stated as a static assertion at the tail of the body. The two
     // writes to `z` assume the same relation and state it once; the write to `n` assumes another.
-    class Fits(val W: Int <> CONST = 8) extends RTDesign:
+    class Fits(val W: Int <> CONST = 8, val V: Int <> CONST = 8) extends RTDesign:
       val x = UInt(W)  <> IN
+      val y = UInt(V)  <> IN
       val z = UInt(16) <> OUT
       val n = UInt(8)  <> OUT
       z := x
       z := x + 1
-      n := x
+      n := y
     end Fits
     assertCodeString(
       Fits(),
-      """|class Fits(val W: Int <> CONST = 8) extends RTDesign:
+      """|class Fits(
+         |    val W: Int <> CONST = 8,
+         |    val V: Int <> CONST = 8
+         |) extends RTDesign:
          |  val x = UInt(W) <> IN
+         |  val y = UInt(V) <> IN
          |  val z = UInt(16) <> OUT
          |  val n = UInt(8) <> OUT
          |  z := x.resize(16)
          |  z := x.resize(16) + d"1'1".resize(W).resize(16)
-         |  n := x.resize(8)
+         |  n := y.resize(8)
          |  val constraint_0 = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
-         |  val constraint_1 = assert(8 >= W, s"Design parameter violation found. Expected: 8 >= W", Severity.Fatal)
+         |  val constraint_1 = assert(8 >= V, s"Design parameter violation found. Expected: 8 >= V", Severity.Fatal)
          |end Fits
          |""".stripMargin
     )
@@ -3363,6 +3368,69 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    else z :== d"16'0"
          |  val constraint = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
          |end Blocked
+         |""".stripMargin
+    )
+  }
+  test("auto constraint minimization") {
+    // Two operations assuming related relations is the normal case, and the weaker of the two
+    // says nothing once the stronger is stated: `n` needs 8 bits to hold `x`, which is the whole
+    // of what `z` needs 16 for.
+    class Subsumed(val W: Int <> CONST = 8) extends RTDesign:
+      val x = UInt(W)  <> IN
+      val z = UInt(16) <> OUT
+      val n = UInt(8)  <> OUT
+      z := x
+      n := x
+    end Subsumed
+    assertCodeString(
+      Subsumed(),
+      """|class Subsumed(val W: Int <> CONST = 8) extends RTDesign:
+         |  val x = UInt(W) <> IN
+         |  val z = UInt(16) <> OUT
+         |  val n = UInt(8) <> OUT
+         |  z := x.resize(16)
+         |  n := x.resize(8)
+         |  val constraint = assert(8 >= W, s"Design parameter violation found. Expected: 8 >= W", Severity.Fatal)
+         |end Subsumed
+         |""".stripMargin
+    )
+  }
+  test("auto constraint minimization against the design's own assertions") {
+    // A static assertion the user wrote is a requirement of the design just as a generated one is,
+    // so it is read as a fact: having stated the bound themselves, the user is not then shown a
+    // weaker generated echo of it. It is never the other way round, and never for a severity that
+    // reports rather than requires.
+    class UserStated(val W: Int <> CONST = 8) extends RTDesign:
+      val x     = UInt(W)  <> IN
+      val z     = UInt(16) <> OUT
+      val bound = assert(W <= 8, s"W must not exceed 8, got $W", Severity.Fatal)
+      z := x
+    end UserStated
+    class UserReports(val W: Int <> CONST = 8) extends RTDesign:
+      val x    = UInt(W)  <> IN
+      val z    = UInt(16) <> OUT
+      val note = assert(W <= 8, s"W is unusually large: $W", Severity.Warning)
+      z := x
+    end UserReports
+    assertCodeString(
+      UserStated(),
+      """|class UserStated(val W: Int <> CONST = 8) extends RTDesign:
+         |  val x = UInt(W) <> IN
+         |  val z = UInt(16) <> OUT
+         |  val bound = assert(W <= 8, s"W must not exceed 8, got ${W}", Severity.Fatal)
+         |  z := x.resize(16)
+         |end UserStated
+         |""".stripMargin
+    )
+    assertCodeString(
+      UserReports(),
+      """|class UserReports(val W: Int <> CONST = 8) extends RTDesign:
+         |  val x = UInt(W) <> IN
+         |  val z = UInt(16) <> OUT
+         |  val note = assert(W <= 8, s"W is unusually large: ${W}", Severity.Warning)
+         |  z := x.resize(16)
+         |  val constraint = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
+         |end UserReports
          |""".stripMargin
     )
   }

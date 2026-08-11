@@ -3705,12 +3705,13 @@ class PrintVHDLCodeSpec extends StageSpec:
   test("auto constraint") {
     // an assumption the width algebra could not prove reaches the backend as the design's own
     // elaboration-time contract, over the generic the generated entity leaves overridable
-    class Fits(val W: Int <> CONST = 8) extends RTDesign:
+    class Fits(val W: Int <> CONST = 8, val V: Int <> CONST = 8) extends RTDesign:
       val x = UInt(W)  <> IN
+      val y = UInt(V)  <> IN
       val z = UInt(16) <> OUT
       val n = UInt(8)  <> OUT
       z := x
-      n := x
+      n := y
     end Fits
     val top = Fits().getCompiledCodeString
     assertNoDiff(
@@ -3722,10 +3723,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Fits is
          |generic (
-         |  W : integer := 8
+         |  W : integer := 8;
+         |  V : integer := 8
          |);
          |port (
          |  x : in unsigned(W - 1 downto 0);
+         |  y : in unsigned(V - 1 downto 0);
          |  z : out unsigned(15 downto 0);
          |  n : out unsigned(7 downto 0)
          |);
@@ -3735,10 +3738,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |begin
          |  constraint_0: assert 16 >= W
          |    report "Design parameter violation found. Expected: 16 >= W" severity FAILURE;
-         |  constraint_1: assert 8 >= W
-         |    report "Design parameter violation found. Expected: 8 >= W" severity FAILURE;
+         |  constraint_1: assert 8 >= V
+         |    report "Design parameter violation found. Expected: 8 >= V" severity FAILURE;
          |  z <= resize(x, 16);
-         |  n <= resize(x, 8);
+         |  n <= resize(y, 8);
          |end Fits_arch;
          |""".stripMargin
     )
