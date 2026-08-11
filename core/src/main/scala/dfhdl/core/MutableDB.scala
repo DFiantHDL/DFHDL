@@ -100,6 +100,17 @@ class DesignContext:
     case _                                                           => false
   }
 
+  // The conditions this design's elaboration assumed but could not prove, in member order (the
+  // elaboration order of the operations that assumed them). The tag is the whole record, so this
+  // is a query and not a table; `AutoConstraint.materialize` consumes it at the end of the body,
+  // which is why a finished design has none.
+  def autoConstraintGuards: List[DFVal] =
+    members.view.collect {
+      case MemberEntry(irValue = dfVal: DFVal, ignore = false)
+          if dfVal.hasTagOf[dfhdl.compiler.ir.AutoConstraint] =>
+        dfVal
+    }.toList
+
   def setOriginRefs(member: DFMember): Unit =
     member.getRefs.foreach { r => originRefTable += r -> member }
 

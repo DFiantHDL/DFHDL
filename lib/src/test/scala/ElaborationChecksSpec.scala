@@ -549,14 +549,10 @@ class ElaborationChecksSpec extends DesignSpec:
         val z = UInt(WIDTH2) <> OUT init h"${WIDTH2 - 1}'0"
       end Foo
     import Test.*
+    // only the provably violated width is an error; the undecidable `WIDTH1` against `WIDTH2`
+    // is accepted and states its fit as a constraint of the design instead
     assertElaborationErrors(Foo())(
       s"""|Elaboration errors found!
-          |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:547:42 - 547:56
-          |Hierarchy: Foo
-          |Operation: `apply`
-          |Message:   The applied RHS value width (WIDTH2) is undefined compared to the LHS variable width (WIDTH1).
-          |
           |DFiant HDL elaboration error!
           |Position:  ${currentFilePos}ElaborationChecksSpec.scala:548:42 - 548:60
           |Hierarchy: Foo
@@ -578,14 +574,14 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Foo())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:572:42 - 572:56
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:568:42 - 568:56
           |Hierarchy: Foo
           |Operation: `apply`
           |Message:   The argument width (WIDTH2) is different than the receiver width (WIDTH1).
           |Consider applying `.resize` to resolve this issue.
           |
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:575:17 - 575:23
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:571:17 - 571:23
           |Hierarchy: Foo.w
           |Operation: `apply`
           |Message:   Cannot apply this operation between a value of WIDTH1 bits width (LHS) and a value of WIDTH2 bits width (RHS).
@@ -603,12 +599,12 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(MultiConn())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:600:9 - 600:18
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:596:9 - 596:18
           |Hierarchy: MultiConn
           |LHS:       y(0)
           |RHS:       0
           |Message:   Found multiple connections write to the same variable/port `MultiConn.y`.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:599:9 - 599:18""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:595:9 - 595:18""".stripMargin
     )
 
   test("the same bit assigned and connected check"):
@@ -622,12 +618,12 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(AssignConn())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:619:9 - 619:18
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:615:9 - 615:18
           |Hierarchy: AssignConn
           |LHS:       y(0)
           |RHS:       1
           |Message:   Found multiple connections write to the same variable/port `AssignConn.y`.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:618:9 - 618:25""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:614:9 - 614:25""".stripMargin
     )
   // `wait` inside an `initial` block used to be caught here, at elaboration. The scope lattice
   // rejects it at COMPILE time now (`Initial` is a `Sequence`, deliberately not a `TimedSequence`,
@@ -647,11 +643,11 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL initial block error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:643:11 - 643:21
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:639:11 - 639:21
           |Hierarchy: Top
           |Message:   An `initial` block under a register-transfer (RT) domain may only assign constant values.
           |DFiant HDL initial block error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:644:11 - 644:25
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:640:11 - 640:25
           |Hierarchy: Top
           |Message:   Text output statements are not allowed inside an `initial` block under a register-transfer (RT) domain.""".stripMargin
     )
@@ -673,11 +669,11 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL initial block error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:666:11 - 666:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:662:11 - 662:17
           |Hierarchy: Top
           |Message:   The declaration `a` has an `init` value and is also assigned inside an `initial` block. These are mutually exclusive.
           |DFiant HDL initial block error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:669:11 - 669:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:665:11 - 665:17
           |Hierarchy: Top
           |Message:   The declaration `b` is assigned inside more than one `initial` block.""".stripMargin
     )
@@ -697,11 +693,11 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL initial block error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:691:15 - 691:28
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:687:15 - 687:28
           |Hierarchy: Top
           |Message:   A conditional guard inside an `initial` block under a register-transfer (RT) domain must be a constant.
           |DFiant HDL initial block error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:691:28 - 694:33
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:687:28 - 690:33
           |Hierarchy: Top
           |Message:   A `match` selector inside an `initial` block under a register-transfer (RT) domain must be a constant.""".stripMargin
     )
@@ -714,7 +710,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:712:17 - 712:22
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:708:17 - 708:22
           |Hierarchy: Top.d
           |Operation: `.din`
           |Message:   Cannot name a register DIN read.
@@ -746,7 +742,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:740:9 - 740:24
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:736:9 - 736:24
           |Hierarchy: Top
           |Operation: `<>`
           |Message:   Found a reference to an uninitialized DFHDL value.
@@ -768,7 +764,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:763:9 - 763:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:759:9 - 759:17
           |Hierarchy: Top
           |Operation: `:=`
           |Message:   Found a reference to an uninitialized DFHDL value.
@@ -789,7 +785,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:785:19 - 785:32
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:781:19 - 781:32
           |Hierarchy: Top.bad
           |Operation: `Port/Variable constructor`
           |Message:   Found a reference to an uninitialized DFHDL type.
@@ -813,7 +809,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:809:14 - 809:21
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:805:14 - 805:21
           |Hierarchy: Top.addK
           |Operation: `designFromDefImpl`
           |Message:   Found a reference to an uninitialized DFHDL value.
@@ -841,7 +837,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL conditional expression error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:837:23 - 837:30
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:833:23 - 833:30
           |Hierarchy: Top
           |Message:   Found the named value `inv` inside a conditional expression branch.
           |An event-driven (ED) domain body is a concurrent scope, so a conditional expression
@@ -905,7 +901,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:902:9 - 902:22
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:898:9 - 898:22
           |Hierarchy: Top
           |LHS:       sub.i
           |RHS:       OPEN
@@ -935,7 +931,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:932:9 - 932:28
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:928:9 - 928:28
           |Hierarchy: Top
           |LHS:       sub.o(3, 0)
           |RHS:       OPEN
@@ -969,10 +965,10 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL scope error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:967:11 - 967:30
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:963:11 - 963:30
           |Hierarchy: Top
           |Message:   Found a read of `i`, declared inside the `for` loop at
-          |${currentFilePos}ElaborationChecksSpec.scala:965:11 - 966:31, from outside that block.
+          |${currentFilePos}ElaborationChecksSpec.scala:961:11 - 962:31, from outside that block.
           |A declaration made inside a block exists only within it. This usually comes from
           |a Scala `var` reassigned inside the block: the reassignment binds the Scala name
           |to a value built under the block, so reading the `var` afterwards reaches the
@@ -1012,7 +1008,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL shared variable error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1009:11 - 1009:21
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1005:11 - 1005:21
           |Hierarchy: Top
           |Message:   A shared variable cannot be written inside a combinational process (`process(all)`).
           |A shared-variable write commits at the end of a clock step, so it must reside inside a clocked process.
@@ -1035,7 +1031,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL shared variable error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1033:9 - 1033:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1029:9 - 1029:17
           |Hierarchy: Top
           |Message:   A shared variable can only be accessed inside a process under an event-driven (ED) domain.
           |A concurrent access has no faithful VHDL rendering: a shared variable is not a signal, so its change never re-triggers a concurrent statement.
@@ -1062,7 +1058,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL shared variable error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1059:13 - 1059:30
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1055:13 - 1055:30
           |Hierarchy: Top
           |Message:   A shared-variable write must lower into the clocked process, but its guard path reads a value that is reassigned later in the domain body, or it reads a `.din` value.
           |To Fix: restructure so that nothing the write's guards depend on is reassigned after the write, or hoist the guard condition computation after its operands' final assignments.
@@ -1086,7 +1082,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL shared variable error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1084:15 - 1084:29
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1080:15 - 1080:29
           |Hierarchy: Top
           |Message:   A shared-variable write inside a loop requires the whole loop to lower into the clocked process, but the loop mixes combinational content or reads values that are reassigned later in the domain body.
           |To Fix: split the loop so that the shared-variable write is in a purely-sequential loop.
@@ -1120,7 +1116,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(SelFixed())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1108:9 - 1108:27
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1104:9 - 1104:27
           |Hierarchy: SelFixed
           |Operation: `apply`
           |Message:   The applied RHS value width (10) is larger than the LHS variable width (8).""".stripMargin
@@ -1222,12 +1218,12 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(SliceOverlap())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1219:9 - 1219:45
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1215:9 - 1215:45
           |Hierarchy: SliceOverlap
           |LHS:       o(W - 1, 0)
           |RHS:       i((W + W) - 1, W)
           |Message:   Found multiple connections write to the same variable/port `SliceOverlap.o`.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1218:9 - 1218:45""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1214:9 - 1214:45""".stripMargin
     )
 
   // A relation no symbolic proof can settle is decided at the parameters actually elaborated
@@ -1257,12 +1253,12 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(SliceUnprovableCollide())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1254:9 - 1254:43
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1250:9 - 1250:43
           |Hierarchy: SliceUnprovableCollide
           |LHS:       o((2 * W) - 1, W)
           |RHS:       i((2 * W) - 1, W)
           |Message:   Found multiple connections write to the same variable/port `SliceUnprovableCollide.o`.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1253:9 - 1253:27""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1249:9 - 1249:27""".stripMargin
     )
   test("consistent assignment kinds per process are accepted"):
     object Test:
@@ -1321,24 +1317,24 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(MixedWhole())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1309:16 - 1309:23
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1305:16 - 1305:23
           |Hierarchy: MixedWhole
           |LHS:       q
           |RHS:       d
           |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `MixedWhole.q` within the same process.
           |Use one assignment kind consistently for this variable inside the process.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1308:20 - 1308:26""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1304:20 - 1304:26""".stripMargin
     )
     assertElaborationErrors(MixedParts())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1317:11 - 1317:30
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1313:11 - 1313:30
           |Hierarchy: MixedParts
           |LHS:       q(7, 4)
           |RHS:       d(7, 4)
           |Message:   Found both blocking (`:=`) and non-blocking (`:==`) assignments to the same variable/port `MixedParts.q` within the same process.
           |Use one assignment kind consistently for this variable inside the process.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1316:11 - 1316:29""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1312:11 - 1312:29""".stripMargin
     )
   test("parametric max width-fit accepted via symbolic elimination"):
     object Test:
@@ -1388,27 +1384,14 @@ class ElaborationChecksSpec extends DesignSpec:
         val xy = x + y
         sum15 := xy
       end MaxTooNarrow
-      @top(false) class PlainSymWidth(val WIDTH: Int <> CONST = 14) extends RTDesign:
-        val x = UInt(WIDTH) <> IN
-        val sum = UInt(16) <> OUT
-        sum := x
-      end PlainSymWidth
     import Test.*
     assertElaborationErrors(MaxTooNarrow())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1389:9 - 1389:20
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1385:9 - 1385:20
           |Hierarchy: MaxTooNarrow
           |Operation: `:=`
           |Message:   The applied RHS value width (WIDTH max 16) is larger than the LHS variable width (15).""".stripMargin
-    )
-    assertElaborationErrors(PlainSymWidth())(
-      s"""|Elaboration errors found!
-          |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1394:9 - 1394:17
-          |Hierarchy: PlainSymWidth
-          |Operation: `:=`
-          |Message:   The applied RHS value width (WIDTH) is undefined compared to the LHS variable width (16).""".stripMargin
     )
 
   test("same-named width constants are qualified in DFBits width errors"):
@@ -1428,47 +1411,18 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Parent())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1425:9 - 1425:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1408:9 - 1408:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (c.OUTPUT_WIDTH) is different than the receiver width (OUTPUT_WIDTH).
           |Consider applying `.resize` to resolve this issue.
           |
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1425:9 - 1425:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1408:9 - 1408:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (OUTPUT_WIDTH) is different than the receiver width (c.OUTPUT_WIDTH).
           |Consider applying `.resize` to resolve this issue.""".stripMargin
-    )
-
-  test("same-named width constants are qualified in DFDecimal width errors"):
-    object Test:
-      @top(false) class Child(val W: Int <> CONST = 4) extends EDDesign:
-        val OUTPUT_WIDTH = W * 2
-        val o = UInt(OUTPUT_WIDTH) <> OUT
-        o <> 0
-      end Child
-      @top(false) class Parent(val W: Int <> CONST = 8) extends EDDesign:
-        val OUTPUT_WIDTH = W
-        val o = UInt(OUTPUT_WIDTH) <> OUT
-        val c = Child(W = 4)
-        o <> c.o
-      end Parent
-    import Test.*
-    assertElaborationErrors(Parent())(
-      s"""|Elaboration errors found!
-          |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1456:9 - 1456:17
-          |Hierarchy: Parent
-          |Operation: `apply`
-          |Message:   The applied RHS value width (c.OUTPUT_WIDTH) is undefined compared to the LHS variable width (OUTPUT_WIDTH).
-          |
-          |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1456:9 - 1456:17
-          |Hierarchy: Parent
-          |Operation: `apply`
-          |Message:   The applied RHS value width (OUTPUT_WIDTH) is undefined compared to the LHS variable width (c.OUTPUT_WIDTH).""".stripMargin
     )
 
   test("same-named design parameters are qualified in width errors"):
@@ -1486,14 +1440,14 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Parent())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1483:9 - 1483:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1437:9 - 1437:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (c.W) is different than the receiver width (W).
           |Consider applying `.resize` to resolve this issue.
           |
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1483:9 - 1483:17
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1437:9 - 1437:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (W) is different than the receiver width (c.W).
@@ -1531,32 +1485,18 @@ class ElaborationChecksSpec extends DesignSpec:
 
   test("parametric width-fit proof rejections"):
     object Test:
-      @top(false) class MulTooNarrow(val W: Int <> CONST = 8) extends EDDesign:
-        val a, b = SInt(W) <> IN
-        val prod16 = SInt(16) <> OUT
-        prod16 <> a * b
-      end MulTooNarrow
       @top(false) class ProvablyNarrow(val W: Int <> CONST = 8) extends RTDesign:
         val x = SInt(2 * W) <> IN
         val narrow = SInt(W) <> OUT
         narrow := x
       end ProvablyNarrow
     import Test.*
-    // a literal target against a free parameter stays undecidable: a valid W may exceed it
-    assertElaborationErrors(MulTooNarrow())(
-      s"""|Elaboration errors found!
-          |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1537:9 - 1537:24
-          |Hierarchy: MulTooNarrow
-          |Operation: `apply`
-          |Message:   The applied RHS value width (W) is undefined compared to the LHS variable width (16).""".stripMargin
-    )
-    // the width-fit proof decides the negative direction definitively: W >= 2 * W is
-    // violated for every valid W, so the vague "undefined" error upgrades to "larger than"
+    // the width-fit proof decides the negative direction definitively: W >= 2 * W is violated
+    // for every valid W, so the relation is rejected rather than left to a constraint
     assertElaborationErrors(ProvablyNarrow())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1542:9 - 1542:20
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1491:9 - 1491:20
           |Hierarchy: ProvablyNarrow
           |Operation: `:=`
           |Message:   The applied RHS value width (2 * W) is larger than the LHS variable width (W).""".stripMargin
@@ -1581,7 +1521,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1578:14 - 1578:35
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1518:14 - 1518:35
           |Hierarchy: Top
           |Operation: `setName`
           |Message:   Cannot set a name for a port of an internal design.
@@ -1659,12 +1599,12 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(ParamIdxCollide())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1655:9 - 1655:18
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1595:9 - 1595:18
           |Hierarchy: ParamIdxCollide
           |LHS:       v(1)
           |RHS:       a
           |Message:   Found multiple connections write to the same variable/port `ParamIdxCollide.v`.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1653:9 - 1653:22""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1593:9 - 1593:22""".stripMargin
     )
 
   // A variable already driven reads as a source, so a second driver reaches the analysis as a
@@ -1684,12 +1624,12 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(VarRedrive())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1679:9 - 1679:18
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1619:9 - 1619:18
           |Hierarchy: VarRedrive
           |LHS:       v(0)
           |RHS:       a
           |Message:   Found multiple connections write to the same variable/port `VarRedrive.v`.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1678:9 - 1678:18""".stripMargin
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1618:9 - 1618:18""".stripMargin
     )
 
   // A bitwise operation requires equal operand widths. When at least one width is a design
@@ -1729,7 +1669,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(BitsXorParam())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1710:9 - 1710:23
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1650:9 - 1650:23
           |Hierarchy: BitsXorParam
           |Operation: `apply`
           |Message:   Cannot apply this operation between a value of LEN bits width (LHS) and a value of 8 bits width (RHS).
@@ -1738,7 +1678,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(UIntAndParam())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1718:9 - 1718:23
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1658:9 - 1658:23
           |Hierarchy: UIntAndParam
           |Operation: `apply`
           |Message:   Cannot apply this operation between a value of LEN bits width (LHS) and a value of 8 bits width (RHS).
@@ -1793,7 +1733,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(EDPrint())(
       s"""|Elaboration errors found!
           |DFiant HDL text output error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1765:9 - 1765:28
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1705:9 - 1705:28
           |Hierarchy: EDPrint
           |Message:   Text output is not allowed as a concurrent statement under an event-driven (ED) domain.
           |Only a static assertion (an `assert` whose condition and message are constant) may reside directly in an ED domain body, as a design contract checked at elaboration.
@@ -1802,7 +1742,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(EDDynAssert())(
       s"""|Elaboration errors found!
           |DFiant HDL text output error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1772:9 - 1772:49
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1712:9 - 1712:49
           |Hierarchy: EDDynAssert
           |Message:   Text output is not allowed as a concurrent statement under an event-driven (ED) domain.
           |Only a static assertion (an `assert` whose condition and message are constant) may reside directly in an ED domain body, as a design contract checked at elaboration.
@@ -1811,5 +1751,45 @@ class ElaborationChecksSpec extends DesignSpec:
     // the accepted species elaborate without error
     val _ = EDStaticAssert()
     val _ = RTPrint()
+
+  // A check that cannot decide a width relation marks the condition it assumed, and the end of
+  // the design body turns every marked condition into an assertion and drops the marker. It is
+  // an elaboration-internal marker, so a design that has finished elaborating carries none of
+  // them anywhere in its hierarchy: nothing downstream can come to depend on one.
+  test("auto constraints leave no marker in the elaborated design"):
+    object Test:
+      class Inner(val W: Int <> CONST = 8) extends EDDesign:
+        val i = UInt(W) <> IN
+        val o = UInt(16) <> OUT
+        o <> i
+      end Inner
+      @top(false) class Outer(val W: Int <> CONST = 8) extends EDDesign:
+        val i = UInt(W) <> IN
+        val o = UInt(16) <> OUT
+        val o2 = UInt(24) <> OUT
+        val inner = Inner(W)
+        inner.i <> i
+        o <> inner.o
+        o2 <> i
+      end Outer
+    end Test
+    import Test.*
+    import dfhdl.compiler.stages.db
+    val designDB = Outer().db
+    val allMembers = (designDB :: designDB.subDBs.values.toList).flatMap(_.members)
+    // one constraint, from `Outer`. `Inner`'s own fit needs no constraint: a sub-design's
+    // parameters are fixed by the instantiation elaborating it, so its widths resolve and the
+    // relation is decided here and now. Only the elaboration ROOT's parameters stay free.
+    assertEquals(
+      allMembers.count {
+        case textOut: compiler.ir.TextOut => !textOut.isAnonymous
+        case _                            => false
+      },
+      1
+    )
+    assert(
+      allMembers.forall(!_.hasTagOf[compiler.ir.AutoConstraint]),
+      "an auto-constraint marker survived elaboration"
+    )
 
 end ElaborationChecksSpec

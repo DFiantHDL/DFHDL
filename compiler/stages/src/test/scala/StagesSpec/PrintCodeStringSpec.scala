@@ -3313,4 +3313,91 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("auto constraint from an unprovable width fit") {
+    // A width relation that is neither provably held nor provably violated is accepted, and the
+    // fit the operation needs is stated as a static assertion at the tail of the body. The two
+    // writes to `z` assume the same relation and state it once; the write to `n` assumes another.
+    class Fits(val W: Int <> CONST = 8) extends RTDesign:
+      val x = UInt(W)  <> IN
+      val z = UInt(16) <> OUT
+      val n = UInt(8)  <> OUT
+      z := x
+      z := x + 1
+      n := x
+    end Fits
+    assertCodeString(
+      Fits(),
+      """|class Fits(val W: Int <> CONST = 8) extends RTDesign:
+         |  val x = UInt(W) <> IN
+         |  val z = UInt(16) <> OUT
+         |  val n = UInt(8) <> OUT
+         |  z := x.resize(16)
+         |  z := x.resize(16) + d"1'1".resize(W).resize(16)
+         |  n := x.resize(8)
+         |  val constraint_0 = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
+         |  val constraint_1 = assert(8 >= W, s"Design parameter violation found. Expected: 8 >= W", Severity.Fatal)
+         |end Fits
+         |""".stripMargin
+    )
+  }
+  test("auto constraint raised inside a block") {
+    // The condition is built where the check runs, which here is inside a conditional inside a
+    // process: a scope the body cannot read from. Materialization clones its cone into the body,
+    // so the assertion states the relation at the design's own level.
+    class Blocked(val W: Int <> CONST = 8) extends EDDesign:
+      val sel = Bit      <> IN
+      val x   = UInt(W)  <> IN
+      val z   = UInt(16) <> OUT
+      process(all):
+        if (sel) z :== x
+        else z :== 0
+    end Blocked
+    assertCodeString(
+      Blocked(),
+      """|class Blocked(val W: Int <> CONST = 8) extends EDDesign:
+         |  val sel = Bit <> IN
+         |  val x = UInt(W) <> IN
+         |  val z = UInt(16) <> OUT
+         |  process(all):
+         |    if (sel) z :== x.resize(16)
+         |    else z :== d"16'0"
+         |  val constraint = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
+         |end Blocked
+         |""".stripMargin
+    )
+  }
+  test("auto constraint qualifies same-named width constants") {
+    // The message is built from the same lambda as the compile-time check's, so two same-named
+    // constants from different designs stay distinguishable in it, exactly as they do in a width
+    // error.
+    class WidthChild(val W: Int <> CONST = 4) extends EDDesign:
+      val OUTPUT_WIDTH = W * 2
+      val o            = UInt(OUTPUT_WIDTH) <> OUT
+      o <> 0
+    end WidthChild
+    class WidthParent(val W: Int <> CONST = 8) extends EDDesign:
+      val OUTPUT_WIDTH = W
+      val o            = UInt(OUTPUT_WIDTH) <> OUT
+      val c            = WidthChild(W = 4)
+      o <> c.o
+    end WidthParent
+    assertCodeString(
+      WidthParent(),
+      """|class WidthChild(val W: Int <> CONST = 4) extends EDDesign:
+         |  val OUTPUT_WIDTH: Int <> CONST = W * 2
+         |  val o = UInt(OUTPUT_WIDTH) <> OUT
+         |  o <> d"1'0".resize(OUTPUT_WIDTH)
+         |end WidthChild
+         |
+         |class WidthParent(val W: Int <> CONST = 8) extends EDDesign:
+         |  val OUTPUT_WIDTH: Int <> CONST = W
+         |  val o = UInt(OUTPUT_WIDTH) <> OUT
+         |  val c = WidthChild(W = 4)
+         |  val c_OUTPUT_WIDTH: Int <> CONST = 4 * 2
+         |  o <> c.o.resize(OUTPUT_WIDTH)
+         |  val constraint = assert(OUTPUT_WIDTH >= c_OUTPUT_WIDTH, s"Design parameter violation found. Expected: OUTPUT_WIDTH >= c_OUTPUT_WIDTH", Severity.Fatal)
+         |end WidthParent
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

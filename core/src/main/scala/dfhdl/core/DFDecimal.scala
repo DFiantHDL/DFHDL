@@ -139,6 +139,33 @@ object DFDecimal:
           s"""|Cannot apply this operation between a value of ${lhs.widthErrorString} bits width (LHS) and a value of ${rhs.widthErrorString} bits width (RHS).
               |An explicit conversion must be applied.""".stripMargin
         )
+
+    /** The elaboration half of [[`LW >= RW`]], for a width pair at least one of whose sides is not
+      * statically known (a design parameter): decided on the two width expressions, and a pair that
+      * is neither provably fitting nor provably violated is ACCEPTED, with the fit stated as a
+      * constraint of the design (see [[AutoConstraint]]). Rejecting it instead would demand a
+      * `.resize` of code that is very probably correct, while accepting it silently would let a
+      * parameter override truncate. The generated assertion is the third answer: the operation
+      * stands, and every instantiation checks the width relation it needs.
+      *
+      * A provably violated pair stays a hard error, as it is at every other width check site: an
+      * assertion that always fails helps no one. It reports the text of the compile-time half, with
+      * each width rendered relative to the error site. The generated assertion does NOT: what it
+      * states is the design's interface rather than this operation, so its own condition is what it
+      * reports. Must be invoked wherever [[`LW >= RW`]] is, on the branch where a width is unknown.
+      */
+    protected[core] def widthFitCheck(
+        lhs: IntParam[Int],
+        rhs: IntParam[Int]
+    )(using DFC): Unit =
+      AutoConstraint.widthFitGE(lhs, rhs) match
+        case Some(true)  => // fits for every parameter assignment
+        case Some(false) =>
+          throw new IllegalArgumentException(
+            s"""The applied RHS value width (${rhs.errorString}) is larger than the LHS variable width (${lhs.errorString})."""
+          )
+        case None => AutoConstraint.raise(AutoConstraint.ge(lhs, rhs))
+    end widthFitCheck
     object `LS >= RS`
         extends Check2[
           Boolean,
@@ -331,7 +358,7 @@ object DFDecimal:
       )(using dfc: DFC): Unit =
         if (!isWildcardL.value)
           import dfc.getSet
-          import DFXInt.Val.getActualSignedWidthOpt
+          import DFXInt.Val.{getActualSignedWidthOpt, getActualWidthParam}
           (lhs.getActualSignedWidthOpt, rhs.getActualSignedWidthOpt) match
             case (Some(lhsSigned, lhsWidthIntOpt), Some(rhsSigned, rhsWidthIntOpt)) =>
               checkS(lhsSigned, rhsSigned)
@@ -342,7 +369,18 @@ object DFDecimal:
                     else rhsWidth
                   checkW(lhsWidth, rhsSignedWidth)
                 case _ =>
+                  // a width is parametric, so the same relation is decided on the width
+                  // EXPRESSIONS instead, and stated as a design constraint when undecidable
+                  import IntParam.+
+                  val lhsWidthParam = lhs.getActualWidthParam(lhsWidthIntOpt)
+                  val rhsWidthParam = rhs.getActualWidthParam(rhsWidthIntOpt)
+                  val rhsSignedWidthParam =
+                    if (lhsSigned && !rhsSigned) rhsWidthParam + 1
+                    else rhsWidthParam
+                  widthFitCheck(lhsWidthParam, rhsSignedWidthParam)
+              end match
             case _ =>
+          end match
       end apply
     end given
 
@@ -1100,6 +1138,17 @@ object DFXInt:
     end Candidate
 
     extension [S <: Boolean, W <: IntP, N <: NativeType](dfVal: DFValOf[DFXInt[S, W, N]])
+      // The width behind `getActualSignedWidthOpt`, as the (possibly parametric) expression it
+      // is. A resolved width is taken as given, so a wildcard `Int`'s value-derived width stays
+      // the width the check saw rather than becoming the type's.
+      private[core] def getActualWidthParam(widthIntOpt: Option[Int])(using
+          dfc: DFC
+      ): IntParam[Int] =
+        widthIntOpt match
+          case Some(width) => IntParam.forced[Int](width)
+          case None        =>
+            // an integer type (fraction 0): the magnitude ref is the total-width ref
+            dfVal.dfType.asIR.magnitudeWidthParamRef.get
       private[core] def getActualSignedWidthOpt(using
           dfc: DFC
       ): Option[(signed: Boolean, widthIntOpt: Option[Int])] =
@@ -1154,24 +1203,13 @@ object DFXInt:
                       // ref and may be parametric
                       val dfTypeWidthRef = dfType.asIR.magnitudeWidthParamRef
                       val rhsWidthRef = rhs.dfType.asIR.magnitudeWidthParamRef
-                      def dfTypeWidthStr = dfTypeWidthRef.refErrorString
-                      def rhsWidthStr = rhsWidthRef.refErrorString
                       // width-fit acceptance rule: LHS >= RHS after symbolic elimination (a
                       // mixed max/min drops its symbolic operands, so `16 >= WIDTH max 16`
                       // decides as `16 >= 16`), falling back to a non-negativity proof over
                       // the validity domain (all widths are >= 1), so `2 * W >= W` accepts
                       // for a free parameter `W`; a residual undecidable comparison (e.g.
-                      // `16 >= W`) is conservatively rejected below
-                      dfTypeWidthRef.widthFitGE(rhsWidthRef) match
-                        case Some(false) =>
-                          throw new IllegalArgumentException(
-                            s"""The applied RHS value width ($rhsWidthStr) is larger than the LHS variable width ($dfTypeWidthStr)."""
-                          )
-                        case None =>
-                          throw new IllegalArgumentException(
-                            s"""The applied RHS value width ($rhsWidthStr) is undefined compared to the LHS variable width ($dfTypeWidthStr)."""
-                          )
-                        case _ => // ok
+                      // `16 >= W`) becomes a constraint of the design
+                      widthFitCheck(dfTypeWidthRef.get, rhsWidthRef.get)
                     end if
             case None =>
           end match

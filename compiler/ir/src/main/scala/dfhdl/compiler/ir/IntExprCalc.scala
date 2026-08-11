@@ -72,6 +72,19 @@ object IntExprCalc:
         else None
   end widthFitCompare
 
+  /** Whether `a1 - b1` and `a2 - b2` are the same linear expression.
+    *
+    * The identity of a parametric relation between two integer expressions, so `W + W >= 8` and
+    * `2 * W >= 8` state one relation rather than two. Design parameters stay OPAQUE, which is what
+    * makes it an identity of the DESIGN's relation: two relations that coincide only for the values
+    * of one instantiation stay distinct.
+    */
+  def sameDiff(a1: DFVal, b1: DFVal)(a2: DFVal, b2: DFVal)(using MemberGetSet): Boolean =
+    val calc = Calc(ParamResolve.Opaque)
+    def diff(a: DFVal, b: DFVal): Linear = calc.sub(calc.linear(a), calc.linear(b))
+    val d = calc.sub(diff(a1, b1), diff(a2, b2))
+    d.terms.isEmpty && d.offset == 0
+
   /** How the calculus treats a [[DFVal.DesignParam]] it reaches. */
   private enum ParamResolve derives CanEqual:
     /** Stays an opaque base, so a decision holds for any parameter assignment (elaboration-time

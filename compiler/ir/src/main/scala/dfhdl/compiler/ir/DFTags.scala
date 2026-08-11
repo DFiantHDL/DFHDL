@@ -35,6 +35,18 @@ case class DFHDLVersionTag(version: String) extends DFTag
 case object PhantomTag extends DFTag
 type PhantomTag = PhantomTag.type
 
+/** Marks a constant condition that an operation ASSUMED and elaboration could not prove, pending
+  * materialization as a static assertion of the design's contract. A pure marker: the condition it
+  * marks is the whole constraint, down to the text the assertion reports.
+  *
+  * Created and consumed inside one design's elaboration (the end of the design body materializes
+  * every pending constraint and drops the tag), so no member of a finished design carries it. It is
+  * therefore an elaboration-internal marker, not a stage marker: nothing downstream reads it, and
+  * the materialized assertion is what carries the constraint from there on.
+  */
+case object AutoConstraint extends DFTag
+type AutoConstraint = AutoConstraint.type
+
 opaque type DFTags = Map[String, DFTag]
 object DFTags:
   given ReadWriter[DFTags] = summon[ReadWriter[Map[String, DFTag]]]
