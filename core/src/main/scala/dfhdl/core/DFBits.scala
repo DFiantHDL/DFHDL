@@ -744,6 +744,14 @@ object DFBits:
           DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
         def resize(using DFCG): DFValTP[DFBits[Int], P] =
           lhs.tag(ir.ResizeTag).asValTP[DFBits[Int], P]
+        // permission to adjust the width in ONE direction, taken up by the context that decides
+        // the width; in the other direction it contributes nothing (see `ir.ExtendTag`)
+        @targetName("extendDFBits")
+        def extend(using DFCG): DFValTP[DFBits[Int], P] =
+          lhs.tag(ir.ExtendTag).asValTP[DFBits[Int], P]
+        @targetName("truncateDFBits")
+        def truncate(using DFCG): DFValTP[DFBits[Int], P] =
+          lhs.tag(ir.TruncateTag).asValTP[DFBits[Int], P]
         def resize[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: Arg.Width.CheckNUB[RW],
             dfc: DFCG
