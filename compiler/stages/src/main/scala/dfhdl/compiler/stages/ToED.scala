@@ -139,12 +139,28 @@ case object ToED extends HierarchyStage:
             val nonInitialMembers =
               if (initialPBs.isEmpty) members else members.filterNot(initialMemberSet)
 
+            // A static assertion states an elaboration-time contract of the design, not a
+            // runtime condition, so it stays a concurrent body member of the lowered ED design.
+            // Its constant cone stays with it: a cone member swept into the generated process
+            // would leave the concurrent assertion reading a process-local value.
+            // (collected exactly as `getProcessAllMembers` collects a text output's cone below,
+            // so that every member it would have swept is excluded here)
+            val staticAssertMemberSet: Set[DFMember] =
+              nonInitialMembers.view.collect {
+                case textOut: TextOut if textOut.isStaticAssert =>
+                  textOut :: textOut.getRefs.view.filterNot(_.isTypeRef).map(_.get).flatMap {
+                    case dfVal: DFVal => dfVal.collectRelMembers(true)
+                    case _            => Nil
+                  }.toList
+              }.flatten.toSet
+
             def collectFilter(member: DFMember): Boolean = member match
-              case IteratorDcl()        => true
-              case _: DFVal.Dcl         => false
-              case _: DFVal.DesignParam => false
-              case DclConst()           => false
-              case _: DFOwnerNamed      => false
+              case m if staticAssertMemberSet.contains(m) => false
+              case IteratorDcl()                          => true
+              case _: DFVal.Dcl                           => false
+              case _: DFVal.DesignParam                   => false
+              case DclConst()                             => false
+              case _: DFOwnerNamed                        => false
               // a DIN read marker is replaced outright (see `dinReadPatches`), so it must not also
               // be moved into the generated process: the two patches would collide on it
               case _: DFVal.Alias.RegDIN                              => false

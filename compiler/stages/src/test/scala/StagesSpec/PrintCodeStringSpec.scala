@@ -3248,4 +3248,43 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("static assertion") {
+    // a static assertion (constant condition and message) is a concurrent design-body statement
+    // in every domain, and prints as a plain `assert` — nothing distinguishes it in the source,
+    // which is the point: re-elaborating this printout derives the same species structurally
+    class Guarded(val W: Int <> CONST = 8) extends EDDesign:
+      val i = UInt(W) <> IN
+      val o = UInt(W) <> OUT
+      assert(W > 0, s"W must be positive, got $W")
+      assert(W <= 32, s"W must not exceed 32, got $W", Severity.Fatal)
+      o <> i
+    end Guarded
+    class GuardedRT extends RTDesign:
+      val i = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      assert(i.width == 8)
+      o := i
+    end GuardedRT
+    assertCodeString(
+      Guarded(),
+      """|class Guarded(val W: Int <> CONST = 8) extends EDDesign:
+         |  val i = UInt(W) <> IN
+         |  val o = UInt(W) <> OUT
+         |  assert(W > 0, s"W must be positive, got ${W}")
+         |  assert(W <= 32, s"W must not exceed 32, got ${W}", Severity.Fatal)
+         |  o <> i
+         |end Guarded
+         |""".stripMargin
+    )
+    assertCodeString(
+      GuardedRT(),
+      """|class GuardedRT extends RTDesign:
+         |  val i = UInt(8) <> IN
+         |  val o = UInt(8) <> OUT
+         |  assert(i.width == 8)
+         |  o := i
+         |end GuardedRT
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

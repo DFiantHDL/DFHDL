@@ -67,7 +67,10 @@ case object DropProcessAll extends HierarchyStage:
                 // through the assignments that consume them
                 case DFVal.Func.Call(call, _) if call.dfType == DFUnit =>
                   call.args.view.map(_.get)
-                case mh: DFMatchHeader       => Some(mh.selectorRef.get)
+                case mh: DFMatchHeader => Some(mh.selectorRef.get)
+                // a text output reads its assertion guard and every message argument
+                case textOut: TextOut =>
+                  textOut.getRefs.view.map(_.get).collect { case dfVal: DFVal => dfVal }
                 case cb: DFConditional.Block => getBlockDependents(cb) ++ cb.getGuardOption
                 case _                       => None
               }.flatMap(getDFValDependents)

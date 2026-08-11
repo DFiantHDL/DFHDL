@@ -402,6 +402,16 @@ extension (dfVal: DFVal)
       case _               => false
     }
 
+  /** Part of the anonymous cone computing a static assertion's condition or message, which must
+    * therefore be placed with it (see `TextOut.isStaticAssert`).
+    */
+  def isReferencedByAnyStaticAssert(using MemberGetSet): Boolean =
+    dfVal.originMembers.view.exists {
+      case textOut: TextOut => textOut.isStaticAssert
+      case dfVal: DFVal     => dfVal.isReferencedByAnyStaticAssert
+      case _                => false
+    }
+
   @tailrec private def flatName(member: DFVal, suffix: String)(using MemberGetSet): String =
     member match
       case named if !named.isAnonymous  => s"${member.getName}$suffix"
@@ -577,6 +587,27 @@ extension (textOut: TextOut)
     textOut.getRefs.view
       .collect { case DFRef(dfVal: DFVal) => dfVal }
       .flatMap(_.collectRelMembers(false)).toList
+
+  /** A static assertion: an assertion placed directly in a domain body (a design body or a `domain`
+    * body) whose guard and message arguments are all constant. It states an elaboration-time
+    * contract of the design rather than a runtime condition, so it stays a concurrent body
+    * statement through the lowering to ED and prints as an elaboration-time construct.
+    *
+    * The position is part of the definition: an assertion nested in a process, a conditional block
+    * or a loop is procedural content and is never static, whatever its guard, since the
+    * elaboration-time forms only exist in concurrent position.
+    */
+  def isStaticAssert(using MemberGetSet): Boolean =
+    textOut.op match
+      case TextOut.Op.Assert(assertionRef, _) =>
+        val isConcurrent = textOut.getOwner match
+          // an HDL method body is procedural, not a concurrent body
+          case dsn: DFDesignBlock => !dsn.isHDLMethod
+          case _: DFDomainOwner   => true
+          case _                  => false
+        isConcurrent && assertionRef.get.isConst && textOut.msgArgs.forall(_.get.isConst)
+      case _ => false
+end extension
 
 extension (member: DFMember)
   private def isPublicMember(using MemberGetSet): Boolean =

@@ -49,16 +49,20 @@ object OrderMembers:
         case dfVal: DFVal if dfVal.isReferencedByAnyDclOrDesign => 3
         // fourth to come are constant declarations that may be referenced by ports
         case DclConst() => 4
-        // fifth are ports
-        case DclPort() => 5
-        // sixth are variables, but not iterators
+        // fifth are the anonymous members computing a static assertion's condition and message
+        case dfVal: DFVal if dfVal.isReferencedByAnyStaticAssert => 5
+        // sixth are the static assertions stating the design's contract over those constants
+        case textOut: TextOut if textOut.isStaticAssert => 6
+        // seventh are ports
+        case DclPort() => 7
+        // eighth are variables, but not iterators
         case dcl @ DclVar()
-            if !dcl.isIterator && dcl.getOwner.isInstanceOf[DFDesignBlock] => 6
-        // seventh are design blocks that are direct children of named instances
+            if !dcl.isIterator && dcl.getOwner.isInstanceOf[DFDesignBlock] => 8
+        // ninth are design blocks that are direct children of named instances
         // (e.g., design blocks inside conditional blocks are not included)
-        case dsn: (DFDesignBlock | DFDesignInst) if dsn.getOwner == dsn.getOwnerNamed => 7
+        case dsn: (DFDesignBlock | DFDesignInst) if dsn.getOwner == dsn.getOwnerNamed => 9
         // then the rest
-        case _ => 8
+        case _ => 10
       }
     end Simple
 //    val GuardedLast: Order = new Order:

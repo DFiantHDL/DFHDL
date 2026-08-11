@@ -3471,4 +3471,95 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // A static assertion (constant condition and message) is a concurrent design contract, and a
+  // Verilog module body has no concurrent statements: an immediate assertion and a system-task
+  // call are both statements, never module items. From 1800-2009 it is an elaboration system
+  // task under a generate-`if`, so synthesis checks it too; older dialects check it at
+  // simulation time zero from an `initial` block.
+  test("static assertion under sv2009") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class StaticGuardNew(val W: Int <> CONST = 8) extends EDDesign:
+      val x = UInt(W) <> IN
+      val y = UInt(W) <> OUT
+      assert(W > 0, s"W must be positive, got $W")
+      assert(W <= 32, s"W must not exceed 32, got $W", Severity.Fatal)
+      y <> x
+    end StaticGuardNew
+    val top = StaticGuardNew().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module StaticGuardNew#(parameter int W = 8)(
+         |  input  wire logic [W - 1:0] x,
+         |  output logic [W - 1:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  if (!(W > 0)) $error("W must be positive, got %d", W);
+         |  if (!(W <= 32)) $fatal(1, "W must not exceed 32, got %d", W);
+         |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static assertion under sv2005") {
+    given options.CompilerOptions.Backend = _.verilog.sv2005
+    class StaticGuardSV(val W: Int <> CONST = 8) extends EDDesign:
+      val x = UInt(W) <> IN
+      val y = UInt(W) <> OUT
+      assert(W > 0, s"W must be positive, got $W")
+      y <> x
+    end StaticGuardSV
+    val top = StaticGuardSV().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module StaticGuardSV#(parameter int W = 8)(
+         |  input  wire logic [W - 1:0] x,
+         |  output logic [W - 1:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  initial
+         |    assert (W > 0)
+         |    else $error("W must be positive, got %d", W);
+         |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static assertion under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class StaticGuardOld(val W: Int <> CONST = 8) extends EDDesign:
+      val x = UInt(W) <> IN
+      val y = UInt(W) <> OUT
+      assert(W > 0, s"W must be positive, got $W")
+      assert(W <= 32, s"W must not exceed 32, got $W", Severity.Fatal)
+      y <> x
+    end StaticGuardOld
+    val top = StaticGuardOld().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module StaticGuardOld#(parameter integer W = 8)(
+         |  input  wire [W - 1:0] x,
+         |  output wire [W - 1:0] y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  initial if (!(W > 0)) begin
+         |    $display("ERROR: W must be positive, got %d", W);
+         |  end
+         |  initial if (!(W <= 32)) begin
+         |    $display("FATAL: W must not exceed 32, got %d", W);
+         |    $finish;
+         |  end
+         |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

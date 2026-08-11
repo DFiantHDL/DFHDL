@@ -373,6 +373,21 @@ class RTProcessSimSpec extends SimSpec:
     assertEquals(run.continue(20), RunStatus.Paused(PausedReason.Warning))
     assertEquals(run.cycles, 7L)
 
+  bothTiers("a static assertion is reported once"): tier =>
+    // the condition is constant, so it would otherwise fail identically on every cycle; a static
+    // assertion states an elaboration-time contract and is reported on the first cycle only
+    val run = (new StaticAssertDesign).simulation.withTier(tier).run()
+    val out = new StringBuilder
+    run.raw.textSink = s =>
+      out ++= s; ()
+    assertEquals(run.continue(20), RunStatus.Paused(PausedReason.Limit))
+    assertEquals(run.cycles, 20L)
+    assertEquals(
+      out.result(),
+      "WARNING: W must exceed 32, got 8 [StaticAssertDesign @ cycle 1]\n"
+    )
+    assertEquals(run.raw.warningCount, 1L)
+
   bothTiers("event starvation finishes a block-less run of a closed design"): tier =>
     // RunOnceProc halts at an endless wait with no pokeable inputs: nothing can ever happen
     val run = (new RunOnceProc).simulation.withTier(tier).run()

@@ -56,6 +56,13 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
+  // elaboration system tasks ($info/$warning/$error/$fatal as module or generate items,
+  // IEEE 1800-2009 par. 20.11), which is what lets a static assertion be checked by synthesis
+  // and not only by simulation
+  val elabTaskIsSupported: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 | VerilogDialect.sv2005 => false
+      case _                                                                 => true
   def csTextOut(textOut: TextOut): String =
     def csDFValToVerilogFormat(dfValRef: DFVal.Ref): String =
       dfValRef.get.dfType match
@@ -135,6 +142,25 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
             case _              => ""
           s"${csSeverity(severity)}($errCodeArg$msg);"
         else csDisplay(severity, msgLines)
+      // A static assertion is a concurrent design contract, and a Verilog module body has no
+      // concurrent statements: an immediate assertion and a system-task call are both statements,
+      // never module items. It is checked at elaboration where the dialect has the tasks for it,
+      // and at simulation time zero from an `initial` block otherwise.
+      case TextOut.Op.Assert(assertionRef, severity) if textOut.isStaticAssert =>
+        val cond = assertionRef.refCodeString
+        val failMsg = if (msg.isEmpty) scalaToVerilogString("Assertion failed!") else msg
+        if (elabTaskIsSupported)
+          val errCodeArg = if (severity == TextOut.Severity.Fatal) "1, " else ""
+          s"if (!($cond)) ${csSeverity(severity)}($errCodeArg$failMsg);"
+        else if (assertIsSupported)
+          s"""|initial
+              |  assert ($cond)
+              |  else ${csSeverity(severity)}($failMsg);""".stripMargin
+        else
+          val failLines = if (msgLines.isEmpty) List(("Assertion failed!", Nil)) else msgLines
+          s"""|initial if (!($cond)) begin
+              |${csDisplay(severity, failLines).hindent}
+              |end""".stripMargin
       case TextOut.Op.Assert(assertionRef, severity) =>
         if (msg.isEmpty)
           if (assertIsSupported) s"assert (${assertionRef.refCodeString});"

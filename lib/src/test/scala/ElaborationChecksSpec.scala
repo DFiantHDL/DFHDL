@@ -1754,4 +1754,62 @@ class ElaborationChecksSpec extends DesignSpec:
          |""".stripMargin
     )
 
+  test("concurrent text output under an ED domain"):
+    object Test:
+      // a runtime text output has no runtime to attach to in a concurrent ED position (the
+      // lowering that gives an RT/DF body statement one does not apply to a body that is already
+      // ED), so it must reside in a process or an `initial` block
+      @top(false) class EDPrint extends EDDesign:
+        val i = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        println(s"i is $i")
+        o <> i
+      end EDPrint
+      // an assertion over a runtime value is just as dynamic as a print
+      @top(false) class EDDynAssert extends EDDesign:
+        val i = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        assert(i < d"8'200", s"i too large: $i")
+        o <> i
+      end EDDynAssert
+      // a STATIC assertion (constant condition and message) is the one accepted species: it
+      // states an elaboration-time contract and renders as an elaboration-time construct
+      @top(false) class EDStaticAssert(val W: Int <> CONST = 8) extends EDDesign:
+        val i = UInt(W) <> IN
+        val o = UInt(W) <> OUT
+        assert(W > 0, s"W must be positive, got $W")
+        o <> i
+      end EDStaticAssert
+      // an RT body is exempt: its statements are concurrent by nature and the lowering to ED
+      // sweeps them into a process (see `StagesSpec.ToEDSpec`)
+      @top(false) class RTPrint extends RTDesign:
+        val i = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        println(s"i is $i")
+        o := i
+      end RTPrint
+    end Test
+    import Test.*
+    assertElaborationErrors(EDPrint())(
+      s"""|Elaboration errors found!
+          |DFiant HDL text output error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1765:9 - 1765:28
+          |Hierarchy: EDPrint
+          |Message:   Text output is not allowed as a concurrent statement under an event-driven (ED) domain.
+          |Only a static assertion (an `assert` whose condition and message are constant) may reside directly in an ED domain body, as a design contract checked at elaboration.
+          |To Fix: move the statement into a `process` or an `initial` block.""".stripMargin
+    )
+    assertElaborationErrors(EDDynAssert())(
+      s"""|Elaboration errors found!
+          |DFiant HDL text output error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1772:9 - 1772:49
+          |Hierarchy: EDDynAssert
+          |Message:   Text output is not allowed as a concurrent statement under an event-driven (ED) domain.
+          |Only a static assertion (an `assert` whose condition and message are constant) may reside directly in an ED domain body, as a design contract checked at elaboration.
+          |To Fix: move the statement into a `process` or an `initial` block.""".stripMargin
+    )
+    // the accepted species elaborate without error
+    val _ = EDStaticAssert()
+    val _ = RTPrint()
+
 end ElaborationChecksSpec

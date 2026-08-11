@@ -3621,4 +3621,43 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // VHDL already has a concurrent assertion, and a static condition makes it an elaboration-time
+  // check; the static-assertion species simply keeps it out of the process sweep
+  test("static assertion") {
+    class StaticGuard(val W: Int <> CONST = 8) extends EDDesign:
+      val x = UInt(W) <> IN
+      val y = UInt(W) <> OUT
+      assert(W > 0, s"W must be positive, got $W")
+      assert(W <= 32, s"W must not exceed 32, got $W", Severity.Fatal)
+      y <> x
+    end StaticGuard
+    val top = StaticGuard().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity StaticGuard is
+         |generic (
+         |  W : integer := 8
+         |);
+         |port (
+         |  x : in unsigned(W - 1 downto 0);
+         |  y : out unsigned(W - 1 downto 0)
+         |);
+         |end StaticGuard;
+         |
+         |architecture StaticGuard_arch of StaticGuard is
+         |begin
+         |  assert W > 0
+         |    report "W must be positive, got " & to_string(W) & "" severity ERROR;
+         |  assert W <= 32
+         |    report "W must not exceed 32, got " & to_string(W) & "" severity FAILURE;
+         |  y <= x;
+         |end StaticGuard_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

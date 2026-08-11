@@ -1781,6 +1781,33 @@ final case class DB private (
       throw new IllegalArgumentException(errors.mkString("\n\n"))
   end mixedAssignKindCheck
 
+  // Text output is a runtime statement, and under an event-driven (ED) domain a concurrent
+  // position has no runtime to attach it to: in Verilog a system-task call and an immediate
+  // assertion are statements, never module items, and VHDL only has the concurrent assertion.
+  // So an ED domain body accepts exactly one species of text output, the STATIC ASSERTION (its
+  // condition and message are constant), which states an elaboration-time contract of the design
+  // and renders as an elaboration-time construct; everything else belongs in a process or an
+  // `initial` block. RT/DF bodies are exempt, since their statements are concurrent by nature
+  // and `ToED` lowers them into processes; so are HDL method bodies, which are procedural.
+  def textOutCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    members.foreach {
+      case textOut: TextOut
+          if textOut.isInEDDomain && !textOut.isInProcess &&
+            !textOut.getOwnerDesign.isHDLMethod && !textOut.isStaticAssert =>
+        errors +=
+          s"""|DFiant HDL text output error!
+              |Position:  ${textOut.meta.position}
+              |Hierarchy: ${textOut.getOwnerDesign.getFullName}
+              |Message:   Text output is not allowed as a concurrent statement under an event-driven (ED) domain.
+              |Only a static assertion (an `assert` whose condition and message are constant) may reside directly in an ED domain body, as a design contract checked at elaboration.
+              |To Fix: move the statement into a `process` or an `initial` block.""".stripMargin
+      case _ =>
+    }
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n\n"))
+  end textOutCheck
+
   def sharedVarCheck(): Unit =
     val errors = collection.mutable.ArrayBuffer[String]()
     def memberError(member: DFMember, msg: String): Unit =
@@ -2137,6 +2164,7 @@ final case class DB private (
     blockScopeCheck()
     sharedVarCheck()
     mixedAssignKindCheck()
+    textOutCheck()
 
   // Whole-tree checks, run once on the root: the cross-design connectivity /
   // RT-domain / device-top checks, via the `*` clones that navigate the

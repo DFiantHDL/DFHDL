@@ -311,6 +311,15 @@ class BodyAssertDesign extends RTDesign:
   cnt.din := cnt + 1
   assert(cnt < 5, s"cnt reached $cnt", Severity.Warning)
 
+/** A failing STATIC assertion (constant condition and message) alongside body register logic: an
+  * elaboration-time contract, so it is reported on the first committed cycle and never again.
+  */
+class StaticAssertDesign extends RTDesign:
+  val W: Int <> CONST = 8
+  val cnt = UInt(8) <> OUT.REG init 0
+  cnt.din := cnt + 1
+  assert(W > 32, s"W must exceed 32, got $W", Severity.Warning)
+
 /** Three constant-false `while` parks and then `finish()`, fused into the third park's exit path
   * (the run ends during cycle 3, one cycle per skipped loop).
   */
