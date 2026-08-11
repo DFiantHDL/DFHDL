@@ -946,6 +946,11 @@ scalafmt reflows the test design (a braces-on-one-line block becomes multi-line)
 shifts those positions. Write the design in the already-normalized indented form so reformatting
 does not move it, and re-check the positions after running scalafmt.
 
+This is the general reason **scalafmt belongs before the final full-suite run, not after it**:
+formatting rewrites the very spec files the suite just exercised, so a run that precedes it has to
+be repeated. Format once the narrow specs are green, revert the unrelated churn scalafmt always
+produces, then run the suite.
+
 Any edit that changes the file's LINE COUNT shifts every expectation below it, so adding a test in
 the middle breaks unrelated tests that were passing. Append new tests at the end of the file. When
 a mid-file edit is unavoidable (rewriting an existing test), do not hand-patch the fallout: munit
