@@ -106,7 +106,9 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
               // and will be handled after the binds are converted to explicit selectors
               case Bind(_) => None
               // design block names are their declaration names (design/class name), so they are handled differently
-              case _: DFDesignBlock                    => None
+              case _: DFDesignBlock => None
+              // text output names are statement labels, scoped to the design (see below)
+              case _: TextOut                          => None
               case m: DFMember.Named if !m.isAnonymous => Some(m)
               case _                                   => None
             },
@@ -115,6 +117,30 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
             _.getName,
             (m, n) => m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)
           ).foreach(entry => memberRenamePatches(entry._1) = entry)
+          // A text output's name becomes a statement label in the generated HDL, and a label
+          // lives in the enclosing module/architecture namespace rather than in the process
+          // that holds the statement. Labels are therefore uniquified against every name in the
+          // design, in a pass of their own so that a collision renames the label and never the
+          // declaration it collided with.
+          block match
+            case design: DFDesignBlock =>
+              val designNamesLC = lowerCases(
+                sub.membersNoGlobals.view.collect {
+                  case m: DFMember.Named if !m.isAnonymous && !m.isInstanceOf[TextOut] =>
+                    m.getName
+                }.toSet
+              )
+              renamer(
+                sub.membersNoGlobals.collect {
+                  case t: TextOut if !t.isAnonymous => t
+                },
+                designNamesLC ++ localReservedNamesLC
+              )(
+                _.getName,
+                (m, n) => m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)
+              ).foreach(entry => memberRenamePatches(entry._1) = entry)
+            case _ =>
+          end match
         }
       }
     }

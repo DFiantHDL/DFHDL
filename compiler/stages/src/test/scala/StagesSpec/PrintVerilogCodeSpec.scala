@@ -1123,7 +1123,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    assert (param == "hello2")
          |    else $error("I am the one %s who knocks", param);
          |    assert (param8)
-         |    else $fatal(
+         |    else $fatal(1, 
          |      "I\\am\n",
          |      "the \"one\"(!)\n",
          |      "%s\n", param,
@@ -3558,6 +3558,72 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $finish;
          |  end
          |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // Verilog names a block, not a statement, so a named assertion becomes a named block: the
+  // generate block of the elaboration form, the `initial` block of the older ones. A procedural
+  // immediate assertion takes a statement label directly (1800 only).
+  test("named assertion under sv2009") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class NamedGuardNew(val W: Int <> CONST = 8) extends EDDesign:
+      val i    = UInt(W) <> IN
+      val o    = UInt(W) <> OUT
+      val posW = assert(W > 0, s"W must be positive, got $W")
+      process(all):
+        val inRange = assert(i < d"8'200".resize(W), s"i too large: $i")
+      o <> i
+    end NamedGuardNew
+    val top = NamedGuardNew().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module NamedGuardNew#(parameter int W = 8)(
+         |  input  wire logic [W - 1:0] i,
+         |  output logic [W - 1:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  if (!(W > 0)) begin : posW
+         |    $error("W must be positive, got %d", W);
+         |  end
+         |  always_comb
+         |  begin
+         |    inRange: assert (i < W'(8'd200))
+         |    else $error("i too large: %d", i);
+         |  end
+         |  assign o = i;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("named assertion under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class NamedGuardOld(val W: Int <> CONST = 8) extends EDDesign:
+      val i    = UInt(W) <> IN
+      val o    = UInt(W) <> OUT
+      val posW = assert(W > 0, s"W must be positive, got $W")
+      o <> i
+    end NamedGuardOld
+    val top = NamedGuardOld().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module NamedGuardOld#(parameter integer W = 8)(
+         |  input  wire [W - 1:0] i,
+         |  output wire [W - 1:0] o
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  initial begin : posW
+         |    if (!(W > 0)) begin
+         |      $display("ERROR: W must be positive, got %d", W);
+         |    end
+         |  end
+         |  assign o = i;
          |endmodule
          |""".stripMargin
     )

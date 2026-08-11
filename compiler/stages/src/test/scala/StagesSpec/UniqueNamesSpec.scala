@@ -138,4 +138,30 @@ class UniqueNamesSpec extends StageSpec:
     )
   }
 
+  test("named text output") {
+    // a text output's name becomes a statement LABEL, which lives in the enclosing
+    // module/architecture namespace even when the statement sits inside a process. So it is
+    // uniquified against the whole design, and the collision renames the label, never the
+    // declaration it collided with.
+    class Labels extends EDDesign:
+      val chk = UInt(8) <> IN
+      val o   = UInt(8) <> OUT
+      process(all):
+        val chk = assert(this.chk < d"8'200", s"too large")
+      o <> chk
+    end Labels
+    val labels = Labels().uniqueNames(Set(), true)
+    assertCodeString(
+      labels,
+      """|class Labels extends EDDesign:
+         |  val chk = UInt(8) <> IN
+         |  val o = UInt(8) <> OUT
+         |  process(all):
+         |    val chk_0 = assert(chk < d"8'200", s"too large")
+         |  o <> chk
+         |end Labels
+         |""".stripMargin
+    )
+  }
+
 end UniqueNamesSpec

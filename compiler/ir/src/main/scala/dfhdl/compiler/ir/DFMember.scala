@@ -2156,6 +2156,10 @@ end Wait
 object Wait:
   type TriggerRef = DFRef.TwoWay[DFVal, Wait]
 
+// Named so that `val xyz = assert(...)` carries `xyz` all the way to the backend label (and
+// through `UniqueNames`, which shares one namespace with the design's declarations). A text
+// output is a statement, so nothing ever references it by that name; it exists to identify the
+// statement in the generated code and in a tool's report.
 final case class TextOut(
     op: TextOut.Op,
     msgParts: List[String],
@@ -2163,7 +2167,8 @@ final case class TextOut(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends Statement:
+) extends Statement,
+      DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: TextOut =>
       this.op =~ that.op && this.msgParts == that.msgParts && this.msgArgs =~ that.msgArgs &&

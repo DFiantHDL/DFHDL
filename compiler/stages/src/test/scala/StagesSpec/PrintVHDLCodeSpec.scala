@@ -3660,4 +3660,46 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // VHDL labels a statement directly, concurrent and sequential alike
+  test("named assertion") {
+    class NamedGuard(val W: Int <> CONST = 8) extends EDDesign:
+      val i    = UInt(W) <> IN
+      val o    = UInt(W) <> OUT
+      val posW = assert(W > 0, s"W must be positive, got $W")
+      process(all):
+        val inRange = assert(i < d"8'200".resize(W), s"i too large: $i")
+      o <> i
+    end NamedGuard
+    val top = NamedGuard().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity NamedGuard is
+         |generic (
+         |  W : integer := 8
+         |);
+         |port (
+         |  i : in unsigned(W - 1 downto 0);
+         |  o : out unsigned(W - 1 downto 0)
+         |);
+         |end NamedGuard;
+         |
+         |architecture NamedGuard_arch of NamedGuard is
+         |begin
+         |  posW: assert W > 0
+         |    report "W must be positive, got " & to_string(W) & "" severity ERROR;
+         |  process (all)
+         |  begin
+         |    inRange: assert i < resize(8d"200", W)
+         |      report "i too large: " & to_string(i) & "" severity ERROR;
+         |  end process;
+         |  o <= i;
+         |end NamedGuard_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

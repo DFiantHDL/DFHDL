@@ -149,30 +149,53 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       case TextOut.Op.Assert(assertionRef, severity) if textOut.isStaticAssert =>
         val cond = assertionRef.refCodeString
         val failMsg = if (msg.isEmpty) scalaToVerilogString("Assertion failed!") else msg
+        // Verilog names a block, not a statement, so a named assertion becomes a named block:
+        // the generate block of the elaboration form, or the `initial` block of the others.
+        // Naming the generate block is also what keeps a linter from complaining about the
+        // implicit `genblk<n>` the LRM would otherwise assign it.
+        // an anonymous assertion keeps the tightest form the dialect allows; a named one is
+        // wrapped in a named block, which is the only thing Verilog lets a name attach to
+        def named(body: String): String =
+          s"""|begin : ${textOut.getName}
+              |${body.hindent}
+              |end""".stripMargin
         if (elabTaskIsSupported)
           val errCodeArg = if (severity == TextOut.Severity.Fatal) "1, " else ""
-          s"if (!($cond)) ${csSeverity(severity)}($errCodeArg$failMsg);"
+          val task = s"${csSeverity(severity)}($errCodeArg$failMsg);"
+          if (textOut.isAnonymous) s"if (!($cond)) $task"
+          else s"if (!($cond)) ${named(task)}"
         else if (assertIsSupported)
-          s"""|initial
-              |  assert ($cond)
-              |  else ${csSeverity(severity)}($failMsg);""".stripMargin
+          val errCodeArg = if (severity == TextOut.Severity.Fatal) "1, " else ""
+          val body =
+            s"""|assert ($cond)
+                |else ${csSeverity(severity)}($errCodeArg$failMsg);""".stripMargin
+          if (textOut.isAnonymous) s"initial\n${body.hindent}"
+          else s"initial ${named(body)}"
         else
           val failLines = if (msgLines.isEmpty) List(("Assertion failed!", Nil)) else msgLines
-          s"""|initial if (!($cond)) begin
-              |${csDisplay(severity, failLines).hindent}
-              |end""".stripMargin
+          val body =
+            s"""|if (!($cond)) begin
+                |${csDisplay(severity, failLines).hindent}
+                |end""".stripMargin
+          if (textOut.isAnonymous) s"initial $body"
+          else s"initial ${named(body)}"
+        end if
       case TextOut.Op.Assert(assertionRef, severity) =>
+        // a procedural assertion: 1800 allows a statement label, older dialects only a block
+        val csLabel = if (textOut.isAnonymous) "" else s"${textOut.getName}: "
+        val csBlockName = if (textOut.isAnonymous) "" else s" : ${textOut.getName}"
+        val errCodeArg = if (severity == TextOut.Severity.Fatal) "1, " else ""
         if (msg.isEmpty)
-          if (assertIsSupported) s"assert (${assertionRef.refCodeString});"
+          if (assertIsSupported) s"${csLabel}assert (${assertionRef.refCodeString});"
           else
-            s"""|if (!(${assertionRef.refCodeString})) begin
+            s"""|if (!(${assertionRef.refCodeString})) begin$csBlockName
                 |${csDisplay(severity, List(("Assertion failed!", Nil))).hindent}
                 |end""".stripMargin
         else if (assertIsSupported)
-          s"""|assert (${assertionRef.refCodeString})
-              |else ${csSeverity(severity)}($msg);""".stripMargin
+          s"""|${csLabel}assert (${assertionRef.refCodeString})
+              |else ${csSeverity(severity)}($errCodeArg$msg);""".stripMargin
         else
-          s"""|if (!(${assertionRef.refCodeString})) begin
+          s"""|if (!(${assertionRef.refCodeString})) begin$csBlockName
               |${csDisplay(severity, msgLines).hindent}
               |end""".stripMargin
       case TextOut.Op.Print   => s"$$write($msg);"

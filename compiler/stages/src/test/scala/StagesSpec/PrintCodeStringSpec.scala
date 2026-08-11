@@ -3287,4 +3287,30 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("named text output") {
+    // binding a text output to a `val` names the statement, which the backends turn into a
+    // label; the name shares the design's namespace, so `UniqueNames` resolves a collision
+    class Named(val W: Int <> CONST = 8) extends EDDesign:
+      val i    = UInt(W) <> IN
+      val o    = UInt(W) <> OUT
+      val posW = assert(W > 0, s"W must be positive, got $W")
+      process(all):
+        val inRange = assert(i < d"8'200", s"i too large: $i")
+        val trace   = println(s"i: $i")
+      o <> i
+    end Named
+    assertCodeString(
+      Named(),
+      """|class Named(val W: Int <> CONST = 8) extends EDDesign:
+         |  val i = UInt(W) <> IN
+         |  val o = UInt(W) <> OUT
+         |  val posW = assert(W > 0, s"W must be positive, got ${W}")
+         |  process(all):
+         |    val inRange = assert(i < d"8'200".resize(W), s"i too large: ${i}")
+         |    val trace = println(s"i: ${i}")
+         |  o <> i
+         |end Named
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec
