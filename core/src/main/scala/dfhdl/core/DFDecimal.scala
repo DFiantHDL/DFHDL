@@ -1226,7 +1226,11 @@ object DFXInt:
           val rhs = ic(value)
           rhs.getActualSignedWidthOpt match
             case Some(rhsSigned, rhsWidthOpt) =>
-              if (!rhs.hasTag[ir.ResizeTag] || dfType.signed != rhsSigned)
+              // an assignment names its target, so it already extends a narrower value: the
+              // permission that does work here is the one covering a WIDER one
+              val permitted =
+                AutoConstraint.permitsWidthAdjust(rhs, dfType.asIR.magnitudeWidthParamRef.get)
+              if (!permitted || dfType.signed != rhsSigned)
                 (dfType.widthIntOpt, rhsWidthOpt) match
                   case (Some(dfTypeW), Some(rhsW)) => check(dfType.signed, dfTypeW, rhsSigned, rhsW)
                   case _                           =>
@@ -2226,7 +2230,7 @@ object DFUInt:
               // TODO: in the future, it's worth considering adding assertions
               if (argValIR.dfType != ir.DFInt32)
                 unsignedCheck(argVal.dfType.signed)
-                if (argValIR.hasTagOf[ir.ResizeTag])
+                if (AutoConstraint.permitsWidthAdjust(argVal, ub.clog2))
                   argVal.resize(ub.clog2).asIR
                 else
                   (ub.toScalaIntOpt, argVal.widthIntOpt) match

@@ -79,6 +79,39 @@ object AutoConstraint:
       guard.asIR.setTags(_.tag(ir.AutoConstraint))
       ()
 
+  /** Whether a width-adjustment permission carried by `value` (see `ir.ExtendTag`) covers adjusting
+    * it to `targetWidth`.
+    *
+    * A permission covers ONE direction. Where it does not apply it answers false, contributing
+    * nothing, and the caller's own width rule decides and reports, exactly as it would for an
+    * untagged value: a permission is never a claim that an adjustment happens, only that one may.
+    *
+    * An undecidable pair is covered, with the relation the permission relies on stated as a
+    * constraint of the design, on the same three-way as every other width decision made over
+    * parameters (see [[widthFitGE]]).
+    */
+  def permitsWidthAdjust(value: DFValAny, targetWidth: IntParam[Int])(using dfc: DFC): Boolean =
+    import dfc.getSet
+    def covers(wider: IntParam[Int], narrower: IntParam[Int]): Boolean =
+      widthFitGE(wider, narrower) match
+        case Some(decided) => decided
+        case None          =>
+          raise(ge(wider, narrower))
+          true
+    // only the types that carry these permissions are answered for; an integer decimal keeps its
+    // total width in the magnitude ref (fraction 0)
+    val sourceWidthOpt: Option[IntParam[Int]] = value.dfType.asIR match
+      case ir.DFBits(widthRef)                       => Some(widthRef.get)
+      case dt: ir.DFDecimal if dt.fractionWidth == 0 => Some(dt.magnitudeWidthParamRef.get)
+      case _                                         => None
+    if (value.hasTag[ir.ResizeTag]) true
+    else if (value.hasTag[ir.ExtendTag])
+      sourceWidthOpt.exists(covers(targetWidth, _))
+    else if (value.hasTag[ir.TruncateTag])
+      sourceWidthOpt.exists(covers(_, targetWidth))
+    else false
+  end permitsWidthAdjust
+
   /** What a guard requires, canonically: the relation it states, as `linear >= 0`. */
   private type Requirement = ir.IntExprCalc.Linear
 

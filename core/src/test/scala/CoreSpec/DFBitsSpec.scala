@@ -405,4 +405,35 @@ class DFBitsSpec extends DFSpec:
       val acc: Bits[Int] <> VAL = bit.bits
     }
   }
+  // `.extend` and `.truncate` are PERMISSIONS to adjust a value's width in one direction (see
+  // `DFDecimalSpec`). `Bits` assignment is exact in both directions, so either permission is
+  // load-bearing here, and either can fall short.
+  test("Width adjustment permissions") {
+    val b8 = Bits(8) <> VAR
+    val b4 = Bits(4) <> VAR
+    assertCodeString {
+      """|b4 := b8.resize(4)
+         |b8 := b4.eby(4)
+         |""".stripMargin
+    } {
+      b4 := b8.truncate
+      b8 := b4.extend
+    }
+    assertRuntimeErrorLog(
+      """|The argument width (8) is different than the receiver width (4).
+         |Consider applying `.resize` to resolve this issue.""".stripMargin
+    ) {
+      val c8 = Bits(8) <> VAR
+      val c4 = Bits(4) <> VAR
+      c4 := c8.extend
+    }
+    assertRuntimeErrorLog(
+      """|The argument width (4) is different than the receiver width (8).
+         |Consider applying `.resize` to resolve this issue.""".stripMargin
+    ) {
+      val d8 = Bits(8) <> VAR
+      val d4 = Bits(4) <> VAR
+      d8 := d4.truncate
+    }
+  }
 end DFBitsSpec

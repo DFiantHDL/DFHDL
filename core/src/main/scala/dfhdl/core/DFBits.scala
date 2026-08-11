@@ -479,7 +479,7 @@ object DFBits:
         def conv(dfType: DFBits[LW], value: V)(using dfc: DFC): Out =
           import Ops.resizeBits
           val dfVal = ic(value)
-          if (dfVal.hasTag[ir.ResizeTag])
+          if (AutoConstraint.permitsWidthAdjust(dfVal, dfType.widthIntParam))
             dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], RP]
           else
             (dfType.widthIntOpt, dfVal.widthIntOpt) match

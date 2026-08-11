@@ -1401,4 +1401,53 @@ class DFDecimalSpec extends DFSpec:
       c <> (if (sel) a else b)
     }
 
+  // `.extend` and `.truncate` are PERMISSIONS to adjust a value's width in one direction, taken up
+  // by whatever context decides that width. Where the permitted direction does not apply, the
+  // permission contributes nothing and the ordinary width rule decides and reports, exactly as it
+  // would for an untagged value.
+  test("Width adjustment permissions") {
+    val u8 = UInt(8) <> VAR
+    val u4 = UInt(4) <> VAR
+    val s8 = SInt(8) <> VAR
+    val s4 = SInt(4) <> VAR
+    // a widening prints in the relative `.eby` form, a narrowing in the absolute one
+    assertCodeString {
+      """|u4 := u8.resize(4)
+         |u8 := u4.eby(4)
+         |s4 := s8.resize(4)
+         |""".stripMargin
+    } {
+      u4 := u8.truncate
+      u8 := u4.extend
+      s4 := s8.truncate
+    }
+    // an assignment names its target, so it already extends a narrower value: both permissions
+    // elaborate to exactly what the untagged assignment does
+    assertCodeString {
+      """|u8 := u4.eby(4)
+         |u8 := u4.eby(4)
+         |u8 := u4.eby(4)
+         |u8 := u8
+         |""".stripMargin
+    } {
+      u8 := u4
+      u8 := u4.extend
+      u8 := u4.truncate
+      u8 := u8.extend
+    }
+    assertRuntimeErrorLog(
+      "The applied RHS value width (8) is larger than the LHS variable width (4)."
+    ) {
+      val v8 = UInt(8) <> VAR
+      val v4 = UInt(4) <> VAR
+      v4 := v8.extend
+    }
+    assertRuntimeErrorLog(
+      "The applied RHS value width (8) is larger than the LHS variable width (4)."
+    ) {
+      val w8 = SInt(8) <> VAR
+      val w4 = SInt(4) <> VAR
+      w4 := w8.extend
+    }
+  }
 end DFDecimalSpec
