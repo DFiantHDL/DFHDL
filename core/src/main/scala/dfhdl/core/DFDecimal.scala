@@ -115,6 +115,30 @@ object DFDecimal:
             " bits width (LHS) and a value of " + RW +
             " bits width (RHS).\nAn explicit conversion must be applied."
         ]
+
+    /** The elaboration half of [[`LW == RW`]], for a width pair at least one of whose sides is not
+      * statically known (a design parameter): decided on the two width REFS, and a pair that cannot
+      * be PROVEN equal is rejected. The operation requires equal widths, so accepting the
+      * undecidable case emits an operation whose operands the backend silently extends, which is
+      * the one outcome bit-accuracy exists to prevent (issue #474). Reports the same text as the
+      * compile-time half, with each width rendered relative to the error site. Must be invoked
+      * wherever [[`LW == RW`]] is, on the branch where a width is unknown.
+      *
+      * The proof keeps design parameters OPAQUE (see `hasProvablyEqualWidthTo`): a design's own
+      * legality must hold for every applied parameter value, and the resolving comparison would
+      * anyway read a parameter's DEFAULT while its own body elaborates, so `Bits(LEN) ^ Bits[8]`
+      * with `LEN` defaulting to 8 would pass and then emit the mismatch at an instantiation site
+      * applying `LEN = 16`.
+      */
+    protected[core] def equalWidthCheck[LW <: IntP, RW <: IntP](
+        lhs: DFTypeW[LW],
+        rhs: DFTypeW[RW]
+    )(using DFC): Unit =
+      if (!lhs.hasProvablyEqualWidthTo(rhs))
+        throw new IllegalArgumentException(
+          s"""|Cannot apply this operation between a value of ${lhs.widthErrorString} bits width (LHS) and a value of ${rhs.widthErrorString} bits width (RHS).
+              |An explicit conversion must be applied.""".stripMargin
+        )
     object `LS >= RS`
         extends Check2[
           Boolean,
@@ -1322,7 +1346,7 @@ object DFXInt:
           def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
             (lhs.widthIntOpt, rhs.widthIntOpt) match
               case (Some(lw), Some(rw)) => check(lw, rw)
-              case _                    =>
+              case _                    => equalWidthCheck(lhs.dfType, rhs.dfType)
             DFVal.Func(lhs.dfType, op.value, List(lhs, rhs))
           }
       end evOpLogicUInt

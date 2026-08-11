@@ -18,6 +18,14 @@ import DFDecimal.Extensions.*
   * in `DFDecimal` and `DFBits`.
   */
 private[core] object CarryPromote:
+  /** The total-width ref of an integer type: its fraction is 0, so the magnitude ref IS the width
+    * ref. `None` for any other type, which never widens.
+    */
+  private def widthRefOpt(dfTypeIR: ir.DFType): Option[ir.IntParamRef] =
+    dfTypeIR match
+      case dec: ir.DFDecimal => Some(dec.magnitudeWidthParamRef)
+      case _                 => None
+
   /** Deep target-context widening, matching Verilog's assignment-context width propagation: an
     * anonymous non-carry `+`/`-`/`*` cone converted to a WIDER type is re-evaluated at the target's
     * width and sign. Every func in the cone is retyped to the target and every leaf is converted to
@@ -51,17 +59,21 @@ private[core] object CarryPromote:
     import dfc.getSet
     val candidateIR = signConversionRelVal(lhsIR).getOrElse(lhsIR)
 
-    // symbolic elimination keeps this consistent with the width-fit acceptance
-    // rule of the TC conversion: `16 > WIDTH max 16` decides as `16 > 16` (no
-    // widening), so the anonymous form resolves exactly like a named
-    // intermediate value; if still undecidable, optimistically assume the
-    // target is wider.
-    def contextWidenCheck(funcWidth: IntParam[Int]): Boolean =
-      dfType.asFE[DFSInt[Int]]
-        .compareWidths(DFXInt(true, funcWidth, BitAccurate), elimSymbolicMaxMin = true)(
-          _ > _
-        )
-        .getOrElse(true)
+    // The target must be strictly wider than the value's own type for the widening to
+    // apply. Decided directly on the two IR width refs: constructing a DFHDL type as a
+    // width carrier would run that type's own width constraint, so a 1-bit cone would
+    // fail `SInt`'s "width must be larger than 1" rule (issue #476).
+    //
+    // Symbolic elimination keeps this consistent with the width-fit acceptance rule of
+    // the TC conversion: `16 > WIDTH max 16` decides as `16 > 16` (no widening), so the
+    // anonymous form resolves exactly like a named intermediate value; if still
+    // undecidable, optimistically assume the target is wider.
+    def contextWidenCheck(valDFType: ir.DFType): Boolean =
+      widthRefOpt(valDFType).exists { valWidthRef =>
+        dfType.asIR.magnitudeWidthParamRef
+          .compare(valWidthRef, elimSymbolicMaxMin = true)(_ > _)
+          .getOrElse(true)
+      }
 
     // The widened Func is BUILT FRESH rather than revised in place (an anonymous
     // member is never revised; issue #449); the original cone becomes debris for
@@ -106,7 +118,7 @@ private[core] object CarryPromote:
           if func.isAnonymous && {
             // non-carry (modular) func: its type equals its aligned operands'
             func.dfType =~ func.args.head.get.dfType &&
-            contextWidenCheck(func.asValOf[DFSInt[Int]].widthIntParam)
+            contextWidenCheck(func.dfType)
           } =>
         Some(rebuilt(func, func.args.map(widenedArg(_).asIR)))
       // A shift's LEFT operand is context-determined in Verilog (the amount is
@@ -123,7 +135,7 @@ private[core] object CarryPromote:
             op = FuncOp.>> | FuncOp.<<
           )
           if func.isAnonymous && funcSigned == dfType.asIR.signed &&
-            contextWidenCheck(func.asValOf[DFSInt[Int]].widthIntParam) =>
+            contextWidenCheck(func.dfType) =>
         Some(rebuilt(func, widenedArg(func.args.head).asIR :: func.args.tail.map(_.get)))
       case func @ ir.DFVal.Func(
             dfType = ir.DFUInt(_) | ir.DFSInt(_),
@@ -132,7 +144,7 @@ private[core] object CarryPromote:
           // a sel's type structurally equals both branches' types (the frontend
           // converts one branch to the other's type), so no operand-shape gate
           if func.isAnonymous &&
-            contextWidenCheck(func.asValOf[DFSInt[Int]].widthIntParam) =>
+            contextWidenCheck(func.dfType) =>
         Some(rebuilt(func, func.args.head.get :: func.args.tail.map(widenedArg(_).asIR)))
       // A conditional EXPRESSION (if/match) re-evaluates each branch at the target,
       // matching the Verilog its branches lower to (per-branch assignments to the
@@ -148,7 +160,7 @@ private[core] object CarryPromote:
           if header.isAnonymous &&
             (header.dfType match
               case ir.DFUInt(_) | ir.DFSInt(_) => true
-              case _ => false) && contextWidenCheck(header.asValOf[DFSInt[Int]].widthIntParam) =>
+              case _ => false) && contextWidenCheck(header.dfType) =>
         if (dfc.inMetaProgramming) Some(header.updateDFType(newDT).asValOf[DFSInt[Int]])
         else
           // all-or-nothing: an unexpected branch shape (no terminal ident) leaves the

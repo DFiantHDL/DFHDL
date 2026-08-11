@@ -6,7 +6,7 @@ import dfhdl.internals.*
 import scala.annotation.{implicitNotFound, targetName, nowarn}
 import scala.quoted.*
 import scala.util.boundary, boundary.break
-import DFDecimal.Constraints.`LW == RW`
+import DFDecimal.Constraints.{`LW == RW`, equalWidthCheck}
 
 type DFBits[W <: IntP] = DFType[ir.DFBits, Args1[W]]
 object DFBits:
@@ -660,7 +660,7 @@ object DFBits:
             val rhsVal = icR(rhs)
             (lhsVal.widthIntOpt, rhsVal.widthIntOpt) match
               case (Some(lw), Some(rw)) => check(lw, rw)
-              case _                    =>
+              case _                    => equalWidthCheck(lhsVal.dfType, rhsVal.dfType)
             DFVal.Func(lhsVal.dfType, op.value, List(lhsVal, rhsVal))
           }
       end evOpLogicDFBits

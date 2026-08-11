@@ -1692,4 +1692,66 @@ class ElaborationChecksSpec extends DesignSpec:
           |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:1678:9 - 1678:18""".stripMargin
     )
 
+  // A bitwise operation requires equal operand widths. When at least one width is a design
+  // parameter the compile-time half cannot decide, and the elaboration half must reject
+  // anything it cannot PROVE equal with the parameters kept opaque: resolving them reads a
+  // parameter's DEFAULT while the design's own body elaborates, so `Bits(LEN) ^ Bits[8]` with
+  // `LEN` defaulting to 8 would pass here and then emit a real width mismatch at an
+  // instantiation site applying `LEN = 16`, which the backend silently zero-extends.
+  // See https://github.com/DFiantHDL/DFHDL/issues/474
+  test("a bitwise operation over a parametric and a literal width is rejected"):
+    object Test:
+      @top(false) class BitsXorParam(
+          val LEN: Int <> CONST = 8,
+          val TAPS: Bits[Int] <> CONST = b"10111000"
+      ) extends EDDesign:
+        val i = Bits(LEN) <> IN
+        val o = Bits(LEN) <> OUT
+        o <> (i ^ TAPS)
+      end BitsXorParam
+      @top(false) class UIntAndParam(
+          val LEN: Int <> CONST = 8,
+          val MASK: UInt[Int] <> CONST = d"8'200"
+      ) extends EDDesign:
+        val i = UInt(LEN) <> IN
+        val o = UInt(LEN) <> OUT
+        o <> (i & MASK)
+      end UIntAndParam
+      // the proof sees through symbolic re-spelling, so an equal parametric pair is accepted
+      @top(false) class EqualParamWidths(val LEN: Int <> CONST = 8) extends EDDesign:
+        val i = Bits(LEN + 1) <> IN
+        val j = Bits(1 + LEN) <> IN
+        val o = Bits(LEN + 1) <> OUT
+        o <> (i | j)
+      end EqualParamWidths
+    end Test
+    import Test.*
+    assertElaborationErrors(BitsXorParam())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1710:9 - 1710:23
+          |Hierarchy: BitsXorParam
+          |Operation: `apply`
+          |Message:   Cannot apply this operation between a value of LEN bits width (LHS) and a value of 8 bits width (RHS).
+          |An explicit conversion must be applied.""".stripMargin
+    )
+    assertElaborationErrors(UIntAndParam())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1718:9 - 1718:23
+          |Hierarchy: UIntAndParam
+          |Operation: `apply`
+          |Message:   Cannot apply this operation between a value of LEN bits width (LHS) and a value of 8 bits width (RHS).
+          |An explicit conversion must be applied.""".stripMargin
+    )
+    EqualParamWidths().assertCodeString(
+      """|class EqualParamWidths(val LEN: Int <> CONST = 8) extends EDDesign:
+         |  val i = Bits(LEN + 1) <> IN
+         |  val j = Bits(1 + LEN) <> IN
+         |  val o = Bits(LEN + 1) <> OUT
+         |  o <> (i | j)
+         |end EqualParamWidths
+         |""".stripMargin
+    )
+
 end ElaborationChecksSpec

@@ -2203,6 +2203,45 @@ val e1 = v8 | 2
 val e2 = v8 ^ b"1010"
 ```
 
+The equal-width requirement holds for parametric widths too, and a pair that cannot be **proven** equal is rejected. The proof treats a design parameter as an opaque symbol, so it sees through re-spelling (`Bits(W + 1)` matches `Bits(1 + W)`) but never folds a parameter to the value a particular instantiation applies:
+
+```scala
+class Masker(
+    val W: Int <> CONST = 8,
+    val MASK: Bits[Int] <> CONST = h"ff" //8 bits, fixed by this argument
+) extends EDDesign:
+  val a  = Bits(W) <> IN
+  val b  = Bits(W + 1) <> IN
+  val c  = Bits(1 + W) <> IN
+  val o1 = Bits(W) <> OUT
+  val o2 = Bits(W + 1) <> OUT
+  val o3 = Bits(W) <> OUT
+  process(all):
+    //ok: the same parameter on both sides
+    o1 := a & b"0".repeat(W)
+    //ok: the proof sees through re-spelling
+    o2 := b | c
+    //error: `W` and 8 cannot be proven equal, so an instantiation
+    //applying `W = 16` would leave the backend to widen `MASK` silently
+    o3 := a ^ MASK
+```
+
+`Masker` above takes `W` and `MASK` as **independent** parameters, which is what makes the last operation unprovable: nothing ties the two arguments together, so an instantiation is free to disagree about them. When one is meant to follow the other, derive it instead of parameterizing it twice:
+
+```scala
+class Masker(
+    val MASK: Bits[Int] <> CONST = h"ff"
+) extends EDDesign:
+  val W: Int <> CONST = MASK.width
+  val a = Bits(W) <> IN
+  val o = Bits(W) <> OUT
+  process(all):
+    //ok: `W` IS `MASK`'s width, so the two are equal by construction
+    o := a ^ MASK
+```
+
+The relation now holds for every argument, so the check passes without an instantiation site to inspect, and the generated HDL carries the derivation rather than a pinned number (`localparam int W = $bits(MASK)` in Verilog).
+
 /// details | Transitioning from Verilog
     type: verilog
 `lhs & rhs`/`lhs | rhs`/`lhs ^ rhs`/`~lhs` on `Bits`/`UInt` vector values map directly to Verilog's elementwise bitwise `&`/`|`/`^`/`~`. Verilog's same-symbol unary reduction operators (`&v`, `|v`, `^v`) map to the postfix [reduction operators][reduction-ops] instead.

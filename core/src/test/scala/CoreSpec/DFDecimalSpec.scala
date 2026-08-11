@@ -977,6 +977,34 @@ class DFDecimalSpec extends DFSpec:
       s9 := s8 + s8 + 1
     }
   }
+  // A width-1 unsigned result is a legal type but a width-1 SIGNED one is not, so the
+  // widening rule's target-vs-value width comparison must not build a signed type as a
+  // width carrier: every `UInt(1)` arithmetic result would fail `SInt`'s own width rule.
+  // See https://github.com/DFiantHDL/DFHDL/issues/476
+  test("Single-bit arithmetic") {
+    val u1 = UInt(1) <> VAR
+    val u1b = UInt(1) <> VAR
+    val u4 = UInt(4) <> VAR
+    assertCodeString {
+      """|u1 := u1 + u1b
+         |u1 := u1 - u1b
+         |u1 := u1 * u1b
+         |u1 := u1 + d"1'1"
+         |u4 := u1.eby(3) + u1b.eby(3)
+         |u1 := (u1 +^ u1b).resize(1)
+         |""".stripMargin
+    } {
+      u1 := u1 + u1b
+      u1 := u1 - u1b
+      u1 := u1 * u1b
+      // the wildcard `Int` fits a single bit and adapts to it
+      u1 := u1 + 1
+      // a wider target still widens the cone
+      u4 := u1 + u1b
+      // the carry form is 2 bits wide, so it is a legal signed-free construction too
+      u1 := (u1 +^ u1b).resize(1)
+    }
+  }
   test("Arithmetic target-context widening through sign conversion") {
     val u2 = UInt(2) <> VAR
     val s8 = SInt(8) <> VAR
