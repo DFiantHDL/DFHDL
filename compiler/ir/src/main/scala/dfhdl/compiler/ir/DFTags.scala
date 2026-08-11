@@ -20,6 +20,15 @@ case class DefaultRTDomainCfgTag(
 ) extends DFTag
 case object ResizeTag extends DFTag
 type ResizeTag = ResizeTag.type
+// Width-adjustment PERMISSIONS carried by a value into a context that decides its width. Each
+// permits one direction and contributes nothing in the other, where the context's ordinary
+// width rules decide, error included: a tag is never a claim that an adjustment happens, only
+// that one may. Which operand carries the tag is what an operation with no designated target
+// (a comparison, unlike an assignment) has no other way of saying.
+case object ExtendTag extends DFTag
+type ExtendTag = ExtendTag.type
+case object TruncateTag extends DFTag
+type TruncateTag = TruncateTag.type
 case object SyntheticDefaultTag extends DFTag
 type SyntheticDefaultTag = SyntheticDefaultTag.type
 case object ImplicitlyFromIntTag extends DFTag

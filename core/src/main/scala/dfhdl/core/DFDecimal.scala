@@ -1474,6 +1474,12 @@ object DFXInt:
         @targetName("resizeDFXIntAuto")
         def resize(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
           lhs.tag(ir.ResizeTag).asValTP[DFXInt[S, Int, N], P]
+        // permission to adjust the width in ONE direction, taken up by the context that
+        // decides the width; in the other direction it contributes nothing (see `ir.ExtendTag`)
+        def extend(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
+          lhs.tag(ir.ExtendTag).asValTP[DFXInt[S, Int, N], P]
+        def truncate(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
+          lhs.tag(ir.TruncateTag).asValTP[DFXInt[S, Int, N], P]
         @targetName("resizeDFXInt")
         def resize[RW <: IntP](
             updatedWidth: IntParam[RW]
