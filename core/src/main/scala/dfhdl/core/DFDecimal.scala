@@ -136,9 +136,30 @@ object DFDecimal:
     )(using DFC): Unit =
       if (!lhs.hasProvablyEqualWidthTo(rhs))
         throw new IllegalArgumentException(
-          s"""|Cannot apply this operation between a value of ${lhs.widthErrorString} bits width (LHS) and a value of ${rhs.widthErrorString} bits width (RHS).
-              |An explicit conversion must be applied.""".stripMargin
+          `LW == RW`.message(lhs.widthErrorString, rhs.widthErrorString)
         )
+
+    /** [[equalWidthCheck]] over width EXPRESSIONS rather than over the types carrying them, for a
+      * caller that holds the widths but no `DFTypeW`. Same rule, same message, and the same OPAQUE
+      * treatment of design parameters (see `IntParamRef.isProvablyEqualTo`); decided on the values
+      * rather than through references to them, since a reference minted here would belong to no
+      * member (see `IntParam.errorString`).
+      */
+    protected[core] def equalWidthCheck(lhs: IntParam[Int], rhs: IntParam[Int])(using
+        dfc: DFC
+    ): Unit =
+      import dfc.getSet
+      val provablyEqual = (lhs.toScalaIntOpt, rhs.toScalaIntOpt) match
+        case (Some(lhsInt), Some(rhsInt)) => lhsInt == rhsInt
+        case _                            =>
+          ir.IntExprCalc.constDiff(
+            lhs.toDFConst.asIR,
+            rhs.toDFConst.asIR,
+            resolveDesignParams = false
+          ).contains(0)
+      if (!provablyEqual)
+        throw new IllegalArgumentException(`LW == RW`.message(lhs.errorString, rhs.errorString))
+    end equalWidthCheck
 
     /** The elaboration half of [[`LW >= RW`]], for a width pair at least one of whose sides is not
       * statically known (a design parameter): decided on the two width expressions, and a pair that
@@ -154,18 +175,32 @@ object DFDecimal:
       * states is the design's interface rather than this operation, so its own condition is what it
       * reports. Must be invoked wherever [[`LW >= RW`]] is, on the branch where a width is unknown.
       */
+    // The message is the CHECK's, over the width expressions rather than over the `Int`s the
+    // check itself takes: one rule has one message, whichever of its three halves reports it
+    // (the compile-time reduction, the check's own runtime test, or this symbolic decision).
+    private def fitCheck(lhs: IntParam[Int], rhs: IntParam[Int])(violation: => String)(using
+        DFC
+    ): Unit =
+      AutoConstraint.widthFitGE(lhs, rhs) match
+        case Some(true)  => // fits for every parameter assignment
+        case Some(false) => throw new IllegalArgumentException(violation)
+        case None        => AutoConstraint.raise(AutoConstraint.ge(lhs, rhs))
+
     protected[core] def widthFitCheck(
         lhs: IntParam[Int],
         rhs: IntParam[Int]
     )(using DFC): Unit =
-      AutoConstraint.widthFitGE(lhs, rhs) match
-        case Some(true)  => // fits for every parameter assignment
-        case Some(false) =>
-          throw new IllegalArgumentException(
-            s"""The applied RHS value width (${rhs.errorString}) is larger than the LHS variable width (${lhs.errorString})."""
-          )
-        case None => AutoConstraint.raise(AutoConstraint.ge(lhs, rhs))
-    end widthFitCheck
+      fitCheck(lhs, rhs)(`LW >= RW`.message(lhs.errorString, rhs.errorString))
+
+    /** [[widthFitCheck]] for the fit a WILDCARD `Int` needs to adapt to a bit-accurate value: the
+      * elaboration half of [[`BaW >= WcW`]], invoked where that check's arm cannot decide.
+      */
+    protected[core] def wildcardFitCheck(
+        baWidth: IntParam[Int],
+        wcWidth: IntParam[Int]
+    )(using DFC): Unit =
+      fitCheck(baWidth, wcWidth)(`BaW >= WcW`.message(baWidth.errorString, wcWidth.errorString))
+
     object `LS >= RS`
         extends Check2[
           Boolean,
@@ -252,6 +287,7 @@ object DFDecimal:
           if (leftSigned != rightSigned) rightWidth + 1 else rightWidth
         )
     end given
+
     trait CompareCheck[
         ValS <: Boolean,
         ValW <: IntP,
@@ -1264,7 +1300,32 @@ object DFXInt:
               (dfType.widthIntOpt, rhsWidthOpt) match
                 case (Some(dfTypeW), Some(rhsW)) => check(dfType.signed, dfTypeW, rhsSigned, rhsW)
                 case _                           =>
+                  // A width is parametric, and what the comparison requires depends on the
+                  // argument, exactly as the compile-time half decides it.
+                  //
+                  // A wildcard `Int` ADAPTS to the receiver, so it states the fit it needs. Two
+                  // BIT-ACCURATE operands are held to EQUAL widths and there is no adaptation to
+                  // assume anything for: a pair that cannot be proven equal is rejected, as its
+                  // resolved counterpart is. The resize the comparison would otherwise emit is
+                  // not a semantics worth asserting, it is the silent truncation the equality
+                  // rule exists to prevent.
+                  import dfc.getSet
+                  import DFXInt.Val.getActualWidthParam
+                  val argIsWildcard = dfValArg.dfType.asIR.isDFInt32 ||
+                    CarryPromote.hasImplicitlyFromIntTag(dfValArg.asIR)
+                  val dfTypeWidth = dfType.asIR.magnitudeWidthParamRef.get
+                  val argWidth = dfValArg.getActualWidthParam(rhsWidthOpt)
+                  if (argIsWildcard)
+                    import IntParam.+
+                    // an unsigned wildcard gains the sign bit it needs under a signed receiver
+                    val effectiveWidth =
+                      if (dfType.signed.value && !rhsSigned) argWidth + 1
+                      else argWidth
+                    wildcardFitCheck(dfTypeWidth, effectiveWidth)
+                  else equalWidthCheck(dfTypeWidth, argWidth)
+                  end if
             case None =>
+          end match
           DFXInt.Val.Ops.toDFXIntOf(dfValArg)(dfType).asValTP[DFXInt[LS, LW, LN], RP]
         end conv
         // Check Verilog-semantics mismatch for comparisons: same trigger as
@@ -1555,16 +1616,25 @@ object DFXInt:
               throw new IllegalArgumentException(
                 s"Wildcard `Int` value is negative and cannot adapt to an unsigned bit-accurate value."
               )
-            (baType.widthIntOpt, wcWidthIntOpt) match
-              case (Some(baWidth), Some(wcWidth)) =>
-                // Unsigned wildcard adapting to signed bit-accurate value needs an extra bit
-                val effectiveWidth =
-                  if (baType.signed && !wcSigned) wcWidth + 1 else wcWidth
-                if (effectiveWidth > baWidth)
-                  throw new IllegalArgumentException(
-                    s"Wildcard `Int` value width ($effectiveWidth) is larger than the bit-accurate value width ($baWidth)."
+            wcWidthIntOpt.foreach { wcWidth =>
+              // Unsigned wildcard adapting to signed bit-accurate value needs an extra bit
+              val effectiveWidth =
+                if (baType.signed && !wcSigned) wcWidth + 1 else wcWidth
+              baType.widthIntOpt match
+                case Some(baWidth) =>
+                  if (effectiveWidth > baWidth)
+                    throw new IllegalArgumentException(
+                      `BaW >= WcW`.message(baWidth, effectiveWidth)
+                    )
+                case None =>
+                  // the bit-accurate width is parametric, so the fit the adaptation relies on is
+                  // stated as a constraint of the design (an integer type: fraction 0, so the
+                  // magnitude ref is the total-width ref)
+                  wildcardFitCheck(
+                    baType.magnitudeWidthParamRef.get,
+                    IntParam.forced[Int](effectiveWidth)
                   )
-              case _ =>
+            }
           case _ =>
         end match
       end checkWildcardFit

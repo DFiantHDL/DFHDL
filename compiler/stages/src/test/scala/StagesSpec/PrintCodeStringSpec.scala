@@ -854,6 +854,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    led.din := !led
          |  else cnt.din := cnt + d"1'1".resize(clog2(maxCnt + 1))
          |  end if
+         |  val constraint = assert(clog2(maxCnt + 1) >= 23, s"Design parameter violation found. Expected: clog2(maxCnt + 1) >= 23", Severity.Fatal)
          |end Blinker
          |""".stripMargin
     )
@@ -3295,7 +3296,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val o    = UInt(W) <> OUT
       val posW = assert(W > 0, s"W must be positive, got $W")
       process(all):
-        val inRange = assert(i < d"8'200", s"i too large: $i")
+        val inRange = assert(i < 200, s"i too large: $i")
         val trace   = println(s"i: $i")
       o <> i
     end Named
@@ -3309,6 +3310,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val inRange = assert(i < d"8'200".resize(W), s"i too large: ${i}")
          |    val trace = println(s"i: ${i}")
          |  o <> i
+         |  val constraint = assert(W >= 8, s"Design parameter violation found. Expected: W >= 8", Severity.Fatal)
          |end Named
          |""".stripMargin
     )

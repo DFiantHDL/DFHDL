@@ -1792,4 +1792,41 @@ class ElaborationChecksSpec extends DesignSpec:
       "an auto-constraint marker survived elaboration"
     )
 
+  // A comparison holds two BIT-ACCURATE operands to EQUAL widths, which for a parametric pair
+  // means provably equal. An unprovable pair is rejected rather than accepted with a constraint:
+  // the comparison has no adaptation semantics to assume anything for, and the resize it would
+  // otherwise emit silently truncates the wider operand. A wildcard `Int` argument is the case
+  // that DOES adapt, and it states the fit it needs instead.
+  test("comparison between bit-accurate values of unprovable equal widths"):
+    object Test:
+      @top(false) class Unprovable(val W: Int <> CONST = 8) extends EDDesign:
+        val i = UInt(W) <> IN
+        val o = Bit <> OUT
+        o <> (i < d"8'200")
+      end Unprovable
+      @top(false) class WildcardArg(val W: Int <> CONST = 8) extends EDDesign:
+        val i = UInt(W) <> IN
+        val o = Bit <> OUT
+        o <> (i < 200)
+      end WildcardArg
+      @top(false) class ProvablyEqual(val W: Int <> CONST = 8) extends EDDesign:
+        val i, j = UInt(W) <> IN
+        val o = Bit <> OUT
+        o <> (i < j)
+      end ProvablyEqual
+    end Test
+    import Test.*
+    assertElaborationErrors(Unprovable())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1805:9 - 1805:27
+          |Hierarchy: Unprovable
+          |Operation: `apply`
+          |Message:   Cannot apply this operation between a value of W bits width (LHS) and a value of 8 bits width (RHS).
+          |An explicit conversion must be applied.""".stripMargin
+    )
+    // the accepted species elaborate without error
+    val _ = WildcardArg()
+    val _ = ProvablyEqual()
+
 end ElaborationChecksSpec

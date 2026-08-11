@@ -784,7 +784,7 @@ class DFDecimalSpec extends DFSpec:
 
     // Elaboration-time errors for non-literal value-fit checking
     assertDSLErrorLog(
-      "Wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
+      "The wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
     )(
       ""
     ) {
@@ -801,7 +801,7 @@ class DFDecimalSpec extends DFSpec:
     }
     // Unsigned wildcard adapting to signed bit-accurate value at elaboration time
     assertDSLErrorLog(
-      "Wildcard `Int` value width (9) is larger than the bit-accurate value width (8)."
+      "The wildcard `Int` value width (9) is larger than the bit-accurate value width (8)."
     )(
       ""
     ) {
@@ -853,7 +853,7 @@ class DFDecimalSpec extends DFSpec:
 
     // The wildcard parameter must fit the bit-accurate operand
     assertRuntimeErrorLog(
-      "Wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
+      "The wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
     ) {
       val bigVal: Int <> CONST = 1000
       u8 +^ bigVal
@@ -1363,7 +1363,7 @@ class DFDecimalSpec extends DFSpec:
     val cnt = Bits[8] <> VAR
     val arg = 10000
     val errMsg =
-      "Wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
+      "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
     assertRuntimeErrorLog(errMsg, 50, 59)(cnt := cnt + arg)
     assertRuntimeErrorLog(errMsg, 50, 66)(cnt := cnt + (cnt + arg))
     assertRuntimeErrorLog(errMsg, 50, 65)(cnt := cnt + arg + cnt)

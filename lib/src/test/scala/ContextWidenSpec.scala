@@ -52,6 +52,7 @@ class ContextWidenSpec extends DesignSpec:
          |  usub <> (ua -^ ub)
          |  acc <> (a.eby(2) + b.eby(2))
          |  chain <> (a.eby(2) + b.eby(2) + sd"2'1".resize(W).eby(2))
+         |  val constraint = assert(W >= 2, s"Design parameter violation found. Expected: W >= 2", Severity.Fatal)
          |end ParamWiden
          |""".stripMargin
     )

@@ -43,10 +43,15 @@ object AutoConstraint:
     */
   type Guard = DFValOf[DFBool]
 
-  /** The condition `lhs >= rhs`, built as a value instead of decided. */
-  def ge(lhs: IntParam[Int], rhs: IntParam[Int])(using dfc: DFC): Guard =
+  private def condition(op: FuncOp, lhs: IntParam[Int], rhs: IntParam[Int])(using
+      dfc: DFC
+  ): Guard =
     given DFC = dfc.anonymize
-    DFVal.Func[DFBool, Any](DFBool, FuncOp.>=, List(lhs.toDFConst.asIR, rhs.toDFConst.asIR))
+    DFVal.Func[DFBool, Any](DFBool, op, List(lhs.toDFConst.asIR, rhs.toDFConst.asIR))
+
+  /** The condition `lhs >= rhs`, built as a value instead of decided. */
+  def ge(lhs: IntParam[Int], rhs: IntParam[Int])(using DFC): Guard =
+    condition(FuncOp.>=, lhs, rhs)
 
   /** Decides the width fit `lhs >= rhs`, or `None` when it holds for some parameter assignments and
     * not others. The undecided answer is what [[raise]] exists for.
@@ -77,32 +82,39 @@ object AutoConstraint:
   /** What a guard requires, canonically: the relation it states, as `linear >= 0`. */
   private type Requirement = ir.IntExprCalc.Linear
 
-  /** The requirement a guard states, or `None` for a guard that is not a comparison of two integer
-    * expressions. Nothing generates such a guard, but a user's own assertion may well be one, and
-    * it then simply takes no part in minimization.
+  /** What a guard requires, as the conjunction of one or more `linear >= 0` relations. Empty for a
+    * guard that is not a comparison of two integer expressions: nothing generates such a guard, but
+    * a user's own assertion may well be one, and it then simply takes no part in minimization.
     *
     * Every comparison normalizes onto the same shape, so a user's `W <= 8` is comparable with a
     * generated `16 >= W` without either being rewritten. A strict comparison is the non-strict one
-    * over integers, one tighter.
+    * over integers, one tighter; an equality is the two directions at once, which is what lets a
+    * user's `W == 8` cover a generated `W >= 8`.
     */
-  private def requirementOf(guard: ir.DFVal)(using ir.MemberGetSet): Option[Requirement] =
+  private def requirementsOf(guard: ir.DFVal)(using ir.MemberGetSet): List[Requirement] =
     def diff(a: ir.DFVal, b: ir.DFVal): Requirement = ir.IntExprCalc.linearDiff(a, b)
     def tighter(req: Requirement): Requirement = req.copy(offset = req.offset - 1)
     guard match
       case ir.DFVal.Func(op = op, args = List(lhs, rhs)) =>
         op match
-          case FuncOp.>= => Some(diff(lhs.get, rhs.get))
-          case FuncOp.>  => Some(tighter(diff(lhs.get, rhs.get)))
-          case FuncOp.<= => Some(diff(rhs.get, lhs.get))
-          case FuncOp.<  => Some(tighter(diff(rhs.get, lhs.get)))
-          case _         => None
-      case _ => None
+          case FuncOp.>=  => List(diff(lhs.get, rhs.get))
+          case FuncOp.>   => List(tighter(diff(lhs.get, rhs.get)))
+          case FuncOp.<=  => List(diff(rhs.get, lhs.get))
+          case FuncOp.<   => List(tighter(diff(rhs.get, lhs.get)))
+          case FuncOp.=== => List(diff(lhs.get, rhs.get), diff(rhs.get, lhs.get))
+          case _          => Nil
+      case _ => Nil
 
-  /** Whether `stronger` leaves `weaker` with nothing to say: they constrain the same expression,
-    * and satisfying `stronger` satisfies `weaker`.
+  /** Whether `stronger` leaves `weaker` with nothing to say: every relation `weaker` states is
+    * already implied by one of `stronger`'s. Two relations compare only when their symbolic terms
+    * cancel, and then a non-negative difference means satisfying the one satisfies the other.
     */
-  private def implies(stronger: Requirement, weaker: Requirement)(using ir.MemberGetSet): Boolean =
-    ir.IntExprCalc.constOffsetDiff(weaker, stronger).exists(_ >= 0)
+  private def implies(stronger: List[Requirement], weaker: List[Requirement])(using
+      ir.MemberGetSet
+  ): Boolean =
+    weaker.nonEmpty && weaker.forall(w =>
+      stronger.exists(s => ir.IntExprCalc.constOffsetDiff(w, s).exists(_ >= 0))
+    )
 
   /** The design's own contract, as the body stated it: the requirements of its static assertions
     * whose severity makes them requirements at all. `Info` and `Warning` report, they do not
@@ -113,16 +125,16 @@ object AutoConstraint:
     * a GENERATED constraint redundant, and having written `assert(W <= 8, ...)` the user should not
     * then be shown a generated `16 >= W` next to it.
     */
-  private def userRequirements(ctx: DesignContext)(using dfc: DFC): List[Requirement] =
+  private def userRequirements(ctx: DesignContext)(using dfc: DFC): List[List[Requirement]] =
     import dfc.getSet
     import dfhdl.compiler.analysis.isStaticAssert
     ctx.getImmutableMemberList.view.collect {
       case textOut: ir.TextOut if textOut.isStaticAssert =>
         textOut.op match
           case ir.TextOut.Op.Assert(assertionRef, Severity.Error | Severity.Fatal) =>
-            requirementOf(assertionRef.get)
-          case _ => None
-    }.flatten.toList
+            requirementsOf(assertionRef.get)
+          case _ => Nil
+    }.filter(_.nonEmpty).toList
 
   /** The condition as the design states it, which is the whole of what a violation has to report.
     */
@@ -156,23 +168,23 @@ object AutoConstraint:
     val ctx = dfc.mutableDB.DesignContext.current
     if (!dfc.inMetaProgramming)
       val pending = ctx.autoConstraintGuards.map(_.setTags(_.removeTagOf[ir.AutoConstraint]))
-      val kept = mutable.ListBuffer.empty[(ir.DFVal, Option[Requirement])]
+      val kept = mutable.ListBuffer.empty[(ir.DFVal, List[Requirement])]
       if (pending.nonEmpty)
         val userReqs = userRequirements(ctx)
         pending.foreach { guard =>
-          val reqOpt = requirementOf(guard)
-          val alreadyStated = reqOpt match
-            case Some(req) =>
-              userReqs.exists(implies(_, req)) ||
-              kept.exists((_, keptOpt) => keptOpt.exists(implies(_, req)))
-            // a guard with no comparable form takes no part: kept unless structurally repeated
-            case None => kept.exists((keptGuard, _) => keptGuard =~ guard)
+          val reqs = requirementsOf(guard)
+          val alreadyStated =
+            if (reqs.isEmpty)
+              // a guard with no comparable form takes no part: kept unless structurally repeated
+              kept.exists((keptGuard, _) => keptGuard =~ guard)
+            else
+              userReqs.exists(implies(_, reqs)) || kept.exists((_, keptReqs) =>
+                implies(keptReqs, reqs)
+              )
           if (!alreadyStated)
             // this one may in turn be the stronger statement of something already kept
-            reqOpt.foreach(req =>
-              kept.filterInPlace((_, keptOpt) => !keptOpt.exists(implies(req, _)))
-            )
-            kept += ((guard, reqOpt))
+            if (reqs.nonEmpty) kept.filterInPlace((_, keptReqs) => !implies(reqs, keptReqs))
+            kept += ((guard, reqs))
         }
       end if
       val survivors = kept.map(_._1).toList
