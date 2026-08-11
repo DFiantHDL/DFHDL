@@ -3470,4 +3470,27 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("width adjustment permission over a design parameter") {
+    // a permission is decided on the two widths, so over a parameter it may be undecidable. It is
+    // covered either way, with the relation it relies on stated as a constraint of the design.
+    class ParamExtend(val W: Int <> CONST = 4) extends RTDesign:
+      val p = UInt(W) <> IN
+      val o = UInt(8) <> OUT
+      val q = UInt(W) <> OUT
+      o := p.extend
+      q := p
+    end ParamExtend
+    assertCodeString(
+      ParamExtend(),
+      """|class ParamExtend(val W: Int <> CONST = 4) extends RTDesign:
+         |  val p = UInt(W) <> IN
+         |  val o = UInt(8) <> OUT
+         |  val q = UInt(W) <> OUT
+         |  o := p.resize(8)
+         |  q := p
+         |  val constraint = assert(8 >= W, s"Design parameter violation found. Expected: 8 >= W", Severity.Fatal)
+         |end ParamExtend
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec
