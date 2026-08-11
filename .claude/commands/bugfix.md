@@ -887,6 +887,44 @@ generalizes:
   with the TC width-fit check, or `sum := x + y` (anonymous, carry-promoted to `max+1`) would be
   definitively rejected while `val xy = x + y; sum := xy` passes.
 
+### An elaboration-time rule about a design's own legality must keep parameters OPAQUE
+
+`IntParamRef` has two equality families and picking the wrong one is silently unsound:
+`compare`/`isSimilarTo` resolve a design parameter through `appliedOrDefaultVal`
+(`ParamResolve.AppliedExpr`), while `constDiffFrom`/`isProvablyEqualTo` keep it an opaque base.
+A rule about whether a DESIGN is well-formed must hold for **every** applied parameter value, so
+it takes the opaque form. The resolving form is doubly wrong there, and the second reason is the
+one that bites: while a design's OWN body elaborates there is no applied value yet, so the
+parameter reads as its DEFAULT. `Bits(LEN) ^ Bits[8]` with `LEN` defaulting to 8 therefore
+"proved equal", and the mismatch only materialized at an instantiation site applying `LEN = 16`,
+as Verilog the backend silently zero-extends (issue #474).
+
+Two consequences for how you reproduce and test such a rule:
+
+- **A root design and a sub-design instance are different test subjects.** #474's reporter
+  observed `.sel` "correctly rejecting" the identical width pair — true only because their probe
+  was the TOP design, whose parameters have no applied value and stay symbolic under either
+  family. The same `.sel` inside an instantiated child accepts. Every probe of a parameter-
+  sensitive rule needs BOTH shapes, and a reporter's "this sibling already rejects" is a
+  hypothesis, not a control.
+- **`widthIntOpt` returning `None` is what routes a value to the elaboration half.** The literal
+  branch (`case (Some(lw), Some(rw)) => check(lw, rw)`) and the parametric branch answer the same
+  question, so the elaboration half must report the SAME message as the compile-time `Check2`,
+  rendered through `widthErrorString` (error-site-relative, issue #448). A bare `case _ =>` on
+  that branch is the bug shape to grep for wherever a `Check2` enforces equality.
+
+### A domain type built only as a value carrier runs that type's own constraints
+
+Comparing two widths by wrapping one in a DFHDL type (`DFXInt(true, funcWidth, BitAccurate)`,
+built purely so `compareWidths` had something to take) makes every width that is illegal FOR THAT
+TYPE an elaboration error, whatever the surrounding operation was. `SInt` rejects width 1, so
+every `UInt(1)` arithmetic result failed with "Signed value width must be larger than 1" on code
+containing no signed value at all (issue #476). The tell is an error naming a constraint of a type
+the user never wrote, on an operation that has nothing to do with it. Compare the underlying refs
+instead (`IntParamRef.compare` on the two `magnitudeWidthParamRef`s), which also avoids minting
+the throwaway refs `IntParam.ref` registers per call. Note `.forced` constructors do NOT help:
+they force the type PARAMETER and still run the runtime check.
+
 ### Then measure the blast radius
 
 Run the full suite with the check in and **no stage fixes yet**. The failures are the deliverable
