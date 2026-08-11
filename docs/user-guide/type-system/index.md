@@ -2766,6 +2766,40 @@ val e2 = u8 == u4
 val e3 = u8 > 1000
 ```
 
+#### Comparing Values of Different Widths
+
+Close the width difference by **widening the narrower operand**, using the [width adjustment][width-adjustment] operations:
+
+```scala
+val u8 = UInt(8) <> VAR
+val u4 = UInt(4) <> VAR
+val s8 = SInt(8) <> VAR
+val s4 = SInt(4) <> VAR
+
+val c1 = u8 == u4.eby(4)     // Boolean: u4 zero-extended to 8 bits
+val c2 = s8 > s4.eby(4)      // Boolean: s4 sign-extended to 8 bits
+val c3 = u8.eby(2) > 1000    // Boolean: 1000 needs 10 bits, so u8 widens to meet it
+```
+
+Widening preserves the value in both signednesses (`.eby`/`.resize` zero-extend a `UInt` and sign-extend an `SInt`), so the comparison still asks what you meant. Narrowing the wider operand does not, and nothing flags it, because the resulting widths do match:
+
+```scala
+// compiles, but u8 is TRUNCATED to its low 4 bits, so this asks a different question:
+// it is true for u8 = 0x13 and u4 = 0x3
+val wrong = u8.resize(4) == u4
+```
+
+That asymmetry is why the width is not closed for you: only one of the two directions is safe, and which one it is depends on intent that the operands do not carry.
+
+/// admonition | Why not extend the operands automatically?
+    type: note
+Both target languages would accept it, which makes the strictness look gratuitous. It is not.
+
+VHDL's `numeric_std` compares `unsigned`/`signed` operands of unequal length by resizing internally, so the comparison alone is portable. Verilog arrives at the same answer by a different route: operand widths there are *context-determined*, which extends more than the operand itself. A narrower operand that is an expression is **evaluated** at the wider operand's width, so with a 4-bit `a` and an 8-bit `b`, `(a + a) < b` computes the sum at 8 bits and stops wrapping where DFHDL says it wraps.
+
+Widening in the source keeps one meaning across every backend, and keeps the width change where you can see it.
+///
+
 /// details | Scala `Int` constants auto-lift in comparisons
     type: note
 Plain Scala `Int` values can be used directly in comparisons and arithmetic with DFHDL typed variables. No explicit coercion is needed:

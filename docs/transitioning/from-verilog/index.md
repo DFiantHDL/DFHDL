@@ -1062,6 +1062,45 @@ result <> ((a +^ b +^ c +^ d) / 4).resize
 </div>
 ///
 
+/// admonition | Comparison Operand Widths
+    type: verilog
+Verilog extends every relational operand to the width of the widest one, so comparing signals of
+different widths needs nothing from you. DFHDL requires the two operands to have the SAME width,
+and the difference is closed in the source by widening the narrower one:
+
+<div class="grid" markdown>
+
+```sv linenums="0" title="Verilog"
+input  wire logic [7:0] a;
+input  wire logic [3:0] b;
+output      logic       lt;
+
+// b is zero-extended to 8 bits
+assign lt = b < a;
+```
+
+```scala linenums="0" title="DFHDL"
+val a  = UInt(8) <> IN
+val b  = UInt(4) <> IN
+val lt = Bit     <> OUT
+
+// widen b explicitly, by 4 bits
+lt := b.eby(4) < a
+```
+
+</div>
+
+The extension Verilog performs is not confined to the operand. Relational operand widths there are
+*context-determined*, so a narrower operand that is an EXPRESSION is evaluated at the wider
+operand's width: with a 4-bit `x`, `(x + x) < a` computes the sum at 8 bits and never wraps, while
+the DFHDL transcription `(x + x).eby(4) < a` wraps at 4 bits and then widens. This is the
+*Integer Literal Width and Silent Overflow* trap above, one step removed, and the remedies are the
+same: carry operations (`+^`) to keep the extra bit, or an explicit widening of the operands before
+the arithmetic.
+
+See [Comparison Operations][comparison-ops] for the full rules.
+///
+
 
 ## Parametric Constants
 
