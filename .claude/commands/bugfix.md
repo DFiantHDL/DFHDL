@@ -503,6 +503,17 @@ reproducibly threw `scala.MatchError: 23 ... TreeUnpickler.readConstant` on this
 stale TASTy, not the change under test: `sbtn.bat 'clean; clearDFHDL; Test/compile'` clears it. Do
 not chase it, and do not trust a suite run that followed one.
 
+**A GC warning means the server is spent, so restart it.** When sbt reports
+
+```
+[warn] In the last 17 seconds, 5.88 (34.7%) were spent in GC. [Heap: 2.35GB free of 3.94GB, ...]
+```
+
+run `sbtn.bat shutdown` before continuing. The long-lived server accumulates heap across the many
+compile/test cycles a bug fix takes, and once it is thrashing every later cycle is slower than the
+restart would have cost. Do not raise `-Xmx` to silence it; the next command starts a fresh server
+on its own.
+
 ---
 
 ## 2. Localize the stage that introduced the shape
