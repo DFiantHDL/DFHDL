@@ -22,8 +22,8 @@ final case class SubDesignEntry(
     children: List[(StaticRef, SubDesignRef)]
 ) derives ReadWriter:
 
-  /** SANITY-LEVEL contract check, for tests and debugging only: deliberately NOT evaluated on
-    * the production store/lookup path (an O(members + refs) walk per entry would tax every cache
+  /** SANITY-LEVEL contract check, for tests and debugging only: deliberately NOT evaluated on the
+    * production store/lookup path (an O(members + refs) walk per entry would tax every cache
     * interaction to defend against states only a DFHDL bug or a dirty dev loop can produce; a
     * ghost-free elaboration is guaranteed by construction, and stale entries from other DFHDL
     * builds retire through the code digest's version fold, with `clearDFHDL` covering
