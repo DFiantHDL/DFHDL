@@ -6,6 +6,6 @@ mkdocs-redirects==1.2.3
 mkdocs-glightbox==0.5.2
 mkdocs-autorefs==1.4.4
 mkdocs-d2-plugin==1.7.0
-mkdocs-drawio==1.16.2
+mkdocs-drawio==1.16.3
 schemdraw==0.23.0
 pyhocon==0.3.63
