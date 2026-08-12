@@ -48,6 +48,31 @@ import dfhdl.compiler.printing.*
   *     y := x
   * }}}
   *
+  * When the `else` branch holds nothing but a conditional, it is not a guard-less branch at all:
+  * the chain reads as `if (rst) ... else if (c) ... else ...`, and there is no branch left to
+  * carry the clock edge. A fresh `else if (clk.<edge>)` branch is chained after the reset branch
+  * instead, and everything below the reset branch is nested inside it as a chain of its own:
+  * {{{
+  * // Before
+  * process(clk.rising, rst.rising):
+  *   if (rst)
+  *     y := 0
+  *   else if (c)
+  *     y := x
+  *   else
+  *     y := z
+  *
+  * // After
+  * process(clk, rst):
+  *   if (rst)
+  *     y := 0
+  *   else if (clk.rising)
+  *     if (c)
+  *       y := x
+  *     else
+  *       y := z
+  * }}}
+  *
   * ==Rule 3: Async reset, reset-at-the-end==
   * When the reset condition is a separate `if` statement placed last in the process (overriding
   * the clocked assignments), the clocked statements are wrapped by a clock edge guard while the
@@ -125,11 +150,13 @@ case object VerilogProcToVHDL extends HierarchyStage:
               sensRemoveList :+ dsn.patch
             case List(e1, e2) if SensSignal(e1._2) != SensSignal(e2._2) =>
               pb.members(MemberView.Folded).collect { case b: DFIfElseBlock => b } match
-                // Rule 2: async reset in an if-reset-else-clock structure => the plain
-                // `else` branch becomes an `else if (clk.<edge>)` branch
-                case rstIfBlock :: elseBlock :: Nil
-                    if elseBlock.getFirstCB == rstIfBlock &&
-                      elseBlock.guardRef.get == DFMember.Empty =>
+                // Rule 2: async reset in an if-reset-else-clock structure => everything below
+                // the reset branch is placed under the clock edge. The reset `if` must head a
+                // chain that covers every conditional block at the process level, so that the
+                // clock edge accounts for all the process does when the reset is inactive.
+                case blocks @ (rstIfBlock :: tailBlocks)
+                    if tailBlocks.nonEmpty && rstIfBlock.isFirstCB &&
+                      blocks.forall(_.getFirstCB == rstIfBlock) =>
                   rstIfBlock.guardRef.get match
                     case RstActive(rstGuardSig, _) =>
                       splitClkRst(rstGuardSig) match
@@ -142,28 +169,73 @@ case object VerilogProcToVHDL extends HierarchyStage:
                                   rstSig.cloneAnonValueAndDepsHere.asValAny
                                 )
                               )(using dfc.setMeta(pb.meta))
-                          // the clock edge guard for the `else` branch, physically placed
-                          // between the reset branch and the `else` branch (its ownership
-                          // reference resolves to `newPB` since `dsn` replaces `pb` first
-                          // in the patch list)
-                          val guardDsn =
-                            new MetaDesign(rstIfBlock, Patch.Add.Config.After, domainType = ED):
-                              import dfhdl.core.refTW
-                              val clkEdgeSig = clkEdge match
-                                case ClkCfg.Edge.Rising =>
-                                  clkSig.cloneAnonValueAndDepsHere.asValOf[Bit].rising
-                                case ClkCfg.Edge.Falling =>
-                                  clkSig.cloneAnonValueAndDepsHere.asValOf[Bit].falling
-                              val newGuardRef: DFConditional.Block.GuardRef =
-                                clkEdgeSig.asIR.refTW[DFIfElseBlock]
-                          sensRemoveList ++ List(
-                            dsn.patch,
-                            guardDsn.patch,
-                            elseBlock -> Patch.Replace(
-                              elseBlock.copy(guardRef = guardDsn.newGuardRef),
-                              Patch.Replace.Config.FullReplacement
-                            )
-                          )
+                          tailBlocks match
+                            // Rule 2a: a plain `else` branch carries the clock edge itself
+                            case elseBlock :: Nil if elseBlock.guardRef.get == DFMember.Empty =>
+                              // the clock edge guard for the `else` branch, physically placed
+                              // between the reset branch and the `else` branch (its ownership
+                              // reference resolves to `newPB` since `dsn` replaces `pb` first
+                              // in the patch list)
+                              val guardDsn =
+                                new MetaDesign(rstIfBlock, Patch.Add.Config.After, domainType = ED):
+                                  import dfhdl.core.refTW
+                                  val clkEdgeSig = clkEdge match
+                                    case ClkCfg.Edge.Rising =>
+                                      clkSig.cloneAnonValueAndDepsHere.asValOf[Bit].rising
+                                    case ClkCfg.Edge.Falling =>
+                                      clkSig.cloneAnonValueAndDepsHere.asValOf[Bit].falling
+                                  val newGuardRef: DFConditional.Block.GuardRef =
+                                    clkEdgeSig.asIR.refTW[DFIfElseBlock]
+                              sensRemoveList ++ List(
+                                dsn.patch,
+                                guardDsn.patch,
+                                elseBlock -> Patch.Replace(
+                                  elseBlock.copy(guardRef = guardDsn.newGuardRef),
+                                  Patch.Replace.Config.FullReplacement
+                                )
+                              )
+                            // Rule 2b: the branches below the reset form a chain of their own, so
+                            // there is no guard-less branch to carry the clock edge. A new
+                            // `else if (clk.<edge>)` branch is chained after the reset branch and
+                            // the tail chain is re-homed inside it, under a header of its own.
+                            // Restricted to a conditional *statement*: restructuring the chain of
+                            // a conditional expression would detach its branches from the header
+                            // whose value they produce.
+                            case tailHead :: _ if rstIfBlock.getHeaderCB.dfType == DFUnit =>
+                              // placed like the Rule 2a guard, between the reset branch and the
+                              // tail chain, so the flat member list stays a pre-order traversal
+                              // (the tail chain follows the branch that now owns it)
+                              val clkDsn =
+                                new MetaDesign(rstIfBlock, Patch.Add.Config.After, domainType = ED):
+                                  import dfhdl.core.{DFIf, DFUnit}
+                                  import dfhdl.core.DFOwner.asFE
+                                  val clkEdgeSig = clkEdge match
+                                    case ClkCfg.Edge.Rising =>
+                                      clkSig.cloneAnonValueAndDepsHere.asValOf[Bit].rising
+                                    case ClkCfg.Edge.Falling =>
+                                      clkSig.cloneAnonValueAndDepsHere.asValOf[Bit].falling
+                                  val clkBlock = DFIf.Block(Some(clkEdgeSig), rstIfBlock.asFE)
+                                  dfc.enterOwner(clkBlock)
+                                  val nestedHeader = DFIf.Header(DFUnit)
+                                  dfc.exitOwner()
+                                  val clkBlockIR = clkBlock.asIR
+                                  val nestedHeaderIR = nestedHeader.asIR
+                              sensRemoveList ++ List(
+                                dsn.patch,
+                                clkDsn.patch,
+                                // the tail's head now heads the chain nested in the clock edge
+                                // branch. Its owner reference is handled below, so the chain
+                                // reference is redirected by replacing what it points at, scoped
+                                // to the head alone (the reset branch keeps every other
+                                // reference, including its own members' ownership)
+                                rstIfBlock -> Patch.Replace(
+                                  clkDsn.nestedHeaderIR,
+                                  Patch.Replace.Config.ChangeRefOnly,
+                                  Patch.Replace.RefFilter.OfMembers(Set(tailHead))
+                                )
+                              ) ++ tailBlocks.map(_ -> Patch.ChangeOwner(clkDsn.clkBlockIR))
+                            case _ => None
+                          end match
                         case None => None
                     case _ => None
                 // Rule 3: async reset as a final `if (rst)` statement => the clocked
