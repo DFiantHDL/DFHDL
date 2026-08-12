@@ -81,9 +81,17 @@ auto-`@top` injection spelled the annotation `Ident("top")`, and a design class 
 class being annotated, and scalac reported `Cyclic reference involving class top` at the class
 definition, with nothing pointing at the plugin (issue #458). Anchor every synthesized library
 reference at the root (`Select(Select(Ident(nme.ROOTPKG), "dfhdl"), ...)`, i.e.
-`_root_.dfhdl.top`) — a bare `Ident("dfhdl")` can itself be captured by a user package or object
-named `dfhdl`. Rightmost-name-based detection helpers (`rightmostName`) keep matching the
-qualified spelling, so only the construction site changes.
+`_root_.dfhdl.hw.annotation.top`) — a bare `Ident("dfhdl")` can itself be captured by a user
+package or object named `dfhdl`. Rightmost-name-based detection helpers (`rightmostName`) keep
+matching the qualified spelling, so only the construction site changes.
+
+Qualifying the injection fixes only the injection. The same name still collided at the USE site,
+because `import dfhdl.*` re-exported the library's own `top` and it outranked a same-named
+top-level user class, so `new top(WIDTH = 8)` was checked against the annotation's constructor
+(issue #482). Anything the frontend wildcard re-exports is a name a user can no longer define:
+`@top` therefore lives at `dfhdl.hw.annotation.top`, alongside the other user-facing hardware
+annotations, and reaches user code only through an explicit import or the `@hw.annotation.top`
+spelling. Weigh that before adding a short name to `__hdl` or to the `dfhdl` package.
 
 The tell for this species: a resolution-flavored error (cyclic reference, ambiguity, "not
 found") positioned on ordinary user code that appears or vanishes with the *name* of a
@@ -636,7 +644,9 @@ non-warning twins, not by re-reading the predicate.
 
 Probing designs outside the app runner has its own traps: a lib design class with all-defaulted
 parameters is auto-`@top`ed, and a bare `Design()` of a topped class returns a STAGED handle
-that never elaborates (no warnings, empty DB) — mark probe designs `@top(false)`. Read warnings
+that never elaborates (no warnings, empty DB) — mark probe designs `@top(false)`, which needs
+`import dfhdl.hw.annotation.top` on top of `import dfhdl.*` (the auto-injection is qualified and
+needs no import; only a hand-written `@top` does). Read warnings
 via `dsn.dfc.getWarnings`; prefer `getCodeString` over `getDB` for IR inspection in a lib @main.
 
 ### Two habits that pay off

@@ -1,6 +1,7 @@
 package issues.i450
 
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 // A `Bits` port whose width comes from a design parameter that is USED THROUGH ITS DEFAULT
 // (`new Consumer()`), tied to `all(0)` by the parent. A class parameter default is evaluated

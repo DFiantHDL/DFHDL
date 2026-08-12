@@ -1,5 +1,5 @@
-package dfhdl
-import internals.AnnotatedWith
+package dfhdl.hw.annotation
+import dfhdl.internals.AnnotatedWith
 
 final case class top(genMain: Boolean = true)(using
     private[dfhdl] val annot: AnnotatedWith[top, Any]

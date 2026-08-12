@@ -109,7 +109,7 @@ class DFApp:
       topClass: Class[?],
       designName: String,
       topScalaPath: String,
-      top: dfhdl.top,
+      top: dfhdl.hw.annotation.top,
       argNames: List[String],
       argValues: List[Any],
       argDescs: List[String],

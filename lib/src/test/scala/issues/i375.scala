@@ -1,6 +1,7 @@
 package issues.i375
 
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 @top(false) class draw_line(val CORDW: Int <> CONST = 16) extends EDDesign:
   val clk = Bit <> IN

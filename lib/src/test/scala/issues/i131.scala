@@ -2,6 +2,7 @@
 package issues.i131
 
 import dfhdl.*
+import dfhdl.hw.annotation.top
 import hw.flag.scalaRanges
 @top(false) class DictControl(
     val fetch_count : Int <> CONST,  // set to 2

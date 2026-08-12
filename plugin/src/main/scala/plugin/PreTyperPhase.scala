@@ -644,15 +644,21 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
       // lenient variant — TopAnnotPhase silently skips entry-point generation when the
       // annotated class turns out not to be a Design, whereas bare `@top` is strict
       // and would surface a compile error on a false positive.
-      // The annotation is fully qualified as `_root_.dfhdl.top`: an unqualified `top`
-      // resolves to the annotated class itself when the class is named `top` (a common
+      // The annotation is fully qualified as `_root_.dfhdl.hw.annotation.top`: an unqualified
+      // `top` resolves to the annotated class itself when the class is named `top` (a common
       // Verilog top-module convention), yielding a baffling "Cyclic reference involving
       // class top" error (#458).
       untpd.Apply(
         untpd.Select(
           untpd.New(
             untpd.Select(
-              untpd.Select(untpd.Ident(nme.ROOTPKG), "dfhdl".toTermName),
+              untpd.Select(
+                untpd.Select(
+                  untpd.Select(untpd.Ident(nme.ROOTPKG), "dfhdl".toTermName),
+                  "hw".toTermName
+                ),
+                "annotation".toTermName
+              ),
               "top".toTypeName
             )
           ),
@@ -837,9 +843,9 @@ class PreTyperPhase(setting: Setting) extends CommonPhase:
 
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
     val parsed = super.runOn(units)
-    // `dfhdl.top` lives in the `lib` subproject — only apply the auto-@top
+    // `dfhdl.hw.annotation.top` lives in the `lib` subproject — only apply the auto-@top
     // rewrite when it's reachable on the classpath of this compilation.
-    val topAvailable = getClassIfDefined("dfhdl.top").exists
+    val topAvailable = getClassIfDefined("dfhdl.hw.annotation.top").exists
     parsed.foreach { cu =>
       debugFlag = cu.source.file.path.contains("Playground.scala")
       cu.untpdTree = rewriteParsed(cu.untpdTree)

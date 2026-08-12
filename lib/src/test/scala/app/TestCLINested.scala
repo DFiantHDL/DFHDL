@@ -1,5 +1,6 @@
 package app
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 // Fixture used by `DesignArgsCLISpec` to cover a `@top` design nested inside an
 // object. A nested companion cannot serve as a runnable entry point, so the

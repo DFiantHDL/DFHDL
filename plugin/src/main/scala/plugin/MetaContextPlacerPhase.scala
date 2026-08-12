@@ -504,7 +504,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CapturePhase, IdentityDen
     designTpe = requiredClassRef("dfhdl.core.Design")
     metaTpe = requiredClassRef("dfhdl.compiler.ir.Meta")
     interfaceTpe = requiredClassRef("dfhdl.core.Interface")
-    topAnnotSym = requiredClass("dfhdl.top")
+    topAnnotSym = requiredClass("dfhdl.hw.annotation.top")
     appTpe = requiredClassRef("dfhdl.app.DFApp")
     noTopAnnotIsRequired = requiredClassRef("dfhdl.internals.NoTopAnnotIsRequired")
     listMapEmptySym = requiredMethod("scala.collection.immutable.ListMap.empty")

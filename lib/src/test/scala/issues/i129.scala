@@ -2,6 +2,7 @@
 package issues.i129
 
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 @top(false) class StdLogicConvIssue() extends RTDesign:
     val a = Bits(10) <> IN

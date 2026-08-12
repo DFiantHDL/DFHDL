@@ -9,7 +9,11 @@ import scala.annotation.Annotation
 import dfhdl.compiler.ir
 import dfhdl.core.*
 
-object annotation:
+// `annotation` is a PACKAGE rather than an object so that `top` (which needs the tool option
+// sets defined downstream in `lib`) can join it from there. `@top` used to live at `dfhdl.top`,
+// where the package-level `export __hdl.*` put it in scope for every `import dfhdl.*` and let it
+// shadow a user's own design class named `top` (#482).
+package annotation:
   sealed abstract class HWAnnotation extends StaticAnnotation:
     val isActive: Boolean
     val asIR: ir.annotation.HWAnnotation

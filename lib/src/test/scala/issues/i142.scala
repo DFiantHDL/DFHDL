@@ -2,6 +2,7 @@
 package issues.i142
 
 import dfhdl._
+import dfhdl.hw.annotation.top
 
 @top(false) class IntegerIndexingIssue() extends RTDesign:
     val a = Bits(4) <> IN

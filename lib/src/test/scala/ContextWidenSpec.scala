@@ -1,4 +1,5 @@
 package dfhdl
+import dfhdl.hw.annotation.top
 
 /** Target-context widening of anonymous arithmetic (issue dfhdl_by_agents#119): an anonymous `+`,
   * `-`, `*` cone assigned or connected to a wider value evaluates at the target's width and sign,

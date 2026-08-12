@@ -501,7 +501,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
-    topAnnotSym = requiredClass("dfhdl.top")
+    topAnnotSym = requiredClass("dfhdl.hw.annotation.top")
     appTpe = requiredClassRef("dfhdl.app.DFApp")
     dfcTpe = requiredClassRef("dfhdl.core.DFC")
     designTpe = requiredClassRef("dfhdl.core.Design")

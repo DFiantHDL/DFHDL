@@ -2,6 +2,7 @@
 package issues.i147
 
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 class INV() extends RTDesign:
     val a = Bit <> IN

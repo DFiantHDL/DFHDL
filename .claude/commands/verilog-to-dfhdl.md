@@ -41,7 +41,9 @@ to write. Reserve `EDDesign`/`process` for genuinely event-driven or multi-edge 
    port names, **which registers the reset actually targets** (a "MINI"/partial reset resets only
    some), the parameters, and any `generate`-gated variants.
 2. **One module per design, in a same-named file** (case-sensitive: `serv_alu` in `serv_alu.scala`).
-   Match port names exactly, `i_`/`o_` prefixes included.
+   Match port names exactly, `i_`/`o_` prefixes included. A module named `top` needs no
+   workaround: nothing named `top` enters scope through `import dfhdl.*`, so `class top` both
+   declares and instantiates normally, and the emitted module name stays `top`.
 3. **Compile it standalone and read the emitted HDL:**
    ```bash
    sbtn.bat ";clearSandbox ;<proj>/runMain <pkg>.<ClassName> compile"

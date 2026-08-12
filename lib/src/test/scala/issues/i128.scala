@@ -2,6 +2,7 @@
 package issues.i128
 
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 @top(false) class ArrayIssue() extends RTDesign:
     val a = Bit <> IN

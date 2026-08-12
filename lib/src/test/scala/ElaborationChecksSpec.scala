@@ -1,4 +1,4 @@
-import dfhdl.*
+import dfhdl.*, dfhdl.hw.annotation.top // one line: the assertions below pin absolute line numbers
 import munit.*
 import java.io.File.separatorChar as S
 given options.ElaborationOptions.OnError = _.Exception
