@@ -467,8 +467,14 @@ object DFBits:
             Int,
             [LW <: Int, RW <: Int] =>> LW == RW,
             [LW <: Int, RW <: Int] =>> "The argument width (" + ToString[RW] +
-              ") is different than the receiver width (" + ToString[LW] +
-              ").\nConsider applying `.resize` to resolve this issue."
+              ") is different than the receiver width (" + ToString[LW] + ").\n" +
+              ITE[
+                RW > LW,
+                "Consider `.truncate` to narrow it to the receiver width, or `.resize(" +
+                  ToString[LW] + ")` to state the width explicitly.",
+                "Consider `.extend` to widen it to the receiver width, or `.resize(" +
+                  ToString[LW] + ")` to state the width explicitly."
+              ]
           ]
       given DFBitsFromCandidate[LW <: IntP, V, RP, IC <: Candidate[V]](using
           ic: IC { type OutP = RP }
@@ -488,7 +494,7 @@ object DFBits:
                 if (dfType.compareWidths(dfVal.dfType)(_ != _).getOrElse(true))
                   throw new IllegalArgumentException(
                     s"""|The argument width (${dfVal.dfType.widthErrorString}) is different than the receiver width (${dfType.widthErrorString}).
-                        |Consider applying `.resize` to resolve this issue.""".stripMargin
+                        |Consider `.extend` or `.truncate` to adjust it to the receiver width, or `.resize(width)` to state the width explicitly.""".stripMargin
                   )
             dfVal.nameInDFCPosition.asValTP[DFBits[LW], RP]
           end if

@@ -154,7 +154,7 @@ class DFBitsSpec extends DFSpec:
     val v12 = Bits(twelve) <> VAR
     assertDSLErrorLog(
       """|The argument width (12) is different than the receiver width (8).
-         |Consider applying `.resize` to resolve this issue.""".stripMargin
+         |Consider `.truncate` to narrow it to the receiver width, or `.resize(8)` to state the width explicitly.""".stripMargin
     )(
       """b8 := h"123""""
     ) {
@@ -162,7 +162,7 @@ class DFBitsSpec extends DFSpec:
     }
     assertDSLErrorLog(
       """|The argument width (12) is different than the receiver width (8).
-         |Consider applying `.resize` to resolve this issue.""".stripMargin
+         |Consider `.truncate` to narrow it to the receiver width, or `.resize(8)` to state the width explicitly.""".stripMargin
     )(
       """val conv8: Bits[8] <> VAL = h"123""""
     ) {
@@ -374,7 +374,7 @@ class DFBitsSpec extends DFSpec:
     assertCompileError(
       """|Expected argument width 3 but found: 5
          |To Fix:
-         |Use `.resize` to match the width automatically.""".stripMargin
+         |Use `.truncate` to narrow the argument to the expected width.""".stripMargin
     )(
       """b8(u5)"""
     )
@@ -383,7 +383,7 @@ class DFBitsSpec extends DFSpec:
     assertCompileError(
       """|Expected argument width 3 but found: 2
          |To Fix:
-         |Use `.resize` to match the width automatically.""".stripMargin
+         |Use `.extend` to widen the argument to the expected width.""".stripMargin
     )(
       """b8(u2)"""
     )
@@ -421,7 +421,7 @@ class DFBitsSpec extends DFSpec:
     }
     assertRuntimeErrorLog(
       """|The argument width (8) is different than the receiver width (4).
-         |Consider applying `.resize` to resolve this issue.""".stripMargin
+         |Consider `.truncate` to narrow it to the receiver width, or `.resize(4)` to state the width explicitly.""".stripMargin
     ) {
       val c8 = Bits(8) <> VAR
       val c4 = Bits(4) <> VAR
@@ -429,7 +429,7 @@ class DFBitsSpec extends DFSpec:
     }
     assertRuntimeErrorLog(
       """|The argument width (4) is different than the receiver width (8).
-         |Consider applying `.resize` to resolve this issue.""".stripMargin
+         |Consider `.extend` to widen it to the receiver width, or `.resize(8)` to state the width explicitly.""".stripMargin
     ) {
       val d8 = Bits(8) <> VAR
       val d4 = Bits(4) <> VAR

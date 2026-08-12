@@ -1349,7 +1349,7 @@ class DFDecimalSpec extends DFSpec:
     val err4 = compiletime.testing.typeCheckErrors("val x: Bits[8] <> VAL = cnt + 10000").last
     val widthErr =
       """|The argument width (14) is different than the receiver width (8).
-         |Consider applying `.resize` to resolve this issue.""".stripMargin
+         |Consider `.truncate` to narrow it to the receiver width, or `.resize(8)` to state the width explicitly.""".stripMargin
     assertEquals(err1.message, widthErr)
     assertEquals(err1.column, 7)
     assertEquals(err2.message, widthErr)

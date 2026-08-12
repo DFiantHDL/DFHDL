@@ -1975,7 +1975,7 @@ object DFXInt:
                     throw new IllegalArgumentException(
                       s"""|The RHS value width (${rhsIR.magnitudeWidthParamRef.refErrorString}) is not provably within the LHS variable width (${lhsIR.magnitudeWidthParamRef.refErrorString}).
                           |Subtraction takes the LHS width, so the difference may not fit.
-                          |Consider applying the carry subtraction `-^` or `.resize` to resolve this issue.""".stripMargin
+                          |Consider the carry subtraction `-^`, or `.truncate` to narrow the RHS to the LHS width.""".stripMargin
                     )
               end if
               arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal).asInstanceOf[Out]
@@ -2219,7 +2219,12 @@ object DFUInt:
         Int,
         [UBW <: Int, RW <: Int] =>> UBW == RW,
         [UBW <: Int, RW <: Int] =>> "Expected argument width " + UBW + " but found: " + RW +
-          "\nTo Fix:\nUse `.resize` to match the width automatically."
+          "\nTo Fix:\n" +
+          ITE[
+            RW > UBW,
+            "Use `.truncate` to narrow the argument to the expected width.",
+            "Use `.extend` to widen the argument to the expected width."
+          ]
       ]
 
   object Val:

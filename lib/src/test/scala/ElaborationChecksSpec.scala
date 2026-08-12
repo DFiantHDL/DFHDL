@@ -578,7 +578,7 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Foo
           |Operation: `apply`
           |Message:   The argument width (WIDTH2) is different than the receiver width (WIDTH1).
-          |Consider applying `.resize` to resolve this issue.
+          |Consider `.extend` or `.truncate` to adjust it to the receiver width, or `.resize(width)` to state the width explicitly.
           |
           |DFiant HDL elaboration error!
           |Position:  ${currentFilePos}ElaborationChecksSpec.scala:571:17 - 571:23
@@ -1415,14 +1415,14 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (c.OUTPUT_WIDTH) is different than the receiver width (OUTPUT_WIDTH).
-          |Consider applying `.resize` to resolve this issue.
+          |Consider `.extend` or `.truncate` to adjust it to the receiver width, or `.resize(width)` to state the width explicitly.
           |
           |DFiant HDL elaboration error!
           |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1408:9 - 1408:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (OUTPUT_WIDTH) is different than the receiver width (c.OUTPUT_WIDTH).
-          |Consider applying `.resize` to resolve this issue.""".stripMargin
+          |Consider `.extend` or `.truncate` to adjust it to the receiver width, or `.resize(width)` to state the width explicitly.""".stripMargin
     )
 
   test("same-named design parameters are qualified in width errors"):
@@ -1444,14 +1444,14 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (c.W) is different than the receiver width (W).
-          |Consider applying `.resize` to resolve this issue.
+          |Consider `.extend` or `.truncate` to adjust it to the receiver width, or `.resize(width)` to state the width explicitly.
           |
           |DFiant HDL elaboration error!
           |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1437:9 - 1437:17
           |Hierarchy: Parent
           |Operation: `apply`
           |Message:   The argument width (W) is different than the receiver width (c.W).
-          |Consider applying `.resize` to resolve this issue.""".stripMargin
+          |Consider `.extend` or `.truncate` to adjust it to the receiver width, or `.resize(width)` to state the width explicitly.""".stripMargin
     )
 
   test("Verilog-semantics warning with parametric widths"):

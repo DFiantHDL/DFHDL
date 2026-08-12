@@ -72,7 +72,7 @@ class DFVectorSpec extends DFSpec:
       assertCompileError(
         """|Expected argument width 3 but found: 2
            |To Fix:
-           |Use `.resize` to match the width automatically.""".stripMargin
+           |Use `.extend` to widen the argument to the expected width.""".stripMargin
       )(
         """v1(i2)"""
       )
@@ -80,7 +80,7 @@ class DFVectorSpec extends DFSpec:
       assertCompileError(
         """|Expected argument width 3 but found: 4
            |To Fix:
-           |Use `.resize` to match the width automatically.""".stripMargin
+           |Use `.truncate` to narrow the argument to the expected width.""".stripMargin
       )(
         """v1(i4)"""
       )

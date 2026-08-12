@@ -14,7 +14,7 @@ package dfhdl
   * The width-fit acceptance itself is proof-backed (issue dfhdl_by_agents#116): a parametric
   * relation such as `2 * W >= W` is accepted because it holds for every valid (positive) width
   * assignment, while a relation that a valid assignment can violate (e.g. `16 >= W`) still requires
-  * an explicit carry op or `.resize` (see `ElaborationChecksSpec` for the rejections).
+  * an explicit carry op or a width adjustment (see `ElaborationChecksSpec` for the rejections).
   */
 class ContextWidenSpec extends DesignSpec:
   test("parametric target-context widening") {

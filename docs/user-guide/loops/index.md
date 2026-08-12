@@ -72,7 +72,7 @@ class narrow_lit extends EDDesign:
 
 ```
 The argument width (2) is different than the receiver width (4).
-Consider applying `.resize` to resolve this issue.
+Consider `.extend` to widen it to the receiver width, or `.resize(4)` to state the width explicitly.
 ```
 
 **An `Int <> CONST`** gives `Bits(WIDTH)` the unbounded type `Bits[Int]`, which the Scala type level does not track, so there is nothing for it to reject. The width check moves to elaboration, and elaboration only ever visits the taken branch:
