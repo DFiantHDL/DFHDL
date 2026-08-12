@@ -854,6 +854,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    led.din := !led
          |  else cnt.din := cnt + d"1'1".resize(clog2(maxCnt + 1))
          |  end if
+         |  val constraint_0 = assert(clog2(maxCnt + 1) >= 23, s"Design parameter violation found. Expected: clog2(maxCnt + 1) >= 23", Severity.Fatal)
          |end Blinker
          |""".stripMargin
     )
@@ -1045,6 +1046,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    led.din := !led
          |  else cnt.din := cnt + d"1'1".resize(clog2(HALF_PERIOD))
          |  end if
+         |  val constraint_0 = assert((HALF_PERIOD - 1) >= 0, s"Design parameter violation found. Expected: (HALF_PERIOD - 1) >= 0", Severity.Fatal)
          |end Blinker
          |""".stripMargin
     )
@@ -2163,7 +2165,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val font                      = Bar(data_width = data_width2)
       val col_index                 = UInt(8) <> VAR
       col_index := 0
-      val x = font.dout(col_index.resize)
+      val x = font.dout(col_index.truncate)
     end Foo
     val top = (new Foo)
     assertCodeString(
@@ -3148,6 +3150,513 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val flat = Bits(WID) <> OUT
          |  flat <> vec.bits
          |end QueryVals
+         |""".stripMargin
+    )
+  }
+  // A port of a sub-design instance is not a member of the instantiating design. That design
+  // represents the port by a `PortByNameSelect`, which is what a reference to it materializes,
+  // so an in-place member revision applied to the port from here has nowhere to land on the
+  // foreign declaration and must target the representative instead.
+  // A width-adjustment permission is such a revision: it marks its operand with a tag that the
+  // connection's width then resolves. This pins that the mark lands locally, giving the same
+  // result as the explicit-width `.resize(16)` form.
+  // See https://github.com/DFiantHDL/DFHDL/issues/470
+  test("Width adjustment permission on a sub-design instance's output port") {
+    class SubDsn extends EDDesign:
+      val WIDTH: Int <> CONST = 24
+      val ob                  = Bits(WIDTH) <> OUT
+      val ou                  = UInt(WIDTH) <> OUT
+      ob <> all(0)
+      ou <> 0
+    class Top extends EDDesign:
+      val pb = Bits(16) <> OUT
+      val pu = UInt(16) <> OUT
+      val c  = SubDsn()
+      pb <> c.ob.truncate
+      pu <> c.ou.truncate
+    assertCodeString(
+      Top(),
+      """|class SubDsn extends EDDesign:
+         |  val WIDTH: Int <> CONST = 24
+         |  val ob = Bits(WIDTH) <> OUT
+         |  val ou = UInt(WIDTH) <> OUT
+         |  ob <> b"0".repeat(WIDTH)
+         |  ou <> d"1'0".resize(WIDTH)
+         |end SubDsn
+         |
+         |class Top extends EDDesign:
+         |  val pb = Bits(16) <> OUT
+         |  val pu = UInt(16) <> OUT
+         |  val c = SubDsn()
+         |  val c_WIDTH: Int <> CONST = 24
+         |  pb <> c.ob.resize(16)
+         |  pu <> c.ou.resize(16)
+         |end Top
+         |""".stripMargin
+    )
+  }
+
+  // A bit-select whose index is parameter-dependent keeps its symbolic index in the printed
+  // code, and the connectivity re-derived here (`sanityCheck` forces it) must give the same
+  // directions the elaboration did, with the index resolved through the applied parameter.
+  test("Parametric bit-select index") {
+    class Fifo extends EDDesign:
+      val wReady = Bit <> OUT
+      wReady <> 1
+    class ParamIdxChild(val N: Int <> CONST = 3) extends EDDesign:
+      val a   = Bit     <> IN
+      val out = Bits(N) <> OUT
+      val w   = Bit     <> VAR
+      val v   = Bits(N) <> VAR
+      v(N - 1) <> a
+      v(0)     <> w
+      v(1)     <> a
+      out      <> v
+      val f = Fifo()
+      w <> f.wReady
+    class ParamIdxParent extends EDDesign:
+      val a   = Bit     <> IN
+      val out = Bits(3) <> OUT
+      val c   = ParamIdxChild(3)
+      c.a <> a
+      out <> c.out
+    assertCodeString(
+      ParamIdxParent(),
+      """|class Fifo extends EDDesign:
+         |  val wReady = Bit <> OUT
+         |  wReady <> 1
+         |end Fifo
+         |
+         |class ParamIdxChild(val N: Int <> CONST = 3) extends EDDesign:
+         |  val a = Bit <> IN
+         |  val out = Bits(N) <> OUT
+         |  val w = Bit <> VAR
+         |  val v = Bits(N) <> VAR
+         |  v(N - 1) <> a
+         |  v(0) <> w
+         |  v(1) <> a
+         |  out <> v
+         |  val f = Fifo()
+         |  w <> f.wReady
+         |end ParamIdxChild
+         |
+         |class ParamIdxParent extends EDDesign:
+         |  val a = Bit <> IN
+         |  val out = Bits(3) <> OUT
+         |  val c = ParamIdxChild(N = 3)
+         |  c.a <> a
+         |  out <> c.out
+         |end ParamIdxParent
+         |""".stripMargin
+    )
+  }
+  test("static assertion") {
+    // a static assertion (constant condition and message) is a concurrent design-body statement
+    // in every domain, and prints as a plain `assert` — nothing distinguishes it in the source,
+    // which is the point: re-elaborating this printout derives the same species structurally
+    class Guarded(val W: Int <> CONST = 8) extends EDDesign:
+      val i = UInt(W) <> IN
+      val o = UInt(W) <> OUT
+      assert(W > 0, s"W must be positive, got $W")
+      assert(W <= 32, s"W must not exceed 32, got $W", Severity.Fatal)
+      o <> i
+    end Guarded
+    class GuardedRT extends RTDesign:
+      val i = UInt(8) <> IN
+      val o = UInt(8) <> OUT
+      assert(i.width == 8)
+      o := i
+    end GuardedRT
+    assertCodeString(
+      Guarded(),
+      """|class Guarded(val W: Int <> CONST = 8) extends EDDesign:
+         |  val i = UInt(W) <> IN
+         |  val o = UInt(W) <> OUT
+         |  assert(W > 0, s"W must be positive, got ${W}")
+         |  assert(W <= 32, s"W must not exceed 32, got ${W}", Severity.Fatal)
+         |  o <> i
+         |end Guarded
+         |""".stripMargin
+    )
+    assertCodeString(
+      GuardedRT(),
+      """|class GuardedRT extends RTDesign:
+         |  val i = UInt(8) <> IN
+         |  val o = UInt(8) <> OUT
+         |  assert(i.width == 8)
+         |  o := i
+         |end GuardedRT
+         |""".stripMargin
+    )
+  }
+  test("named text output") {
+    // binding a text output to a `val` names the statement, which the backends turn into a
+    // label; the name shares the design's namespace, so `UniqueNames` resolves a collision
+    class Named(val W: Int <> CONST = 8) extends EDDesign:
+      val i    = UInt(W) <> IN
+      val o    = UInt(W) <> OUT
+      val posW = assert(W > 0, s"W must be positive, got $W")
+      process(all):
+        val inRange = assert(i < 200, s"i too large: $i")
+        val trace   = println(s"i: $i")
+      o <> i
+    end Named
+    assertCodeString(
+      Named(),
+      """|class Named(val W: Int <> CONST = 8) extends EDDesign:
+         |  val i = UInt(W) <> IN
+         |  val o = UInt(W) <> OUT
+         |  val posW = assert(W > 0, s"W must be positive, got ${W}")
+         |  process(all):
+         |    val inRange = assert(i < d"8'200".resize(W), s"i too large: ${i}")
+         |    val trace = println(s"i: ${i}")
+         |  o <> i
+         |  val constraint_0 = assert(W >= 8, s"Design parameter violation found. Expected: W >= 8", Severity.Fatal)
+         |end Named
+         |""".stripMargin
+    )
+  }
+  test("auto constraint from an unprovable width fit") {
+    // A width relation that is neither provably held nor provably violated is accepted, and the
+    // fit the operation needs is stated as a static assertion at the tail of the body. The two
+    // writes to `z` assume the same relation and state it once; the write to `n` assumes another.
+    class Fits(val W: Int <> CONST = 8, val V: Int <> CONST = 8) extends RTDesign:
+      val x = UInt(W)  <> IN
+      val y = UInt(V)  <> IN
+      val z = UInt(16) <> OUT
+      val n = UInt(8)  <> OUT
+      z := x
+      z := x + 1
+      n := y
+    end Fits
+    assertCodeString(
+      Fits(),
+      """|class Fits(
+         |    val W: Int <> CONST = 8,
+         |    val V: Int <> CONST = 8
+         |) extends RTDesign:
+         |  val x = UInt(W) <> IN
+         |  val y = UInt(V) <> IN
+         |  val z = UInt(16) <> OUT
+         |  val n = UInt(8) <> OUT
+         |  z := x.resize(16)
+         |  z := x.resize(16) + d"16'1"
+         |  n := y.resize(8)
+         |  val constraint_0 = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
+         |  val constraint_1 = assert(8 >= V, s"Design parameter violation found. Expected: 8 >= V", Severity.Fatal)
+         |end Fits
+         |""".stripMargin
+    )
+  }
+  test("auto constraint raised inside a block") {
+    // The condition is built where the check runs, which here is inside a conditional inside a
+    // process: a scope the body cannot read from. Materialization clones its cone into the body,
+    // so the assertion states the relation at the design's own level.
+    class Blocked(val W: Int <> CONST = 8) extends EDDesign:
+      val sel = Bit      <> IN
+      val x   = UInt(W)  <> IN
+      val z   = UInt(16) <> OUT
+      process(all):
+        if (sel) z :== x
+        else z :== 0
+    end Blocked
+    assertCodeString(
+      Blocked(),
+      """|class Blocked(val W: Int <> CONST = 8) extends EDDesign:
+         |  val sel = Bit <> IN
+         |  val x = UInt(W) <> IN
+         |  val z = UInt(16) <> OUT
+         |  process(all):
+         |    if (sel) z :== x.resize(16)
+         |    else z :== d"16'0"
+         |  val constraint_0 = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
+         |end Blocked
+         |""".stripMargin
+    )
+  }
+  test("auto constraint minimization") {
+    // Two operations assuming related relations is the normal case, and the weaker of the two
+    // says nothing once the stronger is stated: `n` needs 8 bits to hold `x`, which is the whole
+    // of what `z` needs 16 for.
+    class Subsumed(val W: Int <> CONST = 8) extends RTDesign:
+      val x = UInt(W)  <> IN
+      val z = UInt(16) <> OUT
+      val n = UInt(8)  <> OUT
+      z := x
+      n := x
+    end Subsumed
+    assertCodeString(
+      Subsumed(),
+      """|class Subsumed(val W: Int <> CONST = 8) extends RTDesign:
+         |  val x = UInt(W) <> IN
+         |  val z = UInt(16) <> OUT
+         |  val n = UInt(8) <> OUT
+         |  z := x.resize(16)
+         |  n := x.resize(8)
+         |  val constraint_0 = assert(8 >= W, s"Design parameter violation found. Expected: 8 >= W", Severity.Fatal)
+         |end Subsumed
+         |""".stripMargin
+    )
+  }
+  test("auto constraint minimization against the design's own assertions") {
+    // A static assertion the user wrote is a requirement of the design just as a generated one is,
+    // so it is read as a fact: having stated the bound themselves, the user is not then shown a
+    // weaker generated echo of it. It is never the other way round, and never for a severity that
+    // reports rather than requires.
+    class UserStated(val W: Int <> CONST = 8) extends RTDesign:
+      val x     = UInt(W)  <> IN
+      val z     = UInt(16) <> OUT
+      val bound = assert(W <= 8, s"W must not exceed 8, got $W", Severity.Fatal)
+      z := x
+    end UserStated
+    class UserReports(val W: Int <> CONST = 8) extends RTDesign:
+      val x    = UInt(W)  <> IN
+      val z    = UInt(16) <> OUT
+      val note = assert(W <= 8, s"W is unusually large: $W", Severity.Warning)
+      z := x
+    end UserReports
+    assertCodeString(
+      UserStated(),
+      """|class UserStated(val W: Int <> CONST = 8) extends RTDesign:
+         |  val x = UInt(W) <> IN
+         |  val z = UInt(16) <> OUT
+         |  val bound = assert(W <= 8, s"W must not exceed 8, got ${W}", Severity.Fatal)
+         |  z := x.resize(16)
+         |end UserStated
+         |""".stripMargin
+    )
+    assertCodeString(
+      UserReports(),
+      """|class UserReports(val W: Int <> CONST = 8) extends RTDesign:
+         |  val x = UInt(W) <> IN
+         |  val z = UInt(16) <> OUT
+         |  val note = assert(W <= 8, s"W is unusually large: ${W}", Severity.Warning)
+         |  z := x.resize(16)
+         |  val constraint_0 = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
+         |end UserReports
+         |""".stripMargin
+    )
+  }
+  test("auto constraint qualifies same-named width constants") {
+    // The message is built from the same lambda as the compile-time check's, so two same-named
+    // constants from different designs stay distinguishable in it, exactly as they do in a width
+    // error.
+    class WidthChild(val W: Int <> CONST = 4) extends EDDesign:
+      val OUTPUT_WIDTH = W * 2
+      val o            = UInt(OUTPUT_WIDTH) <> OUT
+      o <> 0
+    end WidthChild
+    class WidthParent(val W: Int <> CONST = 8) extends EDDesign:
+      val OUTPUT_WIDTH = W
+      val o            = UInt(OUTPUT_WIDTH) <> OUT
+      val c            = WidthChild(W = 4)
+      o <> c.o
+    end WidthParent
+    assertCodeString(
+      WidthParent(),
+      """|class WidthChild(val W: Int <> CONST = 4) extends EDDesign:
+         |  val OUTPUT_WIDTH: Int <> CONST = W * 2
+         |  val o = UInt(OUTPUT_WIDTH) <> OUT
+         |  o <> d"1'0".resize(OUTPUT_WIDTH)
+         |end WidthChild
+         |
+         |class WidthParent(val W: Int <> CONST = 8) extends EDDesign:
+         |  val OUTPUT_WIDTH: Int <> CONST = W
+         |  val o = UInt(OUTPUT_WIDTH) <> OUT
+         |  val c = WidthChild(W = 4)
+         |  val c_OUTPUT_WIDTH: Int <> CONST = 4 * 2
+         |  o <> c.o.resize(OUTPUT_WIDTH)
+         |  val constraint_0 = assert(OUTPUT_WIDTH >= c_OUTPUT_WIDTH, s"Design parameter violation found. Expected: OUTPUT_WIDTH >= c_OUTPUT_WIDTH", Severity.Fatal)
+         |end WidthParent
+         |""".stripMargin
+    )
+  }
+  test("a widened `>>` states its assumption, and a `.truncate` decides against widening") {
+    // Target-context widening re-evaluates a cone at the target on the strength of agreeing with
+    // the narrow evaluation whatever the target turns out to be. That holds for `+`/`-`/`*`, and
+    // for `<<`, all of which commute with truncation. It does not hold for `>>`, which drops the
+    // bits a narrow evaluation brings down, so a widened `>>` states the relation it assumed.
+    // Normally the assignment's own width fit states the same relation and the two dedup.
+    class ShiftExtend(val W: Int <> CONST = 8) extends EDDesign:
+      val a, b = UInt(W)  <> IN
+      val shr  = UInt(16) <> OUT
+      shr <> ((a + b) >> 1).extend
+    end ShiftExtend
+    // `.truncate` states the opposite of what an undecided comparison assumes, so it is what
+    // decides there: the cone keeps its own width and narrows as asked, rather than the widening
+    // firing optimistically and the design being left to state both directions at once.
+    class ShiftTruncate(val W: Int <> CONST = 8) extends EDDesign:
+      val a, b = UInt(W)  <> IN
+      val shr  = UInt(16) <> OUT
+      val shl  = UInt(16) <> OUT
+      shr <> ((a + b) >> 1).truncate
+      shl <> ((a + b) << 1).truncate
+    end ShiftTruncate
+    assertCodeString(
+      ShiftExtend(),
+      """|class ShiftExtend(val W: Int <> CONST = 8) extends EDDesign:
+         |  val a = UInt(W) <> IN
+         |  val b = UInt(W) <> IN
+         |  val shr = UInt(16) <> OUT
+         |  shr <> ((a.resize(16) + b.resize(16)) >> 1)
+         |  val constraint_0 = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
+         |end ShiftExtend
+         |""".stripMargin
+    )
+    assertCodeString(
+      ShiftTruncate(),
+      """|class ShiftTruncate(val W: Int <> CONST = 8) extends EDDesign:
+         |  val a = UInt(W) <> IN
+         |  val b = UInt(W) <> IN
+         |  val shr = UInt(16) <> OUT
+         |  val shl = UInt(16) <> OUT
+         |  shr <> ((a + b) >> 1).resize(16)
+         |  shl <> ((a + b) << 1).resize(16)
+         |  val constraint_0 = assert(W >= 16, s"Design parameter violation found. Expected: W >= 16", Severity.Fatal)
+         |end ShiftTruncate
+         |""".stripMargin
+    )
+  }
+  test("auto constraint from an LHS-dominant operation") {
+    // `-`, `/` and `%` take the LHS width and convert the RHS to it, so each needs the RHS to
+    // fit. `-` used to answer the undecided case with an outright rejection while its two
+    // siblings stated the fit, which answered "cannot tell" with "no" for one operation out of
+    // three. All three now state it, and one statement covers them.
+    class SubFit(val W: Int <> CONST = 16, val V: Int <> CONST = 8) extends EDDesign:
+      val a    = UInt(W) <> IN
+      val b    = UInt(V) <> IN
+      val diff = UInt(W) <> OUT
+      val quot = UInt(W) <> OUT
+      diff <> a - b
+      quot <> a / b
+    end SubFit
+    // `.truncate` is the permission for exactly this conversion, so it covers the fit and
+    // states its own direction instead
+    class SubTruncate(val W: Int <> CONST = 16, val V: Int <> CONST = 8) extends EDDesign:
+      val a    = UInt(W) <> IN
+      val b    = UInt(V) <> IN
+      val diff = UInt(W) <> OUT
+      diff <> a - b.truncate
+    end SubTruncate
+    assertCodeString(
+      SubFit(),
+      """|class SubFit(
+         |    val W: Int <> CONST = 16,
+         |    val V: Int <> CONST = 8
+         |) extends EDDesign:
+         |  val a = UInt(W) <> IN
+         |  val b = UInt(V) <> IN
+         |  val diff = UInt(W) <> OUT
+         |  val quot = UInt(W) <> OUT
+         |  diff <> (a - b.resize(W))
+         |  quot <> (a / b.resize(W))
+         |  val constraint_0 = assert(W >= V, s"Design parameter violation found. Expected: W >= V", Severity.Fatal)
+         |end SubFit
+         |""".stripMargin
+    )
+    assertCodeString(
+      SubTruncate(),
+      """|class SubTruncate(
+         |    val W: Int <> CONST = 16,
+         |    val V: Int <> CONST = 8
+         |) extends EDDesign:
+         |  val a = UInt(W) <> IN
+         |  val b = UInt(V) <> IN
+         |  val diff = UInt(W) <> OUT
+         |  diff <> (a - b.resize(W))
+         |  val constraint_0 = assert(V >= W, s"Design parameter violation found. Expected: V >= W", Severity.Fatal)
+         |end SubTruncate
+         |""".stripMargin
+    )
+  }
+  test("auto constraint from a wildcard `Int` parameter's value") {
+    // A wildcard `Int` adapts, and a Scala `Int`'s minimum WIDTH is what bounds the adaptation. An
+    // overridable parameter has no width at all, for this elaboration or any other, so the bound
+    // is on its VALUE, stated as the width that value needs. The sign is unknown too, and no
+    // width makes an unsigned type hold a negative value, so an unsigned target says that as
+    // well, in the same constraint.
+    class WcValue(val V: Int <> CONST = 4, val N: Int <> CONST = 8) extends EDDesign:
+      val u = UInt(16)      <> OUT
+      val s = SInt(8)       <> OUT
+      val p = UInt.until(N) <> OUT
+      val q = UInt.until(N) <> OUT
+      u <> V
+      s <> V
+      p <> V
+      // the fit DISCHARGES when the value is derived from the very parameter the target's width
+      // is: `N - 1` needs exactly the width `UInt.until(N)` has, leaving only the sign half
+      q <> N - 1
+    end WcValue
+    assertCodeString(
+      WcValue(),
+      """|class WcValue(
+         |    val V: Int <> CONST = 4,
+         |    val N: Int <> CONST = 8
+         |) extends EDDesign:
+         |  val u = UInt(16) <> OUT
+         |  val s = SInt(8) <> OUT
+         |  val p = UInt(clog2(N)) <> OUT
+         |  val q = UInt(clog2(N)) <> OUT
+         |  u <> d"16'${V}"
+         |  s <> sd"8'${V}"
+         |  p <> d"${clog2(N)}'${V}"
+         |  q <> d"${clog2(N)}'${(N - 1)}"
+         |  val constraint_0 = assert((V >= 0) && (16 >= clog2(V + 1)), s"Design parameter violation found. Expected: (V >= 0) && (16 >= clog2(V + 1))", Severity.Fatal)
+         |  val constraint_1 = assert(8 >= (clog2((V + 1) max (-V)) + 1), s"Design parameter violation found. Expected: 8 >= (clog2((V + 1) max (-V)) + 1)", Severity.Fatal)
+         |  val constraint_2 = assert((V >= 0) && (clog2(N) >= clog2(V + 1)), s"Design parameter violation found. Expected: (V >= 0) && (clog2(N) >= clog2(V + 1))", Severity.Fatal)
+         |  val constraint_3 = assert((N - 1) >= 0, s"Design parameter violation found. Expected: (N - 1) >= 0", Severity.Fatal)
+         |end WcValue
+         |""".stripMargin
+    )
+  }
+  test("width adjustment permission over a design parameter") {
+    // a permission is decided on the two widths, so over a parameter it may be undecidable. It is
+    // covered either way, with the relation it relies on stated as a constraint of the design.
+    class ParamExtend(val W: Int <> CONST = 4) extends RTDesign:
+      val p = UInt(W) <> IN
+      val o = UInt(8) <> OUT
+      val q = UInt(W) <> OUT
+      o := p.extend
+      q := p
+    end ParamExtend
+    assertCodeString(
+      ParamExtend(),
+      """|class ParamExtend(val W: Int <> CONST = 4) extends RTDesign:
+         |  val p = UInt(W) <> IN
+         |  val o = UInt(8) <> OUT
+         |  val q = UInt(W) <> OUT
+         |  o := p.resize(8)
+         |  q := p
+         |  val constraint_0 = assert(8 >= W, s"Design parameter violation found. Expected: 8 >= W", Severity.Fatal)
+         |end ParamExtend
+         |""".stripMargin
+    )
+  }
+  test("width adjustment permissions in a comparison") {
+    // the permission names which operand adapts, so the two spellings of one comparison elaborate
+    // alike, and either operand can be the one that moves
+    class CmpPermissions extends RTDesign:
+      val u8 = UInt(8) <> IN
+      val u4 = UInt(4) <> IN
+      val o1 = Bit     <> OUT
+      val o2 = Bit     <> OUT
+      val o3 = Bit     <> OUT
+      o1 := u8 > u4.extend
+      o2 := u4.extend < u8
+      o3 := u8.truncate < u4
+    end CmpPermissions
+    assertCodeString(
+      CmpPermissions(),
+      """|class CmpPermissions extends RTDesign:
+         |  val u8 = UInt(8) <> IN
+         |  val u4 = UInt(4) <> IN
+         |  val o1 = Bit <> OUT
+         |  val o2 = Bit <> OUT
+         |  val o3 = Bit <> OUT
+         |  o1 := (u8 > u4.eby(4)).bit
+         |  o2 := (u4.eby(4) < u8).bit
+         |  o3 := (u8.resize(4) < u4).bit
+         |end CmpPermissions
          |""".stripMargin
     )
   }

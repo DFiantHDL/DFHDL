@@ -18,6 +18,14 @@ import DFDecimal.Extensions.*
   * in `DFDecimal` and `DFBits`.
   */
 private[core] object CarryPromote:
+  /** The total-width ref of an integer type: its fraction is 0, so the magnitude ref IS the width
+    * ref. `None` for any other type, which never widens.
+    */
+  private def widthRefOpt(dfTypeIR: ir.DFType): Option[ir.IntParamRef] =
+    dfTypeIR match
+      case dec: ir.DFDecimal => Some(dec.magnitudeWidthParamRef)
+      case _                 => None
+
   /** Deep target-context widening, matching Verilog's assignment-context width propagation: an
     * anonymous non-carry `+`/`-`/`*` cone converted to a WIDER type is re-evaluated at the target's
     * width and sign. Every func in the cone is retyped to the target and every leaf is converted to
@@ -51,17 +59,27 @@ private[core] object CarryPromote:
     import dfc.getSet
     val candidateIR = signConversionRelVal(lhsIR).getOrElse(lhsIR)
 
-    // symbolic elimination keeps this consistent with the width-fit acceptance
-    // rule of the TC conversion: `16 > WIDTH max 16` decides as `16 > 16` (no
-    // widening), so the anonymous form resolves exactly like a named
-    // intermediate value; if still undecidable, optimistically assume the
-    // target is wider.
-    def contextWidenCheck(funcWidth: IntParam[Int]): Boolean =
-      dfType.asFE[DFSInt[Int]]
-        .compareWidths(DFXInt(true, funcWidth, BitAccurate), elimSymbolicMaxMin = true)(
-          _ > _
-        )
-        .getOrElse(true)
+    // The target must be strictly wider than the value's own type for the widening to
+    // apply. Decided directly on the two IR width refs: constructing a DFHDL type as a
+    // width carrier would run that type's own width constraint, so a 1-bit cone would
+    // fail `SInt`'s "width must be larger than 1" rule (issue #476).
+    //
+    // Symbolic elimination keeps this consistent with the width-fit acceptance rule of
+    // the TC conversion: `16 > WIDTH max 16` decides as `16 > 16` (no widening), so the
+    // anonymous form resolves exactly like a named intermediate value; if still
+    // undecidable, optimistically assume the target is wider.
+    // A `.truncate` permission states that the target is NARROWER, which is the exact
+    // contradiction of what an undecided comparison optimistically assumes, so where the
+    // widths cannot be compared the author's statement is the one that decides and the
+    // value keeps its own width to narrow as asked. Only there: a permission whose
+    // direction does not apply contributes nothing, so a provably wider target widens as
+    // it always did, `.truncate` or no `.truncate`.
+    def contextWidenCheck(valDFType: ir.DFType): Boolean =
+      widthRefOpt(valDFType).exists { valWidthRef =>
+        dfType.asIR.magnitudeWidthParamRef
+          .compare(valWidthRef, elimSymbolicMaxMin = true)(_ > _)
+          .getOrElse(!lhsIR.tags.hasTagOf[ir.TruncateTag])
+      }
 
     // The widened Func is BUILT FRESH rather than revised in place (an anonymous
     // member is never revised; issue #449); the original cone becomes debris for
@@ -74,14 +92,25 @@ private[core] object CarryPromote:
       magnitudeWidthParamRef = dfType.widthIntParam.ref,
       nativeType = BitAccurate
     )
+    def targetType = DFXInt(dfType.signed, dfType.widthIntParam, BitAccurate)
     // a nested value re-enters the full conversion, so nested cones widen and leaves
     // get their sign conversion / resize at the target type
     def widened(v: ir.DFVal): DFValAny =
-      DFXInt.Val.Ops.toDFXIntOf(
-        v.asValOf[DFXInt[Boolean, Int, NativeType]]
-      )(DFXInt(dfType.signed, dfType.widthIntParam, BitAccurate))(using
-        dfc.anonymize
-      )
+      wildcardUnder(v) match
+        // A wildcard `Int` operand adapted to the OTHER operand's width: the wildcard
+        // re-adapts to the target, rather than its adaptation being widened. The other
+        // operand's width is precisely what the target context replaces, so evaluating
+        // the wildcard at it first is the narrow evaluation this rule exists to undo:
+        // it truncates a literal the target holds perfectly well, and, where that width
+        // is parametric, leaves the design constrained to hold a value nothing in the
+        // widened expression puts there. The fit at the TARGET is checked in its place.
+        case Some(wildcard) =>
+          AutoConstraint.retract(v)
+          DFXInt.Val.Ops.adaptWildcard(wildcard.asValAny, targetType)(using dfc.anonymize)
+        case None =>
+          DFXInt.Val.Ops.toDFXIntOf(
+            v.asValOf[DFXInt[Boolean, Int, NativeType]]
+          )(targetType)(using dfc.anonymize)
     def widenedArg(argRef: ir.DFVal.Ref): DFValAny = widened(argRef.get)
     // no MutableDB revision under meta-programming (matching `setMember`'s behavior
     // there): the retyped value is returned unregistered and the argument
@@ -106,7 +135,7 @@ private[core] object CarryPromote:
           if func.isAnonymous && {
             // non-carry (modular) func: its type equals its aligned operands'
             func.dfType =~ func.args.head.get.dfType &&
-            contextWidenCheck(func.asValOf[DFSInt[Int]].widthIntParam)
+            contextWidenCheck(func.dfType)
           } =>
         Some(rebuilt(func, func.args.map(widenedArg(_).asIR)))
       // A shift's LEFT operand is context-determined in Verilog (the amount is
@@ -119,11 +148,21 @@ private[core] object CarryPromote:
       // conversion cannot move to the operands; the explicit spelling states the
       // intent there.
       case func @ ir.DFVal.Func(
-            dfType = ir.DFDecimal(funcSigned, _, 0, BitAccurate),
+            dfType = ir.DFDecimal(funcSigned, opWidthRef, 0, BitAccurate),
             op = FuncOp.>> | FuncOp.<<
           )
           if func.isAnonymous && funcSigned == dfType.asIR.signed &&
-            contextWidenCheck(func.asValOf[DFSInt[Int]].widthIntParam) =>
+            contextWidenCheck(func.dfType) =>
+        // A `>>` is the one widening that CONSUMES an assumption. The rule re-evaluates a cone
+        // at the target width on the strength of agreeing with the narrow evaluation whatever
+        // the target turns out to be, which holds for `+`/`-`/`*` because truncation commutes
+        // with them, and for `<<` because it is a multiplication and commutes too. It does not
+        // hold for `>>`: `(x mod 2^t) >> k` drops the bits above `t` that `(x >> k) mod 2^t`
+        // brings down. So the agreement rests on the target really being at least as wide as
+        // the operand, which the decision above assumes where it cannot prove it, and the
+        // design states what was assumed.
+        if (func.op == FuncOp.>>)
+          AutoConstraint.raiseUndecidedFit(dfType.widthIntParam, opWidthRef.get)
         Some(rebuilt(func, widenedArg(func.args.head).asIR :: func.args.tail.map(_.get)))
       case func @ ir.DFVal.Func(
             dfType = ir.DFUInt(_) | ir.DFSInt(_),
@@ -132,7 +171,7 @@ private[core] object CarryPromote:
           // a sel's type structurally equals both branches' types (the frontend
           // converts one branch to the other's type), so no operand-shape gate
           if func.isAnonymous &&
-            contextWidenCheck(func.asValOf[DFSInt[Int]].widthIntParam) =>
+            contextWidenCheck(func.dfType) =>
         Some(rebuilt(func, func.args.head.get :: func.args.tail.map(widenedArg(_).asIR)))
       // A conditional EXPRESSION (if/match) re-evaluates each branch at the target,
       // matching the Verilog its branches lower to (per-branch assignments to the
@@ -148,7 +187,7 @@ private[core] object CarryPromote:
           if header.isAnonymous &&
             (header.dfType match
               case ir.DFUInt(_) | ir.DFSInt(_) => true
-              case _ => false) && contextWidenCheck(header.asValOf[DFSInt[Int]].widthIntParam) =>
+              case _ => false) && contextWidenCheck(header.dfType) =>
         if (dfc.inMetaProgramming) Some(header.updateDFType(newDT).asValOf[DFSInt[Int]])
         else
           // all-or-nothing: an unexpected branch shape (no terminal ident) leaves the
@@ -224,6 +263,21 @@ private[core] object CarryPromote:
       (dfVal match
         case alias: ir.DFVal.Alias => hasImplicitlyFromIntTag(alias.relValRef.get)
         case _                     => false)
+
+  // The wildcard `Int` under a value that is nothing but that wildcard adapted to some other
+  // operand's width: an anonymous alias chain, as `toDFXIntOf` builds it, bottoming out either
+  // at the tagged constant a Scala `Int`'s candidate created (at the value's own minimum width,
+  // so a sign conversion and a resize may sit above it) or at a DFHDL `Int`, which has no width
+  // at all and takes one in a single conversion. `None` for everything else, the wildcard's own
+  // constant included: there is no adaptation there to look through.
+  private def wildcardUnder(dfVal: ir.DFVal)(using ir.MemberGetSet): Option[ir.DFVal] =
+    dfVal match
+      case alias: ir.DFVal.Alias.AsIs if alias.isAnonymous =>
+        val relVal = alias.relValRef.get
+        val isWildcard = relVal.tags.hasTagOf[ir.ImplicitlyFromIntTag] ||
+          relVal.dfType == ir.DFInt32
+        if (isWildcard) Some(relVal) else wildcardUnder(relVal)
+      case _ => None
 
   // A width reference resolved through design parameters: this runs during
   // elaboration, where a parameter's applied (or default) value is known, so a

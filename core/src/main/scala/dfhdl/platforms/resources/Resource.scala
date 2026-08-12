@@ -81,5 +81,5 @@ object Resource extends ResourceLP:
       def apply(resource1: R, resourceOrValue: T)(using DFC): Out =
         cc.connect(resource1, resourceOrValue)
   end given
-  export dfhdl.hdl.<>
+  export dfhdl.__hdl.<>
 end Resource

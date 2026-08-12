@@ -72,7 +72,7 @@ class narrow_lit extends EDDesign:
 
 ```
 The argument width (2) is different than the receiver width (4).
-Consider applying `.resize` to resolve this issue.
+Consider `.extend` to widen it to the receiver width, or `.resize(4)` to state the width explicitly.
 ```
 
 **An `Int <> CONST`** gives `Bits(WIDTH)` the unbounded type `Bits[Int]`, which the Scala type level does not track, so there is nothing for it to reject. The width check moves to elaboration, and elaboration only ever visits the taken branch:
@@ -88,7 +88,7 @@ class narrow_const extends EDDesign:
     dout <> din.msbits(2)       // never elaborated, so never checked
 ```
 
-The same holds for a width that arrives as a design parameter (`class narrow(val WIDTH: Int <> CONST = 4)`), which is the usual case when translating a Verilog `parameter`. This is why a `generate if` whose branches are each valid only for their own parameter value translates directly, with no `.resize` guard and no `.toScalaInt`. If you do need both branches valid at the Scala level, use `.resize` or guard the index computations, as in the plain-`Int` example above.
+The same holds for a width that arrives as a design parameter (`class narrow(val WIDTH: Int <> CONST = 4)`), which is the usual case when translating a Verilog `parameter`. This is why a `generate if` whose branches are each valid only for their own parameter value translates directly, with no `.resize` guard and no `.toScalaInt`. If you do need both branches valid at the Scala level, use a width adjustment (`.extend`, `.truncate` or `.resize(N)`) or guard the index computations, as in the plain-`Int` example above.
 
 The ascription has a second, visible consequence: an `Int <> CONST` survives into the generated HDL as a `localparam`, while a plain Scala `Int` is inlined away. See [`localparam`][localparam] for that side of the same distinction.
 

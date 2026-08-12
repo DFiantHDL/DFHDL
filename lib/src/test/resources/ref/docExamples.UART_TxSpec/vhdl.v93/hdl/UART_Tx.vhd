@@ -29,6 +29,8 @@ architecture UART_Tx_arch of UART_Tx is
   signal dataBitCnt   : unsigned(2 downto 0);
   signal shiftData    : std_logic_vector(7 downto 0);
 begin
+  constraint_0: assert (BIT_CLOCKS - 1) >= 0
+    report "Design parameter violation found. Expected: (BIT_CLOCKS - 1) >= 0" severity FAILURE;
   process (clk)
   begin
     if rising_edge(clk) then

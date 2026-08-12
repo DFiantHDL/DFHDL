@@ -471,8 +471,8 @@ trait Tool:
     // when no logger is set we would like to inherit the parent's stdout/stderr so the tool keeps
     // its TTY (colors, live progress). however, os.Inherit writes to the JVM's real file
     // descriptors, which under `sbtn` belong to the detached build server rather than the client
-    // terminal, so the tool's output becomes invisible. when there is no real console (the `sbtn`
-    // case, and CI), fall back to reading the tool's lines and re-emitting them through
+    // terminal, so the tool's output becomes invisible. when we are not on an interactive terminal
+    // (the `sbtn` case, and CI), fall back to reading the tool's lines and re-emitting them through
     // System.out, which sbt forwards to the client.
     // Set once cancellation begins so the output pumper stops forwarding the tool's backlog: a killed
     // tool can leave a large buffered backlog that would otherwise keep trickling to the console
@@ -481,7 +481,7 @@ trait Tool:
     val processOutput = loggerOpt.map(logger =>
       os.ProcessOutput.Readlines(line => if (!aborted) logger.out(line))
     ).getOrElse(
-      if (System.console() != null) os.Inherit
+      if (isTTY) os.Inherit
       else os.ProcessOutput.Readlines(line =>
         if (!aborted)
           Tool.outputThrottle.gate()

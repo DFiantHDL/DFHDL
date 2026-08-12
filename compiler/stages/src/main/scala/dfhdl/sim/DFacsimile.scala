@@ -42,7 +42,9 @@ enum SimTier derives CanEqual:
   *     cycle's settled values; report/assert severities feed the run's severity policy, `Fatal` and
   *     `finish` end the run. A design-body (combinational-context) statement whose condition stays
   *     true fires on every such cycle — the clocked reading of what an event-driven simulator would
-  *     report per activation.
+  *     report per activation. The exception is a static assertion (a body assertion with a constant
+  *     guard and message), which states an elaboration-time contract and is therefore reported on
+  *     the first committed cycle only.
   *
   * Known minimum limitations: `**`/`clog2` on non-constants, multiplication/division with results
   * wider than 64 bits, bubble (`?`) values simulate as 0 (2-state), non-constant string message
@@ -180,12 +182,17 @@ private[sim] enum ActKind derives CanEqual:
   * nonzero (the full path condition — FSM site dispatch, branch guards, and a failing assertion
   * condition — folded into one 1-bit node). Message values read the fired cycle's settled sweep
   * (register operands are MOV-snapshot). `where` is the instance path for report/assert context.
+  *
+  * `once` marks a static assertion, whose guard and message are constant: it states an
+  * elaboration-time contract, so it is reported on the first committed cycle only (the simulation
+  * analog of the backends checking it at elaboration) rather than on every cycle.
   */
 private[sim] final case class SimAction(
     guard: Int,
     kind: ActKind,
     segs: Vector[ActSeg],
-    where: String
+    where: String,
+    once: Boolean = false
 )
 
 /** A running simulation instance: one state/signal array + a kernel over it. Values are addressed
@@ -265,6 +272,10 @@ final class Sim private[sim] (
           sb ++= render(bits)
     sb.result()
 
+  // static assertions state an elaboration-time contract, so a failing one is reported on the
+  // first committed cycle and never again
+  private var onceDone = false
+
   /** Executes the fired actions of the just-committed cycle in program order, reading the cycle's
     * settled values (combinational slots and register MOV snapshots survive the commit). A finish
     * or fatal stops the remaining actions of the cycle; a severity pause lets them complete first.
@@ -276,7 +287,7 @@ final class Sim private[sim] (
     var i = 0
     while i < actions.length && !terminal do
       val a = actions(i)
-      if sig(a.guard) != 0L then
+      if sig(a.guard) != 0L && !(a.once && onceDone) then
         a.kind match
           case ActKind.Output           => textSink(actText(a))
           case ActKind.Report(severity) =>
@@ -313,6 +324,7 @@ final class Sim private[sim] (
       end if
       i += 1
     end while
+    onceDone = true
     if !terminal then pausePend.foreach(sev => stopVar = Some(SimStop.SevPause(sev)))
     stopVar.nonEmpty
   end fireActions
@@ -1469,7 +1481,7 @@ private final class Builder(rawDB: DB):
           case TextOut.Op.Assert(_, severity) =>
             val body = if msgSegs.isEmpty then Vector(ActSeg.Lit("assertion failed")) else msgSegs
             (ActKind.Report(severity), body)
-        actions += SimAction(nl.snap(guard), kind, segs, where)
+        actions += SimAction(nl.snap(guard), kind, segs, where, once = t.isStaticAssert)
       end if
     end buildTextOut
 

@@ -1,5 +1,16 @@
 package dfhdl
-protected object hdl:
+
+// The DFHDL frontend namespace. Users never name it: everything in it is re-exported by the
+// package-level `export __hdl.*` below, so `import dfhdl.*` is the only spelling needed. It exists
+// as an object because `MetaDesign` and `Resource` re-export it as a unit, which a package cannot
+// provide.
+//
+// It has to be PUBLIC, and the name is the deterrent instead. While it was `protected`, some typer
+// paths selected a member through this object rather than through its package-level export
+// forwarder, and the resulting prefix is inaccessible from user code: `a.bits` assigned to a
+// `Bits[Int] <> VAL` reported `illegal access to protected object hdl in package dfhdl` at the
+// user's own line, naming an object no user code mentions (issue #468).
+object __hdl:
   class dsn extends scala.annotation.StaticAnnotation
   import core.IntP
   export core.DFBoolOrBit.Val.Ops.*
@@ -115,6 +126,6 @@ protected object hdl:
     try props.load(inputStream)
     finally inputStream.close()
     props.getProperty("version")
-end hdl
+end __hdl
 
-export hdl.*
+export __hdl.*

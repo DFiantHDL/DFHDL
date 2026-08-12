@@ -275,6 +275,15 @@ object DFType:
     )(using dfc: DFC): Option[Boolean] =
       import dfc.getSet
       widthRef(lhs).compare(widthRef(rhs), elimSymbolicMaxMin)(func)
+    // Provable width EQUALITY with design parameters kept opaque (see
+    // `IntParamRef.isProvablyEqualTo`), for elaboration-time rules about a design's own
+    // legality. `compareWidths` above resolves a parameter to its applied (during the design's
+    // own body: DEFAULT) value, so it must not back such a rule.
+    protected[core] def hasProvablyEqualWidthTo[RW <: IntP](rhs: DFTypeW[RW])(using
+        dfc: DFC
+    ): Boolean =
+      import dfc.getSet
+      widthRef(lhs).isProvablyEqualTo(widthRef(rhs))
     protected[core] def widthCodeString(using dfc: DFC): String =
       import dfc.getSet
       widthRef(lhs).refCodeString

@@ -40,6 +40,17 @@ extension (pb: ProcessBlock)(using MemberGetSet)
   // stages to decide between the `ToED` reset-branch path and declaration-init forms.
   def hasResolvedRstCfg: Boolean =
     pb.getOwnerDomain.resolvedRstAnnot.isDefined
+  // True when the process writes (any part of) a shared variable. A shared variable models a
+  // multi-ported memory, so it is written from as many processes as it has write ports, and a
+  // single-driver process construct (SystemVerilog `always_ff`) therefore cannot render such a
+  // process. Reads are unconstrained and do not count. The whole nesting is searched, since a
+  // write can sit inside a conditional or a loop within the process.
+  def writesSharedVar: Boolean =
+    pb.members(MemberView.Flattened).exists {
+      case DFNet.Assignment(toVal, _) =>
+        toVal.departialDcl.exists((dcl, _) => dcl.modifier.isShared)
+      case _ => false
+    }
 end extension
 
 // The declarations assigned by the given block members, ordered by first assignment.

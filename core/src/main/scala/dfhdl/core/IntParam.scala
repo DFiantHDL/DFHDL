@@ -239,6 +239,22 @@ object IntParam extends IntParamLP:
             case ir.ConstData.KnownConst(Some(i: BigInt)) => Some(i.toInt)
             case _                                        => None
     def toScalaIntUNSAFE: Int = toScalaIntOpt.get
+    // Diagnostic rendering of the parameter, the value-based sibling of
+    // `IntParamRef.refErrorString`: a named parameter is qualified relative to the error site's
+    // owner, an anonymous expression prints as the expression. Rendering through a reference is
+    // not an option for an expression built AT the error site, since a reference no member holds
+    // has no origin for the printer to resolve a relative name against.
+    def errorString: String =
+      lhs match
+        case int: Int            => int.toString
+        case const: DFConstInt32 =>
+          import dfc.getSet
+          import dfhdl.compiler.printing.{Printer, DefaultPrinter}
+          given printer: Printer = DefaultPrinter
+          val callOwner: ir.DFOwner | ir.DFMember.Empty = dfc.ownerOption match
+            case Some(owner) => owner.asIR
+            case None        => ir.DFMember.Empty
+          printer.csDFValRef(const.asIR, callOwner)
     def ref: ir.IntParamRef =
       lhs match
         case int: Int            => ir.IntParamRef(int)
@@ -264,6 +280,8 @@ object IntParam extends IntParamLP:
     infix def min[R <: IntP](rhs: IntParam[R]): IntParam[IntP.Min[L, R]] =
       import scala.runtime.RichInt
       calc(FuncOp.min, lhs, rhs)((x, y) => RichInt(x) min y)
+    def unary_- : IntParam[Int] =
+      calc(FuncOp.unary_-, lhs)(-_)
     def clog2: IntParam[IntP.CLog2[L]] =
       calc(FuncOp.clog2, lhs)(dfhdl.internals.clog2)
     def =~[R <: IntP](that: IntParam[R]): Boolean =

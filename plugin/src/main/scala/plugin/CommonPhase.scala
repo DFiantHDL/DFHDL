@@ -556,7 +556,7 @@ abstract class CommonPhase extends PluginPhase:
     outNBArgAnnotSym = requiredClass("dfhdl.core.Modifier.OUT.NB")
     contextFunctionSym = defn.FunctionSymbol(1, isContextual = true)
     genContainerParamSym = requiredMethod("dfhdl.core.r__For_Plugin.genContainerParam")
-    bTpe = requiredClassRef("dfhdl.hdl.B")
+    bTpe = requiredClassRef("dfhdl.__hdl.B")
     if (debugFilter(tree.source.path.toString))
       println(
         s"""===============================================================

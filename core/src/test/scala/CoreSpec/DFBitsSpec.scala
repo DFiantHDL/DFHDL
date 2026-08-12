@@ -141,8 +141,8 @@ class DFBitsSpec extends DFSpec:
       b8 := ?
       b8 := u8
       b8 := u8.bits
-      b8 := b3M.resize
-      b3M := b8.resize
+      b8 := b3M.extend
+      b3M := b8.truncate
       b8 := (h"1", 1, 0, b"11").toBits
       (b4M, b4L) := (h"1", 1, 0, b"11")
       (b3M, u5L) := (h"1", 1, 0, b"11")
@@ -154,7 +154,7 @@ class DFBitsSpec extends DFSpec:
     val v12 = Bits(twelve) <> VAR
     assertDSLErrorLog(
       """|The argument width (12) is different than the receiver width (8).
-         |Consider applying `.resize` to resolve this issue.""".stripMargin
+         |Consider `.truncate` to narrow it to the receiver width, or `.resize(8)` to state the width explicitly.""".stripMargin
     )(
       """b8 := h"123""""
     ) {
@@ -162,7 +162,7 @@ class DFBitsSpec extends DFSpec:
     }
     assertDSLErrorLog(
       """|The argument width (12) is different than the receiver width (8).
-         |Consider applying `.resize` to resolve this issue.""".stripMargin
+         |Consider `.truncate` to narrow it to the receiver width, or `.resize(8)` to state the width explicitly.""".stripMargin
     )(
       """val conv8: Bits[8] <> VAL = h"123""""
     ) {
@@ -374,19 +374,79 @@ class DFBitsSpec extends DFSpec:
     assertCompileError(
       """|Expected argument width 3 but found: 5
          |To Fix:
-         |Use `.resize` to match the width automatically.""".stripMargin
+         |Use `.truncate` to narrow the argument to the expected width.""".stripMargin
     )(
       """b8(u5)"""
     )
-    val o5 = b8(u5.resize)
+    val o5 = b8(u5.truncate)
     val u2 = UInt(2) <> VAR
     assertCompileError(
       """|Expected argument width 3 but found: 2
          |To Fix:
-         |Use `.resize` to match the width automatically.""".stripMargin
+         |Use `.extend` to widen the argument to the expected width.""".stripMargin
     )(
       """b8(u2)"""
     )
-    val o2 = b8(u2.resize)
+    val o2 = b8(u2.extend)
+  }
+  // A `Bit` value's `.bits` reaches an unbounded `Bits[Int] <> VAL` ascription (the accumulator
+  // form of the elaboration-time concatenation idiom) through the implicit conversion. The
+  // conversion used to select the frontend namespace object through a prefix inaccessible from
+  // user code, so this failed to COMPILE with `illegal access to protected object hdl in package
+  // dfhdl` (issue #468) — which is what this test pins, the code string below merely confirming
+  // the value that reaches the ascription.
+  test("Bit conversion into an unbounded Bits ascription") {
+    assertCodeString {
+      """|val bit = Bit <> VAR
+         |val acc = bit.toBits(1)
+         |""".stripMargin
+    } {
+      val bit = Bit <> VAR
+      val acc: Bits[Int] <> VAL = bit.bits
+    }
+  }
+  // `.extend` and `.truncate` are PERMISSIONS to adjust a value's width in one direction (see
+  // `DFDecimalSpec`). `Bits` assignment is exact in both directions, so either permission is
+  // load-bearing here, and either can fall short.
+  test("Width adjustment permissions") {
+    val b8 = Bits(8) <> VAR
+    val b4 = Bits(4) <> VAR
+    val u8x = UInt(8) <> VAR
+    val u4x = UInt(4) <> VAR
+    assertCodeString {
+      """|b4 := b8.resize(4)
+         |b8 := b4.eby(4)
+         |""".stripMargin
+    } {
+      b4 := b8.truncate
+      b8 := b4.extend
+    }
+    // a permission survives the conversion between `Bits` and an integer type: the conversion
+    // leaves the width it speaks about alone, so dropping it would report a width mismatch and
+    // then recommend the adjustment that is already written
+    assertCodeString {
+      """|b8 := u4x.bits.eby(4)
+         |b4 := u8x.bits.resize(4)
+         |""".stripMargin
+    } {
+      b8 := u4x.extend
+      b4 := u8x.truncate
+    }
+    assertRuntimeErrorLog(
+      """|The argument width (8) is different than the receiver width (4).
+         |Consider `.truncate` to narrow it to the receiver width, or `.resize(4)` to state the width explicitly.""".stripMargin
+    ) {
+      val c8 = Bits(8) <> VAR
+      val c4 = Bits(4) <> VAR
+      c4 := c8.extend
+    }
+    assertRuntimeErrorLog(
+      """|The argument width (4) is different than the receiver width (8).
+         |Consider `.extend` to widen it to the receiver width, or `.resize(8)` to state the width explicitly.""".stripMargin
+    ) {
+      val d8 = Bits(8) <> VAR
+      val d4 = Bits(4) <> VAR
+      d8 := d4.truncate
+    }
   }
 end DFBitsSpec

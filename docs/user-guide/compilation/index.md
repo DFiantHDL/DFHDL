@@ -9,9 +9,9 @@
 
 When [arithmetic operations][arithmetic-ops] involve wildcard `Int` values (Scala `Int` or DFHDL `Int` parameters), the wildcard `Int` value adapts to the bit-accurate value's sign and width. The value is then checked to ensure it fits. This check occurs at three levels, depending on when the value becomes known:
 
-1. **Scala compile-time**: literal Scala integers (e.g., `u8 + 1000`) have known values at compile time. The Scala compiler reports an error immediately if the wildcard `Int` value exceeds the bit-accurate value's range or has incompatible sign.
+1. **Scala compile-time**: literal Scala integers have known values, and therefore known minimum widths, at compile time. In `+`, `-` and `*` that minimum counts as an actual width when the other operand's width is also known at compile time, so the result is the wider of the two and a literal that does not fit widens the operation rather than failing (`u8 + 1000` is `UInt[10]`). The Scala compiler still reports an error where widening cannot express the result, namely a negative literal on the left of `-`, `/` or `%` with an unsigned operand, which those LHS-dominant operations cannot represent. Elsewhere the literal adapts, and the compiler reports a value that does not fit.
 
-2. **DFHDL elaboration-time**: non-literal Scala integers (e.g., `val x: Int = computeValue(); u8 + x`) and DFHDL `Int` constants whose values are resolved during elaboration. A DFHDL elaboration error (Scala runtime error) is generated if the value does not fit.
+2. **DFHDL elaboration-time**: non-literal Scala integers (e.g., `val x: Int = computeValue(); u8 + x`) and DFHDL `Int` constants whose values are resolved during elaboration. These have no statically known width, so they always adapt, as does any literal meeting a parametric width. A DFHDL elaboration error (Scala runtime error) is generated if the value does not fit.
 
 3. **Synthesis/simulation-time**: DFHDL `Int` parameters that are set externally or computed in complex generation loops may not be known until synthesis or simulation. Assertions must be added to verify these values at the target platform level. This is a planned future feature (TODO).
 

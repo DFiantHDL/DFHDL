@@ -874,7 +874,9 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
             textOut.msgArgs.view.map(a => s"$${${a.refCodeString}}")
           ).mkString.emptyOr(m => s"s\"$m\"")
       end match
-    textOut.op match
+    // a named text output is bound to a `val`, which is what carries its name into the backend
+    val csName = if (textOut.isAnonymous) "" else s"val ${textOut.getName} = "
+    val csOp = textOut.op match
       case TextOut.Op.Finish           => "finish()"
       case TextOut.Op.Report(severity) =>
         val csSeverity = if (severity == TextOut.Severity.Info) "" else s", Severity.${severity}"
@@ -885,7 +887,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
       case TextOut.Op.Print   => s"print($msg)"
       case TextOut.Op.Println => s"println($msg)"
       case TextOut.Op.Debug   => s"debug($msg)"
-    end match
+    s"$csName$csOp"
   end csTextOut
   // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
   def csCommentInline(comment: String): String =

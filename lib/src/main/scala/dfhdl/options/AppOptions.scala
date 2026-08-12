@@ -1,5 +1,5 @@
 package dfhdl.options
-import dfhdl.internals.{metalsIsRunning, scala_cliIsRunning}
+import dfhdl.internals.{metalsIsRunning, scala_cliIsRunning, isTTY}
 import dfhdl.core.Design
 import AppOptions.*
 import dfhdl.compiler.ir.ConfigN
@@ -31,7 +31,10 @@ object AppOptions:
 
   into opaque type ClearConsole <: Boolean = Boolean
   object ClearConsole:
-    given ClearConsole = if (metalsIsRunning || scala_cliIsRunning) true else false
+    // the console reset (`ESC c`) is only ever meaningful on an interactive terminal. Without the
+    // `isTTY` gate it also fires when the output is captured, where it clears nothing and instead
+    // corrupts the first line of the log with a stray escape sequence.
+    given ClearConsole = if (metalsIsRunning || scala_cliIsRunning) isTTY else false
     given Conversion[Boolean, ClearConsole] = identity
 
   into opaque type CacheEnable <: Boolean = Boolean

@@ -283,8 +283,8 @@ class DFDecimalSpec extends DFSpec:
       s8 := -127
       s8 := u6
       s8 := s6
-      u6 := u8.resize
-      s6 := s8.resize
+      u6 := u8.truncate
+      s6 := s8.truncate
       u6 := u6 ^ u6
       u6 := u6 & u6
       u6 := u6 | u6
@@ -753,37 +753,38 @@ class DFDecimalSpec extends DFSpec:
     val cmp11 = s8 < i42
     val cmp12 = i42 < s8
 
-    // Compile-time errors for literal value-fit checking
-    assertCompileError(
-      "The wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
-    )("""u8 + 1000""")
-    assertCompileError(
-      "Cannot apply a signed wildcard `Int` value to an unsigned bit-accurate value.\nUse an explicit conversion or `sd\"\"` interpolation."
-    )("""u8 + (-1)""")
-    assertCompileError(
-      "The wildcard `Int` value width (11) is larger than the bit-accurate value width (8)."
-    )("""s8 + 1000""")
-    // Non-commutative: literal wildcard LHS that doesn't fit
-    assertCompileError(
-      "The wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
-    )("""1000 - u8""")
-    assertCompileError(
-      "Cannot apply a signed wildcard `Int` value to an unsigned bit-accurate value.\nUse an explicit conversion or `sd\"\"` interpolation."
-    )("""(-1) - u8""")
-    // Unsigned wildcard adapting to signed bit-accurate value needs extra bit
-    assertCompileError(
-      "The wildcard `Int` value width (9) is larger than the bit-accurate value width (8)."
-    )("""255 + s8""")
-    assertCompileError(
-      "The wildcard `Int` value width (9) is larger than the bit-accurate value width (8)."
-    )("""s8 + 255""")
-    assertCompileError(
-      "The wildcard `Int` value width (9) is larger than the bit-accurate value width (8)."
-    )("""255 - s8""")
+    // === A Scala `Int` LITERAL never has to fit the other operand ===
+    // Its candidate builds a bit-accurate constant at the value's minimal width, so it
+    // takes part in the width and sign calculation like any bit-accurate operand: the
+    // wider of the two wins, and an unsigned operand meeting a signed one gains its sign
+    // bit. A literal therefore widens the result instead of being rejected.
+    //format: off
+    val w1 = u8 + 1000;   w1.verifyValOf[UInt[10]]
+    val w2 = u8 + (-1);   w2.verifyValOf[SInt[9]]
+    val w3 = s8 + 1000;   w3.verifyValOf[SInt[11]]
+    val w4 = 255 + s8;    w4.verifyValOf[SInt[9]]
+    val w5 = s8 + 255;    w5.verifyValOf[SInt[9]]
+    // Non-commutative with a literal LHS: both operands align at the common type, so the
+    // LHS-dominance rule these operations impose holds by construction
+    val w6 = 1000 - u8;   w6.verifyValOf[UInt[10]]
+    val w7 = 255 - s8;    w7.verifyValOf[SInt[9]]
+    val w8 = (-5) + u8;   w8.verifyValOf[SInt[9]]
+    //format: on
+    // ... but LHS-dominance still holds: a literal too wide to adapt IS the wider operand,
+    // while a negative literal meeting an unsigned operand is NOT (the RHS gains a sign
+    // bit), and widening the operation would silently rewrite its width
+    assertDSLErrorLog(
+      "Wildcard `Int` value is negative and cannot adapt to an unsigned bit-accurate value."
+    )("""(-1) - u8""") {
+      // the same mistake through a value whose width is not statically known: it adapts,
+      // and the adaptation is checked at elaboration
+      val negOne = -1
+      negOne - u8
+    }
 
     // Elaboration-time errors for non-literal value-fit checking
     assertDSLErrorLog(
-      "Wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
+      "The wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
     )(
       ""
     ) {
@@ -800,7 +801,7 @@ class DFDecimalSpec extends DFSpec:
     }
     // Unsigned wildcard adapting to signed bit-accurate value at elaboration time
     assertDSLErrorLog(
-      "Wildcard `Int` value width (9) is larger than the bit-accurate value width (8)."
+      "The wildcard `Int` value width (9) is larger than the bit-accurate value width (8)."
     )(
       ""
     ) {
@@ -852,7 +853,7 @@ class DFDecimalSpec extends DFSpec:
 
     // The wildcard parameter must fit the bit-accurate operand
     assertRuntimeErrorLog(
-      "Wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
+      "The wildcard `Int` value width (10) is larger than the bit-accurate value width (8)."
     ) {
       val bigVal: Int <> CONST = 1000
       u8 +^ bigVal
@@ -976,6 +977,34 @@ class DFDecimalSpec extends DFSpec:
       s9 := s8 + s8 + 1
     }
   }
+  // A width-1 unsigned result is a legal type but a width-1 SIGNED one is not, so the
+  // widening rule's target-vs-value width comparison must not build a signed type as a
+  // width carrier: every `UInt(1)` arithmetic result would fail `SInt`'s own width rule.
+  // See https://github.com/DFiantHDL/DFHDL/issues/476
+  test("Single-bit arithmetic") {
+    val u1 = UInt(1) <> VAR
+    val u1b = UInt(1) <> VAR
+    val u4 = UInt(4) <> VAR
+    assertCodeString {
+      """|u1 := u1 + u1b
+         |u1 := u1 - u1b
+         |u1 := u1 * u1b
+         |u1 := u1 + d"1'1"
+         |u4 := u1.eby(3) + u1b.eby(3)
+         |u1 := (u1 +^ u1b).resize(1)
+         |""".stripMargin
+    } {
+      u1 := u1 + u1b
+      u1 := u1 - u1b
+      u1 := u1 * u1b
+      // the wildcard `Int` fits a single bit and adapts to it
+      u1 := u1 + 1
+      // a wider target still widens the cone
+      u4 := u1 + u1b
+      // the carry form is 2 bits wide, so it is a legal signed-free construction too
+      u1 := (u1 +^ u1b).resize(1)
+    }
+  }
   test("Arithmetic target-context widening through sign conversion") {
     val u2 = UInt(2) <> VAR
     val s8 = SInt(8) <> VAR
@@ -1031,6 +1060,19 @@ class DFDecimalSpec extends DFSpec:
       // named sel: a user-pinned boundary, extended as a value
       val q = c.sel(u8 + u8, u8)
       u9 := q
+    }
+  }
+  test("Int literal widening feeds target-context widening") {
+    val u3 = UInt(3) <> VAR
+    val s16 = SInt(16) <> VAR
+    assertCodeString {
+      """|s16 := sd"16'180" - (sd"16'5" * u3.signed.eby(12))
+         |""".stripMargin
+    } {
+      // an `Int` literal too wide for the other operand widens the operation instead of
+      // being rejected (issue #469), and the whole anonymous cone then re-evaluates at the
+      // wider target, exactly like the Verilog line it translates (issue #119)
+      s16 := 180 - 5 * u3
     }
   }
   test("Arithmetic target-context widening through shifts and negation") {
@@ -1297,37 +1339,31 @@ class DFDecimalSpec extends DFSpec:
   }
 
   test("Error positions") {
+    // an `Int` literal widens the chain instead of having to fit it (see "Wildcard Int
+    // operands"), so the width conflict these report is the one at the ASSIGNMENT, whose
+    // message names both widths and the conversion that resolves them
     val cnt = Bits[8] <> VAR
     val err1 = compiletime.testing.typeCheckErrors("cnt := cnt + 10000").last
     val err2 = compiletime.testing.typeCheckErrors("cnt := cnt + (cnt + 10000)").last
     val err3 = compiletime.testing.typeCheckErrors("cnt := cnt + 10000 + cnt").last
     val err4 = compiletime.testing.typeCheckErrors("val x: Bits[8] <> VAL = cnt + 10000").last
-    assertEquals(
-      err1.message,
-      "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
-    )
+    val widthErr =
+      """|The argument width (14) is different than the receiver width (8).
+         |Consider `.truncate` to narrow it to the receiver width, or `.resize(8)` to state the width explicitly.""".stripMargin
+    assertEquals(err1.message, widthErr)
     assertEquals(err1.column, 7)
-    assertEquals(
-      err2.message,
-      "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
-    )
-    assertEquals(err2.column, 14)
-    assertEquals(
-      err3.message,
-      "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
-    )
+    assertEquals(err2.message, widthErr)
+    assertEquals(err2.column, 7)
+    assertEquals(err3.message, widthErr)
     assertEquals(err3.column, 7)
-    assertEquals(
-      err4.message,
-      "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
-    )
+    assertEquals(err4.message, widthErr)
     assertEquals(err4.column, 24)
   }
   test("Runtime error positions") {
     val cnt = Bits[8] <> VAR
     val arg = 10000
     val errMsg =
-      "Wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
+      "The wildcard `Int` value width (14) is larger than the bit-accurate value width (8)."
     assertRuntimeErrorLog(errMsg, 50, 59)(cnt := cnt + arg)
     assertRuntimeErrorLog(errMsg, 50, 66)(cnt := cnt + (cnt + arg))
     assertRuntimeErrorLog(errMsg, 50, 65)(cnt := cnt + arg + cnt)
@@ -1365,4 +1401,76 @@ class DFDecimalSpec extends DFSpec:
       c <> (if (sel) a else b)
     }
 
+  // `.extend` and `.truncate` are PERMISSIONS to adjust a value's width in one direction, taken up
+  // by whatever context decides that width. Where the permitted direction does not apply, the
+  // permission contributes nothing and the ordinary width rule decides and reports, exactly as it
+  // would for an untagged value.
+  test("Width adjustment permissions") {
+    val u8 = UInt(8) <> VAR
+    val u4 = UInt(4) <> VAR
+    val s8 = SInt(8) <> VAR
+    val s4 = SInt(4) <> VAR
+    val b8x = Bits(8) <> VAR
+    // a widening prints in the relative `.eby` form, a narrowing in the absolute one
+    assertCodeString {
+      """|u4 := u8.resize(4)
+         |u8 := u4.eby(4)
+         |s4 := s8.resize(4)
+         |""".stripMargin
+    } {
+      u4 := u8.truncate
+      u8 := u4.extend
+      s4 := s8.truncate
+    }
+    // the permission survives the conversion from `Bits`, where it is load-bearing: a numeric
+    // assignment extends on its own, so only the narrowing needs saying
+    assertCodeString {
+      """|u4 := b8x.uint.resize(4)
+         |""".stripMargin
+    } {
+      u4 := b8x.truncate
+    }
+    // an assignment names its target, so it already extends a narrower value: both permissions
+    // elaborate to exactly what the untagged assignment does
+    assertCodeString {
+      """|u8 := u4.eby(4)
+         |u8 := u4.eby(4)
+         |u8 := u4.eby(4)
+         |u8 := u8
+         |""".stripMargin
+    } {
+      u8 := u4
+      u8 := u4.extend
+      u8 := u4.truncate
+      u8 := u8.extend
+    }
+    assertRuntimeErrorLog(
+      "The applied RHS value width (8) is larger than the LHS variable width (4)."
+    ) {
+      val v8 = UInt(8) <> VAR
+      val v4 = UInt(4) <> VAR
+      v4 := v8.extend
+    }
+    assertRuntimeErrorLog(
+      "The applied RHS value width (8) is larger than the LHS variable width (4)."
+    ) {
+      val w8 = SInt(8) <> VAR
+      val w4 = SInt(4) <> VAR
+      w4 := w8.extend
+    }
+  }
+  // A comparison names no target, so nothing in `a < b` says which operand adapts. The permission
+  // says it, and the other operand's width is what it adapts to (the emitted forms are pinned in
+  // `PrintCodeStringSpec`). Two permissions in one comparison are a contradiction: each would be
+  // adapting to a width the other is still free to change.
+  test("Two width adjustment permissions in one comparison") {
+    assertRuntimeErrorLog(
+      """|Both operands of this operation carry a width adjustment permission.
+         |Only one operand may adapt, since the other supplies the width it adapts to.""".stripMargin
+    ) {
+      val v8 = UInt(8) <> VAR
+      val v4 = UInt(4) <> VAR
+      v8.truncate < v4.extend
+    }
+  }
 end DFDecimalSpec

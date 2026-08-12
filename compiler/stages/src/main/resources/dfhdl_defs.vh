@@ -72,18 +72,23 @@
 `define EBY_U(vec, by) {{(by){1'b0}}, vec}
 `define EBY_S_V95(vec, fromW, by) {{(by){vec[(fromW) - 1]}}, vec}
 `define EBY_S(vec, fromW, by) $signed(`EBY_S_V95(vec, fromW, by))
+// Signed ordering over two vectors of the SAME width: the sign bits decide when they differ,
+// and an unsigned comparison of the magnitudes when they agree. The sign bit is read by SHIFT
+// rather than by bit-select, so an operand may be any expression (a bit-select would require an
+// indexable primary, which a widened or arithmetic operand is not).
+`define IS_NEG(a, width) (((a) >> ((width)-1)))
 `define SIGNED_GREATER_THAN(a, b, width)  \
-    ((a[width-1] && !b[width-1]) ? 1'b0 : /* a is negative, b is positive */ \
-     (!a[width-1] && b[width-1]) ? 1'b1 : /* a is positive, b is negative */ \
-     (a > b))                          /* both are same sign */
+    ((`IS_NEG(a, width) && !`IS_NEG(b, width)) ? 1'b0 : /* a is negative, b is positive */ \
+     (!`IS_NEG(a, width) && `IS_NEG(b, width)) ? 1'b1 : /* a is positive, b is negative */ \
+     ((a) > (b)))                      /* both are same sign */
 `define SIGNED_LESS_THAN(a, b, width)  \
-    ((a[width-1] && !b[width-1]) ? 1'b1 : /* a is negative, b is positive */ \
-     (!a[width-1] && b[width-1]) ? 1'b0 : /* a is positive, b is negative */ \
-     (a < b))                          /* both are same sign */
+    ((`IS_NEG(a, width) && !`IS_NEG(b, width)) ? 1'b1 : /* a is negative, b is positive */ \
+     (!`IS_NEG(a, width) && `IS_NEG(b, width)) ? 1'b0 : /* a is positive, b is negative */ \
+     ((a) < (b)))                      /* both are same sign */
 `define SIGNED_GREATER_EQUAL(a, b, width) \
-     (`SIGNED_GREATER_THAN(a, b, width) || a != b)
- `define SIGNED_LESS_EQUAL(a, b, width)   \
-    (`SIGNED_LESS_THAN(a, b, width) || a == b)
+     (`SIGNED_GREATER_THAN(a, b, width) || ((a) == (b)))
+`define SIGNED_LESS_EQUAL(a, b, width)   \
+    (`SIGNED_LESS_THAN(a, b, width) || ((a) == (b)))
 `define SIGNED_SHIFT_RIGHT(data, shift, width) \
     ((data[width-1] == 1'b1) ? ((data >> shift) | ({width{1'b1}} << (width - shift))) : (data >> shift))
 function integer clog2;

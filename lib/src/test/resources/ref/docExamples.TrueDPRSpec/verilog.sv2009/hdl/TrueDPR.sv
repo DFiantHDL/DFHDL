@@ -20,12 +20,12 @@ module TrueDPR#(
   /* verilator lint_off MULTIDRIVEN */
   logic [DATA_WIDTH - 1:0] ram [0:(2 ** ADDR_WIDTH) - 1];
   /* verilator lint_on MULTIDRIVEN */
-  always_ff @(posedge a_clk)
+  always @(posedge a_clk)
   begin
     a_q <= ram[a_addr];
     if (a_we) ram[a_addr] <= a_data;
   end
-  always_ff @(posedge b_clk)
+  always @(posedge b_clk)
   begin
     b_q <= ram[b_addr];
     if (b_we) ram[b_addr] <= b_data;

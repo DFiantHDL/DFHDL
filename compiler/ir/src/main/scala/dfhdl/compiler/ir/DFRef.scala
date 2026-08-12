@@ -223,6 +223,15 @@ object IntParamRef:
             decision <- IntExprCalc.widthFitCompare(lVal, rVal)
           yield decision
     end widthFitGE
+    // Provable EQUALITY with design parameters kept opaque: `LEN + 1` matches `1 + LEN`, while
+    // `LEN` against a literal `8` stays unproven even when the parameter's applied (or default)
+    // value happens to be 8. This is the predicate for a rule about a DESIGN's own legality,
+    // which must hold for every applied parameter value; `isSimilarTo` resolves the applied
+    // expression instead and is for post-elaboration equivalence, where the instantiation is
+    // known. Note the resolving form is doubly wrong for an elaboration-time rule: while a
+    // design's own body elaborates, a parameter resolves to its DEFAULT.
+    def isProvablyEqualTo(that: IntParamRef)(using MemberGetSet): Boolean =
+      constDiffFrom(that).contains(0)
     // The constant difference `this - that` when all symbolic terms cancel (see `compare`);
     // `None` otherwise. Lets printers render a widening as a relative extension (`.eby(k)`,
     // `EBY_U`/`EBY_S`, VHDL `eby`) exactly when the width delta folds to a literal. Design

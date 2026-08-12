@@ -98,6 +98,11 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
     case ConstantType(BooleanConstant(cond)) => Some(cond)
     case _                                   => None
 
+  // The check's message alone, over operands that are not the `Int`s the check applies to. The
+  // caller has decided the check some other way and needs only the text it would have reported.
+  def messageExpr(argsTerm: List[Term]): Expr[String] =
+    lambdaTypeToTerm(argsTerm, msgTpe).asExprOf[String]
+
   def applyExpr(argsTerm: List[Term]): Expr[Unit] =
     def condExpr = lambdaTypeToTerm(argsTerm, condTpe)
       .asExprOf[Boolean]
@@ -138,6 +143,15 @@ trait Check1[
   type Warn[T <: Wide] = Check1.Check[Wide, T, Cond, Msg, Cond[T], Msg[T], true]
   type WarnNUB[T] = Check1.CheckNUB[Wide, T, Cond, Msg, true]
   inline def apply(arg: Wide): Unit = compiletime.summonInline[Check[Wide]]
+
+  /** The check's own message, for a caller that decided this check some other way because the
+    * operand is not the `Int` the check applies to (a parametric width, say).
+    *
+    * [[apply]] reports `Msg` itself when it can decide the check. Restating that text by hand next
+    * to such a caller is what this exists to prevent: a check has ONE message, and it is the
+    * check's. The operand renders through its `toString`.
+    */
+  inline def message(arg: Any): String = ${ Check1.messageMacro[Wide, Cond, Msg]('arg) }
 end Check1
 
 trait UBound[UB, T]:
@@ -151,6 +165,20 @@ object UBound extends UBoundLP:
     type Out = T
 
 object Check1:
+  final def messageMacro[
+      Wide,
+      Cond[T <: Wide] <: Boolean,
+      Msg[T <: Wide] <: String
+  ](arg: Expr[Any])(using Quotes, Type[Wide], Type[Cond], Type[Msg]): Expr[String] =
+    import quotes.reflect.*
+    new MacroClass[quotes.type](using quotes)(
+      TypeRepr.of[Cond],
+      TypeRepr.of[Msg],
+      TypeRepr.of[Nothing],
+      TypeRepr.of[Nothing],
+      false
+    ).messageExpr(List(arg.asTerm))
+
   trait CheckNUB[
       Wide,
       T,
@@ -293,9 +321,35 @@ trait Check2[
     Check2.CheckNUB[Wide1, Wide2, T1, T2, Cond, Msg, true]
   inline def apply(arg1: Wide1, arg2: Wide2): Unit =
     compiletime.summonInline[Check[Wide1, Wide2]]
+
+  /** The two-operand [[Check1.message]]. */
+  inline def message(arg1: Any, arg2: Any): String =
+    ${ Check2.messageMacro[Wide1, Wide2, Cond, Msg]('arg1, 'arg2) }
 end Check2
 
 object Check2:
+  final def messageMacro[
+      Wide1,
+      Wide2,
+      Cond[T1 <: Wide1, T2 <: Wide2] <: Boolean,
+      Msg[T1 <: Wide1, T2 <: Wide2] <: String
+  ](arg1: Expr[Any], arg2: Expr[Any])(using
+      Quotes,
+      Type[Wide1],
+      Type[Wide2],
+      Type[Cond],
+      Type[Msg]
+  ): Expr[String] =
+    import quotes.reflect.*
+    new MacroClass[quotes.type](using quotes)(
+      TypeRepr.of[Cond],
+      TypeRepr.of[Msg],
+      TypeRepr.of[Nothing],
+      TypeRepr.of[Nothing],
+      false
+    ).messageExpr(List(arg1.asTerm, arg2.asTerm))
+  end messageMacro
+
   trait CheckNUB[
       Wide1,
       Wide2,

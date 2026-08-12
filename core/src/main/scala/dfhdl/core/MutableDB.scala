@@ -100,6 +100,24 @@ class DesignContext:
     case _                                                           => false
   }
 
+  // The conditions this design's elaboration assumed but could not prove, in member order (the
+  // elaboration order of the operations that assumed them). The tag is the whole record, so this
+  // is a query and not a table; `AutoConstraint.materialize` consumes it at the end of the body,
+  // which is why a finished design has none.
+  def autoConstraintGuards: List[DFVal] =
+    members.view.collect {
+      case MemberEntry(irValue = dfVal: DFVal, ignore = false)
+          if dfVal.hasTagOf[dfhdl.compiler.ir.AutoConstraint] =>
+        dfVal
+    }.toList
+
+  // The pending constraint a VALUE's own width adaptation assumed, keyed by that value. A
+  // constraint states what the finished design relies on, and an anonymous operand can still be
+  // superseded after it made its assumption, so the assumption needs an owner to be dropped with.
+  // `AutoConstraint.raiseFor`/`retract` are the only users; a guard nothing supersedes is simply
+  // never looked up.
+  val autoConstraintOf = mutable.Map.empty[DFVal, DFVal]
+
   def setOriginRefs(member: DFMember): Unit =
     member.getRefs.foreach { r => originRefTable += r -> member }
 

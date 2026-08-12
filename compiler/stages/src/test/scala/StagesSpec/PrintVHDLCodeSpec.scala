@@ -372,6 +372,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant HALF_PERIOD : integer := (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
          |  signal cnt : unsigned(clog2(HALF_PERIOD) - 1 downto 0);
          |begin
+         |  constraint_0: assert (HALF_PERIOD - 1) >= 0
+         |    report "Design parameter violation found. Expected: (HALF_PERIOD - 1) >= 0" severity FAILURE;
          |  process (clk)
          |  begin
          |    if rising_edge(clk) then
@@ -1213,7 +1215,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1160:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1162:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -1274,7 +1276,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1160:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1162:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -3618,6 +3620,131 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  flat <= to_slv(vec);
          |  cnt <= resize(1d"0", LEN);
          |end WidthQuery_arch;
+         |""".stripMargin
+    )
+  }
+  // VHDL already has a concurrent assertion, and a static condition makes it an elaboration-time
+  // check; the static-assertion species simply keeps it out of the process sweep
+  test("static assertion") {
+    class StaticGuard(val W: Int <> CONST = 8) extends EDDesign:
+      val x = UInt(W) <> IN
+      val y = UInt(W) <> OUT
+      assert(W > 0, s"W must be positive, got $W")
+      assert(W <= 32, s"W must not exceed 32, got $W", Severity.Fatal)
+      y <> x
+    end StaticGuard
+    val top = StaticGuard().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity StaticGuard is
+         |generic (
+         |  W : integer := 8
+         |);
+         |port (
+         |  x : in unsigned(W - 1 downto 0);
+         |  y : out unsigned(W - 1 downto 0)
+         |);
+         |end StaticGuard;
+         |
+         |architecture StaticGuard_arch of StaticGuard is
+         |begin
+         |  assert W > 0
+         |    report "W must be positive, got " & to_string(W) & "" severity ERROR;
+         |  assert W <= 32
+         |    report "W must not exceed 32, got " & to_string(W) & "" severity FAILURE;
+         |  y <= x;
+         |end StaticGuard_arch;
+         |""".stripMargin
+    )
+  }
+  // VHDL labels a statement directly, concurrent and sequential alike
+  test("named assertion") {
+    class NamedGuard(val W: Int <> CONST = 8) extends EDDesign:
+      val i    = UInt(W) <> IN
+      val o    = UInt(W) <> OUT
+      val posW = assert(W > 0, s"W must be positive, got $W")
+      process(all):
+        val inRange = assert(i < d"8'200".resize(W), s"i too large: $i")
+      o <> i
+    end NamedGuard
+    val top = NamedGuard().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity NamedGuard is
+         |generic (
+         |  W : integer := 8
+         |);
+         |port (
+         |  i : in unsigned(W - 1 downto 0);
+         |  o : out unsigned(W - 1 downto 0)
+         |);
+         |end NamedGuard;
+         |
+         |architecture NamedGuard_arch of NamedGuard is
+         |begin
+         |  posW: assert W > 0
+         |    report "W must be positive, got " & to_string(W) & "" severity ERROR;
+         |  process (all)
+         |  begin
+         |    inRange: assert i < resize(8d"200", W)
+         |      report "i too large: " & to_string(i) & "" severity ERROR;
+         |  end process;
+         |  o <= i;
+         |end NamedGuard_arch;
+         |""".stripMargin
+    )
+  }
+  test("auto constraint") {
+    // an assumption the width algebra could not prove reaches the backend as the design's own
+    // elaboration-time contract, over the generic the generated entity leaves overridable
+    class Fits(val W: Int <> CONST = 8, val V: Int <> CONST = 8) extends RTDesign:
+      val x = UInt(W)  <> IN
+      val y = UInt(V)  <> IN
+      val z = UInt(16) <> OUT
+      val n = UInt(8)  <> OUT
+      z := x
+      n := y
+    end Fits
+    val top = Fits().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity Fits is
+         |generic (
+         |  W : integer := 8;
+         |  V : integer := 8
+         |);
+         |port (
+         |  x : in unsigned(W - 1 downto 0);
+         |  y : in unsigned(V - 1 downto 0);
+         |  z : out unsigned(15 downto 0);
+         |  n : out unsigned(7 downto 0)
+         |);
+         |end Fits;
+         |
+         |architecture Fits_arch of Fits is
+         |begin
+         |  constraint_0: assert 16 >= W
+         |    report "Design parameter violation found. Expected: 16 >= W" severity FAILURE;
+         |  constraint_1: assert 8 >= V
+         |    report "Design parameter violation found. Expected: 8 >= V" severity FAILURE;
+         |  z <= resize(x, 16);
+         |  n <= resize(y, 8);
+         |end Fits_arch;
          |""".stripMargin
     )
   }

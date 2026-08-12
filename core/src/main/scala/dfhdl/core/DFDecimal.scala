@@ -115,6 +115,161 @@ object DFDecimal:
             " bits width (LHS) and a value of " + RW +
             " bits width (RHS).\nAn explicit conversion must be applied."
         ]
+
+    /** The elaboration half of [[`LW == RW`]], for a width pair at least one of whose sides is not
+      * statically known (a design parameter): decided on the two width REFS, and a pair that cannot
+      * be PROVEN equal is rejected. The operation requires equal widths, so accepting the
+      * undecidable case emits an operation whose operands the backend silently extends, which is
+      * the one outcome bit-accuracy exists to prevent (issue #474). Reports the same text as the
+      * compile-time half, with each width rendered relative to the error site. Must be invoked
+      * wherever [[`LW == RW`]] is, on the branch where a width is unknown.
+      *
+      * The proof keeps design parameters OPAQUE (see `hasProvablyEqualWidthTo`): a design's own
+      * legality must hold for every applied parameter value, and the resolving comparison would
+      * anyway read a parameter's DEFAULT while its own body elaborates, so `Bits(LEN) ^ Bits[8]`
+      * with `LEN` defaulting to 8 would pass and then emit the mismatch at an instantiation site
+      * applying `LEN = 16`.
+      */
+    protected[core] def equalWidthCheck[LW <: IntP, RW <: IntP](
+        lhs: DFTypeW[LW],
+        rhs: DFTypeW[RW]
+    )(using DFC): Unit =
+      if (!lhs.hasProvablyEqualWidthTo(rhs))
+        throw new IllegalArgumentException(
+          `LW == RW`.message(lhs.widthErrorString, rhs.widthErrorString)
+        )
+
+    /** [[equalWidthCheck]] over width EXPRESSIONS rather than over the types carrying them, for a
+      * caller that holds the widths but no `DFTypeW`. Same rule, same message, and the same OPAQUE
+      * treatment of design parameters (see `IntParamRef.isProvablyEqualTo`); decided on the values
+      * rather than through references to them, since a reference minted here would belong to no
+      * member (see `IntParam.errorString`).
+      */
+    protected[core] def equalWidthCheck(lhs: IntParam[Int], rhs: IntParam[Int])(using
+        dfc: DFC
+    ): Unit =
+      import dfc.getSet
+      val provablyEqual = (lhs.toScalaIntOpt, rhs.toScalaIntOpt) match
+        case (Some(lhsInt), Some(rhsInt)) => lhsInt == rhsInt
+        case _                            =>
+          ir.IntExprCalc.constDiff(
+            lhs.toDFConst.asIR,
+            rhs.toDFConst.asIR,
+            resolveDesignParams = false
+          ).contains(0)
+      if (!provablyEqual)
+        throw new IllegalArgumentException(`LW == RW`.message(lhs.errorString, rhs.errorString))
+    end equalWidthCheck
+
+    /** The elaboration half of [[`LW >= RW`]], for a width pair at least one of whose sides is not
+      * statically known (a design parameter): decided on the two width expressions, and a pair that
+      * is neither provably fitting nor provably violated is ACCEPTED, with the fit stated as a
+      * constraint of the design (see [[AutoConstraint]]). Rejecting it instead would demand a
+      * `.resize` of code that is very probably correct, while accepting it silently would let a
+      * parameter override truncate. The generated assertion is the third answer: the operation
+      * stands, and every instantiation checks the width relation it needs.
+      *
+      * A provably violated pair stays a hard error, as it is at every other width check site: an
+      * assertion that always fails helps no one. It reports the text of the compile-time half, with
+      * each width rendered relative to the error site. The generated assertion does NOT: what it
+      * states is the design's interface rather than this operation, so its own condition is what it
+      * reports. Must be invoked wherever [[`LW >= RW`]] is, on the branch where a width is unknown.
+      */
+    // The message is the CHECK's, over the width expressions rather than over the `Int`s the
+    // check itself takes: one rule has one message, whichever of its three halves reports it
+    // (the compile-time reduction, the check's own runtime test, or this symbolic decision).
+    // Answers the constraint the undecidable arm raised, for a caller that has a value to tie it
+    // to (see `AutoConstraint.raiseFor`); the other two answers have nothing to record.
+    private def fitCheck(lhs: IntParam[Int], rhs: IntParam[Int])(violation: => String)(using
+        DFC
+    ): Option[AutoConstraint.Guard] =
+      AutoConstraint.widthFitGE(lhs, rhs) match
+        case Some(true)  => None // fits for every parameter assignment
+        case Some(false) => throw new IllegalArgumentException(violation)
+        case None        => Some(AutoConstraint.ge(lhs, rhs))
+
+    protected[core] def widthFitCheck(
+        lhs: IntParam[Int],
+        rhs: IntParam[Int]
+    )(using DFC): Unit =
+      fitCheck(lhs, rhs)(`LW >= RW`.message(lhs.errorString, rhs.errorString))
+        .foreach(AutoConstraint.raise)
+
+    /** [[widthFitCheck]] for the fit a WILDCARD `Int` needs to adapt to a bit-accurate value: the
+      * elaboration half of [[`BaW >= WcW`]], invoked where that check's arm cannot decide. Answers
+      * the constraint it needs rather than raising it, since the value that will make the
+      * assumption does not exist until the adaptation itself is built.
+      */
+    protected[core] def wildcardFitCheck(
+        baWidth: IntParam[Int],
+        wcWidth: IntParam[Int]
+    )(using DFC): Option[AutoConstraint.Guard] =
+      fitCheck(baWidth, wcWidth)(`BaW >= WcW`.message(baWidth.errorString, wcWidth.errorString))
+
+    /** [[wildcardFitCheck]] for a wildcard `Int` whose own VALUE does not resolve, which is every
+      * manifestation of an overridable design parameter.
+      *
+      * A wildcard adapts, so something has to bound what it adapts to, and the sibling above bounds
+      * its minimum WIDTH. A parameter has none: neither its width nor its sign is known, for this
+      * elaboration or any other, so there is nothing to compare and the bound has to be on the
+      * VALUE itself. It is the same relation all the same, stated as the width that value needs,
+      * which is `clog2(v + 1)` bits for an unsigned `v` and `clog2(max(v + 1, -v)) + 1` for a
+      * signed one, both exactly and for every `v`. Through `clog2` rather than as
+      * `v <= 2 ** width - 1` deliberately: a 64-bit target would overflow the 32-bit integer
+      * arithmetic the generated HDL evaluates the contract in.
+      *
+      * The sign is unknown too, and no width makes an unsigned type hold a negative value, so an
+      * unsigned target requires that as well, in the same constraint: the two halves are what one
+      * adaptation needs, not two things to satisfy separately. Answers the constraint rather than
+      * raising it, for the same reason the sibling does.
+      *
+      * Answers none in two cases. A target that is itself a wildcard `Int` adapts to nothing and so
+      * assumes nothing. And a wildcard the design BODY cannot read is not something the body can
+      * state a contract over: a `for` iterator has no value at elaboration for the same reason a
+      * parameter has none, but unlike a parameter it has none in the finished design either, and a
+      * guard reading it would be a block-local read from the body (`DB.blockScopeCheck`).
+      */
+    protected[core] def wildcardValueFitCheck(
+        wildcard: DFValAny,
+        baType: ir.DFDecimal
+    )(using dfc: DFC): Option[AutoConstraint.Guard] =
+      import dfc.getSet
+      // a named value belongs to the body only when a design or domain owns it directly (an
+      // owner-less global is readable from everywhere); an anonymous one is its operands'
+      def bodyReadable(dfVal: ir.DFVal): Boolean =
+        dfVal match
+          case dcl: ir.DFVal.Dcl if dcl.isIterator => false
+          case _ if dfVal.isAnonymous              =>
+            dfVal.getRefs.forall(_.get match
+              case operand: ir.DFVal => bodyReadable(operand)
+              case _                 => true)
+          case _ =>
+            dfVal.ownerRef.get match
+              case _: ir.DFDomainOwner  => true
+              case _: ir.DFMember.Empty => true
+              case _                    => false
+      Option.when(!baType.isDFInt32 && wildcard.asIR.isConst && bodyReadable(wildcard.asIR)) {
+        import IntParam.{+, max, clog2, unary_-}
+        val value = IntParam.forced[Int](wildcard.asIR.asConstOf[DFInt32])
+        val zero = IntParam.forced[Int](0)
+        val one = IntParam.forced[Int](1)
+        val neededWidth =
+          if (baType.signed) ((value + one).max(-value)).clog2 + one
+          else (value + one).clog2
+        // The fit is a relation between two WIDTHS, so it discharges like any other, and often
+        // does: a value derived from the very parameter the target's width is derived from needs
+        // exactly that width. The non-negativity is a relation over a VALUE, where the discharge's
+        // premise that both sides are widths (`>= 1` on the valid domain) is precisely what must
+        // not be assumed, and it is undecidable here by construction: a wildcard whose value folds
+        // took the sibling's path instead.
+        val fitOpt = wildcardFitCheck(baType.magnitudeWidthParamRef.get, neededWidth)
+        if (baType.signed) fitOpt
+        else
+          val nonNeg = AutoConstraint.ge(value, zero)
+          Some(fitOpt.fold(nonNeg)(AutoConstraint.and(nonNeg, _)))
+      }.flatten
+    end wildcardValueFitCheck
+
     object `LS >= RS`
         extends Check2[
           Boolean,
@@ -133,6 +288,18 @@ object DFDecimal:
           [BaS <: Boolean, WcS <: Boolean] =>> "Cannot apply a signed wildcard `Int` value to " +
             ITE[BaS, "a signed", "an unsigned"] +
             " bit-accurate value.\nUse an explicit conversion or `sd\"\"` interpolation."
+        ]
+    // A negative `Int` on the LHS of an LHS-dominant operation (`-`, `/`, `%`) with an
+    // unsigned operand: the result would have to be signed AND wider, which those
+    // operations cannot express. Carries the message the elaboration-time check throws for
+    // the same mistake made through a value whose width is not statically known.
+    object `WcNonNegForBa`
+        extends Check2[
+          Boolean,
+          Boolean,
+          [BaS <: Boolean, WcS <: Boolean] =>> BaS || ![WcS],
+          [BaS <: Boolean,
+          WcS <: Boolean] =>> "Wildcard `Int` value is negative and cannot adapt to an unsigned bit-accurate value."
         ]
     object `BaW >= WcW`
         extends Check2[
@@ -189,6 +356,7 @@ object DFDecimal:
           if (leftSigned != rightSigned) rightWidth + 1 else rightWidth
         )
     end given
+
     trait CompareCheck[
         ValS <: Boolean,
         ValW <: IntP,
@@ -295,18 +463,40 @@ object DFDecimal:
       )(using dfc: DFC): Unit =
         if (!isWildcardL.value)
           import dfc.getSet
-          import DFXInt.Val.getActualSignedWidthOpt
+          import DFXInt.Val.{getActualSignedWidthOpt, getActualWidthParam}
           (lhs.getActualSignedWidthOpt, rhs.getActualSignedWidthOpt) match
             case (Some(lhsSigned, lhsWidthIntOpt), Some(rhsSigned, rhsWidthIntOpt)) =>
               checkS(lhsSigned, rhsSigned)
-              (lhsWidthIntOpt, rhsWidthIntOpt) match
-                case (Some(lhsWidth), Some(rhsWidth)) =>
-                  val rhsSignedWidth: Int =
-                    if (lhsSigned && !rhsSigned) rhsWidth + 1
-                    else rhsWidth
-                  checkW(lhsWidth, rhsSignedWidth)
-                case _ =>
+              // A width-adjustment permission on the RHS covers the width relation, and only
+              // that: signedness is not a permission's to give, so it is checked above either
+              // way. The operation adapts the RHS to the LHS's type, which is exactly what
+              // `.truncate` gives permission for, so it has to be read here rather than left as
+              // advice the check then refuses.
+              val permitted =
+                AutoConstraint.permitsWidthAdjust(rhs, lhs.dfType.asIR.magnitudeWidthParamRef.get)
+              if (!permitted)
+                (lhsWidthIntOpt, rhsWidthIntOpt) match
+                  case (Some(lhsWidth), Some(rhsWidth)) =>
+                    val rhsSignedWidth: Int =
+                      if (lhsSigned && !rhsSigned) rhsWidth + 1
+                      else rhsWidth
+                    checkW(lhsWidth, rhsSignedWidth)
+                  case _ =>
+                    // a width is parametric, so the same relation is decided on the width
+                    // EXPRESSIONS instead, and stated as a design constraint when undecidable
+                    import IntParam.+
+                    val lhsWidthParam = lhs.getActualWidthParam(lhsWidthIntOpt)
+                    val rhsWidthParam = rhs.getActualWidthParam(rhsWidthIntOpt)
+                    val rhsSignedWidthParam =
+                      if (lhsSigned && !rhsSigned) rhsWidthParam + 1
+                      else rhsWidthParam
+                    widthFitCheck(lhsWidthParam, rhsSignedWidthParam)
+            // the RHS is a wildcard `Int` whose value does not resolve (the LHS cannot be one
+            // here), so it adapts to the LHS type with no width of its own to compare
+            case (Some(_, _), None) =>
+              wildcardValueFitCheck(rhs, lhs.dfType.asIR).foreach(AutoConstraint.raise)
             case _ =>
+          end match
       end apply
     end given
 
@@ -989,10 +1179,7 @@ object DFXInt:
         def apply(arg: R)(using dfc: DFC): Out =
           import DFBits.Val.Ops.uint
           val dfVal = ic(arg)(using dfc.anonymize)
-          val ret =
-            if (dfVal.hasTag[ir.ResizeTag])
-              dfVal.uint.tag(ir.ResizeTag)
-            else dfVal.uint
+          val ret = AutoConstraint.carryWidthAdjustPermission(dfVal, dfVal.uint)
           ret.asValTP[DFXInt[OutS, OutW, OutN], OutP]
       end fromDFBitsValCandidate
     end CandidateLP
@@ -1064,6 +1251,17 @@ object DFXInt:
     end Candidate
 
     extension [S <: Boolean, W <: IntP, N <: NativeType](dfVal: DFValOf[DFXInt[S, W, N]])
+      // The width behind `getActualSignedWidthOpt`, as the (possibly parametric) expression it
+      // is. A resolved width is taken as given, so a wildcard `Int`'s value-derived width stays
+      // the width the check saw rather than becoming the type's.
+      private[core] def getActualWidthParam(widthIntOpt: Option[Int])(using
+          dfc: DFC
+      ): IntParam[Int] =
+        widthIntOpt match
+          case Some(width) => IntParam.forced[Int](width)
+          case None        =>
+            // an integer type (fraction 0): the magnitude ref is the total-width ref
+            dfVal.dfType.asIR.magnitudeWidthParamRef.get
       private[core] def getActualSignedWidthOpt(using
           dfc: DFC
       ): Option[(signed: Boolean, widthIntOpt: Option[Int])] =
@@ -1105,7 +1303,11 @@ object DFXInt:
           val rhs = ic(value)
           rhs.getActualSignedWidthOpt match
             case Some(rhsSigned, rhsWidthOpt) =>
-              if (!rhs.hasTag[ir.ResizeTag] || dfType.signed != rhsSigned)
+              // an assignment names its target, so it already extends a narrower value: the
+              // permission that does work here is the one covering a WIDER one
+              val permitted =
+                AutoConstraint.permitsWidthAdjust(rhs, dfType.asIR.magnitudeWidthParamRef.get)
+              if (!permitted || dfType.signed != rhsSigned)
                 (dfType.widthIntOpt, rhsWidthOpt) match
                   case (Some(dfTypeW), Some(rhsW)) => check(dfType.signed, dfTypeW, rhsSigned, rhsW)
                   case _                           =>
@@ -1118,26 +1320,18 @@ object DFXInt:
                       // ref and may be parametric
                       val dfTypeWidthRef = dfType.asIR.magnitudeWidthParamRef
                       val rhsWidthRef = rhs.dfType.asIR.magnitudeWidthParamRef
-                      def dfTypeWidthStr = dfTypeWidthRef.refErrorString
-                      def rhsWidthStr = rhsWidthRef.refErrorString
                       // width-fit acceptance rule: LHS >= RHS after symbolic elimination (a
                       // mixed max/min drops its symbolic operands, so `16 >= WIDTH max 16`
                       // decides as `16 >= 16`), falling back to a non-negativity proof over
                       // the validity domain (all widths are >= 1), so `2 * W >= W` accepts
                       // for a free parameter `W`; a residual undecidable comparison (e.g.
-                      // `16 >= W`) is conservatively rejected below
-                      dfTypeWidthRef.widthFitGE(rhsWidthRef) match
-                        case Some(false) =>
-                          throw new IllegalArgumentException(
-                            s"""The applied RHS value width ($rhsWidthStr) is larger than the LHS variable width ($dfTypeWidthStr)."""
-                          )
-                        case None =>
-                          throw new IllegalArgumentException(
-                            s"""The applied RHS value width ($rhsWidthStr) is undefined compared to the LHS variable width ($dfTypeWidthStr)."""
-                          )
-                        case _ => // ok
+                      // `16 >= W`) becomes a constraint of the design
+                      widthFitCheck(dfTypeWidthRef.get, rhsWidthRef.get)
                     end if
+            // the RHS is a wildcard `Int` whose value does not resolve, so it adapts to the
+            // target with no width of its own to compare
             case None =>
+              wildcardValueFitCheck(rhs, dfType.asIR).foreach(AutoConstraint.raise)
           end match
           // a widened cone lands exactly at the target type with the original func's
           // (anonymous) meta, so a named-val binding must be applied here, like the
@@ -1183,16 +1377,61 @@ object DFXInt:
       ): Compare[DFXInt[LS, LW, LN], R, Op, C] with
         type OutP = RP
         def conv(dfType: DFXInt[LS, LW, LN], arg: R)(using dfc: DFC): Out =
+          convArg(dfType, ic(arg)(using dfc.anonymize))
+
+        /** The argument converted to the receiver's type, with the checks the comparison makes of
+          * it.
+          *
+          * Split out of [[conv]] so that [[apply]] can materialize the argument ONCE and still
+          * decide which operand adapts: a width-adjustment permission sits on a VALUE, while `conv`
+          * is handed only the receiver's type.
+          */
+        def convArg(dfType: DFXInt[LS, LW, LN], dfValArg: ic.Out)(using dfc: DFC): Out =
           given dfcAnon: DFC = dfc.anonymize
-          val dfValArg = ic(arg)
+          import dfc.getSet
           dfValArg.getActualSignedWidthOpt match
             case Some(rhsSigned, rhsWidthOpt) =>
-              (dfType.widthIntOpt, rhsWidthOpt) match
-                case (Some(dfTypeW), Some(rhsW)) => check(dfType.signed, dfTypeW, rhsSigned, rhsW)
-                case _                           =>
+              // A permission on the argument covers the width relation, and only that:
+              // signedness is not a permission's to give, so it is still checked, by running
+              // the same check over widths that already agree.
+              val permitted = AutoConstraint.permitsWidthAdjust(
+                dfValArg,
+                dfType.asIR.magnitudeWidthParamRef.get
+              )
+              if (permitted)
+                dfType.widthIntOpt.foreach(w => check(dfType.signed, w, rhsSigned, w))
+              else
+                (dfType.widthIntOpt, rhsWidthOpt) match
+                  case (Some(dfTypeW), Some(rhsW)) =>
+                    check(dfType.signed, dfTypeW, rhsSigned, rhsW)
+                  case _ =>
+                    // A width is parametric, and what the comparison requires depends on the
+                    // argument, exactly as the compile-time half decides it. A wildcard `Int`
+                    // ADAPTS to the receiver, so it states the fit it needs; two bit-accurate
+                    // operands are held to EQUAL widths, and a pair that cannot be proven equal
+                    // is rejected, as its resolved counterpart is.
+                    import DFXInt.Val.getActualWidthParam
+                    val argIsWildcard = dfValArg.dfType.asIR.isDFInt32 ||
+                      CarryPromote.hasImplicitlyFromIntTag(dfValArg.asIR)
+                    val dfTypeWidth = dfType.asIR.magnitudeWidthParamRef.get
+                    val argWidth = dfValArg.getActualWidthParam(rhsWidthOpt)
+                    if (argIsWildcard)
+                      import IntParam.+
+                      // an unsigned wildcard gains the sign bit it needs under a signed receiver
+                      val effectiveWidth =
+                        if (dfType.signed.value && !rhsSigned) argWidth + 1
+                        else argWidth
+                      wildcardFitCheck(dfTypeWidth, effectiveWidth).foreach(AutoConstraint.raise)
+                    else equalWidthCheck(dfTypeWidth, argWidth)
+                    end if
+              end if
+            // the argument is a wildcard `Int` whose value does not resolve, so it adapts to the
+            // receiver with no width of its own to compare
             case None =>
+              wildcardValueFitCheck(dfValArg, dfType.asIR).foreach(AutoConstraint.raise)
+          end match
           DFXInt.Val.Ops.toDFXIntOf(dfValArg)(dfType).asValTP[DFXInt[LS, LW, LN], RP]
-        end conv
+        end convArg
         // Check Verilog-semantics mismatch for comparisons: same trigger as
         // `/`, `%` -- a narrow non-carry chain mixed with an implicit Int on
         // either side widens to 32-bit in Verilog but not in DFHDL.
@@ -1201,18 +1440,53 @@ object DFXInt:
             opv: ValueOf[Op],
             cv: ValueOf[C]
         ): DFValTP[DFBool, P | RP] = trydf:
-          val dfValArg = conv(dfVal.dfType, arg)(using dfc.anonymize)
+          // the operands are built anonymously, but the comparison itself is NOT: it takes the
+          // enclosing context, which is what names it after the binding it feeds
+          val anonDFC = dfc.anonymize
           import dfc.getSet
+          // A comparison names no target, so nothing about `a < b` says which operand adapts: the
+          // permission does, and the other operand's width is what it adapts to. That is why
+          // `a > b.extend` and `b.extend < a` are the same thing, and why two permissions in one
+          // comparison are a contradiction rather than a stronger request.
+          val argVal = ic(arg)(using anonDFC)
+          if (
+            AutoConstraint.hasWidthAdjustPermission(dfVal) &&
+            AutoConstraint.hasWidthAdjustPermission(argVal)
+          )
+            throw new IllegalArgumentException(
+              """|Both operands of this operation carry a width adjustment permission.
+                 |Only one operand may adapt, since the other supplies the width it adapts to.""".stripMargin
+            )
+          // a wildcard `Int` argument has no width of its own for the receiver to adapt to, so it
+          // stays the operand that adapts
+          val argIsWildcard = argVal.dfType.asIR.isDFInt32 ||
+            CarryPromote.hasImplicitlyFromIntTag(argVal.asIR)
+          val receiverAdapts = !argIsWildcard &&
+            AutoConstraint.permitsWidthAdjust(
+              dfVal,
+              argVal.dfType.asIR.magnitudeWidthParamRef.get(using anonDFC)
+            )(using anonDFC)
+          val (lhsVal, dfValArg) =
+            if (receiverAdapts)
+              // the sign relation is still the comparison's to check, over widths that now agree
+              argVal.getActualSignedWidthOpt.foreach { (argSigned, _) =>
+                argVal.widthIntOpt.foreach(w => check(dfVal.dfType.signed, w, argSigned, w))
+              }
+              val adapted = DFXInt.Val.Ops.toDFXIntOf(dfVal)(
+                argVal.dfType.asInstanceOf[DFXInt[LS, Int, LN]]
+              )(using anonDFC)
+              (adapted.asValTP[DFXInt[LS, LW, LN], P], argVal.asValTP[DFXInt[LS, LW, LN], RP])
+            else (dfVal, convArg(dfVal.dfType, argVal)(using anonDFC))
           val op = opv.value
           op match
             case FuncOp.=== | FuncOp.=!= | FuncOp.< | FuncOp.> | FuncOp.<= | FuncOp.>= =>
-              if CarryPromote.shouldWarnVerilogSemantics(dfVal.asIR, dfValArg.asIR)
+              if CarryPromote.shouldWarnVerilogSemantics(lhsVal.asIR, dfValArg.asIR)
               then
                 dfc.logEvent(
                   DFWarning(op.toString, CarryPromote.verilogSemanticsWarnMsg)
                 )
             case _ =>
-          func(dfVal, dfValArg)
+          func(lhsVal, dfValArg)
         end apply
       end DFXIntCompare
     end Compare
@@ -1310,7 +1584,7 @@ object DFXInt:
           def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
             (lhs.widthIntOpt, rhs.widthIntOpt) match
               case (Some(lw), Some(rw)) => check(lw, rw)
-              case _                    =>
+              case _                    => equalWidthCheck(lhs.dfType, rhs.dfType)
             DFVal.Func(lhs.dfType, op.value, List(lhs, rhs))
           }
       end evOpLogicUInt
@@ -1398,8 +1672,20 @@ object DFXInt:
       end extension
       extension [S <: Boolean, W <: IntP, N <: NativeType, P](lhs: DFValTP[DFXInt[S, W, N], P])
         @targetName("resizeDFXIntAuto")
+        @deprecated(
+          "Permits both widening and truncation, so it does not say which was meant. Use `.extend` or `.truncate` for the direction you intend, or `.resize(width)` to state the width.",
+          "0.23.0"
+        )
         def resize(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
           lhs.tag(ir.ResizeTag).asValTP[DFXInt[S, Int, N], P]
+        // permission to adjust the width in ONE direction, taken up by the context that
+        // decides the width; in the other direction it contributes nothing (see `ir.ExtendTag`)
+        @targetName("extendDFXInt")
+        def extend(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
+          lhs.tag(ir.ExtendTag).asValTP[DFXInt[S, Int, N], P]
+        @targetName("truncateDFXInt")
+        def truncate(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
+          lhs.tag(ir.TruncateTag).asValTP[DFXInt[S, Int, N], P]
         @targetName("resizeDFXInt")
         def resize[RW <: IntP](
             updatedWidth: IntParam[RW]
@@ -1437,10 +1723,35 @@ object DFXInt:
 
       // Check that a wildcard `Int` value fits in the bit-accurate value's type.
       // Produces an elaboration error if it doesn't.
+      // Whether a wildcard `Int` value adapts to the bit-accurate type without truncation,
+      // i.e. the condition behind `checkWildcardFit`. A LITERAL that fits adapts exactly as
+      // it always has, keeping the IR of every previously-legal design unchanged; only one
+      // that does not fit widens the result instead of being rejected (the arithmetic
+      // givens). An unresolvable width answers `true`, leaving the decision to the adapting
+      // path's own check.
+      private def wildcardFits(
+          wildcard: DFValOf[DFInt32],
+          bitAccurateType: DFTypeAny
+      )(using dfc: DFC): Boolean =
+        val baType = bitAccurateType.asIR.asInstanceOf[ir.DFDecimal]
+        import dfc.getSet
+        import DFXInt.Val.getActualSignedWidthOpt
+        wildcard.getActualSignedWidthOpt match
+          case Some(wcSigned, wcWidthIntOpt) =>
+            if (!baType.signed && wcSigned) false
+            else
+              (baType.widthIntOpt, wcWidthIntOpt) match
+                case (Some(baWidth), Some(wcWidth)) =>
+                  val effectiveWidth = if (baType.signed && !wcSigned) wcWidth + 1 else wcWidth
+                  effectiveWidth <= baWidth
+                case _ => true
+          case _ => true
+      end wildcardFits
+
       private def checkWildcardFit(
           wildcard: DFValOf[DFInt32],
           bitAccurateType: DFTypeAny
-      )(using dfc: DFC): Unit =
+      )(using dfc: DFC): Option[AutoConstraint.Guard] =
         val baType = bitAccurateType.asIR.asInstanceOf[ir.DFDecimal]
         import dfc.getSet
         import DFXInt.Val.getActualSignedWidthOpt
@@ -1450,19 +1761,51 @@ object DFXInt:
               throw new IllegalArgumentException(
                 s"Wildcard `Int` value is negative and cannot adapt to an unsigned bit-accurate value."
               )
-            (baType.widthIntOpt, wcWidthIntOpt) match
-              case (Some(baWidth), Some(wcWidth)) =>
-                // Unsigned wildcard adapting to signed bit-accurate value needs an extra bit
-                val effectiveWidth =
-                  if (baType.signed && !wcSigned) wcWidth + 1 else wcWidth
-                if (effectiveWidth > baWidth)
-                  throw new IllegalArgumentException(
-                    s"Wildcard `Int` value width ($effectiveWidth) is larger than the bit-accurate value width ($baWidth)."
+            wcWidthIntOpt.flatMap { wcWidth =>
+              // Unsigned wildcard adapting to signed bit-accurate value needs an extra bit
+              val effectiveWidth =
+                if (baType.signed && !wcSigned) wcWidth + 1 else wcWidth
+              baType.widthIntOpt match
+                case Some(baWidth) =>
+                  if (effectiveWidth > baWidth)
+                    throw new IllegalArgumentException(
+                      `BaW >= WcW`.message(baWidth, effectiveWidth)
+                    )
+                  None
+                case None =>
+                  // the bit-accurate width is parametric, so the fit the adaptation relies on is
+                  // stated as a constraint of the design (an integer type: fraction 0, so the
+                  // magnitude ref is the total-width ref)
+                  wildcardFitCheck(
+                    baType.magnitudeWidthParamRef.get,
+                    IntParam.forced[Int](effectiveWidth)
                   )
-              case _ =>
-          case _ =>
+              end match
+            }
+          // neither the wildcard's width nor its sign resolves, so the bound it must meet is on
+          // its VALUE instead
+          case _ => wildcardValueFitCheck(wildcard, baType)
         end match
       end checkWildcardFit
+
+      /** A wildcard `Int` operand adapted to a bit-accurate type: the conversion, with the fit it
+        * needs checked, and, where that fit is undecidable and becomes a constraint of the design,
+        * the constraint tied to the adapted value ([[AutoConstraint.raiseFor]]).
+        *
+        * The type is the OTHER operand's, which nothing in the expression itself says is the width
+        * the wildcard should take: a wider target context replaces it, and the adaptation and its
+        * assumption are then both superseded ([[CarryPromote.widenedOpt]]).
+        */
+      private[core] def adaptWildcard[RS <: Boolean, RW <: IntP, RN <: NativeType](
+          wildcard: DFValAny,
+          dfType: DFXInt[RS, RW, RN]
+      )(using dfc: DFC): DFValOf[DFXInt[RS, RW, RN]] =
+        val pending = checkWildcardFit(wildcard.asValOf[DFInt32], dfType)
+        val adapted =
+          wildcard.asValOf[DFXInt[Boolean, Int, NativeType]].toDFXIntOf(dfType)
+        pending.foreach(AutoConstraint.raiseFor(_, adapted.asIR))
+        adapted
+      end adaptWildcard
 
       private def arithOp[
           OS <: Boolean,
@@ -1526,48 +1869,39 @@ object DFXInt:
           RS <: Boolean,
           RW <: IntP,
           RN <: NativeType,
-          RP,
-          LWUB <: Int,
-          RWUB <: Int
+          RP
       ](using
           icL: Candidate.Aux[L, LS, LW, LN, LP],
           icR: Candidate.Aux[R, RS, RW, RN, RP],
           op: ValueOf[Op],
           isWildcardL: ValueOf[LN],
           isWildcardR: ValueOf[RN],
-          // Type-level wildcard detection: when exactly one operand is a wildcard
-          // (Int32 NativeType), adapt to the bit-accurate value's sign and width.
-          // When both are wildcards, use LS || RS and Max (both-wildcard = DFInt32-like).
-          resultSign: Id[ITE[LN && ![RN], RS, ITE[RN && ![LN], LS, ITE[LN && RN, LS, LS || RS]]]],
-          resultWidth: Id[ITE[LN && ![RN], RW, ITE[
-            RN && ![LN],
+          // An ADAPTING wildcard: a wildcard `Int` operand (Int32 NativeType) that takes the
+          // bit-accurate operand's sign and width, its own value fit-checked at elaboration.
+          // A wildcard adapts unless BOTH widths are statically known, which happens exactly
+          // when it is a Scala `Int` literal (whose candidate builds a bit-accurate constant
+          // at the value's minimal width) meeting a literal-width operand. There it is not
+          // adapted but participates in the width calculation like any bit-accurate operand,
+          // so a literal wider than the other operand widens the result instead of being
+          // rejected. A parametric width keeps adapting: the widths of a design must not
+          // depend on an applied parameter value, and the relation is undecidable anyway.
+          adaptL: Id[LN && ![RN] && ![IntP.IsConstInt2[LW, RW]]],
+          adaptR: Id[RN && ![LN] && ![IntP.IsConstInt2[LW, RW]]],
+          // the same predicate as a value, so the elaboration below branches exactly as the
+          // types above do (a RUNTIME `Int` is statically width-unknown, and its candidate
+          // builds a bit-accurate constant, so it must adapt like a parameter)
+          knownWidths: ValueOf[IntP.IsConstInt2[LW, RW]]
+      )(using
+          // Both wildcards keep the LHS type (DFInt32-like `Int` arithmetic).
+          resultSign: Id[
+            ITE[adaptL.Out, RS, ITE[adaptR.Out, LS, ITE[LN && RN, LS, LS || RS]]]
+          ],
+          resultWidth: Id[ITE[adaptL.Out, RW, ITE[
+            adaptR.Out,
             LW,
             ITE[LN && RN, LW, IntP.ArithMaxWidth[LS, LW, RS, RW]]
           ]]],
-          resultNative: Id[ITE[LN && ![RN], RN, LN]],
-          // Compile-time wildcard fit: when one operand is a literal wildcard,
-          // verify its sign and width fit in the bit-accurate value's type.
-          // the UBound outputs are bound to plain type parameters rather than read off the
-          // instances: `IsConst` answers `false` for a path-dependent type just as it does for an
-          // unreduced match type, which would collapse these widths (see `IntP.IsConstInt2`)
-          ubLW: UBound.Aux[Int, LW, LWUB],
-          ubRW: UBound.Aux[Int, RW, RWUB],
-          checkWS: `BaS >= WcS`.Check[
-            ITE[RN && ![LN], LS, ITE[LN && ![RN], RS, LS]],
-            ITE[RN && ![LN], RS, ITE[LN && ![RN], LS, LS]]
-          ],
-          checkWW: `BaW >= WcW`.Check[
-            ITE[RN && ![LN], LWUB, ITE[LN && ![RN], RWUB, LWUB]],
-            ITE[
-              RN && ![LN],
-              ITE[LS && ![RS], IntP.Inc[RWUB], RWUB],
-              ITE[
-                LN && ![RN],
-                ITE[RS && ![LS], IntP.Inc[LWUB], LWUB],
-                LWUB
-              ]
-            ]
-          ]
+          resultNative: Id[ITE[LN && ![RN], RN, LN]]
       ): ExactOp2Aux[Op, DFC, DFValAny, L, R, DFValTP[
         DFXInt[resultSign.Out, resultWidth.Out, resultNative.Out],
         LP | RP
@@ -1579,18 +1913,30 @@ object DFXInt:
             val lhsVal = icL(lhs)(using dfcAnon)
             val rhsVal = icR(rhs)(using dfcAnon)
             import IntParam.{+, max}
-            val lhsIsWildcard = isWildcardL.value
-            val rhsIsWildcard = isWildcardR.value
+            // A Scala `Int` LITERAL facing a BIT-ACCURATE operand is not treated as a
+            // wildcard: the candidate has already built it as a bit-accurate constant at its
+            // value's minimal width, so it takes the ordinary path below (sign alignment and
+            // the wider of the two widths), exactly like a written `d"W'V"` constant. Facing
+            // another wildcard it stays an `Int`, so `Int` arithmetic (a parameter and a
+            // literal, say) never collapses to the literal's own width. This mirrors the
+            // `adaptL`/`adaptR` type-level conditions above.
+            val lhsIsWildcard =
+              isWildcardL.value &&
+                (isWildcardR.value || !knownWidths.value ||
+                  wildcardFits(lhsVal.asValOf[DFInt32], rhsVal.dfType))
+            val rhsIsWildcard =
+              isWildcardR.value &&
+                (isWildcardL.value || !knownWidths.value ||
+                  wildcardFits(rhsVal.asValOf[DFInt32], lhsVal.dfType))
             val retVal =
               if (lhsIsWildcard && !rhsIsWildcard)
                 // LHS is wildcard: adapt to RHS type, keeping the written operand order
-                checkWildcardFit(lhsVal.asValOf[DFInt32], rhsVal.dfType)
-                val lhsFix = lhsVal.toDFXIntOf(rhsVal.dfType)(using dfcAnon)
+                val lhsFix = adaptWildcard(lhsVal, rhsVal.dfType)(using dfcAnon)
                 DFVal.Func(rhsVal.dfType, op.value, List(lhsFix, rhsVal))
               else if (rhsIsWildcard) // LHS may be wildcard or concrete
                 // RHS is wildcard: adapt to LHS type
-                checkWildcardFit(rhsVal.asValOf[DFInt32], lhsVal.dfType)
-                arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal)
+                val rhsFix = adaptWildcard(rhsVal, lhsVal.dfType)(using dfcAnon)
+                arithOp(lhsVal.dfType, op.value, lhsVal, rhsFix)
               else
                 // Both concrete: use max width, max signed
                 val lhsSFix =
@@ -1632,9 +1978,7 @@ object DFXInt:
           RS <: Boolean,
           RW <: IntP,
           RN <: NativeType,
-          RP,
-          LWUB <: Int,
-          RWUB <: Int
+          RP
       ](using
           icL: Candidate.Aux[L, LS, LW, LN, LP],
           icR: Candidate.Aux[R, RS, RW, RN, RP],
@@ -1643,29 +1987,31 @@ object DFXInt:
           isWildcardR: ValueOf[RN]
       )(using
           check: ArithCheck[LS, LW, LN, RS, RW, RN],
-          // Wildcard LHS adapts to RHS type; otherwise LHS-dominant
-          resultSign: Id[ITE[LN && ![RN], RS, LS]],
-          resultWidth: Id[ITE[LN && ![RN], RW, LW]],
-          resultNative: Id[ITE[LN && ![RN], RN, LN]],
-          // Compile-time wildcard fit: when LHS is a literal wildcard,
-          // verify its sign and width fit in the RHS (bit-accurate value) type.
-          // the UBound outputs are bound to plain type parameters rather than read off the
-          // instances: `IsConst` answers `false` for a path-dependent type just as it does for an
-          // unreduced match type, which would collapse these widths (see `IntP.IsConstInt2`)
-          ubLW: UBound.Aux[Int, LW, LWUB],
-          ubRW: UBound.Aux[Int, RW, RWUB],
-          checkWS: `BaS >= WcS`.Check[
-            ITE[LN && ![RN], RS, LS],
-            ITE[LN && ![RN], LS, LS]
+          // A wildcard LHS takes the RHS's type (see the commutative given for the adapting
+          // vs. literal wildcard distinction); a LITERAL LHS instead adopts the common type
+          // (the RHS's sign, the wider of the two widths), so the LHS-dominance rule these
+          // operations impose is satisfied by construction: an `Int` literal never narrows
+          // the result, and never has to fit within the RHS's own width. Anything else is
+          // LHS-dominant, and `check` enforces the rule.
+          adaptL: Id[LN && ![RN] && ![IntP.IsConstInt2[LW, RW]]],
+          litL: Id[LN && ![RN] && IntP.IsConstInt2[LW, RW]],
+          // see the commutative given: the type-level predicate as a value
+          knownWidths: ValueOf[IntP.IsConstInt2[LW, RW]]
+      )(using
+          // These operations stay LHS-dominant, so a LITERAL LHS must still hold the RHS. A
+          // literal too WIDE to adapt satisfies that by definition (it is then the wider
+          // operand), but a NEGATIVE one meeting an unsigned operand does not: the result
+          // would have to be signed AND wider, so widening here would silently rewrite the
+          // operation's width.
+          checkLitS: `WcNonNegForBa`.Check[
+            ITE[litL.Out, RS, true],
+            ITE[litL.Out, LS, false]
           ],
-          checkWW: `BaW >= WcW`.Check[
-            ITE[LN && ![RN], RWUB, LWUB],
-            ITE[
-              LN && ![RN],
-              ITE[RS && ![LS], IntP.Inc[LWUB], LWUB],
-              LWUB
-            ]
-          ]
+          resultSign: Id[ITE[adaptL.Out, RS, ITE[litL.Out, LS || RS, LS]]],
+          resultWidth: Id[
+            ITE[adaptL.Out, RW, ITE[litL.Out, IntP.ArithMaxWidth[LS, LW, RS, RW], LW]]
+          ],
+          resultNative: Id[ITE[LN && ![RN], RN, LN]]
       ): ExactOp2Aux[Op, DFC, DFValAny, L, R, DFValTP[
         DFXInt[resultSign.Out, resultWidth.Out, resultNative.Out],
         LP | RP
@@ -1676,17 +2022,57 @@ object DFXInt:
             val dfcAnon = dfc.anonymize
             val lhsVal = icL(lhs)(using dfcAnon)
             val rhsVal = icR(rhs)(using dfcAnon)
-            val lhsIsWildcard = isWildcardL.value
-            val rhsIsWildcard = isWildcardR.value
+            import IntParam.max
+            // see the commutative given: a literal wildcard facing a bit-accurate operand is
+            // just a bit-accurate constant, and facing another wildcard it stays an `Int`
+            val lhsIsWildcard =
+              isWildcardL.value &&
+                (isWildcardR.value || !knownWidths.value ||
+                  wildcardFits(lhsVal.asValOf[DFInt32], rhsVal.dfType))
+            val rhsIsWildcard =
+              isWildcardR.value &&
+                (isWildcardL.value || !knownWidths.value ||
+                  wildcardFits(rhsVal.asValOf[DFInt32], lhsVal.dfType))
             if (lhsIsWildcard && !rhsIsWildcard)
-              // LHS is wildcard, RHS is concrete: adapt LHS to RHS type, keep operand order
-              checkWildcardFit(lhsVal.asValOf[DFInt32], rhsVal.dfType)
-              val lhsAdj = lhsVal.toDFXIntOf(rhsVal.dfType)(using dfcAnon)
+              // LHS is an adapting wildcard, RHS is concrete: adapt LHS to RHS type, keep
+              // operand order
+              val lhsAdj = adaptWildcard(lhsVal, rhsVal.dfType)(using dfcAnon)
               DFVal.Func(rhsVal.dfType, op.value, List(lhsAdj, rhsVal)).asInstanceOf[Out]
+            else if (isWildcardL.value && !rhsIsWildcard)
+              // LHS is a literal wildcard: both operands align at the common type, so the
+              // literal keeps its own width when it is the wider one and adopts the RHS's
+              // otherwise. The LHS-dominance rule holds by construction, so `check` (which
+              // would demand the RHS fit the literal's own width) does not apply.
+              // the sign fix comes first, so an unsigned operand meeting a signed one
+              // contributes the sign bit it gains to the common width
+              val lhsSFix =
+                if (!lhsVal.dfType.signed && rhsVal.dfType.signed)
+                  lhsVal.asValOf[DFUInt[Int]].signed(using dfcAnon).asValOf[DFSInt[Int]]
+                else lhsVal.asValOf[DFSInt[Int]]
+              val rhsSFix =
+                if (!rhsVal.dfType.signed && lhsVal.dfType.signed)
+                  rhsVal.asValOf[DFUInt[Int]].signed(using dfcAnon).asValOf[DFSInt[Int]]
+                else rhsVal.asValOf[DFSInt[Int]]
+              val commonType = DFXInt(
+                lhsSFix.dfType.signed,
+                lhsSFix.widthIntParam.max(rhsSFix.widthIntParam),
+                BitAccurate
+              )
+              val lhsFix = lhsSFix.toDFXIntOf(commonType)(using dfcAnon)
+              val rhsFix = rhsSFix.toDFXIntOf(commonType)(using dfcAnon)
+              arithOp(commonType, op.value, lhsFix, rhsFix).asInstanceOf[Out]
             else
-              // Both concrete, both wildcards, or only RHS is wildcard: LHS-dominant
+              // Both concrete, both wildcards, or only RHS is wildcard: LHS-dominant. These
+              // operations convert the RHS to the LHS's type, so the fit that conversion needs
+              // is `check`'s to decide, all three ways: proven, proven violated (an error, at
+              // compile time over resolved widths and at elaboration over parametric ones), and
+              // undecided, which states the fit as a constraint of the design like every other
+              // adaptation does. `-` used to reject the undecided answer outright, which
+              // answered "cannot tell" with "no" while `/` and `%`, LHS-dominant in exactly the
+              // same way, stated it.
               check(lhsVal, rhsVal)
               arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal).asInstanceOf[Out]
+            end if
           }(using dfc, CTName(op.value.toString))
       end evOpNonCommutativeArithDFXInt
 
@@ -1926,7 +2312,12 @@ object DFUInt:
         Int,
         [UBW <: Int, RW <: Int] =>> UBW == RW,
         [UBW <: Int, RW <: Int] =>> "Expected argument width " + UBW + " but found: " + RW +
-          "\nTo Fix:\nUse `.resize` to match the width automatically."
+          "\nTo Fix:\n" +
+          ITE[
+            RW > UBW,
+            "Use `.truncate` to narrow the argument to the expected width.",
+            "Use `.extend` to widen the argument to the expected width."
+          ]
       ]
 
   object Val:
@@ -1989,7 +2380,7 @@ object DFUInt:
               // TODO: in the future, it's worth considering adding assertions
               if (argValIR.dfType != ir.DFInt32)
                 unsignedCheck(argVal.dfType.signed)
-                if (argValIR.hasTagOf[ir.ResizeTag])
+                if (AutoConstraint.permitsWidthAdjust(argVal, ub.clog2))
                   argVal.resize(ub.clog2).asIR
                 else
                   (ub.toScalaIntOpt, argVal.widthIntOpt) match

@@ -174,6 +174,8 @@ object DFHDLCommands {
   val verilogDialects = List("verilog.v95", "verilog.v2001", "verilog.sv2005")
   // Skip tests that are known to fail because of the tool
   val skip = Set(("iverilog", "verilog.sv2005"), ("vivado", "vhdl.v2008"))
+  // Self-checking designs simulated against every installed tool and dialect
+  val simDesigns = List("dfhdl.AES.CipherSim", "util.SignedCmpSim")
 
   val testApps = Command.command("testApps") { state =>
     var newState = Command.process("clearSandbox", state, _ => ())
@@ -202,13 +204,21 @@ object DFHDLCommands {
       allTools.filter(tool => helpStr.linesIterator.exists(line => line.contains(tool) && line.contains("Found version")))
     }
     //TODO: fix caching issues
-    for (tool <- vhdlTools if existingTools.contains(tool); dialect <- vhdlDialects if !skip.contains((tool, dialect))) {
-      val arguments = s" dfhdl.AES.CipherSim simulate -b $dialect -t $tool --Werror-tool"
+    for (
+      design <- simDesigns;
+      tool <- vhdlTools if existingTools.contains(tool);
+      dialect <- vhdlDialects if !skip.contains((tool, dialect))
+    ) {
+      val arguments = s" $design simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }
-    for (tool <- verilogTools if existingTools.contains(tool); dialect <- verilogDialects if !skip.contains((tool, dialect))) {
-      val arguments = s" dfhdl.AES.CipherSim simulate -b $dialect -t $tool --Werror-tool"
+    for (
+      design <- simDesigns;
+      tool <- verilogTools if existingTools.contains(tool);
+      dialect <- verilogDialects if !skip.contains((tool, dialect))
+    ) {
+      val arguments = s" $design simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }

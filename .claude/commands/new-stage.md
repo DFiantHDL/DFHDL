@@ -1322,7 +1322,7 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     patch list when the Add's members reference the replaced instance — ref-table effects apply
     in list order, so the Add's references then resolve to the replacement.
 19. **Name shadowing inside MetaDesign bodies** — `MetaDesign` extends `Design`, whose
-    `export dfhdl.hdl.*` brings frontend names (`DFVal`, `StepBlock`, …) into the *class* scope,
+    `export dfhdl.__hdl.*` brings frontend names (`DFVal`, `StepBlock`, …) into the *class* scope,
     shadowing the file-level `import dfhdl.compiler.ir.*` wildcard for overlapping names. Inside
     a MetaDesign body, add `import dfhdl.compiler.ir` at the file top and qualify IR types as
     `ir.DFVal`, `ir.StepBlock`, etc., importing only the core names actually needed (e.g.

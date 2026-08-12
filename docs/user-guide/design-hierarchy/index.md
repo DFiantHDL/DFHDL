@@ -429,7 +429,10 @@ class InitReg(
 `default_nettype none
 `timescale 1ns/1ps
 
-module InitReg#(parameter logic [7:0] INIT = 8'h00)(
+module InitReg#(
+    parameter logic [7:0] INIT = 8'h00,
+    localparam int LEN = $bits(INIT)
+)(
   input  wire logic             clk,
   input  wire logic             rst,
   /* data input */
@@ -438,8 +441,6 @@ module InitReg#(parameter logic [7:0] INIT = 8'h00)(
   output      logic [LEN - 1:0] dout
 );
   `include "dfhdl_defs.svh"
-  /* the register length, derived from the initialization parameter */
-  localparam int LEN = $bits(INIT);
   always_ff @(posedge clk)
   begin
     if (rst == 1'b1) dout <= INIT;
@@ -490,7 +491,7 @@ Points worth noting in this pattern:
 
 - Declaring `LEN` as a separate design parameter next to `INIT` is not possible in DFHDL, and it is also not needed: the width of a `Bits[Int] <> CONST` parameter travels with the applied argument itself, so `LEN` always agrees with `INIT` by construction. Two separate parameters would have to be kept consistent manually at every instantiation, a mismatch the derived form rules out entirely.
 - The width of `INIT` is set by the APPLIED argument (here the default `h"00"`, so 8). In the generated code that width is fixed in the module/entity declaration, while the VALUE of `INIT` remains overridable at that width. Applying an argument of a different width elaborates a design with the corresponding widths.
-- `val LEN = INIT.length` is a named constant, so the generated code declares it by name (a Verilog `localparam`, a VHDL `generic`) and references it wherever it is used. The query itself is spelled natively, `$bits(INIT)` in SystemVerilog and `INIT'length` in VHDL, so the generated code keeps the `INIT`-to-`LEN` relation instead of a baked number (dialects without a width query, such as Verilog-2001, inline the width value instead).
+- `val LEN = INIT.length` is a named constant, so the generated code declares it by name and references it wherever it is used. Because the ports name it, it is declared alongside the parameters (a SystemVerilog `localparam` in the parameter port list, a VHDL `generic`) rather than in the module body or architecture, which the port declarations precede. The query itself is spelled natively, `$bits(INIT)` in SystemVerilog and `INIT'length` in VHDL, so the generated code keeps the `INIT`-to-`LEN` relation instead of a baked number (dialects without a width query, such as Verilog-2001, inline the width value instead).
 - The same recipe serves any derived parameter, for example a `clog2`-computed address width: declare the primary parameters, and compute the derived constants in the body. See also the [width derivation idiom][width-length-ops] (`UInt.until(DEPTH).width`).
 
 #### Design Parameter Access Rules

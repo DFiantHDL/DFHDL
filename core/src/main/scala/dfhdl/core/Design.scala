@@ -94,6 +94,14 @@ trait Design extends Container, HasClsMeta, HasClsArgs:
   final protected def __clsGetParam[V <: DFValAny](bodyClass: Class[?], idx: Int): V =
     dfc.mutableDB.DesignContext.current.clsParams((bodyClass, idx)).asInstanceOf[V]
 
+  // The design's body has run and every member it built is in its context, so this is where the
+  // conditions the body assumed but could not prove become assertions of its contract. It has to
+  // precede the owner exit, which ends the design context and sweeps its unread anonymous values:
+  // until an assertion reads a clone of it, a pending constraint's guard is exactly one of those.
+  private def exitDesignOwner(): Unit =
+    AutoConstraint.materialize()(using dfc)
+    dfc.exitOwner()
+
   private var hasStartedLate: Boolean = false
   final override def onCreateStartLate: Unit =
     hasStartedLate = true
@@ -121,7 +129,7 @@ trait Design extends Container, HasClsMeta, HasClsArgs:
       else if (ctx.clsLoadKey.nonEmpty && !bodyParams) ctx.clsLoadKey
       else DesignLoadKey.designClsKeyWith(__clsScalaArgs)
     val joinedCanonical = keyOpt.exists(gate.joinCanonicalOf)
-    dfc.exitOwner()
+    exitDesignOwner()
     Design.Inst(endedDesign, paramEntries)
     if (!joinedCanonical)
       keyOpt.foreach(
@@ -197,7 +205,7 @@ trait Design extends Container, HasClsMeta, HasClsArgs:
     if (hasStartedLate)
       dfc.exitLate()
     else
-      dfc.exitOwner()
+      exitDesignOwner()
     import dfc.getSet
     // At the end of the top-level instance we check for warnings and errors
     if (containedOwner.asIR.isTop && thisOwner.isEmpty)

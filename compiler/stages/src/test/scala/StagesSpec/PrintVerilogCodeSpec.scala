@@ -584,6 +584,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  /* Half-count of the toggle for 50% duty cycle */
          |  localparam int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
          |  logic [$clog2(HALF_PERIOD) - 1:0] cnt;
+         |  initial begin : constraint_0
+         |    assert ((HALF_PERIOD - 1) >= 0)
+         |    else $fatal(1, "Design parameter violation found. Expected: (HALF_PERIOD - 1) >= 0");
+         |  end
          |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) begin
@@ -1123,7 +1127,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    assert (param == "hello2")
          |    else $error("I am the one %s who knocks", param);
          |    assert (param8)
-         |    else $fatal(
+         |    else $fatal(1, 
          |      "I\\am\n",
          |      "the \"one\"(!)\n",
          |      "%s\n", param,
@@ -1137,7 +1141,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", param10.name());
          |    $info(
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1093:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1208,7 +1212,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", MyEnum_to_string(param10));
          |    $display(
          |      "INFO: Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1093:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -3183,7 +3187,9 @@ class PrintVerilogCodeSpec extends StageSpec:
     )
   }
   // a `:==` write to a shared variable (the multi-port RAM idiom) renders as a plain non-blocking
-  // `<=` inside the clocked process, the portable RAM-inference template form (issue #437)
+  // `<=` inside the clocked process, the portable RAM-inference template form (issue #437). The
+  // process itself is a plain `always` and not an `always_ff`, since the latter guarantees a
+  // single driver for what it writes (issue #473)
   test("shared variable (RAM) writes are non-blocking") {
     class SimpleRAM extends EDDesign:
       val clk  = Bit          <> IN
@@ -3213,7 +3219,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  /* verilator lint_off MULTIDRIVEN */
          |  logic [7:0] ram [0:15];
          |  /* verilator lint_on MULTIDRIVEN */
-         |  always_ff @(posedge clk)
+         |  always @(posedge clk)
          |  begin
          |    if (we) ram[addr] <= din;
          |    else dout <= ram[addr];
@@ -3374,9 +3380,12 @@ class PrintVerilogCodeSpec extends StageSpec:
     )
   }
 
-  // width/length queries print natively in SystemVerilog: `$bits` for the total width,
-  // `$size` for a vector's element count; a named query binding becomes a localparam
-  // over the query, keeping the value-to-width relation in the generated code
+  // width/length queries over a CONSTANT argument print natively in SystemVerilog (`$bits` for
+  // the total width, `$size` for a vector's element count), so a named query binding keeps the
+  // value-to-width relation in the generated code. Over a NON-constant argument (a port), the
+  // width parameter expression is inlined instead: the query may print into a parameter port
+  // list entry, where naming a port is a use-before-declare. A port-referenced binding is
+  // declared there rather than in the module body, which the port list precedes (issue #472)
   test("width/length query emission") {
     class WidthQuery(
         val W:    Int <> CONST       = 4,
@@ -3404,7 +3413,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |module WidthQuery#(
          |    parameter int W = 4,
          |    parameter int N = 3,
-         |    parameter logic [7:0] INIT = 8'h00
+         |    parameter logic [7:0] INIT = 8'h00,
+         |    parameter int LI = $bits(INIT),
+         |    parameter int WID = N * W,
+         |    parameter int LEN = N
          |)(
          |  input  wire logic [W - 1:0] vec [0:N - 1],
          |  input  wire logic [LI - 1:0] din,
@@ -3413,9 +3425,6 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [LEN - 1:0] cnt
          |);
          |  `include "dfhdl_defs.svh"
-         |  localparam int LI = $bits(INIT);
-         |  localparam int LEN = $size(vec);
-         |  localparam int WID = $bits(vec);
          |  assign dout = din;
          |  assign flat = {vec};
          |  assign cnt = LEN'(1'd0);
@@ -3426,7 +3435,9 @@ class PrintVerilogCodeSpec extends StageSpec:
 
   // the pre-SystemVerilog dialects have no width query syntax; the width parameter
   // expression is inlined instead, and a vector's length query is folded by
-  // `DropStructsVecs` into the element-count parameter before the vector is flattened
+  // `DropStructsVecs` into the element-count parameter before the vector is flattened.
+  // The parameter port list has no `localparam` before 1800-2009, so the port-referenced
+  // bindings are declared there as plain parameters (issue #472)
   test("width/length query emission under v2001") {
     given options.CompilerOptions.Backend = _.verilog.v2001
     class WidthQueryOld(
@@ -3449,17 +3460,214 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module WidthQueryOld#(
          |    parameter integer W = 4,
-         |    parameter integer N = 3
+         |    parameter integer N = 3,
+         |    parameter integer WID = W * N,
+         |    parameter integer LEN = N
          |)(
          |  input  wire [(W * N) - 1:0] vec,
          |  output wire [WID - 1:0] flat,
          |  output wire [LEN - 1:0] cnt
          |);
          |  `include "dfhdl_defs.vh"
-         |  parameter integer LEN = N;
-         |  parameter integer WID = W * N;
          |  assign flat = `EXTEND_U(vec, W * N, W * N);
          |  assign cnt = `EXTEND_U(1'd0, 1, LEN);
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // A static assertion (constant condition and message) is a concurrent design contract, and a
+  // Verilog module body has no concurrent statements: an immediate assertion and a system-task
+  // call are both statements, never module items. From 1800-2009 it is an elaboration system
+  // task under a generate-`if`, so synthesis checks it too; older dialects check it at
+  // simulation time zero from an `initial` block.
+  test("static assertion under sv2009") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class StaticGuardNew(val W: Int <> CONST = 8) extends EDDesign:
+      val x = UInt(W) <> IN
+      val y = UInt(W) <> OUT
+      assert(W > 0, s"W must be positive, got $W")
+      assert(W <= 32, s"W must not exceed 32, got $W", Severity.Fatal)
+      y <> x
+    end StaticGuardNew
+    val top = StaticGuardNew().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module StaticGuardNew#(parameter int W = 8)(
+         |  input  wire logic [W - 1:0] x,
+         |  output logic [W - 1:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  if (!(W > 0)) $error("W must be positive, got %d", W);
+         |  if (!(W <= 32)) $fatal(1, "W must not exceed 32, got %d", W);
+         |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static assertion under sv2005") {
+    given options.CompilerOptions.Backend = _.verilog.sv2005
+    class StaticGuardSV(val W: Int <> CONST = 8) extends EDDesign:
+      val x = UInt(W) <> IN
+      val y = UInt(W) <> OUT
+      assert(W > 0, s"W must be positive, got $W")
+      y <> x
+    end StaticGuardSV
+    val top = StaticGuardSV().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module StaticGuardSV#(parameter int W = 8)(
+         |  input  wire logic [W - 1:0] x,
+         |  output logic [W - 1:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  initial
+         |    assert (W > 0)
+         |    else $error("W must be positive, got %d", W);
+         |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("static assertion under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class StaticGuardOld(val W: Int <> CONST = 8) extends EDDesign:
+      val x = UInt(W) <> IN
+      val y = UInt(W) <> OUT
+      assert(W > 0, s"W must be positive, got $W")
+      assert(W <= 32, s"W must not exceed 32, got $W", Severity.Fatal)
+      y <> x
+    end StaticGuardOld
+    val top = StaticGuardOld().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module StaticGuardOld#(parameter integer W = 8)(
+         |  input  wire [W - 1:0] x,
+         |  output wire [W - 1:0] y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  initial if (!(W > 0)) begin
+         |    $display("ERROR: W must be positive, got %d", W);
+         |  end
+         |  initial if (!(W <= 32)) begin
+         |    $display("FATAL: W must not exceed 32, got %d", W);
+         |    $finish;
+         |  end
+         |  assign y = x;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // Verilog names a block, not a statement, so a named assertion becomes a named block: the
+  // generate block of the elaboration form, the `initial` block of the older ones. A procedural
+  // immediate assertion takes a statement label directly (1800 only).
+  test("named assertion under sv2009") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class NamedGuardNew(val W: Int <> CONST = 8) extends EDDesign:
+      val i    = UInt(W) <> IN
+      val o    = UInt(W) <> OUT
+      val posW = assert(W > 0, s"W must be positive, got $W")
+      process(all):
+        val inRange = assert(i < d"8'200".resize(W), s"i too large: $i")
+      o <> i
+    end NamedGuardNew
+    val top = NamedGuardNew().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module NamedGuardNew#(parameter int W = 8)(
+         |  input  wire logic [W - 1:0] i,
+         |  output logic [W - 1:0] o
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  if (!(W > 0)) begin : posW
+         |    $error("W must be positive, got %d", W);
+         |  end
+         |  always_comb
+         |  begin
+         |    inRange: assert (i < W'(8'd200))
+         |    else $error("i too large: %d", i);
+         |  end
+         |  assign o = i;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("named assertion under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class NamedGuardOld(val W: Int <> CONST = 8) extends EDDesign:
+      val i    = UInt(W) <> IN
+      val o    = UInt(W) <> OUT
+      val posW = assert(W > 0, s"W must be positive, got $W")
+      o <> i
+    end NamedGuardOld
+    val top = NamedGuardOld().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module NamedGuardOld#(parameter integer W = 8)(
+         |  input  wire [W - 1:0] i,
+         |  output wire [W - 1:0] o
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  initial begin : posW
+         |    if (!(W > 0)) begin
+         |      $display("ERROR: W must be positive, got %d", W);
+         |    end
+         |  end
+         |  assign o = i;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("auto constraint under sv2009") {
+    // an assumption the width algebra could not prove reaches the backend as the design's own
+    // elaboration-time contract, over the parameter the generated module leaves overridable
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class Fits(val W: Int <> CONST = 8, val V: Int <> CONST = 8) extends RTDesign:
+      val x = UInt(W)  <> IN
+      val y = UInt(V)  <> IN
+      val z = UInt(16) <> OUT
+      val n = UInt(8)  <> OUT
+      z := x
+      n := y
+    end Fits
+    val top = Fits().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Fits#(
+         |    parameter int W = 8,
+         |    parameter int V = 8
+         |)(
+         |  input  wire logic [W - 1:0] x,
+         |  input  wire logic [V - 1:0] y,
+         |  output logic [15:0] z,
+         |  output logic [7:0] n
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  if (!(16 >= W)) begin : constraint_0
+         |    $fatal(1, "Design parameter violation found. Expected: 16 >= W");
+         |  end
+         |  if (!(8 >= V)) begin : constraint_1
+         |    $fatal(1, "Design parameter violation found. Expected: 8 >= V");
+         |  end
+         |  assign z = 16'(x);
+         |  assign n = 8'(y);
          |endmodule
          |""".stripMargin
     )

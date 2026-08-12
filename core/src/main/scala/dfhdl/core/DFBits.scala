@@ -6,7 +6,7 @@ import dfhdl.internals.*
 import scala.annotation.{implicitNotFound, targetName, nowarn}
 import scala.quoted.*
 import scala.util.boundary, boundary.break
-import DFDecimal.Constraints.`LW == RW`
+import DFDecimal.Constraints.{`LW == RW`, equalWidthCheck}
 
 type DFBits[W <: IntP] = DFType[ir.DFBits, Args1[W]]
 object DFBits:
@@ -398,8 +398,7 @@ object DFBits:
         type OutP = P
         def apply(value: R)(using DFC): Out =
           import DFVal.Ops.bits
-          if (value.hasTag[ir.ResizeTag]) value.bits.tag(ir.ResizeTag)
-          else value.bits
+          AutoConstraint.carryWidthAdjustPermission(value, value.bits)
       transparent inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
           "Cannot apply an enum entry value to a bits variable."
@@ -467,8 +466,14 @@ object DFBits:
             Int,
             [LW <: Int, RW <: Int] =>> LW == RW,
             [LW <: Int, RW <: Int] =>> "The argument width (" + ToString[RW] +
-              ") is different than the receiver width (" + ToString[LW] +
-              ").\nConsider applying `.resize` to resolve this issue."
+              ") is different than the receiver width (" + ToString[LW] + ").\n" +
+              ITE[
+                RW > LW,
+                "Consider `.truncate` to narrow it to the receiver width, or `.resize(" +
+                  ToString[LW] + ")` to state the width explicitly.",
+                "Consider `.extend` to widen it to the receiver width, or `.resize(" +
+                  ToString[LW] + ")` to state the width explicitly."
+              ]
           ]
       given DFBitsFromCandidate[LW <: IntP, V, RP, IC <: Candidate[V]](using
           ic: IC { type OutP = RP }
@@ -479,7 +484,7 @@ object DFBits:
         def conv(dfType: DFBits[LW], value: V)(using dfc: DFC): Out =
           import Ops.resizeBits
           val dfVal = ic(value)
-          if (dfVal.hasTag[ir.ResizeTag])
+          if (AutoConstraint.permitsWidthAdjust(dfVal, dfType.widthIntParam))
             dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], RP]
           else
             (dfType.widthIntOpt, dfVal.widthIntOpt) match
@@ -488,7 +493,7 @@ object DFBits:
                 if (dfType.compareWidths(dfVal.dfType)(_ != _).getOrElse(true))
                   throw new IllegalArgumentException(
                     s"""|The argument width (${dfVal.dfType.widthErrorString}) is different than the receiver width (${dfType.widthErrorString}).
-                        |Consider applying `.resize` to resolve this issue.""".stripMargin
+                        |Consider `.extend` or `.truncate` to adjust it to the receiver width, or `.resize(width)` to state the width explicitly.""".stripMargin
                   )
             dfVal.nameInDFCPosition.asValTP[DFBits[LW], RP]
           end if
@@ -660,7 +665,7 @@ object DFBits:
             val rhsVal = icR(rhs)
             (lhsVal.widthIntOpt, rhsVal.widthIntOpt) match
               case (Some(lw), Some(rw)) => check(lw, rw)
-              case _                    =>
+              case _                    => equalWidthCheck(lhsVal.dfType, rhsVal.dfType)
             DFVal.Func(lhsVal.dfType, op.value, List(lhsVal, rhsVal))
           }
       end evOpLogicDFBits
@@ -742,8 +747,20 @@ object DFBits:
 //          if (lhs.width == updatedWidth) lhs.asValOf[DFBits[RW]]
 //          else
           DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
+        @deprecated(
+          "Permits both widening and truncation, so it does not say which was meant. Use `.extend` or `.truncate` for the direction you intend, or `.resize(width)` to state the width.",
+          "0.23.0"
+        )
         def resize(using DFCG): DFValTP[DFBits[Int], P] =
           lhs.tag(ir.ResizeTag).asValTP[DFBits[Int], P]
+        // permission to adjust the width in ONE direction, taken up by the context that decides
+        // the width; in the other direction it contributes nothing (see `ir.ExtendTag`)
+        @targetName("extendDFBits")
+        def extend(using DFCG): DFValTP[DFBits[Int], P] =
+          lhs.tag(ir.ExtendTag).asValTP[DFBits[Int], P]
+        @targetName("truncateDFBits")
+        def truncate(using DFCG): DFValTP[DFBits[Int], P] =
+          lhs.tag(ir.TruncateTag).asValTP[DFBits[Int], P]
         def resize[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: Arg.Width.CheckNUB[RW],
             dfc: DFCG
@@ -770,8 +787,18 @@ object DFBits:
             iter.map(_.widthIntParam.asInstanceOf[IntParam[Int]]).reduce(_ + _)
           DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
       extension [L <: DFValAny, LW <: IntP, LP](lhs: L)(using icL: Candidate.Aux[L, LW, LP])
+        @deprecated(
+          "Permits both widening and truncation, so it does not say which was meant. Use `.extend` or `.truncate` for the direction you intend, or `.resize(width)` to state the width.",
+          "0.23.0"
+        )
         def resize(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
           icL(lhs).tag(ir.ResizeTag).asValTP[DFBits[Int], icL.OutP]
+        @targetName("extendDFBitsCandidate")
+        def extend(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
+          icL(lhs).tag(ir.ExtendTag).asValTP[DFBits[Int], icL.OutP]
+        @targetName("truncateDFBitsCandidate")
+        def truncate(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
+          icL(lhs).tag(ir.TruncateTag).asValTP[DFBits[Int], icL.OutP]
         def repeat[N <: IntP](num: IntParam[N])(using
             dfc: DFCG,
             check: Arg.Positive.CheckNUB[N]

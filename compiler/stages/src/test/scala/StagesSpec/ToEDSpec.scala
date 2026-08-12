@@ -1711,4 +1711,34 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("static assertion stays concurrent") {
+    // a static assertion (constant condition and message) states an elaboration-time contract of
+    // the design, so it is exempt from the process sweep and stays a concurrent body statement,
+    // together with its constant cone; a dynamic text output is swept as usual
+    @hw.constraints.timing.clock(grpName = "cfg")
+    class ID(val W: Int <> CONST = 8) extends RTDesign:
+      val x = UInt(W) <> IN
+      val y = UInt(W) <> OUT
+      assert(W > 0, s"W must be positive, got $W")
+      println(s"x: $x")
+      y := x
+    end ID
+    val id = ID().toED
+    assertCodeString(
+      id,
+      """|case class Clk_cfg() extends Clk
+         |
+         |class ID(val W: Int <> CONST = 8) extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "cfg")
+         |  val clk = Clk_cfg <> IN
+         |  assert(W > 0, s"W must be positive, got ${W}")
+         |  val x = UInt(W) <> IN
+         |  val y = UInt(W) <> OUT
+         |  process(clk):
+         |    if (clk.actual.rising) println(s"x: ${x}")
+         |  y <> x
+         |end ID
+         |""".stripMargin
+    )
+  }
 end ToEDSpec

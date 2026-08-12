@@ -22,6 +22,8 @@ architecture Blinker_arch of Blinker is
   constant HALF_PERIOD : integer := (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
   signal cnt           : unsigned(clog2(HALF_PERIOD) - 1 downto 0);
 begin
+  constraint_0: assert (HALF_PERIOD - 1) >= 0
+    report "Design parameter violation found. Expected: (HALF_PERIOD - 1) >= 0" severity FAILURE;
   process (clk)
   begin
     if rising_edge(clk) then

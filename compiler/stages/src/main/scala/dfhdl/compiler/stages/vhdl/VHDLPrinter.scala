@@ -143,10 +143,12 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
           "std.env.finish;"
       case TextOut.Op.Report(severity)               => csReport(severity, msg)
       case TextOut.Op.Assert(assertionRef, severity) =>
+        // a named assertion labels its statement, concurrent and sequential alike
+        val csLabel = if (textOut.isAnonymous) "" else s"${textOut.getName}: "
         if (msg.isEmpty)
-          s"assert ${printer.csFixedCond(assertionRef)};"
+          s"${csLabel}assert ${printer.csFixedCond(assertionRef)};"
         else
-          s"""|assert ${printer.csFixedCond(assertionRef)}
+          s"""|${csLabel}assert ${printer.csFixedCond(assertionRef)}
               |${csReport(severity, msg).hindent}""".stripMargin
       case TextOut.Op.Print   => s"print($msg);"
       case TextOut.Op.Println =>

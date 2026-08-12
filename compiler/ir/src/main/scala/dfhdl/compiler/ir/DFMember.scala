@@ -409,17 +409,29 @@ object DFVal:
                 case None => Slice.Unknown
               relVal.departial(newSlice)
             case partial: DFVal.Alias.ApplyIdx =>
-              partial.relIdx.get match
-                case DFVal.Alias.ApplyIdx.ConstIdx(idx) =>
-                  linearOfTypeWidth(partial.dfType) match
-                    case Some(cellWidth) =>
-                      relVal.departial(Slice.compose(slice, scale(cellWidth, idx), cellWidth))
-                    case None => relVal.departial(Slice.Unknown)
-                // if not a constant index selection, then the entire value range is affected
-                case _ =>
+              val idxLinear = linearOfVal(partial.relIdx.get)
+              // An index fixed at elaboration selects one cell, so it composes into the slice: a
+              // literal folds to a concrete range, and an index over design parameters stays a
+              // symbolic one (`v(N - 1)`). Any other index affects the entire value: a runtime
+              // value is not constant at all, and a loop iterator or a static-function formal is
+              // constant per evaluation yet varies across them.
+              val idxIsFixed = idxLinear.terms.forall((_, base) => base.isDesignParam)
+              val newSliceOpt =
+                if (idxIsFixed)
+                  linearOfTypeWidth(partial.dfType).flatMap { cellWidth =>
+                    mulOpt(idxLinear, cellWidth).map(Slice.compose(slice, _, cellWidth))
+                  }
+                else None
+              (newSliceOpt, idxIsFixed) match
+                case (Some(newSlice), _) => relVal.departial(newSlice)
+                // a fixed index whose bit coordinates are not expressible (a cell width that does
+                // not linearize, or a parametric index times a parametric cell width)
+                case (None, true)  => relVal.departial(Slice.Unknown)
+                case (None, false) =>
                   relVal.dealias match
                     case Some(dcl: DFVal.Dcl) => (dcl, Slice.fromWidthOpt(dcl.dfType.widthIntOpt))
                     case _ => (relVal, Slice.fromWidthOpt(relVal.dfType.widthIntOpt))
+              end match
             case partial: DFVal.Alias.SelectField =>
               relVal.dfType match
                 case structType: DFStruct =>
@@ -2144,6 +2156,10 @@ end Wait
 object Wait:
   type TriggerRef = DFRef.TwoWay[DFVal, Wait]
 
+// Named so that `val xyz = assert(...)` carries `xyz` all the way to the backend label (and
+// through `UniqueNames`, which shares one namespace with the design's declarations). A text
+// output is a statement, so nothing ever references it by that name; it exists to identify the
+// statement in the generated code and in a tool's report.
 final case class TextOut(
     op: TextOut.Op,
     msgParts: List[String],
@@ -2151,7 +2167,8 @@ final case class TextOut(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends Statement:
+) extends Statement,
+      DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: TextOut =>
       this.op =~ that.op && this.msgParts == that.msgParts && this.msgArgs =~ that.msgArgs &&

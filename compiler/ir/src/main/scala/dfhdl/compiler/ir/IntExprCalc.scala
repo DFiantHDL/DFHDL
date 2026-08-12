@@ -72,6 +72,27 @@ object IntExprCalc:
         else None
   end widthFitCompare
 
+  /** The linear form of `a - b`, the canonical shape of a relation between two integer expressions:
+    * `a >= b` is `linearDiff(a, b) >= 0`, and every other comparison normalizes onto the same
+    * shape. So `W + W >= 8` and `2 * W >= 8` state one relation rather than two.
+    *
+    * Design parameters stay OPAQUE, which is what makes it a statement about the DESIGN: two
+    * relations that coincide only for the values of one instantiation stay distinct.
+    */
+  def linearDiff(a: DFVal, b: DFVal)(using MemberGetSet): Linear =
+    val calc = Calc(ParamResolve.Opaque)
+    calc.sub(calc.linear(a), calc.linear(b))
+
+  /** The constant `x - y`, or `None` when their symbolic terms do not cancel.
+    *
+    * This is what compares two relations in the [[linearDiff]] form: an answer at all means they
+    * constrain the same expression, and `x - y >= 0` means `y >= 0` implies `x >= 0`, i.e. `y` is
+    * the stronger of the two and `x` states nothing further.
+    */
+  def constOffsetDiff(x: Linear, y: Linear)(using MemberGetSet): Option[Int] =
+    val d = Calc(ParamResolve.Opaque).sub(x, y)
+    Option.when(d.terms.isEmpty)(d.offset)
+
   /** How the calculus treats a [[DFVal.DesignParam]] it reaches. */
   private enum ParamResolve derives CanEqual:
     /** Stays an opaque base, so a decision holds for any parameter assignment (elaboration-time
@@ -132,6 +153,24 @@ object IntExprCalc:
       */
     def proveNonNeg(e: Linear, facts: List[Linear])(using MemberGetSet): Boolean =
       calc.proveNonNeg(e, facts)
+
+    /** Folds a linear form to a single integer by resolving every remaining opaque base through the
+      * design-parameter chain, which includes an elaboration ROOT's own parameters via their
+      * defaults (`AppliedData` deliberately keeps those symbolic). `None` when any base does not
+      * resolve to an integer.
+      *
+      * A decision made on folded values holds for the parameters actually elaborated, NOT for every
+      * HDL override, so this may only refine a legality verdict. It must never reach a
+      * directionality decision: the flow of a connection is a structural property that has to hold
+      * for every parameter assignment.
+      */
+    def foldConst(l: Linear)(using MemberGetSet): Option[Int] =
+      l.terms.foldLeft(Option(l.offset)) { case (accOpt, (c, base)) =>
+        accOpt.flatMap { acc =>
+          base.getConstDataThroughParams[Option[BigInt]].flatten
+            .filter(_.isValidInt).map(v => acc + c * v.toInt)
+        }
+      }
   end DataCalc
 
   private object ConstInt:

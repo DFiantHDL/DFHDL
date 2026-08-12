@@ -1990,7 +1990,7 @@ val dynbit = b8(idx)  // Bit at position idx
 
 /// admonition | Dynamic bit indexing
     type: tip
-You can index into a bit-vector value using a `UInt` variable, not just integer literals. The index must be a `UInt` whose width equals `clog2(bits_width)`. For example, indexing into `Bits(8)` requires a `UInt(3)` index. If the width does not match, the compiler will report an error and suggest using `.resize` to automatically adjust the width.
+You can index into a bit-vector value using a `UInt` variable, not just integer literals. The index must be a `UInt` whose width equals `clog2(bits_width)`. For example, indexing into `Bits(8)` requires a `UInt(3)` index. If the width does not match, the compiler reports an error and points at the width adjustment that would reconcile it.
 
 Dynamic indexing works for both reads and writes:
 ```scala
@@ -2004,20 +2004,20 @@ process(clk):
     data(pos) :== din        // dynamic write
 ```
 
-When the index variable is wider or narrower than needed, use `.resize` to automatically adjust it to the required width:
+When the index variable is wider or narrower than needed, `.truncate` and `.extend` adjust it to the required width, each permitting the one direction it names:
 ```scala
 val data    = Bits(8) <> VAR init all(0)
 val pos     = UInt(4) <> VAR init 0  // 4-bit, but Bits(8) needs UInt(3)
-val bit_out = data(pos.resize)       // .resize adjusts to UInt(3) automatically
+val bit_out = data(pos.truncate)     // .truncate narrows the 4-bit index to UInt(3)
 ```
 
-The same `.resize` trick applies to **any** dynamic index, including writes into a memory/vector when the index comes from a wider source such as a slice of a larger `UInt`. The index width is checked against `clog2` of the indexed size, so let `.resize` reconcile it:
+The same applies to **any** dynamic index, including writes into a memory/vector when the index comes from a wider source such as a slice of a larger `UInt`. The index width is checked against `clog2` of the indexed size, so let the permission reconcile it:
 ```scala
 val mem = Bits(8) X 16 <> VAR        // 16-deep memory, needs a UInt(4) index
 val idx = UInt(8) <> IN              // wider index source (e.g. a sliced address)
 process(clk):
   if (clk.rising)
-    mem(idx.resize) :== din          // .resize adjusts idx to UInt(4) for the write
+    mem(idx.truncate) :== din        // .truncate narrows idx to UInt(4) for the write
 ```
 ///
 
@@ -2026,23 +2026,23 @@ process(clk):
 Applies to: `Bits`, `UInt`, `SInt`
 
 - `.resize(N)` sets the width to exactly `N` bits. For `UInt` and `Bits`, widening zero-extends; for `SInt`, widening sign-extends. Narrowing truncates the most-significant bits.
-- `.resize` (no argument) automatically adjusts the width to match the assignment or operation context; narrowing or widening as needed.
+- `.extend` and `.truncate` take no width. They are PERMISSIONS to adjust the width to whatever the context decides, each covering ONE direction: `.extend` may widen, `.truncate` may narrow. Where the permitted direction does not apply the permission contributes nothing and the ordinary width rule decides, so it is never a silent adjustment in the direction you did not ask for. In a context with no designated target, such as a comparison, the permission is also what says WHICH operand adapts, the other operand's width being what it adapts to.
 - `.eby(K)` extends the width by `K` bits, *relative* to the current width; sugar for `.resize(width + K)`. `K` must be positive, so `.eby` always widens (zero-extension for `UInt` and `Bits`, sign-extension for `SInt`). This is the **canonical widening spelling**: elaboration prints any widening whose delta is a known number of bits in this relative form (a user-written `x.resize(9)` over an 8-bit `x` prints back as `x.eby(1)` -- the two produce identical designs). It is also the form that scales to parametric widths, where the absolute spelling would repeat the symbolic expression: `x.eby(1)` instead of `x.resize(W + 1)`. Absolute `.resize` remains the spelling for narrowing and for widths given by a named parameter.
 
 ```scala
 val b8 = Bits(8) <> VAR
 val b4 = Bits(4) <> VAR
 b4 := b8.resize(4)    // explicit narrow to 4 bits
-b8 := b4.resize       // auto-widen to match b8's width
+b8 := b4.extend       // widen to match b8's width
 
 val u8 = UInt(8) <> VAR
 val u6 = UInt(6) <> VAR
-u6 := u8.resize       // auto-narrow to match u6's width
+u6 := u8.truncate     // narrow to match u6's width
 u8 := u6.resize(8)    // explicit zero-extend to 8 bits
 
 val s8 = SInt(8) <> VAR
 val s4 = SInt(4) <> VAR
-s8 := s4.resize       // sign-extend to match s8's width
+s8 := s4.extend       // sign-extend to match s8's width
 s4 := s8.resize(4)    // explicit narrow to 4 bits
 
 // relative widening, most useful with parametric widths
@@ -2202,6 +2202,45 @@ val e1 = v8 | 2
 //error: the argument widths must match
 val e2 = v8 ^ b"1010"
 ```
+
+The equal-width requirement holds for parametric widths too, and a pair that cannot be **proven** equal is rejected. The proof treats a design parameter as an opaque symbol, so it sees through re-spelling (`Bits(W + 1)` matches `Bits(1 + W)`) but never folds a parameter to the value a particular instantiation applies:
+
+```scala
+class Masker(
+    val W: Int <> CONST = 8,
+    val MASK: Bits[Int] <> CONST = h"ff" //8 bits, fixed by this argument
+) extends EDDesign:
+  val a  = Bits(W) <> IN
+  val b  = Bits(W + 1) <> IN
+  val c  = Bits(1 + W) <> IN
+  val o1 = Bits(W) <> OUT
+  val o2 = Bits(W + 1) <> OUT
+  val o3 = Bits(W) <> OUT
+  process(all):
+    //ok: the same parameter on both sides
+    o1 := a & b"0".repeat(W)
+    //ok: the proof sees through re-spelling
+    o2 := b | c
+    //error: `W` and 8 cannot be proven equal, so an instantiation
+    //applying `W = 16` would leave the backend to widen `MASK` silently
+    o3 := a ^ MASK
+```
+
+`Masker` above takes `W` and `MASK` as **independent** parameters, which is what makes the last operation unprovable: nothing ties the two arguments together, so an instantiation is free to disagree about them. When one is meant to follow the other, derive it instead of parameterizing it twice:
+
+```scala
+class Masker(
+    val MASK: Bits[Int] <> CONST = h"ff"
+) extends EDDesign:
+  val W: Int <> CONST = MASK.width
+  val a = Bits(W) <> IN
+  val o = Bits(W) <> OUT
+  process(all):
+    //ok: `W` IS `MASK`'s width, so the two are equal by construction
+    o := a ^ MASK
+```
+
+The relation now holds for every argument, so the check passes without an instantiation site to inspect, and the generated HDL carries the derivation rather than a pinned number (`localparam int W = $bits(MASK)` in Verilog).
 
 /// details | Transitioning from Verilog
     type: verilog
@@ -2387,7 +2426,11 @@ s8 := -u8
 
 ### Wildcard `Int` Values {#wildcard-ops}
 
-Both Scala `Int` values and DFHDL `Int` parameters (`Int <> CONST`) act as **wildcards** when used in operations with bit-accurate `UInt` or `SInt` values. The wildcard `Int` value adapts to the bit-accurate value's sign and width. If the wildcard `Int` value does not fit in the bit-accurate value's range or has incompatible sign, an error is generated. One exception: in [carry operations][carry-ops] a Scala `Int` operand contributes its value's minimal width instead of adapting, while a DFHDL `Int` parameter adapts as usual.
+Both Scala `Int` values and DFHDL `Int` parameters (`Int <> CONST`) act as **wildcards** when used in operations with bit-accurate `UInt` or `SInt` values. A wildcard has no exact width of its own, only a **minimum** one, and a natural (non-negative) wildcard has no sign of its own either: it can be taken as unsigned, or as signed at the cost of one more bit. Only a negative wildcard is inherently signed. It therefore adapts to the bit-accurate value's sign and width, and that absence of a fixed width and sign is the whole difference from a constant of the same value: `u8 == 0` compares fine while `u8 == d"1'0"` is a width mismatch, and `5 - s8` is `SInt[8]` while `d"5" - s8` is a sign mismatch.
+
+The two kinds of wildcard differ in how much is known about that minimum. A Scala `Int` always has one, from the literal at compile time or from the value at elaboration. A DFHDL `Int` parameter may have none at elaboration, and an overridable one has none for any manifestation, so it can only ever adapt.
+
+For `+`, `-` and `*`, a Scala `Int` **literal**'s minimum width counts as an actual width when the result width is computed, so the result is simply the wider of the two operands. A literal that fits is unchanged by this (the bit-accurate operand is the wider one), and a literal that does not fit widens the operation instead of being an error: `u8 + 1000` is `UInt[10]`. It takes the other operand's width at compile time too, so against a parametric width, or for an `Int` whose value is not a literal, the wildcard adapts and must fit as before. That fit is the one the expression itself needs; where a wider target re-evaluates the expression (see the automatic target-context widening above), the wildcard takes the target's width instead, and the fit it must meet is that one. In [carry operations][carry-ops] a Scala `Int` operand always contributes its minimum width.
 
 ```scala
 val u8 = UInt(8) <> VAR
@@ -2408,10 +2451,24 @@ u8 / param          // UInt[8] (param adapts to UInt[8])
 u8 == 200           // OK (200 fits in UInt[8])
 s8 < (-5)           // OK (-5 fits in SInt[8])
 
-// ERROR: wildcard `Int` value does not fit bit-accurate value
-u8 + 1000           // ERROR: 1000 exceeds UInt[8] range (0..255)
-u8 + (-1)           // ERROR: -1 is negative for unsigned bit-accurate value
-s8 + 1000           // ERROR: 1000 exceeds SInt[8] range (-128..127)
+// A runtime Scala `Int` has a minimum width too, but only at elaboration, so it
+// always adapts and must fit, exactly like a DFHDL `Int` parameter
+val rt = List(1, 2, 3).sum   // a Scala `Int`, but not a literal
+u8 + rt             // UInt[8] (adapts; a value over 255 is an elaboration error)
+
+// In +, - and * a literal's MINIMUM width counts as an actual width, so the
+// result is the wider of the two operands
+u8 + 1000           // UInt[10] (1000's minimum is 10 bits, the wider of the two)
+u8 + (-1)           // SInt[9]  (-1 is inherently signed, so u8 gains a sign bit)
+s8 + 1000           // SInt[11] (1000 taken as signed needs one bit more, 11)
+1000 - u8           // UInt[10] (the literal is the wider operand, so LHS-dominance holds)
+
+// ... but only when the other width is known at compile time as well
+val wp = UInt(param) <> VAR
+wp + 1000           // ERROR: nothing to compare against, so 1000 must adapt to UInt[param]
+
+// ERROR: `-`, `/` and `%` take the LHS width, which a negative literal cannot supply
+(-1) - u8           // ERROR: -1 is negative and cannot adapt to an unsigned value
 ```
 
 See [Wildcard Arithmetic Value Checking][wildcard-check] for details on when these checks occur (compile-time, elaboration-time, or synthesis-time).
@@ -2447,7 +2504,7 @@ val r3 = u4 + u8          // UInt[8]  (commutative, same as above)
 val r4 = s8 + u4          // SInt[8]  (max(8, 4+1) = 8, signed)
 val r5 = u8 + s8          // SInt[9]  (max(8+1, 8) = 9, signed)
 val r6 = u8 + 200         // UInt[8]  (literal adapts)
-val r7 = (-5) + u8        // SInt[8]  (negative literal, signed result)
+val r7 = (-5) + u8        // SInt[9]  (-5 is signed, so u8 gains a sign bit)
 
 // Non-commutative: LHS-dominant
 val r8 = 200 - u8         // UInt[8]
@@ -2476,7 +2533,7 @@ val r14 = d1 / d2         // Double
     type: warning
 Standard arithmetic operations wrap on overflow. For example, `d"8'255" + d"8'1"` produces `d"8'0"`. Use the carry variants (`+^`, `-^`, `*^`) described below to get a wider result that preserves the full value.
 
-However, an **anonymous** arithmetic expression (`+`, `-`, `*`, unary `-`) that is assigned or connected to a variable **wider** than the operation's result is re-evaluated at the target's width and sign, exactly like Verilog's assignment-context width propagation: every operand, recursively through the anonymous expression, is widened to the target type, and the operations stay modular at that width. The carry operators are themselves shorthand for exactly this operand-widened evaluation (`x +^ y` is `x.eby(1) + y.eby(1)` with the operands first aligned to a common width), so when a widening lands exactly on a carry shape it prints back as the carry operator.
+However, an **anonymous** arithmetic expression (`+`, `-`, `*`, unary `-`) that is assigned or connected to a variable **wider** than the operation's result is re-evaluated at the target's width and sign, exactly like Verilog's assignment-context width propagation: every operand, recursively through the anonymous expression, is widened to the target type, and the operations stay modular at that width. A [wildcard `Int`][wildcard-ops] operand takes the target width directly rather than the width it adapted to: it has no width of its own, and the other operand's width is precisely what the target replaces. The carry operators are themselves shorthand for exactly this operand-widened evaluation (`x +^ y` is `x.eby(1) + y.eby(1)` with the operands first aligned to a common width), so when a widening lands exactly on a carry shape it prints back as the carry operator.
 
 The widening context also crosses an anonymous `.sel` (matching Verilog's `?:`, whose branch operands are context-determined) and anonymous `if`/`match` **expressions** (matching the per-branch assignments they lower to): each branch re-evaluates at the target, while the selection condition or match selector is unaffected. A **shift**'s left operand is likewise context-determined (matching Verilog; the shift amount is self-determined), as long as the target keeps the operand's signedness: a shift evaluates at its operand's own signedness (an arithmetic-vs-logical `>>` difference), so a sign-crossing shift context is a boundary and the shifted result converts as a plain value there. The context stops at exactly three kinds of boundaries: a **named value** (a `val`-bound expression evaluates at its own declared width and only its result extends), a **carry operation** (its widened result is already exact), and any **other operation** (bitwise logic, comparisons, rotations), whose result converts as a plain value.
 
@@ -2519,7 +2576,7 @@ u9 := sum          // extended by 1: sum.eby(1)
 //   SInt(W + 1) target: dx := c.sel(b -^ a, a -^ b)
 ```
 
-A parametric width relation is accepted when it holds for **every valid parameter assignment**, using the fact that widths are positive: `SInt(2 * W)` accepts a `W`-wide operation because `2 * W >= W` for any valid `W`. A relation that a valid assignment can violate is definitively rejected (`SInt(W)` never fits a `2 * W`-wide value), and an undecidable one (e.g. a literal target such as `SInt(16)` against a free `W`, which may exceed 16) is conservatively rejected as well; both still require an explicit carry op or `.resize` to state the intent.
+A parametric width relation is accepted when it holds for **every valid parameter assignment**, using the fact that widths are positive: `SInt(2 * W)` accepts a `W`-wide operation because `2 * W >= W` for any valid `W`. A relation that a valid assignment can violate is definitively rejected (`SInt(W)` never fits a `2 * W`-wide value), and an undecidable one (e.g. a literal target such as `SInt(16)` against a free `W`, which may exceed 16) is conservatively rejected as well; both still require an explicit carry op, a `.resize(N)` or an `.extend` to state the intent.
 ///
 
 /// admonition | Implicit Scala `Int` and Verilog-semantics mismatch
@@ -2708,6 +2765,40 @@ val e2 = u8 == u4
 // An explicit conversion must be applied.
 val e3 = u8 > 1000
 ```
+
+#### Comparing Values of Different Widths
+
+Close the width difference by **widening the narrower operand**, using the [width adjustment][width-adjustment] operations:
+
+```scala
+val u8 = UInt(8) <> VAR
+val u4 = UInt(4) <> VAR
+val s8 = SInt(8) <> VAR
+val s4 = SInt(4) <> VAR
+
+val c1 = u8 == u4.eby(4)     // Boolean: u4 zero-extended to 8 bits
+val c2 = s8 > s4.eby(4)      // Boolean: s4 sign-extended to 8 bits
+val c3 = u8.eby(2) > 1000    // Boolean: 1000 needs 10 bits, so u8 widens to meet it
+```
+
+Widening preserves the value in both signednesses (`.eby`, `.extend` and `.resize` zero-extend a `UInt` and sign-extend an `SInt`), so the comparison still asks what you meant. Narrowing the wider operand does not, and nothing flags it, because the resulting widths do match:
+
+```scala
+// compiles, but u8 is TRUNCATED to its low 4 bits, so this asks a different question:
+// it is true for u8 = 0x13 and u4 = 0x3
+val wrong = u8.resize(4) == u4
+```
+
+That asymmetry is why the width is not closed for you: only one of the two directions is safe, and which one it is depends on intent that the operands do not carry.
+
+/// admonition | Why not extend the operands automatically?
+    type: note
+Both target languages would accept it, which makes the strictness look gratuitous. It is not.
+
+VHDL's `numeric_std` compares `unsigned`/`signed` operands of unequal length by resizing internally, so the comparison alone is portable. Verilog arrives at the same answer by a different route: operand widths there are *context-determined*, which extends more than the operand itself. A narrower operand that is an expression is **evaluated** at the wider operand's width, so with a 4-bit `a` and an 8-bit `b`, `(a + a) < b` computes the sum at 8 bits and stops wrapping where DFHDL says it wraps.
+
+Widening in the source keeps one meaning across every backend, and keeps the width change where you can see it.
+///
 
 /// details | Scala `Int` constants auto-lift in comparisons
     type: note

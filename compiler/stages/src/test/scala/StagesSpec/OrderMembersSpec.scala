@@ -104,4 +104,28 @@ class OrderMembersSpec extends StageSpec:
          |end Foo""".stripMargin
     )
   }
+  test("static assertion after the constants") {
+    // a static assertion states the design's contract over its parameters and constants, so it
+    // renders right after them (before the ports), wherever the user wrote it; the anonymous
+    // cone computing its condition and message comes along
+    class Guarded(val W: Int <> CONST = 8) extends EDDesign:
+      val x                     = UInt(W) <> IN
+      val y                     = UInt(W) <> OUT
+      val MAX: UInt[8] <> CONST = d"8'255"
+      y <> x
+      assert(W > 0, s"W must be positive, got $W")
+    end Guarded
+    val guarded = Guarded().simpleOrder
+    assertCodeString(
+      guarded,
+      """|class Guarded(val W: Int <> CONST = 8) extends EDDesign:
+         |  val MAX: UInt[8] <> CONST = d"8'255"
+         |  assert(W > 0, s"W must be positive, got ${W}")
+         |  val x = UInt(W) <> IN
+         |  val y = UInt(W) <> OUT
+         |  y <> x
+         |end Guarded
+         |""".stripMargin
+    )
+  }
 end OrderMembersSpec

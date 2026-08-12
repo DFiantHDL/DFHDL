@@ -93,6 +93,36 @@ regression test is a lib spec design using the colliding name with NO explicit a
 auto-injection path must fire); it pins the fix at compile level, since the unfixed plugin
 fails the whole test-scope compilation.
 
+### An error naming a DFHDL-internal symbol at the user's line is an inaccessible PREFIX
+
+`illegal access to protected object hdl in package dfhdl from class Probe` reads like a
+reporting bug and is a resolution fact: the typer built a `Select` whose qualifier is a
+library-internal object, and user code cannot name that qualifier. Find the qualifier rather
+than the error: compile the unit with `-Xprint:typer` and grep the tree for the internal name.
+The same op resolved elsewhere in the same run through the *public* spelling
+(`dfhdl.bits` in every ordinary use, `dfhdl.hdl.bits` in the one failing use), and that
+side-by-side is the whole diagnosis (issue #468).
+
+Three properties of this species are worth knowing before chasing it:
+
+- **The access check is not in the typer.** With other typer errors in the same run the tree is
+  printed and no access error appears at all; it surfaces in a later phase, which is why the
+  diagnostic carries no inline stack and no context to work back from.
+- **`-P:dfhdl.plugin:disableCustomPrinter` rules the plugin out in one compile**, and should be
+  the first thing tried on any raw-looking scalac diagnostic.
+- **The fix is accessibility, not resolution.** A namespace object that exists only to be
+  re-exported (`export hdl.*` at package level, plus `MetaDesign` / `Resource` re-exporting it as
+  a unit, which a package cannot provide) has no user-facing API of its own, so publishing it
+  costs nothing and removes the only spelling that can fail. Make the NAME the deterrent
+  (`__hdl`), not the access modifier. Renaming such an object means updating the by-name lookups
+  too: `requiredClassRef("dfhdl.__hdl.B")` in the plugin is not found by a search for the object.
+
+Minimizing this one outside DFHDL did NOT succeed: the leak needs the compiler to accept a
+SECOND typing attempt (the accepted tree fixes the extension's width parameter from its implicit,
+not from the expected type), and a synthetic version of the same shape fails at the first attempt
+instead. Before spending on such a minimization, check whether the project-side fix is a one-word
+change; here it was.
+
 ### Minimize outside DFHDL, early
 
 Get off the DFHDL types as fast as possible. Two plugin-free sandboxes:
@@ -256,6 +286,50 @@ the `sel` body).
 
 Both cost a full suite cycle to find, and neither is visible in the file being edited.
 
+### An in-place member revision only works in the design context that holds the member
+
+`MutableDB.setMember` looks its original member up in `DesignContext.current`, so every
+front-end op that revises a member in place (`tag`, `setName`, anything reaching `setMeta` /
+`setTags`) silently assumes the member lives in the design being elaborated. A
+`java.util.NoSuchElementException: key not found: Dcl(...)` out of `DesignContext.setMember` is
+that assumption failing, and the `Meta` inside the printed key names the *other* design's
+source line while the frames below it are the current one — that mismatch is the whole
+diagnosis (issue #470).
+
+The archetype is a **sub-design instance's port**. `inst.port` hands back the child's `Dcl`
+itself; the parent's own representative of that port is a `PortByNameSelect`, and `refTW` mints
+one lazily, at **reference** time. So every op that *references* the port works and every op
+that *revises* it before referencing crashes. `.resize(N)` versus argument-less `.resize` is
+exactly this split: the first builds an alias (a reference), the second marks its operand with
+`ir.ResizeTag` (a revision).
+
+Three things generalize:
+
+- **Route revisions through the same representative the reference path materializes**, rather
+  than teaching `setMember` about foreign members. Factoring that out of `refTW` also removes a
+  duplicated predicate; split it in two, though: a **pure** `isForeignPort` and a
+  member-**planting** `foreignPortSelectOpt`. Testing the condition with the planting one adds
+  an IR member as a side effect of asking a question.
+- **Not every revision can be redirected, and the kind decides.** A tag describes the *use* of
+  the port and belongs on the local representative, which is also why redirecting it is a fix
+  and not a workaround. A name is a property of the *declaration*, so there is nothing local to
+  put it on and the honest answer is an elaboration error naming the design that does get to
+  set it. Deciding this per revision kind is the design step; a uniform answer is wrong in one
+  direction or the other.
+- **Guard the redirect with `!dfc.inMetaProgramming`.** There `MutableDB.setMember` revises
+  without touching any design context, so foreign members are already handled, and planting a
+  representative would hand a stage a member it never asked for.
+
+One trap when adding the error: **`@metaContextForward(n)` costs you the position.**
+`MetaContextGenPhase.transformApply` skips applies of symbols carrying it (`!fixedApply.fun
+.symbol.forwardMetaContext`), so no meta context is stamped and a `DFError.Basic` raised inside
+reports `Position:  :0:0 - 0:0`. Its purpose is naming (`nameValOrDef` descends into the
+forwarded argument instead of stopping at the call), so an op that both forwards naming and
+reports errors cannot have both. Dropping the annotation from `setName` restored exact spans in
+all three call shapes (nested operand, standalone statement, `val` RHS) and changed no name:
+the forwarded argument's name is overwritten by `setName`'s own argument anyway. Check the
+naming-sensitive suites before assuming that holds for another op.
+
 ### Changing a type-level algebra: pick the mechanism by when it costs
 
 `IntP` decides widths at the type level, and there are three mechanisms for such a rule. They
@@ -310,6 +384,24 @@ failures to expect are therefore specs that assert an error and find none: `asse
 `assertDSLErrorLog` reporting `No error found`. Note `assertDSLErrorLog` asserts **twice**, a
 compile error for its snippet and then an elaboration error for its block, so "which half failed"
 is a real question and the failure position does not tell you.
+
+### Pick the error assertion by which halves the rule actually has
+
+The three are not interchangeable, and passing `""` to opt out of a half is a smell:
+
+| assertion | use when |
+|---|---|
+| `assertCompileError(msg)(snippet)` | the rule is decided at compile time only |
+| `assertRuntimeErrorLog(msg, col1, col2)(block)` | the rule is decided at elaboration only |
+| `assertDSLErrorLog(msg)(snippet)(block)` | the SAME rule has both halves |
+
+`assertDSLErrorLog(msg)("")(block)` is an elaboration-only assertion wearing the two-sided
+helper: write `assertRuntimeErrorLog` there instead. Because `assertDSLErrorLog` takes ONE
+message for both halves, using it is also a design statement: the compile-time check and the
+elaboration check must report the SAME text. When a rule is enforced statically for operands
+whose widths are known and dynamically for those that are not (the `Int`-literal vs. parameter
+split of the wildcard rules), give both checks that one message, and let a single
+`assertDSLErrorLog` pin the pair.
 
 ### Sibling op givens drift like twin helpers do
 
@@ -410,6 +502,17 @@ scala/scala3#26681.
 reproducibly threw `scala.MatchError: 23 ... TreeUnpickler.readConstant` on this nightly. That is
 stale TASTy, not the change under test: `sbtn.bat 'clean; clearDFHDL; Test/compile'` clears it. Do
 not chase it, and do not trust a suite run that followed one.
+
+**A GC warning means the server is spent, so restart it.** When sbt reports
+
+```
+[warn] In the last 17 seconds, 5.88 (34.7%) were spent in GC. [Heap: 2.35GB free of 3.94GB, ...]
+```
+
+run `sbtn.bat shutdown` before continuing. The long-lived server accumulates heap across the many
+compile/test cycles a bug fix takes, and once it is thrashing every later cycle is slower than the
+restart would have cost. Do not raise `-Xmx` to silence it; the next command starts a fresh server
+on its own.
 
 ---
 
@@ -754,16 +857,37 @@ generalizes:
   `DesignParam.instAppliedConstDataOpt` is the correct primitive: cached instance during
   elaboration, `designBlockInstMap` on flat DBs, `parentSubDBOpt` walk-up on hierarchical
   sub-DBs, and `None` exactly for the elaboration root.
-- **The check re-runs where you don't expect.** `connectionTable` is forced again by the backend
-  printer on the *flat* DB, so a connectivity-analysis fix must resolve under every DB model; a
-  test that only elaborates is blind to the print-time re-run. Pin it with
-  `getCompiledCodeString` (`ElaborationChecksSpec`'s sub-design slice test is the model).
+- **The check re-runs where you don't expect.** `connectionTable` is forced again after the
+  stages have run, so a connectivity-analysis fix must resolve under every DB model; a test that
+  only elaborates is blind to that re-run. Pin it in `PrintCodeStringSpec`, NOT with
+  `getCompiledCodeString` in `ElaborationChecksSpec` — see the rule in §6.
 - **`clearDFHDL` between probe re-runs after compiler edits.** The sub-design elaboration cache
   serves API-driven probes (`getCompiledCodeString`) too, not just DFApp runs; a cached child
   elaboration skips the very code you just changed and the probe "reproduces" stale behavior.
 - One departial-coordinate trap fixed alongside: a vector `ApplyRange`'s indices are in **cell**
   units and must be scaled by the cell width into bit coordinates; the old `shift(idxLow)` mixed
   units and falsely errored even fully-literal `o(0, 1)` / `o(2, 3)` vector range connections.
+- **Separate what may be deferred from what may not, before choosing how conservative to be.**
+  One analysis usually answers two different kinds of question, and they have opposite tolerances
+  for an unresolved parameter. A **legality** verdict ("do these two writes collide?") may be
+  deferred: skip it and it re-runs wherever the parameters do resolve, e.g. when the design is
+  instantiated by a parent. A **structural** verdict ("which end of this connection is the sink?")
+  may not: it must hold for every parameter assignment, so an unproven relation must leave the
+  flow undecided rather than guess. Issues #467/#471 were one analysis serving both through a
+  single `contains` query, so parameter opacity silently flipped a connection's direction and the
+  corruption cascaded into unrelated nets. The fix is to give each consumer its own verdict from
+  the shared machinery (`hasProvenNet` for direction, `foldedOverlap` for legality), never to make
+  the shared query smarter. When a report shows errors on lines that are innocent, suspect this
+  shape: a *classification* was poisoned upstream, and the reported line is just where the poison
+  surfaced.
+- **A conservative fallback needs a progress guard, or it never terminates.** Weakening a rule to
+  "only decide on proof" turns cases that used to resolve immediately into pending ones, and a
+  re-examination loop keyed on "is anything relevant in the map" then spins forever, because the
+  unproven relation keeps the endpoint in the map without ever settling it. Track whether a full
+  pass settled anything; when a pass settles nothing, run one pass under the OLD conservative rule
+  as the tiebreak, then fail. That fallback is what keeps every previously-accepted shape accepted
+  (a read of a bit whose only writer is parametric still resolves), so the change stays confined to
+  the shapes the bug affected.
 - **Symbolic elimination is a per-site semantic choice, not a smarter equivalence.** The width-fit
   checks accept `LHS >= RHS` after a mixed `max`/`min` drops its symbolic operands
   (`16 >= WIDTH max 16` decides as `16 >= 16`; `IntParamRef.compare(..., elimSymbolicMaxMin =
@@ -773,6 +897,44 @@ generalizes:
   construct must adopt it together — carry promotion (`carryPromoteWidthCheck`) had to switch
   with the TC width-fit check, or `sum := x + y` (anonymous, carry-promoted to `max+1`) would be
   definitively rejected while `val xy = x + y; sum := xy` passes.
+
+### An elaboration-time rule about a design's own legality must keep parameters OPAQUE
+
+`IntParamRef` has two equality families and picking the wrong one is silently unsound:
+`compare`/`isSimilarTo` resolve a design parameter through `appliedOrDefaultVal`
+(`ParamResolve.AppliedExpr`), while `constDiffFrom`/`isProvablyEqualTo` keep it an opaque base.
+A rule about whether a DESIGN is well-formed must hold for **every** applied parameter value, so
+it takes the opaque form. The resolving form is doubly wrong there, and the second reason is the
+one that bites: while a design's OWN body elaborates there is no applied value yet, so the
+parameter reads as its DEFAULT. `Bits(LEN) ^ Bits[8]` with `LEN` defaulting to 8 therefore
+"proved equal", and the mismatch only materialized at an instantiation site applying `LEN = 16`,
+as Verilog the backend silently zero-extends (issue #474).
+
+Two consequences for how you reproduce and test such a rule:
+
+- **A root design and a sub-design instance are different test subjects.** #474's reporter
+  observed `.sel` "correctly rejecting" the identical width pair — true only because their probe
+  was the TOP design, whose parameters have no applied value and stay symbolic under either
+  family. The same `.sel` inside an instantiated child accepts. Every probe of a parameter-
+  sensitive rule needs BOTH shapes, and a reporter's "this sibling already rejects" is a
+  hypothesis, not a control.
+- **`widthIntOpt` returning `None` is what routes a value to the elaboration half.** The literal
+  branch (`case (Some(lw), Some(rw)) => check(lw, rw)`) and the parametric branch answer the same
+  question, so the elaboration half must report the SAME message as the compile-time `Check2`,
+  rendered through `widthErrorString` (error-site-relative, issue #448). A bare `case _ =>` on
+  that branch is the bug shape to grep for wherever a `Check2` enforces equality.
+
+### A domain type built only as a value carrier runs that type's own constraints
+
+Comparing two widths by wrapping one in a DFHDL type (`DFXInt(true, funcWidth, BitAccurate)`,
+built purely so `compareWidths` had something to take) makes every width that is illegal FOR THAT
+TYPE an elaboration error, whatever the surrounding operation was. `SInt` rejects width 1, so
+every `UInt(1)` arithmetic result failed with "Signed value width must be larger than 1" on code
+containing no signed value at all (issue #476). The tell is an error naming a constraint of a type
+the user never wrote, on an operation that has nothing to do with it. Compare the underlying refs
+instead (`IntParamRef.compare` on the two `magnitudeWidthParamRef`s), which also avoids minting
+the throwaway refs `IntParam.ref` registers per call. Note `.forced` constructors do NOT help:
+they force the type PARAMETER and still run the runtime check.
 
 ### Then measure the blast radius
 
@@ -794,6 +956,21 @@ exercise is a question, not a to-do.
 scalafmt reflows the test design (a braces-on-one-line block becomes multi-line), which silently
 shifts those positions. Write the design in the already-normalized indented form so reformatting
 does not move it, and re-check the positions after running scalafmt.
+
+This is the general reason **scalafmt belongs before the final full-suite run, not after it**:
+formatting rewrites the very spec files the suite just exercised, so a run that precedes it has to
+be repeated. Format once the narrow specs are green, revert the unrelated churn scalafmt always
+produces, then run the suite.
+
+Any edit that changes the file's LINE COUNT shifts every expectation below it, so adding a test in
+the middle breaks unrelated tests that were passing. Append new tests at the end of the file. When
+a mid-file edit is unavoidable (rewriting an existing test), do not hand-patch the fallout: munit
+prints each expected/obtained pair, so drive the rewrite off the run log — extract the
+`-Position:`/`+Position:` pairs and apply them to the source in ONE simultaneous pass (a
+sequential pass can rewrite a value that a later rule then matches). Two or three iterations
+converge, since a test with several expected errors only reveals its next stale position after the
+first is fixed. Do the substitution with a script that preserves the file's CRLF bytes, not
+`sed -i`, which rewrites the whole file's line endings and produces phantom diffs.
 
 ---
 
@@ -858,6 +1035,34 @@ assignment to a signal was illegal VHDL. Two lessons generalize:
 When you rewrite an existing predicate into a shared one, expand both forms case by case and
 confirm they agree on every branch, including the ones no test reaches (a `VAR.SHARED` inside an
 HDL method). A "simplification" that quietly moves an edge case is a second bug riding along.
+
+- **A keyword that carries a language-level GUARANTEE needs the IR fact that contradicts it.**
+  SystemVerilog `always_ff` promises a single driver for everything the process writes, which a
+  `VAR.SHARED` (a multi-ported memory) contradicts by construction, so a conforming frontend
+  rejects the pair while permissive ones (Yosys, Verilator) accept it (issue #473). Degrade only
+  the processes that actually make the contradicted claim (the *writers*; a reader is
+  unconstrained), and derive the fact from an `analysis` predicate rather than from the printer.
+  A pragma already emitted for the same reason (`/* verilator lint_off MULTIDRIVEN */`) is a
+  *lint* suppression and cannot rescue a language rule, so its presence is a hint that the
+  information is available, not that the case is handled.
+
+- **When the sibling backend already solves a restriction, its mechanism tells you the RULE, not
+  the LAYER.** VHDL fixes "a declaration the interface names cannot live in the body" with a
+  stage (`LocalToDesignParams`, which converts such constants into design parameters). Verilog
+  has the same restriction (issue #472: a body `localparam` referenced from the ANSI port list is
+  a use-before-declare), and reusing the stage for it introduced two fresh defects that the
+  printer-side equivalent has neither of: a `DropStructsVecs` length fold whose `Ident` wrapper
+  became an anonymous design-param default and then printed as a stray statement (the
+  `case Ident(_) => true` viewability exemption in `DFOwnerPrinter` makes every anonymous ident a
+  statement), and the v95 body-parameter path folding a derived default to a wrong literal
+  (`csDesignParamDefault` resolves constant data for a top design, so `W * N` became `24` and an
+  unresolvable width became `0`). Enumerate what else consumes the IR shape a stage would create
+  before preferring a stage to a printer fix; when only the emitted text is wrong, the printer is
+  the layer, and the shared IR stays backend-neutral. What DOES transfer between the backends is
+  the sibling's *rule*: VHDL keeps a native width query (`'length` / `bitWidth`) only over a
+  CONSTANT argument, because the query may print into a generic default where naming a port is
+  illegal, and the moment Verilog's constants moved into the parameter port list `$bits(vec)` had
+  the identical defect.
 
 - **One literal-format knob can be semantically overloaded across print contexts.** The Verilog
   bubble digit was `?` everywhere, which is correct in a `casez` pattern (where `?` aliases `z`,
@@ -936,10 +1141,20 @@ rejects, a self-contained spec input is impossible by construction. Express the 
 and let the stage's declared `dependencies` build the shape it consumes — that is what dependencies
 are for. Say so in a comment, since it deliberately departs from the self-contained-input rule.
 
-**Code-string assertions beat lint.** `assertNoDiff(design.getCompiledCodeString, ...)` is
-deterministic and needs no external tool. `.compile.lint` under `options.LinterOptions.WError` will
-fail on warnings unrelated to your fix — an `abs`-style design trips `UNUSEDSIGNAL` on the high bit
-of every intermediate that is only part-selected.
+**Code-string assertions beat lint.** A printed-output assertion is deterministic and needs no
+external tool. `.compile.lint` under `options.LinterOptions.WError` will fail on warnings unrelated
+to your fix — an `abs`-style design trips `UNUSEDSIGNAL` on the high bit of every intermediate that
+is only part-selected.
+
+**Reaching for `getCompiledCodeString` means the test is in the wrong file.** A code-string
+regression belongs in the print specs, which own printed output and already select their backend
+(`PrintCodeStringSpec` for the DFHDL code string, `PrintVerilogCodeSpec` / `PrintVHDLCodeSpec` for a
+backend-specific rendering). `ElaborationChecksSpec` asserts what elaboration *accepts and
+rejects*, so a test there ends at constructing the design; the moment it wants printed output, move
+it. `StageSpec.assertCodeString` runs `sanityCheck`, hence `DB.subDBCheck`, hence `connectionTable`,
+so a print-spec test re-derives the connectivity analysis for free — a compiled string is not needed
+to cover the post-stage re-run. Two `ElaborationChecksSpec` tests were written the wrong way here
+before the rule was clear; do not copy them as a model.
 
 **Do not copy the reporter's code into the repo.** Issue reports usually carry no license. Write a
 minimal design of your own that exercises the same path; if the shape is fully covered by stage
