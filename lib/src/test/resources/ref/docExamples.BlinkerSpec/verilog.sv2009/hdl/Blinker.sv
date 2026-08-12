@@ -15,6 +15,9 @@ module Blinker#(
   /* Half-count of the toggle for 50% duty cycle */
   localparam int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
   logic [$clog2(HALF_PERIOD) - 1:0] cnt;
+  if (!((HALF_PERIOD - 1) >= 0)) begin : constraint_0
+    $fatal(1, "Design parameter violation found. Expected: (HALF_PERIOD - 1) >= 0");
+  end
   always_ff @(posedge clk)
   begin
     if (rst == 1'b1) begin

@@ -206,6 +206,70 @@ object DFDecimal:
     )(using DFC): Option[AutoConstraint.Guard] =
       fitCheck(baWidth, wcWidth)(`BaW >= WcW`.message(baWidth.errorString, wcWidth.errorString))
 
+    /** [[wildcardFitCheck]] for a wildcard `Int` whose own VALUE does not resolve, which is every
+      * manifestation of an overridable design parameter.
+      *
+      * A wildcard adapts, so something has to bound what it adapts to, and the sibling above bounds
+      * its minimum WIDTH. A parameter has none: neither its width nor its sign is known, for this
+      * elaboration or any other, so there is nothing to compare and the bound has to be on the
+      * VALUE itself. It is the same relation all the same, stated as the width that value needs,
+      * which is `clog2(v + 1)` bits for an unsigned `v` and `clog2(max(v + 1, -v)) + 1` for a
+      * signed one, both exactly and for every `v`. Through `clog2` rather than as
+      * `v <= 2 ** width - 1` deliberately: a 64-bit target would overflow the 32-bit integer
+      * arithmetic the generated HDL evaluates the contract in.
+      *
+      * The sign is unknown too, and no width makes an unsigned type hold a negative value, so an
+      * unsigned target requires that as well, in the same constraint: the two halves are what one
+      * adaptation needs, not two things to satisfy separately. Answers the constraint rather than
+      * raising it, for the same reason the sibling does.
+      *
+      * Answers none in two cases. A target that is itself a wildcard `Int` adapts to nothing and so
+      * assumes nothing. And a wildcard the design BODY cannot read is not something the body can
+      * state a contract over: a `for` iterator has no value at elaboration for the same reason a
+      * parameter has none, but unlike a parameter it has none in the finished design either, and a
+      * guard reading it would be a block-local read from the body (`DB.blockScopeCheck`).
+      */
+    protected[core] def wildcardValueFitCheck(
+        wildcard: DFValAny,
+        baType: ir.DFDecimal
+    )(using dfc: DFC): Option[AutoConstraint.Guard] =
+      import dfc.getSet
+      // a named value belongs to the body only when a design or domain owns it directly (an
+      // owner-less global is readable from everywhere); an anonymous one is its operands'
+      def bodyReadable(dfVal: ir.DFVal): Boolean =
+        dfVal match
+          case dcl: ir.DFVal.Dcl if dcl.isIterator => false
+          case _ if dfVal.isAnonymous              =>
+            dfVal.getRefs.forall(_.get match
+              case operand: ir.DFVal => bodyReadable(operand)
+              case _                 => true)
+          case _ =>
+            dfVal.ownerRef.get match
+              case _: ir.DFDomainOwner  => true
+              case _: ir.DFMember.Empty => true
+              case _                    => false
+      Option.when(!baType.isDFInt32 && wildcard.asIR.isConst && bodyReadable(wildcard.asIR)) {
+        import IntParam.{+, max, clog2, unary_-}
+        val value = IntParam.forced[Int](wildcard.asIR.asConstOf[DFInt32])
+        val zero = IntParam.forced[Int](0)
+        val one = IntParam.forced[Int](1)
+        val neededWidth =
+          if (baType.signed) ((value + one).max(-value)).clog2 + one
+          else (value + one).clog2
+        // The fit is a relation between two WIDTHS, so it discharges like any other, and often
+        // does: a value derived from the very parameter the target's width is derived from needs
+        // exactly that width. The non-negativity is a relation over a VALUE, where the discharge's
+        // premise that both sides are widths (`>= 1` on the valid domain) is precisely what must
+        // not be assumed, and it is undecidable here by construction: a wildcard whose value folds
+        // took the sibling's path instead.
+        val fitOpt = wildcardFitCheck(baType.magnitudeWidthParamRef.get, neededWidth)
+        if (baType.signed) fitOpt
+        else
+          val nonNeg = AutoConstraint.ge(value, zero)
+          Some(fitOpt.fold(nonNeg)(AutoConstraint.and(nonNeg, _)))
+      }.flatten
+    end wildcardValueFitCheck
+
     object `LS >= RS`
         extends Check2[
           Boolean,
@@ -420,6 +484,10 @@ object DFDecimal:
                     else rhsWidthParam
                   widthFitCheck(lhsWidthParam, rhsSignedWidthParam)
               end match
+            // the RHS is a wildcard `Int` whose value does not resolve (the LHS cannot be one
+            // here), so it adapts to the LHS type with no width of its own to compare
+            case (Some(_, _), None) =>
+              wildcardValueFitCheck(rhs, lhs.dfType.asIR).foreach(AutoConstraint.raise)
             case _ =>
           end match
       end apply
@@ -1253,7 +1321,10 @@ object DFXInt:
                       // `16 >= W`) becomes a constraint of the design
                       widthFitCheck(dfTypeWidthRef.get, rhsWidthRef.get)
                     end if
+            // the RHS is a wildcard `Int` whose value does not resolve, so it adapts to the
+            // target with no width of its own to compare
             case None =>
+              wildcardValueFitCheck(rhs, dfType.asIR).foreach(AutoConstraint.raise)
           end match
           // a widened cone lands exactly at the target type with the original func's
           // (anonymous) meta, so a named-val binding must be applied here, like the
@@ -1347,7 +1418,10 @@ object DFXInt:
                     else equalWidthCheck(dfTypeWidth, argWidth)
                     end if
               end if
+            // the argument is a wildcard `Int` whose value does not resolve, so it adapts to the
+            // receiver with no width of its own to compare
             case None =>
+              wildcardValueFitCheck(dfValArg, dfType.asIR).foreach(AutoConstraint.raise)
           end match
           DFXInt.Val.Ops.toDFXIntOf(dfValArg)(dfType).asValTP[DFXInt[LS, LW, LN], RP]
         end convArg
@@ -1701,7 +1775,9 @@ object DFXInt:
                   )
               end match
             }
-          case _ => None
+          // neither the wildcard's width nor its sign resolves, so the bound it must meet is on
+          // its VALUE instead
+          case _ => wildcardValueFitCheck(wildcard, baType)
         end match
       end checkWildcardFit
 

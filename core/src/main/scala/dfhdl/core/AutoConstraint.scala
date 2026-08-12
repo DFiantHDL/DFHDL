@@ -55,6 +55,14 @@ object AutoConstraint:
   def ge(lhs: IntParam[Int], rhs: IntParam[Int])(using DFC): Guard =
     condition(FuncOp.>=, lhs, rhs)
 
+  /** Both conditions, for a requirement that takes more than one relation to state. It stays ONE
+    * constraint: the parts are what the design must satisfy together, and reporting a violation of
+    * one without showing the other names half a contract.
+    */
+  def and(lhs: Guard, rhs: Guard)(using dfc: DFC): Guard =
+    given DFC = dfc.anonymize
+    DFVal.Func[DFBool, Any](DFBool, FuncOp.&, List(lhs.asIR, rhs.asIR))
+
   /** Decides the width fit `lhs >= rhs`, or `None` when it holds for some parameter assignments and
     * not others. The undecided answer is what [[raise]] exists for.
     */
@@ -162,8 +170,9 @@ object AutoConstraint:
   private type Requirement = ir.IntExprCalc.Linear
 
   /** What a guard requires, as the conjunction of one or more `linear >= 0` relations. Empty for a
-    * guard that is not a comparison of two integer expressions: nothing generates such a guard, but
-    * a user's own assertion may well be one, and it then simply takes no part in minimization.
+    * guard that is not a comparison of two integer expressions, which then simply takes no part in
+    * minimization: a user's own assertion may be anything at all, and a generated multi-part
+    * requirement (see [[and]]) is a conjunction rather than a relation.
     *
     * Every comparison normalizes onto the same shape, so a user's `W <= 8` is comparable with a
     * generated `16 >= W` without either being rewritten. A strict comparison is the non-strict one

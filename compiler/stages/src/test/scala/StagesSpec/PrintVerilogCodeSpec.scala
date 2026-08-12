@@ -584,6 +584,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  /* Half-count of the toggle for 50% duty cycle */
          |  localparam int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
          |  logic [$clog2(HALF_PERIOD) - 1:0] cnt;
+         |  initial begin : constraint_0
+         |    assert ((HALF_PERIOD - 1) >= 0)
+         |    else $fatal(1, "Design parameter violation found. Expected: (HALF_PERIOD - 1) >= 0");
+         |  end
          |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) begin
@@ -1137,7 +1141,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", param10.name());
          |    $info(
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1093:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1208,7 +1212,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", MyEnum_to_string(param10));
          |    $display(
          |      "INFO: Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1093:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,

@@ -280,6 +280,8 @@ object IntParam extends IntParamLP:
     infix def min[R <: IntP](rhs: IntParam[R]): IntParam[IntP.Min[L, R]] =
       import scala.runtime.RichInt
       calc(FuncOp.min, lhs, rhs)((x, y) => RichInt(x) min y)
+    def unary_- : IntParam[Int] =
+      calc(FuncOp.unary_-, lhs)(-_)
     def clog2: IntParam[IntP.CLog2[L]] =
       calc(FuncOp.clog2, lhs)(dfhdl.internals.clog2)
     def =~[R <: IntP](that: IntParam[R]): Boolean =

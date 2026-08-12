@@ -17,6 +17,12 @@ module Blinker(
   /* LED output */
   output reg  led;
   reg [clog2(HALF_PERIOD) - 1:0] cnt;
+  initial begin : constraint_0
+    if (!((HALF_PERIOD - 1) >= 0)) begin
+      $display("FATAL: Design parameter violation found. Expected: (HALF_PERIOD - 1) >= 0");
+      $finish;
+    end
+  end
   always @(posedge clk)
   begin
     if (rst == 1'b1) begin

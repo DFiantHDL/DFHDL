@@ -43,6 +43,12 @@ module UART_Tx(
   reg [clog2(BIT_CLOCKS) - 1:0] bitClkCnt;
   reg [2:0] dataBitCnt;
   reg [7:0] shiftData;
+  initial begin : constraint_0
+    if (!((BIT_CLOCKS - 1) >= 0)) begin
+      $display("FATAL: Design parameter violation found. Expected: (BIT_CLOCKS - 1) >= 0");
+      $finish;
+    end
+  end
   always @(posedge clk)
   begin
     if (rst == 1'b1) begin

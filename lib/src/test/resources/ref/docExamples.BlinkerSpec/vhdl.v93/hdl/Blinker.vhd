@@ -23,6 +23,8 @@ architecture Blinker_arch of Blinker is
   signal led_sig       : std_logic;
   signal cnt           : unsigned(clog2(HALF_PERIOD) - 1 downto 0);
 begin
+  constraint_0: assert (HALF_PERIOD - 1) >= 0
+    report "Design parameter violation found. Expected: (HALF_PERIOD - 1) >= 0" severity FAILURE;
   led             <= led_sig;
   process (clk)
   begin

@@ -1046,6 +1046,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    led.din := !led
          |  else cnt.din := cnt + d"1'1".resize(clog2(HALF_PERIOD))
          |  end if
+         |  val constraint_0 = assert((HALF_PERIOD - 1) >= 0, s"Design parameter violation found. Expected: (HALF_PERIOD - 1) >= 0", Severity.Fatal)
          |end Blinker
          |""".stripMargin
     )
@@ -3467,6 +3468,46 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  o <> c.o.resize(OUTPUT_WIDTH)
          |  val constraint_0 = assert(OUTPUT_WIDTH >= c_OUTPUT_WIDTH, s"Design parameter violation found. Expected: OUTPUT_WIDTH >= c_OUTPUT_WIDTH", Severity.Fatal)
          |end WidthParent
+         |""".stripMargin
+    )
+  }
+  test("auto constraint from a wildcard `Int` parameter's value") {
+    // A wildcard `Int` adapts, and a Scala `Int`'s minimum WIDTH is what bounds the adaptation. An
+    // overridable parameter has no width at all, for this elaboration or any other, so the bound
+    // is on its VALUE, stated as the width that value needs. The sign is unknown too, and no
+    // width makes an unsigned type hold a negative value, so an unsigned target says that as
+    // well, in the same constraint.
+    class WcValue(val V: Int <> CONST = 4, val N: Int <> CONST = 8) extends EDDesign:
+      val u = UInt(16)      <> OUT
+      val s = SInt(8)       <> OUT
+      val p = UInt.until(N) <> OUT
+      val q = UInt.until(N) <> OUT
+      u <> V
+      s <> V
+      p <> V
+      // the fit DISCHARGES when the value is derived from the very parameter the target's width
+      // is: `N - 1` needs exactly the width `UInt.until(N)` has, leaving only the sign half
+      q <> N - 1
+    end WcValue
+    assertCodeString(
+      WcValue(),
+      """|class WcValue(
+         |    val V: Int <> CONST = 4,
+         |    val N: Int <> CONST = 8
+         |) extends EDDesign:
+         |  val u = UInt(16) <> OUT
+         |  val s = SInt(8) <> OUT
+         |  val p = UInt(clog2(N)) <> OUT
+         |  val q = UInt(clog2(N)) <> OUT
+         |  u <> d"16'${V}"
+         |  s <> sd"8'${V}"
+         |  p <> d"${clog2(N)}'${V}"
+         |  q <> d"${clog2(N)}'${(N - 1)}"
+         |  val constraint_0 = assert((V >= 0) && (16 >= clog2(V + 1)), s"Design parameter violation found. Expected: (V >= 0) && (16 >= clog2(V + 1))", Severity.Fatal)
+         |  val constraint_1 = assert(8 >= (clog2((V + 1) max (-V)) + 1), s"Design parameter violation found. Expected: 8 >= (clog2((V + 1) max (-V)) + 1)", Severity.Fatal)
+         |  val constraint_2 = assert((V >= 0) && (clog2(N) >= clog2(V + 1)), s"Design parameter violation found. Expected: (V >= 0) && (clog2(N) >= clog2(V + 1))", Severity.Fatal)
+         |  val constraint_3 = assert((N - 1) >= 0, s"Design parameter violation found. Expected: (N - 1) >= 0", Severity.Fatal)
+         |end WcValue
          |""".stripMargin
     )
   }

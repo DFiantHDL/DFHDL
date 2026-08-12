@@ -372,6 +372,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant HALF_PERIOD : integer := (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
          |  signal cnt : unsigned(clog2(HALF_PERIOD) - 1 downto 0);
          |begin
+         |  constraint_0: assert (HALF_PERIOD - 1) >= 0
+         |    report "Design parameter violation found. Expected: (HALF_PERIOD - 1) >= 0" severity FAILURE;
          |  process (clk)
          |  begin
          |    if rising_edge(clk) then
@@ -1213,7 +1215,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1160:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1162:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -1274,7 +1276,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1160:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1162:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
