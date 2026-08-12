@@ -86,14 +86,25 @@ private[core] object CarryPromote:
       magnitudeWidthParamRef = dfType.widthIntParam.ref,
       nativeType = BitAccurate
     )
+    def targetType = DFXInt(dfType.signed, dfType.widthIntParam, BitAccurate)
     // a nested value re-enters the full conversion, so nested cones widen and leaves
     // get their sign conversion / resize at the target type
     def widened(v: ir.DFVal): DFValAny =
-      DFXInt.Val.Ops.toDFXIntOf(
-        v.asValOf[DFXInt[Boolean, Int, NativeType]]
-      )(DFXInt(dfType.signed, dfType.widthIntParam, BitAccurate))(using
-        dfc.anonymize
-      )
+      wildcardUnder(v) match
+        // A wildcard `Int` operand adapted to the OTHER operand's width: the wildcard
+        // re-adapts to the target, rather than its adaptation being widened. The other
+        // operand's width is precisely what the target context replaces, so evaluating
+        // the wildcard at it first is the narrow evaluation this rule exists to undo:
+        // it truncates a literal the target holds perfectly well, and, where that width
+        // is parametric, leaves the design constrained to hold a value nothing in the
+        // widened expression puts there. The fit at the TARGET is checked in its place.
+        case Some(wildcard) =>
+          AutoConstraint.retract(v)
+          DFXInt.Val.Ops.adaptWildcard(wildcard.asValAny, targetType)(using dfc.anonymize)
+        case None =>
+          DFXInt.Val.Ops.toDFXIntOf(
+            v.asValOf[DFXInt[Boolean, Int, NativeType]]
+          )(targetType)(using dfc.anonymize)
     def widenedArg(argRef: ir.DFVal.Ref): DFValAny = widened(argRef.get)
     // no MutableDB revision under meta-programming (matching `setMember`'s behavior
     // there): the retyped value is returned unregistered and the argument
@@ -236,6 +247,21 @@ private[core] object CarryPromote:
       (dfVal match
         case alias: ir.DFVal.Alias => hasImplicitlyFromIntTag(alias.relValRef.get)
         case _                     => false)
+
+  // The wildcard `Int` under a value that is nothing but that wildcard adapted to some other
+  // operand's width: an anonymous alias chain, as `toDFXIntOf` builds it, bottoming out either
+  // at the tagged constant a Scala `Int`'s candidate created (at the value's own minimum width,
+  // so a sign conversion and a resize may sit above it) or at a DFHDL `Int`, which has no width
+  // at all and takes one in a single conversion. `None` for everything else, the wildcard's own
+  // constant included: there is no adaptation there to look through.
+  private def wildcardUnder(dfVal: ir.DFVal)(using ir.MemberGetSet): Option[ir.DFVal] =
+    dfVal match
+      case alias: ir.DFVal.Alias.AsIs if alias.isAnonymous =>
+        val relVal = alias.relValRef.get
+        val isWildcard = relVal.tags.hasTagOf[ir.ImplicitlyFromIntTag] ||
+          relVal.dfType == ir.DFInt32
+        if (isWildcard) Some(relVal) else wildcardUnder(relVal)
+      case _ => None
 
   // A width reference resolved through design parameters: this runs during
   // elaboration, where a parameter's applied (or default) value is known, so a

@@ -854,7 +854,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    led.din := !led
          |  else cnt.din := cnt + d"1'1".resize(clog2(maxCnt + 1))
          |  end if
-         |  val constraint = assert(clog2(maxCnt + 1) >= 23, s"Design parameter violation found. Expected: clog2(maxCnt + 1) >= 23", Severity.Fatal)
+         |  val constraint_0 = assert(clog2(maxCnt + 1) >= 23, s"Design parameter violation found. Expected: clog2(maxCnt + 1) >= 23", Severity.Fatal)
          |end Blinker
          |""".stripMargin
     )
@@ -3310,7 +3310,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val inRange = assert(i < d"8'200".resize(W), s"i too large: ${i}")
          |    val trace = println(s"i: ${i}")
          |  o <> i
-         |  val constraint = assert(W >= 8, s"Design parameter violation found. Expected: W >= 8", Severity.Fatal)
+         |  val constraint_0 = assert(W >= 8, s"Design parameter violation found. Expected: W >= 8", Severity.Fatal)
          |end Named
          |""".stripMargin
     )
@@ -3339,7 +3339,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val z = UInt(16) <> OUT
          |  val n = UInt(8) <> OUT
          |  z := x.resize(16)
-         |  z := x.resize(16) + d"1'1".resize(W).resize(16)
+         |  z := x.resize(16) + d"16'1"
          |  n := y.resize(8)
          |  val constraint_0 = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
          |  val constraint_1 = assert(8 >= V, s"Design parameter violation found. Expected: 8 >= V", Severity.Fatal)
@@ -3368,7 +3368,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  process(all):
          |    if (sel) z :== x.resize(16)
          |    else z :== d"16'0"
-         |  val constraint = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
+         |  val constraint_0 = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
          |end Blocked
          |""".stripMargin
     )
@@ -3392,7 +3392,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val n = UInt(8) <> OUT
          |  z := x.resize(16)
          |  n := x.resize(8)
-         |  val constraint = assert(8 >= W, s"Design parameter violation found. Expected: 8 >= W", Severity.Fatal)
+         |  val constraint_0 = assert(8 >= W, s"Design parameter violation found. Expected: 8 >= W", Severity.Fatal)
          |end Subsumed
          |""".stripMargin
     )
@@ -3431,7 +3431,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val z = UInt(16) <> OUT
          |  val note = assert(W <= 8, s"W is unusually large: ${W}", Severity.Warning)
          |  z := x.resize(16)
-         |  val constraint = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
+         |  val constraint_0 = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
          |end UserReports
          |""".stripMargin
     )
@@ -3465,7 +3465,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val c = WidthChild(W = 4)
          |  val c_OUTPUT_WIDTH: Int <> CONST = 4 * 2
          |  o <> c.o.resize(OUTPUT_WIDTH)
-         |  val constraint = assert(OUTPUT_WIDTH >= c_OUTPUT_WIDTH, s"Design parameter violation found. Expected: OUTPUT_WIDTH >= c_OUTPUT_WIDTH", Severity.Fatal)
+         |  val constraint_0 = assert(OUTPUT_WIDTH >= c_OUTPUT_WIDTH, s"Design parameter violation found. Expected: OUTPUT_WIDTH >= c_OUTPUT_WIDTH", Severity.Fatal)
          |end WidthParent
          |""".stripMargin
     )
@@ -3488,7 +3488,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val q = UInt(W) <> OUT
          |  o := p.resize(8)
          |  q := p
-         |  val constraint = assert(8 >= W, s"Design parameter violation found. Expected: 8 >= W", Severity.Fatal)
+         |  val constraint_0 = assert(8 >= W, s"Design parameter violation found. Expected: 8 >= W", Severity.Fatal)
          |end ParamExtend
          |""".stripMargin
     )

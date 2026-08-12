@@ -178,27 +178,32 @@ object DFDecimal:
     // The message is the CHECK's, over the width expressions rather than over the `Int`s the
     // check itself takes: one rule has one message, whichever of its three halves reports it
     // (the compile-time reduction, the check's own runtime test, or this symbolic decision).
+    // Answers the constraint the undecidable arm raised, for a caller that has a value to tie it
+    // to (see `AutoConstraint.raiseFor`); the other two answers have nothing to record.
     private def fitCheck(lhs: IntParam[Int], rhs: IntParam[Int])(violation: => String)(using
         DFC
-    ): Unit =
+    ): Option[AutoConstraint.Guard] =
       AutoConstraint.widthFitGE(lhs, rhs) match
-        case Some(true)  => // fits for every parameter assignment
+        case Some(true)  => None // fits for every parameter assignment
         case Some(false) => throw new IllegalArgumentException(violation)
-        case None        => AutoConstraint.raise(AutoConstraint.ge(lhs, rhs))
+        case None        => Some(AutoConstraint.ge(lhs, rhs))
 
     protected[core] def widthFitCheck(
         lhs: IntParam[Int],
         rhs: IntParam[Int]
     )(using DFC): Unit =
       fitCheck(lhs, rhs)(`LW >= RW`.message(lhs.errorString, rhs.errorString))
+        .foreach(AutoConstraint.raise)
 
     /** [[widthFitCheck]] for the fit a WILDCARD `Int` needs to adapt to a bit-accurate value: the
-      * elaboration half of [[`BaW >= WcW`]], invoked where that check's arm cannot decide.
+      * elaboration half of [[`BaW >= WcW`]], invoked where that check's arm cannot decide. Answers
+      * the constraint it needs rather than raising it, since the value that will make the
+      * assumption does not exist until the adaptation itself is built.
       */
     protected[core] def wildcardFitCheck(
         baWidth: IntParam[Int],
         wcWidth: IntParam[Int]
-    )(using DFC): Unit =
+    )(using DFC): Option[AutoConstraint.Guard] =
       fitCheck(baWidth, wcWidth)(`BaW >= WcW`.message(baWidth.errorString, wcWidth.errorString))
 
     object `LS >= RS`
@@ -1338,7 +1343,7 @@ object DFXInt:
                       val effectiveWidth =
                         if (dfType.signed.value && !rhsSigned) argWidth + 1
                         else argWidth
-                      wildcardFitCheck(dfTypeWidth, effectiveWidth)
+                      wildcardFitCheck(dfTypeWidth, effectiveWidth).foreach(AutoConstraint.raise)
                     else equalWidthCheck(dfTypeWidth, argWidth)
                     end if
               end if
@@ -1665,7 +1670,7 @@ object DFXInt:
       private def checkWildcardFit(
           wildcard: DFValOf[DFInt32],
           bitAccurateType: DFTypeAny
-      )(using dfc: DFC): Unit =
+      )(using dfc: DFC): Option[AutoConstraint.Guard] =
         val baType = bitAccurateType.asIR.asInstanceOf[ir.DFDecimal]
         import dfc.getSet
         import DFXInt.Val.getActualSignedWidthOpt
@@ -1675,7 +1680,7 @@ object DFXInt:
               throw new IllegalArgumentException(
                 s"Wildcard `Int` value is negative and cannot adapt to an unsigned bit-accurate value."
               )
-            wcWidthIntOpt.foreach { wcWidth =>
+            wcWidthIntOpt.flatMap { wcWidth =>
               // Unsigned wildcard adapting to signed bit-accurate value needs an extra bit
               val effectiveWidth =
                 if (baType.signed && !wcSigned) wcWidth + 1 else wcWidth
@@ -1685,6 +1690,7 @@ object DFXInt:
                     throw new IllegalArgumentException(
                       `BaW >= WcW`.message(baWidth, effectiveWidth)
                     )
+                  None
                 case None =>
                   // the bit-accurate width is parametric, so the fit the adaptation relies on is
                   // stated as a constraint of the design (an integer type: fraction 0, so the
@@ -1693,10 +1699,30 @@ object DFXInt:
                     baType.magnitudeWidthParamRef.get,
                     IntParam.forced[Int](effectiveWidth)
                   )
+              end match
             }
-          case _ =>
+          case _ => None
         end match
       end checkWildcardFit
+
+      /** A wildcard `Int` operand adapted to a bit-accurate type: the conversion, with the fit it
+        * needs checked, and, where that fit is undecidable and becomes a constraint of the design,
+        * the constraint tied to the adapted value ([[AutoConstraint.raiseFor]]).
+        *
+        * The type is the OTHER operand's, which nothing in the expression itself says is the width
+        * the wildcard should take: a wider target context replaces it, and the adaptation and its
+        * assumption are then both superseded ([[CarryPromote.widenedOpt]]).
+        */
+      private[core] def adaptWildcard[RS <: Boolean, RW <: IntP, RN <: NativeType](
+          wildcard: DFValAny,
+          dfType: DFXInt[RS, RW, RN]
+      )(using dfc: DFC): DFValOf[DFXInt[RS, RW, RN]] =
+        val pending = checkWildcardFit(wildcard.asValOf[DFInt32], dfType)
+        val adapted =
+          wildcard.asValOf[DFXInt[Boolean, Int, NativeType]].toDFXIntOf(dfType)
+        pending.foreach(AutoConstraint.raiseFor(_, adapted.asIR))
+        adapted
+      end adaptWildcard
 
       private def arithOp[
           OS <: Boolean,
@@ -1822,13 +1848,12 @@ object DFXInt:
             val retVal =
               if (lhsIsWildcard && !rhsIsWildcard)
                 // LHS is wildcard: adapt to RHS type, keeping the written operand order
-                checkWildcardFit(lhsVal.asValOf[DFInt32], rhsVal.dfType)
-                val lhsFix = lhsVal.toDFXIntOf(rhsVal.dfType)(using dfcAnon)
+                val lhsFix = adaptWildcard(lhsVal, rhsVal.dfType)(using dfcAnon)
                 DFVal.Func(rhsVal.dfType, op.value, List(lhsFix, rhsVal))
               else if (rhsIsWildcard) // LHS may be wildcard or concrete
                 // RHS is wildcard: adapt to LHS type
-                checkWildcardFit(rhsVal.asValOf[DFInt32], lhsVal.dfType)
-                arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal)
+                val rhsFix = adaptWildcard(rhsVal, lhsVal.dfType)(using dfcAnon)
+                arithOp(lhsVal.dfType, op.value, lhsVal, rhsFix)
               else
                 // Both concrete: use max width, max signed
                 val lhsSFix =
@@ -1928,8 +1953,7 @@ object DFXInt:
             if (lhsIsWildcard && !rhsIsWildcard)
               // LHS is an adapting wildcard, RHS is concrete: adapt LHS to RHS type, keep
               // operand order
-              checkWildcardFit(lhsVal.asValOf[DFInt32], rhsVal.dfType)
-              val lhsAdj = lhsVal.toDFXIntOf(rhsVal.dfType)(using dfcAnon)
+              val lhsAdj = adaptWildcard(lhsVal, rhsVal.dfType)(using dfcAnon)
               DFVal.Func(rhsVal.dfType, op.value, List(lhsAdj, rhsVal)).asInstanceOf[Out]
             else if (isWildcardL.value && !rhsIsWildcard)
               // LHS is a literal wildcard: both operands align at the common type, so the

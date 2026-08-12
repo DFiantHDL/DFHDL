@@ -111,6 +111,13 @@ class DesignContext:
         dfVal
     }.toList
 
+  // The pending constraint a VALUE's own width adaptation assumed, keyed by that value. A
+  // constraint states what the finished design relies on, and an anonymous operand can still be
+  // superseded after it made its assumption, so the assumption needs an owner to be dropped with.
+  // `AutoConstraint.raiseFor`/`retract` are the only users; a guard nothing supersedes is simply
+  // never looked up.
+  val autoConstraintOf = mutable.Map.empty[DFVal, DFVal]
+
   def setOriginRefs(member: DFMember): Unit =
     member.getRefs.foreach { r => originRefTable += r -> member }
 

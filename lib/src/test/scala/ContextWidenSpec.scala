@@ -34,7 +34,8 @@ class ContextWidenSpec extends DesignSpec:
       // modular there, exactly like Verilog's assignment context
       acc <> a + b
       // a merged (non-binary) chain always evaluates at the target width; the implicit
-      // Int operand adapts at the operand width and widens along
+      // Int operand takes that width DIRECTLY rather than the operand width it first
+      // adapted to, so the fit it states is the one the target needs (issue #478)
       chain <> a + b + 1
     end ParamWiden
 
@@ -51,9 +52,38 @@ class ContextWidenSpec extends DesignSpec:
          |  sum <> (a +^ b)
          |  usub <> (ua -^ ub)
          |  acc <> (a.eby(2) + b.eby(2))
-         |  chain <> (a.eby(2) + b.eby(2) + sd"2'1".resize(W).eby(2))
-         |  val constraint = assert(W >= 2, s"Design parameter violation found. Expected: W >= 2", Severity.Fatal)
+         |  chain <> (a.eby(2) + b.eby(2) + sd"2'1".resize(W + 2))
+         |  val constraint_0 = assert((W + 2) >= 2, s"Design parameter violation found. Expected: (W + 2) >= 2", Severity.Fatal)
          |end ParamWiden
+         |""".stripMargin
+    )
+  }
+
+  test("wildcard `Int` operand takes the target width") {
+    // A wildcard `Int` has no width of its own and first adapts to the OTHER operand's, which is
+    // precisely the width the target context then replaces. So it takes the target width
+    // directly: adapting to a parametric operand width first would evaluate the literal there,
+    // truncating it when that width turns out to be the smaller, and would leave the design
+    // constrained to hold a value nothing in the widened expression puts at that width (#478).
+    @top(false) class WcWiden(val N: Int <> CONST = 4) extends EDDesign:
+      val p = UInt.until(N) <> IN
+      val wide = UInt(16) <> OUT
+      val narrow = UInt.until(N) <> OUT
+      wide <> 5 * p
+      // the control: with no wider target the adaptation stands, and so does the fit it needs
+      narrow <> 5 * p
+    end WcWiden
+
+    WcWiden().assertCodeString(
+      """|class WcWiden(val N: Int <> CONST = 4) extends EDDesign:
+         |  val p = UInt(clog2(N)) <> IN
+         |  val wide = UInt(16) <> OUT
+         |  val narrow = UInt(clog2(N)) <> OUT
+         |  wide <> (d"16'5" * p.resize(16))
+         |  narrow <> (d"3'5".resize(clog2(N)) * p)
+         |  val constraint_0 = assert(16 >= clog2(N), s"Design parameter violation found. Expected: 16 >= clog2(N)", Severity.Fatal)
+         |  val constraint_1 = assert(clog2(N) >= 3, s"Design parameter violation found. Expected: clog2(N) >= 3", Severity.Fatal)
+         |end WcWiden
          |""".stripMargin
     )
   }

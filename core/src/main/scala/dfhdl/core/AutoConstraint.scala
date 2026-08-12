@@ -29,14 +29,16 @@ import scala.collection.mutable
   * where it belongs, on the elaboration error for a relation that is provably violated.
   */
 object AutoConstraint:
-  /** The name a materialized constraint carries, enumerated when a design has more than one. It
-    * labels the statement in the generated HDL, where an unnamed SystemVerilog elaboration block is
-    * what a linter complains about. Enumerated HERE rather than left to `UniqueNames`, because the
-    * printed DFHDL is source: two `val constraint = ...` bindings in one body would not
-    * re-elaborate. The enumeration follows `UniqueNames`'s own, so it renames nothing further.
+  /** The name a materialized constraint carries. It labels the statement in the generated HDL,
+    * where an unnamed SystemVerilog elaboration block is what a linter complains about. Enumerated
+    * HERE rather than left to `UniqueNames`, because the printed DFHDL is source: two `val
+    * constraint = ...` bindings in one body would not re-elaborate. The enumeration follows
+    * `UniqueNames`'s own, so it renames nothing further, and it runs from the first constraint even
+    * when a design has only one: the bare `constraint` is a SystemVerilog keyword, which the
+    * generated elaboration block cannot be labelled with.
     */
   private def constraintName(idx: Int, count: Int): String =
-    if (count == 1) "constraint" else s"constraint_${idx.toPaddedString(count)}"
+    s"constraint_${idx.toPaddedString(count)}"
 
   /** A constraint's condition. Constant, so the assertion it becomes is a contract checked at the
     * generated design's elaboration rather than a runtime test.
@@ -66,18 +68,42 @@ object AutoConstraint:
       case _ => ir.IntExprCalc.widthFitCompare(lhs.toDFConst.asIR, rhs.toDFConst.asIR)
 
   /** Records `guard` as an assumption of the design being elaborated, to be materialized as a
-    * static assertion at the end of its body.
+    * static assertion at the end of its body. Answers the guard as recorded, for [[raiseFor]] to
+    * key on, and `None` where nothing was recorded.
     *
     * Nothing is recorded anywhere else: the guard IS the record, and its own meta is the position
     * of the operation that assumed it.
     */
-  def raise(guard: Guard)(using dfc: DFC): Unit =
+  def raise(guard: Guard)(using dfc: DFC): Option[ir.DFVal] =
     // nothing states a constraint outside a design: global scope has no body to put it in, and a
     // stage's meta design transforms an already-elaborated one and assumes nothing of its own
     if (!dfc.inMetaProgramming && dfc.ownerOption.isDefined)
       import dfc.getSet
-      guard.asIR.setTags(_.tag(ir.AutoConstraint))
+      Some(guard.asIR.setTags(_.tag(ir.AutoConstraint)))
+    else None
+
+  /** [[raise]], for an assumption a specific VALUE makes: the constraint stands as long as that
+    * value does, and is [[retract]]ed when something supersedes it.
+    *
+    * An assumption is normally the design's for good, because the operation that made it is a
+    * statement of the body. An anonymous operand is not: target-context widening re-evaluates a
+    * whole expression at the target's width (see `CarryPromote.widenedOpt`), which discards the
+    * narrow form of every operand in it, and an assumption only that narrow form needed has to go
+    * with it rather than be left stating a requirement of the design nothing in it relies on.
+    */
+  def raiseFor(guard: Guard, subject: ir.DFVal)(using dfc: DFC): Unit =
+    raise(guard).foreach(dfc.mutableDB.DesignContext.current.autoConstraintOf += subject -> _)
+
+  /** Drops the assumption [[raiseFor]] recorded for `subject`, if any. The guard is left where it
+    * is, untagged: it is then read by nothing, and the end-of-design sweep collects it along with
+    * the superseded value itself.
+    */
+  def retract(subject: ir.DFVal)(using dfc: DFC): Unit =
+    import dfc.getSet
+    dfc.mutableDB.DesignContext.current.autoConstraintOf.remove(subject).foreach { guard =>
+      guard.setTags(_.removeTagOf[ir.AutoConstraint])
       ()
+    }
 
   /** Whether `value` carries any width-adjustment permission at all, in either direction. */
   def hasWidthAdjustPermission(value: DFValAny)(using DFC): Boolean =
