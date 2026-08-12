@@ -430,6 +430,42 @@ lazy val metalsIsRunning: Boolean =
 lazy val ideaIsRunning: Boolean =
   getShellCommand.exists(cmd => cmd.contains("idea_rt.jar="))
 
+// `java.io.Console.isTerminal()`, or None on a JDK older than 22, where it does not exist. The
+// lookup goes through the (public) `Console` class rather than the instance's runtime class, which
+// since JDK 22 may be a non-public proxy that reflection refuses to invoke through.
+private lazy val consoleIsTerminalMethod: Option[java.lang.reflect.Method] =
+  try Some(classOf[java.io.Console].getMethod("isTerminal"))
+  catch case _: Exception => None
+
+// detecting if our standard streams are attached to an interactive terminal.
+// `System.console() != null` is not enough on every JDK: since JDK 22 a Console can also be
+// returned for redirected streams, and only `Console.isTerminal()` (added in that same release)
+// tells the two apart. We emit Java 17 bytecode, so that method is invoked reflectively; where it
+// is missing (JDK 17-21) a non-null Console already implies a terminal.
+// Note this answers for OUR streams, and for both of them: the JDK requires stdin AND stdout to be
+// a terminal, so redirecting either one makes this false. A launcher that captures our streams and
+// forwards what we print to a terminal of its own therefore reports false here while still
+// rendering color, which is what `isColorTerminal` accounts for.
+lazy val isTTY: Boolean =
+  val console = System.console()
+  console != null && consoleIsTerminalMethod.forall { isTerminal =>
+    try isTerminal.invoke(console).asInstanceOf[Boolean]
+    catch case _: Exception => true
+  }
+
+// detecting if the ANSI color we print will actually be rendered as color.
+// A terminal we own (`isTTY`) qualifies, and so does a launcher that captured our streams and
+// forwards our output to its own console: the sbt shell, the detached `sbtn` server, IntelliJ IDEA
+// and Metals all render ANSI on the other end. Anything else (a pipe, a redirect, a log file) gets
+// plain text. `NO_COLOR` (https://no-color.org) and `TERM=dumb` opt out either way, and
+// `FORCE_COLOR` opts back in for a terminal we cannot detect as one, e.g. MinTTY under Git Bash on
+// Windows, which the JDK sees as a pair of pipes rather than as a console.
+lazy val isColorTerminal: Boolean =
+  if (sys.env.contains("NO_COLOR")) false
+  else if (sys.env.get("FORCE_COLOR").exists(_ != "0")) true
+  else if (sys.env.get("TERM").contains("dumb")) false
+  else isTTY || sbtIsRunning || ideaIsRunning || metalsIsRunning
+
 def getRelativePath(absolutePathStr: String): String =
   import java.nio.file.Paths
   val absolutePath = Paths.get(absolutePathStr).toAbsolutePath()

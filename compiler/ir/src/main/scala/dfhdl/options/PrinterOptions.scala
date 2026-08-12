@@ -2,7 +2,7 @@ package dfhdl.options
 import dfhdl.compiler.ir
 import dfhdl.internals.simplePattenToRegex
 import dfhdl.options.PrinterOptions.*
-import dfhdl.internals.scastieIsRunning
+import dfhdl.internals.{scastieIsRunning, isColorTerminal}
 
 final case class PrinterOptions(
     align: Align,
@@ -35,8 +35,10 @@ object PrinterOptions:
 
   into opaque type Color <: Boolean = Boolean
   object Color:
-    // disabling color if in Scastie because of https://github.com/scalacenter/scastie/issues/492
-    given Color = !scastieIsRunning
+    // disabling color if in Scastie because of https://github.com/scalacenter/scastie/issues/492,
+    // and wherever the output is not going somewhere that renders ANSI (a pipe, a redirect, a log
+    // file), which would otherwise litter the captured text with escape sequences
+    given Color = !scastieIsRunning && isColorTerminal
     given Conversion[Boolean, Color] = identity
 
   into opaque type ShowGlobals <: Boolean = Boolean
