@@ -1586,6 +1586,10 @@ object DFXInt:
       end extension
       extension [S <: Boolean, W <: IntP, N <: NativeType, P](lhs: DFValTP[DFXInt[S, W, N], P])
         @targetName("resizeDFXIntAuto")
+        @deprecated(
+          "Permits both widening and truncation, so it does not say which was meant. Use `.extend` or `.truncate` for the direction you intend, or `.resize(width)` to state the width.",
+          "0.23.0"
+        )
         def resize(using DFCG): DFValTP[DFXInt[S, Int, N], P] =
           lhs.tag(ir.ResizeTag).asValTP[DFXInt[S, Int, N], P]
         // permission to adjust the width in ONE direction, taken up by the context that

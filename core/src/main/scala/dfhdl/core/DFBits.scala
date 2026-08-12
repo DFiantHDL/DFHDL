@@ -747,6 +747,10 @@ object DFBits:
 //          if (lhs.width == updatedWidth) lhs.asValOf[DFBits[RW]]
 //          else
           DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
+        @deprecated(
+          "Permits both widening and truncation, so it does not say which was meant. Use `.extend` or `.truncate` for the direction you intend, or `.resize(width)` to state the width.",
+          "0.23.0"
+        )
         def resize(using DFCG): DFValTP[DFBits[Int], P] =
           lhs.tag(ir.ResizeTag).asValTP[DFBits[Int], P]
         // permission to adjust the width in ONE direction, taken up by the context that decides
@@ -783,6 +787,10 @@ object DFBits:
             iter.map(_.widthIntParam.asInstanceOf[IntParam[Int]]).reduce(_ + _)
           DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
       extension [L <: DFValAny, LW <: IntP, LP](lhs: L)(using icL: Candidate.Aux[L, LW, LP])
+        @deprecated(
+          "Permits both widening and truncation, so it does not say which was meant. Use `.extend` or `.truncate` for the direction you intend, or `.resize(width)` to state the width.",
+          "0.23.0"
+        )
         def resize(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
           icL(lhs).tag(ir.ResizeTag).asValTP[DFBits[Int], icL.OutP]
         @targetName("extendDFBitsCandidate")
