@@ -1,0 +1,18 @@
+# Line endings are LF everywhere: in the repository and in the working tree.
+# These rules override each developer's core.autocrlf / core.eol settings, so
+# checkouts are byte-identical on every platform.
+* text=auto eol=lf
+
+# Windows batch scripts are the exception: cmd.exe wants CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary formats. Git auto-detects these, but be explicit so no heuristic can
+# misfire and corrupt them with an EOL conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.jar binary
