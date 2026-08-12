@@ -51,7 +51,8 @@ object Patch:
       final case class Inside(block: DFOwner) extends RefFilter:
         def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
           refs.collect { case r: DFRef.TwoWayAny if r.originMember.isInsideOwner(block) => r }
-      // Only references to the given members are replaced
+      // Only references held by the given members are replaced (`originMember` is the referencing
+      // member, matching the `Outside`/`Inside` filters above)
       final case class OfMembers(members: Set[DFMember]) extends RefFilter:
         def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
           refs.collect { case r: DFRef.TwoWayAny if members.contains(r.originMember) => r }

@@ -350,6 +350,41 @@ original's ref objects.
 `NamedAliases` uses exactly this to name a value and lift it out of a conditional expression branch
 atomically, which it must, since `SanityCheck` would reject the intermediate DB.
 
+### Recipe: TWO reference changes on one member, in one patch
+
+Re-homing a member usually means redirecting more than one of its references at once (its
+`ownerRef` plus a structural link, say). `Patch.ChangeRef` reaches the member-list patch table like
+any other patch (the `case x => Some(x)` fall-through), so two of them on one member throw
+`Received two different patches for the same member`, and `Replace + ChangeRef` is not in the merge
+table either. **This is not a reason to add a second `db.patch()` phase.**
+
+Redirect one of them by replacing **what the reference points at**, keyed on the OLD TARGET and
+scoped to the holder, so the two patches never share a key:
+
+```scala
+List(
+  // ownerRef: the supported mechanism, keyed on the member
+  member -> Patch.ChangeOwner(newOwner),
+  // the other reference: keyed on what it currently points at, narrowed to this holder alone
+  oldTarget -> Patch.Replace(
+    newTarget,
+    Patch.Replace.Config.ChangeRefOnly,
+    Patch.Replace.RefFilter.OfMembers(Set(member))
+  )
+)
+```
+
+Two properties make it safe. `ChangeRefOnly` is dropped from the member-list patch table outright
+(`case (_, Patch.Replace(config = ChangeRefOnly)) => None`), so it cannot collide even when another
+patch — a `MetaDesign` Add, say — is already keyed on `oldTarget`. And `RefFilter` narrows the
+redirect to the references you mean: **`OfMembers` matches on `r.originMember`, the member HOLDING
+the reference, not the member referenced** (`Outside`/`Inside` filter the same side). So every other
+reference to `oldTarget` survives untouched, including its own members' `ownerRef`s.
+
+`VerilogProcToVHDL` Rule 2b uses this to re-home a conditional chain into a newly created branch:
+`ChangeOwner` moves the blocks, while the chain head's `prevBlockOrHeaderRef` is re-pointed at a
+fresh nested header by replacing the reset block it used to follow, scoped to that head.
+
 ### `Patch.Add` via `MetaDesign`
 Use `MetaDesign` when you need to construct new IR members using the DFHDL frontend DSL:
 
@@ -1368,7 +1403,10 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     stage's *own output legal*, a separate stage is not an option either: `SanityCheck` runs after
     every stage, so the DB in between would be invalid. It has to be the same patch. Check the
     merge table before concluding that is impossible, and see the
-    *replace AND relocate in one patch* recipe for the case that looks unmergeable but is not.
+    *replace AND relocate in one patch* and *TWO reference changes on one member* recipes for the
+    cases that look unmergeable but are not. Both cover a same-member collision that the merge
+    table genuinely rejects, which is exactly the point where the second phase starts to look
+    inevitable and is not.
 27. **Substituting into a cloned expression tree AFTER cloning it inverts the member order** —
     `cloneAnonValueAndDepsHere` builds each dependency before the value that reads it, which is the
     only order the flat member list accepts. If you then walk the finished clone and `newRefFor` a
@@ -1408,6 +1446,26 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     stages: extract it to a shared analysis class (`RTDomainAnalysis`) and have BOTH consume it,
     so they cannot drift. The bugfix skill's "twin helpers drift" warning applies doubly when the
     twins live in different stages.
+31. **`Patch.Replace` cannot carry a new `ownerRef`** — `replaceMember` is called with
+    `keepRefs = repMember.getRefs`, and `getRefs` deliberately excludes `ownerRef`, so an owner
+    reference freshly minted in a `MetaDesign` (via `dfc.ownerOrEmptyRef` or `.ref`) and attached
+    to `member.copy(ownerRef = ...)` is purged from the ref table. The failure surfaces far away
+    and unrecognizably, as `NoSuchElementException: key not found: "OW_…"` from the next
+    `getOwner` — often inside a later stage such as `OrderMembers`. Change ownership with
+    `Patch.ChangeOwner` (or let a `ReplaceWithLast` bulk redirect cover it), and see the
+    *TWO reference changes on one member* recipe when that leaves you needing a second reference
+    change on the same member.
+32. **Matching a conditional chain by arity is fragile** — an `else` branch whose entire body is a
+    single conditional does not stay a guard-less `else`: it flattens into an `else if` chain, so
+    `pb.members(Folded).collect { case b: DFIfElseBlock => b }` yields three blocks for
+    `if (a) … else { if (b) … else … }`, and two *guarded* blocks when the inner `if` has no
+    `else`. A pattern like `case first :: second :: Nil` therefore silently skips the most common
+    real-world spelling (any FSM under an async reset), and a stage that silently skips prints its
+    input unconverted. Match the whole chain (`case blocks @ (head :: tail)` plus
+    `blocks.forall(_.getFirstCB == head)` to confirm they are one chain and nothing else at that
+    level), then branch on the tail's shape. Guard any rewrite that restructures the chain with
+    `head.getHeaderCB.dfType == DFUnit`: the same block shapes serve conditional *expressions*,
+    whose branches must keep feeding the header that owns their value.
 
 ---
 
