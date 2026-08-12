@@ -69,6 +69,9 @@ object IntExprCalc:
         // the negative direction: `b - a - 1 >= 0` proves `b > a`, deciding `a >= b` as false
         val negDiffM1 = Linear(diff.terms.map((c, b) => (-c, b)), -diff.offset - 1)
         if (calc.proveNonNeg(negDiffM1, facts)) Some(false)
+        // last, so that it only ever turns an undecided answer into a decided one and never
+        // overrides the max/min elimination above, which reads a mixed chain by its constants
+        else if (calc.dominatesByBranch(a, b)) Some(true)
         else None
   end widthFitCompare
 
@@ -351,6 +354,22 @@ object IntExprCalc:
       val la = linear(a)
       val lb = linear(b)
       Option.when(sameTerms(la, lb))(la.offset - lb.offset)
+
+    /** Whether `a >= b` holds by CONSTRUCTION rather than by arithmetic: a `max` is at least each
+      * of its own branches and a `min` at most each of its, whatever those branches are. That
+      * decides a comparison the linear calculus cannot touch, two unrelated symbolic branches never
+      * cancelling under subtraction, and it is what makes a value resized to a common width and
+      * back again recover itself.
+      *
+      * Only these two orientations. The mirrored ones (`b >= max(b, c)`) genuinely depend on the
+      * other branch and stay undecided, which is exactly the assumption a design states.
+      */
+    def dominatesByBranch(a: DFVal, b: DFVal): Boolean =
+      def hasBranch(chain: DFVal, branch: DFVal, op: FuncOp): Boolean =
+        strip(chain) match
+          case f: DFVal.Func if f.op == op => f.args.exists(r => strip(r.get) =~ strip(branch))
+          case _                           => false
+      hasBranch(a, b, FuncOp.max) || hasBranch(b, a, FuncOp.min)
 
     /** Proves `e >= 0` for every valid parameter assignment, where each fact in `facts` is a linear
       * form known to be `>= 1` on the valid domain. Two proof rules: a constant `e` decides

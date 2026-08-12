@@ -3517,6 +3517,33 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("a common width is seen through, in the operands and in the constraint") {
+    // Two operands of unrelated parametric widths align at their COMMON width, which is then the
+    // one the target has to hold. Both of those meet a `max` against one of its own branches:
+    // the operand resized to the common width and back recovers itself, so only the operand that
+    // really changes width carries a resize, and the fit the design states is between the two
+    // widths themselves rather than through the width it went through.
+    class CommonWidth(val W1: Int <> CONST = 8, val W2: Int <> CONST = 8) extends RTDesign:
+      val x = UInt(W1) <> IN
+      val y = UInt(W2) <> IN
+      val z = UInt(W1) <> OUT
+      z := x + y
+    end CommonWidth
+    assertCodeString(
+      CommonWidth(),
+      """|class CommonWidth(
+         |    val W1: Int <> CONST = 8,
+         |    val W2: Int <> CONST = 8
+         |) extends RTDesign:
+         |  val x = UInt(W1) <> IN
+         |  val y = UInt(W2) <> IN
+         |  val z = UInt(W1) <> OUT
+         |  z := x + y.resize(W1)
+         |  val constraint_0 = assert(W1 >= W2, s"Design parameter violation found. Expected: W1 >= W2", Severity.Fatal)
+         |end CommonWidth
+         |""".stripMargin
+    )
+  }
   test("auto constraint from an LHS-dominant operation") {
     // `-`, `/` and `%` take the LHS width and convert the RHS to it, so each needs the RHS to
     // fit. `-` used to answer the undecided case with an outright rejection while its two

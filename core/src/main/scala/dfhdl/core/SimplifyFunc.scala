@@ -24,6 +24,7 @@ private object SimplifyFunc:
         case IdentityOps(v)               => Some(v)
         case SelfCancelling(v)            => Some(v)
         case MaxMinWithOffset(v)          => Some(v)
+        case CompareAgainstMaxMin(v)      => Some(v)
         case AdditiveCancellation(v)      => Some(v)
         case _                            => None
 
@@ -51,6 +52,21 @@ private object SimplifyFunc:
     ir.DFVal.Const(
       ir.DFInt32, Some(value),
       dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
+    ).addMember
+
+  // Creates a fresh Func with the current DFC meta, for a simplification that rewrites the
+  // operation rather than answering with a value that already exists.
+  private def mkFunc(dfType: ir.DFType, op: FuncOp, args: List[ir.DFVal])(using
+      dfc: DFC
+  ): ir.DFVal =
+    import dfc.getSet
+    ir.DFVal.Func(
+      dfType,
+      op,
+      args.map(_.refTW[ir.DFVal](knownReachable = true)),
+      dfc.ownerOrEmptyRef,
+      dfc.getMeta,
+      dfc.tags
     ).addMember
 
   // Naming without mutation: a simplification returns an EXISTING value, so a `val` binding's
@@ -179,6 +195,103 @@ private object SimplifyFunc:
         case _ => None
     end unapply
   end MaxMinChainAbsorb
+
+  // A comparison between a `max`/`min` and one of its OWN branches decides that branch away.
+  // Writing the chain as `max(a, B)` for the branch `a` being compared and `B` for whatever is
+  // left of it, every such comparison is either an answer or a comparison of `B` with `a`:
+  //
+  //   max(a, B) >= a   true          min(a, B) <= a   true
+  //   max(a, B) <  a   false         min(a, B) >  a   false
+  //   max(a, B) >  a   B >  a        min(a, B) <  a   B <  a
+  //   max(a, B) <= a   B <= a        min(a, B) >= a   B >= a
+  //   max(a, B) === a  B <= a        min(a, B) === a  B >= a
+  //   max(a, B) =!= a  B >  a        min(a, B) =!= a  B <  a
+  //
+  // with the branch on the left the same table read through the reversed operation. The shape
+  // arises wherever a width taken as the COMMON width of two operands meets one of them again,
+  // so a design that has to hold `x(W1) + y(W2)` in `W1` bits requires `W1 >= W2` and says so,
+  // rather than restating the common width it went through.
+  private object CompareAgainstMaxMin:
+    private def mkBool(value: Boolean)(using dfc: DFC): ir.DFVal =
+      import dfc.getSet
+      ir.DFVal.Const(
+        ir.DFBool, Some(value),
+        dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
+      ).addMember
+
+    // the same relation read from the other side
+    private def reversed(op: FuncOp): FuncOp = op match
+      case FuncOp.>= => FuncOp.<=
+      case FuncOp.<= => FuncOp.>=
+      case FuncOp.>  => FuncOp.<
+      case FuncOp.<  => FuncOp.>
+      case symmetric => symmetric // `===` and `=!=` read alike from either side
+
+    // What is left of `chain` once the branch that is `self` is dropped, when `chain` is a
+    // `maxMin` having it as a branch. `None` when it is not one, or does not.
+    private def withoutBranch(chain: ir.DFVal, self: ir.DFVal, maxMin: FuncOp)(using
+        dfc: DFC
+    ): Option[ir.DFVal] =
+      import dfc.getSet
+      // ident-transparent, as the max/min chain absorption above is: either side may be a
+      // (named) ident of the expression it stands for
+      chain.stripTypePreservingAliases match
+        case f: ir.DFVal.Func if f.dfType == ir.DFInt32 && f.op == maxMin =>
+          val selfStripped = self.stripTypePreservingAliases
+          val branches = f.args.map(_.get)
+          val rest = branches.filterNot(_.stripTypePreservingAliases =~ selfStripped)
+          if (rest.sizeIs == branches.size) None // `self` is not one of the branches
+          else
+            rest match
+              // nothing but `self`, so the chain IS `self`; the chain absorption above is what
+              // reduces that, and it does so before any comparison sees it
+              case Nil         => None
+              case only :: Nil => Some(only)
+              case several     => Some(mkFunc(ir.DFInt32, maxMin, several))
+        case _ => None
+    end withoutBranch
+
+    // the table above, for `maxMin(self, rest) op self`: an answer, or the operation to apply
+    // between `rest` and `self`
+    private def reduction(maxMin: FuncOp, op: FuncOp): Either[Boolean, FuncOp] =
+      val isMax = maxMin == FuncOp.max
+      op match
+        case FuncOp.>=  => if (isMax) Left(true) else Right(FuncOp.>=)
+        case FuncOp.<=  => if (isMax) Right(FuncOp.<=) else Left(true)
+        case FuncOp.>   => if (isMax) Right(FuncOp.>) else Left(false)
+        case FuncOp.<   => if (isMax) Left(false) else Right(FuncOp.<)
+        case FuncOp.=== => if (isMax) Right(FuncOp.<=) else Right(FuncOp.>=)
+        case _          => if (isMax) Right(FuncOp.>) else Right(FuncOp.<)
+
+    def unapply(opArgs: (ir.DFType, FuncOp, List[ir.DFVal]))(using dfc: DFC): Option[ir.DFVal] =
+      opArgs match
+        case (
+              ir.DFBool,
+              op @ (FuncOp.>= | FuncOp.<= | FuncOp.> | FuncOp.< | FuncOp.=== | FuncOp.=!=),
+              List(lhs, rhs)
+            ) =>
+          // read with the chain on the left, which is the orientation the table is written in,
+          // and put the answer back the way it was written
+          def attempt(
+              chain: ir.DFVal,
+              self: ir.DFVal,
+              chainOp: FuncOp,
+              chainOnLeft: Boolean
+          ): Option[ir.DFVal] =
+            List(FuncOp.max, FuncOp.min).view.flatMap { maxMin =>
+              withoutBranch(chain, self, maxMin).map { rest =>
+                reduction(maxMin, chainOp) match
+                  case Left(answer)  => mkBool(answer)
+                  case Right(restOp) =>
+                    if (chainOnLeft) mkFunc(ir.DFBool, restOp, List(rest, self))
+                    else mkFunc(ir.DFBool, reversed(restOp), List(self, rest))
+              }
+            }.headOption
+          attempt(lhs, rhs, op, chainOnLeft = true)
+            .orElse(attempt(rhs, lhs, reversed(op), chainOnLeft = false))
+        case _ => None
+    end unapply
+  end CompareAgainstMaxMin
 
   // Merge consecutive same-op anonymous Funcs for associative operations.
   // E.g., `a + b + c` becomes Func(+, [a, b, c]) instead of nested binary Funcs.

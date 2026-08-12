@@ -83,10 +83,17 @@ object AutoConstraint:
     * of the operation that assumed it.
     */
   def raise(guard: Guard)(using dfc: DFC): Option[ir.DFVal] =
+    import dfc.getSet
+    // A condition can fold to a constant on its way here, a relation between a `max`/`min` and
+    // one of its own branches being decidable by simplification where the width proof cannot
+    // decide it. One that folded to `true` requires nothing of the design and states nothing;
+    // one that folded to `false` is kept, an assumption that cannot hold being worth the noise.
+    val decided = guard.asIR.getConstData[Option[Boolean]] match
+      case ir.ConstData.KnownConst(Some(true)) => true
+      case _                                   => false
     // nothing states a constraint outside a design: global scope has no body to put it in, and a
     // stage's meta design transforms an already-elaborated one and assumes nothing of its own
-    if (!dfc.inMetaProgramming && dfc.ownerOption.isDefined)
-      import dfc.getSet
+    if (!decided && !dfc.inMetaProgramming && dfc.ownerOption.isDefined)
       Some(guard.asIR.setTags(_.tag(ir.AutoConstraint)))
     else None
 

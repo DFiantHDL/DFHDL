@@ -1619,20 +1619,23 @@ object DFXInt:
               // a leaf below
               val lhsConverted: DFValOf[DFSInt[Int]] =
                 CarryPromote.widenedOpt(lhs.asIR, dfType).getOrElse {
-                  // Fold stacked widenings: an anonymous same-kind widening resize alias
-                  // is transparent to a further conversion (both are value-preserving
-                  // extensions), so when the width fix below would resize anyway, it
-                  // applies to the alias's base directly instead of stacking.
+                  // Fold stacked widenings: an anonymous same-kind resize alias that loses
+                  // nothing is transparent to a further conversion, so when the width fix
+                  // below would resize anyway, it applies to the alias's base directly
+                  // instead of stacking. Losing nothing is `to >= from`, the same width-fit
+                  // decision made everywhere else, which is what sees through a resize to a
+                  // COMMON width: `max(W1, W2)` is at least each of the widths it was taken
+                  // from, so a value resized to it and back recovers itself.
                   def unstack(v: ir.DFVal): ir.DFVal = v match
                     case alias: ir.DFVal.Alias.AsIs if alias.isAnonymous =>
                       val relVal = alias.relValRef.get
-                      val widening = (alias.dfType, relVal.dfType) match
+                      val lossless = (alias.dfType, relVal.dfType) match
                         case (ir.DFUInt(toW), ir.DFUInt(fromW)) =>
-                          toW.compare(fromW)(_ > _).getOrElse(false)
+                          toW.widthFitGE(fromW).getOrElse(false)
                         case (ir.DFSInt(toW), ir.DFSInt(fromW)) =>
-                          toW.compare(fromW)(_ > _).getOrElse(false)
+                          toW.widthFitGE(fromW).getOrElse(false)
                         case _ => false
-                      if (widening) unstack(relVal) else v
+                      if (lossless) unstack(relVal) else v
                     case _ => v
                   val widthChanges = !dfType.asIR.magnitudeWidthParamRef
                     .isSimilarTo(lhs.dfType.asIR.magnitudeWidthParamRef)
