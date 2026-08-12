@@ -398,8 +398,7 @@ object DFBits:
         type OutP = P
         def apply(value: R)(using DFC): Out =
           import DFVal.Ops.bits
-          if (value.hasTag[ir.ResizeTag]) value.bits.tag(ir.ResizeTag)
-          else value.bits
+          AutoConstraint.carryWidthAdjustPermission(value, value.bits)
       transparent inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
           "Cannot apply an enum entry value to a bits variable."

@@ -1099,10 +1099,7 @@ object DFXInt:
         def apply(arg: R)(using dfc: DFC): Out =
           import DFBits.Val.Ops.uint
           val dfVal = ic(arg)(using dfc.anonymize)
-          val ret =
-            if (dfVal.hasTag[ir.ResizeTag])
-              dfVal.uint.tag(ir.ResizeTag)
-            else dfVal.uint
+          val ret = AutoConstraint.carryWidthAdjustPermission(dfVal, dfVal.uint)
           ret.asValTP[DFXInt[OutS, OutW, OutN], OutP]
       end fromDFBitsValCandidate
     end CandidateLP

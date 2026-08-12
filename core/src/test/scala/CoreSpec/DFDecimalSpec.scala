@@ -1410,6 +1410,7 @@ class DFDecimalSpec extends DFSpec:
     val u4 = UInt(4) <> VAR
     val s8 = SInt(8) <> VAR
     val s4 = SInt(4) <> VAR
+    val b8x = Bits(8) <> VAR
     // a widening prints in the relative `.eby` form, a narrowing in the absolute one
     assertCodeString {
       """|u4 := u8.resize(4)
@@ -1420,6 +1421,14 @@ class DFDecimalSpec extends DFSpec:
       u4 := u8.truncate
       u8 := u4.extend
       s4 := s8.truncate
+    }
+    // the permission survives the conversion from `Bits`, where it is load-bearing: a numeric
+    // assignment extends on its own, so only the narrowing needs saying
+    assertCodeString {
+      """|u4 := b8x.uint.resize(4)
+         |""".stripMargin
+    } {
+      u4 := b8x.truncate
     }
     // an assignment names its target, so it already extends a narrower value: both permissions
     // elaborate to exactly what the untagged assignment does

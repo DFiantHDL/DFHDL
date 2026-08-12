@@ -83,6 +83,22 @@ object AutoConstraint:
   def hasWidthAdjustPermission(value: DFValAny)(using DFC): Boolean =
     value.hasTag[ir.ResizeTag] || value.hasTag[ir.ExtendTag] || value.hasTag[ir.TruncateTag]
 
+  /** Carries `from`'s width-adjustment permission, if it has one, onto `to`.
+    *
+    * A permission is about the VALUE's width, and converting between `Bits` and an integer type
+    * leaves that width alone, so the permission has to survive the conversion. Dropping it makes
+    * the diagnostic absurd rather than merely unhelpful: `b8 := u4.extend` would report the width
+    * mismatch and recommend the `.extend` that is already written.
+    */
+  def carryWidthAdjustPermission[T <: DFTypeAny, M <: ModifierAny](
+      from: DFValAny,
+      to: DFVal[T, M]
+  )(using DFC): DFVal[T, M] =
+    if (from.hasTag[ir.ResizeTag]) to.tag(ir.ResizeTag)
+    else if (from.hasTag[ir.ExtendTag]) to.tag(ir.ExtendTag)
+    else if (from.hasTag[ir.TruncateTag]) to.tag(ir.TruncateTag)
+    else to
+
   /** Whether a width-adjustment permission carried by `value` (see `ir.ExtendTag`) covers adjusting
     * it to `targetWidth`.
     *

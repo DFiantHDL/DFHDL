@@ -411,6 +411,8 @@ class DFBitsSpec extends DFSpec:
   test("Width adjustment permissions") {
     val b8 = Bits(8) <> VAR
     val b4 = Bits(4) <> VAR
+    val u8x = UInt(8) <> VAR
+    val u4x = UInt(4) <> VAR
     assertCodeString {
       """|b4 := b8.resize(4)
          |b8 := b4.eby(4)
@@ -418,6 +420,17 @@ class DFBitsSpec extends DFSpec:
     } {
       b4 := b8.truncate
       b8 := b4.extend
+    }
+    // a permission survives the conversion between `Bits` and an integer type: the conversion
+    // leaves the width it speaks about alone, so dropping it would report a width mismatch and
+    // then recommend the adjustment that is already written
+    assertCodeString {
+      """|b8 := u4x.bits.eby(4)
+         |b4 := u8x.bits.resize(4)
+         |""".stripMargin
+    } {
+      b8 := u4x.extend
+      b4 := u8x.truncate
     }
     assertRuntimeErrorLog(
       """|The argument width (8) is different than the receiver width (4).
