@@ -3493,4 +3493,32 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("width adjustment permissions in a comparison") {
+    // the permission names which operand adapts, so the two spellings of one comparison elaborate
+    // alike, and either operand can be the one that moves
+    class CmpPermissions extends RTDesign:
+      val u8 = UInt(8) <> IN
+      val u4 = UInt(4) <> IN
+      val o1 = Bit     <> OUT
+      val o2 = Bit     <> OUT
+      val o3 = Bit     <> OUT
+      o1 := u8 > u4.extend
+      o2 := u4.extend < u8
+      o3 := u8.truncate < u4
+    end CmpPermissions
+    assertCodeString(
+      CmpPermissions(),
+      """|class CmpPermissions extends RTDesign:
+         |  val u8 = UInt(8) <> IN
+         |  val u4 = UInt(4) <> IN
+         |  val o1 = Bit <> OUT
+         |  val o2 = Bit <> OUT
+         |  val o3 = Bit <> OUT
+         |  o1 := (u8 > u4.eby(4)).bit
+         |  o2 := (u4.eby(4) < u8).bit
+         |  o3 := (u8.resize(4) < u4).bit
+         |end CmpPermissions
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

@@ -1450,4 +1450,18 @@ class DFDecimalSpec extends DFSpec:
       w4 := w8.extend
     }
   }
+  // A comparison names no target, so nothing in `a < b` says which operand adapts. The permission
+  // says it, and the other operand's width is what it adapts to (the emitted forms are pinned in
+  // `PrintCodeStringSpec`). Two permissions in one comparison are a contradiction: each would be
+  // adapting to a width the other is still free to change.
+  test("Two width adjustment permissions in one comparison") {
+    assertRuntimeErrorLog(
+      """|Both operands of this operation carry a width adjustment permission.
+         |Only one operand may adapt, since the other supplies the width it adapts to.""".stripMargin
+    ) {
+      val v8 = UInt(8) <> VAR
+      val v4 = UInt(4) <> VAR
+      v8.truncate < v4.extend
+    }
+  }
 end DFDecimalSpec

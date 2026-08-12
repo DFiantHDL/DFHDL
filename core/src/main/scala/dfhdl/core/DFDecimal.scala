@@ -1297,41 +1297,58 @@ object DFXInt:
       ): Compare[DFXInt[LS, LW, LN], R, Op, C] with
         type OutP = RP
         def conv(dfType: DFXInt[LS, LW, LN], arg: R)(using dfc: DFC): Out =
+          convArg(dfType, ic(arg)(using dfc.anonymize))
+
+        /** The argument converted to the receiver's type, with the checks the comparison makes of
+          * it.
+          *
+          * Split out of [[conv]] so that [[apply]] can materialize the argument ONCE and still
+          * decide which operand adapts: a width-adjustment permission sits on a VALUE, while `conv`
+          * is handed only the receiver's type.
+          */
+        def convArg(dfType: DFXInt[LS, LW, LN], dfValArg: ic.Out)(using dfc: DFC): Out =
           given dfcAnon: DFC = dfc.anonymize
-          val dfValArg = ic(arg)
+          import dfc.getSet
           dfValArg.getActualSignedWidthOpt match
             case Some(rhsSigned, rhsWidthOpt) =>
-              (dfType.widthIntOpt, rhsWidthOpt) match
-                case (Some(dfTypeW), Some(rhsW)) => check(dfType.signed, dfTypeW, rhsSigned, rhsW)
-                case _                           =>
-                  // A width is parametric, and what the comparison requires depends on the
-                  // argument, exactly as the compile-time half decides it.
-                  //
-                  // A wildcard `Int` ADAPTS to the receiver, so it states the fit it needs. Two
-                  // BIT-ACCURATE operands are held to EQUAL widths and there is no adaptation to
-                  // assume anything for: a pair that cannot be proven equal is rejected, as its
-                  // resolved counterpart is. The resize the comparison would otherwise emit is
-                  // not a semantics worth asserting, it is the silent truncation the equality
-                  // rule exists to prevent.
-                  import dfc.getSet
-                  import DFXInt.Val.getActualWidthParam
-                  val argIsWildcard = dfValArg.dfType.asIR.isDFInt32 ||
-                    CarryPromote.hasImplicitlyFromIntTag(dfValArg.asIR)
-                  val dfTypeWidth = dfType.asIR.magnitudeWidthParamRef.get
-                  val argWidth = dfValArg.getActualWidthParam(rhsWidthOpt)
-                  if (argIsWildcard)
-                    import IntParam.+
-                    // an unsigned wildcard gains the sign bit it needs under a signed receiver
-                    val effectiveWidth =
-                      if (dfType.signed.value && !rhsSigned) argWidth + 1
-                      else argWidth
-                    wildcardFitCheck(dfTypeWidth, effectiveWidth)
-                  else equalWidthCheck(dfTypeWidth, argWidth)
-                  end if
+              // A permission on the argument covers the width relation, and only that:
+              // signedness is not a permission's to give, so it is still checked, by running
+              // the same check over widths that already agree.
+              val permitted = AutoConstraint.permitsWidthAdjust(
+                dfValArg,
+                dfType.asIR.magnitudeWidthParamRef.get
+              )
+              if (permitted)
+                dfType.widthIntOpt.foreach(w => check(dfType.signed, w, rhsSigned, w))
+              else
+                (dfType.widthIntOpt, rhsWidthOpt) match
+                  case (Some(dfTypeW), Some(rhsW)) =>
+                    check(dfType.signed, dfTypeW, rhsSigned, rhsW)
+                  case _ =>
+                    // A width is parametric, and what the comparison requires depends on the
+                    // argument, exactly as the compile-time half decides it. A wildcard `Int`
+                    // ADAPTS to the receiver, so it states the fit it needs; two bit-accurate
+                    // operands are held to EQUAL widths, and a pair that cannot be proven equal
+                    // is rejected, as its resolved counterpart is.
+                    import DFXInt.Val.getActualWidthParam
+                    val argIsWildcard = dfValArg.dfType.asIR.isDFInt32 ||
+                      CarryPromote.hasImplicitlyFromIntTag(dfValArg.asIR)
+                    val dfTypeWidth = dfType.asIR.magnitudeWidthParamRef.get
+                    val argWidth = dfValArg.getActualWidthParam(rhsWidthOpt)
+                    if (argIsWildcard)
+                      import IntParam.+
+                      // an unsigned wildcard gains the sign bit it needs under a signed receiver
+                      val effectiveWidth =
+                        if (dfType.signed.value && !rhsSigned) argWidth + 1
+                        else argWidth
+                      wildcardFitCheck(dfTypeWidth, effectiveWidth)
+                    else equalWidthCheck(dfTypeWidth, argWidth)
+                    end if
+              end if
             case None =>
           end match
           DFXInt.Val.Ops.toDFXIntOf(dfValArg)(dfType).asValTP[DFXInt[LS, LW, LN], RP]
-        end conv
+        end convArg
         // Check Verilog-semantics mismatch for comparisons: same trigger as
         // `/`, `%` -- a narrow non-carry chain mixed with an implicit Int on
         // either side widens to 32-bit in Verilog but not in DFHDL.
@@ -1340,18 +1357,53 @@ object DFXInt:
             opv: ValueOf[Op],
             cv: ValueOf[C]
         ): DFValTP[DFBool, P | RP] = trydf:
-          val dfValArg = conv(dfVal.dfType, arg)(using dfc.anonymize)
+          // the operands are built anonymously, but the comparison itself is NOT: it takes the
+          // enclosing context, which is what names it after the binding it feeds
+          val anonDFC = dfc.anonymize
           import dfc.getSet
+          // A comparison names no target, so nothing about `a < b` says which operand adapts: the
+          // permission does, and the other operand's width is what it adapts to. That is why
+          // `a > b.extend` and `b.extend < a` are the same thing, and why two permissions in one
+          // comparison are a contradiction rather than a stronger request.
+          val argVal = ic(arg)(using anonDFC)
+          if (
+            AutoConstraint.hasWidthAdjustPermission(dfVal) &&
+            AutoConstraint.hasWidthAdjustPermission(argVal)
+          )
+            throw new IllegalArgumentException(
+              """|Both operands of this operation carry a width adjustment permission.
+                 |Only one operand may adapt, since the other supplies the width it adapts to.""".stripMargin
+            )
+          // a wildcard `Int` argument has no width of its own for the receiver to adapt to, so it
+          // stays the operand that adapts
+          val argIsWildcard = argVal.dfType.asIR.isDFInt32 ||
+            CarryPromote.hasImplicitlyFromIntTag(argVal.asIR)
+          val receiverAdapts = !argIsWildcard &&
+            AutoConstraint.permitsWidthAdjust(
+              dfVal,
+              argVal.dfType.asIR.magnitudeWidthParamRef.get(using anonDFC)
+            )(using anonDFC)
+          val (lhsVal, dfValArg) =
+            if (receiverAdapts)
+              // the sign relation is still the comparison's to check, over widths that now agree
+              argVal.getActualSignedWidthOpt.foreach { (argSigned, _) =>
+                argVal.widthIntOpt.foreach(w => check(dfVal.dfType.signed, w, argSigned, w))
+              }
+              val adapted = DFXInt.Val.Ops.toDFXIntOf(dfVal)(
+                argVal.dfType.asInstanceOf[DFXInt[LS, Int, LN]]
+              )(using anonDFC)
+              (adapted.asValTP[DFXInt[LS, LW, LN], P], argVal.asValTP[DFXInt[LS, LW, LN], RP])
+            else (dfVal, convArg(dfVal.dfType, argVal)(using anonDFC))
           val op = opv.value
           op match
             case FuncOp.=== | FuncOp.=!= | FuncOp.< | FuncOp.> | FuncOp.<= | FuncOp.>= =>
-              if CarryPromote.shouldWarnVerilogSemantics(dfVal.asIR, dfValArg.asIR)
+              if CarryPromote.shouldWarnVerilogSemantics(lhsVal.asIR, dfValArg.asIR)
               then
                 dfc.logEvent(
                   DFWarning(op.toString, CarryPromote.verilogSemanticsWarnMsg)
                 )
             case _ =>
-          func(dfVal, dfValArg)
+          func(lhsVal, dfValArg)
         end apply
       end DFXIntCompare
     end Compare

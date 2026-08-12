@@ -79,6 +79,10 @@ object AutoConstraint:
       guard.asIR.setTags(_.tag(ir.AutoConstraint))
       ()
 
+  /** Whether `value` carries any width-adjustment permission at all, in either direction. */
+  def hasWidthAdjustPermission(value: DFValAny)(using DFC): Boolean =
+    value.hasTag[ir.ResizeTag] || value.hasTag[ir.ExtendTag] || value.hasTag[ir.TruncateTag]
+
   /** Whether a width-adjustment permission carried by `value` (see `ir.ExtendTag`) covers adjusting
     * it to `targetWidth`.
     *
