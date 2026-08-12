@@ -283,8 +283,8 @@ class DFDecimalSpec extends DFSpec:
       s8 := -127
       s8 := u6
       s8 := s6
-      u6 := u8.resize
-      s6 := s8.resize
+      u6 := u8.truncate
+      s6 := s8.truncate
       u6 := u6 ^ u6
       u6 := u6 & u6
       u6 := u6 | u6

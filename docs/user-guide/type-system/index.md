@@ -1990,7 +1990,7 @@ val dynbit = b8(idx)  // Bit at position idx
 
 /// admonition | Dynamic bit indexing
     type: tip
-You can index into a bit-vector value using a `UInt` variable, not just integer literals. The index must be a `UInt` whose width equals `clog2(bits_width)`. For example, indexing into `Bits(8)` requires a `UInt(3)` index. If the width does not match, the compiler will report an error and suggest using `.resize` to automatically adjust the width.
+You can index into a bit-vector value using a `UInt` variable, not just integer literals. The index must be a `UInt` whose width equals `clog2(bits_width)`. For example, indexing into `Bits(8)` requires a `UInt(3)` index. If the width does not match, the compiler reports an error and points at the width adjustment that would reconcile it.
 
 Dynamic indexing works for both reads and writes:
 ```scala
@@ -2004,20 +2004,20 @@ process(clk):
     data(pos) :== din        // dynamic write
 ```
 
-When the index variable is wider or narrower than needed, use `.resize` to automatically adjust it to the required width:
+When the index variable is wider or narrower than needed, `.truncate` and `.extend` adjust it to the required width, each permitting the one direction it names:
 ```scala
 val data    = Bits(8) <> VAR init all(0)
 val pos     = UInt(4) <> VAR init 0  // 4-bit, but Bits(8) needs UInt(3)
-val bit_out = data(pos.resize)       // .resize adjusts to UInt(3) automatically
+val bit_out = data(pos.truncate)     // .truncate narrows the 4-bit index to UInt(3)
 ```
 
-The same `.resize` trick applies to **any** dynamic index, including writes into a memory/vector when the index comes from a wider source such as a slice of a larger `UInt`. The index width is checked against `clog2` of the indexed size, so let `.resize` reconcile it:
+The same applies to **any** dynamic index, including writes into a memory/vector when the index comes from a wider source such as a slice of a larger `UInt`. The index width is checked against `clog2` of the indexed size, so let the permission reconcile it:
 ```scala
 val mem = Bits(8) X 16 <> VAR        // 16-deep memory, needs a UInt(4) index
 val idx = UInt(8) <> IN              // wider index source (e.g. a sliced address)
 process(clk):
   if (clk.rising)
-    mem(idx.resize) :== din          // .resize adjusts idx to UInt(4) for the write
+    mem(idx.truncate) :== din        // .truncate narrows idx to UInt(4) for the write
 ```
 ///
 
@@ -2026,23 +2026,23 @@ process(clk):
 Applies to: `Bits`, `UInt`, `SInt`
 
 - `.resize(N)` sets the width to exactly `N` bits. For `UInt` and `Bits`, widening zero-extends; for `SInt`, widening sign-extends. Narrowing truncates the most-significant bits.
-- `.resize` (no argument) automatically adjusts the width to match the assignment or operation context; narrowing or widening as needed.
+- `.extend` and `.truncate` take no width. They are PERMISSIONS to adjust the width to whatever the context decides, each covering ONE direction: `.extend` may widen, `.truncate` may narrow. Where the permitted direction does not apply the permission contributes nothing and the ordinary width rule decides, so it is never a silent adjustment in the direction you did not ask for. In a context with no designated target, such as a comparison, the permission is also what says WHICH operand adapts, the other operand's width being what it adapts to.
 - `.eby(K)` extends the width by `K` bits, *relative* to the current width; sugar for `.resize(width + K)`. `K` must be positive, so `.eby` always widens (zero-extension for `UInt` and `Bits`, sign-extension for `SInt`). This is the **canonical widening spelling**: elaboration prints any widening whose delta is a known number of bits in this relative form (a user-written `x.resize(9)` over an 8-bit `x` prints back as `x.eby(1)` -- the two produce identical designs). It is also the form that scales to parametric widths, where the absolute spelling would repeat the symbolic expression: `x.eby(1)` instead of `x.resize(W + 1)`. Absolute `.resize` remains the spelling for narrowing and for widths given by a named parameter.
 
 ```scala
 val b8 = Bits(8) <> VAR
 val b4 = Bits(4) <> VAR
 b4 := b8.resize(4)    // explicit narrow to 4 bits
-b8 := b4.resize       // auto-widen to match b8's width
+b8 := b4.extend       // widen to match b8's width
 
 val u8 = UInt(8) <> VAR
 val u6 = UInt(6) <> VAR
-u6 := u8.resize       // auto-narrow to match u6's width
+u6 := u8.truncate     // narrow to match u6's width
 u8 := u6.resize(8)    // explicit zero-extend to 8 bits
 
 val s8 = SInt(8) <> VAR
 val s4 = SInt(4) <> VAR
-s8 := s4.resize       // sign-extend to match s8's width
+s8 := s4.extend       // sign-extend to match s8's width
 s4 := s8.resize(4)    // explicit narrow to 4 bits
 
 // relative widening, most useful with parametric widths
@@ -2576,7 +2576,7 @@ u9 := sum          // extended by 1: sum.eby(1)
 //   SInt(W + 1) target: dx := c.sel(b -^ a, a -^ b)
 ```
 
-A parametric width relation is accepted when it holds for **every valid parameter assignment**, using the fact that widths are positive: `SInt(2 * W)` accepts a `W`-wide operation because `2 * W >= W` for any valid `W`. A relation that a valid assignment can violate is definitively rejected (`SInt(W)` never fits a `2 * W`-wide value), and an undecidable one (e.g. a literal target such as `SInt(16)` against a free `W`, which may exceed 16) is conservatively rejected as well; both still require an explicit carry op or `.resize` to state the intent.
+A parametric width relation is accepted when it holds for **every valid parameter assignment**, using the fact that widths are positive: `SInt(2 * W)` accepts a `W`-wide operation because `2 * W >= W` for any valid `W`. A relation that a valid assignment can violate is definitively rejected (`SInt(W)` never fits a `2 * W`-wide value), and an undecidable one (e.g. a literal target such as `SInt(16)` against a free `W`, which may exceed 16) is conservatively rejected as well; both still require an explicit carry op, a `.resize(N)` or an `.extend` to state the intent.
 ///
 
 /// admonition | Implicit Scala `Int` and Verilog-semantics mismatch
@@ -2781,7 +2781,7 @@ val c2 = s8 > s4.eby(4)      // Boolean: s4 sign-extended to 8 bits
 val c3 = u8.eby(2) > 1000    // Boolean: 1000 needs 10 bits, so u8 widens to meet it
 ```
 
-Widening preserves the value in both signednesses (`.eby`/`.resize` zero-extend a `UInt` and sign-extend an `SInt`), so the comparison still asks what you meant. Narrowing the wider operand does not, and nothing flags it, because the resulting widths do match:
+Widening preserves the value in both signednesses (`.eby`, `.extend` and `.resize` zero-extend a `UInt` and sign-extend an `SInt`), so the comparison still asks what you meant. Narrowing the wider operand does not, and nothing flags it, because the resulting widths do match:
 
 ```scala
 // compiles, but u8 is TRUNCATED to its low 4 bits, so this asks a different question:

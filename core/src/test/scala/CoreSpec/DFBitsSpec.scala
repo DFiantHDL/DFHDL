@@ -141,8 +141,8 @@ class DFBitsSpec extends DFSpec:
       b8 := ?
       b8 := u8
       b8 := u8.bits
-      b8 := b3M.resize
-      b3M := b8.resize
+      b8 := b3M.extend
+      b3M := b8.truncate
       b8 := (h"1", 1, 0, b"11").toBits
       (b4M, b4L) := (h"1", 1, 0, b"11")
       (b3M, u5L) := (h"1", 1, 0, b"11")
@@ -378,7 +378,7 @@ class DFBitsSpec extends DFSpec:
     )(
       """b8(u5)"""
     )
-    val o5 = b8(u5.resize)
+    val o5 = b8(u5.truncate)
     val u2 = UInt(2) <> VAR
     assertCompileError(
       """|Expected argument width 3 but found: 2
@@ -387,7 +387,7 @@ class DFBitsSpec extends DFSpec:
     )(
       """b8(u2)"""
     )
-    val o2 = b8(u2.resize)
+    val o2 = b8(u2.extend)
   }
   // A `Bit` value's `.bits` reaches an unbounded `Bits[Int] <> VAL` ascription (the accumulator
   // form of the elaboration-time concatenation idiom) through the implicit conversion. The

@@ -780,6 +780,12 @@ object DFBits:
       extension [L <: DFValAny, LW <: IntP, LP](lhs: L)(using icL: Candidate.Aux[L, LW, LP])
         def resize(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
           icL(lhs).tag(ir.ResizeTag).asValTP[DFBits[Int], icL.OutP]
+        @targetName("extendDFBitsCandidate")
+        def extend(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
+          icL(lhs).tag(ir.ExtendTag).asValTP[DFBits[Int], icL.OutP]
+        @targetName("truncateDFBitsCandidate")
+        def truncate(using DFCG): DFValTP[DFBits[Int], icL.OutP] =
+          icL(lhs).tag(ir.TruncateTag).asValTP[DFBits[Int], icL.OutP]
         def repeat[N <: IntP](num: IntParam[N])(using
             dfc: DFCG,
             check: Arg.Positive.CheckNUB[N]

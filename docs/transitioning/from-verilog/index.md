@@ -922,7 +922,7 @@ You do not have to apply the width and sign rules by hand while translating. Wri
 - Where DFHDL can reproduce Verilog's context-dependent width propagation, it does so silently. An anonymous `+`, `-`, `*`, unary `-`, `.sel`, `if`/`match` expression or shift feeding a wider target re-evaluates at that target's width, which is what the Verilog line does, so the transcription stands as written.
 - Where the two would disagree, DFHDL declines to guess. It reports a **compile-time or elaboration error** for a width or sign relation it cannot express (a narrower LHS under `-`, `/`, `%`, or a comparison between operands of different widths), and an **elaboration warning** where an implicit `Int` would have evaluated 32-bit in Verilog but is bit-accurate here.
 
-So the loop is: transcribe, compile, apply whatever the diagnostic names (a carry operation, an explicit `d"W'V"` literal, or a `.resize`), and repeat until it is quiet. An expression that compiles and elaborates without warnings carries the original's semantics.
+So the loop is: transcribe, compile, apply whatever the diagnostic names (a carry operation, an explicit `d"W'V"` literal, or a width adjustment), and repeat until it is quiet. An expression that compiles and elaborates without warnings carries the original's semantics.
 ///
 
 /// admonition | Arithmetic with Signed Values and Constants
@@ -1056,7 +1056,7 @@ val result     = UInt(8) <> OUT
 
 // Use carry ops to match Verilog's
 // overflow-free semantics
-result <> ((a +^ b +^ c +^ d) / 4).resize
+result <> ((a +^ b +^ c +^ d) / 4).truncate
 ```
 
 </div>
@@ -1232,7 +1232,7 @@ end gate
 
 </div>
 
-**Difference from Verilog, and its limit:** Scala type-checks **both** branches, since both are ordinary Scala code. That only constrains you where the Scala type level actually tracks widths, which is when widths are **literal** (bounded): then both branches must be valid for every parameter value. When widths derive from `Int <> CONST` parameters the types are unbounded (`Bits[Int]`), Scala checks nothing about them, and the **elaboration-time** width check runs on the taken branch only. So a parameterized `generate if` whose branches are each valid only for their own parameter value translates directly, with no `.toScalaInt` and no `.resize` guard:
+**Difference from Verilog, and its limit:** Scala type-checks **both** branches, since both are ordinary Scala code. That only constrains you where the Scala type level actually tracks widths, which is when widths are **literal** (bounded): then both branches must be valid for every parameter value. When widths derive from `Int <> CONST` parameters the types are unbounded (`Bits[Int]`), Scala checks nothing about them, and the **elaboration-time** width check runs on the taken branch only. So a parameterized `generate if` whose branches are each valid only for their own parameter value translates directly, with no `.toScalaInt` and no width-adjustment guard:
 
 ```scala
 class narrow(
