@@ -68,11 +68,17 @@ private[core] object CarryPromote:
     // the TC conversion: `16 > WIDTH max 16` decides as `16 > 16` (no widening), so the
     // anonymous form resolves exactly like a named intermediate value; if still
     // undecidable, optimistically assume the target is wider.
+    // A `.truncate` permission states that the target is NARROWER, which is the exact
+    // contradiction of what an undecided comparison optimistically assumes, so where the
+    // widths cannot be compared the author's statement is the one that decides and the
+    // value keeps its own width to narrow as asked. Only there: a permission whose
+    // direction does not apply contributes nothing, so a provably wider target widens as
+    // it always did, `.truncate` or no `.truncate`.
     def contextWidenCheck(valDFType: ir.DFType): Boolean =
       widthRefOpt(valDFType).exists { valWidthRef =>
         dfType.asIR.magnitudeWidthParamRef
           .compare(valWidthRef, elimSymbolicMaxMin = true)(_ > _)
-          .getOrElse(true)
+          .getOrElse(!lhsIR.tags.hasTagOf[ir.TruncateTag])
       }
 
     // The widened Func is BUILT FRESH rather than revised in place (an anonymous
@@ -142,11 +148,21 @@ private[core] object CarryPromote:
       // conversion cannot move to the operands; the explicit spelling states the
       // intent there.
       case func @ ir.DFVal.Func(
-            dfType = ir.DFDecimal(funcSigned, _, 0, BitAccurate),
+            dfType = ir.DFDecimal(funcSigned, opWidthRef, 0, BitAccurate),
             op = FuncOp.>> | FuncOp.<<
           )
           if func.isAnonymous && funcSigned == dfType.asIR.signed &&
             contextWidenCheck(func.dfType) =>
+        // A `>>` is the one widening that CONSUMES an assumption. The rule re-evaluates a cone
+        // at the target width on the strength of agreeing with the narrow evaluation whatever
+        // the target turns out to be, which holds for `+`/`-`/`*` because truncation commutes
+        // with them, and for `<<` because it is a multiplication and commutes too. It does not
+        // hold for `>>`: `(x mod 2^t) >> k` drops the bits above `t` that `(x >> k) mod 2^t`
+        // brings down. So the agreement rests on the target really being at least as wide as
+        // the operand, which the decision above assumes where it cannot prove it, and the
+        // design states what was assumed.
+        if (func.op == FuncOp.>>)
+          AutoConstraint.raiseUndecidedFit(dfType.widthIntParam, opWidthRef.get)
         Some(rebuilt(func, widenedArg(func.args.head).asIR :: func.args.tail.map(_.get)))
       case func @ ir.DFVal.Func(
             dfType = ir.DFUInt(_) | ir.DFSInt(_),

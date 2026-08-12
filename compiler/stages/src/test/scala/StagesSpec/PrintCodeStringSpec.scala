@@ -3471,6 +3471,52 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("a widened `>>` states its assumption, and a `.truncate` decides against widening") {
+    // Target-context widening re-evaluates a cone at the target on the strength of agreeing with
+    // the narrow evaluation whatever the target turns out to be. That holds for `+`/`-`/`*`, and
+    // for `<<`, all of which commute with truncation. It does not hold for `>>`, which drops the
+    // bits a narrow evaluation brings down, so a widened `>>` states the relation it assumed.
+    // Normally the assignment's own width fit states the same relation and the two dedup.
+    class ShiftExtend(val W: Int <> CONST = 8) extends EDDesign:
+      val a, b = UInt(W)  <> IN
+      val shr  = UInt(16) <> OUT
+      shr <> ((a + b) >> 1).extend
+    end ShiftExtend
+    // `.truncate` states the opposite of what an undecided comparison assumes, so it is what
+    // decides there: the cone keeps its own width and narrows as asked, rather than the widening
+    // firing optimistically and the design being left to state both directions at once.
+    class ShiftTruncate(val W: Int <> CONST = 8) extends EDDesign:
+      val a, b = UInt(W)  <> IN
+      val shr  = UInt(16) <> OUT
+      val shl  = UInt(16) <> OUT
+      shr <> ((a + b) >> 1).truncate
+      shl <> ((a + b) << 1).truncate
+    end ShiftTruncate
+    assertCodeString(
+      ShiftExtend(),
+      """|class ShiftExtend(val W: Int <> CONST = 8) extends EDDesign:
+         |  val a = UInt(W) <> IN
+         |  val b = UInt(W) <> IN
+         |  val shr = UInt(16) <> OUT
+         |  shr <> ((a.resize(16) + b.resize(16)) >> 1)
+         |  val constraint_0 = assert(16 >= W, s"Design parameter violation found. Expected: 16 >= W", Severity.Fatal)
+         |end ShiftExtend
+         |""".stripMargin
+    )
+    assertCodeString(
+      ShiftTruncate(),
+      """|class ShiftTruncate(val W: Int <> CONST = 8) extends EDDesign:
+         |  val a = UInt(W) <> IN
+         |  val b = UInt(W) <> IN
+         |  val shr = UInt(16) <> OUT
+         |  val shl = UInt(16) <> OUT
+         |  shr <> ((a + b) >> 1).resize(16)
+         |  shl <> ((a + b) << 1).resize(16)
+         |  val constraint_0 = assert(W >= 16, s"Design parameter violation found. Expected: W >= 16", Severity.Fatal)
+         |end ShiftTruncate
+         |""".stripMargin
+    )
+  }
   test("auto constraint from a wildcard `Int` parameter's value") {
     // A wildcard `Int` adapts, and a Scala `Int`'s minimum WIDTH is what bounds the adaptation. An
     // overridable parameter has no width at all, for this elaboration or any other, so the bound

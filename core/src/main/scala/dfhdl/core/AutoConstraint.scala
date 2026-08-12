@@ -90,6 +90,14 @@ object AutoConstraint:
       Some(guard.asIR.setTags(_.tag(ir.AutoConstraint)))
     else None
 
+  /** [[raise]]s `lhs >= rhs`, unless the relation is decided either way, which is the same
+    * three-way every width relation takes: a decided one either holds for every parameter
+    * assignment or was the caller's to reject, and neither is an assumption to state.
+    */
+  def raiseUndecidedFit(lhs: IntParam[Int], rhs: IntParam[Int])(using DFC): Unit =
+    if (widthFitGE(lhs, rhs).isEmpty) raise(ge(lhs, rhs))
+    ()
+
   /** [[raise]], for an assumption a specific VALUE makes: the constraint stands as long as that
     * value does, and is [[retract]]ed when something supersedes it.
     *
