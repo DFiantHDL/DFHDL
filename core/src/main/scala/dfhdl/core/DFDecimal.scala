@@ -467,23 +467,30 @@ object DFDecimal:
           (lhs.getActualSignedWidthOpt, rhs.getActualSignedWidthOpt) match
             case (Some(lhsSigned, lhsWidthIntOpt), Some(rhsSigned, rhsWidthIntOpt)) =>
               checkS(lhsSigned, rhsSigned)
-              (lhsWidthIntOpt, rhsWidthIntOpt) match
-                case (Some(lhsWidth), Some(rhsWidth)) =>
-                  val rhsSignedWidth: Int =
-                    if (lhsSigned && !rhsSigned) rhsWidth + 1
-                    else rhsWidth
-                  checkW(lhsWidth, rhsSignedWidth)
-                case _ =>
-                  // a width is parametric, so the same relation is decided on the width
-                  // EXPRESSIONS instead, and stated as a design constraint when undecidable
-                  import IntParam.+
-                  val lhsWidthParam = lhs.getActualWidthParam(lhsWidthIntOpt)
-                  val rhsWidthParam = rhs.getActualWidthParam(rhsWidthIntOpt)
-                  val rhsSignedWidthParam =
-                    if (lhsSigned && !rhsSigned) rhsWidthParam + 1
-                    else rhsWidthParam
-                  widthFitCheck(lhsWidthParam, rhsSignedWidthParam)
-              end match
+              // A width-adjustment permission on the RHS covers the width relation, and only
+              // that: signedness is not a permission's to give, so it is checked above either
+              // way. The operation adapts the RHS to the LHS's type, which is exactly what
+              // `.truncate` gives permission for, so it has to be read here rather than left as
+              // advice the check then refuses.
+              val permitted =
+                AutoConstraint.permitsWidthAdjust(rhs, lhs.dfType.asIR.magnitudeWidthParamRef.get)
+              if (!permitted)
+                (lhsWidthIntOpt, rhsWidthIntOpt) match
+                  case (Some(lhsWidth), Some(rhsWidth)) =>
+                    val rhsSignedWidth: Int =
+                      if (lhsSigned && !rhsSigned) rhsWidth + 1
+                      else rhsWidth
+                    checkW(lhsWidth, rhsSignedWidth)
+                  case _ =>
+                    // a width is parametric, so the same relation is decided on the width
+                    // EXPRESSIONS instead, and stated as a design constraint when undecidable
+                    import IntParam.+
+                    val lhsWidthParam = lhs.getActualWidthParam(lhsWidthIntOpt)
+                    val rhsWidthParam = rhs.getActualWidthParam(rhsWidthIntOpt)
+                    val rhsSignedWidthParam =
+                      if (lhsSigned && !rhsSigned) rhsWidthParam + 1
+                      else rhsWidthParam
+                    widthFitCheck(lhsWidthParam, rhsSignedWidthParam)
             // the RHS is a wildcard `Int` whose value does not resolve (the LHS cannot be one
             // here), so it adapts to the LHS type with no width of its own to compare
             case (Some(_, _), None) =>
@@ -2055,30 +2062,15 @@ object DFXInt:
               val rhsFix = rhsSFix.toDFXIntOf(commonType)(using dfcAnon)
               arithOp(commonType, op.value, lhsFix, rhsFix).asInstanceOf[Out]
             else
-              // Both concrete, both wildcards, or only RHS is wildcard: LHS-dominant
+              // Both concrete, both wildcards, or only RHS is wildcard: LHS-dominant. These
+              // operations convert the RHS to the LHS's type, so the fit that conversion needs
+              // is `check`'s to decide, all three ways: proven, proven violated (an error, at
+              // compile time over resolved widths and at elaboration over parametric ones), and
+              // undecided, which states the fit as a constraint of the design like every other
+              // adaptation does. `-` used to reject the undecided answer outright, which
+              // answered "cannot tell" with "no" while `/` and `%`, LHS-dominant in exactly the
+              // same way, stated it.
               check(lhsVal, rhsVal)
-              // Subtraction is LHS-dominant, so an RHS the LHS cannot hold silently drops
-              // the difference's high bits. `check` decides that on RESOLVED widths only;
-              // a parametric relation must hold for EVERY valid assignment, so it is
-              // decided by proof here and an undecidable one is rejected (the carry form
-              // `-^`, or a `.resize`, states the intent instead).
-              if (op.value == FuncOp.- && !lhsVal.dfType.asIR.isDFInt32)
-                import dfc.getSet
-                import IntParam.+
-                val lhsIR = lhsVal.dfType.asIR
-                val rhsIR = rhsVal.dfType.asIR
-                if (lhsIR.widthIntOpt.isEmpty || rhsIR.widthIntOpt.isEmpty)
-                  // an unsigned RHS gains the sign bit it needs under a signed LHS
-                  val rhsEffWidthRef =
-                    if (lhsIR.signed && !rhsIR.signed) (rhsVal.widthIntParam + 1).ref
-                    else rhsVal.widthIntParam.ref
-                  if (!lhsVal.widthIntParam.ref.widthFitGE(rhsEffWidthRef).getOrElse(false))
-                    throw new IllegalArgumentException(
-                      s"""|The RHS value width (${rhsIR.magnitudeWidthParamRef.refErrorString}) is not provably within the LHS variable width (${lhsIR.magnitudeWidthParamRef.refErrorString}).
-                          |Subtraction takes the LHS width, so the difference may not fit.
-                          |Consider the carry subtraction `-^`, or `.truncate` to narrow the RHS to the LHS width.""".stripMargin
-                    )
-              end if
               arithOp(lhsVal.dfType, op.value, lhsVal, rhsVal).asInstanceOf[Out]
             end if
           }(using dfc, CTName(op.value.toString))

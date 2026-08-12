@@ -3517,6 +3517,58 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("auto constraint from an LHS-dominant operation") {
+    // `-`, `/` and `%` take the LHS width and convert the RHS to it, so each needs the RHS to
+    // fit. `-` used to answer the undecided case with an outright rejection while its two
+    // siblings stated the fit, which answered "cannot tell" with "no" for one operation out of
+    // three. All three now state it, and one statement covers them.
+    class SubFit(val W: Int <> CONST = 16, val V: Int <> CONST = 8) extends EDDesign:
+      val a    = UInt(W) <> IN
+      val b    = UInt(V) <> IN
+      val diff = UInt(W) <> OUT
+      val quot = UInt(W) <> OUT
+      diff <> a - b
+      quot <> a / b
+    end SubFit
+    // `.truncate` is the permission for exactly this conversion, so it covers the fit and
+    // states its own direction instead
+    class SubTruncate(val W: Int <> CONST = 16, val V: Int <> CONST = 8) extends EDDesign:
+      val a    = UInt(W) <> IN
+      val b    = UInt(V) <> IN
+      val diff = UInt(W) <> OUT
+      diff <> a - b.truncate
+    end SubTruncate
+    assertCodeString(
+      SubFit(),
+      """|class SubFit(
+         |    val W: Int <> CONST = 16,
+         |    val V: Int <> CONST = 8
+         |) extends EDDesign:
+         |  val a = UInt(W) <> IN
+         |  val b = UInt(V) <> IN
+         |  val diff = UInt(W) <> OUT
+         |  val quot = UInt(W) <> OUT
+         |  diff <> (a - b.resize(W))
+         |  quot <> (a / b.resize(W))
+         |  val constraint_0 = assert(W >= V, s"Design parameter violation found. Expected: W >= V", Severity.Fatal)
+         |end SubFit
+         |""".stripMargin
+    )
+    assertCodeString(
+      SubTruncate(),
+      """|class SubTruncate(
+         |    val W: Int <> CONST = 16,
+         |    val V: Int <> CONST = 8
+         |) extends EDDesign:
+         |  val a = UInt(W) <> IN
+         |  val b = UInt(V) <> IN
+         |  val diff = UInt(W) <> OUT
+         |  diff <> (a - b.resize(W))
+         |  val constraint_0 = assert(V >= W, s"Design parameter violation found. Expected: V >= W", Severity.Fatal)
+         |end SubTruncate
+         |""".stripMargin
+    )
+  }
   test("auto constraint from a wildcard `Int` parameter's value") {
     // A wildcard `Int` adapts, and a Scala `Int`'s minimum WIDTH is what bounds the adaptation. An
     // overridable parameter has no width at all, for this elaboration or any other, so the bound

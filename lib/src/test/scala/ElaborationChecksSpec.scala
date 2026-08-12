@@ -1829,4 +1829,26 @@ class ElaborationChecksSpec extends DesignSpec:
     val _ = WildcardArg()
     val _ = ProvablyEqual()
 
+  test("LHS-dominant width-fit proof rejection"):
+    object Test:
+      @top(false) class ProvablyNarrowSub(val W: Int <> CONST = 8) extends RTDesign:
+        val a = UInt(W) <> IN
+        val b = UInt(2 * W) <> IN
+        val diff = UInt(W) <> OUT
+        diff := a - b
+      end ProvablyNarrowSub
+    import Test.*
+    // `-` takes the LHS width and converts the RHS to it, so it needs the same fit `:=` does and
+    // takes the same three answers. The undecided one is a constraint of the design; this one is
+    // violated for every valid W, so it stays the rejection it always was, now through the
+    // shared width check rather than a rule of its own.
+    assertElaborationErrors(ProvablyNarrowSub())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1838:17 - 1838:22
+          |Hierarchy: ProvablyNarrowSub
+          |Operation: `-`
+          |Message:   The applied RHS value width (2 * W) is larger than the LHS variable width (W).""".stripMargin
+    )
+
 end ElaborationChecksSpec
