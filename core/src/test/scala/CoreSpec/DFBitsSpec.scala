@@ -449,4 +449,37 @@ class DFBitsSpec extends DFSpec:
       d8 := d4.truncate
     }
   }
+  // `&`, `|` and `^` each name both a binary logic operation and a unary reduction, so the
+  // associative merge of same-op anonymous funcs must not splice one form into the other:
+  // doing so dropped the reduction outright (issue #483).
+  test("Reduction meeting a same-symbol binary operation") {
+    val a = Bits(8) <> VAR
+    val b = Bits(8) <> VAR
+    val c = Bits(8) <> VAR
+    val o1 = Bit <> VAR
+    val o2 = Bits(8) <> VAR
+    assertCodeString {
+      """|o1 := a.^ ^ b.^
+         |o1 := a.& && b.&
+         |o1 := a.| || b.|
+         |o1 := (a ^ b).^
+         |o1 := (a & b).&
+         |o1 := (a | b).|
+         |o1 := a.^ ^ b.^ ^ c.^
+         |o2 := a ^ b ^ c
+         |""".stripMargin
+    } {
+      // a reduction as the LHS of a binary operation with the same symbol
+      o1 := a.^ ^ b.^
+      o1 := a.& & b.&
+      o1 := a.| | b.|
+      // a reduction OF a binary operation with the same symbol
+      o1 := (a ^ b).^
+      o1 := (a & b).&
+      o1 := (a | b).|
+      // the associative merge itself still applies, to each form on its own
+      o1 := a.^ ^ b.^ ^ c.^
+      o2 := a ^ b ^ c
+    }
+  }
 end DFBitsSpec

@@ -305,6 +305,15 @@ private object SimplifyFunc:
         case (dfType, op, (prevFunc: ir.DFVal.Func) :: rest)
             if ir.DFVal.Func.Op.associativeSet.contains(op)
               && prevFunc.op == op
+              // `&`, `|` and `^` name TWO operations apiece: the binary bitwise/logical one
+              // and the unary reduction (`a.^`, one operand, a single-bit result). A matching
+              // `op` therefore does not imply a matching operation, and only the multi-operand
+              // form of an associative op is associative at all. Absorbing across the two forms
+              // splices a reduction's operand into a binary chain (or a binary chain's operands
+              // into a reduction) and the reduction is simply lost: `a.^ ^ b.^` became
+              // `a ^ b.^` and `(a ^ b).^` became `a ^ b` (issue #483).
+              && rest.nonEmpty
+              && prevFunc.args.sizeIs > 1
               && prevFunc.isAnonymous
               && !rest.contains(prevFunc)
               && canMergeFunc(dfType, op, prevFunc) =>
