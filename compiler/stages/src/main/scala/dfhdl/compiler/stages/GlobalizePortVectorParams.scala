@@ -40,7 +40,8 @@ case object Duplicate4GlobalizePortVectorParams extends ReduplicateDesign:
           dt.cellDimParamRefs.exists(preCheckIntParamRef) ||
           (
             dt.cellType match
-              case DFBits(w)    => preCheckIntParamRef(w)
+              case dt: DFBitsWL   =>
+                preCheckIntParamRef(dt.widthParamRef) || preCheckIntParamRef(dt.lowIdxRef)
               case DFUInt(w)    => preCheckIntParamRef(w)
               case DFSInt(w)    => preCheckIntParamRef(w)
               case dt: DFVector => preCheckVector(dt.cellType)
@@ -134,7 +135,9 @@ case object GlobalizePortVectorParams extends HierarchyStage:
       case dt: DFVector =>
         dt.cellDimParamRefs.foreach(walkIntParamRef)
         dt.cellType match
-          case DFBits(w)    => walkIntParamRef(w)
+          case dt: DFBitsWL   =>
+            walkIntParamRef(dt.widthParamRef)
+            walkIntParamRef(dt.lowIdxRef)
           case DFUInt(w)    => walkIntParamRef(w)
           case DFSInt(w)    => walkIntParamRef(w)
           case dt: DFVector => walkVector(dt.cellType)

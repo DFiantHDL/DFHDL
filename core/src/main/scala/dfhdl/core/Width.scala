@@ -18,7 +18,7 @@ type DecimalWidthI[M <: Int, F <: Int] <: Int = F match
   case 0 => M
   case _ => scala.compiletime.ops.int.+[M, F]
 trait WidthLP:
-  given fromDFBitsIntP[W <: IntP]: Width[DFBits[W]] with
+  given fromDFBitsIntP[W <: IntP, L <: IntP]: Width[DFBitsWL[W, L]] with
     type Out = W
     type OutI = Int
   given fromDFDecimalIntP[S <: Boolean, M <: IntP, F <: Int, N <: ir.DFDecimal.NativeType]
@@ -46,7 +46,7 @@ object Width extends WidthLP:
   given fromDoubleCompanion: Width[Double.type] with
     type Out = 64
     type OutI = 64
-  given fromDFBitsInt[W <: Int]: Width[DFBits[W]] with
+  given fromDFBitsInt[W <: Int, L <: IntP]: Width[DFBitsWL[W, L]] with
     type Out = W
     type OutI = W
   given fromDFDecimalInt[S <: Boolean, M <: Int, F <: Int, N <: ir.DFDecimal.NativeType]
@@ -97,6 +97,15 @@ object Width extends WidthLP:
             case '[DFDouble] =>
               ConstantType(IntConstant(64))
             case '[DFBits[w]] =>
+              Type.of[w] match
+                case '[DFValAny] => TypeRepr.of[Int]
+                case _           =>
+                  TypeRepr.of[w].calcWidth
+            // like DFVector below, the `DFBits[w]` alias pattern is not always taken
+            // (e.g. for an abstract width within given instances), so the raw shape
+            // must be matched as well; the width is the first arg regardless of the
+            // low index
+            case '[DFType[ir.DFBitsWL, Args2[w, l]]] =>
               Type.of[w] match
                 case '[DFValAny] => TypeRepr.of[Int]
                 case _           =>
@@ -249,7 +258,7 @@ object Width extends WidthLP:
               ref.widen.calcValWidth
             case x =>
               report.errorAndAbort(
-                s"Unsupported argument value ${x.showType} for DFHDL receiver type DFBits"
+                s"Unsupported argument value ${x.showType} for DFHDL receiver type DFBitsWL"
               )
       end match
     end calcValWidth
@@ -287,7 +296,7 @@ extension [T](t: T)(using tc: DFType.TC[T])
   def widthIntParam(using dfc: DFC, w: Width[tc.Type]): IntParam[w.Out] =
     import dfc.getSet
     def intParam(dfTypeIR: ir.DFType): IntParam[Int] = dfTypeIR match
-      case ir.DFBits(width)                        => width.get
+      case dt: ir.DFBitsWL                         => dt.widthParamRef.get
       case ir.DFXInt(_, width, _)                  => width.get
       case ir.DFVector(cellType, cellDimParamRefs) =>
         intParam(cellType) * cellDimParamRefs.map(_.get).asInstanceOf[List[IntParam[Int]]].reduce(

@@ -39,7 +39,7 @@ private object SimplifyFunc:
   )(using ir.MemberGetSet): Boolean =
     op match
       case FuncOp.++ =>
-        resultType.isInstanceOf[ir.DFBits] && prevFunc.dfType.isInstanceOf[ir.DFBits]
+        resultType.isInstanceOf[ir.DFBitsWL] && prevFunc.dfType.isInstanceOf[ir.DFBitsWL]
       case FuncOp.+ | FuncOp.`*` =>
         prevFunc.dfType == resultType
       case FuncOp.- => false

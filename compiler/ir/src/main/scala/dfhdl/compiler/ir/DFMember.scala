@@ -458,9 +458,15 @@ object DFVal:
             case DFVector(cellType = cellType) => linearOfTypeWidth(cellType)
             case _                             => Some(const(1))
           unitWidthOpt.flatMap { unitWidth =>
-            val loUnits = linearOfParamRef(applyRange.idxLowRef)
+            // selection indices are absolute, so over a low-indexed bit vector they
+            // translate to relative offsets by subtracting the source's low index
+            // (the selection width is a difference, so it needs no translation)
+            val loUnitsAbs = linearOfParamRef(applyRange.idxLowRef)
+            val loUnits = relVal.dfType match
+              case b: DFBitsWL => sub(loUnitsAbs, linearOfParamRef(b.lowIdxRef))
+              case _           => loUnitsAbs
             val hiUnits = linearOfParamRef(applyRange.idxHighRef)
-            val selWidthUnits = addConst(sub(hiUnits, loUnits), 1)
+            val selWidthUnits = addConst(sub(hiUnits, loUnitsAbs), 1)
             (mulOpt(loUnits, unitWidth), mulOpt(selWidthUnits, unitWidth)) match
               case (Some(loBits), Some(selWidthBits)) =>
                 Some(Slice.compose(slice, loBits, selWidthBits))
@@ -470,7 +476,11 @@ object DFVal:
           // a fixed index selects one cell, so it composes into the slice: a literal folds to a
           // concrete range and an index over design parameters stays a symbolic one (`v(N - 1)`)
           if (applyIdx.isFixedSelection)
-            val idxLinear = linearOfVal(applyIdx.relIdx.get)
+            // same absolute-to-relative translation as the range selection above
+            val idxLinearAbs = linearOfVal(applyIdx.relIdx.get)
+            val idxLinear = relVal.dfType match
+              case b: DFBitsWL => sub(idxLinearAbs, linearOfParamRef(b.lowIdxRef))
+              case _           => idxLinearAbs
             linearOfTypeWidth(applyIdx.dfType).flatMap { cellWidth =>
               mulOpt(idxLinear, cellWidth).map(Slice.compose(slice, _, cellWidth))
             }
@@ -1137,30 +1147,43 @@ object DFVal:
         tags: DFTags
     ) extends Partial derives ReadWriter:
       def elementWidthUNSAFE(using MemberGetSet): Int = dfType.runtimeChecked match
-        case DFBits(_) | DFUInt(_) | DFSInt(_) => 1
+        case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) => 1
         case DFVector(cellType = cellType)     => cellType.widthUNSAFE
       def elementWidthIntOpt(using MemberGetSet): Option[Int] = dfType.runtimeChecked match
-        case DFBits(_) | DFUInt(_) | DFSInt(_) => Some(1)
+        case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) => Some(1)
         case DFVector(cellType = cellType)     => cellType.widthIntOpt
         case _                                 => None
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
         val relVal = relValRef.get
-        (relVal.getConstData[Any], idxHighRef.getIntConstData, idxLowRef.getIntConstData) match
+        // selection indices are absolute; a low-indexed bit vector's data offsets are
+        // relative to its low index
+        val relLowConstData: ConstData[Int] = relVal.dfType match
+          case b: DFBitsWL => b.lowIdxRef.getIntConstData
+          case _           => ConstData.KnownConst(0)
+        (
+          relVal.getConstData[Any],
+          idxHighRef.getIntConstData,
+          idxLowRef.getIntConstData,
+          relLowConstData
+        ) match
           case (
                 ConstData.KnownConst(relValData),
                 ConstData.KnownConst(idxHigh),
-                ConstData.KnownConst(idxLow)
+                ConstData.KnownConst(idxLow),
+                ConstData.KnownConst(relLow)
               ) =>
             ConstData.KnownConst(
-              selRangeData(relVal.dfType, relValData, idxHigh, idxLow)
+              selRangeData(relVal.dfType, relValData, idxHigh - relLow, idxLow - relLow)
             )
           case (
                 ConstData.NotConst,
                 _,
+                _,
                 _
-              ) | (_, ConstData.NotConst, _) | (_, _, ConstData.NotConst) =>
+              ) | (_, ConstData.NotConst, _, _) | (_, _, ConstData.NotConst, _) |
+              (_, _, _, ConstData.NotConst) =>
             ConstData.NotConst
           case _ => ConstData.UnknownConst(this)
         end match
@@ -1209,10 +1232,13 @@ object DFVal:
           case (ConstData.KnownConst(relValData), ConstData.KnownConst(Some(idx: BigInt))) =>
             val idxInt = idx.toInt
             val outData = relVal.dfType match
-              case DFBits(_) =>
+              case b: DFBitsWL =>
+                // an absolute index into a low-indexed bit vector translates to a
+                // relative data offset
+                val relIdxInt = idxInt - b.lowIdxRef.getIntOpt.getOrElse(0)
                 val data = relValData.asInstanceOf[(BitVector, BitVector)]
-                if (data._2.bit(idxInt)) None
-                else Some(data._1.bit(idxInt))
+                if (data._2.bit(relIdxInt)) None
+                else Some(data._1.bit(relIdxInt))
               case DFUInt(_) | DFSInt(_) =>
                 relValData.asInstanceOf[Option[BigInt]].map(_.testBit(idxInt))
               case DFVector(_, _) =>

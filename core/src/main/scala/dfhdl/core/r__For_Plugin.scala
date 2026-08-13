@@ -40,7 +40,7 @@ object r__For_Plugin:
         DFVal.Const(dt.asFE[DFBoolOrBit], Some(v > 0))
       case (dt: ir.DFBoolOrBit, v: Boolean) =>
         DFVal.Const(dt.asFE[DFBoolOrBit], Some(v))
-      case (dt: ir.DFBits, allBit: BitOrBool) =>
+      case (dt: ir.DFBitsWL, allBit: BitOrBool) =>
         val width = dt.widthIntOpt.getOrElse(throw new IllegalArgumentException(
           s"Cannot pattern match against parameterized `${selector.dfType.codeString}` type."
         ))
@@ -97,7 +97,7 @@ object r__For_Plugin:
     given DFC = dfc.anonymize
     val dfType = selector.dfType.asIR
     val selectorBitsIR: ir.DFVal = dfType match
-      case _: ir.DFBits => selector.asIR
+      case _: ir.DFBitsWL => selector.asIR
       case _            =>
         import DFVal.Ops.bits
         selector.bits(using dfc)(using Width.wide).asIR

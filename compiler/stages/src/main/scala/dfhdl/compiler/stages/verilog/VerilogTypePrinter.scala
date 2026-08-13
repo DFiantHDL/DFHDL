@@ -7,8 +7,8 @@ import dfhdl.internals.*
 protected trait VerilogTypePrinter extends AbstractTypePrinter:
   type TPrinter <: VerilogPrinter
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = "logic"
-  def csDFBits(dfType: DFBits, typeCS: Boolean): String =
-    s"logic [${dfType.widthParamRef.uboundCS}:0]"
+  def csDFBits(dfType: DFBitsWL, typeCS: Boolean): String =
+    s"logic [${dfType.widthParamRef.hboundCS(dfType.lowIdxRef)}:${dfType.lowIdxRef.refCodeString}]"
   val intTypeIsSupported: Boolean =
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false

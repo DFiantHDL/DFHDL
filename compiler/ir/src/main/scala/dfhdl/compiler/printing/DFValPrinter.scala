@@ -85,6 +85,24 @@ extension (intParamRef: IntParamRef)
       //   case _ =>
       s"${printer.csRef(ref, false).applyBrackets()} - 1"
     case int: Int => (int - 1).toString
+  /** the high-bound expression `low + width - 1` of a bit-vector range (the receiver is the width),
+    * folded to a literal when possible; a literal low of 0 spells exactly like `uboundCS`
+    */
+  def hboundCS(lowIdxRef: IntParamRef, typeCS: Boolean = false)(using
+      printer: AbstractValPrinter
+  ): String =
+    (intParamRef, lowIdxRef) match
+      case (w: Int, l: Int)      => (w + l - 1).toString
+      case (_, l: Int) if l == 0 =>
+        s"${intParamRef.refCodeString(typeCS).applyBrackets()} - 1"
+      case (w: Int, _)           =>
+        s"${lowIdxRef.refCodeString(typeCS).applyBrackets()} + ${w - 1}"
+      case (_, l: Int)           =>
+        s"${intParamRef.refCodeString(typeCS).applyBrackets()} + ${l - 1}"
+      case _                     =>
+        val csWidth = intParamRef.refCodeString(typeCS).applyBrackets()
+        val csLow = lowIdxRef.refCodeString(typeCS).applyBrackets()
+        s"$csWidth + $csLow - 1"
 end extension
 
 extension (alias: Alias)
@@ -104,7 +122,7 @@ trait AbstractValPrinter extends AbstractPrinter:
     */
   final def csInlinedWidth(dfType: DFType): String = dfType match
     case DFBool | DFBit => "1"
-    case dt: DFBits     => dt.widthParamRef.refCodeString
+    case dt: DFBitsWL     => dt.widthParamRef.refCodeString
     case dt: DFDecimal  =>
       if (dt.fractionWidth == 0) dt.magnitudeWidthParamRef.refCodeString
       else s"${dt.magnitudeWidthParamRef.refCodeString.applyBrackets()} + ${dt.fractionWidth}"
@@ -367,15 +385,15 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.signed"
       case (DFUInt(_), DFSInt(_)) =>
         s"${relValStr}.unsigned"
-      case (DFUInt(tWidthRef), DFBits(fWidthRef)) =>
+      case (DFUInt(tWidthRef), _: DFBitsWL) =>
         s"${relValStr}.uint"
-      case (DFSInt(tWidthRef), DFBits(fWidthRef)) =>
+      case (DFSInt(tWidthRef), _: DFBitsWL) =>
         s"${relValStr}.sint"
-      case (DFBits(tWidthParamRef), DFBits(fWidthRef)) =>
-        s"${relValStr}${csResizeOrEby(tWidthParamRef, fWidthRef)}"
-      case (DFBits(tWidthParamRef), DFBit | DFBool) =>
-        s"${relValStr}.toBits(${tWidthParamRef.refCodeString})"
-      case (DFBits(_), _) =>
+      case (to: DFBitsWL, from: DFBitsWL) =>
+        s"${relValStr}${csResizeOrEby(to.widthParamRef, from.widthParamRef)}"
+      case (to: DFBitsWL, DFBit | DFBool) =>
+        s"${relValStr}.toBits(${to.widthParamRef.refCodeString})"
+      case (_: DFBitsWL, _) =>
         s"${relValStr}.bits"
       case (DFUInt(tWidthParamRef), DFUInt(fWidthRef)) =>
         s"${relValStr}${csResizeOrEby(tWidthParamRef, fWidthRef)}"
@@ -391,7 +409,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.as(${printer.csDFType(toType)})"
       case (t, DFOpaque(actualType = ot)) if ot == t =>
         s"${relValStr}.actual"
-      case (_, DFBits(_)) | (DFOpaque(_, _, _, _), _) =>
+      case (_, _: DFBitsWL) | (DFOpaque(_, _, _, _), _) =>
         s"${relValStr}.as(${printer.csDFType(toType)})"
       case (DFUInt(tWidthParamRef), DFInt32) =>
         s"""d"${printer.csWidthInterp(tWidthParamRef)}'$${${relValStr}}""""
@@ -425,7 +443,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     dfVal.dfType match
-      case DFBits(_) | DFUInt(_) | DFSInt(_) =>
+      case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) =>
         s"${dfVal.relValCodeString}(${dfVal.idxHighRef.refCodeString}, ${dfVal.idxLowRef.refCodeString})"
       case _ =>
         s"${dfVal.relValCodeString}(${dfVal.idxLowRef.refCodeString}, ${dfVal.idxHighRef.refCodeString})"

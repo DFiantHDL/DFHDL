@@ -43,7 +43,7 @@ object Eby:
     val deltaOpt = (alias.dfType, relVal.dfType) match
       case (DFUInt(toW), DFUInt(fromW)) => toW.constDiffFrom(fromW)
       case (DFSInt(toW), DFSInt(fromW)) => toW.constDiffFrom(fromW)
-      case (DFBits(toW), DFBits(fromW)) => toW.constDiffFrom(fromW)
+      case (to: DFBitsWL, from: DFBitsWL)   => to.widthParamRef.constDiffFrom(from.widthParamRef)
       case _                            => None
     deltaOpt.filter(_ > 0).map((relVal, _))
 
@@ -425,7 +425,7 @@ extension (dfVal: DFVal)
               case DFVal.Alias.ApplyIdx.ConstIdx(i) =>
                 val maxValueOpt = relVal.dfType match
                   case vector: DFVector => vector.lengthIntOpt
-                  case bits: DFBits     => bits.widthIntOpt
+                  case bits: DFBitsWL     => bits.widthIntOpt
                   case xInt: DFDecimal  => xInt.widthIntOpt
                   case _                => None
                 val padMaxValue = maxValueOpt.getOrElse(100) - 1
@@ -433,7 +433,7 @@ extension (dfVal: DFVal)
               case _ => "_sel"
           case applyRange: DFVal.Alias.ApplyRange =>
             applyRange.dfType.runtimeChecked match
-              case DFBits(_) | DFUInt(_) | DFSInt(_) =>
+              case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) =>
                 val padMaxValue = applyRange.widthIntOpt.getOrElse(100) - 1
                 val idxHigh =
                   applyRange.idxHighRef.getIntOpt.map(_.toPaddedString(padMaxValue)).getOrElse("hi")
@@ -469,7 +469,8 @@ extension (dfVal: DFVal)
             // looking for what kind of type reference it is
             r.originMember.asInstanceOf[DFVal].dfType match
               case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r => Some("length")
-              case DFBits(widthRef: TypeRef) if widthRef == r                 => Some("width")
+              case dt: DFBitsWL if dt.widthParamRef.getRef.contains(r)        => Some("width")
+              case dt: DFBitsWL if dt.lowIdxRef.getRef.contains(r)            => Some("lowidx")
               case DFDecimal(magnitudeWidthParamRef = widthRef: TypeRef) if widthRef == r =>
                 Some("width")
               case _ => None
@@ -711,7 +712,7 @@ extension (lhs: DFVal)(using MemberGetSet)
     // total-width ref: for integer decimals the magnitude ref is the total ref (and may be
     // parametric); fixed-point total widths are always constant
     def widthRef(v: DFVal): IntParamRef = (v.dfType: @unchecked) match
-      case dt: DFBits                             => dt.widthParamRef
+      case dt: DFBitsWL                             => dt.widthParamRef
       case dt: DFDecimal if dt.fractionWidth == 0 => dt.magnitudeWidthParamRef
       case dt: DFDecimal                          => IntParamRef(dt.widthUNSAFE)
     widthRef(lhs).compare(widthRef(rhs))(func)

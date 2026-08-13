@@ -270,7 +270,7 @@ class DFBitsSpec extends DFSpec:
       b8.lsbitsAt(2, 4) := b8.msbitsAt(7, 4)
     }
     assertDSLErrorLog(
-      "Index 8 is out of range of width/length 8"
+      "Index 8 is above the high index 7 of the selected value"
     )(
       """b8.lsbitsAt(5, 4)"""
     ) {
@@ -278,7 +278,7 @@ class DFBitsSpec extends DFSpec:
       b8.lsbitsAt(five, 4)
     }
     assertDSLErrorLog(
-      "Index -1 is out of range of width/length 8"
+      "Index -1 is below the low index 0 of the selected value"
     )(
       """b8.msbitsAt(2, 4)"""
     ) {
@@ -480,6 +480,46 @@ class DFBitsSpec extends DFSpec:
       // the associative merge itself still applies, to each form on its own
       o1 := a.^ ^ b.^ ^ c.^
       o2 := a ^ b ^ c
+    }
+  }
+  test("BitsHL inlined width") {
+    val b = BitsHL(9, 2)
+    b.verifyWidth(8)
+  }
+  test("BitsHL type construction errors") {
+    val nine = 9
+    assertDSLErrorLog(
+      "Low index 9 is bigger than High bit index 2"
+    )(
+      """BitsHL(2, 9)"""
+    ) {
+      BitsHL(2, nine)
+    }
+    val minusOne = -1
+    assertDSLErrorLog(
+      "Argument must be non-negative, but found: -1"
+    )(
+      """BitsHL(3, -1)"""
+    ) {
+      BitsHL(3, minusOne)
+    }
+  }
+  test("BitsHL declaration, assignment, and comparison") {
+    assertCodeString {
+      """|val x = BitsHL(9, 2) <> VAR
+         |val y = Bits(8) <> VAR
+         |x := h"00"
+         |x := y
+         |y := x
+         |val eq = x == y
+         |""".stripMargin
+    } {
+      val x = BitsHL(9, 2) <> VAR
+      val y = Bits(8) <> VAR
+      x := all(0)
+      x := y
+      y := x
+      val eq = x == y
     }
   }
 end DFBitsSpec

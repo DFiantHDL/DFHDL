@@ -206,7 +206,7 @@ object AutoConstraint:
     // only the types that carry these permissions are answered for; an integer decimal keeps its
     // total width in the magnitude ref (fraction 0)
     val sourceWidthOpt: Option[IntParam[Int]] = value.dfType.asIR match
-      case ir.DFBits(widthRef)                       => Some(widthRef.get)
+      case dt: ir.DFBitsWL                           => Some(dt.widthParamRef.get)
       case dt: ir.DFDecimal if dt.fractionWidth == 0 => Some(dt.magnitudeWidthParamRef.get)
       case _                                         => None
     if (value.hasTag[ir.ResizeTag]) true

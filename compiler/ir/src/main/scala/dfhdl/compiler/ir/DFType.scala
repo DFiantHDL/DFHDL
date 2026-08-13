@@ -28,7 +28,7 @@ sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives
 object DFType:
   given ReadWriter[DFType] = ReadWriter.merge(
     summon[ReadWriter[DFBoolOrBit]],
-    summon[ReadWriter[DFBits]],
+    summon[ReadWriter[DFBitsWL]],
     summon[ReadWriter[DFDecimal]],
     summon[ReadWriter[DFEnum]],
     summon[ReadWriter[DFVector]],
@@ -135,30 +135,39 @@ case object DFBit extends DFBoolOrBit
 /////////////////////////////////////////////////////////////////////////////
 // DFBits
 /////////////////////////////////////////////////////////////////////////////
-final case class DFBits(widthParamRef: IntParamRef) extends DFType derives ReadWriter:
+final case class DFBitsWL(widthParamRef: IntParamRef, lowIdxRef: IntParamRef) extends DFType
+    derives ReadWriter:
   type Data = (BitVector, BitVector)
   def widthIntOpt(using MemberGetSet): Option[Int] = widthParamRef.getIntOpt
+  def lowIdxIntOpt(using MemberGetSet): Option[Int] = lowIdxRef.getIntOpt
   def createBubbleData(using MemberGetSet): Data =
     (BitVector.low(widthUNSAFE), BitVector.high(widthUNSAFE))
   def isDataBubble(data: Data): Boolean = !data._2.isZeros
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = data
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
-    case that: DFBits =>
-      this.widthParamRef =~ that.widthParamRef
+    case that: DFBitsWL =>
+      this.widthParamRef =~ that.widthParamRef && this.lowIdxRef =~ that.lowIdxRef
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
-    case that: DFBits =>
-      this.widthParamRef.isSimilarTo(that.widthParamRef)
+    case that: DFBitsWL =>
+      this.widthParamRef.isSimilarTo(that.widthParamRef) &&
+      this.lowIdxRef.isSimilarTo(that.lowIdxRef)
     case _ => false
-  lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
-  def copyWithNewRefs(using RefGen): this.type =
-    copy(widthParamRef.copyAsNewRef).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList ++ lowIdxRef.getRef.toList
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    widthParamRef = widthParamRef.copyAsNewRef,
+    lowIdxRef = lowIdxRef.copyAsNewRef
+  ).asInstanceOf[this.type]
   def defaultData(using MemberGetSet): Data = createBubbleData
-end DFBits
+end DFBitsWL
 
-object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
-  def apply(width: Int): DFBits = DFBits(IntParamRef(width))
+object DFBits extends DFType.Companion[DFBitsWL, (BitVector, BitVector)]:
+  def apply(widthParamRef: IntParamRef): DFBitsWL = DFBitsWL(widthParamRef, IntParamRef(0))
+  def apply(width: Int): DFBitsWL = apply(IntParamRef(width))
+  // matches only a zero-based (literal low index 0) bit vector
+  def unapply(dfType: DFBitsWL): Option[IntParamRef] =
+    if (dfType.lowIdxRef.equals(0)) Some(dfType.widthParamRef) else None
   def dataFromBinString(
       bin: String
   ): Either[String, (BitVector, BitVector)] = boundary {

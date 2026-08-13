@@ -6,7 +6,7 @@ import scala.collection.mutable
 
 trait AbstractTypePrinter extends AbstractPrinter:
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String
-  def csDFBits(dfType: DFBits, typeCS: Boolean): String
+  def csDFBits(dfType: DFBitsWL, typeCS: Boolean): String
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String
   final def csNamedDFTypeDcl(dfType: NamedDFType, global: Boolean): String =
     dfType match
@@ -106,7 +106,7 @@ trait AbstractTypePrinter extends AbstractPrinter:
 
   final def csDFType(dfType: DFType, typeCS: Boolean = false): String = dfType match
     case dt: DFBoolOrBit                                  => csDFBoolOrBit(dt, typeCS)
-    case dt: DFBits                                       => csDFBits(dt, typeCS)
+    case dt: DFBitsWL                                       => csDFBits(dt, typeCS)
     case dt: DFDecimal                                    => csDFDecimal(dt, typeCS)
     case dt: DFEnum                                       => csDFEnum(dt, typeCS)
     case dt: DFVector                                     => csDFVector(dt, typeCS)
@@ -127,10 +127,16 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = dfType match
     case DFBool => "Boolean"
     case DFBit  => "Bit"
-  def csDFBits(dfType: DFBits, typeCS: Boolean): String =
-    val csWidth = dfType.widthParamRef.refCodeString(typeCS)
-    if (typeCS) s"Bits[$csWidth]"
-    else s"Bits($csWidth)"
+  def csDFBits(dfType: DFBitsWL, typeCS: Boolean): String =
+    if (dfType.lowIdxRef.equals(0))
+      val csWidth = dfType.widthParamRef.refCodeString(typeCS)
+      if (typeCS) s"Bits[$csWidth]"
+      else s"Bits($csWidth)"
+    else
+      val csHigh = dfType.widthParamRef.hboundCS(dfType.lowIdxRef, typeCS)
+      val csLow = dfType.lowIdxRef.refCodeString(typeCS)
+      if (typeCS) s"BitsHL[$csHigh, $csLow]"
+      else s"BitsHL($csHigh, $csLow)"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
     // the magnitude-width code string is the total width for integer types (fractionWidth

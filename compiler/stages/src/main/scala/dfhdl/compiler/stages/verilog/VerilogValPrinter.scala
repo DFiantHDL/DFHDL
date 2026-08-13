@@ -314,16 +314,16 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             s"$relValStr[${toWidthRef.uboundCS}:0]"
         if (printer.allowSignedKeywordAndOps) s"$$unsigned($truncated)"
         else truncated
-      case (DFBit, DFBits(_)) =>
-        s"$relValStr[0]"
-      case (DFUInt(_), DFBits(_)) =>
+      case (DFBit, from: DFBitsWL) =>
+        s"$relValStr[${from.lowIdxRef.refCodeString}]"
+      case (DFUInt(_), _: DFBitsWL) =>
         relValStr
-      case (DFBits(_), DFUInt(_)) =>
+      case (_: DFBitsWL, DFUInt(_)) =>
         relValStr
-      case (DFSInt(_), DFBits(_)) =>
+      case (DFSInt(_), _: DFBitsWL) =>
         if (printer.allowSignedKeywordAndOps) s"$$signed($relValStr)"
         else relValStr
-      case (DFBits(toWidthRef), DFBits(fromWidthRef)) =>
+      case (DFBitsWL(toWidthRef, _), DFBitsWL(fromWidthRef, _)) =>
         toWidthRef.widenDeltaOpt(fromWidthRef) match
           // a widening whose delta folds to a literal prints as the relative,
           // width-free `EBY_U` form
@@ -424,9 +424,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         if (printer.allowTypeDef)
           s"${printer.csDFEnumTypeName(enumType)}'($relValStr)"
         else relValStr
-      case (toStruct: DFStruct, _: DFBits) =>
+      case (toStruct: DFStruct, _: DFBitsWL) =>
         s"${toStruct.name}'($relValStr)"
-      case (toVector: DFVector, _: DFBits) =>
+      case (toVector: DFVector, _: DFBitsWL) =>
         def to_vector_conv(vectorType: DFVector, relHighIdx: Int): String =
           val vecLength = vectorType.lengthUNSAFE
           vectorType.cellType match
@@ -434,7 +434,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               List.tabulate(vecLength)(i =>
                 to_vector_conv(cellType, relHighIdx - i * cellType.widthUNSAFE)
               ).csList(literalGroupOpen, ",", "}")
-            case cellType: DFBits =>
+            case cellType: DFBitsWL =>
               val cellWidth = cellType.widthUNSAFE
               List.tabulate(vecLength)(i =>
                 s"$relValStr[${relHighIdx - i * cellWidth}:${relHighIdx - (i + 1) * cellWidth + 1}]"
@@ -456,7 +456,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             case cellType: DFVector =>
               List.tabulate(vecLength)(i => from_vector_conv(cellType, s"[$i]"))
                 .csList("{", ",", "}")
-            case cellType: DFBits =>
+            case cellType: DFBitsWL =>
               List.tabulate(vecLength)(i => s"$relValStr$prevSelect[$i]").csList("{", ",", "}")
             case _: DFBoolOrBit =>
               List.tabulate(vecLength)(i => s"$relValStr$prevSelect[$i]").csList("{", ",", "}")
@@ -501,7 +501,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     dfVal.dfType match
-      case DFBits(_) | DFUInt(_) | DFSInt(_) =>
+      case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) =>
         s"${dfVal.relValCodeString}[${dfVal.idxHighRef.refCodeString}:${dfVal.idxLowRef.refCodeString}]"
       case _ =>
         s"${dfVal.relValCodeString}[${dfVal.idxLowRef.refCodeString}:${dfVal.idxHighRef.refCodeString}]"

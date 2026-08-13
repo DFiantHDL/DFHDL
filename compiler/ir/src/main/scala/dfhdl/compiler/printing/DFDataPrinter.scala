@@ -14,7 +14,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
   def csDFBitsHexFormat(hexRep: String): String
   def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String
   final def csDFBitsData(
-      dfType: DFBits,
+      dfType: DFBitsWL,
       data: (BitVector, BitVector),
       inPattern: Boolean = false
   ): String =

@@ -67,7 +67,7 @@ case object DropStructsVecs extends GlobalStage:
       ):
         def updateArg(arg: DFVal): DFValAny = arg.dfType match
           // Structs and Vectors will be replaced with Bits in a different patch
-          case _: (DFStruct | DFVector | DFBits) => arg.asValAny
+          case _: (DFStruct | DFVector | DFBitsWL) => arg.asValAny
           case _ if !arg.isAnonymous             => arg.asValAny.bits
           case _                                 => arg.asValAny.bits
         def typeToBits(dfType: irDFType): DFTypeAny =
@@ -251,7 +251,7 @@ case object DropStructsVecs extends GlobalStage:
               explore = false
         end while
         val requireCast = partial.dfType match
-          case _: DFBits   => false
+          case _: DFBitsWL   => false
           case _: DFVector => false
           case _: DFStruct => false
           case _           => true

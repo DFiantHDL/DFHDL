@@ -172,7 +172,9 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
               else if (irCls == irDFDoubleClsSym) Some(nullaryDefault(defaultsDoubleSym))
               else if (irCls == irDFBitsClsSym)
                 argsTpe.dealias match
-                  case AppliedType(_, widthTpe :: Nil) =>
+                  // synthetic defaults are zero-based bit vectors only
+                  case AppliedType(_, widthTpe :: lowTpe :: Nil)
+                      if literalIntOf(lowTpe).contains(0) =>
                     literalIntOf(widthTpe).map(w => bitsDefault(defaultsBitsSym, w))
                   case _ => None
               else if (irCls == irDFDecimalClsSym) decimalDefault(argsTpe)
@@ -516,7 +518,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
     // class (trait) symbol here.
     irDFStringClsSym = requiredClass("dfhdl.compiler.ir.DFString")
     irDFDoubleClsSym = requiredClass("dfhdl.compiler.ir.DFDouble")
-    irDFBitsClsSym = requiredClass("dfhdl.compiler.ir.DFBits")
+    irDFBitsClsSym = requiredClass("dfhdl.compiler.ir.DFBitsWL")
     irDFDecimalClsSym = requiredClass("dfhdl.compiler.ir.DFDecimal")
     defaultsBoolSym = requiredMethod("dfhdl.core.r__For_Plugin.defaults.bool")
     defaultsBitSym = requiredMethod("dfhdl.core.r__For_Plugin.defaults.bit")

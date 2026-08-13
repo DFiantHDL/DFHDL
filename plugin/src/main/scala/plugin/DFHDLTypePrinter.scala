@@ -53,7 +53,7 @@ final class DFHDLSymbols(using Context):
     List(
       irModuleClass("DFBool") -> DFTypeKind.DFBool,
       irModuleClass("DFBit") -> DFTypeKind.DFBit,
-      irClass("DFBits") -> DFTypeKind.DFBits,
+      irClass("DFBitsWL") -> DFTypeKind.DFBits,
       irClass("DFDecimal") -> DFTypeKind.DFDecimal,
       irClass("DFEnum") -> DFTypeKind.DFEnum,
       irClass("DFVector") -> DFTypeKind.DFVector,
@@ -162,7 +162,8 @@ class DFHDLTypePrinter(_ctx: Context, syms: DFHDLSymbols) extends RefinedPrinter
     def unapply(tp: Type)(using Context): Option[Text] =
       tp.dealias match
         case AppliedType(tycon, List(irTpe, argsTpe)) if tycon.typeSymbol == syms.dfType =>
-          syms.kindOf(irTpe.typeSymbol).flatMap(dfTypeText(_, irTpe, argsTpe.dealias.argInfos))
+          syms.kindOf(irTpe.typeSymbol).orElse(syms.kindOf(irTpe.dealias.typeSymbol))
+            .flatMap(dfTypeText(_, irTpe, argsTpe.dealias.argInfos))
         case _ => None
 
   private def dfTypeText(kind: DFTypeKind, irTpe: Type, args: List[Type])(using
@@ -171,7 +172,14 @@ class DFHDLTypePrinter(_ctx: Context, syms: DFHDLSymbols) extends RefinedPrinter
     (kind, args) match
       case (DFBool, _)                  => Some("Boolean")
       case (DFBit, _)                   => Some("Bit")
-      case (DFBits, IntP(width) :: Nil) => Some("Bits[" ~ width ~ "]")
+      case (DFBits, widthTpe :: lowTpe :: Nil) =>
+        (constInt(widthTpe), constInt(lowTpe)) match
+          case (_, Some(0))       => Some("Bits[" ~ intPText(widthTpe) ~ "]")
+          case (Some(w), Some(l)) =>
+            Some("BitsHL[" ~ (w + l - 1).toString ~ ", " ~ l.toString ~ "]")
+          case _                  =>
+            val low = intPText(lowTpe)
+            Some("BitsHL[" ~ intPText(widthTpe) ~ " + " ~ low ~ " - 1, " ~ low ~ "]")
       case (DFDecimal, sign :: IntP(magnitude) :: fraction :: native :: Nil) =>
         decimalText(sign, magnitude, fraction, native)
       case (DFEnum, encoding :: Nil)       => Some(toText(encoding))

@@ -953,7 +953,7 @@ private final class Builder(rawDB: DB):
       */
     private def perInstanceConstData(v: DFVal): Option[Any] =
       val packed = v.dfType match
-        case _: DFBits | _: DFDecimal | DFBool | DFBit | _: DFEnum | _: DFStruct | _: DFVector |
+        case _: DFBitsWL | _: DFDecimal | DFBool | DFBit | _: DFEnum | _: DFStruct | _: DFVector |
             _: DFOpaque => true
         case _ => false
       if !packed then None
@@ -1157,7 +1157,7 @@ private final class Builder(rawDB: DB):
                 val relWV = readWV(rel)
                 val off = dynCellOffset(relWV.width / cellW, cellW, a.relIdx.get)
                 wide.dynExtract(relWV, off, cellW)
-        case _: DFBits =>
+        case _: DFBitsWL =>
           constIdxOpt(a.relIdx.get) match
             case Some(i) if undrivenPartialSink(rel) =>
               partialSinkRead(rel.asInstanceOf[DFVal.Dcl], i, 1)
@@ -1172,9 +1172,9 @@ private final class Builder(rawDB: DB):
       val hi = a.idxHighRef.getIntOpt.getOrElse(unsupported("non-constant range", a))
       val lo = a.idxLowRef.getIntOpt.getOrElse(unsupported("non-constant range", a))
       rel.dfType match
-        case _: DFBits if undrivenPartialSink(rel) =>
+        case _: DFBitsWL if undrivenPartialSink(rel) =>
           partialSinkRead(rel.asInstanceOf[DFVal.Dcl], lo, hi - lo + 1)
-        case _: DFBits => wide.extract(readWV(rel), lo, hi - lo + 1)
+        case _: DFBitsWL => wide.extract(readWV(rel), lo, hi - lo + 1)
         case t         => unsupported(s"range selection on $t", a)
 
     private def buildSelectField(sf: DFVal.Alias.SelectField): WV =
@@ -1583,7 +1583,7 @@ private final class Builder(rawDB: DB):
               constIdxOpt(ai.relIdx.get) match
                 case Some(i) => (dcl, lo0 + (len - 1 - i) * cellW, dyn)
                 case None    => (dcl, lo0, addDyn(dyn, dynCellOffset(len, cellW, ai.relIdx.get)))
-            case _: DFBits =>
+            case _: DFBitsWL =>
               constIdxOpt(ai.relIdx.get) match
                 case Some(i) => (dcl, lo0 + i, dyn)
                 case None    => (dcl, lo0, addDyn(dyn, dynBitOffset(ai.relIdx.get)))
@@ -1769,7 +1769,7 @@ private final class Builder(rawDB: DB):
               val cellW = widthOfType(vt.cellType, ai)
               val len = widthOfType(vt, ai) / cellW
               (dcl, lo0 + (len - 1 - constIdxOf(ai.relIdx.get)) * cellW)
-            case _: DFBits => (dcl, lo0 + constIdxOf(ai.relIdx.get))
+            case _: DFBitsWL => (dcl, lo0 + constIdxOf(ai.relIdx.get))
             case t         => unsupported(s"initial assignment through indexing into $t", ai)
         case sf: DFVal.Alias.SelectField =>
           val rel = sf.relValRef.get
@@ -2992,7 +2992,7 @@ private final class Builder(rawDB: DB):
     private def widthThroughParams(t: DFType): Option[Int] =
       given ConstData.CachePolicy = ConstData.CachePolicy.NoCache
       t match
-        case b: DFBits    => b.widthParamRef.getIntConstData.toOption
+        case b: DFBitsWL    => b.widthParamRef.getIntConstData.toOption
         case d: DFDecimal =>
           d.magnitudeWidthParamRef.getIntConstData.toOption.map(_ + d.fractionWidth)
         case v: DFVector =>

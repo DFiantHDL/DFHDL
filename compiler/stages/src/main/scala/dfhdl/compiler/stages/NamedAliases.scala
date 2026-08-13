@@ -148,8 +148,8 @@ case object NamedVerilogSelection extends NamedAliases:
         case alias: DFVal.Alias.AsIs     =>
           val relVal = alias.relValRef.get
           val transparentConversion = (alias.dfType, relVal.dfType) match
-            case (DFUInt(toWidthRef), DFBits(fromWidthRef)) => toWidthRef.isSimilarTo(fromWidthRef)
-            case (DFBits(toWidthRef), DFUInt(fromWidthRef)) => toWidthRef.isSimilarTo(fromWidthRef)
+            case (DFUInt(toWidthRef), from: DFBitsWL) => toWidthRef.isSimilarTo(from.widthParamRef)
+            case (to: DFBitsWL, DFUInt(fromWidthRef)) => to.widthParamRef.isSimilarTo(fromWidthRef)
             case (DFBit, DFBool)                            => true
             case (DFBool, DFBit)                            => true
             case _                                          => false
@@ -190,7 +190,7 @@ case object NamedVerilogSelection extends NamedAliases:
       case alias: DFVal.Alias.ApplyRange =>
         List(alias.relValRef.get)
       case alias @ DFVal.Alias.AsIs(
-            dfType = _: (DFDecimal | DFBits),
+            dfType = _: (DFDecimal | DFBitsWL),
             relValRef = DFRef(relVal @ (DFBits.Val(_) | DFDecimal.Val(_)))
           )
           if alias.compareWidths(relVal)(_ < _).getOrElse(true) =>
@@ -212,7 +212,7 @@ case object NamedVerilogSelection extends NamedAliases:
       // zero-extension of the conversion's own operand (see `csDFValAliasAsIs`), so it needs
       // no name.
       case alias @ DFVal.Alias.AsIs(
-            dfType = _: (DFDecimal | DFBits),
+            dfType = _: (DFDecimal | DFBitsWL),
             relValRef = DFRef(relVal @ (DFBits.Val(_) | DFDecimal.Val(_)))
           )
           if relVal.dfType != DFInt32 && alias.compareWidths(relVal)(_ > _).getOrElse(false) =>

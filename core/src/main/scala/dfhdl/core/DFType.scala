@@ -264,7 +264,7 @@ object DFType:
   // total-width ref (and may be parametric)
   private def widthRef[W <: IntP](dfType: DFTypeW[W])(using ir.MemberGetSet): ir.IntParamRef =
     dfType.asIR.runtimeChecked match
-      case dt: ir.DFBits    => dt.widthParamRef
+      case dt: ir.DFBitsWL    => dt.widthParamRef
       case dt: ir.DFDecimal => dt.magnitudeWidthParamRef
   extension [LW <: IntP](lhs: DFTypeW[LW])
     protected[core] def compareWidths[RW <: IntP](
@@ -306,7 +306,7 @@ object DFType:
 
 end DFType
 
-type DFTypeW[W <: IntP] = DFBits[W] | DFUInt[W] | DFSInt[W]
+type DFTypeW[W <: IntP] = DFType[ir.DFBitsWL, Args2[W, ? <: IntP]] | DFUInt[W] | DFSInt[W]
 
 extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tcDFType")

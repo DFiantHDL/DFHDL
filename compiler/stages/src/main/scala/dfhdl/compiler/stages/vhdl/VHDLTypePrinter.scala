@@ -16,9 +16,11 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     dfType match
       case DFBool => "boolean"
       case DFBit  => "std_logic"
-  def csDFBits(dfType: DFBits, typeCS: Boolean): String =
+  def csDFBits(dfType: DFBitsWL, typeCS: Boolean): String =
     if (typeCS) "std_logic_vector"
-    else s"std_logic_vector(${dfType.widthParamRef.uboundCS} downto 0)"
+    else
+      val csHigh = dfType.widthParamRef.hboundCS(dfType.lowIdxRef)
+      s"std_logic_vector($csHigh downto ${dfType.lowIdxRef.refCodeString})"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
     // fixed-point (fractionWidth != 0) types are the custom `ufix`/`sfix` arrays with the
@@ -201,7 +203,9 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     dfType.cellType match
       case DFBit                 => "sl"
       case DFBool                => "boolean"
-      case DFBits(widthParamRef) => s"slv${csIntParamRef(widthParamRef)}"
+      case dt: DFBitsWL            =>
+        val lowSuffix = if (dt.lowIdxRef.equals(0)) "" else s"_at${csIntParamRef(dt.lowIdxRef)}"
+        s"slv${csIntParamRef(dt.widthParamRef)}$lowSuffix"
       case DFUInt(widthParamRef) => s"unsigned${csIntParamRef(widthParamRef)}"
       case DFSInt(widthParamRef) => s"signed${csIntParamRef(widthParamRef)}"
       case dt: DFOpaque          => csDFOpaqueTypeName(dt)
@@ -385,7 +389,8 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
             loopType = dfType.cellType
           case cellType =>
             val finale = cellType match
-              case DFBits(width) => s"(${width.uboundCS} downto 0)"
+              case dt: DFBitsWL    =>
+                s"(${dt.widthParamRef.hboundCS(dt.lowIdxRef)} downto ${dt.lowIdxRef.refCodeString})"
               case DFUInt(width) => s"(${width.uboundCS} downto 0)"
               case DFSInt(width) => s"(${width.uboundCS} downto 0)"
               case _             => ""

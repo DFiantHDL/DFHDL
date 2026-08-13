@@ -59,7 +59,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match
-          case dfType: DFBits =>
+          case dfType: DFBitsWL =>
             s"repeat(${argL.refCodeString}, ${dfType.widthParamRef.refCodeString})"
           case dfType: DFVector =>
             s"(0 to ${dfType.cellDimParamRefs.head.uboundCS} => ${argL.refCodeString})"
@@ -138,7 +138,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                 // width too)
                 case (Func.Op.length, _)                 => s"$argStrB'length"
                 case (_, dt: DFDecimal) if !dt.isDFInt32 => s"$argStrB'length"
-                case (_, _: DFBits)                      => s"$argStrB'length"
+                case (_, _: DFBitsWL)                      => s"$argStrB'length"
                 // every other rendering (integer, std_logic, boolean, enum, record, vector
                 // array, opaque) is covered by the `bitWidth` overload family the printer
                 // already emits (dfhdl_pkg + the per-named-type support functions)
@@ -231,7 +231,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
 
   def csToSLV(fromType: DFType, arg: String): String =
     fromType match
-      case dt: DFBits => arg
+      case dt: DFBitsWL => arg
       // opaques are subtypes, so they are transparent to `to_slv` operations
       case dt: DFOpaque => csToSLV(dt.actualType, arg)
       case _            => s"to_slv($arg)"
@@ -253,7 +253,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         tWidthRef.widenDeltaOpt(fWidthRef) match
           case Some(k) => s"eby($relValStr, $k)"
           case _       => s"resize($relValStr, ${tWidthRef.refCodeString})"
-      case (toType: DFType, fromType: DFBits) =>
+      case (toType: DFType, fromType: DFBitsWL) =>
         csBitsToType(toType, relValStr)
       case (DFBits(tWidthRef), DFBit | DFBool) =>
         s"to_slv($relValStr, ${tWidthRef.refCodeString})"
@@ -304,7 +304,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     dfVal.dfType match
-      case DFBits(_) | DFUInt(_) | DFSInt(_) =>
+      case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) =>
         val slice =
           s"${dfVal.relValCodeString}(${dfVal.idxHighRef.refCodeString} downto ${dfVal.idxLowRef.refCodeString})"
         // SInt slice now produces DFUInt; wrap with `unsigned(...)` since

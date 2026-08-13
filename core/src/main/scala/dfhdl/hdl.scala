@@ -55,6 +55,8 @@ object __hdl:
   type Bit = core.BitNumWrapper
   type Bits[W <: IntP] = core.DFBits[W]
   val Bits = core.DFBits
+  type BitsHL[H <: IntP, L <: IntP] = core.DFBitsHL[H, L]
+  val BitsHL = core.DFBitsHL
   type UInt[W <: IntP] = core.DFUInt[W]
   val UInt = core.DFUInt
   type SInt[W <: IntP] = core.DFSInt[W]

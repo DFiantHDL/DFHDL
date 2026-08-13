@@ -106,7 +106,8 @@ final class Simulation[D <: Design] private[sim] (
         throw new IllegalArgumentException(s"cannot resolve a param-dependent width in type:\n$t")
       ))
     def rec(t: ir.DFType): ir.DFType = t match
-      case b: ir.DFBits    => b.copy(widthParamRef = lit(b.widthParamRef))
+      case b: ir.DFBitsWL    =>
+        b.copy(widthParamRef = lit(b.widthParamRef), lowIdxRef = lit(b.lowIdxRef))
       case d: ir.DFDecimal => d.copy(magnitudeWidthParamRef = lit(d.magnitudeWidthParamRef))
       case v: ir.DFVector  =>
         v.copy(cellType = rec(v.cellType), cellDimParamRefs = v.cellDimParamRefs.map(lit))
