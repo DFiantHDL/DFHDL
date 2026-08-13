@@ -103,10 +103,11 @@ object IntExprCalc:
       */
     case Opaque
 
-    /** Substituted by the applied/default value EXPRESSION for non-top designs
-      * (`appliedOrDefaultVal`). Correct only under a getSet where the instantiation site is
-      * resolvable (the flat DB); used by post-elaboration width equivalence
-      * (`IntParamRef.compare`).
+    /** Substituted by the APPLIED value expression, and only where an instantiation actually
+      * supplies one. A parameter with none stays an opaque base, so a decision made about it holds
+      * for every assignment: while its own design is still elaborating there is no instance yet,
+      * and the elaboration root never has one. Used by width equivalence (`IntParamRef.compare`)
+      * and the width-fit proof ([[widthFitCompare]]).
       */
     case AppliedExpr
 
@@ -187,19 +188,24 @@ object IntExprCalc:
   private final class Calc(mode: ParamResolve, elimSymbolicMaxMin: Boolean = false)(using
       getSet: MemberGetSet
   ):
-    // Strip type-preserving AsIs wrappers and, under `AppliedExpr`, DesignParams
-    // whose owner design has a parent (i.e., is not the top design). For non-top
-    // designs, the parameter was provided by the instantiating parent, so
-    // resolve it via `appliedOrDefaultVal`. Params on a top design have no
-    // parent and stay opaque: they are the symbolic free variables exposed to
-    // the user at elaboration time. Elaboration-time folding (SimplifyFunc)
-    // disables the resolution (`Opaque`) so its decisions hold for any parameter
-    // assignment and designs stay parametric. `AppliedData` resolves in `linear`
-    // at the data level instead (see ParamResolve).
+    // Strip type-preserving AsIs wrappers and, under `AppliedExpr`, DesignParams that an
+    // instantiation actually supplies a value for.
+    //
+    // A parameter's DEFAULT is never that value. It is what the parameter is when nothing says
+    // otherwise, and substituting it decides a relation on a value the design may well not
+    // have: the generated module keeps the parameter overridable, from a DFHDL parent or from
+    // hand-written HDL, so a decision about it either holds symbolically or is not a decision
+    // about the design at all. So a parameter with no applied value stays an opaque base, which
+    // covers both the design that is still elaborating its own body (no instance exists yet) and
+    // the elaboration root (whose parameters are the free variables of the compilation).
+    //
+    // Elaboration-time folding (SimplifyFunc) disables the resolution entirely (`Opaque`) so its
+    // decisions hold for any assignment and designs stay parametric. `AppliedData` resolves in
+    // `linear` at the data level instead (see ParamResolve).
     private def strip(v: DFVal): DFVal = v.stripTypePreservingAliases match
       case dp: DFVal.DesignParam
           if mode == ParamResolve.AppliedExpr && !dp.getOwnerDesign.isTop =>
-        strip(dp.appliedOrDefaultVal)
+        dp.appliedValOpt.map(strip).getOrElse(dp)
       case stripped => stripped
 
     // Ops whose operand order is irrelevant when comparing opaque bases.

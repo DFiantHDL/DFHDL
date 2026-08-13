@@ -165,13 +165,23 @@ one, because the bare `constraint` is a SystemVerilog keyword that cannot label 
 **Design parameters stay unfolded** in the emitted condition. The generated HDL keeps parameters
 overridable, which is the entire point of checking at the instantiation.
 
-### Only the elaboration root's parameters are free
+### Every design states its own contract
 
-A width constraint is generated where a width does not resolve, and inside a SUB-design every width
-does, its parameters being fixed by the instantiation that is elaborating it. So width constraints
-land on the top design, which is the same scope as the problem they solve. A VALUE constraint (§5)
-is different: a parameter stays opaque to `getConstData` even where it was applied, so a sub-design
-states its own, which is right, the generated module keeping that parameter overridable in HDL.
+A design parameter is never resolved to decide a relation about the design that declares it, and
+least of all to its DEFAULT, which is what the parameter is when nothing says otherwise rather than
+what it is. The generated module keeps the parameter overridable, from a DFHDL parent or from
+hand-written HDL, so what a body assumes has to hold for whatever that parameter turns out to be. A
+decision made on one instantiation's value is not a decision about the design.
+
+So a sub-design's parameters stay symbolic while its body elaborates, exactly as the elaboration
+root's do, and a child elaborates to the same thing it would standalone. `IntExprCalc`'s
+`AppliedExpr` mode substitutes a parameter only where an instantiation actually supplies a value,
+which during the design's own body is never, no instance existing yet, and for the root is never at
+all. Substituting the default in its place decided relations on a value the design did not have, in
+both directions: rejecting an operation the applied value made legal, and accepting one it did not.
+
+A decision made in the PARENT is a different matter. There the applied value is what the connection
+or the operation is really about, and the instantiation is resolvable, so it resolves.
 
 ## 4. Minimization
 

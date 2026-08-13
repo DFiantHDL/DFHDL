@@ -3544,6 +3544,43 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("a sub-design states its own contract, not the one its instantiation happens to satisfy") {
+    // A design's parameter stays overridable in the module it is emitted as, so what its body
+    // assumes has to hold for whatever that parameter turns out to be. The value an instantiation
+    // supplies decides nothing about it, and neither does its default, which is what the
+    // parameter is only when nothing says otherwise. So a child elaborates to exactly what it
+    // would standalone: the literal takes the target width and the design states the fit it needs.
+    class Mul(val W: Int <> CONST = 8) extends EDDesign:
+      val gx   = UInt(W)  <> IN
+      val prod = UInt(21) <> OUT
+      prod <> gx * 373
+    end Mul
+    class MulParent extends EDDesign:
+      val gx   = UInt(8)  <> IN
+      val prod = UInt(21) <> OUT
+      val leaf = Mul()
+      leaf.gx   <> gx
+      leaf.prod <> prod
+    end MulParent
+    assertCodeString(
+      MulParent(),
+      """|class Mul(val W: Int <> CONST = 8) extends EDDesign:
+         |  val gx = UInt(W) <> IN
+         |  val prod = UInt(21) <> OUT
+         |  prod <> (gx.resize(21) * d"21'373")
+         |  val constraint_0 = assert(21 >= W, s"Design parameter violation found. Expected: 21 >= W", Severity.Fatal)
+         |end Mul
+         |
+         |class MulParent extends EDDesign:
+         |  val gx = UInt(8) <> IN
+         |  val prod = UInt(21) <> OUT
+         |  val leaf = Mul(W = 8)
+         |  leaf.gx <> gx
+         |  prod <> leaf.prod
+         |end MulParent
+         |""".stripMargin
+    )
+  }
   test("auto constraint from an LHS-dominant operation") {
     // `-`, `/` and `%` take the LHS width and convert the RHS to it, so each needs the RHS to
     // fit. `-` used to answer the undecided case with an outright rejection while its two

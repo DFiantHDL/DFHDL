@@ -1777,15 +1777,16 @@ class ElaborationChecksSpec extends DesignSpec:
     import dfhdl.compiler.stages.db
     val designDB = Outer().db
     val allMembers = (designDB :: designDB.subDBs.values.toList).flatMap(_.members)
-    // one constraint, from `Outer`. `Inner`'s own fit needs no constraint: a sub-design's
-    // parameters are fixed by the instantiation elaborating it, so its widths resolve and the
-    // relation is decided here and now. Only the elaboration ROOT's parameters stay free.
+    // one constraint each, from `Outer` and from `Inner`. A sub-design states its own contract:
+    // it is emitted as a module whose parameter stays overridable, so what its body assumes has
+    // to hold for whatever that parameter turns out to be, and the value this instantiation
+    // happens to supply decides nothing.
     assertEquals(
       allMembers.count {
         case textOut: compiler.ir.TextOut => !textOut.isAnonymous
         case _                            => false
       },
-      1
+      2
     )
     assert(
       allMembers.forall(!_.hasTagOf[compiler.ir.AutoConstraint]),
@@ -1819,7 +1820,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Unprovable())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1805:9 - 1805:27
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1806:9 - 1806:27
           |Hierarchy: Unprovable
           |Operation: `apply`
           |Message:   Cannot apply this operation between a value of W bits width (LHS) and a value of 8 bits width (RHS).
@@ -1845,7 +1846,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(ProvablyNarrowSub())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1838:17 - 1838:22
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1839:17 - 1839:22
           |Hierarchy: ProvablyNarrowSub
           |Operation: `-`
           |Message:   The applied RHS value width (2 * W) is larger than the LHS variable width (W).""".stripMargin
