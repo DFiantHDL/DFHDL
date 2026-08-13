@@ -309,6 +309,46 @@ class NameRegAliasesSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // The reg init is cloned into a meta design while the very same patch removes the original
+  // init, so the clone must own its type references (the parametric width one here) rather than
+  // share the original's, which the removal purges (issue #485).
+  test("parametric width reg alias init") {
+    class Foo(val WQ: Int <> CONST = 9) extends RTDesign:
+      val d_in  = Bits(WQ) <> IN
+      val d_out = Bits(WQ) <> OUT
+      d_out <> d_in.reg(2, init = all(0))
+    val top = (new Foo).nameRegAliases
+    assertCodeString(
+      top,
+      """|class Foo(val WQ: Int <> CONST = 9) extends RTDesign:
+         |  val d_in = Bits(WQ) <> IN
+         |  val d_out = Bits(WQ) <> OUT
+         |  val d_in_reg1 = Bits(WQ) <> VAR.REG init b"0".repeat(WQ)
+         |  val d_in_reg2 = Bits(WQ) <> VAR.REG init b"0".repeat(WQ)
+         |  d_in_reg1.din := d_in
+         |  d_in_reg2.din := d_in_reg1
+         |  d_out <> d_in_reg2
+         |end Foo
+         |""".stripMargin
+    )
+  }
+  // same as the above, through the properly-named single-step alias path
+  test("parametric width proper reg alias init") {
+    class Foo(val WQ: Int <> CONST = 9) extends RTDesign:
+      val d_in  = Bits(WQ) <> IN
+      val d_out = Bits(WQ) <> OUT
+      d_out := d_in.reg(1, init = all(0))
+    val top = (new Foo).nameRegAliases
+    assertCodeString(
+      top,
+      """|class Foo(val WQ: Int <> CONST = 9) extends RTDesign:
+         |  val d_in = Bits(WQ) <> IN
+         |  val d_out = Bits(WQ) <> OUT.REG init b"0".repeat(WQ)
+         |  d_out.din := d_in
+         |end Foo
+         |""".stripMargin
+    )
+  }
   // TODO: versioning is all wrong!
   // test("Reg alias inside conditionals with feedback") {
   //   class ID extends RTDesign:

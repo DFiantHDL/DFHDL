@@ -368,4 +368,20 @@ extension (dfType: ir.DFType)
     else dfType
   end dropUnreachableRefs
   def dropUnreachableRefs(using DFC): ir.DFType = dropUnreachableRefs(true)
+  // copies the type with freshly generated type references, registered in the current context and
+  // pointing at the same values. A value cloned into another context (see
+  // `cloneAnonValueAndDepsHere`) must not share type references with the value it was cloned from:
+  // references are identity objects, and removing the original member purges the references it
+  // holds, which would leave the clone's type dangling (issue #485).
+  def copyWithNewRefsHere(using dfc: DFC): ir.DFType =
+    import dfc.getSet
+    given ir.RefGen = dfc.refGen
+    if (dfType.getRefs.isEmpty) dfType
+    else
+      val updatedDFType = dfType.copyWithNewRefs
+      dfType.getRefs.lazyZip(updatedDFType.getRefs).foreach { (oldRef, newRef) =>
+        dfc.mutableDB.newRefFor(newRef, oldRef.get)
+      }
+      updatedDFType
+  end copyWithNewRefsHere
 end extension

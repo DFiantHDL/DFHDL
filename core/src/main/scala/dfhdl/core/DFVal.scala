@@ -2270,7 +2270,10 @@ extension (dfVal: ir.DFVal)
     import dfc.getSet
     if (dfVal.isAnonymous)
       val dfcForClone = dfc.setMeta(dfVal.meta).setTags(dfVal.tags)
-      val dfType = dfVal.dfType.asFE[DFTypeAny]
+      // the clone gets its own type references, so that it never depends on the original member
+      // surviving (see `copyWithNewRefsHere`)
+      val dfTypeIR = dfVal.dfType.copyWithNewRefsHere
+      val dfType = dfTypeIR.asFE[DFTypeAny]
       val cloned = dfVal match
         case const: ir.DFVal.Const =>
           DFVal.Const.forced(dfType, const.data)(using dfcForClone)
@@ -2302,7 +2305,7 @@ extension (dfVal: ir.DFVal)
           end match
         case pbns: ir.DFVal.PortByNameSelect =>
           DFVal.PortByNameSelect(
-            pbns.dfType,
+            dfTypeIR,
             pbns.dir,
             pbns.designInstRef.get,
             pbns.portNamePath

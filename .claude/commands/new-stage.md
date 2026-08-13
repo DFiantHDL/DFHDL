@@ -1466,6 +1466,16 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     level), then branch on the tail's shape. Guard any rewrite that restructures the chain with
     `head.getHeaderCB.dfType == DFUnit`: the same block shapes serve conditional *expressions*,
     whose branches must keep feeding the header that owns their value.
+33. **Cloning a member and removing its original in the SAME patch is safe only if the clone owns
+    its references** — type references (`IntParamRef`, i.e. a parametric width or length) are
+    reference-counted from the *pre-patch* member list, so a member the batch is about to ADD is
+    invisible to the count and the removal purges a reference the clone still holds
+    (`NoSuchElementException: Missing member of reference "TR_..."`, issue #485). Since
+    `cloneAnonValueAndDepsHere` now mints fresh type refs, this is handled for the clone path;
+    a stage that hand-builds a member from another member's `dfType` (Pattern 14 note 3) and
+    removes that member in the same patch still has to. Literal widths carry no type ref at all,
+    so this only ever shows up on parameter-width designs — write the spec test with a
+    `val W: Int <> CONST` design parameter, not a literal.
 
 ---
 
@@ -1510,7 +1520,10 @@ non-obvious parts:
    `dfc.mutableDB.newRefFor(dfc.refGen.genTwoWay[M, O], member)`.
 3. **Do not reuse an existing member's `dfType` instance in new members** — refs are
    identity objects; clone with `dfType.copyWithNewRefs` and bind each fresh type ref via
-   `newRefFor` to the original target (lazyZip old/new `getRefs`).
+   `newRefFor` to the original target (lazyZip old/new `getRefs`), or call the packaged
+   `dfType.copyWithNewRefsHere` which does exactly that in the current context.
+   `cloneAnonValueAndDepsHere` applies it for you (issue #485); anything that builds a member
+   from another member's `dfType` by hand still has to.
 4. **Self-containment**: a def-design member must not reference design-local values of the
    host (the `directRefCheck` rejects cross-design refs). Captured design-local constants
    become `PhantomTag`-tagged IN-port formals (redirect body refs to them; pass the

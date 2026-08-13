@@ -630,6 +630,39 @@ the loading run. Lessons that generalize:
   the dclName enumeration: the AES `FullCompileSpec` file-NAME comparison failed with
   `mulByte_0/1/2` renamed to `_1/2/3`, which reads like an enumeration bug and is cache debris.
 
+### A dangling ref is the mirror image of a ghost, and it is a SHARING bug
+
+`NoSuchElementException: Missing member of reference "TR_..."` (from `DB._originMemberTable`, or
+`Missing ref ... for the member` from `SanityCheck.refCheck`) is the inverse defect: a live member
+holding a reference that no longer resolves. Two facts localize it fast:
+
+- **A `TR_` token is a TYPE reference** (`IntParamRef`), so the shape only exists when a width or
+  length comes from a **parameter**. The same design with a literal width has no type ref at all
+  and compiles — which is why issue #485 read as "`.reg(step, init = ...)` breaks on parametric
+  widths" and had nothing to do with `.reg`.
+- **The ref token's `grpId` prefix differs from its holder's other refs** when the holder did not
+  mint it. In #485 the `repeat` func's arg refs were `TW_607c62db_*` and its type ref
+  `TR_67c03fa7_*`: a member built in one context carrying a reference minted in another, i.e.
+  sharing.
+
+Localize the *purge*, not the crash: the crash fires wherever `originMemberTable` is first forced,
+which under `--log trace` is the next `SanityCheck` and without it some later stage
+(`DropUnreferencedAnons`). A one-line `println` in `ReplacementContext.getUpdatedTypeRefCount` on
+the refs it actually drops names the offending patch batch in one run.
+
+Type references are deliberately **reference-counted** before being purged
+(`ReplacementContext.typeRefRepeats`), because a `member.copy(...)` legitimately shares its
+original's `DFType` instance. The count is taken from the pre-patch member list, so it cannot see a
+member the same batch is about to ADD — and `cloneAnonValueAndDepsHere` reused the original's
+`dfType` verbatim, so `NameRegAliases` (clone the reg init into a `MetaDesign`, remove the original
+init in the same patch) dropped the count to zero and purged a reference the clone still held.
+Teaching the counter about the Add-DB members fixes the symptom; **the fix belongs at the clone**
+(`dfType.copyWithNewRefsHere`, minting fresh type refs bound in the cloning context), because that
+is what makes the added DB self-contained rather than dependent on the original's survival. The
+general rule: when a member is copied into another context, it must not inherit the reference
+identity of the member it was copied from — reference counting is a tolerance for sharing, not a
+license to create it.
+
 ### A missed diagnostic can have several independent gates
 
 When the bug is "a warning/error SHOULD have fired and did not", the predicate that suppressed
