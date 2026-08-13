@@ -141,10 +141,69 @@ Follow [from-verilog][from-verilog] for `Int <> CONST`/`String <> CONST` (they e
 - **No `generate` for structural params yet.** Parameters that change structure (bus width `W`,
   optional sub-blocks) cannot be made generic; hardwire them to the target configuration and note it.
   Standalone `runMain <ClassName> compile` needs a **default** for every CONST param.
+- **What the elaboration *reads*, it pins.** `.toScalaInt` on a param, or a Scala `if` on one, makes
+  the design non-generic: DFHDL emits a `$fatal` design-parameter constraint and one *specialised*
+  module per distinct parameterisation (`rvrangecheck_0/_1/_2`). That is correct behaviour, not a
+  bug, but it is rarely what a port wants, because the baseline is one module instantiated N times.
+  Keep it generic by never reading the parameter:
+  - `clog2` takes an `Int <> CONST` directly, so `10 + clog2(SIZE)` emits the baseline's own
+    `localparam int MASK_BITS = 10 + $clog2(CCM_SIZE);`. **No `.toScalaInt`.**
+  - Slice bounds accept `Int <> CONST` and keep the name: `addr(31, MASK_BITS)` → `addr[31:MASK_BITS]`.
+  - A `generate`-style choice between two bodies becomes **`.sel` on a constant condition**, not a
+    Scala `if`: `x <> base & (SIZE == 48).sel(masked, 1)` folds at synthesis and covers both arms
+    while leaving `SIZE` free. Prefer this to dropping the dead arm.
+  - Reserve `.toScalaInt` for what genuinely needs a Scala `Int` (an `initFile` path, a `Vec` size
+    the frontend cannot take as a const).
+- **`all(0)` for an explicitly-typed constant default** — `val CCM_SADR: Bits[32] <> CONST = all(0)`
+  rather than spelling out `h"32'00000000"`.
 - **DFacsimile rejects `String <> CONST`** (the minimum tier can't resolve a `DFString` const's
   param-dependent width). For an elaboration-only string (e.g. an `initFile` path), use a plain Scala
   `String` parameter, not `String <> CONST`, so it never enters the simulated IR. `Int <> CONST`
   widths do resolve.
+
+## Writing the body - idioms that keep the baseline's shape
+
+The from-verilog guide covers the operators; these are the choices *between* equally-legal spellings,
+and they decide how closely the emitted HDL tracks the gold.
+
+- **A Verilog `assign` is a connection: `<>`, not `:=`.**
+- **Prefer a named value to a variable.** DFHDL does not need a variable to hold an expression:
+  `val x = <expr>` beats `val x = T <> VAR` followed by an assignment. Declare a `VAR` only where the
+  baseline drives the bits **separately** (a per-bit `assign`, a `generate` of assigns), which is
+  exactly when a single named value cannot express it:
+  ```scala
+  val error_mask = Bits(39) <> VAR                       // 39 independent assigns: a VAR
+  for (i <- 1 until 40) error_mask(i - 1) <> (syndrome == i)
+  ```
+  Intermediates that are pure renames upstream should just disappear.
+- **Bit logic uses `&`, `|`, `~`** — not `&&`, `||`, `!`. It rarely changes 2-state behaviour but it
+  can for **x-value equivalence**. Write the bitwise form and let the emitter choose: it prints `&`
+  when the operands are `Bit` and `&&` when they are `Boolean`, matching whichever the baseline used.
+- **Concatenate with a tuple**, not chained `++`:
+  ```scala
+  val x: Bits[39] <> VAL = (a, b, c)   // ascribed, which also checks the total width
+  val y = (a, b, c).toBits             // unascribed
+  port <> (a, b, c)                    // connecting straight out
+  ```
+- **`reduce`/`foldLeft` over DFHDL values need an explicit element type** — the result of an
+  operation is a plain value, which will not unify with the collection's element type. DFHDL's error
+  names the fix:
+  ```scala
+  group.map(din(_)).foldLeft[Bit <> VAL](ecc_in(i))(_ ^ _)   // ecc_in[i] ^ din[..] ^ ...
+  group.map(din(_)).reduce[Bit <> VAL](_ ^ _)                // also fine
+  ```
+  Seeding a `foldLeft` with the baseline's own first term emits a **flat** chain; `reduce` adds a
+  paren group. Prefer `foldLeft` when the baseline starts the chain from a distinguished operand.
+  Neither works for a *widening* fold (`_ ++ _`), where no fixed element type exists.
+- **A comparison yields `Boolean <> VAL`, not `Bit`.** `.bit` converts, and is needed before
+  concatenating a comparison result.
+- **Convert once, at the definition.** `val syndrome = ecc_check(5, 0).uint` so every use reads
+  `syndrome == i`, rather than restating `.uint` at each use.
+- **A Scala `var` accumulator is an ED-domain construct.** The elaboration-time
+  `var acc: Bits[Int] <> VAL = ...; acc = acc ++ x` idiom in the type-system guide is rejected by the
+  plugin inside an `RTDesign`; use a `VAR` there. The error says so explicitly.
+- **A purely combinational design gets no clock or reset ports** — an `RTDesign` with no registers
+  emits a clean port list, so combinational leaf modules need no annotation at all.
 
 ## Emitter gotchas not in the guide
 
@@ -156,6 +215,35 @@ Follow [from-verilog][from-verilog] for `Int <> CONST`/`String <> CONST` (they e
 - **NTFS is case-insensitive:** writing `servant.scala` while `Servant.scala` exists writes *into* the
   old file. Delete old-cased files before renaming, and `clearSandbox` before regenerating renamed
   output.
+- **Verilog ranges with a non-zero base do not survive.** `logic [31:1] prett` and `logic [18:2] x`
+  become `[30:0]` and `[16:0]`: the same width, packing identically inside a struct, but **indexed
+  differently**. Baseline `prett[j]` is `prett(j - 1)`. It compiles clean either way, so every slice
+  of such a field has to be translated deliberately; note it at the declaration.
+- **A fully-assigned `VAR` read through a *parameter*-bounded slice is misreported as a latch**
+  (DFHDL#484). A local `Int <> CONST` bound is fine; only a design parameter trips it, and only for a
+  `VAR` (a port or parameter sliced the same way is fine). Where the variable is a pure rename, slice
+  the parameter directly instead.
+
+## Packed structs and the type package
+
+- **Field order is the baseline's, unreversed.** A SystemVerilog `struct packed` packs its
+  first-declared field at the MSB and DFHDL's `Struct` does the same, emitting a real
+  `typedef struct packed` into `<Top>_defs.svh` in declaration order. Worth confirming per port with
+  a two-field probe, since packets sliced as flat vectors would diverge silently.
+- **Ascribe constants so the names reach the HDL.** A plain Scala `Int` folds into a literal and the
+  name is gone; `: Int <> CONST` emits a named `parameter int` and **preserves the definition chain**
+  (`parameter int DCCM_BITS = RV_DCCM_BITS;`), so derived widths print as `[DCCM_BITS - 1:0]` rather
+  than `[15:0]`. That is what makes the generated HDL diffable against the gold. Only constants the
+  elaborated design references reach the defs header, so declaring the full set costs nothing.
+- **An include's *scope* decides its Scala form.** A globally-included macro header maps to
+  **top-level definitions in the package** (visible everywhere, no import). A header `` `include ``d
+  *inside module bodies* makes its localparams members of each module, which only **`export`**
+  reproduces: it puts the names on the type, where a plain `import` would not. Note that a package
+  cannot be an export target, so body-scoped headers must be an `object`.
+- **Macros that are only `` `ifdef ``-tested** (and ones naming an SRAM cell) are plain Scala
+  `Boolean`s/`String`s: they select code at elaboration and must not reach the IR.
+- **Scaladoc on a constant propagates into the emitted HDL** as a comment, so width derivations can
+  be explained in the generated header too.
 
 ## Non-synthesizable baseline constructs
 
