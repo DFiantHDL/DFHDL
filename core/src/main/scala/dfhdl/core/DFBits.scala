@@ -13,35 +13,40 @@ object DFBits:
   def apply[W <: IntP](width: IntParam[W])(using
       dfc: DFCG,
       check: Arg.Width.CheckNUB[W]
-  ): DFBits[W] = trydf:
+  ): DFBits[W] = trydf {
     width.toScalaIntOpt.foreach(check(_))
     ir.DFBits(width.ref).asFE[DFBits[W]]
+  }(using dfc, CTName("Bits constructor"))
   def forced[W <: IntP](width: Int): DFBits[W] =
     val check = summon[Arg.Width.Check[Int]]
     check(width)
     ir.DFBits(width).asFE[DFBits[W]]
-  def apply[W <: IntP](using dfc: DFCG, dfType: => DFBits[W]): DFBits[W] = trydf { dfType }
+  def apply[W <: IntP](using dfc: DFCG, dfType: => DFBits[W]): DFBits[W] =
+    trydf { dfType }(using dfc, CTName("Bits constructor"))
   def until[V <: IntP](sup: IntParam[V])(using
       dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
-  ): DFBits[IntP.CLog2[V]] = trydf:
+  ): DFBits[IntP.CLog2[V]] = trydf {
     sup.toScalaIntOpt.foreach(check(_))
     ir.DFBits(sup.clog2.ref).asFE[DFBits[IntP.CLog2[V]]]
+  }(using dfc, CTName("Bits.until constructor"))
   def to[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
-  ): DFBits[IntP.CLog2P1[V]] = trydf:
+  ): DFBits[IntP.CLog2P1[V]] = trydf {
     max.toScalaIntOpt.foreach(check(_))
     ir.DFBits((max + 1).clog2.ref).asFE[DFBits[IntP.CLog2P1[V]]]
+  }(using dfc, CTName("Bits.to constructor"))
 
   given [W <: IntP & Singleton](using
       dfc: DFCG,
       v: ValueOf[W],
       check: Arg.Width.CheckNUB[W]
-  ): DFBits[W] = trydf:
+  ): DFBits[W] = trydf {
     val width = IntParam.forced(v)
     width.toScalaIntOpt.foreach(check(_))
     ir.DFBits(width.ref).asFE[DFBits[W]]
+  }(using dfc, CTName("Bits constructor"))
 
   protected object `AW == TW`
       extends Check2[
@@ -667,7 +672,7 @@ object DFBits:
               case (Some(lw), Some(rw)) => check(lw, rw)
               case _                    => equalWidthCheck(lhsVal.dfType, rhsVal.dfType)
             DFVal.Func(lhsVal.dfType, op.value, List(lhsVal, rhsVal))
-          }
+          }(using dfc, CTName(op.value.toString))
       end evOpLogicDFBits
       given evOpLogicReduceDFBits[
           Op <: FuncOp.|.type | FuncOp.&.type | FuncOp.^.type,
@@ -681,7 +686,7 @@ object DFBits:
           type Out = DFValTP[DFBit, LP]
           def apply(lhs: L)(using DFC): Out = trydf {
             DFVal.Func(DFBit, op.value, List(lhs)).asValTP[DFBit, LP]
-          }
+          }(using dfc, CTName(op.value.toString))
       end evOpLogicReduceDFBits
       given evConcatOpDFBits[
           Op <: FuncOp.++.type,
@@ -703,7 +708,7 @@ object DFBits:
             val rhsVal = icR(rhs)
             val width = lhsVal.widthIntParam + rhsVal.widthIntParam
             DFVal.Func(DFBits(width), FuncOp.++, List(lhsVal, rhsVal))
-          }
+          }(using dfc, CTName(op.value.toString))
       end evConcatOpDFBits
       given evOpShift[
           Op <: FuncOp.>>.type | FuncOp.<<.type,
@@ -735,7 +740,7 @@ object DFBits:
               )
             val shiftVal = ub(lhs.widthIntParam.asInstanceOf[IntParam[LW]], rhs)
             DFVal.Func(lhs.dfType, op.value, List(lhs, shiftVal))
-          }
+          }(using dfc, CTName(op.value.toString))
       end evOpShift
 
       extension [W <: IntP, P](lhs: DFValTP[DFBits[W], P])

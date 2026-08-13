@@ -43,7 +43,7 @@ object DFOpaque:
 
   def apply[TFE <: Abstract](
       t: TFE
-  )(using dfc: DFCG): DFOpaque[TFE] = trydf:
+  )(using dfc: DFCG): DFOpaque[TFE] = trydf {
     val kind = t match
       case _: Clk       => ir.DFOpaque.Kind.Clk
       case _: Rst       => ir.DFOpaque.Kind.Rst
@@ -63,6 +63,7 @@ object DFOpaque:
       id,
       t.actualType.asIR.dropUnreachableRefs(allowDesignParamRefs = false)
     ).asFE[DFOpaque[TFE]]
+  }(using dfc, CTName("Opaque constructor"))
   extension [A <: DFTypeAny, TFE <: Frontend[A]](dfType: DFOpaque[TFE])
     def actualType: A = dfType.asIR.actualType.asFE[A]
     def opaqueType: TFE = dfType.asIR.id.asInstanceOf[TFE]

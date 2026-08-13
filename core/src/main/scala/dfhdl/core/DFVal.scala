@@ -1189,8 +1189,7 @@ object DFVal extends DFValLP:
   trait TC[T <: DFTypeAny, R] extends TCCommon[T, R, DFValAny]:
     type OutP
     type Out = DFValTP[T, OutP]
-    final def apply(dfType: T, value: R)(using DFC): Out = trydf:
-      conv(dfType, value)
+    final def apply(dfType: T, value: R)(using DFC): Out = conv(dfType, value)
 
   // This is a dummy instance for DFIf and DFMatch specialized Exact1 extractions
   object TCDummy extends TC[DFTypeAny, DFValOf[DFTypeAny]]:
@@ -1319,7 +1318,7 @@ object DFVal extends DFValLP:
         DFC,
         ValueOf[Op],
         ValueOf[C]
-    ): DFValTP[DFBool, P | OutP] = trydf:
+    ): DFValTP[DFBool, P | OutP] =
       val dfValArg = conv(dfVal.dfType, arg)(using dfc.anonymize)
       func(dfVal, dfValArg)
   end Compare

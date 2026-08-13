@@ -131,7 +131,7 @@ object DFBoolOrBit:
             val lhsVal = icL(lhs)
             val rhsVal = b2b(lhsVal.dfType, icR(rhs))
             DFVal.Func(lhsVal.dfType, op.value, List(lhsVal, rhsVal))
-          }
+          }(using dfc, CTName(op.value.toString))
       end evLogicOpDFBoolOrBit
       given evLogicOpDFBoolOrBit2[
           Op <: FuncOp.|.type | FuncOp.&.type,
