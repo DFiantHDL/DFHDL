@@ -675,6 +675,37 @@ direction that keeps unenumerated cases on today's behavior — here `!ident.get
 .isInstanceOf[DFDesignBlock]`, which changes the def-return case alone, rather than an allow-list
 of owners that would also change anything not yet thought of.
 
+### A `Func.Op` is a symbol, not an operation, and one symbol can name two
+
+`&`, `|` and `^` each name the binary bitwise/logical operation AND the unary reduction (`a.^`,
+one operand, a single-bit result). So anything keyed on `op` alone is reasoning about a *symbol*:
+`MergeAssocFunc` merged an anonymous same-`op` Func into its parent for every member of
+`associativeSet`, absorbed a reduction into a binary chain, and the reduction simply vanished
+(`a.^ ^ b.^` elaborated to `a ^ b.^`; `(a ^ b).^` to `a ^ b`, issue #483). **Arity is what
+separates the two forms**, so the guard is arity on both sides, not a type comparison: the
+reduction of an 8-bit operand and the binary op over two reductions are both `DFBit`-typed, so
+`prevFunc.dfType == dfType` sees nothing. When auditing an `op`-keyed predicate, ask which of the
+`Func.Op` symbols are overloaded across arities before trusting that a matching `op` means a
+matching operation.
+
+Two things about this species are worth knowing in advance:
+
+- **The reporter will call it a printer bug, and the backends will corroborate.** Both emitters
+  print funcs by arity, so a spliced Func renders as legal-looking HDL in one backend
+  (SystemVerilog `a ^ ^b`, silently truncated into a 1-bit net) and illegal HDL in the other
+  (VHDL `a xor (xor reduce b)`, a type error). Neither is the bug. Print the **DFHDL code string**
+  before either backend: `s1 := a ^ b.^` is elaboration output, and it ends the printer theory in
+  one probe. `SimplifyFunc` lives in `core`, so this whole family corrupts the IR at elaboration
+  and no `--log trace` stage dump will show a stage introducing it.
+- **A report of one direction usually has a second.** #483 reported the reduction as the LHS of a
+  same-symbol binary op; the reduction *of* a same-symbol binary op was equally broken and
+  unreported. Probe both nestings of any operand-shape rule.
+
+The regression test belongs in `core/src/test/scala/CoreSpec/` (`DFBitsSpec` here) via
+`assertCodeString`, which shows the corruption directly, and it must pin the legitimate merge
+(`a ^ b ^ c`, `a.^ ^ b.^ ^ c.^`) alongside the broken shapes, since the guard's whole risk is
+over-restricting the simplification it lives in.
+
 ### Twin helpers drift, and only one of them gets fixed
 
 Two stages that lower the same construct at different points often carry near-identical recursive
