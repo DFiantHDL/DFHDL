@@ -692,6 +692,22 @@ via `dsn.dfc.getWarnings`; prefer `getCodeString` over `getDB` for IR inspection
   that code path is untested, which is why the bug survived. That also tells you the fix needs a
   new reference test, not just a patched stage.
 
+### A criteria stage that scans anonymous members misses every demand a NAMED consumer makes
+
+The `NamedAliases` family collects naming demands by scanning **anonymous** values and asking
+each one's `criteria`. That reaches a consumer's demand ("name my operand") only while the
+consumer itself is anonymous; the moment the user binds the consumer to a `val`
+(`val s = (a | b)(7, 0)`, `val s = u.signed(20, 1)`), the consumer never enters the scan and
+its operand demand is silently lost — the stage works for the expression form and emits
+illegal HDL for the bound form of the very same shape (issue #486's second half). When a
+criteria rule says "construct X requires its operand named", probe the X-bound-to-a-val twin
+before trusting it, and implement the rule from BOTH sides: the consumer's case for the
+anonymous form, and an entry-point guard on the operand's side ("am I read by a selection that
+cannot take me as written?") that re-asks the consumer's own criteria for the named form.
+Duplicated demands from the two sides merge in the grouping step, and named values returned by
+the re-ask are dropped by the `isAllowedMultipleReferences` filter, so the two-sided form costs
+nothing.
+
 ### An exemption phrased by shape swallows every construct with that shape
 
 When a stage's criteria carry an exemption written as a pattern (`case Ident(_) => false`, "skip
@@ -840,6 +856,35 @@ Run it with `sbtn.bat 'lib/Test/runMain probe'`, and do **not** add your own
 `given options.ElaborationOptions.OnError = _.Exception` to the Playground: `ElaborationChecksSpec`
 already declares one at top level in the same (root) package, and a second makes every `@top` in
 the file ambiguous, with 226 errors that never name the duplicate given as the cause.
+
+To classify the same variants under several backends in one run, take the backend as a `go`
+parameter and re-bind it as a local given; the option type is a function from the `backends`
+object, so callers spell it as a lambda shorthand:
+
+```scala
+def go(name: String, beName: String, be: options.CompilerOptions.Backend)(
+    dsn: => core.Design
+): Unit =
+  given options.CompilerOptions.Backend = be
+  ... // as above; getCompiledCodeString picks the given up per call
+goAll("sv2009", _.verilog.sv2009); goAll("v2001", _.verilog.v2001); goAll("vhdl08", _.vhdl.v2008)
+```
+
+Note `getCompiledCodeString` needs `import dfhdl.compiler.stages.getCompiledCodeString` — it is
+not in the `dfhdl.*` export.
+
+### A legality table needs the strict tools, not the permissive ones
+
+When the rule under construction is "which HDL shapes does the target language allow", do not
+settle it from memory of the LRM or from whichever tool is handy: put each shape in a five-line
+file and run the STRICT frontends. For the select-prefix rule of issue #486, verilator accepted
+every illegal shape (`(a + 1)[19:0]`, `{...}[19:0]`, `a[15:0][15:0]`); iverilog rejected all of
+them and yosys all but the double part-select. On the VHDL side ghdl and nvc agreed everywhere
+and their messages QUOTE the rule ("the prefix of a slice name must be a name or a function
+call"), which is the sentence the criteria comment should carry. So: Verilog legality = iverilog
++ yosys, VHDL legality = ghdl + nvc, and verilator's acceptance proves nothing. On this machine
+the oss-cad-suite binaries only launch reliably from PowerShell by full path
+(`C:\oss-cad-suite\bin\iverilog.exe`); under the Bash tool they die with exit 127.
 
 ---
 

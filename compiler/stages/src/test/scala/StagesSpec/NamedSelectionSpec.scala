@@ -1,7 +1,7 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.verilogNamedSelection
+import dfhdl.compiler.stages.{verilogNamedSelection, vhdlNamedSelection}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
@@ -282,6 +282,122 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val o = SInt(10) <> OUT
          |  o <> (a.signed +^ b.signed)
          |end SignedCarry
+         |""".stripMargin
+    )
+  }
+  // A Verilog part-select prefix must be a plain reference, so the selected value is named
+  // even when the selection is full-width: `(a + 20'd1)[19:0]`, `a[15:0][15:0]`, and
+  // `{...}[19:0]` are all illegal (issue #486).
+  test("Full-width selection over an anonymous expression is named") {
+    class ID extends RTDesign:
+      val a  = Bits(20) <> IN
+      val o1 = Bits(20) <> OUT
+      val o2 = Bits(16) <> OUT
+      val o3 = Bits(20) <> OUT
+      o1 <> (a.uint + 1).bits(19, 0)
+      o2 <> a(15, 0)(15, 0)
+      o3 <> (a(9, 0) ++ a(19, 10))(19, 0)
+
+    val id = (new ID).verilogNamedSelection
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val a = Bits(20) <> IN
+         |  val o1 = Bits(20) <> OUT
+         |  val o2 = Bits(16) <> OUT
+         |  val o3 = Bits(20) <> OUT
+         |  val o1_part = (a.uint + d"20'1").bits
+         |  o1 <> o1_part(19, 0)
+         |  val o2_part = a(15, 0)
+         |  o2 <> o2_part(15, 0)
+         |  val o3_part = (a(9, 0), a(19, 10)).toBits
+         |  o3 <> o3_part(19, 0)
+         |end ID
+         |""".stripMargin
+    )
+  }
+  // A value with no Verilog name that a NAMED selection reads never enters the anonymous
+  // scan through the selection, so the demand is derived from the prefix value's side.
+  // Without it, `val s = u.signed(20, 1)` prints an illegal `$signed({1'b0, u})[20:1]`.
+  test("Verilog prefix of a named selection is named") {
+    class ID extends RTDesign:
+      val u = UInt(20) <> IN
+      val o = UInt(20) <> OUT
+      val s = u.signed(20, 1)
+      o <> s
+
+    val id = (new ID).verilogNamedSelection
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val u = UInt(20) <> IN
+         |  val o = UInt(20) <> OUT
+         |  val s_part = u.signed
+         |  val s = s_part(20, 1)
+         |  o <> s
+         |end ID
+         |""".stripMargin
+    )
+  }
+  // A VHDL slice/index prefix must be a name or a function call: `(unsigned(a) + 1)(19
+  // downto 0)`, `(a or b)(3)`, and the type conversion `unsigned(a)(15 downto 0)` are all
+  // rejected, while `to_slv(...)(19 downto 0)` (function call) and `a(15 downto 0)(15
+  // downto 0)` (slice of a slice) are legal and stay inline.
+  test("VHDL selection prefix over an anonymous expression is named") {
+    given options.CompilerOptions.Backend = _.vhdl.v2008
+    class ID extends RTDesign:
+      val a  = Bits(20) <> IN
+      val o1 = UInt(20) <> OUT
+      val o2 = UInt(16) <> OUT
+      val o3 = Bit      <> OUT
+      val o4 = Bits(20) <> OUT
+      val o5 = Bits(16) <> OUT
+      o1 <> (a.uint + 1)(19, 0)
+      o2 <> a.uint(15, 0)
+      o3 <> (a(9, 0) | a(19, 10))(3)
+      o4 <> (a.uint + 1).bits(19, 0)
+      o5 <> a(15, 0)(15, 0)
+
+    val id = (new ID).vhdlNamedSelection
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val a = Bits(20) <> IN
+         |  val o1 = UInt(20) <> OUT
+         |  val o2 = UInt(16) <> OUT
+         |  val o3 = Bit <> OUT
+         |  val o4 = Bits(20) <> OUT
+         |  val o5 = Bits(16) <> OUT
+         |  val o1_part = a.uint + d"20'1"
+         |  o1 <> o1_part(19, 0)
+         |  val o2_part = a.uint
+         |  o2 <> o2_part(15, 0)
+         |  val o3_part = a(9, 0) | a(19, 10)
+         |  o3 <> o3_part(3)
+         |  o4 <> (a.uint + d"20'1").bits(19, 0)
+         |  o5 <> a(15, 0)(15, 0)
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("VHDL prefix of a named selection is named") {
+    given options.CompilerOptions.Backend = _.vhdl.v2008
+    class ID extends RTDesign:
+      val a = Bits(20) <> IN
+      val o = Bits(8)  <> OUT
+      val s = (a(9, 0) | a(19, 10))(7, 0)
+      o <> s
+
+    val id = (new ID).vhdlNamedSelection
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val a = Bits(20) <> IN
+         |  val o = Bits(8) <> OUT
+         |  val s_part = a(9, 0) | a(19, 10)
+         |  val s = s_part(7, 0)
+         |  o <> s
+         |end ID
          |""".stripMargin
     )
   }
