@@ -962,6 +962,33 @@ generalizes:
   as the tiebreak, then fail. That fallback is what keeps every previously-accepted shape accepted
   (a read of a bit whose only writer is parametric still resolves), so the change stays confined to
   the shapes the bug affected.
+- **A conservative collapse has a mirror at the same site, and the mirror is unsound.** Degrading a
+  parameter-dependent slice to "unknown" is conservative when the slice is READ (an unprovable
+  coverage keeps the value consuming state) and an over-claim when it is WRITTEN (an unprovable
+  write is banked as coverage). Issue #484 was the read half: `StateAnalysis` re-seeded an
+  `ApplyRange` from `idxLowRef.getIntOpt`, so a `v(31, MB)` read of a fully-assigned `v` answered
+  `Tri.Unknown` and reported a latch. The write half was worse and silent: the seeded slice of a
+  parametrically-sized selection is `Slice.Full` (its `widthIntOpt` is `None`), and the old
+  composition SHIFTED that seed, so `v(MB - 1, 0) := x` shifted `Full` by a concrete `0`, stayed
+  `Full`, and claimed the whole declaration as written. Fix both directions in one change, and
+  test the accepting shape AND the shape that must still be rejected: a suite that stays green
+  either way (this one did) is measuring nothing. Only `Slice.compose` handles a `Full` seed
+  correctly, mapping it onto the selection's own extent; a shift cannot, which is why the naive
+  and the symbolic version of the same walk are not interchangeable.
+- **A containment query over a value has one axiom for free: a slice lies within its own value's
+  bounds.** So a coverage spanning the whole value contains EVERY slice of it, whatever the
+  endpoints are, and that one line answers the unprovable-endpoint case without any proof
+  machinery. Reach for the sweep (prove the query's start is covered, extend the covered prefix by
+  a region that provably starts at or before the cursor and ends after it, repeat) only for what
+  the axiom does not cover, i.e. genuinely partial coverage such as two complementary parametric
+  writes. Keep the region list bounded and degrade to "touched" above the bound: dropping regions
+  loses proofs but never invents one.
+- **A variant that passes is not a variant that works.** Of eight probe variants, the one that
+  looked like the interesting positive case (two complementary parametric writes, accepted before
+  the fix and after it) was passing for an unsound reason, and no amount of re-reading the source
+  showed it. Two `println`s (the composed slice at each alias step, and the query plus coverage at
+  the decision) settled it in one run. When a variant's verdict is right, check WHY before counting
+  it as a control.
 - **Symbolic elimination is a per-site semantic choice, not a smarter equivalence.** The width-fit
   checks accept `LHS >= RHS` after a mixed `max`/`min` drops its symbolic operands
   (`16 >= WIDTH max 16` decides as `16 >= 16`; `IntParamRef.compare(..., elimSymbolicMaxMin =

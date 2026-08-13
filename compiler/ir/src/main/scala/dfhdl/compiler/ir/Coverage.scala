@@ -94,30 +94,47 @@ object Tri:
 /** Accumulated write coverage over one DFVal.
   *
   *   - `bits` holds the concretely-tracked bit positions that are proven assigned/connected.
-  *   - `unknownTouched` is set when a write with a [[Slice.Unknown]], a [[Slice.Symbolic]], or a
-  *     [[Slice.Full]] over an unknown width has been observed, meaning we know the value was
-  *     touched but not precisely where.
+  *   - `symbolics` holds the written regions whose endpoints are parameter-dependent, kept as
+  *     linear forms so a query can still be decided over them (see [[Coverage.contains]]).
+  *   - `unknownTouched` is set when a write with a [[Slice.Unknown]], or a [[Slice.Full]] over an
+  *     unknown width, has been observed, meaning we know the value was touched but not precisely
+  *     where. A symbolic write past [[Coverage.maxSymbolicRegions]] degrades into it too.
   *   - `fullyCovered` is a latch flag set when we observe a write that covers the entire value,
   *     even if the value's width is symbolic (so we cannot represent it as a concrete BitSet). Once
   *     set, any coverage query returns `Yes` regardless of `bits`.
   */
 final case class Coverage(
     bits: immutable.BitSet,
+    symbolics: List[Slice.Symbolic],
     unknownTouched: Boolean,
     fullyCovered: Boolean
 ) derives CanEqual:
   def |(that: Coverage): Coverage =
     Coverage(
       bits | that.bits,
+      Nil,
       unknownTouched || that.unknownTouched,
       fullyCovered || that.fullyCovered
-    )
-  def &(that: Coverage): Coverage =
+    ).withSymbolics(symbolics ++ that.symbolics)
+
+  /** Intersection, used to merge what all branches of a conditional assign. The symbolic half is an
+    * UNDER-approximation (only a region both sides carry survives), which can only weaken a
+    * containment proof, never strengthen one.
+    */
+  def &(that: Coverage)(using MemberGetSet): Coverage =
     Coverage(
       bits & that.bits,
+      symbolics.filter(a => that.symbolics.exists(Coverage.sameRegion(a, _))),
       unknownTouched && that.unknownTouched,
       fullyCovered && that.fullyCovered
     )
+
+  // Symbolic regions are kept as a bounded list, past which they all degrade into
+  // `unknownTouched`: dropping regions can only lose a proof, and it keeps the containment
+  // search below bounded.
+  private def withSymbolics(all: List[Slice.Symbolic]): Coverage =
+    if (all.sizeIs > Coverage.maxSymbolicRegions) copy(symbolics = Nil, unknownTouched = true)
+    else copy(symbolics = all)
 
   def assign(slice: Slice, widthOpt: Option[Int]): Coverage =
     slice match
@@ -127,8 +144,9 @@ final case class Coverage(
         widthOpt match
           case Some(w) => copy(bits = bits ++ immutable.BitSet.fromSpecific(0 until w))
           case None    => copy(fullyCovered = true)
-      // a symbolic slice has no concrete bit positions to track, so it degrades to "touched"
-      case _: Slice.Symbolic | Slice.Unknown => copy(unknownTouched = true)
+      case s: Slice.Symbolic => withSymbolics(symbolics :+ s)
+      // an unknown slice has nothing to track, so it degrades to "touched"
+      case Slice.Unknown => copy(unknownTouched = true)
 
   /** Does this coverage touch any bit of `slice`? */
   def overlaps(slice: Slice, widthOpt: Option[Int]): Tri =
@@ -137,51 +155,119 @@ final case class Coverage(
         case Slice.Concrete(r) if r.isEmpty => Tri.No
         case _                              => Tri.Yes
     else
+      val maybe = unknownTouched || symbolics.nonEmpty
       slice match
         case Slice.Concrete(r) =>
           val sliceBits = immutable.BitSet.fromSpecific(r)
           if ((bits & sliceBits).nonEmpty) Tri.Yes
-          else if (unknownTouched) Tri.Unknown
+          else if (maybe) Tri.Unknown
           else Tri.No
         case Slice.Full =>
           if (bits.nonEmpty) Tri.Yes
-          else if (unknownTouched) Tri.Unknown
+          else if (maybe) Tri.Unknown
           else Tri.No
         case _: Slice.Symbolic | Slice.Unknown =>
-          if (bits.nonEmpty || unknownTouched) Tri.Unknown
+          if (bits.nonEmpty || maybe) Tri.Unknown
           else Tri.No
+    end if
+  end overlaps
 
-  /** Does this coverage fully cover `slice`? */
-  def contains(slice: Slice, widthOpt: Option[Int]): Tri =
+  /** Does this coverage fully cover `slice`? `Tri.Yes` only when proven, so a query the symbolic
+    * proofs cannot decide answers `Tri.Unknown` rather than `Tri.No`.
+    */
+  def contains(slice: Slice, widthOpt: Option[Int])(using MemberGetSet): Tri =
+    import IntExprCalc.DataCalc.const
     if (fullyCovered) Tri.Yes
     else
-      slice match
+      val proven = slice match
         case Slice.Concrete(r) =>
-          val sliceBits = immutable.BitSet.fromSpecific(r)
-          if ((sliceBits &~ bits).isEmpty) Tri.Yes
-          else if (unknownTouched) Tri.Unknown
-          else Tri.No
-        case Slice.Full =>
-          widthOpt match
-            case Some(w) =>
-              val fullBits = immutable.BitSet.fromSpecific(0 until w)
-              if ((fullBits &~ bits).isEmpty) Tri.Yes
-              else if (unknownTouched) Tri.Unknown
-              else Tri.No
-            case None =>
-              if (unknownTouched) Tri.Unknown else Tri.No
-        case _: Slice.Symbolic | Slice.Unknown => Tri.Unknown
+          r.isEmpty || (immutable.BitSet.fromSpecific(r) &~ bits).isEmpty ||
+          proveCovered(const(r.start), const(r.length))
+        case Slice.Full => coversWholeValue(widthOpt)
+        // a slice is by construction within the value's own bounds, so a fully covered value
+        // contains every slice of it, whatever its endpoints are
+        case s: Slice.Symbolic => coversWholeValue(widthOpt) || proveCovered(s.lo, s.width)
+        case Slice.Unknown     => coversWholeValue(widthOpt)
+      if (proven) Tri.Yes
+      else if (unknownTouched || symbolics.nonEmpty) Tri.Unknown
+      else
+        slice match
+          // concrete coverage decides a concrete query outright
+          case Slice.Concrete(_) | Slice.Full => Tri.No
+          case _                              => Tri.Unknown
+    end if
+  end contains
+
+  private def coversWholeValue(widthOpt: Option[Int])(using MemberGetSet): Boolean =
+    import IntExprCalc.DataCalc.const
+    widthOpt.exists { w =>
+      (immutable.BitSet.fromSpecific(0 until w) &~ bits).isEmpty ||
+      proveCovered(const(0), const(w))
+    }
+
+  /** Proof that every position of `[qLo, qLo + qW)` is written by some accumulated region, run as a
+    * sweep: starting at `qLo`, extend the covered prefix by a region that provably starts at or
+    * before the cursor and provably ends after it, until the prefix provably reaches the end of the
+    * query. Each region's width is a `>= 1` fact for the inequality proofs (see
+    * [[IntExprCalc.DataCalc.proveNonNeg]]), a slice of non-positive width never being a valid
+    * elaboration.
+    */
+  private def proveCovered(qLo: IntExprCalc.Linear, qW: IntExprCalc.Linear)(using
+      MemberGetSet
+  ): Boolean =
+    import IntExprCalc.DataCalc.*
+    if (symbolics.isEmpty) false // a concrete-only coverage is already decided by the BitSet paths
+    else
+      val regions: Vector[(IntExprCalc.Linear, IntExprCalc.Linear)] =
+        Coverage.bitRuns(bits).map(r => (const(r.start), const(r.length))).toVector ++
+          symbolics.view.map(s => (s.lo, s.width))
+      if (regions.sizeIs > Coverage.maxSymbolicRegions) false
+      else
+        val facts = qW :: regions.view.map(_._2).toList
+        def nonNeg(e: IntExprCalc.Linear): Boolean = proveNonNeg(e, facts)
+        def sweep(cursor: IntExprCalc.Linear, unused: Set[Int]): Boolean =
+          // the query ends at or before the covered prefix
+          nonNeg(sub(cursor, add(qLo, qW))) ||
+            unused.exists { i =>
+              val (lo, w) = regions(i)
+              // starts at or before the cursor, and ends after it
+              nonNeg(sub(cursor, lo)) && nonNeg(addConst(sub(add(lo, w), cursor), -1)) &&
+              sweep(add(lo, w), unused - i)
+            }
+        sweep(qLo, regions.indices.toSet)
+    end if
+  end proveCovered
 
   /** Is this coverage full for the given (possibly unknown) width? */
-  def isFull(widthOpt: Option[Int]): Tri = contains(Slice.Full, widthOpt)
+  def isFull(widthOpt: Option[Int])(using MemberGetSet): Tri = contains(Slice.Full, widthOpt)
 
-  def isEmpty: Boolean = bits.isEmpty && !unknownTouched && !fullyCovered
+  def isEmpty: Boolean = bits.isEmpty && symbolics.isEmpty && !unknownTouched && !fullyCovered
   def nonEmpty: Boolean = !isEmpty
 end Coverage
 
 object Coverage:
+  /** The bound on how many regions a containment proof sweeps over. Above it the coverage degrades
+    * to `unknownTouched`, which loses proofs but never invents one.
+    */
+  private[ir] val maxSymbolicRegions: Int = 8
+
   val empty: Coverage =
-    Coverage(immutable.BitSet.empty, unknownTouched = false, fullyCovered = false)
+    Coverage(immutable.BitSet.empty, Nil, unknownTouched = false, fullyCovered = false)
   def full(widthOpt: Option[Int]): Coverage =
     empty.assign(Slice.Full, widthOpt)
+
+  /** The two regions are the same region for every parameter assignment. */
+  private def sameRegion(a: Slice.Symbolic, b: Slice.Symbolic)(using MemberGetSet): Boolean =
+    import IntExprCalc.DataCalc.*
+    def same(x: IntExprCalc.Linear, y: IntExprCalc.Linear): Boolean =
+      val d = sub(x, y)
+      d.terms.isEmpty && d.offset == 0
+    same(a.lo, b.lo) && same(a.width, b.width)
+
+  /** The maximal contiguous runs of set bits. */
+  private def bitRuns(bits: immutable.BitSet): List[Range] =
+    bits.toList.foldLeft(List.empty[Range]) {
+      case (run :: rest, bit) if bit == run.end => Range(run.start, run.end + 1) :: rest
+      case (acc, bit)                           => Range(bit, bit + 1) :: acc
+    }.reverse
 end Coverage

@@ -1837,5 +1837,46 @@ class ElaborationChecksSpec extends DesignSpec:
           |Operation: `-`
           |Message:   The applied RHS value width (2 * W) is larger than the LHS variable width (W).""".stripMargin
     )
+  // A slice lies within its value's own bounds, so a coverage that spans the whole value contains
+  // it whatever its endpoints are, and complementary parameter-bounded writes are decided on their
+  // linear forms. What must stay rejected is a variable some of whose bits no write reaches, which
+  // a parameter-bounded write neither proves nor hides.
+  test("latch check over parameter-bounded slices"):
+    object Test:
+      @top(false) class FullAssign(val MB: Int <> CONST = 17) extends RTDesign:
+        val addr = Bits(32) <> IN
+        val o = Bit <> OUT
+        val v = Bits(32) <> VAR
+        v := h"32'f0040000"
+        o := addr(31, MB) == v(31, MB)
+      end FullAssign
+      @top(false) class SplitAssign(val MB: Int <> CONST = 17) extends RTDesign:
+        val hi, lo = Bits(32) <> IN
+        val o = Bits(32) <> OUT
+        val v = Bits(32) <> VAR
+        v(31, MB) := hi(31, MB)
+        v(MB - 1, 0) := lo(MB - 1, 0)
+        o := v
+      end SplitAssign
+      @top(false) class PartialAssign(val MB: Int <> CONST = 17) extends RTDesign:
+        val lo = Bits(32) <> IN
+        val o = Bits(32) <> OUT
+        val v = Bits(32) <> VAR
+        v(MB - 1, 0) := lo(MB - 1, 0)
+        o := v
+      end PartialAssign
+    end Test
+    import Test.*
+    // a whole-variable assignment covers the parameter-bounded read of it
+    val _ = FullAssign()
+    // the two writes cover the variable between them for every value of `MB`
+    val _ = SplitAssign()
+    assertElaborationErrors(PartialAssign())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity/assignment error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1864:17 - 1864:32
+          |Hierarchy: PartialAssign
+          |Message:   Found a latch variable `v`. Latches are not allowed under RT domains.""".stripMargin
+    )
 
 end ElaborationChecksSpec

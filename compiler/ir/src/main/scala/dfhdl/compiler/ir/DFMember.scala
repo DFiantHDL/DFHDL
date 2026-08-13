@@ -386,59 +386,19 @@ object DFVal:
       case alias: DFVal.Alias                 => alias.relValRef.get.dealias
       case _                                  => None
     @tailrec private def departial(slice: Slice)(using MemberGetSet): (DFVal, Slice) =
-      import IntExprCalc.DataCalc.*
       dfVal match
         case partial: DFVal.Alias.Partial =>
           val relVal = partial.relValRef.get
-          partial match
-            case partial: DFVal.Alias.ApplyRange =>
-              // the selection indices are in cell units for a vector range selection,
-              // in bit units otherwise
-              val unitWidthOpt = relVal.dfType match
-                case DFVector(cellType = cellType) => linearOfTypeWidth(cellType)
-                case _                             => Some(const(1))
-              val newSlice = unitWidthOpt match
-                case Some(unitWidth) =>
-                  val loUnits = linearOfParamRef(partial.idxLowRef)
-                  val hiUnits = linearOfParamRef(partial.idxHighRef)
-                  val selWidthUnits = addConst(sub(hiUnits, loUnits), 1)
-                  (mulOpt(loUnits, unitWidth), mulOpt(selWidthUnits, unitWidth)) match
-                    case (Some(loBits), Some(selWidthBits)) =>
-                      Slice.compose(slice, loBits, selWidthBits)
-                    case _ => Slice.Unknown
-                case None => Slice.Unknown
-              relVal.departial(newSlice)
-            case partial: DFVal.Alias.ApplyIdx =>
-              val idxLinear = linearOfVal(partial.relIdx.get)
-              // An index fixed at elaboration selects one cell, so it composes into the slice: a
-              // literal folds to a concrete range, and an index over design parameters stays a
-              // symbolic one (`v(N - 1)`). Any other index affects the entire value: a runtime
-              // value is not constant at all, and a loop iterator or a static-function formal is
-              // constant per evaluation yet varies across them.
-              val idxIsFixed = idxLinear.terms.forall((_, base) => base.isDesignParam)
-              val newSliceOpt =
-                if (idxIsFixed)
-                  linearOfTypeWidth(partial.dfType).flatMap { cellWidth =>
-                    mulOpt(idxLinear, cellWidth).map(Slice.compose(slice, _, cellWidth))
-                  }
-                else None
-              (newSliceOpt, idxIsFixed) match
-                case (Some(newSlice), _) => relVal.departial(newSlice)
-                // a fixed index whose bit coordinates are not expressible (a cell width that does
-                // not linearize, or a parametric index times a parametric cell width)
-                case (None, true)  => relVal.departial(Slice.Unknown)
-                case (None, false) =>
-                  relVal.dealias match
-                    case Some(dcl: DFVal.Dcl) => (dcl, Slice.fromWidthOpt(dcl.dfType.widthIntOpt))
-                    case _ => (relVal, Slice.fromWidthOpt(relVal.dfType.widthIntOpt))
-              end match
-            case partial: DFVal.Alias.SelectField =>
-              relVal.dfType match
-                case structType: DFStruct =>
-                  relVal.departial(slice.shift(structType.fieldRelBitLow(partial.fieldName)))
-                case _ => relVal.departial(slice)
-            case _ => relVal.departial(slice)
-          end match
+          partial.composeSlice(slice) match
+            case Some(newSlice) => relVal.departial(newSlice)
+            // a fixed selection whose bit coordinates are not expressible (a cell width that does
+            // not linearize, or a parametric index times a parametric cell width)
+            case None if partial.isFixedSelection => relVal.departial(Slice.Unknown)
+            // a selection that varies per evaluation affects the entire value
+            case None =>
+              relVal.dealias match
+                case Some(dcl: DFVal.Dcl) => (dcl, Slice.fromWidthOpt(dcl.dfType.widthIntOpt))
+                case _                    => (relVal, Slice.fromWidthOpt(relVal.dfType.widthIntOpt))
         case _ => (dfVal, slice)
       end match
     end departial
@@ -462,6 +422,67 @@ object DFVal:
         case a: DFVal.Alias.ApplyIdx => a.relValRef.get.isBubble || a.relIdx.get.isBubble
         case a: DFVal.Alias.Partial  => a.relValRef.get.isBubble
         case _                       => false
+  end extension
+
+  extension (partial: DFVal.Alias.Partial)
+    /** Whether the selected region is fixed at elaboration. A range selection and a field selection
+      * always are (their bounds are literals or design parameters), while an `ApplyIdx` index need
+      * not be: a runtime value is not constant at all, and a loop iterator or a static-function
+      * formal is constant per evaluation yet varies across them.
+      */
+    def isFixedSelection(using MemberGetSet): Boolean = partial match
+      case applyIdx: DFVal.Alias.ApplyIdx =>
+        IntExprCalc.DataCalc
+          .linearOfVal(applyIdx.relIdx.get).terms.forall((_, base) => base.isDesignParam)
+      case _ => true
+
+    /** Maps `slice`, given in this selection's own bit coordinates, into the coordinates of the
+      * value it selects from. Parameter-dependent bounds stay [[Slice.Symbolic]] linear forms, so a
+      * slice over a design parameter remains decidable downstream instead of collapsing to
+      * [[Slice.Unknown]].
+      *
+      * `None` when the selection's bit coordinates are not expressible (a cell width that does not
+      * linearize, or a parametric index times a parametric cell width) or when the selection is not
+      * fixed (see [[isFixedSelection]]). How conservative to be about that is the caller's call:
+      * [[DFVal.departial]] takes the whole value for a varying index, while the state analysis
+      * consumes the index alongside it.
+      */
+    def composeSlice(slice: Slice)(using MemberGetSet): Option[Slice] =
+      import IntExprCalc.DataCalc.*
+      val relVal = partial.relValRef.get
+      partial match
+        case applyRange: DFVal.Alias.ApplyRange =>
+          // the selection indices are in cell units for a vector range selection,
+          // in bit units otherwise
+          val unitWidthOpt = relVal.dfType match
+            case DFVector(cellType = cellType) => linearOfTypeWidth(cellType)
+            case _                             => Some(const(1))
+          unitWidthOpt.flatMap { unitWidth =>
+            val loUnits = linearOfParamRef(applyRange.idxLowRef)
+            val hiUnits = linearOfParamRef(applyRange.idxHighRef)
+            val selWidthUnits = addConst(sub(hiUnits, loUnits), 1)
+            (mulOpt(loUnits, unitWidth), mulOpt(selWidthUnits, unitWidth)) match
+              case (Some(loBits), Some(selWidthBits)) =>
+                Some(Slice.compose(slice, loBits, selWidthBits))
+              case _ => None
+          }
+        case applyIdx: DFVal.Alias.ApplyIdx =>
+          // a fixed index selects one cell, so it composes into the slice: a literal folds to a
+          // concrete range and an index over design parameters stays a symbolic one (`v(N - 1)`)
+          if (applyIdx.isFixedSelection)
+            val idxLinear = linearOfVal(applyIdx.relIdx.get)
+            linearOfTypeWidth(applyIdx.dfType).flatMap { cellWidth =>
+              mulOpt(idxLinear, cellWidth).map(Slice.compose(slice, _, cellWidth))
+            }
+          else None
+        case selectField: DFVal.Alias.SelectField =>
+          relVal.dfType match
+            case structType: DFStruct =>
+              Some(slice.shift(structType.fieldRelBitLow(selectField.fieldName)))
+            case _ => Some(slice)
+        case _ => Some(slice)
+      end match
+    end composeSlice
   end extension
   // can be an expression
   sealed trait CanBeExpr extends DFVal
