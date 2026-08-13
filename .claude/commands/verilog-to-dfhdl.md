@@ -202,6 +202,14 @@ and they decide how closely the emitted HDL tracks the gold.
 - **A Scala `var` accumulator is an ED-domain construct.** The elaboration-time
   `var acc: Bits[Int] <> VAL = ...; acc = acc ++ x` idiom in the type-system guide is rejected by the
   plugin inside an `RTDesign`; use a `VAR` there. The error says so explicitly.
+- **`.reg(n, init = ...)` for a plain delay chain**, rather than declaring and chaining registers:
+  `dout <> din.reg(2, init = all(0))` is the baseline's two chained `rvdff`s. But note what it costs
+  formally: `.reg` names its flops after the source signal (`din_reg1`, `din_reg2`), so they no
+  longer match the baseline's net names, and `equiv_make` -- which pairs by *identical wire name* --
+  loses those internal anchors. On a 2-flop module that is free (the proof closes on the outputs
+  alone). On a large sequential module the anchors are what keeps induction tractable, so there
+  declare the register under the baseline's own net name. **The choice is a verification one, not a
+  style one.**
 - **A purely combinational design gets no clock or reset ports** — an `RTDesign` with no registers
   emits a clean port list, so combinational leaf modules need no annotation at all.
 
