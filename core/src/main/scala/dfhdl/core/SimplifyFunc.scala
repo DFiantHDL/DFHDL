@@ -426,30 +426,34 @@ private object SimplifyFunc:
     end unapply
   end MaxMinWithOffset
 
-  // Cancels opposing +/- terms of the same non-constant DFVal across a
-  // left-associative DFInt32 additive chain. Handles e.g. `(x - 1) - x => -1`,
-  // which together with Const+Const folding handles `x - 1 - x + 5 => 4`.
+  // Cancels opposing +/- terms of the same non-constant DFVal across a DFInt32 additive
+  // TREE. Handles e.g. `(x - 1) - x => -1` (which together with Const+Const folding handles
+  // `x - 1 - x + 5 => 4`) and `x + (y - x) => y`, the shape a relative width adjustment
+  // takes: `.eby(k)` asks for `sourceWidth + k`, and a `k` written as the distance to
+  // another width states that width back.
   private object AdditiveCancellation:
-    // Walk a left-associative +/- chain rooted at `v` and return its terms
-    // as (sign, DFVal). Non-chain leaves become a single positive term.
-    private def collectChain(v: ir.DFVal)(using ir.MemberGetSet): List[(Int, ir.DFVal)] =
-      def loop(v: ir.DFVal, sign: Int, acc: List[(Int, ir.DFVal)]): List[(Int, ir.DFVal)] =
-        v match
-          case f: ir.DFVal.Func
-              if f.isAnonymous && f.dfType == ir.DFInt32 &&
-                (f.op == FuncOp.+ || f.op == FuncOp.-) && f.args.size == 2 =>
-            val List(lhs, rhs) = f.args.map(_.get): @unchecked
-            val rhsSign = if (f.op == FuncOp.+) sign else -sign
-            loop(lhs, sign, (rhsSign, rhs) :: acc)
-          case _ => (sign, v) :: acc
-      loop(v, 1, Nil)
+    // The terms of the additive tree rooted at `v`, as (sign, DFVal). Descends through
+    // ANONYMOUS `+`/`-` Funcs on EITHER side, associativity being no reason to prefer one:
+    // the same relation is spelled left-nested by a chain of operations and right-nested by
+    // one whose operand is a difference. A named Func is a value the user gave a name to and
+    // stays one term, as does anything that is not an additive Func.
+    private def collectTerms(v: ir.DFVal, sign: Int)(using
+        ir.MemberGetSet
+    ): List[(Int, ir.DFVal)] =
+      v match
+        case f: ir.DFVal.Func
+            if f.isAnonymous && f.dfType == ir.DFInt32 &&
+              (f.op == FuncOp.+ || f.op == FuncOp.-) && f.args.size == 2 =>
+          val List(lhs, rhs) = f.args.map(_.get): @unchecked
+          collectTerms(lhs, sign) ++ collectTerms(rhs, if (f.op == FuncOp.+) sign else -sign)
+        case _ => List((sign, v))
 
     def unapply(opArgs: (ir.DFType, FuncOp, List[ir.DFVal]))(using dfc: DFC): Option[ir.DFVal] =
       import dfc.getSet
       opArgs match
-        case (ir.DFInt32, currentOp @ (FuncOp.+ | FuncOp.-), List(prev, curr))
-            if prev.isAnonymous =>
-          val chain = collectChain(prev) :+ ((if (currentOp == FuncOp.+) 1 else -1, curr))
+        case (ir.DFInt32, currentOp @ (FuncOp.+ | FuncOp.-), List(prev, curr)) =>
+          val chain =
+            collectTerms(prev, 1) ++ collectTerms(curr, if (currentOp == FuncOp.+) 1 else -1)
           if (chain.size < 2) None
           else
             // Find two terms with opposite signs whose DFVals are =~ (ident-transparent).

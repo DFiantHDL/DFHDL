@@ -3581,6 +3581,93 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("a parameter the body reads is fixed at what it read, and states it") {
+    // Reading a parameter as a Scala value is what specializes a body to it: the branch that was
+    // not taken leaves nothing behind, so in the design that came out `OUT_W = D * B` and `D` are
+    // one width and the assignment between them is legal. The width algebra reads the parameter as
+    // the value the body read it at, which is the only way that equality can be seen, and the
+    // design states the value as its contract, the generated module keeping the parameter
+    // overridable (issue #480). The other branch is elaborated from the same source and states the
+    // value that selected IT; its `.eby(OUT_W - D)` asks for `D + (OUT_W - D)` bits, which is
+    // `OUT_W` said the long way round.
+    class Shifter(val D: Int <> CONST = 8, val B: Int <> CONST = 1) extends RTDesign:
+      val OUT_W = D * B
+      val in    = Bits(D)     <> IN
+      val out   = Bits(OUT_W) <> OUT
+      if (B == 1) out := in
+      else out        := in.eby(OUT_W - D)
+    end Shifter
+    assertCodeString(
+      Shifter(),
+      """|@hw.annotation.pure(impureParams = "B")
+         |class Shifter(
+         |    val D: Int <> CONST = 8,
+         |    val B: Int <> CONST = 1
+         |) extends RTDesign:
+         |  val OUT_W: Int <> CONST = D * B
+         |  val in = Bits(D) <> IN
+         |  val out = Bits(OUT_W) <> OUT
+         |  out := in
+         |  val constraint_0 = assert(B == 1, s"Design parameter violation found. Expected: B == 1", Severity.Fatal)
+         |end Shifter
+         |""".stripMargin
+    )
+    assertCodeString(
+      Shifter(B = 3),
+      """|@hw.annotation.pure(impureParams = "B")
+         |class Shifter(
+         |    val D: Int <> CONST = 8,
+         |    val B: Int <> CONST = 3
+         |) extends RTDesign:
+         |  val OUT_W: Int <> CONST = D * B
+         |  val in = Bits(D) <> IN
+         |  val out = Bits(OUT_W) <> OUT
+         |  out := in.resize(OUT_W)
+         |  val constraint_0 = assert(B == 3, s"Design parameter violation found. Expected: B == 3", Severity.Fatal)
+         |end Shifter
+         |""".stripMargin
+    )
+  }
+  test("a parameter that feeds a read one is read too, and states its own value") {
+    // Nothing in `Outer`'s body reads `M`, and `Outer` is specialized to it all the same: the
+    // value went into a child that read it, so the body `Outer` produced is the one for `M = 4`.
+    // The purity analysis already says so, every application of a data-impure parameter
+    // re-attributing its applied argument at the call site, which is why the contract is derived
+    // from that marking rather than from where the reading happened (issue #480).
+    class Inner(val N: Int <> CONST = 4) extends RTDesign:
+      val din  = Bits(N * 2) <> IN
+      val dout = Bits(N)     <> OUT
+      if (N == 4) dout := din(N - 1, 0)
+      else dout        := din(2 * N - 1, N)
+    class Outer(val M: Int <> CONST = 4) extends RTDesign:
+      val din   = Bits(M * 2) <> IN
+      val dout  = Bits(M)     <> OUT
+      val inner = Inner(M)
+      inner.din <> din
+      dout      <> inner.dout
+    end Outer
+    assertCodeString(
+      Outer(),
+      """|@hw.annotation.pure(impureParams = "N")
+         |class Inner(val N: Int <> CONST = 4) extends RTDesign:
+         |  val din = Bits(N * 2) <> IN
+         |  val dout = Bits(N) <> OUT
+         |  dout := din(N - 1, 0)
+         |  val constraint_0 = assert(N == 4, s"Design parameter violation found. Expected: N == 4", Severity.Fatal)
+         |end Inner
+         |
+         |@hw.annotation.pure(impureParams = "M")
+         |class Outer(val M: Int <> CONST = 4) extends RTDesign:
+         |  val din = Bits(M * 2) <> IN
+         |  val dout = Bits(M) <> OUT
+         |  val inner = Inner(N = M)
+         |  inner.din <> din
+         |  dout <> inner.dout
+         |  val constraint_0 = assert(M == 4, s"Design parameter violation found. Expected: M == 4", Severity.Fatal)
+         |end Outer
+         |""".stripMargin
+    )
+  }
   test("auto constraint from an LHS-dominant operation") {
     // `-`, `/` and `%` take the LHS width and convert the RHS to it, so each needs the RHS to
     // fit. `-` used to answer the undecided case with an outright rejection while its two

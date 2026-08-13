@@ -558,6 +558,20 @@ object DFVal:
     def appliedOrDefaultVal(using MemberGetSet): DFVal =
       appliedValOpt.getOrElse(defaultValRef.get.asInstanceOf[DFVal])
 
+    /** Whether the design's elaboration READ this parameter's data, as `PureCheckPhase` recorded it
+      * (see [[DFDesignBlock.dataImpureParamNames]]).
+      *
+      * Reading a parameter is what specializes a body to it: a Scala `if` over it keeps one branch,
+      * a Scala `for` unrolls to a count, and neither the branch that was dropped nor the iteration
+      * that never ran is recoverable from the design that came out. So such a parameter is no
+      * longer a free variable of its design, which is why the width algebra may read it as its
+      * value ([[IntExprCalc]]) and why the design states that value as a contract
+      * (`core.AutoConstraint`).
+      */
+    def isDataImpure(using MemberGetSet): Boolean =
+      val names = getOwnerDesign.dataImpureParamNames
+      names.contains("*") || names.contains(meta.name)
+
     // The applied constant data resolved ONLY through an instantiation site: the elaboration-time
     // cached instance, the DB's instance map, or the hierarchical parent sub-DB walk-up. The
     // instance map is queried directly and NOT via `appliedValRefOpt`, whose `isTop` gate reads
@@ -1930,6 +1944,25 @@ object DFDesignBlock:
         case annotation.Pure(false, _) => true
         case _                         => false
       }
+
+    /** The names of the parameters whose applied DATA this design's elaboration reads, as
+      * `PureCheckPhase` records them on `@pure(true, <names>)`; `"*"` stands for all of them.
+      *
+      * The marking is transitive by construction: a `toScalaXYZ` forcing is attributed to the
+      * parameter it is rooted at, and every application of a marked parameter re-attributes its
+      * applied argument at the call site, so a parameter read deep in a sub-design marks the
+      * parameter of every design that feeds it. That is what makes this the right question to ask
+      * about specialization, rather than anything recorded where the reading happens: the design
+      * that supplied the value was specialized to it just as surely as the one that read it.
+      *
+      * Read only from the annotation, so a vendor IP blackbox (whose applied parameters are baked
+      * into the emitted instance, and which `DesignLoadKey` therefore keys in full) is not covered:
+      * it has no body to have read anything in, nor one to state a contract in.
+      */
+    def dataImpureParamNames: Set[String] =
+      dsn.dclMeta.annotations.collectFirst {
+        case annotation.Pure(true, names) if names.nonEmpty => names.toSet
+      }.getOrElse(Set.empty)
 
     /** An ED method (HDL function/task — see devdocs/methods.md): a method under the ED domain. ED
       * methods are locally scoped — printed inside their owning design (as HDL methods) rather than

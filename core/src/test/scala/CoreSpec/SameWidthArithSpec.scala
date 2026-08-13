@@ -126,6 +126,32 @@ class SameWidthArithSpec extends NoDFCSpec:
     )
   }
 
+  // Opposing terms of an additive expression cancel wherever they sit in it. Left-nesting is what
+  // a chain of operations builds; right-nesting is what an operand written as a DIFFERENCE gives,
+  // which is how a relative width adjustment reads: `.eby(TARGET - W)` asks for `W + (TARGET - W)`
+  // bits, and stating the target back is the whole of what that means.
+  test("opposing additive terms cancel wherever they sit") {
+    class Top(val A: Int <> CONST = 1, val B: Int <> CONST = 2) extends DFDesign:
+      val v = Int <> VAR
+      v := A + B - A // left-nested
+      v := A + (B - A) // right-nested
+      v := A - (A - B) // right-nested under a subtraction
+      v := A - 1 - A + 5 // the residue is a constant
+    assertNoDiff(
+      codeString(Top()),
+      """|class Top(
+         |    val A: Int <> CONST = 1,
+         |    val B: Int <> CONST = 2
+         |) extends DFDesign:
+         |  val v = Int <> VAR
+         |  v := B
+         |  v := B
+         |  v := B
+         |  v := 4
+         |end Top""".stripMargin
+    )
+  }
+
   test("a repeated max/min chain over a design parameter is absorbed") {
     class Top(val W: Int <> CONST = 11) extends DFDesign:
       val v = Int <> VAR

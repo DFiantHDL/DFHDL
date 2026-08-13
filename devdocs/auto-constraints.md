@@ -5,6 +5,9 @@ normal state of affairs once widths are design parameters. It accepts the operat
 relation it assumed as a static assertion in the generated design, so every instantiation checks
 the contract that this elaboration could not.
 
+The same mechanism carries the other thing an elaboration can assume about a parameter: the value
+it READ one at, which specializes the body to that value (§6).
+
 This describes what is implemented, in
 [AutoConstraint.scala](../core/src/main/scala/dfhdl/core/AutoConstraint.scala) for the mechanism
 and in [DFDecimal.scala](../core/src/main/scala/dfhdl/core/DFDecimal.scala) for the checks that
@@ -49,7 +52,7 @@ The rule for whether an undecidable relation generates anything is that it must 
 - A widened `>>` consumes one: `(x mod 2^t) >> k` is not `(x >> k) mod 2^t`, so the agreement rests
   on the target being at least as wide as the operand.
 - A type bound consumes one as well (`UInt(N)` is a legal type only under `N >= 1`), and generates
-  nothing all the same. See §7.
+  nothing all the same. See §9.
 
 Deriving what to assert from what was assumed, rather than from what was undecidable, is what keeps
 the count low before any minimization.
@@ -68,7 +71,7 @@ user-written `assert` with a constant condition is a static assertion by constru
 of its own, and its printed form stays `assert(cond, msg)`.
 
 The position half of the definition is what makes the species printable. The elaboration-time forms
-of §6 exist only in concurrent position; an assert meeting the constant criteria inside a process,
+of §7 exist only in concurrent position; an assert meeting the constant criteria inside a process,
 a conditional block or a loop is procedural content and keeps its procedural printing.
 
 Three consequences downstream:
@@ -183,6 +186,9 @@ both directions: rejecting an operation the applied value made legal, and accept
 A decision made in the PARENT is a different matter. There the applied value is what the connection
 or the operation is really about, and the instantiation is resolvable, so it resolves.
 
+The one exception is a parameter the body itself READ, which is no longer a free variable of that
+design and is stated as a contract of it (§6).
+
 ## 4. Minimization
 
 Every comparison normalizes onto ONE canonical form, `IntExprCalc.linearDiff(lhs, rhs) >= 0`, so
@@ -277,7 +283,69 @@ elimination, which reads a mixed chain by its constants and is deliberately leni
 Proving it is also what lets a stacked resize through a common width fold away, `toDFXIntOf`'s
 `unstack` asking whether the inner resize loses anything rather than whether it strictly widens.
 
-## 6. Printing
+## 6. Parameters the body reads
+
+§3 says a parameter is never resolved to decide a relation about its own design. Reading it as a
+Scala value is the one thing that changes that, and it changes it completely.
+
+`toScalaValue` (and the `toScalaInt`/`toScalaBoolean`/... it backs) hands elaboration a value it
+then builds the body out of. A Scala `if` over a parameter keeps one branch; a Scala `for` unrolls
+to a count; a `Bits(N.toScalaInt)` is a literal width. Neither the branch that was dropped nor the
+iteration that never ran is recoverable from the design that came out, so the parameter is no longer
+a free variable of that design: it is a value the design was specialized to, while the generated
+module goes on exposing it as overridable.
+
+### The marking is the record
+
+Nothing new records the reading, because the purity analysis already does. `PureCheckPhase`
+attributes a `toScalaXYZ` forcing to the parameter it is rooted at and records it BY NAME on the
+design's own `@pure(true, <names>)` annotation, so `DFVal.DesignParam.isDataImpure` is the whole
+question, asked of the annotation.
+
+Deriving it from the marking rather than from the forcing site is not a shortcut, it is more
+correct. Every application of a data-impure parameter re-attributes its applied argument at the call
+site, so a parameter read deep inside a child marks the parameter of every design that feeds it:
+
+```scala
+class Inner(val N: Int <> CONST = 4) extends RTDesign:
+  if (N == 4) ... else ...              // reads N
+class Outer(val M: Int <> CONST = 4) extends RTDesign:
+  val inner = Inner(M)                  // reads nothing, and is specialized to M all the same
+```
+
+`Outer` states `M == 4`. Its body produced what it did because `M` was `4`, and a record kept where
+the reading happened would have missed it entirely.
+
+It is also the same fact the elaboration cache is already keyed on: a data-impure parameter's applied
+value joins the design load key, so each value elaborates its own design (see
+[ClassDesignKeySpec](../compiler/stages/src/test/scala/StagesSpec/ClassDesignKeySpec.scala)). The
+contract says out loud what the cache was already assuming.
+
+### What it buys
+
+- **The design states `param == value`**, raised at materialization by
+  `AutoConstraint.raiseDataImpureParams` and minimized with everything else. An equality is the
+  strongest statement there is about a parameter, so any width relation over one it fixes is implied
+  by it and drops out.
+- **`IntExprCalc` reads the parameter as that value** under `AppliedExpr`. This is the one case
+  where a parameter with no instantiation site folds, the elaboration root included, and the
+  assertion is what earns it: the contract travels with the generated module.
+
+The folding is what makes a branch-conditioned width relation decidable at all
+([issue #480](https://github.com/DFiantHDL/DFHDL/issues/480)). Given `OUT_W = D * B` and a body under
+`if (B == 1)`, `out(OUT_W) := in(D)` is legal in the design that came out, and can be seen to be
+only by reading `B` as the `1` the branch was selected by. Note where the folding is NOT done: the
+elaboration-time simplifier (`Opaque`) leaves `D * B` alone, so the emitted design keeps the width
+expressions the user wrote, and the constraint itself keeps its parameter unfolded.
+
+**Where nothing is stated**, an overriding instantiation being impossible or the equality
+unstatable: a method design (instantiated per call site, by DFHDL, with the value it was keyed on), a
+blackbox (no body read anything), and a parametrically-typed parameter (`INIT: Bits[W] <> CONST`),
+whose value would have to be compared against a literal of that same parametric type, which no
+constant can be built at. The last is also one the width algebra never folds, so only the contract is
+left unsaid.
+
+## 7. Printing
 
 The key is position: a static assert in CONCURRENT position prints as an elaboration-time
 construct, and in procedural position as it always did.
@@ -294,7 +362,7 @@ block of the elaboration form, or the `initial` block of the others. Naming the 
 also what keeps a linter from complaining about the implicit `genblk<n>` the LRM would otherwise
 assign.
 
-## 7. Adding a check
+## 8. Adding a check
 
 1. Find the undecided arm. It is the `case _ =>` where a `Check` over `Int`s could not run because
    a width did not fold.
@@ -316,7 +384,7 @@ assign.
    churn under `lib/src/test/resources/ref/` and review it deliberately: a new constraint on a
    documented example is a user-visible change.
 
-## 8. Known gaps
+## 9. Known gaps
 
 - **Type-construction bounds generate nothing.** The `toScalaIntOpt.foreach(check(_))` sites across
   `DFBits.scala`, `DFDecimal.scala` and `DFVector.scala` have exactly the same shape of undecided

@@ -128,6 +128,42 @@ object AutoConstraint:
       ()
     }
 
+  /** [[raise]]s `param == <value>` for every parameter of the design whose DATA its elaboration
+    * reads (`DFVal.DesignParam.isDataImpure`).
+    *
+    * Reading a parameter is what specializes a body to it: the `if` branch that was not taken and
+    * the `for` iteration that did not run leave nothing behind, so the design that comes out is the
+    * one for that value and no other. Elaboration has always done this silently, and the generated
+    * module went on exposing the parameter as overridable; the assertion is what makes the
+    * specialization something the design says rather than something it merely is. It is the same
+    * fact the elaboration cache already keys on, said out loud.
+    *
+    * Nothing is stated where an overriding instantiation cannot exist. A method design is
+    * instantiated per call site, by DFHDL, with the value it was keyed on; a blackbox has no body
+    * that read anything. Nor for a parametrically-typed parameter (`INIT: Bits[W] <> CONST`), whose
+    * value would have to be compared against a literal of that same parametric type, which no
+    * constant can be built at; such a parameter is also one the width algebra never folds, so only
+    * the contract is left unsaid.
+    */
+  private def raiseDataImpureParams(ctx: DesignContext)(using dfc: DFC): Unit =
+    import dfc.getSet
+    val design = dfc.owner.asIR.getThisOrOwnerDesign
+    val names = design.dataImpureParamNames
+    if (names.nonEmpty && !design.isBlackBox && design.instMode != ir.DFDesignBlock.InstMode.Def)
+      ctx.getImmutableMemberList.foreach {
+        case dp: ir.DFVal.DesignParam
+            if (dp.getOwnerDesign eq design) && dp.isDataImpure &&
+              dp.dfType.getRefs.isEmpty =>
+          dp.getConstDataThroughParams[ir.Data].foreach { data =>
+            given DFC = dfc.anonymize
+            val value = DFVal.Const.forced(dp.dfType.asFE[DFTypeAny], data)
+            raise(DFVal.Func[DFBool, Any](DFBool, FuncOp.===, List(dp, value.asIR)))
+            ()
+          }
+        case _ =>
+      }
+  end raiseDataImpureParams
+
   /** Whether `value` carries any width-adjustment permission at all, in either direction. */
   def hasWidthAdjustPermission(value: DFValAny)(using DFC): Boolean =
     value.hasTag[ir.ResizeTag] || value.hasTag[ir.ExtendTag] || value.hasTag[ir.TruncateTag]
@@ -265,11 +301,17 @@ object AutoConstraint:
     *
     * The tag is consumed here. It marks a PENDING constraint, and a materialized one is not
     * pending, so the clone is planted without it and no member of the finished design carries one.
+    *
+    * The body having run is also what makes the design's specialization to the parameters it read
+    * knowable, so those equalities are raised here ([[raiseDataImpureParams]]) and take part in the
+    * same minimization: an equality is the strongest statement there is about a parameter, and any
+    * width relation over one it fixes is already implied by it.
     */
   private[core] def materialize()(using dfc: DFC): Unit =
     import dfc.getSet
     val ctx = dfc.mutableDB.DesignContext.current
     if (!dfc.inMetaProgramming)
+      raiseDataImpureParams(ctx)
       val pending = ctx.autoConstraintGuards.map(_.setTags(_.removeTagOf[ir.AutoConstraint]))
       val kept = mutable.ListBuffer.empty[(ir.DFVal, List[Requirement])]
       if (pending.nonEmpty)

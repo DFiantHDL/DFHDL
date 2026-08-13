@@ -106,8 +106,10 @@ object IntExprCalc:
     /** Substituted by the APPLIED value expression, and only where an instantiation actually
       * supplies one. A parameter with none stays an opaque base, so a decision made about it holds
       * for every assignment: while its own design is still elaborating there is no instance yet,
-      * and the elaboration root never has one. Used by width equivalence (`IntParamRef.compare`)
-      * and the width-fit proof ([[widthFitCompare]]).
+      * and the elaboration root never has one. The exception is a parameter the design read
+      * (`ForcedParamTag`), which folds to the value it was read at, that design being specialized
+      * to it and stating so. Used by width equivalence (`IntParamRef.compare`) and the width-fit
+      * proof ([[widthFitCompare]]).
       */
     case AppliedExpr
 
@@ -425,6 +427,16 @@ object IntExprCalc:
           case f :: Nil    => scale(linear(f), c)
           case _ if c == 0 => Linear(Nil, 0)
           case _           => Linear(List((c, sv)), 0)
+      // A parameter whose data the design's elaboration READS is fixed at that value for this
+      // design (see `DesignParam.isDataImpure`): the body is the one that value produced, and
+      // the design states the equality as a static assertion, so every instantiation is held to
+      // it. This is the one case where a parameter with no instantiation site still folds, the
+      // elaboration root included: the assertion travels with the generated module and is
+      // checked wherever it is instantiated from.
+      case dp: DFVal.DesignParam if mode == ParamResolve.AppliedExpr && dp.isDataImpure =>
+        dp.getConstData[Any](using getSet, ConstData.CachePolicy.GoThroughDesignParams) match
+          case ConstData.KnownConst(Some(i: BigInt)) if i.isValidInt => Linear(Nil, i.toInt)
+          case _                                                     => Linear(List((1, dp)), 0)
       // AppliedData: fold a design parameter to its applied constant data, resolved only
       // through an instantiation site, so an elaboration root's parameters (which have none)
       // and anything else unresolvable stay opaque bases

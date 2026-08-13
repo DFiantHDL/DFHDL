@@ -160,7 +160,9 @@ class ClassDesignKeySpec extends StageSpec:
     // the forced data derives from the class param `amount`, so only that PARAM is
     // marked data-impure (recorded by name on the CLASS annotation) and the class stays
     // pure and keyable: different applied values elaborate separate designs with their
-    // folded constants, while a repeated value unifies (f3 joins f1's design)
+    // folded constants, while a repeated value unifies (f3 joins f1's design). Each design
+    // is the one its applied value produced and states that value as its contract, the
+    // generated module keeping the parameter overridable (issue #480).
     assertCodeString(
       new Top,
       """|@hw.annotation.pure(impureParams = "amount")
@@ -168,6 +170,7 @@ class ClassDesignKeySpec extends StageSpec:
          |  val x = UInt(32) <> IN
          |  val y = UInt(32) <> OUT
          |  y := x + d"32'1"
+         |  val constraint_0 = assert(amount == d"8'1", s"Design parameter violation found. Expected: amount == d\"8'1\"", Severity.Fatal)
          |end Folder_0
          |
          |@hw.annotation.pure(impureParams = "amount")
@@ -175,6 +178,7 @@ class ClassDesignKeySpec extends StageSpec:
          |  val x = UInt(32) <> IN
          |  val y = UInt(32) <> OUT
          |  y := x + d"32'10"
+         |  val constraint_0 = assert(amount == d"8'10", s"Design parameter violation found. Expected: amount == d\"8'10\"", Severity.Fatal)
          |end Folder_1
          |
          |class Top extends DFDesign:
@@ -214,7 +218,9 @@ class ClassDesignKeySpec extends StageSpec:
       y   <> s.y
     end Top
     // both expressions stay parametric where they are used as widths (`Bits(total)`, `Bits(sum)`)
-    // and fold where they are forced (`x(7)`, `Bits(6)`)
+    // and fold where they are forced (`x(7)`, `Bits(6)`). Forcing reaches both parameters through
+    // the expressions, so both are pinned and each states its own equality: a parameter that
+    // stays symbolic in the printed widths is still one this body was specialized to.
     assertCodeString(
       new Top,
       """|@hw.annotation.pure(impureParams = "width", "lanes")
@@ -231,6 +237,8 @@ class ClassDesignKeySpec extends StageSpec:
          |  val fixed = Bits(6) <> OUT
          |  par := b"0".repeat(sum)
          |  fixed := h"6'00"
+         |  val constraint_0 = assert(width == 4, s"Design parameter violation found. Expected: width == 4", Severity.Fatal)
+         |  val constraint_1 = assert(lanes == 2, s"Design parameter violation found. Expected: lanes == 2", Severity.Fatal)
          |end Slicer
          |
          |class Top extends DFDesign:
@@ -269,7 +277,9 @@ class ClassDesignKeySpec extends StageSpec:
     // data (`toScalaBoolean`): the purity check sees that forcing and marks the param
     // data-impure exactly like an explicit toScalaXYZ call, so the applied value joins
     // the design key. Different applied values elaborate separate designs (with only the
-    // taken branch), while a repeated value unifies (c3 joins c1's design).
+    // taken branch), while a repeated value unifies (c3 joins c1's design). The branch that
+    // was dropped is not recoverable from the design that came out, which is why each states
+    // the guard's value as its contract.
     assertCodeString(
       new Top,
       """|@hw.annotation.pure(impureParams = "arg")
@@ -277,6 +287,7 @@ class ClassDesignKeySpec extends StageSpec:
          |  val x = UInt(32) <> IN
          |  val y = UInt(32) <> OUT
          |  y := x + d"32'1"
+         |  val constraint_0 = assert(arg == true, s"Design parameter violation found. Expected: arg == true", Severity.Fatal)
          |end Cond_0
          |
          |@hw.annotation.pure(impureParams = "arg")
@@ -284,6 +295,7 @@ class ClassDesignKeySpec extends StageSpec:
          |  val x = UInt(32) <> IN
          |  val y = UInt(32) <> OUT
          |  y := x + d"32'2"
+         |  val constraint_0 = assert(arg == false, s"Design parameter violation found. Expected: arg == false", Severity.Fatal)
          |end Cond_1
          |
          |class Top extends DFDesign:
