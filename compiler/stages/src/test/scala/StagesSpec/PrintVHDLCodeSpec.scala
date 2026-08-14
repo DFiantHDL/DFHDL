@@ -3755,9 +3755,11 @@ class PrintVHDLCodeSpec extends StageSpec:
       val p  = P                <> IN
       val v  = BitsHL(9, 2) X 2 <> IN
       val f8 = Bits(8)          <> OUT
+      val f4 = Bits(4)          <> OUT
       val fb = Bit              <> OUT
       val c8 = Bits(8)          <> OUT
       f8 := p.f
+      f4 := p.f(5, 2)
       fb := p.f(5)
       c8 := v(0)
     end BitsHLComposite
@@ -3780,6 +3782,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  p : in t_struct_P;
          |  v : in t_arrX1_std_logic_vector(0 to 1)(9 downto 2);
          |  f8 : out std_logic_vector(7 downto 0);
+         |  f4 : out std_logic_vector(3 downto 0);
          |  fb : out std_logic;
          |  c8 : out std_logic_vector(7 downto 0)
          |);
@@ -3788,6 +3791,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |architecture BitsHLComposite_arch of BitsHLComposite is
          |begin
          |  f8 <= p.f;
+         |  f4 <= p.f(5 downto 2);
          |  fb <= p.f(5);
          |  c8 <= v(0);
          |end BitsHLComposite_arch;
