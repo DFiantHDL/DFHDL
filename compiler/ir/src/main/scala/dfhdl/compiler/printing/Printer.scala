@@ -950,7 +950,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val dfhdlTypes: Set[String] = Set(
     "Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encoded", "Struct", "Opaque",
     "StartAt", "OneHot", "Gray", "Unit", "Time", "Freq", "String", "Double", "fs", "ns", "ps", "us",
-    "ms", "sec", "min", "hr", "Hz", "KHz", "MHz", "GHz"
+    "ms", "sec", "min", "hr", "Hz", "KHz", "MHz", "GHz", "BitsHL"
   )
   def colorCode(cs: String): String =
     cs
