@@ -3748,4 +3748,83 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("nonzero-low bit vector struct fields and vector cells") {
+    given options.CompilerOptions.Backend = _.vhdl.v2008
+    class BitsHLComposite extends RTDesign:
+      case class P(f: BitsHL[9, 2] <> VAL, g: Bit <> VAL) extends Struct
+      val p  = P                <> IN
+      val v  = BitsHL(9, 2) X 2 <> IN
+      val f8 = Bits(8)          <> OUT
+      val fb = Bit              <> OUT
+      val c8 = Bits(8)          <> OUT
+      f8 := p.f
+      fb := p.f(5)
+      c8 := v(0)
+    end BitsHLComposite
+    val top = BitsHLComposite().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|type t_struct_P is record
+         |  f : std_logic_vector(9 downto 2);
+         |  g : std_logic;
+         |end record;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.BitsHLComposite_pkg.all;
+         |
+         |entity BitsHLComposite is
+         |port (
+         |  p : in t_struct_P;
+         |  v : in t_arrX1_std_logic_vector(0 to 1)(9 downto 2);
+         |  f8 : out std_logic_vector(7 downto 0);
+         |  fb : out std_logic;
+         |  c8 : out std_logic_vector(7 downto 0)
+         |);
+         |end BitsHLComposite;
+         |
+         |architecture BitsHLComposite_arch of BitsHLComposite is
+         |begin
+         |  f8 <= p.f;
+         |  fb <= p.f(5);
+         |  c8 <= v(0);
+         |end BitsHLComposite_arch;
+         |""".stripMargin
+    )
+  }
+  test("nonzero-low bit vector ports and selection") {
+    given options.CompilerOptions.Backend = _.vhdl.v2008
+    class BitsHLTop extends RTDesign:
+      val x = BitsHL(9, 2) <> IN
+      val y = Bits(8)      <> OUT
+      val b = Bit          <> OUT
+      y := x
+      b := x(5)
+    end BitsHLTop
+    val top = BitsHLTop().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity BitsHLTop is
+         |port (
+         |  x : in std_logic_vector(9 downto 2);
+         |  y : out std_logic_vector(7 downto 0);
+         |  b : out std_logic
+         |);
+         |end BitsHLTop;
+         |
+         |architecture BitsHLTop_arch of BitsHLTop is
+         |begin
+         |  y <= x;
+         |  b <= x(5);
+         |end BitsHLTop_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

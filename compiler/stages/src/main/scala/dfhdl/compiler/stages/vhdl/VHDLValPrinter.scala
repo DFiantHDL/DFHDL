@@ -201,7 +201,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     if (requiresBoolConv) s"to_bool(${condRef.refCodeString})"
     else condRef.refCodeString
   def csBitsToType(toType: DFType, csArg: String): String = toType match
-    case DFBits(_)        => csArg
+    case _: DFBitsWL      => csArg
     case DFBool           => s"to_bool($csArg)"
     case DFBit            => s"to_sl($csArg)"
     case DFUInt(_)        => s"unsigned($csArg)"
@@ -249,15 +249,15 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case _       => s"signed(resize($relValStr, ${tWidthRef.refCodeString}))"
       case (DFUInt(tWidthRef), DFSInt(_)) =>
         s"resize(unsigned($relValStr), ${tWidthRef.refCodeString})"
-      case (DFBits(tWidthRef), DFBits(fWidthRef)) =>
+      case (DFBitsWL(tWidthRef, _), DFBitsWL(fWidthRef, _)) =>
         tWidthRef.widenDeltaOpt(fWidthRef) match
           case Some(k) => s"eby($relValStr, $k)"
           case _       => s"resize($relValStr, ${tWidthRef.refCodeString})"
       case (toType: DFType, fromType: DFBitsWL) =>
         csBitsToType(toType, relValStr)
-      case (DFBits(tWidthRef), DFBit | DFBool) =>
+      case (DFBitsWL(tWidthRef, _), DFBit | DFBool) =>
         s"to_slv($relValStr, ${tWidthRef.refCodeString})"
-      case (DFBits(_), fromType: DFType) =>
+      case (_: DFBitsWL, fromType: DFType) =>
         csToSLV(fromType, relValStr)
       case (DFUInt(tWidthRef), DFUInt(fWidthRef)) =>
         tWidthRef.widenDeltaOpt(fWidthRef) match
@@ -336,7 +336,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csNOTHING(dfVal: Special): String =
     dfVal.dfType match
       case DFBit     => "'Z'"
-      case DFBits(_) => "(others => 'Z')"
+      case _: DFBitsWL => "(others => 'Z')"
       case _         => printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
     dfVal match

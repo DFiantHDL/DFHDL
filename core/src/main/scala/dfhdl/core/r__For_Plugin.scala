@@ -97,8 +97,10 @@ object r__For_Plugin:
     given DFC = dfc.anonymize
     val dfType = selector.dfType.asIR
     val selectorBitsIR: ir.DFVal = dfType match
-      case _: ir.DFBitsWL => selector.asIR
-      case _            =>
+      // a nonzero-low selector is rebased through `.bits`, since the bind ranges
+      // computed by the plugin are relative (zero-based)
+      case bt: ir.DFBitsWL if bt.lowIdxRef.equals(0) => selector.asIR
+      case _                                         =>
         import DFVal.Ops.bits
         selector.bits(using dfc)(using Width.wide).asIR
     val rangeAlias = DFVal.Alias.ApplyRange(selectorBitsIR.asValOf[DFBits[Int]], idxHigh, idxLow)

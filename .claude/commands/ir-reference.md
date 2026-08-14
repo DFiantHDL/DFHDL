@@ -719,7 +719,12 @@ DFType  (sealed)
 ├── DFBoolOrBit  (sealed)
 │   ├── DFBool          — boolean, width = 1
 │   └── DFBit           — single hardware bit, width = 1
-├── DFBits(widthParamRef)          — bit vector
+├── DFBitsWL(widthParamRef, lowIdxRef) — bit vector with a low index (`type`-less `object DFBits`
+│                                        is the zero-based view: apply/unapply assume/match a
+│                                        LITERAL lowIdxRef of 0; `case dt: DFBitsWL` matches any).
+│                                        Selection uses ABSOLUTE indices in [L, L+W-1]; selection
+│                                        RESULTS are always zero-based. Nonzero low arises only
+│                                        from the user-facing `BitsHL(hi, lo)` constructor.
 ├── DFDecimal(signed, widthParamRef, fractionWidth, nativeType)
 │   ├── DFUInt(w)        — unsigned integer
 │   ├── DFSInt(w)        — signed integer
@@ -774,7 +779,7 @@ case object Magnet  extends Magnet    // generic magnet
 opaque.isMagnet   // kind.isInstanceOf[Magnet]
 ```
 
-**`IntParamRef`** — used for widths and indices in DFBits, DFDecimal, DFVector, ApplyRange:
+**`IntParamRef`** — used for widths and indices in DFBitsWL (width + low index), DFDecimal, DFVector, ApplyRange:
 ```scala
 opaque type IntParamRef = DFRef.TypeRef | Int
 paramRef.getInt             // resolve to Int (using MemberGetSet)

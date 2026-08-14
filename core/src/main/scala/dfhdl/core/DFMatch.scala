@@ -57,8 +57,15 @@ object DFMatch:
     try
       import dfc.getSet
       val dfcAnon = summon[DFC].anonymize
+      // a nonzero-low bit-vector selector is rebased to a zero-based one, so the patterns
+      // and bind ranges (which are relative) stay valid across all backends
+      val fixedSelector = selector.asIR.dfType match
+        case bt: ir.DFBitsWL if !bt.lowIdxRef.equals(0) =>
+          import DFVal.Ops.bits
+          selector.bits(using dfcAnon)(using Width.wide)
+        case _ => selector
       val header =
-        Header(DFUnit, selector)(using if (forceAnonymous) dfcAnon else dfc)
+        Header(DFUnit, fixedSelector)(using if (forceAnonymous) dfcAnon else dfc)
       // creating a hook to save the return value for the first branch run
       var firstCaseRet: Option[R] = None
       val firstCaseRun: () => R = () =>

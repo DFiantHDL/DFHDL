@@ -74,9 +74,9 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
           case dt: (DFVector | NamedDFType) => dt
         }
         (alias.dfType, alias.relValRef.get.dfType) match
-          case (DFBits(_), fromDFType: (NamedDFType | ComposedDFType)) =>
+          case (_: DFBitsWL, fromDFType: (NamedDFType | ComposedDFType)) =>
             fromDFType.decompose(pf)
-          case (toDFType: (NamedDFType | ComposedDFType), DFBits(_)) =>
+          case (toDFType: (NamedDFType | ComposedDFType), _: DFBitsWL) =>
             toDFType.decompose(pf)
           case _ => None
       case _ => None

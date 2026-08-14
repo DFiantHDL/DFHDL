@@ -280,7 +280,7 @@ case object NamedVHDLSelection extends NamedAliases:
           case (t, DFOpaque(actualType = at)) if at =~ t => relVal.hasVHDLName
           case (_: DFOpaque, _)                          => relVal.hasVHDLName
           // type conversions
-          case (DFUInt(_) | DFSInt(_), DFBits(_)) => false
+          case (DFUInt(_) | DFSInt(_), _: DFBitsWL) => false
           case (DFSInt(_), DFUInt(_))             => false
           // function calls
           case _ => true

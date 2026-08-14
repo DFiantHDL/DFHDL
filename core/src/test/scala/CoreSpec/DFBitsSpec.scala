@@ -497,11 +497,58 @@ class DFBitsSpec extends DFSpec:
     }
     val minusOne = -1
     assertDSLErrorLog(
-      "Argument must be non-negative, but found: -1"
+      "Argument must be natural, but found: -1"
     )(
       """BitsHL(3, -1)"""
     ) {
       BitsHL(3, minusOne)
+    }
+  }
+  test("BitsHL selection with absolute indices") {
+    val x = BitsHL(9, 2) <> VAR
+    assertCodeString {
+      """|val s = x(5, 2)
+         |val b = x(9)
+         |val m = x(9, 6)
+         |val l = x(5, 2)
+         |""".stripMargin
+    } {
+      val s = x(5, 2)
+      val b = x(9)
+      val m = x.msbits(4)
+      val l = x.lsbits(4)
+    }
+    assertDSLErrorLog(
+      "Index 10 is above the high index 9 of the selected value"
+    )(
+      """x(10, 2)"""
+    ) {
+      val ten = 10
+      x(ten, 2)
+    }
+    assertDSLErrorLog(
+      "Index 1 is below the low index 2 of the selected value"
+    )(
+      """x(5, 1)"""
+    ) {
+      val one = 1
+      x(5, one)
+    }
+  }
+  test("BitsHL match selector is rebased to zero-based bits") {
+    val hl = BitsHL(9, 2) <> VAR
+    assertCodeString(
+      """|hl.bits match
+         |  case h"12" =>
+         |  case h"a${bind: B[4]}" =>
+         |  case _ =>
+         |end match
+         |""".stripMargin
+    ) {
+      hl match
+        case h"12"              =>
+        case h"a${bind: B[4]}"  =>
+        case _                  =>
     }
   }
   test("BitsHL declaration, assignment, and comparison") {

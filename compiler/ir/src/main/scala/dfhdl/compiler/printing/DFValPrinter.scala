@@ -390,7 +390,13 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case (DFSInt(tWidthRef), _: DFBitsWL) =>
         s"${relValStr}.sint"
       case (to: DFBitsWL, from: DFBitsWL) =>
-        s"${relValStr}${csResizeOrEby(to.widthParamRef, from.widthParamRef)}"
+        if (to.lowIdxRef.equals(0))
+          // an equal-width cast that only drops a nonzero low index is the `.bits` rebase
+          if (!from.lowIdxRef.equals(0) && to.widthParamRef.isProvablyEqualTo(from.widthParamRef))
+            s"${relValStr}.bits"
+          else s"${relValStr}${csResizeOrEby(to.widthParamRef, from.widthParamRef)}"
+        // a cast INTO a nonzero-low type keeps the explicit `.as(...)` spelling
+        else s"${relValStr}.as(${printer.csDFType(toType)})"
       case (to: DFBitsWL, DFBit | DFBool) =>
         s"${relValStr}.toBits(${to.widthParamRef.refCodeString})"
       case (_: DFBitsWL, _) =>

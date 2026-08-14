@@ -1139,6 +1139,13 @@ private final class Builder(rawDB: DB):
           )
         case _ => buildApplyIdxNonMem(a, rel)
 
+    /** selection indices are absolute, so a low-indexed bit vector's data offsets are
+      * relative to its low index (nonzero only for explicit BitsHL-constructed types)
+      */
+    private def bitsLowOf(t: DFType): Int = t match
+      case b: DFBitsWL => b.lowIdxRef.getIntOpt.getOrElse(0)
+      case _           => 0
+
     private def buildApplyIdxNonMem(a: DFVal.Alias.ApplyIdx, rel: DFVal): WV =
       rel.dfType match
         case vt: DFVector =>
@@ -1157,12 +1164,16 @@ private final class Builder(rawDB: DB):
                 val relWV = readWV(rel)
                 val off = dynCellOffset(relWV.width / cellW, cellW, a.relIdx.get)
                 wide.dynExtract(relWV, off, cellW)
-        case _: DFBitsWL =>
+        case bt: DFBitsWL =>
+          val low = bitsLowOf(bt)
           constIdxOpt(a.relIdx.get) match
             case Some(i) if undrivenPartialSink(rel) =>
-              partialSinkRead(rel.asInstanceOf[DFVal.Dcl], i, 1)
-            case Some(i) => wide.extract(readWV(rel), i, 1)
-            case None    => wide.dynExtract(readWV(rel), dynBitOffset(a.relIdx.get), 1)
+              partialSinkRead(rel.asInstanceOf[DFVal.Dcl], i - low, 1)
+            case Some(i)           => wide.extract(readWV(rel), i - low, 1)
+            case None if low == 0  =>
+              wide.dynExtract(readWV(rel), dynBitOffset(a.relIdx.get), 1)
+            case None              =>
+              unsupported("dynamic indexing of a low-indexed bit vector", a)
         case t => unsupported(s"indexing into $t", a)
       end match
     end buildApplyIdxNonMem
@@ -1172,10 +1183,10 @@ private final class Builder(rawDB: DB):
       val hi = a.idxHighRef.getIntOpt.getOrElse(unsupported("non-constant range", a))
       val lo = a.idxLowRef.getIntOpt.getOrElse(unsupported("non-constant range", a))
       rel.dfType match
-        case _: DFBitsWL if undrivenPartialSink(rel) =>
-          partialSinkRead(rel.asInstanceOf[DFVal.Dcl], lo, hi - lo + 1)
-        case _: DFBitsWL => wide.extract(readWV(rel), lo, hi - lo + 1)
-        case t         => unsupported(s"range selection on $t", a)
+        case bt: DFBitsWL if undrivenPartialSink(rel) =>
+          partialSinkRead(rel.asInstanceOf[DFVal.Dcl], lo - bitsLowOf(bt), hi - lo + 1)
+        case bt: DFBitsWL => wide.extract(readWV(rel), lo - bitsLowOf(bt), hi - lo + 1)
+        case t          => unsupported(s"range selection on $t", a)
 
     private def buildSelectField(sf: DFVal.Alias.SelectField): WV =
       val rel = sf.relValRef.get
@@ -1290,12 +1301,12 @@ private final class Builder(rawDB: DB):
             cellWriteTarget(ai.relValRef.get, net).map { (dcl, addr, lo0) =>
               val bit = constIdxOpt(ai.relIdx.get)
                 .getOrElse(unsupported("dynamic bit index in a memory write", net))
-              (dcl, addr, lo0 + bit)
+              (dcl, addr, lo0 + bit - bitsLowOf(ai.relValRef.get.dfType))
             }
       case ar: DFVal.Alias.ApplyRange =>
         cellWriteTarget(ar.relValRef.get, net).map { (dcl, addr, lo0) =>
           val lo = ar.idxLowRef.getIntOpt.getOrElse(unsupported("non-constant range", net))
-          (dcl, addr, lo0 + lo)
+          (dcl, addr, lo0 + lo - bitsLowOf(ar.relValRef.get.dfType))
         }
       case sf: DFVal.Alias.SelectField =>
         cellWriteTarget(sf.relValRef.get, net).map { (dcl, addr, lo0) =>
@@ -1572,7 +1583,7 @@ private final class Builder(rawDB: DB):
         case ar: DFVal.Alias.ApplyRange =>
           val (dcl, lo0, dyn) = assignTarget(ar.relValRef.get, net)
           val lo = ar.idxLowRef.getIntOpt.getOrElse(unsupported("non-constant range", net))
-          (dcl, lo0 + lo, dyn)
+          (dcl, lo0 + lo - bitsLowOf(ar.relValRef.get.dfType), dyn)
         case ai: DFVal.Alias.ApplyIdx =>
           val rel = ai.relValRef.get
           val (dcl, lo0, dyn) = assignTarget(rel, net)
@@ -1583,10 +1594,13 @@ private final class Builder(rawDB: DB):
               constIdxOpt(ai.relIdx.get) match
                 case Some(i) => (dcl, lo0 + (len - 1 - i) * cellW, dyn)
                 case None    => (dcl, lo0, addDyn(dyn, dynCellOffset(len, cellW, ai.relIdx.get)))
-            case _: DFBitsWL =>
+            case bt: DFBitsWL =>
+              val low = bitsLowOf(bt)
               constIdxOpt(ai.relIdx.get) match
-                case Some(i) => (dcl, lo0 + i, dyn)
-                case None    => (dcl, lo0, addDyn(dyn, dynBitOffset(ai.relIdx.get)))
+                case Some(i)          => (dcl, lo0 + i - low, dyn)
+                case None if low == 0 => (dcl, lo0, addDyn(dyn, dynBitOffset(ai.relIdx.get)))
+                case None             =>
+                  unsupported("dynamic indexing of a low-indexed bit vector", net)
             case t => unsupported(s"assignment through indexing into $t", net)
         case sf: DFVal.Alias.SelectField =>
           val rel = sf.relValRef.get
@@ -1760,7 +1774,7 @@ private final class Builder(rawDB: DB):
         case ar: DFVal.Alias.ApplyRange =>
           val (dcl, lo0) = lhsTarget(ar.relValRef.get)
           val lo = ar.idxLowRef.getIntOpt.getOrElse(unsupported("a non-constant range", ar))
-          (dcl, lo0 + lo)
+          (dcl, lo0 + lo - bitsLowOf(ar.relValRef.get.dfType))
         case ai: DFVal.Alias.ApplyIdx =>
           val rel = ai.relValRef.get
           val (dcl, lo0) = lhsTarget(rel)
@@ -1769,8 +1783,8 @@ private final class Builder(rawDB: DB):
               val cellW = widthOfType(vt.cellType, ai)
               val len = widthOfType(vt, ai) / cellW
               (dcl, lo0 + (len - 1 - constIdxOf(ai.relIdx.get)) * cellW)
-            case _: DFBitsWL => (dcl, lo0 + constIdxOf(ai.relIdx.get))
-            case t         => unsupported(s"initial assignment through indexing into $t", ai)
+            case bt: DFBitsWL => (dcl, lo0 + constIdxOf(ai.relIdx.get) - bitsLowOf(bt))
+            case t          => unsupported(s"initial assignment through indexing into $t", ai)
         case sf: DFVal.Alias.SelectField =>
           val rel = sf.relValRef.get
           val (dcl, lo0) = lhsTarget(rel)

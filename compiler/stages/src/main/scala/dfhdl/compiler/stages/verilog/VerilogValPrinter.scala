@@ -420,7 +420,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (DFInt32, DFUInt(_) | DFSInt(_))               => relValStr
       case (DFBit, DFBool | DFEnum(widthParam = 1))       => relValStr
       case (DFBool, DFBit | DFEnum(widthParam = 1))       => relValStr
-      case (enumType: DFEnum, DFBit | DFBool | DFBits(_)) =>
+      case (enumType: DFEnum, DFBit | DFBool | (_: DFBitsWL)) =>
         if (printer.allowTypeDef)
           s"${printer.csDFEnumTypeName(enumType)}'($relValStr)"
         else relValStr
@@ -449,7 +449,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           end match
         end to_vector_conv
         to_vector_conv(toVector, toVector.widthUNSAFE - 1)
-      case (DFBits(IntUNSAFE(tWidth)), fromVector: DFVector) =>
+      case (DFBitsWL(IntUNSAFE(tWidth), _), fromVector: DFVector) =>
         def from_vector_conv(vectorType: DFVector, prevSelect: String): String =
           val vecLength = vectorType.lengthUNSAFE
           vectorType.cellType match
@@ -466,12 +466,12 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         end from_vector_conv
         assert(tWidth == fromType.widthUNSAFE)
         from_vector_conv(fromVector, "")
-      case (DFBits(tWidthRef), DFBit | DFBool) =>
+      case (DFBitsWL(tWidthRef, _), DFBit | DFBool) =>
         if (printer.allowWidthCastSyntax)
           s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
         else
           s"`EXTEND_U($relValStr, 1, ${tWidthRef.refCodeString})"
-      case (DFBits(_), _) =>
+      case (_: DFBitsWL, _) =>
         s"{$relValStr}"
       // fixed-point (target fraction != 0): `.signed`/`.unsigned` sign casts and `.resize`
       // reformats. Verilog is positional, so these are the vector operations: add/drop the

@@ -1019,15 +1019,51 @@ val b6: Bits[6] <> CONST = all(0)
 
 /// details | Transitioning from Verilog
     type: verilog
-* __Specifying a width instead of an index range:__ In Verilog bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `[width-1:0]` sized vector (for [generic vectors][DFVector] the element order the opposite).
+* __Specifying a width instead of an index range:__ In Verilog bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `[width-1:0]` sized vector (for [generic vectors][DFVector] the element order the opposite). For the rare designs that genuinely need a non-zero low index, DFHDL provides the dedicated [`BitsHL`][DFBitsHL] constructor.
 * __Additional constructors:__ DFHDL provides additional constructs to simplify some common Verilog bit vector declaration. For example, instead of declaring `reg [$clog2(DEPTH)-1:0] addr` in Verilog, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
 ///
 
 /// details | Transitioning from VHDL
     type: vhdl
-* __Specifying a width instead of an index range:__ In VHDL bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `(width-1 downto 0)` sized vector (for [generic vectors][DFVector] the element order the opposite).
+* __Specifying a width instead of an index range:__ In VHDL bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `(width-1 downto 0)` sized vector (for [generic vectors][DFVector] the element order the opposite). For the rare designs that genuinely need a non-zero low index, DFHDL provides the dedicated [`BitsHL`][DFBitsHL] constructor.
 * __Additional constructors:__ DFHDL provides additional constructs to simplify some common VHDL bit vector declaration. For example, instead of declaring `signal addr: std_logic_vector(clog2(DEPTH)-1 downto 0)` in VHDL, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
 ///
+
+#### Low-Indexed Bit Vectors: `BitsHL` {#DFBitsHL}
+
+For the rare cases that genuinely require a non-zero low index, such as mirroring a memory-mapped
+register field or an address range taken from an external specification, DFHDL provides the
+`BitsHL` constructor. `BitsHL(idxHigh, idxLow)` declares a bit vector spanning the absolute
+inclusive range `idxHigh downto idxLow` (width is `idxHigh - idxLow + 1`), and the generated HDL
+preserves that range (`[idxHigh:idxLow]` in Verilog, `(idxHigh downto idxLow)` in VHDL).
+Reversed bit direction is not supported: a `BitsHL` range is always descending, so there is no
+equivalent of a Verilog `[low:high]` or a VHDL `(low to high)` declaration.
+
+/// admonition | Prefer `Bits` over `BitsHL`
+    type: note
+`BitsHL` should be used scarcely. Always prefer `Bits(width)` over `BitsHL(width-1, 0)`: both
+construct the same zero-based bit vector type, and the width-based spelling is the canonical one.
+Reach for `BitsHL` only when a non-zero low index carries real meaning in your design.
+///
+
+/// html | div.operations
+| Constructor  | Description | Arg Constraints     | Returns |
+| ------------ | ----------- | ------------------- | ------- |
+| `BitsHL(idxHigh, idxLow)` | Construct a bit vector DFType spanning the absolute inclusive range `idxHigh downto idxLow`. | `idxHigh` and `idxLow` are Scala `Int` or constant DFHDL `Int` values, with `idxHigh >= idxLow` and `idxLow >= 0` (natural). | `BitsHL[idxHigh.type, idxLow.type]` DFType |
+| `BitsHL[H, L]` | Construct a bit vector DFType with the given `H` high index and `L` low index as Scala type arguments (for advanced users). | `H` and `L` are Scala `Int` or constant DFHDL `Int` Singleton types, with `H >= L` and `L >= 0`. | `BitsHL[H, L]` DFType |
+///
+
+Selection on a low-indexed bit vector uses absolute indices within `[idxLow, idxHigh]`, and
+selection results are always zero-based `Bits` values. Assignment, connection, and comparison
+between bit vectors are width-based, so equal-width `Bits` and `BitsHL` values are compatible
+regardless of their low indices.
+
+```scala
+val reg = BitsHL(9, 2) <> VAR
+val fld = reg(5, 2) // absolute range selection, yields a zero-based Bits[4] value
+val msb = reg(9)    // absolute bit selection
+reg := all(0)       // width-based compatibility, like any Bits[8] value
+```
 
 #### Type Signatures
 - Bounded: `Bits[8]`, `Bits[4]`

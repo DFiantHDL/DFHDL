@@ -3672,4 +3672,59 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("nonzero-low bit vector struct field flattening under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class BitsHLFlatten extends RTDesign:
+      // NOTE: a bit selection into the field (`p.f(5)`) is excluded here: the flattening
+      // currently emits an illegal chained part-select (`p[8:1][5]`) under v2001, a
+      // pre-existing issue that equally affects zero-based fields (and for a nonzero-low
+      // field also keeps the absolute index where a relative one is needed)
+      case class P(f: BitsHL[9, 2] <> VAL, g: Bit <> VAL) extends Struct
+      val p  = P       <> IN
+      val f8 = Bits(8) <> OUT
+      f8 := p.f
+    end BitsHLFlatten
+    val top = BitsHLFlatten().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module BitsHLFlatten(
+         |  input  wire [8:0] p,
+         |  output wire [7:0] f8
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  assign f8 = p[8:1];
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("nonzero-low bit vector ports and selection") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class BitsHLTop extends RTDesign:
+      val x = BitsHL(9, 2) <> IN
+      val y = Bits(8)      <> OUT
+      val b = Bit          <> OUT
+      y := x
+      b := x(5)
+    end BitsHLTop
+    val top = BitsHLTop().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module BitsHLTop(
+         |  input  wire logic [9:2] x,
+         |  output logic [7:0] y,
+         |  output logic b
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign y = x;
+         |  assign b = x[5];
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

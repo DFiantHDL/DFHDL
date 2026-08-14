@@ -26,6 +26,20 @@ object DFBitsWL:
     summon[Arg.Width.Check[Int]](width)
     summon[Arg.Natural.Check[Int]](lowIdx)
     ir.DFBitsWL(ir.IntParamRef(width), ir.IntParamRef(lowIdx)).asFE[DFBitsWL[W, L]]
+  // the type-only spelling (e.g. a `BitsHL[9, 2] <> VAL` struct field)
+  given [W <: IntP & Singleton, L <: IntP & Singleton](using
+      dfc: DFCG,
+      w: ValueOf[W],
+      l: ValueOf[L],
+      widthCheck: Arg.Width.CheckNUB[W],
+      lowCheck: Arg.Natural.CheckNUB[L]
+  ): DFBitsWL[W, L] = trydf {
+    val width = IntParam.forced(w)
+    val lowIdx = IntParam.forced(l)
+    width.toScalaIntOpt.foreach(widthCheck(_))
+    lowIdx.toScalaIntOpt.foreach(lowCheck(_))
+    ir.DFBitsWL(width.ref, lowIdx.ref).asFE[DFBitsWL[W, L]]
+  }(using dfc, CTName("BitsWL constructor"))
 end DFBitsWL
 
 type DFBitsHL[H <: IntP, L <: IntP] = DFBitsWL[IntP.RangeWidth[H, L], L]
@@ -71,16 +85,6 @@ object DFBits:
     max.toScalaIntOpt.foreach(check(_))
     ir.DFBits((max + 1).clog2.ref).asFE[DFBits[IntP.CLog2P1[V]]]
   }(using dfc, CTName("Bits.to constructor"))
-
-  given [W <: IntP & Singleton](using
-      dfc: DFCG,
-      v: ValueOf[W],
-      check: Arg.Width.CheckNUB[W]
-  ): DFBits[W] = trydf {
-    val width = IntParam.forced(v)
-    width.toScalaIntOpt.foreach(check(_))
-    ir.DFBits(width.ref).asFE[DFBits[W]]
-  }(using dfc, CTName("Bits constructor"))
 
   protected object `AW == TW`
       extends Check2[

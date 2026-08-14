@@ -30,6 +30,6 @@ object Arg:
       extends Check1[
         Int,
         [t <: Int] =>> t >= 0,
-        [t <: Int] =>> "Argument must be non-negative, but found: " + t
+        [t <: Int] =>> "Argument must be natural, but found: " + t
       ]
 end Arg

@@ -89,7 +89,7 @@ object DFType:
   ): DFTypeAny = tc(t)
   export DFDecimal.Extensions.*
   export DFBoolOrBit.given
-  export DFBits.given
+  export DFBitsWL.given
   export DFDecimal.given
   export DFEnum.given
   export DFVector.given

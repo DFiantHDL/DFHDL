@@ -289,7 +289,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     val toCellConv = act(
       vecType =>
         vecType.cellType match
-          case DFBits(_) => argSel
+          case _: DFBitsWL => argSel
           case DFBit     => s"to_sl($argSel)"
           case DFBool    => s"to_bool($argSel)"
           case DFUInt(_) => s"unsigned($argSel)"
@@ -421,7 +421,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
   def csDFStructConvFuncsBody(dfType: DFStruct): String =
     val typeName = csDFStructTypeName(dfType)
     def to_slv(fromType: DFType, csArg: String): String = fromType match
-      case DFBits(_) => csArg
+      case _: DFBitsWL => csArg
       case _         => s"to_slv($csArg)"
     val fieldLengths = dfType.fieldMap.map { (n, t) =>
       s"width := width + bitWidth(A.$n);"
