@@ -3811,6 +3811,39 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("BitsHL constant bounds: value passed to a matching method parameter") {
+    val HI: Int <> CONST                                       = 5
+    val LO: Int <> CONST                                       = 4
+    @inline def fLit(x: BitsHL[5, 4] <> VAL): Bits[2] <> DFRET = x(5, 4)
+    class CallLit extends RTDesign:
+      val a = BitsHL(5, 4) <> IN
+      val o = Bits(2)      <> OUT
+      o <> fLit(a)
+    assertCodeString(
+      CallLit(),
+      """|class CallLit extends RTDesign:
+         |  val a = BitsHL(5, 4) <> IN
+         |  val o = Bits(2) <> OUT
+         |  o <> a(5, 4)
+         |end CallLit""".stripMargin
+    )
+    @inline def fConst(x: BitsHL[HI.type, LO.type] <> VAL): Bits[2] <> DFRET = x(HI, LO)
+    class CallConst extends RTDesign:
+      val b = BitsHL(HI, LO) <> IN
+      val o = Bits(2)        <> OUT
+      o <> fConst(b)
+    assertCodeString(
+      CallConst(),
+      """|val HI: Int <> CONST = 5
+         |val LO: Int <> CONST = 4
+         |
+         |class CallConst extends RTDesign:
+         |  val b = BitsHL(HI, LO) <> IN
+         |  val o = Bits(2) <> OUT
+         |  o <> b(HI, LO)
+         |end CallConst""".stripMargin
+    )
+  }
   test("BitsHL constant bounds print as written") {
     class HLBounds(val HI: Int <> CONST = 5, val LO: Int <> CONST = 4) extends RTDesign:
       val b = BitsHL(HI, LO) <> OUT

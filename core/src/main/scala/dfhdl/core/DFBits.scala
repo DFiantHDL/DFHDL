@@ -55,6 +55,17 @@ object DFBitsHL:
     idxLow.toScalaIntOpt.foreach(lowCheck(_))
     ir.DFBitsWL((idxHigh - idxLow + 1).ref, idxLow.ref).asFE[DFBitsHL[H, L]]
   }(using dfc, CTName("BitsHL constructor"))
+  // the type-only spelling in term position (e.g. `BitsHL[HI.type, LO.type] <> IN`). The
+  // bounds are taken from the EXPLICIT type arguments: for non-literal bounds the spelled
+  // TYPE immediately collapses its width to `Int` (the guarded-fold collapse), erasing `H`,
+  // so this apply site is the one place the high bound is still recoverable
+  def apply[H <: IntP & Singleton, L <: IntP & Singleton](using
+      dfc: DFCG,
+      h: ValueOf[H],
+      l: ValueOf[L],
+      hiloCheck: DFBits.BitsHiLo.CheckNUB[H, L],
+      lowCheck: Arg.Natural.CheckNUB[L]
+  ): DFBitsHL[H, L] = apply(IntParam.forced[H](h.value), IntParam.forced[L](l.value))
 end DFBitsHL
 
 object DFBits:
@@ -571,13 +582,18 @@ object DFBits:
 
     object TCConv:
       import DFVal.TCConv
-      given DFBitsFromCandidateConv[V, RP, IC <: Candidate[V]](using
+      // the target width is fixed at `Int` (statically unknown), so this relabel-only
+      // conversion claims exactly the targets no width check can serve; a literal-width
+      // target falls to the lower-priority `TCConv.fromTC` derivation, which runs the
+      // width-checked TC. The low index is free: a nonzero-low target arises from a
+      // `BitsHL` parameter spelling whose non-literal bounds collapsed the width to `Int`
+      given DFBitsFromCandidateConv[L <: IntP, V, RP, IC <: Candidate[V]](using
           ic: IC { type OutP = RP }
-      ): TCConv[DFBits[Int], V] with
+      ): TCConv[DFBitsWL[Int, L], V] with
         type OutP = RP
         def apply(value: V)(using DFC): Out =
           val dfVal = ic(value)
-          dfVal.nameInDFCPosition.asValTP[DFBits[Int], RP]
+          dfVal.nameInDFCPosition.asValTP[DFBitsWL[Int, L], RP]
 
     object Compare:
       import DFVal.Compare

@@ -546,9 +546,9 @@ class DFBitsSpec extends DFSpec:
          |""".stripMargin
     ) {
       hl match
-        case h"12"              =>
-        case h"a${bind: B[4]}"  =>
-        case _                  =>
+        case h"12"             =>
+        case h"a${bind: B[4]}" =>
+        case _                 =>
     }
   }
   test("BitsHL declaration, assignment, and comparison") {
@@ -567,6 +567,27 @@ class DFBitsSpec extends DFSpec:
       x := y
       y := x
       val eq = x == y
+    }
+  }
+  test("BitsHL constant bounds: type-form declaration and conformance") {
+    val HI: Int <> CONST = 5
+    val LO: Int <> CONST = 4
+    assertCodeString {
+      """|val a = BitsHL(HI, LO) <> VAR
+         |val b = BitsHL(HI, LO) <> VAR
+         |val o = Bits(2) <> VAR
+         |o := a(HI, LO)
+         |b := a
+         |""".stripMargin
+    } {
+      val a = BitsHL(HI, LO) <> VAR
+      // the type-form declaration takes its bounds from the explicit type arguments
+      val b = BitsHL[HI.type, LO.type] <> VAR
+      // a constructor-form value converts to the (width-collapsed) type-form spelling
+      val x: BitsHL[HI.type, LO.type] <> VAL = a
+      val o = Bits(2) <> VAR
+      o := x(HI, LO)
+      b := a
     }
   }
 end DFBitsSpec
