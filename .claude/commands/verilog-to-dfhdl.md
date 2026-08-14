@@ -305,9 +305,9 @@ and they decide how closely the emitted HDL tracks the gold.
   - a **parameter needs `BitsHL` only if the method indexes it with the baseline's indices**;
     anything merely combined (XOR, concat, compare) takes `Bits[W]`, and width-based compatibility
     passes a `BitsHL` argument straight in;
-  - constant bounds do not currently unify between the `BitsHL(H, L)` constructor and a
-    `BitsHL[H.type, L.type]` parameter (DFHDL#490), so a helper indexing a config-ranged signal
-    needs literal bounds or a `Bits` parameter.
+  - it works as a `Struct` field too, with literal or constant bounds:
+    `index: BitsHL[RV_BTB_ADDR_HI.type, RV_BTB_ADDR_LO.type] <> VAL` emits
+    `logic [RV_BTB_ADDR_HI:RV_BTB_ADDR_LO] index;` inside the packed struct.
 - **A fully-assigned `VAR` read through a *parameter*-bounded slice is misreported as a latch**
   (DFHDL#484). A local `Int <> CONST` bound is fine; only a design parameter trips it, and only for a
   `VAR` (a port or parameter sliced the same way is fine). Where the variable is a pure rename, slice
