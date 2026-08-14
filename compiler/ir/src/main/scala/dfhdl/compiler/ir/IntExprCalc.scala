@@ -288,7 +288,7 @@ object IntExprCalc:
           case None          => (ref.getIntUNSAFE, Nil)
       def typeFactors(t: DFType): Option[(Int, List[DFVal])] = t match
         case _ if t.getRefs.isEmpty      => t.widthIntOpt.map((_, Nil))
-        case dt: DFBitsWL                  => Some(paramRefFactors(dt.widthParamRef))
+        case dt: DFBitsWL                => Some(paramRefFactors(dt.widthParamRef))
         case DFXInt(_, widthParamRef, _) => Some(paramRefFactors(widthParamRef))
         case vec: DFVector               =>
           vec.cellDimParamRefs.foldLeft(typeFactors(vec.cellType)) { (accOpt, dim) =>
@@ -345,7 +345,7 @@ object IntExprCalc:
     def linearOfTypeWidth(t: DFType): Option[Linear] =
       t match
         case _ if t.getRefs.isEmpty => t.widthIntOpt.map(Linear(Nil, _))
-        case dt: DFBitsWL             => Some(linearOfParamRef(dt.widthParamRef))
+        case dt: DFBitsWL           => Some(linearOfParamRef(dt.widthParamRef))
         case dec: DFDecimal         =>
           Some(DataCalc.addConst(linearOfParamRef(dec.magnitudeWidthParamRef), dec.fractionWidth))
         case vec: DFVector =>

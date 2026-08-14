@@ -150,9 +150,9 @@ case object NamedVerilogSelection extends NamedAliases:
           val transparentConversion = (alias.dfType, relVal.dfType) match
             case (DFUInt(toWidthRef), from: DFBitsWL) => toWidthRef.isSimilarTo(from.widthParamRef)
             case (to: DFBitsWL, DFUInt(fromWidthRef)) => to.widthParamRef.isSimilarTo(fromWidthRef)
-            case (DFBit, DFBool)                            => true
-            case (DFBool, DFBit)                            => true
-            case _                                          => false
+            case (DFBit, DFBool)                      => true
+            case (DFBool, DFBit)                      => true
+            case _                                    => false
           if (transparentConversion) relVal.hasVerilogName
           else false
         case _ => false
@@ -281,7 +281,7 @@ case object NamedVHDLSelection extends NamedAliases:
           case (_: DFOpaque, _)                          => relVal.hasVHDLName
           // type conversions
           case (DFUInt(_) | DFSInt(_), _: DFBitsWL) => false
-          case (DFSInt(_), DFUInt(_))             => false
+          case (DFSInt(_), DFUInt(_))               => false
           // function calls
           case _ => true
       case _: (DFVal.Alias.ApplyRange | DFVal.Alias.ApplyIdx | DFVal.Alias.SelectField) => true

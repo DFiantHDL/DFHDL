@@ -41,10 +41,10 @@ object Eby:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[(DFVal, Int)] =
     val relVal = alias.relValRef.get
     val deltaOpt = (alias.dfType, relVal.dfType) match
-      case (DFUInt(toW), DFUInt(fromW)) => toW.constDiffFrom(fromW)
-      case (DFSInt(toW), DFSInt(fromW)) => toW.constDiffFrom(fromW)
-      case (to: DFBitsWL, from: DFBitsWL)   => to.widthParamRef.constDiffFrom(from.widthParamRef)
-      case _                            => None
+      case (DFUInt(toW), DFUInt(fromW))   => toW.constDiffFrom(fromW)
+      case (DFSInt(toW), DFSInt(fromW))   => toW.constDiffFrom(fromW)
+      case (to: DFBitsWL, from: DFBitsWL) => to.widthParamRef.constDiffFrom(from.widthParamRef)
+      case _                              => None
     deltaOpt.filter(_ > 0).map((relVal, _))
 
 // A carry-spelled arithmetic func: a binary `+`/`-`/`*` over two anonymous same-kind widening
@@ -425,7 +425,7 @@ extension (dfVal: DFVal)
               case DFVal.Alias.ApplyIdx.ConstIdx(i) =>
                 val maxValueOpt = relVal.dfType match
                   case vector: DFVector => vector.lengthIntOpt
-                  case bits: DFBitsWL     => bits.widthIntOpt
+                  case bits: DFBitsWL   => bits.widthIntOpt
                   case xInt: DFDecimal  => xInt.widthIntOpt
                   case _                => None
                 val padMaxValue = maxValueOpt.getOrElse(100) - 1
@@ -712,7 +712,7 @@ extension (lhs: DFVal)(using MemberGetSet)
     // total-width ref: for integer decimals the magnitude ref is the total ref (and may be
     // parametric); fixed-point total widths are always constant
     def widthRef(v: DFVal): IntParamRef = (v.dfType: @unchecked) match
-      case dt: DFBitsWL                             => dt.widthParamRef
+      case dt: DFBitsWL                           => dt.widthParamRef
       case dt: DFDecimal if dt.fractionWidth == 0 => dt.magnitudeWidthParamRef
       case dt: DFDecimal                          => IntParamRef(dt.widthUNSAFE)
     widthRef(lhs).compare(widthRef(rhs))(func)

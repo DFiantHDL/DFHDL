@@ -138,7 +138,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                 // width too)
                 case (Func.Op.length, _)                 => s"$argStrB'length"
                 case (_, dt: DFDecimal) if !dt.isDFInt32 => s"$argStrB'length"
-                case (_, _: DFBitsWL)                      => s"$argStrB'length"
+                case (_, _: DFBitsWL)                    => s"$argStrB'length"
                 // every other rendering (integer, std_logic, boolean, enum, record, vector
                 // array, opaque) is covered by the `bitWidth` overload family the printer
                 // already emits (dfhdl_pkg + the per-named-type support functions)
@@ -335,9 +335,9 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   // def csTimerIsActive(dfVal: Timer.IsActive): String = printer.unsupported
   def csNOTHING(dfVal: Special): String =
     dfVal.dfType match
-      case DFBit     => "'Z'"
+      case DFBit       => "'Z'"
       case _: DFBitsWL => "(others => 'Z')"
-      case _         => printer.unsupported
+      case _           => printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
     dfVal match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)

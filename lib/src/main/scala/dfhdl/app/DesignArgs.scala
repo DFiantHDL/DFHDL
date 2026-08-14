@@ -34,15 +34,15 @@ case class DesignArg(name: String, value: Any, desc: String)(using dfc: DFC):
       case _: BigInt         => "Int"
       case dfConst: DFValAny =>
         dfConst.asIR.dfType.runtimeChecked match
-          case ir.DFBool    => "Boolean"
-          case ir.DFBit     => "Bit"
-          case ir.DFInt32   => "Int"
-          case ir.DFDouble  => "Double"
-          case ir.DFString  => "String"
+          case ir.DFBool      => "Boolean"
+          case ir.DFBit       => "Bit"
+          case ir.DFInt32     => "Int"
+          case ir.DFDouble    => "Double"
+          case ir.DFString    => "String"
           case _: ir.DFBitsWL => "Bits"
-          case ir.DFUInt(_) => "UInt"
-          case ir.DFSInt(_) => "SInt"
-          case _            => ""
+          case ir.DFUInt(_)   => "UInt"
+          case ir.DFSInt(_)   => "SInt"
+          case _              => ""
       case _ => ""
 
   // Raw scalar value used for CLI round-trips: scallop's ValueConverter parses

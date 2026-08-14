@@ -1,5 +1,6 @@
 package dfhdl.sim
 import dfhdl.*
+// scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 /** The canonical typed-API example (locked decision 10): typed poke with a DFHDL constant,
   * const-vs-const assertEquals through the SimSpec Compare, and settle-on-peek semantics, i.e.
@@ -10,8 +11,8 @@ class Foo(val WIDTH: Int <> CONST) extends RTDesign:
   val y = Bits(WIDTH) <> OUT
   y := x
 
-/** a nonzero-low bit vector: selection and partial assignment use ABSOLUTE indices in
-  * [L, L+W-1], while the underlying data offsets are relative to the low index
+/** a nonzero-low bit vector: selection and partial assignment use ABSOLUTE indices in [L, L+W-1],
+  * while the underlying data offsets are relative to the low index
   */
 class BitsHLFoo extends RTDesign:
   val i8 = Bits(8)      <> IN

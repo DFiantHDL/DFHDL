@@ -25,3 +25,4 @@ import hw.flag.scalaRanges
     for (i <- 0 until fetch_count.toScalaInt)
         if ((dict_in(dict_entry_size * (i+1) - 1, dict_entry_size * i) == (idx_r, sym_r)) && (addr_r + d"$i" < entry_count - d"1"))
             matching(i) := 1
+end DictControl

@@ -1148,11 +1148,11 @@ object DFVal:
     ) extends Partial derives ReadWriter:
       def elementWidthUNSAFE(using MemberGetSet): Int = dfType.runtimeChecked match
         case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) => 1
-        case DFVector(cellType = cellType)     => cellType.widthUNSAFE
+        case DFVector(cellType = cellType)         => cellType.widthUNSAFE
       def elementWidthIntOpt(using MemberGetSet): Option[Int] = dfType.runtimeChecked match
         case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) => Some(1)
-        case DFVector(cellType = cellType)     => cellType.widthIntOpt
-        case _                                 => None
+        case DFVector(cellType = cellType)         => cellType.widthIntOpt
+        case _                                     => None
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =

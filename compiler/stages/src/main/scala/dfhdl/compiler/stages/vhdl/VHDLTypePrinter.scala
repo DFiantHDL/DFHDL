@@ -201,9 +201,9 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
 
   def getCellTypeName(dfType: DFVector): String =
     dfType.cellType match
-      case DFBit                 => "sl"
-      case DFBool                => "boolean"
-      case dt: DFBitsWL            =>
+      case DFBit        => "sl"
+      case DFBool       => "boolean"
+      case dt: DFBitsWL =>
         val lowSuffix = if (dt.lowIdxRef.equals(0)) "" else s"_at${csIntParamRef(dt.lowIdxRef)}"
         s"slv${csIntParamRef(dt.widthParamRef)}$lowSuffix"
       case DFUInt(widthParamRef) => s"unsigned${csIntParamRef(widthParamRef)}"
@@ -290,11 +290,11 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       vecType =>
         vecType.cellType match
           case _: DFBitsWL => argSel
-          case DFBit     => s"to_sl($argSel)"
-          case DFBool    => s"to_bool($argSel)"
-          case DFUInt(_) => s"unsigned($argSel)"
-          case DFSInt(_) => s"signed($argSel)"
-          case _         => s"to_${getCellTypeName(vecType)}($argSel)",
+          case DFBit       => s"to_sl($argSel)"
+          case DFBool      => s"to_bool($argSel)"
+          case DFUInt(_)   => s"unsigned($argSel)"
+          case DFSInt(_)   => s"signed($argSel)"
+          case _           => s"to_${getCellTypeName(vecType)}($argSel)",
       depth =>
         if (depth == 1)
           cellTypeName match
@@ -389,7 +389,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
             loopType = dfType.cellType
           case cellType =>
             val finale = cellType match
-              case dt: DFBitsWL    =>
+              case dt: DFBitsWL =>
                 s"(${dt.widthParamRef.hboundCS(dt.lowIdxRef)} downto ${dt.lowIdxRef.refCodeString})"
               case DFUInt(width) => s"(${width.uboundCS} downto 0)"
               case DFSInt(width) => s"(${width.uboundCS} downto 0)"
@@ -422,7 +422,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     val typeName = csDFStructTypeName(dfType)
     def to_slv(fromType: DFType, csArg: String): String = fromType match
       case _: DFBitsWL => csArg
-      case _         => s"to_slv($csArg)"
+      case _           => s"to_slv($csArg)"
     val fieldLengths = dfType.fieldMap.map { (n, t) =>
       s"width := width + bitWidth(A.$n);"
     }.mkString("\n  ")

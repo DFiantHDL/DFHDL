@@ -695,7 +695,7 @@ object DFVal extends DFValLP:
       )
       val initFileConst = vectorType.cellType.asIR match
         case _: ir.DFBitsWL => DFVal.Const(vectorType, data)
-        case cellType     =>
+        case cellType       =>
           DFVal.Const(vectorType, data.map(cellType.bitsDataToData))
 
       dfVal.initForced(List(initFileConst))
@@ -2078,7 +2078,7 @@ object DFVarOps:
       val argsBitsIR = argsIR.map { arg =>
         arg.dfType match
           case _: ir.DFBitsWL => arg
-          case dfType       => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.widthUNSAFE), arg)
+          case dfType         => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.widthUNSAFE), arg)
       }
       assignRecur(dfVarsIR, argsBitsIR, 0, Nil)
   end extension

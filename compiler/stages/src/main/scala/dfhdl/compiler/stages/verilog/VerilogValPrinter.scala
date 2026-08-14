@@ -417,9 +417,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         if (printer.allowSignedKeywordAndOps)
           s"$$signed($extended)"
         else extended
-      case (DFInt32, DFUInt(_) | DFSInt(_))               => relValStr
-      case (DFBit, DFBool | DFEnum(widthParam = 1))       => relValStr
-      case (DFBool, DFBit | DFEnum(widthParam = 1))       => relValStr
+      case (DFInt32, DFUInt(_) | DFSInt(_))                   => relValStr
+      case (DFBit, DFBool | DFEnum(widthParam = 1))           => relValStr
+      case (DFBool, DFBit | DFEnum(widthParam = 1))           => relValStr
       case (enumType: DFEnum, DFBit | DFBool | (_: DFBitsWL)) =>
         if (printer.allowTypeDef)
           s"${printer.csDFEnumTypeName(enumType)}'($relValStr)"

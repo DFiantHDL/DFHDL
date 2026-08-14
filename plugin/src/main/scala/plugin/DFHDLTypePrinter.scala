@@ -170,14 +170,14 @@ class DFHDLTypePrinter(_ctx: Context, syms: DFHDLSymbols) extends RefinedPrinter
       Context
   ): Option[Text] =
     (kind, args) match
-      case (DFBool, _)                  => Some("Boolean")
-      case (DFBit, _)                   => Some("Bit")
+      case (DFBool, _)                         => Some("Boolean")
+      case (DFBit, _)                          => Some("Bit")
       case (DFBits, widthTpe :: lowTpe :: Nil) =>
         (constInt(widthTpe), constInt(lowTpe)) match
           case (_, Some(0))       => Some("Bits[" ~ intPText(widthTpe) ~ "]")
           case (Some(w), Some(l)) =>
             Some("BitsHL[" ~ (w + l - 1).toString ~ ", " ~ l.toString ~ "]")
-          case _                  =>
+          case _ =>
             val low = intPText(lowTpe)
             Some("BitsHL[" ~ intPText(widthTpe) ~ " + " ~ low ~ " - 1, " ~ low ~ "]")
       case (DFDecimal, sign :: IntP(magnitude) :: fraction :: native :: Nil) =>

@@ -1139,8 +1139,8 @@ private final class Builder(rawDB: DB):
           )
         case _ => buildApplyIdxNonMem(a, rel)
 
-    /** selection indices are absolute, so a low-indexed bit vector's data offsets are
-      * relative to its low index (nonzero only for explicit BitsHL-constructed types)
+    /** selection indices are absolute, so a low-indexed bit vector's data offsets are relative to
+      * its low index (nonzero only for explicit BitsHL-constructed types)
       */
     private def bitsLowOf(t: DFType): Int = t match
       case b: DFBitsWL => b.lowIdxRef.getIntOpt.getOrElse(0)
@@ -1169,10 +1169,10 @@ private final class Builder(rawDB: DB):
           constIdxOpt(a.relIdx.get) match
             case Some(i) if undrivenPartialSink(rel) =>
               partialSinkRead(rel.asInstanceOf[DFVal.Dcl], i - low, 1)
-            case Some(i)           => wide.extract(readWV(rel), i - low, 1)
-            case None if low == 0  =>
+            case Some(i)          => wide.extract(readWV(rel), i - low, 1)
+            case None if low == 0 =>
               wide.dynExtract(readWV(rel), dynBitOffset(a.relIdx.get), 1)
-            case None              =>
+            case None =>
               unsupported("dynamic indexing of a low-indexed bit vector", a)
         case t => unsupported(s"indexing into $t", a)
       end match
@@ -1186,7 +1186,7 @@ private final class Builder(rawDB: DB):
         case bt: DFBitsWL if undrivenPartialSink(rel) =>
           partialSinkRead(rel.asInstanceOf[DFVal.Dcl], lo - bitsLowOf(bt), hi - lo + 1)
         case bt: DFBitsWL => wide.extract(readWV(rel), lo - bitsLowOf(bt), hi - lo + 1)
-        case t          => unsupported(s"range selection on $t", a)
+        case t            => unsupported(s"range selection on $t", a)
 
     private def buildSelectField(sf: DFVal.Alias.SelectField): WV =
       val rel = sf.relValRef.get
@@ -1602,6 +1602,7 @@ private final class Builder(rawDB: DB):
                 case None             =>
                   unsupported("dynamic indexing of a low-indexed bit vector", net)
             case t => unsupported(s"assignment through indexing into $t", net)
+          end match
         case sf: DFVal.Alias.SelectField =>
           val rel = sf.relValRef.get
           val (dcl, lo0, dyn) = assignTarget(rel, net)
@@ -1784,7 +1785,7 @@ private final class Builder(rawDB: DB):
               val len = widthOfType(vt, ai) / cellW
               (dcl, lo0 + (len - 1 - constIdxOf(ai.relIdx.get)) * cellW)
             case bt: DFBitsWL => (dcl, lo0 + constIdxOf(ai.relIdx.get) - bitsLowOf(bt))
-            case t          => unsupported(s"initial assignment through indexing into $t", ai)
+            case t            => unsupported(s"initial assignment through indexing into $t", ai)
         case sf: DFVal.Alias.SelectField =>
           val rel = sf.relValRef.get
           val (dcl, lo0) = lhsTarget(rel)
@@ -3006,7 +3007,7 @@ private final class Builder(rawDB: DB):
     private def widthThroughParams(t: DFType): Option[Int] =
       given ConstData.CachePolicy = ConstData.CachePolicy.NoCache
       t match
-        case b: DFBitsWL    => b.widthParamRef.getIntConstData.toOption
+        case b: DFBitsWL  => b.widthParamRef.getIntConstData.toOption
         case d: DFDecimal =>
           d.magnitudeWidthParamRef.getIntConstData.toOption.map(_ + d.fractionWidth)
         case v: DFVector =>

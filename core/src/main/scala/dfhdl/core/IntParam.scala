@@ -147,9 +147,9 @@ object IntP:
   type RangeWidth[HI <: IntP, LO <: IntP] =
     FoldConst2[HI, LO, [X <: Int, Y <: Int] =>> int.+[int.-[X, Y], 1]]
 
-  /** `L + W - 1`, the high (absolute) index of a low-indexed bit vector. A single guarded
-    * fold, since a composition of the guarded operators collapses (see the doc comment at
-    * the top of this file).
+  /** `L + W - 1`, the high (absolute) index of a low-indexed bit vector. A single guarded fold,
+    * since a composition of the guarded operators collapses (see the doc comment at the top of this
+    * file).
     */
   type HighIdx[W <: IntP, L <: IntP] =
     FoldConst2[W, L, [X <: Int, Y <: Int] =>> int.-[int.+[X, Y], 1]]

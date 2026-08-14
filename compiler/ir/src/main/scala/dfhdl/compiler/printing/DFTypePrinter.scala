@@ -106,7 +106,7 @@ trait AbstractTypePrinter extends AbstractPrinter:
 
   final def csDFType(dfType: DFType, typeCS: Boolean = false): String = dfType match
     case dt: DFBoolOrBit                                  => csDFBoolOrBit(dt, typeCS)
-    case dt: DFBitsWL                                       => csDFBits(dt, typeCS)
+    case dt: DFBitsWL                                     => csDFBits(dt, typeCS)
     case dt: DFDecimal                                    => csDFDecimal(dt, typeCS)
     case dt: DFEnum                                       => csDFEnum(dt, typeCS)
     case dt: DFVector                                     => csDFVector(dt, typeCS)

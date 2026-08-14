@@ -482,7 +482,7 @@ object DFBits:
             val dfValIR = dfVal.asIR
             dfValIR.dfType match
               case _: ir.DFBitsWL => dfValIR.asValOf[DFBits[Int]]
-              case _            =>
+              case _              =>
                 dfValIR.asValAny.bits(using dfc)(using Width.wide).asValOf[DFBits[Int]]
         end match
       end valueToBits
@@ -1087,7 +1087,7 @@ object DFBits:
              else
                val low = lowRef.get
                (lhs.widthIntParam + low - 1, lhs.widthIntParam + low - updatedWidth)
-            ).asInstanceOf[(IntParam[Int], IntParam[Int])]
+            ) .asInstanceOf[(IntParam[Int], IntParam[Int])]
           DFVal.Alias.ApplyRange(lhs, idxHigh, idxLow).asValTP[DFBits[RW], P]
         }
         def lsbits[RW <: IntP](updatedWidth: IntParam[RW])(using
@@ -1103,7 +1103,7 @@ object DFBits:
              else
                val low = lowRef.get
                (updatedWidth + low - 1, low)
-            ).asInstanceOf[(IntParam[Int], IntParam[Int])]
+            ) .asInstanceOf[(IntParam[Int], IntParam[Int])]
           DFVal.Alias.ApplyRange(lhs, idxHigh, idxLow).asValTP[DFBits[RW], P]
         }
         // ascending part-select (Verilog `lhs[baseIdx +: selWidth]`):
