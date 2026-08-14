@@ -3348,17 +3348,17 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input  wire logic signed [W - 1:0] b,
          |  input  wire logic [W - 1:0] ua,
          |  input  wire logic [W - 1:0] ub,
-         |  output logic signed [(W + 1) - 1:0] sum,
-         |  output logic [(W + 1) - 1:0] usub,
-         |  output logic signed [(W + 2) - 1:0] acc,
-         |  output logic [(W + 2) - 1:0] uacc,
+         |  output logic signed [W:0] sum,
+         |  output logic [W:0] usub,
+         |  output logic signed [W + 1:0] acc,
+         |  output logic [W + 1:0] uacc,
          |  output logic signed [(2 * W) - 1:0] prod,
          |  output logic [(2 * W) - 1:0] uprod,
          |  input  wire logic c,
-         |  output logic signed [(W + 1) - 1:0] viaSel,
-         |  output logic signed [(W + 1) - 1:0] viaIf,
-         |  output logic signed [(W + 2) - 1:0] shr,
-         |  output logic signed [(W + 2) - 1:0] neg
+         |  output logic signed [W:0] viaSel,
+         |  output logic signed [W:0] viaIf,
+         |  output logic signed [W + 1:0] shr,
+         |  output logic signed [W + 1:0] neg
          |);
          |  `include "dfhdl_defs.svh"
          |  assign sum = a + b;
@@ -3764,6 +3764,41 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  assign b = v[13];
          |  assign o = v[13:10];
          |  assign d = v[(32 - (8 * (i + 1))) + 5];
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("BitsHL constant bounds emit as written") {
+    class HLBounds(val HI: Int <> CONST = 5, val LO: Int <> CONST = 4) extends RTDesign:
+      val b = BitsHL(HI, LO) <> OUT
+      val c = BitsHL(HI, 0)  <> OUT
+      val d = BitsHL(9, LO)  <> OUT
+      val e = Bits(HI)       <> OUT
+      b <> all(0)
+      c <> all(0)
+      d <> all(0)
+      e <> all(0)
+    end HLBounds
+    val top = HLBounds().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module HLBounds#(
+         |    parameter int HI = 5,
+         |    parameter int LO = 4
+         |)(
+         |  output logic [HI:LO] b,
+         |  output logic [HI:0] c,
+         |  output logic [9:LO] d,
+         |  output logic [HI - 1:0] e
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign b = {((HI - LO) + 1){1'b0}};
+         |  assign c = {(HI + 1){1'b0}};
+         |  assign d = {((9 - LO) + 1){1'b0}};
+         |  assign e = {HI{1'b0}};
          |endmodule
          |""".stripMargin
     )

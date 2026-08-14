@@ -3528,17 +3528,17 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  b : in signed(W - 1 downto 0);
          |  ua : in unsigned(W - 1 downto 0);
          |  ub : in unsigned(W - 1 downto 0);
-         |  sum : out signed((W + 1) - 1 downto 0);
-         |  usub : out unsigned((W + 1) - 1 downto 0);
-         |  acc : out signed((W + 2) - 1 downto 0);
-         |  uacc : out unsigned((W + 2) - 1 downto 0);
+         |  sum : out signed(W downto 0);
+         |  usub : out unsigned(W downto 0);
+         |  acc : out signed(W + 1 downto 0);
+         |  uacc : out unsigned(W + 1 downto 0);
          |  prod : out signed((2 * W) - 1 downto 0);
          |  uprod : out unsigned((2 * W) - 1 downto 0);
          |  c : in std_logic;
-         |  viaSel : out signed((W + 1) - 1 downto 0);
-         |  viaIf : out signed((W + 1) - 1 downto 0);
-         |  shr : out signed((W + 2) - 1 downto 0);
-         |  neg : out signed((W + 2) - 1 downto 0)
+         |  viaSel : out signed(W downto 0);
+         |  viaIf : out signed(W downto 0);
+         |  shr : out signed(W + 1 downto 0);
+         |  neg : out signed(W + 1 downto 0)
          |);
          |end ParamWiden;
          |
@@ -3828,6 +3828,48 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  y <= x;
          |  b <= x(5);
          |end BitsHLTop_arch;
+         |""".stripMargin
+    )
+  }
+  test("BitsHL constant bounds emit as written") {
+    class HLBounds(val HI: Int <> CONST = 5, val LO: Int <> CONST = 4) extends RTDesign:
+      val b = BitsHL(HI, LO) <> OUT
+      val c = BitsHL(HI, 0)  <> OUT
+      val d = BitsHL(9, LO)  <> OUT
+      val e = Bits(HI)       <> OUT
+      b <> all(0)
+      c <> all(0)
+      d <> all(0)
+      e <> all(0)
+    end HLBounds
+    val top = HLBounds().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity HLBounds is
+         |generic (
+         |  HI : integer := 5;
+         |  LO : integer := 4
+         |);
+         |port (
+         |  b : out std_logic_vector(HI downto LO);
+         |  c : out std_logic_vector(HI downto 0);
+         |  d : out std_logic_vector(9 downto LO);
+         |  e : out std_logic_vector(HI - 1 downto 0)
+         |);
+         |end HLBounds;
+         |
+         |architecture HLBounds_arch of HLBounds is
+         |begin
+         |  b <= repeat("0", (HI - LO) + 1);
+         |  c <= repeat("0", HI + 1);
+         |  d <= repeat("0", (9 - LO) + 1);
+         |  e <= repeat("0", HI);
+         |end HLBounds_arch;
          |""".stripMargin
     )
   }

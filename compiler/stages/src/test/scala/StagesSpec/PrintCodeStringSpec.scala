@@ -3811,4 +3811,25 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("BitsHL constant bounds print as written") {
+    class HLBounds(val HI: Int <> CONST = 5, val LO: Int <> CONST = 4) extends RTDesign:
+      val b = BitsHL(HI, LO) <> OUT
+      val d = BitsHL(9, LO)  <> OUT
+      b <> all(0)
+      d <> all(0)
+    end HLBounds
+    assertCodeString(
+      HLBounds(),
+      """|class HLBounds(
+         |    val HI: Int <> CONST = 5,
+         |    val LO: Int <> CONST = 4
+         |) extends RTDesign:
+         |  val b = BitsHL(HI, LO) <> OUT
+         |  val d = BitsHL(9, LO) <> OUT
+         |  b <> b"0".repeat((HI - LO) + 1)
+         |  d <> b"0".repeat((9 - LO) + 1)
+         |end HLBounds
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

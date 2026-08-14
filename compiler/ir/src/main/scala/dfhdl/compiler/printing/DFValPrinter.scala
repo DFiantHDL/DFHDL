@@ -65,26 +65,98 @@ extension (intParamRef: IntParamRef)
     case ref: DFRef.TwoWayAny => printer.csRef(ref, typeCS)
     case int: Int             => int.toString
   def refCodeString(using printer: AbstractValPrinter): String = intParamRef.refCodeString(false)
+
+  /** The signed additive terms of the expression behind this parameter reference, collected across
+    * anonymous two-arg DFInt32 `+`/`-` cones. This is the term collection of the elaboration-time
+    * `SimplifyFunc` additive cancellation, applied at print: a bound expression the PRINTER
+    * synthesizes (`width - 1`, `width + low - 1`) is never built as a value, so its cancellation
+    * can only happen here. Terms keep their references, so a surviving term renders through `csRef`
+    * exactly as the plain spelling would; an ANONYMOUS constant folds into the returned constant
+    * offset, while a named constant is a spelling the user chose and stays a symbolic term.
+    */
+  private def boundTerms(using
+      printer: AbstractValPrinter
+  ): (List[(Int, DFRef.TwoWayAny)], Int) =
+    import printer.getSet
+    def stripAnonIdent(dfVal: DFVal): DFVal = dfVal match
+      case Ident(underlying) if dfVal.isAnonymous => stripAnonIdent(underlying)
+      case _                                      => dfVal
+    def collect(ref: DFRef.TwoWayAny, sign: Int): (List[(Int, DFRef.TwoWayAny)], Int) =
+      ref.get match
+        case f: Func
+            if f.isAnonymous && f.dfType == DFInt32 &&
+              (f.op == FuncOp.+ || f.op == FuncOp.-) && f.args.size == 2 =>
+          val List(lhsRef, rhsRef) = f.args: @unchecked
+          val (lhsTerms, lhsOffset) = collect(lhsRef, sign)
+          val (rhsTerms, rhsOffset) = collect(rhsRef, if (f.op == FuncOp.+) sign else -sign)
+          (lhsTerms ++ rhsTerms, lhsOffset + rhsOffset)
+        case dfVal: DFVal =>
+          stripAnonIdent(dfVal) match
+            case c: Const if c.isAnonymous && c.dfType == DFInt32 =>
+              c.data match
+                case Some(i: BigInt) => (Nil, sign * i.toInt)
+                case _               => (List((sign, ref)), 0)
+            case _ => (List((sign, ref)), 0)
+        case _ => (List((sign, ref)), 0)
+    intParamRef match
+      case ref: DFRef.TwoWayAny => collect(ref, 1)
+      case int: Int             => (Nil, int)
+  end boundTerms
+
+  /** the code string of `width + low + constOffset` (the receiver is the width), with opposing
+    * additive terms cancelled the way elaboration's `SimplifyFunc` would cancel them had the
+    * expression been built as a value. In particular, the width of an explicit
+    * `BitsHL(idxHigh, idxLow)` construction is the cone `(idxHigh - idxLow) + 1`, so its high bound
+    * `width + low - 1` cancels back exactly to the `idxHigh` the user wrote.
+    */
+  private def reducedBoundCS(
+      lowIdxRefOpt: Option[IntParamRef],
+      constOffset: Int,
+      typeCS: Boolean
+  )(using printer: AbstractValPrinter): String =
+    import printer.getSet
+    val (widthTerms, widthOffset) = intParamRef.boundTerms
+    val (lowTerms, lowOffset) = lowIdxRefOpt match
+      case Some(lowIdxRef) => lowIdxRef.boundTerms
+      case None            => (Nil, 0)
+    var terms = widthTerms ++ lowTerms
+    val offset = widthOffset + lowOffset + constOffset
+    // cancel opposing +/- terms of the same value (ident-transparent), one pair per round
+    def strippedValOf(ref: DFRef.TwoWayAny): Option[DFVal] = ref.get match
+      case dfVal: DFVal => Some(dfVal.stripTypePreservingAliases)
+      case _            => None
+    def cancelOnce(ts: List[(Int, DFRef.TwoWayAny)]): Option[List[(Int, DFRef.TwoWayAny)]] =
+      val indexed = ts.zipWithIndex
+      indexed.iterator.flatMap { case ((s1, r1), i) =>
+        indexed.iterator.collectFirst {
+          case ((s2, r2), j)
+              if j > i && s1 == -s2 &&
+                strippedValOf(r1).exists(v1 => strippedValOf(r2).exists(v1 =~ _)) =>
+            ts.zipWithIndex.collect { case (t, k) if k != i && k != j => t }
+        }
+      }.nextOption()
+    var continue = true
+    while (continue)
+      cancelOnce(terms) match
+        case Some(reduced) => terms = reduced
+        case None          => continue = false
+    if (terms.isEmpty) offset.toString
+    else
+      val csTerms = terms.zipWithIndex.map { case ((sign, ref), idx) =>
+        val cs = printer.csRef(ref, typeCS).applyBrackets()
+        if (idx == 0) if (sign > 0) cs else s"-$cs"
+        else if (sign > 0) s" + $cs"
+        else s" - $cs"
+      }.mkString
+      if (offset > 0) s"$csTerms + $offset"
+      else if (offset < 0) s"$csTerms - ${-offset}"
+      else csTerms
+  end reducedBoundCS
+
   def uboundCS(using printer: AbstractValPrinter): String = intParamRef match
-    case ref: DFRef.TwoWayAny =>
-      // TODO: consider implementing an associative int operation reduction
-      // import printer.getSet
-      // ref.get match
-      //   case func @ ir.DFVal.Func(
-      //         ir.DFInt32,
-      //         op @ (Func.Op.+ | Func.Op.-),
-      //         List(argRef, ir.DFRef(const: ir.DFVal.Const)),
-      //         _,
-      //         _,
-      //         _
-      //       ) =>
-      //     val int = const.data.asInstanceOf[Option[BigInt]].get.toInt
-      //     val csArg = printer.csRef(argRef, false)
-      //     if (int == 1) csArg
-      //     else s"$csArg $op ${int - 1}"
-      //   case _ =>
-      s"${printer.csRef(ref, false).applyBrackets()} - 1"
     case int: Int => (int - 1).toString
+    case _        => reducedBoundCS(None, -1, false)
+
   /** the high-bound expression `low + width - 1` of a bit-vector range (the receiver is the width),
     * folded to a literal when possible; a literal low of 0 spells exactly like `uboundCS`
     */
@@ -92,17 +164,8 @@ extension (intParamRef: IntParamRef)
       printer: AbstractValPrinter
   ): String =
     (intParamRef, lowIdxRef) match
-      case (w: Int, l: Int)      => (w + l - 1).toString
-      case (_, l: Int) if l == 0 =>
-        s"${intParamRef.refCodeString(typeCS).applyBrackets()} - 1"
-      case (w: Int, _)           =>
-        s"${lowIdxRef.refCodeString(typeCS).applyBrackets()} + ${w - 1}"
-      case (_, l: Int)           =>
-        s"${intParamRef.refCodeString(typeCS).applyBrackets()} + ${l - 1}"
-      case _                     =>
-        val csWidth = intParamRef.refCodeString(typeCS).applyBrackets()
-        val csLow = lowIdxRef.refCodeString(typeCS).applyBrackets()
-        s"$csWidth + $csLow - 1"
+      case (w: Int, l: Int) => (w + l - 1).toString
+      case _                => reducedBoundCS(Some(lowIdxRef), -1, typeCS)
 end extension
 
 extension (alias: Alias)
@@ -122,7 +185,7 @@ trait AbstractValPrinter extends AbstractPrinter:
     */
   final def csInlinedWidth(dfType: DFType): String = dfType match
     case DFBool | DFBit => "1"
-    case dt: DFBitsWL     => dt.widthParamRef.refCodeString
+    case dt: DFBitsWL   => dt.widthParamRef.refCodeString
     case dt: DFDecimal  =>
       if (dt.fractionWidth == 0) dt.magnitudeWidthParamRef.refCodeString
       else s"${dt.magnitudeWidthParamRef.refCodeString.applyBrackets()} + ${dt.fractionWidth}"
