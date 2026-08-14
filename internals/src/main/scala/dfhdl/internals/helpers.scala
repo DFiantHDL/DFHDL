@@ -397,7 +397,6 @@ lazy val sbtnIsRunning: Boolean =
   sbtIsRunning && getShellCommand.exists(cmd => cmd.endsWith("--server") || cmd.endsWith("--detach-stdio"))
 
 lazy val sbtShellIsRunning: Boolean =
-  println(s"getShellCommand: ${getShellCommand}")
   getShellCommand.exists(cmd => cmd.endsWith("xsbt.boot.Boot") || cmd.endsWith("sbt-launch.jar"))
 
 lazy val sbtTestIsRunning: Boolean =
