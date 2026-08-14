@@ -1004,7 +1004,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |        for (j = 0; j < 8; j = j + 1) begin
          |          if ((j % 2) == 0) begin
          |            for (k = 0; k < 10; k = k + 1) begin
-         |              if ((k % 2) == 0) (matrix[(10 + ((640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0))) - 1:(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0)])[k] <= 1'b1;
+         |              if ((k % 2) == 0) matrix[(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + ((k - 0) + 0))] <= 1'b1;
          |            end
          |          end
          |        end
@@ -1015,7 +1015,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |        for (j = 0; j < 8; j = j + 1) begin
          |          if ((j % 2) == 1) begin
          |            for (k = 0; k < 10; k = k + 1) begin
-         |              if ((k % 2) == 1) (matrix[(10 + ((640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0))) - 1:(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0)])[k] <= 1'b0;
+         |              if ((k % 2) == 1) matrix[(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + ((k - 0) + 0))] <= 1'b0;
          |            end
          |          end
          |        end
@@ -3675,14 +3675,16 @@ class PrintVerilogCodeSpec extends StageSpec:
   test("nonzero-low bit vector struct field flattening under v2001") {
     given options.CompilerOptions.Backend = _.verilog.v2001
     class BitsHLFlatten extends RTDesign:
-      // NOTE: a bit selection into the field (`p.f(5)`) is excluded here: the flattening
-      // currently emits an illegal chained part-select (`p[8:1][5]`) under v2001, a
-      // pre-existing issue that equally affects zero-based fields (and for a nonzero-low
-      // field also keeps the absolute index where a relative one is needed)
+      // selections into the field fold into a single select over the flattened struct,
+      // with the field's absolute (nonzero-low) indices translated to flattened positions
       case class P(f: BitsHL[9, 2] <> VAL, g: Bit <> VAL) extends Struct
       val p  = P       <> IN
       val f8 = Bits(8) <> OUT
+      val fb = Bit     <> OUT
+      val f4 = Bits(4) <> OUT
       f8 := p.f
+      fb := p.f(5)
+      f4 := p.f(5, 2)
     end BitsHLFlatten
     val top = BitsHLFlatten().getCompiledCodeString
     assertNoDiff(
@@ -3692,10 +3694,14 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module BitsHLFlatten(
          |  input  wire [8:0] p,
-         |  output wire [7:0] f8
+         |  output wire [7:0] f8,
+         |  output wire fb,
+         |  output wire [3:0] f4
          |);
          |  `include "dfhdl_defs.vh"
          |  assign f8 = p[8:1];
+         |  assign fb = p[4];
+         |  assign f4 = p[4:1];
          |endmodule
          |""".stripMargin
     )
@@ -3723,6 +3729,41 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `include "dfhdl_defs.svh"
          |  assign y = x;
          |  assign b = x[5];
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("selection into a flattened vector cell under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class VecCellSel extends RTDesign:
+      val v = Bits(8) X 4 <> IN
+      val i = UInt(2)     <> IN
+      val b = Bit         <> OUT
+      val o = Bits(4)     <> OUT
+      val d = Bit         <> OUT
+      b := v(2)(5)
+      o := v(2)(5, 2)
+      // a runtime cell index folds into a runtime bit selection (a part-select
+      // with runtime bounds is illegal in v95/v2001)
+      d := v(i)(5)
+    end VecCellSel
+    val top = VecCellSel().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module VecCellSel(
+         |  input  wire [31:0] v,
+         |  input  wire [1:0] i,
+         |  output wire b,
+         |  output wire [3:0] o,
+         |  output wire d
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  assign b = v[13];
+         |  assign o = v[13:10];
+         |  assign d = v[(32 - (8 * (i + 1))) + 5];
          |endmodule
          |""".stripMargin
     )

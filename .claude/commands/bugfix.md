@@ -708,6 +708,23 @@ Duplicated demands from the two sides merge in the grouping step, and named valu
 the re-ask are dropped by the `isAllowedMultipleReferences` filter, so the two-sided form costs
 nothing.
 
+### A stage running after the naming stages can re-create the shape they exist to prevent
+
+`NamedVerilogSelection`/`NamedVHDLSelection` enforce the select-prefix rule ("a select must
+consume a declared dimension of a name") early in `BackendPrepStage`; a later stage that
+rewrites a selection's PREFIX re-creates select-over-expression shapes with nothing downstream
+to repair them, so it must keep its own output legal in the same patch (a "run the naming stage
+again" cleanup is off the table per the `SanityCheck` rule). `DropStructsVecs` was the case: it
+folded a partial chain into one range selection over the flattened declaration, but its chain
+extractor was keyed on direct membership in the replacement map, so a selection INTO a
+leaf-typed (Bits) chain link — a bits field select or a vector bits-cell select, never
+themselves replaced — dangled and emitted `p[8:1][5]`. Two generalizable points: an extractor
+keyed on direct membership misses TRANSITIVE chain participants (probe the select-into-the-
+select twin, not just the chain the author had in mind); and when folding for v95/v2001, a
+single-bit result must fold to a BIT select (`ApplyIdx`), never a one-bit part-select, because
+a part-select requires constant bounds while a bit select legally takes a runtime index — that
+one choice is what keeps the runtime-index variants (`p.f(i)`, `v(i)(5)`) legal at all.
+
 ### An exemption phrased by shape swallows every construct with that shape
 
 When a stage's criteria carry an exemption written as a pattern (`case Ident(_) => false`, "skip
