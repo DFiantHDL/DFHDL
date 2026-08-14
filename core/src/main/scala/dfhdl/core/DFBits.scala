@@ -26,23 +26,27 @@ object DFBitsWL:
     summon[Arg.Width.Check[Int]](width)
     summon[Arg.Natural.Check[Int]](lowIdx)
     ir.DFBitsWL(ir.IntParamRef(width), ir.IntParamRef(lowIdx)).asFE[DFBitsWL[W, L]]
-  // the type-only spelling (e.g. a `BitsHL[9, 2] <> VAL` struct field)
-  given [W <: IntP & Singleton, L <: IntP & Singleton](using
-      dfc: DFCG,
+  // the type-only spelling (e.g. a `BitsHL[9, 2] <> VAL` struct field). The width is not
+  // bounded by `Singleton`: a constant-bound `BitsHL[H, L]` spelling carries its width as an
+  // `IntP.Sig` node (see `IntP.Sig.Ops`), whose `ValueOf` instance (needing the DFC, hence the
+  // separate first clause) reconstructs the width operation as a `DFConstInt32` right here
+  given [W <: IntP, L <: IntP](using
+      dfc: DFCG
+  )(using
       w: ValueOf[W],
       l: ValueOf[L],
       widthCheck: Arg.Width.CheckNUB[W],
       lowCheck: Arg.Natural.CheckNUB[L]
   ): DFBitsWL[W, L] = trydf {
-    val width = IntParam.forced(w)
-    val lowIdx = IntParam.forced(l)
+    val width = IntParam(w.value)
+    val lowIdx = IntParam(l.value)
     width.toScalaIntOpt.foreach(widthCheck(_))
     lowIdx.toScalaIntOpt.foreach(lowCheck(_))
     ir.DFBitsWL(width.ref, lowIdx.ref).asFE[DFBitsWL[W, L]]
   }(using dfc, CTName("BitsWL constructor"))
 end DFBitsWL
 
-type DFBitsHL[H <: IntP, L <: IntP] = DFBitsWL[IntP.RangeWidth[H, L], L]
+type DFBitsHL[H <: IntP, L <: IntP] = DFBitsWL[IntP.Sig.Ops.RangeWidth[H, L], L]
 object DFBitsHL:
   def apply[H <: IntP, L <: IntP](idxHigh: IntParam[H], idxLow: IntParam[L])(using
       dfc: DFCG,
@@ -55,10 +59,8 @@ object DFBitsHL:
     idxLow.toScalaIntOpt.foreach(lowCheck(_))
     ir.DFBitsWL((idxHigh - idxLow + 1).ref, idxLow.ref).asFE[DFBitsHL[H, L]]
   }(using dfc, CTName("BitsHL constructor"))
-  // the type-only spelling in term position (e.g. `BitsHL[HI.type, LO.type] <> IN`). The
-  // bounds are taken from the EXPLICIT type arguments: for non-literal bounds the spelled
-  // TYPE immediately collapses its width to `Int` (the guarded-fold collapse), erasing `H`,
-  // so this apply site is the one place the high bound is still recoverable
+  // the type-only spelling in term position (e.g. `BitsHL[HI.type, LO.type] <> IN`),
+  // constructing the type from the EXPLICIT type arguments
   def apply[H <: IntP & Singleton, L <: IntP & Singleton](using
       dfc: DFCG,
       h: ValueOf[H],

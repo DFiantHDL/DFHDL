@@ -16,13 +16,82 @@ object IntP:
     val value: DFConstInt32
   object Sig:
     given [S <: Sig](using s: S): ValueOf[S] = ValueOf[S](s)
+    given [F <: FuncOp, A <: IntP](using
+        vf: ValueOf[F],
+        va: ValueOf[A],
+        dfc: DFC
+    ): Sig1[F, A] with
+      val value: DFConstInt32 =
+        val arg = IntParam(va.value)
+        vf.value match
+          case FuncOp.clog2 => arg.clog2.toDFConst
+          case FuncOp.abs   =>
+            given DFC = dfc.anonymize
+            DFVal.Func(DFInt32, FuncOp.abs, List(arg.toDFConst))
+          case op => throw new IllegalArgumentException(s"Unexpected operation: $op")
     given [F <: FuncOp, L <: IntP, R <: IntP](using
-        ValueOf[F],
-        ValueOf[L],
-        ValueOf[R],
-        DFC
+        vf: ValueOf[F],
+        vl: ValueOf[L],
+        vr: ValueOf[R],
+        dfc: DFC
     ): Sig2[F, L, R] with
-      val value: DFConstInt32 = ???
+      val value: DFConstInt32 =
+        val lhs = IntParam(vl.value)
+        val rhs = IntParam(vr.value)
+        vf.value match
+          case FuncOp.+   => (lhs + rhs).toDFConst
+          case FuncOp.-   => (lhs - rhs).toDFConst
+          case FuncOp.`*` => (lhs * rhs).toDFConst
+          case FuncOp./   => (lhs / rhs).toDFConst
+          case FuncOp.%   => (lhs % rhs).toDFConst
+          case FuncOp.max => (lhs max rhs).toDFConst
+          case FuncOp.min => (lhs min rhs).toDFConst
+          case op         => throw new IllegalArgumentException(s"Unexpected operation: $op")
+    end given
+
+    /** The Sig-preserving spellings of the width algebra, for TYPE-position arithmetic over
+      * non-literal operands (`BitsHL[H, L]`, `Bits[P1.type - P2.type]`). Unlike the guarded
+      * operators on [[IntP]] below, which collapse any non-literal operation to `Int`, these keep
+      * the operation symbolically as a [[Sig1]]/[[Sig2]] node, so the spelled type still names its
+      * operands and a matching given instance (via [[Sig]]'s `ValueOf`) can reconstruct the
+      * operation's `DFConstInt32` at the summon site. VALUE-level operations deliberately stay on
+      * the collapsing operators (see the `IsConstInt2` doc below and issue #431); these spellings
+      * serve only where a type must be summoned back, most notably a struct field's `DFType` (issue
+      * #491).
+      */
+    object Ops:
+      type +[L <: IntP, R <: IntP] <: IntP = (L, R) match
+        case (Int, Int) => int.+[L, R]
+        case _          => Sig2[FuncOp.+.type, L, R]
+      type -[L <: IntP, R <: IntP] <: IntP = (L, R) match
+        case (Int, Int) => int.-[L, R]
+        case _          => Sig2[FuncOp.-.type, L, R]
+      type *[L <: IntP, R <: IntP] <: IntP = (L, R) match
+        case (Int, Int) => int.*[L, R]
+        case _          => Sig2[FuncOp.*.type, L, R]
+      type /[L <: IntP, R <: IntP] <: IntP = (L, R) match
+        case (Int, Int) => int./[L, R]
+        case _          => Sig2[FuncOp./.type, L, R]
+      type %[L <: IntP, R <: IntP] <: IntP = (L, R) match
+        case (Int, Int) => int.%[L, R]
+        case _          => Sig2[FuncOp.%.type, L, R]
+      infix type Max[L <: IntP, R <: IntP] <: IntP = (L, R) match
+        case (Int, Int) => int.Max[L, R]
+        case _          => Sig2[FuncOp.max.type, L, R]
+      infix type Min[L <: IntP, R <: IntP] <: IntP = (L, R) match
+        case (Int, Int) => int.Min[L, R]
+        case _          => Sig2[FuncOp.min.type, L, R]
+      type CLog2[T <: IntP] <: IntP = T match
+        case Int => int.-[32, NumberOfLeadingZeros[int.-[T, 1]]]
+        case _   => Sig1[FuncOp.clog2.type, T]
+      type Abs[T <: IntP] <: IntP = T match
+        case Int => int.Abs[T]
+        case _   => Sig1[FuncOp.abs.type, T]
+
+      /** `H - L + 1`, the width of an inclusive bit range, kept symbolic for non-literal bounds. */
+      type RangeWidth[H <: IntP, L <: IntP] = +[-[H, L], 1]
+    end Ops
+  end Sig
   sealed trait Sig1[F <: FuncOp, A <: IntP] extends Sig
   sealed trait Sig2[F <: FuncOp, A <: IntP, B <: IntP] extends Sig
 

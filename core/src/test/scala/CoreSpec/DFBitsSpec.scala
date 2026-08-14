@@ -590,4 +590,31 @@ class DFBitsSpec extends DFSpec:
       b := a
     }
   }
+  test("Bits type-arithmetic spelling over constant params") {
+    val param1: Int <> CONST = 8
+    val param2: Int <> CONST = 4
+    assertCodeString {
+      """|val v = Bits((param1 - param2) + 5) <> VAR
+         |""".stripMargin
+    } {
+      import dfhdl.core.widthIntParam
+      val v = Bits[param1.type - param2.type + 5] <> VAR
+      scala.Predef.assert(v.widthIntParam.toScalaIntOpt.get == 9)
+    }
+  }
+  test("BitsHL constant bounds: struct field DFType summon (#491)") {
+    val HI: Int <> CONST = 5
+    val LO: Int <> CONST = 4
+    case class const_t(x: BitsHL[HI.type, LO.type] <> VAL) extends Struct
+    assertCodeString {
+      """|val p = const_t <> VAR
+         |val o = Bits(2) <> VAR
+         |o := p.x(HI, LO)
+         |""".stripMargin
+    } {
+      val p = const_t <> VAR
+      val o = Bits(2) <> VAR
+      o := p.x(HI, LO)
+    }
+  }
 end DFBitsSpec
