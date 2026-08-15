@@ -44,10 +44,12 @@ abstract class RTDomainContainer extends DomainContainer(DomainType.RT):
   // `val clk = Clk <> IN` declaration.
   abstract class RTDerivedClkDomain extends RTRelatedDomain:
     val clk = DFVal.Dcl(DFOpaque(Clk()), Modifier.IN)(using dfc.setName("clk"))
-  // A related domain that flattens transparently (its members keep their bare names, without
-  // the domain-name prefix): shorthand for an `RTRelatedDomain` additionally annotated with
-  // `@flattenMode.transparent`.
-  abstract class RTTransparentDomain extends RTRelatedDomain:
+  // A scoping construct rather than a domain in its own right: a region groups logic under
+  // this container's timing context with no observable footprint, neither a clock identity
+  // nor a naming one (its members keep their bare names). Equivalent to an `RTRelatedDomain`
+  // additionally annotated with `@flattenMode.transparent`. Typically used path-prefixed,
+  // opening sparse regions of a domain declared once: `new active.RTRegion: <logic>`.
+  abstract class RTRegion extends RTRelatedDomain:
     locally {
       import dfc.getSet
       containedOwner.asIR.setMeta(m =>

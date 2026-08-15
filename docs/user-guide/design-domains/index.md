@@ -177,17 +177,17 @@ a gated clock). A related domain without its own clock port that targets a clock
 domain uses that domain's derived clock, while its reset still resolves through the full
 relation chain to the origin.
 
-#### Related Domain Shorthands
+#### Related Domain Shorthands and Regions
 The most common related target is the enclosing design or domain itself, so every RT
-container provides three shorthand domain classes. Each is exactly equivalent to a plain
-`RTDomain` with the corresponding annotations, and manifests as such (printing, compilation,
-and naming see no difference):
+container provides two shorthand domain classes and one scoping construct. Each is exactly
+equivalent to a plain `RTDomain` with the corresponding annotations, and manifests as such
+(printing, compilation, and naming see no difference):
 
-| Shorthand | Equivalent to |
+| Construct | Equivalent to |
 |---|---|
 | `RTRelatedDomain` | `@timing.related(this)` `new RTDomain` |
 | `RTDerivedClkDomain` | `RTRelatedDomain` with a `val clk = Clk <> IN` declaration |
-| `RTTransparentDomain` | `RTRelatedDomain` with `@flattenMode.transparent` |
+| `RTRegion` | `RTRelatedDomain` with `@flattenMode.transparent` |
 
 ```scala
 class Shorthands extends RTDesign:
@@ -195,32 +195,68 @@ class Shorthands extends RTDesign:
     val a = UInt(8) <> VAR.REG init 0
   val gated = new RTDerivedClkDomain:     // derived clock port `clk`, shared reset
     val b = UInt(8) <> VAR.REG init 0
-  val trans = new RTTransparentDomain:    // shared clock/reset, transparent naming
-    val c = UInt(8) <> VAR.REG init 0     // flattens as `c`, not `trans_c`
+  val region = new RTRegion:              // shared clock/reset, no naming footprint
+    val c = UInt(8) <> VAR.REG init 0     // flattens as `c`, not `region_c`
   val sub = new gated.RTRelatedDomain:    // path-prefixed: related to `gated`, not to the design
     val d = UInt(8) <> VAR.REG init 0     // clocked by gated's derived clock
 ```
 
-The shorthands are members of every RT container, so the related target is selected by the
+All three are members of every RT container, so the related target is selected by the
 instantiation path: a bare `new RTRelatedDomain` relates to the enclosing container, while
-`new gated.RTRelatedDomain` (or `new gated.RTTransparentDomain`, etc.) relates to the
-`gated` domain instead, equivalent to `@timing.related(gated)`.
+`new gated.RTRelatedDomain` (or `new gated.RTRegion`, etc.) relates to the `gated` domain
+instead, equivalent to `@timing.related(gated)`.
 
-When to reach for each:
+The two domain shorthands create a grouping with a footprint of its own:
 
 - **`RTRelatedDomain`** is the general grouping tool: it scopes a piece of logic under the
-  same clock and reset without minting a new clock group. Use the annotation form
+  same clock and reset without minting a new clock group, and its members flatten with the
+  domain-name prefix. Use the annotation form
   (`@timing.related(this, includeReset = false)`) when the domain must opt out of the reset.
 - **`RTDerivedClkDomain`** declares a derived (typically gated) clock as described in the
   previous section; its `clk` port identifies by the domain's name (domain `active` yields
   the `active_clk` identity and flattened port name).
-- **`RTTransparentDomain`** is useful when a design declares its domain configuration once,
-  around its ports, and internal logic needs to be regrouped into related domains without
-  affecting the naming of any internal component: the transparent flattening keeps every
-  member's own name, so the regrouping leaves ports, signals, and the generated HDL
-  untouched. (The related variant that also opts out of the reset, e.g. to keep a memory
-  outside the reset scope, still uses the annotation form:
-  `@timing.related(this, includeReset = false)` together with `@flattenMode.transparent`.)
+
+An **`RTRegion`** is deliberately the opposite: a scoping construct with no observable
+footprint of its own, neither a clock identity nor a naming one. It places logic under a
+timing context while leaving every member's own name (and therefore the generated HDL)
+untouched, which is what makes it useful where a design declares its domain configuration
+once, around its ports, and internal logic is later regrouped without renaming anything.
+(The variant that also opts out of the reset, e.g. to keep a memory outside the reset
+scope, still uses the annotation form: `@timing.related(this, includeReset = false)`
+together with `@flattenMode.transparent`.)
+
+##### The Domain-and-Regions Pattern
+Regions unfold their full value path-prefixed. The common pattern declares a timing context
+exactly once as a named domain, and then opens sparse regions of it wherever pieces of
+logic naturally live in the code, with none of them paying a naming cost:
+
+```scala
+class Core extends RTDesign:
+  val start = Bit <> IN
+  // the gated clock context, declared once
+  val active = new RTDerivedClkDomain {}
+
+  // ... free-running logic ...
+  val busy = Bit <> OUT.REG init 0
+  busy.din := start || busy
+
+  // a piece of logic in the gated context, at its natural code location
+  val ctrl = new active.RTRegion:
+    val state = UInt(8) <> VAR.REG init 0
+    state.din := state + 1
+
+  // ... more free-running logic ...
+
+  // another sparse region of the same context
+  val datapath = new active.RTRegion:
+    val acc = UInt(8) <> VAR.REG init 0
+    acc.din := acc + ctrl.state
+```
+
+Every region's registers are clocked by `active`'s derived clock and reset by the design's
+shared reset, yet `state` and `acc` flatten under their own names, exactly as if the design
+had a single domain. The regions can be scattered freely between free-running logic, so the
+code order follows the design's dataflow rather than its clock grouping.
 
 ### Register Types and Initialization
 

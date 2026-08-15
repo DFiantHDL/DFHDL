@@ -901,7 +901,7 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
-  test("RTRelatedDomain and RTDerivedClkDomain manifest as plain related RTDomains") {
+  test("RTRelatedDomain, RTDerivedClkDomain, and RTRegion manifest as plain related RTDomains") {
     @hw.constraints.timing.reset()
     class IDWithDomains extends RTDesign:
       val y = SInt(16) <> OUT
@@ -912,10 +912,10 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val gated = new RTDerivedClkDomain:
         val z = SInt(16) <> VAR.REG init 0
         z.din := z + 1
-      val trans = new RTTransparentDomain:
+      val trans = new RTRegion:
         val w = SInt(16) <> VAR init 0
       // path-prefixed shorthand: a domain related to `gated` rather than to the design
-      val sub = new gated.RTTransparentDomain:
+      val sub = new gated.RTRegion:
         val v = SInt(16) <> VAR init 0
       y := r + related.x + gated.z + trans.w + sub.v
     end IDWithDomains
