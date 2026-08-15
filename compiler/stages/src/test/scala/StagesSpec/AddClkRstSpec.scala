@@ -231,7 +231,7 @@ class AddClkRstSpec extends StageSpec:
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.related(ID)
+         |  @timing.related(ID.this)
          |  val internal = new RTDomain:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
@@ -768,7 +768,7 @@ class AddClkRstSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT.REG init sd"16'0"
          |  y.din := x
-         |  @timing.related(ID)
+         |  @timing.related(ID.this)
          |  val active = new RTDomain:
          |    val clk = Clk_active_clk <> IN
          |    val z = SInt(16) <> OUT.REG init sd"16'0"
@@ -825,7 +825,7 @@ class AddClkRstSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT.REG init sd"16'0"
          |  y.din := x
-         |  @timing.related(ID)
+         |  @timing.related(ID.this)
          |  val active = new RTDomain:
          |    val clk = Clk_active_clk <> IN
          |    val z = SInt(16) <> OUT.REG init sd"16'0"
@@ -873,7 +873,7 @@ class AddClkRstSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT.REG init sd"16'0"
          |  y.din := x
-         |  @timing.related(ID)
+         |  @timing.related(ID.this)
          |  val active = new RTDomain:
          |    val clk = Clk_default <> IN
          |    val z = SInt(16) <> OUT.REG init sd"16'0"
@@ -924,7 +924,7 @@ class AddClkRstSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT.REG init sd"16'0"
          |  y.din := x
-         |  @timing.related(ID)
+         |  @timing.related(ID.this)
          |  val l2 = new RTDomain:
          |    val clk = Clk_l2_clk <> IN
          |    val z = SInt(16) <> OUT.REG init sd"16'0"
@@ -998,7 +998,7 @@ class AddClkRstSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT.REG init sd"16'0"
          |  y.din := x
-         |  @timing.related(Leaf)
+         |  @timing.related(Leaf.this)
          |  val active = new RTDomain:
          |    val clk = Clk_active_clk <> IN
          |    val z = SInt(16) <> OUT.REG init sd"16'0"
@@ -1013,7 +1013,7 @@ class AddClkRstSpec extends StageSpec:
          |  val rst = Rst_default <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.related(Core)
+         |  @timing.related(Core.this)
          |  val active = new RTDomain:
          |    val clk = Clk_active_clk <> IN
          |  end active

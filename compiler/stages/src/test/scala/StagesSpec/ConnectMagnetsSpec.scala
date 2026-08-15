@@ -277,7 +277,7 @@ class ConnectMagnetsSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT.REG init sd"16'0"
          |  y.din := x
-         |  @timing.related(Leaf)
+         |  @timing.related(Leaf.this)
          |  val active = new RTDomain:
          |    val clk = Clk_active_clk <> IN
          |    val z = SInt(16) <> OUT.REG init sd"16'0"
@@ -308,7 +308,7 @@ class ConnectMagnetsSpec extends StageSpec:
          |  val rst = Rst_default <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.related(Core)
+         |  @timing.related(Core.this)
          |  val active = new RTDomain:
          |    val clk = Clk_active_clk <> IN
          |  end active

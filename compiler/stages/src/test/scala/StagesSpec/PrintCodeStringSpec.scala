@@ -928,17 +928,17 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val y = SInt(16) <> OUT
          |  val r = SInt(16) <> VAR.REG init sd"16'0"
          |  r.din := r + sd"16'1"
-         |  @timing.related(IDWithDomains)
+         |  @timing.related(IDWithDomains.this)
          |  val related = new RTDomain:
          |    val x = SInt(16) <> VAR init sd"16'0"
          |  end related
-         |  @timing.related(IDWithDomains)
+         |  @timing.related(IDWithDomains.this)
          |  val gated = new RTDomain:
          |    val clk = Clk <> IN
          |    val z = SInt(16) <> VAR.REG init sd"16'0"
          |    z.din := z + sd"16'1"
          |  end gated
-         |  @timing.related(IDWithDomains)
+         |  @timing.related(IDWithDomains.this)
          |  @hw.annotation.flattenMode.transparent()
          |  val trans = new RTDomain:
          |    val w = SInt(16) <> VAR init sd"16'0"
