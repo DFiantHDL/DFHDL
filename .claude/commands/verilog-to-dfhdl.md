@@ -161,6 +161,29 @@ val active = new RTDomain:
   // flops clocked by the gated clock, still reset by the module's shared reset
 ```
 
+**Declare the clock once, then open regions of it** — the domain-and-regions pattern in
+[Design Domains][design-domains]. Putting registers directly in the `RTDerivedClkDomain` prefixes
+every one of them with the domain name (`gpr_bank_id` becomes `active_gpr_bank_id`), and adding
+`@flattenMode.transparent` to that same domain is worse: it strips the prefix from the `clk` dcl
+too, which then collides with the design's own `clk` and the pair emits as `clk_0`/`clk_1`,
+renaming the design's clock port. An `RTRegion` has no naming footprint, so it carries the logic:
+
+```scala
+val active = new RTDerivedClkDomain {}     // declares the `active_clk` port, nothing else
+val bankid = new active.RTRegion:
+  val gpr_bank_id = Bits(1) <> VAR.REG init all(0)   // flattens as `gpr_bank_id`
+  if (wen_bank_id) gpr_bank_id.din := wr_bank_id
+import bankid.gpr_bank_id                  // scope for the rest of the design body
+```
+
+Regions are sparse and scattered by design, so **put each one where the baseline declares those
+flops** rather than collecting a module's gated logic into one block: the transcription keeps the
+gold's statement order, and the emitted HDL is identical either way.
+
+Use **`import`, not `export`** to reach the members afterwards: `export` is rejected outright
+(*"not accessible"*) because the region's type is anonymous, and scope is all that is wanted here —
+an `import` adds no member and no net.
+
 Same-named domains+ports of the same origin unify across the hierarchy: if any of them is driven
 somewhere (a parent connects an ICG output via `child.active.clk <> g.as(child.active.Clk)`), all of
 them thread to it through auto-added `active_clk` pass-through ports; if none is driven, they all
@@ -199,6 +222,13 @@ Follow [from-verilog][from-verilog] for `Int <> CONST`/`String <> CONST` (they e
   - Note that writing `.toScalaInt` is not what pins a parameter, and dropping it does not unpin
     one: the *read* pins it, and an elaboration-time loop reads its bound either way. Removing a
     redundant `.toScalaInt` is a readability fix, not a genericity fix.
+- **A parameter that is a pure function of another belongs in the body, not the signature.** If
+  every use is a width or slice bound and the parent computes it from a sibling parameter, declare
+  it as a body `Int <> CONST`; it emits as a `localparam int` in the parameter port list with the
+  expression intact, and the module can no longer be instantiated with an inconsistent pair. Two
+  consequences: **transcribe the derivation exactly** — `$clog2(1)` is 0, so a baseline's
+  `(N == 1) ? 1 : $clog2(N)` is a zero-width guard, and "simplifying" it to `clog2(N)` is a real
+  bug — and a formal harness must stop passing the value, since a `localparam` cannot be overridden.
 - **`all(0)` for an explicitly-typed constant default** — `val CCM_SADR: Bits[32] <> CONST = all(0)`
   rather than spelling out `h"32'00000000"`.
 - **DFacsimile rejects `String <> CONST`** (the minimum tier can't resolve a `DFString` const's
@@ -330,6 +360,21 @@ and they decide how closely the emitted HDL tracks the gold.
   - it works as a `Struct` field too, with literal or constant bounds:
     `index: BitsHL[RV_BTB_ADDR_HI.type, RV_BTB_ADDR_LO.type] <> VAL` emits
     `logic [RV_BTB_ADDR_HI:RV_BTB_ADDR_LO] index;` inside the packed struct.
+- **`BitsHL` covers a non-zero-base *bit range* only; a non-zero-base *array* has no counterpart.**
+  `logic [31:1][31:0] gpr_out` is 31 words indexed 1..31, and a DFHDL `Vec` is always 0-based
+  (`Bits(32) X 31`), so the baseline's index `j` reaches it as `j - 1`. Keep the baseline's own loop
+  bounds and put the `- 1` at the `Vec` subscript alone, so every other appearance of `j` — the
+  address compare, the `BitsHL` write-enable bit — still reads like the gold:
+  ```scala
+  for (j <- 1 until 32)
+    w0v(j)        <> wen0 & (waddr0.uint == j)          // BitsHL: absolute
+    gpr_in(j - 1) <> (w0v(j).repeat(32) & wd0) | ...    // Vec: shifted
+  ```
+  This one is not cosmetic; see the flat-order trap in the verification section.
+- **A `Bits` never compares against a Scala `Int`** ("An integer value cannot be a candidate for a
+  Bits type"). The baseline's `addr[4:0] == 5'(j)` is an unsigned compare, so it transcribes as
+  `addr.uint == j`. That is the operator, not an intermediate, so it stays inline at each use — the
+  "convert once at the definition" rule applies to a value the baseline itself names.
 - **A fully-assigned `VAR` read through a *parameter*-bounded slice is misreported as a latch**
   (DFHDL#484). A local `Int <> CONST` bound is fine; only a design parameter trips it, and only for a
   `VAR` (a port or parameter sliced the same way is fine). Where the variable is a pure rename, slice
@@ -361,6 +406,68 @@ and they decide how closely the emitted HDL tracks the gold.
 `$finish`/`$display`/`$write`/`$fopen`/`forever @(negedge ...)` have no synthesizable equivalent.
 Replace with **observation output ports** (e.g. an `o_halt` pulse instead of `$finish`) and/or a
 **synthesizable stand-in** design; note every deviation in the file header.
+
+## Proving a port against its baseline (yosys)
+
+The ladder itself (combinational miter, `equiv_make`/`equiv_simple`/`equiv_induct` for sequential,
+`async2sync`, the mandatory negative control) belongs in the port's own plan. These are the parts
+that are about **DFHDL's output specifically** and recur in every port:
+
+- **Read the DFHDL output with `read_slang`, not `read_verilog`** (`yosys -m slang`, plugin shipped
+  with OSS CAD Suite). yosys's own frontend rejects the assignment pattern DFHDL emits to reset a
+  vector — `gpr_out <= '{default: '{default: 32'h0}};` — with *"syntax error, unexpected
+  TOK_DEFAULT"* (yosys#6120). It is the **`default:` key** that has no grammar rule, not the nesting
+  and not unpacked arrays: the positional form `'{a, b, c, d}` parses, while every keyed form fails
+  (packed, unpacked, declaration initializer, nested). The construct is legal SystemVerilog and
+  Verilator accepts it, so this is a frontend gap, not something to work around in the design.
+  Since the emitter uses it for *any* vector-wide constant, expect it in every module with a reset
+  array. slang also elaborates only the parameterizations actually instantiated, which
+  incidentally fixes a baseline whose `generate` arm `$error`s under its *default* parameters
+  (`rvdffe`'s "width must be >= 8"); `read_verilog -defer` is the equivalent for the gold.
+- **A `Vec` and a Verilog packed array flatten in opposite order.** DFHDL packs `Vec` index 0 at the
+  MSB; Verilog packs the *highest* index of `[31:1]` at the MSB. So a `Vec` holding the same 31
+  registers is bit-reversed against the baseline's aggregate — harmless in hardware, fatal to
+  `equiv_make`, which pairs public wires **by name** and will pair those two 992-bit wires
+  bit-for-bit and wrongly. Every register then reports unproven and the failure looks like a design
+  bug. Fix it in the harness, not the design:
+  ```tcl
+  cd <top>                                    # `rename` needs the module selected, or "Object not found"
+  rename \u.gpr_out \u.gpr_out_vecorder       # unpair the reversed aggregates
+  rename \u.gpr_in  \u.gpr_in_vecorder
+  cd ..
+  ```
+- **Add canonical-order state taps when the flop names differ.** With the aggregates unpaired, and
+  with the gold's flops buried under `rvdff` instance paths (`u.gpr_banks[0].gpr[7]...dffs.dout`)
+  while the gate's are slices of one `Vec` wire, induction has no internal anchor. Give **both**
+  wrappers the same extra outputs, each side reading its own layout:
+  ```systemverilog
+  output logic [31:1][31:0] dbg;
+  for (genvar j = 1; j < 32; j++) assign dbg[j] = u.gpr_out[0][j];      // gold
+  for (genvar j = 1; j < 32; j++) assign dbg[j] = u.gpr_out[0][j-1];    // gate, Vec is 0-based
+  ```
+  Extra observation points are extra proof obligations, so they can only make the check stronger —
+  they cannot manufacture a false pass.
+- **A dropped derived-clock port needs a gold wrapper**, not an edit to the gold. Wrap the baseline
+  with the DFHDL port list and tie the derived clock to the root (`u (.*, .active_clk(clk))`); give
+  the gate an identically-named wrapper so `equiv_make` still pairs the ports.
+- **`equiv_simple`/`equiv_induct` ignore the CLK net.** They model every `$dff` as advancing one
+  step per cycle no matter which net drives it, so **the proof says nothing about which clock a
+  flop sits on**. Verified, not assumed: tying a derived clock to constant `1'b0` in both wrappers —
+  so the gold's flop can never clock — still reports *"Equivalence successfully proven"* against a
+  gate whose flop was moved to the root clock. Consequences:
+  - Moving a flop between a derived clock and the root clock is **not a valid negative control**.
+    Use a data-path or enable mutation instead (dropping the `if (en)` on the derived-clock flop is
+    a good one: it targets that domain and goes red).
+  - **Tie the derived clock to the root clock in both wrappers** rather than leaving it a free
+    input. It cannot make the check weaker (the tool ignores it either way), it matches the build
+    being verified, and it puts the assumption in the harness instead of leaving it implicit in the
+    tool's semantics.
+  - Clock *assignment* is therefore checked by reading the emitted `always_ff` sensitivity lists and
+    the parent's connection, not by the proof. A build where derived clocks are genuinely gated
+    would need `clk2fflogic`, which models clocks explicitly.
+- **Identical `stat` cell counts across gold and gate** (same `$aldff`/`$and`/`$eq`/`$or` totals) is
+  a fast structural sanity check before spending minutes in `equiv_induct`, and it is what tells you
+  an "unproven" result is a *pairing* problem rather than a logic one.
 
 ## Simulating ported designs (DFacsimile)
 
