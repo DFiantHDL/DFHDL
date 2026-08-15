@@ -901,6 +901,58 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("RTRelatedDomain and RTDerivedClkDomain manifest as plain related RTDomains") {
+    @hw.constraints.timing.reset()
+    class IDWithDomains extends RTDesign:
+      val y = SInt(16) <> OUT
+      val r = SInt(16) <> VAR.REG init 0
+      r.din := r + 1
+      val related = new RTRelatedDomain:
+        val x = SInt(16) <> VAR init 0
+      val gated = new RTDerivedClkDomain:
+        val z = SInt(16) <> VAR.REG init 0
+        z.din := z + 1
+      val trans = new RTTransparentDomain:
+        val w = SInt(16) <> VAR init 0
+      // path-prefixed shorthand: a domain related to `gated` rather than to the design
+      val sub = new gated.RTTransparentDomain:
+        val v = SInt(16) <> VAR init 0
+      y := r + related.x + gated.z + trans.w + sub.v
+    end IDWithDomains
+    val id = (new IDWithDomains)
+    assertCodeString(
+      id,
+      """|
+         |@timing.reset()
+         |class IDWithDomains extends RTDesign:
+         |  val y = SInt(16) <> OUT
+         |  val r = SInt(16) <> VAR.REG init sd"16'0"
+         |  r.din := r + sd"16'1"
+         |  @timing.related(IDWithDomains)
+         |  val related = new RTDomain:
+         |    val x = SInt(16) <> VAR init sd"16'0"
+         |  end related
+         |  @timing.related(IDWithDomains)
+         |  val gated = new RTDomain:
+         |    val clk = Clk <> IN
+         |    val z = SInt(16) <> VAR.REG init sd"16'0"
+         |    z.din := z + sd"16'1"
+         |  end gated
+         |  @timing.related(IDWithDomains)
+         |  @hw.annotation.flattenMode.transparent()
+         |  val trans = new RTDomain:
+         |    val w = SInt(16) <> VAR init sd"16'0"
+         |  end trans
+         |  @timing.related(gated)
+         |  @hw.annotation.flattenMode.transparent()
+         |  val sub = new RTDomain:
+         |    val v = SInt(16) <> VAR init sd"16'0"
+         |  end sub
+         |  y := r + related.x + gated.z + trans.w + sub.v
+         |end IDWithDomains
+         |""".stripMargin
+    )
+  }
   test("Domain related with includeReset = false") {
     @hw.constraints.timing.reset()
     class IDWithDomains extends DFDesign:

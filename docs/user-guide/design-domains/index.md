@@ -177,6 +177,51 @@ a gated clock). A related domain without its own clock port that targets a clock
 domain uses that domain's derived clock, while its reset still resolves through the full
 relation chain to the origin.
 
+#### Related Domain Shorthands
+The most common related target is the enclosing design or domain itself, so every RT
+container provides three shorthand domain classes. Each is exactly equivalent to a plain
+`RTDomain` with the corresponding annotations, and manifests as such (printing, compilation,
+and naming see no difference):
+
+| Shorthand | Equivalent to |
+|---|---|
+| `RTRelatedDomain` | `@timing.related(this)` `new RTDomain` |
+| `RTDerivedClkDomain` | `RTRelatedDomain` with a `val clk = Clk <> IN` declaration |
+| `RTTransparentDomain` | `RTRelatedDomain` with `@flattenMode.transparent` |
+
+```scala
+class Shorthands extends RTDesign:
+  val related = new RTRelatedDomain:      // shares this design's clock and reset
+    val a = UInt(8) <> VAR.REG init 0
+  val gated = new RTDerivedClkDomain:     // derived clock port `clk`, shared reset
+    val b = UInt(8) <> VAR.REG init 0
+  val trans = new RTTransparentDomain:    // shared clock/reset, transparent naming
+    val c = UInt(8) <> VAR.REG init 0     // flattens as `c`, not `trans_c`
+  val sub = new gated.RTRelatedDomain:    // path-prefixed: related to `gated`, not to the design
+    val d = UInt(8) <> VAR.REG init 0     // clocked by gated's derived clock
+```
+
+The shorthands are members of every RT container, so the related target is selected by the
+instantiation path: a bare `new RTRelatedDomain` relates to the enclosing container, while
+`new gated.RTRelatedDomain` (or `new gated.RTTransparentDomain`, etc.) relates to the
+`gated` domain instead, equivalent to `@timing.related(gated)`.
+
+When to reach for each:
+
+- **`RTRelatedDomain`** is the general grouping tool: it scopes a piece of logic under the
+  same clock and reset without minting a new clock group. Use the annotation form
+  (`@timing.related(this, includeReset = false)`) when the domain must opt out of the reset.
+- **`RTDerivedClkDomain`** declares a derived (typically gated) clock as described in the
+  previous section; its `clk` port identifies by the domain's name (domain `active` yields
+  the `active_clk` identity and flattened port name).
+- **`RTTransparentDomain`** is useful when a design declares its domain configuration once,
+  around its ports, and internal logic needs to be regrouped into related domains without
+  affecting the naming of any internal component: the transparent flattening keeps every
+  member's own name, so the regrouping leaves ports, signals, and the generated HDL
+  untouched. (The related variant that also opts out of the reset, e.g. to keep a memory
+  outside the reset scope, still uses the annotation form:
+  `@timing.related(this, includeReset = false)` together with `@flattenMode.transparent`.)
+
 ### Register Types and Initialization
 
 #### Register Declarations vs Aliases
