@@ -330,8 +330,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    if (rst) y <= c;
          |    else y <= x;
          |  end
-         |  myblock : always_comb
-         |  begin
+         |  always_comb begin : myblock
          |    my_var = x;
          |    y      <= my_var;
          |  end
@@ -993,12 +992,12 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output reg [639:0] matrix
          |);
          |  `include "dfhdl_defs.vh"
+         |  integer i;
+         |  integer j;
+         |  integer k;
          |
          |  always
          |  begin
-         |    integer i;
-         |    integer j;
-         |    integer k;
          |    for (i = 0; i < 8; i = i + 1) begin
          |      if ((i % 2) == 0) begin
          |        for (j = 0; j < 8; j = j + 1) begin
@@ -1141,7 +1140,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", param10.name());
          |    $info(
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1093:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1092:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1212,7 +1211,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", MyEnum_to_string(param10));
          |    $display(
          |      "INFO: Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1093:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1092:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1265,6 +1264,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+  // the whole-vector inits are lowered into `initial` blocks by `DropWholeVecAssign`; a uniform
+  // source loops over the declaration's own element-count parameter, while the differing-cell
+  // sources unroll
   test("vector init printing under verilog.v95") {
     given options.CompilerOptions.Backend = _.verilog.v95
     class Foo extends EDDesign:
@@ -1286,27 +1288,28 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `include "dfhdl_defs.vh"
          |  parameter integer PORT_WIDTH = 8;
          |  parameter integer PORT_DEPTH = 4;
+         |  integer v2_i;
          |  parameter [(PORT_WIDTH * PORT_DEPTH) - 1:0] initArg = {8'h01, 8'h02, 8'h03, 8'h04};
          |  reg [PORT_WIDTH - 1:0] v1 [0:PORT_DEPTH - 1];
+         |  reg [PORT_WIDTH - 1:0] v2 [0:PORT_DEPTH - 1];
+         |  reg [PORT_WIDTH - 1:0] v3 [0:PORT_DEPTH - 1];
          |  initial begin : v1_init
          |    v1[0] = 8'h01;
          |    v1[1] = 8'h02;
          |    v1[2] = 8'h03;
          |    v1[3] = 8'h04;
          |  end
-         |  reg [PORT_WIDTH - 1:0] v2 [0:PORT_DEPTH - 1];
+         |
          |  initial begin : v2_init
-         |    integer i;
-         |    for (i = 0; i < PORT_DEPTH; i = i + 1) begin
-         |      v2[i] = {PORT_WIDTH{1'b0}};
+         |    for (v2_i = 0; v2_i < PORT_DEPTH; v2_i = v2_i + 1) begin
+         |      v2[v2_i] = {PORT_WIDTH{1'b0}};
          |    end
          |  end
-         |  reg [PORT_WIDTH - 1:0] v3 [0:PORT_DEPTH - 1];
          |  initial begin : v3_init
-         |    v3[0] = initArg[31:24];
-         |    v3[1] = initArg[23:16];
-         |    v3[2] = initArg[15:8];
-         |    v3[3] = initArg[7:0];
+         |    v3[0] = initArg[(PORT_WIDTH + (((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 1)) + 0)) - 1:((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 1)) + 0];
+         |    v3[1] = initArg[(PORT_WIDTH + (((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 2)) + 0)) - 1:((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 2)) + 0];
+         |    v3[2] = initArg[(PORT_WIDTH + (((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 3)) + 0)) - 1:((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 3)) + 0];
+         |    v3[3] = initArg[(PORT_WIDTH + (((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 4)) + 0)) - 1:((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 4)) + 0];
          |  end
          |endmodule""".stripMargin
     )
@@ -3799,6 +3802,139 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  assign c = {(HI + 1){1'b0}};
          |  assign d = {((9 - LO) + 1){1'b0}};
          |  assign e = {HI{1'b0}};
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // issue #492: `mem <= {4{8'h00}}` is a PACKED replication assigned to an UNPACKED array, which
+  // v95/v2001 cannot express (and which a lenient tool reads as initializing element 0 only).
+  // `DropWholeVecAssign` lowers it into the element-wise loop every 1364-2001 tool accepts.
+  test("whole vector reset under verilog.v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class VecReset extends RTDesign:
+      val din  = Bits(8)     <> IN
+      val dout = Bits(8)     <> OUT
+      val mem  = Bits(8) X 4 <> VAR.REG init all(all(0))
+      mem(0).din                      := din
+      for (i <- 1 until 4) mem(i).din := mem(i - 1)
+      dout                            <> mem(3)
+    end VecReset
+    val top = VecReset().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module VecReset(
+         |  input  wire clk,
+         |  input  wire rst,
+         |  input  wire [7:0] din,
+         |  output wire [7:0] dout
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  integer mem_i;
+         |  reg [7:0] mem [0:3];
+         |  assign dout = mem[3];
+         |  always @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) begin
+         |      for (mem_i = 0; mem_i < 4; mem_i = mem_i + 1) begin
+         |        mem[mem_i] <= 8'h00;
+         |      end
+         |    end
+         |    else begin
+         |      mem[0] <= din;
+         |      mem[1] <= mem[0];
+         |      mem[2] <= mem[1];
+         |      mem[3] <= mem[2];
+         |    end
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // the same lowering, opted into for a dialect that CAN express the whole-vector forms
+  test("whole vector drives under the dropWholeVecAssign option") {
+    given options.CompilerOptions.Backend            = _.verilog.sv2009
+    given options.CompilerOptions.DropWholeVecAssign = true
+    class VecOpt extends EDDesign:
+      val y   = Bits(8)     <> OUT
+      val mem = Bits(8) X 4 <> VAR init all(all(0))
+      val con = Bits(8) X 4 <> VAR
+      con <> all(all(1))
+      y   <> mem(1) | con(2)
+    end VecOpt
+    val top = VecOpt().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module VecOpt(
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] mem [0:3];
+         |  logic [7:0] con [0:3];
+         |
+         |  initial begin : mem_init
+         |    for (int mem_i = 0; mem_i < 4; mem_i = mem_i + 1) begin
+         |      mem[mem_i] = 8'h00;
+         |    end
+         |  end
+         |  assign con[0] = 8'hff;
+         |  assign con[1] = 8'hff;
+         |  assign con[2] = 8'hff;
+         |  assign con[3] = 8'hff;
+         |  assign y = mem[1] | con[2];
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // only the declaration's OWN dimension is unrolled: `DropStructsVecs` flattens the cell type to
+  // `Bits`, so the cell drive lands as a legal packed replication rather than an array literal
+  test("multi-dimensional whole vector drives under verilog.v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class VecDims extends EDDesign:
+      val x   = Bits(8)         <> IN
+      val y   = Bits(8)         <> OUT
+      val mem = Bits(8) X 4 X 2 <> VAR init all(all(all(0)))
+      val con = Bits(8) X 4 X 2 <> VAR
+      con <> all(all(all(0)))
+      process(all):
+        mem :== all(all(x))
+        y   :== mem(1)(2) | con(0)(3)
+    end VecDims
+    val top = VecDims().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module VecDims(
+         |  input  wire [7:0] x,
+         |  output reg [7:0] y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  integer mem_i;
+         |  reg [31:0] mem [0:1];
+         |  wire [31:0] con [0:1];
+         |
+         |  initial begin : mem_init
+         |    for (mem_i = 0; mem_i < 2; mem_i = mem_i + 1) begin
+         |      mem[mem_i] = {4{8'h00}};
+         |    end
+         |  end
+         |  assign con[0] = {4{8'h00}};
+         |  assign con[1] = {4{8'h00}};
+         |
+         |  always @(*)
+         |  begin
+         |    for (mem_i = 0; mem_i < 2; mem_i = mem_i + 1) begin
+         |      mem[mem_i] <= {4{x}};
+         |    end
+         |    y <= mem[1][15:8] | con[0][7:0];
+         |  end
          |endmodule
          |""".stripMargin
     )

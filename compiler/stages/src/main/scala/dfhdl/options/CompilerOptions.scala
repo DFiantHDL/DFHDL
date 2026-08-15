@@ -14,7 +14,8 @@ final case class CompilerOptions(
     logLevel: _LogLevel,
     printDFHDLCode: PrintDFHDLCode,
     printBackendCode: PrintBackendCode,
-    dropUserOpaques: DropUserOpaques
+    dropUserOpaques: DropUserOpaques,
+    dropWholeVecAssign: DropWholeVecAssign
 )
 object CompilerOptions:
   opaque type Defaults[-T] <: CompilerOptions = CompilerOptions
@@ -26,13 +27,15 @@ object CompilerOptions:
         logLevel: LogLevel,
         printDFHDLCode: PrintDFHDLCode,
         printBackendCode: PrintBackendCode,
-        dropUserOpaques: DropUserOpaques
+        dropUserOpaques: DropUserOpaques,
+        dropWholeVecAssign: DropWholeVecAssign
     ): Defaults[Any] = CompilerOptions(
       commitFolder = commitFolder, newFolderForTop = newFolderForTop,
       backend = backend(dfhdl.backends),
       logLevel = logLevel(wvlet.log.LogLevel), printDFHDLCode = printDFHDLCode,
       printBackendCode = printBackendCode,
-      dropUserOpaques = dropUserOpaques
+      dropUserOpaques = dropUserOpaques,
+      dropWholeVecAssign = dropWholeVecAssign
     )
   end Defaults
   given (using defaults: Defaults[Design]): CompilerOptions = defaults
@@ -89,4 +92,12 @@ object CompilerOptions:
   object DropUserOpaques:
     given DropUserOpaques = false
     given Conversion[Boolean, DropUserOpaques] = identity
+
+  // Forces the element-wise lowering of whole-vector constant drives (see `DropWholeVecAssign`).
+  // The pre-SystemVerilog Verilog dialects always get it, since they have no unpacked array
+  // assignment at all; this option enables it for every other backend as well.
+  into opaque type DropWholeVecAssign <: Boolean = Boolean
+  object DropWholeVecAssign:
+    given DropWholeVecAssign = false
+    given Conversion[Boolean, DropWholeVecAssign] = identity
 end CompilerOptions

@@ -24,6 +24,12 @@ case object DropStructsVecs extends GlobalStage:
           case VerilogDialect.v95 | VerilogDialect.v2001 => true
           case _                                         => false
       case _ => false
+  // NOTE: `DropWholeVecAssign` must run BEFORE this stage (it unrolls whole-vector constant drives
+  // while the vector type is still there to unroll, and the flattening below would otherwise turn
+  // its cell selections into variable-bound part-selects). That ordering is expressed by their
+  // relative positions in `BackendPrepStage`, and NOT as a dependency here: `DropWholeVecAssign`
+  // depends on `ToED`, which would drag the whole pre-backend pipeline into every direct
+  // `.dropStructsVecs` invocation (its spec included).
   override def dependencies: List[Stage] = List(ExplicitRomVar)
   override def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transformGlobal(designDB: DB)(using co: CompilerOptions, refGen: RefGen): DB =

@@ -103,8 +103,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
           case _ => None
         }
         .mkString("\n")
-    // one constant or signal declaration; a vector signal that cannot be inline-initialized
-    // additionally emits an `initial` block right after its declaration
+    // one constant or signal declaration
     def csDcl(m: DFVal): List[String] = m match
       case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport =>
         // a shared variable is multi-driven by design (e.g., one clocked process per RAM port),
@@ -117,8 +116,11 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
                 |/* verilator lint_on MULTIDRIVEN */""".stripMargin
           else cs
         p.dfType match
+          // a whole-vector init this dialect cannot inline is `DropWholeVecAssign`'s to lower
+          // into an `initial` block; one still here is a shape that stage declined, and there is
+          // no legal form for it in this dialect
           case _: DFVector if !printer.supportVectorInlineInit && p.initRefList.nonEmpty =>
-            List(csDclLine, printer.csDFValDclInitialBlock(p))
+            printer.unsupported
           case _ => List(csDclLine)
       case c @ DclConst() => List(printer.csDFMember(c) + ";")
       case _              => Nil
@@ -141,10 +143,21 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
         case LocalDecl.EDMethod(b)                        => List((true, csMethodLocal(b)))
       }
     )
+    // v95/v2001 has no `for`-header iterator declaration AND forbids a declaration in an unnamed
+    // block, which is what a process is, so every loop iterator of this module is declared in the
+    // module's own declaration region. Iterators of the same name are declared once: a procedural
+    // block runs atomically between event controls, so two loops can never interleave over one.
+    val iteratorDcls =
+      if (forInteratorDclSupport) ""
+      else
+        design.members(MemberView.Flattened).view.collect {
+          case dcl @ IteratorDcl() if dcl.getOwnerDesign == design => s"${dcl.codeString};"
+        }.toList.distinct.mkString("\n")
     val declarations =
       sn"""|$constIntDcls
            |$localTypeDcls
            |$portDcls
+           |$iteratorDcls
            |$orderedDcls"""
     val statements = csDFMembers(
       designMembers.filter {
@@ -414,19 +427,16 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
         case const: DFVal.Const if !const.isAnonymous => false
         case _                                        => true
       }
-    // iterator declarations within `for` loops only supported in SystemVerilog,
-    // so we need to declare them at the process block level for Verilog v95/v2001
-    val iteratorDcls =
-      if (forInteratorDclSupport) ""
-      else
-        pb.members(MemberView.Flattened).view.collect { case dcl @ IteratorDcl() =>
-          dcl.codeString
-        }.toList.distinct.mkString(";\n").emptyOr(x => s"$x;\n")
-    val body = iteratorDcls + csDFMembers(statements)
+    // `for` loop iterators are declared in the module's declaration region under v95/v2001 (a
+    // process is an unnamed block, which may hold no declaration); see `csModuleDcl`
+    val body = csDFMembers(statements)
     val dcl =
       if (dcls.isEmpty) ""
       else s"${csDFMembers(dcls)}\n"
-    val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
+    // Verilog names a BLOCK, not a procedural construct: the label belongs on the `begin`, never
+    // in front of the `initial`/`always` keyword. A labelled block keeps the `begin` on the
+    // keyword's own line, so the name reads as part of the construct (`initial begin : mem_init`).
+    val namedOpt = pb.meta.nameOpt.map(n => s" begin : $n")
     // `always_ff` guarantees a single driver for everything it writes, so a process writing a
     // shared variable (multi-driven by design, e.g. one clocked process per RAM port) degrades
     // to a plain `always`, which carries no such guarantee (issue #473). Only the writers
@@ -456,7 +466,8 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) ""
         else s" @${refs.map(_.refCodeString).mkString("(", sensitivityListSep, ")")}"
-    s"$dcl${named}$alwaysKW$senList\nbegin\n${body.hindent}\nend"
+    val begin = namedOpt.getOrElse("\nbegin")
+    s"$dcl$alwaysKW$senList$begin\n${body.hindent}\nend"
   end csProcessBlock
   def csForkBlock(fb: ForkBlock): String =
     // `join_any` / `join_none` exist only in SystemVerilog (sv2005+). Old Verilog (v95/v2001) has

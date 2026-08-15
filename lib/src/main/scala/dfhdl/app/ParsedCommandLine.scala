@@ -93,6 +93,12 @@ class ParsedCommandLine(
         hidden = hidden,
         noshort = true
       )
+      val `drop-whole-vec-assign` = opt[Boolean](
+        descr = "lower whole-vector constant drives into element-wise loops",
+        default = Some(co.dropWholeVecAssign),
+        hidden = hidden,
+        noshort = true
+      )
       val `global-defs-name` = opt[String](
         descr = "override the global definitions file name (without suffix)",
         default = Some(pto.globalDefsFileName),

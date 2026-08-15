@@ -14,6 +14,7 @@ case object BackendPrepStage
       DropForkJoinsED,
       DropLocalBlocksED,
       ApplyInvertConstraint,
+      DropWholeVecAssign,
       DropStructsVecs,
       MatchToIf,
       SimplifyMatchSel,

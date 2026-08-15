@@ -231,6 +231,7 @@ Each mode adds the options of the modes it depends on, so `commit` accepts every
 | `-b`, `--backend <lang[.dialect]>` | `verilog.sv2009` | Target language and dialect, see `help backend` |
 | `--print-compile` | off | Print the DFHDL design after compilation |
 | `--print-backend` | off, on in the browser | Print the generated backend code |
+| `--drop-whole-vec-assign` | off | Lower whole-vector constant drives into element-wise loops. Always applied for `verilog.v95` / `verilog.v2001`, which cannot express an unpacked-array assignment |
 | `--global-defs-name <name>` | none | Override the name of the global definitions file, without its suffix |
 
 The backend takes a language and an optional dialect. `-b vhdl` selects VHDL with its default dialect, `-b verilog.v2001` pins Verilog 2001:

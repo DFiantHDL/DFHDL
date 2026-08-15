@@ -1493,6 +1493,37 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     directly, running them BEFORE any flattening. A magnet-layer change must be validated in both
     shapes (a spec test plus a full-pipeline compile), and magnet matching semantics must not
     depend on domains having been dropped.
+36. **Ordering between two stages is expressed by their positions in `BackendPrepStage`, not
+    always by `dependencies`** — `StageRunner` walks a `BundleStage`'s dependency list in order, so
+    listing stage A before stage B in `BackendPrepStage` is enough to run A first. Adding A to
+    `B.dependencies` instead drags A's WHOLE dependency chain into every direct `.b` invocation —
+    including `<B>Spec`, whose self-contained `DFDesign` inputs suddenly arrive post-`ToED` and
+    whose every expected code string breaks. Reach for `dependencies` only when B genuinely cannot
+    run without A, and say in a comment why the ordering lives where it does.
+37. **A lowering that reads only constants must not become a `process(all)`** — `always @(*)` /
+    `process(all)` derives its sensitivity from what the body READS, so a body that reads only
+    constants gets an EMPTY sensitivity list and never triggers (`iverilog: @* found no
+    sensitivities so it will never trigger`; verilator and yosys are silent, so it reaches
+    hardware as a permanently undriven signal). Emit the drive as a CONNECTION instead (still
+    continuous, still concurrent), or as an `initial` block if the semantics allow. Relatedly, a
+    connection can never live inside a procedural `for` loop, so a loop-shaped lowering of a
+    connection has to unroll.
+38. **A `lengthIntOpt` / `widthUNSAFE` read of a parametric type silently hardcodes the default**
+    — a design parameter resolves to its DEFAULT value there, so a loop bound or slice built from
+    it is correct only for an un-overridden instantiation. Build the bound from the type's own
+    parameter instead (`vecType.cellDimParamRefs.head.get.cloneAnonValueAndDepsHere.toDFConst`),
+    which prints as the parameter name. Reserve the resolved Int for what genuinely needs
+    unrolling, and pin the difference with a spec test on a `val N: Int <> CONST` design.
+39. **Moving a read into a nested block can drop it from the sensitivity list** —
+    `DropProcessAll` (v95 / vhdl.v93) derives an explicit sensitivity list by walking a
+    `process(all)`'s statements, and its walker enumerates block kinds explicitly. Loop blocks were
+    missing from that match, so a signal read only inside a `for`/`while` body silently never
+    reached `always @(...)`. If your stage relocates reads into a block kind, check that walker
+    covers it — nothing else will tell you, since the output is legal HDL that simply never
+    re-evaluates. Relatedly, a Verilog event control takes EXPRESSIONS and an array name is not
+    one, so an array sensitivity item has to be listed cell by cell
+    (`@(mem[0] or mem[1] or ...)`); `@*` is undefined over arrays in the standard and absent from
+    v95 entirely. VHDL names the array signal itself, so the expansion is Verilog-only.
 
 ---
 
@@ -1717,6 +1748,31 @@ Relatedly, a new `Func.Op` whose result is constant over a NON-constant argument
 `width`/`length` type queries) must also be taught to `IntExprCalc` (linearization through the
 argument TYPE's width params, product-base equivalence so `vec.width` matches `W * N`), or
 every symbolic width-equivalence check against such an expression fails at elaboration.
+
+### Emitting a `for` loop / `initial` block inside a MetaDesign
+
+A `DFRange`'s `using DFC` comes FIRST (`DFRange(using dfc)(start, end, op)`), and the iterator
+declaration is created in the ENCLOSING owner, before the block:
+
+```scala
+import dfhdl.core.get   // `get` on an `IntParamRef`; keep it local so `DFRef.get` stays unambiguous
+val iter = dfhdl.core.DFVal.Dcl.iterator(using dfc.setName(s"${dcl.getName}_i"))
+val end  = vecType.cellDimParamRefs.head.get(using dfc.anonymize)
+  .cloneAnonValueAndDepsHere(using dfc.anonymize).toDFConst(using dfc.anonymize)
+val range = dfhdl.core.DFRange(using dfc.anonymize)(
+  dfhdl.core.DFConstInt32(0)(using dfc.anonymize), end, ir.DFRange.Op.Until
+)
+dfc.enterOwner(dfhdl.core.DFFor.Block(iter, range)(using dfc.anonymize))
+// ... body ...
+dfc.exitOwner()
+```
+
+An `initial` block is `dfhdl.core.Process.Block.initial(using dfc.setName("..."))` +
+`enterOwner`/`exitOwner` (`Process.Block.all` / `.list` for the sensitivity-bearing forms). Naming
+the block prints as `val <name> = initial:` in DFHDL and as a Verilog block label. Do NOT reuse the
+name of a value the MetaDesign body also binds with `val`: `MetaDesign` extends `Design` and
+`reflect.Selectable`, so a `val length` (or any name a `Design` already carries) collides with the
+inherited member and fails to compile with an ambiguity error.
 
 ### Compile-time constant evaluation of values
 

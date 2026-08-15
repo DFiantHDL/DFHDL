@@ -105,35 +105,17 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
   def csInitSeq(refs: List[Dcl.InitRef]): String = printer.unsupported
   def csDFValDclEnd(dfVal: Dcl): String = ""
+  // The `initial` block an output port's init needs (no Verilog dialect can inline one). A
+  // WHOLE-VECTOR init that the dialect cannot inline either is not lowered here:
+  // `DropWholeVecAssign` turns it into a real `initial` block in the IR, so one arriving at this
+  // printer is a shape that stage declined and that this dialect has no legal form for.
   def csDFValDclInitialBlock(dfVal: Dcl): String =
     val contents = dfVal.initRefList match
-      case DFRef(DFVal.Alias.AsIs(dfType = dfType: DFVector, relValRef = DFRef(initVal))) :: Nil =>
-        initVal match
-          case _ if !initVal.isAnonymous =>
-            val cellWidth = dfType.cellType.widthUNSAFE
-            val length = dfType.cellDimParamRefs.head.getIntOpt.get
-            val ret = for (i <- 0 until length)
-              yield s"${dfVal.getName}[$i] = ${initVal.getName}[${(length - i) * cellWidth -
-                  1}:${(length - i) * cellWidth - cellWidth}];"
-            ret.mkString("\n")
-          case Func(op = Func.Op.++, args = args) =>
-            args.view.zipWithIndex
-              .map((a, i) => s"${dfVal.getName}[$i] = ${a.refCodeString};")
-              .mkString("\n")
-          case Func(op = Func.Op.repeat, args = repeatedArgRef :: _) =>
-            val length = dfType.cellDimParamRefs.head.refCodeString
-            s"""|integer i;
-                |for (i = 0; i < ${length}; i = i + 1) begin
-                |  ${dfVal.getName}[i] = ${repeatedArgRef.refCodeString};
-                |end""".stripMargin
-          case _ => printer.unsupported
-      case initRef :: Nil =>
-        s"${dfVal.getName} = ${initRef.refCodeString};"
-      case _ => printer.unsupported
+      case initRef :: Nil => s"${dfVal.getName} = ${initRef.refCodeString};"
+      case _              => printer.unsupported
     s"""|initial begin : ${dfVal.getName}_init
         |${contents.hindent}
         |end""".stripMargin
-  end csDFValDclInitialBlock
   val allowDoubleStarPowerSyntax: Boolean =
     printer.dialect match
       case VerilogDialect.v95 => false
