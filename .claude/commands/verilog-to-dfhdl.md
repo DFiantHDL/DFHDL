@@ -148,6 +148,28 @@ port; a `VAR.SHARED` mem is for **multi-ported** RAMs (its clocked writes also l
 inline and binds an explicit `Clk`/`Rst` port to its deasserted value (both added to
 `DFacsimile.scala` alongside this port).
 
+## Derived (gated) clock ports - the faithful option
+
+When the baseline threads gated clocks as ordinary ports (VeeR's `active_clk`, `*_c1_*_clk`) and you
+want to **keep** those ports rather than reduce them to enables, declare a related domain with its
+own input clock (see "Derived Clocks" in [Design Domains][design-domains]):
+
+```scala
+@hw.constraints.timing.related(this)
+val active = new RTDomain:
+  val clk = Clk <> IN          // identifies (and flattens) as `active_clk`
+  // flops clocked by the gated clock, still reset by the module's shared reset
+```
+
+Same-named domains+ports of the same origin unify across the hierarchy: if any of them is driven
+somewhere (a parent connects an ICG output via `child.active.clk <> g.as(child.active.Clk)`), all of
+them thread to it through auto-added `active_clk` pass-through ports; if none is driven, they all
+collapse onto the root clock net (`.active_clk(clk)`, the `RV_FPGA_OPTIMIZE` form) while the ports
+remain. Only `Clk <> IN` is legal in a related domain (no `OUT`/`VAR`, no `Rst`), and the gating
+site is always a parent's connection, never the domain's own design scope (a domain's input port is
+externally driven by construction). The reduce-to-enables strategy remains the right call when the
+target build ties all derived clocks to the root anyway and the ports are noise.
+
 ## Parameters - beyond the guide
 
 Follow [from-verilog][from-verilog] for `Int <> CONST`/`String <> CONST` (they emit as SV

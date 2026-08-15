@@ -496,23 +496,23 @@ class ElaborationChecksSpec extends DesignSpec:
          |Add a location constraint to the ports by connecting them to a located resource or
          |by using the `@io` constraint.""".stripMargin
     )
-  test("clk/rst in related domain check"):
+  test("rst in related domain check"):
     object Test:
       @top(false) class Top extends RTDesign:
         self =>
         @hw.constraints.timing.related(self)
         val dmn = new RTDomain:
-          val clk = Clk <> IN
+          val rst = Rst <> IN
     end Test
     import Test.*
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
           |Position:  ${currentFilePos}ElaborationChecksSpec.scala:505:21 - 505:30
-          |Hierarchy: Top.clk
+          |Hierarchy: Top.rst
           |Operation: `Port/Variable constructor`
-          |Message:   Cannot create a clk/rst in a related domain.
-          |You can create the clk/rst in the primary domain `Top` and reference it here instead.""".stripMargin
+          |Message:   Cannot create a rst in a related domain.
+          |A related domain always shares the reset of its related domain `Top`. To opt out of the reset, use `@timing.related(..., includeReset = false)`.""".stripMargin
     )
   test("resource direction mismatch check"):
     object Test:
@@ -1877,6 +1877,42 @@ class ElaborationChecksSpec extends DesignSpec:
           |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1864:17 - 1864:32
           |Hierarchy: PartialAssign
           |Message:   Found a latch variable `v`. Latches are not allowed under RT domains.""".stripMargin
+    )
+  test("output clk in related domain check"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        self =>
+        @hw.constraints.timing.related(self)
+        val dmn = new RTDomain:
+          val clk = Clk <> OUT
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1887:21 - 1887:31
+          |Hierarchy: Top.clk
+          |Operation: `Port/Variable constructor`
+          |Message:   Only an input clock port (`Clk <> IN`) is allowed in a related domain.
+          |Such a clock is derived from (fully synchronous with) the clock of the related domain `Top`, and is typically driven by a gated version of it.""".stripMargin
+    )
+  test("var clk in related domain check"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        self =>
+        @hw.constraints.timing.related(self)
+        val dmn = new RTDomain:
+          val clk = Clk <> VAR
+    end Test
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:1905:21 - 1905:31
+          |Hierarchy: Top.clk
+          |Operation: `Port/Variable constructor`
+          |Message:   Only an input clock port (`Clk <> IN`) is allowed in a related domain.
+          |Such a clock is derived from (fully synchronous with) the clock of the related domain `Top`, and is typically driven by a gated version of it.""".stripMargin
     )
 
 end ElaborationChecksSpec

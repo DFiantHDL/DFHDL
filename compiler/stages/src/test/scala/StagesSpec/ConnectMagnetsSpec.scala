@@ -229,5 +229,114 @@ class ConnectMagnetsSpec extends StageSpec:
          |end Top""".stripMargin
     )
   }
+  test("Derived clock threads through a pass-through design by name") {
+    class Leaf extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+      y.din := x
+      @hw.constraints.timing.related(this)
+      val active = new RTDomain:
+        val clk = Clk      <> IN
+        val z   = SInt(16) <> OUT.REG init 0
+        z.din := x
+    class Mid extends RTDesign:
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
+      val leaf = Leaf()
+      leaf.x <> x
+      y      <> leaf.y
+    class Core extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      @hw.constraints.timing.related(this)
+      val active = new RTDomain:
+        val clk = Clk <> IN
+      val mid = Mid()
+      mid.x <> x
+      y     <> mid.y
+    class Top extends RTDesign:
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
+      val gclk = Bit      <> IN
+      val core = Core()
+      core.x          <> x
+      y               <> core.y
+      core.active.clk <> gclk.as(core.active.Clk)
+    val top = (new Top).connectMagnets
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Leaf extends RTDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT.REG init sd"16'0"
+         |  y.din := x
+         |  @timing.related(Leaf)
+         |  val active = new RTDomain:
+         |    val clk = Clk_active_clk <> IN
+         |    val z = SInt(16) <> OUT.REG init sd"16'0"
+         |    z.din := x
+         |  end active
+         |end Leaf
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Mid extends RTDesign:
+         |  val active_clk = Clk_active_clk <> IN
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val leaf = Leaf()
+         |  leaf.x <> x
+         |  y <> leaf.y
+         |  leaf.active.clk <> active_clk
+         |  leaf.clk <> clk
+         |  leaf.rst <> rst
+         |end Mid
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Core extends RTDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  @timing.related(Core)
+         |  val active = new RTDomain:
+         |    val clk = Clk_active_clk <> IN
+         |  end active
+         |  val mid = Mid()
+         |  mid.x <> x
+         |  y <> mid.y
+         |  mid.active_clk <> active.clk
+         |  mid.clk <> clk
+         |  mid.rst <> rst
+         |end Core
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Top extends RTDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val gclk = Bit <> IN
+         |  val core = Core()
+         |  core.x <> x
+         |  y <> core.y
+         |  core.active.clk <> gclk.as(Clk_active_clk)
+         |  core.clk <> clk
+         |  core.rst <> rst
+         |end Top
+         |""".stripMargin
+    )
+  }
 
 end ConnectMagnetsSpec

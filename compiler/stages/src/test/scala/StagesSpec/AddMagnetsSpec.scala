@@ -84,6 +84,44 @@ class AddMagnetsSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Domain-nested magnet source: pass-through ports use the design-relative name") {
+    class Leaf extends EDDesign:
+      val x = M1  <> IN
+      val y = Bit <> OUT
+      process(all):
+        y :== x.actual
+    class Mid extends EDDesign:
+      val leaf = Leaf()
+    class Top extends EDDesign:
+      val src = new EDDomain:
+        val m = M1 <> IN
+      val mid = Mid()
+    val top = (new Top).addMagnets
+    assertCodeString(
+      top,
+      """|case class M1() extends Magnet(Bit)
+         |
+         |class Leaf extends EDDesign:
+         |  val x = M1 <> IN
+         |  val y = Bit <> OUT
+         |  process(all):
+         |    y :== x.actual
+         |end Leaf
+         |
+         |class Mid extends EDDesign:
+         |  val src_m = M1 <> IN
+         |  val leaf = Leaf()
+         |end Mid
+         |
+         |class Top extends EDDesign:
+         |  val src = new EDDomain:
+         |    val m = M1 <> IN
+         |  end src
+         |  val mid = Mid()
+         |end Top
+         |""".stripMargin
+    )
+  }
   test("Basic hierarchy with bottom-up and THEN top-down magnet propagation") {
     class Deeper1 extends EDDesign:
       val u8 = UInt(8) <> IN

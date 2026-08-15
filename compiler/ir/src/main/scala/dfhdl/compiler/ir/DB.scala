@@ -906,7 +906,7 @@ final case class DB private (
   // navigating DOWN to the targeted child design's sub-DB and walking its
   // namedOwnerMemberTable there. Returns the port with the child sub-DB that
   // owns it, so callers can resolve the port's domain in the right getSet.
-  private def pbnsToPort(
+  private[compiler] def pbnsToPort(
       pbns: DFVal.PortByNameSelect,
       ctxSub: DB
   ): Option[(DFVal.Dcl, DB)] =
@@ -2025,7 +2025,8 @@ final case class DB private (
     val locationCollisions = mutable.ListBuffer.empty[String]
     designMemberList.foreach {
       case (design, members) if design.isDeviceTop =>
-        domainOwnerToSubDB(design).atGetSet {
+        val designSub = domainOwnerToSubDB(design)
+        designSub.atGetSet {
           val locationMap = mutable.Map.empty[String, String] // loc -> portName(idx)
           // the root-aware designMemberList already includes the design block as
           // the head of its member list, so iterate `members` directly (the flat
@@ -2046,10 +2047,15 @@ final case class DB private (
                       foundLoc = true
                     case _ =>
                   }
-                  val clkIsVar = domainOwnerMemberTable(domainOwner).view.collectFirst {
-                    case dcl: DFVal.Dcl if dcl.isClkDcl => dcl.isVar
+                  // a clk VAR is generated internally, and a clk dcl driven by an internal
+                  // connection is likewise not a device pin (e.g. a related domain's derived
+                  // clock driven by a gated version of its origin clock), so neither needs a
+                  // pin location constraint
+                  val clkIsInternal = domainOwnerMemberTable(domainOwner).view.collectFirst {
+                    case dcl: DFVal.Dcl if dcl.isClkDcl =>
+                      dcl.isVar || designSub.connectionTable.connectToVals.contains(dcl)
                   }.getOrElse(false)
-                  if (!foundLoc && !clkIsVar)
+                  if (!foundLoc && !clkIsInternal)
                     errors += s"${domainOwner.getFullName} is missing a clock location constraint"
                 case _ =>
               end match

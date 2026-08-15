@@ -134,6 +134,49 @@ class NoResetRelatedDomain extends RTDesign:
     val related_reg = UInt(8) <> VAR.REG init 0  // relies on its init value, no reset
 ```
 
+#### Derived Clocks (Gated Clocks)
+A related domain may declare its own clock port, and only an input clock port (`Clk <> IN`):
+
+```scala
+class GatedDomainDesign extends RTDesign:
+  val x = UInt(8) <> IN
+  @timing.related(this)
+  val active = new RTDomain:
+    val clk = Clk <> IN
+    val r   = UInt(8) <> VAR.REG init 0
+    r.din := x
+```
+
+This declares a *derived clock*: a clock that is fully synchronous with the clock of the
+related target (same source, same edges, phase-aligned), while the reset (subject to
+`includeReset`) is still shared through the relation. The typical use is a gated clock:
+the port sets the stage for a parent design to connect a gated version of the origin clock,
+yet nothing in this design asserts that gating actually happens; that is the parent's
+connectivity decision. Because the domains are related, no clock-domain-crossing discipline
+applies between them, and sharing an asynchronous reset across the gated clocks is safe (a
+flop whose clock is gated off still sees the reset assertion).
+
+The identity of a derived clock is its design-relative name: domain `active` with port
+`clk` identifies as `active_clk`, which is also its flattened port name. Same-named derived
+clocks of the same origin refer to the same clock everywhere in the hierarchy. The compiler
+resolves them globally:
+
+- **Driven somewhere**: when any same-identity port is explicitly connected (e.g. a parent
+  connects an ICG output via `child.active.clk <> gatedClk.as(child.active.Clk)`), a
+  distinct clock type `Clk_active_clk` is created, and every same-identity port across the
+  hierarchy is threaded to that connection through automatically added pass-through ports
+  (also named `active_clk`).
+- **Driven nowhere**: the ports take the origin clock's type, and each is automatically
+  connected wherever its origin clock connects. This is the ungated form: the derived clock
+  collapses onto the origin clock net, as in an FPGA build of an ASIC design that removes
+  clock gating.
+
+Derived clocks nest: a related domain with its own clock port may itself be the target of
+another related domain, whose clock port then derives from the outer derived clock (gating
+a gated clock). A related domain without its own clock port that targets a clocked related
+domain uses that domain's derived clock, while its reset still resolves through the full
+relation chain to the origin.
+
 ### Register Types and Initialization
 
 #### Register Declarations vs Aliases

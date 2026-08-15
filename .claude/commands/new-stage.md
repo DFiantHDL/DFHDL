@@ -1476,6 +1476,23 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     removes that member in the same patch still has to. Literal widths carry no type ref at all,
     so this only ever shows up on parameter-width designs — write the spec test with a
     `val W: Int <> CONST` design parameter, not a literal.
+34. **Ports can be nested in domain blocks — `Folded` on a design block misses them** — a port dcl
+    may live inside a `DomainBlock` (every AddClkRst-added domain clk/rst, and a related domain's
+    derived clock), and a `PortByNameSelect.portNamePath` may be multi-part (`active.clk`). Three
+    port-shaped assumptions broke on this at once: `SanityCheck.instPortsByNameSet` and
+    `MagnetMap.viaRMPs` collected `members(MemberView.Folded)` (design-level ports only), and
+    `DropDomains` renamed the port without rewriting PBNS paths that reference it from parent
+    designs. When collecting "the ports of a design", use `Flattened` (in the hierarchical model
+    nested designs are `DFDesignInst` placeholders, so there is no cross-design leakage) and name
+    ports by `getRelativeName(design)` with dots-to-underscores, which is also what
+    `ConnectPoint.getName` does.
+35. **The magnet stages run in two different orders and must work in both** — in the real backend
+    pipeline `AddMagnets`/`ConnectMagnets` are first demanded by `DropMagnets`, which sits AFTER
+    `DropDomains` in `BackendPrepStage`, so magnets connect on the flattened design where domain
+    ports are already design-level. But `<Stage>Spec` tests invoke `.addMagnets`/`.connectMagnets`
+    directly, running them BEFORE any flattening. A magnet-layer change must be validated in both
+    shapes (a spec test plus a full-pipeline compile), and magnet matching semantics must not
+    depend on domains having been dropped.
 
 ---
 

@@ -33,10 +33,12 @@ enum ConnectPoint(_dfType: DFType, _dir: DFVal.Modifier.Dir) derives CanEqual:
     case Via(_, _, designInst, portNamePath) =>
       s"${designInst.getFullName}.$portNamePath"
     case Direct(dcl) => dcl.getFullName
-  // TODO: do we need to support creating magnets within domain blocks?
+  // The name is the point's design-relative path with dots replaced by underscores, so a
+  // magnet dcl nested in a domain block (e.g. `active.clk`) propagates as `active_clk` when
+  // AddMagnets mints pass-through ports named after it (a design-level dcl keeps its bare name).
   def getName(using MemberGetSet): String = this match
     case Via(_, _, _, portNamePath) => portNamePath.replace('.', '_')
-    case Direct(dcl)                => dcl.getName
+    case Direct(dcl)                => dcl.getRelativeName(dcl.getOwnerDesign).replace('.', '_')
   // override equals and hashCode to ignore the Via dfType that may be different across different
   // different connection point hierachies due to the ReachableType mechanism
   override def equals(that: Any): Boolean =
@@ -116,7 +118,10 @@ object MagnetMap:
             val instPos = inst.meta.position
             rootDB.subDBs.get(childDesign.ownerRef).iterator.flatMap { childSub =>
               childSub.atGetSet {
-                childDesign.members(MemberView.Folded).iterator.collect {
+                // Flattened: a magnet dcl may be nested in a domain block (e.g. a related
+                // domain's derived clock); nested designs are DFDesignInst placeholders in
+                // the hierarchical model, so no cross-design leakage
+                childDesign.members(MemberView.Flattened).iterator.collect {
                   case dcl @ MagnetDcl(_) =>
                     val cp = ConnectPoint.Via(inst, dcl)
                     RMP(
@@ -142,7 +147,7 @@ object MagnetMap:
           case dcl @ MagnetDcl(_) =>
             val cp = ConnectPoint.Direct(dcl)
             val ownerDesign = dcl.getOwnerDesign
-            RMP(cp, ownerDesign, ownerDesign, ownerDesign.isBlackBox, dcl.getName,
+            RMP(cp, ownerDesign, ownerDesign, ownerDesign.isBlackBox, cp.getName,
               dcl.getFullName, dcl.meta.position)
         }
       }

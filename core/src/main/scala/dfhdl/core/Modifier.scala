@@ -103,10 +103,22 @@ object Modifier:
                     case rel: ir.constraints.Timing.Related => rel.ref.get
                   } match
                     case Some(target) =>
-                      throw new IllegalArgumentException(
-                        s"Cannot create a clk/rst in a related domain.\nYou can create the clk/rst in the primary domain `${target.getName}` and reference it here instead."
-                      )
+                      kind match
+                        // an input clock port is allowed: it declares a derived clock that is
+                        // fully synchronous with the related domain's clock (e.g. a gated
+                        // version of it), while the reset is still shared through the relation
+                        case ir.DFOpaque.Kind.Clk
+                            if modifier.value.isPort && modifier.value.dir == IRModifier.IN =>
+                        case ir.DFOpaque.Kind.Clk =>
+                          throw new IllegalArgumentException(
+                            s"Only an input clock port (`Clk <> IN`) is allowed in a related domain.\nSuch a clock is derived from (fully synchronous with) the clock of the related domain `${target.getName}`, and is typically driven by a gated version of it."
+                          )
+                        case _ =>
+                          throw new IllegalArgumentException(
+                            s"Cannot create a rst in a related domain.\nA related domain always shares the reset of its related domain `${target.getName}`. To opt out of the reset, use `@timing.related(..., includeReset = false)`."
+                          )
                     case None =>
+                  end match
                 case _ =>
             case _ =>
         case _ =>
