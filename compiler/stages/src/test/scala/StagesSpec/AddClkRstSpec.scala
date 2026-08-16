@@ -849,7 +849,7 @@ class AddClkRstSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("Related domain with an undriven derived clock collapses to the origin clk type") {
+  test("An unconnected derived clock keeps its distinct clk type") {
     class ID extends RTDesign:
       val x = SInt(16) <> IN
       val y = SInt(16) <> OUT.REG init 0
@@ -864,6 +864,7 @@ class AddClkRstSpec extends StageSpec:
       id,
       """|case class Clk_default() extends Clk
          |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
          |
          |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
          |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
@@ -875,10 +876,49 @@ class AddClkRstSpec extends StageSpec:
          |  y.din := x
          |  @timing.related(ID.this)
          |  val active = new RTDomain:
-         |    val clk = Clk_default <> IN
+         |    val clk = Clk_active_clk <> IN
          |    val z = SInt(16) <> OUT.REG init sd"16'0"
          |    z.din := x
          |  end active
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("Related domain with an output derived clock (internal gating site)") {
+    class ID extends RTDesign:
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT.REG init 0
+      val gclk = Bit      <> IN
+      y.din := x
+      @hw.constraints.timing.related(this)
+      val active = new RTDomain:
+        val clk = Clk      <> OUT
+        val z   = SInt(16) <> OUT.REG init 0
+        z.din := x
+      active.clk <> gclk.as(active.Clk)
+    val id = (new ID).addClkRst
+    assertCodeString(
+      id,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class ID extends RTDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT.REG init sd"16'0"
+         |  val gclk = Bit <> IN
+         |  y.din := x
+         |  @timing.related(ID.this)
+         |  val active = new RTDomain:
+         |    val clk = Clk_active_clk <> OUT
+         |    val z = SInt(16) <> OUT.REG init sd"16'0"
+         |    z.din := x
+         |  end active
+         |  active.clk <> gclk.as(Clk_active_clk)
          |end ID
          |""".stripMargin
     )

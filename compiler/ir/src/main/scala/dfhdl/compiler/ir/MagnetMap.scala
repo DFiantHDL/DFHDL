@@ -83,7 +83,8 @@ object MagnetMap:
   // tree (designBlockOwnershipMap) — no ref resolution during matching, so the
   // throwing root getSet is fine. Also returns each magnet point's (owner design,
   // name) so consumers don't re-resolve a cross-design ConnectPoint.
-  def get(rootDB: DB): (MagnetMap, Map[ConnectPoint, (DFDesignBlock, String)]) =
+  def get(rootDB: DB)
+      : (MagnetMap, Map[ConnectPoint, (DFDesignBlock, String)], List[ConnectPoint]) =
     // a magnet ConnectPoint with its design context precomputed under the
     // owning sub-DB getSet (so the matching never resolves refs)
     final case class RMP(
@@ -200,18 +201,18 @@ object MagnetMap:
     // and never resolve refs on a DFDesignBlock, so this never throws.
     given MemberGetSet = rootDB.getSet
 
-    val groups: List[List[RMP]] = allRMPs.groupBy(_.dfType).values.map(_.toList).toList
+    def isCandidateTarget(rmp: RMP): Boolean =
+      rmp.cp match
+        case ConnectPoint.Direct(dcl)
+            if rmp.isPortIn || rmp.isPortOut && rmp.ownerIsBlackBox ||
+              alreadyConnectedOrAssignedDcls.contains(dcl) =>
+          false
+        case via: ConnectPoint.Via if rmp.isPortOut || alreadyConnectedMPVias.contains(via) =>
+          false
+        case _ => true
+    val groups: List[List[RMP]] = allRMPs.groupByOrdered(_.dfType).map(_._2)
     val ret = groups.flatMap { grp =>
-      grp.view.filter { rmp =>
-        rmp.cp match
-          case ConnectPoint.Direct(dcl)
-              if rmp.isPortIn || rmp.isPortOut && rmp.ownerIsBlackBox ||
-                alreadyConnectedOrAssignedDcls.contains(dcl) =>
-            false
-          case via: ConnectPoint.Via if rmp.isPortOut || alreadyConnectedMPVias.contains(via) =>
-            false
-          case _ => true
-      }.flatMap { targetRMP =>
+      grp.view.filter(isCandidateTarget).flatMap { targetRMP =>
         val targetDsn = targetRMP.ownerDesign
         val sourceRMP: Option[RMP] =
           if (targetRMP.isPortIn)
@@ -295,6 +296,10 @@ object MagnetMap:
       throw new IllegalArgumentException(errors.view.reverse.mkString("\n\n"))
     val pointInfo: Map[ConnectPoint, (DFDesignBlock, String)] =
       allRMPs.iterator.map(rmp => rmp.cp -> (rmp.ownerDesign, rmp.name)).toMap
-    (ret, pointInfo)
+    // candidate targets for which no source was found anywhere, in allRMPs (deterministic)
+    // order; consumers may e.g. surface a sourceless derived clock at the top design
+    val unmatchedTargets =
+      allRMPs.filter(rmp => isCandidateTarget(rmp) && !ret.contains(rmp.cp)).map(_.cp)
+    (ret, pointInfo, unmatchedTargets)
   end get
 end MagnetMap

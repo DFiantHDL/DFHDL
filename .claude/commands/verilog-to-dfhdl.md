@@ -184,14 +184,17 @@ Use **`import`, not `export`** to reach the members afterwards: `export` is reje
 (*"not accessible"*) because the region's type is anonymous, and scope is all that is wanted here —
 an `import` adds no member and no net.
 
-Same-named domains+ports of the same origin unify across the hierarchy: if any of them is driven
-somewhere (a parent connects an ICG output via `child.active.clk <> g.as(child.active.Clk)`), all of
-them thread to it through auto-added `active_clk` pass-through ports; if none is driven, they all
-collapse onto the root clock net (`.active_clk(clk)`, the `RV_FPGA_OPTIMIZE` form) while the ports
-remain. Only `Clk <> IN` is legal in a related domain (no `OUT`/`VAR`, no `Rst`), and the gating
-site is always a parent's connection, never the domain's own design scope (a domain's input port is
-externally driven by construction). The reduce-to-enables strategy remains the right call when the
-target build ties all derived clocks to the root anyway and the ports are noise.
+Same-named domains+ports of the same clock group unify into one clock across the hierarchy,
+threaded through auto-added `active_clk` pass-through ports. The source is either a `Clk <> OUT`
+related-domain port (the internal gating site, driven from its design scope:
+`active.clk <> icgOut.as(active.Clk)`, the veer.sv structure) or a parent's explicit connection to
+a child's input port (`child.active.clk <> g.as(child.active.Clk)`). A derived clock is NEVER
+implicitly merged onto the root clock: with no source anywhere it surfaces as a top-level input
+port (a forgotten connection is a visible port, not a silently dead clock), and the ungated
+`RV_FPGA_OPTIMIZE` form (`.active_clk(clk)`) is an explicit wrapper connection from a declared root
+clock port. Only `Clk <> IN`/`Clk <> OUT` are legal in a related domain (no `VAR`, no `Rst`). The
+reduce-to-enables strategy remains the right call when the target build ties all derived clocks to
+the root anyway and the ports are noise.
 
 ## Parameters - beyond the guide
 

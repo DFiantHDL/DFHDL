@@ -27,38 +27,46 @@ case object AddMagnets extends GlobalStage:
     def nameOf(cp: ConnectPoint): String = designDB.magnetPointInfo(cp)._2
     // Populating a missing magnets map with the suggested port names and direction
     val missingMagnets = mutable.Map.empty[DFDesignBlock, Map[DFType, (String, DFVal.Modifier.Dir)]]
+    def registerMissingMagnet(
+        dsn: DFDesignBlock,
+        dfType: DFType,
+        name: String,
+        dir: DFVal.Modifier.Dir
+    ): Unit =
+      missingMagnets.get(dsn) match
+        case None => missingMagnets += dsn -> Map(dfType -> (name, dir))
+        case Some(dfTypeNameMap) if !dfTypeNameMap.contains(dfType) =>
+          missingMagnets += dsn -> (dfTypeNameMap + (dfType -> (name, dir)))
+        case _ => // do nothing
+    // climb from a bottom design upward while memoizing missing magnets. With
+    // DFDesignBlock.ownerRef == Empty the lexical parent is no longer reachable via
+    // getOwnerDesign — walk up through `designBlockOwnershipMap` (parents-via-instances,
+    // root-aware) instead. Multiple parents at any level are all visited; iteration stops
+    // once we reach `topDsnOpt` (exclusive; None climbs through the entire hierarchy,
+    // top design included). The bottom endpoint is excluded from the registration.
+    def climbUpDsn(
+        bottomDsn: DFDesignBlock,
+        topDsnOpt: Option[DFDesignBlock],
+        dfType: DFType,
+        name: String,
+        dir: DFVal.Modifier.Dir
+    ): Unit =
+      val visited = mutable.Set.empty[DFDesignBlock]
+      val queue = mutable.Queue.empty[DFDesignBlock]
+      queue ++= designDB.designBlockOwnershipMap.getOrElse(bottomDsn, Set.empty)
+      while (queue.nonEmpty)
+        val dsn = queue.dequeue()
+        if (!topDsnOpt.contains(dsn) && visited.add(dsn))
+          registerMissingMagnet(dsn, dfType, name, dir)
+          queue ++= designDB.designBlockOwnershipMap.getOrElse(dsn, Set.empty)
+    end climbUpDsn
     designDB.magnetConnectionMap.foreach { (toMP, fromMP) =>
       val toDsn = ownerOf(toMP)
       val fromDsn = ownerOf(fromMP)
       val fromName = nameOf(fromMP)
       val dfType = toMP.dfType
-      def anotherMissingMagnet(dsn: DFDesignBlock, dir: DFVal.Modifier.Dir): Unit =
-        missingMagnets.get(dsn) match
-          case None => missingMagnets += dsn -> Map(dfType -> (fromName, dir))
-          case Some(dfTypeNameMap) if !dfTypeNameMap.contains(dfType) =>
-            missingMagnets += dsn -> (dfTypeNameMap + (dfType -> (fromName, dir)))
-          case _ => // do nothing
-      // climb from a bottom design to a top design, while memoizing missing
-      // magnets between the designs. With DFDesignBlock.ownerRef == Empty the
-      // lexical parent is no longer reachable via getOwnerDesign — walk up
-      // through `designBlockOwnershipMap` (parents-via-instances, root-aware)
-      // instead. Multiple parents at any level are all visited; iteration stops
-      // once we reach `topDsn`. Both endpoints are excluded from the registration.
-      def climbUpDsn(
-          bottomDsn: DFDesignBlock,
-          topDsn: DFDesignBlock,
-          dir: DFVal.Modifier.Dir
-      ): Unit =
-        val visited = mutable.Set.empty[DFDesignBlock]
-        val queue = mutable.Queue.empty[DFDesignBlock]
-        queue ++= designDB.designBlockOwnershipMap.getOrElse(bottomDsn, Set.empty)
-        while (queue.nonEmpty)
-          val dsn = queue.dequeue()
-          if (dsn != topDsn && visited.add(dsn))
-            anotherMissingMagnet(dsn, dir)
-            queue ++= designDB.designBlockOwnershipMap.getOrElse(dsn, Set.empty)
       def climbUp(bottomPort: ConnectPoint, topDsn: DFDesignBlock): Unit =
-        climbUpDsn(ownerOf(bottomPort), topDsn, bottomPort.dir)
+        climbUpDsn(ownerOf(bottomPort), Some(topDsn), dfType, fromName, bottomPort.dir)
       (toMP.dir, fromMP.dir) match
         // climbing up to the source input port
         case (IN, IN) => climbUp(toMP, fromDsn)
@@ -73,6 +81,19 @@ case object AddMagnets extends GlobalStage:
             climbUp(toMP, commonDsn)
         case _ => // do nothing
       end match
+    }
+    // Sourceless derived clocks: a Clk-kind magnet target with no source anywhere in the
+    // hierarchy climbs all the way up, top design included, so the derived clock surfaces
+    // as a top-level input port instead of dangling internally (a forgotten gated-clock
+    // connection becomes a visible port rather than a silently dead clock). ConnectMagnets
+    // recomputes the magnet map on the patched DB, where the top-added port is the source
+    // that wires the whole chain. Root clock groups never reach here: AddClkRst gives every
+    // design that uses them its own dcl, which is the subtree's source.
+    designDB.magnetUnmatchedTargets.foreach { toMP =>
+      toMP.dfType match
+        case DFOpaque(kind = DFOpaque.Kind.Clk) if toMP.isPortIn =>
+          climbUpDsn(ownerOf(toMP), None, toMP.dfType, nameOf(toMP), DFVal.Modifier.Dir.IN)
+        case _ =>
     }
     // Add each design's missing magnet ports under that design's own sub-DB getSet.
     val newSubDBs = ListMap.from(

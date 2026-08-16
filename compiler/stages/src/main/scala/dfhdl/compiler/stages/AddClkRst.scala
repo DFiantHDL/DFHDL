@@ -17,31 +17,32 @@ import dfhdl.core.{asFE, DFCG}
   *     annotations, unless already explicitly declared.
   *   - Memoizes the opaque clk/rst types by the annotation content tuples (so identical
   *     configurations share the same opaque type).
-  *   - Resolves derived clocks: a related domain may declare its own `Clk <> IN` dcl, a clock that
-  *     is fully synchronous with the clock of its related target (typically a gated version of it),
-  *     while the reset is still shared through the relation. The dcl's identity is its
-  *     design-relative name (domain `active` with dcl `clk` identifies as `active_clk`) paired with
-  *     the origin clock it derives from. When any dcl of an identity is explicitly driven somewhere
-  *     (a gated clock is connected to it), a distinct opaque type `Clk_<relName>` is minted for the
-  *     whole identity, so the magnet connection flow threads the gated clock across the hierarchy
-  *     by type (and, through `AddMagnets` pass-through ports, by name). When no dcl of the identity
-  *     is driven anywhere, the dcls are retyped to their origin's opaque type instead, so the
-  *     magnet flow collapses them onto the origin clock net (the ungated form: each derived clock
-  *     port is connected wherever its origin clock connects).
+  *   - Resolves derived clocks: a related domain may declare its own `Clk <> IN` / `Clk <> OUT`
+  *     dcl, a clock that is fully synchronous with the clock of its related target (typically a
+  *     gated version of it), while the reset is still shared through the relation. An input port
+  *     consumes the derived clock and an output port sources it (the gating site). The dcl's
+  *     identity is its design-relative name (domain `active` with dcl `clk` identifies as
+  *     `active_clk`) paired with the origin clock group it derives from, and a distinct opaque type
+  *     `Clk_<relName>` is minted per identity, so the magnet connection flow threads same-named
+  *     derived clocks of the same group into one clock across the hierarchy (and, through
+  *     `AddMagnets` pass-through ports, by name). A derived clock is never implicitly merged onto
+  *     its origin clock: connecting the two (the ungated form) is always an explicit connection,
+  *     and a derived clock group with no source anywhere surfaces as a top-level input port (see
+  *     the sourceless-magnet handling in `AddMagnets`).
   *   - Generates the sim-driver block for top-level simulation designs.
   */
 case object AddClkRst extends GlobalStage:
   def dependencies: List[Stage] = List(ToRT, ExplicitClkRstCfg)
   def nullifies: Set[Stage] = Set(ViaConnection)
 
-  // Identity of a derived clock declared as a `Clk <> IN` dcl inside a related domain: the
-  // dcl's design-relative name paired with the origin clock it derives from. The origin is
-  // either a root clock configuration (the related chain ends at an owner carrying a resolved
-  // `@timing.clock`) or another derived clock (nested gating).
+  // Identity of a derived clock declared as a clk dcl inside a related domain: the dcl's
+  // design-relative name paired with the origin clock it derives from. The origin is either
+  // a root clock group (the related chain ends at an owner carrying a resolved
+  // `@timing.clock`, identified by its grpName) or another derived clock (nested gating).
   private final case class DerivedClkId(origin: DerivedClkOrigin, relName: String)
       derives CanEqual
   private enum DerivedClkOrigin derives CanEqual:
-    case Root(clk: constraints.Timing.Clock)
+    case Root(grpName: String)
     case Derived(id: DerivedClkId)
   def transformGlobal(designDB: DB)(using
       co: CompilerOptions,
@@ -350,13 +351,14 @@ case object AddClkRst extends GlobalStage:
     }
 
     // Pre-pass: derived (related-domain) clock resolution. Collects every related domain's
-    // clk dcl with its identity, and every explicitly driven clk dcl (directly connected, or
-    // connected from a parent design via port-by-name selection). Populates opaqueReplaceMap
-    // up front so that per-owner processing below retypes the dcls and any values of their
-    // user opaque types (e.g. `.as(dmn.Clk)` casts of gated clocks). See the stage doc for
-    // the mint-when-driven / collapse-when-undriven semantics.
+    // clk dcl (IN or OUT) with its identity and mints a distinct `Clk_<relName>` opaque type
+    // per identity, unconditionally: same-named derived clocks within the same clock group
+    // form one clock, threaded by the magnet connection flow, and are never implicitly
+    // merged onto their origin clock (connecting a derived clock to the origin is always an
+    // explicit choice). Populates opaqueReplaceMap up front so that per-owner processing
+    // below retypes the dcls and any values of their user opaque types (e.g. `.as(dmn.Clk)`
+    // casts of gated clocks).
     val relatedClkDcls = mutable.ListBuffer.empty[(DFVal.Dcl, DerivedClkId)]
-    val drivenClkDcls = mutable.Set.empty[DFVal.Dcl] // membership queries only
     designDB.subDBs.foreach { case (_, subDB) =>
       subDB.atGetSet {
         def relatedTargetOf(owner: DFDomainOwner): Option[DFDomainOwner] =
@@ -382,7 +384,7 @@ case object AddClkRst extends GlobalStage:
             case None =>
               owner.meta.annotations.collectFirst {
                 case clk: constraints.Timing.Clock => clk
-              }.map(DerivedClkOrigin.Root.apply)
+              }.map(clk => DerivedClkOrigin.Root(grpName(clk)))
         subDB.domainOwnerMemberList.foreach { case (owner, members) =>
           owner.domainType match
             case DomainType.RT if relatedTargetOf(owner).nonEmpty =>
@@ -391,33 +393,14 @@ case object AddClkRst extends GlobalStage:
               }
             case _ =>
         }
-        subDB.connectionTable.connectToVals.foreach {
-          case dcl: DFVal.Dcl if dcl.isClkDcl => drivenClkDcls += dcl
-          case pbns: DFVal.PortByNameSelect   =>
-            designDB.pbnsToPort(pbns, subDB).foreach { case (dcl, childSub) =>
-              if (childSub.atGetSet(dcl.isClkDcl)) drivenClkDcls += dcl
-            }
-          case _ =>
-        }
       }
     }
     locally {
-      val drivenIds: Set[DerivedClkId] =
-        relatedClkDcls.view.collect { case (dcl, id) if drivenClkDcls.contains(dcl) => id }.toSet
       val mintedDerived = mutable.Map.empty[DerivedClkId, coreDFOpaque[coreDFOpaque.Clk]]
-      def chosenTypeOf(id: DerivedClkId): coreDFOpaque[coreDFOpaque.Clk] =
-        if (drivenIds.contains(id))
-          mintedDerived.getOrElseUpdate(id, mintClkType(s"Clk_${id.relName}")(using DFCG()))
-        else
-          id.origin match
-            case DerivedClkOrigin.Root(clkAnnot) =>
-              clkTypeMap.getOrElseUpdate(
-                clkAnnot,
-                mintClkType(s"Clk_${grpName(clkAnnot)}")(using DFCG())
-              )
-            case DerivedClkOrigin.Derived(parentId) => chosenTypeOf(parentId)
       relatedClkDcls.foreach { case (dcl, id) =>
-        opaqueReplaceMap += dcl.dfType.asInstanceOf[DFOpaque] -> chosenTypeOf(id).asIR
+        val mintedType =
+          mintedDerived.getOrElseUpdate(id, mintClkType(s"Clk_${id.relName}")(using DFCG()))
+        opaqueReplaceMap += dcl.dfType.asInstanceOf[DFOpaque] -> mintedType.asIR
       }
     }
 

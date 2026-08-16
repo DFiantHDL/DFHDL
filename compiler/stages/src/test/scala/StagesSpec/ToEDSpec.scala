@@ -1741,7 +1741,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
-  test("Related domain with a driven derived clock and a shared async reset") {
+  test("Related domain with a derived clock and a shared async reset") {
     class IDTop extends EDDesign:
       val x = SInt(16) <> IN
       val y = SInt(16) <> OUT
@@ -1760,6 +1760,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       id,
       """|case class Clk_default() extends Clk
          |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
          |
          |class IDTop extends EDDesign:
          |  val x = SInt(16) <> IN
@@ -1774,7 +1775,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |      else if (clk.actual.rising) o :== x
          |  end dmn1
          |  val active = new EDDomain:
-         |    val clk = Clk_default <> IN
+         |    val clk = Clk_active_clk <> IN
          |    val o = SInt(16) <> OUT
          |    process(clk, dmn1.rst):
          |      if (dmn1.rst.actual == 1) o :== sd"16'0"
@@ -1805,6 +1806,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       id,
       """|case class Clk_default() extends Clk
          |case class Rst_default() extends Rst
+         |case class Clk_gated_clk() extends Clk
          |
          |class IDTop extends EDDesign:
          |  val x = SInt(16) <> IN
@@ -1821,7 +1823,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |      end if
          |  end dmn1
          |  val gated = new EDDomain:
-         |    val clk = Clk_default <> IN
+         |    val clk = Clk_gated_clk <> IN
          |  end gated
          |  val user = new EDDomain:
          |    val o = SInt(16) <> OUT
@@ -1836,7 +1838,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
-  test("Related domain with an undriven derived clock collapses onto the origin clock") {
+  test("Related domain with an unconnected derived clock keeps its own clock") {
     class IDTop extends EDDesign:
       val x    = SInt(16) <> IN
       val y    = SInt(16) <> OUT
@@ -1854,6 +1856,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       id,
       """|case class Clk_default() extends Clk
          |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
          |
          |class IDTop extends EDDesign:
          |  val x = SInt(16) <> IN
@@ -1870,7 +1873,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |      end if
          |  end dmn1
          |  val active = new EDDomain:
-         |    val clk = Clk_default <> IN
+         |    val clk = Clk_active_clk <> IN
          |    val o = SInt(16) <> OUT
          |    process(clk):
          |      if (clk.actual.rising)
@@ -1901,6 +1904,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       id,
       """|case class Clk_default() extends Clk
          |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
          |
          |class IDTop extends EDDesign:
          |  val x = SInt(16) <> IN
@@ -1917,7 +1921,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |      end if
          |  end dmn1
          |  val active = new EDDomain:
-         |    val clk = Clk_default <> IN
+         |    val clk = Clk_active_clk <> IN
          |    val o = SInt(16) <> OUT init sd"16'0"
          |    process(clk):
          |      if (clk.actual.rising) o :== x

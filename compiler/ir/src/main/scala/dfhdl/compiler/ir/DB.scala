@@ -741,12 +741,17 @@ final case class DB private (
   // the root-aware design tree (no flattening). The point info lets consumers
   // avoid re-resolving a cross-design ConnectPoint (which would need a flat
   // member index).
-  private lazy val magnetData
-      : (Map[ConnectPoint, ConnectPoint], Map[ConnectPoint, (DFDesignBlock, String)]) =
+  private lazy val magnetData: (
+      Map[ConnectPoint, ConnectPoint],
+      Map[ConnectPoint, (DFDesignBlock, String)],
+      List[ConnectPoint]
+  ) =
     if (!isRoot) rootDB.magnetData
     else MagnetMap.get(this)
   lazy val magnetConnectionMap: Map[ConnectPoint, ConnectPoint] = magnetData._1
   lazy val magnetPointInfo: Map[ConnectPoint, (DFDesignBlock, String)] = magnetData._2
+  // magnet targets with no source anywhere in the hierarchy (deterministic order)
+  lazy val magnetUnmatchedTargets: List[ConnectPoint] = magnetData._3
 
   // Dangling-port check, run on the root DB. The assignment coverage and the
   // connected-point set are aggregated across all sub-DBs (each design's

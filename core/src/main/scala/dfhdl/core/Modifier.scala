@@ -104,14 +104,18 @@ object Modifier:
                   } match
                     case Some(target) =>
                       kind match
-                        // an input clock port is allowed: it declares a derived clock that is
-                        // fully synchronous with the related domain's clock (e.g. a gated
-                        // version of it), while the reset is still shared through the relation
+                        // input/output clock ports are allowed: they declare a derived clock
+                        // that is fully synchronous with the related domain's clock (e.g. a
+                        // gated version of it), while the reset is still shared through the
+                        // relation. An input port consumes the derived clock; an output port
+                        // sources it (the gating site drives it from the design scope)
                         case ir.DFOpaque.Kind.Clk
-                            if modifier.value.isPort && modifier.value.dir == IRModifier.IN =>
+                            if modifier.value.isPort &&
+                              (modifier.value.dir == IRModifier.IN ||
+                                modifier.value.dir == IRModifier.OUT) =>
                         case ir.DFOpaque.Kind.Clk =>
                           throw new IllegalArgumentException(
-                            s"Only an input clock port (`Clk <> IN`) is allowed in a related domain.\nSuch a clock is derived from (fully synchronous with) the clock of the related domain `${target.getName}`, and is typically driven by a gated version of it."
+                            s"Only clock ports (`Clk <> IN` / `Clk <> OUT`) are allowed in a related domain.\nSuch a clock is derived from (fully synchronous with) the clock of the related domain `${target.getName}`, and is typically a gated version of it."
                           )
                         case _ =>
                           throw new IllegalArgumentException(
