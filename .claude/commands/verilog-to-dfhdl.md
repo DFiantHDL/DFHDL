@@ -414,7 +414,8 @@ The ladder itself (combinational miter, `equiv_make`/`equiv_simple`/`equiv_induc
 that are about **DFHDL's output specifically** and recur in every port:
 
 - **Read the DFHDL output with `read_slang`, not `read_verilog`** (`yosys -m slang`, plugin shipped
-  with OSS CAD Suite). yosys's own frontend rejects the assignment pattern DFHDL emits to reset a
+  with OSS CAD Suite; the training repo's `cav` does this automatically for both sides when the
+  plugin is present, via `CAV_FRONTEND=auto`). yosys's own frontend rejects the assignment pattern DFHDL emits to reset a
   vector — `gpr_out <= '{default: '{default: 32'h0}};` — with *"syntax error, unexpected
   TOK_DEFAULT"* (yosys#6120). It is the **`default:` key** that has no grammar rule, not the nesting
   and not unpacked arrays: the positional form `'{a, b, c, d}` parses, while every keyed form fails
