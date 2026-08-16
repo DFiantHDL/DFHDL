@@ -17,6 +17,9 @@ final case class DFC(
     position: Position,
     docOpt: Option[String],
     annotations: List[HWAnnotation] = Nil, // TODO: removing default causes stale symbol crash
+    // the declaring Scala package of the value this context names; consumed by `getMeta`
+    // only at GLOBAL scope (a design-scoped value's namespace is its design)
+    namespace: String = "",
     mutableDB: MutableDB = new MutableDB(),
     refGen: ir.RefGen = ir.RefGen.initial,
     tags: ir.DFTags = ir.DFTags.empty,
@@ -28,7 +31,8 @@ final case class DFC(
       nameOpt: Option[String] = nameOpt,
       position: Position = position,
       docOpt: Option[String] = docOpt,
-      annotations: List[Annotation] = Nil
+      annotations: List[Annotation] = Nil,
+      namespace: String = namespace
   ) =
     if (refGen.getGrpId == (0, 0))
       refGen.setGrpId(DFC.getGrpId(position))
@@ -36,8 +40,10 @@ final case class DFC(
       nameOpt = nameOpt,
       position = position,
       docOpt = docOpt,
-      annotations = annotations.getActiveHWAnnotations
+      annotations = annotations.getActiveHWAnnotations,
+      namespace = namespace
     ).asInstanceOf[this.type]
+  end setMeta
   def setMeta(
       meta: ir.Meta
   ) =
@@ -47,13 +53,17 @@ final case class DFC(
       nameOpt = meta.nameOpt,
       position = meta.position,
       docOpt = meta.docOpt,
-      annotations = meta.annotations
+      annotations = meta.annotations,
+      namespace = meta.namespace
     ).asInstanceOf[this.type]
   def setTags(tags: ir.DFTags) = copy(tags = tags)
   def tag[CT <: ir.DFTag: ClassTag](customTag: CT) = setTags(tags.tag(customTag))
   def emptyTags = setTags(ir.DFTags.empty)
   given getSet: ir.MemberGetSet = mutableDB.getSet
-  def getMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations)
+  // the namespace reaches the meta only for GLOBAL values (no owner in context): a
+  // design-scoped value's namespace is its design, not its declaring Scala package
+  def getMeta: ir.Meta =
+    ir.Meta(nameOpt, position, docOpt, annotations, if (ownerOption.isEmpty) namespace else "")
   def enterOwner(owner: DFOwnerAny): Unit =
     mutableDB.OwnershipContext.enter(owner.asIR)
   def exitOwner(): Unit = mutableDB.OwnershipContext.exit()

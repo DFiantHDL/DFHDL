@@ -31,7 +31,7 @@ private[core] object TypeMetaGen:
           )
         }
       case _ => '{ dfhdl.internals.Position.unknown }
-    val docExpr = Expr(sym.docstring)
+    val docExpr = Expr(sym.docstring.map(dfhdl.internals.sanitizedDocstring))
     '{ ir.Meta(Some($nameExpr), $posExpr, $docExpr, Nil, $namespaceExpr) }
   end apply
 end TypeMetaGen

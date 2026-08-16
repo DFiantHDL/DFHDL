@@ -447,12 +447,12 @@ final case class DFOpaque(
     actualType.bitsDataToData(data)
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFOpaque =>
-      this.name == that.name && this.id == that.id &&
+      this.meta.sameIdentityAs(that.meta) && this.id == that.id &&
       this.actualType =~ that.actualType
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFOpaque =>
-      this.name == that.name && this.id == that.id &&
+      this.meta.sameIdentityAs(that.meta) && this.id == that.id &&
       this.actualType.isSimilarTo(that.actualType)
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = actualType.getRefs

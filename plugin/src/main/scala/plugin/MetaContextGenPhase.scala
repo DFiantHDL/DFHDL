@@ -88,10 +88,13 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         // `Erasure`) in the shape the compiler would have handed us for an ordinary term.
         // Also, we revesrse the annotations since for some reason the compiler reverses the order of the annotations.
         val annotTree = mkList(annotations.map(a => transformAllDeep(inlineCalls(a.tree))).reverse)
+        // the declaring package travels on every named value; DFC's `getMeta` keeps it
+        // only at global scope (design-scoped values get "")
         tree
           .select(setMetaSym)
           .appliedToArgs(
-            nameOptTree :: positionTree :: docOptTree :: annotTree :: Nil
+            nameOptTree :: positionTree :: docOptTree :: annotTree ::
+              mkNamespace(summon[Context].owner) :: Nil
           )
           .withType(TermRef(tree.tpe, setMetaSym))
       else

@@ -8,6 +8,7 @@ import dfhdl.internals.{NoTopAnnotIsRequired, Position}
 
 /** the struct doc */
 case class TMCStruct(x: UInt[8] <> VAL, y: Bit <> VAL) extends Struct
+val TMCGlobal: UInt[8] <> CONST = 7
 enum TMCEnum extends Encoded:
   case Alpha, Beta, Gamma
 case class TMCOpaque() extends Opaque(UInt(8))
@@ -61,6 +62,7 @@ class MetaSpec extends FunSuite, NoTopAnnotIsRequired:
     val e = TMCEnum <> VAR
     val o = TMCOpaque <> VAR
     val t = (UInt(8), Bit) <> VAR
+    val loc = UInt(8) <> VAR init TMCGlobal
 
   lazy val dclTypes: Map[String, ir.DFType] =
     val db = (new Top).getDB
@@ -85,10 +87,15 @@ class MetaSpec extends FunSuite, NoTopAnnotIsRequired:
     assert(meta.position.file.endsWith("MetaSpec.scala"), meta.position.toString)
   }
 
-  test("opaque meta: name, namespace") {
-    val meta = dclTypes("o").asInstanceOf[ir.DFOpaque].meta
+  test("opaque meta: name, namespace, position") {
+    val opaque = dclTypes("o").asInstanceOf[ir.DFOpaque]
+    val meta = opaque.meta
     assertEquals(meta.name, "TMCOpaque")
     assertEquals(meta.namespace, "StagesSpec")
+    assert(meta.position.file.endsWith("MetaSpec.scala"), meta.position.toString)
+    // a GENERAL opaque is identified by its meta (name + namespace) like structs and
+    // enums; only magnets carry a per-instance id
+    assertEquals(opaque.id, 0)
   }
 
   test("tuple struct meta: structural, root namespace") {
@@ -96,4 +103,17 @@ class MetaSpec extends FunSuite, NoTopAnnotIsRequired:
     assertEquals(meta.name, "DFTuple2")
     assertEquals(meta.namespace, "")
   }
+
+  test("a global constant carries its package; a design-scoped value does not") {
+    val db = (new Top).getDB
+    val globalMeta = db.subDBs.values.toList.flatMap(_.membersGlobals).collectFirst {
+      case g: ir.DFVal if g.meta.name == "TMCGlobal" => g.meta
+    }.get
+    assertEquals(globalMeta.namespace, "StagesSpec")
+    val locMeta = db.subDBs.values.toList.flatMap(_.members).collectFirst {
+      case dcl: ir.DFVal.Dcl if dcl.meta.name == "loc" => dcl.meta
+    }.get
+    assertEquals(locMeta.namespace, "")
+  }
+
 end MetaSpec

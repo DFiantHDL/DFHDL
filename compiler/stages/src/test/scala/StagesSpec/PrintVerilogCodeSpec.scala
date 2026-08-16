@@ -3939,4 +3939,43 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Docstrings on named types"):
+    /** struct doc */
+    case class DocS(a: Bit <> VAL) extends Struct
+
+    /** enum doc */
+    enum DocE extends Encoded:
+      case E0, E1
+
+    /** opaque doc */
+    case class DocO() extends Opaque(Bit)
+    class DocTop extends DFDesign:
+      val s = DocS <> VAR
+      val e = DocE <> VAR
+      val o = DocO <> VAR
+    val top = (new DocTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module DocTop;
+         |  `include "dfhdl_defs.svh"
+         |  /* struct doc */
+         |  typedef struct packed {
+         |    logic a;
+         |  } t_struct_DocS;
+         |  /* enum doc */
+         |  typedef enum logic [0:0] {
+         |    DocE_E0 = 0,
+         |    DocE_E1 = 1
+         |  } t_enum_DocE;
+         |  /* opaque doc */
+         |  typedef logic t_opaque_DocO;
+         |  t_struct_DocS s;
+         |  t_enum_DocE e;
+         |  t_opaque_DocO o;
+         |endmodule
+         |""".stripMargin
+    )
 end PrintVerilogCodeSpec

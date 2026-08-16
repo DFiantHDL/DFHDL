@@ -3926,4 +3926,39 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("Docstrings on named types"):
+    /** struct doc */
+    case class DocS(a: Bit <> VAL) extends Struct
+
+    /** enum doc */
+    enum DocE extends Encoded:
+      case E0, E1
+
+    /** opaque doc */
+    case class DocO() extends Opaque(Bit)
+    class DocTop extends DFDesign:
+      val s = DocS <> VAR
+      val e = DocE <> VAR
+      val o = DocO <> VAR
+    val top = (new DocTop)
+    assertCodeString(
+      top,
+      """|class DocTop extends DFDesign:
+         |  /** struct doc */
+         |  final case class DocS(
+         |      a: Bit <> VAL
+         |  ) extends Struct
+         |  /** enum doc */
+         |  enum DocE(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
+         |    case E0 extends DocE(d"1'0")
+         |    case E1 extends DocE(d"1'1")
+         |  /** opaque doc */
+         |  case class DocO() extends Opaque(Bit)
+         |
+         |  val s = DocS <> VAR
+         |  val e = DocE <> VAR
+         |  val o = DocO <> VAR
+         |end DocTop
+         |""".stripMargin
+    )
 end PrintCodeStringSpec

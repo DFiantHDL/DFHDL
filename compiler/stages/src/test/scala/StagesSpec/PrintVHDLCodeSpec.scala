@@ -3873,4 +3873,47 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Docstrings on named types"):
+    /** struct doc */
+    case class DocS(a: Bit <> VAL) extends Struct
+
+    /** enum doc */
+    enum DocE extends Encoded:
+      case E0, E1
+
+    /** opaque doc */
+    case class DocO() extends Opaque(Bit)
+    class DocTop extends DFDesign:
+      val s = DocS <> VAR
+      val e = DocE <> VAR
+      val o = DocO <> VAR
+    val top = (new DocTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity DocTop is
+         |end DocTop;
+         |
+         |architecture DocTop_arch of DocTop is
+         |  -- struct doc 
+         |  type t_struct_DocS is record
+         |    a : std_logic;
+         |  end record;
+         |  -- enum doc 
+         |  type t_enum_DocE is (
+         |    DocE_E0, DocE_E1
+         |  );
+         |  -- opaque doc 
+         |  subtype t_opaque_DocO is std_logic;
+         |  signal s : t_struct_DocS;
+         |  signal e : t_enum_DocE;
+         |  signal o : t_opaque_DocO;
+         |begin
+         |end DocTop_arch;
+         |""".stripMargin
+    )
 end PrintVHDLCodeSpec

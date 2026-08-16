@@ -24,17 +24,28 @@ object Position:
       columnEnd: Int
   ): Position = Position(getRelativePath(fileAbsPath), lineStart, columnStart, lineEnd, columnEnd)
 
+/** Normalizes a RAW scaladoc comment (as `Symbol.docstring` returns it in macros, markers included)
+  * to the cooked body the compiler plugin's `docString` yields: the `/**`/`*/` markers removed, and
+  * each continuation line's leading whitespace-and-`*` margin stripped. Keeps the first line's
+  * spacing verbatim (a single-line `/** My in */` cooks to " My in ").
+  */
+def sanitizedDocstring(raw: String): String =
+  val body = raw.stripPrefix("/**").stripSuffix("*/")
+  val lines = body.split("\n", -1)
+  (lines.head +: lines.tail.map(_.replaceFirst("^\\s*(\\*|$)", ""))).mkString("\n")
+
 trait MetaContext:
   def setMeta(
       nameOpt: Option[String],
       position: Position,
       doc: Option[String],
-      annotations: List[Annotation]
+      annotations: List[Annotation],
+      namespace: String
   ): this.type
 
   def setMetaAnon(
       position: Position
-  ): this.type = setMeta(None, position, None, Nil)
+  ): this.type = setMeta(None, position, None, Nil, "")
 
   def setName(name: String): this.type
 

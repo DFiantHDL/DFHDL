@@ -39,30 +39,36 @@ object DFOpaque:
   abstract class Clk extends Magnet[DFBit](DFBit)
   abstract class Rst extends Magnet[DFBit](DFBit)
 
-  given [TFE <: Abstract](using ce: ClassEv[TFE], dfc: DFCG): DFOpaque[TFE] = DFOpaque(ce.value)
+  given [TFE <: Abstract](using ce: ClassEv[TFE], dfc: DFCG): DFOpaque[TFE] = DFOpaque(ce)
 
+  // full capture through `ClassEv`'s declaration fields (position, doc, package)
+  def apply[TFE <: Abstract](
+      ce: ClassEv[TFE]
+  )(using DFCG): DFOpaque[TFE] =
+    apply(
+      ce.value,
+      ir.Meta(Some(ce.value.typeName), ce.dclPosition, ce.dclDocOpt, Nil, ce.dclNamespace)
+    )
+  // runtime fallback for direct-instance callers: name and package only
   def apply[TFE <: Abstract](
       t: TFE
+  )(using DFCG): DFOpaque[TFE] =
+    apply(t, ir.Meta(Some(t.typeName), Position.unknown, None, Nil, t.getClass.getPackageName))
+  def apply[TFE <: Abstract](
+      t: TFE,
+      meta: ir.Meta
   )(using dfc: DFCG): DFOpaque[TFE] = trydf {
     val kind = t match
       case _: Clk       => ir.DFOpaque.Kind.Clk
       case _: Rst       => ir.DFOpaque.Kind.Rst
       case _: Magnet[?] => ir.DFOpaque.Kind.Magnet
       case _            => ir.DFOpaque.Kind.General
+    // Magnets are identified per INSTANCE (each `Unique().Clk()` and friends must stay a
+    // distinct type). General opaques are identified by their meta (name + namespace),
+    // like structs and enums, so their id is inert.
     val id = t match
       case _: Magnet[?] => dfc.refGen.getMagnetID(t)
-      case _            =>
-        // Generate a stable ID based on the fully qualified class name
-        // This ensures different case classes have different IDs even if they have the same simple name
-        // but are in different packages, and remains stable between runs
-        val fullyQualifiedClassName = t.getClass.getName
-        fullyQualifiedClassName.hashCode
-    // runtime capture: name and package only (the opaque instance arrives through
-    // `ClassEv`, so there is no declaration symbol at hand for position/doc)
-    val meta = ir.Meta(
-      Some(t.typeName), Position.unknown, None, Nil,
-      t.getClass.getPackageName
-    )
+      case _            => 0
     ir.DFOpaque(
       meta,
       kind,
@@ -72,7 +78,6 @@ object DFOpaque:
   }(using dfc, CTName("Opaque constructor"))
   extension [A <: DFTypeAny, TFE <: Frontend[A]](dfType: DFOpaque[TFE])
     def actualType: A = dfType.asIR.actualType.asFE[A]
-    def opaqueType: TFE = dfType.asIR.id.asInstanceOf[TFE]
 
   object Val:
     object TC:
@@ -102,7 +107,7 @@ object DFOpaque:
         new ExactOp2["as", DFC, DFValAny, L, Comp]:
           type Out = DFValTP[DFOpaque[TFE], tc.OutP]
           def apply(lhs: L, tfeComp: Comp)(using DFC): Out = trydf {
-            DFVal.Alias.AsIs(DFOpaque[TFE](ce.value), tc(ce.value.actualType, lhs))
+            DFVal.Alias.AsIs(DFOpaque[TFE](ce), tc(ce.value.actualType, lhs))
           }(using dfc, CTName("cast as opaque"))
       end evOpAsDFOpaqueComp
 
@@ -149,7 +154,7 @@ object DFOpaque:
         new ExactOp2["as", DFC, DFValAny, L, Comp]:
           type Out = DFValOf[DFOpaque[TFE]]
           def apply(lhs: L, tfeComp: Comp)(using DFC): Out = trydf {
-            DFVal.Alias.AsIs(DFOpaque[TFE](ce.value), lhs)
+            DFVal.Alias.AsIs(DFOpaque[TFE](ce), lhs)
           }(using dfc, CTName("cast clk as a different clk"))
       end evOpClkAsClkComp
 
@@ -166,7 +171,7 @@ object DFOpaque:
         new ExactOp2["as", DFC, DFValAny, L, Comp]:
           type Out = DFValOf[DFOpaque[TFE]]
           def apply(lhs: L, tfeComp: Comp)(using DFC): Out = trydf {
-            DFVal.Alias.AsIs(DFOpaque[TFE](ce.value), lhs)
+            DFVal.Alias.AsIs(DFOpaque[TFE](ce), lhs)
           }(using dfc, CTName("cast rst as a different rst"))
       end evOpRstAsRstComp
 
@@ -187,7 +192,7 @@ object DFOpaque:
             f: DFValOf[AT] => DFValOf[AT]
         )(using dfc: DFC, ce: ClassEv[TFE]): DFValOf[DFOpaque[TFE]] =
           DFVal.Alias.AsIs(
-            DFOpaque[TFE](ce.value),
+            DFOpaque[TFE](ce),
             f(lhs.actual)
           )
       end extension

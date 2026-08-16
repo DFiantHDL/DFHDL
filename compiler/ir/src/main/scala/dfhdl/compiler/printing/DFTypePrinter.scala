@@ -9,10 +9,12 @@ trait AbstractTypePrinter extends AbstractPrinter:
   def csDFBits(dfType: DFBitsWL, typeCS: Boolean): String
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String
   final def csNamedDFTypeDcl(dfType: NamedDFType, global: Boolean): String =
-    dfType match
+    val dcl = dfType match
       case dt: DFEnum   => csDFEnumDcl(dt, global)
       case dt: DFOpaque => csDFOpaqueDcl(dt)
       case dt: DFStruct => csDFStructDcl(dt)
+    val doc = printer.csDocString(dfType.meta)
+    if (doc.isEmpty) dcl else s"$doc\n$dcl"
   private def isInt32Val(member: DFMember): Boolean =
     member match
       case dfVal: DFVal =>
