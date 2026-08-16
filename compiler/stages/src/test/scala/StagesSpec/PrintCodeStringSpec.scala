@@ -917,7 +917,10 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
       // path-prefixed shorthand: a domain related to `gated` rather than to the design
       val sub = new gated.RTRegion:
         val v = SInt(16) <> VAR init 0
-      y := r + related.x + gated.z + trans.w + sub.v
+      val gclk = Bit <> IN
+      val src  = new RTDerivedClkDomainSrc {}
+      src.clk <> gclk.as(src.Clk)
+      y       := r + related.x + gated.z + trans.w + sub.v
     end IDWithDomains
     val id = (new IDWithDomains)
     assertCodeString(
@@ -948,6 +951,12 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val sub = new RTDomain:
          |    val v = SInt(16) <> VAR init sd"16'0"
          |  end sub
+         |  val gclk = Bit <> IN
+         |  @timing.related(IDWithDomains.this)
+         |  val src = new RTDomain:
+         |    val clk = Clk <> OUT
+         |  end src
+         |  src.clk <> gclk.as(Clk)
          |  y := r + related.x + gated.z + trans.w + sub.v
          |end IDWithDomains
          |""".stripMargin

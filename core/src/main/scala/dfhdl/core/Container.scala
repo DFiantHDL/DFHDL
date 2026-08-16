@@ -54,6 +54,11 @@ trait RTDomainContainer extends DomainContainer:
   // `val clk = Clk <> IN` declaration.
   abstract class RTDerivedClkDomain extends RTRelatedDomain:
     val clk = DFVal.Dcl(DFOpaque(Clk()), Modifier.IN)(using dfc.setName("clk"))
+  // The sourcing variant of `RTDerivedClkDomain` (`val clk = Clk <> OUT`): the internal
+  // gating site, whose design scope drives the derived clock (e.g. from an ICG output) and
+  // exports it to every same-named derived clock in scope.
+  abstract class RTDerivedClkDomainSrc extends RTRelatedDomain:
+    val clk = DFVal.Dcl(DFOpaque(Clk()), Modifier.OUT)(using dfc.setName("clk"))
   // A scoping construct rather than a domain in its own right: a region groups logic under
   // this container's timing context with no observable footprint, neither a clock identity
   // nor a naming one (its members keep their bare names). Equivalent to an `RTRelatedDomain`

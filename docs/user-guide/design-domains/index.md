@@ -193,6 +193,7 @@ equivalent to a plain `RTDomain` with the corresponding annotations, and manifes
 |---|---|
 | `RTRelatedDomain` | `@timing.related(this)` `new RTDomain` |
 | `RTDerivedClkDomain` | `RTRelatedDomain` with a `val clk = Clk <> IN` declaration |
+| `RTDerivedClkDomainSrc` | `RTRelatedDomain` with a `val clk = Clk <> OUT` declaration |
 | `RTRegion` | `RTRelatedDomain` with `@flattenMode.transparent` |
 
 ```scala
@@ -220,7 +221,10 @@ The two domain shorthands create a grouping with a footprint of its own:
   (`@timing.related(this, includeReset = false)`) when the domain must opt out of the reset.
 - **`RTDerivedClkDomain`** declares a derived (typically gated) clock as described in the
   previous section; its `clk` port identifies by the domain's name (domain `active` yields
-  the `active_clk` identity and flattened port name).
+  the `active_clk` identity and flattened port name). **`RTDerivedClkDomainSrc`** is its
+  sourcing variant (`Clk <> OUT`): the internal gating site, whose design scope drives the
+  derived clock (e.g. `active.clk <> icgOut.as(active.Clk)`) and exports it to every
+  same-named derived clock in scope.
 
 An **`RTRegion`** is deliberately the opposite: a scoping construct with no observable
 footprint of its own, neither a clock identity nor a naming one. It places logic under a
