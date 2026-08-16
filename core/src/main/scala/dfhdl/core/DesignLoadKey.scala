@@ -17,6 +17,20 @@ final case class DesignLoadKey(
     scalaArgs: List[Any],
     impureParamsKey: List[String]
 ):
+  // `sameDclAs`, not `sameIdentityAs`: this key answers "same declaration", so
+  // same-named designs from different declarations must not unify through the intra-run
+  // gate tier. This keeps the in-memory equality aligned with `localKey`, which
+  // serializes the full `dclMeta`.
+  override def equals(that: Any): Boolean = that match
+    case that: DesignLoadKey =>
+      this.dclMeta.sameDclAs(that.dclMeta) &&
+      this.inputTypes == that.inputTypes &&
+      this.scalaArgs.equals(that.scalaArgs) &&
+      this.impureParamsKey == that.impureParamsKey
+    case _ => false
+  override def hashCode: Int =
+    (dclMeta, dclMeta.position, inputTypes, scalaArgs, impureParamsKey).##
+
   /** The cross-run content key: a stable digest of the key parts, used by the sub-design cache
     * service. `dclMeta` serializes through its IR writer; the DFType and impure-data parts are
     * already codeStrings; plain Scala args fold through their string forms. Best effort: unstable

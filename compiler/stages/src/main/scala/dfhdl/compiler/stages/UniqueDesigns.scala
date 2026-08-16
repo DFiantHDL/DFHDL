@@ -34,7 +34,13 @@ case object UniqueDesigns extends GlobalStage:
   ): List[List[DFDesignBlock]] =
     val eqDesign: ((DFDesignBlock, List[DFMember]), (DFDesignBlock, List[DFMember])) => Boolean =
       case ((thisBlock, theseMembers), (thatBlock, thoseMembers))
-          if thisBlock.dclMeta == thatBlock.dclMeta =>
+          // `sameDclAs`, not `sameIdentityAs`: same-named, structurally-identical
+          // designs from DIFFERENT declarations must stay separate (there is no
+          // cross-declaration structural dedup). In-run inputs arrive with same-named
+          // distinct declarations already dclName-enumerated by elaboration, so this
+          // matters for inputs that skip that enumeration (adopted cache children, see
+          // the adopted-child dclName-clash gap in devdocs/elaboration-caching.md).
+          if thisBlock.dclMeta.sameDclAs(thatBlock.dclMeta) =>
         (theseMembers lazyZip thoseMembers).forall { case (l, r) => l =~ r }
       case _ => false
     // we're grouping always according to case-insensitive design names because these affect
@@ -43,6 +49,7 @@ case object UniqueDesigns extends GlobalStage:
     db.designMemberList.view
       .groupByCompare(eqDesign, d => scopedDclNameKey(d._1, ownerByDesign).hashCode())
       .map(_.unzip._1).toList
+  end groupDesigns
 
   def transformGlobal(designDB: DB)(using co: CompilerOptions, refGen: RefGen): DB =
     // Cross-design structural comparison resolves refs from BOTH designs, so it

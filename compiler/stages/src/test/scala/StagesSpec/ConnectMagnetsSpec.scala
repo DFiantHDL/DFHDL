@@ -424,10 +424,10 @@ class ConnectMagnetsSpec extends StageSpec:
          |  user.x <> x
          |  y <> user.y
          |  user.active.clk <> gater.active.clk
-         |  user.clk <> clk
          |  gater.clk <> clk
-         |  user.rst <> rst
+         |  user.clk <> clk
          |  gater.rst <> rst
+         |  user.rst <> rst
          |end Top
          |""".stripMargin
     )

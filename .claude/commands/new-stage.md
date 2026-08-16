@@ -1525,6 +1525,15 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     one, so an array sensitivity item has to be listed cell by cell
     (`@(mem[0] or mem[1] or ...)`); `@*` is undefined over arrays in the standard and absent from
     v95 entirely. VHDL names the array signal itself, so the expansion is Verilog-only.
+40. **`Meta` has no `CanEqual` — name the comparison you mean** — a direct `meta == meta` does
+    not compile; choose `sameIdentityAs` (excludes `position`/`docOpt`, which can drift while an
+    elaboration-cache entry stays valid — cached members must still unify by value with live
+    ones) or `sameDclAs` (all fields; "same declaration" is anchored on position — see
+    `UniqueDesigns`' grouping and `DesignLoadKey`'s intra-run equality). `Meta.equals`/`hashCode`
+    implement `sameIdentityAs`, so member case-class equality composes the identity notion
+    implicitly. Watch for token-free case classes holding a `Meta` (e.g. `DesignLoadKey`): their
+    derived equality composes that loosened notion silently, unlike IR members, whose unique ref
+    tokens keep distinct members unequal regardless.
 
 ---
 

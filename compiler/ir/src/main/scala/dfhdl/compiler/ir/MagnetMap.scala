@@ -291,7 +291,10 @@ object MagnetMap:
             end match
         sourceRMP.map(s => targetRMP.cp -> s.cp)
       }
-    }.toMap
+      // insertion-ordered: consumers iterate this map to EMIT connections (with only a
+      // stable by-name sort on top, which ties for same-named points), so a hash map
+      // would order same-named connections by ConnectPoint hash codes
+    }.to(scala.collection.immutable.ListMap)
     if (errors.nonEmpty)
       throw new IllegalArgumentException(errors.view.reverse.mkString("\n\n"))
     val pointInfo: Map[ConnectPoint, (DFDesignBlock, String)] =
