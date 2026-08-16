@@ -16,8 +16,9 @@ object r__For_Plugin:
       nameOpt: Option[String],
       position: Position,
       docOpt: Option[String],
-      annotations: List[Annotation]
-  ): ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations.getActiveHWAnnotations)
+      annotations: List[Annotation],
+      namespace: String
+  ): ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations.getActiveHWAnnotations, namespace)
   def toFunc1[R](block: => R): () => R = () => block
   def toTuple2[T1, T2](t1: T1, t2: T2): (T1, T2) = (t1, t2)
   def toTuple3[T1, T2, T3](t1: T1, t2: T2, t3: T3): (T1, T2, T3) = (t1, t2, t3)

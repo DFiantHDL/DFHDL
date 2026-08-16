@@ -238,7 +238,8 @@ class MetaContextPlacerPhase(setting: Setting) extends CapturePhase, IdentityDen
           mkOptionString(Some(clsSym.getFinalName())),
           tree.positionTree,
           mkOptionString(clsSym.docString),
-          mkList(clsSym.staticAnnotations.map(a => reownLocalDefs(dropProxies(a.tree), sym)))
+          mkList(clsSym.staticAnnotations.map(a => reownLocalDefs(dropProxies(a.tree), sym))),
+          mkNamespace(clsSym)
         )
       )
     // metaGen(...) :: super.__clsMeta   (i.e. super.__clsMeta.::(metaGen(...)))

@@ -57,8 +57,14 @@ object DFOpaque:
         // but are in different packages, and remains stable between runs
         val fullyQualifiedClassName = t.getClass.getName
         fullyQualifiedClassName.hashCode
+    // runtime capture: name and package only (the opaque instance arrives through
+    // `ClassEv`, so there is no declaration symbol at hand for position/doc)
+    val meta = ir.Meta(
+      Some(t.typeName), Position.unknown, None, Nil,
+      t.getClass.getPackageName
+    )
     ir.DFOpaque(
-      t.typeName,
+      meta,
       kind,
       id,
       t.actualType.asIR.dropUnreachableRefs(allowDesignParamRefs = false)

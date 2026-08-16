@@ -12,19 +12,19 @@ type DFStruct[+F <: FieldsOrTuple] =
 object DFStruct:
   abstract class Fields extends Product with Serializable
   private[core] def apply[F <: FieldsOrTuple](
-      name: String,
+      meta: ir.Meta,
       fieldMap: ListMap[String, DFTypeAny]
   )(using DFC): DFStruct[F] =
     ir.DFStruct(
-      name,
+      meta,
       fieldMap.map((n, t) => (n, t.asIR.dropUnreachableRefs(allowDesignParamRefs = false)))
     ).asFE[DFStruct[F]]
   private[core] def apply[F <: FieldsOrTuple](
-      name: String,
+      meta: ir.Meta,
       fieldNames: List[String],
       fieldTypes: List[DFTypeAny]
   )(using DFC): DFStruct[F] =
-    apply[F](name, ListMap(fieldNames.lazyZip(fieldTypes).toSeq*))
+    apply[F](meta, ListMap(fieldNames.lazyZip(fieldTypes).toSeq*))
   private[core] def apply[F <: FieldsOrTuple](product: F)(using DFC): DFStruct[F] =
     unapply(product.asInstanceOf[Product]).get.asInstanceOf[DFStruct[F]]
   private[core] def unapply(
@@ -36,8 +36,16 @@ object DFStruct:
     }.toList
     if (fieldTypes.length == product.productIterator.size)
       val fieldNames = product.productElementNames.toList
-      Some(DFStruct(product.productPrefix, fieldNames, fieldTypes))
+      // reflection fallback of the derivation macro's capture: name and package only
+      // (no declaration position/doc). The namespace MUST agree with the macro's
+      // (package-level in both), or `SameFields.check`'s type equality would split.
+      val meta = ir.Meta(
+        Some(product.productPrefix), Position.unknown, None, Nil,
+        product.getClass.getPackageName
+      )
+      Some(DFStruct(meta, fieldNames, fieldTypes))
     else None
+  end unapply
 
   inline given apply[F <: FieldsOrTuple](using dfc: DFCG): DFStruct[F] = ${ dfTypeMacro[F]('dfc) }
   def dfTypeMacro[F <: FieldsOrTuple](using
@@ -46,17 +54,21 @@ object DFStruct:
   )(dfc: Expr[DFC]): Expr[DFStruct[F]] =
     import quotes.reflect.*
     val fTpe = TypeRepr.of[F]
-    val (structName, fields) = fTpe.asTypeOf[Any] match
+    val (structName, metaExpr, fields) = fTpe.asTypeOf[Any] match
       case '[NonEmptyTuple] =>
         val args = fTpe.getTupleArgs
+        val name = ir.DFTuple.structName(args.length)
         (
-          ir.DFTuple.structName(args.length),
+          name,
+          // tuples are structural, declared nowhere: name only, root namespace
+          '{ ir.Meta.named(${ Expr(name) }) },
           args.zipWithIndex.map((t, i) => (ir.DFTuple.fieldName(i), t.asTypeOf[Any]))
         )
       case _ =>
         val clsSym = fTpe.classSymbol.get
         (
           clsSym.name.toString,
+          TypeMetaGen(using quotes)(clsSym),
           clsSym.caseFields.view
             .map(m => (m.name.toString, fTpe.memberType(m).asTypeOf[Any]))
         )
@@ -71,9 +83,8 @@ object DFStruct:
       }.toList
       val fieldNamesExpr = Varargs(fieldNames)
       val fieldTypesExpr = Varargs(fieldTypes)
-      val nameExpr = Expr(structName)
       '{
-        DFStruct.apply[F]($nameExpr, List($fieldNamesExpr*), List($fieldTypesExpr*))(using $dfc)
+        DFStruct.apply[F]($metaExpr, List($fieldNamesExpr*), List($fieldTypesExpr*))(using $dfc)
       }
     else
       val fieldTypesStr = fieldErrors

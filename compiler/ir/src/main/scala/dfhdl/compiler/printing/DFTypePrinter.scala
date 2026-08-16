@@ -62,9 +62,9 @@ trait AbstractTypePrinter extends AbstractPrinter:
           case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
           // skipping unknown clock and reset definitions (they are unknown because
           // they lack additional name suffix that belongs to their configuration)
-          case DFOpaque(name = "Clk", kind = DFOpaque.Kind.Clk) => false
-          case DFOpaque(name = "Rst", kind = DFOpaque.Kind.Rst) => false
-          case _                                                => true
+          case t: DFOpaque if t.name == "Clk" && t.kind == DFOpaque.Kind.Clk => false
+          case t: DFOpaque if t.name == "Rst" && t.kind == DFOpaque.Kind.Rst => false
+          case _                                                             => true
         }
         .map(x => p.csNamedDFTypeDcl(x, global = true))
     }.mkString("\n")
@@ -82,9 +82,9 @@ trait AbstractTypePrinter extends AbstractPrinter:
         case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
         // skipping unknown clock and reset definitions (they are unknown because
         // they lack additional name suffix that belongs to their configuration)
-        case DFOpaque(name = "Clk", kind = DFOpaque.Kind.Clk) => false
-        case DFOpaque(name = "Rst", kind = DFOpaque.Kind.Rst) => false
-        case _                                                => true
+        case t: DFOpaque if t.name == "Clk" && t.kind == DFOpaque.Kind.Clk => false
+        case t: DFOpaque if t.name == "Rst" && t.kind == DFOpaque.Kind.Rst => false
+        case _                                                             => true
       }
       .map(x => printer.csNamedDFTypeDcl(x, global = false))
       .mkString("\n")

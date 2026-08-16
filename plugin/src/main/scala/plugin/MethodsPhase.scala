@@ -267,7 +267,7 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
             def genCapturedMeta(path: List[Symbol], t: Tree): Tree =
               ref(metaGenSym).appliedToArgs(
                 mkOptionString(Some(captureName(path))) :: t.symbol.srcPos.positionTree ::
-                  mkOptionString(None) :: mkList(Nil) :: Nil
+                  mkOptionString(None) :: mkList(Nil) :: Literal(Constant("")) :: Nil
               )
             // list of (value, meta, isOutput, isNonBlocking) tuples of the value arguments. The
             // `isOutput` flag lets the harness build a direction-correct formal port (an `<> OUT`
@@ -366,7 +366,7 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
               .appliedToArgs(List(
                 args,
                 constArgs,
-                tree.genMeta, // meta represents the transformed tree
+                tree.genDclMeta, // meta represents the transformed tree
                 scalaArgs,
                 phantomArgs,
                 phantomConstArgs,

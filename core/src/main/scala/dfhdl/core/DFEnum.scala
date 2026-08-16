@@ -80,6 +80,17 @@ object DFEnum:
     end match
   end unapply
   def apply[E <: DFEncoding](enumCompanion: Object): DFEnum[E] =
+    // reflection fallback of the derivation macro's capture: name and package only
+    val enumCompanionCls = enumCompanion.getClass
+    val meta = ir.Meta(
+      Some(enumCompanionCls.getSimpleName.replace("$", "")),
+      Position.unknown,
+      None,
+      Nil,
+      enumCompanionCls.getPackageName
+    )
+    apply[E](enumCompanion, meta)
+  def apply[E <: DFEncoding](enumCompanion: Object, meta: ir.Meta): DFEnum[E] =
     val enumClass = classOf[scala.reflect.Enum]
     val enumCompanionCls = enumCompanion.getClass
     val fieldsAsPairs =
@@ -89,20 +100,21 @@ object DFEnum:
       ) yield
         field.setAccessible(true)
         (field.getName, field.get(enumCompanion).asInstanceOf[DFEncoding])
-    val name = enumCompanionCls.getSimpleName.replace("$", "")
     val width = fieldsAsPairs.head._2.calcWidth(fieldsAsPairs.size)
     val entryPairs = fieldsAsPairs.zipWithIndex.map { case ((name, entry), idx) =>
       (name, entry.bigIntValue)
     }
-    ir.DFEnum(name, width, ListMap(entryPairs*)).asFE[DFEnum[E]]
+    ir.DFEnum(meta, width, ListMap(entryPairs*)).asFE[DFEnum[E]]
   end apply
 
   inline given [E <: DFEncoding]: DFEnum[E] = ${ dfTypeMacro[E] }
   def dfTypeMacro[E <: DFEncoding](using Quotes, Type[E]): Expr[DFEnum[E]] =
     import quotes.reflect.*
-    val companionSym = TypeRepr.of[E].typeSymbol.companionModule
+    val enumSym = TypeRepr.of[E].typeSymbol
+    val companionSym = enumSym.companionModule
     val companionIdent = Ref(companionSym).asExprOf[Object]
-    '{ DFEnum[E]($companionIdent) }
+    val metaExpr = TypeMetaGen(using quotes)(enumSym)
+    '{ DFEnum[E]($companionIdent, $metaExpr) }
 
   object Val:
     object TC:

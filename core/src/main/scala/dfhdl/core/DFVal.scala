@@ -23,7 +23,7 @@ into final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal
   def wait(using DFC): Unit =
     trydf { Wait(this.asValOf[DFBoolOrBit]) }
   def selectDynamic(name: String)(using DFC): Any = trydf {
-    val ir.DFStruct(structName, fieldMap) = this.asIR.dfType.runtimeChecked
+    val ir.DFStruct(_, fieldMap) = this.asIR.dfType.runtimeChecked
     val dfType = fieldMap(name)
     DFVal.Alias
       .SelectField(this, name)

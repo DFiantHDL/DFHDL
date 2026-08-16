@@ -266,15 +266,29 @@ abstract class CommonPhase extends PluginPhase:
     def dfValTpeOpt: Option[Type] =
       tree.tpt.tpe.dfValTpeOpt
 
+  // The enclosing Scala package path of a declaration's symbol, "" for the root/empty
+  // package. Namespaces stop at the package level deliberately: enclosing objects and
+  // classes are scoping, not namespacing, for the packages feature.
+  protected def mkNamespace(sym: Symbol)(using Context): Tree =
+    val pkg = sym.enclosingPackageClass
+    val ns =
+      if (pkg.isEffectiveRoot || pkg.name.toString.startsWith("<")) ""
+      else pkg.fullName.toString
+    Literal(Constant(ns))
+
   extension (tree: ValOrDefDef)(using Context)
-    def genMeta: Tree =
+    private def genMetaWith(namespaceTree: Tree): Tree =
       val nameOptTree = mkOptionString(Some(tree.name.toString.nameCheck(tree)))
       val positionTree = tree.srcPos.positionTree
       val docOptTree = mkOptionString(tree.symbol.docString)
       val annotTree = mkList(tree.symbol.annotations.map(_.tree))
       ref(metaGenSym).appliedToArgs(
-        nameOptTree :: positionTree :: docOptTree :: annotTree :: Nil
+        nameOptTree :: positionTree :: docOptTree :: annotTree :: namespaceTree :: Nil
       )
+    // meta of a regular VALUE: its namespace is its design scope, not a Scala package
+    def genMeta: Tree = genMetaWith(Literal(Constant("")))
+    // meta of a DECLARATION (a method that becomes a design): carries its package
+    def genDclMeta: Tree = genMetaWith(mkNamespace(tree.symbol))
   end extension
 
   extension (v: ValDef)(using Context)

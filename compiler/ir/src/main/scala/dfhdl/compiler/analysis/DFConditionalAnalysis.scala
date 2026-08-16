@@ -82,7 +82,7 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
           // A decimal is considered covered when all its values are covered.
           // All the possible values are determined by the width of the decimal.
           Some((1 << dec.widthIntOpt.get) == constSet.size)
-        case DFEnum(name, width, entries) =>
+        case DFEnum(_, _, entries) =>
           // An enum is considered covered when all its entries are covered.
           // Since both constant set and entries set are unique and type checking
           // already confirmed, then we can safely assume that everything is
