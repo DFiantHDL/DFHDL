@@ -31,6 +31,7 @@ Given the same input `DB`, a stage must always produce bit-for-bit the same outp
 
 **Common causes of non-determinism to avoid:**
 - Iterating over `Set`, `Map`, or any unordered collection to build the patch list — iteration order is not guaranteed. Always convert to a sorted or ordered structure first, or derive order from `designDB.members` (which is a `List` and is ordered).
+- `xs.groupBy(f).values` — the grouping itself is fine, but a standard `Map`'s value iteration order is not. Use `xs.groupByOrdered(f)` from `dfhdl.internals` instead: it returns `List[(P, List[T])]` with groups in first-appearance order and members in input order, a drop-in replacement whenever grouping drives output order (`MagnetMap.get` is the working example).
 - Using `hashCode`-based identity anywhere in the transformation logic.
 - Relying on mutable external state (counters, caches, `var`s outside the `transform` call).
 
