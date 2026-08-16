@@ -376,11 +376,11 @@ object Design:
   end extension
 end Design
 
-abstract class DFDesign extends DomainContainer(DomainType.DF), Design
+trait DFDesign extends DFDomainContainer, Design
 
-abstract class RTDesign extends RTDomainContainer, Design
+trait RTDesign extends RTDomainContainer, Design
 
-abstract class EDDesign extends DomainContainer(DomainType.ED), Design
+trait EDDesign extends EDDomainContainer, Design
 
 abstract class EDBlackBox extends EDDesign:
   // `source` is a `def` (not a constructor-param field) so `mkInstMode` is safe

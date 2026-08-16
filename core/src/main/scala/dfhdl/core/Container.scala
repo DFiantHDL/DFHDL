@@ -21,12 +21,22 @@ private trait Container extends OnCreateEvents, HasDFC, Wait.ContainerOps:
   dfc.enterOwner(__initOwner)
 end Container
 
-abstract class DomainContainer[D <: DomainType](domainType: D) extends Container:
-  private[core] type TDomain = D
-  final protected given TDomain = domainType
-  final private[core] lazy val __domainType: ir.DomainType = domainType.asIR
+sealed trait DomainContainer extends Container
 
-abstract class RTDomainContainer extends DomainContainer(DomainType.RT):
+trait DFDomainContainer extends DomainContainer:
+  private[core] type TDomain = DomainType.DF
+  final protected given TDomain = DomainType.DF
+  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
+
+trait EDDomainContainer extends DomainContainer:
+  private[core] type TDomain = DomainType.ED
+  final protected given TDomain = DomainType.ED
+  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED
+
+trait RTDomainContainer extends DomainContainer:
+  private[core] type TDomain = DomainType.RT
+  final protected given TDomain = DomainType.RT
+  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT
   final case class Clk() extends DFOpaque.Clk
   final case class Rst() extends DFOpaque.Rst
   // A domain related to its enclosing container, sharing its clock and reset: shorthand for

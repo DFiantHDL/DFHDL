@@ -21,7 +21,7 @@ import scala.quoted.*
 // never has clk/rst injected, and the same `Interface` is reusable inside a
 // design of any domain.
 abstract class Interface
-    extends DomainContainer(DomainType.ED), HasClsMeta, HasClsArgs:
+    extends EDDomainContainer, HasClsMeta, HasClsArgs:
   self =>
   private[core] type TScope = DFC.Scope.Interface
   private[core] type TOwner = Design.Block

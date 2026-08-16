@@ -52,8 +52,8 @@ trait NoClkRstDomain extends Domain:
   protected inline def Rst: DFOpaque[DFOpaque.Rst] =
     compiletime.error("Clk/Rst declarations are not allowed in this domain.")
 
-abstract class DFDomain extends DomainContainer(DomainType.DF), NoClkRstDomain
+abstract class DFDomain extends DFDomainContainer, NoClkRstDomain
 
 abstract class RTDomain extends RTDomainContainer, Domain
 
-abstract class EDDomain extends DomainContainer(DomainType.ED), NoClkRstDomain
+abstract class EDDomain extends EDDomainContainer, NoClkRstDomain
