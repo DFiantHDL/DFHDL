@@ -108,8 +108,11 @@ automatically (the emitted parent shows `child_i_clk = wb_clk`). Beyond the per-
     cnt.din := 0
     init_done.din := 0
   ```
-- A port literally named **`rst`/`clk`** collides with the magnet ("Unsupported read-to-read
-  connection"). Use the baseline's real name (`i_rst`, `wb_clk`, ...).
+- **Declaring the baseline's own `clk` port is fine and unifies with the magnet.** `val clk = Clk <>
+  IN` in a design that also has registers emits one `clk` port, the registers still clock on it, and
+  `clk.actual` reads it as a `Bit` (needed to drive a derived clock from the root clock, as an
+  ungated ICG does). What does collide is a *non-magnet* port whose name shadows the magnet's, so
+  keep a data port off the names `clk`/`rst` ("Unsupported read-to-read connection").
 
 ## Memories and `initFile`
 
