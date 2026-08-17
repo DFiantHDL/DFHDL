@@ -278,11 +278,14 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       case _                                         => true
   override def packageFileName(pkgName: String): String = s"$pkgName.sv"
   override def csPackageFileContent(pkgName: String, namespace: String, typeDcls: String): String =
-    // the global defs header may be referenced by packaged type declarations
-    // (e.g. a struct field of a global-placed named type); its include guard makes
-    // the include harmless otherwise
-    sn"""|package $pkgName;
-        |${if (hasGlobalContent) s"""`include "$globalFileName"""" else ""}
+    // A package file carries the same file header as a design file. The directives are
+    // COMPILATION-UNIT state rather than file state, so a file that omits them inherits
+    // whatever the previously compiled file left behind, and packages compile ahead of the
+    // designs. `csLibrary` also emits the global defs include, which packaged type
+    // declarations may reference (e.g. a struct field of a global-placed named type).
+    sn"""|${csLibrary(getSet.designDB.inSimulation, minTimeUnitGlobalOpt)}
+        |
+        |package $pkgName;
         |$typeDcls
         |endpackage
         |"""

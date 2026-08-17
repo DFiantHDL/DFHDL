@@ -3994,8 +3994,11 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  logic [1:0] g;
          |} GlbNsStruct;
          |parameter logic [7:0] GlbNsConst = 8'd3;
-         |package typespkg1;
+         |`default_nettype none
+         |`timescale 1ns/1ps
          |`include "PkgTop_defs.svh"
+         |
+         |package typespkg1;
          |typedef struct packed {
          |  logic [7:0] a;
          |  logic b;
@@ -4016,8 +4019,11 @@ class PrintVerilogCodeSpec extends StageSpec:
          |parameter logic [7:0] PkgDerived = pkgCalc(PkgConst);
          |endpackage
          |
-         |package typespkg2;
+         |`default_nettype none
+         |`timescale 1ns/1ps
          |`include "PkgTop_defs.svh"
+         |
+         |package typespkg2;
          |typedef struct packed {
          |  typespkg1::PkgStruct s;
          |  logic [7:0] n;
@@ -4053,7 +4059,10 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new DualTop).getCompiledCodeString
     assertNoDiff(
       top,
-      """|package dualpkg1;
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |package dualpkg1;
          |typedef struct packed {
          |  logic [3:0] v;
          |} Shared;
@@ -4065,6 +4074,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endfunction
          |parameter logic [7:0] SharedDerived = calc1(SharedConst);
          |endpackage
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
          |
          |package dualpkg2;
          |typedef struct packed {
