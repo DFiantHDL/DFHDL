@@ -3961,4 +3961,54 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end DocTop
          |""".stripMargin
     )
+  test("Namespace-derived type packages"):
+    class PkgTop extends DFDesign:
+      val s = typespkg1.PkgStruct <> VAR
+      val e = typespkg1.PkgEnum   <> VAR
+      val o = typespkg1.PkgOpaque <> VAR
+      val w = typespkg2.PkgWrap   <> VAR
+      val u = UInt(8)             <> VAR init typespkg2.PkgWide
+      e := typespkg1.PkgEnum.P0
+    val top = (new PkgTop).getCodeString
+    assertNoDiff(
+      top,
+      """|final case class GlbNsStruct(
+         |    g: Bits[2] <> VAL
+         |) extends Struct
+         |val GlbNsConst: UInt[8] <> CONST = d"8'3"
+         |package StagesSpec.typespkg1:
+         |  final case class PkgStruct(
+         |      a: Bits[8] <> VAL
+         |      b: Bit <> VAL
+         |      g: GlbNsStruct <> VAL
+         |  ) extends Struct
+         |  enum PkgEnum(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
+         |    case P0 extends PkgEnum(d"2'0")
+         |    case P1 extends PkgEnum(d"2'1")
+         |    case P2 extends PkgEnum(d"2'2")
+         |  case class PkgOpaque() extends Opaque(Bits(4))
+         |  val PkgConst: UInt[8] <> CONST = GlbNsConst + d"8'39"
+         |  def pkgCalc(arg: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    arg + d"8'1"
+         |  end pkgCalc
+         |  val PkgDerived: UInt[8] <> CONST = pkgCalc(PkgConst)
+         |
+         |package StagesSpec.typespkg2:
+         |  final case class PkgWrap(
+         |      s: StagesSpec.typespkg1.PkgStruct <> VAL
+         |      n: UInt[8] <> VAL
+         |  ) extends Struct
+         |  val PkgWide: UInt[8] <> CONST = StagesSpec.typespkg1.pkgCalc(StagesSpec.typespkg1.PkgDerived)
+         |
+         |
+         |class PkgTop extends DFDesign:
+         |  val s = StagesSpec.typespkg1.PkgStruct <> VAR
+         |  val e = StagesSpec.typespkg1.PkgEnum <> VAR
+         |  val o = StagesSpec.typespkg1.PkgOpaque <> VAR
+         |  val w = StagesSpec.typespkg2.PkgWrap <> VAR
+         |  val u = UInt(8) <> VAR init StagesSpec.typespkg2.PkgWide
+         |  e := StagesSpec.typespkg1.PkgEnum.P0
+         |end PkgTop
+         |""".stripMargin
+    )
 end PrintCodeStringSpec

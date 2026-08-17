@@ -13,6 +13,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     case _                                         => true
   def csMethodCall(call: Func, designKey: StaticRef): String =
     val design = designKey.getDesignBlock
+    val qualifier = printer.globalMethodQualifier(design)
     val args = csMethodCallArgs(call, design).mkString(", ")
     // a procedural (Unit-return) call is a task call statement
     if (call.dfType == DFUnit)
@@ -23,7 +24,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       // the v95/v2001 minimum-one-input rule: an argument-less function call passes a
       // literal `0` to the declared dummy input
       val argList = if (args.isEmpty && !printer.dummyLessFunctionSupport) "0" else args
-      s"${printer.moduleName(design)}($argList)"
+      s"$qualifier${printer.moduleName(design)}($argList)"
   end csMethodCall
   val supportGlobalParameters: Boolean =
     printer.dialect match

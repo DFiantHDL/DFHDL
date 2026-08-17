@@ -55,8 +55,13 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     getSet.designDB.getGlobalNamedDFTypes.view.collect { case dfType: DFEnum =>
       csDFEnumToStringFuncDcl(dfType)
     }.mkString("\n")
+  // `pkg::` qualification of a packaged type's name, dropped inside its own package file
+  protected def pkgQualifier(dfType: NamedDFType): String =
+    printer.typePlacementOf(dfType) match
+      case Some(pkg) if !printer.currentPackage.contains(pkg) => s"$pkg::"
+      case _                                                  => ""
   def csDFEnumTypeName(dfType: DFEnum): String =
-    if (allowTypeDef) s"t_enum_${dfType.name}"
+    if (allowTypeDef) s"${pkgQualifier(dfType)}t_enum_${dfType.name}"
     else csDFBits(DFBits(dfType.widthIntOpt.get), false)
   def csDFEnumToStringFuncDcl(dfType: DFEnum): String =
     val enumName = dfType.name
@@ -103,11 +108,13 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
     s"${csDFType(cellType, typeCS)}"
-  def csDFOpaqueTypeName(dfType: DFOpaque): String = s"t_opaque_${dfType.name}"
+  def csDFOpaqueTypeName(dfType: DFOpaque): String =
+    s"${pkgQualifier(dfType)}t_opaque_${dfType.name}"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     s"typedef ${csDFType(dfType.actualType, typeCS = true)} ${csDFOpaqueTypeName(dfType)}${csDFVectorRanges(dfType.actualType)};"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = csDFOpaqueTypeName(dfType)
-  def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.name}"
+  def csDFStructTypeName(dfType: DFStruct): String =
+    s"${pkgQualifier(dfType)}t_struct_${dfType.name}"
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
       .map((n, t) => s"${csDFType(t, typeCS = true)} $n${csDFVectorRanges(t)};")

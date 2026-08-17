@@ -116,4 +116,20 @@ class MetaSpec extends FunSuite, NoTopAnnotIsRequired:
     assertEquals(locMeta.namespace, "")
   }
 
+  test("namespace placement rules") {
+    import dfhdl.compiler.printing.Namespacing.*
+    // equal or ancestor (root included) -> global defs file
+    assert(isGlobalPlaced("", "veer.core"))
+    assert(isGlobalPlaced("veer.core", "veer.core"))
+    assert(isGlobalPlaced("veer", "veer.core"))
+    assert(!isGlobalPlaced("veer.types", "veer.core"))
+    assert(!isGlobalPlaced("veercore", "veer.core")) // prefix of a SEGMENT is not an ancestor
+    // package name: namespace relative to the top, joined with `_`
+    assertEquals(packageNameOf("veer.veer_types", "veer"), "veer_types")
+    assertEquals(packageNameOf("veer.types", "veer.core"), "types")
+    assertEquals(packageNameOf("dfhdl.lib.crypto.aes", "myproj"), "dfhdl_lib_crypto_aes")
+    assertEquals(packageNameOf("b.util", "a"), "b_util")
+    // the documented residual clash: `top.x` and root-level `x` both map to "x"
+    assertEquals(packageNameOf("a.x", "a"), packageNameOf("x", "a"))
+  }
 end MetaSpec

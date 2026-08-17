@@ -208,7 +208,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       case dfVal: DFVal.DesignParam                   => dfVal.nameCS
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
         if (dfVal.isAnonymous) printer.csDFValExpr(dfVal)
-        else dfVal.nameCS
+        else s"${printer.globalValQualifier(dfVal)}${dfVal.nameCS}"
       case dfVal: DFVal =>
         val callOwner = ref.originMember.getOwner
         val cs = printer.csDFValRef(dfVal, callOwner)
@@ -320,14 +320,17 @@ trait AbstractValPrinter extends AbstractPrinter:
         val designInst = pbns.designInstRef.get
         s"${designInst.getRelativeName(fromOwner)}.${pbns.portNamePath}"
       case expr: CanBeExpr if expr.isAnonymous => csDFValExpr(expr)
-      case _                                   => dfVal.getRelativeName(fromOwner)
+      case g: DFVal.CanBeGlobal if g.isGlobal  =>
+        s"${printer.globalValQualifier(g)}${g.getRelativeName(fromOwner)}"
+      case _ => dfVal.getRelativeName(fromOwner)
 end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:
   type TPrinter <: DFPrinter
   def csMethodCall(call: Func, designKey: StaticRef): String =
     val design = designKey.getDesignBlock
-    s"${design.dclName}(${csMethodCallArgs(call, design).mkString(", ")})"
+    val qualifier = printer.globalMethodQualifier(design)
+    s"$qualifier${design.dclName}(${csMethodCallArgs(call, design).mkString(", ")})"
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String =
     s"(${csExp.applyBrackets()}: ${printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =

@@ -261,7 +261,7 @@ object Design:
   object Block:
     def apply(domain: ir.DomainType, instMode: InstMode)(using DFC): Block =
       ir.DFDesignBlock(
-        domain, instMode, dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
+        domain, instMode, dfc.ownerOrEmptyRef, dfc.getDclMeta, dfc.tags
       ).addMember.asFE
     end apply
   end Block

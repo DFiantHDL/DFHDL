@@ -268,7 +268,8 @@ abstract class CommonPhase extends PluginPhase:
 
   // The enclosing Scala package path of a declaration's symbol, "" for the root/empty
   // package. Namespaces stop at the package level deliberately: enclosing objects and
-  // classes are scoping, not namespacing, for the packages feature.
+  // classes are scoping (a Scala object is a value, aliasable and importable), not
+  // namespacing, for the packages feature.
   protected def mkNamespace(sym: Symbol)(using Context): Tree =
     val pkg = sym.enclosingPackageClass
     val ns =

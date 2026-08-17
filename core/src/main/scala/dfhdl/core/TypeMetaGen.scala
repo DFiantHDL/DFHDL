@@ -9,7 +9,7 @@ import scala.quoted.*
   */
 private[core] object TypeMetaGen:
   def namespaceOf(using q: Quotes)(sym: q.reflect.Symbol): String =
-    import quotes.reflect.*
+    import q.reflect.*
     var owner = sym.owner
     while (!owner.isPackageDef) do owner = owner.owner
     val fullName = owner.fullName

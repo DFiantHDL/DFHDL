@@ -324,14 +324,37 @@ trait Printer
     seeds.foreach(visit)
     result.toSet
 
+  // ---- namespace-based type packaging ----
+  // Whether this backend emits namespace-derived package files. Backends without
+  // packages (or not yet migrated to them) keep every global declaration in the
+  // general global defs file.
+  def supportPackages: Boolean = false
+  // the TOP design's namespace: the reference point of the placement rules
+  final def topNamespace: String = getSet.designDB.rootDB.top.dclMeta.namespace
+  // Some(packageName) when `dfType` is emitted into a dedicated package file
+  final def typePlacementOf(dfType: NamedDFType): Option[String] =
+    dfType match
+      // Clk/Rst/Magnet opaques are language-level (the DFHDL printer shows them as
+      // builtins and the backends drop them), so they are never packaged even though
+      // their declaring namespace is a DFHDL-internal one
+      case t: DFOpaque if t.isMagnet => None
+      case _                         =>
+        if (printer.supportPackages) Namespacing.placementOf(dfType.meta.namespace, topNamespace)
+        else None
+  // the package whose file is currently being rendered: its own declarations (and
+  // same-package references) print unqualified
+  var currentPackage: Option[String] = None
+
   protected def hasGlobalContentCheck: Boolean =
     val designDB = getSet.designDB
+    def globalPlaced(g: DFVal) =
+      !g.isAnonymous && printer.memberPlacementOf(g.meta.namespace).isEmpty
     val anyNamedGlobal =
       if (designDB.isRoot)
-        designDB.subDBs.view.values.exists(_.membersGlobals.exists(!_.isAnonymous))
-      else designDB.membersGlobals.exists(!_.isAnonymous)
+        designDB.subDBs.view.values.exists(_.membersGlobals.exists(globalPlaced))
+      else designDB.membersGlobals.exists(globalPlaced)
     anyNamedGlobal || csGlobalTypeDcls.nonEmpty ||
-    globalHDLMethods.nonEmpty
+    globalHDLMethods.exists(b => printer.memberPlacementOf(b.dclMeta.namespace).isEmpty)
   lazy val hasGlobalContent: Boolean = hasGlobalContentCheck
   // Global constants and global HDL methods in DEPENDENCY order. Both HDLs require a name to be
   // declared before it is used, and the dependency between the two runs BOTH ways: a constant's
@@ -524,13 +547,101 @@ trait Printer
     globalMethodPrinters.toMap
   private lazy val constPrinterOf: Map[DFMember, TPrinter] =
     globalConstsWithPrinters.view.map((p, c) => c -> p).toMap
+  // placement of a global constant / global method under the namespace packaging rules
+  final def memberPlacementOf(ns: String): Option[String] =
+    if (printer.supportPackages) Namespacing.placementOf(ns, topNamespace) else None
+  // the backend-specific spelling of a packaged GLOBAL reference's qualifier
+  // (`<namespace>.` in DFHDL code, `<pkg>::` in SystemVerilog)
+  def csGlobalMemberQualifier(ns: String, pkgName: String): String = ""
+  // the reference qualifier of a packaged global VALUE, "" inside its own package
+  final def globalValQualifier(dfVal: DFVal): String =
+    memberPlacementOf(dfVal.meta.namespace) match
+      case Some(pkg) if !printer.currentPackage.contains(pkg) =>
+        csGlobalMemberQualifier(dfVal.meta.namespace, pkg)
+      case _ => ""
+  // the call qualifier of a packaged global METHOD, "" inside its own package and for
+  // design-local methods (whose namespace is incidental)
+  final def globalMethodQualifier(design: DFDesignBlock): String =
+    memberPlacementOf(design.dclMeta.namespace) match
+      case Some(pkg)
+          if !printer.currentPackage.contains(pkg) && globalMethodPrinterOf.contains(design) =>
+        csGlobalMemberQualifier(design.dclMeta.namespace, pkg)
+      case _ => ""
+  // Global-scope methods do not unify at elaboration (each global call nest carries its
+  // own def-design copy), so printing dedups same-DECLARATION method copies
+  protected final def globalDeclsDeduped: List[GlobalDecl] =
+    val seenMethods = collection.mutable.ListBuffer.empty[DFDesignBlock]
+    globalDeclsOrdered.filter {
+      case GlobalDecl.Method(b) =>
+        if (seenMethods.exists(_.dclMeta.sameDclAs(b.dclMeta))) false
+        else
+          seenMethods += b
+          true
+      case _ => true
+    }
+  private def globalDeclPlacementOf(decl: GlobalDecl): Option[String] = decl match
+    case GlobalDecl.Const(c)  => memberPlacementOf(c.meta.namespace)
+    case GlobalDecl.Method(b) => memberPlacementOf(b.dclMeta.namespace)
+  private def globalDeclNamespaceOf(decl: GlobalDecl): String = decl match
+    case GlobalDecl.Const(c)  => c.meta.namespace
+    case GlobalDecl.Method(b) => b.dclMeta.namespace
+  private def globalDeclPrinterOf(decl: GlobalDecl): TPrinter = decl match
+    case GlobalDecl.Const(c)  => constPrinterOf.getOrElse(c, printer)
+    case GlobalDecl.Method(b) => globalMethodPrinterOf(b)
   // one global declaration rendered as a DEFINITION (a constant declaration, or a method with
   // its body). VHDL renders the method half as a prototype in its package spec instead.
   protected final def csGlobalDecl(decl: GlobalDecl): String = decl match
     case GlobalDecl.Const(c)  => constPrinterOf.getOrElse(c, printer).csDFMembers(List(c))
     case GlobalDecl.Method(b) => globalMethodPrinterOf(b).csMethodDcl(b).stripTrailing
   protected final def csGlobalDecls: String =
-    globalDeclsOrdered.map(csGlobalDecl).filter(_.nonEmpty).mkString("\n")
+    globalDeclsDeduped.filter(globalDeclPlacementOf(_).isEmpty)
+      .map(csGlobalDecl).filter(_.nonEmpty).mkString("\n")
+  // packaged global constants/methods: (package, namespace, content) with the
+  // dependency order preserved within each package
+  protected final def packagedGlobalDecls: List[(String, String, String)] =
+    val perPkg =
+      collection.mutable.LinkedHashMap
+        .empty[String, (String, collection.mutable.ListBuffer[GlobalDecl])]
+    globalDeclsDeduped.foreach { decl =>
+      globalDeclPlacementOf(decl).foreach { pkg =>
+        val ns = globalDeclNamespaceOf(decl)
+        val (pkgNs, buf) = perPkg.getOrElseUpdate(pkg, (ns, collection.mutable.ListBuffer.empty))
+        if (pkgNs != ns)
+          throw new IllegalArgumentException(
+            s"Namespaces `$pkgNs` and `$ns` both map to the emitted package `$pkg`."
+          )
+        buf += decl
+      }
+    }
+    perPkg.view.map { case (pkg, (ns, decls)) =>
+      val content = decls.map { decl =>
+        val p = globalDeclPrinterOf(decl)
+        p.currentPackage = Some(pkg)
+        try csGlobalDecl(decl)
+        finally p.currentPackage = None
+      }.filter(_.nonEmpty).mkString("\n")
+      (pkg, ns, content)
+    }.toList
+  end packagedGlobalDecls
+  // every packaged content group (types first, then constants/methods), merged per
+  // package: type-dependency order first, decl-only packages appended
+  final def packagedContents: List[(String, String, String)] =
+    val types = packagedTypeDcls
+    val decls = packagedGlobalDecls
+    val declMap = decls.map((pkg, ns, cs) => pkg -> (ns, cs)).toMap
+    val merged = types.map { (pkg, ns, typeCS) =>
+      declMap.get(pkg) match
+        case Some((declNs, declCS)) =>
+          if (declNs != ns)
+            throw new IllegalArgumentException(
+              s"Namespaces `$ns` and `$declNs` both map to the emitted package `$pkg`."
+            )
+          (pkg, ns, s"$typeCS\n$declCS")
+        case None => (pkg, ns, typeCS)
+    }
+    val typePkgs = types.map(_._1).toSet
+    merged ++ decls.filterNot((pkg, _, _) => typePkgs.contains(pkg))
+  end packagedContents
 
   def csGlobalFileContent: String =
     sn"""|$csGlobalTypeDcls
@@ -569,6 +680,9 @@ trait Printer
          |$designDcl"""
   def dfhdlDefsFileName: String
   def dfhdlSourceContents: String
+  // namespace-derived package emission hooks (meaningful when `supportPackages`)
+  def packageFileName(pkgName: String): String = ""
+  def csPackageFileContent(pkgName: String, namespace: String, typeDcls: String): String = ""
   val hdlFolderName: String = "hdl"
   final def printedDB: DB =
     val designDB = getSet.designDB
@@ -594,8 +708,31 @@ trait Printer
           )
         )
       else None
+    // namespace-derived package files, in cross-package dependency order, compiled
+    // ahead of the designs that reference their types (`pkg::name` qualification
+    // resolves through compilation order, not through includes)
+    val packageSourceFiles =
+      if (supportPackages)
+        val pkgs = packagedContents
+        val designNames = designPrinters.view.map(_._1.dclName).toSet
+        pkgs.foreach { (pkgName, _, _) =>
+          if (designNames.contains(pkgName))
+            throw new IllegalArgumentException(
+              s"Emitted package name `$pkgName` collides with a design name."
+            )
+        }
+        pkgs.map((pkgName, ns, dcls) =>
+          SourceFile(
+            SourceOrigin.Compiled,
+            SourceType.GlobalDef,
+            hdlFolderName + separatorChar + packageFileName(pkgName),
+            formatCode(csPackageFileContent(pkgName, ns, dcls), withColor = false)
+          )
+        )
+      else Nil
     val compiledFiles = Iterable(
       dfhdlSourceFile,
+      packageSourceFiles,
       globalSourceFile,
       designPrinters.view
         // A foreign IP supplies its own HDL wrapper as a bundled resource (copied into the project
@@ -737,11 +874,15 @@ trait Printer
             block.foreignIPSource.forall(src => seenForeignImports.add(src.clsName)) =>
         formatCode(p.csFile(block))
     }
+    val packages =
+      if (supportPackages)
+        packagedContents.map((pkg, ns, dcls) => formatCode(csPackageFileContent(pkg, ns, dcls)))
+      else Nil
     val globals = formatCode(
       sn"""|$csGlobalTypeDcls
            |$csGlobalDecls"""
     )
-    sn"""|$globals
+    sn"""|${(globals :: packages).filter(_.nonEmpty).mkString("\n")}
          |
          |${csFileList.mkString("\n")}
          |""".stripMargin
@@ -807,6 +948,13 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     new DFPrinter(using subGetSet, printerOptions)
   override val printVendorIPBlackbox: Boolean = true
   val tupleSupportEnable: Boolean = true
+  override def supportPackages: Boolean = true
+  override def csGlobalMemberQualifier(ns: String, pkgName: String): String = s"$ns."
+  override def packageFileName(pkgName: String): String = s"$pkgName.scala"
+  override def csPackageFileContent(pkgName: String, namespace: String, typeDcls: String): String =
+    sn"""|package $namespace:
+        |${typeDcls.hindent}
+        |"""
   def csViaConnectionSep: String = ""
   def csAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String =
     s"$lhsStr := $rhsStr"

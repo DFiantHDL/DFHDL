@@ -35,8 +35,15 @@ abstract class DFSpec extends NoDFCSpec, HasTypeName, HasDFC:
   type TDomain = core.DomainType.DF
   given TDomain = core.DomainType.DF
   given dfPrinter: Printer = DefaultPrinter(using dfc.getSet)
-  private final val owner: core.Design.Block =
+  // The mock top design lives where the CONCRETE spec lives: its namespace is the spec
+  // class's package, so types declared alongside the spec stay global-placed
+  // (unqualified) under the namespace placement rules. The plugin's meta injection
+  // would statically stamp THIS file's package (`dfhdl`), so it is bypassed and the
+  // meta is set explicitly.
+  @metaContextIgnore private def mkTopOwner(using DFC): core.Design.Block =
     core.Design.Block(ir.DomainType.DF, InstMode.Normal)
+  private final val owner: core.Design.Block =
+    mkTopOwner(using dfc.setMeta(nameOpt = Some("top"), namespace = getClass.getPackageName))
   dfc.enterOwner(owner)
   private val noErrMsg = "No error found"
 

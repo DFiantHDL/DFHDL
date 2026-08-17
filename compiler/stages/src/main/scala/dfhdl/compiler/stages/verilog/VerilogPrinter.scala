@@ -219,6 +219,21 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     printer.dialect match
       case VerilogDialect.v2001 | VerilogDialect.v95 => "vh"
       case _                                         => "svh"
+  override def csGlobalMemberQualifier(ns: String, pkgName: String): String = s"$pkgName::"
+  override def supportPackages: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
+  override def packageFileName(pkgName: String): String = s"$pkgName.sv"
+  override def csPackageFileContent(pkgName: String, namespace: String, typeDcls: String): String =
+    // the global defs header may be referenced by packaged type declarations
+    // (e.g. a struct field of a global-placed named type); its include guard makes
+    // the include harmless otherwise
+    sn"""|package $pkgName;
+        |${if (hasGlobalContent) s"""`include "$globalFileName"""" else ""}
+        |$typeDcls
+        |endpackage
+        |"""
   def globalFileName: String =
     val name = printerOptions.globalDefsFileName
     if (name.nonEmpty && name.contains('.')) name

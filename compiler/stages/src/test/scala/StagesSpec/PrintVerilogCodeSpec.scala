@@ -3978,4 +3978,69 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule
          |""".stripMargin
     )
+  test("Namespace-derived type packages"):
+    class PkgTop extends EDDesign:
+      val sp = typespkg1.PkgStruct <> IN
+      val so = typespkg1.PkgStruct <> OUT
+      val e  = typespkg1.PkgEnum   <> VAR
+      val o  = typespkg1.PkgOpaque <> VAR
+      val w  = typespkg2.PkgWrap   <> VAR
+      val u  = UInt(8)             <> VAR init typespkg2.PkgWide
+      so <> sp
+    val top = (new PkgTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|typedef struct packed {
+         |  logic [1:0] g;
+         |} t_struct_GlbNsStruct;
+         |parameter logic [7:0] GlbNsConst = 8'd3;
+         |package typespkg1;
+         |`include "PkgTop_defs.svh"
+         |typedef struct packed {
+         |  logic [7:0] a;
+         |  logic b;
+         |  t_struct_GlbNsStruct g;
+         |} t_struct_PkgStruct;
+         |typedef enum logic [1:0] {
+         |  PkgEnum_P0 = 0,
+         |  PkgEnum_P1 = 1,
+         |  PkgEnum_P2 = 2
+         |} t_enum_PkgEnum;
+         |typedef logic [3:0] t_opaque_PkgOpaque;
+         |parameter logic [7:0] PkgConst = GlbNsConst + 8'd39;
+         |function automatic logic [7:0] pkgCalc(input logic [7:0] arg);
+         |begin
+         |  pkgCalc = arg + 8'd1;
+         |end
+         |endfunction
+         |parameter logic [7:0] PkgDerived = pkgCalc(PkgConst);
+         |endpackage
+         |
+         |package typespkg2;
+         |`include "PkgTop_defs.svh"
+         |typedef struct packed {
+         |  typespkg1::t_struct_PkgStruct s;
+         |  logic [7:0] n;
+         |} t_struct_PkgWrap;
+         |parameter logic [7:0] PkgWide = typespkg1::pkgCalc(typespkg1::PkgDerived);
+         |endpackage
+         |
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "PkgTop_defs.svh"
+         |
+         |module PkgTop(
+         |  input  wire typespkg1::t_struct_PkgStruct sp,
+         |  output typespkg1::t_struct_PkgStruct so
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  typespkg1::t_enum_PkgEnum e;
+         |  typespkg1::t_opaque_PkgOpaque o;
+         |  typespkg2::t_struct_PkgWrap w;
+         |  logic [7:0] u = typespkg2::PkgWide;
+         |  assign so = sp;
+         |endmodule
+         |""".stripMargin
+    )
 end PrintVerilogCodeSpec

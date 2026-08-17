@@ -51,7 +51,12 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
         val verilogDefine = if (printer.allowTypeDef) "" else "`"
-        s"$verilogDefine${dfType.name}_${entryName}"
+        // a packaged enum's entries are package-scoped identifiers in SV
+        val pkgQualifier = printer.typePlacementOf(dfType) match
+          case Some(pkg) if printer.allowTypeDef && !printer.currentPackage.contains(pkg) =>
+            s"$pkg::"
+          case _ => ""
+        s"$verilogDefine$pkgQualifier${dfType.name}_${entryName}"
       case None => "?"
   val maxElementsPerLine = 64
   def csDFVectorElemCS(elemCS: List[String]): String =

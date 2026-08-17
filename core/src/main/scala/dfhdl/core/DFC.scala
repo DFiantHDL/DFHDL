@@ -64,6 +64,10 @@ final case class DFC(
   // design-scoped value's namespace is its design, not its declaring Scala package
   def getMeta: ir.Meta =
     ir.Meta(nameOpt, position, docOpt, annotations, if (ownerOption.isEmpty) namespace else "")
+  // a DECLARATION meta (a design block's dclMeta): the namespace is kept regardless of
+  // the owner context (a def design or a child class design is created inside its
+  // instantiating owner, but its declaration still lives in its Scala package)
+  def getDclMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations, namespace)
   def enterOwner(owner: DFOwnerAny): Unit =
     mutableDB.OwnershipContext.enter(owner.asIR)
   def exitOwner(): Unit = mutableDB.OwnershipContext.exit()
