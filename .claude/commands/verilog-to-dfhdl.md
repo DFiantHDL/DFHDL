@@ -91,8 +91,15 @@ automatically (the emitted parent shows `child_i_clk = wb_clk`). Beyond the per-
   Use the top's names as the global default; override the internals per-module.
 - **A clock-only annotation removes the reset.** On an `RTDesign` *with* registers, annotating only
   `@hw.constraints.timing.clock(portName = "...")` (no reset annotation) suppresses the default
-  reset entirely; the register `init`s emit as **power-up only** (`logic r = 1'b0;`, no `if(rst)`).
-  This is how you port a no-reset module (pipeline, RAM).
+  reset entirely; the register `init`s emit as **power-up only** (an `initial` block, no `rst_l` port
+  and no `if(rst)` arm). This is how you define a domain with an init and no reset signal, i.e. how
+  you port a no-reset module (pipeline, RAM). It is *not* a bug, and it is silent, so when you
+  rename a clock port on a module that **does** reset, restate `@..reset` alongside it or the flop
+  quietly becomes reset-less:
+  ```scala
+  @timing.clock(portName = "rawclk")                                    // alone: no reset
+  @timing.reset(mode = _.async, active = _.low, portName = "rst_l")     // keep the reset
+  ```
 - **Annotation ⇒ auto-reset.** A `@..reset` annotation synchronously resets every register with a
   real `init` to that init (`if (rst) r <= init;`). A Verilog `if(rst) r <= RESET_VAL` mux folds
   straight into `init RESET_VAL` - drop the explicit mux.
@@ -113,6 +120,41 @@ automatically (the emitted parent shows `child_i_clk = wb_clk`). Beyond the per-
   `clk.actual` reads it as a `Bit` (needed to drive a derived clock from the root clock, as an
   ungated ICG does). What does collide is a *non-magnet* port whose name shadows the magnet's, so
   keep a data port off the names `clk`/`rst` ("Unsupported read-to-read connection").
+- **Renaming a child's clock port works, and the parent binds it correctly.**
+  `@timing.clock(portName = "rawclk")` on a child emits `input wire logic rawclk`, and the parent
+  connects **its own** clock to it (`assign f_rawclk = clk;`) because the magnet matches by domain,
+  not by name. This is how you port a cell whose clock input the baseline calls something else.
+  The domain propagates *down*, so a grandchild instantiated inside that cell is emitted with
+  `rawclk` too, while the same class instantiated from an ordinary `clk` design is emitted with
+  `clk`.
+  <!-- USER-GUIDE DOC GAP: the two sentences above are general language behaviour (portName
+       rename + magnet binds by domain, not name + downward domain propagation) and belong in
+       docs/user-guide/design-domains/index.md, linked from here. Kept inline for now because
+       they are inseparable from the three emitter traps below. -->
+  Two traps come with it, both found on VeeR's `rvdff_fpga`:
+  - **Keep a renamed-clock design childless.** If it instantiates anything, the emission is invalid
+    SystemVerilog: duplicated `rst_l_0`/`rst_l_1` ports against a `.rst_l` connection, plus
+    `assign <ModuleTypeName>.<child>.clk = clk;` - a hierarchical assign through the module *type*
+    name. It also surfaces at the parent as a bogus `Found multiple connections write to the same
+    variable/port <inst>_clk`, once the parent instantiates a same-domain sibling. Both faces
+    vanish when the cell has no children, so write the leaf logic directly instead of wrapping a
+    child. It elaborates clean either way, so **run the emitted files through slang** after
+    renaming a clock port.
+  - **`val clk = Clk <> IN` silently beats `portName`.** In a design annotated
+    `@timing.clock(portName = "rawclk")`, adding `val clk = Clk <> IN` makes *that* the domain
+    clock: `rawclk` disappears from the port list entirely and the registers clock on whatever the
+    parent wires to `clk`. No diagnostic. So a cell that takes two clock inputs and flops on the
+    *renamed* one must declare the other as a plain `Bit <> IN` - which is safe, and the magnet
+    does **not** claim it despite the name:
+  ```scala
+  @timing.clock(portName = "rawclk")                                  // rvdff_fpga, FPGA arm
+  @timing.reset(mode = _.async, active = _.low, portName = "rst_l")
+  class rvdff_fpga(val WIDTH: Int <> CONST = 1) extends RTDesign:
+    val clk  = Bit <> IN                     // the baseline's dead clock input
+    val dout = Bits(WIDTH) <> OUT.REG init all(0)
+    if (clken) dout.din := din               // gold: rvdffs (.clk(rawclk), .en(clken), .*)
+  // parent emits: assign f_rawclk = clk;  (root clock)   assign f_clk = <derived>;  (dead input)
+  ```
 
 ## Memories and `initFile`
 
