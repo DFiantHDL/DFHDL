@@ -4049,4 +4049,54 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end DualTop
          |""".stripMargin
     )
+  // issue #494: the reported shape, where the object-scoped global const alias's first
+  // materialization is the left operand of `-`, which runs SimplifyFunc's self-cancellation
+  // check; that check dereferences the operand's refs BEFORE any `refTW` has injected the
+  // global's own context into the run's DB, so it used to crash with `Missing ref`. The
+  // globals are declared per test (a const whose value is another const, in an object that
+  // is deliberately first touched only inside the design body).
+  test("Object-scoped global const alias first used as the left operand of `-`"):
+    val TOP_CONST_I494: Int <> CONST = 16
+    object i494SubConsts:
+      val W: Int <> CONST = TOP_CONST_I494
+    class Repro extends RTDesign:
+      val x = Bits(32) <> IN
+      val o = Bits(16) <> OUT
+      o <> x(i494SubConsts.W - 1, 0)
+    assertCodeString(
+      new Repro,
+      """|val TOP_CONST_I494: Int <> CONST = 16
+         |val W: Int <> CONST = TOP_CONST_I494
+         |
+         |class Repro extends RTDesign:
+         |  val x = Bits(32) <> IN
+         |  val o = Bits(16) <> OUT
+         |  o <> x(W - 1, 0)
+         |end Repro
+         |""".stripMargin
+    )
+  // issue #494, second direction: `MaxMinChainAbsorb` (which runs even in global context)
+  // strips the chain operand before checking its shape, so a first use as a `max` operand
+  // against a literal hits the same dereference. A literal RHS is essential: a DFHDL-value
+  // RHS is adapted through a TC conversion that references (and thereby injects) the global
+  // before any extractor runs. The `max` itself is then legitimately folded away by
+  // `MaxMinWithOffset` (a global const's value is fixed, so `V max 5` is provably `V`).
+  test("Object-scoped global const alias first used as a max operand against a literal"):
+    val TOP_CONST_I494: Int <> CONST = 16
+    object i494SubConstsMaxMin:
+      val V: Int <> CONST = TOP_CONST_I494
+    class Repro extends RTDesign:
+      val o = Bits(i494SubConstsMaxMin.V max 5) <> OUT
+      o <> all(0)
+    assertCodeString(
+      new Repro,
+      """|val TOP_CONST_I494: Int <> CONST = 16
+         |val V: Int <> CONST = TOP_CONST_I494
+         |
+         |class Repro extends RTDesign:
+         |  val o = Bits(V) <> OUT
+         |  o <> b"0".repeat(V)
+         |end Repro
+         |""".stripMargin
+    )
 end PrintCodeStringSpec

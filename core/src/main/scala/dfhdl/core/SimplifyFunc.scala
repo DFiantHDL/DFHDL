@@ -10,6 +10,12 @@ private object SimplifyFunc:
     // are skipped in that mode.
     if (dfc.inMetaProgramming) None
     else
+      // A global operand (e.g. an object-scoped `Int <> CONST` alias) may be seen here before
+      // its first `refTW`, which is what injects the operand's own global context into this
+      // run's DB (`injectGlobalCtx`). The extractors below dereference operand refs
+      // (`stripTypePreservingAliases`, arg walks), so the injection must happen up front, or
+      // the first dereference dies with `Missing ref` (issue #494).
+      opArgs._3.foreach(_.injectGlobalCtx())
       opArgs match
         // These three run even in global context (no owner).
         case ConstFoldAddSubChain(v) => Some(v)
@@ -27,6 +33,7 @@ private object SimplifyFunc:
         case CompareAgainstMaxMin(v)      => Some(v)
         case AdditiveCancellation(v)      => Some(v)
         case _                            => None
+      end match
 
   // Checks if an intermediate Func can be merged into the current one.
   // + and * are only merged when the intermediate has the same dfType (non-carry).

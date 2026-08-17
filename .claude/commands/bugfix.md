@@ -338,6 +338,37 @@ all three call shapes (nested operand, standalone statement, `val` RHS) and chan
 the forwarded argument's name is overwritten by `setName`'s own argument anyway. Check the
 naming-sensitive suites before assuming that holds for another op.
 
+### Front-end analysis over raw IR operands must inject a global operand's context first
+
+A `Missing ref "TW_..."` thrown DURING ELABORATION (from `MutableDB.getMember`, not from a
+stage's `SanityCheck` or `originMemberTable`) is its own species: a **global** member (a
+top-level or object-scoped `Int <> CONST` and friends) carries its refTable bindings in its own
+`DesignContext`, and the current run can resolve them only after `injectGlobalCtx()` merges that
+context in — which `refTW` performs at the member's first REFERENCE. Any front-end analysis that
+dereferences an operand's refs BEFORE minting a ref therefore crashes on a never-yet-referenced
+global. `SimplifyFunc` was the case (issue #494): `DFVal.Func.applyFromIR` runs the extractors on
+the raw `ir.DFVal` args before any `refTW`, and `SelfCancelling`'s guard strips the operand's
+type-preserving aliases. The fix shape is to inject each operand's global context at the top of
+the analysis — exactly what `refTW` does moments later, idempotent (`injectedCtx` set), and it
+covers every extractor including the ones that run in global scope.
+
+Three things about the trigger set generalize:
+
+- **The reported trigger is far narrower than the defect.** The issue said "left operand of
+  `-`", because only extractors that strip an alias operand on that op's path crash; `+ 1`
+  survives since `AdditiveCancellation` only strips sign-opposed pairs. `max` against a
+  **literal** crashes too, via `MaxMinChainAbsorb`, which strips the chain operand before
+  checking its shape. Enumerate which extractors dereference and probe one per family.
+- **A DFHDL-value RHS defuses the reproducer.** The RHS type-conversion of a two-DFHDL-operand
+  op references (and thereby injects) the operand before any extractor runs, so `V max V`
+  cannot reproduce while `V max 5` does. When a "first materialization" bug refuses to fire,
+  check whether an operand adaptation referenced the member first.
+- **Test-local DFHDL globals are still globals.** A `val`/`object` declared inside a munit test
+  body elaborates with no design context and is a global for the DB, so per-test globals
+  reproduce the species without file-level state. Keep the object first *touched* inside the
+  design body (Scala object init is lazy), one object per test so tests cannot defuse each
+  other, and remember the crash needs the first use to be the analyzed position.
+
 ### Changing a type-level algebra: pick the mechanism by when it costs
 
 `IntP` decides widths at the type level, and there are three mechanisms for such a rule. They
