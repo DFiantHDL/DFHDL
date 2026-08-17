@@ -3,8 +3,8 @@
 `include "CipherNoOpaques_defs.svh"
 
 module xtime(
-  input  wire t_opaque_AESByte lhs,
-  output t_opaque_AESByte      o
+  input  wire AESByte lhs,
+  output AESByte      o
 );
   `include "dfhdl_defs.svh"
   logic [7:0] shifted;

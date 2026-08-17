@@ -3,8 +3,8 @@
 `include "Cipher_defs.svh"
 
 module sbox(
-  input  wire t_opaque_AESByte lhs,
-  output t_opaque_AESByte      o
+  input  wire AESByte lhs,
+  output AESByte      o
 );
   `include "dfhdl_defs.svh"
   assign o = sboxLookupTable[lhs];

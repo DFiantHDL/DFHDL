@@ -6,8 +6,8 @@ use work.Cipher_pkg.all;
 
 entity shiftRows is
 port (
-  state : in  t_opaque_AESState;
-  o     : out t_opaque_AESState
+  state : in  AESState;
+  o     : out AESState
 );
 end shiftRows;
 

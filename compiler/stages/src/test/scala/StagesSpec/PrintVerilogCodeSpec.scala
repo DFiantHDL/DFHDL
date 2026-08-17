@@ -376,7 +376,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  typedef struct packed {
          |    logic [2:0] _1;
          |    logic _2;
-         |  } t_struct_DFTuple2;
+         |  } DFTuple2;
          |  localparam logic c01 = 1'b0;
          |  localparam logic c02 = 1'b1;
          |  localparam logic c03 = 1'bx;
@@ -391,7 +391,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  localparam logic signed [48:0] c12 = -49'sd239794508230343;
          |  localparam logic [7:0] c13 = 8'hxx;
          |  localparam logic signed [7:0] c14 = $signed(8'hxx);
-         |  localparam t_struct_DFTuple2 c15 = '{3'h0, 1'b1};
+         |  localparam DFTuple2 c15 = '{3'h0, 1'b1};
          |  localparam logic [7:0] c16 [0:6] [0:4] = '{
          |    0: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 1: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
          |    2: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 3: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
@@ -1108,7 +1108,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    MyEnum_A = 0,
          |    MyEnum_B = 1,
          |    MyEnum_C = 2
-         |  } t_enum_MyEnum;
+         |  } MyEnum;
          |  localparam string bar = {param, "!"};
          |  localparam string param2 = {2{param}};
          |  localparam int param3 = 42;
@@ -1118,7 +1118,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  localparam logic signed [4:0] param7 = -5'sd11;
          |  localparam logic param8 = 1'b1;
          |  localparam logic param9 = 0;
-         |  localparam t_enum_MyEnum param10 = MyEnum_A;
+         |  localparam MyEnum param10 = MyEnum_A;
          |  always_comb
          |  begin
          |    assert (param == "hello2");
@@ -1338,26 +1338,26 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|typedef enum logic [0:0] {
          |  MyEnum_Zero = 0,
          |  MyEnum_One = 1
-         |} t_enum_MyEnum;
+         |} MyEnum;
          |
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "Bar_defs.svh"
          |
          |module Bar(
-         |  input  wire t_enum_MyEnum x,
+         |  input  wire MyEnum x,
          |  output logic y,
          |  output logic z,
          |  input  wire logic x1,
          |  input  wire logic x2,
-         |  output t_enum_MyEnum y1,
-         |  output t_enum_MyEnum y2
+         |  output MyEnum y1,
+         |  output MyEnum y2
          |);
          |  `include "dfhdl_defs.svh"
          |  assign y = ~x;
          |  assign z = ~x;
-         |  assign y1 = t_enum_MyEnum'(x1);
-         |  assign y2 = t_enum_MyEnum'(x2);
+         |  assign y1 = MyEnum'(x1);
+         |  assign y2 = MyEnum'(x2);
          |endmodule""".stripMargin
     )
   }
@@ -1537,15 +1537,15 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|typedef enum logic [0:0] {
          |  MyEnum_A = 0,
          |  MyEnum_B = 1
-         |} t_enum_MyEnum;
+         |} MyEnum;
          |
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "otherGlobal.svh"
          |
          |module Foo(
-         |  input  wire t_enum_MyEnum x,
-         |  output t_enum_MyEnum y
+         |  input  wire MyEnum x,
+         |  output MyEnum y
          |);
          |  `include "dfhdl_defs.svh"
          |  assign y = x;
@@ -1567,15 +1567,15 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|typedef enum logic [0:0] {
          |  MyEnum_A = 0,
          |  MyEnum_B = 1
-         |} t_enum_MyEnum;
+         |} MyEnum;
          |
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "otherGlobal.svh"
          |
          |module Foo(
-         |  input  wire t_enum_MyEnum x,
-         |  output t_enum_MyEnum y
+         |  input  wire MyEnum x,
+         |  output MyEnum y
          |);
          |  `include "dfhdl_defs.svh"
          |  assign y = x;
@@ -1665,15 +1665,15 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|typedef struct packed {
          |  logic [3:0] a;
          |  logic [3:0] b;
-         |} t_struct_AB;
+         |} AB;
          |
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "Foo_defs.svh"
          |
          |module Foo(
-         |  input  wire t_struct_AB i,
-         |  output t_struct_AB y
+         |  input  wire AB i,
+         |  output AB y
          |);
          |  `include "dfhdl_defs.svh"
          |  assign y.a = i.b;
@@ -1866,18 +1866,18 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  typedef enum logic [0:0] {
          |    State_0_S_boot = 0,
          |    State_0_S_0 = 1
-         |  } t_enum_State_0;
+         |  } State_0;
          |  typedef enum logic [0:0] {
          |    State_1_S_0 = 0,
          |    State_1_S_1 = 1
-         |  } t_enum_State_1;
+         |  } State_1;
          |  logic fk_start_0;
          |  logic fk_start_1;
          |  logic fk_done_0;
          |  logic fk_done_1;
-         |  t_enum_State_0 state_0;
-         |  t_enum_State_1 state_1;
-         |  t_enum_State_1 state_2;
+         |  State_0 state_0;
+         |  State_1 state_1;
+         |  State_1 state_2;
          |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) begin
@@ -3964,17 +3964,17 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  /* struct doc */
          |  typedef struct packed {
          |    logic a;
-         |  } t_struct_DocS;
+         |  } DocS;
          |  /* enum doc */
          |  typedef enum logic [0:0] {
          |    DocE_E0 = 0,
          |    DocE_E1 = 1
-         |  } t_enum_DocE;
+         |  } DocE;
          |  /* opaque doc */
-         |  typedef logic t_opaque_DocO;
-         |  t_struct_DocS s;
-         |  t_enum_DocE e;
-         |  t_opaque_DocO o;
+         |  typedef logic DocO;
+         |  DocS s;
+         |  DocE e;
+         |  DocO o;
          |endmodule
          |""".stripMargin
     )
@@ -3992,21 +3992,21 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|typedef struct packed {
          |  logic [1:0] g;
-         |} t_struct_GlbNsStruct;
+         |} GlbNsStruct;
          |parameter logic [7:0] GlbNsConst = 8'd3;
          |package typespkg1;
          |`include "PkgTop_defs.svh"
          |typedef struct packed {
          |  logic [7:0] a;
          |  logic b;
-         |  t_struct_GlbNsStruct g;
-         |} t_struct_PkgStruct;
+         |  GlbNsStruct g;
+         |} PkgStruct;
          |typedef enum logic [1:0] {
          |  PkgEnum_P0 = 0,
          |  PkgEnum_P1 = 1,
          |  PkgEnum_P2 = 2
-         |} t_enum_PkgEnum;
-         |typedef logic [3:0] t_opaque_PkgOpaque;
+         |} PkgEnum;
+         |typedef logic [3:0] PkgOpaque;
          |parameter logic [7:0] PkgConst = GlbNsConst + 8'd39;
          |function automatic logic [7:0] pkgCalc(input logic [7:0] arg);
          |begin
@@ -4019,9 +4019,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |package typespkg2;
          |`include "PkgTop_defs.svh"
          |typedef struct packed {
-         |  typespkg1::t_struct_PkgStruct s;
+         |  typespkg1::PkgStruct s;
          |  logic [7:0] n;
-         |} t_struct_PkgWrap;
+         |} PkgWrap;
          |parameter logic [7:0] PkgWide = typespkg1::pkgCalc(typespkg1::PkgDerived);
          |endpackage
          |
@@ -4031,13 +4031,13 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "PkgTop_defs.svh"
          |
          |module PkgTop(
-         |  input  wire typespkg1::t_struct_PkgStruct sp,
-         |  output typespkg1::t_struct_PkgStruct so
+         |  input  wire typespkg1::PkgStruct sp,
+         |  output typespkg1::PkgStruct so
          |);
          |  `include "dfhdl_defs.svh"
-         |  typespkg1::t_enum_PkgEnum e;
-         |  typespkg1::t_opaque_PkgOpaque o;
-         |  typespkg2::t_struct_PkgWrap w;
+         |  typespkg1::PkgEnum e;
+         |  typespkg1::PkgOpaque o;
+         |  typespkg2::PkgWrap w;
          |  logic [7:0] u = typespkg2::PkgWide;
          |  assign so = sp;
          |endmodule

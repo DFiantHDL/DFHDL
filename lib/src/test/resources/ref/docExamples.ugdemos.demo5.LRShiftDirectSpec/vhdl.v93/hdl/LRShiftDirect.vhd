@@ -20,7 +20,7 @@ port (
   -- bits output 
   oBits : out std_logic_vector(width - 1 downto 0);
   -- direction of shift 
-  dir   : in  t_enum_ShiftDir
+  dir   : in  ShiftDir
 );
 end LRShiftDirect;
 

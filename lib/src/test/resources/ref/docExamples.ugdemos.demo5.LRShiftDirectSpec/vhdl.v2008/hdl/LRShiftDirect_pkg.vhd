@@ -4,26 +4,26 @@ use ieee.numeric_std.all;
 use work.dfhdl_pkg.all;
 
 package LRShiftDirect_pkg is
-type t_enum_ShiftDir is (
+type ShiftDir is (
   ShiftDir_Left, ShiftDir_Right
 );
-function bitWidth(A: t_enum_ShiftDir) return integer;
-function to_slv(A: t_enum_ShiftDir) return std_logic_vector;
-function to_t_enum_ShiftDir(A: std_logic_vector) return t_enum_ShiftDir;
-function bool_sel(C : boolean; T : t_enum_ShiftDir; F : t_enum_ShiftDir) return t_enum_ShiftDir;
-function to_bool(A: t_enum_ShiftDir) return boolean;
-function to_sl(A: t_enum_ShiftDir) return std_logic;
-function to_t_enum_ShiftDir(A: boolean) return t_enum_ShiftDir;
-function to_t_enum_ShiftDir(A: std_logic) return t_enum_ShiftDir;
-function toggle(A: t_enum_ShiftDir) return t_enum_ShiftDir;
+function bitWidth(A: ShiftDir) return integer;
+function to_slv(A: ShiftDir) return std_logic_vector;
+function to_ShiftDir(A: std_logic_vector) return ShiftDir;
+function bool_sel(C : boolean; T : ShiftDir; F : ShiftDir) return ShiftDir;
+function to_bool(A: ShiftDir) return boolean;
+function to_sl(A: ShiftDir) return std_logic;
+function to_ShiftDir(A: boolean) return ShiftDir;
+function to_ShiftDir(A: std_logic) return ShiftDir;
+function toggle(A: ShiftDir) return ShiftDir;
 end package LRShiftDirect_pkg;
 
 package body LRShiftDirect_pkg is
-function bitWidth(A : t_enum_ShiftDir) return integer is
+function bitWidth(A : ShiftDir) return integer is
 begin
   return 1;
 end;
-function to_slv(A : t_enum_ShiftDir) return std_logic_vector is
+function to_slv(A : ShiftDir) return std_logic_vector is
   variable int_val : integer;
 begin
   case A is
@@ -32,7 +32,7 @@ begin
   end case;
   return resize(to_slv(int_val), 1);
 end;
-function to_t_enum_ShiftDir(A : std_logic_vector) return t_enum_ShiftDir is
+function to_ShiftDir(A : std_logic_vector) return ShiftDir is
 begin
   case to_integer(unsigned(A)) is
     when 0              => return ShiftDir_Left;
@@ -42,7 +42,7 @@ begin
       return ShiftDir_Left;
   end case;
 end;
-function bool_sel(C : boolean; T : t_enum_ShiftDir; F : t_enum_ShiftDir) return t_enum_ShiftDir is
+function bool_sel(C : boolean; T : ShiftDir; F : ShiftDir) return ShiftDir is
 begin
   if C then
     return T;
@@ -50,33 +50,33 @@ begin
     return F;
   end if;
 end;
-function to_bool(A : t_enum_ShiftDir) return boolean is
+function to_bool(A : ShiftDir) return boolean is
 begin
   case A is
     when ShiftDir_Left  => return false;
     when ShiftDir_Right => return true;
   end case;
 end;
-function to_sl(A : t_enum_ShiftDir) return std_logic is
+function to_sl(A : ShiftDir) return std_logic is
 begin
   case A is
     when ShiftDir_Left  => return '0';
     when ShiftDir_Right => return '1';
   end case;
 end;
-function to_t_enum_ShiftDir(A : boolean) return t_enum_ShiftDir is
+function to_ShiftDir(A : boolean) return ShiftDir is
 begin
   if A then return ShiftDir_Right;
   else return ShiftDir_Left;
   end if;
 end;
-function to_t_enum_ShiftDir(A : std_logic) return t_enum_ShiftDir is
+function to_ShiftDir(A : std_logic) return ShiftDir is
 begin
   if A = '1' then return ShiftDir_Right;
   else return ShiftDir_Left;
   end if;
 end;
-function toggle(A : t_enum_ShiftDir) return t_enum_ShiftDir is
+function toggle(A : ShiftDir) return ShiftDir is
 begin
   case A is
     when ShiftDir_Left  => return ShiftDir_Right;

@@ -3,8 +3,8 @@
 `include "Cipher_defs.svh"
 
 module shiftRows(
-  input  wire t_opaque_AESState state,
-  output t_opaque_AESState      o
+  input  wire AESState state,
+  output AESState      o
 );
   `include "dfhdl_defs.svh"
   assign o = '{

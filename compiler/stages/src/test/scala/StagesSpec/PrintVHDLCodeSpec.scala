@@ -289,7 +289,7 @@ class PrintVHDLCodeSpec extends StageSpec:
           |end Top;
           |
           |architecture Top_arch of Top is
-          |  type t_struct_DFTuple2 is record
+          |  type DFTuple2 is record
           |    _1 : std_logic_vector(2 downto 0);
           |    _2 : std_logic;
           |  end record;
@@ -309,7 +309,7 @@ class PrintVHDLCodeSpec extends StageSpec:
           |  constant c12 : signed(48 downto 0) := -49d"239794508230343";
           |  constant c13 : unsigned(7 downto 0) := unsigned'(x"--");
           |  constant c14 : signed(7 downto 0) := signed'(x"--");
-          |  constant c15 : t_struct_DFTuple2 := t_struct_DFTuple2(_1 = "000", _2 = '1');
+          |  constant c15 : DFTuple2 := DFTuple2(_1 = "000", _2 = '1');
           |  constant c16 : t_arrX2_std_logic_vector(0 to 6)(0 to 4)(7 downto 0) := (
           |    0 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
           |    1 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
@@ -501,14 +501,14 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      return F;
          |    end if;
          |  end;
-         |  subtype t_opaque_Foo is t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
-         |  function to_t_opaque_Foo(A : std_logic_vector) return t_opaque_Foo is
+         |  subtype Foo is t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
+         |  function to_Foo(A : std_logic_vector) return Foo is
          |    variable A0 : std_logic_vector(A'length - 1 downto 0);
          |  begin
          |    A0 := A;
          |    return to_t_arrX2_std_logic_vector(A0, 10, 16, 12);
          |  end;
-         |  signal v : t_opaque_Foo;
+         |  signal v : Foo;
          |begin
          |  process (clk)
          |  begin
@@ -557,10 +557,10 @@ class PrintVHDLCodeSpec extends StageSpec:
       y.din := x.as(Foo)
 
     val top = (Example()).getCompiledCodeString
-    // TODO: consider if we want to leave the t_opaque_Foo under `getCompiledCodeString`
+    // TODO: consider if we want to leave the Foo under `getCompiledCodeString`
     assertNoDiff(
       top,
-      """|subtype t_opaque_Foo is t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
+      """|subtype Foo is t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
          |
          |library ieee;
          |use ieee.std_logic_1164.all;
@@ -573,7 +573,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  clk : in std_logic;
          |  rst : in std_logic;
          |  x : in std_logic_vector(1919 downto 0);
-         |  y : out t_opaque_Foo
+         |  y : out Foo
          |);
          |end Example;
          |
@@ -1181,7 +1181,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo;
          |
          |architecture Foo_arch of Foo is
-         |  type t_enum_MyEnum is (
+         |  type MyEnum is (
          |    MyEnum_A, MyEnum_B, MyEnum_C
          |  );
          |  constant bar : string := param & "!";
@@ -1193,7 +1193,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant param7 : signed(4 downto 0) := -5d"11";
          |  constant param8 : std_logic := '1';
          |  constant param9 : boolean := false;
-         |  constant param10 : t_enum_MyEnum := MyEnum_A;
+         |  constant param10 : MyEnum := MyEnum_A;
          |begin
          |  process (all)
          |  begin
@@ -1212,7 +1212,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("");
          |    print("I am the one " & param2 & " who knocks");
          |    print("hello");
-         |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
+         |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
          |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1162:9" & LF &
@@ -1223,7 +1223,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      "param7 = " & to_string(param7) & LF &
          |      "param8 = " & to_string(param8) & LF &
          |      "param9 = " & to_string(param9) & LF &
-         |      "param10 = " & t_enum_MyEnum'image(param10)
+         |      "param10 = " & MyEnum'image(param10)
          |    severity NOTE;
          |  end process;
          |end Foo_arch;""".stripMargin
@@ -1242,7 +1242,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo;
          |
          |architecture Foo_arch of Foo is
-         |  type t_enum_MyEnum is (
+         |  type MyEnum is (
          |    MyEnum_A, MyEnum_B, MyEnum_C
          |  );
          |  constant bar : string := param & "!";
@@ -1254,7 +1254,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant param7 : signed(4 downto 0) := to_signed(-11, 5);
          |  constant param8 : std_logic := '1';
          |  constant param9 : boolean := false;
-         |  constant param10 : t_enum_MyEnum := MyEnum_A;
+         |  constant param10 : MyEnum := MyEnum_A;
          |begin
          |  process
          |  begin
@@ -1273,7 +1273,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("");
          |    print("I am the one " & param2 & " who knocks");
          |    print("hello");
-         |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
+         |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
          |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1162:9" & LF &
@@ -1284,7 +1284,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      "param7 = " & to_string(param7) & LF &
          |      "param8 = " & to_string(param8) & LF &
          |      "param9 = " & to_string(param9) & LF &
-         |      "param10 = " & t_enum_MyEnum'image(param10)
+         |      "param10 = " & MyEnum'image(param10)
          |    severity NOTE;
          |  end process;
          |end Foo_arch;""".stripMargin
@@ -1401,7 +1401,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new Bar).getCompiledCodeString
     assertNoDiff(
       top,
-      """|type t_enum_MyEnum is (
+      """|type MyEnum is (
          |  MyEnum_Zero, MyEnum_One
          |);
          |
@@ -1413,13 +1413,13 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Bar is
          |port (
-         |  x  : in  t_enum_MyEnum;
+         |  x  : in  MyEnum;
          |  y  : out std_logic;
          |  z  : out boolean;
          |  x1 : in  std_logic;
          |  x2 : in  boolean;
-         |  y1 : out t_enum_MyEnum;
-         |  y2 : out t_enum_MyEnum
+         |  y1 : out MyEnum;
+         |  y2 : out MyEnum
          |);
          |end Bar;
          |
@@ -1427,8 +1427,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |begin
          |  y  <= to_sl(toggle(x));
          |  z  <= to_bool(toggle(x));
-         |  y1 <= to_t_enum_MyEnum(x1);
-         |  y2 <= to_t_enum_MyEnum(x2);
+         |  y1 <= to_MyEnum(x1);
+         |  y2 <= to_MyEnum(x2);
          |end Bar_arch;""".stripMargin
     )
   }
@@ -1523,7 +1523,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
-      """|type t_enum_MyEnum is (
+      """|type MyEnum is (
          |  MyEnum_A, MyEnum_B
          |);
          |
@@ -1535,8 +1535,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Foo is
          |port (
-         |  x : in t_enum_MyEnum;
-         |  y : out t_enum_MyEnum
+         |  x : in MyEnum;
+         |  y : out MyEnum
          |);
          |end Foo;
          |
@@ -1558,7 +1558,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
-      """|type t_enum_MyEnum is (
+      """|type MyEnum is (
          |  MyEnum_A, MyEnum_B
          |);
          |
@@ -1570,8 +1570,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Foo is
          |port (
-         |  x : in t_enum_MyEnum;
-         |  y : out t_enum_MyEnum
+         |  x : in MyEnum;
+         |  y : out MyEnum
          |);
          |end Foo;
          |
@@ -1622,7 +1622,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
-      """|type t_struct_AB is record
+      """|type AB is record
          |  a : std_logic_vector(3 downto 0);
          |  b : std_logic_vector(3 downto 0);
          |end record;
@@ -1635,8 +1635,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Foo is
          |port (
-         |  i : in t_struct_AB;
-         |  y : out t_struct_AB
+         |  i : in AB;
+         |  y : out AB
          |);
          |end Foo;
          |
@@ -1773,19 +1773,19 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end ForkJoinFSM;
          |
          |architecture ForkJoinFSM_arch of ForkJoinFSM is
-         |  type t_enum_State_0 is (
+         |  type State_0 is (
          |    State_0_S_boot, State_0_S_0
          |  );
-         |  type t_enum_State_1 is (
+         |  type State_1 is (
          |    State_1_S_0, State_1_S_1
          |  );
          |  signal fk_start_0 : std_logic;
          |  signal fk_start_1 : std_logic;
          |  signal fk_done_0 : std_logic;
          |  signal fk_done_1 : std_logic;
-         |  signal state_0 : t_enum_State_0;
-         |  signal state_1 : t_enum_State_1;
-         |  signal state_2 : t_enum_State_1;
+         |  signal state_0_0 : State_0;
+         |  signal state_1_0 : State_1;
+         |  signal state_2 : State_1;
          |begin
          |  process (clk)
          |  begin
@@ -1793,36 +1793,36 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      if rst = '1' then
          |        a <= '0';
          |        b <= '0';
-         |        state_0 <= State_0_S_boot;
-         |        state_1 <= State_1_S_0;
+         |        state_0_0 <= State_0_S_boot;
+         |        state_1_0 <= State_1_S_0;
          |        state_2 <= State_1_S_0;
          |      else
-         |        case state_0 is
+         |        case state_0_0 is
          |          when State_0_S_boot =>
          |            fk_start_0 <= '1';
          |            fk_start_1 <= '1';
-         |            state_0 <= State_0_S_0;
+         |            state_0_0 <= State_0_S_0;
          |          when State_0_S_0 =>
-         |            if not (fk_done_0 and fk_done_1) then state_0 <= State_0_S_0;
+         |            if not (fk_done_0 and fk_done_1) then state_0_0 <= State_0_S_0;
          |            else
          |              fk_start_0 <= '0';
          |              fk_start_1 <= '0';
-         |              state_0 <= State_0_S_boot;
+         |              state_0_0 <= State_0_S_boot;
          |            end if;
          |        end case;
-         |        case state_1 is
+         |        case state_1_0 is
          |          when State_1_S_0 =>
-         |            if not fk_start_0 then state_1 <= State_1_S_0;
+         |            if not fk_start_0 then state_1_0 <= State_1_S_0;
          |            else
          |              a <= '1';
          |              fk_done_0 <= '1';
-         |              state_1 <= State_1_S_1;
+         |              state_1_0 <= State_1_S_1;
          |            end if;
          |          when State_1_S_1 =>
-         |            if fk_start_0 then state_1 <= State_1_S_1;
+         |            if fk_start_0 then state_1_0 <= State_1_S_1;
          |            else
          |              fk_done_0 <= '0';
-         |              state_1 <= State_1_S_0;
+         |              state_1_0 <= State_1_S_0;
          |            end if;
          |        end case;
          |        case state_2 is
@@ -3766,7 +3766,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = BitsHLComposite().getCompiledCodeString
     assertNoDiff(
       top,
-      """|type t_struct_P is record
+      """|type P is record
          |  f : std_logic_vector(9 downto 2);
          |  g : std_logic;
          |end record;
@@ -3779,7 +3779,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity BitsHLComposite is
          |port (
-         |  p : in t_struct_P;
+         |  p_0 : in P;
          |  v : in t_arrX1_std_logic_vector(0 to 1)(9 downto 2);
          |  f8 : out std_logic_vector(7 downto 0);
          |  f4 : out std_logic_vector(3 downto 0);
@@ -3790,9 +3790,9 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |architecture BitsHLComposite_arch of BitsHLComposite is
          |begin
-         |  f8 <= p.f;
-         |  f4 <= p.f(5 downto 2);
-         |  fb <= p.f(5);
+         |  f8 <= p_0.f;
+         |  f4 <= p_0.f(5 downto 2);
+         |  fb <= p_0.f(5);
          |  c8 <= v(0);
          |end BitsHLComposite_arch;
          |""".stripMargin
@@ -3900,18 +3900,18 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |architecture DocTop_arch of DocTop is
          |  -- struct doc 
-         |  type t_struct_DocS is record
+         |  type DocS is record
          |    a : std_logic;
          |  end record;
          |  -- enum doc 
-         |  type t_enum_DocE is (
+         |  type DocE is (
          |    DocE_E0, DocE_E1
          |  );
          |  -- opaque doc 
-         |  subtype t_opaque_DocO is std_logic;
-         |  signal s : t_struct_DocS;
-         |  signal e : t_enum_DocE;
-         |  signal o : t_opaque_DocO;
+         |  subtype DocO is std_logic;
+         |  signal s : DocS;
+         |  signal e : DocE;
+         |  signal o : DocO;
          |begin
          |end DocTop_arch;
          |""".stripMargin

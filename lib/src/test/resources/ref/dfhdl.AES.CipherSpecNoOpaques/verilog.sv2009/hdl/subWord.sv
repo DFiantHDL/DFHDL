@@ -3,18 +3,18 @@
 `include "CipherNoOpaques_defs.svh"
 
 module subWord(
-  input  wire t_opaque_AESWord lhs,
-  output t_opaque_AESWord      o
+  input  wire AESWord lhs,
+  output AESWord      o
 );
   `include "dfhdl_defs.svh"
-  t_opaque_AESByte o_part_sbox_inst_0_lhs;
-  t_opaque_AESByte o_part_sbox_inst_0_o;
-  t_opaque_AESByte o_part_sbox_inst_1_lhs;
-  t_opaque_AESByte o_part_sbox_inst_1_o;
-  t_opaque_AESByte o_part_sbox_inst_2_lhs;
-  t_opaque_AESByte o_part_sbox_inst_2_o;
-  t_opaque_AESByte o_part_sbox_inst_3_lhs;
-  t_opaque_AESByte o_part_sbox_inst_3_o;
+  AESByte o_part_sbox_inst_0_lhs;
+  AESByte o_part_sbox_inst_0_o;
+  AESByte o_part_sbox_inst_1_lhs;
+  AESByte o_part_sbox_inst_1_o;
+  AESByte o_part_sbox_inst_2_lhs;
+  AESByte o_part_sbox_inst_2_o;
+  AESByte o_part_sbox_inst_3_lhs;
+  AESByte o_part_sbox_inst_3_o;
   sbox o_part_sbox_inst_0(
     .lhs /*<--*/ (o_part_sbox_inst_0_lhs),
     .o   /*-->*/ (o_part_sbox_inst_0_o)

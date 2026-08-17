@@ -9,14 +9,14 @@ generic (
   lhs : std_logic_vector(7 downto 0)
 );
 port (
-  rhs : in  t_opaque_AESByte;
-  o   : out t_opaque_AESByte
+  rhs : in  AESByte;
+  o   : out AESByte
 );
 end mulByte_0;
 
 architecture mulByte_0_arch of mulByte_0 is
-  signal a_lhs : t_opaque_AESByte;
-  signal a_o   : t_opaque_AESByte;
+  signal a_lhs : AESByte;
+  signal a_o   : AESByte;
 begin
   a : entity work.xtime(xtime_arch) port map (
     lhs => a_lhs,

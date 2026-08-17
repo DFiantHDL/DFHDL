@@ -3,9 +3,9 @@
 `include "Cipher_defs.svh"
 
 module addRoundKey(
-  input  wire t_opaque_AESState    state,
-  input  wire t_opaque_AESRoundKey key,
-  output t_opaque_AESState         o
+  input  wire AESState    state,
+  input  wire AESRoundKey key,
+  output AESState         o
 );
   `include "dfhdl_defs.svh"
   assign o = '{

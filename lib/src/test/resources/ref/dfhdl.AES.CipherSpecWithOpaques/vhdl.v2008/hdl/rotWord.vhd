@@ -6,8 +6,8 @@ use work.Cipher_pkg.all;
 
 entity rotWord is
 port (
-  lhs : in  t_opaque_AESWord;
-  o   : out t_opaque_AESWord
+  lhs : in  AESWord;
+  o   : out AESWord
 );
 end rotWord;
 

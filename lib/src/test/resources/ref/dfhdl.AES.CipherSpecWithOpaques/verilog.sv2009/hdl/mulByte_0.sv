@@ -3,12 +3,12 @@
 `include "Cipher_defs.svh"
 
 module mulByte_0#(parameter logic [7:0] lhs = 8'hxx)(
-  input  wire t_opaque_AESByte rhs,
-  output t_opaque_AESByte      o
+  input  wire AESByte rhs,
+  output AESByte      o
 );
   `include "dfhdl_defs.svh"
-  t_opaque_AESByte a_lhs;
-  t_opaque_AESByte a_o;
+  AESByte a_lhs;
+  AESByte a_o;
   xtime a(
     .lhs /*<--*/ (a_lhs),
     .o   /*-->*/ (a_o)

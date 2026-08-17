@@ -6,8 +6,8 @@ use work.Cipher_pkg.all;
 
 entity xtime is
 port (
-  lhs : in  t_opaque_AESByte;
-  o   : out t_opaque_AESByte
+  lhs : in  AESByte;
+  o   : out AESByte
 );
 end xtime;
 

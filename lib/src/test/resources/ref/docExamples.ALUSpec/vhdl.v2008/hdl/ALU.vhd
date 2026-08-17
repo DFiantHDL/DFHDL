@@ -6,10 +6,10 @@ use work.ALU_pkg.all;
 
 entity ALU is
 port (
-  op1    : in  std_logic_vector(31 downto 0);
-  op2    : in  std_logic_vector(31 downto 0);
-  aluSel : in  t_enum_ALUSel;
-  aluOut : out std_logic_vector(31 downto 0)
+  op1      : in  std_logic_vector(31 downto 0);
+  op2      : in  std_logic_vector(31 downto 0);
+  aluSel_0 : in  ALUSel;
+  aluOut   : out std_logic_vector(31 downto 0)
 );
 end ALU;
 
@@ -18,7 +18,7 @@ architecture ALU_arch of ALU is
 begin
   process (all)
   begin
-    case aluSel is
+    case aluSel_0 is
       when ALUSel_ADD   => aluOut <= to_slv(unsigned(op1) + unsigned(op2));
       when ALUSel_SUB   => aluOut <= to_slv(unsigned(op1) - unsigned(op2));
       when ALUSel_AND   => aluOut <= op1 and op2;

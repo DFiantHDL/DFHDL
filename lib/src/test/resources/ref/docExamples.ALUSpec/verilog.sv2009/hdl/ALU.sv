@@ -3,10 +3,10 @@
 `include "ALU_defs.svh"
 
 module ALU(
-  input  wire logic [31:0]  op1,
-  input  wire logic [31:0]  op2,
-  input  wire t_enum_ALUSel aluSel,
-  output      logic [31:0]  aluOut
+  input  wire logic [31:0] op1,
+  input  wire logic [31:0] op2,
+  input  wire ALUSel       aluSel,
+  output      logic [31:0] aluOut
 );
   `include "dfhdl_defs.svh"
   logic [4:0] shamt;

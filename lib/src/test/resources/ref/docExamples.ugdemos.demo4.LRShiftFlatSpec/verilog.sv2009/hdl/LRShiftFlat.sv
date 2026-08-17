@@ -13,7 +13,7 @@ module LRShiftFlat#(parameter int width = 8)(
   /* requested shift */
   input  wire logic [$clog2(width) - 1:0] shift,
   /* direction of shift */
-  input  wire t_enum_ShiftDir             dir,
+  input  wire ShiftDir                    dir,
   /* bits output */
   output      logic [width - 1:0]         oBits
 );

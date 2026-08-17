@@ -47,6 +47,10 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     val typeUpdateMap = mutable.LinkedHashMap.empty[NamedDFType, String]
     val localReservedNamesLCMutable = mutable.Set.from[String](reservedNamesLC)
 
+    // the FINAL (post-rename) global type names: without the dropped `t_struct_`-style
+    // prefixes, type and value identifiers share one HDL namespace, so every value
+    // renamer must reserve them
+    var globalTypeNamesFinalLC: Set[String] = Set.empty
     // ---- global named types + members (cross-design, computed once) ----
     // names resolve from member meta only, so any sub-DB getSet works; use the top's.
     val globalReservedTypeNamesLC: Set[String] = designDB.topDB.atGetSet {
@@ -63,6 +67,9 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
       val globalTypeUpdateMap =
         renamer(globalNamedTypes, reservedNamesLC)(_.name, (e, n) => e -> n).toMap
       typeUpdateMap ++= globalTypeUpdateMap
+      globalTypeNamesFinalLC = lowerCases(
+        globalNamedTypes.map(t => globalTypeUpdateMap.getOrElse(t, t.name)).toSet
+      )
       // the global reserved type names, after unique global type renaming
       val globalReservedTypeNames: Set[String] =
         (globalNamedTypes.map(e => e.name) ++ globalTypeUpdateMap.values ++ designNames ++
@@ -77,8 +84,10 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
       ).foreach(entry => memberRenamePatches(entry._1) = entry)
       resultLC
     }
-    // the reserved names for local (design) values will be the given reservedNames
-    // and the now additional global member names after renaming
+    // the reserved names for local (design) values: the given reservedNames, the
+    // renamed global member names, and the (post-rename) global TYPE names (types and
+    // values share one HDL identifier namespace)
+    localReservedNamesLCMutable ++= globalTypeNamesFinalLC
     val localReservedNamesLC = localReservedNamesLCMutable.toSet
 
     // ---- per-design local members + local named types ----
@@ -86,16 +95,19 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     designDB.subDBs.values.foreach { sub =>
       sub.atGetSet {
         sub.blockMemberList.foreach { (block, members) =>
+          // this design's local type names (post-rename): reserved for its value names
+          var designLocalTypeNamesLC: Set[String] = Set.empty
           block match
             case design: DFDesignBlock =>
               // exclude types promoted to global across the hierarchy (handled above);
               // a single sub-DB may otherwise mis-classify a cross-design type as local
-              renamer(
-                sub.getLocalNamedDFTypes(design)
-                  .filterNot(designDB.hierGlobalNamedDFTypes.contains),
-                globalReservedTypeNamesLC
-              )(_.name, (e, n) => e -> n)
+              val localTypes = sub.getLocalNamedDFTypes(design)
+                .filterNot(designDB.hierGlobalNamedDFTypes.contains)
+              renamer(localTypes, globalReservedTypeNamesLC)(_.name, (e, n) => e -> n)
                 .foreach(entry => typeUpdateMap(entry._1) = entry._2)
+              designLocalTypeNamesLC = lowerCases(
+                localTypes.map(t => typeUpdateMap.getOrElse(t, t.name)).toSet
+              )
             case _ =>
           renamer(
             members.view.flatMap {
@@ -112,7 +124,7 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
               case m: DFMember.Named if !m.isAnonymous => Some(m)
               case _                                   => None
             },
-            localReservedNamesLC
+            localReservedNamesLC ++ designLocalTypeNamesLC
           )(
             _.getName,
             (m, n) => m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)

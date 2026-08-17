@@ -1,13 +1,13 @@
 `ifndef CIPHERNOOPAQUES_DEFS
 `define CIPHERNOOPAQUES_DEFS
-typedef logic [7:0] t_opaque_AESByte;
-typedef t_opaque_AESByte t_opaque_AESWord [0:3];
-typedef t_opaque_AESWord t_opaque_AESKey [0:3];
-typedef t_opaque_AESWord t_opaque_AESData [0:3];
-typedef t_opaque_AESWord t_opaque_AESKeySchedule [0:43];
-typedef t_opaque_AESWord t_opaque_AESState [0:3];
-typedef t_opaque_AESWord t_opaque_AESRoundKey [0:3];
-parameter t_opaque_AESWord Rcon [0:10] = '{
+typedef logic [7:0] AESByte;
+typedef AESByte AESWord [0:3];
+typedef AESWord AESKey [0:3];
+typedef AESWord AESData [0:3];
+typedef AESWord AESKeySchedule [0:43];
+typedef AESWord AESState [0:3];
+typedef AESWord AESRoundKey [0:3];
+parameter AESWord Rcon [0:10] = '{
    0: '{0: 8'h00, 1: 8'h00, 2: 8'h00, 3: 8'h00},  1: '{0: 8'h01, 1: 8'h00, 2: 8'h00, 3: 8'h00},
    2: '{0: 8'h02, 1: 8'h00, 2: 8'h00, 3: 8'h00},  3: '{0: 8'h04, 1: 8'h00, 2: 8'h00, 3: 8'h00},
    4: '{0: 8'h08, 1: 8'h00, 2: 8'h00, 3: 8'h00},  5: '{0: 8'h10, 1: 8'h00, 2: 8'h00, 3: 8'h00},

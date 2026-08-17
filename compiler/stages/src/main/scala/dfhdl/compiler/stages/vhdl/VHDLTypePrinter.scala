@@ -69,7 +69,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       case dt: DFEnum   => csDFEnumConvFuncsBody(dt)
       case dt: DFStruct => csDFStructConvFuncsBody(dt)
       case dt: DFOpaque => csDFOpaqueConvFuncsBody(dt)
-  def csDFEnumTypeName(dfType: DFEnum): String = s"t_enum_${dfType.name}"
+  def csDFEnumTypeName(dfType: DFEnum): String = dfType.name
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.name
     val entries =
@@ -398,7 +398,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
             inVector = false
       desc
   end csDFVector
-  def csDFOpaqueTypeName(dfType: DFOpaque): String = s"t_opaque_${dfType.name}"
+  def csDFOpaqueTypeName(dfType: DFOpaque): String = dfType.name
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     s"subtype ${csDFOpaqueTypeName(dfType)} is ${csDFType(dfType.actualType)};"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = csDFOpaqueTypeName(dfType)
@@ -410,7 +410,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |  A0 := A;
         |  return ${printer.csBitsToType(dfType.actualType, "A0")};
         |end;""".stripMargin
-  def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.name}"
+  def csDFStructTypeName(dfType: DFStruct): String = dfType.name
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
       .map((n, t) => s"${n} : ${csDFType(t)};")

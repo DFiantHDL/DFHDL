@@ -3,42 +3,42 @@
 `include "CipherNoOpaques_defs.svh"
 
 module subBytes(
-  input  wire t_opaque_AESState state,
-  output t_opaque_AESState      o
+  input  wire AESState state,
+  output AESState      o
 );
   `include "dfhdl_defs.svh"
-  t_opaque_AESByte o_part_sbox_inst_00_lhs;
-  t_opaque_AESByte o_part_sbox_inst_00_o;
-  t_opaque_AESByte o_part_sbox_inst_01_lhs;
-  t_opaque_AESByte o_part_sbox_inst_01_o;
-  t_opaque_AESByte o_part_sbox_inst_02_lhs;
-  t_opaque_AESByte o_part_sbox_inst_02_o;
-  t_opaque_AESByte o_part_sbox_inst_03_lhs;
-  t_opaque_AESByte o_part_sbox_inst_03_o;
-  t_opaque_AESByte o_part_sbox_inst_04_lhs;
-  t_opaque_AESByte o_part_sbox_inst_04_o;
-  t_opaque_AESByte o_part_sbox_inst_05_lhs;
-  t_opaque_AESByte o_part_sbox_inst_05_o;
-  t_opaque_AESByte o_part_sbox_inst_06_lhs;
-  t_opaque_AESByte o_part_sbox_inst_06_o;
-  t_opaque_AESByte o_part_sbox_inst_07_lhs;
-  t_opaque_AESByte o_part_sbox_inst_07_o;
-  t_opaque_AESByte o_part_sbox_inst_08_lhs;
-  t_opaque_AESByte o_part_sbox_inst_08_o;
-  t_opaque_AESByte o_part_sbox_inst_09_lhs;
-  t_opaque_AESByte o_part_sbox_inst_09_o;
-  t_opaque_AESByte o_part_sbox_inst_10_lhs;
-  t_opaque_AESByte o_part_sbox_inst_10_o;
-  t_opaque_AESByte o_part_sbox_inst_11_lhs;
-  t_opaque_AESByte o_part_sbox_inst_11_o;
-  t_opaque_AESByte o_part_sbox_inst_12_lhs;
-  t_opaque_AESByte o_part_sbox_inst_12_o;
-  t_opaque_AESByte o_part_sbox_inst_13_lhs;
-  t_opaque_AESByte o_part_sbox_inst_13_o;
-  t_opaque_AESByte o_part_sbox_inst_14_lhs;
-  t_opaque_AESByte o_part_sbox_inst_14_o;
-  t_opaque_AESByte o_part_sbox_inst_15_lhs;
-  t_opaque_AESByte o_part_sbox_inst_15_o;
+  AESByte o_part_sbox_inst_00_lhs;
+  AESByte o_part_sbox_inst_00_o;
+  AESByte o_part_sbox_inst_01_lhs;
+  AESByte o_part_sbox_inst_01_o;
+  AESByte o_part_sbox_inst_02_lhs;
+  AESByte o_part_sbox_inst_02_o;
+  AESByte o_part_sbox_inst_03_lhs;
+  AESByte o_part_sbox_inst_03_o;
+  AESByte o_part_sbox_inst_04_lhs;
+  AESByte o_part_sbox_inst_04_o;
+  AESByte o_part_sbox_inst_05_lhs;
+  AESByte o_part_sbox_inst_05_o;
+  AESByte o_part_sbox_inst_06_lhs;
+  AESByte o_part_sbox_inst_06_o;
+  AESByte o_part_sbox_inst_07_lhs;
+  AESByte o_part_sbox_inst_07_o;
+  AESByte o_part_sbox_inst_08_lhs;
+  AESByte o_part_sbox_inst_08_o;
+  AESByte o_part_sbox_inst_09_lhs;
+  AESByte o_part_sbox_inst_09_o;
+  AESByte o_part_sbox_inst_10_lhs;
+  AESByte o_part_sbox_inst_10_o;
+  AESByte o_part_sbox_inst_11_lhs;
+  AESByte o_part_sbox_inst_11_o;
+  AESByte o_part_sbox_inst_12_lhs;
+  AESByte o_part_sbox_inst_12_o;
+  AESByte o_part_sbox_inst_13_lhs;
+  AESByte o_part_sbox_inst_13_o;
+  AESByte o_part_sbox_inst_14_lhs;
+  AESByte o_part_sbox_inst_14_o;
+  AESByte o_part_sbox_inst_15_lhs;
+  AESByte o_part_sbox_inst_15_o;
   sbox o_part_sbox_inst_00(
     .lhs /*<--*/ (o_part_sbox_inst_00_lhs),
     .o   /*-->*/ (o_part_sbox_inst_00_o)

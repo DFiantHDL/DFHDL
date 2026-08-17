@@ -4,21 +4,21 @@ use ieee.numeric_std.all;
 use work.dfhdl_pkg.all;
 
 package ALU_pkg is
-type t_enum_ALUSel is (
+type ALUSel is (
   ALUSel_ADD, ALUSel_SUB, ALUSel_SLL, ALUSel_SRL, ALUSel_SRA, ALUSel_AND, ALUSel_OR, ALUSel_XOR, ALUSel_SLT, ALUSel_SLTU, ALUSel_COPY1
 );
-function bitWidth(A: t_enum_ALUSel) return integer;
-function to_slv(A: t_enum_ALUSel) return std_logic_vector;
-function to_t_enum_ALUSel(A: std_logic_vector) return t_enum_ALUSel;
-function bool_sel(C : boolean; T : t_enum_ALUSel; F : t_enum_ALUSel) return t_enum_ALUSel;
+function bitWidth(A: ALUSel) return integer;
+function to_slv(A: ALUSel) return std_logic_vector;
+function to_ALUSel(A: std_logic_vector) return ALUSel;
+function bool_sel(C : boolean; T : ALUSel; F : ALUSel) return ALUSel;
 end package ALU_pkg;
 
 package body ALU_pkg is
-function bitWidth(A : t_enum_ALUSel) return integer is
+function bitWidth(A : ALUSel) return integer is
 begin
   return 4;
 end;
-function to_slv(A : t_enum_ALUSel) return std_logic_vector is
+function to_slv(A : ALUSel) return std_logic_vector is
   variable int_val : integer;
 begin
   case A is
@@ -36,7 +36,7 @@ begin
   end case;
   return resize(to_slv(int_val), 4);
 end;
-function to_t_enum_ALUSel(A : std_logic_vector) return t_enum_ALUSel is
+function to_ALUSel(A : std_logic_vector) return ALUSel is
 begin
   case to_integer(unsigned(A)) is
     when 0            => return ALUSel_ADD;
@@ -55,7 +55,7 @@ begin
       return ALUSel_ADD;
   end case;
 end;
-function bool_sel(C : boolean; T : t_enum_ALUSel; F : t_enum_ALUSel) return t_enum_ALUSel is
+function bool_sel(C : boolean; T : ALUSel; F : ALUSel) return ALUSel is
 begin
   if C then
     return T;
