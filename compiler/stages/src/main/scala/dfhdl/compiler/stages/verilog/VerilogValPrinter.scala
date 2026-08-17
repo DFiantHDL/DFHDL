@@ -57,17 +57,40 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       // yields the applied value in both cases.
       printer.csConstData(param.dfType, param.appliedOrDefaultVal.getConstDataOrDefault[Any])
 
+  // The type-part and the after-the-name array-range of a declaration. A packed vector carries
+  // its dimensions in the type itself; an unpacked declaration unpacks its OUTERMOST dimension
+  // after the name (ascending) while the cell keeps its (packed) type form; the pre-SystemVerilog
+  // dialects and non-integral cell types unpack all dimensions after the name.
+  private def csDclTypeAndRange(dfVal: DFVal): (String, String) =
+    dfVal.dfType match
+      case vec: DFVector if printer.isUnpackedDcl(dfVal) && printer.supportsPackedVector(vec) =>
+        (printer.csDFType(vec.cellType), s" [0:${vec.cellDimParamRefs.head.uboundCS}]")
+      case t => (printer.csDFType(t), printer.csDFVectorRanges(t))
+  // The ascending rendering of an unpacked declaration's init/default value. Only an anonymous
+  // constant-data or vector-literal value has an order-sensitive aggregate to adapt; everything
+  // else prints its regular form.
+  private def csUnpackedInitValue(value: DFVal, csRegular: => String): String =
+    value match
+      case const: DFVal.Const =>
+        const.dfType match
+          case dt: DFVector =>
+            printer.csDFVectorData(dt, const.data.asInstanceOf[Vector[Any]], unpackedOrder = true)
+          case _ => csRegular
+      case func @ DFVal.Func(dfType = _: DFVector, op = Func.Op.++) =>
+        printer.csDFVectorElemCS(func.args.map(_.refCodeString), unpackedOrder = true)
+      case _ => csRegular
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
-    val arrRange = printer.csDFVectorRanges(dfVal.dfType)
+    val (csRawType, arrRange) = csDclTypeAndRange(dfVal)
     val endOfStatement = if (dfVal.isGlobal) ";" else ""
     val default = dfVal match
       // for non-top-level design parameters, we fetch the default value if it is defined.
       // for all other cases, we get the parameter constant data and use that as default value.
       // using the constant data only happens in verilog.v95, since parameters are declared in
       // the body and must have defaults.
-      case param: DesignParam => csDesignParamDefault(param)
-      case _                  => csDFValExpr(dfVal)
-    val csType = printer.csDFType(dfVal.dfType).emptyOr(_ + " ")
+      case param: DesignParam                => csDesignParamDefault(param)
+      case _ if printer.isUnpackedDcl(dfVal) => csUnpackedInitValue(dfVal, csDFValExpr(dfVal))
+      case _                                 => csDFValExpr(dfVal)
+    val csType = csRawType.emptyOr(_ + " ")
     val csTypeNoLogic = if (supportLogicType) csType else csType.replace("logic ", "")
     val keyword =
       if (supportLocalParam && !dfVal.isDesignParam && !dfVal.isGlobal) "localparam"
@@ -80,7 +103,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   end csDFValDclConst
 
   def csDFValDclWithoutInit(dfVal: Dcl): String =
-    val dfTypeStr = printer.csDFType(dfVal.dfType)
+    val (dfTypeStr, arrRange) = csDclTypeAndRange(dfVal)
     val modifier = dfVal.modifier.dir match
       case Modifier.IN    => "input  wire "
       case Modifier.OUT   => "output "
@@ -94,7 +117,6 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     val fixedDFTypeStr =
       if (supportLogicType) dfTypeStr
       else dfTypeStr.replace("logic ", regOrWireRep).replace("logic", regOrWireRep.trim)
-    val arrRange = printer.csDFVectorRanges(dfVal.dfType)
     s"$modifier${fixedDFTypeStr.emptyOr(_ + " ")}${dfVal.getName}$arrRange"
   end csDFValDclWithoutInit
   def csInitKeyword: String = "="
@@ -103,7 +125,11 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
   override val supportOutputInlineInit: Boolean = false
-  def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
+  def csInitSingle(ref: Dcl.InitRef): String =
+    ref.originMember match
+      case dcl: Dcl if printer.isUnpackedDcl(dcl) =>
+        csUnpackedInitValue(ref.get, ref.refCodeString)
+      case _ => ref.refCodeString
   def csInitSeq(refs: List[Dcl.InitRef]): String = printer.unsupported
   def csDFValDclEnd(dfVal: Dcl): String = ""
   // The `initial` block an output port's init needs (no Verilog dialect can inline one). A
@@ -249,7 +275,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case DFVal.Func.Op.++ =>
             dfVal.dfType match
               case DFVector(_, _) =>
-                printer.csDFVectorElemCS(args.map(_.refCodeString))
+                // a vector-literal EXPRESSION is always packed: an unpacked declaration's only
+                // aggregate is its init, which prints through `csUnpackedInitValue`
+                printer.csDFVectorElemCS(args.map(_.refCodeString), unpackedOrder = false)
               case DFStruct(_, _) =>
                 args.map(_.refCodeString).csList(literalGroupOpen, ",", "}")
               // all args are the same ==> repeat function
@@ -409,6 +437,14 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         else relValStr
       case (toStruct: DFStruct, _: DFBitsWL) =>
         s"${toStruct.name}'($relValStr)"
+      // A packed vector and the DFHDL bits form differ exactly by a scalar-cell-granular
+      // reversal: DFHDL element 0 holds the MSBs of the bits form, while a packed (descending)
+      // array holds element 0 at the LSB end. The streaming operator with the scalar cell width
+      // as the slice size is precisely that reversal, in both directions.
+      case (toVector: DFVector, _: DFBitsWL) if printer.supportsPackedVector(toVector) =>
+        val csCellWidth =
+          printer.csInlinedWidth(printer.vectorScalarCellType(toVector)).applyBrackets()
+        s"{<<$csCellWidth{$relValStr}}"
       case (toVector: DFVector, _: DFBitsWL) =>
         def to_vector_conv(vectorType: DFVector, relHighIdx: Int): String =
           val vecLength = vectorType.lengthUNSAFE
@@ -449,6 +485,14 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         end from_vector_conv
         assert(tWidth == fromType.widthUNSAFE)
         from_vector_conv(fromVector, "")
+      // a parametric-length packed vector cannot enumerate its elements, so the cast is the
+      // scalar-cell-granular streaming reversal (see the to-vector case above). NOTE: a
+      // streaming concatenation is only legal in an assignment-like context, not as a general
+      // subexpression, which is the same restriction the element-enumerated `'{...}` form has.
+      case (_: DFBitsWL, fromVector: DFVector) if printer.supportsPackedVector(fromVector) =>
+        val csCellWidth =
+          printer.csInlinedWidth(printer.vectorScalarCellType(fromVector)).applyBrackets()
+        s"{<<$csCellWidth{$relValStr}}"
       case (DFBitsWL(tWidthRef, _), DFBit | DFBool) =>
         if (printer.allowWidthCastSyntax)
           s"${tWidthRef.refCodeString.applyBrackets()}'($relValStr)"
@@ -485,6 +529,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     dfVal.dfType match
       case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) =>
+        s"${dfVal.relValCodeString}[${dfVal.idxHighRef.refCodeString}:${dfVal.idxLowRef.refCodeString}]"
+      // a packed vector's range is descending, so its part-select is [high:low]
+      case vec: DFVector
+          if printer.supportsPackedVector(vec) && !printer.isUnpackedVal(dfVal.relValRef.get) =>
         s"${dfVal.relValCodeString}[${dfVal.idxHighRef.refCodeString}:${dfVal.idxLowRef.refCodeString}]"
       case _ =>
         s"${dfVal.relValCodeString}[${dfVal.idxLowRef.refCodeString}:${dfVal.idxHighRef.refCodeString}]"

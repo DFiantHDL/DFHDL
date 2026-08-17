@@ -35,5 +35,5 @@ module subWord(
   assign o_part_sbox_inst_1_lhs = lhs[1];
   assign o_part_sbox_inst_2_lhs = lhs[2];
   assign o_part_sbox_inst_3_lhs = lhs[3];
-  assign o                      = '{0: o_part_sbox_inst_0_o, 1: o_part_sbox_inst_1_o, 2: o_part_sbox_inst_2_o, 3: o_part_sbox_inst_3_o};
+  assign o                      = '{3: o_part_sbox_inst_3_o, 2: o_part_sbox_inst_2_o, 1: o_part_sbox_inst_1_o, 0: o_part_sbox_inst_0_o};
 endmodule

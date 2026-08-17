@@ -7,5 +7,5 @@ module rotWord(
   output AESWord      o
 );
   `include "dfhdl_defs.svh"
-  assign o = '{0: lhs[1], 1: lhs[2], 2: lhs[3], 3: lhs[0]};
+  assign o = '{3: lhs[0], 2: lhs[3], 1: lhs[2], 0: lhs[1]};
 endmodule

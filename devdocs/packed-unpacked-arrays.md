@@ -75,6 +75,10 @@ Answers "does this declaration look like a memory?" for a `DFVal.Dcl` or a named
   dynamic-index accesses include **exactly one read** (the single-read RAM/ROM shape, constants
   included, which covers `localparam` ROMs)
 
+Only a *constant*-index access disqualifies; dynamic-index accesses are the memory pattern
+itself. Reading "individual index access" as covering dynamic indexes too would make the
+single-read rule unreachable, since every RAM write is such an access.
+
 An **`init` reference is representation-neutral**: it neither disqualifies the initialized
 declaration nor counts as a whole-vector read of the init value. Without that carve-out every
 initialized memory would be forced packed by its own initializer.
@@ -139,16 +143,26 @@ decimals never reach it, per §2.1.
 
 ### 3.2 Aggregate literals
 
-The two forms need different aggregate syntax, and the packed one is **positional and reversed**:
+Both forms use the **index-keyed** aggregate (`idx: value`), whose keys bind element indexes and
+make the spelling semantically order-free; the listing order follows the declared range
+direction:
 
 ```verilog
-'{e3, e2, e1, e0}          // packed: leftmost position binds the HIGHEST index
-'{0: e0, 1: e1, 2: e2}     // unpacked: index-labeled, ascending
+'{3: e3, 2: e2, 1: e1, 0: e0}     // packed: listed descending, like its range
+'{0: e0, 1: e1, 2: e2, 3: e3}     // unpacked: listed ascending
 ```
 
-`csDFVectorElemCS(elemCS, unpackedOrder)` picks between them, and `unpackedOrder` applies to the
+`csDFVectorElemCS(elemCS, unpackedOrder)` picks the order, and `unpackedOrder` applies to the
 **outermost dimension only**: nested dimensions are always packed, so the cell recursion drops
 the flag.
+
+Tool support for index keys on a *packed* target was verified empirically: verilator executes
+them with the correct element binding (keys are honored regardless of listing order) and slang
+accepts them. Vanilla yosys's own SV parser is the outlier, and not because of the keys on
+packed specifically: it accepts **no** assignment pattern on a packed target and no index keys
+even on unpacked ones (so DFHDL's pre-existing unpacked ROM form was already unreadable there).
+Any flow reading DFHDL output through yosys must use its slang frontend, which the equivalence
+flow already does.
 
 `csUnpackedInitValue` handles the one place a value's order must be adapted to its target: an
 unpacked declaration's `init`/default. Only an anonymous constant-data value or a vector literal
@@ -165,10 +179,19 @@ emitted with the streaming operator:
 {<<8{v}}                   // cell width 8
 ```
 
-Both directions use it (`DFVector` ← `DFBitsWL` and `DFBitsWL` ← `DFVector`), grouped by
-`vectorScalarCellType`'s width. Note the restriction recorded in the source: **a streaming
-concatenation is only legal in an assignment-like context**, not as a general subexpression:
-the same restriction the element-enumerated `'{...}` form already had.
+The grouping width comes from `vectorScalarCellType`. The two directions differ, and the
+difference is deliberate:
+
+- `DFVector` ← `DFBitsWL` (to-vector) always streams. **A streaming concatenation is only legal
+  in an assignment-like context**, not as a general subexpression, but that is the same
+  restriction the element-enumerated `'{...}` form already had, so nothing is lost.
+- `DFBitsWL` ← `DFVector` (from-vector) keeps the element-enumerated concatenation
+  (`{v[0], v[1], ..., v[N-1]}`, element 0 at the MSB end, correct for both representations)
+  whenever the length is a literal, precisely because a plain concatenation *is* a general
+  expression (`v.bits | x` must print). Only a parametric-length source, which cannot enumerate
+  its elements, falls back to the streaming form and inherits its context restriction (it
+  replaces the previous `{v}` spelling, which was not legal SystemVerilog over an unpacked
+  array either).
 
 ### 3.4 Part-selects
 
@@ -225,8 +248,10 @@ other.
 
 - **Signed cells cannot pack** (§2.1). Lifting it needs named signed element types per IEEE
   1800-2017 7.4.3, i.e. a dedicated stage rather than a printer change.
-- **Streaming casts are assignment-context-only** (§3.3). A whole-vector cast used as a general
-  subexpression has no legal packed rendering today.
+- **Streaming casts are assignment-context-only** (§3.3). A bits-to-vector cast (or a
+  parametric-length vector-to-bits cast) used as a general subexpression has no legal packed
+  rendering today; the literal-length vector-to-bits direction is covered by the
+  element-enumerated concatenation.
 - **`hasMemAccessPattern` is design-local**, which is why globals are excluded (§2.3). A
   cross-design usage analysis would let a global ROM stay unpacked.
 - **Namespace-derived package files carry no `` `default_nettype ``/`` `timescale `` header**

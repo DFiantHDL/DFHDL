@@ -392,11 +392,11 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  localparam logic [7:0] c13 = 8'hxx;
          |  localparam logic signed [7:0] c14 = $signed(8'hxx);
          |  localparam DFTuple2 c15 = '{3'h0, 1'b1};
-         |  localparam logic [7:0] c16 [0:6] [0:4] = '{
-         |    0: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 1: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
-         |    2: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 3: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
-         |    4: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 5: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
-         |    6: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}
+         |  localparam logic [6:0][4:0][7:0] c16 = '{
+         |    6: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00}, 5: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00},
+         |    4: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00}, 3: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00},
+         |    2: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00}, 1: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00},
+         |    0: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00}
          |  };
          |  localparam real c17 = 3.14159;
          |  localparam real c18 = -2.71828;
@@ -926,7 +926,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`timescale 1ns/1ps
          |
          |module Foo(
-         |  output logic [9:0] matrix [0:7] [0:7]
+         |  output logic [7:0][7:0][9:0] matrix
          |);
          |  `include "dfhdl_defs.svh"
          |
@@ -1599,14 +1599,14 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`timescale 1ns/1ps
          |
          |module Foo(
-         |  input  wire logic i1 [0:7],
+         |  input  wire logic [7:0] i1,
          |  output logic [7:0] o1,
          |  input  wire logic [7:0] i2,
-         |  output logic o2 [0:7]
+         |  output logic [7:0] o2
          |);
          |  `include "dfhdl_defs.svh"
          |  assign o1 = {i1[0], i1[1], i1[2], i1[3], i1[4], i1[5], i1[6], i1[7]};
-         |  assign o2 = '{i2[7], i2[6], i2[5], i2[4], i2[3], i2[2], i2[1], i2[0]};
+         |  assign o2 = {<<1{i2}};
          |endmodule""".stripMargin
     )
   }
@@ -3421,7 +3421,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    parameter int WID = N * W,
          |    parameter int LEN = N
          |)(
-         |  input  wire logic [W - 1:0] vec [0:N - 1],
+         |  input  wire logic [N - 1:0][W - 1:0] vec,
          |  input  wire logic [LI - 1:0] din,
          |  output logic [LI - 1:0] dout,
          |  output logic [WID - 1:0] flat,
@@ -3429,7 +3429,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |);
          |  `include "dfhdl_defs.svh"
          |  assign dout = din;
-         |  assign flat = {vec};
+         |  assign flat = {<<W{vec}};
          |  assign cnt = LEN'(1'd0);
          |endmodule
          |""".stripMargin
@@ -3874,8 +3874,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [7:0] y
          |);
          |  `include "dfhdl_defs.svh"
-         |  logic [7:0] mem [0:3];
-         |  logic [7:0] con [0:3];
+         |  logic [3:0][7:0] mem;
+         |  logic [3:0][7:0] con;
          |
          |  initial begin : mem_init
          |    for (int mem_i = 0; mem_i < 4; mem_i = mem_i + 1) begin
@@ -4146,4 +4146,197 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule
          |""".stripMargin
     )
+  // the unpacked-representation rules: a `VAR.SHARED` and a single-dynamic-read RAM/ROM keep the
+  // unpacked array form (so block-RAM/ROM inference is preserved), and their init/constant
+  // aggregates print in the ascending index-labeled form
+  test("unpacked vector representation for RAM/ROM shapes") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class Mems extends EDDesign:
+      val clk  = Bit         <> IN
+      val we   = Bit         <> IN
+      val addr = Bits(2)     <> IN
+      val din  = Bits(8)     <> IN
+      val q1   = Bits(8)     <> OUT
+      val q2   = Bits(8)     <> OUT
+      val q3   = Bits(8)     <> OUT
+      val sh   = Bits(8) X 4 <> VAR.SHARED
+      val ram  = Bits(8) X 4 <> VAR
+      val rom: Bits[8] X 4 <> CONST = Vector(h"00", h"11", h"22", h"33")
+      process(clk.rising):
+        if (we) sh(addr) :== din
+      process(clk.rising):
+        q1 :== sh(addr)
+      process(clk.rising):
+        if (we) ram(addr) :== din
+        else q2           :== ram(addr)
+      q3 <> rom(addr)
+    end Mems
+    val top = (new Mems).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Mems(
+         |  input  wire logic clk,
+         |  input  wire logic we,
+         |  input  wire logic [1:0] addr,
+         |  input  wire logic [7:0] din,
+         |  output logic [7:0] q1,
+         |  output logic [7:0] q2,
+         |  output logic [7:0] q3
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam logic [7:0] rom [0:3] = '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33};
+         |  /* verilator lint_off MULTIDRIVEN */
+         |  logic [7:0] sh [0:3];
+         |  /* verilator lint_on MULTIDRIVEN */
+         |  logic [7:0] ram [0:3];
+         |  always @(posedge clk)
+         |  begin
+         |    if (we) sh[addr] <= din;
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    q1 <= sh[addr];
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (we) ram[addr] <= din;
+         |    else q2 <= ram[addr];
+         |  end
+         |  assign q3 = rom[addr];
+         |endmodule""".stripMargin
+    )
+  }
+  // the packed-representation overrides: a whole-vector use (rule e) and a constant-index access
+  // (rule d) force the packed form even in the presence of a single dynamic read, and a
+  // multi-read memory (rule h) is packed as well; aggregates keep the index-keyed form (the
+  // keys bind element indexes), listed descending to match the packed range direction
+  test("packed vector representation overrides") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class Packed extends EDDesign:
+      val clk   = Bit         <> IN
+      val we    = Bit         <> IN
+      val addr  = Bits(2)     <> IN
+      val addrB = Bits(2)     <> IN
+      val din   = Bits(8)     <> IN
+      val vin   = Bits(8) X 4 <> IN
+      val vout  = Bits(8) X 4 <> OUT
+      val q1    = Bits(8)     <> OUT
+      val q2    = Bits(8)     <> OUT
+      val q3    = Bits(8)     <> OUT
+      val pk: Bits[8] X 4 <> CONST = Vector(h"00", h"11", h"22", h"33")
+      val w = Bits(8) X 4 <> VAR
+      val t = Bits(8) X 4 <> VAR
+      val m = Bits(8) X 4 <> VAR
+      w    <> vin
+      q1   <> w(addr)
+      vout <> pk
+      process(clk.rising):
+        t(0) :== din
+        q2   :== t(addr)
+      process(clk.rising):
+        if (we) m(addr) :== din
+        q3              :== m(addr) | m(addrB)
+    end Packed
+    val top = (new Packed).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Packed(
+         |  input  wire logic clk,
+         |  input  wire logic we,
+         |  input  wire logic [1:0] addr,
+         |  input  wire logic [1:0] addrB,
+         |  input  wire logic [7:0] din,
+         |  input  wire logic [3:0][7:0] vin,
+         |  output logic [3:0][7:0] vout,
+         |  output logic [7:0] q1,
+         |  output logic [7:0] q2,
+         |  output logic [7:0] q3
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam logic [3:0][7:0] pk = '{3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00};
+         |  logic [3:0][7:0] w;
+         |  logic [3:0][7:0] t;
+         |  logic [3:0][7:0] m;
+         |  assign w = vin;
+         |  assign q1 = w[addr];
+         |  assign vout = pk;
+         |  always_ff @(posedge clk)
+         |  begin
+         |    t[0] <= din;
+         |    q2 <= t[addr];
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (we) m[addr] <= din;
+         |    q3 <= m[addr] | m[addrB];
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  // a vector nested in a struct is always packed (an unpacked array cannot be a packed-struct
+  // member), and its field selection chains index the packed dimensions directly
+  test("vector nested in a struct is packed") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    case class Pkt(v: Bits[8] X 2 <> VAL, ok: Bit <> VAL) extends Struct
+    class StructVec extends EDDesign:
+      val x = Pkt     <> IN
+      val y = Bits(8) <> OUT
+      y <> x.v(1)
+    end StructVec
+    val top = (new StructVec).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|typedef struct packed {
+         |  logic [1:0][7:0] v;
+         |  logic ok;
+         |} Pkt;
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "StructVec_defs.svh"
+         |
+         |module StructVec(
+         |  input  wire Pkt x,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign y = x.v[1];
+         |endmodule""".stripMargin
+    )
+  }
+  // a signed-cell vector never packs: an element select of an (anonymous-typed) packed array is
+  // an unsigned part-select, so the cell signedness would be lost; the unpacked element select
+  // keeps the declared (signed) cell type
+  test("SInt-cell vectors keep the unpacked representation") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class SignedVec extends EDDesign:
+      val iv = SInt(8) X 4 <> IN
+      val o  = SInt(8)     <> OUT
+      val b  = Bit         <> OUT
+      o <> iv(0)
+      b <> (iv(1) < iv(2))
+    end SignedVec
+    val top = (new SignedVec).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module SignedVec(
+         |  input  wire logic signed [7:0] iv [0:3],
+         |  output logic signed [7:0] o,
+         |  output logic b
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = iv[0];
+         |  assign b = iv[1] < iv[2];
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

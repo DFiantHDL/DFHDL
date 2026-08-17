@@ -23,6 +23,58 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     "Unsupported member for this VerilogPrinter."
   )
   val tupleSupportEnable: Boolean = false
+  // the pre-SystemVerilog dialects have no packed (multi-dimensional) arrays
+  val supportPackedArrays: Boolean =
+    dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
+  //format: off
+  /** The vector-typed declarations (variables and constants) that keep the UNPACKED array
+    * representation under the SystemVerilog dialects, where a DFHDL vector prints as a PACKED
+    * (descending-range) array by default. A declaration stays unpacked in two cases:
+    *
+    *   - a cell type this printer cannot express in a packed array (see
+    *     [[supportsPackedVector]]) forces unpacked, unconditionally: a TYPE property, so every
+    *     value of such a vector type agrees
+    *   - otherwise, a non-global declaration whose shape/usage follows a memory access pattern
+    *     (see [[dfhdl.compiler.analysis.hasMemAccessPattern]]) stays unpacked, so
+    *     block-RAM/ROM inference is preserved; globals are always packed (their usage spans
+    *     designs, while this analysis is design-local)
+    *
+    * The memory-pattern rules only admit declarations that are accessed element-by-element
+    * through dynamic indexes (or via their init, which is representation-neutral), which is
+    * what keeps the two representations from ever meeting in one operation.
+    */
+  //format: on
+  lazy val unpackedVectorDcls: Set[DFVal] =
+    if (!supportPackedArrays) Set.empty
+    else
+      getSet.designDB.members.view.flatMap {
+        case dfVal: DFVal =>
+          dfVal.dfType match
+            case vecType: DFVector =>
+              dfVal match
+                case (_: DFVal.Dcl) | DclConst() =>
+                  if (!supportsPackedVector(vecType)) Some(dfVal)
+                  else if (dfVal.isGlobal) None
+                  else Option.when(dfVal.hasMemAccessPattern)(dfVal)
+                case _ => None
+            case _ => None
+        case _ => None
+      }.toSet
+  end unpackedVectorDcls
+
+  /** Is this vector-typed declaration printed as an UNPACKED array? */
+  def isUnpackedDcl(dfVal: DFVal): Boolean = unpackedVectorDcls.contains(dfVal)
+
+  /** Is this vector-typed VALUE of the unpacked representation? Only a direct reference to an
+    * unpacked declaration (or an outer-dimension slice of one) is unpacked; every expression value,
+    * element select (an inner dimension), and cast result is packed.
+    */
+  def isUnpackedVal(dfVal: DFVal): Boolean =
+    dfVal match
+      case alias: DFVal.Alias.ApplyRange => isUnpackedVal(alias.relValRef.get)
+      case _                             => unpackedVectorDcls.contains(dfVal)
   def csViaConnectionSep: String = ","
   def csAssignment(lhsStr: String, rhsStr: String, lhsDcl: DFVal.Dcl): String =
     s"$lhsStr = $rhsStr;"

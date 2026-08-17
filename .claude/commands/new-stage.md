@@ -1553,6 +1553,20 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     member does, not just filter it out. An anonymous global (an intermediate of a global
     constant's expression) has no name to act on but still carries a `namespace`, and leaving it
     behind kept `DropPackages` emitting an empty package for a package it had just flattened away.
+44. **A backend representation choice belongs in the printer, not in a stage or tag** — when a
+    decision only changes how one backend SPELLS the same IR (e.g. the Verilog packed-vs-unpacked
+    vector representation), an IR tag would violate printability (nothing in the printout
+    regenerates it) and a stage would leak one backend's concern into the shared IR. Split it in
+    two (`VerilogPrinter.unpackedVectorDcls` is the model): the backend-agnostic USAGE
+    classification goes to `compiler/ir`'s `analysis` package (`DFVal.hasMemAccessPattern`),
+    while the backend-specific parts (dialect gates, target-language type rules) stay on the
+    printer as a `lazy val` — printers are constructed per sub-DB `getSet`, so a design-local
+    analysis is self-contained, and the DB is immutable so laziness is safe. Two constraints:
+    the printer object may be shared, so NO mutable printer state — thread context flags as
+    extra parameters (add a printer-specific overload beside the shared abstract signature
+    rather than widening it); and if the representation must agree across values that meet in
+    one operation, the analysis rules themselves must guarantee the agreement (there is no
+    checker to catch a mismatch — the output is simply illegal HDL).
 
 ---
 

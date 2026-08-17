@@ -120,9 +120,9 @@ module subBytes(
   assign o_part_sbox_inst_14_lhs = state[3][2];
   assign o_part_sbox_inst_15_lhs = state[3][3];
   assign o = '{
-    0: '{0: o_part_sbox_inst_00_o, 1: o_part_sbox_inst_01_o, 2: o_part_sbox_inst_02_o, 3: o_part_sbox_inst_03_o},
-    1: '{0: o_part_sbox_inst_04_o, 1: o_part_sbox_inst_05_o, 2: o_part_sbox_inst_06_o, 3: o_part_sbox_inst_07_o},
-    2: '{0: o_part_sbox_inst_08_o, 1: o_part_sbox_inst_09_o, 2: o_part_sbox_inst_10_o, 3: o_part_sbox_inst_11_o},
-    3: '{0: o_part_sbox_inst_12_o, 1: o_part_sbox_inst_13_o, 2: o_part_sbox_inst_14_o, 3: o_part_sbox_inst_15_o}
+    3: '{3: o_part_sbox_inst_15_o, 2: o_part_sbox_inst_14_o, 1: o_part_sbox_inst_13_o, 0: o_part_sbox_inst_12_o},
+    2: '{3: o_part_sbox_inst_11_o, 2: o_part_sbox_inst_10_o, 1: o_part_sbox_inst_09_o, 0: o_part_sbox_inst_08_o},
+    1: '{3: o_part_sbox_inst_07_o, 2: o_part_sbox_inst_06_o, 1: o_part_sbox_inst_05_o, 0: o_part_sbox_inst_04_o},
+    0: '{3: o_part_sbox_inst_03_o, 2: o_part_sbox_inst_02_o, 1: o_part_sbox_inst_01_o, 0: o_part_sbox_inst_00_o}
   };
 endmodule

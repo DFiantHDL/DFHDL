@@ -100,14 +100,72 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   end csDFEnumDcl
 
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = csDFEnumTypeName(dfType)
+  // Whether this vector prints as a PACKED array. Requires a SystemVerilog dialect, and an
+  // integral scalar cell type: packed dimensions apply only to single-bit types, enums, packed
+  // structs/unions, and other packed arrays (IEEE 1800-2017 7.4.1). Integer atom types (`int`),
+  // `real`, `string`, and time values cannot form packed arrays, so vectors over them keep the
+  // unpacked representation regardless of usage. SIGNED cells (`SInt`, signed fixed-point) are
+  // also kept unpacked: an element select of an (anonymous-typed) packed array is a part-select,
+  // which is always unsigned, so the cell signedness would be lost (a future dedicated stage may
+  // lift this restriction, e.g. via named signed element types per IEEE 1800-2017 7.4.3). This
+  // is a TYPE property, so every value of the same vector type agrees on it and
+  // mixed-representation connections can never print.
+  def supportsPackedVector(dfType: DFVector): Boolean =
+    printer.supportPackedArrays && {
+      def packable(cellType: DFType): Boolean = cellType match
+        case _: DFBoolOrBit | _: DFBitsWL | _: DFEnum => true
+        case dec: DFDecimal                           => !dec.isDFInt32 && !dec.signed
+        case _: DFStruct                              => true
+        case vec: DFVector                            => packable(vec.cellType)
+        case op: DFOpaque                             => packable(op.actualType)
+        case _                                        => false
+      packable(dfType.cellType)
+    }
+  // the innermost non-vector cell type, whose width is the packed<->DFHDL bit-order reversal
+  // grouping of the streaming casts
+  def vectorScalarCellType(dfType: DFVector): DFType =
+    dfType.cellType match
+      case vec: DFVector => vectorScalarCellType(vec)
+      case cellType      => cellType
+  // The after-the-name array ranges of the UNPACKED representation (ascending). Under the
+  // SystemVerilog dialects a packed-capable vector carries its dimensions in the type itself
+  // (see `csDFVector`), so this yields nothing for it; the pre-SystemVerilog dialects (and
+  // non-integral cell types) keep all dimensions here.
   def csDFVectorRanges(dfType: DFType): String =
     dfType match
-      case vec: DFVector =>
+      case vec: DFVector if !supportsPackedVector(vec) =>
         s" [0:${vec.cellDimParamRefs.head.uboundCS}]${csDFVectorRanges(vec.cellType)}"
       case _ => ""
+  // the descending packed dimensions of this vector, outermost first (`[N-1:0][M-1:0]...`)
+  private def csDFVectorPackedDims(dfType: DFType): String =
+    dfType match
+      case vec: DFVector =>
+        s"[${vec.cellDimParamRefs.head.uboundCS}:0]${csDFVectorPackedDims(vec.cellType)}"
+      case _ => ""
+  // The complete packed-array type: the scalar cell's base keyword/name, then the vector
+  // dimensions (descending, outermost first), then the cell's own packed dimensions. Only
+  // unsigned decimal cells reach the DFDecimal branch: signed cells never pack (see
+  // `supportsPackedVector`).
+  private def csDFVectorPacked(dfType: DFVector): String =
+    val dims = csDFVectorPackedDims(dfType)
+    vectorScalarCellType(dfType) match
+      case _: DFBoolOrBit => s"logic $dims"
+      case cell: DFBitsWL =>
+        s"logic $dims[${cell.widthParamRef.hboundCS(cell.lowIdxRef)}:${cell.lowIdxRef.refCodeString}]"
+      case cell: DFDecimal =>
+        import cell.*
+        if (fractionWidth != 0)
+          s"logic $dims`ufix(${magnitudeWidthParamRef.refCodeString}, $fractionWidth)"
+        else s"logic $dims[${magnitudeWidthParamRef.uboundCS}:0]"
+      case cell: DFEnum   => s"${csDFEnumTypeName(cell)} $dims"
+      case cell: DFStruct => s"${csDFStructTypeName(cell)} $dims"
+      case cell: DFOpaque => s"${csDFOpaqueTypeName(cell)} $dims"
+      case _              => printer.unsupported
+  end csDFVectorPacked
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
-    s"${csDFType(cellType, typeCS)}"
+    if (supportsPackedVector(dfType)) csDFVectorPacked(dfType)
+    else s"${csDFType(cellType, typeCS)}"
   def csDFOpaqueTypeName(dfType: DFOpaque): String =
     s"${pkgQualifier(dfType)}${dfType.name}"
   def csDFOpaqueDcl(dfType: DFOpaque): String =

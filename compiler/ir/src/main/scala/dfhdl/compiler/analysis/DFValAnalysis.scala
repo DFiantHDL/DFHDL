@@ -315,6 +315,57 @@ object BlockRamVar:
         case _ => false
     case _ => false
 
+extension (dfVal: DFVal)
+  //format: off
+  /** True for a vector-typed declaration (a variable or a named constant) whose shape and usage
+    * follow a MEMORY (RAM/ROM) access pattern, so a backend may keep it in a dedicated memory
+    * representation (e.g., a Verilog unpacked array, preserving block-RAM/ROM inference):
+    *
+    *   - a port never does (it is part of the design interface)
+    *   - an alias-bound constant (`val b = a`) never does (its value is a whole-vector read of
+    *     its source)
+    *   - any whole-vector use (an assignment/connection of the vector itself, a cast, a slice,
+    *     a function argument) or any CONSTANT-index access disqualifies it
+    *   - otherwise, a `VAR.SHARED` follows the pattern (a multi-ported RAM), and so does a
+    *     declaration whose dynamic-index accesses include exactly one READ (a single-read
+    *     RAM/ROM, constants included)
+    *
+    * An init reference is representation-neutral: it neither disqualifies the initialized
+    * declaration nor counts as a whole-vector read of the init value.
+    */
+  //format: on
+  def hasMemAccessPattern(using MemberGetSet): Boolean =
+    def isReadAccess(dfVal: DFVal): Boolean =
+      dfVal.getReadDeps.exists {
+        case partial: DFVal.Alias.Partial => isReadAccess(partial)
+        case _                            => true
+      }
+    def usageQualifies(isShared: Boolean): Boolean =
+      var wholeUse = false
+      var constIdx = false
+      var dynReads = 0
+      dfVal.originMembersNoTypeRef.foreach {
+        case idx: DFVal.Alias.ApplyIdx if idx.relValRef.get == dfVal =>
+          if (idx.relIdx.get.isConst) constIdx = true
+          else if (isReadAccess(idx)) dynReads += 1
+        // an init reference is representation-neutral
+        case dcl: DFVal.Dcl if dcl.initRefList.exists(_.get == dfVal) => // skip
+        case _                                                        => wholeUse = true
+      }
+      if (wholeUse || constIdx) false
+      else isShared || dynReads == 1
+    dfVal.dfType match
+      case _: DFVector =>
+        dfVal match
+          case DclPort()      => false
+          case _: DFVal.Alias => false
+          case dcl: DFVal.Dcl => usageQualifies(dcl.modifier.isShared)
+          case DclConst()     => usageQualifies(isShared = false)
+          case _              => false
+      case _ => false
+  end hasMemAccessPattern
+end extension
+
 extension (dcl: DFVal.Dcl)
   /** True when the declaration is emitted as an HDL VARIABLE (updated where it is written) rather
     * than an HDL SIGNAL (updated only once the enclosing process suspends). The classification is

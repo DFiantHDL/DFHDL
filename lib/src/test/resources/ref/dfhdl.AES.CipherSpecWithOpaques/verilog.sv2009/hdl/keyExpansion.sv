@@ -297,28 +297,28 @@ module keyExpansion(
   assign o_part_subWord_inst_08_lhs = o_part_rotWord_inst_08_o;
   assign o_part_subWord_inst_09_lhs = o_part_rotWord_inst_09_o;
   assign o = '{
-     0: w_0,                                                            1: w_1,
-     2: w_2,                                                            3: w_3,
-     4: '{0: o_part_000, 1: o_part_001, 2: o_part_002, 3: o_part_003},  5: '{0: o_part_004, 1: o_part_005, 2: o_part_006, 3: o_part_007},
-     6: '{0: o_part_008, 1: o_part_009, 2: o_part_010, 3: o_part_011},  7: lhs_part_04,
-     8: '{0: o_part_012, 1: o_part_013, 2: o_part_014, 3: o_part_015},  9: '{0: o_part_016, 1: o_part_017, 2: o_part_018, 3: o_part_019},
-    10: '{0: o_part_020, 1: o_part_021, 2: o_part_022, 3: o_part_023}, 11: lhs_part_09,
-    12: '{0: o_part_024, 1: o_part_025, 2: o_part_026, 3: o_part_027}, 13: '{0: o_part_028, 1: o_part_029, 2: o_part_030, 3: o_part_031},
-    14: '{0: o_part_032, 1: o_part_033, 2: o_part_034, 3: o_part_035}, 15: lhs_part_14,
-    16: '{0: o_part_036, 1: o_part_037, 2: o_part_038, 3: o_part_039}, 17: '{0: o_part_040, 1: o_part_041, 2: o_part_042, 3: o_part_043},
-    18: '{0: o_part_044, 1: o_part_045, 2: o_part_046, 3: o_part_047}, 19: lhs_part_19,
-    20: '{0: o_part_048, 1: o_part_049, 2: o_part_050, 3: o_part_051}, 21: '{0: o_part_052, 1: o_part_053, 2: o_part_054, 3: o_part_055},
-    22: '{0: o_part_056, 1: o_part_057, 2: o_part_058, 3: o_part_059}, 23: lhs_part_24,
-    24: '{0: o_part_060, 1: o_part_061, 2: o_part_062, 3: o_part_063}, 25: '{0: o_part_064, 1: o_part_065, 2: o_part_066, 3: o_part_067},
-    26: '{0: o_part_068, 1: o_part_069, 2: o_part_070, 3: o_part_071}, 27: lhs_part_29,
-    28: '{0: o_part_072, 1: o_part_073, 2: o_part_074, 3: o_part_075}, 29: '{0: o_part_076, 1: o_part_077, 2: o_part_078, 3: o_part_079},
-    30: '{0: o_part_080, 1: o_part_081, 2: o_part_082, 3: o_part_083}, 31: lhs_part_34,
-    32: '{0: o_part_084, 1: o_part_085, 2: o_part_086, 3: o_part_087}, 33: '{0: o_part_088, 1: o_part_089, 2: o_part_090, 3: o_part_091},
-    34: '{0: o_part_092, 1: o_part_093, 2: o_part_094, 3: o_part_095}, 35: lhs_part_39,
-    36: '{0: o_part_096, 1: o_part_097, 2: o_part_098, 3: o_part_099}, 37: '{0: o_part_100, 1: o_part_101, 2: o_part_102, 3: o_part_103},
-    38: '{0: o_part_104, 1: o_part_105, 2: o_part_106, 3: o_part_107}, 39: lhs_part_44,
-    40: '{0: o_part_108, 1: o_part_109, 2: o_part_110, 3: o_part_111}, 41: '{0: o_part_112, 1: o_part_113, 2: o_part_114, 3: o_part_115},
-    42: '{0: o_part_116, 1: o_part_117, 2: o_part_118, 3: o_part_119}, 43: '{0: lhs_part_40 ^ o_part_116, 1: lhs_part_41 ^ o_part_117, 2: lhs_part_42 ^ o_part_118, 3: lhs_part_43 ^ o_part_119}
+    43: '{3: lhs_part_43 ^ o_part_119, 2: lhs_part_42 ^ o_part_118, 1: lhs_part_41 ^ o_part_117, 0: lhs_part_40 ^ o_part_116}, 42: '{3: o_part_119, 2: o_part_118, 1: o_part_117, 0: o_part_116},
+    41: '{3: o_part_115, 2: o_part_114, 1: o_part_113, 0: o_part_112},                                                         40: '{3: o_part_111, 2: o_part_110, 1: o_part_109, 0: o_part_108},
+    39: lhs_part_44,                                                                                                           38: '{3: o_part_107, 2: o_part_106, 1: o_part_105, 0: o_part_104},
+    37: '{3: o_part_103, 2: o_part_102, 1: o_part_101, 0: o_part_100},                                                         36: '{3: o_part_099, 2: o_part_098, 1: o_part_097, 0: o_part_096},
+    35: lhs_part_39,                                                                                                           34: '{3: o_part_095, 2: o_part_094, 1: o_part_093, 0: o_part_092},
+    33: '{3: o_part_091, 2: o_part_090, 1: o_part_089, 0: o_part_088},                                                         32: '{3: o_part_087, 2: o_part_086, 1: o_part_085, 0: o_part_084},
+    31: lhs_part_34,                                                                                                           30: '{3: o_part_083, 2: o_part_082, 1: o_part_081, 0: o_part_080},
+    29: '{3: o_part_079, 2: o_part_078, 1: o_part_077, 0: o_part_076},                                                         28: '{3: o_part_075, 2: o_part_074, 1: o_part_073, 0: o_part_072},
+    27: lhs_part_29,                                                                                                           26: '{3: o_part_071, 2: o_part_070, 1: o_part_069, 0: o_part_068},
+    25: '{3: o_part_067, 2: o_part_066, 1: o_part_065, 0: o_part_064},                                                         24: '{3: o_part_063, 2: o_part_062, 1: o_part_061, 0: o_part_060},
+    23: lhs_part_24,                                                                                                           22: '{3: o_part_059, 2: o_part_058, 1: o_part_057, 0: o_part_056},
+    21: '{3: o_part_055, 2: o_part_054, 1: o_part_053, 0: o_part_052},                                                         20: '{3: o_part_051, 2: o_part_050, 1: o_part_049, 0: o_part_048},
+    19: lhs_part_19,                                                                                                           18: '{3: o_part_047, 2: o_part_046, 1: o_part_045, 0: o_part_044},
+    17: '{3: o_part_043, 2: o_part_042, 1: o_part_041, 0: o_part_040},                                                         16: '{3: o_part_039, 2: o_part_038, 1: o_part_037, 0: o_part_036},
+    15: lhs_part_14,                                                                                                           14: '{3: o_part_035, 2: o_part_034, 1: o_part_033, 0: o_part_032},
+    13: '{3: o_part_031, 2: o_part_030, 1: o_part_029, 0: o_part_028},                                                         12: '{3: o_part_027, 2: o_part_026, 1: o_part_025, 0: o_part_024},
+    11: lhs_part_09,                                                                                                           10: '{3: o_part_023, 2: o_part_022, 1: o_part_021, 0: o_part_020},
+     9: '{3: o_part_019, 2: o_part_018, 1: o_part_017, 0: o_part_016},                                                          8: '{3: o_part_015, 2: o_part_014, 1: o_part_013, 0: o_part_012},
+     7: lhs_part_04,                                                                                                            6: '{3: o_part_011, 2: o_part_010, 1: o_part_009, 0: o_part_008},
+     5: '{3: o_part_007, 2: o_part_006, 1: o_part_005, 0: o_part_004},                                                          4: '{3: o_part_003, 2: o_part_002, 1: o_part_001, 0: o_part_000},
+     3: w_3,                                                                                                                    2: w_2,
+     1: w_1,                                                                                                                    0: w_0
   };
   assign w_0         = key[0];
   assign w_1         = key[1];
@@ -340,7 +340,7 @@ module keyExpansion(
   assign lhs_part_01 = w_3[1] ^ o_part_009;
   assign lhs_part_02 = w_3[2] ^ o_part_010;
   assign lhs_part_03 = w_3[3] ^ o_part_011;
-  assign lhs_part_04 = '{0: lhs_part_00, 1: lhs_part_01, 2: lhs_part_02, 3: lhs_part_03};
+  assign lhs_part_04 = '{3: lhs_part_03, 2: lhs_part_02, 1: lhs_part_01, 0: lhs_part_00};
   assign o_part_012  = o_part_000 ^ (o_part_subWord_inst_01_o[0] ^ Rcon[2][0]);
   assign o_part_013  = o_part_001 ^ (o_part_subWord_inst_01_o[1] ^ Rcon[2][1]);
   assign o_part_014  = o_part_002 ^ (o_part_subWord_inst_01_o[2] ^ Rcon[2][2]);
@@ -357,7 +357,7 @@ module keyExpansion(
   assign lhs_part_06 = lhs_part_01 ^ o_part_021;
   assign lhs_part_07 = lhs_part_02 ^ o_part_022;
   assign lhs_part_08 = lhs_part_03 ^ o_part_023;
-  assign lhs_part_09 = '{0: lhs_part_05, 1: lhs_part_06, 2: lhs_part_07, 3: lhs_part_08};
+  assign lhs_part_09 = '{3: lhs_part_08, 2: lhs_part_07, 1: lhs_part_06, 0: lhs_part_05};
   assign o_part_024  = o_part_012 ^ (o_part_subWord_inst_02_o[0] ^ Rcon[3][0]);
   assign o_part_025  = o_part_013 ^ (o_part_subWord_inst_02_o[1] ^ Rcon[3][1]);
   assign o_part_026  = o_part_014 ^ (o_part_subWord_inst_02_o[2] ^ Rcon[3][2]);
@@ -374,7 +374,7 @@ module keyExpansion(
   assign lhs_part_11 = lhs_part_06 ^ o_part_033;
   assign lhs_part_12 = lhs_part_07 ^ o_part_034;
   assign lhs_part_13 = lhs_part_08 ^ o_part_035;
-  assign lhs_part_14 = '{0: lhs_part_10, 1: lhs_part_11, 2: lhs_part_12, 3: lhs_part_13};
+  assign lhs_part_14 = '{3: lhs_part_13, 2: lhs_part_12, 1: lhs_part_11, 0: lhs_part_10};
   assign o_part_036  = o_part_024 ^ (o_part_subWord_inst_03_o[0] ^ Rcon[4][0]);
   assign o_part_037  = o_part_025 ^ (o_part_subWord_inst_03_o[1] ^ Rcon[4][1]);
   assign o_part_038  = o_part_026 ^ (o_part_subWord_inst_03_o[2] ^ Rcon[4][2]);
@@ -391,7 +391,7 @@ module keyExpansion(
   assign lhs_part_16 = lhs_part_11 ^ o_part_045;
   assign lhs_part_17 = lhs_part_12 ^ o_part_046;
   assign lhs_part_18 = lhs_part_13 ^ o_part_047;
-  assign lhs_part_19 = '{0: lhs_part_15, 1: lhs_part_16, 2: lhs_part_17, 3: lhs_part_18};
+  assign lhs_part_19 = '{3: lhs_part_18, 2: lhs_part_17, 1: lhs_part_16, 0: lhs_part_15};
   assign o_part_048  = o_part_036 ^ (o_part_subWord_inst_04_o[0] ^ Rcon[5][0]);
   assign o_part_049  = o_part_037 ^ (o_part_subWord_inst_04_o[1] ^ Rcon[5][1]);
   assign o_part_050  = o_part_038 ^ (o_part_subWord_inst_04_o[2] ^ Rcon[5][2]);
@@ -408,7 +408,7 @@ module keyExpansion(
   assign lhs_part_21 = lhs_part_16 ^ o_part_057;
   assign lhs_part_22 = lhs_part_17 ^ o_part_058;
   assign lhs_part_23 = lhs_part_18 ^ o_part_059;
-  assign lhs_part_24 = '{0: lhs_part_20, 1: lhs_part_21, 2: lhs_part_22, 3: lhs_part_23};
+  assign lhs_part_24 = '{3: lhs_part_23, 2: lhs_part_22, 1: lhs_part_21, 0: lhs_part_20};
   assign o_part_060  = o_part_048 ^ (o_part_subWord_inst_05_o[0] ^ Rcon[6][0]);
   assign o_part_061  = o_part_049 ^ (o_part_subWord_inst_05_o[1] ^ Rcon[6][1]);
   assign o_part_062  = o_part_050 ^ (o_part_subWord_inst_05_o[2] ^ Rcon[6][2]);
@@ -425,7 +425,7 @@ module keyExpansion(
   assign lhs_part_26 = lhs_part_21 ^ o_part_069;
   assign lhs_part_27 = lhs_part_22 ^ o_part_070;
   assign lhs_part_28 = lhs_part_23 ^ o_part_071;
-  assign lhs_part_29 = '{0: lhs_part_25, 1: lhs_part_26, 2: lhs_part_27, 3: lhs_part_28};
+  assign lhs_part_29 = '{3: lhs_part_28, 2: lhs_part_27, 1: lhs_part_26, 0: lhs_part_25};
   assign o_part_072  = o_part_060 ^ (o_part_subWord_inst_06_o[0] ^ Rcon[7][0]);
   assign o_part_073  = o_part_061 ^ (o_part_subWord_inst_06_o[1] ^ Rcon[7][1]);
   assign o_part_074  = o_part_062 ^ (o_part_subWord_inst_06_o[2] ^ Rcon[7][2]);
@@ -442,7 +442,7 @@ module keyExpansion(
   assign lhs_part_31 = lhs_part_26 ^ o_part_081;
   assign lhs_part_32 = lhs_part_27 ^ o_part_082;
   assign lhs_part_33 = lhs_part_28 ^ o_part_083;
-  assign lhs_part_34 = '{0: lhs_part_30, 1: lhs_part_31, 2: lhs_part_32, 3: lhs_part_33};
+  assign lhs_part_34 = '{3: lhs_part_33, 2: lhs_part_32, 1: lhs_part_31, 0: lhs_part_30};
   assign o_part_084  = o_part_072 ^ (o_part_subWord_inst_07_o[0] ^ Rcon[8][0]);
   assign o_part_085  = o_part_073 ^ (o_part_subWord_inst_07_o[1] ^ Rcon[8][1]);
   assign o_part_086  = o_part_074 ^ (o_part_subWord_inst_07_o[2] ^ Rcon[8][2]);
@@ -459,7 +459,7 @@ module keyExpansion(
   assign lhs_part_36 = lhs_part_31 ^ o_part_093;
   assign lhs_part_37 = lhs_part_32 ^ o_part_094;
   assign lhs_part_38 = lhs_part_33 ^ o_part_095;
-  assign lhs_part_39 = '{0: lhs_part_35, 1: lhs_part_36, 2: lhs_part_37, 3: lhs_part_38};
+  assign lhs_part_39 = '{3: lhs_part_38, 2: lhs_part_37, 1: lhs_part_36, 0: lhs_part_35};
   assign o_part_096  = o_part_084 ^ (o_part_subWord_inst_08_o[0] ^ Rcon[9][0]);
   assign o_part_097  = o_part_085 ^ (o_part_subWord_inst_08_o[1] ^ Rcon[9][1]);
   assign o_part_098  = o_part_086 ^ (o_part_subWord_inst_08_o[2] ^ Rcon[9][2]);
@@ -476,7 +476,7 @@ module keyExpansion(
   assign lhs_part_41 = lhs_part_36 ^ o_part_105;
   assign lhs_part_42 = lhs_part_37 ^ o_part_106;
   assign lhs_part_43 = lhs_part_38 ^ o_part_107;
-  assign lhs_part_44 = '{0: lhs_part_40, 1: lhs_part_41, 2: lhs_part_42, 3: lhs_part_43};
+  assign lhs_part_44 = '{3: lhs_part_43, 2: lhs_part_42, 1: lhs_part_41, 0: lhs_part_40};
   assign o_part_108  = o_part_096 ^ (o_part_subWord_inst_09_o[0] ^ Rcon[10][0]);
   assign o_part_109  = o_part_097 ^ (o_part_subWord_inst_09_o[1] ^ Rcon[10][1]);
   assign o_part_110  = o_part_098 ^ (o_part_subWord_inst_09_o[2] ^ Rcon[10][2]);
