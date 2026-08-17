@@ -3916,4 +3916,219 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end DocTop_arch;
          |""".stripMargin
     )
+  test("Namespace-derived type packages"):
+    class PkgTop extends EDDesign:
+      val sp = typespkg1.PkgStruct <> IN
+      val so = typespkg1.PkgStruct <> OUT
+      val e  = typespkg1.PkgEnum   <> VAR
+      val o  = typespkg1.PkgOpaque <> VAR
+      val w  = typespkg2.PkgWrap   <> VAR
+      val u  = UInt(8)             <> VAR init typespkg2.PkgWide
+      so <> sp
+    val top = (new PkgTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|type GlbNsStruct is record
+         |  g : std_logic_vector(1 downto 0);
+         |end record;
+         |constant GlbNsConst : unsigned(7 downto 0) := 8d"3";
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.PkgTop_pkg.all;
+         |
+         |package typespkg1 is
+         |type PkgStruct is record
+         |  a : std_logic_vector(7 downto 0);
+         |  b : std_logic;
+         |  g : GlbNsStruct;
+         |end record;
+         |function bitWidth(A: PkgStruct) return integer;
+         |function to_slv(A: PkgStruct) return std_logic_vector;
+         |function to_PkgStruct(A: std_logic_vector) return PkgStruct;
+         |function bool_sel(C : boolean; T : PkgStruct; F : PkgStruct) return PkgStruct;
+         |type PkgEnum is (
+         |  PkgEnum_P0, PkgEnum_P1, PkgEnum_P2
+         |);
+         |function bitWidth(A: PkgEnum) return integer;
+         |function to_slv(A: PkgEnum) return std_logic_vector;
+         |function to_PkgEnum(A: std_logic_vector) return PkgEnum;
+         |function bool_sel(C : boolean; T : PkgEnum; F : PkgEnum) return PkgEnum;
+         |subtype PkgOpaque is std_logic_vector(3 downto 0);
+         |function to_PkgOpaque(A: std_logic_vector) return PkgOpaque;
+         |constant PkgConst : unsigned(7 downto 0) := GlbNsConst + 8d"39";
+         |pure function pkgCalc(arg : unsigned(7 downto 0)) return unsigned;
+         |constant PkgDerived : unsigned(7 downto 0) := pkgCalc(PkgConst);
+         |end package typespkg1;
+         |
+         |package body typespkg1 is
+         |function bitWidth(A : PkgStruct) return integer is
+         |  variable width : integer;
+         |begin
+         |  width := 0;
+         |  width := width + bitWidth(A.a);
+         |  width := width + bitWidth(A.b);
+         |  width := width + bitWidth(A.g);
+         |  return width;
+         |end;
+         |function to_slv(A : PkgStruct) return std_logic_vector is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+         |begin
+         |  lo := bitWidth(A);
+         |  hi := lo - 1; lo := hi - bitWidth(A.a) + 1; ret(hi downto lo) := A.a;
+         |  hi := lo - 1; lo := hi - bitWidth(A.b) + 1; ret(hi downto lo) := to_slv(A.b);
+         |  hi := lo - 1; lo := hi - bitWidth(A.g) + 1; ret(hi downto lo) := to_slv(A.g);
+         |  return ret;
+         |end;
+         |function to_PkgStruct(A : std_logic_vector) return PkgStruct is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : PkgStruct;
+         |begin
+         |  lo := A'length;
+         |  hi := lo - 1; lo := hi - bitWidth(ret.a) + 1; ret.a := A(hi downto lo);
+         |  hi := lo - 1; lo := hi - bitWidth(ret.b) + 1; ret.b := to_sl(A(hi downto lo));
+         |  hi := lo - 1; lo := hi - bitWidth(ret.g) + 1; ret.g := to_GlbNsStruct(A(hi downto lo));
+         |  return ret;
+         |end;
+         |function bool_sel(C : boolean; T : PkgStruct; F : PkgStruct) return PkgStruct is
+         |begin
+         |  if C then
+         |    return T;
+         |  else
+         |    return F;
+         |  end if;
+         |end;
+         |function bitWidth(A : PkgEnum) return integer is
+         |begin
+         |  return 2;
+         |end;
+         |function to_slv(A : PkgEnum) return std_logic_vector is
+         |  variable int_val : integer;
+         |begin
+         |  case A is
+         |    when PkgEnum_P0 => int_val := 0;
+         |    when PkgEnum_P1 => int_val := 1;
+         |    when PkgEnum_P2 => int_val := 2;
+         |  end case;
+         |  return resize(to_slv(int_val), 2);
+         |end;
+         |function to_PkgEnum(A : std_logic_vector) return PkgEnum is
+         |begin
+         |  case to_integer(unsigned(A)) is
+         |    when 0 => return PkgEnum_P0;
+         |    when 1 => return PkgEnum_P1;
+         |    when 2 => return PkgEnum_P2;
+         |    when others => 
+         |      assert false report "Unknown state detected!" severity error;
+         |      return PkgEnum_P0;
+         |  end case;
+         |end;
+         |function bool_sel(C : boolean; T : PkgEnum; F : PkgEnum) return PkgEnum is
+         |begin
+         |  if C then
+         |    return T;
+         |  else
+         |    return F;
+         |  end if;
+         |end;
+         |function to_PkgOpaque(A : std_logic_vector) return PkgOpaque is
+         |  variable A0 : std_logic_vector(A'length - 1 downto 0);
+         |begin
+         |  A0 := A;
+         |  return A0;
+         |end;
+         |pure function pkgCalc(arg : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return arg + 8d"1";
+         |end function;
+         |end package body typespkg1;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.PkgTop_pkg.all;
+         |use work.typespkg1.all;
+         |
+         |package typespkg2 is
+         |type PkgWrap is record
+         |  s : PkgStruct;
+         |  n : unsigned(7 downto 0);
+         |end record;
+         |function bitWidth(A: PkgWrap) return integer;
+         |function to_slv(A: PkgWrap) return std_logic_vector;
+         |function to_PkgWrap(A: std_logic_vector) return PkgWrap;
+         |function bool_sel(C : boolean; T : PkgWrap; F : PkgWrap) return PkgWrap;
+         |constant PkgWide : unsigned(7 downto 0) := pkgCalc(PkgDerived);
+         |end package typespkg2;
+         |
+         |package body typespkg2 is
+         |function bitWidth(A : PkgWrap) return integer is
+         |  variable width : integer;
+         |begin
+         |  width := 0;
+         |  width := width + bitWidth(A.s);
+         |  width := width + bitWidth(A.n);
+         |  return width;
+         |end;
+         |function to_slv(A : PkgWrap) return std_logic_vector is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+         |begin
+         |  lo := bitWidth(A);
+         |  hi := lo - 1; lo := hi - bitWidth(A.s) + 1; ret(hi downto lo) := to_slv(A.s);
+         |  hi := lo - 1; lo := hi - bitWidth(A.n) + 1; ret(hi downto lo) := to_slv(A.n);
+         |  return ret;
+         |end;
+         |function to_PkgWrap(A : std_logic_vector) return PkgWrap is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : PkgWrap;
+         |begin
+         |  lo := A'length;
+         |  hi := lo - 1; lo := hi - bitWidth(ret.s) + 1; ret.s := to_PkgStruct(A(hi downto lo));
+         |  hi := lo - 1; lo := hi - bitWidth(ret.n) + 1; ret.n := unsigned(A(hi downto lo));
+         |  return ret;
+         |end;
+         |function bool_sel(C : boolean; T : PkgWrap; F : PkgWrap) return PkgWrap is
+         |begin
+         |  if C then
+         |    return T;
+         |  else
+         |    return F;
+         |  end if;
+         |end;
+         |end package body typespkg2;
+         |
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.PkgTop_pkg.all;
+         |use work.typespkg1.all;
+         |use work.typespkg2.all;
+         |
+         |entity PkgTop is
+         |port (
+         |  sp : in PkgStruct;
+         |  so : out PkgStruct
+         |);
+         |end PkgTop;
+         |
+         |architecture PkgTop_arch of PkgTop is
+         |  signal e : PkgEnum;
+         |  signal o : PkgOpaque;
+         |  signal w : PkgWrap;
+         |  signal u : unsigned(7 downto 0) := PkgWide;
+         |begin
+         |  so <= sp;
+         |end PkgTop_arch;
+         |""".stripMargin
+    )
 end PrintVHDLCodeSpec

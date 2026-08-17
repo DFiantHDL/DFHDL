@@ -579,7 +579,7 @@ trait Printer
           true
       case _ => true
     }
-  private def globalDeclPlacementOf(decl: GlobalDecl): Option[String] = decl match
+  protected final def globalDeclPlacementOf(decl: GlobalDecl): Option[String] = decl match
     case GlobalDecl.Const(c)  => memberPlacementOf(c.meta.namespace)
     case GlobalDecl.Method(b) => memberPlacementOf(b.dclMeta.namespace)
   private def globalDeclNamespaceOf(decl: GlobalDecl): String = decl match
@@ -596,9 +596,9 @@ trait Printer
   protected final def csGlobalDecls: String =
     globalDeclsDeduped.filter(globalDeclPlacementOf(_).isEmpty)
       .map(csGlobalDecl).filter(_.nonEmpty).mkString("\n")
-  // packaged global constants/methods: (package, namespace, content) with the
-  // dependency order preserved within each package
-  protected final def packagedGlobalDecls: List[(String, String, String)] =
+  // packaged global constants/methods per package, dependency order preserved:
+  // the typed entries (for backends assembling their own spec/body structure)
+  protected final def packagedGlobalDeclEntries: List[(String, String, List[GlobalDecl])] =
     val perPkg =
       collection.mutable.LinkedHashMap
         .empty[String, (String, collection.mutable.ListBuffer[GlobalDecl])]
@@ -613,16 +613,22 @@ trait Printer
         buf += decl
       }
     }
-    perPkg.view.map { case (pkg, (ns, decls)) =>
-      val content = decls.map { decl =>
-        val p = globalDeclPrinterOf(decl)
-        p.currentPackage = Some(pkg)
-        try csGlobalDecl(decl)
-        finally p.currentPackage = None
-      }.filter(_.nonEmpty).mkString("\n")
-      (pkg, ns, content)
-    }.toList
-  end packagedGlobalDecls
+    perPkg.view.map((pkg, entry) => (pkg, entry._1, entry._2.toList)).toList
+  end packagedGlobalDeclEntries
+  // renders one packaged declaration under its package context
+  protected final def csPackagedGlobalDecl(pkg: String, decl: GlobalDecl): String =
+    val p = globalDeclPrinterOf(decl)
+    p.currentPackage = Some(pkg)
+    try csGlobalDecl(decl)
+    finally p.currentPackage = None
+  // ...and the rendered per-package form (Verilog-shaped flat content)
+  protected final def packagedGlobalDecls: List[(String, String, String)] =
+    packagedGlobalDeclEntries.map { (pkg, ns, decls) =>
+      (pkg, ns, decls.map(csPackagedGlobalDecl(pkg, _)).filter(_.nonEmpty).mkString("\n"))
+    }
+  // the per-package METHOD prototype rendering seam (VHDL splits spec from body)
+  protected final def globalMethodPrinterFor(b: DFDesignBlock): TPrinter =
+    globalMethodPrinterOf(b)
   // every packaged content group (types first, then constants/methods), merged per
   // package: type-dependency order first, decl-only packages appended
   final def packagedContents: List[(String, String, String)] =
