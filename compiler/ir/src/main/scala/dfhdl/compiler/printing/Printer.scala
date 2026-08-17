@@ -237,92 +237,19 @@ trait Printer
   // ── HDL-method global-emission decision ─────────────────────────────────────
   // Which HDL-method blocks (ED methods / static functions) are emitted ONCE in the shared
   // globals area (a VHDL package / a Verilog defs header) instead of inlined in each using
-  // design. This is a PLACEMENT decision computed purely from the IR, and it is
-  // BACKEND-SPECIFIC (VHDL additionally globalizes a static function read by a port
-  // declaration, since the entity is elaborated before the architecture), so it lives in the
-  // printer as an overridable `def` rather than in the IR. The compiler pipeline feeds the
-  // printer a flat DB, so these read the design members directly (no sub-DB routing).
-
-  // HDL-method blocks mapped to the set of NON-method designs that use them. A method call is
-  // owned by the design (or method) whose body makes the call (`designBlockOwnershipMap`); a
-  // method-to-method call is resolved transitively, so the resulting users are always real
-  // designs.
-  private def hdlMethodDesignUsers: Map[DFDesignBlock, Set[DFDesignBlock]] =
-    val ownership = getSet.designDB.designBlockOwnershipMap
-    def realUsersOf(block: DFDesignBlock, seen: Set[DFDesignBlock]): Set[DFDesignBlock] =
-      ownership.getOrElse(block, Set.empty).flatMap { owner =>
-        if (!owner.isHDLMethod) Set(owner)
-        else if (seen(owner)) Set.empty[DFDesignBlock]
-        else realUsersOf(owner, seen + owner)
-      }
-    ownership.keysIterator.filter(_.isHDLMethod)
-      .map(m => m -> realUsersOf(m, Set(m))).toMap
-
-  // The body members of an HDL-method block: the members it owns.
+  // design. The decision itself is a pure IR analysis, shared with the `DropPackages` stage
+  // (see `analysis.HDLMethodAnalysis`); a backend may only WIDEN it by overriding
+  // `globalHDLMethods` (VHDL additionally globalizes a static function read by a port
+  // declaration, since the entity is elaborated before the architecture). The compiler
+  // pipeline feeds the printer a flat DB, so these read the design members directly (no
+  // sub-DB routing).
   protected final def methodBodyMembers(m: DFDesignBlock): List[DFMember] =
-    getSet.designDB.designMemberTable.getOrElse(m, Nil)
-
-  // An HDL method is emittable in a shared package/header only if its body references no value
-  // captured from a single design. Captures materialize as PHANTOM input ports (globals are
-  // never captured — they are reachable everywhere and referenced directly), so a method with
-  // any phantom input is inherently design-local and stays inlined there.
-  // every call of `m`, global-scope calls included (`members` covers the globals)
-  private def callSitesOf(m: DFDesignBlock): List[DFVal.Func] =
-    getSet.designDB.members.collect {
-      case DFVal.Func.Call(call, key) if key.getDesignBlock == m => call
-    }
+    getSet.designDB.methodBodyMembers(m)
   protected final def methodIsGlobalEligible(m: DFDesignBlock): Boolean =
-    val formals = methodBodyMembers(m).collect {
-      case dcl: DFVal.Dcl if dcl.isPortIn => dcl
-    }
-    val phantomIdxs = formals.view.zipWithIndex.collect { case (f, i) if f.isPhantom => i }.toList
-    // A capture materializes as a PHANTOM input port, whose actual is bound POSITIONALLY at
-    // each call site. A GLOBAL actual is reachable from the shared package/header, so it keeps
-    // the method eligible; a design-local one pins the method to its design. An actual that
-    // cannot be lined up with the formals is treated as design-local (the conservative answer).
-    phantomIdxs.isEmpty || callSitesOf(m).forall { call =>
-      val actuals = call.args.map(_.get)
-      actuals.length == formals.length && phantomIdxs.forall { i =>
-        actuals(i) match
-          case dfVal: DFVal.CanBeGlobal => dfVal.isGlobal
-          case _                        => false
-      }
-    }
-  end methodIsGlobalEligible
-
-  // HDL-method blocks referenced by a GLOBAL `Func` call (a static function called at global
-  // scope, e.g. to compute a global constant). Such a method has no design user, but must still
-  // be emitted once in the shared globals area alongside the global value it computes.
-  private def globalCallMethods: Set[DFDesignBlock] =
-    getSet.designDB.membersGlobals.view.collect {
-      case DFVal.Func.Call(_, key) => key.getDesignBlock
-    }.filter(_.isHDLMethod).toSet
-
-  // HDL-method blocks emitted once in the shared globals area: used by more than one design, or
-  // called from global scope; and package-eligible. Overridable per backend (VHDL adds static
-  // functions read by a port declaration).
-  def globalHDLMethods: Set[DFDesignBlock] =
-    val byUsage = hdlMethodDesignUsers.iterator.collect {
-      case (m, users) if users.sizeIs > 1 => m
-    }
-    methodCallClosure(byUsage.toSet ++ globalCallMethods).filter(methodIsGlobalEligible)
-
-  // Expand a set of HDL-method blocks to include everything they transitively call: an emitted
-  // method's body calls them, and a shared package/header function cannot call one that is
-  // declared inside a single design (or, for a method reached only from global scope, not
-  // declared at all).
+    getSet.designDB.methodIsGlobalEligible(m)
   protected final def methodCallClosure(seeds: Set[DFDesignBlock]): Set[DFDesignBlock] =
-    val result = mutable.Set.empty[DFDesignBlock]
-    def visit(m: DFDesignBlock): Unit =
-      if (result.add(m))
-        methodBodyMembers(m).foreach {
-          case DFVal.Func.Call(_, key) =>
-            val callee = key.getDesignBlock
-            if (callee.isHDLMethod) visit(callee)
-          case _ =>
-        }
-    seeds.foreach(visit)
-    result.toSet
+    getSet.designDB.methodCallClosure(seeds)
+  def globalHDLMethods: Set[DFDesignBlock] = getSet.designDB.globalHDLMethods
 
   // ---- namespace-based type packaging ----
   // Whether this backend emits namespace-derived package files. Backends without
@@ -333,14 +260,8 @@ trait Printer
   final def topNamespace: String = getSet.designDB.rootDB.top.dclMeta.namespace
   // Some(packageName) when `dfType` is emitted into a dedicated package file
   final def typePlacementOf(dfType: NamedDFType): Option[String] =
-    dfType match
-      // Clk/Rst/Magnet opaques are language-level (the DFHDL printer shows them as
-      // builtins and the backends drop them), so they are never packaged even though
-      // their declaring namespace is a DFHDL-internal one
-      case t: DFOpaque if t.isMagnet => None
-      case _                         =>
-        if (printer.supportPackages) Namespacing.placementOf(dfType.meta.namespace, topNamespace)
-        else None
+    if (printer.supportPackages) Namespacing.typePlacementOf(dfType, topNamespace)
+    else None
   // the package whose file is currently being rendered: its own declarations (and
   // same-package references) print unqualified
   var currentPackage: Option[String] = None

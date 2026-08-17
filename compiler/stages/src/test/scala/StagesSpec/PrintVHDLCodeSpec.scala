@@ -4052,18 +4052,17 @@ class PrintVHDLCodeSpec extends StageSpec:
          |use ieee.numeric_std.all;
          |use work.dfhdl_pkg.all;
          |use work.PkgTop_pkg.all;
-         |use work.typespkg1.all;
          |
          |package typespkg2 is
          |type PkgWrap is record
-         |  s : PkgStruct;
+         |  s : work.typespkg1.PkgStruct;
          |  n : unsigned(7 downto 0);
          |end record;
          |function bitWidth(A: PkgWrap) return integer;
          |function to_slv(A: PkgWrap) return std_logic_vector;
          |function to_PkgWrap(A: std_logic_vector) return PkgWrap;
          |function bool_sel(C : boolean; T : PkgWrap; F : PkgWrap) return PkgWrap;
-         |constant PkgWide : unsigned(7 downto 0) := pkgCalc(PkgDerived);
+         |constant PkgWide : unsigned(7 downto 0) := work.typespkg1.pkgCalc(work.typespkg1.PkgDerived);
          |end package typespkg2;
          |
          |package body typespkg2 is
@@ -4091,7 +4090,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  variable ret : PkgWrap;
          |begin
          |  lo := A'length;
-         |  hi := lo - 1; lo := hi - bitWidth(ret.s) + 1; ret.s := to_PkgStruct(A(hi downto lo));
+         |  hi := lo - 1; lo := hi - bitWidth(ret.s) + 1; ret.s := work.typespkg1.to_PkgStruct(A(hi downto lo));
          |  hi := lo - 1; lo := hi - bitWidth(ret.n) + 1; ret.n := unsigned(A(hi downto lo));
          |  return ret;
          |end;
@@ -4111,24 +4110,169 @@ class PrintVHDLCodeSpec extends StageSpec:
          |use ieee.numeric_std.all;
          |use work.dfhdl_pkg.all;
          |use work.PkgTop_pkg.all;
-         |use work.typespkg1.all;
-         |use work.typespkg2.all;
          |
          |entity PkgTop is
          |port (
-         |  sp : in PkgStruct;
-         |  so : out PkgStruct
+         |  sp : in work.typespkg1.PkgStruct;
+         |  so : out work.typespkg1.PkgStruct
          |);
          |end PkgTop;
          |
          |architecture PkgTop_arch of PkgTop is
-         |  signal e : PkgEnum;
-         |  signal o : PkgOpaque;
-         |  signal w : PkgWrap;
-         |  signal u : unsigned(7 downto 0) := PkgWide;
+         |  signal e : work.typespkg1.PkgEnum;
+         |  signal o : work.typespkg1.PkgOpaque;
+         |  signal w : work.typespkg2.PkgWrap;
+         |  signal u : unsigned(7 downto 0) := work.typespkg2.PkgWide;
          |begin
          |  so <= sp;
          |end PkgTop_arch;
+         |""".stripMargin
+    )
+  test("Same-named declarations across packages"):
+    class DualTop extends EDDesign:
+      val a = dualpkg1.Shared <> IN
+      val b = dualpkg2.Shared <> OUT
+      val c = UInt(8)         <> VAR init dualpkg1.SharedDerived
+      val d = UInt(8)         <> VAR init dualpkg2.SharedDerived
+      b.v <> a.v.resize(8)
+    val top = (new DualTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |package dualpkg1 is
+         |type Shared_0 is record
+         |  v : std_logic_vector(3 downto 0);
+         |end record;
+         |function bitWidth(A: Shared_0) return integer;
+         |function to_slv(A: Shared_0) return std_logic_vector;
+         |function to_Shared_0(A: std_logic_vector) return Shared_0;
+         |function bool_sel(C : boolean; T : Shared_0; F : Shared_0) return Shared_0;
+         |constant SharedConst : unsigned(7 downto 0) := 8d"1";
+         |pure function calc1(arg : unsigned(7 downto 0)) return unsigned;
+         |constant SharedDerived : unsigned(7 downto 0) := calc1(SharedConst);
+         |end package dualpkg1;
+         |
+         |package body dualpkg1 is
+         |function bitWidth(A : Shared_0) return integer is
+         |  variable width : integer;
+         |begin
+         |  width := 0;
+         |  width := width + bitWidth(A.v);
+         |  return width;
+         |end;
+         |function to_slv(A : Shared_0) return std_logic_vector is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+         |begin
+         |  lo := bitWidth(A);
+         |  hi := lo - 1; lo := hi - bitWidth(A.v) + 1; ret(hi downto lo) := A.v;
+         |  return ret;
+         |end;
+         |function to_Shared_0(A : std_logic_vector) return Shared_0 is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : Shared_0;
+         |begin
+         |  lo := A'length;
+         |  hi := lo - 1; lo := hi - bitWidth(ret.v) + 1; ret.v := A(hi downto lo);
+         |  return ret;
+         |end;
+         |function bool_sel(C : boolean; T : Shared_0; F : Shared_0) return Shared_0 is
+         |begin
+         |  if C then
+         |    return T;
+         |  else
+         |    return F;
+         |  end if;
+         |end;
+         |pure function calc1(arg : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return arg + 8d"10";
+         |end function;
+         |end package body dualpkg1;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |package dualpkg2 is
+         |type Shared_0 is record
+         |  v : std_logic_vector(7 downto 0);
+         |end record;
+         |function bitWidth(A: Shared_0) return integer;
+         |function to_slv(A: Shared_0) return std_logic_vector;
+         |function to_Shared_0(A: std_logic_vector) return Shared_0;
+         |function bool_sel(C : boolean; T : Shared_0; F : Shared_0) return Shared_0;
+         |constant SharedConst : unsigned(7 downto 0) := 8d"2";
+         |pure function calc2(arg : unsigned(7 downto 0)) return unsigned;
+         |constant SharedDerived : unsigned(7 downto 0) := calc2(SharedConst);
+         |end package dualpkg2;
+         |
+         |package body dualpkg2 is
+         |function bitWidth(A : Shared_0) return integer is
+         |  variable width : integer;
+         |begin
+         |  width := 0;
+         |  width := width + bitWidth(A.v);
+         |  return width;
+         |end;
+         |function to_slv(A : Shared_0) return std_logic_vector is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+         |begin
+         |  lo := bitWidth(A);
+         |  hi := lo - 1; lo := hi - bitWidth(A.v) + 1; ret(hi downto lo) := A.v;
+         |  return ret;
+         |end;
+         |function to_Shared_0(A : std_logic_vector) return Shared_0 is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : Shared_0;
+         |begin
+         |  lo := A'length;
+         |  hi := lo - 1; lo := hi - bitWidth(ret.v) + 1; ret.v := A(hi downto lo);
+         |  return ret;
+         |end;
+         |function bool_sel(C : boolean; T : Shared_0; F : Shared_0) return Shared_0 is
+         |begin
+         |  if C then
+         |    return T;
+         |  else
+         |    return F;
+         |  end if;
+         |end;
+         |pure function calc2(arg : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return arg + 8d"20";
+         |end function;
+         |end package body dualpkg2;
+         |
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity DualTop is
+         |port (
+         |  a : in work.dualpkg1.Shared_0;
+         |  b : out work.dualpkg2.Shared_0
+         |);
+         |end DualTop;
+         |
+         |architecture DualTop_arch of DualTop is
+         |  signal c : unsigned(7 downto 0) := work.dualpkg1.SharedDerived;
+         |  signal d : unsigned(7 downto 0) := work.dualpkg2.SharedDerived;
+         |begin
+         |  b.v <= eby(a.v, 4);
+         |end DualTop_arch;
          |""".stripMargin
     )
 end PrintVHDLCodeSpec

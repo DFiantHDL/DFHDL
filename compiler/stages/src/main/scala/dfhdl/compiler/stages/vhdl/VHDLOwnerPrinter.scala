@@ -25,8 +25,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
            |use ieee.numeric_std.all;
            |${if (usesMathReal) "use ieee.math_real.all;" else ""}
            |use work.dfhdl_pkg.all;
-           |${if (printer.hasGlobalContent) s"use work.$packageName.all;" else ""}
-           |${printer.packagedContents.map((p, _, _) => s"use work.$p.all;").mkString("\n")}"""
+           |${if (printer.hasGlobalContent) s"use work.$packageName.all;" else ""}"""
     if (useStdSimLibrary && inSimulation)
       s"""$default
          |

@@ -1534,6 +1534,25 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     implicitly. Watch for token-free case classes holding a `Meta` (e.g. `DesignLoadKey`): their
     derived equality composes that loosened notion silently, unlike IR members, whose unique ref
     tokens keep distinct members unequal regardless.
+41. **A design block cannot be renamed with a `Patch`** — it is its sub-DB's TOP, and its
+    `ownerRef` is the hierarchy key rather than a refTable entry, so a `Patch.Replace` keyed on it
+    never reaches the member list. Swap the block yourself in EVERY sub-DB: replace it in
+    `members` and in every `refTable` VALUE that resolves to it (a member's `ownerRef` resolves
+    through the refTable, so missing this leaves the member list and the owner lookup disagreeing).
+    `UniqueDesigns.canonicalReplace` and `DropPackages` both do exactly this. Build the replacement
+    ONCE and reuse the same instance everywhere.
+42. **A `GlobalStage` runs on the hierarchical ROOT, whose `members` is empty** — so any analysis
+    written against a flat member list (everything in `analysis.HDLMethodAnalysis`, and most
+    printer-facing analyses) returns nothing there and fails SILENTLY, as "no results". Run it on
+    `designDB.newToOld`: the flat DB's design blocks are the SAME objects as the sub-DB tops, so
+    its answers map straight back onto the hierarchy. The same asymmetry bites in tests:
+    `StageSpec.assertCodeString` prints from the DB you hand it, so a root DB's printout omits
+    whatever the printer derives from flat members (global HDL method declarations, notably) —
+    pin those in a backend print spec and say so at the stage test.
+43. **Anonymous members carry meta too** — a stage keyed on `meta` must decide what an ANONYMOUS
+    member does, not just filter it out. An anonymous global (an intermediate of a global
+    constant's expression) has no name to act on but still carries a `namespace`, and leaving it
+    behind kept `DropPackages` emitting an empty package for a package it had just flattened away.
 
 ---
 
@@ -1730,6 +1749,14 @@ Mirror `plantClonedMembers`'s per-member mechanics when a custom per-ref remap i
 `val cloned = m.copyWithNewRefs` → `dfc.mutableDB.addMember(cloned)` →
 `dfc.mutableDB.newRefFor(cloned.ownerRef, dfc.owner.asIR)` → zip `m.getRefs` with
 `cloned.getRefs` and `newRefFor` each cloned ref to the (remapped) original target.
+
+### `ComposedDFTypeReplacement` rewrites a composed type in place
+
+`preCheck` selects the types to rewrite and `updateFunc` produces the replacement; the extractor
+recurses into struct fields, vector cell types and opaque actual types first, so a nested match
+rewrites the enclosing type too. Non-matching parts are PRESERVED (a struct keeps the fields the
+extractor does not apply to) — `UniqueNames` and `DropPackages` rename named types through it, and
+`DropOpaques` erases opaques with it.
 
 ### Materializing a type's width parameter as a standalone member
 

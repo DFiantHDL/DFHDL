@@ -60,7 +60,9 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
-        s"${dfType.name}_${entryName}"
+        // the entry is an enumeration literal DECLARED IN the type's package, so it takes the
+        // same selected-name qualifier as the type itself
+        s"${printer.pkgQualifier(dfType)}${dfType.name}_${entryName}"
       case None => "?"
   def csDFVectorElemCS(elemCS: List[String]): String =
     elemCS.view.zipWithIndex.map((x, i) =>

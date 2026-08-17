@@ -4043,4 +4043,107 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule
          |""".stripMargin
     )
+  test("Same-named declarations across packages"):
+    class DualTop extends EDDesign:
+      val a = dualpkg1.Shared <> IN
+      val b = dualpkg2.Shared <> OUT
+      val c = UInt(8)         <> VAR init dualpkg1.SharedDerived
+      val d = UInt(8)         <> VAR init dualpkg2.SharedDerived
+      b.v <> a.v.resize(8)
+    val top = (new DualTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|package dualpkg1;
+         |typedef struct packed {
+         |  logic [3:0] v;
+         |} Shared;
+         |parameter logic [7:0] SharedConst = 8'd1;
+         |function automatic logic [7:0] calc1(input logic [7:0] arg);
+         |begin
+         |  calc1 = arg + 8'd10;
+         |end
+         |endfunction
+         |parameter logic [7:0] SharedDerived = calc1(SharedConst);
+         |endpackage
+         |
+         |package dualpkg2;
+         |typedef struct packed {
+         |  logic [7:0] v;
+         |} Shared;
+         |parameter logic [7:0] SharedConst = 8'd2;
+         |function automatic logic [7:0] calc2(input logic [7:0] arg);
+         |begin
+         |  calc2 = arg + 8'd20;
+         |end
+         |endfunction
+         |parameter logic [7:0] SharedDerived = calc2(SharedConst);
+         |endpackage
+         |
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module DualTop(
+         |  input  wire dualpkg1::Shared a,
+         |  output dualpkg2::Shared b
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] c = dualpkg1::SharedDerived;
+         |  logic [7:0] d = dualpkg2::SharedDerived;
+         |  assign b.v = `EBY_U(a.v, 4);
+         |endmodule
+         |""".stripMargin
+    )
+  test("Namespace-derived declarations flattened under verilog.v95"):
+    // v95 has no packages, so `DropPackages` folds each packaged declaration's package name
+    // into its own name and everything lands in the single global defs header
+    given options.CompilerOptions.Backend = _.verilog.v95
+    class PkgTop extends EDDesign:
+      val e = typespkg1.PkgEnum <> VAR
+      val u = UInt(8)           <> OUT
+      u <> typespkg2.PkgWide
+    val top = (new PkgTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`define GlbNsConst_def parameter [7:0] GlbNsConst = 8'd3;
+         |`define typespkg1_PkgConst_def parameter [7:0] typespkg1_PkgConst = GlbNsConst + 8'd39;
+         |function [7:0] typespkg1_pkgCalc;
+         |  input [7:0] arg;
+         |begin
+         |  typespkg1_pkgCalc = arg + 8'd1;
+         |end
+         |endfunction
+         |`define typespkg1_PkgDerived_def parameter [7:0] typespkg1_PkgDerived = typespkg1_pkgCalc(typespkg1_PkgConst);
+         |`define typespkg2_PkgWide_def parameter [7:0] typespkg2_PkgWide = typespkg1_pkgCalc(typespkg1_PkgDerived);
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "PkgTop_defs.vh"
+         |
+         |module PkgTop(
+         |  u
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  `include "PkgTop_defs.vh"
+         |  `typespkg2_PkgWide_def
+         |  `define typespkg1_PkgEnum_P0 0
+         |  `define typespkg1_PkgEnum_P1 1
+         |  `define typespkg1_PkgEnum_P2 2
+         |  function [8*20:1] typespkg1_PkgEnum_to_string;
+         |    /* verilator lint_off UNUSEDSIGNAL */
+         |    input [1:0] value;
+         |    case (value)
+         |      `typespkg1_PkgEnum_P0: typespkg1_PkgEnum_to_string = "typespkg1_PkgEnum_P0";
+         |      `typespkg1_PkgEnum_P1: typespkg1_PkgEnum_to_string = "typespkg1_PkgEnum_P1";
+         |      `typespkg1_PkgEnum_P2: typespkg1_PkgEnum_to_string = "typespkg1_PkgEnum_P2";
+         |      default: typespkg1_PkgEnum_to_string = "?";
+         |    endcase
+         |    /* verilator lint_on UNUSEDSIGNAL */
+         |  endfunction
+         |  output wire [7:0] u;
+         |  reg [1:0] e;
+         |  assign u = typespkg2_PkgWide;
+         |endmodule
+         |""".stripMargin
+    )
 end PrintVerilogCodeSpec

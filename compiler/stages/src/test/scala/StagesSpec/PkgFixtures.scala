@@ -25,3 +25,24 @@ package typespkg2 {
   case class PkgWrap(s: typespkg1.PkgStruct <> VAL, n: UInt[8] <> VAL) extends Struct
   val PkgWide: UInt[8] <> CONST = typespkg1.pkgCalc(typespkg1.PkgDerived)
 }
+
+// Cross-package homographs: two sibling packages declaring the SAME simple names (and, for
+// `Shared`, structurally different types under that name). Every packaged reference is emitted
+// qualified, so name uniqueness is scoped per package and neither side is renamed.
+// NOTE: the static functions are deliberately named apart. A method is a design block, and
+// same-named design blocks are enumerated (`f_0`, `f_1`) by elaboration, which is not
+// package-aware — so a packaged method name is still globally unique, unlike a type or a
+// constant name.
+package dualpkg1 {
+  case class Shared(v: Bits[4] <> VAL) extends Struct
+  val SharedConst: UInt[8] <> CONST = 1
+  def calc1(arg: UInt[8] <> CONST): UInt[8] <> CONSTRET = arg + 10
+  val SharedDerived: UInt[8] <> CONST = calc1(SharedConst)
+}
+
+package dualpkg2 {
+  case class Shared(v: Bits[8] <> VAL) extends Struct
+  val SharedConst: UInt[8] <> CONST = 2
+  def calc2(arg: UInt[8] <> CONST): UInt[8] <> CONSTRET = arg + 20
+  val SharedDerived: UInt[8] <> CONST = calc2(SharedConst)
+}

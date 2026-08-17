@@ -10,10 +10,11 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csMethodCall(call: Func, designKey: StaticRef): String =
     val design = designKey.getDesignBlock
     val args = csMethodCallArgs(call, design).mkString(", ")
+    // a packaged global method is called by selected name (`work.<pkg>.<name>`), like every
+    // other packaged reference in VHDL
+    val name = s"${printer.globalMethodQualifier(design)}${design.dclName}"
     // parameterless VHDL method calls have no parentheses
-    val callCS =
-      if (args.isEmpty) design.dclName
-      else s"${design.dclName}($args)"
+    val callCS = if (args.isEmpty) name else s"$name($args)"
     // a procedural (Unit-return) call is a procedure call statement
     if (call.dfType == DFUnit) s"$callCS;" else callCS
   end csMethodCall
@@ -225,7 +226,8 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
             desc = desc + finale
             inVector = false
       s"$desc)"
-    case dfType: DFStruct => s"to_${printer.csDFStructTypeName(dfType)}($csArg)"
+    case dfType: DFStruct =>
+      s"${printer.csConvFuncName(dfType, s"to_${dfType.name}")}($csArg)"
     case dfType: DFOpaque => csBitsToType(dfType.actualType, csArg)
     case _                => printer.unsupported
 
@@ -276,7 +278,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
       case (DFBool, DFBit | DFEnum(widthParam = 1)) =>
         s"to_bool($relValStr)"
       case (toType @ DFEnum(widthParam = 1), DFBit | DFBool) =>
-        s"to_${printer.csDFEnumTypeName(toType)}($relValStr)"
+        s"${printer.csConvFuncName(toType, s"to_${toType.name}")}($relValStr)"
       case (DFUInt(tWidthRef), DFInt32) =>
         s"to_unsigned($relValStr, ${tWidthRef.refCodeString})"
       case (DFSInt(tWidthRef), DFInt32) =>

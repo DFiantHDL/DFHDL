@@ -169,13 +169,16 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   // def csTimer(timer: Timer): String = unsupported
   override def supportPackages: Boolean = true
   override def packageFileName(pkgName: String): String = s"$pkgName.vhd"
+  // a packaged global constant / method call is referenced by SELECTED NAME, like the packaged
+  // types (see `VHDLTypePrinter.pkgQualifier`), rather than through a `use work.<pkg>.all`
+  override def csGlobalMemberQualifier(ns: String, pkgName: String): String = s"work.$pkgName."
   // A namespace-derived package: spec (type dcls + conv-func protos, then constants and
-  // method protos in dependency order) and body (conv-func and method bodies). VHDL has
-  // no reference qualification here: visibility comes from `use` clauses, and a package
-  // uses the general package plus every package PRECEDING it in the cross-package
-  // topological order (its dependencies are guaranteed to precede it).
+  // method protos in dependency order) and body (conv-func and method bodies). Only the
+  // general package is `use`d: everything a package takes from a SIBLING package it names
+  // by selected name, so no cross-package use clause (and no ordering-sensitive visibility)
+  // is needed. Analysis order still follows the cross-package topological order of
+  // `packagedContents`, which `printedDB` preserves.
   override def csPackageFileContent(pkgName: String, namespace: String, typeDcls: String): String =
-    val precedingPkgs = packagedContents.map(_._1).takeWhile(_ != pkgName)
     val typeEntries = packagedTypeEntries.collectFirst {
       case (`pkgName`, _, entries) => entries
     }.getOrElse(Nil)
@@ -209,7 +212,6 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
         |use ieee.numeric_std.all;
         |use work.dfhdl_pkg.all;
         |${if (hasGlobalContent) s"use work.${printer.packageName}.all;" else ""}
-        |${precedingPkgs.map(p => s"use work.$p.all;").mkString("\n")}
         |
         |package $pkgName is
         |$typeSpecDcls

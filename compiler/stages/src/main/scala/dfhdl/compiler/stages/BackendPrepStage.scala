@@ -33,5 +33,10 @@ case object BackendPrepStage
       SimpleOrderMembers,
       LocalToDesignParams,
       DropDesignParamDeps,
-      ViaConnection
+      ViaConnection,
+      // LAST: it flattens the namespace-derived packages into names for a backend that has no
+      // packages, so it should see only what actually survives to the emission (v95/v2001 drop
+      // structs and opaques on the way here), and the names it produces must reach
+      // `<backend>UniqueNames`, which runs after this bundle
+      DropPackages
     )

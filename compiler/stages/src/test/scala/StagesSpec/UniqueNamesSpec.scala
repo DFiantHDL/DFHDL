@@ -164,4 +164,39 @@ class UniqueNamesSpec extends StageSpec:
     )
   }
 
+  // `dualpkg1`/`dualpkg2` (see PkgFixtures) declare the same simple names, and the top design's
+  // namespace is `StagesSpec`, so both land in packages of their own.
+  class DualTop extends DFDesign:
+    val a = dualpkg1.Shared <> VAR
+    val b = dualpkg2.Shared <> VAR
+    val c = UInt(8)         <> VAR init dualpkg1.SharedConst
+    val d = UInt(8)         <> VAR init dualpkg2.SharedConst
+
+  test("same-named declarations in different packages, scoped per package") {
+    val top = (new DualTop).uniqueNames(Set(), true)
+    assertCodeString(
+      top,
+      """|package StagesSpec.dualpkg1:
+         |  final case class Shared(
+         |      v: Bits[4] <> VAL
+         |  ) extends Struct
+         |  val SharedConst: UInt[8] <> CONST = d"8'1"
+         |
+         |package StagesSpec.dualpkg2:
+         |  final case class Shared(
+         |      v: Bits[8] <> VAL
+         |  ) extends Struct
+         |  val SharedConst: UInt[8] <> CONST = d"8'2"
+         |
+         |
+         |class DualTop extends DFDesign:
+         |  val a = StagesSpec.dualpkg1.Shared <> VAR
+         |  val b = StagesSpec.dualpkg2.Shared <> VAR
+         |  val c = UInt(8) <> VAR init StagesSpec.dualpkg1.SharedConst
+         |  val d = UInt(8) <> VAR init StagesSpec.dualpkg2.SharedConst
+         |end DualTop
+         |""".stripMargin
+    )
+  }
+
 end UniqueNamesSpec

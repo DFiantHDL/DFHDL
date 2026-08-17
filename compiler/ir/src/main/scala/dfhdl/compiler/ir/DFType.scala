@@ -85,7 +85,9 @@ sealed trait NamedDFType extends DFType:
   // composes `Meta`'s equality (name + namespace + annotations), never position/doc
   val meta: Meta
   final def name: String = meta.name
-  def updateName(newName: String)(using MemberGetSet): this.type
+  def updateMeta(metaFunc: Meta => Meta)(using MemberGetSet): this.type
+  final def updateName(newName: String)(using MemberGetSet): this.type =
+    updateMeta(_.setName(newName))
 object NamedDFTypes:
   def unapply(dfVal: DFVal)(using MemberGetSet): Option[ListSet[NamedDFType]] =
     Flatten.unapply(dfVal.dfType)
@@ -341,8 +343,8 @@ final case class DFEnum(
     entries: ListMap[String, BigInt]
 ) extends NamedDFType derives ReadWriter:
   type Data = Option[BigInt]
-  def updateName(newName: String)(using MemberGetSet): this.type =
-    copy(meta = meta.setName(newName)).asInstanceOf[this.type]
+  def updateMeta(metaFunc: Meta => Meta)(using MemberGetSet): this.type =
+    copy(meta = metaFunc(meta)).asInstanceOf[this.type]
   def widthIntOpt(using MemberGetSet): Option[Int] = Some(widthParam)
   def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
@@ -432,8 +434,8 @@ final case class DFOpaque(
     actualType: DFType
 ) extends NamedDFType, ComposedDFType derives ReadWriter:
   type Data = Any
-  def updateName(newName: String)(using MemberGetSet): this.type =
-    copy(meta = meta.setName(newName)).asInstanceOf[this.type]
+  def updateMeta(metaFunc: Meta => Meta)(using MemberGetSet): this.type =
+    copy(meta = metaFunc(meta)).asInstanceOf[this.type]
   def widthIntOpt(using MemberGetSet): Option[Int] = actualType.widthIntOpt
   def isMagnet: Boolean = kind match
     case _: DFOpaque.Kind.Magnet => true
@@ -492,8 +494,8 @@ final case class DFStruct(
     fieldMap: ListMap[String, DFType]
 ) extends NamedDFType, ComposedDFType derives ReadWriter:
   type Data = List[Any]
-  def updateName(newName: String)(using MemberGetSet): this.type =
-    copy(meta = meta.setName(newName)).asInstanceOf[this.type]
+  def updateMeta(metaFunc: Meta => Meta)(using MemberGetSet): this.type =
+    copy(meta = metaFunc(meta)).asInstanceOf[this.type]
   def getNameForced: String = name
   def widthIntOpt(using MemberGetSet): Option[Int] =
     val fieldWidthsOpt = fieldMap.values.map(_.widthIntOpt)
@@ -658,8 +660,8 @@ final case class DFView(
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
   def defaultData(using MemberGetSet): Data = noTypeErr
-  def updateName(newName: String)(using MemberGetSet): this.type =
-    copy(meta = meta.setName(newName)).asInstanceOf[this.type]
+  def updateMeta(metaFunc: Meta => Meta)(using MemberGetSet): this.type =
+    copy(meta = metaFunc(meta)).asInstanceOf[this.type]
   // The full, directed field map of this view: `interfaceType`'s structure with the
   // resolved directions merged in (leaf dirs from `dirMap`; nested fields replaced by
   // their chosen sub-view). Derived on demand, so nothing is stored redundantly.

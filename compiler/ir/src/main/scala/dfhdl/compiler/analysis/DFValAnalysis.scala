@@ -686,10 +686,16 @@ class ComposedDFTypeReplacement[H](
   def unapply(dfType: DFType): Option[DFType] =
     val composed = dfType match
       case dt: DFStruct =>
-        val updatedMap = ListMap.from(dt.fieldMap.view.collect { case (name, Extractor(dfType)) =>
-          (name, dfType)
+        // every field is kept — only the matching ones are replaced. Collecting just the
+        // matches here would DROP the fields the extractor does not apply to.
+        var anyUpdated = false
+        val updatedMap = ListMap.from(dt.fieldMap.view.map {
+          case (name, Extractor(dfType)) =>
+            anyUpdated = true
+            (name, dfType)
+          case entry => entry
         })
-        if (updatedMap.nonEmpty) Some(dt.copy(fieldMap = updatedMap))
+        if (anyUpdated) Some(dt.copy(fieldMap = updatedMap))
         else None
       case dt: DFOpaque =>
         dt.actualType match

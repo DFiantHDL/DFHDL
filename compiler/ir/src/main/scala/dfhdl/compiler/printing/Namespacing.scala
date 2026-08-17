@@ -34,4 +34,24 @@ object Namespacing:
   def placementOf(ns: String, topNs: String): Option[String] =
     if (isGlobalPlaced(ns, topNs)) None
     else Some(packageNameOf(ns, topNs))
+
+  /** Placement of a named type. Shared by the printers (`Printer.typePlacementOf`, which first
+    * checks that the backend has packages at all) and by the `DropPackages` stage, so the magnet
+    * exclusion below cannot drift between them.
+    */
+  def typePlacementOf(dfType: NamedDFType, topNs: String): Option[String] =
+    dfType match
+      // Clk/Rst/Magnet opaques are language-level (the DFHDL printer shows them as builtins and
+      // the backends drop them), so they are never packaged even though their declaring namespace
+      // is a DFHDL-internal one
+      case t: DFOpaque if t.isMagnet => None
+      case _                         => placementOf(dfType.meta.namespace, topNs)
+
+  /** The name a packaged declaration takes when the backend has no packages and everything
+    * collapses into the general global defs file: its package name and its own name, joined with
+    * `_` (`typespkg1` + `PkgEnum` -> `typespkg1_PkgEnum`). This mirrors what a qualified reference
+    * shows in a package-bearing backend (`typespkg1::PkgEnum`), so the same declaration is
+    * recognizable across dialects. Applied by the `DropPackages` stage.
+    */
+  def flattenedNameOf(pkgName: String, name: String): String = s"${pkgName}_$name"
 end Namespacing

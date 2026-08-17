@@ -4011,4 +4011,42 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end PkgTop
          |""".stripMargin
     )
+  test("Same-named declarations across packages"):
+    class DualTop extends DFDesign:
+      val a = dualpkg1.Shared <> VAR
+      val b = dualpkg2.Shared <> VAR
+      val c = UInt(8)         <> VAR init dualpkg1.SharedDerived
+      val d = UInt(8)         <> VAR init dualpkg2.SharedDerived
+    val top = (new DualTop).getCodeString
+    assertNoDiff(
+      top,
+      """|package StagesSpec.dualpkg1:
+         |  final case class Shared(
+         |      v: Bits[4] <> VAL
+         |  ) extends Struct
+         |  val SharedConst: UInt[8] <> CONST = d"8'1"
+         |  def calc1(arg: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    arg + d"8'10"
+         |  end calc1
+         |  val SharedDerived: UInt[8] <> CONST = calc1(SharedConst)
+         |
+         |package StagesSpec.dualpkg2:
+         |  final case class Shared(
+         |      v: Bits[8] <> VAL
+         |  ) extends Struct
+         |  val SharedConst: UInt[8] <> CONST = d"8'2"
+         |  def calc2(arg: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    arg + d"8'20"
+         |  end calc2
+         |  val SharedDerived: UInt[8] <> CONST = calc2(SharedConst)
+         |
+         |
+         |class DualTop extends DFDesign:
+         |  val a = StagesSpec.dualpkg1.Shared <> VAR
+         |  val b = StagesSpec.dualpkg2.Shared <> VAR
+         |  val c = UInt(8) <> VAR init StagesSpec.dualpkg1.SharedDerived
+         |  val d = UInt(8) <> VAR init StagesSpec.dualpkg2.SharedDerived
+         |end DualTop
+         |""".stripMargin
+    )
 end PrintCodeStringSpec
