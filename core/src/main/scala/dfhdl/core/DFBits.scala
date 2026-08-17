@@ -705,49 +705,6 @@ object DFBits:
             DFVal.Alias.ApplyIdx(DFBit, lhs, idxVal)
           }(using dfc, CTName("bit selection (apply)"))
       end evOpApplyDFBitsWL
-      given evOpApplyRangeDFBitsWL[
-          W <: IntP,
-          L2 <: IntP,
-          A,
-          C,
-          I,
-          P,
-          L <: DFVal[DFBitsWL[W, L2], Modifier[A, C, I, P]],
-          HI <: IntP,
-          LO <: IntP
-      ](using
-          checkHigh: BitIndexHigh.CheckNUB[HI, IntP.HighIdx[W, L2]],
-          checkLow: BitIndexLow.CheckNUB[LO, L2],
-          checkHiLo: BitsHiLo.CheckNUB[HI, LO]
-      ): ExactOp3Aux["apply", DFC, DFValAny, L, HI, LO, DFVal[
-        DFBits[IntP.RangeWidth[HI, LO]],
-        Modifier[A, C, Any, P]
-      ]] =
-        new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
-          type Out = DFVal[DFBits[IntP.RangeWidth[HI, LO]], Modifier[A, C, Any, P]]
-          def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
-            import dfc.getSet
-            val idxHighParam = IntParam(idxHigh)
-            val idxLowParam = IntParam(idxLow)
-            val idxHighIntOpt = idxHighParam.toScalaIntOpt
-            val idxLowIntOpt = idxLowParam.toScalaIntOpt
-            val dfTypeIR = lhs.asIR.dfType.asInstanceOf[ir.DFBitsWL]
-            val lowIntOpt = dfTypeIR.lowIdxIntOpt
-            val highIntOpt = (dfTypeIR.widthIntOpt, lowIntOpt) match
-              case (Some(widthInt), Some(lowInt)) => Some(lowInt + widthInt - 1)
-              case _                              => None
-            (idxHighIntOpt, highIntOpt) match
-              case (Some(idxHighInt), Some(highInt)) => checkHigh(idxHighInt, highInt)
-              case _                                 =>
-            (idxLowIntOpt, lowIntOpt) match
-              case (Some(idxLowInt), Some(lowInt)) => checkLow(idxLowInt, lowInt)
-              case _                               =>
-            (idxHighIntOpt, idxLowIntOpt) match
-              case (Some(idxHighInt), Some(idxLowInt)) => checkHiLo(idxHighInt, idxLowInt)
-              case _                                   =>
-            DFVal.Alias.ApplyRange(lhs, idxHighParam, idxLowParam)
-          }(using dfc, CTName("bit range selection (apply)"))
-      end evOpApplyRangeDFBitsWL
     end OpsLP
     object Ops extends OpsLP:
       import IntP.{-, +}
@@ -768,59 +725,25 @@ object DFBits:
             DFVal.Alias.ApplyIdx(DFBit, lhs, ub(lhs.widthIntParam, idx)(using dfc.anonymize))
           }(using dfc, CTName("bit selection (apply)"))
       end evOpApplyDFBits
+      // one range-selection given serves every bits receiver: a plain `Bits[W]` is
+      // `DFBitsWL[W, 0]`, and a `BitsHL` receiver either reduces its width to a literal
+      // (literal bounds) or collapses it to `Int` (constant bounds). The high bound is
+      // computed by `HighIdxOf` given dispatch and fed to the check as the PLAIN type
+      // parameter `H`, never as a fold application (see `HighIdxOf` for why)
       given evOpApplyRangeDFBits[
           W <: IntP,
-          A,
-          C,
-          I,
-          P,
-          L <: DFVal[DFBits[W], Modifier[A, C, I, P]],
-          HI <: IntP,
-          LO <: IntP
-      ](using
-          checkHigh: BitIndex.CheckNUB[HI, W],
-          checkLow: BitIndex.CheckNUB[LO, W],
-          checkHiLo: BitsHiLo.CheckNUB[HI, LO]
-      ): ExactOp3Aux["apply", DFC, DFValAny, L, HI, LO, DFVal[
-        DFBits[IntP.RangeWidth[HI, LO]],
-        Modifier[A, C, Any, P]
-      ]] =
-        new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
-          type Out = DFVal[DFBits[IntP.RangeWidth[HI, LO]], Modifier[A, C, Any, P]]
-          def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
-            val idxHighParam = IntParam(idxHigh)
-            val idxLowParam = IntParam(idxLow)
-            val idxHighIntOpt = idxHighParam.toScalaIntOpt
-            val idxLowIntOpt = idxLowParam.toScalaIntOpt
-            val widthIntOpt = lhs.widthIntOpt
-            (idxHighIntOpt, widthIntOpt) match
-              case (Some(idxHighInt), Some(widthInt)) => checkHigh(idxHighInt, widthInt)
-              case _                                  =>
-            (idxLowIntOpt, widthIntOpt) match
-              case (Some(idxLowInt), Some(widthInt)) => checkLow(idxLowInt, widthInt)
-              case _                                 =>
-            (idxHighIntOpt, idxLowIntOpt) match
-              case (Some(idxHighInt), Some(idxLowInt)) => checkHiLo(idxHighInt, idxLowInt)
-              case _                                   =>
-            DFVal.Alias.ApplyRange(lhs, idxHighParam, idxLowParam)
-          }(using dfc, CTName("bit range selection (apply)"))
-      end evOpApplyRangeDFBits
-      // the annotation path (a `BitsHL[9, 2] <> VAL` field or parameter) carries the width
-      // as the UNREDUCED `RangeWidth[H, L]` application, where the W-form's `HighIdx[W, L]`
-      // bound gets stuck (fold over a fold); binding `H` structurally checks on `H` directly.
-      // The term-construction path reduces the width to a literal, misses this pattern, and
-      // resolves to the W-form above instead.
-      given evOpApplyRangeDFBitsHL[
-          H <: IntP,
           L2 <: IntP,
+          H <: IntP,
           A,
           C,
           I,
           P,
-          L <: DFVal[DFBitsHL[H, L2], Modifier[A, C, I, P]],
+          L <: DFVal[DFBitsWL[W, L2], Modifier[A, C, I, P]],
           HI <: IntP,
           LO <: IntP
       ](using
+          hIdx: IntP.HighIdxOf.Aux[W, L2, H]
+      )(using
           checkHigh: BitIndexHigh.CheckNUB[HI, H],
           checkLow: BitIndexLow.CheckNUB[LO, L2],
           checkHiLo: BitsHiLo.CheckNUB[HI, LO]
@@ -852,7 +775,7 @@ object DFBits:
               case _                                   =>
             DFVal.Alias.ApplyRange(lhs, idxHighParam, idxLowParam)
           }(using dfc, CTName("bit range selection (apply)"))
-      end evOpApplyRangeDFBitsHL
+      end evOpApplyRangeDFBits
       given evOpLogicDFBits[
           Op <: FuncOp.|.type | FuncOp.&.type | FuncOp.^.type,
           L,

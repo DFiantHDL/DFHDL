@@ -1425,8 +1425,6 @@ object DFVal extends DFValLP:
     evOpApplyDFBits,
     evOpApplyDFBitsWL,
     evOpApplyRangeDFBits,
-    evOpApplyRangeDFBitsWL,
-    evOpApplyRangeDFBitsHL,
     evOpAsDFBits,
     evOpLogicReduceDFBits,
     evOpShift
