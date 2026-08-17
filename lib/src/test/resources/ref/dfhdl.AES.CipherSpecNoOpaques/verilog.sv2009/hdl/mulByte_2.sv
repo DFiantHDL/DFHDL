@@ -3,8 +3,8 @@
 `include "CipherNoOpaques_defs.svh"
 
 module mulByte_2#(parameter logic [7:0] lhs = 8'hxx)(
-  input  wire t_opaque_AESByte rhs,
-  output t_opaque_AESByte      o
+  input  wire AESByte rhs,
+  output AESByte      o
 );
   `include "dfhdl_defs.svh"
   assign o = 8'h00 ^ rhs;

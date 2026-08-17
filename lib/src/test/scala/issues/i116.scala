@@ -2,6 +2,7 @@
 package issues.i116
 
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 case class Test (
   a : Bit <> VAL,

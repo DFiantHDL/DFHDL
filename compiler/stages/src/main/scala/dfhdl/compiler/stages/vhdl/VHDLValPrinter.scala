@@ -10,10 +10,11 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csMethodCall(call: Func, designKey: StaticRef): String =
     val design = designKey.getDesignBlock
     val args = csMethodCallArgs(call, design).mkString(", ")
+    // a packaged global method is called by selected name (`work.<pkg>.<name>`), like every
+    // other packaged reference in VHDL
+    val name = s"${printer.globalMethodQualifier(design)}${design.dclName}"
     // parameterless VHDL method calls have no parentheses
-    val callCS =
-      if (args.isEmpty) design.dclName
-      else s"${design.dclName}($args)"
+    val callCS = if (args.isEmpty) name else s"$name($args)"
     // a procedural (Unit-return) call is a procedure call statement
     if (call.dfType == DFUnit) s"$callCS;" else callCS
   end csMethodCall
@@ -59,7 +60,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match
-          case dfType: DFBits =>
+          case dfType: DFBitsWL =>
             s"repeat(${argL.refCodeString}, ${dfType.widthParamRef.refCodeString})"
           case dfType: DFVector =>
             s"(0 to ${dfType.cellDimParamRefs.head.uboundCS} => ${argL.refCodeString})"
@@ -138,7 +139,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                 // width too)
                 case (Func.Op.length, _)                 => s"$argStrB'length"
                 case (_, dt: DFDecimal) if !dt.isDFInt32 => s"$argStrB'length"
-                case (_, _: DFBits)                      => s"$argStrB'length"
+                case (_, _: DFBitsWL)                    => s"$argStrB'length"
                 // every other rendering (integer, std_logic, boolean, enum, record, vector
                 // array, opaque) is covered by the `bitWidth` overload family the printer
                 // already emits (dfhdl_pkg + the per-named-type support functions)
@@ -201,7 +202,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     if (requiresBoolConv) s"to_bool(${condRef.refCodeString})"
     else condRef.refCodeString
   def csBitsToType(toType: DFType, csArg: String): String = toType match
-    case DFBits(_)        => csArg
+    case _: DFBitsWL      => csArg
     case DFBool           => s"to_bool($csArg)"
     case DFBit            => s"to_sl($csArg)"
     case DFUInt(_)        => s"unsigned($csArg)"
@@ -225,13 +226,14 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
             desc = desc + finale
             inVector = false
       s"$desc)"
-    case dfType: DFStruct => s"to_${printer.csDFStructTypeName(dfType)}($csArg)"
+    case dfType: DFStruct =>
+      s"${printer.csConvFuncName(dfType, s"to_${dfType.name}")}($csArg)"
     case dfType: DFOpaque => csBitsToType(dfType.actualType, csArg)
     case _                => printer.unsupported
 
   def csToSLV(fromType: DFType, arg: String): String =
     fromType match
-      case dt: DFBits => arg
+      case dt: DFBitsWL => arg
       // opaques are subtypes, so they are transparent to `to_slv` operations
       case dt: DFOpaque => csToSLV(dt.actualType, arg)
       case _            => s"to_slv($arg)"
@@ -249,15 +251,15 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case _       => s"signed(resize($relValStr, ${tWidthRef.refCodeString}))"
       case (DFUInt(tWidthRef), DFSInt(_)) =>
         s"resize(unsigned($relValStr), ${tWidthRef.refCodeString})"
-      case (DFBits(tWidthRef), DFBits(fWidthRef)) =>
+      case (DFBitsWL(tWidthRef, _), DFBitsWL(fWidthRef, _)) =>
         tWidthRef.widenDeltaOpt(fWidthRef) match
           case Some(k) => s"eby($relValStr, $k)"
           case _       => s"resize($relValStr, ${tWidthRef.refCodeString})"
-      case (toType: DFType, fromType: DFBits) =>
+      case (toType: DFType, fromType: DFBitsWL) =>
         csBitsToType(toType, relValStr)
-      case (DFBits(tWidthRef), DFBit | DFBool) =>
+      case (DFBitsWL(tWidthRef, _), DFBit | DFBool) =>
         s"to_slv($relValStr, ${tWidthRef.refCodeString})"
-      case (DFBits(_), fromType: DFType) =>
+      case (_: DFBitsWL, fromType: DFType) =>
         csToSLV(fromType, relValStr)
       case (DFUInt(tWidthRef), DFUInt(fWidthRef)) =>
         tWidthRef.widenDeltaOpt(fWidthRef) match
@@ -276,7 +278,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
       case (DFBool, DFBit | DFEnum(widthParam = 1)) =>
         s"to_bool($relValStr)"
       case (toType @ DFEnum(widthParam = 1), DFBit | DFBool) =>
-        s"to_${printer.csDFEnumTypeName(toType)}($relValStr)"
+        s"${printer.csConvFuncName(toType, s"to_${toType.name}")}($relValStr)"
       case (DFUInt(tWidthRef), DFInt32) =>
         s"to_unsigned($relValStr, ${tWidthRef.refCodeString})"
       case (DFSInt(tWidthRef), DFInt32) =>
@@ -304,7 +306,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     dfVal.dfType match
-      case DFBits(_) | DFUInt(_) | DFSInt(_) =>
+      case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) =>
         val slice =
           s"${dfVal.relValCodeString}(${dfVal.idxHighRef.refCodeString} downto ${dfVal.idxLowRef.refCodeString})"
         // SInt slice now produces DFUInt; wrap with `unsigned(...)` since
@@ -322,7 +324,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   // field selections changes from `dv._${idx+1}` to `dv($idx)`
   val TUPLE_MIN_INDEXING = 3
   def csDFValAliasSelectField(dfVal: Alias.SelectField): String =
-    val dfType @ DFStruct(structName, fieldMap) = dfVal.relValRef.get.dfType.runtimeChecked
+    val dfType @ DFStruct(_, fieldMap) = dfVal.relValRef.get.dfType.runtimeChecked
     val fieldSel =
       if (dfType.isTuple)
         if (fieldMap.size > TUPLE_MIN_INDEXING)
@@ -335,9 +337,9 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   // def csTimerIsActive(dfVal: Timer.IsActive): String = printer.unsupported
   def csNOTHING(dfVal: Special): String =
     dfVal.dfType match
-      case DFBit     => "'Z'"
-      case DFBits(_) => "(others => 'Z')"
-      case _         => printer.unsupported
+      case DFBit       => "'Z'"
+      case _: DFBitsWL => "(others => 'Z')"
+      case _           => printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
     dfVal match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)

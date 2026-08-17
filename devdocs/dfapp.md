@@ -35,7 +35,9 @@ generation (the plugin's `select("...".toTermName)` fails at the generated call 
 
 Users rarely write `@top` themselves: `PreTyperPhase` injects it onto every concrete class that looks
 like a design (a `Design` parent, a `<> CONST` parameter, or `<>` in the body), skipping traits, case
-and enum classes, interfaces, and anything with more than one parameter block. It injects the
+and enum classes, interfaces, and anything with more than one parameter block. The injection is
+spelled `_root_.dfhdl.hw.annotation.top`, so it needs no import in the user's file; writing `@top`
+by hand does (`import dfhdl.hw.annotation.top`, or the `@hw.annotation.top` spelling). It injects the
 explicit `@top(true)` form on purpose, since that is the lenient variant: `TopAnnotPhase` silently
 skips entry-point generation when such a class turns out not to be a `Design`, whereas a bare `@top`
 written by hand is strict and reports a compile error. `@top(false)` opts out entirely.
@@ -73,9 +75,16 @@ The `@top` annotation carries the eight option sets in its third parameter list,
 design's DECLARATION site:
 
 ```scala
+// lib/src/main/scala/dfhdl/hw/annotation/top.scala
 final case class top(genMain: Boolean = true)(using annot: AnnotatedWith[top, Any])(using
     val elaborationOptions: ElaborationOptions.Defaults[annot.Out], ...)
 ```
+
+It lives in `lib` because five of those eight option sets do, and in `dfhdl.hw.annotation` rather
+than `dfhdl` because the frontend's package-level `export __hdl.*` would otherwise put the name
+`top` in scope for every `import dfhdl.*` and shadow a user's own design class named `top`
+(issue #482). `dfhdl.hw.annotation` is a PACKAGE, not an object, purely so this one member can
+join the core-side annotations from a downstream subproject.
 
 That is how a user's `given options.CompilerOptions.Backend = _.vhdl` reaches the app. `setInitials`
 copies each set into a mutable field, applies the `-Werror` scalac flag to the tool option sets, and

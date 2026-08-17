@@ -15,7 +15,7 @@ module RegFile#(
   input  wire logic                         rd_wren
 );
   `include "dfhdl_defs.svh"
-  logic [DATA_WIDTH - 1:0] regs [0:REG_NUM - 1];
+  logic [REG_NUM - 1:0][DATA_WIDTH - 1:0] regs;
   always_ff @(posedge clk)
   begin
     rs1_data <= regs[rs1_addr];

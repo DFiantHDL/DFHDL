@@ -289,7 +289,7 @@ class PrintVHDLCodeSpec extends StageSpec:
           |end Top;
           |
           |architecture Top_arch of Top is
-          |  type t_struct_DFTuple2 is record
+          |  type DFTuple2 is record
           |    _1 : std_logic_vector(2 downto 0);
           |    _2 : std_logic;
           |  end record;
@@ -309,7 +309,7 @@ class PrintVHDLCodeSpec extends StageSpec:
           |  constant c12 : signed(48 downto 0) := -49d"239794508230343";
           |  constant c13 : unsigned(7 downto 0) := unsigned'(x"--");
           |  constant c14 : signed(7 downto 0) := signed'(x"--");
-          |  constant c15 : t_struct_DFTuple2 := t_struct_DFTuple2(_1 = "000", _2 = '1');
+          |  constant c15 : DFTuple2 := DFTuple2(_1 = "000", _2 = '1');
           |  constant c16 : t_arrX2_std_logic_vector(0 to 6)(0 to 4)(7 downto 0) := (
           |    0 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
           |    1 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
@@ -501,14 +501,14 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      return F;
          |    end if;
          |  end;
-         |  subtype t_opaque_Foo is t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
-         |  function to_t_opaque_Foo(A : std_logic_vector) return t_opaque_Foo is
+         |  subtype Foo is t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
+         |  function to_Foo(A : std_logic_vector) return Foo is
          |    variable A0 : std_logic_vector(A'length - 1 downto 0);
          |  begin
          |    A0 := A;
          |    return to_t_arrX2_std_logic_vector(A0, 10, 16, 12);
          |  end;
-         |  signal v : t_opaque_Foo;
+         |  signal v : Foo;
          |begin
          |  process (clk)
          |  begin
@@ -557,10 +557,10 @@ class PrintVHDLCodeSpec extends StageSpec:
       y.din := x.as(Foo)
 
     val top = (Example()).getCompiledCodeString
-    // TODO: consider if we want to leave the t_opaque_Foo under `getCompiledCodeString`
+    // TODO: consider if we want to leave the Foo under `getCompiledCodeString`
     assertNoDiff(
       top,
-      """|subtype t_opaque_Foo is t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
+      """|subtype Foo is t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
          |
          |library ieee;
          |use ieee.std_logic_1164.all;
@@ -573,7 +573,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  clk : in std_logic;
          |  rst : in std_logic;
          |  x : in std_logic_vector(1919 downto 0);
-         |  y : out t_opaque_Foo
+         |  y : out Foo
          |);
          |end Example;
          |
@@ -1181,7 +1181,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo;
          |
          |architecture Foo_arch of Foo is
-         |  type t_enum_MyEnum is (
+         |  type MyEnum is (
          |    MyEnum_A, MyEnum_B, MyEnum_C
          |  );
          |  constant bar : string := param & "!";
@@ -1193,7 +1193,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant param7 : signed(4 downto 0) := -5d"11";
          |  constant param8 : std_logic := '1';
          |  constant param9 : boolean := false;
-         |  constant param10 : t_enum_MyEnum := MyEnum_A;
+         |  constant param10 : MyEnum := MyEnum_A;
          |begin
          |  process (all)
          |  begin
@@ -1212,7 +1212,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("");
          |    print("I am the one " & param2 & " who knocks");
          |    print("hello");
-         |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
+         |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
          |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1162:9" & LF &
@@ -1223,7 +1223,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      "param7 = " & to_string(param7) & LF &
          |      "param8 = " & to_string(param8) & LF &
          |      "param9 = " & to_string(param9) & LF &
-         |      "param10 = " & t_enum_MyEnum'image(param10)
+         |      "param10 = " & MyEnum'image(param10)
          |    severity NOTE;
          |  end process;
          |end Foo_arch;""".stripMargin
@@ -1242,7 +1242,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo;
          |
          |architecture Foo_arch of Foo is
-         |  type t_enum_MyEnum is (
+         |  type MyEnum is (
          |    MyEnum_A, MyEnum_B, MyEnum_C
          |  );
          |  constant bar : string := param & "!";
@@ -1254,7 +1254,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant param7 : signed(4 downto 0) := to_signed(-11, 5);
          |  constant param8 : std_logic := '1';
          |  constant param9 : boolean := false;
-         |  constant param10 : t_enum_MyEnum := MyEnum_A;
+         |  constant param10 : MyEnum := MyEnum_A;
          |begin
          |  process
          |  begin
@@ -1273,7 +1273,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("");
          |    print("I am the one " & param2 & " who knocks");
          |    print("hello");
-         |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
+         |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
          |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1162:9" & LF &
@@ -1284,7 +1284,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      "param7 = " & to_string(param7) & LF &
          |      "param8 = " & to_string(param8) & LF &
          |      "param9 = " & to_string(param9) & LF &
-         |      "param10 = " & t_enum_MyEnum'image(param10)
+         |      "param10 = " & MyEnum'image(param10)
          |    severity NOTE;
          |  end process;
          |end Foo_arch;""".stripMargin
@@ -1401,7 +1401,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new Bar).getCompiledCodeString
     assertNoDiff(
       top,
-      """|type t_enum_MyEnum is (
+      """|type MyEnum is (
          |  MyEnum_Zero, MyEnum_One
          |);
          |
@@ -1413,13 +1413,13 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Bar is
          |port (
-         |  x  : in  t_enum_MyEnum;
+         |  x  : in  MyEnum;
          |  y  : out std_logic;
          |  z  : out boolean;
          |  x1 : in  std_logic;
          |  x2 : in  boolean;
-         |  y1 : out t_enum_MyEnum;
-         |  y2 : out t_enum_MyEnum
+         |  y1 : out MyEnum;
+         |  y2 : out MyEnum
          |);
          |end Bar;
          |
@@ -1427,8 +1427,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |begin
          |  y  <= to_sl(toggle(x));
          |  z  <= to_bool(toggle(x));
-         |  y1 <= to_t_enum_MyEnum(x1);
-         |  y2 <= to_t_enum_MyEnum(x2);
+         |  y1 <= to_MyEnum(x1);
+         |  y2 <= to_MyEnum(x2);
          |end Bar_arch;""".stripMargin
     )
   }
@@ -1523,7 +1523,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
-      """|type t_enum_MyEnum is (
+      """|type MyEnum is (
          |  MyEnum_A, MyEnum_B
          |);
          |
@@ -1535,8 +1535,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Foo is
          |port (
-         |  x : in t_enum_MyEnum;
-         |  y : out t_enum_MyEnum
+         |  x : in MyEnum;
+         |  y : out MyEnum
          |);
          |end Foo;
          |
@@ -1558,7 +1558,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
-      """|type t_enum_MyEnum is (
+      """|type MyEnum is (
          |  MyEnum_A, MyEnum_B
          |);
          |
@@ -1570,8 +1570,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Foo is
          |port (
-         |  x : in t_enum_MyEnum;
-         |  y : out t_enum_MyEnum
+         |  x : in MyEnum;
+         |  y : out MyEnum
          |);
          |end Foo;
          |
@@ -1622,7 +1622,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
-      """|type t_struct_AB is record
+      """|type AB is record
          |  a : std_logic_vector(3 downto 0);
          |  b : std_logic_vector(3 downto 0);
          |end record;
@@ -1635,8 +1635,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Foo is
          |port (
-         |  i : in t_struct_AB;
-         |  y : out t_struct_AB
+         |  i : in AB;
+         |  y : out AB
          |);
          |end Foo;
          |
@@ -1773,19 +1773,19 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end ForkJoinFSM;
          |
          |architecture ForkJoinFSM_arch of ForkJoinFSM is
-         |  type t_enum_State_0 is (
+         |  type State_0 is (
          |    State_0_S_boot, State_0_S_0
          |  );
-         |  type t_enum_State_1 is (
+         |  type State_1 is (
          |    State_1_S_0, State_1_S_1
          |  );
          |  signal fk_start_0 : std_logic;
          |  signal fk_start_1 : std_logic;
          |  signal fk_done_0 : std_logic;
          |  signal fk_done_1 : std_logic;
-         |  signal state_0 : t_enum_State_0;
-         |  signal state_1 : t_enum_State_1;
-         |  signal state_2 : t_enum_State_1;
+         |  signal state_0_0 : State_0;
+         |  signal state_1_0 : State_1;
+         |  signal state_2 : State_1;
          |begin
          |  process (clk)
          |  begin
@@ -1793,36 +1793,36 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      if rst = '1' then
          |        a <= '0';
          |        b <= '0';
-         |        state_0 <= State_0_S_boot;
-         |        state_1 <= State_1_S_0;
+         |        state_0_0 <= State_0_S_boot;
+         |        state_1_0 <= State_1_S_0;
          |        state_2 <= State_1_S_0;
          |      else
-         |        case state_0 is
+         |        case state_0_0 is
          |          when State_0_S_boot =>
          |            fk_start_0 <= '1';
          |            fk_start_1 <= '1';
-         |            state_0 <= State_0_S_0;
+         |            state_0_0 <= State_0_S_0;
          |          when State_0_S_0 =>
-         |            if not (fk_done_0 and fk_done_1) then state_0 <= State_0_S_0;
+         |            if not (fk_done_0 and fk_done_1) then state_0_0 <= State_0_S_0;
          |            else
          |              fk_start_0 <= '0';
          |              fk_start_1 <= '0';
-         |              state_0 <= State_0_S_boot;
+         |              state_0_0 <= State_0_S_boot;
          |            end if;
          |        end case;
-         |        case state_1 is
+         |        case state_1_0 is
          |          when State_1_S_0 =>
-         |            if not fk_start_0 then state_1 <= State_1_S_0;
+         |            if not fk_start_0 then state_1_0 <= State_1_S_0;
          |            else
          |              a <= '1';
          |              fk_done_0 <= '1';
-         |              state_1 <= State_1_S_1;
+         |              state_1_0 <= State_1_S_1;
          |            end if;
          |          when State_1_S_1 =>
-         |            if fk_start_0 then state_1 <= State_1_S_1;
+         |            if fk_start_0 then state_1_0 <= State_1_S_1;
          |            else
          |              fk_done_0 <= '0';
-         |              state_1 <= State_1_S_0;
+         |              state_1_0 <= State_1_S_0;
          |            end if;
          |        end case;
          |        case state_2 is
@@ -3528,17 +3528,17 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  b : in signed(W - 1 downto 0);
          |  ua : in unsigned(W - 1 downto 0);
          |  ub : in unsigned(W - 1 downto 0);
-         |  sum : out signed((W + 1) - 1 downto 0);
-         |  usub : out unsigned((W + 1) - 1 downto 0);
-         |  acc : out signed((W + 2) - 1 downto 0);
-         |  uacc : out unsigned((W + 2) - 1 downto 0);
+         |  sum : out signed(W downto 0);
+         |  usub : out unsigned(W downto 0);
+         |  acc : out signed(W + 1 downto 0);
+         |  uacc : out unsigned(W + 1 downto 0);
          |  prod : out signed((2 * W) - 1 downto 0);
          |  uprod : out unsigned((2 * W) - 1 downto 0);
          |  c : in std_logic;
-         |  viaSel : out signed((W + 1) - 1 downto 0);
-         |  viaIf : out signed((W + 1) - 1 downto 0);
-         |  shr : out signed((W + 2) - 1 downto 0);
-         |  neg : out signed((W + 2) - 1 downto 0)
+         |  viaSel : out signed(W downto 0);
+         |  viaIf : out signed(W downto 0);
+         |  shr : out signed(W + 1 downto 0);
+         |  neg : out signed(W + 1 downto 0)
          |);
          |end ParamWiden;
          |
@@ -3748,4 +3748,531 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("nonzero-low bit vector struct fields and vector cells") {
+    given options.CompilerOptions.Backend = _.vhdl.v2008
+    class BitsHLComposite extends RTDesign:
+      case class P(f: BitsHL[9, 2] <> VAL, g: Bit <> VAL) extends Struct
+      val p  = P                <> IN
+      val v  = BitsHL(9, 2) X 2 <> IN
+      val f8 = Bits(8)          <> OUT
+      val f4 = Bits(4)          <> OUT
+      val fb = Bit              <> OUT
+      val c8 = Bits(8)          <> OUT
+      f8 := p.f
+      f4 := p.f(5, 2)
+      fb := p.f(5)
+      c8 := v(0)
+    end BitsHLComposite
+    val top = BitsHLComposite().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|type P is record
+         |  f : std_logic_vector(9 downto 2);
+         |  g : std_logic;
+         |end record;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.BitsHLComposite_pkg.all;
+         |
+         |entity BitsHLComposite is
+         |port (
+         |  p_0 : in P;
+         |  v : in t_arrX1_std_logic_vector(0 to 1)(9 downto 2);
+         |  f8 : out std_logic_vector(7 downto 0);
+         |  f4 : out std_logic_vector(3 downto 0);
+         |  fb : out std_logic;
+         |  c8 : out std_logic_vector(7 downto 0)
+         |);
+         |end BitsHLComposite;
+         |
+         |architecture BitsHLComposite_arch of BitsHLComposite is
+         |begin
+         |  f8 <= p_0.f;
+         |  f4 <= p_0.f(5 downto 2);
+         |  fb <= p_0.f(5);
+         |  c8 <= v(0);
+         |end BitsHLComposite_arch;
+         |""".stripMargin
+    )
+  }
+  test("nonzero-low bit vector ports and selection") {
+    given options.CompilerOptions.Backend = _.vhdl.v2008
+    class BitsHLTop extends RTDesign:
+      val x = BitsHL(9, 2) <> IN
+      val y = Bits(8)      <> OUT
+      val b = Bit          <> OUT
+      y := x
+      b := x(5)
+    end BitsHLTop
+    val top = BitsHLTop().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity BitsHLTop is
+         |port (
+         |  x : in std_logic_vector(9 downto 2);
+         |  y : out std_logic_vector(7 downto 0);
+         |  b : out std_logic
+         |);
+         |end BitsHLTop;
+         |
+         |architecture BitsHLTop_arch of BitsHLTop is
+         |begin
+         |  y <= x;
+         |  b <= x(5);
+         |end BitsHLTop_arch;
+         |""".stripMargin
+    )
+  }
+  test("BitsHL constant bounds emit as written") {
+    class HLBounds(val HI: Int <> CONST = 5, val LO: Int <> CONST = 4) extends RTDesign:
+      val b = BitsHL(HI, LO) <> OUT
+      val c = BitsHL(HI, 0)  <> OUT
+      val d = BitsHL(9, LO)  <> OUT
+      val e = Bits(HI)       <> OUT
+      b <> all(0)
+      c <> all(0)
+      d <> all(0)
+      e <> all(0)
+    end HLBounds
+    val top = HLBounds().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity HLBounds is
+         |generic (
+         |  HI : integer := 5;
+         |  LO : integer := 4
+         |);
+         |port (
+         |  b : out std_logic_vector(HI downto LO);
+         |  c : out std_logic_vector(HI downto 0);
+         |  d : out std_logic_vector(9 downto LO);
+         |  e : out std_logic_vector(HI - 1 downto 0)
+         |);
+         |end HLBounds;
+         |
+         |architecture HLBounds_arch of HLBounds is
+         |begin
+         |  b <= repeat("0", (HI - LO) + 1);
+         |  c <= repeat("0", HI + 1);
+         |  d <= repeat("0", (9 - LO) + 1);
+         |  e <= repeat("0", HI);
+         |end HLBounds_arch;
+         |""".stripMargin
+    )
+  }
+  test("Docstrings on named types"):
+    /** struct doc */
+    case class DocS(a: Bit <> VAL) extends Struct
+
+    /** enum doc */
+    enum DocE extends Encoded:
+      case E0, E1
+
+    /** opaque doc */
+    case class DocO() extends Opaque(Bit)
+    class DocTop extends DFDesign:
+      val s = DocS <> VAR
+      val e = DocE <> VAR
+      val o = DocO <> VAR
+    val top = (new DocTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity DocTop is
+         |end DocTop;
+         |
+         |architecture DocTop_arch of DocTop is
+         |  -- struct doc 
+         |  type DocS is record
+         |    a : std_logic;
+         |  end record;
+         |  -- enum doc 
+         |  type DocE is (
+         |    DocE_E0, DocE_E1
+         |  );
+         |  -- opaque doc 
+         |  subtype DocO is std_logic;
+         |  signal s : DocS;
+         |  signal e : DocE;
+         |  signal o : DocO;
+         |begin
+         |end DocTop_arch;
+         |""".stripMargin
+    )
+  test("Namespace-derived type packages"):
+    class PkgTop extends EDDesign:
+      val sp = typespkg1.PkgStruct <> IN
+      val so = typespkg1.PkgStruct <> OUT
+      val e  = typespkg1.PkgEnum   <> VAR
+      val o  = typespkg1.PkgOpaque <> VAR
+      val w  = typespkg2.PkgWrap   <> VAR
+      val u  = UInt(8)             <> VAR init typespkg2.PkgWide
+      so <> sp
+    val top = (new PkgTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|type GlbNsStruct is record
+         |  g : std_logic_vector(1 downto 0);
+         |end record;
+         |constant GlbNsConst : unsigned(7 downto 0) := 8d"3";
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.PkgTop_pkg.all;
+         |
+         |package typespkg1 is
+         |type PkgStruct is record
+         |  a : std_logic_vector(7 downto 0);
+         |  b : std_logic;
+         |  g : GlbNsStruct;
+         |end record;
+         |function bitWidth(A: PkgStruct) return integer;
+         |function to_slv(A: PkgStruct) return std_logic_vector;
+         |function to_PkgStruct(A: std_logic_vector) return PkgStruct;
+         |function bool_sel(C : boolean; T : PkgStruct; F : PkgStruct) return PkgStruct;
+         |type PkgEnum is (
+         |  PkgEnum_P0, PkgEnum_P1, PkgEnum_P2
+         |);
+         |function bitWidth(A: PkgEnum) return integer;
+         |function to_slv(A: PkgEnum) return std_logic_vector;
+         |function to_PkgEnum(A: std_logic_vector) return PkgEnum;
+         |function bool_sel(C : boolean; T : PkgEnum; F : PkgEnum) return PkgEnum;
+         |subtype PkgOpaque is std_logic_vector(3 downto 0);
+         |function to_PkgOpaque(A: std_logic_vector) return PkgOpaque;
+         |constant PkgConst : unsigned(7 downto 0) := GlbNsConst + 8d"39";
+         |pure function pkgCalc(arg : unsigned(7 downto 0)) return unsigned;
+         |constant PkgDerived : unsigned(7 downto 0) := pkgCalc(PkgConst);
+         |end package typespkg1;
+         |
+         |package body typespkg1 is
+         |function bitWidth(A : PkgStruct) return integer is
+         |  variable width : integer;
+         |begin
+         |  width := 0;
+         |  width := width + bitWidth(A.a);
+         |  width := width + bitWidth(A.b);
+         |  width := width + bitWidth(A.g);
+         |  return width;
+         |end;
+         |function to_slv(A : PkgStruct) return std_logic_vector is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+         |begin
+         |  lo := bitWidth(A);
+         |  hi := lo - 1; lo := hi - bitWidth(A.a) + 1; ret(hi downto lo) := A.a;
+         |  hi := lo - 1; lo := hi - bitWidth(A.b) + 1; ret(hi downto lo) := to_slv(A.b);
+         |  hi := lo - 1; lo := hi - bitWidth(A.g) + 1; ret(hi downto lo) := to_slv(A.g);
+         |  return ret;
+         |end;
+         |function to_PkgStruct(A : std_logic_vector) return PkgStruct is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : PkgStruct;
+         |begin
+         |  lo := A'length;
+         |  hi := lo - 1; lo := hi - bitWidth(ret.a) + 1; ret.a := A(hi downto lo);
+         |  hi := lo - 1; lo := hi - bitWidth(ret.b) + 1; ret.b := to_sl(A(hi downto lo));
+         |  hi := lo - 1; lo := hi - bitWidth(ret.g) + 1; ret.g := to_GlbNsStruct(A(hi downto lo));
+         |  return ret;
+         |end;
+         |function bool_sel(C : boolean; T : PkgStruct; F : PkgStruct) return PkgStruct is
+         |begin
+         |  if C then
+         |    return T;
+         |  else
+         |    return F;
+         |  end if;
+         |end;
+         |function bitWidth(A : PkgEnum) return integer is
+         |begin
+         |  return 2;
+         |end;
+         |function to_slv(A : PkgEnum) return std_logic_vector is
+         |  variable int_val : integer;
+         |begin
+         |  case A is
+         |    when PkgEnum_P0 => int_val := 0;
+         |    when PkgEnum_P1 => int_val := 1;
+         |    when PkgEnum_P2 => int_val := 2;
+         |  end case;
+         |  return resize(to_slv(int_val), 2);
+         |end;
+         |function to_PkgEnum(A : std_logic_vector) return PkgEnum is
+         |begin
+         |  case to_integer(unsigned(A)) is
+         |    when 0 => return PkgEnum_P0;
+         |    when 1 => return PkgEnum_P1;
+         |    when 2 => return PkgEnum_P2;
+         |    when others => 
+         |      assert false report "Unknown state detected!" severity error;
+         |      return PkgEnum_P0;
+         |  end case;
+         |end;
+         |function bool_sel(C : boolean; T : PkgEnum; F : PkgEnum) return PkgEnum is
+         |begin
+         |  if C then
+         |    return T;
+         |  else
+         |    return F;
+         |  end if;
+         |end;
+         |function to_PkgOpaque(A : std_logic_vector) return PkgOpaque is
+         |  variable A0 : std_logic_vector(A'length - 1 downto 0);
+         |begin
+         |  A0 := A;
+         |  return A0;
+         |end;
+         |pure function pkgCalc(arg : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return arg + 8d"1";
+         |end function;
+         |end package body typespkg1;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.PkgTop_pkg.all;
+         |
+         |package typespkg2 is
+         |type PkgWrap is record
+         |  s : work.typespkg1.PkgStruct;
+         |  n : unsigned(7 downto 0);
+         |end record;
+         |function bitWidth(A: PkgWrap) return integer;
+         |function to_slv(A: PkgWrap) return std_logic_vector;
+         |function to_PkgWrap(A: std_logic_vector) return PkgWrap;
+         |function bool_sel(C : boolean; T : PkgWrap; F : PkgWrap) return PkgWrap;
+         |constant PkgWide : unsigned(7 downto 0) := work.typespkg1.pkgCalc(work.typespkg1.PkgDerived);
+         |end package typespkg2;
+         |
+         |package body typespkg2 is
+         |function bitWidth(A : PkgWrap) return integer is
+         |  variable width : integer;
+         |begin
+         |  width := 0;
+         |  width := width + bitWidth(A.s);
+         |  width := width + bitWidth(A.n);
+         |  return width;
+         |end;
+         |function to_slv(A : PkgWrap) return std_logic_vector is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+         |begin
+         |  lo := bitWidth(A);
+         |  hi := lo - 1; lo := hi - bitWidth(A.s) + 1; ret(hi downto lo) := to_slv(A.s);
+         |  hi := lo - 1; lo := hi - bitWidth(A.n) + 1; ret(hi downto lo) := to_slv(A.n);
+         |  return ret;
+         |end;
+         |function to_PkgWrap(A : std_logic_vector) return PkgWrap is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : PkgWrap;
+         |begin
+         |  lo := A'length;
+         |  hi := lo - 1; lo := hi - bitWidth(ret.s) + 1; ret.s := work.typespkg1.to_PkgStruct(A(hi downto lo));
+         |  hi := lo - 1; lo := hi - bitWidth(ret.n) + 1; ret.n := unsigned(A(hi downto lo));
+         |  return ret;
+         |end;
+         |function bool_sel(C : boolean; T : PkgWrap; F : PkgWrap) return PkgWrap is
+         |begin
+         |  if C then
+         |    return T;
+         |  else
+         |    return F;
+         |  end if;
+         |end;
+         |end package body typespkg2;
+         |
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.PkgTop_pkg.all;
+         |
+         |entity PkgTop is
+         |port (
+         |  sp : in work.typespkg1.PkgStruct;
+         |  so : out work.typespkg1.PkgStruct
+         |);
+         |end PkgTop;
+         |
+         |architecture PkgTop_arch of PkgTop is
+         |  signal e : work.typespkg1.PkgEnum;
+         |  signal o : work.typespkg1.PkgOpaque;
+         |  signal w : work.typespkg2.PkgWrap;
+         |  signal u : unsigned(7 downto 0) := work.typespkg2.PkgWide;
+         |begin
+         |  so <= sp;
+         |end PkgTop_arch;
+         |""".stripMargin
+    )
+  test("Same-named declarations across packages"):
+    class DualTop extends EDDesign:
+      val a = dualpkg1.Shared <> IN
+      val b = dualpkg2.Shared <> OUT
+      val c = UInt(8)         <> VAR init dualpkg1.SharedDerived
+      val d = UInt(8)         <> VAR init dualpkg2.SharedDerived
+      b.v <> a.v.resize(8)
+    val top = (new DualTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |package dualpkg1 is
+         |type Shared_0 is record
+         |  v : std_logic_vector(3 downto 0);
+         |end record;
+         |function bitWidth(A: Shared_0) return integer;
+         |function to_slv(A: Shared_0) return std_logic_vector;
+         |function to_Shared_0(A: std_logic_vector) return Shared_0;
+         |function bool_sel(C : boolean; T : Shared_0; F : Shared_0) return Shared_0;
+         |constant SharedConst : unsigned(7 downto 0) := 8d"1";
+         |pure function calc1(arg : unsigned(7 downto 0)) return unsigned;
+         |constant SharedDerived : unsigned(7 downto 0) := calc1(SharedConst);
+         |end package dualpkg1;
+         |
+         |package body dualpkg1 is
+         |function bitWidth(A : Shared_0) return integer is
+         |  variable width : integer;
+         |begin
+         |  width := 0;
+         |  width := width + bitWidth(A.v);
+         |  return width;
+         |end;
+         |function to_slv(A : Shared_0) return std_logic_vector is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+         |begin
+         |  lo := bitWidth(A);
+         |  hi := lo - 1; lo := hi - bitWidth(A.v) + 1; ret(hi downto lo) := A.v;
+         |  return ret;
+         |end;
+         |function to_Shared_0(A : std_logic_vector) return Shared_0 is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : Shared_0;
+         |begin
+         |  lo := A'length;
+         |  hi := lo - 1; lo := hi - bitWidth(ret.v) + 1; ret.v := A(hi downto lo);
+         |  return ret;
+         |end;
+         |function bool_sel(C : boolean; T : Shared_0; F : Shared_0) return Shared_0 is
+         |begin
+         |  if C then
+         |    return T;
+         |  else
+         |    return F;
+         |  end if;
+         |end;
+         |pure function calc1(arg : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return arg + 8d"10";
+         |end function;
+         |end package body dualpkg1;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |package dualpkg2 is
+         |type Shared_0 is record
+         |  v : std_logic_vector(7 downto 0);
+         |end record;
+         |function bitWidth(A: Shared_0) return integer;
+         |function to_slv(A: Shared_0) return std_logic_vector;
+         |function to_Shared_0(A: std_logic_vector) return Shared_0;
+         |function bool_sel(C : boolean; T : Shared_0; F : Shared_0) return Shared_0;
+         |constant SharedConst : unsigned(7 downto 0) := 8d"2";
+         |pure function calc2(arg : unsigned(7 downto 0)) return unsigned;
+         |constant SharedDerived : unsigned(7 downto 0) := calc2(SharedConst);
+         |end package dualpkg2;
+         |
+         |package body dualpkg2 is
+         |function bitWidth(A : Shared_0) return integer is
+         |  variable width : integer;
+         |begin
+         |  width := 0;
+         |  width := width + bitWidth(A.v);
+         |  return width;
+         |end;
+         |function to_slv(A : Shared_0) return std_logic_vector is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+         |begin
+         |  lo := bitWidth(A);
+         |  hi := lo - 1; lo := hi - bitWidth(A.v) + 1; ret(hi downto lo) := A.v;
+         |  return ret;
+         |end;
+         |function to_Shared_0(A : std_logic_vector) return Shared_0 is
+         |  variable hi : integer;
+         |  variable lo : integer;
+         |  variable ret : Shared_0;
+         |begin
+         |  lo := A'length;
+         |  hi := lo - 1; lo := hi - bitWidth(ret.v) + 1; ret.v := A(hi downto lo);
+         |  return ret;
+         |end;
+         |function bool_sel(C : boolean; T : Shared_0; F : Shared_0) return Shared_0 is
+         |begin
+         |  if C then
+         |    return T;
+         |  else
+         |    return F;
+         |  end if;
+         |end;
+         |pure function calc2(arg : unsigned(7 downto 0)) return unsigned is
+         |begin
+         |  return arg + 8d"20";
+         |end function;
+         |end package body dualpkg2;
+         |
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |
+         |entity DualTop is
+         |port (
+         |  a : in work.dualpkg1.Shared_0;
+         |  b : out work.dualpkg2.Shared_0
+         |);
+         |end DualTop;
+         |
+         |architecture DualTop_arch of DualTop is
+         |  signal c : unsigned(7 downto 0) := work.dualpkg1.SharedDerived;
+         |  signal d : unsigned(7 downto 0) := work.dualpkg2.SharedDerived;
+         |begin
+         |  b.v <= eby(a.v, 4);
+         |end DualTop_arch;
+         |""".stripMargin
+    )
 end PrintVHDLCodeSpec

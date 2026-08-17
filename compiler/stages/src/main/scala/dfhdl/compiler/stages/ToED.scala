@@ -73,18 +73,23 @@ case object ToED extends HierarchyStage:
       }
     def lookupClkRst(owner: DFDomainOwner): (Option[DFVal.Dcl], Option[DFVal.Dcl]) =
       ownerClkRstCache.getOrElseUpdate(
-        owner,
-        relatedTarget(owner) match
-          case Some(target) => lookupClkRst(target)
-          case None         =>
-            val members = subDB.domainOwnerMemberTable(owner)
-            val clkOpt = members.collectFirst {
-              case clk: DFVal.Dcl if clk.isClkDcl => clk
-            }
-            val rstOpt = members.collectFirst {
-              case rst: DFVal.Dcl if rst.isRstDcl => rst
-            }
-            (clkOpt, rstOpt)
+        owner, {
+          val members = subDB.domainOwnerMemberTable(owner)
+          val ownClkOpt = members.collectFirst {
+            case clk: DFVal.Dcl if clk.isClkDcl => clk
+          }
+          relatedTarget(owner) match
+            case Some(target) =>
+              // a related domain may declare its own derived clock dcl, which overrides the
+              // clock resolved through the relation; the reset always resolves through it
+              val (targetClkOpt, targetRstOpt) = lookupClkRst(target)
+              (ownClkOpt.orElse(targetClkOpt), targetRstOpt)
+            case None =>
+              val rstOpt = members.collectFirst {
+                case rst: DFVal.Dcl if rst.isRstDcl => rst
+              }
+              (ownClkOpt, rstOpt)
+        }
       )
 
     // the last handled design to know when a design is switched to clear
@@ -700,7 +705,12 @@ case object ToED extends HierarchyStage:
           val alreadyHasClk = dcl.meta.annotations.exists {
             case _: constraints.Timing.Clock => true; case _ => false
           }
-          if (alreadyHasClk) None
+          // a related domain's own clk dcl is a derived clock (typically gated): it must not
+          // receive the origin's `@timing.clock` (no `create_clock` on a derived clock port)
+          val isDerivedClk = dcl.getOwnerDomain.meta.annotations.exists {
+            case _: constraints.Timing.Related => true; case _ => false
+          }
+          if (alreadyHasClk || isDerivedClk) None
           else
             resolveTimingOwner(dcl.getOwnerDomain).meta.annotations.collectFirst {
               case c: constraints.Timing.Clock => c

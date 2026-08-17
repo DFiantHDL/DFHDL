@@ -9,8 +9,8 @@ generic (
   lhs : std_logic_vector(7 downto 0)
 );
 port (
-  rhs : in  t_opaque_AESByte;
-  o   : out t_opaque_AESByte
+  rhs : in  AESByte;
+  o   : out AESByte
 );
 end mulByte_2;
 

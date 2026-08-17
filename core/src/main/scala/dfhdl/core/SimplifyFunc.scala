@@ -10,6 +10,12 @@ private object SimplifyFunc:
     // are skipped in that mode.
     if (dfc.inMetaProgramming) None
     else
+      // A global operand (e.g. an object-scoped `Int <> CONST` alias) may be seen here before
+      // its first `refTW`, which is what injects the operand's own global context into this
+      // run's DB (`injectGlobalCtx`). The extractors below dereference operand refs
+      // (`stripTypePreservingAliases`, arg walks), so the injection must happen up front, or
+      // the first dereference dies with `Missing ref` (issue #494).
+      opArgs._3.foreach(_.injectGlobalCtx())
       opArgs match
         // These three run even in global context (no owner).
         case ConstFoldAddSubChain(v) => Some(v)
@@ -24,8 +30,10 @@ private object SimplifyFunc:
         case IdentityOps(v)               => Some(v)
         case SelfCancelling(v)            => Some(v)
         case MaxMinWithOffset(v)          => Some(v)
+        case CompareAgainstMaxMin(v)      => Some(v)
         case AdditiveCancellation(v)      => Some(v)
         case _                            => None
+      end match
 
   // Checks if an intermediate Func can be merged into the current one.
   // + and * are only merged when the intermediate has the same dfType (non-carry).
@@ -38,7 +46,7 @@ private object SimplifyFunc:
   )(using ir.MemberGetSet): Boolean =
     op match
       case FuncOp.++ =>
-        resultType.isInstanceOf[ir.DFBits] && prevFunc.dfType.isInstanceOf[ir.DFBits]
+        resultType.isInstanceOf[ir.DFBitsWL] && prevFunc.dfType.isInstanceOf[ir.DFBitsWL]
       case FuncOp.+ | FuncOp.`*` =>
         prevFunc.dfType == resultType
       case FuncOp.- => false
@@ -51,6 +59,21 @@ private object SimplifyFunc:
     ir.DFVal.Const(
       ir.DFInt32, Some(value),
       dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
+    ).addMember
+
+  // Creates a fresh Func with the current DFC meta, for a simplification that rewrites the
+  // operation rather than answering with a value that already exists.
+  private def mkFunc(dfType: ir.DFType, op: FuncOp, args: List[ir.DFVal])(using
+      dfc: DFC
+  ): ir.DFVal =
+    import dfc.getSet
+    ir.DFVal.Func(
+      dfType,
+      op,
+      args.map(_.refTW[ir.DFVal](knownReachable = true)),
+      dfc.ownerOrEmptyRef,
+      dfc.getMeta,
+      dfc.tags
     ).addMember
 
   // Naming without mutation: a simplification returns an EXISTING value, so a `val` binding's
@@ -180,6 +203,103 @@ private object SimplifyFunc:
     end unapply
   end MaxMinChainAbsorb
 
+  // A comparison between a `max`/`min` and one of its OWN branches decides that branch away.
+  // Writing the chain as `max(a, B)` for the branch `a` being compared and `B` for whatever is
+  // left of it, every such comparison is either an answer or a comparison of `B` with `a`:
+  //
+  //   max(a, B) >= a   true          min(a, B) <= a   true
+  //   max(a, B) <  a   false         min(a, B) >  a   false
+  //   max(a, B) >  a   B >  a        min(a, B) <  a   B <  a
+  //   max(a, B) <= a   B <= a        min(a, B) >= a   B >= a
+  //   max(a, B) === a  B <= a        min(a, B) === a  B >= a
+  //   max(a, B) =!= a  B >  a        min(a, B) =!= a  B <  a
+  //
+  // with the branch on the left the same table read through the reversed operation. The shape
+  // arises wherever a width taken as the COMMON width of two operands meets one of them again,
+  // so a design that has to hold `x(W1) + y(W2)` in `W1` bits requires `W1 >= W2` and says so,
+  // rather than restating the common width it went through.
+  private object CompareAgainstMaxMin:
+    private def mkBool(value: Boolean)(using dfc: DFC): ir.DFVal =
+      import dfc.getSet
+      ir.DFVal.Const(
+        ir.DFBool, Some(value),
+        dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
+      ).addMember
+
+    // the same relation read from the other side
+    private def reversed(op: FuncOp): FuncOp = op match
+      case FuncOp.>= => FuncOp.<=
+      case FuncOp.<= => FuncOp.>=
+      case FuncOp.>  => FuncOp.<
+      case FuncOp.<  => FuncOp.>
+      case symmetric => symmetric // `===` and `=!=` read alike from either side
+
+    // What is left of `chain` once the branch that is `self` is dropped, when `chain` is a
+    // `maxMin` having it as a branch. `None` when it is not one, or does not.
+    private def withoutBranch(chain: ir.DFVal, self: ir.DFVal, maxMin: FuncOp)(using
+        dfc: DFC
+    ): Option[ir.DFVal] =
+      import dfc.getSet
+      // ident-transparent, as the max/min chain absorption above is: either side may be a
+      // (named) ident of the expression it stands for
+      chain.stripTypePreservingAliases match
+        case f: ir.DFVal.Func if f.dfType == ir.DFInt32 && f.op == maxMin =>
+          val selfStripped = self.stripTypePreservingAliases
+          val branches = f.args.map(_.get)
+          val rest = branches.filterNot(_.stripTypePreservingAliases =~ selfStripped)
+          if (rest.sizeIs == branches.size) None // `self` is not one of the branches
+          else
+            rest match
+              // nothing but `self`, so the chain IS `self`; the chain absorption above is what
+              // reduces that, and it does so before any comparison sees it
+              case Nil         => None
+              case only :: Nil => Some(only)
+              case several     => Some(mkFunc(ir.DFInt32, maxMin, several))
+        case _ => None
+    end withoutBranch
+
+    // the table above, for `maxMin(self, rest) op self`: an answer, or the operation to apply
+    // between `rest` and `self`
+    private def reduction(maxMin: FuncOp, op: FuncOp): Either[Boolean, FuncOp] =
+      val isMax = maxMin == FuncOp.max
+      op match
+        case FuncOp.>=  => if (isMax) Left(true) else Right(FuncOp.>=)
+        case FuncOp.<=  => if (isMax) Right(FuncOp.<=) else Left(true)
+        case FuncOp.>   => if (isMax) Right(FuncOp.>) else Left(false)
+        case FuncOp.<   => if (isMax) Left(false) else Right(FuncOp.<)
+        case FuncOp.=== => if (isMax) Right(FuncOp.<=) else Right(FuncOp.>=)
+        case _          => if (isMax) Right(FuncOp.>) else Right(FuncOp.<)
+
+    def unapply(opArgs: (ir.DFType, FuncOp, List[ir.DFVal]))(using dfc: DFC): Option[ir.DFVal] =
+      opArgs match
+        case (
+              ir.DFBool,
+              op @ (FuncOp.>= | FuncOp.<= | FuncOp.> | FuncOp.< | FuncOp.=== | FuncOp.=!=),
+              List(lhs, rhs)
+            ) =>
+          // read with the chain on the left, which is the orientation the table is written in,
+          // and put the answer back the way it was written
+          def attempt(
+              chain: ir.DFVal,
+              self: ir.DFVal,
+              chainOp: FuncOp,
+              chainOnLeft: Boolean
+          ): Option[ir.DFVal] =
+            List(FuncOp.max, FuncOp.min).view.flatMap { maxMin =>
+              withoutBranch(chain, self, maxMin).map { rest =>
+                reduction(maxMin, chainOp) match
+                  case Left(answer)  => mkBool(answer)
+                  case Right(restOp) =>
+                    if (chainOnLeft) mkFunc(ir.DFBool, restOp, List(rest, self))
+                    else mkFunc(ir.DFBool, reversed(restOp), List(self, rest))
+              }
+            }.headOption
+          attempt(lhs, rhs, op, chainOnLeft = true)
+            .orElse(attempt(rhs, lhs, reversed(op), chainOnLeft = false))
+        case _ => None
+    end unapply
+  end CompareAgainstMaxMin
+
   // Merge consecutive same-op anonymous Funcs for associative operations.
   // E.g., `a + b + c` becomes Func(+, [a, b, c]) instead of nested binary Funcs.
   // For left-associative chains, only the first arg can be an absorbed Func.
@@ -192,6 +312,15 @@ private object SimplifyFunc:
         case (dfType, op, (prevFunc: ir.DFVal.Func) :: rest)
             if ir.DFVal.Func.Op.associativeSet.contains(op)
               && prevFunc.op == op
+              // `&`, `|` and `^` name TWO operations apiece: the binary bitwise/logical one
+              // and the unary reduction (`a.^`, one operand, a single-bit result). A matching
+              // `op` therefore does not imply a matching operation, and only the multi-operand
+              // form of an associative op is associative at all. Absorbing across the two forms
+              // splices a reduction's operand into a binary chain (or a binary chain's operands
+              // into a reduction) and the reduction is simply lost: `a.^ ^ b.^` became
+              // `a ^ b.^` and `(a ^ b).^` became `a ^ b` (issue #483).
+              && rest.nonEmpty
+              && prevFunc.args.sizeIs > 1
               && prevFunc.isAnonymous
               && !rest.contains(prevFunc)
               && canMergeFunc(dfType, op, prevFunc) =>
@@ -313,30 +442,34 @@ private object SimplifyFunc:
     end unapply
   end MaxMinWithOffset
 
-  // Cancels opposing +/- terms of the same non-constant DFVal across a
-  // left-associative DFInt32 additive chain. Handles e.g. `(x - 1) - x => -1`,
-  // which together with Const+Const folding handles `x - 1 - x + 5 => 4`.
+  // Cancels opposing +/- terms of the same non-constant DFVal across a DFInt32 additive
+  // TREE. Handles e.g. `(x - 1) - x => -1` (which together with Const+Const folding handles
+  // `x - 1 - x + 5 => 4`) and `x + (y - x) => y`, the shape a relative width adjustment
+  // takes: `.eby(k)` asks for `sourceWidth + k`, and a `k` written as the distance to
+  // another width states that width back.
   private object AdditiveCancellation:
-    // Walk a left-associative +/- chain rooted at `v` and return its terms
-    // as (sign, DFVal). Non-chain leaves become a single positive term.
-    private def collectChain(v: ir.DFVal)(using ir.MemberGetSet): List[(Int, ir.DFVal)] =
-      def loop(v: ir.DFVal, sign: Int, acc: List[(Int, ir.DFVal)]): List[(Int, ir.DFVal)] =
-        v match
-          case f: ir.DFVal.Func
-              if f.isAnonymous && f.dfType == ir.DFInt32 &&
-                (f.op == FuncOp.+ || f.op == FuncOp.-) && f.args.size == 2 =>
-            val List(lhs, rhs) = f.args.map(_.get): @unchecked
-            val rhsSign = if (f.op == FuncOp.+) sign else -sign
-            loop(lhs, sign, (rhsSign, rhs) :: acc)
-          case _ => (sign, v) :: acc
-      loop(v, 1, Nil)
+    // The terms of the additive tree rooted at `v`, as (sign, DFVal). Descends through
+    // ANONYMOUS `+`/`-` Funcs on EITHER side, associativity being no reason to prefer one:
+    // the same relation is spelled left-nested by a chain of operations and right-nested by
+    // one whose operand is a difference. A named Func is a value the user gave a name to and
+    // stays one term, as does anything that is not an additive Func.
+    private def collectTerms(v: ir.DFVal, sign: Int)(using
+        ir.MemberGetSet
+    ): List[(Int, ir.DFVal)] =
+      v match
+        case f: ir.DFVal.Func
+            if f.isAnonymous && f.dfType == ir.DFInt32 &&
+              (f.op == FuncOp.+ || f.op == FuncOp.-) && f.args.size == 2 =>
+          val List(lhs, rhs) = f.args.map(_.get): @unchecked
+          collectTerms(lhs, sign) ++ collectTerms(rhs, if (f.op == FuncOp.+) sign else -sign)
+        case _ => List((sign, v))
 
     def unapply(opArgs: (ir.DFType, FuncOp, List[ir.DFVal]))(using dfc: DFC): Option[ir.DFVal] =
       import dfc.getSet
       opArgs match
-        case (ir.DFInt32, currentOp @ (FuncOp.+ | FuncOp.-), List(prev, curr))
-            if prev.isAnonymous =>
-          val chain = collectChain(prev) :+ ((if (currentOp == FuncOp.+) 1 else -1, curr))
+        case (ir.DFInt32, currentOp @ (FuncOp.+ | FuncOp.-), List(prev, curr)) =>
+          val chain =
+            collectTerms(prev, 1) ++ collectTerms(curr, if (currentOp == FuncOp.+) 1 else -1)
           if (chain.size < 2) None
           else
             // Find two terms with opposite signs whose DFVals are =~ (ident-transparent).

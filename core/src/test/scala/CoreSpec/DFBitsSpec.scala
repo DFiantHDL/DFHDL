@@ -270,7 +270,7 @@ class DFBitsSpec extends DFSpec:
       b8.lsbitsAt(2, 4) := b8.msbitsAt(7, 4)
     }
     assertDSLErrorLog(
-      "Index 8 is out of range of width/length 8"
+      "Index 8 is above the high index 7 of the selected value"
     )(
       """b8.lsbitsAt(5, 4)"""
     ) {
@@ -278,7 +278,7 @@ class DFBitsSpec extends DFSpec:
       b8.lsbitsAt(five, 4)
     }
     assertDSLErrorLog(
-      "Index -1 is out of range of width/length 8"
+      "Index -1 is below the low index 0 of the selected value"
     )(
       """b8.msbitsAt(2, 4)"""
     ) {
@@ -447,6 +447,174 @@ class DFBitsSpec extends DFSpec:
       val d8 = Bits(8) <> VAR
       val d4 = Bits(4) <> VAR
       d8 := d4.truncate
+    }
+  }
+  // `&`, `|` and `^` each name both a binary logic operation and a unary reduction, so the
+  // associative merge of same-op anonymous funcs must not splice one form into the other:
+  // doing so dropped the reduction outright (issue #483).
+  test("Reduction meeting a same-symbol binary operation") {
+    val a = Bits(8) <> VAR
+    val b = Bits(8) <> VAR
+    val c = Bits(8) <> VAR
+    val o1 = Bit <> VAR
+    val o2 = Bits(8) <> VAR
+    assertCodeString {
+      """|o1 := a.^ ^ b.^
+         |o1 := a.& && b.&
+         |o1 := a.| || b.|
+         |o1 := (a ^ b).^
+         |o1 := (a & b).&
+         |o1 := (a | b).|
+         |o1 := a.^ ^ b.^ ^ c.^
+         |o2 := a ^ b ^ c
+         |""".stripMargin
+    } {
+      // a reduction as the LHS of a binary operation with the same symbol
+      o1 := a.^ ^ b.^
+      o1 := a.& & b.&
+      o1 := a.| | b.|
+      // a reduction OF a binary operation with the same symbol
+      o1 := (a ^ b).^
+      o1 := (a & b).&
+      o1 := (a | b).|
+      // the associative merge itself still applies, to each form on its own
+      o1 := a.^ ^ b.^ ^ c.^
+      o2 := a ^ b ^ c
+    }
+  }
+  test("BitsHL inlined width") {
+    val b = BitsHL(9, 2)
+    b.verifyWidth(8)
+  }
+  test("BitsHL type construction errors") {
+    val nine = 9
+    assertDSLErrorLog(
+      "Low index 9 is bigger than High bit index 2"
+    )(
+      """BitsHL(2, 9)"""
+    ) {
+      BitsHL(2, nine)
+    }
+    val minusOne = -1
+    assertDSLErrorLog(
+      "Argument must be natural, but found: -1"
+    )(
+      """BitsHL(3, -1)"""
+    ) {
+      BitsHL(3, minusOne)
+    }
+  }
+  test("BitsHL selection with absolute indices") {
+    val x = BitsHL(9, 2) <> VAR
+    assertCodeString {
+      """|val s = x(5, 2)
+         |val b = x(9)
+         |val m = x(9, 6)
+         |val l = x(5, 2)
+         |""".stripMargin
+    } {
+      val s = x(5, 2)
+      val b = x(9)
+      val m = x.msbits(4)
+      val l = x.lsbits(4)
+    }
+    assertDSLErrorLog(
+      "Index 10 is above the high index 9 of the selected value"
+    )(
+      """x(10, 2)"""
+    ) {
+      val ten = 10
+      x(ten, 2)
+    }
+    assertDSLErrorLog(
+      "Index 1 is below the low index 2 of the selected value"
+    )(
+      """x(5, 1)"""
+    ) {
+      val one = 1
+      x(5, one)
+    }
+  }
+  test("BitsHL match selector is rebased to zero-based bits") {
+    val hl = BitsHL(9, 2) <> VAR
+    assertCodeString(
+      """|hl.bits match
+         |  case h"12" =>
+         |  case h"a${bind: B[4]}" =>
+         |  case _ =>
+         |end match
+         |""".stripMargin
+    ) {
+      hl match
+        case h"12"             =>
+        case h"a${bind: B[4]}" =>
+        case _                 =>
+    }
+  }
+  test("BitsHL declaration, assignment, and comparison") {
+    assertCodeString {
+      """|val x = BitsHL(9, 2) <> VAR
+         |val y = Bits(8) <> VAR
+         |x := h"00"
+         |x := y
+         |y := x
+         |val eq = x == y
+         |""".stripMargin
+    } {
+      val x = BitsHL(9, 2) <> VAR
+      val y = Bits(8) <> VAR
+      x := all(0)
+      x := y
+      y := x
+      val eq = x == y
+    }
+  }
+  test("BitsHL constant bounds: type-form declaration and conformance") {
+    val HI: Int <> CONST = 5
+    val LO: Int <> CONST = 4
+    assertCodeString {
+      """|val a = BitsHL(HI, LO) <> VAR
+         |val b = BitsHL(HI, LO) <> VAR
+         |val o = Bits(2) <> VAR
+         |o := a(HI, LO)
+         |b := a
+         |""".stripMargin
+    } {
+      val a = BitsHL(HI, LO) <> VAR
+      // the type-form declaration takes its bounds from the explicit type arguments
+      val b = BitsHL[HI.type, LO.type] <> VAR
+      // a constructor-form value converts to the (width-collapsed) type-form spelling
+      val x: BitsHL[HI.type, LO.type] <> VAL = a
+      val o = Bits(2) <> VAR
+      o := x(HI, LO)
+      b := a
+    }
+  }
+  test("Bits type-arithmetic spelling over constant params") {
+    val param1: Int <> CONST = 8
+    val param2: Int <> CONST = 4
+    assertCodeString {
+      """|val v = Bits((param1 - param2) + 5) <> VAR
+         |""".stripMargin
+    } {
+      import dfhdl.core.widthIntParam
+      val v = Bits[param1.type - param2.type + 5] <> VAR
+      scala.Predef.assert(v.widthIntParam.toScalaIntOpt.get == 9)
+    }
+  }
+  test("BitsHL constant bounds: struct field DFType summon (#491)") {
+    val HI: Int <> CONST = 5
+    val LO: Int <> CONST = 4
+    case class const_t(x: BitsHL[HI.type, LO.type] <> VAL) extends Struct
+    assertCodeString {
+      """|val p = const_t <> VAR
+         |val o = Bits(2) <> VAR
+         |o := p.x(HI, LO)
+         |""".stripMargin
+    } {
+      val p = const_t <> VAR
+      val o = Bits(2) <> VAR
+      o := p.x(HI, LO)
     }
   }
 end DFBitsSpec

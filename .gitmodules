@@ -1,9 +1,12 @@
 [submodule "platforms"]
 	path = platforms
 	url = https://github.com/DFiantHDL/dfhdl-platforms
+	branch = main
 [submodule "ips"]
 	path = ips
 	url = https://github.com/DFiantHDL/dfhdl-ips
+	branch = main
 [submodule "benchmarks"]
 	path = benchmarks
 	url = https://github.com/DFiantHDL/benchmarks
+	branch = main

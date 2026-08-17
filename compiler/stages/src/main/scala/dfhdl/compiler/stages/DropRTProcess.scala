@@ -306,7 +306,8 @@ case object DropRTProcess extends HierarchyStage:
           val entries = ListMap.from(stateBlocks.view.zipWithIndex.map { case (sb, idx) =>
             sb.getName -> BigInt(idx)
           })
-          val stateEnumIR = DFEnum(enumName, (stateBlocks.length - 1).bitsWidth(false), entries)
+          val stateEnumIR =
+            DFEnum(Meta.named(enumName), (stateBlocks.length - 1).bitsWidth(false), entries)
           type StateEnum = dfhdl.core.DFEnum[dfhdl.core.DFEncoding]
           val stateEnumFE = stateEnumIR.asFE[StateEnum]
           def enumEntry(value: BigInt)(using DFC) = dfhdl.core.DFVal.Const(stateEnumFE, Some(value))

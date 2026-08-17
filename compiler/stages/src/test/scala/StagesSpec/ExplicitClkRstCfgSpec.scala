@@ -255,12 +255,12 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |class IDTop extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.related(IDTop)
+         |  @timing.related(IDTop.this)
          |  val dmn1 = new RTDomain:
          |    val id = ID()
          |    id.x <> x
          |  end dmn1
-         |  @timing.related(IDTop)
+         |  @timing.related(IDTop.this)
          |  val dmn2 = new RTDomain:
          |    val id = ID()
          |    id.x <> dmn1.id.y
@@ -310,12 +310,12 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |class IDTop extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.related(IDTop)
+         |  @timing.related(IDTop.this)
          |  val dmn1 = new RTDomain:
          |    val id = ID()
          |    id.x <> x
          |  end dmn1
-         |  @timing.related(IDTop)
+         |  @timing.related(IDTop.this)
          |  val dmn2 = new RTDomain:
          |    val id = ID()
          |    id.x <> dmn1.id.y
@@ -369,12 +369,12 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |class IDTop extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  @timing.related(IDTop)
+         |  @timing.related(IDTop.this)
          |  val dmn1 = new RTDomain:
          |    val id = ID()
          |    id.x <> x
          |  end dmn1
-         |  @timing.related(IDTop)
+         |  @timing.related(IDTop.this)
          |  val dmn2 = new RTDomain:
          |    val id = ID()
          |    id.x <> dmn1.id.y
@@ -576,7 +576,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val clkGen = ClkGen()
-         |  @timing.related(ID)
+         |  @timing.related(ID.this)
          |  val internal = new RTDomain:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT

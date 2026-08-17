@@ -229,5 +229,287 @@ class ConnectMagnetsSpec extends StageSpec:
          |end Top""".stripMargin
     )
   }
+  test("Derived clock threads through a pass-through design by name") {
+    class Leaf extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+      y.din := x
+      @hw.constraints.timing.related(this)
+      val active = new RTDomain:
+        val clk = Clk      <> IN
+        val z   = SInt(16) <> OUT.REG init 0
+        z.din := x
+    class Mid extends RTDesign:
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
+      val leaf = Leaf()
+      leaf.x <> x
+      y      <> leaf.y
+    class Core extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      @hw.constraints.timing.related(this)
+      val active = new RTDomain:
+        val clk = Clk <> IN
+      val mid = Mid()
+      mid.x <> x
+      y     <> mid.y
+    class Top extends RTDesign:
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
+      val gclk = Bit      <> IN
+      val core = Core()
+      core.x          <> x
+      y               <> core.y
+      core.active.clk <> gclk.as(core.active.Clk)
+    val top = (new Top).connectMagnets
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Leaf extends RTDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT.REG init sd"16'0"
+         |  y.din := x
+         |  @timing.related(Leaf.this)
+         |  val active = new RTDomain:
+         |    val clk = Clk_active_clk <> IN
+         |    val z = SInt(16) <> OUT.REG init sd"16'0"
+         |    z.din := x
+         |  end active
+         |end Leaf
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Mid extends RTDesign:
+         |  val active_clk = Clk_active_clk <> IN
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val leaf = Leaf()
+         |  leaf.x <> x
+         |  y <> leaf.y
+         |  leaf.active.clk <> active_clk
+         |  leaf.clk <> clk
+         |  leaf.rst <> rst
+         |end Mid
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Core extends RTDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  @timing.related(Core.this)
+         |  val active = new RTDomain:
+         |    val clk = Clk_active_clk <> IN
+         |  end active
+         |  val mid = Mid()
+         |  mid.x <> x
+         |  y <> mid.y
+         |  mid.active_clk <> active.clk
+         |  mid.clk <> clk
+         |  mid.rst <> rst
+         |end Core
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Top extends RTDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val gclk = Bit <> IN
+         |  val core = Core()
+         |  core.x <> x
+         |  y <> core.y
+         |  core.active.clk <> gclk.as(Clk_active_clk)
+         |  core.clk <> clk
+         |  core.rst <> rst
+         |end Top
+         |""".stripMargin
+    )
+  }
+
+  test("An output derived clock sources same-named derived clocks") {
+    class Gater extends RTDesign:
+      val gclk = Bit <> IN
+      val en   = Bit <> IN
+      val enq  = Bit <> VAR.REG init 0
+      enq.din := en
+      @hw.constraints.timing.related(this)
+      val active = new RTDomain:
+        val clk = Clk <> OUT
+      active.clk <> (gclk && enq).as(active.Clk)
+    class User extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+      y.din := x
+      @hw.constraints.timing.related(this)
+      val active = new RTDomain:
+        val clk = Clk      <> IN
+        val z   = SInt(16) <> OUT.REG init 0
+        z.din := x
+    class Top extends RTDesign:
+      val x     = SInt(16) <> IN
+      val y     = SInt(16) <> OUT
+      val gclk  = Bit      <> IN
+      val en    = Bit      <> IN
+      val gater = Gater()
+      val user  = User()
+      gater.gclk <> gclk
+      gater.en   <> en
+      user.x     <> x
+      y          <> user.y
+    val top = (new Top).connectMagnets
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Gater extends RTDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val gclk = Bit <> IN
+         |  val en = Bit <> IN
+         |  val enq = Bit <> VAR.REG init 0
+         |  enq.din := en
+         |  @timing.related(Gater.this)
+         |  val active = new RTDomain:
+         |    val clk = Clk_active_clk <> OUT
+         |  end active
+         |  active.clk <> (gclk && enq).as(Clk_active_clk)
+         |end Gater
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class User extends RTDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT.REG init sd"16'0"
+         |  y.din := x
+         |  @timing.related(User.this)
+         |  val active = new RTDomain:
+         |    val clk = Clk_active_clk <> IN
+         |    val z = SInt(16) <> OUT.REG init sd"16'0"
+         |    z.din := x
+         |  end active
+         |end User
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Top extends RTDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val gclk = Bit <> IN
+         |  val en = Bit <> IN
+         |  val gater = Gater()
+         |  val user = User()
+         |  gater.gclk <> gclk
+         |  gater.en <> en
+         |  user.x <> x
+         |  y <> user.y
+         |  user.active.clk <> gater.active.clk
+         |  gater.clk <> clk
+         |  user.clk <> clk
+         |  gater.rst <> rst
+         |  user.rst <> rst
+         |end Top
+         |""".stripMargin
+    )
+  }
+  test("A sourceless derived clock surfaces as a top-level port") {
+    class Leaf extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+      y.din := x
+      @hw.constraints.timing.related(this)
+      val active = new RTDomain:
+        val clk = Clk      <> IN
+        val z   = SInt(16) <> OUT.REG init 0
+        z.din := x
+    class Mid extends RTDesign:
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
+      val leaf = Leaf()
+      leaf.x <> x
+      y      <> leaf.y
+    class Top extends RTDesign:
+      val x   = SInt(16) <> IN
+      val y   = SInt(16) <> OUT
+      val mid = Mid()
+      mid.x <> x
+      y     <> mid.y
+    val top = (new Top).connectMagnets
+    assertCodeString(
+      top,
+      """|case class Clk_active_clk() extends Clk
+         |case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Leaf extends RTDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT.REG init sd"16'0"
+         |  y.din := x
+         |  @timing.related(Leaf.this)
+         |  val active = new RTDomain:
+         |    val clk = Clk_active_clk <> IN
+         |    val z = SInt(16) <> OUT.REG init sd"16'0"
+         |    z.din := x
+         |  end active
+         |end Leaf
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Mid extends RTDesign:
+         |  val active_clk = Clk_active_clk <> IN
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val leaf = Leaf()
+         |  leaf.x <> x
+         |  y <> leaf.y
+         |  leaf.active.clk <> active_clk
+         |  leaf.clk <> clk
+         |  leaf.rst <> rst
+         |end Mid
+         |
+         |@timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |@timing.reset(mode = _.sync, active = _.high, portName = "rst", inclusionPolicy = _.asneeded)
+         |class Top extends RTDesign:
+         |  val active_clk = Clk_active_clk <> IN
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val mid = Mid()
+         |  mid.x <> x
+         |  y <> mid.y
+         |  mid.active_clk <> active_clk
+         |  mid.clk <> clk
+         |  mid.rst <> rst
+         |end Top
+         |""".stripMargin
+    )
+  }
 
 end ConnectMagnetsSpec

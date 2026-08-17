@@ -2,6 +2,7 @@
 package issues.i133
 
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 @top(false) class Width0Issue(val width : Int <> CONST) extends RTDesign:
     val d = Bit <> IN

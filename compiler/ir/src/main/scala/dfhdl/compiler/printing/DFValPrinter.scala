@@ -65,26 +65,107 @@ extension (intParamRef: IntParamRef)
     case ref: DFRef.TwoWayAny => printer.csRef(ref, typeCS)
     case int: Int             => int.toString
   def refCodeString(using printer: AbstractValPrinter): String = intParamRef.refCodeString(false)
+
+  /** The signed additive terms of the expression behind this parameter reference, collected across
+    * anonymous two-arg DFInt32 `+`/`-` cones. This is the term collection of the elaboration-time
+    * `SimplifyFunc` additive cancellation, applied at print: a bound expression the PRINTER
+    * synthesizes (`width - 1`, `width + low - 1`) is never built as a value, so its cancellation
+    * can only happen here. Terms keep their references, so a surviving term renders through `csRef`
+    * exactly as the plain spelling would; an ANONYMOUS constant folds into the returned constant
+    * offset, while a named constant is a spelling the user chose and stays a symbolic term.
+    */
+  private def boundTerms(using
+      printer: AbstractValPrinter
+  ): (List[(Int, DFRef.TwoWayAny)], Int) =
+    import printer.getSet
+    def stripAnonIdent(dfVal: DFVal): DFVal = dfVal match
+      case Ident(underlying) if dfVal.isAnonymous => stripAnonIdent(underlying)
+      case _                                      => dfVal
+    def collect(ref: DFRef.TwoWayAny, sign: Int): (List[(Int, DFRef.TwoWayAny)], Int) =
+      ref.get match
+        case f: Func
+            if f.isAnonymous && f.dfType == DFInt32 &&
+              (f.op == FuncOp.+ || f.op == FuncOp.-) && f.args.size == 2 =>
+          val List(lhsRef, rhsRef) = f.args: @unchecked
+          val (lhsTerms, lhsOffset) = collect(lhsRef, sign)
+          val (rhsTerms, rhsOffset) = collect(rhsRef, if (f.op == FuncOp.+) sign else -sign)
+          (lhsTerms ++ rhsTerms, lhsOffset + rhsOffset)
+        case dfVal: DFVal =>
+          stripAnonIdent(dfVal) match
+            case c: Const if c.isAnonymous && c.dfType == DFInt32 =>
+              c.data match
+                case Some(i: BigInt) => (Nil, sign * i.toInt)
+                case _               => (List((sign, ref)), 0)
+            case _ => (List((sign, ref)), 0)
+        case _ => (List((sign, ref)), 0)
+    intParamRef match
+      case ref: DFRef.TwoWayAny => collect(ref, 1)
+      case int: Int             => (Nil, int)
+  end boundTerms
+
+  /** the code string of `width + low + constOffset` (the receiver is the width), with opposing
+    * additive terms cancelled the way elaboration's `SimplifyFunc` would cancel them had the
+    * expression been built as a value. In particular, the width of an explicit
+    * `BitsHL(idxHigh, idxLow)` construction is the cone `(idxHigh - idxLow) + 1`, so its high bound
+    * `width + low - 1` cancels back exactly to the `idxHigh` the user wrote.
+    */
+  private def reducedBoundCS(
+      lowIdxRefOpt: Option[IntParamRef],
+      constOffset: Int,
+      typeCS: Boolean
+  )(using printer: AbstractValPrinter): String =
+    import printer.getSet
+    val (widthTerms, widthOffset) = intParamRef.boundTerms
+    val (lowTerms, lowOffset) = lowIdxRefOpt match
+      case Some(lowIdxRef) => lowIdxRef.boundTerms
+      case None            => (Nil, 0)
+    var terms = widthTerms ++ lowTerms
+    val offset = widthOffset + lowOffset + constOffset
+    // cancel opposing +/- terms of the same value (ident-transparent), one pair per round
+    def strippedValOf(ref: DFRef.TwoWayAny): Option[DFVal] = ref.get match
+      case dfVal: DFVal => Some(dfVal.stripTypePreservingAliases)
+      case _            => None
+    def cancelOnce(ts: List[(Int, DFRef.TwoWayAny)]): Option[List[(Int, DFRef.TwoWayAny)]] =
+      val indexed = ts.zipWithIndex
+      indexed.iterator.flatMap { case ((s1, r1), i) =>
+        indexed.iterator.collectFirst {
+          case ((s2, r2), j)
+              if j > i && s1 == -s2 &&
+                strippedValOf(r1).exists(v1 => strippedValOf(r2).exists(v1 =~ _)) =>
+            ts.zipWithIndex.collect { case (t, k) if k != i && k != j => t }
+        }
+      }.nextOption()
+    var continue = true
+    while (continue)
+      cancelOnce(terms) match
+        case Some(reduced) => terms = reduced
+        case None          => continue = false
+    if (terms.isEmpty) offset.toString
+    else
+      val csTerms = terms.zipWithIndex.map { case ((sign, ref), idx) =>
+        val cs = printer.csRef(ref, typeCS).applyBrackets()
+        if (idx == 0) if (sign > 0) cs else s"-$cs"
+        else if (sign > 0) s" + $cs"
+        else s" - $cs"
+      }.mkString
+      if (offset > 0) s"$csTerms + $offset"
+      else if (offset < 0) s"$csTerms - ${-offset}"
+      else csTerms
+  end reducedBoundCS
+
   def uboundCS(using printer: AbstractValPrinter): String = intParamRef match
-    case ref: DFRef.TwoWayAny =>
-      // TODO: consider implementing an associative int operation reduction
-      // import printer.getSet
-      // ref.get match
-      //   case func @ ir.DFVal.Func(
-      //         ir.DFInt32,
-      //         op @ (Func.Op.+ | Func.Op.-),
-      //         List(argRef, ir.DFRef(const: ir.DFVal.Const)),
-      //         _,
-      //         _,
-      //         _
-      //       ) =>
-      //     val int = const.data.asInstanceOf[Option[BigInt]].get.toInt
-      //     val csArg = printer.csRef(argRef, false)
-      //     if (int == 1) csArg
-      //     else s"$csArg $op ${int - 1}"
-      //   case _ =>
-      s"${printer.csRef(ref, false).applyBrackets()} - 1"
     case int: Int => (int - 1).toString
+    case _        => reducedBoundCS(None, -1, false)
+
+  /** the high-bound expression `low + width - 1` of a bit-vector range (the receiver is the width),
+    * folded to a literal when possible; a literal low of 0 spells exactly like `uboundCS`
+    */
+  def hboundCS(lowIdxRef: IntParamRef, typeCS: Boolean = false)(using
+      printer: AbstractValPrinter
+  ): String =
+    (intParamRef, lowIdxRef) match
+      case (w: Int, l: Int) => (w + l - 1).toString
+      case _                => reducedBoundCS(Some(lowIdxRef), -1, typeCS)
 end extension
 
 extension (alias: Alias)
@@ -104,7 +185,7 @@ trait AbstractValPrinter extends AbstractPrinter:
     */
   final def csInlinedWidth(dfType: DFType): String = dfType match
     case DFBool | DFBit => "1"
-    case dt: DFBits     => dt.widthParamRef.refCodeString
+    case dt: DFBitsWL   => dt.widthParamRef.refCodeString
     case dt: DFDecimal  =>
       if (dt.fractionWidth == 0) dt.magnitudeWidthParamRef.refCodeString
       else s"${dt.magnitudeWidthParamRef.refCodeString.applyBrackets()} + ${dt.fractionWidth}"
@@ -127,7 +208,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       case dfVal: DFVal.DesignParam                   => dfVal.nameCS
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
         if (dfVal.isAnonymous) printer.csDFValExpr(dfVal)
-        else dfVal.nameCS
+        else s"${printer.globalValQualifier(dfVal)}${dfVal.nameCS}"
       case dfVal: DFVal =>
         val callOwner = ref.originMember.getOwner
         val cs = printer.csDFValRef(dfVal, callOwner)
@@ -239,14 +320,17 @@ trait AbstractValPrinter extends AbstractPrinter:
         val designInst = pbns.designInstRef.get
         s"${designInst.getRelativeName(fromOwner)}.${pbns.portNamePath}"
       case expr: CanBeExpr if expr.isAnonymous => csDFValExpr(expr)
-      case _                                   => dfVal.getRelativeName(fromOwner)
+      case g: DFVal.CanBeGlobal if g.isGlobal  =>
+        s"${printer.globalValQualifier(g)}${g.getRelativeName(fromOwner)}"
+      case _ => dfVal.getRelativeName(fromOwner)
 end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:
   type TPrinter <: DFPrinter
   def csMethodCall(call: Func, designKey: StaticRef): String =
     val design = designKey.getDesignBlock
-    s"${design.dclName}(${csMethodCallArgs(call, design).mkString(", ")})"
+    val qualifier = printer.globalMethodQualifier(design)
+    s"$qualifier${design.dclName}(${csMethodCallArgs(call, design).mkString(", ")})"
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String =
     s"(${csExp.applyBrackets()}: ${printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
@@ -322,7 +406,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
                 if (csArgs.length == 2)
                   s"${csArgs.head.applyBrackets()} + ${csArgs.last.applyBrackets()}"
                 else ??? // TODO: handle more than 2 args
-              case structType @ DFStruct(structName, fieldMap) =>
+              case structType @ DFStruct(_, fieldMap) =>
                 if (structType.isTuple) argsInBrackets
                 else
                   structType.name +
@@ -367,15 +451,21 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.signed"
       case (DFUInt(_), DFSInt(_)) =>
         s"${relValStr}.unsigned"
-      case (DFUInt(tWidthRef), DFBits(fWidthRef)) =>
+      case (DFUInt(tWidthRef), _: DFBitsWL) =>
         s"${relValStr}.uint"
-      case (DFSInt(tWidthRef), DFBits(fWidthRef)) =>
+      case (DFSInt(tWidthRef), _: DFBitsWL) =>
         s"${relValStr}.sint"
-      case (DFBits(tWidthParamRef), DFBits(fWidthRef)) =>
-        s"${relValStr}${csResizeOrEby(tWidthParamRef, fWidthRef)}"
-      case (DFBits(tWidthParamRef), DFBit | DFBool) =>
-        s"${relValStr}.toBits(${tWidthParamRef.refCodeString})"
-      case (DFBits(_), _) =>
+      case (to: DFBitsWL, from: DFBitsWL) =>
+        if (to.lowIdxRef.equals(0))
+          // an equal-width cast that only drops a nonzero low index is the `.bits` rebase
+          if (!from.lowIdxRef.equals(0) && to.widthParamRef.isProvablyEqualTo(from.widthParamRef))
+            s"${relValStr}.bits"
+          else s"${relValStr}${csResizeOrEby(to.widthParamRef, from.widthParamRef)}"
+        // a cast INTO a nonzero-low type keeps the explicit `.as(...)` spelling
+        else s"${relValStr}.as(${printer.csDFType(toType)})"
+      case (to: DFBitsWL, DFBit | DFBool) =>
+        s"${relValStr}.toBits(${to.widthParamRef.refCodeString})"
+      case (_: DFBitsWL, _) =>
         s"${relValStr}.bits"
       case (DFUInt(tWidthParamRef), DFUInt(fWidthRef)) =>
         s"${relValStr}${csResizeOrEby(tWidthParamRef, fWidthRef)}"
@@ -391,7 +481,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.as(${printer.csDFType(toType)})"
       case (t, DFOpaque(actualType = ot)) if ot == t =>
         s"${relValStr}.actual"
-      case (_, DFBits(_)) | (DFOpaque(_, _, _, _), _) =>
+      case (_, _: DFBitsWL) | (DFOpaque(_, _, _, _), _) =>
         s"${relValStr}.as(${printer.csDFType(toType)})"
       case (DFUInt(tWidthParamRef), DFInt32) =>
         s"""d"${printer.csWidthInterp(tWidthParamRef)}'$${${relValStr}}""""
@@ -425,7 +515,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     dfVal.dfType match
-      case DFBits(_) | DFUInt(_) | DFSInt(_) =>
+      case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) =>
         s"${dfVal.relValCodeString}(${dfVal.idxHighRef.refCodeString}, ${dfVal.idxLowRef.refCodeString})"
       case _ =>
         s"${dfVal.relValCodeString}(${dfVal.idxLowRef.refCodeString}, ${dfVal.idxHighRef.refCodeString})"
@@ -437,7 +527,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
   // field selections changes from `dv._${idx+1}` to `dv($idx)`
   val TUPLE_MIN_INDEXING = 3
   def csDFValAliasSelectField(dfVal: Alias.SelectField): String =
-    val dfType @ DFStruct(structName, fieldMap) = dfVal.relValRef.get.dfType.runtimeChecked
+    val dfType @ DFStruct(_, fieldMap) = dfVal.relValRef.get.dfType.runtimeChecked
     val fieldSel =
       if (dfType.isTuple)
         if (fieldMap.size > TUPLE_MIN_INDEXING)

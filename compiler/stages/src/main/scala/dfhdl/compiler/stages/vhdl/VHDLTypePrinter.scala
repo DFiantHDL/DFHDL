@@ -16,9 +16,11 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     dfType match
       case DFBool => "boolean"
       case DFBit  => "std_logic"
-  def csDFBits(dfType: DFBits, typeCS: Boolean): String =
+  def csDFBits(dfType: DFBitsWL, typeCS: Boolean): String =
     if (typeCS) "std_logic_vector"
-    else s"std_logic_vector(${dfType.widthParamRef.uboundCS} downto 0)"
+    else
+      val csHigh = dfType.widthParamRef.hboundCS(dfType.lowIdxRef)
+      s"std_logic_vector($csHigh downto ${dfType.lowIdxRef.refCodeString})"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
     // fixed-point (fractionWidth != 0) types are the custom `ufix`/`sfix` arrays with the
@@ -37,6 +39,22 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
   end csDFDecimal
   def csDFString(dfType: DFString, typeCS: Boolean): String = "string"
 
+  // The selected-name qualifier of a packaged type's reference (`work.<pkg>.`), dropped inside
+  // its own package (where its declarations are directly visible). VHDL references packaged
+  // declarations by SELECTED NAME rather than through a blanket `use work.<pkg>.all`, exactly as
+  // SystemVerilog qualifies with `<pkg>::`, so the same simple name may live in two packages
+  // without becoming an ambiguous homograph at the use site.
+  // NOTE: it prefixes the type's REFERENCE forms only. Anything that builds an IDENTIFIER out of
+  // a type name (an array type name, a conversion function name) must use the simple `dfType.name`
+  // and place this qualifier at the front of the identifier it forms.
+  def pkgQualifier(dfType: NamedDFType): String =
+    printer.typePlacementOf(dfType) match
+      case Some(pkg) if !printer.currentPackage.contains(pkg) => s"work.$pkg."
+      case _                                                  => ""
+  // a conversion function of a packaged type is declared IN that package, so its call site takes
+  // the package qualifier ahead of the function name (`work.pkg.to_Foo(...)`)
+  def csConvFuncName(dfType: NamedDFType, funcName: String): String =
+    s"${pkgQualifier(dfType)}$funcName"
   def csNamedDFTypeConvFuncsDcl(dfType: NamedDFType): String =
     val typeName = dfType match
       case dt: DFEnum   => csDFEnumTypeName(dt)
@@ -67,7 +85,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       case dt: DFEnum   => csDFEnumConvFuncsBody(dt)
       case dt: DFStruct => csDFStructConvFuncsBody(dt)
       case dt: DFOpaque => csDFOpaqueConvFuncsBody(dt)
-  def csDFEnumTypeName(dfType: DFEnum): String = s"t_enum_${dfType.name}"
+  def csDFEnumTypeName(dfType: DFEnum): String = s"${pkgQualifier(dfType)}${dfType.name}"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.name
     val entries =
@@ -192,21 +210,26 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
   ): (String, (DFVector, Int)) =
     dfType.cellType match
       case dfType: DFVector => getVecDepthAndCellTypeName(dfType, depth + 1)
-      case cellType         => (csDFType(cellType, true), (dfType, depth))
+      // the cell type name becomes part of the array type IDENTIFIER, so a packaged named
+      // cell type contributes its simple name (never its `work.<pkg>.` qualified reference)
+      case cellType: NamedDFType => (cellType.name, (dfType, depth))
+      case cellType              => (csDFType(cellType, true), (dfType, depth))
   def getVecDepthAndCellTypeName(dfType: DFVector): (String, (DFVector, Int)) =
     if (supportUnconstrainedArrays) getVecDepthAndCellTypeName(dfType, 1)
     else (csDFVectorDclName(dfType), (dfType, 1))
 
   def getCellTypeName(dfType: DFVector): String =
     dfType.cellType match
-      case DFBit                 => "sl"
-      case DFBool                => "boolean"
-      case DFBits(widthParamRef) => s"slv${csIntParamRef(widthParamRef)}"
+      case DFBit        => "sl"
+      case DFBool       => "boolean"
+      case dt: DFBitsWL =>
+        val lowSuffix = if (dt.lowIdxRef.equals(0)) "" else s"_at${csIntParamRef(dt.lowIdxRef)}"
+        s"slv${csIntParamRef(dt.widthParamRef)}$lowSuffix"
       case DFUInt(widthParamRef) => s"unsigned${csIntParamRef(widthParamRef)}"
       case DFSInt(widthParamRef) => s"signed${csIntParamRef(widthParamRef)}"
-      case dt: DFOpaque          => csDFOpaqueTypeName(dt)
+      case dt: DFOpaque          => dt.name
       case dt: DFVector          => csDFVectorDclName(dt)
-      case dt: DFStruct          => csDFStructTypeName(dt)
+      case dt: DFStruct          => dt.name
       case _                     => printer.unsupported
 
   // Wrapper used to uniquely track parameter values and index them
@@ -285,12 +308,12 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     val toCellConv = act(
       vecType =>
         vecType.cellType match
-          case DFBits(_) => argSel
-          case DFBit     => s"to_sl($argSel)"
-          case DFBool    => s"to_bool($argSel)"
-          case DFUInt(_) => s"unsigned($argSel)"
-          case DFSInt(_) => s"signed($argSel)"
-          case _         => s"to_${getCellTypeName(vecType)}($argSel)",
+          case _: DFBitsWL => argSel
+          case DFBit       => s"to_sl($argSel)"
+          case DFBool      => s"to_bool($argSel)"
+          case DFUInt(_)   => s"unsigned($argSel)"
+          case DFSInt(_)   => s"signed($argSel)"
+          case _           => s"to_${getCellTypeName(vecType)}($argSel)",
       depth =>
         if (depth == 1)
           cellTypeName match
@@ -385,7 +408,8 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
             loopType = dfType.cellType
           case cellType =>
             val finale = cellType match
-              case DFBits(width) => s"(${width.uboundCS} downto 0)"
+              case dt: DFBitsWL =>
+                s"(${dt.widthParamRef.hboundCS(dt.lowIdxRef)} downto ${dt.lowIdxRef.refCodeString})"
               case DFUInt(width) => s"(${width.uboundCS} downto 0)"
               case DFSInt(width) => s"(${width.uboundCS} downto 0)"
               case _             => ""
@@ -393,7 +417,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
             inVector = false
       desc
   end csDFVector
-  def csDFOpaqueTypeName(dfType: DFOpaque): String = s"t_opaque_${dfType.name}"
+  def csDFOpaqueTypeName(dfType: DFOpaque): String = s"${pkgQualifier(dfType)}${dfType.name}"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     s"subtype ${csDFOpaqueTypeName(dfType)} is ${csDFType(dfType.actualType)};"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = csDFOpaqueTypeName(dfType)
@@ -405,7 +429,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |  A0 := A;
         |  return ${printer.csBitsToType(dfType.actualType, "A0")};
         |end;""".stripMargin
-  def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.name}"
+  def csDFStructTypeName(dfType: DFStruct): String = s"${pkgQualifier(dfType)}${dfType.name}"
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
       .map((n, t) => s"${n} : ${csDFType(t)};")
@@ -416,8 +440,8 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
   def csDFStructConvFuncsBody(dfType: DFStruct): String =
     val typeName = csDFStructTypeName(dfType)
     def to_slv(fromType: DFType, csArg: String): String = fromType match
-      case DFBits(_) => csArg
-      case _         => s"to_slv($csArg)"
+      case _: DFBitsWL => csArg
+      case _           => s"to_slv($csArg)"
     val fieldLengths = dfType.fieldMap.map { (n, t) =>
       s"width := width + bitWidth(A.$n);"
     }.mkString("\n  ")

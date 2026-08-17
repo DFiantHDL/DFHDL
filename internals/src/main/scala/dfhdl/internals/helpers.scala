@@ -208,6 +208,12 @@ end ValueOfTuple
 //evidence of class T which has no arguments and no type arguments
 trait ClassEv[T]:
   val value: T
+  // best-effort declaration capture of T (for DFHDL type meta): position, doc comment,
+  // and enclosing Scala package. Package-level only: enclosing objects are scoping,
+  // not namespacing.
+  val dclPosition: Position
+  val dclDocOpt: Option[String]
+  val dclNamespace: String
 object ClassEv:
   inline given [T]: ClassEv[T] = ${ macroImpl[T] }
   def macroImpl[T](using Quotes, Type[T]): Expr[ClassEv[T]] =
@@ -219,10 +225,32 @@ object ClassEv:
       .select(sym.primaryConstructor)
       .appliedToNone
       .asExprOf[T]
+    val posExpr = sym.pos match
+      case Some(pos) if scala.util.Try(pos.sourceFile.path).isSuccess =>
+        '{
+          dfhdl.internals.Position.fromAbsPath(
+            ${ Expr(pos.sourceFile.path) },
+            ${ Expr(pos.startLine + 1) },
+            ${ Expr(pos.startColumn + 1) },
+            ${ Expr(pos.endLine + 1) },
+            ${ Expr(pos.endColumn + 1) }
+          )
+        }
+      case _ => '{ dfhdl.internals.Position.unknown }
+    val docExpr = Expr(sym.docstring.map(sanitizedDocstring))
+    var pkgOwner = sym.owner
+    while (!pkgOwner.isPackageDef) do pkgOwner = pkgOwner.owner
+    val nsExpr = Expr(
+      if (pkgOwner.fullName.startsWith("<")) "" else pkgOwner.fullName
+    )
     '{
       new ClassEv[T]:
         val value: T = $valueExpr
+        val dclPosition: dfhdl.internals.Position = $posExpr
+        val dclDocOpt: Option[String] = $docExpr
+        val dclNamespace: String = $nsExpr
     }
+  end macroImpl
 end ClassEv
 
 // gets the case class from a companion object reference
@@ -394,7 +422,8 @@ lazy val getShellCommand: Option[String] =
 end getShellCommand
 
 lazy val sbtnIsRunning: Boolean =
-  sbtIsRunning && getShellCommand.exists(cmd => cmd.endsWith("--server"))
+  sbtIsRunning &&
+    getShellCommand.exists(cmd => cmd.endsWith("--server") || cmd.endsWith("--detach-stdio"))
 
 lazy val sbtShellIsRunning: Boolean =
   getShellCommand.exists(cmd => cmd.endsWith("xsbt.boot.Boot") || cmd.endsWith("sbt-launch.jar"))

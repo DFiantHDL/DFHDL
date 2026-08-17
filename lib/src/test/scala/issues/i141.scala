@@ -2,6 +2,7 @@
 package issues.i141
 
 import dfhdl._
+import dfhdl.hw.annotation.top
 
 case class EmbeddedArray (
     a : Bits[8]X(3) <> VAL

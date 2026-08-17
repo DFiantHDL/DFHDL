@@ -169,6 +169,69 @@ class VerilogProcToVHDLSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("clock and reset, else branch is a conditional chain") {
+    class ID extends EDDesign:
+      val clk = Bit      <> IN
+      val rst = Bit      <> IN
+      val a   = Bit      <> IN
+      val b   = Bit      <> IN
+      val x1  = SInt(16) <> IN
+      val y1  = SInt(16) <> OUT
+      val y2  = SInt(16) <> OUT
+      val y3  = SInt(16) <> OUT
+      // an `else` holding nothing but an if/else reads as an `else if` chain, so there is no
+      // guard-less branch left to carry the clock edge
+      val proc1 = process(clk.rising, rst.rising):
+        if (rst) y1 := 0
+        else
+          if (a) y1 := x1
+          else y1   := 1
+      // a longer chain, and a chain with no trailing `else` at all
+      val proc2 = process(clk.rising, rst.rising):
+        if (rst) y2 := 0
+        else
+          if (a) y2 := x1
+          else if (b) y2 := 1
+          else y2        := 2
+      val proc3 = process(clk.falling, rst.falling):
+        if (rst == 0) y3 := 0
+        else
+          if (a) y3 := x1
+    end ID
+    val id = (new ID).verilogProcToVHDL
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
+         |  val a = Bit <> IN
+         |  val b = Bit <> IN
+         |  val x1 = SInt(16) <> IN
+         |  val y1 = SInt(16) <> OUT
+         |  val y2 = SInt(16) <> OUT
+         |  val y3 = SInt(16) <> OUT
+         |  val proc1 = process(clk, rst):
+         |    if (rst) y1 := sd"16'0"
+         |    else if (clk.rising)
+         |      if (a) y1 := x1
+         |      else y1 := sd"16'1"
+         |    end if
+         |  val proc2 = process(clk, rst):
+         |    if (rst) y2 := sd"16'0"
+         |    else if (clk.rising)
+         |      if (a) y2 := x1
+         |      else if (b) y2 := sd"16'1"
+         |      else y2 := sd"16'2"
+         |    end if
+         |  val proc3 = process(clk, rst):
+         |    if (rst == 0) y3 := sd"16'0"
+         |    else if (clk.falling)
+         |      if (a) y3 := x1
+         |    end if
+         |end ID
+         |""".stripMargin
+    )
+  }
   test("clock and reset at the end") {
     class ClkRstGen extends EDDesign:
       val clk = Bit <> OUT

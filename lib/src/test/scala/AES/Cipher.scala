@@ -1,5 +1,6 @@
 package dfhdl.AES
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 @top(false) class Cipher extends DFDesign:
   val key = AESKey <> IN

@@ -20,7 +20,7 @@ object DFDecimal:
       magnitudeWidth: IntParam[M],
       fractionWidth: Inlined[F],
       nativeType: N
-  )(using dfc: DFC, check: Width.CheckNUB[S, DecimalWidth[M, F]]): DFDecimal[S, M, F, N] = trydf:
+  )(using dfc: DFC, check: Width.CheckNUB[S, DecimalWidth[M, F]]): DFDecimal[S, M, F, N] =
     // the width constraints apply to the total bit width (magnitude + fraction)
     magnitudeWidth.toScalaIntOpt.foreach(m => check(signed, m + fractionWidth))
     ir.DFDecimal(signed, magnitudeWidth.ref, fractionWidth, nativeType).asFE[DFDecimal[S, M, F, N]]
@@ -41,8 +41,9 @@ object DFDecimal:
       ValueOf[M],
       ValueOf[F],
       ValueOf[N]
-  )(using DFCG, Width.CheckNUB[S, DecimalWidth[M, F]]): DFDecimal[S, M, F, N] = trydf:
+  )(using DFCG, Width.CheckNUB[S, DecimalWidth[M, F]]): DFDecimal[S, M, F, N] = trydf {
     DFDecimal(valueOf[S], IntParam[M](valueOf[M]), valueOf[F], valueOf[N])
+  }(using dfc, CTName("Decimal constructor"))
   object Extensions:
     extension [S <: Boolean, M <: IntP, F <: Int, N <: NativeType](dfType: DFDecimal[S, M, F, N])
       def signed: Inlined[S] = Inlined.forced[S](dfType.asIR.signed)
@@ -1439,7 +1440,7 @@ object DFXInt:
             dfc: DFC,
             opv: ValueOf[Op],
             cv: ValueOf[C]
-        ): DFValTP[DFBool, P | RP] = trydf:
+        ): DFValTP[DFBool, P | RP] =
           // the operands are built anonymously, but the comparison itself is NOT: it takes the
           // enclosing context, which is what names it after the binding it feeds
           val anonDFC = dfc.anonymize
@@ -1564,7 +1565,7 @@ object DFXInt:
           type Out = DFValTP[DFInt32, RP]
           def apply(lhs: L, rhs: R)(using DFC): Out = trydf {
             DFVal.Func(DFInt32, op.value, List(DFConstInt32(lhs), rhs)).asValTP[DFInt32, RP]
-          }
+          }(using dfc, CTName(op.value.toString))
       end evOpShiftOrPowerInt
       given evOpLogicUInt[
           Op <: FuncOp.|.type | FuncOp.&.type | FuncOp.^.type,
@@ -1586,7 +1587,7 @@ object DFXInt:
               case (Some(lw), Some(rw)) => check(lw, rw)
               case _                    => equalWidthCheck(lhs.dfType, rhs.dfType)
             DFVal.Func(lhs.dfType, op.value, List(lhs, rhs))
-          }
+          }(using dfc, CTName(op.value.toString))
       end evOpLogicUInt
 
       export dfhdl.internals.clog2
@@ -1619,20 +1620,23 @@ object DFXInt:
               // a leaf below
               val lhsConverted: DFValOf[DFSInt[Int]] =
                 CarryPromote.widenedOpt(lhs.asIR, dfType).getOrElse {
-                  // Fold stacked widenings: an anonymous same-kind widening resize alias
-                  // is transparent to a further conversion (both are value-preserving
-                  // extensions), so when the width fix below would resize anyway, it
-                  // applies to the alias's base directly instead of stacking.
+                  // Fold stacked widenings: an anonymous same-kind resize alias that loses
+                  // nothing is transparent to a further conversion, so when the width fix
+                  // below would resize anyway, it applies to the alias's base directly
+                  // instead of stacking. Losing nothing is `to >= from`, the same width-fit
+                  // decision made everywhere else, which is what sees through a resize to a
+                  // COMMON width: `max(W1, W2)` is at least each of the widths it was taken
+                  // from, so a value resized to it and back recovers itself.
                   def unstack(v: ir.DFVal): ir.DFVal = v match
                     case alias: ir.DFVal.Alias.AsIs if alias.isAnonymous =>
                       val relVal = alias.relValRef.get
-                      val widening = (alias.dfType, relVal.dfType) match
+                      val lossless = (alias.dfType, relVal.dfType) match
                         case (ir.DFUInt(toW), ir.DFUInt(fromW)) =>
-                          toW.compare(fromW)(_ > _).getOrElse(false)
+                          toW.widthFitGE(fromW).getOrElse(false)
                         case (ir.DFSInt(toW), ir.DFSInt(fromW)) =>
-                          toW.compare(fromW)(_ > _).getOrElse(false)
+                          toW.widthFitGE(fromW).getOrElse(false)
                         case _ => false
-                      if (widening) unstack(relVal) else v
+                      if (lossless) unstack(relVal) else v
                     case _ => v
                   val widthChanges = !dfType.asIR.magnitudeWidthParamRef
                     .isSimilarTo(lhs.dfType.asIR.magnitudeWidthParamRef)
@@ -2271,17 +2275,18 @@ object DFUInt:
   def apply[W <: IntP](width: IntParam[W])(using DFCG, Width.CheckNUB[false, W]): DFUInt[W] =
     trydf {
       DFXInt(false, width, BitAccurate)
-    }
+    }(using dfc, CTName("UInt constructor"))
   def forced[W <: IntP](width: IntP)(using DFC): DFUInt[W] =
     DFUInt(IntParam[W](width.asInstanceOf[W]))
-  def apply[W <: IntP](using dfc: DFCG, dfType: => DFUInt[W]): DFUInt[W] = trydf { dfType }
+  def apply[W <: IntP](using dfc: DFCG, dfType: => DFUInt[W]): DFUInt[W] =
+    trydf { dfType }(using dfc, CTName("UInt constructor"))
   def until[V <: IntP](sup: IntParam[V])(using
       dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
   ): DFUInt[IntP.CLog2[V]] = trydf {
     sup.toScalaIntOpt.foreach(check(_))
     DFXInt(false, sup.clog2, BitAccurate)
-  }
+  }(using dfc, CTName("UInt.until constructor"))
   def to[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
@@ -2290,7 +2295,7 @@ object DFUInt:
     // the width value is `clog2(max + 1)`; the declared type says the same thing under a single
     // guard on `V`, which the composed spelling cannot (see `IntP.IsConstInt2`)
     DFXInt(false, (max + 1).clog2, BitAccurate).asInstanceOf[DFUInt[IntP.CLog2P1[V]]]
-  }
+  }(using dfc, CTName("UInt.to constructor"))
 
   protected object Unsigned
       extends Check1[
@@ -2500,24 +2505,27 @@ end DFUInt
 type DFSInt[W <: IntP] = DFXInt[true, W, BitAccurate]
 object DFSInt:
   def apply[W <: IntP](width: IntParam[W])(using DFCG, Width.CheckNUB[true, W]): DFSInt[W] =
-    DFXInt(true, width, BitAccurate)
+    trydf {
+      DFXInt(true, width, BitAccurate)
+    }(using dfc, CTName("SInt constructor"))
   def forced[W <: IntP](width: IntP)(using DFC): DFSInt[W] =
     DFSInt(IntParam[W](width.asInstanceOf[W]))
-  def apply[W <: IntP](using dfc: DFCG, dfType: => DFSInt[W]): DFSInt[W] = trydf { dfType }
+  def apply[W <: IntP](using dfc: DFCG, dfType: => DFSInt[W]): DFSInt[W] =
+    trydf { dfType }(using dfc, CTName("SInt constructor"))
   def untilAbs[V <: IntP](sup: IntParam[V])(using
       dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
   ): DFSInt[IntP.CLog2Signed[V]] = trydf {
     sup.toScalaIntOpt.foreach(check(_))
     DFXInt(true, sup.clog2 + 1, BitAccurate).asInstanceOf[DFSInt[IntP.CLog2Signed[V]]]
-  }
+  }(using dfc, CTName("SInt.untilAbs constructor"))
   def toAbs[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
   ): DFSInt[IntP.CLog2P1Signed[V]] = trydf {
     max.toScalaIntOpt.foreach(check(_))
     DFXInt(true, (max + 1).clog2 + 1, BitAccurate).asInstanceOf[DFSInt[IntP.CLog2P1Signed[V]]]
-  }
+  }(using dfc, CTName("SInt.toAbs constructor"))
 
   object Val:
     object Ops:
@@ -2643,9 +2651,9 @@ object DFUFix:
     checkF(fractionWidth)
     magnitudeWidth.toScalaIntOpt.foreach(checkM(false, _))
     DFDecimal(false, magnitudeWidth, fractionWidth, BitAccurate)
-  }
+  }(using dfc, CTName("UFix constructor"))
   def apply[M <: IntP, F <: Int](using dfc: DFCG, dfType: => DFUFix[M, F]): DFUFix[M, F] =
-    trydf { dfType }
+    trydf { dfType }(using dfc, CTName("UFix constructor"))
 end DFUFix
 
 type DFSFix[M <: IntP, F <: Int] = DFDecimal[true, M, F, BitAccurate]
@@ -2659,9 +2667,9 @@ object DFSFix:
     checkF(fractionWidth)
     magnitudeWidth.toScalaIntOpt.foreach(checkM(true, _))
     DFDecimal(true, magnitudeWidth, fractionWidth, BitAccurate)
-  }
+  }(using dfc, CTName("SFix constructor"))
   def apply[M <: IntP, F <: Int](using dfc: DFCG, dfType: => DFSFix[M, F]): DFSFix[M, F] =
-    trydf { dfType }
+    trydf { dfType }(using dfc, CTName("SFix constructor"))
 end DFSFix
 
 //a native Int32 decimal has no explicit Scala compile-time width, since the

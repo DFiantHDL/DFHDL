@@ -441,9 +441,17 @@ object constraints:
       lazy val getRefs: List[DFRef.TwoWayAny] = List(ref)
       def copyWithNewRefs(using RefGen): this.type =
         Related(ref.copyAsNewRef, includeReset).asInstanceOf[this.type]
-      def codeString(using Printer): String =
+      def codeString(using printer: Printer): String =
+        import printer.getSet
         val extraArgs = if (includeReset) "" else ", includeReset = false"
-        s"""@timing.related(${ref.refCodeString}$extraArgs)"""
+        // a design target is the domain's enclosing design, referenced from within its own
+        // body, so it prints as a qualified self reference (`Foo.this`): the bare class name
+        // would resolve to the companion, and a bare `this` would resolve to the annotated
+        // domain when the annotation sits inside a nested domain body
+        val targetCS = ref.get match
+          case design: DFDesignBlock => s"${design.dclName}.this"
+          case _                     => ref.refCodeString
+        s"""@timing.related($targetCS$extraArgs)"""
     end Related
     object Related:
       type Ref = DFRef.TwoWay[DomainBlock | DFDesignBlock, DomainBlock]

@@ -23,10 +23,11 @@ object DFVector:
       cellType: T,
       d: ValueOf[D],
       check: VectorLength.CheckNUB[D]
-  ): DFVector[T, Tuple1[D]] = trydf:
+  ): DFVector[T, Tuple1[D]] = trydf {
     val cellDim = IntParam.fromValue(d)
     cellDim.toScalaIntOpt.foreach(check(_))
     DFVector(cellType, List(cellDim))
+  }(using dfc, CTName("Vector constructor"))
 
   extension [T <: DFTypeAny, D <: NonEmptyTuple](dfType: DFVector[T, D])
     def cellType: T = dfType.asIR.cellType.asFE[T]

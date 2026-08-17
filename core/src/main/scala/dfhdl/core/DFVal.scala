@@ -23,7 +23,7 @@ into final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal
   def wait(using DFC): Unit =
     trydf { Wait(this.asValOf[DFBoolOrBit]) }
   def selectDynamic(name: String)(using DFC): Any = trydf {
-    val ir.DFStruct(structName, fieldMap) = this.asIR.dfType.runtimeChecked
+    val ir.DFStruct(_, fieldMap) = this.asIR.dfType.runtimeChecked
     val dfType = fieldMap(name)
     DFVal.Alias
       .SelectField(this, name)
@@ -211,12 +211,13 @@ sealed protected trait DFValLP:
 
   transparent inline implicit def DFBitsValConversion[
       W <: IntP,
+      L <: IntP,
       P <: Boolean,
       R <: CommonR | SameElementsVector[?] | NonEmptyTuple
   ](
       inline from: R
-  )(using dfc: DFCG): DFValTP[DFBits[W], ISCONST[P]] = ${
-    DFValConversionMacro[DFBits[W], ISCONST[P], R]('from)('dfc)
+  )(using dfc: DFCG): DFValTP[DFBitsWL[W, L], ISCONST[P]] = ${
+    DFValConversionMacro[DFBitsWL[W, L], ISCONST[P], R]('from)('dfc)
   }
   // TODO: candidate should be fixed to cause UInt[?]->SInt[Int] conversion
   // covers the entire decimal family: DFUInt/DFSInt (F == 0, with an `Int` wildcard) and
@@ -693,8 +694,8 @@ object DFVal extends DFValLP:
         path, format, length, width, undefinedValue
       )
       val initFileConst = vectorType.cellType.asIR match
-        case ir.DFBits(_) => DFVal.Const(vectorType, data)
-        case cellType     =>
+        case _: ir.DFBitsWL => DFVal.Const(vectorType, data)
+        case cellType       =>
           DFVal.Const(vectorType, data.map(cellType.bitsDataToData))
 
       dfVal.initForced(List(initFileConst))
@@ -965,8 +966,11 @@ object DFVal extends DFValLP:
           case asIs @ ir.DFVal.Alias.AsIs(relValRef = ir.DFRef(relValIR))
               if asIs.isAnonymous && dfc.isAnonymous && !forceNewAlias && asIs.tags.isEmpty &&
                 (aliasTypeIR match
-                  case ir.DFBits(targetWidthRef) =>
-                    targetWidthRef.get =~ asIs.asValAny.widthIntParam &&
+                  // elision requires a zero-based target (dropping a cast to a nonzero-low
+                  // type would lose its low index), but the source's low is irrelevant
+                  // since bit vectors are width-only compatible
+                  case dt: ir.DFBitsWL if dt.lowIdxRef.equals(0) =>
+                    dt.widthParamRef.get =~ asIs.asValAny.widthIntParam &&
                     relValIR.asValAny.widthIntParam =~ asIs.asValAny.widthIntParam
                   case _ => false) =>
             asIs.relValRef.get.asVal[AT, M]
@@ -1045,8 +1049,8 @@ object DFVal extends DFValLP:
     end RegDIN
     object ApplyRange:
       import IntP.{-, +}
-      def apply[W <: IntP, M <: ModifierAny, H <: IntP, L <: IntP](
-          relVal: DFVal[DFBits[W], M],
+      def apply[W <: IntP, L2 <: IntP, M <: ModifierAny, H <: IntP, L <: IntP](
+          relVal: DFVal[DFBitsWL[W, L2], M],
           idxHigh: IntParam[H],
           idxLow: IntParam[L]
       )(using DFC): DFVal[DFBits[IntP.RangeWidth[H, L]], M] =
@@ -1070,7 +1074,9 @@ object DFVal extends DFValLP:
       )(using DFC): ir.DFVal =
         val selLength = idxHigh - idxLow + 1
         val dfType = relVal.dfType.runtimeChecked match
-          case ir.DFBits(_)                     => ir.DFBits(selLength.ref)
+          // a bit-vector selection result is always zero-based; a nonzero low index
+          // arises only from an explicit BitsHL construction
+          case _: ir.DFBitsWL                   => ir.DFBits(selLength.ref)
           case ir.DFUInt(_) | ir.DFSInt(_)      => ir.DFUInt(selLength.ref)
           case ir.DFVector(cellType = cellType) =>
             ir.DFVector(cellType, List(selLength.ref))
@@ -1078,11 +1084,16 @@ object DFVal extends DFValLP:
           // anonymous constant are replace by a different constant
           // after its data value was converted according to the alias
           case const: ir.DFVal.Const if const.isAnonymous =>
+            // selection indices are absolute; the data offsets are relative to the
+            // source's low index
+            val relLowInt = relVal.dfType match
+              case b: ir.DFBitsWL => b.lowIdxIntOpt(using dfc.getSet).getOrElse(0)
+              case _              => 0
             val updatedData = ir.selRangeData(
               dfType,
               const.data,
-              idxHigh.toScalaIntOpt.get,
-              idxLow.toScalaIntOpt.get
+              idxHigh.toScalaIntOpt.get - relLowInt,
+              idxLow.toScalaIntOpt.get - relLowInt
             )(using dfc.getSet)
             Const.forced(dfType.asFE, updatedData).asIR
           // named constants or other non-constant values are referenced
@@ -1189,8 +1200,7 @@ object DFVal extends DFValLP:
   trait TC[T <: DFTypeAny, R] extends TCCommon[T, R, DFValAny]:
     type OutP
     type Out = DFValTP[T, OutP]
-    final def apply(dfType: T, value: R)(using DFC): Out = trydf:
-      conv(dfType, value)
+    final def apply(dfType: T, value: R)(using DFC): Out = conv(dfType, value)
 
   // This is a dummy instance for DFIf and DFMatch specialized Exact1 extractions
   object TCDummy extends TC[DFTypeAny, DFValOf[DFTypeAny]]:
@@ -1211,7 +1221,7 @@ object DFVal extends DFValLP:
         dt: DomainType
     )(using
         AssertGiven[
-          dt.type <:< DomainType.DF | T =:= DFBit | IRT =:= ir.DFBits,
+          dt.type <:< DomainType.DF | T =:= DFBit | IRT =:= ir.DFBitsWL,
           "`NOTHING` can only be assigned to either `Bits` or `Bit` DFHDL values outside of a dataflow (DF) domain."
         ]
     ): TC[T, NOTHING] with
@@ -1319,7 +1329,7 @@ object DFVal extends DFValLP:
         DFC,
         ValueOf[Op],
         ValueOf[C]
-    ): DFValTP[DFBool, P | OutP] = trydf:
+    ): DFValTP[DFBool, P | OutP] =
       val dfValArg = conv(dfVal.dfType, arg)(using dfc.anonymize)
       func(dfVal, dfValArg)
   end Compare
@@ -1413,7 +1423,10 @@ object DFVal extends DFValLP:
   // exporting evidence for common exact operations
   export DFBits.Val.Ops.{
     evOpApplyDFBits,
+    evOpApplyDFBitsWL,
     evOpApplyRangeDFBits,
+    evOpApplyRangeDFBitsWL,
+    evOpApplyRangeDFBitsHL,
     evOpAsDFBits,
     evOpLogicReduceDFBits,
     evOpShift
@@ -1853,6 +1866,19 @@ object REG_DIN:
   given evREG_DIN_TC[T <: DFTypeAny, R <: REG_DIN[T]]: DFVal.TC[T, R] with
     type OutP = NOTCONST
     def conv(dfType: T, value: R)(using DFC): Out = value.dinVal.asValTP[T, NOTCONST]
+  // bit vectors are width-only compatible, so a DIN read of one may drive any equal-width
+  // receiver regardless of the low indices on either side
+  given evREG_DIN_TC_BitsWL[
+      W <: IntP,
+      L1 <: IntP,
+      L2 <: IntP,
+      R <: REG_DIN[DFBitsWL[W, L1]]
+  ](using
+      util.NotGiven[L1 =:= L2]
+  ): DFVal.TC[DFBitsWL[W, L2], R] with
+    type OutP = NOTCONST
+    def conv(dfType: DFBitsWL[W, L2], value: R)(using DFC): Out =
+      value.dinVal.asValTP[DFBitsWL[W, L2], NOTCONST]
 end REG_DIN
 
 object DFVarOps:
@@ -2011,7 +2037,7 @@ object DFVarOps:
               // non-bits variables need to be casted to
               val assignVal = dfVar.dfType match
                 // no need to cast
-                case _: ir.DFBits => concatVal
+                case _: ir.DFBitsWL => concatVal
                 // casting required
                 case dfType => DFVal.Alias.AsIs.forced(dfType, concatVal.asIR).asValAny
               dfVar.asValAny.assign(assignVal)
@@ -2051,8 +2077,8 @@ object DFVarOps:
       val argsIR = flattenConcatArgs(tc(DFBits(width), rhs).asIR)
       val argsBitsIR = argsIR.map { arg =>
         arg.dfType match
-          case _: ir.DFBits => arg
-          case dfType       => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.widthUNSAFE), arg)
+          case _: ir.DFBitsWL => arg
+          case dfType         => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.widthUNSAFE), arg)
       }
       assignRecur(dfVarsIR, argsBitsIR, 0, Nil)
   end extension
@@ -2271,7 +2297,10 @@ extension (dfVal: ir.DFVal)
     import dfc.getSet
     if (dfVal.isAnonymous)
       val dfcForClone = dfc.setMeta(dfVal.meta).setTags(dfVal.tags)
-      val dfType = dfVal.dfType.asFE[DFTypeAny]
+      // the clone gets its own type references, so that it never depends on the original member
+      // surviving (see `copyWithNewRefsHere`)
+      val dfTypeIR = dfVal.dfType.copyWithNewRefsHere
+      val dfType = dfTypeIR.asFE[DFTypeAny]
       val cloned = dfVal match
         case const: ir.DFVal.Const =>
           DFVal.Const.forced(dfType, const.data)(using dfcForClone)
@@ -2303,7 +2332,7 @@ extension (dfVal: ir.DFVal)
           end match
         case pbns: ir.DFVal.PortByNameSelect =>
           DFVal.PortByNameSelect(
-            pbns.dfType,
+            dfTypeIR,
             pbns.dir,
             pbns.designInstRef.get,
             pbns.portNamePath

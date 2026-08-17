@@ -87,8 +87,8 @@ case object ApplyInvertConstraint extends HierarchyStage:
                   dfc.setName(invertedVarName)
                 )
               def invert(dfVal: DFValAny): DFValAny = dfVal.asIR.dfType match
-                case _: DFBoolOrBit => !dfVal.asValOf[dfhdl.core.DFBit]
-                case dfType: DFBits =>
+                case _: DFBoolOrBit   => !dfVal.asValOf[dfhdl.core.DFBit]
+                case dfType: DFBitsWL =>
                   // we assume constrained ports have known widths
                   val width = dfType.widthIntOpt.get
                   // all bits are inverted

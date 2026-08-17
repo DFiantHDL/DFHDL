@@ -6,7 +6,7 @@ import dfhdl.*
 // module). The class must carry NO explicit annotation: the auto-`@top` injection is the
 // path under test. An injection spelled with an unqualified `top` resolves to this very
 // class and fails compilation with "Cyclic reference involving class top", so the plugin
-// must inject the fully qualified `@_root_.dfhdl.top` instead.
+// must inject the fully qualified `@_root_.dfhdl.hw.annotation.top` instead.
 class top extends EDDesign:
   val a = Bit <> IN
   val b = Bit <> IN

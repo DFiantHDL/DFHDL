@@ -18,13 +18,22 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       def showVecLength: String = d.asType match
         case '[Tuple1[d]] => TypeRepr.of[d].showType
         case _            => d.showType
+    // the user-facing spelling is high/low indexed, so the high index is the
+    // width and low index folded together when both are literal
+    def showBitsHL[W: Type, L: Type]: String =
+      (TypeRepr.of[W], TypeRepr.of[L]) match
+        case (ConstantType(IntConstant(w)), ConstantType(IntConstant(l))) =>
+          s"BitsHL[${w + l - 1}, $l]"
+        case _ => s"BitsHL[${Type.show[W]} + ${Type.show[L]} - 1, ${Type.show[L]}]"
     tpe.asTypeOf[DFTypeAny] match
-      case '[DFBit]     => "Bit"
-      case '[DFBool]    => "Boolean"
-      case '[DFBits[w]] => s"Bits[${Type.show[w]}]"
-      case '[DFUInt[w]] => s"UInt[${Type.show[w]}]"
-      case '[DFInt32]   => "Int"
-      case '[DFSInt[w]] => s"SInt[${Type.show[w]}]"
+      case '[DFBit]                            => "Bit"
+      case '[DFBool]                           => "Boolean"
+      case '[DFBits[w]]                        => s"Bits[${Type.show[w]}]"
+      case '[DFBitsWL[w, l]]                   => showBitsHL[w, l]
+      case '[DFType[ir.DFBitsWL, Args2[w, l]]] => showBitsHL[w, l]
+      case '[DFUInt[w]]                        => s"UInt[${Type.show[w]}]"
+      case '[DFInt32]                          => "Int"
+      case '[DFSInt[w]]                        => s"SInt[${Type.show[w]}]"
       // fixed-point types (non-zero fraction width); UInt/SInt/Int are the zero-fraction
       // cases already matched above. The magnitude width `m` sits directly in the type's
       // second parameter, so it binds cleanly here.

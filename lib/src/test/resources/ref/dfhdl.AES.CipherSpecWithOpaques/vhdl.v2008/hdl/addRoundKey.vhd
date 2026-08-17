@@ -6,9 +6,9 @@ use work.Cipher_pkg.all;
 
 entity addRoundKey is
 port (
-  state : in  t_opaque_AESState;
-  key   : in  t_opaque_AESRoundKey;
-  o     : out t_opaque_AESState
+  state : in  AESState;
+  key   : in  AESRoundKey;
+  o     : out AESState
 );
 end addRoundKey;
 

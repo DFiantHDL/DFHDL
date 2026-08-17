@@ -111,4 +111,84 @@ class DropProcessAllSpec extends StageSpec:
          |    else oBits := rshifter.oBits
          |end Foo""".stripMargin
     )
+  // a loop body's statements are the process's statements, so what they read must reach the
+  // sensitivity list — as must the range that decides how often the loop runs
+  test("Reads inside a loop"):
+    class Top extends EDDesign:
+      val x = Bits(8)     <> IN
+      val v = Bits(8) X 4 <> VAR
+      val y = Bits(8)     <> OUT
+      process(all):
+        for (i <- 0 until 4) v(i) := x
+        y                         := v(0)
+    end Top
+    val top = (new Top).dropProcessAll
+    assertCodeString(
+      top,
+      """|class Top extends EDDesign:
+         |  val x = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
+         |  val v = Bits(8) X 4 <> VAR
+         |  process(x, v):
+         |    for (i <- 0 until 4)
+         |      v(i) := x
+         |    end for
+         |    y := v(0)
+         |end Top
+         |""".stripMargin
+    )
+  // A constant-index cell selection is exactly what the process is sensitive to, and unlike the
+  // array it selects from it can be named in a Verilog event control.
+  test("Constant-indexed array item under verilog.v95"):
+    given options.CompilerOptions.Backend = _.verilog.v95
+    class Top extends EDDesign:
+      val x = Bits(8)     <> IN
+      val v = Bits(8) X 4 <> VAR
+      val y = Bits(8)     <> OUT
+      process(all):
+        v(0) := x
+        y    := v(1)
+    end Top
+    val top = (new Top).dropProcessAll
+    assertCodeString(
+      top,
+      """|class Top extends EDDesign:
+         |  val x = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
+         |  val v = Bits(8) X 4 <> VAR
+         |  process(x, v(1)):
+         |    v(0) := x
+         |    y := v(1)
+         |end Top
+         |""".stripMargin
+    )
+
+  // a NON-constant index cannot name the cell that is read, so the whole array is the item — and
+  // a Verilog event control cannot name an array (v95 has no `@*` either), so it is listed cell
+  // by cell. VHDL names the array signal itself, which the loop test above pins.
+  test("Dynamically indexed array item under verilog.v95"):
+    given options.CompilerOptions.Backend = _.verilog.v95
+    class Top extends EDDesign:
+      val x   = Bits(8)     <> IN
+      val idx = UInt(2)     <> IN
+      val v   = Bits(8) X 4 <> VAR
+      val y   = Bits(8)     <> OUT
+      process(all):
+        v(0) := x
+        y    := v(idx)
+    end Top
+    val top = (new Top).dropProcessAll
+    assertCodeString(
+      top,
+      """|class Top extends EDDesign:
+         |  val x = Bits(8) <> IN
+         |  val idx = UInt(2) <> IN
+         |  val y = Bits(8) <> OUT
+         |  val v = Bits(8) X 4 <> VAR
+         |  process(x, idx, v(0), v(1), v(2), v(3)):
+         |    v(0) := x
+         |    y := v(idx.toInt)
+         |end Top
+         |""".stripMargin
+    )
 end DropProcessAllSpec

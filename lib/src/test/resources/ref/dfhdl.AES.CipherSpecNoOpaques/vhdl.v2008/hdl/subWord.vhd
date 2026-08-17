@@ -6,20 +6,20 @@ use work.CipherNoOpaques_pkg.all;
 
 entity subWord is
 port (
-  lhs : in  t_opaque_AESWord;
-  o   : out t_opaque_AESWord
+  lhs : in  AESWord;
+  o   : out AESWord
 );
 end subWord;
 
 architecture subWord_arch of subWord is
-  signal o_part_sbox_inst_0_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_0_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_1_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_1_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_2_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_2_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_3_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_3_o   : t_opaque_AESByte;
+  signal o_part_sbox_inst_0_lhs : AESByte;
+  signal o_part_sbox_inst_0_o   : AESByte;
+  signal o_part_sbox_inst_1_lhs : AESByte;
+  signal o_part_sbox_inst_1_o   : AESByte;
+  signal o_part_sbox_inst_2_lhs : AESByte;
+  signal o_part_sbox_inst_2_o   : AESByte;
+  signal o_part_sbox_inst_3_lhs : AESByte;
+  signal o_part_sbox_inst_3_o   : AESByte;
 begin
   o_part_sbox_inst_0 : entity work.sbox(sbox_arch) port map (
     lhs                  => o_part_sbox_inst_0_lhs,

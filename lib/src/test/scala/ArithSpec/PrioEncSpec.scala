@@ -1,5 +1,6 @@
 package ArithSpec
 import dfhdl.*
+import dfhdl.hw.annotation.top
 import munit.*
 import lib.arith.prioEnc
 

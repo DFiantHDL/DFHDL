@@ -3,7 +3,7 @@ import dfhdl.*
 import dfhdl.compiler.ir
 import core.{
   DFValAny, asValAny, injectGlobalCtx, asConstOf, DFBit, DFBool, DFInt32, DFDouble, DFString,
-  DFBits, DFUInt, DFSInt, DFConstOf
+  DFBitsWL, DFUInt, DFSInt, DFConstOf
 }
 import dfhdl.compiler.printing.{DefaultPrinter, Printer}
 import dfhdl.internals.*
@@ -34,15 +34,15 @@ case class DesignArg(name: String, value: Any, desc: String)(using dfc: DFC):
       case _: BigInt         => "Int"
       case dfConst: DFValAny =>
         dfConst.asIR.dfType.runtimeChecked match
-          case ir.DFBool    => "Boolean"
-          case ir.DFBit     => "Bit"
-          case ir.DFInt32   => "Int"
-          case ir.DFDouble  => "Double"
-          case ir.DFString  => "String"
-          case _: ir.DFBits => "Bits"
-          case ir.DFUInt(_) => "UInt"
-          case ir.DFSInt(_) => "SInt"
-          case _            => ""
+          case ir.DFBool      => "Boolean"
+          case ir.DFBit       => "Bit"
+          case ir.DFInt32     => "Int"
+          case ir.DFDouble    => "Double"
+          case ir.DFString    => "String"
+          case _: ir.DFBitsWL => "Bits"
+          case ir.DFUInt(_)   => "UInt"
+          case ir.DFSInt(_)   => "SInt"
+          case _              => ""
       case _ => ""
 
   // Raw scalar value used for CLI round-trips: scallop's ValueConverter parses
@@ -122,7 +122,7 @@ case class DesignArg(name: String, value: Any, desc: String)(using dfc: DFC):
             case ir.DFBit =>
               val b = parseBit(updatedScalaValue.toString)
               core.DFVal.Const.forced(dfType, Some(b))
-            case _: ir.DFBits =>
+            case _: ir.DFBitsWL =>
               parseBitsLiteral(updatedScalaValue.toString, dfConst)
             case ir.DFUInt(_) =>
               parseDecimalLiteral(updatedScalaValue.toString, dfConst, signedForced = false)
@@ -167,7 +167,7 @@ case class DesignArg(name: String, value: Any, desc: String)(using dfc: DFC):
         val binOnly = raw.forall(c => c == '0' || c == '1' || c == '?' || c == '_' || c == ' ')
         (if (binOnly) "b" else "h", raw)
     val currentWidth = dfConst.asIR.dfType.runtimeChecked match
-      case dt: ir.DFBits => dt.widthIntOpt.getOrElse(
+      case dt: ir.DFBitsWL => dt.widthIntOpt.getOrElse(
           throw new IllegalArgumentException(
             s"Design argument $name has a parametric width and cannot be set from the CLI."
           )

@@ -21,10 +21,10 @@ end UART_Tx;
 
 architecture UART_Tx_arch of UART_Tx is
   constant BIT_CLOCKS : integer := (CLK_FREQ_KHz * 1000) / BAUD_RATE_BPS;
-  type t_enum_Status is (
+  type Status is (
     Status_Idle, Status_StartBit, Status_DataBits, Status_StopBit, Status_Finalize
   );
-  signal status       : t_enum_Status;
+  signal status_0     : Status;
   signal bitClkCnt    : unsigned(clog2(BIT_CLOCKS) - 1 downto 0);
   signal dataBitCnt   : unsigned(2 downto 0);
   signal shiftData    : std_logic_vector(7 downto 0);
@@ -35,11 +35,11 @@ begin
   begin
     if rising_edge(clk) then
       if rst = '1' then
-        status             <= Status_Idle;
+        status_0           <= Status_Idle;
         bitClkCnt          <= resize(1d"0", clog2(BIT_CLOCKS));
         dataBitCnt         <= 3d"0";
       else
-        case status is
+        case status_0 is
           when Status_Idle     =>
             tx_en          <= '0';
             tx             <= '1';
@@ -48,14 +48,14 @@ begin
             dataBitCnt     <= 3d"0";
             if data_en then
               shiftData    <= data;
-              status       <= Status_StartBit;
+              status_0     <= Status_StartBit;
             end if;
           when Status_StartBit =>
             tx_en          <= '1';
             tx             <= '0';
             if bitClkCnt = to_unsigned(BIT_CLOCKS - 1, clog2(BIT_CLOCKS)) then
               bitClkCnt    <= resize(1d"0", clog2(BIT_CLOCKS));
-              status       <= Status_DataBits;
+              status_0     <= Status_DataBits;
             else bitClkCnt <= bitClkCnt + resize(1d"1", clog2(BIT_CLOCKS));
             end if;
           when Status_DataBits =>
@@ -65,7 +65,7 @@ begin
               shiftData    <= slv_srl(shiftData, 1);
               if dataBitCnt = 3d"7" then
                 dataBitCnt <= 3d"0";
-                status     <= Status_StopBit;
+                status_0   <= Status_StopBit;
               else dataBitCnt <= dataBitCnt + 3d"1";
               end if;
             else bitClkCnt <= bitClkCnt + resize(1d"1", clog2(BIT_CLOCKS));
@@ -75,13 +75,13 @@ begin
             if bitClkCnt = to_unsigned(BIT_CLOCKS - 1, clog2(BIT_CLOCKS)) then
               bitClkCnt    <= resize(1d"0", clog2(BIT_CLOCKS));
               tx_done      <= '1';
-              status       <= Status_Finalize;
+              status_0     <= Status_Finalize;
             else bitClkCnt <= bitClkCnt + resize(1d"1", clog2(BIT_CLOCKS));
             end if;
           when Status_Finalize =>
             tx_en          <= '0';
             tx_done        <= '1';
-            status         <= Status_Idle;
+            status_0       <= Status_Idle;
         end case;
       end if;
     end if;

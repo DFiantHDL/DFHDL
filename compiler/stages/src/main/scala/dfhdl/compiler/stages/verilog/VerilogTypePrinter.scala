@@ -7,8 +7,8 @@ import dfhdl.internals.*
 protected trait VerilogTypePrinter extends AbstractTypePrinter:
   type TPrinter <: VerilogPrinter
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = "logic"
-  def csDFBits(dfType: DFBits, typeCS: Boolean): String =
-    s"logic [${dfType.widthParamRef.uboundCS}:0]"
+  def csDFBits(dfType: DFBitsWL, typeCS: Boolean): String =
+    s"logic [${dfType.widthParamRef.hboundCS(dfType.lowIdxRef)}:${dfType.lowIdxRef.refCodeString}]"
   val intTypeIsSupported: Boolean =
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
@@ -55,8 +55,13 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     getSet.designDB.getGlobalNamedDFTypes.view.collect { case dfType: DFEnum =>
       csDFEnumToStringFuncDcl(dfType)
     }.mkString("\n")
+  // `pkg::` qualification of a packaged type's name, dropped inside its own package file
+  protected def pkgQualifier(dfType: NamedDFType): String =
+    printer.typePlacementOf(dfType) match
+      case Some(pkg) if !printer.currentPackage.contains(pkg) => s"$pkg::"
+      case _                                                  => ""
   def csDFEnumTypeName(dfType: DFEnum): String =
-    if (allowTypeDef) s"t_enum_${dfType.name}"
+    if (allowTypeDef) s"${pkgQualifier(dfType)}${dfType.name}"
     else csDFBits(DFBits(dfType.widthIntOpt.get), false)
   def csDFEnumToStringFuncDcl(dfType: DFEnum): String =
     val enumName = dfType.name
@@ -95,19 +100,79 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   end csDFEnumDcl
 
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = csDFEnumTypeName(dfType)
+  // Whether this vector prints as a PACKED array. Requires a SystemVerilog dialect, and an
+  // integral scalar cell type: packed dimensions apply only to single-bit types, enums, packed
+  // structs/unions, and other packed arrays (IEEE 1800-2017 7.4.1). Integer atom types (`int`),
+  // `real`, `string`, and time values cannot form packed arrays, so vectors over them keep the
+  // unpacked representation regardless of usage. SIGNED cells (`SInt`, signed fixed-point) are
+  // also kept unpacked: an element select of an (anonymous-typed) packed array is a part-select,
+  // which is always unsigned, so the cell signedness would be lost (a future dedicated stage may
+  // lift this restriction, e.g. via named signed element types per IEEE 1800-2017 7.4.3). This
+  // is a TYPE property, so every value of the same vector type agrees on it and
+  // mixed-representation connections can never print.
+  def supportsPackedVector(dfType: DFVector): Boolean =
+    printer.supportPackedArrays && {
+      def packable(cellType: DFType): Boolean = cellType match
+        case _: DFBoolOrBit | _: DFBitsWL | _: DFEnum => true
+        case dec: DFDecimal                           => !dec.isDFInt32 && !dec.signed
+        case _: DFStruct                              => true
+        case vec: DFVector                            => packable(vec.cellType)
+        case op: DFOpaque                             => packable(op.actualType)
+        case _                                        => false
+      packable(dfType.cellType)
+    }
+  // the innermost non-vector cell type, whose width is the packed<->DFHDL bit-order reversal
+  // grouping of the streaming casts
+  def vectorScalarCellType(dfType: DFVector): DFType =
+    dfType.cellType match
+      case vec: DFVector => vectorScalarCellType(vec)
+      case cellType      => cellType
+  // The after-the-name array ranges of the UNPACKED representation (ascending). Under the
+  // SystemVerilog dialects a packed-capable vector carries its dimensions in the type itself
+  // (see `csDFVector`), so this yields nothing for it; the pre-SystemVerilog dialects (and
+  // non-integral cell types) keep all dimensions here.
   def csDFVectorRanges(dfType: DFType): String =
     dfType match
-      case vec: DFVector =>
+      case vec: DFVector if !supportsPackedVector(vec) =>
         s" [0:${vec.cellDimParamRefs.head.uboundCS}]${csDFVectorRanges(vec.cellType)}"
       case _ => ""
+  // the descending packed dimensions of this vector, outermost first (`[N-1:0][M-1:0]...`)
+  private def csDFVectorPackedDims(dfType: DFType): String =
+    dfType match
+      case vec: DFVector =>
+        s"[${vec.cellDimParamRefs.head.uboundCS}:0]${csDFVectorPackedDims(vec.cellType)}"
+      case _ => ""
+  // The complete packed-array type: the scalar cell's base keyword/name, then the vector
+  // dimensions (descending, outermost first), then the cell's own packed dimensions. Only
+  // unsigned decimal cells reach the DFDecimal branch: signed cells never pack (see
+  // `supportsPackedVector`).
+  private def csDFVectorPacked(dfType: DFVector): String =
+    val dims = csDFVectorPackedDims(dfType)
+    vectorScalarCellType(dfType) match
+      case _: DFBoolOrBit => s"logic $dims"
+      case cell: DFBitsWL =>
+        s"logic $dims[${cell.widthParamRef.hboundCS(cell.lowIdxRef)}:${cell.lowIdxRef.refCodeString}]"
+      case cell: DFDecimal =>
+        import cell.*
+        if (fractionWidth != 0)
+          s"logic $dims`ufix(${magnitudeWidthParamRef.refCodeString}, $fractionWidth)"
+        else s"logic $dims[${magnitudeWidthParamRef.uboundCS}:0]"
+      case cell: DFEnum   => s"${csDFEnumTypeName(cell)} $dims"
+      case cell: DFStruct => s"${csDFStructTypeName(cell)} $dims"
+      case cell: DFOpaque => s"${csDFOpaqueTypeName(cell)} $dims"
+      case _              => printer.unsupported
+  end csDFVectorPacked
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
-    s"${csDFType(cellType, typeCS)}"
-  def csDFOpaqueTypeName(dfType: DFOpaque): String = s"t_opaque_${dfType.name}"
+    if (supportsPackedVector(dfType)) csDFVectorPacked(dfType)
+    else s"${csDFType(cellType, typeCS)}"
+  def csDFOpaqueTypeName(dfType: DFOpaque): String =
+    s"${pkgQualifier(dfType)}${dfType.name}"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     s"typedef ${csDFType(dfType.actualType, typeCS = true)} ${csDFOpaqueTypeName(dfType)}${csDFVectorRanges(dfType.actualType)};"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = csDFOpaqueTypeName(dfType)
-  def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.name}"
+  def csDFStructTypeName(dfType: DFStruct): String =
+    s"${pkgQualifier(dfType)}${dfType.name}"
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
       .map((n, t) => s"${csDFType(t, typeCS = true)} $n${csDFVectorRanges(t)};")

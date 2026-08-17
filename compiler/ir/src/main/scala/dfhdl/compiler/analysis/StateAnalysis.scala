@@ -30,42 +30,21 @@ object StateAnalysis:
             assignMap,
             currentSet
           )
-      case applyRange @ DFVal.Alias.ApplyRange(
-            relValRef = relValRef,
-            idxHighRef = idxHighRef,
-            idxLowRef = idxLowRef
-          ) =>
-        // Re-seed the slice to the ApplyRange's full extent in the parent's coordinates.
-        // This replicates the pre-existing behavior where the passed-in slice would be
-        // replaced by the ApplyRange's own span when encountered.
-        val newSlice: Slice = (
-          idxHighRef.getIntOpt,
-          idxLowRef.getIntOpt,
-          applyRange.elementWidthIntOpt
-        ) match
-          case (Some(idxHigh), Some(idxLow), Some(eW)) =>
-            val start = idxLow * eW
-            val len = (idxHigh - idxLow) * eW + 1
-            Slice.Concrete(Range(start, start + len))
-          case _ => Slice.Unknown
-        consumeFrom(relValRef.get, newSlice, assignMap, currentSet)
+      case applyRange: DFVal.Alias.ApplyRange =>
+        // Map the slice into the parent's coordinates through the shared partial-selection
+        // calculus, so a parameter-dependent bound stays a symbolic linear form that the
+        // coverage query can still decide (`Slice.Unknown` never can).
+        val newSlice = applyRange.composeSlice(slice).getOrElse(Slice.Unknown)
+        consumeFrom(applyRange.relValRef.get, newSlice, assignMap, currentSet)
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // For simplification, consuming the entirety of selection index and array
         val rvSet = consumeFrom(relValRef.get, assignMap, currentSet)
         val idxSet = consumeFrom(idxRef.get, assignMap, currentSet)
         (rvSet union idxSet)
-      case sf @ DFVal.Alias.SelectField(relValRef = relValRef, fieldName = fieldName) =>
-        // Re-seed the slice to the field's extent in the parent struct's coordinates,
-        // mirroring the ApplyRange case above.
-        val relVal = relValRef.get
-        relVal.dfType match
-          case structType: DFStruct =>
-            val low = structType.fieldRelBitLow(fieldName)
-            val newSlice: Slice = sf.dfType.widthIntOpt match
-              case Some(w) => Slice.Concrete(Range(low, low + w))
-              case None    => Slice.Unknown
-            consumeFrom(relVal, newSlice, assignMap, currentSet)
-          case _ => consumeFrom(relVal, slice, assignMap, currentSet)
+      case sf: DFVal.Alias.SelectField =>
+        // shift the field-relative slice into the parent struct's coordinates
+        val newSlice = sf.composeSlice(slice).getOrElse(Slice.Unknown)
+        consumeFrom(sf.relValRef.get, newSlice, assignMap, currentSet)
       case IteratorDcl() => currentSet
       // out ports of child designs are not consuming state within the current design
       case dcl @ DclOut()
@@ -110,23 +89,20 @@ object StateAnalysis:
     value match
       case DFVal.Alias.AsIs(relValRef = relValRef) =>
         assignTo(relValRef.get, slice, assignMap)
-      case applyRange @ DFVal.Alias.ApplyRange(
-            relValRef = relValRef,
-            idxLowRef = idxLowRef
-          ) =>
-        val newSlice: Slice = (idxLowRef.getIntOpt, applyRange.elementWidthIntOpt) match
-          case (Some(idxLow), Some(eW)) => slice.shift(idxLow * eW)
-          case _                        => Slice.Unknown
-        assignTo(relValRef.get, newSlice, assignMap)
+      case applyRange: DFVal.Alias.ApplyRange =>
+        // as in `consumeFrom`: composing keeps a parameter-dependent bound symbolic. Note the
+        // seeded slice of a parametrically-sized selection is `Slice.Full`, which the composition
+        // maps onto the selection's own extent. Shifting it used to leave it `Full`, claiming the
+        // WHOLE of the assigned declaration as covered.
+        val newSlice = applyRange.composeSlice(slice).getOrElse(Slice.Unknown)
+        assignTo(applyRange.relValRef.get, newSlice, assignMap)
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // for simplification, assigning the entirety of the array
         assignTo(relValRef.get, assignMap)
-      case DFVal.Alias.SelectField(relValRef = relValRef, fieldName = fieldName) =>
+      case sf: DFVal.Alias.SelectField =>
         // shift the field-relative slice into the parent struct's coordinates
-        relValRef.get.dfType match
-          case structType: DFStruct =>
-            assignTo(relValRef.get, slice.shift(structType.fieldRelBitLow(fieldName)), assignMap)
-          case _ => assignTo(relValRef.get, slice, assignMap)
+        val newSlice = sf.composeSlice(slice).getOrElse(Slice.Unknown)
+        assignTo(sf.relValRef.get, newSlice, assignMap)
       case x => assignMap.assignTo(x, slice)
     end match
   end assignTo
@@ -260,14 +236,14 @@ object StateAnalysis:
       * provably covered; `Tri.No` or `Tri.Unknown` otherwise (both are treated as "still consuming
       * state" by callers).
       */
-    def contains(slice: Slice, widthOpt: Option[Int]): Tri =
+    def contains(slice: Slice, widthOpt: Option[Int])(using MemberGetSet): Tri =
       getLatest.contains(slice, widthOpt)
     def assign(slice: Slice, widthOpt: Option[Int]): AssignedScope =
       copy(latest = latest.assign(slice, widthOpt), hasAssignments = true)
     def branchEntry(firstBranch: Boolean): AssignedScope =
       val parentScope = if (firstBranch) this.copy(branchHistory = Some(getLatest)) else this
       AssignedScope(Coverage.empty, None, Some(this), hasAssignments)
-    def branchExit(lastBranch: Boolean, exhaustive: Boolean): AssignedScope =
+    def branchExit(lastBranch: Boolean, exhaustive: Boolean)(using MemberGetSet): AssignedScope =
       parentScopeOption match
         case Some(parentScope) =>
           val updatedHistory = parentScope.branchHistory match

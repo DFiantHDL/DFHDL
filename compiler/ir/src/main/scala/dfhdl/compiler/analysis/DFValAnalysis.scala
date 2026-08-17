@@ -41,10 +41,10 @@ object Eby:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[(DFVal, Int)] =
     val relVal = alias.relValRef.get
     val deltaOpt = (alias.dfType, relVal.dfType) match
-      case (DFUInt(toW), DFUInt(fromW)) => toW.constDiffFrom(fromW)
-      case (DFSInt(toW), DFSInt(fromW)) => toW.constDiffFrom(fromW)
-      case (DFBits(toW), DFBits(fromW)) => toW.constDiffFrom(fromW)
-      case _                            => None
+      case (DFUInt(toW), DFUInt(fromW))   => toW.constDiffFrom(fromW)
+      case (DFSInt(toW), DFSInt(fromW))   => toW.constDiffFrom(fromW)
+      case (to: DFBitsWL, from: DFBitsWL) => to.widthParamRef.constDiffFrom(from.widthParamRef)
+      case _                              => None
     deltaOpt.filter(_ > 0).map((relVal, _))
 
 // A carry-spelled arithmetic func: a binary `+`/`-`/`*` over two anonymous same-kind widening
@@ -315,6 +315,57 @@ object BlockRamVar:
         case _ => false
     case _ => false
 
+extension (dfVal: DFVal)
+  //format: off
+  /** True for a vector-typed declaration (a variable or a named constant) whose shape and usage
+    * follow a MEMORY (RAM/ROM) access pattern, so a backend may keep it in a dedicated memory
+    * representation (e.g., a Verilog unpacked array, preserving block-RAM/ROM inference):
+    *
+    *   - a port never does (it is part of the design interface)
+    *   - an alias-bound constant (`val b = a`) never does (its value is a whole-vector read of
+    *     its source)
+    *   - any whole-vector use (an assignment/connection of the vector itself, a cast, a slice,
+    *     a function argument) or any CONSTANT-index access disqualifies it
+    *   - otherwise, a `VAR.SHARED` follows the pattern (a multi-ported RAM), and so does a
+    *     declaration whose dynamic-index accesses include exactly one READ (a single-read
+    *     RAM/ROM, constants included)
+    *
+    * An init reference is representation-neutral: it neither disqualifies the initialized
+    * declaration nor counts as a whole-vector read of the init value.
+    */
+  //format: on
+  def hasMemAccessPattern(using MemberGetSet): Boolean =
+    def isReadAccess(dfVal: DFVal): Boolean =
+      dfVal.getReadDeps.exists {
+        case partial: DFVal.Alias.Partial => isReadAccess(partial)
+        case _                            => true
+      }
+    def usageQualifies(isShared: Boolean): Boolean =
+      var wholeUse = false
+      var constIdx = false
+      var dynReads = 0
+      dfVal.originMembersNoTypeRef.foreach {
+        case idx: DFVal.Alias.ApplyIdx if idx.relValRef.get == dfVal =>
+          if (idx.relIdx.get.isConst) constIdx = true
+          else if (isReadAccess(idx)) dynReads += 1
+        // an init reference is representation-neutral
+        case dcl: DFVal.Dcl if dcl.initRefList.exists(_.get == dfVal) => // skip
+        case _                                                        => wholeUse = true
+      }
+      if (wholeUse || constIdx) false
+      else isShared || dynReads == 1
+    dfVal.dfType match
+      case _: DFVector =>
+        dfVal match
+          case DclPort()      => false
+          case _: DFVal.Alias => false
+          case dcl: DFVal.Dcl => usageQualifies(dcl.modifier.isShared)
+          case DclConst()     => usageQualifies(isShared = false)
+          case _              => false
+      case _ => false
+  end hasMemAccessPattern
+end extension
+
 extension (dcl: DFVal.Dcl)
   /** True when the declaration is emitted as an HDL VARIABLE (updated where it is written) rather
     * than an HDL SIGNAL (updated only once the enclosing process suspends). The classification is
@@ -425,7 +476,7 @@ extension (dfVal: DFVal)
               case DFVal.Alias.ApplyIdx.ConstIdx(i) =>
                 val maxValueOpt = relVal.dfType match
                   case vector: DFVector => vector.lengthIntOpt
-                  case bits: DFBits     => bits.widthIntOpt
+                  case bits: DFBitsWL   => bits.widthIntOpt
                   case xInt: DFDecimal  => xInt.widthIntOpt
                   case _                => None
                 val padMaxValue = maxValueOpt.getOrElse(100) - 1
@@ -433,7 +484,7 @@ extension (dfVal: DFVal)
               case _ => "_sel"
           case applyRange: DFVal.Alias.ApplyRange =>
             applyRange.dfType.runtimeChecked match
-              case DFBits(_) | DFUInt(_) | DFSInt(_) =>
+              case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) =>
                 val padMaxValue = applyRange.widthIntOpt.getOrElse(100) - 1
                 val idxHigh =
                   applyRange.idxHighRef.getIntOpt.map(_.toPaddedString(padMaxValue)).getOrElse("hi")
@@ -469,7 +520,8 @@ extension (dfVal: DFVal)
             // looking for what kind of type reference it is
             r.originMember.asInstanceOf[DFVal].dfType match
               case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r => Some("length")
-              case DFBits(widthRef: TypeRef) if widthRef == r                 => Some("width")
+              case dt: DFBitsWL if dt.widthParamRef.getRef.contains(r)        => Some("width")
+              case dt: DFBitsWL if dt.lowIdxRef.getRef.contains(r)            => Some("lowidx")
               case DFDecimal(magnitudeWidthParamRef = widthRef: TypeRef) if widthRef == r =>
                 Some("width")
               case _ => None
@@ -685,10 +737,16 @@ class ComposedDFTypeReplacement[H](
   def unapply(dfType: DFType): Option[DFType] =
     val composed = dfType match
       case dt: DFStruct =>
-        val updatedMap = ListMap.from(dt.fieldMap.view.collect { case (name, Extractor(dfType)) =>
-          (name, dfType)
+        // every field is kept — only the matching ones are replaced. Collecting just the
+        // matches here would DROP the fields the extractor does not apply to.
+        var anyUpdated = false
+        val updatedMap = ListMap.from(dt.fieldMap.view.map {
+          case (name, Extractor(dfType)) =>
+            anyUpdated = true
+            (name, dfType)
+          case entry => entry
         })
-        if (updatedMap.nonEmpty) Some(dt.copy(fieldMap = updatedMap))
+        if (anyUpdated) Some(dt.copy(fieldMap = updatedMap))
         else None
       case dt: DFOpaque =>
         dt.actualType match
@@ -711,7 +769,7 @@ extension (lhs: DFVal)(using MemberGetSet)
     // total-width ref: for integer decimals the magnitude ref is the total ref (and may be
     // parametric); fixed-point total widths are always constant
     def widthRef(v: DFVal): IntParamRef = (v.dfType: @unchecked) match
-      case dt: DFBits                             => dt.widthParamRef
+      case dt: DFBitsWL                           => dt.widthParamRef
       case dt: DFDecimal if dt.fractionWidth == 0 => dt.magnitudeWidthParamRef
       case dt: DFDecimal                          => IntParamRef(dt.widthUNSAFE)
     widthRef(lhs).compare(widthRef(rhs))(func)

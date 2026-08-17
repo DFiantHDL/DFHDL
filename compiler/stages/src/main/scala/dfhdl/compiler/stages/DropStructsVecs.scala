@@ -24,6 +24,12 @@ case object DropStructsVecs extends GlobalStage:
           case VerilogDialect.v95 | VerilogDialect.v2001 => true
           case _                                         => false
       case _ => false
+  // NOTE: `DropWholeVecAssign` must run BEFORE this stage (it unrolls whole-vector constant drives
+  // while the vector type is still there to unroll, and the flattening below would otherwise turn
+  // its cell selections into variable-bound part-selects). That ordering is expressed by their
+  // relative positions in `BackendPrepStage`, and NOT as a dependency here: `DropWholeVecAssign`
+  // depends on `ToED`, which would drag the whole pre-backend pipeline into every direct
+  // `.dropStructsVecs` invocation (its spec included).
   override def dependencies: List[Stage] = List(ExplicitRomVar)
   override def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transformGlobal(designDB: DB)(using co: CompilerOptions, refGen: RefGen): DB =
@@ -55,7 +61,17 @@ case object DropStructsVecs extends GlobalStage:
     object PartialSel:
       import DFVal.Alias.*
       def unapply(partial: ApplyIdx | ApplyRange | SelectField)(using MemberGetSet): Boolean =
-        replacementMap.contains(partial.relValRef.get)
+        partial.relValRef.get match
+          case relVal if replacementMap.contains(relVal) => true
+          // a selection into a Bits-typed link of the chain (a bits field select or a
+          // vector bits-cell select, which are never themselves replaced) is part of the
+          // chain as well: left out, it would select into the folded range selection,
+          // an illegal chained select in Verilog (a select must consume a declared
+          // dimension of a name). a NAMED link legally breaks the chain, since it is
+          // emitted as its own net declaration
+          case chainLink: (ApplyIdx | ApplyRange | SelectField) if chainLink.isAnonymous =>
+            unapply(chainLink)
+          case _ => false
 
     ///////////////////////////////////////////////////////////////////////////////
     // Stage 1: Replace structs and vectors with Bits
@@ -67,9 +83,9 @@ case object DropStructsVecs extends GlobalStage:
       ):
         def updateArg(arg: DFVal): DFValAny = arg.dfType match
           // Structs and Vectors will be replaced with Bits in a different patch
-          case _: (DFStruct | DFVector | DFBits) => arg.asValAny
-          case _ if !arg.isAnonymous             => arg.asValAny.bits
-          case _                                 => arg.asValAny.bits
+          case _: (DFStruct | DFVector | DFBitsWL) => arg.asValAny
+          case _ if !arg.isAnonymous               => arg.asValAny.bits
+          case _                                   => arg.asValAny.bits
         def typeToBits(dfType: irDFType): DFTypeAny =
           val width = dfType.asFE[DFTypeAny].widthIntParam
           DFBits(width.ref).asFE[DFTypeAny]
@@ -201,6 +217,12 @@ case object DropStructsVecs extends GlobalStage:
         partial,
         Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)
       ):
+        // the low index of an unreplaced Bits-typed chain link (a bits field select or a
+        // vector bits-cell select), against which the selection's absolute indices are
+        // translated; a nonzero low arises only from an explicit BitsHL construction
+        def bitsLinkLow(relVal: DFVal): IntParam[Int] = relVal.dfType match
+          case bt: DFBitsWL => bt.lowIdxRef.get
+          case _            => 0
         // looping through the partial references to find the outermost related value and its index
         var currentPartial = partial
         var relVal = currentPartial.relValRef.get
@@ -214,19 +236,35 @@ case object DropStructsVecs extends GlobalStage:
                 case Some(Some(idx: BigInt)) if elemIdxVal.isAnonymous =>
                   idx.toInt.asInstanceOf[IntParam[Int]]
                 case _ => elemIdxVal.asValAny.asInstanceOf[IntParam[Int]]
-              val elemWidth = elemSel.asValAny.widthIntParam
-              val relValWidth = relVal.asValAny.widthIntParam
-              idxLow = (relValWidth - elemWidth * (elemIdx + 1)) +
-                idxLow
-                  .asInstanceOf[IntParam[Int]]
+              if (replacementMap.contains(relVal))
+                // vector cell selection: cells are packed MSB-first
+                val elemWidth = elemSel.asValAny.widthIntParam
+                val relValWidth = relVal.asValAny.widthIntParam
+                idxLow = (relValWidth - elemWidth * (elemIdx + 1)) +
+                  idxLow
+                    .asInstanceOf[IntParam[Int]]
+              else
+                // bit selection into a Bits-typed chain link: the index is absolute
+                // in the link's own [low, high] range, so translate by the link's low
+                idxLow = (elemIdx - bitsLinkLow(relVal)) +
+                  idxLow
+                    .asInstanceOf[IntParam[Int]]
             case rangeSel: DFVal.Alias.ApplyRange =>
-              val elemWidth =
-                replacementMap(relVal).dfType.asInstanceOf[DFVector]
-                  .cellType.asFE[DFTypeAny].widthIntParam
-              val relValWidth = relVal.asValAny.widthIntParam
-              idxLow = (relValWidth - elemWidth * (rangeSel.idxHighRef.get + 1)) +
-                idxLow
-                  .asInstanceOf[IntParam[Int]]
+              if (replacementMap.contains(relVal))
+                // vector cell range selection: indices are in cell units, MSB-first
+                val elemWidth =
+                  replacementMap(relVal).dfType.asInstanceOf[DFVector]
+                    .cellType.asFE[DFTypeAny].widthIntParam
+                val relValWidth = relVal.asValAny.widthIntParam
+                idxLow = (relValWidth - elemWidth * (rangeSel.idxHighRef.get + 1)) +
+                  idxLow
+                    .asInstanceOf[IntParam[Int]]
+              else
+                // range selection into a Bits-typed chain link: absolute indices,
+                // translated by the link's low
+                idxLow = (rangeSel.idxLowRef.get - bitsLinkLow(relVal)) +
+                  idxLow
+                    .asInstanceOf[IntParam[Int]]
             case fieldSel: DFVal.Alias.SelectField =>
               var relBitLow: IntParam[Int] = idxLow
               val dfType = replacementMap(relVal).dfType.asInstanceOf[DFStruct]
@@ -250,25 +288,40 @@ case object DropStructsVecs extends GlobalStage:
             case _ =>
               explore = false
         end while
+        // a single-bit selection folds into a bit selection rather than a degenerate
+        // one-bit range selection: a bit selection stays legal in v95/v2001 even with
+        // a runtime index, where a part-select requires constant bounds
+        val bitSelFold = partial match
+          case _: DFVal.Alias.ApplyIdx =>
+            partial.dfType match
+              case DFBit | DFBool => true
+              case _              => false
+          case _ => false
         val requireCast = partial.dfType match
-          case _: DFBits   => false
-          case _: DFVector => false
-          case _: DFStruct => false
-          case _           => true
+          case _: DFBitsWL         => false
+          case _: DFVector         => false
+          case _: DFStruct         => false
+          case DFBit if bitSelFold => false
+          case _                   => true
         val bitsMeta = if (requireCast) partial.meta.anonymize else partial.meta
-        val idxHigh: IntParam[
-          Int
-        ] = (partial.asValAny.widthIntParam + idxLow - 1).asInstanceOf[IntParam[Int]]
-        val bitsVal =
-          dfhdl.core.DFVal.Alias.ApplyRange(
-            relVal.asValOf[Bits[Int]],
-            idxHigh.cloneAnonValueAndDepsHere,
-            idxLow.cloneAnonValueAndDepsHere
-          )(using
-            dfc.setMeta(bitsMeta)
-          )
+        val bitsValIR: DFVal =
+          if (bitSelFold)
+            dfhdl.core.DFVal.Alias.ApplyIdx(
+              dfhdl.core.DFBit,
+              relVal.asValAny,
+              idxLow.cloneAnonValueAndDepsHere.toDFConst(using dfc.anonymize)
+            )(using dfc.setMeta(bitsMeta)).asIR
+          else
+            val idxHigh: IntParam[
+              Int
+            ] = (partial.asValAny.widthIntParam + idxLow - 1).asInstanceOf[IntParam[Int]]
+            dfhdl.core.DFVal.Alias.ApplyRange(
+              relVal.asValOf[Bits[Int]],
+              idxHigh.cloneAnonValueAndDepsHere,
+              idxLow.cloneAnonValueAndDepsHere
+            )(using dfc.setMeta(bitsMeta)).asIR
         if (requireCast)
-          dfhdl.core.DFVal.Alias.AsIs.forced(partial.dfType, bitsVal.asIR)(using
+          dfhdl.core.DFVal.Alias.AsIs.forced(partial.dfType, bitsValIR)(using
             dfc.setMeta(partial.meta)
           )
       dsn.patch

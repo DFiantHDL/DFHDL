@@ -51,15 +51,32 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
         val verilogDefine = if (printer.allowTypeDef) "" else "`"
-        s"$verilogDefine${dfType.name}_${entryName}"
+        // a packaged enum's entries are package-scoped identifiers in SV
+        val pkgQualifier = printer.typePlacementOf(dfType) match
+          case Some(pkg) if printer.allowTypeDef && !printer.currentPackage.contains(pkg) =>
+            s"$pkg::"
+          case _ => ""
+        s"$verilogDefine$pkgQualifier${dfType.name}_${entryName}"
       case None => "?"
   val maxElementsPerLine = 64
-  def csDFVectorElemCS(elemCS: List[String]): String =
-    elemCS.view.zipWithIndex.map((x, i) =>
+  // Vector aggregates are index-keyed (`idx: value`), so the keys bind element indexes and the
+  // spelling is semantically order-free; the listing order follows the declared range direction:
+  // DESCENDING (`'{3: e3, ..., 0: e0}`) for the packed representation and ascending
+  // (`'{0: e0, ..., 3: e3}`) for the unpacked one. NOTE: vanilla yosys's own SV parser accepts
+  // neither index-keyed patterns nor any assignment pattern on a packed target; flows that read
+  // DFHDL output through yosys must use its slang frontend (which accepts both).
+  def csDFVectorElemCS(elemCS: List[String], unpackedOrder: Boolean): String =
+    val keyed = elemCS.view.zipWithIndex.map((x, i) =>
       s"${i.toPaddedString(elemCS.length - 1, padWithZeros = false)}: $x"
-    ).toList.csList("'{", ",", "}")
+    ).toList
+    val ordered = if (unpackedOrder || !printer.supportPackedArrays) keyed else keyed.reverse
+    ordered.csList("'{", ",", "}")
+  // `unpackedOrder` applies to the OUTERMOST dimension only (the one that may be unpacked);
+  // nested dimensions are always packed, so the cell recursion drops the flag.
+  def csDFVectorData(dfType: DFVector, data: Vector[Any], unpackedOrder: Boolean): String =
+    csDFVectorElemCS(data.view.map(csConstData(dfType.cellType, _)).toList, unpackedOrder)
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
-    csDFVectorElemCS(data.view.map(csConstData(dfType.cellType, _)).toList)
+    csDFVectorData(dfType, data, unpackedOrder = false)
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     csConstData(dfType.actualType, data)
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =

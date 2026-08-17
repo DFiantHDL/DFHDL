@@ -6,44 +6,44 @@ use work.CipherNoOpaques_pkg.all;
 
 entity subBytes is
 port (
-  state : in  t_opaque_AESState;
-  o     : out t_opaque_AESState
+  state : in  AESState;
+  o     : out AESState
 );
 end subBytes;
 
 architecture subBytes_arch of subBytes is
-  signal o_part_sbox_inst_00_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_00_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_01_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_01_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_02_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_02_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_03_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_03_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_04_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_04_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_05_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_05_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_06_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_06_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_07_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_07_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_08_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_08_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_09_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_09_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_10_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_10_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_11_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_11_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_12_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_12_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_13_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_13_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_14_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_14_o   : t_opaque_AESByte;
-  signal o_part_sbox_inst_15_lhs : t_opaque_AESByte;
-  signal o_part_sbox_inst_15_o   : t_opaque_AESByte;
+  signal o_part_sbox_inst_00_lhs : AESByte;
+  signal o_part_sbox_inst_00_o   : AESByte;
+  signal o_part_sbox_inst_01_lhs : AESByte;
+  signal o_part_sbox_inst_01_o   : AESByte;
+  signal o_part_sbox_inst_02_lhs : AESByte;
+  signal o_part_sbox_inst_02_o   : AESByte;
+  signal o_part_sbox_inst_03_lhs : AESByte;
+  signal o_part_sbox_inst_03_o   : AESByte;
+  signal o_part_sbox_inst_04_lhs : AESByte;
+  signal o_part_sbox_inst_04_o   : AESByte;
+  signal o_part_sbox_inst_05_lhs : AESByte;
+  signal o_part_sbox_inst_05_o   : AESByte;
+  signal o_part_sbox_inst_06_lhs : AESByte;
+  signal o_part_sbox_inst_06_o   : AESByte;
+  signal o_part_sbox_inst_07_lhs : AESByte;
+  signal o_part_sbox_inst_07_o   : AESByte;
+  signal o_part_sbox_inst_08_lhs : AESByte;
+  signal o_part_sbox_inst_08_o   : AESByte;
+  signal o_part_sbox_inst_09_lhs : AESByte;
+  signal o_part_sbox_inst_09_o   : AESByte;
+  signal o_part_sbox_inst_10_lhs : AESByte;
+  signal o_part_sbox_inst_10_o   : AESByte;
+  signal o_part_sbox_inst_11_lhs : AESByte;
+  signal o_part_sbox_inst_11_o   : AESByte;
+  signal o_part_sbox_inst_12_lhs : AESByte;
+  signal o_part_sbox_inst_12_o   : AESByte;
+  signal o_part_sbox_inst_13_lhs : AESByte;
+  signal o_part_sbox_inst_13_o   : AESByte;
+  signal o_part_sbox_inst_14_lhs : AESByte;
+  signal o_part_sbox_inst_14_o   : AESByte;
+  signal o_part_sbox_inst_15_lhs : AESByte;
+  signal o_part_sbox_inst_15_o   : AESByte;
 begin
   o_part_sbox_inst_00 : entity work.sbox(sbox_arch) port map (
     lhs                   => o_part_sbox_inst_00_lhs,

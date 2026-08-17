@@ -8,40 +8,96 @@ import scala.quoted.*
 import scala.util.boundary, boundary.break
 import DFDecimal.Constraints.{`LW == RW`, equalWidthCheck}
 
-type DFBits[W <: IntP] = DFType[ir.DFBits, Args1[W]]
+type DFBitsWL[W <: IntP, L <: IntP] = DFType[ir.DFBitsWL, Args2[W, L]]
+type DFBits[W <: IntP] = DFBitsWL[W, 0]
+
+// internal width+low constructor; the user-facing spelling is the high/low-indexed DFBitsHL
+object DFBitsWL:
+  def apply[W <: IntP, L <: IntP](width: IntParam[W], lowIdx: IntParam[L])(using
+      dfc: DFCG,
+      widthCheck: Arg.Width.CheckNUB[W],
+      lowCheck: Arg.Natural.CheckNUB[L]
+  ): DFBitsWL[W, L] = trydf {
+    width.toScalaIntOpt.foreach(widthCheck(_))
+    lowIdx.toScalaIntOpt.foreach(lowCheck(_))
+    ir.DFBitsWL(width.ref, lowIdx.ref).asFE[DFBitsWL[W, L]]
+  }(using dfc, CTName("BitsWL constructor"))
+  def forced[W <: IntP, L <: IntP](width: Int, lowIdx: Int): DFBitsWL[W, L] =
+    summon[Arg.Width.Check[Int]](width)
+    summon[Arg.Natural.Check[Int]](lowIdx)
+    ir.DFBitsWL(ir.IntParamRef(width), ir.IntParamRef(lowIdx)).asFE[DFBitsWL[W, L]]
+  // the type-only spelling (e.g. a `BitsHL[9, 2] <> VAL` struct field). The width is not
+  // bounded by `Singleton`: a constant-bound `BitsHL[H, L]` spelling carries its width as an
+  // `IntP.Sig` node (see `IntP.Sig.Ops`), whose `ValueOf` instance (needing the DFC, hence the
+  // separate first clause) reconstructs the width operation as a `DFConstInt32` right here
+  given [W <: IntP, L <: IntP](using
+      dfc: DFCG
+  )(using
+      w: ValueOf[W],
+      l: ValueOf[L],
+      widthCheck: Arg.Width.CheckNUB[W],
+      lowCheck: Arg.Natural.CheckNUB[L]
+  ): DFBitsWL[W, L] = trydf {
+    val width = IntParam(w.value)
+    val lowIdx = IntParam(l.value)
+    width.toScalaIntOpt.foreach(widthCheck(_))
+    lowIdx.toScalaIntOpt.foreach(lowCheck(_))
+    ir.DFBitsWL(width.ref, lowIdx.ref).asFE[DFBitsWL[W, L]]
+  }(using dfc, CTName("BitsWL constructor"))
+end DFBitsWL
+
+type DFBitsHL[H <: IntP, L <: IntP] = DFBitsWL[IntP.Sig.Ops.RangeWidth[H, L], L]
+object DFBitsHL:
+  def apply[H <: IntP, L <: IntP](idxHigh: IntParam[H], idxLow: IntParam[L])(using
+      dfc: DFCG,
+      hiloCheck: DFBits.BitsHiLo.CheckNUB[H, L],
+      lowCheck: Arg.Natural.CheckNUB[L]
+  ): DFBitsHL[H, L] = trydf {
+    (idxHigh.toScalaIntOpt, idxLow.toScalaIntOpt) match
+      case (Some(idxHighInt), Some(idxLowInt)) => hiloCheck(idxHighInt, idxLowInt)
+      case _                                   =>
+    idxLow.toScalaIntOpt.foreach(lowCheck(_))
+    ir.DFBitsWL((idxHigh - idxLow + 1).ref, idxLow.ref).asFE[DFBitsHL[H, L]]
+  }(using dfc, CTName("BitsHL constructor"))
+  // the type-only spelling in term position (e.g. `BitsHL[HI.type, LO.type] <> IN`),
+  // constructing the type from the EXPLICIT type arguments
+  def apply[H <: IntP & Singleton, L <: IntP & Singleton](using
+      dfc: DFCG,
+      h: ValueOf[H],
+      l: ValueOf[L],
+      hiloCheck: DFBits.BitsHiLo.CheckNUB[H, L],
+      lowCheck: Arg.Natural.CheckNUB[L]
+  ): DFBitsHL[H, L] = apply(IntParam.forced[H](h.value), IntParam.forced[L](l.value))
+end DFBitsHL
+
 object DFBits:
   def apply[W <: IntP](width: IntParam[W])(using
       dfc: DFCG,
       check: Arg.Width.CheckNUB[W]
-  ): DFBits[W] = trydf:
+  ): DFBits[W] = trydf {
     width.toScalaIntOpt.foreach(check(_))
     ir.DFBits(width.ref).asFE[DFBits[W]]
+  }(using dfc, CTName("Bits constructor"))
   def forced[W <: IntP](width: Int): DFBits[W] =
     val check = summon[Arg.Width.Check[Int]]
     check(width)
     ir.DFBits(width).asFE[DFBits[W]]
-  def apply[W <: IntP](using dfc: DFCG, dfType: => DFBits[W]): DFBits[W] = trydf { dfType }
+  def apply[W <: IntP](using dfc: DFCG, dfType: => DFBits[W]): DFBits[W] =
+    trydf { dfType }(using dfc, CTName("Bits constructor"))
   def until[V <: IntP](sup: IntParam[V])(using
       dfc: DFCG,
       check: Arg.LargerThan1.CheckNUB[V]
-  ): DFBits[IntP.CLog2[V]] = trydf:
+  ): DFBits[IntP.CLog2[V]] = trydf {
     sup.toScalaIntOpt.foreach(check(_))
     ir.DFBits(sup.clog2.ref).asFE[DFBits[IntP.CLog2[V]]]
+  }(using dfc, CTName("Bits.until constructor"))
   def to[V <: IntP](max: IntParam[V])(using
       dfc: DFCG,
       check: Arg.Positive.CheckNUB[V]
-  ): DFBits[IntP.CLog2P1[V]] = trydf:
+  ): DFBits[IntP.CLog2P1[V]] = trydf {
     max.toScalaIntOpt.foreach(check(_))
     ir.DFBits((max + 1).clog2.ref).asFE[DFBits[IntP.CLog2P1[V]]]
-
-  given [W <: IntP & Singleton](using
-      dfc: DFCG,
-      v: ValueOf[W],
-      check: Arg.Width.CheckNUB[W]
-  ): DFBits[W] = trydf:
-    val width = IntParam.forced(v)
-    width.toScalaIntOpt.foreach(check(_))
-    ir.DFBits(width.ref).asFE[DFBits[W]]
+  }(using dfc, CTName("Bits.to constructor"))
 
   protected object `AW == TW`
       extends Check2[
@@ -72,6 +128,24 @@ object DFBits:
         Int,
         [H <: Int, L <: Int] =>> H >= L,
         [H <: Int, L <: Int] =>> "Low index " + L + " is bigger than High bit index " + H
+      ]
+  // selection on a low-indexed bit vector uses ABSOLUTE indices, so the valid index
+  // range is [L, L+W-1] rather than [0, W-1] (the latter stays with BitIndex above)
+  protected[core] object BitIndexLow
+      extends Check2[
+        Int,
+        Int,
+        [I <: Int, L <: Int] =>> I >= L,
+        [I <: Int, L <: Int] =>> "Index " + I + " is below the low index " + L +
+          " of the selected value"
+      ]
+  protected[core] object BitIndexHigh
+      extends Check2[
+        Int,
+        Int,
+        [I <: Int, H <: Int] =>> I <= H,
+        [I <: Int, H <: Int] =>> "Index " + I + " is above the high index " + H +
+          " of the selected value"
       ]
   trait CompareCheck[
       ValW <: IntP,
@@ -383,10 +457,10 @@ object DFBits:
         compiletime.error(
           "An integer value cannot be a candidate for a Bits type.\nTry explicitly using a decimal constant via the `d\"<width>'<number>\"` string interpolation."
         ).asInstanceOf[Dud[V]]
-      given fromDFBits[W <: IntP, P, R <: DFValTP[DFBits[W], P]]: Candidate[R] with
+      given fromDFBits[W <: IntP, L <: IntP, P, R <: DFValTP[DFBitsWL[W, L], P]]: Candidate[R] with
         type OutW = W
         type OutP = P
-        def apply(value: R)(using DFC): Out = value
+        def apply(value: R)(using DFC): Out = value.asValTP[DFBits[W], P]
       given fromDFBoolOrBit[P, R <: DFValTP[DFBoolOrBit, P]]: Candidate[R] with
         type OutW = 1
         type OutP = P
@@ -420,8 +494,8 @@ object DFBits:
             import DFVal.Ops.bits
             val dfValIR = dfVal.asIR
             dfValIR.dfType match
-              case _: ir.DFBits => dfValIR.asValOf[DFBits[Int]]
-              case _            =>
+              case _: ir.DFBitsWL => dfValIR.asValOf[DFBits[Int]]
+              case _              =>
                 dfValIR.asValAny.bits(using dfc)(using Width.wide).asValOf[DFBits[Int]]
         end match
       end valueToBits
@@ -475,17 +549,17 @@ object DFBits:
                   ToString[LW] + ")` to state the width explicitly."
               ]
           ]
-      given DFBitsFromCandidate[LW <: IntP, V, RP, IC <: Candidate[V]](using
+      given DFBitsFromCandidate[LW <: IntP, LL <: IntP, V, RP, IC <: Candidate[V]](using
           ic: IC { type OutP = RP }
       )(using
           check: `LW == RW`.CheckNUB[LW, ic.OutW]
-      ): TC[DFBits[LW], V] with
+      ): TC[DFBitsWL[LW, LL], V] with
         type OutP = RP
-        def conv(dfType: DFBits[LW], value: V)(using dfc: DFC): Out =
+        def conv(dfType: DFBitsWL[LW, LL], value: V)(using dfc: DFC): Out =
           import Ops.resizeBits
           val dfVal = ic(value)
           if (AutoConstraint.permitsWidthAdjust(dfVal, dfType.widthIntParam))
-            dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], RP]
+            dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBitsWL[LW, LL], RP]
           else
             (dfType.widthIntOpt, dfVal.widthIntOpt) match
               case (Some(lw), Some(rw)) => check(lw, rw)
@@ -495,32 +569,39 @@ object DFBits:
                     s"""|The argument width (${dfVal.dfType.widthErrorString}) is different than the receiver width (${dfType.widthErrorString}).
                         |Consider `.extend` or `.truncate` to adjust it to the receiver width, or `.resize(width)` to state the width explicitly.""".stripMargin
                   )
-            dfVal.nameInDFCPosition.asValTP[DFBits[LW], RP]
+            dfVal.nameInDFCPosition.asValTP[DFBitsWL[LW, LL], RP]
           end if
         end conv
       end DFBitsFromCandidate
-      given DFBitsFromSEV[LW <: IntP, T <: BitOrBool, V <: SameElementsVector[T]]: TC[DFBits[LW], V]
+      given DFBitsFromSEV[LW <: IntP, LL <: IntP, T <: BitOrBool, V <: SameElementsVector[T]]
+          : TC[DFBitsWL[LW, LL], V]
       with
         type OutP = CONST
-        def conv(dfType: DFBits[LW], value: V)(using DFC): Out =
+        def conv(dfType: DFBitsWL[LW, LL], value: V)(using DFC): Out =
           SameElementsVector.bitsValOf(dfType.widthIntParam, value, named = true)
-            .asConstOf[DFBits[LW]]
+            .asConstOf[DFBitsWL[LW, LL]]
     end TC
 
     object TCConv:
       import DFVal.TCConv
-      given DFBitsFromCandidateConv[V, RP, IC <: Candidate[V]](using
+      // the target width is fixed at `Int` (statically unknown), so this relabel-only
+      // conversion claims exactly the targets no width check can serve; a literal-width
+      // target falls to the lower-priority `TCConv.fromTC` derivation, which runs the
+      // width-checked TC. The low index is free: a nonzero-low target arises from a
+      // `BitsHL` parameter spelling whose non-literal bounds collapsed the width to `Int`
+      given DFBitsFromCandidateConv[L <: IntP, V, RP, IC <: Candidate[V]](using
           ic: IC { type OutP = RP }
-      ): TCConv[DFBits[Int], V] with
+      ): TCConv[DFBitsWL[Int, L], V] with
         type OutP = RP
         def apply(value: V)(using DFC): Out =
           val dfVal = ic(value)
-          dfVal.nameInDFCPosition.asValTP[DFBits[Int], RP]
+          dfVal.nameInDFCPosition.asValTP[DFBitsWL[Int, L], RP]
 
     object Compare:
       import DFVal.Compare
       given DFBitsCompareCandidate[
           LW <: IntP,
+          LL <: IntP,
           R,
           RP,
           IC <: Candidate[R],
@@ -532,9 +613,9 @@ object DFBits:
           check: CompareCheck[LW, ic.OutW, C],
           op: ValueOf[Op],
           castling: ValueOf[C]
-      ): Compare[DFBits[LW], R, Op, C] with
+      ): Compare[DFBitsWL[LW, LL], R, Op, C] with
         type OutP = RP
-        def conv(dfType: DFBits[LW], arg: R)(using DFC): Out =
+        def conv(dfType: DFBitsWL[LW, LL], arg: R)(using DFC): Out =
           val dfValArg = ic(arg)
           (dfType.widthIntOpt, dfValArg.dfType.widthIntOpt) match
             case (Some(lw), Some(rw)) => check(lw, rw)
@@ -548,11 +629,12 @@ object DFBits:
                   s"""|Cannot apply this operation between a value of $lhsStr bits width (LHS) and a value of $rhsStr bits width (RHS).
                       |An explicit conversion must be applied.""".stripMargin
                 )
-          dfValArg.asValTP[DFBits[LW], RP]
+          dfValArg.asValTP[DFBitsWL[LW, LL], RP]
         end conv
       end DFBitsCompareCandidate
       given DFBitsCompareSEV[
           LW <: IntP,
+          LL <: IntP,
           Op <: FuncOp.===.type | FuncOp.=!=.type,
           C <: Boolean,
           T <: BitOrBool,
@@ -560,11 +642,11 @@ object DFBits:
       ](using
           ValueOf[Op],
           ValueOf[C]
-      ): Compare[DFBits[LW], V, Op, C] with
+      ): Compare[DFBitsWL[LW, LL], V, Op, C] with
         type OutP = CONST
-        def conv(dfType: DFBits[LW], arg: V)(using DFC): Out =
+        def conv(dfType: DFBitsWL[LW, LL], arg: V)(using DFC): Out =
           SameElementsVector.bitsValOf(dfType.widthIntParam, arg, named = true)
-            .asConstOf[DFBits[LW]]
+            .asConstOf[DFBitsWL[LW, LL]]
       end DFBitsCompareSEV
     end Compare
 
@@ -587,7 +669,87 @@ object DFBits:
         }
     end TupleOps
 
-    object Ops:
+    // The generalized (any low index) selection givens, at a LOWER priority than the
+    // zero-based ones in `Ops` (the codebase's LP-trait idiom, like CandidateLP/WidthLP).
+    // These check at elaboration time only: their type-level bounds compose over the
+    // receiver's width (`W+L-1`), which does not survive the IntP const guards when the
+    // width is itself an unreduced fold, e.g. a `BitsHL[9, 2] <> VAL` struct field whose
+    // width slot is the unreduced `RangeWidth[9, 2]` (see the doc comment in IntParam.scala).
+    trait OpsLP:
+      given evOpApplyDFBitsWL[
+          W <: IntP,
+          L2 <: IntP,
+          A,
+          C,
+          I,
+          P,
+          L <: DFVal[DFBitsWL[W, L2], Modifier[A, C, I, P]],
+          R
+      ](using
+          ub: DFUInt.Val.UBArg[Int, R]
+      ): ExactOp2Aux["apply", DFC, DFValAny, L, R, DFVal[DFBit, Modifier[A, C, Any, P]]] =
+        new ExactOp2["apply", DFC, DFValAny, L, R]:
+          type Out = DFVal[DFBit, Modifier[A, C, Any, P]]
+          def apply(lhs: L, idx: R)(using DFC): Out = trydf {
+            import dfc.getSet
+            val lowRef = lhs.asIR.dfType.asInstanceOf[ir.DFBitsWL].lowIdxRef
+            val bound = (lhs.widthIntParam + lowRef.get).asInstanceOf[IntParam[Int]]
+            val idxVal = ub(bound, idx)(using dfc.anonymize)
+            // a constant index must also respect the lower bound
+            val idxIntOpt = idxVal.asIR match
+              case c: ir.DFVal.Const => c.data.asInstanceOf[Option[BigInt]].map(_.toInt)
+              case _                 => None
+            (idxIntOpt, lowRef.getIntOpt) match
+              case (Some(idxInt), Some(lowInt)) => BitIndexLow(idxInt, lowInt)
+              case _                            =>
+            DFVal.Alias.ApplyIdx(DFBit, lhs, idxVal)
+          }(using dfc, CTName("bit selection (apply)"))
+      end evOpApplyDFBitsWL
+      given evOpApplyRangeDFBitsWL[
+          W <: IntP,
+          L2 <: IntP,
+          A,
+          C,
+          I,
+          P,
+          L <: DFVal[DFBitsWL[W, L2], Modifier[A, C, I, P]],
+          HI <: IntP,
+          LO <: IntP
+      ](using
+          checkHigh: BitIndexHigh.CheckNUB[HI, IntP.HighIdx[W, L2]],
+          checkLow: BitIndexLow.CheckNUB[LO, L2],
+          checkHiLo: BitsHiLo.CheckNUB[HI, LO]
+      ): ExactOp3Aux["apply", DFC, DFValAny, L, HI, LO, DFVal[
+        DFBits[IntP.RangeWidth[HI, LO]],
+        Modifier[A, C, Any, P]
+      ]] =
+        new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
+          type Out = DFVal[DFBits[IntP.RangeWidth[HI, LO]], Modifier[A, C, Any, P]]
+          def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
+            import dfc.getSet
+            val idxHighParam = IntParam(idxHigh)
+            val idxLowParam = IntParam(idxLow)
+            val idxHighIntOpt = idxHighParam.toScalaIntOpt
+            val idxLowIntOpt = idxLowParam.toScalaIntOpt
+            val dfTypeIR = lhs.asIR.dfType.asInstanceOf[ir.DFBitsWL]
+            val lowIntOpt = dfTypeIR.lowIdxIntOpt
+            val highIntOpt = (dfTypeIR.widthIntOpt, lowIntOpt) match
+              case (Some(widthInt), Some(lowInt)) => Some(lowInt + widthInt - 1)
+              case _                              => None
+            (idxHighIntOpt, highIntOpt) match
+              case (Some(idxHighInt), Some(highInt)) => checkHigh(idxHighInt, highInt)
+              case _                                 =>
+            (idxLowIntOpt, lowIntOpt) match
+              case (Some(idxLowInt), Some(lowInt)) => checkLow(idxLowInt, lowInt)
+              case _                               =>
+            (idxHighIntOpt, idxLowIntOpt) match
+              case (Some(idxHighInt), Some(idxLowInt)) => checkHiLo(idxHighInt, idxLowInt)
+              case _                                   =>
+            DFVal.Alias.ApplyRange(lhs, idxHighParam, idxLowParam)
+          }(using dfc, CTName("bit range selection (apply)"))
+      end evOpApplyRangeDFBitsWL
+    end OpsLP
+    object Ops extends OpsLP:
       import IntP.{-, +}
       given evOpApplyDFBits[
           W <: IntP,
@@ -643,6 +805,54 @@ object DFBits:
             DFVal.Alias.ApplyRange(lhs, idxHighParam, idxLowParam)
           }(using dfc, CTName("bit range selection (apply)"))
       end evOpApplyRangeDFBits
+      // the annotation path (a `BitsHL[9, 2] <> VAL` field or parameter) carries the width
+      // as the UNREDUCED `RangeWidth[H, L]` application, where the W-form's `HighIdx[W, L]`
+      // bound gets stuck (fold over a fold); binding `H` structurally checks on `H` directly.
+      // The term-construction path reduces the width to a literal, misses this pattern, and
+      // resolves to the W-form above instead.
+      given evOpApplyRangeDFBitsHL[
+          H <: IntP,
+          L2 <: IntP,
+          A,
+          C,
+          I,
+          P,
+          L <: DFVal[DFBitsHL[H, L2], Modifier[A, C, I, P]],
+          HI <: IntP,
+          LO <: IntP
+      ](using
+          checkHigh: BitIndexHigh.CheckNUB[HI, H],
+          checkLow: BitIndexLow.CheckNUB[LO, L2],
+          checkHiLo: BitsHiLo.CheckNUB[HI, LO]
+      ): ExactOp3Aux["apply", DFC, DFValAny, L, HI, LO, DFVal[
+        DFBits[IntP.RangeWidth[HI, LO]],
+        Modifier[A, C, Any, P]
+      ]] =
+        new ExactOp3["apply", DFC, DFValAny, L, HI, LO]:
+          type Out = DFVal[DFBits[IntP.RangeWidth[HI, LO]], Modifier[A, C, Any, P]]
+          def apply(lhs: L, idxHigh: HI, idxLow: LO)(using DFC): Out = trydf {
+            import dfc.getSet
+            val idxHighParam = IntParam(idxHigh)
+            val idxLowParam = IntParam(idxLow)
+            val idxHighIntOpt = idxHighParam.toScalaIntOpt
+            val idxLowIntOpt = idxLowParam.toScalaIntOpt
+            val dfTypeIR = lhs.asIR.dfType.asInstanceOf[ir.DFBitsWL]
+            val lowIntOpt = dfTypeIR.lowIdxIntOpt
+            val highIntOpt = (dfTypeIR.widthIntOpt, lowIntOpt) match
+              case (Some(widthInt), Some(lowInt)) => Some(lowInt + widthInt - 1)
+              case _                              => None
+            (idxHighIntOpt, highIntOpt) match
+              case (Some(idxHighInt), Some(highInt)) => checkHigh(idxHighInt, highInt)
+              case _                                 =>
+            (idxLowIntOpt, lowIntOpt) match
+              case (Some(idxLowInt), Some(lowInt)) => checkLow(idxLowInt, lowInt)
+              case _                               =>
+            (idxHighIntOpt, idxLowIntOpt) match
+              case (Some(idxHighInt), Some(idxLowInt)) => checkHiLo(idxHighInt, idxLowInt)
+              case _                                   =>
+            DFVal.Alias.ApplyRange(lhs, idxHighParam, idxLowParam)
+          }(using dfc, CTName("bit range selection (apply)"))
+      end evOpApplyRangeDFBitsHL
       given evOpLogicDFBits[
           Op <: FuncOp.|.type | FuncOp.&.type | FuncOp.^.type,
           L,
@@ -667,13 +877,14 @@ object DFBits:
               case (Some(lw), Some(rw)) => check(lw, rw)
               case _                    => equalWidthCheck(lhsVal.dfType, rhsVal.dfType)
             DFVal.Func(lhsVal.dfType, op.value, List(lhsVal, rhsVal))
-          }
+          }(using dfc, CTName(op.value.toString))
       end evOpLogicDFBits
       given evOpLogicReduceDFBits[
           Op <: FuncOp.|.type | FuncOp.&.type | FuncOp.^.type,
           LW <: IntP,
+          LL <: IntP,
           LP,
-          L <: DFValTP[DFBits[LW], LP] | DFValTP[DFUInt[LW], LP]
+          L <: DFValTP[DFBitsWL[LW, LL], LP] | DFValTP[DFUInt[LW], LP]
       ](using
           op: ValueOf[Op]
       ): ExactOp1Aux[Op, DFC, DFValAny, L, DFValTP[DFBit, LP]] =
@@ -681,7 +892,7 @@ object DFBits:
           type Out = DFValTP[DFBit, LP]
           def apply(lhs: L)(using DFC): Out = trydf {
             DFVal.Func(DFBit, op.value, List(lhs)).asValTP[DFBit, LP]
-          }
+          }(using dfc, CTName(op.value.toString))
       end evOpLogicReduceDFBits
       given evConcatOpDFBits[
           Op <: FuncOp.++.type,
@@ -703,13 +914,15 @@ object DFBits:
             val rhsVal = icR(rhs)
             val width = lhsVal.widthIntParam + rhsVal.widthIntParam
             DFVal.Func(DFBits(width), FuncOp.++, List(lhsVal, rhsVal))
-          }
+          }(using dfc, CTName(op.value.toString))
       end evConcatOpDFBits
       given evOpShift[
           Op <: FuncOp.>>.type | FuncOp.<<.type,
           LW <: IntP,
+          LL <: IntP,
           LP,
-          LT <: DFBits[LW] | DFSInt[LW] | DFUInt[LW] | DFInt32,
+          // a shift keeps its receiver's type, including a nonzero low index
+          LT <: DFBitsWL[LW, LL] | DFSInt[LW] | DFUInt[LW] | DFInt32,
           L <: DFValTP[LT, LP],
           R,
           RP
@@ -735,10 +948,10 @@ object DFBits:
               )
             val shiftVal = ub(lhs.widthIntParam.asInstanceOf[IntParam[LW]], rhs)
             DFVal.Func(lhs.dfType, op.value, List(lhs, shiftVal))
-          }
+          }(using dfc, CTName(op.value.toString))
       end evOpShift
 
-      extension [W <: IntP, P](lhs: DFValTP[DFBits[W], P])
+      extension [W <: IntP, LX <: IntP, P](lhs: DFValTP[DFBitsWL[W, LX], P])
         // TODO: IntP
         private[DFBits] def resizeBits[RW <: IntP](updatedWidth: IntParam[RW])(using
             DFC
@@ -815,11 +1028,12 @@ object DFBits:
 
       given evOpAsDFBits[
           W <: IntP,
+          LX <: IntP,
           A,
           C,
           I,
           P,
-          L <: DFVal[DFBits[W], Modifier[A, C, I, P]],
+          L <: DFVal[DFBitsWL[W, LX], Modifier[A, C, I, P]],
           AT <: DFType.Supported,
           OT <: DFTypeAny,
           OW <: IntP
@@ -841,15 +1055,20 @@ object DFBits:
           }(using dfc, CTName("cast from bits"))
       end evOpAsDFBits
 
-      extension [W <: IntP, T <: DFBits[W] | DFUInt[W], P](
+      extension [W <: IntP, LX <: IntP, T <: DFBitsWL[W, LX] | DFUInt[W], P](
           lhs: DFValTP[T, P]
       )
         def unary_~(using DFCG): DFValTP[T, P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
         }
-      extension [W <: IntP, A, C, I, P](
-          lhs: DFVal[DFBits[W], Modifier[A, C, I, P]]
+      extension [W <: IntP, LX <: IntP, A, C, I, P](
+          lhs: DFVal[DFBitsWL[W, LX], Modifier[A, C, I, P]]
       )
+        // the receiver's low-index ref; selections use absolute indices, so a nonzero
+        // low offsets the computed bounds (the literal-0 path keeps the exact spelling
+        // zero-based code has always printed)
+        private def lowIdxRefIR: ir.IntParamRef =
+          lhs.asIR.dfType.asInstanceOf[ir.DFBitsWL].lowIdxRef
         def uint(using DFCG): DFValTP[DFUInt[W], P] = trydf {
           DFVal.Alias.AsIs(DFUInt(lhs.widthIntParam), lhs)
         }
@@ -863,10 +1082,16 @@ object DFBits:
         }
         def msbit(using DFCG): DFVal[DFBit, Modifier[A, C, Any, P]] =
           import DFVal.Ops.apply as applyBits
-          lhs.applyBits((lhs.widthIntParam - 1).toDFConst).asVal[DFBit, Modifier[A, C, Any, P]]
+          val lowRef = lowIdxRefIR
+          val msbIdx =
+            (if (lowRef.equals(0)) lhs.widthIntParam - 1
+             else lhs.widthIntParam + lowRef.get - 1).asInstanceOf[IntParam[Int]]
+          lhs.applyBits(msbIdx.toDFConst).asVal[DFBit, Modifier[A, C, Any, P]]
         def lsbit(using DFCG): DFVal[DFBit, Modifier[A, C, Any, P]] =
           import DFVal.Ops.apply as applyBits
-          lhs.applyBits(0).asVal[DFBit, Modifier[A, C, Any, P]]
+          val lowRef = lowIdxRefIR
+          if (lowRef.equals(0)) lhs.applyBits(0).asVal[DFBit, Modifier[A, C, Any, P]]
+          else lhs.applyBits(lowRef.get.toDFConst).asVal[DFBit, Modifier[A, C, Any, P]]
         def msbits[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFCG
@@ -874,8 +1099,14 @@ object DFBits:
           (lhs.widthIntOpt, updatedWidth.toScalaIntOpt) match
             case (Some(lhsWidthInt), Some(updatedWidthInt)) => check(lhsWidthInt, updatedWidthInt)
             case _                                          =>
-          DFVal.Alias.ApplyRange(lhs, lhs.widthIntParam - 1, lhs.widthIntParam - updatedWidth)
-            .asValTP[DFBits[RW], P]
+          val lowRef = lowIdxRefIR
+          val (idxHigh, idxLow) =
+            (if (lowRef.equals(0)) (lhs.widthIntParam - 1, lhs.widthIntParam - updatedWidth)
+             else
+               val low = lowRef.get
+               (lhs.widthIntParam + low - 1, lhs.widthIntParam + low - updatedWidth)
+            ) .asInstanceOf[(IntParam[Int], IntParam[Int])]
+          DFVal.Alias.ApplyRange(lhs, idxHigh, idxLow).asValTP[DFBits[RW], P]
         }
         def lsbits[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: `LW >= RW`.CheckNUB[W, RW],
@@ -884,24 +1115,36 @@ object DFBits:
           (lhs.widthIntOpt, updatedWidth.toScalaIntOpt) match
             case (Some(lhsWidthInt), Some(updatedWidthInt)) => check(lhsWidthInt, updatedWidthInt)
             case _                                          =>
-          DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0).asValTP[DFBits[RW], P]
+          val lowRef = lowIdxRefIR
+          val (idxHigh, idxLow) =
+            (if (lowRef.equals(0)) (updatedWidth - 1, IntParam.forced[Int](0))
+             else
+               val low = lowRef.get
+               (updatedWidth + low - 1, low)
+            ) .asInstanceOf[(IntParam[Int], IntParam[Int])]
+          DFVal.Alias.ApplyRange(lhs, idxHigh, idxLow).asValTP[DFBits[RW], P]
         }
         // ascending part-select (Verilog `lhs[baseIdx +: selWidth]`):
         // selWidth bits whose LSB is anchored at baseIdx
         def lsbitsAt[BI <: IntP, SW <: IntP](baseIdx: IntParam[BI], selWidth: IntParam[SW])(using
             dfc: DFCG,
             checkWidth: Arg.Width.CheckNUB[SW],
-            checkLow: BitIndex.CheckNUB[BI, W],
-            checkHigh: BitIndex.CheckNUB[IntP.PartSelectHigh[BI, SW], W]
+            checkLow: BitIndexLow.CheckNUB[BI, LX],
+            checkHigh: BitIndexHigh.CheckNUB[IntP.PartSelectHigh[BI, SW], IntP.HighIdx[W, LX]]
         ): DFVal[DFBits[SW], Modifier[A, C, Any, P]] = trydf {
+          import dfc.getSet
           selWidth.toScalaIntOpt.foreach(checkWidth(_))
           val idxHigh = baseIdx + selWidth - 1
-          (baseIdx.toScalaIntOpt, lhs.widthIntOpt) match
-            case (Some(baseIdxInt), Some(widthInt)) => checkLow(baseIdxInt, widthInt)
-            case _                                  =>
-          (idxHigh.toScalaIntOpt, lhs.widthIntOpt) match
-            case (Some(idxHighInt), Some(widthInt)) => checkHigh(idxHighInt, widthInt)
-            case _                                  =>
+          val lowIntOpt = lowIdxRefIR.getIntOpt
+          val highIntOpt = (lhs.widthIntOpt, lowIntOpt) match
+            case (Some(widthInt), Some(lowInt)) => Some(lowInt + widthInt - 1)
+            case _                              => None
+          (baseIdx.toScalaIntOpt, lowIntOpt) match
+            case (Some(baseIdxInt), Some(lowInt)) => checkLow(baseIdxInt, lowInt)
+            case _                                =>
+          (idxHigh.toScalaIntOpt, highIntOpt) match
+            case (Some(idxHighInt), Some(highInt)) => checkHigh(idxHighInt, highInt)
+            case _                                 =>
           DFVal.Alias.ApplyRange(lhs, idxHigh, baseIdx).asVal[DFBits[SW], Modifier[A, C, Any, P]]
         }
         // descending part-select (Verilog `lhs[baseIdx -: selWidth]`):
@@ -909,17 +1152,22 @@ object DFBits:
         def msbitsAt[BI <: IntP, SW <: IntP](baseIdx: IntParam[BI], selWidth: IntParam[SW])(using
             dfc: DFCG,
             checkWidth: Arg.Width.CheckNUB[SW],
-            checkHigh: BitIndex.CheckNUB[BI, W],
-            checkLow: BitIndex.CheckNUB[IntP.PartSelectLow[BI, SW], W]
+            checkHigh: BitIndexHigh.CheckNUB[BI, IntP.HighIdx[W, LX]],
+            checkLow: BitIndexLow.CheckNUB[IntP.PartSelectLow[BI, SW], LX]
         ): DFVal[DFBits[SW], Modifier[A, C, Any, P]] = trydf {
+          import dfc.getSet
           selWidth.toScalaIntOpt.foreach(checkWidth(_))
           val idxLow = baseIdx - selWidth + 1
-          (baseIdx.toScalaIntOpt, lhs.widthIntOpt) match
-            case (Some(baseIdxInt), Some(widthInt)) => checkHigh(baseIdxInt, widthInt)
-            case _                                  =>
-          (idxLow.toScalaIntOpt, lhs.widthIntOpt) match
-            case (Some(idxLowInt), Some(widthInt)) => checkLow(idxLowInt, widthInt)
+          val lowIntOpt = lowIdxRefIR.getIntOpt
+          val highIntOpt = (lhs.widthIntOpt, lowIntOpt) match
+            case (Some(widthInt), Some(lowInt)) => Some(lowInt + widthInt - 1)
+            case _                              => None
+          (baseIdx.toScalaIntOpt, highIntOpt) match
+            case (Some(baseIdxInt), Some(highInt)) => checkHigh(baseIdxInt, highInt)
             case _                                 =>
+          (idxLow.toScalaIntOpt, lowIntOpt) match
+            case (Some(idxLowInt), Some(lowInt)) => checkLow(idxLowInt, lowInt)
+            case _                               =>
           DFVal.Alias.ApplyRange(lhs, baseIdx, idxLow).asVal[DFBits[SW], Modifier[A, C, Any, P]]
         }
       end extension

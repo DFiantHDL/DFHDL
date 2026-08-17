@@ -113,4 +113,82 @@ class DropDomainsSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("By-name selection of a domain-nested derived clock follows the flattened name") {
+    class Leaf extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+      y.din := x
+      @hw.constraints.timing.related(this)
+      val active = new RTDomain:
+        val clk = Clk <> IN
+        val z   = SInt(16) <> OUT.REG init 0
+        z.din := x
+      @hw.constraints.timing.related(this)
+      @flattenMode.suffix("_")
+      val slow = new RTDomain:
+        val clk = Clk <> IN
+        val w   = SInt(16) <> OUT.REG init 0
+        w.din := x
+    class Top extends RTDesign:
+      val x     = SInt(16) <> IN
+      val y     = SInt(16) <> OUT
+      val gclk1 = Bit      <> IN
+      val gclk2 = Bit      <> IN
+      val leaf  = Leaf()
+      leaf.x <> x
+      y      <> leaf.y
+      leaf.active.clk <> gclk1.as(leaf.active.Clk)
+      leaf.slow.clk   <> gclk2.as(leaf.slow.Clk)
+    val top = (new Top).dropDomains
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
+         |case class Clk_slow_clk() extends Clk
+         |
+         |class Leaf extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val active_clk = Clk_active_clk <> IN
+         |  val active_z = SInt(16) <> OUT
+         |  process(active_clk):
+         |    if (active_clk.actual.rising)
+         |      if (rst.actual == 1) active_z :== sd"16'0"
+         |      else active_z :== x
+         |    end if
+         |  val clk_slow = Clk_slow_clk <> IN
+         |  val w_slow = SInt(16) <> OUT
+         |  process(clk_slow):
+         |    if (clk_slow.actual.rising)
+         |      if (rst.actual == 1) w_slow :== sd"16'0"
+         |      else w_slow :== x
+         |    end if
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) y :== sd"16'0"
+         |      else y :== x
+         |    end if
+         |end Leaf
+         |
+         |class Top extends EDDesign:
+         |  @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val gclk1 = Bit <> IN
+         |  val gclk2 = Bit <> IN
+         |  val leaf = Leaf()
+         |  leaf.x <> x
+         |  y <> leaf.y
+         |  leaf.active_clk <> gclk1.as(Clk_active_clk)
+         |  leaf.clk_slow <> gclk2.as(Clk_slow_clk)
+         |end Top
+         |""".stripMargin
+    )
+  }
 end DropDomainsSpec

@@ -15,7 +15,7 @@ module LRShiftDirect#(parameter int width = 8)(
   /* bits output */
   output      logic [width - 1:0]         oBits,
   /* direction of shift */
-  input  wire t_enum_ShiftDir             dir
+  input  wire ShiftDir                    dir
 );
   `include "dfhdl_defs.svh"
   logic [width - 1:0] lshifter_iBits;

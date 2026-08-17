@@ -3,6 +3,7 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.compiler.printing.Namespacing
 import dfhdl.options.CompilerOptions
 import dfhdl.internals.*
 import scala.collection.mutable
@@ -47,38 +48,101 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     val typeUpdateMap = mutable.LinkedHashMap.empty[NamedDFType, String]
     val localReservedNamesLCMutable = mutable.Set.from[String](reservedNamesLC)
 
+    // the FINAL (post-rename) global type names: without the dropped `t_struct_`-style
+    // prefixes, type and value identifiers share one HDL namespace, so every value
+    // renamer must reserve them
+    var globalTypeNamesFinalLC: Set[String] = Set.empty
+    // the names a PACKAGED declaration must avoid: the general defs group's names (which sit
+    // alongside every package) plus the design and given reserved names — but NOT the names of
+    // the other packages, which it can never be confused with
+    var generalReservedNamesLC: Set[String] = Set.empty
+    // the FINAL global type names per scope: a design-local packaged type must not collide with
+    // the global types of its OWN package
+    val scopeGlobalTypeNamesLC = mutable.LinkedHashMap.empty[Option[String], Set[String]]
+    // The package a global declaration is emitted into (`None` = the general global defs file),
+    // which is also its uniqueness SCOPE: every printer references a packaged declaration
+    // through its package (`pkg::name` in SystemVerilog, `work.pkg.name` in VHDL,
+    // `<namespace>.name` in DFHDL code), so two packages holding the same simple name can never
+    // be confused at a use site. A backend WITHOUT packages has no packaged declarations to
+    // scope by the time this runs: `DropPackages` folds their package names into their own and
+    // clears their namespaces, leaving everything in the single `None` scope, which is the
+    // across-the-board uniqueness such a backend needs.
+    val topNamespace = designDB.top.dclMeta.namespace
+    def typeScopeOf(dfType: NamedDFType): Option[String] =
+      Namespacing.typePlacementOf(dfType, topNamespace)
+    def memberScopeOf(m: DFMember): Option[String] =
+      Namespacing.placementOf(m.meta.namespace, topNamespace)
     // ---- global named types + members (cross-design, computed once) ----
     // names resolve from member meta only, so any sub-DB getSet works; use the top's.
     val globalReservedTypeNamesLC: Set[String] = designDB.topDB.atGetSet {
       // the existing design (class) names — one per sub-DB
-      val designNames = designDB.subDBs.values.map(_.top.dclName)
+      val designNames = designDB.subDBs.values.map(_.top.dclName).toList
       // the global named types across the whole hierarchy
-      val globalNamedTypes = designDB.hierGlobalNamedDFTypes
+      val globalNamedTypes = designDB.hierGlobalNamedDFTypes.toList
       // the global named members, de-duplicated across the sub-DB closures that
       // share them by identity (member equality is effectively identity — every
       // distinct member carries unique refs)
       val globalNamedMembers = designDB.subDBs.values.iterator
         .flatMap(_.membersGlobals).filterNot(_.isAnonymous).toList.distinct
-      // global type map for unique renamed names
-      val globalTypeUpdateMap =
-        renamer(globalNamedTypes, reservedNamesLC)(_.name, (e, n) => e -> n).toMap
-      typeUpdateMap ++= globalTypeUpdateMap
-      // the global reserved type names, after unique global type renaming
-      val globalReservedTypeNames: Set[String] =
-        (globalNamedTypes.map(e => e.name) ++ globalTypeUpdateMap.values ++ designNames ++
+      // The uniqueness scopes, general defs group (`None`) first and the packages after it in
+      // first-appearance order. The general group is uniquified first and then reserved for
+      // every package group, because a package's content sits ALONGSIDE the general globals
+      // rather than apart from them (a SystemVerilog package includes the global defs header,
+      // a VHDL package uses the general package). Two DIFFERENT packages, on the other hand,
+      // never see each other unqualified, so each starts from the same clean slate.
+      val typeGroups = globalNamedTypes.groupByOrdered(typeScopeOf)
+      val memberGroups = globalNamedMembers.groupByOrdered(memberScopeOf)
+      val typesOfScope = typeGroups.toMap
+      val membersOfScope = memberGroups.toMap
+      val scopes = (None :: typeGroups.map(_._1) ::: memberGroups.map(_._1)).distinct
+      val globalTypeFinalNames = mutable.ListBuffer.empty[String]
+      // the general group's final names, reserved by every package group (empty while the
+      // general group itself is being processed, since `scopes` leads with it)
+      var generalNamesLC: Set[String] = Set.empty
+      scopes.foreach { scope =>
+        val scopeTypes = typesOfScope.getOrElse(scope, Nil)
+        val scopeTypeUpdateMap =
+          renamer(scopeTypes, reservedNamesLC ++ generalNamesLC)(_.name, (e, n) => e -> n).toMap
+        typeUpdateMap ++= scopeTypeUpdateMap
+        val scopeTypeFinalNames = scopeTypes.map(t => scopeTypeUpdateMap.getOrElse(t, t.name))
+        globalTypeFinalNames ++= scopeTypeFinalNames
+        scopeGlobalTypeNamesLC(scope) = lowerCases(scopeTypeFinalNames.toSet)
+        // the names reserved for this scope's global members: its own type names (before and
+        // after renaming), the design names, and the general group's names
+        val memberReservedLC = lowerCases(
+          (scopeTypes.map(_.name) ++ scopeTypeFinalNames ++ designNames ++ reservedNames).toSet
+        ) ++ generalNamesLC
+        val scopeMembers = membersOfScope.getOrElse(scope, Nil)
+        val scopeMemberRenames =
+          renamer(scopeMembers, memberReservedLC)(_.getName, (m, n) => m -> n).toMap
+        // global named member patching
+        scopeMembers.foreach { m =>
+          scopeMemberRenames.get(m).foreach { n =>
+            localReservedNamesLCMutable += lowerCase(n)
+            memberRenamePatches(m) =
+              m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)
+          }
+        }
+        if (scope.isEmpty)
+          generalNamesLC = lowerCases(
+            (scopeTypeFinalNames ++
+              scopeMembers.map(m => scopeMemberRenames.getOrElse(m, m.getName)))
+              .toSet
+          )
+      }
+      globalTypeNamesFinalLC = lowerCases(globalTypeFinalNames.toSet)
+      generalReservedNamesLC = generalNamesLC ++ lowerCases(designNames.toSet ++ reservedNames)
+      // the global reserved type names, after unique global type renaming — every package's
+      // types included, which is what a design-local type in the GENERAL scope must avoid
+      lowerCases(
+        (globalNamedTypes.map(_.name) ++ globalTypeFinalNames ++ designNames ++
           reservedNames).toSet
-      val resultLC = lowerCases(globalReservedTypeNames)
-      // global named member patching
-      renamer(globalNamedMembers, resultLC)(
-        _.getName,
-        (m, n) =>
-          localReservedNamesLCMutable += lowerCase(n)
-          m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)
-      ).foreach(entry => memberRenamePatches(entry._1) = entry)
-      resultLC
+      )
     }
-    // the reserved names for local (design) values will be the given reservedNames
-    // and the now additional global member names after renaming
+    // the reserved names for local (design) values: the given reservedNames, the
+    // renamed global member names, and the (post-rename) global TYPE names (types and
+    // values share one HDL identifier namespace)
+    localReservedNamesLCMutable ++= globalTypeNamesFinalLC
     val localReservedNamesLC = localReservedNamesLCMutable.toSet
 
     // ---- per-design local members + local named types ----
@@ -86,17 +150,32 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     designDB.subDBs.values.foreach { sub =>
       sub.atGetSet {
         sub.blockMemberList.foreach { (block, members) =>
+          // this design's local type names (post-rename): reserved for its value names
+          var designLocalTypeNamesLC: Set[String] = Set.empty
           block match
             case design: DFDesignBlock =>
               // exclude types promoted to global across the hierarchy (handled above);
               // a single sub-DB may otherwise mis-classify a cross-design type as local
-              renamer(
-                sub.getLocalNamedDFTypes(design)
-                  .filterNot(designDB.hierGlobalNamedDFTypes.contains),
-                globalReservedTypeNamesLC
-              )(_.name, (e, n) => e -> n)
-                .foreach(entry => typeUpdateMap(entry._1) = entry._2)
+              val localTypes = sub.getLocalNamedDFTypes(design)
+                .filterNot(designDB.hierGlobalNamedDFTypes.contains)
+              // A design-local type declared in a package is still EMITTED into that package
+              // (and referenced qualified), so it is uniquified in that package's scope: only
+              // the general group's names and its own package's global type names are in its
+              // way. A type in the general scope avoids every global type name, packaged ones
+              // included, since nothing qualifies IT.
+              localTypes.toList.groupByOrdered(typeScopeOf).foreach { (scope, scopeLocalTypes) =>
+                val reservedLC = scope match
+                  case None    => globalReservedTypeNamesLC
+                  case Some(_) =>
+                    generalReservedNamesLC ++ scopeGlobalTypeNamesLC.getOrElse(scope, Set.empty)
+                renamer(scopeLocalTypes, reservedLC)(_.name, (e, n) => e -> n)
+                  .foreach(entry => typeUpdateMap(entry._1) = entry._2)
+              }
+              designLocalTypeNamesLC = lowerCases(
+                localTypes.map(t => typeUpdateMap.getOrElse(t, t.name)).toSet
+              )
             case _ =>
+          end match
           renamer(
             members.view.flatMap {
               // ignore iterator declarations that can repeat the same name wihtout collision
@@ -112,7 +191,7 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
               case m: DFMember.Named if !m.isAnonymous => Some(m)
               case _                                   => None
             },
-            localReservedNamesLC
+            localReservedNamesLC ++ designLocalTypeNamesLC
           )(
             _.getName,
             (m, n) => m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)

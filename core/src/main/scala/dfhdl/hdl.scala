@@ -55,6 +55,11 @@ object __hdl:
   type Bit = core.BitNumWrapper
   type Bits[W <: IntP] = core.DFBits[W]
   val Bits = core.DFBits
+  type BitsHL[H <: IntP, L <: IntP] = core.DFBitsHL[H, L]
+  val BitsHL = core.DFBitsHL
+  // Sig-preserving TYPE-position width arithmetic (`Bits[P1.type - P2.type]`); value-level
+  // operations keep the collapsing `IntP` operators
+  export core.IntP.Sig.Ops.*
   type UInt[W <: IntP] = core.DFUInt[W]
   val UInt = core.DFUInt
   type SInt[W <: IntP] = core.DFSInt[W]

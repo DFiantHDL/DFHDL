@@ -167,6 +167,63 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   def csDocString(doc: String): String = doc.linesIterator.mkString("--", "\n--", "")
   def csAnnotations(annotations: List[annotation.HWAnnotation]): String = ""
   // def csTimer(timer: Timer): String = unsupported
+  override def supportPackages: Boolean = true
+  override def packageFileName(pkgName: String): String = s"$pkgName.vhd"
+  // a packaged global constant / method call is referenced by SELECTED NAME, like the packaged
+  // types (see `VHDLTypePrinter.pkgQualifier`), rather than through a `use work.<pkg>.all`
+  override def csGlobalMemberQualifier(ns: String, pkgName: String): String = s"work.$pkgName."
+  // A namespace-derived package: spec (type dcls + conv-func protos, then constants and
+  // method protos in dependency order) and body (conv-func and method bodies). Only the
+  // general package is `use`d: everything a package takes from a SIBLING package it names
+  // by selected name, so no cross-package use clause (and no ordering-sensitive visibility)
+  // is needed. Analysis order still follows the cross-package topological order of
+  // `packagedContents`, which `printedDB` preserves.
+  override def csPackageFileContent(pkgName: String, namespace: String, typeDcls: String): String =
+    val typeEntries = packagedTypeEntries.collectFirst {
+      case (`pkgName`, _, entries) => entries
+    }.getOrElse(Nil)
+    val declEntries = packagedGlobalDeclEntries.collectFirst {
+      case (`pkgName`, _, decls) => decls
+    }.getOrElse(Nil)
+    def underPkg[T](p: TPrinter)(block: => T): T =
+      p.currentPackage = Some(pkgName)
+      try block
+      finally p.currentPackage = None
+    val typeSpecDcls = typeEntries.map { (p, t) =>
+      underPkg(p) {
+        sn"""|${p.csNamedDFTypeDcl(t, global = true)}
+            |${p.csNamedDFTypeConvFuncsDcl(t)}"""
+      }
+    }.mkString("\n")
+    val declSpecDcls = declEntries.map {
+      case GlobalDecl.Const(c)  => csPackagedGlobalDecl(pkgName, GlobalDecl.Const(c))
+      case GlobalDecl.Method(b) =>
+        val p = globalMethodPrinterFor(b)
+        underPkg(p)(p.csMethodProto(b))
+    }.filter(_.nonEmpty).mkString("\n")
+    val typeBodyDcls = typeEntries.map { (p, t) =>
+      underPkg(p)(p.csNamedDFTypeConvFuncsBody(t))
+    }.filter(_.nonEmpty).mkString("\n")
+    val declBodyDcls = declEntries.collect { case GlobalDecl.Method(b) =>
+      csPackagedGlobalDecl(pkgName, GlobalDecl.Method(b))
+    }.filter(_.nonEmpty).mkString("\n")
+    sn"""|library ieee;
+        |use ieee.std_logic_1164.all;
+        |use ieee.numeric_std.all;
+        |use work.dfhdl_pkg.all;
+        |${if (hasGlobalContent) s"use work.${printer.packageName}.all;" else ""}
+        |
+        |package $pkgName is
+        |$typeSpecDcls
+        |$declSpecDcls
+        |end package $pkgName;
+        |
+        |package body $pkgName is
+        |$typeBodyDcls
+        |$declBodyDcls
+        |end package body $pkgName;
+        |"""
+  end csPackageFileContent
   def globalFileName: String =
     val name = printerOptions.globalDefsFileName
     if (name.nonEmpty && name.contains('.')) name
@@ -224,11 +281,16 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
         printer.globalVectorTypes.view.map { case (tpName, (vecType, depth)) =>
           printer.csDFVectorDclsGlobal(DclScope.PkgBody)(tpName, vecType, depth)
         }.mkString("\n")
-      // collect the global named types, including vectors
+      // collect the global named types, including vectors: packaged named types are
+      // excluded (each lives in its own package file), while design-local types that
+      // packaged content references are hoisted in
       val namedDFTypes = ListSet.from(getSet.designDB.members.view.collect {
         case port @ DclPort()                     => port.dfType
         case const @ DclConst() if const.isGlobal => const.dfType
-      }.flatMap(_.decompose { case dt: (DFVector | NamedDFType) => dt }))
+      }.flatMap(_.decompose { case dt: (DFVector | NamedDFType) => dt }).filter {
+        case dt: NamedDFType => printer.typePlacementOf(dt).isEmpty
+        case _               => true
+      }) ++ packagedHoistedTypes.map(_._2)
       // declarations of the types and relevant functions
       val namedTypeConvFuncsDcl = namedDFTypes.view
         .flatMap {
@@ -248,8 +310,10 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
         }
         .mkString("\n")
       val namedTypeConvFuncsBody =
-        getSet.designDB.getGlobalNamedDFTypes.view
-          .collect { case dfType: NamedDFType => printer.csNamedDFTypeConvFuncsBody(dfType) }
+        (getSet.designDB.getGlobalNamedDFTypes.view
+          .filter(dfType => printer.typePlacementOf(dfType).isEmpty) ++
+          packagedHoistedTypes.view.map(_._2))
+          .map(dfType => printer.csNamedDFTypeConvFuncsBody(dfType))
           .mkString("\n")
       val usesMathReal = getSet.designDB.membersGlobals.exists {
         _.dfType.decompose { case dt: DFDouble => dt }.nonEmpty
@@ -262,11 +326,14 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       // dependency order (a constant may call a method, a method may read a constant); the
       // bodies follow in the package body, where every spec name is already visible
       val protoOf = printer.globalMethodPrinters.toMap
-      val globalSpecDcls = globalDeclsOrdered.map {
+      val globalSpecDcls = globalDeclsDeduped.filter(globalDeclPlacementOf(_).isEmpty).map {
         case GlobalDecl.Const(c)  => printer.csDFMembers(List(c))
         case GlobalDecl.Method(b) => protoOf(b).csMethodProto(b)
       }.filter(_.nonEmpty).mkString("\n")
-      val globalMethodBodies = csGlobalMethodDcls
+      val globalMethodBodies = globalDeclsDeduped
+        .filter(globalDeclPlacementOf(_).isEmpty)
+        .collect { case decl @ GlobalDecl.Method(_) => csGlobalDecl(decl) }
+        .filter(_.nonEmpty).mkString("\n\n")
       sn"""|library ieee;
           |use ieee.std_logic_1164.all;
           |use ieee.numeric_std.all;

@@ -1,6 +1,7 @@
 package dfhdl.AES
 import munit.*
 import dfhdl.*
+import dfhdl.hw.annotation.top
 import tools.linters.iverilog
 import dfhdl.options.LinterOptions._VerilogLinter
 import dfhdl.options.CompilerOptions

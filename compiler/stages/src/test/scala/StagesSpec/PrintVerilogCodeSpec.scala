@@ -330,8 +330,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    if (rst) y <= c;
          |    else y <= x;
          |  end
-         |  myblock : always_comb
-         |  begin
+         |  always_comb begin : myblock
          |    my_var = x;
          |    y      <= my_var;
          |  end
@@ -377,7 +376,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  typedef struct packed {
          |    logic [2:0] _1;
          |    logic _2;
-         |  } t_struct_DFTuple2;
+         |  } DFTuple2;
          |  localparam logic c01 = 1'b0;
          |  localparam logic c02 = 1'b1;
          |  localparam logic c03 = 1'bx;
@@ -392,12 +391,12 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  localparam logic signed [48:0] c12 = -49'sd239794508230343;
          |  localparam logic [7:0] c13 = 8'hxx;
          |  localparam logic signed [7:0] c14 = $signed(8'hxx);
-         |  localparam t_struct_DFTuple2 c15 = '{3'h0, 1'b1};
-         |  localparam logic [7:0] c16 [0:6] [0:4] = '{
-         |    0: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 1: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
-         |    2: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 3: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
-         |    4: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 5: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
-         |    6: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}
+         |  localparam DFTuple2 c15 = '{3'h0, 1'b1};
+         |  localparam logic [6:0][4:0][7:0] c16 = '{
+         |    6: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00}, 5: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00},
+         |    4: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00}, 3: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00},
+         |    2: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00}, 1: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00},
+         |    0: '{4: 8'h44, 3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00}
          |  };
          |  localparam real c17 = 3.14159;
          |  localparam real c18 = -2.71828;
@@ -927,7 +926,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`timescale 1ns/1ps
          |
          |module Foo(
-         |  output logic [9:0] matrix [0:7] [0:7]
+         |  output logic [7:0][7:0][9:0] matrix
          |);
          |  `include "dfhdl_defs.svh"
          |
@@ -993,18 +992,18 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output reg [639:0] matrix
          |);
          |  `include "dfhdl_defs.vh"
+         |  integer i;
+         |  integer j;
+         |  integer k;
          |
          |  always
          |  begin
-         |    integer i;
-         |    integer j;
-         |    integer k;
          |    for (i = 0; i < 8; i = i + 1) begin
          |      if ((i % 2) == 0) begin
          |        for (j = 0; j < 8; j = j + 1) begin
          |          if ((j % 2) == 0) begin
          |            for (k = 0; k < 10; k = k + 1) begin
-         |              if ((k % 2) == 0) (matrix[(10 + ((640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0))) - 1:(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0)])[k] <= 1'b1;
+         |              if ((k % 2) == 0) matrix[(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + ((k - 0) + 0))] <= 1'b1;
          |            end
          |          end
          |        end
@@ -1015,7 +1014,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |        for (j = 0; j < 8; j = j + 1) begin
          |          if ((j % 2) == 1) begin
          |            for (k = 0; k < 10; k = k + 1) begin
-         |              if ((k % 2) == 1) (matrix[(10 + ((640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0))) - 1:(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0)])[k] <= 1'b0;
+         |              if ((k % 2) == 1) matrix[(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + ((k - 0) + 0))] <= 1'b0;
          |            end
          |          end
          |        end
@@ -1109,7 +1108,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    MyEnum_A = 0,
          |    MyEnum_B = 1,
          |    MyEnum_C = 2
-         |  } t_enum_MyEnum;
+         |  } MyEnum;
          |  localparam string bar = {param, "!"};
          |  localparam string param2 = {2{param}};
          |  localparam int param3 = 42;
@@ -1119,7 +1118,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  localparam logic signed [4:0] param7 = -5'sd11;
          |  localparam logic param8 = 1'b1;
          |  localparam logic param9 = 0;
-         |  localparam t_enum_MyEnum param10 = MyEnum_A;
+         |  localparam MyEnum param10 = MyEnum_A;
          |  always_comb
          |  begin
          |    assert (param == "hello2");
@@ -1141,7 +1140,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", param10.name());
          |    $info(
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1093:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1092:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1212,7 +1211,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d, %d, %h, %h, %d, %b, %s, %s", param3, param4, param5, param6, param7, param8, param9 ? "true" : "false", MyEnum_to_string(param10));
          |    $display(
          |      "INFO: Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1093:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1092:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1265,6 +1264,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+  // the whole-vector inits are lowered into `initial` blocks by `DropWholeVecAssign`; a uniform
+  // source loops over the declaration's own element-count parameter, while the differing-cell
+  // sources unroll
   test("vector init printing under verilog.v95") {
     given options.CompilerOptions.Backend = _.verilog.v95
     class Foo extends EDDesign:
@@ -1286,27 +1288,28 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `include "dfhdl_defs.vh"
          |  parameter integer PORT_WIDTH = 8;
          |  parameter integer PORT_DEPTH = 4;
+         |  integer v2_i;
          |  parameter [(PORT_WIDTH * PORT_DEPTH) - 1:0] initArg = {8'h01, 8'h02, 8'h03, 8'h04};
          |  reg [PORT_WIDTH - 1:0] v1 [0:PORT_DEPTH - 1];
+         |  reg [PORT_WIDTH - 1:0] v2 [0:PORT_DEPTH - 1];
+         |  reg [PORT_WIDTH - 1:0] v3 [0:PORT_DEPTH - 1];
          |  initial begin : v1_init
          |    v1[0] = 8'h01;
          |    v1[1] = 8'h02;
          |    v1[2] = 8'h03;
          |    v1[3] = 8'h04;
          |  end
-         |  reg [PORT_WIDTH - 1:0] v2 [0:PORT_DEPTH - 1];
+         |
          |  initial begin : v2_init
-         |    integer i;
-         |    for (i = 0; i < PORT_DEPTH; i = i + 1) begin
-         |      v2[i] = {PORT_WIDTH{1'b0}};
+         |    for (v2_i = 0; v2_i < PORT_DEPTH; v2_i = v2_i + 1) begin
+         |      v2[v2_i] = {PORT_WIDTH{1'b0}};
          |    end
          |  end
-         |  reg [PORT_WIDTH - 1:0] v3 [0:PORT_DEPTH - 1];
          |  initial begin : v3_init
-         |    v3[0] = initArg[31:24];
-         |    v3[1] = initArg[23:16];
-         |    v3[2] = initArg[15:8];
-         |    v3[3] = initArg[7:0];
+         |    v3[0] = initArg[(PORT_WIDTH + (((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 1)) + 0)) - 1:((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 1)) + 0];
+         |    v3[1] = initArg[(PORT_WIDTH + (((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 2)) + 0)) - 1:((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 2)) + 0];
+         |    v3[2] = initArg[(PORT_WIDTH + (((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 3)) + 0)) - 1:((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 3)) + 0];
+         |    v3[3] = initArg[(PORT_WIDTH + (((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 4)) + 0)) - 1:((PORT_WIDTH * PORT_DEPTH) - (PORT_WIDTH * 4)) + 0];
          |  end
          |endmodule""".stripMargin
     )
@@ -1335,26 +1338,26 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|typedef enum logic [0:0] {
          |  MyEnum_Zero = 0,
          |  MyEnum_One = 1
-         |} t_enum_MyEnum;
+         |} MyEnum;
          |
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "Bar_defs.svh"
          |
          |module Bar(
-         |  input  wire t_enum_MyEnum x,
+         |  input  wire MyEnum x,
          |  output logic y,
          |  output logic z,
          |  input  wire logic x1,
          |  input  wire logic x2,
-         |  output t_enum_MyEnum y1,
-         |  output t_enum_MyEnum y2
+         |  output MyEnum y1,
+         |  output MyEnum y2
          |);
          |  `include "dfhdl_defs.svh"
          |  assign y = ~x;
          |  assign z = ~x;
-         |  assign y1 = t_enum_MyEnum'(x1);
-         |  assign y2 = t_enum_MyEnum'(x2);
+         |  assign y1 = MyEnum'(x1);
+         |  assign y2 = MyEnum'(x2);
          |endmodule""".stripMargin
     )
   }
@@ -1534,15 +1537,15 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|typedef enum logic [0:0] {
          |  MyEnum_A = 0,
          |  MyEnum_B = 1
-         |} t_enum_MyEnum;
+         |} MyEnum;
          |
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "otherGlobal.svh"
          |
          |module Foo(
-         |  input  wire t_enum_MyEnum x,
-         |  output t_enum_MyEnum y
+         |  input  wire MyEnum x,
+         |  output MyEnum y
          |);
          |  `include "dfhdl_defs.svh"
          |  assign y = x;
@@ -1564,15 +1567,15 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|typedef enum logic [0:0] {
          |  MyEnum_A = 0,
          |  MyEnum_B = 1
-         |} t_enum_MyEnum;
+         |} MyEnum;
          |
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "otherGlobal.svh"
          |
          |module Foo(
-         |  input  wire t_enum_MyEnum x,
-         |  output t_enum_MyEnum y
+         |  input  wire MyEnum x,
+         |  output MyEnum y
          |);
          |  `include "dfhdl_defs.svh"
          |  assign y = x;
@@ -1596,14 +1599,14 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`timescale 1ns/1ps
          |
          |module Foo(
-         |  input  wire logic i1 [0:7],
+         |  input  wire logic [7:0] i1,
          |  output logic [7:0] o1,
          |  input  wire logic [7:0] i2,
-         |  output logic o2 [0:7]
+         |  output logic [7:0] o2
          |);
          |  `include "dfhdl_defs.svh"
          |  assign o1 = {i1[0], i1[1], i1[2], i1[3], i1[4], i1[5], i1[6], i1[7]};
-         |  assign o2 = '{i2[7], i2[6], i2[5], i2[4], i2[3], i2[2], i2[1], i2[0]};
+         |  assign o2 = {<<1{i2}};
          |endmodule""".stripMargin
     )
   }
@@ -1662,15 +1665,15 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|typedef struct packed {
          |  logic [3:0] a;
          |  logic [3:0] b;
-         |} t_struct_AB;
+         |} AB;
          |
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "Foo_defs.svh"
          |
          |module Foo(
-         |  input  wire t_struct_AB i,
-         |  output t_struct_AB y
+         |  input  wire AB i,
+         |  output AB y
          |);
          |  `include "dfhdl_defs.svh"
          |  assign y.a = i.b;
@@ -1863,18 +1866,18 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  typedef enum logic [0:0] {
          |    State_0_S_boot = 0,
          |    State_0_S_0 = 1
-         |  } t_enum_State_0;
+         |  } State_0;
          |  typedef enum logic [0:0] {
          |    State_1_S_0 = 0,
          |    State_1_S_1 = 1
-         |  } t_enum_State_1;
+         |  } State_1;
          |  logic fk_start_0;
          |  logic fk_start_1;
          |  logic fk_done_0;
          |  logic fk_done_1;
-         |  t_enum_State_0 state_0;
-         |  t_enum_State_1 state_1;
-         |  t_enum_State_1 state_2;
+         |  State_0 state_0;
+         |  State_1 state_1;
+         |  State_1 state_2;
          |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) begin
@@ -3348,17 +3351,17 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input  wire logic signed [W - 1:0] b,
          |  input  wire logic [W - 1:0] ua,
          |  input  wire logic [W - 1:0] ub,
-         |  output logic signed [(W + 1) - 1:0] sum,
-         |  output logic [(W + 1) - 1:0] usub,
-         |  output logic signed [(W + 2) - 1:0] acc,
-         |  output logic [(W + 2) - 1:0] uacc,
+         |  output logic signed [W:0] sum,
+         |  output logic [W:0] usub,
+         |  output logic signed [W + 1:0] acc,
+         |  output logic [W + 1:0] uacc,
          |  output logic signed [(2 * W) - 1:0] prod,
          |  output logic [(2 * W) - 1:0] uprod,
          |  input  wire logic c,
-         |  output logic signed [(W + 1) - 1:0] viaSel,
-         |  output logic signed [(W + 1) - 1:0] viaIf,
-         |  output logic signed [(W + 2) - 1:0] shr,
-         |  output logic signed [(W + 2) - 1:0] neg
+         |  output logic signed [W:0] viaSel,
+         |  output logic signed [W:0] viaIf,
+         |  output logic signed [W + 1:0] shr,
+         |  output logic signed [W + 1:0] neg
          |);
          |  `include "dfhdl_defs.svh"
          |  assign sum = a + b;
@@ -3418,7 +3421,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    parameter int WID = N * W,
          |    parameter int LEN = N
          |)(
-         |  input  wire logic [W - 1:0] vec [0:N - 1],
+         |  input  wire logic [N - 1:0][W - 1:0] vec,
          |  input  wire logic [LI - 1:0] din,
          |  output logic [LI - 1:0] dout,
          |  output logic [WID - 1:0] flat,
@@ -3426,7 +3429,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |);
          |  `include "dfhdl_defs.svh"
          |  assign dout = din;
-         |  assign flat = {vec};
+         |  assign flat = {<<W{vec}};
          |  assign cnt = LEN'(1'd0);
          |endmodule
          |""".stripMargin
@@ -3670,6 +3673,682 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  assign n = 8'(y);
          |endmodule
          |""".stripMargin
+    )
+  }
+  test("nonzero-low bit vector struct field flattening under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class BitsHLFlatten extends RTDesign:
+      // selections into the field fold into a single select over the flattened struct,
+      // with the field's absolute (nonzero-low) indices translated to flattened positions
+      case class P(f: BitsHL[9, 2] <> VAL, g: Bit <> VAL) extends Struct
+      val p  = P       <> IN
+      val f8 = Bits(8) <> OUT
+      val fb = Bit     <> OUT
+      val f4 = Bits(4) <> OUT
+      f8 := p.f
+      fb := p.f(5)
+      f4 := p.f(5, 2)
+    end BitsHLFlatten
+    val top = BitsHLFlatten().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module BitsHLFlatten(
+         |  input  wire [8:0] p,
+         |  output wire [7:0] f8,
+         |  output wire fb,
+         |  output wire [3:0] f4
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  assign f8 = p[8:1];
+         |  assign fb = p[4];
+         |  assign f4 = p[4:1];
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("nonzero-low bit vector ports and selection") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class BitsHLTop extends RTDesign:
+      val x = BitsHL(9, 2) <> IN
+      val y = Bits(8)      <> OUT
+      val b = Bit          <> OUT
+      y := x
+      b := x(5)
+    end BitsHLTop
+    val top = BitsHLTop().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module BitsHLTop(
+         |  input  wire logic [9:2] x,
+         |  output logic [7:0] y,
+         |  output logic b
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign y = x;
+         |  assign b = x[5];
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("selection into a flattened vector cell under v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class VecCellSel extends RTDesign:
+      val v = Bits(8) X 4 <> IN
+      val i = UInt(2)     <> IN
+      val b = Bit         <> OUT
+      val o = Bits(4)     <> OUT
+      val d = Bit         <> OUT
+      b := v(2)(5)
+      o := v(2)(5, 2)
+      // a runtime cell index folds into a runtime bit selection (a part-select
+      // with runtime bounds is illegal in v95/v2001)
+      d := v(i)(5)
+    end VecCellSel
+    val top = VecCellSel().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module VecCellSel(
+         |  input  wire [31:0] v,
+         |  input  wire [1:0] i,
+         |  output wire b,
+         |  output wire [3:0] o,
+         |  output wire d
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  assign b = v[13];
+         |  assign o = v[13:10];
+         |  assign d = v[(32 - (8 * (i + 1))) + 5];
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("BitsHL constant bounds emit as written") {
+    class HLBounds(val HI: Int <> CONST = 5, val LO: Int <> CONST = 4) extends RTDesign:
+      val b = BitsHL(HI, LO) <> OUT
+      val c = BitsHL(HI, 0)  <> OUT
+      val d = BitsHL(9, LO)  <> OUT
+      val e = Bits(HI)       <> OUT
+      b <> all(0)
+      c <> all(0)
+      d <> all(0)
+      e <> all(0)
+    end HLBounds
+    val top = HLBounds().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module HLBounds#(
+         |    parameter int HI = 5,
+         |    parameter int LO = 4
+         |)(
+         |  output logic [HI:LO] b,
+         |  output logic [HI:0] c,
+         |  output logic [9:LO] d,
+         |  output logic [HI - 1:0] e
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign b = {((HI - LO) + 1){1'b0}};
+         |  assign c = {(HI + 1){1'b0}};
+         |  assign d = {((9 - LO) + 1){1'b0}};
+         |  assign e = {HI{1'b0}};
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // issue #492: `mem <= {4{8'h00}}` is a PACKED replication assigned to an UNPACKED array, which
+  // v95/v2001 cannot express (and which a lenient tool reads as initializing element 0 only).
+  // `DropWholeVecAssign` lowers it into the element-wise loop every 1364-2001 tool accepts.
+  test("whole vector reset under verilog.v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class VecReset extends RTDesign:
+      val din  = Bits(8)     <> IN
+      val dout = Bits(8)     <> OUT
+      val mem  = Bits(8) X 4 <> VAR.REG init all(all(0))
+      mem(0).din                      := din
+      for (i <- 1 until 4) mem(i).din := mem(i - 1)
+      dout                            <> mem(3)
+    end VecReset
+    val top = VecReset().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module VecReset(
+         |  input  wire clk,
+         |  input  wire rst,
+         |  input  wire [7:0] din,
+         |  output wire [7:0] dout
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  integer mem_i;
+         |  reg [7:0] mem [0:3];
+         |  assign dout = mem[3];
+         |  always @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) begin
+         |      for (mem_i = 0; mem_i < 4; mem_i = mem_i + 1) begin
+         |        mem[mem_i] <= 8'h00;
+         |      end
+         |    end
+         |    else begin
+         |      mem[0] <= din;
+         |      mem[1] <= mem[0];
+         |      mem[2] <= mem[1];
+         |      mem[3] <= mem[2];
+         |    end
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // the same lowering, opted into for a dialect that CAN express the whole-vector forms
+  test("whole vector drives under the dropWholeVecAssign option") {
+    given options.CompilerOptions.Backend            = _.verilog.sv2009
+    given options.CompilerOptions.DropWholeVecAssign = true
+    class VecOpt extends EDDesign:
+      val y   = Bits(8)     <> OUT
+      val mem = Bits(8) X 4 <> VAR init all(all(0))
+      val con = Bits(8) X 4 <> VAR
+      con <> all(all(1))
+      y   <> mem(1) | con(2)
+    end VecOpt
+    val top = VecOpt().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module VecOpt(
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [3:0][7:0] mem;
+         |  logic [3:0][7:0] con;
+         |
+         |  initial begin : mem_init
+         |    for (int mem_i = 0; mem_i < 4; mem_i = mem_i + 1) begin
+         |      mem[mem_i] = 8'h00;
+         |    end
+         |  end
+         |  assign con[0] = 8'hff;
+         |  assign con[1] = 8'hff;
+         |  assign con[2] = 8'hff;
+         |  assign con[3] = 8'hff;
+         |  assign y = mem[1] | con[2];
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  // only the declaration's OWN dimension is unrolled: `DropStructsVecs` flattens the cell type to
+  // `Bits`, so the cell drive lands as a legal packed replication rather than an array literal
+  test("multi-dimensional whole vector drives under verilog.v2001") {
+    given options.CompilerOptions.Backend = _.verilog.v2001
+    class VecDims extends EDDesign:
+      val x   = Bits(8)         <> IN
+      val y   = Bits(8)         <> OUT
+      val mem = Bits(8) X 4 X 2 <> VAR init all(all(all(0)))
+      val con = Bits(8) X 4 X 2 <> VAR
+      con <> all(all(all(0)))
+      process(all):
+        mem :== all(all(x))
+        y   :== mem(1)(2) | con(0)(3)
+    end VecDims
+    val top = VecDims().getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module VecDims(
+         |  input  wire [7:0] x,
+         |  output reg [7:0] y
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  integer mem_i;
+         |  reg [31:0] mem [0:1];
+         |  wire [31:0] con [0:1];
+         |
+         |  initial begin : mem_init
+         |    for (mem_i = 0; mem_i < 2; mem_i = mem_i + 1) begin
+         |      mem[mem_i] = {4{8'h00}};
+         |    end
+         |  end
+         |  assign con[0] = {4{8'h00}};
+         |  assign con[1] = {4{8'h00}};
+         |
+         |  always @(*)
+         |  begin
+         |    for (mem_i = 0; mem_i < 2; mem_i = mem_i + 1) begin
+         |      mem[mem_i] <= {4{x}};
+         |    end
+         |    y <= mem[1][15:8] | con[0][7:0];
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+  test("Docstrings on named types"):
+    /** struct doc */
+    case class DocS(a: Bit <> VAL) extends Struct
+
+    /** enum doc */
+    enum DocE extends Encoded:
+      case E0, E1
+
+    /** opaque doc */
+    case class DocO() extends Opaque(Bit)
+    class DocTop extends DFDesign:
+      val s = DocS <> VAR
+      val e = DocE <> VAR
+      val o = DocO <> VAR
+    val top = (new DocTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module DocTop;
+         |  `include "dfhdl_defs.svh"
+         |  /* struct doc */
+         |  typedef struct packed {
+         |    logic a;
+         |  } DocS;
+         |  /* enum doc */
+         |  typedef enum logic [0:0] {
+         |    DocE_E0 = 0,
+         |    DocE_E1 = 1
+         |  } DocE;
+         |  /* opaque doc */
+         |  typedef logic DocO;
+         |  DocS s;
+         |  DocE e;
+         |  DocO o;
+         |endmodule
+         |""".stripMargin
+    )
+  test("Namespace-derived type packages"):
+    class PkgTop extends EDDesign:
+      val sp = typespkg1.PkgStruct <> IN
+      val so = typespkg1.PkgStruct <> OUT
+      val e  = typespkg1.PkgEnum   <> VAR
+      val o  = typespkg1.PkgOpaque <> VAR
+      val w  = typespkg2.PkgWrap   <> VAR
+      val u  = UInt(8)             <> VAR init typespkg2.PkgWide
+      so <> sp
+    val top = (new PkgTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|typedef struct packed {
+         |  logic [1:0] g;
+         |} GlbNsStruct;
+         |parameter logic [7:0] GlbNsConst = 8'd3;
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "PkgTop_defs.svh"
+         |
+         |package typespkg1;
+         |typedef struct packed {
+         |  logic [7:0] a;
+         |  logic b;
+         |  GlbNsStruct g;
+         |} PkgStruct;
+         |typedef enum logic [1:0] {
+         |  PkgEnum_P0 = 0,
+         |  PkgEnum_P1 = 1,
+         |  PkgEnum_P2 = 2
+         |} PkgEnum;
+         |typedef logic [3:0] PkgOpaque;
+         |parameter logic [7:0] PkgConst = GlbNsConst + 8'd39;
+         |function automatic logic [7:0] pkgCalc(input logic [7:0] arg);
+         |begin
+         |  pkgCalc = arg + 8'd1;
+         |end
+         |endfunction
+         |parameter logic [7:0] PkgDerived = pkgCalc(PkgConst);
+         |endpackage
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "PkgTop_defs.svh"
+         |
+         |package typespkg2;
+         |typedef struct packed {
+         |  typespkg1::PkgStruct s;
+         |  logic [7:0] n;
+         |} PkgWrap;
+         |parameter logic [7:0] PkgWide = typespkg1::pkgCalc(typespkg1::PkgDerived);
+         |endpackage
+         |
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "PkgTop_defs.svh"
+         |
+         |module PkgTop(
+         |  input  wire typespkg1::PkgStruct sp,
+         |  output typespkg1::PkgStruct so
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  typespkg1::PkgEnum e;
+         |  typespkg1::PkgOpaque o;
+         |  typespkg2::PkgWrap w;
+         |  logic [7:0] u = typespkg2::PkgWide;
+         |  assign so = sp;
+         |endmodule
+         |""".stripMargin
+    )
+  test("Same-named declarations across packages"):
+    class DualTop extends EDDesign:
+      val a = dualpkg1.Shared <> IN
+      val b = dualpkg2.Shared <> OUT
+      val c = UInt(8)         <> VAR init dualpkg1.SharedDerived
+      val d = UInt(8)         <> VAR init dualpkg2.SharedDerived
+      b.v <> a.v.resize(8)
+    val top = (new DualTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |package dualpkg1;
+         |typedef struct packed {
+         |  logic [3:0] v;
+         |} Shared;
+         |parameter logic [7:0] SharedConst = 8'd1;
+         |function automatic logic [7:0] calc1(input logic [7:0] arg);
+         |begin
+         |  calc1 = arg + 8'd10;
+         |end
+         |endfunction
+         |parameter logic [7:0] SharedDerived = calc1(SharedConst);
+         |endpackage
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |package dualpkg2;
+         |typedef struct packed {
+         |  logic [7:0] v;
+         |} Shared;
+         |parameter logic [7:0] SharedConst = 8'd2;
+         |function automatic logic [7:0] calc2(input logic [7:0] arg);
+         |begin
+         |  calc2 = arg + 8'd20;
+         |end
+         |endfunction
+         |parameter logic [7:0] SharedDerived = calc2(SharedConst);
+         |endpackage
+         |
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module DualTop(
+         |  input  wire dualpkg1::Shared a,
+         |  output dualpkg2::Shared b
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  logic [7:0] c = dualpkg1::SharedDerived;
+         |  logic [7:0] d = dualpkg2::SharedDerived;
+         |  assign b.v = `EBY_U(a.v, 4);
+         |endmodule
+         |""".stripMargin
+    )
+  test("Namespace-derived declarations flattened under verilog.v95"):
+    // v95 has no packages, so `DropPackages` folds each packaged declaration's package name
+    // into its own name and everything lands in the single global defs header
+    given options.CompilerOptions.Backend = _.verilog.v95
+    class PkgTop extends EDDesign:
+      val e = typespkg1.PkgEnum <> VAR
+      val u = UInt(8)           <> OUT
+      u <> typespkg2.PkgWide
+    val top = (new PkgTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`define GlbNsConst_def parameter [7:0] GlbNsConst = 8'd3;
+         |`define typespkg1_PkgConst_def parameter [7:0] typespkg1_PkgConst = GlbNsConst + 8'd39;
+         |function [7:0] typespkg1_pkgCalc;
+         |  input [7:0] arg;
+         |begin
+         |  typespkg1_pkgCalc = arg + 8'd1;
+         |end
+         |endfunction
+         |`define typespkg1_PkgDerived_def parameter [7:0] typespkg1_PkgDerived = typespkg1_pkgCalc(typespkg1_PkgConst);
+         |`define typespkg2_PkgWide_def parameter [7:0] typespkg2_PkgWide = typespkg1_pkgCalc(typespkg1_PkgDerived);
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "PkgTop_defs.vh"
+         |
+         |module PkgTop(
+         |  u
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  `include "PkgTop_defs.vh"
+         |  `typespkg2_PkgWide_def
+         |  `define typespkg1_PkgEnum_P0 0
+         |  `define typespkg1_PkgEnum_P1 1
+         |  `define typespkg1_PkgEnum_P2 2
+         |  function [8*20:1] typespkg1_PkgEnum_to_string;
+         |    /* verilator lint_off UNUSEDSIGNAL */
+         |    input [1:0] value;
+         |    case (value)
+         |      `typespkg1_PkgEnum_P0: typespkg1_PkgEnum_to_string = "typespkg1_PkgEnum_P0";
+         |      `typespkg1_PkgEnum_P1: typespkg1_PkgEnum_to_string = "typespkg1_PkgEnum_P1";
+         |      `typespkg1_PkgEnum_P2: typespkg1_PkgEnum_to_string = "typespkg1_PkgEnum_P2";
+         |      default: typespkg1_PkgEnum_to_string = "?";
+         |    endcase
+         |    /* verilator lint_on UNUSEDSIGNAL */
+         |  endfunction
+         |  output wire [7:0] u;
+         |  reg [1:0] e;
+         |  assign u = typespkg2_PkgWide;
+         |endmodule
+         |""".stripMargin
+    )
+  // the unpacked-representation rules: a `VAR.SHARED` and a single-dynamic-read RAM/ROM keep the
+  // unpacked array form (so block-RAM/ROM inference is preserved), and their init/constant
+  // aggregates print in the ascending index-labeled form
+  test("unpacked vector representation for RAM/ROM shapes") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class Mems extends EDDesign:
+      val clk  = Bit         <> IN
+      val we   = Bit         <> IN
+      val addr = Bits(2)     <> IN
+      val din  = Bits(8)     <> IN
+      val q1   = Bits(8)     <> OUT
+      val q2   = Bits(8)     <> OUT
+      val q3   = Bits(8)     <> OUT
+      val sh   = Bits(8) X 4 <> VAR.SHARED
+      val ram  = Bits(8) X 4 <> VAR
+      val rom: Bits[8] X 4 <> CONST = Vector(h"00", h"11", h"22", h"33")
+      process(clk.rising):
+        if (we) sh(addr) :== din
+      process(clk.rising):
+        q1 :== sh(addr)
+      process(clk.rising):
+        if (we) ram(addr) :== din
+        else q2           :== ram(addr)
+      q3 <> rom(addr)
+    end Mems
+    val top = (new Mems).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Mems(
+         |  input  wire logic clk,
+         |  input  wire logic we,
+         |  input  wire logic [1:0] addr,
+         |  input  wire logic [7:0] din,
+         |  output logic [7:0] q1,
+         |  output logic [7:0] q2,
+         |  output logic [7:0] q3
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam logic [7:0] rom [0:3] = '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33};
+         |  /* verilator lint_off MULTIDRIVEN */
+         |  logic [7:0] sh [0:3];
+         |  /* verilator lint_on MULTIDRIVEN */
+         |  logic [7:0] ram [0:3];
+         |  always @(posedge clk)
+         |  begin
+         |    if (we) sh[addr] <= din;
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    q1 <= sh[addr];
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (we) ram[addr] <= din;
+         |    else q2 <= ram[addr];
+         |  end
+         |  assign q3 = rom[addr];
+         |endmodule""".stripMargin
+    )
+  }
+  // the packed-representation overrides: a whole-vector use (rule e) and a constant-index access
+  // (rule d) force the packed form even in the presence of a single dynamic read, and a
+  // multi-read memory (rule h) is packed as well; aggregates keep the index-keyed form (the
+  // keys bind element indexes), listed descending to match the packed range direction
+  test("packed vector representation overrides") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class Packed extends EDDesign:
+      val clk   = Bit         <> IN
+      val we    = Bit         <> IN
+      val addr  = Bits(2)     <> IN
+      val addrB = Bits(2)     <> IN
+      val din   = Bits(8)     <> IN
+      val vin   = Bits(8) X 4 <> IN
+      val vout  = Bits(8) X 4 <> OUT
+      val q1    = Bits(8)     <> OUT
+      val q2    = Bits(8)     <> OUT
+      val q3    = Bits(8)     <> OUT
+      val pk: Bits[8] X 4 <> CONST = Vector(h"00", h"11", h"22", h"33")
+      val w = Bits(8) X 4 <> VAR
+      val t = Bits(8) X 4 <> VAR
+      val m = Bits(8) X 4 <> VAR
+      w    <> vin
+      q1   <> w(addr)
+      vout <> pk
+      process(clk.rising):
+        t(0) :== din
+        q2   :== t(addr)
+      process(clk.rising):
+        if (we) m(addr) :== din
+        q3              :== m(addr) | m(addrB)
+    end Packed
+    val top = (new Packed).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module Packed(
+         |  input  wire logic clk,
+         |  input  wire logic we,
+         |  input  wire logic [1:0] addr,
+         |  input  wire logic [1:0] addrB,
+         |  input  wire logic [7:0] din,
+         |  input  wire logic [3:0][7:0] vin,
+         |  output logic [3:0][7:0] vout,
+         |  output logic [7:0] q1,
+         |  output logic [7:0] q2,
+         |  output logic [7:0] q3
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  localparam logic [3:0][7:0] pk = '{3: 8'h33, 2: 8'h22, 1: 8'h11, 0: 8'h00};
+         |  logic [3:0][7:0] w;
+         |  logic [3:0][7:0] t;
+         |  logic [3:0][7:0] m;
+         |  assign w = vin;
+         |  assign q1 = w[addr];
+         |  assign vout = pk;
+         |  always_ff @(posedge clk)
+         |  begin
+         |    t[0] <= din;
+         |    q2 <= t[addr];
+         |  end
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (we) m[addr] <= din;
+         |    q3 <= m[addr] | m[addrB];
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  // a vector nested in a struct is always packed (an unpacked array cannot be a packed-struct
+  // member), and its field selection chains index the packed dimensions directly
+  test("vector nested in a struct is packed") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    case class Pkt(v: Bits[8] X 2 <> VAL, ok: Bit <> VAL) extends Struct
+    class StructVec extends EDDesign:
+      val x = Pkt     <> IN
+      val y = Bits(8) <> OUT
+      y <> x.v(1)
+    end StructVec
+    val top = (new StructVec).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|typedef struct packed {
+         |  logic [1:0][7:0] v;
+         |  logic ok;
+         |} Pkt;
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "StructVec_defs.svh"
+         |
+         |module StructVec(
+         |  input  wire Pkt x,
+         |  output logic [7:0] y
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign y = x.v[1];
+         |endmodule""".stripMargin
+    )
+  }
+  // a signed-cell vector never packs: an element select of an (anonymous-typed) packed array is
+  // an unsigned part-select, so the cell signedness would be lost; the unpacked element select
+  // keeps the declared (signed) cell type
+  test("SInt-cell vectors keep the unpacked representation") {
+    given options.CompilerOptions.Backend = _.verilog.sv2009
+    class SignedVec extends EDDesign:
+      val iv = SInt(8) X 4 <> IN
+      val o  = SInt(8)     <> OUT
+      val b  = Bit         <> OUT
+      o <> iv(0)
+      b <> (iv(1) < iv(2))
+    end SignedVec
+    val top = (new SignedVec).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |
+         |module SignedVec(
+         |  input  wire logic signed [7:0] iv [0:3],
+         |  output logic signed [7:0] o,
+         |  output logic b
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign o = iv[0];
+         |  assign b = iv[1] < iv[2];
+         |endmodule""".stripMargin
     )
   }
 end PrintVerilogCodeSpec

@@ -59,6 +59,99 @@ class SameWidthArithSpec extends NoDFCSpec:
     )
   }
 
+  // A `max` is at least each of its own branches and a `min` at most each of its, so every
+  // comparison between a chain and one of its own branches is either an answer or a comparison
+  // with what is left of the chain. The shape is how a width taken as the COMMON width of two
+  // operands meets one of them again.
+  test("a comparison against a max/min branch decides that branch away") {
+    class Top(val A: Int <> CONST = 1, val B: Int <> CONST = 2) extends DFDesign:
+      // the chain on the right
+      val rGE = A >= (A max B)
+      val rLE = A <= (A max B)
+      val rGT = A > (A max B)
+      val rLT = A < (A max B)
+      val rEQ = A == (A max B)
+      val rNE = A != (A max B)
+      val nGE = A >= (A min B)
+      val nLE = A <= (A min B)
+      val nGT = A > (A min B)
+      val nLT = A < (A min B)
+      val nEQ = A == (A min B)
+      val nNE = A != (A min B)
+      // the chain on the left
+      val lGE = (A max B) >= A
+      val lLE = (A max B) <= A
+      val lGT = (A max B) > A
+      val lLT = (A max B) < A
+      val lEQ = (A max B) == A
+      val lNE = (A max B) != A
+      val mGE = (A min B) >= A
+      val mLE = (A min B) <= A
+      val mGT = (A min B) > A
+      val mLT = (A min B) < A
+      val mEQ = (A min B) == A
+      val mNE = (A min B) != A
+    end Top
+    assertNoDiff(
+      codeString(Top()),
+      """|class Top(
+         |    val A: Int <> CONST = 1,
+         |    val B: Int <> CONST = 2
+         |) extends DFDesign:
+         |  val rGE: Boolean <> CONST = A >= B
+         |  val rLE: Boolean <> CONST = true
+         |  val rGT: Boolean <> CONST = false
+         |  val rLT: Boolean <> CONST = A < B
+         |  val rEQ: Boolean <> CONST = A >= B
+         |  val rNE: Boolean <> CONST = A < B
+         |  val nGE: Boolean <> CONST = true
+         |  val nLE: Boolean <> CONST = A <= B
+         |  val nGT: Boolean <> CONST = A > B
+         |  val nLT: Boolean <> CONST = false
+         |  val nEQ: Boolean <> CONST = A <= B
+         |  val nNE: Boolean <> CONST = A > B
+         |  val lGE: Boolean <> CONST = true
+         |  val lLE: Boolean <> CONST = B <= A
+         |  val lGT: Boolean <> CONST = B > A
+         |  val lLT: Boolean <> CONST = false
+         |  val lEQ: Boolean <> CONST = B <= A
+         |  val lNE: Boolean <> CONST = B > A
+         |  val mGE: Boolean <> CONST = B >= A
+         |  val mLE: Boolean <> CONST = true
+         |  val mGT: Boolean <> CONST = false
+         |  val mLT: Boolean <> CONST = B < A
+         |  val mEQ: Boolean <> CONST = B >= A
+         |  val mNE: Boolean <> CONST = B < A
+         |end Top""".stripMargin
+    )
+  }
+
+  // Opposing terms of an additive expression cancel wherever they sit in it. Left-nesting is what
+  // a chain of operations builds; right-nesting is what an operand written as a DIFFERENCE gives,
+  // which is how a relative width adjustment reads: `.eby(TARGET - W)` asks for `W + (TARGET - W)`
+  // bits, and stating the target back is the whole of what that means.
+  test("opposing additive terms cancel wherever they sit") {
+    class Top(val A: Int <> CONST = 1, val B: Int <> CONST = 2) extends DFDesign:
+      val v = Int <> VAR
+      v := A + B - A // left-nested
+      v := A + (B - A) // right-nested
+      v := A - (A - B) // right-nested under a subtraction
+      v := A - 1 - A + 5 // the residue is a constant
+    assertNoDiff(
+      codeString(Top()),
+      """|class Top(
+         |    val A: Int <> CONST = 1,
+         |    val B: Int <> CONST = 2
+         |) extends DFDesign:
+         |  val v = Int <> VAR
+         |  v := B
+         |  v := B
+         |  v := B
+         |  v := 4
+         |end Top""".stripMargin
+    )
+  }
+
   test("a repeated max/min chain over a design parameter is absorbed") {
     class Top(val W: Int <> CONST = 11) extends DFDesign:
       val v = Int <> VAR

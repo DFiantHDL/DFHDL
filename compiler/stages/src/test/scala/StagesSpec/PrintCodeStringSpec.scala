@@ -901,6 +901,67 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("RTRelatedDomain, RTDerivedClkDomain, and RTRegion manifest as plain related RTDomains") {
+    @hw.constraints.timing.reset()
+    class IDWithDomains extends RTDesign:
+      val y = SInt(16) <> OUT
+      val r = SInt(16) <> VAR.REG init 0
+      r.din := r + 1
+      val related = new RTRelatedDomain:
+        val x = SInt(16) <> VAR init 0
+      val gated = new RTDerivedClkDomain:
+        val z = SInt(16) <> VAR.REG init 0
+        z.din := z + 1
+      val trans = new RTRegion:
+        val w = SInt(16) <> VAR init 0
+      // path-prefixed shorthand: a domain related to `gated` rather than to the design
+      val sub = new gated.RTRegion:
+        val v = SInt(16) <> VAR init 0
+      val gclk = Bit <> IN
+      val src  = new RTDerivedClkDomainSrc {}
+      src.clk <> gclk.as(src.Clk)
+      y       := r + related.x + gated.z + trans.w + sub.v
+    end IDWithDomains
+    val id = (new IDWithDomains)
+    assertCodeString(
+      id,
+      """|
+         |@timing.reset()
+         |class IDWithDomains extends RTDesign:
+         |  val y = SInt(16) <> OUT
+         |  val r = SInt(16) <> VAR.REG init sd"16'0"
+         |  r.din := r + sd"16'1"
+         |  @timing.related(IDWithDomains.this)
+         |  val related = new RTDomain:
+         |    val x = SInt(16) <> VAR init sd"16'0"
+         |  end related
+         |  @timing.related(IDWithDomains.this)
+         |  val gated = new RTDomain:
+         |    val clk = Clk <> IN
+         |    val z = SInt(16) <> VAR.REG init sd"16'0"
+         |    z.din := z + sd"16'1"
+         |  end gated
+         |  @timing.related(IDWithDomains.this)
+         |  @hw.annotation.flattenMode.transparent()
+         |  val trans = new RTDomain:
+         |    val w = SInt(16) <> VAR init sd"16'0"
+         |  end trans
+         |  @timing.related(gated)
+         |  @hw.annotation.flattenMode.transparent()
+         |  val sub = new RTDomain:
+         |    val v = SInt(16) <> VAR init sd"16'0"
+         |  end sub
+         |  val gclk = Bit <> IN
+         |  @timing.related(IDWithDomains.this)
+         |  val src = new RTDomain:
+         |    val clk = Clk <> OUT
+         |  end src
+         |  src.clk <> gclk.as(Clk)
+         |  y := r + related.x + gated.z + trans.w + sub.v
+         |end IDWithDomains
+         |""".stripMargin
+    )
+  }
   test("Domain related with includeReset = false") {
     @hw.constraints.timing.reset()
     class IDWithDomains extends DFDesign:
@@ -3517,6 +3578,157 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("a common width is seen through, in the operands and in the constraint") {
+    // Two operands of unrelated parametric widths align at their COMMON width, which is then the
+    // one the target has to hold. Both of those meet a `max` against one of its own branches:
+    // the operand resized to the common width and back recovers itself, so only the operand that
+    // really changes width carries a resize, and the fit the design states is between the two
+    // widths themselves rather than through the width it went through.
+    class CommonWidth(val W1: Int <> CONST = 8, val W2: Int <> CONST = 8) extends RTDesign:
+      val x = UInt(W1) <> IN
+      val y = UInt(W2) <> IN
+      val z = UInt(W1) <> OUT
+      z := x + y
+    end CommonWidth
+    assertCodeString(
+      CommonWidth(),
+      """|class CommonWidth(
+         |    val W1: Int <> CONST = 8,
+         |    val W2: Int <> CONST = 8
+         |) extends RTDesign:
+         |  val x = UInt(W1) <> IN
+         |  val y = UInt(W2) <> IN
+         |  val z = UInt(W1) <> OUT
+         |  z := x + y.resize(W1)
+         |  val constraint_0 = assert(W1 >= W2, s"Design parameter violation found. Expected: W1 >= W2", Severity.Fatal)
+         |end CommonWidth
+         |""".stripMargin
+    )
+  }
+  test("a sub-design states its own contract, not the one its instantiation happens to satisfy") {
+    // A design's parameter stays overridable in the module it is emitted as, so what its body
+    // assumes has to hold for whatever that parameter turns out to be. The value an instantiation
+    // supplies decides nothing about it, and neither does its default, which is what the
+    // parameter is only when nothing says otherwise. So a child elaborates to exactly what it
+    // would standalone: the literal takes the target width and the design states the fit it needs.
+    class Mul(val W: Int <> CONST = 8) extends EDDesign:
+      val gx   = UInt(W)  <> IN
+      val prod = UInt(21) <> OUT
+      prod <> gx * 373
+    end Mul
+    class MulParent extends EDDesign:
+      val gx   = UInt(8)  <> IN
+      val prod = UInt(21) <> OUT
+      val leaf = Mul()
+      leaf.gx   <> gx
+      leaf.prod <> prod
+    end MulParent
+    assertCodeString(
+      MulParent(),
+      """|class Mul(val W: Int <> CONST = 8) extends EDDesign:
+         |  val gx = UInt(W) <> IN
+         |  val prod = UInt(21) <> OUT
+         |  prod <> (gx.resize(21) * d"21'373")
+         |  val constraint_0 = assert(21 >= W, s"Design parameter violation found. Expected: 21 >= W", Severity.Fatal)
+         |end Mul
+         |
+         |class MulParent extends EDDesign:
+         |  val gx = UInt(8) <> IN
+         |  val prod = UInt(21) <> OUT
+         |  val leaf = Mul(W = 8)
+         |  leaf.gx <> gx
+         |  prod <> leaf.prod
+         |end MulParent
+         |""".stripMargin
+    )
+  }
+  test("a parameter the body reads is fixed at what it read, and states it") {
+    // Reading a parameter as a Scala value is what specializes a body to it: the branch that was
+    // not taken leaves nothing behind, so in the design that came out `OUT_W = D * B` and `D` are
+    // one width and the assignment between them is legal. The width algebra reads the parameter as
+    // the value the body read it at, which is the only way that equality can be seen, and the
+    // design states the value as its contract, the generated module keeping the parameter
+    // overridable (issue #480). The other branch is elaborated from the same source and states the
+    // value that selected IT; its `.eby(OUT_W - D)` asks for `D + (OUT_W - D)` bits, which is
+    // `OUT_W` said the long way round.
+    class Shifter(val D: Int <> CONST = 8, val B: Int <> CONST = 1) extends RTDesign:
+      val OUT_W = D * B
+      val in    = Bits(D)     <> IN
+      val out   = Bits(OUT_W) <> OUT
+      if (B == 1) out := in
+      else out        := in.eby(OUT_W - D)
+    end Shifter
+    assertCodeString(
+      Shifter(),
+      """|@hw.annotation.pure(impureParams = "B")
+         |class Shifter(
+         |    val D: Int <> CONST = 8,
+         |    val B: Int <> CONST = 1
+         |) extends RTDesign:
+         |  val OUT_W: Int <> CONST = D * B
+         |  val in = Bits(D) <> IN
+         |  val out = Bits(OUT_W) <> OUT
+         |  out := in
+         |  val constraint_0 = assert(B == 1, s"Design parameter violation found. Expected: B == 1", Severity.Fatal)
+         |end Shifter
+         |""".stripMargin
+    )
+    assertCodeString(
+      Shifter(B = 3),
+      """|@hw.annotation.pure(impureParams = "B")
+         |class Shifter(
+         |    val D: Int <> CONST = 8,
+         |    val B: Int <> CONST = 3
+         |) extends RTDesign:
+         |  val OUT_W: Int <> CONST = D * B
+         |  val in = Bits(D) <> IN
+         |  val out = Bits(OUT_W) <> OUT
+         |  out := in.resize(OUT_W)
+         |  val constraint_0 = assert(B == 3, s"Design parameter violation found. Expected: B == 3", Severity.Fatal)
+         |end Shifter
+         |""".stripMargin
+    )
+  }
+  test("a parameter that feeds a read one is read too, and states its own value") {
+    // Nothing in `Outer`'s body reads `M`, and `Outer` is specialized to it all the same: the
+    // value went into a child that read it, so the body `Outer` produced is the one for `M = 4`.
+    // The purity analysis already says so, every application of a data-impure parameter
+    // re-attributing its applied argument at the call site, which is why the contract is derived
+    // from that marking rather than from where the reading happened (issue #480).
+    class Inner(val N: Int <> CONST = 4) extends RTDesign:
+      val din  = Bits(N * 2) <> IN
+      val dout = Bits(N)     <> OUT
+      if (N == 4) dout := din(N - 1, 0)
+      else dout        := din(2 * N - 1, N)
+    class Outer(val M: Int <> CONST = 4) extends RTDesign:
+      val din   = Bits(M * 2) <> IN
+      val dout  = Bits(M)     <> OUT
+      val inner = Inner(M)
+      inner.din <> din
+      dout      <> inner.dout
+    end Outer
+    assertCodeString(
+      Outer(),
+      """|@hw.annotation.pure(impureParams = "N")
+         |class Inner(val N: Int <> CONST = 4) extends RTDesign:
+         |  val din = Bits(N * 2) <> IN
+         |  val dout = Bits(N) <> OUT
+         |  dout := din(N - 1, 0)
+         |  val constraint_0 = assert(N == 4, s"Design parameter violation found. Expected: N == 4", Severity.Fatal)
+         |end Inner
+         |
+         |@hw.annotation.pure(impureParams = "M")
+         |class Outer(val M: Int <> CONST = 4) extends RTDesign:
+         |  val din = Bits(M * 2) <> IN
+         |  val dout = Bits(M) <> OUT
+         |  val inner = Inner(N = M)
+         |  inner.din <> din
+         |  dout <> inner.dout
+         |  val constraint_0 = assert(M == 4, s"Design parameter violation found. Expected: M == 4", Severity.Fatal)
+         |end Outer
+         |""".stripMargin
+    )
+  }
   test("auto constraint from an LHS-dominant operation") {
     // `-`, `/` and `%` take the LHS width and convert the RHS to it, so each needs the RHS to
     // fit. `-` used to answer the undecided case with an outright rejection while its two
@@ -3660,4 +3872,231 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("BitsHL constant bounds: value passed to a matching method parameter") {
+    val HI: Int <> CONST                                       = 5
+    val LO: Int <> CONST                                       = 4
+    @inline def fLit(x: BitsHL[5, 4] <> VAL): Bits[2] <> DFRET = x(5, 4)
+    class CallLit extends RTDesign:
+      val a = BitsHL(5, 4) <> IN
+      val o = Bits(2)      <> OUT
+      o <> fLit(a)
+    assertCodeString(
+      CallLit(),
+      """|class CallLit extends RTDesign:
+         |  val a = BitsHL(5, 4) <> IN
+         |  val o = Bits(2) <> OUT
+         |  o <> a(5, 4)
+         |end CallLit""".stripMargin
+    )
+    @inline def fConst(x: BitsHL[HI.type, LO.type] <> VAL): Bits[2] <> DFRET = x(HI, LO)
+    class CallConst extends RTDesign:
+      val b = BitsHL(HI, LO) <> IN
+      val o = Bits(2)        <> OUT
+      o <> fConst(b)
+    assertCodeString(
+      CallConst(),
+      """|val HI: Int <> CONST = 5
+         |val LO: Int <> CONST = 4
+         |
+         |class CallConst extends RTDesign:
+         |  val b = BitsHL(HI, LO) <> IN
+         |  val o = Bits(2) <> OUT
+         |  o <> b(HI, LO)
+         |end CallConst""".stripMargin
+    )
+  }
+  test("BitsHL constant bounds print as written") {
+    class HLBounds(val HI: Int <> CONST = 5, val LO: Int <> CONST = 4) extends RTDesign:
+      val b = BitsHL(HI, LO) <> OUT
+      val d = BitsHL(9, LO)  <> OUT
+      b <> all(0)
+      d <> all(0)
+    end HLBounds
+    assertCodeString(
+      HLBounds(),
+      """|class HLBounds(
+         |    val HI: Int <> CONST = 5,
+         |    val LO: Int <> CONST = 4
+         |) extends RTDesign:
+         |  val b = BitsHL(HI, LO) <> OUT
+         |  val d = BitsHL(9, LO) <> OUT
+         |  b <> b"0".repeat((HI - LO) + 1)
+         |  d <> b"0".repeat((9 - LO) + 1)
+         |end HLBounds
+         |""".stripMargin
+    )
+  }
+  test("Docstrings on named types"):
+    /** struct doc */
+    case class DocS(a: Bit <> VAL) extends Struct
+
+    /** enum doc */
+    enum DocE extends Encoded:
+      case E0, E1
+
+    /** opaque doc */
+    case class DocO() extends Opaque(Bit)
+    class DocTop extends DFDesign:
+      val s = DocS <> VAR
+      val e = DocE <> VAR
+      val o = DocO <> VAR
+    val top = (new DocTop)
+    assertCodeString(
+      top,
+      """|class DocTop extends DFDesign:
+         |  /** struct doc */
+         |  final case class DocS(
+         |      a: Bit <> VAL
+         |  ) extends Struct
+         |  /** enum doc */
+         |  enum DocE(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
+         |    case E0 extends DocE(d"1'0")
+         |    case E1 extends DocE(d"1'1")
+         |  /** opaque doc */
+         |  case class DocO() extends Opaque(Bit)
+         |
+         |  val s = DocS <> VAR
+         |  val e = DocE <> VAR
+         |  val o = DocO <> VAR
+         |end DocTop
+         |""".stripMargin
+    )
+  test("Namespace-derived type packages"):
+    class PkgTop extends DFDesign:
+      val s = typespkg1.PkgStruct <> VAR
+      val e = typespkg1.PkgEnum   <> VAR
+      val o = typespkg1.PkgOpaque <> VAR
+      val w = typespkg2.PkgWrap   <> VAR
+      val u = UInt(8)             <> VAR init typespkg2.PkgWide
+      e := typespkg1.PkgEnum.P0
+    val top = (new PkgTop).getCodeString
+    assertNoDiff(
+      top,
+      """|final case class GlbNsStruct(
+         |    g: Bits[2] <> VAL
+         |) extends Struct
+         |val GlbNsConst: UInt[8] <> CONST = d"8'3"
+         |package StagesSpec.typespkg1:
+         |  final case class PkgStruct(
+         |      a: Bits[8] <> VAL
+         |      b: Bit <> VAL
+         |      g: GlbNsStruct <> VAL
+         |  ) extends Struct
+         |  enum PkgEnum(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
+         |    case P0 extends PkgEnum(d"2'0")
+         |    case P1 extends PkgEnum(d"2'1")
+         |    case P2 extends PkgEnum(d"2'2")
+         |  case class PkgOpaque() extends Opaque(Bits(4))
+         |  val PkgConst: UInt[8] <> CONST = GlbNsConst + d"8'39"
+         |  def pkgCalc(arg: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    arg + d"8'1"
+         |  end pkgCalc
+         |  val PkgDerived: UInt[8] <> CONST = pkgCalc(PkgConst)
+         |
+         |package StagesSpec.typespkg2:
+         |  final case class PkgWrap(
+         |      s: StagesSpec.typespkg1.PkgStruct <> VAL
+         |      n: UInt[8] <> VAL
+         |  ) extends Struct
+         |  val PkgWide: UInt[8] <> CONST = StagesSpec.typespkg1.pkgCalc(StagesSpec.typespkg1.PkgDerived)
+         |
+         |
+         |class PkgTop extends DFDesign:
+         |  val s = StagesSpec.typespkg1.PkgStruct <> VAR
+         |  val e = StagesSpec.typespkg1.PkgEnum <> VAR
+         |  val o = StagesSpec.typespkg1.PkgOpaque <> VAR
+         |  val w = StagesSpec.typespkg2.PkgWrap <> VAR
+         |  val u = UInt(8) <> VAR init StagesSpec.typespkg2.PkgWide
+         |  e := StagesSpec.typespkg1.PkgEnum.P0
+         |end PkgTop
+         |""".stripMargin
+    )
+  test("Same-named declarations across packages"):
+    class DualTop extends DFDesign:
+      val a = dualpkg1.Shared <> VAR
+      val b = dualpkg2.Shared <> VAR
+      val c = UInt(8)         <> VAR init dualpkg1.SharedDerived
+      val d = UInt(8)         <> VAR init dualpkg2.SharedDerived
+    val top = (new DualTop).getCodeString
+    assertNoDiff(
+      top,
+      """|package StagesSpec.dualpkg1:
+         |  final case class Shared(
+         |      v: Bits[4] <> VAL
+         |  ) extends Struct
+         |  val SharedConst: UInt[8] <> CONST = d"8'1"
+         |  def calc1(arg: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    arg + d"8'10"
+         |  end calc1
+         |  val SharedDerived: UInt[8] <> CONST = calc1(SharedConst)
+         |
+         |package StagesSpec.dualpkg2:
+         |  final case class Shared(
+         |      v: Bits[8] <> VAL
+         |  ) extends Struct
+         |  val SharedConst: UInt[8] <> CONST = d"8'2"
+         |  def calc2(arg: UInt[8] <> CONST): UInt[8] <> CONSTRET =
+         |    arg + d"8'20"
+         |  end calc2
+         |  val SharedDerived: UInt[8] <> CONST = calc2(SharedConst)
+         |
+         |
+         |class DualTop extends DFDesign:
+         |  val a = StagesSpec.dualpkg1.Shared <> VAR
+         |  val b = StagesSpec.dualpkg2.Shared <> VAR
+         |  val c = UInt(8) <> VAR init StagesSpec.dualpkg1.SharedDerived
+         |  val d = UInt(8) <> VAR init StagesSpec.dualpkg2.SharedDerived
+         |end DualTop
+         |""".stripMargin
+    )
+  // issue #494: the reported shape, where the object-scoped global const alias's first
+  // materialization is the left operand of `-`, which runs SimplifyFunc's self-cancellation
+  // check; that check dereferences the operand's refs BEFORE any `refTW` has injected the
+  // global's own context into the run's DB, so it used to crash with `Missing ref`. The
+  // globals are declared per test (a const whose value is another const, in an object that
+  // is deliberately first touched only inside the design body).
+  test("Object-scoped global const alias first used as the left operand of `-`"):
+    val TOP_CONST_I494: Int <> CONST = 16
+    object i494SubConsts:
+      val W: Int <> CONST = TOP_CONST_I494
+    class Repro extends RTDesign:
+      val x = Bits(32) <> IN
+      val o = Bits(16) <> OUT
+      o <> x(i494SubConsts.W - 1, 0)
+    assertCodeString(
+      new Repro,
+      """|val TOP_CONST_I494: Int <> CONST = 16
+         |val W: Int <> CONST = TOP_CONST_I494
+         |
+         |class Repro extends RTDesign:
+         |  val x = Bits(32) <> IN
+         |  val o = Bits(16) <> OUT
+         |  o <> x(W - 1, 0)
+         |end Repro
+         |""".stripMargin
+    )
+  // issue #494, second direction: `MaxMinChainAbsorb` (which runs even in global context)
+  // strips the chain operand before checking its shape, so a first use as a `max` operand
+  // against a literal hits the same dereference. A literal RHS is essential: a DFHDL-value
+  // RHS is adapted through a TC conversion that references (and thereby injects) the global
+  // before any extractor runs. The `max` itself is then legitimately folded away by
+  // `MaxMinWithOffset` (a global const's value is fixed, so `V max 5` is provably `V`).
+  test("Object-scoped global const alias first used as a max operand against a literal"):
+    val TOP_CONST_I494: Int <> CONST = 16
+    object i494SubConstsMaxMin:
+      val V: Int <> CONST = TOP_CONST_I494
+    class Repro extends RTDesign:
+      val o = Bits(i494SubConstsMaxMin.V max 5) <> OUT
+      o <> all(0)
+    assertCodeString(
+      new Repro,
+      """|val TOP_CONST_I494: Int <> CONST = 16
+         |val V: Int <> CONST = TOP_CONST_I494
+         |
+         |class Repro extends RTDesign:
+         |  val o = Bits(V) <> OUT
+         |  o <> b"0".repeat(V)
+         |end Repro
+         |""".stripMargin
+    )
 end PrintCodeStringSpec

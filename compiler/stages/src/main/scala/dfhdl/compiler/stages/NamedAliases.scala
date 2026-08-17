@@ -148,16 +148,31 @@ case object NamedVerilogSelection extends NamedAliases:
         case alias: DFVal.Alias.AsIs     =>
           val relVal = alias.relValRef.get
           val transparentConversion = (alias.dfType, relVal.dfType) match
-            case (DFUInt(toWidthRef), DFBits(fromWidthRef)) => toWidthRef.isSimilarTo(fromWidthRef)
-            case (DFBits(toWidthRef), DFUInt(fromWidthRef)) => toWidthRef.isSimilarTo(fromWidthRef)
-            case (DFBit, DFBool)                            => true
-            case (DFBool, DFBit)                            => true
-            case _                                          => false
+            case (DFUInt(toWidthRef), from: DFBitsWL) => toWidthRef.isSimilarTo(from.widthParamRef)
+            case (to: DFBitsWL, DFUInt(fromWidthRef)) => to.widthParamRef.isSimilarTo(fromWidthRef)
+            case (DFBit, DFBool)                      => true
+            case (DFBool, DFBit)                      => true
+            case _                                    => false
           if (transparentConversion) relVal.hasVerilogName
           else false
         case _ => false
   end extension
   def criteria(dfVal: DFVal)(using getSet: MemberGetSet, co: CompilerOptions): List[DFVal] =
+    dfVal.getReadDeps.headOption match
+      // A NAMED selection never enters the anonymous-member scan, so its prefix demand is
+      // derived from the prefix value's side, by re-asking the selection's own criteria (an
+      // anonymous selection reaches the same demand directly through the cases below, and a
+      // duplicate demand merges in grouping). Without this, `val s = u.signed(20, 1)` keeps
+      // the sign conversion inline and prints an illegal `$signed({1'b0, u})[20:1]`.
+      case Some(sel: (DFVal.Alias.ApplyRange | DFVal.Alias.ApplyIdx))
+          if !dfVal.hasVerilogName && !sel.isAnonymous =>
+        criteriaOwn(sel)
+      case _ => criteriaOwn(dfVal)
+  end criteria
+  private def criteriaOwn(dfVal: DFVal)(using
+      getSet: MemberGetSet,
+      co: CompilerOptions
+  ): List[DFVal] =
     def isBasicVerilog = co.backend match
       case be: dfhdl.backends.verilog =>
         be.dialect match
@@ -166,11 +181,16 @@ case object NamedVerilogSelection extends NamedAliases:
       case _ => false
     dfVal match
       case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName => Nil
-      case alias: DFVal.Alias.ApplyRange
-          if alias.compareWidths(alias.relValRef.get)(_ != _).getOrElse(true) =>
+      // A part-select prefix must be a plain reference in Verilog: `(expr)[hi:lo]`,
+      // `{...}[hi:lo]`, and `x[a:b][c:d]` are all rejected, and a full-width selection
+      // still prints as `[hi:lo]`, so the selection width is irrelevant and the selected
+      // value is named unconditionally (issue #486). Legal selection chains over a named
+      // value (`vec[i][hi:lo]`, `s.f[hi:lo]`) are unaffected: their relVal is an anonymous
+      // ApplyIdx/SelectField, which `isAllowedMultipleReferences` exempts from naming.
+      case alias: DFVal.Alias.ApplyRange =>
         List(alias.relValRef.get)
       case alias @ DFVal.Alias.AsIs(
-            dfType = _: (DFDecimal | DFBits),
+            dfType = _: (DFDecimal | DFBitsWL),
             relValRef = DFRef(relVal @ (DFBits.Val(_) | DFDecimal.Val(_)))
           )
           if alias.compareWidths(relVal)(_ < _).getOrElse(true) =>
@@ -192,7 +212,7 @@ case object NamedVerilogSelection extends NamedAliases:
       // zero-extension of the conversion's own operand (see `csDFValAliasAsIs`), so it needs
       // no name.
       case alias @ DFVal.Alias.AsIs(
-            dfType = _: (DFDecimal | DFBits),
+            dfType = _: (DFDecimal | DFBitsWL),
             relValRef = DFRef(relVal @ (DFBits.Val(_) | DFDecimal.Val(_)))
           )
           if relVal.dfType != DFInt32 && alias.compareWidths(relVal)(_ > _).getOrElse(false) =>
@@ -218,7 +238,7 @@ case object NamedVerilogSelection extends NamedAliases:
         List(alias.relValRef.get)
       case func: DFVal.Func =>
         func.getReadDeps.headOption match
-          case Some(dfVal: DFVal) => criteria(dfVal)
+          case Some(dfVal: DFVal) => criteriaOwn(dfVal)
           case _                  => Nil
       // anonymous conditional expressions
       case ch: DFConditional.Header if ch.isAnonymous && ch.dfType != DFUnit =>
@@ -231,27 +251,77 @@ case object NamedVerilogSelection extends NamedAliases:
           case _ => List(ch)
       case _ => Nil
     end match
-  end criteria
+  end criteriaOwn
 end NamedVerilogSelection
 
-// For vhdl patten matching of a selection is limited.
+// For vhdl, the prefix of a slice or an index selection must be a name or a function call
+// (IEEE 1076-2008 8.1), so a selected value that prints as anything else is named. For v93,
+// pattern matching over a selection is additionally limited, so a match selector is named.
 case object NamedVHDLSelection extends NamedAliases:
-  override def runCondition(using co: CompilerOptions): Boolean =
-    co.backend match
-      case be: dfhdl.backends.vhdl =>
-        be.dialect match
-          case VHDLDialect.v93 => true
-          case _               => false
-      case _ => false
-  def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal] =
+  override def runCondition(using co: CompilerOptions): Boolean = co.backend.isVHDL
+  extension (dfVal: DFVal)(using MemberGetSet)
+    // Whether the value prints as a legal slice/index prefix. This mirrors
+    // `VHDLValPrinter.csDFValAliasAsIs` and must agree with it: the Bits-to-decimal
+    // conversions and the unsigned-to-signed widening print as TYPE CONVERSIONS
+    // (`unsigned(...)`, `signed(...)`), which VHDL forbids as a selection prefix whatever
+    // their operand, while every other conversion prints as a function call, which is a
+    // legal prefix. Transparent renderings take their operand's answer. A selection chain
+    // is a name whenever its own prefix is one, and an illegal chain prefix is named
+    // independently through `criteria`, so chain links count as names here.
+    def hasVHDLName: Boolean = dfVal match
+      case dfVal if !dfVal.isAnonymous => true
+      // prints as the selected port's name
+      case _: DFVal.PortByNameSelect => true
+      case alias: DFVal.Alias.AsIs   =>
+        val relVal = alias.relValRef.get
+        (alias.dfType, relVal.dfType) match
+          // transparent renderings
+          case (t, f) if t == f                          => relVal.hasVHDLName
+          case (t, DFOpaque(actualType = at)) if at =~ t => relVal.hasVHDLName
+          case (_: DFOpaque, _)                          => relVal.hasVHDLName
+          // type conversions
+          case (DFUInt(_) | DFSInt(_), _: DFBitsWL) => false
+          case (DFSInt(_), DFUInt(_))               => false
+          // function calls
+          case _ => true
+      case _: (DFVal.Alias.ApplyRange | DFVal.Alias.ApplyIdx | DFVal.Alias.SelectField) => true
+      case _                                                                            => false
+    end hasVHDLName
+  end extension
+  def criteria(dfVal: DFVal)(using getSet: MemberGetSet, co: CompilerOptions): List[DFVal] =
+    def isV93 = co.backend match
+      case be: dfhdl.backends.vhdl => be.dialect == VHDLDialect.v93
+      case _                       => false
     dfVal.getReadDeps.headOption match
-      case Some(_: DFConditional.DFMatchHeader) => List(dfVal)
-      case _                                    => Nil
+      // A NAMED selection never enters the anonymous-member scan, so its prefix demand is
+      // derived from the prefix value's side, by re-asking the selection's own criteria (an
+      // anonymous selection reaches the same demand directly below, and a duplicate demand
+      // merges in grouping). Without this, `val s = (a | b)(7, 0)` keeps the operation
+      // inline and prints an illegal `(a or b)(7 downto 0)`.
+      case Some(sel: (DFVal.Alias.ApplyRange | DFVal.Alias.ApplyIdx))
+          if !dfVal.hasVHDLName && !sel.isAnonymous =>
+        criteria(sel)
+      case readDep =>
+        dfVal match
+          // v93 pattern matching cannot take a selection expression, so the selector is named
+          case _ if isV93 && readDep.exists(_.isInstanceOf[DFConditional.DFMatchHeader]) =>
+            List(dfVal)
+          // the selection prefix rule: name a selected value that cannot print as a prefix
+          case alias: (DFVal.Alias.ApplyRange | DFVal.Alias.ApplyIdx)
+              if !alias.relValRef.get.hasVHDLName =>
+            List(alias.relValRef.get)
+          case _ => Nil
+    end match
+  end criteria
 end NamedVHDLSelection
 
 extension [T: HasDB](t: T)
   def verilogNamedSelection(using CompilerOptions): DB =
     StageRunner.run(NamedVerilogSelection)(t.db)
+
+extension [T: HasDB](t: T)
+  def vhdlNamedSelection(using CompilerOptions): DB =
+    StageRunner.run(NamedVHDLSelection)(t.db)
 
 // Creating a previous values of a value requires that value to be names to avoid random anonymous names in the
 // the backend

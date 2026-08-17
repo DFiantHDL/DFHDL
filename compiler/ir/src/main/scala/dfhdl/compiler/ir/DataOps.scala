@@ -17,15 +17,15 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
       assert(tWidth == fWidth - 1)
       fromData
     // Double to Bits conversion
-    case (DFBits(IntUNSAFE(tWidth)), DFDouble) =>
+    case (DFBitsWL(IntUNSAFE(tWidth), _), DFDouble) =>
       assert(tWidth == 64)
       fromType.dataToBitsData(fromData)
     // Bits to Double conversion
-    case (DFDouble, DFBits(IntUNSAFE(fWidth))) =>
+    case (DFDouble, DFBitsWL(IntUNSAFE(fWidth), _)) =>
       assert(fWidth == 64)
       toType.bitsDataToData(fromData.asInstanceOf[(BitVector, BitVector)])
     // Bits resize
-    case (DFBits(IntUNSAFE(tWidth)), DFBits(_)) =>
+    case (DFBitsWL(IntUNSAFE(tWidth), _), _: DFBitsWL) =>
       import dfhdl.internals.{resize => resizeBV}
       val data = fromData.asInstanceOf[(BitVector, BitVector)]
       (data._1.resizeBV(tWidth), data._2.resizeBV(tWidth))
@@ -60,16 +60,16 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
       assert(fWidth <= 31)
       fromData
     // Conversion from BoolOrBit to Bits
-    case (DFBits(IntUNSAFE(tWidth)), DFBit | DFBool) =>
+    case (DFBitsWL(IntUNSAFE(tWidth), _), DFBit | DFBool) =>
       fromData.asInstanceOf[Option[Boolean]]
         .map(x => (BitVector.bit(x).resize(tWidth), BitVector.low(tWidth)))
         .getOrElse((BitVector.low(tWidth), BitVector.high(tWidth)))
     // Casting from any data to Bits
-    case (DFBits(IntUNSAFE(tWidth)), _) =>
+    case (DFBitsWL(IntUNSAFE(tWidth), _), _) =>
       assert(tWidth == fromType.widthUNSAFE)
       fromType.dataToBitsData(fromData)
     // Casting from Bits to any data
-    case (_, DFBits(IntUNSAFE(fWidth))) =>
+    case (_, DFBitsWL(IntUNSAFE(fWidth), _)) =>
       assert(fWidth == toType.widthUNSAFE)
       toType.bitsDataToData(fromData.asInstanceOf[(BitVector, BitVector)])
     // Casting from BoolOrBit to UInt/SInt
@@ -98,7 +98,7 @@ def selRangeData(
     relBitHigh: Int,
     relBitLow: Int
 )(using MemberGetSet): Any = (dfType, fromData).runtimeChecked match
-  case (_: DFBits, (valueBits: BitVector, bubbleBits: BitVector)) =>
+  case (_: DFBitsWL, (valueBits: BitVector, bubbleBits: BitVector)) =>
     assert(relBitHigh >= 0 && relBitHigh < valueBits.length)
     assert(relBitLow >= 0 && relBitLow < valueBits.length)
     assert(relBitHigh >= relBitLow)
@@ -140,7 +140,7 @@ def calcFuncData[OT <: DFType](
   else
     outType match
       // bits operations are handled specially, because bubble is bit-accurate
-      case _: DFBits =>
+      case _: DFBitsWL =>
         val ret: (BitVector, BitVector) = (op, argTypes, argData) match
           // bits concatenation
           case (FuncOp.++, _, argData: List[(BitVector, BitVector)] @unchecked) =>
@@ -149,7 +149,7 @@ def calcFuncData[OT <: DFType](
           // bits repeat
           case (
                 FuncOp.repeat,
-                DFBits(_) :: DFInt32 :: Nil,
+                (_: DFBitsWL) :: DFInt32 :: Nil,
                 (argData: (BitVector, BitVector) @unchecked) :: Some(cnt: BigInt) :: Nil
               ) =>
             val (values, bubbles) = List.fill(cnt.toInt)(argData).unzip
@@ -157,7 +157,7 @@ def calcFuncData[OT <: DFType](
           // bits shifting
           case (
                 op @ (FuncOp.<< | FuncOp.>>),
-                DFBits(_) :: DFInt32 :: Nil,
+                (_: DFBitsWL) :: DFInt32 :: Nil,
                 (vec: (BitVector, BitVector) @unchecked) :: Some(shift: BigInt) :: Nil
               ) =>
             op match
@@ -170,7 +170,7 @@ def calcFuncData[OT <: DFType](
           // bits logic operations
           case (
                 op @ (FuncOp.^ | FuncOp.& | FuncOp.|),
-                DFBits(_) :: DFBits(_) :: maybeMoreTypes,
+                (_: DFBitsWL) :: (_: DFBitsWL) :: maybeMoreTypes,
                 argData: List[(BitVector, BitVector)] @unchecked
               ) =>
             val (values, bubbles) = argData.unzip
@@ -182,7 +182,7 @@ def calcFuncData[OT <: DFType](
               case FuncOp.^ => (values.reduce(_ ^ _), outBubbles)
           case (
                 FuncOp.unary_~,
-                DFBits(_) :: Nil,
+                (_: DFBitsWL) :: Nil,
                 (vec: (BitVector, BitVector) @unchecked) :: Nil
               ) =>
             (vec._1.not, vec._2)
@@ -306,7 +306,7 @@ def calcFuncData[OT <: DFType](
           case (
                 DFBit,
                 op @ (FuncOp.^ | FuncOp.& | FuncOp.|),
-                DFBits(_) :: Nil,
+                (_: DFBitsWL) :: Nil,
                 (valueBits: BitVector, _: BitVector) :: Nil
               ) =>
             // bubble bits are always or-ed

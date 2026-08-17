@@ -2,6 +2,7 @@
 package issues.i126
 
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 @top(false) class TypeConvertIssue() extends RTDesign:
     val a = Bit <> IN

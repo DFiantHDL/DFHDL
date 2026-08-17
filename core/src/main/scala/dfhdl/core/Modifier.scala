@@ -103,10 +103,26 @@ object Modifier:
                     case rel: ir.constraints.Timing.Related => rel.ref.get
                   } match
                     case Some(target) =>
-                      throw new IllegalArgumentException(
-                        s"Cannot create a clk/rst in a related domain.\nYou can create the clk/rst in the primary domain `${target.getName}` and reference it here instead."
-                      )
+                      kind match
+                        // input/output clock ports are allowed: they declare a derived clock
+                        // that is fully synchronous with the related domain's clock (e.g. a
+                        // gated version of it), while the reset is still shared through the
+                        // relation. An input port consumes the derived clock; an output port
+                        // sources it (the gating site drives it from the design scope)
+                        case ir.DFOpaque.Kind.Clk
+                            if modifier.value.isPort &&
+                              (modifier.value.dir == IRModifier.IN ||
+                                modifier.value.dir == IRModifier.OUT) =>
+                        case ir.DFOpaque.Kind.Clk =>
+                          throw new IllegalArgumentException(
+                            s"Only clock ports (`Clk <> IN` / `Clk <> OUT`) are allowed in a related domain.\nSuch a clock is derived from (fully synchronous with) the clock of the related domain `${target.getName}`, and is typically a gated version of it."
+                          )
+                        case _ =>
+                          throw new IllegalArgumentException(
+                            s"Cannot create a rst in a related domain.\nA related domain always shares the reset of its related domain `${target.getName}`. To opt out of the reset, use `@timing.related(..., includeReset = false)`."
+                          )
                     case None =>
+                  end match
                 case _ =>
             case _ =>
         case _ =>

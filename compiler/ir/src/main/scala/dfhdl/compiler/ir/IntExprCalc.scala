@@ -69,6 +69,9 @@ object IntExprCalc:
         // the negative direction: `b - a - 1 >= 0` proves `b > a`, deciding `a >= b` as false
         val negDiffM1 = Linear(diff.terms.map((c, b) => (-c, b)), -diff.offset - 1)
         if (calc.proveNonNeg(negDiffM1, facts)) Some(false)
+        // last, so that it only ever turns an undecided answer into a decided one and never
+        // overrides the max/min elimination above, which reads a mixed chain by its constants
+        else if (calc.dominatesByBranch(a, b)) Some(true)
         else None
   end widthFitCompare
 
@@ -100,10 +103,13 @@ object IntExprCalc:
       */
     case Opaque
 
-    /** Substituted by the applied/default value EXPRESSION for non-top designs
-      * (`appliedOrDefaultVal`). Correct only under a getSet where the instantiation site is
-      * resolvable (the flat DB); used by post-elaboration width equivalence
-      * (`IntParamRef.compare`).
+    /** Substituted by the APPLIED value expression, and only where an instantiation actually
+      * supplies one. A parameter with none stays an opaque base, so a decision made about it holds
+      * for every assignment: while its own design is still elaborating there is no instance yet,
+      * and the elaboration root never has one. The exception is a parameter the design read
+      * (`ForcedParamTag`), which folds to the value it was read at, that design being specialized
+      * to it and stating so. Used by width equivalence (`IntParamRef.compare`) and the width-fit
+      * proof ([[widthFitCompare]]).
       */
     case AppliedExpr
 
@@ -184,19 +190,24 @@ object IntExprCalc:
   private final class Calc(mode: ParamResolve, elimSymbolicMaxMin: Boolean = false)(using
       getSet: MemberGetSet
   ):
-    // Strip type-preserving AsIs wrappers and, under `AppliedExpr`, DesignParams
-    // whose owner design has a parent (i.e., is not the top design). For non-top
-    // designs, the parameter was provided by the instantiating parent, so
-    // resolve it via `appliedOrDefaultVal`. Params on a top design have no
-    // parent and stay opaque: they are the symbolic free variables exposed to
-    // the user at elaboration time. Elaboration-time folding (SimplifyFunc)
-    // disables the resolution (`Opaque`) so its decisions hold for any parameter
-    // assignment and designs stay parametric. `AppliedData` resolves in `linear`
-    // at the data level instead (see ParamResolve).
+    // Strip type-preserving AsIs wrappers and, under `AppliedExpr`, DesignParams that an
+    // instantiation actually supplies a value for.
+    //
+    // A parameter's DEFAULT is never that value. It is what the parameter is when nothing says
+    // otherwise, and substituting it decides a relation on a value the design may well not
+    // have: the generated module keeps the parameter overridable, from a DFHDL parent or from
+    // hand-written HDL, so a decision about it either holds symbolically or is not a decision
+    // about the design at all. So a parameter with no applied value stays an opaque base, which
+    // covers both the design that is still elaborating its own body (no instance exists yet) and
+    // the elaboration root (whose parameters are the free variables of the compilation).
+    //
+    // Elaboration-time folding (SimplifyFunc) disables the resolution entirely (`Opaque`) so its
+    // decisions hold for any assignment and designs stay parametric. `AppliedData` resolves in
+    // `linear` at the data level instead (see ParamResolve).
     private def strip(v: DFVal): DFVal = v.stripTypePreservingAliases match
       case dp: DFVal.DesignParam
           if mode == ParamResolve.AppliedExpr && !dp.getOwnerDesign.isTop =>
-        strip(dp.appliedOrDefaultVal)
+        dp.appliedValOpt.map(strip).getOrElse(dp)
       case stripped => stripped
 
     // Ops whose operand order is irrelevant when comparing opaque bases.
@@ -277,7 +288,7 @@ object IntExprCalc:
           case None          => (ref.getIntUNSAFE, Nil)
       def typeFactors(t: DFType): Option[(Int, List[DFVal])] = t match
         case _ if t.getRefs.isEmpty      => t.widthIntOpt.map((_, Nil))
-        case DFBits(widthParamRef)       => Some(paramRefFactors(widthParamRef))
+        case dt: DFBitsWL                => Some(paramRefFactors(dt.widthParamRef))
         case DFXInt(_, widthParamRef, _) => Some(paramRefFactors(widthParamRef))
         case vec: DFVector               =>
           vec.cellDimParamRefs.foldLeft(typeFactors(vec.cellType)) { (accOpt, dim) =>
@@ -334,7 +345,7 @@ object IntExprCalc:
     def linearOfTypeWidth(t: DFType): Option[Linear] =
       t match
         case _ if t.getRefs.isEmpty => t.widthIntOpt.map(Linear(Nil, _))
-        case DFBits(widthParamRef)  => Some(linearOfParamRef(widthParamRef))
+        case dt: DFBitsWL           => Some(linearOfParamRef(dt.widthParamRef))
         case dec: DFDecimal         =>
           Some(DataCalc.addConst(linearOfParamRef(dec.magnitudeWidthParamRef), dec.fractionWidth))
         case vec: DFVector =>
@@ -351,6 +362,22 @@ object IntExprCalc:
       val la = linear(a)
       val lb = linear(b)
       Option.when(sameTerms(la, lb))(la.offset - lb.offset)
+
+    /** Whether `a >= b` holds by CONSTRUCTION rather than by arithmetic: a `max` is at least each
+      * of its own branches and a `min` at most each of its, whatever those branches are. That
+      * decides a comparison the linear calculus cannot touch, two unrelated symbolic branches never
+      * cancelling under subtraction, and it is what makes a value resized to a common width and
+      * back again recover itself.
+      *
+      * Only these two orientations. The mirrored ones (`b >= max(b, c)`) genuinely depend on the
+      * other branch and stay undecided, which is exactly the assumption a design states.
+      */
+    def dominatesByBranch(a: DFVal, b: DFVal): Boolean =
+      def hasBranch(chain: DFVal, branch: DFVal, op: FuncOp): Boolean =
+        strip(chain) match
+          case f: DFVal.Func if f.op == op => f.args.exists(r => strip(r.get) =~ strip(branch))
+          case _                           => false
+      hasBranch(a, b, FuncOp.max) || hasBranch(b, a, FuncOp.min)
 
     /** Proves `e >= 0` for every valid parameter assignment, where each fact in `facts` is a linear
       * form known to be `>= 1` on the valid domain. Two proof rules: a constant `e` decides
@@ -400,6 +427,16 @@ object IntExprCalc:
           case f :: Nil    => scale(linear(f), c)
           case _ if c == 0 => Linear(Nil, 0)
           case _           => Linear(List((c, sv)), 0)
+      // A parameter whose data the design's elaboration READS is fixed at that value for this
+      // design (see `DesignParam.isDataImpure`): the body is the one that value produced, and
+      // the design states the equality as a static assertion, so every instantiation is held to
+      // it. This is the one case where a parameter with no instantiation site still folds, the
+      // elaboration root included: the assertion travels with the generated module and is
+      // checked wherever it is instantiated from.
+      case dp: DFVal.DesignParam if mode == ParamResolve.AppliedExpr && dp.isDataImpure =>
+        dp.getConstData[Any](using getSet, ConstData.CachePolicy.GoThroughDesignParams) match
+          case ConstData.KnownConst(Some(i: BigInt)) if i.isValidInt => Linear(Nil, i.toInt)
+          case _                                                     => Linear(List((1, dp)), 0)
       // AppliedData: fold a design parameter to its applied constant data, resolved only
       // through an instantiation site, so an elaboration root's parameters (which have none)
       // and anything else unresolvable stay opaque bases

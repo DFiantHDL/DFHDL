@@ -14,7 +14,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
   def csDFBitsHexFormat(hexRep: String): String
   def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String
   final def csDFBitsData(
-      dfType: DFBits,
+      dfType: DFBitsWL,
       data: (BitVector, BitVector),
       inPattern: Boolean = false
   ): String =
@@ -226,7 +226,10 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
-        s"${dfType.name}.${entryName}"
+        val nsQualifier = printer.typePlacementOf(dfType) match
+          case Some(pkg) if !printer.currentPackage.contains(pkg) => s"${dfType.meta.namespace}."
+          case _                                                  => ""
+        s"$nsQualifier${dfType.name}.${entryName}"
       case None => "?"
   val maxVectorDisplay: Int = 64
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =

@@ -2,6 +2,7 @@
 package issues.i146
 
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 case class InStruct (
     a : Bit <> VAL,

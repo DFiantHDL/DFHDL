@@ -81,9 +81,17 @@ auto-`@top` injection spelled the annotation `Ident("top")`, and a design class 
 class being annotated, and scalac reported `Cyclic reference involving class top` at the class
 definition, with nothing pointing at the plugin (issue #458). Anchor every synthesized library
 reference at the root (`Select(Select(Ident(nme.ROOTPKG), "dfhdl"), ...)`, i.e.
-`_root_.dfhdl.top`) — a bare `Ident("dfhdl")` can itself be captured by a user package or object
-named `dfhdl`. Rightmost-name-based detection helpers (`rightmostName`) keep matching the
-qualified spelling, so only the construction site changes.
+`_root_.dfhdl.hw.annotation.top`) — a bare `Ident("dfhdl")` can itself be captured by a user
+package or object named `dfhdl`. Rightmost-name-based detection helpers (`rightmostName`) keep
+matching the qualified spelling, so only the construction site changes.
+
+Qualifying the injection fixes only the injection. The same name still collided at the USE site,
+because `import dfhdl.*` re-exported the library's own `top` and it outranked a same-named
+top-level user class, so `new top(WIDTH = 8)` was checked against the annotation's constructor
+(issue #482). Anything the frontend wildcard re-exports is a name a user can no longer define:
+`@top` therefore lives at `dfhdl.hw.annotation.top`, alongside the other user-facing hardware
+annotations, and reaches user code only through an explicit import or the `@hw.annotation.top`
+spelling. Weigh that before adding a short name to `__hdl` or to the `dfhdl` package.
 
 The tell for this species: a resolution-flavored error (cyclic reference, ambiguity, "not
 found") positioned on ordinary user code that appears or vanishes with the *name* of a
@@ -329,6 +337,37 @@ reports errors cannot have both. Dropping the annotation from `setName` restored
 all three call shapes (nested operand, standalone statement, `val` RHS) and changed no name:
 the forwarded argument's name is overwritten by `setName`'s own argument anyway. Check the
 naming-sensitive suites before assuming that holds for another op.
+
+### Front-end analysis over raw IR operands must inject a global operand's context first
+
+A `Missing ref "TW_..."` thrown DURING ELABORATION (from `MutableDB.getMember`, not from a
+stage's `SanityCheck` or `originMemberTable`) is its own species: a **global** member (a
+top-level or object-scoped `Int <> CONST` and friends) carries its refTable bindings in its own
+`DesignContext`, and the current run can resolve them only after `injectGlobalCtx()` merges that
+context in — which `refTW` performs at the member's first REFERENCE. Any front-end analysis that
+dereferences an operand's refs BEFORE minting a ref therefore crashes on a never-yet-referenced
+global. `SimplifyFunc` was the case (issue #494): `DFVal.Func.applyFromIR` runs the extractors on
+the raw `ir.DFVal` args before any `refTW`, and `SelfCancelling`'s guard strips the operand's
+type-preserving aliases. The fix shape is to inject each operand's global context at the top of
+the analysis — exactly what `refTW` does moments later, idempotent (`injectedCtx` set), and it
+covers every extractor including the ones that run in global scope.
+
+Three things about the trigger set generalize:
+
+- **The reported trigger is far narrower than the defect.** The issue said "left operand of
+  `-`", because only extractors that strip an alias operand on that op's path crash; `+ 1`
+  survives since `AdditiveCancellation` only strips sign-opposed pairs. `max` against a
+  **literal** crashes too, via `MaxMinChainAbsorb`, which strips the chain operand before
+  checking its shape. Enumerate which extractors dereference and probe one per family.
+- **A DFHDL-value RHS defuses the reproducer.** The RHS type-conversion of a two-DFHDL-operand
+  op references (and thereby injects) the operand before any extractor runs, so `V max V`
+  cannot reproduce while `V max 5` does. When a "first materialization" bug refuses to fire,
+  check whether an operand adaptation referenced the member first.
+- **Test-local DFHDL globals are still globals.** A `val`/`object` declared inside a munit test
+  body elaborates with no design context and is a global for the DB, so per-test globals
+  reproduce the species without file-level state. Keep the object first *touched* inside the
+  design body (Scala object init is lazy), one object per test so tests cannot defuse each
+  other, and remember the crash needs the first use to be the analyzed position.
 
 ### Changing a type-level algebra: pick the mechanism by when it costs
 
@@ -622,6 +661,39 @@ the loading run. Lessons that generalize:
   the dclName enumeration: the AES `FullCompileSpec` file-NAME comparison failed with
   `mulByte_0/1/2` renamed to `_1/2/3`, which reads like an enumeration bug and is cache debris.
 
+### A dangling ref is the mirror image of a ghost, and it is a SHARING bug
+
+`NoSuchElementException: Missing member of reference "TR_..."` (from `DB._originMemberTable`, or
+`Missing ref ... for the member` from `SanityCheck.refCheck`) is the inverse defect: a live member
+holding a reference that no longer resolves. Two facts localize it fast:
+
+- **A `TR_` token is a TYPE reference** (`IntParamRef`), so the shape only exists when a width or
+  length comes from a **parameter**. The same design with a literal width has no type ref at all
+  and compiles — which is why issue #485 read as "`.reg(step, init = ...)` breaks on parametric
+  widths" and had nothing to do with `.reg`.
+- **The ref token's `grpId` prefix differs from its holder's other refs** when the holder did not
+  mint it. In #485 the `repeat` func's arg refs were `TW_607c62db_*` and its type ref
+  `TR_67c03fa7_*`: a member built in one context carrying a reference minted in another, i.e.
+  sharing.
+
+Localize the *purge*, not the crash: the crash fires wherever `originMemberTable` is first forced,
+which under `--log trace` is the next `SanityCheck` and without it some later stage
+(`DropUnreferencedAnons`). A one-line `println` in `ReplacementContext.getUpdatedTypeRefCount` on
+the refs it actually drops names the offending patch batch in one run.
+
+Type references are deliberately **reference-counted** before being purged
+(`ReplacementContext.typeRefRepeats`), because a `member.copy(...)` legitimately shares its
+original's `DFType` instance. The count is taken from the pre-patch member list, so it cannot see a
+member the same batch is about to ADD — and `cloneAnonValueAndDepsHere` reused the original's
+`dfType` verbatim, so `NameRegAliases` (clone the reg init into a `MetaDesign`, remove the original
+init in the same patch) dropped the count to zero and purged a reference the clone still held.
+Teaching the counter about the Add-DB members fixes the symptom; **the fix belongs at the clone**
+(`dfType.copyWithNewRefsHere`, minting fresh type refs bound in the cloning context), because that
+is what makes the added DB self-contained rather than dependent on the original's survival. The
+general rule: when a member is copied into another context, it must not inherit the reference
+identity of the member it was copied from — reference counting is a tolerance for sharing, not a
+license to create it.
+
 ### A missed diagnostic can have several independent gates
 
 When the bug is "a warning/error SHOULD have fired and did not", the predicate that suppressed
@@ -636,7 +708,9 @@ non-warning twins, not by re-reading the predicate.
 
 Probing designs outside the app runner has its own traps: a lib design class with all-defaulted
 parameters is auto-`@top`ed, and a bare `Design()` of a topped class returns a STAGED handle
-that never elaborates (no warnings, empty DB) — mark probe designs `@top(false)`. Read warnings
+that never elaborates (no warnings, empty DB) — mark probe designs `@top(false)`, which needs
+`import dfhdl.hw.annotation.top` on top of `import dfhdl.*` (the auto-injection is qualified and
+needs no import; only a hand-written `@top` does). Read warnings
 via `dsn.dfc.getWarnings`; prefer `getCodeString` over `getDB` for IR inspection in a lib @main.
 
 ### Two habits that pay off
@@ -648,6 +722,39 @@ via `dsn.dfc.getWarnings`; prefer `getCodeString` over `getDB` for IR inspection
 - **Grep `lib/src/test/resources/ref/` for the construct.** If no reference output contains it,
   that code path is untested, which is why the bug survived. That also tells you the fix needs a
   new reference test, not just a patched stage.
+
+### A criteria stage that scans anonymous members misses every demand a NAMED consumer makes
+
+The `NamedAliases` family collects naming demands by scanning **anonymous** values and asking
+each one's `criteria`. That reaches a consumer's demand ("name my operand") only while the
+consumer itself is anonymous; the moment the user binds the consumer to a `val`
+(`val s = (a | b)(7, 0)`, `val s = u.signed(20, 1)`), the consumer never enters the scan and
+its operand demand is silently lost — the stage works for the expression form and emits
+illegal HDL for the bound form of the very same shape (issue #486's second half). When a
+criteria rule says "construct X requires its operand named", probe the X-bound-to-a-val twin
+before trusting it, and implement the rule from BOTH sides: the consumer's case for the
+anonymous form, and an entry-point guard on the operand's side ("am I read by a selection that
+cannot take me as written?") that re-asks the consumer's own criteria for the named form.
+Duplicated demands from the two sides merge in the grouping step, and named values returned by
+the re-ask are dropped by the `isAllowedMultipleReferences` filter, so the two-sided form costs
+nothing.
+
+### A stage running after the naming stages can re-create the shape they exist to prevent
+
+`NamedVerilogSelection`/`NamedVHDLSelection` enforce the select-prefix rule ("a select must
+consume a declared dimension of a name") early in `BackendPrepStage`; a later stage that
+rewrites a selection's PREFIX re-creates select-over-expression shapes with nothing downstream
+to repair them, so it must keep its own output legal in the same patch (a "run the naming stage
+again" cleanup is off the table per the `SanityCheck` rule). `DropStructsVecs` was the case: it
+folded a partial chain into one range selection over the flattened declaration, but its chain
+extractor was keyed on direct membership in the replacement map, so a selection INTO a
+leaf-typed (Bits) chain link — a bits field select or a vector bits-cell select, never
+themselves replaced — dangled and emitted `p[8:1][5]`. Two generalizable points: an extractor
+keyed on direct membership misses TRANSITIVE chain participants (probe the select-into-the-
+select twin, not just the chain the author had in mind); and when folding for v95/v2001, a
+single-bit result must fold to a BIT select (`ApplyIdx`), never a one-bit part-select, because
+a part-select requires constant bounds while a bit select legally takes a runtime index — that
+one choice is what keeps the runtime-index variants (`p.f(i)`, `v(i)(5)`) legal at all.
 
 ### An exemption phrased by shape swallows every construct with that shape
 
@@ -664,6 +771,37 @@ Fixing it means narrowing the pattern to the construct the intent names, and nar
 direction that keeps unenumerated cases on today's behavior — here `!ident.getOwner
 .isInstanceOf[DFDesignBlock]`, which changes the def-return case alone, rather than an allow-list
 of owners that would also change anything not yet thought of.
+
+### A `Func.Op` is a symbol, not an operation, and one symbol can name two
+
+`&`, `|` and `^` each name the binary bitwise/logical operation AND the unary reduction (`a.^`,
+one operand, a single-bit result). So anything keyed on `op` alone is reasoning about a *symbol*:
+`MergeAssocFunc` merged an anonymous same-`op` Func into its parent for every member of
+`associativeSet`, absorbed a reduction into a binary chain, and the reduction simply vanished
+(`a.^ ^ b.^` elaborated to `a ^ b.^`; `(a ^ b).^` to `a ^ b`, issue #483). **Arity is what
+separates the two forms**, so the guard is arity on both sides, not a type comparison: the
+reduction of an 8-bit operand and the binary op over two reductions are both `DFBit`-typed, so
+`prevFunc.dfType == dfType` sees nothing. When auditing an `op`-keyed predicate, ask which of the
+`Func.Op` symbols are overloaded across arities before trusting that a matching `op` means a
+matching operation.
+
+Two things about this species are worth knowing in advance:
+
+- **The reporter will call it a printer bug, and the backends will corroborate.** Both emitters
+  print funcs by arity, so a spliced Func renders as legal-looking HDL in one backend
+  (SystemVerilog `a ^ ^b`, silently truncated into a 1-bit net) and illegal HDL in the other
+  (VHDL `a xor (xor reduce b)`, a type error). Neither is the bug. Print the **DFHDL code string**
+  before either backend: `s1 := a ^ b.^` is elaboration output, and it ends the printer theory in
+  one probe. `SimplifyFunc` lives in `core`, so this whole family corrupts the IR at elaboration
+  and no `--log trace` stage dump will show a stage introducing it.
+- **A report of one direction usually has a second.** #483 reported the reduction as the LHS of a
+  same-symbol binary op; the reduction *of* a same-symbol binary op was equally broken and
+  unreported. Probe both nestings of any operand-shape rule.
+
+The regression test belongs in `core/src/test/scala/CoreSpec/` (`DFBitsSpec` here) via
+`assertCodeString`, which shows the corruption directly, and it must pin the legitimate merge
+(`a ^ b ^ c`, `a.^ ^ b.^ ^ c.^`) alongside the broken shapes, since the guard's whole risk is
+over-restricting the simplification it lives in.
 
 ### Twin helpers drift, and only one of them gets fixed
 
@@ -766,6 +904,35 @@ Run it with `sbtn.bat 'lib/Test/runMain probe'`, and do **not** add your own
 `given options.ElaborationOptions.OnError = _.Exception` to the Playground: `ElaborationChecksSpec`
 already declares one at top level in the same (root) package, and a second makes every `@top` in
 the file ambiguous, with 226 errors that never name the duplicate given as the cause.
+
+To classify the same variants under several backends in one run, take the backend as a `go`
+parameter and re-bind it as a local given; the option type is a function from the `backends`
+object, so callers spell it as a lambda shorthand:
+
+```scala
+def go(name: String, beName: String, be: options.CompilerOptions.Backend)(
+    dsn: => core.Design
+): Unit =
+  given options.CompilerOptions.Backend = be
+  ... // as above; getCompiledCodeString picks the given up per call
+goAll("sv2009", _.verilog.sv2009); goAll("v2001", _.verilog.v2001); goAll("vhdl08", _.vhdl.v2008)
+```
+
+Note `getCompiledCodeString` needs `import dfhdl.compiler.stages.getCompiledCodeString` — it is
+not in the `dfhdl.*` export.
+
+### A legality table needs the strict tools, not the permissive ones
+
+When the rule under construction is "which HDL shapes does the target language allow", do not
+settle it from memory of the LRM or from whichever tool is handy: put each shape in a five-line
+file and run the STRICT frontends. For the select-prefix rule of issue #486, verilator accepted
+every illegal shape (`(a + 1)[19:0]`, `{...}[19:0]`, `a[15:0][15:0]`); iverilog rejected all of
+them and yosys all but the double part-select. On the VHDL side ghdl and nvc agreed everywhere
+and their messages QUOTE the rule ("the prefix of a slice name must be a name or a function
+call"), which is the sentence the criteria comment should carry. So: Verilog legality = iverilog
++ yosys, VHDL legality = ghdl + nvc, and verilator's acceptance proves nothing. On this machine
+the oss-cad-suite binaries only launch reliably from PowerShell by full path
+(`C:\oss-cad-suite\bin\iverilog.exe`); under the Bash tool they die with exit 127.
 
 ---
 
@@ -888,6 +1055,33 @@ generalizes:
   as the tiebreak, then fail. That fallback is what keeps every previously-accepted shape accepted
   (a read of a bit whose only writer is parametric still resolves), so the change stays confined to
   the shapes the bug affected.
+- **A conservative collapse has a mirror at the same site, and the mirror is unsound.** Degrading a
+  parameter-dependent slice to "unknown" is conservative when the slice is READ (an unprovable
+  coverage keeps the value consuming state) and an over-claim when it is WRITTEN (an unprovable
+  write is banked as coverage). Issue #484 was the read half: `StateAnalysis` re-seeded an
+  `ApplyRange` from `idxLowRef.getIntOpt`, so a `v(31, MB)` read of a fully-assigned `v` answered
+  `Tri.Unknown` and reported a latch. The write half was worse and silent: the seeded slice of a
+  parametrically-sized selection is `Slice.Full` (its `widthIntOpt` is `None`), and the old
+  composition SHIFTED that seed, so `v(MB - 1, 0) := x` shifted `Full` by a concrete `0`, stayed
+  `Full`, and claimed the whole declaration as written. Fix both directions in one change, and
+  test the accepting shape AND the shape that must still be rejected: a suite that stays green
+  either way (this one did) is measuring nothing. Only `Slice.compose` handles a `Full` seed
+  correctly, mapping it onto the selection's own extent; a shift cannot, which is why the naive
+  and the symbolic version of the same walk are not interchangeable.
+- **A containment query over a value has one axiom for free: a slice lies within its own value's
+  bounds.** So a coverage spanning the whole value contains EVERY slice of it, whatever the
+  endpoints are, and that one line answers the unprovable-endpoint case without any proof
+  machinery. Reach for the sweep (prove the query's start is covered, extend the covered prefix by
+  a region that provably starts at or before the cursor and ends after it, repeat) only for what
+  the axiom does not cover, i.e. genuinely partial coverage such as two complementary parametric
+  writes. Keep the region list bounded and degrade to "touched" above the bound: dropping regions
+  loses proofs but never invents one.
+- **A variant that passes is not a variant that works.** Of eight probe variants, the one that
+  looked like the interesting positive case (two complementary parametric writes, accepted before
+  the fix and after it) was passing for an unsound reason, and no amount of re-reading the source
+  showed it. Two `println`s (the composed slice at each alias step, and the query plus coverage at
+  the decision) settled it in one run. When a variant's verdict is right, check WHY before counting
+  it as a control.
 - **Symbolic elimination is a per-site semantic choice, not a smarter equivalence.** The width-fit
   checks accept `LHS >= RHS` after a mixed `max`/`min` drops its symbolic operands
   (`16 >= WIDTH max 16` decides as `16 >= 16`; `IntParamRef.compare(..., elimSymbolicMaxMin =

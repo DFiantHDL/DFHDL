@@ -16,6 +16,12 @@ def topCalc(arg: UInt[8] <> VAL): UInt[8] <> DFRET =
 def topCalcA(arg: UInt[8] <> VAL): UInt[8] <> DFRET = (arg + 2) * 3
 def topCalcB(arg: UInt[8] <> VAL): UInt[8] <> DFRET = (arg - 4) * 5
 
+// a global constant read by both a cached def and the adopting host: the position-drift
+// test shifts its STORED position, emulating a formatting edit above this declaration,
+// which the code digest (a typed-tree hash) deliberately does not see
+val globalW: UInt[8] <> CONST = 5
+def topCalcG(arg: UInt[8] <> VAL): UInt[8] <> DFRET = arg + globalW
+
 /** Tests for the sub-design cache tier of the elaboration design load gate
   * (`ElaborationOptions.CacheEnable`): a pure method whose cached DB is found by the
   * `SubDesignDiskCache` service skips its body elaboration entirely; the harness still creates the
@@ -459,6 +465,55 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
         case m                                     => m.getAllRefs.toSet
       }.flatten.toSet
     assertEquals(localRefs(sub).intersect(localRefs(adopted)), Set.empty[ir.DFRefAny])
+  }
+
+  // The code digest hashes typed trees, so a formatting/doc edit above a declaration keeps
+  // every cache entry valid while shifting the positions the next live run captures. A
+  // stored global must still unify with its live counterpart under such drift, which is why
+  // `Meta` equality excludes position and doc.
+  test("a stored global with a drifted position still unifies with the live global") {
+    def genGHost(using DFC): dfhdl.core.Design =
+      class GHost extends DFDesign:
+        val data = UInt(8) <> IN
+        val o = UInt(8) <> OUT
+        o := topCalcG(data) + globalW
+      new GHost
+    val expectedG =
+      """|val globalW: UInt[8] <> CONST = d"8'5"
+         |
+         |def topCalcG(arg: UInt[8] <> VAL): UInt[8] <> DFRET =
+         |  arg + globalW
+         |end topCalcG
+         |
+         |class GHost extends DFDesign:
+         |  val data = UInt(8) <> IN
+         |  val o = UInt(8) <> OUT
+         |  o := topCalcG(data) + globalW
+         |end GHost
+         |""".stripMargin
+    val cache = new MapSubDesignCache
+    assertCodeString(genHostOf(genGHost, cache), expectedG)
+    assertEquals(cache.hits, 0)
+    // doctor the stored entries: shift every global member's position by one line
+    cache.entries.mapValuesInPlace { (_, json) =>
+      val entry = ir.SubDesignEntry.fromJsonString(json)
+      given ir.MemberGetSet = entry.db.getSet
+      val shifted = entry.db.members.map {
+        case c: ir.DFVal.Const if c.isGlobal =>
+          val pos = c.meta.position
+          c.copy(meta =
+            c.meta.copy(position =
+              pos.copy(lineStart = pos.lineStart + 1, lineEnd = pos.lineEnd + 1)
+            )
+          )
+        case m => m
+      }
+      entry.copy(db = entry.db.update(members = shifted), children = entry.children).toJsonString
+    }
+    // the adopted entry carries the drifted global; it must still re-unite with the live
+    // run's global (the same JVM object, created with the un-drifted position)
+    assertCodeString(genHostOf(genGHost, cache), expectedG)
+    assertEquals(cache.hits, 1)
   }
 
   test("without cacheEnable the elaboration is unaffected") {

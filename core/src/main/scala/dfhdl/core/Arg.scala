@@ -26,4 +26,10 @@ object Arg:
         [t <: Int] =>> t > 1,
         [t <: Int] =>> "Argument must be larger than 1, but found: " + t
       ]
+  object Natural
+      extends Check1[
+        Int,
+        [t <: Int] =>> t >= 0,
+        [t <: Int] =>> "Argument must be natural, but found: " + t
+      ]
 end Arg

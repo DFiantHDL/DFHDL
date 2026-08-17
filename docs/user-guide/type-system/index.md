@@ -573,7 +573,7 @@ The `#!scala for` runs over a Scala range in a concurrent scope, so it is an ela
 ```verilog
 module LaneConcat(
   /* the four input lanes */
-  input  wire logic [7:0] lanes [0:3],
+  input  wire logic [3:0][7:0] lanes,
   /* the packed word */
   output      logic [31:0] word
 );
@@ -594,7 +594,7 @@ Three things are worth noticing in the generated code:
 
 2. **Only two of the bindings kept a name.** `acc` names the *first* binding (`lanes[0]`), which is where the Scala name was introduced; the intermediate concatenations are anonymous and were folded away. `allLanes` is the `#!scala val` that froze the result.
 
-3. **The vector port survives as a vector.** `lanes` is emitted as an unpacked array (`input wire logic [7:0] lanes [0:3]`) and indexed with constants, since every index was resolved during elaboration.
+3. **The vector port survives as a vector.** `lanes` is emitted as a packed array (`input wire logic [3:0][7:0] lanes`, see [vector representation][DFVector-verilog-representation]) and indexed with constants, since every index was resolved during elaboration.
 ///
 
 /// tab | Generated VHDL
@@ -1019,15 +1019,51 @@ val b6: Bits[6] <> CONST = all(0)
 
 /// details | Transitioning from Verilog
     type: verilog
-* __Specifying a width instead of an index range:__ In Verilog bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `[width-1:0]` sized vector (for [generic vectors][DFVector] the element order the opposite).
+* __Specifying a width instead of an index range:__ In Verilog bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `[width-1:0]` sized vector ([generic vectors][DFVector] follow the same descending `[length-1:0]` convention in their default packed form, and only their unpacked memory form uses the ascending `[0:length-1]` order; see [vector representation][DFVector-verilog-representation]). For the rare designs that genuinely need a non-zero low index, DFHDL provides the dedicated [`BitsHL`][DFBitsHL] constructor.
 * __Additional constructors:__ DFHDL provides additional constructs to simplify some common Verilog bit vector declaration. For example, instead of declaring `reg [$clog2(DEPTH)-1:0] addr` in Verilog, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
 ///
 
 /// details | Transitioning from VHDL
     type: vhdl
-* __Specifying a width instead of an index range:__ In VHDL bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `(width-1 downto 0)` sized vector (for [generic vectors][DFVector] the element order the opposite).
+* __Specifying a width instead of an index range:__ In VHDL bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `(width-1 downto 0)` sized vector (for [generic vectors][DFVector] the element order the opposite). For the rare designs that genuinely need a non-zero low index, DFHDL provides the dedicated [`BitsHL`][DFBitsHL] constructor.
 * __Additional constructors:__ DFHDL provides additional constructs to simplify some common VHDL bit vector declaration. For example, instead of declaring `signal addr: std_logic_vector(clog2(DEPTH)-1 downto 0)` in VHDL, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
 ///
+
+#### Low-Indexed Bit Vectors: `BitsHL` {#DFBitsHL}
+
+For the rare cases that genuinely require a non-zero low index, such as mirroring a memory-mapped
+register field or an address range taken from an external specification, DFHDL provides the
+`BitsHL` constructor. `BitsHL(idxHigh, idxLow)` declares a bit vector spanning the absolute
+inclusive range `idxHigh downto idxLow` (width is `idxHigh - idxLow + 1`), and the generated HDL
+preserves that range (`[idxHigh:idxLow]` in Verilog, `(idxHigh downto idxLow)` in VHDL).
+Reversed bit direction is not supported: a `BitsHL` range is always descending, so there is no
+equivalent of a Verilog `[low:high]` or a VHDL `(low to high)` declaration.
+
+/// admonition | Prefer `Bits` over `BitsHL`
+    type: note
+`BitsHL` should be used scarcely. Always prefer `Bits(width)` over `BitsHL(width-1, 0)`: both
+construct the same zero-based bit vector type, and the width-based spelling is the canonical one.
+Reach for `BitsHL` only when a non-zero low index carries real meaning in your design.
+///
+
+/// html | div.operations
+| Constructor  | Description | Arg Constraints     | Returns |
+| ------------ | ----------- | ------------------- | ------- |
+| `BitsHL(idxHigh, idxLow)` | Construct a bit vector DFType spanning the absolute inclusive range `idxHigh downto idxLow`. | `idxHigh` and `idxLow` are Scala `Int` or constant DFHDL `Int` values, with `idxHigh >= idxLow` and `idxLow >= 0` (natural). | `BitsHL[idxHigh.type, idxLow.type]` DFType |
+| `BitsHL[H, L]` | Construct a bit vector DFType with the given `H` high index and `L` low index as Scala type arguments (for advanced users). | `H` and `L` are Scala `Int` or constant DFHDL `Int` Singleton types, with `H >= L` and `L >= 0`. | `BitsHL[H, L]` DFType |
+///
+
+Selection on a low-indexed bit vector uses absolute indices within `[idxLow, idxHigh]`, and
+selection results are always zero-based `Bits` values. Assignment, connection, and comparison
+between bit vectors are width-based, so equal-width `Bits` and `BitsHL` values are compatible
+regardless of their low indices.
+
+```scala
+val reg = BitsHL(9, 2) <> VAR
+val fld = reg(5, 2) // absolute range selection, yields a zero-based Bits[4] value
+val msb = reg(9)    // absolute bit selection
+reg := all(0)       // width-based compatibility, like any Bits[8] value
+```
 
 #### Type Signatures
 - Bounded: `Bits[8]`, `Bits[4]`
@@ -1523,6 +1559,36 @@ matrix(1)(2) := 42
 // Initialize 2D array
 matrix := all(all(0))  // All elements to 0
 ```
+
+#### Verilog Representation: Packed vs. Unpacked Arrays {#DFVector-verilog-representation}
+
+Under the SystemVerilog backends (`verilog.sv2005` and newer), a DFHDL vector is emitted as a **packed** array by default, with a *descending* dimension range:
+
+```scala
+val vin = Bits(8) X 4 <> IN
+```
+```verilog
+input wire logic [3:0][7:0] vin
+```
+
+Element indexing is independent of the representation: DFHDL element `i` is Verilog element `[i]` in both forms (in the packed form, element 0 occupies the least-significant bits).
+
+A vector declaration keeps the **unpacked** ascending form (`logic [7:0] mem [0:3]`) only when it matches a memory shape, so block-RAM/ROM inference is preserved. The decision follows the declaration's shape and usage:
+
+1. A vector of a non-integral cell type (`Int`, `Double`, `String`, time values) is always unpacked, for every value of that type; SystemVerilog forbids packed arrays over such types (IEEE 1800-2017 7.4.1). A vector of *signed* cells (`SInt`, signed fixed-point) is always unpacked as well: an element select of a packed array is an unsigned part-select, so the cell signedness would be lost, while an unpacked element select keeps the declared (signed) cell type.
+2. A **port** is packed.
+3. A **constant-index access** (`vec(3)`) forces packed.
+4. A **whole-vector use** (assigned, connected, or read as a whole; sliced; compared; cast) forces packed. An `init` is representation-neutral: it neither forces the initialized declaration packed nor counts as a whole-vector read of a named init value.
+5. A **`VAR.SHARED`** declaration is unpacked (the multi-ported RAM template).
+6. A declaration whose dynamic-index accesses include exactly **one read** (`vec(addr)`) is unpacked; this is the single-read RAM/ROM shape, and applies to constants as well (`localparam` ROMs).
+7. Anything else is packed.
+
+The `verilog.v95`/`verilog.v2001` backends have no packed (multi-dimensional) arrays, so under them every vector remains unpacked. The VHDL backends are unaffected: they emit named array types with ascending ranges as before.
+
+Two consequences of the packed form are worth knowing:
+
+* A whole-vector ⇄ `Bits` cast preserves the DFHDL bit order, where element 0 holds the *most*-significant bits. Since a packed array stores element 0 at the *least*-significant end, such casts emit an explicit element-order reversal (a streaming `{<<W{...}}` operation, or an element-wise concatenation) rather than a raw reinterpretation.
+* Vector aggregate literals use the index-keyed form in both representations; the keys bind element indexes (semantically order-free), and the listing follows the declared range direction: descending for packed targets (`'{3: e3, ..., 0: e0}`, element 0 at the LSB end) and ascending for unpacked ones (`'{0: e0, ..., 3: e3}`).
 
 #### Memory/RAM Implementation
 

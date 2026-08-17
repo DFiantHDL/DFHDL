@@ -109,7 +109,7 @@ class DFApp:
       topClass: Class[?],
       designName: String,
       topScalaPath: String,
-      top: dfhdl.top,
+      top: dfhdl.hw.annotation.top,
       argNames: List[String],
       argValues: List[Any],
       argDescs: List[String],
@@ -178,6 +178,7 @@ class DFApp:
   object compile extends diskCache.Step[StagedDesign, CompiledDesign](elaborate)(
         elaborationOptions.defaultRTDomainCfgTag,
         compilerOptions.dropUserOpaques,
+        compilerOptions.dropWholeVecAssign,
         printerOptions.align,
         compilerOptions.backend.toString()
       ):
@@ -500,7 +501,8 @@ class DFApp:
             compilerOptions = compilerOptions.copy(
               backend = mode.backend.toOption.get,
               printDFHDLCode = mode.`print-compile`.toOption.get,
-              printBackendCode = mode.`print-backend`.toOption.get
+              printBackendCode = mode.`print-backend`.toOption.get,
+              dropWholeVecAssign = mode.`drop-whole-vec-assign`.toOption.get
             )
             printerOptions = printerOptions.copy(
               globalDefsFileName = mode.`global-defs-name`.toOption.get

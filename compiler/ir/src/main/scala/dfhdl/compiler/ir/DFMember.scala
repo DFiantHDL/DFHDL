@@ -386,59 +386,19 @@ object DFVal:
       case alias: DFVal.Alias                 => alias.relValRef.get.dealias
       case _                                  => None
     @tailrec private def departial(slice: Slice)(using MemberGetSet): (DFVal, Slice) =
-      import IntExprCalc.DataCalc.*
       dfVal match
         case partial: DFVal.Alias.Partial =>
           val relVal = partial.relValRef.get
-          partial match
-            case partial: DFVal.Alias.ApplyRange =>
-              // the selection indices are in cell units for a vector range selection,
-              // in bit units otherwise
-              val unitWidthOpt = relVal.dfType match
-                case DFVector(cellType = cellType) => linearOfTypeWidth(cellType)
-                case _                             => Some(const(1))
-              val newSlice = unitWidthOpt match
-                case Some(unitWidth) =>
-                  val loUnits = linearOfParamRef(partial.idxLowRef)
-                  val hiUnits = linearOfParamRef(partial.idxHighRef)
-                  val selWidthUnits = addConst(sub(hiUnits, loUnits), 1)
-                  (mulOpt(loUnits, unitWidth), mulOpt(selWidthUnits, unitWidth)) match
-                    case (Some(loBits), Some(selWidthBits)) =>
-                      Slice.compose(slice, loBits, selWidthBits)
-                    case _ => Slice.Unknown
-                case None => Slice.Unknown
-              relVal.departial(newSlice)
-            case partial: DFVal.Alias.ApplyIdx =>
-              val idxLinear = linearOfVal(partial.relIdx.get)
-              // An index fixed at elaboration selects one cell, so it composes into the slice: a
-              // literal folds to a concrete range, and an index over design parameters stays a
-              // symbolic one (`v(N - 1)`). Any other index affects the entire value: a runtime
-              // value is not constant at all, and a loop iterator or a static-function formal is
-              // constant per evaluation yet varies across them.
-              val idxIsFixed = idxLinear.terms.forall((_, base) => base.isDesignParam)
-              val newSliceOpt =
-                if (idxIsFixed)
-                  linearOfTypeWidth(partial.dfType).flatMap { cellWidth =>
-                    mulOpt(idxLinear, cellWidth).map(Slice.compose(slice, _, cellWidth))
-                  }
-                else None
-              (newSliceOpt, idxIsFixed) match
-                case (Some(newSlice), _) => relVal.departial(newSlice)
-                // a fixed index whose bit coordinates are not expressible (a cell width that does
-                // not linearize, or a parametric index times a parametric cell width)
-                case (None, true)  => relVal.departial(Slice.Unknown)
-                case (None, false) =>
-                  relVal.dealias match
-                    case Some(dcl: DFVal.Dcl) => (dcl, Slice.fromWidthOpt(dcl.dfType.widthIntOpt))
-                    case _ => (relVal, Slice.fromWidthOpt(relVal.dfType.widthIntOpt))
-              end match
-            case partial: DFVal.Alias.SelectField =>
-              relVal.dfType match
-                case structType: DFStruct =>
-                  relVal.departial(slice.shift(structType.fieldRelBitLow(partial.fieldName)))
-                case _ => relVal.departial(slice)
-            case _ => relVal.departial(slice)
-          end match
+          partial.composeSlice(slice) match
+            case Some(newSlice) => relVal.departial(newSlice)
+            // a fixed selection whose bit coordinates are not expressible (a cell width that does
+            // not linearize, or a parametric index times a parametric cell width)
+            case None if partial.isFixedSelection => relVal.departial(Slice.Unknown)
+            // a selection that varies per evaluation affects the entire value
+            case None =>
+              relVal.dealias match
+                case Some(dcl: DFVal.Dcl) => (dcl, Slice.fromWidthOpt(dcl.dfType.widthIntOpt))
+                case _                    => (relVal, Slice.fromWidthOpt(relVal.dfType.widthIntOpt))
         case _ => (dfVal, slice)
       end match
     end departial
@@ -462,6 +422,77 @@ object DFVal:
         case a: DFVal.Alias.ApplyIdx => a.relValRef.get.isBubble || a.relIdx.get.isBubble
         case a: DFVal.Alias.Partial  => a.relValRef.get.isBubble
         case _                       => false
+  end extension
+
+  extension (partial: DFVal.Alias.Partial)
+    /** Whether the selected region is fixed at elaboration. A range selection and a field selection
+      * always are (their bounds are literals or design parameters), while an `ApplyIdx` index need
+      * not be: a runtime value is not constant at all, and a loop iterator or a static-function
+      * formal is constant per evaluation yet varies across them.
+      */
+    def isFixedSelection(using MemberGetSet): Boolean = partial match
+      case applyIdx: DFVal.Alias.ApplyIdx =>
+        IntExprCalc.DataCalc
+          .linearOfVal(applyIdx.relIdx.get).terms.forall((_, base) => base.isDesignParam)
+      case _ => true
+
+    /** Maps `slice`, given in this selection's own bit coordinates, into the coordinates of the
+      * value it selects from. Parameter-dependent bounds stay [[Slice.Symbolic]] linear forms, so a
+      * slice over a design parameter remains decidable downstream instead of collapsing to
+      * [[Slice.Unknown]].
+      *
+      * `None` when the selection's bit coordinates are not expressible (a cell width that does not
+      * linearize, or a parametric index times a parametric cell width) or when the selection is not
+      * fixed (see [[isFixedSelection]]). How conservative to be about that is the caller's call:
+      * [[DFVal.departial]] takes the whole value for a varying index, while the state analysis
+      * consumes the index alongside it.
+      */
+    def composeSlice(slice: Slice)(using MemberGetSet): Option[Slice] =
+      import IntExprCalc.DataCalc.*
+      val relVal = partial.relValRef.get
+      partial match
+        case applyRange: DFVal.Alias.ApplyRange =>
+          // the selection indices are in cell units for a vector range selection,
+          // in bit units otherwise
+          val unitWidthOpt = relVal.dfType match
+            case DFVector(cellType = cellType) => linearOfTypeWidth(cellType)
+            case _                             => Some(const(1))
+          unitWidthOpt.flatMap { unitWidth =>
+            // selection indices are absolute, so over a low-indexed bit vector they
+            // translate to relative offsets by subtracting the source's low index
+            // (the selection width is a difference, so it needs no translation)
+            val loUnitsAbs = linearOfParamRef(applyRange.idxLowRef)
+            val loUnits = relVal.dfType match
+              case b: DFBitsWL => sub(loUnitsAbs, linearOfParamRef(b.lowIdxRef))
+              case _           => loUnitsAbs
+            val hiUnits = linearOfParamRef(applyRange.idxHighRef)
+            val selWidthUnits = addConst(sub(hiUnits, loUnitsAbs), 1)
+            (mulOpt(loUnits, unitWidth), mulOpt(selWidthUnits, unitWidth)) match
+              case (Some(loBits), Some(selWidthBits)) =>
+                Some(Slice.compose(slice, loBits, selWidthBits))
+              case _ => None
+          }
+        case applyIdx: DFVal.Alias.ApplyIdx =>
+          // a fixed index selects one cell, so it composes into the slice: a literal folds to a
+          // concrete range and an index over design parameters stays a symbolic one (`v(N - 1)`)
+          if (applyIdx.isFixedSelection)
+            // same absolute-to-relative translation as the range selection above
+            val idxLinearAbs = linearOfVal(applyIdx.relIdx.get)
+            val idxLinear = relVal.dfType match
+              case b: DFBitsWL => sub(idxLinearAbs, linearOfParamRef(b.lowIdxRef))
+              case _           => idxLinearAbs
+            linearOfTypeWidth(applyIdx.dfType).flatMap { cellWidth =>
+              mulOpt(idxLinear, cellWidth).map(Slice.compose(slice, _, cellWidth))
+            }
+          else None
+        case selectField: DFVal.Alias.SelectField =>
+          relVal.dfType match
+            case structType: DFStruct =>
+              Some(slice.shift(structType.fieldRelBitLow(selectField.fieldName)))
+            case _ => Some(slice)
+        case _ => Some(slice)
+      end match
+    end composeSlice
   end extension
   // can be an expression
   sealed trait CanBeExpr extends DFVal
@@ -557,6 +588,20 @@ object DFVal:
       appliedValRefOpt.getOrElse(defaultValRef.asInstanceOf[DFVal.Ref])
     def appliedOrDefaultVal(using MemberGetSet): DFVal =
       appliedValOpt.getOrElse(defaultValRef.get.asInstanceOf[DFVal])
+
+    /** Whether the design's elaboration READ this parameter's data, as `PureCheckPhase` recorded it
+      * (see [[DFDesignBlock.dataImpureParamNames]]).
+      *
+      * Reading a parameter is what specializes a body to it: a Scala `if` over it keeps one branch,
+      * a Scala `for` unrolls to a count, and neither the branch that was dropped nor the iteration
+      * that never ran is recoverable from the design that came out. So such a parameter is no
+      * longer a free variable of its design, which is why the width algebra may read it as its
+      * value ([[IntExprCalc]]) and why the design states that value as a contract
+      * (`core.AutoConstraint`).
+      */
+    def isDataImpure(using MemberGetSet): Boolean =
+      val names = getOwnerDesign.dataImpureParamNames
+      names.contains("*") || names.contains(meta.name)
 
     // The applied constant data resolved ONLY through an instantiation site: the elaboration-time
     // cached instance, the DB's instance map, or the hierarchical parent sub-DB walk-up. The
@@ -1102,30 +1147,43 @@ object DFVal:
         tags: DFTags
     ) extends Partial derives ReadWriter:
       def elementWidthUNSAFE(using MemberGetSet): Int = dfType.runtimeChecked match
-        case DFBits(_) | DFUInt(_) | DFSInt(_) => 1
-        case DFVector(cellType = cellType)     => cellType.widthUNSAFE
+        case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) => 1
+        case DFVector(cellType = cellType)         => cellType.widthUNSAFE
       def elementWidthIntOpt(using MemberGetSet): Option[Int] = dfType.runtimeChecked match
-        case DFBits(_) | DFUInt(_) | DFSInt(_) => Some(1)
-        case DFVector(cellType = cellType)     => cellType.widthIntOpt
-        case _                                 => None
+        case (_: DFBitsWL) | DFUInt(_) | DFSInt(_) => Some(1)
+        case DFVector(cellType = cellType)         => cellType.widthIntOpt
+        case _                                     => None
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet, ConstData.CachePolicy): ConstData[Any] =
         val relVal = relValRef.get
-        (relVal.getConstData[Any], idxHighRef.getIntConstData, idxLowRef.getIntConstData) match
+        // selection indices are absolute; a low-indexed bit vector's data offsets are
+        // relative to its low index
+        val relLowConstData: ConstData[Int] = relVal.dfType match
+          case b: DFBitsWL => b.lowIdxRef.getIntConstData
+          case _           => ConstData.KnownConst(0)
+        (
+          relVal.getConstData[Any],
+          idxHighRef.getIntConstData,
+          idxLowRef.getIntConstData,
+          relLowConstData
+        ) match
           case (
                 ConstData.KnownConst(relValData),
                 ConstData.KnownConst(idxHigh),
-                ConstData.KnownConst(idxLow)
+                ConstData.KnownConst(idxLow),
+                ConstData.KnownConst(relLow)
               ) =>
             ConstData.KnownConst(
-              selRangeData(relVal.dfType, relValData, idxHigh, idxLow)
+              selRangeData(relVal.dfType, relValData, idxHigh - relLow, idxLow - relLow)
             )
           case (
                 ConstData.NotConst,
                 _,
+                _,
                 _
-              ) | (_, ConstData.NotConst, _) | (_, _, ConstData.NotConst) =>
+              ) | (_, ConstData.NotConst, _, _) | (_, _, ConstData.NotConst, _) |
+              (_, _, _, ConstData.NotConst) =>
             ConstData.NotConst
           case _ => ConstData.UnknownConst(this)
         end match
@@ -1174,10 +1232,13 @@ object DFVal:
           case (ConstData.KnownConst(relValData), ConstData.KnownConst(Some(idx: BigInt))) =>
             val idxInt = idx.toInt
             val outData = relVal.dfType match
-              case DFBits(_) =>
+              case b: DFBitsWL =>
+                // an absolute index into a low-indexed bit vector translates to a
+                // relative data offset
+                val relIdxInt = idxInt - b.lowIdxRef.getIntOpt.getOrElse(0)
                 val data = relValData.asInstanceOf[(BitVector, BitVector)]
-                if (data._2.bit(idxInt)) None
-                else Some(data._1.bit(idxInt))
+                if (data._2.bit(relIdxInt)) None
+                else Some(data._1.bit(relIdxInt))
               case DFUInt(_) | DFSInt(_) =>
                 relValData.asInstanceOf[Option[BigInt]].map(_.testBit(idxInt))
               case DFVector(_, _) =>
@@ -1930,6 +1991,25 @@ object DFDesignBlock:
         case annotation.Pure(false, _) => true
         case _                         => false
       }
+
+    /** The names of the parameters whose applied DATA this design's elaboration reads, as
+      * `PureCheckPhase` records them on `@pure(true, <names>)`; `"*"` stands for all of them.
+      *
+      * The marking is transitive by construction: a `toScalaXYZ` forcing is attributed to the
+      * parameter it is rooted at, and every application of a marked parameter re-attributes its
+      * applied argument at the call site, so a parameter read deep in a sub-design marks the
+      * parameter of every design that feeds it. That is what makes this the right question to ask
+      * about specialization, rather than anything recorded where the reading happens: the design
+      * that supplied the value was specialized to it just as surely as the one that read it.
+      *
+      * Read only from the annotation, so a vendor IP blackbox (whose applied parameters are baked
+      * into the emitted instance, and which `DesignLoadKey` therefore keys in full) is not covered:
+      * it has no body to have read anything in, nor one to state a contract in.
+      */
+    def dataImpureParamNames: Set[String] =
+      dsn.dclMeta.annotations.collectFirst {
+        case annotation.Pure(true, names) if names.nonEmpty => names.toSet
+      }.getOrElse(Set.empty)
 
     /** An ED method (HDL function/task — see devdocs/methods.md): a method under the ED domain. ED
       * methods are locally scoped — printed inside their owning design (as HDL methods) rather than

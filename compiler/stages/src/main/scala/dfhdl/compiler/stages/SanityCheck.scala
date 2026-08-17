@@ -36,7 +36,10 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends HierarchyStage:
         rootDB.subDBs.get(StaticRef(childBlock.ownerRef)) match
           case Some(childSub) =>
             childSub.atGetSet {
-              childBlock.members(MemberView.Folded).view.collect {
+              // Flattened: a port may be nested in a domain block (e.g. a related domain's
+              // derived clock, by-name-selected as `active.clk`); in the hierarchical model
+              // nested designs are DFDesignInst placeholders, so no cross-design leakage.
+              childBlock.members(MemberView.Flattened).view.collect {
                 case port: DFVal.Dcl if port.isPort => (inst, port.getRelativeName(childBlock))
               }.toList
             }

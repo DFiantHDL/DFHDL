@@ -32,6 +32,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
          |library std;
          |use std.env.all;""".stripMargin
     else default
+  end csLibrary
   def entityName(design: DFDesignBlock): String = design.dclName
   def csEntityDcl(design: DFDesignBlock, asComponent: Boolean = false): String =
     val designMembers = design.members(MemberView.Folded)
@@ -74,9 +75,9 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
           case dt: (DFVector | NamedDFType) => dt
         }
         (alias.dfType, alias.relValRef.get.dfType) match
-          case (DFBits(_), fromDFType: (NamedDFType | ComposedDFType)) =>
+          case (_: DFBitsWL, fromDFType: (NamedDFType | ComposedDFType)) =>
             fromDFType.decompose(pf)
-          case (toDFType: (NamedDFType | ComposedDFType), DFBits(_)) =>
+          case (toDFType: (NamedDFType | ComposedDFType), _: DFBitsWL) =>
             toDFType.decompose(pf)
           case _ => None
       case _ => None
@@ -101,8 +102,10 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       case localVar @ DclVar()     => localVar.dfType
       case localConst @ DclConst() => localConst.dfType
     }.flatMap(_.decompose[DFVector | NamedDFType] {
-      case dt: DFVector                                        => dt
-      case dt: NamedDFType if !globalNamedDFTypes.contains(dt) => dt
+      case dt: DFVector => dt
+      // packaged types come from their package's `use` clause, never re-declared here
+      case dt: NamedDFType
+          if !globalNamedDFTypes.contains(dt) && printer.typePlacementOf(dt).isEmpty => dt
     }))
     // declarations of the types and relevant functions
     val namedTypeConvFuncsDcl = namedDFTypes.view

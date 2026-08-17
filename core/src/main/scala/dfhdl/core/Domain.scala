@@ -15,7 +15,7 @@ private[dfhdl] trait Domain extends Container with scala.reflect.Selectable:
 object Domain:
   type Block = DFOwner[ir.DomainBlock]
   object Block:
-    def apply(domainType: ir.DomainType)(using DFC): Block = trydf:
+    def apply(domainType: ir.DomainType)(using DFC): Block = trydf {
       dfc.owner.asIR match
         case _: ir.DFDomainOwner =>
         case _                   =>
@@ -25,6 +25,7 @@ object Domain:
       val ownerRef: ir.DFOwner.Ref =
         dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFMember.Empty.ref)
       ir.DomainBlock(domainType, ownerRef, dfc.getMeta, dfc.tags).addMember.asFE
+    }(using dfc, CTName("Domain constructor"))
   end Block
   extension [D <: Domain](domain: D)
     infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
@@ -51,8 +52,8 @@ trait NoClkRstDomain extends Domain:
   protected inline def Rst: DFOpaque[DFOpaque.Rst] =
     compiletime.error("Clk/Rst declarations are not allowed in this domain.")
 
-abstract class DFDomain extends DomainContainer(DomainType.DF), NoClkRstDomain
+abstract class DFDomain extends DFDomainContainer, NoClkRstDomain
 
 abstract class RTDomain extends RTDomainContainer, Domain
 
-abstract class EDDomain extends DomainContainer(DomainType.ED), NoClkRstDomain
+abstract class EDDomain extends EDDomainContainer, NoClkRstDomain

@@ -31,6 +31,7 @@ Given the same input `DB`, a stage must always produce bit-for-bit the same outp
 
 **Common causes of non-determinism to avoid:**
 - Iterating over `Set`, `Map`, or any unordered collection to build the patch list — iteration order is not guaranteed. Always convert to a sorted or ordered structure first, or derive order from `designDB.members` (which is a `List` and is ordered).
+- `xs.groupBy(f).values` — the grouping itself is fine, but a standard `Map`'s value iteration order is not. Use `xs.groupByOrdered(f)` from `dfhdl.internals` instead: it returns `List[(P, List[T])]` with groups in first-appearance order and members in input order, a drop-in replacement whenever grouping drives output order (`MagnetMap.get` is the working example).
 - Using `hashCode`-based identity anywhere in the transformation logic.
 - Relying on mutable external state (counters, caches, `var`s outside the `transform` call).
 
@@ -349,6 +350,41 @@ original's ref objects.
 
 `NamedAliases` uses exactly this to name a value and lift it out of a conditional expression branch
 atomically, which it must, since `SanityCheck` would reject the intermediate DB.
+
+### Recipe: TWO reference changes on one member, in one patch
+
+Re-homing a member usually means redirecting more than one of its references at once (its
+`ownerRef` plus a structural link, say). `Patch.ChangeRef` reaches the member-list patch table like
+any other patch (the `case x => Some(x)` fall-through), so two of them on one member throw
+`Received two different patches for the same member`, and `Replace + ChangeRef` is not in the merge
+table either. **This is not a reason to add a second `db.patch()` phase.**
+
+Redirect one of them by replacing **what the reference points at**, keyed on the OLD TARGET and
+scoped to the holder, so the two patches never share a key:
+
+```scala
+List(
+  // ownerRef: the supported mechanism, keyed on the member
+  member -> Patch.ChangeOwner(newOwner),
+  // the other reference: keyed on what it currently points at, narrowed to this holder alone
+  oldTarget -> Patch.Replace(
+    newTarget,
+    Patch.Replace.Config.ChangeRefOnly,
+    Patch.Replace.RefFilter.OfMembers(Set(member))
+  )
+)
+```
+
+Two properties make it safe. `ChangeRefOnly` is dropped from the member-list patch table outright
+(`case (_, Patch.Replace(config = ChangeRefOnly)) => None`), so it cannot collide even when another
+patch — a `MetaDesign` Add, say — is already keyed on `oldTarget`. And `RefFilter` narrows the
+redirect to the references you mean: **`OfMembers` matches on `r.originMember`, the member HOLDING
+the reference, not the member referenced** (`Outside`/`Inside` filter the same side). So every other
+reference to `oldTarget` survives untouched, including its own members' `ownerRef`s.
+
+`VerilogProcToVHDL` Rule 2b uses this to re-home a conditional chain into a newly created branch:
+`ChangeOwner` moves the blocks, while the chain head's `prevBlockOrHeaderRef` is re-pointed at a
+fresh nested header by replacing the reset block it used to follow, scoped to that head.
 
 ### `Patch.Add` via `MetaDesign`
 Use `MetaDesign` when you need to construct new IR members using the DFHDL frontend DSL:
@@ -1368,7 +1404,10 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     stage's *own output legal*, a separate stage is not an option either: `SanityCheck` runs after
     every stage, so the DB in between would be invalid. It has to be the same patch. Check the
     merge table before concluding that is impossible, and see the
-    *replace AND relocate in one patch* recipe for the case that looks unmergeable but is not.
+    *replace AND relocate in one patch* and *TWO reference changes on one member* recipes for the
+    cases that look unmergeable but are not. Both cover a same-member collision that the merge
+    table genuinely rejects, which is exactly the point where the second phase starts to look
+    inevitable and is not.
 27. **Substituting into a cloned expression tree AFTER cloning it inverts the member order** —
     `cloneAnonValueAndDepsHere` builds each dependency before the value that reads it, which is the
     only order the flat member list accepts. If you then walk the finished clone and `newRefFor` a
@@ -1408,6 +1447,126 @@ abstract class StageSpec(stageCreatesUnrefAnons: Boolean = false)
     stages: extract it to a shared analysis class (`RTDomainAnalysis`) and have BOTH consume it,
     so they cannot drift. The bugfix skill's "twin helpers drift" warning applies doubly when the
     twins live in different stages.
+31. **`Patch.Replace` cannot carry a new `ownerRef`** — `replaceMember` is called with
+    `keepRefs = repMember.getRefs`, and `getRefs` deliberately excludes `ownerRef`, so an owner
+    reference freshly minted in a `MetaDesign` (via `dfc.ownerOrEmptyRef` or `.ref`) and attached
+    to `member.copy(ownerRef = ...)` is purged from the ref table. The failure surfaces far away
+    and unrecognizably, as `NoSuchElementException: key not found: "OW_…"` from the next
+    `getOwner` — often inside a later stage such as `OrderMembers`. Change ownership with
+    `Patch.ChangeOwner` (or let a `ReplaceWithLast` bulk redirect cover it), and see the
+    *TWO reference changes on one member* recipe when that leaves you needing a second reference
+    change on the same member.
+32. **Matching a conditional chain by arity is fragile** — an `else` branch whose entire body is a
+    single conditional does not stay a guard-less `else`: it flattens into an `else if` chain, so
+    `pb.members(Folded).collect { case b: DFIfElseBlock => b }` yields three blocks for
+    `if (a) … else { if (b) … else … }`, and two *guarded* blocks when the inner `if` has no
+    `else`. A pattern like `case first :: second :: Nil` therefore silently skips the most common
+    real-world spelling (any FSM under an async reset), and a stage that silently skips prints its
+    input unconverted. Match the whole chain (`case blocks @ (head :: tail)` plus
+    `blocks.forall(_.getFirstCB == head)` to confirm they are one chain and nothing else at that
+    level), then branch on the tail's shape. Guard any rewrite that restructures the chain with
+    `head.getHeaderCB.dfType == DFUnit`: the same block shapes serve conditional *expressions*,
+    whose branches must keep feeding the header that owns their value.
+33. **Cloning a member and removing its original in the SAME patch is safe only if the clone owns
+    its references** — type references (`IntParamRef`, i.e. a parametric width or length) are
+    reference-counted from the *pre-patch* member list, so a member the batch is about to ADD is
+    invisible to the count and the removal purges a reference the clone still holds
+    (`NoSuchElementException: Missing member of reference "TR_..."`, issue #485). Since
+    `cloneAnonValueAndDepsHere` now mints fresh type refs, this is handled for the clone path;
+    a stage that hand-builds a member from another member's `dfType` (Pattern 14 note 3) and
+    removes that member in the same patch still has to. Literal widths carry no type ref at all,
+    so this only ever shows up on parameter-width designs — write the spec test with a
+    `val W: Int <> CONST` design parameter, not a literal.
+34. **Ports can be nested in domain blocks — `Folded` on a design block misses them** — a port dcl
+    may live inside a `DomainBlock` (every AddClkRst-added domain clk/rst, and a related domain's
+    derived clock), and a `PortByNameSelect.portNamePath` may be multi-part (`active.clk`). Three
+    port-shaped assumptions broke on this at once: `SanityCheck.instPortsByNameSet` and
+    `MagnetMap.viaRMPs` collected `members(MemberView.Folded)` (design-level ports only), and
+    `DropDomains` renamed the port without rewriting PBNS paths that reference it from parent
+    designs. When collecting "the ports of a design", use `Flattened` (in the hierarchical model
+    nested designs are `DFDesignInst` placeholders, so there is no cross-design leakage) and name
+    ports by `getRelativeName(design)` with dots-to-underscores, which is also what
+    `ConnectPoint.getName` does.
+35. **The magnet stages run in two different orders and must work in both** — in the real backend
+    pipeline `AddMagnets`/`ConnectMagnets` are first demanded by `DropMagnets`, which sits AFTER
+    `DropDomains` in `BackendPrepStage`, so magnets connect on the flattened design where domain
+    ports are already design-level. But `<Stage>Spec` tests invoke `.addMagnets`/`.connectMagnets`
+    directly, running them BEFORE any flattening. A magnet-layer change must be validated in both
+    shapes (a spec test plus a full-pipeline compile), and magnet matching semantics must not
+    depend on domains having been dropped.
+36. **Ordering between two stages is expressed by their positions in `BackendPrepStage`, not
+    always by `dependencies`** — `StageRunner` walks a `BundleStage`'s dependency list in order, so
+    listing stage A before stage B in `BackendPrepStage` is enough to run A first. Adding A to
+    `B.dependencies` instead drags A's WHOLE dependency chain into every direct `.b` invocation —
+    including `<B>Spec`, whose self-contained `DFDesign` inputs suddenly arrive post-`ToED` and
+    whose every expected code string breaks. Reach for `dependencies` only when B genuinely cannot
+    run without A, and say in a comment why the ordering lives where it does.
+37. **A lowering that reads only constants must not become a `process(all)`** — `always @(*)` /
+    `process(all)` derives its sensitivity from what the body READS, so a body that reads only
+    constants gets an EMPTY sensitivity list and never triggers (`iverilog: @* found no
+    sensitivities so it will never trigger`; verilator and yosys are silent, so it reaches
+    hardware as a permanently undriven signal). Emit the drive as a CONNECTION instead (still
+    continuous, still concurrent), or as an `initial` block if the semantics allow. Relatedly, a
+    connection can never live inside a procedural `for` loop, so a loop-shaped lowering of a
+    connection has to unroll.
+38. **A `lengthIntOpt` / `widthUNSAFE` read of a parametric type silently hardcodes the default**
+    — a design parameter resolves to its DEFAULT value there, so a loop bound or slice built from
+    it is correct only for an un-overridden instantiation. Build the bound from the type's own
+    parameter instead (`vecType.cellDimParamRefs.head.get.cloneAnonValueAndDepsHere.toDFConst`),
+    which prints as the parameter name. Reserve the resolved Int for what genuinely needs
+    unrolling, and pin the difference with a spec test on a `val N: Int <> CONST` design.
+39. **Moving a read into a nested block can drop it from the sensitivity list** —
+    `DropProcessAll` (v95 / vhdl.v93) derives an explicit sensitivity list by walking a
+    `process(all)`'s statements, and its walker enumerates block kinds explicitly. Loop blocks were
+    missing from that match, so a signal read only inside a `for`/`while` body silently never
+    reached `always @(...)`. If your stage relocates reads into a block kind, check that walker
+    covers it — nothing else will tell you, since the output is legal HDL that simply never
+    re-evaluates. Relatedly, a Verilog event control takes EXPRESSIONS and an array name is not
+    one, so an array sensitivity item has to be listed cell by cell
+    (`@(mem[0] or mem[1] or ...)`); `@*` is undefined over arrays in the standard and absent from
+    v95 entirely. VHDL names the array signal itself, so the expansion is Verilog-only.
+40. **`Meta` has no `CanEqual` — name the comparison you mean** — a direct `meta == meta` does
+    not compile; choose `sameIdentityAs` (excludes `position`/`docOpt`, which can drift while an
+    elaboration-cache entry stays valid — cached members must still unify by value with live
+    ones) or `sameDclAs` (all fields; "same declaration" is anchored on position — see
+    `UniqueDesigns`' grouping and `DesignLoadKey`'s intra-run equality). `Meta.equals`/`hashCode`
+    implement `sameIdentityAs`, so member case-class equality composes the identity notion
+    implicitly. Watch for token-free case classes holding a `Meta` (e.g. `DesignLoadKey`): their
+    derived equality composes that loosened notion silently, unlike IR members, whose unique ref
+    tokens keep distinct members unequal regardless.
+41. **A design block cannot be renamed with a `Patch`** — it is its sub-DB's TOP, and its
+    `ownerRef` is the hierarchy key rather than a refTable entry, so a `Patch.Replace` keyed on it
+    never reaches the member list. Swap the block yourself in EVERY sub-DB: replace it in
+    `members` and in every `refTable` VALUE that resolves to it (a member's `ownerRef` resolves
+    through the refTable, so missing this leaves the member list and the owner lookup disagreeing).
+    `UniqueDesigns.canonicalReplace` and `DropPackages` both do exactly this. Build the replacement
+    ONCE and reuse the same instance everywhere.
+42. **A `GlobalStage` runs on the hierarchical ROOT, whose `members` is empty** — so any analysis
+    written against a flat member list (everything in `analysis.HDLMethodAnalysis`, and most
+    printer-facing analyses) returns nothing there and fails SILENTLY, as "no results". Run it on
+    `designDB.newToOld`: the flat DB's design blocks are the SAME objects as the sub-DB tops, so
+    its answers map straight back onto the hierarchy. The same asymmetry bites in tests:
+    `StageSpec.assertCodeString` prints from the DB you hand it, so a root DB's printout omits
+    whatever the printer derives from flat members (global HDL method declarations, notably) —
+    pin those in a backend print spec and say so at the stage test.
+43. **Anonymous members carry meta too** — a stage keyed on `meta` must decide what an ANONYMOUS
+    member does, not just filter it out. An anonymous global (an intermediate of a global
+    constant's expression) has no name to act on but still carries a `namespace`, and leaving it
+    behind kept `DropPackages` emitting an empty package for a package it had just flattened away.
+44. **A backend representation choice belongs in the printer, not in a stage or tag** — when a
+    decision only changes how one backend SPELLS the same IR (e.g. the Verilog packed-vs-unpacked
+    vector representation), an IR tag would violate printability (nothing in the printout
+    regenerates it) and a stage would leak one backend's concern into the shared IR. Split it in
+    two (`VerilogPrinter.unpackedVectorDcls` is the model): the backend-agnostic USAGE
+    classification goes to `compiler/ir`'s `analysis` package (`DFVal.hasMemAccessPattern`),
+    while the backend-specific parts (dialect gates, target-language type rules) stay on the
+    printer as a `lazy val` — printers are constructed per sub-DB `getSet`, so a design-local
+    analysis is self-contained, and the DB is immutable so laziness is safe. Two constraints:
+    the printer object may be shared, so NO mutable printer state — thread context flags as
+    extra parameters (add a printer-specific overload beside the shared abstract signature
+    rather than widening it); and if the representation must agree across values that meet in
+    one operation, the analysis rules themselves must guarantee the agreement (there is no
+    checker to catch a mismatch — the output is simply illegal HDL).
 
 ---
 
@@ -1452,7 +1611,10 @@ non-obvious parts:
    `dfc.mutableDB.newRefFor(dfc.refGen.genTwoWay[M, O], member)`.
 3. **Do not reuse an existing member's `dfType` instance in new members** — refs are
    identity objects; clone with `dfType.copyWithNewRefs` and bind each fresh type ref via
-   `newRefFor` to the original target (lazyZip old/new `getRefs`).
+   `newRefFor` to the original target (lazyZip old/new `getRefs`), or call the packaged
+   `dfType.copyWithNewRefsHere` which does exactly that in the current context.
+   `cloneAnonValueAndDepsHere` applies it for you (issue #485); anything that builds a member
+   from another member's `dfType` by hand still has to.
 4. **Self-containment**: a def-design member must not reference design-local values of the
    host (the `directRefCheck` rejects cross-design refs). Captured design-local constants
    become `PhantomTag`-tagged IN-port formals (redirect body refs to them; pass the
@@ -1602,6 +1764,14 @@ Mirror `plantClonedMembers`'s per-member mechanics when a custom per-ref remap i
 `dfc.mutableDB.newRefFor(cloned.ownerRef, dfc.owner.asIR)` → zip `m.getRefs` with
 `cloned.getRefs` and `newRefFor` each cloned ref to the (remapped) original target.
 
+### `ComposedDFTypeReplacement` rewrites a composed type in place
+
+`preCheck` selects the types to rewrite and `updateFunc` produces the replacement; the extractor
+recurses into struct fields, vector cell types and opaque actual types first, so a nested match
+rewrites the enclosing type too. Non-matching parts are PRESERVED (a struct keeps the fields the
+extractor does not apply to) — `UniqueNames` and `DropPackages` rename named types through it, and
+`DropOpaques` erases opaques with it.
+
 ### Materializing a type's width parameter as a standalone member
 
 To replace a member with the VALUE behind an `IntParamRef` (e.g. folding a `width`/`length`
@@ -1629,6 +1799,31 @@ Relatedly, a new `Func.Op` whose result is constant over a NON-constant argument
 `width`/`length` type queries) must also be taught to `IntExprCalc` (linearization through the
 argument TYPE's width params, product-base equivalence so `vec.width` matches `W * N`), or
 every symbolic width-equivalence check against such an expression fails at elaboration.
+
+### Emitting a `for` loop / `initial` block inside a MetaDesign
+
+A `DFRange`'s `using DFC` comes FIRST (`DFRange(using dfc)(start, end, op)`), and the iterator
+declaration is created in the ENCLOSING owner, before the block:
+
+```scala
+import dfhdl.core.get   // `get` on an `IntParamRef`; keep it local so `DFRef.get` stays unambiguous
+val iter = dfhdl.core.DFVal.Dcl.iterator(using dfc.setName(s"${dcl.getName}_i"))
+val end  = vecType.cellDimParamRefs.head.get(using dfc.anonymize)
+  .cloneAnonValueAndDepsHere(using dfc.anonymize).toDFConst(using dfc.anonymize)
+val range = dfhdl.core.DFRange(using dfc.anonymize)(
+  dfhdl.core.DFConstInt32(0)(using dfc.anonymize), end, ir.DFRange.Op.Until
+)
+dfc.enterOwner(dfhdl.core.DFFor.Block(iter, range)(using dfc.anonymize))
+// ... body ...
+dfc.exitOwner()
+```
+
+An `initial` block is `dfhdl.core.Process.Block.initial(using dfc.setName("..."))` +
+`enterOwner`/`exitOwner` (`Process.Block.all` / `.list` for the sensitivity-bearing forms). Naming
+the block prints as `val <name> = initial:` in DFHDL and as a Verilog block label. Do NOT reuse the
+name of a value the MetaDesign body also binds with `val`: `MetaDesign` extends `Design` and
+`reflect.Selectable`, so a `val length` (or any name a `Design` already carries) collides with the
+inherited member and fails to compile with an ambiguity error.
 
 ### Compile-time constant evaluation of values
 

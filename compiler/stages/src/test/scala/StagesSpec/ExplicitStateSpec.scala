@@ -305,5 +305,26 @@ class ExplicitStateSpec extends StageSpec:
          |""".stripMargin
     )
   }
-
+  test("Parameter-bounded slice read of a fully assigned variable") {
+    // the unconditional assignment covers every slice of `v`, including one whose bound is a
+    // design parameter, so `v` holds no implicit state and gets no `prev` self-assignment
+    class ID(val MB: Int <> CONST = 17) extends DFDesign:
+      val addr = Bits(32) <> IN
+      val o    = Bit      <> OUT
+      val v    = Bits(32) <> VAR
+      v := h"32'f0040000"
+      o := addr(31, MB) == v(31, MB)
+    val id = (new ID).explicitState
+    assertCodeString(
+      id,
+      """|class ID(val MB: Int <> CONST = 17) extends DFDesign:
+         |  val addr = Bits(32) <> IN
+         |  val o = Bit <> OUT
+         |  val v = Bits(32) <> VAR
+         |  v := h"f0040000"
+         |  o := (addr(31, MB) == v(31, MB)).bit
+         |end ID
+         |""".stripMargin
+    )
+  }
 end ExplicitStateSpec

@@ -143,6 +143,65 @@ class UniqueDesignsSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Same-named designs from distinct declarations stay separate") {
+    // two structurally-identical designs that share a name but NOT a declaration:
+    // there is no cross-declaration structural dedup, so they must remain two designs,
+    // dclName-enumerated. `Meta` equality excludes position, so "same declaration" is
+    // anchored on position explicitly by `DesignLoadKey` (the gate tier this test pins:
+    // without it the two declarations unify at elaboration into a single `Dup`) and by
+    // this stage's grouping guard (defensive: reachable only through adopted cache
+    // children, which skip elaboration's dclName enumeration).
+    object scope_a:
+      class Dup extends DFDesign:
+        val x = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        y := x
+    object scope_b:
+      class Dup extends DFDesign:
+        val x = UInt(8) <> IN
+        val y = UInt(8) <> OUT
+        y := x
+    class Top extends DFDesign:
+      val x1 = UInt(8) <> IN
+      val y1 = UInt(8) <> OUT
+      val x2 = UInt(8) <> IN
+      val y2 = UInt(8) <> OUT
+      val a  = new scope_a.Dup
+      val b  = new scope_b.Dup
+      a.x <> x1
+      a.y <> y1
+      b.x <> x2
+      b.y <> y2
+    val id = (new Top).uniqueDesigns
+    assertCodeString(
+      id,
+      """|class Dup_0 extends DFDesign:
+         |  val x = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  y := x
+         |end Dup_0
+         |
+         |class Dup_1 extends DFDesign:
+         |  val x = UInt(8) <> IN
+         |  val y = UInt(8) <> OUT
+         |  y := x
+         |end Dup_1
+         |
+         |class Top extends DFDesign:
+         |  val x1 = UInt(8) <> IN
+         |  val y1 = UInt(8) <> OUT
+         |  val x2 = UInt(8) <> IN
+         |  val y2 = UInt(8) <> OUT
+         |  val a = Dup_0()
+         |  val b = Dup_1()
+         |  a.x <> x1
+         |  y1 <> a.y
+         |  b.x <> x2
+         |  y2 <> b.y
+         |end Top
+         |""".stripMargin
+    )
+  }
   test("Identical instances should share a single design") {
     class ID extends DFDesign:
       val x = SInt(16) <> IN

@@ -1741,4 +1741,194 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("Related domain with a derived clock and a shared async reset") {
+    class IDTop extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      @hw.constraints.timing.reset(mode = _.async)
+      val dmn1 = new RTDomain:
+        val o = SInt(16) <> OUT
+        o := x.reg(1, init = 0)
+      @hw.constraints.timing.related(dmn1)
+      val active = new RTDomain:
+        val clk = Clk      <> IN
+        val o   = SInt(16) <> OUT
+        o := x.reg(1, init = 0)
+      y <> dmn1.o + active.o
+    val id = (new IDTop).toED
+    assertCodeString(
+      id,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
+         |
+         |class IDTop extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val dmn1 = new EDDomain:
+         |    @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |    val clk = Clk_default <> IN
+         |    val rst = Rst_default <> IN
+         |    val o = SInt(16) <> OUT
+         |    process(clk, rst):
+         |      if (rst.actual == 1) o :== sd"16'0"
+         |      else if (clk.actual.rising) o :== x
+         |  end dmn1
+         |  val active = new EDDomain:
+         |    val clk = Clk_active_clk <> IN
+         |    val o = SInt(16) <> OUT
+         |    process(clk, dmn1.rst):
+         |      if (dmn1.rst.actual == 1) o :== sd"16'0"
+         |      else if (clk.actual.rising) o :== x
+         |  end active
+         |  y <> (dmn1.o + active.o)
+         |end IDTop
+         |""".stripMargin
+    )
+  }
+  test("Related-of-related uses the nearest derived clock and the origin reset") {
+    class IDTop extends EDDesign:
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
+      val dmn1 = new RTDomain:
+        val o = SInt(16) <> OUT
+        o := x.reg(1, init = 0)
+      @hw.constraints.timing.related(dmn1)
+      val gated = new RTDomain:
+        val clk = Clk <> IN
+      @hw.constraints.timing.related(gated)
+      val user = new RTDomain:
+        val o = SInt(16) <> OUT
+        o := x.reg(1, init = 0)
+      y <> dmn1.o + user.o
+    val id = (new IDTop).toED
+    assertCodeString(
+      id,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |case class Clk_gated_clk() extends Clk
+         |
+         |class IDTop extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val dmn1 = new EDDomain:
+         |    @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |    val clk = Clk_default <> IN
+         |    val rst = Rst_default <> IN
+         |    val o = SInt(16) <> OUT
+         |    process(clk):
+         |      if (clk.actual.rising)
+         |        if (rst.actual == 1) o :== sd"16'0"
+         |        else o :== x
+         |      end if
+         |  end dmn1
+         |  val gated = new EDDomain:
+         |    val clk = Clk_gated_clk <> IN
+         |  end gated
+         |  val user = new EDDomain:
+         |    val o = SInt(16) <> OUT
+         |    process(gated.clk):
+         |      if (gated.clk.actual.rising)
+         |        if (dmn1.rst.actual == 1) o :== sd"16'0"
+         |        else o :== x
+         |      end if
+         |  end user
+         |  y <> (dmn1.o + user.o)
+         |end IDTop
+         |""".stripMargin
+    )
+  }
+  test("Related domain with an unconnected derived clock keeps its own clock") {
+    class IDTop extends EDDesign:
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
+      val dmn1 = new RTDomain:
+        val o = SInt(16) <> OUT
+        o := x.reg(1, init = 0)
+      @hw.constraints.timing.related(dmn1)
+      val active = new RTDomain:
+        val clk = Clk      <> IN
+        val o   = SInt(16) <> OUT
+        o := x.reg(1, init = 0)
+      y <> dmn1.o + active.o
+    val id = (new IDTop).toED
+    assertCodeString(
+      id,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
+         |
+         |class IDTop extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val dmn1 = new EDDomain:
+         |    @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |    val clk = Clk_default <> IN
+         |    val rst = Rst_default <> IN
+         |    val o = SInt(16) <> OUT
+         |    process(clk):
+         |      if (clk.actual.rising)
+         |        if (rst.actual == 1) o :== sd"16'0"
+         |        else o :== x
+         |      end if
+         |  end dmn1
+         |  val active = new EDDomain:
+         |    val clk = Clk_active_clk <> IN
+         |    val o = SInt(16) <> OUT
+         |    process(clk):
+         |      if (clk.actual.rising)
+         |        if (dmn1.rst.actual == 1) o :== sd"16'0"
+         |        else o :== x
+         |      end if
+         |  end active
+         |  y <> (dmn1.o + active.o)
+         |end IDTop
+         |""".stripMargin
+    )
+  }
+  test("Related domain with a derived clock and no reset keeps register inits") {
+    class IDTop extends EDDesign:
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
+      val dmn1 = new RTDomain:
+        val o = SInt(16) <> OUT
+        o := x.reg(1, init = 0)
+      @hw.constraints.timing.related(dmn1, includeReset = false)
+      val active = new RTDomain:
+        val clk = Clk      <> IN
+        val o   = SInt(16) <> OUT
+        o := x.reg(1, init = 0)
+      y <> dmn1.o + active.o
+    val id = (new IDTop).toED
+    assertCodeString(
+      id,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |case class Clk_active_clk() extends Clk
+         |
+         |class IDTop extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val dmn1 = new EDDomain:
+         |    @timing.clock(rate = 50.MHz, edge = _.rising, portName = "clk", inclusionPolicy = _.asneeded, grpName = "default")
+         |    val clk = Clk_default <> IN
+         |    val rst = Rst_default <> IN
+         |    val o = SInt(16) <> OUT
+         |    process(clk):
+         |      if (clk.actual.rising)
+         |        if (rst.actual == 1) o :== sd"16'0"
+         |        else o :== x
+         |      end if
+         |  end dmn1
+         |  val active = new EDDomain:
+         |    val clk = Clk_active_clk <> IN
+         |    val o = SInt(16) <> OUT init sd"16'0"
+         |    process(clk):
+         |      if (clk.actual.rising) o :== x
+         |  end active
+         |  y <> (dmn1.o + active.o)
+         |end IDTop
+         |""".stripMargin
+    )
+  }
 end ToEDSpec

@@ -28,7 +28,7 @@ sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives
 object DFType:
   given ReadWriter[DFType] = ReadWriter.merge(
     summon[ReadWriter[DFBoolOrBit]],
-    summon[ReadWriter[DFBits]],
+    summon[ReadWriter[DFBitsWL]],
     summon[ReadWriter[DFDecimal]],
     summon[ReadWriter[DFEnum]],
     summon[ReadWriter[DFVector]],
@@ -81,8 +81,13 @@ end DFType
 
 sealed trait ComposedDFType extends DFType
 sealed trait NamedDFType extends DFType:
-  val name: String
-  def updateName(newName: String)(using MemberGetSet): this.type
+  // full declaration meta (name, namespace, position, doc, annotations); type identity
+  // composes `Meta`'s equality (name + namespace + annotations), never position/doc
+  val meta: Meta
+  final def name: String = meta.name
+  def updateMeta(metaFunc: Meta => Meta)(using MemberGetSet): this.type
+  final def updateName(newName: String)(using MemberGetSet): this.type =
+    updateMeta(_.setName(newName))
 object NamedDFTypes:
   def unapply(dfVal: DFVal)(using MemberGetSet): Option[ListSet[NamedDFType]] =
     Flatten.unapply(dfVal.dfType)
@@ -135,30 +140,39 @@ case object DFBit extends DFBoolOrBit
 /////////////////////////////////////////////////////////////////////////////
 // DFBits
 /////////////////////////////////////////////////////////////////////////////
-final case class DFBits(widthParamRef: IntParamRef) extends DFType derives ReadWriter:
+final case class DFBitsWL(widthParamRef: IntParamRef, lowIdxRef: IntParamRef) extends DFType
+    derives ReadWriter:
   type Data = (BitVector, BitVector)
   def widthIntOpt(using MemberGetSet): Option[Int] = widthParamRef.getIntOpt
+  def lowIdxIntOpt(using MemberGetSet): Option[Int] = lowIdxRef.getIntOpt
   def createBubbleData(using MemberGetSet): Data =
     (BitVector.low(widthUNSAFE), BitVector.high(widthUNSAFE))
   def isDataBubble(data: Data): Boolean = !data._2.isZeros
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = data
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
-    case that: DFBits =>
-      this.widthParamRef =~ that.widthParamRef
+    case that: DFBitsWL =>
+      this.widthParamRef =~ that.widthParamRef && this.lowIdxRef =~ that.lowIdxRef
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
-    case that: DFBits =>
-      this.widthParamRef.isSimilarTo(that.widthParamRef)
+    case that: DFBitsWL =>
+      this.widthParamRef.isSimilarTo(that.widthParamRef) &&
+      this.lowIdxRef.isSimilarTo(that.lowIdxRef)
     case _ => false
-  lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
-  def copyWithNewRefs(using RefGen): this.type =
-    copy(widthParamRef.copyAsNewRef).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList ++ lowIdxRef.getRef.toList
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    widthParamRef = widthParamRef.copyAsNewRef,
+    lowIdxRef = lowIdxRef.copyAsNewRef
+  ).asInstanceOf[this.type]
   def defaultData(using MemberGetSet): Data = createBubbleData
-end DFBits
+end DFBitsWL
 
-object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
-  def apply(width: Int): DFBits = DFBits(IntParamRef(width))
+object DFBits extends DFType.Companion[DFBitsWL, (BitVector, BitVector)]:
+  def apply(widthParamRef: IntParamRef): DFBitsWL = DFBitsWL(widthParamRef, IntParamRef(0))
+  def apply(width: Int): DFBitsWL = apply(IntParamRef(width))
+  // matches only a zero-based (literal low index 0) bit vector
+  def unapply(dfType: DFBitsWL): Option[IntParamRef] =
+    if (dfType.lowIdxRef.equals(0)) Some(dfType.widthParamRef) else None
   def dataFromBinString(
       bin: String
   ): Either[String, (BitVector, BitVector)] = boundary {
@@ -324,13 +338,13 @@ final val DFInt32 = ir.DFDecimal(true, ir.IntParamRef(32), 0, Int32)
 // DFEnum
 /////////////////////////////////////////////////////////////////////////////
 final case class DFEnum(
-    name: String,
+    meta: Meta,
     widthParam: Int,
     entries: ListMap[String, BigInt]
 ) extends NamedDFType derives ReadWriter:
   type Data = Option[BigInt]
-  def updateName(newName: String)(using MemberGetSet): this.type =
-    copy(name = newName).asInstanceOf[this.type]
+  def updateMeta(metaFunc: Meta => Meta)(using MemberGetSet): this.type =
+    copy(meta = metaFunc(meta)).asInstanceOf[this.type]
   def widthIntOpt(using MemberGetSet): Option[Int] = Some(widthParam)
   def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
@@ -414,14 +428,14 @@ object DFVector extends DFType.Companion[DFVector, Vector[Any]]
 // DFOpaque
 /////////////////////////////////////////////////////////////////////////////
 final case class DFOpaque(
-    name: String,
+    meta: Meta,
     kind: DFOpaque.Kind,
     id: Int,
     actualType: DFType
 ) extends NamedDFType, ComposedDFType derives ReadWriter:
   type Data = Any
-  def updateName(newName: String)(using MemberGetSet): this.type =
-    copy(name = newName).asInstanceOf[this.type]
+  def updateMeta(metaFunc: Meta => Meta)(using MemberGetSet): this.type =
+    copy(meta = metaFunc(meta)).asInstanceOf[this.type]
   def widthIntOpt(using MemberGetSet): Option[Int] = actualType.widthIntOpt
   def isMagnet: Boolean = kind match
     case _: DFOpaque.Kind.Magnet => true
@@ -435,12 +449,12 @@ final case class DFOpaque(
     actualType.bitsDataToData(data)
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFOpaque =>
-      this.name == that.name && this.id == that.id &&
+      this.meta.sameIdentityAs(that.meta) && this.id == that.id &&
       this.actualType =~ that.actualType
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFOpaque =>
-      this.name == that.name && this.id == that.id &&
+      this.meta.sameIdentityAs(that.meta) && this.id == that.id &&
       this.actualType.isSimilarTo(that.actualType)
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = actualType.getRefs
@@ -476,12 +490,12 @@ end DFOpaque
 // DFStruct
 /////////////////////////////////////////////////////////////////////////////
 final case class DFStruct(
-    name: String,
+    meta: Meta,
     fieldMap: ListMap[String, DFType]
 ) extends NamedDFType, ComposedDFType derives ReadWriter:
   type Data = List[Any]
-  def updateName(newName: String)(using MemberGetSet): this.type =
-    copy(name = newName).asInstanceOf[this.type]
+  def updateMeta(metaFunc: Meta => Meta)(using MemberGetSet): this.type =
+    copy(meta = metaFunc(meta)).asInstanceOf[this.type]
   def getNameForced: String = name
   def widthIntOpt(using MemberGetSet): Option[Int] =
     val fieldWidthsOpt = fieldMap.values.map(_.widthIntOpt)
@@ -548,7 +562,7 @@ object DFTuple:
   def fieldName(idx: Int): String = s"_${idx + 1}"
   def apply(fieldList: List[DFType]): DFStruct =
     DFStruct(
-      structName(fieldList.length),
+      Meta.named(structName(fieldList.length)),
       ListMap.from(fieldList.view.zipWithIndex.map((f, i) => (fieldName(i), f)))
     )
 /////////////////////////////////////////////////////////////////////////////
@@ -629,7 +643,7 @@ end DFInterface
 /////////////////////////////////////////////////////////////////////////////
 final case class DFView(
     interfaceType: DFInterface,
-    name: String,
+    meta: Meta,
     // direction overlay over `interfaceType`, for LEAF ports only. The field
     // DFTypes are NOT repeated here — they live in `interfaceType`.
     dirMap: Map[String, DFVal.Modifier.Dir],
@@ -646,8 +660,8 @@ final case class DFView(
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
   def defaultData(using MemberGetSet): Data = noTypeErr
-  def updateName(newName: String)(using MemberGetSet): this.type =
-    copy(name = newName).asInstanceOf[this.type]
+  def updateMeta(metaFunc: Meta => Meta)(using MemberGetSet): this.type =
+    copy(meta = metaFunc(meta)).asInstanceOf[this.type]
   // The full, directed field map of this view: `interfaceType`'s structure with the
   // resolved directions merged in (leaf dirs from `dirMap`; nested fields replaced by
   // their chosen sub-view). Derived on demand, so nothing is stored redundantly.

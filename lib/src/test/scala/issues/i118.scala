@@ -2,6 +2,7 @@
 package issues.i118
 
 import dfhdl.*
+import dfhdl.hw.annotation.top
 
 @top(false) class ShiftIssue() extends RTDesign:
     val bitvec = Bits(10) <> VAR

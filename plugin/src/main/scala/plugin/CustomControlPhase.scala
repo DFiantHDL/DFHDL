@@ -206,7 +206,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   object DFBits:
     def unapply(arg: Type)(using Context): Option[Type] =
       arg match
-        case DFType("DFBits", w :: Nil) => Some(w)
+        case DFType("DFBitsWL", w :: _) => Some(w)
         case _                          => None
   object DFDecimal:
     def unapply(arg: Type)(using Context): Option[(Type, Type, Type)] =

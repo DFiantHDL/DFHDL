@@ -20,7 +20,7 @@ object Bubble extends Bubble:
       singleBit.repeat(widthParamRef.get)
     val dfcArg = if (named) dfc else dfc.anonymize
     dfType.asIR match
-      case ir.DFBits(widthParamRef) if !widthParamRef.isInt =>
+      case ir.DFBitsWL(widthParamRef, _) if !widthParamRef.isInt =>
         bitsBubbleRepeat(widthParamRef)(using dfcArg).asConstOf[T]
       case ir.DFXInt(signed, widthParamRef, _) if !widthParamRef.isInt =>
         import DFBits.Val.Ops.{uint, sint}

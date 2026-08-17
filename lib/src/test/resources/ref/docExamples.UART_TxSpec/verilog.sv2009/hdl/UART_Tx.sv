@@ -21,11 +21,11 @@ module UART_Tx#(
     Status_DataBits = 4,
     Status_StopBit  = 8,
     Status_Finalize = 16
-  } t_enum_Status;
-  t_enum_Status status;
+  } Status;
+  Status      status;
   logic [$clog2(BIT_CLOCKS) - 1:0] bitClkCnt;
-  logic [2:0]   dataBitCnt;
-  logic [7:0]   shiftData;
+  logic [2:0] dataBitCnt;
+  logic [7:0] shiftData;
   if (!((BIT_CLOCKS - 1) >= 0)) begin : constraint_0
     $fatal(1, "Design parameter violation found. Expected: (BIT_CLOCKS - 1) >= 0");
   end
