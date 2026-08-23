@@ -293,8 +293,7 @@ class NameVarVersionsSpec extends StageSpec:
         |    val v = Bits(8) <> VAR
         |    v := x
         |    c := x(0)
-        |    val a: Bits[8] <> CONST = h"00"
-        |    y2 := a
+        |    y2 := h"00"
         |    if (c) y2 := x
         |    else if (x(1)) q.din := v
         |    v := v | h"0f"
@@ -331,9 +330,8 @@ class NameVarVersionsSpec extends StageSpec:
         |    v := x
         |    v_ver1 := v
         |    report(s"v is ${v_ver1}", Severity.Warning)
-        |    val a: Bits[8] <> CONST = h"05"
         |    v_ver2 := v
-        |    assert(v_ver2 == a, s"bad ${v_ver2}")
+        |    assert(v_ver2 == h"05", s"bad ${v_ver2}")
         |    v := v | h"0f"
         |    y := v
         |  end a

@@ -4099,4 +4099,37 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Repro
          |""".stripMargin
     )
+  // The `b`/`h` interpolators expand to `StrInterp.inline$interpolate`, an inline accessor the
+  // compiler mints so the expansion can reach a member it cannot name directly.
+  // `MetaContextGenPhase` used to read the `$` in that name as "compiler-generated" and let the
+  // constant keep the context propagated into it, so an anonymous interpolated constant inside a
+  // sub-design came out carrying the instance's own name from the parent design.
+  test("An anonymous interpolated constant in a sub-design does not take the instance's name"):
+    class Sub extends RTDesign:
+      val corners = Bits(4) <> IN
+      val hit     = Bit     <> OUT
+      hit := corners == b"4'1001"
+    class Top extends RTDesign:
+      val i          = Bits(4) <> IN
+      val o          = Bit     <> OUT
+      val movecircle = new Sub
+      movecircle.corners <> i
+      o                  <> movecircle.hit
+    assertCodeString(
+      new Top,
+      """|class Sub extends RTDesign:
+         |  val corners = Bits(4) <> IN
+         |  val hit = Bit <> OUT
+         |  hit := (corners == h"9").bit
+         |end Sub
+         |
+         |class Top extends RTDesign:
+         |  val i = Bits(4) <> IN
+         |  val o = Bit <> OUT
+         |  val movecircle = Sub()
+         |  movecircle.corners <> i
+         |  o <> movecircle.hit
+         |end Top
+         |""".stripMargin
+    )
 end PrintCodeStringSpec
