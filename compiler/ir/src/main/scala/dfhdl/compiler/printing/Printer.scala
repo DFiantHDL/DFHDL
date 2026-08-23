@@ -661,22 +661,22 @@ trait Printer
       dfhdlSourceFile,
       packageSourceFiles,
       globalSourceFile,
-      designPrinters.view
+      designFileGroups(
         // A foreign IP supplies its own HDL wrapper as a bundled resource (copied into the project
         // at commit), so DFHDL must not generate an HDL file for it (that would duplicate the
         // wrapper module/entity).
-        .filterNot { case (block, _) => block.isForeignIPBlackbox }
-        .map { case (block, p) =>
-          val sourceType = block.instMode match
-            case _: DFDesignBlock.InstMode.BlackBox => SourceType.BlackBox
-            case _                                  => SourceType.Design
-          SourceFile(
-            SourceOrigin.Compiled,
-            sourceType,
-            hdlFolderName + separatorChar + designFileName(block.dclName),
-            formatCode(p.csFile(block), withColor = false)
-          )
-        }
+        designPrinters.filterNot { case (block, _) => block.isForeignIPBlackbox }
+      ).map { case (fileName, group) =>
+        val sourceType = group.head._1.instMode match
+          case _: DFDesignBlock.InstMode.BlackBox => SourceType.BlackBox
+          case _                                  => SourceType.Design
+        SourceFile(
+          SourceOrigin.Compiled,
+          sourceType,
+          hdlFolderName + separatorChar + designFileName(fileName),
+          group.map((block, p) => formatCode(p.csFile(block), withColor = false)).mkString("\n")
+        )
+      }
     ).flatten
     // removing existing compiled/committed files and adding the newly compiled files
     val srcFiles = designDB.srcFiles.filter {
@@ -685,6 +685,52 @@ trait Printer
     } ++ compiledFiles
     designDB.update(srcFiles = srcFiles)
   end printedDB
+
+  /** The design FILES to emit, as `(file base name, the designs it holds)`.
+    *
+    * A file is a DECLARATION's HDL output, not a design's: see `DB.designFileNameMap`, which
+    * decides the grouping and the names.
+    *
+    * The groups come out in an order where a design's file precedes every file instantiating it,
+    * which VHDL analysis and Verilog compilation order both need. `designPrinters` already
+    * satisfies this design-by-design (post-order), but grouping merges positions, so the order is
+    * re-derived as a stable topological sort over the groups. A reference cycle (mutually recursive
+    * declarations) is broken at its first back edge, keeping the input order there.
+    */
+  protected final def designFileGroups(
+      entries: List[(DFDesignBlock, TPrinter)]
+  ): List[(String, List[(DFDesignBlock, TPrinter)])] =
+    val designDB = getSet.designDB
+    val fileNameOf = designDB.designFileNameMap
+    val groupList =
+      entries.groupByOrdered((block, _) => fileNameOf.getOrElse(block, block.dclName)).toVector
+    val groupIdxOf: Map[DFDesignBlock, Int] =
+      groupList.iterator.zipWithIndex.flatMap { (group, idx) =>
+        group._2.iterator.map(_._1 -> idx)
+      }.toMap
+    // group -> the groups holding the designs its designs instantiate
+    val prereqs = Array.fill(groupList.length)(mutable.LinkedHashSet.empty[Int])
+    designDB.designBlockOwnershipMap.foreach { (child, owners) =>
+      groupIdxOf.get(child).foreach { childIdx =>
+        owners.foreach { owner =>
+          groupIdxOf.get(owner).foreach(ownerIdx =>
+            if (ownerIdx != childIdx) prereqs(ownerIdx) += childIdx
+          )
+        }
+      }
+    }
+    val ordered = mutable.ListBuffer.empty[Int]
+    // 0 = unvisited, 1 = on the current path (a back edge to it is the cycle break), 2 = emitted
+    val state = Array.fill(groupList.length)(0)
+    def visit(idx: Int): Unit =
+      if (state(idx) == 0)
+        state(idx) = 1
+        prereqs(idx).foreach(visit)
+        state(idx) = 2
+        ordered.addOne(idx)
+    groupList.indices.foreach(visit)
+    ordered.toList.map(groupList(_))
+  end designFileGroups
 
   val printVendorIPBlackbox: Boolean = false
 

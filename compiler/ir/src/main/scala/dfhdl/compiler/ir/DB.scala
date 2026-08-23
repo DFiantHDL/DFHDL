@@ -350,6 +350,62 @@ final case class DB private (
         List(top -> List())
       ).reverse
 
+  /** The base name (no extension) of the HDL file each design is emitted into.
+    *
+    * A file is a DECLARATION's HDL output, not a design's: designs group by their `dclMeta`
+    * namespace and position, so one `class Bar` that elaboration specialized into several distinct
+    * designs (`Bar_0`, `Bar_1`, ...) emits ONE `Bar` file holding all of them, while same-named
+    * declarations from elsewhere keep files of their own. The declaration's name is recovered from
+    * the emitted names of the designs sharing it: their longest common prefix, cut back to its last
+    * `_`, which is the separator every duplication suffix is appended behind (`Bar_0`/`Bar_1` ->
+    * `Bar`, `Adder_8_0`/`Adder_8_1` -> `Adder_8`, and the instance-named clones `ReduplicateDesign`
+    * makes, `Foo_a`/`Foo_b` -> `Foo`). Reading the suffix off the GROUP rather than off one name is
+    * what tells an enumerated `Bar_0` apart from a declared `Adder_8`: a design that is the only
+    * one of its declaration was never suffixed, and keeps its whole name.
+    *
+    * Names are then made unique CASE-INSENSITIVELY (these are file names, and the output must be
+    * the same on every operating system), earlier designs winning: a lone design keeps its emitted
+    * name, which `UniqueDesigns` already made case-insensitively unique, so the fallback is what a
+    * recovered declaration name colliding with one of those takes (a `cipher` sub-design under a
+    * `Cipher` top stays in `cipher_0`, alongside `Cipher`).
+    *
+    * Shared by the emission (`Printer.designFileGroups`) and by anything that has to name the file
+    * a design ended up in, such as Verilator's per-file lint waivers.
+    */
+  lazy val designFileNameMap: Map[DFDesignBlock, String] =
+    val byDeclaration = designMemberList.map(_._1).groupByOrdered { d =>
+      // an UNKNOWN position (a synthesized design, declared in no Scala source) identifies no
+      // declaration, so such a design groups only with itself
+      if (d.dclMeta.position.isUnknown) Left(d)
+      else Right((d.dclMeta.namespace, d.dclMeta.position))
+    }
+    val taken = mutable.Set.empty[String]
+    byDeclaration.flatMap { (_, designs) =>
+      val preferred =
+        if (designs.sizeIs > 1) commonDclNameStem(designs) else designs.head.dclName
+      var fileName = preferred
+      var idx = 0
+      while (!taken.add(fileName.toLowerCase))
+        fileName = s"${preferred}_$idx"
+        idx += 1
+      designs.map(_ -> fileName)
+    }.toMap
+  end designFileNameMap
+
+  // The stem the emitted names of `designs` were all suffixed from: their longest common prefix,
+  // cut back to its last `_` (the separator a duplication suffix is appended behind) and stripped
+  // of it. Falls back to the first name whole where there is no such prefix, i.e. where the names
+  // do not actually share a suffixed stem.
+  private def commonDclNameStem(designs: List[DFDesignBlock]): String =
+    val first = designs.head.dclName
+    val prefixLen = designs.view.map(_.dclName).foldLeft(first.length) { (len, name) =>
+      var i = 0
+      while (i < len && i < name.length && first(i) == name(i)) i += 1
+      i
+    }
+    val sepIdx = first.take(prefixLen).lastIndexOf('_')
+    if (sepIdx > 0) first.take(sepIdx) else first
+
   // holds a hash table that lists members of each owner block. The member list order is maintained.
   lazy val designMemberTable: Map[DFDesignBlock, List[DFMember]] =
     Map(designMemberList*)
