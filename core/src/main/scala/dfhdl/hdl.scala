@@ -52,7 +52,7 @@ object __hdl:
   export internals.Inlined
   type DFType = core.DFTypeAny
   lazy val Bit = core.DFBit
-  type Bit = core.BitNumWrapper
+  type Bit = internals.BitNumWrapper
   type Bits[W <: IntP] = core.DFBits[W]
   val Bits = core.DFBits
   type BitsHL[H <: IntP, L <: IntP] = core.DFBitsHL[H, L]
