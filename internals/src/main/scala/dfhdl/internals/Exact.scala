@@ -84,9 +84,43 @@ extension [Q <: Quotes & Singleton](using quotes: Q)(term: quotes.reflect.Term)
               )
             }.asTerm
           case _ => ifTerm
-      case t => t
+      // Scala widens the singleton literal types when it infers a collection's element
+      // type, so `Vector(0, 1, 1)` and `Vector.fill(16)(1)` both come out as
+      // `Vector[Int]` and lose the knowledge that every element is a bit. Such a
+      // collection is retyped with a `BitNum` element type, so it can be applied to a
+      // `Bit` vector.
+      case t => t.asBitCollection
     end match
   end exactTerm
+
+  // A collection construction whose last argument list holds nothing but 0 or 1 literals
+  // (see the use in `exactTerm`), retyped with a `BitNum` element type. Any other term is
+  // returned as is. `BitNum` remains a subtype of `Int`, so a collection headed elsewhere
+  // than a `Bit` vector is unaffected by the narrower element type.
+  private def asBitCollection: quotes.reflect.Term =
+    import quotes.reflect.*
+    def allBitLiterals(args: List[Term]): Boolean =
+      args.nonEmpty && args.forall {
+        case Inlined(_, Nil, arg)    => allBitLiterals(List(arg))
+        case Typed(arg, _)           => allBitLiterals(List(arg))
+        case Repeated(elems, _)      => allBitLiterals(elems)
+        case Literal(IntConstant(i)) => i == 0 || i == 1
+        case _                       => false
+      }
+    term match
+      case Apply(_, args) if allBitLiterals(args) =>
+        term.tpe.widen match
+          // the element type is only narrowed for an `Iterable`, where it is erased to a
+          // reference and the retyping is therefore a no-op at runtime. An `Array`, whose
+          // element type survives erasure, is deliberately left alone.
+          case AppliedType(tycon, List(elemTpe))
+              if elemTpe =:= TypeRepr.of[Int] && term.tpe <:< TypeRepr.of[Iterable[Int]] =>
+            AppliedType(tycon, List(TypeRepr.of[BitNum])).asType match
+              case '[bitColl] => '{ ${ term.asExprOf[Any] }.asInstanceOf[bitColl] }.asTerm
+          case _ => term
+      case _ => term
+    end match
+  end asBitCollection
 end extension
 
 final class Exact[T](val value: T) extends AnyVal
