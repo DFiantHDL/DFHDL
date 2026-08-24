@@ -16,15 +16,31 @@ object annotation:
     )
 
   enum Unused extends HWAnnotation derives ReadWriter:
-    case Quiet, Keep, Prune
+    /** `Quiet` optionally carries a bit range (`bitIdxHigh` downto `bitIdxLow`), narrowing the
+      * suppression to just those bits. The compiler mints such annotations itself when it names an
+      * anonymous value whose readers select only some of its bits (see `NamedAliases`).
+      */
+    case Quiet(bitIdxHigh: ConfigN[Int] = None, bitIdxLow: ConfigN[Int] = None)
+    case Keep, Prune
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs(using RefGen): this.type = this
+
+    /** The bit range this annotation narrows the unused-suppression to, when it has one. */
+    def bitRangeOpt: Option[(Int, Int)] = this match
+      case Quiet(bitIdxHigh, bitIdxLow) =>
+        (bitIdxHigh.toOption, bitIdxLow.toOption) match
+          case (Some(hi), Some(lo)) => Some((hi, lo))
+          case _                    => None
+      case _ => None
     def codeString(using Printer): String =
       this match
-        case Quiet => "@hw.annotation.unused.quiet"
+        case _: Quiet =>
+          val rangeCS = bitRangeOpt.map((hi, lo) => s"($hi, $lo)").getOrElse("")
+          s"@hw.annotation.unused.quiet$rangeCS"
         case Keep  => "@hw.annotation.unused.keep"
         case Prune => "@hw.annotation.unused.prune"
+  end Unused
 
   /** Purity marking. Elaboration is pure by default; `Pure(false)` marks it impure (its results
     * must not be cached), `Pure(true)` is the user's explicit trust override for the compiler's

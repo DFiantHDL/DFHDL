@@ -76,6 +76,13 @@ reconstructs it:
   construct itself. Safe.
 - A tag marking *why a stage synthesized a member* has no printed form and nothing regenerates
   it. **Unsafe** — and the failure is silent, because the IR path keeps working.
+- Information a stage derives for a downstream TOOL integration (a lint waiver, e.g.) travels
+  as a printed **HW annotation** on the member (`member.addAnnotation(...)` from
+  `patching/memberOps.scala`), never as a tag: `csDFMember` prints every member's annotations,
+  and elaboration captures them back off the printed `@hw.annotation...` line, so the printout
+  stays the full contract. The model is `NamedAliases` annotating the unread bits of a value it
+  names with `Unused.Quiet(hi, lo)`, which the verilator config printer turns into a
+  bit-precise UNUSEDSIGNAL waiver (a compiler-minted name must not mint new lint noise).
 
 The trap is that a tag can be perfectly fix-point-safe (re-tagging is a no-op) and still break
 this. Idempotency and printability are independent requirements.

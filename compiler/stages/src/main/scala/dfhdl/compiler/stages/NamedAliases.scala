@@ -50,6 +50,54 @@ private abstract class NamedAliases extends HierarchyStage:
         ch :: ch.getCBList.flatMap(cb => cb :: cb.members(MemberView.Flattened))
       case relVal => List(relVal)
     }
+  // A compiler-minted name must not mint new lint noise. The value being named was anonymous,
+  // printed inline in the HDL, so no tool could warn about bits of it that nothing reads; once
+  // named it becomes a declared signal, and a linter (verilator's UNUSEDSIGNAL, e.g.) reports
+  // its unread bits, a warning the user's code has no handle on. So when the named value is a
+  // packed scalar whose every reader is a static bit selection, the bits no reader selects are
+  // returned as ranges (absolute indexes, descending), to be annotated `unused.quiet(hi, lo)`
+  // on the named member, which tool integrations turn into bit-precise waivers. An annotation,
+  // unlike a tag, is printed, so a printed stage output re-elaborates to the same waivers.
+  // Any reader that is not a static in-bounds bit selection conservatively uses every bit.
+  private def unusedBitRanges(group: List[DFVal])(using MemberGetSet): List[(Int, Int)] =
+    val dfType = group.head.dfType
+    val lowOpt: Option[Int] = dfType match
+      case b: DFBitsWL           => b.lowIdxRef.getIntOpt
+      case DFUInt(_) | DFSInt(_) => Some(0)
+      case _                     => None
+    (lowOpt, group.head.widthIntOpt) match
+      case (Some(low), Some(width)) =>
+        val used = new Array[Boolean](width)
+        val fullUse = group.exists(_.getReadDeps.exists {
+          case sel: DFVal.Alias.ApplyRange =>
+            (sel.idxHighRef.getIntOpt, sel.idxLowRef.getIntOpt) match
+              case (Some(hi), Some(lo)) if lo >= low && hi < low + width =>
+                (lo to hi).foreach(i => used(i - low) = true)
+                false
+              case _ => true
+          case sel: DFVal.Alias.ApplyIdx =>
+            sel.relIdx.get match
+              case DFVal.Alias.ApplyIdx.ConstIdx(i) if i >= low && i < low + width =>
+                used(i - low) = true
+                false
+              case _ => true
+          case _ => true
+        })
+        if (fullUse) Nil
+        else
+          val ranges = collection.mutable.ListBuffer.empty[(Int, Int)]
+          var i = width - 1
+          while (i >= 0)
+            if (!used(i))
+              val hi = i
+              while (i >= 0 && !used(i)) i -= 1
+              ranges += ((hi + low, i + 1 + low))
+            else i -= 1
+          ranges.toList
+      case _ => Nil
+    end match
+  end unusedBitRanges
+
   // One naming pass. Returns an empty list once nothing anonymous meets the criteria any more,
   // which is what terminates the loop in `transformSubDB`.
   private def collectPatches(db: DB)(using MemberGetSet, CompilerOptions): List[(DFMember, Patch)] =
@@ -78,9 +126,13 @@ private abstract class NamedAliases extends HierarchyStage:
       .map(_.unzip)
       // for each group use just the head to create the named member, along with the members that
       // have to travel with it when its position cannot hold a name
-      .collect { case (firstAlias :: restOfAliases, suggestedName :: _) =>
-        // we force set the underlying original name before it was anonymized
-        val namedMember = firstAlias.setName(suggestedName)
+      .collect { case (aliases @ (firstAlias :: restOfAliases), suggestedName :: _) =>
+        // we force set the underlying original name before it was anonymized, and annotate
+        // the bits none of the group's readers select as quietly unused (`foldRight`, since
+        // `addAnnotation` prepends, keeps the annotations in descending range order)
+        val namedMember = unusedBitRanges(aliases).foldRight(firstAlias.setName(suggestedName)) {
+          (range, member) => member.addAnnotation(annotation.Unused.Quiet(range._1, range._2))
+        }
         val moved = hoistAnchorOf(firstAlias).map(anchor => (anchor, hoistMembers(firstAlias)))
         (firstAlias, namedMember, restOfAliases, moved)
       }.toList
