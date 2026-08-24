@@ -617,4 +617,16 @@ class DFBitsSpec extends DFSpec:
       o := p.x(HI, LO)
     }
   }
+  test("BitsHL struct field selection reports the range check message (#488)") {
+    case class P(f: BitsHL[9, 2] <> VAL, g: Bit <> VAL) extends Struct
+    val p = P <> VAR
+    val fifteen = 15
+    assertDSLErrorLog(
+      "Index 15 is above the high index 9 of the selected value"
+    )(
+      """p.f(15, 12)"""
+    ) {
+      p.f(fifteen, 12)
+    }
+  }
 end DFBitsSpec

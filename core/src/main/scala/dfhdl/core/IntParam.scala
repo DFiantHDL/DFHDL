@@ -226,6 +226,27 @@ object IntP:
   /** `BI - SW + 1`, the low index of a descending part-select anchored at `BI`. */
   type PartSelectLow[BI <: IntP, SW <: IntP] = RangeWidth[BI, SW]
 
+  /** The high (absolute) index `W + L - 1` of a low-indexed bit vector, resolved by GIVEN dispatch
+    * rather than by the [[HighIdx]] guarded fold. A fold's const-guard reduction is
+    * context-dependent: inside a `UBound` resolution it can collapse to `Int` while the same
+    * application reduces to a literal at the summon site, poisoning the implicit search with a
+    * candidate whose inferred type no longer conforms to the required one (issue #488). Given
+    * prioritization makes the same literal-vs-wide decision robustly: the literal instance computes
+    * directly in `compiletime.ops`, and anything else falls to the wide `Int` instance, degrading
+    * the bound check to its elaboration-time half.
+    */
+  sealed trait HighIdxOf[W <: IntP, L <: IntP]:
+    type Out <: IntP
+  protected sealed trait HighIdxOfLP:
+    protected val highIdxOfInstance: HighIdxOf[Int, Int] = new HighIdxOf[Int, Int] {}
+    given wide[W <: IntP, L <: IntP]: HighIdxOf.Aux[W, L, Int] =
+      highIdxOfInstance.asInstanceOf[HighIdxOf.Aux[W, L, Int]]
+  object HighIdxOf extends HighIdxOfLP:
+    type Aux[W <: IntP, L <: IntP, O <: IntP] = HighIdxOf[W, L] { type Out = O }
+    given literal[W <: Int & Singleton, L <: Int & Singleton]
+        : Aux[W, L, int.-[int.+[W, L], 1]] =
+      highIdxOfInstance.asInstanceOf[Aux[W, L, int.-[int.+[W, L], 1]]]
+
 end IntP
 
 into opaque type IntParam[V <: IntP] = Int | DFConstInt32

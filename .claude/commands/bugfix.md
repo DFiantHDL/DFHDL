@@ -415,6 +415,20 @@ width as ONE named operation whose body does the whole calculation in `compileti
 Naming those operations (`CLog2P1`, `ArithMaxWidth`, `PartSelectHigh`, `RangeWidth`) is worth doing
 for its own sake, and it makes the guard-once rule visible at each site.
 
+Even the single named fold has one context it cannot survive: a `Check2.CheckNUB[HI, HighIdx[W,
+L]]` bound routes the application through `UBound.Aux` resolution, where the guard's reduction is
+CONTEXT-DEPENDENT — it can collapse to `Int` inside the implicit search while the same application
+reduces to a literal at the summon site, so the found candidate's inferred type no longer conforms
+to the required one and the user sees a raw given-mismatch dump (issue #488), or the op fails to
+resolve at all. The tell: `Found: given_CheckNUB_Wide...[..., T2 = Int, ...]` against
+`Required: ...CheckNUB[..., HighIdx[(8 : Int), (2 : Int)]]` — the fold collapsed on one side and
+not the other. The robust spelling moves the literal-vs-wide decision from the guard to GIVEN
+prioritization: a type class (`IntP.HighIdxOf`) whose high-priority instance computes the bound in
+raw `compiletime.ops` over `Int & Singleton` args and whose low-priority instance answers `Int`,
+summoned in a FIRST using group so the check in the second group receives a plain, already-decided
+type parameter. This is also what let the three bits range-selection givens collapse into one:
+the H-form existed only to dodge the fold inside `UBound`.
+
 ### Weakening a type does not break values, it deletes diagnostics
 
 Making the type level say less is safe for the generated hardware, because the IR carries the real

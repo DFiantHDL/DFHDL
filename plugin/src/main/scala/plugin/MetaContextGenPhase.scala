@@ -121,6 +121,17 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   extension (sym: Symbol)
     def fixedFullName(using Context): String =
       sym.fullName.toString.replace("._$", ".")
+    // A compiler-generated function (a proxy, an anonymous function, a default getter, ...)
+    // carries a `$` in its name and must not mint a new anonymous context: the value it builds
+    // belongs to whatever context was propagated into it.
+    //
+    // An inline accessor (`inline$foo`) is the exception. The compiler introduces it only so an
+    // inline expansion can reach a member it cannot name directly, so it stands for the
+    // user-written call and gets an anonymous context like any other. Without this, an
+    // interpolator such as `b"4'1001"` (expanded to `StrInterp.inline$interpolate`) would keep
+    // the enclosing design's context and be printed under the design instance's own name.
+    def keepsPropagatedContext(using Context): Boolean =
+      sym.name.exclude(NameKinds.InlineAccessorName).toString.contains("$")
   private def ignoreValDef(tree: ValDef)(using Context): Boolean =
     tree.name.toString match
       case inlinedName(prefix) =>
@@ -223,7 +234,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
             // at all and just keep the propagated context.
             case None =>
               // keeping the propagated context
-              if (fixedApply.fun.symbol.name.toString.contains("$")) fixedApply
+              if (fixedApply.fun.symbol.keepsPropagatedContext) fixedApply
               // generating a new anonymous context
               else
                 // An apply inside a library inline expansion (or synthesized

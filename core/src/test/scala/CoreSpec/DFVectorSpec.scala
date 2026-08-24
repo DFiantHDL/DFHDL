@@ -162,6 +162,31 @@ class DFVectorSpec extends DFSpec:
       }
     }
   }
+  // Scala widens the element type of a collection of literals to `Int`, which `Exact`
+  // restores to `BitNum` when every literal is a 0 or 1 (see `Exact.asBitCollection`),
+  // so that such a collection can be applied to a `Bit` vector. A collection headed
+  // elsewhere is unaffected.
+  test("Bit vector from Int literals") {
+    assertCodeString(
+      """|val v1 = Bit X 4 <> VAR init DFVector(Bit X 4)(1, 1, 1, 1)
+         |v1 := DFVector(Bit X 4)(0, 1, 0, 1)
+         |v1 := DFVector(Bit X 4)(0, 0, 0, 0)
+         |val v2 = UInt(8) X 4 <> VAR
+         |v2 := DFVector(UInt(8) X 4)(d"8'0", d"8'1", d"8'0", d"8'1")
+         |v2 := DFVector(UInt(8) X 4)(d"8'1", d"8'1", d"8'1", d"8'1")
+         |v2 := DFVector(UInt(8) X 4)(d"8'1", d"8'2", d"8'3", d"8'4")
+         |""".stripMargin
+    ) {
+      val v1 = Bit X 4 <> VAR init Vector.fill(4)(1)
+      v1 := Vector(0, 1, 0, 1)
+      v1 := List.fill(4)(0)
+      val v2 = UInt(8) X 4 <> VAR
+      v2 := Vector(0, 1, 0, 1)
+      v2 := Vector.fill(4)(1)
+      v2 := Vector(1, 2, 3, 4)
+    }
+  }
+
   test("Big Endian Packed Order") {
     val v: Bits[8] X 4 <> CONST = Vector(h"12", h"34", h"56", h"78")
     val v2: Bits[8] X Int <> CONST = Vector(h"12", h"34", h"56", h"78")

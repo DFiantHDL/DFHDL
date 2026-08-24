@@ -47,6 +47,11 @@ A design is loadable only if its body is *pure*: its structure is a function of 
 else. Elaboration-time reads of mutable state, of the wall clock, or of a design parameter's *data*
 all make the body depend on something the key does not carry.
 
+One trusted-frontend read is deliberately NOT an impurity: `initFile`'s file load. The file's
+contents are an elaboration input like any other, but only the body knows which files it reads, so
+they cannot join the key; they are recorded on the design instead and re-checked on every cache
+hit. See [External init files](#external-init-files).
+
 `PureCheckPhase` (compiler plugin) analyzes every design and records the verdict on the design's
 `dclMeta` as `@hw.annotation.pure`. Designs are pure by default; the phase escalates to `pure(false)`
 when it sees an effect it cannot attribute. The interesting middle case is *data impurity*: a body
@@ -294,7 +299,63 @@ same `CodeDigest`, falling back to a runtime `factum.CodeRef` walk for an entry 
 saw), the DFHDL version, the default RT domain config, and the design's arguments. A hit prints
 `Loading elaborated design from cache...` and never forces the top constructor thunk. It is enabled by
 `AppOptions.cacheEnable`, and is strictly coarser than the gate: it replays a whole design, or
-nothing.
+nothing. A hit additionally re-validates the init files the cached elaboration loaded (see
+[External init files](#external-init-files)); a stale file re-elaborates and overwrites the entry.
+
+## External init files
+
+`initFile` reads a memory-init file during elaboration and bakes its data into a `Const`. That
+makes the file's CONTENTS an elaboration input, and one no cache key can carry: the gate keys a
+design BEFORE its body runs, and only the body knows which files it reads (the path can be
+computed). The alternative of escalating the read to an impurity would kill caching for the design
+and its whole subtree, for an input that is perfectly legitimate cache material. So the dependence
+is tracked as a recorded effect and re-checked on every hit instead, the first realized instance of
+the tracked-effect direction in the improvement notes below.
+
+**Recording.** When `initFile` runs, it registers the file on the CURRENT design as a
+`SourceFile(External, InitFile, path, contents)`, where `contents` is exactly what it parsed
+(`MutableDB.DesignContext.addSrcFile`). The design's end-of-design snapshot keeps them
+(`designSrcFiles`), and `buildDesignSubDB` emits them as the sub-DB's `srcFiles`, so they travel
+wherever the design's DB travels: into its `SubDesignEntry`, through adoption
+(`cloneForAdoption` preserves them), through the final assembly's fix passes, and into the
+hierarchical DB the DFApp elaborate step serializes. `SourceOrigin.External` has no other
+consumer today (tools and commit filter on `Committed`), so the records never leak into emitted
+file lists.
+
+**Validation** is `DB.initFilesUnchanged`: re-read every recorded path through the SAME resolution
+elaboration used (classpath resource first, filesystem second; `readInitFileContentsOpt`) and
+compare contents. A missing or unreadable file counts as changed, which is a MISS and not an
+error: the live elaboration that follows raises the proper user-facing error if the file is truly
+gone. Storing contents rather than a hash keeps the check exact with no separate bookkeeping, and
+positions the record for the deferred-read future (a backend emitting `$readmemh` needs the file
+beside the HDL; the TODO at `initFile` in `core.DFVal`). The cost is the file text stored verbatim
+in the entry JSON.
+
+**At the gate**, validation runs where an entry is accepted, once per entry and BEFORE adoption:
+in `DesignLoadGate.lookup`'s stale-entry filter, and in `childDesignOf` when a cached parent's
+child is resolved. It covers every service tier, memory and disk alike (a file edited between two
+runs of one sbt session is exactly the dev loop this exists for), and every service implementation,
+including test fakes. No upward propagation into parent entries is needed: children resolve before
+a parent's adoption commits, so a stale CHILD entry fails `childDesignOf`, which fails the parent's
+whole adoption, and the parent's `lookup` returns None and its body (and the child's) re-elaborates
+live. The fresh entries then overwrite the same keys, since the key deliberately excludes the
+contents: a changed file replaces the entry rather than accumulating one dead entry per historical
+version. The intra-run tier needs no check at all (a file changing mid-elaboration is not a
+supported scenario).
+
+**At the DFApp elaborate step**, the same walk runs on a step-cache hit, over the deserialized
+hierarchical DB's sub-DBs (each carries its own files, adopted designs included). The hook is
+Factum's hit-validation (`Task.cached`'s `validate`, factum >= 0.3.0, surfaced as
+`DiskCache.Step.cacheHitValidator`): a rejected value logs
+`An init file has changed; re-elaborating design...`, recomputes the step as a miss, and
+overwrites the entry under the same action key, with downstream steps (compile, commit) re-keying
+through the fresh value digest. The compile/commit steps need no validators of their own: they are
+pure functions of the elaborate value.
+
+**Tests**: `SubDesignCacheSpec` "an entry whose init file changed is rejected and re-elaborated
+live" (the gate tier, body-run counted through a static-object atomic, since a captured counter
+would destabilize the key through `localKey`'s capture `toString` fold), and
+`internals.DiskCacheSpec` (the step-tier validator seam end to end through Factum).
 
 ## Working with the cache
 
@@ -357,7 +418,9 @@ nothing.
    strongly, and would stop relying on a namespace that user code legitimately shares.
 9. **Recovery tiers for impure designs.** A design escalated to `pure(false)` poisons its whole
    subtree for caching. Tracked-effect manifests (recording the effects a body performed, and
-   replaying or re-checking them on a hit) would let some of those designs cache anyway.
+   replaying or re-checking them on a hit) would let some of those designs cache anyway. The
+   [external init files](#external-init-files) record is this in miniature for one effect kind:
+   the file read never escalates, and its record re-checks on every hit.
 10. **User documentation** of the purity model in `docs/`: the `@pure` overrides with and without named
     impure parameters, the "unmarked effects are the user's responsibility" contract, the
     static-dispatch approximation (the analysis never models subclass overrides), and the key

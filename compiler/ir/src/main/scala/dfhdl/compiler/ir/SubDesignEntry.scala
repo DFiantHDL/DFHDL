@@ -127,7 +127,11 @@ final case class SubDesignEntry(
       db.members.map(memberMap),
       newRefTable.view.mapValues(t => memberMap.getOrElse(t, t)).toMap,
       db.globalTags,
-      Nil
+      // the entry's recorded source files (external init files) stay with the adopted design:
+      // the final assembly emits them as the design's sub-DB content, so a whole-design cache
+      // (the DFApp elaborate step) can re-validate them even when this design was never
+      // elaborated live in the storing run of THAT cache
+      db.srcFiles
     )
   end cloneForAdoption
 end SubDesignEntry

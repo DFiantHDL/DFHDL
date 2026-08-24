@@ -22,6 +22,16 @@ def topCalcB(arg: UInt[8] <> VAL): UInt[8] <> DFRET = (arg - 4) * 5
 val globalW: UInt[8] <> CONST = 5
 def topCalcG(arg: UInt[8] <> VAL): UInt[8] <> DFRET = arg + globalW
 
+// Counts def body elaborations for the init-file staleness test. A top-level (static) object is
+// not a capture, so it stays out of the design load key (whose `localKey` folds every capture's
+// `toString`, which for a counter would change per run) and only observes what actually ran. The
+// count lives in a Java atomic because a Scala `var` write is an effect the purity analysis sees,
+// which would make the counted design impure and unkeyable (see `ClassBodyElaborations`).
+object InitFileBodyElaborations:
+  private val n = java.util.concurrent.atomic.AtomicInteger(0)
+  def tick(): Unit = n.incrementAndGet()
+  def count: Int = n.get()
+
 /** Tests for the sub-design cache tier of the elaboration design load gate
   * (`ElaborationOptions.CacheEnable`): a pure method whose cached DB is found by the
   * `SubDesignDiskCache` service skips its body elaboration entirely; the harness still creates the
@@ -514,6 +524,73 @@ class SubDesignCacheSpec extends StageSpec(stageCreatesUnrefAnons = true):
     // run's global (the same JVM object, created with the un-drifted position)
     assertCodeString(genHostOf(genGHost, cache), expectedG)
     assertEquals(cache.hits, 1)
+  }
+
+  // A def whose body loads an init file: the file is an elaboration input the design load key
+  // cannot carry (only running the body discovers which files it reads), so the entry records the
+  // path and the loaded contents as a `SourceType.InitFile` source file, and the gate re-reads the
+  // file on lookup (`DB.initFilesUnchanged`). An unchanged file hits and skips the body; a changed
+  // file rejects the entry, the body re-elaborates live, and the fresh entry (with the new
+  // contents baked into the init constant) overwrites the same key.
+  test("an entry whose init file changed is rejected and re-elaborated live") {
+    val initFile = java.nio.file.Files.createTempFile("dfhdl-initfile-spec", ".hex")
+    try
+      val path = initFile.toString
+      def genInitHost(using DFC): dfhdl.core.Design =
+        class InitHost extends DFDesign:
+          val idx = UInt(2) <> IN
+          val o = Bits(8) <> OUT
+          def memRead(i: UInt[2] <> VAL): Bits[8] <> DFRET =
+            InitFileBodyElaborations.tick()
+            val mem = Bits(8) X 4 <> VAR initFile path
+            mem(i)
+          o := memRead(idx)
+        end InitHost
+        new InitHost
+      def expectedInit(cells: String) =
+        s"""|def memRead(i: UInt[2] <> VAL): Bits[8] <> DFRET =
+            |  val mem = Bits(8) X 4 <> VAR init DFVector(Bits(8) X 4)($cells)
+            |  mem(i.toInt)
+            |end memRead
+            |
+            |class InitHost extends DFDesign:
+            |  val idx = UInt(2) <> IN
+            |  val o = Bits(8) <> OUT
+            |  o := memRead(idx)
+            |end InitHost
+            |""".stripMargin
+      val cache = new MapSubDesignCache
+      val runs0 = InitFileBodyElaborations.count
+      java.nio.file.Files.writeString(initFile, "18\n24\n42\n81")
+      assertCodeString(
+        genHostOf(genInitHost, cache),
+        expectedInit("""h"18", h"24", h"42", h"81"""")
+      )
+      assertEquals(InitFileBodyElaborations.count, runs0 + 1)
+      assertEquals(cache.entries.size, 1)
+      // unchanged file: the entry validates and the body elaboration is skipped
+      assertCodeString(
+        genHostOf(genInitHost, cache),
+        expectedInit("""h"18", h"24", h"42", h"81"""")
+      )
+      assertEquals(InitFileBodyElaborations.count, runs0 + 1)
+      // changed file: the entry's recorded contents are stale, so it is rejected and the body
+      // runs live, baking the NEW contents and overwriting the entry under the same key
+      java.nio.file.Files.writeString(initFile, "01\n02\n03\n04")
+      assertCodeString(
+        genHostOf(genInitHost, cache),
+        expectedInit("""h"01", h"02", h"03", h"04"""")
+      )
+      assertEquals(InitFileBodyElaborations.count, runs0 + 2)
+      assertEquals(cache.entries.size, 1)
+      // the overwritten entry now validates against the new contents and hits again
+      assertCodeString(
+        genHostOf(genInitHost, cache),
+        expectedInit("""h"01", h"02", h"03", h"04"""")
+      )
+      assertEquals(InitFileBodyElaborations.count, runs0 + 2)
+    finally java.nio.file.Files.deleteIfExists(initFile)
+    end try
   }
 
   test("without cacheEnable the elaboration is unaffected") {

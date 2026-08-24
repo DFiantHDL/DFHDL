@@ -74,8 +74,15 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       MemberGetSet
   ): String = constructCommand(
     "-Wall",
+    noDeclFileName,
     (!summon[LinterOptions].Werror.toBoolean).toFlag("-Wno-fatal")
   )
+
+  // Verilator wants a file to be named after the one module it declares. DFHDL names a file after
+  // a DECLARATION and puts every design of it there (see `DB.designFileNameMap`), so a design that
+  // one declaration elaborated several of never matches its file name. The rule is off wholesale
+  // rather than waived per file: what it checks for is by construction not how DFHDL emits.
+  private val noDeclFileName: String = "-Wno-DECLFILENAME"
 
   override protected def simulateCmdPreLangFlags(using
       CompilerOptions,
@@ -133,6 +140,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       MemberGetSet
   ): String = constructCommand(
     "-Wall",
+    noDeclFileName,
     (!summon[LinterOptions].Werror.toBoolean).toFlag("-Wno-fatal")
   )
 
@@ -344,15 +352,23 @@ class VerilatorConfigPrinter(verilatorVersion: String, isToolInWindows: Boolean)
       case _ => None
     }.mkString("\n")
   end lintOffBlackBoxes
+  // The `-file` filter of the HDL file a design was emitted into. That file is named after the
+  // design's DECLARATION and holds every design of it (`mulByte_0`, `mulByte_1`, ... all live in
+  // `mulByte.sv`, see `DB.designFileNameMap`), so a waiver cannot separate one such design from
+  // its siblings; that is inherent to their sharing a file, and is why every filter here is
+  // narrowed further by a `-match` pattern on the reported name.
+  extension (design: DFDesignBlock)
+    def fileNameFilter: String =
+      s"${designDB.designFileNameMap.getOrElse(design, design.dclName)}.*"
   extension (dfVal: DFVal)
     def fileNameFilter: String =
       if (dfVal.isGlobal) s"${getSet.topName}_defs.*"
-      else s"${dfVal.getOwnerDesign.dclName}.*"
+      else dfVal.getOwnerDesign.fileNameFilter
   def lintOffOpenOutPorts: String =
     designDB.getOpenOutPorts.map: dfVal =>
       lintOffCommand(
         rule = "PINCONNECTEMPTY",
-        file = s"${dfVal.getOwnerDesign.getOwnerDesign.dclName}.*",
+        file = dfVal.getOwnerDesign.getOwnerDesign.fileNameFilter,
         matchWild = s"*: '${dfVal.getName}'*"
       )
     .distinct.mkString("\n")

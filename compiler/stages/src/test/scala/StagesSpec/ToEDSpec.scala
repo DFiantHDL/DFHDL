@@ -158,11 +158,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val we = Bit <> IN
          |    val status = Bits(2) <> OUT
          |    val q = Bits(8) <> OUT
-         |    val a_0: Bits[2] <> CONST = b"00"
-         |    val a_1: Bits[2] <> CONST = b"11"
          |    process(all):
-         |      status := a_0
-         |      if (we) status := a_1
+         |      status := b"00"
+         |      if (we) status := b"11"
          |    process(clk):
          |      if (clk.actual.rising)
          |        if (we) ram(addr.uint.toInt) :== data
