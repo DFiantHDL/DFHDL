@@ -2571,6 +2571,19 @@ final case class DB private (
     if (newMembers == members) this else this.update(members = newMembers)
   end canonicalForm
 
+  // Whether every elaboration-loaded external init file (`SourceType.InitFile`, recorded with its
+  // loaded contents by `initFile`), here and in the sub-DBs, still reads back the contents this DB
+  // was elaborated with. The re-read goes through the same resolution elaboration used (classpath
+  // resource first, filesystem path second), and a missing or unreadable file counts as changed.
+  // Elaboration caches consult this to reject a stale entry: the design load gate before adopting
+  // a sub-design entry, and the DFApp elaborate step before accepting a whole-design cache hit.
+  def initFilesUnchanged: Boolean =
+    (srcFiles.view ++ subDBs.valuesIterator.flatMap(_.srcFiles)).forall {
+      case SourceFile(SourceOrigin.External, SourceType.InitFile, path, contents) =>
+        InitFileFormat.readInitFileContentsOpt(path).contains(contents)
+      case _ => true
+    }
+
 end DB
 
 object DB:

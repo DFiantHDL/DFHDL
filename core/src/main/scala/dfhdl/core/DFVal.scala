@@ -690,8 +690,15 @@ object DFVal extends DFValLP:
           s"Vector cell type must have a known width to be initialized from a file."
         )
       }
-      val data = ir.InitFileFormat.readInitFile(
-        path, format, length, width, undefinedValue
+      val contents = ir.InitFileFormat.readInitFileContents(path)
+      val data = ir.InitFileFormat.parseInitFile(
+        path, contents, format, length, width, undefinedValue
+      )
+      // The loaded file is an elaboration input the design's cache key cannot carry, so it is
+      // recorded (path + loaded contents) as a source file of the current design. Elaboration
+      // caches re-read the file on a hit and reject a stale entry (`DB.initFilesUnchanged`).
+      dfc.mutableDB.DesignContext.addSrcFile(
+        ir.SourceFile(ir.SourceOrigin.External, ir.SourceType.InitFile, path, contents)
       )
       val initFileConst = vectorType.cellType.asIR match
         case _: ir.DFBitsWL => DFVal.Const(vectorType, data)

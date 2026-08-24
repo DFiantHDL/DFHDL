@@ -14,6 +14,10 @@ enum SourceType derives CanEqual, ReadWriter:
   case BlackBox
   case GlobalDef
   case DFHDLDef
+  // An external data file loaded during elaboration (`initFile` memory contents), recorded with
+  // the loaded contents under `SourceOrigin.External`. Elaboration caches re-read the file and
+  // reject an entry whose file has since changed (see `DB.initFilesUnchanged`).
+  case InitFile
   case Tool(toolName: String, srcType: String)
 
 enum SourceOrigin derives CanEqual, ReadWriter:

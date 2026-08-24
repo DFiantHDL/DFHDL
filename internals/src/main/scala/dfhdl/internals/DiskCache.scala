@@ -46,6 +46,10 @@ class DiskCache(val cacheFolderStr: String):
       steps.get(name) match
         case null => ()
         case step => step.onBeforeRestoreHook(value())
+    override def onCacheInvalidated(name: String): Unit =
+      steps.get(name) match
+        case null => ()
+        case step => step.onCacheInvalidatedHook()
 
   private lazy val evaluator = Evaluator(DiskStore(cacheFolderPath), listener = stepListener)
 
@@ -89,6 +93,14 @@ class DiskCache(val cacheFolderStr: String):
     protected def genFiles(value: R): List[String] = Nil
     protected val name: String = typeName
     protected def cacheEnable: Boolean = true
+    // Hit-validation hook (Factum's `validate`): when defined, a cache hit decodes the cached
+    // value and passes it to the validator, and a rejected value recomputes the step as a miss,
+    // overwriting the entry under the same key (downstream steps re-key through the fresh
+    // value). Serves values that record external state the key cannot carry, e.g. init files an
+    // elaboration read, whose paths only the elaboration itself discovers. Leave None (the
+    // default) to keep Factum's lazy on-demand value decode on hits.
+    protected def cacheHitValidator: Option[R => Boolean] = None
+    protected def logCacheInvalidated(): Unit = {}
 
     // Bit-compatible with the pre-Factum implementation: the otherDeps sequence is
     // folded with MurmurHash3 and enters the Factum action key as a plain string.
@@ -100,6 +112,7 @@ class DiskCache(val cacheFolderStr: String):
     private[DiskCache] def onCacheHitHook(): Unit = logCachedRun()
     private[DiskCache] def onBeforeRestoreHook(value: Any): Unit =
       cleanUpBeforeFileRestore(value.asInstanceOf[R])
+    private[DiskCache] def onCacheInvalidatedHook(): Unit = logCacheInvalidated()
 
     private object stepCodec extends Codec[R]:
       def encode(value: R): Array[Byte] =
@@ -116,17 +129,24 @@ class DiskCache(val cacheFolderStr: String):
 
     private[DiskCache] lazy val task: Task[R] =
       given Codec[R] = stepCodec
+      val validate: R => Boolean = cacheHitValidator.getOrElse(Task.alwaysValid)
       (prevStepOrValue: @unchecked) match
         case prevStep: Step[?, F] =>
           if (hasGenFiles)
-            prevStep.task.cachedWithFiles(name, extraKey = otherDepsKey)(runWithFiles)
-          else prevStep.task.cached(name, extraKey = otherDepsKey)(run)
+            prevStep.task.cachedWithFiles(name, extraKey = otherDepsKey, validate = validate)(
+              runWithFiles
+            )
+          else prevStep.task.cached(name, extraKey = otherDepsKey, validate = validate)(run)
         case prevValue: (() => F) =>
           if (hasGenFiles)
-            Task.pure(()).cachedWithFiles(name, extraKey = otherDepsKey)(_ =>
+            Task.pure(()).cachedWithFiles(name, extraKey = otherDepsKey, validate = validate)(_ =>
               runWithFiles(prevValue())
             )
-          else Task.pure(()).cached(name, extraKey = otherDepsKey)(_ => run(prevValue()))
+          else
+            Task.pure(()).cached(name, extraKey = otherDepsKey, validate = validate)(_ =>
+              run(prevValue())
+            )
+      end match
     end task
 
     // cached run, unless uncached is true and then only this step is run without caching

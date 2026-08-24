@@ -169,6 +169,15 @@ class DFApp:
         elaborated.printCodeString
     override protected def logCachedRun(): Unit =
       logger.info("Loading elaborated design from cache...")
+    // The elaborated DB records the init files elaboration loaded (path + contents, as
+    // `SourceType.InitFile` sources on the sub-DBs). The step's key cannot carry them (only
+    // running the elaboration discovers which files it reads), so a hit re-validates them
+    // against the file system instead: a changed or missing file rejects the entry, the step
+    // re-elaborates like a miss, and the fresh result overwrites the entry under the same key.
+    override protected def cacheHitValidator: Option[StagedDesign => Boolean] =
+      Some(_.stagedDB.initFilesUnchanged)
+    override protected def logCacheInvalidated(): Unit =
+      logger.info("An init file has changed; re-elaborating design...")
     protected def valueToCacheStr(value: StagedDesign): String = value.stagedDB.toJsonString
     protected def cacheStrToValue(str: String): StagedDesign = new StagedDesign(
       ir.DB.fromJsonString(str)

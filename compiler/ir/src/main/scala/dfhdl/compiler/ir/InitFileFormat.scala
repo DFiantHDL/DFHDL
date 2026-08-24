@@ -17,13 +17,13 @@ enum InitFileUndefinedValue derives CanEqual, ReadWriter:
 
 object InitFileFormat:
   import InitFileFormat.*
-  def readInitFile(
-      fileName: String,
-      fileFormat: InitFileFormat,
-      arrLen: Int,
-      dataWidth: Int,
-      undefinedValue: InitFileUndefinedValue
-  ): Vector[(BitVector, BitVector)] =
+
+  /** Reads the raw contents of an init file, resolved as a classpath resource first and a
+    * filesystem path second (line endings normalized to `\n`). This resolution is the identity of
+    * the file: cache validation re-reads through it and compares contents (see
+    * `readInitFileContentsOpt`).
+    */
+  def readInitFileContents(fileName: String): String =
     val source =
       try Source.fromResource(fileName)
       catch
@@ -34,8 +34,29 @@ object InitFileFormat:
               throw new IllegalArgumentException(
                 s"Init file not found: $fileName\nmake sure either to place the file in your Scala project resource folder or provide a proper relative/absolute path."
               )
+    try source.getLines().mkString("\n")
+    finally source.close()
+  end readInitFileContents
 
-    val fileContents = source.getLines().mkString("\n")
+  /** As `readInitFileContents`, but None for a file that cannot be found or read. Serves cache
+    * validation, where an unreadable file means a stale entry (a miss) rather than an error: the
+    * live elaboration that follows raises the proper user-facing error.
+    */
+  def readInitFileContentsOpt(fileName: String): Option[String] =
+    try Some(readInitFileContents(fileName))
+    catch case scala.util.control.NonFatal(_) => None
+
+  /** Parses already-read init file contents (see `readInitFileContents`; `fileName` is for error
+    * reporting and `Auto` format detection only).
+    */
+  def parseInitFile(
+      fileName: String,
+      fileContents: String,
+      fileFormat: InitFileFormat,
+      arrLen: Int,
+      dataWidth: Int,
+      undefinedValue: InitFileUndefinedValue
+  ): Vector[(BitVector, BitVector)] =
     val detectedFormat = fileFormat match
       case Auto => detectAutoFormat(fileName, fileContents, dataWidth)
       case _    => fileFormat
@@ -55,7 +76,18 @@ object InitFileFormat:
           s"Init file error detected in $detectedFormat formatted ${fileName}:$lineNum\n$msg"
         )
     end try
-  end readInitFile
+  end parseInitFile
+
+  def readInitFile(
+      fileName: String,
+      fileFormat: InitFileFormat,
+      arrLen: Int,
+      dataWidth: Int,
+      undefinedValue: InitFileUndefinedValue
+  ): Vector[(BitVector, BitVector)] =
+    parseInitFile(
+      fileName, readInitFileContents(fileName), fileFormat, arrLen, dataWidth, undefinedValue
+    )
 
   private val verilogCommentPattern = """//.*|/\*.*?\*/""".r
   private val validBinPattern =

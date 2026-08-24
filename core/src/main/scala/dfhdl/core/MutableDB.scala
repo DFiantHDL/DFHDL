@@ -42,6 +42,11 @@ private case class MemberEntry(
 
 class DesignContext:
   val members = mutable.ArrayBuffer.empty[MemberEntry]
+  // Source files this design's body loaded during elaboration (external init files, recorded
+  // with their loaded contents by `initFile`). Snapshotted per design at `endDesign`
+  // (`designSrcFiles`) and emitted on the design's own sub-DB, where elaboration caches
+  // re-validate them against the file system (see `DB.initFilesUnchanged`).
+  val srcFiles = mutable.ListBuffer.empty[SourceFile]
   val memberTable = mutable.Map.empty[DFMember, Int]
   val refTable = mutable.Map.empty[DFRefAny, DFMember]
   val originRefTable = mutable.Map.empty[DFRef.TwoWayAny, DFMember]
@@ -322,6 +327,12 @@ final class MutableDB():
     // ~~~ the designs of this run, keyed by identity (`refId`) and never by the block value ~~~
     // the end-of-design member snapshot of a design, and the design block itself as it stood then
     val designMembers = mutable.Map.empty[StaticRef, List[DFMember]]
+    // the end-of-design snapshot of the source files the design's body loaded (see
+    // `DesignContext.srcFiles`)
+    val designSrcFiles = mutable.Map.empty[StaticRef, List[SourceFile]]
+    // records a source file the CURRENT design's body loaded (e.g. `initFile` registering the
+    // init file it read, together with the contents it read)
+    def addSrcFile(srcFile: SourceFile): Unit = current.srcFiles += srcFile
     private val designOf = mutable.Map.empty[StaticRef, DFDesignBlock]
     // the dclName groups feeding the emitted-name enumeration (`dclNameEnumeration`); the head of
     // a group is its canonical design
@@ -393,6 +404,7 @@ final class MutableDB():
       // designs wholesale (they are never `isLive`, their instances unify to the
       // canonical), so a duplicate's retained snapshot is simply never read.
       designMembers += design.refId -> currentMembers
+      designSrcFiles += design.refId -> current.srcFiles.distinct.toList
       stack.head.refTable ++= currentRefTable
       // origin lookups must survive the design's end just like regular ref lookups: the parent
       // may query the origin of a ref held by a child member (e.g. printing a child port's
@@ -494,7 +506,15 @@ final class MutableDB():
       // NOTE: the design block's transient elaboration-time instance cache is NOT cleared
       // here; the design is still live in this run (it is not serialized into an entry)
       val dbMembers = globalsClosure(c :: locals) ::: c :: locals
-      DB(dbMembers, refsFor(dbMembers), GlobalTagContext.tags, Nil)
+      // the design's own loaded source files (external init files) ride its sub-DB: into its
+      // cache entry, where the gate re-validates them on lookup, and into the final forest,
+      // where the DFApp elaborate step re-validates the whole design's set on a cache hit
+      DB(
+        dbMembers,
+        refsFor(dbMembers),
+        GlobalTagContext.tags,
+        designSrcFiles.getOrElse(c.refId, Nil)
+      )
     end buildSubDB
 
     // ~~~ the run's design forest ~~~
@@ -619,6 +639,11 @@ final class MutableDB():
         for
           cls <- classOf(childRef.ownerClassName, loader)
           entry <- subDesignCache.lookup(cls, childRef.localKey)
+          // stale-entry guard, same as the gate lookup's: a child entry whose recorded init
+          // files no longer match the file system fails the WHOLE adoption (children resolve
+          // before the parent commits), so the parent's `lookup` returns None and its body
+          // runs live, re-elaborating this child live as well
+          if entry.db.initFilesUnchanged
           design <- adopt(entry, childRef, loader)
         yield design
       }
@@ -680,11 +705,15 @@ final class MutableDB():
           subDesignCache.lookup(ownerClass, key.localKey)
             // guard against key collisions and stale entries: the stored design must be
             // the same declaration (name-insensitive: dclName enumeration may differ
-            // between the storing and loading runs); a mismatch is a miss
+            // between the storing and loading runs); a mismatch is a miss. The entry's
+            // recorded init files must also still match the file system (the key cannot
+            // carry file contents, since only the body knows which files it reads); a
+            // changed or missing file is a miss and the body re-elaborates live
             .filter { entry =>
               val stored = entry.db.top
               stored.instMode == shell.instMode && stored.domainType == shell.domainType &&
-              stored.dclMeta.position == shell.dclMeta.position
+              stored.dclMeta.position == shell.dclMeta.position &&
+              entry.db.initFilesUnchanged
             }
             .flatMap(adopt(_, ref, ownerClass.getClassLoader))
             .map { adoptedDesign =>
@@ -1193,7 +1222,7 @@ final class MutableDB():
         case d: DFDesignBlock if d eq naturalTop => dFinal
         case m                                   => fixedMember(m)
       }
-      DB(fixedMembers, refsFor(dFinal, fixedMembers), globalTags, Nil)
+      DB(fixedMembers, refsFor(dFinal, fixedMembers), globalTags, sub.srcFiles)
     // fix one ADOPTED sub-DB: its refs are self-contained (they were cloned onto this run's
     // tokens at adoption, resolving within the sub-DB), so only the design block itself is
     // renamed here, wherever it appears
@@ -1206,7 +1235,7 @@ final class MutableDB():
         val newRefTable = sub.refTable.view.mapValues { t =>
           if (t eq (adoptedTop: DFMember)) (dFinal: DFMember) else t
         }.toMap
-        DB(newMembers, newRefTable, globalTags, Nil)
+        DB(newMembers, newRefTable, globalTags, sub.srcFiles)
     // ~~~ apply the fixes over the natural forest, sub-DB by sub-DB (in forest order) ~~~
     val builtSubDBs = mutable.LinkedHashMap.empty[StaticRef, DB]
     natural.subDBs.foreach { (key, sub) =>
