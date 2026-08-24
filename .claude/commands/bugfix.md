@@ -1160,25 +1160,28 @@ exercise is a question, not a to-do.
 
 ### Position-sensitive elaboration tests
 
-`ElaborationChecksSpec` expectations embed `<file>:<line>:<col>` of the offending expression.
-scalafmt reflows the test design (a braces-on-one-line block becomes multi-line), which silently
-shifts those positions. Write the design in the already-normalized indented form so reformatting
-does not move it, and re-check the positions after running scalafmt.
+`ElaborationChecksSpec` expectations embed `<file>:<line>:<col>` of the offending expression, in
+**relative form**: `L-9:17` reads "nine lines above this assertion's anchor". The anchor is what
+`munit.Location` reports for the call, which is the line the call's LAST argument list CLOSES on
+(not the line it opens on); `DesignSpec.relativizeLines` rewrites the obtained message to the same
+form before diffing. Consequently:
 
-This is the general reason **scalafmt belongs before the final full-suite run, not after it**:
-formatting rewrites the very spec files the suite just exercised, so a run that precedes it has to
-be repeated. Format once the narrow specs are green, revert the unrelated churn scalafmt always
-produces, then run the suite.
+- Edits anywhere else in the file (adding a test mid-file included) no longer shift another
+  test's expectations. Only edits *inside* a test, between its design and its assertion's closing
+  paren, move that test's own offsets — scalafmt reflowing the test design is the usual cause, so
+  write designs in the already-normalized indented form.
+- A stale offset is fixed by copying from the failure diff, which prints both sides in relative
+  form. No run-log-driven mass rewrites are needed any more.
+- scalafmt still belongs **before** the final full-suite run, not after it: formatting rewrites
+  the very spec files the suite just exercised, so a run that precedes it has to be repeated.
 
-Any edit that changes the file's LINE COUNT shifts every expectation below it, so adding a test in
-the middle breaks unrelated tests that were passing. Append new tests at the end of the file. When
-a mid-file edit is unavoidable (rewriting an existing test), do not hand-patch the fallout: munit
-prints each expected/obtained pair, so drive the rewrite off the run log — extract the
-`-Position:`/`+Position:` pairs and apply them to the source in ONE simultaneous pass (a
-sequential pass can rewrite a value that a later rule then matches). Two or three iterations
-converge, since a test with several expected errors only reveals its next stale position after the
-first is fixed. Do the substitution with a script that preserves the file's CRLF bytes, not
-`sed -i`, which rewrites the whole file's line endings and produces phantom diffs.
+The spec also sets `given options.ElaborationOptions.WError = true` file-wide, so a test whose
+design produces elaboration *warnings* must assert them: they arrive appended to the trapped
+error message (full content, position included), followed by the
+`Warnings found with -Werror enabled...` line — a warning can never silently leak to the console
+from this spec. Note the givens must stay at FILE scope: a test-body-local (or local
+`object Test` member) given cannot be captured by the plugin-generated `__dfc`
+(`Could not find proxy for lazy var` / `failure to construct path` at compile time).
 
 ---
 
