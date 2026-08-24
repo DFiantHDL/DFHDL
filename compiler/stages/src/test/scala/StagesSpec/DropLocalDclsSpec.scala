@@ -359,4 +359,98 @@ class DropLocalDclsSpec extends StageSpec:
          |end ID
          |""".stripMargin
     )
+
+  test("RTDomain combinational latch prevention"):
+    class Foo extends RTDesign:
+      val x = UInt(8) <> IN
+      val y = Bits(4) <> OUT
+      val b = Bit     <> IN
+      if (b)
+        val temp = UInt(8) <> VAR
+        temp := x + d"8'1"
+        y    := temp.bits(3, 0)
+      else y := h"0"
+      end if
+    end Foo
+    val foo = (new Foo).dropLocalDcls
+    assertCodeString(
+      foo,
+      """|class Foo extends RTDesign:
+         |  val x = UInt(8) <> IN
+         |  val y = Bits(4) <> OUT
+         |  val b = Bit <> IN
+         |  val temp = UInt(8) <> VAR
+         |  temp := ?
+         |  if (b)
+         |    temp := x + d"8'1"
+         |    y := temp.bits(3, 0)
+         |  else y := h"0"
+         |  end if
+         |end Foo
+         |""".stripMargin
+    )
+
+  test("RTDomain block combinational latch prevention"):
+    class Foo extends EDDesign:
+      val x   = UInt(8) <> IN
+      val y   = Bits(4) <> OUT
+      val b   = Bit     <> IN
+      val dmn = new RTDomain:
+        if (b)
+          val temp = UInt(8) <> VAR
+          temp := x + d"8'1"
+          y    := temp.bits(3, 0)
+        else y := h"0"
+        end if
+    end Foo
+    val foo = (new Foo).dropLocalDcls
+    assertCodeString(
+      foo,
+      """|class Foo extends EDDesign:
+         |  val x = UInt(8) <> IN
+         |  val y = Bits(4) <> OUT
+         |  val b = Bit <> IN
+         |  val dmn = new RTDomain:
+         |    val temp = UInt(8) <> VAR
+         |    temp := ?
+         |    if (b)
+         |      temp := x + d"8'1"
+         |      y := temp.bits(3, 0)
+         |    else y := h"0"
+         |    end if
+         |  end dmn
+         |end Foo
+         |""".stripMargin
+    )
+
+  // A DF domain body gets no don't-care default: ExplicitState resolves an undriven path to
+  // implied state, which a per-activation default would break.
+  test("No combinational defaults in DF domain bodies"):
+    class Foo extends DFDesign:
+      val x = UInt(8) <> IN
+      val y = Bits(4) <> OUT
+      val b = Bit     <> IN
+      if (b)
+        val temp = UInt(8) <> VAR
+        temp := x + d"8'1"
+        y    := temp.bits(3, 0)
+      else y := h"0"
+      end if
+    end Foo
+    val foo = (new Foo).dropLocalDcls
+    assertCodeString(
+      foo,
+      """|class Foo extends DFDesign:
+         |  val x = UInt(8) <> IN
+         |  val y = Bits(4) <> OUT
+         |  val b = Bit <> IN
+         |  val temp = UInt(8) <> VAR
+         |  if (b)
+         |    temp := x + d"8'1"
+         |    y := temp.bits(3, 0)
+         |  else y := h"0"
+         |  end if
+         |end Foo
+         |""".stripMargin
+    )
 end DropLocalDclsSpec

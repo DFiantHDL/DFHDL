@@ -775,12 +775,23 @@ declaration escaped from. Two mechanics worth reusing:
 - `Move(anchor, Before)` + `Add(anchor, Before)` on the SAME anchor merge, with the added
   members appended AFTER the moved ones (list the Move entries first) — that places the
   default right after the relocated declaration under VHDL without a second phase.
-- Scope such compensation by the exact semantic trigger, not by the move: only
-  `Sensitivity.All` processes (`process(all)` is ED-only; an RT `process` has
-  `Sensitivity.List(Nil)`), only no-init declarations (an init declares deliberate state
-  retention), and only genuinely conditional scopes (`if`/`match` branch or `while` body; a
-  `for` body runs a static range, and a clocked guard-style process must NOT get a
-  process-level default, which would sit outside the clock guard).
+- Scope such compensation by the exact semantic trigger, not by the move: only scopes that
+  lower to a combinational process — `Sensitivity.All` processes (`process(all)` is ED-only;
+  an RT `process` has `Sensitivity.List(Nil)`) AND non-process RT domain bodies (a design or
+  domain block, which ToED later wraps in `process(all)`; a DF body is excluded because
+  ExplicitState resolves an undriven path to implied state, which a per-activation default
+  would break), only no-init declarations (an init declares deliberate state retention), and
+  only genuinely conditional scopes (`if`/`match` branch or `while` body; a `for` body runs a
+  static range, and a clocked guard-style process must NOT get a process-level default, which
+  would sit outside the clock guard).
+- A stage's REAL run position may be earlier than its `BackendPrepStage` slot: a dependency
+  edge (here `ExplicitState -> DropLocalDcls`) pulls it into the pre-lowering pipeline, and
+  `StageRunner` then DEDUPES the late slot, so the stage never re-runs post-ToED unless
+  nullified. Consequently pre-lowering domain shapes (RT/DF design bodies, domain blocks) are
+  legitimate inputs the stage must handle, and a rule keyed on "what block holds this scope"
+  must model what that block LOWERS TO, not only the post-ToED process forms. Read the
+  `Running stage` sequence of a full `--log trace` run to learn where a stage actually fires
+  before trusting the bundle order.
 
 ### Pattern 3 — Construct new members with `MetaDesign`
 ```scala
