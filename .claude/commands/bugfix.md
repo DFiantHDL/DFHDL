@@ -369,6 +369,56 @@ Three things about the trigger set generalize:
   design body (Scala object init is lazy), one object per test so tests cannot defuse each
   other, and remember the crash needs the first use to be the analyzed position.
 
+### A member of an anonymous container is selected REFLECTIVELY, and symbol paths are blind to it
+
+An anonymous container instance (`val r = new RTDomain: ...`, and any other
+`scala.reflect.Selectable` such as an interface or `MetaDesign`) gets a REFINEMENT type, and
+selecting its members compiles to `qual.selectDynamic("name").$asInstanceOf[T]` — a call with
+NO member symbol. Every plugin analysis keyed on `Ident`/`Select` symbol paths therefore sees
+only the RECEIVER: the Methods capture discovery captured the domain object `r` as a plain
+Scala value and left `r.q` in the def body, where it elaborated inside the def design as an
+illegal direct cross-design reference (issue #493: `NoSuchElementException: key not found:
+"OW_..."` out of `directRefCheck`). Things that generalize:
+
+- **The tell is in the probe log's shape, not any error.** File-logging every tree the
+  traversal classifies showed the member appearing only inside TYPES (`(Foo.this.r.q : Bit <>
+  VAL)` in the op's type args) while no Ident/Select tree for it was ever visited — because
+  the reference is an `Apply`/`TypeApply`. When a per-tree analysis "never sees" a reference
+  that the types prove is there, suspect a non-Select spelling (reflective select, applyDynamic)
+  before suspecting the traversal.
+- **`import r.q` is the same tree.** A refinement member has no symbol for the import to bind,
+  so the imported use compiles to the identical reflective call; both spellings need exactly
+  one fix.
+- **`isStable` lies on the singleton the typer minted.** The cast's type IS the stable
+  singleton `TermRef` for `r.q`, but the TermRef is symbol-less and its info is the unreduced
+  `Bit <> VAL` match-type alias, so `tpe.isStable` answers false. Judge stability structurally:
+  the typer keeps a singleton `TermRef` only for a stable (val) member, so
+  `tpe.isInstanceOf[TermRef] && qual.tpe.isStable` is the test.
+- **Extend the PATH, not just the matcher.** The capture path key became
+  `List[Symbol | String]` (the literal member name standing in for the missing symbol), and the
+  same `ReflectiveSelect` extractor case went into every consumer of the path: `stablePathKey`
+  (recursing through nested reflective steps), the capture traverser, and the Methods
+  `phantomReplacer` (which must replace the WHOLE cast tree, not descend into the receiver).
+  `PureCheck` predicts phantom names through the same helpers, so it followed for free — that
+  shared-contract design (see `CapturePhase`'s header) is what kept the fix in one place.
+- **Match the CAST form only** (`TypeApply` of `$asInstanceOf$` over the `selectDynamic`
+  `Apply`, owner `scala.reflect.Selectable`): a DFHDL-value member always gets the cast (the
+  raw call returns `Any`), and the bare form's `Any` type could classify nothing anyway. The
+  distinct `DFVal.selectDynamic` (struct field access, takes a `DFC`) must NOT match: its
+  receiver is an ordinary value the existing machinery already handles.
+
+The elaboration-side half of the same fix: `directRefCheck` dereferenced the referenced
+member's owner through the local refTable, and under per-design sub-DB refTables a FOREIGN
+member's owner chain is not there at all, so the check CRASHED on exactly the defect it exists
+to report. A check that walks a *referenced* member's owners must treat "unresolvable owner" as
+its answer ("foreign"), resolve defensively (`refTable.get`), and render the foreign member's
+hierarchy through `rootDB.subDBs` in the message. Two adjacent user-writable routes to the same
+error are already closed at compile time (a non-`CONST` DFHDL design parameter; auto-`@top` on
+a design class nested in a design), so after the plugin fix the arm is a robustness net; the
+nested-design-class capture of an outer port still crashes EARLIER
+(`foreignPortSelectOpt`'s `getCachedDesignInst` on the still-elaborating parent, `None.get`) —
+a separate missing-elaboration-error bug, unfixed here.
+
 ### Changing a type-level algebra: pick the mechanism by when it costs
 
 `IntP` decides widths at the type level, and there are three mechanisms for such a rule. They

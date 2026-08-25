@@ -10,6 +10,8 @@ import Decorators.*
 import ast.Trees.*
 import ast.tpd
 import Types.*
+import StdNames.nme
+import Constants.Constant
 import scala.language.implicitConversions
 import scala.compiletime.uninitialized
 
@@ -46,11 +48,13 @@ trait CapturePhase extends CommonPhase:
   protected var domainTypeStaticSym: Symbol = uninitialized
   protected var domainTypeEDSym: Symbol = uninitialized
   protected var domainTypeDFSym: Symbol = uninitialized
+  protected var reflectSelectableCls: Symbol = uninitialized
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     scopeFunctionCls = getClassIfDefined("dfhdl.core.DFC.Scope.Function")
     scopeProceduralCls = getClassIfDefined("dfhdl.core.DFC.Scope.Procedural")
+    reflectSelectableCls = getClassIfDefined("scala.reflect.Selectable")
     // The domain evidence types are OPAQUE, so they are type aliases rather than classes and
     // `getClassIfDefined` cannot reach them. Outside `object DomainType` the opacity holds, so
     // `Static` and `ED` are distinct and mutually unrelated, which is what makes them a sound
@@ -122,19 +126,48 @@ trait CapturePhase extends CommonPhase:
   // ~~~ method capture discovery ~~~
   // Captures are keyed by their full stable access path: the same member symbol reached
   // through different instance paths must not unify.
+  //
+  // A path element is normally the SYMBOL of a stable selection step. A member of an
+  // anonymous container instance (e.g. `val r = new RTDomain: ...`) has no symbol at its
+  // use sites: the instance's type is a refinement, and selecting its members compiles to
+  // a `scala.reflect.Selectable` reflective call (`qual.selectDynamic("name")` cast to the
+  // member type). Such a step is represented by its literal member NAME instead. Without
+  // this, a def body reading a domain member would capture the domain OBJECT as a plain
+  // Scala value and leave the member reference in the body, where it becomes an illegal
+  // direct cross-design reference at elaboration (issue #493).
+  protected type CapturePathElem = Symbol | String
   final protected case class MethodCaptures(
-      phantomConsts: List[(List[Symbol], Tree)],
-      phantomVals: List[(List[Symbol], Tree)],
-      scalaCaptures: List[(List[Symbol], Tree)]
+      phantomConsts: List[(List[CapturePathElem], Tree)],
+      phantomVals: List[(List[CapturePathElem], Tree)],
+      scalaCaptures: List[(List[CapturePathElem], Tree)]
   )
   // a capture: its stable access path, a reference tree for it, and its kind
-  private type Capture = (List[Symbol], Tree, Int)
+  private type Capture = (List[CapturePathElem], Tree, Int)
   // the (transitive) captures of a method, memoized by symbol
   private val methodCaptures = collection.mutable.Map.empty[Symbol, List[Capture]]
-  // the symbol path of a stable reference, leaf first
-  protected def stablePathKey(t: Tree)(using Context): Option[List[Symbol]] = t match
-    case id: Ident if id.symbol.exists && id.symbol.isTerm               => Some(List(id.symbol))
-    case th: This                                                        => Some(List(th.symbol))
+  // A reflective structural selection, as the typer spells a refinement-member access on a
+  // `scala.reflect.Selectable` receiver: `qual.selectDynamic("name").$asInstanceOf[T]`.
+  // Only the CAST form is matched: a DFHDL-value member always gets one (the bare
+  // `selectDynamic` call returns `Any`), and the cast is also what carries the member's
+  // stable singleton type.
+  protected object ReflectiveSelect:
+    def unapply(t: Tree)(using Context): Option[(Tree, String)] = t match
+      case TypeApply(
+            castSel @ Select(Apply(dynSel @ Select(qual, _), List(Literal(c))), _),
+            _
+          )
+          if (castSel.symbol == defn.Any_asInstanceOf || castSel.symbol == defn.Any_typeCast)
+            && dynSel.symbol.name == nme.selectDynamic && reflectSelectableCls.exists
+            && dynSel.symbol.maybeOwner == reflectSelectableCls =>
+        c.value match
+          case name: String => Some((qual, name))
+          case _            => None
+      case _ => None
+  // the element path of a stable reference, leaf first
+  protected def stablePathKey(t: Tree)(using Context): Option[List[CapturePathElem]] = t match
+    case id: Ident if id.symbol.exists && id.symbol.isTerm => Some(List(id.symbol))
+    case th: This                                          => Some(List(th.symbol))
+    case ReflectiveSelect(qual, name)                      => stablePathKey(qual).map(name :: _)
     case sel @ Select(qual, _) if sel.symbol.exists && sel.symbol.isTerm =>
       stablePathKey(qual).map(sel.symbol :: _)
     case _ => None
@@ -143,23 +176,30 @@ trait CapturePhase extends CommonPhase:
   // `cloneUnreachable` auto-parameters); this static leaf name is the compile-time
   // prediction of that name, used by PureCheck for impure-param recording and passed as
   // the runtime fallback for anonymous applied values.
-  protected def captureName(path: List[Symbol])(using Context): String =
-    path.head.name match
-      // a capture of a generated design-parameter member (a rewritten reference to a
-      // `<> CONST` class parameter) is named after the original parameter, matching the
-      // parameter's runtime meta name and PureCheck's pre-rewrite prediction
-      case NameKinds.UniqueName(prefix, _) if prefix.toString.endsWith("_plugin") =>
-        prefix.toString.dropRight("_plugin".length)
-      case _ => path.head.getFinalName()
+  protected def captureName(path: List[CapturePathElem])(using Context): String =
+    path.head match
+      // a reflective refinement-member step carries its final name literally
+      case name: String => name
+      case sym: Symbol  =>
+        sym.name match
+          // a capture of a generated design-parameter member (a rewritten reference to a
+          // `<> CONST` class parameter) is named after the original parameter, matching the
+          // parameter's runtime meta name and PureCheck's pre-rewrite prediction
+          case NameKinds.UniqueName(prefix, _) if prefix.toString.endsWith("_plugin") =>
+            prefix.toString.dropRight("_plugin".length)
+          case _ => sym.getFinalName()
   // rooted at `this` of an enclosing container: an instance member is capturable; static
   // (global) values are reachable/code-determined everywhere and never captured; the def's own
   // parameters and body locals are not captures
-  private def methodRootOk(defSym: Symbol, anonDefSym: Symbol)(path: List[Symbol])(using
+  private def methodRootOk(defSym: Symbol, anonDefSym: Symbol)(path: List[CapturePathElem])(using
       Context
   ): Boolean =
-    val root = path.last
-    if (root.isClass) true
-    else !root.isStatic && !root.ownersIterator.exists(o => o == defSym || o == anonDefSym)
+    path.last match
+      case root: Symbol =>
+        if (root.isClass) true
+        else !root.isStatic && !root.ownersIterator.exists(o => o == defSym || o == anonDefSym)
+      // a reflective step always has a receiver below it, so the root is never a name
+      case _: String => false
   protected def discoverMethodCaptures(defSym: Symbol, anonDefSym: Symbol, body: Tree)(using
       Context
   ): MethodCaptures =
@@ -203,16 +243,19 @@ trait CapturePhase extends CommonPhase:
   protected def discoverClsCaptures(clsSym: ClassSymbol, tmpl: Template)(using
       Context
   ): MethodCaptures =
-    def rootOk(path: List[Symbol]): Boolean =
-      val root = path.last
-      if (root.isClass)
-        // `this`-rooted: only an OUTER instance's members are captures; the class's own
-        // members and members of classes nested WITHIN it (which the traversal also
-        // reaches) are not
-        root != clsSym && clsSym.isContainedIn(root)
-      else
-        !root.isStatic &&
-        !root.ownersIterator.exists(o => o == clsSym || o == clsSym.primaryConstructor)
+    def rootOk(path: List[CapturePathElem]): Boolean =
+      path.last match
+        case root: Symbol =>
+          if (root.isClass)
+            // `this`-rooted: only an OUTER instance's members are captures; the class's own
+            // members and members of classes nested WITHIN it (which the traversal also
+            // reaches) are not
+            root != clsSym && clsSym.isContainedIn(root)
+          else
+            !root.isStatic &&
+            !root.ownersIterator.exists(o => o == clsSym || o == clsSym.primaryConstructor)
+        // a reflective step always has a receiver below it, so the root is never a name
+        case _: String => false
     // a class template calls a method from the design itself, where the def's captures are
     // by construction reachable, so no transitive capture propagation is needed here
     asMethodCaptures(
@@ -221,13 +264,13 @@ trait CapturePhase extends CommonPhase:
   end discoverClsCaptures
 
   private def asMethodCaptures(captures: List[Capture]): MethodCaptures =
-    def ofKind(kind: Int): List[(List[Symbol], Tree)] =
+    def ofKind(kind: Int): List[(List[CapturePathElem], Tree)] =
       captures.collect { case (path, t, `kind`) => (path, t) }
     MethodCaptures(ofKind(1), ofKind(2), ofKind(3))
 
   private def discoverCaptures(
       bodies: List[Tree],
-      rootOk: List[Symbol] => Boolean,
+      rootOk: List[CapturePathElem] => Boolean,
       transitive: Boolean,
       visiting: Set[Symbol]
   )(using Context): List[Capture] =
@@ -236,8 +279,7 @@ trait CapturePhase extends CommonPhase:
       // NOTE: the type must be widened before the DFHDL-value test, since a member with an
       // explicit `<> ...` type annotation carries the unreduced match-type alias on its
       // TermRef (unlike inferred-type members)
-      if (!t.tpe.isStable || !t.symbol.exists || t.symbol.isStatic) 0
-      else
+      def classifyStable: Int =
         stablePathKey(t) match
           case Some(path) if rootOk(path) =>
             val widened = t.tpe.widen
@@ -246,7 +288,18 @@ trait CapturePhase extends CommonPhase:
             else if (widened.isMetaContext) 0
             else 3
           case _ => 0
-    val captured = collection.mutable.LinkedHashMap.empty[List[Symbol], (Tree, Int)]
+      t match
+        // The typer assigns a reflective selection a singleton TermRef only when the member
+        // is stable (a `val` of the refinement). The TermRef's own `isStable` is foiled by
+        // the member's unreduced `<> ...` match-type info, so stability is judged by the
+        // singleton's presence and the receiver path instead.
+        case ReflectiveSelect(qual, _) =>
+          if (t.tpe.isInstanceOf[TermRef] && qual.tpe.isStable) classifyStable else 0
+        case _ =>
+          if (!t.tpe.isStable || !t.symbol.exists || t.symbol.isStatic) 0
+          else classifyStable
+    end captureKindOf
+    val captured = collection.mutable.LinkedHashMap.empty[List[CapturePathElem], (Tree, Int)]
     object captureFinder extends TreeTraverser:
       def traverse(t: Tree)(using Context): Unit = t match
         // A call to another method. Its body does not run here, but its captures ARE
@@ -262,6 +315,13 @@ trait CapturePhase extends CommonPhase:
             if (rootOk(path)) captured.getOrElseUpdate(path, (capture, kind))
           }
           traverseChildren(t)
+        // a reflective refinement-member selection: capturable exactly like a stable symbol
+        // select. When captured, the WHOLE selection tree is the capture (re-evaluated at
+        // each call site), so the receiver is not descended into.
+        case ReflectiveSelect(_, _) =>
+          captureKindOf(t) match
+            case 0    => traverseChildren(t)
+            case kind => captured.getOrElseUpdate(stablePathKey(t).get, (t, kind))
         case _: (Ident | Select) =>
           captureKindOf(t) match
             case 0    => traverseChildren(t)
