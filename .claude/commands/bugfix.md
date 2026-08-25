@@ -412,12 +412,29 @@ member's owner through the local refTable, and under per-design sub-DB refTables
 member's owner chain is not there at all, so the check CRASHED on exactly the defect it exists
 to report. A check that walks a *referenced* member's owners must treat "unresolvable owner" as
 its answer ("foreign"), resolve defensively (`refTable.get`), and render the foreign member's
-hierarchy through `rootDB.subDBs` in the message. Two adjacent user-writable routes to the same
-error are already closed at compile time (a non-`CONST` DFHDL design parameter; auto-`@top` on
-a design class nested in a design), so after the plugin fix the arm is a robustness net; the
-nested-design-class capture of an outer port still crashes EARLIER
-(`foreignPortSelectOpt`'s `getCachedDesignInst` on the still-elaborating parent, `None.get`) —
-a separate missing-elaboration-error bug, unfixed here.
+hierarchy through `rootDB.subDBs` in the message. After the fixes, no user-writable route to
+that error arm remains (probing found them all closed at compile time), so the arm is a
+robustness net against plugin regressions, deliberately untested.
+
+The remaining route, a NAMED design class declared inside another design class (whose capture
+of the outer design's PORT crashed earlier still, in `foreignPortSelectOpt`'s
+`getCachedDesignInst` on the still-elaborating parent), was closed by a plugin rule in
+`MetaContextPlacerPhase.prepareForTypeDef` (the home of the class-declaration rules: final,
+case-class, anonymous-interface). Two scoping lessons from landing it:
+
+- **A blanket structural ban collides with features; enumerate the EXEMPT shapes by compiling
+  the whole tree, not by reasoning.** The first cut (named classes) broke
+  `ClassDesignKeySpec`'s local-class capture-key feature (a design class in a lambda inside a
+  design body, capturing a loop's Scala value via `__clsScalaArgs`); the user chose the ban,
+  and the test was reworked to host the local class in a factory def OUTSIDE the design
+  (`def addStage(i: Int)(using DFC): (V) => V = acc => ...`), preserving the identical printed
+  output. The second cut (anons included) broke the VIA-CONNECTION idiom
+  (`val id = new ID(): this.x <> ...`), which is an anonymous design instance with a body —
+  so the rule is named-classes-only. Each collision surfaced only in a full `Test/compile`.
+- **`prepareForTypeDef` never sees the plugin's own instantiation anon-classes** (they are
+  minted in the transform pass), which is what makes a declaration-site rule safe for ordinary
+  `val c = new Child(...)` composition — the same invariant the anonymous-interface rejection
+  above it already relies on.
 
 ### Changing a type-level algebra: pick the mechanism by when it costs
 

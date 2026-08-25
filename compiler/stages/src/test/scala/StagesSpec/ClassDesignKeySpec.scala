@@ -98,18 +98,22 @@ class ClassDesignKeySpec extends StageSpec:
     // level a range `for`/`foreach` belongs to the plugin's DFHDL-loop transformation,
     // and instantiating a design inside one is a pre-existing limitation unrelated to
     // the design load gate
+    //
+    // The local class is declared in a factory def OUTSIDE the design: a design class
+    // may not be declared inside another design class (the plugin rejects it), so a
+    // def like this is the host for a local class capturing a per-call Scala value.
+    def addStage(i: Int)(using DFC): (UInt[8] <> VAL) => UInt[8] <> VAL = acc =>
+      class Adder extends DFDesign:
+        val a = UInt(8) <> IN
+        val b = UInt(8) <> OUT
+        b := a + i
+      val adder = new Adder
+      adder.a <> acc
+      adder.b
     class Top extends DFDesign:
       val x = UInt(8) <> IN
       val y = UInt(8) <> OUT
-      y := List(0, 1).foldLeft[UInt[8] <> VAL](x) { (acc, i) =>
-        class Adder extends DFDesign:
-          val a = UInt(8) <> IN
-          val b = UInt(8) <> OUT
-          b := a + i
-        val adder = new Adder
-        adder.a <> acc
-        adder.b
-      }
+      y := List(0, 1).foldLeft[UInt[8] <> VAL](x) { (acc, i) => addStage(i)(acc) }
     end Top
     // the same LOCAL class captures a different loop value per instantiation: the
     // capture is part of the key (`__clsScalaArgs`), so the two instances do not
