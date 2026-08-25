@@ -114,4 +114,66 @@ class PhantomTagSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  // a method capturing a member of an anonymous DOMAIN instance: the body reference `r.q`
+  // is a REFLECTIVE (structural) selection on the domain's refinement type, with no member
+  // symbol, which the capture discovery must recognize like a stable symbol select and turn
+  // into a phantom input port. Before that, the domain OBJECT was captured as a plain Scala
+  // value and the member reference stayed in the body as an illegal direct cross-design
+  // reference (issue #493).
+  class HostDomain extends RTDesign:
+    val x = Bit <> IN
+    val y = Bit <> OUT
+    val r = new RTDomain:
+      val q = Bit <> VAR.REG init 0
+      q.din := x
+    def f(a: Bit <> VAL): Bit <> DFRET =
+      a & r.q
+    y := f(x)
+  end HostDomain
+
+  test("A phantom capture of a domain member is hidden in the method view form") {
+    val id = new HostDomain
+    assertCodeString(
+      id,
+      """|class HostDomain extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT
+         |  val r = new RTDomain:
+         |    val q = Bit <> VAR.REG init 0
+         |    q.din := x
+         |  end r
+         |  def f(a: Bit <> VAL): Bit <> DFRET =
+         |    a && r.q
+         |  end f
+         |  y := f(x)
+         |end HostDomain
+         |""".stripMargin
+    )
+  }
+  test("A phantom capture of a domain member is visible once the method is dropped") {
+    val id = (new HostDomain).dropDFMethods
+    assertCodeString(
+      id,
+      """|class f extends DFDesign:
+         |  val a = Bit <> IN
+         |  val q = Bit <> IN
+         |  val o = Bit <> OUT
+         |  o <> (a && q)
+         |end f
+         |
+         |class HostDomain extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT
+         |  val r = new RTDomain:
+         |    val q = Bit <> VAR.REG init 0
+         |    q.din := x
+         |  end r
+         |  val o_part_f_inst = f()
+         |  o_part_f_inst.a <> x
+         |  o_part_f_inst.q <> r.q
+         |  y := o_part_f_inst.o
+         |end HostDomain
+         |""".stripMargin
+    )
+  }
 end PhantomTagSpec

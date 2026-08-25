@@ -369,6 +369,73 @@ Three things about the trigger set generalize:
   design body (Scala object init is lazy), one object per test so tests cannot defuse each
   other, and remember the crash needs the first use to be the analyzed position.
 
+### A member of an anonymous container is selected REFLECTIVELY, and symbol paths are blind to it
+
+An anonymous container instance (`val r = new RTDomain: ...`, and any other
+`scala.reflect.Selectable` such as an interface or `MetaDesign`) gets a REFINEMENT type, and
+selecting its members compiles to `qual.selectDynamic("name").$asInstanceOf[T]` — a call with
+NO member symbol. Every plugin analysis keyed on `Ident`/`Select` symbol paths therefore sees
+only the RECEIVER: the Methods capture discovery captured the domain object `r` as a plain
+Scala value and left `r.q` in the def body, where it elaborated inside the def design as an
+illegal direct cross-design reference (issue #493: `NoSuchElementException: key not found:
+"OW_..."` out of `directRefCheck`). Things that generalize:
+
+- **The tell is in the probe log's shape, not any error.** File-logging every tree the
+  traversal classifies showed the member appearing only inside TYPES (`(Foo.this.r.q : Bit <>
+  VAL)` in the op's type args) while no Ident/Select tree for it was ever visited — because
+  the reference is an `Apply`/`TypeApply`. When a per-tree analysis "never sees" a reference
+  that the types prove is there, suspect a non-Select spelling (reflective select, applyDynamic)
+  before suspecting the traversal.
+- **`import r.q` is the same tree.** A refinement member has no symbol for the import to bind,
+  so the imported use compiles to the identical reflective call; both spellings need exactly
+  one fix.
+- **`isStable` lies on the singleton the typer minted.** The cast's type IS the stable
+  singleton `TermRef` for `r.q`, but the TermRef is symbol-less and its info is the unreduced
+  `Bit <> VAL` match-type alias, so `tpe.isStable` answers false. Judge stability structurally:
+  the typer keeps a singleton `TermRef` only for a stable (val) member, so
+  `tpe.isInstanceOf[TermRef] && qual.tpe.isStable` is the test.
+- **Extend the PATH, not just the matcher.** The capture path key became
+  `List[Symbol | String]` (the literal member name standing in for the missing symbol), and the
+  same `ReflectiveSelect` extractor case went into every consumer of the path: `stablePathKey`
+  (recursing through nested reflective steps), the capture traverser, and the Methods
+  `phantomReplacer` (which must replace the WHOLE cast tree, not descend into the receiver).
+  `PureCheck` predicts phantom names through the same helpers, so it followed for free — that
+  shared-contract design (see `CapturePhase`'s header) is what kept the fix in one place.
+- **Match the CAST form only** (`TypeApply` of `$asInstanceOf$` over the `selectDynamic`
+  `Apply`, owner `scala.reflect.Selectable`): a DFHDL-value member always gets the cast (the
+  raw call returns `Any`), and the bare form's `Any` type could classify nothing anyway. The
+  distinct `DFVal.selectDynamic` (struct field access, takes a `DFC`) must NOT match: its
+  receiver is an ordinary value the existing machinery already handles.
+
+The elaboration-side half of the same fix: `directRefCheck` dereferenced the referenced
+member's owner through the local refTable, and under per-design sub-DB refTables a FOREIGN
+member's owner chain is not there at all, so the check CRASHED on exactly the defect it exists
+to report. A check that walks a *referenced* member's owners must treat "unresolvable owner" as
+its answer ("foreign"), resolve defensively (`refTable.get`), and render the foreign member's
+hierarchy through `rootDB.subDBs` in the message. After the fixes, no user-writable route to
+that error arm remains (probing found them all closed at compile time), so the arm is a
+robustness net against plugin regressions, deliberately untested.
+
+The remaining route, a NAMED design class declared inside another design class (whose capture
+of the outer design's PORT crashed earlier still, in `foreignPortSelectOpt`'s
+`getCachedDesignInst` on the still-elaborating parent), was closed by a plugin rule in
+`MetaContextPlacerPhase.prepareForTypeDef` (the home of the class-declaration rules: final,
+case-class, anonymous-interface). Two scoping lessons from landing it:
+
+- **A blanket structural ban collides with features; enumerate the EXEMPT shapes by compiling
+  the whole tree, not by reasoning.** The first cut (named classes) broke
+  `ClassDesignKeySpec`'s local-class capture-key feature (a design class in a lambda inside a
+  design body, capturing a loop's Scala value via `__clsScalaArgs`); the user chose the ban,
+  and the test was reworked to host the local class in a factory def OUTSIDE the design
+  (`def addStage(i: Int)(using DFC): (V) => V = acc => ...`), preserving the identical printed
+  output. The second cut (anons included) broke the VIA-CONNECTION idiom
+  (`val id = new ID(): this.x <> ...`), which is an anonymous design instance with a body —
+  so the rule is named-classes-only. Each collision surfaced only in a full `Test/compile`.
+- **`prepareForTypeDef` never sees the plugin's own instantiation anon-classes** (they are
+  minted in the transform pass), which is what makes a declaration-site rule safe for ordinary
+  `val c = new Child(...)` composition — the same invariant the anonymous-interface rejection
+  above it already relies on.
+
 ### Changing a type-level algebra: pick the mechanism by when it costs
 
 `IntP` decides widths at the type level, and there are three mechanisms for such a rule. They
@@ -1160,25 +1227,28 @@ exercise is a question, not a to-do.
 
 ### Position-sensitive elaboration tests
 
-`ElaborationChecksSpec` expectations embed `<file>:<line>:<col>` of the offending expression.
-scalafmt reflows the test design (a braces-on-one-line block becomes multi-line), which silently
-shifts those positions. Write the design in the already-normalized indented form so reformatting
-does not move it, and re-check the positions after running scalafmt.
+`ElaborationChecksSpec` expectations embed `<file>:<line>:<col>` of the offending expression, in
+**relative form**: `L-9:17` reads "nine lines above this assertion's anchor". The anchor is what
+`munit.Location` reports for the call, which is the line the call's LAST argument list CLOSES on
+(not the line it opens on); `DesignSpec.relativizeLines` rewrites the obtained message to the same
+form before diffing. Consequently:
 
-This is the general reason **scalafmt belongs before the final full-suite run, not after it**:
-formatting rewrites the very spec files the suite just exercised, so a run that precedes it has to
-be repeated. Format once the narrow specs are green, revert the unrelated churn scalafmt always
-produces, then run the suite.
+- Edits anywhere else in the file (adding a test mid-file included) no longer shift another
+  test's expectations. Only edits *inside* a test, between its design and its assertion's closing
+  paren, move that test's own offsets — scalafmt reflowing the test design is the usual cause, so
+  write designs in the already-normalized indented form.
+- A stale offset is fixed by copying from the failure diff, which prints both sides in relative
+  form. No run-log-driven mass rewrites are needed any more.
+- scalafmt still belongs **before** the final full-suite run, not after it: formatting rewrites
+  the very spec files the suite just exercised, so a run that precedes it has to be repeated.
 
-Any edit that changes the file's LINE COUNT shifts every expectation below it, so adding a test in
-the middle breaks unrelated tests that were passing. Append new tests at the end of the file. When
-a mid-file edit is unavoidable (rewriting an existing test), do not hand-patch the fallout: munit
-prints each expected/obtained pair, so drive the rewrite off the run log — extract the
-`-Position:`/`+Position:` pairs and apply them to the source in ONE simultaneous pass (a
-sequential pass can rewrite a value that a later rule then matches). Two or three iterations
-converge, since a test with several expected errors only reveals its next stale position after the
-first is fixed. Do the substitution with a script that preserves the file's CRLF bytes, not
-`sed -i`, which rewrites the whole file's line endings and produces phantom diffs.
+The spec also sets `given options.ElaborationOptions.WError = true` file-wide, so a test whose
+design produces elaboration *warnings* must assert them: they arrive appended to the trapped
+error message (full content, position included), followed by the
+`Warnings found with -Werror enabled...` line — a warning can never silently leak to the console
+from this spec. Note the givens must stay at FILE scope: a test-body-local (or local
+`object Test` member) given cannot be captured by the plugin-generated `__dfc`
+(`Could not find proxy for lazy var` / `failure to construct path` at compile time).
 
 ---
 

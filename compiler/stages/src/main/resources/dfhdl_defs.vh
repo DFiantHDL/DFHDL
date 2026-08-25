@@ -75,8 +75,11 @@
 // Signed ordering over two vectors of the SAME width: the sign bits decide when they differ,
 // and an unsigned comparison of the magnitudes when they agree. The sign bit is read by SHIFT
 // rather than by bit-select, so an operand may be any expression (a bit-select would require an
-// indexable primary, which a widened or arithmetic operand is not).
-`define IS_NEG(a, width) (((a) >> ((width)-1)))
+// indexable primary, which a widened or arithmetic operand is not). The shift result is as wide
+// as the operand while its consumers (`!`, `&&`) are 1-bit logical operators, so it is narrowed
+// by reduction-OR: the shift left only the sign bit, so the reduction equals it, and a genuine
+// 1-bit value keeps width-aware linters (verilator's WIDTHTRUNC) quiet.
+`define IS_NEG(a, width) ((|((a) >> ((width)-1))))
 `define SIGNED_GREATER_THAN(a, b, width)  \
     ((`IS_NEG(a, width) && !`IS_NEG(b, width)) ? 1'b0 : /* a is negative, b is positive */ \
      (!`IS_NEG(a, width) && `IS_NEG(b, width)) ? 1'b1 : /* a is positive, b is negative */ \

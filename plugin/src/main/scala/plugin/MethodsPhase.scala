@@ -263,10 +263,14 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
             // the plugin-side fallback meta of a captured value: its (leaf) name and
             // DECLARATION position (a reference position may originate from inlined library
             // code). The runtime prefers the applied value's own meta and uses this fallback
-            // only for anonymous applied values.
-            def genCapturedMeta(path: List[Symbol], t: Tree): Tree =
+            // only for anonymous applied values. A reflective refinement-member capture has
+            // no declaration symbol to point at, so its reference position is used instead.
+            def genCapturedMeta(path: List[CapturePathElem], t: Tree): Tree =
+              val posTree = path.head match
+                case _: String => t.srcPos.positionTree
+                case _         => t.symbol.srcPos.positionTree
               ref(metaGenSym).appliedToArgs(
-                mkOptionString(Some(captureName(path))) :: t.symbol.srcPos.positionTree ::
+                mkOptionString(Some(captureName(path))) :: posTree ::
                   mkOptionString(None) :: mkList(Nil) :: Literal(Constant("")) :: Nil
               )
             // list of (value, meta, isOutput, isNonBlocking) tuples of the value arguments. The
@@ -324,7 +328,7 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
             // stable access path): captured values become inputs appended after the explicit
             // arguments and captured constants become design parameters appended after the
             // explicit const parameters, sharing the harness accessors' index spaces
-            val phantomReplaceMap = mutable.Map.empty[List[Symbol], Tree]
+            val phantomReplaceMap = mutable.Map.empty[List[CapturePathElem], Tree]
             captures.phantomVals.view.zipWithIndex.foreach { case ((path, t), i) =>
               phantomReplaceMap += path -> ref(designFromDefGetInputSym)
                 .appliedToType(t.tpe.widen.dfValTpeOpt.get)
@@ -339,6 +343,12 @@ class MethodsPhase(setting: Setting) extends CapturePhase:
             }
             object phantomReplacer extends TreeMap:
               override def transform(t: Tree)(using Context): Tree = t match
+                // a reflective refinement-member selection is replaced WHOLE (cast included):
+                // its receiver must not be visited on the replaced path
+                case ReflectiveSelect(_, _) =>
+                  stablePathKey(t).flatMap(phantomReplaceMap.get) match
+                    case Some(replacement) => replacement
+                    case None              => super.transform(t)
                 case _: (Ident | Select) =>
                   stablePathKey(t).flatMap(phantomReplaceMap.get) match
                     case Some(replacement) => replacement

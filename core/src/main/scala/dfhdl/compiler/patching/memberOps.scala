@@ -8,6 +8,8 @@ extension [T <: DFMember](member: T)
     getSet.set(member)(_.setMeta(_.setName(name)))
   def anonymize(using MemberGetSet): T =
     getSet.set(member)(_.setMeta(_.anonymize))
+  def addAnnotation(annot: annotation.HWAnnotation)(using MemberGetSet): T =
+    getSet.set(member)(_.setMeta(_.addAnnotation(annot)))
   def removeTagOf[CT <: DFTag: ClassTag](using MemberGetSet): T =
     getSet.set(member)(_.setTags(_.removeTagOf[CT]))
   def tag[CT <: DFTag: ClassTag](customTag: CT)(using MemberGetSet): T =

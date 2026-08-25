@@ -263,8 +263,8 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
     val phantomForced = mutable.Map.empty[Symbol, mutable.LinkedHashSet[String]]
     // the method's captured constants that the Methods rigging will turn into
     // phantom design parameters, keyed by the capture's stable access path
-    val phantomConstCaptures = mutable.Map.empty[Symbol, Map[List[Symbol], String]]
-    def phantomConstsOf(defSym: Symbol): Map[List[Symbol], String] =
+    val phantomConstCaptures = mutable.Map.empty[Symbol, Map[List[CapturePathElem], String]]
+    def phantomConstsOf(defSym: Symbol): Map[List[CapturePathElem], String] =
       phantomConstCaptures.getOrElseUpdate(
         defSym,
         methodDesignAnon(defSym) match
@@ -294,8 +294,8 @@ class PureCheckPhase(setting: Setting) extends CapturePhase:
     // the class-template captured constants that materialize as auto-created design
     // parameters at runtime (`cloneUnreachable`), keyed by the capture's stable access
     // path (the class-design counterpart of a method's phantom constants)
-    val clsConstCaptureMap = mutable.Map.empty[Symbol, Map[List[Symbol], String]]
-    def clsConstCapturesOf(clsSym: Symbol): Map[List[Symbol], String] =
+    val clsConstCaptureMap = mutable.Map.empty[Symbol, Map[List[CapturePathElem], String]]
+    def clsConstCapturesOf(clsSym: Symbol): Map[List[CapturePathElem], String] =
       clsConstCaptureMap.getOrElseUpdate(
         clsSym,
         roots.get(clsSym) match

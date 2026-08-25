@@ -104,7 +104,7 @@ Plugin options are `-P:dfhdl.plugin:<option>`, parsed in `plugin/src/main/scala/
 - **Doc example tests**: `lib/src/test/scala/docExamples/` — validates documentation examples
 - **Arithmetic tests**: `lib/src/test/scala/ArithSpec/`
 - **AES tests**: `lib/src/test/scala/AES/`
-- **Base class**: `DesignSpec` — provides `assertCodeString()` and `assertElaborationErrors()`
+- **Base class**: `DesignSpec` — provides `assertCodeString()` and `assertElaborationErrors()`; the latter compares source positions in RELATIVE form (`L-n` = n lines above the assertion's closing paren), so expectations survive line churn outside their own test
 - **Playground**: `lib/src/test/scala/Playground.scala` — used for quick local iteration via `quickTestSetup`
 
 Generated HDL reference files live in `lib/src/test/resources/ref/`. Update them with `sbt docExamplesRefUpdate` after intentional output changes.

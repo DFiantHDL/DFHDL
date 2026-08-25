@@ -172,10 +172,36 @@ import scala.annotation.tailrec
   *       tmp := a + b
   *       res := tmp
   * }}}
+  * The same applies to a variable lifted out of a conditional sitting directly in an RT domain
+  * body (a design or domain block, outside any process): such a body is combinational by
+  * construction and is later lowered to a `process(all)` by ToED, at which point the lifted
+  * variable is only driven on some of the process paths and infers the same latch:
+  * {{{
+  * // Before: tmp declared (without init) inside an if in an RT design body
+  * class ID extends RTDesign:
+  *   res := a
+  *   if (sel)
+  *     val tmp = UInt(8) <> VAR
+  *     tmp := a + b
+  *     res := tmp
+  *
+  * // After: moved to design level, don't-care default before the if
+  * class ID extends RTDesign:
+  *   val tmp = UInt(8) <> VAR
+  *   res := a
+  *   tmp := d"8'?"
+  *   if (sel)
+  *     tmp := a + b
+  *     res := tmp
+  * }}}
   * The default applies only when all of the following hold, since otherwise the lift does not
   * create an incompletely-driven combinational variable:
-  *   - the enclosing process is `process(all)` (an explicit sensitivity list keeps the target
-  *     language's own semantics, and a clocked process infers registers, not latches)
+  *   - the escaped scope lowers to a combinational process: the enclosing process is
+  *     `process(all)` (an explicit sensitivity list keeps the target language's own semantics,
+  *     and a clocked process infers registers, not latches), or the conditional sits directly in
+  *     an RT domain body, which ToED later wraps in a `process(all)`. A DF domain body is
+  *     excluded: ExplicitState resolves an undriven path to implied state, which a
+  *     per-activation default would break.
   *   - the declaration has no init (an init declares deliberate state retention, which a
   *     per-activation default would break)
   *   - the escaped scope is genuinely conditional: an `if`/`match` branch or a `while` body
@@ -219,17 +245,25 @@ case object DropLocalDcls extends HierarchyStage:
     dclVal match
       case dcl @ DclVar() if !dcl.isReg && dcl.initRefList.isEmpty && insideConditional(dcl) =>
         val (anchor, scopeBlock) = climbToScope(dcl)
-        scopeBlock match
+        val combinationalScope = scopeBlock match
+          // an explicit sensitivity list keeps the target language's own semantics, and a
+          // clocked process infers registers, not latches
           case pb: ProcessBlock =>
             pb.sensitivity match
-              case ProcessBlock.Sensitivity.All =>
-                val dsn = new MetaDesign(anchor, Patch.Add.Config.Before):
-                  dcl.asVarAny.:=(
-                    dfhdl.core.Bubble.constValOf(new dfhdl.core.DFType(dcl.dfType), named = false)
-                  )(using dfc.setMetaAnon(dcl.meta.position))
-                Some(dsn.patch)
-              case _ => None
-          case _ => None
+              case ProcessBlock.Sensitivity.All => true
+              case _                            => false
+          // an RT domain body outside a process (a design or domain block) is combinational by
+          // construction and is lowered to a `process(all)` by ToED, so a variable lifted there
+          // creates the same latch. A DF domain body is excluded: ExplicitState resolves an
+          // undriven path to implied state, which a per-activation default would break.
+          case _ => dcl.isInRTDomain
+        if combinationalScope then
+          val dsn = new MetaDesign(anchor, Patch.Add.Config.Before):
+            dcl.asVarAny.:=(
+              dfhdl.core.Bubble.constValOf(new dfhdl.core.DFType(dcl.dfType), named = false)
+            )(using dfc.setMetaAnon(dcl.meta.position))
+          Some(dsn.patch)
+        else None
       case _ => None
 
   // Whether the member's lexical scope is conditioned: an enclosing block between the member and

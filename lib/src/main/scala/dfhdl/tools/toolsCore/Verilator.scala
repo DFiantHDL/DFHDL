@@ -380,11 +380,19 @@ class VerilatorConfigPrinter(verilatorVersion: String, isToolInWindows: Boolean)
         matchWild = s"*: '${dfVal.getName}'*"
       )
     .distinct.mkString("\n")
+  // Two sources: the truncation-assignment IR shape, and bit-ranged `@unused.quiet(hi, lo)`
+  // annotations (minted by `NamedAliases` for the unread bits of a value the compiler named,
+  // or hand-written). Verilator reports ALL of a signal's unused ranges in ONE message,
+  // comma-joined in descending order (`'x'[7:5,2:0]`, a single bit as `[3]`), so a signal's
+  // ranges must be joined the same way for the waiver to match.
   def lintOffUnusedBits: String =
-    designDB.getUnusedBitsValues.map: (dfVal, idxHigh, idxLow) =>
-      val bitSel =
+    val fromNets = designDB.getUnusedBitsValues.map: (dfVal, idxHigh, idxLow) =>
+      (dfVal, List((idxHigh, idxLow)))
+    (fromNets ++ designDB.getUnusedBitsAnnotValues).map: (dfVal, ranges) =>
+      val bitSel = ranges.map: (idxHigh, idxLow) =>
         if (idxHigh == idxLow) s"$idxHigh"
         else s"$idxHigh:$idxLow"
+      .mkString(",")
       lintOffCommand(
         rule = "UNUSEDSIGNAL",
         file = dfVal.fileNameFilter,

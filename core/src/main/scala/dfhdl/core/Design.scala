@@ -210,25 +210,24 @@ trait Design extends Container, HasClsMeta, HasClsArgs:
     // At the end of the top-level instance we check for warnings and errors
     if (containedOwner.asIR.isTop && thisOwner.isEmpty)
       val warnings = dfc.getWarnings
-      if (warnings.nonEmpty)
-        System.err.println(
-          warnings.map(_.toString).mkString("\n\n")
-        )
-        if (dfc.elaborationOptions.Werror.toBoolean)
-          dfc.logEvent(
-            DFError.Basic(
-              "Werror",
-              new IllegalArgumentException(
-                "Warnings found with -Werror enabled. Fix the warnings or disable the Werror flag."
-              )
-            )
+      // With `Werror` the warnings ARE errors: they travel the error channel with their full
+      // content (trapped as an exception or printed by `exitWithError`, per `OnError`), instead
+      // of being pre-printed to stderr with only a generic error taking their place.
+      val werrorMsgs =
+        if (warnings.isEmpty) Nil
+        else if (dfc.elaborationOptions.Werror.toBoolean)
+          warnings.map(_.toString) :+
+            "Warnings found with -Werror enabled. Fix the warnings or disable the Werror flag."
+        else
+          System.err.println(
+            warnings.map(_.toString).mkString("\n\n")
           )
-      val errors = dfc.getErrors
+          Nil
+      val errorMsgs =
+        dfc.getErrors.collect { case basicErr: DFError.Basic => basicErr.toString } ++ werrorMsgs
       // If we have errors, then we print them to stderr and exit
-      if (errors.nonEmpty)
-        exitWithError(
-          errors.collect { case basicErr: DFError.Basic => basicErr.toString }.mkString("\n\n")
-        )
+      if (errorMsgs.nonEmpty)
+        exitWithError(errorMsgs.mkString("\n\n"))
       if (!skipChecks)
         try
           import Design.latchesCheck

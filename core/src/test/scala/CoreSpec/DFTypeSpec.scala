@@ -165,6 +165,21 @@ class DFTypeSpec extends DFSpec:
       """
     )
 
+  test("design class declared inside another design class"):
+    assertPluginError(
+      """|A design class cannot be declared inside another design class.
+         |Declare it outside the design (e.g. at the top level or inside an object) and pass values in through its `<> CONST` parameters and port connections.""".stripMargin
+    )(
+      """
+      class Foo extends RTDesign:
+        val x = Bit <> IN
+        class Inner extends RTDesign:
+          val o = Bit <> OUT
+          o := x
+        val inner = Inner()
+      """
+    )
+
   test("non-ASCII character in a DFHDL documentation comment"):
     assertPluginError(
       """|Unsupported non-ASCII character in DFHDL documentation comment.

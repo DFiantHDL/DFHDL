@@ -31,11 +31,18 @@ package annotation:
   final class setName(val name: String) extends StaticAnnotation
 
   object unused:
-    /** `quiet` suppresses the unused warning for the tagged value.
+    /** `quiet` suppresses the unused warning for the tagged value. An optional bit range
+      * (`bitIdxHigh` downto `bitIdxLow`) narrows the suppression to just those bits.
       */
-    final class quiet(val isActive: Boolean) extends HWAnnotation:
-      def this() = this(true)
-      val asIR: ir.annotation.Unused = ir.annotation.Unused.Quiet
+    final class quiet(
+        val isActive: Boolean,
+        val bitIdxHigh: ir.ConfigN[Int],
+        val bitIdxLow: ir.ConfigN[Int]
+    ) extends HWAnnotation:
+      def this() = this(true, None, None)
+      def this(isActive: Boolean) = this(isActive, None, None)
+      def this(bitIdxHigh: Int, bitIdxLow: Int) = this(true, bitIdxHigh, bitIdxLow)
+      val asIR: ir.annotation.Unused = ir.annotation.Unused.Quiet(bitIdxHigh, bitIdxLow)
 
     /** `keep` suppresses the unused warning, and also attempts to keep the tagged value.
       */

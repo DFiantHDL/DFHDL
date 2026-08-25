@@ -67,6 +67,7 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val y_part = (x + d"16'1").bits
          |    y := y_part(7, 0) | y_part(15, 8)
          |  else
+         |    @hw.annotation.unused.quiet(7, 0)
          |    val y_part = (x + d"16'1").bits
          |    y := y_part(15, 8)
          |  val y_part = (x + d"16'2").bits
@@ -92,6 +93,7 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |class ID extends DFDesign:
          |  val x = Wrapper <> IN
          |  val y = Bits(8) <> OUT
+         |  @hw.annotation.unused.quiet(15, 8)
          |  val y_part = x.actual(0)
          |  y := y_part(7, 0)
          |end ID
@@ -188,7 +190,9 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val c = Bit <> IN
          |  val x = SInt(9) <> IN
          |  val y = UInt(8) <> OUT
+         |  @hw.annotation.unused.quiet(8, 8)
          |  val anon = (~x.bits).uint
+         |  @hw.annotation.unused.quiet(8, 8)
          |  val anon = x.bits.uint
          |  y <> ((
          |    if (c) anon(7, 0)
@@ -217,9 +221,11 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  process(all):
          |    y := ((
          |      if (c)
+         |        @hw.annotation.unused.quiet(8, 8)
          |        val anon = (~x.bits).uint
          |        anon(7, 0)
          |      else
+         |        @hw.annotation.unused.quiet(8, 8)
          |        val anon = x.bits.uint
          |        anon(7, 0)
          |    ): UInt[8] <> VAL)
@@ -252,6 +258,7 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val anon_part: UInt[9] <> VAL =
          |    if (d) p
          |    else q
+         |  @hw.annotation.unused.quiet(8, 8)
          |  val anon = anon_part + d"9'1"
          |  y <> ((
          |    if (c) p(7, 0)
@@ -332,6 +339,7 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
       """|class ID extends RTDesign:
          |  val u = UInt(20) <> IN
          |  val o = UInt(20) <> OUT
+         |  @hw.annotation.unused.quiet(0, 0)
          |  val s_part = u.signed
          |  val s = s_part(20, 1)
          |  o <> s
@@ -370,8 +378,11 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val o5 = Bits(16) <> OUT
          |  val o1_part = a.uint + d"20'1"
          |  o1 <> o1_part(19, 0)
+         |  @hw.annotation.unused.quiet(19, 16)
          |  val o2_part = a.uint
          |  o2 <> o2_part(15, 0)
+         |  @hw.annotation.unused.quiet(9, 4)
+         |  @hw.annotation.unused.quiet(2, 0)
          |  val o3_part = a(9, 0) | a(19, 10)
          |  o3 <> o3_part(3)
          |  o4 <> (a.uint + d"20'1").bits(19, 0)
@@ -394,9 +405,63 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
       """|class ID extends RTDesign:
          |  val a = Bits(20) <> IN
          |  val o = Bits(8) <> OUT
+         |  @hw.annotation.unused.quiet(9, 8)
          |  val s_part = a(9, 0) | a(19, 10)
          |  val s = s_part(7, 0)
          |  o <> s
+         |end ID
+         |""".stripMargin
+    )
+  }
+  // A compiler-minted name must not mint new lint noise: the bits of the named value that no
+  // reader selects are annotated as quietly unused, one annotation per contiguous range in
+  // descending order, which tool integrations (e.g. verilator's lint config) turn into
+  // bit-precise waivers.
+  test("Named selection annotates the unselected bits as quietly unused") {
+    class ID extends RTDesign:
+      val x = UInt(8) <> IN
+      val y = Bits(4) <> OUT
+      val z = Bits(2) <> OUT
+      y := (x + 1).bits(3, 0)
+      z := (x + 2).bits(4, 3)
+
+    val id = (new ID).verilogNamedSelection
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val x = UInt(8) <> IN
+         |  val y = Bits(4) <> OUT
+         |  val z = Bits(2) <> OUT
+         |  @hw.annotation.unused.quiet(7, 4)
+         |  val y_part = (x + d"8'1").bits
+         |  y := y_part(3, 0)
+         |  @hw.annotation.unused.quiet(7, 5)
+         |  @hw.annotation.unused.quiet(2, 0)
+         |  val z_part = (x + d"8'2").bits
+         |  z := z_part(4, 3)
+         |end ID
+         |""".stripMargin
+    )
+  }
+  // The annotation is printed DFHDL syntax (unlike a tag), so a printed stage output
+  // re-elaborates to the same IR and a re-run leaves it unchanged (print-safe fix-point).
+  test("A hand-written quietly-unused bit range is preserved by the stage") {
+    class ID extends RTDesign:
+      val x = UInt(8) <> IN
+      val y = Bits(4) <> OUT
+      @hw.annotation.unused.quiet(7, 4)
+      val y_part = (x + 1).bits
+      y := y_part(3, 0)
+
+    val id = (new ID).verilogNamedSelection
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val x = UInt(8) <> IN
+         |  val y = Bits(4) <> OUT
+         |  @hw.annotation.unused.quiet(7, 4)
+         |  val y_part = (x + d"8'1").bits
+         |  y := y_part(3, 0)
          |end ID
          |""".stripMargin
     )

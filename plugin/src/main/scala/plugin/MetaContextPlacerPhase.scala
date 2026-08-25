@@ -79,6 +79,23 @@ class MetaContextPlacerPhase(setting: Setting) extends CapturePhase, IdentityDen
             s"Cannot create an anonymous Interface class instance.\nInstantiate the class without a body (e.g. just `${sym.typeRef.parents.head.typeSymbol.name}()`)",
             tree.srcPos
           )
+        // A NAMED design class declared inside another design class is disallowed: class
+        // designs have no phantom rigging for non-constant captures (unlike methods), so the
+        // nested class's references to the enclosing design's values would elaborate as
+        // illegal direct cross-design references (a captured PORT even crashes the
+        // foreign-port reference machinery, which models child instances only; issue #493
+        // follow-up). Anonymous classes are exempt: an instantiation with a body is the
+        // via-connection idiom (`val id = new ID(): this.x <> ...`), and this phase's own
+        // transform pass wraps every design instantiation in an anon-class of its own (those
+        // never reach this hook).
+        else if (
+          !sym.isAnonymousClass && sym.typeRef <:< designTpe &&
+          sym.ownersIterator.drop(1).exists(o => o.isClass && o.typeRef <:< designTpe)
+        )
+          report.error(
+            "A design class cannot be declared inside another design class.\nDeclare it outside the design (e.g. at the top level or inside an object) and pass values in through its `<> CONST` parameters and port connections.",
+            tree.srcPos
+          )
         dfcArgStack = ContextArg.at(tree).get :: dfcArgStack
       case _ =>
     end match

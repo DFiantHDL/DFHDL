@@ -2031,6 +2031,16 @@ final case class DB private (
   // checks for direct references across designs
   def directRefCheck(): Unit =
     import DFVal.PortByNameSelect
+    // A FOREIGN member (a member of another design) has no owner chain in this design's
+    // refTable at all (per-design sub-DBs), so resolving its owner through `getSet` throws.
+    // Resolve defensively: an unresolvable owner IS a foreign member, which is exactly what
+    // this check must report (rather than crash on).
+    def ownerDesignOptOf(member: DFMember): Option[DFDesignBlock] =
+      @tailrec def walk(owner: Option[DFMember]): Option[DFDesignBlock] = owner match
+        case Some(d: DFDesignBlock) => Some(d)
+        case Some(o)                => walk(refTable.get(o.ownerRef))
+        case None                   => None
+      walk(refTable.get(member.ownerRef))
     val problemReferences: List[(DFMember, DFMember)] =
       membersNoGlobals.view.drop(1).flatMap {
         case _: PortByNameSelect => None
@@ -2051,6 +2061,9 @@ final case class DB private (
             case refMember: DFDesignBlock =>
               if (m.isMemberOf(refMember)) None
               else Some(refMember)
+            // a foreign member (owner chain unresolvable here) is a direct cross-design
+            // reference by definition
+            case refMember if !refTable.contains(refMember.ownerRef) => Some(refMember)
             // the rest must be in the same design
             case refMember if !refMember.isSameOwnerDesignAs(m) => Some(refMember)
             case _                                              => None
@@ -2060,13 +2073,21 @@ final case class DB private (
       val toName = to match
         case named: DFMember.Named => s"`${named.getName}` "
         case _                     => ""
+      // a foreign member's hierarchy is only nameable through the sub-DB that holds it
+      val toHierarchy = ownerDesignOptOf(to) match
+        case Some(d) => d.getFullName
+        case None    =>
+          rootDB.subDBs.values.collectFirst {
+            case sub if sub.members.exists(_ eq to) =>
+              sub.atGetSet(to.getOwnerDesign.getFullName)
+          }.getOrElse("<external design>")
       s"""|The DFHDL code at:
           |    Position:  ${from.meta.position}
           |    Hierarchy: ${from.getOwnerDesign.getFullName}
           |    Structure: ${from}
           |is directly referencing the member ${toName}at:
           |    Position:  ${to.meta.position}
-          |    Hierarchy: ${to.getOwnerDesign.getFullName}""".stripMargin
+          |    Hierarchy: ${toHierarchy}""".stripMargin
     }
     if (errorMessages.nonEmpty)
       throw new IllegalArgumentException(
