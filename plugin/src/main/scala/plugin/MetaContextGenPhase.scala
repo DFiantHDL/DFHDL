@@ -46,7 +46,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var inlinedUserPosStack = List.empty[util.SrcPos]
 
   private def isUserSourced(tree: Tree)(using Context): Boolean =
-    tree.span.exists && tree.srcPos.startPos.source == ctx.compilationUnit.source
+    tree.span.exists && tree.srcPos.startPos.source.path == ctx.compilationUnit.source.path
 
   extension (tree: ValOrDefDef)(using Context)
     def needsNewContext: Boolean =
@@ -209,7 +209,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
                   val pos =
                     if (
                       metaInfo.nameOpt.isEmpty && argTree.isProxyContext &&
-                      metaInfo.srcPos.startPos.source != ctx.compilationUnit.source
+                      metaInfo.srcPos.startPos.source.path != ctx.compilationUnit.source.path
                     )
                       inlinedUserPosStack.headOption
                         .orElse(enclosingUserSrcPos)
@@ -258,7 +258,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   // macro-synthesized apply only carries macro-internal positions.
   private def enclosingUserSrcPos(using Context): Option[util.SrcPos] =
     applyStack.collectFirst {
-      case a if a.span.exists && a.srcPos.startPos.source == ctx.compilationUnit.source =>
+      case a if a.span.exists && a.srcPos.startPos.source.path == ctx.compilationUnit.source.path =>
         a.srcPos
     }
 
