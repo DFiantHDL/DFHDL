@@ -10,7 +10,7 @@ commands += DFHDLCommands.docExamplesRefUpdate
 val projectName = "dfhdl"
 
 // VERSIONS — all version literals live here.
-val compilerVersion = "3.8.4"
+val compilerVersion = "3.9.0"
 // The DFTools binary toolchain release this DFHDL build targets (versioned independently of
 // DFHDL). Surfaced to the library via lib's generated `dftools.properties` and read by
 // DFToolsImage. Bump when adopting a new DFTools release.
