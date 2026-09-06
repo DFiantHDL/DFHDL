@@ -123,9 +123,13 @@ class PluginTestPhase(setting: Setting) extends CommonPhase:
     val fullCode = "import dfhdl.*\n" + code
     val source2 = SourceFile.virtual(unitName, fullCode)
 
-    // tested strings must not be rewritten by `-rewrite`
+    // tested strings must not be rewritten by `-rewrite`; the setting's own default (`None`
+    // before Scala 3.10, `false` from 3.10 on) keeps this independent of its value type
     val noRewriteSettings =
-      ctx.settings.rewrite.updateIn(ctx.settingsState.reinitializedCopy(), None)
+      ctx.settings.rewrite.updateIn(
+        ctx.settingsState.reinitializedCopy(),
+        ctx.settings.rewrite.default
+      )
 
     class MegaPhaseWithCustomPhaseId(miniPhases: Array[MiniPhase], startId: Int, endId: Int)
         extends MegaPhase(miniPhases):
