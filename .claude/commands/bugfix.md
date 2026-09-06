@@ -1374,6 +1374,18 @@ HDL method). A "simplification" that quietly moves an edge case is a second bug 
   only affects scalac diagnostics; if a bad message survives that flag, stop suspecting the
   custom printer.
 
+- **A tool-script printer that reads a SUB-DESIGN's parameter must resolve it through the
+  instantiation site.** `getConstData` under the default `Always` cache policy deliberately
+  leaves a sub-design's `DesignParam` an opaque `UnknownConst` (only a device-top parameter
+  folds), so `param.getConstData[...].toOption.get` on a vendor IP block's parameter is a
+  guaranteed `None.get` (`platforms/Test/runMain BlinkerNexys`, the Vivado `create_ip` script).
+  `getConstDataThroughParams` is the right query, and the two IP printers (Vivado, Quartus) are
+  twins of the kind described above: fix both through one helper (`ipParamData` in
+  `toolsCore/helpers.scala`). The printers had no test at all, which is how the shape survived;
+  `VendorIPPrinterSpec` now pins both scripts from a compiled design's `stagedDB`. Note the
+  printers list EVERY vendor IP block regardless of the target vendor, so a spec asserting on
+  the file list must select by path.
+
 - **The Verilog printer prints arithmetic funcs bare and relies on the CONSUMER to size them —
   self-determined contexts break that contract, and the fix belongs in a STAGE, not the
   printer.** A carry-widened func (IR width exceeds its operands') is correct under an
