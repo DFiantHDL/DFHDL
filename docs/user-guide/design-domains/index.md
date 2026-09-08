@@ -67,6 +67,22 @@ and inherits the rest from the elaboration defaults. The empty form `@timing.clo
 `@timing.reset()` forces the slot to appear (e.g. on a combinational or blackbox owner) while
 still deriving every field from the defaults.
 
+Annotations are also inherited along the class hierarchy: a design generated from a class
+carries the annotations of its base classes and mixed-in traits, so a shared clocking policy
+can live on a base design that several designs extend. Where the same annotation appears more
+than once, it merges field by field with the most derived class winning, exactly as a partial
+annotation merges over the elaboration defaults.
+
+```scala
+@timing.clock(rate = 100.MHz)
+trait Board100MHz extends RTDesign
+
+// clocked at 100.MHz on the falling edge
+@timing.clock(edge = _.falling)
+class MyDesign extends Board100MHz:
+  ...
+```
+
 #### Inclusion Policies
 - `AsNeeded`: Only emits clock/reset ports when actually used.
 - `AlwaysAtTop`: Always emits the ports at the top level (silenced with `@unused` if unused).

@@ -224,6 +224,25 @@ class MetaContextPlacerPhase(setting: Setting) extends CapturePhase, IdentityDen
     DefDef(sym, chain)
   end clsScalaArgsOverrideDef
 
+  // The annotations this class contributes to its `__clsMeta` entry: its own, followed by those
+  // of the TRAITS it introduces into the linearization. A trait gets no entry of its own
+  // (`transformTypeDef` injects `__clsMeta` into classes only), so an annotation declared
+  // on one has to ride on the class that mixes it in; taking only the traits the SUPERCLASS does
+  // not already carry keeps each trait's contribution to exactly one entry of the chain. The order
+  // is the linearization's (most-derived first), which is the priority order `Meta.foldClsChain`
+  // resolves conflicting annotations by at elaboration.
+  private def clsChainAnnotations(clsSym: ClassSymbol)(using
+      Context
+  ): List[Annotations.Annotation] =
+    val superBases =
+      if (clsSym.superClass.exists) clsSym.superClass.asClass.baseClasses.toSet
+      else Set.empty[ClassSymbol]
+    clsSym.staticAnnotations ++
+      clsSym.baseClasses.drop(1)
+        .filter(bc => bc.is(Trait) && !superBases.contains(bc))
+        .flatMap(_.staticAnnotations)
+  end clsChainAnnotations
+
   // Build the
   //   override protected def __clsMeta: List[ir.Meta] =
   //     r__For_Plugin.metaGen(...) :: super.__clsMeta
@@ -255,7 +274,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CapturePhase, IdentityDen
           mkOptionString(Some(clsSym.getFinalName())),
           tree.positionTree,
           mkOptionString(clsSym.docString),
-          mkList(clsSym.staticAnnotations.map(a => reownLocalDefs(dropProxies(a.tree), sym))),
+          mkList(clsChainAnnotations(clsSym).map(a => reownLocalDefs(dropProxies(a.tree), sym))),
           mkNamespace(clsSym)
         )
       )
