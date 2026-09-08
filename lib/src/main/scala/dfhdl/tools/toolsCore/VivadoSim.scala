@@ -20,7 +20,8 @@ trait VivadoSimCommon extends Linter, Simulator:
   final protected def versionCmd: String = "-version"
   final override protected def windowsBinExec: String = s"$binExec.bat"
   final protected def extractVersion(cmdRetStr: String): Option[String] =
-    val versionPattern = """Vivado Simulator\s+v(\d+\.\d+)""".r
+    // matched case-insensitively, since the vendor's version banner casing varies across releases
+    val versionPattern = """(?i)Vivado Simulator\s+v(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
   protected def suppressLine(line: String): Boolean = line.startsWith("INFO:")
 
