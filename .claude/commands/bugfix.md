@@ -1456,6 +1456,15 @@ so a print-spec test re-derives the connectivity analysis for free — a compile
 to cover the post-stage re-run. Two `ElaborationChecksSpec` tests were written the wrong way here
 before the rule was clear; do not copy them as a model.
 
+**When a spec is the only thing failing, decide printer-vs-spec by the CONVENTION, not by which
+side reads better.** A `SourceFile.path` carries the PLATFORM separator (the IP printers build it
+with `Paths.get(...).toString`, `GowinDesigner`/`VivadoSim`/`NVC` with `separatorChar`) and the
+emitters normalize to `/` where a path goes into a generated script (`forceWindowsToLinuxPath`,
+the literal `source ips/X.tcl`). `VendorIPPrinterSpec` hard-coded `"ips/X.tcl"` and so passed only
+where the separator is `/`, failing on Windows with a bare `None.get`. Find the other construction
+sites of the value before touching the producer, and give the lookup a `fail` that prints the
+candidates, so the next mismatch reports itself instead of throwing `None.get`.
+
 **Do not copy the reporter's code into the repo.** Issue reports usually carry no license. Write a
 minimal design of your own that exercises the same path; if the shape is fully covered by stage
 specs, no `issues/iNNN.scala` file is needed at all.
