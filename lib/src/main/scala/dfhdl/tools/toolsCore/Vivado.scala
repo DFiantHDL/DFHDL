@@ -22,7 +22,9 @@ object Vivado extends Builder, Programmer:
   override protected def windowsBinExec: String = "vivado.bat"
   protected def versionCmd: String = s"-version"
   protected def extractVersion(cmdRetStr: String): Option[String] =
-    val versionPattern = """vivado\s+v(\d+\.\d+)""".r
+    // the version banner casing differs between releases ("Vivado v2023.1" in 2023.1,
+    // "vivado v2024.1" in 2024.1), so the tool name is matched case-insensitively
+    val versionPattern = """(?i)vivado\s+v(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   override protected[dfhdl] def buildPreprocess(cd: CompiledDesign)(using
@@ -43,8 +45,10 @@ object Vivado extends Builder, Programmer:
       cd: CompiledDesign
   )(using CompilerOptions, BuilderOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
+    // `-source` is accepted by every Vivado release, whereas `-script` is rejected by older ones
+    // (e.g., 2023.1). Both source the script and exit with the same code.
     exec(
-      s"-mode batch -script ${topName}.tcl"
+      s"-mode batch -source ${topName}.tcl"
     )
     cd
   override protected[dfhdl] def producedFiles(using
@@ -70,7 +74,7 @@ object Vivado extends Builder, Programmer:
   )(using CompilerOptions, ProgrammerOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
     exec(
-      s"-mode batch -script ${topName}_prog.tcl"
+      s"-mode batch -source ${topName}_prog.tcl"
     )
     cd
 end Vivado

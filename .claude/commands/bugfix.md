@@ -787,6 +787,16 @@ alias only exists in the parametric regime). Re-run the reproducer after EACH ga
 diagnose the remaining gates by diffing the IR shape (`getCodeString`) of the warning and
 non-warning twins, not by re-reading the predicate.
 
+The gates can also sit in DIFFERENT LAYERS, one in the plugin (what gets captured) and one in
+core (what gets consumed), and then the reporter's spelling of the reproducer decides which one
+you see. Split them by varying the DECLARATION KIND rather than the code: a base class's
+`@timing.clock` was dropped because `Design.initOwner` read only `__clsMeta.head`, and a base
+TRAIT's was dropped a second time because the plugin gives traits no `__clsMeta` entry at all
+(`transformTypeDef` skips them). Rewriting the reporter's `trait Bar` as `abstract class Bar`
+took one probe and separated the two; patching only core then still left the reported case
+failing, which reads like a wrong fix and is a second gate. Whenever a fact travels from the
+plugin into elaboration, ask what the plugin CAPTURES and what core CONSUMES as two questions.
+
 Probing designs outside the app runner has its own traps: a lib design class with all-defaulted
 parameters is auto-`@top`ed, and a bare `Design()` of a topped class returns a STAGED handle
 that never elaborates (no warnings, empty DB) — mark probe designs `@top(false)`, which needs
@@ -1445,6 +1455,15 @@ it. `StageSpec.assertCodeString` runs `sanityCheck`, hence `DB.subDBCheck`, henc
 so a print-spec test re-derives the connectivity analysis for free — a compiled string is not needed
 to cover the post-stage re-run. Two `ElaborationChecksSpec` tests were written the wrong way here
 before the rule was clear; do not copy them as a model.
+
+**When a spec is the only thing failing, decide printer-vs-spec by the CONVENTION, not by which
+side reads better.** A `SourceFile.path` carries the PLATFORM separator (the IP printers build it
+with `Paths.get(...).toString`, `GowinDesigner`/`VivadoSim`/`NVC` with `separatorChar`) and the
+emitters normalize to `/` where a path goes into a generated script (`forceWindowsToLinuxPath`,
+the literal `source ips/X.tcl`). `VendorIPPrinterSpec` hard-coded `"ips/X.tcl"` and so passed only
+where the separator is `/`, failing on Windows with a bare `None.get`. Find the other construction
+sites of the value before touching the producer, and give the lookup a `fail` that prints the
+candidates, so the next mismatch reports itself instead of throwing `None.get`.
 
 **Do not copy the reporter's code into the repo.** Issue reports usually carry no license. Write a
 minimal design of your own that exercises the same path; if the shape is fully covered by stage

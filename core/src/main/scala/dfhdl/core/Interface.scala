@@ -29,8 +29,9 @@ abstract class Interface
   private[core] def mkInstMode: InstMode = InstMode.Interface
   private[dfhdl] def initOwner: TOwner =
     // Build the interface block directly from the `__clsMeta` chain (leaf
-    // names the interface).
-    val blockDFC = __clsMeta.headOption match
+    // names the interface, and the chain's class annotations fold into its
+    // meta the same way a design's do).
+    val blockDFC = ir.Meta.foldClsChain(__clsMeta) match
       case Some(meta) => dfc.setMeta(meta)
       case None       => dfc.anonymize
     Design.Block(__domainType, mkInstMode)(using blockDFC)

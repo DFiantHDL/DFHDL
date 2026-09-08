@@ -10,7 +10,11 @@ trait HasClsMeta:
   // classes appear — abstract library bases are not processed). Containers build
   // their design block directly from this chain at creation, with no mutation:
   // the leaf (head) names the design/interface/resource, and for a blackbox IP
-  // the base-most class in the chain names the IP type.
+  // the base-most class in the chain names the IP type. A design/interface is
+  // emitted FLAT, so the whole chain's class annotations fold into the leaf's
+  // meta (`ir.Meta.foldClsChain`); a mixed-in TRAIT gets no entry of its own, so
+  // the plugin folds its annotations into the entry of the class that
+  // introduces it.
   protected def __clsMeta: List[ir.Meta] = Nil
 end HasClsMeta
 

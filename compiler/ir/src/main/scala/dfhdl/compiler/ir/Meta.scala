@@ -68,3 +68,45 @@ object Meta:
   // Scala declaration behind it): name only, unknown position, root namespace
   def named(name: String, namespace: String = ""): Meta =
     Meta(Some(name), Position.unknown, None, Nil, namespace)
+
+  /** Fold a DFHDL class-inheritance chain (the plugin-injected `__clsMeta`, most-derived first)
+    * into the leaf's meta: the leaf's name, position, doc and namespace, carrying the class
+    * annotations of the WHOLE chain.
+    *
+    * A design/interface is emitted FLAT, so a base class has no construct of its own to hold an
+    * annotation and its annotations must reach the leaf. They are merged rather than concatenated
+    * because every consumer reads them with `collectFirst` (the resolved clk/rst timing,
+    * `flattenMode`, the purity marking): two `@timing.clock`s in one list would mean the base's
+    * fields are silently dropped instead of inherited. Same-kind signal constraints therefore merge
+    * field by field with the more-derived class taking priority, so a base's `rate` survives a leaf
+    * that sets only `edge`; annotation kinds that do not compose keep their most-derived occurrence
+    * first, which is that same priority as `collectFirst` reads it.
+    */
+  def foldClsChain(chain: List[Meta]): Option[Meta] = chain match
+    case Nil         => None
+    case leaf :: Nil => Some(leaf)
+    case leaf :: _   =>
+      // most-derived first, so an already-accumulated annotation always outranks the incoming one
+      val folded = chain.flatMap(_.annotations)
+        .foldLeft(List.empty[HWAnnotation]) { (acc, base) =>
+          var merged = false
+          val updated = acc.map {
+            case derived if merged                  => derived
+            case derived: constraints.SigConstraint =>
+              base match
+                case baseSig: constraints.SigConstraint =>
+                  baseSig.merge(derived, withPriority = true) match
+                    case Some(mergedSig) =>
+                      merged = true
+                      mergedSig
+                    case None => derived
+                case _ => derived
+            case derived =>
+              if (derived == base) merged = true
+              derived
+          }
+          if (merged) updated else acc :+ base
+        }
+      Some(leaf.setAnnotations(folded))
+  end foldClsChain
+end Meta

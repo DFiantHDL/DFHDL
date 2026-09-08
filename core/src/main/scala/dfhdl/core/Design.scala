@@ -21,7 +21,8 @@ trait Design extends Container, HasClsMeta, HasClsArgs:
     getSet.setGlobalTag(ir.DFHDLVersionTag(dfhdl.dfhdlVersion))
     // Build the design block directly from the `__clsMeta` chain (the
     // plugin-injected, per-class metadata, most-derived first). The leaf names
-    // the design (meta); for a blackbox IP, the base-most concrete class
+    // the design and the chain's class annotations fold into its meta
+    // (`Meta.foldClsChain`); for a blackbox IP, the base-most concrete class
     // extending the IP marker names the IP type (`typeName`).
     val chain = __clsMeta
     val instMode = mkInstMode match
@@ -34,7 +35,7 @@ trait Design extends Container, HasClsMeta, HasClsArgs:
           if chain.nonEmpty && f.resourcePath.isEmpty =>
         InstMode.BlackBox(f.copy(resourcePath = s"dfhdl-ips/${chain.last.name}"))
       case other => other
-    val blockDFC = chain.headOption match
+    val blockDFC = ir.Meta.foldClsChain(chain) match
       case Some(meta) => dfc.setMeta(meta)
       case None       => dfc.anonymize
     Design.Block(__domainType, instMode)(using blockDFC)

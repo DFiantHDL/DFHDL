@@ -4132,4 +4132,50 @@ class PrintCodeStringSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Top
          |""".stripMargin
     )
+  // A design is emitted FLAT: a base class and a mixed-in trait have no construct of their own in
+  // the generated HDL, so their class annotations fold into the leaf design's meta. A trait gets
+  // no `__clsMeta` entry at all, so its annotation rides on the entry of the class that
+  // introduces it, and the whole chain folds at elaboration.
+  test("Class annotations are inherited from a base class and a mixed-in trait"):
+    @hw.constraints.timing.clock(rate = 100.MHz)
+    trait ClkBase extends RTDesign
+    @hw.constraints.timing.reset(active = _.low)
+    abstract class RstBase extends ClkBase
+    class InheritedAnnots extends RstBase:
+      val x = Bit <> IN
+      val y = Bit <> OUT
+      y := x
+    assertCodeString(
+      new InheritedAnnots,
+      """|@timing.reset(active = _.low)
+         |@timing.clock(rate = 100.MHz)
+         |class InheritedAnnots extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT
+         |  y := x
+         |end InheritedAnnots
+         |""".stripMargin
+    )
+  // Same-kind constraints do not stack: they merge field by field with the most-derived class
+  // taking priority, so the base's `rate` survives a leaf that sets only the `edge` while the
+  // leaf's `portName` replaces the base's. Every consumer reads these with `collectFirst`, so a
+  // plain concatenation would silently drop the base's rate instead of inheriting it.
+  test("An inherited constraint merges field by field with the derived class taking priority"):
+    @hw.constraints.timing.clock(rate = 100.MHz, portName = "clk_base")
+    abstract class ClkRateBase extends RTDesign
+    @hw.constraints.timing.clock(edge = _.falling, portName = "clk_leaf")
+    class ClkEdgeLeaf extends ClkRateBase:
+      val x = Bit <> IN
+      val y = Bit <> OUT
+      y := x
+    assertCodeString(
+      new ClkEdgeLeaf,
+      """|@timing.clock(rate = 100.MHz, edge = _.falling, portName = "clk_leaf")
+         |class ClkEdgeLeaf extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT
+         |  y := x
+         |end ClkEdgeLeaf
+         |""".stripMargin
+    )
 end PrintCodeStringSpec
